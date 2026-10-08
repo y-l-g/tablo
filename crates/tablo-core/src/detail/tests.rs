@@ -1,7 +1,8 @@
-use toasty::Db;
-
 use super::*;
-use crate::{lens, test_support::cx};
+use crate::{
+    lens,
+    test_support::{cx, memory_db},
+};
 
 #[derive(Debug, Clone, toasty::Model)]
 struct Shelf {
@@ -116,12 +117,7 @@ async fn an_empty_section_renders_its_title() {
 /// reads a relation without a hand-written query.
 #[tokio::test]
 async fn a_detail_loads_the_relations_its_columns_declare() {
-    let mut db = Db::builder()
-        .models(toasty::models!(Shelf, Book))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Shelf, Book)).await;
     let shelf = toasty::create!(Shelf {
         name: "Sci-fi".to_string()
     })

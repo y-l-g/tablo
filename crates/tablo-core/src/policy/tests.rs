@@ -1,7 +1,7 @@
 use topcoat::context::CxTestBuilder;
 
 use super::*;
-use crate::{Resource, ResourceDef, TenantId, can, can_list, lens};
+use crate::{Resource, ResourceDef, TenantId, can, can_list, lens, test_support::tableless_db};
 
 struct Post {
     locked: bool,
@@ -157,11 +157,7 @@ impl Resource for ClosedNotes {
 /// policy, then a tenant for a tenant-scoped resource.
 #[tokio::test]
 async fn can_list_checks_the_policy_and_the_tenant() {
-    let db = toasty::Db::builder()
-        .models(toasty::models!(Note))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
+    let db = tableless_db(toasty::models!(Note)).await;
     let anonymous = crate::Panel::new("admin")
         .resource::<OpenNotes>()
         .resource::<TenantNotes>()

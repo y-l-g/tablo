@@ -1,10 +1,10 @@
-use toasty::Db;
 use topcoat::Result;
 
 use super::*;
 use crate::{
     Ability, ResourceDef, lens,
     panel::test_support::{Dummy, dummy_table, mount, panel_for},
+    test_support::memory_db,
 };
 
 #[tokio::test]
@@ -33,12 +33,7 @@ async fn delete_and_bulk_delete_require_view() {
         }
     }
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Dummy)).await;
     let row = toasty::create!(Dummy {
         name: "Ada".to_string(),
     })
@@ -113,12 +108,7 @@ async fn delete_and_bulk_delete_require_delete_any() {
         }
     }
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Dummy)).await;
     let row = toasty::create!(Dummy {
         name: "Ada".to_string(),
     })
@@ -203,12 +193,7 @@ async fn delete_resolves_the_primary_key_only() {
         }
     }
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Dummy)).await;
     let row = toasty::create!(Dummy {
         name: "Ada".to_string(),
     })

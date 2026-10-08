@@ -33,10 +33,13 @@ impl Frame<'_> {
                 state.without_filters(path)
             }
         });
-        let message = match &state.search {
-            Some(term) => format!("No matches for \u{201c}{term}\u{201d}"),
-            None if !state.filters.is_empty() => "No results for these filters".to_string(),
-            None => "No records yet".to_string(),
+        // `reason` is the hook tests read in place of the message.
+        let (reason, message) = match &state.search {
+            Some(term) => ("search", format!("No matches for \u{201c}{term}\u{201d}")),
+            None if !state.filters.is_empty() => {
+                ("filters", "No results for these filters".to_string())
+            }
+            None => ("none", "No records yet".to_string()),
         };
         let clears_search = state.search.is_some();
         let clear_label = if clears_search {
@@ -47,11 +50,23 @@ impl Frame<'_> {
         let first_page_url = state.cursor.is_some().then(|| state.without_cursor(path));
         let clear_link: Option<BoxView<'a>> = clear_url.map(|url| {
             let attrs = live_link(cx, url, signals);
-            view! { cx => <a class=(EMPTY_LINK_CLASS) (attrs)>(clear_label)</a> }.boxed()
+            view! {
+                cx =>
+                <a class=(EMPTY_LINK_CLASS) data-empty-link="clear" (attrs)>
+                    (clear_label)
+                </a>
+            }
+            .boxed()
         });
         let first_page_link: Option<BoxView<'a>> = first_page_url.map(|url| {
             let attrs = live_link(cx, url, signals);
-            view! { cx => <a class=(EMPTY_LINK_CLASS) (attrs)>"Back to first page"</a> }.boxed()
+            view! {
+                cx =>
+                <a class=(EMPTY_LINK_CLASS) data-empty-link="first-page" (attrs)>
+                    "Back to first page"
+                </a>
+            }
+            .boxed()
         });
         let action: Option<Child<'a>> =
             (clear_link.is_some() || first_page_link.is_some()).then(|| {
@@ -73,7 +88,11 @@ impl Frame<'_> {
                 table_row(
                     table_cell(
                         attrs: attributes! { colspan=(colspan) class="whitespace-normal!" },
-                        tablo_ui::empty_state(title: message, action: action)
+                        tablo_ui::empty_state(
+                            title: message,
+                            action: action,
+                            attrs: attributes! { data-empty=(reason) }
+                        )
                     )
                 )
             )

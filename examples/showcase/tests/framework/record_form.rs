@@ -119,16 +119,6 @@ fn map(pairs: &[(&str, &str)]) -> HashMap<String, String> {
         .collect()
 }
 
-/// The upstream fact `into_update`'s `Option` rests on.
-#[tokio::test]
-#[should_panic(expected = "RecvError")]
-async fn toasty_refuses_an_update_with_no_assignment() {
-    let db = item_db().await;
-    let mut record = seed_item(&db).await;
-    let mut db = db.clone();
-    let _ = record.update().exec(&mut db).await;
-}
-
 /// The derived update reloads the record it wrote.
 #[tokio::test]
 async fn the_derived_update_reloads_the_record_it_wrote() {

@@ -1,12 +1,12 @@
-use toasty::{Db, stmt::List};
+use toasty::stmt::List;
 use topcoat::context::{Cx, CxTestBuilder};
 
 use super::*;
 use crate::{
     Ability, ComputedColumn, lens,
     resource::{Resource, ResourceDef},
-    table::{Column, SelectFilter, Sort, TablePage, TableState, TernaryFilter, TextColumn},
-    test_support::User,
+    table::{SelectFilter, Sort, TablePage, TableState, TernaryFilter, TextColumn},
+    test_support::{Html as _, User, memory_db, tableless_db},
 };
 
 #[derive(Debug, Clone, toasty::Model)]
@@ -37,31 +37,43 @@ fn filters_state(pairs: &[(&str, &str)]) -> TableState {
     }
 }
 
+/// A search matches a substring of any searchable column, and a blank term or a table with no
+/// searchable column matches nothing.
 #[tokio::test]
-async fn table_search_filters_via_column() {
-    let mut db = Db::builder()
-        .models(toasty::models!(User))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
-    toasty::create!(User { name: "Ada" })
+async fn a_search_ors_its_term_across_the_searchable_columns() {
+    let mut db = memory_db(toasty::models!(Task)).await;
+    for (title, status) in [
+        ("Ada's notes", "draft"),
+        ("Plans", "for Ada"),
+        ("Other", "draft"),
+    ] {
+        toasty::create!(Task {
+            title,
+            status,
+            featured: false,
+            created_at: jiff::Timestamp::UNIX_EPOCH,
+        })
         .exec(&mut db)
         .await
         .unwrap();
-    toasty::create!(User { name: "Bob" })
+    }
+    let table = Table::<Task>::new((
+        TextColumn::new(lens!(Task.title)).searchable(),
+        TextColumn::new(lens!(Task.status)).searchable(),
+    ));
+    let mut titles: Vec<String> = Task::filter(table.search_expr("Ada").expect("a term searches"))
         .exec(&mut db)
         .await
-        .unwrap();
-    let cx = CxTestBuilder::new().app_context(db).build();
-    let col = TextColumn::new(lens!(User.name)).searchable();
-    let expr = col.search_expr("Ada").unwrap();
-    let mut db = crate::db::db(&cx);
-    let rows = User::filter(expr).exec(&mut db).await.unwrap();
-    assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].name, "Ada");
-    assert!(col.search_expr("").is_none());
-    assert!(col.search_expr("   ").is_none());
+        .unwrap()
+        .into_iter()
+        .map(|task| task.title)
+        .collect();
+    titles.sort();
+    assert_eq!(titles, ["Ada's notes", "Plans"], "either column may match");
+    assert!(table.search_expr("").is_none());
+    assert!(table.search_expr("   ").is_none());
+    let unsearchable = Table::<Task>::new(TextColumn::new(lens!(Task.title)));
+    assert!(unsearchable.search_expr("Ada").is_none());
 }
 
 #[tokio::test]
@@ -80,11 +92,7 @@ async fn wired_table_carries_the_declared_action_chrome() {
         }
     }
 
-    let db = Db::builder()
-        .models(toasty::models!(User))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
+    let db = tableless_db(toasty::models!(User)).await;
     // The wiring derives the action URLs from the request path, so the Cx needs one.
     let parts = http::Request::builder()
         .uri("/admin/dummies")
@@ -107,31 +115,6 @@ async fn wired_table_carries_the_declared_action_chrome() {
 }
 
 #[test]
-fn table_search_expr_ors_across_searchable_columns() {
-    // distinct names — title + status, not one field twice.
-    let tasks_table = Table::<Task>::new((
-        TextColumn::new(lens!(Task.title)).searchable(),
-        TextColumn::new(lens!(Task.status)).searchable(),
-    ));
-    assert!(tasks_table.search_expr("Ada").is_some());
-    assert!(tasks_table.search_expr("").is_none());
-    assert!(tasks_table.search_expr("   ").is_none());
-    let table_none = Table::<User>::new(TextColumn::new(lens!(User.name)));
-    assert!(table_none.search_expr("Ada").is_none());
-}
-
-#[test]
-fn table_order_by_returns_first_sortable() {
-    let tasks_table = Table::<Task>::new((
-        TextColumn::new(lens!(Task.title)).sortable(),
-        TextColumn::new(lens!(Task.status)),
-    ));
-    assert!(tasks_table.order_by(false).is_some());
-    let table_none = Table::<User>::new(TextColumn::new(lens!(User.name)));
-    assert!(table_none.order_by(false).is_none());
-}
-
-#[test]
 fn paginate_records_a_zero_page_size() {
     let errors = Table::<User>::new(TextColumn::new(lens!(User.name)))
         .paginate(0)
@@ -139,64 +122,68 @@ fn paginate_records_a_zero_page_size() {
     assert_eq!(errors, [DeclarationErrorKind::ZeroPageSize]);
 }
 
-#[test]
-fn table_order_bys_single_sort_column() {
-    let users_table = Table::<User>::new(TextColumn::new(lens!(User.name)).sortable());
-    let orders = users_table.order_bys_for(&TableState::default());
-    assert_eq!(orders.len(), 1, "sortable column only, got {orders:?}");
-    // No sortable column → the PK alone.
-    let table_none = Table::<User>::new(TextColumn::new(lens!(User.name)));
-    assert_eq!(
-        table_none.order_bys_for(&TableState::default()).len(),
-        1,
-        "an unsorted table falls back to the PK"
-    );
+/// The user names in the order `table` sorts them for `state`.
+async fn names_in_order(
+    db: &mut toasty::Db,
+    table: &Table<User>,
+    state: &TableState,
+) -> Vec<String> {
+    table
+        .order_bys_for(state)
+        .iter()
+        .fold(User::all(), |query, order| query.order_by(order.clone()))
+        .exec(db)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|user| user.name)
+        .collect()
 }
 
-#[test]
-fn order_bys_for_resolves_sort_param_with_fallbacks() {
-    let sorted = Table::<User>::new(TextColumn::new(lens!(User.name)).sortable()).paginate(25);
-
-    // ?sort=name&dir=desc → name desc (toasty appends PK internally)
-    let state = TableState {
+/// The sort parameter orders by its column in its direction; a column the table does not sort
+/// falls back to the first sortable column, and a table with none orders by primary key.
+#[tokio::test]
+async fn the_sort_parameter_orders_rows_and_falls_back_to_a_stable_order() {
+    let mut db = memory_db(toasty::models!(User)).await;
+    for name in ["Bob", "Ada", "Cara"] {
+        toasty::create!(User { name }).exec(&mut db).await.unwrap();
+    }
+    let sorted = Table::<User>::new(TextColumn::new(lens!(User.name)).sortable());
+    let sort = |column: &str, descending| TableState {
         sort: Some(Sort {
-            column: "name".to_string(),
-            descending: true,
+            column: column.to_string(),
+            descending,
         }),
         ..TableState::default()
     };
-    let orders = sorted.order_bys_for(&state);
-    assert_eq!(orders.len(), 1, "sort column only, got {orders:?}");
-
-    let state = TableState {
-        sort: Some(Sort {
-            column: "nope".to_string(),
-            descending: false,
-        }),
-        ..TableState::default()
-    };
-    assert_eq!(sorted.order_bys_for(&state).len(), 1);
-
-    assert_eq!(sorted.order_bys_for(&TableState::default()).len(), 1);
-
-    // No sortable column → PK-only deterministic order
-    let unsorted = Table::<User>::new(TextColumn::new(lens!(User.name))).paginate(25);
-    let orders = unsorted.order_bys_for(&TableState::default());
     assert_eq!(
-        orders.len(),
-        1,
-        "PK-only for paginated unsorted, got {orders:?}"
+        names_in_order(&mut db, &sorted, &sort("name", true)).await,
+        ["Cara", "Bob", "Ada"]
+    );
+    assert_eq!(
+        names_in_order(&mut db, &sorted, &TableState::default()).await,
+        ["Ada", "Bob", "Cara"],
+        "no parameter sorts by the first sortable column"
+    );
+    assert_eq!(
+        names_in_order(&mut db, &sorted, &sort("nope", true)).await,
+        ["Ada", "Bob", "Cara"],
+        "an unknown column is ignored, direction included"
+    );
+
+    let unsorted = Table::<User>::new(TextColumn::new(lens!(User.name)));
+    let mut by_key = User::all().exec(&mut db).await.unwrap();
+    by_key.sort_by_key(|user| user.id);
+    assert_eq!(
+        names_in_order(&mut db, &unsorted, &TableState::default()).await,
+        by_key.into_iter().map(|user| user.name).collect::<Vec<_>>(),
+        "a table with no sortable column orders by primary key"
     );
 }
 
 #[tokio::test]
 async fn table_page_round_trips_real_cursors() {
-    let mut db = Db::builder()
-        .models(toasty::models!(User))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(User)).await;
     for name in ["Ada", "Bob", "Cara"] {
         toasty::create!(User { name }).exec(&mut db).await.unwrap();
     }
@@ -294,18 +281,14 @@ fn ternary_all_is_a_neutral_noop_not_an_invalid_value() {
 
 #[tokio::test]
 async fn filter_banner_reports_unfiltered_when_nothing_applies() {
-    use topcoat::view::ViewExt;
     let cx = CxTestBuilder::new().build();
     let tbl = status_table();
     let render_banner = async |pairs: &[(&str, &str)]| {
         let page = crate::table::TablePage::<Task>::from(vec![]);
         tbl.render_with_state(&cx, page, &filters_state(pairs), "/admin/tasks")
             .await
-            .unwrap()
-            .single()
+            .html(&cx)
             .await
-            .unwrap()
-            .render(&cx)
     };
     let html = render_banner(&[("status", "typo")]).await;
     assert!(
@@ -412,12 +395,7 @@ async fn a_misdeclared_table_fails_to_render() {
 }
 
 async fn seeded_users(names: &[&str]) -> topcoat::context::Cx {
-    let mut db = Db::builder()
-        .models(toasty::models!(User))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(User)).await;
     for name in names {
         toasty::create!(User {
             name: name.to_string()
@@ -758,12 +736,7 @@ async fn stale_cursor_is_marked_for_retry() {
     use toasty::stmt::Value;
     use toasty_core::stmt::ValueRecord;
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Task))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Task)).await;
     for title in ["Alpha", "Bravo", "Charlie", "Delta"] {
         toasty::create!(Task {
             title: title.to_string(),

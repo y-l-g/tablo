@@ -1,9 +1,10 @@
 use topcoat::context::CxTestBuilder;
 
-use super::{super::core::tests::User, *};
+use super::super::core::tests::User;
 use crate::{
     Table, TablePage, TableState, lens,
     table::{Sort, TextColumn},
+    test_support::Html as _,
 };
 
 #[tokio::test]
@@ -32,11 +33,8 @@ async fn group_by_survives_pager_and_labels_page_local_counts() {
     let html = grouped
         .render_with_state(&cx, page, &state, "/admin/users")
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(
         html.contains("on this page"),
         "group header must be page-local, got {html}"
@@ -69,11 +67,8 @@ async fn void_window_links_back_to_first_page() {
     let html = tbl
         .render_with_state(&cx, void_page, &state, "/admin/users")
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(
         html.contains("Back to first page"),
         "void window must link home, got {html}"
@@ -89,11 +84,8 @@ async fn void_window_links_back_to_first_page() {
     let html = tbl
         .render_with_state(&cx, empty_first, &TableState::default(), "/admin/users")
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(
         !html.contains("Back to first page"),
         "empty first page must stay pager-less, got {html}"

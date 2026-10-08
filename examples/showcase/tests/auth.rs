@@ -3,35 +3,16 @@
 //! account controls, and the fail-closed gate over the panel and runtime
 //! prefixes.
 
-use http::header::{COOKIE, LOCATION};
+use http::header::LOCATION;
 use showcase::models::{DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, Staff};
 use tablo::auth::AuthSession;
-use topcoat::{context::CxTestBuilder, router::Body};
+use topcoat::context::CxTestBuilder;
 
 use crate::common::{
     SESSION_COOKIE, TestClient, body_string, form_body, full_db, input_value, login, login_next,
-    mount, response_cookies, routers::router_for_tests as router, session_cookie_value,
-    set_cookie_header,
+    mount, response_cookies, routers::router_for_tests as router, runtime_post,
+    session_cookie_value, set_cookie_header,
 };
-
-/// A runtime (page re-run) POST, optionally carrying a session cookie.
-///
-/// Page re-runs are same-URL POSTs carrying Topcoat's runtime marker: the
-/// runtime layer rewrites them into a GET for the page's own URL.
-async fn runtime_post(
-    router: &topcoat::router::Router,
-    session: Option<&str>,
-) -> http::Response<Body> {
-    let mut request = http::Request::builder()
-        .method(http::Method::POST)
-        .uri("/admin/users")
-        .header(http::header::CONTENT_TYPE, "application/json")
-        .header(&topcoat::runtime::RUNTIME_HEADER, "true");
-    if let Some(session) = session {
-        request = request.header(COOKIE, format!("{SESSION_COOKIE}={session}"));
-    }
-    router.handle(request.body(Body::from("{}")).unwrap()).await
-}
 
 #[tokio::test]
 async fn login_page_is_standalone_with_csrf_and_no_demo_hint_by_default() {
@@ -89,27 +70,21 @@ async fn login_sets_a_hardened_session_cookie() {
     assert!(cookie.contains("Path=/"), "{cookie}");
 }
 
+/// A `next` naming another origin lands on the panel root instead: the login runs its target
+/// through `safe_next`, whose unit test holds the full table of hostile targets.
 #[tokio::test]
-async fn login_accepts_only_same_origin_relative_next_targets() {
+async fn login_refuses_an_off_site_next_target() {
     let db = full_db().await;
     let router = router(db);
-    for (next, expected) in [
-        ("/admin/users", "/admin/users"),
-        ("/admin/posts?status=draft", "/admin/posts?status=draft"),
-        ("//evil.example/login", "/admin"),
-        ("https://evil.example/steal", "/admin"),
-        ("/\\evil.example", "/admin"),
-        ("/admin/users\nLocation: https://evil.example", "/admin"),
-    ] {
-        let (_client, response) =
-            login_next(&router, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, next).await;
-        assert_eq!(response.status(), 303, "next={next:?}");
-        assert_eq!(
-            response.headers().get(http::header::LOCATION).unwrap(),
-            expected,
-            "next={next:?}"
-        );
-    }
+    let (_client, response) = login_next(
+        &router,
+        DEMO_ADMIN_EMAIL,
+        DEMO_ADMIN_PASSWORD,
+        "//evil.example/login",
+    )
+    .await;
+    assert_eq!(response.status(), 303);
+    assert_eq!(response.headers().get(LOCATION).unwrap(), "/admin");
 }
 
 #[tokio::test]
@@ -167,7 +142,6 @@ async fn shell_shows_the_signed_in_user_and_logout() {
     assert_eq!(response.status(), 200);
     let html = body_string(response).await;
     assert!(html.contains("Demo Admin"), "missing display name: {html}");
-    assert!(html.contains("Sign out"), "missing logout control: {html}");
     assert!(
         html.contains("action=\"/admin/logout\""),
         "missing logout action: {html}"
@@ -295,56 +269,6 @@ async fn revoke_sessions_for_user_ends_access() {
         client.get("/admin/users").await.status(),
         307,
         "revoked session resolved"
-    );
-}
-
-#[tokio::test]
-async fn unauthenticated_panel_pages_redirect_to_login_with_validated_next() {
-    let db = full_db().await;
-    let router = router(db);
-    for path in [
-        "/admin/users",
-        "/admin/users/create",
-        "/admin/authors",
-        "/admin/posts",
-        "/admin/posts?f.status=published",
-    ] {
-        let response = TestClient::new(&router).get(path).await;
-        assert_eq!(response.status(), 307, "{path}");
-        let expected = format!("/admin/login?{}", form_body(&[("next", path)]));
-        assert_eq!(
-            response.headers().get(LOCATION).unwrap().to_str().unwrap(),
-            expected,
-            "{path}"
-        );
-    }
-}
-
-#[tokio::test]
-async fn unauthenticated_runtime_requests_answer_401_not_a_redirect() {
-    let db = full_db().await;
-    let router = router(db);
-    // The gate covers the panel prefix and the `/_topcoat/runtime` prefix
-    // (shards, procedures); page re-runs are marked POSTs to the page's own
-    // URL, which the gate answers 401 while logged out.
-    assert_eq!(
-        runtime_post(&router, None).await.status(),
-        401,
-        "page re-run"
-    );
-}
-
-#[tokio::test]
-async fn unauthenticated_mutations_answer_401_not_a_redirect() {
-    let db = full_db().await;
-    let router = router(db);
-    let response = TestClient::new(&router)
-        .post_form("/admin/users/create", "name=x".to_string())
-        .await;
-    assert_eq!(
-        response.status(),
-        401,
-        "a mutation must not be redirected into the login POST"
     );
 }
 

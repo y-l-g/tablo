@@ -1,4 +1,5 @@
 use super::*;
+use crate::test_support::Html as _;
 
 #[test]
 fn brand_trims_name_and_ignores_blank_logo() {
@@ -74,11 +75,8 @@ async fn document_wraps_a_public_page() {
         view! { cx_ref => <div class="blog">"hello"</div> },
     )
     .await
-    .unwrap()
-    .single()
-    .await
-    .unwrap()
-    .render(&cx);
+    .html(&cx)
+    .await;
 
     assert!(
         html.starts_with("<!DOCTYPE html>"),
@@ -122,11 +120,8 @@ async fn document_wraps_a_public_page() {
         .render(&cx);
     let titled = Panel::document(&cx, "Tablo", view! { cx_ref => "hello" })
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert_eq!(
         head_of(&titled),
         head_of(&shell),
@@ -171,11 +166,8 @@ async fn shell_escapes_brand_name_and_logo() {
     let slot = view! { cx_ref => "hello" }.boxed().into();
     let html = Panel::render_shell(&cx, &nav_items, "/admin/users", slot, None)
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(
         !html.contains("\"><script>"),
         "brand must not break out of attributes, got {html}"
@@ -368,11 +360,8 @@ async fn shell_html_with_flash(enc: &str) -> String {
     let slot = view! { cx_ref => "hello" }.boxed().into();
     Panel::render_shell(&cx, &nav_items, "/admin/users", slot, None)
         .await
-        .unwrap()
-        .single()
+        .html(&cx)
         .await
-        .unwrap()
-        .render(&cx)
 }
 
 #[tokio::test]
@@ -407,11 +396,8 @@ async fn sidebar_orders_custom_items_by_sort_key() {
     let slot = view! { cx_ref => "hello" }.boxed().into();
     let html = Panel::render_shell(&cx, &nav_items, "/admin/users", slot, None)
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     let showcase_at = html.find("Showcase").expect("custom item renders");
     let users_at = html.find("Users").expect("resource item renders");
     assert!(
@@ -448,11 +434,8 @@ async fn panel_shell_renders_sidebar_with_active_and_tokens() {
     let slot = view! { cx_ref => "hello" }.boxed().into();
     let html = Panel::render_shell(&cx, &nav_items, "/admin/users", slot, None)
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(
         html.contains("data-sidebar=\"sidebar\""),
         "missing sidebar data attr in {html}"
@@ -530,11 +513,8 @@ async fn shell_has_a_single_main_landmark() {
     let slot = view! { cx_ref => "hello" }.boxed().into();
     let html = Panel::render_shell(&cx, &[], "/admin", slot, None)
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert_eq!(
         html.matches("<main").count(),
         1,
@@ -560,11 +540,8 @@ async fn sidebar_sheet_header_carries_a_mobile_close_button() {
     let slot = view! { cx_ref => "hello" }.boxed().into();
     let html = Panel::render_shell(&cx, &[], "/admin", slot, None)
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     let label = html
         .find("aria-label=\"Close sidebar\"")
         .unwrap_or_else(|| panic!("missing Close sidebar control in {html}"));
@@ -596,11 +573,8 @@ async fn toaster_renders_no_stray_span_when_empty() {
     let slot = view! { cx_ref => "hello" }.boxed().into();
     let html = Panel::render_shell(&cx, &nav_items, "/admin/users", slot, None)
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     let ol = &html[html.find("<ol").expect("toaster list")..];
     let ol = &ol[..ol.find("</ol>").expect("toaster close") + "</ol>".len()];
     assert!(
@@ -631,11 +605,8 @@ async fn render_shell_extra_class_reaches_the_provider() {
         Some("my-shell".to_string()),
     )
     .await
-    .unwrap()
-    .single()
-    .await
-    .unwrap()
-    .render(&cx);
+    .html(&cx)
+    .await;
     assert!(
         html.contains("my-shell"),
         "extra_class must reach the shell markup, got {html}"
@@ -669,11 +640,8 @@ async fn collapsed_sidebar_cookie_seeds_the_signal() {
     let slot = view! { cx_ref => "hello" }.boxed().into();
     let html = Panel::render_shell(&cx, &nav_items, "/admin/users", slot, None)
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(
         html.contains("data-state=\"collapsed\"")
             && html.contains("data-collapsible=\"offcanvas\""),
@@ -710,11 +678,8 @@ async fn sidebar_marks_only_the_longest_matching_entry_active() {
         let slot = view! { cx_ref => "hello" }.boxed().into();
         let html = Panel::render_shell(&cx, &nav_items, path, slot, None)
             .await
-            .unwrap()
-            .single()
-            .await
-            .unwrap()
-            .render(&cx);
+            .html(&cx)
+            .await;
         let active: Vec<&str> = html
             .match_indices("data-active=\"true\"")
             .map(|(at, _)| {
@@ -754,11 +719,8 @@ async fn nav_item_icon_renders_before_its_label() {
     let slot = view! { cx_ref => "hello" }.boxed().into();
     let html = Panel::render_shell(&cx, &nav_items, "/admin/users", slot, None)
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     let button = |href: &str| {
         let start = html
             .find(&format!("href=\"{href}\""))

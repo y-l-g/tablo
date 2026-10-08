@@ -1,7 +1,8 @@
-use toasty::Db;
-
 use super::*;
-use crate::{Ability, Panel, ReadOnly, ResourceDef, lens, panel::test_support::mount};
+use crate::{
+    Ability, Panel, ReadOnly, ResourceDef, lens, panel::test_support::mount,
+    test_support::memory_db,
+};
 
 #[tokio::test]
 async fn options_endpoint_searches_and_gates() {
@@ -70,12 +71,7 @@ async fn options_endpoint_searches_and_gates() {
         String::from_utf8_lossy(&bytes).to_string()
     }
 
-    let mut db = Db::builder()
-        .models(toasty::models!(OptAuthor, OptPost))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(OptAuthor, OptPost)).await;
     for name in ["Ada", "Grace", "Alan"] {
         toasty::create!(OptAuthor {
             name: name.to_string(),
@@ -220,12 +216,7 @@ async fn option_load_loads_no_relation() {
         #[form(relationship = ChildSource)]
         child_id: uuid::Uuid,
     }
-    let mut db = Db::builder()
-        .models(toasty::models!(Parent, Child, Owner))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Parent, Child, Owner)).await;
     let parent_id = uuid::Uuid::new_v4();
     toasty::create!(Parent {
         id: parent_id,
@@ -358,12 +349,7 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
         #[form(relationship = BigAResource)]
         author_id: uuid::Uuid,
     }
-    let mut db = Db::builder()
-        .models(toasty::models!(BigA, BigP))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(BigA, BigP)).await;
     for i in 0..=crate::schema::MAX_RELATIONSHIP_OPTIONS {
         toasty::create!(BigA {
             name: format!("author-{i}"),

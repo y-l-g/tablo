@@ -4,7 +4,7 @@ use super::*;
 use crate::{
     form::FieldErrors,
     schema::{Schema, Source},
-    test_support::{DummyUser, cx},
+    test_support::{DummyUser, Html as _, cx},
 };
 
 /// The `<div>` nesting depth at the first occurrence of `marker` in `html`,
@@ -28,35 +28,6 @@ fn div_depth_of(html: &str, marker: &str) -> usize {
 }
 
 #[tokio::test]
-async fn text_input_inside_section_and_grid() {
-    let cx = cx();
-    let schema = Schema::new(Section::new("Account").schema(Grid::new(2).schema((
-        Field::text(DummyUser::fields().name()).required(),
-        Field::text(DummyUser::fields().email()).email(),
-    ))));
-    let html = schema
-        .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
-    // No Tailwind-class assertions. What the layout has to prove
-    // is structural: the section's title, then the field it wraps, once.
-    assert!(html.contains("Account"), "missing section title in {html}");
-    assert_eq!(
-        html.matches("data-slot=\"field\"").count(),
-        2,
-        "the grid inside the section must render both fields, got {html}"
-    );
-    assert!(
-        html.find("Account").expect("the title") < html.find("data-slot=\"field\"").unwrap(),
-        "the field must sit inside the section's panel, got {html}"
-    );
-}
-
-#[tokio::test]
 async fn section_renders_title_and_child() {
     let cx = cx();
     let schema =
@@ -64,11 +35,8 @@ async fn section_renders_title_and_child() {
     let html = schema
         .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(html.contains("Account"), "missing title in {html}");
     assert!(
         html.contains("name=\"name\""),
@@ -91,11 +59,8 @@ async fn group_renders_children() {
     let html = schema
         .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     // The layout owes the child it holds — once.
     assert!(html.contains("Inside group"), "missing child in {html}");
     assert_eq!(
@@ -117,11 +82,8 @@ async fn grid_renders_with_cols_and_children() {
         )))
         .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
         assert!(
             html.contains(&format!("grid-cols-{cols}")),
             "Grid::new({cols}) must lay out {cols} columns, got {html}"
@@ -131,24 +93,4 @@ async fn grid_renders_with_cols_and_children() {
             "Grid::new({cols}) must render both children, got {html}"
         );
     }
-}
-
-#[tokio::test]
-async fn nested_grid_inside_section() {
-    let cx = cx();
-    let schema = Schema::new(Section::new("Outer").schema(Grid::new(2).schema((
-        Field::text(DummyUser::fields().name()).label("Left"),
-        Field::text(DummyUser::fields().email()).label("Right"),
-    ))));
-    let html = schema
-        .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
-    assert!(html.contains("Outer"), "missing outer title in {html}");
-    assert!(html.contains("Left"), "missing left in {html}");
-    assert!(html.contains("Right"), "missing right in {html}");
 }

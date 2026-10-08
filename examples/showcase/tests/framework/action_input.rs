@@ -5,15 +5,15 @@ use std::collections::HashMap;
 
 use tablo::{
     Ability, Action, ActionInput, ActionInputFault, DeclarationErrorKind, Field, FieldError,
-    FieldErrors, Policy, ReadOnly, Resource, ResourceDef, Schema, Site, Table, TextColumn, lens,
-    testing::field_error,
+    FieldErrors, NotificationStatus, Policy, ReadOnly, Resource, ResourceDef, Schema, Site, Table,
+    TextColumn, lens, testing::field_error,
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
 use uuid::Uuid;
 
 use crate::framework::common::{
-    body_string, flash, get, memory_db, mount, panel, post_fields, refusal,
+    body_string, confirms_first, flash, get, memory_db, mount, panel, post_fields, refusal,
 };
 
 #[derive(Debug, toasty::Model, Clone)]
@@ -285,7 +285,7 @@ async fn a_parsed_submission_runs_the_action_with_the_typed_input() {
     )
     .await;
     assert_eq!(response.status(), 303);
-    assert!(flash(&response).contains("Close: 1 record"));
+    assert_eq!(flash(&response).status, NotificationStatus::Success);
     let closed = ticket(&db, alpha.id).await;
     assert!(closed.closed);
     assert_eq!(closed.reason, "wontfix: duplicate (final)");
@@ -475,13 +475,10 @@ async fn a_confirming_action_with_input_confirms_on_its_page() {
     let url = format!("/admin/tickets/{}/-/actions/purge", alpha.id);
 
     let html = body_string(get(&router, "/admin/tickets").await).await;
-    assert!(
-        html.contains(&format!("formaction=\"{url}\"")),
-        "the row offers Purge: {html}"
-    );
-    assert!(
-        !html.contains("Run this action?"),
-        "no action opens the dialog: Purge confirms on its page: {html}"
+    assert_eq!(
+        confirms_first(&html, &url),
+        Some(false),
+        "the row offers Purge without the dialog: Purge confirms on its page: {html}"
     );
 
     let response = post_fields(&router, &url, &[]).await;

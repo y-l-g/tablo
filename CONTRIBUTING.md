@@ -66,13 +66,18 @@ cargo xtask fmt           # the formatting checks alone
 - A test pins a behavior that a plausible bug breaks. Derive the expected value from the intended
   behavior, never by re-running the implementation.
 - Assert structure and state (row counts, redirects, link targets, database rows), not wording,
-  through the `tablo-test` queries (`rows`, `row_actions`, `field_error`, `filter_options`).
+  through the `tablo-test` queries (`rows`, `row_actions`, `field_error`, `filter_options`,
+  `empty_table`, `notification`). Post a form with `TestClient::submit`, which carries the CSRF
+  pair.
 - A behavior is pinned once, by a unit test or an integration test. Delete a test that proves
   nothing.
-- Unit tests live in `tests.rs` beside their source file (`foo/tests.rs` for `foo.rs`).
-- `examples/showcase/tests/it.rs` is one test binary whose modules are the suite files:
-  `cargo test -p showcase --test it admin::` runs one file. `tests/framework/` covers what the
-  showcase's resources do not reach, with test-local models.
+- An invariant over a parser or an encoder is a `proptest` property, not a hand-picked input list.
+- Unit tests live in `tests.rs` beside their source file (`foo/tests.rs` for `foo.rs`), and build
+  their databases and HTML through `test_support` (`memory_db`, `tableless_db`, `Html`).
+- `examples/showcase/tests/it.rs` is one test binary whose modules are the suite files, one
+  framework feature each: `cargo test -p showcase --test it list::` runs one file. `gates` holds the
+  anonymous, CSRF and cross-tenant matrices, so a new route joins them there. `tests/framework/`
+  covers what the showcase's resources do not reach, with test-local models.
 
 ## Writing
 

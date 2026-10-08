@@ -1,9 +1,8 @@
-use toasty::Db;
-
 use super::*;
 use crate::{
     Ability, ResourceDef, lens,
-    panel::test_support::{Dummy, Subscriber, dummy_table, mount, panel_for},
+    panel::test_support::{Dummy, dummy_table, mount, panel_for},
+    test_support::memory_db,
 };
 
 /// Renders the list body with one seeded row.
@@ -20,12 +19,7 @@ async fn list_html_with<R: Resource>(names: &[&str]) -> String {
 async fn list_html_via(names: &[&str], panel: fn() -> crate::Panel) -> String {
     use http_body_util::BodyExt;
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Dummy)).await;
     for name in names {
         toasty::create!(Dummy {
             name: (*name).to_string(),
@@ -76,12 +70,7 @@ async fn two_lists_declare_distinct_signal_ids() {
     list_resource!(FirstResource, "firsts");
     list_resource!(SecondResource, "seconds");
 
-    let db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let db = memory_db(toasty::models!(Dummy)).await;
     // The shell's sidebar signals match on every page; a bare layout leaves only the tables' own.
     fn bare<'a>(_cx: &'a Cx, slot: topcoat::router::Slot<'a>) -> topcoat::view::BoxView<'a> {
         topcoat::view::ViewExt::boxed(slot)
@@ -146,12 +135,7 @@ async fn a_rerun_renders_the_query_its_signal_carries() {
         }
     }
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Dummy)).await;
     for name in ["Ada", "Bob"] {
         toasty::create!(Dummy {
             name: name.to_string(),
@@ -228,12 +212,7 @@ async fn read_only_resource_hides_delete_chrome() {
         }
     }
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Dummy)).await;
     toasty::create!(Dummy {
         name: "Ada".to_string(),
     })
@@ -412,12 +391,7 @@ async fn denied_rows_render_no_edit_chrome() {
     struct DeniedForm {
         name: String,
     }
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Dummy)).await;
     let row = toasty::create!(Dummy {
         name: "Ada".to_string(),
     })
@@ -465,146 +439,6 @@ async fn denied_rows_render_no_edit_chrome() {
         resp.status(),
         http::StatusCode::FORBIDDEN,
         "the edit route must deny the row the list no longer links"
-    );
-}
-
-/// Asserts the GET `?q=` term is clamped to `MAX_QUERY_TERM`.
-#[test]
-fn from_cx_clamps_the_search_term() {
-    use topcoat::context::CxTestBuilder;
-
-    fn state_for(uri: &str) -> TableState {
-        let (parts, ()) = http::Request::builder()
-            .uri(uri)
-            .body(())
-            .unwrap()
-            .into_parts();
-        let cx = CxTestBuilder::new().request_context(parts).build();
-        TableState::from_cx(&cx)
-    }
-
-    let long = "x".repeat(500);
-    let state = state_for(&format!("/admin/users?q={long}"));
-    assert_eq!(
-        state.search.as_deref().map(str::len),
-        Some(crate::query_term::MAX_QUERY_TERM),
-        "the GET term is clamped to MAX_QUERY_TERM"
-    );
-    // Blank and absent stay None.
-    let (parts, ()) = http::Request::builder()
-        .uri("/admin/users?q=")
-        .body(())
-        .unwrap()
-        .into_parts();
-    let cx = CxTestBuilder::new().request_context(parts).build();
-    assert!(TableState::from_cx(&cx).search.is_none());
-    let (parts, ()) = http::Request::builder()
-        .uri("/admin/users")
-        .body(())
-        .unwrap()
-        .into_parts();
-    let cx = CxTestBuilder::new().request_context(parts).build();
-    assert!(TableState::from_cx(&cx).search.is_none());
-}
-#[tokio::test]
-async fn both_cursors_render_the_first_page() {
-    // Toasty pages from one cursor, so a URL naming `?after=` and `?before=`
-    // together parses as no cursor: the first page, which is where the
-    // cursor retry lands anyway. Both tokens below are valid.
-    use topcoat::router::Body;
-
-    struct SubscriberResource;
-    impl Resource for SubscriberResource {
-        type Model = Subscriber;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .policy(|_cx: &Cx, ability: Ability<'_, Subscriber>| {
-                    matches!(ability, Ability::ViewAny)
-                })
-                .table(
-                    Table::<Subscriber>::new(crate::table::TextColumn::new(lens!(
-                        Subscriber.email
-                    )))
-                    .paginate(1),
-                )
-        }
-    }
-
-    let mut db = Db::builder()
-        .models(toasty::models!(Subscriber))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
-    for email in ["a@b.c", "d@e.f"] {
-        toasty::create!(Subscriber {
-            email: email.to_string()
-        })
-        .exec(&mut db)
-        .await
-        .unwrap();
-    }
-    let router = mount(db.clone(), panel_for::<SubscriberResource>()).expect("panel builds");
-
-    // A valid cursor token: the first page of two rows has a next page.
-    let (parts, ()) = http::Request::builder()
-        .uri("/admin/subscribers")
-        .body(())
-        .unwrap()
-        .into_parts();
-    let cx = crate::test_support::panel_cx::<SubscriberResource>(&db).with(parts);
-    let table = crate::resource::require_mounted::<SubscriberResource>(&cx)
-        .unwrap()
-        .table
-        .clone();
-    let first = load_table_page(
-        &cx,
-        &crate::resource::require_mounted::<SubscriberResource>(&cx).unwrap(),
-        &table,
-        &TableState::default(),
-    )
-    .await
-    .unwrap();
-    let cursor = first
-        .next_cursor
-        .clone()
-        .expect("page 1 must have a cursor");
-
-    let response = router
-        .handle(
-            http::Request::builder()
-                .uri(format!("/admin/subscribers?after={cursor}&before={cursor}"))
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await;
-    assert!(
-        response.status().is_success(),
-        "page still streams, got status {}",
-        response.status()
-    );
-    let bytes = http_body_util::BodyExt::collect(response.into_body())
-        .await
-        .unwrap()
-        .to_bytes();
-    let body = String::from_utf8(bytes.to_vec()).unwrap();
-    assert!(
-        !body.contains("Couldn't load Subscribers"),
-        "a URL naming both cursors is no error: {body}"
-    );
-    assert!(
-        body.contains("a@b.c") && !body.contains("d@e.f"),
-        "a URL naming both cursors lands on the first page: {body}"
-    );
-    assert!(
-        !body.split("href=\"").skip(1).any(|href| href
-            .split('"')
-            .next()
-            .unwrap_or_default()
-            .contains("before=")),
-        "the first page links forward only: {body}"
     );
 }
 

@@ -62,6 +62,12 @@ fn the_search_term_is_clamped() {
         state.search.as_deref().map(|s| s.chars().count()),
         Some(MAX_QUERY_TERM)
     );
+    assert_eq!(
+        TableState::from_query("q=").search,
+        None,
+        "a blank term is no search"
+    );
+    assert_eq!(TableState::from_query("q=%20%20").search, None);
 }
 
 #[test]
@@ -90,13 +96,43 @@ fn filters_are_one_parameter_each() {
     assert!(!state.filters_dropped);
 }
 
-#[test]
-fn a_filter_value_with_separators_round_trips() {
-    let mut state = TableState::default();
-    state
-        .filters
-        .insert("author".to_string(), "Smith, John: 50% & co".to_string());
-    assert_eq!(TableState::from_query(&state.query()), state);
+/// A value the parser keeps as written: no surrounding whitespace, no control character.
+const KEPT: &str = "[\\PC&&\\S]([\\PC]{0,20}[\\PC&&\\S])?";
+
+/// The states a parse can produce, every part optional.
+fn parsed_state() -> impl proptest::strategy::Strategy<Value = TableState> {
+    use proptest::{collection, option, prelude::*};
+
+    (
+        option::of(KEPT),
+        option::of(("[a-z_]{1,12}", any::<bool>())),
+        option::of((KEPT, any::<bool>())),
+        collection::btree_map("[a-z_]{1,12}", KEPT, 0..6),
+        option::of("[a-z_]{1,12}"),
+    )
+        .prop_map(|(search, sort, cursor, filters, group_by)| TableState {
+            search,
+            sort: sort.map(|(column, descending)| Sort { column, descending }),
+            cursor: cursor.map(|(token, after)| {
+                if after {
+                    Cursor::After(token)
+                } else {
+                    Cursor::Before(token)
+                }
+            }),
+            filters,
+            group_by,
+            ..TableState::default()
+        })
+}
+
+proptest::proptest! {
+    /// Every link a table writes parses back to the state it was written from, whatever its
+    /// search, filter values and cursor spell.
+    #[test]
+    fn any_state_round_trips_through_its_query(state in parsed_state()) {
+        proptest::prop_assert_eq!(TableState::from_query(&state.query()), state);
+    }
 }
 
 #[test]
@@ -227,68 +263,56 @@ fn reparse(url: &str) -> TableState {
     TableState::from_query(query_of(url))
 }
 
+/// Each projection URL changes only its own part of the state; every one but the plain list URL
+/// and a new cursor returns to the first page.
 #[test]
-fn projection_list_url_round_trips_full_state() {
+fn each_projection_changes_only_its_own_part_of_the_state() {
     let source = populated_state();
-    assert_eq!(reparse(&source.list_url("/admin/users")), source.clone());
+    let expect = |change: &dyn Fn(&mut TableState)| {
+        let mut expected = source.clone();
+        change(&mut expected);
+        expected
+    };
+    let path = "/admin/users";
+    assert_eq!(reparse(&source.list_url(path)), source);
     assert_eq!(TableState::from_query(&source.query()), source);
-}
-
-#[test]
-fn projection_without_search_drops_query() {
-    let source = populated_state();
-    let mut expected = source.clone();
-    expected.search = None;
-    expected.cursor = None;
-    assert_eq!(reparse(&source.without_search("/admin/users")), expected);
-}
-
-#[test]
-fn projection_without_filters_drops_filters() {
-    let source = populated_state();
-    let mut expected = source.clone();
-    expected.filters = BTreeMap::new();
-    expected.cursor = None;
-    assert_eq!(reparse(&source.without_filters("/admin/users")), expected);
-}
-
-#[test]
-fn projection_without_cursor_drops_pagination() {
-    let source = populated_state();
-    let mut expected = source.clone();
-    expected.cursor = None;
-    assert_eq!(reparse(&source.without_cursor("/admin/users")), expected);
-}
-
-#[test]
-fn projection_with_cursor_replaces_the_cursor() {
-    let source = populated_state();
+    assert_eq!(
+        reparse(&source.without_search(path)),
+        expect(&|state| {
+            state.search = None;
+            state.cursor = None;
+        })
+    );
+    assert_eq!(
+        reparse(&source.without_filters(path)),
+        expect(&|state| {
+            state.filters = BTreeMap::new();
+            state.cursor = None;
+        })
+    );
+    assert_eq!(
+        reparse(&source.without_cursor(path)),
+        expect(&|state| state.cursor = None)
+    );
+    assert_eq!(
+        reparse(&source.sorted_by(path, "title", false)),
+        expect(&|state| {
+            state.sort = Some(Sort {
+                column: "title".to_string(),
+                descending: false,
+            });
+            state.cursor = None;
+        })
+    );
     for cursor in [
         Cursor::After("tok2".to_string()),
         Cursor::Before("tok2".to_string()),
     ] {
-        let mut expected = source.clone();
-        expected.cursor = Some(cursor.clone());
         assert_eq!(
-            reparse(&source.with_cursor("/admin/users", &cursor)),
-            expected
+            reparse(&source.with_cursor(path, &cursor)),
+            expect(&|state| state.cursor = Some(cursor.clone()))
         );
     }
-}
-
-#[test]
-fn projection_sorted_by_replaces_sort() {
-    let source = populated_state();
-    let mut expected = source.clone();
-    expected.sort = Some(Sort {
-        column: "title".to_string(),
-        descending: false,
-    });
-    expected.cursor = None;
-    assert_eq!(
-        reparse(&source.sorted_by("/admin/users", "title", false)),
-        expected
-    );
 }
 
 #[test]

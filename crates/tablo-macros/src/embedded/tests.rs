@@ -5,41 +5,12 @@ fn expansion(source: &str) -> String {
     expand_tokens(input).to_string()
 }
 
-fn first_field(source: &str) -> (DeriveInput, syn::Field) {
-    let input: DeriveInput = syn::parse_str(source).expect("the derive input parses");
-    let field = match &input.data {
-        Data::Struct(data) => data
-            .fields
-            .iter()
-            .next()
-            .expect("the struct declares a field")
-            .clone(),
-        _ => panic!("the source declares a struct"),
-    };
-    (input, field)
-}
-
 #[test]
 fn a_raw_identifier_keeps_its_spelling_without_the_raw_prefix() {
     let ident: syn::Ident = syn::parse_str("r#type").expect("a raw identifier");
     assert_eq!(label(&ident), "Type");
     let ident: syn::Ident = syn::parse_str("canonical_url").expect("an identifier");
     assert_eq!(label(&ident), "Canonical Url");
-}
-
-#[test]
-fn a_raw_identifier_field_is_labelled_without_the_raw_prefix() {
-    let krate = quote! { ::tablo_core };
-    let owner: syn::Ident = syn::parse_str("Seo").unwrap();
-    let (_, field) = first_field("struct Seo { r#type: String }");
-    let member = &members([&field]).unwrap()[0];
-    let add = build_member(&krate, &owner, member, 0, None).to_string();
-    assert!(add.contains(r#"label ("Type")"#), "{add}");
-
-    let (_, field) = first_field(r#"struct Seo { #[form(label = "Kind")] r#type: String }"#);
-    let member = &members([&field]).unwrap()[0];
-    let add = build_member(&krate, &owner, member, 0, None).to_string();
-    assert!(add.contains(r#"label ("Kind")"#), "{add}");
 }
 
 /// A scalar of a type that is not a form scalar fails at a bound spanned on
@@ -61,25 +32,6 @@ fn a_scalar_carries_a_form_scalar_assertion_first() {
         .unwrap_or_else(|| panic!("the schema asserts the bound, got {add}"));
     let leaf = add.find("embedded_leaf").expect("the leaf's field");
     assert!(assert < leaf, "the assertion comes first, got {add}");
-}
-
-#[test]
-fn an_embedded_member_delegates_to_its_own_impl() {
-    let member = Member {
-        ident: syn::parse_str("seo").unwrap(),
-        ty: syn::parse_str("Seo").unwrap(),
-        attrs: FormAttrs {
-            embed: true,
-            ..FormAttrs::default()
-        },
-        shared: false,
-    };
-    let krate = quote! { ::tablo_core };
-    let read = read_member(&krate, &member, 0, &quote! { None }).to_string();
-    assert!(read.contains("read_node"), "{read}");
-    let owner: syn::Ident = syn::parse_str("Holder").unwrap();
-    let add = build_member(&krate, &owner, &member, 0, None).to_string();
-    assert!(!add.contains("assert_form_scalar"), "{add}");
 }
 
 #[test]

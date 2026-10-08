@@ -3,7 +3,9 @@ pub use tablo::testing::{
     body_bytes, body_string, cookie_header, field_error, filter_options, input_value,
     multipart_body, response_cookies, rows,
 };
-use tablo::{Auth, DeclarationError, MountError, Panel, Resource, RouterBuilderPanelExt};
+use tablo::{
+    Auth, DeclarationError, MountError, Notification, Panel, Resource, RouterBuilderPanelExt,
+};
 use toasty::Db;
 use topcoat::router::{Body, Router, RouterBuilderDiscoverExt, response::Response};
 use uuid::Uuid;
@@ -141,17 +143,9 @@ pub async fn post_fields(router: &Router, uri: &str, fields: &[(&str, &str)]) ->
     .await
 }
 
-/// The flash notification a response set, decoded: the text the list shows after the redirect.
-pub fn flash(response: &Response<Body>) -> String {
-    response_cookies(response)
-        .into_iter()
-        .find(|(name, _)| name.ends_with("tablo_notification"))
-        .map(|(_, value)| {
-            percent_encoding::percent_decode_str(&value)
-                .decode_utf8_lossy()
-                .into_owned()
-        })
-        .unwrap_or_default()
+/// The flash notification a response set for the page it redirects to.
+pub fn flash(response: &Response<Body>) -> Notification {
+    tablo::testing::notification(response).expect("the response sets a flash notification")
 }
 
 pub fn new_csrf() -> String {
@@ -165,4 +159,21 @@ pub fn csp(response: &Response<Body>) -> &str {
         .expect("response carries a policy")
         .to_str()
         .expect("the policy is ASCII")
+}
+
+/// Whether the control posting to `action` asks first: a confirming trigger is a plain button that
+/// opens the dialog, a direct write is a submit button. `None` when no control posts there.
+pub fn confirms_first(html: &str, action: &str) -> Option<bool> {
+    let target = format!("formaction=\"{action}\"");
+    let at = html.find(&target)?;
+    let start = html[..at].rfind("<button")?;
+    // Attribute values carry `>` (event handlers), so the tag ends at the first `>` outside quotes.
+    let mut quoted = false;
+    let end = html[start..].find(|c: char| {
+        if c == '"' {
+            quoted = !quoted;
+        }
+        c == '>' && !quoted
+    })?;
+    Some(html[start..start + end].contains("type=\"button\""))
 }

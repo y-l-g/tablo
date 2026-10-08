@@ -3,10 +3,11 @@
 //! The table and form renderers own their markup; tests assert the behavior
 //! the markup carries. Each helper reads one stable hook:
 //! `tr[id^="row-"]` for rows, `[aria-label]` links and buttons for actions,
-//! `#{name}-error` for field errors, `[data-filter-name]` for filters.
+//! `#{name}-error` for field errors, `[data-filter-name]` for filters, `[data-empty]` for the
+//! zero-rows message.
 //!
-//! The queries assume one table per document and flat renderer markup:
-//! rows never nest, and cells carry text rather than nested tables.
+//! The queries assume one table per document: rows never nest, and cells carry text rather than
+//! nested tables.
 
 type Attrs = Vec<(String, Option<String>)>;
 type Element = (String, Attrs, String);
@@ -43,6 +44,36 @@ pub struct FilterOption {
     pub label: String,
     /// Whether the request selected it.
     pub selected: bool,
+}
+
+/// Why a table rendered no rows, and the links it offers out of that state.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EmptyTable {
+    /// What emptied it: `"none"` for no records, `"search"` or `"filters"` when the request
+    /// narrowed it.
+    pub reason: String,
+    /// The link that clears the search or the filters, `None` when nothing narrowed the table.
+    pub clear: Option<String>,
+    /// The link back to the first page, `None` without a cursor.
+    pub first_page: Option<String>,
+}
+
+/// The zero-rows message of `html`, or `None` when the table renders rows.
+pub fn empty_table(html: &str) -> Option<EmptyTable> {
+    let (_, attrs, inner) = tags_where(html, |_, attrs| attr_value(attrs, "data-empty").is_some())
+        .into_iter()
+        .next()?;
+    let link = |kind: &str| {
+        open_tags(&inner)
+            .into_iter()
+            .find(|(_, attrs, _)| attr_value(attrs, "data-empty-link").as_deref() == Some(kind))
+            .and_then(|(_, attrs, _)| attr_value(&attrs, "href"))
+    };
+    Some(EmptyTable {
+        reason: attr_value(&attrs, "data-empty").unwrap_or_default(),
+        clear: link("clear"),
+        first_page: link("first-page"),
+    })
 }
 
 /// The data rows of `html` in document order, excluding group headers.
@@ -88,44 +119,40 @@ pub fn row_actions(html: &str, key: &str) -> Option<RowActions> {
 /// renders no error.
 pub fn field_error(html: &str, name: &str) -> Option<String> {
     let target = format!("{name}-error");
-    for (_, attrs, inner) in tags(html) {
-        if attr_value(&attrs, "id").as_deref() == Some(target.as_str()) {
-            let text = strip_text(&inner);
-            if text.is_empty() {
-                return None;
-            }
-            return Some(text);
-        }
-    }
-    None
+    let (_, _, inner) = tags_where(html, |_, attrs| {
+        attr_value(attrs, "id").as_deref() == Some(target.as_str())
+    })
+    .into_iter()
+    .next()?;
+    let text = strip_text(&inner);
+    (!text.is_empty()).then_some(text)
 }
 
 /// The options of the select filter `name`, or `None` when `name` has no
 /// select control.
 pub fn filter_options(html: &str, name: &str) -> Option<Vec<FilterOption>> {
-    for (tag, attrs, inner) in tags(html) {
-        if attr_value(&attrs, "data-filter-name").as_deref() != Some(name) {
-            continue;
-        }
-        if tag != "select" {
-            return None;
-        }
-        let mut options = Vec::new();
-        for (_, option_attrs, option_inner) in elements(&inner, "option") {
-            options.push(FilterOption {
-                value: attr_value(&option_attrs, "value").unwrap_or_default(),
-                label: strip_text(&option_inner),
-                selected: is_selected(&option_attrs),
-            });
-        }
-        return Some(options);
+    let (tag, _, inner) = tags_where(html, |_, attrs| {
+        attr_value(attrs, "data-filter-name").as_deref() == Some(name)
+    })
+    .into_iter()
+    .next()?;
+    if tag != "select" {
+        return None;
     }
-    None
+    let options = elements(&inner, "option")
+        .into_iter()
+        .map(|(_, attrs, inner)| FilterOption {
+            value: attr_value(&attrs, "value").unwrap_or_default(),
+            label: strip_text(&inner),
+            selected: is_selected(&attrs),
+        })
+        .collect();
+    Some(options)
 }
 
 fn row(row_html: &str) -> Row {
     let mut select_value = None;
-    for (tag, attrs, _) in tags(row_html) {
+    for (tag, attrs, _) in open_tags(row_html) {
         if tag == "input" && attr_value(&attrs, "aria-label").as_deref() == Some("Select row") {
             select_value = attr_value(&attrs, "value");
             break;
@@ -138,7 +165,7 @@ fn row(row_html: &str) -> Row {
     let mut view_href = None;
     let mut edit_href = None;
     let mut delete_action = None;
-    for (tag, attrs, _) in tags(row_html) {
+    for (tag, attrs, _) in open_tags(row_html) {
         match (tag.as_str(), attr_value(&attrs, "aria-label").as_deref()) {
             ("a", Some("View")) => view_href = attr_value(&attrs, "href"),
             ("a", Some("Edit")) => edit_href = attr_value(&attrs, "href"),
@@ -173,28 +200,55 @@ fn attr_value(attrs: &Attrs, name: &str) -> Option<String> {
         .and_then(|(_, value)| value.clone())
 }
 
-fn tags(html: &str) -> Vec<Element> {
+/// The tags `keep` accepts, each with its inner HTML up to the first matching close tag.
+///
+/// Only an accepted tag's inner HTML is read, so a query over one element costs one scan of the
+/// document rather than one per tag.
+fn tags_where(html: &str, keep: impl Fn(&str, &Attrs) -> bool) -> Vec<Element> {
     open_tags(html)
         .into_iter()
+        .filter(|(tag, attrs, _)| keep(tag, attrs))
         .map(|(tag, attrs, open_end)| {
-            if is_void(&tag) {
-                return (tag, attrs, String::new());
-            }
-            let close = format!("</{tag}>");
-            let after = &html[open_end + 1..];
-            match after.find(close.as_str()) {
-                Some(close_at) => (tag, attrs, after[..close_at].to_string()),
-                None => (tag, attrs, String::new()),
-            }
+            let inner = inner_html(html, &tag, open_end);
+            (tag, attrs, inner)
         })
         .collect()
 }
 
+fn inner_html(html: &str, tag: &str, open_end: usize) -> String {
+    if is_void(tag) {
+        return String::new();
+    }
+    // Same-name elements nest (a `div` in a `div`), so the close is the one that returns the
+    // depth to zero.
+    let after = &html[open_end + 1..];
+    let open = format!("<{tag}");
+    let close = format!("</{tag}>");
+    let mut depth = 1usize;
+    let mut pos = 0;
+    while let Some(at) = after[pos..].find('<') {
+        let at = pos + at;
+        let rest = &after[at..];
+        if rest.starts_with(close.as_str()) {
+            depth -= 1;
+            if depth == 0 {
+                return after[..at].to_string();
+            }
+            pos = at + close.len();
+        } else if rest.starts_with(open.as_str())
+            && rest[open.len()..].starts_with([' ', '>', '/', '\t', '\n'])
+        {
+            depth += 1;
+            pos = at + open.len();
+        } else {
+            pos = at + 1;
+        }
+    }
+    String::new()
+}
+
 fn elements(html: &str, tag: &str) -> Vec<Element> {
-    tags(html)
-        .into_iter()
-        .filter(|(name, _, _)| name == tag)
-        .collect()
+    tags_where(html, |name, _| name == tag)
 }
 
 fn open_tags(html: &str) -> Vec<(String, Attrs, usize)> {
@@ -356,92 +410,4 @@ fn decode_entities(text: &str) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    const TABLE: &str = r#"<table><thead><tr><th>Name</th></tr></thead><tbody>
-<tr id="row-Ada-12345678"><td><input type="checkbox" value="Ada" aria-label="Select row"></td><td>Ada</td><td><div class="flex"><a href="/admin/dummies/Ada" aria-label="View">V</a><a href="/admin/dummies/Ada/edit" aria-label="Edit">E</a><button type="button" formaction="/admin/dummies/Ada/delete" aria-label="Delete">D</button></div></td></tr>
-<tr id="group-Active-87654321"><td colspan="3">Active (1 on this page)</td></tr>
-<tr id="row-Ken-abcdef12"><td></td><td>Ken</td><td></td></tr>
-<tr><td colspan="3">No records yet</td></tr>
-<tr id="row-NoBox-99999999"><td></td><td>NoBox</td><td><div class="flex"><a href="/admin/dummies/NoBox" aria-label="View">V</a></div></td></tr>
-<tr id="row-Prefixed-aaaaaaaa"><td></td><td>Prefixed</td><td><div class="flex"><button type="button" formaction="/admin/rel/Prefixed/delete?return=%2Fadmin%2Fposts" aria-label="Delete">D</button></div></td></tr>
-</tbody></table>"#;
-
-    #[test]
-    fn rows_skips_group_headers_and_reads_actions() {
-        let found = rows(TABLE);
-        assert_eq!(found.len(), 4);
-        assert_eq!(found[0].select_value.as_deref(), Some("Ada"));
-        assert!(found[0].cells.iter().any(|cell| cell == "Ada"));
-        assert_eq!(found[0].actions.view.as_deref(), Some("/admin/dummies/Ada"));
-        assert_eq!(
-            found[0].actions.edit.as_deref(),
-            Some("/admin/dummies/Ada/edit")
-        );
-        assert_eq!(found[1].select_value, None);
-        assert!(found[1].cells.iter().any(|cell| cell == "Ken"));
-        assert_eq!(found[1].actions.view, None);
-    }
-
-    #[test]
-    fn row_actions_finds_by_key() {
-        let actions = row_actions(TABLE, "Ada").expect("Ada has actions");
-        assert_eq!(actions.view.as_deref(), Some("/admin/dummies/Ada"));
-        assert_eq!(actions.edit.as_deref(), Some("/admin/dummies/Ada/edit"));
-        assert_eq!(
-            actions.delete_action.as_deref(),
-            Some("/admin/dummies/Ada/delete")
-        );
-        let without_checkbox =
-            row_actions(TABLE, "NoBox").expect("a row without a checkbox matches by URL");
-        assert_eq!(
-            without_checkbox.view.as_deref(),
-            Some("/admin/dummies/NoBox")
-        );
-        assert_eq!(without_checkbox.edit, None);
-        let prefixed = row_actions(TABLE, "Prefixed").expect("a delete action matches by URL");
-        assert_eq!(
-            prefixed.delete_action.as_deref(),
-            Some("/admin/rel/Prefixed/delete?return=%2Fadmin%2Fposts")
-        );
-        assert_eq!(row_actions(TABLE, "Ad"), None);
-        assert_eq!(row_actions(TABLE, "Nobody"), None);
-    }
-
-    #[test]
-    fn field_error_reads_the_error_slot() {
-        let html = r#"<div class="ac-field ac-field--error"><input name="name" aria-invalid="true" aria-describedby="name-error"><div id="name-error" class="ac-error">name is required</div></div>"#;
-        assert_eq!(
-            field_error(html, "name").as_deref(),
-            Some("name is required")
-        );
-        assert_eq!(field_error(html, "email"), None);
-    }
-
-    #[test]
-    fn filter_options_reads_values_and_selection() {
-        let html = r#"<label>Status<select name="f.status" data-filter-name="status"><option value="">All</option><option value="draft">draft</option><option value="published" selected="">published</option></select></label><label>Created<input type="date" name="f.created_at" data-filter-name="created_at" value="2024-01-15"></label>"#;
-        let options = filter_options(html, "status").expect("status has options");
-        assert_eq!(options.len(), 3);
-        assert!(options.iter().any(|option| option.value == "draft"));
-        assert_eq!(
-            options
-                .iter()
-                .find(|option| option.value == "published")
-                .map(|option| option.selected),
-            Some(true)
-        );
-        assert_eq!(filter_options(html, "created_at"), None);
-        assert_eq!(filter_options(html, "other"), None);
-    }
-
-    #[test]
-    fn single_quotes_and_entities_decode() {
-        let html =
-            "<select data-filter-name='status'><option value='a&amp;b'>A &amp; B</option></select>";
-        let options = filter_options(html, "status").expect("options");
-        assert_eq!(options[0].value, "a&b");
-        assert_eq!(options[0].label, "A & B");
-    }
-}
+mod tests;

@@ -15,6 +15,7 @@ use super::{
 use crate::{
     Panel,
     panel::{state::PanelState, test_support::mount},
+    test_support::{memory_db, tableless_db},
 };
 
 #[test]
@@ -59,11 +60,7 @@ fn token_keys_are_hex_encoded_sha256() {
 /// Declares the shipped auth models without pushing their schema, so the first
 /// statement fails at the driver.
 async fn schema_less_db() -> Db {
-    Db::builder()
-        .models(toasty::models!(AdminUser, AuthSession))
-        .connect("sqlite::memory:")
-        .await
-        .expect("connect to in-memory sqlite")
+    tableless_db(toasty::models!(AdminUser, AuthSession)).await
 }
 
 /// Maps a driver failure to the opaque sign-in copy, never the driver's text or
@@ -269,12 +266,7 @@ fn session_cookie(response: &http::Response<Body>) -> Option<String> {
 
 /// Builds a `Db` with pushed schema and one active admin.
 async fn db_with_admin(email: &str) -> Db {
-    let mut db = Db::builder()
-        .models(toasty::models!(AdminUser, AuthSession))
-        .connect("sqlite::memory:")
-        .await
-        .expect("connect to in-memory sqlite");
-    db.push_schema().await.expect("push schema");
+    let mut db = memory_db(toasty::models!(AdminUser, AuthSession)).await;
     toasty::create!(AdminUser {
         email: email.to_string(),
         password_hash: hash_password("opensesame").expect("hash"),

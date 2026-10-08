@@ -37,10 +37,7 @@ async fn edit_page_hydrates_and_updates() {
     );
 
     let csrf = uuid::Uuid::new_v4().to_string();
-    let resp = client
-        .csrf(&csrf)
-        .post_form(&edit_url, format!("name=&email=bad&csrf_token={csrf}"))
-        .await;
+    let resp = client.submit(&edit_url, "name=&email=bad").await;
     assert!(
         resp.status().is_success(),
         "invalid POST should re-render 200, got {}",
@@ -102,11 +99,8 @@ async fn edit_page_hydrates_and_updates() {
 }
 
 #[tokio::test]
-async fn edit_404_for_unknown_or_wrong_tenant() {
-    // Core (`find_by_key_loads_one_row_scoped_and_404s_malformed`)
-    // owns the loader unit; this pins the HTTP route. Wrong-tenant scoping
-    // rides the same seam and is pinned in `tenancy_check.rs`
-    // (`edit_with_wrong_tenant_yields_404_via_resource_query`).
+async fn edit_404s_for_an_unknown_id() {
+    // The wrong-tenant half is `gates::cross_tenant_requests_404_and_touch_nothing`.
     let db = seeded_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -196,17 +190,10 @@ async fn an_emptied_select_stores_its_blank_answer() {
         .await
         .unwrap()
         .expect("an admin is seeded");
-    let csrf = uuid::Uuid::new_v4().to_string();
     let url = format!("/admin/users/{}/edit", admin.id);
-    let resp = client
-        .csrf(&csrf)
-        .post_form(&url, format!("active=false&csrf_token={csrf}"))
-        .await;
+    let resp = client.submit(&url, "active=false").await;
     assert!(resp.status().is_redirection());
-    let resp = client
-        .csrf(&csrf)
-        .post_form(&url, format!("role=&active=&age=&csrf_token={csrf}"))
-        .await;
+    let resp = client.submit(&url, "role=&active=&age=").await;
     assert!(
         resp.status().is_redirection(),
         "got {} {}",
@@ -239,20 +226,10 @@ async fn an_emptied_post_select_stores_its_blank_answer() {
         .await
         .unwrap()
         .expect("the seeded post");
-    let csrf = uuid::Uuid::new_v4().to_string();
     let url = format!("/admin/posts/{}/edit", post.id);
-    let resp = client
-        .csrf(&csrf)
-        .post_form(
-            &url,
-            format!("status=published&featured=true&csrf_token={csrf}"),
-        )
-        .await;
+    let resp = client.submit(&url, "status=published&featured=true").await;
     assert!(resp.status().is_redirection());
-    let resp = client
-        .csrf(&csrf)
-        .post_form(&url, format!("status=&featured=&csrf_token={csrf}"))
-        .await;
+    let resp = client.submit(&url, "status=&featured=").await;
     assert!(
         resp.status().is_redirection(),
         "got {} {}",

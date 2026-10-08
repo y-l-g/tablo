@@ -69,19 +69,19 @@ async fn a_draft_post_is_published_from_its_row() {
     let client = demo_client(&router, &db).await;
     let html = body_string(client.get("/admin/posts").await).await;
 
-    // The posts on this page, as the edit links name them.
+    // The posts on this page, as their rows' edit links name them.
+    let edits: Vec<String> = tablo::testing::rows(&html)
+        .into_iter()
+        .filter_map(|row| row.actions.edit)
+        .collect();
     let mut db_q = db.clone();
-    let mut on_page = Vec::new();
-    for post in Post::all().exec(&mut db_q).await.expect("query posts") {
-        let expected = format!("/admin/posts/{}/edit", post.id);
-        if tablo::testing::row_actions(&html, &post.id.to_string())
-            .and_then(|actions| actions.edit)
-            .as_deref()
-            == Some(expected.as_str())
-        {
-            on_page.push(post);
-        }
-    }
+    let on_page: Vec<Post> = Post::all()
+        .exec(&mut db_q)
+        .await
+        .expect("query posts")
+        .into_iter()
+        .filter(|post| edits.contains(&format!("/admin/posts/{}/edit", post.id)))
+        .collect();
     let draft = on_page
         .iter()
         .find(|p| p.status == PostStatus::Draft)
@@ -104,12 +104,7 @@ async fn a_draft_post_is_published_from_its_row() {
         html.contains("formaction=\"/admin/posts/-/actions/publish\""),
         "the bulk bar offers Publish for the selection: {html}"
     );
-
-    let csrf = uuid::Uuid::new_v4().to_string();
-    let resp = client
-        .csrf(&csrf)
-        .post_form(&publish, format!("csrf_token={csrf}"))
-        .await;
+    let resp = client.submit(&publish, "").await;
     assert!(
         resp.status().is_redirection(),
         "a committed action redirects, got {}",
@@ -237,10 +232,9 @@ async fn a_read_only_portal_lists_drafts_and_refuses_publish() {
         .await;
     assert_eq!(row.status(), 403, "the row route refuses");
     let bulk = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             "/portal/posts/-/actions/publish",
-            format!("ids={}&csrf_token={csrf}", draft.id),
+            &format!("ids={}", draft.id),
         )
         .await;
     assert_eq!(bulk.status(), 403, "the bulk route refuses");

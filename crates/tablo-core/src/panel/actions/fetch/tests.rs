@@ -1,10 +1,10 @@
-use toasty::Db;
 use topcoat::router::Body;
 
 use super::*;
 use crate::{
     Ability, ResourceDef, lens,
     panel::test_support::{Subscriber, mount, panel_for},
+    test_support::memory_db,
 };
 
 #[tokio::test]
@@ -21,12 +21,7 @@ async fn find_by_key_loads_one_row_scoped_and_404s_malformed() {
         }
     }
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Subscriber))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Subscriber)).await;
     let a = toasty::create!(Subscriber { email: "a@b.c" })
         .exec(&mut db)
         .await
@@ -116,12 +111,7 @@ async fn composite_pk_edit_fails_loudly_not_404() {
     struct PairForm {
         name: String,
     }
-    let db = Db::builder()
-        .models(toasty::models!(Pair))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let db = memory_db(toasty::models!(Pair)).await;
     let router = mount(db, panel_for::<PairResource>()).expect("panel builds");
     let resp = router
         .handle(
@@ -185,12 +175,7 @@ async fn record_loads_skip_the_detail_pages_includes() {
         }
     }
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Parent, Child))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Parent, Child)).await;
     let parent = toasty::create!(Parent {
         name: "Ada".to_string(),
     })

@@ -1,10 +1,10 @@
-use toasty::Db;
 use topcoat::router::Body;
 
 use super::*;
 use crate::{
     ResourceDef, lens,
     panel::test_support::{Subscriber, Tagged, TaggedResource, mount, panel_for, response_html},
+    test_support::{memory_db, tableless_db},
 };
 
 fn messages(errors: &FieldErrors, key: &str) -> Vec<String> {
@@ -31,12 +31,7 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
         }
     }
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Subscriber))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Subscriber)).await;
     toasty::create!(Subscriber { email: "a@b.c" })
         .exec(&mut db)
         .await
@@ -157,11 +152,7 @@ async fn unique_check_propagates_probe_errors() {
     }
 
     // Schema never pushed, so the probe cannot run.
-    let db = Db::builder()
-        .models(toasty::models!(Probe))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
+    let db = tableless_db(toasty::models!(Probe)).await;
     let cx = crate::test_support::panel_cx::<ProbeResource>(&db);
     let mut ex = crate::db::db(&cx);
 
@@ -188,12 +179,7 @@ async fn unique_check_propagates_probe_errors() {
 async fn a_typed_unique_field_probes_the_declared_type() {
     const TOKEN: &str = "0f8fad5b-d9cb-469f-a165-70867728950e";
 
-    let db = Db::builder()
-        .models(toasty::models!(Tagged))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let db = memory_db(toasty::models!(Tagged)).await;
     let mut db_q = db.clone();
     toasty::create!(Tagged {
         name: "one".to_string(),
@@ -268,12 +254,7 @@ async fn a_typed_unique_field_skips_the_records_own_value_on_edit() {
     const MINE: &str = "0f8fad5b-d9cb-469f-a165-70867728950e";
     const THEIRS: &str = "3f8fad5b-d9cb-469f-a165-70867728950e";
 
-    let db = Db::builder()
-        .models(toasty::models!(Tagged))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let db = memory_db(toasty::models!(Tagged)).await;
     let mut db_q = db.clone();
     let mine = toasty::create!(Tagged {
         name: "mine".to_string(),

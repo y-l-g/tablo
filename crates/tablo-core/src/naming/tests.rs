@@ -51,30 +51,19 @@ fn pluralize_and_kebab_follow_english_rules() {
     assert_eq!(kebab_case("Blog_Post"), "blog-post");
 }
 
-#[test]
-fn naming_invariants_hold() {
-    // Kebab is lowercase + hyphen-only,
-    // pluralize never empties.
-    use super::{kebab_case, pluralize};
-    for word in [
-        "User", "BlogPost", "APIKey", "Category", "Box", "Person", "",
-    ] {
-        let kebab = kebab_case(word);
-        assert!(
-            kebab
-                .chars()
-                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
-                || kebab.is_empty(),
-            "kebab must be lower-hyphen, got {kebab:?} from {word:?}"
+proptest::proptest! {
+    /// Any Rust type name makes a URL slug of lowercase words and hyphens, and a non-empty label
+    /// never pluralizes to nothing.
+    #[test]
+    fn a_type_name_makes_a_slug_and_a_plural(word in "[A-Za-z][A-Za-z0-9_]{0,24}") {
+        let kebab = super::kebab_case(&word);
+        proptest::prop_assert!(
+            kebab.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-'),
+            "{kebab:?} from {word:?}"
         );
-        let plural = pluralize(word);
-        assert!(
-            word.is_empty() || !plural.is_empty(),
-            "plural must not empty {word:?}"
-        );
+        proptest::prop_assert!(!kebab.starts_with('-') && !kebab.ends_with('-'), "{kebab:?}");
+        proptest::prop_assert!(!super::pluralize(&word).is_empty());
     }
-    // kebab round-trips through slug vocabulary (no underscores).
-    assert!(!kebab_case("Audit_Log").contains('_'));
 }
 
 /// A multi-word label keeps its head noun's rules: only the last word

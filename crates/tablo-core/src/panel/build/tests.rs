@@ -6,6 +6,7 @@ use crate::{
     panel::test_support::{
         Dummy, current_panel, dummy_table, mount, mount_without_db, panel_for, panel_state, refusal,
     },
+    test_support::{memory_db, tableless_db},
 };
 
 #[derive(Debug, toasty::Model, Clone)]
@@ -37,12 +38,7 @@ async fn a_plain_slug_builds_and_resolves() {
         }
     }
 
-    let db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let db = memory_db(toasty::models!(Dummy)).await;
     let router = mount(db, panel_for::<PlainResource>()).expect("a plain slug builds");
     let request = http::Request::builder()
         .method(http::Method::GET)
@@ -89,12 +85,7 @@ async fn a_star_slug_builds_and_resolves() {
         }
     }
 
-    let db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let db = memory_db(toasty::models!(Dummy)).await;
     let router = mount(db, panel_for::<StarResource>()).expect("a slug containing `*` builds");
     let request = http::Request::builder()
         .method(http::Method::GET)
@@ -141,12 +132,7 @@ async fn csrf_is_enforced_with_auth_disabled() {
     struct DummyForm {
         name: String,
     }
-    let db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let db = memory_db(toasty::models!(Dummy)).await;
     let router =
         mount(db, panel_for::<DummyResource>()).expect("the explicit opt-out builds the panel");
 
@@ -173,15 +159,11 @@ async fn csrf_is_enforced_with_auth_disabled() {
 /// Applies `Panel::dark_mode` to the rendered document's `<html class>`.
 #[tokio::test]
 async fn dark_mode_sets_the_document_class() {
-    let db = Db::builder()
-        .models(toasty::models!(
-            crate::auth::AdminUser,
-            crate::auth::AuthSession
-        ))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let db = memory_db(toasty::models!(
+        crate::auth::AdminUser,
+        crate::auth::AuthSession
+    ))
+    .await;
     let router = mount(
         db,
         Panel::new("admin")
@@ -252,11 +234,7 @@ async fn panel_build_accepts_unique_markers_with_a_backing_index() {
     struct AuthorForm {
         email: String,
     }
-    let db = Db::builder()
-        .models(toasty::models!(Author))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
+    let db = tableless_db(toasty::models!(Author)).await;
     mount(db, panel_for::<AuthorResource>()).expect("a composite unique index backs the marker");
 }
 
@@ -272,11 +250,7 @@ fn panel_build_errors_without_db() {
 /// Reports a `Db` missing the shipped auth models as a mount error naming them.
 #[tokio::test]
 async fn panel_mount_reports_missing_auth_models() {
-    let db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
+    let db = tableless_db(toasty::models!(Dummy)).await;
     assert_eq!(
         refusal(mount(db, Panel::new("admin"))),
         [DeclarationError::panel(
@@ -348,11 +322,7 @@ async fn panel_mount_rejects_a_relation_column_of_an_unregistered_resource() {
         }
     }
 
-    let db = Db::builder()
-        .models(toasty::models!(Parent, Child))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
+    let db = tableless_db(toasty::models!(Parent, Child)).await;
     let panel = || Panel::new("admin").auth(crate::Auth::disabled());
     let unregistered = DeclarationErrorKind::UnregisteredLabelSource {
         column: "parent".to_string(),
@@ -407,11 +377,7 @@ async fn panel_mount_rejects_a_tenancy_column_through_a_relation() {
         }
     }
 
-    let db = Db::builder()
-        .models(toasty::models!(Parent, Child))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
+    let db = tableless_db(toasty::models!(Parent, Child)).await;
     let panel = || Panel::new("admin").auth(crate::Auth::disabled());
 
     assert_eq!(
@@ -449,11 +415,7 @@ async fn panel_mount_rejects_a_tenancy_via_over_its_own_column() {
         }
     }
 
-    let db = Db::builder()
-        .models(toasty::models!(Parent, Child))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
+    let db = tableless_db(toasty::models!(Parent, Child)).await;
     assert_eq!(
         refusal(mount(
             db,
@@ -552,11 +514,7 @@ async fn panel_mount_requires_a_tenancy_via_key_over_a_scoped_parent() {
         Schema::new((c.name, c.parent_id.choice().relationship::<ScopedParents>()))
     });
 
-    let db = Db::builder()
-        .models(toasty::models!(Parent, Child))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
+    let db = tableless_db(toasty::models!(Parent, Child)).await;
     // The relationship fields' option sources are the panel's own resources.
     let panel = || {
         Panel::new("admin")
@@ -639,11 +597,7 @@ async fn panel_mount_rejects_a_relationship_over_a_composite_key() {
         }
     }
 
-    let db = Db::builder()
-        .models(toasty::models!(Parent, Child, Seat))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
+    let db = tableless_db(toasty::models!(Parent, Child, Seat)).await;
     let errors = refusal(mount(
         db,
         Panel::new("admin")
@@ -725,11 +679,7 @@ async fn panel_build_rejects_a_unique_marker_without_a_unique_index() {
     struct UnbackedForm {
         nickname: String,
     }
-    let db = Db::builder()
-        .models(toasty::models!(Subscriber))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
+    let db = tableless_db(toasty::models!(Subscriber)).await;
     assert_eq!(
         refusal(mount(db, panel_for::<UnbackedResource>())),
         [DeclarationError::of::<UnbackedResource>(
@@ -797,11 +747,7 @@ async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
         }
     }
 
-    let db = Db::builder()
-        .models(toasty::models!(Subscriber))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
+    let db = tableless_db(toasty::models!(Subscriber)).await;
     let panel = || Panel::new("admin").auth(crate::Auth::disabled());
 
     mount(db.clone(), panel().resource::<ChromeResource>())
@@ -842,11 +788,7 @@ async fn panel_build_rejects_an_unbacked_unique_marker_even_when_create_is_denie
     struct ReadOnlyForm {
         nickname: String,
     }
-    let db = Db::builder()
-        .models(toasty::models!(Subscriber))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
+    let db = tableless_db(toasty::models!(Subscriber)).await;
     assert_eq!(
         refusal(mount(db, panel_for::<ReadOnlyResource>())),
         [DeclarationError::of::<ReadOnlyResource>(
@@ -1009,11 +951,7 @@ async fn panel_build_reports_recorded_table_misdeclarations() {
         }
     }
 
-    let db = Db::builder()
-        .models(toasty::models!(Doc))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
+    let db = tableless_db(toasty::models!(Doc)).await;
     let panel = || Panel::new("admin").auth(crate::Auth::disabled());
 
     assert_eq!(
@@ -1180,12 +1118,7 @@ async fn panel_sends_frame_ancestors_unless_opted_out() {
             .map(|value| value.to_str().unwrap().to_string())
     }
 
-    let db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let db = memory_db(toasty::models!(Dummy)).await;
     let base = panel_for::<DummyResource>;
 
     assert_eq!(
@@ -1264,11 +1197,7 @@ async fn panel_build_rejects_a_misdeclared_view() {
         }
     }
 
-    let db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
+    let db = tableless_db(toasty::models!(Dummy)).await;
     assert_eq!(
         refusal(mount(db, panel_for::<BadView>())),
         [DeclarationError::of::<BadView>(
@@ -1315,12 +1244,7 @@ async fn a_resource_declares_once_when_its_panel_mounts() {
         }
     }
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Dummy)).await;
     let record = toasty::create!(Dummy {
         name: "Ada".to_string()
     })
@@ -1370,11 +1294,7 @@ async fn an_unmounted_resource_is_refused_not_rebuilt() {
         }
     }
 
-    let db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
+    let db = tableless_db(toasty::models!(Dummy)).await;
     let bare = topcoat::context::CxTestBuilder::new()
         .app_context(db.clone())
         .build();
@@ -1403,11 +1323,7 @@ async fn context_refuses_a_misdeclared_resource() {
         }
     }
 
-    let db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
+    let db = tableless_db(toasty::models!(Dummy)).await;
     assert_eq!(
         refusal(panel_for::<BadView>().context(&db)),
         refusal(mount(db, panel_for::<BadView>()))
@@ -1462,11 +1378,7 @@ async fn panel_mount_refuses_a_create_column_it_cannot_honor() {
         }
     }
 
-    let db = Db::builder()
-        .models(toasty::models!(Ticket))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
+    let db = tableless_db(toasty::models!(Ticket)).await;
     let kinds: Vec<_> = refusal(mount(db, panel_for::<Tickets>()))
         .into_iter()
         .map(|error| error.kind)

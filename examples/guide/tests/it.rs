@@ -57,13 +57,11 @@ async fn books_cannot_be_deleted() {
 
     assert_eq!(client.get("/admin/books").await.status(), 200);
 
-    // A POST needs the CSRF cookie and a matching `csrf_token` field.
-    let token = uuid::Uuid::new_v4().to_string();
+    // `submit` posts the form with the CSRF cookie and its matching `csrf_token` field.
     let response = client
-        .csrf(&token)
-        .post_form(
+        .submit(
             &format!("/admin/books/{id}/delete"),
-            form_body(&[("csrf_token", &token), ("confirm", "1")]),
+            &form_body(&[("confirm", "1")]),
         )
         .await;
     assert_eq!(response.status(), 403); // the policy does not allow `DeleteAny`

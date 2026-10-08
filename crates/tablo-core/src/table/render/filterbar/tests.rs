@@ -2,83 +2,14 @@ use std::collections::BTreeMap;
 
 use topcoat::context::CxTestBuilder;
 
-use super::{
-    super::core::tests::{
-        Driver, Task, filters_state, last_link_named, status_table, vehicule_filter,
-    },
-    *,
+use super::super::core::tests::{
+    Driver, Task, filters_state, last_link_named, status_table, vehicule_filter,
 };
 use crate::{
     Table, TablePage, TableState, TextColumn, lens,
-    table::{DateFilter, SelectFilter, Sort, TernaryFilter},
+    table::{SelectFilter, Sort},
+    test_support::Html as _,
 };
-
-#[tokio::test]
-async fn filter_widgets_render_typed_controls() {
-    let cx = CxTestBuilder::new().build();
-    let table_task1 = Table::<Task>::new(TextColumn::new(lens!(Task.title))).filters((
-        SelectFilter::new(
-            Task::fields().status(),
-            vec!["draft".to_string(), "published".to_string()],
-        ),
-        TernaryFilter::new(Task::fields().featured()),
-        DateFilter::new(Task::fields().created_at()),
-    ));
-    let page: TablePage<Task> = Vec::new().into();
-    // State with an active select value pre-selects it.
-    let mut filters = BTreeMap::new();
-    filters.insert("status".to_string(), "published".to_string());
-    let state = TableState {
-        filters,
-        ..TableState::default()
-    };
-    let html = table_task1
-        .render_with_state(&cx, page, &state, "/admin/tasks")
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
-    assert!(
-        html.contains("id=\"table-toolbar\"") && html.contains("method=\"get\""),
-        "the filters live in the toolbar's GET form in {html}"
-    );
-    for name in ["status", "featured", "created_at"] {
-        assert!(
-            html.contains(&format!("data-filter-name=\"{name}\"")),
-            "missing control for {name} in {html}"
-        );
-    }
-    // Select options + current selection.
-    assert!(
-        html.contains("draft") && html.contains("published"),
-        "missing select options in {html}"
-    );
-    assert!(
-        html.contains("value=\"published\" selected")
-            || html.contains("value=\"published\" selected=\"\""),
-        "published should be selected in {html}"
-    );
-    // Ternary + date controls.
-    assert!(
-        html.contains("value=\"true\"") && html.contains("value=\"false\""),
-        "missing ternary options in {html}"
-    );
-    assert!(
-        html.contains("type=\"date\""),
-        "missing date input in {html}"
-    );
-    // Each control is its own `f.<name>` field of the form the table's query reads.
-    assert!(
-        html.contains("name=\"f.status\"") && html.contains("name=\"f.created_at\""),
-        "each filter control must be an f.<name> field in {html}"
-    );
-    assert!(
-        html.contains("Clear filters</a>"),
-        "an active filter offers to clear the filters in {html}"
-    );
-}
 
 #[tokio::test]
 async fn query_filter_renders_select_control() {
@@ -89,11 +20,8 @@ async fn query_filter_renders_select_control() {
     let html = table_driver1
         .render_with_state(&cx, page, &TableState::default(), "/admin/drivers")
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(
         html.contains("data-filter-name=\"vehicule\""),
         "missing variant control in {html}"
@@ -119,11 +47,8 @@ async fn empty_with_filters_shows_filtered_message() {
     let html = table_task2
         .render_with_state(&cx, Vec::new().into(), &state, "/admin/tasks")
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(
         html.contains("No results for these filters"),
         "filter-only empty must be distinct in {html}"
@@ -147,11 +72,8 @@ async fn unknown_filter_warns_on_an_empty_page_too() {
             "/admin/tasks",
         )
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(
         html.contains("role=\"alert\"") && html.contains("stauts:published"),
         "empty page must still warn about ignored filters, got {html}"
@@ -183,11 +105,8 @@ async fn empty_clear_links_preserve_the_untouched_state() {
     let html = tbl
         .render_with_state(&cx, Vec::new().into(), &state, "/admin/tasks")
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     let clear = last_link_named(&html, "Clear search");
     assert!(
         clear.contains("sort=title"),
@@ -219,11 +138,8 @@ async fn empty_clear_links_preserve_the_untouched_state() {
     let html = tbl
         .render_with_state(&cx, Vec::new().into(), &state, "/admin/tasks")
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     // The filter bar renders a "Clear filters" link earlier in the page;
     // the empty-cell one is the subject here.
     let clear = last_link_named(&html, "Clear filters");

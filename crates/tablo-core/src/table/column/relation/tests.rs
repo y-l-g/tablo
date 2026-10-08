@@ -1,7 +1,7 @@
 use toasty::Db;
 
 use super::*;
-use crate::Detail;
+use crate::{Detail, test_support::memory_db};
 
 #[derive(Debug, Clone, toasty::Model)]
 struct Shelf {
@@ -46,12 +46,7 @@ fn borrower_name() -> RelationColumn<Book> {
 }
 
 async fn library() -> Db {
-    let mut db = Db::builder()
-        .models(toasty::models!(Shelf, Reader, Book))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Shelf, Reader, Book)).await;
     let shelf = toasty::create!(Shelf {
         name: "Sci-fi".to_string()
     })

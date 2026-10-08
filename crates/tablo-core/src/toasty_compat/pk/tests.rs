@@ -1,5 +1,5 @@
 use super::*;
-use crate::test_support::DummyUser;
+use crate::test_support::{DummyUser, memory_db};
 
 #[test]
 fn composite_pk_has_no_url_representation() {
@@ -57,12 +57,7 @@ async fn zoned_pks_parse_from_url_ids() {
     assert!(pk_eq_expr::<ZonedPk>(&z.to_string()).is_some());
     assert!(pk_eq_expr::<ZonedPk>("not-a-time").is_none());
     // Round-trip through sqlite: the parsed value filters the row.
-    let mut db = toasty::Db::builder()
-        .models(toasty::models!(ZonedPk))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(ZonedPk)).await;
     toasty::create!(ZonedPk {
         at: z.clone(),
         name: "Ada".to_string(),
@@ -83,12 +78,7 @@ async fn temporal_pks_parse_from_url_ids() {
     assert!(pk_eq_expr::<TemporalPk>("2024-01-15T09:30:00Z").is_some());
     assert!(pk_eq_expr::<TemporalPk>("not-a-time").is_none());
     // Round-trip through sqlite: the parsed value filters the row.
-    let mut db = toasty::Db::builder()
-        .models(toasty::models!(TemporalPk))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(TemporalPk)).await;
     toasty::create!(TemporalPk {
         at: "2024-01-15T09:30:00Z".parse::<jiff::Timestamp>().unwrap(),
         name: "Ada".to_string(),
@@ -130,12 +120,7 @@ fn pk_text_spells_the_key_as_its_url_id() {
 
 #[tokio::test]
 async fn pk_filter_selects_one_record_by_a_composite_key() {
-    let mut db = toasty::Db::builder()
-        .models(toasty::models!(Seat))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Seat)).await;
     for (owner, slot) in [("ada", 1), ("ada", 2), ("bob", 2)] {
         toasty::create!(Seat {
             owner: owner.to_string(),
@@ -169,12 +154,7 @@ async fn pk_expr_matches_an_optional_foreign_key() {
         owner_id: Option<uuid::Uuid>,
     }
 
-    let mut db = toasty::Db::builder()
-        .models(toasty::models!(DummyUser, Sheet))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(DummyUser, Sheet)).await;
     let owner = toasty::create!(DummyUser {
         name: "Ada".to_string(),
         email: "ada@example.com".to_string(),

@@ -3,8 +3,12 @@
 
 pub mod dom;
 
-pub use dom::{FilterOption, Row, RowActions, field_error, filter_options, row_actions, rows};
+pub use dom::{
+    EmptyTable, FilterOption, Row, RowActions, empty_table, field_error, filter_options,
+    row_actions, rows,
+};
 use http_body_util::BodyExt;
+use tablo_core::Notification;
 use topcoat::router::Body;
 
 /// One `Cookie` header value from `(name, value)` pairs, or `None` when empty.
@@ -125,4 +129,15 @@ pub fn session_cookie_value(response: &http::Response<Body>) -> Option<String> {
         .into_iter()
         .find(|(name, _)| name == SESSION_COOKIE)
         .map(|(_, value)| value)
+}
+
+/// The flash notification a response set for the next page, decoded.
+pub fn notification(response: &http::Response<Body>) -> Option<Notification> {
+    let (_, value) = response_cookies(response)
+        .into_iter()
+        .find(|(name, _)| name.ends_with("tablo_notification"))?;
+    let json = percent_encoding::percent_decode_str(&value)
+        .decode_utf8()
+        .ok()?;
+    serde_json::from_str(&json).ok()
 }

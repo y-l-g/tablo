@@ -1,6 +1,7 @@
 use topcoat::context::CxTestBuilder;
 
 use super::*;
+use crate::test_support::tableless_db;
 
 // `FieldResolver` reads the compiled schema the request carries, so these tests build a `Db` over
 // one model carrying every shape the resolver reads.
@@ -94,11 +95,7 @@ struct Impostor {
 
 /// The request context a resolver reads its schema from.
 async fn cx_with(models: toasty::schema::ModelSet) -> Cx {
-    let db = toasty::Db::builder()
-        .models(models)
-        .connect("sqlite::memory:")
-        .await
-        .expect("connect");
+    let db = tableless_db(models).await;
     CxTestBuilder::new().app_context(db).build()
 }
 

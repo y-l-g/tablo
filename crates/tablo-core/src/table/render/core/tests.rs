@@ -7,6 +7,7 @@ use super::{
 use crate::{
     ComputedColumn, lens,
     table::{ColumnWidth, QueryFilter, RowActions, SelectFilter, Sort, Table, TextColumn},
+    test_support::Html as _,
 };
 
 #[derive(Debug, Clone, toasty::Model)]
@@ -147,14 +148,7 @@ async fn table_for_columns_renders_with_keyed_rows() {
         },
     ];
     let page: TablePage<Task> = rows.clone().into();
-    let html = tasks_table
-        .render(&cx, page)
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+    let html = tasks_table.render(&cx, page).await.html(&cx).await;
     let title_at = html.find("Title").expect("the Title header");
     let title_th = html[..title_at].rfind("<th").expect("its <th>");
     let title_th_end = html[title_th..].find("</th>").expect("its </th>") + title_th;
@@ -194,14 +188,7 @@ async fn table_lays_out_fixed_and_emits_declared_column_widths() {
         created_at: jiff::Timestamp::now(),
     }]
     .into();
-    let html = width_table
-        .render(&cx, page)
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+    let html = width_table.render(&cx, page).await.html(&cx).await;
     let tag = table_tag(&html);
     assert!(
         tag.contains("table-fixed"),
@@ -235,14 +222,7 @@ async fn kind_defaults_claim_a_share_of_the_table() {
         created_at: jiff::Timestamp::now(),
     }]
     .into();
-    let html = default_table
-        .render(&cx, page)
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+    let html = default_table.render(&cx, page).await.html(&cx).await;
     assert_eq!(
         declared_percents(&html),
         [10, 10],
@@ -278,14 +258,7 @@ async fn chrome_columns_declare_their_widths() {
             name: "Ada".to_string(),
         }]
         .into();
-        let html = chrome_table
-            .render_loaded(&cx, page)
-            .await
-            .unwrap()
-            .single()
-            .await
-            .unwrap()
-            .render(&cx);
+        let html = chrome_table.render_loaded(&cx, page).await.html(&cx).await;
         assert_eq!(
             html.matches(&format!("width: {expected}")).count(),
             1,
@@ -330,14 +303,7 @@ async fn kind_defaults_stay_inside_their_budget() {
         created_at: jiff::Timestamp::now(),
     }]
     .into();
-    let html = crowded
-        .render_loaded(&cx, page)
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+    let html = crowded.render_loaded(&cx, page).await.html(&cx).await;
     let thead_at = html.find("<thead").expect("a header row");
     let thead_end = html.find("</thead>").expect("its end");
     let percents = declared_percents(&html[thead_at..thead_end]);
@@ -382,14 +348,7 @@ async fn edit_links_render_beside_delete_in_actions_column() {
     }];
     let id = rows[0].id.to_string();
     let page: TablePage<User> = rows.into();
-    let html = action_table
-        .render_loaded(&cx, page)
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+    let html = action_table.render_loaded(&cx, page).await.html(&cx).await;
     assert!(html.contains("Actions"), "missing Actions header in {html}");
     assert!(
         html.contains(&format!("href=\"/admin/users/{id}/edit\""))
@@ -406,14 +365,7 @@ async fn edit_links_render_beside_delete_in_actions_column() {
         name: "Ada".to_string(),
     }]
     .into();
-    let html = plain
-        .render(&cx, page)
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+    let html = plain.render(&cx, page).await.html(&cx).await;
     assert!(
         !html.contains("Actions") && !html.contains(">Edit<"),
         "plain table must not render action chrome, got {html}"
@@ -445,14 +397,7 @@ async fn denied_rows_render_no_links_and_no_checkbox() {
             delete: u.name != "Ken",
         });
     let page: TablePage<User> = vec![ada, ken].into();
-    let html = policy_table
-        .render_loaded(&cx, page)
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+    let html = policy_table.render_loaded(&cx, page).await.html(&cx).await;
     assert!(
         html.contains(&format!("href=\"/admin/users/{ada_id}/edit\""))
             && html.contains(&format!("href=\"/admin/users/{ada_id}\""))
@@ -520,14 +465,7 @@ async fn fully_locked_rows_keep_their_actions_cell_with_no_links() {
             }
         });
     let page: TablePage<User> = vec![ada, ken].into();
-    let html = policy_table
-        .render_loaded(&cx, page)
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+    let html = policy_table.render_loaded(&cx, page).await.html(&cx).await;
     let ken_at = html.find(">Ken<").expect("the locked row");
     let ken_start = html[..ken_at].rfind("<tr").expect("its row");
     let ken_end = html[ken_at..].find("</tr>").expect("its end") + ken_at;
@@ -566,14 +504,7 @@ async fn a_chromeless_table_never_consults_the_row_policy() {
         name: "Ada".to_string(),
     }]
     .into();
-    let html = policy_table
-        .render_loaded(&cx, page)
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+    let html = policy_table.render_loaded(&cx, page).await.html(&cx).await;
     assert!(
         html.contains("Ada"),
         "the table must still render its row, got {html}"
@@ -587,7 +518,6 @@ async fn a_chromeless_table_never_consults_the_row_policy() {
 
 #[tokio::test]
 async fn rows_carry_the_primary_key_in_every_action() {
-    use topcoat::view::ViewExt;
     let cx = CxTestBuilder::new().build();
     let tbl = Table::<User>::new(TextColumn::new(lens!(User.name)))
         .wired()
@@ -600,14 +530,7 @@ async fn rows_carry_the_primary_key_in_every_action() {
     }];
     let key = rows[0].id.to_string();
     let page: TablePage<User> = rows.into();
-    let html = tbl
-        .render_loaded(&cx, page)
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+    let html = tbl.render_loaded(&cx, page).await.html(&cx).await;
     assert!(
         html.contains(&format!("href=\"/admin/users/{key}/edit\"")),
         "edit URL must carry the record key in {html}"
@@ -624,8 +547,6 @@ async fn rows_carry_the_primary_key_in_every_action() {
 
 #[tokio::test]
 async fn composite_key_rows_render_no_action() {
-    use topcoat::view::ViewExt;
-
     #[derive(Debug, Clone, toasty::Model)]
     #[key(owner, slot)]
     struct Seat {
@@ -646,14 +567,7 @@ async fn composite_key_rows_render_no_action() {
         label: "Aisle".to_string(),
     }]
     .into();
-    let html = tbl
-        .render_loaded(&cx, page)
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+    let html = tbl.render_loaded(&cx, page).await.html(&cx).await;
     assert!(html.contains("Aisle"), "the row renders in {html}");
     assert!(
         !html.contains("/admin/seats/") && !html.contains(r#"aria-label="Select row""#),
@@ -687,11 +601,8 @@ async fn group_by_unknown_value_renders_no_headers_and_drops_param() {
     let html = grouped
         .render_with_state(&cx, page, &state, "/admin/users")
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(
         !html.contains("on this page"),
         "unknown group_by must render no headers, got {html}"
@@ -727,11 +638,8 @@ async fn group_by_orders_each_row_under_its_own_header() {
     let html = grouped
         .render_with_state(&cx, page, &state, "/admin/tasks")
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     let at = |needle: &str| {
         html.find(needle)
             .unwrap_or_else(|| panic!("missing {needle:?} in {html}"))
@@ -777,11 +685,8 @@ async fn rendered_rows_carry_stable_dom_ids() {
     let render = async |rows: Vec<User>| {
         tbl.render_with_state(&cx, rows.into(), &TableState::default(), "/admin/users")
             .await
-            .unwrap()
-            .single()
+            .html(&cx)
             .await
-            .unwrap()
-            .render(&cx)
     };
     let first = render(rows.clone()).await;
     assert!(

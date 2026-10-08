@@ -11,6 +11,3 @@ use topcoat::context::{Cx, app_context};
 pub fn db(cx: &Cx) -> Db {
     app_context::<Db>(cx).clone()
 }
-
-#[cfg(test)]
-mod tests;

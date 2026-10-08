@@ -1,10 +1,7 @@
 use topcoat::context::CxTestBuilder;
 
-use super::{
-    super::core::tests::{User, normalized_table_tag, table_tag},
-    *,
-};
-use crate::{Table, TableState, TextColumn, lens};
+use super::super::core::tests::{User, normalized_table_tag, table_tag};
+use crate::{Table, TableState, TextColumn, lens, test_support::Html as _};
 
 #[tokio::test]
 async fn skeleton_declares_the_loaded_table_layout() {
@@ -13,11 +10,8 @@ async fn skeleton_declares_the_loaded_table_layout() {
     let html = tbl
         .render_skeleton(&cx, &tbl.normalize_state(&TableState::default()))
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(
         html.contains("aria-busy"),
         "skeleton must announce loading, got {html}"
@@ -43,11 +37,8 @@ async fn skeleton_declares_the_loaded_table_layout() {
     let html = tbl
         .render_with_state(&cx, rows.into(), &TableState::default(), "/admin/users")
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(
         html.contains("Ada"),
         "swap payload must be rows, got {html}"
@@ -80,11 +71,8 @@ async fn skeleton_carries_the_action_column_for_view_only_chrome() {
     let skeleton = tbl
         .render_skeleton(&cx, &tbl.normalize_state(&TableState::default()))
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     let rows = vec![User {
         id: uuid::Uuid::nil(),
         name: "Ada".to_string(),
@@ -92,11 +80,8 @@ async fn skeleton_carries_the_action_column_for_view_only_chrome() {
     let rendered = tbl
         .render_loaded_with(&cx, rows.into(), &TableState::default(), "/admin/users")
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert_eq!(
         rendered.matches(">Actions</span></th>").count(),
         1,
@@ -119,11 +104,8 @@ async fn skeleton_pulses_only_the_bars_the_table_renders() {
         let tbl = tbl.wired();
         tbl.render_skeleton(&cx, &tbl.normalize_state(&TableState::default()))
             .await
-            .unwrap()
-            .single()
+            .html(&cx)
             .await
-            .unwrap()
-            .render(&cx)
     }
     let plain = Table::<User>::new(TextColumn::new(lens!(User.name)));
     let plain_bars = plain.search_enabled() || plain.filter_bar_enabled();

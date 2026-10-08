@@ -1,7 +1,7 @@
 use topcoat::context::CxTestBuilder;
 
-use super::{super::core::tests::User, *};
-use crate::{Table, TablePage, TextColumn, lens};
+use super::super::core::tests::User;
+use crate::{Table, TablePage, TextColumn, lens, test_support::Html as _};
 
 #[tokio::test]
 async fn bulk_checkboxes_render_with_keys_and_select_all() {
@@ -21,14 +21,7 @@ async fn bulk_checkboxes_render_with_keys_and_select_all() {
         },
     ];
     let page: TablePage<User> = rows.clone().into();
-    let html = bulk_table
-        .render_loaded(&cx, page)
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+    let html = bulk_table.render_loaded(&cx, page).await.html(&cx).await;
     // Each row checkbox and the select-all read the bulk signal.
     assert_eq!(
         html.matches("aria-label=\"Select row\"").count(),
@@ -67,14 +60,7 @@ async fn bulk_checkboxes_render_with_keys_and_select_all() {
     // Without bulk: no checkboxes, no bulk form.
     let plain = Table::<User>::new(TextColumn::new(lens!(User.name)));
     let page: TablePage<User> = rows.into();
-    let html = plain
-        .render(&cx, page)
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+    let html = plain.render(&cx, page).await.html(&cx).await;
     assert!(
         !html.contains("Select row") && !html.contains("table-writes"),
         "plain table must not render bulk chrome in {html}"

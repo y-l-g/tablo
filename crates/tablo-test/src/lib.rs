@@ -5,9 +5,10 @@ mod protocol;
 
 use http::header::{CONTENT_TYPE, COOKIE};
 pub use protocol::{
-    FilterOption, Row, RowActions, SESSION_COOKIE, body_bytes, body_string, cookie_header,
-    field_error, filter_options, form_body, input_value, multipart_body, response_cookies,
-    row_actions, rows, session_cookie_value, set_cookie_header,
+    EmptyTable, FilterOption, Row, RowActions, SESSION_COOKIE, body_bytes, body_string,
+    cookie_header, empty_table, field_error, filter_options, form_body, input_value,
+    multipart_body, notification, response_cookies, row_actions, rows, session_cookie_value,
+    set_cookie_header,
 };
 use topcoat::router::{Body, Router};
 
@@ -79,6 +80,19 @@ impl<'a> TestClient<'a> {
         );
         *request.body_mut() = Body::from(body);
         self.router.handle(request).await
+    }
+
+    /// Posts the urlencoded `body` as a panel form does: with a fresh CSRF token in both the
+    /// cookie and the `csrf_token` field.
+    pub async fn submit(&self, uri: &str, body: &str) -> http::Response<Body> {
+        let token = uuid::Uuid::new_v4().to_string();
+        let field = form_body(&[("csrf_token", &token)]);
+        let body = if body.is_empty() {
+            field
+        } else {
+            format!("{body}&{field}")
+        };
+        self.csrf(&token).post_form(uri, body).await
     }
 
     pub async fn post_multipart(

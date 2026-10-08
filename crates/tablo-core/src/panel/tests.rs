@@ -1,5 +1,8 @@
 use super::*;
-use crate::{lens, navigation::NavigationItem, panel::test_support::Dummy, resource::Mounted};
+use crate::{
+    lens, navigation::NavigationItem, panel::test_support::Dummy, resource::Mounted,
+    test_support::Html as _,
+};
 
 /// `R`'s sidebar entry on `panel`.
 fn nav_item<R: Resource>(panel: &Panel) -> NavigationItem {
@@ -152,51 +155,6 @@ fn panel_navigation_item_respects_prefix() {
     // resource slug ("DummyResource" → "dummies"), resolved by the panel.
     assert_eq!(item.label, "Dummies");
     assert_eq!(item.url(), Some("/backoffice/dummies"));
-
-    let default = nav_item::<DummyResource>(&Panel::new("admin"));
-    assert_eq!(default.url(), Some("/admin/dummies"));
-    // Mount normalisation is `Panel::new`'s (slashes trimmed, `/admin` when
-    // empty), and the resolved URL follows it.
-    let slashed = nav_item::<DummyResource>(&Panel::new("/backoffice/"));
-    assert_eq!(slashed.url(), Some("/backoffice/dummies"));
-    let bare = nav_item::<DummyResource>(&Panel::new(""));
-    assert_eq!(bare.url(), Some("/admin/dummies"));
-}
-
-#[test]
-fn panel_navigation_items_are_distinct_for_multiple_resources() {
-    struct UserResource;
-    impl Resource for UserResource {
-        type Model = Dummy;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
-                lens!(Dummy.name),
-            )))
-        }
-    }
-    struct CategoryResource;
-    impl Resource for CategoryResource {
-        type Model = Dummy;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("categories")
-                .plural_label("Categories")
-                .table(crate::table::Table::new(crate::table::TextColumn::new(
-                    lens!(Dummy.name),
-                )))
-        }
-    }
-
-    let panel = Panel::new("admin");
-    let users = nav_item::<UserResource>(&panel);
-    let categories = nav_item::<CategoryResource>(&panel);
-    assert_eq!(users.url(), Some("/admin/users"));
-    assert_eq!(categories.url(), Some("/admin/categories"));
-    assert_ne!(users.url(), categories.url());
 }
 
 #[test]
@@ -264,11 +222,8 @@ async fn panel_sidebar_renders_overridden_navigation_order_first() {
     let slot = view! { cx_ref => "hello" }.boxed().into();
     let html = Panel::render_shell(&cx, &nav_items, "/backoffice/other", slot, None)
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     let pinned_at = html
         .find("/backoffice/pinned")
         .unwrap_or_else(|| panic!("pinned item must link under the panel prefix, got {html}"));

@@ -1,4 +1,3 @@
-use toasty::Db;
 use topcoat::view::ViewExt;
 
 use super::*;
@@ -6,7 +5,26 @@ use crate::{
     Ability, Panel, ResourceDef, lens,
     panel::test_support::{Dummy, Subscriber, dummy_table, mount, panel_for, response_html},
     schema::{Field, Schema},
+    test_support::{memory_db, tableless_db},
 };
+
+/// Asserts `rendered` carries the opaque write-failure copy and none of the driver's text, of
+/// which `marker` is the part every driver message for this failure holds.
+fn assert_opaque(rendered: &str, driver: &str, marker: &str) {
+    assert!(
+        driver.contains(marker),
+        "the control must be a driver failure, got {driver:?}"
+    );
+    assert!(
+        rendered.contains("database unavailable"),
+        "the opaque message must survive, got {rendered:?}"
+    );
+    assert!(
+        !rendered.contains(driver) && !rendered.contains(marker),
+        "driver text must not reach the response: the driver said {driver:?}, the response said \
+         {rendered:?}"
+    );
+}
 
 #[test]
 fn completion_fills_unnamed_keys_from_the_stored_projection() {
@@ -58,12 +76,7 @@ async fn edit_post_requires_view_as_well_as_update() {
     struct ViewDeniedForm {
         name: String,
     }
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Dummy)).await;
     let row = toasty::create!(Dummy {
         name: "Ada".to_string(),
     })
@@ -157,12 +170,7 @@ async fn transport_keys_never_reach_the_write() {
         #[form(file)]
         path: String,
     }
-    let db = Db::builder()
-        .models(toasty::models!(Doc))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let db = memory_db(toasty::models!(Doc)).await;
     let router = mount(db.clone(), panel_for::<CapturingResource>()).expect("panel builds");
     let csrf = uuid::Uuid::new_v4().to_string();
     let boundary = "----TransportBoundary";
@@ -241,11 +249,7 @@ async fn a_driver_create_failure_does_not_echo_driver_text() {
     struct WritingForm {
         name: String,
     }
-    let db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
+    let db = tableless_db(toasty::models!(Dummy)).await;
 
     // Positive control carries driver text, so the assertions cannot pass vacuously.
     let mut raw = db.clone();
@@ -257,10 +261,6 @@ async fn a_driver_create_failure_does_not_echo_driver_text() {
     .expect_err("the table is missing")
     .to_string();
     drop(raw);
-    assert!(
-        driver.contains("no such table"),
-        "the control must be a driver failure, got {driver:?}"
-    );
 
     let token = uuid::Uuid::new_v4().to_string();
     let parts = http::Request::builder()
@@ -290,14 +290,7 @@ async fn a_driver_create_failure_does_not_echo_driver_text() {
     .expect_err("the write must fail");
 
     let rendered = error.to_string();
-    assert!(
-        rendered.contains("database unavailable"),
-        "the opaque message must survive, got {rendered:?}"
-    );
-    assert!(
-        !rendered.contains(&driver) && !rendered.contains("no such table"),
-        "driver text must not reach the response: the driver said {driver:?}, the response said {rendered:?}"
-    );
+    assert_opaque(&rendered, &driver, "no such table");
 }
 
 /// A failing driver write on update surfaces the opaque mapping, never driver text.
@@ -367,12 +360,7 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
         })
     }
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy, Ghost))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = memory_db(toasty::models!(Dummy, Ghost)).await;
     let row = toasty::create!(Dummy {
         name: "Ada".to_string(),
     })
@@ -396,10 +384,6 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
     .expect_err("the name is taken")
     .to_string();
     drop(raw);
-    assert!(
-        driver.contains("UNIQUE constraint failed"),
-        "the control must be a driver failure, got {driver:?}"
-    );
 
     // The route sits outside the panel's prefix, where the router's one panel still answers.
     let router = Router::builder()
@@ -443,14 +427,7 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
     )
     .to_string();
 
-    assert!(
-        rendered.contains("database unavailable"),
-        "the opaque message must survive, got {rendered:?}"
-    );
-    assert!(
-        !rendered.contains(&driver) && !rendered.contains("UNIQUE constraint failed"),
-        "driver text must not reach the response: the driver said {driver:?}, the response said {rendered:?}"
-    );
+    assert_opaque(&rendered, &driver, "UNIQUE constraint failed");
 }
 
 /// A mutation answers 303 with the flash cookie, never the query (#126, topcoat#408).
@@ -496,12 +473,7 @@ async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
         #[form(optional)]
         name: String,
     }
-    let db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let db = memory_db(toasty::models!(Dummy)).await;
     let router = mount(db, panel_for::<NotifyingResource>()).expect("panel builds");
     let token = uuid::Uuid::new_v4().to_string();
     let resp = router
@@ -584,12 +556,7 @@ async fn two_empty_submits_on_a_unique_field_re_render_and_write_nothing() {
     struct SubscriberForm {
         email: String,
     }
-    let db = Db::builder()
-        .models(toasty::models!(Subscriber))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let db = memory_db(toasty::models!(Subscriber)).await;
     let router = mount(db.clone(), panel_for::<SubscriberResource>()).expect("panel builds");
 
     let csrf = uuid::Uuid::new_v4().to_string();
@@ -685,12 +652,7 @@ async fn a_forged_carry_is_refused_by_the_default_holds() {
         #[form(file)]
         path: String,
     }
-    let db = Db::builder()
-        .models(toasty::models!(Doc))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let db = memory_db(toasty::models!(Doc)).await;
     let router = mount(
         db.clone(),
         Panel::new("admin")

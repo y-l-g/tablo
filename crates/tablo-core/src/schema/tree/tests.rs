@@ -4,34 +4,8 @@ use super::*;
 use crate::{
     form::FieldErrors,
     schema::{Group, Schema, Section},
-    test_support::{DummyUser, cx},
+    test_support::{DummyUser, Html as _, cx},
 };
-
-#[tokio::test]
-async fn fields_compose_in_a_tuple() {
-    let cx = cx();
-    let schema = Schema::new((
-        Field::text(DummyUser::fields().name()),
-        Field::text(DummyUser::fields().email()),
-    ));
-    let html = schema
-        .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
-        .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
-    assert!(
-        html.matches("data-slot=\"field\"").count() >= 2,
-        "expected 2 fields (data-slot=field) in {html}"
-    );
-    assert_eq!(
-        html.matches("role=\"alert\"").count(),
-        0,
-        "valid fields render no error slot in {html}"
-    );
-}
 
 #[tokio::test]
 async fn schema_composes_multiple_blocks() {
@@ -43,11 +17,8 @@ async fn schema_composes_multiple_blocks() {
     let html = schema
         .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     // The assertions below check structure, not paint: each block
     // renders its own child, exactly once, and the section's title still
     // frames its field.
@@ -74,11 +45,8 @@ async fn empty_schema_renders_empty() {
     let html = schema
         .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(
         html.trim().is_empty(),
         "empty schema should render nothing, got {html}"
@@ -106,11 +74,8 @@ async fn nested_blocks_keep_their_field_slots() {
     let html = schema
         .render(&cx, Source::form(&values, &FieldErrors::new()))
         .await
-        .unwrap()
-        .single()
-        .await
-        .unwrap()
-        .render(&cx);
+        .html(&cx)
+        .await;
     assert!(html.contains("value=\"Ada\""), "{html}");
     assert!(html.contains("value=\"ada@example.com\""), "{html}");
 }

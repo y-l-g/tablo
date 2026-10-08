@@ -264,7 +264,7 @@ async fn multipart_stream_rejects_missing_boundary() {
 }
 
 #[test]
-fn filenames_sanitize_to_basename_and_dispatch_guards_size() {
+fn a_filename_reduces_to_its_basename_and_drops_reserved_names() {
     assert_eq!(sanitize_filename("upload.jpg"), "upload.jpg");
     assert_eq!(sanitize_filename("../../../etc/cron.d/x"), "x");
     assert_eq!(sanitize_filename("/abs/path"), "path");
@@ -293,7 +293,10 @@ fn filenames_sanitize_to_basename_and_dispatch_guards_size() {
         capped.ends_with('a'),
         "tail must be preserved, got {capped:?}"
     );
-    // Over-cap body rejects with 413.
+}
+
+#[test]
+fn an_urlencoded_body_past_the_cap_is_refused() {
     let big = vec![b'a'; MAX_FORM_BYTES + 1];
     assert!(
         form_values_from_request_parts(Some("application/x-www-form-urlencoded"), &big).is_err()
@@ -303,31 +306,16 @@ fn filenames_sanitize_to_basename_and_dispatch_guards_size() {
     assert_eq!(ok.get("name").map(String::as_str), Some("Ada"));
 }
 
-#[test]
-fn sanitize_filename_invariants_hold() {
-    // Every output stays separator-free, capped at 255 bytes, and panic-free.
-    for raw in [
-        "a/b\\c".to_string(),
-        "é".repeat(300),
-        "../..".to_string(),
-        "con".to_string(),
-        " normal.jpg ".to_string(),
-        "a".repeat(500),
-        "\u{0}bad\nname\"".to_string(),
-    ] {
+proptest::proptest! {
+    /// Whatever the client sends, the stored name is one path segment that cannot climb, name a
+    /// device or carry a control character, within the 255-byte cap.
+    #[test]
+    fn a_sanitized_filename_is_one_safe_segment(raw in "\\PC{0,400}|[./\\\\a-zA-Z\\x00-\\x1f]{0,40}") {
         let out = sanitize_filename(&raw);
-        assert!(
-            !out.contains('/') && !out.contains('\\'),
-            "separators must be gone, got {out:?} from {raw:?}"
-        );
-        assert!(
-            out.len() <= 255,
-            "cap must bound bytes, got {} from {raw:?}",
-            out.len()
-        );
-        assert!(
-            out.chars().all(|c| !c.is_control()),
-            "controls must be stripped, got {out:?}"
-        );
+        proptest::prop_assert!(!out.contains(['/', '\\']), "{out:?}");
+        proptest::prop_assert!(out.len() <= 255, "{} bytes", out.len());
+        proptest::prop_assert!(!out.chars().any(char::is_control), "{out:?}");
+        proptest::prop_assert!(out != "." && out != "..", "{out:?}");
+        proptest::prop_assert!(out.is_empty() || !is_windows_reserved_name(&out), "{out:?}");
     }
 }

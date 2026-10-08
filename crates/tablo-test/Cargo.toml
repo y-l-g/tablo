@@ -12,6 +12,8 @@ tablo-core = { path = "../tablo-core", version = "0.5.1" }
 form_urlencoded = "1.2"
 http = "1"
 http-body-util = "0.1"
+percent-encoding.workspace = true
+serde_json = "1"
 topcoat = { workspace = true }
 uuid.workspace = true
 

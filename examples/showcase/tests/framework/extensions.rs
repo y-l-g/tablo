@@ -7,8 +7,8 @@
 //! reaches a framework internal.
 
 use tablo::{
-    Ability, Action, BooleanColumn, Committed, DeclarationErrorKind, Detail, Mutation, Resource,
-    ResourceDef, Schema, Site, Table, TextColumn,
+    Ability, Action, BooleanColumn, Committed, DeclarationErrorKind, Detail, Mutation,
+    NotificationStatus, Resource, ResourceDef, Schema, Site, Table, TextColumn,
     extend::{Column, Control, ControlInput, Filter, FilterInput},
     lens,
 };
@@ -17,8 +17,8 @@ use topcoat::{context::Cx, view::*};
 use uuid::Uuid;
 
 use crate::framework::common::{
-    body_string, filter_options, flash, get, input_value, memory_db, mount, panel, panel_router,
-    post_fields, refusal, rows,
+    body_string, confirms_first, filter_options, flash, get, input_value, memory_db, mount, panel,
+    panel_router, post_fields, refusal, rows,
 };
 
 #[derive(Debug, toasty::Model, Clone)]
@@ -449,7 +449,7 @@ async fn a_row_renders_only_the_actions_its_record_allows() {
         "and the bulk-only action: {html}"
     );
     // The resource allows no delete, so the bulk bar carries the actions alone.
-    assert!(!html.contains("Delete selected"), "{html}");
+    assert!(!html.contains("/admin/tasks/bulk-delete"), "{html}");
     // Both rows take a bulk action (`explode` runs on any task), so both
     // render a checkbox.
     let found = rows(&html);
@@ -481,10 +481,11 @@ async fn a_row_action_runs_in_the_transaction_and_reaches_after_commit() {
     )
     .await;
     assert_eq!(response.status(), 303, "a committed action redirects");
+    let notification = flash(&response);
     assert!(
-        flash(&response).contains("Complete: 1 record"),
+        notification.status == NotificationStatus::Success,
         "with the default success text: {}",
-        flash(&response)
+        notification.title
     );
     assert!(self::task(&db, task.id).await.done);
 
@@ -566,10 +567,12 @@ async fn a_selection_runs_the_records_the_action_allows() {
         303,
         "the list answers with a notification"
     );
+    let notification = flash(&response);
     assert!(
-        flash(&response).contains("Complete: 1 record (1 of 2 skipped)"),
+        notification.status == NotificationStatus::Success
+            && notification.title.contains("(1 of 2 skipped)"),
         "the notification reports the skipped record: {}",
-        flash(&response)
+        notification.title
     );
     assert!(
         self::task(&db, open.id).await.done,
@@ -598,10 +601,11 @@ async fn a_selection_the_action_refuses_entirely_writes_nothing() {
         303,
         "the list answers with an error notification"
     );
+    let notification = flash(&response);
     assert!(
-        flash(&response).contains("2 selected records cannot take this action"),
+        notification.status == NotificationStatus::Error,
         "the notification names the refusal: {}",
-        flash(&response)
+        notification.title
     );
     assert!(logs(&db).await.is_empty());
 }
@@ -635,11 +639,7 @@ async fn a_bulk_action_without_a_selection_writes_nothing() {
 
     let response = post_fields(&router, "/admin/tasks/-/actions/complete", &[("ids", "")]).await;
     assert_eq!(response.status(), 303);
-    assert!(
-        flash(&response).contains("Select at least one row first"),
-        "{}",
-        flash(&response)
-    );
+    assert_eq!(flash(&response).status, NotificationStatus::Error);
     assert!(logs(&db).await.is_empty());
 }
 
@@ -792,26 +792,24 @@ async fn a_confirmatory_action_renders_triggers_and_dialogs() {
     let router = panel_router::<ConfirmResource>(db.clone());
 
     let html = body_string(get(&router, "/admin/confirmed").await).await;
-    let row = format!(
-        "formaction=\"/admin/confirmed/{}/-/actions/archive\"",
-        task.id
-    );
-    assert!(
-        html.contains(&row)
-            && html.contains("Run this action?")
-            && html.contains("role=\"alertdialog\""),
+    let row = format!("/admin/confirmed/{}/-/actions/archive", task.id);
+    assert_eq!(
+        confirms_first(&html, &row),
+        Some(true),
         "the row button opens the confirmation on its POST target: {html}"
     );
-    assert!(
-        html.contains("formaction=\"/admin/confirmed/-/actions/archive\""),
+    assert!(html.contains("role=\"alertdialog\""), "{html}");
+    assert_eq!(
+        confirms_first(&html, "/admin/confirmed/-/actions/archive"),
+        Some(true),
         "the bulk bar asks first too: {html}"
     );
 
     let plain =
         body_string(get(&panel_router::<TaskResource>(db.clone()), "/admin/tasks").await).await;
-    assert!(
-        plain.contains("formaction=\"/admin/tasks/-/actions/complete\"")
-            && !plain.contains("Run this action?"),
+    assert_eq!(
+        confirms_first(&plain, "/admin/tasks/-/actions/complete"),
+        Some(false),
         "an immediate action submits directly: {plain}"
     );
 }
