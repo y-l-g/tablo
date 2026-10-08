@@ -8,12 +8,17 @@ no SPA build step.
 
 ## Quick start
 
-Run the showcase, a blog admin that exercises every feature:
+Run the showcase, a blog admin that exercises every feature, through the Topcoat CLI:
 
 ```sh
-cargo run -p showcase
+cargo install topcoat-cli --version 0.10 --locked
+topcoat dev -p showcase
 # open http://localhost:3000/admin/users
 ```
+
+`topcoat dev` builds the showcase, bundles its assets beside the binary, serves it, and rebuilds it
+when a source file changes. `cargo run -p showcase` alone stops with an error: it finds no asset
+bundle.
 
 Depend on the `tablo` facade, pick a database driver, and build the stylesheet with `tablo-build`
 (the [first-panel chapter](docs/guide/src/first-panel.md) has the full manifest, including the

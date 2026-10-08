@@ -6,7 +6,7 @@ Read it before the first change. This file adds what applies to agents only.
 ```sh
 cargo xtask check          # before every commit
 cargo xtask check --all    # before merging
-cargo run -p showcase      # http://localhost:3000/admin/users
+topcoat dev -p showcase    # http://localhost:3000/admin/users
 ```
 
 1. Verify every claim in a doc, comment, commit or PR against the code, and every upstream API

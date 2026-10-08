@@ -15,7 +15,7 @@ body:
       label: What you did
       description: The command or request, and the state it ran against.
       placeholder: |
-        cargo run -p showcase
+        topcoat dev -p showcase
         # then: GET /admin/posts?sort=title
     validations:
       required: true

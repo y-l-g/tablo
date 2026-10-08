@@ -534,6 +534,9 @@ pub fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf
     builder.panel(panel).expect("showcase panel mounts").build()
 }
 
+/// `cargo run` builds the binary but not the bundle beside it; the Topcoat CLI builds both.
+const RUN_HINT: &str = "run the showcase with `topcoat dev -p showcase`";
+
 fn load_assets() -> AssetBundle {
     match AssetBundle::load() {
         Ok(bundle) => bundle,
@@ -552,12 +555,12 @@ fn load_assets() -> AssetBundle {
             match test_bundle {
                 Some(dir) => AssetBundle::load_dir(&dir).unwrap_or_else(|test_error| {
                     panic!(
-                        "showcase asset bundle is unavailable: executable lookup failed ({near_executable}); tried {} ({test_error})",
+                        "showcase asset bundle is unavailable: executable lookup failed ({near_executable}); tried {} ({test_error}); {RUN_HINT}",
                         dir.display()
                     )
                 }),
                 None => panic!(
-                    "showcase asset bundle is unavailable: executable lookup failed ({near_executable})"
+                    "showcase asset bundle is unavailable: executable lookup failed ({near_executable}); {RUN_HINT}"
                 ),
             }
         }
