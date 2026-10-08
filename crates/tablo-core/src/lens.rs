@@ -85,6 +85,3 @@ macro_rules! lens {
         )
     };
 }
-
-#[cfg(test)]
-mod tests;

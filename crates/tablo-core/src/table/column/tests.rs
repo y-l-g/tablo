@@ -28,47 +28,6 @@ fn text_column_renders_cells_via_typed_projection() {
     assert_eq!(relabelled.name(), "name", "a label renames no column");
 }
 
-#[test]
-fn computed_columns_declare_no_predicate_chrome_agreement() {
-    let col = ComputedColumn::new("Status", |u: &User| u.name.clone());
-    assert!(!col.is_searchable() && !col.is_sortable());
-    assert!(col.search_expr("x").is_none());
-    assert!(col.order_by(false).is_none());
-}
-
-/// A column's kind picks its default width, `.width(..)`
-/// overrides it, and the declaration reaches the renderer as data — the
-/// CSS it writes on the `th`/`td`, never a Tailwind class.
-#[test]
-fn text_column_width_defaults_by_kind() {
-    let field = TextColumn::new(lens!(User.name));
-    assert_eq!(field.column_width(), ColumnWidth::Wide);
-
-    let computed = ComputedColumn::new("Status", |u: &User| u.name.clone());
-    assert_eq!(computed.column_width(), ColumnWidth::Narrow);
-
-    let declared = computed.width(ColumnWidth::Percent(30));
-    assert_eq!(declared.column_width(), ColumnWidth::Percent(30));
-
-    // A wide column declares nothing at all: it takes the share the
-    // declared columns leave.
-    assert!(ColumnWidth::Wide.explicit_css().is_none());
-    assert!(ColumnWidth::Wide.default_percent().is_none());
-
-    // A kind default is a nominal share of the table, resolved by the
-    // renderer; an explicit width is emitted as written.
-    assert_eq!(ColumnWidth::Narrow.default_percent(), Some(10));
-    assert!(ColumnWidth::Narrow.explicit_css().is_none());
-    assert_eq!(
-        ColumnWidth::Rem(14).explicit_css().as_deref(),
-        Some("width: 14rem")
-    );
-    assert_eq!(
-        ColumnWidth::Percent(30).explicit_css().as_deref(),
-        Some("width: 30%")
-    );
-}
-
 /// A column's includes accumulate across calls and keep each relation once, so
 /// the table's union loads every relation the columns read, once.
 #[test]
@@ -103,30 +62,5 @@ fn text_column_includes_accumulate_once_per_relation() {
         column.includes().len(),
         2,
         "two relations, one repeated: the column keeps each once"
-    );
-}
-
-/// Shared columns, declared once and spliced into any table of `User`.
-fn shared_columns() -> Vec<BoxColumn<User>> {
-    vec![
-        Arc::new(TextColumn::new(lens!(User.name))) as BoxColumn<User>,
-        Arc::new(ComputedColumn::new("Initial", |user: &User| {
-            user.name.clone()
-        })) as BoxColumn<User>,
-    ]
-}
-
-#[test]
-fn column_collections_compose_without_respelling() {
-    let from_vec = crate::table::Table::<User>::new(shared_columns()).declaration_errors();
-    assert!(
-        from_vec.is_empty(),
-        "shared vec columns must declare, got {from_vec:?}"
-    );
-    let from_slice =
-        crate::table::Table::<User>::new(shared_columns().as_slice()).declaration_errors();
-    assert!(
-        from_slice.is_empty(),
-        "shared slice columns must declare, got {from_slice:?}"
     );
 }

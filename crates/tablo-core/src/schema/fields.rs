@@ -559,33 +559,6 @@ mod test_support {
         }
         panic!("unterminated tag at byte {start} in {html}");
     }
-
-    /// The sorted attributes of the tag carrying `needle` (unordered, topcoat#122).
-    pub(super) fn attributes_of(html: &str, needle: &str) -> Vec<String> {
-        let mut quoted = false;
-        let mut attrs: Vec<String> = Vec::new();
-        let mut current = String::new();
-        for ch in tag_with(html, needle).chars() {
-            match ch {
-                '"' => {
-                    quoted = !quoted;
-                    current.push(ch);
-                }
-                ch if ch.is_whitespace() && !quoted => {
-                    if !current.is_empty() {
-                        attrs.push(std::mem::take(&mut current));
-                    }
-                }
-                ch => current.push(ch),
-            }
-        }
-        if !current.is_empty() {
-            attrs.push(current);
-        }
-        attrs.remove(0); // the tag name
-        attrs.sort();
-        attrs
-    }
 }
 
 #[cfg(test)]

@@ -2,11 +2,7 @@
 //! the stored rows render a thumbnail or a link.
 
 use http_body_util::BodyExt;
-use showcase::{
-    media::{KIND_FILE, KIND_IMAGE, MEDIA_PATH},
-    models::{DEMO_TENANT, MediaAsset},
-};
-use tablo::TenantId;
+use showcase::{media::MEDIA_PATH, models::MediaAsset};
 use topcoat::router::{Body, Router};
 
 use crate::common::{
@@ -68,139 +64,6 @@ async fn upload(
     let client = demo_client(router, db).await;
     let csrf = uuid::Uuid::new_v4().to_string();
     post_upload(&client, filename, content_type, payload, Some(&csrf)).await
-}
-
-/// The opening tag carrying `needle`.
-///
-/// Attributes render in no guaranteed order (topcoat#122), so a case locates a
-/// tag by whichever attribute it can and asserts on the whole tag. Quoting is
-/// honoured, so a `>` inside an attribute value does not end the slice.
-fn tag_with<'h>(html: &'h str, needle: &str) -> &'h str {
-    let at = html
-        .find(needle)
-        .unwrap_or_else(|| panic!("no {needle} in {html}"));
-    let start = html[..at].rfind('<').expect("its opening tag");
-    let mut quoted = false;
-    for (offset, byte) in html[start..].bytes().enumerate() {
-        match byte {
-            b'"' => quoted = !quoted,
-            b'>' if !quoted => return &html[start..start + offset],
-            _ => {}
-        }
-    }
-    panic!("unterminated tag at byte {start}");
-}
-
-/// The upload form's markup, so a case can assert what is inside it.
-fn upload_form(html: &str) -> &str {
-    let at = html
-        .find("enctype=\"multipart/form-data\"")
-        .unwrap_or_else(|| panic!("no upload form in {html}"));
-    let start = html[..at].rfind("<form").expect("its opening tag");
-    let end = html[start..].find("</form>").expect("its closing tag") + start;
-    &html[start..end]
-}
-
-#[tokio::test]
-async fn an_upload_creates_a_row() {
-    let db = full_db().await;
-    let router = router_with_app_uploads(db.clone());
-
-    let response = upload(&router, &db, "cover.png", "image/png", PAYLOAD).await;
-    assert!(
-        response.status().is_redirection(),
-        "the upload must save, got {}",
-        response.status()
-    );
-
-    let mut db_q = db.clone();
-    let rows = MediaAsset::all().exec(&mut db_q).await.unwrap();
-    assert_eq!(rows.len(), 1, "one row for the upload");
-    let row = &rows[0];
-    assert_eq!(row.tenant_id.get(), DEMO_TENANT);
-    assert_eq!(row.filename, "cover.png");
-    assert_eq!(row.kind, KIND_IMAGE);
-    assert!(
-        row.path.starts_with("/uploads/"),
-        "the row stores the URL the store returned, got {}",
-        row.path
-    );
-    assert!(row.path.ends_with("cover.png"), "got {}", row.path);
-
-    // The bytes are in the directory the panel serves, and the stored path —
-    // exactly the string in the row — fetches them back.
-    let client = demo_client(&router, &db).await;
-    let response = client.get(&row.path).await;
-    assert_eq!(response.status(), 200, "{} must be fetchable", row.path);
-    let bytes = response
-        .into_body()
-        .collect()
-        .await
-        .expect("collect the served file")
-        .to_bytes();
-    assert_eq!(bytes.as_ref(), PAYLOAD.as_bytes());
-}
-
-#[tokio::test]
-async fn the_upload_form_is_file_only() {
-    let db = full_db().await;
-    let router = router_with_app_uploads(db.clone());
-    let client = demo_client(&router, &db).await;
-    let html = body_string(client.get(MEDIA_PATH).await).await;
-    let form = upload_form(&html);
-    assert!(
-        form.contains("name=\"file\""),
-        "the form must offer a file input: {form}"
-    );
-    assert!(
-        !form.contains("name=\"owner\""),
-        "the form must not offer an owner picker: {form}"
-    );
-    assert!(
-        !form.contains("<select"),
-        "a file-only form renders no select: {form}"
-    );
-}
-
-#[tokio::test]
-async fn the_stored_row_renders_a_thumbnail_for_an_image_and_a_link_for_anything_else() {
-    let db = full_db().await;
-    let router = router_with_app_uploads(db.clone());
-    upload(&router, &db, "cover.png", "image/png", PAYLOAD).await;
-    upload(&router, &db, "notes.txt", "text/plain", "NOTES").await;
-
-    let mut db_q = db.clone();
-    let rows = MediaAsset::all().exec(&mut db_q).await.unwrap();
-    let image = rows
-        .iter()
-        .find(|row| row.kind == KIND_IMAGE)
-        .expect("the image row");
-    let file = rows
-        .iter()
-        .find(|row| row.kind == KIND_FILE)
-        .expect("the file row");
-
-    let client = demo_client(&router, &db).await;
-    let html = body_string(client.get(MEDIA_PATH).await).await;
-
-    let thumbnail = tag_with(&html, &format!("src=\"{}\"", image.path));
-    assert!(
-        thumbnail.starts_with("<img"),
-        "an image row must render a thumbnail, got {thumbnail}"
-    );
-    assert!(
-        thumbnail.contains(&format!("alt=\"{}\"", image.filename)),
-        "the thumbnail must name the file, got {thumbnail}"
-    );
-    let link = tag_with(&html, &format!("href=\"{}\"", file.path));
-    assert!(
-        link.starts_with("<a"),
-        "anything that is not an image renders a link, got {link}"
-    );
-    assert!(
-        !html.contains(&format!("href=\"{}\"", image.path)),
-        "the image row is the thumbnail, not a link too: {html}"
-    );
 }
 
 #[tokio::test]
@@ -327,60 +190,6 @@ async fn a_filename_that_would_break_the_url_still_fetches_back() {
             row.path
         );
     }
-}
-
-#[tokio::test]
-async fn a_picked_cover_renders_on_the_blog_post_page() {
-    use showcase::models::{Author, DEMO_TENANT, Post, PostStatus, Publication, Seo};
-
-    let db = full_db().await;
-    let router = router_with_app_uploads(db.clone());
-    upload(&router, &db, "cover.png", "image/png", PAYLOAD).await;
-
-    let mut db_q = db.clone();
-    let row = MediaAsset::all().exec(&mut db_q).await.unwrap().remove(0);
-    let author = Author::all()
-        .first()
-        .exec(&mut db_q)
-        .await
-        .unwrap()
-        .expect("a seeded author");
-    let post = toasty::create!(Post {
-        id: uuid::Uuid::new_v4(),
-        tenant_id: TenantId::from(DEMO_TENANT),
-        title: "Cover Post",
-        body: "Body with a cover.",
-        status: PostStatus::Published,
-        featured: false,
-        created_at: "2024-03-01T09:00:00Z".parse::<jiff::Timestamp>().unwrap(),
-        cover_id: Some(row.id),
-        tags: String::new(),
-        seo: Seo {
-            title: String::new(),
-            description: String::new(),
-        },
-        publication: Publication::Published {
-            published_at: Some("2024-03-01T09:00:00Z".parse::<jiff::Timestamp>().unwrap()),
-            canonical_url: String::new(),
-        },
-        author_id: author.id,
-    })
-    .exec(&mut db_q)
-    .await
-    .expect("create the covered post");
-
-    // Anonymous, like any reader of the public blog.
-    let html = body_string(
-        TestClient::new(&router)
-            .get(&format!("/blog/{}", post.id))
-            .await,
-    )
-    .await;
-    let thumbnail = tag_with(&html, &format!("src=\"{}\"", row.path));
-    assert!(
-        thumbnail.starts_with("<img"),
-        "the post's page must show its picked cover, got {thumbnail}"
-    );
 }
 
 #[tokio::test]

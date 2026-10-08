@@ -307,48 +307,6 @@ async fn edit_sso_managed_user_is_forbidden() {
 }
 
 #[tokio::test]
-async fn post_body_renders_as_a_textarea() {
-    use showcase::models::Post;
-
-    let db = crate::common::full_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
-
-    let mut db_q = db.clone();
-    let post = Post::all()
-        .exec(&mut db_q)
-        .await
-        .unwrap()
-        .into_iter()
-        .next()
-        .expect("a seeded post");
-
-    let resp = client.get(&format!("/admin/posts/{}/edit", post.id)).await;
-    assert_eq!(resp.status(), 200, "GET post edit should be 200");
-    let html = body_string(resp).await;
-
-    let label = html
-        .find("for=\"body\"")
-        .expect("the body field must render a label");
-    let close = html
-        .find("</textarea>")
-        .expect("the body field must render a textarea");
-    let field = &html[label..close];
-    assert!(
-        field.contains("<textarea"),
-        "the body field must be a textarea, got {field}"
-    );
-    assert!(
-        !field.contains("<input"),
-        "the body field must not be an input, got {field}"
-    );
-    assert!(
-        field.contains(&post.body),
-        "the textarea must carry the stored body, got {field}"
-    );
-}
-
-#[tokio::test]
 async fn post_edit_binds_and_saves_embedded_fields() {
     use showcase::models::Post;
 

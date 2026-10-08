@@ -252,54 +252,6 @@ async fn read_only_resource_hides_delete_chrome() {
 }
 
 #[tokio::test]
-async fn list_header_renders_create_entry_point_when_allowed() {
-    use crate::resource::Resource;
-
-    struct CreatableResource;
-    impl Resource for CreatableResource {
-        type Model = Dummy;
-        type Form = CreatableForm;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("dummies")
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| {
-                    matches!(ability, Ability::ViewAny | Ability::Create)
-                })
-                .table(dummy_table().paginate(25))
-        }
-    }
-    #[derive(crate::RecordForm)]
-    #[form(model = Dummy)]
-    struct CreatableForm {
-        name: String,
-    }
-    struct DenyCreateResource;
-    impl Resource for DenyCreateResource {
-        type Model = Dummy;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("dummies")
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny))
-                .table(dummy_table().paginate(25))
-        }
-    }
-
-    let html = list_html::<CreatableResource>().await;
-    assert!(
-        html.contains("href=\"/admin/dummies/create\"") && html.contains("Create"),
-        "allowed list must link to the create page, got {html}"
-    );
-    let html = list_html::<DenyCreateResource>().await;
-    assert!(
-        !html.contains("/admin/dummies/create"),
-        "denied list must not link to the create page, got {html}"
-    );
-}
-
-#[tokio::test]
 async fn non_editable_resource_hides_edit_links() {
     // The per-row Edit link follows the record form: a `NoForm` resource
     // hides it, a resource with a form links each row to

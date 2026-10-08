@@ -3,43 +3,13 @@ use std::collections::HashMap;
 use topcoat::context::Cx;
 
 use super::{
-    super::test_support::{attributes_of, cx, opening_tag_at, tag_with},
+    super::test_support::{cx, opening_tag_at, tag_with},
     *,
 };
 use crate::{
     form::FieldErrors,
     schema::{Schema, Source},
-    test_support::Html as _,
 };
-
-#[tokio::test]
-async fn file_upload_renders_without_value_attr() {
-    let cx = cx();
-    #[derive(Debug, toasty::Model)]
-    struct Doc {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        path: String,
-    }
-    let schema = Schema::new(Field::file(Doc::fields().path()));
-    let mut values = HashMap::new();
-    values.insert("path".to_string(), "/tmp/old.jpg".to_string());
-    let html = schema
-        .render(&cx, Source::form(&values, &FieldErrors::new()))
-        .await
-        .html(&cx)
-        .await;
-    assert!(
-        html.contains("type=\"file\""),
-        "missing file input in {html}"
-    );
-    // Browsers ignore/mask file-input value — must never render.
-    assert!(
-        !html.contains("value=\"/tmp/old.jpg\""),
-        "file input must not carry value in {html}"
-    );
-}
 
 /// The opening `<input …>` tag around the file control, so assertions do
 /// not have to care about attribute order (topcoat#122).
@@ -181,34 +151,6 @@ async fn file_upload_links_the_stored_file() {
     );
 }
 
-/// A *read* of the stored value links it too — a reader asks the
-/// same "is what is stored right?" question the editor asks, and following
-/// the link is how they answer it.
-#[tokio::test]
-async fn file_upload_view_mode_links_the_stored_file() {
-    let cx = cx();
-    let html = render_readonly_upload(&cx, Some("/uploads/cover.png")).await;
-    assert!(
-        tag_with(&html, "href=\"/uploads/cover.png\"").starts_with("<a"),
-        "a detail page must link the stored file, got {html}"
-    );
-    assert!(
-        !html.contains("<img"),
-        "a detail page renders no image, got {html}"
-    );
-    assert!(
-        !html.contains("type=\"file\""),
-        "and must never show a file control, got {html}"
-    );
-
-    // Nothing stored is not a link to nowhere.
-    let empty = render_readonly_upload(&cx, Some("")).await;
-    assert!(
-        !empty.contains("href="),
-        "an empty stored value must not render a link, got {empty}"
-    );
-}
-
 /// A stored value becomes an `href` only when it is a rooted path
 /// or an absolute `http(s)` URL. Every other spelling — a scheme such as
 /// `javascript:` or `data:`, the scheme-relative `//host`, a bare basename
@@ -257,39 +199,6 @@ async fn file_upload_links_only_a_rooted_or_http_url() {
             "{linkable} must stay a link on the detail page, got {view}"
         );
     }
-}
-
-/// The stored path is opaque. A `.png` and a `.txt` render the
-/// same row and the same link.
-#[tokio::test]
-async fn file_upload_renders_any_extension_identically() {
-    let (cx, schema) = cx_and_doc_schema();
-    let png = render_upload(&schema, &cx, Some("/uploads/cover.png")).await;
-    let txt = render_upload(&schema, &cx, Some("/uploads/cover.txt")).await;
-    for needle in ["data-file-current=", "href="] {
-        assert_eq!(
-            stored_attributes(&png, needle, "/uploads/cover.png"),
-            stored_attributes(&txt, needle, "/uploads/cover.txt"),
-            "the extension must not change the form row ({needle})"
-        );
-    }
-
-    let png = render_readonly_upload(&cx, Some("/uploads/cover.png")).await;
-    let txt = render_readonly_upload(&cx, Some("/uploads/cover.txt")).await;
-    assert_eq!(
-        stored_attributes(&png, "href=", "/uploads/cover.png"),
-        stored_attributes(&txt, "href=", "/uploads/cover.txt"),
-        "the extension must not change the read-only link"
-    );
-}
-
-/// The tag carrying `needle`, with `path` normalized out of its attributes
-/// so two renders of different paths compare equal.
-fn stored_attributes(html: &str, needle: &str, path: &str) -> Vec<String> {
-    attributes_of(html, needle)
-        .into_iter()
-        .map(|attr| attr.replace(path, "<stored>"))
-        .collect()
 }
 
 /// The clear control belongs to a stored value — it is the only

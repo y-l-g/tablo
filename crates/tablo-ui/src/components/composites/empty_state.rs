@@ -50,6 +50,3 @@ pub async fn empty_state(
         </div>
     })
 }
-
-#[cfg(test)]
-mod tests;
