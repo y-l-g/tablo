@@ -5,9 +5,10 @@ mod protocol;
 
 use http::header::{CONTENT_TYPE, COOKIE};
 pub use protocol::{
-    FilterOption, Row, RowActions, SESSION_COOKIE, body_bytes, body_string, cookie_header,
-    field_error, filter_options, form_body, input_value, multipart_body, response_cookies,
-    row_actions, rows, session_cookie_value, set_cookie_header,
+    EmptyTable, FilterOption, Row, RowActions, SESSION_COOKIE, body_bytes, body_string,
+    cookie_header, empty_table, field_error, filter_options, form_body, input_value,
+    multipart_body, notification, response_cookies, row_actions, rows, session_cookie_value,
+    set_cookie_header,
 };
 use topcoat::router::{Body, Router};
 

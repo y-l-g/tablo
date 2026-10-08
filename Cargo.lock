@@ -3480,6 +3480,8 @@ dependencies = [
  "form_urlencoded",
  "http",
  "http-body-util",
+ "percent-encoding",
+ "serde_json",
  "tablo-core",
  "topcoat",
  "uuid",
