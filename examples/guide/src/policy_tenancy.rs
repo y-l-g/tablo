@@ -7,13 +7,27 @@ use tablo::{
 };
 use topcoat::{Result, context::Cx};
 
-use crate::models::Staff;
+use crate::{
+    models::{Post, Staff},
+    tables::Publish,
+};
 
 // ANCHOR: policy-editors-only
 pub fn editors_only(cx: &Cx) -> bool {
     tablo::auth::user::<Staff>(cx).is_some_and(|staff| staff.editor)
 }
 // ANCHOR_END: policy-editors-only
+
+// ANCHOR: policy-action
+pub fn post_policy(cx: &Cx, ability: Ability<'_, Post>) -> bool {
+    match ability {
+        Ability::ViewAny | Ability::View(_) => true,
+        // `Publish` is the action's type, so renaming its `NAME` keeps this arm matching.
+        _ if ability.is_action::<Publish, _>() => editors_only(cx),
+        _ => false,
+    }
+}
+// ANCHOR_END: policy-action
 
 // ANCHOR: policy-models
 pub fn auth_models() {

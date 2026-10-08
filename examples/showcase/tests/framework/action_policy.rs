@@ -173,13 +173,10 @@ async fn an_allowing_policy_runs_the_action_on_a_row_and_a_selection() {
 }
 
 /// A policy that allows every ability but closing a ticket titled "Locked". It matches the
-/// action's name, so a `Run` asked under another name would let the locked ticket through.
+/// action `Close`, so a `Run` asked under another name would let the locked ticket through.
 fn all_but_locked(_cx: &Cx, ability: Ability<'_, Ticket>) -> bool {
     match ability {
-        Ability::Run {
-            action: "close",
-            record,
-        } => record.title != "Locked",
+        Ability::Run { record, .. } if ability.is_action::<Close, _>() => record.title != "Locked",
         _ => true,
     }
 }
