@@ -363,7 +363,9 @@ impl Embedded {
                 let key = e.key.clone();
                 let stored = stored.unwrap_or_default().to_string();
                 // The variant the select names is a signal, so choosing another shows its group
-                // in place; every group still submits, and the server parses the chosen one.
+                // in place. The other groups sit in a disabled fieldset: a hidden required control
+                // would still fail the browser's validation and block the submit, and the server
+                // parses only the chosen variant.
                 // Keyed by the page's path: navigation carries the values of signals two pages
                 // share, and another record's form starts from its own stored variant.
                 let page = topcoat::context::try_request_context::<http::request::Parts>(cx)
@@ -378,16 +380,22 @@ impl Embedded {
                     let groups: Vec<BoxView<'a>> = groups
                         .into_iter()
                         .map(|(value, members)| {
-                            let shown = variant.clone();
+                            let (shown, enabled) = (variant.clone(), variant.clone());
+                            let named = value.clone();
                             view! {
                                 cx =>
-                                ui_field_group(
-                                    attrs: attributes! {
-                                        data-variant=(value.clone())
-                                        :hidden=$(shown.get() != value)
-                                    },
-                                    (members)
-                                )
+                                <fieldset
+                                    class="contents"
+                                    :disabled=$(enabled.get() != named)
+                                >
+                                    ui_field_group(
+                                        attrs: attributes! {
+                                            data-variant=(value.clone())
+                                            :hidden=$(shown.get() != value)
+                                        },
+                                        (members)
+                                    )
+                                </fieldset>
                             }
                             .boxed()
                         })

@@ -841,6 +841,32 @@ async fn the_variant_groups_are_exactly_the_schemas_variants() {
     );
 }
 
+/// Only the chosen variant's controls are enabled: a required control in a hidden group would
+/// still fail the browser's validation and block the submit.
+#[tokio::test]
+async fn only_the_chosen_variants_controls_are_enabled() {
+    let cx = post_cx().await;
+    let html = render_form(
+        &cx,
+        &Schema::new(bound(&cx, Publication::form(Post::fields().publication()))),
+        &map(&[("publication", "2")]),
+    )
+    .await;
+
+    for marker in variant_markers(&html) {
+        let group = html
+            .find(&format!("data-variant=\"{marker}\""))
+            .expect("the group");
+        let fieldset = &html[html[..group].rfind("<fieldset").expect("a fieldset")..group];
+        let disabled = fieldset.contains(" disabled");
+        assert_eq!(
+            disabled,
+            marker != "2",
+            "variant {marker}'s group must be disabled exactly when not chosen, got {html}"
+        );
+    }
+}
+
 /// A unit variant still gets its group.
 #[tokio::test]
 async fn a_unit_variant_still_gets_its_group() {
