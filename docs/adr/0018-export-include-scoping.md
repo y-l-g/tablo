@@ -6,8 +6,10 @@ what their columns declare; the detail page's `Detail` holds the same `Column` t
 lists. `RelationColumn` and `CountColumn` take a `relation!` lens, which pairs a relation field's
 include with its reader, so the include they declare is the relation they read; a
 `ComputedColumn` declares what its closure reads with `include`. The sealed `ToOneRelation` trait
-only tells a required `Deferred` field from a nullable one: it names no relation and links no
-column to a resource, so it is not the `Relation` trait rejected below. `Resource::query` stays
+tells a required `Deferred` field from a nullable one and names the related model: it names no
+relation and links no column to a resource, so it is not the `Relation` trait rejected below. `RelationColumn::of::<R>`
+borrows `R`'s record label for its text and nothing else: the `relation!` lens still declares the
+include, and `R`'s query and policy still do not apply. `Resource::query` stays
 row scoping only; a relation belongs there only when every loader reads it, such as one the
 policy checks. A relation column whose row was loaded without its include renders
 `"(unloaded)"` and fails a debug assertion.

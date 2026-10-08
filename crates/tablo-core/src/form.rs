@@ -61,6 +61,34 @@
 //! }
 //! ```
 //!
+//! A bare choice, which would offer nothing: a foreign key names its source with
+//! `#[form(relationship = ..)]`.
+//!
+//! ```compile_fail
+//! # #[derive(Debug, Clone, toasty::Model)]
+//! # struct Post { #[key] #[auto] id: uuid::Uuid, author_id: uuid::Uuid }
+//! #[derive(tablo_core::RecordForm)]
+//! #[form(model = Post)]
+//! struct PostForm {
+//!     #[form(choice)]
+//!     author_id: uuid::Uuid,
+//! }
+//! ```
+//!
+//! Two keys that each pick the control:
+//!
+//! ```compile_fail
+//! # #[derive(Debug, Clone, toasty::Model)]
+//! # struct Post { #[key] #[auto] id: uuid::Uuid, author_id: String }
+//! # struct Authors;
+//! #[derive(tablo_core::RecordForm)]
+//! #[form(model = Post)]
+//! struct PostForm {
+//!     #[form(relationship = Authors, file)]
+//!     author_id: String,
+//! }
+//! ```
+//!
 //! A scalar type the form edge cannot spell:
 //!
 //! ```compile_fail
@@ -330,8 +358,8 @@ pub trait RecordForm: Sized + Send + 'static {
     /// order. A [`ResourceDef`](crate::ResourceDef) without a [`view`](crate::ResourceDef::view)
     /// shows it.
     ///
-    /// The derive shows each field [`table`](Self::table) lists, a bare choice as the key it holds,
-    /// a file field as a link, and an embedded value leaf by leaf (see
+    /// The derive shows each field [`table`](Self::table) lists, a relationship as the key it
+    /// holds, a file field as a link, and an embedded value leaf by leaf (see
     /// [`RecordForm`](derive@crate::RecordForm)). A relation's record shows through a
     /// [`RelationColumn`](crate::RelationColumn), in a declared
     /// [`view`](crate::ResourceDef::view). The default here shows none, which turns the detail page

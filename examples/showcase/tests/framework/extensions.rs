@@ -53,7 +53,7 @@ impl Column<Task> for Highlighted {
         "Highlighted"
     }
 
-    fn text(&self, row: &Task) -> String {
+    fn text(&self, _cx: &Cx, row: &Task) -> String {
         format!("{} chars", row.title.len())
     }
 

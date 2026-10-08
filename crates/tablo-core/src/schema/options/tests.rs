@@ -77,7 +77,7 @@ async fn a_typed_field_takes_its_options_and_labels_from_its_type() {
         status: Status::Published,
         previous: None,
     };
-    assert_eq!(column.text(&row), "Live");
+    assert_eq!(column.text(&crate::test_support::cx(), &row), "Live");
 }
 
 #[test]

@@ -37,7 +37,7 @@ struct ItemForm {
     notes: String,
     #[form(blank = 3)]
     priority: i64,
-    #[form(blank = false, choice)]
+    #[form(blank = false)]
     done: bool,
 }
 
@@ -47,7 +47,7 @@ fn item_schema() -> Schema<ItemForm> {
         c.title,
         c.notes,
         c.priority,
-        c.done.options(["true", "false"]),
+        c.done.choice().options(["true", "false"]),
     ))
 }
 
@@ -587,6 +587,22 @@ async fn build_refuses_a_field_record_form_control_does_not_render() {
     );
 }
 
+/// A choice with neither options nor a relationship renders an empty `<select>`, and its
+/// validation, with no option to check against, would accept any value: mounting refuses it.
+#[tokio::test]
+async fn build_refuses_a_choice_that_offers_nothing() {
+    item_resource!(Empty, {
+        let c = ItemForm::controls();
+        Schema::new(c.notes.choice())
+    });
+    assert_eq!(
+        refused::<Empty>(item_db().await),
+        [DeclarationErrorKind::EmptyChoice {
+            field: "notes".to_string(),
+        }]
+    );
+}
+
 #[tokio::test]
 async fn build_refuses_a_list_only_resource_that_allows_create() {
     list_only_resource!(Creating, true);
@@ -732,7 +748,6 @@ async fn a_value_the_form_type_refuses_renders_inline() {
     #[derive(tablo::RecordForm)]
     #[form(model = Item)]
     struct LooseForm {
-        #[form(choice)]
         priority: i64,
     }
 
@@ -751,7 +766,12 @@ async fn a_value_the_form_type_refuses_renders_inline() {
                 .table(item_table())
                 .form(
                     // A static-options select checks membership, not the column's type.
-                    Schema::new(LooseForm::controls().priority.options(["1", "lots"])),
+                    Schema::new(
+                        LooseForm::controls()
+                            .priority
+                            .choice()
+                            .options(["1", "lots"]),
+                    ),
                 )
         }
     }
@@ -1238,13 +1258,14 @@ struct Attachment {
 struct AttachmentForm {
     #[form(file)]
     path: String,
-    #[form(choice)]
+    // Any source serves: the test reads the key the detail page shows.
+    #[form(relationship = AttachmentResource)]
     owner_id: Uuid,
     #[form(embed)]
     stage: Stage,
 }
 
-/// A resource whose detail page the record form derives, over a file, a bare choice and an
+/// A resource whose detail page the record form derives, over a file, a relationship and an
 /// embedded enum.
 struct AttachmentResource;
 
@@ -1262,7 +1283,7 @@ impl Resource for AttachmentResource {
     }
 }
 
-/// The derived detail page links a file, shows a bare choice's key and an embedded enum's stored
+/// The derived detail page links a file, shows a relationship's key and an embedded enum's stored
 /// variant; the table's embedded column exports the same reading.
 #[tokio::test]
 async fn the_derived_detail_page_shows_files_keys_and_embedded_values() {
@@ -1288,7 +1309,7 @@ async fn the_derived_detail_page_shows_files_keys_and_embedded_values() {
     );
     assert!(
         entry(&detail, "Owner id").contains(&owner.to_string()),
-        "a bare choice shows its key: {detail}"
+        "a relationship shows its key: {detail}"
     );
     assert!(entry(&detail, "Stage").contains(">Out<"), "{detail}");
     assert!(entry(&detail, "Note").contains("shipped"), "{detail}");

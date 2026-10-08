@@ -30,8 +30,8 @@
 ///     status: Status,
 /// }
 ///
-/// Field::choice(Post::fields().status()).options(Status::options());
-/// SelectFilter::of(Post::fields().status());
+/// Field::choice(lens!(Post.status)).options(Status::options());
+/// SelectFilter::of(lens!(Post.status));
 /// Table::new(TextColumn::new(lens!(Post.status))).group_by(lens!(Post.status));
 /// Post::filter(Post::fields().status().eq(Status::Published));
 /// ```
@@ -39,7 +39,7 @@
 /// Toasty stores the variant under its own discriminant, `snake_case` by
 /// default; the option's value is only the form's spelling. A `String` field
 /// takes the same list, storing the value itself:
-/// `SelectFilter::new(Post::fields().kind(), Kind::options())`.
+/// `SelectFilter::new(lens!(Post.kind), Kind::options())`.
 ///
 /// The derive also gives the enum `value()`, `label()` and `from_value()`.
 pub trait Options {

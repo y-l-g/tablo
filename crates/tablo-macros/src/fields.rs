@@ -18,7 +18,7 @@ pub(crate) enum Derive {
     /// `blank = <expr>`, `optional`.
     Embedded,
     /// `#[derive(RecordForm)]`: `embed`, `blank = <expr>`, `optional`, and the
-    /// control keys `options`, `options = <Type>`, `choice`, `file`.
+    /// control keys `options`, `options = <Type>`, `relationship = <Source>`, `file`.
     Record,
     /// `#[derive(ActionInput)]`: `label = ".."`, `multiline = N`, `placeholder = ".."`,
     /// `blank = <expr>`, `optional`, `options`, `options = <Type>`.
@@ -43,8 +43,8 @@ pub(crate) struct FormAttrs {
     /// `#[form(options = <Type>)]`: a choice over an `Options` type's list, `Some(None)` for a
     /// bare `#[form(options)]` over the field's own type.
     pub(crate) options: Option<Option<Type>>,
-    /// `#[form(choice)]`: a bare choice, its options declared in `form()`.
-    pub(crate) choice: bool,
+    /// `#[form(relationship = <Source>)]`: a choice over an `OptionSource`'s rows.
+    pub(crate) relationship: Option<Type>,
     /// `#[form(file)]`: a file field.
     pub(crate) file: bool,
 }
@@ -79,8 +79,13 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
                 } else {
                     None
                 });
+            } else if meta.path.is_ident("relationship") && derive == Derive::Record {
+                out.relationship = Some(meta.value()?.parse()?);
             } else if meta.path.is_ident("choice") && derive == Derive::Record {
-                out.choice = true;
+                return Err(meta.error(
+                    "a bare choice offers nothing to choose: declare `relationship = <Source>`, or \
+                     call `.choice()` on the control in the resource's form and give it options",
+                ));
             } else if meta.path.is_ident("file") && derive == Derive::Record {
                 out.file = true;
             } else {
@@ -91,7 +96,7 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
                     }
                     Derive::Record => {
                         "`embed`, `blank = <expr>`, `optional`, `options`, `options = <Type>`, \
-                         `choice`, or `file`"
+                         `relationship = <Source>`, or `file`"
                     }
                     Derive::Input => {
                         "`label = \"…\"`, `multiline = N`, `placeholder = \"…\"`, \
@@ -117,7 +122,7 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
     }
     let controls = [
         (out.options.is_some(), "`options`"),
-        (out.choice, "`choice`"),
+        (out.relationship.is_some(), "`relationship`"),
         (out.file, "`file`"),
     ];
     let chosen: Vec<&str> = controls
@@ -141,7 +146,7 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
             (out.blank.is_some(), "`blank`"),
             (out.optional, "`optional`"),
             (out.options.is_some(), "`options`"),
-            (out.choice, "`choice`"),
+            (out.relationship.is_some(), "`relationship`"),
             (out.file, "`file`"),
         ];
         if let Some((_, key)) = misplaced.iter().find(|(set, _)| *set) {

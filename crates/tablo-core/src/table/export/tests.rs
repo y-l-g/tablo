@@ -9,7 +9,7 @@ fn csv_row_defuses_formula_cells_per_owasp() {
             id: uuid::Uuid::nil(),
             name: payload.to_string(),
         };
-        let body = csv_table.csv_row(&user);
+        let body = csv_table.csv_row(&crate::test_support::cx(), &user);
         assert!(
             body.starts_with('\''),
             "formula payload {payload:?} must be defused with leading `'`, got {body:?}"
@@ -20,7 +20,7 @@ fn csv_row_defuses_formula_cells_per_owasp() {
         id: uuid::Uuid::nil(),
         name: "Ada, \"the\" first".to_string(),
     };
-    let csv = csv_table.csv_row(&user);
+    let csv = csv_table.csv_row(&crate::test_support::cx(), &user);
     assert!(
         csv.contains("\"Ada, \"\"the\"\" first\""),
         "quoting broke: {csv:?}"
@@ -50,7 +50,7 @@ fn csv_row_defuses_cr_lf_led_formula_cells() {
             id: uuid::Uuid::nil(),
             name: payload.to_string(),
         };
-        let csv = csv_table.csv_row(&user);
+        let csv = csv_table.csv_row(&crate::test_support::cx(), &user);
         assert!(
             csv.contains(defused),
             "CR/LF-led formula payload {payload:?} must be defused to {defused:?}, got {csv:?}"

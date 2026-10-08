@@ -64,17 +64,19 @@ use crate::{
 /// #     {
 /// #         Ok(toasty::stmt::Query::all())
 /// #     }
+/// #     fn label(_cx: &topcoat::context::Cx, author: &Author) -> String {
+/// #         author.name.clone()
+/// #     }
 /// # }
-/// # use tablo_core::{Field, Options};
-/// Field::text(User::fields().name()).placeholder("Ada Lovelace"); // TextField
-/// Field::text(User::fields().email()).email().unique();
-/// Field::text(User::fields().age()); // typed: an `i64` column
-/// Field::text(Post::fields().body()).multiline(6);
-/// Field::choice(Post::fields().status()).options(Status::options()); // ChoiceField
-/// Field::choice(Post::fields().author_id())
-///     .relationship::<AuthorResource>(|a: &Author| a.name.clone());
-/// Field::file(Doc::fields().path()); // FileField
-/// Field::toggle(Post::fields().featured()); // CustomField
+/// # use tablo_core::{Field, Options, lens};
+/// Field::text(lens!(User.name)).placeholder("Ada Lovelace"); // TextField
+/// Field::text(lens!(User.email)).email().unique();
+/// Field::text(lens!(User.age)); // typed: an `i64` column
+/// Field::text(lens!(Post.body)).multiline(6);
+/// Field::choice(lens!(Post.status)).options(Status::options()); // ChoiceField
+/// Field::choice(lens!(Post.author_id)).relationship::<AuthorResource>();
+/// Field::file(lens!(Doc.path)); // FileField
+/// Field::toggle(lens!(Post.featured)); // CustomField
 /// ```
 ///
 /// ```compile_fail
@@ -266,6 +268,11 @@ impl Field {
 
     pub(crate) fn label_str(&self) -> &str {
         self.label.as_deref().unwrap_or(self.binding.label())
+    }
+
+    /// Whether the field is a choice declaring neither options nor a relationship.
+    pub(crate) fn offers_nothing(&self) -> bool {
+        self.as_choice().is_some_and(ChoiceControl::offers_nothing)
     }
 
     pub(crate) fn as_choice(&self) -> Option<&ChoiceControl> {

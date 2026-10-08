@@ -196,6 +196,20 @@ impl<F> Schema<F> {
         out
     }
 
+    /// One [`EmptyChoice`](crate::DeclarationErrorKind::EmptyChoice) per choice with neither
+    /// options nor a relationship. Mounting checks a resource's form and its actions' inputs; a
+    /// page's schema may build its options from data that is empty for now, so rendering does
+    /// not.
+    pub(crate) fn empty_choices(&self) -> Vec<crate::DeclarationErrorKind> {
+        self.fields
+            .iter()
+            .filter(|field| field.offers_nothing())
+            .map(|field| crate::DeclarationErrorKind::EmptyChoice {
+                field: field.name().to_string(),
+            })
+            .collect()
+    }
+
     /// Reports what is wrong with this declaration: an embedded value or path never bound, a field
     /// whose lens binds no single column, and two fields sharing a name.
     pub fn declaration_errors(&self) -> Vec<crate::DeclarationErrorKind> {

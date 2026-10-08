@@ -285,6 +285,60 @@ struct Child {
     name: String,
 }
 
+/// Refuses a relation column labelled by a resource the panel does not register, which would
+/// otherwise show every related record by its bare key.
+#[tokio::test]
+async fn panel_mount_rejects_a_relation_column_of_an_unregistered_resource() {
+    use crate::{
+        RelationColumn, relation,
+        resource::Resource,
+        table::{Table, TextColumn},
+    };
+
+    struct Parents;
+    impl Resource for Parents {
+        type Model = Parent;
+        type Form = crate::NoForm<Self::Model>;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().table(Table::new(TextColumn::new(lens!(Parent.name))))
+        }
+    }
+
+    struct Children;
+    impl Resource for Children {
+        type Model = Child;
+        type Form = crate::NoForm<Self::Model>;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .table(Table::new((
+                    TextColumn::new(lens!(Child.name)),
+                    RelationColumn::of::<Parents>(relation!(Child.parent)),
+                )))
+                .view(crate::Detail::new(RelationColumn::of::<Parents>(
+                    relation!(Child.parent),
+                )))
+        }
+    }
+
+    let db = tableless_db(toasty::models!(Parent, Child)).await;
+    let panel = || Panel::new("admin").auth(crate::Auth::disabled());
+    let unregistered = DeclarationErrorKind::UnregisteredLabelSource {
+        column: "parent".to_string(),
+        source: std::any::type_name::<Parents>(),
+    };
+    assert_eq!(
+        refusal(mount(db.clone(), panel().resource::<Children>())),
+        [
+            DeclarationError::of::<Children>(Site::Table, unregistered.clone()),
+            DeclarationError::of::<Children>(Site::View, unregistered),
+        ]
+    );
+    mount(db, panel().resource::<Children>().resource::<Parents>())
+        .expect("a relation column of a registered resource mounts");
+}
+
 /// Refuses a tenancy column through a relation.
 #[tokio::test]
 async fn panel_mount_rejects_a_tenancy_column_through_a_relation() {
@@ -425,7 +479,6 @@ async fn panel_mount_requires_a_tenancy_via_key_over_a_scoped_parent() {
     #[form(model = Child)]
     struct KeyedForm {
         name: String,
-        #[form(choice)]
         parent_id: uuid::Uuid,
     }
 
@@ -454,19 +507,11 @@ async fn panel_mount_requires_a_tenancy_via_key_over_a_scoped_parent() {
     via_child!(WithoutKey, NameForm, Schema::default);
     via_child!(OverOpenParent, KeyedForm, || {
         let c = KeyedForm::controls();
-        Schema::new((
-            c.name,
-            c.parent_id
-                .relationship::<OpenParents>(|p: &Parent| p.name.clone()),
-        ))
+        Schema::new((c.name, c.parent_id.choice().relationship::<OpenParents>()))
     });
     via_child!(OverScopedParent, KeyedForm, || {
         let c = KeyedForm::controls();
-        Schema::new((
-            c.name,
-            c.parent_id
-                .relationship::<ScopedParents>(|p: &Parent| p.name.clone()),
-        ))
+        Schema::new((c.name, c.parent_id.choice().relationship::<ScopedParents>()))
     });
 
     let db = tableless_db(toasty::models!(Parent, Child)).await;
@@ -532,7 +577,7 @@ async fn panel_mount_rejects_a_relationship_over_a_composite_key() {
     #[form(model = Child)]
     struct SeatedForm {
         name: String,
-        #[form(choice)]
+        #[form(relationship = Seats)]
         parent_id: uuid::Uuid,
     }
 
@@ -548,11 +593,7 @@ async fn panel_mount_rejects_a_relationship_over_a_composite_key() {
                     matches!(ability, Ability::ViewAny | Ability::Create)
                 })
                 .table(Table::new(TextColumn::new(lens!(Child.name))))
-                .form(Schema::new((
-                    c.name,
-                    c.parent_id
-                        .relationship::<Seats>(|s: &Seat| s.label.clone()),
-                )))
+                .form(Schema::new((c.name, c.parent_id)))
         }
     }
 
@@ -1130,7 +1171,7 @@ impl crate::table::Column<Dummy> for Unbindable {
         "Unbindable"
     }
 
-    fn text(&self, _row: &Dummy) -> String {
+    fn text(&self, _cx: &Cx, _row: &Dummy) -> String {
         String::new()
     }
 

@@ -48,6 +48,10 @@ impl Resource for OwnerResource {
             })
             .table(Table::new(TextColumn::new(lens!(Owner.name))))
             .view(tablo::Detail::new(TextColumn::new(lens!(Owner.name))))
+            // Bob goes unlabelled, so his title falls back to the resource's label and his key.
+            .record_label(|_cx: &Cx, owner: &Owner| {
+                (owner.name != "Bob").then(|| owner.name.clone())
+            })
             .relation(Relation::has_many::<ChildResource>(
                 Child::fields().owner_id(),
             ))
@@ -81,13 +85,7 @@ impl Resource for ChildResource {
             .table(Table::new(
                 TextColumn::new(lens!(Child.body)).searchable().sortable(),
             ))
-            .form(Schema::new((
-                c.body,
-                c.owner_id
-                    .choice()
-                    .relationship::<OwnerResource>(|owner: &Owner| owner.name.clone())
-                    .label("Owner"),
-            )))
+            .form(Schema::new((c.body, c.owner_id.label("Owner"))))
     }
 }
 
@@ -95,6 +93,7 @@ impl Resource for ChildResource {
 #[form(model = Child)]
 struct ChildForm {
     body: String,
+    #[form(relationship = OwnerResource)]
     owner_id: Uuid,
 }
 
@@ -263,6 +262,24 @@ async fn the_create_page_seeds_the_owner_and_keeps_the_return() {
             ada.id
         )),
         "the form keeps the return: {form}"
+    );
+}
+
+/// The owner choice offers each owner by the title its detail page shows.
+#[tokio::test]
+async fn the_owner_choice_offers_each_owner_by_its_record_label() {
+    let (router, _db, ada, bob) = fixture().await;
+    let form = body_string(get(&router, "/admin/children/create").await).await;
+    assert!(
+        form.contains(&format!("<option value=\"{}\">Ada</option>", ada.id)),
+        "a labelled owner: {form}"
+    );
+    assert!(
+        form.contains(&format!(
+            "<option value=\"{}\">Owner {}</option>",
+            bob.id, bob.id
+        )),
+        "an unlabelled owner: {form}"
     );
 }
 

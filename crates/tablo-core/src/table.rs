@@ -27,7 +27,7 @@ mod wiring;
 pub use self::{
     column::{
         BooleanColumn, ColumnWidth, ComputedColumn, CountColumn, EmbeddedColumn, FileColumn,
-        IntoColumns, RelationColumn, RelationLens, TextColumn, ToOneRelation, contains_expr, shape,
+        IntoColumns, RelationColumn, RelationLens, TextColumn, ToOneRelation, contains_expr,
     },
     filter::{DateFilter, IntoFilters, QueryFilter, SelectFilter, TernaryFilter},
     page::TablePage,
@@ -301,6 +301,14 @@ impl<M> Table<M> {
             None => self.misdeclared.push(DeclarationErrorKind::ZeroPageSize),
         }
         self
+    }
+
+    /// The columns labelling their records by a source the context's panel cannot load from.
+    pub(crate) fn unavailable_sources(
+        &self,
+        cx: &topcoat::context::Cx,
+    ) -> Vec<DeclarationErrorKind> {
+        crate::table::column::unavailable_sources(cx, self.columns.iter().map(|c| &**c))
     }
 
     /// What is wrong with this declaration.

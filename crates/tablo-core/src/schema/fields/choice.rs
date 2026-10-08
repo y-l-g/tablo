@@ -53,13 +53,13 @@ pub(crate) fn option_view<'a>(
 }
 
 impl Relationship {
-    /// The loaders for source `R`, projecting each row to its primary key and label.
-    pub(super) fn new<R>(label: impl Fn(&R::Model) -> String + Send + Sync + 'static) -> Self
+    /// The loaders for source `R`, projecting each row to its primary key and `label`.
+    pub(super) fn new<R>(label: impl Fn(&Cx, &R::Model) -> String + Send + Sync + 'static) -> Self
     where
         R: OptionSource + 'static,
     {
-        let project = std::sync::Arc::new(move |record: &R::Model| {
-            (crate::toasty_compat::pk::pk_text(record), label(record))
+        let project = std::sync::Arc::new(move |cx: &Cx, record: &R::Model| {
+            (crate::toasty_compat::pk::pk_text(record), label(cx, record))
         });
         let search_project = project.clone();
         let load = std::sync::Arc::new(move |cx: &Cx| {
@@ -69,7 +69,7 @@ impl Relationship {
                 let records = related_records::<R>(&cx, crate::tenancy::tenant_id(&cx))
                     .await
                     .map_err(|error| error.clone())?;
-                Ok(records.iter().map(|record| project(record)).collect())
+                Ok(records.iter().map(|record| project(&cx, record)).collect())
             }) as RelationshipLoadFuture
         }) as RelationshipLoader;
         let search = std::sync::Arc::new(move |cx: &Cx, q: String| {
@@ -79,7 +79,7 @@ impl Relationship {
                 let records = related_records_search::<R>(&cx, q)
                     .await
                     .map_err(|error| error.clone())?;
-                Ok(records.iter().map(|record| project(record)).collect())
+                Ok(records.iter().map(|record| project(&cx, record)).collect())
             }) as RelationshipLoadFuture
         }) as RelationshipSearchLoader;
         let check = std::sync::Arc::new(check_record::<R>) as RelationshipChecker;
@@ -119,6 +119,12 @@ impl ChoiceControl {
             .iter()
             .find(|(stored, _)| stored == value)
             .map(|(_, label)| label.as_str())
+    }
+
+    /// Whether the choice declares neither options nor a relationship: its `<select>` offers
+    /// nothing, and validation, with no option to check against, would accept any value.
+    pub(crate) fn offers_nothing(&self) -> bool {
+        self.options.is_empty() && self.relationship.is_none()
     }
 
     pub(crate) fn is_relationship(&self) -> bool {

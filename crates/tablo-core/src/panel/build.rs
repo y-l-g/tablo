@@ -382,7 +382,8 @@ pub(super) fn check_resource<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationE
             DeclarationErrorKind::TenancyViaOwnColumn,
         ));
     }
-    let form_errors = declared.form.declaration_errors();
+    let mut form_errors = declared.form.declaration_errors();
+    form_errors.extend(declared.form.empty_choices());
     let form_is_sound = form_errors.is_empty();
     // A derived view mirrors the record form, whose mistakes the form already reports.
     let view_errors = if declared.declares_view {
@@ -394,6 +395,16 @@ pub(super) fn check_resource<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationE
         (Site::Table, declared.table.declaration_errors()),
         (Site::Form, form_errors),
         (Site::View, view_errors),
+    ] {
+        errors.extend(
+            kinds
+                .into_iter()
+                .map(|kind| DeclarationError::of::<R>(site.clone(), kind)),
+        );
+    }
+    for (site, kinds) in [
+        (Site::Table, declared.table.unavailable_sources(cx)),
+        (Site::View, declared.view.unavailable_sources(cx)),
     ] {
         errors.extend(
             kinds
@@ -421,6 +432,7 @@ fn check_actions<R: Resource>(cx: &Cx, declared: &Mounted<R>, errors: &mut Vec<D
         }
         let input = (action.input)();
         let mut kinds = input.declaration_errors();
+        kinds.extend(input.empty_choices());
         let mut faults: Vec<ActionInputFault> = input
             .fields()
             .filter_map(|field| {

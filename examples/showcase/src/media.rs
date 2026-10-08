@@ -68,6 +68,10 @@ impl OptionSource for MediaLibrary {
     fn order_by(_cx: &Cx) -> Option<toasty::stmt::OrderByExpr> {
         Some(MediaAsset::fields().filename().asc())
     }
+
+    fn label(_cx: &Cx, asset: &MediaAsset) -> String {
+        asset.filename.clone()
+    }
 }
 
 /// Renders one media row's file.

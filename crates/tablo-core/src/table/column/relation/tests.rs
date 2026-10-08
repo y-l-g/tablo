@@ -95,6 +95,41 @@ fn a_relation_column_names_its_field_and_declares_its_include() {
     );
 }
 
+/// The shelves a book is shelved on, labelled by name with a prefix the test can tell apart.
+struct Shelves;
+
+impl crate::schema::OptionSource for Shelves {
+    type Model = Shelf;
+
+    fn scoped_query(
+        _cx: &topcoat::context::Cx,
+    ) -> topcoat::Result<toasty::stmt::Query<toasty::stmt::List<Shelf>>> {
+        Ok(toasty::stmt::Query::all())
+    }
+
+    fn label(_cx: &topcoat::context::Cx, shelf: &Shelf) -> String {
+        format!("Shelf {}", shelf.name)
+    }
+}
+
+/// A relation column of a source shows each related record by the source's label, the one its
+/// relationship choices offer.
+#[tokio::test]
+async fn a_relation_column_of_a_source_shows_its_label() {
+    let cx = crate::test_support::cx();
+    let mut db = library().await;
+    let column = RelationColumn::of::<Shelves>(relation!(Book.shelf));
+    assert_eq!(Column::<Book>::name(&column), "shelf");
+    let book = Detail::new(column.clone())
+        .include_relations(toasty::stmt::Query::all())
+        .first()
+        .exec(&mut db)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(column.text(&cx, &book), "Shelf Sci-fi");
+}
+
 /// A label renames the column, so one table shows two values of one relation.
 #[test]
 fn two_labelled_columns_over_one_relation_declare_one_table() {
@@ -117,6 +152,7 @@ fn two_labelled_columns_over_one_relation_declare_one_table() {
 /// an empty cell for a nullable relation holding none, and the count of a `has_many`.
 #[tokio::test]
 async fn the_page_loads_the_relations_its_relation_columns_read() {
+    let cx = crate::test_support::cx();
     let mut db = library().await;
 
     let detail = Detail::new((shelf_name(), borrower_name()));
@@ -130,8 +166,8 @@ async fn the_page_loads_the_relations_its_relation_columns_read() {
         .map(|b| {
             (
                 b.title.as_str(),
-                shelf_name().text(b),
-                borrower_name().text(b),
+                shelf_name().text(&cx, b),
+                borrower_name().text(&cx, b),
             )
         })
         .collect();
@@ -152,7 +188,7 @@ async fn the_page_loads_the_relations_its_relation_columns_read() {
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(count.text(&shelf), "2");
+    assert_eq!(count.text(&cx, &shelf), "2");
 }
 
 /// A row loaded without the include its relation column declares is a loader's bug: a debug
@@ -169,5 +205,5 @@ fn an_unloaded_relation_fails_a_debug_assertion() {
         borrower_id: None,
         borrower: Deferred::default(),
     };
-    shelf_name().text(&book);
+    shelf_name().text(&crate::test_support::cx(), &book);
 }

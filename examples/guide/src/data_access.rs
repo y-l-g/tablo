@@ -6,7 +6,7 @@ use topcoat::context::Cx;
 
 use crate::{
     models::{Post, PostStatus, User},
-    resources::{CommentResource, PostResource},
+    resources::{AuthorResource, CommentResource, PostResource},
 };
 
 pub async fn load_users(cx: &Cx) -> topcoat::Result<Vec<User>> {
@@ -62,6 +62,7 @@ pub fn admin_panel() -> Panel {
     Panel::new("admin")
         .resource::<PostResource>()
         .resource::<CommentResource>()
+        .resource::<AuthorResource>()
 }
 // ANCHOR_END: data-access-panel
 
