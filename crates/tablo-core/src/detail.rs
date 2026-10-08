@@ -7,10 +7,10 @@ use topcoat::{context::Cx, view::*};
 
 use crate::{
     DeclarationErrorKind, EmbeddedForm,
-    schema::{FieldResolver, Grid, Group, Section},
+    schema::{FieldResolver, Grid, Group, RepeaterItem, Section},
     table::{
         BooleanColumn, BoxColumn, Column, ComputedColumn, CountColumn, EmbeddedColumn, FileColumn,
-        RelationColumn, TextColumn, include_relations,
+        RelationColumn, RepeaterColumn, TextColumn, include_relations,
     },
 };
 
@@ -252,6 +252,16 @@ impl<M, T> IntoDetail<M> for EmbeddedColumn<M, T>
 where
     M: toasty::schema::Model + Send + Sync + 'static,
     T: EmbeddedForm + Send + Sync + 'static,
+{
+    fn into_detail(self) -> Detail<M> {
+        Detail::empty().column(self)
+    }
+}
+
+impl<M, T> IntoDetail<M> for RepeaterColumn<M, T>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+    T: RepeaterItem,
 {
     fn into_detail(self) -> Detail<M> {
         Detail::empty().column(self)

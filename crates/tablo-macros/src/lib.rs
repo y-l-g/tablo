@@ -1,5 +1,5 @@
-//! The `RecordForm`, `EmbeddedForm`, `ActionInput` and `Options` derives, re-exported by
-//! `tablo-core`.
+//! The `RecordForm`, `EmbeddedForm`, `ActionInput`, `RepeaterItem` and `Options` derives,
+//! re-exported by `tablo-core`.
 
 mod embedded;
 mod fields;
@@ -30,7 +30,14 @@ pub fn record_form(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(ActionInput, attributes(form))]
 pub fn action_input(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as DeriveInput);
-    input::expand_tokens(input).into()
+    input::expand_tokens(input, input::Target::Input).into()
+}
+
+/// Derive `RepeaterItem` for one item of a repeater; documented on the `tablo-core` re-export.
+#[proc_macro_derive(RepeaterItem, attributes(form))]
+pub fn repeater_item(input: TokenStream) -> TokenStream {
+    let input = syn::parse_macro_input!(input as DeriveInput);
+    input::expand_tokens(input, input::Target::Item).into()
 }
 
 /// Derive `Options` for a unit-variant enum; documented on the `tablo-core` re-export.

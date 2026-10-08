@@ -23,6 +23,16 @@ pub(crate) enum Derive {
     /// `#[derive(ActionInput)]`: `label = ".."`, `multiline = N`, `placeholder = ".."`,
     /// `blank = <expr>`, `optional`, `options`, `options = <Type>`.
     Input,
+    /// `#[derive(RepeaterItem)]`: the keys `ActionInput` reads.
+    Item,
+}
+
+impl Derive {
+    /// Whether the derive's fields post their own names, as an action input's and a repeater
+    /// item's do.
+    fn named(self) -> bool {
+        matches!(self, Self::Input | Self::Item)
+    }
 }
 
 /// What `#[form(..)]` says about one field.
@@ -30,6 +40,8 @@ pub(crate) enum Derive {
 pub(crate) struct FormAttrs {
     /// `#[form(embed)]`: an `EmbeddedForm` value, bound whole.
     pub(crate) embed: bool,
+    /// `#[form(repeat)]`: a list of `RepeaterItem` values, bound whole.
+    pub(crate) repeat: bool,
     /// `#[form(label = "..")]`: the control's label.
     pub(crate) label: Option<String>,
     /// `#[form(multiline = N)]`: a `<textarea>` of `N` rows.
@@ -58,15 +70,17 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
             continue;
         }
         attr.parse_nested_meta(|meta| {
-            if meta.path.is_ident("embed") && derive != Derive::Input {
+            if meta.path.is_ident("embed") && !derive.named() {
                 out.embed = true;
+            } else if meta.path.is_ident("repeat") && derive == Derive::Record {
+                out.repeat = true;
             } else if meta.path.is_ident("label") && derive != Derive::Record {
                 let text: syn::LitStr = meta.value()?.parse()?;
                 out.label = Some(text.value());
             } else if meta.path.is_ident("multiline") && derive != Derive::Record {
                 let rows: syn::LitInt = meta.value()?.parse()?;
                 out.multiline = Some(rows.base10_parse()?);
-            } else if meta.path.is_ident("placeholder") && derive == Derive::Input {
+            } else if meta.path.is_ident("placeholder") && derive.named() {
                 let text: syn::LitStr = meta.value()?.parse()?;
                 out.placeholder = Some(text.value());
             } else if meta.path.is_ident("blank") {
@@ -95,10 +109,10 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
                          `optional`"
                     }
                     Derive::Record => {
-                        "`embed`, `blank = <expr>`, `optional`, `options`, `options = <Type>`, \
-                         `relationship = <Source>`, or `file`"
+                        "`embed`, `repeat`, `blank = <expr>`, `optional`, `options`, \
+                         `options = <Type>`, `relationship = <Source>`, or `file`"
                     }
-                    Derive::Input => {
+                    Derive::Input | Derive::Item => {
                         "`label = \"…\"`, `multiline = N`, `placeholder = \"…\"`, \
                          `blank = <expr>`, `optional`, `options`, or `options = <Type>`"
                     }
@@ -138,6 +152,31 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
                 chosen.join(" and ")
             ),
         ));
+    }
+    if out.embed && out.repeat {
+        return Err(syn::Error::new_spanned(
+            field,
+            "`embed` and `repeat` each bind the field whole: declare one",
+        ));
+    }
+    if out.repeat {
+        let misplaced = [
+            (out.blank.is_some(), "`blank`"),
+            (out.optional, "`optional`"),
+            (out.options.is_some(), "`options`"),
+            (out.relationship.is_some(), "`relationship`"),
+            (out.file, "`file`"),
+        ];
+        if let Some((_, key)) = misplaced.iter().find(|(set, _)| *set) {
+            return Err(syn::Error::new_spanned(
+                field,
+                format!(
+                    "{key} does not apply to a repeater: its item's fields declare their controls \
+                     and their blank answers, and no rows is its blank answer"
+                ),
+            ));
+        }
+        return Ok(out);
     }
     if out.embed {
         let misplaced = [

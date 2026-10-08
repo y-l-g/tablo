@@ -21,6 +21,8 @@ struct FieldSpec {
     variant: syn::Ident,
     /// `#[form(embed)]`: an `EmbeddedForm` value, bound whole.
     embed: bool,
+    /// `#[form(repeat)]`: a list of `RepeaterItem` values, bound whole.
+    repeat: bool,
     /// The parse's blank answer, `Option::None` for a required field.
     blank: TokenStream2,
     /// Whether the field has no blank answer, so its control renders required.
@@ -45,6 +47,8 @@ enum DefaultControl {
     File,
     /// An embedded value's own schema.
     Embed,
+    /// A repeater over the list's items.
+    Repeat,
 }
 
 struct StructAttrs {
@@ -131,6 +135,8 @@ fn field_spec(field: &syn::Field) -> syn::Result<FieldSpec> {
         matches!(&field.ty, Type::Path(path) if path.qself.is_none() && path.path.is_ident("bool"));
     let control = if attrs.embed {
         DefaultControl::Embed
+    } else if attrs.repeat {
+        DefaultControl::Repeat
     } else if let Some(options) = attrs.options.clone() {
         match options {
             Some(named) => DefaultControl::Choice(Box::new(named)),
@@ -145,12 +151,13 @@ fn field_spec(field: &syn::Field) -> syn::Result<FieldSpec> {
     } else {
         DefaultControl::Text
     };
-    let required = !attrs.embed && blank_answer(&field.ty, &attrs).is_none();
+    let required = !attrs.embed && !attrs.repeat && blank_answer(&field.ty, &attrs).is_none();
     Ok(FieldSpec {
         ident,
         ty: field.ty.clone(),
         variant,
         embed: attrs.embed,
+        repeat: attrs.repeat,
         blank: blank_option(&field.ty, &attrs),
         required,
         control,
@@ -226,6 +233,28 @@ fn expand_struct(
             reads.push(quote! {
                 let #binding = #krate::__macro::take_value(
                     <#ty as #krate::__macro::EmbeddedForm>::read_form(cx, #path, values),
+                    &mut errors,
+                );
+            });
+        } else if field.repeat {
+            // Toasty names a list's path `List<T>`, not the field's `Vec<T>`.
+            let key = quote_spanned! {ty.span()=>
+                #krate::__macro::form_key::<#model, _>(#path)
+            };
+            claims.push(quote! {
+                #krate::__macro::FormField {
+                    field: #field_enum::#variant,
+                    name: #name_str,
+                    required: ::std::vec::Vec::new(),
+                    keys: ::std::vec![#key],
+                }
+            });
+            hydrates.push(quote_spanned! {ty.span()=>
+                out.insert(#key, #krate::__macro::write_items(&record.#name));
+            });
+            reads.push(quote_spanned! {ty.span()=>
+                let #binding: ::std::option::Option<#ty> = #krate::__macro::take_value(
+                    #krate::__macro::parse_items(cx, &#key, values),
                     &mut errors,
                 );
             });
@@ -307,6 +336,10 @@ fn expand_struct(
                 quote! { #krate::__macro::FileField },
                 quote! { #krate::__macro::Field::file(#path) },
             ),
+            DefaultControl::Repeat => (
+                quote! { #krate::__macro::RepeaterField },
+                quote! { #krate::__macro::Field::repeater(#path) },
+            ),
             DefaultControl::Embed => {
                 let ty = &field.ty;
                 (
@@ -365,8 +398,8 @@ fn expand_struct(
             /// toggle, `#[form(options = T)]` a choice over `T`'s options,
             /// `#[form(options)]` a choice over the field type's options,
             /// `#[form(relationship = R)]` a choice over `R`'s records, `#[form(file)]` a file field,
-            /// `#[form(embed)]` the embedded value's schema, and any other
-            /// field a text field.
+            /// `#[form(embed)]` the embedded value's schema, `#[form(repeat)]` a repeater
+            /// over the list's items, and any other field a text field.
             #vis fn controls() -> #controls_ident {
                 #controls_ident {
                     #(#control_inits,)*
@@ -457,7 +490,7 @@ fn expand_struct(
 
 /// The column the default table lists a field in: a sortable text column, searchable over a
 /// `String` or `Option<String>`, a choice's option label, or a toggle's yes or no. A relationship,
-/// which holds a key, a file path and an embedded value get none.
+/// which holds a key, a file path, an embedded value and a repeater's list get none.
 fn default_column(
     krate: &TokenStream2,
     model: &syn::Path,
@@ -486,13 +519,16 @@ fn default_column(
         DefaultControl::Toggle => {
             Some(quote! { #krate::__macro::BooleanColumn::new(#lens).sortable() })
         }
-        DefaultControl::Relationship(_) | DefaultControl::File | DefaultControl::Embed => None,
+        DefaultControl::Relationship(_)
+        | DefaultControl::File
+        | DefaultControl::Embed
+        | DefaultControl::Repeat => None,
     }
 }
 
 /// The column the default detail page shows a field in: a text column, a choice's option label, a
-/// toggle's yes or no, a file path's link, or an embedded value's leaves. A relationship shows the
-/// key it holds, so a form of keys alone still has a detail page.
+/// toggle's yes or no, a file path's link, an embedded value's leaves, or a repeater's items. A
+/// relationship shows the key it holds, so a form of keys alone still has a detail page.
 fn default_entry(krate: &TokenStream2, model: &syn::Path, field: &FieldSpec) -> TokenStream2 {
     let name = &field.ident;
     let ty = &field.ty;
@@ -513,6 +549,12 @@ fn default_entry(krate: &TokenStream2, model: &syn::Path, field: &FieldSpec) -> 
         DefaultControl::Toggle => quote! { #krate::__macro::BooleanColumn::new(#lens) },
         DefaultControl::File => quote! { #krate::__macro::FileColumn::new(#lens) },
         DefaultControl::Embed => quote! { #krate::__macro::EmbeddedColumn::new(#lens) },
+        DefaultControl::Repeat => quote! {
+            #krate::__macro::RepeaterColumn::new(#krate::__macro::Lens::new(
+                <#model>::fields().#name(),
+                |record: &#model| &record.#name,
+            ))
+        },
     }
 }
 

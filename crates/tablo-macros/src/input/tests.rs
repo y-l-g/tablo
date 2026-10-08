@@ -3,13 +3,17 @@ use super::*;
 /// The refusal `source` produces, or the expansion when none fires.
 fn refusal(source: &str) -> String {
     let input: DeriveInput = syn::parse_str(source).expect("the derive input parses");
-    match expand_checked(input) {
+    match expand_checked(input, Target::Input) {
         Ok(_) => String::from("<expanded>"),
         Err(error) => error.to_string(),
     }
 }
 
 fn expansion(source: &str) -> String {
+    expansion_as(source, Target::Input)
+}
+
+fn expansion_as(source: &str, target: Target) -> String {
     let input: DeriveInput = syn::parse_str(source).expect("the derive input parses");
     let named = match &input.data {
         Data::Struct(data) => data.fields.iter().cloned().collect::<Vec<_>>(),
@@ -20,10 +24,10 @@ fn expansion(source: &str) -> String {
         .map(|field| FieldSpec {
             ident: field.ident.clone().unwrap(),
             ty: field.ty.clone(),
-            attrs: input_attrs(field).unwrap(),
+            attrs: input_attrs(field, target).unwrap(),
         })
         .collect();
-    expand_struct(&quote! { ::tablo_core }, &input.ident, &fields).to_string()
+    expand_struct(&quote! { ::tablo_core }, &input.ident, &fields, target).to_string()
 }
 
 #[test]
@@ -65,5 +69,24 @@ fn a_text_key_on_a_bool_is_refused() {
     assert!(
         out.contains("toggle_input"),
         "a spelled-out bool is a checkbox: {out}"
+    );
+}
+
+#[test]
+fn an_item_writes_each_field_back_under_its_name() {
+    let expanded = expansion_as(
+        "struct Link { label: String, #[form(optional)] url: String }",
+        Target::Item,
+    );
+    assert!(expanded.contains("RepeaterItem for Link"), "{expanded}");
+    assert!(expanded.contains("fn write"), "{expanded}");
+    assert!(expanded.contains("String :: from (\"url\")"), "{expanded}");
+    assert!(!expansion("struct F { a: String }").contains("fn write"));
+
+    let input: DeriveInput = syn::parse_str("struct Link {}").expect("the derive input parses");
+    let message = expand_checked(input, Target::Item).unwrap_err().to_string();
+    assert!(
+        message.contains("RepeaterItem") && !message.contains("type Input"),
+        "{message}"
     );
 }

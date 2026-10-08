@@ -12,8 +12,8 @@ use super::{
 };
 use crate::form::FormScalar;
 
-/// `label` and `name`, shared by every builder.
-macro_rules! common_modifiers {
+/// `label`, `name` and `visible_when`, shared by every builder.
+macro_rules! base_modifiers {
     ($builder:ident) => {
         impl $builder {
             pub(super) fn new(field: Field) -> Self {
@@ -29,16 +29,6 @@ macro_rules! common_modifiers {
 
             pub fn name(&self) -> &str {
                 self.0.name()
-            }
-
-            /// Renders the field with an app's [`Control`] instead, as [`Field::custom`] does:
-            /// how a record form's control takes a custom input. The field keeps its key and
-            /// label; the replaced control's own modifiers, such as `email`, `unique` or
-            /// `options`, are dropped with it.
-            pub fn custom(mut self, control: impl Control + 'static) -> CustomField<F> {
-                self.0.control = ControlKind::Custom(Arc::new(control));
-                self.0.checkbox = false;
-                CustomField(self.0, PhantomData)
             }
 
             /// Shows the field only while `watched` posts one of `values`: an option's value, or
@@ -90,6 +80,25 @@ macro_rules! common_modifiers {
     };
 }
 
+/// The base modifiers and `custom`, on every builder of one value's control.
+macro_rules! common_modifiers {
+    ($builder:ident) => {
+        base_modifiers!($builder);
+
+        impl<F> $builder<F> {
+            /// Renders the field with an app's [`Control`] instead, as [`Field::custom`] does:
+            /// how a record form's control takes a custom input. The field keeps its key and
+            /// label; the replaced control's own modifiers, such as `email`, `unique` or
+            /// `options`, are dropped with it.
+            pub fn custom(mut self, control: impl Control + 'static) -> CustomField<F> {
+                self.0.control = ControlKind::Custom(Arc::new(control));
+                self.0.checkbox = false;
+                CustomField(self.0, PhantomData)
+            }
+        }
+    };
+}
+
 /// Renders the control required, as a panel does for a record-form field with no blank answer.
 #[cfg(test)]
 macro_rules! required_for_tests {
@@ -115,6 +124,10 @@ pub struct ChoiceField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
 /// A file field: [`Field::file`], or a record form's file control (`F` is the form).
 pub struct FileField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
 
+/// A repeater: [`Field::repeater`], or a record form's `#[form(repeat)]` control (`F` is the
+/// form).
+pub struct RepeaterField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
+
 /// A field an app's [`Control`] renders: [`Field::custom`] and [`Field::toggle`], or a record
 /// form's toggle (`F` is the form).
 pub struct CustomField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
@@ -130,6 +143,7 @@ common_modifiers!(TextField);
 common_modifiers!(ChoiceField);
 common_modifiers!(FileField);
 common_modifiers!(CustomField);
+base_modifiers!(RepeaterField);
 
 /// `choice`, on every builder but the choice's own.
 macro_rules! to_choice {
@@ -267,6 +281,17 @@ impl<F> ChoiceField<F> {
     }
 }
 
+impl<F> RepeaterField<F> {
+    /// The add button's label, over "Add item".
+    pub fn add_label(mut self, label: impl Into<String>) -> Self {
+        match &mut self.0.control {
+            ControlKind::Repeater(repeater) => repeater.add_label = Some(label.into()),
+            _ => unreachable!("a RepeaterField holds a repeater control"),
+        }
+        self
+    }
+}
+
 /// A choice's static options as `(value, label)` pairs, in display order.
 pub trait IntoOptions {
     fn into_options(self) -> Vec<(String, String)>;
@@ -297,7 +322,7 @@ impl<const N: usize> IntoOptions for [&str; N] {
 /// The crate's tests read a builder's field as the schema will hold it.
 #[cfg(test)]
 mod test_deref {
-    use super::{ChoiceField, CustomField, Field, FileField, TextField};
+    use super::{ChoiceField, CustomField, Field, FileField, RepeaterField, TextField};
 
     macro_rules! deref_field {
         ($($builder:ident),*) => {$(
@@ -310,5 +335,11 @@ mod test_deref {
         )*};
     }
 
-    deref_field!(TextField, ChoiceField, FileField, CustomField);
+    deref_field!(
+        TextField,
+        ChoiceField,
+        FileField,
+        CustomField,
+        RepeaterField
+    );
 }

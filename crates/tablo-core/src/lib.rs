@@ -76,14 +76,15 @@ pub mod __macro {
         resource::{ActionInput, required_input},
         schema::{
             ChoiceField, CustomField, EmbeddedForm, Field, FieldResolver, FileField, IntoSchema,
-            Options, Schema, TextField,
+            Options, RepeaterField, RepeaterItem, Schema, TextField,
             embedded::{
                 Embedded, EmbeddedBuilder, embedded_field, embedded_form, take_leaf, take_value,
             },
             form_key,
+            repeater::{parse_items, write_items},
             tree::Retype,
         },
-        table::{BooleanColumn, EmbeddedColumn, FileColumn, Table, TextColumn},
+        table::{BooleanColumn, EmbeddedColumn, FileColumn, RepeaterColumn, Table, TextColumn},
         toasty_compat::VariantId,
     };
 }
@@ -135,13 +136,14 @@ pub use resource::{
 };
 pub use schema::{
     ChoiceField, CustomField, EmbeddedForm, Field, FieldResolver, FileField, Grid, Group,
-    IntoOptions, IntoSchema, Options, Schema, Section, Source, TextField, Toggle, Watched,
+    IntoOptions, IntoSchema, Options, RepeaterField, RepeaterItem, Schema, Section, Source,
+    TextField, Toggle, Watched,
 };
 pub use table::{
     BooleanColumn, ColumnWidth, ComputedColumn, CountColumn, Cursor, DateFilter, EmbeddedColumn,
-    FileColumn, IntoColumns, IntoFilters, QueryFilter, RelationColumn, RelationLens, SelectFilter,
-    Sort, Table, TablePage, TableState, TernaryFilter, TextColumn, ToOneRelation, WiredTable,
-    contains_expr,
+    FileColumn, IntoColumns, IntoFilters, QueryFilter, RelationColumn, RelationLens,
+    RepeaterColumn, SelectFilter, Sort, Table, TablePage, TableState, TernaryFilter, TextColumn,
+    ToOneRelation, WiredTable, contains_expr,
 };
 /// Derives [`ActionInput`](trait@ActionInput) for the typed value an [`Action`] asks for
 /// before it runs.
@@ -332,17 +334,17 @@ pub use tablo_macros::Options;
 /// a `bool` is a toggle, `#[form(options = T)]` a choice over `T`'s options,
 /// `#[form(options)]` a choice over the field type's options,
 /// `#[form(relationship = R)]` a choice over `R`'s records, `#[form(file)]` a file field,
-/// `#[form(embed)]` the embedded value's schema, and any other field a text
-/// field — with `controls()` handing them over, typed by the form so only a
+/// `#[form(embed)]` the embedded value's schema, `#[form(repeat)]` a repeater, and any
+/// other field a text field — with `controls()` handing them over, typed by the form so only a
 /// `Schema<UserForm>` places them, and `RecordForm::control` answering one
 /// field's. `RecordForm::table` lists a
 /// sortable column per text field, searchable over a `String` or
 /// `Option<String>`, an options field by its option's label, and a toggle as
 /// yes or no. `RecordForm::detail` shows the same columns, plus a relationship's
-/// key, a file field as a link and an embedded value leaf by leaf. A resource's `ResourceDef`
-/// defaults its form, table and detail page to them; `ResourceDef::form`,
-/// `ResourceDef::table` and `ResourceDef::view` arrange or extend them instead,
-/// and a form renders the controls it does not place after the ones it does.
+/// key, a file field as a link, an embedded value leaf by leaf and a repeater's items. A
+/// resource's `ResourceDef` defaults its form, table and detail page to them;
+/// `ResourceDef::form`, `ResourceDef::table` and `ResourceDef::view` arrange or extend them
+/// instead, and a form renders the controls it does not place after the ones it does.
 ///
 /// # Attributes
 ///
@@ -357,6 +359,9 @@ pub use tablo_macros::Options;
 ///   every `Resource` is.
 /// - `#[form(file)]` on a `String`: a file field.
 /// - `#[form(embed)]` on an `EmbeddedForm` value.
+/// - `#[form(repeat)]` on a `#[document]` list of [`RepeaterItem`](derive@RepeaterItem)
+///   values: a repeater, a row per item, which the browser adds, removes and moves. No rows is
+///   its blank answer.
 ///
 /// A scalar's **blank answer** is its `blank`, `""` for an `optional` `String`, `None` for an
 /// `Option`, or `false` for a `bool`. A field with none is required: the panel renders its
@@ -367,5 +372,38 @@ pub use tablo_macros::Options;
 /// type other than `String`, and an unknown key are compile errors. So are a field the model
 /// lacks, a type the model's field does not have, and a scalar that is not a `FormScalar`.
 pub use tablo_macros::RecordForm;
+/// Derives [`RepeaterItem`](trait@RepeaterItem) for one item of a repeater: an embedded struct
+/// a `#[document]` list stores.
+///
+/// ```rust
+/// #[derive(Debug, Clone, toasty::Embed, tablo_core::RepeaterItem)]
+/// pub struct Link {
+///     pub label: String,
+///     #[form(label = "URL")]
+///     pub url: String,
+/// }
+///
+/// #[derive(Debug, Clone, toasty::Model)]
+/// pub struct Post {
+///     #[key]
+///     #[auto]
+///     id: uuid::Uuid,
+///     #[document]
+///     #[default(Vec::<Link>::new())]
+///     links: Vec<Link>,
+/// }
+///
+/// #[derive(tablo_core::RecordForm)]
+/// #[form(model = Post)]
+/// pub struct PostForm {
+///     #[form(repeat)]
+///     pub links: Vec<Link>,
+/// }
+/// ```
+///
+/// Its fields, controls and attributes are an [`ActionInput`](derive@ActionInput)'s: each row
+/// posts them under its own prefix (`links.0.url`), and an item's blank answers and required
+/// fields work the same way.
+pub use tablo_macros::RepeaterItem;
 pub use tenancy::{Membership, Tenancy, Tenant, TenantColumn, TenantId, require_tenant, tenant_id};
 pub use upload::Uploader;

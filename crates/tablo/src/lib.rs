@@ -98,8 +98,8 @@ pub mod prelude {
         EmbeddedColumn, EmbeddedForm, Field, FieldErrors, FileColumn, FileField, Grid, Group,
         HeaderAction, HeaderActions, IntoOptions, Lens, NavigationItem, NoForm, Options, Page,
         Panel, Places, Policy, Posted, PublicLink, QueryFilter, ReadOnly, RecordForm, Relation,
-        RelationColumn, Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section,
-        SelectFilter, Table, Tenancy, TenantId, TernaryFilter, TextColumn, TextField, Toggle, can,
-        can_list, lens, relation, scoped_query, tenant_id, when,
+        RelationColumn, RepeaterColumn, RepeaterItem, Resource, ResourceDef, RouterBuilderPanelExt,
+        Schema, Section, SelectFilter, Table, Tenancy, TenantId, TernaryFilter, TextColumn,
+        TextField, Toggle, can, can_list, lens, relation, scoped_query, tenant_id, when,
     };
 }

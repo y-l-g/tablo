@@ -61,3 +61,4 @@ pub use components::{
 pub const SIDEBAR_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/sidebar.js");
 pub const THEME_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/theme.js");
 pub const SELECTS_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/selects.js");
+pub const REPEATERS_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/repeaters.js");

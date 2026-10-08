@@ -20,6 +20,12 @@ the variant is the discriminant column, chosen with a `Select`; a named discrimi
 wins. A `#[document]`, a relation, an `Option` of a nested value and an enum inside a variant are
 not supported inside an embedded value.
 
+A `#[document]` list of embedded structs binds as one field too (`#[form(repeat)]`), its item
+deriving `RepeaterItem`. Each row posts its item's keys under `{key}.{row}.`, and the repeater's key
+lists the rows in the order they show. The submission folds them into that key, as a JSON array of
+each row's keys, before anything reads it, so completing an edit, hiding a field and parsing see
+one key like any other. A row keeps its number when it moves, so the browser renumbers nothing.
+
 ## Rejected
 
 - Presence on the control (`.required()`): a second declaration of what the blank answers say.
@@ -29,3 +35,7 @@ not supported inside an embedded value.
 - Refusing a field the form does not place: the struct already says the field is written, so
   rendering its control beats refusing to start. The cost is that a field added to a sectioned
   layout renders after its last block until it is placed.
+- Adding and removing a repeater's rows by posting the form and rendering it again: a round trip
+  per row, and the page loses its scroll and focus.
+- Renumbering a repeater's row keys after each move or removal: more script for what the order key
+  already says.

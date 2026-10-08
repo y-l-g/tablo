@@ -15,9 +15,11 @@ use crate::{
 
 mod embedded;
 mod relation;
+mod repeater;
 
 pub use embedded::EmbeddedColumn;
 pub use relation::{CountColumn, RelationColumn, RelationLens, ToOneRelation};
+pub use repeater::RepeaterColumn;
 
 /// One column of a table or a [`Detail`](crate::Detail) declares its label, its value read off
 /// the record, and its query predicates.
@@ -901,6 +903,16 @@ impl<M, T> IntoColumns<M> for EmbeddedColumn<M, T>
 where
     M: toasty::schema::Model + Send + Sync + 'static,
     T: crate::EmbeddedForm + Send + Sync + 'static,
+{
+    fn into_columns(self) -> Vec<BoxColumn<M>> {
+        vec![Arc::new(self)]
+    }
+}
+
+impl<M, T> IntoColumns<M> for RepeaterColumn<M, T>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+    T: crate::RepeaterItem,
 {
     fn into_columns(self) -> Vec<BoxColumn<M>> {
         vec![Arc::new(self)]

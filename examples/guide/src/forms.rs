@@ -199,3 +199,43 @@ pub struct PostForm {
     pub seo: Seo,
 }
 // ANCHOR_END: forms-embedded-record-form
+
+// ANCHOR: forms-repeater
+#[derive(Debug, Clone, toasty::Embed, tablo::RepeaterItem)]
+pub struct Step {
+    #[form(multiline = 2)]
+    pub instruction: String,
+    #[form(blank = 0)]
+    pub minutes: i64,
+}
+
+#[derive(Debug, Clone, toasty::Model)]
+pub struct Recipe {
+    #[key]
+    #[auto]
+    pub id: uuid::Uuid,
+    pub title: String,
+    // Stored in one column.
+    #[document]
+    pub steps: Vec<Step>,
+}
+
+#[derive(Debug, Clone, tablo::RecordForm)]
+#[form(model = Recipe)]
+pub struct RecipeForm {
+    pub title: String,
+    #[form(repeat)]
+    pub steps: Vec<Step>,
+}
+// ANCHOR_END: forms-repeater
+
+// ANCHOR: forms-repeater-layout
+pub fn recipe_form() -> Schema<RecipeForm> {
+    let c = RecipeForm::controls();
+    Schema::new((c.title, c.steps.label("Method").add_label("Add step")))
+}
+
+pub fn recipe_view() -> Detail<Recipe> {
+    Detail::new(RepeaterColumn::new(lens!(Recipe.steps)).label("Method"))
+}
+// ANCHOR_END: forms-repeater-layout

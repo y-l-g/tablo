@@ -9,7 +9,7 @@ mod text;
 
 use std::sync::Arc;
 
-pub use builders::{ChoiceField, CustomField, FileField, IntoOptions, TextField};
+pub use builders::{ChoiceField, CustomField, FileField, IntoOptions, RepeaterField, TextField};
 pub(crate) use choice::{ChoiceControl, option_view};
 pub use custom::Toggle;
 pub(crate) use custom::{Control, ControlInput};
@@ -19,12 +19,13 @@ use tablo_ui::{
     field_label as ui_field_label, field_title as ui_field_title,
 };
 pub(crate) use text::TextControl;
-use toasty::stmt::Path;
+use toasty::stmt::{List, Path};
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{
     condition::Condition,
     lenses::{Binding, FieldResolver},
+    repeater::{RepeaterControl, RepeaterItem},
     validation::is_email,
 };
 use crate::{
@@ -111,6 +112,8 @@ pub(crate) enum ControlKind {
     File,
     /// An app's control, or the built-in [`Toggle`].
     Custom(Arc<dyn Control>),
+    /// A row of an item's controls per value of a `#[document]` list.
+    Repeater(RepeaterControl),
 }
 
 impl std::fmt::Debug for Field {
@@ -120,6 +123,7 @@ impl std::fmt::Debug for Field {
             ControlKind::Choice(_) => "choice",
             ControlKind::File => "file",
             ControlKind::Custom(_) => "custom",
+            ControlKind::Repeater(_) => "repeater",
         };
         f.debug_struct("Field")
             .field("name", &self.name())
@@ -215,6 +219,19 @@ impl Field {
         ))
     }
 
+    /// A row of `T`'s controls per item of a `#[document]` list of `T`, which the browser adds,
+    /// removes and moves.
+    pub fn repeater<M, T>(lens: impl Into<Path<M, List<T>>>) -> RepeaterField
+    where
+        M: toasty::schema::Model,
+        T: RepeaterItem,
+    {
+        RepeaterField::new(Self::bound(
+            Binding::of::<M, List<T>>(&lens.into()),
+            ControlKind::Repeater(RepeaterControl::new::<T>()),
+        ))
+    }
+
     /// A text field posting `name`, a key no column binds: an [`ActionInput`](crate::ActionInput)
     /// field. `T` picks the input type, as a column's type does for [`Field::text`].
     pub fn text_input<T: FormScalar>(name: impl Into<String>) -> TextField {
@@ -287,6 +304,19 @@ impl Field {
     /// Whether the field is a choice declaring neither options nor a relationship.
     pub(crate) fn offers_nothing(&self) -> bool {
         self.as_choice().is_some_and(ChoiceControl::offers_nothing)
+    }
+
+    pub(crate) fn as_repeater(&self) -> Option<&RepeaterControl> {
+        match &self.control {
+            ControlKind::Repeater(repeater) => Some(repeater),
+            _ => None,
+        }
+    }
+
+    /// Posts under `prefix`: a repeater row's control, keeping its label.
+    pub(crate) fn prefix(&mut self, prefix: &str) {
+        let label = self.label_str().to_string();
+        self.binding = Binding::named(format!("{prefix}{}", self.name()), label);
     }
 
     pub(crate) fn as_choice(&self) -> Option<&ChoiceControl> {
@@ -444,6 +474,8 @@ impl Field {
             ControlKind::Custom(control) => {
                 self.render_custom(control.as_ref(), cx, value, error, id)
             }
+            // Its node renders it, from the keys and errors of each row's controls.
+            ControlKind::Repeater(_) => Ok(().boxed()),
         }
     }
 

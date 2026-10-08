@@ -50,12 +50,16 @@ async fn prepare_submission<R: Resource>(
     advisory: Option<&R::Model>,
 ) -> Result<Submission, topcoat::Error> {
     let schema = Arc::clone(&resource.form);
-    reject_unknown_form_keys(&schema, &parts.values)?;
     let FormParts {
         mut values,
         mut files,
         file_part_names,
     } = parts;
+    // Each repeater's rows become its one key, which every step below reads like any other.
+    schema
+        .fold_repeaters(&mut values)
+        .map_err(topcoat::router::error::bad_request)?;
+    reject_unknown_form_keys(&schema, &values)?;
     let stored = advisory
         .map(|advisory| <R::Form as RecordForm>::hydrate(cx, advisory))
         .unwrap_or_default();
@@ -169,11 +173,12 @@ fn parse_form<R: Resource>(
         }
         Err(failures) => {
             for failure in failures {
-                if !resource
-                    .fields
-                    .iter()
-                    .any(|field| field.keys.contains(&failure.key))
-                {
+                if !resource.fields.iter().any(|field| {
+                    field
+                        .keys
+                        .iter()
+                        .any(|key| renders_under(key, &failure.key))
+                }) {
                     return Err(unbound("the parse", &failure.key));
                 }
                 // The controls' own rules answered first for the key.
@@ -184,6 +189,14 @@ fn parse_form<R: Resource>(
             Ok(None)
         }
     }
+}
+
+/// Whether an error on `failed` renders under the field posting `key`: its own, or a repeater
+/// row's control, which posts under `{key}.`.
+fn renders_under(key: &str, failed: &str) -> bool {
+    failed
+        .strip_prefix(key)
+        .is_some_and(|rest| rest.is_empty() || rest.starts_with('.'))
 }
 
 /// Re-checks relationship keys inside the write transaction before writing.

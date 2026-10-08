@@ -106,6 +106,30 @@ impl<'a> Source<'a> {
         self.values.get(name).map(String::as_str)
     }
 
+    /// The errors the controls render under.
+    pub(crate) fn errors(&self) -> &FieldErrors {
+        self.errors
+    }
+
+    /// Where a searchable choice fetches its options, when not the resource's own route.
+    pub(crate) fn options(&self) -> Option<&str> {
+        self.options.as_deref()
+    }
+
+    /// The DOM id of the control posting `name`.
+    pub(crate) fn id(&self, name: &str) -> String {
+        self.placement(None).id(name)
+    }
+
+    /// Where a field renders in this form, under its parent's value `parent`.
+    fn placement<'p>(&'p self, parent: Option<&'p str>) -> Placement<'p> {
+        Placement {
+            parent,
+            scope: &self.scope,
+            options: self.options.as_deref(),
+        }
+    }
+
     /// Returns the message the field `field` renders under its control.
     pub(crate) fn error_for(&self, field: &Field) -> Option<String> {
         self.errors
@@ -125,18 +149,18 @@ impl Node {
         match self {
             Node::Field(index) => {
                 let field = &fields[*index];
+                // A repeater's rows render from the keys and errors of each of their controls.
+                if let Some(repeater) = field.as_repeater() {
+                    let view = Box::pin(repeater.render(cx, field, source)).await?;
+                    return Ok(source.guard(cx, field.condition(), view));
+                }
                 let error = source.error_for(field);
                 let parent = field.parent_key().and_then(|key| source.value(key));
-                let placement = Placement {
-                    parent,
-                    scope: &source.scope,
-                    options: source.options.as_deref(),
-                };
                 let mut view = Box::pin(field.render_under(
                     cx,
                     source.value(field.name()),
                     error.as_deref(),
-                    placement,
+                    source.placement(parent),
                 ))
                 .await?;
                 if let Some(conditions) = source.watched.get(field.name()) {

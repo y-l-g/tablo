@@ -64,6 +64,14 @@ pub struct Seo {
     pub description: String,
 }
 
+/// A link a post points its readers to: one row of its repeater.
+#[derive(Debug, Clone, PartialEq, toasty::Embed, tablo::RepeaterItem)]
+pub struct Link {
+    pub label: String,
+    #[form(label = "URL", placeholder = "https://")]
+    pub url: String,
+}
+
 /// A post's lifecycle.
 #[derive(Debug, Clone, PartialEq, toasty::Embed, tablo::EmbeddedForm)]
 pub enum Publication {
@@ -109,6 +117,9 @@ pub struct Post {
     pub tags: String,
     pub seo: Seo,
     pub publication: Publication,
+    #[document]
+    #[default(Vec::<Link>::new())]
+    pub links: Vec<Link>,
     #[index]
     pub author_id: uuid::Uuid,
     #[belongs_to(key = author_id, references = id)]

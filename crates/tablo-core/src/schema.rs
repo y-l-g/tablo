@@ -10,6 +10,7 @@ mod layouts;
 mod lenses;
 mod options;
 pub(crate) mod relationship;
+pub(crate) mod repeater;
 pub(crate) mod tree;
 pub(crate) mod validation;
 
@@ -20,7 +21,9 @@ use std::{
 
 pub use condition::Watched;
 pub use embedded::EmbeddedForm;
-pub use fields::{ChoiceField, CustomField, Field, FileField, IntoOptions, TextField, Toggle};
+pub use fields::{
+    ChoiceField, CustomField, Field, FileField, IntoOptions, RepeaterField, TextField, Toggle,
+};
 pub(crate) use fields::{option_view, read_only, stored_upload, value_cell};
 pub use layouts::{Grid, Group, Section};
 pub(crate) use lenses::Binding;
@@ -28,6 +31,7 @@ pub use lenses::{FieldResolver, form_key};
 pub use options::Options;
 pub use relationship::MAX_RELATIONSHIP_OPTIONS;
 pub(crate) use relationship::{OptionLoadError, OptionSource};
+pub use repeater::RepeaterItem;
 use topcoat::{Result, context::Cx, view::*};
 pub use tree::{IntoSchema, Source};
 pub(crate) use tree::{Node, Retype, render_nodes};
@@ -178,6 +182,23 @@ impl<F> Schema<F> {
             [Node::Embedded(node)] => node,
             _ => panic!("an embedded value's schema is its one embedded node"),
         }
+    }
+
+    /// Folds each repeater's posted rows into its own key, before anything reads the submission.
+    ///
+    /// # Errors
+    ///
+    /// A repeater's key lists something other than its rows.
+    pub(crate) fn fold_repeaters(
+        &self,
+        values: &mut HashMap<String, String>,
+    ) -> std::result::Result<(), String> {
+        for field in &self.fields {
+            if let Some(repeater) = field.as_repeater() {
+                repeater.fold(field.name(), values)?;
+            }
+        }
+        Ok(())
     }
 
     /// Appends another schema's nodes after this one's.
