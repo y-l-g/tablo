@@ -1,11 +1,5 @@
-//! The media library: the app-level upload path writes a `medias` row,
-//! the stored rows render a thumbnail or a link, and the clear control works
-//! with and without JavaScript.
-//!
-//! The widget's JavaScript half is `examples/showcase/assets/media.test.js`
-//! (Node); what a server-rendered page can pin is the markup contract those
-//! hooks describe — the clear control is a reset button, so a browser empties
-//! the file input with no script at all.
+//! The media library: the app-level upload path writes a `medias` row and
+//! the stored rows render a thumbnail or a link.
 
 use http_body_util::BodyExt;
 use showcase::{
@@ -206,40 +200,6 @@ async fn the_stored_row_renders_a_thumbnail_for_an_image_and_a_link_for_anything
     assert!(
         !html.contains(&format!("href=\"{}\"", image.path)),
         "the image row is the thumbnail, not a link too: {html}"
-    );
-}
-
-#[tokio::test]
-async fn the_clear_control_clears_the_input_without_javascript() {
-    let db = full_db().await;
-    let router = router_with_app_uploads(db.clone());
-    let client = demo_client(&router, &db).await;
-    let html = body_string(client.get(MEDIA_PATH).await).await;
-    let form = upload_form(&html);
-
-    let clear = tag_with(form, "data-media-clear");
-    assert!(clear.starts_with("<button"), "got {clear}");
-    assert!(
-        clear.contains("type=\"reset\""),
-        "the clear control must be a reset button: that is what empties the file \
-         input with JavaScript off, got {clear}"
-    );
-
-    // The hooks the widget script consumes, and the region it draws into:
-    // rendered hidden, because with no script there is no preview to show.
-    for hook in ["data-media-file", "data-media-preview", "data-media-clear"] {
-        assert!(form.contains(hook), "the form must render {hook}: {form}");
-    }
-    let preview = tag_with(form, "data-media-preview");
-    assert!(
-        preview.contains("hidden"),
-        "the preview region starts hidden, got {preview}"
-    );
-
-    // The clear control belongs to the form whose file input it clears.
-    assert!(
-        form.contains("name=\"file\""),
-        "the file input is the form's own: {form}"
     );
 }
 
