@@ -215,3 +215,60 @@ fn a_dependent_choice_names_a_column_of_its_source_and_a_placed_parent() {
     let city = city(&country);
     assert!(Schema::new((country, city)).declaration_errors().is_empty());
 }
+
+/// Past the cap a searchable dependent choice checks the posted key among its parent's rows, and
+/// shows the type-to-search hint only while its parent's rows overflow.
+#[tokio::test]
+async fn a_searchable_dependent_choice_past_the_cap_checks_among_its_parent_rows() {
+    let world = world().await;
+    let france: uuid::Uuid = world.france.parse().unwrap();
+    let mut db = crate::db::db(&world.cx);
+    for i in 0..crate::schema::MAX_RELATIONSHIP_OPTIONS {
+        toasty::create!(City {
+            country_id: france,
+            name: format!("Town {i}"),
+        })
+        .exec(&mut db)
+        .await
+        .unwrap();
+    }
+    let country = country();
+    let city = city(&country).searchable();
+    assert!(
+        city.validate_exists(&world.cx, &world.paris, Some(&world.france))
+            .await
+            .is_empty()
+    );
+    assert_eq!(
+        city.validate_exists(&world.cx, &world.berlin, Some(&world.france))
+            .await,
+        ["City id is invalid"]
+    );
+
+    let hint = async |parent: &str| {
+        let html = city
+            .render_under(&world.cx, None, None, Some(parent))
+            .await
+            .html(&world.cx)
+            .await;
+        let start = html
+            .find("data-options-hint")
+            .expect("a searchable dependent renders it");
+        let tag = &html[html[..start].rfind('<').unwrap()..];
+        !tag[..tag.find('>').unwrap()].contains("hidden")
+    };
+    assert!(hint(&world.france).await, "France overflows the cap");
+    let germany = {
+        let mut db = crate::db::db(&world.cx);
+        let berlin: uuid::Uuid = world.berlin.parse().unwrap();
+        City::filter(City::fields().id().eq(berlin))
+            .first()
+            .exec(&mut db)
+            .await
+            .unwrap()
+            .unwrap()
+            .country_id
+            .to_string()
+    };
+    assert!(!hint(&germany).await, "Germany does not");
+}

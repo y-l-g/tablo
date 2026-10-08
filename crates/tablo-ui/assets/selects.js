@@ -98,6 +98,18 @@ async function refreshDependent(wrap, parentValue) {
   wrap.setAttribute('data-options-parent-value', parentValue);
   const prev = dependentControllers.get(wrap);
   if (prev) prev.abort();
+  // A search still pending for the old parent value would land after this
+  // refresh and bring its options back.
+  const filter = wrap.querySelector('[data-options-filter]');
+  if (filter) {
+    const timer = serverTimers.get(filter);
+    if (timer) clearTimeout(timer);
+    serverTimers.delete(filter);
+    const search = serverControllers.get(filter);
+    if (search) search.abort();
+    serverControllers.delete(filter);
+    delete wrap.dataset.optionsSearching;
+  }
   let html = '';
   let overflow = false;
   if (parentValue !== '') {
@@ -109,11 +121,14 @@ async function refreshDependent(wrap, parentValue) {
         headers: { Accept: 'text/html' },
         signal: controller.signal,
       });
-      if (!res.ok) return;
-      overflow = res.headers.get('x-options-overflow') === 'true';
-      html = await res.text();
+      // A failed answer offers nothing rather than the old parent's options,
+      // which the server would refuse.
+      if (res.ok) {
+        overflow = res.headers.get('x-options-overflow') === 'true';
+        html = await res.text();
+      }
     } catch (err) {
-      return;
+      if (err && err.name === 'AbortError') return;
     } finally {
       if (dependentControllers.get(wrap) === controller) {
         dependentControllers.delete(wrap);
@@ -122,20 +137,23 @@ async function refreshDependent(wrap, parentValue) {
   } else {
     dependentControllers.delete(wrap);
   }
+  // Past the cap a searchable choice searches the server, as one rendered
+  // past it does; a choice with no filter offers nothing to type into, so it
+  // offers no option rather than the server's "keep typing" row.
+  if (overflow && !filter) html = '';
   const current = select.value;
   const placeholder = select.querySelector('option[value=""]');
   const placeholderHtml = placeholder ? placeholder.outerHTML : '<option value="">-- Select --</option>';
   select.innerHTML = `${placeholderHtml}${html}`;
   const kept = current !== '' && optionFor(select, current) !== null;
   select.value = kept ? current : '';
-  const filter = wrap.querySelector('[data-options-filter]');
-  // Past the cap a searchable choice searches the server, as one rendered
-  // past it does.
   if (overflow && filter) {
     wrap.setAttribute('data-options-server', 'true');
   } else {
     wrap.removeAttribute('data-options-server');
   }
+  const hint = wrap.querySelector('[data-options-hint]');
+  if (hint) hint.hidden = !(overflow && filter);
   if (filter && !kept) filter.value = '';
   if (!kept && current !== '') {
     select.dispatchEvent(new Event('change', { bubbles: true }));

@@ -598,3 +598,43 @@ test('a parent value fetches the options it offers, keeping a choice among them'
     delete global.window;
   }
 });
+
+// Fire the parent's change with `fetch` answering `answer`.
+async function refreshWith(answer) {
+  global.window = { location: { pathname: '/admin/addresses/create' } };
+  global.fetch = answer;
+  try {
+    const world = dependentWorld({ parentValue: 'fr', current: 'paris' });
+    const document = standInDocument([]);
+    load(document);
+    await changeParent(document, world.parent);
+    return world;
+  } finally {
+    delete global.fetch;
+    delete global.window;
+  }
+}
+
+test('an overflowed answer offers a choice with no filter nothing to type into', async () => {
+  const world = await refreshWith(async () => ({
+    ok: true,
+    headers: { get: (name) => (name === 'x-options-overflow' ? 'true' : null) },
+    text: async () => '<option value="" disabled>Too many results — keep typing</option>',
+  }));
+  assert.deepEqual(world.select.options.map((o) => o.value), ['']);
+  assert.equal(world.select.value, '');
+  assert.equal(world.attrs['data-options-server'], undefined, 'no filter, no server search');
+});
+
+test('a failed fetch offers nothing rather than the old parent value\'s options', async () => {
+  for (const answer of [
+    async () => ({ ok: false, headers: { get: () => null }, text: async () => '' }),
+    async () => {
+      throw new TypeError('network');
+    },
+  ]) {
+    const world = await refreshWith(answer);
+    assert.deepEqual(world.select.options.map((o) => o.value), ['']);
+    assert.equal(world.select.events.length, 1, 'the dropped choice announces its change');
+  }
+});

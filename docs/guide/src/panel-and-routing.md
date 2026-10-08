@@ -25,7 +25,7 @@ A resource with the slug `users`, on a panel mounted at `/admin`, serves:
 | `GET` | `/admin/users/export` | the list as CSV |
 | `GET`, `POST` | `/admin/users/create` | the create form ¹ |
 | `GET`, `POST` | `/admin/users/{id}/edit` | the edit form ¹ |
-| `GET` | `/admin/users/options` | option search for a searchable relationship select ¹ |
+| `GET` | `/admin/users/options` | option search for a searchable relationship select, and a dependent choice's options ¹ |
 
 ¹ Only for a resource whose `Form` is a record form; a list-only resource names `NoForm` and gets
 none of these. See [Forms](./forms.md).

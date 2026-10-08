@@ -389,6 +389,10 @@ impl Field {
         let options_field = (overflow_searchable || dependent.is_some()).then(|| name.clone());
         let options_server = overflow_searchable.then_some("true");
         let overflow_hint = "Too many options — type to search".to_string();
+        // A searchable dependent choice may overflow after its parent changes, so it always
+        // renders the hint, hidden until then.
+        let hint = overflow_searchable || (searchable && choice.parent_key().is_some());
+        let hint_hidden = !overflow_searchable;
         let aria_invalid = chrome.aria_invalid();
         let described_by = chrome.described_by();
         let control = view! {
@@ -419,8 +423,14 @@ impl Field {
                     ></ul>
                 </div>
             }
-            if overflow_searchable {
-                <div class="text-xs text-muted-foreground">(overflow_hint)</div>
+            if hint {
+                <div
+                    class="text-xs text-muted-foreground"
+                    data-options-hint=""
+                    hidden=(hint_hidden)
+                >
+                    (overflow_hint)
+                </div>
             }
             ui_select(
                 attrs: attributes! {

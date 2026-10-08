@@ -219,7 +219,7 @@ equals the value another field of the same form posts: the cities of the chosen 
   the parent, of its stored value. The write checks the key again inside its transaction, as for
   any relationship.
 - The 200-option cap counts the parent's records. Past it, a `.searchable()` dependent choice
-  searches among them.
+  searches among them, and any other offers no option. A failed fetch offers none either.
 - Without JavaScript the options stay those of the value the page rendered with, and a submission
   naming another value's record is refused.
 - `column` must belong to the relationship's model, and the parent must be placed in the same
