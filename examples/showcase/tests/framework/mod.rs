@@ -16,6 +16,7 @@ mod sqlite;
 mod stream_pool;
 mod typed_leaves;
 mod uploads;
+mod upstream;
 mod variants;
 mod writes;
 

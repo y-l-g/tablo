@@ -3,8 +3,9 @@
 ## Testing a panel
 
 Test a panel over HTTP, in memory: build the router against a test database and send it requests.
-`TestClient` carries cookies, a tenant and a CSRF token, with helpers to build form bodies and read
-responses. An app reaches it as `tablo::testing` through the facade's `testing` feature; enable it
+`TestClient` carries cookies, a tenant and a CSRF token, and `submit` posts a form with its CSRF
+pair. The `testing` module also builds form bodies and reads responses back: the table's `rows`, a
+field's error, the flash `notification`, and why a table is empty (`empty_table`). An app reaches it as `tablo::testing` through the facade's `testing` feature; enable it
 for tests only:
 
 ```toml

@@ -50,14 +50,21 @@ impl Frame<'_> {
         let first_page_url = state.cursor.is_some().then(|| state.without_cursor(path));
         let clear_link: Option<BoxView<'a>> = clear_url.map(|url| {
             let attrs = live_link(cx, url, signals);
-            view! { cx => <a class=(EMPTY_LINK_CLASS) data-empty-link="clear" (attrs)>(clear_label)</a> }
-                .boxed()
+            view! {
+                cx =>
+                <a class=(EMPTY_LINK_CLASS) data-empty-link="clear" (attrs)>
+                    (clear_label)
+                </a>
+            }
+            .boxed()
         });
         let first_page_link: Option<BoxView<'a>> = first_page_url.map(|url| {
             let attrs = live_link(cx, url, signals);
             view! {
                 cx =>
-                <a class=(EMPTY_LINK_CLASS) data-empty-link="first-page" (attrs)>"Back to first page"</a>
+                <a class=(EMPTY_LINK_CLASS) data-empty-link="first-page" (attrs)>
+                    "Back to first page"
+                </a>
             }
             .boxed()
         });
@@ -84,7 +91,7 @@ impl Frame<'_> {
                         tablo_ui::empty_state(
                             title: message,
                             action: action,
-                            attrs: attributes! { data-empty=(reason) },
+                            attrs: attributes! { data-empty=(reason) }
                         )
                     )
                 )
