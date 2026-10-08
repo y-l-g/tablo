@@ -153,45 +153,35 @@ pub async fn login<'a>(router: &'a Router, email: &str, password: &str) -> TestC
     login_next(router, email, password, "").await.0
 }
 
-/// Mints a session cookie value for the seeded admin with `email`.
-pub async fn mint_session(db: &Db, email: &str) -> String {
-    use std::{fmt::Write as _, time::SystemTime};
+/// The seeded member of staff with `email`, as the panel signs them in.
+async fn signed_staff(db: &Db, email: &str) -> showcase::staff::SignedStaff {
+    use showcase::{models::Staff, staff::SignedStaff};
 
-    use showcase::models::Staff;
-    use tablo::auth::{AuthSession, SESSION_LIFETIME};
-    use topcoat::session::Token;
-
-    let mut db = db.clone();
-    let user = Staff::filter(Staff::fields().email().eq(email.to_string()))
+    let staff = Staff::filter(Staff::fields().email().eq(email.to_string()))
         .first()
-        .exec(&mut db)
+        .exec(&mut db.clone())
         .await
         .expect("look up the seeded admin")
         .unwrap_or_else(|| panic!("the seed creates the admin {email}"));
-    let token = Token::random();
-    let mut token_hash = String::with_capacity(64);
-    for byte in token.hash().iter() {
-        write!(token_hash, "{byte:02x}").expect("writing to a String cannot fail");
+    // Only `user_id` reaches the session row; each request loads the workspaces itself.
+    SignedStaff {
+        staff,
+        workspaces: Vec::new(),
     }
-    toasty::create!(AuthSession {
-        token_hash,
-        user_id: user.id.to_string(),
-        panel: "/admin".to_string(),
-        tenant: None,
-        expires_at: jiff::Timestamp::try_from(SystemTime::now() + SESSION_LIFETIME)
-            .expect("a representable session expiry"),
-        created_at: jiff::Timestamp::now(),
-    })
-    .exec(&mut db)
-    .await
-    .expect("mint the session row");
-    token.encode()
+}
+
+/// Mints a session cookie value for the seeded admin with `email`.
+pub async fn mint_session(db: &Db, email: &str) -> String {
+    let user = signed_staff(db, email).await;
+    tablo::auth::mint_session(&mut db.clone(), "admin", &user)
+        .await
+        .expect("mint the session row")
 }
 
 /// A client holding a freshly minted session for `email`.
 pub async fn signed_in_client<'a>(router: &'a Router, db: &Db, email: &str) -> TestClient<'a> {
-    let token = mint_session(db, email).await;
-    TestClient::new(router).cookie(SESSION_COOKIE, &token)
+    let user = signed_staff(db, email).await;
+    TestClient::new(router).sign_in(db, "admin", &user).await
 }
 
 /// A client holding a freshly minted session for the seeded demo admin.

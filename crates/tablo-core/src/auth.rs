@@ -35,7 +35,7 @@ pub(crate) use self::{
 pub use self::{
     login::{LOGIN_FIELD, NEXT_FIELD, PASSWORD_FIELD, TENANT_FIELD},
     password::{AdminUser, PasswordAuth, create_admin, hash_password, verify_password},
-    session::{AuthSession, SESSION_LIFETIME, revoke_sessions_for_user},
+    session::{AuthSession, SESSION_LIFETIME, mint_session, revoke_sessions_for_user},
 };
 use crate::{
     panel::{

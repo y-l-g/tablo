@@ -6,6 +6,7 @@ use guide::{
     models::{Author, Comment, Post, PostStatus, Seo},
 };
 use tablo::{
+    auth::create_admin,
     prelude::*,
     testing::{TestClient, form_body},
 };
@@ -46,14 +47,14 @@ async fn books_cannot_be_deleted() {
     let router = Router::builder()
         .discover()
         .app_context(db.clone())
-        .panel(
-            Panel::new("admin")
-                .resource::<BookResource>()
-                .auth(Auth::disabled()),
-        )
+        .panel(Panel::new("admin").resource::<BookResource>())
         .expect("mount the panel")
         .build();
-    let client = TestClient::new(&router);
+    let admin = create_admin(&mut db, "admin@example.com", "secret", "Admin")
+        .await
+        .expect("seed the admin");
+    // `sign_in` records a session for `admin`, as a successful login does.
+    let client = TestClient::new(&router).sign_in(&db, "admin", &admin).await;
 
     assert_eq!(client.get("/admin/books").await.status(), 200);
 
