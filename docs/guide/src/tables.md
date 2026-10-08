@@ -179,7 +179,8 @@ ignored.
 ## Export
 
 `GET /admin/{slug}/export` returns the list as a CSV file named `{slug}.csv`, with the current
-search, filters and sort applied, and the relations the columns include loaded.
+search, filters and sort applied, and the relations the columns include loaded. The list header
+links it as **Export CSV**, carrying the state the reader sees.
 
 - Rows the policy may not `View` are left out.
 - The export delivers at most 10,000 rows. When the search and filters match more, it answers

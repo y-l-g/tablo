@@ -34,6 +34,8 @@ pub const TRASH: IconData = iconify_icon!("lucide:trash");
 pub const SEARCH: IconData = iconify_icon!("lucide:search");
 /// Create action.
 pub const PLUS: IconData = iconify_icon!("lucide:plus");
+/// Page action: export the list as CSV.
+pub const DOWNLOAD: IconData = iconify_icon!("lucide:download");
 /// Back to the list.
 pub const ARROW_LEFT: IconData = iconify_icon!("lucide:arrow-left");
 /// Empty state.
