@@ -279,8 +279,9 @@ impl<R: Resource> ResourceDef<R> {
     /// Adds the [`HeaderAction`] `A`, which acts on no record, to the list page's header, after
     /// the ones already declared.
     ///
-    /// The policy decides who may run it, through [`Ability::RunAny`](crate::Ability::RunAny)
-    /// with its name, which no other action of the resource may share. An `A::NAME` that is not
+    /// The policy decides who may run it, through [`Ability::ViewAny`](crate::Ability::ViewAny)
+    /// and [`Ability::RunHeader`](crate::Ability::RunHeader) with its name, which no other action
+    /// of the resource may share. An `A::NAME` that is not
     /// a single URL path segment does not compile.
     #[must_use]
     pub fn header_action<A: HeaderAction>(mut self) -> Self {

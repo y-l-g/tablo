@@ -101,13 +101,16 @@ pub(crate) fn resource_list_action<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         let resource = gate::<R>(cx)?;
         let name = path_param_segment(cx, "action");
         if let Some(header) = resource.header_actions.find(name).copied() {
-            if !resource.can(
-                cx,
-                Ability::RunAny {
-                    action: header.name,
-                },
-            ) || !(header.can_run)(cx)
-            {
+            // The button renders on the list only, so the POST asks what the list asks first.
+            let allowed = resource.can(cx, Ability::ViewAny)
+                && resource.can(
+                    cx,
+                    Ability::RunHeader {
+                        action: header.name,
+                    },
+                )
+                && (header.can_run)(cx);
+            if !allowed {
                 return Err(forbidden().into());
             }
             let after: AfterCommit = after_header_commit::<R>;

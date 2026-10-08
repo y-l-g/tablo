@@ -1,8 +1,8 @@
 //! The panel's home page, served at the panel prefix by `Panel::home`.
 
 use tablo::{
-    FieldErrors, HeaderAction, HeaderActions, NavigationItem, Page, Resource, can_list, db::db,
-    header_actions, panel, scoped_query,
+    Ability, FieldErrors, HeaderAction, HeaderActions, NavigationItem, Page, Resource, can_list,
+    db::db, header_action_buttons, panel, scoped_query,
 };
 use topcoat::{
     Result,
@@ -107,9 +107,10 @@ impl HeaderAction for FeatureTagged {
     type Input = FeatureTag;
     const NAME: &'static str = "feature-tagged";
 
-    /// The dashboard admits every signed-in user; featuring takes the post list.
+    /// The dashboard admits every signed-in user and has no policy: featuring asks the post
+    /// resource's.
     fn can_run(cx: &Cx) -> bool {
-        can_list::<PostResource>(cx)
+        tablo::can::<PostResource>(cx, Ability::RunHeader { action: Self::NAME })
     }
 
     fn validate_input(_cx: &Cx, input: &FeatureTag) -> FieldErrors {
@@ -165,7 +166,7 @@ impl Page for Dashboard {
                     tablo::ui::page_description(
                         "The blog's admin: its users, authors, posts, comments and media."
                     )
-                    tablo::ui::page_actions((header_actions::<Self>(cx)))
+                    tablo::ui::page_actions((header_action_buttons::<Self>(cx)))
                 )
                 tablo::ui::page_content(
                     <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

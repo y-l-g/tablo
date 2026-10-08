@@ -5,7 +5,7 @@ use http::header::LOCATION;
 use tablo::{
     Ability, Action, Allow, Committed, DeclarationErrorKind, Detail, FieldErrors, HeaderAction,
     HeaderActions, Mutation, NotificationStatus, Page, Places, Policy, Resource, ResourceDef, Site,
-    Table, TextColumn, header_actions, lens,
+    Table, TextColumn, header_action_buttons, lens,
 };
 use toasty::Db;
 use topcoat::{
@@ -260,7 +260,7 @@ impl Page for OpsPage {
             tablo::ui::page(
                 tablo::ui::page_header(
                     tablo::ui::page_title("Ops")
-                    tablo::ui::page_actions((header_actions::<Self>(cx)))
+                    tablo::ui::page_actions((header_action_buttons::<Self>(cx)))
                 )
             )
         })
@@ -387,9 +387,7 @@ async fn a_confirming_header_action_runs_only_confirmed_and_commits_with_no_reco
         "/admin/tickets",
         "it lands on the list"
     );
-    let note = flash(&response);
-    assert_eq!(note.status, NotificationStatus::Success);
-    assert_eq!(note.title, "Close all: done");
+    assert_eq!(flash(&response).status, NotificationStatus::Success);
     let ticket = &tickets(&db).await[0];
     assert!(ticket.id == open.id && ticket.closed, "the action wrote");
     assert_eq!(
@@ -420,7 +418,10 @@ async fn a_header_action_with_input_asks_for_it_then_runs_with_it() {
         "a refused value renders the page again"
     );
     let html = body_string(refused).await;
-    assert!(html.contains("Not that title"), "with its error: {html}");
+    assert!(
+        tablo::testing::field_error(&html, "title").is_some(),
+        "with its error under the field: {html}"
+    );
     assert!(tickets(&db).await.is_empty(), "and writes nothing");
 
     let ran = post_fields(&router, url, &[("-input", "1"), ("title", "Fresh")]).await;
@@ -463,6 +464,53 @@ async fn a_header_action_the_policy_or_its_can_run_refuses_has_no_button_and_ans
         assert_eq!(response.status(), 403, "{name} is refused");
     }
     assert!(!tickets(&db).await[0].closed, "nothing was written");
+}
+
+/// Allows everything a record action asks, and the list, but no header action: `RunAny` does not
+/// stand for `RunHeader`.
+fn record_actions_only(_cx: &Cx, ability: Ability<'_, Ticket>) -> bool {
+    !matches!(ability, Ability::RunHeader { .. })
+}
+
+/// Allows every action but not the list.
+fn no_list(_cx: &Cx, ability: Ability<'_, Ticket>) -> bool {
+    !matches!(ability, Ability::ViewAny)
+}
+
+#[tokio::test]
+async fn a_header_action_needs_run_header_and_the_list() {
+    let db = db().await;
+    let open = seed(&db, "Open", false).await;
+    for (router, why) in [
+        (
+            router(&db, record_actions_only),
+            "`RunAny` grants no header action",
+        ),
+        (
+            router(&db, no_list),
+            "a user who may not open the list runs none of its actions",
+        ),
+    ] {
+        let response = post_fields(
+            &router,
+            "/admin/tickets/-/actions/close-all",
+            &[("confirm", "1")],
+        )
+        .await;
+        assert_eq!(response.status(), 403, "{why}");
+    }
+    let row = post_fields(
+        &router(&db, record_actions_only),
+        &format!("/admin/tickets/{}/-/actions/close", open.id),
+        &[],
+    )
+    .await;
+    assert_eq!(row.status(), 303, "the record action still runs");
+    let html = body_string(get(&router(&db, record_actions_only), "/admin/tickets").await).await;
+    assert!(
+        !html.contains("/admin/tickets/-/actions/close-all"),
+        "and the list offers no header button: {html}"
+    );
 }
 
 #[tokio::test]

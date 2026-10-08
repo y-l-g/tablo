@@ -74,7 +74,7 @@ already rewritten to a `GET`.
 The builder calls never fail; `.panel(..)` returns a `MountError` listing every mistake
 instead. It refuses a router with no `Db`, a `Db` missing the shipped auth models, two resources or pages
 with one slug, a slug the panel routes itself
-(`login`, `logout`), a slug that is not a single URL segment, a second home page, `shell_assets`
+(`login`, `logout`, and `-`, which leads the home page's action routes), a slug that is not a single URL segment, a second home page, `shell_assets`
 on a router with no asset bundle, a prefix that overlaps another panel's or Topcoat's
 `/_topcoat/runtime`, and every resource declaration check described in
 [Resources](./resources.md#startup-checks).
@@ -173,7 +173,7 @@ use topcoat::{Result, context::Cx, view::{View, view}};
   signed-in user with `auth::user::<U>(cx)`.
 - **Actions.** `Page::header_actions` declares [header actions](./actions.md#header-actions), each
   served at `{page}/-/actions/{NAME}` behind the same sign-in and `can_access` as the page, in a
-  transaction the framework opens. `header_actions::<Self>(cx)` renders their buttons where the
+  transaction the framework opens. `header_action_buttons::<Self>(cx)` renders their buttons where the
   page places it, usually in `page_actions`.
 - **Forms.** Any other form a page renders posts to an app `#[route]`; put that route under the
   panel prefix so the auth gate covers it. `can_access` does not cover that route, so the route

@@ -1,6 +1,6 @@
 //! The Actions chapter's snippets.
 
-use tablo::{HeaderAction, HeaderActions, Places, header_actions, prelude::*};
+use tablo::{HeaderAction, HeaderActions, Places, header_action_buttons, prelude::*};
 use topcoat::{Result, context::Cx, view::*};
 
 use crate::{
@@ -84,6 +84,11 @@ impl HeaderAction for PublishDrafts {
     const NAME: &'static str = "publish-drafts";
     const CONFIRM: bool = true;
 
+    /// A page has no policy: the action asks the post resource's own, wherever it is declared.
+    fn can_run(cx: &Cx) -> bool {
+        can::<PostResource>(cx, Ability::RunHeader { action: Self::NAME })
+    }
+
     async fn run(cx: &Cx, _: (), ex: &mut dyn toasty::Executor) -> Result<()> {
         // No record is loaded: the action scopes its own query to the request's tenant.
         let drafts = scoped_query::<PostResource>(cx)?
@@ -117,7 +122,7 @@ impl Page for MaintenancePage {
                 tablo::ui::page_header(
                     tablo::ui::page_title("Maintenance")
                     // The buttons of the actions above the request may run.
-                    tablo::ui::page_actions((header_actions::<Self>(cx)))
+                    tablo::ui::page_actions((header_action_buttons::<Self>(cx)))
                 )
             )
         })

@@ -64,7 +64,7 @@ pub(super) struct Registry {
     pub(super) root: Option<Root>,
     pub(super) mounts: Mounts,
     pub(super) resources: Vec<Registered>,
-    /// Each registered page's declaration check, with the page's type name.
+    /// Each registered page's declaration check.
     pub(super) page_checks: Vec<PageCheck>,
     /// Each resource's relation table, by resource type.
     pub(super) children: HashMap<TypeId, Child>,

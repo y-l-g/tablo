@@ -24,8 +24,10 @@ bulk bar, but the place is presentation only: the record route serves any action
 record, and the bulk route any action placed on the bulk bar, through the same checks.
 
 A header action runs on no record, so it has no `View` or `Run` to ask. On a resource it is
-authorized by `RunAny` with its `NAME`, then its own `can_run(cx)`; on a page, by the panel's
-sign-in and `Page::can_access`, then `can_run(cx)`, the checks the page's `GET` runs. It runs in a
+authorized by `ViewAny`, since its button is on the list, and `RunHeader` with its `NAME`, an
+ability of its own, then its own `can_run(cx)`. On a page, which has no policy, the panel's sign-in
+and `Page::can_access` authorize it, as they do the page's `GET`, then `can_run(cx)`; an action that
+writes a resource's records asks that resource's policy there. It runs in a
 framework-owned transaction like any mutation, but nothing scopes it to the tenant: it reads a
 tenant's records through `scoped_query` itself. `after_commit` receives its `NAME` and no record.
 
@@ -47,7 +49,11 @@ does not roll back.
   dialog does not make, and the dialog needs JavaScript.
 - A place as authorization, a POST refused unless sent from a page the action is placed on: the
   place is where a button shows, and the policy already decides who may run the action.
-- A header action authorized by `Ability::Create` or `ViewAny`: neither says the user may run it,
-  as neither says so for a record action.
-- A page action gated by a policy: a page has no model to type one over, and `can_access` already
-  answers who may use the page.
+- A header action authorized by `RunAny`: a policy that answers `RunAny { .. } => true` and
+  checks `Run` per record would grant every header action added later. A separate `RunHeader`
+  fails closed: an exhaustive policy stops compiling until it answers it.
+- A header action authorized by `Ability::Create` or `ViewAny` alone: neither says the user may
+  run it, as neither says so for a record action.
+- A policy the framework asks of a page's action: a page has no model to type one over, and
+  `can_access` already answers who may use the page. An action that writes a resource's records
+  asks that resource's policy in its `can_run`.

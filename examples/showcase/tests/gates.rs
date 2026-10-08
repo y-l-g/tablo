@@ -118,6 +118,33 @@ async fn forged_posts_answer_403_and_change_nothing() {
         "a forged bulk delete must remove nothing"
     );
 
+    let drafts = draft_count(&db).await;
+    for path in [
+        "/admin/posts/-/actions/publish-all-drafts",
+        "/admin/-/actions/feature-tagged",
+    ] {
+        for (body, label) in [
+            (
+                format!("confirm=1&-input=1&tag=draft&csrf_token={field}"),
+                "mismatched token",
+            ),
+            ("confirm=1&-input=1&tag=draft".to_string(), "missing token"),
+        ] {
+            let resp = client.csrf(&cookie).post_form(path, body).await;
+            assert_eq!(
+                resp.status(),
+                403,
+                "{path} {label}: a forged header action must 403, got {}",
+                resp.status()
+            );
+        }
+    }
+    assert_eq!(
+        draft_count(&db).await,
+        drafts,
+        "a forged header action must publish nothing"
+    );
+
     let boundary = "----GateMatrixBoundary";
     let author_id = author.id.to_string();
     for (csrf, label) in [
@@ -546,6 +573,8 @@ async fn anonymous_requests_are_gated_on_every_route() {
         format!("/admin/posts/{}/edit", post.id),
         format!("/admin/posts/{}/delete", post.id),
         "/admin/posts/bulk-delete".to_string(),
+        "/admin/posts/-/actions/publish-all-drafts".to_string(),
+        "/admin/-/actions/feature-tagged".to_string(),
     ] {
         let resp = client.post_form(&path, "confirm=1".to_string()).await;
         assert_eq!(
@@ -564,5 +593,93 @@ async fn anonymous_requests_are_gated_on_every_route() {
         runtime_post(&router, None).await.status(),
         401,
         "an anonymous page re-run must answer 401, not a redirect"
+    );
+}
+
+/// The posts of every tenant still in draft.
+async fn draft_count(db: &toasty::Db) -> usize {
+    Post::filter(Post::fields().status().eq(PostStatus::Draft))
+        .exec(&mut db.clone())
+        .await
+        .expect("count drafts")
+        .len()
+}
+
+/// A header action loads no record, so nothing but its own scoped query keeps it in the
+/// request's tenant, and nothing but the policy keeps a blocked tenant from running it.
+#[tokio::test]
+async fn header_actions_stay_in_their_tenant_and_policy() {
+    let (db, t1, t2) = tenanted_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let mut db_q = db.clone();
+    let t1_post = Post::filter(Post::fields().tenant_id().eq(TenantId::from(t1)))
+        .first()
+        .exec(&mut db_q)
+        .await
+        .unwrap()
+        .expect("t1 post");
+    Post::filter(Post::fields().id().eq(t1_post.id))
+        .update()
+        .status(PostStatus::Draft)
+        .exec(&mut db_q)
+        .await
+        .expect("make the t1 post a draft");
+    let csrf = Uuid::new_v4().to_string();
+    let confirmed = form_body(&[("confirm", "1"), ("csrf_token", &csrf)]);
+
+    let resp = client
+        .tenant(t2)
+        .csrf(&csrf)
+        .post_form(
+            "/admin/posts/-/actions/publish-all-drafts",
+            confirmed.clone(),
+        )
+        .await;
+    assert_eq!(resp.status(), 303, "t2 may publish its own drafts");
+    assert_eq!(draft_count(&db).await, 1, "and publishes none of t1's");
+
+    let blocked = client.tenant(BLOCKED_TENANT).csrf(&csrf);
+    let resp = blocked
+        .post_form("/admin/posts/-/actions/publish-all-drafts", confirmed)
+        .await;
+    assert_eq!(
+        resp.status(),
+        403,
+        "the blocked tenant's policy refuses the list's action"
+    );
+    let resp = blocked
+        .post_form(
+            "/admin/-/actions/feature-tagged",
+            form_body(&[("-input", "1"), ("tag", "draft"), ("csrf_token", &csrf)]),
+        )
+        .await;
+    assert_eq!(
+        resp.status(),
+        403,
+        "the dashboard's action asks the post policy, which refuses the blocked tenant"
+    );
+
+    let resp = client
+        .tenant(t1)
+        .csrf(&csrf)
+        .post_form(
+            "/admin/-/actions/feature-tagged",
+            form_body(&[
+                ("-input", "1"),
+                ("tag", "nothing-carries-this"),
+                ("csrf_token", &csrf),
+            ]),
+        )
+        .await;
+    assert_eq!(
+        resp.status(),
+        303,
+        "the home page serves its action at the prefix"
+    );
+    assert_eq!(
+        resp.headers().get(LOCATION).and_then(|v| v.to_str().ok()),
+        Some("/admin"),
+        "and lands back on it"
     );
 }

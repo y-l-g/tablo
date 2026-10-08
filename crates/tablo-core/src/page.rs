@@ -87,10 +87,14 @@ pub trait Page: Sized + Send + Sync + 'static {
     }
 
     /// The [`HeaderAction`](crate::HeaderAction)s the page serves, each at
-    /// `{url}/-/actions/{NAME}`. [`header_actions`](crate::header_actions) renders their buttons
-    /// where [`render`](Page::render) places it. Default: none.
+    /// `{url}/-/actions/{NAME}`. [`header_action_buttons`](crate::header_action_buttons) renders
+    /// their buttons where [`render`](Page::render) places it. Default: none.
     ///
-    /// The panel calls it once as it mounts, and again on each request that renders or runs one.
+    /// The actions run for whoever may open the page: a page has no policy. An action that writes
+    /// a resource's records asks that resource's policy in its own
+    /// [`can_run`](crate::HeaderAction::can_run).
+    ///
+    /// The panel calls it as it mounts, and again on each request that renders or runs one.
     fn header_actions() -> HeaderActions {
         HeaderActions::new()
     }
@@ -138,7 +142,7 @@ mod tests;
 ///             tablo_ui::page(
 ///                 tablo_ui::page_header(
 ///                     tablo_ui::page_title("Maintenance")
-///                     tablo_ui::page_actions((tablo_core::header_actions::<Self>(cx)))
+///                     tablo_ui::page_actions((tablo_core::header_action_buttons::<Self>(cx)))
 ///                 )
 ///             )
 ///         })
@@ -146,10 +150,11 @@ mod tests;
 /// }
 /// ```
 ///
-/// It renders nothing outside a request to `P`'s panel, and no button for an action whose
+/// It renders nothing outside a request to `P`'s panel or for a request
+/// [`can_access`](Page::can_access) refuses, and no button for an action whose
 /// [`can_run`](crate::HeaderAction::can_run) refuses the request.
-pub fn header_actions<P: Page>(cx: &Cx) -> BoxView<'_> {
-    let Some(url) = crate::panel::url::page::<P>(cx) else {
+pub fn header_action_buttons<P: Page>(cx: &Cx) -> BoxView<'_> {
+    let Some(url) = crate::panel::url::page::<P>(cx).filter(|_| P::can_access(cx)) else {
         return ().boxed();
     };
     crate::panel::header_bar(cx, &url, &P::header_actions(), |_| true).render(cx)

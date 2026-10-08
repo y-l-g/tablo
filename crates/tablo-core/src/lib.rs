@@ -126,7 +126,7 @@ pub use form::{
 pub use lens::Lens;
 pub use navigation::{NavTarget, NavigationItem};
 pub use notification::{Notification, NotificationStatus};
-pub use page::{Page, header_actions};
+pub use page::{Page, header_action_buttons};
 pub use panel::{Brand, Panel, PanelHandle, RouterBuilderPanelExt, can_list, url};
 pub use policy::{Ability, Allow, Deny, Policy, ReadOnly, when};
 pub use resource::{

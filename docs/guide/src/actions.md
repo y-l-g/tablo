@@ -56,12 +56,18 @@ record's state; the policy decides who runs the action, so a panel that mounts t
 ### On a record's pages
 
 The header of a record's detail page carries its actions placed on `Places::DETAIL`, and the edit
-page's header those placed on `Places::EDIT`. Each one lands back on its page after it runs. Both
+page's header those placed on `Places::EDIT`. Each one lands back on its page as it was left, its
+query included, after it runs. An action that takes the record out of the resource's `query()` or
+its `View`, such as an archive the list hides, lands on that page's 404: place it on rows and the
+bulk bar instead. Both
 headers also carry Delete when the policy allows `DeleteAny`, `View` and `Delete` of the record; it
 asks first through the confirmation dialog, and lands on the list, since the record is gone.
 
 An action on the edit page posts a form of its own: it runs on the record as stored, and a change
 typed into the edit form and not saved is lost.
+
+A place no page renders shows the button nowhere: `Places::EDIT` on a resource without a form, or
+`Places::DETAIL` on one whose view is `Detail::empty()`.
 
 ### How it runs
 
@@ -94,24 +100,28 @@ It is a type implementing `HeaderAction`:
 ```
 
 `ResourceDef::header_action::<A>()` puts its button in the header of the resource's list, as the
-post resource above does with `PublishDrafts`. The policy decides who runs it, through
-`RunAny { action: NAME }`; `ability.is_header_action::<PublishDrafts>()` matches it, as
-`is_action` matches a record action. A header action's name shares the resource's namespace with
-its record actions: mounting refuses a name two of them share.
+post resource above does with `PublishDrafts`. The policy decides who runs it: `ViewAny`, since
+the button is on the list, and `RunHeader { action: NAME }`, which
+`ability.is_header_action::<PublishDrafts>()` matches. `RunHeader` is an ability of its own, not
+`RunAny`: a policy that grants every record action with `RunAny { .. } => true`, and checks
+`Run` per record, grants no header action by it. A header action's name shares the resource's
+namespace with its record actions: mounting refuses a name two of them share.
 
 A [page](./panel-and-routing.md#pages) declares its header actions in `Page::header_actions`, and
-places their buttons where it renders its header with `header_actions::<Self>(cx)`:
+places their buttons where it renders its header with `header_action_buttons::<Self>(cx)`:
 
 ```rust
 {{#include ../../../examples/guide/src/actions.rs:page-header-actions}}
 ```
 
 A page's header action runs for whoever may open the page: the panel's sign-in and
-`Page::can_access` gate it as they gate the page's `GET`.
+`Page::can_access` gate it as they gate the page's `GET`. **A page has no policy**, so an action
+that writes a resource's records asks that resource's policy in its own `can_run`, as
+`PublishDrafts` does: it then runs for the same users from the list and from the page.
 
-On either, `HeaderAction::can_run(cx)` refuses a request beyond that, such as a feature flag or a
-role the policy does not model. No button renders for an action the request may not run, and its
-POST answers 403.
+On either, `HeaderAction::can_run(cx)` refuses a request beyond that, such as a feature flag, or
+the policy of a resource the action writes. No button renders for an action the request may not
+run, and its POST answers 403.
 
 The POST goes to `{url}/-/actions/{NAME}` under the list or the page and carries the CSRF token.
 `run` writes through a transaction the framework opens, so an error rolls everything back. **No

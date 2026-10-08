@@ -43,7 +43,8 @@ impl Resource for UserResource {
                 | Ability::DeleteAny
                 | Ability::Delete(_)
                 | Ability::RunAny { .. }
-                | Ability::Run { .. } => is_admin(cx),
+                | Ability::Run { .. }
+                | Ability::RunHeader { .. } => is_admin(cx),
             })
             // ANCHOR_END: user-policy
             // ANCHOR: user-form

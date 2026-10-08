@@ -39,10 +39,14 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         let title = resource.record_title(&record, &id);
         let back = resource.url.clone();
         let public_link = resource.public_link(cx, &record);
-        let here = topcoat::router::request::uri(cx).path();
+        let uri = topcoat::router::request::uri(cx);
         let edit = (<R::Form as RecordForm>::HAS_FORM
             && resource.can(cx, Ability::Update(&record)))
-        .then(|| format!("{here}/{}", crate::table::EDIT_ROUTE_SEGMENT));
+        .then(|| format!("{}/{}", uri.path(), crate::table::EDIT_ROUTE_SEGMENT));
+        // An action lands back on the page as it was left: its related tables' state included.
+        let here = uri
+            .path_and_query()
+            .map_or(uri.path(), |full| full.as_str());
         let actions = record_bar(cx, &resource, &record, Places::DETAIL, here);
         Ok(detail_page(
             cx,

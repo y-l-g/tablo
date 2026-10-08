@@ -15,7 +15,7 @@ use crate::{form::FieldErrors, naming::sentence_case, policy::Ability};
 /// [`ResourceDef::header_action`](crate::ResourceDef::header_action), and its list page renders
 /// the button; a [`Page`](crate::Page) declares one in
 /// [`Page::header_actions`](crate::Page::header_actions), and renders the buttons with
-/// [`header_actions`](crate::header_actions):
+/// [`header_action_buttons`](crate::header_action_buttons):
 ///
 /// ```rust
 /// # use tablo_core::HeaderAction;
@@ -38,9 +38,9 @@ use crate::{form::FieldErrors, naming::sentence_case, policy::Ability};
 /// [`Action`](crate::Action):
 ///
 /// - the route, `{url}/-/actions/{NAME}` under the list or page URL, and its CSRF check;
-/// - who may run it: on a resource, the policy's [`Ability::RunAny`] with the action's `NAME`; on a
-///   page, [`Page::can_access`](crate::Page::can_access); on either, then
-///   [`can_run`](Self::can_run). A refusal answers 403 and renders no button;
+/// - who may run it: on a resource, the policy's [`Ability::ViewAny`] and [`Ability::RunHeader`]
+///   with the action's `NAME`; on a page, [`Page::can_access`](crate::Page::can_access); on either,
+///   then [`can_run`](Self::can_run). A refusal answers 403 and renders no button;
 /// - the transaction: `run` writes through its executor, and an error rolls everything back;
 /// - on a resource, [`Resource::after_commit`](crate::Resource::after_commit) with
 ///   [`Mutation::Action`](crate::Mutation::Action) and no records once the transaction commits;
@@ -98,8 +98,8 @@ pub trait HeaderAction: 'static {
 }
 
 impl<M> Ability<'_, M> {
-    /// Whether the ability is [`RunAny`](Ability::RunAny) for the header action `A`, which a
-    /// resource's policy answers to let the request run it.
+    /// Whether the ability is [`RunHeader`](Ability::RunHeader) for the header action `A`, which
+    /// a resource's policy answers to let the request run it.
     ///
     /// ```rust
     /// # use tablo_core::{Ability, HeaderAction};
@@ -122,7 +122,7 @@ impl<M> Ability<'_, M> {
     /// }
     /// ```
     pub fn is_header_action<A: HeaderAction>(self) -> bool {
-        matches!(self, Ability::RunAny { action } if action == A::NAME)
+        matches!(self, Ability::RunHeader { action } if action == A::NAME)
     }
 }
 

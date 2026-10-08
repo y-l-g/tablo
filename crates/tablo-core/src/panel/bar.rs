@@ -118,8 +118,10 @@ impl ActionBar {
         let controls: Vec<BoxView<'_>> = self
             .buttons
             .into_iter()
-            .enumerate()
-            .map(|(index, action)| action.render(cx, &csrf, format!("header-action-{index}")))
+            .map(|action| {
+                let id = dialog_id(&action.url);
+                action.render(cx, &csrf, id)
+            })
             .collect();
         view! {
             cx =>
@@ -129,6 +131,14 @@ impl ActionBar {
         }
         .boxed()
     }
+}
+
+/// The DOM id of the dialog confirming a POST to `url`: a page that renders several bars, or one
+/// twice, never opens one button's dialog from another's.
+fn dialog_id(url: &str) -> String {
+    use std::hash::{BuildHasher, BuildHasherDefault, DefaultHasher};
+    let hash = BuildHasherDefault::<DefaultHasher>::default().hash_one(url);
+    format!("action-confirm-{hash:016x}")
 }
 
 impl ActionButton {

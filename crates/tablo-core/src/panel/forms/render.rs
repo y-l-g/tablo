@@ -60,13 +60,14 @@ impl FormChrome {
             submit_label: "Save".to_string(),
             destructive: false,
             public_link: resource.public_link(cx, record),
-            actions: record_bar(
-                cx,
-                resource,
-                record,
-                Places::EDIT,
-                topcoat::router::request::uri(cx).path(),
-            ),
+            // An action lands back on the page as it was left, its own `?return=` included.
+            actions: {
+                let uri = topcoat::router::request::uri(cx);
+                let here = uri
+                    .path_and_query()
+                    .map_or(uri.path(), |full| full.as_str());
+                record_bar(cx, resource, record, Places::EDIT, here)
+            },
             cancel: resource.url.clone(),
             hidden: Vec::new(),
         }

@@ -214,7 +214,7 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         let mut actions = header_bar(cx, &resource.url, &resource.header_actions, |action| {
             resource.can(
                 cx,
-                Ability::RunAny {
+                Ability::RunHeader {
                     action: action.name,
                 },
             )
