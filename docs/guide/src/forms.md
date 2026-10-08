@@ -280,6 +280,7 @@ A Toasty `#[derive(Embed)]` struct or enum is stored in its parent's row as flat
 - **Enums** render a choice of variant plus one group of fields per variant; the page shows only
   the chosen variant's group, and the variant can change on edit. The submission's variant decides
   which fields are read and validated, so a stale value in a hidden group never blocks a submit.
+  A hidden group's controls are disabled, so the browser neither validates nor submits them.
   Without JavaScript only the stored variant's group shows, so a create page offers no variant's
   fields, and the variant choice still decides.
 - On the detail page, `EmbeddedColumn::new(lens!(Post.seo))` shows each field of the value under
