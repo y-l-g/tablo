@@ -112,11 +112,7 @@ async fn delete_requires_confirmation_and_deletes() {
 
 #[tokio::test]
 async fn delete_404_for_an_unknown_id() {
-    // Core owns the loader unit; this pins the HTTP
-    // route for unknown ids. The wrong-tenant half — a valid CSRF pair from
-    // another tenant against this tenant's row — is pinned by
-    // `gate_matrix_check::cross_tenant_edit_and_delete_404_and_touch_nothing`;
-    // the batch and export paths ride the same seam in `tenancy_check.rs`.
+    // The wrong-tenant half is `gates::cross_tenant_requests_404_and_touch_nothing`.
     let db = seeded_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;

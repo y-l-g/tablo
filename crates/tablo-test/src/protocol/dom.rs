@@ -6,8 +6,8 @@
 //! `#{name}-error` for field errors, `[data-filter-name]` for filters, `[data-empty]` for the
 //! zero-rows message.
 //!
-//! The queries assume one table per document and flat renderer markup:
-//! rows never nest, and cells carry text rather than nested tables.
+//! The queries assume one table per document: rows never nest, and cells carry text rather than
+//! nested tables.
 
 type Attrs = Vec<(String, Option<String>)>;
 type Element = (String, Attrs, String);
@@ -219,11 +219,32 @@ fn inner_html(html: &str, tag: &str, open_end: usize) -> String {
     if is_void(tag) {
         return String::new();
     }
+    // Same-name elements nest (a `div` in a `div`), so the close is the one that returns the
+    // depth to zero.
     let after = &html[open_end + 1..];
-    after
-        .find(format!("</{tag}>").as_str())
-        .map(|close_at| after[..close_at].to_string())
-        .unwrap_or_default()
+    let open = format!("<{tag}");
+    let close = format!("</{tag}>");
+    let mut depth = 1usize;
+    let mut pos = 0;
+    while let Some(at) = after[pos..].find('<') {
+        let at = pos + at;
+        let rest = &after[at..];
+        if rest.starts_with(close.as_str()) {
+            depth -= 1;
+            if depth == 0 {
+                return after[..at].to_string();
+            }
+            pos = at + close.len();
+        } else if rest.starts_with(open.as_str())
+            && rest[open.len()..].starts_with([' ', '>', '/', '\t', '\n'])
+        {
+            depth += 1;
+            pos = at + open.len();
+        } else {
+            pos = at + 1;
+        }
+    }
+    String::new()
 }
 
 fn elements(html: &str, tag: &str) -> Vec<Element> {

@@ -104,3 +104,13 @@ fn empty_table_reads_the_reason_and_its_links() {
     );
     assert_eq!(empty_table(TABLE), None, "a table with rows is not empty");
 }
+
+#[test]
+fn an_element_reads_through_nested_elements_of_its_own_name() {
+    let html = r#"<div data-empty="filters"><div><svg></svg></div><p>None</p><div><a data-empty-link="clear" href="/admin/posts">Clear filters</a></div></div>"#;
+    assert_eq!(
+        empty_table(html).and_then(|empty| empty.clear).as_deref(),
+        Some("/admin/posts"),
+        "the link after the first nested `div` closes is still inside"
+    );
+}

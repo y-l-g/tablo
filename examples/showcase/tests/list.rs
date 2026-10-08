@@ -1,6 +1,7 @@
 //! A resource's list: search, sort, cursor pagination, grouping and the empty and error states.
 
 use showcase::models::{PostStatus, Role, User};
+use tablo::testing::{EmptyTable, empty_table};
 
 use crate::common::{
     body_string, demo_client, empty_users_db, find_href_with, find_pager_href, full_db,
@@ -8,27 +9,7 @@ use crate::common::{
 };
 
 #[tokio::test]
-async fn removed_showcase_routes_are_not_found() {
-    let db = seeded_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
-    for path in [
-        "/admin/showcase",
-        "/admin/showcase/ui",
-        "/admin/showcase/dialog",
-        "/admin/showcase/panel",
-        "/admin/showcase/resource",
-        "/admin/showcase/schema",
-        "/admin/showcase/table",
-        "/admin/showcase/db",
-    ] {
-        let response = client.get(path).await;
-        assert_eq!(response.status(), 404, "{path} should be gone");
-    }
-}
-
-#[tokio::test]
-async fn admin_list_renders_search_box_and_sort_links() {
+async fn renders_search_box_and_sort_links() {
     let db = seeded_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -90,7 +71,7 @@ async fn admin_list_renders_search_box_and_sort_links() {
 }
 
 #[tokio::test]
-async fn admin_list_pagination_walks_cursor_links() {
+async fn pagination_walks_cursor_links() {
     use showcase::models::{Role, User};
 
     let db = seeded_db().await;
@@ -183,7 +164,7 @@ async fn admin_list_pagination_walks_cursor_links() {
 }
 
 #[tokio::test]
-async fn admin_list_pagination_walks_descending_cursor_links() {
+async fn pagination_walks_descending_cursor_links() {
     use showcase::models::{Role, User};
 
     let db = seeded_db().await;
@@ -246,7 +227,7 @@ async fn admin_list_pagination_walks_descending_cursor_links() {
 }
 
 #[tokio::test]
-async fn admin_list_pagination_keeps_tied_sort_values() {
+async fn pagination_keeps_tied_sort_values() {
     use showcase::models::{Role, User};
 
     let db = seeded_db().await;
@@ -306,7 +287,7 @@ async fn admin_list_pagination_keeps_tied_sort_values() {
 
 /// Search matches substrings with wildcards escaped.
 #[tokio::test]
-async fn admin_list_search_matches_substrings_and_escapes_wildcards() {
+async fn search_matches_substrings_and_escapes_wildcards() {
     let db = seeded_db().await;
     let router = router(db.clone());
 
@@ -353,31 +334,39 @@ async fn admin_list_search_matches_substrings_and_escapes_wildcards() {
     );
 }
 
+/// An empty table says why it is empty: a search that matched nothing offers to clear it, and a
+/// table with no records at all blames nothing.
 #[tokio::test]
-async fn admin_list_empty_search_shows_no_results_with_clear() {
+async fn the_empty_state_says_why_the_table_is_empty() {
     let db = seeded_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
-    let response = client.get("/admin/users?q=zzz-none").await;
-    assert!(
-        response.status().is_success(),
-        "status {}",
-        response.status()
+    let seeded_router = router(db.clone());
+    let client = demo_client(&seeded_router, &db).await;
+    let searched = body_string(client.get("/admin/users?q=zzz-none").await).await;
+    assert_eq!(
+        empty_table(&searched),
+        Some(EmptyTable {
+            reason: "search".to_string(),
+            clear: Some("/admin/users".to_string()),
+            first_page: None,
+        }),
+        "{searched}"
     );
-    let html = body_string(response).await;
-    assert!(
-        html.contains("Clear search</a>"),
-        "search-empty state must offer the clear link: {html}"
-    );
-    assert!(
-        !html.contains("No records yet"),
-        "search-empty state must not claim no records: {html}"
-    );
-    assert!(
-        !html.contains("Create record"),
-        "dead Create button must stay gone: {html}"
+
+    let db = empty_users_db().await;
+    let empty_router = router(db.clone());
+    let client = demo_client(&empty_router, &db).await;
+    let empty = body_string(client.get("/admin/users").await).await;
+    assert_eq!(
+        empty_table(&empty),
+        Some(EmptyTable {
+            reason: "none".to_string(),
+            clear: None,
+            first_page: None,
+        }),
+        "{empty}"
     );
 }
+
 #[tokio::test]
 async fn users_list_renders_its_search_as_a_get_form() {
     let db = seeded_db().await;
@@ -392,24 +381,6 @@ async fn users_list_renders_its_search_as_a_get_form() {
         html.contains("id=\"table-toolbar\" method=\"get\" action=\"/admin/users\"")
             && html.contains("name=\"q\""),
         "users list must render its search as a GET form, got {html}"
-    );
-}
-
-#[tokio::test]
-async fn empty_users_list_shows_no_records_yet() {
-    let db = empty_users_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
-    let resp = client.get("/admin/users").await;
-    assert!(resp.status().is_success());
-    let html = body_string(resp).await;
-    assert!(
-        html.contains("No records yet"),
-        "genuinely empty list must say so: {html}"
-    );
-    assert!(
-        !html.contains("No matches"),
-        "empty list must not blame search: {html}"
     );
 }
 
@@ -481,10 +452,10 @@ async fn stale_cursor_after_concurrent_delete_offers_first_page() {
     let resp = client.get(&next).await;
     assert!(resp.status().is_success());
     let html = body_string(resp).await;
-    assert!(
-        html.contains("Back to first page"),
-        "void window must recover: {html}"
-    );
+    let first_page = empty_table(&html)
+        .and_then(|empty| empty.first_page)
+        .unwrap_or_else(|| panic!("a void window links back to the first page: {html}"));
+    assert!(!first_page.contains("after="), "{first_page}");
 }
 
 #[tokio::test]

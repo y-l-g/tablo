@@ -332,3 +332,22 @@ pub async fn comment_count(db: &Db) -> usize {
         .unwrap()
         .len()
 }
+
+/// A runtime (page re-run) POST, optionally carrying a session cookie.
+///
+/// Page re-runs are same-URL POSTs carrying Topcoat's runtime marker: the
+/// runtime layer rewrites them into a GET for the page's own URL.
+pub async fn runtime_post(
+    router: &topcoat::router::Router,
+    session: Option<&str>,
+) -> http::Response<Body> {
+    let mut request = http::Request::builder()
+        .method(http::Method::POST)
+        .uri("/admin/users")
+        .header(http::header::CONTENT_TYPE, "application/json")
+        .header(&topcoat::runtime::RUNTIME_HEADER, "true");
+    if let Some(session) = session {
+        request = request.header(http::header::COOKIE, format!("{SESSION_COOKIE}={session}"));
+    }
+    router.handle(request.body(Body::from("{}")).unwrap()).await
+}

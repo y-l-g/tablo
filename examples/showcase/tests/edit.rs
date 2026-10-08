@@ -102,11 +102,8 @@ async fn edit_page_hydrates_and_updates() {
 }
 
 #[tokio::test]
-async fn edit_404_for_unknown_or_wrong_tenant() {
-    // Core (`find_by_key_loads_one_row_scoped_and_404s_malformed`)
-    // owns the loader unit; this pins the HTTP route. Wrong-tenant scoping
-    // rides the same seam and is pinned in `tenancy_check.rs`
-    // (`edit_with_wrong_tenant_yields_404_via_resource_query`).
+async fn edit_404s_for_an_unknown_id() {
+    // The wrong-tenant half is `gates::cross_tenant_requests_404_and_touch_nothing`.
     let db = seeded_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;

@@ -8,8 +8,8 @@ use uuid::Uuid;
 
 use crate::common::{
     SESSION_COOKIE, TestClient, comment_count, demo_client, form_body, full_db, mint_session,
-    multipart_body, post_count, routers::router_for_tests as router, session_cookie_value,
-    tenanted_db, user_count,
+    multipart_body, post_count, routers::router_for_tests as router, runtime_post,
+    session_cookie_value, tenanted_db, user_count,
 };
 
 #[tokio::test]
@@ -255,9 +255,8 @@ async fn forged_logout_answers_403_and_keeps_the_session() {
     );
 }
 
-/// A valid CSRF pair does not buy a cross-tenant write: tenant B's
-/// edit and delete of tenant A's post and comment 404 through the tenant-scoped
-/// load, and the rows are untouched.
+/// Tenant B reaches none of tenant A's records: every record route 404s exactly like an unknown
+/// id, a valid CSRF pair does not buy a write, and the rows are untouched.
 ///
 /// `delete_404_for_an_unknown_id` pins the unknown-id half with a random UUID;
 /// this pins the wrong-tenant half with the token the browser would actually
@@ -267,7 +266,7 @@ async fn forged_logout_answers_403_and_keeps_the_session() {
 /// runs its scoped load inside the transaction. The owner's own delete of the
 /// same comment redirects, proving the 404s are the scope and not a dead route.
 #[tokio::test]
-async fn cross_tenant_edit_and_delete_404_and_touch_nothing() {
+async fn cross_tenant_requests_404_and_touch_nothing() {
     let (db, t1, t2) = tenanted_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -289,6 +288,30 @@ async fn cross_tenant_edit_and_delete_404_and_touch_nothing() {
     let csrf = Uuid::new_v4().to_string();
     let foreign = client.tenant(t2).csrf(&csrf);
     let author_id = t1_post.author_id.to_string();
+
+    for path in [
+        format!("/admin/posts/{}", t1_post.id),
+        format!("/admin/posts/{}/edit", t1_post.id),
+        format!("/admin/comments/{}/edit", t1_comment.id),
+    ] {
+        let resp = foreign.get(&path).await;
+        assert_eq!(resp.status(), 404, "{path}: a cross-tenant read must 404");
+    }
+    let resp = foreign
+        .post_form(
+            "/admin/posts/bulk-delete",
+            form_body(&[
+                ("ids", &t1_post.id.to_string()),
+                ("confirm", "1"),
+                ("csrf_token", &csrf),
+            ]),
+        )
+        .await;
+    assert_eq!(
+        resp.status(),
+        404,
+        "a cross-tenant selection comes back short from the scoped fetch and 404s"
+    );
 
     let resp = foreign
         .post_form(
@@ -474,12 +497,9 @@ async fn blocked_tenant_is_refused_on_every_read_route() {
 }
 
 /// Anonymous requests are gated on every route shape: reads redirect
-/// to the login page, mutations answer 401 and change nothing.
-///
-/// `auth_check.rs` asserts the exact `Location` for five panel GETs (four list
-/// pages and the create form); this enumerates the panel's record, form, export
-/// and option reads plus the mutation routes, with the same exact-`Location` and
-/// 401 answers, so a route mounted without the gate is caught here.
+/// to the login page with the validated `next`, mutations and page re-runs answer 401, and
+/// nothing changes. Every route shape is listed, so a route mounted without the gate is caught
+/// here.
 #[tokio::test]
 async fn anonymous_requests_are_gated_on_every_route() {
     let db = full_db().await;
@@ -539,5 +559,10 @@ async fn anonymous_requests_are_gated_on_every_route() {
         post_count(&db).await,
         before,
         "anonymous mutations must change nothing"
+    );
+    assert_eq!(
+        runtime_post(&router, None).await.status(),
+        401,
+        "an anonymous page re-run must answer 401, not a redirect"
     );
 }

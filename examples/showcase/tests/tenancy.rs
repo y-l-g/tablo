@@ -1,5 +1,5 @@
 use http::header::COOKIE;
-use showcase::models::{Author, Comment, DEMO_TENANT, Post, SIDE_TENANT, TENANTLESS_ADMIN_EMAIL};
+use showcase::models::{Author, DEMO_TENANT, SIDE_TENANT, TENANTLESS_ADMIN_EMAIL};
 use tablo::TenantId;
 use topcoat::router::Body;
 
@@ -70,29 +70,6 @@ async fn posts_list_is_scoped_by_tenant_via_resource_query() {
         !html.contains("T1 Post"),
         "t2 should not see T1 Post {}",
         html
-    );
-}
-
-#[tokio::test]
-async fn edit_with_wrong_tenant_yields_404_via_resource_query() {
-    let (db, t1, t2) = tenanted_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
-    let mut db2 = db.clone();
-    let t1_post = Post::filter(Post::fields().tenant_id().eq(TenantId::from(t1)))
-        .first()
-        .exec(&mut db2)
-        .await
-        .unwrap()
-        .unwrap();
-    let edit_url = format!("/admin/posts/{}/edit", t1_post.id);
-    // Try to edit with t2 tenant -> should be 404 (not found via query)
-    let resp = client.tenant(t2).get(&edit_url).await;
-    assert_eq!(
-        resp.status(),
-        404,
-        "wrong tenant should be 404, got {}",
-        resp.status()
     );
 }
 
@@ -272,51 +249,6 @@ async fn x_tenant_id_header_no_longer_grants_a_tenant() {
 }
 
 #[tokio::test]
-async fn bulk_delete_wrong_tenant_404s_and_deletes_nothing() {
-    // The handler runs the tenant-scoped query, so a
-    // cross-tenant batch comes back short and 404s.
-    let (db, t1, t2) = tenanted_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
-    let mut db_q = db.clone();
-    let t1_post = Post::filter(Post::fields().tenant_id().eq(TenantId::from(t1)))
-        .first()
-        .exec(&mut db_q)
-        .await
-        .unwrap()
-        .expect("t1 post");
-    let before = Post::filter(Post::fields().tenant_id().eq(TenantId::from(t1)))
-        .exec(&mut db_q)
-        .await
-        .unwrap()
-        .len();
-    let csrf = uuid::Uuid::new_v4().to_string();
-    let resp = client
-        .tenant(t2)
-        .csrf(&csrf)
-        .post_form(
-            "/admin/posts/bulk-delete",
-            format!("ids={}&confirm=1&csrf_token={csrf}", t1_post.id),
-        )
-        .await;
-    assert_eq!(
-        resp.status(),
-        404,
-        "cross-tenant bulk delete must 404, got {}",
-        resp.status()
-    );
-    assert_eq!(
-        Post::filter(Post::fields().tenant_id().eq(TenantId::from(t1)))
-            .exec(&mut db_q)
-            .await
-            .unwrap()
-            .len(),
-        before,
-        "cross-tenant batch deletes nothing"
-    );
-}
-
-#[tokio::test]
 async fn comments_list_is_scoped_through_parent_post() {
     let (db, t1, t2) = tenanted_db().await;
     let router = router(db.clone());
@@ -395,28 +327,6 @@ async fn comments_export_is_scoped_through_parent_post() {
     assert!(
         csv.contains("T2 comment") && !csv.contains("T1 comment"),
         "t2 export must be scoped, got {csv}"
-    );
-}
-
-#[tokio::test]
-async fn comments_edit_with_wrong_tenant_yields_404_via_resource_query() {
-    let (db, _, t2) = tenanted_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
-    let mut db_q = db.clone();
-    let t1_comment = Comment::filter(Comment::fields().body().eq("T1 comment".to_string()))
-        .first()
-        .exec(&mut db_q)
-        .await
-        .unwrap()
-        .expect("t1 comment");
-    let edit_url = format!("/admin/comments/{}/edit", t1_comment.id);
-    let resp = client.tenant(t2).get(&edit_url).await;
-    assert_eq!(
-        resp.status(),
-        404,
-        "wrong tenant comment edit should be 404, got {}",
-        resp.status()
     );
 }
 

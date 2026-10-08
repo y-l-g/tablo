@@ -1,9 +1,7 @@
 use showcase::models::{Author, Post, PostStatus, User};
-use tablo::TenantId;
 
 use crate::common::{
-    body_string, demo_client, full_db, routers::router_for_tests as router, tenanted_db,
-    tenantless_client,
+    body_string, demo_client, full_db, routers::router_for_tests as router, tenantless_client,
 };
 
 async fn a_post_id(db: &mut toasty::Db) -> String {
@@ -195,46 +193,6 @@ async fn post_record_pages_link_the_public_post() {
     assert!(
         detail.contains("View public post") && detail.contains(&format!("/blog/{id}")),
         "detail page must link the public post: {detail}"
-    );
-}
-
-#[tokio::test]
-async fn post_detail_is_scoped_like_every_other_route() {
-    let (db, t1, t2) = tenanted_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
-    let mut db_q = db.clone();
-    let post = Post::all()
-        .filter(Post::fields().tenant_id().eq(TenantId::from(t1)))
-        .first()
-        .exec(&mut db_q)
-        .await
-        .unwrap()
-        .expect("the fixture seeds posts for t1");
-
-    let unknown = client
-        .get("/admin/posts/00000000-0000-0000-0000-000000000000")
-        .await;
-    assert_eq!(unknown.status(), 404, "an unknown id is not found");
-
-    let other_tenant = client
-        .tenant(t2)
-        .get(&format!("/admin/posts/{}", post.id))
-        .await;
-    assert_eq!(
-        other_tenant.status(),
-        404,
-        "a record outside the request's scope looks exactly like an unknown id"
-    );
-
-    let own_tenant = client
-        .tenant(t1)
-        .get(&format!("/admin/posts/{}", post.id))
-        .await;
-    assert!(
-        own_tenant.status().is_success(),
-        "the owning tenant reaches its own record, got {}",
-        own_tenant.status()
     );
 }
 
