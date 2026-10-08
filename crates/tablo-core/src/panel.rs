@@ -152,7 +152,7 @@ impl Panel {
     }
 
     /// Installs the [`Uploader`](crate::Uploader) this panel's file fields store through; without
-    /// one a file field stores the sanitized client filename.
+    /// one a panel whose resource form declares a file field refuses to mount.
     pub fn uploads(mut self, uploader: impl crate::Uploader) -> Self {
         self.uploads = Some(crate::upload::InstalledUploader::new(uploader));
         self

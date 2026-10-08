@@ -170,8 +170,22 @@ async fn transport_keys_never_reach_the_write() {
         #[form(file)]
         path: String,
     }
+    struct NameUploader;
+    impl crate::Uploader for NameUploader {
+        async fn store(
+            &self,
+            filename: &str,
+            _bytes: &[u8],
+        ) -> std::result::Result<String, String> {
+            Ok(filename.to_string())
+        }
+    }
     let db = memory_db(toasty::models!(Doc)).await;
-    let router = mount(db.clone(), panel_for::<CapturingResource>()).expect("panel builds");
+    let router = mount(
+        db.clone(),
+        panel_for::<CapturingResource>().uploads(NameUploader),
+    )
+    .expect("panel builds");
     let csrf = uuid::Uuid::new_v4().to_string();
     let boundary = "----TransportBoundary";
     let body = format!(

@@ -70,10 +70,12 @@ pub(super) struct Registry {
 /// One registered resource, its type erased.
 pub(super) struct Registered {
     resource: TypeId,
-    name: &'static str,
+    pub(super) name: &'static str,
     slug: String,
     /// The declaration checks mount runs with the app's values.
     pub(super) check: ResourceCheck,
+    /// The form's file fields, whose bytes only an installed uploader keeps.
+    pub(super) file_fields: Vec<String>,
     relations: Vec<Link>,
 }
 
@@ -221,6 +223,12 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
             name: std::any::type_name::<R>(),
             slug: mounted.slug.clone(),
             check: check_resource::<R>,
+            file_fields: mounted
+                .form
+                .fields()
+                .filter(|field| field.is_file())
+                .map(|field| field.name().to_string())
+                .collect(),
             relations: mounted
                 .relations
                 .iter()

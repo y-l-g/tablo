@@ -102,8 +102,19 @@ async fn multipart_over_the_form_cap_413s_through_the_router() {
         #[form(file)]
         name: String,
     }
+    struct NameUploader;
+    impl crate::Uploader for NameUploader {
+        async fn store(
+            &self,
+            filename: &str,
+            _bytes: &[u8],
+        ) -> std::result::Result<String, String> {
+            Ok(filename.to_string())
+        }
+    }
     let db = Db::builder().connect("sqlite::memory:").await.unwrap();
-    let router = mount(db, panel_for::<DummyResource>()).expect("panel builds");
+    let router =
+        mount(db, panel_for::<DummyResource>().uploads(NameUploader)).expect("panel builds");
     let boundary = "----Boundary123";
     let payload = "x".repeat(MAX_FORM_BYTES + 1024);
     let body = format!(
