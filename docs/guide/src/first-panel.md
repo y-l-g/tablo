@@ -24,8 +24,8 @@ tablo-build = "0.5.1"
 
 The toolkit enables no driver itself: `sqlite`, `postgresql` and `mysql` each turn on Toasty's
 driver of the same name. The `[workspace.dependencies]` of Tablo's `Cargo.toml` hold the pinned
-versions. `tablo` re-exports `tablo_core` at its root, so `tablo_core::X` in the other chapters is
-`tablo::X` here, and the derives work with `tablo` as the only Tablo dependency.
+versions. `tablo` is the only Tablo dependency the app names: every path in this guide starts with
+`tablo::`, and the derives work through it.
 
 ## The app
 

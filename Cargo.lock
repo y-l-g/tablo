@@ -1194,8 +1194,6 @@ dependencies = [
  "jiff",
  "tablo",
  "tablo-build",
- "tablo-core",
- "tablo-ui",
  "toasty",
  "tokio",
  "topcoat",

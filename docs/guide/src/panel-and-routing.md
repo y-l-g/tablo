@@ -153,7 +153,7 @@ for the current path is marked active.
 A page that is not a record list — a dashboard, a report, a settings screen — implements `Page`:
 
 ```rust
-use tablo_core::{Page, Panel};
+use tablo::{Page, Panel};
 use topcoat::{Result, context::Cx, view::{View, view}};
 
 {{#include ../../../examples/guide/src/panel_routing.rs:panel-reports-page}}
@@ -170,7 +170,7 @@ use topcoat::{Result, context::Cx, view::{View, view}};
 - **Forms.** A page serves one `GET`. A form it renders posts to an app `#[route]`; put that route
   under the panel prefix so the auth gate covers it.
 
-The `tablo_ui` composites give a page the same frame as the panel's own pages: `page` sets the
+The `tablo::ui` composites give a page the same frame as the panel's own pages: `page` sets the
 width and padding; `page_header` holds a `page_title`, an optional `page_description` and optional
 `page_actions`; `page_content` holds the body. Inside it, use `card` for a panel of content and
 `empty_state` for a region with nothing to show. They are styled by the design tokens in your

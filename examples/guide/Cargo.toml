@@ -16,8 +16,6 @@ path = "tests/it.rs"
 
 [dependencies]
 tablo = { path = "../../crates/tablo", features = ["sqlite"] }
-tablo-core = { path = "../../crates/tablo-core" }
-tablo-ui = { path = "../../crates/tablo-ui" }
 tablo-build = { path = "../../crates/tablo-build" }
 jiff.workspace = true
 toasty = { workspace = true, features = ["sqlite"] }
