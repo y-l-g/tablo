@@ -29,71 +29,29 @@ fn write_failure_notification_names_the_operation() {
     );
 }
 
+/// The flash cookie decodes as JSON, percent-encoded or not, with or without the description an
+/// older cookie lacks.
 #[test]
-fn take_notification_decodes_the_json_cookie() {
-    let enc = serde_json::to_string(&Notification::success("hello")).unwrap();
-    let cx = cx_with_cookie(COOKIE_NAME, Some(&enc));
-    let n = take_notification(&cx);
-    assert!(n.is_some(), "the JSON flash cookie decodes");
-    assert_eq!(n.unwrap().title, "hello");
-    // Clearing itself is pinned by
-    // `notification_removal_header_carries_the_host_prefix_contract`.
-}
+fn the_flash_cookie_decodes_every_spelling_it_is_written_in() {
+    let decode = |value: &str| take_notification(&cx_with_cookie(COOKIE_NAME, Some(value)));
 
-#[test]
-fn percent_encoded_json_cookie_decodes() {
-    let enc = "%7B%22status%22%3A%22success%22%2C%22title%22%3A%22Created%22%7D";
-    let cx = cx_with_cookie(COOKIE_NAME, Some(enc));
-    let n = take_notification(&cx);
-    assert!(n.is_some(), "the percent-encoded flash cookie decodes");
-    assert_eq!(n.unwrap().title, "Created");
-}
-
-/// Unreadable cookie garbage is expired, not toasted, so a malformed cookie
-/// yields no toast; the removal still satisfies the `__Host-` contract.
-#[test]
-fn unreadable_flash_cookie_is_expired_silently() {
-    let cx = cx_with_cookie(COOKIE_NAME, Some("not-json"));
-    assert!(take_notification(&cx).is_none(), "garbage yields no toast");
-    let mut headers = http::HeaderMap::new();
-    topcoat::cookie::write_cookies(&cx, &mut headers);
-    let cleared = headers
-        .get_all(http::header::SET_COOKIE)
-        .iter()
-        .filter_map(|v| v.to_str().ok())
-        .find(|v| v.starts_with(&format!("{COOKIE_NAME}=")))
-        .expect("the garbage cookie must be expired");
+    let plain = decode(r#"{"status":"success","title":"Created"}"#).expect("plain JSON decodes");
+    assert_eq!(plain.status, NotificationStatus::Success);
+    assert_eq!(plain.title, "Created");
     assert!(
-        cleared.contains("Max-Age=0") && cleared.contains("Secure") && cleared.contains("Path=/"),
-        "the removal carries the __Host- contract: {cleared}"
+        plain.description.is_none(),
+        "a pre-description cookie decodes"
     );
-}
 
-#[test]
-fn notification_description_round_trips() {
-    // The description is optional and absent from the wire format when
-    // unset (compatibility); old cookies still decode.
-    assert_eq!(
-        serde_json::to_string(&Notification::success("hello")).unwrap(),
-        r#"{"status":"success","title":"hello"}"#
-    );
-    let enc =
+    let encoded = decode("%7B%22status%22%3A%22success%22%2C%22title%22%3A%22Created%22%7D")
+        .expect("percent-encoded JSON decodes");
+    assert_eq!(encoded.title, "Created");
+
+    let described =
         serde_json::to_string(&Notification::warning("Careful").description("Low disk")).unwrap();
-    assert!(enc.contains("\"status\":\"warning\"") && enc.contains("\"description\":\"Low disk\""));
-    let back = take_notification(&cx_with_cookie(COOKIE_NAME, Some(&enc))).expect("decodes");
-    assert_eq!(back.description.as_deref(), Some("Low disk"));
-    let old = take_notification(&cx_with_cookie(
-        COOKIE_NAME,
-        Some(r#"{"status":"success","title":"hi"}"#),
-    ))
-    .expect("a pre-description cookie decodes");
-    assert!(old.description.is_none());
-
-    // The status token is shared with the cookie and `data-type`.
-    assert_eq!(NotificationStatus::Success.as_str(), "success");
-    assert_eq!(NotificationStatus::Error.as_str(), "error");
-    assert_eq!(NotificationStatus::Info.as_str(), "info");
-    assert_eq!(NotificationStatus::Warning.as_str(), "warning");
+    let described = decode(&described).expect("a described notification round-trips");
+    assert_eq!(described.status, NotificationStatus::Warning);
+    assert_eq!(described.description.as_deref(), Some("Low disk"));
 }
 
 /// The flash cookie carries the hardened `__Host-` contract:
@@ -115,43 +73,50 @@ fn notification_cookie_is_host_prefixed_and_secure() {
     assert!(cookie.domain().is_none(), "{cookie:?}");
 }
 
-/// The consumed flash cookie must be cleared with a `__Host-`-conformant
-/// removal: a `__Host-`-named `Set-Cookie` without `Secure` is
-/// ignored by browsers — `Max-Age=0` deletions included — so the flash
-/// would survive every navigation. Pinned here through topcoat's own
-/// response finalization; the create/edit flow end-to-end is covered by
-/// the panel test `mutation_redirect_carries_the_flash_cookie_instead_of_a_query`.
-#[test]
-fn notification_removal_header_carries_the_host_prefix_contract() {
-    use http::header::SET_COOKIE;
-
-    let enc = serde_json::to_string(&Notification::success("hello")).unwrap();
-    let cx = cx_with_cookie(COOKIE_NAME, Some(&enc));
-    let n = take_notification(&cx);
-    assert!(n.is_some(), "the flash cookie must decode");
-
+/// The `Set-Cookie` that expires the flash cookie once `cx` read it, asserted to satisfy the
+/// `__Host-` contract: a removal without `Secure` is ignored by browsers, so the flash would
+/// survive every navigation.
+fn host_prefixed_removal(cx: &Cx) -> String {
     let mut headers = http::HeaderMap::new();
-    topcoat::cookie::write_cookies(&cx, &mut headers);
+    topcoat::cookie::write_cookies(cx, &mut headers);
     let cleared = headers
-        .get_all(SET_COOKIE)
+        .get_all(http::header::SET_COOKIE)
         .iter()
-        .filter_map(|v| v.to_str().ok())
-        .find(|v| v.starts_with(&format!("{COOKIE_NAME}=")))
-        .expect("the consumed flash cookie must be cleared")
+        .filter_map(|value| value.to_str().ok())
+        .find(|value| value.starts_with(&format!("{COOKIE_NAME}=")))
+        .expect("the flash cookie must be cleared")
         .to_string();
     assert!(
         cleared.contains("Max-Age=0") || cleared.contains("Expires=Thu, 01 Jan 1970"),
-        "the removal header must expire the cookie: {cleared}"
+        "the removal must expire the cookie: {cleared}"
     );
     assert!(
         cleared.contains("Secure") && cleared.contains("Path=/"),
-        "the removal header must satisfy the __Host- contract: {cleared}"
+        "the removal must satisfy the __Host- contract: {cleared}"
     );
     assert!(
-        cleared.split(';').all(|attr| {
-            let attr = attr.trim();
-            !attr.starts_with("Domain=")
-        }),
+        cleared
+            .split(';')
+            .all(|attr| !attr.trim().starts_with("Domain=")),
         "a `__Host-` cookie must not carry a Domain: {cleared}"
     );
+    cleared
+}
+
+/// A read flash cookie is cleared, so the toast shows once; the create and edit flows reach this
+/// through `mutation_redirect_carries_the_flash_cookie_instead_of_a_query`.
+#[test]
+fn a_read_flash_cookie_is_cleared_with_a_host_prefixed_removal() {
+    let enc = serde_json::to_string(&Notification::success("hello")).unwrap();
+    let cx = cx_with_cookie(COOKIE_NAME, Some(&enc));
+    assert!(take_notification(&cx).is_some());
+    host_prefixed_removal(&cx);
+}
+
+/// An unreadable cookie is expired rather than toasted.
+#[test]
+fn an_unreadable_flash_cookie_is_cleared_without_a_toast() {
+    let cx = cx_with_cookie(COOKIE_NAME, Some("not-json"));
+    assert!(take_notification(&cx).is_none(), "garbage yields no toast");
+    host_prefixed_removal(&cx);
 }

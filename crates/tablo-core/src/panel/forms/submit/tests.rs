@@ -8,6 +8,24 @@ use crate::{
     test_support::{memory_db, tableless_db},
 };
 
+/// Asserts `rendered` carries the opaque write-failure copy and none of the driver's text, of
+/// which `marker` is the part every driver message for this failure holds.
+fn assert_opaque(rendered: &str, driver: &str, marker: &str) {
+    assert!(
+        driver.contains(marker),
+        "the control must be a driver failure, got {driver:?}"
+    );
+    assert!(
+        rendered.contains("database unavailable"),
+        "the opaque message must survive, got {rendered:?}"
+    );
+    assert!(
+        !rendered.contains(driver) && !rendered.contains(marker),
+        "driver text must not reach the response: the driver said {driver:?}, the response said \
+         {rendered:?}"
+    );
+}
+
 #[test]
 fn completion_fills_unnamed_keys_from_the_stored_projection() {
     let schema = Schema::new(Field::text(Dummy::fields().name()));
@@ -243,10 +261,6 @@ async fn a_driver_create_failure_does_not_echo_driver_text() {
     .expect_err("the table is missing")
     .to_string();
     drop(raw);
-    assert!(
-        driver.contains("no such table"),
-        "the control must be a driver failure, got {driver:?}"
-    );
 
     let token = uuid::Uuid::new_v4().to_string();
     let parts = http::Request::builder()
@@ -276,14 +290,7 @@ async fn a_driver_create_failure_does_not_echo_driver_text() {
     .expect_err("the write must fail");
 
     let rendered = error.to_string();
-    assert!(
-        rendered.contains("database unavailable"),
-        "the opaque message must survive, got {rendered:?}"
-    );
-    assert!(
-        !rendered.contains(&driver) && !rendered.contains("no such table"),
-        "driver text must not reach the response: the driver said {driver:?}, the response said {rendered:?}"
-    );
+    assert_opaque(&rendered, &driver, "no such table");
 }
 
 /// A failing driver write on update surfaces the opaque mapping, never driver text.
@@ -377,10 +384,6 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
     .expect_err("the name is taken")
     .to_string();
     drop(raw);
-    assert!(
-        driver.contains("UNIQUE constraint failed"),
-        "the control must be a driver failure, got {driver:?}"
-    );
 
     // The route sits outside the panel's prefix, where the router's one panel still answers.
     let router = Router::builder()
@@ -424,14 +427,7 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
     )
     .to_string();
 
-    assert!(
-        rendered.contains("database unavailable"),
-        "the opaque message must survive, got {rendered:?}"
-    );
-    assert!(
-        !rendered.contains(&driver) && !rendered.contains("UNIQUE constraint failed"),
-        "driver text must not reach the response: the driver said {driver:?}, the response said {rendered:?}"
-    );
+    assert_opaque(&rendered, &driver, "UNIQUE constraint failed");
 }
 
 /// A mutation answers 303 with the flash cookie, never the query (#126, topcoat#408).

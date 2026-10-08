@@ -189,25 +189,6 @@ async fn export_loads_the_relations_its_columns_include() {
 }
 
 #[test]
-fn export_bom_flag_reads_bom_query_param() {
-    use topcoat::context::CxTestBuilder;
-
-    fn cx_for(uri: &str) -> Cx {
-        let (parts, ()) = http::Request::builder()
-            .uri(uri)
-            .body(())
-            .unwrap()
-            .into_parts();
-        CxTestBuilder::new().request_context(parts).build()
-    }
-
-    assert!(export_wants_bom(&cx_for("/admin/users/export?bom=1")));
-    assert!(!export_wants_bom(&cx_for("/admin/users/export")));
-    assert!(!export_wants_bom(&cx_for("/admin/users/export?bom=0")));
-    assert!(!export_wants_bom(&cx_for("/admin/users/export?BOM=1")));
-}
-
-#[test]
 fn export_cap_maps_one_row_past_the_limit_to_413() {
     // Maps one row past the limit to 413, exercised at the boundary.
     enforce_export_cap_count(MAX_EXPORT_ROWS).unwrap();

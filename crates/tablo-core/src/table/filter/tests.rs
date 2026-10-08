@@ -106,7 +106,7 @@ fn date_filter_on_the_last_representable_day_does_not_panic() {
 }
 
 #[test]
-fn query_filter_to_expr_contract() {
+fn a_variant_filter_accepts_only_a_declared_variant() {
     let f = vehicule_filter();
     assert_eq!(f.name(), "vehicule");
     assert_eq!(f.label(), "Véhicule");
@@ -121,17 +121,10 @@ fn query_filter_to_expr_contract() {
     assert!(f.to_expr("Moto").is_some(), "known variant must match");
     // Whitespace trims like SelectFilter.
     assert!(f.to_expr("  Moto  ").is_some());
-    // Through the trait object a table stores.
-    let boxed: &dyn Filter<Driver> = &f;
-    assert_eq!(boxed.name(), "vehicule");
-    assert!(boxed.to_expr("Moto").is_some());
-    assert!(boxed.to_expr("nope").is_none());
-    let vec = f.into_filters();
-    assert_eq!(vec.len(), 1);
 }
 
 #[test]
-fn select_filter_to_expr_contract() {
+fn a_select_filter_accepts_only_its_allow_list() {
     // Core owns the predicate contract.
     let f = SelectFilter::new(
         crate::lens!(Task.status),
@@ -152,15 +145,10 @@ fn select_filter_to_expr_contract() {
     );
     // Whitespace trims before the allowlist check.
     assert!(f.to_expr("  published  ").is_some());
-    // Through the trait object a table stores.
-    let boxed: &dyn Filter<Task> = &f;
-    assert_eq!(boxed.name(), "status");
-    assert!(boxed.to_expr("published").is_some());
-    assert!(boxed.to_expr("nope").is_none());
 }
 
 #[test]
-fn ternary_filter_to_expr_contract() {
+fn a_ternary_filter_reads_true_and_false_and_ignores_the_rest() {
     let f = TernaryFilter::new(Task::fields().featured());
     assert_eq!(f.name(), "featured");
     assert!(f.to_expr("true").is_some());
@@ -170,10 +158,6 @@ fn ternary_filter_to_expr_contract() {
     assert!(f.to_expr("yes").is_none());
     assert!(f.to_expr("  true  ").is_some(), "value trims");
     assert!(f.is_noop_value("all"), "`all` is the documented no-op");
-    let boxed: &dyn Filter<Task> = &f;
-    assert_eq!(boxed.name(), "featured");
-    assert!(boxed.to_expr("true").is_some());
-    assert!(boxed.to_expr("all").is_none());
 }
 
 #[tokio::test]

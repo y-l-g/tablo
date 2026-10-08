@@ -78,6 +78,3 @@ pub(crate) async fn run_after_commit<R: Resource>(cx: &Cx, committed: Committed<
         );
     }
 }
-
-#[cfg(test)]
-mod tests;

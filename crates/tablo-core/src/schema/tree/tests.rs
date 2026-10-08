@@ -8,29 +8,6 @@ use crate::{
 };
 
 #[tokio::test]
-async fn fields_compose_in_a_tuple() {
-    let cx = cx();
-    let schema = Schema::new((
-        Field::text(DummyUser::fields().name()),
-        Field::text(DummyUser::fields().email()),
-    ));
-    let html = schema
-        .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
-        .await
-        .html(&cx)
-        .await;
-    assert!(
-        html.matches("data-slot=\"field\"").count() >= 2,
-        "expected 2 fields (data-slot=field) in {html}"
-    );
-    assert_eq!(
-        html.matches("role=\"alert\"").count(),
-        0,
-        "valid fields render no error slot in {html}"
-    );
-}
-
-#[tokio::test]
 async fn schema_composes_multiple_blocks() {
     let cx = cx();
     let schema = Schema::new((

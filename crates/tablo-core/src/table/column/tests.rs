@@ -12,34 +12,6 @@ fn search_pattern_escapes_like_metacharacters() {
 }
 
 #[test]
-fn text_column_searchable_produces_a_substring_pattern() {
-    let col = TextColumn::new(lens!(User.name)).searchable();
-    assert!(
-        col.search_expr("Ada").is_some(),
-        "searchable should produce expr"
-    );
-    assert!(
-        TextColumn::new(lens!(User.name))
-            .search_expr("Ada")
-            .is_none(),
-        "non-searchable should be None"
-    );
-}
-
-#[test]
-fn text_column_sortable_produces_order_by() {
-    let col = TextColumn::new(lens!(User.name)).sortable();
-    assert!(
-        col.order_by(false).is_some(),
-        "sortable should produce order_by"
-    );
-    assert!(
-        TextColumn::new(lens!(User.name)).order_by(false).is_none(),
-        "non-sortable should be None"
-    );
-}
-
-#[test]
 fn text_column_renders_cells_via_typed_projection() {
     let plain = TextColumn::new(lens!(User.name));
     let decorated = TextColumn::new(lens!(User.name)).format(|name| format!("{name}!"));

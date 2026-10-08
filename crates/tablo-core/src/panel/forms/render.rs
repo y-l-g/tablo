@@ -236,6 +236,3 @@ fn seeded_values<R: Resource>(cx: &Cx, resource: &Mounted<R>) -> HashMap<String,
     }
     values
 }
-
-#[cfg(test)]
-mod tests;

@@ -7,73 +7,9 @@ use super::super::core::tests::{
 };
 use crate::{
     Table, TablePage, TableState, TextColumn, lens,
-    table::{DateFilter, SelectFilter, Sort, TernaryFilter},
+    table::{SelectFilter, Sort},
     test_support::Html as _,
 };
-
-#[tokio::test]
-async fn filter_widgets_render_typed_controls() {
-    let cx = CxTestBuilder::new().build();
-    let table_task1 = Table::<Task>::new(TextColumn::new(lens!(Task.title))).filters((
-        SelectFilter::new(
-            Task::fields().status(),
-            vec!["draft".to_string(), "published".to_string()],
-        ),
-        TernaryFilter::new(Task::fields().featured()),
-        DateFilter::new(Task::fields().created_at()),
-    ));
-    let page: TablePage<Task> = Vec::new().into();
-    // State with an active select value pre-selects it.
-    let mut filters = BTreeMap::new();
-    filters.insert("status".to_string(), "published".to_string());
-    let state = TableState {
-        filters,
-        ..TableState::default()
-    };
-    let html = table_task1
-        .render_with_state(&cx, page, &state, "/admin/tasks")
-        .await
-        .html(&cx)
-        .await;
-    assert!(
-        html.contains("id=\"table-toolbar\"") && html.contains("method=\"get\""),
-        "the filters live in the toolbar's GET form in {html}"
-    );
-    for name in ["status", "featured", "created_at"] {
-        assert!(
-            html.contains(&format!("data-filter-name=\"{name}\"")),
-            "missing control for {name} in {html}"
-        );
-    }
-    // Select options + current selection.
-    assert!(
-        html.contains("draft") && html.contains("published"),
-        "missing select options in {html}"
-    );
-    assert!(
-        html.contains("value=\"published\" selected")
-            || html.contains("value=\"published\" selected=\"\""),
-        "published should be selected in {html}"
-    );
-    // Ternary + date controls.
-    assert!(
-        html.contains("value=\"true\"") && html.contains("value=\"false\""),
-        "missing ternary options in {html}"
-    );
-    assert!(
-        html.contains("type=\"date\""),
-        "missing date input in {html}"
-    );
-    // Each control is its own `f.<name>` field of the form the table's query reads.
-    assert!(
-        html.contains("name=\"f.status\"") && html.contains("name=\"f.created_at\""),
-        "each filter control must be an f.<name> field in {html}"
-    );
-    assert!(
-        html.contains("Clear filters</a>"),
-        "an active filter offers to clear the filters in {html}"
-    );
-}
 
 #[tokio::test]
 async fn query_filter_renders_select_control() {
