@@ -322,6 +322,21 @@ impl Field {
         self.checkbox
     }
 
+    /// Whether the control can post `value`: a checkbox posts `true` or `false`, and a choice over
+    /// static options one of their values. `None` when the control does not say: a text field, a
+    /// relationship, or an app's own control.
+    pub(crate) fn can_post(&self, value: &str) -> Option<bool> {
+        if self.checkbox {
+            return Some(value == "true" || value == "false");
+        }
+        match &self.control {
+            ControlKind::Choice(choice) if !choice.is_relationship() => {
+                Some(value.is_empty() || choice.label_of(value).is_some())
+            }
+            _ => None,
+        }
+    }
+
     /// Whether the control renders as required.
     pub(crate) fn is_required(&self) -> bool {
         self.required

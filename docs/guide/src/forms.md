@@ -205,7 +205,7 @@ labels one field's options otherwise, to tell apart records that share a title.
 ### Conditional fields
 
 `.visible_when(&field, values)` shows a field only while another field of the same form posts one
-of `values`: an option's value, or `true` for a checked toggle. A `Section`, `Group` or `Grid`
+of `values`: an option's value, or `true` or `false` for a toggle. A `Section`, `Group` or `Grid`
 takes it too, for every field it holds:
 
 ```rust
@@ -215,13 +215,18 @@ takes it too, for every field it holds:
 `visible_when` borrows the watched field, so build the condition before the schema takes it.
 
 - The browser shows and hides the field as the watched one changes, with no request. A hidden
-  field's control is disabled, so the browser neither validates nor posts it.
-- The panel reads a submission the same way and drops a hidden field's posted key: an edit keeps
-  the stored value, and a create stores the blank answer. A conditional field therefore needs a
-  blank answer, and mounting refuses one without.
-- Mounting also refuses a condition watching a field the schema does not place, and one watching
-  a field that another condition hides while the guarded field still shows: place the guarded
-  field inside the block that hides the watched one.
+  field's control is disabled, so the browser neither validates nor posts it. Without JavaScript,
+  the fields start as the stored values show them and stay that way.
+- The panel reads a submission the same way and drops a hidden field's posted key, and a file
+  field's carried upload: an edit keeps the stored value, and a create stores the blank answer. A
+  conditional field therefore needs a blank answer, and mounting refuses one without.
+- Mounting also refuses a value the watched field never posts (a choice's option or a toggle's
+  `true` and `false` are checked), and a condition watching a field that another condition hides
+  while the guarded field still shows: place the guarded field inside the block that hides the
+  watched one. A schema also refuses a condition watching a field it does not place, which only a
+  page's or an action's schema can do: a resource's form places every record-form field.
+- A toggle is followed through its checkbox. An app's own checkbox `Control` posts the same
+  `value` checked or not, so a condition cannot follow it.
 
 ## Submitting
 

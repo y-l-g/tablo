@@ -301,6 +301,14 @@ pub enum DeclarationErrorKind {
         /// The watched field.
         field: String,
     },
+    /// A condition names a value its watched field never posts: not one of a choice's options, or
+    /// neither `true` nor `false` for a toggle.
+    UnpostedConditionValue {
+        /// The watched field.
+        field: String,
+        /// The value.
+        value: String,
+    },
     /// A field a condition hides has no blank answer, so a submission hiding it cannot parse.
     RequiredConditionalField {
         /// The field.
@@ -524,6 +532,11 @@ impl fmt::Display for DeclarationErrorKind {
                 "a condition watches field '{field}', which a condition hides while the guarded \
                  field or block still shows: place the guarded one inside the block that hides \
                  '{field}'"
+            ),
+            Self::UnpostedConditionValue { field, value } => write!(
+                f,
+                "a condition shows a field while '{field}' posts '{value}', which it never posts: \
+                 name one of its option values, or `true` or `false` for a toggle"
             ),
             Self::RequiredConditionalField { field } => write!(
                 f,

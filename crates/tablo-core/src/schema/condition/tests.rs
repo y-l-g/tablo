@@ -16,6 +16,7 @@ struct Customer {
     vat: Option<String>,
     company: Option<String>,
     note: Option<String>,
+    active: bool,
 }
 
 fn kind() -> ChoiceField {
@@ -145,5 +146,39 @@ fn a_hidden_watched_field_guards_only_inside_its_block() {
         [DeclarationErrorKind::HiddenWatchedField {
             field: "company".to_string()
         }]
+    );
+}
+
+/// An unchecked toggle renders and posts `false`, so a form with no value for it yet shows what a
+/// `false` condition guards.
+#[test]
+fn a_toggle_without_a_value_reads_as_unchecked() {
+    let active = Field::toggle(Customer::fields().active());
+    let note = Field::text(Customer::fields().note()).visible_when(&active, ["false"]);
+    let schema = Schema::new((active, note));
+    assert!(schema.condition_hidden(&HashMap::new()).is_empty());
+    let checked = HashMap::from([("active".to_string(), "true".to_string())]);
+    assert_eq!(schema.condition_hidden(&checked), ["note"]);
+}
+
+/// A value the watched field never posts would keep what it guards hidden for good.
+#[test]
+fn a_condition_names_values_the_watched_field_posts() {
+    let kind = kind();
+    let vat = Field::text(Customer::fields().vat()).visible_when(&kind, ["Company"]);
+    let active = Field::toggle(Customer::fields().active());
+    let note = Field::text(Customer::fields().note()).visible_when(&active, ["yes", "true"]);
+    assert_eq!(
+        Schema::new((kind, vat, active, note)).declaration_errors(),
+        [
+            DeclarationErrorKind::UnpostedConditionValue {
+                field: "kind".to_string(),
+                value: "Company".to_string()
+            },
+            DeclarationErrorKind::UnpostedConditionValue {
+                field: "active".to_string(),
+                value: "yes".to_string()
+            },
+        ]
     );
 }

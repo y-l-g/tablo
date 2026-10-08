@@ -266,7 +266,7 @@ macro_rules! conditional_blocks {
                     watched: &impl Watched<F>,
                     values: impl IntoIterator<Item = impl Into<String>>,
                 ) -> Self {
-                    self.condition = Some(Condition::new(watched.key(), values));
+                    self.condition = Some(Condition::new(watched, values));
                     self
                 }
             }

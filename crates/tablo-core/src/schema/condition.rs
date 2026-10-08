@@ -24,9 +24,18 @@ use crate::{DeclarationErrorKind, topcoat_compat::async_page};
 
 /// A field a condition can watch: a text, choice or custom field of the form `F`, passed to
 /// `visible_when` by reference.
+///
+/// A condition follows a toggle (`Field::toggle`, `Field::toggle_input`) through its checkbox, and
+/// any other control through its `value`: an app's own checkbox control posts the same `value`
+/// checked or not, so a condition cannot follow it.
 pub trait Watched<F> {
     #[doc(hidden)]
     fn key(&self) -> &str;
+
+    #[doc(hidden)]
+    fn checkbox(&self) -> bool {
+        false
+    }
 }
 
 impl<F> Watched<F> for TextField<F> {
@@ -45,26 +54,41 @@ impl<F> Watched<F> for CustomField<F> {
     fn key(&self) -> &str {
         self.name()
     }
+
+    fn checkbox(&self) -> bool {
+        self.is_checkbox()
+    }
 }
 
 /// Shows a field or a block while the field `watched` posts one of `values`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Condition {
     watched: String,
+    /// Whether the watched field is a checkbox, which renders unchecked with no value.
+    checkbox: bool,
     values: Vec<String>,
 }
 
 impl Condition {
-    pub(crate) fn new(watched: &str, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
+    pub(crate) fn new<F>(
+        watched: &impl Watched<F>,
+        values: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
         Self {
-            watched: watched.to_string(),
+            watched: watched.key().to_string(),
+            checkbox: watched.checkbox(),
             values: values.into_iter().map(Into::into).collect(),
         }
     }
 
-    /// Whether the submission `values` shows what the condition guards.
+    /// Whether the submission `values` shows what the condition guards. A checkbox with no value
+    /// reads as `false`, as it renders and posts.
     fn holds(&self, values: &HashMap<String, String>) -> bool {
-        let posted = values.get(&self.watched).map_or("", |value| value.trim());
+        let posted = match values.get(&self.watched) {
+            Some(value) => value.trim(),
+            None if self.checkbox => "false",
+            None => "",
+        };
         self.values.iter().any(|value| value == posted)
     }
 
@@ -112,9 +136,11 @@ fn shown(cx: &Cx, condition: &Condition, initial: bool) -> Signal<bool> {
 
 /// Renders the watched field `field` inside one change handler per condition reading it.
 ///
-/// A runtime expression has no `||`, so a condition naming several values stacks one handler per
-/// value: the innermost sets the signal from the first value, and each outer one, run after it as
-/// the event bubbles, sets it when its own value matches.
+/// A handler reads only the event of the control posting the watched key: a searchable choice's
+/// filter box or an app control's own inputs change inside the same wrapper. A runtime expression
+/// has no `||`, so a condition naming several values stacks one handler per value: the innermost
+/// sets the signal from the first value, and each outer one, run after it as the event bubbles,
+/// sets it when its own value matches.
 pub(crate) fn watch<'a>(
     cx: &'a Cx,
     field: &Field,
@@ -127,6 +153,7 @@ pub(crate) fn watch<'a>(
         .map(|condition| (condition.clone(), condition.holds(values)))
         .collect();
     let checkbox = field.is_checkbox();
+    let key = field.name().to_string();
     async_page(async move {
         let mut view = control;
         for (condition, initial) in conditions {
@@ -135,13 +162,14 @@ pub(crate) fn watch<'a>(
                 // A checkbox posts `true` when checked and its hidden `false` otherwise.
                 let on = condition.values.iter().any(|value| value == "true");
                 let off = condition.values.iter().any(|value| value == "false");
+                let name = key.clone();
                 view = view! {
                     cx =>
                     <div
                         class="contents"
-                        @change=$(|e: Event| shown.set(
-                                if e.target.checked { on } else { off },
-                            ))
+                        @change=$(|e: Event| if e.target.name == name {
+                            shown.set(if e.target.checked { on } else { off })
+                        })
                     >
                         (view)
                     </div>
@@ -153,25 +181,29 @@ pub(crate) fn watch<'a>(
             let Some(first) = values.next() else {
                 continue;
             };
-            let set = shown.clone();
+            let (set, name) = (shown.clone(), key.clone());
             view = view! {
                 cx =>
                 <div
                     class="contents"
-                    @change=$(|e: Event| set.set(e.target.value == first))
+                    @change=$(|e: Event| if e.target.name == name {
+                        set.set(e.target.value.trim() == first)
+                    })
                 >
                     (view)
                 </div>
             }
             .boxed();
             for value in values {
-                let set = shown.clone();
+                let (set, name) = (shown.clone(), key.clone());
                 view = view! {
                     cx =>
                     <div
                         class="contents"
-                        @change=$(|e: Event| if e.target.value == value {
-                            set.set(true)
+                        @change=$(|e: Event| if e.target.name == name {
+                            if e.target.value.trim() == value {
+                                set.set(true)
+                            }
                         })
                     >
                         (view)
@@ -266,15 +298,17 @@ impl<F> Schema<F> {
     }
 
     /// What is wrong with the schema's conditions: a watched field the schema does not place, one
-    /// a condition hides while what it guards still shows, and a hidden field with no blank
-    /// answer, which a submission that hides it could not parse.
+    /// a condition hides while what it guards still shows, a value the watched field never posts,
+    /// and a hidden field with no blank answer, which a submission that hides it could not parse.
     pub(crate) fn condition_errors(&self) -> Vec<DeclarationErrorKind> {
         let scan = Scan::of(&self.nodes, &self.fields);
         let mut errors = Vec::new();
         for (condition, guarding) in &scan.conditions {
             let watched = condition.watched.clone();
             match scan.guarding(&self.fields, &condition.watched) {
-                None => errors.push(DeclarationErrorKind::UnplacedWatchedField { field: watched }),
+                None => errors.push(DeclarationErrorKind::UnplacedWatchedField {
+                    field: watched.clone(),
+                }),
                 // The browser follows the watched field's last change, the server its posted
                 // value: they agree only while every condition hiding the watched field also
                 // hides what it guards.
@@ -283,9 +317,21 @@ impl<F> Schema<F> {
                         .iter()
                         .all(|hiding| guarding.iter().any(|c| std::ptr::eq(*c, *hiding))) =>
                 {
-                    errors.push(DeclarationErrorKind::HiddenWatchedField { field: watched });
+                    errors.push(DeclarationErrorKind::HiddenWatchedField {
+                        field: watched.clone(),
+                    });
                 }
                 Some(_) => {}
+            }
+            if let Some(field) = self.fields.iter().find(|f| f.name() == condition.watched) {
+                for value in &condition.values {
+                    if field.can_post(value) == Some(false) {
+                        errors.push(DeclarationErrorKind::UnpostedConditionValue {
+                            field: watched.clone(),
+                            value: value.clone(),
+                        });
+                    }
+                }
             }
         }
         for (index, chain) in &scan.fields {

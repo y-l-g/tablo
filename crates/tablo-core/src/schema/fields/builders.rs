@@ -62,7 +62,7 @@ macro_rules! common_modifiers {
                 watched: &impl Watched<F>,
                 values: impl IntoIterator<Item = impl Into<String>>,
             ) -> Self {
-                self.0.condition = Some(Condition::new(watched.key(), values));
+                self.0.condition = Some(Condition::new(watched, values));
                 self
             }
         }
@@ -117,6 +117,13 @@ pub struct FileField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
 /// A field an app's [`Control`] renders: [`Field::custom`] and [`Field::toggle`], or a record
 /// form's toggle (`F` is the form).
 pub struct CustomField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
+
+impl<F> CustomField<F> {
+    /// Whether the control is the built-in checkbox, which a condition follows through `checked`.
+    pub(crate) fn is_checkbox(&self) -> bool {
+        self.0.is_checkbox()
+    }
+}
 
 common_modifiers!(TextField);
 common_modifiers!(ChoiceField);
