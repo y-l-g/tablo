@@ -149,21 +149,29 @@ pub(crate) fn table_error_view<'a>(
     .boxed()
 }
 
-/// Renders the list page header titled `plural_label`, with a Create link to `create_url`.
+/// Renders the list page header titled `plural_label`, with the CSV export link to `export_url`
+/// and a Create link to `create_url`.
 fn list_header<'a>(
     cx: &'a Cx,
     plural_label: &str,
     label: &str,
     create_url: Option<String>,
+    export_url: String,
 ) -> BoxView<'a> {
     let title = plural_label.to_string();
     let create_label = format!("Create {label}");
+    let outline =
+        tablo_ui::button_variants(tablo_ui::ButtonVariant::Outline, tablo_ui::ButtonSize::Md);
     view! {
         cx =>
         tablo_ui::page_header(
             tablo_ui::page_title((title))
-            if let Some(url) = create_url {
-                tablo_ui::page_actions(
+            tablo_ui::page_actions(
+                <a href=(export_url) class=(outline)>
+                    icon(data: tablo_ui::icons::DOWNLOAD)
+                    "Export CSV"
+                </a>
+                if let Some(url) = create_url {
                     <a
                         (crate::navigation::runtime_link(cx, &url))
                         class=(tablo_ui::button_variants(
@@ -174,8 +182,8 @@ fn list_header<'a>(
                         icon(data: tablo_ui::icons::PLUS)
                         (create_label)
                     </a>
-                )
-            }
+                }
+            )
         )
     }
     .boxed()
@@ -205,7 +213,14 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         let skeleton = table.render_skeleton(cx, &state).await?;
         let create_url = (<R::Form as RecordForm>::HAS_FORM && resource.can(cx, Ability::Create))
             .then(|| create_page_url(&resource.url));
-        let header = list_header(cx, &resource.plural_label, &resource.label, create_url);
+        let export_url = state.without_cursor(&format!("{}/export", resource.url));
+        let header = list_header(
+            cx,
+            &resource.plural_label,
+            &resource.label,
+            create_url,
+            export_url,
+        );
         let mode = rerun_suspense_mode(cx);
         let lazy_rows = ThenView::new(async move {
             let list_path = &resource.url;
