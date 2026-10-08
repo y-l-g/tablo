@@ -18,8 +18,28 @@ use crate::{
 /// Declared by [`ResourceDef::relation`](super::ResourceDef::relation); the related resource
 /// must be registered on the same panel, which keys the relation by its slug:
 ///
-/// ```text
-/// ResourceDef::new().relation(Relation::has_many::<CommentResource>(Comment::fields().post_id()))
+/// ```rust
+/// # use tablo_core::{NoForm, Relation, Resource, ResourceDef};
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct Post {
+/// #     #[key] #[auto] id: uuid::Uuid,
+/// #     #[has_many]
+/// #     comments: toasty::Deferred<Vec<Comment>>,
+/// # }
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct Comment {
+/// #     #[key] #[auto] id: uuid::Uuid,
+/// #     #[index]
+/// #     post_id: uuid::Uuid,
+/// #     #[belongs_to(key = post_id, references = id)]
+/// #     post: toasty::Deferred<Post>,
+/// # }
+/// # struct PostResource;
+/// # impl Resource for PostResource { type Model = Post; type Form = NoForm<Post>; }
+/// # struct CommentResource;
+/// # impl Resource for CommentResource { type Model = Comment; type Form = NoForm<Comment>; }
+/// let def: ResourceDef<PostResource> =
+///     ResourceDef::new().relation(Relation::has_many::<CommentResource>(Comment::fields().post_id()));
 /// ```
 pub struct Relation<P> {
     pub(crate) child: TypeId,
@@ -63,8 +83,27 @@ where
     /// Declare a `has_many` child resource whose `foreign_key` holds the owner's primary key, a
     /// single column.
     ///
-    /// ```text
-    /// Relation::has_many::<CommentResource>(Comment::fields().post_id())
+    /// ```rust
+    /// # use tablo_core::{NoForm, Relation, Resource, ResourceDef};
+    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # struct Post {
+    /// #     #[key] #[auto] id: uuid::Uuid,
+    /// #     #[has_many]
+    /// #     comments: toasty::Deferred<Vec<Comment>>,
+    /// # }
+    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # struct Comment {
+    /// #     #[key] #[auto] id: uuid::Uuid,
+    /// #     #[index]
+    /// #     post_id: uuid::Uuid,
+    /// #     #[belongs_to(key = post_id, references = id)]
+    /// #     post: toasty::Deferred<Post>,
+    /// # }
+    /// # struct PostResource;
+    /// # impl Resource for PostResource { type Model = Post; type Form = NoForm<Post>; }
+    /// # struct CommentResource;
+    /// # impl Resource for CommentResource { type Model = Comment; type Form = NoForm<Comment>; }
+    /// let comments: Relation<Post> = Relation::has_many::<CommentResource>(Comment::fields().post_id());
     /// ```
     pub fn has_many<C>(foreign_key: Path<C::Model, impl ForeignKey<P::PrimaryKey>>) -> Self
     where

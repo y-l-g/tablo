@@ -27,6 +27,9 @@ tablo-ui = { path = "../tablo-ui", version = "0.5.1" }
 toasty.workspace = true
 uuid.workspace = true
 
+[dev-dependencies]
+topcoat.workspace = true
+
 # `toasty` is never named in code: it is here so the driver features above can
 # reach it. `uuid` is named in rustdoc only, for the model key the quickstart
 # names too.

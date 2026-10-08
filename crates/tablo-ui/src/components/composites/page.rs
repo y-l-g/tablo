@@ -18,15 +18,22 @@ const PAGE_CONTENT: StaticClass = class!("flex flex-col gap-6");
 
 /// Standard container for an admin page, owning its max width, padding, and vertical rhythm.
 ///
-/// ```text
+/// ```rust
+/// # use tablo_ui::{page, page_actions, page_content, page_description, page_header, page_title};
+/// # use topcoat::{context::Cx, view::{BoxView, ViewExt, view}};
+/// # fn users<'a>(cx: &'a Cx, create_button: BoxView<'a>, table_view: BoxView<'a>) -> BoxView<'a> {
+/// # view! { cx =>
 /// page(
 ///     page_header(
 ///         page_title("Users")
 ///         page_description("Manage your users.")
-///         page_actions(create_button)
+///         page_actions((create_button))
 ///     )
-///     page_content(table_view)
+///     page_content((table_view))
 /// )
+/// # }
+/// # .boxed()
+/// # }
 /// ```
 #[component]
 pub async fn page(

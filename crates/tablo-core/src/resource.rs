@@ -236,12 +236,24 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// and retries are the app's to build; a panic surfaces as Topcoat's
     /// panic-isolated 500.
     ///
-    /// ```text
+    /// ```rust
+    /// # use tablo_core::{Committed, NoForm, Resource, db::db};
+    /// # use topcoat::{Result, context::Cx};
+    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
+    /// # async fn notify(_db: &mut toasty::Db, _post: &Post) -> Result<()> { Ok(()) }
+    /// # struct PostResource;
+    /// # impl Resource for PostResource {
+    /// #     type Model = Post;
+    /// #     type Form = NoForm<Post>;
     /// async fn after_commit(cx: &Cx, committed: Committed<Post>) -> Result<()> {
     ///     let mut db = db(cx); // a fresh handle is allowed here
-    ///     for post in committed.records() { notify(post).await?; }
+    ///     for post in committed.records() {
+    ///         notify(&mut db, post).await?;
+    ///     }
     ///     Ok(())
     /// }
+    /// # }
     /// ```
     fn after_commit(
         _cx: &Cx,

@@ -131,11 +131,23 @@ pub fn hash_password(password: &str) -> topcoat::Result<String> {
 /// account; unknown accounts verify against a dummy hash so response times do
 /// not reveal which accounts exist.
 ///
-/// ```text
+/// ```rust,no_run
+/// # use tablo_core::auth::verify_password;
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct Staff {
+/// #     #[key] #[auto] id: uuid::Uuid,
+/// #     #[unique]
+/// #     email: String,
+/// #     password_hash: String,
+/// # }
+/// # async fn sign_in(mut db: toasty::Db, login: &str, password: &str)
+/// # -> topcoat::Result<Option<Staff>> {
 /// let staff = Staff::filter_by_email(login).first().exec(&mut db).await?;
 /// if !verify_password(password, staff.as_ref().map(|s| s.password_hash.as_str())) {
 ///     return Ok(None);
 /// }
+/// # Ok(staff)
+/// # }
 /// ```
 #[must_use]
 pub fn verify_password(password: &str, hash: Option<&str>) -> bool {

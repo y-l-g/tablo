@@ -5,10 +5,24 @@
 //! A resource or page that panel does not register has no URL there, and the
 //! helper returns `None`.
 //!
-//! ```text
-//! let posts = tablo::url::resource::<PostResource>(cx);  // Some("/admin/posts")
-//! let media = tablo::url::page::<MediaLibraryPage>(cx);  // Some("/admin/media")
-//! let home = tablo::url::panel(cx);                      // Some("/admin")
+//! ```rust,no_run
+//! # use tablo_core::{NoForm, Page, Resource};
+//! # use topcoat::{Result, context::Cx, view::View};
+//! # #[derive(Debug, Clone, toasty::Model)]
+//! # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
+//! # struct PostResource;
+//! # impl Resource for PostResource {
+//! #     type Model = Post;
+//! #     type Form = NoForm<Post>;
+//! # }
+//! # struct MediaLibraryPage;
+//! # impl Page for MediaLibraryPage {
+//! #     async fn render(_cx: &Cx) -> Result<impl View> { Ok(()) }
+//! # }
+//! # let cx: &Cx = todo!();
+//! let posts = tablo_core::url::resource::<PostResource>(cx); // Some("/admin/posts")
+//! let media = tablo_core::url::page::<MediaLibraryPage>(cx); // Some("/admin/media-library")
+//! let home = tablo_core::url::panel(cx); // Some("/admin")
 //! ```
 
 use std::any::TypeId;

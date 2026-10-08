@@ -51,7 +51,11 @@ const CLOSE: StaticClass = class!(
 
 /// Renders the toast stack.
 ///
-/// ```text
+/// ```rust
+/// # use tablo_ui::{icons, toast, toast_close, toast_content, toast_description, toast_icon, toast_title, toaster};
+/// # use topcoat::{context::Cx, icon::icon, view::{BoxView, ViewExt, attributes, view}};
+/// # fn created(cx: &Cx) -> BoxView<'_> {
+/// # view! { cx =>
 /// toaster(
 ///     toast(attrs: attributes! { data-type="success" },
 ///         toast_icon(icon(data: icons::CIRCLE_CHECK))
@@ -62,6 +66,9 @@ const CLOSE: StaticClass = class!(
 ///         toast_close()
 ///     )
 /// )
+/// # }
+/// # .boxed()
+/// # }
 /// ```
 #[component]
 pub async fn toaster(

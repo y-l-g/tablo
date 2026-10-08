@@ -70,11 +70,24 @@ impl<M, T> From<Lens<M, T>> for Path<M, T> {
 /// `lens!(User.name)` is the path `User::fields().name()` paired with `|user| &user.name`. A
 /// chain through a relation does not compile: a relation's records are not part of the row.
 ///
-/// ```text
-/// lens!(User.name)          // Lens<User, String>
-/// lens!(Post.seo)           // an embedded value, whole
-/// lens!(Post.seo.title)     // an embedded struct's field
-/// lens!(crate::blog::Post.title)
+/// ```rust
+/// # use tablo_core::{Lens, lens};
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
+/// # #[derive(Debug, Clone, toasty::Embed)]
+/// # struct Seo { title: String }
+/// # mod blog {
+/// #     #[derive(Debug, Clone, toasty::Model)]
+/// #     pub struct Post { #[key] #[auto] pub id: uuid::Uuid, pub title: String, pub seo: super::Seo }
+/// # }
+/// # use blog::Post;
+/// # fn main() {
+/// let name: Lens<User, String> = lens!(User.name);
+/// let seo: Lens<Post, Seo> = lens!(Post.seo); // an embedded value, whole
+/// let title: Lens<Post, String> = lens!(Post.seo.title); // an embedded struct's field
+/// let qualified = lens!(crate::blog::Post.title);
+/// # let _ = (name, seo, title, qualified);
+/// # }
 /// ```
 #[macro_export]
 macro_rules! lens {

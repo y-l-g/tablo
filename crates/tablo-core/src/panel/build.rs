@@ -38,16 +38,39 @@ use crate::{
 
 /// Mounts a [`Panel`] on a router the app owns.
 ///
-/// ```text
-/// use tablo::prelude::*;
-///
+/// ```rust,no_run
+/// # use tablo_core::{Auth, NoForm, Panel, PanelUser, Resource, RouterBuilderPanelExt, auth::Authenticator};
+/// # use topcoat::{context::Cx, router::{Router, RouterBuilderDiscoverExt}};
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct Order { #[key] #[auto] id: uuid::Uuid, total: i64 }
+/// # struct UserResource;
+/// # impl Resource for UserResource { type Model = User; type Form = NoForm<User>; }
+/// # struct OrderResource;
+/// # impl Resource for OrderResource { type Model = Order; type Form = NoForm<Order>; }
+/// # struct Member;
+/// # impl PanelUser for Member {
+/// #     fn user_id(&self) -> String { String::new() }
+/// #     fn display_name(&self) -> &str { "" }
+/// # }
+/// # struct Members;
+/// # impl Authenticator for Members {
+/// #     type User = Member;
+/// #     async fn verify(&self, _: &Cx, _: &str, _: &str) -> topcoat::Result<Option<Member>> { Ok(None) }
+/// #     async fn find_by_id(&self, _: &Cx, _: &str) -> topcoat::Result<Option<Member>> { Ok(None) }
+/// # }
+/// # fn main() -> topcoat::Result<()> {
+/// # let db: toasty::Db = todo!();
 /// let router = Router::builder()
 ///     .discover()
 ///     .app_context(db)
-///     .assets(bundle)
 ///     .panel(Panel::new("admin").resource::<UserResource>())?
 ///     .panel(Panel::new("portal").auth(Auth::custom(Members)).resource::<OrderResource>())?
 ///     .build();
+/// # let _ = router;
+/// # Ok(())
+/// # }
 /// ```
 pub trait RouterBuilderPanelExt: Sized {
     /// Mounts `panel` at its prefix with its routes, shell layout, and gating layers.

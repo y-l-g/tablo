@@ -95,10 +95,37 @@ impl<M, R> std::fmt::Debug for RelationLens<M, R> {
 /// `relation!(Post.author)` is the include `Post::fields().author()` paired with
 /// `|post| &post.author`.
 ///
-/// ```text
-/// relation!(Post.author)          // RelationLens<Post, Deferred<Author>>
-/// relation!(Post.comments)        // RelationLens<Post, Deferred<Vec<Comment>>>
-/// relation!(crate::blog::Post.author)
+/// ```rust
+/// # use tablo_core::{RelationLens, relation};
+/// # use toasty::Deferred;
+/// # mod blog {
+/// #     #[derive(Debug, Clone, toasty::Model)]
+/// #     pub struct Author { #[key] #[auto] pub id: uuid::Uuid, pub name: String }
+/// #     #[derive(Debug, Clone, toasty::Model)]
+/// #     pub struct Post {
+/// #         #[key] #[auto] pub id: uuid::Uuid,
+/// #         pub author_id: uuid::Uuid,
+/// #         #[belongs_to(key = author_id, references = id)]
+/// #         pub author: toasty::Deferred<Author>,
+/// #         #[has_many]
+/// #         pub comments: toasty::Deferred<Vec<Comment>>,
+/// #     }
+/// #     #[derive(Debug, Clone, toasty::Model)]
+/// #     pub struct Comment {
+/// #         #[key] #[auto] pub id: uuid::Uuid,
+/// #         #[index]
+/// #         pub post_id: uuid::Uuid,
+/// #         #[belongs_to(key = post_id, references = id)]
+/// #         pub post: toasty::Deferred<Post>,
+/// #     }
+/// # }
+/// # use blog::{Author, Comment, Post};
+/// # fn main() {
+/// let author: RelationLens<Post, Deferred<Author>> = relation!(Post.author);
+/// let comments: RelationLens<Post, Deferred<Vec<Comment>>> = relation!(Post.comments);
+/// let qualified = relation!(crate::blog::Post.author);
+/// # let _ = (author, comments, qualified);
+/// # }
 /// ```
 #[macro_export]
 macro_rules! relation {

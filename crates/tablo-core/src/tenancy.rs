@@ -82,10 +82,26 @@ pub fn require_tenant(cx: &Cx) -> Result<uuid::Uuid, topcoat::Error> {
 /// A resource declares one with [`ResourceDef::tenancy`](crate::ResourceDef::tenancy). A
 /// scoped tenancy names, by lens, the [`TenantId`] column each row is filtered on:
 ///
-/// ```text
-/// ResourceDef::new().tenancy(Tenancy::column(lens!(Post.tenant_id)))
+/// ```rust
+/// # use tablo_core::{NoForm, Resource, ResourceDef, Tenancy, TenantId, lens};
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct Post { #[key] #[auto] id: uuid::Uuid, tenant_id: TenantId }
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct Comment {
+/// #     #[key] #[auto] id: uuid::Uuid,
+/// #     post_id: uuid::Uuid,
+/// #     #[belongs_to(key = post_id, references = id)]
+/// #     post: toasty::Deferred<Post>,
+/// # }
+/// # struct PostResource;
+/// # impl Resource for PostResource { type Model = Post; type Form = NoForm<Post>; }
+/// # struct CommentResource;
+/// # impl Resource for CommentResource { type Model = Comment; type Form = NoForm<Comment>; }
+/// let posts: ResourceDef<PostResource> =
+///     ResourceDef::new().tenancy(Tenancy::column(lens!(Post.tenant_id)));
 ///
-/// ResourceDef::new().tenancy(Tenancy::via(Comment::fields().post().tenant_id()))
+/// let comments: ResourceDef<CommentResource> =
+///     ResourceDef::new().tenancy(Tenancy::via(Comment::fields().post().tenant_id()));
 /// ```
 ///
 /// A scoped resource answers 403 to a request with no tenant, in every handler,

@@ -18,7 +18,10 @@ const ERROR_STATE_ACTION: StaticClass = class!("text-sm font-medium text-primary
 /// Keeps `detail` generic: never renders error internals (driver messages, SQL, paths) into the
 /// page.
 ///
-/// ```text
+/// ```rust
+/// # use tablo_ui::error_state;
+/// # use topcoat::{Result, context::Cx, view::{BoxView, ViewExt, view}};
+/// # fn failed<'a>(cx: &'a Cx, list_url: &'a str) -> Result<BoxView<'a>> {
 /// let action = view! { cx => <a href=(list_url)>"Retry"</a> }.boxed();
 /// Ok(view! { cx =>
 ///     error_state(
@@ -26,7 +29,9 @@ const ERROR_STATE_ACTION: StaticClass = class!("text-sm font-medium text-primary
 ///         detail: "Something went wrong while loading the records.",
 ///         action: Some(action.into()),
 ///     )
-/// }.boxed())
+/// }
+/// .boxed())
+/// # }
 /// ```
 #[component]
 pub async fn error_state(

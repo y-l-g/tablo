@@ -30,11 +30,18 @@ else document.documentElement.classList.remove('dark')})();",
 /// `default_dark` is the server's build-time preference, used only when the visitor has no stored
 /// choice.
 ///
-/// ```text
+/// ```rust
+/// # use tablo_ui::theme_init_script;
+/// # use topcoat::{context::Cx, view::{BoxView, ViewExt, view}};
+/// # fn head<'a>(cx: &'a Cx, default_dark: bool, stylesheet: &'a str) -> BoxView<'a> {
+/// # view! { cx =>
 /// <head>
-///     theme_init_script(default_dark)
-///     <link rel="stylesheet" href=(tailwind::stylesheet!())>
+///     theme_init_script(default_dark: default_dark)
+///     <link rel="stylesheet" href=(stylesheet)>
 /// </head>
+/// # }
+/// # .boxed()
+/// # }
 /// ```
 #[component]
 pub async fn theme_init_script(default_dark: bool) -> Result<impl View> {
