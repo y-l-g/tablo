@@ -512,6 +512,7 @@ async fn blocked_tenant_is_refused_on_every_read_route() {
         "/admin/posts".to_string(),
         "/admin/posts/export".to_string(),
         format!("/admin/posts/{}", blocked_post.id),
+        "/admin/posts/-/actions/tag/options?field=tags".to_string(),
     ] {
         let resp = blocked.get(&path).await;
         assert_eq!(
@@ -550,6 +551,8 @@ async fn anonymous_requests_are_gated_on_every_route() {
         format!("/admin/posts/{}/edit", post.id),
         "/admin/posts/export".to_string(),
         "/admin/posts/options?q=a".to_string(),
+        "/admin/posts/-/actions/tag/options?field=tags".to_string(),
+        "/admin/-/actions/feature-tagged/options?field=tag".to_string(),
     ] {
         let resp = client.get(&path).await;
         assert_eq!(

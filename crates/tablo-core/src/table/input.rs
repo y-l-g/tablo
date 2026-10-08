@@ -59,7 +59,7 @@ pub(crate) enum Posts {
 /// The signals a table's trigger writes before opening the dialog of one action.
 #[derive(Clone)]
 pub(crate) struct TableTarget {
-    /// The POST target: a row's route, or the bulk route; empty while the dialog is closed.
+    /// The POST target: a row's route, or the bulk route, which the trigger sets before opening.
     pub(crate) action: Signal<String>,
     /// Whether the dialog runs on the selection.
     pub(crate) bulk: Signal<bool>,
@@ -78,8 +78,10 @@ impl InputDialog {
                 options,
             } = self;
             let (values, errors) = (HashMap::new(), FieldErrors::new());
+            // The fields' ids sit under their own prefix, so a field named `title` never takes
+            // the dialog title's id.
             let source = Source::form(&values, &errors)
-                .scoped(id.clone())
+                .scoped(format!("{id}-field"))
                 .options_at(options);
             let fields = input().render(cx, source).await?;
             let csrf = crate::csrf::current_token(cx);
@@ -94,20 +96,33 @@ impl InputDialog {
             let table = matches!(posts, Posts::Table { .. });
             // The warning describes the dialog; the selection's size only shows beside it.
             let described = confirm.then(|| description_id.clone());
-            let mut attrs = attributes! {
+            let reset = id.clone();
+            // A closed dialog keeps what was typed in it, and the next run, maybe on another row,
+            // starts blank. Each control then announces a `change`, so a condition follows its
+            // blank value.
+            let attrs = attributes! {
                 cx =>
                 id=(id)
                 aria-labelledby=(title_id.clone())
                 aria-describedby=(described)
+                @close=$(|_e: Event| {
+                    raw!(
+                        "((form) => { \
+                            form.reset(); \
+                            for (const control of form.elements) { \
+                                if (control.name) { \
+                                    control.dispatchEvent(new Event('change', { bubbles: true })); \
+                                } \
+                            } \
+                        })(document.getElementById(String(${reset})).querySelector('form'))",
+                        (),
+                    );
+                })
             };
             let (action, selection, count) = match posts {
                 Posts::To(url) => (attributes! { cx => action=(url) }, None, None),
                 Posts::Table { target, selection } => {
                     let TableTarget { action, bulk } = target;
-                    let clear = action.clone();
-                    attrs.extend(
-                        attributes! { cx => @close=$(|_e: Event| clear.set("".to_owned())) },
-                    );
                     let count = selected_count(cx, selection.clone());
                     (
                         attributes! { cx => :action=$(action.get()) },
@@ -205,11 +220,8 @@ pub(crate) fn selected_count(cx: &Cx, selection: Signal<String>) -> BoxView<'_> 
     view! { cx => (count) }.boxed()
 }
 
-/// A trigger's attributes: it opens the dialog `id` on a blank form, after pointing a table's
-/// dialog at `url` when `table` names its target, on the selection when `bulk`.
-///
-/// The form is reset because a closed dialog keeps what was typed in it, and another row's run
-/// starts blank. Each control then announces a `change`, so a condition follows its blank value.
+/// A trigger's attributes: it opens the dialog `id`, after pointing a table's dialog at `url`
+/// when `table` names its target, on the selection when `bulk`.
 pub(crate) fn open_dialog(
     cx: &Cx,
     id: &str,
@@ -226,19 +238,7 @@ pub(crate) fn open_dialog(
         None => attributes! {
             cx =>
             @click=$(|_e: Event| {
-                raw!(
-                    "((dialog) => { \
-                        const form = dialog.querySelector('form'); \
-                        form.reset(); \
-                        for (const control of form.elements) { \
-                            if (control.name) { \
-                                control.dispatchEvent(new Event('change', { bubbles: true })); \
-                            } \
-                        } \
-                        dialog.showModal(); \
-                    })(document.getElementById(String(${modal})))",
-                    (),
-                );
+                raw!("document.getElementById(String(${modal})).showModal()", ());
             })
         },
         Some((TableTarget { action, bulk }, url, on_selection)) => attributes! {
@@ -246,19 +246,7 @@ pub(crate) fn open_dialog(
             @click=$(|_e: Event| {
                 bulk.set(on_selection);
                 action.set(url.clone());
-                raw!(
-                    "((dialog) => { \
-                        const form = dialog.querySelector('form'); \
-                        form.reset(); \
-                        for (const control of form.elements) { \
-                            if (control.name) { \
-                                control.dispatchEvent(new Event('change', { bubbles: true })); \
-                            } \
-                        } \
-                        dialog.showModal(); \
-                    })(document.getElementById(String(${modal})))",
-                    (),
-                );
+                raw!("document.getElementById(String(${modal})).showModal()", ());
             })
         },
     });

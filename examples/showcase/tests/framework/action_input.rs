@@ -717,8 +717,8 @@ async fn the_list_asks_for_each_input_in_one_dialog() {
     let start = html.find("id=\"table-writes-input-close\"").unwrap();
     let close = &html[start..start + html[start..].find("</dialog>").unwrap()];
     for expected in [
-        "id=\"table-writes-input-close-reason\"",
-        "for=\"table-writes-input-close-reason\"",
+        "id=\"table-writes-input-close-field-reason\"",
+        "for=\"table-writes-input-close-field-reason\"",
         "name=\"reason\"",
         "name=\"outcome\"",
     ] {

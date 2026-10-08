@@ -363,6 +363,20 @@ async fn the_list_header_offers_each_header_action_the_request_may_run() {
         html.contains("action=\"/admin/tickets/-/actions/open-ticket\""),
         "the header offers open-ticket, whose input dialog posts to its route: {html}"
     );
+    // Open-ticket asks for a `title`, which its dialog's own title must not share an id with.
+    let mut ids: Vec<&str> = html
+        .split(" id=\"")
+        .skip(1)
+        .map(|rest| &rest[..rest.find('"').expect("a closed id")])
+        .collect();
+    assert!(ids.iter().any(|id| id.ends_with("-field-title")), "{html}");
+    ids.sort_unstable();
+    let repeated: Vec<_> = ids
+        .windows(2)
+        .filter(|w| w[0] == w[1])
+        .map(|w| w[0])
+        .collect();
+    assert!(repeated.is_empty(), "the list repeats {repeated:?}");
     assert!(
         !html.contains("/admin/tickets/-/actions/flagged"),
         "an action its `can_run` refuses has no button: {html}"
