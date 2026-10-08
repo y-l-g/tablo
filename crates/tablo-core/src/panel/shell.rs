@@ -543,7 +543,14 @@ impl Panel {
         let path = uri(cx).path().to_string();
         // The panel's sidebar, or a single Home entry outside any panel.
         let nav_items = current(cx)
-            .map(|panel| panel.nav_items.clone())
+            .map(|panel| {
+                panel
+                    .nav_items
+                    .iter()
+                    .filter(|entry| (entry.visible)(cx))
+                    .map(|entry| entry.item.clone())
+                    .collect::<Vec<_>>()
+            })
             .filter(|items| !items.is_empty())
             .unwrap_or_else(|| vec![NavigationItem::at("Home", super::gate::panel_prefix(cx))]);
         let shell = Self::render_shell(cx, &nav_items, &path, slot, None).await?;

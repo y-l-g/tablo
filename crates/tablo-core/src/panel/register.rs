@@ -17,11 +17,11 @@ use super::{
     list::resource_list,
     pages::page_handler,
     relations::{Child, relation_table},
+    state::NavEntry,
 };
 use crate::{
-    DeclarationError, DeclarationErrorKind, Page, Site,
+    Ability, DeclarationError, DeclarationErrorKind, Page, Site,
     form::RecordForm,
-    navigation::NavigationItem,
     resource::{Mounted, Mounts, Resource, ResourceDef},
     schema::FieldResolver,
     table::{
@@ -56,7 +56,7 @@ pub(super) struct Registry {
     slugs: Vec<String>,
     /// The URL each resource and page serves at, by type.
     pub(super) urls: HashMap<TypeId, String>,
-    pub(super) nav_items: Vec<NavigationItem>,
+    pub(super) nav_items: Vec<NavEntry>,
     pub(super) pages: Vec<PageFn>,
     pub(super) routes: Vec<RouteFn>,
     pub(super) root: Option<Root>,
@@ -209,7 +209,10 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
         if registry.root.is_none() {
             registry.root = Some(Root::Redirect(url));
         }
-        registry.nav_items.push(mounted.navigation.clone());
+        registry.nav_items.push(NavEntry {
+            item: mounted.navigation.clone(),
+            visible: |cx| crate::can::<R>(cx, Ability::ViewAny),
+        });
         registry.children.insert(
             TypeId::of::<R>(),
             Child {
@@ -319,7 +322,10 @@ impl<P: Page> Registration for PageRegistration<P> {
             url
         };
         registry.page(http::Method::GET, &url, page_handler::<P>);
-        let item = P::navigation().resolved(&url);
+        let item = NavEntry {
+            item: P::navigation().resolved(&url),
+            visible: P::can_access,
+        };
         if self.home {
             registry.nav_items.insert(0, item);
         } else {

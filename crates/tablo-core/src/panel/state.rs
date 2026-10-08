@@ -17,13 +17,21 @@ use super::{
 };
 use crate::{auth::Auth, navigation::NavigationItem, resource::Mounts, upload::InstalledUploader};
 
+/// A sidebar entry and whether the request's user may open what it points at.
+#[derive(Clone)]
+pub(crate) struct NavEntry {
+    pub(crate) item: NavigationItem,
+    /// A resource's `ViewAny`, or a page's `Page::can_access`.
+    pub(crate) visible: fn(&Cx) -> bool,
+}
+
 /// One mounted panel: its prefix, its shell, its auth, and the registries its
 /// generic handlers dispatch through.
 pub(crate) struct PanelState {
     /// The mount prefix, e.g. `/admin`: every URL the panel serves starts
     /// with it, and no other panel's prefix overlaps it.
     pub(crate) prefix: String,
-    pub(crate) nav_items: Vec<NavigationItem>,
+    pub(crate) nav_items: Vec<NavEntry>,
     pub(crate) brand: Option<Brand>,
     pub(crate) dark_mode: bool,
     pub(crate) shell_assets: Option<ShellAssets>,

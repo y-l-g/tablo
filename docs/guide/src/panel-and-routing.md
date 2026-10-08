@@ -126,7 +126,9 @@ call it replaces the shell entirely:
 ## Sidebar
 
 Every resource and page gets one sidebar entry, labelled with its plural label (a page's
-`navigation_label()`) and linked to its list or page URL. Entries sort by `order` (lower first,
+`navigation_label()`) and linked to its list or page URL. The sidebar lists an entry only when the
+request's user may open it: a resource's when its policy allows `ViewAny`, a page's when
+`Page::can_access` answers `true`. Entries sort by `order` (lower first,
 default `0`); entries with the same `order` keep registration order, and the home page leads its
 `order`.
 
@@ -166,9 +168,12 @@ use topcoat::{Result, context::Cx, view::{View, view}};
 - **The home page.** `Panel::home::<P>()` mounts a page at the prefix itself instead of the
   redirect to the first resource. A panel has at most one; a second fails `.panel(..)`.
 - **Access.** With authentication on, the page renders only for a signed-in user with panel access,
-  inside the shell layout.
+  inside the shell layout. Override `Page::can_access(cx)` to narrow that: when it answers `false`
+  the page answers 403 and leaves the sidebar. It is synchronous, like a policy, and reads the
+  signed-in user with `auth::user::<U>(cx)`.
 - **Forms.** A page serves one `GET`. A form it renders posts to an app `#[route]`; put that route
-  under the panel prefix so the auth gate covers it.
+  under the panel prefix so the auth gate covers it. `can_access` does not cover that route, so
+  the route calls `P::can_access(cx)` itself.
 
 The `tablo::ui` composites give a page the same frame as the panel's own pages: `page` sets the
 width and padding; `page_header` holds a `page_title`, an optional `page_description` and optional
