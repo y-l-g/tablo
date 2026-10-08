@@ -296,6 +296,11 @@ pub enum DeclarationErrorKind {
         /// The tenant column.
         column: String,
     },
+    /// A choice field with neither options nor a relationship.
+    EmptyChoice {
+        /// The field.
+        field: String,
+    },
     /// A relationship field over a model with a composite primary key.
     CompositeKeyChoice {
         /// The field.
@@ -484,6 +489,12 @@ impl fmt::Display for DeclarationErrorKind {
                 f,
                 "record-form field `{field}` claims the tenant column `{column}`, which the \
                  framework stamps on create: drop it from the form"
+            ),
+            Self::EmptyChoice { field } => write!(
+                f,
+                "choice field `{field}` declares no options and no relationship, so it offers \
+                 nothing to choose: add `.options(..)` or `.relationship::<Source>()`, or \
+                 `#[form(relationship = Source)]` on a record form's field"
             ),
             Self::CompositeKeyChoice { field } => write!(
                 f,

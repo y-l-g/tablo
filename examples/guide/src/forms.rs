@@ -10,7 +10,7 @@ use tablo_core::{
 use topcoat::{context::Cx, view::*};
 
 use crate::{
-    models::{Author, Post, Role, Seo, Theme, User},
+    models::{Post, Role, Seo, Theme, User},
     resources::{AuthorResource, UserForm},
 };
 
@@ -51,28 +51,26 @@ pub struct ThemeForm {
 }
 
 // ANCHOR: forms-relationship-field
-// `#[form(choice)] author_id: Uuid` on the record form makes its control a choice.
+#[derive(Debug, Clone, tablo_core::RecordForm)]
+#[form(model = Post)]
+pub struct PostAuthorForm {
+    // The source whose scoped query loads the options; each is labelled by its `record_label`.
+    #[form(relationship = AuthorResource)]
+    pub author_id: uuid::Uuid,
+}
+
 pub fn author_control() -> ChoiceField<PostAuthorForm> {
     PostAuthorForm::controls()
         .author_id
-        // The source, whose scoped query loads the options, and each option's label.
-        .relationship::<AuthorResource>(|a: &Author| a.name.clone())
         .searchable()
         .label("Author")
 }
 // ANCHOR_END: forms-relationship-field
 
-#[derive(Debug, Clone, tablo_core::RecordForm)]
-#[form(model = Post)]
-pub struct PostAuthorForm {
-    #[form(choice)]
-    pub author_id: uuid::Uuid,
-}
-
 // ANCHOR: forms-role-options
 pub fn role_fields() {
-    Field::choice(User::fields().role()).options(Role::options());
-    SelectFilter::of(User::fields().role());
+    Field::choice(lens!(User.role)).options(Role::options());
+    SelectFilter::of(lens!(User.role));
 }
 // ANCHOR_END: forms-role-options
 

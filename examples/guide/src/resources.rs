@@ -97,14 +97,14 @@ impl Resource for PostResource {
             .policy(ReadOnly.or(when(editors_only)))
             // ANCHOR_END: post-policy-editors
             // ANCHOR: post-tenancy
-            .tenancy(Tenancy::column(Post::fields().tenant_id()))
+            .tenancy(Tenancy::column(lens!(Post.tenant_id)))
             // ANCHOR_END: post-tenancy
             // ANCHOR: post-view
             .view(Detail::new(Section::new("Post").columns((
                 TextColumn::new(lens!(Post.title)),
                 TextColumn::new(lens!(Post.body)),
                 TextColumn::new(lens!(Post.status)),
-                RelationColumn::new(relation!(Post.author), |a: &Author| a.name.clone()),
+                RelationColumn::of::<AuthorResource>(relation!(Post.author)),
             ))))
             // ANCHOR_END: post-view
             // ANCHOR: post-record-label
@@ -156,11 +156,7 @@ impl Resource for CommentResource {
             .tenancy(Tenancy::via(Comment::fields().post().tenant_id()))
             // ANCHOR_END: comment-tenancy-via
             .form(Schema::new(
-                Section::new("Comment").schema((
-                    c.body,
-                    c.post_id
-                        .relationship::<PostResource>(|p: &Post| p.title.clone()),
-                )),
+                Section::new("Comment").schema((c.body, c.post_id)),
             ))
     }
 
@@ -179,7 +175,7 @@ impl Resource for CommentResource {
 #[derive(Debug, Clone, tablo_core::RecordForm)]
 #[form(model = Comment)]
 pub struct CommentForm {
-    #[form(choice)]
+    #[form(relationship = PostResource)]
     pub post_id: uuid::Uuid,
     pub body: String,
 }
@@ -193,6 +189,8 @@ impl Resource for AuthorResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .table(Table::new(TextColumn::new(lens!(Author.name))))
+            // Titles the detail page, the post form's author options and the post's author column.
+            .record_label(|_cx: &Cx, author: &Author| Some(author.name.clone()))
             // ANCHOR: author-policy-editors
             .policy(when(editors_only))
         // ANCHOR_END: author-policy-editors

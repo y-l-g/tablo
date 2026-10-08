@@ -331,14 +331,14 @@ pub use tablo_macros::Options;
 /// It emits `UserFormControls`, one control per field chosen from the field —
 /// a `bool` is a toggle, `#[form(options = T)]` a choice over `T`'s options,
 /// `#[form(options)]` a choice over the field type's options,
-/// `#[form(choice)]` a bare choice, `#[form(file)]` a file field,
+/// `#[form(relationship = R)]` a choice over `R`'s records, `#[form(file)]` a file field,
 /// `#[form(embed)]` the embedded value's schema, and any other field a text
 /// field — with `controls()` handing them over, typed by the form so only a
 /// `Schema<UserForm>` places them, and `RecordForm::control` answering one
 /// field's. `RecordForm::table` lists a
 /// sortable column per text field, searchable over a `String` or
 /// `Option<String>`, an options field by its option's label, and a toggle as
-/// yes or no. `RecordForm::detail` shows the same columns, plus a bare choice's
+/// yes or no. `RecordForm::detail` shows the same columns, plus a relationship's
 /// key, a file field as a link and an embedded value leaf by leaf. A resource's `ResourceDef`
 /// defaults its form, table and detail page to them; `ResourceDef::form`,
 /// `ResourceDef::table` and `ResourceDef::view` arrange or extend them instead,
@@ -352,8 +352,9 @@ pub use tablo_macros::Options;
 /// - `#[form(options)]` on an `Options` enum or an `Option` of one: a choice over its options.
 ///   Without it, the field is a text field.
 /// - `#[form(options = Status)]`: a choice over `Status::options()`.
-/// - `#[form(choice)]`: a bare choice, whose options or relationship the resource's `form` may
-///   add.
+/// - `#[form(relationship = AuthorResource)]` on a foreign key: a choice over the source's
+///   records, each labelled by its `record_label`. The source is any `OptionSource`, which
+///   every `Resource` is.
 /// - `#[form(file)]` on a `String`: a file field.
 /// - `#[form(embed)]` on an `EmbeddedForm` value.
 ///

@@ -20,9 +20,9 @@ pub fn post_table() -> Table<Post> {
     ))
     // ANCHOR: table-filters
     .filters((
-        SelectFilter::of(Post::fields().status()),
-        TernaryFilter::new(Post::fields().featured()),
-        DateFilter::new(Post::fields().created_at()),
+        SelectFilter::of(lens!(Post.status)),
+        TernaryFilter::new(lens!(Post.featured)),
+        DateFilter::new(lens!(Post.created_at)),
     ))
     // ANCHOR_END: table-filters
     // ANCHOR: table-group-by
@@ -59,7 +59,7 @@ impl Column<User> for Initials {
     }
 
     // The export's cell, and the table's unless `cell` renders a view.
-    fn text(&self, u: &User) -> String {
+    fn text(&self, _cx: &Cx, u: &User) -> String {
         u.name
             .split_whitespace()
             .filter_map(|w| w.chars().next())
@@ -67,7 +67,7 @@ impl Column<User> for Initials {
     }
 
     fn cell<'a>(&self, cx: &'a Cx, u: &User) -> BoxView<'a> {
-        let text = self.text(u);
+        let text = self.text(cx, u);
         view! { cx => <span class="font-mono">(text)</span> }.boxed()
     }
 }

@@ -330,8 +330,8 @@ pub trait RecordForm: Sized + Send + 'static {
     /// order. A [`ResourceDef`](crate::ResourceDef) without a [`view`](crate::ResourceDef::view)
     /// shows it.
     ///
-    /// The derive shows each field [`table`](Self::table) lists, a bare choice as the key it holds,
-    /// a file field as a link, and an embedded value leaf by leaf (see
+    /// The derive shows each field [`table`](Self::table) lists, a relationship as the key it
+    /// holds, a file field as a link, and an embedded value leaf by leaf (see
     /// [`RecordForm`](derive@crate::RecordForm)). A relation's record shows through a
     /// [`RelationColumn`](crate::RelationColumn), in a declared
     /// [`view`](crate::ResourceDef::view). The default here shows none, which turns the detail page

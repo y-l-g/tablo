@@ -139,10 +139,7 @@ struct Merging {
 
 impl ActionInput for Merging {
     fn schema() -> Schema {
-        Schema::new(
-            Field::choice_input("into")
-                .relationship::<TicketResource>(|t: &Ticket| t.title.clone()),
-        )
+        Schema::new(Field::choice_input("into").relationship::<TicketResource>())
     }
 
     fn parse(_cx: &Cx, values: &HashMap<String, String>) -> Result<Self, Vec<FieldError>> {

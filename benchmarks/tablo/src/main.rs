@@ -70,7 +70,7 @@ impl Resource for AuthorResource {
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
-            .tenancy(Tenancy::column(Author::fields().tenant_id()))
+            .tenancy(Tenancy::column(lens!(Author.tenant_id)))
             .table(
                 Table::new((
                     TextColumn::new(lens!(Author.name)).searchable().sortable(),
@@ -89,7 +89,7 @@ impl Resource for PostResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .policy(|_cx: &Cx, ability: Ability<'_, Post>| !matches!(ability, Ability::Create))
-            .tenancy(Tenancy::column(Post::fields().tenant_id()))
+            .tenancy(Tenancy::column(lens!(Post.tenant_id)))
             .table(
                 Table::new((
                     TextColumn::new(lens!(Post.title)).searchable().sortable(),

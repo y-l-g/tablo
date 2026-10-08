@@ -141,7 +141,7 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
                             tx.abort(std::io::Error::other("export overflowed its cap"));
                             return;
                         }
-                        fragment.push_str(&table.csv_row(row));
+                        fragment.push_str(&table.csv_row(&cx2, row));
                     }
                 }
                 if !fragment.is_empty() && tx.send_data(bytes::Bytes::from(fragment)).await.is_err()

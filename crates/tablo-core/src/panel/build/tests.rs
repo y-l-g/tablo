@@ -459,7 +459,6 @@ async fn panel_mount_requires_a_tenancy_via_key_over_a_scoped_parent() {
     #[form(model = Child)]
     struct KeyedForm {
         name: String,
-        #[form(choice)]
         parent_id: uuid::Uuid,
     }
 
@@ -488,19 +487,11 @@ async fn panel_mount_requires_a_tenancy_via_key_over_a_scoped_parent() {
     via_child!(WithoutKey, NameForm, Schema::default);
     via_child!(OverOpenParent, KeyedForm, || {
         let c = KeyedForm::controls();
-        Schema::new((
-            c.name,
-            c.parent_id
-                .relationship::<OpenParents>(|p: &Parent| p.name.clone()),
-        ))
+        Schema::new((c.name, c.parent_id.choice().relationship::<OpenParents>()))
     });
     via_child!(OverScopedParent, KeyedForm, || {
         let c = KeyedForm::controls();
-        Schema::new((
-            c.name,
-            c.parent_id
-                .relationship::<ScopedParents>(|p: &Parent| p.name.clone()),
-        ))
+        Schema::new((c.name, c.parent_id.choice().relationship::<ScopedParents>()))
     });
 
     let db = Db::builder()
@@ -570,7 +561,7 @@ async fn panel_mount_rejects_a_relationship_over_a_composite_key() {
     #[form(model = Child)]
     struct SeatedForm {
         name: String,
-        #[form(choice)]
+        #[form(relationship = Seats)]
         parent_id: uuid::Uuid,
     }
 
@@ -586,11 +577,7 @@ async fn panel_mount_rejects_a_relationship_over_a_composite_key() {
                     matches!(ability, Ability::ViewAny | Ability::Create)
                 })
                 .table(Table::new(TextColumn::new(lens!(Child.name))))
-                .form(Schema::new((
-                    c.name,
-                    c.parent_id
-                        .relationship::<Seats>(|s: &Seat| s.label.clone()),
-                )))
+                .form(Schema::new((c.name, c.parent_id)))
         }
     }
 
@@ -1193,7 +1180,7 @@ impl crate::table::Column<Dummy> for Unbindable {
         "Unbindable"
     }
 
-    fn text(&self, _row: &Dummy) -> String {
+    fn text(&self, _cx: &Cx, _row: &Dummy) -> String {
         String::new()
     }
 

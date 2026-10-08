@@ -47,6 +47,16 @@ pub trait OptionSource: Sized + Send + Sync + 'static {
         None
     }
 
+    /// Labels `record` wherever a relationship choice offers it or a
+    /// [`RelationColumn::of`](crate::RelationColumn::of) shows it. Defaults to its primary key.
+    ///
+    /// A [`Resource`](crate::Resource) answers with its def's
+    /// [`record_label`](crate::ResourceDef::record_label). The record is loaded without its
+    /// relations.
+    fn label(_cx: &Cx, record: &Self::Model) -> String {
+        crate::toasty_compat::pk::pk_text(record)
+    }
+
     /// Whether the context's panel can load from the source: a resource only when the panel
     /// mounts it.
     #[doc(hidden)]

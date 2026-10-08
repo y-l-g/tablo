@@ -99,8 +99,8 @@ macro_rules! to_choice {
         impl<F> $builder<F> {
             /// Renders the field as a choice instead, as [`Field::choice`] does, ready for
             /// [`options`](ChoiceField::options) or [`relationship`](ChoiceField::relationship).
-            /// Unlike `#[form(choice)]`, it leaves the record form's derived table and detail
-            /// page as they are. The replaced control's own modifiers are dropped with it.
+            /// Unlike `#[form(relationship = ..)]`, it leaves the record form's derived table and
+            /// detail page as they are. The replaced control's own modifiers are dropped with it.
             pub fn choice(mut self) -> ChoiceField<F> {
                 self.0.control = ControlKind::Choice(ChoiceControl::default());
                 ChoiceField(self.0, PhantomData)
@@ -169,15 +169,16 @@ impl<F> ChoiceField<F> {
     }
 
     /// Loads options from a related source's tenant-scoped query, each valued by its primary key
-    /// and labelled by `label`, degrading to type-to-search past the option cap.
-    pub fn relationship<R>(
-        mut self,
-        label: impl Fn(&R::Model) -> String + Send + Sync + 'static,
-    ) -> Self
+    /// and labelled by the source's [`label`](OptionSource::label), degrading to type-to-search
+    /// past the option cap.
+    ///
+    /// A resource's options carry its [`record_label`](crate::ResourceDef::record_label), the
+    /// title its detail page shows.
+    pub fn relationship<R>(mut self) -> Self
     where
         R: OptionSource + 'static,
     {
-        self.choice_mut().relationship = Some(choice::Relationship::new::<R>(label));
+        self.choice_mut().relationship = Some(choice::Relationship::new::<R>());
         self
     }
 }

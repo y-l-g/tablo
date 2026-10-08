@@ -64,17 +64,19 @@ use crate::{
 /// #     {
 /// #         Ok(toasty::stmt::Query::all())
 /// #     }
+/// #     fn label(_cx: &topcoat::context::Cx, author: &Author) -> String {
+/// #         author.name.clone()
+/// #     }
 /// # }
-/// # use tablo_core::{Field, Options};
-/// Field::text(User::fields().name()).placeholder("Ada Lovelace"); // TextField
-/// Field::text(User::fields().email()).email().unique();
-/// Field::text(User::fields().age()); // typed: an `i64` column
-/// Field::text(Post::fields().body()).multiline(6);
-/// Field::choice(Post::fields().status()).options(Status::options()); // ChoiceField
-/// Field::choice(Post::fields().author_id())
-///     .relationship::<AuthorResource>(|a: &Author| a.name.clone());
-/// Field::file(Doc::fields().path()); // FileField
-/// Field::toggle(Post::fields().featured()); // CustomField
+/// # use tablo_core::{Field, Options, lens};
+/// Field::text(lens!(User.name)).placeholder("Ada Lovelace"); // TextField
+/// Field::text(lens!(User.email)).email().unique();
+/// Field::text(lens!(User.age)); // typed: an `i64` column
+/// Field::text(lens!(Post.body)).multiline(6);
+/// Field::choice(lens!(Post.status)).options(Status::options()); // ChoiceField
+/// Field::choice(lens!(Post.author_id)).relationship::<AuthorResource>();
+/// Field::file(lens!(Doc.path)); // FileField
+/// Field::toggle(lens!(Post.featured)); // CustomField
 /// ```
 ///
 /// ```compile_fail
@@ -256,7 +258,13 @@ impl Field {
     }
 
     pub(crate) fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
-        self.binding.misdeclared()
+        self.binding.misdeclared().or_else(|| {
+            self.as_choice()
+                .filter(|choice| choice.offers_nothing())
+                .map(|_| crate::DeclarationErrorKind::EmptyChoice {
+                    field: self.name().to_string(),
+                })
+        })
     }
 
     /// The key the field posts: the storage column its path names.

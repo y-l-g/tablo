@@ -83,7 +83,7 @@ pub fn require_tenant(cx: &Cx) -> Result<uuid::Uuid, topcoat::Error> {
 /// scoped tenancy names, by lens, the [`TenantId`] column each row is filtered on:
 ///
 /// ```text
-/// ResourceDef::new().tenancy(Tenancy::column(Post::fields().tenant_id()))
+/// ResourceDef::new().tenancy(Tenancy::column(lens!(Post.tenant_id)))
 ///
 /// ResourceDef::new().tenancy(Tenancy::via(Comment::fields().post().tenant_id()))
 /// ```

@@ -310,7 +310,8 @@ pub fn can<R: Resource>(cx: &Cx, ability: crate::Ability<'_, R::Model>) -> bool 
 /// [`scoped_query`], so an option load inherits the tenant gate and filter
 /// exactly as every other loader does. The search expression and default ordering come from the
 /// resource's [`table`](ResourceDef::table), which is where "the option search searches the
-/// related resource's searchable columns" lives.
+/// related resource's searchable columns" lives, and each record's label from its
+/// [`record_label`](ResourceDef::record_label).
 impl<R: Resource> crate::schema::OptionSource for R {
     type Model = R::Model;
 
@@ -332,6 +333,14 @@ impl<R: Resource> crate::schema::OptionSource for R {
 
     fn order_by(cx: &Cx) -> Option<toasty::stmt::OrderByExpr> {
         mounted::<R>(cx)?.table.order_by(false)
+    }
+
+    fn label(cx: &Cx, record: &R::Model) -> String {
+        let key = crate::toasty_compat::pk::pk_text(record);
+        match mounted::<R>(cx) {
+            Some(mounted) => mounted.record_title(cx, record, &key),
+            None => key,
+        }
     }
 
     fn available(cx: &Cx) -> bool {

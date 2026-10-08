@@ -35,8 +35,8 @@ its form declares a `view` to show the same arrangement.
 - an `#[form(embed)]` value shows each leaf under its own label, and an embedded enum shows its
   variant's name and that variant's leaves only.
 
-A bare `#[form(choice)]` shows the key it holds, such as an `author_id`; the related record's name
-shows through a column that includes the relation, as `Author` does above. A `NoForm` resource
+A `#[form(relationship = ..)]` field shows the key it holds, such as an `author_id`; the related
+record's title shows through a column that includes the relation, as `Author` does above. A `NoForm` resource
 derives no column, so it has no detail page unless it declares one:
 
 ```rust
@@ -77,8 +77,10 @@ An unknown id and an id outside the request's tenant are the same 404; a record 
 `View` is a 403.
 
 **Title.** `record_label` sets the page title for each record it returns a label for; any other
-record is titled with the resource's `label()` and its key, such as "Post 3f2a…". It reads the
-record as the detail page loaded it, with the view's relations:
+record is titled with the resource's `label()` and its key, such as "Post 3f2a…". The same title
+labels the record wherever another resource points at it: each option of a relationship choice
+over the resource, and each cell of a `RelationColumn::of` it. Those load the record without its
+relations, so a label reads only the record's own columns:
 
 ```rust
 {{#include ../../../examples/guide/src/resources.rs:post-record-label}}

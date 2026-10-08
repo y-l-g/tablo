@@ -27,6 +27,7 @@ async fn options_endpoint_searches_and_gates() {
             ResourceDef::new()
                 .slug("opt-authors")
                 .policy(ReadOnly)
+                .record_label(|_cx: &Cx, author: &OptAuthor| Some(author.name.clone()))
                 .table(crate::table::Table::new(
                     crate::table::TextColumn::new(lens!(OptAuthor.name)).searchable(),
                 ))
@@ -54,17 +55,14 @@ async fn options_endpoint_searches_and_gates() {
                     lens!(OptPost.title),
                 )))
                 .form(crate::schema::Schema::new(
-                    OptPostForm::controls()
-                        .author_id
-                        .relationship::<OptAuthorResource>(|a: &OptAuthor| a.name.clone())
-                        .searchable(),
+                    OptPostForm::controls().author_id.searchable(),
                 ))
         }
     }
     #[derive(crate::RecordForm)]
     #[form(model = OptPost)]
     struct OptPostForm {
-        #[form(choice)]
+        #[form(relationship = OptAuthorResource)]
         author_id: uuid::Uuid,
     }
     async fn body_text(resp: http::Response<Body>) -> String {
@@ -187,6 +185,7 @@ async fn option_load_loads_no_relation() {
                 })
                 .table(crate::table::Table::new(name_with_parent()))
                 .view(crate::Detail::new(name_with_parent()))
+                .record_label(|_cx: &Cx, child: &Child| Some(child.name.clone()))
         }
     }
 
@@ -211,17 +210,14 @@ async fn option_load_loads_no_relation() {
                     lens!(Owner.name),
                 )))
                 .form(crate::schema::Schema::new(
-                    OwnerForm::controls()
-                        .child_id
-                        .relationship::<ChildSource>(|c: &Child| c.name.clone())
-                        .searchable(),
+                    OwnerForm::controls().child_id.searchable(),
                 ))
         }
     }
     #[derive(crate::RecordForm)]
     #[form(model = Owner)]
     struct OwnerForm {
-        #[form(choice)]
+        #[form(relationship = ChildSource)]
         child_id: uuid::Uuid,
     }
     let mut db = Db::builder()
@@ -330,17 +326,14 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
                     lens!(BigP.name),
                 )))
                 .form(crate::schema::Schema::new(
-                    SearchableParentForm::controls()
-                        .author_id
-                        .relationship::<BigAResource>(|a: &BigA| a.name.clone())
-                        .searchable(),
+                    SearchableParentForm::controls().author_id.searchable(),
                 ))
         }
     }
     #[derive(crate::RecordForm)]
     #[form(model = BigP)]
     struct SearchableParentForm {
-        #[form(choice)]
+        #[form(relationship = BigAResource)]
         author_id: uuid::Uuid,
     }
     struct PlainParent;
@@ -355,16 +348,14 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
                     lens!(BigP.name),
                 )))
                 .form(crate::schema::Schema::new(
-                    PlainParentForm::controls()
-                        .author_id
-                        .relationship::<BigAResource>(|a: &BigA| a.name.clone()),
+                    PlainParentForm::controls().author_id,
                 ))
         }
     }
     #[derive(crate::RecordForm)]
     #[form(model = BigP)]
     struct PlainParentForm {
-        #[form(choice)]
+        #[form(relationship = BigAResource)]
         author_id: uuid::Uuid,
     }
     let mut db = Db::builder()

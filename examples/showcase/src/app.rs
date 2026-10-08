@@ -23,8 +23,8 @@ use crate::{
     dashboard::Dashboard,
     media::{MediaLibrary, MediaLibraryPage},
     models::{
-        Author, BLOCKED_TENANT, Comment, MediaAsset, Post, PostStatus, Publication,
-        REMOVED_COMMENT_BODY, Role, Seo, User,
+        Author, BLOCKED_TENANT, Comment, Post, PostStatus, Publication, REMOVED_COMMENT_BODY, Role,
+        Seo, User,
     },
     staff::StaffAuth,
 };
@@ -118,7 +118,7 @@ impl Resource for AuthorResource {
             .label("Writer")
             .icon(tablo::ui::icons::PEN_LINE)
             .policy(when(blog_open))
-            .tenancy(Tenancy::column(Author::fields().tenant_id()))
+            .tenancy(Tenancy::column(lens!(Author.tenant_id)))
             .table(AuthorForm::table())
             .form(Schema::new(
                 Section::new("Profile").schema((c.name, c.email.email())),
@@ -154,7 +154,7 @@ impl Resource for PostResource {
             .label("Blog Post")
             .icon(tablo::ui::icons::FILE_TEXT)
             .policy(when(blog_open))
-            .tenancy(Tenancy::column(Post::fields().tenant_id()))
+            .tenancy(Tenancy::column(lens!(Post.tenant_id)))
             .table(post_table())
             .form(post_form())
             .view(post_view())
@@ -188,14 +188,8 @@ fn post_form() -> Schema<PostForm> {
         )),
         Section::new("Details").schema((
             Grid::new(2).schema((c.status, c.featured)),
-            c.author_id
-                .relationship::<AuthorResource>(|a: &Author| a.name.clone())
-                .searchable()
-                .label("Author"),
-            c.cover_id
-                .relationship::<MediaLibrary>(|m: &MediaAsset| m.filename.clone())
-                .searchable()
-                .label("Cover"),
+            c.author_id.searchable().label("Author"),
+            c.cover_id.searchable().label("Cover"),
             c.tags,
         )),
         Group::new().schema((
@@ -231,7 +225,7 @@ fn post_view() -> Detail<Post> {
 
 /// The post's author, by name.
 fn post_author_column() -> RelationColumn<Post> {
-    RelationColumn::new(relation!(Post.author), |a: &Author| a.name.clone())
+    RelationColumn::of::<AuthorResource>(relation!(Post.author))
 }
 
 /// The post list.
@@ -244,9 +238,9 @@ fn post_table() -> Table<Post> {
         CountColumn::new(relation!(Post.comments)),
     ))
     .filters((
-        SelectFilter::of(Post::fields().status()),
-        TernaryFilter::new(Post::fields().featured()),
-        DateFilter::new(Post::fields().created_at()),
+        SelectFilter::of(lens!(Post.status)),
+        TernaryFilter::new(lens!(Post.featured)),
+        DateFilter::new(lens!(Post.created_at)),
         QueryFilter::new("promoted", "Promoted")
             .option(
                 "Promoted",
@@ -347,9 +341,9 @@ pub struct PostForm {
     #[form(options, blank = PostStatus::Draft)]
     pub status: PostStatus,
     pub featured: bool,
-    #[form(choice)]
+    #[form(relationship = AuthorResource)]
     pub author_id: uuid::Uuid,
-    #[form(choice)]
+    #[form(relationship = MediaLibrary)]
     pub cover_id: Option<uuid::Uuid>,
     #[form(optional)]
     pub tags: String,
@@ -385,29 +379,24 @@ impl Resource for CommentResource {
                 TextColumn::new(lens!(Comment.body)),
                 comment_post_column(),
             ))))
-            .form(Schema::new(
-                Section::new("Comment").schema((
-                    c.body.multiline(4).placeholder("Write a reply…"),
-                    c.post_id
-                        .relationship::<PostResource>(|p: &Post| p.title.clone())
-                        .searchable()
-                        .label("Post"),
-                )),
-            ))
+            .form(Schema::new(Section::new("Comment").schema((
+                c.body.multiline(4).placeholder("Write a reply…"),
+                c.post_id.searchable().label("Post"),
+            ))))
             .record_label(|_cx: &Cx, comment: &Comment| Some(comment.body.clone()))
     }
 }
 
 /// The comment's post, by title.
 fn comment_post_column() -> RelationColumn<Comment> {
-    RelationColumn::new(relation!(Comment.post), |p: &Post| p.title.clone())
+    RelationColumn::of::<PostResource>(relation!(Comment.post))
 }
 
 #[derive(tablo::RecordForm)]
 #[form(model = Comment)]
 pub struct CommentForm {
     pub body: String,
-    #[form(choice)]
+    #[form(relationship = PostResource)]
     pub post_id: uuid::Uuid,
 }
 

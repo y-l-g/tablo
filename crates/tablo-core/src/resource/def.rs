@@ -30,7 +30,7 @@ use crate::{
 /// # #[form(model = Post)]
 /// # struct PostForm { title: String, featured: bool }
 /// # struct PostResource;
-/// use tablo_core::{ReadOnly, RecordForm, Resource, ResourceDef, TernaryFilter};
+/// use tablo_core::{ReadOnly, RecordForm, Resource, ResourceDef, TernaryFilter, lens};
 ///
 /// impl Resource for PostResource {
 ///     type Model = Post;
@@ -40,7 +40,7 @@ use crate::{
 ///         ResourceDef::new()
 ///             .label("Blog post")
 ///             .policy(ReadOnly)
-///             .table(PostForm::table().filters(TernaryFilter::new(Post::fields().featured())))
+///             .table(PostForm::table().filters(TernaryFilter::new(lens!(Post.featured))))
 ///     }
 /// }
 /// ```
@@ -222,9 +222,13 @@ impl<R: Resource> ResourceDef<R> {
     /// any other record, and every record by default, is titled with the [`label`](Self::label)
     /// and its key, as in `Blog Post 3f2a…`.
     ///
+    /// The same label titles the record wherever another resource points at it: each option of a
+    /// [`relationship`](crate::ChoiceField::relationship) choice over this resource, and each
+    /// cell of a [`RelationColumn::of`](crate::RelationColumn::of) it.
+    ///
     /// A label is display text, not a key: two records can share one, so it never replaces the
-    /// primary key that keys the table's rows and the action routes. It reads the record as the
-    /// detail page loads it, with the relations the [`view`](Self::view)'s columns declare.
+    /// primary key that keys the table's rows and the action routes. Options and relation columns
+    /// load the record without its relations, so a label reads only the record's own columns.
     #[must_use]
     pub fn record_label(
         mut self,
@@ -268,7 +272,7 @@ impl<R: Resource> ResourceDef<R> {
     }
 
     /// Declares a column an overriding [`Resource::create_record`] sets itself, beyond the form's
-    /// fields: `.create_column(Post::fields().slug())`. Call it once per column.
+    /// fields: `.create_column(lens!(Post.slug))`. Call it once per column.
     ///
     /// Mounting the panel refuses a path that names no one field of the model, and the tenant
     /// column, which the framework stamps.
