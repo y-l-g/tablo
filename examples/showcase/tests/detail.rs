@@ -136,8 +136,25 @@ async fn post_detail_renders_the_record_read_only() {
         "detail page must show the computed reading stats: {html}"
     );
 
-    let body = html
+    let header = html
         .split("<h1")
+        .nth(1)
+        .and_then(|rest| rest.split("Edit</a>").next())
+        .expect("the detail page's header ends with its Edit link");
+    for action in ["publish", "tag"] {
+        assert!(
+            header.contains(&format!(
+                "action=\"/admin/posts/{id}/-/actions/{action}?return=%2Fadmin%2Fposts%2F{id}\""
+            )),
+            "the header carries the record's {action} action, landing back on the page: {header}"
+        );
+    }
+    assert!(
+        header.contains(&format!("action=\"/admin/posts/{id}/delete\"")),
+        "the header carries the record's Delete, which lands on the list: {header}"
+    );
+    let body = html
+        .split("Edit</a>")
         .nth(1)
         .and_then(|rest| rest.split("data-relation=").next())
         .expect("the detail page renders its record before its relations");

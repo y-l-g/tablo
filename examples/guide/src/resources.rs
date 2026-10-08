@@ -6,9 +6,9 @@ use toasty::stmt::{List, Query};
 use topcoat::{Result, context::Cx};
 
 use crate::{
+    actions::{ChangeStatus, Publish, PublishDrafts},
     models::{Audit, Author, Comment, Order, Post, PostStatus, Role, User},
     policy_tenancy::editors_only,
-    tables::{ChangeStatus, Publish},
 };
 
 fn is_admin(_cx: &Cx) -> bool {
@@ -127,6 +127,7 @@ impl Resource for PostResource {
             // ANCHOR: post-actions
             .action::<Publish>()
             .action::<ChangeStatus>()
+            .header_action::<PublishDrafts>()
         // ANCHOR_END: post-actions
     }
 }

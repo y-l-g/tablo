@@ -30,7 +30,7 @@ and render the first page.
 
 ## Notifications
 
-An `Action` result flashes a `tablo::Notification`, rendered in the panel
+An [action](./actions.md)'s result flashes a `tablo::Notification`, rendered in the panel
 shell and stored as a one-time hardened cookie. Build one with
 `Notification::success` / `error` / `info` / `warning` plus `.description()`,
 and store it with `tablo::notification::set_notification`; see

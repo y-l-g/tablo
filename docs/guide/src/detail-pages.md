@@ -45,8 +45,10 @@ derives no column, so it has no detail page unless it declares one:
 
 ## What the page shows
 
-The header carries the record's title, a link back to the list, and an Edit link when the resource
-has a form and the policy allows `Update` of this record. Below it come the view's columns, then
+The header carries the record's title, a link back to the list, the record's
+[actions placed on the detail page](./actions.md#on-a-records-pages) and its Delete, each as the
+policy allows them on this record, and an Edit link when the resource has a form and the policy
+allows `Update` of this record. Below it come the view's columns, then
 the [related tables](#related-tables).
 
 Each column renders its label over its cell, never a control. The built-in columns render as in a

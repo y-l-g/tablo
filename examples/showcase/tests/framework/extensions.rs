@@ -8,7 +8,7 @@
 
 use tablo::{
     Ability, Action, BooleanColumn, Committed, DeclarationErrorKind, Detail, Mutation,
-    NotificationStatus, Resource, ResourceDef, Schema, Site, Table, TextColumn,
+    NotificationStatus, Places, Resource, ResourceDef, Schema, Site, Table, TextColumn,
     extend::{Column, Control, ControlInput, Filter, FilterInput},
     lens,
 };
@@ -141,7 +141,7 @@ struct Explode;
 impl Action<TaskResource> for Explode {
     type Input = ();
     const NAME: &'static str = "explode";
-    const ROW: bool = false;
+    const PLACES: Places = Places::BULK;
 
     fn label(_cx: &Cx) -> String {
         "Explode".to_string()

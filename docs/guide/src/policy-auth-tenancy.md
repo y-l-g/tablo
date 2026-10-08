@@ -30,8 +30,8 @@ impl Resource for UserResource {
 | `Update(record)` | the edit page and POST, the row's Edit action |
 | `DeleteAny` | the delete and bulk-delete POSTs, the Delete action and the bulk column |
 | `Delete(record)` | each record a delete removes, the row's Delete action and checkbox |
-| `RunAny { action }` | the [custom action](./tables.md#custom-actions)'s row and bulk POSTs, its row button and bulk-bar entry, and the bulk column for a bulk action |
-| `Run { action, record }` | each record the action runs on, the row's button for it and, for a bulk action, its checkbox |
+| `RunAny { action }` | the [action](./actions.md)'s POSTs and every button for it: a record action's on rows, record pages and the bulk bar, and the bulk column for a bulk action; a header action's in the list header |
+| `Run { action, record }` | each record a record action runs on, its button on the record's row and pages and, for a bulk action, the record's checkbox |
 
 `action` is the action's `NAME`, so one policy tells a resource's actions apart.
 `ability.is_action::<Publish, _>()` asks whether the ability is `RunAny` or `Run` for the action
@@ -41,7 +41,8 @@ type `Publish`, so renaming the action's `NAME` cannot leave a policy matching t
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-action}}
 ```
 
-The `_` is the resource, inferred when the action belongs to one. Handlers ask the same abilities
+The `_` is the resource, inferred when the action belongs to one. A header action, which runs on
+no record, is asked only `RunAny`; `ability.is_header_action::<A>()` matches it. Handlers ask the same abilities
 that decide which buttons render, so a hidden action is also a refused request. A denied request
 answers 403.
 

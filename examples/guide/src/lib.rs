@@ -4,6 +4,7 @@
 //! and the compiler checks them. Wrappers (signatures, returns) stay outside
 //! the anchors; the anchored lines match the guide verbatim.
 
+pub mod actions;
 pub mod build_script;
 pub mod data_access;
 pub mod detail_pages;

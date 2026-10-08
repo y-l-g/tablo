@@ -1,6 +1,9 @@
 //! The panel's home page, served at the panel prefix by `Panel::home`.
 
-use tablo::{NavigationItem, Page, Resource, can_list, db::db, panel, scoped_query};
+use tablo::{
+    FieldErrors, HeaderAction, HeaderActions, NavigationItem, Page, Resource, can_list, db::db,
+    header_actions, panel, scoped_query,
+};
 use topcoat::{
     Result,
     context::Cx,
@@ -8,7 +11,10 @@ use topcoat::{
     view::{BoxView, View, ViewExt, view},
 };
 
-use crate::app::{AuthorResource, CommentResource, PostResource, UserResource};
+use crate::{
+    app::{AuthorResource, CommentResource, PostResource, UserResource},
+    models::Post,
+};
 
 /// The page the panel serves at its prefix.
 pub struct Dashboard;
@@ -87,9 +93,56 @@ fn stat_card(cx: &Cx, stat: Stat) -> BoxView<'_> {
     .boxed()
 }
 
+/// What featuring by tag asks for: the tag.
+#[derive(tablo::ActionInput)]
+pub struct FeatureTag {
+    #[form(label = "Tag", placeholder = "rust")]
+    pub tag: String,
+}
+
+/// Features every post carrying a tag, from the dashboard's header, asking which tag first.
+pub struct FeatureTagged;
+
+impl HeaderAction for FeatureTagged {
+    type Input = FeatureTag;
+    const NAME: &'static str = "feature-tagged";
+
+    /// The dashboard admits every signed-in user; featuring takes the post list.
+    fn can_run(cx: &Cx) -> bool {
+        can_list::<PostResource>(cx)
+    }
+
+    fn validate_input(_cx: &Cx, input: &FeatureTag) -> FieldErrors {
+        let mut errors = FieldErrors::new();
+        if input.tag.contains(',') {
+            errors.add("tag", "One tag, without commas");
+        }
+        errors
+    }
+
+    async fn run(cx: &Cx, input: FeatureTag, ex: &mut dyn toasty::Executor) -> Result<()> {
+        let tag = input.tag.trim();
+        let posts = scoped_query::<PostResource>(cx)?.exec(&mut *ex).await?;
+        for post in posts {
+            if post.tags.split(',').any(|t| t.trim() == tag) {
+                Post::filter(Post::fields().id().eq(post.id))
+                    .update()
+                    .featured(true)
+                    .exec(&mut *ex)
+                    .await?;
+            }
+        }
+        Ok(())
+    }
+}
+
 impl Page for Dashboard {
     fn navigation() -> NavigationItem {
         NavigationItem::for_page::<Self>().icon(tablo::ui::icons::LAYOUT_DASHBOARD)
+    }
+
+    fn header_actions() -> HeaderActions {
+        HeaderActions::new().add::<FeatureTagged>()
     }
 
     async fn render(cx: &Cx) -> Result<impl View> {
@@ -112,6 +165,7 @@ impl Page for Dashboard {
                     tablo::ui::page_description(
                         "The blog's admin: its users, authors, posts, comments and media."
                     )
+                    tablo::ui::page_actions((header_actions::<Self>(cx)))
                 )
                 tablo::ui::page_content(
                     <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

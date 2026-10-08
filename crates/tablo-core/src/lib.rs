@@ -126,12 +126,12 @@ pub use form::{
 pub use lens::Lens;
 pub use navigation::{NavTarget, NavigationItem};
 pub use notification::{Notification, NotificationStatus};
-pub use page::Page;
+pub use page::{Page, header_actions};
 pub use panel::{Brand, Panel, PanelHandle, RouterBuilderPanelExt, can_list, url};
 pub use policy::{Ability, Allow, Deny, Policy, ReadOnly, when};
 pub use resource::{
-    Action, ActionInput, Committed, ForeignKey, Mutation, PublicLink, Relation, Resource,
-    ResourceDef, can, scoped_query, write_create, write_update,
+    Action, ActionInput, Committed, ForeignKey, HeaderAction, HeaderActions, Mutation, Places,
+    PublicLink, Relation, Resource, ResourceDef, can, scoped_query, write_create, write_update,
 };
 pub use schema::{
     ChoiceField, CustomField, EmbeddedForm, Field, FieldResolver, FileField, Grid, Group,

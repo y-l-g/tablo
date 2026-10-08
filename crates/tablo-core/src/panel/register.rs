@@ -8,21 +8,23 @@ use topcoat::router::{PageFn, RouteFn};
 use super::{
     Root,
     actions::{
-        resource_bulk_action, resource_bulk_delete, resource_delete, resource_export,
-        resource_options, resource_row_action,
+        resource_bulk_delete, resource_delete, resource_export, resource_list_action,
+        resource_options, resource_record_action,
     },
-    build::{ResourceCheck, check_resource, route_path, validate_route_segment},
+    build::{
+        PageCheck, ResourceCheck, check_page, check_resource, route_path, validate_route_segment,
+    },
     detail::resource_view,
     forms::{resource_create, resource_create_post, resource_edit, resource_edit_post},
     list::resource_list,
-    pages::page_handler,
+    pages::{page_action, page_handler},
     relations::{Child, relation_table},
     state::NavEntry,
 };
 use crate::{
     Ability, DeclarationError, DeclarationErrorKind, Page, Site,
     form::RecordForm,
-    resource::{Mounted, Mounts, Resource, ResourceDef},
+    resource::{Mounted, Mounts, Places, Resource, ResourceDef},
     schema::FieldResolver,
     table::{
         ACTION_ROUTE_PARAM, ACTIONS_ROUTE_SEGMENT, BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT,
@@ -62,6 +64,8 @@ pub(super) struct Registry {
     pub(super) root: Option<Root>,
     pub(super) mounts: Mounts,
     pub(super) resources: Vec<Registered>,
+    /// Each registered page's declaration check, with the page's type name.
+    pub(super) page_checks: Vec<PageCheck>,
     /// Each resource's relation table, by resource type.
     pub(super) children: HashMap<TypeId, Child>,
     pub(super) errors: Vec<DeclarationError>,
@@ -102,6 +106,7 @@ impl Registry {
             root: None,
             mounts: Mounts::default(),
             resources: Vec::new(),
+            page_checks: Vec::new(),
             children: HashMap::new(),
             errors: Vec::new(),
         }
@@ -183,8 +188,8 @@ impl Registry {
 }
 
 /// The segments the panel routes under its prefix itself, which no resource or page may take as its
-/// slug.
-const RESERVED_SLUGS: &[&str] = &["login", "logout"];
+/// slug: `-` leads the home page's action routes.
+const RESERVED_SLUGS: &[&str] = &["login", "logout", "-"];
 
 impl<R: Resource> Registration for ResourceRegistration<R> {
     fn register(self: Box<Self>, registry: &mut Registry) {
@@ -205,7 +210,13 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
         let Some(url) = registry.claim_slug::<R>("ResourceDef::slug", &mounted.slug) else {
             return;
         };
-        register_routes::<R>(registry, &url, !mounted.actions.entries().is_empty());
+        let entries = mounted.actions.entries();
+        let routes = ActionRoutes {
+            record: entries.iter().any(|a| a.places.intersects(Places::RECORD)),
+            list: !mounted.header_actions.is_empty()
+                || entries.iter().any(|a| a.places.contains(Places::BULK)),
+        };
+        register_routes::<R>(registry, &url, routes);
         if registry.root.is_none() {
             registry.root = Some(Root::Redirect(url));
         }
@@ -246,8 +257,16 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
     }
 }
 
+/// Which action routes a resource serves.
+struct ActionRoutes {
+    /// One record's: an action placed on a row or a detail or edit page.
+    record: bool,
+    /// The list's: a header action, or an action placed on the bulk bar.
+    list: bool,
+}
+
 /// Registers a resource's routes under its list `url`.
-fn register_routes<R: Resource>(registry: &mut Registry, url: &str, has_actions: bool) {
+fn register_routes<R: Resource>(registry: &mut Registry, url: &str, actions: ActionRoutes) {
     use http::Method;
 
     registry.page(Method::GET, url, resource_list::<R>);
@@ -270,18 +289,20 @@ fn register_routes<R: Resource>(registry: &mut Registry, url: &str, has_actions:
     );
     // The `-` segment keeps `actions` from shadowing the edit and delete
     // routes of a record whose key is `actions`.
-    if has_actions {
+    if actions.record {
         registry.page(
             Method::POST,
             &format!(
                 "{url}/{RECORD_ROUTE_PARAM}/{DASH_ROUTE_SEGMENT}/{ACTIONS_ROUTE_SEGMENT}/{ACTION_ROUTE_PARAM}"
             ),
-            resource_row_action::<R>,
+            resource_record_action::<R>,
         );
+    }
+    if actions.list {
         registry.page(
             Method::POST,
-            &format!("{url}/{DASH_ROUTE_SEGMENT}/{ACTIONS_ROUTE_SEGMENT}/{ACTION_ROUTE_PARAM}"),
-            resource_bulk_action::<R>,
+            &list_actions_route(url),
+            resource_list_action::<R>,
         );
     }
     registry.route(Method::GET, &format!("{url}/export"), resource_export::<R>);
@@ -298,6 +319,14 @@ fn register_routes<R: Resource>(registry: &mut Registry, url: &str, has_actions:
             resource_options::<R>,
         );
     }
+}
+
+/// The route of the actions under a list or page `url`: `{url}/-/actions/{action}`.
+fn list_actions_route(url: &str) -> String {
+    format!(
+        "{}/{DASH_ROUTE_SEGMENT}/{ACTIONS_ROUTE_SEGMENT}/{ACTION_ROUTE_PARAM}",
+        url.trim_end_matches('/')
+    )
 }
 
 impl<P: Page> Registration for PageRegistration<P> {
@@ -322,6 +351,14 @@ impl<P: Page> Registration for PageRegistration<P> {
             url
         };
         registry.page(http::Method::GET, &url, page_handler::<P>);
+        if !P::header_actions().is_empty() {
+            registry.page(
+                http::Method::POST,
+                &list_actions_route(&url),
+                page_action::<P>,
+            );
+        }
+        registry.page_checks.push(check_page::<P>);
         let item = NavEntry {
             item: P::navigation().resolved(&url),
             visible: P::can_access,

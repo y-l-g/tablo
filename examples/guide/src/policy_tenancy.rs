@@ -8,8 +8,8 @@ use tablo::{
 use topcoat::{Result, context::Cx};
 
 use crate::{
+    actions::Publish,
     models::{Post, Staff},
-    tables::Publish,
 };
 
 // ANCHOR: policy-editors-only

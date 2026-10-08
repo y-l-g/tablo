@@ -25,12 +25,12 @@ use super::{
     state::{PanelState, Panels, current, under_prefix},
 };
 use crate::{
-    ActionInputFault, DeclarationError, DeclarationErrorKind, MountError, Site,
+    ActionInputFault, DeclarationError, DeclarationErrorKind, MountError, Page, Site,
     auth::{PanelGate, RuntimeGate, SESSION_LIFETIME},
     declaration::segment_fault,
     form::RecordForm,
     policy::Ability,
-    resource::{MountScope, Mounted, Mounts, Resource, require_mounted},
+    resource::{InputSpec, MountScope, Mounted, Mounts, Resource, require_mounted},
     tenancy::TenantSource,
     toasty_compat::model::{self, AppSchema},
     topcoat_compat::RUNTIME_PREFIX,
@@ -337,6 +337,9 @@ impl Registry {
         errors: &mut Vec<DeclarationError>,
     ) -> Cx {
         let cx = validation_cx(db, mounts);
+        for check in &self.page_checks {
+            check(&cx, errors);
+        }
         for registered in &self.resources {
             (registered.check)(&cx, errors);
             // Without an uploader a file field would accept a file and keep only its name.
@@ -516,21 +519,59 @@ pub(super) fn check_resource<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationE
     check_form_declaration(cx, &declared, form_is_sound, errors);
 }
 
-/// Every custom action's name is distinct among the resource's actions: the routes dispatch by
-/// it. Its input declares no misdeclared field, none the action's POST carries itself and no file
-/// field, and an input with no field parses an empty submission.
+/// Every custom and header action's name is distinct among the resource's actions: the routes
+/// dispatch by it. [`check_inputs`] checks their inputs.
 /// [`ResourceDef::action`](crate::ResourceDef::action) checks each name is a route segment as
 /// it compiles.
 fn check_actions<R: Resource>(cx: &Cx, declared: &Mounted<R>, errors: &mut Vec<DeclarationError>) {
+    let actions = declared
+        .actions
+        .entries()
+        .iter()
+        .map(|action| (action.name, action.input))
+        .chain(
+            declared
+                .header_actions
+                .entries()
+                .iter()
+                .map(|action| (action.name, action.input)),
+        );
+    check_inputs::<R>(cx, actions, errors);
+}
+
+/// A page's declaration check, run by [`RouterBuilderPanelExt::panel`] as a resource's is.
+pub(super) type PageCheck = fn(&Cx, &mut Vec<DeclarationError>);
+
+/// Checks a page's header actions as a resource's are.
+pub(super) fn check_page<P: Page>(cx: &Cx, errors: &mut Vec<DeclarationError>) {
+    let actions = P::header_actions();
+    check_inputs::<P>(
+        cx,
+        actions
+            .entries()
+            .iter()
+            .map(|action| (action.name, action.input)),
+        errors,
+    );
+}
+
+/// Each of `T`'s actions has a name no other shares, and an input that declares no misdeclared
+/// field, none the action's POST carries itself and no file field; an input with no field parses
+/// an empty submission.
+fn check_inputs<T: 'static>(
+    cx: &Cx,
+    actions: impl Iterator<Item = (&'static str, InputSpec)>,
+    errors: &mut Vec<DeclarationError>,
+) {
     let mut seen = std::collections::HashSet::new();
-    for action in declared.actions.entries() {
-        if !seen.insert(action.name) {
-            errors.push(DeclarationError::of::<R>(
+    for (name, spec) in actions {
+        if !seen.insert(name) {
+            errors.push(DeclarationError::of::<T>(
                 Site::Registration,
-                DeclarationErrorKind::DuplicateAction { name: action.name },
+                DeclarationErrorKind::DuplicateAction { name },
             ));
         }
-        let input = (action.input)();
+        let input = (spec.schema)();
         let mut kinds = input.declaration_errors();
         kinds.extend(input.empty_choices());
         let mut faults: Vec<ActionInputFault> = input
@@ -546,21 +587,21 @@ fn check_actions<R: Resource>(cx: &Cx, declared: &Mounted<R>, errors: &mut Vec<D
                 }
             })
             .collect();
-        if !action.takes_input && (action.parse_input)(cx, &HashMap::new()).is_err() {
+        if !spec.takes_input && (spec.parse)(cx, &HashMap::new()).is_err() {
             faults.push(ActionInputFault::RefusesEmpty);
         }
         kinds.extend(
             faults
                 .into_iter()
                 .map(|fault| DeclarationErrorKind::ActionInput {
-                    action: action.name,
+                    action: name,
                     fault,
                 }),
         );
         errors.extend(
             kinds
                 .into_iter()
-                .map(|kind| DeclarationError::of::<R>(Site::Registration, kind)),
+                .map(|kind| DeclarationError::of::<T>(Site::Registration, kind)),
         );
     }
 }

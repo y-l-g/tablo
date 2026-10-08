@@ -9,7 +9,7 @@ use std::{
 use topcoat::context::{Cx, try_app_context};
 
 use super::{
-    Actions, PublicLink, Relation, Resource, ResourceDef,
+    Actions, HeaderActions, PublicLink, Relation, Resource, ResourceDef,
     def::{PublicLinkFn, RecordTitle},
 };
 use crate::{
@@ -43,6 +43,7 @@ pub(crate) struct Mounted<R: Resource> {
     public_link: Option<PublicLinkFn<R::Model>>,
     pub(crate) relations: Vec<Relation<R::Model>>,
     pub(crate) actions: Actions<R>,
+    pub(crate) header_actions: HeaderActions,
     pub(crate) fields: Vec<FormField<<R::Form as RecordForm>::Field>>,
     pub(crate) create_columns: Vec<Result<String, DeclarationErrorKind>>,
 }
@@ -110,6 +111,7 @@ impl<R: Resource> Mounted<R> {
             public_link: def.public_link,
             relations: def.relations,
             actions: def.actions,
+            header_actions: def.header_actions,
             fields,
             create_columns: def.create_columns,
         }

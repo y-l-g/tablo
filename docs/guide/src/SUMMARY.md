@@ -7,6 +7,7 @@
 - [Tables](./tables.md)
 - [Forms](./forms.md)
 - [Detail pages](./detail-pages.md)
+- [Actions](./actions.md)
 - [Policy, auth, tenancy](./policy-auth-tenancy.md)
 - [Data access](./data-access.md)
 - [Extension points](./extension-points.md)

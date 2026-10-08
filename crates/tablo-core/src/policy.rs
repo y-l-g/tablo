@@ -41,8 +41,8 @@ pub enum Ability<'a, M> {
     DeleteAny,
     /// Delete one record.
     Delete(&'a M),
-    /// Run the custom [`Action`](crate::Action) whose [`NAME`](crate::Action::NAME) is `action`
-    /// at all.
+    /// Run the custom [`Action`](crate::Action) or [`HeaderAction`](crate::HeaderAction) whose
+    /// `NAME` is `action` at all. A header action, which runs on no record, is asked nothing else.
     RunAny {
         /// The action's [`NAME`](crate::Action::NAME).
         action: &'static str,

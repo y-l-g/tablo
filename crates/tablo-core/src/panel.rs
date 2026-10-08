@@ -1,6 +1,7 @@
 //! `Panel` — an admin panel an app mounts into its router.
 
 mod actions;
+mod bar;
 mod build;
 mod detail;
 mod forms;
@@ -21,12 +22,14 @@ use std::path::PathBuf;
 
 use topcoat::{asset::Asset, font::Font, router::LayoutRenderFn};
 
+pub(crate) use self::{
+    bar::header_bar, build::route_path, forms::parse_form_body, gate::panel_prefix,
+};
 use self::{
     build::is_directory_pattern,
     register::{PageRegistration, Registration, ResourceRegistration},
     shell::ShellAssets,
 };
-pub(crate) use self::{build::route_path, forms::parse_form_body, gate::panel_prefix};
 pub use self::{
     build::{PanelHandle, RouterBuilderPanelExt},
     gate::can_list,

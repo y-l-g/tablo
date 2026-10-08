@@ -11,6 +11,7 @@ use crate::form::{FieldErrors, Posted, RecordForm};
 mod action;
 mod commit;
 mod def;
+mod header_action;
 mod link;
 mod mounted;
 mod relation;
@@ -18,11 +19,16 @@ mod write;
 
 #[doc(hidden)]
 pub use action::required_input;
-pub use action::{Action, ActionInput};
-pub(crate) use action::{ActionEntry, Actions, ErasedInput, RESERVED_KEYS, SUBMITTED_KEY};
+pub use action::{Action, ActionInput, Places};
+pub(crate) use action::{
+    ActionEntry, ActionFuture, Actions, ErasedInput, InputResult, InputSpec, RESERVED_KEYS,
+    SUBMITTED_KEY, parse_validated,
+};
 pub(crate) use commit::run_after_commit;
 pub use commit::{Committed, Mutation};
 pub use def::ResourceDef;
+pub(crate) use header_action::HeaderEntry;
+pub use header_action::{HeaderAction, HeaderActions};
 pub use link::PublicLink;
 pub(crate) use mounted::{MountScope, Mounted, Mounts, mounted, require_mounted};
 pub use relation::{ForeignKey, Relation};

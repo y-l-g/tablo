@@ -22,9 +22,9 @@ use crate::{
 /// A mutation beyond create, update and delete: "publish", "archive",
 /// "resend the invite".
 ///
-/// An action runs on one record, from a button in its row, or on the
-/// selection, from the bulk bar, or both ([`ROW`](Self::ROW),
-/// [`BULK`](Self::BULK)). [`ResourceDef::action`](super::ResourceDef::action) declares it:
+/// An action runs on one record, from a button in its table row or in the header of its detail or
+/// edit page, or on the selection, from the bulk bar: [`PLACES`](Self::PLACES) says which.
+/// [`ResourceDef::action`](super::ResourceDef::action) declares it:
 ///
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model)]
@@ -68,8 +68,8 @@ use crate::{
 /// The framework owns everything around [`run`](Self::run), as it does for
 /// a delete:
 ///
-/// - the route, `{list}/{key}/-/actions/{NAME}` for a row and `{list}/-/actions/{NAME}` for the
-///   selection, and its CSRF check;
+/// - the route, `{list}/{key}/-/actions/{NAME}` for one record and `{list}/-/actions/{NAME}` for
+///   the selection, and its CSRF check;
 /// - the transaction: the records are loaded through [`scoped_query`](super::scoped_query) inside
 ///   it, `run` writes through the same executor, and an error rolls everything back;
 /// - the policy: [`Ability::RunAny`] with the action's `NAME`, asked before the body is read, then
@@ -87,9 +87,12 @@ use crate::{
 /// checks its choices before the transaction opens, then re-checks a relationship choice inside
 /// it. A refused value renders the page again with its errors and writes nothing.
 ///
-/// A table renders no button and no bulk entry for an action the policy refuses `RunAny`, and no
-/// button on a row whose record fails `View`, `Run` or `can_run`. A row that no bulk action and no
-/// delete allows renders no checkbox.
+/// A run from a detail or edit page lands back on that page; one from a row or the bulk bar lands
+/// on the list.
+///
+/// No place renders a button for an action the policy refuses `RunAny`, and no row or page renders
+/// one for a record that fails `View`, `Run` or `can_run`. A row that no bulk action and no delete
+/// allows renders no checkbox.
 pub trait Action<R: Resource>: 'static {
     /// What the action asks for before it runs: `()` for nothing, or an
     /// [`ActionInput`](derive@crate::ActionInput) struct, such as a rejection's reason.
@@ -126,12 +129,13 @@ pub trait Action<R: Resource>: 'static {
     /// ```
     const NAME: &'static str;
 
-    /// Whether a row renders the action's button. Defaults to `true`.
-    const ROW: bool = true;
-
-    /// Whether the bulk bar renders the action for the selection. Defaults
-    /// to `true`.
-    const BULK: bool = true;
+    /// Where the action's button renders. Defaults to [`Places::ALL`]: each row, the detail and
+    /// edit pages' headers, and the bulk bar.
+    ///
+    /// It decides where the button shows, not who may run it: the record route serves an action
+    /// placed on any of [`Places::RECORD`], and the bulk route one placed on
+    /// [`Places::BULK`].
+    const PLACES: Places = Places::ALL;
 
     /// Whether the action asks first through a confirmation dialog sharing the
     /// delete dialog's mechanism and destructive wording. Defaults to `false`.
@@ -186,6 +190,52 @@ pub trait Action<R: Resource>: 'static {
     }
 }
 
+/// Where an [`Action`]'s button renders: [`Action::PLACES`].
+///
+/// ```rust
+/// # use tablo_core::Places;
+/// // On the detail page and the bulk bar, not on each row or the edit page.
+/// const PLACES: Places = Places::DETAIL.with(Places::BULK);
+/// assert!(PLACES.contains(Places::BULK));
+/// assert!(!PLACES.contains(Places::ROW));
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Places(u8);
+
+impl Places {
+    /// A button in each table row, the related tables' included.
+    pub const ROW: Self = Self(1);
+    /// A button in the detail page's header.
+    pub const DETAIL: Self = Self(1 << 1);
+    /// A button in the edit page's header.
+    pub const EDIT: Self = Self(1 << 2);
+    /// An entry in the bulk bar, run on the selection.
+    pub const BULK: Self = Self(1 << 3);
+    /// Every place that shows one record: [`ROW`](Self::ROW), [`DETAIL`](Self::DETAIL) and
+    /// [`EDIT`](Self::EDIT).
+    pub const RECORD: Self = Self(Self::ROW.0 | Self::DETAIL.0 | Self::EDIT.0);
+    /// Every place.
+    pub const ALL: Self = Self(Self::RECORD.0 | Self::BULK.0);
+
+    /// These places and `other`'s.
+    #[must_use]
+    pub const fn with(self, other: Self) -> Self {
+        Self(self.0 | other.0)
+    }
+
+    /// Whether every place of `other` is one of these.
+    #[must_use]
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+
+    /// Whether any place of `other` is one of these.
+    #[must_use]
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
 impl<M> Ability<'_, M> {
     /// Whether the ability is [`RunAny`](Ability::RunAny) or [`Run`](Ability::Run) for the action
     /// `A`.
@@ -237,6 +287,39 @@ pub(crate) type ErasedInput = Box<dyn Any + Send>;
 /// What an erased input parse returns.
 pub(crate) type InputResult = std::result::Result<ErasedInput, Vec<FieldError>>;
 
+/// What an action asks for before it runs, its type erased: the input's schema and its parse.
+#[derive(Clone, Copy)]
+pub(crate) struct InputSpec {
+    /// The input form's schema: empty for a delete and an action asking for nothing.
+    pub(crate) schema: fn() -> Schema,
+    /// Whether [`schema`](Self::schema) declares a field, so the action asks for it on a page.
+    pub(crate) takes_input: bool,
+    /// Parses and validates the input from a submission, as the value `run` takes.
+    pub(crate) parse: fn(&Cx, &HashMap<String, String>) -> InputResult,
+}
+
+impl InputSpec {
+    /// The input of type `I`, parsed and validated by `parse`.
+    pub(crate) fn of<I: ActionInput>(
+        parse: fn(&Cx, &HashMap<String, String>) -> InputResult,
+    ) -> Self {
+        Self {
+            schema: I::schema,
+            takes_input: !I::schema().is_empty(),
+            parse,
+        }
+    }
+
+    /// No input: a delete's.
+    pub(crate) fn none() -> Self {
+        Self {
+            schema: Schema::empty,
+            takes_input: false,
+            parse: parse_nothing,
+        }
+    }
+}
+
 /// The actions a [`Resource`] declares, in button order.
 pub(crate) struct Actions<R: Resource> {
     entries: Vec<ActionEntry<R>>,
@@ -270,13 +353,10 @@ impl<R: Resource> Actions<R> {
         self.entries.push(ActionEntry {
             name: A::NAME,
             label: A::label,
-            row: A::ROW,
-            bulk: A::BULK,
+            places: A::PLACES,
             resource_wide: Ability::RunAny { action: A::NAME },
             can_run: can_run_erased::<R, A>,
-            input: A::Input::schema,
-            takes_input: !A::Input::schema().is_empty(),
-            parse_input: parse_input_erased::<R, A>,
+            input: InputSpec::of::<A::Input>(parse_input_erased::<R, A>),
             run: run_erased::<R, A>,
             success: A::success,
             acted: super::Committed::acted::<R, A>,
@@ -302,18 +382,12 @@ impl<R: Resource> Actions<R> {
 pub(crate) struct ActionEntry<R: Resource> {
     pub(crate) name: &'static str,
     pub(crate) label: fn(&Cx) -> String,
-    pub(crate) row: bool,
-    pub(crate) bulk: bool,
+    pub(crate) places: Places,
     /// The resource-wide ability checked before the body is read.
     pub(crate) resource_wide: Ability<'static, R::Model>,
     /// Whether the mutation may write `record`, which already passed `View`.
     pub(crate) can_run: fn(&Mounted<R>, &Cx, &R::Model) -> bool,
-    /// The input form's schema: empty for a delete and an action asking for nothing.
-    pub(crate) input: fn() -> Schema,
-    /// Whether [`input`](Self::input) declares a field, so the mutation asks for it on a page.
-    pub(crate) takes_input: bool,
-    /// Parses and validates the input from a submission, as the value `run` takes.
-    pub(crate) parse_input: fn(&Cx, &HashMap<String, String>) -> InputResult,
+    pub(crate) input: InputSpec,
     pub(crate) run: for<'a> fn(
         &'a Cx,
         &'a [R::Model],
@@ -336,7 +410,8 @@ impl<R: Resource> Clone for ActionEntry<R> {
 impl<R: Resource> Copy for ActionEntry<R> {}
 
 impl<R: Resource> ActionEntry<R> {
-    /// The row's Delete: [`Resource::delete_record`], on a record [`Ability::Delete`] allows.
+    /// One record's Delete, from its row or its detail or edit page: [`Resource::delete_record`],
+    /// on a record [`Ability::Delete`] allows.
     pub(crate) fn delete() -> Self {
         Self::deleting(false)
     }
@@ -351,13 +426,10 @@ impl<R: Resource> ActionEntry<R> {
         Self {
             name: "delete",
             label: |_| "Delete".to_string(),
-            row: !bulk,
-            bulk,
+            places: if bulk { Places::BULK } else { Places::RECORD },
             resource_wide: Ability::DeleteAny,
             can_run: |resource, cx, record| resource.can(cx, Ability::Delete(record)),
-            input: Schema::empty,
-            takes_input: false,
-            parse_input: parse_nothing,
+            input: InputSpec::none(),
             run: if bulk {
                 bulk_delete_erased::<R>
             } else {
@@ -399,8 +471,17 @@ fn parse_input_erased<R: Resource, A: Action<R>>(
     cx: &Cx,
     values: &HashMap<String, String>,
 ) -> InputResult {
-    let input = A::Input::parse(cx, values)?;
-    let refused: Vec<FieldError> = A::validate_input(cx, &input).into_iter().collect();
+    parse_validated(cx, values, A::validate_input)
+}
+
+/// `I`'s [`ActionInput::parse`], then `validate`.
+pub(crate) fn parse_validated<I: ActionInput>(
+    cx: &Cx,
+    values: &HashMap<String, String>,
+    validate: fn(&Cx, &I) -> FieldErrors,
+) -> InputResult {
+    let input = I::parse(cx, values)?;
+    let refused: Vec<FieldError> = validate(cx, &input).into_iter().collect();
     if !refused.is_empty() {
         return Err(refused);
     }

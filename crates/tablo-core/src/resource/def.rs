@@ -5,7 +5,7 @@ use std::sync::Arc;
 use toasty::stmt::{Expr, Path};
 use topcoat::{context::Cx, icon::IconData};
 
-use super::{Action, Actions, PublicLink, Relation, Resource};
+use super::{Action, Actions, HeaderAction, HeaderActions, PublicLink, Relation, Resource};
 use crate::{
     DeclarationErrorKind, Lens,
     detail::Detail,
@@ -64,6 +64,7 @@ pub struct ResourceDef<R: Resource> {
     pub(crate) public_link: Option<PublicLinkFn<R::Model>>,
     pub(crate) relations: Vec<Relation<R::Model>>,
     pub(crate) actions: Actions<R>,
+    pub(crate) header_actions: HeaderActions,
     /// The columns [`Self::create_column`] names, or why a path names no column.
     pub(crate) create_columns: Vec<Result<String, DeclarationErrorKind>>,
 }
@@ -86,6 +87,7 @@ impl<R: Resource> Default for ResourceDef<R> {
             public_link: None,
             relations: Vec::new(),
             actions: Actions::default(),
+            header_actions: HeaderActions::new(),
             create_columns: Vec::new(),
         }
     }
@@ -274,6 +276,18 @@ impl<R: Resource> ResourceDef<R> {
         self
     }
 
+    /// Adds the [`HeaderAction`] `A`, which acts on no record, to the list page's header, after
+    /// the ones already declared.
+    ///
+    /// The policy decides who may run it, through [`Ability::RunAny`](crate::Ability::RunAny)
+    /// with its name, which no other action of the resource may share. An `A::NAME` that is not
+    /// a single URL path segment does not compile.
+    #[must_use]
+    pub fn header_action<A: HeaderAction>(mut self) -> Self {
+        self.header_actions = self.header_actions.add::<A>();
+        self
+    }
+
     /// Declares a column an overriding [`Resource::create_record`] sets itself, beyond the form's
     /// fields: `.create_column(lens!(Post.slug))`. Call it once per column.
     ///
@@ -331,6 +345,7 @@ impl<R: Resource> std::fmt::Debug for ResourceDef<R> {
             .field("plural_label", &self.plural_label)
             .field("relations", &self.relations)
             .field("actions", &self.actions)
+            .field("header_actions", &self.header_actions)
             .finish_non_exhaustive()
     }
 }

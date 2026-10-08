@@ -4,10 +4,10 @@ use std::path::PathBuf;
 
 use tablo::{
     Ability, Action, Auth, BooleanColumn, Brand, ColumnWidth, ComputedColumn, CountColumn,
-    DateFilter, Detail, EmbeddedColumn, FieldErrors, Grid, Group, Panel, PublicLink, QueryFilter,
-    RecordForm, Relation, RelationColumn, Resource, ResourceDef, RouterBuilderPanelExt, Schema,
-    Section, SelectFilter, Table, Tenancy, TernaryFilter, TextColumn, Uploader, lens, relation,
-    tenant_id, when,
+    DateFilter, Detail, EmbeddedColumn, FieldErrors, Grid, Group, HeaderAction, Panel, PublicLink,
+    QueryFilter, RecordForm, Relation, RelationColumn, Resource, ResourceDef,
+    RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy, TernaryFilter,
+    TextColumn, Uploader, lens, relation, scoped_query, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -171,10 +171,12 @@ impl Resource for PostResource {
             .relation(Relation::has_many::<CommentResource>(
                 Comment::fields().post_id(),
             ))
-            // Publishes drafts from a row or for the selection.
+            // Publishes drafts from a row, the detail and edit pages, or for the selection.
             .action::<PublishPosts>()
             // Adds or replaces tags, asking which first.
             .action::<TagPosts>()
+            // Publishes every draft from the list's header, confirming first.
+            .header_action::<PublishAllDrafts>()
     }
 }
 
@@ -273,6 +275,31 @@ impl Action<PostResource> for PublishPosts {
 
     async fn run(_cx: &Cx, posts: &[Post], _: (), ex: &mut dyn toasty::Executor) -> Result<()> {
         for post in posts {
+            Post::filter(Post::fields().id().eq(post.id))
+                .update()
+                .status(PostStatus::Published)
+                .exec(&mut *ex)
+                .await?;
+        }
+        Ok(())
+    }
+}
+
+/// Publishes every draft of the tenant, from the post list's header.
+pub struct PublishAllDrafts;
+
+impl HeaderAction for PublishAllDrafts {
+    type Input = ();
+    const NAME: &'static str = "publish-all-drafts";
+    const CONFIRM: bool = true;
+
+    async fn run(cx: &Cx, _: (), ex: &mut dyn toasty::Executor) -> Result<()> {
+        // The tenant-scoped query: a header action sees no record, so it scopes its own.
+        let drafts = scoped_query::<PostResource>(cx)?
+            .filter(Post::fields().status().eq(PostStatus::Draft))
+            .exec(&mut *ex)
+            .await?;
+        for post in drafts {
             Post::filter(Post::fields().id().eq(post.id))
                 .update()
                 .status(PostStatus::Published)

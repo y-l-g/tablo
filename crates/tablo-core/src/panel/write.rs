@@ -1,5 +1,7 @@
 //! The write tail every mutation shares: create, update, the deletes and the
-//! custom actions end in [`commit_write`].
+//! custom actions end in [`commit_write`], and the header actions in [`commit_then`].
+
+use std::future::Future;
 
 use topcoat::{context::Cx, router::error::see_other, view::BoxView};
 
@@ -25,13 +27,36 @@ pub(crate) async fn commit_write<'a, R: Resource, T>(
     note: impl Into<String>,
     failure: &'static str,
 ) -> Result<BoxView<'a>, topcoat::Error> {
+    commit_then(
+        cx,
+        tx,
+        written,
+        |value| crate::resource::run_after_commit::<R>(cx, committed(value)),
+        note,
+        failure,
+        &resource.url,
+    )
+    .await
+}
+
+/// [`commit_write`]'s tail for any write: commit, run `after` on what was written, and redirect
+/// to `home` or the request's `?return=` with the success flash.
+pub(crate) async fn commit_then<'a, T, F: Future<Output = ()>>(
+    cx: &'a Cx,
+    tx: toasty::Transaction<'_>,
+    written: Result<T, topcoat::Error>,
+    after: impl FnOnce(T) -> F,
+    note: impl Into<String>,
+    failure: &'static str,
+    home: &str,
+) -> Result<BoxView<'a>, topcoat::Error> {
     match written {
         Ok(value) => match tx.commit().await {
             Ok(()) => {
                 // Post-commit, so the effect cannot survive a rollback, and
                 // the tx is gone, so the hook may open its own handle.
-                crate::resource::run_after_commit::<R>(cx, committed(value)).await;
-                Err(redirect_after_write(cx, &resource.url, note))
+                after(value).await;
+                Err(redirect_after_write(cx, home, note))
             }
             Err(error) => {
                 notify_write_failure(cx, failure);
@@ -54,12 +79,12 @@ pub(crate) async fn commit_write<'a, R: Resource, T>(
     }
 }
 
-/// Post/Redirect/Get with a flash notification, to the list or the page the
+/// Post/Redirect/Get with a flash notification, to `home` or the page the
 /// write's `?return=` names ([`landing_url`]). The browser follows with a
 /// GET, and the flash cookie rides the error response (Topcoat flushes
 /// `Set-Cookie` on `Err` too, topcoat#408), so every mutation redirects the
 /// same way.
-fn redirect_after_write(cx: &Cx, list_url: &str, note: impl Into<String>) -> topcoat::Error {
+fn redirect_after_write(cx: &Cx, home: &str, note: impl Into<String>) -> topcoat::Error {
     set_notification(cx, Notification::success(note));
-    see_other(landing_url(cx, list_url)).into()
+    see_other(landing_url(cx, home)).into()
 }
