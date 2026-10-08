@@ -276,7 +276,7 @@ impl Embedded {
     }
 
     /// Visits every field slot the value renders.
-    fn visit_fields(&self, f: &mut impl FnMut(usize)) {
+    pub(crate) fn visit_fields(&self, f: &mut impl FnMut(usize)) {
         fn members(members: &[Member], f: &mut impl FnMut(usize)) {
             for member in members {
                 match member {

@@ -6,6 +6,7 @@ use topcoat::{Result, context::Cx, view::*};
 
 use super::{
     Schema,
+    condition::{Condition, watch},
     embedded::Embedded,
     fields::Field,
     layouts::{Grid, Group, Section},
@@ -43,12 +44,37 @@ impl std::fmt::Debug for Unbound {
 pub struct Source<'a> {
     values: &'a HashMap<String, String>,
     errors: &'a FieldErrors,
+    /// The conditions each watched field's key drives.
+    watched: HashMap<String, Vec<Condition>>,
 }
 
 impl<'a> Source<'a> {
     /// Renders controls hydrated with `values` and inline `errors`.
     pub fn form(values: &'a HashMap<String, String>, errors: &'a FieldErrors) -> Self {
-        Self { values, errors }
+        Self {
+            values,
+            errors,
+            watched: HashMap::new(),
+        }
+    }
+
+    /// Renders each watched field with the handlers its conditions follow.
+    pub(crate) fn watching(mut self, watched: HashMap<String, Vec<Condition>>) -> Self {
+        self.watched = watched;
+        self
+    }
+
+    /// Renders `view` guarded by `condition`, or as it is without one.
+    fn guard<'v>(
+        &self,
+        cx: &'v Cx,
+        condition: Option<&Condition>,
+        view: BoxView<'v>,
+    ) -> BoxView<'v> {
+        match condition {
+            Some(condition) => condition.guard(cx, self.values, view),
+            None => view,
+        }
     }
 
     pub(crate) fn value(&self, name: &str) -> Option<&str> {
@@ -75,11 +101,26 @@ impl Node {
             Node::Field(index) => {
                 let field = &fields[*index];
                 let error = source.error_for(field);
-                Box::pin(field.render(cx, source.value(field.name()), error.as_deref())).await
+                let mut view =
+                    Box::pin(field.render(cx, source.value(field.name()), error.as_deref()))
+                        .await?;
+                if let Some(conditions) = source.watched.get(field.name()) {
+                    view = watch(cx, field, conditions, source.values, view);
+                }
+                Ok(source.guard(cx, field.condition(), view))
             }
-            Node::Section(s) => Box::pin(s.render(cx, fields, source)).await,
-            Node::Group(g) => Box::pin(g.render(cx, fields, source)).await,
-            Node::Grid(g) => Box::pin(g.render(cx, fields, source)).await,
+            Node::Section(s) => {
+                let view = Box::pin(s.render(cx, fields, source)).await?;
+                Ok(source.guard(cx, s.condition.as_ref(), view))
+            }
+            Node::Group(g) => {
+                let view = Box::pin(g.render(cx, fields, source)).await?;
+                Ok(source.guard(cx, g.condition.as_ref(), view))
+            }
+            Node::Grid(g) => {
+                let view = Box::pin(g.render(cx, fields, source)).await?;
+                Ok(source.guard(cx, g.condition.as_ref(), view))
+            }
             Node::Embedded(e) => Box::pin(e.render(cx, fields, source)).await,
             // `Schema::render` refuses an unbound schema before any node renders.
             Node::Unbound(_) => Ok(().boxed()),

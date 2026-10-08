@@ -53,9 +53,15 @@ async fn prepare_submission<R: Resource>(
     reject_unknown_form_keys(&schema, &parts.values)?;
     let FormParts {
         mut values,
-        files,
+        mut files,
         file_part_names,
     } = parts;
+    // A hidden field's control is disabled, so the browser posts nothing for it: a key posted
+    // anyway is dropped, so an edit keeps the stored value and a create takes the blank answer.
+    for key in schema.condition_hidden(&values) {
+        values.remove(&key);
+        files.remove(&key);
+    }
     let stored = advisory
         .map(|advisory| <R::Form as RecordForm>::hydrate(cx, advisory))
         .unwrap_or_default();

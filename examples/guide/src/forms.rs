@@ -24,6 +24,22 @@ pub fn account_layout() -> Schema<UserForm> {
 }
 // ANCHOR_END: forms-controls-layout
 
+// ANCHOR: forms-conditions
+#[derive(tablo::RecordForm)]
+#[form(model = User)]
+pub struct AccessForm {
+    #[form(options, blank = Role::Member)]
+    pub role: Role,
+    pub sso_managed: bool,
+}
+
+pub fn access_layout() -> Schema<AccessForm> {
+    let c = AccessForm::controls();
+    let sso = c.sso_managed.visible_when(&c.role, ["admin"]);
+    Schema::new(Section::new("Access").schema((c.role, sso)))
+}
+// ANCHOR_END: forms-conditions
+
 // ANCHOR: forms-color-control
 struct Color;
 

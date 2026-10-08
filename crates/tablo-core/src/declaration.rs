@@ -290,6 +290,22 @@ pub enum DeclarationErrorKind {
         /// The shared name.
         name: String,
     },
+    /// A condition watches a field the schema does not place.
+    UnplacedWatchedField {
+        /// The watched field.
+        field: String,
+    },
+    /// A condition watches a field that another condition hides while what it guards still
+    /// shows.
+    HiddenWatchedField {
+        /// The watched field.
+        field: String,
+    },
+    /// A field a condition hides has no blank answer, so a submission hiding it cannot parse.
+    RequiredConditionalField {
+        /// The field.
+        field: String,
+    },
     /// A resource whose policy allows create but that has no form.
     CreateWithoutForm,
     /// A record-form field binding a key no control posts, after the form renders every field
@@ -497,6 +513,22 @@ impl fmt::Display for DeclarationErrorKind {
             Self::DuplicateField { name } => write!(
                 f,
                 "two fields are named '{name}': each input needs a distinct field"
+            ),
+            Self::UnplacedWatchedField { field } => write!(
+                f,
+                "a condition watches field '{field}', which the schema does not place: place it \
+                 in the same schema"
+            ),
+            Self::HiddenWatchedField { field } => write!(
+                f,
+                "a condition watches field '{field}', which a condition hides while the guarded \
+                 field or block still shows: place the guarded one inside the block that hides \
+                 '{field}'"
+            ),
+            Self::RequiredConditionalField { field } => write!(
+                f,
+                "field '{field}' is conditional but has no blank answer: a submission that hides \
+                 it posts nothing, so make it an `Option` or give it `#[form(blank = ..)]`"
             ),
             Self::CreateWithoutForm => f.write_str(
                 "the policy allows create, but there is no form: name the record form in `type \

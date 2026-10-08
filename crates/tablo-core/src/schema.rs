@@ -3,6 +3,7 @@
 //! `Schema` holds layout blocks, embedded values, and [`Field`] slots and resolves every field once
 //! into one list for rendering and validation.
 
+mod condition;
 pub(crate) mod embedded;
 pub(crate) mod fields;
 mod layouts;
@@ -17,6 +18,7 @@ use std::{
     marker::PhantomData,
 };
 
+pub use condition::Watched;
 pub use embedded::EmbeddedForm;
 pub use fields::{ChoiceField, CustomField, Field, FileField, IntoOptions, TextField, Toggle};
 pub(crate) use fields::{option_view, read_only, stored_upload, value_cell};
@@ -153,6 +155,7 @@ impl<F> Schema<F> {
         if !errors.is_empty() {
             return Err(crate::error::misdeclared(&errors));
         }
+        let source = source.watching(self.watched());
         render_nodes(cx, &self.nodes, &self.fields, &source).await
     }
 
@@ -219,6 +222,7 @@ impl<F> Schema<F> {
             .into_iter()
             .map(|item| crate::DeclarationErrorKind::Unbound { item })
             .collect();
+        errors.extend(self.condition_errors());
         let mut seen = HashSet::new();
         for field in &self.fields {
             match field.misdeclared() {
@@ -235,7 +239,7 @@ impl<F> Schema<F> {
     }
 
     /// Collects the keys of the fields this submission hides: the payload of every embedded
-    /// variant it does not choose.
+    /// variant it does not choose, and every field a condition hides.
     pub(crate) fn hidden_fields(&self, values: &HashMap<String, String>) -> HashSet<String> {
         fn walk(nodes: &[Node], values: &HashMap<String, String>, out: &mut Vec<usize>) {
             for node in nodes {
@@ -254,6 +258,7 @@ impl<F> Schema<F> {
         indices
             .into_iter()
             .map(|index| self.fields[index].name().to_string())
+            .chain(self.condition_hidden(values))
             .collect()
     }
 

@@ -410,6 +410,10 @@ async fn read_input(
     if !unknown.is_empty() {
         return Err(bad_request(format!("unknown field(s): {}", unknown.join(", "))).into());
     }
+    // A hidden field posts nothing from the browser; a key posted anyway reads as blank.
+    for key in schema.condition_hidden(&input) {
+        input.remove(&key);
+    }
     let mut errors = FieldErrors::new();
     let parsed = match (spec.parse)(cx, &input) {
         Ok(parsed) => Some(parsed),

@@ -22,6 +22,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Embedded value | A `toasty::Embed` value stored as flattened columns, bound by a form as one value. | Nested form, Sub-form, Inline model |
 | Record form | The typed value a form submission parses into, one field per written column. | Patch, Draft, DTO, Form (alone) |
 | Blank answer | What a record-form field stores when submitted empty. A field with none is required. | Default, Nullable (for presence) |
+| Condition | What shows a field or a layout block only while another field posts one of the listed values. | Visibility rule, Dependency, Reactive field |
 | Policy | A resource's authorization, answering one ability at a time. | Guard, Permission, Gate, Rule |
 | Ability | One thing a policy is asked to allow. | Permission, Action, Verb |
 | Tenancy | How a resource's rows belong to a tenant, through a `TenantId` column. | Tenant scope, Multi-tenancy mode |
