@@ -7,7 +7,8 @@ What Tablo does by default, and what your deployment must provide for those defa
 - **HTTPS.** The session, CSRF and notification cookies are `__Host-` cookies marked `Secure`.
   Browsers accept them over plain HTTP only on `localhost`; anywhere else, without HTTPS, the
   browser drops them and every form POST fails its CSRF check with 403.
-- **Login rate limiting.** Tablo has no rate limiter or account lockout. Limit login attempts at
+- **Per-IP and multi-replica rate limiting.** Tablo throttles sign-ins per login inside each
+  process (see [Authentication](#authentication)). Limit attempts per IP, and across replicas, at
   your proxy or firewall.
 - **Session revocation.** Call `auth::revoke_sessions_for_user` when a password changes or an
   account is deactivated; see [Authentication](./policy-auth-tenancy.md#authentication).
@@ -30,6 +31,11 @@ What Tablo does by default, and what your deployment must provide for those defa
 
 - Passwords are hashed with Argon2id. A login for an unknown email verifies against a dummy hash,
   so it takes as long as a wrong password, and every failure shows the same message.
+- Each login may make five sign-in attempts a minute. A sixth answers the same 403 and message as
+  a wrong password without checking the password, and a successful sign-in clears the count.
+  `Auth::password().throttle(LoginThrottle::new(10, Duration::from_secs(300)))` changes the limit
+  and `LoginThrottle::off()` removes it. Counts live in the process: each replica counts its own,
+  and a restart clears them.
 - Sessions are stored server-side, keyed by a hash of the cookie's token, and replaced on login.
 - A redirect after login follows `next` only to a same-origin path.
 

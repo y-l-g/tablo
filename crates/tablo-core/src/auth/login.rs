@@ -143,6 +143,11 @@ pub(crate) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             (Some(authenticator), Some(login), Some(password))
                 if !login.is_empty() && !password.is_empty() =>
             {
+                // A login past its limit reads as a wrong password, never reaching the
+                // authenticator.
+                if !panel.auth.login_throttle().attempt(login) {
+                    return login_response(cx, Some(LoginError::Credentials), next).await;
+                }
                 match authenticator.verify(cx, login, password).await {
                     Ok(user) => user,
                     Err(error) => return failed(cx, error, next).await,
@@ -155,6 +160,9 @@ pub(crate) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         let Some(user) = verified.filter(|user| user.can_access_panel()) else {
             return login_response(cx, Some(LoginError::Credentials), next).await;
         };
+        if let Some(login) = login {
+            panel.auth.login_throttle().clear(login);
+        }
         // Rotate on login so a presented token cannot be replayed.
         if let Some(hash) = session::token_hash(cx).await? {
             delete_session(cx, &hash).await?;

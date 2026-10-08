@@ -97,6 +97,11 @@ fn infrastructure_failure_keeps_an_app_error_intact() {
 
 /// Builds the `Cx` for a login POST over the password authenticator.
 fn login_cx(db: Db, token: &str) -> Cx {
+    login_cx_with(db, token, Auth::password())
+}
+
+/// Builds the `Cx` for a login POST over `auth`.
+fn login_cx_with(db: Db, token: &str, auth: Auth) -> Cx {
     use topcoat::{context::CxTestBuilder, cookie::CookieJarCell};
 
     let parts = http::Request::builder()
@@ -117,7 +122,7 @@ fn login_cx(db: Db, token: &str) -> Cx {
     CxTestBuilder::new()
         .app_context(db)
         .request_context(crate::panel::test_support::current_panel(
-            crate::panel::test_support::panel_state("/admin", Auth::password()),
+            crate::panel::test_support::panel_state("/admin", auth),
         ))
         .request_context(parts)
         .request_context(CookieJarCell::new())
@@ -229,6 +234,60 @@ async fn a_rejected_password_still_renders_the_generic_error() {
         !rendered.contains(UNAVAILABLE_ERROR),
         "a rejected password must not read as an outage, got {rendered:?}"
     );
+}
+
+/// Counts `verify` calls and accepts only `opensesame`.
+#[derive(Clone, Default)]
+struct CountingAuth(Arc<std::sync::atomic::AtomicUsize>);
+
+impl CountingAuth {
+    fn calls(&self) -> usize {
+        self.0.load(std::sync::atomic::Ordering::SeqCst)
+    }
+}
+
+impl Authenticator for CountingAuth {
+    type User = AdminUser;
+
+    async fn verify(
+        &self,
+        _cx: &Cx,
+        _login: &str,
+        password: &str,
+    ) -> topcoat::Result<Option<AdminUser>> {
+        self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Ok((password == "opensesame").then(ada))
+    }
+
+    async fn find_by_id(&self, _cx: &Cx, _id: &str) -> topcoat::Result<Option<AdminUser>> {
+        Ok(None)
+    }
+}
+
+/// A login past its limit answers the wrong-password 403 without asking the authenticator, even
+/// with the right password.
+#[tokio::test]
+async fn a_login_past_its_limit_is_refused_before_the_authenticator() {
+    let counting = CountingAuth::default();
+    let auth = Auth::custom(counting.clone())
+        .throttle(LoginThrottle::new(2, std::time::Duration::from_secs(60)));
+    let token = Uuid::new_v4().to_string();
+    let cx = login_cx_with(schema_less_db().await, &token, auth);
+    let attempt =
+        |password: &str| format!("email=ada@example.com&password={password}&csrf_token={token}");
+    for _ in 0..2 {
+        let (status, _) = post_login(&cx, attempt("wrong")).await;
+        assert_eq!(status, http::StatusCode::FORBIDDEN);
+    }
+    assert_eq!(counting.calls(), 2);
+
+    let (status, rendered) = post_login(&cx, attempt("opensesame")).await;
+    assert_eq!(status, http::StatusCode::FORBIDDEN);
+    assert!(
+        rendered.contains(GENERIC_ERROR),
+        "a throttled login reads as a wrong password, got {rendered:?}"
+    );
+    assert_eq!(counting.calls(), 2, "the authenticator is not asked");
 }
 
 /// Builds a router for a password-auth panel over `db`.

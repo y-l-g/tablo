@@ -115,7 +115,7 @@ mod toasty_compat;
 mod topcoat_compat;
 pub mod upload;
 
-pub use auth::{Auth, Authenticator, PanelUser, PasswordAuth, membership};
+pub use auth::{Auth, Authenticator, LoginThrottle, PanelUser, PasswordAuth, membership};
 pub use declaration::{
     ActionInputFault, DeclarationError, DeclarationErrorKind, MountError, SegmentFault, Site,
 };
