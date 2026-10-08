@@ -277,3 +277,64 @@ fn a_declared_record_label_titles_the_record_it_labels() {
         "a record the label declines falls back to the key"
     );
 }
+
+/// A `record_label` that reads a relation, as a detail page may, falls back to the resource's
+/// label and the key where another resource points at the record: options and relation columns
+/// load it without its relations.
+#[tokio::test]
+async fn a_label_reading_an_unloaded_relation_falls_back_to_the_key() {
+    #[derive(Debug, Clone, toasty::Model)]
+    struct Team {
+        #[key]
+        #[auto]
+        id: uuid::Uuid,
+        name: String,
+    }
+
+    #[derive(Debug, Clone, toasty::Model)]
+    struct Writer {
+        #[key]
+        #[auto]
+        id: uuid::Uuid,
+        name: String,
+        #[index]
+        team_id: uuid::Uuid,
+        #[belongs_to(key = team_id, references = id)]
+        team: toasty::Deferred<Team>,
+    }
+
+    struct WriterResource;
+
+    impl Resource for WriterResource {
+        type Model = Writer;
+        type Form = crate::NoForm<Self::Model>;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .table(crate::table::Table::new(crate::table::TextColumn::new(
+                    lens!(Writer.name),
+                )))
+                .record_label(|_cx: &Cx, w: &Writer| {
+                    Some(format!("{} ({})", w.name, w.team.get().name))
+                })
+        }
+    }
+
+    let db = Db::builder()
+        .models(toasty::models!(Team, Writer))
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    db.push_schema().await.unwrap();
+    let cx = crate::test_support::panel_cx::<WriterResource>(&db);
+    let writer = Writer {
+        id: uuid::Uuid::nil(),
+        name: "Ada".to_string(),
+        team_id: uuid::Uuid::nil(),
+        team: toasty::Deferred::default(),
+    };
+    assert_eq!(
+        <WriterResource as crate::schema::OptionSource>::label(&cx, &writer),
+        format!("Writer {}", uuid::Uuid::nil())
+    );
+}

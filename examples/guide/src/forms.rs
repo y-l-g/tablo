@@ -40,7 +40,7 @@ pub fn accent_control() -> CustomField<ThemeForm> {
 }
 
 pub fn accent_field() -> CustomField {
-    Field::custom(Theme::fields().accent(), Color)
+    Field::custom(lens!(Theme.accent), Color)
 }
 // ANCHOR_END: forms-color-control
 

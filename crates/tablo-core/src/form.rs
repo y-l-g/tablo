@@ -61,6 +61,34 @@
 //! }
 //! ```
 //!
+//! A bare choice, which would offer nothing: a foreign key names its source with
+//! `#[form(relationship = ..)]`.
+//!
+//! ```compile_fail
+//! # #[derive(Debug, Clone, toasty::Model)]
+//! # struct Post { #[key] #[auto] id: uuid::Uuid, author_id: uuid::Uuid }
+//! #[derive(tablo_core::RecordForm)]
+//! #[form(model = Post)]
+//! struct PostForm {
+//!     #[form(choice)]
+//!     author_id: uuid::Uuid,
+//! }
+//! ```
+//!
+//! Two keys that each pick the control:
+//!
+//! ```compile_fail
+//! # #[derive(Debug, Clone, toasty::Model)]
+//! # struct Post { #[key] #[auto] id: uuid::Uuid, author_id: String }
+//! # struct Authors;
+//! #[derive(tablo_core::RecordForm)]
+//! #[form(model = Post)]
+//! struct PostForm {
+//!     #[form(relationship = Authors, file)]
+//!     author_id: String,
+//! }
+//! ```
+//!
 //! A scalar type the form edge cannot spell:
 //!
 //! ```compile_fail

@@ -104,6 +104,12 @@ pub trait Column<M>: Send + Sync {
         None
     }
 
+    /// The source the column labels its records by, when the context's panel cannot load from it.
+    #[doc(hidden)]
+    fn unavailable_source(&self, _cx: &Cx) -> Option<&'static str> {
+        None
+    }
+
     /// Bind an embedded path through `resolver`'s app schema.
     #[doc(hidden)]
     fn bind(&self, _resolver: &FieldResolver) {}
@@ -163,6 +169,25 @@ impl<M> Includes<M> {
 }
 
 /// Include in `query` every relation `columns` declare, once each.
+/// One [`UnregisteredLabelSource`](DeclarationErrorKind::UnregisteredLabelSource) per column
+/// labelling its records by a source `cx`'s panel cannot load from.
+pub(crate) fn unavailable_sources<'c, M: 'c>(
+    cx: &Cx,
+    columns: impl IntoIterator<Item = &'c dyn Column<M>>,
+) -> Vec<crate::DeclarationErrorKind> {
+    columns
+        .into_iter()
+        .filter_map(|column| {
+            column.unavailable_source(cx).map(|source| {
+                crate::DeclarationErrorKind::UnregisteredLabelSource {
+                    column: column.name().to_string(),
+                    source,
+                }
+            })
+        })
+        .collect()
+}
+
 pub(crate) fn include_relations<'c, M>(
     mut query: Query<List<M>>,
     columns: impl IntoIterator<Item = &'c BoxColumn<M>>,

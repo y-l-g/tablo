@@ -80,7 +80,8 @@ An unknown id and an id outside the request's tenant are the same 404; a record 
 record is titled with the resource's `label()` and its key, such as "Post 3f2a…". The same title
 labels the record wherever another resource points at it: each option of a relationship choice
 over the resource, and each cell of a `RelationColumn::of` it. Those load the record without its
-relations, so a label reads only the record's own columns:
+relations, so a label reads only the record's own columns; one that reads a relation falls back
+there to the label and the key, and the panic it raised is logged:
 
 ```rust
 {{#include ../../../examples/guide/src/resources.rs:post-record-label}}

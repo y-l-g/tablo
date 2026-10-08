@@ -53,19 +53,17 @@ pub(crate) fn option_view<'a>(
 }
 
 impl Relationship {
-    /// The loaders for source `R`, projecting each row to its primary key and
-    /// [`label`](OptionSource::label).
-    pub(super) fn new<R>() -> Self
+    /// The loaders for source `R`, projecting each row to its primary key and `label`.
+    pub(super) fn new<R>(label: impl Fn(&Cx, &R::Model) -> String + Send + Sync + 'static) -> Self
     where
         R: OptionSource + 'static,
     {
-        let project = |cx: &Cx, record: &R::Model| {
-            (
-                crate::toasty_compat::pk::pk_text(record),
-                R::label(cx, record),
-            )
-        };
+        let project = std::sync::Arc::new(move |cx: &Cx, record: &R::Model| {
+            (crate::toasty_compat::pk::pk_text(record), label(cx, record))
+        });
+        let search_project = project.clone();
         let load = std::sync::Arc::new(move |cx: &Cx| {
+            let project = project.clone();
             let cx = cx.clone();
             Box::pin(async move {
                 let records = related_records::<R>(&cx, crate::tenancy::tenant_id(&cx))
@@ -75,6 +73,7 @@ impl Relationship {
             }) as RelationshipLoadFuture
         }) as RelationshipLoader;
         let search = std::sync::Arc::new(move |cx: &Cx, q: String| {
+            let project = search_project.clone();
             let cx = cx.clone();
             Box::pin(async move {
                 let records = related_records_search::<R>(&cx, q)

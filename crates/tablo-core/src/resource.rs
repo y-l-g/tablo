@@ -335,12 +335,27 @@ impl<R: Resource> crate::schema::OptionSource for R {
         mounted::<R>(cx)?.table.order_by(false)
     }
 
+    /// The record's title, as its detail page shows it.
+    ///
+    /// The record loads without its relations, so a `record_label` reading one panics on
+    /// `Deferred::get`: the title falls back to the resource's label and the key, and the panic is
+    /// logged, rather than failing the whole form or column.
     fn label(cx: &Cx, record: &R::Model) -> String {
         let key = crate::toasty_compat::pk::pk_text(record);
-        match mounted::<R>(cx) {
-            Some(mounted) => mounted.record_title(cx, record, &key),
-            None => key,
-        }
+        let Some(mounted) = mounted::<R>(cx) else {
+            return key;
+        };
+        let title = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            mounted.record_title(cx, record, &key)
+        }));
+        title.unwrap_or_else(|_| {
+            tracing::error!(
+                resource = std::any::type_name::<R>(),
+                "record_label panicked on a record loaded without its relations: a label read \
+                 where another resource points at the record reads only its own columns"
+            );
+            format!("{} {key}", mounted.label)
+        })
     }
 
     fn available(cx: &Cx) -> bool {

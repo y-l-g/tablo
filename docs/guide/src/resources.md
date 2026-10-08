@@ -155,7 +155,8 @@ declaration names one. It refuses the resource when:
 - the form asks for what the database or the framework will not honor: a `unique()` field with
   no unique index or whose non-nullable column an empty submission would fill, or a tenant-owned
   resource's record form claiming its tenant column;
-- a relationship field takes its options from a resource the panel does not register;
+- a relationship field takes its options from a resource the panel does not register, or a
+  `RelationColumn::of` labels its records by one;
 - a choice field declares neither options nor a relationship, so its `<select>` offers nothing;
 - the policy allows `Create` and a non-nullable column is set by nothing: not the form, not a
   Toasty default, not the tenant stamp, and not named by `create_column`;

@@ -33,6 +33,9 @@ fn name_search_expr<M: toasty::schema::Model>(
 struct DenyAllAuthors;
 impl OptionSource for DenyAllAuthors {
     type Model = PolicyAuthor;
+    fn label(_cx: &Cx, record: &PolicyAuthor) -> String {
+        record.name.clone()
+    }
     fn scoped_query(_cx: &Cx) -> Result<Query<List<PolicyAuthor>>> {
         Ok(Query::all())
     }
@@ -59,6 +62,9 @@ impl OptionSource for HideOneAuthor {
 struct TenantScopedAuthors;
 impl OptionSource for TenantScopedAuthors {
     type Model = PolicyAuthor;
+    fn label(_cx: &Cx, record: &PolicyAuthor) -> String {
+        record.name.clone()
+    }
 
     /// Filters on the `tenant_id` column.
     fn scoped_query(cx: &Cx) -> Result<Query<List<PolicyAuthor>>> {
@@ -86,6 +92,9 @@ async fn relationship_loader_fails_past_option_cap() {
     struct RefAuthorSource;
     impl OptionSource for RefAuthorSource {
         type Model = RefAuthor;
+        fn label(_cx: &Cx, record: &RefAuthor) -> String {
+            record.name.clone()
+        }
         fn scoped_query(_cx: &Cx) -> Result<Query<List<RefAuthor>>> {
             Ok(Query::all())
         }
@@ -151,6 +160,9 @@ async fn relationship_option_values_are_primary_keys_not_table_ids() {
     struct RefAuthorSource;
     impl OptionSource for RefAuthorSource {
         type Model = RefAuthor;
+        fn label(_cx: &Cx, record: &RefAuthor) -> String {
+            record.name.clone()
+        }
         fn scoped_query(_cx: &Cx) -> Result<Query<List<RefAuthor>>> {
             Ok(Query::all())
         }
@@ -417,6 +429,9 @@ async fn relationship_options_share_one_load_per_request_and_tenant() {
     struct CountingSource;
     impl OptionSource for CountingSource {
         type Model = Ref;
+        fn label(_cx: &Cx, record: &Ref) -> String {
+            record.name.clone()
+        }
         fn scoped_query(_cx: &Cx) -> Result<Query<List<Ref>>> {
             OPTION_LOADS.fetch_add(1, Ordering::SeqCst);
             Ok(Query::all())
@@ -441,9 +456,10 @@ async fn relationship_options_share_one_load_per_request_and_tenant() {
     let id = row.id.to_string();
     let cx = CxTestBuilder::new().app_context(db).build();
 
-    // Two selects over the same source.
+    // Two selects, different labels, same source: the cache holds records, not options.
     let s1 = Field::choice(Ref::fields().name()).relationship::<CountingSource>();
-    let s2 = Field::choice(Ref::fields().name()).relationship::<CountingSource>();
+    let s2 = Field::choice(Ref::fields().name())
+        .relationship_labelled::<CountingSource>(|r: &Ref| format!("{}!", r.name));
 
     OPTION_LOADS.store(0, Ordering::SeqCst);
     assert!(check(&s1, &cx, &id).await.is_empty());
@@ -486,6 +502,9 @@ async fn relationship_overflow_is_distinct_from_load_failed() {
     struct BigRefSource;
     impl OptionSource for BigRefSource {
         type Model = BigRef;
+        fn label(_cx: &Cx, record: &BigRef) -> String {
+            record.name.clone()
+        }
         fn scoped_query(_cx: &Cx) -> Result<Query<List<BigRef>>> {
             Ok(Query::all())
         }
@@ -617,6 +636,9 @@ async fn relationship_search_without_searchable_falls_back_to_cap() {
     struct PlainRefSource;
     impl OptionSource for PlainRefSource {
         type Model = PlainRef;
+        fn label(_cx: &Cx, record: &PlainRef) -> String {
+            record.name.clone()
+        }
         fn scoped_query(_cx: &Cx) -> Result<Query<List<PlainRef>>> {
             Ok(Query::all())
         }
@@ -660,6 +682,9 @@ async fn relationship_overflowed_searchable_validates_via_targeted_check() {
     struct CheckRefSource;
     impl OptionSource for CheckRefSource {
         type Model = CheckRef;
+        fn label(_cx: &Cx, record: &CheckRef) -> String {
+            record.name.clone()
+        }
         fn scoped_query(_cx: &Cx) -> Result<Query<List<CheckRef>>> {
             Ok(Query::all())
         }
@@ -740,6 +765,9 @@ async fn relationship_overflowed_searchable_renders_hint_and_keeps_value() {
     struct HintRefSource;
     impl OptionSource for HintRefSource {
         type Model = HintRef;
+        fn label(_cx: &Cx, record: &HintRef) -> String {
+            record.name.clone()
+        }
         fn scoped_query(_cx: &Cx) -> Result<Query<List<HintRef>>> {
             Ok(Query::all())
         }
@@ -809,6 +837,9 @@ async fn relationship_bounded_searchable_keeps_client_filter() {
     struct SmallRefSource;
     impl OptionSource for SmallRefSource {
         type Model = SmallRef;
+        fn label(_cx: &Cx, record: &SmallRef) -> String {
+            record.name.clone()
+        }
         fn scoped_query(_cx: &Cx) -> Result<Query<List<SmallRef>>> {
             Ok(Query::all())
         }

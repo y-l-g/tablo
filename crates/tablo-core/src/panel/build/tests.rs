@@ -311,6 +311,64 @@ struct Child {
     name: String,
 }
 
+/// Refuses a relation column labelled by a resource the panel does not register, which would
+/// otherwise show every related record by its bare key.
+#[tokio::test]
+async fn panel_mount_rejects_a_relation_column_of_an_unregistered_resource() {
+    use crate::{
+        RelationColumn, relation,
+        resource::Resource,
+        table::{Table, TextColumn},
+    };
+
+    struct Parents;
+    impl Resource for Parents {
+        type Model = Parent;
+        type Form = crate::NoForm<Self::Model>;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().table(Table::new(TextColumn::new(lens!(Parent.name))))
+        }
+    }
+
+    struct Children;
+    impl Resource for Children {
+        type Model = Child;
+        type Form = crate::NoForm<Self::Model>;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .table(Table::new((
+                    TextColumn::new(lens!(Child.name)),
+                    RelationColumn::of::<Parents>(relation!(Child.parent)),
+                )))
+                .view(crate::Detail::new(RelationColumn::of::<Parents>(
+                    relation!(Child.parent),
+                )))
+        }
+    }
+
+    let db = Db::builder()
+        .models(toasty::models!(Parent, Child))
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    let panel = || Panel::new("admin").auth(crate::Auth::disabled());
+    let unregistered = DeclarationErrorKind::UnregisteredLabelSource {
+        column: "parent".to_string(),
+        source: std::any::type_name::<Parents>(),
+    };
+    assert_eq!(
+        refusal(mount(db.clone(), panel().resource::<Children>())),
+        [
+            DeclarationError::of::<Children>(Site::Table, unregistered.clone()),
+            DeclarationError::of::<Children>(Site::View, unregistered),
+        ]
+    );
+    mount(db, panel().resource::<Children>().resource::<Parents>())
+        .expect("a relation column of a registered resource mounts");
+}
+
 /// Refuses a tenancy column through a relation.
 #[tokio::test]
 async fn panel_mount_rejects_a_tenancy_column_through_a_relation() {

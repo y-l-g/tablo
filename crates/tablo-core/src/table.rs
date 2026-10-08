@@ -303,6 +303,14 @@ impl<M> Table<M> {
         self
     }
 
+    /// The columns labelling their records by a source the context's panel cannot load from.
+    pub(crate) fn unavailable_sources(
+        &self,
+        cx: &topcoat::context::Cx,
+    ) -> Vec<DeclarationErrorKind> {
+        crate::table::column::unavailable_sources(cx, self.columns.iter().map(|c| &**c))
+    }
+
     /// What is wrong with this declaration.
     pub fn declaration_errors(&self) -> Vec<DeclarationErrorKind> {
         let mut errors = self.misdeclared.clone();

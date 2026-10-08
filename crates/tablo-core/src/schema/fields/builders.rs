@@ -173,12 +173,30 @@ impl<F> ChoiceField<F> {
     /// past the option cap.
     ///
     /// A resource's options carry its [`record_label`](crate::ResourceDef::record_label), the
-    /// title its detail page shows.
+    /// title its detail page shows. [`relationship_labelled`](Self::relationship_labelled)
+    /// labels one field's options otherwise.
     pub fn relationship<R>(mut self) -> Self
     where
         R: OptionSource + 'static,
     {
-        self.choice_mut().relationship = Some(choice::Relationship::new::<R>());
+        self.choice_mut().relationship = Some(choice::Relationship::new::<R>(R::label));
+        self
+    }
+
+    /// Loads options as [`relationship`](Self::relationship) does, labelling each by `label`
+    /// instead of the source's label: to tell apart records that share a title, or to label by
+    /// less than a title that reads a relation, since an option's record loads without its
+    /// relations.
+    pub fn relationship_labelled<R>(
+        mut self,
+        label: impl Fn(&R::Model) -> String + Send + Sync + 'static,
+    ) -> Self
+    where
+        R: OptionSource + 'static,
+    {
+        self.choice_mut().relationship = Some(choice::Relationship::new::<R>(
+            move |_cx: &topcoat::context::Cx, record: &R::Model| label(record),
+        ));
         self
     }
 }

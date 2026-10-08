@@ -258,13 +258,7 @@ impl Field {
     }
 
     pub(crate) fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
-        self.binding.misdeclared().or_else(|| {
-            self.as_choice()
-                .filter(|choice| choice.offers_nothing())
-                .map(|_| crate::DeclarationErrorKind::EmptyChoice {
-                    field: self.name().to_string(),
-                })
-        })
+        self.binding.misdeclared()
     }
 
     /// The key the field posts: the storage column its path names.
@@ -274,6 +268,11 @@ impl Field {
 
     pub(crate) fn label_str(&self) -> &str {
         self.label.as_deref().unwrap_or(self.binding.label())
+    }
+
+    /// Whether the field is a choice declaring neither options nor a relationship.
+    pub(crate) fn offers_nothing(&self) -> bool {
+        self.as_choice().is_some_and(ChoiceControl::offers_nothing)
     }
 
     pub(crate) fn as_choice(&self) -> Option<&ChoiceControl> {

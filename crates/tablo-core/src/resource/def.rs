@@ -228,7 +228,8 @@ impl<R: Resource> ResourceDef<R> {
     ///
     /// A label is display text, not a key: two records can share one, so it never replaces the
     /// primary key that keys the table's rows and the action routes. Options and relation columns
-    /// load the record without its relations, so a label reads only the record's own columns.
+    /// load the record without its relations, so a label reads only the record's own columns: one
+    /// that reads a relation panics there, and falls back to the label and the key.
     #[must_use]
     pub fn record_label(
         mut self,

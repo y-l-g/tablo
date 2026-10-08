@@ -220,6 +220,13 @@ pub enum DeclarationErrorKind {
         /// The option source's type.
         source: &'static str,
     },
+    /// A relation column labelling its records by a resource the panel does not register.
+    UnregisteredLabelSource {
+        /// The column.
+        column: String,
+        /// The label source's type.
+        source: &'static str,
+    },
     /// A lens with more than one step where a single field of the model is needed.
     TraversalLens {
         /// The lens's step count.
@@ -418,6 +425,11 @@ impl fmt::Display for DeclarationErrorKind {
             Self::UnregisteredOptionSource { field, source } => write!(
                 f,
                 "field '{field}' takes its options from `{source}`, which this panel does not \
+                 register: declare it with `Panel::resource`"
+            ),
+            Self::UnregisteredLabelSource { column, source } => write!(
+                f,
+                "column '{column}' labels its records by `{source}`, which this panel does not \
                  register: declare it with `Panel::resource`"
             ),
             Self::TraversalLens { steps } => write!(
