@@ -232,6 +232,9 @@ impl Resource for PostResource {
 }
 ```
 
+Its button reads `label`, by default `NAME` in sentence case: `"publish"` reads "Publish" and
+`"send-invite"` reads "Send invite". Override `label(cx)` for any other text.
+
 The list offers the action only when the policy allows `RunAny { action: NAME }`. A row then
 renders its button when the policy's `View` and `Run` and the action's `can_run` allow the record,
 and the bulk bar renders it for the selection. `const ROW: bool = false` keeps it off the rows, and

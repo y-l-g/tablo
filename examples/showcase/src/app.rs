@@ -273,10 +273,6 @@ impl Action<PostResource> for PublishPosts {
     type Input = ();
     const NAME: &'static str = "publish";
 
-    fn label(_cx: &Cx) -> String {
-        "Publish".to_string()
-    }
-
     fn can_run(_cx: &Cx, post: &Post) -> bool {
         post.status != PostStatus::Published
     }
@@ -308,10 +304,6 @@ pub struct TagPosts;
 impl Action<PostResource> for TagPosts {
     type Input = Tagging;
     const NAME: &'static str = "tag";
-
-    fn label(_cx: &Cx) -> String {
-        "Tag".to_string()
-    }
 
     async fn run(
         _cx: &Cx,
