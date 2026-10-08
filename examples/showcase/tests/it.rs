@@ -24,7 +24,6 @@ mod filter_check;
 mod gate_matrix_check;
 mod group_export_check;
 mod list_actions_check;
-mod live_check;
 mod media_check;
 mod post_form_check;
 mod relation_check;

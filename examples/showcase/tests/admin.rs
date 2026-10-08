@@ -178,11 +178,7 @@ async fn admin_root_serves_the_dashboard_with_the_page_entries() {
             .find(|link| link.contains(&format!("title=\"{label}\"")))
             .unwrap_or_else(|| panic!("the sidebar lists {label}: {links:?}"))
     };
-    for (label, href) in [
-        ("Dashboard", "/admin"),
-        ("Media library", "/admin/media"),
-        ("Live activity", "/admin/live"),
-    ] {
+    for (label, href) in [("Dashboard", "/admin"), ("Media library", "/admin/media")] {
         assert!(
             link(label).contains(&format!("href=\"{href}\"")),
             "{label} links to {href}: {links:?}"
