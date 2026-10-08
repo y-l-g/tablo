@@ -1,8 +1,4 @@
-use tablo::{ReadOnly, lens};
-
-use crate::common::{
-    body_string, demo_client, full_db, mount, routers::router_for_tests as router,
-};
+use crate::common::{body_string, demo_client, full_db, routers::router_for_tests as router};
 
 #[tokio::test]
 async fn posts_export_bom_opt_in_prepends_bom() {
@@ -23,44 +19,6 @@ async fn posts_export_bom_opt_in_prepends_bom() {
     assert!(
         !csv.starts_with('\u{FEFF}'),
         "default export must stay BOM-free, got {csv:?}"
-    );
-}
-
-#[tokio::test]
-async fn posts_group_by_status_shows_counts() {
-    let db = full_db().await;
-    let mut db_q = db.clone();
-    // Derived, not literal: the page-local count is the number of
-    // published rows in the fixture, so one more seeded post cannot break it.
-    let published = showcase::models::Post::filter(
-        showcase::models::Post::fields()
-            .status()
-            .eq(showcase::models::PostStatus::Published),
-    )
-    .exec(&mut db_q)
-    .await
-    .unwrap()
-    .len();
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
-    let resp = client.get("/admin/posts?group_by=status").await;
-    assert!(
-        resp.status().is_success(),
-        "group_by should be 200, got {}",
-        resp.status()
-    );
-    let html = body_string(resp).await;
-    // The header reads the option's label, with its page-local count. The
-    // bare label is not asserted separately: the status SelectFilter renders
-    // "Published" and "Draft" as options on every list page, so a label-only
-    // check passes with grouping off. `on this page` is emitted only by a
-    // group header (`render.rs`), and core pins the ordering and exact
-    // "draft (2 on this page)" labels in
-    // `group_by_orders_each_row_under_its_own_header`.
-    let label = showcase::models::PostStatus::Published.label();
-    assert!(
-        html.contains(&format!("{label} ({published} on this page)")),
-        "missing the published group header in {html}"
     );
 }
 
@@ -154,66 +112,5 @@ async fn posts_export_streams_csv_with_content_disposition() {
         !csv.contains("Second Post"),
         "filtered export should not contain draft {}",
         csv
-    );
-}
-
-#[tokio::test]
-async fn export_over_cap_413s_at_route_level() {
-    // The 413 mapping is unit-tested (`export_cap_maps_one_row…`);
-    // this pins the route wiring — a table past the cap answers 413.
-    use tablo::{Resource, ResourceDef, Table, TextColumn};
-    use toasty::Db;
-
-    use crate::common::TestClient;
-
-    #[derive(Debug, toasty::Model, Clone)]
-    struct Dummy {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        name: String,
-    }
-
-    struct BigResource;
-    impl Resource for BigResource {
-        type Model = Dummy;
-        type Form = tablo::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("dummies")
-                .policy(ReadOnly)
-                .table(Table::new(TextColumn::new(lens!(Dummy.name))))
-        }
-    }
-
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
-    // One row past the 10_000 cap, in one batched insert: a
-    // `toasty::create!` per row spent ~2s going through the engine pipeline
-    // 10,001 times, which was more than the route under test.
-    let mut create = Dummy::create_many();
-    for i in 0..10_001 {
-        create = create.item(Dummy::create().name(format!("row-{i:05}")));
-    }
-    create.exec(&mut db).await.unwrap();
-    let router = mount(
-        db,
-        tablo::Panel::new("admin")
-            .auth(tablo::Auth::disabled())
-            .resource::<BigResource>(),
-    )
-    .expect("panel builds");
-    let client = TestClient::new(&router);
-    let resp = client.get("/admin/dummies/export").await;
-    assert_eq!(
-        resp.status(),
-        413,
-        "an over-cap export must be 413, got {}",
-        resp.status()
     );
 }

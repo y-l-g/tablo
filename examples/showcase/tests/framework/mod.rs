@@ -16,6 +16,8 @@ mod sqlite;
 mod stream_pool;
 mod typed_leaves;
 mod uploads;
+mod variants;
+mod writes;
 
 mod embedded_lens;
 mod embedded_value;

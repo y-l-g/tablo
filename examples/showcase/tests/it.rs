@@ -3,6 +3,10 @@
 //! Every test file is a module of one binary: one link for the whole suite, and
 //! `tests/common` is compiled once.
 //!
+//! The top-level modules drive the showcase's own resources, one framework feature each; the
+//! demo app's public pages are `blog` and `media`. `framework` covers what those resources do not
+//! reach, with test-local models.
+//!
 //! Filter per file with `cargo test --test it <module>::` (the module name is
 //! the file's name). Accepted costs: a compile error in any module fails the
 //! whole target, and there is no per-file binary isolation.
@@ -10,23 +14,18 @@
 mod common;
 mod framework;
 
-mod admin;
-mod auth_check;
-mod blog_check;
-mod bulk_check;
-mod comments_check;
-mod create_check;
-mod delete_check;
-mod detail_check;
-mod detail_relation_check;
-mod edit_check;
-mod filter_check;
-mod gate_matrix_check;
-mod group_export_check;
-mod list_actions_check;
-mod media_check;
-mod post_form_check;
-mod relation_check;
-mod states_check;
-mod tenancy_check;
-mod variant_check;
+mod actions;
+mod auth;
+mod blog;
+mod create;
+mod delete;
+mod detail;
+mod edit;
+mod export;
+mod filters;
+mod gates;
+mod list;
+mod media;
+mod panel;
+mod relations;
+mod tenancy;

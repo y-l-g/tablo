@@ -1,195 +1,11 @@
+//! A resource's list: search, sort, cursor pagination, grouping and the empty and error states.
+
+use showcase::models::{PostStatus, Role, User};
+
 use crate::common::{
-    TestClient, body_string, demo_client, find_href_with, find_pager_href,
+    body_string, demo_client, empty_users_db, find_href_with, find_pager_href, full_db,
     routers::router_for_tests as router, row_keys, row_titles, seeded_db, user_count,
 };
-
-#[tokio::test]
-async fn admin_resource_list_page_serve_seeded_users() {
-    let db = seeded_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
-
-    let response = client.get("/admin/users").await;
-
-    assert!(
-        response.status().is_success(),
-        "status {}",
-        response.status()
-    );
-    let html = body_string(response).await;
-
-    assert!(
-        html.contains("<html>"),
-        "showcase must paint light by default in {html}"
-    );
-    assert!(
-        html.contains("data-sidebar=\"sidebar\"") || html.contains("data-sidebar=\"menu\""),
-        "missing sidebar in {html}"
-    );
-    assert!(html.contains("Users"), "missing Users label in {html}");
-    assert!(
-        find_href_with(&html, "/admin/users").is_some(),
-        "missing navigation url in {html}"
-    );
-    assert!(html.contains("Writers"), "missing Writers label in {html}");
-    assert!(
-        find_href_with(&html, "/admin/authors").is_some(),
-        "missing Writers navigation url in {html}"
-    );
-    assert!(
-        html.contains("Blog Posts"),
-        "missing Blog Posts label in {html}"
-    );
-    assert!(
-        find_href_with(&html, "/admin/posts").is_some(),
-        "missing Blog Posts navigation url in {html}"
-    );
-    assert!(
-        html.contains("Comments"),
-        "missing Comments label in {html}"
-    );
-    assert!(
-        find_href_with(&html, "/admin/comments").is_some(),
-        "missing Comments navigation url in {html}"
-    );
-    assert!(
-        !html.contains("f.status=published"),
-        "the redundant Published saved view must be gone: {html}"
-    );
-    assert!(
-        !html.contains("href=\"/admin/showcase\""),
-        "showcase navigation must be gone in {html}"
-    );
-    assert!(html.contains("Users</h1>"), "missing heading in {html}");
-    assert!(
-        find_href_with(&html, "/admin/users/create").is_some() && !html.contains("Create Users"),
-        "missing singular create entry point in {html}"
-    );
-    let cells: Vec<String> = tablo::testing::rows(&html)
-        .into_iter()
-        .flat_map(|row| row.cells)
-        .collect();
-    for value in [
-        "Ada Lovelace",
-        "ada@example.com",
-        "Alan Turing",
-        "alan@example.com",
-        "Grace Hopper",
-    ] {
-        assert!(
-            cells.iter().any(|cell| cell == value),
-            "the seeded users must render {value} in a row: {html}"
-        );
-    }
-}
-/// Every panel response carries `frame-ancestors`.
-#[tokio::test]
-async fn error_responses_carry_frame_ancestors() {
-    use topcoat::router::Body;
-
-    let db = seeded_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
-    let csp = |response: &http::Response<Body>| {
-        response
-            .headers()
-            .get(http::header::CONTENT_SECURITY_POLICY)
-            .and_then(|value| value.to_str().ok())
-            .map(str::to_string)
-    };
-
-    let response = client.get("/admin/users").await;
-    assert!(
-        response.status().is_success(),
-        "status {}",
-        response.status()
-    );
-    assert!(
-        csp(&response).is_some_and(|policy| policy.contains("frame-ancestors")),
-        "a panel page must carry the directive"
-    );
-    // Drain the streamed page before the next request.
-    let _ = body_string(response).await;
-
-    let response = client.get("/admin/unknown").await;
-    assert_eq!(response.status(), 404);
-    assert!(
-        csp(&response).is_some_and(|policy| policy.contains("frame-ancestors")),
-        "an unmatched route must carry the directive"
-    );
-
-    let request = http::Request::builder()
-        .method(http::Method::PATCH)
-        .uri("/admin/login")
-        .body(Body::empty())
-        .unwrap();
-    let response = router.handle(request).await;
-    assert_eq!(response.status(), 405, "PATCH on the login route is a 405");
-    assert!(
-        csp(&response).is_some_and(|policy| policy.contains("frame-ancestors")),
-        "a wrong-method response must carry the directive"
-    );
-
-    let anonymous = TestClient::new(&router);
-    let response = anonymous.get("/admin/users").await;
-    assert_eq!(
-        response.status(),
-        http::StatusCode::TEMPORARY_REDIRECT,
-        "an unauthenticated page request redirects to login"
-    );
-    assert!(
-        response
-            .headers()
-            .get(http::header::LOCATION)
-            .and_then(|value| value.to_str().ok())
-            .is_some_and(|location| location.starts_with("/admin/login")),
-        "the redirect must name the login route"
-    );
-    assert!(
-        csp(&response).is_some_and(|policy| policy.contains("frame-ancestors")),
-        "the login redirect must carry the directive"
-    );
-}
-
-#[tokio::test]
-async fn admin_root_serves_the_dashboard_with_the_page_entries() {
-    let db = seeded_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
-    let response = client.get("/admin").await;
-
-    assert_eq!(response.status(), http::StatusCode::OK);
-    let html = body_string(response).await;
-    assert!(
-        html.contains("Dashboard</h1>"),
-        "the home page renders: {html}"
-    );
-    let links: Vec<&str> = html
-        .match_indices("data-sidebar=\"menu-button\"")
-        .map(|(at, _)| {
-            let start = html[..at].rfind('<').unwrap();
-            let end = at + html[at..].find("</a>").unwrap();
-            &html[start..end]
-        })
-        .collect();
-    let link = |label: &str| {
-        links
-            .iter()
-            .find(|link| link.contains(&format!("title=\"{label}\"")))
-            .unwrap_or_else(|| panic!("the sidebar lists {label}: {links:?}"))
-    };
-    for (label, href) in [("Dashboard", "/admin"), ("Media library", "/admin/media")] {
-        assert!(
-            link(label).contains(&format!("href=\"{href}\"")),
-            "{label} links to {href}: {links:?}"
-        );
-    }
-    let active: Vec<_> = links
-        .iter()
-        .filter(|link| link.contains("data-active=\"true\""))
-        .collect();
-    assert_eq!(active, [link("Dashboard")], "one active sidebar entry");
-}
 
 #[tokio::test]
 async fn removed_showcase_routes_are_not_found() {
@@ -576,5 +392,205 @@ async fn users_list_renders_its_search_as_a_get_form() {
         html.contains("id=\"table-toolbar\" method=\"get\" action=\"/admin/users\"")
             && html.contains("name=\"q\""),
         "users list must render its search as a GET form, got {html}"
+    );
+}
+
+#[tokio::test]
+async fn empty_users_list_shows_no_records_yet() {
+    let db = empty_users_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let resp = client.get("/admin/users").await;
+    assert!(resp.status().is_success());
+    let html = body_string(resp).await;
+    assert!(
+        html.contains("No records yet"),
+        "genuinely empty list must say so: {html}"
+    );
+    assert!(
+        !html.contains("No matches"),
+        "empty list must not blame search: {html}"
+    );
+}
+
+#[tokio::test]
+async fn tampered_cursor_shows_in_region_error_with_retry() {
+    // A forged cursor fails the load inside the streamed region: the shell
+    // (sidebar, heading) survives and the region offers a retry.
+    let db = seeded_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let resp = client.get("/admin/users?after=forged-cursor").await;
+    assert!(resp.status().is_success());
+    let html = body_string(resp).await;
+    assert!(
+        html.contains("role=\"alert\""),
+        "failed load must announce in place: {html}"
+    );
+    assert!(
+        html.contains("href=\"/admin/users\""),
+        "retry must target the bare list: {html}"
+    );
+    assert!(
+        find_href_with(&html, "after=").is_none(),
+        "a malformed cursor must not travel into any link: {html}"
+    );
+    assert!(
+        html.contains("data-sidebar"),
+        "shell must survive the failed load: {html}"
+    );
+    assert!(
+        !html.contains("No records yet"),
+        "a failed load is not an empty result: {html}"
+    );
+}
+
+#[tokio::test]
+async fn stale_cursor_after_concurrent_delete_offers_first_page() {
+    // Void window as a real workflow: page 2 exists, its rows are removed
+    // elsewhere, and revisiting the stale cursor recovers via first page.
+    let db = seeded_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    {
+        let mut db_q = db.clone();
+        for i in 0..23 {
+            toasty::create!(User {
+                name: format!("User {:02}", i),
+                email: format!("void{:02}@example.com", i),
+                role: Role::Member,
+                active: true,
+                age: 30,
+                created_at: "2024-03-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap(),
+            })
+            .exec(&mut db_q)
+            .await
+            .unwrap();
+        }
+    }
+    let page1 = body_string(client.get("/admin/users").await).await;
+    let next = find_href_with(&page1, "after=").expect("needs a Next link");
+    {
+        let mut db_q = db.clone();
+        User::filter(User::fields().name().starts_with("User ".to_string()))
+            .delete()
+            .exec(&mut db_q)
+            .await
+            .unwrap();
+    }
+    let resp = client.get(&next).await;
+    assert!(resp.status().is_success());
+    let html = body_string(resp).await;
+    assert!(
+        html.contains("Back to first page"),
+        "void window must recover: {html}"
+    );
+}
+
+#[tokio::test]
+async fn no_js_fallbacks_cover_search_filter_sort_pager() {
+    // Without JavaScript the toolbar is a GET form and the sort and pager
+    // links navigate.
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+
+    let users = body_string(client.get("/admin/users").await).await;
+    assert!(
+        users.contains("method=\"get\" action=\"/admin/users\"") && users.contains("name=\"q\""),
+        "search needs a GET form: {users}"
+    );
+    assert!(
+        find_href_with(&users, "sort=name").is_some(),
+        "sort needs a plain navigation link: {users}"
+    );
+
+    let posts = body_string(client.get("/admin/posts").await).await;
+    let toolbar = &posts[posts
+        .find("id=\"table-toolbar\"")
+        .expect("the toolbar form")..];
+    assert!(
+        toolbar.contains("name=\"f.status\""),
+        "the filters submit with the search's GET form: {posts}"
+    );
+
+    // Pager preserves state over plain navigation (25 overflow rows force
+    // two filtered pages).
+    let mut db_q = db.clone();
+    let authors = showcase::models::Author::all()
+        .exec(&mut db_q)
+        .await
+        .unwrap();
+    for i in 0..25 {
+        toasty::create!(showcase::models::Post {
+            tenant_id: authors[0].tenant_id,
+            title: format!("Nojs Published {:02}", i),
+            body: "extra",
+            status: PostStatus::Published,
+            featured: false,
+            created_at: "2024-02-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap(),
+            cover_id: None,
+            tags: "extra".to_string(),
+            seo: showcase::models::Seo {
+                title: "Extra".to_string(),
+                description: String::new(),
+            },
+            publication: showcase::models::Publication::Published {
+                published_at: Some("2024-02-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap()),
+                canonical_url: String::new(),
+            },
+            author_id: authors[0].id,
+        })
+        .exec(&mut db_q)
+        .await
+        .unwrap();
+    }
+    let page1 = body_string(client.get("/admin/posts?f.status=published").await).await;
+    let next = find_href_with(&page1, "after=").expect("filtered Next link");
+    assert!(
+        next.contains("f.status=published"),
+        "pager must preserve filters without JS: {next}"
+    );
+    assert!(
+        !next.contains("&amp;"),
+        "the Next link must be followed decoded, got {next}"
+    );
+}
+
+#[tokio::test]
+async fn posts_group_by_status_shows_counts() {
+    let db = full_db().await;
+    let mut db_q = db.clone();
+    // Derived, not literal: the page-local count is the number of
+    // published rows in the fixture, so one more seeded post cannot break it.
+    let published = showcase::models::Post::filter(
+        showcase::models::Post::fields()
+            .status()
+            .eq(showcase::models::PostStatus::Published),
+    )
+    .exec(&mut db_q)
+    .await
+    .unwrap()
+    .len();
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let resp = client.get("/admin/posts?group_by=status").await;
+    assert!(
+        resp.status().is_success(),
+        "group_by should be 200, got {}",
+        resp.status()
+    );
+    let html = body_string(resp).await;
+    // The header reads the option's label, with its page-local count. The
+    // bare label is not asserted separately: the status SelectFilter renders
+    // "Published" and "Draft" as options on every list page, so a label-only
+    // check passes with grouping off. `on this page` is emitted only by a
+    // group header (`render.rs`), and core pins the ordering and exact
+    // "draft (2 on this page)" labels in
+    // `group_by_orders_each_row_under_its_own_header`.
+    let label = showcase::models::PostStatus::Published.label();
+    assert!(
+        html.contains(&format!("{label} ({published} on this page)")),
+        "missing the published group header in {html}"
     );
 }

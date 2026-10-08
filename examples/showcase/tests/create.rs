@@ -1,10 +1,10 @@
+//! Creating a record: the create page, validation, the write and its flash.
+
 use http::header::{LOCATION, SET_COOKIE};
-use showcase::models::{Role, User};
-use tablo::{Ability, lens};
-use toasty::Db;
+use showcase::models::{Author, Post, Role, User};
 
 use crate::common::{
-    TestClient, body_string, demo_client, mount, response_cookies,
+    body_string, demo_client, full_db, post_count, response_cookies,
     routers::router_for_tests as router, seeded_db, set_cookie_header, user_count,
 };
 
@@ -185,80 +185,6 @@ async fn create_valid_persists_the_new_user_and_toasts_it() {
 }
 
 #[tokio::test]
-async fn create_policy_deny() {
-    use tablo::{Resource, ResourceDef, Table, TextColumn};
-
-    #[derive(Debug, toasty::Model, Clone)]
-    struct DummyUser {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        name: String,
-        email: String,
-    }
-
-    struct DenyCreateResource;
-    impl Resource for DenyCreateResource {
-        type Model = DummyUser;
-        type Form = DenyCreateForm;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .policy(
-                    |_cx: &topcoat::context::Cx, ability: Ability<'_, DummyUser>| match ability {
-                        Ability::ViewAny => true,
-                        Ability::Create => false,
-                        _ => false,
-                    },
-                )
-                .table(Table::new(TextColumn::new(lens!(DummyUser.name))))
-        }
-    }
-    #[derive(tablo::RecordForm)]
-    #[form(model = DummyUser)]
-    struct DenyCreateForm {
-        name: String,
-    }
-    let db = Db::builder()
-        .models(toasty::models!(DummyUser))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
-    let router = mount(
-        db.clone(),
-        tablo::Panel::new("admin")
-            .auth(tablo::Auth::disabled())
-            .resource::<DenyCreateResource>(),
-    )
-    .expect("panel builds");
-    let client = TestClient::new(&router);
-
-    let slug = "deny-creates";
-    let create_url = format!("/admin/{}/create", slug);
-    // GET create should be 403
-    let resp = client.get(&create_url).await;
-    assert_eq!(resp.status(), 403, "GET create should be 403 when denied");
-
-    // POST should also be 403 and not create
-    let csrf = uuid::Uuid::new_v4().to_string();
-    let resp = client
-        .csrf(&csrf)
-        .post_form(&create_url, format!("name=test&csrf_token={csrf}"))
-        .await;
-    assert_eq!(
-        resp.status(),
-        403,
-        "POST create should be 403 when denied, got {}",
-        resp.status()
-    );
-    // Check DB still empty
-    let mut db_check = db.clone();
-    let count = DummyUser::all().exec(&mut db_check).await.unwrap().len();
-    assert_eq!(count, 0, "should not create when denied");
-}
-
-#[tokio::test]
 async fn create_post_with_unknown_keys_is_bad_request() {
     // Allow-list: role/tenant_id smuggling is a 400 at the framework
     // layer, never silently ignored.
@@ -363,108 +289,242 @@ async fn users_create_static_selects_set_role_and_active() {
     assert!(!created.active);
 }
 
-/// A write that fails after validation answers a 500 whose body is
-/// Topcoat's plain text, so the failure toast cannot render there. The flash
-/// cookie rides the 500 response and the toast appears on the next panel page.
-/// `notify_write_failure`'s doc comment describes this delivery.
 #[tokio::test]
-async fn a_failed_write_toasts_on_the_next_panel_page() {
-    use tablo::{Resource, ResourceDef, Table, TextColumn};
-    use topcoat::context::Cx;
+async fn posts_create_shows_cover_picker_and_tags() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let resp = client.get("/admin/posts/create").await;
+    assert!(resp.status().is_success());
+    let html = body_string(resp).await;
+    // One media source: the cover is a picked library row, not a file input.
+    assert!(
+        !html.contains("type=\"file\""),
+        "the post form must not upload a cover directly: {html}"
+    );
+    assert!(
+        html.contains("name=\"cover_id\""),
+        "missing cover picker {html}"
+    );
+    assert!(
+        html.contains("data-slot=\"field\""),
+        "missing field wrapper {html}"
+    );
+    // The optional tags field renders in the Details section.
+    assert!(html.contains("Tags"), "missing Tags label {html}");
+    assert!(
+        html.contains("for=\"tags\"") || html.contains("name=\"tags\""),
+        "missing tags input {html}"
+    );
+    // Content/Group composition: sectioned story fields and a grouped metadata
+    // grid.
+    assert!(html.contains("Content"), "missing Content section {html}");
+    assert!(
+        html.contains("name=\"status\"") && html.contains("name=\"featured\""),
+        "missing lifecycle selects {html}"
+    );
+    // The flag select's label reads "Featured"; the cover picker renders its
+    // own input.
+    assert!(
+        html.contains("Featured</label>"),
+        "missing Featured label for the flag select {html}"
+    );
+    assert!(
+        html.contains("name=\"cover_id\""),
+        "missing Cover picker {html}"
+    );
+    assert!(
+        html.contains("field-group"),
+        "missing Group container {html}"
+    );
+    assert!(html.contains("grid-cols-2"), "missing Grid {html}");
+}
 
-    #[derive(Debug, toasty::Model, Clone)]
-    struct Widget {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        name: String,
-    }
-    struct FailingResource;
-    impl Resource for FailingResource {
-        type Model = Widget;
-        type Form = FailingForm;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("widgets")
-                .policy(|_cx: &topcoat::context::Cx, ability: Ability<'_, Widget>| {
-                    matches!(ability, Ability::ViewAny | Ability::Create)
-                })
-                .table(Table::new(TextColumn::new(lens!(Widget.name))).paginate(25))
-        }
-
-        async fn create_record(
-            _cx: &Cx,
-            _form: FailingForm,
-            _ex: &mut dyn toasty::Executor,
-        ) -> topcoat::Result<Widget> {
-            // Validation passed; the write itself did not land.
-            Err(std::io::Error::other("the write did not land").into())
-        }
-    }
-    #[derive(tablo::RecordForm)]
-    #[form(model = Widget)]
-    struct FailingForm {
-        name: String,
-    }
-    let db = Db::builder()
-        .models(toasty::models!(Widget))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
-    let router = mount(
-        db,
-        tablo::Panel::new("admin")
-            .auth(tablo::Auth::disabled())
-            .resource::<FailingResource>(),
-    )
-    .expect("panel builds");
-    let client = TestClient::new(&router);
-
+#[tokio::test]
+async fn posts_create_invalid_shows_errors() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let before = post_count(&db).await;
     let csrf = uuid::Uuid::new_v4().to_string();
+    let mut db2 = db.clone();
+    let authors = Author::all().exec(&mut db2).await.unwrap();
+    let first = &authors[0];
+    // Missing title (required). The optional Tags field is empty, which is
+    // its blank answer — not an error.
     let resp = client
         .csrf(&csrf)
         .post_form(
-            "/admin/widgets/create",
-            format!("name=Widget&csrf_token={csrf}"),
+            "/admin/posts/create",
+            format!("title=&author_id={}&tags=&csrf_token={csrf}", first.id),
         )
         .await;
-    assert_eq!(
-        resp.status(),
-        500,
-        "a failed write is a 500, got {}",
-        resp.status()
-    );
-    // The flash cookie rides the 500 response...
-    let flash = set_cookie_header(&resp, "__Host-tablo_notification")
-        .expect("the flash cookie must ride the 500 response");
-    let cookie_value = flash
-        .split(';')
-        .next()
-        .and_then(|pair| pair.split_once('='))
-        .map(|(_, value)| value.to_string())
-        .expect("the Set-Cookie names a value");
-    // ...whose body is Topcoat's plain text, so it renders no toast.
-    let body = body_string(resp).await;
+    let status = resp.status();
+    let html = body_string(resp).await;
     assert!(
-        !body.contains("data-sonner-toast"),
-        "the 500 body is plain text, so it renders no toast: {body}"
+        status.is_success(),
+        "invalid should be 200, got {status} {html}"
     );
+    assert_eq!(
+        tablo::testing::field_error(&html, "title").as_deref(),
+        Some("Title is required"),
+        "the title slot names its refusal, got {html}"
+    );
+    assert_eq!(
+        post_count(&db).await,
+        before,
+        "an invalid create must not add a post"
+    );
+}
 
-    // The next panel page consumes the flash and renders the toast.
-    let page = client
-        .cookie("__Host-tablo_notification", &cookie_value)
-        .get("/admin/widgets")
+#[tokio::test]
+async fn posts_create_valid_creates() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let csrf = uuid::Uuid::new_v4().to_string();
+    let mut db2 = db.clone();
+    let authors = Author::all().exec(&mut db2).await.unwrap();
+    let first = &authors[0];
+    let before = Post::all().exec(&mut db2).await.unwrap().len();
+    let author_id = first.id.to_string();
+    let resp = client
+        .csrf(&csrf)
+        .post_form(
+            "/admin/posts/create",
+            format!(
+                "title=Valid+With+Tags&author_id={author_id}&cover_id=&tags=valid%2Ctags&csrf_token={csrf}"
+            ),
+        )
         .await;
     assert!(
-        page.status().is_success(),
-        "the list page after the failure must answer, got {}",
-        page.status()
+        resp.status().is_redirection(),
+        "valid should redirect, got {} ",
+        resp.status()
     );
-    let html = body_string(page).await;
+    let mut db2 = db.clone();
+    let after = Post::all().exec(&mut db2).await.unwrap().len();
+    assert_eq!(after, before + 1);
+    let created = Post::filter(Post::fields().title().eq("Valid With Tags".to_string()))
+        .first()
+        .exec(&mut db2)
+        .await
+        .unwrap();
+    assert!(created.is_some());
+    let post = created.unwrap();
+    assert_eq!(post.tags, "valid,tags");
+    assert_eq!(post.cover_id, None);
+}
+
+/// `PostForm` declares `tags` `#[form(optional)]`, so an empty Tags field submits cleanly and
+/// stores the empty string.
+#[tokio::test]
+async fn posts_create_with_empty_optional_tags_submits() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let csrf = uuid::Uuid::new_v4().to_string();
+    let mut db2 = db.clone();
+    let authors = Author::all().exec(&mut db2).await.unwrap();
+    let before = Post::all().exec(&mut db2).await.unwrap().len();
+
+    let author_id = authors[0].id.to_string();
+    let resp = client
+        .csrf(&csrf)
+        .post_form(
+            "/admin/posts/create",
+            format!("title=No+Tags&author_id={author_id}&cover_id=&tags=&csrf_token={csrf}"),
+        )
+        .await;
+    let status = resp.status();
     assert!(
-        html.contains("data-type=\"error\""),
-        "the next panel page must render the failure toast: {html}"
+        status.is_redirection(),
+        "an empty optional Tags field must not fail the submit, got {status} {}",
+        body_string(resp).await
     );
+    let mut db2 = db.clone();
+    assert_eq!(
+        Post::all().exec(&mut db2).await.unwrap().len(),
+        before + 1,
+        "the post is created"
+    );
+    let created = Post::filter(Post::fields().title().eq("No Tags".to_string()))
+        .first()
+        .exec(&mut db2)
+        .await
+        .unwrap()
+        .expect("created post");
+    assert_eq!(created.tags, "", "the emptied field stores empty");
+}
+
+#[tokio::test]
+async fn users_create_form_stays_urlencoded() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let resp = client.get("/admin/users/create").await;
+    assert!(resp.status().is_success());
+    let html = body_string(resp).await;
+    assert!(
+        !html.contains("multipart/form-data"),
+        "plain form must stay urlencoded, got {}",
+        &html[..html.len().min(2000)]
+    );
+}
+
+#[tokio::test]
+async fn posts_create_form_stays_urlencoded_without_uploads() {
+    // One media source: the post form picks a library row instead of uploading
+    // bytes, so it stays urlencoded like every other plain form.
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let resp = client.get("/admin/posts/create").await;
+    assert!(resp.status().is_success());
+    let html = body_string(resp).await;
+    assert!(
+        !html.contains("multipart/form-data"),
+        "the post form carries no file input, got {}",
+        &html[..html.len().min(2000)]
+    );
+}
+
+#[tokio::test]
+async fn posts_author_select_is_searchable() {
+    // The relationship select carries the client-side filter hook.
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let resp = client.get("/admin/posts/create").await;
+    assert!(resp.status().is_success());
+    let html = body_string(resp).await;
+    assert!(
+        html.contains("data-options-filter"),
+        "author select must render the filter hook, got {html}"
+    );
+    // Hiding the native select is the script's job, so the markup keeps
+    // both controls. The select stays the submitted value carrier, and
+    // `partsOf` keeps resolving it as a descendant of the filterable field.
+    let author_select = html
+        .match_indices("<select")
+        .map(|(start, _)| opening_tag_at(&html, start))
+        .find(|tag| tag.contains("name=\"author_id\""))
+        .expect("the author select stays in the markup as the submitted value carrier");
+    assert!(
+        author_select.contains("id=\"author_id\""),
+        "the author select keeps its field id, got {author_select}"
+    );
+}
+
+/// The opening tag that starts at `start`, up to its unquoted `>`.
+fn opening_tag_at(html: &str, start: usize) -> &str {
+    let mut quoted = false;
+    for (offset, byte) in html[start..].bytes().enumerate() {
+        match byte {
+            b'"' => quoted = !quoted,
+            b'>' if !quoted => return &html[start..start + offset],
+            _ => {}
+        }
+    }
+    panic!("unterminated tag at byte {start}");
 }

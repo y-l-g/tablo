@@ -1,12 +1,175 @@
+//! Deleting records, one row or a selection.
+
 use http::header::LOCATION;
 use showcase::models::User;
-use tablo::{Ability, lens};
-use toasty::Db;
 
 use crate::common::{
-    TestClient, body_string, demo_client, mount, response_cookies,
-    routers::router_for_tests as router, row_keys, seeded_db, set_cookie_header, user_count,
+    body_string, demo_client, response_cookies, routers::router_for_tests as router, row_keys,
+    seeded_db, set_cookie_header, user_count,
 };
+
+#[tokio::test]
+async fn delete_requires_confirmation_and_deletes() {
+    let db = seeded_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let mut db_q = db.clone();
+    let users = User::all().exec(&mut db_q).await.unwrap();
+    let before = users.len();
+    let user = users.first().unwrap();
+    let id = user.id.to_string();
+    let delete_url = format!("/admin/users/{}/delete", id);
+    let csrf = uuid::Uuid::new_v4().to_string();
+
+    let resp = client.get("/admin/users").await;
+    let html = body_string(resp).await;
+    let actions =
+        tablo::testing::row_actions(&html, &id).expect("the row carries its delete control");
+    assert_eq!(
+        actions.delete_action.as_deref(),
+        Some(delete_url.as_str()),
+        "the control must carry the row's POST target"
+    );
+    // One write form per table: its dialog renders closed, asks before deleting, and posts the
+    // confirmation marker.
+    assert_eq!(
+        html.matches("id=\"table-writes\"").count(),
+        1,
+        "one write form per table, got {html}"
+    );
+    let dialog = &html[..html.find("id=\"table-writes\"").unwrap()];
+    let dialog = &dialog[dialog.rfind("<dialog").unwrap()..];
+    assert!(
+        dialog.contains("role=\"alertdialog\"") && !dialog.contains(" open=\"\""),
+        "an ordinary list page must render the dialog closed, got {dialog}"
+    );
+    for needle in [
+        "Delete this record?",
+        "name=\"confirm\" value=\"1\"",
+        "bg-destructive",
+    ] {
+        assert!(html.contains(needle), "dialog missing {needle} in {html}");
+    }
+
+    let resp = client
+        .csrf(&csrf)
+        .post_form(&delete_url, format!("csrf_token={csrf}"))
+        .await;
+    assert_eq!(
+        resp.status(),
+        400,
+        "an unconfirmed delete POST must refuse, got {}",
+        resp.status()
+    );
+
+    let resp = client
+        .csrf(&csrf)
+        .post_form(&delete_url, format!("confirm=1&csrf_token={csrf}"))
+        .await;
+    assert!(
+        resp.status().is_redirection(),
+        "confirmed delete should redirect, got {}",
+        resp.status()
+    );
+    let loc = resp.headers().get(LOCATION).unwrap().to_str().unwrap();
+    assert!(
+        loc.contains("/admin/users"),
+        "redirect to list, got {}",
+        loc
+    );
+    assert_eq!(resp.status(), 303, "a completed delete is a 303 PRG");
+    assert!(
+        !loc.contains("notification"),
+        "the toast must not ride the query, got {loc}"
+    );
+    assert!(
+        set_cookie_header(&resp, "__Host-tablo_notification").is_some(),
+        "the flash cookie is set on the redirect"
+    );
+
+    assert_eq!(
+        user_count(&db).await,
+        before - 1,
+        "deleting one of {before} must leave {}",
+        before - 1
+    );
+    let mut db_check = db.clone();
+    let gone = User::filter(User::fields().id().eq(user.id))
+        .first()
+        .exec(&mut db_check)
+        .await
+        .unwrap();
+    assert!(gone.is_none(), "deleted user should be gone");
+
+    let resp2 = client.cookies(&response_cookies(&resp)).get(loc).await;
+    let html2 = body_string(resp2).await;
+    assert!(
+        html2.contains("data-sonner-toast"),
+        "notification should survive, got {}",
+        html2
+    );
+}
+
+#[tokio::test]
+async fn delete_404_for_an_unknown_id() {
+    // Core owns the loader unit; this pins the HTTP
+    // route for unknown ids. The wrong-tenant half — a valid CSRF pair from
+    // another tenant against this tenant's row — is pinned by
+    // `gate_matrix_check::cross_tenant_edit_and_delete_404_and_touch_nothing`;
+    // the batch and export paths ride the same seam in `tenancy_check.rs`.
+    let db = seeded_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let fake_id = uuid::Uuid::new_v4().to_string();
+    let csrf = uuid::Uuid::new_v4().to_string();
+    let resp = client
+        .csrf(&csrf)
+        .post_form(
+            &format!("/admin/users/{}/delete", fake_id),
+            format!("confirm=1&csrf_token={csrf}"),
+        )
+        .await;
+    assert_eq!(
+        resp.status(),
+        404,
+        "unknown id should be 404, got {}",
+        resp.status()
+    );
+}
+
+#[tokio::test]
+async fn delete_sso_managed_user_is_forbidden() {
+    let db = seeded_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let mut db_q = db.clone();
+    let ken = User::filter(User::fields().name().eq("Ken Thompson".to_string()))
+        .first()
+        .exec(&mut db_q)
+        .await
+        .unwrap()
+        .expect("Ken seed");
+    let before = user_count(&db).await;
+    let csrf = uuid::Uuid::new_v4().to_string();
+    let resp = client
+        .csrf(&csrf)
+        .post_form(
+            &format!("/admin/users/{}/delete", ken.id),
+            format!("confirm=1&csrf_token={csrf}"),
+        )
+        .await;
+    assert_eq!(
+        resp.status(),
+        403,
+        "protected row delete must be forbidden, got {}",
+        resp.status()
+    );
+    assert_eq!(
+        user_count(&db).await,
+        before,
+        "forbidden delete must remove nothing"
+    );
+}
 
 #[tokio::test]
 async fn bulk_delete_deletes_selected() {
@@ -299,123 +462,6 @@ async fn select_all_skips_the_denied_row_and_deletes_the_rest() {
     assert_eq!(remaining[0].name, "Ken Thompson");
 }
 
-/// The server-side safety net: a hand-crafted POST naming a row the resource refuses to delete
-/// skips that row, as a bulk action skips the rows `can_run` refuses, and a selection of refused
-/// rows only deletes nothing.
-///
-/// `View` allows every row here, so only the partial `Delete` deny can
-/// spare `b`: with the default-deny `View` in place, dropping the
-/// handler's own `Delete` check would leave this test green.
-#[tokio::test]
-async fn bulk_delete_hand_crafted_partial_deny_skips_the_refused_row() {
-    use tablo::{Resource, ResourceDef, Table, TextColumn};
-
-    #[derive(Debug, toasty::Model, Clone)]
-    struct DummyUser {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        name: String,
-    }
-
-    struct PartialDenyResource;
-    impl Resource for PartialDenyResource {
-        type Model = DummyUser;
-        type Form = tablo::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .policy(
-                    |_cx: &topcoat::context::Cx, ability: Ability<'_, DummyUser>| match ability {
-                        Ability::ViewAny => true,
-                        Ability::View(_rec) => true,
-                        Ability::DeleteAny => true,
-                        Ability::Delete(rec) => rec.name != "b",
-                        _ => false,
-                    },
-                )
-                .table(Table::new(TextColumn::new(lens!(DummyUser.name))))
-        }
-    }
-
-    let mut db = Db::builder()
-        .models(toasty::models!(DummyUser))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
-    let a = toasty::create!(DummyUser {
-        name: "a".to_string()
-    })
-    .exec(&mut db)
-    .await
-    .unwrap();
-    let b = toasty::create!(DummyUser {
-        name: "b".to_string()
-    })
-    .exec(&mut db)
-    .await
-    .unwrap();
-    let router = mount(
-        db.clone(),
-        tablo::Panel::new("admin")
-            .auth(tablo::Auth::disabled())
-            .resource::<PartialDenyResource>(),
-    )
-    .expect("panel builds");
-    let client = TestClient::new(&router);
-    let slug = "partial-denies";
-    let bulk_delete = |ids: String| {
-        let csrf = uuid::Uuid::new_v4().to_string();
-        let client = &client;
-        async move {
-            client
-                .csrf(&csrf)
-                .post_form(
-                    &format!("/admin/{slug}/bulk-delete"),
-                    format!("ids={ids}&confirm=1&csrf_token={csrf}"),
-                )
-                .await
-        }
-    };
-    let flash = |resp: &http::Response<topcoat::router::Body>| {
-        response_cookies(resp)
-            .into_iter()
-            .find(|(name, _)| name.ends_with("tablo_notification"))
-            .map(|(_, value)| {
-                percent_encoding::percent_decode_str(&value)
-                    .decode_utf8_lossy()
-                    .into_owned()
-            })
-            .unwrap_or_default()
-    };
-    let mut db_check = db.clone();
-
-    let refused = bulk_delete(b.id.to_string()).await;
-    assert_eq!(
-        refused.status(),
-        303,
-        "a refused selection returns to the list"
-    );
-    assert!(
-        flash(&refused).contains("nothing was changed"),
-        "the notification says nothing was deleted: {}",
-        flash(&refused)
-    );
-    let remaining = DummyUser::all().exec(&mut db_check).await.unwrap();
-    assert_eq!(remaining.len(), 2, "a refused selection deletes nothing");
-
-    let partial = bulk_delete(format!("{},{}", a.id, b.id)).await;
-    assert_eq!(partial.status(), 303, "a partial deny returns to the list");
-    assert!(
-        flash(&partial).contains("Bulk deleted (1 of 2 skipped)"),
-        "the notification reports the skipped row: {}",
-        flash(&partial)
-    );
-    let remaining = DummyUser::all().exec(&mut db_check).await.unwrap();
-    assert_eq!(remaining.len(), 1, "only the refused row survives");
-    assert_eq!(remaining[0].name, "b");
-}
 #[tokio::test]
 async fn bulk_delete_without_confirmation_is_refused() {
     let db = seeded_db().await;
