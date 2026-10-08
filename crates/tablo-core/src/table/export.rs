@@ -1,5 +1,7 @@
 //! [`Table`] CSV export: streamed header/row fragments plus RFC4180 escaping.
 
+use topcoat::context::Cx;
+
 use super::Table;
 
 impl<M> Table<M> {
@@ -22,7 +24,7 @@ impl<M> Table<M> {
     /// non-whitespace/control character is `=`, `+`, `-`, `@`, `|` or `%`,
     /// including CR/LF- or tab-led variants) so a stored value like
     /// `=1+1` opens as text, not a live spreadsheet formula.
-    pub(crate) fn csv_row(&self, row: &M) -> String
+    pub(crate) fn csv_row(&self, cx: &Cx, row: &M) -> String
     where
         M: toasty::schema::Model,
     {
@@ -30,7 +32,7 @@ impl<M> Table<M> {
         let cells: Vec<String> = self
             .columns
             .iter()
-            .map(|c| escape_csv(&c.text(row)))
+            .map(|c| escape_csv(&c.text(cx, row)))
             .collect();
         out.push_str(&cells.join(","));
         out.push('\n');

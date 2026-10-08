@@ -61,7 +61,7 @@ non-nullable column is filled by the form, by Toasty, by the tenant stamp, or by
 
 The derive picks each field's control from the field: a `bool` is a toggle, `#[form(options)]` a
 choice over the field type's options, `#[form(options = T)]` a choice over `T`'s options,
-`#[form(choice)]` a bare choice, `#[form(file)]` a file field, `#[form(embed)]` the embedded
+`#[form(relationship = R)]` a choice over `R`'s records, `#[form(file)]` a file field, `#[form(embed)]` the embedded
 value's schema, and any other field a text field. `controls()`
 hands each one over ready for its modifiers, so an override arranges rather than rebinds:
 
@@ -118,7 +118,12 @@ control's builder, which offers only that control's modifiers, so a modifier on 
 does not compile:
 
 - text (`TextField`): `.email()`, `.unique()`, `.placeholder(..)`, `.multiline(rows)`;
-- choice (`ChoiceField`): `.options(..)`, `.relationship(..)`, `.searchable()`.
+- choice (`ChoiceField`): `.options(..)`, `.relationship::<R>()`, `.searchable()`.
+
+A choice needs something to offer: mounting refuses a resource form's or an action input's choice
+with neither options nor a relationship, whose `<select>` would be empty and whose validation
+would have nothing to check against. A page's own schema may build its options from data that is
+empty for now, so rendering one does not refuse it.
 
 ### Custom controls
 
@@ -170,15 +175,21 @@ may stay optional.
 ### Relationships
 
 A choice over a foreign key loads its options from the related resource. Mark the record-form field
-`#[form(choice)]`, and declare the relationship on its control. `#[form(choice)]` also takes the
-field out of the derived table and shows its key on the detail page; to keep them, leave the field
-unmarked and call `.choice()` on its control instead:
+`#[form(relationship = AuthorResource)]`; the form arranges and labels its control like any other.
+The attribute also takes the field out of the derived table and shows its key on the detail page;
+to keep them, leave the field unmarked and call `.choice().relationship::<AuthorResource>()` on its
+control instead:
 
 ```rust
 {{#include ../../../examples/guide/src/forms.rs:forms-relationship-field}}
 ```
 
-Each option's value is the related record's primary key.
+Each option's value is the related record's primary key, and its text the record's title: the
+related resource's `record_label`, else its label and the key. A source that is not a resource
+implements `OptionSource`, including its `label`. The option's record loads without its
+relations: a `record_label` that reads one panics there, so the option falls back to the label
+and the key and the panic is logged. `.relationship_labelled::<R>(|a| ..)` labels one field's
+options otherwise, to tell apart records that share a title or to avoid a relation.
 
 - Options come from the related resource's tenant-scoped query and follow its policy: the list is
   empty and the field shows "not available" unless the related resource's policy allows
@@ -278,6 +289,6 @@ A Toasty `#[derive(Embed)]` struct or enum is stored in its parent's row as flat
   variant, and tuple structs.
 
 A resource's form places an embedded value whole, as its record form's control. A page's schema
-can bind a single embedded field on its own by its path: `Field::text(Post::fields().seo().title())`
+can bind a single embedded field on its own by its path: `Field::text(lens!(Post.seo.title))`
 binds the flattened `seo_title` column. Bind such a schema with `.bind(&db)` before rendering it;
 rendering one whose embedded paths are unbound fails rather than post the wrong key.

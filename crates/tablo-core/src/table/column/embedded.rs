@@ -92,7 +92,7 @@ where
         self.label.as_deref().unwrap_or(self.binding.label())
     }
 
-    fn text(&self, row: &M) -> String {
+    fn text(&self, _cx: &Cx, row: &M) -> String {
         let Some((schema, values)) = self.spelled(row) else {
             return String::new();
         };

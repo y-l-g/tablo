@@ -7,11 +7,11 @@ drives the CSV export.
 
 The table defaults to the record form's derived table, `UserForm::table()`: a sortable column per
 text field, searchable over a `String` or `Option<String>`, an `#[form(options)]` field by its
-option's label, and a `bool` as yes or no. A bare choice, a file and an embedded value get no
+option's label, and a `bool` as yes or no. A relationship, a file and an embedded value get no
 column. Extend the derived table, or declare the columns yourself:
 
 ```rust
-ResourceDef::new().table(UserForm::table().filters(TernaryFilter::new(User::fields().active())))
+ResourceDef::new().table(UserForm::table().filters(TernaryFilter::new(lens!(User.active))))
 ```
 
 ```rust
@@ -36,8 +36,11 @@ sorts and searches on (`User::fields().name()`) and the reader that renders the 
 value, its leaf (`lens!(Post.seo.title)`), which binds the flattened `seo_title` column; a lens
 through a relation does not compile, since a relation's records are not part of the row.
 `relation!(Post.author)` is a relation's lens: the include that loads it and the reader of the
-loaded records, which the relation columns take. Builders that only query, such as the filters and
-`Field` constructors, take either a lens or a plain path.
+loaded records, which the relation columns take. Builders that only query, such as the filters,
+`Tenancy::column` and the `Field` constructors, take either a lens or a plain path; this guide
+names a field with `lens!` wherever one fits, and writes `User::fields()` only where a lens
+cannot go: a query expression, a path through a relation such as `Tenancy::via`'s, and the
+foreign key `Relation::has_many` takes.
 
 ## Columns
 
@@ -45,7 +48,8 @@ loaded records, which the relation columns take. Builders that only query, such 
 | --- | --- | --- |
 | `TextColumn::new(lens)` | the field's value as text (an `Options` enum's label), or `.format(\|value\| ..)` of it | `.searchable()` on a `String` field, `.sortable()` |
 | `ComputedColumn::new(label, project)` | `project(row)` | neither: the methods do not exist |
-| `RelationColumn::new(relation!(..), project)` | `project` of a `Deferred` `belongs_to` or `has_one` field's record; a dash for a nullable field holding none | neither |
+| `RelationColumn::of::<R>(relation!(..))` | a `Deferred` `belongs_to` or `has_one` field's record, titled as `R` titles it: a resource's `record_label`; a dash for a nullable field holding none | neither |
+| `RelationColumn::new(relation!(..), project)` | `project` of the same record, for a related model no resource or option source labels | neither |
 | `CountColumn::new(relation!(..))` | the number of a `Deferred` `has_many` field's records | neither |
 | `BooleanColumn::new(lens)` | a check or a cross icon for a `bool` field; the export writes `Yes`/`No` (`.labels(..)`) | `.sortable()` |
 | `FileColumn::new(lens)` | a `String` field's stored upload path, as a link when it is a rooted path or an `http(s)` URL | neither |

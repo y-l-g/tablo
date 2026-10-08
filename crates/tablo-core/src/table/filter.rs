@@ -195,9 +195,9 @@ type MatchFn = Arc<dyn Fn(&str) -> Option<Expr<bool>> + Send + Sync>;
 /// # enum Status { Draft, Published }
 /// # #[derive(Debug, Clone, toasty::Model)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, kind: String, status: Status }
-/// # use tablo_core::SelectFilter;
-/// SelectFilter::new(Post::fields().kind(), ["news", "review"]);
-/// SelectFilter::of(Post::fields().status());
+/// # use tablo_core::{SelectFilter, lens};
+/// SelectFilter::new(lens!(Post.kind), ["news", "review"]);
+/// SelectFilter::of(lens!(Post.status));
 /// ```
 pub struct SelectFilter<M> {
     binding: Binding,

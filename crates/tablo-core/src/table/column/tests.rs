@@ -47,8 +47,8 @@ fn text_column_renders_cells_via_typed_projection() {
         id: uuid::Uuid::nil(),
         name: "Ada".to_string(),
     };
-    assert_eq!(plain.text(&row), "Ada");
-    assert_eq!(decorated.text(&row), "Ada!");
+    assert_eq!(plain.text(&crate::test_support::cx(), &row), "Ada");
+    assert_eq!(decorated.text(&crate::test_support::cx(), &row), "Ada!");
     assert_eq!(plain.name(), "name");
     assert_eq!(Column::label(&plain), "Name");
     let relabelled = TextColumn::new(lens!(User.name)).label("Full name");

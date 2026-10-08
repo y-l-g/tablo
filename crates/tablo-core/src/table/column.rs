@@ -17,7 +17,7 @@ mod embedded;
 mod relation;
 
 pub use embedded::EmbeddedColumn;
-pub use relation::{CountColumn, RelationColumn, RelationLens, ToOneRelation, shape};
+pub use relation::{CountColumn, RelationColumn, RelationLens, ToOneRelation};
 
 /// One column of a table or a [`Detail`](crate::Detail) declares its label, its value read off
 /// the record, and its query predicates.
@@ -26,6 +26,7 @@ pub use relation::{CountColumn, RelationColumn, RelationLens, ToOneRelation, sha
 /// # #[derive(Debug, Clone, toasty::Model)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
 /// # use tablo_core::extend::Column;
+/// # use topcoat::context::Cx;
 /// struct Initials;
 ///
 /// impl Column<User> for Initials {
@@ -35,7 +36,7 @@ pub use relation::{CountColumn, RelationColumn, RelationLens, ToOneRelation, sha
 ///     fn label(&self) -> &str {
 ///         "Initials"
 ///     }
-///     fn text(&self, row: &User) -> String {
+///     fn text(&self, _cx: &Cx, row: &User) -> String {
 ///         row.name
 ///             .split_whitespace()
 ///             .filter_map(|w| w.chars().next())
@@ -54,11 +55,11 @@ pub trait Column<M>: Send + Sync {
     fn label(&self) -> &str;
 
     /// The row's value as plain text.
-    fn text(&self, row: &M) -> String;
+    fn text(&self, cx: &Cx, row: &M) -> String;
 
     /// The row's table cell.
     fn cell<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
-        crate::schema::value_cell(cx, &self.text(row))
+        crate::schema::value_cell(cx, &self.text(cx, row))
     }
 
     /// The record's entry on a detail page: the [`label`](Self::label) over the
@@ -100,6 +101,12 @@ pub trait Column<M>: Send + Sync {
     /// What is wrong with this column's declaration.
     #[doc(hidden)]
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
+        None
+    }
+
+    /// The source the column labels its records by, when the context's panel cannot load from it.
+    #[doc(hidden)]
+    fn unavailable_source(&self, _cx: &Cx) -> Option<&'static str> {
         None
     }
 
@@ -162,6 +169,25 @@ impl<M> Includes<M> {
 }
 
 /// Include in `query` every relation `columns` declare, once each.
+/// One [`UnregisteredLabelSource`](DeclarationErrorKind::UnregisteredLabelSource) per column
+/// labelling its records by a source `cx`'s panel cannot load from.
+pub(crate) fn unavailable_sources<'c, M: 'c>(
+    cx: &Cx,
+    columns: impl IntoIterator<Item = &'c dyn Column<M>>,
+) -> Vec<crate::DeclarationErrorKind> {
+    columns
+        .into_iter()
+        .filter_map(|column| {
+            column.unavailable_source(cx).map(|source| {
+                crate::DeclarationErrorKind::UnregisteredLabelSource {
+                    column: column.name().to_string(),
+                    source,
+                }
+            })
+        })
+        .collect()
+}
+
 pub(crate) fn include_relations<'c, M>(
     mut query: Query<List<M>>,
     columns: impl IntoIterator<Item = &'c BoxColumn<M>>,
@@ -366,7 +392,7 @@ where
         self.label.as_deref().unwrap_or(self.binding.label())
     }
 
-    fn text(&self, row: &M) -> String {
+    fn text(&self, _cx: &Cx, row: &M) -> String {
         (self.format)(self.lens.read(row))
     }
 
@@ -510,7 +536,7 @@ where
         &self.label
     }
 
-    fn text(&self, row: &M) -> String {
+    fn text(&self, _cx: &Cx, row: &M) -> String {
         (self.project)(row)
     }
 
@@ -617,7 +643,7 @@ where
         self.label.as_deref().unwrap_or(self.binding.label())
     }
 
-    fn text(&self, row: &M) -> String {
+    fn text(&self, _cx: &Cx, row: &M) -> String {
         if *self.lens.read(row) {
             self.labels.0.clone()
         } else {
@@ -631,7 +657,7 @@ where
 
     fn cell<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
         let value = *self.lens.read(row);
-        let text = self.text(row);
+        let text = self.text(cx, row);
         let (data, class) = if value {
             (tablo_ui::icons::CIRCLE_CHECK, "size-4 text-primary")
         } else {
@@ -755,7 +781,7 @@ where
         self.label.as_deref().unwrap_or(self.binding.label())
     }
 
-    fn text(&self, row: &M) -> String {
+    fn text(&self, _cx: &Cx, row: &M) -> String {
         self.lens.read(row).clone()
     }
 

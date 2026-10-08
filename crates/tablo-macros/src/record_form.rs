@@ -35,8 +35,10 @@ enum DefaultControl {
     Text,
     /// A checkbox: a `bool`.
     Toggle,
-    /// A choice, over an `Options` type's list when one is named.
-    Choice(Option<Box<Type>>),
+    /// A choice over an `Options` type's list.
+    Choice(Box<Type>),
+    /// A choice over an `OptionSource`'s rows.
+    Relationship(Box<Type>),
     /// A choice over the field type's own options, which its column reads as labels.
     OwnOptions,
     /// A file field.
@@ -131,11 +133,11 @@ fn field_spec(field: &syn::Field) -> syn::Result<FieldSpec> {
         DefaultControl::Embed
     } else if let Some(options) = attrs.options.clone() {
         match options {
-            Some(named) => DefaultControl::Choice(Some(Box::new(named))),
+            Some(named) => DefaultControl::Choice(Box::new(named)),
             None => DefaultControl::OwnOptions,
         }
-    } else if attrs.choice {
-        DefaultControl::Choice(None)
+    } else if let Some(source) = attrs.relationship.clone() {
+        DefaultControl::Relationship(Box::new(source))
     } else if attrs.file {
         DefaultControl::File
     } else if is_bool {
@@ -280,11 +282,11 @@ fn expand_struct(
                 quote! { #krate::__macro::CustomField },
                 quote! { #krate::__macro::Field::toggle(#path) },
             ),
-            DefaultControl::Choice(None) => (
+            DefaultControl::Relationship(source) => (
                 quote! { #krate::__macro::ChoiceField },
-                quote! { #krate::__macro::Field::choice(#path) },
+                quote! { #krate::__macro::Field::choice(#path).relationship::<#source>() },
             ),
-            DefaultControl::Choice(Some(options)) => (
+            DefaultControl::Choice(options) => (
                 quote! { #krate::__macro::ChoiceField },
                 quote! {
                     #krate::__macro::Field::choice(#path)
@@ -362,7 +364,7 @@ fn expand_struct(
             /// Builds every field's control from the field: a `bool` is a
             /// toggle, `#[form(options = T)]` a choice over `T`'s options,
             /// `#[form(options)]` a choice over the field type's options,
-            /// `#[form(choice)]` a bare choice, `#[form(file)]` a file field,
+            /// `#[form(relationship = R)]` a choice over `R`'s records, `#[form(file)]` a file field,
             /// `#[form(embed)]` the embedded value's schema, and any other
             /// field a text field.
             #vis fn controls() -> #controls_ident {
@@ -454,7 +456,7 @@ fn expand_struct(
 }
 
 /// The column the default table lists a field in: a sortable text column, searchable over a
-/// `String` or `Option<String>`, a choice's option label, or a toggle's yes or no. A bare choice,
+/// `String` or `Option<String>`, a choice's option label, or a toggle's yes or no. A relationship,
 /// which holds a key, a file path and an embedded value get none.
 fn default_column(
     krate: &TokenStream2,
@@ -474,7 +476,7 @@ fn default_column(
             let search = is_string(ty).then(|| quote! { .searchable() });
             Some(quote! { #krate::__macro::TextColumn::new(#lens).sortable()#search })
         }
-        DefaultControl::Choice(Some(options)) => Some(quote! {
+        DefaultControl::Choice(options) => Some(quote! {
             #krate::__macro::TextColumn::new(#lens).sortable().format(|value| {
                 <#options as #krate::__macro::Options>::label_of(
                     &#krate::__macro::FormScalar::to_form(value),
@@ -484,12 +486,12 @@ fn default_column(
         DefaultControl::Toggle => {
             Some(quote! { #krate::__macro::BooleanColumn::new(#lens).sortable() })
         }
-        DefaultControl::Choice(None) | DefaultControl::File | DefaultControl::Embed => None,
+        DefaultControl::Relationship(_) | DefaultControl::File | DefaultControl::Embed => None,
     }
 }
 
 /// The column the default detail page shows a field in: a text column, a choice's option label, a
-/// toggle's yes or no, a file path's link, or an embedded value's leaves. A bare choice shows the
+/// toggle's yes or no, a file path's link, or an embedded value's leaves. A relationship shows the
 /// key it holds, so a form of keys alone still has a detail page.
 fn default_entry(krate: &TokenStream2, model: &syn::Path, field: &FieldSpec) -> TokenStream2 {
     let name = &field.ident;
@@ -498,10 +500,10 @@ fn default_entry(krate: &TokenStream2, model: &syn::Path, field: &FieldSpec) -> 
         #krate::__macro::Lens::<#model, #ty>::new(<#model>::fields().#name(), |record| &record.#name)
     };
     match &field.control {
-        DefaultControl::Text | DefaultControl::Choice(None) | DefaultControl::OwnOptions => {
+        DefaultControl::Text | DefaultControl::Relationship(_) | DefaultControl::OwnOptions => {
             quote! { #krate::__macro::TextColumn::new(#lens) }
         }
-        DefaultControl::Choice(Some(options)) => quote! {
+        DefaultControl::Choice(options) => quote! {
             #krate::__macro::TextColumn::new(#lens).format(|value| {
                 <#options as #krate::__macro::Options>::label_of(
                     &#krate::__macro::FormScalar::to_form(value),

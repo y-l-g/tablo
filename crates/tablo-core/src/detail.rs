@@ -105,6 +105,11 @@ impl<M> Detail<M> {
         include_relations(query, self.columns())
     }
 
+    /// The columns labelling their records by a source the context's panel cannot load from.
+    pub(crate) fn unavailable_sources(&self, cx: &Cx) -> Vec<DeclarationErrorKind> {
+        crate::table::column::unavailable_sources(cx, self.columns().into_iter().map(|c| &**c))
+    }
+
     /// What is wrong with this declaration: each column whose path binds no single field.
     pub fn declaration_errors(&self) -> Vec<DeclarationErrorKind> {
         self.columns()
@@ -193,10 +198,11 @@ impl<M> std::fmt::Debug for Detail<M> {
 /// # #[derive(Debug, Clone, toasty::Model)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
 /// # struct Initials;
+/// # use topcoat::context::Cx;
 /// # impl tablo_core::extend::Column<User> for Initials {
 /// #     fn name(&self) -> &str { "initials" }
 /// #     fn label(&self) -> &str { "Initials" }
-/// #     fn text(&self, row: &User) -> String { row.name.clone() }
+/// #     fn text(&self, _cx: &Cx, row: &User) -> String { row.name.clone() }
 /// # }
 /// use tablo_core::{Detail, IntoDetail, Section};
 ///

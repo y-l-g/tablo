@@ -26,7 +26,7 @@ one form control per field, and a detail page column per field. Set the def's `t
 | `table(..)` | the record form's derived table | the list's columns, filters and options: [Tables](./tables.md) |
 | `form(..)` | every control, in declaration order | how the create and edit forms arrange the record form's controls: [Forms](./forms.md) |
 | `view(..)` | the record form's derived detail page | the detail page's columns; `Detail::empty()` turns the page off: [Detail pages](./detail-pages.md) |
-| `record_label(..)` | the label and the record's key | the detail page's heading |
+| `record_label(..)` | the label and the record's key | the detail page's heading, each relationship option over the resource, and a `RelationColumn::of` cell |
 | `public_link(..)` | none | the record's public page, linked from its detail and edit pages |
 | `relation(..)` | none | a related resource shown as a table on the detail and edit pages |
 | `action::<A>()` | none | a custom action: [Tables](./tables.md#custom-actions) |
@@ -155,7 +155,9 @@ declaration names one. It refuses the resource when:
 - the form asks for what the database or the framework will not honor: a `unique()` field with
   no unique index or whose non-nullable column an empty submission would fill, or a tenant-owned
   resource's record form claiming its tenant column;
-- a relationship field takes its options from a resource the panel does not register;
+- a relationship field takes its options from a resource the panel does not register, or a
+  `RelationColumn::of` labels its records by one;
+- a choice field declares neither options nor a relationship, so its `<select>` offers nothing;
 - the policy allows `Create` and a non-nullable column is set by nothing: not the form, not a
   Toasty default, not the tenant stamp, and not named by `create_column`;
 - a `NoForm` resource's policy allows `Create`;

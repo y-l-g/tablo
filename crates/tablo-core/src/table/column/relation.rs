@@ -5,9 +5,10 @@
 use std::sync::Arc;
 
 use toasty::{Deferred, stmt::Path};
+use topcoat::context::Cx;
 
 use super::{Column, ColumnWidth, Includes};
-use crate::{DeclarationErrorKind, toasty_compat::model};
+use crate::{DeclarationErrorKind, schema::OptionSource, toasty_compat::model};
 
 /// A relation field's include, which loads it, paired with the function that reads the loaded
 /// relation off a record.
@@ -115,47 +116,40 @@ const UNLOADED: &str = "(unloaded)";
 /// What a relation column reads off a row, or `None` when the row's relation was not loaded.
 type Loaded<M, T> = Arc<dyn Fn(&M) -> Option<T> + Send + Sync>;
 
-/// A to-one relation field a [`RelationColumn`] reads: `Deferred<T>`, or `Deferred<Option<T>>`
-/// for a nullable relation.
-///
-/// `Shape` tells the two impls apart; it is inferred.
-pub trait ToOneRelation<Shape>: sealed::Sealed<Shape> {
-    /// The related model.
-    type Target;
+/// A label source's type name, and whether a context's panel can load from it.
+type LabelSource = (&'static str, fn(&Cx) -> bool);
 
+/// The text a relation column shows for a row, which a source's label reads in the request's
+/// context, or `None` when the row's relation was not loaded.
+type LoadedText<M> = Arc<dyn Fn(&Cx, &M) -> Option<String> + Send + Sync>;
+
+/// A to-one relation field to `T` a [`RelationColumn`] reads: `Deferred<T>`, or
+/// `Deferred<Option<T>>` for a nullable relation.
+///
+/// `T` is inferred from the field: `Deferred<X>` matches the first impl with `T = X` alone,
+/// since an `Option` is not a model, and the two impls cannot overlap, which would need
+/// `T = Option<T>`.
+pub trait ToOneRelation<T>: sealed::Sealed<T> {
     /// The related record, `Some(None)` for a nullable relation holding none, or `None` when the
     /// relation was not loaded.
     #[doc(hidden)]
-    fn loaded(&self) -> Option<Option<&Self::Target>>;
-}
-
-/// The [`ToOneRelation`] shapes.
-#[doc(hidden)]
-pub mod shape {
-    /// `Deferred<T>`.
-    pub enum Required {}
-    /// `Deferred<Option<T>>`.
-    pub enum Nullable {}
+    fn loaded(&self) -> Option<Option<&T>>;
 }
 
 mod sealed {
-    pub trait Sealed<Shape> {}
+    pub trait Sealed<T> {}
 
-    impl<T: toasty::schema::Model> Sealed<super::shape::Required> for toasty::Deferred<T> {}
-    impl<T: toasty::schema::Model> Sealed<super::shape::Nullable> for toasty::Deferred<Option<T>> {}
+    impl<T: toasty::schema::Model> Sealed<T> for toasty::Deferred<T> {}
+    impl<T: toasty::schema::Model> Sealed<T> for toasty::Deferred<Option<T>> {}
 }
 
-impl<T: toasty::schema::Model> ToOneRelation<shape::Required> for Deferred<T> {
-    type Target = T;
-
+impl<T: toasty::schema::Model> ToOneRelation<T> for Deferred<T> {
     fn loaded(&self) -> Option<Option<&T>> {
         (!self.is_unloaded()).then(|| Some(self.get()))
     }
 }
 
-impl<T: toasty::schema::Model> ToOneRelation<shape::Nullable> for Deferred<Option<T>> {
-    type Target = T;
-
+impl<T: toasty::schema::Model> ToOneRelation<T> for Deferred<Option<T>> {
     fn loaded(&self) -> Option<Option<&T>> {
         (!self.is_unloaded()).then(|| self.get().as_ref())
     }
@@ -187,7 +181,7 @@ impl<T: toasty::schema::Model> ToOneRelation<shape::Nullable> for Deferred<Optio
 /// policy do not apply, so a soft-deleted or hidden record shows.
 pub struct RelationColumn<M> {
     relation: Declared<M>,
-    project: Loaded<M, String>,
+    project: LoadedText<M>,
 }
 
 impl<M> RelationColumn<M>
@@ -195,21 +189,71 @@ where
     M: toasty::schema::Model,
 {
     /// Declare a column rendering `project` of the record `relation` loads.
-    pub fn new<R, Shape>(
-        relation: RelationLens<M, R>,
-        project: impl Fn(&R::Target) -> String + Send + Sync + 'static,
+    pub fn new<T>(
+        relation: RelationLens<M, impl ToOneRelation<T> + 'static>,
+        project: impl Fn(&T) -> String + Send + Sync + 'static,
     ) -> Self
     where
-        R: ToOneRelation<Shape> + 'static,
         M: 'static,
     {
         let read = relation.read;
         Self {
             relation: Declared::of(&relation, ColumnWidth::Wide),
-            project: Arc::new(move |row| {
+            project: Arc::new(move |_cx, row| {
                 read(row)
                     .loaded()
                     .map(|target| target.map(&project).unwrap_or_default())
+            }),
+        }
+    }
+
+    /// Declare a column showing the record `relation` loads by `S`'s
+    /// [`label`](OptionSource::label): for a resource, the
+    /// [`record_label`](crate::ResourceDef::record_label) its detail page is titled with.
+    ///
+    /// ```rust
+    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # struct Author { #[key] #[auto] id: uuid::Uuid, name: String }
+    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # struct Post {
+    /// #     #[key] #[auto] id: uuid::Uuid,
+    /// #     author_id: uuid::Uuid,
+    /// #     #[belongs_to(key = author_id, references = id)]
+    /// #     author: toasty::Deferred<Author>,
+    /// # }
+    /// # struct AuthorResource;
+    /// # impl tablo_core::extend::OptionSource for AuthorResource {
+    /// #     type Model = Author;
+    /// #     fn scoped_query(_cx: &topcoat::context::Cx)
+    /// #         -> topcoat::Result<toasty::stmt::Query<toasty::stmt::List<Author>>>
+    /// #     {
+    /// #         Ok(toasty::stmt::Query::all())
+    /// #     }
+    /// #     fn label(_cx: &topcoat::context::Cx, author: &Author) -> String {
+    /// #         author.name.clone()
+    /// #     }
+    /// # }
+    /// use tablo_core::{RelationColumn, relation};
+    ///
+    /// RelationColumn::of::<AuthorResource>(relation!(Post.author));
+    /// ```
+    pub fn of<S>(relation: RelationLens<M, impl ToOneRelation<S::Model> + 'static>) -> Self
+    where
+        S: OptionSource,
+        M: 'static,
+    {
+        let read = relation.read;
+        Self {
+            relation: Declared {
+                source: Some((std::any::type_name::<S>(), S::available)),
+                ..Declared::of(&relation, ColumnWidth::Wide)
+            },
+            project: Arc::new(move |cx, row| {
+                read(row).loaded().map(|target| {
+                    target
+                        .map(|target| S::label(cx, target))
+                        .unwrap_or_default()
+                })
             }),
         }
     }
@@ -230,8 +274,8 @@ where
 
 impl<M> RelationColumn<M> {
     /// The row's text, or `None` when its relation was not loaded.
-    fn loaded_text(&self, row: &M) -> Option<String> {
-        (self.project)(row)
+    fn loaded_text(&self, cx: &Cx, row: &M) -> Option<String> {
+        (self.project)(cx, row)
     }
 }
 
@@ -305,7 +349,7 @@ where
 
 impl<M> CountColumn<M> {
     /// The row's count, or `None` when its relation was not loaded.
-    fn loaded_text(&self, row: &M) -> Option<String> {
+    fn loaded_text(&self, _cx: &Cx, row: &M) -> Option<String> {
         (self.count)(row).map(|count| count.to_string())
     }
 }
@@ -319,6 +363,9 @@ struct Declared<M> {
     misdeclared: Option<DeclarationErrorKind>,
     includes: Includes<M>,
     width: ColumnWidth,
+    /// The source a [`RelationColumn::of`] labels by, and whether a context's panel can load
+    /// from it.
+    source: Option<LabelSource>,
 }
 
 impl<M> Declared<M> {
@@ -334,6 +381,7 @@ impl<M> Declared<M> {
             misdeclared,
             includes: relation.includes().clone(),
             width,
+            source: None,
         }
     }
 
@@ -367,6 +415,7 @@ impl<M> Clone for Declared<M> {
             misdeclared: self.misdeclared.clone(),
             includes: self.includes.clone(),
             width: self.width,
+            source: self.source,
         }
     }
 }
@@ -386,8 +435,8 @@ macro_rules! relation_column {
                 self.relation.label()
             }
 
-            fn text(&self, row: &M) -> String {
-                self.relation.text(self.loaded_text(row))
+            fn text(&self, cx: &Cx, row: &M) -> String {
+                self.relation.text(self.loaded_text(cx, row))
             }
 
             fn column_width(&self) -> ColumnWidth {
@@ -400,6 +449,13 @@ macro_rules! relation_column {
 
             fn misdeclared(&self) -> Option<DeclarationErrorKind> {
                 self.relation.misdeclared.clone()
+            }
+
+            fn unavailable_source(&self, cx: &Cx) -> Option<&'static str> {
+                self.relation
+                    .source
+                    .filter(|(_, available)| !available(cx))
+                    .map(|(source, _)| source)
             }
         }
 

@@ -33,6 +33,9 @@ fn name_search_expr<M: toasty::schema::Model>(
 struct DenyAllAuthors;
 impl OptionSource for DenyAllAuthors {
     type Model = PolicyAuthor;
+    fn label(_cx: &Cx, record: &PolicyAuthor) -> String {
+        record.name.clone()
+    }
     fn scoped_query(_cx: &Cx) -> Result<Query<List<PolicyAuthor>>> {
         Ok(Query::all())
     }
@@ -51,11 +54,17 @@ impl OptionSource for HideOneAuthor {
             _ => false,
         }
     }
+    fn label(_cx: &Cx, author: &PolicyAuthor) -> String {
+        author.name.clone()
+    }
 }
 
 struct TenantScopedAuthors;
 impl OptionSource for TenantScopedAuthors {
     type Model = PolicyAuthor;
+    fn label(_cx: &Cx, record: &PolicyAuthor) -> String {
+        record.name.clone()
+    }
 
     /// Filters on the `tenant_id` column.
     fn scoped_query(cx: &Cx) -> Result<Query<List<PolicyAuthor>>> {
@@ -83,6 +92,9 @@ async fn relationship_loader_fails_past_option_cap() {
     struct RefAuthorSource;
     impl OptionSource for RefAuthorSource {
         type Model = RefAuthor;
+        fn label(_cx: &Cx, record: &RefAuthor) -> String {
+            record.name.clone()
+        }
         fn scoped_query(_cx: &Cx) -> Result<Query<List<RefAuthor>>> {
             Ok(Query::all())
         }
@@ -113,8 +125,7 @@ async fn relationship_loader_fails_past_option_cap() {
         .unwrap();
     }
     let cx = CxTestBuilder::new().app_context(db).build();
-    let select = Field::choice(RefPost::fields().author_id())
-        .relationship::<RefAuthorSource>(|a: &RefAuthor| a.name.clone());
+    let select = Field::choice(RefPost::fields().author_id()).relationship::<RefAuthorSource>();
     // Over the cap: bounded work and a visible retry error.
     let errs = check(&select, &cx, "whatever").await;
     assert!(
@@ -149,6 +160,9 @@ async fn relationship_option_values_are_primary_keys_not_table_ids() {
     struct RefAuthorSource;
     impl OptionSource for RefAuthorSource {
         type Model = RefAuthor;
+        fn label(_cx: &Cx, record: &RefAuthor) -> String {
+            record.name.clone()
+        }
         fn scoped_query(_cx: &Cx) -> Result<Query<List<RefAuthor>>> {
             Ok(Query::all())
         }
@@ -171,8 +185,7 @@ async fn relationship_option_values_are_primary_keys_not_table_ids() {
     .unwrap();
     let pk = row.id.to_string();
     let cx = CxTestBuilder::new().app_context(db).build();
-    let select = Field::choice(RefAuthor::fields().name())
-        .relationship::<RefAuthorSource>(|a: &RefAuthor| a.name.clone());
+    let select = Field::choice(RefAuthor::fields().name()).relationship::<RefAuthorSource>();
     // The PK validates; the label never does.
     assert!(check(&select, &cx, &pk).await.is_empty());
     assert_eq!(
@@ -215,8 +228,7 @@ async fn relationship_load_fails_closed_when_view_any_is_refused() {
     .unwrap();
     let pk = row.id.to_string();
     let cx = CxTestBuilder::new().app_context(db).build();
-    let select = Field::choice(PolicyAuthor::fields().id())
-        .relationship::<DenyAllAuthors>(|a: &PolicyAuthor| a.name.clone());
+    let select = Field::choice(PolicyAuthor::fields().id()).relationship::<DenyAllAuthors>();
     assert_eq!(
         check(&select, &cx, &pk).await,
         vec!["Id is not available".to_string()]
@@ -264,8 +276,7 @@ async fn relationship_load_denies_tenantless_requests_for_tenant_scoped_targets(
     .unwrap();
     let pk = row.id.to_string();
     let cx = CxTestBuilder::new().app_context(db).build();
-    let select = Field::choice(PolicyAuthor::fields().id())
-        .relationship::<TenantScopedAuthors>(|a: &PolicyAuthor| a.name.clone());
+    let select = Field::choice(PolicyAuthor::fields().id()).relationship::<TenantScopedAuthors>();
     assert_eq!(
         check(&select, &cx, &pk).await,
         vec!["Id is not available".to_string()]
@@ -304,8 +315,7 @@ async fn relationship_load_filters_rows_by_view() {
     .await
     .unwrap();
     let cx = CxTestBuilder::new().app_context(db).build();
-    let select = Field::choice(PolicyAuthor::fields().id())
-        .relationship::<HideOneAuthor>(|a: &PolicyAuthor| a.name.clone());
+    let select = Field::choice(PolicyAuthor::fields().id()).relationship::<HideOneAuthor>();
     assert!(
         check(&select, &cx, &visible.id.to_string())
             .await
@@ -357,8 +367,7 @@ async fn relationship_cap_counts_raw_rows_not_viewable_ones() {
         }
     }
     let cx = CxTestBuilder::new().app_context(db).build();
-    let select = Field::choice(PolicyAuthor::fields().id())
-        .relationship::<HideOneAuthor>(|a: &PolicyAuthor| a.name.clone());
+    let select = Field::choice(PolicyAuthor::fields().id()).relationship::<HideOneAuthor>();
     // The raw fetch overflows.
     assert_eq!(
         check(&select, &cx, &hidden_pk).await,
@@ -384,8 +393,7 @@ async fn relationship_can_view_filtering_out_every_row_yields_invalid() {
     .unwrap();
     let pk = hidden.id.to_string();
     let cx = CxTestBuilder::new().app_context(db).build();
-    let select = Field::choice(PolicyAuthor::fields().id())
-        .relationship::<HideOneAuthor>(|a: &PolicyAuthor| a.name.clone());
+    let select = Field::choice(PolicyAuthor::fields().id()).relationship::<HideOneAuthor>();
     assert_eq!(
         check(&select, &cx, &pk).await,
         vec!["Id is invalid".to_string()]
@@ -421,6 +429,9 @@ async fn relationship_options_share_one_load_per_request_and_tenant() {
     struct CountingSource;
     impl OptionSource for CountingSource {
         type Model = Ref;
+        fn label(_cx: &Cx, record: &Ref) -> String {
+            record.name.clone()
+        }
         fn scoped_query(_cx: &Cx) -> Result<Query<List<Ref>>> {
             OPTION_LOADS.fetch_add(1, Ordering::SeqCst);
             Ok(Query::all())
@@ -445,11 +456,10 @@ async fn relationship_options_share_one_load_per_request_and_tenant() {
     let id = row.id.to_string();
     let cx = CxTestBuilder::new().app_context(db).build();
 
-    // Two selects, different labels, same source.
-    let s1 = Field::choice(Ref::fields().name())
-        .relationship::<CountingSource>(|r: &Ref| r.name.clone());
+    // Two selects, different labels, same source: the cache holds records, not options.
+    let s1 = Field::choice(Ref::fields().name()).relationship::<CountingSource>();
     let s2 = Field::choice(Ref::fields().name())
-        .relationship::<CountingSource>(|r: &Ref| format!("{}!", r.name));
+        .relationship_labelled::<CountingSource>(|r: &Ref| format!("{}!", r.name));
 
     OPTION_LOADS.store(0, Ordering::SeqCst);
     assert!(check(&s1, &cx, &id).await.is_empty());
@@ -492,6 +502,9 @@ async fn relationship_overflow_is_distinct_from_load_failed() {
     struct BigRefSource;
     impl OptionSource for BigRefSource {
         type Model = BigRef;
+        fn label(_cx: &Cx, record: &BigRef) -> String {
+            record.name.clone()
+        }
         fn scoped_query(_cx: &Cx) -> Result<Query<List<BigRef>>> {
             Ok(Query::all())
         }
@@ -521,8 +534,7 @@ async fn relationship_overflow_is_distinct_from_load_failed() {
         .unwrap_err();
     assert_eq!(err, &super::OptionLoadError::Overflow);
     // Non-searchable keeps the retry message.
-    let plain = Field::choice(BigRef::fields().name())
-        .relationship::<BigRefSource>(|r: &BigRef| r.name.clone());
+    let plain = Field::choice(BigRef::fields().name()).relationship::<BigRefSource>();
     assert_eq!(
         check(&plain, &cx, "whatever-not-a-uuid").await,
         vec!["Name could not load options, retry".to_string()]
@@ -551,6 +563,9 @@ async fn relationship_search_narrows_past_the_cap() {
         }
         fn search_expr(_cx: &Cx, term: &str) -> Option<Expr<bool>> {
             name_search_expr(SearchRef::fields().name(), term)
+        }
+        fn label(_cx: &Cx, record: &SearchRef) -> String {
+            record.name.clone()
         }
     }
 
@@ -594,7 +609,7 @@ async fn relationship_search_narrows_past_the_cap() {
     assert_eq!(err, super::OptionLoadError::Overflow);
     let select = Field::choice(SearchRef::fields().name())
         .searchable()
-        .relationship::<SearchRefSource>(|r: &SearchRef| r.name.clone());
+        .relationship::<SearchRefSource>();
     let opts = select
         .as_choice()
         .expect("a choice")
@@ -621,6 +636,9 @@ async fn relationship_search_without_searchable_falls_back_to_cap() {
     struct PlainRefSource;
     impl OptionSource for PlainRefSource {
         type Model = PlainRef;
+        fn label(_cx: &Cx, record: &PlainRef) -> String {
+            record.name.clone()
+        }
         fn scoped_query(_cx: &Cx) -> Result<Query<List<PlainRef>>> {
             Ok(Query::all())
         }
@@ -664,6 +682,9 @@ async fn relationship_overflowed_searchable_validates_via_targeted_check() {
     struct CheckRefSource;
     impl OptionSource for CheckRefSource {
         type Model = CheckRef;
+        fn label(_cx: &Cx, record: &CheckRef) -> String {
+            record.name.clone()
+        }
         fn scoped_query(_cx: &Cx) -> Result<Query<List<CheckRef>>> {
             Ok(Query::all())
         }
@@ -710,7 +731,7 @@ async fn relationship_overflowed_searchable_validates_via_targeted_check() {
     let cx = CxTestBuilder::new().app_context(db).build();
     let searchable = Field::choice(CheckRef::fields().name())
         .searchable()
-        .relationship::<CheckRefSource>(|r: &CheckRef| r.name.clone());
+        .relationship::<CheckRefSource>();
     // Legitimate FK beyond the cap passes via targeted check.
     assert!(check(&searchable, &cx, &visible_pk).await.is_empty());
     // Hidden and unknown rows report invalid.
@@ -723,8 +744,7 @@ async fn relationship_overflowed_searchable_validates_via_targeted_check() {
         vec!["Name is invalid".to_string()]
     );
     // Non-searchable over the same source keeps the retry error.
-    let plain = Field::choice(CheckRef::fields().name())
-        .relationship::<CheckRefSource>(|r: &CheckRef| r.name.clone());
+    let plain = Field::choice(CheckRef::fields().name()).relationship::<CheckRefSource>();
     assert_eq!(
         check(&plain, &cx, &visible_pk).await,
         vec!["Name could not load options, retry".to_string()]
@@ -745,6 +765,9 @@ async fn relationship_overflowed_searchable_renders_hint_and_keeps_value() {
     struct HintRefSource;
     impl OptionSource for HintRefSource {
         type Model = HintRef;
+        fn label(_cx: &Cx, record: &HintRef) -> String {
+            record.name.clone()
+        }
         fn scoped_query(_cx: &Cx) -> Result<Query<List<HintRef>>> {
             Ok(Query::all())
         }
@@ -773,7 +796,7 @@ async fn relationship_overflowed_searchable_renders_hint_and_keeps_value() {
     let cx = CxTestBuilder::new().app_context(db).build();
     let select = Field::choice(HintRef::fields().name())
         .searchable()
-        .relationship::<HintRefSource>(|r: &HintRef| r.name.clone());
+        .relationship::<HintRefSource>();
     let html = select
         .render(&cx, Some("stored-fk"), None)
         .await
@@ -814,6 +837,9 @@ async fn relationship_bounded_searchable_keeps_client_filter() {
     struct SmallRefSource;
     impl OptionSource for SmallRefSource {
         type Model = SmallRef;
+        fn label(_cx: &Cx, record: &SmallRef) -> String {
+            record.name.clone()
+        }
         fn scoped_query(_cx: &Cx) -> Result<Query<List<SmallRef>>> {
             Ok(Query::all())
         }
@@ -840,7 +866,7 @@ async fn relationship_bounded_searchable_keeps_client_filter() {
     let cx = CxTestBuilder::new().app_context(db).build();
     let select = Field::choice(SmallRef::fields().name())
         .searchable()
-        .relationship::<SmallRefSource>(|r: &SmallRef| r.name.clone());
+        .relationship::<SmallRefSource>();
     let html = select
         .render(&cx, None, None)
         .await
@@ -890,12 +916,10 @@ async fn recheck_resolves_the_key_through_the_write_transaction() {
         .request_context(crate::tenancy::Tenant(tenant))
         .build();
     let scoped = crate::schema::Schema::new(
-        Field::choice(PolicyAuthor::fields().id())
-            .relationship::<TenantScopedAuthors>(|a: &PolicyAuthor| a.name.clone()),
+        Field::choice(PolicyAuthor::fields().id()).relationship::<TenantScopedAuthors>(),
     );
     let viewable = crate::schema::Schema::new(
-        Field::choice(PolicyAuthor::fields().id())
-            .relationship::<HideOneAuthor>(|a: &PolicyAuthor| a.name.clone()),
+        Field::choice(PolicyAuthor::fields().id()).relationship::<HideOneAuthor>(),
     );
     let values =
         |id: uuid::Uuid| std::collections::HashMap::from([("id".to_string(), id.to_string())]);

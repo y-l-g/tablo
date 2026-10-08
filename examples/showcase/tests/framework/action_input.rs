@@ -139,10 +139,7 @@ struct Merging {
 
 impl ActionInput for Merging {
     fn schema() -> Schema {
-        Schema::new(
-            Field::choice_input("into")
-                .relationship::<TicketResource>(|t: &Ticket| t.title.clone()),
-        )
+        Schema::new(Field::choice_input("into").relationship::<TicketResource>())
     }
 
     fn parse(_cx: &Cx, values: &HashMap<String, String>) -> Result<Self, Vec<FieldError>> {
@@ -523,12 +520,15 @@ struct Selecting {
     ids: String,
 }
 
-/// A hand-written input holding a file field.
+/// A hand-written input holding a file field and a choice offering nothing.
 struct Attaching;
 
 impl ActionInput for Attaching {
     fn schema() -> Schema {
-        Schema::new(Field::file(Ticket::fields().reason()))
+        Schema::new((
+            Field::file(lens!(Ticket.reason)),
+            Field::choice(lens!(Ticket.title)),
+        ))
     }
 
     fn parse(_cx: &Cx, _values: &HashMap<String, String>) -> Result<Self, Vec<FieldError>> {
@@ -639,6 +639,9 @@ async fn an_input_that_cannot_be_served_fails_the_build() {
             DeclarationErrorKind::ActionInput {
                 action: "select",
                 fault: ActionInputFault::ReservedField("ids".to_string()),
+            },
+            DeclarationErrorKind::EmptyChoice {
+                field: "title".to_string(),
             },
             DeclarationErrorKind::ActionInput {
                 action: "attach",

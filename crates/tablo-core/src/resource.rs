@@ -310,7 +310,8 @@ pub fn can<R: Resource>(cx: &Cx, ability: crate::Ability<'_, R::Model>) -> bool 
 /// [`scoped_query`], so an option load inherits the tenant gate and filter
 /// exactly as every other loader does. The search expression and default ordering come from the
 /// resource's [`table`](ResourceDef::table), which is where "the option search searches the
-/// related resource's searchable columns" lives.
+/// related resource's searchable columns" lives, and each record's label from its
+/// [`record_label`](ResourceDef::record_label).
 impl<R: Resource> crate::schema::OptionSource for R {
     type Model = R::Model;
 
@@ -332,6 +333,29 @@ impl<R: Resource> crate::schema::OptionSource for R {
 
     fn order_by(cx: &Cx) -> Option<toasty::stmt::OrderByExpr> {
         mounted::<R>(cx)?.table.order_by(false)
+    }
+
+    /// The record's title, as its detail page shows it.
+    ///
+    /// The record loads without its relations, so a `record_label` reading one panics on
+    /// `Deferred::get`: the title falls back to the resource's label and the key, and the panic is
+    /// logged, rather than failing the whole form or column.
+    fn label(cx: &Cx, record: &R::Model) -> String {
+        let key = crate::toasty_compat::pk::pk_text(record);
+        let Some(mounted) = mounted::<R>(cx) else {
+            return key;
+        };
+        let title = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            mounted.record_title(cx, record, &key)
+        }));
+        title.unwrap_or_else(|_| {
+            tracing::error!(
+                resource = std::any::type_name::<R>(),
+                "record_label panicked on a record loaded without its relations: a label read \
+                 where another resource points at the record reads only its own columns"
+            );
+            format!("{} {key}", mounted.label)
+        })
     }
 
     fn available(cx: &Cx) -> bool {
