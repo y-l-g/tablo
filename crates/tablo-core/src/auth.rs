@@ -211,9 +211,9 @@ impl Auth {
         }
     }
 
-    /// How many sign-in attempts one login may make in a window; defaults to
-    /// five a minute. [`LoginThrottle::off`] counts nothing, for a proxy that
-    /// limits sign-ins itself.
+    /// How many sign-in attempts one login may make from one client address
+    /// in a window; defaults to five a minute. [`LoginThrottle::off`] counts nothing, for a proxy
+    /// that limits sign-ins itself.
     #[must_use]
     pub fn throttle(mut self, throttle: LoginThrottle) -> Self {
         self.throttle = throttle;
@@ -245,11 +245,13 @@ impl Default for Auth {
 
 impl std::fmt::Debug for Auth {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(if self.is_disabled() {
-            "Auth::disabled"
+        if self.is_disabled() {
+            f.write_str("Auth::disabled")
         } else {
-            "Auth"
-        })
+            f.debug_struct("Auth")
+                .field("throttle", &self.throttle)
+                .finish_non_exhaustive()
+        }
     }
 }
 

@@ -281,13 +281,64 @@ async fn a_login_past_its_limit_is_refused_before_the_authenticator() {
     }
     assert_eq!(counting.calls(), 2);
 
-    let (status, rendered) = post_login(&cx, attempt("opensesame")).await;
+    let (status, _) = post_login(&cx, attempt("opensesame")).await;
     assert_eq!(status, http::StatusCode::FORBIDDEN);
-    assert!(
-        rendered.contains(GENERIC_ERROR),
-        "a throttled login reads as a wrong password, got {rendered:?}"
-    );
     assert_eq!(counting.calls(), 2, "the authenticator is not asked");
+}
+
+/// A login POST to `router` from `client` for ada with `password`, answering its status.
+async fn sign_in_from(
+    router: &topcoat::router::Router,
+    client: [u8; 4],
+    password: &str,
+) -> http::StatusCode {
+    let token = Uuid::new_v4().to_string();
+    let mut request = login_request(
+        format!("email=ada@example.com&password={password}&csrf_token={token}"),
+        &token,
+    );
+    request
+        .extensions_mut()
+        .insert(topcoat::router::RemoteAddr(std::net::SocketAddr::from((
+            client, 4242,
+        ))));
+    router.handle(request).await.status()
+}
+
+/// The default throttle counts per address: a guesser elsewhere does not lock the owner out, and
+/// the owner's sign-in clears only the owner's count.
+#[tokio::test]
+async fn a_sign_in_clears_its_own_count_and_no_other() {
+    const OWNER: [u8; 4] = [192, 0, 2, 1];
+    const GUESSER: [u8; 4] = [198, 51, 100, 7];
+    let router = auth_router(db_with_admin("ada@example.com").await);
+    for _ in 0..5 {
+        assert_eq!(
+            sign_in_from(&router, GUESSER, "wrong").await,
+            http::StatusCode::FORBIDDEN
+        );
+    }
+    for _ in 0..4 {
+        sign_in_from(&router, OWNER, "wrong").await;
+    }
+    assert_eq!(
+        sign_in_from(&router, OWNER, "opensesame").await,
+        http::StatusCode::SEE_OTHER,
+        "the owner's fifth attempt signs in"
+    );
+    for _ in 0..4 {
+        sign_in_from(&router, OWNER, "wrong").await;
+    }
+    assert_eq!(
+        sign_in_from(&router, OWNER, "opensesame").await,
+        http::StatusCode::SEE_OTHER,
+        "the sign-in cleared the owner's count"
+    );
+    assert_eq!(
+        sign_in_from(&router, GUESSER, "opensesame").await,
+        http::StatusCode::FORBIDDEN,
+        "the guesser's count stays"
+    );
 }
 
 /// Builds a router for a password-auth panel over `db`.

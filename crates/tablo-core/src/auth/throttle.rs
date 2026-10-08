@@ -1,26 +1,37 @@
-//! [`LoginThrottle`]: counts sign-in attempts per login and refuses one past its limit.
+//! [`LoginThrottle`]: counts sign-in attempts per login and client address, and refuses one past
+//! its limit.
 
 use std::{
     collections::HashMap,
     hash::{BuildHasher, RandomState},
+    net::IpAddr,
     sync::Mutex,
     time::{Duration, Instant},
 };
 
-/// The most logins a throttle counts at once; past it, an expired count is dropped first, else
-/// the oldest.
+/// The most counts a throttle keeps at once; past it, an expired count is dropped first, else the
+/// oldest.
 const MAX_TRACKED: usize = 10_000;
 
-/// How many sign-in attempts one login may make in a window, as
+/// How many sign-in attempts one login may make from one client address in a window, as
 /// [`Auth::throttle`](crate::Auth::throttle) sets it.
 ///
 /// Each attempt that reaches the authenticator counts against the login it names, trimmed and
-/// lowercased, from the first attempt of the window; a successful sign-in clears the count. Past
-/// the limit, the login page refuses the attempt without asking the authenticator, with the same
-/// 403 and message as a wrong password, until the window ends.
+/// lowercased, and the address [`client_ip`](topcoat::router::request::client_ip) answers, from
+/// the first attempt of the window; a successful sign-in clears that count. Past the limit, the
+/// login page refuses the attempt without asking the authenticator, with the same 403 and message
+/// as a wrong password, until the window ends, and logs a warning.
 ///
-/// Counts live in the process, so each replica counts its own attempts and a restart clears them.
-/// A per-IP limit belongs at the proxy.
+/// Keying on the address keeps a guesser from locking the account's owner out from elsewhere.
+/// Behind a reverse proxy every request carries the proxy's address unless the router trusts it
+/// through [`TrustedProxies`](topcoat::router::TrustedProxies); until then the count is per login
+/// alone, and a guesser can lock the owner out.
+///
+/// It does not limit one client across logins, nor one login across many addresses, nor a login
+/// spelled several ways that the authenticator's lookup treats as one, as MySQL's default
+/// collation does with accents: a per-IP limit at the proxy covers those. Counts live in the
+/// process and per panel, so each replica and each panel counts its own attempts, and a restart
+/// clears them.
 ///
 /// ```rust
 /// use std::time::Duration;
@@ -75,16 +86,17 @@ impl LoginThrottle {
         }
     }
 
-    /// Counts an attempt for `login`, or answers `false` when the login is past its limit.
-    pub(crate) fn attempt(&self, login: &str) -> bool {
-        self.attempt_at(login, Instant::now())
+    /// Counts an attempt for `login` from `client`, or answers `false` when the pair is past its
+    /// limit.
+    pub(crate) fn attempt(&self, login: &str, client: Option<IpAddr>) -> bool {
+        self.attempt_at(login, client, Instant::now())
     }
 
-    fn attempt_at(&self, login: &str, now: Instant) -> bool {
+    fn attempt_at(&self, login: &str, client: Option<IpAddr>, now: Instant) -> bool {
         let Some(limit) = self.limit else {
             return true;
         };
-        let key = self.key(login);
+        let key = self.key(login, client);
         let mut counts = self
             .counts
             .lock()
@@ -117,10 +129,10 @@ impl LoginThrottle {
         true
     }
 
-    /// Clears `login`'s count after it signs in.
-    pub(crate) fn clear(&self, login: &str) {
+    /// Clears the count of `login` from `client` after it signs in there.
+    pub(crate) fn clear(&self, login: &str, client: Option<IpAddr>) {
         if self.limit.is_some() {
-            let key = self.key(login);
+            let key = self.key(login, client);
             self.counts
                 .lock()
                 .unwrap_or_else(|poison| poison.into_inner())
@@ -128,13 +140,14 @@ impl LoginThrottle {
         }
     }
 
-    /// The count's key: a hash of the login, so the map holds no login in the clear.
-    fn key(&self, login: &str) -> u64 {
-        self.hasher.hash_one(login.trim().to_lowercase())
+    /// The count's key: a hash of the login and the address, so the map holds no login in the
+    /// clear.
+    fn key(&self, login: &str, client: Option<IpAddr>) -> u64 {
+        self.hasher.hash_one((login.trim().to_lowercase(), client))
     }
 }
 
-/// Five attempts per login a minute.
+/// Five attempts per login and address a minute.
 impl Default for LoginThrottle {
     fn default() -> Self {
         Self::new(5, Duration::from_secs(60))
