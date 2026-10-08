@@ -117,7 +117,7 @@ does not compile:
 
 ### Custom controls
 
-A `Control` renders the input of a `Field::custom` field. The field keeps everything fields share —
+A `Control`, from `tablo::extend`, renders the input of a `Field::custom` field. The field keeps everything fields share —
 the key, the label, the required marker, the error slot and the chrome around the input — and the
 control renders only the input, from a `ControlInput` carrying the key, the current value and the
 validation state:
@@ -141,7 +141,7 @@ back through the type. A value the type refuses is an inline error naming it: ``
 valid whole number ``. A `jiff::Timestamp` renders a `datetime-local` input, which carries no time zone, so
 values display and parse as UTC.
 
-Implement `TypedValue` to bind your own type: `NOUN` names it in errors, `INPUT_TYPE` sets the
+Implement `tablo::extend::TypedValue` to bind your own type: `NOUN` names it in errors, `INPUT_TYPE` sets the
 input's `type`, and `parse_input` reads a submission (by default through `FromStr`).
 
 ### Email and uniqueness

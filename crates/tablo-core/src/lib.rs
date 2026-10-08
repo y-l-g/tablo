@@ -94,6 +94,7 @@ pub mod db;
 mod declaration;
 pub mod detail;
 mod error;
+pub mod extend;
 pub mod form;
 mod lens;
 mod naming;
@@ -132,14 +133,14 @@ pub use resource::{
     ResourceDef, can, scoped_query, write_create, write_update,
 };
 pub use schema::{
-    ChoiceField, Control, ControlInput, CustomField, EmbeddedForm, Field, FieldResolver, FileField,
-    Grid, Group, IntoOptions, IntoSchema, Options, Schema, Section, Source, TextField, Toggle,
+    ChoiceField, CustomField, EmbeddedForm, Field, FieldResolver, FileField, Grid, Group,
+    IntoOptions, IntoSchema, Options, Schema, Section, Source, TextField, Toggle,
 };
 pub use table::{
-    BooleanColumn, Column, ColumnWidth, ComputedColumn, CountColumn, Cursor, DateFilter,
-    EmbeddedColumn, FileColumn, Filter, FilterInput, Includes, IntoColumns, IntoFilters,
-    QueryFilter, RelationColumn, RelationLens, SelectFilter, Sort, Table, TablePage, TableState,
-    TernaryFilter, TextColumn, ToOneRelation, WiredTable, contains_expr,
+    BooleanColumn, ColumnWidth, ComputedColumn, CountColumn, Cursor, DateFilter, EmbeddedColumn,
+    FileColumn, IntoColumns, IntoFilters, QueryFilter, RelationColumn, RelationLens, SelectFilter,
+    Sort, Table, TablePage, TableState, TernaryFilter, TextColumn, ToOneRelation, WiredTable,
+    contains_expr,
 };
 /// Derives [`ActionInput`](trait@ActionInput) for the typed value an [`Action`] asks for
 /// before it runs.

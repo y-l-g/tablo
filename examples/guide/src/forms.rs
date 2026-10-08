@@ -3,7 +3,10 @@
 use std::path::PathBuf;
 
 use tablo::prelude::*;
-use tablo_core::{Control, ControlInput, Options, Uploader};
+use tablo_core::{
+    Options, Uploader,
+    extend::{Control, ControlInput},
+};
 use topcoat::{context::Cx, view::*};
 
 use crate::{

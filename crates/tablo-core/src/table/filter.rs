@@ -16,7 +16,7 @@ use crate::{
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, age: i64 }
-/// # use tablo_core::{Filter, FilterInput};
+/// # use tablo_core::extend::{Filter, FilterInput};
 /// # use toasty::stmt::Expr;
 /// # use topcoat::{context::Cx, view::BoxView};
 /// struct Adults;

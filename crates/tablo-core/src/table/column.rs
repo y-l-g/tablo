@@ -25,7 +25,7 @@ pub use relation::{CountColumn, RelationColumn, RelationLens, ToOneRelation, sha
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
-/// # use tablo_core::Column;
+/// # use tablo_core::extend::Column;
 /// struct Initials;
 ///
 /// impl Column<User> for Initials {

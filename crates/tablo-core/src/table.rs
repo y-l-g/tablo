@@ -8,7 +8,7 @@ use std::{marker::PhantomData, num::NonZeroUsize, sync::Arc};
 
 use toasty::stmt::{Expr, List, OrderByExpr};
 
-pub(crate) use self::column::{BoxColumn, include_relations};
+pub(crate) use self::column::{BoxColumn, Column, include_relations};
 use self::filter::BoxFilter;
 use crate::{
     DeclarationErrorKind, Lens,
@@ -16,9 +16,9 @@ use crate::{
     schema::{Binding, FieldResolver},
 };
 
-mod column;
+pub(crate) mod column;
 mod export;
-mod filter;
+pub(crate) mod filter;
 mod page;
 mod render;
 mod state;
@@ -26,13 +26,10 @@ mod wiring;
 
 pub use self::{
     column::{
-        BooleanColumn, Column, ColumnWidth, ComputedColumn, CountColumn, EmbeddedColumn,
-        FileColumn, Includes, IntoColumns, RelationColumn, RelationLens, TextColumn, ToOneRelation,
-        contains_expr, shape,
+        BooleanColumn, ColumnWidth, ComputedColumn, CountColumn, EmbeddedColumn, FileColumn,
+        IntoColumns, RelationColumn, RelationLens, TextColumn, ToOneRelation, contains_expr, shape,
     },
-    filter::{
-        DateFilter, Filter, FilterInput, IntoFilters, QueryFilter, SelectFilter, TernaryFilter,
-    },
+    filter::{DateFilter, IntoFilters, QueryFilter, SelectFilter, TernaryFilter},
     page::TablePage,
     state::{Cursor, Sort, TableState},
     wiring::WiredTable,

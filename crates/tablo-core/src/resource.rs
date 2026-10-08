@@ -92,9 +92,9 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// soft deletes and row-level visibility. Every loader starts from it.
     ///
     /// **Relations are not this method's job.** The list, the export and the detail page load
-    /// the relations their columns declare ([`Column::includes`](crate::Column::includes)): a
-    /// [`RelationColumn`](crate::RelationColumn) declares its own. Include a relation here only
-    /// when a closure no column covers reads it on every loader's rows: one the
+    /// the relations their columns declare ([`Column::includes`](crate::extend::Column::includes)):
+    /// a [`RelationColumn`](crate::RelationColumn) declares its own. Include a relation here
+    /// only when a closure no column covers reads it on every loader's rows: one the
     /// [`policy`](ResourceDef::policy) reads, or one a table's `group_by` or row key reads without
     /// a column including it.
     ///
@@ -303,10 +303,10 @@ pub fn can<R: Resource>(cx: &Cx, ability: crate::Ability<'_, R::Model>) -> bool 
     mounted::<R>(cx).is_some_and(|resource| resource.can(cx, ability))
 }
 
-/// Every `Resource` is an [`OptionSource`](crate::schema::OptionSource), answering from its def
+/// Every `Resource` is an [`OptionSource`](crate::extend::OptionSource), answering from its def
 /// as the context's panel mounted it.
 ///
-/// [`scoped_query`](crate::schema::OptionSource::scoped_query) forwards to
+/// [`scoped_query`](crate::extend::OptionSource::scoped_query) forwards to
 /// [`scoped_query`], so an option load inherits the tenant gate and filter
 /// exactly as every other loader does. The search expression and default ordering come from the
 /// resource's [`table`](ResourceDef::table), which is where "the option search searches the
