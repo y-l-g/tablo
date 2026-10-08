@@ -96,13 +96,43 @@ fn filters_are_one_parameter_each() {
     assert!(!state.filters_dropped);
 }
 
-#[test]
-fn a_filter_value_with_separators_round_trips() {
-    let mut state = TableState::default();
-    state
-        .filters
-        .insert("author".to_string(), "Smith, John: 50% & co".to_string());
-    assert_eq!(TableState::from_query(&state.query()), state);
+/// A value the parser keeps as written: no surrounding whitespace, no control character.
+const KEPT: &str = "[\\PC&&\\S]([\\PC]{0,20}[\\PC&&\\S])?";
+
+/// The states a parse can produce, every part optional.
+fn parsed_state() -> impl proptest::strategy::Strategy<Value = TableState> {
+    use proptest::{collection, option, prelude::*};
+
+    (
+        option::of(KEPT),
+        option::of(("[a-z_]{1,12}", any::<bool>())),
+        option::of((KEPT, any::<bool>())),
+        collection::btree_map("[a-z_]{1,12}", KEPT, 0..6),
+        option::of("[a-z_]{1,12}"),
+    )
+        .prop_map(|(search, sort, cursor, filters, group_by)| TableState {
+            search,
+            sort: sort.map(|(column, descending)| Sort { column, descending }),
+            cursor: cursor.map(|(token, after)| {
+                if after {
+                    Cursor::After(token)
+                } else {
+                    Cursor::Before(token)
+                }
+            }),
+            filters,
+            group_by,
+            ..TableState::default()
+        })
+}
+
+proptest::proptest! {
+    /// Every link a table writes parses back to the state it was written from, whatever its
+    /// search, filter values and cursor spell.
+    #[test]
+    fn any_state_round_trips_through_its_query(state in parsed_state()) {
+        proptest::prop_assert_eq!(TableState::from_query(&state.query()), state);
+    }
 }
 
 #[test]

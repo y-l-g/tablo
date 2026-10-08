@@ -15,25 +15,60 @@ fn round_trip(value: Value) {
     );
 }
 
+/// The scalar values a sort column or a key carries.
+fn scalar() -> impl proptest::strategy::Strategy<Value = Value> {
+    use proptest::prelude::*;
+
+    prop_oneof![
+        Just(Value::Null),
+        any::<bool>().prop_map(Value::Bool),
+        any::<i8>().prop_map(Value::I8),
+        any::<i16>().prop_map(Value::I16),
+        any::<i32>().prop_map(Value::I32),
+        any::<i64>().prop_map(Value::I64),
+        any::<u8>().prop_map(Value::U8),
+        any::<u16>().prop_map(Value::U16),
+        any::<u32>().prop_map(Value::U32),
+        any::<u64>().prop_map(Value::U64),
+        // NaN is not equal to itself; a sort value is never one.
+        any::<f32>()
+            .prop_filter("not NaN", |f| !f.is_nan())
+            .prop_map(Value::F32),
+        any::<f64>()
+            .prop_filter("not NaN", |f| !f.is_nan())
+            .prop_map(Value::F64),
+        any::<String>().prop_map(Value::String),
+        any::<u128>().prop_map(|n| Value::Uuid(uuid::Uuid::from_u128(n))),
+    ]
+}
+
+proptest::proptest! {
+    /// A cursor over any scalar, or the engine's record of them, decodes to exactly what was
+    /// encoded, through a URL-safe token.
+    #[test]
+    fn any_cursor_value_round_trips(
+        value in scalar(),
+        record in proptest::collection::vec(scalar(), 0..4),
+    ) {
+        round_trip(value);
+        round_trip(Value::Record(ValueRecord::from_vec(record)));
+    }
+
+    /// A tampered token is refused, never a panic: the cursor arrives in the URL.
+    #[test]
+    fn any_token_decodes_or_is_refused(
+        token in "\\PC{0,64}",
+        bytes in proptest::collection::vec(proptest::prelude::any::<u8>(), 0..64),
+    ) {
+        let _ = decode(&token);
+        let hex: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+        let _ = decode(&hex);
+    }
+}
+
+/// The temporal values the engine's cursors carry, whose spellings the wire format must keep.
 #[test]
-fn round_trips_scalar_variants_exactly() {
-    round_trip(Value::Null);
-    round_trip(Value::Bool(true));
-    round_trip(Value::Bool(false));
-    round_trip(Value::I8(-8));
-    round_trip(Value::I16(-16));
-    round_trip(Value::I32(-32));
-    round_trip(Value::I64(i64::MIN));
-    round_trip(Value::U8(255));
-    round_trip(Value::U16(u16::MAX));
-    round_trip(Value::U32(u32::MAX));
-    round_trip(Value::U64(u64::MAX));
-    round_trip(Value::F32(1.5));
-    round_trip(Value::F64(f64::MIN));
-    round_trip(Value::String("Ada Lovelace".to_string()));
-    round_trip(Value::String("with spaces & symbols ?#=/".to_string()));
-    round_trip(Value::Uuid(uuid::Uuid::nil()));
-    round_trip(Value::Uuid(uuid::Uuid::new_v4()));
+fn temporal_values_round_trip() {
     round_trip(Value::Timestamp(
         "2024-01-15T09:30:00Z".parse().expect("timestamp"),
     ));
@@ -48,16 +83,6 @@ fn round_trips_scalar_variants_exactly() {
             .to_zoned(jiff::tz::TimeZone::UTC)
             .expect("zoned"),
     ));
-}
-
-#[test]
-fn round_trips_record_cursor_shape() {
-    // The engine's multi-column cursor: [sort value, primary key]
-    let cursor = Value::Record(ValueRecord::from_vec(vec![
-        Value::String("Alan Turing".to_string()),
-        Value::Uuid(uuid::Uuid::new_v4()),
-    ]));
-    round_trip(cursor);
 }
 
 /// The wire format is a contract with tokens already in browsers' URLs, so
