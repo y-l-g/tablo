@@ -53,6 +53,17 @@ pub fn navigation<R: Resource>(cx: &topcoat::context::Cx) -> Option<crate::Navig
     crate::resource::mounted::<R>(cx).map(|resource| resource.navigation.clone())
 }
 
+/// The prefix [`Panel::new`] mounts `raw` at: trimmed, one leading slash, no trailing slash, and
+/// `/admin` when nothing is left.
+pub(crate) fn normalize_prefix(raw: &str) -> String {
+    let trimmed = raw.trim().trim_matches('/');
+    if trimmed.is_empty() {
+        "/admin".to_string()
+    } else {
+        format!("/{trimmed}")
+    }
+}
+
 /// An admin panel: resources and pages under one prefix, framed by one shell
 /// and gated by one [`Auth`](crate::auth::Auth).
 ///
@@ -108,13 +119,7 @@ pub struct Panel {
 impl Panel {
     /// Creates a `Panel` mounted at `prefix`, defaulting an empty prefix to `"/admin"`.
     pub fn new(prefix: impl Into<String>) -> Self {
-        let raw = prefix.into();
-        let trimmed = raw.trim().trim_matches('/').to_string();
-        let prefix = if trimmed.is_empty() {
-            "/admin".to_string()
-        } else {
-            format!("/{trimmed}")
-        };
+        let prefix = normalize_prefix(&prefix.into());
         let configuration_errors = prefix
             .trim_matches('/')
             .split('/')

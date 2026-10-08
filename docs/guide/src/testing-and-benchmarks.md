@@ -3,8 +3,8 @@
 ## Testing a panel
 
 Test a panel over HTTP, in memory: build the router against a test database and send it requests.
-`TestClient` carries cookies, a tenant and a CSRF token, and `submit` posts a form with its CSRF
-pair. The `testing` module also builds form bodies and reads responses back: the table's `rows`, a
+`TestClient` carries cookies, a tenant and a CSRF token, `sign_in` signs it in as a user, and
+`submit` posts a form with its CSRF pair. The `testing` module also builds form bodies and reads responses back: the table's `rows`, a
 field's error, the flash `notification`, and why a table is empty (`empty_table`). An app reaches it as `tablo::testing` through the facade's `testing` feature; enable it
 for tests only:
 
@@ -14,7 +14,7 @@ tablo = { version = "0.5.1", features = ["sqlite", "testing"] }
 ```
 
 ```rust
-use tablo::testing::{TestClient, form_body};
+use tablo::{auth::create_admin, testing::{TestClient, form_body}};
 
 {{#include ../../../examples/guide/tests/it.rs:testing-no-delete}}
 ```
@@ -25,8 +25,9 @@ use tablo::testing::{TestClient, form_body};
   the detail page and a delete all miss it.
 - **Tenancy.** `client.tenant(id)` scopes a request to a tenant, the way a signed-in user's tenant
   would.
-- **Signed-in requests.** With authentication on, sign in through `POST /admin/login` once and
-  reuse the client's cookies, or insert an `AuthSession` row directly to skip the password hash.
+- **Signed-in requests.** `client.sign_in(&db, "admin", &user)` records a session for `user`, as
+  a successful login does, and the client carries its cookie: no login form, no password hash.
+  It works with a custom `Authenticator` too, which loads the user back from `user_id()`.
 - **Declaration mistakes.** A panel that refuses to mount returns a `MountError` inside the
   router builder's error. Downcast to it and match on each mistake's `DeclarationErrorKind`
   rather than on its message:

@@ -10,6 +10,7 @@ pub use protocol::{
     multipart_body, notification, response_cookies, row_actions, rows, session_cookie_value,
     set_cookie_header,
 };
+use tablo_core::PanelUser;
 use topcoat::router::{Body, Router};
 
 /// Sends requests carrying cookies and tenant.
@@ -56,6 +57,37 @@ impl<'a> TestClient<'a> {
     /// Attach the CSRF cookie the form's `csrf_token` field must match.
     pub fn csrf(&self, token: &str) -> Self {
         self.cookie(tablo_core::csrf::COOKIE_NAME, token)
+    }
+
+    /// Signs `user` in to the panel `Panel::new(panel)` mounts, as a successful login does, and
+    /// attaches the session cookie; no password is hashed or checked.
+    ///
+    /// The session row goes into `db`, the router's database, keyed to [`PanelUser::user_id`]:
+    /// each request loads the user back through the panel's `Authenticator::find_by_id`, so a
+    /// custom authenticator works as the shipped one does.
+    ///
+    /// ```rust,no_run
+    /// # async fn sign_in(router: &topcoat::router::Router, mut db: toasty::Db) {
+    /// # use tablo_test::TestClient;
+    /// let admin = tablo_core::auth::create_admin(&mut db, "admin@example.com", "secret", "Admin")
+    ///     .await
+    ///     .expect("seed the admin");
+    /// let client = TestClient::new(router).sign_in(&db, "admin", &admin).await;
+    /// # let _ = client;
+    /// # }
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// When the session row cannot be written, e.g. the database does not register
+    /// `AuthSession`.
+    ///
+    /// [`PanelUser::user_id`]: tablo_core::PanelUser::user_id
+    pub async fn sign_in(&self, db: &toasty::Db, panel: &str, user: &impl PanelUser) -> Self {
+        let token = tablo_core::auth::mint_session(&mut db.clone(), panel, user)
+            .await
+            .expect("record the test session");
+        self.cookie(SESSION_COOKIE, &token)
     }
 
     /// Scopes the request to another tenant, taking precedence over the

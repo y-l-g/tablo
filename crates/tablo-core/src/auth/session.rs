@@ -54,18 +54,60 @@ pub(super) async fn record(
     user: &dyn PanelUser,
     panel: &PanelState,
 ) -> topcoat::Result<()> {
-    let mut db = crate::db::db(cx);
+    let expires_at = Timestamp::try_from(session.expires_at).map_err(topcoat::Error::from)?;
+    insert(
+        &mut crate::db::db(cx),
+        &session.token_hash,
+        user.user_id(),
+        panel.prefix.clone(),
+        expires_at,
+    )
+    .await
+    .map_err(infrastructure_failure)
+}
+
+/// Records a session for `user` on the panel `Panel::new(panel)` mounts, as a successful login
+/// does, and returns the token its session cookie carries. No credential is checked.
+///
+/// `tablo::testing`'s `TestClient::sign_in` is the caller: it lets a test act as a signed-in user
+/// without a password hash.
+#[doc(hidden)]
+pub async fn mint_session(
+    ex: &mut dyn toasty::Executor,
+    panel: &str,
+    user: &dyn PanelUser,
+) -> topcoat::Result<String> {
+    let token = session::Token::random();
+    let expires_at = Timestamp::try_from(std::time::SystemTime::now() + SESSION_LIFETIME)
+        .map_err(topcoat::Error::from)?;
+    insert(
+        ex,
+        &token.hash(),
+        user.user_id(),
+        crate::panel::normalize_prefix(panel),
+        expires_at,
+    )
+    .await?;
+    Ok(token.encode())
+}
+
+async fn insert(
+    ex: &mut dyn toasty::Executor,
+    hash: &TokenHash,
+    user_id: String,
+    panel: String,
+    expires_at: Timestamp,
+) -> toasty::Result<()> {
     toasty::create!(AuthSession {
-        token_hash: token_key(&session.token_hash),
-        user_id: user.user_id(),
-        panel: panel.prefix.clone(),
+        token_hash: token_key(hash),
+        user_id,
+        panel,
         tenant: None,
-        expires_at: Timestamp::try_from(session.expires_at).map_err(topcoat::Error::from)?,
+        expires_at,
         created_at: Timestamp::now(),
     })
-    .exec(&mut db)
-    .await
-    .map_err(infrastructure_failure)?;
+    .exec(ex)
+    .await?;
     Ok(())
 }
 
