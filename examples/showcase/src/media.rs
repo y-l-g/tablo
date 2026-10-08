@@ -8,9 +8,7 @@ use tablo::{
 };
 use topcoat::{
     Result,
-    asset::AssetConfig,
-    context::{Cx, try_app_context},
-    icon::icon,
+    context::Cx,
     router::{
         content::multipart::Multipart,
         error::{SeeOther, bad_request, see_other},
@@ -26,9 +24,6 @@ use crate::{
 
 /// The upload route's path.
 pub const MEDIA_PATH: &str = "/admin/media";
-
-/// The widget script the page emits.
-pub const MEDIA_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/media.js");
 
 /// The `kind` of a row whose bytes are an image.
 pub const KIND_IMAGE: &str = "image";
@@ -130,7 +125,6 @@ impl Page for MediaLibraryPage {
 
         // The form is the app's, so the token is the app's to embed.
         let csrf_token = csrf::ensure_token(cx);
-        let has_assets = try_app_context::<AssetConfig>(cx).is_some();
 
         Ok(view! {
             cx =>
@@ -157,33 +151,14 @@ impl Page for MediaLibraryPage {
                                         attrs: attributes! { for="media-file" },
                                         "File"
                                     )
-                                    <div class="flex items-center gap-2">
-                                        tablo::ui::input(
-                                            attrs: attributes! {
-                                                id="media-file"
-                                                type="file"
-                                                name=(FILE_FIELD)
-                                                required=""
-                                                data-media-file=""
-                                            }
-                                        )
-                                        tablo::ui::button(
-                                            variant: tablo::ui::ButtonVariant::Outline,
-                                            size: tablo::ui::ButtonSize::Icon,
-                                            attrs: attributes! {
-                                                type="reset"
-                                                data-media-clear=""
-                                                aria-label="Clear the selected file"
-                                                title="Clear the selected file"
-                                            },
-                                            icon(data: tablo::ui::icons::X)
-                                        )
-                                    </div>
-                                    <div
-                                        data-media-preview=""
-                                        hidden=""
-                                        class="flex items-center gap-3 text-xs text-muted-foreground"
-                                    ></div>
+                                    tablo::ui::input(
+                                        attrs: attributes! {
+                                            id="media-file"
+                                            type="file"
+                                            name=(FILE_FIELD)
+                                            required=""
+                                        }
+                                    )
                                 )
                                 <div>
                                     tablo::ui::button(
@@ -233,9 +208,6 @@ impl Page for MediaLibraryPage {
                             </div>
                         )
                     )
-                    if has_assets {
-                        <script src=(MEDIA_JS) defer=""></script>
-                    }
                 )
             )
         })

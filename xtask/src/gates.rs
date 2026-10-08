@@ -37,10 +37,7 @@ pub enum Scope {
 }
 
 /// JS asset suites, named rather than globbed so a rename fails loudly.
-pub const ASSET_SUITES: &[&str] = &[
-    "crates/tablo-ui/assets/selects.test.js",
-    "examples/showcase/assets/media.test.js",
-];
+pub const ASSET_SUITES: &[&str] = &["crates/tablo-ui/assets/selects.test.js"];
 
 pub fn repo_root() -> PathBuf {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));

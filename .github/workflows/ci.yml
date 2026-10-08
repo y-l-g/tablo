@@ -84,7 +84,6 @@ jobs:
       - run: >-
           node --test
           crates/tablo-ui/assets/selects.test.js
-          examples/showcase/assets/media.test.js
 
   clippy:
     name: clippy

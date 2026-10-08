@@ -101,9 +101,4 @@
   body {
     @apply bg-background font-sans text-foreground;
   }
-
-  /* Upload preview sizing; `media.js` owns the behavior (GH #248). */
-  [data-media-preview] img {
-    @apply size-12 rounded-md border border-border object-cover;
-  }
 }
