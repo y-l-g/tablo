@@ -111,8 +111,8 @@ fn wire_custom_actions<R: Resource>(
                 label: (action.label)(cx),
                 row: action.places.contains(Places::ROW),
                 bulk: action.places.contains(Places::BULK),
-                // An action with input confirms on its input page, which its button opens.
-                confirm: action.confirm && !action.input.takes_input,
+                confirm: action.confirm,
+                input: action.input.takes_input.then_some(action.input.schema),
                 allowed: Arc::new(move |record: &R::Model| {
                     policy.can(&policy_cx, Ability::View(record))
                         && can_run(&policy, &policy_cx, record)

@@ -4,13 +4,17 @@
 //! The URL query spells list state; [`TableState::from_query`] parses it and one
 //! encoder projects every link.
 
-use std::{borrow::Cow, collections::BTreeMap};
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, HashMap},
+};
 
 use topcoat::{
     context::Cx,
     runtime::{Signal, signal},
 };
 
+use super::TableTarget;
 use crate::{query_term::clamp_query_term, topcoat_compat::href};
 
 /// A table's browser state: the list's query string, the bulk selection, and
@@ -25,6 +29,10 @@ pub(crate) struct TableSignals {
     /// The bulk selection as `,key,` tokens; empty selects none.
     pub(crate) bulk: Signal<String>,
     pub(crate) confirm: ConfirmSignals,
+    /// Where each custom action asking for input posts its dialog, by the action's name.
+    pub(crate) inputs: HashMap<&'static str, TableTarget>,
+    /// The page's path and the table's prefix, which key the signals.
+    key: (String, String),
 }
 
 /// The write the confirmation dialog asks about.
@@ -51,7 +59,8 @@ impl TableSignals {
         let path = topcoat::context::try_request_context::<http::request::Parts>(cx)
             .map(|parts| parts.uri.path().to_string())
             .unwrap_or_default();
-        let cx = cx.keyed(("tablo-table", path, prefix.unwrap_or_default()));
+        let key = (path, prefix.unwrap_or_default().to_string());
+        let cx = cx.keyed(("tablo-table", key.0.as_str(), key.1.as_str()));
         let query = request_query(&cx);
         Self {
             query: signal(&cx, move || query),
@@ -62,7 +71,33 @@ impl TableSignals {
                 label: signal(&cx, String::new),
                 bulk: signal(&cx, || false),
             },
+            inputs: HashMap::new(),
+            key,
         }
+    }
+
+    /// These signals, with the target of the input dialog of each action in `names`.
+    ///
+    /// Creates the signals, so it carries [`TableSignals::new`]'s contract.
+    pub(crate) fn with_inputs(
+        mut self,
+        cx: &Cx,
+        names: impl Iterator<Item = &'static str>,
+    ) -> Self {
+        for name in names {
+            let cx = cx.keyed((
+                "tablo-table-input",
+                self.key.0.as_str(),
+                self.key.1.as_str(),
+                name,
+            ));
+            let target = TableTarget {
+                action: signal(&cx, String::new),
+                bulk: signal(&cx, || false),
+            };
+            self.inputs.insert(name, target);
+        }
+        self
     }
 
     /// The list state `query` spells, read so a change reruns the page.
@@ -473,6 +508,15 @@ pub(crate) fn row_action_url(prefix: &str, key: &str, name: &str) -> String {
 /// A bulk or header action's POST target: `{url}/-/actions/{name}` under a list or a page.
 pub(crate) fn bulk_action_url(list_path: &str, name: &str) -> String {
     format!("{list_path}/{DASH_ROUTE_SEGMENT}/{ACTIONS_ROUTE_SEGMENT}/{name}")
+}
+
+/// The option search of the input of the action `name` under a list or a page:
+/// `{url}/-/actions/{name}/options`.
+pub(crate) fn action_options_url(url: &str, name: &str) -> String {
+    format!(
+        "{}/options",
+        bulk_action_url(url.trim_end_matches('/'), name)
+    )
 }
 
 /// The list page's create link: `{list_path}/create`.

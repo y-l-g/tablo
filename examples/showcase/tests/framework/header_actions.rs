@@ -353,12 +353,30 @@ fn form_action(url: &str) -> String {
 async fn the_list_header_offers_each_header_action_the_request_may_run() {
     let db = db().await;
     let html = body_string(get(&router(&db, Allow), "/admin/tickets").await).await;
-    for name in ["close-all", "open-ticket", "explode"] {
+    for name in ["close-all", "explode"] {
         assert!(
             html.contains(&form_action(&format!("/admin/tickets/-/actions/{name}"))),
             "the header offers {name}: {html}"
         );
     }
+    assert!(
+        html.contains("action=\"/admin/tickets/-/actions/open-ticket\""),
+        "the header offers open-ticket, whose input dialog posts to its route: {html}"
+    );
+    // Open-ticket asks for a `title`, which its dialog's own title must not share an id with.
+    let mut ids: Vec<&str> = html
+        .split(" id=\"")
+        .skip(1)
+        .map(|rest| &rest[..rest.find('"').expect("a closed id")])
+        .collect();
+    assert!(ids.iter().any(|id| id.ends_with("-field-title")), "{html}");
+    ids.sort_unstable();
+    let repeated: Vec<_> = ids
+        .windows(2)
+        .filter(|w| w[0] == w[1])
+        .map(|w| w[0])
+        .collect();
+    assert!(repeated.is_empty(), "the list repeats {repeated:?}");
     assert!(
         !html.contains("/admin/tickets/-/actions/flagged"),
         "an action its `can_run` refuses has no button: {html}"
@@ -404,14 +422,19 @@ async fn a_header_action_with_input_asks_for_it_then_runs_with_it() {
     let url = "/admin/tickets/-/actions/open-ticket";
 
     let page = post_fields(&router, url, &[]).await;
-    assert_eq!(page.status(), 200, "the button opens the input page");
+    assert_eq!(
+        page.status(),
+        200,
+        "an empty submission renders the input page"
+    );
     let html = body_string(page).await;
     assert!(
-        html.contains("name=\"title\"") && html.contains("name=\"-input\""),
-        "the page asks for the title and posts back the marker: {html}"
+        html.contains("name=\"title\"") && html.contains(&format!("action=\"{url}\"")),
+        "the page asks for the title and posts back here: {html}"
     );
+    assert!(tickets(&db).await.is_empty(), "nothing ran");
 
-    let refused = post_fields(&router, url, &[("-input", "1"), ("title", "bad")]).await;
+    let refused = post_fields(&router, url, &[("title", "bad")]).await;
     assert_eq!(
         refused.status(),
         200,
@@ -424,7 +447,7 @@ async fn a_header_action_with_input_asks_for_it_then_runs_with_it() {
     );
     assert!(tickets(&db).await.is_empty(), "and writes nothing");
 
-    let ran = post_fields(&router, url, &[("-input", "1"), ("title", "Fresh")]).await;
+    let ran = post_fields(&router, url, &[("title", "Fresh")]).await;
     assert_eq!(ran.status(), 303);
     let all = tickets(&db).await;
     assert_eq!(all.len(), 1);
@@ -567,6 +590,27 @@ async fn a_page_header_action_answers_403_where_the_page_does() {
         "a page with no action serves no action route: {}",
         plain.status()
     );
+}
+
+/// A header action's input searches its own options route, behind the checks its POST makes; past
+/// them, the route answers only for the input's own choices.
+#[tokio::test]
+async fn a_header_actions_options_route_asks_what_its_post_asks() {
+    let db = db().await;
+    let router = router(&db, Allow);
+    for (url, status) in [
+        (
+            "/admin/tickets/-/actions/open-ticket/options?field=title",
+            400,
+        ),
+        ("/admin/tickets/-/actions/flagged/options?field=title", 403),
+        ("/admin/ops/-/actions/sweep/options?field=title", 400),
+        ("/admin/ops/-/actions/flagged/options?field=title", 403),
+        ("/admin/locked/-/actions/sweep/options?field=title", 403),
+        ("/admin/ops/-/actions/unknown/options?field=title", 404),
+    ] {
+        assert_eq!(get(&router, url).await.status(), status, "{url}");
+    }
 }
 
 #[tokio::test]

@@ -13,12 +13,13 @@ use self::filter::BoxFilter;
 use crate::{
     DeclarationErrorKind, Lens,
     form::FormScalar,
-    schema::{Binding, FieldResolver},
+    schema::{Binding, FieldResolver, Schema},
 };
 
 pub(crate) mod column;
 mod export;
 pub(crate) mod filter;
+mod input;
 mod page;
 mod render;
 mod state;
@@ -35,12 +36,13 @@ pub use self::{
     wiring::WiredTable,
 };
 pub(crate) use self::{
+    input::{InputDialog, Posts, TableTarget, open_dialog, selected_count},
     page::{Past, row_exists_past},
     state::{
         ACTION_ROUTE_PARAM, ACTIONS_ROUTE_SEGMENT, BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT,
         DASH_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT, RECORD_ROUTE_PARAM,
-        RETURN_PARAM, bulk_action_url, create_page_url, delete_action_url, row_action_url,
-        with_return,
+        RETURN_PARAM, action_options_url, bulk_action_url, create_page_url, delete_action_url,
+        row_action_url, with_return,
     },
 };
 
@@ -106,7 +108,10 @@ pub(crate) struct TableAction<M> {
     pub(crate) label: String,
     pub(crate) row: bool,
     pub(crate) bulk: bool,
+    /// Whether the action confirms: in the confirmation dialog, or in its input dialog.
     pub(crate) confirm: bool,
+    /// The action's input form, when it asks for one: its buttons open the input's dialog.
+    pub(crate) input: Option<fn() -> Schema>,
     pub(crate) allowed: Arc<dyn Fn(&M) -> bool + Send + Sync>,
 }
 

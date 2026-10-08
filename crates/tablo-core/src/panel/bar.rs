@@ -10,8 +10,11 @@ use topcoat::{context::Cx, icon::icon, runtime::Event, view::*};
 use crate::{
     HeaderActions,
     policy::Ability,
-    resource::{HeaderEntry, Mounted, Places, Resource},
-    table::{bulk_action_url, delete_action_url, row_action_url, with_return},
+    resource::{HeaderEntry, InputSpec, Mounted, Places, Resource},
+    table::{
+        InputDialog, Posts, action_options_url, bulk_action_url, delete_action_url, open_dialog,
+        row_action_url, with_return,
+    },
 };
 
 /// The buttons of one page header, each a POST of its own form.
@@ -20,7 +23,8 @@ pub(crate) struct ActionBar {
     buttons: Vec<ActionButton>,
 }
 
-/// One button: a direct POST, or one a confirmation dialog asks for first.
+/// One button: a direct POST, one a confirmation dialog asks for first, or one whose dialog asks
+/// for the action's input.
 struct ActionButton {
     label: String,
     /// The POST target, with its `?return=` when the write lands back on this page.
@@ -28,6 +32,29 @@ struct ActionButton {
     /// The dialog's title, when the button confirms first.
     confirm: Option<&'static str>,
     delete: bool,
+    /// The action's input, when it asks for one.
+    input: Option<Input>,
+}
+
+/// What an action's input dialog renders.
+struct Input {
+    spec: InputSpec,
+    /// Whether the action confirms, which its dialog then says.
+    confirm: bool,
+    /// The action's options route.
+    options: String,
+}
+
+impl Input {
+    /// The input of an action that `takes_input`, confirming when `confirm`, whose options route
+    /// sits under `url` as `name`'s.
+    fn of(spec: InputSpec, confirm: bool, url: &str, name: &str) -> Option<Self> {
+        spec.takes_input.then(|| Self {
+            spec,
+            confirm,
+            options: action_options_url(url, name),
+        })
+    }
 }
 
 /// The bar of `actions` under `url`, a list's or a page's, each the request may run: one that
@@ -45,9 +72,10 @@ pub(crate) fn header_bar(
         .map(|action| ActionButton {
             label: (action.label)(cx),
             url: bulk_action_url(url.trim_end_matches('/'), action.name),
-            // An action with input confirms on its input page, which its button opens.
+            // An action with input confirms in its input dialog, which its button opens.
             confirm: (action.confirm && !action.input.takes_input).then_some("Run this action?"),
             delete: false,
+            input: Input::of(action.input, action.confirm, url, action.name),
         })
         .collect();
     ActionBar { buttons }
@@ -81,6 +109,7 @@ pub(crate) fn record_bar<R: Resource>(
             url: with_return(&row_action_url(&resource.url, &key, action.name), here),
             confirm: (action.confirm && !action.input.takes_input).then_some("Run this action?"),
             delete: false,
+            input: Input::of(action.input, action.confirm, &resource.url, action.name),
         })
         .collect();
     if resource.can(cx, Ability::DeleteAny) && resource.can(cx, Ability::Delete(record)) {
@@ -89,6 +118,7 @@ pub(crate) fn record_bar<R: Resource>(
             url: delete_action_url(&resource.url, &key),
             confirm: Some("Delete this record?"),
             delete: true,
+            input: None,
         });
     }
     ActionBar { buttons }
@@ -119,7 +149,7 @@ impl ActionBar {
             .buttons
             .into_iter()
             .map(|action| {
-                let id = dialog_id(&action.url);
+                let id = dialog_id(&action.url, action.input.is_some());
                 action.render(cx, &csrf, id)
             })
             .collect();
@@ -133,17 +163,19 @@ impl ActionBar {
     }
 }
 
-/// The DOM id of the dialog confirming a POST to `url`: a page that renders several bars, or one
-/// twice, never opens one button's dialog from another's.
-fn dialog_id(url: &str) -> String {
+/// The DOM id of the dialog confirming a POST to `url`, or asking for its `input`: a page that
+/// renders several bars, or one twice, never opens one button's dialog from another's.
+fn dialog_id(url: &str, input: bool) -> String {
     use std::hash::{BuildHasher, BuildHasherDefault, DefaultHasher};
     let hash = BuildHasherDefault::<DefaultHasher>::default().hash_one(url);
-    format!("action-confirm-{hash:016x}")
+    let kind = if input { "input" } else { "confirm" };
+    format!("action-{kind}-{hash:016x}")
 }
 
 impl ActionButton {
     /// A direct button submits its own form. A confirming one opens the alert dialog `id`, whose
-    /// form carries the `confirm=1` marker the handlers require; Cancel and Escape close it.
+    /// form carries the `confirm=1` marker the handlers require; Cancel and Escape close it. One
+    /// asking for input opens the dialog `id` holding its input form.
     fn render<'a>(self, cx: &'a Cx, csrf: &str, id: String) -> BoxView<'a> {
         let token = crate::csrf::field(cx, csrf);
         let Self {
@@ -151,6 +183,7 @@ impl ActionButton {
             url,
             confirm,
             delete,
+            input,
         } = self;
         let variant = if delete {
             ButtonVariant::Destructive
@@ -166,6 +199,33 @@ impl ActionButton {
             (label)
         }
         .boxed();
+        if let Some(Input {
+            spec,
+            confirm,
+            options,
+        }) = input
+        {
+            let dialog = InputDialog {
+                id: id.clone(),
+                title: confirm_label.clone(),
+                label: confirm_label,
+                confirm,
+                input: spec.schema,
+                options,
+            }
+            .render(cx, Posts::To(url.clone()));
+            return view! {
+                cx =>
+                button(
+                    variant: variant,
+                    size: ButtonSize::Md,
+                    attrs: open_dialog(cx, &id, None),
+                    (face)
+                )
+                (dialog)
+            }
+            .boxed();
+        }
         let Some(title) = confirm else {
             return view! {
                 cx =>

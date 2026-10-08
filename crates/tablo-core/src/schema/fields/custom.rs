@@ -30,11 +30,12 @@ pub trait Control: Send + Sync {
     fn render<'a>(&self, cx: &'a Cx, input: ControlInput) -> BoxView<'a>;
 }
 
-/// What a [`Control`] renders for one form: the field's key, its current
-/// value, and its validation state.
+/// What a [`Control`] renders for one form: the field's key, its DOM id, its current value, and
+/// its validation state.
 #[derive(Debug, Clone)]
 pub struct ControlInput {
     name: String,
+    id: String,
     value: Option<String>,
     required: bool,
     invalid: bool,
@@ -44,6 +45,7 @@ pub struct ControlInput {
 impl ControlInput {
     pub(crate) fn new(
         name: &str,
+        id: &str,
         value: Option<&str>,
         required: bool,
         invalid: bool,
@@ -51,6 +53,7 @@ impl ControlInput {
     ) -> Self {
         Self {
             name: name.to_string(),
+            id: id.to_string(),
             value: value.map(str::to_string),
             required,
             invalid,
@@ -60,6 +63,12 @@ impl ControlInput {
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    /// The control's DOM id, which its label names: the key, prefixed when its form shares the
+    /// page with another, such as an action's input in a dialog.
+    pub fn id(&self) -> &str {
+        &self.id
     }
 
     pub fn value(&self) -> Option<&str> {
@@ -82,7 +91,7 @@ impl ControlInput {
         let required = self.required;
         attributes! {
             cx =>
-            id=(self.name.clone())
+            id=(self.id.clone())
             name=(self.name.clone())
             value=(self.value.clone())
             required=(required)
@@ -100,6 +109,7 @@ pub struct Toggle;
 impl Control for Toggle {
     fn render<'a>(&self, cx: &'a Cx, input: ControlInput) -> BoxView<'a> {
         let name = input.name().to_string();
+        let id = input.id().to_string();
         let checked = input.value().is_some_and(|v| v.trim() == "true");
         let invalid = if input.invalid() { "true" } else { "false" };
         let described_by = input.described_by().map(str::to_string);
@@ -108,7 +118,7 @@ impl Control for Toggle {
             <input type="hidden" name=(name.clone()) value="false">
             ui_checkbox(
                 attrs: attributes! {
-                    id=(name.clone())
+                    id=(id)
                     name=(name)
                     value="true"
                     checked=(checked)

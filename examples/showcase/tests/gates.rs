@@ -125,10 +125,10 @@ async fn forged_posts_answer_403_and_change_nothing() {
     ] {
         for (body, label) in [
             (
-                format!("confirm=1&-input=1&tag=draft&csrf_token={field}"),
+                format!("confirm=1&tag=draft&csrf_token={field}"),
                 "mismatched token",
             ),
-            ("confirm=1&-input=1&tag=draft".to_string(), "missing token"),
+            ("confirm=1&tag=draft".to_string(), "missing token"),
         ] {
             let resp = client.csrf(&cookie).post_form(path, body).await;
             assert_eq!(
@@ -512,6 +512,7 @@ async fn blocked_tenant_is_refused_on_every_read_route() {
         "/admin/posts".to_string(),
         "/admin/posts/export".to_string(),
         format!("/admin/posts/{}", blocked_post.id),
+        "/admin/posts/-/actions/tag/options?field=tags".to_string(),
     ] {
         let resp = blocked.get(&path).await;
         assert_eq!(
@@ -550,6 +551,8 @@ async fn anonymous_requests_are_gated_on_every_route() {
         format!("/admin/posts/{}/edit", post.id),
         "/admin/posts/export".to_string(),
         "/admin/posts/options?q=a".to_string(),
+        "/admin/posts/-/actions/tag/options?field=tags".to_string(),
+        "/admin/-/actions/feature-tagged/options?field=tag".to_string(),
     ] {
         let resp = client.get(&path).await;
         assert_eq!(
@@ -651,7 +654,7 @@ async fn header_actions_stay_in_their_tenant_and_policy() {
     let resp = blocked
         .post_form(
             "/admin/-/actions/feature-tagged",
-            form_body(&[("-input", "1"), ("tag", "draft"), ("csrf_token", &csrf)]),
+            form_body(&[("tag", "draft"), ("csrf_token", &csrf)]),
         )
         .await;
     assert_eq!(
@@ -665,11 +668,7 @@ async fn header_actions_stay_in_their_tenant_and_policy() {
         .csrf(&csrf)
         .post_form(
             "/admin/-/actions/feature-tagged",
-            form_body(&[
-                ("-input", "1"),
-                ("tag", "nothing-carries-this"),
-                ("csrf_token", &csrf),
-            ]),
+            form_body(&[("tag", "nothing-carries-this"), ("csrf_token", &csrf)]),
         )
         .await;
     assert_eq!(

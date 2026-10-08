@@ -83,11 +83,12 @@ impl Field {
         cx: &'a Cx,
         value: Option<&str>,
         error: Option<&str>,
+        id: String,
     ) -> Result<BoxView<'a>> {
         let name = self.name().to_string();
         let required = self.is_required();
         let placeholder = text.placeholder.clone();
-        let chrome = FieldChrome::new(self.name(), error, None);
+        let chrome = FieldChrome::new(id.clone(), error, None);
         let aria_invalid = chrome.aria_invalid();
         let described_by = chrome.described_by();
         let control = if let Some(rows) = text.rows {
@@ -97,7 +98,7 @@ impl Field {
                 cx =>
                 ui_textarea(
                     attrs: attributes! {
-                        id=(name.clone())
+                        id=(id.clone())
                         name=(name.clone())
                         placeholder=(placeholder.clone())
                         rows=(rows)
@@ -123,7 +124,7 @@ impl Field {
                 cx =>
                 ui_input(
                     attrs: attributes! {
-                        id=(name.clone())
+                        id=(id.clone())
                         type=(input_type)
                         name=(name.clone())
                         value=(value_owned.clone())

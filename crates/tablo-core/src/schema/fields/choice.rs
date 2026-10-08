@@ -11,7 +11,7 @@ use super::{
         RelationshipLoadFuture, RelationshipLoader, RelationshipSearchLoader, related_record_check,
         related_records, related_records_search,
     },
-    Field, FieldChrome, render_field,
+    Field, FieldChrome, Placement, render_field,
 };
 
 /// What a choice field declares beyond presence.
@@ -334,15 +334,18 @@ fn load_failure(error: &OptionLoadError) -> &'static str {
 }
 
 impl Field {
-    /// Renders a choice field's select, offering what its parent's value `parent` selects.
+    /// Renders a choice field's select with the DOM id `id`, offering what its parent's value
+    /// selects.
     pub(super) async fn render_choice<'a>(
         &self,
         choice: &ChoiceControl,
         cx: &'a Cx,
         value: Option<&str>,
         error: Option<&str>,
-        parent: Option<&str>,
+        id: String,
+        placement: Placement<'_>,
     ) -> Result<BoxView<'a>> {
+        let parent = placement.parent;
         let name = self.name().to_string();
         let required = self.required;
         let searchable = choice.searchable;
@@ -365,7 +368,7 @@ impl Field {
             options.push((current.clone(), current.clone()));
         }
         let chrome = FieldChrome::new(
-            &name,
+            id.clone(),
             error,
             denied.then(|| format!("{} is not available", self.label_str())),
         );
@@ -378,7 +381,7 @@ impl Field {
         for (val, lab) in &options {
             option_views.push(option_view(cx, val.clone(), lab.clone(), current == *val));
         }
-        let list_id = format!("{name}-options-list");
+        let list_id = format!("{id}-options-list");
         let filter_label = format!("Filter {} options", self.label_str());
         // A dependent choice fetches its options again when its parent changes, and a searchable
         // one fetches as the user types past the cap.
@@ -388,6 +391,10 @@ impl Field {
             .map(|_| parent.unwrap_or("").trim().to_string());
         let options_field = (overflow_searchable || dependent.is_some()).then(|| name.clone());
         let options_server = overflow_searchable.then_some("true");
+        let options_url = options_field
+            .as_ref()
+            .and(placement.options)
+            .map(str::to_string);
         let overflow_hint = "Too many options — type to search".to_string();
         // A searchable dependent choice may overflow after its parent changes, so it always
         // renders the hint, hidden until then.
@@ -434,7 +441,7 @@ impl Field {
             }
             ui_select(
                 attrs: attributes! {
-                    id=(name.clone())
+                    id=(id)
                     name=(name.clone())
                     required=(required)
                     aria-required=(required.then_some("true"))
@@ -456,6 +463,7 @@ impl Field {
                 cx =>
                 data-select-filterable=""
                 data-options-field=(options_field)
+                data-options-url=(options_url)
                 data-options-server=(options_server)
                 data-options-parent=(dependent)
                 data-options-parent-value=(parent_value)

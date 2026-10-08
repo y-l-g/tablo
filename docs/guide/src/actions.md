@@ -141,17 +141,24 @@ same way:
 {{#include ../../../examples/guide/src/actions.rs:input-action}}
 ```
 
-Its button opens an input page instead of running: the POST that would run the action renders
-the input's form, after the same checks. A record action's page is titled with the label and the
-record's title, or the record count for a selection, after the policy, `can_run` and tenancy
-checks; a header action's is titled with its label. Its submit POSTs to the same route with the
-input, and the action runs, on the records that pass the checks again for a record action, in one
-transaction. A value the input refuses renders the page again with the error under its control
-and writes nothing; a key the input does not declare answers 400. `validate_input` adds refusals
-of its own, each under an input field's key, such as a reason too short to act on. An action with
-input and `CONFIRM` confirms on the input page, which says the action cannot be undone and whose
-submit renders destructive, instead of in the dialog. Cancel returns to the page the button was
-on. The input page works without JavaScript.
+Its button opens the input's form in a dialog over the page instead of running, titled with the
+action's label; on the bulk bar, the dialog counts the selection. The dialog submits the input to
+the action's route, and the action runs, on the records that pass the policy, `can_run` and
+tenancy checks for a record action, in one transaction. Cancel and Escape close the dialog, and
+opening it again starts from a blank form. A table renders one dialog per action, which each row's
+button points at its own record.
+
+A value the input refuses renders the input as a page, with the error under its control, and
+writes nothing; a key the input does not declare answers 400. The page posts to the same route.
+`validate_input` adds refusals of its own, each under an input field's key, such as a reason too
+short to act on. A record action's page is titled with the label and the record's title, or the
+record count for a selection; a header action's is titled with its label. Cancel returns to the
+page the button was on. An action with input and `CONFIRM` confirms in its input dialog and on its
+page, which say the action cannot be undone and whose submit renders destructive, instead of in
+the confirmation dialog. Like the confirmation dialog, the input dialog needs JavaScript.
+
+A searchable relationship choice in the input searches `GET {url}/-/actions/{NAME}/options` under
+the list or the page, behind the same checks as the action's POST before it loads a record.
 
 Each field posts its own name and renders the control its type picks: a `bool` is a checkbox,
 `#[form(options)]` a choice over the field type's `Options` and `#[form(options = T)]` one over
@@ -160,7 +167,7 @@ record form: `#[form(blank = ..)]`, `#[form(optional)]` on a `String`, an `Optio
 gives it one. `#[form(label = "..")]` labels the control, `#[form(placeholder = "..")]` sets a text
 input's placeholder, and `#[form(multiline = N)]` makes it a `<textarea>`. An `Option` choice
 names its options type, `#[form(options = PostStatus)]`. Mounting the panel refuses an input field
-named `csrf_token`, `confirm`, `ids` or `-input`, which the action's POST carries itself, and a
+named `csrf_token`, `confirm` or `ids`, which the action's POST carries itself, and a
 file field, whose upload an action's POST does not read.
 
 ## Names

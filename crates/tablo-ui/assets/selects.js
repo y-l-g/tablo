@@ -18,6 +18,8 @@
 //   `data-options-server="true"` + `data-options-field="<name>"`. Typing
 //   debounces (200ms, abort in-flight) a `GET
 //   {parent_list_url}/options?field=&q=` fetch that replaces the `<select>`
+//   (or `GET {data-options-url}?field=&q=` when the wrapper names the route,
+//   as an action's input does: `{url}/-/actions/{name}/options`)
 //   options with server markup, preserving the current selection and the
 //   placeholder; the list re-renders from the replaced options. The hint
 //   ("Too many options — type to search") is server-rendered and stays
@@ -44,7 +46,11 @@
 const serverTimers = new WeakMap();
 const serverControllers = new WeakMap();
 
-function parentOptionsBase() {
+// The options route of the choice in `wrap`: the one the server names, an
+// action's input route, or else the resource's own, derived from the page.
+function optionsBase(wrap) {
+  const named = wrap.getAttribute('data-options-url');
+  if (named) return named;
   const path = window.location.pathname.replace(/\/$/, '');
   // /admin/posts/create -> /admin/posts ; /admin/posts/<id>/edit -> /admin/posts
   const base = path
@@ -115,7 +121,7 @@ async function refreshDependent(wrap, parentValue) {
   if (parentValue !== '') {
     const controller = new AbortController();
     dependentControllers.set(wrap, controller);
-    const url = `${parentOptionsBase()}?field=${encodeURIComponent(field)}${parentParam(wrap)}`;
+    const url = `${optionsBase(wrap)}?field=${encodeURIComponent(field)}${parentParam(wrap)}`;
     try {
       const res = await fetch(url, {
         headers: { Accept: 'text/html' },
@@ -177,7 +183,7 @@ async function serverSearch(filter, wrap, select, field, needle) {
   const controller = new AbortController();
   serverControllers.set(filter, controller);
   const current = select.value;
-  const url = `${parentOptionsBase()}?field=${encodeURIComponent(field)}&q=${encodeURIComponent(needle)}${parentParam(wrap)}`;
+  const url = `${optionsBase(wrap)}?field=${encodeURIComponent(field)}&q=${encodeURIComponent(needle)}${parentParam(wrap)}`;
   let html;
   try {
     const res = await fetch(url, {

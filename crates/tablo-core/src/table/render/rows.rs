@@ -8,7 +8,7 @@ use topcoat::{context::Cx, icon::icon, runtime::Event, view::*};
 use super::{
     super::{GroupKey, RowActions, WiredTable},
     Frame,
-    dialog::write_trigger,
+    dialog::{input_trigger, write_trigger},
 };
 use crate::table::{
     page::TablePage,
@@ -170,16 +170,26 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxV
     let custom: Vec<BoxView<'a>> = row
         .custom
         .iter()
-        .map(|(label, url, confirm)| {
-            let confirm = confirm.then_some(("Run this action?", "Confirm"));
-            let mut attrs = write_trigger(
-                cx,
-                &chrome.form,
-                &chrome.signals,
-                url.clone(),
+        .map(|action| {
+            let RowButton {
+                label,
+                url,
                 confirm,
-                false,
-            );
+                input,
+            } = action;
+            let mut attrs = match input {
+                Some(name) => {
+                    input_trigger(cx, &chrome.form, &chrome.signals, name, url.clone(), false)
+                }
+                None => write_trigger(
+                    cx,
+                    &chrome.form,
+                    &chrome.signals,
+                    url.clone(),
+                    confirm.then_some(("Run this action?", "Confirm")),
+                    false,
+                ),
+            };
             attrs.extend(attributes! { cx => aria-describedby=(described.clone()) });
             let label = label.clone();
             view! {
@@ -260,9 +270,8 @@ pub(super) struct RowView<'a> {
     edit_url: Option<String>,
     /// The row's delete POST target, which the confirmation dialog posts.
     delete_action: Option<String>,
-    /// The custom row actions this record allows: each button's label,
-    /// its POST target, and whether it asks first through the dialog.
-    custom: Vec<(String, String, bool)>,
+    /// The custom row actions this record allows.
+    custom: Vec<RowButton>,
     /// Whether the row renders a bulk checkbox.
     selectable: bool,
     /// The row's group label, when `?group_by=` names the declared group.
@@ -270,6 +279,17 @@ pub(super) struct RowView<'a> {
     /// The header this row renders above itself, `Some` only on the first row
     /// of its group.
     group_header: Option<GroupHeader>,
+}
+
+/// One custom action's button in a row.
+struct RowButton {
+    label: String,
+    /// The action's POST target for the row's record.
+    url: String,
+    /// Whether it asks first through the confirmation dialog.
+    confirm: bool,
+    /// The action's name when it asks for input, which its dialog then does.
+    input: Option<&'static str>,
 }
 
 /// One page-local group header: the label with its page-local count and the stable DOM id the
@@ -337,7 +357,13 @@ impl<M> WiredTable<M> {
                             .filter(|action| (action.allowed)(row))
                             .map(|action| {
                                 let url = row_action_url(prefix, &key, action.name);
-                                (action.label.clone(), frame.action_url(url), action.confirm)
+                                let input = action.input.map(|_| action.name);
+                                RowButton {
+                                    label: action.label.clone(),
+                                    url: frame.action_url(url),
+                                    confirm: action.confirm && input.is_none(),
+                                    input,
+                                }
                             })
                             .collect()
                     })

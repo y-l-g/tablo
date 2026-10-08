@@ -11,10 +11,11 @@ a state predicate on the record, asked after `Run`. A record refused `View` fail
 a record refused `Run` or `can_run` is skipped from a selection, as a record refused `Delete` is
 skipped from a bulk delete.
 
-An action that asks for input (`Action::Input`) renders it as a form page from the same POST
-route, after the same checks and before any write, and rolls the transaction back. The page's
-submit POSTs again with the input, which repeats every check inside a new transaction before `run`
-receives the parsed value; a refused value re-renders the page and writes nothing. As for a record
+An action that asks for input (`Action::Input`) asks for it in a dialog, which carries no record
+data, as the confirmation dialog does. Its submit POSTs the input to the action's route, which runs
+every check before `run` receives the parsed value. A refused value renders the input as a form
+page from that route, after the same checks and before any write, and rolls the transaction back;
+the page posts back to the same route. As for a record
 form, the input is parsed, validated and checked before the transaction opens, so a choice's
 option query never waits on the connection the transaction holds, and a relationship choice is
 re-checked inside it.

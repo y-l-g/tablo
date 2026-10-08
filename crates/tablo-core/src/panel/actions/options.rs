@@ -1,18 +1,22 @@
 //! Relationship option search endpoint (D2/D5):
 //! `GET {parent_list_url}/options?field=&q=&parent=` for tables above the option cap and for
-//! dependent choices.
+//! dependent choices, and `GET {url}/-/actions/{name}/options?field=&q=` for an action's input.
 
 use topcoat::{
     context::Cx,
-    router::{Body, RouteFuture, error::forbidden},
+    router::{
+        Body, RouteFuture,
+        error::{forbidden, not_found},
+        path_param_segment,
+    },
     view::*,
 };
 
-use super::super::gate::gate;
+use super::{super::gate::gate, mutation::header_allowed};
 use crate::{
     error::TabloError,
     query_term::clamp_query_term,
-    resource::Resource,
+    resource::{InputSpec, Resource},
     schema::{OptionLoadError, Schema, option_view},
 };
 
@@ -40,6 +44,41 @@ pub(crate) fn resource_options<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture
         let resource = gate::<R>(cx)?;
         options_response(cx, &resource.form).await
     })
+}
+
+/// The option search of a resource action's input: `GET {list}/-/actions/{name}/options`, for
+/// a header action, or a custom action on any place.
+///
+/// Asks what the action's POST asks before it loads a record: a header action's list checks, or
+/// a custom action's resource-wide ability. The search then gates the related rows as the form's
+/// own route does.
+pub(crate) fn resource_action_options<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<'_> {
+    Box::pin(async move {
+        let resource = gate::<R>(cx)?;
+        let name = path_param_segment(cx, "action");
+        let input = if let Some(header) = resource.header_actions.find(name) {
+            if !header_allowed(cx, &resource, header) {
+                return Err(forbidden().into());
+            }
+            header.input
+        } else if let Some(action) = resource.actions.find(name) {
+            if !resource.can(cx, action.resource_wide) {
+                return Err(forbidden().into());
+            }
+            action.input
+        } else {
+            return Err(not_found().into());
+        };
+        input_options(cx, input).await
+    })
+}
+
+/// Answers the option search of the input `spec` of an action.
+pub(crate) async fn input_options(
+    cx: &Cx,
+    spec: InputSpec,
+) -> topcoat::Result<http::Response<Body>> {
+    options_response(cx, &(spec.schema)()).await
 }
 
 /// Answers the option search for the relationship field of `form` the query names.

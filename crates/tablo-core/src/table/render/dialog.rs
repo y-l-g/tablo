@@ -1,17 +1,17 @@
-//! The table's write form and the dialog that confirms its destructive writes.
+//! The table's write form, the dialog that confirms its destructive writes, and the dialogs
+//! asking for its custom actions' input.
 
 use tablo_ui::{
     ButtonSize, ButtonVariant, alert_dialog, button, dialog_content, dialog_description,
     dialog_footer, dialog_header, dialog_title,
 };
-use topcoat::{
-    context::Cx,
-    runtime::{Event, expr},
-    view::*,
-};
+use topcoat::{context::Cx, runtime::Event, view::*};
 
 use super::{Frame, table_dom_id};
-use crate::table::state::{ConfirmSignals, TableSignals, TableState};
+use crate::table::{
+    InputDialog, Posts, action_options_url, open_dialog, selected_count,
+    state::{ConfirmSignals, TableSignals, TableState},
+};
 
 impl Frame<'_> {
     /// Whether the table posts any write: a delete or a custom action.
@@ -46,16 +46,7 @@ impl Frame<'_> {
             bulk: counts,
         } = signals.confirm.clone();
         let selection = signals.bulk.clone();
-        let count = expr!({
-            let wire = selection.get();
-            raw!(
-                "cx.hydrate(String(String(${wire}).split(',').filter(Boolean).length))",
-                wire.split(',')
-                    .filter(|key| !key.is_empty())
-                    .count()
-                    .to_string()
-            )
-        });
+        let count = selected_count(cx, selection.clone());
         Some(
             view! {
                 cx =>
@@ -112,6 +103,66 @@ impl Frame<'_> {
             .boxed(),
         )
     }
+
+    /// Render the dialog of each custom action asking for input, which its row and bulk buttons
+    /// point at their own POST targets before opening it.
+    pub(super) fn render_input_dialogs<'a>(
+        &self,
+        cx: &'a Cx,
+        state: &TableState,
+        signals: &TableSignals,
+    ) -> Vec<BoxView<'a>> {
+        let Some(list) = self.actions_prefix else {
+            return Vec::new();
+        };
+        let form = table_dom_id(state, "writes");
+        self.inputs
+            .iter()
+            .map(|action| {
+                let dialog = InputDialog {
+                    id: input_dialog_id(&form, action.name),
+                    title: action.label.to_string(),
+                    label: action.label.to_string(),
+                    confirm: action.confirm,
+                    input: action.input,
+                    options: action_options_url(list, action.name),
+                };
+                dialog.render(
+                    cx,
+                    Posts::Table {
+                        target: signals.inputs[action.name].clone(),
+                        selection: signals.bulk.clone(),
+                    },
+                )
+            })
+            .collect()
+    }
+}
+
+/// The DOM id of the input dialog of the action `name`, in the table whose write form is `form`.
+fn input_dialog_id(form: &str, name: &str) -> String {
+    format!("{form}-input-{name}")
+}
+
+/// The attributes of the button of the action `name`, which asks for input: it opens the
+/// action's dialog on `action`, the row's or the bulk route, on the selection when `bulk`. It
+/// carries `action` as `formaction` only to name the write, as a confirming trigger does.
+pub(super) fn input_trigger(
+    cx: &Cx,
+    form: &str,
+    signals: &TableSignals,
+    name: &'static str,
+    action: String,
+    bulk: bool,
+) -> Attributes {
+    let mut attrs = attributes! { cx => formaction=(action.clone()) };
+    let target = signals.inputs[name].clone();
+    attrs.extend(open_dialog(
+        cx,
+        &input_dialog_id(form, name),
+        Some((target, action, bulk)),
+    ));
+    attrs
 }
 
 /// A write control's attributes: a direct write submits the table's write `form` to `action`, and a

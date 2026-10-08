@@ -12,16 +12,18 @@ impl Field {
         cx: &'a Cx,
         value: Option<&str>,
         error: Option<&str>,
+        id: String,
     ) -> Result<BoxView<'a>> {
         let name = self.name().to_string();
         // Required only while nothing is stored.
         let stored = stored_path(value);
         let is_edit = stored.is_some();
         let control_required = self.required && !is_edit;
-        let chrome = FieldChrome::new(&name, error, None);
-        let hint_id = format!("{name}-hint");
+        let chrome = FieldChrome::new(id.clone(), error, None);
+        let hint_id = format!("{id}-hint");
         // The clear flag is a transport key stripped before any record fn.
         let clear_name = format!("clear_{name}");
+        let clear_id = format!("clear_{id}");
         // A value that is not a rooted path or `http(s)` URL renders as text.
         let stored_display: Option<BoxView<'a>> =
             stored.map(|current| stored_upload_row(cx, current));
@@ -36,7 +38,7 @@ impl Field {
             }
             ui_input(
                 attrs: attributes! {
-                    id=(name.clone())
+                    id=(id)
                     type="file"
                     name=(name.clone())
                     required=(control_required)
@@ -51,17 +53,10 @@ impl Field {
                 </div>
                 <div class="mt-2 flex items-center gap-2">
                     ui_checkbox(
-                        attrs: attributes! {
-                            id=(clear_name.clone())
-                            name=(clear_name.clone())
-                            value="1"
-                        }
+                        attrs: attributes! { id=(clear_id.clone()) name=(clear_name) value="1" }
                     )
                     ui_label(
-                        attrs: attributes! {
-                            for=(clear_name.clone())
-                            class="text-xs text-muted-foreground"
-                        },
+                        attrs: attributes! { for=(clear_id) class="text-xs text-muted-foreground" },
                         "Remove the current file"
                     )
                 </div>
