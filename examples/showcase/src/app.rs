@@ -3,11 +3,11 @@
 use std::path::PathBuf;
 
 use tablo::{
-    Ability, Action, Auth, BooleanColumn, Brand, ColumnWidth, Committed, ComputedColumn,
-    CountColumn, DateFilter, Detail, EmbeddedColumn, FieldErrors, Grid, Group, Panel, PublicLink,
-    QueryFilter, RecordForm, Relation, RelationColumn, Resource, ResourceDef,
-    RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy, TernaryFilter,
-    TextColumn, Uploader, lens, relation, tenant_id, when,
+    Ability, Action, Auth, BooleanColumn, Brand, ColumnWidth, ComputedColumn, CountColumn,
+    DateFilter, Detail, EmbeddedColumn, FieldErrors, Grid, Group, Panel, PublicLink, QueryFilter,
+    RecordForm, Relation, RelationColumn, Resource, ResourceDef, RouterBuilderPanelExt, Schema,
+    Section, SelectFilter, Table, Tenancy, TernaryFilter, TextColumn, Uploader, lens, relation,
+    tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -21,7 +21,6 @@ use topcoat::{
 
 use crate::{
     dashboard::Dashboard,
-    live::LiveActivityPage,
     media::{MediaLibrary, MediaLibraryPage},
     models::{
         Author, BLOCKED_TENANT, Comment, MediaAsset, Post, PostStatus, Publication,
@@ -87,12 +86,6 @@ impl Resource for UserResource {
             errors.add(UserFormField::Age, "Age must be zero or more");
         }
         errors
-    }
-
-    /// Wakes the live feed after a committed write.
-    async fn after_commit(_cx: &Cx, _committed: Committed<User>) -> Result<()> {
-        crate::live::notify();
-        Ok(())
     }
 }
 
@@ -530,7 +523,6 @@ pub fn admin_panel() -> Panel {
         .resource::<PostResource>()
         .resource::<CommentResource>()
         .page::<MediaLibraryPage>()
-        .page::<LiveActivityPage>()
 }
 
 pub fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf>) -> Router {
