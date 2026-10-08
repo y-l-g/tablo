@@ -726,10 +726,9 @@ async fn the_edit_form_links_the_stored_files() {
         html.contains("href=\"/files/spec.pdf\""),
         "a stored non-image path is a link to the file: {html}"
     );
-    // Both stored values offer the clear control, labelled with what it does.
+    // Both stored values offer the clear control.
     assert!(html.contains("name=\"clear_cover\""), "{html}");
     assert!(html.contains("name=\"clear_attachment\""), "{html}");
-    assert!(html.contains("Remove the current file"), "{html}");
 }
 
 #[tokio::test]

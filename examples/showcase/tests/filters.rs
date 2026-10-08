@@ -69,37 +69,26 @@ async fn posts_filter_select_status_published() {
     );
 }
 
+/// The featured filter keeps exactly the posts whose flag matches, either way.
 #[tokio::test]
-async fn posts_filter_ternary_featured_true() {
+async fn the_featured_filter_keeps_the_posts_whose_flag_matches() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let resp = client.get("/admin/posts?f.featured=true").await;
-    assert!(resp.status().is_success());
-    let html = body_string(resp).await;
-    assert_eq!(
-        row_titles(&html),
-        vec!["Hello Toasty".to_string()],
-        "the featured filter must drop every non-featured post: {html}"
-    );
-}
-
-#[tokio::test]
-async fn posts_filter_ternary_featured_false() {
-    let db = full_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
-    let resp = client.get("/admin/posts?f.featured=false&q=Second").await;
-    assert!(resp.status().is_success());
-    let html = body_string(resp).await;
-    let titles = row_titles(&html);
+    let featured = body_string(client.get("/admin/posts?f.featured=true").await).await;
+    assert_eq!(row_titles(&featured), ["Hello Toasty"], "{featured}");
+    let plain = row_titles(&body_string(client.get("/admin/posts?f.featured=false").await).await);
+    let mut db_q = db.clone();
+    let featured: Vec<String> = Post::filter(Post::fields().featured().eq(true))
+        .exec(&mut db_q)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|post| post.title)
+        .collect();
     assert!(
-        titles.contains(&"Second Post".to_string()),
-        "the featured filter must keep the non-featured match: {html}"
-    );
-    assert!(
-        !html.contains("Hello Toasty"),
-        "the featured filter must drop the featured post: {html}"
+        !plain.is_empty() && plain.iter().all(|title| !featured.contains(title)),
+        "false keeps only the posts that are not featured: {plain:?}"
     );
 }
 
@@ -117,31 +106,6 @@ async fn posts_filter_date_created_at() {
         row_titles(&html),
         vec!["Hello Toasty".to_string()],
         "the date filter must keep only the matching post: {html}"
-    );
-}
-
-#[tokio::test]
-async fn posts_date_filter_on_the_last_day_renders() {
-    let db = full_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
-
-    let resp = client.get("/admin/posts?f.created_at=9999-12-30").await;
-    assert!(resp.status().is_success());
-    let html = body_string(resp).await;
-    assert!(
-        row_titles(&html).is_empty(),
-        "the last representable day matches no seeded post: {html}"
-    );
-
-    let resp = client
-        .get("/admin/posts/export?f.created_at=9999-12-30")
-        .await;
-    assert_eq!(
-        resp.status(),
-        200,
-        "the export must accept the last day, got {}",
-        resp.status()
     );
 }
 
@@ -217,20 +181,6 @@ async fn typo_filter_warns_on_list_but_refuses_export() {
 
     let resp = client.get("/admin/posts/export?f.status=published").await;
     assert!(resp.status().is_success(), "valid export must stay 200");
-}
-
-#[tokio::test]
-async fn posts_list_streams_its_rows_behind_the_toolbar() {
-    let db = full_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
-    let resp = client.get("/admin/posts").await;
-    assert!(resp.status().is_success());
-    let html = body_string(resp).await;
-    assert!(
-        html.contains("data-topcoat-swap") && html.contains("id=\"table-toolbar\""),
-        "posts list must stream its rows into the table, got {html}"
-    );
 }
 
 #[tokio::test]

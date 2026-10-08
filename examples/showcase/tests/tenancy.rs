@@ -295,8 +295,9 @@ async fn comments_search_is_scoped_through_parent_post() {
 
     let resp = client.tenant(t1).get("/admin/comments?q=T1+comment").await;
     let html = body_string(resp).await;
-    assert!(
-        !html.contains("No matches"),
+    assert_eq!(
+        tablo::testing::empty_table(&html),
+        None,
         "t1 search must find its own comment: {html}"
     );
     assert!(

@@ -3110,8 +3110,6 @@ dependencies = [
  "http",
  "http-body-util",
  "jiff",
- "percent-encoding",
- "serde_json",
  "tablo",
  "tablo-build",
  "toasty",

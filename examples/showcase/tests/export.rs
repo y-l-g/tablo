@@ -14,12 +14,13 @@ async fn posts_export_bom_opt_in_prepends_bom() {
         "bom=1 export must start with BOM, got {csv:?}"
     );
 
-    let resp = client.get("/admin/posts/export").await;
-    let csv = body_string(resp).await;
-    assert!(
-        !csv.starts_with('\u{FEFF}'),
-        "default export must stay BOM-free, got {csv:?}"
-    );
+    for uri in ["/admin/posts/export", "/admin/posts/export?bom=0"] {
+        let csv = body_string(client.get(uri).await).await;
+        assert!(
+            !csv.starts_with('\u{FEFF}'),
+            "{uri} must stay BOM-free, got {csv:?}"
+        );
+    }
 }
 
 #[tokio::test]

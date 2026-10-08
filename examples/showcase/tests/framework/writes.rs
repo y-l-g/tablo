@@ -1,10 +1,13 @@
 //! The write routes over test-local resources: the policy and failure paths the showcase's own
 //! resources never take.
 
-use tablo::{Ability, lens};
+use tablo::{Ability, NotificationStatus, lens};
 use toasty::Db;
 
-use crate::common::{TestClient, body_string, mount, response_cookies, set_cookie_header};
+use crate::{
+    common::{TestClient, body_string, mount, set_cookie_header},
+    framework::common::flash,
+};
 
 #[tokio::test]
 async fn create_policy_deny() {
@@ -368,17 +371,6 @@ async fn bulk_delete_hand_crafted_partial_deny_skips_the_refused_row() {
                 .await
         }
     };
-    let flash = |resp: &http::Response<topcoat::router::Body>| {
-        response_cookies(resp)
-            .into_iter()
-            .find(|(name, _)| name.ends_with("tablo_notification"))
-            .map(|(_, value)| {
-                percent_encoding::percent_decode_str(&value)
-                    .decode_utf8_lossy()
-                    .into_owned()
-            })
-            .unwrap_or_default()
-    };
     let mut db_check = db.clone();
 
     let refused = bulk_delete(b.id.to_string()).await;
@@ -387,20 +379,21 @@ async fn bulk_delete_hand_crafted_partial_deny_skips_the_refused_row() {
         303,
         "a refused selection returns to the list"
     );
-    assert!(
-        flash(&refused).contains("nothing was changed"),
-        "the notification says nothing was deleted: {}",
-        flash(&refused)
+    assert_eq!(
+        flash(&refused).status,
+        NotificationStatus::Error,
+        "a refused selection is an error"
     );
     let remaining = DummyUser::all().exec(&mut db_check).await.unwrap();
     assert_eq!(remaining.len(), 2, "a refused selection deletes nothing");
 
     let partial = bulk_delete(format!("{},{}", a.id, b.id)).await;
     assert_eq!(partial.status(), 303, "a partial deny returns to the list");
+    let partial = flash(&partial);
     assert!(
-        flash(&partial).contains("Bulk deleted (1 of 2 skipped)"),
+        partial.status == NotificationStatus::Success && partial.title.contains("(1 of 2 skipped)"),
         "the notification reports the skipped row: {}",
-        flash(&partial)
+        partial.title
     );
     let remaining = DummyUser::all().exec(&mut db_check).await.unwrap();
     assert_eq!(remaining.len(), 1, "only the refused row survives");

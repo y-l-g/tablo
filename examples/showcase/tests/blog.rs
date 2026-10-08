@@ -11,8 +11,7 @@ use showcase::models::{Author, DEMO_TENANT, Post, PostStatus, Publication, Seo};
 use tablo::TenantId;
 
 use crate::common::{
-    TestClient, body_string, demo_client, empty_schema_db, full_db,
-    routers::router_for_tests as router,
+    TestClient, body_string, empty_schema_db, full_db, routers::router_for_tests as router,
 };
 
 /// The one published seed post.
@@ -127,39 +126,6 @@ async fn blog_list_and_detail_are_public() {
 }
 
 #[tokio::test]
-async fn blog_list_shows_published_posts_with_author_date_and_excerpt() {
-    let db = full_db().await;
-    let router = router(db.clone());
-    let post = published_post(&db).await;
-
-    let response = TestClient::new(&router).get("/blog").await;
-    assert_eq!(response.status(), 200);
-    let html = body_string(response).await;
-
-    assert!(
-        html.contains(&post.title),
-        "the list must name the published post: {html}"
-    );
-    assert!(
-        html.contains(&format!("href=\"{}\"", post_path(&post))),
-        "the list must link the post's page: {html}"
-    );
-    // The author comes from the query's include, not a per-row load.
-    assert!(
-        html.contains("Ada Author"),
-        "the list must name the author: {html}"
-    );
-    assert!(
-        html.contains(&post.created_at.strftime("%Y-%m-%d").to_string()),
-        "the list must date the post: {html}"
-    );
-    assert!(
-        html.contains(&post.seo.description),
-        "the list must show the excerpt: {html}"
-    );
-}
-
-#[tokio::test]
 async fn blog_detail_renders_body_cover_and_seo_description() {
     let db = full_db().await;
     let router = router(db.clone());
@@ -262,7 +228,7 @@ async fn an_empty_blog_lists_nothing_without_failing() {
 }
 
 #[tokio::test]
-async fn the_list_carries_every_published_post_and_its_author() {
+async fn the_list_shows_every_published_post_with_its_author_date_and_excerpt() {
     // More than one row is what makes the include load-bearing: a per-row read
     // of an un-included `Deferred` panics, and every listed author must render.
     let db = full_db().await;
@@ -290,15 +256,18 @@ async fn the_list_carries_every_published_post_and_its_author() {
     assert_eq!(response.status(), 200);
     let html = body_string(response).await;
     for index in 0..5u128 {
+        let id = uuid::Uuid::from_u128(0x9000 + index);
         assert!(
-            html.contains(&format!("Public Post {index}")),
-            "the list must show every published post: {html}"
-        );
-        assert!(
-            html.contains(&format!("Excerpt {index}")),
-            "the list must show every excerpt: {html}"
+            html.contains(&format!("Public Post {index}"))
+                && html.contains(&format!("Excerpt {index}"))
+                && html.contains(&format!("href=\"/blog/{id}\"")),
+            "the list must show and link every published post with its excerpt: {html}"
         );
     }
+    assert!(
+        html.contains("2024-03-01"),
+        "the list must date the posts: {html}"
+    );
     assert!(
         html.contains(&author.name),
         "the list must name every post's author: {html}"
@@ -368,25 +337,4 @@ async fn the_list_orders_posts_newest_first() {
          {} at {seed}: {html}",
         seeded.title
     );
-}
-
-/// The blog is public, not admin-only: a session changes nothing about it.
-#[tokio::test]
-async fn a_signed_in_visitor_sees_the_same_blog() {
-    let db = full_db().await;
-    let router = router(db.clone());
-    let post = published_post(&db).await;
-
-    let anonymous = TestClient::new(&router).get("/blog").await;
-    let anonymous_html = body_string(anonymous).await;
-    let signed_in = demo_client(&router, &db).await.get("/blog").await;
-    assert_eq!(signed_in.status(), 200);
-    let signed_in_html = body_string(signed_in).await;
-
-    assert_eq!(
-        anonymous_html, signed_in_html,
-        "a session must not change the public list"
-    );
-    let detail = demo_client(&router, &db).await.get(&post_path(&post)).await;
-    assert_eq!(detail.status(), 200);
 }

@@ -4,7 +4,8 @@
 //! `Panel::resource_with`, the guide's way to serve a resource read-only in a second panel.
 
 use tablo::{
-    Ability, Action, Allow, Policy, ReadOnly, Resource, ResourceDef, Table, TextColumn, lens,
+    Ability, Action, Allow, NotificationStatus, Policy, ReadOnly, Resource, ResourceDef, Table,
+    TextColumn, lens,
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
@@ -211,10 +212,11 @@ async fn a_record_the_policy_refuses_to_run_on_has_no_button_and_is_skipped() {
         303,
         "the selection runs what the policy allows"
     );
+    let bulk = flash(&bulk);
     assert!(
-        flash(&bulk).contains("(1 of 2 skipped)"),
+        bulk.status == NotificationStatus::Success && bulk.title.contains("(1 of 2 skipped)"),
         "the notification reports the refused record: {}",
-        flash(&bulk)
+        bulk.title
     );
     assert!(closed(&db, open.id).await, "the allowed record is written");
     assert!(!closed(&db, locked.id).await, "the refused one is not");

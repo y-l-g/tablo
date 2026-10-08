@@ -2,6 +2,7 @@
 
 use http::header::LOCATION;
 use showcase::models::User;
+use tablo::NotificationStatus;
 
 use crate::common::{
     body_string, demo_client, response_cookies, routers::router_for_tests as router, row_keys,
@@ -257,11 +258,10 @@ async fn bulk_delete_without_ids_redirects_with_the_reason() {
     );
     let loc = resp.headers().get(LOCATION).unwrap().to_str().unwrap();
     assert!(loc.contains("/admin/users"), "redirect to list, got {loc}");
-    let flash = set_cookie_header(&resp, "__Host-tablo_notification")
-        .expect("the flash cookie carries the reason");
-    assert!(
-        flash.contains("error") && flash.contains("Select"),
-        "the flash must be the selection error, got {flash}"
+    assert_eq!(
+        tablo::testing::notification(&resp).map(|flash| flash.status),
+        Some(NotificationStatus::Error),
+        "the flash must carry the selection error"
     );
     assert_eq!(
         user_count(&db).await,

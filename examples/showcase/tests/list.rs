@@ -410,8 +410,9 @@ async fn tampered_cursor_shows_in_region_error_with_retry() {
         html.contains("data-sidebar"),
         "shell must survive the failed load: {html}"
     );
-    assert!(
-        !html.contains("No records yet"),
+    assert_eq!(
+        tablo::testing::empty_table(&html),
+        None,
         "a failed load is not an empty result: {html}"
     );
 }
@@ -563,5 +564,19 @@ async fn posts_group_by_status_shows_counts() {
     assert!(
         html.contains(&format!("{label} ({published} on this page)")),
         "missing the published group header in {html}"
+    );
+}
+
+#[tokio::test]
+async fn posts_list_streams_its_rows_behind_the_toolbar() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let resp = client.get("/admin/posts").await;
+    assert!(resp.status().is_success());
+    let html = body_string(resp).await;
+    assert!(
+        html.contains("data-topcoat-swap") && html.contains("id=\"table-toolbar\""),
+        "posts list must stream its rows into the table, got {html}"
     );
 }

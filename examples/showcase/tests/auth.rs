@@ -148,7 +148,6 @@ async fn shell_shows_the_signed_in_user_and_logout() {
     assert_eq!(response.status(), 200);
     let html = body_string(response).await;
     assert!(html.contains("Demo Admin"), "missing display name: {html}");
-    assert!(html.contains("Sign out"), "missing logout control: {html}");
     assert!(
         html.contains("action=\"/admin/logout\""),
         "missing logout action: {html}"

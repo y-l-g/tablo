@@ -124,7 +124,7 @@ async fn post_detail_renders_the_record_read_only() {
         "the author's key never shows: {html}"
     );
     assert!(
-        html.contains("Back to list"),
+        html.contains("href=\"/admin/posts\""),
         "detail page must offer a way back: {html}"
     );
     assert!(
@@ -169,7 +169,7 @@ async fn an_unpublished_post_links_no_public_page() {
     ] {
         let html = body_string(client.get(&path).await).await;
         assert!(
-            !html.contains("View public post") && !html.contains(&format!("/blog/{id}")),
+            !html.contains(&format!("/blog/{id}")),
             "{path} must not link a public page for a draft: {html}"
         );
     }
@@ -185,13 +185,13 @@ async fn post_record_pages_link_the_public_post() {
 
     let edit = body_string(client.get(&format!("/admin/posts/{id}/edit")).await).await;
     assert!(
-        edit.contains("View public post") && edit.contains(&format!("/blog/{id}")),
+        edit.contains(&format!("href=\"/blog/{id}\"")),
         "edit page must link the public post: {edit}"
     );
 
     let detail = body_string(client.get(&format!("/admin/posts/{id}")).await).await;
     assert!(
-        detail.contains("View public post") && detail.contains(&format!("/blog/{id}")),
+        detail.contains(&format!("href=\"/blog/{id}\"")),
         "detail page must link the public post: {detail}"
     );
 }
