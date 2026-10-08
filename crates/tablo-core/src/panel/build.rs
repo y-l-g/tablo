@@ -482,6 +482,17 @@ fn check_form_inner<R: Resource>(
     errors: &mut Vec<DeclarationError>,
 ) {
     let (fields, form) = (declared.fields.as_slice(), &*declared.form);
+    // The mount renders every field the form does not place, through `RecordForm::control`.
+    for field in fields {
+        for key in &field.keys {
+            if !form.fields().any(|control| control.name() == key) {
+                errors.push(form_error::<R>(DeclarationErrorKind::MissingControl {
+                    field: field.name.to_string(),
+                    key: key.clone(),
+                }));
+            }
+        }
+    }
     // The framework stamps the tenant column on create.
     if let Some(column) = tenant_column(declared)
         && let Some(field) = fields.iter().find(|field| field.keys.contains(&column))

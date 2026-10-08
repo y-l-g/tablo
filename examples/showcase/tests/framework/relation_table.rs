@@ -84,6 +84,7 @@ impl Resource for ChildResource {
             .form(Schema::new((
                 c.body,
                 c.owner_id
+                    .choice()
                     .relationship::<OwnerResource>(|owner: &Owner| owner.name.clone())
                     .label("Owner"),
             )))
@@ -94,7 +95,6 @@ impl Resource for ChildResource {
 #[form(model = Child)]
 struct ChildForm {
     body: String,
-    #[form(choice)]
     owner_id: Uuid,
 }
 

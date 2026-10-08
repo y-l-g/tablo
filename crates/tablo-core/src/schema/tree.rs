@@ -186,7 +186,7 @@ pub(crate) async fn render_nodes<'a>(
 /// schema: a control converts into the schema of its own form only.
 #[diagnostic::on_unimplemented(
     message = "`{Self}` cannot be placed in a `Schema<{F}>`",
-    label = "a control of another form, or a field no form owns",
+    label = "not a control, layout block, schema, or tuple of 2 to 12 of them for this schema",
     note = "a resource's form places its record form's own controls, from `controls()`; \
             `Field::text` and the other constructors build a page's or an action's controls"
 )]

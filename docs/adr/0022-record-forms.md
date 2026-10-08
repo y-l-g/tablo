@@ -26,3 +26,6 @@ not supported inside an embedded value.
 - A schema-side parse: the struct parses every key anyway.
 - An untyped form schema checked at mount: a control no field binds and a field with no control
   were startup errors for what the type and the struct already know.
+- Refusing a field the form does not place: the struct already says the field is written, so
+  rendering its control beats refusing to start. The cost is that a field added to a sectioned
+  layout renders after its last block until it is placed.

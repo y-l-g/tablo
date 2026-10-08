@@ -9,7 +9,7 @@ mod layouts;
 mod lenses;
 mod options;
 pub(crate) mod relationship;
-mod tree;
+pub(crate) mod tree;
 pub(crate) mod validation;
 
 use std::{
@@ -27,8 +27,8 @@ pub use options::Options;
 pub use relationship::MAX_RELATIONSHIP_OPTIONS;
 pub(crate) use relationship::{OptionLoadError, OptionSource};
 use topcoat::{Result, context::Cx, view::*};
-pub use tree::{IntoSchema, Retype, Source};
-pub(crate) use tree::{Node, render_nodes};
+pub use tree::{IntoSchema, Source};
+pub(crate) use tree::{Node, Retype, render_nodes};
 use tree::{bind_nodes, unbound_values};
 pub(crate) use validation::TypedValue;
 

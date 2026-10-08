@@ -76,11 +76,12 @@ pub mod __macro {
         resource::{ActionInput, required_input},
         schema::{
             ChoiceField, CustomField, EmbeddedForm, Field, FieldResolver, FileField, IntoSchema,
-            Options, Retype, Schema, TextField,
+            Options, Schema, TextField,
             embedded::{
                 Embedded, EmbeddedBuilder, embedded_field, embedded_form, take_leaf, take_value,
             },
             form_key,
+            tree::Retype,
         },
         table::{BooleanColumn, EmbeddedColumn, FileColumn, Table, TextColumn},
         toasty_compat::VariantId,

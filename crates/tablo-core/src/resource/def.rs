@@ -178,8 +178,8 @@ impl<R: Resource> ResourceDef<R> {
     /// `controls()`, in layout blocks.
     ///
     /// A control the schema does not place follows the ones it does, in the record form's
-    /// declaration order, so the default form renders one control per field, and a form that
-    /// adjusts one control places only that one:
+    /// declaration order and outside every layout block, so the default form renders one control
+    /// per field, and a form that adjusts one control places only that one:
     ///
     /// ```rust
     /// # #[derive(Debug, Clone, toasty::Model)]

@@ -26,6 +26,15 @@ macro_rules! common_modifiers {
             pub fn name(&self) -> &str {
                 self.0.name()
             }
+
+            /// Renders the field with an app's [`Control`] instead, as [`Field::custom`] does:
+            /// how a record form's control takes a custom input. The field keeps its key and
+            /// label; the replaced control's own modifiers, such as `email`, `unique` or
+            /// `options`, are dropped with it.
+            pub fn custom(mut self, control: impl Control + 'static) -> CustomField<F> {
+                self.0.control = ControlKind::Custom(Arc::new(control));
+                CustomField(self.0, PhantomData)
+            }
         }
 
         impl<F> From<$builder<F>> for Field {
@@ -84,6 +93,24 @@ common_modifiers!(ChoiceField);
 common_modifiers!(FileField);
 common_modifiers!(CustomField);
 
+/// `choice`, on every builder but the choice's own.
+macro_rules! to_choice {
+    ($($builder:ident),*) => {$(
+        impl<F> $builder<F> {
+            /// Renders the field as a choice instead, as [`Field::choice`] does, ready for
+            /// [`options`](ChoiceField::options) or [`relationship`](ChoiceField::relationship).
+            /// Unlike `#[form(choice)]`, it leaves the record form's derived table and detail
+            /// page as they are. The replaced control's own modifiers are dropped with it.
+            pub fn choice(mut self) -> ChoiceField<F> {
+                self.0.control = ControlKind::Choice(ChoiceControl::default());
+                ChoiceField(self.0, PhantomData)
+            }
+        }
+    )*};
+}
+
+to_choice!(TextField, FileField, CustomField);
+
 impl<F> TextField<F> {
     fn text(&mut self) -> &mut TextControl {
         match &mut self.0.control {
@@ -116,17 +143,10 @@ impl<F> TextField<F> {
         self.text().rows = Some(rows);
         self
     }
-
-    /// Renders the field with an app's [`Control`] instead, as [`Field::custom`] does: how a
-    /// record form's text control takes a custom input.
-    pub fn custom(mut self, control: impl Control + 'static) -> CustomField<F> {
-        self.0.control = ControlKind::Custom(Arc::new(control));
-        CustomField(self.0, PhantomData)
-    }
 }
 
 impl<F> ChoiceField<F> {
-    fn choice(&mut self) -> &mut ChoiceControl {
+    fn choice_mut(&mut self) -> &mut ChoiceControl {
         match &mut self.0.control {
             ControlKind::Choice(choice) => choice,
             _ => unreachable!("a ChoiceField holds a choice control"),
@@ -138,13 +158,13 @@ impl<F> ChoiceField<F> {
     /// [`#[derive(Options)]`](crate::Options) enum's
     /// [`options()`](crate::schema::Options::options).
     pub fn options(mut self, options: impl IntoOptions) -> Self {
-        self.choice().options = options.into_options();
+        self.choice_mut().options = options.into_options();
         self
     }
 
     /// Filters options as the user types, fetching from the relationship past the option cap.
     pub fn searchable(mut self) -> Self {
-        self.choice().searchable = true;
+        self.choice_mut().searchable = true;
         self
     }
 
@@ -157,7 +177,7 @@ impl<F> ChoiceField<F> {
     where
         R: OptionSource + 'static,
     {
-        self.choice().relationship = Some(choice::Relationship::new::<R>(label));
+        self.choice_mut().relationship = Some(choice::Relationship::new::<R>(label));
         self
     }
 }

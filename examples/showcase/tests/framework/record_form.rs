@@ -526,6 +526,77 @@ macro_rules! list_only_resource {
     };
 }
 
+/// A hand-written record form whose `control` renders nothing leaves its fields with no control.
+#[tokio::test]
+async fn build_refuses_a_field_record_form_control_does_not_render() {
+    struct Bare(TitleForm);
+
+    impl RecordForm for Bare {
+        type Model = Item;
+        type Field = TitleFormField;
+
+        fn fields(resolver: &tablo::FieldResolver) -> Vec<tablo::FormField<TitleFormField>> {
+            TitleForm::fields(resolver)
+        }
+
+        fn control(_field: TitleFormField) -> Schema<Self> {
+            Schema::default()
+        }
+
+        fn hydrate(cx: &Cx, record: &Item) -> HashMap<String, String> {
+            TitleForm::hydrate(cx, record)
+        }
+
+        fn parse(
+            cx: &Cx,
+            values: &HashMap<String, String>,
+        ) -> Result<Self, Vec<tablo::FieldError>> {
+            TitleForm::parse(cx, values).map(Bare)
+        }
+
+        fn into_create(self) -> <Item as toasty::schema::Model>::Create {
+            self.0.into_create()
+        }
+
+        fn into_update<'a>(
+            self,
+            record: &'a mut Item,
+            named: &HashSet<TitleFormField>,
+        ) -> Option<<Item as toasty::schema::Model>::Update<'a>> {
+            self.0.into_update(record, named)
+        }
+
+        fn exec_update<'a>(
+            update: <Item as toasty::schema::Model>::Update<'a>,
+            ex: &'a mut dyn toasty::Executor,
+        ) -> impl std::future::Future<Output = toasty::Result<()>> + Send + 'a {
+            TitleForm::exec_update(update, ex)
+        }
+    }
+
+    struct Uncontrolled;
+
+    impl Resource for Uncontrolled {
+        type Model = Item;
+        type Form = Bare;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("items")
+                .policy(|_cx: &Cx, ability: Ability<'_, Item>| matches!(ability, Ability::ViewAny))
+                .table(item_table())
+        }
+    }
+
+    assert_eq!(
+        refused::<Uncontrolled>(item_db().await),
+        [DeclarationErrorKind::MissingControl {
+            field: "title".to_string(),
+            key: "title".to_string(),
+        }]
+    );
+}
+
 #[tokio::test]
 async fn build_refuses_a_list_only_resource_that_allows_create() {
     list_only_resource!(Creating, true);
