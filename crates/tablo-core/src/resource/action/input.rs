@@ -4,7 +4,6 @@ use std::collections::HashMap;
 
 use topcoat::context::Cx;
 
-pub(crate) use crate::table::SUBMITTED_KEY;
 use crate::{
     form::FieldError,
     schema::{Field, Schema},
@@ -54,5 +53,4 @@ pub fn required_input(field: impl Into<Field>) -> Field {
 }
 
 /// The keys an action's POST carries besides its input, which no input field may post.
-pub(crate) const RESERVED_KEYS: [&str; 4] =
-    [crate::csrf::FIELD_NAME, "confirm", "ids", SUBMITTED_KEY];
+pub(crate) const RESERVED_KEYS: [&str; 3] = [crate::csrf::FIELD_NAME, "confirm", "ids"];

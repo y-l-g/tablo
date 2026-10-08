@@ -1,5 +1,5 @@
 //! An action that asks for input: its button opens the input in a dialog over the page, and its
-//! POST renders the input page until a submission parses, then runs with the typed value.
+//! POST renders the input as a page until a submission parses, then runs with the typed value.
 
 use std::collections::HashMap;
 
@@ -93,7 +93,7 @@ impl Action<TicketResource> for Close {
     }
 }
 
-/// Closing asks first, on the input page rather than in the dialog.
+/// Purging asks first, in its input dialog rather than in the confirmation dialog.
 struct Purge;
 
 #[derive(ActionInput)]
@@ -109,6 +109,14 @@ impl Action<TicketResource> for Purge {
 
     fn label(_cx: &Cx) -> String {
         "Purge".to_string()
+    }
+
+    fn validate_input(_cx: &Cx, purging: &Purging) -> FieldErrors {
+        let mut errors = FieldErrors::new();
+        if purging.note == "keep" {
+            errors.add("note", "Not while keeping");
+        }
+        errors
     }
 
     async fn run(
@@ -242,7 +250,7 @@ fn row_close(ticket: &Ticket) -> String {
 const BULK_CLOSE: &str = "/admin/tickets/-/actions/close";
 
 #[tokio::test]
-async fn the_button_post_renders_the_input_page_and_writes_nothing() {
+async fn an_empty_submission_renders_the_input_page_and_writes_nothing() {
     let db = db().await;
     let alpha = seed(&db, "Alpha").await;
     let router = router(&db, runs);
@@ -259,7 +267,6 @@ async fn the_button_post_renders_the_input_page_and_writes_nothing() {
         "Won't fix",
         "name=\"priority\"",
         "name=\"reopenable\"",
-        "name=\"-input\"",
     ] {
         assert!(html.contains(expected), "the page holds {expected}: {html}");
     }
@@ -280,7 +287,6 @@ async fn a_parsed_submission_runs_the_action_with_the_typed_input() {
         &router,
         &row_close(&alpha),
         &[
-            ("-input", "1"),
             ("reason", " duplicate "),
             ("outcome", "wontfix"),
             ("priority", ""),
@@ -305,12 +311,7 @@ async fn a_refused_submission_renders_the_page_again_and_writes_nothing() {
     let response = post_fields(
         &router,
         &row_close(&alpha),
-        &[
-            ("-input", "1"),
-            ("reason", ""),
-            ("outcome", "lost"),
-            ("priority", "high"),
-        ],
+        &[("reason", ""), ("outcome", "lost"), ("priority", "high")],
     )
     .await;
     assert_eq!(response.status(), 200);
@@ -334,7 +335,7 @@ async fn validate_input_refuses_a_parsed_value_on_the_page() {
     let response = post_fields(
         &router,
         &row_close(&alpha),
-        &[("-input", "1"), ("reason", "ok"), ("outcome", "fixed")],
+        &[("reason", "ok"), ("outcome", "fixed")],
     )
     .await;
     assert_eq!(response.status(), 200);
@@ -390,12 +391,7 @@ async fn a_key_the_input_does_not_declare_answers_400() {
     let response = post_fields(
         &router,
         &row_close(&alpha),
-        &[
-            ("-input", "1"),
-            ("reason", "x"),
-            ("outcome", "fixed"),
-            ("closed", "true"),
-        ],
+        &[("reason", "x"), ("outcome", "fixed"), ("closed", "true")],
     )
     .await;
     assert_eq!(response.status(), 400);
@@ -422,12 +418,7 @@ async fn a_bulk_page_carries_the_selection_and_runs_on_it() {
     let response = post_fields(
         &router,
         BULK_CLOSE,
-        &[
-            ("ids", &ids),
-            ("-input", "1"),
-            ("reason", "done"),
-            ("outcome", "fixed"),
-        ],
+        &[("ids", &ids), ("reason", "done"), ("outcome", "fixed")],
     )
     .await;
     assert_eq!(response.status(), 303);
@@ -447,7 +438,7 @@ async fn the_policy_refuses_before_the_page_renders() {
     let response = post_fields(
         &router,
         &row_close(&alpha),
-        &[("-input", "1"), ("reason", "x"), ("outcome", "fixed")],
+        &[("reason", "x"), ("outcome", "fixed")],
     )
     .await;
     assert_eq!(response.status(), 403);
@@ -472,7 +463,7 @@ async fn a_record_can_run_refuses_gets_no_page() {
 }
 
 #[tokio::test]
-async fn a_confirming_action_with_input_confirms_on_its_page() {
+async fn a_confirming_action_with_input_confirms_in_its_dialog_and_on_its_page() {
     let db = db().await;
     let alpha = seed(&db, "Alpha").await;
     let router = router(&db, runs);
@@ -481,16 +472,15 @@ async fn a_confirming_action_with_input_confirms_on_its_page() {
     let html = body_string(get(&router, "/admin/tickets").await).await;
     assert_eq!(
         confirms_first(&html, &url),
-        Some(false),
-        "the row offers Purge without the dialog: Purge confirms on its page: {html}"
+        Some(true),
+        "the row's Purge opens its input dialog: {html}"
     );
 
-    let response = post_fields(&router, &url, &[]).await;
-    assert_eq!(
-        response.status(),
-        200,
-        "opening the page writes nothing, so needs no marker"
-    );
+    let response = post_fields(&router, &url, &[("note", "")]).await;
+    assert_eq!(response.status(), 400, "an unconfirmed submit is refused");
+
+    let response = post_fields(&router, &url, &[("confirm", "1"), ("note", "keep")]).await;
+    assert_eq!(response.status(), 200, "a refused value renders the page");
     let page = body_string(response).await;
     assert!(
         page.contains("name=\"confirm\" value=\"1\""),
@@ -501,15 +491,9 @@ async fn a_confirming_action_with_input_confirms_on_its_page() {
         page.contains("bg-destructive"),
         "and renders destructive: {page}"
     );
+    assert_eq!(ticket(&db, alpha.id).await.reason, "", "nothing ran");
 
-    let response = post_fields(&router, &url, &[("-input", "1"), ("note", "")]).await;
-    assert_eq!(response.status(), 400, "an unconfirmed submit is refused");
-    let response = post_fields(
-        &router,
-        &url,
-        &[("-input", "1"), ("confirm", "1"), ("note", "")],
-    )
-    .await;
+    let response = post_fields(&router, &url, &[("confirm", "1"), ("note", "")]).await;
     assert_eq!(response.status(), 303);
     assert_eq!(ticket(&db, alpha.id).await.reason, "purged");
 }
@@ -674,23 +658,17 @@ async fn a_relationship_choice_is_checked_before_the_transaction_and_again_insid
     assert!(html.contains(&format!("value=\"{}\"", bravo.id)), "{html}");
 
     let unknown = Uuid::new_v4().to_string();
-    let refused = tokio::time::timeout(
-        within,
-        post_fields(&router, &url, &[("-input", "1"), ("into", &unknown)]),
-    )
-    .await
-    .expect("a refused choice answers without waiting on a connection");
+    let refused = tokio::time::timeout(within, post_fields(&router, &url, &[("into", &unknown)]))
+        .await
+        .expect("a refused choice answers without waiting on a connection");
     assert_eq!(refused.status(), 200);
     let html = body_string(refused).await;
     assert!(field_error(&html, "into").is_some(), "{html}");
 
     let into = bravo.id.to_string();
-    let response = tokio::time::timeout(
-        within,
-        post_fields(&router, &url, &[("-input", "1"), ("into", &into)]),
-    )
-    .await
-    .expect("the submit runs without waiting on a connection");
+    let response = tokio::time::timeout(within, post_fields(&router, &url, &[("into", &into)]))
+        .await
+        .expect("the submit runs without waiting on a connection");
     assert_eq!(response.status(), 303);
     assert_eq!(
         ticket(&db, alpha.id).await.reason,
@@ -707,8 +685,8 @@ fn dom_ids(html: &str) -> Vec<&str> {
 }
 
 /// The list renders one dialog per action asking for input, shared by its rows and its bulk bar:
-/// each holds the input's form, carrying the marker that runs the action and, for an action that
-/// confirms, the confirmation. Each button opens it and still submits to the input page.
+/// each holds the input's form, carrying the confirmation for an action that confirms. Each
+/// button opens it.
 #[tokio::test]
 async fn the_list_asks_for_each_input_in_one_dialog() {
     let db = db().await;
@@ -726,7 +704,6 @@ async fn the_list_asks_for_each_input_in_one_dialog() {
         );
         let start = html.find(&format!("id=\"{id}\"")).unwrap();
         let dialog = &html[start..start + html[start..].find("</dialog>").unwrap()];
-        assert!(dialog.contains("name=\"-input\" value=\"1\""), "{dialog}");
         assert_eq!(
             dialog.contains("name=\"confirm\" value=\"1\""),
             confirm,
@@ -749,8 +726,8 @@ async fn the_list_asks_for_each_input_in_one_dialog() {
     }
     assert_eq!(
         confirms_first(&html, &row_close(&alpha)),
-        Some(false),
-        "the row's button still submits to the input page without scripts: {html}"
+        Some(true),
+        "the row's button opens the dialog rather than posting: {html}"
     );
 }
 

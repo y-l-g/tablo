@@ -175,8 +175,7 @@ fn dialog_id(url: &str, input: bool) -> String {
 impl ActionButton {
     /// A direct button submits its own form. A confirming one opens the alert dialog `id`, whose
     /// form carries the `confirm=1` marker the handlers require; Cancel and Escape close it. One
-    /// asking for input opens the dialog `id` holding its input form, and submits its own form
-    /// to the input page without scripts.
+    /// asking for input opens the dialog `id` holding its input form.
     fn render<'a>(self, cx: &'a Cx, csrf: &str, id: String) -> BoxView<'a> {
         let token = crate::csrf::field(cx, csrf);
         let Self {
@@ -215,18 +214,14 @@ impl ActionButton {
                 options,
             }
             .render(cx, Posts::To(url.clone()));
-            let open = open_dialog(cx, &id, None);
             return view! {
                 cx =>
-                <form method="post" action=(url) class="contents">
-                    (token)
-                    button(
-                        variant: variant,
-                        size: ButtonSize::Md,
-                        attrs: attributes! { type="submit" (open) },
-                        (face)
-                    )
-                </form>
+                button(
+                    variant: variant,
+                    size: ButtonSize::Md,
+                    attrs: open_dialog(cx, &id, None),
+                    (face)
+                )
                 (dialog)
             }
             .boxed();

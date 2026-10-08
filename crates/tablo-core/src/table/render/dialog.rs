@@ -145,9 +145,8 @@ fn input_dialog_id(form: &str, name: &str) -> String {
 }
 
 /// The attributes of the button of the action `name`, which asks for input: it opens the
-/// action's dialog on `action`, the row's or the bulk route, on the selection when `bulk`.
-///
-/// Without scripts it submits the table's write `form` to `action`, which renders the input page.
+/// action's dialog on `action`, the row's or the bulk route, on the selection when `bulk`. It
+/// carries `action` as `formaction` only to name the write, as a confirming trigger does.
 pub(super) fn input_trigger(
     cx: &Cx,
     form: &str,
@@ -156,12 +155,7 @@ pub(super) fn input_trigger(
     action: String,
     bulk: bool,
 ) -> Attributes {
-    let mut attrs = attributes! {
-        cx =>
-        type="submit"
-        form=(form.to_string())
-        formaction=(action.clone())
-    };
+    let mut attrs = attributes! { cx => formaction=(action.clone()) };
     let target = signals.inputs[name].clone();
     attrs.extend(open_dialog(
         cx,

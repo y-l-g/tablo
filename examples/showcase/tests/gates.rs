@@ -125,10 +125,10 @@ async fn forged_posts_answer_403_and_change_nothing() {
     ] {
         for (body, label) in [
             (
-                format!("confirm=1&-input=1&tag=draft&csrf_token={field}"),
+                format!("confirm=1&tag=draft&csrf_token={field}"),
                 "mismatched token",
             ),
-            ("confirm=1&-input=1&tag=draft".to_string(), "missing token"),
+            ("confirm=1&tag=draft".to_string(), "missing token"),
         ] {
             let resp = client.csrf(&cookie).post_form(path, body).await;
             assert_eq!(
@@ -651,7 +651,7 @@ async fn header_actions_stay_in_their_tenant_and_policy() {
     let resp = blocked
         .post_form(
             "/admin/-/actions/feature-tagged",
-            form_body(&[("-input", "1"), ("tag", "draft"), ("csrf_token", &csrf)]),
+            form_body(&[("tag", "draft"), ("csrf_token", &csrf)]),
         )
         .await;
     assert_eq!(
@@ -665,11 +665,7 @@ async fn header_actions_stay_in_their_tenant_and_policy() {
         .csrf(&csrf)
         .post_form(
             "/admin/-/actions/feature-tagged",
-            form_body(&[
-                ("-input", "1"),
-                ("tag", "nothing-carries-this"),
-                ("csrf_token", &csrf),
-            ]),
+            form_body(&[("tag", "nothing-carries-this"), ("csrf_token", &csrf)]),
         )
         .await;
     assert_eq!(

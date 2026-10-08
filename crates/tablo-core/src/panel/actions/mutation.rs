@@ -8,9 +8,9 @@
 //! pass, and commits. [`run_header`] runs a header action through the same reading of the POST
 //! and the same transaction, with no record to load.
 //!
-//! An action that asks for input stops before the write until its input parses: the POST without
-//! the input page's marker renders that page, and one whose input is refused renders it again with
-//! the errors. The input is parsed, validated and checked before the transaction opens, as a record
+//! An action that asks for input stops before the write until its input parses: a POST whose
+//! input is refused renders the input as a page with the errors, which posts back here. The input
+//! is parsed, validated and checked before the transaction opens, as a record
 //! form's submission is, and its relationship choices are re-checked inside it. A page renders
 //! only after the records pass every check, and rolls the transaction back unwritten.
 
@@ -41,7 +41,7 @@ use crate::{
     policy::Ability,
     resource::{
         ActionEntry, Committed, ErasedInput, HeaderEntry, InputSpec, Mounted, Places,
-        RESERVED_KEYS, Resource, SUBMITTED_KEY, run_after_commit,
+        RESERVED_KEYS, Resource, run_after_commit,
     },
     table::action_options_url,
     topcoat_compat::async_page,
@@ -167,8 +167,7 @@ struct Posted {
 /// one and the POST would write, and its input.
 ///
 /// The confirmation UI is an alert dialog, or the input dialog or page of an action with input,
-/// whose forms carry `confirm=1`, so a missing marker is a malformed client, not a user path. The
-/// POST that opens an input page writes nothing and needs none.
+/// whose forms carry `confirm=1`, so a missing marker is a malformed client, not a user path.
 async fn read_post(
     cx: &Cx,
     body: Body,
@@ -179,8 +178,7 @@ async fn read_post(
     // A mutation carries no file parts: only the values half is read.
     let values = parse_form_body(cx, body).await?.values;
     crate::csrf::verify(cx, &values)?;
-    let writes = !input.takes_input || values.contains_key(SUBMITTED_KEY);
-    if confirm && writes && !values.get("confirm").is_some_and(|v| truthy(v)) {
+    if confirm && !values.get("confirm").is_some_and(|v| truthy(v)) {
         return Err(bad_request(format!("{name} requires confirmation")).into());
     }
     // The input's checks may query, so they run before the transaction holds a connection.
@@ -380,7 +378,7 @@ pub(crate) async fn run_header<'a>(
     .await
 }
 
-/// The input page an action renders before it runs: blank, or holding a refused submission.
+/// The input page an action renders instead of running: a refused submission and its errors.
 struct InputPage {
     values: HashMap<String, String>,
     errors: FieldErrors,
@@ -396,7 +394,7 @@ enum Pending {
         input: ErasedInput,
         values: HashMap<String, String>,
     },
-    /// The input page to render instead of running: blank, or holding a refused submission.
+    /// The input page to render instead of running: a refused submission.
     Page(InputPage),
 }
 
@@ -419,12 +417,6 @@ async fn read_input(
             ))
         })?;
         return Ok(Pending::Ready(input));
-    }
-    if !values.contains_key(SUBMITTED_KEY) {
-        return Ok(Pending::Page(InputPage {
-            values: HashMap::new(),
-            errors: FieldErrors::new(),
-        }));
     }
     let mut input = values.clone();
     input.retain(|key, _| !RESERVED_KEYS.contains(&key.as_str()));
@@ -462,7 +454,7 @@ async fn read_input(
 
 impl InputPage {
     /// The chrome of the action `name`'s page: titled `title`, submitted by `label`, carrying the
-    /// input's marker, the confirmation and `hidden` back to this route, cancelled to `home` or
+    /// confirmation and `hidden` back to this route, cancelled to `home` or
     /// the `?return=`, and searching its choices' options under `home`.
     fn chrome(
         &self,
@@ -473,7 +465,7 @@ impl InputPage {
         hidden: Vec<(String, String)>,
         home: &str,
     ) -> FormChrome {
-        let mut carried = vec![(SUBMITTED_KEY.to_string(), "1".to_string())];
+        let mut carried = Vec::new();
         if confirm {
             carried.push(("confirm".to_string(), "1".to_string()));
         }

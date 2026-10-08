@@ -6,9 +6,9 @@ mod input;
 use std::{any::Any, collections::HashMap, future::Future, pin::Pin};
 
 pub use input::ActionInput;
+pub(crate) use input::RESERVED_KEYS;
 #[doc(hidden)]
 pub use input::required_input;
-pub(crate) use input::{RESERVED_KEYS, SUBMITTED_KEY};
 use topcoat::{Result, context::Cx};
 
 use super::{Mounted, Resource};
@@ -82,11 +82,10 @@ use crate::{
 ///   transaction commits, and the success notification.
 ///
 /// An action that asks for an [`Input`](Self::Input) asks for it first: its button opens the
-/// input's form in a dialog over the page, or, without JavaScript, as a page the action's route
-/// renders after the same checks. The submit runs the action with the parsed value: it parses the
-/// input, asks [`validate_input`](Self::validate_input) and checks its choices before the
-/// transaction opens, then re-checks a relationship choice inside it. A refused value renders the
-/// input as a page with its errors and writes nothing.
+/// input's form in a dialog over the page, whose submit runs the action with the parsed value. The
+/// submit parses the input, asks [`validate_input`](Self::validate_input) and checks its choices
+/// before the transaction opens, then re-checks a relationship choice inside it. A refused value
+/// renders the input as a page with its errors and writes nothing.
 ///
 /// A run from a detail or edit page lands back on that page; one from a row or the bulk bar lands
 /// on the list.

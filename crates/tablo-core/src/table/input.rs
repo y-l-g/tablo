@@ -1,10 +1,9 @@
 //! An action's input in a dialog over the page that offers it: a table's rows and bulk bar, or a
 //! page header's action bar.
 //!
-//! The action's button stays a submit to the action's route, which renders the input page: a
-//! browser without scripts still reaches the input that way. With scripts, the click opens the
-//! dialog instead, holding the same form, and its submit carries the input's marker, so the POST
-//! runs the action. A refused input renders the input page with its errors, as before.
+//! The action's button opens the dialog, holding the input's form, and its submit runs the action
+//! on the action's route. A refused input renders as a page with its errors, which posts back to
+//! the same route. Like the confirmation dialog, it needs JavaScript (ADR-0026).
 //!
 //! The dialog's form shares its page with others, so its fields' DOM ids and its conditions'
 //! signals carry the dialog's id, and its searchable choices fetch from the action's own options
@@ -27,10 +26,6 @@ use crate::{
     schema::{Schema, Source},
     topcoat_compat::async_page,
 };
-
-/// The key an action's input form carries: present, the POST runs the action with the parsed
-/// input; absent, it renders the input page.
-pub(crate) const SUBMITTED_KEY: &str = "-input";
 
 /// The dialog asking for the input of one action.
 pub(crate) struct InputDialog {
@@ -137,7 +132,6 @@ impl InputDialog {
                     attrs: attrs,
                     <form method="post" class="contents" (action)>
                         (crate::csrf::field(cx, &csrf))
-                        <input type="hidden" name=(SUBMITTED_KEY) value="1">
                         if confirm {
                             <input type="hidden" name="confirm" value="1">
                         }
@@ -211,9 +205,8 @@ pub(crate) fn selected_count(cx: &Cx, selection: Signal<String>) -> BoxView<'_> 
     view! { cx => (count) }.boxed()
 }
 
-/// A trigger's click: instead of the submit that renders the input page, it opens the dialog
-/// `id` on a blank form, after pointing a table's dialog at `url` when `table` names its target,
-/// on the selection when `bulk`.
+/// A trigger's attributes: it opens the dialog `id` on a blank form, after pointing a table's
+/// dialog at `url` when `table` names its target, on the selection when `bulk`.
 ///
 /// The form is reset because a closed dialog keeps what was typed in it, and another row's run
 /// starts blank. Each control then announces a `change`, so a condition follows its blank value.
@@ -225,14 +218,14 @@ pub(crate) fn open_dialog(
     let modal = id.to_string();
     let mut attrs = attributes! {
         cx =>
+        type="button"
         aria-haspopup="dialog"
         aria-controls=(modal.clone())
     };
     attrs.extend(match table {
         None => attributes! {
             cx =>
-            @click=$(|e: Event| {
-                e.prevent_default();
+            @click=$(|_e: Event| {
                 raw!(
                     "((dialog) => { \
                         const form = dialog.querySelector('form'); \
@@ -250,8 +243,7 @@ pub(crate) fn open_dialog(
         },
         Some((TableTarget { action, bulk }, url, on_selection)) => attributes! {
             cx =>
-            @click=$(|e: Event| {
-                e.prevent_default();
+            @click=$(|_e: Event| {
                 bulk.set(on_selection);
                 action.set(url.clone());
                 raw!(

@@ -142,12 +142,12 @@ async fn tagging_a_post_asks_for_the_tags_then_merges_them() {
         page.contains("name=\"tags\"")
             && page.contains("placeholder=\"rust, async\"")
             && page.contains("Replace existing tags"),
-        "the button opens the input page: {page}"
+        "an empty submission renders the input page: {page}"
     );
 
     let refused = body_string(
         client
-            .post_form(&tag, format!("csrf_token={csrf}&-input=1&tags=+"))
+            .post_form(&tag, format!("csrf_token={csrf}&tags=+"))
             .await,
     )
     .await;
@@ -159,7 +159,7 @@ async fn tagging_a_post_asks_for_the_tags_then_merges_them() {
     let resp = client
         .post_form(
             &tag,
-            format!("csrf_token={csrf}&-input=1&tags=async%2C+tokio&replace=false"),
+            format!("csrf_token={csrf}&tags=async%2C+tokio&replace=false"),
         )
         .await;
     assert!(resp.status().is_redirection(), "got {}", resp.status());
@@ -169,10 +169,7 @@ async fn tagging_a_post_asks_for_the_tags_then_merges_them() {
     assert_eq!(after.tags, "rust,async,tokio");
 
     client
-        .post_form(
-            &tag,
-            format!("csrf_token={csrf}&-input=1&tags=news&replace=true"),
-        )
+        .post_form(&tag, format!("csrf_token={csrf}&tags=news&replace=true"))
         .await;
     let after = Post::get_by_id(&mut db_q, &post.id)
         .await
@@ -206,7 +203,7 @@ async fn the_post_pages_ask_for_tags_in_a_dialog_with_ids_of_their_own() {
         let html = body_string(client.get(&url).await).await;
         let start = html
             .find("<dialog")
-            .and_then(|_| html.find("name=\"-input\""))
+            .and_then(|_| html.find("name=\"replace\""))
             .unwrap_or_else(|| panic!("{url} renders Tag's input dialog: {html}"));
         let dialog = &html[html[..start].rfind("<dialog").unwrap()..];
         let dialog = &dialog[..dialog.find("</dialog>").unwrap()];

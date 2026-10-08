@@ -123,8 +123,8 @@ pub enum Site {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ActionInputFault {
-    /// A field named like a key the action's POST carries itself: `csrf_token`, `confirm`, `ids`
-    /// or `-input`.
+    /// A field named like a key the action's POST carries itself: `csrf_token`, `confirm` or
+    /// `ids`.
     ReservedField(String),
     /// A file field, whose upload an action's POST does not read.
     FileField(String),

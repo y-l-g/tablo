@@ -36,7 +36,7 @@ pub use self::{
     wiring::WiredTable,
 };
 pub(crate) use self::{
-    input::{InputDialog, Posts, SUBMITTED_KEY, TableTarget, open_dialog, selected_count},
+    input::{InputDialog, Posts, TableTarget, open_dialog, selected_count},
     page::{Past, row_exists_past},
     state::{
         ACTION_ROUTE_PARAM, ACTIONS_ROUTE_SEGMENT, BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT,
