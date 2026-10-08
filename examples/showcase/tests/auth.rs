@@ -70,27 +70,21 @@ async fn login_sets_a_hardened_session_cookie() {
     assert!(cookie.contains("Path=/"), "{cookie}");
 }
 
+/// A `next` naming another origin lands on the panel root instead: the login runs its target
+/// through `safe_next`, whose unit test holds the full table of hostile targets.
 #[tokio::test]
-async fn login_accepts_only_same_origin_relative_next_targets() {
+async fn login_refuses_an_off_site_next_target() {
     let db = full_db().await;
     let router = router(db);
-    for (next, expected) in [
-        ("/admin/users", "/admin/users"),
-        ("/admin/posts?status=draft", "/admin/posts?status=draft"),
-        ("//evil.example/login", "/admin"),
-        ("https://evil.example/steal", "/admin"),
-        ("/\\evil.example", "/admin"),
-        ("/admin/users\nLocation: https://evil.example", "/admin"),
-    ] {
-        let (_client, response) =
-            login_next(&router, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, next).await;
-        assert_eq!(response.status(), 303, "next={next:?}");
-        assert_eq!(
-            response.headers().get(http::header::LOCATION).unwrap(),
-            expected,
-            "next={next:?}"
-        );
-    }
+    let (_client, response) = login_next(
+        &router,
+        DEMO_ADMIN_EMAIL,
+        DEMO_ADMIN_PASSWORD,
+        "//evil.example/login",
+    )
+    .await;
+    assert_eq!(response.status(), 303);
+    assert_eq!(response.headers().get(LOCATION).unwrap(), "/admin");
 }
 
 #[tokio::test]

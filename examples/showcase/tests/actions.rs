@@ -69,19 +69,19 @@ async fn a_draft_post_is_published_from_its_row() {
     let client = demo_client(&router, &db).await;
     let html = body_string(client.get("/admin/posts").await).await;
 
-    // The posts on this page, as the edit links name them.
+    // The posts on this page, as their rows' edit links name them.
+    let edits: Vec<String> = tablo::testing::rows(&html)
+        .into_iter()
+        .filter_map(|row| row.actions.edit)
+        .collect();
     let mut db_q = db.clone();
-    let mut on_page = Vec::new();
-    for post in Post::all().exec(&mut db_q).await.expect("query posts") {
-        let expected = format!("/admin/posts/{}/edit", post.id);
-        if tablo::testing::row_actions(&html, &post.id.to_string())
-            .and_then(|actions| actions.edit)
-            .as_deref()
-            == Some(expected.as_str())
-        {
-            on_page.push(post);
-        }
-    }
+    let on_page: Vec<Post> = Post::all()
+        .exec(&mut db_q)
+        .await
+        .expect("query posts")
+        .into_iter()
+        .filter(|post| edits.contains(&format!("/admin/posts/{}/edit", post.id)))
+        .collect();
     let draft = on_page
         .iter()
         .find(|p| p.status == PostStatus::Draft)
