@@ -185,11 +185,10 @@ control instead:
 ```
 
 Each option's value is the related record's primary key, and its text the record's title: the
-related resource's `record_label`, else its label and the key. A source that is not a resource
-implements `OptionSource`, including its `label`. The option's record loads without its
-relations: a `record_label` that reads one panics there, so the option falls back to the label
-and the key and the panic is logged. `.relationship_labelled::<R>(|a| ..)` labels one field's
-options otherwise, to tell apart records that share a title or to avoid a relation.
+column the related resource's `record_title` names, else its label and the key. Typing into a
+searchable choice matches that column and the related table's searchable columns. A source that is
+not a resource implements `OptionSource`, including its `label`. `.relationship_labelled::<R>(|a| ..)`
+labels one field's options otherwise, to tell apart records that share a title.
 
 - Options come from the related resource's tenant-scoped query and follow its policy: the list is
   empty and the field shows "not available" unless the related resource's policy allows

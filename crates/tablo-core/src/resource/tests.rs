@@ -151,10 +151,10 @@ impl Resource for Unlabelled {
     }
 }
 
-/// A resource that labels its records with the note's title.
-struct Labelled;
+/// A resource that titles its records with the note's title.
+struct Titled;
 
-impl Resource for Labelled {
+impl Resource for Titled {
     type Model = Note;
     type Form = crate::NoForm<Self::Model>;
 
@@ -163,9 +163,7 @@ impl Resource for Labelled {
             .table(crate::table::Table::new(crate::table::TextColumn::new(
                 lens!(Note.title),
             )))
-            .record_label(|_cx: &Cx, note: &Note| {
-                (!note.title.is_empty()).then(|| note.title.clone())
-            })
+            .record_title(lens!(Note.title))
     }
 }
 
@@ -177,85 +175,24 @@ fn note() -> Note {
 }
 
 #[test]
-fn a_resource_without_a_record_label_titles_the_record_with_its_key() {
+fn a_resource_without_a_record_title_titles_the_record_with_its_key() {
     assert_eq!(
-        crate::test_support::mounted::<Unlabelled>().record_title(
-            &crate::test_support::cx(),
-            &note(),
-            "8f14e45f"
-        ),
+        crate::test_support::mounted::<Unlabelled>().record_title(&note(), "8f14e45f"),
         "Note 8f14e45f"
     );
 }
 
 #[test]
-fn a_declared_record_label_titles_the_record_it_labels() {
-    let cx = crate::test_support::cx();
-    let mounted = crate::test_support::mounted::<Labelled>();
-    assert_eq!(mounted.record_title(&cx, &note(), "8f14e45f"), "A Title");
+fn a_declared_record_title_titles_the_record_with_its_column() {
+    let mounted = crate::test_support::mounted::<Titled>();
+    assert_eq!(mounted.record_title(&note(), "8f14e45f"), "A Title");
     let untitled = Note {
-        title: String::new(),
+        title: " ".to_string(),
         ..note()
     };
     assert_eq!(
-        mounted.record_title(&cx, &untitled, "8f14e45f"),
+        mounted.record_title(&untitled, "8f14e45f"),
         "Note 8f14e45f",
-        "a record the label declines falls back to the key"
-    );
-}
-
-/// A `record_label` that reads a relation, as a detail page may, falls back to the resource's
-/// label and the key where another resource points at the record: options and relation columns
-/// load it without its relations.
-#[tokio::test]
-async fn a_label_reading_an_unloaded_relation_falls_back_to_the_key() {
-    #[derive(Debug, Clone, toasty::Model)]
-    struct Team {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        name: String,
-    }
-
-    #[derive(Debug, Clone, toasty::Model)]
-    struct Writer {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        name: String,
-        #[index]
-        team_id: uuid::Uuid,
-        #[belongs_to(key = team_id, references = id)]
-        team: toasty::Deferred<Team>,
-    }
-
-    struct WriterResource;
-
-    impl Resource for WriterResource {
-        type Model = Writer;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .table(crate::table::Table::new(crate::table::TextColumn::new(
-                    lens!(Writer.name),
-                )))
-                .record_label(|_cx: &Cx, w: &Writer| {
-                    Some(format!("{} ({})", w.name, w.team.get().name))
-                })
-        }
-    }
-
-    let db = memory_db(toasty::models!(Team, Writer)).await;
-    let cx = crate::test_support::panel_cx::<WriterResource>(&db);
-    let writer = Writer {
-        id: uuid::Uuid::nil(),
-        name: "Ada".to_string(),
-        team_id: uuid::Uuid::nil(),
-        team: toasty::Deferred::default(),
-    };
-    assert_eq!(
-        <WriterResource as crate::schema::OptionSource>::label(&cx, &writer),
-        format!("Writer {}", uuid::Uuid::nil())
+        "a record whose column is blank falls back to the key"
     );
 }

@@ -163,7 +163,7 @@ fn run_mutation<'a, R: Resource>(
         let title = || {
             let label = (action.label)(cx);
             match target {
-                Target::Row => format!("{label}: {}", resource.record_title(cx, &rows[0], &ids[0])),
+                Target::Row => format!("{label}: {}", resource.record_title(&rows[0], &ids[0])),
                 Target::Bulk => {
                     let count = rows.len();
                     let noun = if count == 1 { "record" } else { "records" };

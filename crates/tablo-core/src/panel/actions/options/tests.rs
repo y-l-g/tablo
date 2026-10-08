@@ -28,10 +28,11 @@ async fn options_endpoint_searches_and_gates() {
             ResourceDef::new()
                 .slug("opt-authors")
                 .policy(ReadOnly)
-                .record_label(|_cx: &Cx, author: &OptAuthor| Some(author.name.clone()))
-                .table(crate::table::Table::new(
-                    crate::table::TextColumn::new(lens!(OptAuthor.name)).searchable(),
-                ))
+                // The table searches nothing: the option search matches the title column.
+                .record_title(lens!(OptAuthor.name))
+                .table(crate::table::Table::new(crate::table::TextColumn::new(
+                    lens!(OptAuthor.name),
+                )))
         }
     }
 
@@ -181,7 +182,7 @@ async fn option_load_loads_no_relation() {
                 })
                 .table(crate::table::Table::new(name_with_parent()))
                 .view(crate::Detail::new(name_with_parent()))
-                .record_label(|_cx: &Cx, child: &Child| Some(child.name.clone()))
+                .record_title(lens!(Child.name))
         }
     }
 

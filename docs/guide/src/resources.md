@@ -26,7 +26,7 @@ one form control per field, and a detail page column per field. Set the def's `t
 | `table(..)` | the record form's derived table | the list's columns, filters and options: [Tables](./tables.md) |
 | `form(..)` | every control, in declaration order | how the create and edit forms arrange the record form's controls: [Forms](./forms.md) |
 | `view(..)` | the record form's derived detail page | the detail page's columns; `Detail::empty()` turns the page off: [Detail pages](./detail-pages.md) |
-| `record_label(..)` | the label and the record's key | the detail page's heading, each relationship option over the resource, and a `RelationColumn::of` cell |
+| `record_title(lens!(..))` | the label and the record's key | the detail page's heading, each relationship option over the resource, which also searches the column, and a `RelationColumn::of` cell |
 | `public_link(..)` | none | the record's public page, linked from its detail and edit pages |
 | `relation(..)` | none | a related resource shown as a table on the detail and edit pages |
 | `action::<A>()` | none | a custom action: [Tables](./tables.md#custom-actions) |

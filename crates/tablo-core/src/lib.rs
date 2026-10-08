@@ -353,7 +353,7 @@ pub use tablo_macros::Options;
 ///   Without it, the field is a text field.
 /// - `#[form(options = Status)]`: a choice over `Status::options()`.
 /// - `#[form(relationship = AuthorResource)]` on a foreign key: a choice over the source's
-///   records, each labelled by its `record_label`. The source is any `OptionSource`, which
+///   records, each labelled by its `record_title`. The source is any `OptionSource`, which
 ///   every `Resource` is.
 /// - `#[form(file)]` on a `String`: a file field.
 /// - `#[form(embed)]` on an `EmbeddedForm` value.

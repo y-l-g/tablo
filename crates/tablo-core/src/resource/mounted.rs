@@ -10,7 +10,7 @@ use topcoat::context::{Cx, try_app_context};
 
 use super::{
     Actions, PublicLink, Relation, Resource, ResourceDef,
-    def::{PublicLinkFn, RecordLabel},
+    def::{PublicLinkFn, RecordTitle},
 };
 use crate::{
     DeclarationError, DeclarationErrorKind, Site,
@@ -39,7 +39,7 @@ pub(crate) struct Mounted<R: Resource> {
     pub(crate) view: Detail<R::Model>,
     /// Whether the def declares the view, rather than the record form deriving it.
     pub(crate) declares_view: bool,
-    record_label: Option<RecordLabel<R::Model>>,
+    record_title: Option<RecordTitle<R::Model>>,
     public_link: Option<PublicLinkFn<R::Model>>,
     pub(crate) relations: Vec<Relation<R::Model>>,
     pub(crate) actions: Actions<R>,
@@ -106,7 +106,7 @@ impl<R: Resource> Mounted<R> {
             form: Arc::new(form),
             view,
             declares_view,
-            record_label: def.record_label,
+            record_title: def.record_title,
             public_link: def.public_link,
             relations: def.relations,
             actions: def.actions,
@@ -120,12 +120,25 @@ impl<R: Resource> Mounted<R> {
         !self.view.is_empty()
     }
 
-    /// The detail page's title for `record`: its label, else the resource's label and `key`.
-    pub(crate) fn record_title(&self, cx: &Cx, record: &R::Model, key: &str) -> String {
-        self.record_label
+    /// The title of `record`: its title column, else the resource's label and `key`.
+    pub(crate) fn record_title(&self, record: &R::Model, key: &str) -> String {
+        self.record_title
             .as_ref()
-            .and_then(|label| label(cx, record))
+            .and_then(|title| title.read(record))
             .unwrap_or_else(|| format!("{} {key}", self.label))
+    }
+
+    /// What a relationship choice over the resource searches: the table's searchable columns and
+    /// the title column.
+    pub(crate) fn option_search_expr(&self, term: &str) -> Option<toasty::stmt::Expr<bool>> {
+        let title = self
+            .record_title
+            .as_ref()
+            .and_then(|title| title.search_expr(term));
+        match (self.table.search_expr(term), title) {
+            (Some(table), Some(title)) => Some(table.or(title)),
+            (table, title) => table.or(title),
+        }
     }
 
     /// The record's public page, if the resource links one.
