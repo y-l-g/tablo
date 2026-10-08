@@ -225,3 +225,8 @@ confirmation dialogs and the variant choice, and `tablo-ui`'s scripts: searchabl
 sidebar and theme toggles. Mounting refuses `shell_assets` on a
 router with no asset bundle. The stylesheet comes from `tablo_build::tailwind()` in the app's `build.rs`
 ([Your first panel](./first-panel.md#the-stylesheet)).
+
+`AssetBundle::load()` reads the bundle from the `assets` directory beside the executable, which
+`cargo build` does not write. `topcoat dev` builds the app, writes the bundle there and serves the
+app; `topcoat asset bundle --release` writes it beside a release binary, and the two deploy
+together.

@@ -24,8 +24,11 @@ be accepted before the implementation PR.
 No library crate enables a database driver; the app picks one through a `tablo` feature.
 
 ```sh
-cargo run -p showcase   # http://localhost:3000/admin/users
+topcoat dev -p showcase   # http://localhost:3000/admin/users
 ```
+
+`topcoat dev` builds the showcase and the asset bundle it needs; `cargo run -p showcase` stops
+without one. The README has the install command.
 
 ## Checks
 
