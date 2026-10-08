@@ -80,7 +80,7 @@ impl Resource for UserResource {
             .view(Detail::new(
                 Section::new("Profile").columns(<UserForm as RecordForm>::detail()),
             ))
-            .record_label(|_cx: &Cx, user: &User| Some(user.name.clone()))
+            .record_title(lens!(User.name))
     }
 
     /// Refuses a negative age.
@@ -127,7 +127,7 @@ impl Resource for AuthorResource {
                 Section::new("Profile").columns(<AuthorForm as RecordForm>::detail()),
             ))
             // Names the detail heading with the author's name.
-            .record_label(|_cx: &Cx, author: &Author| Some(author.name.clone()))
+            .record_title(lens!(Author.name))
     }
 }
 
@@ -159,7 +159,7 @@ impl Resource for PostResource {
             .form(post_form())
             .view(post_view())
             // Names the detail heading with the post title.
-            .record_label(|_cx: &Cx, post: &Post| Some(post.title.clone()))
+            .record_title(lens!(Post.title))
             // Links a published post's public page.
             .public_link(|_cx: &Cx, post: &Post| {
                 (post.status == PostStatus::Published).then(|| PublicLink {
@@ -383,7 +383,7 @@ impl Resource for CommentResource {
                 c.body.multiline(4).placeholder("Write a reply…"),
                 c.post_id.searchable().label("Post"),
             ))))
-            .record_label(|_cx: &Cx, comment: &Comment| Some(comment.body.clone()))
+            .record_title(lens!(Comment.body))
     }
 }
 

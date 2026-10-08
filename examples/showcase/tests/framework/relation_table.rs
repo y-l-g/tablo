@@ -48,10 +48,9 @@ impl Resource for OwnerResource {
             })
             .table(Table::new(TextColumn::new(lens!(Owner.name))))
             .view(tablo::Detail::new(TextColumn::new(lens!(Owner.name))))
-            // Bob goes unlabelled, so his title falls back to the resource's label and his key.
-            .record_label(|_cx: &Cx, owner: &Owner| {
-                (owner.name != "Bob").then(|| owner.name.clone())
-            })
+            // The second owner's name is empty, so its title falls back to the resource's label
+            // and its key.
+            .record_title(lens!(Owner.name))
             .relation(Relation::has_many::<ChildResource>(
                 Child::fields().owner_id(),
             ))
@@ -122,7 +121,7 @@ async fn fixture() -> (Router, Db, Owner, Owner) {
         .exec(&mut db)
         .await
         .unwrap();
-    let bob = toasty::create!(Owner { name: "Bob" })
+    let bob = toasty::create!(Owner { name: "" })
         .exec(&mut db)
         .await
         .unwrap();
@@ -267,19 +266,19 @@ async fn the_create_page_seeds_the_owner_and_keeps_the_return() {
 
 /// The owner choice offers each owner by the title its detail page shows.
 #[tokio::test]
-async fn the_owner_choice_offers_each_owner_by_its_record_label() {
+async fn the_owner_choice_offers_each_owner_by_its_record_title() {
     let (router, _db, ada, bob) = fixture().await;
     let form = body_string(get(&router, "/admin/children/create").await).await;
     assert!(
         form.contains(&format!("<option value=\"{}\">Ada</option>", ada.id)),
-        "a labelled owner: {form}"
+        "a titled owner: {form}"
     );
     assert!(
         form.contains(&format!(
             "<option value=\"{}\">Owner {}</option>",
             bob.id, bob.id
         )),
-        "an unlabelled owner: {form}"
+        "an owner with an empty title: {form}"
     );
 }
 

@@ -107,9 +107,9 @@ impl Resource for PostResource {
                 RelationColumn::of::<AuthorResource>(relation!(Post.author)),
             ))))
             // ANCHOR_END: post-view
-            // ANCHOR: post-record-label
-            .record_label(|_cx: &Cx, post: &Post| Some(post.title.clone()))
-            // ANCHOR_END: post-record-label
+            // ANCHOR: post-record-title
+            .record_title(lens!(Post.title))
+            // ANCHOR_END: post-record-title
             // ANCHOR: post-public-link
             .public_link(|_cx: &Cx, post: &Post| {
                 (post.status == PostStatus::Published).then(|| PublicLink {
@@ -190,7 +190,7 @@ impl Resource for AuthorResource {
         ResourceDef::new()
             .table(Table::new(TextColumn::new(lens!(Author.name))))
             // Titles the detail page, the post form's author options and the post's author column.
-            .record_label(|_cx: &Cx, author: &Author| Some(author.name.clone()))
+            .record_title(lens!(Author.name))
             // ANCHOR: author-policy-editors
             .policy(when(editors_only))
         // ANCHOR_END: author-policy-editors

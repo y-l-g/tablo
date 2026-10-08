@@ -236,7 +236,7 @@ where
 
     /// Declare a column showing the record `relation` loads by `S`'s
     /// [`label`](OptionSource::label): for a resource, the
-    /// [`record_label`](crate::ResourceDef::record_label) its detail page is titled with.
+    /// [`record_title`](crate::ResourceDef::record_title) its detail page is titled with.
     ///
     /// ```rust
     /// # #[derive(Debug, Clone, toasty::Model)]

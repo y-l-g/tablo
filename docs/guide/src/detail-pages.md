@@ -76,15 +76,15 @@ own renders a `Detail` the same way: `detail.render(cx, &record)` on a record lo
 An unknown id and an id outside the request's tenant are the same 404; a record the policy may not
 `View` is a 403.
 
-**Title.** `record_label` sets the page title for each record it returns a label for; any other
-record is titled with the resource's `label()` and its key, such as "Post 3f2a…". The same title
-labels the record wherever another resource points at it: each option of a relationship choice
-over the resource, and each cell of a `RelationColumn::of` it. Those load the record without its
-relations, so a label reads only the record's own columns; one that reads a relation falls back
-there to the label and the key, and the panic it raised is logged:
+**Title.** `record_title` names the text column that titles each record; a record whose column is
+empty, and every record by default, is titled with the resource's `label()` and its key, such as
+"Post 3f2a…". The same title labels the record wherever another resource points at it: each
+option of a relationship choice over the resource, and each cell of a `RelationColumn::of` it. A
+lens names one of the model's own columns, never a relation, so a title built from several
+columns is a column the model stores:
 
 ```rust
-{{#include ../../../examples/guide/src/resources.rs:post-record-label}}
+{{#include ../../../examples/guide/src/resources.rs:post-record-title}}
 ```
 
 **Public link.** `public_link` adds a link to the record's public page to the header of its detail

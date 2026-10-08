@@ -54,7 +54,7 @@ pub struct ThemeForm {
 #[derive(Debug, Clone, tablo::RecordForm)]
 #[form(model = Post)]
 pub struct PostAuthorForm {
-    // The source whose scoped query loads the options; each is labelled by its `record_label`.
+    // The source whose scoped query loads the options; each is labelled by its `record_title`.
     #[form(relationship = AuthorResource)]
     pub author_id: uuid::Uuid,
 }

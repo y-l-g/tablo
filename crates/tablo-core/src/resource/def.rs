@@ -2,17 +2,18 @@
 
 use std::sync::Arc;
 
-use toasty::stmt::Path;
+use toasty::stmt::{Expr, Path};
 use topcoat::{context::Cx, icon::IconData};
 
 use super::{Action, Actions, PublicLink, Relation, Resource};
 use crate::{
-    DeclarationErrorKind,
+    DeclarationErrorKind, Lens,
     detail::Detail,
+    form::FormScalar,
     navigation::NavigationItem,
     policy::{Deny, Policy},
     schema::Schema,
-    table::Table,
+    table::{Table, contains_expr},
     tenancy::Tenancy,
     toasty_compat::model::{self, ModelPath},
 };
@@ -59,7 +60,7 @@ pub struct ResourceDef<R: Resource> {
     pub(crate) table: Option<Table<R::Model>>,
     pub(crate) form: Option<Schema<R::Form>>,
     pub(crate) view: Option<Detail<R::Model>>,
-    pub(crate) record_label: Option<RecordLabel<R::Model>>,
+    pub(crate) record_title: Option<RecordTitle<R::Model>>,
     pub(crate) public_link: Option<PublicLinkFn<R::Model>>,
     pub(crate) relations: Vec<Relation<R::Model>>,
     pub(crate) actions: Actions<R>,
@@ -81,7 +82,7 @@ impl<R: Resource> Default for ResourceDef<R> {
             table: None,
             form: None,
             view: None,
-            record_label: None,
+            record_title: None,
             public_link: None,
             relations: Vec::new(),
             actions: Actions::default(),
@@ -218,24 +219,25 @@ impl<R: Resource> ResourceDef<R> {
         self
     }
 
-    /// Titles the detail page with the record's label, for each record `label` returns one for;
-    /// any other record, and every record by default, is titled with the [`label`](Self::label)
-    /// and its key, as in `Blog Post 3f2a…`.
+    /// Titles each record with the text column `lens` reads, as in
+    /// `.record_title(lens!(Post.title))`: the detail page's heading, each option of a
+    /// [`relationship`](crate::ChoiceField::relationship) choice over this resource, and each cell
+    /// of a [`RelationColumn::of`](crate::RelationColumn::of) it.
     ///
-    /// The same label titles the record wherever another resource points at it: each option of a
-    /// [`relationship`](crate::ChoiceField::relationship) choice over this resource, and each
-    /// cell of a [`RelationColumn::of`](crate::RelationColumn::of) it.
+    /// A record whose column is empty, and every record by default, is titled with the
+    /// [`label`](Self::label) and its key, as in `Blog Post 3f2a…`. A relationship choice over this
+    /// resource also searches the column, besides the table's searchable columns.
     ///
-    /// A label is display text, not a key: two records can share one, so it never replaces the
-    /// primary key that keys the table's rows and the action routes. Options and relation columns
-    /// load the record without its relations, so a label reads only the record's own columns: one
-    /// that reads a relation panics there, and falls back to the label and the key.
+    /// A title is display text, not a key: two records can share one, so it never replaces the
+    /// primary key that keys the table's rows and the action routes. A lens names one of the
+    /// model's own columns, never a relation, so the title reads on every record however it was
+    /// loaded; a title built from several columns is a column the model stores.
     #[must_use]
-    pub fn record_label(
-        mut self,
-        label: impl Fn(&Cx, &R::Model) -> Option<String> + Send + Sync + 'static,
-    ) -> Self {
-        self.record_label = Some(Arc::new(label));
+    pub fn record_title<T>(mut self, lens: Lens<R::Model, T>) -> Self
+    where
+        T: FormScalar + toasty::schema::Field<Inner = String> + Send + Sync + 'static,
+    {
+        self.record_title = Some(RecordTitle::new(lens));
         self
     }
 
@@ -286,8 +288,37 @@ impl<R: Resource> ResourceDef<R> {
     }
 }
 
-/// A record's label, as [`ResourceDef::record_label`] declares it.
-pub(crate) type RecordLabel<M> = Arc<dyn Fn(&Cx, &M) -> Option<String> + Send + Sync>;
+/// A record's title column, as [`ResourceDef::record_title`] declares it.
+pub(crate) struct RecordTitle<M> {
+    read: Box<dyn Fn(&M) -> String + Send + Sync>,
+    search: TitleSearch,
+}
+
+/// The substring match on a title column for a search term.
+type TitleSearch = Box<dyn Fn(&str) -> Option<Expr<bool>> + Send + Sync>;
+
+impl<M: toasty::schema::Model + Send + Sync + 'static> RecordTitle<M> {
+    fn new<T>(lens: Lens<M, T>) -> Self
+    where
+        T: FormScalar + toasty::schema::Field<Inner = String> + Send + Sync + 'static,
+    {
+        let path = lens.clone();
+        Self {
+            read: Box::new(move |record| lens.read(record).to_label()),
+            search: Box::new(move |term| contains_expr(&path, term)),
+        }
+    }
+
+    /// The column's value on `record`, or `None` when it is empty.
+    pub(crate) fn read(&self, record: &M) -> Option<String> {
+        Some((self.read)(record)).filter(|title| !title.trim().is_empty())
+    }
+
+    /// The substring match on the column for `term`, or `None` for a blank term.
+    pub(crate) fn search_expr(&self, term: &str) -> Option<Expr<bool>> {
+        (self.search)(term)
+    }
+}
 
 /// A record's public page, as [`ResourceDef::public_link`] declares it.
 pub(crate) type PublicLinkFn<M> = Arc<dyn Fn(&Cx, &M) -> Option<PublicLink> + Send + Sync>;
