@@ -75,11 +75,69 @@ use crate::{
 pub trait RouterBuilderPanelExt: Sized {
     /// Mounts `panel` at its prefix with its routes, shell layout, and gating layers.
     fn panel(self, panel: Panel) -> Result<Self>;
+
+    /// The panel mounted at `prefix`, for code that runs outside a request; `None` when no panel
+    /// is mounted there. `prefix` is spelled as for [`Panel::new`]: `"admin"` and `"/admin/"`
+    /// name the same panel.
+    fn panel_handle(&self, prefix: &str) -> Option<PanelHandle>;
 }
 
 impl RouterBuilderPanelExt for RouterBuilder {
     fn panel(self, panel: Panel) -> Result<Self> {
         panel.mount(self)
+    }
+
+    fn panel_handle(&self, prefix: &str) -> Option<PanelHandle> {
+        let panel = self
+            .get_app_context::<Panels>()?
+            .by_prefix(&super::normalize_prefix(prefix))?;
+        Some(PanelHandle {
+            db: self.get_app_context::<Db>()?.clone(),
+            mounts: Arc::clone(&panel.mounts),
+        })
+    }
+}
+
+/// A mounted panel's resources and the router's database, which a background job keeps to build
+/// a context per run without declaring the panel again. Cloning it is cheap.
+///
+/// ```rust,no_run
+/// # use tablo_core::{NoForm, Panel, Resource, RouterBuilderPanelExt, Tenant, scoped_query};
+/// # use topcoat::router::{Router, RouterBuilderDiscoverExt};
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
+/// # struct PostResource;
+/// # impl Resource for PostResource { type Model = Post; type Form = NoForm<Post>; }
+/// # async fn run(db: toasty::Db, tenant: uuid::Uuid) -> topcoat::Result<()> {
+/// let builder = Router::builder()
+///     .discover()
+///     .app_context(db)
+///     .panel(Panel::new("admin").resource::<PostResource>())?;
+/// let admin = builder.panel_handle("admin").expect("mounted above");
+/// let router = builder.build();
+///
+/// // In the job, once per run:
+/// let cx = admin.context().with(Tenant(tenant));
+/// let posts = scoped_query::<PostResource>(&cx)?;
+/// # let _ = (router, posts);
+/// # Ok(())
+/// # }
+/// ```
+#[derive(Clone)]
+pub struct PanelHandle {
+    db: Db,
+    mounts: Arc<Mounts>,
+}
+
+impl PanelHandle {
+    /// A context outside any request in which the panel's resources answer as the panel mounted
+    /// them, as [`Panel::context`] builds: it holds the database and the resources, and no
+    /// request, session or tenant. Add a tenant with `cx.with(Tenant(id))`.
+    ///
+    /// The context is one unit of work, as a request is: loads it memoizes stay cached for its
+    /// lifetime, so a job builds one per run.
+    pub fn context(&self) -> Cx {
+        validation_cx(&self.db, &self.mounts)
     }
 }
 
@@ -91,7 +149,8 @@ impl Panel {
     /// session or tenant; add a tenant with `cx.with(Tenant(id))`.
     ///
     /// Like a request's, the context is one unit of work: loads it memoizes stay cached for its
-    /// lifetime, so a job builds one per run.
+    /// lifetime. It declares and checks the panel's resources on every call, so a job that runs
+    /// beside a router keeps the mounted panel's [`PanelHandle`] instead.
     ///
     /// # Errors
     ///

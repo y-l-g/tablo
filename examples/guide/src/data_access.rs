@@ -1,8 +1,11 @@
 //! The Data access chapter's snippets.
 
-use tablo::prelude::*;
+use tablo::{PanelHandle, prelude::*};
 use toasty::Db;
-use topcoat::context::Cx;
+use topcoat::{
+    context::Cx,
+    router::{Router, RouterBuilderDiscoverExt},
+};
 
 use crate::{
     models::{Post, PostStatus, User},
@@ -58,17 +61,21 @@ pub async fn featured_table(cx: &Cx) -> topcoat::Result<()> {
 }
 
 // ANCHOR: data-access-panel
-pub fn admin_panel() -> Panel {
-    Panel::new("admin")
-        .resource::<PostResource>()
-        .resource::<CommentResource>()
-        .resource::<AuthorResource>()
+pub fn admin_router(db: Db) -> topcoat::Result<(Router, PanelHandle)> {
+    let builder = Router::builder().discover().app_context(db).panel(
+        Panel::new("admin")
+            .resource::<PostResource>()
+            .resource::<CommentResource>()
+            .resource::<AuthorResource>(),
+    )?;
+    let admin = builder.panel_handle("admin").expect("mounted above");
+    Ok((builder.build(), admin))
 }
 // ANCHOR_END: data-access-panel
 
-pub async fn count_drafts(db: &Db, tenant: uuid::Uuid) -> topcoat::Result<usize> {
+pub async fn count_drafts(admin: &PanelHandle, tenant: uuid::Uuid) -> topcoat::Result<usize> {
     // ANCHOR: data-access-job
-    let cx = admin_panel().context(db)?.with(tablo::Tenant(tenant));
+    let cx = admin.context().with(tablo::Tenant(tenant));
     let mut ex = tablo::db::db(&cx);
     let drafts = scoped_query::<PostResource>(&cx)?
         .filter(Post::fields().status().eq(PostStatus::Draft))

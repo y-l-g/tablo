@@ -1306,6 +1306,45 @@ async fn an_unmounted_resource_is_refused_not_rebuilt() {
     }
 }
 
+/// A mounted panel's handle builds each context from the def the mount declared: the resource
+/// answers as mounted, and `declare` does not run again.
+#[tokio::test]
+async fn a_panel_handle_answers_from_the_mounted_def() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use crate::resource::Resource;
+
+    static DECLARE_CALLS: AtomicUsize = AtomicUsize::new(0);
+
+    struct HandledResource;
+    impl Resource for HandledResource {
+        type Model = Dummy;
+        type Form = crate::NoForm<Self::Model>;
+
+        fn declare() -> ResourceDef<Self> {
+            DECLARE_CALLS.fetch_add(1, Ordering::SeqCst);
+            ResourceDef::new()
+                .policy(crate::ReadOnly)
+                .table(dummy_table())
+        }
+    }
+
+    let db = tableless_db(toasty::models!(Dummy)).await;
+    let builder = topcoat::router::Router::builder()
+        .app_context(db)
+        .panel(panel_for::<HandledResource>())
+        .expect("panel builds");
+    assert!(builder.panel_handle("portal").is_none(), "no panel there");
+    let handle = builder
+        .panel_handle("/admin/")
+        .expect("the panel at /admin");
+    for cx in [handle.context(), handle.clone().context()] {
+        assert!(crate::can::<HandledResource>(&cx, Ability::ViewAny));
+        assert!(!crate::can::<HandledResource>(&cx, Ability::Create));
+    }
+    assert_eq!(DECLARE_CALLS.load(Ordering::SeqCst), 1);
+}
+
 /// [`Panel::context`] refuses a misdeclared resource with the errors a router mount reports.
 #[tokio::test]
 async fn context_refuses_a_misdeclared_resource() {

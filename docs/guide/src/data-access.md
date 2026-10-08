@@ -67,16 +67,16 @@ links point at your page's own URL. A page that renders two tables gives each a 
 
 `scoped_query`, `can`, `write_create` and the other entry points that answer from a mounted def
 read the resources a panel mounts, so code that runs outside a request, such as a background job,
-builds its context from the panel the app mounts. Build the panel in one function the router and
-the job share:
+reads them from the panel the router mounts. After `.panel(..)`, `panel_handle("admin")` returns
+that panel's `PanelHandle`, which holds the router's database and the panel's mounted resources and
+is cheap to clone into a job:
 
 ```rust
 {{#include ../../../examples/guide/src/data_access.rs:data-access-panel}}
 ```
 
-`Panel::context(&db)` mounts the panel's resources as `.panel(..)` does, refusing the same resource
-declaration errors, and returns a context holding the database and those resources, with no
-request, session or tenant. Add a tenant with `.with(Tenant(id))`:
+`admin.context()` returns a context holding the database and those resources, with no request,
+session or tenant, without declaring the panel again. Add a tenant with `.with(Tenant(id))`:
 
 ```rust
 {{#include ../../../examples/guide/src/data_access.rs:data-access-job}}
@@ -87,6 +87,10 @@ so build one per job run. It carries no signed-in user, so a policy that reads o
 signed-out request. A context with no panel at all knows no resource: every entry point that reads
 a mounted def answers as for a resource the panel does not mount, and `write_update` writes without
 consulting the context.
+
+`Panel::context(&db)` builds the same context from a panel no router mounts, such as a test's. It
+declares and checks the panel's resources on every call, refusing the declaration errors
+`.panel(..)` refuses.
 
 ## Schema setup
 
