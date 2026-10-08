@@ -51,12 +51,36 @@
 //!
 //! Mounting serves it on the app's router:
 //!
-//! ```text
+//! ```rust,no_run
+//! # use tablo::prelude::*;
+//! # use topcoat::router::{Router, RouterBuilderDiscoverExt};
+//! # #[derive(Debug, Clone, toasty::Model)]
+//! # pub struct Book {
+//! #     #[key]
+//! #     #[auto]
+//! #     pub id: uuid::Uuid,
+//! #     pub title: String,
+//! # }
+//! # #[derive(tablo::RecordForm)]
+//! # #[form(model = Book)]
+//! # pub struct BookForm {
+//! #     pub title: String,
+//! # }
+//! # pub struct BookResource;
+//! # impl Resource for BookResource {
+//! #     type Model = Book;
+//! #     type Form = BookForm;
+//! # }
+//! # fn main() -> topcoat::Result<()> {
+//! # let db: toasty::Db = todo!();
 //! let router = Router::builder()
 //!     .discover()
 //!     .app_context(db)
 //!     .panel(Panel::new("admin").resource::<BookResource>())?
 //!     .build();
+//! # let _ = router;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! The user guide starts at "Your first panel".

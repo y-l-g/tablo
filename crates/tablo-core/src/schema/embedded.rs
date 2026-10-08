@@ -7,13 +7,26 @@
 //!
 //! # What an app writes
 //!
-//! ```text
-//! #[derive(Clone, toasty::Embed, tablo_core::EmbeddedForm)]
-//! pub struct Seo { pub title: String, pub description: String }
+//! ```rust
+//! # use std::collections::HashMap;
+//! # use tablo_core::{EmbeddedForm, FieldError, Section};
+//! # use topcoat::context::Cx;
+//! #[derive(Debug, Clone, toasty::Embed, tablo_core::EmbeddedForm)]
+//! pub struct Seo {
+//!     pub title: String,
+//!     pub description: String,
+//! }
+//! # #[derive(Debug, Clone, toasty::Model)]
+//! # struct Post { #[key] #[auto] id: uuid::Uuid, seo: Seo }
+//! # fn round_trip(cx: &Cx, record: &Post) -> Result<(), Vec<FieldError>> {
+//! # let mut values = HashMap::new();
 //!
 //! Section::new("SEO").schema(Seo::form(Post::fields().seo()));
 //! record.seo.write_form(cx, Post::fields().seo(), &mut values);
 //! let seo = Seo::read_form(cx, Post::fields().seo(), &values)?;
+//! # let _ = seo;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! # What is not covered

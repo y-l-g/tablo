@@ -14,7 +14,9 @@ use crate::{
 /// sidebar entry; the panel owns the route and entry while the page owns its
 /// markup.
 ///
-/// ```text
+/// ```rust
+/// # use tablo_core::{Page, Panel};
+/// # use topcoat::{Result, context::Cx, view::{View, view}};
 /// struct ReportsPage;
 ///
 /// impl Page for ReportsPage {
@@ -23,7 +25,7 @@ use crate::{
 ///     }
 /// }
 ///
-/// Panel::new("admin").page::<ReportsPage>() // GET /admin/reports
+/// Panel::new("admin").page::<ReportsPage>(); // GET /admin/reports
 /// ```
 ///
 /// A page serves one `GET` with a sidebar entry; a form it renders posts to an

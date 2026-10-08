@@ -16,8 +16,13 @@ const EMPTY_STATE_ACTION: StaticClass =
 
 /// Renders zero-data content inside the region that holds no data.
 ///
-/// ```text
-/// empty_state(title: "No records yet", detail: "Create the first one.")
+/// ```rust
+/// # use tablo_ui::empty_state;
+/// # use topcoat::{context::Cx, view::{BoxView, ViewExt, view}};
+/// # fn empty(cx: &Cx) -> BoxView<'_> {
+/// view! { cx => empty_state(title: "No records yet", detail: "Create the first one.") }
+/// # .boxed()
+/// # }
 /// ```
 #[component]
 pub async fn empty_state(

@@ -59,12 +59,26 @@ pub fn navigation<R: Resource>(cx: &topcoat::context::Cx) -> Option<crate::Navig
 /// The app owns the router and mounts the panel into it with
 /// [`RouterBuilderPanelExt::panel`]:
 ///
-/// ```text
+/// ```rust,no_run
+/// # use tablo_core::{NoForm, Panel, Resource, RouterBuilderPanelExt};
+/// # use topcoat::router::{Router, RouterBuilderDiscoverExt};
+/// # #[derive(Debug, Clone, toasty::Model)]
+/// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
+/// # struct UserResource;
+/// # impl Resource for UserResource {
+/// #     type Model = User;
+/// #     type Form = NoForm<User>;
+/// # }
+/// # fn main() -> topcoat::Result<()> {
+/// # let db: toasty::Db = todo!();
 /// let router = Router::builder()
 ///     .discover()
 ///     .app_context(db)
 ///     .panel(Panel::new("admin").resource::<UserResource>())?
 ///     .build();
+/// # let _ = router;
+/// # Ok(())
+/// # }
 /// ```
 ///
 /// Registering is declarative: mounting builds each resource's [`ResourceDef`] and checks every
@@ -164,8 +178,16 @@ impl Panel {
     /// Registers the [`Resource`] `R` as [`resource`](Self::resource) does, with `customize`
     /// adjusting its def for this panel only:
     ///
-    /// ```text
-    /// Panel::new("portal").resource_with::<PostResource>(|def| def.policy(ReadOnly))
+    /// ```rust
+    /// # use tablo_core::{NoForm, Panel, ReadOnly, Resource};
+    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
+    /// # struct PostResource;
+    /// # impl Resource for PostResource {
+    /// #     type Model = Post;
+    /// #     type Form = NoForm<Post>;
+    /// # }
+    /// Panel::new("portal").resource_with::<PostResource>(|def| def.policy(ReadOnly));
     /// ```
     pub fn resource_with<R: Resource>(
         mut self,
