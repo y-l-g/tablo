@@ -33,9 +33,17 @@ impl Resource for UserResource {
 | `RunAny { action }` | the [custom action](./tables.md#custom-actions)'s row and bulk POSTs, its row button and bulk-bar entry, and the bulk column for a bulk action |
 | `Run { action, record }` | each record the action runs on, the row's button for it and, for a bulk action, its checkbox |
 
-`action` is the action's `NAME`, so one policy tells a resource's actions apart. Handlers ask the
-same abilities that decide which buttons render, so a hidden action is also a refused request. A
-denied request answers 403.
+`action` is the action's `NAME`, so one policy tells a resource's actions apart.
+`ability.is_action::<Publish, _>()` asks whether the ability is `RunAny` or `Run` for the action
+type `Publish`, so renaming the action's `NAME` cannot leave a policy matching the old string:
+
+```rust
+{{#include ../../../examples/guide/src/policy_tenancy.rs:policy-action}}
+```
+
+The `_` is the resource, inferred when the action belongs to one. Handlers ask the same abilities
+that decide which buttons render, so a hidden action is also a refused request. A denied request
+answers 403.
 
 - **The list asks `ViewAny` only.** A policy is Rust code that cannot run in the database, and
   filtering rows after pagination would leave pages short. Rows a user must not see on the list

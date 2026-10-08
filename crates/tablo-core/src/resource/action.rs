@@ -186,6 +186,48 @@ pub trait Action<R: Resource>: 'static {
     }
 }
 
+impl<M> Ability<'_, M> {
+    /// Whether the ability is [`RunAny`](Ability::RunAny) or [`Run`](Ability::Run) for the action
+    /// `A`.
+    ///
+    /// It compares against `A::NAME`, so renaming the action keeps the policy matching it, and a
+    /// type that is not an action of the resource does not compile. `R` is inferred when `A` is an
+    /// action of one resource.
+    ///
+    /// ```rust
+    /// # use tablo_core::{Ability, Action, NoForm, Resource};
+    /// # use topcoat::{Result, context::Cx};
+    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # struct Post { #[key] #[auto] id: uuid::Uuid, published: bool }
+    /// # struct PostResource;
+    /// # impl Resource for PostResource {
+    /// #     type Model = Post;
+    /// #     type Form = NoForm<Post>;
+    /// # }
+    /// # struct Publish;
+    /// # impl Action<PostResource> for Publish {
+    /// #     type Input = ();
+    /// #     const NAME: &'static str = "publish";
+    /// #     async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<()> { Ok(()) }
+    /// # }
+    /// # fn is_editor(_cx: &Cx) -> bool { true }
+    /// fn post_policy(cx: &Cx, ability: Ability<'_, Post>) -> bool {
+    ///     match ability {
+    ///         Ability::Run { record, .. } if ability.is_action::<Publish, _>() => !record.published,
+    ///         Ability::ViewAny | Ability::View(_) => true,
+    ///         _ => is_editor(cx),
+    ///     }
+    /// }
+    /// ```
+    pub fn is_action<A, R>(self) -> bool
+    where
+        A: Action<R>,
+        R: Resource<Model = M>,
+    {
+        matches!(self, Ability::RunAny { action } | Ability::Run { action, .. } if action == A::NAME)
+    }
+}
+
 /// What an erased action's `run` returns.
 pub(crate) type ActionFuture<'a> = Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>>;
 
