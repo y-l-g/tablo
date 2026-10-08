@@ -56,7 +56,7 @@ impl Resource for UserResource {
             // ANCHOR_END: user-form
             // ANCHOR: user-navigation
             .navigation_order(-1)
-            .icon(tablo_ui::icons::USERS)
+            .icon(tablo::ui::icons::USERS)
         // ANCHOR_END: user-navigation
     }
 
@@ -72,7 +72,7 @@ impl Resource for UserResource {
 }
 
 // ANCHOR: user-record-form
-#[derive(Debug, Clone, tablo_core::RecordForm)]
+#[derive(Debug, Clone, tablo::RecordForm)]
 #[form(model = User)]
 pub struct UserForm {
     pub name: String,
@@ -132,7 +132,7 @@ impl Resource for PostResource {
 }
 
 // ANCHOR: post-record-form
-#[derive(Debug, Clone, tablo_core::RecordForm)]
+#[derive(Debug, Clone, tablo::RecordForm)]
 #[form(model = Post)]
 pub struct PostForm {
     pub title: String,
@@ -167,12 +167,12 @@ impl Resource for CommentResource {
         posted: Posted<CommentForm>,
         ex: &mut dyn toasty::Executor,
     ) -> Result<Comment> {
-        tablo_core::write_update::<Self>(cx, record, posted, ex).await
+        tablo::write_update::<Self>(cx, record, posted, ex).await
     }
     // ANCHOR_END: comment-update-record
 }
 
-#[derive(Debug, Clone, tablo_core::RecordForm)]
+#[derive(Debug, Clone, tablo::RecordForm)]
 #[form(model = Comment)]
 pub struct CommentForm {
     #[form(relationship = PostResource)]
@@ -197,7 +197,7 @@ impl Resource for AuthorResource {
     }
 }
 
-#[derive(Debug, Clone, tablo_core::RecordForm)]
+#[derive(Debug, Clone, tablo::RecordForm)]
 #[form(model = Author)]
 pub struct AuthorForm {
     pub name: String,

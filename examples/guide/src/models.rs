@@ -23,13 +23,13 @@ pub enum Role {
 }
 // ANCHOR_END: role-options
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo_core::Options)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo::Options)]
 pub enum PostStatus {
     Draft,
     Published,
 }
 
-#[derive(Debug, Clone, toasty::Embed, tablo_core::EmbeddedForm)]
+#[derive(Debug, Clone, toasty::Embed, tablo::EmbeddedForm)]
 // ANCHOR: seo-struct
 pub struct Seo {
     pub title: String,
@@ -51,7 +51,7 @@ pub struct Post {
     #[key]
     #[auto]
     pub id: uuid::Uuid,
-    pub tenant_id: tablo_core::TenantId,
+    pub tenant_id: tablo::TenantId,
     pub title: String,
     pub body: String,
     pub status: PostStatus,
@@ -111,7 +111,7 @@ pub struct Staff {
     pub password_hash: String,
 }
 
-impl tablo_core::PanelUser for Staff {
+impl tablo::PanelUser for Staff {
     fn user_id(&self) -> String {
         self.id.to_string()
     }

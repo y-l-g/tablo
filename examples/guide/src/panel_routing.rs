@@ -1,7 +1,6 @@
 //! The Panel and routing chapter's snippets.
 
-use tablo::prelude::*;
-use tablo_core::{Page, auth::Authenticator};
+use tablo::{Page, auth::Authenticator, prelude::*};
 use toasty::Db;
 use topcoat::{
     Result,
@@ -34,7 +33,7 @@ pub struct Customer {
     pub id: String,
 }
 
-impl tablo_core::PanelUser for Customer {
+impl tablo::PanelUser for Customer {
     fn user_id(&self) -> String {
         self.id.clone()
     }
@@ -109,9 +108,9 @@ impl Page for ReportsPage {
     async fn render(cx: &Cx) -> Result<impl View> {
         Ok(view! {
             cx =>
-            tablo_ui::page(
-                tablo_ui::page_header(tablo_ui::page_title("Reports"))
-                tablo_ui::page_content(tablo_ui::card(tablo_ui::card_content("…")))
+            tablo::ui::page(
+                tablo::ui::page_header(tablo::ui::page_title("Reports"))
+                tablo::ui::page_content(tablo::ui::card(tablo::ui::card_content("…")))
             )
         })
     }

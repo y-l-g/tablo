@@ -14,7 +14,7 @@ use crate::{
 
 pub async fn load_users(cx: &Cx) -> topcoat::Result<Vec<User>> {
     // ANCHOR: data-access-db
-    let mut db = tablo_core::db::db(cx);
+    let mut db = tablo::db::db(cx);
     let users = User::all().exec(&mut db).await?;
     // ANCHOR_END: data-access-db
     Ok(users)
@@ -52,7 +52,7 @@ pub async fn load_author_names(mut db: Db) -> topcoat::Result<()> {
 
 pub async fn featured_table(cx: &Cx) -> topcoat::Result<()> {
     // ANCHOR: data-access-wired-table
-    let table = tablo_core::panel::wired_table::<PostResource>(cx)?;
+    let table = tablo::panel::wired_table::<PostResource>(cx)?;
     let query = scoped_query::<PostResource>(cx)?.filter(Post::fields().featured().eq(true));
     let body = table.render(cx, query).await?;
     // ANCHOR_END: data-access-wired-table
@@ -75,8 +75,8 @@ pub fn admin_router(db: Db) -> topcoat::Result<(Router, PanelHandle)> {
 
 pub async fn count_drafts(admin: &PanelHandle, tenant: uuid::Uuid) -> topcoat::Result<usize> {
     // ANCHOR: data-access-job
-    let cx = admin.context().with(tablo_core::Tenant(tenant));
-    let mut ex = tablo_core::db::db(&cx);
+    let cx = admin.context().with(tablo::Tenant(tenant));
+    let mut ex = tablo::db::db(&cx);
     let drafts = scoped_query::<PostResource>(&cx)?
         .filter(Post::fields().status().eq(PostStatus::Draft))
         .exec(&mut ex)

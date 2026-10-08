@@ -2,10 +2,10 @@
 
 use std::path::PathBuf;
 
-use tablo::prelude::*;
-use tablo_core::{
+use tablo::{
     Options, Uploader,
     extend::{Control, ControlInput},
+    prelude::*,
 };
 use topcoat::{context::Cx, view::*};
 
@@ -44,14 +44,14 @@ pub fn accent_field() -> CustomField {
 }
 // ANCHOR_END: forms-color-control
 
-#[derive(Debug, Clone, tablo_core::RecordForm)]
+#[derive(Debug, Clone, tablo::RecordForm)]
 #[form(model = Theme)]
 pub struct ThemeForm {
     pub accent: String,
 }
 
 // ANCHOR: forms-relationship-field
-#[derive(Debug, Clone, tablo_core::RecordForm)]
+#[derive(Debug, Clone, tablo::RecordForm)]
 #[form(model = Post)]
 pub struct PostAuthorForm {
     // The source whose scoped query loads the options; each is labelled by its `record_label`.
@@ -103,7 +103,7 @@ pub fn seo_schema() -> Section {
 // ANCHOR_END: forms-embedded-schema
 
 // ANCHOR: forms-embedded-record-form
-#[derive(Debug, Clone, tablo_core::RecordForm)]
+#[derive(Debug, Clone, tablo::RecordForm)]
 #[form(model = Post)]
 pub struct PostForm {
     pub title: String,
