@@ -63,8 +63,8 @@ The names default from the type names, following Filament's conventions:
 | `ResourceDef` method | Default | `BlogPostResource` over `BlogPost` |
 | --- | --- | --- |
 | `slug(..)` | resource name without `Resource`, pluralized, kebab-cased | `blog-posts` |
-| `label(..)` | the model's type name; used in "Create …" and "Edit …" | `BlogPost` |
-| `plural_label(..)` | the label pluralized; the sidebar entry and list title | `BlogPosts` |
+| `label(..)` | the model's type name in sentence case; used in "Create …" and "Edit …" | `Blog post` |
+| `plural_label(..)` | the label pluralized; the sidebar entry and list title | `Blog posts` |
 
 Set `label` to rename a record, and `plural_label` only when the plural rules guess wrong. Name
 resources in the singular: `UsersResource` pluralizes to `userses`.

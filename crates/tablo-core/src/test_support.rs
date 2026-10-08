@@ -36,7 +36,7 @@ pub(crate) struct User {
 }
 
 /// The three-column model schema tests resolve lenses against.
-#[derive(Debug, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model)]
 pub(crate) struct DummyUser {
     #[key]
     #[auto]

@@ -9,6 +9,20 @@ fn type_stems_drop_the_suffix_unless_nothing_is_left() {
     assert_eq!(sentence_case("Dashboard"), "Dashboard");
 }
 
+/// A word spelled in capitals is an acronym and keeps them wherever it sits; a single capital
+/// letter is an ordinary word.
+#[test]
+fn sentence_case_keeps_acronyms() {
+    use super::sentence_case;
+    assert_eq!(sentence_case("APIKey"), "API key");
+    assert_eq!(sentence_case("ApiKey"), "Api key");
+    assert_eq!(sentence_case("WebhookURL"), "Webhook URL");
+    assert_eq!(sentence_case("User2FA"), "User2 FA");
+    assert_eq!(sentence_case("MP3Track"), "MP3 track");
+    assert_eq!(sentence_case("XRay"), "X ray");
+    assert_eq!(sentence_case("Audit_Log"), "Audit log");
+}
+
 #[test]
 fn pluralize_and_kebab_follow_english_rules() {
     use super::{kebab_case, pluralize};
