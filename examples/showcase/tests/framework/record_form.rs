@@ -1265,6 +1265,15 @@ struct AttachmentForm {
     stage: Stage,
 }
 
+/// An uploader for a panel whose test never uploads: a file field mounts only with one.
+struct KeepName;
+
+impl tablo::Uploader for KeepName {
+    async fn store(&self, filename: &str, _bytes: &[u8]) -> Result<String, String> {
+        Ok(filename.to_string())
+    }
+}
+
 /// A resource whose detail page the record form derives, over a file, a relationship and an
 /// embedded enum.
 struct AttachmentResource;
@@ -1299,7 +1308,11 @@ async fn the_derived_detail_page_shows_files_keys_and_embedded_values() {
     .exec(&mut db)
     .await
     .expect("seed attachment");
-    let router = panel_router::<AttachmentResource>(db);
+    let router = mount(
+        db,
+        panel().uploads(KeepName).resource::<AttachmentResource>(),
+    )
+    .expect("panel builds");
 
     let detail =
         body_string(get(&router, &format!("/admin/attachments/{}", attachment.id)).await).await;

@@ -112,14 +112,9 @@ async fn auth_seeded_db() -> Db {
     .await
 }
 
-/// A panel over `Doc`, optionally with an uploader.
-fn router(db: Db, uploader: Option<impl Uploader>) -> Router {
-    let panel = panel();
-    let panel = match uploader {
-        Some(uploader) => panel.uploads(uploader),
-        None => panel,
-    };
-    mount(db, panel.resource::<DocResource>()).expect("panel builds")
+/// A panel over `Doc` with `uploader`.
+fn router(db: Db, uploader: impl Uploader) -> Router {
+    mount(db, panel().uploads(uploader).resource::<DocResource>()).expect("panel builds")
 }
 
 /// A directory of this test's own.
@@ -164,13 +159,14 @@ async fn docs(db: &Db) -> Vec<Doc> {
 async fn an_installed_uploader_stores_the_bytes_and_the_path_reaches_the_record() {
     let db = seeded_db().await;
     let uploader = RecordingUploader::default();
-    let router = router(db.clone(), Some(uploader.clone()));
+    let router = router(db.clone(), uploader.clone());
     let csrf = new_csrf();
     let body = multipart_body(
         "B",
         &[
             ("title", None, "Notes"),
-            ("cover", Some("cover.png"), "PNG-BYTES"),
+            // A path-carrying client name reaches the uploader as its basename.
+            ("cover", Some("../../etc/cover.png"), "PNG-BYTES"),
             ("attachment", Some("spec.pdf"), "PDF-BYTES"),
             ("csrf_token", None, &csrf),
         ],
@@ -198,33 +194,28 @@ async fn an_installed_uploader_stores_the_bytes_and_the_path_reaches_the_record(
     );
 }
 
+/// Without an uploader a file field would accept a file and keep only its name.
 #[tokio::test]
-async fn without_an_uploader_the_sanitized_basename_is_still_stored() {
-    let db = seeded_db().await;
-    let router = router(db.clone(), None::<RecordingUploader>);
-    let csrf = new_csrf();
-    let body = multipart_body(
-        "B",
-        &[
-            ("title", None, "Notes"),
-            // A path-carrying client name is sanitized to its basename.
-            ("cover", Some("../../etc/cover.png"), "PNG-BYTES"),
-            ("csrf_token", None, &csrf),
-        ],
+async fn a_file_field_without_an_uploader_fails_the_build() {
+    let errors = refusal(mount(seeded_db().await, panel().resource::<DocResource>()));
+    let kinds: Vec<_> = errors.into_iter().map(|error| error.kind).collect();
+    assert_eq!(
+        kinds,
+        [
+            DeclarationErrorKind::FileFieldWithoutUploader {
+                field: "cover".to_string(),
+            },
+            DeclarationErrorKind::FileFieldWithoutUploader {
+                field: "attachment".to_string(),
+            },
+        ]
     );
-
-    let response = post_multipart(&router, "/admin/docs/create", &csrf, "B", body).await;
-    assert_eq!(response.status(), 303);
-
-    let created = docs(&db).await;
-    assert_eq!(created[0].cover, "cover.png");
-    assert_eq!(created[0].attachment, "");
 }
 
 #[tokio::test]
 async fn a_refused_upload_is_an_inline_field_error_and_writes_nothing() {
     let db = seeded_db().await;
-    let router = router(db.clone(), Some(FailingUploader));
+    let router = router(db.clone(), FailingUploader);
     let csrf = new_csrf();
     let body = multipart_body(
         "B",
@@ -261,7 +252,7 @@ async fn a_refused_upload_is_an_inline_field_error_and_writes_nothing() {
 async fn an_untouched_file_input_keeps_the_stored_path_and_a_chosen_one_replaces_it() {
     let db = seeded_db().await;
     let uploader = RecordingUploader::default();
-    let router = router(db.clone(), Some(uploader.clone()));
+    let router = router(db.clone(), uploader.clone());
     let doc = seed_doc(&db, "Original", "cover.png", "spec.pdf").await;
 
     // A browser submits every file input.
@@ -320,7 +311,7 @@ async fn an_untouched_file_input_keeps_the_stored_path_and_a_chosen_one_replaces
 #[tokio::test]
 async fn a_text_value_for_a_file_upload_is_not_stored_on_create() {
     let db = seeded_db().await;
-    let router = router(db.clone(), Some(RecordingUploader::default()));
+    let router = router(db.clone(), RecordingUploader::default());
     let csrf = new_csrf();
     let body = format!("title=Notes&cover=javascript%3Aalert%281%29&csrf_token={csrf}");
 
@@ -357,7 +348,7 @@ async fn a_text_value_for_a_file_upload_is_not_stored_on_create() {
 #[tokio::test]
 async fn a_text_value_for_a_file_upload_keeps_the_stored_file_on_edit() {
     let db = seeded_db().await;
-    let router = router(db.clone(), Some(RecordingUploader::default()));
+    let router = router(db.clone(), RecordingUploader::default());
     let doc = seed_doc(&db, "Original", "/uploads/old.png", "spec.pdf").await;
     let csrf = new_csrf();
     let body = multipart_body(
@@ -397,7 +388,7 @@ async fn a_text_value_for_a_file_upload_keeps_the_stored_file_on_edit() {
 #[tokio::test]
 async fn a_text_part_after_a_file_part_does_not_forge_a_value_on_create() {
     let db = seeded_db().await;
-    let router = router(db.clone(), None::<RecordingUploader>);
+    let router = router(db.clone(), RecordingUploader::default());
     let csrf = new_csrf();
     let body = multipart_body(
         "B",
@@ -431,12 +422,12 @@ async fn a_text_part_after_a_file_part_does_not_forge_a_value_on_create() {
     );
 }
 
-/// The same duplicate-name bypass on edit, with an uploader installed.
+/// The duplicate-name bypass on edit.
 #[tokio::test]
 async fn a_text_part_after_a_file_part_keeps_the_stored_file_on_edit() {
     let db = seeded_db().await;
     let uploader = RecordingUploader::default();
-    let router = router(db.clone(), Some(uploader.clone()));
+    let router = router(db.clone(), uploader.clone());
     let doc = seed_doc(&db, "Original", "/uploads/old.png", "spec.pdf").await;
     let csrf = new_csrf();
     let body = multipart_body(
@@ -473,44 +464,11 @@ async fn a_text_part_after_a_file_part_keeps_the_stored_file_on_edit() {
     );
 }
 
-/// The duplicate-name bypass on edit with no uploader.
-#[tokio::test]
-async fn a_text_part_after_a_file_part_keeps_the_stored_file_without_an_uploader() {
-    let db = seeded_db().await;
-    let router = router(db.clone(), None::<RecordingUploader>);
-    let doc = seed_doc(&db, "Original", "/uploads/old.png", "spec.pdf").await;
-    let csrf = new_csrf();
-    let body = multipart_body(
-        "B",
-        &[
-            ("title", None, "Renamed"),
-            ("cover", Some("new.png"), "NEW-BYTES"),
-            ("cover", None, "javascript:alert(1)"),
-            ("csrf_token", None, &csrf),
-        ],
-    );
-
-    let response = post_multipart(
-        &router,
-        &format!("/admin/docs/{}/edit", doc.id),
-        &csrf,
-        "B",
-        body,
-    )
-    .await;
-    assert_eq!(response.status(), 303, "the edit saves");
-    assert_eq!(
-        docs(&db).await[0].cover,
-        "/uploads/old.png",
-        "the stored file must survive the duplicate name"
-    );
-}
-
 /// The last part wins in the other order too.
 #[tokio::test]
 async fn a_file_part_after_a_text_part_wins_on_create() {
     let db = seeded_db().await;
-    let router = router(db.clone(), Some(RecordingUploader::default()));
+    let router = router(db.clone(), RecordingUploader::default());
     let csrf = new_csrf();
     let body = multipart_body(
         "B",
@@ -536,7 +494,7 @@ async fn a_file_part_after_a_text_part_wins_on_create() {
 async fn a_rejected_filename_after_a_file_part_discards_the_staged_bytes() {
     let db = seeded_db().await;
     let uploader = RecordingUploader::default();
-    let router = router(db.clone(), Some(uploader.clone()));
+    let router = router(db.clone(), uploader.clone());
     let csrf = new_csrf();
     let body = multipart_body(
         "B",
@@ -567,7 +525,7 @@ async fn a_rejected_filename_after_a_file_part_discards_the_staged_bytes() {
 #[tokio::test]
 async fn clearing_an_optional_upload_empties_the_stored_path() {
     let db = seeded_db().await;
-    let router = router(db.clone(), Some(RecordingUploader::default()));
+    let router = router(db.clone(), RecordingUploader::default());
     let doc = seed_doc(&db, "Original", "cover.png", "spec.pdf").await;
 
     let csrf = new_csrf();
@@ -600,7 +558,7 @@ async fn clearing_an_optional_upload_empties_the_stored_path() {
 #[tokio::test]
 async fn clearing_a_required_upload_is_refused_inline() {
     let db = seeded_db().await;
-    let router = router(db.clone(), Some(RecordingUploader::default()));
+    let router = router(db.clone(), RecordingUploader::default());
     let doc = seed_doc(&db, "Original", "cover.png", "spec.pdf").await;
 
     let csrf = new_csrf();
@@ -639,7 +597,7 @@ async fn clearing_a_required_upload_is_refused_inline() {
 #[tokio::test]
 async fn a_refused_edit_upload_keeps_showing_the_stored_file() {
     let db = seeded_db().await;
-    let router = router(db.clone(), Some(FailingUploader));
+    let router = router(db.clone(), FailingUploader);
     let doc = seed_doc(&db, "Notes", "/uploads/old.png", "spec.pdf").await;
 
     let csrf = new_csrf();
@@ -681,7 +639,7 @@ async fn a_refused_edit_upload_keeps_showing_the_stored_file() {
 #[tokio::test]
 async fn an_over_cap_body_still_413s_with_an_uploader_installed() {
     let db = seeded_db().await;
-    let router = router(db.clone(), Some(RecordingUploader::default()));
+    let router = router(db.clone(), RecordingUploader::default());
     let csrf = new_csrf();
     let huge = "a".repeat(11 * 1024 * 1024);
     let body = multipart_body(
@@ -708,7 +666,7 @@ async fn an_over_cap_body_still_413s_with_an_uploader_installed() {
 #[tokio::test]
 async fn the_edit_form_links_the_stored_files() {
     let db = seeded_db().await;
-    let router = router(db.clone(), Some(RecordingUploader::default()));
+    let router = router(db.clone(), RecordingUploader::default());
     let doc = seed_doc(&db, "Notes", "/uploads/photo.png", "/files/spec.pdf").await;
 
     let response = get(&router, &format!("/admin/docs/{}/edit", doc.id)).await;
@@ -734,7 +692,7 @@ async fn the_edit_form_links_the_stored_files() {
 #[tokio::test]
 async fn a_create_form_offers_no_stored_value_and_no_clear_control() {
     let db = seeded_db().await;
-    let router = router(db.clone(), Some(RecordingUploader::default()));
+    let router = router(db.clone(), RecordingUploader::default());
 
     let response = get(&router, "/admin/docs/create").await;
     assert!(response.status().is_success());
@@ -759,6 +717,7 @@ async fn serve_dir_serves_the_upload_directory_through_the_panel() {
         Panel::new("admin")
             .auth(Auth::disabled())
             .serve_dir("/uploads/{*file}", dir.clone())
+            .uploads(RecordingUploader::default())
             .resource::<DocResource>(),
     )
     .expect("panel builds");
@@ -789,6 +748,7 @@ async fn a_served_directory_is_reachable_without_a_session() {
         Panel::new("admin")
             // No `.auth(..)` call.
             .serve_dir("/uploads/{*file}", dir.clone())
+            .uploads(RecordingUploader::default())
             .resource::<DocResource>(),
     )
     .expect("panel builds");
@@ -833,6 +793,7 @@ async fn served_active_content_is_inert() {
         Panel::new("admin")
             .auth(Auth::disabled())
             .serve_dir("/uploads/{*file}", dir.clone())
+            .uploads(RecordingUploader::default())
             .resource::<DocResource>(),
     )
     .expect("panel builds");

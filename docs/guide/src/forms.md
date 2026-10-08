@@ -231,7 +231,8 @@ A file field (`#[form(file)]` on a record-form `String`, or `Field::file` on a p
 with a file field is sent as `multipart/form-data`, with a 10 MiB body limit (larger answers 413).
 Filenames are reduced to a safe basename before anything sees them.
 
-Where the bytes go is your app's decision. Install an `Uploader` on the panel:
+Where the bytes go is your app's decision. Install an `Uploader` on the panel; a panel whose
+resource form declares a file field refuses to mount without one:
 
 ```rust
 {{#include ../../../examples/guide/src/forms.rs:forms-uploader}}
@@ -239,7 +240,6 @@ Where the bytes go is your app's decision. Install an `Uploader` on the panel:
 
 - `store` returns the value to save. An `Err(reason)` is shown to the user inline as
   `<Label> could not be uploaded: <reason>`, so keep the reason free of paths and driver messages.
-  Without an uploader the panel stores the sanitized filename and discards the bytes.
 - **Keeping a file across a failed submit.** When a form re-renders with errors, the file input is
   empty again. The form carries the path `store` just returned, and the panel reuses it on the next
   submit only when `Uploader::holds(path)` answers `true`. The default answers `false`, so the user

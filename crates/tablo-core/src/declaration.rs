@@ -145,6 +145,11 @@ pub enum DeclarationErrorKind {
     },
     /// `Panel::shell_assets` is set, but the router has no asset bundle.
     ShellAssetsWithoutBundle,
+    /// A form declares a file field, but the panel installs no `Uploader` to store its bytes.
+    FileFieldWithoutUploader {
+        /// The file field's name.
+        field: String,
+    },
     /// A path segment the panel routes cannot be a literal URL segment.
     InvalidSegment {
         /// What names the segment: `panel prefix`, `ResourceDef::slug` or `Page::slug`.
@@ -352,6 +357,11 @@ impl fmt::Display for DeclarationErrorKind {
             Self::ShellAssetsWithoutBundle => f.write_str(
                 "shell_assets need the router's asset bundle: install it with `.assets(..)` \
                  before mounting the panel",
+            ),
+            Self::FileFieldWithoutUploader { field } => write!(
+                f,
+                "file field `{field}` needs an uploader to store its bytes: install one with \
+                 `Panel::uploads`"
             ),
             Self::InvalidSegment {
                 item,

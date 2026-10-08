@@ -160,11 +160,12 @@ impl Panel {
             prefix,
             registrations,
             configuration_errors,
+            uploads,
             ..
         } = self;
         let mut registry = Registry::new(prefix.clone(), Some(AppSchema::of_db(db)));
         let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
-        let cx = registry.check_all(db, &mounts, &mut errors);
+        let cx = registry.check_all(db, &mounts, uploads.is_some(), &mut errors);
         if !errors.is_empty() {
             return Err(MountError::new(&prefix, errors).into());
         }
@@ -197,7 +198,7 @@ impl Panel {
         ));
         match &db {
             Some(db) => {
-                registry.check_all(db, &mounts, &mut errors);
+                registry.check_all(db, &mounts, uploads.is_some(), &mut errors);
                 if let Err(kind) = crate::auth::check_models_registered(db, &auth) {
                     errors.push(DeclarationError::panel(kind));
                 }
@@ -326,11 +327,28 @@ impl Registry {
         (Arc::new(std::mem::take(&mut self.mounts)), errors)
     }
 
-    /// Checks every registered resource against `db`, returning the context the checks ran in.
-    fn check_all(&self, db: &Db, mounts: &Arc<Mounts>, errors: &mut Vec<DeclarationError>) -> Cx {
+    /// Checks every registered resource against `db` and whether the panel installs an
+    /// uploader, returning the context the checks ran in.
+    fn check_all(
+        &self,
+        db: &Db,
+        mounts: &Arc<Mounts>,
+        has_uploader: bool,
+        errors: &mut Vec<DeclarationError>,
+    ) -> Cx {
         let cx = validation_cx(db, mounts);
         for registered in &self.resources {
             (registered.check)(&cx, errors);
+            // Without an uploader a file field would accept a file and keep only its name.
+            if !has_uploader {
+                errors.extend(registered.file_fields.iter().map(|field| DeclarationError {
+                    resource: Some(registered.name),
+                    site: Site::Form,
+                    kind: DeclarationErrorKind::FileFieldWithoutUploader {
+                        field: field.clone(),
+                    },
+                }));
+            }
         }
         cx
     }
