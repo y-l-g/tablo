@@ -29,7 +29,8 @@ use crate::{
 /// ```
 ///
 /// A page serves one `GET` with a sidebar entry; a form it renders posts to an
-/// app-declared route the auth gate covers.
+/// app-declared route the auth gate covers. [`can_access`](Page::can_access) limits both to
+/// the users it admits.
 pub trait Page: Sized + Send + Sync + 'static {
     /// The URL segment under the panel prefix. Default: the type name without
     /// a `Page` suffix, kebab-cased (`MediaLibraryPage` → `media-library`).
@@ -51,8 +52,37 @@ pub trait Page: Sized + Send + Sync + 'static {
         NavigationItem::for_page::<Self>()
     }
 
-    /// Render the page body. The panel checks for a resolved user before
-    /// calling it.
+    /// Whether the request's user may open this page. The panel answers 403 and leaves the page
+    /// out of the sidebar when it answers `false`. Default: every signed-in user.
+    ///
+    /// ```rust
+    /// # use tablo_core::{Page, auth};
+    /// # use topcoat::{Result, context::Cx, view::{View, view}};
+    /// # #[derive(Clone)]
+    /// # struct Staff { admin: bool }
+    /// # impl tablo_core::PanelUser for Staff {
+    /// #     fn user_id(&self) -> String { String::new() }
+    /// #     fn display_name(&self) -> &str { "" }
+    /// # }
+    /// struct BillingPage;
+    ///
+    /// impl Page for BillingPage {
+    ///     fn can_access(cx: &Cx) -> bool {
+    ///         auth::user::<Staff>(cx).is_some_and(|staff| staff.admin)
+    ///     }
+    ///
+    ///     async fn render(cx: &Cx) -> Result<impl View> {
+    ///         Ok(view! { cx => tablo_ui::page(tablo_ui::page_title("Billing")) })
+    ///     }
+    /// }
+    /// ```
+    fn can_access(cx: &Cx) -> bool {
+        let _ = cx;
+        true
+    }
+
+    /// Render the page body. The panel checks for a resolved user and
+    /// [`can_access`](Page::can_access) before calling it.
     fn render(cx: &Cx) -> impl Future<Output = Result<impl View>> + Send;
 }
 

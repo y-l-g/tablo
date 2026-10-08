@@ -74,7 +74,13 @@ async fn pages_mount_under_the_prefix_with_their_sidebar_entries() {
     let entries: Vec<_> = registered
         .nav_items
         .iter()
-        .map(|item| (item.label.as_str(), item.url(), item.order))
+        .map(|entry| {
+            (
+                entry.item.label.as_str(),
+                entry.item.url(),
+                entry.item.order,
+            )
+        })
         .collect();
     assert_eq!(
         entries,
@@ -264,4 +270,64 @@ async fn a_page_redirects_to_login_without_a_resolved_user() {
         location.starts_with("/admin/login"),
         "an anonymous page request redirects to login, got {location}"
     );
+}
+
+/// A page whose `can_access` refuses answers 403 and leaves the sidebar, as does a resource the
+/// user cannot `ViewAny`; what the user may open stays.
+#[tokio::test]
+async fn the_sidebar_lists_only_what_the_user_may_open() {
+    struct SecretPage;
+    impl Page for SecretPage {
+        fn can_access(_cx: &Cx) -> bool {
+            false
+        }
+
+        async fn render(cx: &Cx) -> Result<impl View> {
+            Ok(view! { cx => <h1>"Secret"</h1> })
+        }
+    }
+
+    struct OpenResource;
+    impl Resource for OpenResource {
+        type Model = Dummy;
+        type Form = crate::NoForm<Self::Model>;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("open")
+                .policy(crate::policy::ReadOnly)
+                .table(dummy_table())
+        }
+    }
+
+    let router = mount(
+        db().await,
+        Panel::new("admin")
+            .auth(crate::Auth::disabled())
+            .home::<Dashboard>()
+            .resource::<OpenResource>()
+            // Its policy is the default, which denies every ability.
+            .resource::<DummyResource>()
+            .page::<ReportsPage>()
+            .page::<SecretPage>(),
+    )
+    .expect("the panel builds");
+
+    let (status, _) = get(&router, "/admin/secret").await;
+    assert_eq!(status, http::StatusCode::FORBIDDEN);
+
+    let (status, html) = get(&router, "/admin").await;
+    assert_eq!(status, http::StatusCode::OK);
+    for (href, listed) in [
+        ("/admin/reports", true),
+        ("/admin/open", true),
+        ("/admin/secret", false),
+        ("/admin/dummies", false),
+    ] {
+        assert_eq!(
+            html.contains(&format!("href=\"{href}\"")),
+            listed,
+            "{href} listed: {listed}, got {html}"
+        );
+    }
 }

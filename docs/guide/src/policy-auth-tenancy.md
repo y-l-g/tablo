@@ -24,7 +24,7 @@ impl Resource for UserResource {
 
 | Ability | Asked by |
 | --- | --- |
-| `ViewAny` | the list and its live refresh, the export, related tables, relationship options |
+| `ViewAny` | the list and its live refresh, the sidebar entry, the export, related tables, relationship options |
 | `View(record)` | the detail page, the edit page and POST, deletes, each exported row, each relationship option, each row's actions |
 | `Create` | the create page and POST, the Create button |
 | `Update(record)` | the edit page and POST, the row's Edit action |
