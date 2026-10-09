@@ -79,7 +79,7 @@ pub(crate) fn safe_next(next: &str) -> Option<&str> {
 }
 
 /// The validated `?next=` the login page embeds as a hidden field.
-fn next_from_query(cx: &Cx) -> Option<String> {
+pub(super) fn next_from_query(cx: &Cx) -> Option<String> {
     let query = uri(cx).query()?;
     form_urlencoded::parse(query.as_bytes())
         .find(|(key, _)| key == NEXT_FIELD)
@@ -268,6 +268,12 @@ async fn render_login_page<'a>(
     let action = login_url(cx);
     let brand = Panel::render_brand(cx).await?;
     let hint = current(cx).and_then(|panel| panel.login_hint.clone());
+    let sign_up = super::registration::offered(cx)
+        .then(|| super::registration::with_next(super::registration::register_url(cx), &next));
+    // A sign-up whose account may not enter the panel yet lands here with a notification.
+    let notice = (error.is_none())
+        .then(|| crate::notification::take_notification(cx))
+        .flatten();
     let body = topcoat::view::view! {
         cx =>
         <div class="flex min-h-svh items-center justify-center bg-muted p-6">
@@ -289,6 +295,15 @@ async fn render_login_page<'a>(
                             variant: tablo_ui::AlertVariant::Destructive,
                             attrs: topcoat::view::attributes! { role="alert" },
                             tablo_ui::alert_title((error.message()))
+                        )
+                    }
+                    if let Some(notice) = notice {
+                        tablo_ui::alert(
+                            attrs: topcoat::view::attributes! { role="status" },
+                            tablo_ui::alert_title((notice.title))
+                            if let Some(description) = notice.description {
+                                tablo_ui::alert_description((description))
+                            }
                         )
                     }
                     tablo_ui::field(
@@ -328,6 +343,17 @@ async fn render_login_page<'a>(
                         "Sign in"
                     )
                 </form>
+                if let Some(sign_up) = sign_up {
+                    <p class="text-center text-sm text-muted-foreground">
+                        "Don't have an account? "
+                        <a
+                            href=(sign_up)
+                            class="font-medium text-foreground underline underline-offset-4"
+                        >
+                            "Sign up"
+                        </a>
+                    </p>
+                }
                 if let Some(hint) = hint {
                     <p class="text-center text-xs text-muted-foreground">(hint)</p>
                 }

@@ -189,13 +189,59 @@ use tablo::{Membership, PanelUser, auth::{Authenticator, verify_password}};
 Sessions stay in `AuthSession`, so register it; the provided `AdminUser` is needed only by
 `PasswordAuth`.
 
+### Sign-up
+
+`Auth::registration` lets visitors create their own account at `{prefix}/register`, which the
+login page links to. `PasswordAuth` registers an `AdminUser` from a name, an email address and a
+password typed twice:
+
+```rust
+{{#include ../../../examples/guide/src/policy_tenancy.rs:policy-sign-up-password}}
+```
+
+Every account `PasswordAuth` registers is active, and an active `AdminUser` may open the whole
+panel, so open it only where any visitor may hold an account.
+
+Your own user table registers through a `Registrar` beside its `Authenticator`, which works like
+an [action with input](./actions.md#asking-for-input): `Input` is the form the page asks for,
+`validate` refuses a submission field by field, and `register` writes the account. Both run in one
+transaction the framework opens:
+
+```rust
+{{#include ../../../examples/guide/src/policy_tenancy.rs:policy-staff-sign-up}}
+```
+
+```rust
+{{#include ../../../examples/guide/src/policy_tenancy.rs:policy-staff-sign-up-panel}}
+```
+
+- **The form** is any `ActionInput`, or the shipped `SignUp`. `#[form(password)]` renders a
+  masked control that a refused form renders empty, and `#[form(email)]` refuses a malformed
+  address before `validate` runs. A missing field and a malformed value answer 422 with the error
+  under the field, as `validate`'s refusals do; nothing is written.
+- **`new_password_errors`** refuses a password under eight characters and a confirmation that
+  differs, under the `password` and `password_confirmation` keys.
+- **After the commit**, an account that may open the panel is signed in, its session rotated as a
+  login rotates it, and lands on `next` or the panel's home page. One that may not, such as an
+  account awaiting approval, lands on the login page with a notification instead.
+- **Mounting refuses** a registrar whose `User` is not the type the authenticator loads, a
+  registration on `Auth::disabled()`, a form field named `csrf_token` or `next`, a file field and
+  a relationship choice, whose options would list records to a visitor nobody signed in.
+- **Throttling.** Each client address may submit five sign-ups a minute, counted whether or not
+  they create an account; `Auth::sign_up_throttle` changes the limit. Past it the page answers
+  429.
+
+The sign-up page tells a visitor whether an email is taken, which the login page never does: an
+app that must keep its accounts private verifies the address by email before saying so, which
+Tablo does not ship.
+
 ### Turning it off
 
 ```rust
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-auth-disabled-body}}
 ```
 
-Every panel route is then public and the login routes are not registered. Use it for public
+Every panel route is then public and the login and sign-up routes are not registered. Use it for public
 demos and tests only.
 
 ## Tenancy

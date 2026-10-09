@@ -134,6 +134,56 @@ pub enum ActionInputFault {
     DependentChoice(String),
 }
 
+/// Why a panel's sign-up page cannot be served: [`DeclarationErrorKind::SignUp`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum SignUpFault {
+    /// `Auth::registration` on `Auth::disabled`, which serves no sign-in to land on.
+    AuthDisabled,
+    /// The registrar creates another user type than the authenticator loads.
+    UserType {
+        /// The registrar's `User` type.
+        registrar: &'static str,
+    },
+    /// A field named like a key the sign-up POST carries itself: `csrf_token` or `next`.
+    ReservedField(String),
+    /// A file field, whose upload the sign-up POST does not read.
+    FileField(String),
+    /// A relationship choice, whose options would list records to a visitor nobody signed in.
+    RelationshipField(String),
+}
+
+impl fmt::Display for SignUpFault {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::AuthDisabled => f.write_str(
+                "registration needs auth: `Auth::disabled()` serves no sign-in for a new \
+             account to land on",
+            ),
+            Self::UserType { registrar } => write!(
+                f,
+                "the registrar creates `{registrar}`, but the authenticator loads another \
+             type: register the type the panel signs in"
+            ),
+            Self::ReservedField(field) => write!(
+                f,
+                "the sign-up form declares a field named '{field}', which its POST carries \
+             itself: rename the field"
+            ),
+            Self::FileField(field) => write!(
+                f,
+                "the sign-up form declares a file field '{field}', which its POST does not \
+             upload: ask for the file once the account signs in"
+            ),
+            Self::RelationshipField(field) => write!(
+                f,
+                "the sign-up form declares a relationship choice '{field}', which would list \
+             records to a visitor nobody signed in: offer static options"
+            ),
+        }
+    }
+}
+
 /// Why a many-to-many field or relation cannot link records:
 /// [`DeclarationErrorKind::ManyToMany`].
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -243,6 +293,8 @@ pub enum DeclarationErrorKind {
         /// What is wrong with it.
         fault: ActionInputFault,
     },
+    /// The panel's sign-up page cannot be served.
+    SignUp(SignUpFault),
     /// Two relations to the same resource.
     DuplicateRelation,
     /// A relation to a resource the panel does not register.
@@ -509,6 +561,7 @@ impl fmt::Display for DeclarationErrorKind {
                      options only a resource's form refreshes: drop `depends_on`"
                 ),
             },
+            Self::SignUp(fault) => fault.fmt(f),
             Self::DuplicateRelation => {
                 f.write_str("declared twice: each related resource is one relation")
             }

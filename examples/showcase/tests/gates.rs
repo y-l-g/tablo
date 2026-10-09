@@ -278,6 +278,48 @@ async fn forged_login_answers_403_and_sets_no_session() {
     }
 }
 
+/// A forged sign-up POST answers 403 before the registrar runs: no account, no session.
+#[tokio::test]
+async fn forged_sign_up_answers_403_and_creates_no_account() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let field = Uuid::new_v4().to_string();
+    let cookie = Uuid::new_v4().to_string();
+    let email = "forged@example.com";
+
+    for (submitted, label) in [
+        (Some(field.as_str()), "mismatched token"),
+        (None, "missing token"),
+    ] {
+        let mut pairs = vec![
+            ("display_name", "Forged"),
+            ("email", email),
+            ("workspace", "Forged"),
+            ("password", DEMO_ADMIN_PASSWORD),
+            ("password_confirmation", DEMO_ADMIN_PASSWORD),
+        ];
+        if let Some(field) = submitted {
+            pairs.push(("csrf_token", field));
+        }
+        let resp = TestClient::new(&router)
+            .csrf(&cookie)
+            .post_form("/admin/register", form_body(&pairs))
+            .await;
+        assert_eq!(resp.status(), 403, "sign-up {label}");
+        assert!(session_cookie_value(&resp).is_none(), "sign-up {label}");
+    }
+    let staff = showcase::models::Staff::filter(
+        showcase::models::Staff::fields()
+            .email()
+            .eq(email.to_string()),
+    )
+    .first()
+    .exec(&mut db.clone())
+    .await
+    .unwrap();
+    assert!(staff.is_none(), "a forged sign-up must create nothing");
+}
+
 /// A forged logout POST is refused and leaves the session usable.
 ///
 /// Both a mismatched token and a missing `csrf_token` field must 403. The

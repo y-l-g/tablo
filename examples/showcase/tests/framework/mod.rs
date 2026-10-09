@@ -15,6 +15,7 @@ mod header_actions;
 mod options_enum;
 mod panels;
 mod resource_query_override;
+mod sign_up;
 mod sqlite;
 mod stream_pool;
 mod typed_leaves;

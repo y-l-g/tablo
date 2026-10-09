@@ -177,6 +177,13 @@ impl<F> TextField<F> {
         self
     }
 
+    /// Render `type="password"`: the browser masks the value, and a refused form renders the
+    /// control empty rather than echoing the password back into the page.
+    pub fn password(mut self) -> Self {
+        self.text().password = true;
+        self
+    }
+
     /// Probes a unique index before the write.
     pub fn unique(mut self) -> Self {
         self.text().unique = true;

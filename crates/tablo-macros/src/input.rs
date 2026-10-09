@@ -102,6 +102,8 @@ fn input_attrs(field: &syn::Field, target: Target) -> syn::Result<FormAttrs> {
         let text_only = [
             (attrs.multiline.is_some(), "`multiline`"),
             (attrs.placeholder.is_some(), "`placeholder`"),
+            (attrs.email, "`email`"),
+            (attrs.password, "`password`"),
         ];
         if let Some((_, key)) = text_only.iter().find(|(set, _)| *set) {
             return Err(syn::Error::new_spanned(
@@ -109,6 +111,12 @@ fn input_attrs(field: &syn::Field, target: Target) -> syn::Result<FormAttrs> {
                 format!("{key} applies to a text input, and a `bool` renders a checkbox"),
             ));
         }
+    }
+    if attrs.password && attrs.multiline.is_some() {
+        return Err(syn::Error::new_spanned(
+            &field.ty,
+            "`password` masks a one-line input, and `multiline` makes a `<textarea>`: declare one",
+        ));
     }
     Ok(attrs)
 }
@@ -148,6 +156,12 @@ fn expand_struct(
         }
         if let Some(placeholder) = &attrs.placeholder {
             control = quote! { #control.placeholder(#placeholder) };
+        }
+        if attrs.email {
+            control = quote! { #control.email() };
+        }
+        if attrs.password {
+            control = quote! { #control.password() };
         }
         if let Some(label) = &attrs.label {
             control = quote! { #control.label(#label) };

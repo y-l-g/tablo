@@ -2,8 +2,8 @@
 
 use jiff::Timestamp;
 use tablo::{
-    Membership, PanelUser,
-    auth::{Authenticator, verify_password},
+    ActionInput, FieldErrors, Membership, PanelUser,
+    auth::{Authenticator, Registrar, hash_password, new_password_errors, verify_password},
 };
 use toasty::Db;
 use topcoat::context::Cx;
@@ -131,6 +131,79 @@ impl Authenticator for StaffAuth {
             Some(staff) => Ok(Some(Self::signed(cx, staff).await?)),
             None => Ok(None),
         }
+    }
+}
+
+/// What the sign-up page asks a new member of staff for: their account, and the blog they start.
+#[derive(Debug, ActionInput)]
+pub struct StaffSignUp {
+    #[form(label = "Your name")]
+    pub display_name: String,
+    #[form(email)]
+    pub email: String,
+    #[form(label = "Blog name", placeholder = "My blog")]
+    pub workspace: String,
+    #[form(password)]
+    pub password: String,
+    #[form(password, label = "Confirm password")]
+    pub password_confirmation: String,
+}
+
+/// Signs up a member of staff with a seat in a new workspace of their own.
+impl Registrar for StaffAuth {
+    type Input = StaffSignUp;
+    type User = SignedStaff;
+
+    async fn validate(
+        &self,
+        _cx: &Cx,
+        sign_up: &StaffSignUp,
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<FieldErrors> {
+        let mut errors = new_password_errors(&sign_up.password, &sign_up.password_confirmation);
+        let taken = Staff::filter(Staff::fields().email().eq(sign_up.email.clone()))
+            .first()
+            .exec(ex)
+            .await?;
+        if taken.is_some() {
+            errors.add("email", "Email has already been taken");
+        }
+        Ok(errors)
+    }
+
+    async fn register(
+        &self,
+        _cx: &Cx,
+        sign_up: StaffSignUp,
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<SignedStaff> {
+        let staff = toasty::create!(Staff {
+            email: sign_up.email,
+            password_hash: hash_password(&sign_up.password)?,
+            display_name: sign_up.display_name,
+            active: true,
+            created_at: Timestamp::now(),
+        })
+        .exec(&mut *ex)
+        .await?;
+        let workspace = toasty::create!(Workspace {
+            id: Uuid::new_v4(),
+            name: sign_up.workspace,
+        })
+        .exec(&mut *ex)
+        .await?;
+        toasty::create!(Seat {
+            staff_id: staff.id,
+            workspace_id: workspace.id,
+        })
+        .exec(&mut *ex)
+        .await?;
+        // Built from the rows just written: the transaction holds the connection a reload
+        // through `signed` would wait for.
+        Ok(SignedStaff {
+            staff,
+            workspaces: vec![Membership::new(workspace.id, workspace.name)],
+        })
     }
 }
 

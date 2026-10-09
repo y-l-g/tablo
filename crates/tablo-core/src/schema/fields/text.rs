@@ -9,12 +9,13 @@ use crate::form::FormScalar;
 /// The equality expression a text field's unique probe binds.
 type EqProbe = std::sync::Arc<dyn Fn(&str) -> Option<toasty::stmt::Expr<bool>> + Send + Sync>;
 
-/// The text control's input type, placeholder, rows, email rule, and unique probe.
+/// The text control's input type, placeholder, rows, email and password rules, and unique probe.
 pub(crate) struct TextControl {
     input_type: &'static str,
     pub(super) rows: Option<u32>,
     pub(super) placeholder: Option<String>,
     pub(super) email: bool,
+    pub(super) password: bool,
     pub(super) unique: bool,
     probe: Option<EqProbe>,
     /// The stored spelling of a submission, or `None` when the type refuses it.
@@ -45,6 +46,7 @@ impl TextControl {
             rows: None,
             placeholder: None,
             email: false,
+            password: false,
             unique,
             probe: Some(probe),
             spell: spell::<T>,
@@ -58,6 +60,7 @@ impl TextControl {
             rows: None,
             placeholder: None,
             email: false,
+            password: false,
             unique: false,
             probe: None,
             spell: spell::<T>,
@@ -112,7 +115,16 @@ impl Field {
             }
             .boxed()
         } else {
-            let input_type = if text.email { "email" } else { text.input_type };
+            let input_type = if text.password {
+                "password"
+            } else if text.email {
+                "email"
+            } else {
+                text.input_type
+            };
+            // A password never travels back to the browser: a refused form renders it empty.
+            let value = value.filter(|_| !text.password);
+            let autocomplete = text.password.then_some("new-password");
             let value_owned = value.map(|s| {
                 if text.input_type == "datetime-local" {
                     format_timestamp_input(s)
@@ -129,6 +141,7 @@ impl Field {
                         name=(name.clone())
                         value=(value_owned.clone())
                         placeholder=(placeholder.clone())
+                        autocomplete=(autocomplete)
                         required=(required)
                         aria-required=(required.then_some("true"))
                         aria-invalid=(aria_invalid)

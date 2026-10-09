@@ -59,6 +59,10 @@ pub(crate) struct FormAttrs {
     pub(crate) relationship: Option<Type>,
     /// `#[form(file)]`: a file field.
     pub(crate) file: bool,
+    /// `#[form(email)]`: a text control validating an email address.
+    pub(crate) email: bool,
+    /// `#[form(password)]`: a masked text control that never renders its value back.
+    pub(crate) password: bool,
 }
 
 /// Every `#[form(..)]` attribute on `field`, rejecting unknown, unread, and misplaced keys at the
@@ -83,6 +87,10 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
             } else if meta.path.is_ident("placeholder") && derive.named() {
                 let text: syn::LitStr = meta.value()?.parse()?;
                 out.placeholder = Some(text.value());
+            } else if meta.path.is_ident("email") && derive.named() {
+                out.email = true;
+            } else if meta.path.is_ident("password") && derive == Derive::Input {
+                out.password = true;
             } else if meta.path.is_ident("blank") {
                 out.blank = Some(meta.value()?.parse()?);
             } else if meta.path.is_ident("optional") {
@@ -112,8 +120,13 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
                         "`embed`, `repeat`, `blank = <expr>`, `optional`, `options`, \
                          `options = <Type>`, `relationship = <Source>`, or `file`"
                     }
-                    Derive::Input | Derive::Item => {
-                        "`label = \"…\"`, `multiline = N`, `placeholder = \"…\"`, \
+                    Derive::Input => {
+                        "`label = \"…\"`, `multiline = N`, `placeholder = \"…\"`, `email`, \
+                         `password`, `blank = <expr>`, `optional`, `options`, or \
+                         `options = <Type>`"
+                    }
+                    Derive::Item => {
+                        "`label = \"…\"`, `multiline = N`, `placeholder = \"…\"`, `email`, \
                          `blank = <expr>`, `optional`, `options`, or `options = <Type>`"
                     }
                 };
@@ -126,6 +139,8 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
         let text_only = [
             (out.multiline.is_some(), "`multiline`"),
             (out.placeholder.is_some(), "`placeholder`"),
+            (out.email, "`email`"),
+            (out.password, "`password`"),
         ];
         if let Some((_, key)) = text_only.iter().find(|(set, _)| *set) {
             return Err(syn::Error::new_spanned(

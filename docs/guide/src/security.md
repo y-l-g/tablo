@@ -44,7 +44,11 @@ What Tablo does by default, and what your deployment must provide for those defa
   and `LoginThrottle::off()` removes it. Counts live in the process and the panel: each replica
   and each panel counts its own, and a restart clears them. Past 10,000 counts the oldest is
   dropped.
-- Sessions are stored server-side, keyed by a hash of the cookie's token, and replaced on login.
+- With [sign-up](./policy-auth-tenancy.md#sign-up) on, each client address may submit five
+  sign-ups a minute; `Auth::sign_up_throttle` changes the limit. Behind a reverse proxy that the
+  router does not trust, every visitor shares the proxy's address and its count.
+- Sessions are stored server-side, keyed by a hash of the cookie's token, and replaced on login
+  and on sign-up.
 - A redirect after login follows `next` only to a same-origin path.
 
 ## Responses

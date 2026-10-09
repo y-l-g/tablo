@@ -206,6 +206,11 @@ impl Panel {
                 if let Err(kind) = crate::auth::check_models_registered(db, &auth) {
                     errors.push(DeclarationError::panel(kind));
                 }
+                errors.extend(
+                    crate::auth::check_registration(&auth)
+                        .into_iter()
+                        .map(DeclarationError::panel),
+                );
             }
             None => errors.push(DeclarationError::panel(DeclarationErrorKind::MissingDb)),
         }
@@ -281,6 +286,24 @@ impl Panel {
                     http::Method::POST,
                     tenant_path,
                     crate::auth::tenant_post,
+                ));
+        }
+        if state.auth.registrar().is_some() {
+            let register_path = route_path(&format!("{prefix}/register"));
+            builder = builder
+                .layer(
+                    topcoat::router::BodyLimit::max(crate::auth::MAX_LOGIN_BYTES)
+                        .at(register_path.clone()),
+                )
+                .route(RouteFn::new(
+                    http::Method::GET,
+                    register_path.clone(),
+                    crate::auth::register_page,
+                ))
+                .route(RouteFn::new(
+                    http::Method::POST,
+                    register_path,
+                    crate::auth::register_post,
                 ));
         }
         builder = builder.layout(LayoutFn::new(
