@@ -108,3 +108,19 @@ async fn multiline_renders_a_textarea_with_the_stored_value() {
         "the field family chrome must match a one-line field, got {html}"
     );
 }
+
+/// A refused form re-renders its submitted values, except a password's.
+#[tokio::test]
+async fn password_renders_masked_and_never_echoes_its_value() {
+    let cx = cx();
+    let schema = Schema::new(Field::text_input::<String>("secret").password());
+    let mut values = HashMap::new();
+    values.insert("secret".to_string(), "hunter22".to_string());
+    let html = schema
+        .render(&cx, Source::form(&values, &FieldErrors::new()))
+        .await
+        .html(&cx)
+        .await;
+    assert!(html.contains("type=\"password\""), "{html}");
+    assert!(!html.contains("hunter22"), "{html}");
+}

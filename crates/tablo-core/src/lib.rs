@@ -72,7 +72,7 @@ pub mod __macro {
         extend::{Includes, OptionSource},
         form::{
             FieldError, FormField, FormScalar, NullableScalar, RecordForm, assert_form_scalar,
-            links_include, links_key, parse_list, parse_scalar, write_links,
+            links_include, links_key, parse_list, parse_password, parse_scalar, write_links,
         },
         resource::{ActionInput, required_input},
         schema::{
@@ -120,10 +120,12 @@ mod toasty_compat;
 mod topcoat_compat;
 pub mod upload;
 
-pub use auth::{Auth, Authenticator, LoginThrottle, PanelUser, PasswordAuth, membership};
+pub use auth::{
+    Auth, Authenticator, LoginThrottle, PanelUser, PasswordAuth, Registrar, SignUp, membership,
+};
 pub use declaration::{
     ActionInputFault, DeclarationError, DeclarationErrorKind, ManyToManyFault, MountError,
-    SegmentFault, Site,
+    SegmentFault, SignUpFault, Site,
 };
 pub use detail::{Detail, IntoDetail};
 pub use form::{
@@ -203,13 +205,16 @@ pub use table::{
 /// - `#[form(label = "Reason")]` — the control's label (default: the field name, humanized).
 /// - `#[form(multiline = 4)]` — a `<textarea>` of 4 rows.
 /// - `#[form(placeholder = "rust, async")]` — a text input's placeholder.
+/// - `#[form(email)]` — a text input that refuses a malformed email address.
+/// - `#[form(password)]` — a masked text input on a `String`, read untrimmed, that a refused
+///   form renders empty.
 /// - `#[form(blank = ..)]`, `#[form(optional)]` — the blank answer.
 /// - `#[form(options)]`, `#[form(options = T)]` — a choice. An `Option<T>` field names its
 ///   options type: `#[form(options = T)]`.
 ///
-/// A generic struct, a tuple struct, an empty struct (name `()` instead), an unknown key,
-/// `multiline` or `placeholder` with `options` or on a `bool`, and a field that is not a
-/// `FormScalar` are compile errors.
+/// A generic struct, a tuple struct, an empty struct (name `()` instead), an unknown key, a
+/// text input's key with `options` or on a `bool`, `password` with `multiline`, and a field
+/// that is not a `FormScalar` are compile errors.
 /// [`RouterBuilderPanelExt::panel`] refuses a field named `csrf_token`, `confirm` or `ids`,
 /// the keys an action's POST carries besides its input.
 ///

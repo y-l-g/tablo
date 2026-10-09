@@ -7,13 +7,14 @@ use topcoat::{
     context::Cx,
     router::{
         Body, Layer, LayerFuture, Next, Path, PathBuf,
-        error::{forbidden, unauthorized},
+        error::{forbidden, redirect, unauthorized},
         request::{method, uri},
     },
 };
 
 use super::{
     login::{login_url, logout_url},
+    registration::{offered, register_url},
     session::{resolve, session_row, session_user},
     unauthenticated_error,
 };
@@ -49,15 +50,28 @@ impl Layer for PanelGate {
             let Some(authenticator) = self.panel.auth.authenticator() else {
                 return next.run(&cx, body).await;
             };
-            // The login page must answer while logged out. Only the methods
-            // the login routes serve (GET, its HEAD, and POST) pass: an app
-            // route at the same path under another method stays gated.
-            if uri(&cx).path() == login_url(&cx)
+            // The login page, and the sign-up page when the panel offers one,
+            // must answer while logged out. Only the methods their routes
+            // serve (GET, its HEAD, and POST) pass: an app route at the same
+            // path under another method stays gated.
+            let path = uri(&cx).path();
+            let sign_up = offered(&cx) && path == register_url(&cx);
+            let public = path == login_url(&cx) || sign_up;
+            if public
                 && matches!(
                     *method(&cx),
                     http::Method::GET | http::Method::HEAD | http::Method::POST
                 )
             {
+                // A signed-in user has an account already: the sign-up page sends them to the
+                // panel instead of offering to replace their session with a new one.
+                if sign_up
+                    && matches!(*method(&cx), http::Method::GET | http::Method::HEAD)
+                    && let Some(signed) = resolve(&cx, &self.panel, authenticator).await?
+                    && signed.user.can_access_panel()
+                {
+                    return Err(redirect(self.panel.prefix.clone()).into());
+                }
                 return next.run(&cx, body).await;
             }
             // The logout route must answer for any resolved user, even one

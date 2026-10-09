@@ -36,6 +36,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Place | Where a record action's button renders: a row, the detail page, the edit page, the bulk bar. | Location, Context, Surface |
 | Action input | The typed value an action asks for before it runs, in a dialog over the page, or on its input page after a refusal. Its fields bind no column. | Action form, Parameters, Payload |
 | Authenticator | The trait that loads a panel user from credentials or a session id. | Provider, LoginManager |
+| Registrar | The trait that creates a panel user from the sign-up page's input. | Registration handler, SignupProvider, UserCreator |
 | Panel user | The app's own user type: id, display name, panel access, tenant memberships. | CurrentUser, AuthUser, Principal |
 | Uploader | The trait that decides where a file field's bytes go, installed once per panel. | FileStore, Blob store |
 

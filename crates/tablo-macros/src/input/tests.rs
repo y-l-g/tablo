@@ -53,7 +53,7 @@ fn a_record_form_key_is_refused() {
 
 #[test]
 fn a_text_key_with_options_is_refused() {
-    for key in ["multiline = 3", "placeholder = \"x\""] {
+    for key in ["multiline = 3", "placeholder = \"x\"", "email", "password"] {
         let message = refusal(&format!("struct F {{ #[form({key}, options)] a: Status }}"));
         assert!(message.contains("declare one"), "{key}: {message}");
     }
@@ -61,7 +61,7 @@ fn a_text_key_with_options_is_refused() {
 
 #[test]
 fn a_text_key_on_a_bool_is_refused() {
-    for key in ["multiline = 3", "placeholder = \"x\""] {
+    for key in ["multiline = 3", "placeholder = \"x\"", "email", "password"] {
         let message = refusal(&format!("struct F {{ #[form({key})] a: bool }}"));
         assert!(message.contains("checkbox"), "{key}: {message}");
     }
@@ -89,4 +89,20 @@ fn an_item_writes_each_field_back_under_its_name() {
         message.contains("RepeaterItem") && !message.contains("type Input"),
         "{message}"
     );
+}
+
+#[test]
+fn email_and_password_modify_the_text_control() {
+    let out = expansion("struct F { #[form(email)] a: String, #[form(password)] b: String }");
+    assert!(out.contains(". email ()"), "{out}");
+    assert!(out.contains(". password ()"), "{out}");
+    assert!(out.contains("parse_password"), "{out}");
+    let message = refusal("struct F { #[form(password)] a: u32 }");
+    assert!(message.contains("String"), "{message}");
+    let message = refusal("struct F { #[form(password, multiline = 2)] a: String }");
+    assert!(message.contains("declare one"), "{message}");
+    let input: DeriveInput =
+        syn::parse_str("struct Row { #[form(password)] a: String }").expect("parses");
+    let message = expand_checked(input, Target::Item).unwrap_err().to_string();
+    assert!(message.contains("unknown"), "{message}");
 }

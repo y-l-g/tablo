@@ -7,6 +7,7 @@
 mod gate;
 mod login;
 mod password;
+mod registration;
 mod session;
 mod throttle;
 
@@ -32,10 +33,12 @@ pub(crate) use self::{
         MAX_LOGIN_BYTES, login_page, login_post, logout_post, logout_url, safe_next, tenant_post,
         tenant_url,
     },
+    registration::{DynRegistrar, register_page, register_post},
 };
 pub use self::{
     login::{LOGIN_FIELD, NEXT_FIELD, PASSWORD_FIELD, TENANT_FIELD},
     password::{AdminUser, PasswordAuth, create_admin, hash_password, verify_password},
+    registration::{MIN_PASSWORD_CHARS, Registrar, SignUp, new_password_errors},
     session::{AuthSession, SESSION_LIFETIME, mint_session, revoke_sessions_for_user},
     throttle::LoginThrottle,
 };
@@ -180,9 +183,12 @@ impl<A: Authenticator> DynAuthenticator for A {
 /// The default is [`Auth::password`]; [`Auth::custom`] installs an app-owned
 /// [`Authenticator`]; [`Auth::disabled`] is the explicit fail-open opt-out.
 /// Sign-in attempts are throttled per login by default; see [`Auth::throttle`].
+/// [`Auth::registration`] adds a sign-up page.
 pub struct Auth {
     authenticator: Option<Box<dyn DynAuthenticator>>,
     throttle: LoginThrottle,
+    registrar: Option<Box<dyn DynRegistrar>>,
+    sign_up_throttle: LoginThrottle,
 }
 
 impl Auth {
@@ -198,6 +204,8 @@ impl Auth {
         Self {
             authenticator: Some(Box::new(authenticator)),
             throttle: LoginThrottle::default(),
+            registrar: None,
+            sign_up_throttle: LoginThrottle::default(),
         }
     }
 
@@ -208,6 +216,8 @@ impl Auth {
         Self {
             authenticator: None,
             throttle: LoginThrottle::off(),
+            registrar: None,
+            sign_up_throttle: LoginThrottle::off(),
         }
     }
 
@@ -217,6 +227,35 @@ impl Auth {
     #[must_use]
     pub fn throttle(mut self, throttle: LoginThrottle) -> Self {
         self.throttle = throttle;
+        self
+    }
+
+    /// Lets visitors create their own account at `{prefix}/register`, through `registrar`; the
+    /// login page links to it.
+    ///
+    /// ```rust
+    /// use tablo_core::{Auth, PasswordAuth};
+    ///
+    /// let auth = Auth::password().registration(PasswordAuth);
+    /// # let _ = auth;
+    /// ```
+    ///
+    /// [`PasswordAuth`] registers an active [`AdminUser`] from a [`SignUp`], who signs in to the
+    /// panel at once: only open it where any visitor may hold an account. A custom
+    /// [`Registrar`] decides what a new account may do. Mounting refuses a registrar whose
+    /// [`User`](Registrar::User) is not the type the authenticator loads, and a registration
+    /// on [`Auth::disabled`].
+    #[must_use]
+    pub fn registration(mut self, registrar: impl Registrar) -> Self {
+        self.registrar = Some(Box::new(registrar));
+        self
+    }
+
+    /// How many sign-ups one client address may submit in a window; defaults to five a minute.
+    /// Every sign-up POST counts, whether or not it creates an account.
+    #[must_use]
+    pub fn sign_up_throttle(mut self, throttle: LoginThrottle) -> Self {
+        self.sign_up_throttle = throttle;
         self
     }
 
@@ -235,6 +274,16 @@ impl Auth {
     pub(crate) fn login_throttle(&self) -> &LoginThrottle {
         &self.throttle
     }
+
+    /// The registrar, or `None` without a sign-up page.
+    pub(crate) fn registrar(&self) -> Option<&dyn DynRegistrar> {
+        self.authenticator.as_ref().and(self.registrar.as_deref())
+    }
+
+    /// The sign-up throttle, counted per client address.
+    pub(crate) fn throttle_sign_ups(&self) -> &LoginThrottle {
+        &self.sign_up_throttle
+    }
 }
 
 impl Default for Auth {
@@ -250,6 +299,7 @@ impl std::fmt::Debug for Auth {
         } else {
             f.debug_struct("Auth")
                 .field("throttle", &self.throttle)
+                .field("registration", &self.registrar.is_some())
                 .finish_non_exhaustive()
         }
     }
@@ -460,6 +510,46 @@ pub(crate) fn check_models_registered(
     } else {
         Err(crate::DeclarationErrorKind::MissingAuthModels { models })
     }
+}
+
+/// The mistakes in a panel's [`Auth::registration`]: a registration without auth, a registrar
+/// whose user is not the authenticator's, and a sign-up form field the page cannot serve.
+pub(crate) fn check_registration(auth: &Auth) -> Vec<crate::DeclarationErrorKind> {
+    use crate::{DeclarationErrorKind, declaration::SignUpFault};
+
+    let Some(registrar) = auth.registrar.as_deref() else {
+        return Vec::new();
+    };
+    let Some(authenticator) = auth.authenticator() else {
+        return vec![DeclarationErrorKind::SignUp(SignUpFault::AuthDisabled)];
+    };
+    let mut kinds = Vec::new();
+    let (user, user_name) = registrar.user_type();
+    if user != authenticator.user_type() {
+        kinds.push(DeclarationErrorKind::SignUp(SignUpFault::UserType {
+            registrar: user_name,
+        }));
+    }
+    let schema = registrar.schema();
+    kinds.extend(schema.declaration_errors());
+    kinds.extend(schema.empty_choices());
+    kinds.extend(schema.fields().filter_map(|field| {
+        let name = field.name().to_string();
+        let fault = if registration::RESERVED_KEYS.contains(&name.as_str()) {
+            SignUpFault::ReservedField(name)
+        } else if field.is_file() {
+            SignUpFault::FileField(name)
+        } else if field
+            .as_choice()
+            .is_some_and(|choice| choice.is_relationship())
+        {
+            SignUpFault::RelationshipField(name)
+        } else {
+            return None;
+        };
+        Some(DeclarationErrorKind::SignUp(fault))
+    }));
+    kinds
 }
 
 #[cfg(test)]

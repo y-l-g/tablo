@@ -30,4 +30,5 @@ mod media;
 mod panel;
 mod relations;
 mod repeaters;
+mod sign_up;
 mod tenancy;

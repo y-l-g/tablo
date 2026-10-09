@@ -5,7 +5,8 @@ use jiff::Timestamp;
 use topcoat::context::Cx;
 use uuid::Uuid;
 
-use super::{Authenticator, PanelUser, infrastructure_failure};
+use super::{Authenticator, PanelUser, Registrar, SignUp, infrastructure_failure};
+use crate::FieldErrors;
 
 /// A dummy Argon2id PHC string verified against when the account does not
 /// exist, so unknown logins pay the same work as known ones (ADR-0013).
@@ -81,6 +82,41 @@ impl Authenticator for PasswordAuth {
             .map_err(infrastructure_failure)?;
         // A deactivated account stops resolving, so its live sessions purge.
         Ok(user.filter(|user| user.active))
+    }
+}
+
+/// Registers an active [`AdminUser`] from a [`SignUp`], refusing a password
+/// [`new_password_errors`](super::new_password_errors) refuses and an email another account
+/// holds. Install it with [`Auth::registration`](super::Auth::registration).
+impl Registrar for PasswordAuth {
+    type Input = SignUp;
+    type User = AdminUser;
+
+    async fn validate(
+        &self,
+        _cx: &Cx,
+        sign_up: &SignUp,
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<FieldErrors> {
+        let mut errors = sign_up.password_errors();
+        let taken = AdminUser::filter(AdminUser::fields().email().eq(sign_up.email.clone()))
+            .first()
+            .exec(ex)
+            .await
+            .map_err(infrastructure_failure)?;
+        if taken.is_some() {
+            errors.add("email", "Email has already been taken");
+        }
+        Ok(errors)
+    }
+
+    async fn register(
+        &self,
+        _cx: &Cx,
+        sign_up: SignUp,
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<AdminUser> {
+        create_admin(ex, &sign_up.email, &sign_up.password, &sign_up.name).await
     }
 }
 

@@ -1,8 +1,8 @@
 //! The Policy, auth, tenancy chapter's snippets.
 
 use tablo::{
-    Membership, PanelUser,
-    auth::{Authenticator, verify_password},
+    Membership, PanelUser, PasswordAuth,
+    auth::{Authenticator, Registrar, hash_password, new_password_errors, verify_password},
     prelude::*,
 };
 use topcoat::{Result, context::Cx};
@@ -103,6 +103,76 @@ pub fn staff_auth_panel() -> Panel {
     Panel::new("admin").auth(Auth::custom(StaffAuth))
 }
 // ANCHOR_END: policy-custom-auth-body
+
+// ANCHOR: policy-sign-up-password
+pub fn open_sign_up_panel() -> Panel {
+    Panel::new("admin").auth(Auth::password().registration(PasswordAuth))
+}
+// ANCHOR_END: policy-sign-up-password
+
+// ANCHOR: policy-staff-sign-up
+#[derive(ActionInput)]
+pub struct StaffSignUp {
+    pub name: String,
+    #[form(email)]
+    pub email: String,
+    #[form(password)]
+    pub password: String,
+    #[form(password, label = "Confirm password")]
+    pub password_confirmation: String,
+}
+
+impl Registrar for StaffAuth {
+    type Input = StaffSignUp;
+    type User = SignedStaff;
+
+    async fn validate(
+        &self,
+        _cx: &Cx,
+        sign_up: &StaffSignUp,
+        ex: &mut dyn toasty::Executor,
+    ) -> Result<FieldErrors> {
+        let mut errors = new_password_errors(&sign_up.password, &sign_up.password_confirmation);
+        if email_taken(ex, &sign_up.email).await? {
+            errors.add("email", "Email has already been taken");
+        }
+        Ok(errors)
+    }
+
+    async fn register(
+        &self,
+        _cx: &Cx,
+        sign_up: StaffSignUp,
+        ex: &mut dyn toasty::Executor,
+    ) -> Result<SignedStaff> {
+        let hash = hash_password(&sign_up.password)?;
+        let staff = create_staff(ex, &sign_up.name, &sign_up.email, &hash).await?;
+        Ok(SignedStaff {
+            staff,
+            workspaces: Vec::new(),
+        })
+    }
+}
+// ANCHOR_END: policy-staff-sign-up
+
+pub async fn email_taken(_ex: &mut dyn toasty::Executor, _email: &str) -> Result<bool> {
+    todo!()
+}
+
+pub async fn create_staff(
+    _ex: &mut dyn toasty::Executor,
+    _name: &str,
+    _email: &str,
+    _password_hash: &str,
+) -> Result<Staff> {
+    todo!()
+}
+
+// ANCHOR: policy-staff-sign-up-panel
+pub fn staff_sign_up_panel() -> Panel {
+    Panel::new("admin").auth(Auth::custom(StaffAuth).registration(StaffAuth))
+}
+// ANCHOR_END: policy-staff-sign-up-panel
 
 // ANCHOR: policy-auth-disabled-body
 pub fn open_panel() -> Panel {

@@ -233,6 +233,36 @@ impl<F> Schema<F> {
         }
     }
 
+    /// A posted input as its parse reads it: the `reserved` keys the POST carries for itself
+    /// dropped, each repeater's rows and each multiple choice's values folded into their one key
+    /// (read with `parse_items` and `parse_list`), and a condition-hidden field's key removed,
+    /// since the browser posts nothing for it.
+    ///
+    /// # Errors
+    ///
+    /// 400 for a malformed repeater and for a key no field declares.
+    pub(crate) fn read_input(
+        &self,
+        values: &HashMap<String, String>,
+        lists: &HashMap<String, Vec<String>>,
+        reserved: &[&str],
+    ) -> Result<HashMap<String, String>> {
+        use topcoat::router::error::bad_request;
+
+        let mut input = values.clone();
+        input.retain(|key, _| !reserved.contains(&key.as_str()));
+        self.fold_repeaters(&mut input).map_err(bad_request)?;
+        self.fold_choices(&mut input, lists);
+        let unknown = self.unknown_keys(&input);
+        if !unknown.is_empty() {
+            return Err(bad_request(format!("unknown field(s): {}", unknown.join(", "))).into());
+        }
+        for key in self.condition_hidden(&input) {
+            input.remove(&key);
+        }
+        Ok(input)
+    }
+
     /// Appends another schema's nodes after this one's.
     pub fn extend(mut self, other: Schema<F>) -> Schema<F> {
         self.append(other);

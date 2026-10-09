@@ -119,7 +119,7 @@ stored). Outside a panel no record form applies, and every control renders optio
 control's builder, which offers only that control's modifiers, so a modifier on the wrong control
 does not compile:
 
-- text (`TextField`): `.email()`, `.unique()`, `.placeholder(..)`, `.multiline(rows)`;
+- text (`TextField`): `.email()`, `.password()`, `.unique()`, `.placeholder(..)`, `.multiline(rows)`;
 - choice (`ChoiceField`): `.options(..)`, `.relationship::<R>()`, `.searchable()`, `.depends_on(..)`,
   `.multiple()`.
 
@@ -405,7 +405,7 @@ item's controls per item, which the user adds, removes and moves.
 ```
 
 - An item's fields are scalars, declared like an [action input](./actions.md)'s: `label`,
-  `multiline`, `placeholder`, `blank`, `optional` and `options` customize a field, and a field
+  `multiline`, `placeholder`, `email`, `blank`, `optional` and `options` customize a field, and a field
   with no blank answer is required in every row.
 - Each row posts its item's fields under its own prefix (`steps.0.minutes`), and the repeater's
   own key lists the rows in the order they show. A refused row renders its error under its own
