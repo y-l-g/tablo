@@ -14,6 +14,10 @@
 // adding, removing and moving a row touch only the list and that input: a row
 // keeps its number, and with it its keys and ids, wherever it moves. Each
 // button is `type="button"`, so none submits the form.
+//
+// A script rather than Topcoat handlers: rendering the rows from a signal
+// would rerun the page on each add, and a rerun clears the rows the user typed
+// into (tokio-rs/topcoat#504).
 
 const ROW = '__row__';
 
