@@ -8,6 +8,7 @@ use topcoat::router::{PageFn, RouteFn};
 use super::{
     Root,
     actions::{
+        relation_action_options, relation_list_action, relation_record_action,
         resource_action_options, resource_bulk_delete, resource_delete, resource_export,
         resource_list_action, resource_options, resource_record_action,
     },
@@ -29,6 +30,7 @@ use crate::{
     table::{
         ACTION_ROUTE_PARAM, ACTIONS_ROUTE_SEGMENT, BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT,
         DASH_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT, RECORD_ROUTE_PARAM,
+        RELATED_ROUTE_PARAM, RELATION_ROUTE_PARAM, RELATIONS_ROUTE_SEGMENT,
     },
 };
 
@@ -88,6 +90,29 @@ struct Link {
     child: TypeId,
     child_name: &'static str,
     misdeclared: Option<DeclarationErrorKind>,
+}
+
+impl Link {
+    /// `relation` of `R`, whose many-to-many join model resolves through `schema` when there is
+    /// one.
+    fn of<R: Resource>(
+        relation: &crate::Relation<R::Model>,
+        schema: Option<&crate::toasty_compat::model::AppSchema>,
+    ) -> Self {
+        let unlinkable = relation.links().zip(schema).and_then(|(links, schema)| {
+            crate::toasty_compat::join::JoinTable::of::<R::Model>(schema, &links.field)
+                .err()
+                .map(|fault| DeclarationErrorKind::ManyToMany {
+                    field: links.field.clone(),
+                    fault,
+                })
+        });
+        Self {
+            child: relation.child,
+            child_name: relation.child_name,
+            misdeclared: relation.misdeclared.clone().or(unlinkable),
+        }
+    }
 }
 
 impl Registry {
@@ -215,6 +240,10 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
             record: entries.iter().any(|a| a.places.intersects(Places::RECORD)),
             list: !mounted.header_actions.is_empty()
                 || entries.iter().any(|a| a.places.contains(Places::BULK)),
+            links: mounted
+                .relations
+                .iter()
+                .any(|relation| relation.links().is_some()),
         };
         register_routes::<R>(registry, &url, routes);
         if registry.root.is_none() {
@@ -246,11 +275,7 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
             relations: mounted
                 .relations
                 .iter()
-                .map(|relation| Link {
-                    child: relation.child,
-                    child_name: relation.child_name,
-                    misdeclared: relation.misdeclared.clone(),
-                })
+                .map(|relation| Link::of::<R>(relation, registry.schema.as_ref()))
                 .collect(),
         });
         registry.mounts.insert(Arc::new(mounted));
@@ -263,6 +288,8 @@ struct ActionRoutes {
     record: bool,
     /// The list's: a header action, or an action placed on the bulk bar.
     list: bool,
+    /// A record's many-to-many relations': attach and detach.
+    links: bool,
 }
 
 /// Registers a resource's routes under its list `url`.
@@ -311,6 +338,30 @@ fn register_routes<R: Resource>(registry: &mut Registry, url: &str, actions: Act
             Method::GET,
             &format!("{}/options", list_actions_route(url)),
             resource_action_options::<R>,
+        );
+    }
+    if actions.links {
+        // `{url}/{id}/-/relations/{relation}`: the `-` segment keeps it from a record's own
+        // routes, as it does the record's actions.
+        let relation = format!(
+            "{url}/{RECORD_ROUTE_PARAM}/{DASH_ROUTE_SEGMENT}/{RELATIONS_ROUTE_SEGMENT}/{RELATION_ROUTE_PARAM}"
+        );
+        registry.page(
+            Method::POST,
+            &list_actions_route(&relation),
+            relation_list_action::<R>,
+        );
+        registry.page(
+            Method::POST,
+            &format!(
+                "{relation}/{RELATED_ROUTE_PARAM}/{DASH_ROUTE_SEGMENT}/{ACTIONS_ROUTE_SEGMENT}/{ACTION_ROUTE_PARAM}"
+            ),
+            relation_record_action::<R>,
+        );
+        registry.route(
+            Method::GET,
+            &format!("{}/options", list_actions_route(&relation)),
+            relation_action_options::<R>,
         );
     }
     registry.route(Method::GET, &format!("{url}/export"), resource_export::<R>);

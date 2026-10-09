@@ -107,6 +107,35 @@
 //! }
 //! ```
 //!
+//! A many-to-many field whose keys are not its source's primary key:
+//!
+//! ```compile_fail
+//! # #[derive(Debug, Clone, toasty::Model)]
+//! # struct Post {
+//! #     #[key] #[auto] id: uuid::Uuid,
+//! #     #[has_many] taggings: toasty::Deferred<Vec<Tagging>>,
+//! #     #[has_many(via = taggings.tag)] tags: toasty::Deferred<Vec<Tag>>,
+//! # }
+//! # #[derive(Debug, Clone, toasty::Model)]
+//! # struct Tag { #[key] #[auto] id: uuid::Uuid }
+//! # #[derive(Debug, Clone, toasty::Model)]
+//! # struct Tagging {
+//! #     #[key] #[auto] id: uuid::Uuid,
+//! #     #[index] post_id: uuid::Uuid,
+//! #     #[belongs_to(key = post_id, references = id)] post: toasty::Deferred<Post>,
+//! #     #[index] tag_id: uuid::Uuid,
+//! #     #[belongs_to(key = tag_id, references = id)] tag: toasty::Deferred<Tag>,
+//! # }
+//! # struct TagResource;
+//! # impl tablo_core::Resource for TagResource { type Model = Tag; type Form = tablo_core::NoForm<Tag>; }
+//! #[derive(tablo_core::RecordForm)]
+//! #[form(model = Post)]
+//! struct PostForm {
+//!     #[form(relationship = TagResource)]
+//!     tags: Vec<i64>,
+//! }
+//! ```
+//!
 //! `optional` on a type with no empty value:
 //!
 //! ```compile_fail
@@ -144,8 +173,8 @@ use topcoat::context::Cx;
 
 use crate::{
     detail::Detail,
-    schema::{FieldResolver, Schema, TypedValue},
-    table::Table,
+    schema::{FieldResolver, OptionSource, Schema, TypedValue},
+    table::{Table, column::Includes},
 };
 
 /// A type one form key reads and writes: `String`, every [`TypedValue`] type,
@@ -304,6 +333,95 @@ pub fn parse_scalar<T: FormScalar>(
     T::parse_form(raw).map_err(|message| FieldError::invalid(key, message))
 }
 
+/// The values a multiple choice holds, as its one form key carries them: what a record form
+/// hydrates a many-to-many field with, and what a hand-written one writes.
+pub fn write_list<'a, T: FormScalar + 'a>(values: impl IntoIterator<Item = &'a T>) -> String {
+    encode_list(&values.into_iter().map(T::to_form).collect::<Vec<_>>())
+}
+
+/// Read the values a multiple choice posted, none when it posted nothing: what a record form's
+/// parse reads a many-to-many field with.
+///
+/// The panel folds the values the choice posts under its key into the key's one value before any
+/// parse reads it.
+///
+/// # Errors
+///
+/// A value that is not a list, or one `T` refuses, under `key`.
+pub fn parse_list<T: FormScalar>(
+    key: &str,
+    values: &HashMap<String, String>,
+) -> std::result::Result<Vec<T>, FieldError> {
+    let Some(items) = decode_list(values.get(key).map_or("", String::as_str)) else {
+        return Err(FieldError::invalid(key, "The choices could not be read"));
+    };
+    items
+        .iter()
+        .map(|item| T::parse_form(item).map_err(|message| FieldError::invalid(key, message)))
+        .collect()
+}
+
+/// `items` as one form value.
+pub(crate) fn encode_list(items: &[String]) -> String {
+    serde_json::to_string(items).expect("a list of strings serializes")
+}
+
+/// The items one form value holds: none for a blank value, `None` for one that is not a list.
+pub(crate) fn decode_list(value: &str) -> Option<Vec<String>> {
+    if value.trim().is_empty() {
+        return Some(Vec::new());
+    }
+    serde_json::from_str(value).ok()
+}
+
+/// The form key of the many-to-many field `path`, a `#[has_many(via = ..)]` list of `R`'s
+/// records, holding their keys of type `K`: the derive calls it, so a field whose type is not
+/// `Vec<K>` of the related model's key, or whose source is not that model's, fails to compile.
+#[doc(hidden)]
+pub fn links_key<M, R, K>(
+    path: impl Into<toasty::stmt::Path<M, toasty::stmt::List<R::Model>>>,
+) -> String
+where
+    M: Model,
+    R: OptionSource,
+    R::Model: Model<PrimaryKey = K>,
+    K: FormScalar,
+{
+    crate::schema::form_key(path.into())
+}
+
+/// `includes` and the include loading the many-to-many field `path`, which
+/// [`RecordForm::hydrate`] reads.
+#[doc(hidden)]
+pub fn links_include<M, R>(
+    includes: Includes<M>,
+    path: impl Into<toasty::stmt::Path<M, toasty::stmt::List<R::Model>>>,
+) -> Includes<M>
+where
+    M: Model,
+    R: OptionSource,
+{
+    includes.with(path.into())
+}
+
+/// The keys of the records a many-to-many field holds, as its form key carries them, or `None`
+/// when the record was loaded without them.
+#[doc(hidden)]
+pub fn write_links<T>(records: &toasty::Deferred<Vec<T>>) -> Option<String>
+where
+    T: Model + toasty::stmt::IntoExpr<T>,
+{
+    (!records.is_unloaded()).then(|| {
+        encode_list(
+            &records
+                .get()
+                .iter()
+                .map(crate::toasty_compat::pk::pk_text)
+                .collect::<Vec<_>>(),
+        )
+    })
+}
+
 /// One record-form field and the form keys it binds.
 #[derive(Debug, Clone)]
 pub struct FormField<K> {
@@ -368,8 +486,21 @@ pub trait RecordForm: Sized + Send + 'static {
         Detail::empty()
     }
 
+    /// The relations [`hydrate`](Self::hydrate) reads off the record: each many-to-many field's,
+    /// which the edit page and the edit's write load the record with.
+    fn includes() -> Includes<Self::Model> {
+        Includes::new()
+    }
+
     /// The stored record as the form spells it.
     fn hydrate(cx: &Cx, record: &Self::Model) -> HashMap<String, String>;
+
+    /// The records each many-to-many field holds, as their keys' form spelling: what
+    /// [`write_create`](crate::resource::write_create) links a new record to, and what
+    /// [`write_update`](crate::resource::write_update) leaves a posted field's record linked to.
+    fn links(&self) -> Vec<(Self::Field, Vec<String>)> {
+        Vec::new()
+    }
 
     /// Parse a completed submission: the form's only presence and type check.
     ///
@@ -602,3 +733,6 @@ impl FieldErrors {
         self.errors.extend(other.errors);
     }
 }
+
+#[cfg(test)]
+mod tests;

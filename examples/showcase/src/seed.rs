@@ -6,7 +6,9 @@ use tablo::{TenantId, auth::hash_password};
 use toasty::Db;
 
 use crate::{
-    models::{Author, Comment, Post, PostStatus, Publication, Role, Seo, User},
+    models::{
+        Author, Category, Comment, Post, PostCategory, PostStatus, Publication, Role, Seo, User,
+    },
     staff::{create_staff, ensure_workspace},
 };
 
@@ -397,6 +399,27 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
                 seo: seo,
                 publication: publication,
                 author_id: author_id,
+            })
+            .exec(db)
+            .await?;
+        }
+        let mut categories = Vec::new();
+        for name in ["Engineering", "Databases", "Process"] {
+            categories.push(
+                toasty::create!(Category {
+                    tenant_id: TenantId::from(tenant),
+                    name: name,
+                })
+                .exec(db)
+                .await?,
+            );
+        }
+        // "Hello Toasty" is filed under Engineering and Databases, "Reviewing Query Plans" under
+        // Databases; Process holds no post.
+        for (post, category) in [(0, 0), (0, 1), (4, 1)] {
+            toasty::create!(PostCategory {
+                post_id: seeded_post_id(post),
+                category_id: categories[category].id,
             })
             .exec(db)
             .await?;

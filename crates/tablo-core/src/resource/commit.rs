@@ -14,6 +14,10 @@ pub enum Mutation {
     /// The custom [`Action`](super::Action) or [`HeaderAction`](crate::HeaderAction) of this
     /// `NAME`. A header action's [`Committed`] holds no record.
     Action(&'static str),
+    /// A many-to-many relation's table linked a record to the one [`Committed`] holds.
+    Attach,
+    /// A many-to-many relation's table unlinked records from the one [`Committed`] holds.
+    Detach,
 }
 
 /// What one committed mutation wrote.
@@ -53,6 +57,22 @@ impl<M> Committed<M> {
         Self {
             mutation: Mutation::Action(A::NAME),
             records,
+        }
+    }
+
+    /// A relation's table linked a record to `owner`.
+    pub(crate) fn attached(owner: M) -> Self {
+        Self {
+            mutation: Mutation::Attach,
+            records: vec![owner],
+        }
+    }
+
+    /// A relation's table unlinked records from `owner`.
+    pub(crate) fn detached(owner: M) -> Self {
+        Self {
+            mutation: Mutation::Detach,
+            records: vec![owner],
         }
     }
 

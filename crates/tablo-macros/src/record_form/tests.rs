@@ -44,6 +44,14 @@ fn blank_on_an_option_or_an_embed_is_refused() {
 }
 
 #[test]
+fn a_blank_answer_on_a_many_to_many_field_is_refused() {
+    let message = refusal(
+        "#[form(model = M)] struct F { #[form(relationship = Tags, blank = Vec::new())] tags: Vec<Uuid> }",
+    );
+    assert!(message.contains("many-to-many"), "{message}");
+}
+
+#[test]
 fn an_unknown_key_is_refused() {
     let message = refusal("#[form(model = M)] struct F { #[form(blnk = 1)] a: i64 }");
     assert!(message.contains("unknown"), "{message}");

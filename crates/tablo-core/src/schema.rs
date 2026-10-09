@@ -21,6 +21,7 @@ use std::{
 
 pub use condition::Watched;
 pub use embedded::EmbeddedForm;
+use fields::ChoiceControl;
 pub use fields::{
     ChoiceField, CustomField, Field, FileField, IntoOptions, RepeaterField, TextField, Toggle,
 };
@@ -206,6 +207,32 @@ impl<F> Schema<F> {
         Ok(())
     }
 
+    /// Folds the values each multiple choice posted, listed in `lists`, into its one key: a list
+    /// without blanks or repeats, which [`parse_list`](crate::form::parse_list) reads. A choice
+    /// that posted nothing folds nothing, so an edit keeps the stored list.
+    pub(crate) fn fold_choices(
+        &self,
+        values: &mut HashMap<String, String>,
+        lists: &HashMap<String, Vec<String>>,
+    ) {
+        let multiple = self
+            .fields
+            .iter()
+            .filter(|field| field.as_choice().is_some_and(ChoiceControl::is_multiple));
+        for field in multiple {
+            let Some(posted) = lists.get(field.name()) else {
+                continue;
+            };
+            let mut keys: Vec<String> = Vec::new();
+            for value in posted.iter().map(|value| value.trim()) {
+                if !value.is_empty() && !keys.iter().any(|key| key == value) {
+                    keys.push(value.to_string());
+                }
+            }
+            values.insert(field.name().to_string(), crate::form::encode_list(&keys));
+        }
+    }
+
     /// Appends another schema's nodes after this one's.
     pub fn extend(mut self, other: Schema<F>) -> Schema<F> {
         self.append(other);
@@ -253,13 +280,23 @@ impl<F> Schema<F> {
                     field: field.name().to_string(),
                 });
             }
-            if let Some(parent) = choice.parent_key()
-                && !self.fields.iter().any(|placed| placed.name() == parent)
-            {
-                errors.push(crate::DeclarationErrorKind::UnplacedParentField {
+            let Some(parent) = choice.parent_key() else {
+                continue;
+            };
+            match self.fields.iter().find(|placed| placed.name() == parent) {
+                None => errors.push(crate::DeclarationErrorKind::UnplacedParentField {
                     field: field.name().to_string(),
                     parent: parent.to_string(),
-                });
+                }),
+                Some(parent)
+                    if choice.is_multiple()
+                        || parent.as_choice().is_some_and(ChoiceControl::is_multiple) =>
+                {
+                    errors.push(crate::DeclarationErrorKind::MultipleDependentChoice {
+                        field: field.name().to_string(),
+                    });
+                }
+                Some(_) => {}
             }
         }
         errors

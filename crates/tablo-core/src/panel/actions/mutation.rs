@@ -175,14 +175,15 @@ async fn read_post(
     confirm: bool,
     input: &InputSpec,
 ) -> Result<Posted, topcoat::Error> {
-    // A mutation carries no file parts: only the values half is read.
-    let values = parse_form_body(cx, body).await?.values;
+    // A mutation carries no file parts: only the text values are read.
+    let parts = parse_form_body(cx, body).await?;
+    let values = parts.values;
     crate::csrf::verify(cx, &values)?;
     if confirm && !values.get("confirm").is_some_and(|v| truthy(v)) {
         return Err(bad_request(format!("{name} requires confirmation")).into());
     }
     // The input's checks may query, so they run before the transaction holds a connection.
-    let pending = read_input(cx, name, input, &values).await?;
+    let pending = read_input(cx, name, input, &values, &parts.lists).await?;
     Ok(Posted { values, pending })
 }
 
@@ -379,13 +380,13 @@ pub(crate) async fn run_header<'a>(
 }
 
 /// The input page an action renders instead of running: a refused submission and its errors.
-struct InputPage {
-    values: HashMap<String, String>,
-    errors: FieldErrors,
+pub(super) struct InputPage {
+    pub(super) values: HashMap<String, String>,
+    pub(super) errors: FieldErrors,
 }
 
 /// What the POST says about the action's input.
-enum Pending {
+pub(super) enum Pending {
     /// An action that asks for nothing, with the `()` it parsed from nothing.
     Ready(ErasedInput),
     /// A submission that parsed, validated and passed its checks, with its values for the
@@ -403,11 +404,12 @@ enum Pending {
 /// # Errors
 ///
 /// A submission holding a key the input does not declare answers 400.
-async fn read_input(
+pub(super) async fn read_input(
     cx: &Cx,
     name: &str,
     spec: &InputSpec,
     values: &HashMap<String, String>,
+    lists: &HashMap<String, Vec<String>>,
 ) -> Result<Pending, topcoat::Error> {
     if !spec.takes_input {
         // Mounting refuses an input with no field whose parse refuses an empty submission.
@@ -422,8 +424,9 @@ async fn read_input(
     input.retain(|key, _| !RESERVED_KEYS.contains(&key.as_str()));
     let schema = (spec.schema)();
     // Each repeater's rows become its one key, which a hand-written parse reads with
-    // `parse_items`.
+    // `parse_items`, and each multiple choice's values its one key, read with `parse_list`.
     schema.fold_repeaters(&mut input).map_err(bad_request)?;
+    schema.fold_choices(&mut input, lists);
     let unknown = schema.unknown_keys(&input);
     if !unknown.is_empty() {
         return Err(bad_request(format!("unknown field(s): {}", unknown.join(", "))).into());
@@ -484,7 +487,7 @@ impl InputPage {
     }
 
     /// Renders the page of the input `spec` with `chrome`.
-    async fn render<'a>(
+    pub(super) async fn render<'a>(
         self,
         cx: &'a Cx,
         spec: &InputSpec,

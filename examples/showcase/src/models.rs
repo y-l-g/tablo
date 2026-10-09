@@ -126,6 +126,39 @@ pub struct Post {
     pub author: Deferred<Author>,
     #[has_many]
     pub comments: Deferred<Vec<Comment>>,
+    #[has_many]
+    pub post_categories: Deferred<Vec<PostCategory>>,
+    #[has_many(via = post_categories.category)]
+    pub categories: Deferred<Vec<Category>>,
+}
+
+/// A topic posts are filed under: a post takes several, and a category holds several posts.
+#[derive(Debug, Clone, toasty::Model)]
+pub struct Category {
+    #[key]
+    #[auto]
+    pub id: uuid::Uuid,
+    #[index]
+    pub tenant_id: TenantId,
+    pub name: String,
+    #[has_many]
+    pub post_categories: Deferred<Vec<PostCategory>>,
+    #[has_many(via = post_categories.post)]
+    pub posts: Deferred<Vec<Post>>,
+}
+
+/// Files a post under a category: the join model of the two, one row per pair.
+#[derive(Debug, Clone, toasty::Model)]
+#[key(post_id, category_id)]
+pub struct PostCategory {
+    #[index]
+    pub post_id: uuid::Uuid,
+    #[belongs_to(key = post_id, references = id)]
+    pub post: Deferred<Post>,
+    #[index]
+    pub category_id: uuid::Uuid,
+    #[belongs_to(key = category_id, references = id)]
+    pub category: Deferred<Category>,
 }
 
 #[derive(Debug, Clone, toasty::Model)]

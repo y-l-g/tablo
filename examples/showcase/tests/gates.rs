@@ -1,7 +1,7 @@
 use http::header::LOCATION;
 use showcase::models::{
-    Author, BLOCKED_TENANT, Comment, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, Post, PostStatus,
-    Publication, Seo,
+    Author, BLOCKED_TENANT, Category, Comment, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, Post,
+    PostCategory, PostStatus, Publication, Seo,
 };
 use tablo::TenantId;
 use uuid::Uuid;
@@ -143,6 +143,42 @@ async fn forged_posts_answer_403_and_change_nothing() {
         draft_count(&db).await,
         drafts,
         "a forged header action must publish nothing"
+    );
+
+    let category = Category::all()
+        .exec(&mut db_q)
+        .await
+        .unwrap()
+        .into_iter()
+        .next()
+        .expect("a seeded category");
+    let links = link_count(&db).await;
+    let relation = format!("/admin/categories/{}/-/relations/posts", category.id);
+    for path in [
+        format!("{relation}/-/actions/attach"),
+        format!("{relation}/-/actions/detach"),
+        format!("{relation}/{}/-/actions/detach", post.id),
+    ] {
+        for (body, label) in [
+            (
+                format!("record={0}&ids={0}&csrf_token={field}", post.id),
+                "mismatched token",
+            ),
+            (format!("record={0}&ids={0}", post.id), "missing token"),
+        ] {
+            let resp = client.csrf(&cookie).post_form(&path, body).await;
+            assert_eq!(
+                resp.status(),
+                403,
+                "{path} {label}: a forged link must 403, got {}",
+                resp.status()
+            );
+        }
+    }
+    assert_eq!(
+        link_count(&db).await,
+        links,
+        "a forged attach or detach must change no link"
     );
 
     let boundary = "----GateMatrixBoundary";
@@ -370,6 +406,46 @@ async fn cross_tenant_requests_404_and_touch_nothing() {
         resp.status()
     );
 
+    // A category of tenant A, holding A's post: B neither attaches to it nor detaches from it.
+    let t1_category = toasty::create!(Category {
+        tenant_id: TenantId::from(t1),
+        name: "T1 Category",
+    })
+    .exec(&mut db_q)
+    .await
+    .expect("t1 category");
+    toasty::create!(PostCategory {
+        post_id: t1_post.id,
+        category_id: t1_category.id,
+    })
+    .exec(&mut db_q)
+    .await
+    .expect("file the t1 post");
+    let relation = format!("/admin/categories/{}/-/relations/posts", t1_category.id);
+    let post_key = t1_post.id.to_string();
+    for (path, body) in [
+        (
+            format!("{relation}/-/actions/attach"),
+            form_body(&[("record", &post_key), ("csrf_token", &csrf)]),
+        ),
+        (
+            format!("{relation}/-/actions/detach"),
+            form_body(&[("ids", &post_key), ("csrf_token", &csrf)]),
+        ),
+        (
+            format!("{relation}/{post_key}/-/actions/detach"),
+            form_body(&[("csrf_token", &csrf)]),
+        ),
+    ] {
+        let resp = foreign.post_form(&path, body).await;
+        assert_eq!(resp.status(), 404, "{path}: a cross-tenant link must 404");
+    }
+    assert_eq!(
+        link_count(&db).await,
+        1,
+        "a cross-tenant detach must keep the t1 post filed"
+    );
+
     let surviving_post = Post::filter(Post::fields().id().eq(t1_post.id))
         .first()
         .exec(&mut db_q)
@@ -507,12 +583,23 @@ async fn blocked_tenant_is_refused_on_every_read_route() {
     .exec(&mut db_q)
     .await
     .expect("create a post under BLOCKED_TENANT");
+    let blocked_category = toasty::create!(Category {
+        tenant_id: TenantId::from(BLOCKED_TENANT),
+        name: "Blocked Category",
+    })
+    .exec(&mut db_q)
+    .await
+    .expect("create a category under BLOCKED_TENANT");
 
     for path in [
         "/admin/posts".to_string(),
         "/admin/posts/export".to_string(),
         format!("/admin/posts/{}", blocked_post.id),
         "/admin/posts/-/actions/tag/options?field=tags".to_string(),
+        format!(
+            "/admin/categories/{}/-/relations/posts/-/actions/attach/options?field=record",
+            blocked_category.id
+        ),
     ] {
         let resp = blocked.get(&path).await;
         assert_eq!(
@@ -542,6 +629,14 @@ async fn anonymous_requests_are_gated_on_every_route() {
         .into_iter()
         .next()
         .expect("a seeded post");
+    let category = Category::all()
+        .exec(&mut db_q)
+        .await
+        .unwrap()
+        .into_iter()
+        .next()
+        .expect("a seeded category");
+    let relation = format!("/admin/categories/{}/-/relations/posts", category.id);
     let before = post_count(&db).await;
 
     for path in [
@@ -553,6 +648,7 @@ async fn anonymous_requests_are_gated_on_every_route() {
         "/admin/posts/options?q=a".to_string(),
         "/admin/posts/-/actions/tag/options?field=tags".to_string(),
         "/admin/-/actions/feature-tagged/options?field=tag".to_string(),
+        format!("{relation}/-/actions/attach/options?field=record"),
     ] {
         let resp = client.get(&path).await;
         assert_eq!(
@@ -578,6 +674,9 @@ async fn anonymous_requests_are_gated_on_every_route() {
         "/admin/posts/bulk-delete".to_string(),
         "/admin/posts/-/actions/publish-all-drafts".to_string(),
         "/admin/-/actions/feature-tagged".to_string(),
+        format!("{relation}/-/actions/attach"),
+        format!("{relation}/-/actions/detach"),
+        format!("{relation}/{}/-/actions/detach", post.id),
     ] {
         let resp = client.post_form(&path, "confirm=1".to_string()).await;
         assert_eq!(
@@ -681,4 +780,10 @@ async fn header_actions_stay_in_their_tenant_and_policy() {
         Some("/admin"),
         "and lands back on it"
     );
+}
+
+/// Counts the join rows filing posts under categories.
+async fn link_count(db: &toasty::Db) -> usize {
+    let mut db = db.clone();
+    PostCategory::all().exec(&mut db).await.unwrap().len()
 }

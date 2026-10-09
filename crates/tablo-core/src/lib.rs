@@ -62,16 +62,17 @@ pub mod __macro {
         Executor, Result as DbResult,
         schema::{Embed, Model},
         stmt,
-        stmt::Path,
+        stmt::{List, Path},
     };
     pub use topcoat::context::Cx;
 
     pub use crate::{
         Lens,
         detail::Detail,
+        extend::{Includes, OptionSource},
         form::{
             FieldError, FormField, FormScalar, NullableScalar, RecordForm, assert_form_scalar,
-            parse_scalar,
+            links_include, links_key, parse_list, parse_scalar, write_links,
         },
         resource::{ActionInput, required_input},
         schema::{
@@ -84,7 +85,10 @@ pub mod __macro {
             tree::Retype,
             write_items,
         },
-        table::{BooleanColumn, EmbeddedColumn, FileColumn, RepeaterColumn, Table, TextColumn},
+        table::{
+            BooleanColumn, EmbeddedColumn, FileColumn, RelationColumn, RelationLens,
+            RepeaterColumn, Table, TextColumn,
+        },
         toasty_compat::VariantId,
     };
 }
@@ -118,7 +122,8 @@ pub mod upload;
 
 pub use auth::{Auth, Authenticator, LoginThrottle, PanelUser, PasswordAuth, membership};
 pub use declaration::{
-    ActionInputFault, DeclarationError, DeclarationErrorKind, MountError, SegmentFault, Site,
+    ActionInputFault, DeclarationError, DeclarationErrorKind, ManyToManyFault, MountError,
+    SegmentFault, Site,
 };
 pub use detail::{Detail, IntoDetail};
 pub use form::{
@@ -333,15 +338,17 @@ pub use tablo_macros::Options;
 /// It emits `UserFormControls`, one control per field chosen from the field —
 /// a `bool` is a toggle, `#[form(options = T)]` a choice over `T`'s options,
 /// `#[form(options)]` a choice over the field type's options,
-/// `#[form(relationship = R)]` a choice over `R`'s records, `#[form(file)]` a file field,
-/// `#[form(embed)]` the embedded value's schema, `#[form(repeat)]` a repeater, and any
+/// `#[form(relationship = R)]` a choice over `R`'s records (a multiple choice over a `Vec` of
+/// their keys), `#[form(file)]` a file field, `#[form(embed)]` the embedded value's schema,
+/// `#[form(repeat)]` a repeater, and any
 /// other field a text field — with `controls()` handing them over, typed by the form so only a
 /// `Schema<UserForm>` places them, and `RecordForm::control` answering one
 /// field's. `RecordForm::table` lists a
 /// sortable column per text field, searchable over a `String` or
 /// `Option<String>`, an options field by its option's label, and a toggle as
 /// yes or no. `RecordForm::detail` shows the same columns, plus a relationship's
-/// key, a file field as a link, an embedded value leaf by leaf and a repeater's items. A
+/// key, a many-to-many field's records by their titles, a file field as a link, an embedded
+/// value leaf by leaf and a repeater's items. A
 /// resource's `ResourceDef` defaults its form, table and detail page to them;
 /// `ResourceDef::form`, `ResourceDef::table` and `ResourceDef::view` arrange or extend them
 /// instead, and a form renders the controls it does not place after the ones it does.
@@ -357,6 +364,10 @@ pub use tablo_macros::Options;
 /// - `#[form(relationship = AuthorResource)]` on a foreign key: a choice over the source's
 ///   records, each labelled by its `record_title`. The source is any `OptionSource`, which
 ///   every `Resource` is.
+/// - `#[form(relationship = TagResource)]` on a `Vec` of the source's keys, named like the
+///   model's `#[has_many(via = joins.target)]` field: a many-to-many field, a multiple choice
+///   whose records the write links through the join model, one row each. No record is its
+///   blank answer; an edit that does not post it keeps the record's links.
 /// - `#[form(file)]` on a `String`: a file field.
 /// - `#[form(embed)]` on an `EmbeddedForm` value.
 /// - `#[form(repeat)]` on a `#[document]` list of [`RepeaterItem`](derive@RepeaterItem)
@@ -368,9 +379,10 @@ pub use tablo_macros::Options;
 /// control required and the parse refuses an empty submission. No control declares presence.
 ///
 /// A generic struct, a tuple struct, an empty struct, a `Deferred<_>` field,
-/// `blank` or `optional` on an `Option` or an embedded value, `optional` on a
-/// type other than `String`, and an unknown key are compile errors. So are a field the model
-/// lacks, a type the model's field does not have, and a scalar that is not a `FormScalar`.
+/// `blank` or `optional` on an `Option`, an embedded value or a many-to-many field, `optional`
+/// on a type other than `String`, and an unknown key are compile errors. So are a field the
+/// model lacks, a type the model's field does not have, a scalar that is not a `FormScalar`,
+/// and a many-to-many field whose keys are not its source's primary key.
 pub use tablo_macros::RecordForm;
 /// Derives [`RepeaterItem`](trait@RepeaterItem) for one item of a repeater: an embedded struct
 /// a `#[document]` list stores.

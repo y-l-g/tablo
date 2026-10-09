@@ -25,14 +25,18 @@ use super::{
     state::{PanelState, Panels, current, under_prefix},
 };
 use crate::{
-    ActionInputFault, DeclarationError, DeclarationErrorKind, MountError, Page, Site,
+    ActionInputFault, DeclarationError, DeclarationErrorKind, ManyToManyFault, MountError, Page,
+    Site,
     auth::{PanelGate, RuntimeGate, SESSION_LIFETIME},
     declaration::segment_fault,
     form::RecordForm,
     policy::Ability,
     resource::{InputSpec, MountScope, Mounted, Mounts, Resource, require_mounted},
     tenancy::TenantSource,
-    toasty_compat::model::{self, AppSchema},
+    toasty_compat::{
+        join::JoinTable,
+        model::{self, AppSchema},
+    },
     topcoat_compat::RUNTIME_PREFIX,
 };
 
@@ -684,6 +688,7 @@ fn check_form_inner<R: Resource>(
     if declared.tenancy.via_is_single() == Some(false) {
         check_via_foreign_keys(cx, declared, errors);
     }
+    check_many_to_many(cx, declared, errors);
     if declared.can(cx, Ability::Create) {
         check_create_columns(declared, errors);
     }
@@ -701,6 +706,44 @@ fn check_form_inner<R: Resource>(
         if !field.is_required() && !field.is_nullable() {
             errors.push(form_error::<R>(DeclarationErrorKind::OptionalUnique {
                 field: name.to_string(),
+            }));
+        }
+    }
+}
+
+/// Each many-to-many field of `R`'s form is a multiple choice over the records its join model
+/// links, through a join model a link can write; and each multiple choice is such a field, since
+/// no column stores a list of keys.
+fn check_many_to_many<R: Resource>(
+    cx: &Cx,
+    declared: &Mounted<R>,
+    errors: &mut Vec<DeclarationError>,
+) {
+    let Some(schema) = AppSchema::of(cx) else {
+        return;
+    };
+    for field in declared.form.fields() {
+        let name = field.name();
+        let choice = field
+            .as_choice()
+            .filter(|choice| choice.is_multiple() && choice.is_relationship());
+        let fault = if model::is_via::<R::Model>(name) {
+            match (choice, JoinTable::of::<R::Model>(&schema, name)) {
+                (_, Err(fault)) => Some(fault),
+                (None, Ok(_)) => Some(ManyToManyFault::NotMultipleChoice),
+                (Some(choice), Ok(join)) => (choice.source_model() != Some(join.target_model()))
+                    .then_some(ManyToManyFault::OtherSource),
+            }
+        } else {
+            field
+                .as_choice()
+                .is_some_and(|choice| choice.is_multiple())
+                .then_some(ManyToManyFault::NoJoin)
+        };
+        if let Some(fault) = fault {
+            errors.push(form_error::<R>(DeclarationErrorKind::ManyToMany {
+                field: name.to_string(),
+                fault,
             }));
         }
     }

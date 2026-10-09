@@ -239,3 +239,92 @@ pub fn recipe_view() -> Detail<Recipe> {
     Detail::new(RepeaterColumn::new(lens!(Recipe.steps)).label("Method"))
 }
 // ANCHOR_END: forms-repeater-layout
+
+// ANCHOR: forms-many-to-many-models
+#[derive(Debug, Clone, toasty::Model)]
+pub struct Article {
+    #[key]
+    #[auto]
+    pub id: uuid::Uuid,
+    pub title: String,
+    #[has_many]
+    pub taggings: toasty::Deferred<Vec<Tagging>>,
+    // The tags the join rows reach.
+    #[has_many(via = taggings.tag)]
+    pub tags: toasty::Deferred<Vec<Tag>>,
+}
+
+#[derive(Debug, Clone, toasty::Model)]
+pub struct Tag {
+    #[key]
+    #[auto]
+    pub id: uuid::Uuid,
+    pub name: String,
+    #[has_many]
+    pub taggings: toasty::Deferred<Vec<Tagging>>,
+    #[has_many(via = taggings.article)]
+    pub articles: toasty::Deferred<Vec<Article>>,
+}
+
+/// The join model: one row per article and tag.
+#[derive(Debug, Clone, toasty::Model)]
+#[key(article_id, tag_id)]
+pub struct Tagging {
+    #[index]
+    pub article_id: uuid::Uuid,
+    #[belongs_to(key = article_id, references = id)]
+    pub article: toasty::Deferred<Article>,
+    #[index]
+    pub tag_id: uuid::Uuid,
+    #[belongs_to(key = tag_id, references = id)]
+    pub tag: toasty::Deferred<Tag>,
+}
+// ANCHOR_END: forms-many-to-many-models
+
+// ANCHOR: forms-many-to-many-field
+#[derive(Debug, Clone, tablo::RecordForm)]
+#[form(model = Article)]
+pub struct ArticleForm {
+    pub title: String,
+    // Named like the `via` field, holding the keys of the tags it reaches.
+    #[form(relationship = TagResource)]
+    pub tags: Vec<uuid::Uuid>,
+}
+
+pub fn article_layout() -> Schema<ArticleForm> {
+    let c = ArticleForm::controls();
+    Schema::new((c.title, c.tags.searchable()))
+}
+// ANCHOR_END: forms-many-to-many-field
+
+pub struct ArticleResource;
+
+impl Resource for ArticleResource {
+    type Model = Article;
+    type Form = ArticleForm;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .form(article_layout())
+            .record_title(lens!(Article.title))
+    }
+}
+
+pub struct TagResource;
+
+impl Resource for TagResource {
+    type Model = Tag;
+    type Form = NoForm<Tag>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .table(Table::new(TextColumn::new(lens!(Tag.name)).searchable()))
+            .record_title(lens!(Tag.name))
+            // ANCHOR: tag-relations
+            // The tag's `via` field: its articles, which its page attaches and detaches.
+            .relation(Relation::belongs_to_many::<ArticleResource>(
+                Tag::fields().articles(),
+            ))
+        // ANCHOR_END: tag-relations
+    }
+}

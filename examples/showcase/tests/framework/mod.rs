@@ -25,5 +25,6 @@ mod writes;
 
 mod embedded_lens;
 mod embedded_value;
+mod many_to_many;
 mod record_form;
 mod relation_table;

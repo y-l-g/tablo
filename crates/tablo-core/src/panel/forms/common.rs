@@ -10,7 +10,7 @@ use topcoat::{
 };
 
 use super::{
-    super::{actions::load_viewable, gate::gate},
+    super::{actions::load_editable, gate::gate},
     render::{FormChrome, render_form_page},
 };
 use crate::{
@@ -23,7 +23,11 @@ use crate::{
 
 /// A decoded form body: the text values plus any file parts.
 pub(crate) struct FormParts {
+    /// Each key's last text value.
     pub(crate) values: HashMap<String, String>,
+    /// Every text value of each key, in the order the body posts them, which a multiple choice
+    /// posts.
+    pub(crate) lists: HashMap<String, Vec<String>>,
     /// Holds staged bytes only when an uploader is installed.
     pub(crate) files: HashMap<String, crate::upload::StagedUpload>,
     /// Names arriving as multipart parts carrying a `filename`; only these may set a file field's
@@ -147,7 +151,7 @@ pub(crate) fn resource_edit<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
     async_page(async move {
         let resource = gate::<R>(cx)?;
         let mut db = db(cx);
-        let record = load_viewable(cx, &resource, &mut db).await?;
+        let record = load_editable(cx, &resource, &mut db).await?;
         if !resource.can(cx, Ability::Update(&record)) {
             return Err(forbidden().into());
         }

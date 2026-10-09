@@ -23,8 +23,8 @@ use crate::{
     dashboard::Dashboard,
     media::{MediaLibrary, MediaLibraryPage},
     models::{
-        Author, BLOCKED_TENANT, Comment, Link, Post, PostStatus, Publication, REMOVED_COMMENT_BODY,
-        Role, Seo, User,
+        Author, BLOCKED_TENANT, Category, Comment, Link, Post, PostStatus, Publication,
+        REMOVED_COMMENT_BODY, Role, Seo, User,
     },
     staff::StaffAuth,
 };
@@ -192,6 +192,7 @@ fn post_form() -> Schema<PostForm> {
             Grid::new(2).schema((c.status, c.featured)),
             c.author_id.searchable().label("Author"),
             c.cover_id.searchable().label("Cover"),
+            c.categories.searchable(),
             c.tags,
         )),
         Group::new().schema((
@@ -219,6 +220,7 @@ fn post_view() -> Detail<Post> {
                 BooleanColumn::new(lens!(Post.featured)),
             )),
             post_author_column(),
+            RelationColumn::list::<CategoryResource>(relation!(Post.categories)),
             TextColumn::new(lens!(Post.tags)),
         ))),
         Section::new("SEO").columns(EmbeddedColumn::new(lens!(Post.seo))),
@@ -374,6 +376,8 @@ pub struct PostForm {
     pub author_id: uuid::Uuid,
     #[form(relationship = MediaLibrary)]
     pub cover_id: Option<uuid::Uuid>,
+    #[form(relationship = CategoryResource)]
+    pub categories: Vec<uuid::Uuid>,
     #[form(optional)]
     pub tags: String,
     #[form(embed)]
@@ -382,6 +386,33 @@ pub struct PostForm {
     pub publication: Publication,
     #[form(repeat)]
     pub links: Vec<Link>,
+}
+
+/// Files posts by topic.
+pub struct CategoryResource;
+
+impl Resource for CategoryResource {
+    type Model = Category;
+    type Form = CategoryForm;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .plural_label("Categories")
+            .icon(tablo::ui::icons::TAG)
+            .policy(when(blog_open))
+            .tenancy(Tenancy::column(lens!(Category.tenant_id)))
+            .record_title(lens!(Category.name))
+            // Lists the category's posts, attaching and detaching them.
+            .relation(Relation::belongs_to_many::<PostResource>(
+                Category::fields().posts(),
+            ))
+    }
+}
+
+#[derive(tablo::RecordForm)]
+#[form(model = Category)]
+pub struct CategoryForm {
+    pub name: String,
 }
 
 /// Moderates comments.
@@ -541,6 +572,7 @@ pub fn admin_panel() -> Panel {
         .resource::<UserResource>()
         .resource::<AuthorResource>()
         .resource::<PostResource>()
+        .resource::<CategoryResource>()
         .resource::<CommentResource>()
         .page::<MediaLibraryPage>()
 }

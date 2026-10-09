@@ -134,6 +134,33 @@ pub enum ActionInputFault {
     DependentChoice(String),
 }
 
+/// Why a many-to-many field or relation cannot link records:
+/// [`DeclarationErrorKind::ManyToMany`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ManyToManyFault {
+    /// The field is no `#[has_many(via = joins.target)]` stepping through a `has_many` to a join
+    /// model, then the join model's `belongs_to` to the target.
+    NotJoinModel,
+    /// A foreign key of the join model spans several columns, or references no single-column
+    /// primary key.
+    CompositeKey,
+    /// The join model has a column a new link cannot fill: not nullable, not `#[auto]`, and not
+    /// one of its two foreign keys.
+    UnwritableColumn {
+        /// The join model.
+        model: String,
+        /// The column.
+        column: String,
+    },
+    /// The form's control for the field is not a multiple choice over a relationship.
+    NotMultipleChoice,
+    /// The relationship's records are not the target's.
+    OtherSource,
+    /// A multiple choice in a resource's form over no many-to-many field, which no column stores.
+    NoJoin,
+}
+
 /// What is wrong with a declaration.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
@@ -317,6 +344,12 @@ pub enum DeclarationErrorKind {
         /// The dependent choice.
         field: String,
     },
+    /// A dependent choice that takes several options, or that depends on one that does: a
+    /// multiple choice's key holds a list, which narrows nothing.
+    MultipleDependentChoice {
+        /// The dependent choice.
+        field: String,
+    },
     /// A dependent choice depends on a field the schema does not place.
     UnplacedParentField {
         /// The dependent choice.
@@ -376,6 +409,13 @@ pub enum DeclarationErrorKind {
     UnwrittenColumn {
         /// The column.
         column: String,
+    },
+    /// A many-to-many field or relation whose join model cannot link records.
+    ManyToMany {
+        /// The field, or the relation's `via` field.
+        field: String,
+        /// What is wrong.
+        fault: ManyToManyFault,
     },
 }
 
@@ -563,6 +603,11 @@ impl fmt::Display for DeclarationErrorKind {
                 "choice '{field}' depends on a column its options do not have: call \
                  `relationship::<R>()` and name a column of `R`'s model in `depends_on`"
             ),
+            Self::MultipleDependentChoice { field } => write!(
+                f,
+                "choice '{field}' depends on another field through a multiple choice, which \
+                 neither narrows another choice nor is narrowed: drop `depends_on` or `multiple`"
+            ),
             Self::UnplacedParentField { field, parent } => write!(
                 f,
                 "choice '{field}' depends on field '{parent}', which the schema does not place: \
@@ -621,6 +666,38 @@ impl fmt::Display for DeclarationErrorKind {
                  the record form has no such field, toasty fills no `#[default(..)]` for it, and \
                  no `create_column` names it, so every create would fail at the driver"
             ),
+            Self::ManyToMany { field, fault } => match fault {
+                ManyToManyFault::NotJoinModel => write!(
+                    f,
+                    "`{field}` is no many-to-many field: declare it \
+                     `#[has_many(via = joins.target)]`, through a `has_many` to a join model and \
+                     the join model's `belongs_to` to the target"
+                ),
+                ManyToManyFault::CompositeKey => write!(
+                    f,
+                    "`{field}`'s join model holds a key of several columns, or one referencing no \
+                     single-column primary key: a link writes one column per side"
+                ),
+                ManyToManyFault::UnwritableColumn { model, column } => write!(
+                    f,
+                    "`{field}`'s join model `{model}` has a column `{column}` a new link cannot \
+                     fill: make it nullable or `#[auto]`, or link the records in your own record fn"
+                ),
+                ManyToManyFault::NotMultipleChoice => write!(
+                    f,
+                    "`{field}` is a many-to-many field, so its control is a multiple choice over \
+                     a relationship: `.choice().relationship::<R>().multiple()`"
+                ),
+                ManyToManyFault::OtherSource => write!(
+                    f,
+                    "`{field}` offers another model's records than the ones its join model links"
+                ),
+                ManyToManyFault::NoJoin => write!(
+                    f,
+                    "multiple choice `{field}` names no many-to-many field of the model, so \
+                     nothing would store its records: bind it to a `#[has_many(via = ..)]` field"
+                ),
+            },
         }
     }
 }

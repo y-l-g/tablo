@@ -26,6 +26,13 @@ lists the rows in the order they show. The submission folds them into that key, 
 each row's keys, before anything reads it, so completing an edit, hiding a field and parsing see
 one key like any other. A row keeps its number when it moves, so the browser renumbers nothing.
 
+A many-to-many field writes no column of its own. It is named like the model's
+`#[has_many(via = joins.target)]` field and typed as a `Vec` of the related keys, so the derive
+checks both against the model and the related resource. Its control posts its key once per
+checked box, which the submission folds into a JSON array as it does a repeater's rows. The
+write links and unlinks records as join rows built from the app schema, since Toasty writes
+through no multi-step `via` and the join model's type is not the field's.
+
 ## Rejected
 
 - Presence on the control (`.required()`): a second declaration of what the blank answers say.
@@ -39,3 +46,9 @@ one key like any other. A row keeps its number when it moves, so the browser ren
   per row, and the page loses its scroll and focus.
 - Renumbering a repeater's row keys after each move or removal: more script for what the order key
   already says.
+- Naming the join model in a many-to-many field's attribute, so the write could use its typed
+  create builder and its `#[default]`s: a second declaration of what the `via` field says. A join
+  model with a column a link cannot fill is refused at mount instead.
+- Replacing every link of an edited record: it rewrites the rows it keeps, and drops any column
+  they hold.
+- A `<select multiple>`: a click without a modifier key drops every other choice.

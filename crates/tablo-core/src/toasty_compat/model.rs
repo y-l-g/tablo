@@ -39,6 +39,11 @@ impl AppSchema {
         topcoat::context::try_app_context::<toasty::Db>(cx).map(Self::of_db)
     }
 
+    /// The compiled schema itself, for the walks of [`super::join`].
+    pub(crate) fn inner(&self) -> &toasty_core::Schema {
+        &self.0
+    }
+
     /// Whether the schema registers a model named `name`, in upper camel case.
     pub(crate) fn registers(&self, name: &str) -> bool {
         self.0
@@ -120,6 +125,16 @@ pub(crate) fn fields<M: toasty::schema::Model>() -> Vec<FieldInfo> {
         .iter()
         .filter_map(|field| field_info(field, root))
         .collect()
+}
+
+/// Whether `M`'s field `name` is a `#[has_many(via = ..)]`, which stores no column and reads
+/// through other relations.
+pub(crate) fn is_via<M: toasty::schema::Model>(name: &str) -> bool {
+    M::schema().as_root().is_some_and(|root| {
+        root.fields.iter().any(|field| {
+            field.name.app.as_deref() == Some(name) && matches!(field.ty, app::FieldTy::Via(_))
+        })
+    })
 }
 
 /// The one field of `M` a single-step `path` names.

@@ -37,6 +37,13 @@
 //   parent value the page rendered with, and the server refuses a choice of
 //   another one.
 //
+// * Multiple choices: a `ChoiceField::multiple().searchable()` renders an
+//   `input[data-choices-filter]` above its checkboxes, inside `[data-choices]`,
+//   each box in a `[data-choice]` row. Typing hides the rows whose label does
+//   not hold the needle (case-insensitive). Unlike a select's options, the rows
+//   are page elements, so hiding them shows; a hidden box that is checked still
+//   posts. Enter in the filter submits nothing.
+//
 // The server renders both controls so the field works without this script;
 // with it, the native `<select>` is hidden once the combobox over it is wired.
 //
@@ -391,6 +398,21 @@ function activeItem(list) {
   );
 }
 
+// --- a multiple choice's filter -----------------------------------------------
+
+// Whether a multiple choice's row labelled `label` shows for `needle`.
+function choiceMatches(label, needle) {
+  const lowered = needle.trim().toLowerCase();
+  return lowered === '' || label.toLowerCase().includes(lowered);
+}
+
+// Show only the rows of the multiple choice `field` that `needle` matches.
+function filterChoices(field, needle) {
+  field.querySelectorAll('[data-choice]').forEach((row) => {
+    row.hidden = !choiceMatches((row.textContent || '').trim(), needle);
+  });
+}
+
 // --- the control the combobox replaces ---------------------------------------
 
 // Whether the script hides the native `<select>` behind its combobox.
@@ -456,6 +478,12 @@ function applyHiddenSelects(root) {
 // bottom), which has no DOM: loading the script must not touch one.
 function install() {
   document.addEventListener('input', (e) => {
+    const choices = e.target.closest('[data-choices-filter]');
+    if (choices) {
+      const field = choices.closest('[data-choices]');
+      if (field) filterChoices(field, choices.value);
+      return;
+    }
     if (!e.target.closest('[data-options-filter]')) return;
     const parts = partsOf(e.target);
     if (!parts.select) return;
@@ -503,6 +531,11 @@ function install() {
   // status line ("Searching…", "No matching options") there is no row to pick,
   // and the keystroke still must not submit the record the reader is editing.
   document.addEventListener('keydown', (e) => {
+    // Enter in a multiple choice's filter narrows; it never submits the form.
+    if (e.key === 'Enter' && e.target.closest('[data-choices-filter]')) {
+      e.preventDefault();
+      return;
+    }
     if (!e.target.closest('[data-options-filter]')) return;
     const parts = partsOf(e.target);
     if (!parts.select || !parts.list) return;
@@ -598,6 +631,7 @@ if (typeof document !== 'undefined') install();
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     MAX_LIST_ITEMS,
+    choiceMatches,
     matchingOptions,
     preservedOption,
     shouldHideNativeSelect,

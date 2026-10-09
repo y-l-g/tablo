@@ -214,6 +214,19 @@ impl<F> ChoiceField<F> {
         self
     }
 
+    /// Takes several options: a checkbox per option, posting the field's key once per checked
+    /// box. A record form's many-to-many field (`Vec<K>` with `#[form(relationship = R)]`) is one;
+    /// [`parse_list`](crate::form::parse_list) reads one in an action's input.
+    ///
+    /// It offers at most [`MAX_RELATIONSHIP_OPTIONS`](crate::schema::MAX_RELATIONSHIP_OPTIONS)
+    /// records: past them it lists none and keeps the chosen ones, and a submission is refused.
+    /// `searchable` filters the listed options as the user types. A condition cannot watch it,
+    /// and it cannot depend on another field.
+    pub fn multiple(mut self) -> Self {
+        self.choice_mut().multiple = true;
+        self
+    }
+
     /// Filters options as the user types, fetching from the relationship past the option cap.
     pub fn searchable(mut self) -> Self {
         self.choice_mut().searchable = true;

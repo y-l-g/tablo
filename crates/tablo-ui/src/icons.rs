@@ -46,6 +46,8 @@ pub const EXTERNAL_LINK: IconData = iconify_icon!("lucide:external-link");
 pub const CHEVRON_DOWN: IconData = iconify_icon!("lucide:chevron-down");
 /// The selected choice in a menu.
 pub const CHECK: IconData = iconify_icon!("lucide:check");
+/// Relation action: link a record to the one the page shows.
+pub const LINK: IconData = iconify_icon!("lucide:link");
 
 // Navigation icons for `NavigationItem::icon`.
 /// Navigation: a dashboard or home page.
@@ -58,6 +60,8 @@ pub const PEN_LINE: IconData = iconify_icon!("lucide:pen-line");
 pub const FILE_TEXT: IconData = iconify_icon!("lucide:file-text");
 /// Navigation: comments, messages.
 pub const MESSAGE_SQUARE: IconData = iconify_icon!("lucide:message-square");
+/// Navigation: categories, tags.
+pub const TAG: IconData = iconify_icon!("lucide:tag");
 /// Navigation: media, images.
 pub const IMAGE: IconData = iconify_icon!("lucide:image");
 /// Navigation: activity, live data.

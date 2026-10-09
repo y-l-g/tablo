@@ -476,6 +476,25 @@ pub(crate) const DASH_ROUTE_SEGMENT: &str = "-";
 /// The action-name placeholder the route table registers: `{action}`.
 pub(crate) const ACTION_ROUTE_PARAM: &str = "{action}";
 
+/// Path segment before a record's relation, whose table posts its attach and detach under
+/// `{list}/{key}/-/relations/{relation}`.
+pub(crate) const RELATIONS_ROUTE_SEGMENT: &str = "relations";
+
+/// The relation placeholder the route table registers: `{relation}`, the related resource's slug.
+pub(crate) const RELATION_ROUTE_PARAM: &str = "{relation}";
+
+/// The related record's placeholder the route table registers: `{related}`.
+pub(crate) const RELATED_ROUTE_PARAM: &str = "{related}";
+
+/// A record's relation to the resource at `slug`, which its writes post under:
+/// `{list}/{key}/-/relations/{slug}`.
+pub(crate) fn relation_url(list: &str, key: &str, slug: &str) -> String {
+    format!(
+        "{list}/{}/{DASH_ROUTE_SEGMENT}/{RELATIONS_ROUTE_SEGMENT}/{slug}",
+        href::encode_path_segment(key)
+    )
+}
+
 /// The row's `Edit` link: `{prefix}/{key}/edit`.
 pub(crate) fn row_edit_url(prefix: &str, key: &str) -> String {
     format!(

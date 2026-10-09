@@ -172,8 +172,13 @@ function plainField() {
 
 // The matching cases are pure; a document with no fields is enough to load the
 // script.
-const { matchingOptions, MAX_LIST_ITEMS, preservedOption, shouldHideNativeSelect } =
-  load(standInDocument([]));
+const {
+  choiceMatches,
+  matchingOptions,
+  MAX_LIST_ITEMS,
+  preservedOption,
+  shouldHideNativeSelect,
+} = load(standInDocument([]));
 
 const PLACEHOLDER = { value: '', label: '-- Select --', selected: false };
 const ada = { value: 'pk-ada', label: 'Ada Author', selected: false };
@@ -233,6 +238,12 @@ test('no match yields an empty list, which the caller reports as such', () => {
 });
 
 // --- the native select behind the combobox --------------------------
+
+test("a multiple choice's row shows while its label holds the trimmed needle, in any case", () => {
+  assert.equal(choiceMatches('Databases', ''), true, 'an empty needle shows every row');
+  assert.equal(choiceMatches('Databases', '  BASE '), true);
+  assert.equal(choiceMatches('Databases', 'engineering'), false);
+});
 
 test('the native select is hidden only when the combobox over it is wired', () => {
   const wired = { combo: {}, wrap: {}, filter: {}, list: {}, select: {} };

@@ -365,6 +365,8 @@ impl Field {
             return Some(value == "true" || value == "false");
         }
         match &self.control {
+            // Its key holds a list, which no condition value spells.
+            ControlKind::Choice(choice) if choice.is_multiple() => Some(false),
             ControlKind::Choice(choice) if !choice.is_relationship() => {
                 Some(value.is_empty() || choice.label_of(value).is_some())
             }

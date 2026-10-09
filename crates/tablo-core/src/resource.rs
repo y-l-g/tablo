@@ -32,6 +32,7 @@ pub use header_action::{HeaderAction, HeaderActions};
 pub use link::PublicLink;
 pub(crate) use mounted::{MountScope, Mounted, Mounts, mounted, require_mounted};
 pub use relation::{ForeignKey, Relation};
+pub(crate) use relation::{Links, RelationKind};
 pub use write::{write_create, write_update};
 
 /// Maps one Toasty `Model` to its admin UI.

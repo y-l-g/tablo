@@ -13,7 +13,7 @@ use topcoat::{
 };
 
 use super::{
-    super::{actions::load_viewable, gate::gate, write::commit_write},
+    super::{actions::load_editable, gate::gate, write::commit_write},
     common::{
         FormParts, drop_client_typed_uploads, reject_unknown_form_keys, rerender_invalid_form,
         restore_pending_uploads, strip_transport_keys, truthy,
@@ -52,13 +52,16 @@ async fn prepare_submission<R: Resource>(
     let schema = Arc::clone(&resource.form);
     let FormParts {
         mut values,
+        lists,
         mut files,
         file_part_names,
     } = parts;
-    // Each repeater's rows become its one key, which every step below reads like any other.
+    // Each repeater's rows, and each multiple choice's values, become its one key, which every
+    // step below reads like any other.
     schema
         .fold_repeaters(&mut values)
         .map_err(topcoat::router::error::bad_request)?;
+    schema.fold_choices(&mut values, &lists);
     reject_unknown_form_keys(&schema, &values)?;
     let stored = advisory
         .map(|advisory| <R::Form as RecordForm>::hydrate(cx, advisory))
@@ -288,7 +291,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         crate::csrf::verify(cx, &parts.values)?;
         // Advisory load feeds validation; the authoritative load runs inside the transaction.
         let mut db0 = db(cx);
-        let advisory = load_viewable(cx, &resource, &mut db0).await?;
+        let advisory = load_editable(cx, &resource, &mut db0).await?;
         if !resource.can(cx, Ability::Update(&advisory)) {
             return Err(forbidden().into());
         }
@@ -302,7 +305,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         // Authoritative load inside the transaction observes the write snapshot (#86).
         let mut db = db(cx);
         let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
-        let record = load_viewable(cx, &resource, &mut tx).await?;
+        let record = load_editable(cx, &resource, &mut tx).await?;
         if !resource.can(cx, Ability::Update(&record)) {
             return Err(forbidden().into());
         }
