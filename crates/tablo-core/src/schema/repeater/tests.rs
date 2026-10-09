@@ -7,11 +7,19 @@ use crate::{
     test_support::Html,
 };
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, crate::Options)]
+enum Kind {
+    Docs,
+    Blog,
+}
+
 #[derive(Debug, Clone, PartialEq, toasty::Embed, crate::RepeaterItem)]
 struct Link {
     label: String,
     #[form(optional)]
     url: String,
+    #[form(options = Kind, optional)]
+    kind: String,
 }
 
 #[derive(Debug, Clone, toasty::Model)]
@@ -19,6 +27,7 @@ struct Page {
     #[key]
     #[auto]
     id: uuid::Uuid,
+    shown: String,
     #[document]
     links: Vec<Link>,
 }
@@ -34,6 +43,7 @@ fn link(label: &str, url: &str) -> Link {
     Link {
         label: label.to_string(),
         url: url.to_string(),
+        kind: String::new(),
     }
 }
 
@@ -100,7 +110,23 @@ fn a_submission_not_posting_the_repeater_folds_nothing_and_an_empty_list_folds_n
 
 #[test]
 fn a_fold_refuses_an_order_that_lists_no_row_or_a_row_twice() {
-    for order in ["first", "-1", "0,0"] {
+    let rows = (0..=MAX_ROWS)
+        .map(|row| row.to_string())
+        .collect::<Vec<_>>();
+    let mut too_many = map(&[("links", &rows.join(","))]);
+    for row in &rows {
+        too_many.insert(format!("links.{row}.label"), "a".to_string());
+    }
+    let mut values = too_many.clone();
+    let error = repeater().fold_repeaters(&mut values).unwrap_err();
+    assert!(error.contains("more than"), "{error}");
+    too_many.remove(&format!("links.{MAX_ROWS}.label"));
+    too_many.insert("links".to_string(), rows[..MAX_ROWS].join(","));
+    repeater()
+        .fold_repeaters(&mut too_many)
+        .expect("the cap itself folds");
+
+    for order in ["first", "-1", "0,0", "0"] {
         let mut values = map(&[("links", order)]);
         assert!(
             repeater().fold_repeaters(&mut values).is_err(),
@@ -174,5 +200,77 @@ async fn the_repeater_renders_a_row_per_item_and_a_blank_row_to_copy() {
     assert!(
         !template.contains("is required"),
         "the blank row carries no error: {template}"
+    );
+}
+
+#[tokio::test]
+async fn each_row_answers_to_its_items_control_rules() {
+    let cx = crate::test_support::cx();
+    let mut values = map(&[
+        ("links", "0,1"),
+        ("links.0.label", "Docs"),
+        ("links.0.kind", "docs"),
+        ("links.1.label", "Blog"),
+        ("links.1.kind", "bogus"),
+    ]);
+    let schema = repeater();
+    schema.fold_repeaters(&mut values).unwrap();
+    let errors = schema.checked(&cx, &values).await;
+    let keys: Vec<&str> = errors.iter().map(|error| error.key.as_str()).collect();
+    assert_eq!(
+        keys,
+        ["links.1.kind"],
+        "only the second row's choice is refused"
+    );
+}
+
+#[tokio::test]
+async fn a_repeater_hidden_by_a_condition_posts_nothing() {
+    let cx = crate::test_support::cx();
+    let shown = Field::choice(Page::fields().shown()).options(["yes", "no"]);
+    let links = Field::repeater(Page::fields().links()).visible_when(&shown, ["yes"]);
+    let schema = Schema::new((shown, links));
+    let values = map(&[
+        ("shown", "no"),
+        ("links", &write_items(&[link("Docs", "")])),
+    ]);
+    assert!(schema.hidden_fields(&values).contains("links"));
+    let errors = crate::form::FieldErrors::new();
+    let html = schema
+        .render(&cx, Source::form(&values, &errors))
+        .await
+        .html(&cx)
+        .await;
+    let own = html[..html.find("data-repeater=").unwrap()]
+        .rfind("<fieldset")
+        .unwrap();
+    let guard = &html[html[..own].rfind("<fieldset").unwrap()..own];
+    assert!(
+        guard.contains("disabled") && guard.contains("hidden"),
+        "the guard disables the rows: {guard}"
+    );
+}
+
+#[test]
+fn the_column_lists_each_item_as_label_value_pairs() {
+    let cx = crate::test_support::cx();
+    let page = Page {
+        id: uuid::Uuid::nil(),
+        shown: String::new(),
+        links: vec![
+            Link {
+                kind: "docs".to_string(),
+                ..link("Guide", "https://docs.example")
+            },
+            Link {
+                kind: "blog".to_string(),
+                ..link("Notes", "")
+            },
+        ],
+    };
+    let column = crate::RepeaterColumn::new(crate::lens!(Page.links));
+    assert_eq!(
+        crate::table::Column::text(&column, &cx, &page),
+        "Label: Guide, Url: https://docs.example, Kind: Docs; Label: Notes, Url: , Kind: Blog"
     );
 }

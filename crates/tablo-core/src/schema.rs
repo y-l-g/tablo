@@ -31,7 +31,7 @@ pub use lenses::{FieldResolver, form_key};
 pub use options::Options;
 pub use relationship::MAX_RELATIONSHIP_OPTIONS;
 pub(crate) use relationship::{OptionLoadError, OptionSource};
-pub use repeater::RepeaterItem;
+pub use repeater::{MAX_ROWS, RepeaterItem, parse_items, write_items};
 use topcoat::{Result, context::Cx, view::*};
 pub use tree::{IntoSchema, Source};
 pub(crate) use tree::{Node, Retype, render_nodes};
@@ -184,12 +184,17 @@ impl<F> Schema<F> {
         }
     }
 
-    /// Folds each repeater's posted rows into its own key, before anything reads the submission.
+    /// Folds each repeater's posted rows into its own key, which
+    /// [`parse_items`] reads.
+    ///
+    /// A resource's form and an action's input fold their submissions; a page handling its own
+    /// post folds it before reading it, or the rows' keys stay apart.
     ///
     /// # Errors
     ///
-    /// A repeater's key lists something other than its rows.
-    pub(crate) fn fold_repeaters(
+    /// A repeater's key lists something other than its rows, a row posting nothing, or more than
+    /// [`MAX_ROWS`] rows: no browser posts these, so a handler answers 400.
+    pub fn fold_repeaters(
         &self,
         values: &mut HashMap<String, String>,
     ) -> std::result::Result<(), String> {
@@ -328,6 +333,10 @@ impl<F> Schema<F> {
             let Some(value) = values.get(name) else {
                 continue;
             };
+            if let Some(repeater) = field.as_repeater() {
+                repeater.check(cx, name, value, errors).await;
+                continue;
+            }
             if let Some(error) = field.check(value) {
                 errors.push(error);
                 continue;

@@ -80,9 +80,9 @@ pub mod __macro {
             embedded::{
                 Embedded, EmbeddedBuilder, embedded_field, embedded_form, take_leaf, take_value,
             },
-            form_key,
-            repeater::{parse_items, write_items},
+            form_key, parse_items,
             tree::Retype,
+            write_items,
         },
         table::{BooleanColumn, EmbeddedColumn, FileColumn, RepeaterColumn, Table, TextColumn},
         toasty_compat::VariantId,
@@ -402,8 +402,9 @@ pub use tablo_macros::RecordForm;
 /// ```
 ///
 /// Its fields, controls and attributes are an [`ActionInput`](derive@ActionInput)'s: each row
-/// posts them under its own prefix (`links.0.url`), and an item's blank answers and required
-/// fields work the same way.
+/// posts them under its own prefix (`links.0.url`). An item's blank answers and required
+/// fields work the same way, and each row answers to its controls' own rules, such as a choice
+/// offering only its options. A repeater takes at most [`MAX_ROWS`](schema::MAX_ROWS) rows.
 pub use tablo_macros::RepeaterItem;
 pub use tenancy::{Membership, Tenancy, Tenant, TenantColumn, TenantId, require_tenant, tenant_id};
 pub use upload::Uploader;

@@ -362,10 +362,14 @@ item's controls per item, which the user adds, removes and moves.
 - Each row posts its item's fields under its own prefix (`steps.0.minutes`), and the repeater's
   own key lists the rows in the order they show. A refused row renders its error under its own
   control, and the rows come back in the order the user left them.
+- A repeater takes at most `MAX_ROWS` (100) rows; a submission listing more is refused.
 - No rows is the repeater's blank answer, so a repeater is never required. An edit that does not
   post the repeater, such as one hidden by a [condition](#conditional-fields), keeps the stored
   rows; one that posts no rows stores an empty list.
 - Adding, removing and moving rows needs JavaScript. Without it the stored rows still edit.
+- An action's input can place a repeater too, with a hand-written `ActionInput` whose `parse`
+  reads the rows with `schema::parse_items`. A page handling its own post folds the rows into
+  the repeater's key first, with `Schema::fold_repeaters`.
 - On the detail page, `RepeaterColumn` shows each item's fields under their labels. The record
   form's derived detail page includes one; its table does not.
 - Not supported inside an item: an embedded value, another repeater, a relationship, a file field

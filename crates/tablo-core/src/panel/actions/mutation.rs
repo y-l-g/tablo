@@ -421,6 +421,9 @@ async fn read_input(
     let mut input = values.clone();
     input.retain(|key, _| !RESERVED_KEYS.contains(&key.as_str()));
     let schema = (spec.schema)();
+    // Each repeater's rows become its one key, which a hand-written parse reads with
+    // `parse_items`.
+    schema.fold_repeaters(&mut input).map_err(bad_request)?;
     let unknown = schema.unknown_keys(&input);
     if !unknown.is_empty() {
         return Err(bad_request(format!("unknown field(s): {}", unknown.join(", "))).into());

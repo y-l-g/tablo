@@ -46,6 +46,10 @@ pub trait RepeaterItem: Sized + Send + Sync + 'static {
 /// What the blank row's keys carry for the number the browser gives a row it adds.
 pub(crate) const ROW: &str = "__row__";
 
+/// The most rows one repeater takes: each renders in full when the form comes back refused, so
+/// an unbounded list would let a small submission render a page of any size.
+pub const MAX_ROWS: usize = 100;
+
 /// A repeater's control: its item's controls, one row each.
 pub(crate) struct RepeaterControl {
     item: fn() -> Schema,
@@ -68,7 +72,9 @@ impl RepeaterControl {
     ///
     /// # Errors
     ///
-    /// `key` lists something other than row numbers, or a row twice.
+    /// `key` lists something other than row numbers, a row twice, a row posting none of its
+    /// item's keys, or more than [`MAX_ROWS`] rows. A browser posts every control of each row it
+    /// shows, so none of these comes from the form.
     pub(crate) fn fold(
         &self,
         key: &str,
@@ -84,6 +90,9 @@ impl RepeaterControl {
         let mut seen = HashSet::new();
         let mut rows = Vec::new();
         for token in order.split(',').map(str::trim).filter(|t| !t.is_empty()) {
+            if rows.len() == MAX_ROWS {
+                return Err(format!("`{key}` lists more than {MAX_ROWS} rows"));
+            }
             let row: usize = token
                 .parse()
                 .map_err(|_| format!("`{key}` lists `{token}`, which is not a row"))?;
@@ -97,10 +106,43 @@ impl RepeaterControl {
                     Some((leaf.clone(), value))
                 })
                 .collect();
+            if item.is_empty() {
+                return Err(format!("`{key}` lists row {row}, which posts nothing"));
+            }
             rows.push(item);
         }
         values.insert(key.to_string(), encode(&rows));
         Ok(())
+    }
+
+    /// Adds to `errors` what the item's controls' own rules refuse in each row of the folded
+    /// `value`, under the key the row's control posts: a choice that is not one of its options,
+    /// an email field's address. A value holding no rows is the parse's to refuse.
+    pub(crate) async fn check(&self, cx: &Cx, key: &str, value: &str, errors: &mut FieldErrors) {
+        for (row, item) in decode(value).unwrap_or_default().iter().enumerate() {
+            let (schema, values) = self.row(key, &row.to_string(), item);
+            Box::pin(schema.check_controls(cx, &values, errors)).await;
+        }
+    }
+
+    /// The item's schema posting under the row `row` of the repeater `key`, and `item`'s keys as
+    /// that row posts them.
+    fn row(
+        &self,
+        key: &str,
+        row: &str,
+        item: &HashMap<String, String>,
+    ) -> (Schema, HashMap<String, String>) {
+        let prefix = row_key(key, row, "");
+        let mut schema = (self.item)();
+        for field in &mut schema.fields {
+            field.prefix(&prefix);
+        }
+        let values = item
+            .iter()
+            .map(|(leaf, value)| (format!("{prefix}{leaf}"), value.clone()))
+            .collect();
+        (schema, values)
     }
 
     /// Renders the repeater `field` from `source`: a row per stored or posted item, and the blank
@@ -186,15 +228,7 @@ impl RepeaterControl {
         errors: &FieldErrors,
         source: &Source<'_>,
     ) -> Result<BoxView<'a>> {
-        let prefix = row_key(key, row, "");
-        let mut schema = (self.item)();
-        for field in &mut schema.fields {
-            field.prefix(&prefix);
-        }
-        let values: HashMap<String, String> = item
-            .iter()
-            .map(|(leaf, value)| (format!("{prefix}{leaf}"), value.clone()))
-            .collect();
+        let (schema, values) = self.row(key, row, item);
         let mut rendered = Source::form(&values, errors).scoped(source.scope());
         if let Some(options) = source.options() {
             rendered = rendered.options_at(options);
@@ -249,8 +283,8 @@ pub(crate) fn decode(value: &str) -> Option<Vec<HashMap<String, String>>> {
     serde_json::from_str(value).ok()
 }
 
-/// The repeater's value holding `items`: what a record form hydrates the repeater with.
-#[doc(hidden)]
+/// The repeater's value holding `items`: what a record form hydrates the repeater with, and what
+/// a hand-written one writes.
 pub fn write_items<T: RepeaterItem>(items: &[T]) -> String {
     let rows: Vec<HashMap<String, String>> = items
         .iter()
@@ -263,13 +297,14 @@ pub fn write_items<T: RepeaterItem>(items: &[T]) -> String {
     encode(&rows)
 }
 
-/// The items the repeater `key` holds in a completed submission, none when it posts nothing.
+/// The items the repeater `key` holds in a submission
+/// [folded](crate::Schema::fold_repeaters), none when it posts nothing: what a record form's
+/// parse reads the repeater with, and what a hand-written one or an action input reads.
 ///
 /// # Errors
 ///
 /// Each row's refusals, under the key the row's control posts, or the repeater's own when its
 /// value holds no rows.
-#[doc(hidden)]
 pub fn parse_items<T: RepeaterItem>(
     cx: &Cx,
     key: &str,

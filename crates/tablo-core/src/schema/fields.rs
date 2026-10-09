@@ -220,7 +220,12 @@ impl Field {
     }
 
     /// A row of `T`'s controls per item of a `#[document]` list of `T`, which the browser adds,
-    /// removes and moves.
+    /// removes and moves: a record form's `#[form(repeat)]` control.
+    ///
+    /// Each row posts its item's keys under `{key}.{row}.`. A resource's form and an action's
+    /// input fold them into `key` before reading the submission, and a page handling its own post
+    /// folds it with [`Schema::fold_repeaters`](crate::Schema::fold_repeaters); the items then
+    /// read with [`parse_items`](crate::schema::parse_items).
     pub fn repeater<M, T>(lens: impl Into<Path<M, List<T>>>) -> RepeaterField
     where
         M: toasty::schema::Model,

@@ -172,6 +172,8 @@ async fn a_row_key_the_order_or_the_item_does_not_name_is_refused() {
         "links.0.label=a&links.0.url=b",
         "links=first",
         "links=0,0&links.0.label=a&links.0.url=b",
+        // Row 1 posts none of its controls, which a browser always posts.
+        "links=0,1&links.0.label=a&links.0.url=b",
     ] {
         let body = create_body(&db, "Refused", rows).await;
         let resp = client.submit("/admin/posts/create", &body).await;

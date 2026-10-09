@@ -177,7 +177,7 @@ fn parse_form<R: Resource>(
                     field
                         .keys
                         .iter()
-                        .any(|key| renders_under(key, &failure.key))
+                        .any(|key| renders_under(&resource.form, key, &failure.key))
                 }) {
                     return Err(unbound("the parse", &failure.key));
                 }
@@ -191,12 +191,19 @@ fn parse_form<R: Resource>(
     }
 }
 
-/// Whether an error on `failed` renders under the field posting `key`: its own, or a repeater
-/// row's control, which posts under `{key}.`.
-fn renders_under(key: &str, failed: &str) -> bool {
-    failed
-        .strip_prefix(key)
-        .is_some_and(|rest| rest.is_empty() || rest.starts_with('.'))
+/// Whether an error on `failed` renders under the field posting `key`: its own, or, for a
+/// repeater, a row's control, which posts under `{key}.`.
+fn renders_under(form: &Schema, key: &str, failed: &str) -> bool {
+    match failed.strip_prefix(key) {
+        Some("") => true,
+        Some(rest) => {
+            rest.starts_with('.')
+                && form
+                    .fields()
+                    .any(|field| field.name() == key && field.as_repeater().is_some())
+        }
+        None => false,
+    }
 }
 
 /// Re-checks relationship keys inside the write transaction before writing.
