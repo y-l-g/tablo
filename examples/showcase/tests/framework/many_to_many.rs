@@ -51,7 +51,7 @@ struct Placement {
 }
 
 /// What the shelf's hook heard: each mutation, with the shelf it names.
-static HEARD: Mutex<Vec<(&'static str, String)>> = Mutex::new(Vec::new());
+static HEARD: Mutex<Vec<(&'static str, Uuid)>> = Mutex::new(Vec::new());
 
 /// Shelves named "Locked" open but refuse updates, so they refuse attaching and detaching too.
 struct ShelfResource;
@@ -80,11 +80,11 @@ impl Resource for ShelfResource {
             Mutation::Detach => "detach",
             _ => "other",
         };
-        let shelves = committed.records().iter().map(|shelf| shelf.name.clone());
+        let shelves = committed.records().iter().map(|shelf| shelf.id);
         HEARD
             .lock()
             .unwrap()
-            .extend(shelves.map(|name| (mutation, name)));
+            .extend(shelves.map(|id| (mutation, id)));
         Ok(())
     }
 }
@@ -270,7 +270,6 @@ async fn the_owners_hook_hears_each_attach_and_detach() {
         .unwrap();
     let fresh = fresh.id.to_string();
     let seen = seen.id.to_string();
-    HEARD.lock().unwrap().clear();
     let resp = post_fields(
         &router,
         &format!("{}/-/actions/attach", relation(&open)),
@@ -290,16 +289,10 @@ async fn the_owners_hook_hears_each_attach_and_detach() {
         .lock()
         .unwrap()
         .iter()
-        .filter(|(_, name)| name == "Open")
-        .cloned()
+        .filter(|(_, id)| *id == open.id)
+        .map(|(mutation, _)| *mutation)
         .collect();
-    assert_eq!(
-        heard,
-        [
-            ("attach", "Open".to_string()),
-            ("detach", "Open".to_string())
-        ]
-    );
+    assert_eq!(heard, ["attach", "detach"]);
 }
 
 #[tokio::test]
