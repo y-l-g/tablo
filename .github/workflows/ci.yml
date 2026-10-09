@@ -83,6 +83,7 @@ jobs:
       - uses: actions/checkout@v7
       - run: >-
           node --test
+          crates/tablo-ui/assets/repeaters.test.js
           crates/tablo-ui/assets/selects.test.js
 
   clippy:

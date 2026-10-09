@@ -10,6 +10,7 @@ mod layouts;
 mod lenses;
 mod options;
 pub(crate) mod relationship;
+pub(crate) mod repeater;
 pub(crate) mod tree;
 pub(crate) mod validation;
 
@@ -20,7 +21,9 @@ use std::{
 
 pub use condition::Watched;
 pub use embedded::EmbeddedForm;
-pub use fields::{ChoiceField, CustomField, Field, FileField, IntoOptions, TextField, Toggle};
+pub use fields::{
+    ChoiceField, CustomField, Field, FileField, IntoOptions, RepeaterField, TextField, Toggle,
+};
 pub(crate) use fields::{option_view, read_only, stored_upload, value_cell};
 pub use layouts::{Grid, Group, Section};
 pub(crate) use lenses::Binding;
@@ -28,6 +31,7 @@ pub use lenses::{FieldResolver, form_key};
 pub use options::Options;
 pub use relationship::MAX_RELATIONSHIP_OPTIONS;
 pub(crate) use relationship::{OptionLoadError, OptionSource};
+pub use repeater::{MAX_ROWS, RepeaterItem, parse_items, write_items};
 use topcoat::{Result, context::Cx, view::*};
 pub use tree::{IntoSchema, Source};
 pub(crate) use tree::{Node, Retype, render_nodes};
@@ -180,6 +184,28 @@ impl<F> Schema<F> {
         }
     }
 
+    /// Folds each repeater's posted rows into its own key, which
+    /// [`parse_items`] reads.
+    ///
+    /// A resource's form and an action's input fold their submissions; a page handling its own
+    /// post folds it before reading it, or the rows' keys stay apart.
+    ///
+    /// # Errors
+    ///
+    /// A repeater's key lists something other than its rows, a row posting nothing, or more than
+    /// [`MAX_ROWS`] rows: no browser posts these, so a handler answers 400.
+    pub fn fold_repeaters(
+        &self,
+        values: &mut HashMap<String, String>,
+    ) -> std::result::Result<(), String> {
+        for field in &self.fields {
+            if let Some(repeater) = field.as_repeater() {
+                repeater.fold(field.name(), values)?;
+            }
+        }
+        Ok(())
+    }
+
     /// Appends another schema's nodes after this one's.
     pub fn extend(mut self, other: Schema<F>) -> Schema<F> {
         self.append(other);
@@ -307,6 +333,10 @@ impl<F> Schema<F> {
             let Some(value) = values.get(name) else {
                 continue;
             };
+            if let Some(repeater) = field.as_repeater() {
+                repeater.check(cx, name, value, errors).await;
+                continue;
+            }
             if let Some(error) = field.check(value) {
                 errors.push(error);
                 continue;

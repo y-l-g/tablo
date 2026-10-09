@@ -17,16 +17,19 @@ use toasty::stmt::Path;
 ///
 /// The filters, the [`Field`](crate::Field) constructors and [`Tenancy`](crate::Tenancy) take a
 /// `Lens` or a plain path; a column needs a `Lens`, since it renders the value it sorts on.
-pub struct Lens<M, T> {
-    path: Path<M, T>,
+///
+/// `P` is the type the path names, the field's own type except for a list: Toasty names a
+/// `Vec<T>` field's path `List<T>`.
+pub struct Lens<M, T, P = T> {
+    path: Path<M, P>,
     read: fn(&M) -> &T,
 }
 
-impl<M, T> Lens<M, T> {
+impl<M, T, P> Lens<M, T, P> {
     /// Pair `path` with the function reading the same field; [`lens!`](crate::lens!) writes both
     /// from one field name.
     #[doc(hidden)]
-    pub fn new(path: impl Into<Path<M, T>>, read: fn(&M) -> &T) -> Self {
+    pub fn new(path: impl Into<Path<M, P>>, read: fn(&M) -> &T) -> Self {
         Self {
             path: path.into(),
             read,
@@ -34,7 +37,7 @@ impl<M, T> Lens<M, T> {
     }
 
     /// The field's query path.
-    pub fn path(&self) -> &Path<M, T> {
+    pub fn path(&self) -> &Path<M, P> {
         &self.path
     }
 
@@ -44,7 +47,7 @@ impl<M, T> Lens<M, T> {
     }
 }
 
-impl<M, T> Clone for Lens<M, T> {
+impl<M, T, P> Clone for Lens<M, T, P> {
     fn clone(&self) -> Self {
         Self {
             path: self.path.clone(),
@@ -53,14 +56,14 @@ impl<M, T> Clone for Lens<M, T> {
     }
 }
 
-impl<M, T> std::fmt::Debug for Lens<M, T> {
+impl<M, T, P> std::fmt::Debug for Lens<M, T, P> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("Lens").field(&self.path).finish()
     }
 }
 
-impl<M, T> From<Lens<M, T>> for Path<M, T> {
-    fn from(lens: Lens<M, T>) -> Self {
+impl<M, T, P> From<Lens<M, T, P>> for Path<M, P> {
+    fn from(lens: Lens<M, T, P>) -> Self {
         lens.path
     }
 }

@@ -20,6 +20,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Lens | A model field named once, pairing its query path with its value reader. | Accessor, Getter, statePath |
 | Relation lens | A relation field named once with `relation!`, pairing its include with its loaded-value reader; a relation column reads one. | Relation (alone), Association |
 | Embedded value | A `toasty::Embed` value stored as flattened columns, bound by a form as one value. | Nested form, Sub-form, Inline model |
+| Repeater | A field editing a `#[document]` list of embedded structs: a row of the item's controls per item, which the browser adds, removes and moves. | Builder, List field, Array field, Table field |
 | Record form | The typed value a form submission parses into, one field per written column. | Patch, Draft, DTO, Form (alone) |
 | Blank answer | What a record-form field stores when submitted empty. A field with none is required. | Default, Nullable (for presence) |
 | Dependent choice | A relationship choice offering only the related records whose column equals another field's value. | Cascading select, Chained select, Linked field |

@@ -586,6 +586,7 @@ impl Panel {
                 <script src=(tablo_ui::SIDEBAR_JS) defer=""></script>
                 <script src=(tablo_ui::THEME_JS) defer=""></script>
                 <script src=(tablo_ui::SELECTS_JS) defer=""></script>
+                <script src=(tablo_ui::REPEATERS_JS) defer=""></script>
             }
             .boxed(),
             None => view! {

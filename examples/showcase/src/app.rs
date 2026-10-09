@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use tablo::{
     Ability, Action, Auth, BooleanColumn, Brand, ColumnWidth, ComputedColumn, CountColumn,
     DateFilter, Detail, EmbeddedColumn, FieldErrors, Grid, Group, HeaderAction, Panel, PublicLink,
-    QueryFilter, RecordForm, Relation, RelationColumn, Resource, ResourceDef,
+    QueryFilter, RecordForm, Relation, RelationColumn, RepeaterColumn, Resource, ResourceDef,
     RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy, TernaryFilter,
     TextColumn, Uploader, lens, relation, scoped_query, tenant_id, when,
 };
@@ -23,8 +23,8 @@ use crate::{
     dashboard::Dashboard,
     media::{MediaLibrary, MediaLibraryPage},
     models::{
-        Author, BLOCKED_TENANT, Comment, Post, PostStatus, Publication, REMOVED_COMMENT_BODY, Role,
-        Seo, User,
+        Author, BLOCKED_TENANT, Comment, Link, Post, PostStatus, Publication, REMOVED_COMMENT_BODY,
+        Role, Seo, User,
     },
     staff::StaffAuth,
 };
@@ -198,6 +198,7 @@ fn post_form() -> Schema<PostForm> {
             Section::new("SEO").schema(c.seo),
             Section::new("Publication").schema(c.publication),
         )),
+        Section::new("Further reading").schema(c.links.add_label("Add link")),
     ))
 }
 
@@ -222,6 +223,7 @@ fn post_view() -> Detail<Post> {
         ))),
         Section::new("SEO").columns(EmbeddedColumn::new(lens!(Post.seo))),
         Section::new("Publication").columns(EmbeddedColumn::new(lens!(Post.publication))),
+        Section::new("Further reading").columns(RepeaterColumn::new(lens!(Post.links))),
     ))
 }
 
@@ -378,6 +380,8 @@ pub struct PostForm {
     pub seo: Seo,
     #[form(embed)]
     pub publication: Publication,
+    #[form(repeat)]
+    pub links: Vec<Link>,
 }
 
 /// Moderates comments.

@@ -133,3 +133,45 @@ fn a_field_without_a_blank_answer_is_required() {
     assert!(!required("struct F { a: Option<i64> }"));
     assert!(!required("struct F { a: bool }"));
 }
+
+#[test]
+fn repeat_marks_a_repeater_in_a_record_form_only() {
+    assert!(
+        attrs(
+            "struct F { #[form(repeat)] links: Vec<Link> }",
+            Derive::Record
+        )
+        .unwrap()
+        .repeat
+    );
+    for derive in [Derive::Embedded, Derive::Input, Derive::Item] {
+        let message = refusal("struct F { #[form(repeat)] links: Vec<Link> }", derive);
+        assert!(message.contains("unknown"), "{message}");
+    }
+}
+
+#[test]
+fn a_blank_answer_or_a_control_key_on_a_repeater_is_refused() {
+    for key in ["blank = 1", "optional", "options", "file", "embed"] {
+        let message = refusal(
+            &format!("struct F {{ #[form(repeat, {key})] links: Vec<Link> }}"),
+            Derive::Record,
+        );
+        assert!(
+            message.contains("repeater") || message.contains("declare one"),
+            "{key}: {message}"
+        );
+    }
+}
+
+#[test]
+fn an_item_reads_the_keys_an_input_reads() {
+    let attrs = attrs(
+        "struct F { #[form(label = \"URL\", placeholder = \"https://\", optional)] url: String }",
+        Derive::Item,
+    )
+    .unwrap();
+    assert_eq!(attrs.label.as_deref(), Some("URL"));
+    assert_eq!(attrs.placeholder.as_deref(), Some("https://"));
+    assert!(attrs.optional);
+}

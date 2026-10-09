@@ -14,8 +14,9 @@ them. A resource that wants one control per field, in declaration order, declare
 
 Each field names a model field and has that field's type, so renaming or retyping a column breaks
 the build. A field is either a **scalar** — `String`, a [typed value](#typed-values), an
-[`Options` enum](#controls), or an `Option` of one — bound to the one key its control posts, or an
-[embedded value](#embedded-values) marked `#[form(embed)]`.
+[`Options` enum](#controls), or an `Option` of one — bound to the one key its control posts, an
+[embedded value](#embedded-values) marked `#[form(embed)]`, or a [repeater](#repeaters) marked
+`#[form(repeat)]`.
 
 Leave out the columns the form does not write: the tenant column of a tenant-owned resource, which
 the framework sets on create, and columns with a Toasty `#[default(..)]` or `#[auto]`.
@@ -62,7 +63,7 @@ non-nullable column is filled by the form, by Toasty, by the tenant stamp, or by
 The derive picks each field's control from the field: a `bool` is a toggle, `#[form(options)]` a
 choice over the field type's options, `#[form(options = T)]` a choice over `T`'s options,
 `#[form(relationship = R)]` a choice over `R`'s records, `#[form(file)]` a file field, `#[form(embed)]` the embedded
-value's schema, and any other field a text field. `controls()`
+value's schema, `#[form(repeat)]` a repeater, and any other field a text field. `controls()`
 hands each one over ready for its modifiers, so an override arranges rather than rebinds:
 
 ```rust
@@ -342,3 +343,34 @@ A resource's form places an embedded value whole, as its record form's control. 
 can bind a single embedded field on its own by its path: `Field::text(lens!(Post.seo.title))`
 binds the flattened `seo_title` column. Bind such a schema with `.bind(&db)` before rendering it;
 rendering one whose embedded paths are unbound fails rather than post the wrong key.
+
+## Repeaters
+
+Toasty stores a `#[document]` list of embedded structs in one column. Derive `RepeaterItem`
+on the struct and mark the record-form field `#[form(repeat)]`: the form renders a row of the
+item's controls per item, which the user adds, removes and moves.
+
+```rust
+{{#include ../../../examples/guide/src/forms.rs:forms-repeater}}
+
+{{#include ../../../examples/guide/src/forms.rs:forms-repeater-layout}}
+```
+
+- An item's fields are scalars, declared like an [action input](./actions.md)'s: `label`,
+  `multiline`, `placeholder`, `blank`, `optional` and `options` customize a field, and a field
+  with no blank answer is required in every row.
+- Each row posts its item's fields under its own prefix (`steps.0.minutes`), and the repeater's
+  own key lists the rows in the order they show. A refused row renders its error under its own
+  control, and the rows come back in the order the user left them.
+- A repeater takes at most `MAX_ROWS` (100) rows; a submission listing more is refused.
+- No rows is the repeater's blank answer, so a repeater is never required. An edit that does not
+  post the repeater, such as one hidden by a [condition](#conditional-fields), keeps the stored
+  rows; one that posts no rows stores an empty list.
+- Adding, removing and moving rows needs JavaScript. Without it the stored rows still edit.
+- An action's input can place a repeater too, with a hand-written `ActionInput` whose `parse`
+  reads the rows with `schema::parse_items`. A page handling its own post folds the rows into
+  the repeater's key first, with `Schema::fold_repeaters`.
+- On the detail page, `RepeaterColumn` shows each item's fields under their labels. The record
+  form's derived detail page includes one; its table does not.
+- Not supported inside an item: an embedded value, another repeater, a relationship, a file field
+  and a condition.

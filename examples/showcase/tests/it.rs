@@ -28,4 +28,5 @@ mod list;
 mod media;
 mod panel;
 mod relations;
+mod repeaters;
 mod tenancy;

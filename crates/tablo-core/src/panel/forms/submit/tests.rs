@@ -708,3 +708,14 @@ async fn a_forged_carry_is_refused_by_the_default_holds() {
         "a forged carry must not create a record"
     );
 }
+
+#[test]
+fn only_a_repeater_owns_the_errors_under_its_key() {
+    let form = Schema::new(Field::text(crate::test_support::DummyUser::fields().name()));
+    assert!(renders_under(&form, "name", "name"));
+    assert!(
+        !renders_under(&form, "name", "name.0.label"),
+        "a text field posts no rows"
+    );
+    assert!(!renders_under(&form, "name", "names"));
+}
