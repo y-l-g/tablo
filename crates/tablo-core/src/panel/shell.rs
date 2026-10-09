@@ -583,10 +583,13 @@ impl Panel {
                 topcoat::runtime::script()
                 topcoat::font::link(font: font)
                 <link rel="stylesheet" href=(stylesheet)>
-                <script src=(tablo_ui::SIDEBAR_JS) defer=""></script>
-                <script src=(tablo_ui::THEME_JS) defer=""></script>
-                <script src=(tablo_ui::SELECTS_JS) defer=""></script>
-                <script src=(tablo_ui::REPEATERS_JS) defer=""></script>
+                // Modules, so each script's top-level names stay its own: as classic scripts they
+                // share one global scope, where a later script's `partsOf` replaces an earlier one's.
+                // A module is deferred like these were.
+                <script src=(tablo_ui::SIDEBAR_JS) type="module"></script>
+                <script src=(tablo_ui::THEME_JS) type="module"></script>
+                <script src=(tablo_ui::SELECTS_JS) type="module"></script>
+                <script src=(tablo_ui::REPEATERS_JS) type="module"></script>
             }
             .boxed(),
             None => view! {
