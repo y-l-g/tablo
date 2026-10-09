@@ -10,8 +10,8 @@ use tablo::{
 use toasty::Db;
 
 use crate::common::{
-    TestClient, body_string, form_body, full_db, input_value, routers::router_for_tests as router,
-    session_cookie_value,
+    TestClient, body_string, demo_client, form_body, full_db, input_value, login_next,
+    routers::router_for_tests as router, session_cookie_value,
 };
 
 const PASSWORD: &str = "correct horse";
@@ -193,4 +193,60 @@ async fn an_undeclared_key_answers_400() {
 
     assert_eq!(response.status(), 400);
     assert_eq!(staff_count(&db).await, staff);
+}
+
+/// The password signs in as it was typed at sign-up, outer spaces included: the sign-up stores
+/// the hash of what the login compares.
+#[tokio::test]
+async fn the_account_signs_in_with_the_password_as_typed() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let spaced = "  correct horse  ";
+
+    let response = TestClient::new(&router)
+        .submit(
+            "/admin/register",
+            &sign_up_body("spaced@example.com", spaced, spaced),
+        )
+        .await;
+    assert_eq!(response.status(), 303);
+
+    let (_, login) = login_next(&router, "spaced@example.com", spaced, "").await;
+    assert_eq!(login.status(), 303);
+}
+
+/// A signed-in user who opens the sign-up page lands on the panel; one who posts it anyway
+/// loses the session they presented, as a login rotates it.
+#[tokio::test]
+async fn a_signed_in_user_is_sent_to_the_panel_and_a_sign_up_rotates_the_session() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let sessions = AuthSession::all()
+        .exec(&mut db.clone())
+        .await
+        .unwrap()
+        .len();
+
+    let page = client.get("/admin/register").await;
+    assert_eq!(page.status(), 307);
+    assert_eq!(page.headers().get(LOCATION).unwrap(), "/admin");
+
+    let response = client
+        .submit(
+            "/admin/register",
+            &sign_up_body("rotated@example.com", PASSWORD, PASSWORD),
+        )
+        .await;
+    assert_eq!(response.status(), 303);
+    // The demo admin's row is gone and the new account's is in its place.
+    assert_eq!(
+        AuthSession::all()
+            .exec(&mut db.clone())
+            .await
+            .unwrap()
+            .len(),
+        sessions
+    );
+    assert_eq!(client.get("/admin/posts").await.status(), 307);
 }

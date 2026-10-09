@@ -112,6 +112,12 @@ fn input_attrs(field: &syn::Field, target: Target) -> syn::Result<FormAttrs> {
             ));
         }
     }
+    if attrs.password && last_segment(&field.ty).as_deref() != Some("String") {
+        return Err(syn::Error::new_spanned(
+            &field.ty,
+            "`password` reads a `String`, kept as typed",
+        ));
+    }
     if attrs.password && attrs.multiline.is_some() {
         return Err(syn::Error::new_spanned(
             &field.ty,
@@ -186,11 +192,14 @@ fn expand_struct(
             );
         });
         let blank = blank_option(ty, attrs);
+        // A password keeps its outer spaces: the login compares it as typed.
+        let parse = if attrs.password {
+            quote_spanned! {ty.span()=> #krate::__macro::parse_password(#key, values, #blank) }
+        } else {
+            quote_spanned! {ty.span()=> #krate::__macro::parse_scalar::<#ty>(#key, values, #blank) }
+        };
         reads.push(quote_spanned! {ty.span()=>
-            let #binding = #krate::__macro::take_leaf(
-                #krate::__macro::parse_scalar::<#ty>(#key, values, #blank),
-                &mut errors,
-            );
+            let #binding = #krate::__macro::take_leaf(#parse, &mut errors);
         });
     }
     let names: Vec<&syn::Ident> = fields.iter().map(|f| &f.ident).collect();

@@ -277,10 +277,7 @@ impl Auth {
 
     /// The registrar, or `None` without a sign-up page.
     pub(crate) fn registrar(&self) -> Option<&dyn DynRegistrar> {
-        match self.authenticator {
-            Some(_) => self.registrar.as_deref(),
-            None => None,
-        }
+        self.authenticator.as_ref().and(self.registrar.as_deref())
     }
 
     /// The sign-up throttle, counted per client address.

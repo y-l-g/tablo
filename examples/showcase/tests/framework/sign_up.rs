@@ -194,6 +194,12 @@ async fn an_account_without_panel_access_lands_on_the_login_page() {
     assert!(!admins[0].active);
     let sessions = AuthSession::all().exec(&mut db.clone()).await.unwrap();
     assert!(sessions.is_empty());
+
+    let login = tablo::testing::TestClient::new(&router)
+        .cookies(&tablo::testing::response_cookies(&response))
+        .get("/admin/login")
+        .await;
+    assert!(body_string(login).await.contains("role=\"status\""));
 }
 
 /// A user type the panel's authenticator does not load.

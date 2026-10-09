@@ -216,14 +216,16 @@ transaction the framework opens:
 ```
 
 - **The form** is any `ActionInput`, or the shipped `SignUp`. `#[form(password)]` renders a
-  masked control that a refused form renders empty, and `#[form(email)]` refuses a malformed
-  address before `validate` runs. A missing field and a malformed value answer 422 with the error
+  masked control that a refused form renders empty, and reads the password as typed, outer
+  spaces included, as the login compares it. `#[form(email)]` refuses a malformed address before
+  `validate` runs. A missing field and a malformed value answer 422 with the error
   under the field, as `validate`'s refusals do; nothing is written.
 - **`new_password_errors`** refuses a password under eight characters and a confirmation that
   differs, under the `password` and `password_confirmation` keys.
 - **After the commit**, an account that may open the panel is signed in, its session rotated as a
   login rotates it, and lands on `next` or the panel's home page. One that may not, such as an
-  account awaiting approval, lands on the login page with a notification instead.
+  account awaiting approval, lands on the login page with a notification instead. A signed-in
+  user who opens the sign-up page lands on the panel's home page.
 - **Mounting refuses** a registrar whose `User` is not the type the authenticator loads, a
   registration on `Auth::disabled()`, a form field named `csrf_token` or `next`, a file field and
   a relationship choice, whose options would list records to a visitor nobody signed in.

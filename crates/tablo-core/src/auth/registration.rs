@@ -22,7 +22,7 @@ use super::{
 };
 use crate::{
     ActionInput,
-    form::{FieldError, FieldErrors, parse_scalar},
+    form::{FieldError, FieldErrors, parse_password, parse_scalar},
     notification::{Notification, set_notification},
     panel::{Panel, panel_prefix, state::current},
     schema::{Field, Schema, Source},
@@ -136,7 +136,7 @@ pub trait Registrar: Send + Sync + 'static {
 pub(crate) enum Outcome {
     /// The committed account.
     Registered(Arc<dyn PanelUser>),
-    /// The refused submission, its values without the passwords, and why.
+    /// The refused submission, its values, and why. The page renders a password control empty.
     Refused {
         values: HashMap<String, String>,
         errors: FieldErrors,
@@ -205,7 +205,7 @@ impl<R: Registrar> DynRegistrar for R {
 /// The sign-up form [`PasswordAuth`](super::PasswordAuth) registers from, and a custom
 /// [`Registrar`] can take as its input: a name, an email address, and a new password typed
 /// twice.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct SignUp {
     /// The display name, posted as `name`.
     pub name: String,
@@ -221,6 +221,18 @@ impl SignUp {
     /// The refusals [`new_password_errors`] makes of this sign-up's passwords.
     pub fn password_errors(&self) -> FieldErrors {
         new_password_errors(&self.password, &self.password_confirmation)
+    }
+}
+
+/// Redacts the passwords, so a sign-up logged with `?` writes none to the log.
+impl std::fmt::Debug for SignUp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SignUp")
+            .field("name", &self.name)
+            .field("email", &self.email)
+            .field("password", &"<redacted>")
+            .field("password_confirmation", &"<redacted>")
+            .finish()
     }
 }
 
@@ -245,16 +257,17 @@ impl ActionInput for SignUp {
 
     fn parse(_cx: &Cx, values: &HashMap<String, String>) -> Result<Self, Vec<FieldError>> {
         let mut errors = Vec::new();
-        let mut read = |key: &str| {
-            parse_scalar::<String>(key, values, None)
+        type Parse =
+            fn(&str, &HashMap<String, String>, Option<String>) -> Result<String, FieldError>;
+        let mut read = |key: &str, parse: Parse| {
+            parse(key, values, None)
                 .map_err(|error| errors.push(error))
                 .ok()
         };
-        let name = read("name");
-        let email = read("email");
-        // A password keeps its spaces: `parse_scalar` trims, so only its presence is read there.
-        let password = read(PASSWORD_FIELD).and(values.get(PASSWORD_FIELD).cloned());
-        let confirmation = read(CONFIRMATION_FIELD).and(values.get(CONFIRMATION_FIELD).cloned());
+        let name = read("name", parse_scalar::<String>);
+        let email = read("email", parse_scalar::<String>);
+        let password = read(PASSWORD_FIELD, parse_password);
+        let confirmation = read(CONFIRMATION_FIELD, parse_password);
         match (name, email, password, confirmation) {
             (Some(name), Some(email), Some(password), Some(password_confirmation))
                 if errors.is_empty() =>
@@ -345,21 +358,8 @@ pub(crate) fn register_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             .and_then(|value| safe_next(value))
             .map(str::to_string)
             .unwrap_or_default();
-        let mut values = form.values;
-        values.retain(|key, _| !RESERVED_KEYS.contains(&key.as_str()));
         let schema = registrar.schema();
-        schema.fold_choices(&mut values, &form.lists);
-        let unknown = schema.unknown_keys(&values);
-        if !unknown.is_empty() {
-            return Err(topcoat::router::error::bad_request(format!(
-                "unknown field(s): {}",
-                unknown.join(", ")
-            ))
-            .into());
-        }
-        for key in schema.condition_hidden(&values) {
-            values.remove(&key);
-        }
+        let values = schema.read_input(&form.values, &form.lists, &RESERVED_KEYS)?;
         let client = client_ip(cx);
         if !panel.auth.throttle_sign_ups().attempt("", client) {
             tracing::warn!(panel = %panel.prefix, client = ?client, "sign-up attempt throttled");
@@ -399,11 +399,14 @@ pub(crate) fn register_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         }
         let session = session::start(cx).await?;
         if let Err(error) = record(cx, &session, &*user, panel).await {
-            let error = infrastructure_failure(error);
-            if crate::error::TabloError::is_infrastructure(&error) {
-                return unavailable(cx, next).await;
-            }
-            return Err(error);
+            // The account is committed: send it to sign in rather than to a sign-up whose retry
+            // would find its email taken.
+            tracing::error!(error = %infrastructure_failure(error), "sign-up session not recorded");
+            set_notification(
+                cx,
+                Notification::success("Account created").description("Sign in to continue."),
+            );
+            return topcoat::router::error::see_other(login_url(cx)).into_response(cx);
         }
         let target = if next.is_empty() {
             panel_root(cx)
@@ -440,7 +443,7 @@ impl Alert {
     fn message(self) -> &'static str {
         match self {
             Self::Throttled => "Too many sign-up attempts. Try again shortly.",
-            Self::Unavailable => super::UNAVAILABLE_ERROR,
+            Self::Unavailable => "Sign-up is unavailable right now. Try again shortly.",
         }
     }
 

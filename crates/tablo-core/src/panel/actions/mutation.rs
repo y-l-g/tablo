@@ -420,21 +420,8 @@ pub(super) async fn read_input(
         })?;
         return Ok(Pending::Ready(input));
     }
-    let mut input = values.clone();
-    input.retain(|key, _| !RESERVED_KEYS.contains(&key.as_str()));
     let schema = (spec.schema)();
-    // Each repeater's rows become its one key, which a hand-written parse reads with
-    // `parse_items`, and each multiple choice's values its one key, read with `parse_list`.
-    schema.fold_repeaters(&mut input).map_err(bad_request)?;
-    schema.fold_choices(&mut input, lists);
-    let unknown = schema.unknown_keys(&input);
-    if !unknown.is_empty() {
-        return Err(bad_request(format!("unknown field(s): {}", unknown.join(", "))).into());
-    }
-    // A hidden field posts nothing from the browser; a key posted anyway reads as blank.
-    for key in schema.condition_hidden(&input) {
-        input.remove(&key);
-    }
+    let input = schema.read_input(values, lists, &RESERVED_KEYS)?;
     let mut errors = FieldErrors::new();
     let parsed = match (spec.parse)(cx, &input) {
         Ok(parsed) => Some(parsed),

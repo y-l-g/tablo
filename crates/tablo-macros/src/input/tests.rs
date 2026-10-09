@@ -96,6 +96,9 @@ fn email_and_password_modify_the_text_control() {
     let out = expansion("struct F { #[form(email)] a: String, #[form(password)] b: String }");
     assert!(out.contains(". email ()"), "{out}");
     assert!(out.contains(". password ()"), "{out}");
+    assert!(out.contains("parse_password"), "{out}");
+    let message = refusal("struct F { #[form(password)] a: u32 }");
+    assert!(message.contains("String"), "{message}");
     let message = refusal("struct F { #[form(password, multiline = 2)] a: String }");
     assert!(message.contains("declare one"), "{message}");
     let input: DeriveInput =

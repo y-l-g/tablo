@@ -333,6 +333,17 @@ pub fn parse_scalar<T: FormScalar>(
     T::parse_form(raw).map_err(|message| FieldError::invalid(key, message))
 }
 
+/// Read a password from a completed submission: required as [`parse_scalar`] reads a `String`,
+/// but kept as typed, with its outer spaces, since a login compares the password untrimmed.
+pub fn parse_password(
+    key: &str,
+    values: &HashMap<String, String>,
+    blank: Option<String>,
+) -> std::result::Result<String, FieldError> {
+    parse_scalar::<String>(key, values, blank)?;
+    Ok(values.get(key).cloned().unwrap_or_default())
+}
+
 /// The values a multiple choice holds, as its one form key carries them: what a record form
 /// hydrates a many-to-many field with, and what a hand-written one writes.
 pub fn write_list<'a, T: FormScalar + 'a>(values: impl IntoIterator<Item = &'a T>) -> String {

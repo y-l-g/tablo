@@ -72,7 +72,7 @@ pub mod __macro {
         extend::{Includes, OptionSource},
         form::{
             FieldError, FormField, FormScalar, NullableScalar, RecordForm, assert_form_scalar,
-            links_include, links_key, parse_list, parse_scalar, write_links,
+            links_include, links_key, parse_list, parse_password, parse_scalar, write_links,
         },
         resource::{ActionInput, required_input},
         schema::{
@@ -206,7 +206,8 @@ pub use table::{
 /// - `#[form(multiline = 4)]` — a `<textarea>` of 4 rows.
 /// - `#[form(placeholder = "rust, async")]` — a text input's placeholder.
 /// - `#[form(email)]` — a text input that refuses a malformed email address.
-/// - `#[form(password)]` — a masked text input that a refused form renders empty.
+/// - `#[form(password)]` — a masked text input on a `String`, read untrimmed, that a refused
+///   form renders empty.
 /// - `#[form(blank = ..)]`, `#[form(optional)]` — the blank answer.
 /// - `#[form(options)]`, `#[form(options = T)]` — a choice. An `Option<T>` field names its
 ///   options type: `#[form(options = T)]`.

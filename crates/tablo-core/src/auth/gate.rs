@@ -7,7 +7,7 @@ use topcoat::{
     context::Cx,
     router::{
         Body, Layer, LayerFuture, Next, Path, PathBuf,
-        error::{forbidden, unauthorized},
+        error::{forbidden, redirect, unauthorized},
         request::{method, uri},
     },
 };
@@ -55,13 +55,23 @@ impl Layer for PanelGate {
             // serve (GET, its HEAD, and POST) pass: an app route at the same
             // path under another method stays gated.
             let path = uri(&cx).path();
-            let public = path == login_url(&cx) || (offered(&cx) && path == register_url(&cx));
+            let sign_up = offered(&cx) && path == register_url(&cx);
+            let public = path == login_url(&cx) || sign_up;
             if public
                 && matches!(
                     *method(&cx),
                     http::Method::GET | http::Method::HEAD | http::Method::POST
                 )
             {
+                // A signed-in user has an account already: the sign-up page sends them to the
+                // panel instead of offering to replace their session with a new one.
+                if sign_up
+                    && matches!(*method(&cx), http::Method::GET | http::Method::HEAD)
+                    && let Some(signed) = resolve(&cx, &self.panel, authenticator).await?
+                    && signed.user.can_access_panel()
+                {
+                    return Err(redirect(self.panel.prefix.clone()).into());
+                }
                 return next.run(&cx, body).await;
             }
             // The logout route must answer for any resolved user, even one

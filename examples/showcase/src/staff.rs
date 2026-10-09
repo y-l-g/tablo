@@ -135,7 +135,7 @@ impl Authenticator for StaffAuth {
 }
 
 /// What the sign-up page asks a new member of staff for: their account, and the blog they start.
-#[derive(Debug, ActionInput)]
+#[derive(ActionInput)]
 pub struct StaffSignUp {
     #[form(label = "Your name")]
     pub display_name: String,
