@@ -58,7 +58,7 @@ struct ShelfResource;
 
 impl Resource for ShelfResource {
     type Model = Shelf;
-    type Form = tablo::NoForm<Shelf>;
+    type Form = ShelfForm;
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
@@ -87,6 +87,14 @@ impl Resource for ShelfResource {
             .extend(shelves.map(|name| (mutation, name)));
         Ok(())
     }
+}
+
+#[derive(tablo::RecordForm)]
+#[form(model = Shelf)]
+struct ShelfForm {
+    name: String,
+    #[form(relationship = BookResource)]
+    books: Vec<Uuid>,
 }
 
 /// Books titled "Hidden" cannot be viewed.
@@ -292,6 +300,59 @@ async fn the_owners_hook_hears_each_attach_and_detach() {
             ("detach", "Open".to_string())
         ]
     );
+}
+
+#[tokio::test]
+async fn an_edit_leaves_linked_the_books_the_user_may_not_view() {
+    let Library {
+        router,
+        db,
+        open,
+        hidden,
+        ..
+    } = library().await;
+    let html = body_string(get(&router, &format!("/admin/shelves/{}/edit", open.id)).await).await;
+    assert!(
+        !html.contains(&hidden.id.to_string()),
+        "the form offers no hidden book: {html}"
+    );
+    // Unchecking every box the form offers unlinks only what it offered.
+    let resp = post_fields(
+        &router,
+        &format!("/admin/shelves/{}/edit", open.id),
+        &[("books", "")],
+    )
+    .await;
+    assert_eq!(resp.status(), 303);
+    assert_eq!(held(&db, &open).await, vec![hidden.id]);
+}
+
+#[tokio::test]
+async fn an_edit_keeps_its_links_past_the_option_cap() {
+    let Library {
+        router,
+        db,
+        open,
+        seen,
+        ..
+    } = library().await;
+    let mut db_q = db.clone();
+    for n in 0..=tablo::schema::MAX_RELATIONSHIP_OPTIONS {
+        let title = format!("Filler {n}");
+        toasty::create!(Book { title })
+            .exec(&mut db_q)
+            .await
+            .unwrap();
+    }
+    let seen = seen.id.to_string();
+    let resp = post_fields(
+        &router,
+        &format!("/admin/shelves/{}/edit", open.id),
+        &[("name", "Renamed"), ("books", ""), ("books", &seen)],
+    )
+    .await;
+    assert_eq!(resp.status(), 303, "{}", body_string(resp).await);
+    assert_eq!(held(&db, &open).await.len(), 2, "both links kept");
 }
 
 /// A join model holding a column a link cannot fill.

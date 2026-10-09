@@ -279,7 +279,7 @@ async fn mutate<'a, R: Resource>(
             values: posted,
         } => {
             let errors = (action.input.schema)()
-                .recheck_relationships(cx, &posted, &mut tx)
+                .recheck_relationships(cx, &posted, &HashMap::new(), &mut tx)
                 .await;
             if !errors.is_empty() {
                 let (page, chrome) = page(
@@ -352,7 +352,7 @@ pub(crate) async fn run_header<'a>(
     let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
     if let Some(values) = submitted {
         let errors = (action.input.schema)()
-            .recheck_relationships(cx, &values, &mut tx)
+            .recheck_relationships(cx, &values, &HashMap::new(), &mut tx)
             .await;
         if !errors.is_empty() {
             // The page's choices may query: release the connection first.
@@ -445,7 +445,9 @@ pub(super) async fn read_input(
             None
         }
     };
-    schema.check_controls(cx, &input, &mut errors).await;
+    schema
+        .check_controls(cx, &input, &HashMap::new(), &mut errors)
+        .await;
     match parsed {
         Some(parsed) if errors.is_empty() => Ok(Pending::Submitted {
             input: parsed,

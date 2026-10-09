@@ -8,7 +8,7 @@ use toasty::{Deferred, stmt::Path};
 use topcoat::context::Cx;
 
 use super::{Column, ColumnWidth, Includes};
-use crate::{DeclarationErrorKind, schema::OptionSource, toasty_compat::model};
+use crate::{DeclarationErrorKind, policy::Ability, schema::OptionSource, toasty_compat::model};
 
 /// A relation field's include, which loads it, paired with the function that reads the loaded
 /// relation off a record.
@@ -288,7 +288,8 @@ where
 
     /// Declare a column listing the records a `has_many` `relation` loads, a many-to-many
     /// `#[has_many(via = ..)]` one included, each by `S`'s [`label`](OptionSource::label), joined
-    /// by commas. A record form's many-to-many field shows on its derived detail page this way.
+    /// by commas, but the ones `S` does not let the user view. A record form's many-to-many field
+    /// shows on its derived detail page this way.
     ///
     /// ```rust
     /// # #[derive(Debug, Clone, toasty::Model)]
@@ -322,6 +323,9 @@ where
     /// #     fn label(_cx: &topcoat::context::Cx, tag: &Tag) -> String {
     /// #         tag.name.clone()
     /// #     }
+    /// #     fn allows(_cx: &topcoat::context::Cx, _: tablo_core::Ability<'_, Tag>) -> bool {
+    /// #         true
+    /// #     }
     /// # }
     /// use tablo_core::{RelationColumn, relation};
     ///
@@ -344,6 +348,7 @@ where
                     records
                         .get()
                         .iter()
+                        .filter(|record| S::allows(cx, Ability::View(record)))
                         .map(|record| S::label(cx, record))
                         .collect::<Vec<_>>()
                         .join(", ")

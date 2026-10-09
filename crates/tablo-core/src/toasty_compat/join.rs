@@ -134,7 +134,8 @@ impl JoinTable {
         self.target_model
     }
 
-    /// Links `owner` to the target records `keys` names: one join row each.
+    /// Links `owner` to the target records `keys` names: one join row each, once per record
+    /// however its key is spelled.
     ///
     /// # Errors
     ///
@@ -149,10 +150,17 @@ impl JoinTable {
         P: toasty::schema::Model + IntoExpr<P>,
     {
         let owner = owner_key(owner)?;
+        let mut targets: Vec<Value> = Vec::with_capacity(keys.len());
         for key in keys {
+            let target = self.parse(key)?;
+            if !targets.contains(&target) {
+                targets.push(target);
+            }
+        }
+        for target in targets {
             let mut row = self.blank.clone();
             row[self.owner.index] = core::Expr::Value(owner.clone());
-            row[self.target.index] = core::Expr::Value(self.parse(key)?);
+            row[self.target.index] = core::Expr::Value(target);
             let insert = core::Insert {
                 target: core::InsertTarget::Model(self.model),
                 source: core::Query::new_single(vec![core::ExprRecord::from_vec(row).into()]),

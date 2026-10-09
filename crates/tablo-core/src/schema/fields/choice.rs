@@ -274,13 +274,15 @@ impl ChoiceControl {
     }
 
     /// Checks whether a non-empty `value` matches an option the parent value `parent` offers, or
-    /// for a multiple choice, whether each value its list holds does.
+    /// for a multiple choice, whether each value its list holds does, but the ones the stored list
+    /// `stored` holds already: keeping a link changes nothing, so it holds past the option cap.
     pub(super) async fn validate_exists(
         &self,
         cx: &Cx,
         label: &str,
         value: &str,
         parent: Option<&str>,
+        stored: Option<&str>,
     ) -> Vec<String> {
         if !self.multiple {
             return self.validate_one(cx, label, value, parent).await;
@@ -289,7 +291,8 @@ impl ChoiceControl {
             Ok(keys) => keys,
             Err(message) => return vec![message],
         };
-        for key in keys {
+        let held = stored.and_then(decode_list).unwrap_or_default();
+        for key in keys.into_iter().filter(|key| !held.contains(key)) {
             let errors = self.validate_one(cx, label, &key, parent).await;
             if !errors.is_empty() {
                 return errors;
@@ -339,13 +342,15 @@ impl ChoiceControl {
     }
 
     /// Re-checks a submitted relationship key in the write's transaction, among the rows the
-    /// parent value `parent` selects, or for a multiple choice, each key its list holds.
+    /// parent value `parent` selects, or for a multiple choice, each key its list holds but the
+    /// stored list `stored` does not.
     pub(super) async fn recheck(
         &self,
         cx: &Cx,
         label: &str,
         value: &str,
         parent: Option<&str>,
+        stored: Option<&str>,
         ex: &mut dyn toasty::Executor,
     ) -> Vec<String> {
         if !self.multiple {
@@ -355,7 +360,8 @@ impl ChoiceControl {
             Ok(keys) => keys,
             Err(message) => return vec![message],
         };
-        for key in keys {
+        let held = stored.and_then(decode_list).unwrap_or_default();
+        for key in keys.into_iter().filter(|key| !held.contains(key)) {
             let errors = self.recheck_one(cx, label, &key, parent, &mut *ex).await;
             if !errors.is_empty() {
                 return errors;
@@ -392,6 +398,36 @@ impl ChoiceControl {
             Err(error) => load_failure(&error),
         };
         vec![format!("{label} {failure}")]
+    }
+
+    /// `value`, a multiple choice's list, with each key of the stored list `stored` it drops that
+    /// the user cannot view in the request's tenant put back: a submission unlinks only the
+    /// records its form could offer.
+    pub(super) async fn keep_unseen(
+        &self,
+        cx: &Cx,
+        value: &str,
+        stored: &str,
+        ex: &mut dyn toasty::Executor,
+    ) -> Option<String> {
+        let relationship = self.relationship.as_ref().filter(|_| self.multiple)?;
+        let mut keys = decode_list(value)?;
+        let dropped: Vec<String> = decode_list(stored)?
+            .into_iter()
+            .filter(|key| !keys.contains(key))
+            .collect();
+        let before = keys.len();
+        for key in dropped {
+            // A failed check keeps the link: only a record the user may view is unlinked.
+            let seen = matches!(
+                (relationship.check)(cx, key.clone(), None, &mut *ex).await,
+                Ok(RelatedCheck::FoundViewable)
+            );
+            if !seen {
+                keys.push(key);
+            }
+        }
+        (keys.len() != before).then(|| crate::form::encode_list(&keys))
     }
 }
 

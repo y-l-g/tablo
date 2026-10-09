@@ -225,20 +225,26 @@ with the related resource:
   [relationship](#relationships)'s options are, with the records the record links checked.
   `.searchable()` filters the boxes as the user types; without JavaScript every box shows.
 - The form posts the field's key once per checked box, after a hidden blank, so a submission
-  with no box checked links no record. Each key must name a record the choice offers, and the
-  write checks each again inside its transaction.
+  with no box checked links no record. Each key the record does not link yet must name a record
+  the choice offers, and the write checks each again inside its transaction.
 - A create links the new record to each chosen record, one join row each. An edit adds the rows
   of the records it chose and deletes those of the ones it dropped; one that does not post the
   field keeps the links. An overridden `create_record` or `update_record` links only by
   delegating to `write_create` or `write_update`.
-- The choice offers at most 200 records. Past that it offers none and keeps the ones the record
-  links; attach records from a [related table](./detail-pages.md#many-to-many-relations)
-  instead.
+- An edit unlinks only the records its form could offer: a linked record the related resource's
+  policy hides from the user, or one in another tenant, stays linked.
+- The choice offers at most 200 records. Past that it offers none, shows the ones the record
+  links, and an edit keeps or drops those but links no other; attach records from a
+  [related table](./detail-pages.md#many-to-many-relations) instead.
 - The derived detail page lists the linked records by their titles, with
   `RelationColumn::list::<TagResource>(relation!(Article.tags))`, which a table or a declared view
   can show too.
 - A new link sets the two keys and nothing else, so mounting refuses a join model with another
-  column that is neither nullable nor `#[auto]`, or a key spanning several columns. It also
+  column that is neither nullable nor `#[auto]`, or a key spanning several columns. A join
+  model's `#[default]` and `#[update]` expressions are not applied: a nullable column with one
+  stays `NULL`.
+- Making the two keys the join model's primary key, `#[key(article_id, tag_id)]` as above, has
+  the database store each pair once, whatever two concurrent writes do. It also
   refuses a multiple choice in a resource's form that names no many-to-many field. In an
   action's input, `form::parse_list` reads a multiple choice.
 

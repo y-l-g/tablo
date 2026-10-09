@@ -219,7 +219,8 @@ impl<F> ChoiceField<F> {
     /// [`parse_list`](crate::form::parse_list) reads one in an action's input.
     ///
     /// It offers at most [`MAX_RELATIONSHIP_OPTIONS`](crate::schema::MAX_RELATIONSHIP_OPTIONS)
-    /// records: past them it lists none and keeps the chosen ones, and a submission is refused.
+    /// records: past them it lists none but the chosen ones, and refuses a submission choosing
+    /// another. A record form's edit re-checks only the keys the record does not link yet.
     /// `searchable` filters the listed options as the user types. A condition cannot watch it,
     /// and it cannot depend on another field.
     pub fn multiple(mut self) -> Self {

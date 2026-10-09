@@ -139,7 +139,7 @@ async fn attach<'a, R: Resource>(
     let owner = owner(cx, resource, &mut tx).await?;
     // A record deleted, moved to another tenant or hidden since the input validated is refused.
     let errors = (links.input.schema)()
-        .recheck_relationships(cx, &values, &mut tx)
+        .recheck_relationships(cx, &values, &std::collections::HashMap::new(), &mut tx)
         .await;
     if !errors.is_empty() {
         // The page's choices may query: release the connection first.

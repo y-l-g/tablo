@@ -193,3 +193,18 @@ async fn refuses_a_join_model_with_a_column_a_link_cannot_fill() {
         })
     );
 }
+
+#[tokio::test]
+async fn links_a_record_once_however_its_key_is_spelled() {
+    let mut db = db().await;
+    let join = JoinTable::of::<Post>(&AppSchema::of_db(&db), "tags").unwrap();
+    let post = toasty::create!(Post { title: "p" })
+        .exec(&mut db)
+        .await
+        .unwrap();
+    let a = tag(&mut db, "a").await;
+    let spellings = [a.id.to_string(), a.id.to_string().to_uppercase()];
+    join.link(&post, &spellings, &mut db).await.unwrap();
+    let rows: Vec<Tagging> = Tagging::all().exec(&mut db).await.unwrap();
+    assert_eq!(rows.len(), 1);
+}

@@ -1,7 +1,7 @@
 use toasty::Db;
 
 use super::*;
-use crate::{Detail, test_support::memory_db};
+use crate::{Detail, policy::Ability, test_support::memory_db};
 
 #[derive(Debug, Clone, toasty::Model)]
 struct Shelf {
@@ -206,12 +206,12 @@ async fn the_page_loads_the_relations_its_relation_columns_read() {
     listed.sort();
     assert_eq!(
         listed,
-        ["Dune", "Solaris"],
-        "each record by the source's label"
+        ["Dune"],
+        "each record the user may view, by the source's label"
     );
 }
 
-/// Books, labelled by their title.
+/// Books, labelled by their title; "Solaris" cannot be viewed.
 struct Titles;
 
 impl OptionSource for Titles {
@@ -223,6 +223,10 @@ impl OptionSource for Titles {
 
     fn label(_cx: &Cx, book: &Book) -> String {
         book.title.clone()
+    }
+
+    fn allows(_cx: &Cx, ability: Ability<'_, Book>) -> bool {
+        !matches!(ability, Ability::View(book) if book.title == "Solaris")
     }
 }
 

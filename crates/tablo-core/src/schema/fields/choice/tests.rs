@@ -153,7 +153,7 @@ async fn a_dependent_choice_refuses_a_row_of_another_parent_value() {
     let country = country();
     let city = city(&country);
     let check = async |value: &str, parent: Option<&str>| {
-        city.validate_exists(&world.cx, value, parent).await
+        city.validate_exists(&world.cx, value, parent, None).await
     };
     assert!(check(&world.paris, Some(&world.france)).await.is_empty());
     for parent in [
@@ -172,12 +172,12 @@ async fn a_dependent_choice_refuses_a_row_of_another_parent_value() {
     let mut handle = crate::db::db(&world.cx);
     let mut tx = handle.transaction().await.unwrap();
     assert!(
-        city.recheck(&world.cx, &world.paris, Some(&world.france), &mut tx)
+        city.recheck(&world.cx, &world.paris, Some(&world.france), None, &mut tx)
             .await
             .is_empty()
     );
     assert_eq!(
-        city.recheck(&world.cx, &world.berlin, Some(&world.france), &mut tx)
+        city.recheck(&world.cx, &world.berlin, Some(&world.france), None, &mut tx)
             .await,
         ["City id is invalid"]
     );
@@ -235,12 +235,12 @@ async fn a_searchable_dependent_choice_past_the_cap_checks_among_its_parent_rows
     let country = country();
     let city = city(&country).searchable();
     assert!(
-        city.validate_exists(&world.cx, &world.paris, Some(&world.france))
+        city.validate_exists(&world.cx, &world.paris, Some(&world.france), None)
             .await
             .is_empty()
     );
     assert_eq!(
-        city.validate_exists(&world.cx, &world.berlin, Some(&world.france))
+        city.validate_exists(&world.cx, &world.berlin, Some(&world.france), None)
             .await,
         ["City id is invalid"]
     );

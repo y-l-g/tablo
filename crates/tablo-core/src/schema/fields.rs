@@ -416,38 +416,57 @@ impl Field {
         self.as_choice().and_then(ChoiceControl::parent_key)
     }
 
-    /// Whether a submitted choice matches the options its parent's value `parent` offers.
+    /// Whether a submitted choice matches the options its parent's value `parent` offers; a
+    /// multiple choice checks only the keys its stored value `stored` does not hold.
     pub(crate) async fn validate_exists(
         &self,
         cx: &Cx,
         value: &str,
         parent: Option<&str>,
+        stored: Option<&str>,
     ) -> Vec<String> {
         match &self.control {
             ControlKind::Choice(choice) => {
                 choice
-                    .validate_exists(cx, self.label_str(), value, parent)
+                    .validate_exists(cx, self.label_str(), value, parent, stored)
                     .await
             }
             _ => Vec::new(),
         }
     }
 
-    /// Re-checks a relationship choice in the write's transaction.
+    /// Re-checks a relationship choice in the write's transaction; a multiple choice re-checks
+    /// only the keys its stored value `stored` does not hold.
     pub(crate) async fn recheck(
         &self,
         cx: &Cx,
         value: &str,
         parent: Option<&str>,
+        stored: Option<&str>,
         ex: &mut dyn toasty::Executor,
     ) -> Vec<String> {
         match &self.control {
             ControlKind::Choice(choice) => {
                 choice
-                    .recheck(cx, self.label_str(), value, parent, ex)
+                    .recheck(cx, self.label_str(), value, parent, stored, ex)
                     .await
             }
             _ => Vec::new(),
+        }
+    }
+
+    /// A multiple choice's `value` with the stored keys it drops that the user cannot view put
+    /// back, or `None` when it drops none.
+    pub(crate) async fn keep_unseen(
+        &self,
+        cx: &Cx,
+        value: &str,
+        stored: &str,
+        ex: &mut dyn toasty::Executor,
+    ) -> Option<String> {
+        match &self.control {
+            ControlKind::Choice(choice) => choice.keep_unseen(cx, value, stored, ex).await,
+            _ => None,
         }
     }
 

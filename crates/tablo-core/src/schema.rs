@@ -359,6 +359,7 @@ impl<F> Schema<F> {
         &self,
         cx: &Cx,
         values: &HashMap<String, String>,
+        stored: &HashMap<String, String>,
         errors: &mut FieldErrors,
     ) {
         let hidden = self.hidden_fields(values);
@@ -380,7 +381,12 @@ impl<F> Schema<F> {
             }
             let parent = field.parent_key().and_then(|key| values.get(key));
             for message in field
-                .validate_exists(cx, value, parent.map(String::as_str))
+                .validate_exists(
+                    cx,
+                    value,
+                    parent.map(String::as_str),
+                    stored.get(name).map(String::as_str),
+                )
                 .await
             {
                 errors.add(name, message);
@@ -392,15 +398,18 @@ impl<F> Schema<F> {
     #[cfg(test)]
     pub(crate) async fn checked(&self, cx: &Cx, values: &HashMap<String, String>) -> FieldErrors {
         let mut errors = FieldErrors::new();
-        self.check_controls(cx, values, &mut errors).await;
+        self.check_controls(cx, values, &HashMap::new(), &mut errors)
+            .await;
         errors
     }
 
-    /// Re-checks every submitted relationship key through the write's open transaction.
+    /// Re-checks every submitted relationship key through the write's open transaction, but a
+    /// multiple choice's keys the record's stored value in `stored` holds already.
     pub(crate) async fn recheck_relationships(
         &self,
         cx: &Cx,
         values: &HashMap<String, String>,
+        stored: &HashMap<String, String>,
         ex: &mut dyn toasty::Executor,
     ) -> FieldErrors {
         let mut errors = FieldErrors::new();
@@ -415,13 +424,40 @@ impl<F> Schema<F> {
             };
             let parent = field.parent_key().and_then(|key| values.get(key));
             for message in field
-                .recheck(cx, value, parent.map(String::as_str), &mut *ex)
+                .recheck(
+                    cx,
+                    value,
+                    parent.map(String::as_str),
+                    stored.get(name).map(String::as_str),
+                    &mut *ex,
+                )
                 .await
             {
                 errors.add(name, message);
             }
         }
         errors
+    }
+
+    /// Puts back in each multiple choice's list the keys of the record's stored list `stored` it
+    /// drops that the user cannot view, through the write's open transaction: the form never
+    /// offered them, so its submission leaves them linked.
+    pub(crate) async fn keep_unseen_links(
+        &self,
+        cx: &Cx,
+        values: &mut HashMap<String, String>,
+        stored: &HashMap<String, String>,
+        ex: &mut dyn toasty::Executor,
+    ) {
+        for field in &self.fields {
+            let name = field.name();
+            let (Some(value), Some(held)) = (values.get(name), stored.get(name)) else {
+                continue;
+            };
+            if let Some(kept) = field.keep_unseen(cx, value, held, &mut *ex).await {
+                values.insert(name.to_string(), kept);
+            }
+        }
     }
 }
 

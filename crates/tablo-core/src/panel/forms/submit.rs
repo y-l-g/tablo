@@ -106,7 +106,9 @@ async fn prepare_submission<R: Resource>(
     let named: HashSet<String> = values.keys().cloned().collect();
     complete(&schema, &mut values, &named, &stored);
     let mut errors = FieldErrors::new();
-    schema.check_controls(cx, &values, &mut errors).await;
+    schema
+        .check_controls(cx, &values, &stored, &mut errors)
+        .await;
     // A rejected upload owns its field's error slot.
     errors.replace(upload_errors);
     Ok(Submission {
@@ -209,16 +211,18 @@ fn renders_under(form: &Schema, key: &str, failed: &str) -> bool {
     }
 }
 
-/// Re-checks relationship keys inside the write transaction before writing.
+/// Re-checks relationship keys inside the write transaction before writing, but the links the
+/// record in `stored` holds already.
 async fn recheck_relationships(
     cx: &Cx,
     schema: &Schema,
     values: &HashMap<String, String>,
+    stored: &HashMap<String, String>,
     errors: &mut FieldErrors,
     ex: &mut dyn toasty::Executor,
 ) {
     if errors.is_empty() {
-        errors.extend(schema.recheck_relationships(cx, values, ex).await);
+        errors.extend(schema.recheck_relationships(cx, values, stored, ex).await);
     }
 }
 
@@ -256,7 +260,7 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         errors
             .extend(check_unique(cx, &resource, &schema, &values, &HashMap::new(), &mut tx).await?);
         let form = parse_form(cx, &resource, &values, &mut errors)?;
-        recheck_relationships(cx, &schema, &values, &mut errors, &mut tx).await;
+        recheck_relationships(cx, &schema, &values, &HashMap::new(), &mut errors, &mut tx).await;
         let Some(form) = form.filter(|_| errors.is_empty()) else {
             return rerender_invalid_form(
                 cx,
@@ -312,9 +316,12 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         // Unnamed keys complete from this snapshot and are never written back.
         let stored = <R::Form as RecordForm>::hydrate(cx, &record);
         complete(&schema, &mut values, &named, &stored);
+        schema
+            .keep_unseen_links(cx, &mut values, &stored, &mut tx)
+            .await;
         errors.extend(check_unique(cx, &resource, &schema, &values, &stored, &mut tx).await?);
         let form = parse_form(cx, &resource, &values, &mut errors)?;
-        recheck_relationships(cx, &schema, &values, &mut errors, &mut tx).await;
+        recheck_relationships(cx, &schema, &values, &stored, &mut errors, &mut tx).await;
         let Some(form) = form.filter(|_| errors.is_empty()) else {
             return rerender_invalid_form(
                 cx,
