@@ -25,6 +25,7 @@ mod export;
 mod filters;
 mod gates;
 mod list;
+mod many_to_many;
 mod media;
 mod panel;
 mod relations;

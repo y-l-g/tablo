@@ -25,7 +25,7 @@ where
 
 /// The primary-key values of `record`, one per key field, or none when the derived expression
 /// has another shape.
-fn pk_values<M>(record: &M) -> Vec<Value>
+pub(crate) fn pk_values<M>(record: &M) -> Vec<Value>
 where
     M: toasty::schema::Model + IntoExpr<M>,
 {
@@ -108,29 +108,34 @@ where
     let FieldTy::Primitive(prim) = &model_field.ty else {
         return None;
     };
-    let value = match prim.ty {
-        Type::Uuid => Value::Uuid(id.parse().ok()?),
-        Type::String => Value::String(id.to_string()),
-        Type::Bool => Value::Bool(id.parse().ok()?),
-        Type::I8 => Value::I8(id.parse().ok()?),
-        Type::I16 => Value::I16(id.parse().ok()?),
-        Type::I32 => Value::I32(id.parse().ok()?),
-        Type::I64 => Value::I64(id.parse().ok()?),
-        Type::U8 => Value::U8(id.parse().ok()?),
-        Type::U16 => Value::U16(id.parse().ok()?),
-        Type::U32 => Value::U32(id.parse().ok()?),
-        Type::U64 => Value::U64(id.parse().ok()?),
-        Type::F32 => Value::F32(id.parse().ok()?),
-        Type::F64 => Value::F64(id.parse().ok()?),
-        Type::Timestamp => Value::Timestamp(id.parse().ok()?),
-        Type::Date => Value::Date(id.parse().ok()?),
-        Type::Time => Value::Time(id.parse().ok()?),
-        Type::DateTime => Value::DateTime(id.parse().ok()?),
-        Type::Zoned => Value::Zoned(id.parse().ok()?),
-        Type::Bytes => Value::Bytes(id.as_bytes().to_vec()),
+    Some((fid, parse_key(&prim.ty, id)?))
+}
+
+/// The value of type `ty` that `text` spells, as [`value_text`] writes it, or `None` when it does
+/// not parse or `ty` has no text form.
+pub(crate) fn parse_key(ty: &Type, text: &str) -> Option<Value> {
+    Some(match ty {
+        Type::Uuid => Value::Uuid(text.parse().ok()?),
+        Type::String => Value::String(text.to_string()),
+        Type::Bool => Value::Bool(text.parse().ok()?),
+        Type::I8 => Value::I8(text.parse().ok()?),
+        Type::I16 => Value::I16(text.parse().ok()?),
+        Type::I32 => Value::I32(text.parse().ok()?),
+        Type::I64 => Value::I64(text.parse().ok()?),
+        Type::U8 => Value::U8(text.parse().ok()?),
+        Type::U16 => Value::U16(text.parse().ok()?),
+        Type::U32 => Value::U32(text.parse().ok()?),
+        Type::U64 => Value::U64(text.parse().ok()?),
+        Type::F32 => Value::F32(text.parse().ok()?),
+        Type::F64 => Value::F64(text.parse().ok()?),
+        Type::Timestamp => Value::Timestamp(text.parse().ok()?),
+        Type::Date => Value::Date(text.parse().ok()?),
+        Type::Time => Value::Time(text.parse().ok()?),
+        Type::DateTime => Value::DateTime(text.parse().ok()?),
+        Type::Zoned => Value::Zoned(text.parse().ok()?),
+        Type::Bytes => Value::Bytes(text.as_bytes().to_vec()),
         _ => return None,
-    };
-    Some((fid, value))
+    })
 }
 
 /// Ascending order-bys over `M`'s primary key: the deterministic order a page falls back to.

@@ -121,7 +121,7 @@ impl RepeaterControl {
     pub(crate) async fn check(&self, cx: &Cx, key: &str, value: &str, errors: &mut FieldErrors) {
         for (row, item) in decode(value).unwrap_or_default().iter().enumerate() {
             let (schema, values) = self.row(key, &row.to_string(), item);
-            Box::pin(schema.check_controls(cx, &values, errors)).await;
+            Box::pin(schema.check_controls(cx, &values, &HashMap::new(), errors)).await;
         }
     }
 

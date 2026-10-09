@@ -8,6 +8,7 @@ use topcoat::{Result, context::Cx};
 
 use crate::{
     error::TabloError,
+    form::RecordForm,
     policy::Ability,
     resource::{Mounted, Resource},
 };
@@ -83,7 +84,8 @@ async fn find_by_key_in<R: Resource>(
         .map_err(Into::into)
 }
 
-/// Load the record the request names, scoped and policy-checked.
+/// Load the record the request's edit page names, scoped and policy-checked, with the
+/// relations its record form hydrates: each many-to-many field's links.
 ///
 /// Reads the `{id}` path param, loads through the tenant-scoped query (which
 /// turns an unknown *or* out-of-scope id into one 404), and returns 403 unless
@@ -91,16 +93,25 @@ async fn find_by_key_in<R: Resource>(
 ///
 /// Callers run [`gate`](super::super::gate) first and add their own policy on
 /// top (`Update` for the edit page).
-pub(crate) async fn load_viewable<R: Resource>(
+pub(crate) async fn load_editable<R: Resource>(
     cx: &Cx,
     resource: &Mounted<R>,
     ex: &mut dyn toasty::Executor,
 ) -> Result<R::Model> {
     let id = topcoat::router::path_param_segment(cx, "id").to_string();
-    check_viewable(cx, resource, find_by_key(cx, resource, &id, ex).await?)
+    let record = find_by_key_in(resource, &id, ex, || {
+        resource.scoped_query(cx).map(|query| {
+            <R::Form as RecordForm>::includes()
+                .into_vec()
+                .into_iter()
+                .fold(query, |query, include| query.include(include))
+        })
+    })
+    .await?;
+    check_viewable(cx, resource, record)
 }
 
-/// [`load_viewable`] for the detail page: the same key, scope and policy, plus
+/// [`load_editable`] for the detail page: the same key, scope and policy, plus
 /// the relations the page's columns declare. The caller 404s a resource that
 /// declares no detail page.
 pub(crate) async fn load_detail<R: Resource>(

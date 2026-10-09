@@ -137,9 +137,11 @@ triggers them:
 {{#include ../../../examples/guide/src/resources.rs:notify-after-commit}}
 ```
 
-`Committed` names the mutation (`Mutation::Create`, `Update`, `Delete`, or `Action(NAME)` for an
-[action](./actions.md)) and the rows written: the created or updated row, every deleted row in one
-call for a bulk delete, the rows a record action ran on, or none for a header action. `Mutation` is
+`Committed` names the mutation (`Mutation::Create`, `Update`, `Delete`, `Action(NAME)` for an
+[action](./actions.md), or `Attach` and `Detach` for a
+[many-to-many relation](./detail-pages.md#many-to-many-relations)) and the rows written: the
+created or updated row, every deleted row in one call for a bulk delete, the rows a record action
+ran on, none for a header action, or the owner whose links changed. `Mutation` is
 `#[non_exhaustive]`, so a `match` on it ends with a `_` arm. The hook is not called
 when nothing committed. An error it returns is logged; the write stays committed.
 
@@ -166,6 +168,8 @@ declaration names one. It refuses the resource when:
   of a `Tenancy::via` resource writes the parent's foreign key other than through a relationship
   field over a tenant-scoped resource;
 - two actions share a `NAME`, record or header;
+- a many-to-many field or relation goes through a join model a link cannot write, or a multiple
+  choice in a resource's form names no many-to-many field;
 - a relation names a resource the panel does not register, or names one twice;
 - the panel registers the resource twice.
 

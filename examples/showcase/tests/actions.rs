@@ -228,7 +228,7 @@ async fn the_post_pages_ask_for_tags_in_a_dialog_with_ids_of_their_own() {
 #[tokio::test]
 async fn a_read_only_portal_lists_drafts_and_refuses_publish() {
     use showcase::{
-        app::{AuthorResource, CommentResource, PostResource},
+        app::{AuthorResource, CategoryResource, CommentResource, PostResource},
         models::{DEMO_TENANT, Post, PostStatus},
     };
     use tablo::{Auth, Panel, ReadOnly, TenantId, testing::TestClient};
@@ -240,6 +240,7 @@ async fn a_read_only_portal_lists_drafts_and_refuses_publish() {
             .auth(Auth::disabled())
             .resource_with::<PostResource>(|def| def.policy(ReadOnly))
             .resource_with::<AuthorResource>(|def| def.policy(ReadOnly))
+            .resource_with::<CategoryResource>(|def| def.policy(ReadOnly))
             .resource_with::<CommentResource>(|def| def.policy(ReadOnly)),
     )
     .expect("the portal mounts");

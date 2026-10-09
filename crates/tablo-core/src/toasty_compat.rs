@@ -5,6 +5,8 @@
 //! names it, and retires when Toasty closes that gap.
 //!
 //! - [`cursor`]: a pagination cursor's value as a URL token (upstream #398).
+//! - [`join`]: a many-to-many relation's links, written as its join model's rows (Toasty writes no
+//!   multi-step `via`).
 //! - [`model`]: a model's fields, columns, indices and relations, and an embedded path's column
 //!   (upstream #183).
 //! - [`pk`]: the primary key read off an instance and spelled as a URL id that parses back into a
@@ -15,6 +17,7 @@
 //! - [`VariantId`]: an embedded enum variant's id, re-exported for the derives.
 
 pub(crate) mod cursor;
+pub(crate) mod join;
 pub(crate) mod model;
 pub(crate) mod pk;
 

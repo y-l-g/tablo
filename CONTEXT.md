@@ -23,12 +23,14 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Repeater | A field editing a `#[document]` list of embedded structs: a row of the item's controls per item, which the browser adds, removes and moves. | Builder, List field, Array field, Table field |
 | Record form | The typed value a form submission parses into, one field per written column. | Patch, Draft, DTO, Form (alone) |
 | Blank answer | What a record-form field stores when submitted empty. A field with none is required. | Default, Nullable (for presence) |
+| Join model | A model whose rows link two other models' records, one row per pair, with a `belongs_to` to each. | Pivot, Junction table, Bridge table |
+| Many-to-many field | A record-form field holding the keys of the records a join model links the record to, edited as a multiple choice. | Multi-select, BelongsToMany field, Tags field |
 | Dependent choice | A relationship choice offering only the related records whose column equals another field's value. | Cascading select, Chained select, Linked field |
 | Condition | What shows a field or a layout block only while another field posts one of the listed values. | Visibility rule, Dependency, Reactive field |
 | Policy | A resource's authorization, answering one ability at a time. | Guard, Permission, Gate, Rule |
 | Ability | One thing a policy is asked to allow. | Permission, Action, Verb |
 | Tenancy | How a resource's rows belong to a tenant, through a `TenantId` column. | Tenant scope, Multi-tenancy mode |
-| Relation | A related resource's rows that belong to a record, rendered as that resource's table. | Relation manager, Sub-table |
+| Relation | A related resource's rows that belong to a record, rendered as that resource's table: its rows holding the record's key, or the records a join model links the record to, which the table attaches and detaches. | Relation manager, Sub-table |
 | Action | A user-invoked mutation, on one record or a bulk selection. | Command, Operation, Modal |
 | Header action | A user-invoked mutation on no record, from the header of a list or a page. | Global action, Page action, Toolbar action |
 | Place | Where a record action's button renders: a row, the detail page, the edit page, the bulk bar. | Location, Context, Surface |

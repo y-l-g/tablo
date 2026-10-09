@@ -1,4 +1,5 @@
-//! The guide's executed snippets: the Testing chapter's suite and the data-access background job.
+//! The guide's executed snippets: the Testing chapter's suite, the data-access background job, and
+//! the Forms chapter's many-to-many models, which only mounting checks.
 
 use guide::{
     data_access::{admin_router, count_drafts},
@@ -152,4 +153,27 @@ async fn a_background_job_counts_the_drafts_of_its_tenant() {
     let (_router, admin) = admin_router(db).expect("the panel mounts");
     let drafts = count_drafts(&admin, tenant).await.expect("the job runs");
     assert_eq!(drafts, 2, "two of the four posts are this tenant's drafts");
+}
+
+/// The many-to-many field and relation the Forms chapter shows mount over their join model.
+#[tokio::test]
+async fn the_many_to_many_snippets_mount() {
+    use guide::forms::{Article, ArticleResource, Tag, TagResource, Tagging};
+
+    let db = Db::builder()
+        .models(toasty::models!(Article, Tag, Tagging))
+        .connect("sqlite::memory:")
+        .await
+        .expect("connect");
+    db.push_schema().await.expect("push the schema");
+    Router::builder()
+        .discover()
+        .app_context(db)
+        .panel(
+            Panel::new("admin")
+                .auth(Auth::disabled())
+                .resource::<ArticleResource>()
+                .resource::<TagResource>(),
+        )
+        .expect("the panel mounts");
 }

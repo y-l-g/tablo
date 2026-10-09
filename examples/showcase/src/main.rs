@@ -12,6 +12,8 @@ async fn main() {
             showcase::models::Author,
             showcase::models::Post,
             showcase::models::Comment,
+            showcase::models::Category,
+            showcase::models::PostCategory,
             showcase::models::MediaAsset,
             showcase::models::Staff,
             showcase::models::Workspace,

@@ -99,7 +99,8 @@ async fn options_response(cx: &Cx, form: &Schema) -> topcoat::Result<http::Respo
     if !select.is_relationship() {
         return Err(topcoat::router::error::bad_request("not a relationship select").into());
     }
-    if !select.is_searchable() && select.parent_key().is_none() {
+    // A multiple choice filters the options it rendered, and fetches none.
+    if select.is_multiple() || (!select.is_searchable() && select.parent_key().is_none()) {
         return Err(topcoat::router::error::bad_request("not searchable").into());
     }
     match select.search_options(cx, &q, Some(&parent)).await {

@@ -1,7 +1,7 @@
 use toasty::Db;
 
 use super::*;
-use crate::{Detail, test_support::memory_db};
+use crate::{Detail, policy::Ability, test_support::memory_db};
 
 #[derive(Debug, Clone, toasty::Model)]
 struct Shelf {
@@ -189,6 +189,45 @@ async fn the_page_loads_the_relations_its_relation_columns_read() {
         .unwrap()
         .unwrap();
     assert_eq!(count.text(&cx, &shelf), "2");
+
+    let titles = RelationColumn::list::<Titles>(relation!(Shelf.books));
+    let shelf = Detail::new(titles.clone())
+        .include_relations(toasty::stmt::Query::all())
+        .first()
+        .exec(&mut db)
+        .await
+        .unwrap()
+        .unwrap();
+    let mut listed: Vec<String> = titles
+        .text(&cx, &shelf)
+        .split(", ")
+        .map(str::to_string)
+        .collect();
+    listed.sort();
+    assert_eq!(
+        listed,
+        ["Dune"],
+        "each record the user may view, by the source's label"
+    );
+}
+
+/// Books, labelled by their title; "Solaris" cannot be viewed.
+struct Titles;
+
+impl OptionSource for Titles {
+    type Model = Book;
+
+    fn scoped_query(_cx: &Cx) -> topcoat::Result<toasty::stmt::Query<toasty::stmt::List<Book>>> {
+        Ok(toasty::stmt::Query::all())
+    }
+
+    fn label(_cx: &Cx, book: &Book) -> String {
+        book.title.clone()
+    }
+
+    fn allows(_cx: &Cx, ability: Ability<'_, Book>) -> bool {
+        !matches!(ability, Ability::View(book) if book.title == "Solaris")
+    }
 }
 
 /// A row loaded without the include its relation column declares is a loader's bug: a debug

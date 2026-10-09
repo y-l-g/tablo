@@ -62,7 +62,8 @@ non-nullable column is filled by the form, by Toasty, by the tenant stamp, or by
 
 The derive picks each field's control from the field: a `bool` is a toggle, `#[form(options)]` a
 choice over the field type's options, `#[form(options = T)]` a choice over `T`'s options,
-`#[form(relationship = R)]` a choice over `R`'s records, `#[form(file)]` a file field, `#[form(embed)]` the embedded
+`#[form(relationship = R)]` a choice over `R`'s records (a multiple choice on a
+[many-to-many field](#many-to-many-fields)), `#[form(file)]` a file field, `#[form(embed)]` the embedded
 value's schema, `#[form(repeat)]` a repeater, and any other field a text field. `controls()`
 hands each one over ready for its modifiers, so an override arranges rather than rebinds:
 
@@ -119,7 +120,8 @@ control's builder, which offers only that control's modifiers, so a modifier on 
 does not compile:
 
 - text (`TextField`): `.email()`, `.unique()`, `.placeholder(..)`, `.multiline(rows)`;
-- choice (`ChoiceField`): `.options(..)`, `.relationship::<R>()`, `.searchable()`, `.depends_on(..)`.
+- choice (`ChoiceField`): `.options(..)`, `.relationship::<R>()`, `.searchable()`, `.depends_on(..)`,
+  `.multiple()`.
 
 A choice needs something to offer: mounting refuses a resource form's or an action input's choice
 with neither options nor a relationship, whose `<select>` would be empty and whose validation
@@ -203,6 +205,49 @@ labels one field's options otherwise, to tell apart records that share a title.
   non-searchable choice shows an error instead. `.searchable()` also filters a short list as
   you type. Without JavaScript the plain select remains.
 
+### Many-to-many fields
+
+A many-to-many relation stores one row per pair in a **join model** with a `belongs_to` to each
+side. The model reaches the other side through it with a `#[has_many(via = ..)]` field:
+
+```rust
+{{#include ../../../examples/guide/src/forms.rs:forms-many-to-many-models}}
+```
+
+The record form names that field, typed as a `Vec` of the related records' keys, and marks it
+with the related resource:
+
+```rust
+{{#include ../../../examples/guide/src/forms.rs:forms-many-to-many-field}}
+```
+
+- The control is a multiple choice: a checkbox per record of the related resource, offered as a
+  [relationship](#relationships)'s options are, with the records the record links checked.
+  `.searchable()` filters the boxes as the user types; without JavaScript every box shows.
+- The form posts the field's key once per checked box, after a hidden blank, so a submission
+  with no box checked links no record. Each key the record does not link yet must name a record
+  the choice offers, and the write checks each again inside its transaction.
+- A create links the new record to each chosen record, one join row each. An edit adds the rows
+  of the records it chose and deletes those of the ones it dropped; one that does not post the
+  field keeps the links. An overridden `create_record` or `update_record` links only by
+  delegating to `write_create` or `write_update`.
+- An edit unlinks only the records its form could offer: a linked record the related resource's
+  policy hides from the user, or one in another tenant, stays linked.
+- The choice offers at most 200 records. Past that it offers none, shows the ones the record
+  links, and an edit keeps or drops those but links no other; attach records from a
+  [related table](./detail-pages.md#many-to-many-relations) instead.
+- The derived detail page lists the linked records by their titles, with
+  `RelationColumn::list::<TagResource>(relation!(Article.tags))`, which a table or a declared view
+  can show too.
+- A new link sets the two keys and nothing else, so mounting refuses a join model with another
+  column that is neither nullable nor `#[auto]`, or a key spanning several columns. A join
+  model's `#[default]` and `#[update]` expressions are not applied: a nullable column with one
+  stays `NULL`.
+- Making the two keys the join model's primary key, `#[key(article_id, tag_id)]` as above, has
+  the database store each pair once, whatever two concurrent writes do. It also
+  refuses a multiple choice in a resource's form that names no many-to-many field. In an
+  action's input, `form::parse_list` reads a multiple choice.
+
 ### Dependent choices
 
 `.depends_on(&field, column)` narrows a relationship choice to the related records whose `column`
@@ -226,6 +271,7 @@ equals the value another field of the same form posts: the cities of the chosen 
 - `column` must belong to the relationship's model, and the parent must be placed in the same
   schema: mounting refuses either mistake. Only a resource's form serves the options, so mounting
   also refuses a dependent choice in an action's input.
+- A multiple choice neither depends on another field nor narrows one: mounting refuses both.
 
 ### Conditional fields
 
@@ -252,6 +298,8 @@ takes it too, for every field it holds:
   page's or an action's schema can do: a resource's form places every record-form field.
 - A toggle is followed through its checkbox. An app's own checkbox `Control` posts the same
   `value` checked or not, so a condition cannot follow it.
+- A multiple choice's key holds a list, which no condition value spells: mounting refuses a
+  condition watching one.
 
 ## Submitting
 

@@ -9,6 +9,14 @@ use crate::{
     panel::test_support::{Dummy, dummy_table, mount, panel_for},
 };
 
+/// The urlencoded `bytes`' last value per key.
+fn form_values_from_bytes(bytes: &[u8]) -> HashMap<String, String> {
+    form_pairs_from_request_parts(None, bytes)
+        .unwrap()
+        .into_iter()
+        .collect()
+}
+
 #[test]
 fn form_values_decode_utf8_plus_and_encoded_separators() {
     let got = form_values_from_bytes(b"name=R%C3%A9mi");
@@ -22,6 +30,24 @@ fn form_values_decode_utf8_plus_and_encoded_separators() {
     assert_eq!(got.get("a").map(String::as_str), Some("1&2=3"));
 
     assert!(form_values_from_bytes(b"").is_empty());
+}
+
+/// A multiple choice posts its key once per value: the body keeps them all, in order.
+#[tokio::test]
+async fn a_repeated_key_keeps_every_value_in_body_order() {
+    let pairs = form_pairs_from_request_parts(None, b"tags=&tags=b&name=Ada&tags=a").unwrap();
+    let tags: Vec<&str> = pairs
+        .iter()
+        .filter(|(key, _)| key == "tags")
+        .map(|(_, value)| value.as_str())
+        .collect();
+    assert_eq!(tags, ["", "b", "a"]);
+    let body = "--X\r\nContent-Disposition: form-data; name=\"tags\"\r\n\r\nb\r\n\
+                --X\r\nContent-Disposition: form-data; name=\"tags\"\r\n\r\na\r\n--X--\r\n";
+    let parts = multipart_parts(&multipart_type("X"), body.as_bytes().to_vec(), false)
+        .await
+        .unwrap();
+    assert_eq!(parts.lists["tags"], ["b", "a"]);
 }
 
 /// Runs the streaming multipart parser over `body` with the given content type.
@@ -310,11 +336,11 @@ fn a_filename_reduces_to_its_basename_and_drops_reserved_names() {
 fn an_urlencoded_body_past_the_cap_is_refused() {
     let big = vec![b'a'; MAX_FORM_BYTES + 1];
     assert!(
-        form_values_from_request_parts(Some("application/x-www-form-urlencoded"), &big).is_err()
+        form_pairs_from_request_parts(Some("application/x-www-form-urlencoded"), &big).is_err()
     );
-    let ok = form_values_from_request_parts(Some("application/x-www-form-urlencoded"), b"name=Ada")
+    let ok = form_pairs_from_request_parts(Some("application/x-www-form-urlencoded"), b"name=Ada")
         .unwrap();
-    assert_eq!(ok.get("name").map(String::as_str), Some("Ada"));
+    assert_eq!(ok, [("name".to_string(), "Ada".to_string())]);
 }
 
 proptest::proptest! {

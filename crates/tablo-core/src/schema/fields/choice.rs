@@ -1,5 +1,5 @@
 //! The choice control: a `<select>` over static options or a relationship's
-//! rows, with an optional filter input.
+//! rows, with an optional filter input, or a checkbox per option when the choice takes several.
 
 use tablo_ui::{input as ui_input, select as ui_select};
 use toasty::stmt::Expr;
@@ -7,12 +7,15 @@ use topcoat::{Result, context::Cx, view::*};
 
 use super::{
     super::relationship::{
-        OptionLoadError, OptionSource, RelatedCheck, RelationshipCheckFuture, RelationshipChecker,
-        RelationshipLoadFuture, RelationshipLoader, RelationshipSearchLoader, related_record_check,
-        related_records, related_records_search,
+        MAX_RELATIONSHIP_OPTIONS, OptionLoadError, OptionSource, RelatedCheck,
+        RelationshipCheckFuture, RelationshipChecker, RelationshipLoadFuture, RelationshipLoader,
+        RelationshipSearchLoader, related_record_check, related_records, related_records_search,
     },
     Field, FieldChrome, Placement, render_field,
 };
+use crate::form::decode_list;
+
+mod multiple;
 
 /// What a choice field declares beyond presence.
 #[derive(Clone, Default)]
@@ -25,6 +28,8 @@ pub(crate) struct ChoiceControl {
     pub(super) relationship: Option<Relationship>,
     /// The field whose value narrows the relationship's rows, set by `depends_on`.
     pub(super) parent: Option<Parent>,
+    /// Whether the choice takes several options, set by `multiple`: its key then holds a list.
+    pub(super) multiple: bool,
 }
 
 /// What narrows a dependent choice's options: the related rows whose column equals the value the
@@ -63,6 +68,8 @@ pub(crate) struct Relationship {
     source: &'static str,
     /// The source's model, which a dependent choice's column must belong to.
     model: std::any::TypeId,
+    /// The source's model in the app schema, which a many-to-many field's target must be.
+    model_id: crate::toasty_compat::model::ModelId,
     /// Whether the request's panel can load from the source.
     available: fn(&Cx) -> bool,
     /// The source model when its rows are tenant-owned, so a key the write
@@ -119,6 +126,7 @@ impl Relationship {
             check,
             source: std::any::type_name::<R>(),
             model: std::any::TypeId::of::<R::Model>(),
+            model_id: <R::Model as toasty::schema::Model>::id(),
             available: R::available,
             tenant_scoped_model: |cx| {
                 R::requires_tenant(cx).then(<R::Model as toasty::schema::Model>::id)
@@ -161,6 +169,18 @@ impl ChoiceControl {
 
     pub(crate) fn is_relationship(&self) -> bool {
         self.relationship.is_some()
+    }
+
+    /// Whether the choice takes several options.
+    pub(crate) fn is_multiple(&self) -> bool {
+        self.multiple
+    }
+
+    /// The relationship's source model in the app schema.
+    pub(crate) fn source_model(&self) -> Option<crate::toasty_compat::model::ModelId> {
+        self.relationship
+            .as_ref()
+            .map(|relationship| relationship.model_id)
     }
 
     /// The key of the field whose value narrows a dependent choice's options.
@@ -253,8 +273,36 @@ impl ChoiceControl {
         }
     }
 
-    /// Checks whether a non-empty `value` matches an option the parent value `parent` offers.
+    /// Checks whether a non-empty `value` matches an option the parent value `parent` offers, or
+    /// for a multiple choice, whether each value its list holds does, but the ones the stored list
+    /// `stored` holds already: keeping a link changes nothing, so it holds past the option cap.
     pub(super) async fn validate_exists(
+        &self,
+        cx: &Cx,
+        label: &str,
+        value: &str,
+        parent: Option<&str>,
+        stored: Option<&str>,
+    ) -> Vec<String> {
+        if !self.multiple {
+            return self.validate_one(cx, label, value, parent).await;
+        }
+        let keys = match chosen(label, value) {
+            Ok(keys) => keys,
+            Err(message) => return vec![message],
+        };
+        let held = stored.and_then(decode_list).unwrap_or_default();
+        for key in keys.into_iter().filter(|key| !held.contains(key)) {
+            let errors = self.validate_one(cx, label, &key, parent).await;
+            if !errors.is_empty() {
+                return errors;
+            }
+        }
+        Vec::new()
+    }
+
+    /// Checks whether a non-empty `value` matches an option the parent value `parent` offers.
+    async fn validate_one(
         &self,
         cx: &Cx,
         label: &str,
@@ -294,8 +342,37 @@ impl ChoiceControl {
     }
 
     /// Re-checks a submitted relationship key in the write's transaction, among the rows the
-    /// parent value `parent` selects.
+    /// parent value `parent` selects, or for a multiple choice, each key its list holds but the
+    /// stored list `stored` does not.
     pub(super) async fn recheck(
+        &self,
+        cx: &Cx,
+        label: &str,
+        value: &str,
+        parent: Option<&str>,
+        stored: Option<&str>,
+        ex: &mut dyn toasty::Executor,
+    ) -> Vec<String> {
+        if !self.multiple {
+            return self.recheck_one(cx, label, value, parent, ex).await;
+        }
+        let keys = match chosen(label, value) {
+            Ok(keys) => keys,
+            Err(message) => return vec![message],
+        };
+        let held = stored.and_then(decode_list).unwrap_or_default();
+        for key in keys.into_iter().filter(|key| !held.contains(key)) {
+            let errors = self.recheck_one(cx, label, &key, parent, &mut *ex).await;
+            if !errors.is_empty() {
+                return errors;
+            }
+        }
+        Vec::new()
+    }
+
+    /// Re-checks one submitted relationship key in the write's transaction, among the rows the
+    /// parent value `parent` selects.
+    async fn recheck_one(
         &self,
         cx: &Cx,
         label: &str,
@@ -322,6 +399,48 @@ impl ChoiceControl {
         };
         vec![format!("{label} {failure}")]
     }
+
+    /// `value`, a multiple choice's list, with each key of the stored list `stored` it drops that
+    /// the user cannot view in the request's tenant put back: a submission unlinks only the
+    /// records its form could offer.
+    pub(super) async fn keep_unseen(
+        &self,
+        cx: &Cx,
+        value: &str,
+        stored: &str,
+        ex: &mut dyn toasty::Executor,
+    ) -> Option<String> {
+        let relationship = self.relationship.as_ref().filter(|_| self.multiple)?;
+        let mut keys = decode_list(value)?;
+        let dropped: Vec<String> = decode_list(stored)?
+            .into_iter()
+            .filter(|key| !keys.contains(key))
+            .collect();
+        let before = keys.len();
+        for key in dropped {
+            // A failed check keeps the link: only a record the user may view is unlinked.
+            let seen = matches!(
+                (relationship.check)(cx, key.clone(), None, &mut *ex).await,
+                Ok(RelatedCheck::FoundViewable)
+            );
+            if !seen {
+                keys.push(key);
+            }
+        }
+        (keys.len() != before).then(|| crate::form::encode_list(&keys))
+    }
+}
+
+/// The keys a multiple choice's `value` holds, or the error refusing it: a value that is no list,
+/// or one choosing more options than a choice loads.
+fn chosen(label: &str, value: &str) -> std::result::Result<Vec<String>, String> {
+    let keys = decode_list(value).ok_or_else(|| format!("{label} is invalid"))?;
+    if keys.len() > MAX_RELATIONSHIP_OPTIONS {
+        return Err(format!(
+            "{label} takes at most {MAX_RELATIONSHIP_OPTIONS} choices"
+        ));
+    }
+    Ok(keys)
 }
 
 /// The wording of a failed option load.
@@ -345,6 +464,9 @@ impl Field {
         id: String,
         placement: Placement<'_>,
     ) -> Result<BoxView<'a>> {
+        if choice.multiple {
+            return self.render_choices(choice, cx, value, error, id).await;
+        }
         let parent = placement.parent;
         let name = self.name().to_string();
         let required = self.required;

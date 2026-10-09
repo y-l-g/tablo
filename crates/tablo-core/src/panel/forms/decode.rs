@@ -37,8 +37,14 @@ pub(crate) async fn parse_form_body(cx: &Cx, body: Body) -> Result<FormParts, to
             topcoat::router::error::bad_request("cannot read form body").into()
         }
     })?;
+    let pairs = form_pairs_from_request_parts(content_type.as_deref(), bytes.as_ref())?;
+    let mut lists: HashMap<String, Vec<String>> = HashMap::new();
+    for (name, value) in &pairs {
+        lists.entry(name.clone()).or_default().push(value.clone());
+    }
     Ok(FormParts {
-        values: form_values_from_request_parts(content_type.as_deref(), bytes.as_ref())?,
+        values: pairs.into_iter().collect(),
+        lists,
         files: HashMap::new(),
         file_part_names: HashSet::new(),
     })
@@ -61,6 +67,7 @@ async fn parse_multipart_values(
 
     let mut out = FormParts {
         values: HashMap::new(),
+        lists: HashMap::new(),
         files: HashMap::new(),
         file_part_names: HashSet::new(),
     };
@@ -116,6 +123,10 @@ async fn parse_multipart_values(
                 // A later text part clears the name from the file-part set.
                 out.file_part_names.remove(&name);
                 out.files.remove(&name);
+                out.lists
+                    .entry(name.clone())
+                    .or_default()
+                    .push(text.clone());
                 out.values.insert(name, text);
             }
         }
@@ -169,11 +180,12 @@ fn filename_star_from_headers(
     })
 }
 
-/// Parses urlencoded bytes, rejecting bodies over `MAX_FORM_BYTES` with 413.
-fn form_values_from_request_parts(
+/// Parses urlencoded bytes into their pairs in body order, rejecting bodies over
+/// `MAX_FORM_BYTES` with 413.
+fn form_pairs_from_request_parts(
     content_type: Option<&str>,
     bytes: &[u8],
-) -> Result<HashMap<String, String>, topcoat::Error> {
+) -> Result<Vec<(String, String)>, topcoat::Error> {
     if bytes.len() > MAX_FORM_BYTES {
         return Err(topcoat::router::error::content_too_large().into());
     }
@@ -181,7 +193,7 @@ fn form_values_from_request_parts(
         content_type.is_none_or(|ct| !is_multipart_content_type(ct)),
         "multipart must stream via parse_multipart_values, not buffer here"
     );
-    Ok(form_values_from_bytes(bytes))
+    Ok(form_urlencoded::parse(bytes).into_owned().collect())
 }
 
 /// Strips a client filename to a safe basename capped at 255 bytes, rejecting `.`, `..`, and
@@ -262,8 +274,5 @@ fn is_pct_encoded(value: &str) -> bool {
     true
 }
 
-fn form_values_from_bytes(bytes: &[u8]) -> HashMap<String, String> {
-    form_urlencoded::parse(bytes).into_owned().collect()
-}
 #[cfg(test)]
 mod tests;

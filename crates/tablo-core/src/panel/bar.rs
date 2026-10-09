@@ -125,6 +125,24 @@ pub(crate) fn record_bar<R: Resource>(
 }
 
 impl ActionBar {
+    /// One button labelled `label`, whose dialog asks for `input` and posts it to `url`,
+    /// searching its choices' options at `options`.
+    pub(crate) fn input(label: String, url: String, input: InputSpec, options: String) -> Self {
+        Self {
+            buttons: vec![ActionButton {
+                label,
+                url,
+                confirm: None,
+                delete: false,
+                input: Some(Input {
+                    spec: input,
+                    confirm: false,
+                    options,
+                }),
+            }],
+        }
+    }
+
     /// Sends each button's write back to `target`.
     pub(crate) fn returning_to(mut self, target: &str) -> Self {
         for action in &mut self.buttons {

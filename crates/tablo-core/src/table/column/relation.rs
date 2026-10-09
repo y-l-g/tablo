@@ -8,7 +8,7 @@ use toasty::{Deferred, stmt::Path};
 use topcoat::context::Cx;
 
 use super::{Column, ColumnWidth, Includes};
-use crate::{DeclarationErrorKind, schema::OptionSource, toasty_compat::model};
+use crate::{DeclarationErrorKind, policy::Ability, schema::OptionSource, toasty_compat::model};
 
 /// A relation field's include, which loads it, paired with the function that reads the loaded
 /// relation off a record.
@@ -182,8 +182,9 @@ impl<T: toasty::schema::Model> ToOneRelation<T> for Deferred<Option<T>> {
     }
 }
 
-/// A column showing the record of a `Deferred` `belongs_to` or `has_one` field as text, which
-/// declares the field's include so every page that renders it loads the record.
+/// A column showing the record of a `Deferred` `belongs_to` or `has_one` field as text, or the
+/// records of a `has_many` one ([`list`](Self::list)), which declares the field's include so every
+/// page that renders it loads them.
 ///
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model)]
@@ -280,6 +281,77 @@ where
                     target
                         .map(|target| S::label(cx, target))
                         .unwrap_or_default()
+                })
+            }),
+        }
+    }
+
+    /// Declare a column listing the records a `has_many` `relation` loads, a many-to-many
+    /// `#[has_many(via = ..)]` one included, each by `S`'s [`label`](OptionSource::label), joined
+    /// by commas, but the ones `S` does not let the user view. A record form's many-to-many field
+    /// shows on its derived detail page this way.
+    ///
+    /// ```rust
+    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # struct Post {
+    /// #     #[key] #[auto] id: uuid::Uuid,
+    /// #     #[has_many]
+    /// #     taggings: toasty::Deferred<Vec<Tagging>>,
+    /// #     #[has_many(via = taggings.tag)]
+    /// #     tags: toasty::Deferred<Vec<Tag>>,
+    /// # }
+    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # struct Tag { #[key] #[auto] id: uuid::Uuid, name: String }
+    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # struct Tagging {
+    /// #     #[key] #[auto] id: uuid::Uuid,
+    /// #     #[index] post_id: uuid::Uuid,
+    /// #     #[belongs_to(key = post_id, references = id)]
+    /// #     post: toasty::Deferred<Post>,
+    /// #     #[index] tag_id: uuid::Uuid,
+    /// #     #[belongs_to(key = tag_id, references = id)]
+    /// #     tag: toasty::Deferred<Tag>,
+    /// # }
+    /// # struct TagResource;
+    /// # impl tablo_core::extend::OptionSource for TagResource {
+    /// #     type Model = Tag;
+    /// #     fn scoped_query(_cx: &topcoat::context::Cx)
+    /// #         -> topcoat::Result<toasty::stmt::Query<toasty::stmt::List<Tag>>>
+    /// #     {
+    /// #         Ok(toasty::stmt::Query::all())
+    /// #     }
+    /// #     fn label(_cx: &topcoat::context::Cx, tag: &Tag) -> String {
+    /// #         tag.name.clone()
+    /// #     }
+    /// #     fn allows(_cx: &topcoat::context::Cx, _: tablo_core::Ability<'_, Tag>) -> bool {
+    /// #         true
+    /// #     }
+    /// # }
+    /// use tablo_core::{RelationColumn, relation};
+    ///
+    /// RelationColumn::list::<TagResource>(relation!(Post.tags));
+    /// ```
+    pub fn list<S>(relation: RelationLens<M, Deferred<Vec<S::Model>>>) -> Self
+    where
+        S: OptionSource,
+        M: 'static,
+    {
+        let read = relation.read;
+        Self {
+            relation: Declared {
+                source: Some((std::any::type_name::<S>(), S::available)),
+                ..Declared::of(&relation, ColumnWidth::Wide)
+            },
+            project: Arc::new(move |cx, row| {
+                let records = read(row);
+                (!records.is_unloaded()).then(|| {
+                    records
+                        .get()
+                        .iter()
+                        .filter(|record| S::allows(cx, Ability::View(record)))
+                        .map(|record| S::label(cx, record))
+                        .collect::<Vec<_>>()
+                        .join(", ")
                 })
             }),
         }

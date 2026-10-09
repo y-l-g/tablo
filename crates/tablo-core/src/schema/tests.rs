@@ -126,3 +126,61 @@ fn extend_keeps_the_duplicate_field_check() {
         }]
     );
 }
+
+/// A multiple choice over static options, posting `tags`.
+fn tags() -> Schema {
+    Schema::new(
+        Field::choice_input("tags")
+            .options(["rust", "async", "sql"])
+            .multiple(),
+    )
+}
+
+/// A multiple choice posts its key once per checked box, after the hidden blank: the fold keeps
+/// each value once, in order, and drops the blank; a choice that posts nothing folds nothing.
+#[test]
+fn a_multiple_choice_folds_what_it_posted_into_one_list() {
+    let lists = HashMap::from([(
+        "tags".to_string(),
+        ["", "sql", " rust ", "sql"].map(String::from).to_vec(),
+    )]);
+    let mut values = HashMap::from([("tags".to_string(), "sql".to_string())]);
+    tags().fold_choices(&mut values, &lists);
+    assert_eq!(
+        crate::form::parse_list::<String>("tags", &values),
+        Ok(vec!["sql".to_string(), "rust".to_string()])
+    );
+    let mut untouched = HashMap::new();
+    tags().fold_choices(&mut untouched, &HashMap::new());
+    assert!(untouched.is_empty());
+}
+
+/// Each value a multiple choice holds is checked as one choice's would be, and a value that is
+/// no list, or lists more than a choice loads, is refused whole.
+#[tokio::test]
+async fn a_multiple_choice_checks_each_value_it_holds() {
+    let cx = crate::test_support::cx();
+    let refused = async |value: String| {
+        let values = HashMap::from([("tags".to_string(), value)]);
+        tags().checked(&cx, &values).await.contains_key("tags")
+    };
+    let list = |items: &[&str]| {
+        crate::form::encode_list(
+            &items
+                .iter()
+                .map(|item| item.to_string())
+                .collect::<Vec<_>>(),
+        )
+    };
+    assert!(!refused(list(&["rust", "sql"])).await);
+    assert!(!refused(list(&[])).await, "none chosen");
+    assert!(
+        refused(list(&["rust", "go"])).await,
+        "a value that is no option"
+    );
+    assert!(
+        refused(list(&["rust"; MAX_RELATIONSHIP_OPTIONS + 1])).await,
+        "more than a choice loads"
+    );
+    assert!(refused("rust".to_string()).await, "a value that is no list");
+}

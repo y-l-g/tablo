@@ -140,3 +140,38 @@ one it does not.
 
 Mounting the panel refuses a relation to a resource the panel does not register, and two relations of
 one resource to the same related resource.
+
+### Many-to-many relations
+
+`Relation::belongs_to_many` names the owner's `#[has_many(via = ..)]` field over a join model,
+declared as for a [many-to-many field](./forms.md#many-to-many-fields). The table lists the
+related records the owner links, and attaches and detaches them as join rows:
+
+```rust
+impl Resource for TagResource {
+    // …
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            // …
+{{#include ../../../examples/guide/src/forms.rs:tag-relations}}
+    }
+}
+```
+
+- **Attach.** The section's header carries an Attach button, whose dialog asks for one record
+  with a searchable choice, offered as a relationship's options are. Attaching a record the owner
+  links already changes nothing.
+- **Detach.** Each row and the bulk bar carry Detach, which deletes the join rows and leaves the
+  records.
+- **Policy.** Attaching and detaching ask the owner's policy for `Update`, as editing it does: no
+  button renders without it, and the routes answer 403. A record the related resource's policy
+  refuses `View` is neither offered nor detached.
+- **Actions.** The rows keep the related resource's View, Edit and Delete, and the table offers
+  none of its custom actions and no create button: a record created there would link nothing.
+- **Routes.** Both post under the owner's record:
+  `{list}/{id}/-/relations/{slug}/-/actions/attach`, `…/-/actions/detach` with the selection's
+  `ids`, and `…/{related}/-/actions/detach` for one row, `{slug}` being the related resource's.
+- **Hooks.** The owner's `after_commit` receives `Mutation::Attach` or `Mutation::Detach` with
+  the owner.
+
+Mounting refuses a join model a link cannot write, as for a many-to-many field.
