@@ -61,7 +61,7 @@ impl Resource for NoteResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .slug("notes")
-            .policy(|_cx: &Cx, ability: Ability<'_, Note>| matches!(ability, Ability::ViewAny))
+            .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny))
             .table(Table::new(TextColumn::new(lens!(Note.body))))
     }
 }

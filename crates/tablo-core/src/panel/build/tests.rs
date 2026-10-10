@@ -51,7 +51,7 @@ async fn a_plain_slug_builds_and_resolves() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("user-profiles_2")
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny))
+                .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny))
                 .table(
                     crate::table::Table::new(crate::table::TextColumn::new(lens!(Dummy.name)))
                         .paginate(25),
@@ -98,7 +98,7 @@ async fn a_star_slug_builds_and_resolves() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("user*profiles")
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny))
+                .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny))
                 .table(
                     crate::table::Table::new(crate::table::TextColumn::new(lens!(Dummy.name)))
                         .paginate(25),
@@ -144,7 +144,7 @@ async fn csrf_is_enforced_with_auth_disabled() {
 
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::Create))
+                .policy_fn(|_cx, ability| matches!(ability, Ability::Create))
                 .table(dummy_table())
         }
     }
@@ -374,7 +374,7 @@ resource!(OpenParents, Parent => ResourceDef::new()
 // A child resource inheriting its tenant through `parent`, whose form declares the key.
 resource!(WithoutKey, Child, NameForm => ResourceDef::new()
     .slug("children")
-    .policy(|_cx: &Cx, ability: Ability<'_, Child>| {
+    .policy_fn(|_cx, ability| {
         matches!(ability, Ability::ViewAny | Ability::Create)
     })
     .tenancy(Tenancy::via(Child::fields().parent().tenant_id()))
@@ -382,7 +382,7 @@ resource!(WithoutKey, Child, NameForm => ResourceDef::new()
     .form(Schema::default()));
 resource!(OverOpenParent, Child, KeyedForm => ResourceDef::new()
 .slug("children")
-.policy(|_cx: &Cx, ability: Ability<'_, Child>| {
+.policy_fn(|_cx, ability| {
     matches!(ability, Ability::ViewAny | Ability::Create)
 })
 .tenancy(Tenancy::via(Child::fields().parent().tenant_id()))
@@ -393,7 +393,7 @@ resource!(OverOpenParent, Child, KeyedForm => ResourceDef::new()
 }));
 resource!(OverScopedParent, Child, KeyedForm => ResourceDef::new()
 .slug("children")
-.policy(|_cx: &Cx, ability: Ability<'_, Child>| {
+.policy_fn(|_cx, ability| {
     matches!(ability, Ability::ViewAny | Ability::Create)
 })
 .tenancy(Tenancy::via(Child::fields().parent().tenant_id()))
@@ -408,7 +408,7 @@ resource!(Seats, Seat => ResourceDef::new()
 resource!(Seated, Child, SeatedForm => {
     let c = SeatedForm::controls();
     ResourceDef::new()
-        .policy(|_cx: &Cx, ability: Ability<'_, Child>| {
+        .policy_fn(|_cx, ability| {
             matches!(ability, Ability::ViewAny | Ability::Create)
         })
         .table(Table::new(TextColumn::new(lens!(Child.name))))
@@ -418,7 +418,7 @@ resource!(Seated, Child, SeatedForm => {
 // Not gated, so the tenant is not stamped: a create override would set it.
 resource!(AuthorResource, Author, AuthorForm => ResourceDef::new()
     .slug("authors")
-    .policy(|_cx: &Cx, ability: Ability<'_, Author>| {
+    .policy_fn(|_cx, ability| {
         matches!(ability, Ability::ViewAny | Ability::Create)
     })
     .table(Table::new(TextColumn::new(lens!(Author.email))))
@@ -426,7 +426,7 @@ resource!(AuthorResource, Author, AuthorForm => ResourceDef::new()
     .create_column(Author::fields().tenant_id()));
 resource!(UnbackedResource, Subscriber, UnbackedForm => ResourceDef::new()
     .slug("subscribers")
-    .policy(|_cx: &Cx, ability: Ability<'_, Subscriber>| {
+    .policy_fn(|_cx, ability| {
         matches!(ability, Ability::ViewAny | Ability::Create)
     })
     .table(Table::new(TextColumn::new(lens!(Subscriber.nickname))))
@@ -434,14 +434,14 @@ resource!(UnbackedResource, Subscriber, UnbackedForm => ResourceDef::new()
 // `Create` keeps its default (deny); only the form is declared.
 resource!(ReadOnlyResource, Subscriber, ReadOnlyForm => ResourceDef::new()
     .slug("subscribers")
-    .policy(|_cx: &Cx, ability: Ability<'_, Subscriber>| {
+    .policy_fn(|_cx, ability| {
         matches!(ability, Ability::ViewAny)
     })
     .table(Table::new(TextColumn::new(lens!(Subscriber.nickname))))
     .form(Schema::new(ReadOnlyForm::controls().nickname.unique())));
 resource!(ChromeResource, Subscriber, ChromeForm => ResourceDef::new()
     .slug("subscribers")
-    .policy(|_cx: &Cx, ability: Ability<'_, Subscriber>| {
+    .policy_fn(|_cx, ability| {
         matches!(ability, Ability::DeleteAny | Ability::Delete(_))
     })
     .table(keyed_table()));
@@ -470,7 +470,7 @@ resource!(ZeroPageResource, Doc => ResourceDef::new()
 resource!(Tickets, Ticket, TicketForm => ResourceDef::new()
     .slug("tickets")
     .tenancy(Tenancy::column(Ticket::fields().tenant_id()))
-    .policy(|_cx: &Cx, ability: Ability<'_, Ticket>| {
+    .policy_fn(|_cx, ability| {
         matches!(ability, Ability::ViewAny | Ability::Create)
     })
     .table(Table::new(TextColumn::new(lens!(Ticket.title))))
@@ -601,7 +601,7 @@ async fn panel_sends_frame_ancestors_unless_opted_out() {
                 // A rendered page, not the default-deny 403: an error response is
                 // produced above the layer chain, so only a served document proves
                 // the header is installed.
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny))
+                .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny))
                 .table(dummy_table())
         }
     }
@@ -710,7 +710,7 @@ async fn a_resource_declares_once_when_its_panel_mounts() {
             DECLARE_CALLS.fetch_add(1, Ordering::SeqCst);
             ResourceDef::new()
                 .slug("dummies")
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| {
+                .policy_fn(|_cx, ability| {
                     matches!(
                         ability,
                         Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)

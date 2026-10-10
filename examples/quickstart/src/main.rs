@@ -6,7 +6,6 @@ use toasty::Db;
 use topcoat::{
     Result,
     asset::{AssetBundle, RouterBuilderAssetExt},
-    context::Cx,
     font::{Font, fontsource::fontsource_font},
     router::{Router, RouterBuilder, RouterBuilderDiscoverExt},
     tailwind,
@@ -29,9 +28,8 @@ impl Resource for BookResource {
     type Form = BookForm;
 
     fn declare() -> ResourceDef<Self> {
-        ResourceDef::new().policy(|_cx: &Cx, ability: Ability<'_, Book>| {
-            !matches!(ability, Ability::DeleteAny | Ability::Delete(_))
-        })
+        ResourceDef::new()
+            .policy_fn(|_cx, ability| !matches!(ability, Ability::DeleteAny | Ability::Delete(_)))
     }
 }
 

@@ -4,10 +4,7 @@
 //! mounting helpers; one copy lives here.
 
 use toasty::Db;
-use topcoat::{
-    context::Cx,
-    router::{Body, Router, RouterBuilderDiscoverExt},
-};
+use topcoat::router::{Body, Router, RouterBuilderDiscoverExt};
 
 use crate::{
     Ability, Panel, RouterBuilderPanelExt, lens,
@@ -145,7 +142,7 @@ impl crate::resource::Resource for TaggedResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .slug("tagged")
-            .policy(|_cx: &Cx, ability: Ability<'_, Tagged>| {
+            .policy_fn(|_cx, ability| {
                 matches!(
                     ability,
                     Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)

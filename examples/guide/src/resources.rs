@@ -36,7 +36,7 @@ impl Resource for UserResource {
             )
             // ANCHOR_END: user-table
             // ANCHOR: user-policy
-            .policy(|cx: &Cx, ability: Ability<'_, User>| match ability {
+            .policy_fn(|cx, ability: Ability<'_, User>| match ability {
                 Ability::ViewAny | Ability::View(_) => true,
                 Ability::Update(user) => !user.sso_managed,
                 Ability::Create

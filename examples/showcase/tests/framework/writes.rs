@@ -29,13 +29,11 @@ async fn create_policy_deny() {
 
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
-                .policy(
-                    |_cx: &topcoat::context::Cx, ability: Ability<'_, DummyUser>| match ability {
-                        Ability::ViewAny => true,
-                        Ability::Create => false,
-                        _ => false,
-                    },
-                )
+                .policy_fn(|_cx, ability| match ability {
+                    Ability::ViewAny => true,
+                    Ability::Create => false,
+                    _ => false,
+                })
                 .table(Table::new(TextColumn::new(lens!(DummyUser.name))))
         }
     }
@@ -103,9 +101,7 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("widgets")
-                .policy(|_cx: &topcoat::context::Cx, ability: Ability<'_, Widget>| {
-                    matches!(ability, Ability::ViewAny | Ability::Create)
-                })
+                .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
                 .table(Table::new(TextColumn::new(lens!(Widget.name))).paginate(25))
         }
 
@@ -204,7 +200,7 @@ async fn forged_delete_runs_no_record_query() {
 
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
-                .policy(|_cx: &topcoat::context::Cx, ability: Ability<'_, Dummy>| {
+                .policy_fn(|_cx, ability| {
                     matches!(
                         ability,
                         Ability::ViewAny
@@ -303,15 +299,13 @@ async fn bulk_delete_hand_crafted_partial_deny_skips_the_refused_row() {
 
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
-                .policy(
-                    |_cx: &topcoat::context::Cx, ability: Ability<'_, DummyUser>| match ability {
-                        Ability::ViewAny => true,
-                        Ability::View(_rec) => true,
-                        Ability::DeleteAny => true,
-                        Ability::Delete(rec) => rec.name != "b",
-                        _ => false,
-                    },
-                )
+                .policy_fn(|_cx, ability: Ability<'_, DummyUser>| match ability {
+                    Ability::ViewAny => true,
+                    Ability::View(_rec) => true,
+                    Ability::DeleteAny => true,
+                    Ability::Delete(rec) => rec.name != "b",
+                    _ => false,
+                })
                 .table(Table::new(TextColumn::new(lens!(DummyUser.name))))
         }
     }

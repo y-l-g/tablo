@@ -59,9 +59,7 @@ async fn two_lists_declare_distinct_signal_ids() {
                 fn declare() -> ResourceDef<Self> {
                     ResourceDef::new()
                         .slug($slug)
-                        .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| {
-                            matches!(ability, Ability::ViewAny)
-                        })
+                        .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny))
                         .table(dummy_table().paginate(25))
                 }
             }
@@ -128,7 +126,7 @@ async fn a_rerun_renders_the_query_its_signal_carries() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("dummies")
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny))
+                .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny))
                 .table(crate::table::Table::new(
                     crate::table::TextColumn::new(lens!(Dummy.name)).searchable(),
                 ))
@@ -207,7 +205,7 @@ async fn read_only_resource_hides_delete_chrome() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("dummies")
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny))
+                .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny))
                 .table(dummy_table().paginate(25))
         }
     }
@@ -270,7 +268,7 @@ async fn non_editable_resource_hides_edit_links() {
                 // The row policy mirrors the edit route's own `View`
                 // + `Update` check, so a form beside default-deny predicates
                 // renders no link.
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| {
+                .policy_fn(|_cx, ability| {
                     matches!(
                         ability,
                         Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)
@@ -293,7 +291,7 @@ async fn non_editable_resource_hides_edit_links() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("dummies")
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny))
+                .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny))
                 .table(dummy_table().paginate(25))
         }
     }
@@ -305,7 +303,7 @@ async fn non_editable_resource_hides_edit_links() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("dummies")
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny))
+                .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny))
                 .table(dummy_table().paginate(25))
         }
     }

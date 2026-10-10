@@ -95,7 +95,7 @@ async fn composite_pk_edit_fails_loudly_not_404() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("pairs")
-                .policy(|_cx: &Cx, ability: Ability<'_, Pair>| {
+                .policy_fn(|_cx, ability| {
                     matches!(
                         ability,
                         Ability::ViewAny | Ability::View(_) | Ability::Update(_)

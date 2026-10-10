@@ -13,10 +13,7 @@ use tablo::{
     lens,
 };
 use toasty::Db;
-use topcoat::{
-    context::Cx,
-    router::{Body, Router, response::Response},
-};
+use topcoat::router::{Body, Router, response::Response};
 use uuid::Uuid;
 
 use crate::framework::common::{
@@ -79,7 +76,7 @@ impl Resource for DocResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             // Every policy hook defaults to deny.
-            .policy(|_cx: &Cx, ability: Ability<'_, Doc>| {
+            .policy_fn(|_cx, ability| {
                 matches!(
                     ability,
                     Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)

@@ -14,7 +14,7 @@ impl crate::resource::Resource for ChunkerDummyResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .slug("dummies")
-            .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny))
+            .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny))
             .table(dummy_table())
     }
 }
@@ -33,7 +33,7 @@ async fn export_drops_rows_failing_view() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("dummies")
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| match ability {
+                .policy_fn(|_cx, ability: Ability<'_, Dummy>| match ability {
                     Ability::ViewAny => true,
                     Ability::View(record) => record.name != "denied",
                     _ => false,
@@ -294,7 +294,7 @@ async fn export_of_an_empty_table_emits_the_header() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("dummies")
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny))
+                .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny))
                 .table(dummy_table())
         }
     }
@@ -366,7 +366,7 @@ async fn export_visibility_scan_loads_no_includes() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("children")
-                .policy(|_cx: &Cx, ability: Ability<'_, Child>| match ability {
+                .policy_fn(|_cx, ability: Ability<'_, Child>| match ability {
                     Ability::ViewAny => true,
                     Ability::View(record) => {
                         if record.parent.is_unloaded() {
@@ -458,7 +458,7 @@ async fn export_counts_only_viewable_rows_within_the_window() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("dummies")
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| match ability {
+                .policy_fn(|_cx, ability: Ability<'_, Dummy>| match ability {
                     Ability::ViewAny => true,
                     Ability::View(record) => !record.name.starts_with("denied-"),
                     _ => false,
@@ -509,7 +509,7 @@ async fn export_refuses_when_viewable_rows_lie_past_the_window() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("dummies")
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| match ability {
+                .policy_fn(|_cx, ability: Ability<'_, Dummy>| match ability {
                     Ability::ViewAny => true,
                     Ability::View(record) => !record.name.starts_with("denied-"),
                     _ => false,

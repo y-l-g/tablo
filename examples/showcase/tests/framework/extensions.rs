@@ -177,9 +177,7 @@ impl Resource for TaskResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .slug("tasks")
-            .policy(|_cx: &Cx, ability: Ability<'_, Task>| {
-                !matches!(ability, Ability::DeleteAny | Ability::Delete(_))
-            })
+            .policy_fn(|_cx, ability| !matches!(ability, Ability::DeleteAny | Ability::Delete(_)))
             .table(
                 Table::new((
                     TextColumn::new(lens!(Task.title)).sortable(),
@@ -726,7 +724,7 @@ impl Resource for ConfirmResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .slug("confirmed")
-            .policy(|_cx: &Cx, ability: Ability<'_, Task>| {
+            .policy_fn(|_cx, ability| {
                 matches!(
                     ability,
                     Ability::ViewAny
