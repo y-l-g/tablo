@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0](https://github.com/y-l-g/tablo/compare/tablo-core-v0.5.1...tablo-core-v0.6.0) - 2026-10-10
+
+### Added
+
+- *(auth)* let visitors sign up through a Registrar ([#577](https://github.com/y-l-g/tablo/pull/577))
+- *(schema)* link records through a join model, from a form and a related table ([#576](https://github.com/y-l-g/tablo/pull/576))
+- *(schema)* edit a #[document] list in a repeater, a row per item ([#573](https://github.com/y-l-g/tablo/pull/573))
+- *(panel)* ask for an action's input in a dialog over the page ([#572](https://github.com/y-l-g/tablo/pull/572))
+- *(schema)* narrow a relationship choice to the rows of another field's value ([#571](https://github.com/y-l-g/tablo/pull/571))
+- *(schema)* show a field or a layout block only while another field posts a value ([#570](https://github.com/y-l-g/tablo/pull/570))
+- *(panel)* [**breaking**] run actions from record pages, list headers and custom pages ([#567](https://github.com/y-l-g/tablo/pull/567)) ([#568](https://github.com/y-l-g/tablo/pull/568))
+- *(auth)* throttle sign-in attempts per login and address ([#563](https://github.com/y-l-g/tablo/pull/563)) ([#566](https://github.com/y-l-g/tablo/pull/566))
+- *(resource)* [**breaking**] title a record by a column lens with record_title ([#565](https://github.com/y-l-g/tablo/pull/565))
+- *(panel)* gate a page with Page::can_access and list only what the user may open ([#562](https://github.com/y-l-g/tablo/pull/562))
+- *(core)* hand a background job the mounted panel through PanelHandle ([#557](https://github.com/y-l-g/tablo/pull/557))
+- *(core)* match a policy on an action's type with Ability::is_action ([#556](https://github.com/y-l-g/tablo/pull/556))
+- *(test)* sign a test client in with TestClient::sign_in ([#555](https://github.com/y-l-g/tablo/pull/555))
+- *(core)* [**breaking**] declare a relationship once, on the record form ([#551](https://github.com/y-l-g/tablo/pull/551))
+- *(core)* [**breaking**] type a resource's form by its record form ([#546](https://github.com/y-l-g/tablo/pull/546))
+- *(panel)* export the list as CSV from the page header ([#547](https://github.com/y-l-g/tablo/pull/547))
+- *(core)* default an action's label to its name in sentence case ([#543](https://github.com/y-l-g/tablo/pull/543))
+- *(core)* default a resource's label to its model name in sentence case ([#542](https://github.com/y-l-g/tablo/pull/542))
+- *(core)* [**breaking**] let a custom action ask for typed input before it runs ([#540](https://github.com/y-l-g/tablo/pull/540))
+- *(core)* add `RelationColumn` and `CountColumn` over a `relation!` lens ([#539](https://github.com/y-l-g/tablo/pull/539))
+- *(core)* [**breaking**] bind `Options` enums as typed form scalars ([#538](https://github.com/y-l-g/tablo/pull/538))
+- *(core)* [**breaking**] declare the detail page as typed columns ([#537](https://github.com/y-l-g/tablo/pull/537))
+- *(core)* [**breaking**] authorize custom actions through `RunAny` and `Run` policy abilities ([#536](https://github.com/y-l-g/tablo/pull/536))
+
+### Fixed
+
+- *(table)* search case-insensitively on PostgreSQL ([#584](https://github.com/y-l-g/tablo/pull/584))
+- *(macros)* label an EmbeddedForm field in sentence case ([#582](https://github.com/y-l-g/tablo/pull/582))
+- *(core)* keep a resource's icon and order on a replaced sidebar entry ([#581](https://github.com/y-l-g/tablo/pull/581))
+- *(schema)* disable the hidden variant groups' controls ([#569](https://github.com/y-l-g/tablo/pull/569))
+- *(panel)* [**breaking**] refuse a file field when the panel installs no uploader ([#560](https://github.com/y-l-g/tablo/pull/560))
+- *(core)* render a blank value as a dash ([#548](https://github.com/y-l-g/tablo/pull/548))
+
+### Other
+
+- compile every rustdoc example ([#554](https://github.com/y-l-g/tablo/pull/554))
+- drop the lowest-value tenth of the suite ([#553](https://github.com/y-l-g/tablo/pull/553))
+- reorganize the suite by feature and pin each behavior once ([#552](https://github.com/y-l-g/tablo/pull/552))
+- *(core)* [**breaking**] gather the extension traits in `tablo::extend` ([#544](https://github.com/y-l-g/tablo/pull/544))
+- seed the admin in one call and fix stale docs and module layout ([#541](https://github.com/y-l-g/tablo/pull/541))
+
 ## [0.5.1](https://github.com/y-l-g/tablo/compare/tablo-core-v0.5.0...tablo-core-v0.5.1) - 2026-10-07
 
 ### Other
