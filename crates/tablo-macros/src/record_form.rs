@@ -59,6 +59,11 @@ struct StructAttrs {
 }
 
 fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
+    expand_as(input, "RecordForm")
+}
+
+/// The expansion of `input`, naming `derive` when no `tablo` dependency is found.
+pub(crate) fn expand_as(input: DeriveInput, derive: &str) -> syn::Result<TokenStream2> {
     if !input.generics.params.is_empty() {
         return Err(syn::Error::new_spanned(
             &input.generics,
@@ -95,7 +100,7 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
         .iter()
         .map(field_spec)
         .collect::<syn::Result<Vec<_>>>()?;
-    let krate = crate::tablo_core_path(&input.ident, "RecordForm")?;
+    let krate = crate::tablo_core_path(&input.ident, derive)?;
     Ok(expand_struct(&krate, &input, &attrs, &fields))
 }
 

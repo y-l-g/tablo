@@ -288,6 +288,43 @@ pub use tablo_macros::ActionInput;
 /// `optional` on an embedded value, `blank` or `optional` on an `Option`, and `optional` on a
 /// type other than `String`.
 pub use tablo_macros::EmbeddedForm;
+/// Derive a model's [`RecordForm`](derive@RecordForm) struct from the model: the fields a
+/// person fills, named and typed as the model declares them.
+///
+/// ```rust
+/// #[derive(Debug, Clone, toasty::Model, tablo_core::ModelForm)]
+/// pub struct Book {
+///     #[key]
+///     #[auto]
+///     pub id: uuid::Uuid,
+///     pub title: String,
+///     #[form(optional)]
+///     pub subtitle: String,
+///     #[default(jiff::Timestamp::now())]
+///     pub created_at: jiff::Timestamp,
+/// }
+///
+/// // The derive wrote `BookForm { title, subtitle }`, with `BookFormField` and
+/// // `BookFormControls`, as `#[derive(RecordForm)]` would.
+/// let form = BookForm {
+///     title: "Dune".into(),
+///     subtitle: String::new(),
+/// };
+/// # let _ = form;
+/// ```
+///
+/// The form leaves out what no person fills: a `#[key]` field, an `#[auto]`, `#[update]` or
+/// `#[version]` field, a relation, and a `TenantId` or `Option<TenantId>` tenant column. A
+/// form key on one of those is a compile error. A `#[default]` field and a `#[belongs_to]`
+/// foreign key are left out unless a form key opts them in, such as `#[form(repeat)]` on a
+/// defaulted list or `#[form(relationship = AuthorResource)]` on a foreign key.
+/// `#[form(skip)]` leaves out any other field.
+///
+/// A field's `#[form(..)]` keys are [`RecordForm`](derive@RecordForm)'s, as are the form's
+/// checks and defaults. `#[form(name = BookEditor)]` on the model names the form, `BookForm`
+/// otherwise. A form whose fields differ from the model's, such as a many-to-many field's
+/// keys, is a `#[derive(RecordForm)]` struct.
+pub use tablo_macros::ModelForm;
 /// Derive `Options` for a unit-variant enum: the `(value, label)` list a
 /// choice field, a select filter and a column share, and the `FormScalar`
 /// that posts a variant as its value and reads it as its label.

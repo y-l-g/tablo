@@ -1,9 +1,10 @@
-//! The `RecordForm`, `EmbeddedForm`, `ActionInput`, `RepeaterItem` and `Options` derives,
-//! re-exported by `tablo-core`.
+//! The `RecordForm`, `ModelForm`, `EmbeddedForm`, `ActionInput`, `RepeaterItem` and `Options`
+//! derives, re-exported by `tablo-core`.
 
 mod embedded;
 mod fields;
 mod input;
+mod model_form;
 mod options;
 mod record_form;
 
@@ -23,6 +24,14 @@ pub fn embedded_form(input: TokenStream) -> TokenStream {
 pub fn record_form(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as DeriveInput);
     record_form::expand_tokens(input).into()
+}
+
+/// Derive the `RecordForm` struct of a model's fillable fields; documented on the `tablo-core`
+/// re-export.
+#[proc_macro_derive(ModelForm, attributes(form))]
+pub fn model_form(input: TokenStream) -> TokenStream {
+    let input = syn::parse_macro_input!(input as DeriveInput);
+    model_form::expand_tokens(input).into()
 }
 
 /// Derive `ActionInput` for the typed value an action asks for; documented on the `tablo-core`
