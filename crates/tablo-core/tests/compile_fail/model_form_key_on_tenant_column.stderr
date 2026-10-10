@@ -1,4 +1,4 @@
-error: #[derive(ModelForm)] leaves this field out: the panel stamps the tenant column. Declare a `#[derive(RecordForm)]` struct to write it
+error: #[derive(ModelForm)] leaves this field out: a `TenantId` column belongs to the resource's `Tenancy`; drop the `#[form(..)]` key
  --> tests/compile_fail/model_form_key_on_tenant_column.rs:6:5
   |
 6 |     #[form(optional)]

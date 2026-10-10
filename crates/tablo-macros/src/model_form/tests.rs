@@ -46,18 +46,19 @@ fn the_form_holds_the_fields_a_person_fills() {
 }
 
 #[test]
-fn a_form_field_is_public_and_keeps_its_docs_and_form_keys() {
+fn a_form_field_keeps_its_visibility_docs_and_form_keys() {
     let fields = fields(
-        "struct Book {
+        "pub struct Book {
             /// The cover title.
             #[index]
             #[form(optional)]
-            title: String,
+            pub title: String,
+            pub(crate) note: String,
         }",
     );
-    let field = &fields[0];
-    assert!(matches!(field.vis, syn::Visibility::Public(_)));
-    let attrs: Vec<String> = field
+    assert!(matches!(fields[0].vis, syn::Visibility::Public(_)));
+    assert!(matches!(fields[1].vis, syn::Visibility::Restricted(_)));
+    let attrs: Vec<String> = fields[0]
         .attrs
         .iter()
         .map(|attr| attr.path().get_ident().expect("an ident").to_string())
@@ -99,6 +100,22 @@ fn a_foreign_key_or_a_defaulted_field_joins_on_a_form_key() {
 fn a_composite_key_is_left_out() {
     let source = "#[key(shelf, slot)] struct Placement { shelf: String, slot: i64, note: String }";
     assert_eq!(names(source), ["note"]);
+    let source = "#[key(name = \"pk\", shelf)] struct Placement { shelf: String, name: String }";
+    assert_eq!(names(source), ["name"]);
+    let source = "#[key(partition = [shelf], local = slot)]
+        struct Placement { shelf: String, slot: i64, local: String, partition: String }";
+    assert_eq!(names(source), ["local", "partition"]);
+}
+
+#[test]
+fn a_composite_foreign_key_is_left_out() {
+    let source = "struct Copy {
+        title: String,
+        shelf: String,
+        slot: i64,
+        #[belongs_to(key = [shelf, slot], references = [shelf, slot])] place: Deferred<Placement>,
+    }";
+    assert_eq!(names(source), ["title"]);
 }
 
 #[test]
@@ -113,26 +130,43 @@ fn skip_leaves_a_field_out_and_takes_no_other_key() {
 }
 
 #[test]
-fn a_form_key_on_a_field_no_form_writes_is_refused() {
-    for (field, reason) in [
-        ("#[key] #[auto] #[form(optional)] id: Uuid", "a key"),
+fn a_form_key_on_a_field_no_form_writes_is_refused_with_its_fix() {
+    for (field, reason, fix) in [
         (
-            "#[form(optional)] tenant_id: Option<TenantId>",
-            "tenant column",
+            "#[key] #[auto] #[form(optional)] id: Uuid",
+            "key",
+            "drop the",
         ),
         (
-            "#[has_many] #[form(relationship = Tags)] tags: Deferred<Vec<Tag>>",
-            "relation",
+            "#[form(optional)] tenant_id: Option<TenantId>",
+            "Tenancy",
+            "drop the",
         ),
         (
             "#[auto] #[form(optional)] created_at: Timestamp",
             "Toasty writes it",
+            "drop the",
+        ),
+        (
+            "#[belongs_to] #[form(relationship = Authors)] author: Deferred<Author>",
+            "foreign key",
+            "put the key on the foreign key",
+        ),
+        (
+            "#[has_many(via = taggings.tag)] #[form(relationship = Tags)] tags: Deferred<Vec<Tag>>",
+            "many-to-many",
+            "RecordForm",
+        ),
+        (
+            "#[has_many] #[form(optional)] comments: Deferred<Vec<Comment>>",
+            "related records",
+            "drop the",
         ),
     ] {
         let message =
             expand(&format!("struct Book {{ title: String, {field} }}")).expect_err("refused");
         assert!(message.contains(reason), "{field}: {message}");
-        assert!(message.contains("RecordForm"), "{field}: {message}");
+        assert!(message.contains(fix), "{field}: {message}");
     }
 }
 
@@ -141,7 +175,7 @@ fn skip_on_a_field_no_form_writes_is_refused() {
     let message =
         expand("struct Book { title: String, #[auto] #[form(skip)] created_at: Timestamp }")
             .expect_err("refused");
-    assert!(message.contains("Drop `skip`"), "{message}");
+    assert!(message.contains("drop `skip`"), "{message}");
 }
 
 #[test]

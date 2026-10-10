@@ -3,7 +3,7 @@
 
 use proc_macro2::{TokenStream as TokenStream2, TokenTree};
 use quote::{format_ident, quote};
-use syn::{Data, DeriveInput, Fields, Type, spanned::Spanned};
+use syn::{Data, DeriveInput, Fields, Type};
 
 use crate::{fields::last_segment, record_form};
 
@@ -31,7 +31,7 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
     else {
         unreachable!("`form_of` builds a struct with named fields");
     };
-    // No derive on the emitted struct owns `#[form(..)]`: the expansion has read its keys.
+    // `#[form]` is a helper of a derive this struct does not carry, so rustc would refuse it.
     let fields = named.named.into_iter().map(|mut field| {
         field.attrs.retain(|attr| !attr.path().is_ident("form"));
         field
@@ -67,12 +67,7 @@ fn form_of(input: &DeriveInput) -> syn::Result<DeriveInput> {
     let model = &input.ident;
     let vis = &input.vis;
     let name = form_name(input)?;
-    let keys: Vec<syn::Ident> = input
-        .attrs
-        .iter()
-        .filter(|attr| attr.path().is_ident("key"))
-        .flat_map(|attr| idents(inner(attr)))
-        .collect();
+    let keys = struct_keys(input);
     let foreign = foreign_keys(named.named.iter());
 
     let mut kept = syn::punctuated::Punctuated::<syn::Field, syn::Token![,]>::new();
@@ -90,16 +85,12 @@ fn form_of(input: &DeriveInput) -> syn::Result<DeriveInput> {
                 "`skip` leaves the field out of the form: it takes no other `#[form(..)]` key",
             ));
         }
-        if let Some(reason) = never_written(field, keys.contains(ident)) {
+        if let Some((reason, fix)) = never_written(field, keys.contains(ident)) {
             if let Some(attr) = form.first() {
-                let fix = if skip {
-                    "Drop `skip`"
-                } else {
-                    "Declare a `#[derive(RecordForm)]` struct to write it"
-                };
+                let fix = if skip { "drop `skip`" } else { fix };
                 return Err(syn::Error::new_spanned(
                     attr,
-                    format!("#[derive(ModelForm)] leaves this field out: {reason}. {fix}"),
+                    format!("#[derive(ModelForm)] leaves this field out: {reason}; {fix}"),
                 ));
             }
             continue;
@@ -148,20 +139,35 @@ fn form_name(input: &DeriveInput) -> syn::Result<syn::Ident> {
     Ok(name.unwrap_or_else(|| format_ident!("{}Form", input.ident)))
 }
 
-/// Why no form writes `field`, when none does: Toasty, the panel or a relation writes it.
-fn never_written(field: &syn::Field, struct_key: bool) -> Option<&'static str> {
+/// Why no form writes `field`, and the fix for a form key on it, when none does.
+fn never_written(field: &syn::Field, struct_key: bool) -> Option<(&'static str, &'static str)> {
+    const DROP: &str = "drop the `#[form(..)]` key";
     if has(field, "key") || struct_key {
-        Some("a key is not edited")
+        Some(("an edit never rewrites a record's key", DROP))
     } else if has(field, "auto") || has(field, "update") || has(field, "version") {
-        Some("Toasty writes it")
-    } else if has(field, "belongs_to")
-        || has(field, "has_many")
+        Some(("Toasty writes it", DROP))
+    } else if has(field, "belongs_to") {
+        Some((
+            "a relation is written through its foreign key",
+            "put the key on the foreign key",
+        ))
+    } else if field.attrs.iter().any(|attr| {
+        attr.path().is_ident("has_many") && idents(inner(attr)).iter().any(|ident| ident == "via")
+    }) {
+        Some((
+            "a many-to-many field binds its records' keys, not the relation",
+            "declare a `#[derive(RecordForm)]` struct with a `Vec` of the keys",
+        ))
+    } else if has(field, "has_many")
         || has(field, "has_one")
         || last_segment(&field.ty).is_some_and(|name| name == "Deferred")
     {
-        Some("a relation is written through its foreign key")
+        Some(("the related records hold this relation's foreign key", DROP))
     } else if is_tenant(&field.ty) {
-        Some("the panel stamps the tenant column")
+        Some((
+            "a `TenantId` column belongs to the resource's `Tenancy`",
+            DROP,
+        ))
     } else {
         None
     }
@@ -187,6 +193,37 @@ fn is_tenant(ty: &Type) -> bool {
         ),
         _ => false,
     }
+}
+
+/// The fields a struct-level `#[key(a, b)]` or `#[key(partition = a, local = [b, c])]` names. A
+/// key Toasty refuses parses to nothing here: Toasty reports it.
+fn struct_keys(input: &DeriveInput) -> Vec<syn::Ident> {
+    let mut out = Vec::new();
+    for attr in input
+        .attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident("key"))
+    {
+        let _ = attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident("name") && meta.input.peek(syn::Token![=]) {
+                meta.value()?.parse::<syn::LitStr>()?;
+            } else if meta.path.is_ident("partition") || meta.path.is_ident("local") {
+                let value = meta.value()?;
+                if value.peek(syn::token::Bracket) {
+                    let content;
+                    syn::bracketed!(content in value);
+                    let fields = syn::punctuated::Punctuated::<syn::Ident, syn::Token![,]>::parse_terminated(&content)?;
+                    out.extend(fields);
+                } else {
+                    out.push(value.parse()?);
+                }
+            } else if let Some(ident) = meta.path.get_ident() {
+                out.push(ident.clone());
+            }
+            Ok(())
+        });
+    }
+    out
 }
 
 /// The fields every `#[belongs_to]` names as its key: `key = a`, `key = [a, b]`, else
@@ -246,13 +283,12 @@ fn is_bare_skip(attr: &syn::Attribute) -> bool {
     matches!(tokens.as_slice(), [TokenTree::Ident(ident)] if ident == "skip")
 }
 
-/// `field` as the form declares it: public, with its docs and `#[form(..)]` keys.
+/// `field` as the form declares it: its visibility, docs and `#[form(..)]` keys.
 fn form_field(field: &syn::Field) -> syn::Field {
     let mut field = field.clone();
     field
         .attrs
         .retain(|attr| attr.path().is_ident("doc") || attr.path().is_ident("form"));
-    field.vis = syn::parse_quote_spanned! {field.span()=> pub };
     field
 }
 
