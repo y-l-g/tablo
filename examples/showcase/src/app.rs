@@ -4,10 +4,10 @@ use std::path::PathBuf;
 
 use tablo::{
     Ability, Action, Auth, BooleanColumn, Brand, ColumnWidth, ComputedColumn, CountColumn,
-    DateFilter, Detail, EmbeddedColumn, FieldErrors, Grid, Group, HeaderAction, Panel, PublicLink,
-    QueryFilter, RecordForm, Relation, RelationColumn, RepeaterColumn, Resource, ResourceDef,
-    RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy, TernaryFilter,
-    TextColumn, lens, relation, scoped_query, tenant_id, when,
+    DateFilter, Detail, DirUploader, EmbeddedColumn, FieldErrors, Grid, Group, HeaderAction, Panel,
+    PublicLink, QueryFilter, RecordForm, Relation, RelationColumn, RepeaterColumn, Resource,
+    ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy,
+    TernaryFilter, TextColumn, lens, relation, scoped_query, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -477,6 +477,10 @@ pub fn upload_dir() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("target/showcase-uploads"))
 }
 
+/// Where the media library writes: the directory the panel stores file fields' uploads in and
+/// serves, installed on a router built with one.
+pub struct MediaStore(pub DirUploader);
+
 /// The URL prefix uploads are served under.
 pub const UPLOAD_URL_PREFIX: &str = "/uploads";
 
@@ -506,10 +510,11 @@ pub fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf
     {
         panel = panel.login_hint(hint);
     }
+    let mut builder = Router::builder().discover().app_context(db);
     if let Some(dir) = uploads {
+        builder = builder.app_context(MediaStore(DirUploader::new(UPLOAD_URL_PREFIX, dir.clone())));
         panel = panel.uploads_dir(UPLOAD_URL_PREFIX, dir);
     }
-    let mut builder = Router::builder().discover().app_context(db);
     if let Some(bundle) = bundle {
         builder = builder.assets(bundle);
         panel = panel.shell_assets(tailwind::stylesheet!(), GEIST);

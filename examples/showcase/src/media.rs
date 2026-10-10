@@ -3,13 +3,13 @@
 use std::collections::HashMap;
 
 use tablo::{
-    Ability, DirUploader, NavigationItem, Notification, Page, TenantId, Uploader, csrf, db::db,
+    Ability, NavigationItem, Notification, Page, TenantId, Uploader, csrf, db::db,
     extend::OptionSource, notification::set_notification, require_tenant,
     upload::sanitize_filename,
 };
 use topcoat::{
     Result,
-    context::Cx,
+    context::{Cx, try_app_context},
     router::{
         content::multipart::Multipart,
         error::{SeeOther, bad_request, see_other},
@@ -18,10 +18,7 @@ use topcoat::{
     view::{BoxView, View, ViewExt, attributes, view},
 };
 
-use crate::{
-    app::{UPLOAD_URL_PREFIX, upload_dir},
-    models::MediaAsset,
-};
+use crate::{app::MediaStore, models::MediaAsset};
 
 /// The upload route's path.
 pub const MEDIA_PATH: &str = "/admin/media";
@@ -249,7 +246,9 @@ async fn upload(cx: &Cx, mut multipart: Multipart) -> Result<SeeOther> {
         return Err(bad_request("Choose a file before uploading.").into());
     }
     let mut db = db(cx);
-    let path = DirUploader::new(UPLOAD_URL_PREFIX, upload_dir())
+    let MediaStore(store) = try_app_context::<MediaStore>(cx)
+        .ok_or_else(|| bad_request("This deployment stores no uploads."))?;
+    let path = store
         .store(&filename, &part.bytes)
         .await
         .map_err(bad_request)?;
