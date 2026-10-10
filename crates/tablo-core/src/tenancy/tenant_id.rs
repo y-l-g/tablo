@@ -15,7 +15,7 @@ use crate::toasty_compat::Assignments;
 ///
 /// ```
 /// # use tablo_core::TenantId;
-/// #[derive(Debug, Clone, toasty::Model)]
+/// #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// pub struct Note {
 ///     #[key]
 ///     #[auto]

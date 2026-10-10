@@ -9,7 +9,7 @@ use crate::{
     test_support::{Html as _, User, memory_db, tableless_db},
 };
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
 struct Task {
     #[key]
     #[auto]

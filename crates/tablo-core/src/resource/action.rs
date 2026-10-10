@@ -29,7 +29,7 @@ use crate::{
 /// [`ResourceDef::action`](super::ResourceDef::action) declares it:
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Post {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     title: String,
@@ -111,7 +111,7 @@ pub trait Action<R: Resource>: 'static {
     /// ```rust,compile_fail,E0080
     /// # use tablo_core::{Action, NoForm, Resource, ResourceDef};
     /// # use topcoat::{Result, context::Cx};
-    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
     /// # struct PostResource;
     /// # impl Resource for PostResource {
@@ -249,7 +249,7 @@ impl<M> Ability<'_, M> {
     /// ```rust
     /// # use tablo_core::{Ability, Action, NoForm, Resource};
     /// # use topcoat::{Result, context::Cx};
-    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, published: bool }
     /// # struct PostResource;
     /// # impl Resource for PostResource {

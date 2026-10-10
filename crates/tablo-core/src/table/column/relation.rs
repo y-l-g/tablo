@@ -18,9 +18,9 @@ use crate::{DeclarationErrorKind, policy::Ability, schema::OptionSource, toasty_
 /// the relation always declares its include:
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Author { #[key] #[auto] id: uuid::Uuid, name: String }
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Post {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     author_id: uuid::Uuid,
@@ -86,9 +86,9 @@ impl<M, R> RelationLens<M, R> {
 /// # use tablo_core::{RelationLens, relation};
 /// # use toasty::Deferred;
 /// # mod blog {
-/// #     #[derive(Debug, Clone, toasty::Model)]
+/// #     #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// #     pub struct Author { #[key] #[auto] pub id: uuid::Uuid, pub name: String }
-/// #     #[derive(Debug, Clone, toasty::Model)]
+/// #     #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// #     pub struct Post {
 /// #         #[key] #[auto] pub id: uuid::Uuid,
 /// #         pub author_id: uuid::Uuid,
@@ -97,7 +97,7 @@ impl<M, R> RelationLens<M, R> {
 /// #         #[has_many]
 /// #         pub comments: toasty::Deferred<Vec<Comment>>,
 /// #     }
-/// #     #[derive(Debug, Clone, toasty::Model)]
+/// #     #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// #     pub struct Comment {
 /// #         #[key] #[auto] pub id: uuid::Uuid,
 /// #         #[index]
@@ -174,9 +174,9 @@ impl<T: toasty::schema::Model> ToOneRelation<T> for Deferred<Option<T>> {
 /// page that renders it loads them.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Author { #[key] #[auto] id: uuid::Uuid, name: String }
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Post {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     author_id: uuid::Uuid,
@@ -229,9 +229,9 @@ where
     /// [`record_title`](crate::ResourceDef::record_title) its detail page is titled with.
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
     /// # struct Author { #[key] #[auto] id: uuid::Uuid, name: String }
-    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
     /// # struct Post {
     /// #     #[key] #[auto] id: uuid::Uuid,
     /// #     author_id: uuid::Uuid,
@@ -277,11 +277,10 @@ where
 
     /// Declare a column listing the records a `has_many` `relation` loads, a many-to-many
     /// `#[has_many(via = ..)]` one included, each by `S`'s [`label`](OptionSource::label), joined
-    /// by commas, but the ones `S` does not let the user view. A record form's many-to-many field
-    /// shows on its derived detail page this way.
+    /// by commas, but the ones `S` does not let the user view.
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
     /// # struct Post {
     /// #     #[key] #[auto] id: uuid::Uuid,
     /// #     #[has_many]
@@ -289,7 +288,7 @@ where
     /// #     #[has_many(via = taggings.tag)]
     /// #     tags: toasty::Deferred<Vec<Tag>>,
     /// # }
-    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
     /// # struct Tag { #[key] #[auto] id: uuid::Uuid, name: String }
     /// # #[derive(Debug, Clone, toasty::Model)]
     /// # struct Tagging {
@@ -358,13 +357,13 @@ impl<M> RelationColumn<M> {
 /// include so every page that renders it loads the records.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Post {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     #[has_many]
 /// #     comments: toasty::Deferred<Vec<Comment>>,
 /// # }
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Comment {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     #[index]

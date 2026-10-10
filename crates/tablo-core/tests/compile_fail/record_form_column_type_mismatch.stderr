@@ -19,27 +19,6 @@ note: required by a bound in `tablo_core::schema::form_key`
    |                                  ^^^^^^^^^^^^^^^^ required by this bound in `form_key`
    = note: this error originates in the derive macro `tablo_core::RecordForm` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0277]: the trait bound `toasty::stmt::Path<User, i32>: From<toasty::stmt::Path<User, i64>>` is not satisfied
-  --> tests/compile_fail/record_form_column_type_mismatch.rs:10:10
-   |
-10 | #[derive(tablo_core::RecordForm)]
-   |          ^^^^^^^^^^^^^^^^^^^^^^ the trait `From<toasty::stmt::Path<User, i64>>` is not implemented for `toasty::stmt::Path<User, i32>`
-   |
-help: the trait `From<toasty::stmt::Path<User, i64>>` is not implemented for `toasty::stmt::Path<User, i32>`
-      but trait `From<Lens<User, _, i32>>` is implemented for it
-  --> src/lens.rs
-   |
-   | impl<M, T, P> From<Lens<M, T, P>> for Path<M, P> {
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   = help: for that trait implementation, expected `Lens<User, _, i32>`, found `toasty::stmt::Path<User, i64>`
-   = note: required for `toasty::stmt::Path<User, i64>` to implement `Into<toasty::stmt::Path<User, i32>>`
-note: required by a bound in `Lens::<M, T, P>::new`
-  --> src/lens.rs
-   |
-   |     pub fn new(path: impl Into<Path<M, P>>, read: fn(&M) -> &T) -> Self {
-   |                           ^^^^^^^^^^^^^^^^ required by this bound in `Lens::<M, T, P>::new`
-   = note: this error originates in the derive macro `tablo_core::RecordForm` (in Nightly builds, run with -Z macro-backtrace for more info)
-
 error[E0308]: mismatched types
   --> tests/compile_fail/record_form_column_type_mismatch.rs:10:10
    |
@@ -78,7 +57,7 @@ help: the trait `IntoExpr<i64>` is not implemented for `i32`
 note: required by a bound in `UserCreate::age`
   --> tests/compile_fail/record_form_column_type_mismatch.rs:1:24
    |
- 1 | #[derive(Debug, Clone, toasty::Model)]
+ 1 | #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
    |                        ^^^^^^^^^^^^^ required by this bound in `UserCreate::age`
 ...
  7 |     age: i64,
@@ -112,7 +91,7 @@ help: the trait `Assign<i64>` is not implemented for `i32`
 note: required by a bound in `UserUpdate::<__toasty_T>::set_age`
   --> tests/compile_fail/record_form_column_type_mismatch.rs:1:24
    |
- 1 | #[derive(Debug, Clone, toasty::Model)]
+ 1 | #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
    |                        ^^^^^^^^^^^^^ required by this bound in `UserUpdate::<__toasty_T>::set_age`
 ...
  7 |     age: i64,

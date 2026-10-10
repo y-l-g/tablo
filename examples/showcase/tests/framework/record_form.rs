@@ -17,7 +17,7 @@ use crate::framework::common::{
     post_fields, refusal,
 };
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Item {
     #[key]
     #[auto]
@@ -340,7 +340,7 @@ async fn the_detail_page_reads_the_forms_projection() {
     assert!(html.contains("Stored"), "{html}");
 }
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Owned {
     #[key]
     #[auto]
@@ -993,7 +993,7 @@ async fn the_derived_default_form_renders_and_writes() {
 
     assert_eq!(WidgetRole::Admin.value(), "admin");
 
-    #[derive(Debug, Clone, toasty::Model)]
+    #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
     struct Widget {
         #[key]
         #[auto]
@@ -1090,251 +1090,6 @@ async fn the_derived_default_form_renders_and_writes() {
     assert_eq!(stored.role, "admin", "an unposted key keeps its value");
 }
 
-#[derive(Debug, Clone, toasty::Model)]
-struct Ticket {
-    #[key]
-    #[auto]
-    id: Uuid,
-    subject: String,
-    status: String,
-    urgent: bool,
-    estimate: i64,
-}
-
-#[derive(tablo::Options)]
-enum TicketStatus {
-    Open,
-    #[option(label = "Waiting on customer")]
-    Waiting,
-}
-
-#[derive(tablo::RecordForm)]
-#[form(model = Ticket)]
-struct TicketForm {
-    subject: String,
-    #[form(options = TicketStatus)]
-    status: String,
-    urgent: bool,
-    estimate: i64,
-}
-
-/// A resource naming only its model, its form and its policy.
-struct TicketResource;
-
-impl Resource for TicketResource {
-    type Model = Ticket;
-    type Form = TicketForm;
-
-    fn declare() -> ResourceDef<Self> {
-        ResourceDef::new().policy(tablo::ReadOnly)
-    }
-}
-
-/// The same resource with its detail page turned off.
-struct UnviewedTicketResource;
-
-impl Resource for UnviewedTicketResource {
-    type Model = Ticket;
-    type Form = TicketForm;
-
-    fn declare() -> ResourceDef<Self> {
-        ResourceDef::new()
-            .policy(tablo::ReadOnly)
-            .detail(Detail::empty())
-    }
-}
-
-async fn ticket_db() -> (Db, Ticket) {
-    let mut db = memory_db(toasty::models!(Ticket)).await;
-    let ticket = toasty::create!(Ticket {
-        subject: "Printer jam".to_string(),
-        status: TicketStatus::Waiting.value().to_string(),
-        urgent: true,
-        estimate: 3,
-    })
-    .exec(&mut db)
-    .await
-    .expect("seed ticket");
-    toasty::create!(Ticket {
-        subject: "New laptop".to_string(),
-        status: TicketStatus::Open.value().to_string(),
-        urgent: false,
-        estimate: 8,
-    })
-    .exec(&mut db)
-    .await
-    .expect("seed ticket");
-    (db, ticket)
-}
-
-/// The record form derives the table: a sortable column per text field, searchable over a
-/// `String`, an options field by its label, and a toggle as yes or no.
-#[tokio::test]
-async fn the_record_form_derives_the_table() {
-    let (db, _) = ticket_db().await;
-    let router = panel_router::<TicketResource>(db);
-
-    let html = body_string(get(&router, "/admin/tickets?sort=estimate&dir=desc").await).await;
-    for header in ["Subject", "Status", "Urgent", "Estimate"] {
-        assert!(html.contains(header), "a {header} column: {html}");
-    }
-    assert!(
-        html.contains("Waiting on customer") && !html.contains(">waiting<"),
-        "an options field shows its label: {html}"
-    );
-    assert!(html.contains("Yes") && html.contains("No"), "{html}");
-    assert!(
-        html.find("New laptop").unwrap() < html.find("Printer jam").unwrap(),
-        "sorted by the estimate, descending: {html}"
-    );
-
-    let searched = body_string(get(&router, "/admin/tickets?q=printer").await).await;
-    assert!(
-        searched.contains("Printer jam") && !searched.contains("New laptop"),
-        "searched by the subject: {searched}"
-    );
-}
-
-/// The record form derives the detail page: each field the table lists, read-only; an empty
-/// view turns it off.
-#[tokio::test]
-async fn the_record_form_derives_the_detail_page() {
-    let (db, ticket) = ticket_db().await;
-    let viewed = panel_router::<TicketResource>(db.clone());
-    let detail = get(&viewed, &format!("/admin/tickets/{}", ticket.id)).await;
-    assert_eq!(detail.status(), StatusCode::OK);
-    let detail = body_string(detail).await;
-    for (label, value) in [
-        ("Subject", "Printer jam"),
-        ("Status", "Waiting on customer"),
-        ("Urgent", "Yes"),
-        ("Estimate", ">3<"),
-    ] {
-        assert!(
-            entry(&detail, label).contains(value),
-            "{label} shows {value}: {detail}"
-        );
-    }
-    assert_eq!(
-        input_value(&detail, "subject"),
-        None,
-        "the detail page renders no control for the field: {detail}"
-    );
-
-    let unviewed = panel_router::<UnviewedTicketResource>(db);
-    let detail = get(&unviewed, &format!("/admin/unviewed-tickets/{}", ticket.id)).await;
-    assert_eq!(detail.status(), StatusCode::NOT_FOUND);
-}
-
-/// The detail page's entry labelled `label`: its markup up to the next entry.
-fn entry<'h>(html: &'h str, label: &str) -> &'h str {
-    let at = html
-        .find(&format!(">{label}<"))
-        .unwrap_or_else(|| panic!("no {label} entry: {html}"));
-    let rest = &html[at..];
-    &rest[..rest.find("data-slot=\"field\"").unwrap_or(rest.len())]
-}
-
-/// A post's stage, stored as an embedded enum.
-#[derive(Debug, Clone, toasty::Embed, tablo::EmbeddedForm)]
-enum Stage {
-    #[column(variant = 1)]
-    Draft,
-    #[column(variant = 2)]
-    Out { note: String },
-}
-
-#[derive(Debug, Clone, toasty::Model)]
-struct Attachment {
-    #[key]
-    #[auto]
-    id: Uuid,
-    path: String,
-    owner_id: Uuid,
-    stage: Stage,
-}
-
-#[derive(tablo::RecordForm)]
-#[form(model = Attachment)]
-struct AttachmentForm {
-    #[form(file)]
-    path: String,
-    // Any source serves: the test reads the key the detail page shows.
-    #[form(relationship = AttachmentResource)]
-    owner_id: Uuid,
-    #[form(embed)]
-    stage: Stage,
-}
-
-/// An uploader for a panel whose test never uploads: a file field mounts only with one.
-struct KeepName;
-
-impl tablo::Uploader for KeepName {
-    async fn store(&self, filename: &str, _bytes: &[u8]) -> Result<String, String> {
-        Ok(filename.to_string())
-    }
-}
-
-/// A resource whose detail page the record form derives, over a file, a relationship and an
-/// embedded enum.
-struct AttachmentResource;
-
-impl Resource for AttachmentResource {
-    type Model = Attachment;
-    type Form = AttachmentForm;
-
-    fn declare() -> ResourceDef<Self> {
-        ResourceDef::new()
-            .policy(tablo::ReadOnly)
-            .table(Table::new((
-                TextColumn::new(lens!(Attachment.path)),
-                tablo::EmbeddedColumn::new(lens!(Attachment.stage)),
-            )))
-    }
-}
-
-/// The derived detail page links a file, shows a relationship's key and an embedded enum's stored
-/// variant; the table's embedded column exports the same reading.
-#[tokio::test]
-async fn the_derived_detail_page_shows_files_keys_and_embedded_values() {
-    let mut db = memory_db(toasty::models!(Attachment)).await;
-    let owner = Uuid::new_v4();
-    let attachment = toasty::create!(Attachment {
-        path: "/uploads/a.pdf".to_string(),
-        owner_id: owner,
-        stage: Stage::Out {
-            note: "shipped".to_string(),
-        },
-    })
-    .exec(&mut db)
-    .await
-    .expect("seed attachment");
-    let router = mount(
-        db,
-        panel().uploads(KeepName).resource::<AttachmentResource>(),
-    )
-    .expect("panel builds");
-
-    let detail =
-        body_string(get(&router, &format!("/admin/attachments/{}", attachment.id)).await).await;
-    assert!(
-        entry(&detail, "Path").contains("href=\"/uploads/a.pdf\""),
-        "a file links its path: {detail}"
-    );
-    assert!(
-        entry(&detail, "Owner id").contains(&owner.to_string()),
-        "a relationship shows its key: {detail}"
-    );
-    assert!(entry(&detail, "Stage").contains(">Out<"), "{detail}");
-    assert!(entry(&detail, "Note").contains("shipped"), "{detail}");
-
-    let csv = body_string(get(&router, "/admin/attachments/export").await).await;
-    assert!(
-        csv.contains("/uploads/a.pdf,\"Stage: Out, Note: shipped\"\n"),
-        "the embedded column exports its leaves: {csv}"
-    );
-}
-
 /// Whether the control posting `name` renders `required`.
 fn renders_required(html: &str, name: &str) -> bool {
     let needle = format!("name=\"{name}\"");
@@ -1362,7 +1117,7 @@ async fn the_record_form_decides_which_controls_are_required() {
 
 #[tokio::test]
 async fn build_refuses_a_unique_field_an_empty_submission_answers() {
-    #[derive(Debug, Clone, toasty::Model)]
+    #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
     struct Handle {
         #[key]
         #[auto]

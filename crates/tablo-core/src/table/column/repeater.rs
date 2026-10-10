@@ -20,7 +20,7 @@ use crate::{
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Embed, tablo_core::RepeaterItem)]
 /// # struct Link { label: String, url: String }
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Post {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     #[document] links: Vec<Link>,

@@ -3,7 +3,7 @@ use toasty::Db;
 use super::*;
 use crate::{Detail, policy::Ability, test_support::memory_db};
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
 struct Shelf {
     #[key]
     #[auto]
@@ -21,7 +21,7 @@ struct Reader {
     name: String,
 }
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
 struct Book {
     #[key]
     #[auto]

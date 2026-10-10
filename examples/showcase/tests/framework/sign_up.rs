@@ -19,7 +19,7 @@ use uuid::Uuid;
 
 use crate::framework::common::{TestClient, body_string, flash, memory_db, mount, refusal};
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Note {
     #[key]
     #[auto]

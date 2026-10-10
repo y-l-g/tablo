@@ -88,7 +88,7 @@ async fn export_loads_the_relations_its_columns_include() {
         name: String,
     }
 
-    #[derive(Debug, toasty::Model, Clone)]
+    #[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
     struct Child {
         #[key]
         #[auto]
@@ -346,7 +346,7 @@ async fn export_visibility_scan_loads_no_includes() {
         name: String,
     }
 
-    #[derive(Debug, toasty::Model, Clone)]
+    #[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
     struct Child {
         #[key]
         #[auto]
@@ -641,7 +641,7 @@ async fn export_and_list_agree_on_rows_and_order() {
         table::{SelectFilter, Sort, TableState, TextColumn},
     };
 
-    #[derive(Debug, Clone, toasty::Model)]
+    #[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
     struct Task {
         #[key]
         #[auto]

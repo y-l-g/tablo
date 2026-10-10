@@ -145,7 +145,7 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
     use tablo::{Auth, Panel, Resource, ResourceDef};
     use topcoat::router::{Body, Router};
 
-    #[derive(Debug, toasty::Model, Clone)]
+    #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
     struct Reading {
         #[key]
         #[auto]

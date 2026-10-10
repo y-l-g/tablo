@@ -13,7 +13,7 @@ use topcoat::{
     view::{HoistView, ViewExt, internal::ThenView},
 };
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 pub struct Author {
     #[key]
     #[auto]
@@ -27,7 +27,7 @@ pub struct Author {
     pub posts: Deferred<Vec<Post>>,
 }
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 pub struct Post {
     #[key]
     #[auto]

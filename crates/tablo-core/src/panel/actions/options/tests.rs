@@ -12,7 +12,7 @@ async fn options_endpoint_searches_and_gates() {
 
     use crate::resource::Resource;
 
-    #[derive(Debug, toasty::Model, Clone)]
+    #[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
     struct OptAuthor {
         #[key]
         #[auto]
@@ -36,7 +36,7 @@ async fn options_endpoint_searches_and_gates() {
         }
     }
 
-    #[derive(Debug, toasty::Model, Clone)]
+    #[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
     struct OptPost {
         #[key]
         #[auto]
@@ -150,7 +150,7 @@ async fn option_load_loads_no_relation() {
         name: String,
     }
 
-    #[derive(Debug, toasty::Model, Clone)]
+    #[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
     struct Child {
         #[key]
         #[auto]
@@ -186,7 +186,7 @@ async fn option_load_loads_no_relation() {
         }
     }
 
-    #[derive(Debug, toasty::Model, Clone)]
+    #[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
     struct Owner {
         #[key]
         #[auto]
@@ -274,7 +274,7 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
 
     use crate::resource::Resource;
 
-    #[derive(Debug, toasty::Model, Clone)]
+    #[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
     struct BigA {
         #[key]
         #[auto]
@@ -296,7 +296,7 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
         }
     }
 
-    #[derive(Debug, toasty::Model, Clone)]
+    #[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
     struct BigP {
         #[key]
         #[auto]

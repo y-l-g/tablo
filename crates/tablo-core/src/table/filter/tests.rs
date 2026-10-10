@@ -1,7 +1,7 @@
 use super::*;
 use crate::test_support::memory_db;
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
 struct Task {
     #[key]
     #[auto]

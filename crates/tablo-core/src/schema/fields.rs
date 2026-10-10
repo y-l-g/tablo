@@ -40,14 +40,14 @@ use crate::{
 /// so a modifier on the wrong control does not compile.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct User {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     name: String,
 /// #     email: String,
 /// #     age: i64,
 /// # }
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Post {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     body: String,
@@ -55,9 +55,9 @@ use crate::{
 /// #     author_id: uuid::Uuid,
 /// #     featured: bool,
 /// # }
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Doc { #[key] #[auto] id: uuid::Uuid, path: String }
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Author { #[key] #[auto] id: uuid::Uuid, name: String }
 /// # #[derive(Debug, Clone, Copy, PartialEq, Eq, tablo_core::Options)]
 /// # enum Status { Draft, Published }

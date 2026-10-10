@@ -13,6 +13,7 @@ mod dependent;
 mod extensions;
 mod field_basics;
 mod header_actions;
+mod model_columns;
 mod options_enum;
 mod panels;
 mod resource_query_override;

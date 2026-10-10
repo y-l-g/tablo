@@ -7,7 +7,7 @@ use crate::{
     test_support::Html as _,
 };
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
 pub(crate) struct User {
     #[key]
     #[auto]
@@ -15,7 +15,7 @@ pub(crate) struct User {
     pub(crate) name: String,
 }
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
 pub(crate) struct Task {
     #[key]
     #[auto]

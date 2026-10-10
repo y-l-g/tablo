@@ -4,9 +4,9 @@ use std::path::PathBuf;
 
 use tablo::{
     Ability, Action, Auth, BooleanColumn, Brand, ColumnWidth, ComputedColumn, CountColumn,
-    DateFilter, Detail, DirUploader, EmbeddedColumn, FieldErrors, Grid, Group, HeaderAction, Panel,
-    PublicLink, QueryFilter, RecordForm, Relation, RelationColumn, RepeaterColumn, Resource,
-    ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy,
+    DateFilter, Detail, DirUploader, EmbeddedColumn, FieldErrors, Grid, Group, HeaderAction,
+    ModelColumns, Panel, PublicLink, QueryFilter, Relation, RelationColumn, RepeaterColumn,
+    Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy,
     TernaryFilter, TextColumn, lens, relation, scoped_query, tenant_id, when,
 };
 use toasty::Db;
@@ -62,14 +62,6 @@ impl Resource for UserResource {
                 Ability::Update(user) | Ability::Delete(user) => user.name != "Ken Thompson",
                 _ => true,
             })
-            .table(
-                UserForm::table().column(
-                    TextColumn::new(lens!(User.created_at))
-                        .format(|at| at.strftime("%Y-%m-%d").to_string())
-                        .sortable()
-                        .width(ColumnWidth::Rem(8)),
-                ),
-            )
             .form(Schema::new(Section::new("Profile").schema((
                 c.name.placeholder("Ada Lovelace"),
                 c.email.email().unique().placeholder("ada@example.com"),
@@ -77,9 +69,7 @@ impl Resource for UserResource {
                 c.active,
                 c.age,
             ))))
-            .detail(Detail::new(
-                Section::new("Profile").columns(<UserForm as RecordForm>::detail()),
-            ))
+            .detail(Detail::new(Section::new("Profile").columns(User::detail())))
             .record_title(lens!(User.name))
     }
 
@@ -111,7 +101,7 @@ impl Resource for AuthorResource {
                 Section::new("Profile").schema((c.name, c.email.email())),
             ))
             .detail(Detail::new(
-                Section::new("Profile").columns(<AuthorForm as RecordForm>::detail()),
+                Section::new("Profile").columns(Author::detail()),
             ))
             // Names the detail heading with the author's name.
             .record_title(lens!(Author.name))

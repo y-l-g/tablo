@@ -5,7 +5,7 @@ use crate::test_support::{DummyUser, memory_db};
 fn composite_pk_has_no_url_representation() {
     // Composite keys fail loudly (programmer error), never a
     // per-id 404 that hides the misconfiguration.
-    #[derive(Debug, Clone, toasty::Model)]
+    #[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
     struct Pair {
         #[key]
         a: String,

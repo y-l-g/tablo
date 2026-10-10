@@ -16,7 +16,7 @@ use crate::{
     framework::common::refusal,
 };
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Account {
     #[key]
     #[auto]

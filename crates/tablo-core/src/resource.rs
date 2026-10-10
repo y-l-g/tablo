@@ -44,8 +44,9 @@ pub use write::{write_create, write_update};
 /// schema, and serves the result to every request. Record fns run inside the handler transaction
 /// and fail without partial writes.
 pub trait Resource: Sized + Send + Sync + 'static {
-    /// The persisted model this resource administers.
-    type Model: toasty::schema::Model
+    /// The persisted model this resource administers. Its [`ModelColumns`](crate::ModelColumns)
+    /// give the table and detail page the resource declares none of.
+    type Model: crate::ModelColumns
         + toasty::stmt::IntoExpr<Self::Model>
         + Send
         + Sync
@@ -65,7 +66,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// relations and actions. Defaults to [`ResourceDef::new`], whose policy denies all.
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
     /// # struct Post {
     /// #     #[key] #[auto] id: uuid::Uuid,
     /// #     title: String,
@@ -243,7 +244,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// ```rust
     /// # use tablo_core::{Committed, NoForm, Resource, db::db};
     /// # use topcoat::{Result, context::Cx};
-    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
     /// # async fn notify(_db: &mut toasty::Db, _post: &Post) -> Result<()> { Ok(()) }
     /// # struct PostResource;

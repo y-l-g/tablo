@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::framework::common::{body_string, get, memory_db, mount, panel};
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct PoolDummy {
     #[key]
     #[auto]

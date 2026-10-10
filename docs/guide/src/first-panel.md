@@ -39,9 +39,11 @@ cargo run
 
 ## What each part does
 
+- **`tablo::ModelColumns`** gives `Book` its default table and detail page: a column per field a
+  person reads, so `id`, which Toasty generates, is left out. See [Tables](./tables.md).
 - **`tablo::ModelForm`** writes `BookForm`, the **record form** a submission parses into: one
   field per model field a person fills, so `id` is left out. The record form also lays out the
-  list's table, the form and the detail page. See [Forms](./forms.md).
+  form. See [Forms](./forms.md).
 - **`impl Resource`** declares the panel's pages for one model. A resource must name `Model` and
   `Form`; every other item has a default, and the default policy denies everything. See
   [Resources](./resources.md).

@@ -3,7 +3,7 @@
 
 use crate::framework::common::memory_db;
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Note {
     #[key]
     #[auto]

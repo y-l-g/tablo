@@ -13,7 +13,7 @@ use crate::{
 async fn create_policy_deny() {
     use tablo::{Resource, ResourceDef, Table, TextColumn};
 
-    #[derive(Debug, toasty::Model, Clone)]
+    #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
     struct DummyUser {
         #[key]
         #[auto]
@@ -88,7 +88,7 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
     use tablo::{Resource, ResourceDef, Table, TextColumn};
     use topcoat::context::Cx;
 
-    #[derive(Debug, toasty::Model, Clone)]
+    #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
     struct Widget {
         #[key]
         #[auto]
@@ -189,7 +189,7 @@ async fn forged_delete_runs_no_record_query() {
         toasty::stmt::Query::<toasty::stmt::List<Dummy>>::all()
     }
 
-    #[derive(Debug, toasty::Model, Clone)]
+    #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
     struct Dummy {
         #[key]
         #[auto]
@@ -288,7 +288,7 @@ async fn forged_delete_runs_no_record_query() {
 async fn bulk_delete_hand_crafted_partial_deny_skips_the_refused_row() {
     use tablo::{Resource, ResourceDef, Table, TextColumn};
 
-    #[derive(Debug, toasty::Model, Clone)]
+    #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
     struct DummyUser {
         #[key]
         #[auto]

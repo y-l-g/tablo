@@ -11,7 +11,7 @@ enum Stage {
     Archived,
 }
 
-#[derive(Debug, toasty::Model)]
+#[derive(Debug, toasty::Model, tablo::ModelColumns)]
 struct Ticket {
     #[key]
     #[auto]

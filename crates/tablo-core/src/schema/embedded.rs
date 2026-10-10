@@ -16,7 +16,7 @@
 //!     pub title: String,
 //!     pub description: String,
 //! }
-//! # #[derive(Debug, Clone, toasty::Model)]
+//! # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 //! # struct Post { #[key] #[auto] id: uuid::Uuid, seo: Seo }
 //! # fn round_trip(cx: &Cx, record: &Post) -> Result<(), Vec<FieldError>> {
 //! # let mut values = HashMap::new();

@@ -131,7 +131,7 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
 async fn unique_check_propagates_probe_errors() {
     use crate::schema::{Field, Schema};
 
-    #[derive(Debug, toasty::Model, Clone)]
+    #[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
     struct Probe {
         #[key]
         #[auto]

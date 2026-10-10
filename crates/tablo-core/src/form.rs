@@ -8,7 +8,7 @@
 //! defaults.
 //!
 //! ```no_run
-//! #[derive(Debug, Clone, toasty::Model)]
+//! #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 //! struct User {
 //!     #[key]
 //!     #[auto]
@@ -26,7 +26,7 @@
 //! }
 //!
 //! // A column type toasty stores but the form edge cannot spell.
-//! #[derive(Debug, Clone, toasty::Model)]
+//! #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 //! struct Tagged {
 //!     #[key]
 //!     #[auto]
@@ -59,9 +59,8 @@ use toasty::{Executor, schema::Model};
 use topcoat::context::Cx;
 
 use crate::{
-    detail::Detail,
     schema::{FieldResolver, OptionSource, Schema, TypedValue},
-    table::{Table, column::Includes},
+    table::column::Includes,
 };
 
 /// A type one form key reads and writes: `String`, every [`TypedValue`] type,
@@ -376,32 +375,6 @@ pub trait RecordForm: Sized + Send + 'static {
     /// A resource's form renders every field it does not place after the ones it does, in
     /// declaration order, so a resource that declares no form renders one control per field.
     fn control(field: Self::Field) -> Schema<Self>;
-
-    /// The form's default table: one column per field a column can show, in declaration order.
-    /// A [`ResourceDef`](crate::ResourceDef) without a [`table`](crate::ResourceDef::table) lists
-    /// it.
-    ///
-    /// The derive lists each text field in a sortable column, searchable over a `String` or
-    /// `Option<String>`, an options field by its option's label, and a toggle as yes or no (see
-    /// [`RecordForm`](derive@crate::RecordForm)). The default here lists none, so a resource
-    /// whose form lists nothing, such as one naming [`NoForm`], declares its own.
-    fn table() -> Table<Self::Model> {
-        Table::new(())
-    }
-
-    /// The form's default detail page: one column per field a column can show, in declaration
-    /// order. A [`ResourceDef`](crate::ResourceDef) without a
-    /// [`detail`](crate::ResourceDef::detail) shows it.
-    ///
-    /// The derive shows each field [`table`](Self::table) lists, a relationship as the key it
-    /// holds, a file field as a link, and an embedded value leaf by leaf (see
-    /// [`RecordForm`](derive@crate::RecordForm)). A relation's record shows through a
-    /// [`RelationColumn`](crate::RelationColumn), in a declared
-    /// [`detail`](crate::ResourceDef::detail). The default here shows none, which turns the detail
-    /// page off for a resource naming [`NoForm`].
-    fn detail() -> Detail<Self::Model> {
-        Detail::empty()
-    }
 
     /// The relations [`hydrate`](Self::hydrate) reads off the record: each many-to-many field's,
     /// which the edit page and the edit's write load the record with.

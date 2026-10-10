@@ -215,10 +215,7 @@ may stay optional.
 ### Relationships
 
 A choice over a foreign key loads its options from the related resource. Mark the record-form field
-`#[form(relationship = AuthorResource)]`; the form arranges and labels its control like any other.
-The attribute also takes the field out of the derived table and shows its key on the detail page;
-to keep them, leave the field unmarked and call `.choice().relationship::<AuthorResource>()` on its
-control instead:
+`#[form(relationship = AuthorResource)]`; the form arranges and labels its control like any other:
 
 ```rust
 {{#include ../../../examples/guide/src/forms.rs:forms-relationship-field}}
@@ -273,9 +270,8 @@ with the related resource:
 - The choice offers at most 200 records. Past that it offers none, shows the ones the record
   links, and an edit keeps or drops those but links no other; attach records from a
   [related table](./detail-pages.md#many-to-many-relations) instead.
-- The derived detail page lists the linked records by their titles, with
-  `RelationColumn::list::<TagResource>(relation!(Article.tags))`, which a table or a declared view
-  can show too.
+- A declared table or detail page lists the linked records by their titles with
+  `RelationColumn::list::<TagResource>(relation!(Article.tags))`.
 - A new link sets the two keys and nothing else, so mounting refuses a join model with another
   column that is neither nullable nor `#[auto]`, or a key spanning several columns. A join
   model's `#[default]` and `#[update]` expressions are not applied: a nullable column with one
@@ -491,7 +487,7 @@ item's controls per item, which the user adds, removes and moves.
 - An action's input can place a repeater too, with a hand-written `ActionInput` whose `parse`
   reads the rows with `schema::parse_items`. A page handling its own post folds the rows into
   the repeater's key first, with `Schema::fold_repeaters`.
-- On the detail page, `RepeaterColumn` shows each item's fields under their labels. The record
-  form's derived detail page includes one; its table does not.
+- On the detail page, `RepeaterColumn` shows each item's fields under their labels. The model's
+  default detail page includes one; its table does not.
 - Not supported inside an item: an embedded value, another repeater, a relationship, a file field
   and a condition.

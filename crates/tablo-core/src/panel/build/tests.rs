@@ -30,7 +30,7 @@ macro_rules! resource {
     };
 }
 
-#[derive(Debug, toasty::Model, Clone)]
+#[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
 struct Subscriber {
     #[key]
     #[auto]
@@ -215,7 +215,7 @@ async fn dark_mode_sets_the_document_class() {
 }
 
 /// A parent row that carries its tenant, and a child that inherits it.
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
 struct Parent {
     #[key]
     #[auto]
@@ -226,7 +226,7 @@ struct Parent {
     children: toasty::Deferred<Vec<Child>>,
 }
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
 struct Child {
     #[key]
     #[auto]
@@ -244,7 +244,7 @@ use crate::{
     table::{Table, TextColumn},
 };
 
-#[derive(Debug, toasty::Model, Clone)]
+#[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
 struct Doc {
     #[key]
     #[auto]
@@ -252,7 +252,7 @@ struct Doc {
     title: String,
 }
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
 #[key(owner, slot)]
 struct Seat {
     owner: String,
@@ -265,7 +265,7 @@ struct Place {
     city: String,
 }
 
-#[derive(Debug, toasty::Model, Clone)]
+#[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
 struct Ticket {
     #[key]
     #[auto]
@@ -275,7 +275,7 @@ struct Ticket {
     place: Place,
 }
 
-#[derive(Debug, toasty::Model, Clone)]
+#[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
 #[unique(tenant_id, email)]
 struct Author {
     #[key]

@@ -318,14 +318,6 @@ fn expand_struct(
         });
         control_inits.push(quote! { #name: #init });
     }
-    let columns: Vec<TokenStream2> = fields
-        .iter()
-        .filter_map(|field| default_column(krate, model, field))
-        .collect();
-    let entries: Vec<TokenStream2> = fields
-        .iter()
-        .map(|field| default_entry(krate, model, field))
-        .collect();
     let names: Vec<&syn::Ident> = fields.iter().map(|f| &f.ident).collect();
     let bindings: Vec<syn::Ident> = names
         .iter()
@@ -375,14 +367,6 @@ fn expand_struct(
                 // Only an embedded field resolves its keys through the app schema.
                 let _ = resolver;
                 ::std::vec![#(#claims),*]
-            }
-
-            fn table() -> #krate::__macro::Table<#model> {
-                #krate::__macro::Table::new(())#(.column(#columns))*
-            }
-
-            fn detail() -> #krate::__macro::Detail<#model> {
-                #krate::__macro::Detail::empty()#(.column(#entries))*
             }
 
             fn includes() -> #krate::__macro::Includes<#model> {
@@ -608,83 +592,6 @@ fn field_parts(
     }
 }
 
-/// The column the default table lists a field in: a sortable text column, searchable over a
-/// `String` or `Option<String>`, a choice's option label, or a toggle's yes or no. A relationship,
-/// which holds a key, a file path, an embedded value and a repeater's list get none.
-fn default_column(
-    krate: &TokenStream2,
-    model: &syn::Path,
-    field: &FieldSpec,
-) -> Option<TokenStream2> {
-    let name = &field.ident;
-    let ty = &field.ty;
-    let lens = quote! {
-        #krate::__macro::Lens::<#model, #ty>::new(<#model>::fields().#name(), |record| &record.#name)
-    };
-    match &field.control {
-        DefaultControl::OwnOptions => {
-            Some(quote! { #krate::__macro::TextColumn::new(#lens).sortable() })
-        }
-        DefaultControl::Text => {
-            let search = is_string(ty).then(|| quote! { .searchable() });
-            Some(quote! { #krate::__macro::TextColumn::new(#lens).sortable()#search })
-        }
-        DefaultControl::Choice(options) => Some(quote! {
-            #krate::__macro::TextColumn::new(#lens).sortable().format(|value| {
-                <#options as #krate::__macro::Options>::label_of(
-                    &#krate::__macro::FormScalar::to_form(value),
-                )
-            })
-        }),
-        DefaultControl::Toggle => {
-            Some(quote! { #krate::__macro::BooleanColumn::new(#lens).sortable() })
-        }
-        DefaultControl::Relationship(_)
-        | DefaultControl::Links(..)
-        | DefaultControl::File
-        | DefaultControl::Embed
-        | DefaultControl::Repeat => None,
-    }
-}
-
-/// The column the default detail page shows a field in: a text column, a choice's option label, a
-/// toggle's yes or no, a file path's link, an embedded value's leaves, or a repeater's items. A
-/// relationship shows the key it holds, so a form of keys alone still has a detail page.
-fn default_entry(krate: &TokenStream2, model: &syn::Path, field: &FieldSpec) -> TokenStream2 {
-    let name = &field.ident;
-    let ty = &field.ty;
-    let lens = quote! {
-        #krate::__macro::Lens::<#model, #ty>::new(<#model>::fields().#name(), |record| &record.#name)
-    };
-    match &field.control {
-        DefaultControl::Text | DefaultControl::Relationship(_) | DefaultControl::OwnOptions => {
-            quote! { #krate::__macro::TextColumn::new(#lens) }
-        }
-        DefaultControl::Choice(options) => quote! {
-            #krate::__macro::TextColumn::new(#lens).format(|value| {
-                <#options as #krate::__macro::Options>::label_of(
-                    &#krate::__macro::FormScalar::to_form(value),
-                )
-            })
-        },
-        DefaultControl::Toggle => quote! { #krate::__macro::BooleanColumn::new(#lens) },
-        DefaultControl::Links(source, _) => quote! {
-            #krate::__macro::RelationColumn::list::<#source>(#krate::__macro::RelationLens::new(
-                <#model>::fields().#name(),
-                |record: &#model| &record.#name,
-            ))
-        },
-        DefaultControl::File => quote! { #krate::__macro::FileColumn::new(#lens) },
-        DefaultControl::Embed => quote! { #krate::__macro::EmbeddedColumn::new(#lens) },
-        DefaultControl::Repeat => quote! {
-            #krate::__macro::RepeaterColumn::new(#krate::__macro::Lens::new(
-                <#model>::fields().#name(),
-                |record: &#model| &record.#name,
-            ))
-        },
-    }
-}
-
 /// The element type of a `Vec<T>`, or `None` for any other type.
 fn list_element(ty: &Type) -> Option<&Type> {
     let Type::Path(path) = ty else {
@@ -697,24 +604,6 @@ fn list_element(ty: &Type) -> Option<&Type> {
             _ => None,
         },
         _ => None,
-    }
-}
-
-/// Whether `ty` is spelled `String` or `Option<String>`.
-fn is_string(ty: &Type) -> bool {
-    let Type::Path(path) = ty else {
-        return false;
-    };
-    let Some(last) = path.path.segments.last() else {
-        return false;
-    };
-    match (last.ident.to_string().as_str(), &last.arguments) {
-        ("String", syn::PathArguments::None) => true,
-        ("Option", syn::PathArguments::AngleBracketed(args)) => matches!(
-            args.args.first(),
-            Some(syn::GenericArgument::Type(inner)) if is_string(inner)
-        ),
-        _ => false,
     }
 }
 

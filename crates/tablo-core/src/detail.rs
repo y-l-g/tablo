@@ -15,9 +15,9 @@ use crate::{
 /// arranged in [`Section`], [`Group`] and [`Grid`] blocks.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Author { #[key] #[auto] id: uuid::Uuid, name: String }
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Post {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     title: String,
@@ -192,7 +192,7 @@ impl<M> std::fmt::Debug for Detail<M> {
 /// built-in ones do by implementing this trait:
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
 /// # struct Initials;
 /// # use topcoat::context::Cx;

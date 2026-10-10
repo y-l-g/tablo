@@ -24,7 +24,7 @@
 //!
 //! ```rust
 //! # use tablo::prelude::*;
-//! #[derive(Debug, Clone, toasty::Model, tablo::ModelForm)]
+//! #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns, tablo::ModelForm)]
 //! pub struct Book {
 //!     #[key]
 //!     #[auto]
@@ -49,7 +49,7 @@
 //! ```rust,no_run
 //! # use tablo::prelude::*;
 //! # use topcoat::router::{Router, RouterBuilderDiscoverExt};
-//! # #[derive(Debug, Clone, toasty::Model, tablo::ModelForm)]
+//! # #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns, tablo::ModelForm)]
 //! # pub struct Book {
 //! #     #[key]
 //! #     #[auto]
@@ -86,9 +86,9 @@ pub mod prelude {
         Ability, Action, ActionInput, Allow, Auth, BooleanColumn, Brand, ChoiceField, ColumnWidth,
         Committed, ComputedColumn, CountColumn, CustomField, DateFilter, Deny, Detail,
         EmbeddedColumn, EmbeddedForm, Field, FieldErrors, FileColumn, FileField, Grid, Group,
-        HeaderAction, HeaderActions, IntoOptions, Lens, ModelForm, NavigationItem, NoForm, Options,
-        Page, Panel, Places, Policy, Posted, PublicLink, QueryFilter, ReadOnly, RecordForm,
-        Relation, RelationColumn, RepeaterColumn, RepeaterItem, Resource, ResourceDef,
+        HeaderAction, HeaderActions, IntoOptions, Lens, ModelColumns, ModelForm, NavigationItem,
+        NoForm, Options, Page, Panel, Places, Policy, Posted, PublicLink, QueryFilter, ReadOnly,
+        RecordForm, Relation, RelationColumn, RepeaterColumn, RepeaterItem, Resource, ResourceDef,
         RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy, TenantId,
         TernaryFilter, TextColumn, TextField, Toggle, can, can_list, lens, relation, scoped_query,
         tenant_id, when,

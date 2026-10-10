@@ -2,8 +2,14 @@
 
 A form resource declares a `#[derive(RecordForm)]` struct with one field per written column,
 named and typed like the model, so a renamed or retyped column fails to compile. The derive also
-provides the default form schema, table and detail page. An edit fills every key the submission omits from the
+provides the default form schema. An edit fills every key the submission omits from the
 stored record, so `update_record` receives a whole form and an unposted key keeps its value.
+
+The struct owns writes only. A resource's default table and detail page read the model, through
+`#[derive(ModelColumns)]` on it: a column per field a person reads, whoever writes it, each picked
+by the field's type. A form leaves out what Toasty writes, such as a `#[default]` timestamp, and
+a list-only resource has none, while a table lists both. Every resource's model implements
+`ModelColumns`, so a missing derive fails to compile instead of mounting an empty list.
 
 A model whose form is its own fields derives `ModelForm`, which writes that struct and expands it
 as `RecordForm` does. The struct takes the fields a person fills: it leaves out a key, a field
@@ -39,6 +45,15 @@ write links and unlinks records as join rows built from the app schema, since To
 through no multi-step `via` and the join model's type is not the field's.
 
 ## Rejected
+
+- Deriving the default table and detail page from the struct: each resource added its read-only
+  columns by hand, and a list-only resource had none to derive from.
+- Building the default columns at mount from the app schema: Toasty loads a record into its struct
+  and reads no field back by name, so a column needs the typed reader a derive writes.
+- A `ModelColumns` bound only where a default is used: Rust picks no impl by whether a bound
+  holds, so an optional derive needs a second opt-in on each resource.
+- `ModelForm` implying `ModelColumns`: a model with a hand-written record form needs the columns
+  too, and an impl that `ModelForm` wrote could not be replaced by hand.
 
 - Presence on the control (`.required()`): a second declaration of what the blank answers say.
 - A schema-side parse: the struct parses every key anyway.

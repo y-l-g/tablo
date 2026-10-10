@@ -17,7 +17,7 @@ use crate::{
 };
 
 /// The two-column model a panel test's resource renders.
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
 pub(crate) struct Dummy {
     #[key]
     #[auto]
@@ -31,7 +31,7 @@ pub(crate) fn dummy_table() -> Table<Dummy> {
 }
 
 /// The unique-email model form tests submit.
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
 pub(crate) struct Subscriber {
     #[key]
     #[auto]
@@ -126,7 +126,7 @@ pub(crate) async fn seed_dummies(db: &mut Db, rows: usize, name: impl Fn(usize) 
 /// The typed unique field the unique-probe tests share. The column
 /// is a `Uuid`, not a whole number: SQLite's INTEGER affinity coerces `01`
 /// to `1`, so a whole-number column lets a text probe pass.
-#[derive(Debug, toasty::Model, Clone)]
+#[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
 pub(crate) struct Tagged {
     #[key]
     #[auto]

@@ -14,7 +14,7 @@ use crate::{
 /// One table filter declares a control and its predicate.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, age: i64 }
 /// # use tablo_core::extend::{Filter, FilterInput};
 /// # use toasty::stmt::Expr;
@@ -193,7 +193,7 @@ type MatchFn = Arc<dyn Fn(&str) -> Option<Expr<bool>> + Send + Sync>;
 /// ```rust
 /// # #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo_core::Options)]
 /// # enum Status { Draft, Published }
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, kind: String, status: Status }
 /// # use tablo_core::{SelectFilter, lens};
 /// SelectFilter::new(lens!(Post.kind), ["news", "review"]);
@@ -559,7 +559,7 @@ filter_impls! {
 /// names.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, featured: bool }
 /// # use tablo_core::QueryFilter;
 /// # let _promoted: QueryFilter<Post> =
