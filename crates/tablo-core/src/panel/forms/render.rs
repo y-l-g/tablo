@@ -40,6 +40,8 @@ pub(crate) struct FormChrome {
     /// Where a searchable choice fetches its options: an action's input route, or `None` for the
     /// resource's own.
     options: Option<String>,
+    /// Whether the form edits a stored record.
+    editing: bool,
 }
 
 impl FormChrome {
@@ -53,6 +55,7 @@ impl FormChrome {
             cancel: resource.url.clone(),
             hidden: Vec::new(),
             options: None,
+            editing: false,
         }
     }
 
@@ -75,6 +78,7 @@ impl FormChrome {
             cancel: resource.url.clone(),
             hidden: Vec::new(),
             options: None,
+            editing: true,
         }
     }
 
@@ -98,6 +102,7 @@ impl FormChrome {
             cancel,
             hidden,
             options: Some(options),
+            editing: false,
         }
     }
 }
@@ -121,8 +126,9 @@ pub(crate) async fn render_form_page<'a>(
         cancel,
         hidden,
         options,
+        editing,
     } = chrome;
-    let mut source = crate::schema::Source::form(values, errors);
+    let mut source = crate::schema::Source::form(values, errors).editing(editing);
     if let Some(url) = options {
         source = source.options_at(url);
     }
@@ -246,28 +252,33 @@ pub(crate) fn resource_create<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> 
     })
 }
 
-/// Collects relationship-control query parameters for the create form, first occurrence wins.
+/// The create form's values: each field's default, under the relationship-control query
+/// parameters, first occurrence wins.
 fn seeded_values<R: Resource>(cx: &Cx, resource: &Mounted<R>) -> HashMap<String, String> {
     let schema = &resource.form;
     let seedable: Vec<&str> = schema
         .fields()
         .filter(|field| {
-            field
-                .as_choice()
-                .is_some_and(|choice| choice.is_relationship())
+            // A disabled control stores its default, which the form must show.
+            !field.is_disabled(false)
+                && field
+                    .as_choice()
+                    .is_some_and(|choice| choice.is_relationship())
         })
         .map(|field| field.name())
         .collect();
     let query = topcoat::router::request::uri(cx)
         .query()
         .unwrap_or_default();
-    let mut values = HashMap::new();
+    let mut seeded = HashMap::new();
     for (name, value) in form_urlencoded::parse(query.as_bytes()) {
         if seedable.contains(&name.as_ref()) {
-            values
+            seeded
                 .entry(name.into_owned())
                 .or_insert_with(|| value.into_owned());
         }
     }
+    let mut values = schema.defaults();
+    values.extend(seeded);
     values
 }

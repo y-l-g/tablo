@@ -291,6 +291,7 @@ async fn a_searchable_dependent_choice_past_the_cap_checks_among_its_parent_rows
                 parent: Some(&world.france),
                 scope: "move",
                 options: Some("/admin/addresses/-/actions/move/options"),
+                editing: false,
             },
         )
         .await

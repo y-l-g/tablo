@@ -23,7 +23,8 @@ pub use condition::Watched;
 pub use embedded::EmbeddedForm;
 use fields::ChoiceControl;
 pub use fields::{
-    ChoiceField, CustomField, Field, FileField, IntoOptions, RepeaterField, TextField, Toggle,
+    ChoiceField, CustomField, Field, FileField, IntoFormValue, IntoOptions, RepeaterField,
+    TextField, Toggle,
 };
 pub(crate) use fields::{option_view, read_only, stored_upload, value_cell};
 pub use layouts::{Grid, Group, Section};
@@ -257,10 +258,51 @@ impl<F> Schema<F> {
         if !unknown.is_empty() {
             return Err(bad_request(format!("unknown field(s): {}", unknown.join(", "))).into());
         }
+        // A disabled field's default first, which a condition reads as the browser did.
+        self.drop_disabled(&mut input, false);
         for key in self.condition_hidden(&input) {
             input.remove(&key);
         }
         Ok(input)
+    }
+
+    /// The create form's initial values: each field's `default`.
+    pub(crate) fn defaults(&self) -> HashMap<String, String> {
+        self.fields
+            .iter()
+            .filter_map(|field| {
+                Some((field.name().to_string(), field.default_value()?.to_string()))
+            })
+            .collect()
+    }
+
+    /// Drops what a disabled control posted, which the browser never sends: on the edit form when
+    /// `editing`, else on the create form, where the field takes its `default`. Run it before
+    /// [`condition_hidden`](Self::condition_hidden), which drops a hidden field's default again.
+    pub(crate) fn drop_disabled(&self, values: &mut HashMap<String, String>, editing: bool) {
+        for field in self
+            .fields
+            .iter()
+            .filter(|field| field.is_disabled(editing))
+        {
+            let name = field.name();
+            values.remove(&format!("keep_{name}"));
+            values.remove(&format!("clear_{name}"));
+            values.remove(name);
+            if let Some(default) = field.default_value()
+                && !editing
+            {
+                values.insert(name.to_string(), default.to_string());
+            }
+        }
+    }
+
+    /// The keys of the controls disabled on the edit form when `editing`, else the create form.
+    pub(crate) fn disabled_keys(&self, editing: bool) -> impl Iterator<Item = &str> {
+        self.fields
+            .iter()
+            .filter(move |field| field.is_disabled(editing))
+            .map(Field::name)
     }
 
     /// Appends another schema's nodes after this one's.
@@ -359,6 +401,38 @@ impl<F> Schema<F> {
             .collect();
         errors.extend(self.condition_errors());
         errors.extend(self.dependent_errors());
+        // A control disabled on create posts nothing there, so the create needs a value.
+        for field in &self.fields {
+            let blank = field
+                .default_value()
+                .is_none_or(|value| value.trim().is_empty());
+            if field.is_always_disabled() && field.is_required() && blank {
+                errors.push(crate::DeclarationErrorKind::DisabledWithoutValue {
+                    field: field.name().to_string(),
+                });
+            }
+            if let Some(value) = field.default_value()
+                && field.refuses(value)
+            {
+                errors.push(crate::DeclarationErrorKind::UnpostedDefault {
+                    field: field.name().to_string(),
+                    value: value.to_string(),
+                });
+            }
+            // A row's controls post under the repeater's key, which neither the disabled drop nor
+            // the defaults read.
+            if let Some(repeater) = field.as_repeater()
+                && let Some(leaf) = repeater
+                    .item_schema()
+                    .fields()
+                    .find(|leaf| leaf.is_disabled(true) || leaf.default_value().is_some())
+            {
+                errors.push(crate::DeclarationErrorKind::RepeaterLeafModifier {
+                    field: field.name().to_string(),
+                    leaf: leaf.name().to_string(),
+                });
+            }
+        }
         let mut seen = HashSet::new();
         for field in &self.fields {
             match field.misdeclared() {

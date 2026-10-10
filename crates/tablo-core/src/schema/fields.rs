@@ -9,13 +9,16 @@ mod text;
 
 use std::sync::Arc;
 
-pub use builders::{ChoiceField, CustomField, FileField, IntoOptions, RepeaterField, TextField};
+pub use builders::{
+    ChoiceField, CustomField, FileField, IntoFormValue, IntoOptions, RepeaterField, TextField,
+};
 pub(crate) use choice::{ChoiceControl, option_view};
 pub use custom::Toggle;
 pub(crate) use custom::{Control, ControlInput};
 pub(crate) use file::stored_upload;
 use tablo_ui::{
-    field as ui_field, field_content as ui_field_content, field_error as ui_field_error,
+    field as ui_field, field_content as ui_field_content,
+    field_description as ui_field_description, field_error as ui_field_error,
     field_label as ui_field_label, field_title as ui_field_title,
 };
 pub(crate) use text::TextControl;
@@ -100,6 +103,23 @@ pub struct Field {
     condition: Option<Condition>,
     /// Whether the control is a checkbox, which a condition follows through `checked`.
     checkbox: bool,
+    /// The help text under the control, set by `help`.
+    help: Option<String>,
+    /// When the control renders disabled and the server ignores what it posts.
+    disabled: Disabled,
+    /// The create form's initial value, in the form spelling, set by `default`.
+    default: Option<String>,
+}
+
+/// When a [`Field`] renders disabled, so the browser posts nothing for it and the server drops
+/// a key posted anyway.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) enum Disabled {
+    #[default]
+    Never,
+    Always,
+    /// On the edit form only: the create form takes the value, which no edit then changes.
+    OnEdit,
 }
 
 /// The control a [`Field`] renders, with what only that control declares.
@@ -131,6 +151,9 @@ impl std::fmt::Debug for Field {
             .field("required", &self.required)
             .field("control", &control)
             .field("condition", &self.condition)
+            .field("help", &self.help)
+            .field("disabled", &self.disabled)
+            .field("default", &self.default)
             .finish()
     }
 }
@@ -144,6 +167,9 @@ impl Field {
             control,
             condition: None,
             checkbox: false,
+            help: None,
+            disabled: Disabled::Never,
+            default: None,
         }
     }
 
@@ -285,6 +311,9 @@ impl Field {
             }),
             condition: None,
             checkbox: false,
+            help: None,
+            disabled: Disabled::Never,
+            default: None,
         }
     }
 
@@ -374,9 +403,45 @@ impl Field {
         }
     }
 
+    /// Whether the control could never post `value`: a typed text field's type does not parse it,
+    /// or a single choice over static options or a checkbox does not offer it.
+    pub(crate) fn refuses(&self, value: &str) -> bool {
+        match &self.control {
+            ControlKind::Text(text) => !value.trim().is_empty() && !text.parses(value),
+            ControlKind::Choice(choice) if choice.is_multiple() => false,
+            _ => self.can_post(value) == Some(false),
+        }
+    }
+
     /// Whether the control renders as required.
     pub(crate) fn is_required(&self) -> bool {
         self.required
+    }
+
+    /// Whether the control renders disabled, on the edit form when `editing`.
+    pub(crate) fn is_disabled(&self, editing: bool) -> bool {
+        match self.disabled {
+            Disabled::Never => false,
+            Disabled::Always => true,
+            Disabled::OnEdit => editing,
+        }
+    }
+
+    /// Whether the control renders disabled on the create form as well as the edit form.
+    pub(crate) fn is_always_disabled(&self) -> bool {
+        self.disabled == Disabled::Always
+    }
+
+    /// The create form's initial value, in the form spelling.
+    pub(crate) fn default_value(&self) -> Option<&str> {
+        self.default.as_deref()
+    }
+
+    /// The validation state and help text the control renders with.
+    fn chrome(&self, id: String, error: Option<&str>, fallback: Option<String>) -> FieldChrome {
+        let mut chrome = FieldChrome::new(id, error, fallback);
+        chrome.help = self.help.clone();
+        chrome
     }
 
     /// Renders the control required when its record-form field has no blank answer.
@@ -491,14 +556,15 @@ impl Field {
         placement: Placement<'_>,
     ) -> Result<BoxView<'a>> {
         let id = placement.id(self.name());
+        let disabled = self.is_disabled(placement.editing);
         match &self.control {
-            ControlKind::Text(text) => self.render_text(text, cx, value, error, id),
+            ControlKind::Text(text) => self.render_text(text, cx, value, error, id, disabled),
             ControlKind::Choice(choice) => {
                 Box::pin(self.render_choice(choice, cx, value, error, id, placement)).await
             }
-            ControlKind::File => self.render_file(cx, value, error, id),
+            ControlKind::File => self.render_file(cx, value, error, id, disabled),
             ControlKind::Custom(control) => {
-                self.render_custom(control.as_ref(), cx, value, error, id)
+                self.render_custom(control.as_ref(), cx, value, error, id, disabled)
             }
             // Its node renders it, from the keys and errors of each row's controls.
             ControlKind::Repeater(_) => Ok(().boxed()),
@@ -538,9 +604,10 @@ impl Field {
         value: Option<&str>,
         error: Option<&str>,
         id: String,
+        disabled: bool,
     ) -> Result<BoxView<'a>> {
-        let required = self.is_required();
-        let chrome = FieldChrome::new(id, error, None);
+        let required = self.is_required() && !disabled;
+        let chrome = self.chrome(id, error, None);
         let input = ControlInput::new(
             self.name(),
             &chrome.id,
@@ -548,7 +615,8 @@ impl Field {
             required,
             chrome.aria_invalid() == "true",
             chrome.described_by(),
-        );
+        )
+        .disabled(disabled);
         let rendered = control.render(cx, input);
         render_field(
             cx,
@@ -600,6 +668,8 @@ pub(crate) struct Placement<'p> {
     /// The URL a searchable choice fetches its options from; `None` for the resource's own
     /// `{list}/options`, which the browser derives from the page's URL.
     pub(crate) options: Option<&'p str>,
+    /// Whether the form edits a stored record, where `disabled_on_edit` disables a control.
+    pub(crate) editing: bool,
 }
 
 impl Placement<'_> {
@@ -620,6 +690,8 @@ pub(crate) struct FieldChrome {
     error_id: String,
     error_text: String,
     has_error: bool,
+    /// The help text under the control.
+    help: Option<String>,
 }
 
 impl FieldChrome {
@@ -634,15 +706,28 @@ impl FieldChrome {
             id,
             error_text,
             has_error,
+            help: None,
         }
+    }
+
+    fn help_id(&self) -> String {
+        format!("{}-description", self.id)
     }
 
     pub(crate) fn aria_invalid(&self) -> &'static str {
         if self.has_error { "true" } else { "false" }
     }
 
+    /// The ids of the help text and the error, whichever render.
     pub(crate) fn described_by(&self) -> Option<String> {
-        self.has_error.then(|| self.error_id.clone())
+        let ids: Vec<String> = [
+            self.help.is_some().then(|| self.help_id()),
+            self.has_error.then(|| self.error_id.clone()),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+        (!ids.is_empty()).then(|| ids.join(" "))
     }
 }
 
@@ -660,6 +745,8 @@ pub(crate) fn render_field<'a>(
     let has_error = chrome.has_error;
     let error_id = chrome.error_id.clone();
     let error_text = chrome.error_text.clone();
+    let help = chrome.help.clone();
+    let help_id = chrome.help_id();
     let field_class = if has_error {
         "ac-field ac-field--error"
     } else {
@@ -681,6 +768,9 @@ pub(crate) fn render_field<'a>(
                 }
             )
             (control)
+            if let Some(help) = help {
+                ui_field_description(attrs: attributes! { id=(help_id) }, (help))
+            }
             if has_error {
                 ui_field_error(
                     attrs: attributes! { id=(error_id) class="ac-error" aria-live="polite" },

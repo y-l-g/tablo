@@ -1,8 +1,8 @@
 //! A choice taking several options: a checkbox per option, each posting the choice's key.
 
 use tablo_ui::{
-    FieldLegendVariant, checkbox as ui_checkbox, field_error as ui_field_error, field_legend,
-    field_set,
+    FieldLegendVariant, checkbox as ui_checkbox, field_description as ui_field_description,
+    field_error as ui_field_error, field_legend, field_set,
 };
 use topcoat::{Result, context::Cx, view::*};
 
@@ -23,6 +23,7 @@ impl Field {
         value: Option<&str>,
         error: Option<&str>,
         id: String,
+        disabled: bool,
     ) -> Result<BoxView<'a>> {
         let name = self.name().to_string();
         let label = self.label_str().to_string();
@@ -49,7 +50,15 @@ impl Field {
         };
         let legend_id = format!("{id}-legend");
         let error_id = format!("{id}-error");
-        let described_by = error.as_ref().map(|_| error_id.clone());
+        let help = self.help.clone();
+        let help_id = format!("{id}-description");
+        let described_by = [
+            help.as_ref().map(|_| help_id.clone()),
+            error.as_ref().map(|_| error_id.clone()),
+        ]
+        .into_iter()
+        .flatten()
+        .reduce(|ids, id| format!("{ids} {id}"));
         let boxes: Vec<BoxView<'a>> = options
             .into_iter()
             .enumerate()
@@ -85,6 +94,7 @@ impl Field {
                     })
                     data-invalid=(error.is_some().then_some("true"))
                     data-choices=""
+                    disabled=(disabled)
                 },
                 field_legend(
                     variant: FieldLegendVariant::Label,
@@ -117,6 +127,9 @@ impl Field {
                         </p>
                     }
                 </div>
+                if let Some(help) = help {
+                    ui_field_description(attrs: attributes! { id=(help_id) }, (help))
+                }
                 if let Some(message) = error {
                     ui_field_error(
                         attrs: attributes! { id=(error_id) class="ac-error" aria-live="polite" },

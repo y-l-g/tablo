@@ -9,8 +9,6 @@
 //! signals carry the dialog's id, and its searchable choices fetch from the action's own options
 //! route.
 
-use std::collections::HashMap;
-
 use tablo_ui::{
     ButtonSize, ButtonVariant, button, dialog, dialog_content, dialog_description, dialog_footer,
     dialog_header, dialog_title,
@@ -77,13 +75,14 @@ impl InputDialog {
                 input,
                 options,
             } = self;
-            let (values, errors) = (HashMap::new(), FieldErrors::new());
+            let schema = input();
+            let (values, errors) = (schema.defaults(), FieldErrors::new());
             // The fields' ids sit under their own prefix, so a field named `title` never takes
             // the dialog title's id.
             let source = Source::form(&values, &errors)
                 .scoped(format!("{id}-field"))
                 .options_at(options);
-            let fields = input().render(cx, source).await?;
+            let fields = schema.render(cx, source).await?;
             let csrf = crate::csrf::current_token(cx);
             let modal = id.clone();
             let title_id = format!("{id}-title");

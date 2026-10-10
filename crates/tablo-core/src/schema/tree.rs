@@ -51,6 +51,8 @@ pub struct Source<'a> {
     scope: String,
     /// Where a searchable choice fetches its options, when not the resource's own route.
     options: Option<String>,
+    /// Whether the form edits a stored record.
+    editing: bool,
 }
 
 impl<'a> Source<'a> {
@@ -62,7 +64,14 @@ impl<'a> Source<'a> {
             watched: HashMap::new(),
             scope: String::new(),
             options: None,
+            editing: false,
         }
+    }
+
+    /// Renders the edit form of a stored record, where `disabled_on_edit` disables a control.
+    pub(crate) fn editing(mut self, editing: bool) -> Self {
+        self.editing = editing;
+        self
     }
 
     /// Renders a form sharing its page with another: its DOM ids and its signals' keys carry
@@ -127,6 +136,7 @@ impl<'a> Source<'a> {
             parent,
             scope: &self.scope,
             options: self.options.as_deref(),
+            editing: self.editing,
         }
     }
 

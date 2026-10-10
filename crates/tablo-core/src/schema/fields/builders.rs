@@ -80,12 +80,34 @@ macro_rules! base_modifiers {
     };
 }
 
-/// The base modifiers and `custom`, on every builder of one value's control.
+/// The base modifiers, `help`, `disabled` and `custom`, on every builder of one value's control.
 macro_rules! common_modifiers {
     ($builder:ident) => {
         base_modifiers!($builder);
 
         impl<F> $builder<F> {
+            /// Renders `text` under the control, which the control names as its description.
+            pub fn help(mut self, text: impl Into<String>) -> Self {
+                self.0.help = Some(text.into());
+                self
+            }
+
+            /// Renders the control disabled on the create and edit forms. The server drops a
+            /// value posted for it anyway, so an edit keeps the stored value and a create takes
+            /// the field's `default`, else its blank answer; a field with neither cannot be
+            /// created, and its panel refuses to mount.
+            pub fn disabled(mut self) -> Self {
+                self.0.disabled = super::Disabled::Always;
+                self
+            }
+
+            /// Renders the control disabled on the edit form only: the create form sets the
+            /// value, and no edit changes it.
+            pub fn disabled_on_edit(mut self) -> Self {
+                self.0.disabled = super::Disabled::OnEdit;
+                self
+            }
+
             /// Renders the field with an app's [`Control`] instead, as [`Field::custom`] does:
             /// how a record form's control takes a custom input. The field keeps its key and
             /// label; the replaced control's own modifiers, such as `email`, `unique` or
@@ -114,6 +136,59 @@ macro_rules! required_for_tests {
 
 #[cfg(test)]
 required_for_tests!(TextField, FileField);
+
+/// `default`, on every builder whose control a value fills.
+macro_rules! default_modifier {
+    ($($builder:ident),*) => {$(
+        impl<F> $builder<F> {
+            /// Fills the create form's control with `value`: any [`FormScalar`], or a `&str` in
+            /// the form spelling. On a [`disabled`](Self::disabled) field it is the value a
+            /// create stores. A schema refuses a default the control never posts: one a typed
+            /// field does not parse, or not one of a choice's options.
+            ///
+            /// ```rust
+            /// # #[derive(Debug, Clone, toasty::Model)]
+            /// # struct Post { #[key] #[auto] id: uuid::Uuid, status: String, views: i64 }
+            /// # use tablo_core::Field;
+            /// Field::choice(Post::fields().status())
+            ///     .options(["draft", "published"])
+            ///     .default("draft");
+            /// Field::text(Post::fields().views()).default(0_i64).disabled();
+            /// ```
+            pub fn default(mut self, value: impl IntoFormValue) -> Self {
+                self.0.default = Some(value.into_form_value());
+                self
+            }
+        }
+    )*};
+}
+
+default_modifier!(TextField, ChoiceField, CustomField);
+
+/// A value a field's `default` takes: any [`FormScalar`], or a `&str` or `&String` in the form
+/// spelling.
+pub trait IntoFormValue {
+    /// The value's form spelling.
+    fn into_form_value(self) -> String;
+}
+
+impl<T: FormScalar> IntoFormValue for T {
+    fn into_form_value(self) -> String {
+        self.to_form()
+    }
+}
+
+impl IntoFormValue for &str {
+    fn into_form_value(self) -> String {
+        self.to_string()
+    }
+}
+
+impl IntoFormValue for &String {
+    fn into_form_value(self) -> String {
+        self.clone()
+    }
+}
 
 /// A text field: [`Field::text`], or a record form's text control (`F` is the form).
 pub struct TextField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);

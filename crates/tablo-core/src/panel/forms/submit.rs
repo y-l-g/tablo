@@ -66,6 +66,14 @@ async fn prepare_submission<R: Resource>(
     let stored = advisory
         .map(|advisory| <R::Form as RecordForm>::hydrate(cx, advisory))
         .unwrap_or_default();
+    // A disabled control posts nothing: a key posted anyway is dropped, so an edit keeps the
+    // stored value and a create takes the field's default. Conditions then read that value, as
+    // the browser did.
+    let editing = advisory.is_some();
+    for key in schema.disabled_keys(editing) {
+        files.remove(key);
+    }
+    schema.drop_disabled(&mut values, editing);
     // A hidden field's control is disabled, so the browser posts nothing for it: a key posted
     // anyway is dropped, with a file field's carried upload, so an edit keeps the stored value and
     // a create takes the blank answer. An edit that does not post the watched field reads its
@@ -76,11 +84,12 @@ async fn prepare_submission<R: Resource>(
             .iter()
             .map(|(key, value)| (key.clone(), value.clone())),
     );
-    for key in schema.condition_hidden(&read) {
+    let hidden = schema.condition_hidden(&read);
+    for key in &hidden {
         values.remove(&format!("keep_{key}"));
         values.remove(&format!("clear_{key}"));
-        values.remove(&key);
-        files.remove(&key);
+        values.remove(key);
+        files.remove(key);
     }
     // File fields take values only from file parts.
     drop_client_typed_uploads(&schema, &file_part_names, &mut values);
