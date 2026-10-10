@@ -14,10 +14,12 @@ description = "The smallest complete Tablo app, built as a dependent outside the
 
 [dependencies]
 tablo = { path = "../../crates/tablo", features = ["sqlite"] }
+# ANCHOR: upstream
 topcoat = { version = "0.10", default-features = false, features = ["view", "router", "discover", "serve", "tailwind", "font", "font-fontsource", "asset"] }
 toasty = { version = "0.11", default-features = false, features = ["jiff"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 uuid = "1.23"
+# ANCHOR_END: upstream
 
 [dev-dependencies]
 tablo = { path = "../../crates/tablo", features = ["sqlite", "testing"] }
