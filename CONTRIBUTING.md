@@ -77,6 +77,17 @@ cargo xtask fmt           # the formatting checks alone
 - An invariant over a parser or an encoder is a `proptest` property, not a hand-picked input list.
 - Unit tests live in `tests.rs` beside their source file (`foo/tests.rs` for `foo.rs`), and build
   their databases and HTML through `test_support` (`memory_db`, `tableless_db`, `Html`).
+- The showcase suite runs on in-memory SQLite, or on the server `TABLO_TEST_DATABASE_URL` names
+  with the matching feature, and CI runs it on PostgreSQL and MySQL too; `tests/framework/` builds
+  its own SQLite databases:
+
+  ```sh
+  TABLO_TEST_DATABASE_URL=postgresql://postgres:postgres@localhost/tablo \
+    cargo test -p showcase --features postgresql --test it
+  ```
+
+  An order or a match the test computes in Rust holds on every driver only when collation cannot
+  change it.
 - `examples/showcase/tests/it.rs` is one test binary whose modules are the suite files, one
   framework feature each: `cargo test -p showcase --test it list::` runs one file. `gates` holds the
   anonymous, CSRF and cross-tenant matrices, so a new route joins them there. `tests/framework/`
