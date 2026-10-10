@@ -12,6 +12,8 @@
 //! - [`pk`]: the primary key read off an instance and spelled as a URL id that parses back into a
 //!   predicate through `toasty_core`'s untyped expressions.
 //! - [`value_text`]: a value's text, for URL ids and enum discriminants.
+//! - [`case_insensitive_search`]: a search predicate's `LIKE` matches run as `ILIKE` where the
+//!   driver has it.
 //! - [`UntypedInclude`] and [`Assignments`]: the `toasty_core` types a public Toasty API takes
 //!   without re-exporting them.
 //! - [`VariantId`]: an embedded enum variant's id, re-exported for the derives.
@@ -21,7 +23,8 @@ pub(crate) mod join;
 pub(crate) mod model;
 pub(crate) mod pk;
 
-use toasty::stmt::Value;
+use toasty::stmt::{Expr, Value};
+use toasty_core::stmt::{ExprLike, VisitMut, visit_mut};
 
 /// An include with its model and target types erased, which `Query::include` takes.
 pub(crate) type UntypedInclude = toasty_core::stmt::Include;
@@ -57,3 +60,35 @@ pub(crate) fn value_text(value: &Value) -> Option<String> {
         _ => return None,
     })
 }
+
+/// `predicate` with its `LIKE` matches run as `ILIKE` when `db`'s driver has the operator
+/// (PostgreSQL), so a search is case-insensitive there as SQLite's `LIKE` and MySQL's default
+/// collations already are.
+///
+/// Toasty's `ilike` builds a case-insensitive match, but a table and a record title declare their
+/// search before any `Db` exists, and Toasty refuses `ILIKE` on a driver without it, so the
+/// search switches when a request runs it.
+pub(crate) fn case_insensitive_search(db: &toasty::Db, predicate: Expr<bool>) -> Expr<bool> {
+    if db.capability().native_ilike {
+        ilike(predicate)
+    } else {
+        predicate
+    }
+}
+
+/// `predicate` with every `LIKE` in it, nested ones included, made case-insensitive.
+fn ilike(predicate: Expr<bool>) -> Expr<bool> {
+    struct Ilike;
+    impl VisitMut for Ilike {
+        fn visit_expr_like_mut(&mut self, like: &mut ExprLike) {
+            like.case_insensitive = true;
+            visit_mut::visit_expr_like_mut(self, like);
+        }
+    }
+    let mut untyped = toasty_core::stmt::Expr::from(predicate);
+    Ilike.visit_expr_mut(&mut untyped);
+    Expr::from_untyped(untyped)
+}
+
+#[cfg(test)]
+mod tests;

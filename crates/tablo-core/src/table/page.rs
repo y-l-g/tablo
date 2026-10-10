@@ -88,9 +88,9 @@ where
         // shared routine — the export loader applies the same one to its own
         // seed. The cursor probes below reuse that filtered and ordered query
         // without the columns' includes: they only ask whether a row exists.
-        let base_query = table.apply_declaration(query, state);
-        let query = table.include_relations(base_query.clone());
         let mut db = crate::db::db(cx);
+        let base_query = table.apply_declaration(&db, query, state);
+        let query = table.include_relations(base_query.clone());
         let per_page = table.page_size();
         let mut paginated = toasty::stmt::Paginate::new(query, per_page);
         // Toasty cursor pagination takes exactly one cursor, and the state

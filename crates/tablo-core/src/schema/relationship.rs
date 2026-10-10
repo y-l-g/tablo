@@ -214,7 +214,10 @@ where
     if !term.is_empty()
         && let Some(expr) = R::search_expr(cx, &term)
     {
-        query = query.filter(expr);
+        query = query.filter(crate::toasty_compat::case_insensitive_search(
+            &crate::db::db(cx),
+            expr,
+        ));
     }
     if let Some(ord) = R::order_by(cx) {
         query = query.order_by(ord);
