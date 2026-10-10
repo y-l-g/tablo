@@ -1,41 +1,41 @@
-# Coming from Filament or Django
+# Coming from Filament
 
-Tablo follows the shape of Filament's panels and Django's admin: one declaration per model, from
+Tablo follows the shape of Filament's panels: one declaration per model, from
 which the list, form and detail pages follow. This table maps their names to Tablo's.
 
-| Filament | Django admin | Tablo |
-| --- | --- | --- |
-| `PanelProvider` | `AdminSite` | [`Panel`](./panel-and-routing.md), mounted on your router with `.panel(..)` |
-| `Resource` | `ModelAdmin` | a type implementing [`Resource`](./resources.md), declaring a `ResourceDef` |
-| `getEloquentQuery()` | `get_queryset()` | `Resource::query` |
-| `table()`: columns | `list_display` | `ResourceDef::table(Table::new(columns))` |
-| `->searchable()`, `->sortable()` | `search_fields`, `ordering` | `.searchable()`, `.sortable()` on a column |
-| table filters | `list_filter` | `Table::filters`: `SelectFilter`, `TernaryFilter`, `DateFilter`, `QueryFilter` |
-| `->paginated([..])` | `list_per_page` | `Table::paginate(n)` |
-| `->groups([..])` | — | `Table::group_by(lens)` |
-| `form()` | `ModelAdmin.form`, `fields` | `ResourceDef::form`: a `Schema` of the [record form](./forms.md)'s controls |
-| `make:filament-resource --generate` | `ModelForm` | `#[derive(ModelForm)]` on the model, which writes the [record form](./forms.md#a-form-from-the-model) |
-| form state | `cleaned_data` | the `#[derive(RecordForm)]` struct a submission parses into |
-| `Section`, `Grid`, `Group` | `fieldsets` | the `Section`, `Grid` and `Group` layout blocks |
-| `->required()`, `->nullable()` | `blank=True` | the record-form field's type: an `Option` or a blank answer makes it optional |
-| `->disabled()` | `readonly_fields` | `.disabled()`, `.disabled_on_edit()` |
-| `->visible(fn (Get $get) ..)` | — | `.visible_when(..)`, a [condition](./forms.md#conditional-fields) |
-| a dependent `Select` | — | `.depends_on(..)`, a [dependent choice](./forms.md#dependent-choices) |
-| `Repeater` | an inline of a JSON field | `Field::repeater` over a `#[document]` list |
-| `rules()`, `->unique()` | `clean()` | `Resource::validate_record`, `.unique()` |
-| `mutateFormDataBeforeCreate`, `handleRecordCreation` | `save_model()` | `Resource::create_record`, `update_record`, delegating to `write_create`, `write_update` |
-| `infolist()` | the change page, read-only | `ResourceDef::detail`: a [`Detail`](./detail-pages.md) of columns |
-| `RelationManager` | `TabularInline` | `ResourceDef::relation(Relation::has_many::<R>(..))`, the related resource's table |
-| `BelongsToMany` relation manager | `filter_horizontal` | `Relation::belongs_to_many`, or a [many-to-many field](./forms.md#many-to-many-fields) |
-| `$recordTitleAttribute` | `__str__` | `ResourceDef::record_title(lens)` |
-| policies (`viewAny`, `update`, …) | `has_view_permission`, `has_change_permission`, … | one [policy](./policy-auth-tenancy.md#policy) answering each `Ability` |
-| table actions, bulk actions | `actions` | `Action<R>` types with `PLACES`, added by `ResourceDef::action` |
-| header actions | — | `HeaderAction` types, added by `ResourceDef::header_action` |
-| custom pages | `get_urls()` views | a type implementing `Page`, registered by `Panel::page` |
-| dashboard | `index()` | `Panel::home::<P>()` |
-| `$navigationGroup`, `$navigationSort`, `$navigationIcon` | — | `navigation_group`, `navigation_order`, `icon` on the def |
-| tenancy | — | `ResourceDef::tenancy`: `Tenancy::column` or `Tenancy::via` |
-| `Notification::make()` | `message_user()` | `Notification::success(..)` and its siblings |
+| Filament | Tablo |
+| --- | --- |
+| `PanelProvider` | [`Panel`](./panel-and-routing.md), mounted on your router with `.panel(..)` |
+| `Resource` | a type implementing [`Resource`](./resources.md), declaring a `ResourceDef` |
+| `getEloquentQuery()` | `Resource::query` |
+| `table()`: columns | `ResourceDef::table(Table::new(columns))` |
+| `->searchable()`, `->sortable()` | `.searchable()`, `.sortable()` on a column |
+| table filters | `Table::filters`: `SelectFilter`, `TernaryFilter`, `DateFilter`, `QueryFilter` |
+| `->paginated([..])` | `Table::paginate(n)` |
+| `->groups([..])` | `Table::group_by(lens)` |
+| `form()` | `ResourceDef::form`: a `Schema` of the [record form](./forms.md)'s controls |
+| `make:filament-resource --generate` | `#[derive(ModelForm)]` on the model, which writes the [record form](./forms.md#a-form-from-the-model) |
+| form state | the `#[derive(RecordForm)]` struct a submission parses into |
+| `Section`, `Grid`, `Group` | the `Section`, `Grid` and `Group` layout blocks |
+| `->required()`, `->nullable()` | the record-form field's type: an `Option` or a blank answer makes it optional |
+| `->disabled()` | `.disabled()`, `.disabled_on_edit()` |
+| `->visible(fn (Get $get) ..)` | `.visible_when(..)`, a [condition](./forms.md#conditional-fields) |
+| a dependent `Select` | `.depends_on(..)`, a [dependent choice](./forms.md#dependent-choices) |
+| `Repeater` | `Field::repeater` over a `#[document]` list |
+| `rules()`, `->unique()` | `Resource::validate_record`, `.unique()` |
+| `mutateFormDataBeforeCreate`, `handleRecordCreation` | `Resource::create_record`, `update_record`, delegating to `write_create`, `write_update` |
+| `infolist()` | `ResourceDef::detail`: a [`Detail`](./detail-pages.md) of columns |
+| `RelationManager` | `ResourceDef::relation(Relation::has_many::<R>(..))`, the related resource's table |
+| `BelongsToMany` relation manager | `Relation::belongs_to_many`, or a [many-to-many field](./forms.md#many-to-many-fields) |
+| `$recordTitleAttribute` | `ResourceDef::record_title(lens)` |
+| policies (`viewAny`, `update`, …) | one [policy](./policy-auth-tenancy.md#policy) answering each `Ability` |
+| table actions, bulk actions | `Action<R>` types with `PLACES`, added by `ResourceDef::action` |
+| header actions | `HeaderAction` types, added by `ResourceDef::header_action` |
+| custom pages | a type implementing `Page`, registered by `Panel::page` |
+| dashboard | `Panel::home::<P>()` |
+| `$navigationGroup`, `$navigationSort`, `$navigationIcon` | `navigation_group`, `navigation_order`, `icon` on the def |
+| tenancy | `ResourceDef::tenancy`: `Tenancy::column` or `Tenancy::via` |
+| `Notification::make()` | `Notification::success(..)` and its siblings |
 
 ## What works differently
 
