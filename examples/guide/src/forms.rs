@@ -368,14 +368,19 @@ pub struct Note {
     #[default(jiff::Timestamp::now())]
     pub created_at: jiff::Timestamp,
     #[index]
+    #[form(relationship = AuthorResource)]
     pub author_id: uuid::Uuid,
     #[belongs_to(key = author_id, references = id)]
     pub author: toasty::Deferred<Author>,
 }
 // ANCHOR_END: forms-model-form
 
-/// `NoteForm` holds the two fields a person fills, and nothing else.
-fn _note_form(form: NoteForm) -> (String, String) {
-    let NoteForm { title, body } = form;
-    (title, body)
+/// `NoteForm` holds the three fields a person fills, and nothing else.
+fn _note_form(form: NoteForm) -> (String, String, uuid::Uuid) {
+    let NoteForm {
+        title,
+        body,
+        author_id,
+    } = form;
+    (title, body, author_id)
 }

@@ -67,17 +67,21 @@ and it writes the struct, named after the model:
 {{#include ../../../examples/guide/src/forms.rs:forms-model-form}}
 ```
 
-`NoteForm` holds `title` and `body`, with `NoteFormField` and `NoteFormControls` beside it, and
-a field's `#[form(..)]` keys are the record form's. The derive leaves out what no person fills: a
-`#[key]`, `#[auto]`, `#[update]` or `#[version]` field, a relation, and a `TenantId` tenant column;
-a form key on one is a compile error. A `#[default(..)]` field and a foreign key are left out
-unless a form key opts them in, such as `#[form(repeat)]` on a defaulted list or
-`#[form(relationship = AuthorResource)]` on `author_id`. `#[form(skip)]` leaves out any other
-field, and `#[form(name = NoteEditor)]` on the model renames the struct.
+`NoteForm` holds `title`, `body` and `author_id`, with `NoteFormField` and `NoteFormControls`
+beside it, and each field keeps the model field's visibility. A field's `#[form(..)]` keys are the
+record form's. The derive leaves out what no person fills: a key, an `#[auto]`, `#[update]` or
+`#[version]` field, a relation, and a `TenantId` field, which belongs to the resource's tenancy.
+A form key on one is a compile error naming the fix. A `#[default(..)]` field and a foreign key
+are left out unless a form key opts them in, as `#[form(relationship = AuthorResource)]` does for
+`author_id`; without it, a create would leave the column unset, which mounting refuses when the
+policy allows `Create`.
+`#[form(skip)]` leaves out any other field, and `#[form(name = NoteEditor)]` on the model renames
+the struct.
 
-A form whose fields differ from the model's, such as a [many-to-many field](#many-to-many-fields)
-or a form that keeps its control choices out of the model, is a `#[derive(RecordForm)]` struct:
-move the field keys onto it and drop the derive from the model.
+Declare a `#[derive(RecordForm)]` struct instead when a form field is not a model column, such as
+a [many-to-many field](#many-to-many-fields)'s list of keys, or when the model should not name a
+resource. Move the field keys onto it and drop `ModelForm` from the model, or give one of the two
+another name: both are `NoteForm` by default.
 
 ## Controls
 

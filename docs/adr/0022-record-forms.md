@@ -40,12 +40,6 @@ through no multi-step `via` and the join model's type is not the field's.
 
 ## Rejected
 
-- One derive for a model and a form struct, told apart by `#[form(model = ..)]`: a form struct
-  without it would become the form of a model it is not.
-- Inferring a foreign key's source from its `#[belongs_to]`: the source is a resource, and several
-  resources can share a model.
-- Leaving out every `#[default]` field: a repeater writes a defaulted `#[document]` list.
-
 - Presence on the control (`.required()`): a second declaration of what the blank answers say.
 - A schema-side parse: the struct parses every key anyway.
 - An untyped form schema checked at mount: a control no field binds and a field with no control
@@ -63,3 +57,8 @@ through no multi-step `via` and the join model's type is not the field's.
 - Replacing every link of an edited record: it rewrites the rows it keeps, and drops any column
   they hold.
 - A `<select multiple>`: a click without a modifier key drops every other choice.
+- One derive for a model and a form struct, told apart by `#[form(model = ..)]`: a form struct
+  without it would become the form of a model it is not.
+- Inferring a foreign key's source from its `#[belongs_to]`: the source is a resource, and several
+  resources can share a model.
+- Leaving out every `#[default]` field: a repeater writes a defaulted `#[document]` list.

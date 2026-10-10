@@ -356,8 +356,9 @@ pub struct FormField<K> {
 
 /// The typed value a resource's form submission parses into.
 ///
-/// Derive it with [`tablo_core::RecordForm`](crate::RecordForm); a
-/// hand-written impl is what the derive expands to.
+/// Derive it from a model with [`tablo_core::ModelForm`](crate::ModelForm) or from a struct with
+/// [`tablo_core::RecordForm`](crate::RecordForm); a hand-written impl is what the derives expand
+/// to.
 pub trait RecordForm: Sized + Send + 'static {
     /// The model the form writes.
     type Model: Model + toasty::stmt::IntoExpr<Self::Model> + Send + Sync + 'static;
