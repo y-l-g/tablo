@@ -121,6 +121,33 @@ pub fn reports_panel() -> Panel {
 }
 // ANCHOR_END: panel-reports-page
 
+fn is_manager(_cx: &Cx) -> bool {
+    true
+}
+
+// ANCHOR: panel-page-def
+pub struct SalesPage;
+
+impl Page for SalesPage {
+    fn declare() -> PageDef {
+        PageDef::new()
+            .slug("sales")
+            .icon(tablo::ui::icons::LAYOUT_DASHBOARD)
+            .navigation_group("Reports")
+            .access(is_manager)
+    }
+
+    async fn render(cx: &Cx) -> Result<impl View> {
+        Ok(view! { cx => tablo::ui::page(tablo::ui::page_title("Sales")) })
+    }
+}
+
+/// The portal's sales page sits first in the sidebar, outside the group.
+pub fn sales_portal() -> Panel {
+    Panel::new("portal").page_with::<SalesPage>(|def| def.navigation_order(-1))
+}
+// ANCHOR_END: panel-page-def
+
 // ANCHOR: panel-public-page
 pub struct Dashboard;
 

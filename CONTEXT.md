@@ -9,6 +9,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Panel | An admin panel under one prefix: its resources, pages, shell and auth gate. | Admin, Dashboard, App, Site |
 | Auth gate | The panel's check, ahead of every handler under its prefix and Topcoat's runtime path, that the request comes from a signed-in user with panel access; `auth::guard` makes it in an app's own handler. | Guard (alone), Middleware, Firewall |
 | Page | A panel page that is not a resource: a type implementing `Page`. | CustomPage, Screen, View |
+| Page definition | The `PageDef` a page declares: slug, label, navigation, access, header actions. Each panel mounts its own copy. | Config, Settings, Options |
 | Resource | A type implementing `Resource` for one Toasty model. Its `Form` is `NoForm` when list-only. | Model, Entity, Collection, CRUD |
 | Resource definition | The `ResourceDef` a resource declares: slug, labels, navigation, policy, tenancy, table, form, detail, relations, actions, header actions. Each panel mounts its own copy. | Config, Settings, Options |
 | Query | A resource's own row scoping, such as soft deletes. | Scope, Builder |

@@ -88,7 +88,7 @@ impl Resource for PostResource {
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
-            .policy(|_cx: &Cx, ability: Ability<'_, Post>| !matches!(ability, Ability::Create))
+            .policy_fn(|_cx, ability| !matches!(ability, Ability::Create))
             .tenancy(Tenancy::column(lens!(Post.tenant_id)))
             .table(
                 Table::new((

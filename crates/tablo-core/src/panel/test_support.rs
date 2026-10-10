@@ -4,10 +4,7 @@
 //! mounting helpers; one copy lives here.
 
 use toasty::Db;
-use topcoat::{
-    context::Cx,
-    router::{Body, Router, RouterBuilderDiscoverExt},
-};
+use topcoat::router::{Body, Router, RouterBuilderDiscoverExt};
 
 use crate::{
     Ability, Panel, RouterBuilderPanelExt, lens,
@@ -61,6 +58,7 @@ pub(crate) fn panel_state(prefix: &str, auth: crate::Auth) -> super::state::Pane
         root_redirect: None,
         auth,
         login_hint: None,
+        mounted_pages: std::collections::HashMap::new(),
         uploads: None,
         served_paths: Vec::new(),
         urls: std::collections::HashMap::new(),
@@ -145,7 +143,7 @@ impl crate::resource::Resource for TaggedResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .slug("tagged")
-            .policy(|_cx: &Cx, ability: Ability<'_, Tagged>| {
+            .policy_fn(|_cx, ability| {
                 matches!(
                     ability,
                     Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)

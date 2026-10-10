@@ -64,7 +64,7 @@ impl Resource for ItemResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .slug("items")
-            .policy(|_cx: &Cx, ability: Ability<'_, Item>| {
+            .policy_fn(|_cx, ability| {
                 matches!(
                     ability,
                     Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)
@@ -365,9 +365,7 @@ impl Resource for OwnedResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .slug("owned")
-            .policy(|_cx: &Cx, ability: Ability<'_, Owned>| {
-                matches!(ability, Ability::ViewAny | Ability::Create)
-            })
+            .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
             .tenancy(Tenancy::column(Owned::fields().tenant_id()))
             .table(Table::new(TextColumn::new(lens!(Owned.title))))
     }
@@ -415,9 +413,7 @@ macro_rules! item_resource {
             fn declare() -> ResourceDef<Self> {
                 ResourceDef::new()
                     .slug("items")
-                    .policy(|_cx: &Cx, ability: Ability<'_, Item>| {
-                        matches!(ability, Ability::Create)
-                    })
+                    .policy_fn(|_cx, ability| matches!(ability, Ability::Create))
                     .table(item_table())
                     .form($schema)
             }
@@ -507,7 +503,7 @@ macro_rules! list_only_resource {
             fn declare() -> ResourceDef<Self> {
                 ResourceDef::new()
                     .slug("items")
-                    .policy(|_cx: &Cx, ability: Ability<'_, Item>| match ability {
+                    .policy_fn(|_cx, ability| match ability {
                         Ability::Create => $create,
                         _ => false,
                     })
@@ -574,7 +570,7 @@ async fn build_refuses_a_field_record_form_control_does_not_render() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("items")
-                .policy(|_cx: &Cx, ability: Ability<'_, Item>| matches!(ability, Ability::ViewAny))
+                .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny))
                 .table(item_table())
         }
     }
@@ -657,7 +653,7 @@ async fn a_list_only_resource_declares_its_detail_page() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("items")
-                .policy(|_cx: &Cx, ability: Ability<'_, Item>| matches!(ability, Ability::View(_)))
+                .policy_fn(|_cx, ability| matches!(ability, Ability::View(_)))
                 .table(item_table())
                 .detail(Detail::new(ComputedColumn::new("Title", |item: &Item| {
                     format!("{} (view)", item.title)
@@ -714,7 +710,7 @@ macro_rules! title_only_resource {
             fn declare() -> ResourceDef<Self> {
                 ResourceDef::new()
                     .slug("items")
-                    .policy(|_cx: &Cx, ability: Ability<'_, Item>| {
+                    .policy_fn(|_cx, ability| {
                         matches!(ability, Ability::Create)
                     })
                     .table(item_table())
@@ -761,9 +757,7 @@ async fn a_value_the_form_type_refuses_renders_inline() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("items")
-                .policy(|_cx: &Cx, ability: Ability<'_, Item>| {
-                    matches!(ability, Ability::View(_) | Ability::Update(_))
-                })
+                .policy_fn(|_cx, ability| matches!(ability, Ability::View(_) | Ability::Update(_)))
                 .table(item_table())
                 .form(
                     // A static-options select checks membership, not the column's type.
@@ -854,9 +848,7 @@ async fn an_unkeyable_record_rule_fails_closed() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("items")
-                .policy(|_cx: &Cx, ability: Ability<'_, Item>| {
-                    matches!(ability, Ability::View(_) | Ability::Update(_))
-                })
+                .policy_fn(|_cx, ability| matches!(ability, Ability::View(_) | Ability::Update(_)))
                 .table(item_table())
         }
 
@@ -933,9 +925,7 @@ async fn an_unkeyable_parse_failure_fails_closed() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("items")
-                .policy(|_cx: &Cx, ability: Ability<'_, Item>| {
-                    matches!(ability, Ability::View(_) | Ability::Update(_))
-                })
+                .policy_fn(|_cx, ability| matches!(ability, Ability::View(_) | Ability::Update(_)))
                 .table(item_table())
         }
     }
@@ -960,7 +950,7 @@ async fn a_list_only_resource_never_links_to_create() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("items")
-                .policy(|cx: &Cx, ability: Ability<'_, Item>| match ability {
+                .policy_fn(|cx, ability| match ability {
                     Ability::ViewAny => true,
                     Ability::Create => tablo::tenant_id(cx).is_some(),
                     _ => false,
@@ -1021,7 +1011,7 @@ async fn the_derived_default_form_renders_and_writes() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("widgets")
-                .policy(|_cx: &Cx, ability: Ability<'_, Widget>| {
+                .policy_fn(|_cx, ability| {
                     matches!(
                         ability,
                         Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)

@@ -1,5 +1,7 @@
 //! The handlers behind every registered [`Page`]: its `GET`, and its header actions' `POST`.
 
+use std::sync::Arc;
+
 use topcoat::{
     context::Cx,
     router::{
@@ -11,16 +13,27 @@ use topcoat::{
 };
 
 use super::actions::{input_options, run_header};
-use crate::{Page, topcoat_compat::async_page};
+use crate::{
+    Page,
+    page::{MountedPage, mounted_page},
+    topcoat_compat::async_page,
+};
 
-/// `GET` for a registered page: the auth re-check every panel handler runs and the page's
-/// [`Page::can_access`], then the page's own body.
+/// `P` as the request's panel mounted it, once the auth re-check every panel handler runs and the
+/// page's [`PageDef::access`](crate::PageDef::access) admit the request.
+fn admitted<P: Page>(cx: &Cx) -> topcoat::Result<&Arc<MountedPage>> {
+    crate::auth::guard(cx)?;
+    let page = mounted_page::<P>(cx).ok_or_else(not_found)?;
+    if !page.admits(cx) {
+        return Err(forbidden().into());
+    }
+    Ok(page)
+}
+
+/// `GET` for a registered page: [`admitted`], then the page's own body.
 pub(super) fn page_handler<P: Page>(cx: &Cx, _body: Body) -> BoxView<'_> {
     async_page(async move {
-        crate::auth::guard(cx)?;
-        if !P::can_access(cx) {
-            return Err(forbidden().into());
-        }
+        admitted::<P>(cx)?;
         P::render(cx).await
     })
 }
@@ -29,12 +42,12 @@ pub(super) fn page_handler<P: Page>(cx: &Cx, _body: Body) -> BoxView<'_> {
 /// header action's [`can_run`](crate::HeaderAction::can_run), landing back on the page.
 pub(super) fn page_action<P: Page>(cx: &Cx, body: Body) -> BoxView<'_> {
     async_page(async move {
-        crate::auth::guard(cx)?;
-        if !P::can_access(cx) {
-            return Err(forbidden().into());
-        }
-        let actions = P::header_actions();
-        let Some(action) = actions.find(path_param_segment(cx, "action")).copied() else {
+        let page = admitted::<P>(cx)?;
+        let Some(action) = page
+            .header_actions
+            .find(path_param_segment(cx, "action"))
+            .copied()
+        else {
             return Err(not_found().into());
         };
         if !(action.can_run)(cx) {
@@ -51,12 +64,8 @@ pub(super) fn page_action<P: Page>(cx: &Cx, body: Body) -> BoxView<'_> {
 /// action's input, behind the same checks as the action's `POST`.
 pub(super) fn page_action_options<P: Page>(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
-        crate::auth::guard(cx)?;
-        if !P::can_access(cx) {
-            return Err(forbidden().into());
-        }
-        let actions = P::header_actions();
-        let Some(action) = actions.find(path_param_segment(cx, "action")) else {
+        let page = admitted::<P>(cx)?;
+        let Some(action) = page.header_actions.find(path_param_segment(cx, "action")) else {
             return Err(not_found().into());
         };
         if !(action.can_run)(cx) {

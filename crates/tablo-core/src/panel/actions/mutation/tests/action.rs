@@ -30,7 +30,7 @@ impl Resource for Hidden {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .slug("dummies")
-            .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::View(_)))
+            .policy_fn(|_cx, ability| matches!(ability, Ability::View(_)))
             .table(dummy_table())
             .action::<Rename>()
     }

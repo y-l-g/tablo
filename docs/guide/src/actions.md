@@ -107,7 +107,7 @@ the button is on the list, and `RunHeader { action: NAME }`, which
 `Run` per record, grants no header action by it. A header action's name shares the resource's
 namespace with its record actions: mounting refuses a name two of them share.
 
-A [page](./panel-and-routing.md#pages) declares its header actions in `Page::header_actions`, and
+A [page](./panel-and-routing.md#pages) declares its header actions with `PageDef::header_action::<A>()`, and
 places their buttons where it renders its header with `header_action_buttons::<Self>(cx)`:
 
 ```rust
@@ -115,7 +115,7 @@ places their buttons where it renders its header with `header_action_buttons::<S
 ```
 
 A page's header action runs for whoever may open the page: the panel's sign-in and
-`Page::can_access` cover it as they cover the page's `GET`. **A page has no policy**, so an action
+the page's `PageDef::access` cover it as they cover the page's `GET`. **A page has no policy**, so an action
 that writes a resource's records asks that resource's policy in its own `can_run`, as
 `PublishDrafts` does: it then runs for the same users from the list and from the page.
 

@@ -32,7 +32,7 @@ A test matches on the kind rather than the message; see
 | `MissingAuthModels` | auth is on and the `Db` does not register `AdminUser` and `AuthSession` | add them to `toasty::models!(..)`, or `.auth(Auth::disabled())` |
 | `ShellAssetsWithoutBundle` | `shell_assets` is set and the router has no asset bundle | call `.assets(..)` before `.panel(..)` |
 | `FileFieldWithoutUploader` | a form declares a file field and the panel installs no uploader | `Panel::uploads` or `Panel::uploads_dir` |
-| `InvalidSegment` | the prefix, a `ResourceDef::slug` or a `Page::slug` is empty, `.` or `..`, or holds whitespace, a control character, URL punctuation, a quote, a backslash or one of `{ } ( )` | pick a plain segment such as `blog-posts` |
+| `InvalidSegment` | the prefix, a `ResourceDef::slug` or a `PageDef::slug` is empty, `.` or `..`, or holds whitespace, a control character, URL punctuation, a quote, a backslash or one of `{ } ( )` | pick a plain segment such as `blog-posts` |
 | `PrefixOverlapsRuntime` | the prefix overlaps Topcoat's `/_topcoat/runtime` | pick another prefix |
 | `PrefixOverlapsPanel` | the prefix is another panel's, or one is under the other (`/admin` and `/admin/reports`) | give each panel a prefix of its own |
 | `ServeDirWithoutCatchAll` | a `serve_dir` pattern does not end in a catch-all | end it in `{*file}`: `/uploads/{*file}` |
@@ -55,8 +55,9 @@ A test matches on the kind rather than the message; see
 | Kind | Refused when | Fix |
 | --- | --- | --- |
 | `DuplicateResource` | one resource type is registered twice on a panel | register it once; mount a variant under its own type |
+| `DuplicatePage` | one page type is registered twice on a panel, as `home` or `page` | register it once; mount a variant under its own type |
 | `SecondHome` | `Panel::home` is called twice | keep one home page; register the other with `page` |
-| `ReservedSlug` | a slug is `login`, `logout`, `register` or `-`, which the panel routes itself | rename it with `ResourceDef::slug` or `Page::slug` |
+| `ReservedSlug` | a slug is `login`, `logout`, `register` or `-`, which the panel routes itself | rename it with `ResourceDef::slug` or `PageDef::slug` |
 | `DuplicateSlug` | two resources or pages share a slug | give each a distinct slug |
 | `DuplicateAction` | two actions of a resource, record or header, share a `NAME` | rename one |
 | `ActionInput` | an action's input cannot be served; the `ActionInputFault` says why | see below |

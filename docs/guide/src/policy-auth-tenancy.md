@@ -93,8 +93,10 @@ impl Resource for AuthorResource {
 }
 ```
 
-A closure `|cx: &Cx, ability: Ability<'_, M>| -> bool` is a policy too, as in the first example,
-and so is any type that implements `Policy<M>`.
+`policy_fn` takes a closure `|cx, ability| -> bool`, as in the first example, and `policy` takes
+any type that implements `Policy<M>`. Within `declare`, the def learns its resource from the return
+type only after the closure is checked, so a closure that reads the record names the ability's
+type, `ability: Ability<'_, User>`, or the chain starts from `ResourceDef::<Self>::new()`.
 
 ### In your own code
 

@@ -136,7 +136,7 @@ impl Resource for MemberResource {
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
-            .policy(|_cx: &Cx, ability: Ability<'_, Member>| matches!(ability, Ability::ViewAny))
+            .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny))
             .table(Table::new(TextColumn::new(lens!(Member.handle))).paginate(25))
     }
 }

@@ -4,7 +4,7 @@
 //! keeps the stored value and a create takes the field's default.
 
 use tablo::{
-    Ability, Auth, DeclarationErrorKind, Panel, Resource, ResourceDef, Schema, Table, TextColumn,
+    Allow, Auth, DeclarationErrorKind, Panel, Resource, ResourceDef, Schema, Table, TextColumn,
     lens,
 };
 use toasty::Db;
@@ -41,7 +41,7 @@ impl Resource for AccountResource {
         let referral = c.referral.visible_when(&plan, ["pro"]);
         ResourceDef::new()
             .slug("accounts")
-            .policy(|_cx: &topcoat::context::Cx, _ability: Ability<'_, Account>| true)
+            .policy(Allow)
             .table(Table::new(TextColumn::new(lens!(Account.email))))
             .form(Schema::new((
                 c.email
@@ -202,15 +202,13 @@ impl Resource for NoPlan {
 
     fn declare() -> ResourceDef<Self> {
         let c = AccountForm::controls();
-        ResourceDef::new()
-            .policy(|_cx: &topcoat::context::Cx, _ability: Ability<'_, Account>| true)
-            .form(Schema::new((
-                c.email,
-                c.plan.disabled(),
-                c.credits,
-                c.coupon,
-                c.referral,
-            )))
+        ResourceDef::new().policy(Allow).form(Schema::new((
+            c.email,
+            c.plan.disabled(),
+            c.credits,
+            c.coupon,
+            c.referral,
+        )))
     }
 }
 

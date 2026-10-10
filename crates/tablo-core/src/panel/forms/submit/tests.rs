@@ -63,7 +63,7 @@ async fn edit_post_requires_view_as_well_as_update() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("dummies")
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| match ability {
+                .policy_fn(|_cx, ability| match ability {
                     Ability::View(_record) => false,
                     Ability::Update(_record) => true,
                     _ => false,
@@ -155,9 +155,7 @@ async fn transport_keys_never_reach_the_write() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("docs")
-                .policy(|_cx: &Cx, ability: Ability<'_, Doc>| {
-                    matches!(ability, Ability::ViewAny | Ability::Create)
-                })
+                .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
                 .table(crate::table::Table::new(crate::table::TextColumn::new(
                     lens!(Doc.title),
                 )))
@@ -250,9 +248,7 @@ async fn a_driver_create_failure_does_not_echo_driver_text() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("dummies")
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| {
-                    matches!(ability, Ability::ViewAny | Ability::Create)
-                })
+                .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
                 .table(crate::table::Table::new(crate::table::TextColumn::new(
                     lens!(Dummy.name),
                 )))
@@ -333,7 +329,7 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("dummies")
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| {
+                .policy_fn(|_cx, ability| {
                     matches!(
                         ability,
                         Ability::ViewAny | Ability::View(_) | Ability::Update(_)
@@ -459,9 +455,7 @@ async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("dummies")
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| {
-                    matches!(ability, Ability::ViewAny | Ability::Create)
-                })
+                .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
                 .table(crate::table::Table::new(crate::table::TextColumn::new(
                     lens!(Dummy.name),
                 )))
@@ -558,9 +552,7 @@ async fn two_empty_submits_on_a_unique_field_re_render_and_write_nothing() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("subscribers")
-                .policy(|_cx: &Cx, ability: Ability<'_, Subscriber>| {
-                    matches!(ability, Ability::ViewAny | Ability::Create)
-                })
+                .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
                 .table(Table::new(TextColumn::new(lens!(Subscriber.email))))
                 .form(Schema::new(SubscriberForm::controls().email.unique()))
         }
@@ -651,9 +643,7 @@ async fn a_forged_carry_is_refused_by_the_default_holds() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("docs")
-                .policy(|_cx: &Cx, ability: Ability<'_, Doc>| {
-                    matches!(ability, Ability::ViewAny | Ability::Create)
-                })
+                .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
                 .table(crate::table::Table::new(crate::table::TextColumn::new(
                     lens!(Doc.title),
                 )))

@@ -175,7 +175,7 @@ async fn option_load_loads_no_relation() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("children")
-                .policy(|_cx: &Cx, ability: Ability<'_, Child>| match ability {
+                .policy_fn(|_cx, ability: Ability<'_, Child>| match ability {
                     Ability::ViewAny => true,
                     Ability::View(record) => record.parent.is_unloaded(),
                     _ => false,

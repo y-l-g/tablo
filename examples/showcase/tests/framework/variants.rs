@@ -44,9 +44,7 @@ impl Resource for ClipResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .slug("clips")
-            .policy(|_cx: &topcoat::context::Cx, ability: Ability<'_, Clip>| {
-                matches!(ability, Ability::ViewAny | Ability::Create)
-            })
+            .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
             .table(Table::new(TextColumn::new(lens!(Clip.title))))
     }
 }

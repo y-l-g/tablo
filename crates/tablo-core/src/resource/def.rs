@@ -11,7 +11,7 @@ use crate::{
     detail::Detail,
     form::FormScalar,
     navigation::NavigationItem,
-    policy::{Deny, Policy},
+    policy::{Ability, Deny, Policy},
     schema::Schema,
     table::{Table, contains_expr},
     tenancy::Tenancy,
@@ -174,6 +174,42 @@ impl<R: Resource> ResourceDef<R> {
     pub fn policy(mut self, policy: impl Policy<R::Model>) -> Self {
         self.policy = Arc::new(policy);
         self
+    }
+
+    /// Authorizes every handler with a closure, as [`policy`](Self::policy) does, inferring the
+    /// closure's argument types from the def's model:
+    ///
+    /// ```rust
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # struct Post { #[key] #[auto] id: uuid::Uuid, locked: bool }
+    /// # struct PostResource;
+    /// # impl tablo_core::Resource for PostResource {
+    /// #     type Model = Post;
+    /// #     type Form = tablo_core::NoForm<Post>;
+    /// # }
+    /// use tablo_core::{Ability, Panel};
+    ///
+    /// Panel::new("portal").resource_with::<PostResource>(|def| {
+    ///     def.policy_fn(|_cx, ability| match ability {
+    ///         Ability::Update(post) | Ability::Delete(post) => !post.locked,
+    ///         _ => true,
+    ///     })
+    /// });
+    /// ```
+    ///
+    /// In [`Resource::declare`], the chain on `ResourceDef::new()` learns its resource from the
+    /// return type, after the closure is checked, so a closure that reads the record names the
+    /// ability's type, `|_cx, ability: Ability<'_, Post>|`, or the chain starts from
+    /// `ResourceDef::<Self>::new()`.
+    ///
+    /// [`policy`](Self::policy) takes a closure too, but infers neither argument type: Rust infers
+    /// a closure's signature from an `Fn` bound, not from [`Policy`]'s blanket impl.
+    #[must_use]
+    pub fn policy_fn(
+        self,
+        policy: impl Fn(&Cx, Ability<'_, R::Model>) -> bool + Send + Sync + 'static,
+    ) -> Self {
+        self.policy(policy)
     }
 
     /// How rows belong to a tenant; defaults to [`Tenancy::none`].

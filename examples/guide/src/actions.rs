@@ -1,6 +1,6 @@
 //! The Actions chapter's snippets.
 
-use tablo::{HeaderAction, HeaderActions, Places, header_action_buttons, prelude::*};
+use tablo::{HeaderAction, Places, header_action_buttons, prelude::*};
 use topcoat::{Result, context::Cx, view::*};
 
 use crate::{
@@ -111,8 +111,8 @@ impl HeaderAction for PublishDrafts {
 pub struct MaintenancePage;
 
 impl Page for MaintenancePage {
-    fn header_actions() -> HeaderActions {
-        HeaderActions::new().add::<PublishDrafts>()
+    fn declare() -> PageDef {
+        PageDef::new().header_action::<PublishDrafts>()
     }
 
     async fn render(cx: &Cx) -> Result<impl View> {

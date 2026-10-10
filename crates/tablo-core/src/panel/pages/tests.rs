@@ -7,8 +7,7 @@ use topcoat::{
 };
 
 use crate::{
-    DeclarationError, DeclarationErrorKind, Page, Panel, SegmentFault, Site,
-    navigation::NavigationItem,
+    DeclarationError, DeclarationErrorKind, Page, PageDef, Panel, SegmentFault, Site,
     panel::test_support::{Dummy, dummy_table, mount, mount_without_db, refusal, response_html},
     resource::{Resource, ResourceDef},
     test_support::memory_db,
@@ -23,11 +22,8 @@ impl Page for Dashboard {
 
 struct ReportsPage;
 impl Page for ReportsPage {
-    fn navigation() -> NavigationItem {
-        NavigationItem {
-            order: -1,
-            ..NavigationItem::for_page::<Self>()
-        }
+    fn declare() -> PageDef {
+        PageDef::new().navigation_order(-1)
     }
 
     async fn render(cx: &Cx) -> Result<impl View> {
@@ -144,12 +140,39 @@ fn a_page_slug_that_a_resource_holds_does_not_build() {
     );
 }
 
+/// `page_with` adjusts the page for its own panel: another panel mounts the page as it declares
+/// itself.
+#[tokio::test]
+async fn page_with_adjusts_the_page_for_its_panel_only() {
+    let panel = |prefix: &str| {
+        Panel::new(prefix)
+            .auth(crate::Auth::disabled())
+            .resource::<DummyResource>()
+    };
+    let portal = mount(
+        db().await,
+        panel("portal").page_with::<ReportsPage>(|def| def.slug("figures").access(|_| false)),
+    )
+    .expect("the portal builds");
+    assert_eq!(
+        get(&portal, "/portal/figures").await.0,
+        http::StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        get(&portal, "/portal/reports").await.0,
+        http::StatusCode::NOT_FOUND
+    );
+
+    let admin = mount(db().await, panel("admin").page::<ReportsPage>()).expect("the admin builds");
+    assert_eq!(get(&admin, "/admin/reports").await.0, http::StatusCode::OK);
+}
+
 #[test]
 fn a_page_slug_that_is_not_one_segment_does_not_build() {
     struct NestedPage;
     impl Page for NestedPage {
-        fn slug() -> String {
-            "reports/q3".to_string()
+        fn declare() -> PageDef {
+            PageDef::new().slug("reports/q3")
         }
 
         async fn render(cx: &Cx) -> Result<impl View> {
@@ -161,7 +184,7 @@ fn a_page_slug_that_is_not_one_segment_does_not_build() {
     assert_eq!(
         errors[0].kind,
         DeclarationErrorKind::InvalidSegment {
-            item: "Page::slug",
+            item: "PageDef::slug",
             segment: "reports/q3".to_string(),
             fault: SegmentFault::Char('/'),
         }
@@ -179,6 +202,73 @@ fn a_second_home_page_does_not_build() {
         errors[0],
         DeclarationError::of::<ReportsPage>(Site::Registration, DeclarationErrorKind::SecondHome)
     );
+}
+
+/// A page type mounts once per panel, as home or page: two registrations would serve one def.
+#[test]
+fn a_page_registered_twice_does_not_build() {
+    let duplicate = DeclarationError::of::<ReportsPage>(
+        Site::Registration,
+        DeclarationErrorKind::DuplicatePage,
+    );
+    let errors = refusal(mount_without_db(
+        Panel::new("admin")
+            .page::<ReportsPage>()
+            .page_with::<ReportsPage>(|def| def.slug("figures")),
+    ));
+    assert_eq!(errors[0], duplicate);
+    let errors = refusal(mount_without_db(
+        Panel::new("admin")
+            .home::<ReportsPage>()
+            .page::<ReportsPage>(),
+    ));
+    assert_eq!(errors[0], duplicate);
+}
+
+/// `can_open` answers what the page's `GET` would: the request's panel mounts the page and its
+/// access admits the request.
+#[tokio::test]
+async fn can_open_answers_for_the_requests_panel() {
+    struct ClosedPage;
+    impl Page for ClosedPage {
+        fn declare() -> PageDef {
+            PageDef::new().access(|_| false)
+        }
+
+        async fn render(cx: &Cx) -> Result<impl View> {
+            Ok(view! { cx => "closed" })
+        }
+    }
+
+    struct Probe;
+    impl Page for Probe {
+        async fn render(cx: &Cx) -> Result<impl View> {
+            let answers = format!(
+                "reports={} closed={}",
+                crate::can_open::<ReportsPage>(cx),
+                crate::can_open::<ClosedPage>(cx),
+            );
+            Ok(view! { cx => <p>(answers)</p> })
+        }
+    }
+
+    let panel = |prefix: &str| {
+        Panel::new(prefix)
+            .auth(crate::Auth::disabled())
+            .resource::<DummyResource>()
+            .home::<Probe>()
+    };
+    let admin = mount(
+        db().await,
+        panel("admin").page::<ReportsPage>().page::<ClosedPage>(),
+    )
+    .expect("the admin builds");
+    let (_, html) = get(&admin, "/admin").await;
+    assert!(html.contains("reports=true closed=false"), "{html}");
+
+    let portal = mount(db().await, panel("portal")).expect("the portal builds");
+    let (_, html) = get(&portal, "/portal").await;
+    assert!(html.contains("reports=false closed=false"), "{html}");
 }
 
 /// The panel routes `{prefix}/login` and `{prefix}/logout` itself: a page
@@ -272,14 +362,14 @@ async fn a_page_redirects_to_login_without_a_resolved_user() {
     );
 }
 
-/// A page whose `can_access` refuses answers 403 and leaves the sidebar, as does a resource the
+/// A page whose `access` refuses answers 403 and leaves the sidebar, as does a resource the
 /// user cannot `ViewAny`; what the user may open stays.
 #[tokio::test]
 async fn the_sidebar_lists_only_what_the_user_may_open() {
     struct SecretPage;
     impl Page for SecretPage {
-        fn can_access(_cx: &Cx) -> bool {
-            false
+        fn declare() -> PageDef {
+            PageDef::new().access(|_| false)
         }
 
         async fn render(cx: &Cx) -> Result<impl View> {

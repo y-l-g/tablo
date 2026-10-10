@@ -58,7 +58,7 @@ impl Resource for UserResource {
         ResourceDef::new()
             .icon(tablo::ui::icons::USERS)
             // Refuses writes to Ken's account.
-            .policy(|_cx: &Cx, ability: Ability<'_, User>| match ability {
+            .policy_fn(|_cx, ability: Ability<'_, User>| match ability {
                 Ability::Update(user) | Ability::Delete(user) => user.name != "Ken Thompson",
                 _ => true,
             })
@@ -395,7 +395,7 @@ impl Resource for CommentResource {
             .icon(tablo::ui::icons::MESSAGE_SQUARE)
             .navigation_group("Blog")
             // Hides removed comments.
-            .policy(|_cx: &Cx, ability: Ability<'_, Comment>| match ability {
+            .policy_fn(|_cx, ability: Ability<'_, Comment>| match ability {
                 Ability::View(comment) => comment.body != REMOVED_COMMENT_BODY,
                 _ => true,
             })

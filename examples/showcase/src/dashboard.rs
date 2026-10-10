@@ -1,8 +1,8 @@
 //! The panel's home page, served at the panel prefix by `Panel::home`.
 
 use tablo::{
-    Ability, FieldErrors, HeaderAction, HeaderActions, NavigationItem, Page, Resource, can_list,
-    db::db, header_action_buttons, panel, scoped_query,
+    Ability, FieldErrors, HeaderAction, Page, PageDef, Resource, can_list, db::db,
+    header_action_buttons, panel, scoped_query,
 };
 use topcoat::{
     Result,
@@ -138,12 +138,10 @@ impl HeaderAction for FeatureTagged {
 }
 
 impl Page for Dashboard {
-    fn navigation() -> NavigationItem {
-        NavigationItem::for_page::<Self>().icon(tablo::ui::icons::LAYOUT_DASHBOARD)
-    }
-
-    fn header_actions() -> HeaderActions {
-        HeaderActions::new().add::<FeatureTagged>()
+    fn declare() -> PageDef {
+        PageDef::new()
+            .icon(tablo::ui::icons::LAYOUT_DASHBOARD)
+            .header_action::<FeatureTagged>()
     }
 
     async fn render(cx: &Cx) -> Result<impl View> {
