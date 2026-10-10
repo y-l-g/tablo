@@ -122,7 +122,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo xtask external-check
 
-# The MSRV and udeps checks run in `msrv-udeps.yml`: each needs its own toolchain.
+# The MSRV and udeps checks run in `msrv-udeps.yml`: each needs its own toolchain. A pull request
+# runs them when it touches a manifest; master runs them here, before the release job.
+  msrv-udeps:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/msrv-udeps.yml
 
   fmt:
     name: fmt
@@ -153,7 +157,7 @@ jobs:
   release-plz-release:
     name: release
     runs-on: ubuntu-latest
-    needs: [release-pr-merge, test, assets, clippy, docs, external, fmt]
+    needs: [release-pr-merge, test, assets, clippy, docs, external, fmt, msrv-udeps]
     if: >-
       github.repository == 'y-l-g/tablo'
       && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
