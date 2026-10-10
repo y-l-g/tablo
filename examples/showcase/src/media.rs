@@ -3,15 +3,16 @@
 use std::collections::HashMap;
 
 use tablo::{
-    Ability, Notification, Page, PageDef, TenantId, Uploader, csrf, db::db, extend::OptionSource,
-    notification::set_notification, require_tenant, upload::sanitize_filename,
+    Ability, Notification, Page, PageDef, TenantId, Uploader, can_open, csrf, db::db,
+    extend::OptionSource, notification::set_notification, require_tenant,
+    upload::sanitize_filename,
 };
 use topcoat::{
     Result,
     context::{Cx, try_app_context},
     router::{
         content::multipart::Multipart,
-        error::{SeeOther, bad_request, see_other},
+        error::{SeeOther, bad_request, forbidden, see_other},
         route,
     },
     view::{BoxView, View, ViewExt, attributes, view},
@@ -214,6 +215,9 @@ impl Page for MediaLibraryPage {
 /// Stores one uploaded file and writes the row for it.
 #[route(POST "/admin/media")]
 async fn upload(cx: &Cx, mut multipart: Multipart) -> Result<SeeOther> {
+    if !can_open::<MediaLibraryPage>(cx) {
+        return Err(forbidden().into());
+    }
     let tenant = require_tenant(cx)?;
     let mut values = HashMap::new();
     let mut file: Option<UploadedPart> = None;
