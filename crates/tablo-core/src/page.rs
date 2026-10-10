@@ -1,16 +1,17 @@
 //! [`Page`] — a panel page that is not a resource: a dashboard, a report, a
-//! settings screen, a media library.
+//! settings screen, a media library — and the [`PageDef`] it declares.
 
-use std::future::Future;
+use std::{any::TypeId, future::Future, sync::Arc};
 
 use topcoat::{
     Result,
     context::Cx,
+    icon::IconData,
     view::{BoxView, View, ViewExt},
 };
 
 use crate::{
-    HeaderActions,
+    HeaderAction, HeaderActions,
     naming::{kebab_case, sentence_case, type_stem},
     navigation::NavigationItem,
 };
@@ -34,34 +35,127 @@ use crate::{
 /// ```
 ///
 /// A page serves one `GET` with a sidebar entry; a form it renders posts to an
-/// app-declared route the auth gate covers. [`can_access`](Page::can_access) limits both to
+/// app-declared route the auth gate covers. [`PageDef::access`] limits both to
 /// the users it admits.
 pub trait Page: Sized + Send + Sync + 'static {
-    /// The URL segment under the panel prefix. Default: the type name without
-    /// a `Page` suffix, kebab-cased (`MediaLibraryPage` → `media-library`).
+    /// The page's slug, sidebar entry, access and header actions. Defaults to
+    /// [`PageDef::new`]: every default.
     ///
-    /// [`Panel::home`](crate::Panel::home) mounts the page at the prefix and
-    /// does not read it.
-    fn slug() -> String {
-        kebab_case(type_stem::<Self>("Page"))
+    /// [`Panel::page_with`](crate::Panel::page_with) adjusts it for one panel.
+    fn declare() -> PageDef {
+        PageDef::new()
     }
 
-    /// The sidebar label. Default: the type name without a `Page` suffix, in
-    /// sentence case (`MediaLibraryPage` → `Media library`).
-    fn navigation_label() -> String {
-        sentence_case(type_stem::<Self>("Page"))
+    /// Render the page body. The panel checks for a resolved user and
+    /// [`PageDef::access`] before calling it.
+    fn render(cx: &Cx) -> impl Future<Output = Result<impl View>> + Send;
+}
+
+/// Whether the request's user may open a page.
+type AccessFn = dyn Fn(&Cx) -> bool + Send + Sync;
+
+/// What a [`Page`] declares: its slug, sidebar entry, access and header actions.
+///
+/// [`Page::declare`] returns one, and [`Panel::page_with`](crate::Panel::page_with) adjusts it for
+/// one panel. Every setting has a default, so a page sets only what differs:
+///
+/// ```rust
+/// # use tablo_core::{Page, PageDef};
+/// # use topcoat::{Result, context::Cx, view::View};
+/// struct MediaLibraryPage;
+///
+/// impl Page for MediaLibraryPage {
+///     fn declare() -> PageDef {
+///         PageDef::new().slug("media").icon(tablo_ui::icons::IMAGE)
+///     }
+///
+///     async fn render(_cx: &Cx) -> Result<impl View> {
+///         Ok(())
+///     }
+/// }
+/// ```
+///
+/// The panel builds the def once when it mounts and serves the result to every request.
+pub struct PageDef {
+    slug: Option<String>,
+    label: Option<String>,
+    icon: Option<IconData>,
+    navigation_order: Option<i32>,
+    navigation_group: Option<String>,
+    navigation: Option<NavigationItem>,
+    access: Arc<AccessFn>,
+    header_actions: HeaderActions,
+}
+
+impl PageDef {
+    /// A def with every default: the slug and label from the page's type name, and access for
+    /// every signed-in user.
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    /// The sidebar entry; override to set the `order`, the icon or the group.
-    fn navigation() -> NavigationItem {
-        NavigationItem::for_page::<Self>()
+    /// The URL segment under the panel prefix: `"media"` mounts the page at
+    /// `{panel prefix}/media`.
+    ///
+    /// Defaults to the page type's name without a trailing `Page`, kebab-cased:
+    /// `MediaLibraryPage` → `media-library`. [`Panel::home`](crate::Panel::home) mounts the page
+    /// at the prefix and does not read it.
+    #[must_use]
+    pub fn slug(mut self, slug: impl Into<String>) -> Self {
+        self.slug = Some(slug.into());
+        self
     }
 
-    /// Whether the request's user may open this page. The panel answers 403 and leaves the page
-    /// out of the sidebar when it answers `false`. Default: every signed-in user.
+    /// The sidebar label.
+    ///
+    /// Defaults to the page type's name without a trailing `Page`, in sentence case:
+    /// `MediaLibraryPage` → `Media library`.
+    #[must_use]
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
+    /// The icon of the page's sidebar entry, replacing the icon of a
+    /// [`navigation`](Self::navigation) item.
+    #[must_use]
+    pub fn icon(mut self, icon: IconData) -> Self {
+        self.icon = Some(icon);
+        self
+    }
+
+    /// Where the sidebar entry sorts among the panel's entries, lowest first; defaults to `0`, and
+    /// entries of equal order keep their registration order. It replaces the order of a
+    /// [`navigation`](Self::navigation) item.
+    #[must_use]
+    pub fn navigation_order(mut self, order: i32) -> Self {
+        self.navigation_order = Some(order);
+        self
+    }
+
+    /// The labelled sidebar group the entry renders in, such as `"Reports"`; defaults to none,
+    /// above every group. It replaces the group of a [`navigation`](Self::navigation) item.
+    #[must_use]
+    pub fn navigation_group(mut self, group: impl Into<String>) -> Self {
+        self.navigation_group = Some(group.into());
+        self
+    }
+
+    /// Replaces the sidebar entry, for one that links somewhere other than the page:
+    /// `NavigationItem::at("Exports", "/admin/reports?tab=exports")`. [`icon`](Self::icon),
+    /// [`navigation_order`](Self::navigation_order) and
+    /// [`navigation_group`](Self::navigation_group) still apply to it.
+    #[must_use]
+    pub fn navigation(mut self, item: NavigationItem) -> Self {
+        self.navigation = Some(item);
+        self
+    }
+
+    /// Whether the request's user may open the page. The panel answers 403 and leaves the page
+    /// out of the sidebar when it answers `false`. Defaults to every signed-in user.
     ///
     /// ```rust
-    /// # use tablo_core::{Page, auth};
+    /// # use tablo_core::{Page, PageDef, auth};
     /// # use topcoat::{Result, context::Cx, view::{View, view}};
     /// # #[derive(Clone)]
     /// # struct Staff { admin: bool }
@@ -72,8 +166,8 @@ pub trait Page: Sized + Send + Sync + 'static {
     /// struct BillingPage;
     ///
     /// impl Page for BillingPage {
-    ///     fn can_access(cx: &Cx) -> bool {
-    ///         auth::user::<Staff>(cx).is_some_and(|staff| staff.admin)
+    ///     fn declare() -> PageDef {
+    ///         PageDef::new().access(|cx| auth::user::<Staff>(cx).is_some_and(|staff| staff.admin))
     ///     }
     ///
     ///     async fn render(cx: &Cx) -> Result<impl View> {
@@ -81,37 +175,104 @@ pub trait Page: Sized + Send + Sync + 'static {
     ///     }
     /// }
     /// ```
-    fn can_access(cx: &Cx) -> bool {
-        let _ = cx;
-        true
+    #[must_use]
+    pub fn access(mut self, access: impl Fn(&Cx) -> bool + Send + Sync + 'static) -> Self {
+        self.access = Arc::new(access);
+        self
     }
 
-    /// The [`HeaderAction`](crate::HeaderAction)s the page serves, each at
-    /// `{url}/-/actions/{NAME}`. [`header_action_buttons`](crate::header_action_buttons) renders
-    /// their buttons where [`render`](Page::render) places it. Default: none.
+    /// Adds the [`HeaderAction`] `A` after the ones already declared, served at
+    /// `{url}/-/actions/{NAME}`. [`header_action_buttons`] renders their buttons where
+    /// [`render`](Page::render) places it. An `A::NAME` that is not a single URL path segment does
+    /// not compile.
     ///
     /// The actions run for whoever may open the page: a page has no policy. An action that writes
     /// a resource's records asks that resource's policy in its own
     /// [`can_run`](crate::HeaderAction::can_run).
-    ///
-    /// The panel calls it as it mounts, and again on each request that renders or runs one.
-    fn header_actions() -> HeaderActions {
-        HeaderActions::new()
+    #[must_use]
+    pub fn header_action<A: HeaderAction>(mut self) -> Self {
+        self.header_actions = self.header_actions.add::<A>();
+        self
     }
-
-    /// Render the page body. The panel checks for a resolved user and
-    /// [`can_access`](Page::can_access) before calling it.
-    fn render(cx: &Cx) -> impl Future<Output = Result<impl View>> + Send;
 }
 
-impl NavigationItem {
-    /// The default sidebar entry for the [`Page`] `P`.
-    pub fn for_page<P: Page>() -> Self {
+impl Default for PageDef {
+    fn default() -> Self {
         Self {
-            label: P::navigation_label(),
-            ..Self::default()
+            slug: None,
+            label: None,
+            icon: None,
+            navigation_order: None,
+            navigation_group: None,
+            navigation: None,
+            access: Arc::new(|_| true),
+            header_actions: HeaderActions::new(),
         }
     }
+}
+
+impl std::fmt::Debug for PageDef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PageDef")
+            .field("slug", &self.slug)
+            .field("label", &self.label)
+            .field("navigation_order", &self.navigation_order)
+            .field("navigation_group", &self.navigation_group)
+            .field("navigation", &self.navigation)
+            .field("header_actions", &self.header_actions)
+            .finish_non_exhaustive()
+    }
+}
+
+/// A [`PageDef`] with its defaults filled in for the page `P`, as a panel mounted it.
+pub(crate) struct MountedPage {
+    pub(crate) slug: String,
+    /// The sidebar entry, its target not yet resolved to the page's URL.
+    pub(crate) navigation: NavigationItem,
+    access: Arc<AccessFn>,
+    pub(crate) header_actions: HeaderActions,
+}
+
+impl MountedPage {
+    pub(crate) fn new<P: Page>(def: PageDef) -> Self {
+        let stem = type_stem::<P>("Page");
+        let mut navigation = def.navigation.unwrap_or_else(|| NavigationItem {
+            label: def.label.unwrap_or_else(|| sentence_case(stem)),
+            ..NavigationItem::default()
+        });
+        if let Some(order) = def.navigation_order {
+            navigation.order = order;
+        }
+        if let Some(icon) = def.icon {
+            navigation.icon = Some(icon);
+        }
+        if let Some(group) = def.navigation_group {
+            navigation.group = Some(group);
+        }
+        Self {
+            slug: def.slug.unwrap_or_else(|| kebab_case(stem)),
+            navigation,
+            access: def.access,
+            header_actions: def.header_actions,
+        }
+    }
+
+    /// Whether the request's user may open the page.
+    pub(crate) fn admits(&self, cx: &Cx) -> bool {
+        (self.access)(cx)
+    }
+
+    /// The page's access check, shared with its sidebar entry.
+    pub(crate) fn access(&self) -> Arc<AccessFn> {
+        Arc::clone(&self.access)
+    }
+}
+
+/// `P` as the request's panel mounted it, if it did.
+pub(crate) fn mounted_page<P: Page>(cx: &Cx) -> Option<&Arc<MountedPage>> {
+    crate::panel::state::current(cx)?
+        .mounted_pages
+        .get(&TypeId::of::<P>())
 }
 
 #[cfg(test)]
@@ -121,7 +282,7 @@ mod tests;
 /// [`page_actions`](tablo_ui::page_actions):
 ///
 /// ```rust
-/// # use tablo_core::{HeaderAction, HeaderActions, Page};
+/// # use tablo_core::{HeaderAction, Page, PageDef};
 /// # use topcoat::{Result, context::Cx, view::{View, view}};
 /// # struct ClearCache;
 /// # impl HeaderAction for ClearCache {
@@ -132,8 +293,8 @@ mod tests;
 /// struct MaintenancePage;
 ///
 /// impl Page for MaintenancePage {
-///     fn header_actions() -> HeaderActions {
-///         HeaderActions::new().add::<ClearCache>()
+///     fn declare() -> PageDef {
+///         PageDef::new().header_action::<ClearCache>()
 ///     }
 ///
 ///     async fn render(cx: &Cx) -> Result<impl View> {
@@ -151,11 +312,14 @@ mod tests;
 /// ```
 ///
 /// It renders nothing outside a request to `P`'s panel or for a request
-/// [`can_access`](Page::can_access) refuses, and no button for an action whose
+/// [`PageDef::access`] refuses, and no button for an action whose
 /// [`can_run`](crate::HeaderAction::can_run) refuses the request.
 pub fn header_action_buttons<P: Page>(cx: &Cx) -> BoxView<'_> {
-    let Some(url) = crate::panel::url::page::<P>(cx).filter(|_| P::can_access(cx)) else {
+    let Some(page) = mounted_page::<P>(cx).filter(|page| page.admits(cx)) else {
         return ().boxed();
     };
-    crate::panel::header_bar(cx, &url, &P::header_actions(), |_| true).render(cx)
+    let Some(url) = crate::panel::url::page::<P>(cx) else {
+        return ().boxed();
+    };
+    crate::panel::header_bar(cx, &url, &page.header_actions, |_| true).render(cx)
 }

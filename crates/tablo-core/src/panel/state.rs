@@ -15,14 +15,17 @@ use super::{
     relations::Child,
     shell::{Brand, ShellAssets},
 };
-use crate::{auth::Auth, navigation::NavigationItem, resource::Mounts, upload::InstalledUploader};
+use crate::{
+    auth::Auth, navigation::NavigationItem, page::MountedPage, resource::Mounts,
+    upload::InstalledUploader,
+};
 
 /// A sidebar entry and whether the request's user may open what it points at.
 #[derive(Clone)]
 pub(crate) struct NavEntry {
     pub(crate) item: NavigationItem,
-    /// A resource's `ViewAny`, or a page's `Page::can_access`.
-    pub(crate) visible: fn(&Cx) -> bool,
+    /// A resource's `ViewAny`, or a page's `PageDef::access`.
+    pub(crate) visible: Arc<dyn Fn(&Cx) -> bool + Send + Sync>,
 }
 
 /// One mounted panel: its prefix, its shell, its auth, and the registries its
@@ -48,6 +51,8 @@ pub(crate) struct PanelState {
     pub(crate) served_paths: Vec<String>,
     /// The URL each registered resource and page is served at, by type.
     pub(crate) urls: HashMap<TypeId, String>,
+    /// The registered pages as the panel mounted them, by type.
+    pub(crate) mounted_pages: HashMap<TypeId, Arc<MountedPage>>,
 }
 
 impl PanelState {

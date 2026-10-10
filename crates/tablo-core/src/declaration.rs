@@ -231,7 +231,7 @@ pub enum DeclarationErrorKind {
     },
     /// A path segment the panel routes cannot be a literal URL segment.
     InvalidSegment {
-        /// What names the segment: `panel prefix`, `ResourceDef::slug` or `Page::slug`.
+        /// What names the segment: `panel prefix`, `ResourceDef::slug` or `PageDef::slug`.
         item: &'static str,
         /// The refused segment.
         segment: String,

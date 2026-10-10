@@ -1,6 +1,6 @@
 use http::header::LOCATION;
 use tablo::{
-    Ability, Auth, Brand, DeclarationErrorKind, NavigationItem, Page, Panel, ReadOnly, Resource,
+    Ability, Auth, Brand, DeclarationErrorKind, Page, PageDef, Panel, ReadOnly, Resource,
     ResourceDef, RouterBuilderPanelExt, Table, TextColumn,
     auth::{AdminUser, AuthSession, hash_password},
     lens,
@@ -69,12 +69,8 @@ impl Resource for NoteResource {
 struct UrlsPage;
 
 impl Page for UrlsPage {
-    fn slug() -> String {
-        "urls".to_string()
-    }
-
-    fn navigation() -> NavigationItem {
-        NavigationItem::for_page::<Self>()
+    fn declare() -> PageDef {
+        PageDef::new().slug("urls")
     }
 
     async fn render(cx: &Cx) -> Result<impl View> {

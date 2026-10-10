@@ -36,6 +36,16 @@ pub fn can_list<R: Resource>(cx: &Cx) -> bool {
         })
 }
 
+/// Whether the current request may open the page `P`: the request's panel mounts `P`, and sign-in
+/// and [`PageDef::access`](crate::PageDef::access) allow it, the checks the page's `GET` makes.
+///
+/// A form a page renders posts to an app route, which [`PageDef::access`](crate::PageDef::access)
+/// does not cover; the route asks `can_open::<P>(cx)` itself.
+pub fn can_open<P: crate::Page>(cx: &Cx) -> bool {
+    crate::auth::guard(cx).is_ok()
+        && crate::page::mounted_page::<P>(cx).is_some_and(|page| page.admits(cx))
+}
+
 /// The request's panel prefix, else the request path's first segment, else `/admin`.
 pub(crate) fn panel_prefix(cx: &Cx) -> String {
     current(cx)

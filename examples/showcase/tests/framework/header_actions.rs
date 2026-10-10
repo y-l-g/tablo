@@ -4,7 +4,7 @@
 use http::header::LOCATION;
 use tablo::{
     Ability, Action, Allow, Committed, DeclarationErrorKind, Detail, FieldErrors, HeaderAction,
-    HeaderActions, Mutation, NotificationStatus, Page, Places, Policy, Resource, ResourceDef, Site,
+    Mutation, NotificationStatus, Page, PageDef, Places, Policy, Resource, ResourceDef, Site,
     Table, TextColumn, header_action_buttons, lens,
 };
 use toasty::Db;
@@ -250,8 +250,10 @@ impl HeaderAction for Sweep {
 struct OpsPage;
 
 impl Page for OpsPage {
-    fn header_actions() -> HeaderActions {
-        HeaderActions::new().add::<Sweep>().add::<Flagged>()
+    fn declare() -> PageDef {
+        PageDef::new()
+            .header_action::<Sweep>()
+            .header_action::<Flagged>()
     }
 
     async fn render(cx: &Cx) -> topcoat::Result<impl View> {
@@ -271,12 +273,8 @@ impl Page for OpsPage {
 struct LockedPage;
 
 impl Page for LockedPage {
-    fn can_access(_cx: &Cx) -> bool {
-        false
-    }
-
-    fn header_actions() -> HeaderActions {
-        HeaderActions::new().add::<Sweep>()
+    fn declare() -> PageDef {
+        PageDef::new().access(|_| false).header_action::<Sweep>()
     }
 
     async fn render(cx: &Cx) -> topcoat::Result<impl View> {
@@ -766,8 +764,10 @@ async fn a_header_action_sharing_a_record_actions_name_fails_the_mount() {
 struct TwicePage;
 
 impl Page for TwicePage {
-    fn header_actions() -> HeaderActions {
-        HeaderActions::new().add::<Sweep>().add::<Sweep>()
+    fn declare() -> PageDef {
+        PageDef::new()
+            .header_action::<Sweep>()
+            .header_action::<Sweep>()
     }
 
     async fn render(cx: &Cx) -> topcoat::Result<impl View> {

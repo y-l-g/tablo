@@ -30,6 +30,7 @@ use crate::{
     auth::{PanelGate, RuntimeGate, SESSION_LIFETIME},
     declaration::segment_fault,
     form::RecordForm,
+    page::MountedPage,
     policy::Ability,
     resource::{InputSpec, MountScope, Mounted, Mounts, Resource, require_mounted},
     tenancy::TenantSource,
@@ -224,6 +225,7 @@ impl Panel {
         }
         let Registry {
             urls,
+            mounted_pages,
             nav_items,
             pages,
             routes,
@@ -250,6 +252,7 @@ impl Panel {
             uploads,
             served_paths,
             urls,
+            mounted_pages,
         });
         let prefix_path = route_path(&prefix);
         builder =
@@ -562,19 +565,20 @@ fn check_actions<R: Resource>(cx: &Cx, declared: &Mounted<R>, errors: &mut Vec<D
 }
 
 /// A page's declaration check, run by [`RouterBuilderPanelExt::panel`] as a resource's is.
-pub(super) type PageCheck = fn(&Cx, &mut Vec<DeclarationError>);
+pub(super) type PageCheck = Box<dyn Fn(&Cx, &mut Vec<DeclarationError>) + Send>;
 
-/// Checks a page's header actions as a resource's are.
-pub(super) fn check_page<P: Page>(cx: &Cx, errors: &mut Vec<DeclarationError>) {
-    let actions = P::header_actions();
-    check_inputs::<P>(
-        cx,
-        actions
-            .entries()
-            .iter()
-            .map(|action| (action.name, action.input)),
-        errors,
-    );
+/// Checks the header actions of `page`, the page `P` as the panel mounted it, as a resource's are.
+pub(super) fn check_page<P: Page>(page: Arc<MountedPage>) -> PageCheck {
+    Box::new(move |cx, errors| {
+        check_inputs::<P>(
+            cx,
+            page.header_actions
+                .entries()
+                .iter()
+                .map(|action| (action.name, action.input)),
+            errors,
+        );
+    })
 }
 
 /// Each of `T`'s actions has a name no other shares, and an input that declares no misdeclared
