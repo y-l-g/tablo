@@ -1,7 +1,5 @@
 //! Shared fixtures and request scaffolding for the showcase integration tests.
 
-#![allow(dead_code)]
-
 pub mod routers;
 
 use showcase::models::{DEMO_ADMIN_EMAIL, seed, seed_content, seed_staff};

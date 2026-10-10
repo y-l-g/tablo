@@ -1,6 +1,5 @@
-//! Authentication integration tests (spec #127, tickets #129/#130): the
-//! shipped password auth, server-side sessions, login/logout, the shell's
-//! account controls, and the fail-closed gate over the panel and runtime
+//! Authentication integration tests: the shipped password auth, server-side sessions,
+//! login/logout, the shell's account controls, and the fail-closed gate over the panel and runtime
 //! prefixes.
 
 use http::header::LOCATION;

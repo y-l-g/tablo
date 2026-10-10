@@ -268,12 +268,10 @@ fn assert_bench_database(url: &str) {
 mod tests;
 
 async fn run_bench(iterations: usize) {
-    println!("=== Tablo bench (GH #171, UNGATED): real list path ===");
+    println!("=== Tablo bench (ungated): real list path ===");
     println!("workload: 50 rows, 2 includes (author + comments), tenancy set, policy enforced");
     println!("path: wired_table -> WiredTable::render (scoped_query + .paginate(50)) -> HTML");
-    println!(
-        "budget: <40ms p50 (50 rows, 2 includes) — reference only; UNGATED while GH #171 collects numbers, gating follows in a follow-up"
-    );
+    println!("budget: <40ms p50 (50 rows, 2 includes), reference only");
 
     let sqlite = Db::builder()
         .models(toasty::models!(Author, Post, Comment))
@@ -310,7 +308,7 @@ async fn run_bench(iterations: usize) {
             run_leg(pg, "postgres (TABLO_BENCH_POSTGRES_URL)", iterations).await;
         }
     }
-    println!("done (ungated — no PASS/FAIL; the p50 gate follows in a follow-up per GH #171)");
+    println!("done (ungated: no PASS/FAIL)");
 }
 
 const SERVER_TENANT: uuid::Uuid = uuid::Uuid::nil();

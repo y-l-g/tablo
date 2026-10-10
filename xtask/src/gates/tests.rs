@@ -57,9 +57,10 @@ fn fmt_runs_nightly_detached_and_topcoat_checks() {
     let root = repo_root();
     let commands = run.commands();
     assert_eq!(commands.len(), 4, "1 nightly + quickstart + topcoat + diff");
+    let nightly = format!("+{NIGHTLY_FMT}");
     assert_eq!(
         commands[0].1,
-        vec!["+nightly-2026-08-24", "fmt", "--all", "--", "--check"]
+        vec![&nightly, "fmt", "--all", "--", "--check"]
     );
     assert_eq!(commands[1].0, "cargo");
     assert_eq!(commands[1].1, vec!["fmt", "--", "--check"]);

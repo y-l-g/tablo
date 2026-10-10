@@ -7,7 +7,7 @@ rust-version.workspace = true
 publish = false
 description = "Showcase: real-world Panel demo (Users, Authors, Posts) exercising every Tablo feature through real resources."
 
-# One test binary (GH #179): autodiscovery would link every file under `tests/` separately.
+# One test binary: autodiscovery would link every file under `tests/` separately.
 autotests = false
 
 [[test]]
@@ -19,9 +19,8 @@ path = "tests/it.rs"
 tablo = { path = "../../crates/tablo" }
 jiff.workspace = true
 toasty = { workspace = true, features = ["sqlite"] }
-# `fs` is for the demo uploader's `tokio::fs` write (GH #188); `multipart` is
-# the extractor the media library's page parses its own upload body with
-# (GH #248).
+# `fs` is for the demo uploader's `tokio::fs` write; `multipart` is the extractor the media
+# library's page parses its own upload body with.
 tokio = { workspace = true, features = ["fs"] }
 topcoat = { workspace = true, features = ["serve", "tailwind", "font", "font-fontsource", "asset", "runtime", "multipart"] }
 uuid.workspace = true

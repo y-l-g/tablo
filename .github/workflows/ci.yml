@@ -124,6 +124,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
       - run: >-
           node --test
           crates/tablo-ui/assets/repeaters.test.js
@@ -150,7 +153,7 @@ jobs:
       - name: Install mdBook and mdbook-linkcheck2
         uses: taiki-e/install-action@v2
         with:
-          tool: mdbook@0.5.2,mdbook-linkcheck2
+          tool: mdbook@0.5.2,mdbook-linkcheck2@0.13.0
       # Build the book here too: docs.yml only runs on master, so linkcheck catches a bad link
       # first.
       - run: mdbook build docs/guide
@@ -176,7 +179,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      # Workspace fmt uses the pinned nightly: rustfmt.toml keys are nightly-only (GH #269).
+      # Workspace fmt uses the pinned nightly: rustfmt.toml keys are nightly-only.
       - run: rustup update stable && rustup default stable
       - run: rustup toolchain install nightly-2026-08-24 --profile minimal --component rustfmt
       - uses: Swatinem/rust-cache@v2

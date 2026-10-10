@@ -5,7 +5,7 @@ use std::sync::Arc;
 use toasty::stmt::{Expr, Path};
 use topcoat::{context::Cx, icon::IconData};
 
-use super::{Action, Actions, HeaderAction, HeaderActions, PublicLink, Relation, Resource};
+use super::{Action, Actions, HeaderAction, HeaderActions, Relation, Resource};
 use crate::{
     DeclarationErrorKind, Lens,
     detail::Detail,
@@ -371,6 +371,15 @@ impl<M: toasty::schema::Model + Send + Sync + 'static> RecordTitle<M> {
     pub(crate) fn search_expr(&self, term: &str) -> Option<Expr<bool>> {
         (self.search)(term)
     }
+}
+
+/// A record's public page, linked from its detail and edit pages.
+#[derive(Debug, Clone)]
+pub struct PublicLink {
+    /// The public page's URL.
+    pub url: String,
+    /// The link's text.
+    pub label: &'static str,
 }
 
 /// A record's public page, as [`ResourceDef::public_link`] declares it.

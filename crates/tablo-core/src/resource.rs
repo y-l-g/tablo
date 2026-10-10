@@ -12,7 +12,6 @@ mod action;
 mod commit;
 mod def;
 mod header_action;
-mod link;
 mod mounted;
 mod relation;
 mod write;
@@ -21,15 +20,13 @@ mod write;
 pub use action::required_input;
 pub use action::{Action, ActionInput, Places};
 pub(crate) use action::{
-    ActionEntry, ActionFuture, Actions, ErasedInput, InputResult, InputSpec, RESERVED_KEYS,
-    parse_validated,
+    ActionEntry, Actions, ErasedInput, InputResult, InputSpec, RESERVED_KEYS, parse_validated,
 };
 pub(crate) use commit::run_after_commit;
 pub use commit::{Committed, Mutation};
-pub use def::ResourceDef;
+pub use def::{PublicLink, ResourceDef};
 pub(crate) use header_action::HeaderEntry;
 pub use header_action::{HeaderAction, HeaderActions};
-pub use link::PublicLink;
 pub(crate) use mounted::{MountScope, Mounted, Mounts, mounted, require_mounted};
 pub use relation::{ForeignKey, Relation};
 pub(crate) use relation::{Links, RelationKind};
@@ -122,7 +119,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// probe misses the colliding row and the user gets a 500 instead of the
     /// inline "has already been taken". Scope the constraint to match —
     /// `#[unique(tenant_id, email)]`. Not checkable at declaration time, since
-    /// a query's filters are not introspectable; upstream #117 is the fix.
+    /// a query's filters are not introspectable; tablo#117 tracks the fix.
     fn query(_cx: &Cx) -> toasty::stmt::Query<List<Self::Model>> {
         toasty::stmt::Query::<List<Self::Model>>::all()
     }
@@ -171,7 +168,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
         write_update::<Self>(cx, record, posted, ex)
     }
 
-    /// Delete the already-authorized `record` (#86).
+    /// Delete the already-authorized `record`.
     ///
     /// The handler loads `record` through the tenancy-scoped query inside the
     /// framework transaction and checks the policy on that snapshot, then

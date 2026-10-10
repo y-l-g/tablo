@@ -189,8 +189,6 @@ pub(crate) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         } else {
             next
         };
-        // Success stays on the `Ok` path so `Set-Cookie` flushes
-        // (upstream topcoat#126).
         topcoat::router::error::see_other(target).into_response(cx)
     })
 }

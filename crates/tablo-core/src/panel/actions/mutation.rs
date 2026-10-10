@@ -14,7 +14,7 @@
 //! form's submission is, and its relationship choices are re-checked inside it. A page renders
 //! only after the records pass every check, and rolls the transaction back unwritten.
 
-use std::{collections::HashMap, future::Future, pin::Pin};
+use std::collections::HashMap;
 
 use topcoat::{
     context::Cx,
@@ -35,6 +35,7 @@ use super::{
     fetch::{composite_pk_error, find_by_key},
 };
 use crate::{
+    BoxFuture,
     db::db,
     form::FieldErrors,
     notification::{Notification, set_notification},
@@ -145,14 +146,10 @@ fn custom_action<R: Resource>(
 }
 
 /// What a header action's POST runs once its write commits.
-pub(crate) type AfterCommit =
-    for<'c> fn(&'c Cx, &'static str) -> Pin<Box<dyn Future<Output = ()> + Send + 'c>>;
+pub(crate) type AfterCommit = for<'c> fn(&'c Cx, &'static str) -> BoxFuture<'c, ()>;
 
 /// `R`'s [`Resource::after_commit`] for its header action `name`.
-fn after_header_commit<'c, R: Resource>(
-    cx: &'c Cx,
-    name: &'static str,
-) -> Pin<Box<dyn Future<Output = ()> + Send + 'c>> {
+fn after_header_commit<'c, R: Resource>(cx: &'c Cx, name: &'static str) -> BoxFuture<'c, ()> {
     Box::pin(run_after_commit::<R>(cx, Committed::ran(name)))
 }
 

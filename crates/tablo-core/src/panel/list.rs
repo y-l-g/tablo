@@ -206,7 +206,7 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
             return Err(forbidden().into());
         }
         crate::csrf::ensure_token(cx);
-        // Normalizes once per request (GH #153).
+        // Normalizes once per request.
         let table = wire_table_actions(cx, &resource);
         let (signals, state) = table.browser_state(cx);
         // A write lands back on the list as the reader left it.

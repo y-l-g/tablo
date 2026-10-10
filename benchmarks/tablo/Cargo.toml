@@ -9,7 +9,7 @@ publish = false
 # release-plz only releases the crates `release-plz.toml` opts in.
 [dependencies]
 tablo-core = { path = "../../crates/tablo-core" }
-# `postgresql` is enabled here only (GH #171): the workspace's suites run on sqlite alone, while
+# `postgresql` is enabled here only: the workspace's suites run on sqlite alone, while
 # the bench also measures the Postgres list path.
 topcoat = { workspace = true, features = ["serve", "runtime", "asset"] }
 toasty = { workspace = true, features = ["sqlite", "postgresql"] }

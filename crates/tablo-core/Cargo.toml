@@ -17,7 +17,7 @@ argon2 = "0.6"
 bytes = "1"
 # `Clone` and `Debug` impls without `derive`'s bound on the model type.
 derive-where = "1.7"
-# The email rule (GH #243). `default-features = false` matches how `lettre`
+# The email rule. `default-features = false` matches how `lettre`
 # already pulls the crate in through `topcoat-mail`: the serde support is unused
 # here, and the lock keeps the entry it has.
 email_address = { version = "0.2", default-features = false }
@@ -35,7 +35,7 @@ serde_json = "1"
 tokio.workspace = true
 toasty.workspace = true
 toasty-core.workspace = true
-# `fs` is for `Panel::serve_dir` (GH #188): serving an upload directory is a
+# `fs` is for `Panel::serve_dir`: serving an upload directory is a
 # panel-level route, and upstream the directory route lives behind that feature.
 topcoat = { workspace = true, features = ["view", "router", "discover", "asset", "font", "runtime", "cookie", "multipart", "icon", "fs", "session"] }
 tracing = "0.1"

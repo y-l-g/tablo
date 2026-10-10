@@ -1,4 +1,5 @@
-# Source of truth synced by `.github/workflows/labels.yml`; update this file, not the GitHub UI.
+# Source of truth synced by `.github/workflows/labels.yml`, which deletes any label missing here;
+# update this file, not the GitHub UI.
 
 # Applied by an issue template.
 - name: bug
@@ -21,6 +22,14 @@
 - name: ready-for-agent
   description: "Fully specified, ready for an AFK agent."
   color: "0e8a16"
+- name: deferred
+  description: "Real, but not scheduled now."
+  color: "bfdadc"
+
+# Applied by release-plz (`pr_labels`); the release job publishes only a merged PR carrying it.
+- name: release
+  description: "A release-plz release PR; merging it publishes the crates."
+  color: "5319e7"
 
 # Applied by a maintainer.
 - name: accessibility

@@ -34,17 +34,20 @@ body:
     id: today
     attributes:
       label: Today in Tablo
-      description: The workaround, copied from the source, with its `file:line`.
+      description: >-
+        The workaround, copied from the source, with its file and the item it sits in. Cite
+        symbols, not line numbers: lines drift with every edit.
       placeholder: |
         ```rust
-        // crates/tablo-core/src/panel/forms.rs:523
-        async fn check_unique<R: Resource>(
+        // crates/tablo-core/src/panel/forms/unique.rs, `check_unique`
+        pub(super) async fn check_unique<R: Resource>(
             cx: &Cx,
+            resource: &Mounted<R>,
             schema: &crate::schema::Schema,
             values: &HashMap<String, String>,
             current: &HashMap<String, String>,
             ex: &mut dyn toasty::Executor,
-        ) -> Result<HashMap<String, Vec<String>>, topcoat::Error> {
+        ) -> Result<FieldErrors, topcoat::Error> {
         ```
     validations:
       required: true
@@ -68,6 +71,6 @@ body:
     attributes:
       label: Retire when
       description: The Tablo code that gets deleted.
-      placeholder: "`panel/forms.rs:523 check_unique` and its call sites at `panel/forms.rs:642` and `:790` are deleted."
+      placeholder: "`check_unique` in `panel/forms/unique.rs` and its calls in `panel/forms/submit.rs` are deleted."
     validations:
       required: true

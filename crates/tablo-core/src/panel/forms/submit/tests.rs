@@ -444,7 +444,7 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
     assert_opaque(&rendered, &driver, "UNIQUE constraint failed");
 }
 
-/// A mutation answers 303 with the flash cookie, never the query (#126, topcoat#408).
+/// A mutation answers 303 with the flash cookie, never the query (topcoat#408).
 #[tokio::test]
 async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
     use crate::resource::Resource;

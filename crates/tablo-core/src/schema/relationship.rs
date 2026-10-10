@@ -6,7 +6,7 @@
 use toasty::stmt::{Expr, List, OrderByExpr, Query};
 use topcoat::{Result, context::Cx};
 
-use crate::policy::Ability;
+use crate::{BoxFuture, policy::Ability};
 
 /// Describes the source a relationship option loader reads.
 ///
@@ -73,30 +73,27 @@ pub(crate) enum OptionLoadError {
     Misdeclared,
 }
 
-pub(crate) type RelationshipLoadFuture = std::pin::Pin<
-    Box<dyn std::future::Future<Output = Result<Vec<(String, String)>, OptionLoadError>> + Send>,
+pub(crate) type RelationshipLoader = std::sync::Arc<
+    dyn Fn(&Cx) -> BoxFuture<'static, Result<Vec<(String, String)>, OptionLoadError>> + Send + Sync,
 >;
 
-#[allow(clippy::type_complexity)]
-pub(crate) type RelationshipLoader =
-    std::sync::Arc<dyn Fn(&Cx) -> RelationshipLoadFuture + Send + Sync>;
-
-#[allow(clippy::type_complexity)]
-pub(crate) type RelationshipSearchLoader =
-    std::sync::Arc<dyn Fn(&Cx, String, Option<Expr<bool>>) -> RelationshipLoadFuture + Send + Sync>;
-
-pub(crate) type RelationshipCheckFuture<'a> = std::pin::Pin<
-    Box<dyn std::future::Future<Output = Result<RelatedCheck, OptionLoadError>> + Send + 'a>,
+pub(crate) type RelationshipSearchLoader = std::sync::Arc<
+    dyn Fn(
+            &Cx,
+            String,
+            Option<Expr<bool>>,
+        ) -> BoxFuture<'static, Result<Vec<(String, String)>, OptionLoadError>>
+        + Send
+        + Sync,
 >;
 
-#[allow(clippy::type_complexity)]
 pub(crate) type RelationshipChecker = std::sync::Arc<
     dyn for<'a> Fn(
             &'a Cx,
             String,
             Option<Expr<bool>>,
             &'a mut dyn toasty::Executor,
-        ) -> RelationshipCheckFuture<'a>
+        ) -> BoxFuture<'a, Result<RelatedCheck, OptionLoadError>>
         + Send
         + Sync,
 >;
@@ -206,7 +203,7 @@ where
     R: OptionSource,
 {
     ensure_option_access::<R>(cx)?;
-    let term = crate::query_term::clamp_query_term(&q);
+    let term = crate::table::clamp_query_term(&q);
     let mut query = option_query::<R>(cx)?;
     if let Some(scope) = scope {
         query = query.filter(scope);

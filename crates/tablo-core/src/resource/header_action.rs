@@ -5,8 +5,8 @@ use std::{collections::HashMap, future::Future};
 
 use topcoat::{Result, context::Cx};
 
-use super::{ActionFuture, ActionInput, ErasedInput, InputResult, InputSpec, parse_validated};
-use crate::{form::FieldErrors, naming::sentence_case, policy::Ability};
+use super::{ActionInput, ErasedInput, InputResult, InputSpec, parse_validated};
+use crate::{BoxFuture, form::FieldErrors, naming::sentence_case, policy::Ability};
 
 /// A mutation that acts on no record, run from a button in a page's header: "import posts",
 /// "clear the cache", "recompute the totals".
@@ -228,7 +228,7 @@ pub(crate) struct HeaderEntry {
     pub(crate) can_run: fn(&Cx) -> bool,
     pub(crate) input: InputSpec,
     pub(crate) run:
-        for<'a> fn(&'a Cx, ErasedInput, &'a mut dyn toasty::Executor) -> ActionFuture<'a>,
+        for<'a> fn(&'a Cx, ErasedInput, &'a mut dyn toasty::Executor) -> BoxFuture<'a, Result<()>>,
     pub(crate) success: fn(&Cx) -> String,
     pub(crate) confirm: bool,
 }
@@ -243,7 +243,7 @@ fn run_header_erased<'a, A: HeaderAction>(
     cx: &'a Cx,
     input: ErasedInput,
     ex: &'a mut dyn toasty::Executor,
-) -> ActionFuture<'a> {
+) -> BoxFuture<'a, Result<()>> {
     let input = *input
         .downcast::<A::Input>()
         .expect("the pipeline parses the input `run` takes");

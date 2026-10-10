@@ -1,12 +1,13 @@
 //! Relation tables: a record page's related rows through the related resource's own list table.
 
-use std::{any::TypeId, collections::HashMap, future::Future, pin::Pin, sync::Arc};
+use std::{any::TypeId, collections::HashMap, sync::Arc};
 
 use toasty::stmt::{Expr, IntoExpr, List, Path};
 use topcoat::{Result, context::Cx};
 
 use super::{ErasedInput, InputResult, InputSpec, Resource, can, scoped_query};
 use crate::{
+    BoxFuture,
     form::{FieldError, FormScalar},
     naming::{sentence_case, type_short_name},
     policy::Ability,
@@ -67,9 +68,6 @@ pub(crate) enum RelationKind<P> {
 /// An owner's rows filter on the child.
 type BindFn<P> = Arc<dyn Fn(&P) -> (Expr<bool>, String) + Send + Sync>;
 
-/// What linking or unlinking records returns.
-type LinkFuture<'a> = Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>>;
-
 /// A many-to-many relation's writes: link the child record a key names to an owner, or unlink
 /// the ones keys name.
 pub(crate) struct Links<P> {
@@ -87,7 +85,9 @@ pub(crate) struct Links<P> {
 
 /// A write of an owner's links, given what names the related records.
 type LinkFn<P, K> = Arc<
-    dyn for<'a> Fn(&'a Cx, &'a P, K, &'a mut dyn toasty::Executor) -> LinkFuture<'a> + Send + Sync,
+    dyn for<'a> Fn(&'a Cx, &'a P, K, &'a mut dyn toasty::Executor) -> BoxFuture<'a, Result<()>>
+        + Send
+        + Sync,
 >;
 
 /// The input key the attach dialog's choice posts.

@@ -109,7 +109,6 @@ pub mod notification;
 mod page;
 pub mod panel;
 pub mod policy;
-mod query_term;
 pub mod resource;
 pub mod schema;
 pub mod table;
@@ -119,6 +118,9 @@ mod test_support;
 mod toasty_compat;
 mod topcoat_compat;
 pub mod upload;
+
+/// The future a type-erased, dyn-compatible method returns.
+pub(crate) type BoxFuture<'a, T> = std::pin::Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
 pub use auth::{
     Auth, Authenticator, LoginThrottle, PanelUser, PasswordAuth, Registrar, SignUp, membership,

@@ -17,7 +17,7 @@
 //
 // A script rather than Topcoat handlers: rendering the rows from a signal
 // would rerun the page on each add, and a rerun clears the rows the user typed
-// into (tokio-rs/topcoat#504).
+// into (topcoat#504).
 
 const ROW = '__row__';
 

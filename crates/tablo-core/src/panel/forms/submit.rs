@@ -265,7 +265,7 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         // Opens the transaction after validation so loaders never block on the held connection.
         let mut db = db(cx);
         let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
-        // App-side unique check; toasty exposes no unique-violation predicate yet (#117).
+        // App-side unique check: Toasty exposes no unique-violation predicate (tablo#117).
         errors
             .extend(check_unique(cx, &resource, &schema, &values, &HashMap::new(), &mut tx).await?);
         let form = parse_form(cx, &resource, &values, &mut errors)?;
@@ -315,7 +315,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
             carried,
             named,
         } = prepare_submission(cx, &resource, parts, Some(&advisory)).await?;
-        // Authoritative load inside the transaction observes the write snapshot (#86).
+        // Authoritative load inside the transaction observes the write snapshot.
         let mut db = db(cx);
         let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
         let record = load_editable(cx, &resource, &mut tx).await?;
