@@ -329,8 +329,17 @@ A file field (`#[form(file)]` on a record-form `String`, or `Field::file` on a p
 with a file field is sent as `multipart/form-data`, with a 10 MiB body limit (larger answers 413).
 Filenames are reduced to a safe basename before anything sees them.
 
-Where the bytes go is your app's decision. Install an `Uploader` on the panel; a panel whose
-resource form declares a file field refuses to mount without one:
+Where the bytes go is your app's decision; a panel whose resource form declares a file field
+refuses to mount without an `Uploader`. `Panel::uploads_dir` installs the stock one, a
+`DirUploader`, and serves its directory:
+
+```rust
+{{#include ../../../examples/guide/src/forms.rs:forms-uploads-dir}}
+```
+
+It writes each file into the directory as `{uuid}-{basename}`, within the filesystem's 255-byte
+name limit, and stores its URL: `/uploads/` and the name as one percent-encoded path segment. Any
+other store implements `Uploader`; this one refuses all but images, then stores in a directory:
 
 ```rust
 {{#include ../../../examples/guide/src/forms.rs:forms-uploader}}
@@ -342,7 +351,9 @@ resource form declares a file field refuses to mount without one:
   empty again. The form carries the path `store` just returned, and the panel reuses it on the next
   submit only when `Uploader::holds(path)` answers `true`. The default answers `false`, so the user
   uploads again. Answer `true` only for a path your store produced and still holds inside its own
-  root; checking whether an arbitrary path exists would let a client pick any file.
+  root; checking whether an arbitrary path exists would let a client pick any file. A
+  `DirUploader` answers `true` for a URL spelled as its `store` spells one, naming a file in its
+  directory.
 - **Editing.** The edit form shows the stored file as a link and an empty file input. Leaving it
   empty keeps the file; the "Remove the current file" checkbox (`clear_<field>`) empties the
   field. The input is required only while nothing is stored, and clearing a required field fails
@@ -351,8 +362,8 @@ resource form declares a file field refuses to mount without one:
 - **Links.** The stored value renders as a link, on the edit form and in a `FileColumn` on the
   detail page, only when it is a root-relative path (`/uploads/a.png`, not `//host`) or an
   `http(s)` URL; anything else renders as text.
-- **Serving.** `Panel::serve_dir(path, dir)` serves a directory, and the served files are
-  **public**: the auth gate does not cover them. An app that needs protected files serves them
+- **Serving.** `Panel::serve_dir(path, dir)` serves a directory (`uploads_dir` calls it), and the
+  served files are **public**: the auth gate does not cover them. An app that needs protected files serves them
   from its own route. See [Security](./security.md) for the headers served files carry.
 
 ## Embedded values

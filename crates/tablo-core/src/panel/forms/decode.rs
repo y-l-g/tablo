@@ -88,7 +88,7 @@ async fn parse_multipart_values(
             filename_star_from_headers(&field).or_else(|| field.file_name().map(str::to_string));
         match filename {
             Some(f) if !f.is_empty() => {
-                let sanitized = sanitize_filename(&f);
+                let sanitized = crate::upload::sanitize_filename(&f);
                 // Last part wins, replacing any earlier staged bytes.
                 out.files.remove(&name);
                 // Stages bytes only for persistable names when capturing, else drains.
@@ -194,49 +194,6 @@ fn form_pairs_from_request_parts(
         "multipart must stream via parse_multipart_values, not buffer here"
     );
     Ok(form_urlencoded::parse(bytes).into_owned().collect())
-}
-
-/// Strips a client filename to a safe basename capped at 255 bytes, rejecting `.`, `..`, and
-/// Windows reserved names to empty.
-fn sanitize_filename(raw: &str) -> String {
-    let base = raw.rsplit(['/', '\\']).next().unwrap_or(raw).trim();
-    let clean: String = base.chars().filter(|c| !c.is_control()).collect();
-    let trimmed = clean.trim();
-    if trimmed.is_empty() {
-        return String::new();
-    }
-    if trimmed == "." || trimmed == ".." || is_windows_reserved_name(trimmed) {
-        return String::new();
-    }
-    // Caps at 255 bytes, advancing the cut to a char boundary to avoid panicking.
-    if trimmed.len() > 255 {
-        let mut start = trimmed.len() - 255;
-        while !trimmed.is_char_boundary(start) {
-            start += 1;
-        }
-        trimmed[start..].to_string()
-    } else {
-        trimmed.to_string()
-    }
-}
-
-/// Reports whether a basename is a Windows reserved device name.
-fn is_windows_reserved_name(name: &str) -> bool {
-    let stem = match name.split_once('.') {
-        Some((stem, _)) => stem,
-        None => name,
-    };
-    let stem = stem.to_ascii_uppercase();
-    if matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL") {
-        return true;
-    }
-    let Some(n) = stem
-        .strip_prefix("COM")
-        .or_else(|| stem.strip_prefix("LPT"))
-    else {
-        return false;
-    };
-    n.parse::<u8>().is_ok_and(|n| (1..=9).contains(&n))
 }
 
 /// Decodes an RFC 5987/6266 `filename*=UTF-8''...` value.

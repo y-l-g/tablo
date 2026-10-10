@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use tablo::{
-    Options, Uploader,
+    DirUploader, Options, Uploader,
     extend::{Control, ControlInput},
     prelude::*,
 };
@@ -162,24 +162,35 @@ pub fn role_fields() {
 }
 // ANCHOR_END: forms-role-options
 
-// ANCHOR: forms-uploader
-struct DirUploader {
-    dir: PathBuf,
+// ANCHOR: forms-uploads-dir
+pub fn uploads_panel(dir: PathBuf) -> Panel {
+    Panel::new("admin").uploads_dir("/uploads", dir)
 }
+// ANCHOR_END: forms-uploads-dir
 
-impl Uploader for DirUploader {
+// ANCHOR: forms-uploader
+/// Refuses anything but an image, then stores like `uploads_dir` does.
+struct ImagesOnly(DirUploader);
+
+impl Uploader for ImagesOnly {
     async fn store(&self, filename: &str, bytes: &[u8]) -> Result<String, String> {
-        let name = format!("{}-{filename}", uuid::Uuid::new_v4());
-        tokio::fs::write(self.dir.join(&name), bytes)
-            .await
-            .map_err(|_| "the upload could not be written".to_string())?;
-        Ok(format!("/uploads/{name}")) // the value the record stores
+        let extension = filename
+            .rsplit_once('.')
+            .map(|(_, ext)| ext.to_ascii_lowercase());
+        if !matches!(extension.as_deref(), Some("png" | "jpg" | "jpeg" | "webp")) {
+            return Err("only PNG, JPEG and WebP images are accepted".to_string());
+        }
+        self.0.store(filename, bytes).await
+    }
+
+    async fn holds(&self, path: &str) -> bool {
+        self.0.holds(path).await
     }
 }
 
-pub fn uploads_panel(dir: PathBuf) -> Panel {
+pub fn images_panel(dir: PathBuf) -> Panel {
     Panel::new("admin")
-        .uploads(DirUploader { dir: dir.clone() })
+        .uploads(ImagesOnly(DirUploader::new("/uploads", dir.clone())))
         .serve_dir("/uploads/{*file}", dir)
 }
 // ANCHOR_END: forms-uploader

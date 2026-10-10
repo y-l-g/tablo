@@ -425,4 +425,4 @@ pub use tablo_macros::RecordForm;
 /// offering only its options. A repeater takes at most [`MAX_ROWS`](schema::MAX_ROWS) rows.
 pub use tablo_macros::RepeaterItem;
 pub use tenancy::{Membership, Tenancy, Tenant, TenantColumn, TenantId, require_tenant, tenant_id};
-pub use upload::Uploader;
+pub use upload::{DirUploader, Uploader};

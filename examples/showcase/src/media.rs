@@ -3,8 +3,9 @@
 use std::collections::HashMap;
 
 use tablo::{
-    Ability, NavigationItem, Notification, Page, TenantId, Uploader, csrf, db::db,
+    Ability, DirUploader, NavigationItem, Notification, Page, TenantId, Uploader, csrf, db::db,
     extend::OptionSource, notification::set_notification, require_tenant,
+    upload::sanitize_filename,
 };
 use topcoat::{
     Result,
@@ -18,7 +19,7 @@ use topcoat::{
 };
 
 use crate::{
-    app::{DirUploader, basename, upload_dir},
+    app::{UPLOAD_URL_PREFIX, upload_dir},
     models::MediaAsset,
 };
 
@@ -243,12 +244,12 @@ async fn upload(cx: &Cx, mut multipart: Multipart) -> Result<SeeOther> {
     }
     csrf::verify(cx, &values)?;
     let part = file.ok_or_else(|| bad_request("Choose a file before uploading."))?;
-    let filename = basename(&part.filename);
+    let filename = sanitize_filename(&part.filename);
     if filename.is_empty() || part.bytes.is_empty() {
         return Err(bad_request("Choose a file before uploading.").into());
     }
     let mut db = db(cx);
-    let path = DirUploader::new(upload_dir())
+    let path = DirUploader::new(UPLOAD_URL_PREFIX, upload_dir())
         .store(&filename, &part.bytes)
         .await
         .map_err(bad_request)?;

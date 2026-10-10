@@ -301,38 +301,6 @@ async fn multipart_stream_rejects_missing_boundary() {
 }
 
 #[test]
-fn a_filename_reduces_to_its_basename_and_drops_reserved_names() {
-    assert_eq!(sanitize_filename("upload.jpg"), "upload.jpg");
-    assert_eq!(sanitize_filename("../../../etc/cron.d/x"), "x");
-    assert_eq!(sanitize_filename("/abs/path"), "path");
-    assert_eq!(sanitize_filename("C:\\fakepath\\x"), "x");
-    assert_eq!(sanitize_filename(""), "");
-    assert_eq!(sanitize_filename("."), "");
-    assert_eq!(sanitize_filename(".."), "");
-    assert_eq!(sanitize_filename("../.."), "");
-    assert_eq!(sanitize_filename("..."), "...");
-    assert_eq!(sanitize_filename("con"), "");
-    assert_eq!(sanitize_filename("NUL"), "");
-    assert_eq!(sanitize_filename("Com1.txt"), "");
-    assert_eq!(sanitize_filename("lpt9"), "");
-    assert_eq!(sanitize_filename("console.txt"), "console.txt");
-    assert_eq!(sanitize_filename("companion"), "companion");
-    assert_eq!(sanitize_filename("...."), "....");
-    // The cap preserves the tail without splitting a multibyte char.
-    let multibyte = format!("{}{}", "é".repeat(200), "a".repeat(200));
-    let capped = sanitize_filename(&multibyte);
-    assert!(
-        capped.len() <= 255,
-        "cap must bound bytes, got {}",
-        capped.len()
-    );
-    assert!(
-        capped.ends_with('a'),
-        "tail must be preserved, got {capped:?}"
-    );
-}
-
-#[test]
 fn an_urlencoded_body_past_the_cap_is_refused() {
     let big = vec![b'a'; MAX_FORM_BYTES + 1];
     assert!(
@@ -341,18 +309,4 @@ fn an_urlencoded_body_past_the_cap_is_refused() {
     let ok = form_pairs_from_request_parts(Some("application/x-www-form-urlencoded"), b"name=Ada")
         .unwrap();
     assert_eq!(ok, [("name".to_string(), "Ada".to_string())]);
-}
-
-proptest::proptest! {
-    /// Whatever the client sends, the stored name is one path segment that cannot climb, name a
-    /// device or carry a control character, within the 255-byte cap.
-    #[test]
-    fn a_sanitized_filename_is_one_safe_segment(raw in "\\PC{0,400}|[./\\\\a-zA-Z\\x00-\\x1f]{0,40}") {
-        let out = sanitize_filename(&raw);
-        proptest::prop_assert!(!out.contains(['/', '\\']), "{out:?}");
-        proptest::prop_assert!(out.len() <= 255, "{} bytes", out.len());
-        proptest::prop_assert!(!out.chars().any(char::is_control), "{out:?}");
-        proptest::prop_assert!(out != "." && out != "..", "{out:?}");
-        proptest::prop_assert!(out.is_empty() || !is_windows_reserved_name(&out), "{out:?}");
-    }
 }
