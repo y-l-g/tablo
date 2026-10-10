@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0](https://github.com/y-l-g/tablo/compare/tablo-build-v0.6.0...tablo-build-v0.7.0) - 2026-10-10
+
+### Added
+
+- *(build)* [**breaking**] ship Tablo's default theme in tablo-build ([#594](https://github.com/y-l-g/tablo/pull/594))
+
 ## [0.3.0](https://github.com/y-l-g/tablo/compare/tablo-build-v0.2.0...tablo-build-v0.3.0) - 2026-10-06
 
 ### Other

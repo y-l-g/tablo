@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0](https://github.com/y-l-g/tablo/compare/tablo-core-v0.6.0...tablo-core-v0.7.0) - 2026-10-10
+
+### Added
+
+- *(schema)* bind civil dates and times, and render numbers as number inputs ([#596](https://github.com/y-l-g/tablo/pull/596))
+- *(core)* ship a directory uploader and Panel::uploads_dir ([#595](https://github.com/y-l-g/tablo/pull/595))
+- *(core)* [**breaking**] group sidebar entries under labels ([#590](https://github.com/y-l-g/tablo/pull/590))
+
+### Fixed
+
+- *(core)* fail closed on an input refusal no control renders ([#588](https://github.com/y-l-g/tablo/pull/588))
+
+### Other
+
+- *(table)* share column plumbing and derive Clone/Debug with derive-where ([#593](https://github.com/y-l-g/tablo/pull/593))
+- *(core)* [**breaking**] rename ResourceDef::view to detail ([#592](https://github.com/y-l-g/tablo/pull/592))
+- *(core)* [**breaking**] build a panel handle, not a context, from Panel ([#591](https://github.com/y-l-g/tablo/pull/591))
+
 ## [0.6.0](https://github.com/y-l-g/tablo/compare/tablo-core-v0.5.1...tablo-core-v0.6.0) - 2026-10-10
 
 ### Added
