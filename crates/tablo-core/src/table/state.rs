@@ -15,7 +15,7 @@ use topcoat::{
 };
 
 use super::TableTarget;
-use crate::{query_term::clamp_query_term, topcoat_compat::href};
+use crate::topcoat_compat::href;
 
 /// A table's browser state: the list's query string, the bulk selection, and
 /// the write its confirmation dialog asks about.
@@ -171,6 +171,15 @@ struct UrlProjection<'a> {
     group_by: Option<&'a str>,
     /// `?after=` or `?before=`.
     cursor: Option<&'a Cursor>,
+}
+
+/// Longest accepted search term, in chars; the `?q=` transport and option search share it.
+pub(crate) const MAX_QUERY_TERM: usize = 128;
+
+/// Clamps a search term to [`MAX_QUERY_TERM`] chars, so a multibyte term truncates on a char
+/// boundary.
+pub(crate) fn clamp_query_term(term: &str) -> String {
+    term.trim().chars().take(MAX_QUERY_TERM).collect()
 }
 
 /// Caps applied filters per query.

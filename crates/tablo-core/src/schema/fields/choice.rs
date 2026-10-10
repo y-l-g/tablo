@@ -7,13 +7,13 @@ use topcoat::{Result, context::Cx, view::*};
 
 use super::{
     super::relationship::{
-        MAX_RELATIONSHIP_OPTIONS, OptionLoadError, OptionSource, RelatedCheck,
-        RelationshipCheckFuture, RelationshipChecker, RelationshipLoadFuture, RelationshipLoader,
-        RelationshipSearchLoader, related_record_check, related_records, related_records_search,
+        MAX_RELATIONSHIP_OPTIONS, OptionLoadError, OptionSource, RelatedCheck, RelationshipChecker,
+        RelationshipLoader, RelationshipSearchLoader, related_record_check, related_records,
+        related_records_search,
     },
     Field, Placement, render_field,
 };
-use crate::form::decode_list;
+use crate::{BoxFuture, form::decode_list};
 
 mod multiple;
 
@@ -107,7 +107,7 @@ impl Relationship {
                     .await
                     .map_err(|error| error.clone())?;
                 Ok(records.iter().map(|record| project(&cx, record)).collect())
-            }) as RelationshipLoadFuture
+            }) as BoxFuture<'static, _>
         }) as RelationshipLoader;
         let search = std::sync::Arc::new(move |cx: &Cx, q: String, scope: Option<Expr<bool>>| {
             let project = search_project.clone();
@@ -117,7 +117,7 @@ impl Relationship {
                     .await
                     .map_err(|error| error.clone())?;
                 Ok(records.iter().map(|record| project(&cx, record)).collect())
-            }) as RelationshipLoadFuture
+            }) as BoxFuture<'static, _>
         }) as RelationshipSearchLoader;
         let check = std::sync::Arc::new(check_record::<R>) as RelationshipChecker;
         Self {
@@ -141,7 +141,7 @@ fn check_record<'a, R>(
     value: String,
     scope: Option<Expr<bool>>,
     ex: &'a mut dyn toasty::Executor,
-) -> RelationshipCheckFuture<'a>
+) -> BoxFuture<'a, Result<RelatedCheck, OptionLoadError>>
 where
     R: OptionSource,
 {

@@ -1,7 +1,7 @@
 //! The panel's sign-up page: the [`Registrar`] trait that creates accounts, the shipped
 //! [`SignUp`] form, and the `{prefix}/register` routes.
 
-use std::{any::TypeId, collections::HashMap, future::Future, pin::Pin, sync::Arc};
+use std::{any::TypeId, collections::HashMap, future::Future, sync::Arc};
 
 use topcoat::{
     context::Cx,
@@ -21,7 +21,7 @@ use super::{
     session::{delete_session, record},
 };
 use crate::{
-    ActionInput,
+    ActionInput, BoxFuture,
     form::{FieldError, FieldErrors, parse_password, parse_scalar},
     notification::{Notification, set_notification},
     panel::{Panel, panel_prefix, state::current},
@@ -144,15 +144,16 @@ pub(crate) enum Outcome {
     },
 }
 
-/// The boxed future the erased registrar returns.
-type OutcomeFuture<'a> = Pin<Box<dyn Future<Output = topcoat::Result<Outcome>> + Send + 'a>>;
-
 /// [`Registrar`] with its input and user types erased, as the panel keeps it.
 pub(crate) trait DynRegistrar: Send + Sync {
     /// The sign-up form.
     fn schema(&self) -> Schema;
     /// Parses, checks, validates and registers one submission.
-    fn sign_up<'a>(&'a self, cx: &'a Cx, values: HashMap<String, String>) -> OutcomeFuture<'a>;
+    fn sign_up<'a>(
+        &'a self,
+        cx: &'a Cx,
+        values: HashMap<String, String>,
+    ) -> BoxFuture<'a, topcoat::Result<Outcome>>;
     /// The [`TypeId`] and name of [`Registrar::User`], which mounting compares with the
     /// authenticator's.
     fn user_type(&self) -> (TypeId, &'static str);
@@ -163,7 +164,11 @@ impl<R: Registrar> DynRegistrar for R {
         R::Input::schema()
     }
 
-    fn sign_up<'a>(&'a self, cx: &'a Cx, values: HashMap<String, String>) -> OutcomeFuture<'a> {
+    fn sign_up<'a>(
+        &'a self,
+        cx: &'a Cx,
+        values: HashMap<String, String>,
+    ) -> BoxFuture<'a, topcoat::Result<Outcome>> {
         Box::pin(async move {
             let schema = R::Input::schema();
             let mut errors = FieldErrors::new();

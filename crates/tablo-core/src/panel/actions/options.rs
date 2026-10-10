@@ -15,9 +15,9 @@ use topcoat::{
 use super::{super::gate::gate, mutation::header_allowed};
 use crate::{
     error::TabloError,
-    query_term::clamp_query_term,
     resource::{InputSpec, Resource},
     schema::{OptionLoadError, Schema, option_view},
+    table::clamp_query_term,
 };
 
 /// Relationship option search endpoint (D2/D5).

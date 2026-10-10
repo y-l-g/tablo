@@ -3,7 +3,7 @@
 
 mod input;
 
-use std::{any::Any, collections::HashMap, future::Future, pin::Pin};
+use std::{any::Any, collections::HashMap, future::Future};
 
 use derive_where::derive_where;
 pub use input::ActionInput;
@@ -14,6 +14,7 @@ use topcoat::{Result, context::Cx};
 
 use super::{Mounted, Resource};
 use crate::{
+    BoxFuture,
     form::{FieldError, FieldErrors},
     naming::sentence_case,
     policy::Ability,
@@ -279,8 +280,13 @@ impl<M> Ability<'_, M> {
     }
 }
 
-/// What an erased action's `run` returns.
-pub(crate) type ActionFuture<'a> = Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>>;
+/// An erased action's body: it acts on the records with the parsed input inside the transaction.
+pub(crate) type RunAction<R> = for<'a> fn(
+    &'a Cx,
+    &'a [<R as Resource>::Model],
+    ErasedInput,
+    &'a mut dyn toasty::Executor,
+) -> BoxFuture<'a, Result<()>>;
 
 /// A parsed [`Action::Input`] with its type erased; `run` downcasts it back.
 pub(crate) type ErasedInput = Box<dyn Any + Send>;
@@ -390,12 +396,7 @@ pub(crate) struct ActionEntry<R: Resource> {
     /// Whether the mutation may write `record`, which already passed `View`.
     pub(crate) can_run: fn(&Mounted<R>, &Cx, &R::Model) -> bool,
     pub(crate) input: InputSpec,
-    pub(crate) run: for<'a> fn(
-        &'a Cx,
-        &'a [R::Model],
-        ErasedInput,
-        &'a mut dyn toasty::Executor,
-    ) -> ActionFuture<'a>,
+    pub(crate) run: RunAction<R>,
     pub(crate) success: fn(&Cx, usize) -> String,
     pub(crate) acted: fn(Vec<R::Model>) -> super::Committed<R::Model>,
     /// The failure toast's wording: "Couldn't {failure}".
@@ -493,7 +494,7 @@ fn run_erased<'a, R: Resource, A: Action<R>>(
     records: &'a [R::Model],
     input: ErasedInput,
     ex: &'a mut dyn toasty::Executor,
-) -> ActionFuture<'a> {
+) -> BoxFuture<'a, Result<()>> {
     let input = *input
         .downcast::<A::Input>()
         .expect("the pipeline parses the input `run` takes");
@@ -506,7 +507,7 @@ fn delete_erased<'a, R: Resource>(
     records: &'a [R::Model],
     _input: ErasedInput,
     ex: &'a mut dyn toasty::Executor,
-) -> ActionFuture<'a> {
+) -> BoxFuture<'a, Result<()>> {
     Box::pin(async move {
         for record in records {
             R::delete_record(cx, record, &mut *ex).await?;
@@ -521,6 +522,6 @@ fn bulk_delete_erased<'a, R: Resource>(
     records: &'a [R::Model],
     _input: ErasedInput,
     ex: &'a mut dyn toasty::Executor,
-) -> ActionFuture<'a> {
+) -> BoxFuture<'a, Result<()>> {
     Box::pin(R::bulk_delete_records(cx, records, ex))
 }

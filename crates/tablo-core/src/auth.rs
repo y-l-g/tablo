@@ -14,7 +14,6 @@ mod throttle;
 use std::{
     any::{Any, TypeId},
     future::Future,
-    pin::Pin,
     sync::Arc,
 };
 
@@ -43,6 +42,7 @@ pub use self::{
     throttle::LoginThrottle,
 };
 use crate::{
+    BoxFuture,
     panel::{
         panel_prefix,
         state::{PanelState, Panels, current, panels},
@@ -145,28 +145,42 @@ pub trait Authenticator: Send + Sync + 'static {
     ) -> impl Future<Output = topcoat::Result<Option<Self::User>>> + Send;
 }
 
-/// The boxed future the erased authenticator returns.
-type UserFuture<'a> =
-    Pin<Box<dyn Future<Output = topcoat::Result<Option<Arc<dyn PanelUser>>>> + Send + 'a>>;
-
 /// [`Authenticator`] with its user type erased, as the panel keeps it.
 pub(crate) trait DynAuthenticator: Send + Sync {
-    fn verify<'a>(&'a self, cx: &'a Cx, login: &'a str, password: &'a str) -> UserFuture<'a>;
-    fn find_by_id<'a>(&'a self, cx: &'a Cx, id: &'a str) -> UserFuture<'a>;
+    fn verify<'a>(
+        &'a self,
+        cx: &'a Cx,
+        login: &'a str,
+        password: &'a str,
+    ) -> BoxFuture<'a, topcoat::Result<Option<Arc<dyn PanelUser>>>>;
+    fn find_by_id<'a>(
+        &'a self,
+        cx: &'a Cx,
+        id: &'a str,
+    ) -> BoxFuture<'a, topcoat::Result<Option<Arc<dyn PanelUser>>>>;
     /// The [`TypeId`] of [`Authenticator::User`], so mounting knows when the
     /// shipped [`AdminUser`] must be registered.
     fn user_type(&self) -> TypeId;
 }
 
 impl<A: Authenticator> DynAuthenticator for A {
-    fn verify<'a>(&'a self, cx: &'a Cx, login: &'a str, password: &'a str) -> UserFuture<'a> {
+    fn verify<'a>(
+        &'a self,
+        cx: &'a Cx,
+        login: &'a str,
+        password: &'a str,
+    ) -> BoxFuture<'a, topcoat::Result<Option<Arc<dyn PanelUser>>>> {
         Box::pin(async move {
             let user = Authenticator::verify(self, cx, login, password).await?;
             Ok(user.map(|user| Arc::new(user) as Arc<dyn PanelUser>))
         })
     }
 
-    fn find_by_id<'a>(&'a self, cx: &'a Cx, id: &'a str) -> UserFuture<'a> {
+    fn find_by_id<'a>(
+        &'a self,
+        cx: &'a Cx,
+        id: &'a str,
+    ) -> BoxFuture<'a, topcoat::Result<Option<Arc<dyn PanelUser>>>> {
         Box::pin(async move {
             let user = Authenticator::find_by_id(self, cx, id).await?;
             Ok(user.map(|user| Arc::new(user) as Arc<dyn PanelUser>))

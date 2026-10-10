@@ -12,7 +12,6 @@ mod action;
 mod commit;
 mod def;
 mod header_action;
-mod link;
 mod mounted;
 mod relation;
 mod write;
@@ -21,15 +20,13 @@ mod write;
 pub use action::required_input;
 pub use action::{Action, ActionInput, Places};
 pub(crate) use action::{
-    ActionEntry, ActionFuture, Actions, ErasedInput, InputResult, InputSpec, RESERVED_KEYS,
-    parse_validated,
+    ActionEntry, Actions, ErasedInput, InputResult, InputSpec, RESERVED_KEYS, parse_validated,
 };
 pub(crate) use commit::run_after_commit;
 pub use commit::{Committed, Mutation};
-pub use def::ResourceDef;
+pub use def::{PublicLink, ResourceDef};
 pub(crate) use header_action::HeaderEntry;
 pub use header_action::{HeaderAction, HeaderActions};
-pub use link::PublicLink;
 pub(crate) use mounted::{MountScope, Mounted, Mounts, mounted, require_mounted};
 pub use relation::{ForeignKey, Relation};
 pub(crate) use relation::{Links, RelationKind};

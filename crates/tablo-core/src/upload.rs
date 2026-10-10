@@ -5,14 +5,13 @@ use std::{
     collections::{HashMap, HashSet},
     future::Future,
     path::PathBuf,
-    pin::Pin,
 };
 
 use percent_encoding::percent_decode_str;
 use topcoat::context::Cx;
 
 use crate::{
-    form::FieldErrors, panel::state::current, schema::Schema,
+    BoxFuture, form::FieldErrors, panel::state::current, schema::Schema,
     topcoat_compat::href::encode_path_segment,
 };
 
@@ -188,24 +187,26 @@ impl InstalledUploader {
     }
 }
 
-/// Boxed future of [`DynUploader::store`].
-type StoreFuture<'a> = Pin<Box<dyn Future<Output = Result<String, String>> + Send + 'a>>;
-
-/// Boxed future of [`DynUploader::holds`].
-type HoldFuture<'a> = Pin<Box<dyn Future<Output = bool> + Send + 'a>>;
-
 /// Dyn-compatible view of [`Uploader`].
 pub(crate) trait DynUploader: Send + Sync {
-    fn store<'a>(&'a self, filename: &'a str, bytes: &'a [u8]) -> StoreFuture<'a>;
-    fn holds<'a>(&'a self, path: &'a str) -> HoldFuture<'a>;
+    fn store<'a>(
+        &'a self,
+        filename: &'a str,
+        bytes: &'a [u8],
+    ) -> BoxFuture<'a, Result<String, String>>;
+    fn holds<'a>(&'a self, path: &'a str) -> BoxFuture<'a, bool>;
 }
 
 impl<U: Uploader> DynUploader for U {
-    fn store<'a>(&'a self, filename: &'a str, bytes: &'a [u8]) -> StoreFuture<'a> {
+    fn store<'a>(
+        &'a self,
+        filename: &'a str,
+        bytes: &'a [u8],
+    ) -> BoxFuture<'a, Result<String, String>> {
         Box::pin(Uploader::store(self, filename, bytes))
     }
 
-    fn holds<'a>(&'a self, path: &'a str) -> HoldFuture<'a> {
+    fn holds<'a>(&'a self, path: &'a str) -> BoxFuture<'a, bool> {
         Box::pin(Uploader::holds(self, path))
     }
 }
