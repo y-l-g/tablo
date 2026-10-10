@@ -11,6 +11,7 @@ mod auth_override;
 mod conditions;
 mod dependent;
 mod extensions;
+mod field_basics;
 mod header_actions;
 mod options_enum;
 mod panels;

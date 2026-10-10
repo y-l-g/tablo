@@ -285,6 +285,31 @@ equals the value another field of the same form posts: the cities of the chosen 
   also refuses a dependent choice in an action's input.
 - A multiple choice neither depends on another field nor narrows one: mounting refuses both.
 
+### Help, disabled controls and defaults
+
+Every control but a repeater takes `.help(text)`, rendered under it, and `.disabled()` or
+`.disabled_on_edit()`. A text, choice or custom control also takes `.default(value)`, the value the
+create form starts with: any form scalar, or a `&str` in the form spelling.
+
+```rust
+{{#include ../../../examples/guide/src/forms.rs:forms-field-basics}}
+```
+
+- The control names its help text in `aria-describedby`, beside its error.
+- A disabled control renders `disabled`, so the browser posts nothing for it, and the panel drops
+  a key posted anyway, with a file field's carried upload. An edit keeps the stored value. A create
+  stores the field's default, else its blank answer: `.disabled()` on a field with neither refuses
+  to mount, since no create could fill it.
+- `.disabled_on_edit()` leaves the create form's control enabled: the create sets the value, and
+  no edit changes it.
+- A condition watching a disabled field reads what the browser shows: its default on a create,
+  its stored value on an edit, never what the submission posts.
+- A default seeds the create form and an action's input form; an edit form shows the stored
+  value. The blank answer is different: it is what an empty submission stores. Mounting refuses a
+  default the control never posts: one a typed field does not parse, or not one of a choice's
+  options.
+- A repeater's row controls take neither `disabled` nor `default`: mounting refuses both.
+
 ### Conditional fields
 
 `.visible_when(&field, values)` shows a field only while another field of the same form posts one

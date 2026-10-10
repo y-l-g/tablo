@@ -11,7 +11,7 @@ use super::{
         RelationshipCheckFuture, RelationshipChecker, RelationshipLoadFuture, RelationshipLoader,
         RelationshipSearchLoader, related_record_check, related_records, related_records_search,
     },
-    Field, FieldChrome, Placement, render_field,
+    Field, Placement, render_field,
 };
 use crate::form::decode_list;
 
@@ -464,12 +464,15 @@ impl Field {
         id: String,
         placement: Placement<'_>,
     ) -> Result<BoxView<'a>> {
+        let disabled = self.is_disabled(placement.editing);
         if choice.multiple {
-            return self.render_choices(choice, cx, value, error, id).await;
+            return self
+                .render_choices(choice, cx, value, error, id, disabled)
+                .await;
         }
         let parent = placement.parent;
         let name = self.name().to_string();
-        let required = self.required;
+        let required = self.required && !disabled;
         let searchable = choice.searchable;
         let current = value.unwrap_or("").trim().to_string();
         let loaded = choice.load_options(cx, parent).await;
@@ -489,7 +492,7 @@ impl Field {
         {
             options.push((current.clone(), current.clone()));
         }
-        let chrome = FieldChrome::new(
+        let chrome = self.chrome(
             id.clone(),
             error,
             denied.then(|| format!("{} is not available", self.label_str())),
@@ -540,6 +543,7 @@ impl Field {
                             data-options-filter=""
                             class="h-9"
                             autocomplete="off"
+                            disabled=(disabled)
                         }
                     )
                     <ul
@@ -566,6 +570,7 @@ impl Field {
                     id=(id)
                     name=(name.clone())
                     required=(required)
+                    disabled=(disabled)
                     aria-required=(required.then_some("true"))
                     aria-invalid=(aria_invalid)
                     aria-describedby=(described_by)

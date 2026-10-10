@@ -24,6 +24,20 @@ pub fn account_layout() -> Schema<UserForm> {
 }
 // ANCHOR_END: forms-controls-layout
 
+// ANCHOR: forms-field-basics
+pub fn account_form() -> Schema<UserForm> {
+    let c = UserForm::controls();
+    Schema::new((
+        c.name.help("As it appears on invoices."),
+        c.email
+            .disabled_on_edit()
+            .help("The sign-in address: it cannot change once the account exists."),
+        c.role.default(Role::Member).disabled(),
+        c.age.default(18_i64),
+    ))
+}
+// ANCHOR_END: forms-field-basics
+
 // ANCHOR: forms-conditions
 #[derive(tablo::RecordForm)]
 #[form(model = User)]

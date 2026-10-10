@@ -40,6 +40,7 @@ pub struct ControlInput {
     required: bool,
     invalid: bool,
     described_by: Option<String>,
+    disabled: bool,
 }
 
 impl ControlInput {
@@ -58,7 +59,13 @@ impl ControlInput {
             required,
             invalid,
             described_by,
+            disabled: false,
         }
+    }
+
+    pub(crate) fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        self
     }
 
     pub fn name(&self) -> &str {
@@ -87,6 +94,11 @@ impl ControlInput {
         self.described_by.as_deref()
     }
 
+    /// Whether the control renders disabled: the server ignores what it posts.
+    pub fn is_disabled(&self) -> bool {
+        self.disabled
+    }
+
     pub fn attributes(&self, cx: &Cx) -> Attributes {
         let required = self.required;
         attributes! {
@@ -95,6 +107,7 @@ impl ControlInput {
             name=(self.name.clone())
             value=(self.value.clone())
             required=(required)
+            disabled=(self.disabled)
             aria-required=(required.then_some("true"))
             aria-invalid=(if self.invalid { "true" } else { "false" })
             aria-describedby=(self.described_by.clone())
@@ -113,15 +126,17 @@ impl Control for Toggle {
         let checked = input.value().is_some_and(|v| v.trim() == "true");
         let invalid = if input.invalid() { "true" } else { "false" };
         let described_by = input.described_by().map(str::to_string);
+        let disabled = input.is_disabled();
         view! {
             cx =>
-            <input type="hidden" name=(name.clone()) value="false">
+            <input type="hidden" name=(name.clone()) value="false" disabled=(disabled)>
             ui_checkbox(
                 attrs: attributes! {
                     id=(id)
                     name=(name)
                     value="true"
                     checked=(checked)
+                    disabled=(disabled)
                     aria-invalid=(invalid)
                     aria-describedby=(described_by)
                 }

@@ -3,7 +3,7 @@
 use tablo_ui::{input as ui_input, textarea as ui_textarea};
 use topcoat::{Result, context::Cx, view::*};
 
-use super::{Field, FieldChrome, render_field};
+use super::{Field, render_field};
 use crate::form::FormScalar;
 
 /// The equality expression a text field's unique probe binds.
@@ -74,6 +74,11 @@ impl TextControl {
         }
     }
 
+    /// Whether the field's type parses `value`.
+    pub(crate) fn parses(&self, value: &str) -> bool {
+        (self.spell)(value).is_some()
+    }
+
     /// Whether two submissions spell the same stored value: `01` and `1` do for an integer.
     pub(crate) fn same_value(&self, a: &str, b: &str) -> bool {
         matches!(((self.spell)(a), (self.spell)(b)), (Some(a), Some(b)) if a == b)
@@ -94,11 +99,12 @@ impl Field {
         value: Option<&str>,
         error: Option<&str>,
         id: String,
+        disabled: bool,
     ) -> Result<BoxView<'a>> {
         let name = self.name().to_string();
-        let required = self.is_required();
+        let required = self.is_required() && !disabled;
         let placeholder = text.placeholder.clone();
-        let chrome = FieldChrome::new(id.clone(), error, None);
+        let chrome = self.chrome(id.clone(), error, None);
         let aria_invalid = chrome.aria_invalid();
         let described_by = chrome.described_by();
         let control = if let Some(rows) = text.rows {
@@ -113,6 +119,7 @@ impl Field {
                         placeholder=(placeholder.clone())
                         rows=(rows)
                         required=(required)
+                        disabled=(disabled)
                         aria-required=(required.then_some("true"))
                         aria-invalid=(aria_invalid)
                         aria-describedby=(described_by)
@@ -146,6 +153,7 @@ impl Field {
                         placeholder=(placeholder.clone())
                         autocomplete=(autocomplete)
                         required=(required)
+                        disabled=(disabled)
                         aria-required=(required.then_some("true"))
                         aria-invalid=(aria_invalid)
                         aria-describedby=(described_by)
