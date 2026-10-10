@@ -23,8 +23,8 @@ use crate::{
     dashboard::Dashboard,
     media::{MediaLibrary, MediaLibraryPage},
     models::{
-        Author, BLOCKED_TENANT, Category, Comment, Link, Post, PostStatus, Publication,
-        REMOVED_COMMENT_BODY, Role, Seo, User,
+        Author, AuthorForm, BLOCKED_TENANT, Category, CategoryForm, Comment, Link, Post,
+        PostStatus, Publication, REMOVED_COMMENT_BODY, Seo, User, UserForm, UserFormField,
     },
     staff::StaffAuth,
 };
@@ -93,19 +93,6 @@ impl Resource for UserResource {
     }
 }
 
-#[derive(tablo::RecordForm)]
-#[form(model = User)]
-pub struct UserForm {
-    pub name: String,
-    pub email: String,
-    #[form(options, blank = Role::Member)]
-    pub role: Role,
-    #[form(blank = true)]
-    pub active: bool,
-    #[form(blank = 0)]
-    pub age: i64,
-}
-
 pub struct AuthorResource;
 
 impl Resource for AuthorResource {
@@ -129,13 +116,6 @@ impl Resource for AuthorResource {
             // Names the detail heading with the author's name.
             .record_title(lens!(Author.name))
     }
-}
-
-#[derive(tablo::RecordForm)]
-#[form(model = Author)]
-pub struct AuthorForm {
-    pub name: String,
-    pub email: String,
 }
 
 /// Refuses the blocked tenant.
@@ -409,12 +389,6 @@ impl Resource for CategoryResource {
                 Category::fields().posts(),
             ))
     }
-}
-
-#[derive(tablo::RecordForm)]
-#[form(model = Category)]
-pub struct CategoryForm {
-    pub name: String,
 }
 
 /// Moderates comments.
