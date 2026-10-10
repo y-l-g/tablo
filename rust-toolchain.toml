@@ -3,4 +3,5 @@
 channel = "stable"
 # Explicit so CI images without the default profile have the fmt/clippy tools.
 components = ["rustfmt", "clippy"]
-# The `fmt` job uses `nightly-2026-08-24`: rustfmt.toml keys are nightly-only.
+# The `fmt` job uses the dated nightly `xtask/src/gates.rs` names: rustfmt.toml keys are
+# nightly-only.

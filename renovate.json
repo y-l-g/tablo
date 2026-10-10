@@ -4,9 +4,22 @@
   "lockFileMaintenance": {
     "enabled": false
   },
+  "customManagers": [
+    {
+      "description": "Crate-installed tools the workflows and xtask pin; xtask's `pins_match_ci` test keeps the copies equal",
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/workflows/[^/]+\\.yml$/", "/^xtask/src/gates\\.rs$/"],
+      "matchStrings": [
+        "cargo install (?<depName>[a-z0-9-]+) --version (?<currentValue>\\d+\\.\\d+\\.\\d+)",
+        "key: (?<depName>topcoat-cli)-(?<currentValue>\\d+\\.\\d+\\.\\d+)",
+        "(?<depName>mdbook(?:-linkcheck2)?)@(?<currentValue>\\d+\\.\\d+\\.\\d+)"
+      ],
+      "datasourceTemplate": "crate"
+    }
+  ],
   "packageRules": [
     {
-      "description": "Topcoat and Toasty bump as one grouped set",
+      "description": "Topcoat and Toasty bump as one grouped set, the topcoat CLI with them",
       "matchPackageNames": ["topcoat", "topcoat-*", "toasty", "toasty-*"],
       "groupName": "topcoat-toasty"
     },
