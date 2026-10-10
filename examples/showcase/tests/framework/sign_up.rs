@@ -295,3 +295,44 @@ async fn mounting_refuses_a_registration_the_panel_cannot_serve() {
         assert_eq!(kinds, vec![DeclarationErrorKind::SignUp(fault)]);
     }
 }
+
+/// Refuses every sign-up under a key the form has no control for.
+struct Misspelled;
+
+impl Registrar for Misspelled {
+    type Input = SignUp;
+    type User = AdminUser;
+
+    async fn validate(
+        &self,
+        _cx: &Cx,
+        _input: &SignUp,
+        _ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<FieldErrors> {
+        let mut errors = FieldErrors::new();
+        errors.add("e-mail", "No control renders this");
+        Ok(errors)
+    }
+
+    async fn register(
+        &self,
+        _cx: &Cx,
+        sign_up: SignUp,
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<AdminUser> {
+        create_admin(ex, &sign_up.email, &sign_up.password, &sign_up.name).await
+    }
+}
+
+/// A refusal under a key no sign-up control renders would show a page with no message on it,
+/// so it fails as a declaration error instead, and no account is created.
+#[tokio::test]
+async fn a_refusal_no_sign_up_control_renders_fails_closed() {
+    let db = db().await;
+    let router = router(db.clone(), Auth::password().registration(Misspelled));
+
+    let response = submit(&router, &sign_up("ada@example.com")).await;
+
+    assert_eq!(response.status(), 500);
+    assert!(admins(&db).await.is_empty());
+}

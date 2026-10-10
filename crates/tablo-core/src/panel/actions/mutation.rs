@@ -403,7 +403,8 @@ pub(super) enum Pending {
 ///
 /// # Errors
 ///
-/// A submission holding a key the input does not declare answers 400.
+/// A submission holding a key the input does not declare answers 400. A refusal of a key no
+/// input control renders is a declaration error: the page would show no message.
 pub(super) async fn read_input(
     cx: &Cx,
     name: &str,
@@ -435,6 +436,11 @@ pub(super) async fn read_input(
     schema
         .check_controls(cx, &input, &HashMap::new(), &mut errors)
         .await;
+    if let Some(key) = schema.unplaced_error(&errors) {
+        return Err(crate::error::declaration(format!(
+            "action '{name}' refused key `{key}`, which no input control renders"
+        )));
+    }
     match parsed {
         Some(parsed) if errors.is_empty() => Ok(Pending::Submitted {
             input: parsed,

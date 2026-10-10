@@ -184,3 +184,21 @@ async fn a_multiple_choice_checks_each_value_it_holds() {
     );
     assert!(refused("rust".to_string()).await, "a value that is no list");
 }
+
+/// An error renders under its field's own key; a row key or a near-miss renders nowhere.
+#[test]
+fn an_error_no_field_renders_is_unplaced() {
+    let schema = Schema::new(Field::text(DummyUser::fields().name()));
+    let unplaced = |key: &str| {
+        let mut errors = crate::FieldErrors::new();
+        errors.add(key, "refused");
+        schema.unplaced_error(&errors).map(str::to_string)
+    };
+    assert_eq!(unplaced("name"), None);
+    assert_eq!(
+        unplaced("name.0.label").as_deref(),
+        Some("name.0.label"),
+        "a text field posts no rows"
+    );
+    assert_eq!(unplaced("names").as_deref(), Some("names"));
+}

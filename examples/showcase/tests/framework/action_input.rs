@@ -116,6 +116,9 @@ impl Action<TicketResource> for Purge {
         if purging.note == "keep" {
             errors.add("note", "Not while keeping");
         }
+        if purging.note == "misspelled" {
+            errors.add("notes", "No control renders this");
+        }
         errors
     }
 
@@ -496,6 +499,20 @@ async fn a_confirming_action_with_input_confirms_in_its_dialog_and_on_its_page()
     let response = post_fields(&router, &url, &[("confirm", "1"), ("note", "")]).await;
     assert_eq!(response.status(), 303);
     assert_eq!(ticket(&db, alpha.id).await.reason, "purged");
+}
+
+/// A refusal under a key no input control renders would show a page with no message on it, so
+/// it fails as a declaration error instead, and the action does not run.
+#[tokio::test]
+async fn a_refusal_no_control_renders_fails_closed() {
+    let db = db().await;
+    let alpha = seed(&db, "Alpha").await;
+    let router = router(&db, runs);
+    let url = format!("/admin/tickets/{}/-/actions/purge", alpha.id);
+
+    let response = post_fields(&router, &url, &[("confirm", "1"), ("note", "misspelled")]).await;
+    assert_eq!(response.status(), 500);
+    assert_eq!(ticket(&db, alpha.id).await.reason, "", "nothing ran");
 }
 
 /// An input field named like a key the action's POST carries.

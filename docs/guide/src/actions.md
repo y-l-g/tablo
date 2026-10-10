@@ -151,7 +151,8 @@ button points at its own record.
 A value the input refuses renders the input as a page, with the error under its control, and
 writes nothing; a key the input does not declare answers 400. The page posts to the same route.
 `validate_input` adds refusals of its own, each under an input field's key, such as a reason too
-short to act on. A record action's page is titled with the label and the record's title, or the
+short to act on; a refusal under a key no control renders is a declaration error, so a misspelled
+key fails loudly instead of leaving a page with no message. A record action's page is titled with the label and the record's title, or the
 record count for a selection; a header action's is titled with its label. Cancel returns to the
 page the button was on. An action with input and `CONFIRM` confirms in its input dialog and on its
 page, which say the action cannot be undone and whose submit renders destructive, instead of in

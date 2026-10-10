@@ -282,6 +282,22 @@ impl<F> Schema<F> {
         out
     }
 
+    /// Returns the first key in `errors` that no control renders a message under: neither a
+    /// field's own key nor, for a repeater, a row's key under `{key}.`.
+    pub(crate) fn unplaced_error<'e>(&self, errors: &'e crate::FieldErrors) -> Option<&'e str> {
+        errors.iter().map(|error| error.key.as_str()).find(|key| {
+            !self
+                .fields
+                .iter()
+                .any(|field| match key.strip_prefix(field.name()) {
+                    Some(rest) => {
+                        rest.is_empty() || (rest.starts_with('.') && field.as_repeater().is_some())
+                    }
+                    None => false,
+                })
+        })
+    }
+
     /// One [`EmptyChoice`](crate::DeclarationErrorKind::EmptyChoice) per choice with neither
     /// options nor a relationship. Mounting checks a resource's form and its actions' inputs; a
     /// page's schema may build its options from data that is empty for now, so rendering does
