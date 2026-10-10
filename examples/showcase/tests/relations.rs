@@ -495,8 +495,12 @@ async fn the_relation_table_sorts_and_searches_in_place() {
             .await,
     )
     .await;
+    // The database's collation orders the rows: a body opening with punctuation (`[removed]`)
+    // sorts by byte on SQLite and by letter under PostgreSQL's locale, so only bodies that open
+    // with a capital letter have one expected order.
     let mut bodies: Vec<&str> = related
         .iter()
+        .filter(|comment| comment.body.starts_with(|c: char| c.is_ascii_uppercase()))
         .map(|comment| {
             let at = sorted
                 .find(comment.body.as_str())

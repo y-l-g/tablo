@@ -26,6 +26,11 @@ tokio = { workspace = true, features = ["fs"] }
 topcoat = { workspace = true, features = ["serve", "tailwind", "font", "font-fontsource", "asset", "runtime", "multipart"] }
 uuid.workspace = true
 
+# The integration suite's other drivers: `TABLO_TEST_DATABASE_URL` names the server.
+[features]
+postgresql = ["tablo/postgresql"]
+mysql = ["tablo/mysql"]
+
 [build-dependencies]
 tablo-build = { path = "../../crates/tablo-build" }
 

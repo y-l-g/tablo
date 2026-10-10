@@ -74,6 +74,49 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace --locked
 
+  # `test` runs the showcase suite on SQLite; these run it on the server drivers, whose `LIKE`,
+  # collation and identifier rules differ.
+  postgresql:
+    name: test (postgresql)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tablo
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 2s --health-timeout 5s --health-retries 30
+    env:
+      TABLO_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tablo
+    steps:
+      - uses: actions/checkout@v7
+      - run: rustup update stable && rustup default stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test -p showcase --features postgresql --test it --locked
+
+  mysql:
+    name: test (mysql)
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: mysql
+          MYSQL_DATABASE: tablo
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -pmysql" --health-interval 2s
+          --health-timeout 5s --health-retries 30
+    env:
+      TABLO_TEST_DATABASE_URL: mysql://root:mysql@localhost:3306/tablo
+    steps:
+      - uses: actions/checkout@v7
+      - run: rustup update stable && rustup default stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test -p showcase --features mysql --test it --locked
+
   # The suites are named rather than globbed: a glob would silently shrink the run when a
   # suite is renamed, while a missing path fails the job.
   assets:
@@ -157,7 +200,7 @@ jobs:
   release-plz-release:
     name: release
     runs-on: ubuntu-latest
-    needs: [release-pr-merge, test, assets, clippy, docs, external, fmt, msrv-udeps]
+    needs: [release-pr-merge, test, postgresql, mysql, assets, clippy, docs, external, fmt, msrv-udeps]
     if: >-
       github.repository == 'y-l-g/tablo'
       && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
@@ -191,7 +234,7 @@ jobs:
   release-plz-pr:
     name: release PR
     runs-on: ubuntu-latest
-    needs: [test, assets, clippy, docs, external, fmt]
+    needs: [test, postgresql, mysql, assets, clippy, docs, external, fmt]
     if: >-
       github.repository == 'y-l-g/tablo'
       && github.event_name == 'push'

@@ -21,27 +21,52 @@ pub fn mount(db: Db, panel: Panel) -> topcoat::Result<Router> {
         .build())
 }
 
-/// Returns a fresh in-memory `Db` with the full showcase schema and no rows.
+/// Returns a fresh `Db` with the full showcase schema and no rows.
+///
+/// The database is in-memory SQLite, or the server `TABLO_TEST_DATABASE_URL` names, built with the
+/// showcase's `postgresql` or `mysql` feature. Tests share that server's database, so each test's
+/// tables carry a prefix of their own.
 pub async fn empty_schema_db() -> Db {
-    let db = Db::builder()
-        .models(toasty::models!(
-            showcase::models::User,
-            showcase::models::Author,
-            showcase::models::Post,
-            showcase::models::Comment,
-            showcase::models::Category,
-            showcase::models::PostCategory,
-            showcase::models::MediaAsset,
-            showcase::models::Staff,
-            showcase::models::Workspace,
-            showcase::models::Seat,
-            tablo::auth::AuthSession
-        ))
-        .connect("sqlite::memory:")
-        .await
-        .expect("connect");
+    let mut builder = Db::builder();
+    builder.models(toasty::models!(
+        showcase::models::User,
+        showcase::models::Author,
+        showcase::models::Post,
+        showcase::models::Comment,
+        showcase::models::Category,
+        showcase::models::PostCategory,
+        showcase::models::MediaAsset,
+        showcase::models::Staff,
+        showcase::models::Workspace,
+        showcase::models::Seat,
+        tablo::auth::AuthSession
+    ));
+    let url = match std::env::var("TABLO_TEST_DATABASE_URL") {
+        Ok(url) => {
+            builder.table_name_prefix(&table_prefix());
+            url
+        }
+        Err(_) => "sqlite::memory:".to_string(),
+    };
+    let db = builder.connect(&url).await.expect("connect");
     db.push_schema().await.expect("push_schema");
     db
+}
+
+/// A table-name prefix no other test of this run or of an earlier run uses. It stays short:
+/// PostgreSQL truncates an identifier past 63 bytes, so a long prefix could make two index names
+/// collide.
+fn table_prefix() -> String {
+    static RUN: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+    static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    let run = RUN.get_or_init(|| {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default();
+        now.as_secs() as u32 ^ now.subsec_nanos()
+    });
+    let test = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    format!("t{run:08x}{test}_")
 }
 
 /// [`empty_schema_db`] with the demo admin seeded and zero user rows.

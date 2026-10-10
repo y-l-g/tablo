@@ -29,7 +29,6 @@ Tablo is a layer over two upstream projects:
 ## What it is not
 
 - **Not a client framework.** Anything that reads the database renders on the server.
-- **Not tested across databases.** The test suites and benchmarks run on Toasty's SQLite driver.
 
 ## How to read this guide
 
