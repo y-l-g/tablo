@@ -163,7 +163,7 @@ pub trait Action<R: Resource>: 'static {
 
     /// Refuse an input [`run`](Self::run) should not receive, such as a reason too short to
     /// act on: each error names an input field's key and renders under its control. Defaults to
-    /// none.
+    /// none. A key no control renders is a declaration error: the page would show no message.
     ///
     /// It runs after the input parses and before the transaction opens, so it sees no record.
     fn validate_input(_cx: &Cx, _input: &Self::Input) -> FieldErrors {

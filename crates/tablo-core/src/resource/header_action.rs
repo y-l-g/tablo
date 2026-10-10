@@ -79,7 +79,8 @@ pub trait HeaderAction: 'static {
     }
 
     /// Refuse an input [`run`](Self::run) should not receive. Each error names an input field's
-    /// key and renders under its control. Defaults to none.
+    /// key and renders under its control. Defaults to none. A key no control renders is a
+    /// declaration error: the page would show no message.
     fn validate_input(_cx: &Cx, _input: &Self::Input) -> FieldErrors {
         FieldErrors::new()
     }

@@ -109,7 +109,8 @@ pub trait Registrar: Send + Sync + 'static {
 
     /// Refuse a submission [`register`](Self::register) should not receive, such as an email
     /// another account holds: each error names an input field's key and renders under its
-    /// control. Defaults to none.
+    /// control. Defaults to none. A key no control renders is a declaration error: the page
+    /// would show no message.
     ///
     /// It runs inside the sign-up's transaction `ex`, after the input parses and its controls'
     /// own rules pass.
@@ -182,12 +183,22 @@ impl<R: Registrar> DynRegistrar for R {
                 values: values.clone(),
                 errors,
             };
+            if let Some(key) = schema.unplaced_error(&errors) {
+                return Err(crate::error::declaration(format!(
+                    "the sign-up input refused key `{key}`, which no sign-up control renders"
+                )));
+            }
             let Some(input) = parsed.filter(|_| errors.is_empty()) else {
                 return Ok(refused(errors));
             };
             let mut db = crate::db::db(cx);
             let mut tx = db.transaction().await.map_err(infrastructure_failure)?;
             let errors = self.validate(cx, &input, &mut tx).await?;
+            if let Some(key) = schema.unplaced_error(&errors) {
+                return Err(crate::error::declaration(format!(
+                    "the registrar refused key `{key}`, which no sign-up control renders"
+                )));
+            }
             if !errors.is_empty() {
                 return Ok(refused(errors));
             }
