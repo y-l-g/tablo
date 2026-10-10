@@ -377,6 +377,22 @@ pub enum DeclarationErrorKind {
         /// The disabled field.
         field: String,
     },
+    /// A repeater's item disables one of its row's controls or gives it a default, which a row
+    /// does not apply.
+    RepeaterLeafModifier {
+        /// The repeater.
+        field: String,
+        /// The control in its row.
+        leaf: String,
+    },
+    /// A field's default is a value its control never posts: one its type does not parse, or
+    /// not one of a choice's options.
+    UnpostedDefault {
+        /// The field.
+        field: String,
+        /// The default.
+        value: String,
+    },
     /// A condition watches a field the schema does not place.
     UnplacedWatchedField {
         /// The watched field.
@@ -644,7 +660,17 @@ impl fmt::Display for DeclarationErrorKind {
             Self::DisabledWithoutValue { field } => write!(
                 f,
                 "field '{field}' is disabled and required, so no create can fill it: give it a \
-                 `default`, make it optional, or use `disabled_on_edit`"
+                 `default` (a file field takes none), make it optional, or use `disabled_on_edit`"
+            ),
+            Self::RepeaterLeafModifier { field, leaf } => write!(
+                f,
+                "repeater '{field}' disables its row's '{leaf}' or gives it a default, which a \
+                 row does not apply: disable the repeater's own field instead"
+            ),
+            Self::UnpostedDefault { field, value } => write!(
+                f,
+                "field '{field}' defaults to '{value}', which its control never posts: spell the \
+                 default as the field's form value"
             ),
             Self::UnplacedWatchedField { field } => write!(
                 f,

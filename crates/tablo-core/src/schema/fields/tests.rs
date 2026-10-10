@@ -178,3 +178,65 @@ fn a_read_input_takes_a_disabled_fields_default() {
     assert_eq!(input["note"], "hello");
     assert_eq!(schema.defaults().len(), 2);
 }
+
+/// A default the control never posts, and a row control a repeater cannot disable or default,
+/// refuse the declaration.
+#[test]
+fn a_default_the_control_refuses_and_a_modified_row_control_refuse_the_schema() {
+    use crate::DeclarationErrorKind;
+
+    let errors = Schema::new((
+        Field::text_input::<i64>("count").default("ten"),
+        Field::text_input::<i64>("fine").default(3_i64),
+        Field::choice_input("plan").options(["free"]).default("pro"),
+    ))
+    .declaration_errors();
+    let refused: Vec<_> = errors
+        .iter()
+        .filter_map(|error| match error {
+            DeclarationErrorKind::UnpostedDefault { field, .. } => Some(field.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(refused, ["count", "plan"], "{errors:?}");
+
+    fn locked() -> Schema {
+        Schema::new(Field::text_input::<String>("label").disabled())
+    }
+    let repeater = Field::bound(
+        Field::named("links".to_string()),
+        ControlKind::Repeater(super::super::repeater::RepeaterControl::of(locked)),
+    );
+    let errors = Schema::new(repeater).declaration_errors();
+    assert!(
+        errors.iter().any(|error| matches!(
+            error,
+            DeclarationErrorKind::RepeaterLeafModifier { field, leaf }
+                if field == "links" && leaf == "label"
+        )),
+        "{errors:?}"
+    );
+}
+
+/// A disabled watched field is read as its default, not as what a submission posts for it.
+#[test]
+fn a_condition_reads_a_disabled_fields_default() {
+    let plan = Field::choice_input("plan")
+        .options(["free", "pro"])
+        .default("free")
+        .disabled();
+    let coupon = Field::text_input::<String>("coupon").visible_when(&plan, ["free"]);
+    let referral = Field::text_input::<String>("referral").visible_when(&plan, ["pro"]);
+    let schema = Schema::new((plan, coupon, referral));
+    let posted = HashMap::from([
+        ("plan".to_string(), "pro".to_string()),
+        ("coupon".to_string(), "SAVE".to_string()),
+        ("referral".to_string(), "eve".to_string()),
+    ]);
+    let input = schema
+        .read_input(&posted, &HashMap::new(), &[])
+        .expect("reads");
+    assert_eq!(input.get("plan").map(String::as_str), Some("free"));
+    assert_eq!(input.get("coupon").map(String::as_str), Some("SAVE"));
+    assert_eq!(input.get("referral"), None, "hidden by the default");
+}

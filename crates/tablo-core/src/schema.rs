@@ -258,11 +258,11 @@ impl<F> Schema<F> {
         if !unknown.is_empty() {
             return Err(bad_request(format!("unknown field(s): {}", unknown.join(", "))).into());
         }
-        let hidden = self.condition_hidden(&input);
-        for key in &hidden {
-            input.remove(key);
+        // A disabled field's default first, which a condition reads as the browser did.
+        self.drop_disabled(&mut input, false);
+        for key in self.condition_hidden(&input) {
+            input.remove(&key);
         }
-        self.drop_disabled(&mut input, &hidden, false);
         Ok(input)
     }
 
@@ -277,13 +277,9 @@ impl<F> Schema<F> {
     }
 
     /// Drops what a disabled control posted, which the browser never sends: on the edit form when
-    /// `editing`, else on the create form, where a field outside `hidden` takes its `default`.
-    pub(crate) fn drop_disabled(
-        &self,
-        values: &mut HashMap<String, String>,
-        hidden: &[String],
-        editing: bool,
-    ) {
+    /// `editing`, else on the create form, where the field takes its `default`. Run it before
+    /// [`condition_hidden`](Self::condition_hidden), which drops a hidden field's default again.
+    pub(crate) fn drop_disabled(&self, values: &mut HashMap<String, String>, editing: bool) {
         for field in self
             .fields
             .iter()
@@ -295,7 +291,6 @@ impl<F> Schema<F> {
             values.remove(name);
             if let Some(default) = field.default_value()
                 && !editing
-                && !hidden.iter().any(|key| key == name)
             {
                 values.insert(name.to_string(), default.to_string());
             }
@@ -408,10 +403,33 @@ impl<F> Schema<F> {
         errors.extend(self.dependent_errors());
         // A control disabled on create posts nothing there, so the create needs a value.
         for field in &self.fields {
-            if field.is_always_disabled() && field.is_required() && field.default_value().is_none()
-            {
+            let blank = field
+                .default_value()
+                .is_none_or(|value| value.trim().is_empty());
+            if field.is_always_disabled() && field.is_required() && blank {
                 errors.push(crate::DeclarationErrorKind::DisabledWithoutValue {
                     field: field.name().to_string(),
+                });
+            }
+            if let Some(value) = field.default_value()
+                && field.refuses(value)
+            {
+                errors.push(crate::DeclarationErrorKind::UnpostedDefault {
+                    field: field.name().to_string(),
+                    value: value.to_string(),
+                });
+            }
+            // A row's controls post under the repeater's key, which neither the disabled drop nor
+            // the defaults read.
+            if let Some(repeater) = field.as_repeater()
+                && let Some(leaf) = repeater
+                    .item_schema()
+                    .fields()
+                    .find(|leaf| leaf.is_disabled(true) || leaf.default_value().is_some())
+            {
+                errors.push(crate::DeclarationErrorKind::RepeaterLeafModifier {
+                    field: field.name().to_string(),
+                    leaf: leaf.name().to_string(),
                 });
             }
         }

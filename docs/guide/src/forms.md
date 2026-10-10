@@ -302,8 +302,13 @@ create form starts with: any form scalar, or a `&str` in the form spelling.
   to mount, since no create could fill it.
 - `.disabled_on_edit()` leaves the create form's control enabled: the create sets the value, and
   no edit changes it.
+- A condition watching a disabled field reads what the browser shows: its default on a create,
+  its stored value on an edit, never what the submission posts.
 - A default seeds the create form and an action's input form; an edit form shows the stored
-  value. The blank answer is different: it is what an empty submission stores.
+  value. The blank answer is different: it is what an empty submission stores. Mounting refuses a
+  default the control never posts: one a typed field does not parse, or not one of a choice's
+  options.
+- A repeater's row controls take neither `disabled` nor `default`: mounting refuses both.
 
 ### Conditional fields
 

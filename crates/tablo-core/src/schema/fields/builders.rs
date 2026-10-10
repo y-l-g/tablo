@@ -143,7 +143,8 @@ macro_rules! default_modifier {
         impl<F> $builder<F> {
             /// Fills the create form's control with `value`: any [`FormScalar`], or a `&str` in
             /// the form spelling. On a [`disabled`](Self::disabled) field it is the value a
-            /// create stores.
+            /// create stores. A schema refuses a default the control never posts: one a typed
+            /// field does not parse, or not one of a choice's options.
             ///
             /// ```rust
             /// # #[derive(Debug, Clone, toasty::Model)]
@@ -164,7 +165,8 @@ macro_rules! default_modifier {
 
 default_modifier!(TextField, ChoiceField, CustomField);
 
-/// A value a field's `default` takes: any [`FormScalar`], or a `&str` in the form spelling.
+/// A value a field's `default` takes: any [`FormScalar`], or a `&str` or `&String` in the form
+/// spelling.
 pub trait IntoFormValue {
     /// The value's form spelling.
     fn into_form_value(self) -> String;
@@ -179,6 +181,12 @@ impl<T: FormScalar> IntoFormValue for T {
 impl IntoFormValue for &str {
     fn into_form_value(self) -> String {
         self.to_string()
+    }
+}
+
+impl IntoFormValue for &String {
+    fn into_form_value(self) -> String {
+        self.clone()
     }
 }
 

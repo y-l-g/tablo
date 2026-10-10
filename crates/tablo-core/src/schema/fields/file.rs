@@ -29,9 +29,13 @@ impl Field {
         let stored_display: Option<BoxView<'a>> =
             stored.map(|current| stored_upload_row(cx, current));
         let aria_invalid = chrome.aria_invalid();
-        let described_by = chrome
-            .described_by()
-            .or_else(|| (is_edit && !disabled).then(|| hint_id.clone()));
+        let described_by = [
+            chrome.described_by(),
+            (is_edit && !disabled).then(|| hint_id.clone()),
+        ]
+        .into_iter()
+        .flatten()
+        .reduce(|ids, id| format!("{ids} {id}"));
         let control = view! {
             cx =>
             if let Some(row) = stored_display {

@@ -403,6 +403,16 @@ impl Field {
         }
     }
 
+    /// Whether the control could never post `value`: a typed text field's type does not parse it,
+    /// or a single choice over static options or a checkbox does not offer it.
+    pub(crate) fn refuses(&self, value: &str) -> bool {
+        match &self.control {
+            ControlKind::Text(text) => !value.trim().is_empty() && !text.parses(value),
+            ControlKind::Choice(choice) if choice.is_multiple() => false,
+            _ => self.can_post(value) == Some(false),
+        }
+    }
+
     /// Whether the control renders as required.
     pub(crate) fn is_required(&self) -> bool {
         self.required

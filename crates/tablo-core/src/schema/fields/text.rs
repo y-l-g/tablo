@@ -74,6 +74,11 @@ impl TextControl {
         }
     }
 
+    /// Whether the field's type parses `value`.
+    pub(crate) fn parses(&self, value: &str) -> bool {
+        (self.spell)(value).is_some()
+    }
+
     /// Whether two submissions spell the same stored value: `01` and `1` do for an integer.
     pub(crate) fn same_value(&self, a: &str, b: &str) -> bool {
         matches!(((self.spell)(a), (self.spell)(b)), (Some(a), Some(b)) if a == b)

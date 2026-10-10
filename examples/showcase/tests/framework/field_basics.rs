@@ -24,6 +24,8 @@ struct Account {
     email: String,
     plan: String,
     credits: i64,
+    coupon: Option<String>,
+    referral: Option<String>,
 }
 
 struct AccountResource;
@@ -34,6 +36,9 @@ impl Resource for AccountResource {
 
     fn declare() -> ResourceDef<Self> {
         let c = AccountForm::controls();
+        let plan = c.plan.default("free").disabled();
+        let coupon = c.coupon.visible_when(&plan, ["free"]);
+        let referral = c.referral.visible_when(&plan, ["pro"]);
         ResourceDef::new()
             .slug("accounts")
             .policy(|_cx: &topcoat::context::Cx, _ability: Ability<'_, Account>| true)
@@ -42,8 +47,10 @@ impl Resource for AccountResource {
                 c.email
                     .disabled_on_edit()
                     .help("The sign-in address; it cannot change once the account exists."),
-                c.plan.default("free").disabled(),
+                plan,
                 c.credits.default(10_i64),
+                coupon,
+                referral,
             )))
     }
 }
@@ -54,6 +61,8 @@ struct AccountForm {
     email: String,
     plan: String,
     credits: i64,
+    coupon: Option<String>,
+    referral: Option<String>,
 }
 
 async fn accounts() -> (Db, Router) {
@@ -195,7 +204,13 @@ impl Resource for NoPlan {
         let c = AccountForm::controls();
         ResourceDef::new()
             .policy(|_cx: &topcoat::context::Cx, _ability: Ability<'_, Account>| true)
-            .form(Schema::new((c.email, c.plan.disabled(), c.credits)))
+            .form(Schema::new((
+                c.email,
+                c.plan.disabled(),
+                c.credits,
+                c.coupon,
+                c.referral,
+            )))
     }
 }
 
@@ -215,5 +230,45 @@ async fn a_required_disabled_field_without_a_default_refuses_the_panel() {
             DeclarationErrorKind::DisabledWithoutValue { field } if field == "plan"
         )),
         "{errors:?}"
+    );
+}
+
+/// Conditions read a disabled field as its default on create and its stored value on edit, never
+/// as what the submission posts for it.
+#[tokio::test]
+async fn a_condition_reads_a_disabled_field_as_the_browser_does() {
+    let (db, router) = accounts().await;
+    let client = TestClient::new(&router);
+    let response = client
+        .submit(
+            "/admin/accounts/create",
+            "email=ada%40example.com&credits=1&coupon=SAVE&plan=pro&referral=eve",
+        )
+        .await;
+    assert!(
+        response.status().is_redirection(),
+        "the create succeeds, got {} {}",
+        response.status(),
+        body_string(response).await
+    );
+    let account = only_account(&db).await;
+    assert_eq!(
+        account.coupon.as_deref(),
+        Some("SAVE"),
+        "the default shows it"
+    );
+    assert_eq!(account.referral, None, "the default hides it");
+
+    let response = client
+        .submit(
+            &format!("/admin/accounts/{}/edit", account.id),
+            "credits=1&plan=pro&referral=eve",
+        )
+        .await;
+    assert!(response.status().is_redirection());
+    assert_eq!(
+        only_account(&db).await.referral,
+        None,
+        "the stored plan hides it"
     );
 }

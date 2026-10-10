@@ -259,9 +259,11 @@ fn seeded_values<R: Resource>(cx: &Cx, resource: &Mounted<R>) -> HashMap<String,
     let seedable: Vec<&str> = schema
         .fields()
         .filter(|field| {
-            field
-                .as_choice()
-                .is_some_and(|choice| choice.is_relationship())
+            // A disabled control stores its default, which the form must show.
+            !field.is_disabled(false)
+                && field
+                    .as_choice()
+                    .is_some_and(|choice| choice.is_relationship())
         })
         .map(|field| field.name())
         .collect();

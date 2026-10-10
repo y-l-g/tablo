@@ -58,6 +58,20 @@ pub(crate) struct RepeaterControl {
 }
 
 impl RepeaterControl {
+    /// One row's controls.
+    pub(crate) fn item_schema(&self) -> Schema {
+        (self.item)()
+    }
+
+    /// A repeater whose rows hold `item`'s controls.
+    #[cfg(test)]
+    pub(crate) fn of(item: fn() -> Schema) -> Self {
+        Self {
+            item,
+            add_label: None,
+        }
+    }
+
     pub(crate) fn new<T: RepeaterItem>() -> Self {
         Self {
             item: T::schema,
