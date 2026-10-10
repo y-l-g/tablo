@@ -15,8 +15,8 @@ fn main() {
 }
 ```
 
-The app owns `styles.css` at its package root; `tailwind()` adds Tablo's sources to it and writes
-`$OUT_DIR/tailwind.css`, which `topcoat::tailwind::stylesheet!()` hands to `Panel::shell_assets`.
+The app owns `styles.css` at its package root; `tailwind()` imports Tailwind and Tablo's default
+theme ahead of it, adds Tablo's sources, and writes `$OUT_DIR/tailwind.css`, which `topcoat::tailwind::stylesheet!()` hands to `Panel::shell_assets`.
 Those sources come from the `links` metadata of the Tablo crates the package depends on, so `tablo`
 (or `tablo-core` and `tablo-ui`) must be under `[dependencies]`. The
 [first panel](https://y-l.fr/tablo/nightly/guide/first-panel.html) chapter wires it up.

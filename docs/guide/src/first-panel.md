@@ -76,14 +76,20 @@ cargo run
 ## The stylesheet
 
 The panel's markup carries Tailwind classes, so the app generates a stylesheet that covers them.
-The app owns `styles.css` at its package root: it imports `tailwindcss`, declares the theme tokens
-(`examples/quickstart/styles.css` is a neutral set to start from), and names its own sources.
+The app owns `styles.css` at its package root. The build imports Tailwind and Tablo's default
+theme ahead of it, so the file names the app's own sources and redeclares only the tokens it
+changes:
 
 ```css
-@import "tailwindcss";
 @source "./src/**/*.rs";
-/* the theme tokens: --background, --foreground, --primary, ... */
+
+:root {
+  --primary: oklch(0.45 0.18 265);
+}
 ```
+
+The theme's tokens are in `crates/tablo-build/src/theme.css`: `--background`, `--foreground`,
+`--primary`, `--sidebar` and the rest, each under `:root` and again under `.dark`.
 
 `build.rs` runs the build:
 
