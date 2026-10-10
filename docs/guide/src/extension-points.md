@@ -16,7 +16,7 @@ the `Toggle` control implement the same traits.
 A relationship choice field loads its options through
 `tablo::extend::OptionSource`. Every resource is one, answering from its def
 as the request's panel mounted it: `scoped_query` states the tenant-scoped
-seed query, `allows` gates rows per ability (default deny), and
+seed query, `allows` asks the policy about each row (default deny), and
 `requires_tenant`, `search_expr`, and `order_by` shape scoping, search, and
 ordering. Loads are bounded to 200 options, memoized per request, and fail
 closed on denial.

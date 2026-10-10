@@ -115,7 +115,7 @@ places their buttons where it renders its header with `header_action_buttons::<S
 ```
 
 A page's header action runs for whoever may open the page: the panel's sign-in and
-`Page::can_access` gate it as they gate the page's `GET`. **A page has no policy**, so an action
+`Page::can_access` cover it as they cover the page's `GET`. **A page has no policy**, so an action
 that writes a resource's records asks that resource's policy in its own `can_run`, as
 `PublishDrafts` does: it then runs for the same users from the list and from the page.
 

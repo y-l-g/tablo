@@ -59,7 +59,7 @@ denied request answers 403.
   the records refused `Delete` or `Run`.
 - **A record action's `can_run` is not authorization.** It reads the record's state and sees no
   policy; the policy's `RunAny` and `Run` decide who runs the action. A header action's
-  `can_run(cx)` is a gate of its own, beside the policy on a resource; on a page, which has no
+  `can_run(cx)` is a check of its own, beside the policy on a resource; on a page, which has no
   policy, it is where the action asks one. A panel that mounts the resource
   with `ReadOnly` through `Panel::resource_with` therefore offers and runs none of its actions.
 - **Relationship options** require `ViewAny` and `View` from the related resource's policy.
@@ -105,7 +105,7 @@ to lists checks it before rendering each link.
 
 A page, route or shard the app serves under a panel calls `auth::guard(cx)?` to require the
 panel's signed-in user exactly as the panel's own pages do. A shard needs it: Topcoat serves
-shards at its runtime path, where no page guard runs. A form route verifies its CSRF token with
+shards at its runtime path, where the page's checks do not run. A form route verifies its CSRF token with
 `csrf::verify`.
 
 ## Authentication
@@ -282,7 +282,7 @@ impl Resource for PostResource {
 
 That one declaration does two things:
 
-- **The gate.** Every handler of the resource answers 403 when the request has no tenant.
+- **The tenant check.** Every handler of the resource answers 403 when the request has no tenant.
 - **The scope.** Every loader — list, export, detail, edit, delete, bulk delete, relationship
   options, related tables — adds `tenant_id = <request tenant>` to the resource's `query`. A
   create sets the tenant column itself, so the record form leaves it out.
@@ -292,7 +292,7 @@ its lens; the name itself is the app's choice. Do not repeat the filter in `quer
 panel refuses a `Tenancy::column` lens that is not one field of the model.
 
 **A row that inherits its tenant.** A comment has no tenant column of its own; it belongs to a post
-that does. `Tenancy::via` names the tenant through the relation, and the framework gates and
+that does. `Tenancy::via` names the tenant through the relation, and the framework checks and
 filters exactly as it does for a column:
 
 ```rust
@@ -313,7 +313,7 @@ must be one of the request tenant's posts. Mounting the panel refuses a form tha
 other way, or a lens that does not start at a `belongs_to`.
 
 **A deliberately cross-tenant resource** — a super-admin view — declares no tenancy and filters in
-`query()`. That gives up both the gate and the scope.
+`query()`. That gives up both the tenant check and the scope.
 
 **In your own code**, load rows with `scoped_query::<PostResource>(cx)?`. It applies the tenant
 scope and answers 403 when the request has no tenant. `PostResource::query(cx)` does not apply the

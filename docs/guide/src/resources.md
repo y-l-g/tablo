@@ -1,9 +1,9 @@
 # Resources
 
-A resource is the admin for one Toasty model: which rows it lists, how its table and form look,
-who may see and change a record, and how a write runs. You implement the `Resource` trait on a
-unit struct, return what it declares from `declare()` as one `ResourceDef` value, and register it
-with `Panel::resource`.
+A resource declares the panel's pages for one Toasty model: which rows it lists, how its table
+and form look, who may see and change a record, and how a write runs. You implement the
+`Resource` trait on a unit struct, return what it declares from `declare()` as one `ResourceDef`
+value, and register it with `Panel::resource`.
 
 The smallest resource lists rows and nothing else:
 
@@ -175,8 +175,9 @@ declaration names one. It refuses the resource when:
 
 The refusal lists every mistake the panel found, not only the first. `.panel(..)` returns it as a
 `MountError`: each of its `DeclarationError`s names the resource, the `Site` of the declaration
-it is in (`Registration`, `Table`, `Form`, `View`, `Tenancy`, a `Relation`) and a
-`DeclarationErrorKind`, whose `Display` is the message.
+it is in (`Panel`, `Registration`, `Tenancy`, `Table`, `Form`, `Detail`, a `Relation`) and a
+`DeclarationErrorKind`, whose `Display` is the message. [Mount errors](./mount-errors.md) lists
+every kind with its fix.
 [Testing](./testing-and-benchmarks.md#testing-a-panel) shows a test matching on the kind.
 
 An action's `NAME` is checked when the app compiles: `ResourceDef::action` and

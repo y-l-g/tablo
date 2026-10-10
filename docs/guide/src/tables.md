@@ -48,7 +48,7 @@ foreign key `Relation::has_many` takes.
 | --- | --- | --- |
 | `TextColumn::new(lens)` | the field's value as text (an `Options` enum's label), or `.format(\|value\| ..)` of it | `.searchable()` on a `String` field, `.sortable()` |
 | `ComputedColumn::new(label, project)` | `project(row)` | neither: the methods do not exist |
-| `RelationColumn::of::<R>(relation!(..))` | a `Deferred` `belongs_to` or `has_one` field's record, titled as `R` titles it: a resource's `record_label`; a dash for a nullable field holding none | neither |
+| `RelationColumn::of::<R>(relation!(..))` | a `Deferred` `belongs_to` or `has_one` field's record, titled as `R` titles it: a resource's `record_title`; a dash for a nullable field holding none | neither |
 | `RelationColumn::new(relation!(..), project)` | `project` of the same record, for a related model no resource or option source labels | neither |
 | `RelationColumn::list::<R>(relation!(..))` | a `Deferred` `has_many` field's records, a many-to-many `via` field's included, each titled as `R` titles it, joined by commas | neither |
 | `CountColumn::new(relation!(..))` | the number of a `Deferred` `has_many` field's records | neither |

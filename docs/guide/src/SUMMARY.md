@@ -1,6 +1,7 @@
 # Summary
 
 - [Introduction](./introduction.md)
+- [Coming from Filament or Django](./coming-from.md)
 - [Your first panel](./first-panel.md)
 - [Panel and routing](./panel-and-routing.md)
 - [Resources](./resources.md)
@@ -12,4 +13,7 @@
 - [Data access](./data-access.md)
 - [Extension points](./extension-points.md)
 - [Security](./security.md)
+- [Deployment](./deployment.md)
+- [Mount errors](./mount-errors.md)
+- [Troubleshooting](./troubleshooting.md)
 - [Testing and benchmarks](./testing-and-benchmarks.md)
