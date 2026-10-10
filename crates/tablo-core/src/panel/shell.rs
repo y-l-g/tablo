@@ -45,7 +45,7 @@ fn request_cookie(cx: &Cx, name: &str) -> Option<String> {
     })
 }
 
-/// Branding for the admin shell: the sidebar header, the login card, and the
+/// Branding for the panel's shell: the sidebar header, the login card, and the
 /// topbar below `md`, where the sidebar folds into a sheet.
 #[derive(Debug, Clone)]
 pub struct Brand {

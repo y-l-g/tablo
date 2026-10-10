@@ -18,7 +18,7 @@ const PAGE_DESCRIPTION: StaticClass = class!("text-sm text-muted-foreground");
 const PAGE_ACTIONS: StaticClass = class!("flex shrink-0 flex-wrap items-center gap-2");
 const PAGE_CONTENT: StaticClass = class!("flex flex-col gap-6");
 
-/// Standard container for an admin page, owning its max width, padding, and vertical rhythm.
+/// Standard container for a panel page, owning its max width, padding, and vertical rhythm.
 ///
 /// ```rust
 /// # use tablo_ui::{page, page_actions, page_content, page_description, page_header, page_title};

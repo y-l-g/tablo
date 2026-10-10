@@ -68,7 +68,7 @@ pub fn tenant_id(cx: &Cx) -> Option<uuid::Uuid> {
 /// it in the app context.
 pub(crate) struct TenantSource(pub(crate) fn(&Cx) -> Option<uuid::Uuid>);
 
-/// Requires a tenant, returning an error if missing (for tenancy-gated resources).
+/// Requires a tenant, returning an error if missing (for tenant-owned resources).
 ///
 /// # Errors
 ///
