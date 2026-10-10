@@ -115,7 +115,7 @@ struct PostStats {
     read_minutes: i64,
 }
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Post {
     #[key]
     #[auto]

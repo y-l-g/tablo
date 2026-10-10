@@ -29,8 +29,8 @@ mod wiring;
 pub use self::{
     column::{
         BooleanColumn, ColumnWidth, ComputedColumn, CountColumn, EmbeddedColumn, FileColumn,
-        IntoColumns, RelationColumn, RelationLens, RepeaterColumn, TextColumn, ToOneRelation,
-        contains_expr,
+        IntoColumns, ModelColumns, RelationColumn, RelationLens, RepeaterColumn, TextColumn,
+        ToOneRelation, contains_expr,
     },
     filter::{DateFilter, IntoFilters, QueryFilter, SelectFilter, TernaryFilter},
     page::TablePage,

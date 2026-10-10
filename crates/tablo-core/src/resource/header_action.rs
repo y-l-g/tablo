@@ -105,7 +105,7 @@ impl<M> Ability<'_, M> {
     /// ```rust
     /// # use tablo_core::{Ability, HeaderAction};
     /// # use topcoat::{Result, context::Cx};
-    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid }
     /// # struct RecountTags;
     /// # impl HeaderAction for RecountTags {

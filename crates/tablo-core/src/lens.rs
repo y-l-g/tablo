@@ -10,7 +10,7 @@ use toasty::stmt::Path;
 /// different fields:
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
 /// # use tablo_core::{TextColumn, lens};
 /// TextColumn::new(lens!(User.name)).searchable();
@@ -63,12 +63,12 @@ impl<M, T, P> From<Lens<M, T, P>> for Path<M, P> {
 ///
 /// ```rust
 /// # use tablo_core::{Lens, lens};
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
 /// # #[derive(Debug, Clone, toasty::Embed)]
 /// # struct Seo { title: String }
 /// # mod blog {
-/// #     #[derive(Debug, Clone, toasty::Model)]
+/// #     #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// #     pub struct Post { #[key] #[auto] pub id: uuid::Uuid, pub title: String, pub seo: super::Seo }
 /// # }
 /// # use blog::Post;

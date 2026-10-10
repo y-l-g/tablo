@@ -45,9 +45,9 @@ use crate::{
 /// ```rust,no_run
 /// # use tablo_core::{Auth, NoForm, Panel, PanelUser, Resource, RouterBuilderPanelExt, auth::Authenticator};
 /// # use topcoat::{context::Cx, router::{Router, RouterBuilderDiscoverExt}};
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Order { #[key] #[auto] id: uuid::Uuid, total: i64 }
 /// # struct UserResource;
 /// # impl Resource for UserResource { type Model = User; type Form = NoForm<User>; }
@@ -110,7 +110,7 @@ impl RouterBuilderPanelExt for RouterBuilder {
 /// ```rust,no_run
 /// # use tablo_core::{NoForm, Panel, Resource, RouterBuilderPanelExt, Tenant, scoped_query};
 /// # use topcoat::router::{Router, RouterBuilderDiscoverExt};
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
 /// # struct PostResource;
 /// # impl Resource for PostResource { type Model = Post; type Form = NoForm<Post>; }
@@ -516,16 +516,10 @@ pub(super) fn check_resource<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationE
     let mut form_errors = declared.form.declaration_errors();
     form_errors.extend(declared.form.empty_choices());
     let form_is_sound = form_errors.is_empty();
-    // A derived view mirrors the record form, whose mistakes the form already reports.
-    let detail_errors = if declared.declares_detail {
-        declared.detail.declaration_errors()
-    } else {
-        Vec::new()
-    };
     for (site, kinds) in [
         (Site::Table, declared.table.declaration_errors()),
         (Site::Form, form_errors),
-        (Site::Detail, detail_errors),
+        (Site::Detail, declared.detail.declaration_errors()),
     ] {
         errors.extend(
             kinds

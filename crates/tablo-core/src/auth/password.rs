@@ -15,7 +15,9 @@ const DUMMY_PASSWORD_HASH: &str = "$argon2id$v=19$m=19456,t=2,p=1$h3oXdPBVwhcgZ1
 
 /// Shipped credential model with unique email, Argon2id PHC hash, display name,
 /// and active flag; belongs to no tenant.
-#[derive(Debug, Clone, toasty::Model)]
+/// Its [`ModelColumns`](crate::ModelColumns) leave out the hash, so a resource over the panel's
+/// admins lists them.
+#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
 pub struct AdminUser {
     #[key]
     #[auto]
@@ -23,6 +25,7 @@ pub struct AdminUser {
     #[unique]
     pub email: String,
     /// Argon2id hash in PHC string format; never stores the plaintext.
+    #[columns(skip)]
     pub password_hash: String,
     pub display_name: String,
     /// `false` denies login and panel access immediately.

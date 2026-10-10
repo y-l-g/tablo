@@ -4,7 +4,7 @@ use crate::{
     test_support::{cx, memory_db},
 };
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
 struct Shelf {
     #[key]
     #[auto]
@@ -12,7 +12,7 @@ struct Shelf {
     name: String,
 }
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
 struct Book {
     #[key]
     #[auto]

@@ -79,7 +79,7 @@ async fn composite_pk_edit_fails_loudly_not_404() {
 
     use crate::resource::Resource;
 
-    #[derive(Debug, Clone, toasty::Model)]
+    #[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
     struct Pair {
         #[key]
         a: String,
@@ -144,7 +144,7 @@ async fn record_loads_skip_the_detail_pages_includes() {
         name: String,
     }
 
-    #[derive(Debug, toasty::Model, Clone)]
+    #[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
     struct Child {
         #[key]
         #[auto]

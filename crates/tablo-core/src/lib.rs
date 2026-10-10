@@ -1,10 +1,11 @@
 //! Tablo: a server-rendered admin toolkit on [Topcoat](topcoat) and [Toasty](toasty).
 //!
-//! A [`Panel`] serves one [`Resource`] per Toasty model. A resource names the model and the record
+//! A [`Panel`] serves one [`Resource`] per Toasty model. A resource names the model, whose
+//! [`ModelColumns`](derive@ModelColumns) give its default table and detail page, and the record
 //! form its create and edit submissions parse into, which [`ModelForm`](derive@ModelForm) derives
-//! from the model or [`RecordForm`](derive@RecordForm) from a struct of its own, and
-//! declares the rest as one [`ResourceDef`] value: its [`Policy`], which denies by default, and
-//! any [`Table`], [`Schema`] or [`Detail`] that arranges or extends what the record form derives.
+//! from the model or [`RecordForm`](derive@RecordForm) from a struct of its own. It declares the
+//! rest as one [`ResourceDef`] value: its [`Policy`], which denies by default, and any [`Table`],
+//! [`Schema`] or [`Detail`] that replaces or extends the defaults.
 //! The app mounts the panel on its own Topcoat router with [`RouterBuilderPanelExt::panel`], which
 //! builds each def once, binds it to the database schema and checks it first; one router mounts any
 //! number of panels at distinct prefixes.
@@ -14,7 +15,7 @@
 //! # use toasty::Db;
 //! # use topcoat::router::{Router, RouterBuilderDiscoverExt};
 //! # fn main() -> topcoat::Result<()> {
-//! #[derive(Debug, Clone, toasty::Model, tablo_core::ModelForm)]
+//! #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns, tablo_core::ModelForm)]
 //! pub struct Book {
 //!     #[key]
 //!     #[auto]
@@ -81,10 +82,7 @@ pub mod __macro {
             tree::Retype,
             write_items,
         },
-        table::{
-            BooleanColumn, EmbeddedColumn, FileColumn, RelationColumn, RelationLens,
-            RepeaterColumn, Table, TextColumn,
-        },
+        table::{ModelColumns, Table, column::model::pick},
         toasty_compat::VariantId,
     };
 }
@@ -146,7 +144,7 @@ pub use schema::{
 };
 pub use table::{
     BooleanColumn, ColumnWidth, ComputedColumn, CountColumn, Cursor, DateFilter, EmbeddedColumn,
-    FileColumn, IntoColumns, IntoFilters, QueryFilter, RelationColumn, RelationLens,
+    FileColumn, IntoColumns, IntoFilters, ModelColumns, QueryFilter, RelationColumn, RelationLens,
     RepeaterColumn, SelectFilter, Sort, Table, TablePage, TableState, TernaryFilter, TextColumn,
     ToOneRelation, WiredTable, contains_expr,
 };
@@ -154,7 +152,7 @@ pub use table::{
 /// before it runs.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, status: String }
 /// # use tablo_core::{Action, ActionInput, NoForm, Resource};
 /// # use topcoat::{Result, context::Cx};
@@ -226,7 +224,7 @@ pub use tablo_macros::ActionInput;
 /// Builds the schema node and converts the value through that node's keys.
 ///
 /// ```rust,no_run
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Post {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     publication: Publication,
@@ -284,11 +282,67 @@ pub use tablo_macros::ActionInput;
 /// `optional` on an embedded value, `blank` or `optional` on an `Option`, and `optional` on a
 /// type other than `String`.
 pub use tablo_macros::EmbeddedForm;
+/// Derive a model's [`ModelColumns`](trait@ModelColumns): the table a resource lists it in and
+/// the detail page it shows it on, when the resource declares neither.
+///
+/// ```rust
+/// # #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo_core::Options)]
+/// # pub enum Role { Admin, Member }
+/// #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// pub struct User {
+///     #[key]
+///     #[auto]
+///     pub id: uuid::Uuid,
+///     pub name: String,
+///     pub role: Role,
+///     pub active: bool,
+///     #[columns(skip)]
+///     pub password_hash: String,
+///     #[default(jiff::Timestamp::now())]
+///     pub created_at: jiff::Timestamp,
+/// }
+///
+/// // Lists `name`, `role`, `active` and `created_at`, and shows them on the detail page.
+/// let table = <User as tablo_core::ModelColumns>::table();
+/// # let _ = table;
+/// ```
+///
+/// Each field shows whoever writes it, the person through a form or Toasty through a
+/// `#[default]` or an `#[update]`, in a column its type picks:
+///
+/// - a `bool`: a sortable [`BooleanColumn`], yes or no;
+/// - a `String` or `Option<String>`: a sortable, searchable [`TextColumn`];
+/// - any other [`FormScalar`]: a sortable [`TextColumn`], an [`Options`](derive@Options) enum
+///   by its label;
+/// - an [`EmbeddedForm`](derive@EmbeddedForm) value: an [`EmbeddedColumn`], leaf by leaf, on
+///   the detail page only;
+/// - a list of [`RepeaterItem`](derive@RepeaterItem) values: a [`RepeaterColumn`], on the
+///   detail page only;
+/// - any other type: no column.
+///
+/// No column shows a key Toasty generates, a `#[version]` field, a relation or its foreign
+/// key, which only a declared [`RelationColumn`] shows, by the related record's title, or a
+/// `TenantId` or `Option<TenantId>` field, which belongs to the resource's [`Tenancy`]. An
+/// `#[auto]` `created_at` or `updated_at` shows like any timestamp.
+///
+/// Every other field shows, a secret such as a password hash or an API token included, to
+/// anyone the policy lets view the list: mark it `#[columns(skip)]`, which leaves it out of
+/// the table, its search and export, and the detail page. On a field already left out it is a
+/// compile error, as are an unknown key and a generic model.
+///
+/// The derive reads the model, not a form: a file path shows as text and a `String` an
+/// `#[form(options = ..)]` key labels shows its stored value. Declare a [`FileColumn`] or a
+/// formatted [`TextColumn`] for them.
+///
+/// A resource replaces either default with [`ResourceDef::table`] or [`ResourceDef::detail`],
+/// and extends one by starting from it: `User::table().filters(..)`, with
+/// [`ModelColumns`](trait@ModelColumns) in scope.
+pub use tablo_macros::ModelColumns;
 /// Derive a model's [`RecordForm`](derive@RecordForm) struct from the model: the fields a
 /// person fills, named and typed as the model declares them.
 ///
 /// ```rust
-/// #[derive(Debug, Clone, toasty::Model, tablo_core::ModelForm)]
+/// #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns, tablo_core::ModelForm)]
 /// pub struct Book {
 ///     #[key]
 ///     #[auto]
@@ -359,7 +413,7 @@ pub use tablo_macros::Options;
 /// every key of an `EmbeddedForm` value and is written whole.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # pub struct User {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     name: String,
@@ -388,15 +442,10 @@ pub use tablo_macros::Options;
 /// `#[form(repeat)]` a repeater, and any
 /// other field a text field — with `controls()` handing them over, typed by the form so only a
 /// `Schema<UserForm>` places them, and `RecordForm::control` answering one
-/// field's. `RecordForm::table` lists a
-/// sortable column per text field, searchable over a `String` or
-/// `Option<String>`, an options field by its option's label, and a toggle as
-/// yes or no. `RecordForm::detail` shows the same columns, plus a relationship's
-/// key, a many-to-many field's records by their titles, a file field as a link, an embedded
-/// value leaf by leaf and a repeater's items. A
-/// resource's `ResourceDef` defaults its form, table and detail page to them;
-/// `ResourceDef::form`, `ResourceDef::table` and `ResourceDef::detail` arrange or extend them
-/// instead, and a form renders the controls it does not place after the ones it does.
+/// field's. A resource's `ResourceDef` defaults its form to them; `ResourceDef::form` arranges
+/// or extends them instead, and a form renders the controls it does not place after the ones
+/// it does. The table and detail page read the model, not the form: see
+/// [`ModelColumns`](derive@ModelColumns).
 ///
 /// # Attributes
 ///
@@ -440,7 +489,7 @@ pub use tablo_macros::RecordForm;
 ///     pub url: String,
 /// }
 ///
-/// #[derive(Debug, Clone, toasty::Model)]
+/// #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// pub struct Post {
 ///     #[key]
 ///     #[auto]

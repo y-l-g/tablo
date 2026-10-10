@@ -99,56 +99,6 @@ note: required by a bound in `tablo_core::schema::form_key`
   |                                  ^^^^^^^^^^^^^^^^ required by this bound in `form_key`
   = note: this error originates in the derive macro `tablo_core::RecordForm` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0277]: the trait bound `toasty::stmt::Path<Tagged, Vec<std::string::String>>: From<toasty::stmt::Path<Tagged, toasty::stmt::List<std::string::String>>>` is not satisfied
- --> tests/compile_fail/record_form_unspellable_scalar.rs:9:10
-  |
-9 | #[derive(tablo_core::RecordForm)]
-  |          ^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
-  |
-help: the trait `From<toasty::stmt::Path<Tagged, toasty::stmt::List<std::string::String>>>` is not implemented for `toasty::stmt::Path<Tagged, Vec<std::string::String>>`
-      but trait `From<Lens<Tagged, _, Vec<std::string::String>>>` is implemented for it
- --> src/lens.rs
-  |
-  | impl<M, T, P> From<Lens<M, T, P>> for Path<M, P> {
-  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  = help: for that trait implementation, expected `Lens<Tagged, _, Vec<std::string::String>>`, found `toasty::stmt::Path<Tagged, toasty::stmt::List<std::string::String>>`
-  = note: required for `toasty::stmt::Path<Tagged, toasty::stmt::List<std::string::String>>` to implement `Into<toasty::stmt::Path<Tagged, Vec<std::string::String>>>`
-note: required by a bound in `Lens::<M, T, P>::new`
- --> src/lens.rs
-  |
-  |     pub fn new(path: impl Into<Path<M, P>>, read: fn(&M) -> &T) -> Self {
-  |                           ^^^^^^^^^^^^^^^^ required by this bound in `Lens::<M, T, P>::new`
-  = note: this error originates in the derive macro `tablo_core::RecordForm` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error[E0277]: `Vec<std::string::String>` is not a form scalar
- --> tests/compile_fail/record_form_unspellable_scalar.rs:9:10
-  |
-9 | #[derive(tablo_core::RecordForm)]
-  |          ^^^^^^^^^^^^^^^^^^^^^^ a form field of this type has no text spelling
-  |
-  = help: the trait `TypedValue` is not implemented for `Vec<std::string::String>`
-  = note: a form scalar is `String`, a `TypedValue` type, an `Options` enum, or an `Option` of one; implement `TypedValue` for an app type, derive `Options` for a unit enum, or mark an `EmbeddedForm` value `#[form(embed)]`
-  = help: the following other types implement trait `TypedValue`:
-            TenantId
-            bool
-            f32
-            f64
-            i128
-            i16
-            i32
-            i64
-          and $N others
-  = note: required for `Vec<std::string::String>` to implement `FormScalar`
-note: required by a bound in `TextColumn::<M, T>::new`
- --> src/table/column.rs
-  |
-  |     pub fn new(lens: Lens<M, T>) -> Self
-  |            --- required by a bound in this associated function
-  |     where
-  |         T: FormScalar + Send + Sync + 'static,
-  |            ^^^^^^^^^^ required by this bound in `TextColumn::<M, T>::new`
-  = note: this error originates in the derive macro `tablo_core::RecordForm` (in Nightly builds, run with -Z macro-backtrace for more info)
-
 error[E0277]: `Vec<std::string::String>` is not a form scalar
   --> tests/compile_fail/record_form_unspellable_scalar.rs:12:5
    |

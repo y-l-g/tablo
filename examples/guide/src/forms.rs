@@ -97,7 +97,7 @@ pub fn author_control() -> ChoiceField<PostAuthorForm> {
 }
 // ANCHOR_END: forms-relationship-field
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 pub struct Country {
     #[key]
     #[auto]
@@ -105,7 +105,7 @@ pub struct Country {
     pub name: String,
 }
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 pub struct City {
     #[key]
     #[auto]
@@ -266,7 +266,7 @@ pub fn recipe_view() -> Detail<Recipe> {
 // ANCHOR_END: forms-repeater-layout
 
 // ANCHOR: forms-many-to-many-models
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 pub struct Article {
     #[key]
     #[auto]
@@ -279,7 +279,7 @@ pub struct Article {
     pub tags: toasty::Deferred<Vec<Tag>>,
 }
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 pub struct Tag {
     #[key]
     #[auto]

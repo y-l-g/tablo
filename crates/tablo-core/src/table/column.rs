@@ -61,10 +61,12 @@ macro_rules! base_column_methods {
 }
 
 mod embedded;
+pub(crate) mod model;
 mod relation;
 mod repeater;
 
 pub use embedded::EmbeddedColumn;
+pub use model::ModelColumns;
 pub use relation::{CountColumn, RelationColumn, RelationLens, ToOneRelation};
 pub use repeater::RepeaterColumn;
 
@@ -72,7 +74,7 @@ pub use repeater::RepeaterColumn;
 /// the record, and its query predicates.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
 /// # use tablo_core::extend::Column;
 /// # use topcoat::context::Cx;
@@ -309,7 +311,7 @@ impl ColumnWidth {
 /// A column of one field, rendered as text and bound through a [`Lens`] for sorting and search.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct User {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     name: String,
@@ -458,7 +460,7 @@ where
 /// A display-only column rendering any text from the row, with no query predicate.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, body: String }
 /// tablo_core::ComputedColumn::new("Words", |p: &Post| {
 ///     p.body.split_whitespace().count().to_string()
@@ -541,7 +543,7 @@ where
 /// A column of a `bool` field rendered as an icon.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, featured: bool }
 /// tablo_core::BooleanColumn::new(tablo_core::lens!(Post.featured)).sortable();
 /// ```
@@ -632,7 +634,7 @@ where
 /// A column of a `String` field holding an uploaded file's path, rendered as a link to the file.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Doc { #[key] #[auto] id: uuid::Uuid, path: String }
 /// tablo_core::FileColumn::new(tablo_core::lens!(Doc.path));
 /// ```

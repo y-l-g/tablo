@@ -1,7 +1,7 @@
 use tablo_core::{Ability, Action, NoForm, Resource};
 use topcoat::{Result, context::Cx};
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 struct Post {
     #[key]
     #[auto]

@@ -15,7 +15,7 @@ use crate::framework::common::{
     body_string, flash, get, memory_db, mount, panel, post_fields, rows,
 };
 
-#[derive(Debug, toasty::Model, Clone)]
+#[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
 struct Ticket {
     #[key]
     #[auto]

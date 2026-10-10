@@ -79,7 +79,7 @@ An action's `NAME` that is not one URL segment does not compile, so it never rea
 
 | Kind | Refused when | Fix |
 | --- | --- | --- |
-| `NoColumns` | a table has no column | declare columns; a resource whose derived table lists nothing declares its own `table` |
+| `NoColumns` | a table has no column | declare columns; a resource whose model's table lists nothing declares its own `table` |
 | `ZeroPageSize` | `Table::paginate(0)` | a page size of at least 1 |
 | `DuplicateColumn` | two columns share a name | rename one |
 | `DuplicateFilter` | two filters share a name | rename one |

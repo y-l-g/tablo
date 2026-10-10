@@ -21,23 +21,25 @@ page off: the route answers 404 and no row links to it.
 
 ## The default detail page
 
-Without `detail`, the record form derives the detail page, as it derives the table: one column per
-field, in declaration order, labelled from the field's name. The def's `form(..)` does not shape
-it: its sections, labels, options and relationships stay on the form, so a resource that arranges
-its form declares a `detail` to show the same arrangement.
+Without `detail`, the model's `ModelColumns` give the detail page, as they give the table: one
+column per field the table lists, plus its embedded values and lists, in declaration order and
+labelled from the field's name. It reads the model, not the record form, so a field Toasty writes,
+such as a `#[default]` timestamp, shows too, and a `NoForm` resource has a detail page as well.
+The def's `form(..)` does not shape it: a resource that arranges its form declares a `detail` to
+show the same arrangement.
 
-- a text field shows its value, typed values included, in the type's own spelling (a timestamp
-  as `2026-09-22T00:00:00Z`);
-- an options field shows its option's label;
+- a scalar shows its value, typed values included, in the type's own spelling (a timestamp as
+  `2026-09-22T00:00:00Z`);
+- an `Options` enum shows its option's label;
 - a `bool` shows as yes or no;
-- a `#[form(file)]` field shows the stored path as a link, under the rules in
-  [File uploads](./forms.md#file-uploads);
-- an `#[form(embed)]` value shows each leaf under its own label, and an embedded enum shows its
-  variant's name and that variant's leaves only.
+- an `EmbeddedForm` value shows each leaf under its own label, and an embedded enum shows its
+  variant's name and that variant's leaves only;
+- a `#[document]` list of `RepeaterItem` values shows each item's fields.
 
-A `#[form(relationship = ..)]` field shows the key it holds, such as an `author_id`; the related
-record's title shows through a column that includes the relation, as `Author` does above. A `NoForm` resource
-derives no column, so it has no detail page unless it declares one:
+A key Toasty generates, a relation and its foreign key, and a `TenantId` show nowhere; the related
+record's title shows through a column that includes the relation, as `Author` does above. A file
+path shows as text: a `FileColumn` in a declared detail links it. A resource declares its own
+detail page to pick or arrange the columns:
 
 ```rust
 {{#include ../../../examples/guide/src/detail_pages.rs:detail-no-form}}

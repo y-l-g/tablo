@@ -7,7 +7,7 @@ use crate::{DeclarationErrorKind, test_support::DummyUser};
 /// blocks included, so a question about the form's fields reads one list.
 #[test]
 fn the_field_list_holds_nested_fields_in_declaration_order() {
-    #[derive(Debug, toasty::Model)]
+    #[derive(Debug, toasty::Model, crate::ModelColumns)]
     struct Doc {
         #[key]
         #[auto]

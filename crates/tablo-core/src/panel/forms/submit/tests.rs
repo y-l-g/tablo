@@ -138,7 +138,7 @@ async fn edit_post_requires_view_as_well_as_update() {
 /// Transport keys never reach the write.
 #[tokio::test]
 async fn transport_keys_never_reach_the_write() {
-    #[derive(Debug, toasty::Model, Clone)]
+    #[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
     struct Doc {
         #[key]
         #[auto]
@@ -621,7 +621,7 @@ async fn two_empty_submits_on_a_unique_field_re_render_and_write_nothing() {
 /// A forged `keep_<field>` without `holds` leaves the field empty.
 #[tokio::test]
 async fn a_forged_carry_is_refused_by_the_default_holds() {
-    #[derive(Debug, toasty::Model, Clone)]
+    #[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
     struct Doc {
         #[key]
         #[auto]

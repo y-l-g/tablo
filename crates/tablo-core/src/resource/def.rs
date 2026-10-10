@@ -25,13 +25,13 @@ use crate::{
 /// adjusts it for one panel. Every setting has a default, so a resource sets only what differs:
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String, featured: bool }
 /// # #[derive(Debug, Clone, tablo_core::RecordForm)]
 /// # #[form(model = Post)]
 /// # struct PostForm { title: String, featured: bool }
 /// # struct PostResource;
-/// use tablo_core::{ReadOnly, RecordForm, Resource, ResourceDef, TernaryFilter, lens};
+/// use tablo_core::{ModelColumns, ReadOnly, Resource, ResourceDef, TernaryFilter, lens};
 ///
 /// impl Resource for PostResource {
 ///     type Model = Post;
@@ -41,7 +41,7 @@ use crate::{
 ///         ResourceDef::new()
 ///             .label("Blog post")
 ///             .policy(ReadOnly)
-///             .table(PostForm::table().filters(TernaryFilter::new(lens!(Post.featured))))
+///             .table(Post::table().filters(TernaryFilter::new(lens!(Post.featured))))
 ///     }
 /// }
 /// ```
@@ -96,8 +96,9 @@ impl<R: Resource> Default for ResourceDef<R> {
 }
 
 impl<R: Resource> ResourceDef<R> {
-    /// A def with every default: the policy denies all, rows belong to no tenant, and the record
-    /// form derives the table, the form and the detail page.
+    /// A def with every default: the policy denies all, rows belong to no tenant, the model's
+    /// [`ModelColumns`](crate::ModelColumns) give the table and the detail page, and the record
+    /// form gives the form.
     pub fn new() -> Self {
         Self::default()
     }
@@ -182,9 +183,9 @@ impl<R: Resource> ResourceDef<R> {
         self
     }
 
-    /// The list table; defaults to the record form's derived table ([`RecordForm::table`]).
+    /// The list table; defaults to the model's ([`ModelColumns::table`]).
     ///
-    /// [`RecordForm::table`]: crate::RecordForm::table
+    /// [`ModelColumns::table`]: crate::ModelColumns::table
     #[must_use]
     pub fn table(mut self, table: Table<R::Model>) -> Self {
         self.table = Some(table);
@@ -199,7 +200,7 @@ impl<R: Resource> ResourceDef<R> {
     /// per field, and a form that adjusts one control places only that one:
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
     /// # struct User { #[key] #[auto] id: uuid::Uuid, name: String, email: String }
     /// # #[derive(Debug, Clone, tablo_core::RecordForm)]
     /// # #[form(model = User)]
@@ -223,12 +224,12 @@ impl<R: Resource> ResourceDef<R> {
         self
     }
 
-    /// The detail page: columns in layout blocks; defaults to the record form's derived detail
-    /// page ([`RecordForm::detail`]), and [`Detail::empty`] turns the page off.
+    /// The detail page: columns in layout blocks; defaults to the model's
+    /// ([`ModelColumns::detail`]), and [`Detail::empty`] turns the page off.
     ///
     /// The page loads the relations its columns declare.
     ///
-    /// [`RecordForm::detail`]: crate::RecordForm::detail
+    /// [`ModelColumns::detail`]: crate::ModelColumns::detail
     #[must_use]
     pub fn detail(mut self, detail: Detail<R::Model>) -> Self {
         self.detail = Some(detail);
@@ -301,7 +302,7 @@ impl<R: Resource> ResourceDef<R> {
     /// ```rust,compile_fail,E0080
     /// # use tablo_core::{HeaderAction, NoForm, Resource, ResourceDef};
     /// # use topcoat::{Result, context::Cx};
-    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
     /// # struct PostResource;
     /// # impl Resource for PostResource {

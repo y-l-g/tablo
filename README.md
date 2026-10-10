@@ -31,10 +31,21 @@ cargo add --build tablo-build
 
 `examples/quickstart` is the smallest complete app; CI builds it from outside this repository.
 
-A resource declares its model, its form and its list:
+A model derives the table and detail page it reads as by default, and a resource names it, its
+form and its policy:
 
 ```rust
 use tablo::prelude::*;
+
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+pub struct User {
+    #[key]
+    #[auto]
+    pub id: uuid::Uuid,
+    pub name: String,
+    #[default(jiff::Timestamp::now())]
+    pub created_at: jiff::Timestamp,
+}
 
 pub struct UserResource;
 
@@ -43,9 +54,7 @@ impl Resource for UserResource {
     type Form = NoForm<Self::Model>; // list-only: no create or edit pages
 
     fn declare() -> ResourceDef<Self> {
-        ResourceDef::new()
-            .policy(ReadOnly) // the default policy denies everything
-            .table(Table::new(TextColumn::new(lens!(User.name)).searchable().sortable()).paginate(20))
+        ResourceDef::new().policy(ReadOnly) // the default policy denies everything
     }
 }
 ```

@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use crate::framework::common::{body_string, get, memory_db, mount, panel, post_fields, refusal};
 
-#[derive(Debug, toasty::Model, Clone)]
+#[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
 struct Shelf {
     #[key]
     #[auto]
@@ -25,7 +25,7 @@ struct Shelf {
     books: Deferred<Vec<Book>>,
 }
 
-#[derive(Debug, toasty::Model, Clone)]
+#[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
 struct Book {
     #[key]
     #[auto]
@@ -349,7 +349,7 @@ async fn an_edit_keeps_its_links_past_the_option_cap() {
 }
 
 /// A join model holding a column a link cannot fill.
-#[derive(Debug, toasty::Model, Clone)]
+#[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
 struct Club {
     #[key]
     #[auto]

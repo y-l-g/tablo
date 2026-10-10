@@ -84,9 +84,9 @@ pub fn require_tenant(cx: &Cx) -> Result<uuid::Uuid, topcoat::Error> {
 ///
 /// ```rust
 /// # use tablo_core::{NoForm, Resource, ResourceDef, Tenancy, TenantId, lens};
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, tenant_id: TenantId }
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Comment {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     post_id: uuid::Uuid,

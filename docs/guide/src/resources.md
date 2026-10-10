@@ -5,18 +5,18 @@ and form look, who may see and change a record, and how a write runs. You implem
 `Resource` trait on a unit struct, return what it declares from `declare()` as one `ResourceDef`
 value, and register it with `Panel::resource`.
 
-The smallest resource lists rows and nothing else:
+The smallest resource lists rows and shows each one, and writes nothing:
 
 ```rust
 {{#include ../../../examples/guide/src/resources.rs:audit-resource}}
 ```
 
-A resource with create and edit pages names a [record form](./forms.md) as its `Form`: the one
-`#[derive(ModelForm)]` writes for the model, or a `#[derive(RecordForm)]` struct. The record form
-lays out the rest from its fields: a table column per field a column can show,
-one form control per field, and a detail page column per field. Set the def's `table`, `form` or
-`detail` to arrange or extend one; see [Tables](./tables.md), [Forms](./forms.md) and
-[Detail pages](./detail-pages.md).
+The model derives `ModelColumns`, which reads what a person sees: a table column and a detail page
+column per field a column can show, whoever writes it. A resource with create and edit pages names
+a [record form](./forms.md) as its `Form`, which writes: the one `#[derive(ModelForm)]` writes for
+the model, or a `#[derive(RecordForm)]` struct, with one form control per field. Set the def's
+`table`, `form` or `detail` to arrange or extend one; see [Tables](./tables.md),
+[Forms](./forms.md) and [Detail pages](./detail-pages.md).
 
 ## The definition
 
@@ -24,9 +24,9 @@ one form control per field, and a detail page column per field. Set the def's `t
 
 | `ResourceDef` method | Default | Purpose |
 | --- | --- | --- |
-| `table(..)` | the record form's derived table | the list's columns, filters and options: [Tables](./tables.md) |
+| `table(..)` | the model's `ModelColumns::table()` | the list's columns, filters and options: [Tables](./tables.md) |
 | `form(..)` | every control, in declaration order | how the create and edit forms arrange the record form's controls: [Forms](./forms.md) |
-| `detail(..)` | the record form's derived detail page | the detail page's columns; `Detail::empty()` turns the page off: [Detail pages](./detail-pages.md) |
+| `detail(..)` | the model's `ModelColumns::detail()` | the detail page's columns; `Detail::empty()` turns the page off: [Detail pages](./detail-pages.md) |
 | `record_title(lens!(..))` | the label and the record's key | the detail page's heading, each relationship option over the resource, which also searches the column, and a `RelationColumn::of` cell |
 | `public_link(..)` | none | the record's public page, linked from its detail and edit pages |
 | `relation(..)` | none | a related resource shown as a table on the detail and edit pages |
@@ -153,7 +153,7 @@ database schema, so a path through an embedded value binds its flattened column 
 declaration names one. It refuses the resource when:
 
 - its table, form or detail page is malformed: a duplicate column, filter or field name, a zero page
-  size, an empty column set (a resource whose derived table lists nothing declares its own
+  size, an empty column set (a resource whose model's table lists nothing declares its own
   `table`), or a lens that binds no column. Rendering such a table through `WiredTable::render`
   or such a schema through `Schema::render` fails with the same errors;
 - the form asks for what the database or the framework will not honor: a `unique()` field with

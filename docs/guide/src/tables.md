@@ -5,13 +5,16 @@ the search, sort, filter, grouping and pagination the list offers. It depends on
 panel builds it once when it mounts and serves that table to every request. The same declaration
 drives the CSV export.
 
-The table defaults to the record form's derived table, `UserForm::table()`: a sortable column per
-text field, searchable over a `String` or `Option<String>`, an `#[form(options)]` field by its
-option's label, and a `bool` as yes or no. A relationship, a file and an embedded value get no
-column. Extend the derived table, or declare the columns yourself:
+The table defaults to the model's, `User::table()`, which `#[derive(tablo::ModelColumns)]` on the
+model writes: a sortable column per field, whether a form or Toasty writes it, so a
+`#[default]` `created_at` is listed too. A `String` or `Option<String>` column is searchable, an
+`Options` enum shows its label, and a `bool` shows as yes or no. A key Toasty generates, a
+relation and its foreign key, a `TenantId`, an embedded value and a list get no column, and
+`#[columns(skip)]` leaves out any other field. Extend the model's table, or declare the columns
+yourself:
 
 ```rust
-ResourceDef::new().table(UserForm::table().filters(TernaryFilter::new(lens!(User.active))))
+ResourceDef::new().table(User::table().filters(TernaryFilter::new(lens!(User.active))))
 ```
 
 ```rust

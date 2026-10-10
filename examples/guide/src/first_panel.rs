@@ -12,7 +12,7 @@ use topcoat::{
 
 /// The model: every column the panel renders comes from this type, and
 /// `ModelForm` writes `BookForm`, what the create and edit forms parse into.
-#[derive(Debug, Clone, toasty::Model, tablo::ModelForm)]
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns, tablo::ModelForm)]
 pub struct Book {
     #[key]
     #[auto]

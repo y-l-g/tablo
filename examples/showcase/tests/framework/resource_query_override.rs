@@ -2,7 +2,7 @@ use tablo::{Resource, ResourceDef, lens};
 use toasty::Db;
 use topcoat::context::{Cx, CxTestBuilder};
 
-#[derive(Debug, toasty::Model, Clone)]
+#[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
 struct User {
     #[key]
     #[auto]

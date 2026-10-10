@@ -1,6 +1,6 @@
 use toasty::Db;
 
-#[derive(Debug, toasty::Model)]
+#[derive(Debug, toasty::Model, tablo::ModelColumns)]
 struct User {
     #[key]
     #[auto]

@@ -80,7 +80,7 @@ pub(crate) fn normalize_prefix(raw: &str) -> String {
 /// ```rust,no_run
 /// # use tablo_core::{NoForm, Panel, Resource, RouterBuilderPanelExt};
 /// # use topcoat::router::{Router, RouterBuilderDiscoverExt};
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
 /// # struct UserResource;
 /// # impl Resource for UserResource {
@@ -207,7 +207,7 @@ impl Panel {
     ///
     /// ```rust
     /// # use tablo_core::{NoForm, Panel, ReadOnly, Resource};
-    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
     /// # struct PostResource;
     /// # impl Resource for PostResource {

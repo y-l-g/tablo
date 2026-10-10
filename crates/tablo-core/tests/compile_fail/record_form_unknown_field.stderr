@@ -39,7 +39,7 @@ help: there is a method `name` with a similar name
 error[E0599]: no method named `set_nickname` found for struct `UserUpdate<__toasty_T>` in the current scope
   --> tests/compile_fail/record_form_unknown_field.rs:10:10
    |
- 1 | #[derive(Debug, Clone, toasty::Model)]
+ 1 | #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
    |                        ------------- method `set_nickname` not found for this struct
 ...
 10 | #[derive(tablo_core::RecordForm)]

@@ -32,7 +32,7 @@ fn text_column_renders_cells_via_typed_projection() {
 /// the table's union loads every relation the columns read, once.
 #[test]
 fn text_column_includes_accumulate_once_per_relation() {
-    #[derive(Debug, toasty::Model, Clone)]
+    #[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
     struct Owner {
         #[key]
         #[auto]

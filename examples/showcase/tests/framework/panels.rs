@@ -21,7 +21,7 @@ use crate::framework::common::{
     refusal, response_cookies, rows,
 };
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Book {
     #[key]
     #[auto]
@@ -29,7 +29,7 @@ struct Book {
     title: String,
 }
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Note {
     #[key]
     #[auto]

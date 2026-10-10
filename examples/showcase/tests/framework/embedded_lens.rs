@@ -33,7 +33,7 @@ struct Meta {
     note: String,
 }
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Author {
     #[key]
     #[auto]
@@ -174,7 +174,7 @@ async fn a_choice_and_a_file_bind_an_embedded_leaf() {
     );
 }
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Page {
     #[key]
     #[auto]

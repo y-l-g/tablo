@@ -19,7 +19,7 @@ A resource declares its model, its form and the rest of its definition:
 ```rust
 use tablo::prelude::*;
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelForm)]
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns, tablo::ModelForm)]
 pub struct Book {
     #[key]
     #[auto]

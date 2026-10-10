@@ -173,12 +173,12 @@ fn never_written(field: &syn::Field, struct_key: bool) -> Option<(&'static str, 
     }
 }
 
-fn has(field: &syn::Field, name: &str) -> bool {
+pub(crate) fn has(field: &syn::Field, name: &str) -> bool {
     field.attrs.iter().any(|attr| attr.path().is_ident(name))
 }
 
 /// Whether `ty` is spelled `TenantId` or `Option<TenantId>`.
-fn is_tenant(ty: &Type) -> bool {
+pub(crate) fn is_tenant(ty: &Type) -> bool {
     let Type::Path(path) = ty else {
         return false;
     };
@@ -197,7 +197,7 @@ fn is_tenant(ty: &Type) -> bool {
 
 /// The fields a struct-level `#[key(a, b)]` or `#[key(partition = a, local = [b, c])]` names. A
 /// key Toasty refuses parses to nothing here: Toasty reports it.
-fn struct_keys(input: &DeriveInput) -> Vec<syn::Ident> {
+pub(crate) fn struct_keys(input: &DeriveInput) -> Vec<syn::Ident> {
     let mut out = Vec::new();
     for attr in input
         .attrs
@@ -228,7 +228,7 @@ fn struct_keys(input: &DeriveInput) -> Vec<syn::Ident> {
 
 /// The fields every `#[belongs_to]` names as its key: `key = a`, `key = [a, b]`, else
 /// `<field>_id`.
-fn foreign_keys<'a>(fields: impl Iterator<Item = &'a syn::Field>) -> Vec<syn::Ident> {
+pub(crate) fn foreign_keys<'a>(fields: impl Iterator<Item = &'a syn::Field>) -> Vec<syn::Ident> {
     let mut out = Vec::new();
     for field in fields {
         for attr in field

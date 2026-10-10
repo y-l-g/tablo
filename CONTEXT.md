@@ -23,6 +23,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Relation lens | A relation field named once with `relation!`, pairing its include with its loaded-value reader; a relation column reads one. | Relation (alone), Association |
 | Embedded value | A `toasty::Embed` value stored as flattened columns, bound by a form as one value. | Nested form, Sub-form, Inline model |
 | Repeater | A field editing a `#[document]` list of embedded structs: a row of the item's controls per item, which the browser adds, removes and moves. | Builder, List field, Array field, Table field |
+| Model columns | The table and detail page a model reads as when its resource declares neither, from `ModelColumns`: a column per field a person reads. | Infolist, Default view, Read model |
 | Record form | The typed value a form submission parses into, one field per written column. | Patch, Draft, DTO, Form (alone) |
 | Blank answer | What a record-form field stores when submitted empty. A field with none is required. | Default, Nullable (for presence) |
 | Join model | A model whose rows link two other models' records, one row per pair, with a `belongs_to` to each. | Pivot, Junction table, Bridge table |

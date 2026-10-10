@@ -4,7 +4,7 @@
 //! `and`/`or`.
 //!
 //! ```rust
-//! # #[derive(Debug, Clone, toasty::Model)]
+//! # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 //! # struct Post { #[key] #[auto] id: uuid::Uuid, locked: bool }
 //! # use tablo_core::{Ability, Policy, when};
 //! # use topcoat::context::Cx;
@@ -158,7 +158,7 @@ impl<M> Policy<M> for ReadOnly {
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model)]
 /// # struct Staff { #[key] #[auto] id: uuid::Uuid, editor: bool }
-/// # #[derive(Debug, Clone, toasty::Model)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid }
 /// # use tablo_core::{PanelUser, Policy, ReadOnly, auth, when};
 /// # use topcoat::context::Cx;

@@ -147,7 +147,7 @@ macro_rules! default_modifier {
             /// field does not parse, or not one of a choice's options.
             ///
             /// ```rust
-            /// # #[derive(Debug, Clone, toasty::Model)]
+            /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
             /// # struct Post { #[key] #[auto] id: uuid::Uuid, status: String, views: i64 }
             /// # use tablo_core::Field;
             /// Field::choice(Post::fields().status())
@@ -226,8 +226,7 @@ macro_rules! to_choice {
         impl<F> $builder<F> {
             /// Renders the field as a choice instead, as [`Field::choice`] does, ready for
             /// [`options`](ChoiceField::options) or [`relationship`](ChoiceField::relationship).
-            /// Unlike `#[form(relationship = ..)]`, it leaves the record form's derived table and
-            /// detail page as they are. The replaced control's own modifiers are dropped with it.
+            /// The replaced control's own modifiers are dropped with it.
             pub fn choice(mut self) -> ChoiceField<F> {
                 self.0.control = ControlKind::Choice(ChoiceControl::default());
                 ChoiceField(self.0, PhantomData)

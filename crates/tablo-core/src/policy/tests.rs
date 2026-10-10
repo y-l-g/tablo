@@ -92,7 +92,7 @@ fn when_gates_every_ability_on_the_request() {
     assert_eq!(answers(&policy, &visitor, &post), [false; ABILITIES]);
 }
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
 struct Note {
     #[key]
     #[auto]

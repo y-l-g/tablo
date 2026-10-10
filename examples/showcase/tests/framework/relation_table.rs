@@ -15,7 +15,7 @@ use crate::framework::common::{
     body_string, get, memory_db, mount, panel, post_fields, refusal, rows,
 };
 
-#[derive(Debug, toasty::Model, Clone)]
+#[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
 struct Owner {
     #[key]
     #[auto]
@@ -23,7 +23,7 @@ struct Owner {
     name: String,
 }
 
-#[derive(Debug, toasty::Model, Clone)]
+#[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
 struct Child {
     #[key]
     #[auto]

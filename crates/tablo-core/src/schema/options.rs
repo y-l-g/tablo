@@ -22,7 +22,7 @@
 ///     Published,
 /// }
 ///
-/// #[derive(Debug, Clone, toasty::Model)]
+/// #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// struct Post {
 ///     #[key]
 ///     #[auto]

@@ -24,7 +24,7 @@ use crate::framework::common::{
 };
 
 /// A document with one required and one optional upload.
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Doc {
     #[key]
     #[auto]
