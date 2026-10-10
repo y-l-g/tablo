@@ -453,6 +453,7 @@ impl<M> Table<M> {
     /// Apply this table's declaration to `query`.
     pub(crate) fn apply_declaration(
         &self,
+        db: &toasty::Db,
         mut query: toasty::stmt::Query<List<M>>,
         state: &TableState,
     ) -> toasty::stmt::Query<List<M>>
@@ -462,7 +463,7 @@ impl<M> Table<M> {
         if let Some(term) = &state.search
             && let Some(expr) = self.search_expr(term)
         {
-            query = query.filter(expr);
+            query = query.filter(crate::toasty_compat::case_insensitive_search(db, expr));
         }
         if let Some(expr) = self.filter_expr(state) {
             query = query.filter(expr);

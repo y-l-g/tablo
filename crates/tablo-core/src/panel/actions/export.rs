@@ -177,7 +177,7 @@ fn export_base_query<R: Resource>(
     table: &Table<R::Model>,
     state: &TableState,
 ) -> Result<toasty::stmt::Query<toasty::stmt::List<R::Model>>> {
-    Ok(table.apply_declaration(resource.scoped_query(cx)?, state))
+    Ok(table.apply_declaration(&crate::db::db(cx), resource.scoped_query(cx)?, state))
 }
 
 /// Walks an export base query in cursor chunks.

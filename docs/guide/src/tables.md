@@ -119,8 +119,8 @@ The URL holds the list's whole state, so every view of a list is a link you can 
 | `?group_by=status` | grouping: see [Grouping](#grouping) |
 
 - Search escapes `%` and `_`, so they match literally. Terms are trimmed and capped at 128
-  characters. Matching follows the database's `LIKE`: case-insensitive for ASCII on SQLite,
-  case-sensitive on PostgreSQL.
+  characters. Matching is case-insensitive: PostgreSQL runs it as `ILIKE`, and SQLite (for ASCII)
+  and MySQL (under its default collations) as `LIKE`.
 - Pagination is cursor-based, 25 rows per page unless `.paginate(n)` sets another size. The
   primary key breaks ties, so a sort over duplicate values still pages deterministically.
 - `.hide_search()` removes the search box, and `.hide_filter_bar()` the filter controls.

@@ -285,7 +285,7 @@ async fn pagination_keeps_tied_sort_values() {
     );
 }
 
-/// Search matches substrings with wildcards escaped.
+/// Search matches substrings, ignoring case, with wildcards escaped.
 #[tokio::test]
 async fn search_matches_substrings_and_escapes_wildcards() {
     let db = seeded_db().await;
@@ -302,6 +302,11 @@ async fn search_matches_substrings_and_escapes_wildcards() {
     assert!(
         !html.contains("Alan Turing"),
         "a mid-string term must not match the other rows: {html}"
+    );
+    let html = body_string(client.get("/admin/users?q=LOVELACE").await).await;
+    assert!(
+        html.contains("Ada Lovelace"),
+        "search ignores case on every driver: {html}"
     );
 
     toasty::create!(showcase::models::User {
