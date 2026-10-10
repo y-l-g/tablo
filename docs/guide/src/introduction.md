@@ -27,10 +27,6 @@ Tablo is a layer over two upstream projects:
   panel POST verifies a CSRF token, and a tenant-owned resource is scoped to the request's tenant at
   every query.
 
-## What it is not
-
-- **Not a client framework.** Anything that reads the database renders on the server.
-
 ## How to read this guide
 
 Coming from Filament or Django's admin? [That chapter](./coming-from.md) maps their names to
