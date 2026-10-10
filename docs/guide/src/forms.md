@@ -150,14 +150,26 @@ record-form field reads an empty submission as `false`.
 
 ### Typed values
 
-A text control binds more than strings. Over an integer, float, `bool`, `Uuid` or
-`jiff::Timestamp` column it renders the stored value, and the record form parses the submission
-back through the type. A value the type refuses is an inline error naming it: `` `twelve` is not a
-valid whole number ``. A `jiff::Timestamp` renders a `datetime-local` input, which carries no time zone, so
-values display and parse as UTC.
+A text control binds more than strings. Over a typed column it renders the stored value in the
+input its type names, and the record form parses the submission back through the type. A value the
+type refuses is an inline error naming it: `` `twelve` is not a valid whole number ``.
 
-Implement `tablo::extend::TypedValue` to bind your own type: `NOUN` names it in errors, `INPUT_TYPE` sets the
-input's `type`, and `parse_input` reads a submission (by default through `FromStr`).
+| Column type | Input |
+| --- | --- |
+| an integer | `type="number"` |
+| `f32`, `f64` | `type="number" step="any"` |
+| `jiff::civil::Date` | `type="date"` |
+| `jiff::civil::Time` | `type="time"`, to the minute |
+| `jiff::civil::DateTime` | `type="datetime-local"`, to the minute |
+| `jiff::Timestamp` | `type="datetime-local"`, to the minute, read and shown as UTC |
+| `bool` (on a text control), `Uuid`, `TenantId` | `type="text"` |
+
+A `datetime-local` input carries no time zone, so a timestamp displays and parses as UTC. A
+`jiff::Zoned` column has no control: no browser input carries a zone.
+
+Implement `tablo::extend::TypedValue` to bind your own type: `NOUN` names it in errors,
+`INPUT_TYPE` and `STEP` set the input's `type` and `step`, `parse_input` reads a submission (by
+default through `FromStr`), and `input_value` spells a stored value for the input.
 
 ### Email and uniqueness
 

@@ -144,7 +144,7 @@ search and filters as a GET form.
 | `SelectFilter::of(lens)` | an [`Options`](./forms.md#controls) enum, or an `Option` of one | one of the type's options |
 | `SelectFilter::new(lens, options)` | `String`, or any form scalar | one of `options`, matched exactly; the options are `Vec<(String, String)>` (an `Options` list), `Vec<String>`, or `[&str; N]` |
 | `TernaryFilter::new(lens)` | `bool` | `true`, `false`, or `all` (no filter) |
-| `DateFilter::new(lens)` | `jiff::Timestamp` | a date `2024-01-15` matches that UTC day; an RFC 3339 timestamp matches that instant |
+| `DateFilter::new(lens)` | `jiff::Timestamp`, `jiff::civil::Date` or `jiff::civil::DateTime`, or an `Option` of one | a date `2024-01-15` matches that day (UTC for a timestamp); an RFC 3339 timestamp, or a civil date-time, matches that value |
 | `QueryFilter::new(name, label).option(label, predicate)` | any | named options, each a Toasty predicate you build |
 
 Each active filter is one parameter, `?f.<name>=<value>`, named after the field (a

@@ -35,6 +35,17 @@ struct Driver {
     vehicule: Vehicule,
 }
 
+#[derive(Debug, Clone, toasty::Model)]
+struct Event {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    title: String,
+    day: jiff::civil::Date,
+    starts_at: jiff::civil::DateTime,
+    closed_at: Option<jiff::Timestamp>,
+}
+
 fn vehicule_filter() -> QueryFilter<Driver> {
     QueryFilter::new("vehicule", "Véhicule")
         .option("Auto", Driver::fields().vehicule().is_auto())
@@ -236,4 +247,54 @@ async fn query_filter_hits_only_the_variant() {
         rows.is_empty(),
         "Alice shares puissance 80 but is Auto, must not match Moto: {rows:?}"
     );
+}
+
+/// A civil date, a civil date-time and a nullable timestamp each filter by calendar day.
+#[tokio::test]
+async fn date_filter_matches_a_day_on_each_date_type() {
+    use jiff::civil::date;
+
+    let mut db = memory_db(toasty::models!(Event)).await;
+    for (title, day, hour, closed) in [
+        ("First", 15, 0, Some("2024-01-15T23:59:59Z")),
+        ("Second", 15, 23, None),
+        ("Third", 16, 0, Some("2024-01-16T00:00:00Z")),
+    ] {
+        toasty::create!(Event {
+            title: title.to_string(),
+            day: date(2024, 1, day),
+            starts_at: date(2024, 1, day).at(hour, 0, 0, 0),
+            closed_at: closed.map(|ts| ts.parse::<jiff::Timestamp>().unwrap()),
+        })
+        .exec(&mut db)
+        .await
+        .unwrap();
+    }
+    async fn titles(db: &toasty::Db, expr: Expr<bool>) -> Vec<String> {
+        let mut rows = Event::filter(expr).exec(&mut db.clone()).await.unwrap();
+        rows.sort_by(|a, b| a.title.cmp(&b.title));
+        rows.into_iter().map(|row| row.title).collect()
+    }
+
+    let day = DateFilter::new(Event::fields().day());
+    let starts_at = DateFilter::new(Event::fields().starts_at());
+    let closed_at = DateFilter::new(Event::fields().closed_at());
+    assert_eq!(
+        titles(&db, day.to_expr("2024-01-15").unwrap()).await,
+        ["First", "Second"]
+    );
+    assert_eq!(
+        titles(&db, starts_at.to_expr("2024-01-15").unwrap()).await,
+        ["First", "Second"]
+    );
+    assert_eq!(
+        titles(&db, starts_at.to_expr("2024-01-15T23:00").unwrap()).await,
+        ["Second"],
+        "a date-time names one value"
+    );
+    assert_eq!(
+        titles(&db, closed_at.to_expr("2024-01-15").unwrap()).await,
+        ["First"]
+    );
+    assert!(day.to_expr("not-a-date").is_none());
 }

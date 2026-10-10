@@ -3,7 +3,7 @@
 use tablo_ui::{input as ui_input, textarea as ui_textarea};
 use topcoat::{Result, context::Cx, view::*};
 
-use super::{super::validation::format_timestamp_input, Field, FieldChrome, render_field};
+use super::{Field, FieldChrome, render_field};
 use crate::form::FormScalar;
 
 /// The equality expression a text field's unique probe binds.
@@ -12,6 +12,9 @@ type EqProbe = std::sync::Arc<dyn Fn(&str) -> Option<toasty::stmt::Expr<bool>> +
 /// The text control's input type, placeholder, rows, email and password rules, and unique probe.
 pub(crate) struct TextControl {
     input_type: &'static str,
+    step: Option<&'static str>,
+    /// The control's `value` for a stored spelling.
+    input_value: fn(&str) -> String,
     pub(super) rows: Option<u32>,
     pub(super) placeholder: Option<String>,
     pub(super) email: bool,
@@ -43,6 +46,8 @@ impl TextControl {
         });
         Self {
             input_type: T::INPUT_TYPE,
+            step: T::STEP,
+            input_value: T::input_value,
             rows: None,
             placeholder: None,
             email: false,
@@ -57,6 +62,8 @@ impl TextControl {
     pub(super) fn leaf<T: FormScalar>() -> Self {
         Self {
             input_type: T::INPUT_TYPE,
+            step: T::STEP,
+            input_value: T::input_value,
             rows: None,
             placeholder: None,
             email: false,
@@ -125,19 +132,15 @@ impl Field {
             // A password never travels back to the browser: a refused form renders it empty.
             let value = value.filter(|_| !text.password);
             let autocomplete = text.password.then_some("new-password");
-            let value_owned = value.map(|s| {
-                if text.input_type == "datetime-local" {
-                    format_timestamp_input(s)
-                } else {
-                    s.to_string()
-                }
-            });
+            let value_owned = value.map(text.input_value);
+            let step = text.step.filter(|_| input_type == text.input_type);
             view! {
                 cx =>
                 ui_input(
                     attrs: attributes! {
                         id=(id.clone())
                         type=(input_type)
+                        step=(step)
                         name=(name.clone())
                         value=(value_owned.clone())
                         placeholder=(placeholder.clone())
