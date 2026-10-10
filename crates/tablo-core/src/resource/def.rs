@@ -53,7 +53,7 @@ pub struct ResourceDef<R: Resource> {
     pub(crate) label: Option<String>,
     pub(crate) plural_label: Option<String>,
     pub(crate) icon: Option<IconData>,
-    pub(crate) navigation_order: i32,
+    pub(crate) navigation_order: Option<i32>,
     pub(crate) navigation: Option<NavigationItem>,
     pub(crate) policy: Arc<dyn Policy<R::Model>>,
     pub(crate) tenancy: Tenancy<R::Model>,
@@ -76,7 +76,7 @@ impl<R: Resource> Default for ResourceDef<R> {
             label: None,
             plural_label: None,
             icon: None,
-            navigation_order: 0,
+            navigation_order: None,
             navigation: None,
             policy: Arc::new(Deny),
             tenancy: Tenancy::none(),
@@ -130,7 +130,8 @@ impl<R: Resource> ResourceDef<R> {
         self
     }
 
-    /// The icon of the resource's sidebar entry.
+    /// The icon of the resource's sidebar entry, replacing the icon of a
+    /// [`navigation`](Self::navigation) item.
     #[must_use]
     pub fn icon(mut self, icon: IconData) -> Self {
         self.icon = Some(icon);
@@ -138,15 +139,17 @@ impl<R: Resource> ResourceDef<R> {
     }
 
     /// Where the sidebar entry sorts among the panel's entries, lowest first; defaults to `0`, and
-    /// entries of equal order keep their registration order.
+    /// entries of equal order keep their registration order. It replaces the order of a
+    /// [`navigation`](Self::navigation) item.
     #[must_use]
     pub fn navigation_order(mut self, order: i32) -> Self {
-        self.navigation_order = order;
+        self.navigation_order = Some(order);
         self
     }
 
     /// Replaces the sidebar entry, for one that links somewhere other than the list page:
-    /// `NavigationItem::at("Drafts", "/admin/posts?f.status=draft")`.
+    /// `NavigationItem::at("Drafts", "/admin/posts?f.status=draft")`. [`icon`](Self::icon) and
+    /// [`navigation_order`](Self::navigation_order) still apply to it.
     #[must_use]
     pub fn navigation(mut self, item: NavigationItem) -> Self {
         self.navigation = Some(item);
