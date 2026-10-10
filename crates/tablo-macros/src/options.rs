@@ -10,6 +10,8 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{Data, DeriveInput, Fields};
 
+use crate::fields::sentence_case;
+
 pub fn expand_tokens(input: DeriveInput) -> TokenStream2 {
     match expand_checked(&input) {
         Ok(tokens) => tokens,
@@ -172,16 +174,6 @@ fn snake_case(name: &str) -> String {
         }
     }
     out
-}
-
-/// `published_late` → `Published late`.
-fn sentence_case(value: &str) -> String {
-    let spaced = value.replace('_', " ");
-    let mut chars = spaced.chars();
-    match chars.next() {
-        Some(first) => first.to_uppercase().chain(chars).collect(),
-        None => String::new(),
-    }
 }
 
 #[cfg(test)]

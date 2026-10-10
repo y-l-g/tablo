@@ -279,5 +279,17 @@ pub(crate) fn last_segment(ty: &Type) -> Option<String> {
     }
 }
 
+/// A snake_case name as a label in sentence case, the casing every default label in Tablo uses:
+/// `canonical_url` → `Canonical url`, `published_late` → `Published late`.
+pub(crate) fn sentence_case(name: &str) -> String {
+    let words: Vec<&str> = name.split('_').filter(|word| !word.is_empty()).collect();
+    let spaced = words.join(" ");
+    let mut chars = spaced.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().chain(chars).collect(),
+        None => String::new(),
+    }
+}
+
 #[cfg(test)]
 mod tests;

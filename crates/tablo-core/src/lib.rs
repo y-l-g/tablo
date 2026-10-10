@@ -202,7 +202,8 @@ pub use table::{
 ///
 /// # Per-field attributes
 ///
-/// - `#[form(label = "Reason")]` — the control's label (default: the field name, humanized).
+/// - `#[form(label = "Reason")]` — the control's label (default: the field name in sentence
+///   case).
 /// - `#[form(multiline = 4)]` — a `<textarea>` of 4 rows.
 /// - `#[form(placeholder = "rust, async")]` — a text input's placeholder.
 /// - `#[form(email)]` — a text input that refuses a malformed email address.
@@ -275,8 +276,8 @@ pub use tablo_macros::ActionInput;
 /// # Per-field attributes
 ///
 /// - `#[form(embed)]` — a nested `EmbeddedForm` value.
-/// - `#[form(label = "Canonical URL")]` — the control's label (default: the field name,
-///   humanized).
+/// - `#[form(label = "Canonical URL")]` — the control's label (default: the field name in
+///   sentence case, `canonical_url` → "Canonical url").
 /// - `#[form(multiline = 3)]` — a `<textarea>` of 3 rows.
 /// - `#[form(blank = ..)]` — what an empty submission reads as.
 /// - `#[form(optional)]` on a `String` — an empty submission reads as `""`.
