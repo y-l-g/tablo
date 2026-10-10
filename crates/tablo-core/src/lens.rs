@@ -1,5 +1,6 @@
 //! [`Lens`]: a model field's typed path paired with the reader of its value, built by [`lens!`].
 
+use derive_where::derive_where;
 use toasty::stmt::Path;
 
 /// A model field's typed path, which queries filter and sort on, paired with the function that
@@ -20,8 +21,10 @@ use toasty::stmt::Path;
 ///
 /// `P` is the type the path names, the field's own type except for a list: Toasty names a
 /// `Vec<T>` field's path `List<T>`.
+#[derive_where(Clone, Debug)]
 pub struct Lens<M, T, P = T> {
     path: Path<M, P>,
+    #[derive_where(skip(Debug))]
     read: fn(&M) -> &T,
 }
 
@@ -44,21 +47,6 @@ impl<M, T, P> Lens<M, T, P> {
     /// Read the field off `record`.
     pub fn read<'a>(&self, record: &'a M) -> &'a T {
         (self.read)(record)
-    }
-}
-
-impl<M, T, P> Clone for Lens<M, T, P> {
-    fn clone(&self) -> Self {
-        Self {
-            path: self.path.clone(),
-            read: self.read,
-        }
-    }
-}
-
-impl<M, T, P> std::fmt::Debug for Lens<M, T, P> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("Lens").field(&self.path).finish()
     }
 }
 

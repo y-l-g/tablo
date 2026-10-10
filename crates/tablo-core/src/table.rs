@@ -6,6 +6,7 @@
 
 use std::{marker::PhantomData, num::NonZeroUsize, sync::Arc};
 
+use derive_where::derive_where;
 use toasty::stmt::{Expr, List, OrderByExpr};
 
 pub(crate) use self::column::{BoxColumn, Column, include_relations};
@@ -77,18 +78,10 @@ impl RowActions {
 }
 
 /// A named grouping a `Table` renders.
+#[derive_where(Clone)]
 pub(crate) struct GroupDef<M> {
     binding: Binding,
     key: GroupKey<M>,
-}
-
-impl<M> Clone for GroupDef<M> {
-    fn clone(&self) -> Self {
-        Self {
-            binding: self.binding.clone(),
-            key: Arc::clone(&self.key),
-        }
-    }
 }
 
 /// The action chrome a resource declares.
@@ -121,6 +114,9 @@ pub(crate) struct TableAction<M> {
 pub const DEFAULT_PAGE_SIZE: NonZeroUsize = NonZeroUsize::new(25).unwrap();
 
 /// Table description of a `Resource`'s list view declaring columns and how they map to queries.
+///
+/// A clone shares every column, filter and projection.
+#[derive_where(Clone)]
 pub struct Table<M> {
     columns: Vec<BoxColumn<M>>,
     /// Misdeclarations a builder recorded ([`Self::declaration_errors`]).
@@ -136,24 +132,6 @@ pub struct Table<M> {
     hide_search: bool,
     hide_filter_bar: bool,
     _marker: PhantomData<M>,
-}
-
-/// A copy sharing every column, filter and projection.
-impl<M> Clone for Table<M> {
-    fn clone(&self) -> Self {
-        Self {
-            columns: self.columns.clone(),
-            misdeclared: self.misdeclared.clone(),
-            filters: self.filters.clone(),
-            group_by: self.group_by.clone(),
-            key: self.key,
-            addressable: self.addressable,
-            page_size: self.page_size,
-            hide_search: self.hide_search,
-            hide_filter_bar: self.hide_filter_bar,
-            _marker: PhantomData,
-        }
-    }
 }
 
 impl<M> std::fmt::Debug for Table<M> {

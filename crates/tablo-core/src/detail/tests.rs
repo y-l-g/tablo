@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    lens,
+    BooleanColumn, ComputedColumn, TextColumn, lens,
     test_support::{cx, memory_db},
 };
 

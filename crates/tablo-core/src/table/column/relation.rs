@@ -4,6 +4,7 @@
 
 use std::sync::Arc;
 
+use derive_where::derive_where;
 use toasty::{Deferred, stmt::Path};
 use topcoat::context::Cx;
 
@@ -29,10 +30,12 @@ use crate::{DeclarationErrorKind, policy::Ability, schema::OptionSource, toasty_
 /// # use tablo_core::{RelationColumn, relation};
 /// RelationColumn::new(relation!(Post.author), |a: &Author| a.name.clone());
 /// ```
+#[derive_where(Clone, Debug)]
 pub struct RelationLens<M, R> {
     includes: Includes<M>,
     /// The relation field's name, or why the path names no single field.
     field: Result<(String, String), DeclarationErrorKind>,
+    #[derive_where(skip(Debug))]
     read: fn(&M) -> &R,
 }
 
@@ -71,22 +74,6 @@ impl<M, R> RelationLens<M, R> {
             .as_ref()
             .map(|(name, label)| (name.as_str(), label.as_str()))
             .map_err(Clone::clone)
-    }
-}
-
-impl<M, R> Clone for RelationLens<M, R> {
-    fn clone(&self) -> Self {
-        Self {
-            includes: self.includes.clone(),
-            field: self.field.clone(),
-            read: self.read,
-        }
-    }
-}
-
-impl<M, R> std::fmt::Debug for RelationLens<M, R> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("RelationLens").field(&self.includes).finish()
     }
 }
 
@@ -207,8 +194,10 @@ impl<T: toasty::schema::Model> ToOneRelation<T> for Deferred<Option<T>> {
 ///
 /// The include loads the related row through Toasty alone: the related resource's `query` and
 /// policy do not apply, so a soft-deleted or hidden record shows.
+#[derive_where(Clone, Debug)]
 pub struct RelationColumn<M> {
     relation: Declared<M>,
+    #[derive_where(skip(Debug))]
     project: LoadedText<M>,
 }
 
@@ -356,19 +345,6 @@ where
             }),
         }
     }
-
-    /// Replace the label the field's name gives it, and name the column after the label, as a
-    /// [`ComputedColumn`](super::ComputedColumn) is: two columns over one relation need two labels.
-    pub fn label(mut self, label: impl Into<String>) -> Self {
-        self.relation.relabel(label.into());
-        self
-    }
-
-    /// Declare this column's width.
-    pub fn width(mut self, width: ColumnWidth) -> Self {
-        self.relation.width = width;
-        self
-    }
 }
 
 impl<M> RelationColumn<M> {
@@ -407,8 +383,10 @@ impl<M> RelationColumn<M> {
 /// The count is the length of the loaded list: a page loads every related record of every row it
 /// counts, and the related resource's `query` and policy do not apply, so the count includes
 /// records its own list hides.
+#[derive_where(Clone, Debug)]
 pub struct CountColumn<M> {
     relation: Declared<M>,
+    #[derive_where(skip(Debug))]
     count: Loaded<M, usize>,
 }
 
@@ -431,19 +409,6 @@ where
             }),
         }
     }
-
-    /// Replace the label the field's name gives it, and name the column after the label, as a
-    /// [`ComputedColumn`](super::ComputedColumn) is: two columns over one relation need two labels.
-    pub fn label(mut self, label: impl Into<String>) -> Self {
-        self.relation.relabel(label.into());
-        self
-    }
-
-    /// Declare this column's width.
-    pub fn width(mut self, width: ColumnWidth) -> Self {
-        self.relation.width = width;
-        self
-    }
 }
 
 impl<M> CountColumn<M> {
@@ -454,6 +419,7 @@ impl<M> CountColumn<M> {
 }
 
 /// What both relation-field columns declare: the name and label, the include and the width.
+#[derive_where(Clone, Debug)]
 struct Declared<M> {
     name: String,
     /// The declared label, over the field's.
@@ -505,23 +471,25 @@ impl<M> Declared<M> {
     }
 }
 
-impl<M> Clone for Declared<M> {
-    fn clone(&self) -> Self {
-        Self {
-            name: self.name.clone(),
-            label: self.label.clone(),
-            field_label: self.field_label.clone(),
-            misdeclared: self.misdeclared.clone(),
-            includes: self.includes.clone(),
-            width: self.width,
-            source: self.source,
-        }
-    }
-}
-
-/// The [`Column`], `Clone` and `Debug` impls both relation columns share.
+/// The builders and the [`Column`] impl both relation columns share.
 macro_rules! relation_column {
-    ($ty:ident, $read:ident) => {
+    ($ty:ident) => {
+        impl<M> $ty<M> {
+            /// Replace the label the field's name gives it, and name the column after the label,
+            /// as a [`ComputedColumn`](super::ComputedColumn) is: two columns over one relation
+            /// need two labels.
+            pub fn label(mut self, label: impl Into<String>) -> Self {
+                self.relation.relabel(label.into());
+                self
+            }
+
+            /// Declare this column's width.
+            pub fn width(mut self, width: ColumnWidth) -> Self {
+                self.relation.width = width;
+                self
+            }
+        }
+
         impl<M> Column<M> for $ty<M>
         where
             M: toasty::schema::Model + Send + Sync + 'static,
@@ -557,30 +525,11 @@ macro_rules! relation_column {
                     .map(|(source, _)| source)
             }
         }
-
-        impl<M> Clone for $ty<M> {
-            fn clone(&self) -> Self {
-                Self {
-                    relation: self.relation.clone(),
-                    $read: Arc::clone(&self.$read),
-                }
-            }
-        }
-
-        impl<M> std::fmt::Debug for $ty<M> {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                f.debug_struct(stringify!($ty))
-                    .field("name", &self.relation.name)
-                    .field("label", &self.relation.label())
-                    .field("width", &self.relation.width)
-                    .finish_non_exhaustive()
-            }
-        }
     };
 }
 
-relation_column!(RelationColumn, project);
-relation_column!(CountColumn, count);
+relation_column!(RelationColumn);
+relation_column!(CountColumn);
 
 #[cfg(test)]
 mod tests;

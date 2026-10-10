@@ -2,13 +2,14 @@
 
 use std::collections::HashMap;
 
+use derive_where::derive_where;
 use toasty::stmt::List;
 use topcoat::{context::Cx, view::*};
 
-use super::{Column, ColumnWidth};
+use super::{Column, ColumnBase, ColumnWidth};
 use crate::{
     Lens,
-    schema::{Binding, FieldResolver, RepeaterItem, read_only, value_cell},
+    schema::{RepeaterItem, read_only, value_cell},
 };
 
 /// A column of a list of [`RepeaterItem`] values.
@@ -26,12 +27,10 @@ use crate::{
 /// # }
 /// tablo_core::RepeaterColumn::new(tablo_core::lens!(Post.links));
 /// ```
+#[derive_where(Clone, Debug)]
 pub struct RepeaterColumn<M, T> {
     lens: Lens<M, Vec<T>, List<T>>,
-    binding: Binding,
-    /// The declared label, over the binding's.
-    label: Option<String>,
-    width: ColumnWidth,
+    base: ColumnBase,
 }
 
 impl<M, T> RepeaterColumn<M, T>
@@ -41,26 +40,13 @@ where
 {
     /// Bind the column to the list `lens` reads.
     pub fn new(lens: Lens<M, Vec<T>, List<T>>) -> Self {
-        let binding = Binding::of(lens.path());
         Self {
+            base: ColumnBase::new(lens.path(), ColumnWidth::Wide),
             lens,
-            binding,
-            label: None,
-            width: ColumnWidth::Wide,
         }
     }
 
-    /// Replace the label the field's name gives it.
-    pub fn label(mut self, label: impl Into<String>) -> Self {
-        self.label = Some(label.into());
-        self
-    }
-
-    /// Declare this column's width.
-    pub fn width(mut self, width: ColumnWidth) -> Self {
-        self.width = width;
-        self
-    }
+    base_builders!();
 
     /// Each item's keys as its row posts them.
     fn spelled(&self, row: &M) -> Vec<HashMap<String, String>> {
@@ -81,13 +67,7 @@ where
     M: toasty::schema::Model + Send + Sync + 'static,
     T: RepeaterItem,
 {
-    fn name(&self) -> &str {
-        self.binding.name()
-    }
-
-    fn label(&self) -> &str {
-        self.label.as_deref().unwrap_or(self.binding.label())
-    }
+    base_column_methods!(bind);
 
     fn text(&self, _cx: &Cx, row: &M) -> String {
         let schema = T::schema();
@@ -148,41 +128,5 @@ where
             }
             .boxed(),
         )
-    }
-
-    fn column_width(&self) -> ColumnWidth {
-        self.width
-    }
-
-    fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
-        self.binding.misdeclared()
-    }
-
-    fn bind(&self, resolver: &FieldResolver) {
-        self.binding.bind(resolver);
-    }
-}
-
-impl<M, T> Clone for RepeaterColumn<M, T> {
-    fn clone(&self) -> Self {
-        Self {
-            lens: self.lens.clone(),
-            binding: self.binding.clone(),
-            label: self.label.clone(),
-            width: self.width,
-        }
-    }
-}
-
-impl<M, T> std::fmt::Debug for RepeaterColumn<M, T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("RepeaterColumn")
-            .field("name", &self.binding.name())
-            .field(
-                "label",
-                &self.label.as_deref().unwrap_or(self.binding.label()),
-            )
-            .field("item", &std::any::type_name::<T>())
-            .finish_non_exhaustive()
     }
 }
