@@ -1,0 +1,11 @@
+error: enum generics are not supported
+ --> tests/compile_fail/options_generic_enum.rs:2:12
+  |
+2 | enum Status<T> {
+  |            ^^^
+
+error: #[derive(Options)] does not support generic or lifetime parameters
+ --> tests/compile_fail/options_generic_enum.rs:2:12
+  |
+2 | enum Status<T> {
+  |            ^^^

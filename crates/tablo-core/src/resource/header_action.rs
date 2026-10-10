@@ -162,6 +162,26 @@ impl HeaderActions {
     }
 
     /// Appends the action `A`, failing to compile when `A::NAME` is not a single path segment.
+    ///
+    /// The check is a constant evaluated when `A` is instantiated, so `cargo check` does not
+    /// report it: the doctest builds the program and pins the `E0080` evaluation error.
+    ///
+    /// ```rust,compile_fail,E0080
+    /// # use tablo_core::{HeaderAction, HeaderActions};
+    /// # use topcoat::{Result, context::Cx};
+    /// struct ClearCache;
+    ///
+    /// impl HeaderAction for ClearCache {
+    ///     type Input = ();
+    ///     const NAME: &'static str = "clear cache";
+    ///
+    ///     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<()> {
+    ///         Ok(())
+    ///     }
+    /// }
+    ///
+    /// let _actions = HeaderActions::new().add::<ClearCache>();
+    /// ```
     #[must_use]
     pub fn add<A: HeaderAction>(mut self) -> Self {
         const {

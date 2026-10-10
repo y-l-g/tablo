@@ -1,0 +1,5 @@
+error[E0599]: no method named `options` found for struct `TextField<F>` in the current scope
+  --> tests/compile_fail/field_text_options.rs:10:52
+   |
+10 |     tablo_core::Field::text(User::fields().name()).options(["admin", "member"]);
+   |                                                    ^^^^^^^ method not found in `TextField`

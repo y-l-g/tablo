@@ -1,0 +1,48 @@
+error[E0599]: no method named `nickname` found for struct `UserFields<__Origin, __Target>` in the current scope
+  --> tests/compile_fail/record_form_unknown_field.rs:13:5
+   |
+ 2 | struct User {
+   |        ---- method `nickname` not found for this struct
+...
+13 |     nickname: String,
+   |     ^^^^^^^^
+   |
+help: there is a method `name` with a similar name
+   |
+13 -     nickname: String,
+13 +     name: String,
+   |
+
+error[E0609]: no field `nickname` on type `&User`
+  --> tests/compile_fail/record_form_unknown_field.rs:13:5
+   |
+13 |     nickname: String,
+   |     ^^^^^^^^ unknown field
+   |
+   = note: available fields are: `id`, `name`, `age`
+
+error[E0599]: no method named `nickname` found for struct `UserCreate` in the current scope
+  --> tests/compile_fail/record_form_unknown_field.rs:13:5
+   |
+ 2 | struct User {
+   |        ---- method `nickname` not found for this struct
+...
+13 |     nickname: String,
+   |     ^^^^^^^^
+   |
+help: there is a method `name` with a similar name
+   |
+13 -     nickname: String,
+13 +     name: String,
+   |
+
+error[E0599]: no method named `set_nickname` found for struct `UserUpdate<__toasty_T>` in the current scope
+  --> tests/compile_fail/record_form_unknown_field.rs:10:10
+   |
+ 1 | #[derive(Debug, Clone, toasty::Model)]
+   |                        ------------- method `set_nickname` not found for this struct
+...
+10 | #[derive(tablo_core::RecordForm)]
+   |          ^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the derive macro `tablo_core::RecordForm` (in Nightly builds, run with -Z macro-backtrace for more info)

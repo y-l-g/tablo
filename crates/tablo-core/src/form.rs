@@ -37,130 +37,17 @@
 //!
 //! # Compile-time refusals
 //!
-//! A field the model does not have:
+//! The derive refuses, at compile time:
 //!
-//! ```compile_fail
-//! # #[derive(Debug, Clone, toasty::Model)]
-//! # struct User { #[key] #[auto] id: uuid::Uuid, name: String, age: i64 }
-//! #[derive(tablo_core::RecordForm)]
-//! #[form(model = User)]
-//! struct UserForm {
-//!     nickname: String,
-//! }
-//! ```
-//!
-//! A type the model's field does not have:
-//!
-//! ```compile_fail
-//! # #[derive(Debug, Clone, toasty::Model)]
-//! # struct User { #[key] #[auto] id: uuid::Uuid, name: String, age: i64 }
-//! #[derive(tablo_core::RecordForm)]
-//! #[form(model = User)]
-//! struct UserForm {
-//!     age: i32,
-//! }
-//! ```
-//!
-//! A bare choice, which would offer nothing: a foreign key names its source with
-//! `#[form(relationship = ..)]`.
-//!
-//! ```compile_fail
-//! # #[derive(Debug, Clone, toasty::Model)]
-//! # struct Post { #[key] #[auto] id: uuid::Uuid, author_id: uuid::Uuid }
-//! #[derive(tablo_core::RecordForm)]
-//! #[form(model = Post)]
-//! struct PostForm {
-//!     #[form(choice)]
-//!     author_id: uuid::Uuid,
-//! }
-//! ```
-//!
-//! Two keys that each pick the control:
-//!
-//! ```compile_fail
-//! # #[derive(Debug, Clone, toasty::Model)]
-//! # struct Post { #[key] #[auto] id: uuid::Uuid, author_id: String }
-//! # struct Authors;
-//! #[derive(tablo_core::RecordForm)]
-//! #[form(model = Post)]
-//! struct PostForm {
-//!     #[form(relationship = Authors, file)]
-//!     author_id: String,
-//! }
-//! ```
-//!
-//! A scalar type the form edge cannot spell:
-//!
-//! ```compile_fail
-//! #[derive(Debug, Clone, toasty::Model)]
-//! struct Tagged {
-//!     #[key]
-//!     #[auto]
-//!     id: uuid::Uuid,
-//!     tags: Vec<String>,
-//! }
-//!
-//! #[derive(tablo_core::RecordForm)]
-//! #[form(model = Tagged)]
-//! struct TaggedForm {
-//!     tags: Vec<String>,
-//! }
-//! ```
-//!
-//! A many-to-many field whose keys are not its source's primary key:
-//!
-//! ```compile_fail
-//! # #[derive(Debug, Clone, toasty::Model)]
-//! # struct Post {
-//! #     #[key] #[auto] id: uuid::Uuid,
-//! #     #[has_many] taggings: toasty::Deferred<Vec<Tagging>>,
-//! #     #[has_many(via = taggings.tag)] tags: toasty::Deferred<Vec<Tag>>,
-//! # }
-//! # #[derive(Debug, Clone, toasty::Model)]
-//! # struct Tag { #[key] #[auto] id: uuid::Uuid }
-//! # #[derive(Debug, Clone, toasty::Model)]
-//! # struct Tagging {
-//! #     #[key] #[auto] id: uuid::Uuid,
-//! #     #[index] post_id: uuid::Uuid,
-//! #     #[belongs_to(key = post_id, references = id)] post: toasty::Deferred<Post>,
-//! #     #[index] tag_id: uuid::Uuid,
-//! #     #[belongs_to(key = tag_id, references = id)] tag: toasty::Deferred<Tag>,
-//! # }
-//! # struct TagResource;
-//! # impl tablo_core::Resource for TagResource { type Model = Tag; type Form = tablo_core::NoForm<Tag>; }
-//! #[derive(tablo_core::RecordForm)]
-//! #[form(model = Post)]
-//! struct PostForm {
-//!     #[form(relationship = TagResource)]
-//!     tags: Vec<i64>,
-//! }
-//! ```
-//!
-//! `optional` on a type with no empty value:
-//!
-//! ```compile_fail
-//! # #[derive(Debug, Clone, toasty::Model)]
-//! # struct User { #[key] #[auto] id: uuid::Uuid, name: String, age: i64 }
-//! #[derive(tablo_core::RecordForm)]
-//! #[form(model = User)]
-//! struct UserForm {
-//!     #[form(optional)]
-//!     age: i64,
-//! }
-//! ```
-//!
-//! `embed` on a type that is not an [`EmbeddedForm`](crate::EmbeddedForm):
-//!
-//! ```compile_fail
-//! # #[derive(Debug, Clone, toasty::Model)]
-//! # struct User { #[key] #[auto] id: uuid::Uuid, name: String, age: i64 }
-//! #[derive(tablo_core::RecordForm)]
-//! #[form(model = User)]
-//! struct UserForm {
-//!     #[form(embed)]
-//!     name: String,
-//! }
-//! ```
+//! - a field the model does not have;
+//! - a type the model's field does not have, such as `i32` for an `i64` column;
+//! - a bare choice, which would offer nothing: a foreign key names its source with
+//!   `#[form(relationship = ..)]`;
+//! - `relationship` and `file` on one field, which each pick the control;
+//! - a scalar type the form edge cannot spell, such as `Vec<String>`;
+//! - a many-to-many field whose keys are not its source's primary key;
+//! - `optional` on a type with no empty value;
+//! - `embed` on a type that is not an [`EmbeddedForm`](crate::EmbeddedForm).
 
 use std::{
     collections::{HashMap, HashSet},

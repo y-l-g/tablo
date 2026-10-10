@@ -326,15 +326,7 @@ impl ColumnWidth {
 ///
 /// The cell is the value's [`FormScalar::to_label`], an [`Options`](crate::Options) enum's label
 /// or any other type's form spelling, unless [`format`](Self::format) says otherwise. Only a
-/// string field is [`searchable`](Self::searchable):
-///
-/// ```compile_fail
-/// # #[derive(Debug, Clone, toasty::Model)]
-/// # struct User { #[key] #[auto] id: uuid::Uuid, age: i64 }
-/// # fn main() {
-/// tablo_core::TextColumn::new(tablo_core::lens!(User.age)).searchable();
-/// # }
-/// ```
+/// string field is [`searchable`](Self::searchable).
 #[derive_where(Clone, Debug)]
 pub struct TextColumn<M, T> {
     lens: Lens<M, T>,
@@ -477,15 +469,7 @@ where
 /// loads it; one relation's record or count is a [`RelationColumn`] or a [`CountColumn`], which
 /// declare their own.
 ///
-/// It maps to no column, so it neither searches nor sorts:
-///
-/// ```compile_fail
-/// # #[derive(Debug, Clone, toasty::Model)]
-/// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
-/// # fn main() {
-/// tablo_core::ComputedColumn::new("Name", |u: &User| u.name.clone()).sortable();
-/// # }
-/// ```
+/// It maps to no column, so it neither searches nor sorts.
 #[derive_where(Clone, Debug)]
 pub struct ComputedColumn<M> {
     name: String,

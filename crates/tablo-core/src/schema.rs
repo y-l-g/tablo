@@ -48,20 +48,6 @@ use crate::form::FieldErrors;
 /// `Schema<UserForm>`, which only `UserForm::controls()` fill, so a control from another form or a
 /// field built with [`Field::text`] fails to compile there. A page's or an action's schema is a
 /// plain `Schema`, which [`Field`]'s constructors fill.
-///
-/// ```compile_fail
-/// # #[derive(Debug, Clone, toasty::Model)]
-/// # struct User { #[key] #[auto] id: uuid::Uuid, name: String, email: String }
-/// # #[derive(tablo_core::RecordForm)]
-/// # #[form(model = User)]
-/// # struct UserForm { name: String }
-/// use tablo_core::{Field, Schema};
-///
-/// let form: Schema<UserForm> = Schema::new((
-///     UserForm::controls().name,
-///     Field::text(User::fields().email()),
-/// ));
-/// ```
 pub struct Schema<F = ()> {
     pub(crate) nodes: Vec<Node>,
     pub(crate) fields: Vec<Field>,

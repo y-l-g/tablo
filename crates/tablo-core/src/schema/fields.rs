@@ -84,13 +84,7 @@ use crate::{
 /// Field::toggle(lens!(Post.featured)); // CustomField
 /// ```
 ///
-/// ```compile_fail
-/// # #[derive(Debug, Clone, toasty::Model)]
-/// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
-/// # fn main() {
-/// tablo_core::Field::text(User::fields().name()).options(["admin", "member"]);
-/// # }
-/// ```
+/// Options belong to a choice: a text field has no `options` method.
 pub struct Field {
     binding: Binding,
     /// The declared label, over the binding's.

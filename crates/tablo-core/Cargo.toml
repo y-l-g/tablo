@@ -43,6 +43,7 @@ uuid.workspace = true
 
 [dev-dependencies]
 proptest = { version = "1.11", default-features = false, features = ["std"] }
+trybuild = "1.0"
 tokio.workspace = true
 # The suites run on in-memory SQLite. The library enables no driver: the app
 # picks one on its own `toasty` dependency.

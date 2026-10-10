@@ -1,0 +1,24 @@
+error[E0277]: `uuid::Uuid` is not a tenant column
+  --> tests/compile_fail/tenant_column_uuid.rs:13:13
+   |
+13 |     let _ = tablo_core::Tenancy::column(Post::fields().author_id());
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not a tenant column
+   |
+   = help: the trait `TenantColumn` is not implemented for `uuid::Uuid`
+   = note: type the model's tenant field as `TenantId`, or `Option<TenantId>` for a nullable one
+help: the following other types implement trait `TenantColumn`
+  --> src/tenancy/tenant_id.rs
+   |
+   | impl TenantColumn for TenantId {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `TenantId`
+...
+   | impl TenantColumn for Option<TenantId> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `Option<TenantId>`
+note: required by a bound in `tablo_core::Tenancy::<M>::column`
+  --> src/tenancy.rs
+   |
+   |     pub fn column<T>(lens: impl Into<Path<M, T>>) -> Self
+   |            ------ required by a bound in this associated function
+   |     where
+   |         T: TenantColumn,
+   |            ^^^^^^^^^^^^ required by this bound in `Tenancy::<M>::column`
