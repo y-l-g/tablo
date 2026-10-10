@@ -1,9 +1,9 @@
 name: msrv-udeps
 
-# Each needs its own toolchain, so these gates run apart from the per-PR jobs.
+# Each needs its own toolchain, so these gates run apart from the per-PR jobs. On master, ci.yml
+# calls this workflow so the release job waits for it.
 on:
-  push:
-    branches: [master]
+  workflow_call:
   pull_request:
     paths:
       - Cargo.toml
