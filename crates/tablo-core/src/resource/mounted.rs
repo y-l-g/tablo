@@ -183,7 +183,7 @@ impl Mounts {
 pub(crate) struct MountScope(pub(crate) fn(&Cx) -> Option<&Mounts>);
 
 /// `R` as the context's panel mounted it, if it did: the request's panel, or the one a
-/// [`Panel::context`](crate::Panel::context) holds.
+/// [`PanelHandle::context`](crate::PanelHandle::context) holds.
 pub(crate) fn mounted<R: Resource>(cx: &Cx) -> Option<Arc<Mounted<R>>> {
     let MountScope(mounts) = try_app_context::<MountScope>(cx)?;
     mounts(cx)?.get::<R>()
