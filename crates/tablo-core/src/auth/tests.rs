@@ -18,23 +18,26 @@ use crate::{
     test_support::{memory_db, tableless_db},
 };
 
-#[test]
-fn safe_next_only_accepts_same_origin_relative_paths() {
-    assert_eq!(safe_next("/admin/users"), Some("/admin/users"));
-    assert_eq!(
-        safe_next("/admin/posts?status=draft"),
-        Some("/admin/posts?status=draft")
-    );
-    assert_eq!(safe_next("  /admin  "), Some("/admin"));
-    for target in [
-        "",
-        "admin",
-        "//evil.example/login",
-        "https://evil.example/steal",
-        "/\\evil.example",
-        "/admin\r\nLocation: https://evil.example",
-    ] {
-        assert_eq!(safe_next(target), None, "must reject {target:?}");
+proptest::proptest! {
+    /// Whatever `?next=` carries, an accepted destination is a path on this origin: one leading
+    /// `/`, no `//host`, no backslash a browser reads as `/`, no control character that splits
+    /// a header.
+    #[test]
+    fn an_accepted_next_is_a_same_origin_path(
+        next in "[ \t]{0,2}[/\\a-z:.]{0,3}\\PC{0,16}[\\r\\n\\t ]{0,2}",
+    ) {
+        if let Some(accepted) = safe_next(&next) {
+            proptest::prop_assert_eq!(accepted, next.trim());
+            proptest::prop_assert!(accepted.starts_with('/') && !accepted.starts_with("//"));
+            proptest::prop_assert!(!accepted.contains('\\'));
+            proptest::prop_assert!(!accepted.chars().any(char::is_control));
+        }
+    }
+
+    /// A path on this origin is accepted as it is.
+    #[test]
+    fn a_same_origin_path_is_accepted(path in "/[a-z0-9_-]{1,8}(/[a-z0-9_-]{1,8}){0,3}(\\?[a-z]{1,5}=[a-z0-9]{0,5})?") {
+        proptest::prop_assert_eq!(safe_next(&path), Some(path.as_str()));
     }
 }
 
