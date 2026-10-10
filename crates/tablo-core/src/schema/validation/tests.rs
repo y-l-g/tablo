@@ -35,3 +35,27 @@ fn a_float_accepts_and_spells_a_finite_number() {
         "12.5"
     );
 }
+
+/// The civil types read what their `date`, `time` and `datetime-local` controls send.
+#[test]
+fn a_civil_value_parses_its_controls_submission() {
+    use jiff::civil::{Date, DateTime, Time, date, time};
+
+    assert_eq!(Date::parse_form("2024-01-15"), Ok(date(2024, 1, 15)));
+    assert_eq!(Time::parse_form("09:30"), Ok(time(9, 30, 0, 0)));
+    assert_eq!(Time::parse_form("09:30:15"), Ok(time(9, 30, 15, 0)));
+    assert_eq!(
+        DateTime::parse_form("2024-01-15T09:30"),
+        Ok(date(2024, 1, 15).at(9, 30, 0, 0))
+    );
+    assert_eq!(
+        Date::parse_form("2024-02-30"),
+        Err("`2024-02-30` is not a valid date".to_string())
+    );
+    assert_eq!(
+        DateTime::parse_form("2024-01-15").map(|value| value.to_form()),
+        Ok("2024-01-15T00:00:00".to_string()),
+        "a bare date reads as midnight"
+    );
+    assert_eq!(Time::input_value("not a time"), "");
+}

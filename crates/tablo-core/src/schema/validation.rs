@@ -10,9 +10,17 @@ pub trait TypedValue: std::fmt::Display + std::str::FromStr {
     /// The `type` attribute of the text control that edits it.
     const INPUT_TYPE: &'static str = "text";
 
+    /// The control's `step` attribute, when its input type takes one.
+    const STEP: Option<&'static str> = None;
+
     /// Reads a trimmed, non-empty submission, or `None` when the type refuses it.
     fn parse_input(value: &str) -> Option<Self> {
         value.parse().ok()
+    }
+
+    /// The control's `value` for a stored value's form spelling: the spelling itself by default.
+    fn input_value(stored: &str) -> String {
+        stored.to_string()
     }
 }
 
@@ -22,6 +30,7 @@ macro_rules! typed_whole_number {
         $(
             impl TypedValue for $ty {
                 const NOUN: &'static str = "whole number";
+                const INPUT_TYPE: &'static str = "number";
             }
         )*
     };
@@ -38,6 +47,9 @@ impl TypedValue for bool {
 /// Accepts finite values only.
 impl TypedValue for f32 {
     const NOUN: &'static str = "number";
+    const INPUT_TYPE: &'static str = "number";
+    // The default step of 1 makes a browser refuse a fraction.
+    const STEP: Option<&'static str> = Some("any");
 
     fn parse_input(value: &str) -> Option<Self> {
         value
@@ -49,6 +61,9 @@ impl TypedValue for f32 {
 
 impl TypedValue for f64 {
     const NOUN: &'static str = "number";
+    const INPUT_TYPE: &'static str = "number";
+    // The default step of 1 makes a browser refuse a fraction.
+    const STEP: Option<&'static str> = Some("any");
 
     fn parse_input(value: &str) -> Option<Self> {
         value
@@ -78,6 +93,46 @@ impl TypedValue for jiff::Timestamp {
         }
         normalize_datetime_local(value)?.parse().ok()
     }
+
+    fn input_value(stored: &str) -> String {
+        format_timestamp_input(stored)
+    }
+}
+
+/// Binds a calendar date to a `date` control.
+impl TypedValue for jiff::civil::Date {
+    const NOUN: &'static str = "date";
+    const INPUT_TYPE: &'static str = "date";
+}
+
+/// Binds a wall-clock time to a `time` control, which edits it to the minute.
+impl TypedValue for jiff::civil::Time {
+    const NOUN: &'static str = "time";
+    const INPUT_TYPE: &'static str = "time";
+
+    fn input_value(stored: &str) -> String {
+        civil_input(stored, |time: jiff::civil::Time| {
+            time.strftime("%H:%M").to_string()
+        })
+    }
+}
+
+/// Binds a date and wall-clock time without a zone to a `datetime-local` control, which edits it to
+/// the minute.
+impl TypedValue for jiff::civil::DateTime {
+    const NOUN: &'static str = "date and time";
+    const INPUT_TYPE: &'static str = "datetime-local";
+
+    fn input_value(stored: &str) -> String {
+        civil_input(stored, |datetime: jiff::civil::DateTime| {
+            datetime.strftime("%Y-%m-%dT%H:%M").to_string()
+        })
+    }
+}
+
+/// Formats a stored civil value for its control, rendering anything that does not parse empty.
+fn civil_input<T: std::str::FromStr>(stored: &str, format: impl Fn(T) -> String) -> String {
+    stored.trim().parse().map(format).unwrap_or_default()
 }
 
 /// Converts a `datetime-local` value to the RFC 3339 string a timestamp parses, or `None` when the
