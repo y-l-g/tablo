@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0](https://github.com/y-l-g/tablo/compare/tablo-test-v0.5.1...tablo-test-v0.6.0) - 2026-10-10
+
+### Added
+
+- *(test)* sign a test client in with TestClient::sign_in ([#555](https://github.com/y-l-g/tablo/pull/555))
+
+### Other
+
+- reorganize the suite by feature and pin each behavior once ([#552](https://github.com/y-l-g/tablo/pull/552))
+
 ## [0.4.0](https://github.com/y-l-g/tablo/compare/tablo-test-v0.3.0...tablo-test-v0.4.0) - 2026-10-07
 
 ### Other
