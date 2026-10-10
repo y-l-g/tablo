@@ -3,7 +3,7 @@
 use tablo_ui::{input as ui_input, textarea as ui_textarea};
 use topcoat::{Result, context::Cx, view::*};
 
-use super::{super::validation::format_timestamp_input, Field, FieldChrome, render_field};
+use super::{super::validation::format_timestamp_input, Field, render_field};
 use crate::form::FormScalar;
 
 /// The equality expression a text field's unique probe binds.
@@ -87,11 +87,12 @@ impl Field {
         value: Option<&str>,
         error: Option<&str>,
         id: String,
+        disabled: bool,
     ) -> Result<BoxView<'a>> {
         let name = self.name().to_string();
-        let required = self.is_required();
+        let required = self.is_required() && !disabled;
         let placeholder = text.placeholder.clone();
-        let chrome = FieldChrome::new(id.clone(), error, None);
+        let chrome = self.chrome(id.clone(), error, None);
         let aria_invalid = chrome.aria_invalid();
         let described_by = chrome.described_by();
         let control = if let Some(rows) = text.rows {
@@ -106,6 +107,7 @@ impl Field {
                         placeholder=(placeholder.clone())
                         rows=(rows)
                         required=(required)
+                        disabled=(disabled)
                         aria-required=(required.then_some("true"))
                         aria-invalid=(aria_invalid)
                         aria-describedby=(described_by)
@@ -143,6 +145,7 @@ impl Field {
                         placeholder=(placeholder.clone())
                         autocomplete=(autocomplete)
                         required=(required)
+                        disabled=(disabled)
                         aria-required=(required.then_some("true"))
                         aria-invalid=(aria_invalid)
                         aria-describedby=(described_by)

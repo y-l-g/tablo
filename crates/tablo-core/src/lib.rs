@@ -143,8 +143,8 @@ pub use resource::{
 };
 pub use schema::{
     ChoiceField, CustomField, EmbeddedForm, Field, FieldResolver, FileField, Grid, Group,
-    IntoOptions, IntoSchema, Options, RepeaterField, RepeaterItem, Schema, Section, Source,
-    TextField, Toggle, Watched,
+    IntoFormValue, IntoOptions, IntoSchema, Options, RepeaterField, RepeaterItem, Schema, Section,
+    Source, TextField, Toggle, Watched,
 };
 pub use table::{
     BooleanColumn, ColumnWidth, ComputedColumn, CountColumn, Cursor, DateFilter, EmbeddedColumn,

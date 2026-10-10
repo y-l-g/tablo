@@ -3,7 +3,7 @@
 use tablo_ui::{checkbox as ui_checkbox, input as ui_input, label as ui_label};
 use topcoat::{Result, context::Cx, view::*};
 
-use super::{Field, FieldChrome, render_field};
+use super::{Field, render_field};
 
 impl Field {
     /// Renders a file field's input and its stored path.
@@ -13,13 +13,14 @@ impl Field {
         value: Option<&str>,
         error: Option<&str>,
         id: String,
+        disabled: bool,
     ) -> Result<BoxView<'a>> {
         let name = self.name().to_string();
         // Required only while nothing is stored.
         let stored = stored_path(value);
         let is_edit = stored.is_some();
-        let control_required = self.required && !is_edit;
-        let chrome = FieldChrome::new(id.clone(), error, None);
+        let control_required = self.required && !is_edit && !disabled;
+        let chrome = self.chrome(id.clone(), error, None);
         let hint_id = format!("{id}-hint");
         // The clear flag is a transport key stripped before any record fn.
         let clear_name = format!("clear_{name}");
@@ -30,7 +31,7 @@ impl Field {
         let aria_invalid = chrome.aria_invalid();
         let described_by = chrome
             .described_by()
-            .or_else(|| is_edit.then(|| hint_id.clone()));
+            .or_else(|| (is_edit && !disabled).then(|| hint_id.clone()));
         let control = view! {
             cx =>
             if let Some(row) = stored_display {
@@ -42,18 +43,25 @@ impl Field {
                     type="file"
                     name=(name.clone())
                     required=(control_required)
+                    disabled=(disabled)
                     aria-required=(control_required.then_some("true"))
                     aria-invalid=(aria_invalid)
                     aria-describedby=(described_by)
                 }
             )
-            if is_edit {
+            // A disabled control keeps the stored file, so it offers neither the hint nor clearing.
+            if is_edit && !disabled {
                 <div class="text-xs text-muted-foreground" id=(hint_id.clone())>
                     "Leave empty to keep the current file."
                 </div>
                 <div class="mt-2 flex items-center gap-2">
                     ui_checkbox(
-                        attrs: attributes! { id=(clear_id.clone()) name=(clear_name) value="1" }
+                        attrs: attributes! {
+                            id=(clear_id.clone())
+                            name=(clear_name)
+                            value="1"
+                            disabled=(disabled)
+                        }
                     )
                     ui_label(
                         attrs: attributes! { for=(clear_id) class="text-xs text-muted-foreground" },

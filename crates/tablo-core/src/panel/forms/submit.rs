@@ -76,12 +76,20 @@ async fn prepare_submission<R: Resource>(
             .iter()
             .map(|(key, value)| (key.clone(), value.clone())),
     );
-    for key in schema.condition_hidden(&read) {
+    let hidden = schema.condition_hidden(&read);
+    for key in &hidden {
         values.remove(&format!("keep_{key}"));
         values.remove(&format!("clear_{key}"));
-        values.remove(&key);
-        files.remove(&key);
+        values.remove(key);
+        files.remove(key);
     }
+    // A disabled control posts nothing either: an edit keeps the stored value, and a create
+    // takes the field's default.
+    let editing = advisory.is_some();
+    for key in schema.disabled_keys(editing) {
+        files.remove(key);
+    }
+    schema.drop_disabled(&mut values, &hidden, editing);
     // File fields take values only from file parts.
     drop_client_typed_uploads(&schema, &file_part_names, &mut values);
     let (upload_errors, mut carried) =

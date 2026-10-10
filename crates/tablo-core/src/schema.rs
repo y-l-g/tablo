@@ -23,7 +23,8 @@ pub use condition::Watched;
 pub use embedded::EmbeddedForm;
 use fields::ChoiceControl;
 pub use fields::{
-    ChoiceField, CustomField, Field, FileField, IntoOptions, RepeaterField, TextField, Toggle,
+    ChoiceField, CustomField, Field, FileField, IntoFormValue, IntoOptions, RepeaterField,
+    TextField, Toggle,
 };
 pub(crate) use fields::{option_view, read_only, stored_upload, value_cell};
 pub use layouts::{Grid, Group, Section};
@@ -257,10 +258,56 @@ impl<F> Schema<F> {
         if !unknown.is_empty() {
             return Err(bad_request(format!("unknown field(s): {}", unknown.join(", "))).into());
         }
-        for key in self.condition_hidden(&input) {
-            input.remove(&key);
+        let hidden = self.condition_hidden(&input);
+        for key in &hidden {
+            input.remove(key);
         }
+        self.drop_disabled(&mut input, &hidden, false);
         Ok(input)
+    }
+
+    /// The create form's initial values: each field's `default`.
+    pub(crate) fn defaults(&self) -> HashMap<String, String> {
+        self.fields
+            .iter()
+            .filter_map(|field| {
+                Some((field.name().to_string(), field.default_value()?.to_string()))
+            })
+            .collect()
+    }
+
+    /// Drops what a disabled control posted, which the browser never sends: on the edit form when
+    /// `editing`, else on the create form, where a field outside `hidden` takes its `default`.
+    pub(crate) fn drop_disabled(
+        &self,
+        values: &mut HashMap<String, String>,
+        hidden: &[String],
+        editing: bool,
+    ) {
+        for field in self
+            .fields
+            .iter()
+            .filter(|field| field.is_disabled(editing))
+        {
+            let name = field.name();
+            values.remove(&format!("keep_{name}"));
+            values.remove(&format!("clear_{name}"));
+            values.remove(name);
+            if let Some(default) = field.default_value()
+                && !editing
+                && !hidden.iter().any(|key| key == name)
+            {
+                values.insert(name.to_string(), default.to_string());
+            }
+        }
+    }
+
+    /// The keys of the controls disabled on the edit form when `editing`, else the create form.
+    pub(crate) fn disabled_keys(&self, editing: bool) -> impl Iterator<Item = &str> {
+        self.fields
+            .iter()
+            .filter(move |field| field.is_disabled(editing))
+            .map(Field::name)
     }
 
     /// Appends another schema's nodes after this one's.
@@ -359,6 +406,15 @@ impl<F> Schema<F> {
             .collect();
         errors.extend(self.condition_errors());
         errors.extend(self.dependent_errors());
+        // A control disabled on create posts nothing there, so the create needs a value.
+        for field in &self.fields {
+            if field.is_always_disabled() && field.is_required() && field.default_value().is_none()
+            {
+                errors.push(crate::DeclarationErrorKind::DisabledWithoutValue {
+                    field: field.name().to_string(),
+                });
+            }
+        }
         let mut seen = HashSet::new();
         for field in &self.fields {
             match field.misdeclared() {
