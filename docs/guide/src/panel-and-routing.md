@@ -147,9 +147,13 @@ impl Resource for UserResource {
 
 A page overrides `Page::navigation()`, starting from `NavigationItem::for_page::<Self>()`.
 `NavigationItem::at(label, url)` links elsewhere, from a resource's `ResourceDef::navigation` or a
-page's `navigation()`; the panel keeps that URL as written, and a resource's `icon` and
-`navigation_order` still apply to it. The entry whose URL is the longest match
-for the current path is marked active.
+page's `navigation()`; the panel keeps that URL as written, and a resource's `icon`,
+`navigation_order` and `navigation_group` still apply to it. The entry whose URL is the longest
+match for the current path is marked active.
+
+`ResourceDef::navigation_group("Content")`, or `NavigationItem::group` on a page's entry, renders
+the entry in a labelled sidebar group. The ungrouped entries render first, under "Navigation";
+each group follows in the order of its first entry, and `order` sorts the entries within it.
 
 ## Pages
 

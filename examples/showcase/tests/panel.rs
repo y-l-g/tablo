@@ -31,6 +31,23 @@ async fn a_list_page_renders_in_the_shell_with_every_resource_in_the_sidebar() {
             "the sidebar must link {label} at {url}: {html}"
         );
     }
+    let entry = |label: &str| {
+        html.find(&format!("title=\"{label}\""))
+            .unwrap_or_else(|| panic!("the sidebar lists {label}: {html}"))
+    };
+    let group = html
+        .find(">Blog<")
+        .expect("the blog resources render in a Blog group");
+    assert!(
+        entry("Users") < group,
+        "Users renders above the groups: {html}"
+    );
+    for label in ["Writers", "Blog Posts", "Categories", "Comments"] {
+        assert!(
+            entry(label) > group,
+            "{label} renders in the Blog group: {html}"
+        );
+    }
     assert!(
         find_href_with(&html, "/admin/users/create").is_some(),
         "missing create entry point in {html}"

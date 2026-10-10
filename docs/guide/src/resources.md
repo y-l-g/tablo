@@ -35,7 +35,7 @@ one form control per field, and a detail page column per field. Set the def's `t
 | `tenancy(..)` | `Tenancy::none()` | how rows belong to a tenant: [Policy, auth, tenancy](./policy-auth-tenancy.md#tenancy) |
 | `create_column(..)` | none | a column an overridden `create_record` sets itself, once per column |
 | `slug(..)`, `label(..)`, `plural_label(..)` | from the type names | URLs and titles: [Naming](#naming) |
-| `icon(..)`, `navigation_order(..)`, `navigation(..)` | the default entry | the sidebar entry: [Sidebar](./panel-and-routing.md#sidebar) |
+| `icon(..)`, `navigation_order(..)`, `navigation_group(..)`, `navigation(..)` | the default entry | the sidebar entry: [Sidebar](./panel-and-routing.md#sidebar) |
 
 The panel builds the def once when it mounts and serves that copy to every request.
 `Panel::resource_with` adjusts it for one panel, so the same resource can mount read-only in a

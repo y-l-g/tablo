@@ -70,6 +70,9 @@ impl<R: Resource> Mounted<R> {
         if let Some(icon) = def.icon {
             navigation.icon = Some(icon);
         }
+        if let Some(group) = def.navigation_group {
+            navigation.group = Some(group);
+        }
         let navigation = navigation.resolved(&url);
         let table = def.table.unwrap_or_else(<R::Form as RecordForm>::table);
         table.bind_with(resolver);

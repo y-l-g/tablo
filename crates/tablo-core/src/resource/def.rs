@@ -54,6 +54,7 @@ pub struct ResourceDef<R: Resource> {
     pub(crate) plural_label: Option<String>,
     pub(crate) icon: Option<IconData>,
     pub(crate) navigation_order: Option<i32>,
+    pub(crate) navigation_group: Option<String>,
     pub(crate) navigation: Option<NavigationItem>,
     pub(crate) policy: Arc<dyn Policy<R::Model>>,
     pub(crate) tenancy: Tenancy<R::Model>,
@@ -77,6 +78,7 @@ impl<R: Resource> Default for ResourceDef<R> {
             plural_label: None,
             icon: None,
             navigation_order: None,
+            navigation_group: None,
             navigation: None,
             policy: Arc::new(Deny),
             tenancy: Tenancy::none(),
@@ -147,9 +149,18 @@ impl<R: Resource> ResourceDef<R> {
         self
     }
 
+    /// The labelled sidebar group the entry renders in, such as `"Content"`; defaults to none,
+    /// above every group. It replaces the group of a [`navigation`](Self::navigation) item.
+    #[must_use]
+    pub fn navigation_group(mut self, group: impl Into<String>) -> Self {
+        self.navigation_group = Some(group.into());
+        self
+    }
+
     /// Replaces the sidebar entry, for one that links somewhere other than the list page:
-    /// `NavigationItem::at("Drafts", "/admin/posts?f.status=draft")`. [`icon`](Self::icon) and
-    /// [`navigation_order`](Self::navigation_order) still apply to it.
+    /// `NavigationItem::at("Drafts", "/admin/posts?f.status=draft")`. [`icon`](Self::icon),
+    /// [`navigation_order`](Self::navigation_order) and
+    /// [`navigation_group`](Self::navigation_group) still apply to it.
     #[must_use]
     pub fn navigation(mut self, item: NavigationItem) -> Self {
         self.navigation = Some(item);
