@@ -22,12 +22,14 @@
 //! [`can`](crate::can) asks a resource's policy from app code, and [`can_list`](crate::can_list)
 //! answers whether the current request may open a resource's list at all.
 
+use derive_where::derive_where;
 use topcoat::context::Cx;
 
 /// One thing a policy is asked to allow; record abilities are asked once per
 /// loaded row, and a record that cannot be viewed cannot be written by guessing
 /// its key.
 #[derive(Debug)]
+#[derive_where(Clone, Copy)]
 pub enum Ability<'a, M> {
     /// Open the list, export it, and offer the records as relationship options.
     ViewAny,
@@ -62,14 +64,6 @@ pub enum Ability<'a, M> {
         action: &'static str,
     },
 }
-
-impl<M> Clone for Ability<'_, M> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<M> Copy for Ability<'_, M> {}
 
 impl<'a, M> Ability<'a, M> {
     /// The record the ability names, if any.

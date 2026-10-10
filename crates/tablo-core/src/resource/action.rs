@@ -5,6 +5,7 @@ mod input;
 
 use std::{any::Any, collections::HashMap, future::Future, pin::Pin};
 
+use derive_where::derive_where;
 pub use input::ActionInput;
 pub(crate) use input::RESERVED_KEYS;
 #[doc(hidden)]
@@ -379,6 +380,7 @@ impl<R: Resource> Actions<R> {
 
 /// One mutation of a record or a selection with its type erased: a declared action, or the
 /// built-in delete. The panel runs every one through the same pipeline.
+#[derive_where(Clone, Copy)]
 pub(crate) struct ActionEntry<R: Resource> {
     pub(crate) name: &'static str,
     pub(crate) label: fn(&Cx) -> String,
@@ -400,14 +402,6 @@ pub(crate) struct ActionEntry<R: Resource> {
     pub(crate) failure: &'static str,
     pub(crate) confirm: bool,
 }
-
-impl<R: Resource> Clone for ActionEntry<R> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<R: Resource> Copy for ActionEntry<R> {}
 
 impl<R: Resource> ActionEntry<R> {
     /// One record's Delete, from its row or its detail or edit page: [`Resource::delete_record`],

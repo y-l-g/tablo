@@ -6,12 +6,9 @@ use toasty::stmt::{List, Query};
 use topcoat::{context::Cx, view::*};
 
 use crate::{
-    DeclarationErrorKind, EmbeddedForm,
-    schema::{FieldResolver, Grid, Group, RepeaterItem, Section},
-    table::{
-        BooleanColumn, BoxColumn, Column, ComputedColumn, CountColumn, EmbeddedColumn, FileColumn,
-        RelationColumn, RepeaterColumn, TextColumn, include_relations,
-    },
+    DeclarationErrorKind,
+    schema::{FieldResolver, Grid, Group, Section},
+    table::{BoxColumn, Column, include_relations},
 };
 
 /// The declaration of a detail page: [`Column`]s, the same ones a [`Table`](crate::Table) lists,
@@ -237,60 +234,6 @@ impl<M> IntoDetail<M> for BoxColumn<M> {
         }
     }
 }
-
-impl<M, T> IntoDetail<M> for TextColumn<M, T>
-where
-    M: toasty::schema::Model + Send + Sync + 'static,
-    T: Send + Sync + 'static,
-{
-    fn into_detail(self) -> Detail<M> {
-        Detail::empty().column(self)
-    }
-}
-
-impl<M, T> IntoDetail<M> for EmbeddedColumn<M, T>
-where
-    M: toasty::schema::Model + Send + Sync + 'static,
-    T: EmbeddedForm + Send + Sync + 'static,
-{
-    fn into_detail(self) -> Detail<M> {
-        Detail::empty().column(self)
-    }
-}
-
-impl<M, T> IntoDetail<M> for RepeaterColumn<M, T>
-where
-    M: toasty::schema::Model + Send + Sync + 'static,
-    T: RepeaterItem,
-{
-    fn into_detail(self) -> Detail<M> {
-        Detail::empty().column(self)
-    }
-}
-
-/// The [`IntoDetail`] impls of the built-in columns over the model alone.
-macro_rules! column_details {
-    ($($ty:ident),+ $(,)?) => {
-        $(
-            impl<M> IntoDetail<M> for $ty<M>
-            where
-                M: toasty::schema::Model + Send + Sync + 'static,
-            {
-                fn into_detail(self) -> Detail<M> {
-                    Detail::empty().column(self)
-                }
-            }
-        )+
-    };
-}
-
-column_details!(
-    BooleanColumn,
-    ComputedColumn,
-    CountColumn,
-    FileColumn,
-    RelationColumn
-);
 
 /// The single-node [`IntoDetail`] impls of every layout block, holding columns or nothing.
 macro_rules! block_details {
