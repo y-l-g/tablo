@@ -188,8 +188,8 @@ async fn another_tenants_category_is_refused_and_nothing_is_written() {
     assert_eq!(resp.status(), 200);
     let html = body_string(resp).await;
     assert_eq!(
-        field_error(&html, "categories").as_deref(),
-        Some("Categories is invalid")
+        field_error(&html, "categories"),
+        Some(tablo::testing::FieldErrorKind::Invalid)
     );
     assert_eq!(filed(&db, HELLO).await, before);
 }
@@ -277,8 +277,8 @@ async fn attaching_another_tenants_post_is_refused() {
     assert_eq!(resp.status(), 200, "the dialog's input comes back refused");
     let html = body_string(resp).await;
     assert_eq!(
-        field_error(&html, "record").as_deref(),
-        Some("Post is invalid")
+        field_error(&html, "record"),
+        Some(tablo::testing::FieldErrorKind::Invalid)
     );
     assert!(filed(&db, foreign.id).await.is_empty());
 }

@@ -111,13 +111,8 @@ async fn delete_404_for_an_unknown_id() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let fake_id = uuid::Uuid::new_v4().to_string();
-    let csrf = uuid::Uuid::new_v4().to_string();
     let resp = client
-        .csrf(&csrf)
-        .post_form(
-            &format!("/admin/users/{}/delete", fake_id),
-            format!("confirm=1&csrf_token={csrf}"),
-        )
+        .submit(&format!("/admin/users/{}/delete", fake_id), "confirm=1")
         .await;
     assert_eq!(
         resp.status(),
@@ -140,13 +135,8 @@ async fn delete_sso_managed_user_is_forbidden() {
         .unwrap()
         .expect("Ken seed");
     let before = user_count(&db).await;
-    let csrf = uuid::Uuid::new_v4().to_string();
     let resp = client
-        .csrf(&csrf)
-        .post_form(
-            &format!("/admin/users/{}/delete", ken.id),
-            format!("confirm=1&csrf_token={csrf}"),
-        )
+        .submit(&format!("/admin/users/{}/delete", ken.id), "confirm=1")
         .await;
     assert_eq!(
         resp.status(),
@@ -350,7 +340,6 @@ async fn select_all_skips_the_denied_row_and_deletes_the_rest() {
     let db = seeded_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let csrf = uuid::Uuid::new_v4().to_string();
     let mut db_q = db.clone();
     let users = User::all().exec(&mut db_q).await.unwrap();
     let before = users.len();
@@ -417,10 +406,9 @@ async fn select_all_skips_the_denied_row_and_deletes_the_rest() {
     );
 
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             "/admin/users/bulk-delete",
-            format!("ids={}&confirm=1&csrf_token={csrf}", ids.join(",")),
+            &format!("ids={}&confirm=1", ids.join(",")),
         )
         .await;
     assert_eq!(

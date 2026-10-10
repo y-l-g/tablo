@@ -52,12 +52,28 @@ fn row_actions_finds_by_key() {
 
 #[test]
 fn field_error_reads_the_error_slot() {
-    let html = r#"<div class="ac-field ac-field--error"><input name="name" aria-invalid="true" aria-describedby="name-error"><div id="name-error" class="ac-error">name is required</div></div>"#;
-    assert_eq!(
-        field_error(html, "name").as_deref(),
-        Some("name is required")
-    );
+    let html = r#"<div class="ac-field ac-field--error"><input name="name" aria-invalid="true" aria-describedby="name-error"><div id="name-error" class="ac-error" data-error="required">Name is required</div></div>
+<div id="age-error" data-error="invalid">Age is at most 10</div><div id="tag-error" data-error="unavailable">Tag is not available</div>"#;
+    assert_eq!(field_error(html, "name"), Some(FieldErrorKind::Required));
+    assert_eq!(field_error(html, "age"), Some(FieldErrorKind::Invalid));
+    assert_eq!(field_error(html, "tag"), Some(FieldErrorKind::Unavailable));
     assert_eq!(field_error(html, "email"), None);
+    assert_eq!(
+        field_error_message(html, "age").as_deref(),
+        Some("Age is at most 10")
+    );
+}
+
+#[test]
+fn the_button_posting_an_action_tells_whether_it_asks_first() {
+    let html = r#"<button type="button" formaction="/admin/posts/1/delete" data-confirm="">D</button>
+<button type="submit" formaction="/admin/posts/1/actions/publish">P</button>"#;
+    assert_eq!(confirms_first(html, "/admin/posts/1/delete"), Some(true));
+    assert_eq!(
+        confirms_first(html, "/admin/posts/1/actions/publish"),
+        Some(false)
+    );
+    assert_eq!(confirms_first(html, "/admin/posts/1/actions/archive"), None);
 }
 
 #[test]

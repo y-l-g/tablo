@@ -27,12 +27,10 @@ async fn posts_create_empty_author_shows_required_error() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let before = post_count(&db).await;
-    let csrf = uuid::Uuid::new_v4().to_string();
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             "/admin/posts/create",
-            format!("title=Test+Post&author_id=&cover_id=&tags=a&csrf_token={csrf}",),
+            "title=Test+Post&author_id=&cover_id=&tags=a",
         )
         .await;
     let status = resp.status();
@@ -44,8 +42,8 @@ async fn posts_create_empty_author_shows_required_error() {
         html
     );
     assert_eq!(
-        tablo::testing::field_error(&html, "author_id").as_deref(),
-        Some("Author is required"),
+        tablo::testing::field_error(&html, "author_id"),
+        Some(tablo::testing::FieldErrorKind::Required),
         "the author slot names its refusal, got {html}"
     );
     assert_eq!(
@@ -61,24 +59,19 @@ async fn posts_create_invalid_author_shows_invalid_error() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let before = post_count(&db).await;
-    let csrf = uuid::Uuid::new_v4().to_string();
     let fake_id = uuid::Uuid::new_v4();
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             "/admin/posts/create",
-            format!(
-                "title=Test+Post&author_id={}&cover_id=&tags=a&csrf_token={csrf}",
-                fake_id
-            ),
+            &format!("title=Test+Post&author_id={}&cover_id=&tags=a", fake_id),
         )
         .await;
     let status = resp.status();
     let html = body_string(resp).await;
     assert!(status.is_success(), "invalid should be 200 {}", html);
     assert_eq!(
-        tablo::testing::field_error(&html, "author_id").as_deref(),
-        Some("Author is invalid"),
+        tablo::testing::field_error(&html, "author_id"),
+        Some(tablo::testing::FieldErrorKind::Invalid),
         "the author slot names its refusal, got {html}"
     );
     assert_eq!(
@@ -194,7 +187,6 @@ async fn posts_update_rechecks_author_existence() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let csrf = uuid::Uuid::new_v4().to_string();
     let mut db_q = db.clone();
     let authors = Author::all().exec(&mut db_q).await.unwrap();
     let first = &authors[0];
@@ -203,11 +195,10 @@ async fn posts_update_rechecks_author_existence() {
     let edit_url = format!("/admin/posts/{}/edit", post.id);
     // Valid same-author update still redirects (symmetric double-check).
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             &edit_url,
-            format!(
-                "title=Updated+Title&author_id={}&cover_id=&tags=u&csrf_token={csrf}",
+            &format!(
+                "title=Updated+Title&author_id={}&cover_id=&tags=u",
                 first.id
             ),
         )
@@ -239,19 +230,12 @@ async fn posts_create_lifecycle_fields_persist() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let csrf = uuid::Uuid::new_v4().to_string();
     let mut db2 = db.clone();
     let authors = Author::all().exec(&mut db2).await.unwrap();
     let first = &authors[0];
     let author_id = first.id.to_string();
     let resp = client
-        .csrf(&csrf)
-        .post_form(
-            "/admin/posts/create",
-            format!(
-                "title=Lifecycle+Post&body=Full+story&status=published&featured=true&author_id={author_id}&cover_id=&tags=life&csrf_token={csrf}"
-            ),
-        )
+        .submit("/admin/posts/create", &format!("title=Lifecycle+Post&body=Full+story&status=published&featured=true&author_id={author_id}&cover_id=&tags=life"))
         .await;
     assert!(
         resp.status().is_redirection(),
@@ -850,18 +834,13 @@ async fn comments_refuse_another_tenants_post() {
         .unwrap()
         .expect("t1 seeds one comment");
     let before = Comment::all().exec(&mut db_q).await.unwrap().len();
-    let csrf = uuid::Uuid::new_v4().to_string();
-    let client = client.tenant(t1).csrf(&csrf);
+    let client = client.tenant(t1);
     let foreign_id = foreign.id.to_string();
 
     let created = client
-        .post_form(
+        .submit(
             "/admin/comments/create",
-            form_body(&[
-                ("body", "Planted"),
-                ("post_id", &foreign_id),
-                ("csrf_token", &csrf),
-            ]),
+            &form_body(&[("body", "Planted"), ("post_id", &foreign_id)]),
         )
         .await;
     assert_eq!(
@@ -871,26 +850,22 @@ async fn comments_refuse_another_tenants_post() {
     );
     let html = body_string(created).await;
     assert_eq!(
-        tablo::testing::field_error(&html, "post_id").as_deref(),
-        Some("Post is invalid"),
+        tablo::testing::field_error(&html, "post_id"),
+        Some(tablo::testing::FieldErrorKind::Invalid),
         "the post field names the refusal: {html}"
     );
 
     let edited = client
-        .post_form(
+        .submit(
             &format!("/admin/comments/{}/edit", own_comment.id),
-            form_body(&[
-                ("body", "Moved"),
-                ("post_id", &foreign_id),
-                ("csrf_token", &csrf),
-            ]),
+            &form_body(&[("body", "Moved"), ("post_id", &foreign_id)]),
         )
         .await;
     assert_eq!(edited.status(), 200, "a refused edit re-renders the form");
     let html = body_string(edited).await;
     assert_eq!(
-        tablo::testing::field_error(&html, "post_id").as_deref(),
-        Some("Post is invalid"),
+        tablo::testing::field_error(&html, "post_id"),
+        Some(tablo::testing::FieldErrorKind::Invalid),
         "the post field names the refusal: {html}"
     );
 

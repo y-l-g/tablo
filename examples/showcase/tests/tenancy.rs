@@ -129,7 +129,6 @@ async fn tenantless_requests_to_gated_resources_fail_closed() {
     assert_eq!(resp.status(), 403, "tenantless list must fail closed");
 
     // Create without tenant → 403 and no row (not a nil-tenant orphan).
-    let csrf = uuid::Uuid::new_v4().to_string();
     let mut db_q = db.clone();
     let authors = Author::all().exec(&mut db_q).await.unwrap();
     let before = showcase::models::Post::all()
@@ -138,13 +137,9 @@ async fn tenantless_requests_to_gated_resources_fail_closed() {
         .unwrap()
         .len();
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             "/admin/posts/create",
-            format!(
-                "title=Orphan&author_id={}&cover_id=&tags=o&csrf_token={csrf}",
-                authors[0].id
-            ),
+            &format!("title=Orphan&author_id={}&cover_id=&tags=o", authors[0].id),
         )
         .await;
     assert_eq!(resp.status(), 403, "tenantless create must fail closed");

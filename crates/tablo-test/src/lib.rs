@@ -5,13 +5,56 @@ mod protocol;
 
 use http::header::{CONTENT_TYPE, COOKIE};
 pub use protocol::{
-    EmptyTable, FilterOption, Row, RowActions, SESSION_COOKIE, body_bytes, body_string,
-    cookie_header, empty_table, field_error, filter_options, form_body, input_value,
-    multipart_body, notification, response_cookies, row_actions, rows, session_cookie_value,
-    set_cookie_header,
+    EmptyTable, FieldErrorKind, FilterOption, Row, RowActions, SESSION_COOKIE, body_bytes,
+    body_string, confirms_first, cookie_header, empty_table, field_error, field_error_message,
+    filter_options, find_href_with, form_body, input_value, multipart_body, notification,
+    response_cookies, row_actions, row_keys, rows, session_cookie_value, set_cookie_header,
 };
-use tablo_core::PanelUser;
-use topcoat::router::{Body, Router};
+use tablo_core::{DeclarationError, MountError, Panel, PanelUser, RouterBuilderPanelExt};
+use topcoat::router::{Body, Router, RouterBuilderDiscoverExt};
+
+/// `panel` mounted on a router holding `db`, beside the app's own discovered pages and routes:
+/// the router an app builds, without its asset bundle.
+///
+/// # Errors
+///
+/// The [`MountError`] the panel refuses to mount with, which [`refusal`] lists.
+pub fn mount(db: toasty::Db, panel: Panel) -> topcoat::Result<Router> {
+    Ok(Router::builder()
+        .discover()
+        .app_context(db)
+        .panel(panel)?
+        .build())
+}
+
+/// The declaration mistakes a panel refused to mount with, for a test to match on their
+/// [`kind`](DeclarationError::kind).
+///
+/// ```rust,no_run
+/// # fn refused(db: toasty::Db, panel: tablo_core::Panel) {
+/// use tablo_test::{mount, refusal};
+///
+/// let mistakes = refusal(mount(db, panel));
+/// assert!(matches!(
+///     mistakes[0].kind,
+///     tablo_core::DeclarationErrorKind::MissingAuthModels { .. }
+/// ));
+/// # }
+/// ```
+///
+/// # Panics
+///
+/// When `mounted` succeeded, or failed with an error that is not a [`MountError`].
+pub fn refusal<T>(mounted: topcoat::Result<T>) -> Vec<DeclarationError> {
+    let Err(error) = mounted else {
+        panic!("the panel must not mount");
+    };
+    error
+        .downcast_ref::<MountError>()
+        .unwrap_or_else(|| panic!("a declaration mistake refuses the panel, got {error}"))
+        .errors()
+        .to_vec()
+}
 
 /// Sends requests carrying cookies and tenant.
 #[derive(Clone)]
@@ -90,6 +133,42 @@ impl<'a> TestClient<'a> {
         self.cookie(SESSION_COOKIE, &token)
     }
 
+    /// Signs in through the login form of the panel `Panel::new(panel)` mounts, as a browser
+    /// does: loads the page, posts `email` and `password` with the page's CSRF token, and keeps
+    /// the cookies both responses set. Returns the client and the login response, which
+    /// redirects on success and re-renders the form on a refusal.
+    ///
+    /// `next` is the page to land on after signing in, `""` for the panel's home. Prefer
+    /// [`sign_in`](Self::sign_in) unless the test is about the login itself.
+    ///
+    /// # Panics
+    ///
+    /// When the login page renders no `csrf_token` input: the panel's authentication is off.
+    pub async fn log_in(
+        &self,
+        panel: &str,
+        email: &str,
+        password: &str,
+        next: &str,
+    ) -> (Self, http::Response<Body>) {
+        let url = format!("/{panel}/login");
+        let page = self.get(&url).await;
+        let cookies = response_cookies(&page);
+        let html = body_string(page).await;
+        let csrf = input_value(&html, "csrf_token")
+            .unwrap_or_else(|| panic!("the login page embeds a csrf_token input: {html}"));
+        let body = form_body(&[
+            ("email", email),
+            ("password", password),
+            ("next", next),
+            ("csrf_token", &csrf),
+        ]);
+        let client = self.cookies(&cookies);
+        let response = client.post_form(&url, body).await;
+        let session = response_cookies(&response);
+        (client.cookies(&session), response)
+    }
+
     /// Scopes the request to another tenant, taking precedence over the
     /// logged-in user's tenant.
     pub fn tenant(&self, tenant: uuid::Uuid) -> Self {
@@ -127,6 +206,21 @@ impl<'a> TestClient<'a> {
         self.csrf(&token).post_form(uri, body).await
     }
 
+    /// Posts [`multipart_body`]'s `parts` as a panel form with a file input does: with a fresh
+    /// CSRF token in both the cookie and a `csrf_token` part.
+    pub async fn submit_multipart(
+        &self,
+        uri: &str,
+        parts: &[(&str, Option<&str>, &str)],
+    ) -> http::Response<Body> {
+        const BOUNDARY: &str = "tablo-test-boundary";
+        let token = uuid::Uuid::new_v4().to_string();
+        let mut parts = parts.to_vec();
+        parts.push(("csrf_token", None, &token));
+        let body = multipart_body(BOUNDARY, &parts);
+        self.csrf(&token).post_multipart(uri, BOUNDARY, body).await
+    }
+
     pub async fn post_multipart(
         &self,
         uri: &str,
@@ -139,21 +233,6 @@ impl<'a> TestClient<'a> {
             format!("multipart/form-data; boundary={boundary}")
                 .parse()
                 .expect("multipart content type"),
-        );
-        *request.body_mut() = Body::from(body);
-        self.router.handle(request).await
-    }
-
-    /// Posts JSON with the page identity header the browser runtime sends.
-    pub async fn post_json(&self, uri: &str, body: String, identity: &str) -> http::Response<Body> {
-        let mut request = self.request(http::Method::POST, uri);
-        request.headers_mut().insert(
-            CONTENT_TYPE,
-            http::HeaderValue::from_static("application/json"),
-        );
-        request.headers_mut().insert(
-            topcoat::router::request::IDENTITY_HEADER,
-            http::HeaderValue::from_str(identity).expect("identity header"),
         );
         *request.body_mut() = Body::from(body);
         self.router.handle(request).await

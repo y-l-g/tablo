@@ -200,7 +200,11 @@ async fn a_create_refuses_a_city_of_another_country() {
         "the mismatch is refused"
     );
     let html = body_string(response).await;
-    assert!(html.contains("City id is invalid"), "{html}");
+    assert_eq!(
+        tablo::testing::field_error(&html, "city_id"),
+        Some(tablo::testing::FieldErrorKind::Invalid),
+        "{html}"
+    );
     assert!(
         html.contains("Paris") && !html.contains(">Berlin<"),
         "the re-rendered form offers the posted country's cities: {html}"

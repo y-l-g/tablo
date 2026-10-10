@@ -17,7 +17,7 @@ use toasty::Db;
 use topcoat::{context::Cx, router::Router};
 use uuid::Uuid;
 
-use crate::framework::common::{body_string, flash, memory_db, mount, new_csrf, post, refusal};
+use crate::framework::common::{TestClient, body_string, flash, memory_db, mount, refusal};
 
 #[derive(Debug, Clone, toasty::Model)]
 struct Note {
@@ -55,15 +55,9 @@ fn router(db: Db, auth: Auth) -> Router {
 }
 
 async fn submit(router: &Router, body: &str) -> http::Response<topcoat::router::Body> {
-    let csrf = new_csrf();
-    post(
-        router,
-        "/admin/register",
-        &csrf,
-        "application/x-www-form-urlencoded".to_string(),
-        format!("{body}&csrf_token={csrf}"),
-    )
-    .await
+    TestClient::new(router)
+        .submit("/admin/register", body)
+        .await
 }
 
 fn sign_up(email: &str) -> String {

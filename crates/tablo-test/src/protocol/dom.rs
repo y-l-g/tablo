@@ -3,8 +3,8 @@
 //! The table and form renderers own their markup; tests assert the behavior
 //! the markup carries. Each helper reads one stable hook:
 //! `tr[id^="row-"]` for rows, `[aria-label]` links and buttons for actions,
-//! `#{name}-error` for field errors, `[data-filter-name]` for filters, `[data-empty]` for the
-//! zero-rows message.
+//! `#{name}-error` and its `data-error` for field errors, `[data-filter-name]` for filters,
+//! `[data-empty]` for the zero-rows message.
 //!
 //! The queries assume one table per document: rows never nest, and cells carry text rather than
 //! nested tables.
@@ -91,6 +91,34 @@ pub fn rows(html: &str) -> Vec<Row> {
     out
 }
 
+/// The record key of every row in document order, read from its bulk checkbox: a row with no
+/// checkbox has none to read.
+pub fn row_keys(html: &str) -> Vec<String> {
+    rows(html)
+        .into_iter()
+        .filter_map(|row| row.select_value)
+        .collect()
+}
+
+/// The first `href` in `html` that contains `needle`, its entities decoded.
+pub fn find_href_with(html: &str, needle: &str) -> Option<String> {
+    open_tags(html)
+        .into_iter()
+        .filter_map(|(_, attrs, _)| attr_value(&attrs, "href"))
+        .find(|href| href.contains(needle))
+}
+
+/// Whether the button posting to `action` asks first: a confirming trigger is a plain button that
+/// opens the dialog, a direct write is a submit button. `None` when no button posts there.
+pub fn confirms_first(html: &str, action: &str) -> Option<bool> {
+    open_tags(html)
+        .into_iter()
+        .find(|(tag, attrs, _)| {
+            tag == "button" && attr_value(attrs, "formaction").as_deref() == Some(action)
+        })
+        .map(|(_, attrs, _)| attr_value(&attrs, "type").as_deref() == Some("button"))
+}
+
 /// The action targets of the row whose checkbox value or action URL carries
 /// `key`, or `None` when no row matches.
 pub fn row_actions(html: &str, key: &str) -> Option<RowActions> {
@@ -115,17 +143,46 @@ pub fn row_actions(html: &str, key: &str) -> Option<RowActions> {
     })
 }
 
-/// The validation message rendered for `name`, or `None` when the field
-/// renders no error.
-pub fn field_error(html: &str, name: &str) -> Option<String> {
+/// Why a field renders an error, as its error slot's `data-error` names it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum FieldErrorKind {
+    /// Posted empty, and the field has no blank answer.
+    Required,
+    /// Posted a value the field, the resource's validation or the uploader refused.
+    Invalid,
+    /// A choice whose options the user may not read.
+    Unavailable,
+}
+
+/// Why the field posting `name` was refused, or `None` when it renders no error.
+///
+/// Assert on the kind rather than the sentence, which is wording; [`field_error_message`] reads
+/// the sentence for a test whose subject is an app's own message.
+pub fn field_error(html: &str, name: &str) -> Option<FieldErrorKind> {
+    let (attrs, _) = error_slot(html, name)?;
+    Some(match attr_value(&attrs, "data-error").as_deref() {
+        Some("required") => FieldErrorKind::Required,
+        Some("unavailable") => FieldErrorKind::Unavailable,
+        _ => FieldErrorKind::Invalid,
+    })
+}
+
+/// The sentence rendered under the field posting `name`, or `None` when it renders no error.
+pub fn field_error_message(html: &str, name: &str) -> Option<String> {
+    error_slot(html, name).map(|(_, text)| text)
+}
+
+/// The attributes and text of the error slot `#{name}-error`, when it renders one.
+fn error_slot(html: &str, name: &str) -> Option<(Attrs, String)> {
     let target = format!("{name}-error");
-    let (_, _, inner) = tags_where(html, |_, attrs| {
+    let (_, attrs, inner) = tags_where(html, |_, attrs| {
         attr_value(attrs, "id").as_deref() == Some(target.as_str())
     })
     .into_iter()
     .next()?;
     let text = strip_text(&inner);
-    (!text.is_empty()).then_some(text)
+    (!text.is_empty()).then_some((attrs, text))
 }
 
 /// The options of the select filter `name`, or `None` when `name` has no

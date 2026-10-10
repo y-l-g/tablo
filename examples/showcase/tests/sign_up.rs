@@ -10,7 +10,7 @@ use tablo::{
 use toasty::Db;
 
 use crate::common::{
-    TestClient, body_string, demo_client, form_body, full_db, input_value, login_next,
+    TestClient, body_string, demo_client, form_body, full_db, input_value,
     routers::router_for_tests as router, session_cookie_value,
 };
 
@@ -211,7 +211,9 @@ async fn the_account_signs_in_with_the_password_as_typed() {
         .await;
     assert_eq!(response.status(), 303);
 
-    let (_, login) = login_next(&router, "spaced@example.com", spaced, "").await;
+    let (_, login) = TestClient::new(&router)
+        .log_in("admin", "spaced@example.com", spaced, "")
+        .await;
     assert_eq!(login.status(), 303);
 }
 

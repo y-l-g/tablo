@@ -50,13 +50,13 @@ async fn create_invalid_submission_rerenders_with_inline_errors() {
         "invalid POST should re-render 200, not redirect, got {status}"
     );
     assert_eq!(
-        tablo::testing::field_error(&html, "name").as_deref(),
-        Some("Name is required"),
+        tablo::testing::field_error(&html, "name"),
+        Some(tablo::testing::FieldErrorKind::Required),
         "the name slot names its refusal, got {html}"
     );
     assert_eq!(
-        tablo::testing::field_error(&html, "email").as_deref(),
-        Some("Email must be a valid email"),
+        tablo::testing::field_error(&html, "email"),
+        Some(tablo::testing::FieldErrorKind::Invalid),
         "the email slot names its refusal, got {html}"
     );
     assert_eq!(
@@ -182,11 +182,12 @@ async fn create_post_with_unknown_keys_is_bad_request() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let before = user_count(&db).await;
-    let csrf = uuid::Uuid::new_v4().to_string();
-    let resp = client.csrf(&csrf).post_form("/admin/users/create", format!(
-            "name=Sneaky&email=sneaky%40example.com&role=admin&tenant_id=victim&csrf_token={csrf}"
-        ))
-    .await;
+    let resp = client
+        .submit(
+            "/admin/users/create",
+            "name=Sneaky&email=sneaky%40example.com&role=admin&tenant_id=victim",
+        )
+        .await;
     assert_eq!(
         resp.status(),
         400,
@@ -247,14 +248,10 @@ async fn users_create_static_selects_set_role_and_active() {
         "missing active select: {html}"
     );
 
-    let csrf = uuid::Uuid::new_v4().to_string();
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             "/admin/users/create",
-            format!(
-                "name=New+Admin&email=newadmin%40example.com&role=admin&active=false&csrf_token={csrf}"
-            ),
+            "name=New+Admin&email=newadmin%40example.com&role=admin&active=false",
         )
         .await;
     assert!(
@@ -301,8 +298,8 @@ async fn posts_create_invalid_shows_errors() {
         "invalid should be 200, got {status} {html}"
     );
     assert_eq!(
-        tablo::testing::field_error(&html, "title").as_deref(),
-        Some("Title is required"),
+        tablo::testing::field_error(&html, "title"),
+        Some(tablo::testing::FieldErrorKind::Required),
         "the title slot names its refusal, got {html}"
     );
     assert_eq!(
@@ -317,19 +314,15 @@ async fn posts_create_valid_creates() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let csrf = uuid::Uuid::new_v4().to_string();
     let mut db2 = db.clone();
     let authors = Author::all().exec(&mut db2).await.unwrap();
     let first = &authors[0];
     let before = Post::all().exec(&mut db2).await.unwrap().len();
     let author_id = first.id.to_string();
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             "/admin/posts/create",
-            format!(
-                "title=Valid+With+Tags&author_id={author_id}&cover_id=&tags=valid%2Ctags&csrf_token={csrf}"
-            ),
+            &format!("title=Valid+With+Tags&author_id={author_id}&cover_id=&tags=valid%2Ctags"),
         )
         .await;
     assert!(

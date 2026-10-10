@@ -9,10 +9,9 @@ use guide::{
 use tablo::{
     auth::create_admin,
     prelude::*,
-    testing::{TestClient, form_body},
+    testing::{TestClient, form_body, mount, refusal},
 };
 use toasty::Db;
-use topcoat::router::{Router, RouterBuilderDiscoverExt};
 
 async fn seeded_db() -> Db {
     let mut db = Db::builder()
@@ -45,12 +44,9 @@ async fn first_book_id(db: &Db) -> uuid::Uuid {
 async fn books_cannot_be_deleted() {
     let mut db = seeded_db().await; // your fixture: an in-memory database with rows
     let id = first_book_id(&db).await;
-    let router = Router::builder()
-        .discover()
-        .app_context(db.clone())
-        .panel(Panel::new("admin").resource::<BookResource>())
-        .expect("mount the panel")
-        .build();
+    // `mount` builds the router an app does, beside its own pages and routes.
+    let router =
+        mount(db.clone(), Panel::new("admin").resource::<BookResource>()).expect("mount the panel");
     let admin = create_admin(&mut db, "admin@example.com", "secret", "Admin")
         .await
         .expect("seed the admin");
@@ -81,18 +77,10 @@ async fn the_panel_refuses_a_db_without_the_auth_models() {
         .connect("sqlite::memory:")
         .await
         .expect("connect");
-    let error = Router::builder()
-        .discover()
-        .app_context(db)
-        .panel(Panel::new("admin").resource::<BookResource>())
-        .err()
-        .expect("auth is on, and the Db does not register its models");
-
-    let refusal = error
-        .downcast_ref::<tablo::MountError>()
-        .expect("a declaration mistake");
+    // Auth is on, and the `Db` does not register its models.
+    let mistakes = refusal(mount(db, Panel::new("admin").resource::<BookResource>()));
     assert!(matches!(
-        refusal.errors()[0].kind,
+        mistakes[0].kind,
         tablo::DeclarationErrorKind::MissingAuthModels { .. }
     ));
 }
@@ -166,14 +154,12 @@ async fn the_many_to_many_snippets_mount() {
         .await
         .expect("connect");
     db.push_schema().await.expect("push the schema");
-    Router::builder()
-        .discover()
-        .app_context(db)
-        .panel(
-            Panel::new("admin")
-                .auth(Auth::disabled())
-                .resource::<ArticleResource>()
-                .resource::<TagResource>(),
-        )
-        .expect("the panel mounts");
+    mount(
+        db,
+        Panel::new("admin")
+            .auth(Auth::disabled())
+            .resource::<ArticleResource>()
+            .resource::<TagResource>(),
+    )
+    .expect("the panel mounts");
 }

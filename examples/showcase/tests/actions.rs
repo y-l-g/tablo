@@ -134,10 +134,7 @@ async fn tagging_a_post_asks_for_the_tags_then_merges_them() {
         .find(|post| post.tags == "rust,async")
         .expect("the seed tags a post rust,async");
     let tag = format!("/admin/posts/{}/-/actions/tag", post.id);
-    let csrf = uuid::Uuid::new_v4().to_string();
-    let client = client.csrf(&csrf);
-
-    let page = body_string(client.post_form(&tag, format!("csrf_token={csrf}")).await).await;
+    let page = body_string(client.submit(&tag, "").await).await;
     assert!(
         page.contains("name=\"tags\"")
             && page.contains("placeholder=\"rust, async\"")
@@ -145,22 +142,14 @@ async fn tagging_a_post_asks_for_the_tags_then_merges_them() {
         "an empty submission renders the input page: {page}"
     );
 
-    let refused = body_string(
-        client
-            .post_form(&tag, format!("csrf_token={csrf}&tags=+"))
-            .await,
-    )
-    .await;
+    let refused = body_string(client.submit(&tag, "tags=+").await).await;
     assert!(
         tablo::testing::field_error(&refused, "tags").is_some(),
         "{refused}"
     );
 
     let resp = client
-        .post_form(
-            &tag,
-            format!("csrf_token={csrf}&tags=async%2C+tokio&replace=false"),
-        )
+        .submit(&tag, "tags=async%2C+tokio&replace=false")
         .await;
     assert!(resp.status().is_redirection(), "got {}", resp.status());
     let after = Post::get_by_id(&mut db_q, &post.id)
@@ -168,9 +157,7 @@ async fn tagging_a_post_asks_for_the_tags_then_merges_them() {
         .expect("the post still exists");
     assert_eq!(after.tags, "rust,async,tokio");
 
-    client
-        .post_form(&tag, format!("csrf_token={csrf}&tags=news&replace=true"))
-        .await;
+    client.submit(&tag, "tags=news&replace=true").await;
     let after = Post::get_by_id(&mut db_q, &post.id)
         .await
         .expect("the post still exists");
@@ -266,13 +253,8 @@ async fn a_read_only_portal_lists_drafts_and_refuses_publish() {
         "neither a row nor the bulk bar offers Publish: {html}"
     );
 
-    let csrf = uuid::Uuid::new_v4().to_string();
     let row = client
-        .csrf(&csrf)
-        .post_form(
-            &format!("/portal/posts/{}/-/actions/publish", draft.id),
-            format!("csrf_token={csrf}"),
-        )
+        .submit(&format!("/portal/posts/{}/-/actions/publish", draft.id), "")
         .await;
     assert_eq!(row.status(), 403, "the row route refuses");
     let bulk = client
