@@ -77,7 +77,7 @@ impl Resource for UserResource {
                 c.active,
                 c.age,
             ))))
-            .view(Detail::new(
+            .detail(Detail::new(
                 Section::new("Profile").columns(<UserForm as RecordForm>::detail()),
             ))
             .record_title(lens!(User.name))
@@ -117,13 +117,14 @@ impl Resource for AuthorResource {
         ResourceDef::new()
             .label("Writer")
             .icon(tablo::ui::icons::PEN_LINE)
+            .navigation_group("Blog")
             .policy(when(blog_open))
             .tenancy(Tenancy::column(lens!(Author.tenant_id)))
             .table(AuthorForm::table())
             .form(Schema::new(
                 Section::new("Profile").schema((c.name, c.email.email())),
             ))
-            .view(Detail::new(
+            .detail(Detail::new(
                 Section::new("Profile").columns(<AuthorForm as RecordForm>::detail()),
             ))
             // Names the detail heading with the author's name.
@@ -153,11 +154,12 @@ impl Resource for PostResource {
         ResourceDef::new()
             .label("Blog Post")
             .icon(tablo::ui::icons::FILE_TEXT)
+            .navigation_group("Blog")
             .policy(when(blog_open))
             .tenancy(Tenancy::column(lens!(Post.tenant_id)))
             .table(post_table())
             .form(post_form())
-            .view(post_view())
+            .detail(post_detail())
             // Names the detail heading with the post title.
             .record_title(lens!(Post.title))
             // Links a published post's public page.
@@ -204,7 +206,7 @@ fn post_form() -> Schema<PostForm> {
 }
 
 /// The post detail page.
-fn post_view() -> Detail<Post> {
+fn post_detail() -> Detail<Post> {
     Detail::new((
         Section::new("Post").columns((
             TextColumn::new(lens!(Post.title)),
@@ -399,6 +401,7 @@ impl Resource for CategoryResource {
         ResourceDef::new()
             .plural_label("Categories")
             .icon(tablo::ui::icons::TAG)
+            .navigation_group("Blog")
             .policy(when(blog_open))
             .tenancy(Tenancy::column(lens!(Category.tenant_id)))
             .record_title(lens!(Category.name))
@@ -427,6 +430,7 @@ impl Resource for CommentResource {
         ResourceDef::new()
             .plural_label("Comments")
             .icon(tablo::ui::icons::MESSAGE_SQUARE)
+            .navigation_group("Blog")
             // Hides removed comments.
             .policy(|_cx: &Cx, ability: Ability<'_, Comment>| match ability {
                 Ability::View(comment) => comment.body != REMOVED_COMMENT_BODY,
@@ -437,7 +441,7 @@ impl Resource for CommentResource {
                 TextColumn::new(lens!(Comment.body)).searchable().sortable(),
                 comment_post_column(),
             )))
-            .view(Detail::new(Section::new("Comment").columns((
+            .detail(Detail::new(Section::new("Comment").columns((
                 TextColumn::new(lens!(Comment.body)),
                 comment_post_column(),
             ))))
@@ -559,7 +563,7 @@ fn url_segment(name: &str) -> String {
 }
 
 /// The admin panel's resources and pages: what the router mounts, and what a test builds its
-/// context from with [`Panel::context`].
+/// handle from with [`Panel::handle`].
 pub fn admin_panel() -> Panel {
     Panel::new("admin")
         .auth(Auth::custom(StaffAuth).registration(StaffAuth))

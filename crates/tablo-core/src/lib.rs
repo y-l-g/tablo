@@ -356,7 +356,7 @@ pub use tablo_macros::Options;
 /// key, a many-to-many field's records by their titles, a file field as a link, an embedded
 /// value leaf by leaf and a repeater's items. A
 /// resource's `ResourceDef` defaults its form, table and detail page to them;
-/// `ResourceDef::form`, `ResourceDef::table` and `ResourceDef::view` arrange or extend them
+/// `ResourceDef::form`, `ResourceDef::table` and `ResourceDef::detail` arrange or extend them
 /// instead, and a form renders the controls it does not place after the ones it does.
 ///
 /// # Attributes

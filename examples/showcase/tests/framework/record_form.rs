@@ -72,7 +72,7 @@ impl Resource for ItemResource {
             })
             .table(item_table())
             .form(item_schema())
-            .view(Detail::new(TextColumn::new(lens!(Item.title))))
+            .detail(Detail::new(TextColumn::new(lens!(Item.title))))
     }
 
     fn validate_record(_cx: &Cx, form: &ItemForm) -> FieldErrors<ItemFormField> {
@@ -658,7 +658,7 @@ async fn a_list_only_resource_declares_its_detail_page() {
                 .slug("items")
                 .policy(|_cx: &Cx, ability: Ability<'_, Item>| matches!(ability, Ability::View(_)))
                 .table(item_table())
-                .view(Detail::new(ComputedColumn::new("Title", |item: &Item| {
+                .detail(Detail::new(ComputedColumn::new("Title", |item: &Item| {
                     format!("{} (view)", item.title)
                 })))
         }
@@ -1139,7 +1139,7 @@ impl Resource for UnviewedTicketResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .policy(tablo::ReadOnly)
-            .view(Detail::empty())
+            .detail(Detail::empty())
     }
 }
 

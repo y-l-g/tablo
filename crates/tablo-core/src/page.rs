@@ -52,7 +52,7 @@ pub trait Page: Sized + Send + Sync + 'static {
         sentence_case(type_stem::<Self>("Page"))
     }
 
-    /// The sidebar entry; override to set the `order` or the icon.
+    /// The sidebar entry; override to set the `order`, the icon or the group.
     fn navigation() -> NavigationItem {
         NavigationItem::for_page::<Self>()
     }

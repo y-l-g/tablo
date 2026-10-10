@@ -134,7 +134,7 @@ async fn find_detail<R: Resource>(
     find_by_key_in(resource, id, ex, || {
         resource
             .scoped_query(cx)
-            .map(|query| resource.view.include_relations(query))
+            .map(|query| resource.detail.include_relations(query))
     })
     .await
 }

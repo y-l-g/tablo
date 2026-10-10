@@ -54,12 +54,13 @@ pub struct ResourceDef<R: Resource> {
     pub(crate) plural_label: Option<String>,
     pub(crate) icon: Option<IconData>,
     pub(crate) navigation_order: Option<i32>,
+    pub(crate) navigation_group: Option<String>,
     pub(crate) navigation: Option<NavigationItem>,
     pub(crate) policy: Arc<dyn Policy<R::Model>>,
     pub(crate) tenancy: Tenancy<R::Model>,
     pub(crate) table: Option<Table<R::Model>>,
     pub(crate) form: Option<Schema<R::Form>>,
-    pub(crate) view: Option<Detail<R::Model>>,
+    pub(crate) detail: Option<Detail<R::Model>>,
     pub(crate) record_title: Option<RecordTitle<R::Model>>,
     pub(crate) public_link: Option<PublicLinkFn<R::Model>>,
     pub(crate) relations: Vec<Relation<R::Model>>,
@@ -77,12 +78,13 @@ impl<R: Resource> Default for ResourceDef<R> {
             plural_label: None,
             icon: None,
             navigation_order: None,
+            navigation_group: None,
             navigation: None,
             policy: Arc::new(Deny),
             tenancy: Tenancy::none(),
             table: None,
             form: None,
-            view: None,
+            detail: None,
             record_title: None,
             public_link: None,
             relations: Vec::new(),
@@ -147,9 +149,18 @@ impl<R: Resource> ResourceDef<R> {
         self
     }
 
+    /// The labelled sidebar group the entry renders in, such as `"Content"`; defaults to none,
+    /// above every group. It replaces the group of a [`navigation`](Self::navigation) item.
+    #[must_use]
+    pub fn navigation_group(mut self, group: impl Into<String>) -> Self {
+        self.navigation_group = Some(group.into());
+        self
+    }
+
     /// Replaces the sidebar entry, for one that links somewhere other than the list page:
-    /// `NavigationItem::at("Drafts", "/admin/posts?f.status=draft")`. [`icon`](Self::icon) and
-    /// [`navigation_order`](Self::navigation_order) still apply to it.
+    /// `NavigationItem::at("Drafts", "/admin/posts?f.status=draft")`. [`icon`](Self::icon),
+    /// [`navigation_order`](Self::navigation_order) and
+    /// [`navigation_group`](Self::navigation_group) still apply to it.
     #[must_use]
     pub fn navigation(mut self, item: NavigationItem) -> Self {
         self.navigation = Some(item);
@@ -219,8 +230,8 @@ impl<R: Resource> ResourceDef<R> {
     ///
     /// [`RecordForm::detail`]: crate::RecordForm::detail
     #[must_use]
-    pub fn view(mut self, view: Detail<R::Model>) -> Self {
-        self.view = Some(view);
+    pub fn detail(mut self, detail: Detail<R::Model>) -> Self {
+        self.detail = Some(detail);
         self
     }
 

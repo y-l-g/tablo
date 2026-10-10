@@ -661,7 +661,7 @@ impl Resource for PostDetail {
             .slug("posts")
             .policy(tablo::ReadOnly)
             .table(Table::new(TextColumn::new(lens!(Post.title))))
-            .view(Detail::new((
+            .detail(Detail::new((
                 Section::new("SEO").columns(EmbeddedColumn::new(lens!(Post.seo))),
                 Section::new("Publication").columns(EmbeddedColumn::new(lens!(Post.publication))),
                 EmbeddedColumn::new(lens!(Post.visibility)),

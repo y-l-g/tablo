@@ -47,6 +47,9 @@ pub struct NavigationItem {
     pub order: i32,
     /// The icon before the label, if any.
     pub icon: Option<IconData>,
+    /// The labelled sidebar group the entry renders in; `None` renders it with the ungrouped
+    /// entries, above every group.
+    pub group: Option<String>,
 }
 
 impl NavigationItem {
@@ -57,6 +60,7 @@ impl NavigationItem {
             target: NavTarget::Url(url.into()),
             order: 0,
             icon: None,
+            group: None,
         }
     }
 
@@ -64,6 +68,14 @@ impl NavigationItem {
     #[must_use]
     pub fn icon(mut self, icon: IconData) -> Self {
         self.icon = Some(icon);
+        self
+    }
+
+    /// This entry in the sidebar group labelled `group`. Groups render in the order of their
+    /// first entry, after the ungrouped entries.
+    #[must_use]
+    pub fn group(mut self, group: impl Into<String>) -> Self {
+        self.group = Some(group.into());
         self
     }
 

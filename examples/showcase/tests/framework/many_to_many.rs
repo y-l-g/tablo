@@ -68,7 +68,7 @@ impl Resource for ShelfResource {
                 _ => true,
             })
             .table(Table::new(TextColumn::new(lens!(Shelf.name))))
-            .view(tablo::Detail::new(TextColumn::new(lens!(Shelf.name))))
+            .detail(tablo::Detail::new(TextColumn::new(lens!(Shelf.name))))
             .relation(Relation::belongs_to_many::<BookResource>(
                 Shelf::fields().books(),
             ))

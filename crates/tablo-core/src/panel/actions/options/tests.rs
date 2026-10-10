@@ -181,7 +181,7 @@ async fn option_load_loads_no_relation() {
                     _ => false,
                 })
                 .table(crate::table::Table::new(name_with_parent()))
-                .view(crate::Detail::new(name_with_parent()))
+                .detail(crate::Detail::new(name_with_parent()))
                 .record_title(lens!(Child.name))
         }
     }

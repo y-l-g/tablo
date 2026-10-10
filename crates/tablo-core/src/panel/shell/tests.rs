@@ -26,6 +26,7 @@ async fn shell_escapes_brand_name_and_logo() {
         target: NavTarget::Url("/admin/users".to_string()),
         order: 0,
         icon: None,
+        group: None,
     }];
     let cx_ref = &cx;
     let slot = view! { cx_ref => "hello" }.boxed().into();
@@ -159,12 +160,14 @@ async fn sidebar_orders_custom_items_by_sort_key() {
             target: NavTarget::Url("/admin/users".to_string()),
             order: 0,
             icon: None,
+            group: None,
         },
         NavigationItem {
             label: "Showcase".to_string(),
             target: NavTarget::Url("/admin/showcase".to_string()),
             order: -1,
             icon: None,
+            group: None,
         },
     ];
     let cx_ref = &cx;
@@ -204,6 +207,7 @@ async fn collapsed_sidebar_cookie_seeds_the_signal() {
         target: NavTarget::Url("/admin/users".to_string()),
         order: 0,
         icon: None,
+        group: None,
     }];
     let slot = view! { cx_ref => "hello" }.boxed().into();
     let html = Panel::render_shell(&cx, &nav_items, "/admin/users", slot, None)
@@ -263,6 +267,70 @@ async fn sidebar_marks_only_the_longest_matching_entry_active() {
             "{active_label} is active on {path}: {active:?}"
         );
     }
+}
+
+/// The ungrouped entries render first under the default label, then one labelled group per
+/// `group` in the order of its first entry; the active entry is found across groups.
+#[tokio::test]
+async fn sidebar_groups_entries_under_their_labels() {
+    use topcoat::{context::CxTestBuilder, view::view};
+
+    use crate::navigation::NavigationItem;
+
+    let mut settings = NavigationItem::at("Settings", "/admin/settings").group("System");
+    settings.order = -1;
+    let nav_items = vec![
+        NavigationItem::at("Posts", "/admin/posts").group("Content"),
+        NavigationItem::at("Users", "/admin/users"),
+        NavigationItem::at("Tags", "/admin/tags").group("Content"),
+        settings,
+    ];
+    let render = |nav_items: Vec<NavigationItem>| async move {
+        let (parts, ()) = http::Request::builder()
+            .uri("/admin/tags")
+            .body(())
+            .unwrap()
+            .into_parts();
+        let cx = CxTestBuilder::new().request_context(parts).build();
+        let cx_ref = &cx;
+        let slot = view! { cx_ref => "hello" }.boxed().into();
+        Panel::render_shell(&cx, &nav_items, "/admin/tags", slot, None)
+            .await
+            .html(&cx)
+            .await
+    };
+
+    let html = render(nav_items.clone()).await;
+    let at = |needle: &str| {
+        html.find(needle)
+            .unwrap_or_else(|| panic!("{needle} renders: {html}"))
+    };
+    let order = [
+        at(">Navigation<"),
+        at("title=\"Users\""),
+        at(">System<"),
+        at("title=\"Settings\""),
+        at(">Content<"),
+        at("title=\"Posts\""),
+        at("title=\"Tags\""),
+    ];
+    assert!(order.is_sorted(), "sections and entries in order: {html}");
+    assert_eq!(html.matches(">Content<").count(), 1, "one Content group");
+    let active = html.find("data-active=\"true\"").expect("an active entry");
+    assert!(
+        html[active..].find("title=\"Tags\"") < html[active..].find("</a>"),
+        "Tags is active: {html}"
+    );
+
+    let grouped = nav_items
+        .into_iter()
+        .filter(|item| item.group.is_some())
+        .collect();
+    let html = render(grouped).await;
+    assert!(
+        !html.contains(">Navigation<"),
+        "no empty default group: {html}"
+    );
 }
 
 /// A panel at `/admin` whose shell starts dark when `dark` is set.

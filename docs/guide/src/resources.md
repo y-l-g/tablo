@@ -14,7 +14,7 @@ The smallest resource lists rows and nothing else:
 A resource with create and edit pages names a `#[derive(RecordForm)]` struct as its `Form`. The
 derive lays out the rest from the struct's fields: a table column per field a column can show,
 one form control per field, and a detail page column per field. Set the def's `table`, `form` or
-`view` to arrange or extend one; see [Tables](./tables.md), [Forms](./forms.md) and
+`detail` to arrange or extend one; see [Tables](./tables.md), [Forms](./forms.md) and
 [Detail pages](./detail-pages.md).
 
 ## The definition
@@ -25,7 +25,7 @@ one form control per field, and a detail page column per field. Set the def's `t
 | --- | --- | --- |
 | `table(..)` | the record form's derived table | the list's columns, filters and options: [Tables](./tables.md) |
 | `form(..)` | every control, in declaration order | how the create and edit forms arrange the record form's controls: [Forms](./forms.md) |
-| `view(..)` | the record form's derived detail page | the detail page's columns; `Detail::empty()` turns the page off: [Detail pages](./detail-pages.md) |
+| `detail(..)` | the record form's derived detail page | the detail page's columns; `Detail::empty()` turns the page off: [Detail pages](./detail-pages.md) |
 | `record_title(lens!(..))` | the label and the record's key | the detail page's heading, each relationship option over the resource, which also searches the column, and a `RelationColumn::of` cell |
 | `public_link(..)` | none | the record's public page, linked from its detail and edit pages |
 | `relation(..)` | none | a related resource shown as a table on the detail and edit pages |
@@ -35,7 +35,7 @@ one form control per field, and a detail page column per field. Set the def's `t
 | `tenancy(..)` | `Tenancy::none()` | how rows belong to a tenant: [Policy, auth, tenancy](./policy-auth-tenancy.md#tenancy) |
 | `create_column(..)` | none | a column an overridden `create_record` sets itself, once per column |
 | `slug(..)`, `label(..)`, `plural_label(..)` | from the type names | URLs and titles: [Naming](#naming) |
-| `icon(..)`, `navigation_order(..)`, `navigation(..)` | the default entry | the sidebar entry: [Sidebar](./panel-and-routing.md#sidebar) |
+| `icon(..)`, `navigation_order(..)`, `navigation_group(..)`, `navigation(..)` | the default entry | the sidebar entry: [Sidebar](./panel-and-routing.md#sidebar) |
 
 The panel builds the def once when it mounts and serves that copy to every request.
 `Panel::resource_with` adjusts it for one panel, so the same resource can mount read-only in a
@@ -147,11 +147,11 @@ when nothing committed. An error it returns is logged; the write stays committed
 
 ## Startup checks
 
-Mounting the panel builds each resource's def once and binds its table, form and view to the
+Mounting the panel builds each resource's def once and binds its table, form and detail page to the
 database schema, so a path through an embedded value binds its flattened column wherever a
 declaration names one. It refuses the resource when:
 
-- its table, form or view is malformed: a duplicate column, filter or field name, a zero page
+- its table, form or detail page is malformed: a duplicate column, filter or field name, a zero page
   size, an empty column set (a resource whose derived table lists nothing declares its own
   `table`), or a lens that binds no column. Rendering such a table through `WiredTable::render`
   or such a schema through `Schema::render` fails with the same errors;
