@@ -58,7 +58,7 @@ fn panel_navigation_item_honours_override_order_with_prefix_adjusted_url() {
 /// A replaced entry keeps its own label and URL, and the def's icon and order
 /// still apply to it.
 #[test]
-fn replaced_navigation_item_takes_the_def_icon_and_order() {
+fn replaced_navigation_item_takes_the_def_icon_order_and_group() {
     struct DraftsResource;
     impl Resource for DraftsResource {
         type Model = Dummy;
@@ -68,6 +68,7 @@ fn replaced_navigation_item_takes_the_def_icon_and_order() {
             ResourceDef::new()
                 .icon(tablo_ui::icons::INFO)
                 .navigation_order(3)
+                .navigation_group("Content")
                 .navigation(NavigationItem::at("Drafts", "/admin/dummies?f.draft=1"))
                 .table(crate::table::Table::new(crate::table::TextColumn::new(
                     lens!(Dummy.name),
@@ -80,6 +81,7 @@ fn replaced_navigation_item_takes_the_def_icon_and_order() {
     assert_eq!(item.url(), Some("/admin/dummies?f.draft=1"));
     assert_eq!(item.order, 3);
     assert!(item.icon.is_some());
+    assert_eq!(item.group.as_deref(), Some("Content"));
 }
 
 #[test]

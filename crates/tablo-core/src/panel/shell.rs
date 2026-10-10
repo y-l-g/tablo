@@ -273,38 +273,64 @@ impl Panel {
             .min_by_key(|(_, item)| std::cmp::Reverse(item.url().map_or(0, str::len)))
             .map(|(index, _)| index);
 
+        // The ungrouped entries first, under the default label, then one labelled group per
+        // `group`, in the order of its first entry.
+        let mut sections: Vec<(String, Vec<(usize, NavigationItem)>)> =
+            vec![("Navigation".to_string(), Vec::new())];
+        for (index, item) in nav_items.into_iter().enumerate() {
+            let at = match &item.group {
+                None => Some(0),
+                Some(group) => sections
+                    .iter()
+                    .skip(1)
+                    .position(|(label, _)| label == group)
+                    .map(|at| at + 1),
+            };
+            match at {
+                Some(at) => sections[at].1.push((index, item)),
+                None => {
+                    sections.push((item.group.clone().unwrap_or_default(), vec![(index, item)]))
+                }
+            }
+        }
+        if sections.len() > 1 && sections[0].1.is_empty() {
+            sections.remove(0);
+        }
+
         Ok(view! {
             cx =>
-            sidebar_group(
-                sidebar_group_label("Navigation")
-                sidebar_group_content(
-                    sidebar_menu(
-                        for (index, item) in nav_items.iter().enumerate() {
-                            let is_active = active == Some(index);
-                            let attrs = sidebar_link(
-                                cx,
-                                attributes! {
-                                    // Tapping a link in the mobile sheet closes
-                                    // it; on desktop the navigation is the effect.
-                                    @click=$(|_e: Event| mobile_open.set(false))
-                                },
-                            );
-                            sidebar_menu_item(
-                                sidebar_menu_button(
-                                    active: is_active,
-                                    href: item.url(),
-                                    tooltip: Some(item.label.as_str()),
-                                    attrs: attrs,
-                                    if let Some(data) = item.icon.clone() {
-                                        icon(data: data)
-                                    }
-                                    <span>(item.label.clone())</span>
+            for (label, entries) in sections {
+                sidebar_group(
+                    sidebar_group_label((label))
+                    sidebar_group_content(
+                        sidebar_menu(
+                            for (index, item) in entries {
+                                let is_active = active == Some(index);
+                                let attrs = sidebar_link(
+                                    cx,
+                                    attributes! {
+                                        // Tapping a link in the mobile sheet closes
+                                        // it; on desktop the navigation is the effect.
+                                        @click=$(|_e: Event| mobile_open.set(false))
+                                    },
+                                );
+                                sidebar_menu_item(
+                                    sidebar_menu_button(
+                                        active: is_active,
+                                        href: item.url(),
+                                        tooltip: Some(item.label.as_str()),
+                                        attrs: attrs,
+                                        if let Some(data) = item.icon.clone() {
+                                            icon(data: data)
+                                        }
+                                        <span>(item.label.clone())</span>
+                                    )
                                 )
-                            )
-                        }
+                            }
+                        )
                     )
                 )
-            )
+            }
         }
         .boxed())
     }

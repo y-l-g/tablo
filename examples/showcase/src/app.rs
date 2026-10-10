@@ -117,6 +117,7 @@ impl Resource for AuthorResource {
         ResourceDef::new()
             .label("Writer")
             .icon(tablo::ui::icons::PEN_LINE)
+            .navigation_group("Blog")
             .policy(when(blog_open))
             .tenancy(Tenancy::column(lens!(Author.tenant_id)))
             .table(AuthorForm::table())
@@ -153,6 +154,7 @@ impl Resource for PostResource {
         ResourceDef::new()
             .label("Blog Post")
             .icon(tablo::ui::icons::FILE_TEXT)
+            .navigation_group("Blog")
             .policy(when(blog_open))
             .tenancy(Tenancy::column(lens!(Post.tenant_id)))
             .table(post_table())
@@ -399,6 +401,7 @@ impl Resource for CategoryResource {
         ResourceDef::new()
             .plural_label("Categories")
             .icon(tablo::ui::icons::TAG)
+            .navigation_group("Blog")
             .policy(when(blog_open))
             .tenancy(Tenancy::column(lens!(Category.tenant_id)))
             .record_title(lens!(Category.name))
@@ -427,6 +430,7 @@ impl Resource for CommentResource {
         ResourceDef::new()
             .plural_label("Comments")
             .icon(tablo::ui::icons::MESSAGE_SQUARE)
+            .navigation_group("Blog")
             // Hides removed comments.
             .policy(|_cx: &Cx, ability: Ability<'_, Comment>| match ability {
                 Ability::View(comment) => comment.body != REMOVED_COMMENT_BODY,
