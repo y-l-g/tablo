@@ -189,7 +189,7 @@ impl Resource for TaskResource {
                 .filters((Initial,)),
             )
             .form(Schema::new(TaskForm::controls().title.custom(Shouty)))
-            .view(Detail::new(TextColumn::new(lens!(Task.title))).column(Highlighted))
+            .detail(Detail::new(TextColumn::new(lens!(Task.title))).column(Highlighted))
             .action::<Complete>()
             .action::<Explode>()
     }

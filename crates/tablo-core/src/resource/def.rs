@@ -60,7 +60,7 @@ pub struct ResourceDef<R: Resource> {
     pub(crate) tenancy: Tenancy<R::Model>,
     pub(crate) table: Option<Table<R::Model>>,
     pub(crate) form: Option<Schema<R::Form>>,
-    pub(crate) view: Option<Detail<R::Model>>,
+    pub(crate) detail: Option<Detail<R::Model>>,
     pub(crate) record_title: Option<RecordTitle<R::Model>>,
     pub(crate) public_link: Option<PublicLinkFn<R::Model>>,
     pub(crate) relations: Vec<Relation<R::Model>>,
@@ -84,7 +84,7 @@ impl<R: Resource> Default for ResourceDef<R> {
             tenancy: Tenancy::none(),
             table: None,
             form: None,
-            view: None,
+            detail: None,
             record_title: None,
             public_link: None,
             relations: Vec::new(),
@@ -230,8 +230,8 @@ impl<R: Resource> ResourceDef<R> {
     ///
     /// [`RecordForm::detail`]: crate::RecordForm::detail
     #[must_use]
-    pub fn view(mut self, view: Detail<R::Model>) -> Self {
-        self.view = Some(view);
+    pub fn detail(mut self, detail: Detail<R::Model>) -> Self {
+        self.detail = Some(detail);
         self
     }
 

@@ -77,7 +77,7 @@ impl Resource for UserResource {
                 c.active,
                 c.age,
             ))))
-            .view(Detail::new(
+            .detail(Detail::new(
                 Section::new("Profile").columns(<UserForm as RecordForm>::detail()),
             ))
             .record_title(lens!(User.name))
@@ -124,7 +124,7 @@ impl Resource for AuthorResource {
             .form(Schema::new(
                 Section::new("Profile").schema((c.name, c.email.email())),
             ))
-            .view(Detail::new(
+            .detail(Detail::new(
                 Section::new("Profile").columns(<AuthorForm as RecordForm>::detail()),
             ))
             // Names the detail heading with the author's name.
@@ -159,7 +159,7 @@ impl Resource for PostResource {
             .tenancy(Tenancy::column(lens!(Post.tenant_id)))
             .table(post_table())
             .form(post_form())
-            .view(post_view())
+            .detail(post_detail())
             // Names the detail heading with the post title.
             .record_title(lens!(Post.title))
             // Links a published post's public page.
@@ -206,7 +206,7 @@ fn post_form() -> Schema<PostForm> {
 }
 
 /// The post detail page.
-fn post_view() -> Detail<Post> {
+fn post_detail() -> Detail<Post> {
     Detail::new((
         Section::new("Post").columns((
             TextColumn::new(lens!(Post.title)),
@@ -441,7 +441,7 @@ impl Resource for CommentResource {
                 TextColumn::new(lens!(Comment.body)).searchable().sortable(),
                 comment_post_column(),
             )))
-            .view(Detail::new(Section::new("Comment").columns((
+            .detail(Detail::new(Section::new("Comment").columns((
                 TextColumn::new(lens!(Comment.body)),
                 comment_post_column(),
             ))))

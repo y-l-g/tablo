@@ -484,15 +484,15 @@ pub trait RecordForm: Sized + Send + 'static {
     }
 
     /// The form's default detail page: one column per field a column can show, in declaration
-    /// order. A [`ResourceDef`](crate::ResourceDef) without a [`view`](crate::ResourceDef::view)
-    /// shows it.
+    /// order. A [`ResourceDef`](crate::ResourceDef) without a
+    /// [`detail`](crate::ResourceDef::detail) shows it.
     ///
     /// The derive shows each field [`table`](Self::table) lists, a relationship as the key it
     /// holds, a file field as a link, and an embedded value leaf by leaf (see
     /// [`RecordForm`](derive@crate::RecordForm)). A relation's record shows through a
     /// [`RelationColumn`](crate::RelationColumn), in a declared
-    /// [`view`](crate::ResourceDef::view). The default here shows none, which turns the detail page
-    /// off for a resource naming [`NoForm`].
+    /// [`detail`](crate::ResourceDef::detail). The default here shows none, which turns the detail
+    /// page off for a resource naming [`NoForm`].
     fn detail() -> Detail<Self::Model> {
         Detail::empty()
     }

@@ -85,7 +85,7 @@ impl fmt::Display for DeclarationError {
                 Site::Tenancy => f.write_str(" tenancy")?,
                 Site::Table => f.write_str(" table")?,
                 Site::Form => f.write_str(" form")?,
-                Site::View => f.write_str(" view")?,
+                Site::Detail => f.write_str(" detail")?,
                 Site::Relation(key) => write!(f, " relation `{key}`")?,
             }
             f.write_str(": ")?;
@@ -111,8 +111,8 @@ pub enum Site {
     Table,
     /// `ResourceDef::form`, checked against the record form.
     Form,
-    /// `ResourceDef::view`.
-    View,
+    /// `ResourceDef::detail`.
+    Detail,
     /// The `ResourceDef::relation` to the resource with this slug, or this type when the panel
     /// does not register it.
     Relation(String),

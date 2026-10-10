@@ -1,7 +1,7 @@
 # Detail pages
 
 A detail page shows one record, read-only, at `GET /admin/{slug}/{id}`. A resource declares it
-with `ResourceDef::view`: a `Detail` of the same columns a [table](./tables.md) lists, arranged in
+with `ResourceDef::detail`: a `Detail` of the same columns a [table](./tables.md) lists, arranged in
 `Section`, `Group` and `Grid` blocks, which the panel builds once when it mounts. Each column reads
 its value off the typed record, and declares the relations it reads:
 
@@ -16,15 +16,15 @@ impl Resource for PostResource {
 }
 ```
 
-A non-empty view adds a View action to each row. An empty one, `Detail::empty()`, turns the detail
+A non-empty detail adds a View action to each row. An empty one, `Detail::empty()`, turns the detail
 page off: the route answers 404 and no row links to it.
 
-## The default view
+## The default detail page
 
-Without `view`, the record form derives the detail page, as it derives the table: one column per
+Without `detail`, the record form derives the detail page, as it derives the table: one column per
 field, in declaration order, labelled from the field's name. The def's `form(..)` does not shape
 it: its sections, labels, options and relationships stay on the form, so a resource that arranges
-its form declares a `view` to show the same arrangement.
+its form declares a `detail` to show the same arrangement.
 
 - a text field shows its value, typed values included, in the type's own spelling (a timestamp
   as `2026-09-22T00:00:00Z`);
@@ -48,7 +48,7 @@ derives no column, so it has no detail page unless it declares one:
 The header carries the record's title, a link back to the list, the record's
 [actions placed on the detail page](./actions.md#on-a-records-pages) and its Delete, each as the
 policy allows them on this record, and an Edit link when the resource has a form and the policy
-allows `Update` of this record. Below it come the view's columns, then
+allows `Update` of this record. Below it come the detail's columns, then
 the [related tables](#related-tables).
 
 Each column renders its label over its cell, never a control. The built-in columns render as in a
@@ -69,7 +69,7 @@ than one value under one label overrides `entry`, which renders the label over t
 default; `EmbeddedColumn` overrides it to give each leaf its own label.
 
 **Loading.** The record loads through the resource's tenant-scoped `query`, plus every relation the
-view's columns declare, each once, wherever its block sits: a relation column declares its own, a
+detail's columns declare, each once, wherever its block sits: a relation column declares its own, a
 `ComputedColumn` declares one with `include`. No other relation loads: a `ComputedColumn` reading
 one it does not declare finds it unloaded. A page of the app's
 own renders a `Detail` the same way: `detail.render(cx, &record)` on a record loaded through
