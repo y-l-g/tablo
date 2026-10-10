@@ -14,6 +14,7 @@ which the list, form and detail pages follow. This table maps their names to Tab
 | `->paginated([..])` | `list_per_page` | `Table::paginate(n)` |
 | `->groups([..])` | — | `Table::group_by(lens)` |
 | `form()` | `ModelAdmin.form`, `fields` | `ResourceDef::form`: a `Schema` of the [record form](./forms.md)'s controls |
+| `make:filament-resource --generate` | `ModelForm` | `#[derive(ModelForm)]` on the model, which writes the [record form](./forms.md#a-form-from-the-model) |
 | form state | `cleaned_data` | the `#[derive(RecordForm)]` struct a submission parses into |
 | `Section`, `Grid`, `Group` | `fieldsets` | the `Section`, `Grid` and `Group` layout blocks |
 | `->required()`, `->nullable()` | `blank=True` | the record-form field's type: an `Option` or a blank answer makes it optional |

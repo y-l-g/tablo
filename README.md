@@ -68,8 +68,8 @@ fn router(db: toasty::Db) -> topcoat::Result<Router> {
 ```
 
 One router mounts several panels at distinct prefixes, each with its own resources, shell and
-login. To add create and edit pages, give the resource a `#[derive(RecordForm)]` struct as its
-`Form`, a `form()` schema, and a policy that allows `Create` and `Update`. The
+login. To add create and edit pages, derive `tablo::ModelForm` on the model, name the `UserForm` it
+writes as the resource's `Form`, and give it a policy that allows `Create` and `Update`. The
 [first panel](docs/guide/src/first-panel.md) chapter builds a complete app with forms and login.
 
 ## Documentation

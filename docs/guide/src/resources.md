@@ -11,8 +11,9 @@ The smallest resource lists rows and nothing else:
 {{#include ../../../examples/guide/src/resources.rs:audit-resource}}
 ```
 
-A resource with create and edit pages names a `#[derive(RecordForm)]` struct as its `Form`. The
-derive lays out the rest from the struct's fields: a table column per field a column can show,
+A resource with create and edit pages names a [record form](./forms.md) as its `Form`: the one
+`#[derive(ModelForm)]` writes for the model, or a `#[derive(RecordForm)]` struct. The record form
+lays out the rest from its fields: a table column per field a column can show,
 one form control per field, and a detail page column per field. Set the def's `table`, `form` or
 `detail` to arrange or extend one; see [Tables](./tables.md), [Forms](./forms.md) and
 [Detail pages](./detail-pages.md).

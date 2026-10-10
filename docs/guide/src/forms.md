@@ -58,6 +58,27 @@ When the policy allows `Create`, mounting the panel refuses the resource unless 
 non-nullable column is filled by the form, by Toasty, by the tenant stamp, or by an overridden
 `create_record` whose def names it with `create_column`.
 
+## A form from the model
+
+When the record form is the model's fields a person fills, derive `tablo::ModelForm` on the model
+and it writes the struct, named after the model:
+
+```rust
+{{#include ../../../examples/guide/src/forms.rs:forms-model-form}}
+```
+
+`NoteForm` holds `title` and `body`, with `NoteFormField` and `NoteFormControls` beside it, and
+a field's `#[form(..)]` keys are the record form's. The derive leaves out what no person fills: a
+`#[key]`, `#[auto]`, `#[update]` or `#[version]` field, a relation, and a `TenantId` tenant column;
+a form key on one is a compile error. A `#[default(..)]` field and a foreign key are left out
+unless a form key opts them in, such as `#[form(repeat)]` on a defaulted list or
+`#[form(relationship = AuthorResource)]` on `author_id`. `#[form(skip)]` leaves out any other
+field, and `#[form(name = NoteEditor)]` on the model renames the struct.
+
+A form whose fields differ from the model's, such as a [many-to-many field](#many-to-many-fields)
+or a form that keeps its control choices out of the model, is a `#[derive(RecordForm)]` struct:
+move the field keys onto it and drop the derive from the model.
+
 ## Controls
 
 The derive picks each field's control from the field: a `bool` is a toggle, `#[form(options)]` a
