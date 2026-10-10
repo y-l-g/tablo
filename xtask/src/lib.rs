@@ -92,16 +92,24 @@ pub fn primitives_dir() -> PathBuf {
 }
 
 /// Whether `file` delimits `anchor` with an `ANCHOR`/`ANCHOR_END` marker
-/// pair. Both markers must name the anchor exactly: a renamed opener would
-/// otherwise prefix-match and render empty without failing the book build.
+/// pair, in a Rust (`//`) or TOML (`#`) comment. Both markers must name the
+/// anchor exactly: a renamed opener would otherwise prefix-match and render
+/// empty without failing the book build.
 fn has_anchor(file: &str, anchor: &str) -> bool {
     let (mut open, mut close) = (false, false);
     for line in file.lines() {
-        let line = line.trim();
-        if *line == format!("// ANCHOR: {anchor}") {
+        let Some(marker) = line
+            .trim()
+            .strip_prefix("//")
+            .or_else(|| line.trim().strip_prefix('#'))
+        else {
+            continue;
+        };
+        let marker = marker.trim();
+        if *marker == format!("ANCHOR: {anchor}") {
             open = true;
         }
-        if *line == format!("// ANCHOR_END: {anchor}") {
+        if *marker == format!("ANCHOR_END: {anchor}") {
             close = true;
         }
     }
