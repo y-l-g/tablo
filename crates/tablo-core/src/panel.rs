@@ -257,7 +257,7 @@ impl Panel {
     }
 
     /// Declares the panel's home page at the panel prefix, replacing the redirect to the first
-    /// resource's list.
+    /// resource's list. The page mounts with its def as [`Page::declare`] returns it.
     pub fn home<P: Page>(mut self) -> Self {
         self.registrations.push(Box::new(PageRegistration::<P> {
             home: true,

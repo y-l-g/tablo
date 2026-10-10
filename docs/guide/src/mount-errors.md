@@ -55,6 +55,7 @@ A test matches on the kind rather than the message; see
 | Kind | Refused when | Fix |
 | --- | --- | --- |
 | `DuplicateResource` | one resource type is registered twice on a panel | register it once; mount a variant under its own type |
+| `DuplicatePage` | one page type is registered twice on a panel, as `home` or `page` | register it once; mount a variant under its own type |
 | `SecondHome` | `Panel::home` is called twice | keep one home page; register the other with `page` |
 | `ReservedSlug` | a slug is `login`, `logout`, `register` or `-`, which the panel routes itself | rename it with `ResourceDef::slug` or `PageDef::slug` |
 | `DuplicateSlug` | two resources or pages share a slug | give each a distinct slug |

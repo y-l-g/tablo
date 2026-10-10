@@ -269,6 +269,8 @@ pub enum DeclarationErrorKind {
     SecondHome,
     /// The resource is registered on the panel twice.
     DuplicateResource,
+    /// The page is registered on the panel twice, `Panel::home` included.
+    DuplicatePage,
     /// The resource is not mounted on the context's panel.
     NotMounted,
     /// A slug naming a route the panel serves itself.
@@ -546,6 +548,10 @@ impl fmt::Display for DeclarationErrorKind {
             Self::DuplicateResource => f.write_str(
                 "registered twice: a panel mounts each resource type once, so mount a variant \
                  under its own type",
+            ),
+            Self::DuplicatePage => f.write_str(
+                "registered twice: a panel mounts each page type once, so mount a variant under \
+                 its own type",
             ),
             Self::NotMounted => f.write_str(
                 "not mounted on the context's panel: register it with `Panel::resource`",

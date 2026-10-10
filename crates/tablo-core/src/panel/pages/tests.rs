@@ -204,6 +204,73 @@ fn a_second_home_page_does_not_build() {
     );
 }
 
+/// A page type mounts once per panel, as home or page: two registrations would serve one def.
+#[test]
+fn a_page_registered_twice_does_not_build() {
+    let duplicate = DeclarationError::of::<ReportsPage>(
+        Site::Registration,
+        DeclarationErrorKind::DuplicatePage,
+    );
+    let errors = refusal(mount_without_db(
+        Panel::new("admin")
+            .page::<ReportsPage>()
+            .page_with::<ReportsPage>(|def| def.slug("figures")),
+    ));
+    assert_eq!(errors[0], duplicate);
+    let errors = refusal(mount_without_db(
+        Panel::new("admin")
+            .home::<ReportsPage>()
+            .page::<ReportsPage>(),
+    ));
+    assert_eq!(errors[0], duplicate);
+}
+
+/// `can_open` answers what the page's `GET` would: the request's panel mounts the page and its
+/// access admits the request.
+#[tokio::test]
+async fn can_open_answers_for_the_requests_panel() {
+    struct ClosedPage;
+    impl Page for ClosedPage {
+        fn declare() -> PageDef {
+            PageDef::new().access(|_| false)
+        }
+
+        async fn render(cx: &Cx) -> Result<impl View> {
+            Ok(view! { cx => "closed" })
+        }
+    }
+
+    struct Probe;
+    impl Page for Probe {
+        async fn render(cx: &Cx) -> Result<impl View> {
+            let answers = format!(
+                "reports={} closed={}",
+                crate::can_open::<ReportsPage>(cx),
+                crate::can_open::<ClosedPage>(cx),
+            );
+            Ok(view! { cx => <p>(answers)</p> })
+        }
+    }
+
+    let panel = |prefix: &str| {
+        Panel::new(prefix)
+            .auth(crate::Auth::disabled())
+            .resource::<DummyResource>()
+            .home::<Probe>()
+    };
+    let admin = mount(
+        db().await,
+        panel("admin").page::<ReportsPage>().page::<ClosedPage>(),
+    )
+    .expect("the admin builds");
+    let (_, html) = get(&admin, "/admin").await;
+    assert!(html.contains("reports=true closed=false"), "{html}");
+
+    let portal = mount(db().await, panel("portal")).expect("the portal builds");
+    let (_, html) = get(&portal, "/portal").await;
+    assert!(html.contains("reports=false closed=false"), "{html}");
+}
+
 /// The panel routes `{prefix}/login` and `{prefix}/logout` itself: a page
 /// named after either is a registration error, not a duplicate-route panic
 /// inside the router build.

@@ -94,7 +94,7 @@ already rewritten to a `GET`.
 The builder calls never fail; `.panel(..)` returns a `MountError` listing every mistake
 instead. It refuses a router with no `Db`, a `Db` missing the shipped auth models, two resources or pages
 with one slug, a slug the panel routes itself
-(`login`, `logout`, `register`, and `-`, which leads the home page's action routes), a slug that is not a single URL segment, a second home page, `shell_assets`
+(`login`, `logout`, `register`, and `-`, which leads the home page's action routes), a slug that is not a single URL segment, a second home page, one page type registered twice, `shell_assets`
 on a router with no asset bundle, a prefix that overlaps another panel's or Topcoat's
 `/_topcoat/runtime`, and every resource declaration check described in
 [Resources](./resources.md#startup-checks).
@@ -198,7 +198,8 @@ use topcoat::{Result, context::Cx, view::{View, view}};
   labelled "Media library". `PageDef::slug` and `PageDef::label` change them. Pages and
   resources share one slug namespace.
 - **The home page.** `Panel::home::<P>()` mounts a page at the prefix itself instead of the
-  redirect to the first resource. A panel has at most one; a second fails `.panel(..)`.
+  redirect to the first resource, with its def as `declare` returns it. A panel has at most one;
+  a second fails `.panel(..)`, as does registering one page type twice.
 - **Access.** With authentication on, the page renders only for a signed-in user with panel access,
   inside the shell layout. `PageDef::access(|cx| …)` narrows that: when it answers `false`
   the page answers 403 and leaves the sidebar. It is synchronous, like a policy, and reads the

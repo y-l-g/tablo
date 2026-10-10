@@ -34,9 +34,9 @@ use crate::{
 /// Panel::new("admin").page::<ReportsPage>(); // GET /admin/reports
 /// ```
 ///
-/// A page serves one `GET` with a sidebar entry; a form it renders posts to an
-/// app-declared route the auth gate covers. [`PageDef::access`] limits both to
-/// the users it admits.
+/// A page serves one `GET` with a sidebar entry, which [`PageDef::access`] limits
+/// to the users it admits. A form it renders posts to an app-declared route the
+/// auth gate covers; that route asks [`can_open`](crate::can_open) itself.
 pub trait Page: Sized + Send + Sync + 'static {
     /// The page's slug, sidebar entry, access and header actions. Defaults to
     /// [`PageDef::new`]: every default.

@@ -398,6 +398,13 @@ fn list_actions_route(url: &str) -> String {
 
 impl<P: Page> Registration for PageRegistration<P> {
     fn register(self: Box<Self>, registry: &mut Registry) {
+        if registry.mounted_pages.contains_key(&TypeId::of::<P>()) {
+            registry.errors.push(DeclarationError::of::<P>(
+                Site::Registration,
+                DeclarationErrorKind::DuplicatePage,
+            ));
+            return;
+        }
         let Self {
             home, customize, ..
         } = *self;

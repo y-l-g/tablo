@@ -18,8 +18,9 @@ another.
 
 An action keeps its settings on its trait: `NAME` is a constant, checked at compile time as a URL
 segment and matched by `Ability::is_action`, so a def would split the action's settings between a
-constant and a value. A panel revokes an action through the policy it mounts, not by editing the
-action.
+constant and a value. A panel revokes a resource's action through the policy it mounts, not by editing
+the action. A page has no policy: `page_with` adds header actions or narrows the page's access,
+and does not remove an action the page declares.
 
 ## Rejected
 
