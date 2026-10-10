@@ -1,5 +1,5 @@
 //! What Tablo reads off a model's schema: its fields, their columns, its indices and relations
-//! (upstream #183).
+//! (tablo#183).
 //!
 //! Toasty exposes a model's schema only as its internal `app`, `mapping` and `db` structures. This
 //! module is the one reader of them, and answers in Tablo's own terms: [`FieldInfo`],
@@ -107,7 +107,7 @@ pub(crate) struct FieldInfo {
     /// scope, so it enforces the constraint only when that scope matches the index's remaining
     /// components. An index with components outside the scope stays a gap, and it is not
     /// checkable here because a query's filters are not introspectable; see `Resource::query`'s
-    /// note and upstream #117.
+    /// note and tablo#117.
     ///
     /// The primary key is excluded: a key column is unique by construction, not by a declared
     /// constraint. This reports declared schema uniqueness, not a global guarantee: SQL permits
@@ -527,7 +527,7 @@ fn app_field_at<'a>(
         app::Model::EmbeddedStruct(e) => app_field_at(schema, &e.fields, rest),
         // An enum nested in the parent path consumes two steps per level: the variant index, then
         // a variant-local field index. `variant_fields` returns the variant's own slice of the
-        // enum's global field list (upstream 7ff180db), so the second step indexes it directly —
+        // enum's global field list, so the second step indexes it directly —
         // the generated accessor's index is variant-local, which is the same field either way.
         //
         // The variant step is bounds-checked here first: `variant_fields` indexes `variants[i]`

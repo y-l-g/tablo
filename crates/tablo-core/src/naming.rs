@@ -140,9 +140,8 @@ pub(crate) fn kebab_case(name: &str) -> String {
 ///
 /// Sentence case, with the underscores a Rust column name carries read as
 /// spaces: `word_count` is "Word count", not "Word_count". A label is the one
-/// place a column name becomes prose, so it should not leak the identifier
-/// (`Media_poster_url`, #192). An explicit
-/// [`.label(..)`](crate::schema::TextField::label) still wins.
+/// place a column name becomes prose, so it should not leak the identifier. An
+/// explicit [`.label(..)`](crate::schema::TextField::label) still wins.
 pub(crate) fn capitalize(s: &str) -> String {
     let spaced = s.replace('_', " ");
     let mut c = spaced.chars();

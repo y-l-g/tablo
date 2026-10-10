@@ -374,8 +374,8 @@ async fn a_toggle_submits_false_when_unchecked_and_true_when_checked() {
 
     // The hidden `false` comes first, so a checked box's `true` posts after
     // it and wins. The vendored checkbox wraps its input, so the assertions
-    // read the input tag, whose attributes render in no guaranteed order
-    // (topcoat#122). A checked box carries `checked=""`.
+    // read the input tag, whose attributes render in no guaranteed order.
+    // A checked box carries `checked=""`.
     let hidden = "<input type=\"hidden\" name=\"done\" value=\"false\">";
     let html = body_string(get(&router, &format!("/admin/tasks/{}/edit", task.id)).await).await;
     let checkbox = checkbox_after(&html, hidden);

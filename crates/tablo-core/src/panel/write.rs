@@ -67,7 +67,7 @@ pub(crate) async fn commit_then<'a, T, F: Future<Output = ()>>(
         // log through the opaque mapping, and an app-authored error keeps its
         // own. On a create or update this includes a unique violation that
         // slipped past the app-side check (a concurrent write): Toasty exposes
-        // no unique-violation predicate (upstream gap #117), so it cannot be
+        // no unique-violation predicate (tablo#117), so it cannot be
         // classified as an inline field error here.
         Err(error) => {
             notify_write_failure(cx, failure);

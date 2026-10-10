@@ -399,7 +399,7 @@ impl<M> Table<M> {
         Some(exprs.fold(first, |acc, e| acc.or(e)))
     }
 
-    /// First sortable column's order_by (tokio-rs/toasty#1142).
+    /// The first sortable column's order-by.
     pub(crate) fn order_by(&self, descending: bool) -> Option<OrderByExpr>
     where
         M: toasty::schema::Model,

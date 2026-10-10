@@ -578,7 +578,7 @@ fn fnv1a_32(s: &str) -> u32 {
     hash
 }
 
-/// Stable DOM id for a table row: Topcoat's morph (#392) follows
+/// Stable DOM id for a table row: Topcoat's morph (topcoat#392) follows
 /// elements by `id` across reruns, so reorderable row content needs one in
 /// addition to the keyed-diff `key:`. Derived from the row key (stable for
 /// the record, unlike a loop index), sanitized to an HTML-safe token plus a

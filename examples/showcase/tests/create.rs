@@ -66,8 +66,8 @@ async fn create_invalid_submission_rerenders_with_inline_errors() {
     );
 }
 
-/// A valid submission is a Post/Redirect/Get with one-time flash semantics
-/// (#126): 303, clean Location, the toast on the flash cookie, and the
+/// A valid submission is a Post/Redirect/Get with one-time flash semantics:
+/// 303, clean Location, the toast on the flash cookie, and the
 /// follow-up response consuming it.
 #[tokio::test]
 async fn create_valid_redirects_with_a_one_time_flash() {

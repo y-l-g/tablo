@@ -1,8 +1,7 @@
 use super::*;
 
-/// One boolean vocabulary for framework form flags: `1` and
-/// `true` are truthy everywhere (`confirm`, `clear_<field>`); `yes` was a
-/// delete-only extra and is gone.
+/// One boolean vocabulary for framework form flags: `1` and `true` are truthy everywhere
+/// (`confirm`, `clear_<field>`), and nothing else is.
 #[test]
 fn truthy_accepts_one_vocabulary() {
     assert!(truthy("1") && truthy("true"));

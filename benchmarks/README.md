@@ -3,7 +3,7 @@
 Measures the list path: 50 posts with their `author` and `comments` includes, tenancy set, the
 `ViewAny` check enforced, rendered to HTML. `benchmarks/tablo` declares the models and resources
 and seeds in-memory SQLite. The budget is under 40 ms p50 on SQLite; it is printed for reference
-and never gated (GH #171). CI builds and lints the harness but does not run it.
+and never gated. CI builds and lints the harness but does not run it.
 
 ```sh
 # In-process bench, no server:

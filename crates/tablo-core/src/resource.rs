@@ -119,7 +119,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// probe misses the colliding row and the user gets a 500 instead of the
     /// inline "has already been taken". Scope the constraint to match —
     /// `#[unique(tenant_id, email)]`. Not checkable at declaration time, since
-    /// a query's filters are not introspectable; upstream #117 is the fix.
+    /// a query's filters are not introspectable; tablo#117 tracks the fix.
     fn query(_cx: &Cx) -> toasty::stmt::Query<List<Self::Model>> {
         toasty::stmt::Query::<List<Self::Model>>::all()
     }
@@ -168,7 +168,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
         write_update::<Self>(cx, record, posted, ex)
     }
 
-    /// Delete the already-authorized `record` (#86).
+    /// Delete the already-authorized `record`.
     ///
     /// The handler loads `record` through the tenancy-scoped query inside the
     /// framework transaction and checks the policy on that snapshot, then

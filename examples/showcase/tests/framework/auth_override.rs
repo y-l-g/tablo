@@ -1,4 +1,4 @@
-//! The override seam, proven end to end (spec #127, ticket #132).
+//! The override seam, proven end to end.
 
 use http::header::{COOKIE, LOCATION, SET_COOKIE};
 use tablo::{

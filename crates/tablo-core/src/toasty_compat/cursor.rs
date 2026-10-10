@@ -59,7 +59,7 @@ pub(crate) fn rejected(error: &topcoat::Error) -> topcoat::Error {
 ///
 /// # Errors
 ///
-/// Fails malformed or over-deep tokens as cursor errors so the retry link drops them (#98).
+/// Fails malformed or over-deep tokens as cursor errors so the retry link drops them.
 pub(crate) fn decode(token: &str) -> Result<Value> {
     let payload = hex_decode(token)?;
     let mut buf = &payload[..];

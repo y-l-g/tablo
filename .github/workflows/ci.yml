@@ -176,7 +176,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      # Workspace fmt uses the pinned nightly: rustfmt.toml keys are nightly-only (GH #269).
+      # Workspace fmt uses the pinned nightly: rustfmt.toml keys are nightly-only.
       - run: rustup update stable && rustup default stable
       - run: rustup toolchain install nightly-2026-08-24 --profile minimal --component rustfmt
       - uses: Swatinem/rust-cache@v2

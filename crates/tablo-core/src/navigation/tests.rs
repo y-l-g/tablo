@@ -52,8 +52,7 @@ fn derived_targets_resolve_against_the_owning_panel() {
         Some("/backoffice/users")
     );
 
-    // Explicit URLs survive verbatim — including `/admin/users`, which the
-    // old origin-mount heuristic could not tell from a derived default.
+    // Explicit URLs survive verbatim, including `/admin/users`, which matches a derived default.
     for url in [
         "/admin/users",
         "/admin/posts?f.status=draft",

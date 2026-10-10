@@ -818,7 +818,7 @@ pub(crate) fn render_field<'a>(
 mod test_support {
     pub(super) use crate::test_support::{DummyUser, cx};
 
-    /// The opening tag carrying `needle` (attributes render unordered, topcoat#122).
+    /// The opening tag carrying `needle` (Topcoat renders attributes in no fixed order).
     pub(super) fn tag_with<'h>(html: &'h str, needle: &str) -> &'h str {
         let at = html
             .find(needle)
@@ -826,7 +826,7 @@ mod test_support {
         opening_tag_at(html, html[..at].rfind('<').expect("its opening tag"))
     }
 
-    /// Slices the opening tag at `start`, honouring quoting (topcoat#122).
+    /// Slices the opening tag at `start`, honouring quoting.
     pub(super) fn opening_tag_at(html: &str, start: usize) -> &str {
         let mut quoted = false;
         for (offset, byte) in html.as_bytes()[start..].iter().enumerate() {

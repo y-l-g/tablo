@@ -4,11 +4,11 @@
 //! schema; `tests/layers.rs` refuses either anywhere else. An item that fills an upstream gap
 //! names it, and retires when Toasty closes that gap.
 //!
-//! - [`cursor`]: a pagination cursor's value as a URL token (upstream #398).
+//! - [`cursor`]: a pagination cursor's value as a URL token (tablo#398).
 //! - [`join`]: a many-to-many relation's links, written as its join model's rows (Toasty writes no
 //!   multi-step `via`).
 //! - [`model`]: a model's fields, columns, indices and relations, and an embedded path's column
-//!   (upstream #183).
+//!   (tablo#183).
 //! - [`pk`]: the primary key read off an instance and spelled as a URL id that parses back into a
 //!   predicate through `toasty_core`'s untyped expressions.
 //! - [`value_text`]: a value's text, for URL ids and enum discriminants.

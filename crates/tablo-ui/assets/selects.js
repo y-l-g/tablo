@@ -52,7 +52,7 @@
 //
 // A script rather than Topcoat handlers: fetching options as the user types,
 // or when a parent field changes, would otherwise rerun the page, and a rerun
-// clears the fields the user has typed into (tokio-rs/topcoat#504).
+// clears the fields the user has typed into (topcoat#504).
 
 const serverTimers = new WeakMap();
 const serverControllers = new WeakMap();

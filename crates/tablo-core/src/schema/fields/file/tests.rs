@@ -12,7 +12,7 @@ use crate::{
 };
 
 /// The opening `<input …>` tag around the file control, so assertions do
-/// not have to care about attribute order (topcoat#122).
+/// not have to care about attribute order.
 fn file_input_tag(html: &str) -> String {
     let at = html.find("type=\"file\"").expect("a file input");
     let start = html[..at].rfind("<input").expect("its opening tag");

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Tablo bench — oha + in-process honest bench for the Tablo list
-# (50 rows, 2 includes, real list path with tenancy + policy, GH #171).
+# (50 rows, 2 includes, real list path with tenancy + policy).
 # Mirrors tokio-rs/topcoat/benchmarks/scripts/bench.sh methodology
 # (loopback HTTP/1.1, oha) for the Tablo target only.
 #
-# UNGATED (GH #171): the in-process leg collects numbers, it does not gate —
+# Ungated: the in-process leg collects numbers, it does not gate —
 # no PASS/FAIL on timings. The oha p50 print below is informational too.
 # Postgres leg: set TABLO_BENCH_POSTGRES_URL (disposable bench database)
 # and the in-process run covers it alongside SQLite; otherwise SQLite only.
@@ -83,7 +83,7 @@ run_oha() {
     # oha reports p50 in seconds (float); convert to ms
     local p50ms
     p50ms=$(awk "BEGIN {print $p50*1000}")
-    printf "bench.sh: p50 %.2fms (budget <40ms, reference only — UNGATED per GH #171)\n" "$p50ms"
+    printf "bench.sh: p50 %.2fms (budget <40ms, reference only)\n" "$p50ms"
   fi
 }
 
@@ -155,7 +155,7 @@ done
     cat "$RESULTS_DIR"/tablo_bench.txt 2>/dev/null || echo "no bench.txt"
   fi
   echo ""
-  echo "Budget: Tablo list (50 rows, 2 includes) <40ms p50 — reference only, UNGATED per GH #171 (numbers first, gate follows)."
+  echo "Budget: Tablo list (50 rows, 2 includes) <40ms p50, reference only."
 } | tee "$RESULTS_DIR/results.md"
 
 echo "bench.sh: done -> $RESULTS_DIR/results.md"
