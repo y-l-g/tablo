@@ -218,7 +218,7 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
     let html = String::from_utf8_lossy(&body);
     assert_eq!(
         field_error(&html, "word_count"),
-        Some(tablo::testing::FieldErrorKind::Invalid),
+        Some(tablo::testing::ErrorKind::Invalid),
         "the field carries the parse error inline: {html}"
     );
     assert_eq!(

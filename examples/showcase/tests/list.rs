@@ -408,6 +408,10 @@ async fn tampered_cursor_shows_in_region_error_with_retry() {
         "retry must target the bare list: {html}"
     );
     assert!(
+        find_href_with(&html, "after=").is_none(),
+        "a malformed cursor travels into no link, retry, export or back: {html}"
+    );
+    assert!(
         html.contains("data-sidebar"),
         "shell must survive the failed load: {html}"
     );

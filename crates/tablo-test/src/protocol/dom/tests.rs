@@ -54,9 +54,9 @@ fn row_actions_finds_by_key() {
 fn field_error_reads_the_error_slot() {
     let html = r#"<div class="ac-field ac-field--error"><input name="name" aria-invalid="true" aria-describedby="name-error"><div id="name-error" class="ac-error" data-error="required">Name is required</div></div>
 <div id="age-error" data-error="invalid">Age is at most 10</div><div id="tag-error" data-error="unavailable">Tag is not available</div>"#;
-    assert_eq!(field_error(html, "name"), Some(FieldErrorKind::Required));
-    assert_eq!(field_error(html, "age"), Some(FieldErrorKind::Invalid));
-    assert_eq!(field_error(html, "tag"), Some(FieldErrorKind::Unavailable));
+    assert_eq!(field_error(html, "name"), Some(ErrorKind::Required));
+    assert_eq!(field_error(html, "age"), Some(ErrorKind::Invalid));
+    assert_eq!(field_error(html, "tag"), Some(ErrorKind::Unavailable));
     assert_eq!(field_error(html, "email"), None);
     assert_eq!(
         field_error_message(html, "age").as_deref(),

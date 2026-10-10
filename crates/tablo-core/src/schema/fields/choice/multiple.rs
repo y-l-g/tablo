@@ -44,7 +44,9 @@ impl Field {
                 }
             }
         }
+        // A denied choice reads unavailable whatever refused the submission.
         let (error, error_kind) = match error {
+            Some(error) if denied => (Some(error.message(&label)), Some(super::super::UNAVAILABLE)),
             Some(error) => (
                 Some(error.message(&label)),
                 Some(super::super::error_kind(error)),

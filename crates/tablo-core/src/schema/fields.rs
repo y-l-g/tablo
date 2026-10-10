@@ -707,8 +707,9 @@ pub(crate) fn error_kind(error: &FieldError) -> &'static str {
 pub(crate) const UNAVAILABLE: &str = "unavailable";
 
 impl FieldChrome {
-    /// The chrome of the control labelled `label`, refused with `error`, or showing `fallback`
-    /// as unavailable when nothing refused it.
+    /// The chrome of the control labelled `label`, refused with `error`. `fallback` is the
+    /// message of a choice whose options the user may not read: its slot reads unavailable
+    /// whatever refused the submission, and shows `fallback` when nothing did.
     pub(crate) fn new(
         id: String,
         error: Option<&FieldError>,
@@ -717,9 +718,9 @@ impl FieldChrome {
     ) -> Self {
         let message = error.map(|error| error.message(label));
         let (error_text, error_kind) = match (message, fallback) {
-            (Some(message), _) if !message.is_empty() => (message, error.map(error_kind)),
-            (_, Some(fallback)) => (fallback, Some(UNAVAILABLE)),
+            (Some(message), Some(_)) if !message.is_empty() => (message, Some(UNAVAILABLE)),
             (Some(message), None) => (message, error.map(error_kind)),
+            (_, Some(fallback)) => (fallback, Some(UNAVAILABLE)),
             (None, None) => (String::new(), None),
         };
         Self {

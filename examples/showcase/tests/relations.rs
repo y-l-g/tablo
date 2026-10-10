@@ -43,7 +43,7 @@ async fn posts_create_empty_author_shows_required_error() {
     );
     assert_eq!(
         tablo::testing::field_error(&html, "author_id"),
-        Some(tablo::testing::FieldErrorKind::Required),
+        Some(tablo::testing::ErrorKind::Required),
         "the author slot names its refusal, got {html}"
     );
     assert_eq!(
@@ -71,7 +71,7 @@ async fn posts_create_invalid_author_shows_invalid_error() {
     assert!(status.is_success(), "invalid should be 200 {}", html);
     assert_eq!(
         tablo::testing::field_error(&html, "author_id"),
-        Some(tablo::testing::FieldErrorKind::Invalid),
+        Some(tablo::testing::ErrorKind::Invalid),
         "the author slot names its refusal, got {html}"
     );
     assert_eq!(
@@ -851,7 +851,7 @@ async fn comments_refuse_another_tenants_post() {
     let html = body_string(created).await;
     assert_eq!(
         tablo::testing::field_error(&html, "post_id"),
-        Some(tablo::testing::FieldErrorKind::Invalid),
+        Some(tablo::testing::ErrorKind::Invalid),
         "the post field names the refusal: {html}"
     );
 
@@ -865,7 +865,7 @@ async fn comments_refuse_another_tenants_post() {
     let html = body_string(edited).await;
     assert_eq!(
         tablo::testing::field_error(&html, "post_id"),
-        Some(tablo::testing::FieldErrorKind::Invalid),
+        Some(tablo::testing::ErrorKind::Invalid),
         "the post field names the refusal: {html}"
     );
 

@@ -146,7 +146,7 @@ pub fn row_actions(html: &str, key: &str) -> Option<RowActions> {
 /// Why a field renders an error, as its error slot's `data-error` names it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
-pub enum FieldErrorKind {
+pub enum ErrorKind {
     /// Posted empty, and the field has no blank answer.
     Required,
     /// Posted a value the field, the resource's validation or the uploader refused.
@@ -157,14 +157,20 @@ pub enum FieldErrorKind {
 
 /// Why the field posting `name` was refused, or `None` when it renders no error.
 ///
+/// # Panics
+///
+/// When the slot names no kind this version knows: a renderer that drops `data-error` would
+/// otherwise read as any refusal.
+///
 /// Assert on the kind rather than the sentence, which is wording; [`field_error_message`] reads
 /// the sentence for a test whose subject is an app's own message.
-pub fn field_error(html: &str, name: &str) -> Option<FieldErrorKind> {
+pub fn field_error(html: &str, name: &str) -> Option<ErrorKind> {
     let (attrs, _) = error_slot(html, name)?;
     Some(match attr_value(&attrs, "data-error").as_deref() {
-        Some("required") => FieldErrorKind::Required,
-        Some("unavailable") => FieldErrorKind::Unavailable,
-        _ => FieldErrorKind::Invalid,
+        Some("required") => ErrorKind::Required,
+        Some("invalid") => ErrorKind::Invalid,
+        Some("unavailable") => ErrorKind::Unavailable,
+        other => panic!("the error slot of `{name}` names no known kind: {other:?}"),
     })
 }
 

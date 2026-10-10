@@ -240,3 +240,42 @@ fn a_condition_reads_a_disabled_fields_default() {
     assert_eq!(input.get("coupon").map(String::as_str), Some("SAVE"));
     assert_eq!(input.get("referral"), None, "hidden by the default");
 }
+
+/// The error slot names why the control was refused, for the single and the multiple controls
+/// alike, so a test reads the kind rather than the sentence.
+#[tokio::test]
+async fn the_error_slot_names_the_refusal_kind() {
+    use crate::{
+        form::{FieldError, FieldErrors},
+        schema::Source,
+        test_support::Html as _,
+    };
+
+    let cx = test_support::cx();
+    let values = HashMap::new();
+    for (error, kind) in [
+        (FieldError::required("name"), "required"),
+        (FieldError::invalid("name", "Name is wrong"), "invalid"),
+    ] {
+        let mut errors = FieldErrors::new();
+        errors.push(error);
+        for schema in [
+            Schema::new(Field::text(DummyUser::fields().name())),
+            Schema::new(
+                Field::choice(DummyUser::fields().name())
+                    .options(["a"])
+                    .multiple(),
+            ),
+        ] {
+            let html = schema
+                .render(&cx, Source::form(&values, &errors))
+                .await
+                .html(&cx)
+                .await;
+            assert!(
+                html.contains(&format!("data-error=\"{kind}\"")),
+                "{kind}: {html}"
+            );
+        }
+    }
+}

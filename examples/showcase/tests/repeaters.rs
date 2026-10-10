@@ -122,7 +122,7 @@ async fn a_refused_row_renders_its_error_on_its_own_control_and_writes_nothing()
     // The rows render again in the posted order, numbered from 0.
     assert_eq!(
         tablo::testing::field_error(&html, "links.1.url"),
-        Some(tablo::testing::FieldErrorKind::Required),
+        Some(tablo::testing::ErrorKind::Required),
         "the second row's URL names its refusal"
     );
     assert_eq!(tablo::testing::field_error(&html, "links.0.url"), None);

@@ -94,6 +94,7 @@ async fn login_refuses_an_off_site_next_target() {
 async fn every_login_failure_renders_one_generic_error() {
     let db = full_db().await;
     let router = router(db);
+    let mut alerts = Vec::new();
     for (email, password) in [
         (DEMO_ADMIN_EMAIL, "definitely-wrong"),
         ("nobody@example.com", DEMO_ADMIN_PASSWORD),
@@ -107,7 +108,43 @@ async fn every_login_failure_renders_one_generic_error() {
             session_cookie_value(&response).is_none(),
             "a failed login must not start a session"
         );
+        alerts.push(login_alert(&body_string(response).await));
     }
+    // An unknown account reads as a wrong password: one message, whatever its wording.
+    assert!(alerts[0].is_some(), "a failed login says so: {alerts:?}");
+    assert!(
+        alerts.windows(2).all(|pair| pair[0] == pair[1]),
+        "{alerts:?}"
+    );
+}
+
+/// The text of the login page's alert, `None` when it renders none.
+fn login_alert(html: &str) -> Option<String> {
+    let at = html.find("role=\"alert\"")?;
+    // The opening tag ends at the first `>` outside quotes: class values carry `>`.
+    let mut quoted = false;
+    let open = at
+        + html[at..].find(|c: char| {
+            if c == '"' {
+                quoted = !quoted;
+            }
+            c == '>' && !quoted
+        })?;
+    let rest = &html[open + 1..];
+    let inner = &rest[..rest.find("</div>")?];
+    let mut text = String::new();
+    let mut in_tag = false;
+    let mut quoted = false;
+    for c in inner.chars() {
+        match c {
+            '"' if in_tag => quoted = !quoted,
+            '<' if !quoted => in_tag = true,
+            '>' if !quoted => in_tag = false,
+            c if !in_tag => text.push(c),
+            _ => {}
+        }
+    }
+    Some(text.trim().to_string())
 }
 
 #[tokio::test]
@@ -131,6 +168,13 @@ async fn deactivated_admin_cannot_log_in() {
         .await;
     assert_eq!(response.status(), 403);
     assert!(session_cookie_value(&response).is_none());
+    // A deactivated account reads as a wrong password.
+    let (_, wrong) = TestClient::new(&router)
+        .log_in("admin", DEMO_ADMIN_EMAIL, "definitely-wrong", "")
+        .await;
+    let alert = login_alert(&body_string(response).await);
+    assert!(alert.is_some());
+    assert_eq!(alert, login_alert(&body_string(wrong).await));
 }
 
 #[tokio::test]

@@ -164,7 +164,8 @@ impl HeaderActions {
     /// Appends the action `A`, failing to compile when `A::NAME` is not a single path segment.
     ///
     /// The check is a constant evaluated when `A` is instantiated, so `cargo check` does not
-    /// report it: the doctest builds the program and pins the `E0080` evaluation error.
+    /// report it; `cargo build` does. The doctest builds the program. Its `E0080` names the
+    /// error, but rustdoc checks the code on nightly only.
     ///
     /// ```rust,compile_fail,E0080
     /// # use tablo_core::{HeaderAction, HeaderActions};

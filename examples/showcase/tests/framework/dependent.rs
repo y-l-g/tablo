@@ -202,7 +202,7 @@ async fn a_create_refuses_a_city_of_another_country() {
     let html = body_string(response).await;
     assert_eq!(
         tablo::testing::field_error(&html, "city_id"),
-        Some(tablo::testing::FieldErrorKind::Invalid),
+        Some(tablo::testing::ErrorKind::Invalid),
         "{html}"
     );
     assert!(

@@ -5,10 +5,10 @@ mod protocol;
 
 use http::header::{CONTENT_TYPE, COOKIE};
 pub use protocol::{
-    EmptyTable, FieldErrorKind, FilterOption, Row, RowActions, SESSION_COOKIE, body_bytes,
-    body_string, confirms_first, cookie_header, empty_table, field_error, field_error_message,
-    filter_options, find_href_with, form_body, input_value, multipart_body, notification,
-    response_cookies, row_actions, row_keys, rows, session_cookie_value, set_cookie_header,
+    EmptyTable, ErrorKind, FilterOption, Row, RowActions, SESSION_COOKIE, body_bytes, body_string,
+    confirms_first, cookie_header, empty_table, field_error, field_error_message, filter_options,
+    find_href_with, form_body, input_value, multipart_body, notification, response_cookies,
+    row_actions, row_keys, rows, session_cookie_value, set_cookie_header,
 };
 use tablo_core::{DeclarationError, MountError, Panel, PanelUser, RouterBuilderPanelExt};
 use topcoat::router::{Body, Router, RouterBuilderDiscoverExt};

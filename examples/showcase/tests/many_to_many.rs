@@ -189,7 +189,7 @@ async fn another_tenants_category_is_refused_and_nothing_is_written() {
     let html = body_string(resp).await;
     assert_eq!(
         field_error(&html, "categories"),
-        Some(tablo::testing::FieldErrorKind::Invalid)
+        Some(tablo::testing::ErrorKind::Invalid)
     );
     assert_eq!(filed(&db, HELLO).await, before);
 }
@@ -278,7 +278,7 @@ async fn attaching_another_tenants_post_is_refused() {
     let html = body_string(resp).await;
     assert_eq!(
         field_error(&html, "record"),
-        Some(tablo::testing::FieldErrorKind::Invalid)
+        Some(tablo::testing::ErrorKind::Invalid)
     );
     assert!(filed(&db, foreign.id).await.is_empty());
 }

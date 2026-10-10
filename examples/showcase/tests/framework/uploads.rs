@@ -301,7 +301,7 @@ async fn a_text_value_for_a_file_upload_is_not_stored_on_create() {
     let html = body_string(response).await;
     assert_eq!(
         field_error(&html, "cover"),
-        Some(tablo::testing::FieldErrorKind::Required),
+        Some(tablo::testing::ErrorKind::Required),
         "the typed value leaves the required field empty: {html}"
     );
     assert!(
@@ -368,7 +368,7 @@ async fn a_text_part_after_a_file_part_does_not_forge_a_value_on_create() {
     let html = body_string(response).await;
     assert_eq!(
         field_error(&html, "cover"),
-        Some(tablo::testing::FieldErrorKind::Required),
+        Some(tablo::testing::ErrorKind::Required),
         "the later text part leaves the field empty: {html}"
     );
     assert!(
@@ -514,7 +514,7 @@ async fn clearing_a_required_upload_is_refused_inline() {
     let html = body_string(response).await;
     assert_eq!(
         field_error(&html, "cover"),
-        Some(tablo::testing::FieldErrorKind::Required),
+        Some(tablo::testing::ErrorKind::Required),
         "a required upload refuses the clear inline: {html}"
     );
     assert_eq!(

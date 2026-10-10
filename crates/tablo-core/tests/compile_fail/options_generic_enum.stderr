@@ -1,11 +1,13 @@
-error: enum generics are not supported
- --> tests/compile_fail/options_generic_enum.rs:2:12
-  |
-2 | enum Status<T> {
-  |            ^^^
-
 error: #[derive(Options)] does not support generic or lifetime parameters
  --> tests/compile_fail/options_generic_enum.rs:2:12
   |
-2 | enum Status<T> {
-  |            ^^^
+2 | enum Status<'a> {
+  |            ^^^^
+
+error[E0392]: lifetime parameter `'a` is never used
+ --> tests/compile_fail/options_generic_enum.rs:2:13
+  |
+2 | enum Status<'a> {
+  |             ^^ unused lifetime parameter
+  |
+  = help: consider removing `'a`, referring to it in a field, or using a marker such as `PhantomData`
