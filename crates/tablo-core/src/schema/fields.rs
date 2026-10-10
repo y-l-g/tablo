@@ -32,7 +32,7 @@ use super::{
     validation::is_email,
 };
 use crate::{
-    form::{FieldError, FormScalar},
+    form::{FieldError, FieldErrorKind, FormScalar},
     naming::capitalize,
 };
 
@@ -438,8 +438,13 @@ impl Field {
     }
 
     /// The validation state and help text the control renders with.
-    fn chrome(&self, id: String, error: Option<&str>, fallback: Option<String>) -> FieldChrome {
-        let mut chrome = FieldChrome::new(id, error, fallback);
+    fn chrome(
+        &self,
+        id: String,
+        error: Option<&FieldError>,
+        fallback: Option<String>,
+    ) -> FieldChrome {
+        let mut chrome = FieldChrome::new(id, error, self.label_str(), fallback);
         chrome.help = self.help.clone();
         chrome
     }
@@ -541,7 +546,7 @@ impl Field {
         &self,
         cx: &'a Cx,
         value: Option<&str>,
-        error: Option<&str>,
+        error: Option<&FieldError>,
     ) -> Result<BoxView<'a>> {
         self.render_under(cx, value, error, Placement::default())
             .await
@@ -552,7 +557,7 @@ impl Field {
         &self,
         cx: &'a Cx,
         value: Option<&str>,
-        error: Option<&str>,
+        error: Option<&FieldError>,
         placement: Placement<'_>,
     ) -> Result<BoxView<'a>> {
         let id = placement.id(self.name());
@@ -602,7 +607,7 @@ impl Field {
         control: &dyn Control,
         cx: &'a Cx,
         value: Option<&str>,
-        error: Option<&str>,
+        error: Option<&FieldError>,
         id: String,
         disabled: bool,
     ) -> Result<BoxView<'a>> {
@@ -689,25 +694,51 @@ pub(crate) struct FieldChrome {
     pub(crate) id: String,
     error_id: String,
     error_text: String,
-    has_error: bool,
+    /// Why the control renders an error, `None` when it renders none.
+    error_kind: Option<&'static str>,
     /// The help text under the control.
     help: Option<String>,
 }
 
+/// The `data-error` an error slot carries, naming why the control was refused: a test reads it
+/// instead of the sentence.
+pub(crate) fn error_kind(error: &FieldError) -> &'static str {
+    match error.kind {
+        FieldErrorKind::Required => "required",
+        FieldErrorKind::Invalid(_) => "invalid",
+    }
+}
+
+/// The `data-error` of a choice whose options the user may not read.
+pub(crate) const UNAVAILABLE: &str = "unavailable";
+
 impl FieldChrome {
-    pub(crate) fn new(id: String, error: Option<&str>, fallback: Option<String>) -> Self {
-        let has_error = error.is_some() || fallback.is_some();
-        let error_text = match error {
-            Some(message) if !message.is_empty() => message.to_string(),
-            _ => fallback.unwrap_or_default(),
+    /// The chrome of the control labelled `label`, refused with `error`, or showing `fallback`
+    /// as unavailable when nothing refused it.
+    pub(crate) fn new(
+        id: String,
+        error: Option<&FieldError>,
+        label: &str,
+        fallback: Option<String>,
+    ) -> Self {
+        let message = error.map(|error| error.message(label));
+        let (error_text, error_kind) = match (message, fallback) {
+            (Some(message), _) if !message.is_empty() => (message, error.map(error_kind)),
+            (_, Some(fallback)) => (fallback, Some(UNAVAILABLE)),
+            (Some(message), None) => (message, error.map(error_kind)),
+            (None, None) => (String::new(), None),
         };
         Self {
             error_id: format!("{id}-error"),
             id,
             error_text,
-            has_error,
+            error_kind,
             help: None,
         }
+    }
+
+    fn has_error(&self) -> bool {
+        self.error_kind.is_some()
     }
 
     fn help_id(&self) -> String {
@@ -715,14 +746,14 @@ impl FieldChrome {
     }
 
     pub(crate) fn aria_invalid(&self) -> &'static str {
-        if self.has_error { "true" } else { "false" }
+        if self.has_error() { "true" } else { "false" }
     }
 
     /// The ids of the help text and the error, whichever render.
     pub(crate) fn described_by(&self) -> Option<String> {
         let ids: Vec<String> = [
             self.help.is_some().then(|| self.help_id()),
-            self.has_error.then(|| self.error_id.clone()),
+            self.has_error().then(|| self.error_id.clone()),
         ]
         .into_iter()
         .flatten()
@@ -742,7 +773,8 @@ pub(crate) fn render_field<'a>(
 ) -> Result<BoxView<'a>> {
     let id = chrome.id.clone();
     let label_text = label.to_string();
-    let has_error = chrome.has_error;
+    let has_error = chrome.has_error();
+    let error_kind = chrome.error_kind;
     let error_id = chrome.error_id.clone();
     let error_text = chrome.error_text.clone();
     let help = chrome.help.clone();
@@ -773,7 +805,12 @@ pub(crate) fn render_field<'a>(
             }
             if has_error {
                 ui_field_error(
-                    attrs: attributes! { id=(error_id) class="ac-error" aria-live="polite" },
+                    attrs: attributes! {
+                        id=(error_id)
+                        class="ac-error"
+                        aria-live="polite"
+                        data-error=(error_kind)
+                    },
                     (error_text)
                 )
             }

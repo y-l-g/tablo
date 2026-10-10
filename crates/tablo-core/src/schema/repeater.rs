@@ -189,7 +189,9 @@ impl RepeaterControl {
             .add_label
             .clone()
             .unwrap_or_else(|| "Add item".to_string());
-        let error = source.error_for(field);
+        let error = source
+            .error_for(field)
+            .map(|error| (error.message(&label), super::fields::error_kind(error)));
         let legend_id = format!("{}-legend", source.id(&key));
         Ok(view! {
             cx =>
@@ -205,8 +207,11 @@ impl RepeaterControl {
                     (label)
                 )
                 <input type="hidden" name=(key) value=(order) data-repeater-order="">
-                if let Some(error) = error {
-                    ui_field_error(attrs: attributes! { class="ac-error" }, (error))
+                if let Some((message, kind)) = error {
+                    ui_field_error(
+                        attrs: attributes! { class="ac-error" data-error=(kind) },
+                        (message)
+                    )
                 }
                 <ol
                     class="flex flex-col gap-3"

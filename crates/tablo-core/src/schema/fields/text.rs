@@ -97,7 +97,7 @@ impl Field {
         text: &TextControl,
         cx: &'a Cx,
         value: Option<&str>,
-        error: Option<&str>,
+        error: Option<&crate::form::FieldError>,
         id: String,
         disabled: bool,
     ) -> Result<BoxView<'a>> {
