@@ -161,6 +161,21 @@ impl Panel {
         self
     }
 
+    /// Stores file fields' uploads in `dir` and serves them at `url_prefix` (`"/uploads"`): a
+    /// [`DirUploader`](crate::upload::DirUploader) and [`serve_dir`](Self::serve_dir) over the
+    /// same directory.
+    ///
+    /// ```no_run
+    /// # use tablo_core::Panel;
+    /// Panel::new("admin").uploads_dir("/uploads", "var/uploads");
+    /// ```
+    pub fn uploads_dir(self, url_prefix: &str, dir: impl Into<PathBuf>) -> Self {
+        let url_prefix = url_prefix.trim_end_matches('/');
+        let dir = dir.into();
+        self.serve_dir(format!("{url_prefix}/{{*file}}"), dir.clone())
+            .uploads(crate::upload::DirUploader::new(url_prefix, dir))
+    }
+
     /// Serves the directory `dir` at route pattern `path`, which must end in a catch-all and sits
     /// outside the auth gate with hardening headers.
     pub fn serve_dir(mut self, path: impl Into<String>, dir: impl Into<PathBuf>) -> Self {

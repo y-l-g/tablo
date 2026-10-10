@@ -8,6 +8,7 @@ A refusal is user input, rendered under the field. The field renders a file inpu
 clear control, nothing more: previews, drag-and-drop and progress belong to an app's media
 library. Uploads run before the write transaction, so a rolled-back write does not undo a store.
 
-`Panel::serve_dir` serves an app directory with headers that keep files inert on the panel's
+`Panel::uploads_dir` installs the stock `DirUploader` over one served directory; any other store
+implements `Uploader`. `Panel::serve_dir` serves an app directory with headers that keep files inert on the panel's
 origin. A served directory is public: the auth gate covers only the panel prefix and the runtime
 (ADR-0013).

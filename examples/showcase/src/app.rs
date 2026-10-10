@@ -7,7 +7,7 @@ use tablo::{
     DateFilter, Detail, EmbeddedColumn, FieldErrors, Grid, Group, HeaderAction, Panel, PublicLink,
     QueryFilter, RecordForm, Relation, RelationColumn, RepeaterColumn, Resource, ResourceDef,
     RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy, TernaryFilter,
-    TextColumn, Uploader, lens, relation, scoped_query, tenant_id, when,
+    TextColumn, lens, relation, scoped_query, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -480,88 +480,6 @@ pub fn upload_dir() -> PathBuf {
 /// The URL prefix uploads are served under.
 pub const UPLOAD_URL_PREFIX: &str = "/uploads";
 
-/// Writes uploaded bytes into the served directory.
-pub(crate) struct DirUploader {
-    dir: PathBuf,
-}
-
-impl DirUploader {
-    pub(crate) fn new(dir: impl Into<PathBuf>) -> Self {
-        Self { dir: dir.into() }
-    }
-}
-
-impl Uploader for DirUploader {
-    async fn store(&self, filename: &str, bytes: &[u8]) -> Result<String, String> {
-        let name = format!("{}-{}", uuid::Uuid::new_v4(), basename(filename));
-        tokio::fs::create_dir_all(&self.dir)
-            .await
-            .map_err(|_| "the upload directory is not writable".to_string())?;
-        tokio::fs::write(self.dir.join(&name), bytes)
-            .await
-            .map_err(|_| "the upload could not be written".to_string())?;
-        Ok(format!("{UPLOAD_URL_PREFIX}/{}", url_segment(&name)))
-    }
-
-    /// Reports whether the served directory holds the file a URL names.
-    async fn holds(&self, path: &str) -> bool {
-        let Some(segment) = path.strip_prefix(UPLOAD_URL_PREFIX) else {
-            return false;
-        };
-        let Some(segment) = segment.strip_prefix('/') else {
-            return false;
-        };
-        if segment.is_empty() {
-            return false;
-        }
-        let Ok(mut entries) = tokio::fs::read_dir(&self.dir).await else {
-            return false;
-        };
-        while let Ok(Some(entry)) = entries.next_entry().await {
-            if url_segment(&entry.file_name().to_string_lossy()) == segment {
-                return true;
-            }
-        }
-        false
-    }
-}
-
-/// The longest client filename the showcase keeps, in bytes.
-const MAX_BASENAME_BYTES: usize = 218;
-
-/// Reduces a client-supplied filename to the stored basename.
-pub(crate) fn basename(raw: &str) -> String {
-    let base = raw.rsplit(['/', '\\']).next().unwrap_or(raw);
-    let clean: String = base.chars().filter(|c| !c.is_control()).collect();
-    let trimmed = clean.trim();
-    if trimmed.len() <= MAX_BASENAME_BYTES {
-        return trimmed.to_string();
-    }
-    let mut start = trimmed.len() - MAX_BASENAME_BYTES;
-    while !trimmed.is_char_boundary(start) {
-        start += 1;
-    }
-    trimmed[start..].to_string()
-}
-
-/// Encodes `name` as one URL path segment.
-fn url_segment(name: &str) -> String {
-    use std::fmt::Write as _;
-
-    let mut out = String::with_capacity(name.len());
-    for byte in name.bytes() {
-        match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
-                out.push(byte as char);
-            }
-            _ => {
-                let _ = write!(out, "%{byte:02X}");
-            }
-        }
-    }
-    out
-}
-
 /// The admin panel's resources and pages: what the router mounts, and what a test builds its
 /// handle from with [`Panel::handle`].
 pub fn admin_panel() -> Panel {
@@ -589,9 +507,7 @@ pub fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf
         panel = panel.login_hint(hint);
     }
     if let Some(dir) = uploads {
-        panel = panel
-            .serve_dir(format!("{UPLOAD_URL_PREFIX}/{{*file}}"), dir.clone())
-            .uploads(DirUploader::new(dir));
+        panel = panel.uploads_dir(UPLOAD_URL_PREFIX, dir);
     }
     let mut builder = Router::builder().discover().app_context(db);
     if let Some(bundle) = bundle {
@@ -633,6 +549,3 @@ fn load_assets() -> AssetBundle {
         }
     }
 }
-
-#[cfg(test)]
-mod tests;

@@ -39,6 +39,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Registrar | The trait that creates a panel user from the sign-up page's input. | Registration handler, SignupProvider, UserCreator |
 | Panel user | The app's own user type: id, display name, panel access, tenant memberships. | CurrentUser, AuthUser, Principal |
 | Uploader | The trait that decides where a file field's bytes go, installed once per panel. | FileStore, Blob store |
+| DirUploader | The stock `Uploader`: writes each file into one served directory and stores its URL. | DiskStore |
 
 Exceptions: the `AdminUser` model and the conventional `/admin` prefix keep the word "admin";
 `Grid` names a Schema layout block, never a list.
