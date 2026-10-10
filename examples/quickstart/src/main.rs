@@ -92,6 +92,14 @@ mod tests {
         }
     }
 
+    #[test]
+    fn the_stylesheet_carries_tablos_default_theme() {
+        for token in ["--primary:", "--sidebar-accent:"] {
+            assert!(STYLESHEET.contains(token), "{token} is missing");
+        }
+        assert!(STYLESHEET.contains(".dark{"), "the dark tokens are missing");
+    }
+
     #[tokio::test]
     async fn the_panel_serves_its_login_page_and_gates_the_list() {
         let router = router(connect().await.expect("connect"))

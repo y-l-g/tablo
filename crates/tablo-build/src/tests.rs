@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use super::{input_css, source_dirs};
+use super::{THEME, imports_tailwind, input_css, source_dirs};
 
 #[test]
 fn source_dirs_reads_the_facade_pair_and_each_crate() {
@@ -31,19 +31,47 @@ fn source_dirs_is_empty_without_a_tablo_dependency() {
 }
 
 #[test]
-fn input_imports_the_app_stylesheet_then_sources_each_directory() {
+fn input_imports_tailwind_the_theme_and_the_app_stylesheet_then_sources_each_directory() {
     let css = input_css(
+        Path::new("/out/tablo-theme.css"),
         Path::new("/app/styles.css"),
         &[PathBuf::from("/cargo/tablo-core/src")],
     );
     assert_eq!(
         css,
-        "@import \"/app/styles.css\";\n@source \"/cargo/tablo-core/src/**/*.rs\";\n"
+        "@import \"tailwindcss\";\n@import \"/out/tablo-theme.css\";\n@import \
+         \"/app/styles.css\";\n@source \"/cargo/tablo-core/src/**/*.rs\";\n"
     );
 }
 
 #[test]
 fn input_escapes_quotes_in_a_path() {
-    let css = input_css(Path::new("/a \"b\"/styles.css"), &[]);
-    assert_eq!(css, "@import \"/a \\\"b\\\"/styles.css\";\n");
+    let css = input_css(Path::new("/t.css"), Path::new("/a \"b\"/styles.css"), &[]);
+    assert!(
+        css.contains("@import \"/a \\\"b\\\"/styles.css\";\n"),
+        "{css}"
+    );
+}
+
+#[test]
+fn a_stylesheet_importing_tailwind_is_caught() {
+    assert!(imports_tailwind("@import \"tailwindcss\";\n"));
+    assert!(imports_tailwind("  @import 'tailwindcss' source(none);"));
+    assert!(!imports_tailwind(
+        "@source \"./src/**/*.rs\";\n:root { --primary: red; }"
+    ));
+    assert!(
+        !imports_tailwind(THEME),
+        "the theme leaves the import to the input"
+    );
+}
+
+#[test]
+fn the_theme_declares_every_token_it_maps() {
+    for token in ["--background", "--primary", "--sidebar", "--shadow-sm"] {
+        assert!(
+            THEME.contains(&format!("  {token}:")),
+            "{token} has a value"
+        );
+    }
 }

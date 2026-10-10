@@ -187,9 +187,9 @@ use topcoat::{Result, context::Cx, view::{View, view}};
 The `tablo::ui` composites give a page the same frame as the panel's own pages: `page` sets the
 width and padding; `page_header` holds a `page_title`, an optional `page_description` and optional
 `page_actions`; `page_content` holds the body. Inside it, use `card` for a panel of content and
-`empty_state` for a region with nothing to show. They are styled by the design tokens in your
-`styles.css` (`--card`, `--border`, `--primary`, …), so one theme restyles the panel's pages and
-yours.
+`empty_state` for a region with nothing to show. They are styled by the design tokens (`--card`,
+`--border`, `--primary`, …) that your `styles.css` overrides, so one theme restyles the panel's
+pages and yours.
 
 ## Public pages
 

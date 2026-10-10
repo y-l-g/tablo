@@ -6,10 +6,12 @@ the xtask guards fail on drift. The vendored set is `xtask::VENDORED_PRIMITIVES`
 closed under the registry's dependencies. `composites/` holds the components Tablo writes, which
 never sync. One crate re-exports both.
 
-Styling stays per app: the app owns `styles.css` and its `tablo_build::tailwind()` build, and
-edits tokens to customize. There is no `Panel::theme`.
+Styling stays per app: the app owns `styles.css` and its `tablo_build::tailwind()` build. The
+default tokens ship in `tablo-build`, which imports them after Tailwind and before the app's file,
+so `styles.css` holds only the tokens the app redeclares. There is no `Panel::theme`.
 
 ## Rejected
 
 - Two crates, one per half: crate proliferation.
 - Copying the sources into each app: upgrades break them.
+- Copying the default tokens into each app's `styles.css`: the same, for the theme.
