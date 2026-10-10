@@ -6,7 +6,8 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 
 | Term | Meaning | Avoid |
 | --- | --- | --- |
-| Panel | An admin panel under one prefix: its resources, pages, shell and authentication gate. | Admin, Dashboard, App, Site |
+| Panel | An admin panel under one prefix: its resources, pages, shell and auth gate. | Admin, Dashboard, App, Site |
+| Auth gate | The panel's check, ahead of every handler under its prefix and Topcoat's runtime path, that the request comes from a signed-in user with panel access; `auth::guard` makes it in an app's own handler. | Guard (alone), Middleware, Firewall |
 | Page | A panel page that is not a resource: a type implementing `Page`. | CustomPage, Screen, View |
 | Resource | A type implementing `Resource` for one Toasty model. Its `Form` is `NoForm` when list-only. | Model, Entity, Collection, CRUD |
 | Resource definition | The `ResourceDef` a resource declares: slug, labels, navigation, policy, tenancy, table, form, detail, relations, actions, header actions. Each panel mounts its own copy. | Config, Settings, Options |
@@ -14,9 +15,10 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Table | The declaration of a list view: columns, filters, search, sort, grouping, page size. | Grid, Listing, DataTable |
 | Schema | The layout of a form: layout blocks, fields, embedded values. | Form, Infolist, Fieldset |
 | Detail | The declaration of a detail page: columns in layout blocks, set by `ResourceDef::detail`. | Infolist, Show page |
-| Column | One value read off a record: a cell of a table row, or an entry on a detail page. | Field (in a table), Cell, Attribute |
+| Column | One value read off a record, shown down a table or as an entry on a detail page; one row's value of it is a cell. | Field (in a table), Attribute |
 | Filter | A predicate a table adds to its query from a UI control. | Scope, Constraint, Where |
-| Field | One input in a schema, bound to a model column, or to a name in an action input. | Input, Control, Widget |
+| Field | One entry of a schema, bound to a model column or to a name in an action input, and rendered as a control. | Input, Widget |
+| Control | What a field renders and posts: a text input, a select, a toggle, a file input, or a type implementing `Control`. | Widget, Input (for the field) |
 | Lens | A model field named once, pairing its query path with its value reader. | Accessor, Getter, statePath |
 | Relation lens | A relation field named once with `relation!`, pairing its include with its loaded-value reader; a relation column reads one. | Relation (alone), Association |
 | Embedded value | A `toasty::Embed` value stored as flattened columns, bound by a form as one value. | Nested form, Sub-form, Inline model |
@@ -41,5 +43,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Uploader | The trait that decides where a file field's bytes go, installed once per panel. | FileStore, Blob store |
 | DirUploader | The stock `Uploader`: writes each file into one served directory and stores its URL. | DiskStore |
 
-Exceptions: the `AdminUser` model and the conventional `/admin` prefix keep the word "admin";
-`Grid` names a Schema layout block, never a list.
+Exceptions: "admin" describes a panel ("an admin panel", "an admin toolkit") but never names one;
+the `AdminUser` model and the conventional `/admin` prefix keep the word. `Grid` names a Schema
+layout block, never a list. "Modal" names only the browser's `showModal`; the thing it opens is a
+dialog.

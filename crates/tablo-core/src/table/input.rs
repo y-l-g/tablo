@@ -84,7 +84,7 @@ impl InputDialog {
                 .options_at(options);
             let fields = schema.render(cx, source).await?;
             let csrf = crate::csrf::current_token(cx);
-            let modal = id.clone();
+            let dialog_id = id.clone();
             let title_id = format!("{id}-title");
             let description_id = format!("{id}-description");
             let submit = if confirm {
@@ -181,7 +181,7 @@ impl InputDialog {
                                         type="button"
                                         @click=$(|_e: Event| {
                                             raw!(
-                                                "document.getElementById(String(${modal})).close()",
+                                                "document.getElementById(String(${dialog_id})).close()",
                                                 (),
                                             );
                                         })
@@ -226,18 +226,18 @@ pub(crate) fn open_dialog(
     id: &str,
     table: Option<(TableTarget, String, bool)>,
 ) -> Attributes {
-    let modal = id.to_string();
+    let dialog_id = id.to_string();
     let mut attrs = attributes! {
         cx =>
         type="button"
         aria-haspopup="dialog"
-        aria-controls=(modal.clone())
+        aria-controls=(dialog_id.clone())
     };
     attrs.extend(match table {
         None => attributes! {
             cx =>
             @click=$(|_e: Event| {
-                raw!("document.getElementById(String(${modal})).showModal()", ());
+                raw!("document.getElementById(String(${dialog_id})).showModal()", ());
             })
         },
         Some((TableTarget { action, bulk }, url, on_selection)) => attributes! {
@@ -245,7 +245,7 @@ pub(crate) fn open_dialog(
             @click=$(|_e: Event| {
                 bulk.set(on_selection);
                 action.set(url.clone());
-                raw!("document.getElementById(String(${modal})).showModal()", ());
+                raw!("document.getElementById(String(${dialog_id})).showModal()", ());
             })
         },
     });

@@ -180,7 +180,7 @@ at 254 bytes.
 A text field over a column with a unique index checks uniqueness before the write, and reports a
 taken value inline. `.unique()` states it explicitly; mounting the panel refuses `.unique()` on a
 column without a unique index, single-column or composite. The check is a query before the write,
-so two concurrent submissions can both pass it; the database index stays the final guard.
+so two concurrent submissions can both pass it; the database index stays the final check.
 
 A unique field over a non-nullable column must be required: mounting refuses one whose record-form
 field has a blank answer, since every empty submission would store the same value and the index

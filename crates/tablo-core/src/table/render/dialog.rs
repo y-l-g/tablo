@@ -22,7 +22,7 @@ impl Frame<'_> {
     /// Render the table's one write form inside the dialog that confirms it.
     ///
     /// Every write control names this form: a direct write submits it to its own `formaction`,
-    /// and a destructive one opens the dialog as a modal on its POST target, whose submit carries
+    /// and a destructive one opens the dialog on its POST target, whose submit carries
     /// the `confirm=1` marker the handlers require. Cancel and Escape close the dialog and clear
     /// the target. The form carries the bulk selection, which the row routes ignore.
     pub(super) fn render_write_form<'a>(

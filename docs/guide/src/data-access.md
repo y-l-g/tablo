@@ -112,6 +112,7 @@ follows three rules:
 Share a query between components of one request with Topcoat's `#[memoize]`, and add a Toasty
 `#[index]` to columns you filter on.
 
-A table updates through a rerun of its page, which runs the page's layers and guards like any
-request. Topcoat serves a shard at its own runtime path, where no page guard runs: a shard you
-write starts with `auth::guard(cx)?`, and checks `can_list::<R>(cx)` before it lists `R`'s rows.
+A table updates through a rerun of its page, which runs the page's layers and checks like any
+request. Topcoat serves a shard at its own runtime path, where the page's checks do not run: a
+shard you write starts with `auth::guard(cx)?`, and checks `can_list::<R>(cx)` before it lists
+`R`'s rows.

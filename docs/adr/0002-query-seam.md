@@ -5,7 +5,7 @@ list, form and record loader reads through it. Tenancy is declared on the `Resou
 (`Tenancy::column` or `Tenancy::via`), and `scoped_query` ANDs the tenant predicate after
 `query`, so no override can drop it. App code loading rows outside the framework's loaders calls
 `scoped_query`, not `query`. A resource serving several tenants declares no tenancy and scopes in
-`query`, giving up the 403 gate.
+`query`, giving up the 403 when a request has no tenant.
 
 The tenant column is typed `TenantId` (or `Option<TenantId>`), and a tenancy lens must name a
 field implementing `TenantColumn`. The type is the only thing that tells a tenant column apart

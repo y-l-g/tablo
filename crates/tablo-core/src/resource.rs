@@ -283,7 +283,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
 /// # Errors
 ///
 /// A tenant-scoped resource and no tenant in `cx`: 403, the same answer the
-/// handler gate gives. A declaration error when the context's panel does not mount `R`; a
+/// panel's handlers give. A declaration error when the context's panel does not mount `R`; a
 /// background job builds its context with [`PanelHandle::context`](crate::PanelHandle::context).
 ///
 /// App code that loads rows itself must call this: on a scoped resource
@@ -326,7 +326,7 @@ pub fn can<R: Resource>(cx: &Cx, ability: crate::Ability<'_, R::Model>) -> bool 
 /// as the context's panel mounted it.
 ///
 /// [`scoped_query`](crate::extend::OptionSource::scoped_query) forwards to
-/// [`scoped_query`], so an option load inherits the tenant gate and filter
+/// [`scoped_query`], so an option load inherits the tenant check and filter
 /// exactly as every other loader does. The search expression and default ordering come from the
 /// resource's [`table`](ResourceDef::table), whose searchable columns the option search searches
 /// with the [`record_title`](ResourceDef::record_title) column, and each record's label is its

@@ -19,6 +19,22 @@ release = false
 git_tag_enable = false
 git_release_enable = false
 
+# File commits under Keep a Changelog's sections, which the changelog headers claim, rather than
+# release-plz's default "Other". Every PR is squash-merged, so its Conventional Commit title is
+# the message. A breaking commit that adds or fixes nothing lands under "Changed", whatever its
+# type, and is never skipped.
+[changelog]
+protect_breaking_commits = true
+commit_parsers = [
+    { message = "^feat", group = "added" },
+    { message = "^fix", group = "fixed" },
+    { message = "^[a-z]+(\\([^)]*\\))?!:", group = "changed" },
+    { body = "BREAKING[ -]CHANGE", group = "changed" },
+    { message = "^(refactor|perf)", group = "changed" },
+    { message = "^(docs?|test|ci|build|chore|style)", skip = true },
+    { message = "^.*", group = "other" },
+]
+
 [[package]]
 name = "tablo"
 release = true

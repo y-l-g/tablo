@@ -1,4 +1,4 @@
-//! `Panel` — an admin panel an app mounts into its router.
+//! `Panel` — resources and pages under one prefix, which an app mounts into its router.
 
 mod actions;
 mod bar;
@@ -115,7 +115,7 @@ pub struct Panel {
     frame_ancestors: Option<String>,
     /// Mistakes in the panel's own configuration, for mount to report.
     configuration_errors: Vec<DeclarationError>,
-    /// Where file field bytes go; `None` stores the sanitized basename.
+    /// Where file field bytes go; `None` refuses to mount a form with a file field.
     uploads: Option<crate::upload::InstalledUploader>,
     /// App-owned filesystem directories served with hardening headers.
     served_dirs: Vec<(String, PathBuf)>,

@@ -167,7 +167,7 @@ impl<R: Resource> ResourceDef<R> {
         self
     }
 
-    /// Gates every handler; defaults to [`Deny`]. Row scoping belongs in
+    /// Authorizes every handler; defaults to [`Deny`]. Row scoping belongs in
     /// [`Resource::query`], not the policy.
     #[must_use]
     pub fn policy(mut self, policy: impl Policy<R::Model>) -> Self {

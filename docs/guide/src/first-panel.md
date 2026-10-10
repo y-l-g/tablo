@@ -42,8 +42,8 @@ cargo run
 - **`#[derive(RecordForm)]`** declares what a form submission parses into. Each field is named
   and typed like the model's field, so a renamed column fails to compile. The derive also lays
   out the list's table, the form and the detail page from those fields. See [Forms](./forms.md).
-- **`impl Resource`** declares the admin for one model. A resource must name `Model` and `Form`;
-  every other item has a default, and the default policy denies everything. See
+- **`impl Resource`** declares the panel's pages for one model. A resource must name `Model` and
+  `Form`; every other item has a default, and the default policy denies everything. See
   [Resources](./resources.md).
 - **`Db::builder().models(..)`** lists every model Toasty maps, including the two tables the
   built-in login uses. With authentication on, mounting the panel returns an error naming the
@@ -88,8 +88,8 @@ changes:
 }
 ```
 
-The theme's tokens are in `crates/tablo-build/src/theme.css`: `--background`, `--foreground`,
-`--primary`, `--sidebar` and the rest, each under `:root` and again under `.dark`.
+[Theme tokens](./panel-and-routing.md#theme-tokens) lists every token; each is declared under
+`:root` and again under `.dark`, in `crates/tablo-build/src/theme.css`.
 
 `build.rs` runs the build:
 

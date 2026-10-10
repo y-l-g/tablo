@@ -8,7 +8,7 @@ no SPA build step.
 
 ## Quick start
 
-Run the showcase, a blog admin that exercises every feature, through the Topcoat CLI:
+Run the showcase, a blog's admin panel that exercises every feature, through the Topcoat CLI:
 
 ```sh
 cargo install topcoat-cli --version 0.10 --locked

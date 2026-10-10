@@ -419,7 +419,7 @@ pub fn enforced(cx: &Cx) -> bool {
 /// Every panel handler runs it first, and a page, route or shard the app
 /// serves under a panel runs it to answer exactly as the panel's own pages do.
 /// Shards are the case that needs it: Topcoat serves them at its runtime path,
-/// where no page guard runs. A form route also verifies its CSRF token with
+/// where the page's checks do not run. A form route also verifies its CSRF token with
 /// [`csrf::verify`](crate::csrf::verify).
 ///
 /// # Errors
