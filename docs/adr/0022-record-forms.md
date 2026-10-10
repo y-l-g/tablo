@@ -5,6 +5,11 @@ named and typed like the model, so a renamed or retyped column fails to compile.
 provides the default form schema, table and detail page. An edit fills every key the submission omits from the
 stored record, so `update_record` receives a whole form and an unposted key keeps its value.
 
+A model whose form is its own fields derives `ModelForm`, which writes that struct and expands it
+as `RecordForm` does. The struct takes the fields a person fills: it leaves out a key, a field
+Toasty writes, a relation and the tenant column, and takes a defaulted field or a foreign key only
+when a form key asks for it. A form whose fields differ from the model's stays its own struct.
+
 The struct owns presence: a posted-empty field stores its blank answer, and a field with none is
 required, whatever the layout says. Its parse is the only presence and type check; control
 rules, the unique probe and `validate_record` add to one list of errors rendered inline. Mounting
@@ -52,3 +57,8 @@ through no multi-step `via` and the join model's type is not the field's.
 - Replacing every link of an edited record: it rewrites the rows it keeps, and drops any column
   they hold.
 - A `<select multiple>`: a click without a modifier key drops every other choice.
+- One derive for a model and a form struct, told apart by `#[form(model = ..)]`: a form struct
+  without it would become the form of a model it is not.
+- Inferring a foreign key's source from its `#[belongs_to]`: the source is a resource, and several
+  resources can share a model.
+- Leaving out every `#[default]` field: a repeater writes a defaulted `#[document]` list.

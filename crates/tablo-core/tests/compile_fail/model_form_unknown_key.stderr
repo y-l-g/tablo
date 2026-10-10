@@ -1,0 +1,5 @@
+error: unknown `#[form(..)]` key: expected `embed`, `repeat`, `blank = <expr>`, `optional`, `options`, `options = <Type>`, `relationship = <Source>`, or `file`
+ --> tests/compile_fail/model_form_unknown_key.rs:6:12
+  |
+6 |     #[form(blnk = "")]
+  |            ^^^^

@@ -1,7 +1,8 @@
 //! Tablo: a server-rendered admin toolkit on [Topcoat](topcoat) and [Toasty](toasty).
 //!
-//! A [`Panel`] serves one [`Resource`] per Toasty model. A resource names the model and the
-//! [`RecordForm`](derive@RecordForm) struct its create and edit submissions parse into, and
+//! A [`Panel`] serves one [`Resource`] per Toasty model. A resource names the model and the record
+//! form its create and edit submissions parse into, which [`ModelForm`](derive@ModelForm) derives
+//! from the model or [`RecordForm`](derive@RecordForm) from a struct of its own, and
 //! declares the rest as one [`ResourceDef`] value: its [`Policy`], which denies by default, and
 //! any [`Table`], [`Schema`] or [`Detail`] that arranges or extends what the record form derives.
 //! The app mounts the panel on its own Topcoat router with [`RouterBuilderPanelExt::panel`], which
@@ -13,16 +14,11 @@
 //! # use toasty::Db;
 //! # use topcoat::router::{Router, RouterBuilderDiscoverExt};
 //! # fn main() -> topcoat::Result<()> {
-//! # #[derive(Debug, Clone, toasty::Model)]
-//! # pub struct Book {
-//! #     #[key]
-//! #     #[auto]
-//! #     pub id: uuid::Uuid,
-//! #     pub title: String,
-//! # }
-//! #[derive(tablo_core::RecordForm)]
-//! #[form(model = Book)]
-//! pub struct BookForm {
+//! #[derive(Debug, Clone, toasty::Model, tablo_core::ModelForm)]
+//! pub struct Book {
+//!     #[key]
+//!     #[auto]
+//!     pub id: uuid::Uuid,
 //!     pub title: String,
 //! }
 //!
@@ -288,6 +284,47 @@ pub use tablo_macros::ActionInput;
 /// `optional` on an embedded value, `blank` or `optional` on an `Option`, and `optional` on a
 /// type other than `String`.
 pub use tablo_macros::EmbeddedForm;
+/// Derive a model's [`RecordForm`](derive@RecordForm) struct from the model: the fields a
+/// person fills, named and typed as the model declares them.
+///
+/// ```rust
+/// #[derive(Debug, Clone, toasty::Model, tablo_core::ModelForm)]
+/// pub struct Book {
+///     #[key]
+///     #[auto]
+///     pub id: uuid::Uuid,
+///     pub title: String,
+///     #[form(optional)]
+///     pub subtitle: String,
+///     #[default(jiff::Timestamp::now())]
+///     pub created_at: jiff::Timestamp,
+/// }
+///
+/// // The derive wrote `BookForm { title, subtitle }`, with `BookFormField` and
+/// // `BookFormControls`, as `#[derive(RecordForm)]` would.
+/// let form = BookForm {
+///     title: "Dune".into(),
+///     subtitle: String::new(),
+/// };
+/// # let _ = form;
+/// ```
+///
+/// The form leaves out what no person fills: a key, so an edit never rewrites it, an
+/// `#[auto]`, `#[update]` or `#[version]` field, a relation, and a `TenantId` or
+/// `Option<TenantId>` field, which belongs to the resource's [`Tenancy`]. A form key on one of
+/// those is a compile error naming the fix. A `#[default]` field and a `#[belongs_to]` foreign
+/// key are left out unless a form key opts them in, such as `#[form(repeat)]` on a defaulted
+/// list or `#[form(relationship = AuthorResource)]` on a foreign key. `#[form(skip)]` leaves
+/// out any other field. When the policy allows `Create`, mounting refuses a non-nullable
+/// column left out, such as a key a person picks, unless an overridden `create_record` names
+/// it with `create_column`.
+///
+/// Each field keeps the model field's visibility and docs. A field's `#[form(..)]` keys are
+/// [`RecordForm`](derive@RecordForm)'s, as are the form's checks and defaults.
+/// `#[form(name = BookEditor)]` on the model names the form, `BookForm` otherwise. A form
+/// whose fields differ from the model's, such as a many-to-many field's keys, is a
+/// `#[derive(RecordForm)]` struct.
+pub use tablo_macros::ModelForm;
 /// Derive `Options` for a unit-variant enum: the `(value, label)` list a
 /// choice field, a select filter and a column share, and the `FormScalar`
 /// that posts a variant as its value and reads it as its label.

@@ -18,22 +18,17 @@
 //! features (`sqlite`, `postgresql`, `mysql`) turn on Toasty's driver of the same
 //! name, and the toolkit itself enables none.
 //!
-//! A minimal app is one model, one [`Resource`], and the [`Panel`] that serves
-//! it — the full version lives in `examples/quickstart`:
+//! A minimal app is one model, the record form [`ModelForm`](derive@ModelForm)
+//! derives from it, one [`Resource`], and the [`Panel`] that serves it — the
+//! full version lives in `examples/quickstart`:
 //!
 //! ```rust
 //! # use tablo::prelude::*;
-//! #[derive(Debug, Clone, toasty::Model)]
+//! #[derive(Debug, Clone, toasty::Model, tablo::ModelForm)]
 //! pub struct Book {
 //!     #[key]
 //!     #[auto]
 //!     pub id: uuid::Uuid,
-//!     pub title: String,
-//! }
-//!
-//! #[derive(tablo::RecordForm)]
-//! #[form(model = Book)]
-//! pub struct BookForm {
 //!     pub title: String,
 //! }
 //!
@@ -54,16 +49,11 @@
 //! ```rust,no_run
 //! # use tablo::prelude::*;
 //! # use topcoat::router::{Router, RouterBuilderDiscoverExt};
-//! # #[derive(Debug, Clone, toasty::Model)]
+//! # #[derive(Debug, Clone, toasty::Model, tablo::ModelForm)]
 //! # pub struct Book {
 //! #     #[key]
 //! #     #[auto]
 //! #     pub id: uuid::Uuid,
-//! #     pub title: String,
-//! # }
-//! # #[derive(tablo::RecordForm)]
-//! # #[form(model = Book)]
-//! # pub struct BookForm {
 //! #     pub title: String,
 //! # }
 //! # pub struct BookResource;
@@ -96,10 +86,11 @@ pub mod prelude {
         Ability, Action, ActionInput, Allow, Auth, BooleanColumn, Brand, ChoiceField, ColumnWidth,
         Committed, ComputedColumn, CountColumn, CustomField, DateFilter, Deny, Detail,
         EmbeddedColumn, EmbeddedForm, Field, FieldErrors, FileColumn, FileField, Grid, Group,
-        HeaderAction, HeaderActions, IntoOptions, Lens, NavigationItem, NoForm, Options, Page,
-        Panel, Places, Policy, Posted, PublicLink, QueryFilter, ReadOnly, RecordForm, Relation,
-        RelationColumn, RepeaterColumn, RepeaterItem, Resource, ResourceDef, RouterBuilderPanelExt,
-        Schema, Section, SelectFilter, Table, Tenancy, TenantId, TernaryFilter, TextColumn,
-        TextField, Toggle, can, can_list, lens, relation, scoped_query, tenant_id, when,
+        HeaderAction, HeaderActions, IntoOptions, Lens, ModelForm, NavigationItem, NoForm, Options,
+        Page, Panel, Places, Policy, Posted, PublicLink, QueryFilter, ReadOnly, RecordForm,
+        Relation, RelationColumn, RepeaterColumn, RepeaterItem, Resource, ResourceDef,
+        RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy, TenantId,
+        TernaryFilter, TextColumn, TextField, Toggle, can, can_list, lens, relation, scoped_query,
+        tenant_id, when,
     };
 }

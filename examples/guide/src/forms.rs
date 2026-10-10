@@ -10,7 +10,7 @@ use tablo::{
 use topcoat::{context::Cx, view::*};
 
 use crate::{
-    models::{Post, Role, Seo, Theme, User},
+    models::{Author, Post, Role, Seo, Theme, User},
     resources::{AuthorResource, UserForm},
 };
 
@@ -352,4 +352,35 @@ impl Resource for TagResource {
             ))
         // ANCHOR_END: tag-relations
     }
+}
+
+// ANCHOR: forms-model-form
+#[derive(Debug, Clone, toasty::Model, tablo::ModelForm)]
+pub struct Note {
+    #[key]
+    #[auto]
+    pub id: uuid::Uuid,
+    #[index]
+    pub tenant_id: TenantId,
+    pub title: String,
+    #[form(optional)]
+    pub body: String,
+    #[default(jiff::Timestamp::now())]
+    pub created_at: jiff::Timestamp,
+    #[index]
+    #[form(relationship = AuthorResource)]
+    pub author_id: uuid::Uuid,
+    #[belongs_to(key = author_id, references = id)]
+    pub author: toasty::Deferred<Author>,
+}
+// ANCHOR_END: forms-model-form
+
+/// `NoteForm` holds the three fields a person fills, and nothing else.
+fn _note_form(form: NoteForm) -> (String, String, uuid::Uuid) {
+    let NoteForm {
+        title,
+        body,
+        author_id,
+    } = form;
+    (title, body, author_id)
 }

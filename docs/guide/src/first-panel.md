@@ -39,9 +39,9 @@ cargo run
 
 ## What each part does
 
-- **`#[derive(RecordForm)]`** declares what a form submission parses into. Each field is named
-  and typed like the model's field, so a renamed column fails to compile. The derive also lays
-  out the list's table, the form and the detail page from those fields. See [Forms](./forms.md).
+- **`tablo::ModelForm`** writes `BookForm`, the **record form** a submission parses into: one
+  field per model field a person fills, so `id` is left out. The record form also lays out the
+  list's table, the form and the detail page. See [Forms](./forms.md).
 - **`impl Resource`** declares the panel's pages for one model. A resource must name `Model` and
   `Form`; every other item has a default, and the default policy denies everything. See
   [Resources](./resources.md).

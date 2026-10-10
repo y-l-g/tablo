@@ -58,6 +58,31 @@ When the policy allows `Create`, mounting the panel refuses the resource unless 
 non-nullable column is filled by the form, by Toasty, by the tenant stamp, or by an overridden
 `create_record` whose def names it with `create_column`.
 
+## A form from the model
+
+When the record form is the model's fields a person fills, derive `tablo::ModelForm` on the model
+and it writes the struct, named after the model:
+
+```rust
+{{#include ../../../examples/guide/src/forms.rs:forms-model-form}}
+```
+
+`NoteForm` holds `title`, `body` and `author_id`, with `NoteFormField` and `NoteFormControls`
+beside it, and each field keeps the model field's visibility. A field's `#[form(..)]` keys are the
+record form's. The derive leaves out what no person fills: a key, an `#[auto]`, `#[update]` or
+`#[version]` field, a relation, and a `TenantId` field, which belongs to the resource's tenancy.
+A form key on one is a compile error naming the fix. A `#[default(..)]` field and a foreign key
+are left out unless a form key opts them in, as `#[form(relationship = AuthorResource)]` does for
+`author_id`; without it, a create would leave the column unset, which mounting refuses when the
+policy allows `Create`.
+`#[form(skip)]` leaves out any other field, and `#[form(name = NoteEditor)]` on the model renames
+the struct.
+
+Declare a `#[derive(RecordForm)]` struct instead when a form field is not a model column, such as
+a [many-to-many field](#many-to-many-fields)'s list of keys, or when the model should not name a
+resource. Move the field keys onto it and drop `ModelForm` from the model, or give one of the two
+another name: both are `NoteForm` by default.
+
 ## Controls
 
 The derive picks each field's control from the field: a `bool` is a toggle, `#[form(options)]` a

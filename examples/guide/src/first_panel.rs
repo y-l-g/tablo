@@ -10,19 +10,13 @@ use topcoat::{
     router::{Router, RouterBuilderDiscoverExt},
 };
 
-/// The model: every column the panel renders comes from this type.
-#[derive(Debug, Clone, toasty::Model)]
+/// The model: every column the panel renders comes from this type, and
+/// `ModelForm` writes `BookForm`, what the create and edit forms parse into.
+#[derive(Debug, Clone, toasty::Model, tablo::ModelForm)]
 pub struct Book {
     #[key]
     #[auto]
     pub id: uuid::Uuid,
-    pub title: String,
-}
-
-/// What the create and edit forms parse into.
-#[derive(tablo::RecordForm)]
-#[form(model = Book)]
-pub struct BookForm {
     pub title: String,
 }
 

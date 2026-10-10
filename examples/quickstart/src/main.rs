@@ -14,17 +14,11 @@ use topcoat::{
 
 const GEIST: Font = fontsource_font!(GEIST, host: Asset);
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, tablo::ModelForm)]
 pub struct Book {
     #[key]
     #[auto]
     pub id: uuid::Uuid,
-    pub title: String,
-}
-
-#[derive(tablo::RecordForm)]
-#[form(model = Book)]
-pub struct BookForm {
     pub title: String,
 }
 

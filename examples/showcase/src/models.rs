@@ -24,7 +24,7 @@ pub enum PostStatus {
     Published,
 }
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, tablo::ModelForm)]
 pub struct User {
     #[key]
     #[auto]
@@ -33,14 +33,17 @@ pub struct User {
     pub name: String,
     #[unique]
     pub email: String,
+    #[form(options, blank = Role::Member)]
     pub role: Role,
+    #[form(blank = true)]
     pub active: bool,
+    #[form(blank = 0)]
     pub age: i64,
     #[default(jiff::Timestamp::now())]
     pub created_at: Timestamp,
 }
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, tablo::ModelForm)]
 // Scoped unique index avoids a 500 on cross-tenant emails.
 #[unique(tenant_id, email)]
 pub struct Author {
@@ -133,7 +136,7 @@ pub struct Post {
 }
 
 /// A topic posts are filed under: a post takes several, and a category holds several posts.
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, tablo::ModelForm)]
 pub struct Category {
     #[key]
     #[auto]
