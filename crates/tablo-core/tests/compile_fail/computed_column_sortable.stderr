@@ -1,0 +1,10 @@
+error[E0599]: no method named `sortable` found for struct `ComputedColumn<M>` in the current scope
+  --> tests/compile_fail/computed_column_sortable.rs:10:72
+   |
+10 |     tablo_core::ComputedColumn::new("Name", |u: &User| u.name.clone()).sortable();
+   |                                                                        ^^^^^^^^
+   |
+help: there is a method `is_sortable` with a similar name
+   |
+10 |     tablo_core::ComputedColumn::new("Name", |u: &User| u.name.clone()).is_sortable();
+   |                                                                        +++

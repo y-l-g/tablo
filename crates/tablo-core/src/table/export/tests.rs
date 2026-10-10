@@ -1,59 +1,71 @@
+use proptest::prelude::*;
+
 use super::*;
 use crate::{lens, table::TextColumn, test_support::User};
 
-#[test]
-fn csv_row_defuses_formula_cells_per_owasp() {
-    let csv_table = Table::<User>::new(TextColumn::new(lens!(User.name)));
-    for payload in ["=1+1", "+1+1", "-1+1", "@SUM(1+1)", "|id", "%x", "  =cmd"] {
-        let user = User {
-            id: uuid::Uuid::nil(),
-            name: payload.to_string(),
-        };
-        let body = csv_table.csv_row(&crate::test_support::cx(), &user);
-        assert!(
-            body.starts_with('\''),
-            "formula payload {payload:?} must be defused with leading `'`, got {body:?}"
-        );
+/// What a spreadsheet reads back from one RFC 4180 cell.
+fn unquote(cell: &str) -> String {
+    match cell
+        .strip_prefix('"')
+        .and_then(|inner| inner.strip_suffix('"'))
+    {
+        Some(inner) => inner.replace("\"\"", "\""),
+        None => cell.to_string(),
     }
-    // Plain values stay untouched; RFC4180 quoting still applies.
-    let user = User {
-        id: uuid::Uuid::nil(),
-        name: "Ada, \"the\" first".to_string(),
-    };
-    let csv = csv_table.csv_row(&crate::test_support::cx(), &user);
-    assert!(
-        csv.contains("\"Ada, \"\"the\"\" first\""),
-        "quoting broke: {csv:?}"
-    );
 }
 
-#[test]
-fn csv_row_defuses_cr_lf_led_formula_cells() {
-    // Spreadsheets treat CR/LF- and tab-led payloads as formulas
-    // even when the dangerous character does not start the raw cell, so
-    // the defuse test skips leading whitespace/controls. CR/LF-led cells
-    // are RFC4180-quoted (they carry a newline); a tab-led cell has no
-    // quote/comma/newline and stays bare — either way the `'` leads the
-    // defused content.
-    let csv_table = Table::<User>::new(TextColumn::new(lens!(User.name)));
-    for (payload, defused) in [
-        ("\r=1+1", "'\r=1+1"),
-        ("\n@cmd", "'\n@cmd"),
-        ("\t+1+1", "'\t+1+1"),
-        (" \r=HYPERLINK(1,2)", "' \r=HYPERLINK(1,2)"),
-        // BOM/ZWSP are neither whitespace nor control: cover the
-        // format-character gap explicitly.
-        ("\u{FEFF}=1+1", "'\u{FEFF}=1+1"),
-        ("\u{200B}@cmd", "'\u{200B}@cmd"),
-    ] {
-        let user = User {
-            id: uuid::Uuid::nil(),
-            name: payload.to_string(),
-        };
-        let csv = csv_table.csv_row(&crate::test_support::cx(), &user);
-        assert!(
-            csv.contains(defused),
-            "CR/LF-led formula payload {payload:?} must be defused to {defused:?}, got {csv:?}"
-        );
+/// Whether a spreadsheet would run `cell` as a formula: its first character past whitespace,
+/// controls and zero-width format characters starts one.
+fn runs_as_formula(cell: &str) -> bool {
+    cell.chars()
+        .find(|c| !(c.is_whitespace() || c.is_control() || matches!(c, '\u{FEFF}' | '\u{200B}')))
+        .is_some_and(|c| matches!(c, '=' | '+' | '-' | '@' | '|' | '%'))
+}
+
+/// A cell spreadsheets could misread: formula leads behind whitespace, controls and format
+/// characters, with quotes, commas and line breaks RFC 4180 must quote.
+fn cell() -> impl Strategy<Value = String> {
+    prop_oneof![
+        "[ \t\r\n\u{FEFF}\u{200B}]{0,3}[=+\\-@|%a\",]\\PC{0,12}",
+        "\\PC{0,24}",
+    ]
+}
+
+proptest! {
+    /// Every exported cell reads back as its value, defused: nothing a spreadsheet runs, and the
+    /// text unchanged after the `'` a defused cell leads with.
+    #[test]
+    fn an_exported_cell_reads_back_as_inert_text(value in cell()) {
+        let read = unquote(&escape_csv(&value));
+        prop_assert!(!runs_as_formula(&read), "{read:?} runs as a formula");
+        if runs_as_formula(&value) {
+            prop_assert_eq!(read, format!("'{value}"));
+        } else {
+            prop_assert_eq!(read, value);
+        }
     }
+
+    /// A cell holding a separator, a quote or a line break is quoted, so it stays one cell.
+    #[test]
+    fn a_cell_with_a_separator_stays_one_cell(value in cell()) {
+        let cell = escape_csv(&value);
+        if value.contains([',', '"', '\n', '\r']) {
+            prop_assert!(cell.starts_with('"') && cell.ends_with('"'), "{cell:?}");
+            prop_assert!(!cell[1..cell.len() - 1].replace("\"\"", "").contains('"'), "{cell:?}");
+        }
+    }
+}
+
+/// A row's cells go through the escaping, in column order, on one line.
+#[test]
+fn a_csv_row_escapes_each_cell() {
+    let table = Table::<User>::new(TextColumn::new(lens!(User.name)));
+    let user = User {
+        id: uuid::Uuid::nil(),
+        name: "=Ada, \"the\" first".to_string(),
+    };
+    assert_eq!(
+        table.csv_row(&crate::test_support::cx(), &user),
+        "\"'=Ada, \"\"the\"\" first\"\n"
+    );
 }

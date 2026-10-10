@@ -36,7 +36,6 @@ async fn edit_page_hydrates_and_updates() {
         "edit should contain hydrated email"
     );
 
-    let csrf = uuid::Uuid::new_v4().to_string();
     let resp = client.submit(&edit_url, "name=&email=bad").await;
     assert!(
         resp.status().is_success(),
@@ -45,13 +44,13 @@ async fn edit_page_hydrates_and_updates() {
     );
     let html = body_string(resp).await;
     assert_eq!(
-        tablo::testing::field_error(&html, "name").as_deref(),
-        Some("Name is required"),
+        tablo::testing::field_error(&html, "name"),
+        Some(tablo::testing::ErrorKind::Required),
         "the name slot names its refusal, got {html}"
     );
     assert_eq!(
-        tablo::testing::field_error(&html, "email").as_deref(),
-        Some("Email must be a valid email"),
+        tablo::testing::field_error(&html, "email"),
+        Some(tablo::testing::ErrorKind::Invalid),
         "the email slot names its refusal, got {html}"
     );
     let mut db_check = db.clone();
@@ -59,11 +58,7 @@ async fn edit_page_hydrates_and_updates() {
     assert_eq!(fresh.name, user.name, "should not mutate on invalid");
 
     let resp = client
-        .csrf(&csrf)
-        .post_form(
-            &edit_url,
-            format!("name=Updated%20Name&email=updated%40example.com&csrf_token={csrf}",),
-        )
+        .submit(&edit_url, "name=Updated%20Name&email=updated%40example.com")
         .await;
     assert!(
         resp.status().is_redirection(),
@@ -155,12 +150,10 @@ async fn an_edit_writes_only_the_fields_it_posts() {
         .await
         .unwrap()
         .expect("Ada is seeded");
-    let csrf = uuid::Uuid::new_v4().to_string();
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             &format!("/admin/users/{}/edit", user.id),
-            format!("email=kept%40example.com&csrf_token={csrf}"),
+            "email=kept%40example.com",
         )
         .await;
     assert!(
@@ -278,12 +271,10 @@ async fn edit_sso_managed_user_is_forbidden() {
         "protected row edit page must be forbidden, got {}",
         resp.status()
     );
-    let csrf = uuid::Uuid::new_v4().to_string();
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             &format!("/admin/users/{}/edit", ken.id),
-            format!("name=Ken+Hacked&email=ken%40example.com&csrf_token={csrf}"),
+            "name=Ken+Hacked&email=ken%40example.com",
         )
         .await;
     assert_eq!(
@@ -335,16 +326,14 @@ async fn post_edit_binds_and_saves_embedded_fields() {
         "no nested-embed demo beyond Seo may render, got {html}"
     );
 
-    let csrf = uuid::Uuid::new_v4().to_string();
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             &format!("/admin/posts/{}/edit", post.id),
-            format!(
+            &format!(
                 "title=Hello+Toasty&author_id={}&cover_id=&tags=rust&body=Body&\
                  status=published&featured=true&seo_title=Edited+SEO&seo_description=Desc&\
                  publication=2&publication_timestamp=2026-01-01T00%3A00&\
-                 publication_canonical_url=https%3A%2F%2Fexample.com%2Fnew&csrf_token={csrf}",
+                 publication_canonical_url=https%3A%2F%2Fexample.com%2Fnew",
                 post.author_id
             ),
         )
@@ -389,12 +378,10 @@ async fn post_edit_naming_one_embedded_leaf_keeps_the_other() {
         "the fixture must carry a description to keep"
     );
 
-    let csrf = uuid::Uuid::new_v4().to_string();
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             &format!("/admin/posts/{}/edit", post.id),
-            format!("seo_title=Only+the+title&csrf_token={csrf}"),
+            "seo_title=Only+the+title",
         )
         .await;
     assert!(
@@ -467,17 +454,15 @@ async fn post_edit_switches_the_publication_variant_explicitly() {
         "the publication timestamp must render datetime-local, got {html}"
     );
 
-    let csrf = uuid::Uuid::new_v4().to_string();
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             &format!("/admin/posts/{}/edit", post.id),
-            format!(
+            &format!(
                 "title=Hello+Toasty&author_id={}&cover_id=&tags=rust&body=Body&\
                  status=published&featured=true&seo_title=Edited+SEO&seo_description=Desc&\
                  publication=3&publication_timestamp=2026-01-01T00%3A00%3A00Z&\
                  publication_canonical_url=https%3A%2F%2Fexample.com%2Fstale&\
-                 publication_reason=superseded&csrf_token={csrf}",
+                 publication_reason=superseded",
                 post.author_id
             ),
         )
@@ -534,17 +519,15 @@ async fn post_create_keeps_the_variant_its_payload_names() {
         "the create form must carry the discriminant, got {html}"
     );
 
-    let csrf = uuid::Uuid::new_v4().to_string();
     let author_id = author.id.to_string();
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             "/admin/posts/create",
-            format!(
+            &format!(
                 "title=Created+Published&author_id={author_id}&tags=&body=Body&\
                  status=published&featured=false&cover_id=&seo_title=S&seo_description=D&\
                  publication=&publication_timestamp=2026-03-01T00%3A00%3A00Z&\
-                 publication_canonical_url=https%3A%2F%2Fexample.com%2Fnew&csrf_token={csrf}"
+                 publication_canonical_url=https%3A%2F%2Fexample.com%2Fnew"
             ),
         )
         .await;
@@ -636,7 +619,6 @@ async fn user_age_round_trips_and_refuses_a_negative() {
         "the user detail must show the age, got {detail}"
     );
 
-    let csrf = uuid::Uuid::new_v4().to_string();
     let before = User::filter(User::fields().id().eq(user.id))
         .first()
         .exec(&mut db_q)
@@ -645,13 +627,9 @@ async fn user_age_round_trips_and_refuses_a_negative() {
         .expect("the user")
         .age;
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             &format!("/admin/users/{}/edit", user.id),
-            format!(
-                "name={}&email={}&age=-1&csrf_token={csrf}",
-                user.name, user.email
-            ),
+            &format!("name={}&email={}&age=-1", user.name, user.email),
         )
         .await;
     assert_eq!(
@@ -662,8 +640,8 @@ async fn user_age_round_trips_and_refuses_a_negative() {
     );
     let html = body_string(resp).await;
     assert_eq!(
-        tablo::testing::field_error(&html, "age").as_deref(),
-        Some("Age must be zero or more"),
+        tablo::testing::field_error(&html, "age"),
+        Some(tablo::testing::ErrorKind::Invalid),
         "the age slot names the range refusal, got {html}"
     );
     let still = User::filter(User::fields().id().eq(user.id))
@@ -674,13 +652,9 @@ async fn user_age_round_trips_and_refuses_a_negative() {
         .expect("the user still exists");
     assert_eq!(still.age, before, "a refused edit writes nothing");
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             &format!("/admin/users/{}/edit", user.id),
-            format!(
-                "name={}&email={}&age=42&csrf_token={csrf}",
-                user.name, user.email
-            ),
+            &format!("name={}&email={}&age=42", user.name, user.email),
         )
         .await;
     assert!(
@@ -697,13 +671,9 @@ async fn user_age_round_trips_and_refuses_a_negative() {
     assert_eq!(saved.age, 42);
 
     let resp = client
-        .csrf(&csrf)
-        .post_form(
+        .submit(
             &format!("/admin/users/{}/edit", user.id),
-            format!(
-                "name={}&email={}&age=&csrf_token={csrf}",
-                user.name, user.email
-            ),
+            &format!("name={}&email={}&age=", user.name, user.email),
         )
         .await;
     assert!(

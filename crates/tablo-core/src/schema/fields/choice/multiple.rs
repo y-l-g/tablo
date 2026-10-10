@@ -21,7 +21,7 @@ impl Field {
         choice: &ChoiceControl,
         cx: &'a Cx,
         value: Option<&str>,
-        error: Option<&str>,
+        error: Option<&crate::form::FieldError>,
         id: String,
         disabled: bool,
     ) -> Result<BoxView<'a>> {
@@ -44,9 +44,18 @@ impl Field {
                 }
             }
         }
-        let error = match error {
-            Some(message) => Some(message.to_string()),
-            None => denied.then(|| format!("{label} is not available")),
+        // A denied choice reads unavailable whatever refused the submission.
+        let (error, error_kind) = match error {
+            Some(error) if denied => (Some(error.message(&label)), Some(super::super::UNAVAILABLE)),
+            Some(error) => (
+                Some(error.message(&label)),
+                Some(super::super::error_kind(error)),
+            ),
+            None if denied => (
+                Some(format!("{label} is not available")),
+                Some(super::super::UNAVAILABLE),
+            ),
+            None => (None, None),
         };
         let legend_id = format!("{id}-legend");
         let error_id = format!("{id}-error");
@@ -132,7 +141,12 @@ impl Field {
                 }
                 if let Some(message) = error {
                     ui_field_error(
-                        attrs: attributes! { id=(error_id) class="ac-error" aria-live="polite" },
+                        attrs: attributes! {
+                            id=(error_id)
+                            class="ac-error"
+                            aria-live="polite"
+                            data-error=(error_kind)
+                        },
                         (message)
                     )
                 }

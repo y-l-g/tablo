@@ -1,0 +1,120 @@
+error[E0277]: the trait bound `toasty::stmt::Path<User, i32>: From<toasty::stmt::Path<User, i64>>` is not satisfied
+  --> tests/compile_fail/record_form_column_type_mismatch.rs:10:10
+   |
+10 | #[derive(tablo_core::RecordForm)]
+   |          ^^^^^^^^^^^^^^^^^^^^^^ the trait `From<toasty::stmt::Path<User, i64>>` is not implemented for `toasty::stmt::Path<User, i32>`
+   |
+help: the trait `From<toasty::stmt::Path<User, i64>>` is not implemented for `toasty::stmt::Path<User, i32>`
+      but trait `From<Lens<User, _, i32>>` is implemented for it
+  --> src/lens.rs
+   |
+   | impl<M, T, P> From<Lens<M, T, P>> for Path<M, P> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: for that trait implementation, expected `Lens<User, _, i32>`, found `toasty::stmt::Path<User, i64>`
+   = note: required for `toasty::stmt::Path<User, i64>` to implement `Into<toasty::stmt::Path<User, i32>>`
+note: required by a bound in `tablo_core::schema::form_key`
+  --> src/schema/lenses.rs
+   |
+   | pub fn form_key<M, T>(path: impl Into<Path<M, T>>) -> String
+   |                                  ^^^^^^^^^^^^^^^^ required by this bound in `form_key`
+   = note: this error originates in the derive macro `tablo_core::RecordForm` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `toasty::stmt::Path<User, i32>: From<toasty::stmt::Path<User, i64>>` is not satisfied
+  --> tests/compile_fail/record_form_column_type_mismatch.rs:10:10
+   |
+10 | #[derive(tablo_core::RecordForm)]
+   |          ^^^^^^^^^^^^^^^^^^^^^^ the trait `From<toasty::stmt::Path<User, i64>>` is not implemented for `toasty::stmt::Path<User, i32>`
+   |
+help: the trait `From<toasty::stmt::Path<User, i64>>` is not implemented for `toasty::stmt::Path<User, i32>`
+      but trait `From<Lens<User, _, i32>>` is implemented for it
+  --> src/lens.rs
+   |
+   | impl<M, T, P> From<Lens<M, T, P>> for Path<M, P> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: for that trait implementation, expected `Lens<User, _, i32>`, found `toasty::stmt::Path<User, i64>`
+   = note: required for `toasty::stmt::Path<User, i64>` to implement `Into<toasty::stmt::Path<User, i32>>`
+note: required by a bound in `Lens::<M, T, P>::new`
+  --> src/lens.rs
+   |
+   |     pub fn new(path: impl Into<Path<M, P>>, read: fn(&M) -> &T) -> Self {
+   |                           ^^^^^^^^^^^^^^^^ required by this bound in `Lens::<M, T, P>::new`
+   = note: this error originates in the derive macro `tablo_core::RecordForm` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/compile_fail/record_form_column_type_mismatch.rs:10:10
+   |
+10 | #[derive(tablo_core::RecordForm)]
+   |          ^^^^^^^^^^^^^^^^^^^^^^ expected `&i32`, found `&i64`
+   |
+   = note: expected reference `&i32`
+              found reference `&i64`
+   = note: this error originates in the derive macro `tablo_core::RecordForm` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `i32: IntoExpr<i64>` is not satisfied
+  --> tests/compile_fail/record_form_column_type_mismatch.rs:10:10
+   |
+10 | #[derive(tablo_core::RecordForm)]
+   |          ^^^^^^^^^^^^^^^^^^^^^^ the trait `IntoExpr<i64>` is not implemented for `i32`
+...
+13 |     age: i32,
+   |     --- required by a bound introduced by this call
+   |
+help: the trait `IntoExpr<i64>` is not implemented for `i32`
+      but trait `IntoExpr<i32>` is implemented for it
+  --> $CARGO/toasty-$VERSION/src/stmt/into_expr.rs
+   |
+   |               impl IntoExpr<$t> for $t {
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^
+...
+   | / impl_into_expr_for_copy! {
+   | |     Bool(bool);
+   | |     I8(i8);
+   | |     I16(i16);
+...  |
+   | |     Uuid(uuid::Uuid);
+   | | }
+   | |_- in this macro invocation
+   = help: for that trait implementation, expected `i32`, found `i64`
+note: required by a bound in `UserCreate::age`
+  --> tests/compile_fail/record_form_column_type_mismatch.rs:1:24
+   |
+ 1 | #[derive(Debug, Clone, toasty::Model)]
+   |                        ^^^^^^^^^^^^^ required by this bound in `UserCreate::age`
+...
+ 7 |     age: i64,
+   |     --- required by a bound in this associated function
+   = note: this error originates in the macro `impl_into_expr_for_copy` which comes from the expansion of the derive macro `toasty::Model` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `i32: Assign<i64>` is not satisfied
+  --> tests/compile_fail/record_form_column_type_mismatch.rs:10:10
+   |
+10 | #[derive(tablo_core::RecordForm)]
+   |          ^^^^^^^^^^^^^^^^^^^^^^ the trait `Assign<i64>` is not implemented for `i32`
+   |
+help: the trait `Assign<i64>` is not implemented for `i32`
+      but trait `Assign<i32>` is implemented for it
+  --> $CARGO/toasty-$VERSION/src/stmt/assignment.rs
+   |
+   |           impl super::assignment::Assign<$target> for $source {
+   |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+  ::: $CARGO/toasty-$VERSION/src/stmt/into_expr.rs
+   |
+   | / impl_into_expr_for_copy! {
+   | |     Bool(bool);
+   | |     I8(i8);
+   | |     I16(i16);
+...  |
+   | |     Uuid(uuid::Uuid);
+   | | }
+   | |_- in this macro invocation
+   = help: for that trait implementation, expected `i32`, found `i64`
+note: required by a bound in `UserUpdate::<__toasty_T>::set_age`
+  --> tests/compile_fail/record_form_column_type_mismatch.rs:1:24
+   |
+ 1 | #[derive(Debug, Clone, toasty::Model)]
+   |                        ^^^^^^^^^^^^^ required by this bound in `UserUpdate::<__toasty_T>::set_age`
+...
+ 7 |     age: i64,
+   |     --- required by a bound in this associated function
+   = note: this error originates in the derive macro `tablo_core::RecordForm` which comes from the expansion of the derive macro `toasty::Model` (in Nightly builds, run with -Z macro-backtrace for more info)

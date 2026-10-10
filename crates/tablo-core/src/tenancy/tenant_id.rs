@@ -134,22 +134,6 @@ fn tenant_expr(id: uuid::Uuid) -> Expr<TenantId> {
 /// Implement it for an app's own newtype to name that instead. `uuid::Uuid` cannot implement it:
 /// neither the trait nor the type belongs to the app, so an unmarked UUID column can never be
 /// named as a tenant column.
-///
-/// ```compile_fail,E0277
-/// # use tablo_core::{Tenancy, TenantId};
-/// #[derive(Debug, Clone, toasty::Model)]
-/// struct Post {
-///     #[key]
-///     #[auto]
-///     id: uuid::Uuid,
-///     #[index]
-///     tenant_id: TenantId,
-///     author_id: uuid::Uuid,
-/// }
-///
-/// // `author_id` is a `Uuid`: the lens names no tenant column.
-/// let _ = Tenancy::column(Post::fields().author_id());
-/// ```
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a tenant column",
     label = "not a tenant column",

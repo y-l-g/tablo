@@ -305,21 +305,22 @@ async fn parse_and_record_errors_render_inline() {
     assert_eq!(response.status(), StatusCode::OK, "the form re-renders");
     let html = body_string(response).await;
     assert_eq!(
-        field_error(&html, "title").as_deref(),
-        Some("Title is required"),
+        field_error(&html, "title"),
+        Some(tablo::testing::ErrorKind::Required),
         "{html}"
     );
     assert_eq!(
-        field_error(&html, "priority").as_deref(),
-        Some("`lots` is not a valid whole number"),
+        field_error(&html, "priority"),
+        Some(tablo::testing::ErrorKind::Invalid),
         "{html}"
     );
 
     let response = post_fields(&router, &edit, &[("priority", "11")]).await;
     assert_eq!(response.status(), StatusCode::OK, "the form re-renders");
     let html = body_string(response).await;
+    // `validate_record`'s own message reaches the field's slot.
     assert_eq!(
-        field_error(&html, "priority").as_deref(),
+        tablo::testing::field_error_message(&html, "priority").as_deref(),
         Some("Priority is at most 10"),
         "{html}"
     );
@@ -788,8 +789,8 @@ async fn a_value_the_form_type_refuses_renders_inline() {
     assert_eq!(response.status(), StatusCode::OK, "the form re-renders");
     let html = body_string(response).await;
     assert_eq!(
-        field_error(&html, "priority").as_deref(),
-        Some("`lots` is not a valid whole number"),
+        field_error(&html, "priority"),
+        Some(tablo::testing::ErrorKind::Invalid),
         "{html}"
     );
     assert_eq!(reload(&db, item.id).await.priority, 7);

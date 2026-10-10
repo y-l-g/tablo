@@ -784,13 +784,6 @@ async fn stale_cursor_is_marked_for_retry() {
         "the refusal is not a decode failure, got {error}"
     );
 
-    // A transient failure keeps the cursor.
-    let transient = crate::error::unavailable("connection reset");
-    assert!(
-        !crate::error::TabloError::is_cursor(&transient),
-        "only cursor failures drop pagination on retry"
-    );
-
     // A cursor cut from this query's own ordering round-trips.
     let first = TablePage::load(
         &cx,

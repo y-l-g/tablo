@@ -107,7 +107,7 @@ pub trait Action<R: Resource>: 'static {
     /// [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) refuses a name that
     /// another action of the resource shares.
     ///
-    /// ```rust,compile_fail
+    /// ```rust,compile_fail,E0080
     /// # use tablo_core::{Action, NoForm, Resource, ResourceDef};
     /// # use topcoat::{Result, context::Cx};
     /// # #[derive(Debug, Clone, toasty::Model)]

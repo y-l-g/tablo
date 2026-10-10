@@ -220,8 +220,19 @@ async fn relationship_load_fails_closed_when_view_any_is_refused() {
     );
     // The empty select explains itself on GET.
     assert!(
-        html.contains("Id is not available"),
+        html.contains("Id is not available") && html.contains(r#"data-error="unavailable""#),
         "denied render must show the form-level error: {html}"
+    );
+    // The submit's refusal re-renders over the same denied load, which still names the slot.
+    let refused = crate::form::FieldError::invalid("id", "Id is not available");
+    let html = select
+        .render(&cx, Some(&pk), Some(&refused))
+        .await
+        .html(&cx)
+        .await;
+    assert!(
+        html.contains(r#"data-error="unavailable""#),
+        "a refused submission of a denied choice still reads unavailable: {html}"
     );
 }
 

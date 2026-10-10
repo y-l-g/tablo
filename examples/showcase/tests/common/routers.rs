@@ -1,7 +1,7 @@
 //! The routers the integration tests mount: the showcase panel without
 //! filesystem assets, with and without the demo uploader.
 
-use showcase::app::{build_router, upload_dir};
+use showcase::app::build_router;
 use toasty::Db;
 use topcoat::router::Router;
 
@@ -18,11 +18,12 @@ pub fn router_for_tests(db: Db) -> Router {
     build_router(db, None, None)
 }
 
-/// Build the showcase router with uploads at the directory the application
-/// itself uses.
+/// Build the showcase router with uploads stored as the application stores them, in a fresh
+/// directory under the system's temporary directory rather than the source tree.
 ///
 /// The media library's page writes through this configuration — the panel's
 /// `serve_dir` mount and the store are two ends of one directory.
 pub fn router_with_app_uploads(db: Db) -> Router {
-    build_router(db, None, Some(upload_dir()))
+    let dir = std::env::temp_dir().join(format!("showcase-uploads-{}", uuid::Uuid::new_v4()));
+    build_router(db, None, Some(dir))
 }

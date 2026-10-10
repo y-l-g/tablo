@@ -1,0 +1,5 @@
+error: #[derive(Options)] supports unit variants only: an option is one stored value
+ --> tests/compile_fail/options_variant_with_fields.rs:4:5
+  |
+4 |     Scheduled { at: String },
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^

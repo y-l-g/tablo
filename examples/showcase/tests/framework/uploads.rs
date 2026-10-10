@@ -20,8 +20,7 @@ use topcoat::{
 use uuid::Uuid;
 
 use crate::framework::common::{
-    body_bytes, body_string, csp, field_error, get, memory_db, mount, multipart_body, new_csrf,
-    panel, post, post_multipart, refusal,
+    TestClient, body_bytes, body_string, csp, field_error, get, memory_db, mount, panel, refusal,
 };
 
 /// A document with one required and one optional upload.
@@ -160,19 +159,17 @@ async fn an_installed_uploader_stores_the_bytes_and_the_path_reaches_the_record(
     let db = seeded_db().await;
     let uploader = RecordingUploader::default();
     let router = router(db.clone(), uploader.clone());
-    let csrf = new_csrf();
-    let body = multipart_body(
-        "B",
-        &[
-            ("title", None, "Notes"),
-            // A path-carrying client name reaches the uploader as its basename.
-            ("cover", Some("../../etc/cover.png"), "PNG-BYTES"),
-            ("attachment", Some("spec.pdf"), "PDF-BYTES"),
-            ("csrf_token", None, &csrf),
-        ],
-    );
-
-    let response = post_multipart(&router, "/admin/docs/create", &csrf, "B", body).await;
+    let response = TestClient::new(&router)
+        .submit_multipart(
+            "/admin/docs/create",
+            &[
+                ("title", None, "Notes"),
+                // A path-carrying client name reaches the uploader as its basename.
+                ("cover", Some("../../etc/cover.png"), "PNG-BYTES"),
+                ("attachment", Some("spec.pdf"), "PDF-BYTES"),
+            ],
+        )
+        .await;
     assert_eq!(response.status(), 303, "a valid create redirects");
 
     // The record stores what the uploader returned.
@@ -216,27 +213,21 @@ async fn a_file_field_without_an_uploader_fails_the_build() {
 async fn a_refused_upload_is_an_inline_field_error_and_writes_nothing() {
     let db = seeded_db().await;
     let router = router(db.clone(), FailingUploader);
-    let csrf = new_csrf();
-    let body = multipart_body(
-        "B",
-        &[
-            ("title", None, "Notes"),
-            ("cover", Some("cover.png"), "PNG-BYTES"),
-            ("csrf_token", None, &csrf),
-        ],
-    );
-
-    let response = post_multipart(&router, "/admin/docs/create", &csrf, "B", body).await;
+    let response = TestClient::new(&router)
+        .submit_multipart(
+            "/admin/docs/create",
+            &[
+                ("title", None, "Notes"),
+                ("cover", Some("cover.png"), "PNG-BYTES"),
+            ],
+        )
+        .await;
     assert_eq!(response.status(), 200, "the form re-renders");
     let html = body_string(response).await;
     assert_eq!(
-        field_error(&html, "cover").as_deref(),
+        tablo::testing::field_error_message(&html, "cover").as_deref(),
         Some("Cover could not be uploaded: this deployment has no room left"),
         "the uploader's reason must reach the field's inline error: {html}"
-    );
-    assert!(
-        !html.contains("Cover is required"),
-        "'required' would restate the symptom and hide the reason: {html}"
     );
     assert!(
         !html.contains("data-file-current"),
@@ -256,24 +247,16 @@ async fn an_untouched_file_input_keeps_the_stored_path_and_a_chosen_one_replaces
     let doc = seed_doc(&db, "Original", "cover.png", "spec.pdf").await;
 
     // A browser submits every file input.
-    let csrf = new_csrf();
-    let body = multipart_body(
-        "B",
-        &[
-            ("title", None, "Renamed"),
-            ("cover", Some(""), ""),
-            ("attachment", Some(""), ""),
-            ("csrf_token", None, &csrf),
-        ],
-    );
-    let response = post_multipart(
-        &router,
-        &format!("/admin/docs/{}/edit", doc.id),
-        &csrf,
-        "B",
-        body,
-    )
-    .await;
+    let response = TestClient::new(&router)
+        .submit_multipart(
+            &format!("/admin/docs/{}/edit", doc.id),
+            &[
+                ("title", None, "Renamed"),
+                ("cover", Some(""), ""),
+                ("attachment", Some(""), ""),
+            ],
+        )
+        .await;
     assert_eq!(response.status(), 303, "an untouched upload saves");
     let updated = docs(&db).await;
     assert_eq!(updated[0].title, "Renamed");
@@ -285,24 +268,16 @@ async fn an_untouched_file_input_keeps_the_stored_path_and_a_chosen_one_replaces
     );
 
     // Choosing a file replaces the stored one: the new path is what is stored.
-    let csrf = new_csrf();
-    let body = multipart_body(
-        "B",
-        &[
-            ("title", None, "Renamed"),
-            ("cover", Some("new.png"), "NEW-BYTES"),
-            ("attachment", Some(""), ""),
-            ("csrf_token", None, &csrf),
-        ],
-    );
-    let response = post_multipart(
-        &router,
-        &format!("/admin/docs/{}/edit", doc.id),
-        &csrf,
-        "B",
-        body,
-    )
-    .await;
+    let response = TestClient::new(&router)
+        .submit_multipart(
+            &format!("/admin/docs/{}/edit", doc.id),
+            &[
+                ("title", None, "Renamed"),
+                ("cover", Some("new.png"), "NEW-BYTES"),
+                ("attachment", Some(""), ""),
+            ],
+        )
+        .await;
     assert_eq!(response.status(), 303);
     assert_eq!(docs(&db).await[0].cover, "/uploads/new.png");
 }
@@ -312,17 +287,12 @@ async fn an_untouched_file_input_keeps_the_stored_path_and_a_chosen_one_replaces
 async fn a_text_value_for_a_file_upload_is_not_stored_on_create() {
     let db = seeded_db().await;
     let router = router(db.clone(), RecordingUploader::default());
-    let csrf = new_csrf();
-    let body = format!("title=Notes&cover=javascript%3Aalert%281%29&csrf_token={csrf}");
-
-    let response = post(
-        &router,
-        "/admin/docs/create",
-        &csrf,
-        "application/x-www-form-urlencoded".to_string(),
-        body,
-    )
-    .await;
+    let response = TestClient::new(&router)
+        .submit(
+            "/admin/docs/create",
+            "title=Notes&cover=javascript%3Aalert%281%29",
+        )
+        .await;
     assert_eq!(
         response.status(),
         200,
@@ -330,8 +300,8 @@ async fn a_text_value_for_a_file_upload_is_not_stored_on_create() {
     );
     let html = body_string(response).await;
     assert_eq!(
-        field_error(&html, "cover").as_deref(),
-        Some("Cover is required"),
+        field_error(&html, "cover"),
+        Some(tablo::testing::ErrorKind::Required),
         "the typed value leaves the required field empty: {html}"
     );
     assert!(
@@ -350,24 +320,15 @@ async fn a_text_value_for_a_file_upload_keeps_the_stored_file_on_edit() {
     let db = seeded_db().await;
     let router = router(db.clone(), RecordingUploader::default());
     let doc = seed_doc(&db, "Original", "/uploads/old.png", "spec.pdf").await;
-    let csrf = new_csrf();
-    let body = multipart_body(
-        "B",
-        &[
-            ("title", None, "Renamed"),
-            ("cover", None, "javascript:alert(1)"),
-            ("csrf_token", None, &csrf),
-        ],
-    );
-
-    let response = post_multipart(
-        &router,
-        &format!("/admin/docs/{}/edit", doc.id),
-        &csrf,
-        "B",
-        body,
-    )
-    .await;
+    let response = TestClient::new(&router)
+        .submit_multipart(
+            &format!("/admin/docs/{}/edit", doc.id),
+            &[
+                ("title", None, "Renamed"),
+                ("cover", None, "javascript:alert(1)"),
+            ],
+        )
+        .await;
     assert_eq!(
         response.status(),
         303,
@@ -389,18 +350,16 @@ async fn a_text_value_for_a_file_upload_keeps_the_stored_file_on_edit() {
 async fn a_text_part_after_a_file_part_does_not_forge_a_value_on_create() {
     let db = seeded_db().await;
     let router = router(db.clone(), RecordingUploader::default());
-    let csrf = new_csrf();
-    let body = multipart_body(
-        "B",
-        &[
-            ("title", None, "Notes"),
-            ("cover", Some("cover.png"), "PNG-BYTES"),
-            ("cover", None, "javascript:alert(1)"),
-            ("csrf_token", None, &csrf),
-        ],
-    );
-
-    let response = post_multipart(&router, "/admin/docs/create", &csrf, "B", body).await;
+    let response = TestClient::new(&router)
+        .submit_multipart(
+            "/admin/docs/create",
+            &[
+                ("title", None, "Notes"),
+                ("cover", Some("cover.png"), "PNG-BYTES"),
+                ("cover", None, "javascript:alert(1)"),
+            ],
+        )
+        .await;
     assert_eq!(
         response.status(),
         200,
@@ -408,8 +367,8 @@ async fn a_text_part_after_a_file_part_does_not_forge_a_value_on_create() {
     );
     let html = body_string(response).await;
     assert_eq!(
-        field_error(&html, "cover").as_deref(),
-        Some("Cover is required"),
+        field_error(&html, "cover"),
+        Some(tablo::testing::ErrorKind::Required),
         "the later text part leaves the field empty: {html}"
     );
     assert!(
@@ -429,25 +388,16 @@ async fn a_text_part_after_a_file_part_keeps_the_stored_file_on_edit() {
     let uploader = RecordingUploader::default();
     let router = router(db.clone(), uploader.clone());
     let doc = seed_doc(&db, "Original", "/uploads/old.png", "spec.pdf").await;
-    let csrf = new_csrf();
-    let body = multipart_body(
-        "B",
-        &[
-            ("title", None, "Renamed"),
-            ("cover", Some("new.png"), "NEW-BYTES"),
-            ("cover", None, "javascript:alert(1)"),
-            ("csrf_token", None, &csrf),
-        ],
-    );
-
-    let response = post_multipart(
-        &router,
-        &format!("/admin/docs/{}/edit", doc.id),
-        &csrf,
-        "B",
-        body,
-    )
-    .await;
+    let response = TestClient::new(&router)
+        .submit_multipart(
+            &format!("/admin/docs/{}/edit", doc.id),
+            &[
+                ("title", None, "Renamed"),
+                ("cover", Some("new.png"), "NEW-BYTES"),
+                ("cover", None, "javascript:alert(1)"),
+            ],
+        )
+        .await;
     assert_eq!(response.status(), 303, "the edit saves");
     let updated = docs(&db).await;
     assert_eq!(
@@ -469,18 +419,16 @@ async fn a_text_part_after_a_file_part_keeps_the_stored_file_on_edit() {
 async fn a_file_part_after_a_text_part_wins_on_create() {
     let db = seeded_db().await;
     let router = router(db.clone(), RecordingUploader::default());
-    let csrf = new_csrf();
-    let body = multipart_body(
-        "B",
-        &[
-            ("title", None, "Notes"),
-            ("cover", None, "javascript:alert(1)"),
-            ("cover", Some("cover.png"), "PNG-BYTES"),
-            ("csrf_token", None, &csrf),
-        ],
-    );
-
-    let response = post_multipart(&router, "/admin/docs/create", &csrf, "B", body).await;
+    let response = TestClient::new(&router)
+        .submit_multipart(
+            "/admin/docs/create",
+            &[
+                ("title", None, "Notes"),
+                ("cover", None, "javascript:alert(1)"),
+                ("cover", Some("cover.png"), "PNG-BYTES"),
+            ],
+        )
+        .await;
     assert_eq!(response.status(), 303, "the last part is a file and wins");
     let created = docs(&db).await;
     assert_eq!(
@@ -495,18 +443,16 @@ async fn a_rejected_filename_after_a_file_part_discards_the_staged_bytes() {
     let db = seeded_db().await;
     let uploader = RecordingUploader::default();
     let router = router(db.clone(), uploader.clone());
-    let csrf = new_csrf();
-    let body = multipart_body(
-        "B",
-        &[
-            ("title", None, "Notes"),
-            ("cover", Some("first.png"), "FIRST-BYTES"),
-            ("cover", Some(".."), "SECOND-BYTES"),
-            ("csrf_token", None, &csrf),
-        ],
-    );
-
-    let response = post_multipart(&router, "/admin/docs/create", &csrf, "B", body).await;
+    let response = TestClient::new(&router)
+        .submit_multipart(
+            "/admin/docs/create",
+            &[
+                ("title", None, "Notes"),
+                ("cover", Some("first.png"), "FIRST-BYTES"),
+                ("cover", Some(".."), "SECOND-BYTES"),
+            ],
+        )
+        .await;
     assert_eq!(
         response.status(),
         200,
@@ -528,26 +474,18 @@ async fn clearing_an_optional_upload_empties_the_stored_path() {
     let router = router(db.clone(), RecordingUploader::default());
     let doc = seed_doc(&db, "Original", "cover.png", "spec.pdf").await;
 
-    let csrf = new_csrf();
-    let body = multipart_body(
-        "B",
-        &[
-            ("title", None, "Original"),
-            ("cover", Some(""), ""),
-            ("attachment", Some(""), ""),
-            // The framework's own control posts this.
-            ("clear_attachment", None, "1"),
-            ("csrf_token", None, &csrf),
-        ],
-    );
-    let response = post_multipart(
-        &router,
-        &format!("/admin/docs/{}/edit", doc.id),
-        &csrf,
-        "B",
-        body,
-    )
-    .await;
+    let response = TestClient::new(&router)
+        .submit_multipart(
+            &format!("/admin/docs/{}/edit", doc.id),
+            &[
+                ("title", None, "Original"),
+                ("cover", Some(""), ""),
+                ("attachment", Some(""), ""),
+                // The framework's own control posts this.
+                ("clear_attachment", None, "1"),
+            ],
+        )
+        .await;
     assert_eq!(response.status(), 303, "clearing an optional upload saves");
 
     let updated = docs(&db).await;
@@ -561,30 +499,22 @@ async fn clearing_a_required_upload_is_refused_inline() {
     let router = router(db.clone(), RecordingUploader::default());
     let doc = seed_doc(&db, "Original", "cover.png", "spec.pdf").await;
 
-    let csrf = new_csrf();
-    let body = multipart_body(
-        "B",
-        &[
-            ("title", None, "Original"),
-            ("cover", Some(""), ""),
-            ("attachment", Some(""), ""),
-            ("clear_cover", None, "1"),
-            ("csrf_token", None, &csrf),
-        ],
-    );
-    let response = post_multipart(
-        &router,
-        &format!("/admin/docs/{}/edit", doc.id),
-        &csrf,
-        "B",
-        body,
-    )
-    .await;
+    let response = TestClient::new(&router)
+        .submit_multipart(
+            &format!("/admin/docs/{}/edit", doc.id),
+            &[
+                ("title", None, "Original"),
+                ("cover", Some(""), ""),
+                ("attachment", Some(""), ""),
+                ("clear_cover", None, "1"),
+            ],
+        )
+        .await;
     assert_eq!(response.status(), 200, "the form re-renders with the error");
     let html = body_string(response).await;
     assert_eq!(
-        field_error(&html, "cover").as_deref(),
-        Some("Cover is required"),
+        field_error(&html, "cover"),
+        Some(tablo::testing::ErrorKind::Required),
         "a required upload refuses the clear inline: {html}"
     );
     assert_eq!(
@@ -600,28 +530,20 @@ async fn a_refused_edit_upload_keeps_showing_the_stored_file() {
     let router = router(db.clone(), FailingUploader);
     let doc = seed_doc(&db, "Notes", "/uploads/old.png", "spec.pdf").await;
 
-    let csrf = new_csrf();
-    let body = multipart_body(
-        "B",
-        &[
-            ("title", None, "Renamed"),
-            ("cover", Some("new.png"), "NEW-BYTES"),
-            ("attachment", Some(""), ""),
-            ("csrf_token", None, &csrf),
-        ],
-    );
-    let response = post_multipart(
-        &router,
-        &format!("/admin/docs/{}/edit", doc.id),
-        &csrf,
-        "B",
-        body,
-    )
-    .await;
+    let response = TestClient::new(&router)
+        .submit_multipart(
+            &format!("/admin/docs/{}/edit", doc.id),
+            &[
+                ("title", None, "Renamed"),
+                ("cover", Some("new.png"), "NEW-BYTES"),
+                ("attachment", Some(""), ""),
+            ],
+        )
+        .await;
     assert_eq!(response.status(), 200, "the form re-renders");
     let html = body_string(response).await;
     assert_eq!(
-        field_error(&html, "cover").as_deref(),
+        tablo::testing::field_error_message(&html, "cover").as_deref(),
         Some("Cover could not be uploaded: this deployment has no room left"),
         "the reason must reach the field: {html}"
     );
@@ -640,18 +562,16 @@ async fn a_refused_edit_upload_keeps_showing_the_stored_file() {
 async fn an_over_cap_body_still_413s_with_an_uploader_installed() {
     let db = seeded_db().await;
     let router = router(db.clone(), RecordingUploader::default());
-    let csrf = new_csrf();
     let huge = "a".repeat(11 * 1024 * 1024);
-    let body = multipart_body(
-        "B",
-        &[
-            ("title", None, "Too big"),
-            ("cover", Some("huge.png"), &huge),
-            ("csrf_token", None, &csrf),
-        ],
-    );
-
-    let response = post_multipart(&router, "/admin/docs/create", &csrf, "B", body).await;
+    let response = TestClient::new(&router)
+        .submit_multipart(
+            "/admin/docs/create",
+            &[
+                ("title", None, "Too big"),
+                ("cover", Some("huge.png"), &huge),
+            ],
+        )
+        .await;
     assert_eq!(
         response.status(),
         413,

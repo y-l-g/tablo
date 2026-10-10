@@ -124,7 +124,6 @@ fn an_empty_submission_is_the_blank_answer_or_required() {
     let refused =
         parse_scalar::<i64>("word_count", &HashMap::new(), None).expect_err("no blank answer");
     assert_eq!(refused.kind, FieldErrorKind::Required);
-    assert_eq!(refused.message("Word count"), "Word count is required");
 }
 
 #[test]
@@ -218,8 +217,8 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
         .to_bytes();
     let html = String::from_utf8_lossy(&body);
     assert_eq!(
-        field_error(&html, "word_count").as_deref(),
-        Some("`lots` is not a valid whole number"),
+        field_error(&html, "word_count"),
+        Some(tablo::testing::ErrorKind::Invalid),
         "the field carries the parse error inline: {html}"
     );
     assert_eq!(

@@ -1,0 +1,8 @@
+error[E0599]: the method `searchable` exists for struct `TextColumn<User, i64>`, but its trait bounds were not satisfied
+  --> tests/compile_fail/text_column_searchable_int.rs:10:62
+   |
+10 |     tablo_core::TextColumn::new(tablo_core::lens!(User.age)).searchable();
+   |                                                              ^^^^^^^^^^
+   |
+   = note: the following trait bounds were not satisfied:
+           `<i64 as toasty::schema::Field>::Inner = std::string::String`

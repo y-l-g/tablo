@@ -12,7 +12,7 @@ use super::{
     layouts::{Grid, Group, Section},
     lenses::FieldResolver,
 };
-use crate::form::FieldErrors;
+use crate::form::{FieldError, FieldErrors};
 
 #[derive(Debug)]
 pub(crate) enum Node {
@@ -141,10 +141,8 @@ impl<'a> Source<'a> {
     }
 
     /// Returns the message the field `field` renders under its control.
-    pub(crate) fn error_for(&self, field: &Field) -> Option<String> {
-        self.errors
-            .first(field.name())
-            .map(|error| error.message(field.label_str()))
+    pub(crate) fn error_for(&self, field: &Field) -> Option<&FieldError> {
+        self.errors.first(field.name())
     }
 }
 
@@ -169,7 +167,7 @@ impl Node {
                 let mut view = Box::pin(field.render_under(
                     cx,
                     source.value(field.name()),
-                    error.as_deref(),
+                    error,
                     source.placement(parent),
                 ))
                 .await?;

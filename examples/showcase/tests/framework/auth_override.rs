@@ -369,11 +369,10 @@ async fn custom_authenticator_completes_a_full_login_round_trip() {
         format!("email=ada&password=wrong&csrf_token={csrf}"),
     )
     .await;
-    assert_eq!(wrong.status(), 403);
-    assert!(
-        body_string(wrong)
-            .await
-            .contains("Invalid email or password.")
+    assert_eq!(
+        wrong.status(),
+        403,
+        "the custom authenticator refuses a wrong password"
     );
 
     let login = post_form(

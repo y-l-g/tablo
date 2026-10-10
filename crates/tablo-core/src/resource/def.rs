@@ -297,6 +297,30 @@ impl<R: Resource> ResourceDef<R> {
     /// and [`Ability::RunHeader`](crate::Ability::RunHeader) with its name, which no other action
     /// of the resource may share. An `A::NAME` that is not
     /// a single URL path segment does not compile.
+    ///
+    /// ```rust,compile_fail,E0080
+    /// # use tablo_core::{HeaderAction, NoForm, Resource, ResourceDef};
+    /// # use topcoat::{Result, context::Cx};
+    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
+    /// # struct PostResource;
+    /// # impl Resource for PostResource {
+    /// #     type Model = Post;
+    /// #     type Form = NoForm<Post>;
+    /// # }
+    /// struct RecountTags;
+    ///
+    /// impl HeaderAction for RecountTags {
+    ///     type Input = ();
+    ///     const NAME: &'static str = "recount/tags";
+    ///
+    ///     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<()> {
+    ///         Ok(())
+    ///     }
+    /// }
+    ///
+    /// let _def = ResourceDef::<PostResource>::new().header_action::<RecountTags>();
+    /// ```
     #[must_use]
     pub fn header_action<A: HeaderAction>(mut self) -> Self {
         self.header_actions = self.header_actions.add::<A>();

@@ -1,0 +1,5 @@
+error: #[derive(ActionInput)] supports a struct with named fields
+ --> tests/compile_fail/action_input_tuple_struct.rs:2:8
+  |
+2 | struct Rejection(String);
+  |        ^^^^^^^^^

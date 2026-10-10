@@ -1,0 +1,23 @@
+error[E0277]: the trait bound `Publish: tablo_core::Action<CommentResource>` is not satisfied
+  --> tests/compile_fail/ability_is_action_not_action.rs:39:25
+   |
+39 |     ability.is_action::<Publish, CommentResource>()
+   |             ---------   ^^^^^^^ unsatisfied trait bound
+   |             |
+   |             required by a bound introduced by this call
+   |
+help: the trait `Action<CommentResource>` is not implemented for `Publish`
+      but trait `Action<PostResource>` is implemented for it
+  --> tests/compile_fail/ability_is_action_not_action.rs:28:1
+   |
+28 | impl Action<PostResource> for Publish {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: for that trait implementation, expected `PostResource`, found `CommentResource`
+note: required by a bound in `resource::action::<impl Ability<'_, M>>::is_action`
+  --> src/resource/action.rs
+   |
+   |     pub fn is_action<A, R>(self) -> bool
+   |            --------- required by a bound in this associated function
+   |     where
+   |         A: Action<R>,
+   |            ^^^^^^^^^ required by this bound in `resource::action::<impl Ability<'_, M>>::is_action`

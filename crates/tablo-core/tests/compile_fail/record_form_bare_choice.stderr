@@ -1,0 +1,5 @@
+error: a bare choice offers nothing to choose: declare `relationship = <Source>`, or call `.choice()` on the control in the resource's form and give it options
+  --> tests/compile_fail/record_form_bare_choice.rs:12:12
+   |
+12 |     #[form(choice)]
+   |            ^^^^^^

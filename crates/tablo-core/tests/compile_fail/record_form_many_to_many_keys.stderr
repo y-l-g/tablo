@@ -1,0 +1,19 @@
+error[E0271]: type mismatch resolving `<Tag as Model>::PrimaryKey == i64`
+  --> tests/compile_fail/record_form_many_to_many_keys.rs:44:27
+   |
+44 |     #[form(relationship = TagResource)]
+   |                           ^^^^^^^^^^^ type mismatch resolving `<Tag as Model>::PrimaryKey == i64`
+   |
+note: expected this to be `i64`
+  --> tests/compile_fail/record_form_many_to_many_keys.rs:16:9
+   |
+16 |     id: uuid::Uuid,
+   |         ^^^^^^^^^^
+note: required by a bound in `tablo_core::form::links_key`
+  --> src/form.rs
+   |
+   | pub fn links_key<M, R, K>(
+   |        --------- required by a bound in this function
+...
+   |     R::Model: Model<PrimaryKey = K>,
+   |                     ^^^^^^^^^^^^^^ required by this bound in `links_key`

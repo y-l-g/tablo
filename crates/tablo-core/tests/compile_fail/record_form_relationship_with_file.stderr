@@ -1,0 +1,6 @@
+error: `relationship` and `file` each pick the field's control: declare one
+  --> tests/compile_fail/record_form_relationship_with_file.rs:14:5
+   |
+14 | /     #[form(relationship = Authors, file)]
+15 | |     author_id: String,
+   | |_____________________^

@@ -2,11 +2,14 @@
 
 ## Testing a panel
 
-Test a panel over HTTP, in memory: build the router against a test database and send it requests.
-`TestClient` carries cookies, a tenant and a CSRF token, `sign_in` signs it in as a user, and
-`submit` posts a form with its CSRF pair. The `testing` module also builds form bodies and reads responses back: the table's `rows`, a
-field's error, the flash `notification`, and why a table is empty (`empty_table`). An app reaches it as `tablo::testing` through the facade's `testing` feature; enable it
-for tests only:
+Test a panel over HTTP, in memory: `mount` builds the router against a test database, and
+`TestClient` sends it requests. The client carries cookies, a tenant and a CSRF token; `sign_in`
+signs it in as a user, `log_in` goes through the login form, and `submit` and `submit_multipart`
+post a form with its CSRF pair. The `testing` module also builds form bodies and reads responses
+back: the table's `rows` and `row_keys`, why a field was refused (`field_error`), the flash
+`notification`, why a table is empty (`empty_table`), and whether a button asks first
+(`confirms_first`). An app reaches it as `tablo::testing` through the facade's `testing` feature;
+enable it for tests only:
 
 ```toml
 [dev-dependencies]
@@ -29,8 +32,8 @@ use tablo::{auth::create_admin, testing::{TestClient, form_body}};
   a successful login does, and the client carries its cookie: no login form, no password hash.
   It works with a custom `Authenticator` too, which loads the user back from `user_id()`.
 - **Declaration mistakes.** A panel that refuses to mount returns a `MountError` inside the
-  router builder's error. Downcast to it and match on each mistake's `DeclarationErrorKind`
-  rather than on its message:
+  router builder's error. `refusal` lists its mistakes; match on each one's
+  `DeclarationErrorKind` rather than on its message:
 
 ```rust
 {{#include ../../../examples/guide/tests/it.rs:testing-mount-error}}

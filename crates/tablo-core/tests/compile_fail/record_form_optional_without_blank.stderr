@@ -1,0 +1,5 @@
+error: `optional` reads an empty `String` as `""`; another type has no empty value: declare `blank = <value>`, or make the field an `Option`
+  --> tests/compile_fail/record_form_optional_without_blank.rs:14:10
+   |
+14 |     age: i64,
+   |          ^^^

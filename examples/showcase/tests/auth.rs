@@ -9,9 +9,9 @@ use tablo::auth::AuthSession;
 use topcoat::context::CxTestBuilder;
 
 use crate::common::{
-    SESSION_COOKIE, TestClient, body_string, form_body, full_db, input_value, login, login_next,
-    mount, response_cookies, routers::router_for_tests as router, runtime_post,
-    session_cookie_value, set_cookie_header,
+    SESSION_COOKIE, TestClient, body_string, form_body, full_db, input_value, mount,
+    response_cookies, routers::router_for_tests as router, runtime_post, session_cookie_value,
+    set_cookie_header,
 };
 
 #[tokio::test]
@@ -56,7 +56,9 @@ async fn login_page_is_standalone_with_csrf_and_no_demo_hint_by_default() {
 async fn login_sets_a_hardened_session_cookie() {
     let db = full_db().await;
     let router = router(db);
-    let (_client, response) = login_next(&router, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, "").await;
+    let (_client, response) = TestClient::new(&router)
+        .log_in("admin", DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, "")
+        .await;
 
     assert_eq!(response.status(), 303, "success is a Post/Redirect/Get");
     assert_eq!(
@@ -76,13 +78,14 @@ async fn login_sets_a_hardened_session_cookie() {
 async fn login_refuses_an_off_site_next_target() {
     let db = full_db().await;
     let router = router(db);
-    let (_client, response) = login_next(
-        &router,
-        DEMO_ADMIN_EMAIL,
-        DEMO_ADMIN_PASSWORD,
-        "//evil.example/login",
-    )
-    .await;
+    let (_client, response) = TestClient::new(&router)
+        .log_in(
+            "admin",
+            DEMO_ADMIN_EMAIL,
+            DEMO_ADMIN_PASSWORD,
+            "//evil.example/login",
+        )
+        .await;
     assert_eq!(response.status(), 303);
     assert_eq!(response.headers().get(LOCATION).unwrap(), "/admin");
 }
@@ -91,23 +94,57 @@ async fn login_refuses_an_off_site_next_target() {
 async fn every_login_failure_renders_one_generic_error() {
     let db = full_db().await;
     let router = router(db);
+    let mut alerts = Vec::new();
     for (email, password) in [
         (DEMO_ADMIN_EMAIL, "definitely-wrong"),
         ("nobody@example.com", DEMO_ADMIN_PASSWORD),
         ("", ""),
     ] {
-        let (_, response) = login_next(&router, email, password, "").await;
+        let (_, response) = TestClient::new(&router)
+            .log_in("admin", email, password, "")
+            .await;
         assert_eq!(response.status(), 403, "email={email:?}");
         assert!(
             session_cookie_value(&response).is_none(),
             "a failed login must not start a session"
         );
-        let html = body_string(response).await;
-        assert!(
-            html.contains("Invalid email or password."),
-            "one generic error: {html}"
-        );
+        alerts.push(login_alert(&body_string(response).await));
     }
+    // An unknown account reads as a wrong password: one message, whatever its wording.
+    assert!(alerts[0].is_some(), "a failed login says so: {alerts:?}");
+    assert!(
+        alerts.windows(2).all(|pair| pair[0] == pair[1]),
+        "{alerts:?}"
+    );
+}
+
+/// The text of the login page's alert, `None` when it renders none.
+fn login_alert(html: &str) -> Option<String> {
+    let at = html.find("role=\"alert\"")?;
+    // The opening tag ends at the first `>` outside quotes: class values carry `>`.
+    let mut quoted = false;
+    let open = at
+        + html[at..].find(|c: char| {
+            if c == '"' {
+                quoted = !quoted;
+            }
+            c == '>' && !quoted
+        })?;
+    let rest = &html[open + 1..];
+    let inner = &rest[..rest.find("</div>")?];
+    let mut text = String::new();
+    let mut in_tag = false;
+    let mut quoted = false;
+    for c in inner.chars() {
+        match c {
+            '"' if in_tag => quoted = !quoted,
+            '<' if !quoted => in_tag = true,
+            '>' if !quoted => in_tag = false,
+            c if !in_tag => text.push(c),
+            _ => {}
+        }
+    }
+    Some(text.trim().to_string())
 }
 
 #[tokio::test]
@@ -126,17 +163,28 @@ async fn deactivated_admin_cannot_log_in() {
         .unwrap();
 
     let router = router(db);
-    let (_, response) = login_next(&router, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, "").await;
+    let (_, response) = TestClient::new(&router)
+        .log_in("admin", DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, "")
+        .await;
     assert_eq!(response.status(), 403);
-    let html = body_string(response).await;
-    assert!(html.contains("Invalid email or password."), "{html}");
+    assert!(session_cookie_value(&response).is_none());
+    // A deactivated account reads as a wrong password.
+    let (_, wrong) = TestClient::new(&router)
+        .log_in("admin", DEMO_ADMIN_EMAIL, "definitely-wrong", "")
+        .await;
+    let alert = login_alert(&body_string(response).await);
+    assert!(alert.is_some());
+    assert_eq!(alert, login_alert(&body_string(wrong).await));
 }
 
 #[tokio::test]
 async fn shell_shows_the_signed_in_user_and_logout() {
     let db = full_db().await;
     let router = router(db);
-    let client = login(&router, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD).await;
+    let client = TestClient::new(&router)
+        .log_in("admin", DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, "")
+        .await
+        .0;
 
     let response = client.get("/admin/users").await;
     assert_eq!(response.status(), 200);
@@ -152,7 +200,10 @@ async fn shell_shows_the_signed_in_user_and_logout() {
 async fn logout_deletes_the_session_and_clears_the_cookie() {
     let db = full_db().await;
     let router = router(db.clone());
-    let client = login(&router, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD).await;
+    let client = TestClient::new(&router)
+        .log_in("admin", DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, "")
+        .await
+        .0;
 
     let page = body_string(client.get("/admin/users").await).await;
     let csrf = input_value(&page, "csrf_token").expect("logout form carries a CSRF token");
@@ -182,7 +233,9 @@ async fn logout_deletes_the_session_and_clears_the_cookie() {
 async fn login_rotates_the_session_token() {
     let db = full_db().await;
     let router = router(db.clone());
-    let (client, first) = login_next(&router, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, "").await;
+    let (client, first) = TestClient::new(&router)
+        .log_in("admin", DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, "")
+        .await;
     let first_session = session_cookie_value(&first).expect("first session cookie");
 
     // Present the first session while logging in again.
@@ -219,7 +272,10 @@ async fn login_rotates_the_session_token() {
 async fn expired_sessions_resolve_to_no_user() {
     let db = full_db().await;
     let router = router(db.clone());
-    let client = login(&router, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD).await;
+    let client = TestClient::new(&router)
+        .log_in("admin", DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, "")
+        .await
+        .0;
 
     let mut db2 = db.clone();
     let mut row = AuthSession::all()
@@ -250,7 +306,10 @@ async fn expired_sessions_resolve_to_no_user() {
 async fn revoke_sessions_for_user_ends_access() {
     let db = full_db().await;
     let router = router(db.clone());
-    let client = login(&router, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD).await;
+    let client = TestClient::new(&router)
+        .log_in("admin", DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, "")
+        .await
+        .0;
 
     let mut db2 = db.clone();
     let admin = Staff::filter(Staff::fields().email().eq(DEMO_ADMIN_EMAIL.to_string()))
@@ -276,7 +335,9 @@ async fn revoke_sessions_for_user_ends_access() {
 async fn deactivating_a_user_invalidates_their_live_session() {
     let db = full_db().await;
     let router = router(db.clone());
-    let (_, login_response) = login_next(&router, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, "").await;
+    let (_, login_response) = TestClient::new(&router)
+        .log_in("admin", DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, "")
+        .await;
     let session = session_cookie_value(&login_response).expect("session cookie");
 
     let mut db2 = db.clone();
@@ -312,7 +373,9 @@ async fn deactivating_a_user_invalidates_their_live_session() {
 async fn failed_login_preserves_the_next_destination() {
     let db = full_db().await;
     let router = router(db);
-    let (_, response) = login_next(&router, DEMO_ADMIN_EMAIL, "wrong", "/admin/posts").await;
+    let (_, response) = TestClient::new(&router)
+        .log_in("admin", DEMO_ADMIN_EMAIL, "wrong", "/admin/posts")
+        .await;
     assert_eq!(response.status(), 403);
     let html = body_string(response).await;
     assert_eq!(
