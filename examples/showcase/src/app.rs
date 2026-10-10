@@ -120,7 +120,6 @@ impl Resource for AuthorResource {
             .navigation_group("Blog")
             .policy(when(blog_open))
             .tenancy(Tenancy::column(lens!(Author.tenant_id)))
-            .table(AuthorForm::table())
             .form(Schema::new(
                 Section::new("Profile").schema((c.name, c.email.email())),
             ))
