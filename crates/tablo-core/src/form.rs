@@ -197,6 +197,14 @@ pub trait FormScalar: Sized {
     /// The `type` attribute of the text control that edits it.
     const INPUT_TYPE: &'static str = "text";
 
+    /// The control's `step` attribute, when its input type takes one.
+    const STEP: Option<&'static str> = None;
+
+    /// The control's `value` for a stored value's form spelling.
+    fn input_value(stored: &str) -> String {
+        stored.to_string()
+    }
+
     /// Parse a trimmed, non-empty submission, or return the error message.
     fn parse_form(value: &str) -> std::result::Result<Self, String>;
 
@@ -222,6 +230,11 @@ impl FormScalar for String {
 
 impl<T: TypedValue> FormScalar for T {
     const INPUT_TYPE: &'static str = T::INPUT_TYPE;
+    const STEP: Option<&'static str> = T::STEP;
+
+    fn input_value(stored: &str) -> String {
+        T::input_value(stored)
+    }
 
     fn parse_form(value: &str) -> std::result::Result<Self, String> {
         T::parse_input(value).ok_or_else(|| format!("`{value}` is not a valid {}", T::NOUN))
@@ -241,6 +254,11 @@ impl<T: TypedValue> NullableScalar for T {}
 
 impl<T: NullableScalar> FormScalar for Option<T> {
     const INPUT_TYPE: &'static str = T::INPUT_TYPE;
+    const STEP: Option<&'static str> = T::STEP;
+
+    fn input_value(stored: &str) -> String {
+        T::input_value(stored)
+    }
 
     fn parse_form(value: &str) -> std::result::Result<Self, String> {
         T::parse_form(value).map(Some)

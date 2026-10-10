@@ -392,21 +392,104 @@ filter_impls! {
     clone { binding, lens }
 }
 
-/// Date filter matching a `Timestamp` field by calendar day.
+/// A field type a [`DateFilter`] matches by calendar day: `jiff::Timestamp` (the day in UTC),
+/// `jiff::civil::Date`, `jiff::civil::DateTime`, and an `Option` of any of them.
+pub trait FilterDate: Sized + Send + Sync + 'static {
+    /// The value the field compares against.
+    type Value: IntoExpr<Self>;
+
+    /// The first instant of `date`, or `None` past the type's range.
+    fn start_of(date: jiff::civil::Date) -> Option<Self::Value>;
+
+    /// A submitted value naming one exact value rather than a day.
+    fn exact(value: &str) -> Option<Self::Value> {
+        let _ = value;
+        None
+    }
+}
+
+impl FilterDate for jiff::Timestamp {
+    type Value = Self;
+
+    fn start_of(date: jiff::civil::Date) -> Option<Self> {
+        date.to_zoned(jiff::tz::TimeZone::UTC)
+            .ok()
+            .map(|day| day.timestamp())
+    }
+
+    fn exact(value: &str) -> Option<Self> {
+        // Query decoding turns `+` into space.
+        value
+            .parse()
+            .or_else(|_| value.replace(' ', "+").parse())
+            .ok()
+    }
+}
+
+impl FilterDate for jiff::civil::Date {
+    type Value = Self;
+
+    fn start_of(date: jiff::civil::Date) -> Option<Self> {
+        Some(date)
+    }
+}
+
+impl FilterDate for jiff::civil::DateTime {
+    type Value = Self;
+
+    fn start_of(date: jiff::civil::Date) -> Option<Self> {
+        Some(date.to_datetime(jiff::civil::Time::midnight()))
+    }
+
+    fn exact(value: &str) -> Option<Self> {
+        value.contains('T').then(|| value.parse().ok()).flatten()
+    }
+}
+
+impl<T: FilterDate<Value = T> + IntoExpr<T>> FilterDate for Option<T> {
+    type Value = T;
+
+    fn start_of(date: jiff::civil::Date) -> Option<T> {
+        T::start_of(date)
+    }
+
+    fn exact(value: &str) -> Option<T> {
+        T::exact(value)
+    }
+}
+
+/// Date filter matching a date or time field by calendar day; see [`FilterDate`] for the types.
 pub struct DateFilter<M> {
     binding: Binding,
-    lens: Path<M, jiff::Timestamp>,
+    /// The predicate for a trimmed, non-empty value.
+    matches: MatchFn,
+    model: PhantomData<fn() -> M>,
 }
 
 impl<M> DateFilter<M>
 where
-    M: toasty::schema::Model,
+    M: toasty::schema::Model + Send + Sync + 'static,
 {
-    /// Filter the `Timestamp` field `lens` binds to one calendar day.
-    pub fn new(lens: impl Into<Path<M, jiff::Timestamp>>) -> Self {
+    /// Filter the field `lens` binds to one calendar day.
+    pub fn new<T: FilterDate>(lens: impl Into<Path<M, T>>) -> Self {
         let lens = lens.into();
         let binding = Binding::of(&lens.clone());
-        Self { binding, lens }
+        let matches: MatchFn = Arc::new(move |value: &str| {
+            if let Some(exact) = T::exact(value) {
+                return Some(lens.clone().eq(exact));
+            }
+            let date = value.parse::<jiff::civil::Date>().ok()?;
+            let start = lens.clone().ge(T::start_of(date)?);
+            Some(match date.tomorrow().ok().and_then(T::start_of) {
+                Some(end) => start.and(lens.clone().lt(end)),
+                None => start,
+            })
+        });
+        Self {
+            binding,
+            matches,
+            model: PhantomData,
+        }
     }
 }
 
@@ -436,23 +519,7 @@ where
         if v.is_empty() {
             return None;
         }
-        if let Ok(ts) = v.parse::<jiff::Timestamp>() {
-            return Some(self.lens.clone().eq(ts));
-        }
-        // Query decoding turns `+` into space.
-        if v.contains(' ')
-            && let Ok(ts) = v.replace(' ', "+").parse::<jiff::Timestamp>()
-        {
-            return Some(self.lens.clone().eq(ts));
-        }
-        if let Ok(date) = v.parse::<jiff::civil::Date>() {
-            let start: jiff::Timestamp = format!("{date}T00:00:00Z").parse().ok()?;
-            return Some(match start.checked_add(jiff::Span::new().hours(24)) {
-                Ok(end) => self.lens.clone().ge(start).and(self.lens.clone().lt(end)),
-                Err(_) => self.lens.clone().ge(start),
-            });
-        }
-        None
+        (self.matches)(v)
     }
 
     /// A date input.
@@ -485,7 +552,7 @@ filter_impls! {
         name: &this.binding.name(),
         label: &this.binding.label(),
     }
-    clone { binding, lens }
+    clone { binding, matches, model }
 }
 
 /// A filter offering named predicates, such as an embedded-enum variant or any query the app
