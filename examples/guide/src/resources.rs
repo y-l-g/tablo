@@ -101,7 +101,7 @@ impl Resource for PostResource {
             .tenancy(Tenancy::column(lens!(Post.tenant_id)))
             // ANCHOR_END: post-tenancy
             // ANCHOR: post-view
-            .view(Detail::new(Section::new("Post").columns((
+            .detail(Detail::new(Section::new("Post").columns((
                 TextColumn::new(lens!(Post.title)),
                 TextColumn::new(lens!(Post.body)),
                 TextColumn::new(lens!(Post.status)),

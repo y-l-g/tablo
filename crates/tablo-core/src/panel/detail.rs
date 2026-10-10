@@ -34,7 +34,7 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         let id = path_param_segment(cx, "id").to_string();
         let mut db = db(cx);
         let record = load_detail(cx, &resource, &mut db).await?;
-        let body = resource.view.render(cx, &record);
+        let body = resource.detail.render(cx, &record);
         let relations = render_relations(cx, &resource, &record);
         let title = resource.record_title(&record, &id);
         let back = resource.url.clone();

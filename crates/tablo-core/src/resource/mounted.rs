@@ -36,9 +36,9 @@ pub(crate) struct Mounted<R: Resource> {
     pub(crate) tenancy: Tenancy<R::Model>,
     pub(crate) table: Arc<Table<R::Model>>,
     pub(crate) form: Arc<Schema>,
-    pub(crate) view: Detail<R::Model>,
-    /// Whether the def declares the view, rather than the record form deriving it.
-    pub(crate) declares_view: bool,
+    pub(crate) detail: Detail<R::Model>,
+    /// Whether the def declares the detail page, rather than the record form deriving it.
+    pub(crate) declares_detail: bool,
     record_title: Option<RecordTitle<R::Model>>,
     public_link: Option<PublicLinkFn<R::Model>>,
     pub(crate) relations: Vec<Relation<R::Model>>,
@@ -97,9 +97,9 @@ impl<R: Resource> Mounted<R> {
                 .flat_map(|field| field.required.iter().map(String::as_str))
                 .collect(),
         );
-        let declares_view = def.view.is_some();
-        let view = def.view.unwrap_or_else(<R::Form as RecordForm>::detail);
-        view.bind_with(resolver);
+        let declares_detail = def.detail.is_some();
+        let detail = def.detail.unwrap_or_else(<R::Form as RecordForm>::detail);
+        detail.bind_with(resolver);
         Self {
             slug,
             url,
@@ -110,8 +110,8 @@ impl<R: Resource> Mounted<R> {
             tenancy: def.tenancy,
             table: Arc::new(table),
             form: Arc::new(form),
-            view,
-            declares_view,
+            detail,
+            declares_detail,
             record_title: def.record_title,
             public_link: def.public_link,
             relations: def.relations,
@@ -124,7 +124,7 @@ impl<R: Resource> Mounted<R> {
 
     /// Whether the resource declares a detail page.
     pub(crate) fn viewed(&self) -> bool {
-        !self.view.is_empty()
+        !self.detail.is_empty()
     }
 
     /// The title of `record`: its title column, else the resource's label and `key`.

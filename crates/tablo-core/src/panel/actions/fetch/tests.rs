@@ -166,7 +166,7 @@ async fn record_loads_skip_the_detail_pages_includes() {
                     "Id",
                     |c: &Child| c.id.to_string(),
                 )))
-                .view(crate::Detail::new(
+                .detail(crate::Detail::new(
                     crate::table::ComputedColumn::new("Parent", |c: &Child| {
                         c.parent.get().name.clone()
                     })

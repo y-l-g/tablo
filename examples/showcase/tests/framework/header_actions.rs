@@ -198,7 +198,7 @@ impl Resource for TicketResource {
             .slug("tickets")
             .policy(Allow)
             .table(Table::new(TextColumn::new(lens!(Ticket.title))))
-            .view(Detail::new(TextColumn::new(lens!(Ticket.title))))
+            .detail(Detail::new(TextColumn::new(lens!(Ticket.title))))
             .action::<Close>()
             .action::<Reopen>()
             .action::<Retitle>()

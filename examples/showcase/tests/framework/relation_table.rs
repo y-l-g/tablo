@@ -47,7 +47,7 @@ impl Resource for OwnerResource {
                 )
             })
             .table(Table::new(TextColumn::new(lens!(Owner.name))))
-            .view(tablo::Detail::new(TextColumn::new(lens!(Owner.name))))
+            .detail(tablo::Detail::new(TextColumn::new(lens!(Owner.name))))
             // The second owner's name is empty, so its title falls back to the resource's label
             // and its key.
             .record_title(lens!(Owner.name))

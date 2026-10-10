@@ -316,7 +316,7 @@ async fn panel_mount_rejects_a_relation_column_of_an_unregistered_resource() {
                     TextColumn::new(lens!(Child.name)),
                     RelationColumn::of::<Parents>(relation!(Child.parent)),
                 )))
-                .view(crate::Detail::new(RelationColumn::of::<Parents>(
+                .detail(crate::Detail::new(RelationColumn::of::<Parents>(
                     relation!(Child.parent),
                 )))
         }
@@ -332,7 +332,7 @@ async fn panel_mount_rejects_a_relation_column_of_an_unregistered_resource() {
         refusal(mount(db.clone(), panel().resource::<Children>())),
         [
             DeclarationError::of::<Children>(Site::Table, unregistered.clone()),
-            DeclarationError::of::<Children>(Site::View, unregistered),
+            DeclarationError::of::<Children>(Site::Detail, unregistered),
         ]
     );
     mount(db, panel().resource::<Children>().resource::<Parents>())
@@ -741,7 +741,7 @@ async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
             ResourceDef::new()
                 .slug("subscribers")
                 .table(keyed_table())
-                .view(crate::Detail::new(crate::table::TextColumn::new(lens!(
+                .detail(crate::Detail::new(crate::table::TextColumn::new(lens!(
                     Subscriber.nickname
                 ))))
         }
@@ -1193,7 +1193,7 @@ async fn panel_build_rejects_a_misdeclared_view() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .table(dummy_table())
-                .view(crate::Detail::empty().column(Unbindable))
+                .detail(crate::Detail::empty().column(Unbindable))
         }
     }
 
@@ -1201,7 +1201,7 @@ async fn panel_build_rejects_a_misdeclared_view() {
     assert_eq!(
         refusal(mount(db, panel_for::<BadView>())),
         [DeclarationError::of::<BadView>(
-            Site::View,
+            Site::Detail,
             DeclarationErrorKind::TraversalLens { steps: 2 },
         )]
     );
@@ -1238,7 +1238,7 @@ async fn a_resource_declares_once_when_its_panel_mounts() {
                     )
                 })
                 .table(dummy_table())
-                .view(crate::Detail::new(crate::table::TextColumn::new(lens!(
+                .detail(crate::Detail::new(crate::table::TextColumn::new(lens!(
                     Dummy.name
                 ))))
         }
@@ -1358,7 +1358,7 @@ async fn context_refuses_a_misdeclared_resource() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .table(dummy_table())
-                .view(crate::Detail::empty().column(Unbindable))
+                .detail(crate::Detail::empty().column(Unbindable))
         }
     }
 
