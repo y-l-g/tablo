@@ -37,7 +37,7 @@ async fn create_with_links(client: &TestClient<'_>, db: &toasty::Db, title: &str
          &links.1.label=Blog&links.1.url=https%3A%2F%2Fblog.example",
     )
     .await;
-    let resp = client.submit("/admin/posts/create", &body).await;
+    let resp = client.submit("/admin/posts/-/create", &body).await;
     assert!(resp.status().is_redirection(), "the create redirects");
     post_titled(db, title).await.expect("the post is created")
 }
@@ -55,7 +55,7 @@ async fn the_rows_save_in_the_order_the_form_lists_them() {
          &links.3.label=Blog&links.3.url=https%3A%2F%2Fblog.example",
     )
     .await;
-    let resp = client.submit("/admin/posts/create", &body).await;
+    let resp = client.submit("/admin/posts/-/create", &body).await;
     assert!(
         resp.status().is_redirection(),
         "the create redirects, got {}: {}",
@@ -113,7 +113,7 @@ async fn a_refused_row_renders_its_error_on_its_own_control_and_writes_nothing()
          &links.2.label=Blog&links.2.url=",
     )
     .await;
-    let resp = client.submit("/admin/posts/create", &body).await;
+    let resp = client.submit("/admin/posts/-/create", &body).await;
     assert!(
         resp.status().is_success(),
         "the refusal re-renders the form"
@@ -176,7 +176,7 @@ async fn a_row_key_the_order_or_the_item_does_not_name_is_refused() {
         "links=0,1&links.0.label=a&links.0.url=b",
     ] {
         let body = create_body(&db, "Refused", rows).await;
-        let resp = client.submit("/admin/posts/create", &body).await;
+        let resp = client.submit("/admin/posts/-/create", &body).await;
         assert_eq!(resp.status(), 400, "{rows} is refused");
     }
     assert_eq!(post_count(&db).await, before, "nothing is written");

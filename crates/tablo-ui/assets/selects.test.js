@@ -581,7 +581,7 @@ test('a blank parent clears its dependent choice without a fetch', async () => {
 });
 
 test('a parent value fetches the options it offers, keeping a choice among them', async () => {
-  global.window = { location: { pathname: '/admin/addresses/create' } };
+  global.window = { location: { pathname: '/admin/addresses/-/create' } };
   const urls = [];
   global.fetch = async (url) => {
     urls.push(url);
@@ -596,7 +596,7 @@ test('a parent value fetches the options it offers, keeping a choice among them'
     const document = standInDocument([]);
     load(document);
     await changeParent(document, kept.parent);
-    assert.deepEqual(urls, ['/admin/addresses/options?field=city_id&parent=fr']);
+    assert.deepEqual(urls, ['/admin/addresses/-/options?field=city_id&parent=fr']);
     assert.equal(kept.select.value, 'paris');
     assert.equal(kept.select.events.length, 0, 'a kept choice does not change');
 
@@ -612,7 +612,7 @@ test('a parent value fetches the options it offers, keeping a choice among them'
 
 // Fire the parent's change with `fetch` answering `answer`.
 async function refreshWith(answer) {
-  global.window = { location: { pathname: '/admin/addresses/create' } };
+  global.window = { location: { pathname: '/admin/addresses/-/create' } };
   global.fetch = answer;
   try {
     const world = dependentWorld({ parentValue: 'fr', current: 'paris' });

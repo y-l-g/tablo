@@ -6,7 +6,7 @@ async fn posts_export_bom_opt_in_prepends_bom() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let resp = client.get("/admin/posts/export?bom=1").await;
+    let resp = client.get("/admin/posts/-/export?bom=1").await;
     assert!(resp.status().is_success());
     let csv = body_string(resp).await;
     assert!(
@@ -14,7 +14,7 @@ async fn posts_export_bom_opt_in_prepends_bom() {
         "bom=1 export must start with BOM, got {csv:?}"
     );
 
-    for uri in ["/admin/posts/export", "/admin/posts/export?bom=0"] {
+    for uri in ["/admin/posts/-/export", "/admin/posts/-/export?bom=0"] {
         let csv = body_string(client.get(uri).await).await;
         assert!(
             !csv.starts_with('\u{FEFF}'),
@@ -28,7 +28,7 @@ async fn posts_export_streams_csv_with_content_disposition() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let resp = client.get("/admin/posts/export").await;
+    let resp = client.get("/admin/posts/-/export").await;
     assert!(
         resp.status().is_success(),
         "export should be 200, got {}",
@@ -102,7 +102,7 @@ async fn posts_export_streams_csv_with_content_disposition() {
         csv
     );
     // A filter narrows the export: only the published post survives.
-    let resp = client.get("/admin/posts/export?f.status=published").await;
+    let resp = client.get("/admin/posts/-/export?f.status=published").await;
     let csv = body_string(resp).await;
     assert!(
         csv.contains("Hello Toasty"),

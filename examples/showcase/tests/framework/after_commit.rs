@@ -178,7 +178,7 @@ async fn a_create_audits_the_row_it_committed_exactly_once() {
     let db = seeded_db().await;
     let router = panel_router::<AuditedResource>(db.clone());
 
-    let response = post_fields(&router, "/admin/notes/create", &[("title", "Alpha")]).await;
+    let response = post_fields(&router, "/admin/notes/-/create", &[("title", "Alpha")]).await;
     assert_eq!(response.status(), 303, "a valid create redirects");
 
     let created = notes(&db).await;
@@ -241,7 +241,7 @@ async fn a_bulk_delete_is_one_call_for_the_whole_batch() {
     let ids = format!("{},{}", first.id, second.id);
     let response = post_fields(
         &router,
-        "/admin/notes/bulk-delete",
+        "/admin/notes/-/bulk-delete",
         &[("ids", &ids), ("confirm", "1")],
     )
     .await;
@@ -263,7 +263,7 @@ async fn a_refused_submit_never_reaches_the_hook() {
     let db = seeded_db().await;
     let router = panel_router::<AuditedResource>(db.clone());
 
-    let response = post_fields(&router, "/admin/notes/create", &[("title", "")]).await;
+    let response = post_fields(&router, "/admin/notes/-/create", &[("title", "")]).await;
     assert_eq!(response.status(), 200, "the form re-renders");
 
     assert!(notes(&db).await.is_empty());
@@ -280,7 +280,7 @@ async fn a_failed_write_never_reaches_the_hook() {
 
     let response = post_fields(
         &router,
-        "/admin/failing-writes/create",
+        "/admin/failing-writes/-/create",
         &[("title", "Alpha")],
     )
     .await;
@@ -304,7 +304,7 @@ async fn a_failing_hook_does_not_undo_the_write() {
 
     let response = post_fields(
         &router,
-        "/admin/failing-hooks/create",
+        "/admin/failing-hooks/-/create",
         &[("title", "Alpha")],
     )
     .await;
@@ -331,7 +331,12 @@ async fn a_resource_without_the_hook_writes_exactly_as_before() {
     let db = seeded_db().await;
     let router = panel_router::<PlainResource>(db.clone());
 
-    let response = post_fields(&router, "/admin/plain-notes/create", &[("title", "Alpha")]).await;
+    let response = post_fields(
+        &router,
+        "/admin/plain-notes/-/create",
+        &[("title", "Alpha")],
+    )
+    .await;
     assert_eq!(response.status(), 303, "the default hook is a no-op");
     let response = router
         .handle(

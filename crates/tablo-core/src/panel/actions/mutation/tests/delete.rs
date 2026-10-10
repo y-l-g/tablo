@@ -73,7 +73,7 @@ async fn delete_and_bulk_delete_require_view() {
     );
     // Bulk delete: same rule, per row.
     let bulk = post(
-        "/admin/dummies/bulk-delete".to_string(),
+        "/admin/dummies/-/bulk-delete".to_string(),
         format!("ids={}&confirm=1&csrf_token={token}", row.id),
     )
     .await;
@@ -141,7 +141,7 @@ async fn delete_and_bulk_delete_require_delete_any() {
     .await;
     assert_eq!(single.status(), http::StatusCode::FORBIDDEN);
     let bulk = post(
-        "/admin/dummies/bulk-delete".to_string(),
+        "/admin/dummies/-/bulk-delete".to_string(),
         format!("ids={}&confirm=1&csrf_token={token}", row.id),
     )
     .await;
@@ -244,7 +244,7 @@ async fn delete_resolves_the_primary_key_only() {
     );
     // Bulk with the name 404s.
     let name_bulk = post(
-        "/admin/dummies/bulk-delete".to_string(),
+        "/admin/dummies/-/bulk-delete".to_string(),
         format!("ids=Ada&confirm=1&csrf_token={token}"),
     )
     .await;
@@ -256,7 +256,7 @@ async fn delete_resolves_the_primary_key_only() {
     );
     // Bulk with the primary key succeeds.
     let record_bulk = post(
-        "/admin/dummies/bulk-delete".to_string(),
+        "/admin/dummies/-/bulk-delete".to_string(),
         format!("ids={}&confirm=1&csrf_token={token}", row.id),
     )
     .await;

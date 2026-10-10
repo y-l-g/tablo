@@ -29,8 +29,9 @@ use crate::{
     schema::FieldResolver,
     table::{
         ACTION_ROUTE_PARAM, ACTIONS_ROUTE_SEGMENT, BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT,
-        DASH_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT, RECORD_ROUTE_PARAM,
-        RELATED_ROUTE_PARAM, RELATION_ROUTE_PARAM, RELATIONS_ROUTE_SEGMENT,
+        DASH_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT, EXPORT_ROUTE_SEGMENT,
+        OPTIONS_ROUTE_SEGMENT, RECORD_ROUTE_PARAM, RELATED_ROUTE_PARAM, RELATION_ROUTE_PARAM,
+        RELATIONS_ROUTE_SEGMENT, list_route,
     },
 };
 
@@ -297,8 +298,9 @@ fn register_routes<R: Resource>(registry: &mut Registry, url: &str, actions: Act
     use http::Method;
 
     registry.page(Method::GET, url, resource_list::<R>);
-    // The handler 404s a resource that declares no view; `matchit` prefers the static `create`
-    // segment over the `{id}` parameter, so registration order does not matter.
+    // The handler 404s a resource that declares no view. `matchit` prefers a static segment over
+    // the `{id}` parameter, so the list's own routes sit under `-` (`{url}/-/create`): a record
+    // whose key is `create` keeps its detail page.
     registry.page(
         Method::GET,
         &format!("{url}/{RECORD_ROUTE_PARAM}"),
@@ -311,7 +313,7 @@ fn register_routes<R: Resource>(registry: &mut Registry, url: &str, actions: Act
     );
     registry.page(
         Method::POST,
-        &format!("{url}/{BULK_DELETE_ROUTE_SEGMENT}"),
+        &list_route(url, BULK_DELETE_ROUTE_SEGMENT),
         resource_bulk_delete::<R>,
     );
     // The `-` segment keeps `actions` from shadowing the edit and delete
@@ -364,9 +366,13 @@ fn register_routes<R: Resource>(registry: &mut Registry, url: &str, actions: Act
             relation_action_options::<R>,
         );
     }
-    registry.route(Method::GET, &format!("{url}/export"), resource_export::<R>);
+    registry.route(
+        Method::GET,
+        &list_route(url, EXPORT_ROUTE_SEGMENT),
+        resource_export::<R>,
+    );
     if <R::Form as RecordForm>::HAS_FORM {
-        let create_url = format!("{url}/{CREATE_ROUTE_SEGMENT}");
+        let create_url = list_route(url, CREATE_ROUTE_SEGMENT);
         registry.page(Method::GET, &create_url, resource_create::<R>);
         registry.page(Method::POST, &create_url, resource_create_post::<R>);
         let edit_url = format!("{url}/{RECORD_ROUTE_PARAM}/{EDIT_ROUTE_SEGMENT}");
@@ -374,7 +380,7 @@ fn register_routes<R: Resource>(registry: &mut Registry, url: &str, actions: Act
         registry.page(Method::POST, &edit_url, resource_edit_post::<R>);
         registry.route(
             Method::GET,
-            &format!("{url}/options"),
+            &list_route(url, OPTIONS_ROUTE_SEGMENT),
             resource_options::<R>,
         );
     }

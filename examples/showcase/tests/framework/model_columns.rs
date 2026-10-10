@@ -310,7 +310,7 @@ async fn declared_columns_link_a_file_and_export_an_embedded_value() {
         "a file links its path: {detail}"
     );
 
-    let csv = body_string(get(&router, "/admin/declared-deliveries/export").await).await;
+    let csv = body_string(get(&router, "/admin/declared-deliveries/-/export").await).await;
     assert!(
         csv.contains("12 Rue Haute,\"Stage: Out, Note: shipped\"\n"),
         "the embedded column exports its leaves: {csv}"

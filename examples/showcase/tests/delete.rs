@@ -170,13 +170,13 @@ async fn bulk_delete_deletes_selected() {
     let html = body_string(resp).await;
     assert!(
         html.contains("id=\"table-writes\"")
-            && html.contains("formaction=\"/admin/users/bulk-delete\""),
+            && html.contains("formaction=\"/admin/users/-/bulk-delete\""),
         "list should carry the write form and the bulk delete, got {html}"
     );
 
     let resp = client
         .submit(
-            "/admin/users/bulk-delete",
+            "/admin/users/-/bulk-delete",
             &format!("ids={ids_param}&confirm=1"),
         )
         .await;
@@ -224,7 +224,7 @@ async fn bulk_delete_without_ids_redirects_with_the_reason() {
     let client = demo_client(&router, &db).await;
     let before = user_count(&db).await;
     let resp = client
-        .submit("/admin/users/bulk-delete", "ids=&confirm=1")
+        .submit("/admin/users/-/bulk-delete", "ids=&confirm=1")
         .await;
     assert_eq!(
         resp.status(),
@@ -260,7 +260,7 @@ async fn bulk_delete_short_fetch_404s_and_deletes_nothing() {
     let missing = uuid::Uuid::new_v4().to_string();
     let resp = client
         .submit(
-            "/admin/users/bulk-delete",
+            "/admin/users/-/bulk-delete",
             &format!("ids={real},{missing}&confirm=1"),
         )
         .await;
@@ -320,7 +320,7 @@ async fn bulk_bar_renders_checkboxes_with_row_keys() {
         .join(",");
     let resp = client
         .submit(
-            "/admin/users/bulk-delete",
+            "/admin/users/-/bulk-delete",
             &format!("ids={ids_param}&confirm=1"),
         )
         .await;
@@ -407,7 +407,7 @@ async fn select_all_skips_the_denied_row_and_deletes_the_rest() {
 
     let resp = client
         .submit(
-            "/admin/users/bulk-delete",
+            "/admin/users/-/bulk-delete",
             &format!("ids={}&confirm=1", ids.join(",")),
         )
         .await;
@@ -439,7 +439,7 @@ async fn bulk_delete_without_confirmation_is_refused() {
     let id = users[0].id.to_string();
 
     let resp = client
-        .submit("/admin/users/bulk-delete", &format!("ids={id}"))
+        .submit("/admin/users/-/bulk-delete", &format!("ids={id}"))
         .await;
     assert_eq!(
         resp.status(),

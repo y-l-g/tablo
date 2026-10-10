@@ -193,7 +193,7 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
         .handle(
             http::Request::builder()
                 .method(http::Method::POST)
-                .uri("/admin/readings/create")
+                .uri("/admin/readings/-/create")
                 .header(
                     http::header::CONTENT_TYPE,
                     "application/x-www-form-urlencoded",

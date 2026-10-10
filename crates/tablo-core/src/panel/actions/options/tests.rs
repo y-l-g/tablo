@@ -6,7 +6,7 @@ use crate::{
 
 #[tokio::test]
 async fn options_endpoint_searches_and_gates() {
-    // `GET {parent}/options?field=&q=` narrows server-side,
+    // `GET {parent}/-/options?field=&q=` narrows server-side,
     // allow-lists to searchable relationship selects, and mirrors gates.
     use http_body_util::BodyExt;
 
@@ -94,7 +94,7 @@ async fn options_endpoint_searches_and_gates() {
     let resp = router
         .handle(
             http::Request::builder()
-                .uri("/admin/opt-posts/options?field=author_id&q=Ada")
+                .uri("/admin/opt-posts/-/options?field=author_id&q=Ada")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -108,7 +108,7 @@ async fn options_endpoint_searches_and_gates() {
     let resp = router
         .handle(
             http::Request::builder()
-                .uri("/admin/opt-posts/options?field=nope&q=Ada")
+                .uri("/admin/opt-posts/-/options?field=nope&q=Ada")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -119,7 +119,7 @@ async fn options_endpoint_searches_and_gates() {
     let resp = router
         .handle(
             http::Request::builder()
-                .uri("/admin/opt-posts/options?q=Ada")
+                .uri("/admin/opt-posts/-/options?q=Ada")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -245,7 +245,7 @@ async fn option_load_loads_no_relation() {
     let resp = router
         .handle(
             http::Request::builder()
-                .uri("/admin/owners/options?field=child_id")
+                .uri("/admin/owners/-/options?field=child_id")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -373,7 +373,7 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
     let resp = router
         .handle(
             http::Request::builder()
-                .uri("/admin/plain-ps/options?field=author_id&q=author-1")
+                .uri("/admin/plain-ps/-/options?field=author_id&q=author-1")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -384,7 +384,7 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
     let resp = router
         .handle(
             http::Request::builder()
-                .uri("/admin/big-ps/options?field=author_id&q=")
+                .uri("/admin/big-ps/-/options?field=author_id&q=")
                 .body(Body::empty())
                 .unwrap(),
         )

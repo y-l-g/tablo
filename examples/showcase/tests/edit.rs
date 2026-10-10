@@ -513,7 +513,7 @@ async fn post_create_keeps_the_variant_its_payload_names() {
         .unwrap()
         .expect("a seeded author");
 
-    let html = body_string(client.get("/admin/posts/create").await).await;
+    let html = body_string(client.get("/admin/posts/-/create").await).await;
     assert!(
         html.contains("name=\"publication\""),
         "the create form must carry the discriminant, got {html}"
@@ -522,7 +522,7 @@ async fn post_create_keeps_the_variant_its_payload_names() {
     let author_id = author.id.to_string();
     let resp = client
         .submit(
-            "/admin/posts/create",
+            "/admin/posts/-/create",
             &format!(
                 "title=Created+Published&author_id={author_id}&tags=&body=Body&\
                  status=published&featured=false&cover_id=&seo_title=S&seo_description=D&\
@@ -590,7 +590,7 @@ async fn post_detail_shows_computed_word_counts() {
         html.contains("min read"),
         "the detail page must show the reading time, got {html}"
     );
-    let create = body_string(client.get("/admin/posts/create").await).await;
+    let create = body_string(client.get("/admin/posts/-/create").await).await;
     assert!(
         !create.contains("word_count") && !create.contains("read_minutes"),
         "counts are computed, so the form carries no fields for them: {create}"

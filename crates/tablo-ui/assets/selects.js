@@ -17,7 +17,7 @@
 // * Overflowed relationship sets: the wrapper carries
 //   `data-options-server="true"` + `data-options-field="<name>"`. Typing
 //   debounces (200ms, abort in-flight) a `GET
-//   {parent_list_url}/options?field=&q=` fetch that replaces the `<select>`
+//   {parent_list_url}/-/options?field=&q=` fetch that replaces the `<select>`
 //   (or `GET {data-options-url}?field=&q=` when the wrapper names the route,
 //   as an action's input does: `{url}/-/actions/{name}/options`)
 //   options with server markup, preserving the current selection and the
@@ -29,7 +29,7 @@
 // * Dependent choices: the wrapper carries `data-options-parent="<name>"`, the
 //   field whose value narrows the options, and `data-options-parent-value`.
 //   A `change` of that field in the same form fetches `GET
-//   {parent_list_url}/options?field=&parent=` and replaces the options, keeping
+//   {parent_list_url}/-/options?field=&parent=` and replaces the options, keeping
 //   the current choice only when the answer offers it; a blank parent offers
 //   none, with no fetch. A choice the answer drops announces its own `change`,
 //   so a choice depending on it, or a condition watching it, follows. A search
@@ -63,11 +63,11 @@ function optionsBase(wrap) {
   const named = wrap.getAttribute('data-options-url');
   if (named) return named;
   const path = window.location.pathname.replace(/\/$/, '');
-  // /admin/posts/create -> /admin/posts ; /admin/posts/<id>/edit -> /admin/posts
+  // /admin/posts/-/create -> /admin/posts ; /admin/posts/<id>/edit -> /admin/posts
   const base = path
-    .replace(/\/create$/, '')
+    .replace(/\/-\/create$/, '')
     .replace(/\/[^\/]+\/edit$/, '');
-  return `${base}/options`;
+  return `${base}/-/options`;
 }
 
 function escapeAttr(s) {

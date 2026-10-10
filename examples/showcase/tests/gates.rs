@@ -22,7 +22,7 @@ async fn a_csrf_cookie_and_field_are_both_required() {
 
     let resp = client
         .post_form(
-            "/admin/users/create",
+            "/admin/users/-/create",
             "name=NoToken&email=notoken%40example.com".to_string(),
         )
         .await;
@@ -103,7 +103,7 @@ async fn forged_posts_answer_403_and_change_nothing() {
     ] {
         let resp = client
             .csrf(&cookie)
-            .post_form("/admin/posts/bulk-delete", body)
+            .post_form("/admin/posts/-/bulk-delete", body)
             .await;
         assert_eq!(
             resp.status(),
@@ -198,7 +198,7 @@ async fn forged_posts_answer_403_and_change_nothing() {
         let body = multipart_body(boundary, &parts);
         let resp = client
             .csrf(&cookie)
-            .post_multipart("/admin/posts/create", boundary, body.clone())
+            .post_multipart("/admin/posts/-/create", boundary, body.clone())
             .await;
         assert_eq!(
             resp.status(),
@@ -404,7 +404,7 @@ async fn cross_tenant_requests_404_and_touch_nothing() {
     }
     let resp = foreign
         .post_form(
-            "/admin/posts/bulk-delete",
+            "/admin/posts/-/bulk-delete",
             form_body(&[
                 ("ids", &t1_post.id.to_string()),
                 ("confirm", "1"),
@@ -635,7 +635,7 @@ async fn blocked_tenant_is_refused_on_every_read_route() {
 
     for path in [
         "/admin/posts".to_string(),
-        "/admin/posts/export".to_string(),
+        "/admin/posts/-/export".to_string(),
         format!("/admin/posts/{}", blocked_post.id),
         "/admin/posts/-/actions/tag/options?field=tags".to_string(),
         format!(
@@ -683,11 +683,11 @@ async fn anonymous_requests_are_gated_on_every_route() {
 
     for path in [
         "/admin/posts".to_string(),
-        "/admin/posts/create".to_string(),
+        "/admin/posts/-/create".to_string(),
         format!("/admin/posts/{}", post.id),
         format!("/admin/posts/{}/edit", post.id),
-        "/admin/posts/export".to_string(),
-        "/admin/posts/options?q=a".to_string(),
+        "/admin/posts/-/export".to_string(),
+        "/admin/posts/-/options?q=a".to_string(),
         "/admin/posts/-/actions/tag/options?field=tags".to_string(),
         "/admin/-/actions/feature-tagged/options?field=tag".to_string(),
         format!("{relation}/-/actions/attach/options?field=record"),
@@ -710,10 +710,10 @@ async fn anonymous_requests_are_gated_on_every_route() {
     }
 
     for path in [
-        "/admin/posts/create".to_string(),
+        "/admin/posts/-/create".to_string(),
         format!("/admin/posts/{}/edit", post.id),
         format!("/admin/posts/{}/delete", post.id),
-        "/admin/posts/bulk-delete".to_string(),
+        "/admin/posts/-/bulk-delete".to_string(),
         "/admin/posts/-/actions/publish-all-drafts".to_string(),
         "/admin/-/actions/feature-tagged".to_string(),
         format!("{relation}/-/actions/attach"),

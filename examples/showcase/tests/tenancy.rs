@@ -138,7 +138,7 @@ async fn tenantless_requests_to_gated_resources_fail_closed() {
         .len();
     let resp = client
         .submit(
-            "/admin/posts/create",
+            "/admin/posts/-/create",
             &format!("title=Orphan&author_id={}&cover_id=&tags=o", authors[0].id),
         )
         .await;
@@ -183,7 +183,7 @@ async fn tenantless_requests_to_the_comments_queue_fail_closed() {
         status, 403,
         "a tenantless comments list must fail closed, not list every tenant's queue"
     );
-    let resp = client.get("/admin/comments/export").await;
+    let resp = client.get("/admin/comments/-/export").await;
     assert_eq!(resp.status(), 403, "tenantless export must fail closed");
 }
 
@@ -198,7 +198,7 @@ async fn create_assigns_the_logged_in_tenant() {
     let author_id = authors[0].id.to_string();
     let resp = client
         .submit(
-            "/admin/posts/create",
+            "/admin/posts/-/create",
             &format!("title=Tenanted&author_id={author_id}&cover_id=&tags=t"),
         )
         .await;
@@ -306,7 +306,7 @@ async fn comments_export_is_scoped_through_parent_post() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
 
-    let resp = client.tenant(t1).get("/admin/comments/export").await;
+    let resp = client.tenant(t1).get("/admin/comments/-/export").await;
     assert!(resp.status().is_success());
     let csv = body_string(resp).await;
     assert!(
@@ -317,7 +317,7 @@ async fn comments_export_is_scoped_through_parent_post() {
         !csv.contains("T2 comment"),
         "t1 export must not contain T2 comment, got {csv}"
     );
-    let resp = client.tenant(t2).get("/admin/comments/export").await;
+    let resp = client.tenant(t2).get("/admin/comments/-/export").await;
     let csv = body_string(resp).await;
     assert!(
         csv.contains("T2 comment") && !csv.contains("T1 comment"),
@@ -360,7 +360,7 @@ async fn export_is_scoped_by_tenant() {
     let (db, t1, t2) = tenanted_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let resp = client.tenant(t1).get("/admin/posts/export").await;
+    let resp = client.tenant(t1).get("/admin/posts/-/export").await;
     assert!(resp.status().is_success());
     let csv = body_string(resp).await;
     assert!(
@@ -371,7 +371,7 @@ async fn export_is_scoped_by_tenant() {
         !csv.contains("T2 Post"),
         "t1 export must not contain T2 Post, got {csv}"
     );
-    let resp = client.tenant(t2).get("/admin/posts/export").await;
+    let resp = client.tenant(t2).get("/admin/posts/-/export").await;
     let csv = body_string(resp).await;
     assert!(
         csv.contains("T2 Post") && !csv.contains("T1 Post"),
@@ -393,14 +393,14 @@ async fn two_tenants_may_share_an_author_email() {
         .expect("t1 seeds an author");
     let email = existing.email.clone();
 
-    let page = client.tenant(t2).get("/admin/authors/create").await;
+    let page = client.tenant(t2).get("/admin/authors/-/create").await;
     let html = body_string(page).await;
     input_value(&html, "csrf_token").expect("create form carries csrf");
 
     let resp = client
         .tenant(t2)
         .submit(
-            "/admin/authors/create",
+            "/admin/authors/-/create",
             &form_body(&[("name", "Cross Tenant"), ("email", &email)]),
         )
         .await;
@@ -428,14 +428,14 @@ async fn duplicate_email_within_one_tenant_is_reported_inline() {
     let email = existing.email.clone();
     let before = Author::all().exec(&mut db_q).await.unwrap().len();
 
-    let page = client.tenant(t1).get("/admin/authors/create").await;
+    let page = client.tenant(t1).get("/admin/authors/-/create").await;
     let html = body_string(page).await;
     input_value(&html, "csrf_token").expect("create form carries csrf");
 
     let resp = client
         .tenant(t1)
         .submit(
-            "/admin/authors/create",
+            "/admin/authors/-/create",
             &form_body(&[("name", "Same Tenant"), ("email", &email)]),
         )
         .await;

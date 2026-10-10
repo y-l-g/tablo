@@ -130,7 +130,7 @@ one it does not.
   policy allows `Create`. The edit page renders no related table: a change to one reruns the page,
   which would reset the form fields not yet saved.
 - **Creating from the parent.** The create button opens the related resource's create page with
-  the owner preselected, as in `/admin/comments/create?post_id=…`. The create page accepts such a
+  the owner preselected, as in `/admin/comments/-/create?post_id=…`. The create page accepts such a
   parameter only for a relationship choice; the value is a default, and the submitted form is
   validated like any other create.
 - **Returning.** Writes started from a related table carry `?return=` and redirect back to the

@@ -18,7 +18,7 @@ async fn lists_link_to_create_and_edit() {
         );
         let html = body_string(resp).await;
         assert!(
-            html.contains(&format!("href=\"{prefix}/create\"")),
+            html.contains(&format!("href=\"{prefix}/-/create\"")),
             "{prefix} must link its create page, got {html}"
         );
         let edit_targets = tablo::testing::rows(&html);

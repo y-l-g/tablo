@@ -225,7 +225,7 @@ async fn hydrate_is_the_parse_s_inverse() {
 async fn a_create_writes_the_parsed_form() {
     let db = item_db().await;
     let router = panel_router::<ItemResource>(db.clone());
-    let response = post_fields(&router, "/admin/items/create", &[("title", "New")]).await;
+    let response = post_fields(&router, "/admin/items/-/create", &[("title", "New")]).await;
     assert_eq!(response.status(), StatusCode::SEE_OTHER);
     let mut handle = db.clone();
     let items = Item::all().exec(&mut handle).await.unwrap();
@@ -447,7 +447,7 @@ async fn a_field_the_form_does_not_place_follows_the_ones_it_does() {
     /// Where each control posting one of `names` sits on the create page.
     async fn positions<R: Resource>(names: &[&str]) -> Vec<usize> {
         let router = panel_router::<R>(item_db().await);
-        let html = body_string(get(&router, "/admin/items/create").await).await;
+        let html = body_string(get(&router, "/admin/items/-/create").await).await;
         names
             .iter()
             .map(|name| {
@@ -620,20 +620,19 @@ async fn a_list_only_resource_serves_no_form_route() {
     let item = seed_item(&db).await;
     let router = panel_router::<Listed>(db.clone());
     let edit = format!("/admin/items/{}/edit", item.id);
-    // `create` falls to the GET-only detail route.
     for (response, status) in [
         (
-            get(&router, "/admin/items/create").await,
+            get(&router, "/admin/items/-/create").await,
             StatusCode::NOT_FOUND,
         ),
         (
-            get(&router, "/admin/items/options?field=title").await,
+            get(&router, "/admin/items/-/options?field=title").await,
             StatusCode::NOT_FOUND,
         ),
         (get(&router, &edit).await, StatusCode::NOT_FOUND),
         (
-            post_fields(&router, "/admin/items/create", &[("title", "New")]).await,
-            StatusCode::METHOD_NOT_ALLOWED,
+            post_fields(&router, "/admin/items/-/create", &[("title", "New")]).await,
+            StatusCode::NOT_FOUND,
         ),
         (
             post_fields(&router, &edit, &[("title", "New")]).await,
@@ -685,7 +684,7 @@ async fn a_form_resource_serves_create_and_edit() {
             .resource::<ItemResource>(),
     )
     .expect("panel builds");
-    let create = get(&router, "/admin/items/create").await;
+    let create = get(&router, "/admin/items/-/create").await;
     assert_eq!(create.status(), StatusCode::OK);
     let html = body_string(create).await;
     for name in ["title", "notes", "priority", "done"] {
@@ -979,7 +978,7 @@ async fn a_list_only_resource_never_links_to_create() {
     let response = router.handle(request).await;
     assert_eq!(response.status(), StatusCode::OK);
     let html = body_string(response).await;
-    assert!(!html.contains("/admin/items/create"), "{html}");
+    assert!(!html.contains("/admin/items/-/create"), "{html}");
 }
 
 /// The derived default form renders and writes.
@@ -1033,7 +1032,7 @@ async fn the_derived_default_form_renders_and_writes() {
 
     let db = memory_db(toasty::models!(Widget)).await;
     let router = panel_router::<WidgetResource>(db.clone());
-    let create = get(&router, "/admin/widgets/create").await;
+    let create = get(&router, "/admin/widgets/-/create").await;
     assert_eq!(create.status(), StatusCode::OK);
     let html = body_string(create).await;
     for name in ["name", "role", "active"] {
@@ -1054,7 +1053,7 @@ async fn the_derived_default_form_renders_and_writes() {
 
     let response = post_fields(
         &router,
-        "/admin/widgets/create",
+        "/admin/widgets/-/create",
         &[("name", "New"), ("role", "admin")],
     )
     .await;
@@ -1106,7 +1105,7 @@ fn renders_required(html: &str, name: &str) -> bool {
 #[tokio::test]
 async fn the_record_form_decides_which_controls_are_required() {
     let router = panel_router::<ItemResource>(item_db().await);
-    let html = body_string(get(&router, "/admin/items/create").await).await;
+    let html = body_string(get(&router, "/admin/items/-/create").await).await;
     assert!(renders_required(&html, "title"), "no blank answer: {html}");
     assert!(!renders_required(&html, "notes"), "`optional`: {html}");
     assert!(

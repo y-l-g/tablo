@@ -14,7 +14,7 @@ async fn create_page_serves_the_declared_fields() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
 
-    let resp = client.get("/admin/users/create").await;
+    let resp = client.get("/admin/users/-/create").await;
     assert!(resp.status().is_success(), "GET create should be 200");
     let html = body_string(resp).await;
     // Core (`text_input_renders_with_label_and_ac_field`)
@@ -41,7 +41,7 @@ async fn create_invalid_submission_rerenders_with_inline_errors() {
 
     let before = user_count(&db).await;
     let resp = client
-        .submit("/admin/users/create", "name=&email=not-an-email")
+        .submit("/admin/users/-/create", "name=&email=not-an-email")
         .await;
     let status = resp.status();
     let html = body_string(resp).await;
@@ -76,7 +76,7 @@ async fn create_valid_redirects_with_a_one_time_flash() {
     let client = demo_client(&router, &db).await;
     let resp = client
         .submit(
-            "/admin/users/create",
+            "/admin/users/-/create",
             "name=New%20User&email=new%40example.com",
         )
         .await;
@@ -134,7 +134,7 @@ async fn create_valid_persists_the_new_user_and_toasts_it() {
     let before = user_count(&db).await;
     let resp = client
         .submit(
-            "/admin/users/create",
+            "/admin/users/-/create",
             "name=New%20User&email=new%40example.com",
         )
         .await;
@@ -184,7 +184,7 @@ async fn create_post_with_unknown_keys_is_bad_request() {
     let before = user_count(&db).await;
     let resp = client
         .submit(
-            "/admin/users/create",
+            "/admin/users/-/create",
             "name=Sneaky&email=sneaky%40example.com&role=admin&tenant_id=victim",
         )
         .await;
@@ -210,7 +210,7 @@ async fn users_create_duplicate_email_shows_taken() {
     let before = user_count(&db).await;
     let resp = client
         .submit(
-            "/admin/users/create",
+            "/admin/users/-/create",
             "name=Copycat&email=ada%40example.com",
         )
         .await;
@@ -236,7 +236,7 @@ async fn users_create_static_selects_set_role_and_active() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
 
-    let resp = client.get("/admin/users/create").await;
+    let resp = client.get("/admin/users/-/create").await;
     let html = body_string(resp).await;
     assert!(html.contains("Profile"), "missing profile section: {html}");
     assert!(
@@ -250,7 +250,7 @@ async fn users_create_static_selects_set_role_and_active() {
 
     let resp = client
         .submit(
-            "/admin/users/create",
+            "/admin/users/-/create",
             "name=New+Admin&email=newadmin%40example.com&role=admin&active=false",
         )
         .await;
@@ -287,7 +287,7 @@ async fn posts_create_invalid_shows_errors() {
     // its blank answer — not an error.
     let resp = client
         .submit(
-            "/admin/posts/create",
+            "/admin/posts/-/create",
             &format!("title=&author_id={}&tags=", first.id),
         )
         .await;
@@ -321,7 +321,7 @@ async fn posts_create_valid_creates() {
     let author_id = first.id.to_string();
     let resp = client
         .submit(
-            "/admin/posts/create",
+            "/admin/posts/-/create",
             &format!("title=Valid+With+Tags&author_id={author_id}&cover_id=&tags=valid%2Ctags"),
         )
         .await;
@@ -358,7 +358,7 @@ async fn posts_create_with_empty_optional_tags_submits() {
     let author_id = authors[0].id.to_string();
     let resp = client
         .submit(
-            "/admin/posts/create",
+            "/admin/posts/-/create",
             &format!("title=No+Tags&author_id={author_id}&cover_id=&tags="),
         )
         .await;
@@ -388,7 +388,7 @@ async fn users_create_form_stays_urlencoded() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let resp = client.get("/admin/users/create").await;
+    let resp = client.get("/admin/users/-/create").await;
     assert!(resp.status().is_success());
     let html = body_string(resp).await;
     assert!(
@@ -405,7 +405,7 @@ async fn posts_create_form_stays_urlencoded_without_uploads() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let resp = client.get("/admin/posts/create").await;
+    let resp = client.get("/admin/posts/-/create").await;
     assert!(resp.status().is_success());
     let html = body_string(resp).await;
     assert!(
@@ -421,7 +421,7 @@ async fn posts_author_select_is_searchable() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let resp = client.get("/admin/posts/create").await;
+    let resp = client.get("/admin/posts/-/create").await;
     assert!(resp.status().is_success());
     let html = body_string(resp).await;
     assert!(

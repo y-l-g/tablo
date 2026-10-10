@@ -665,7 +665,7 @@ pub(crate) struct Placement<'p> {
     /// for a form alone on its page.
     pub(crate) scope: &'p str,
     /// The URL a searchable choice fetches its options from; `None` for the resource's own
-    /// `{list}/options`, which the browser derives from the page's URL.
+    /// `{list}/-/options`, which the browser derives from the page's URL.
     pub(crate) options: Option<&'p str>,
     /// Whether the form edits a stored record, where `disabled_on_edit` disables a control.
     pub(crate) editing: bool,

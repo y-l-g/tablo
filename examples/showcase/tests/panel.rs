@@ -49,7 +49,7 @@ async fn a_list_page_renders_in_the_shell_with_every_resource_in_the_sidebar() {
         );
     }
     assert!(
-        find_href_with(&html, "/admin/users/create").is_some(),
+        find_href_with(&html, "/admin/users/-/create").is_some(),
         "missing create entry point in {html}"
     );
     let cells: Vec<String> = tablo::testing::rows(&html)

@@ -97,7 +97,10 @@ async fn a_create_drops_the_key_of_a_hidden_field() {
     let (db, router) = customers().await;
     let client = TestClient::new(&router);
     let response = client
-        .submit("/admin/customers/create", "name=Ada&kind=person&vat=FR123")
+        .submit(
+            "/admin/customers/-/create",
+            "name=Ada&kind=person&vat=FR123",
+        )
         .await;
     assert!(
         response.status().is_redirection(),
@@ -111,7 +114,7 @@ async fn a_create_drops_the_key_of_a_hidden_field() {
     let client = TestClient::new(&router);
     let response = client
         .submit(
-            "/admin/customers/create",
+            "/admin/customers/-/create",
             "name=Acme&kind=company&vat=FR123",
         )
         .await;
@@ -126,7 +129,7 @@ async fn an_edit_keeps_the_stored_value_of_a_hidden_field() {
     let client = TestClient::new(&router);
     let response = client
         .submit(
-            "/admin/customers/create",
+            "/admin/customers/-/create",
             "name=Acme&kind=company&vat=FR123",
         )
         .await;
@@ -163,7 +166,7 @@ async fn a_hidden_file_field_drops_its_carried_upload() {
         let client = TestClient::new(&router);
         let response = client
             .submit(
-                "/admin/customers/create",
+                "/admin/customers/-/create",
                 &format!("name=Acme&kind={kind}&keep_logo=%2Fuploads%2Flogo.png"),
             )
             .await;
@@ -183,7 +186,10 @@ async fn an_edit_without_the_watched_field_reads_its_stored_value() {
     let (db, router) = customers().await;
     let client = TestClient::new(&router);
     let response = client
-        .submit("/admin/customers/create", "name=Acme&kind=company&vat=FR1")
+        .submit(
+            "/admin/customers/-/create",
+            "name=Acme&kind=company&vat=FR1",
+        )
         .await;
     assert!(response.status().is_redirection());
     let id = only_customer(&db).await.id;

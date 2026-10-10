@@ -29,7 +29,7 @@ async fn posts_create_empty_author_shows_required_error() {
     let before = post_count(&db).await;
     let resp = client
         .submit(
-            "/admin/posts/create",
+            "/admin/posts/-/create",
             "title=Test+Post&author_id=&cover_id=&tags=a",
         )
         .await;
@@ -62,7 +62,7 @@ async fn posts_create_invalid_author_shows_invalid_error() {
     let fake_id = uuid::Uuid::new_v4();
     let resp = client
         .submit(
-            "/admin/posts/create",
+            "/admin/posts/-/create",
             &format!("title=Test+Post&author_id={}&cover_id=&tags=a", fake_id),
         )
         .await;
@@ -92,7 +92,7 @@ async fn posts_edit_hydrates_author() {
     let author_id = first.id.to_string();
     let _ = client
         .submit(
-            "/admin/posts/create",
+            "/admin/posts/-/create",
             &format!("title=EditMe&author_id={author_id}&cover_id=&tags=edit"),
         )
         .await;
@@ -235,7 +235,7 @@ async fn posts_create_lifecycle_fields_persist() {
     let first = &authors[0];
     let author_id = first.id.to_string();
     let resp = client
-        .submit("/admin/posts/create", &format!("title=Lifecycle+Post&body=Full+story&status=published&featured=true&author_id={author_id}&cover_id=&tags=life"))
+        .submit("/admin/posts/-/create", &format!("title=Lifecycle+Post&body=Full+story&status=published&featured=true&author_id={author_id}&cover_id=&tags=life"))
         .await;
     assert!(
         resp.status().is_redirection(),
@@ -267,7 +267,7 @@ async fn posts_create_omitted_lifecycle_fields_default_to_draft() {
     let author_id = first.id.to_string();
     let resp = client
         .submit(
-            "/admin/posts/create",
+            "/admin/posts/-/create",
             &format!("title=Stub+Post&author_id={author_id}&cover_id=&tags=stub"),
         )
         .await;
@@ -296,7 +296,7 @@ async fn post_author_options_are_tenant_scoped() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
 
-    let resp = client.get("/admin/posts/options?field=author_id").await;
+    let resp = client.get("/admin/posts/-/options?field=author_id").await;
     assert!(resp.status().is_success());
     let html = body_string(resp).await;
     assert!(
@@ -306,7 +306,7 @@ async fn post_author_options_are_tenant_scoped() {
 
     let foreign = client
         .tenant(uuid::Uuid::from_u128(4242))
-        .get("/admin/posts/options?field=author_id")
+        .get("/admin/posts/-/options?field=author_id")
         .await;
     assert!(foreign.status().is_success());
     let html = body_string(foreign).await;
@@ -324,7 +324,7 @@ async fn post_author_options_deny_blocked_tenant() {
     let client = demo_client(&router, &db).await;
     let resp = client
         .tenant(showcase::models::BLOCKED_TENANT)
-        .get("/admin/posts/options?field=author_id")
+        .get("/admin/posts/-/options?field=author_id")
         .await;
     assert_eq!(
         resp.status(),
@@ -516,9 +516,9 @@ async fn the_post_detail_page_carries_its_comments_writes() {
     let html = body_string(client.get(&format!("/admin/posts/{}", commented.id)).await).await;
     let relation = &html[html.find("data-relation=").expect("the relation renders")..];
     for write in [
-        "/comments/create",
+        "/comments/-/create",
         "/delete?return=",
-        "/comments/bulk-delete",
+        "/comments/-/bulk-delete",
     ] {
         assert!(
             relation.contains(write),
@@ -541,7 +541,7 @@ async fn a_comment_created_from_the_post_page_returns_to_it() {
     let html = body_string(client.get(&page).await).await;
     let return_to = page.replace('/', "%2F");
     let create = format!(
-        "/admin/comments/create?post_id={}&return={return_to}",
+        "/admin/comments/-/create?post_id={}&return={return_to}",
         bare.id
     );
     assert!(
@@ -557,7 +557,7 @@ async fn a_comment_created_from_the_post_page_returns_to_it() {
     input_value(&form, "csrf_token").expect("the form carries csrf");
     let response = client
         .submit(
-            &format!("/admin/comments/create?return={return_to}"),
+            &format!("/admin/comments/-/create?return={return_to}"),
             &form_body(&[
                 ("body", "Written from the post"),
                 ("post_id", &bare.id.to_string()),
@@ -659,7 +659,7 @@ async fn comments_list_offers_row_and_bulk_delete() {
     let resp = client.get("/admin/comments").await;
     let html = body_string(resp).await;
     assert!(
-        html.contains("formaction=\"/admin/comments/bulk-delete\""),
+        html.contains("formaction=\"/admin/comments/-/bulk-delete\""),
         "the moderation queue must offer bulk delete: {html}"
     );
     let rendered = tablo::testing::rows(&html);
@@ -714,7 +714,7 @@ async fn comments_create_form_shows_post_select() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let resp = client.get("/admin/comments/create").await;
+    let resp = client.get("/admin/comments/-/create").await;
     assert!(resp.status().is_success());
     let html = body_string(resp).await;
     assert!(html.contains("name=\"body\""), "missing body field: {html}");
@@ -765,7 +765,7 @@ async fn comments_create_valid_redirects_and_creates() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
 
-    let page = client.get("/admin/comments/create").await;
+    let page = client.get("/admin/comments/-/create").await;
     let html = body_string(page).await;
     input_value(&html, "csrf_token").expect("create form carries csrf");
 
@@ -775,7 +775,7 @@ async fn comments_create_valid_redirects_and_creates() {
 
     let resp = client
         .submit(
-            "/admin/comments/create",
+            "/admin/comments/-/create",
             &form_body(&[
                 ("body", "A thoughtful follow-up"),
                 ("post_id", &post.id.to_string()),
@@ -839,7 +839,7 @@ async fn comments_refuse_another_tenants_post() {
 
     let created = client
         .submit(
-            "/admin/comments/create",
+            "/admin/comments/-/create",
             &form_body(&[("body", "Planted"), ("post_id", &foreign_id)]),
         )
         .await;

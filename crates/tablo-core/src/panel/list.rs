@@ -20,7 +20,7 @@ use crate::{
     resource::{Mounted, Places, Resource},
     table::{
         RowActions, Table, TableAction, TableChrome, TablePage, TableState, WiredTable,
-        create_page_url,
+        create_page_url, export_url,
     },
     topcoat_compat::async_page,
 };
@@ -228,7 +228,7 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         let skeleton = table.render_skeleton(cx, &state).await?;
         let create_url = (<R::Form as RecordForm>::HAS_FORM && resource.can(cx, Ability::Create))
             .then(|| create_page_url(&resource.url));
-        let export_url = state.without_cursor(&format!("{}/export", resource.url));
+        let export_url = state.without_cursor(&export_url(&resource.url));
         let header = list_header(
             cx,
             &resource.plural_label,

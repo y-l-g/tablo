@@ -1,5 +1,5 @@
 //! Relationship option search endpoint (D2/D5):
-//! `GET {parent_list_url}/options?field=&q=&parent=` for tables above the option cap and for
+//! `GET {parent_list_url}/-/options?field=&q=&parent=` for tables above the option cap and for
 //! dependent choices, and `GET {url}/-/actions/{name}/options?field=&q=` for an action's input.
 
 use topcoat::{
@@ -22,7 +22,7 @@ use crate::{
 
 /// Relationship option search endpoint (D2/D5).
 ///
-/// `GET {parent_list_url}/options?field=&q=&parent=` — server-side narrowing for
+/// `GET {parent_list_url}/-/options?field=&q=&parent=` — server-side narrowing for
 /// tables above the option cap, and a dependent choice's options for its parent's value.
 /// `field` allow-lists to a declared relationship choice in the resource's form that is
 /// searchable or dependent (400 otherwise); a non-searchable, independent choice keeps the cap
