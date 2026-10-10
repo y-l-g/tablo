@@ -88,9 +88,9 @@ signed-out request. A context with no panel at all knows no resource: every entr
 a mounted def answers as for a resource the panel does not mount, and `write_update` writes without
 consulting the context.
 
-`Panel::context(&db)` builds the same context from a panel no router mounts, such as a test's. It
-declares and checks the panel's resources on every call, refusing the declaration errors
-`.panel(..)` refuses.
+`Panel::handle(&db)` builds the same handle from a panel no router mounts, such as a test's. It
+declares and checks the panel's resources, refusing the declaration errors `.panel(..)` refuses, so
+build it once and call `context()` on it per run.
 
 ## Schema setup
 

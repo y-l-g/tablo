@@ -53,8 +53,9 @@ pub(crate) struct DummyUser {
 pub(crate) fn panel_cx<R: crate::Resource>(db: &toasty::Db) -> Cx {
     crate::Panel::new("admin")
         .resource::<R>()
-        .context(db)
+        .handle(db)
         .expect("panel builds")
+        .context()
 }
 
 /// `R`'s declaration with its defaults filled in at a `/admin` prefix, for a unit that takes the

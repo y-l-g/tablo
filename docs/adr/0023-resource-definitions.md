@@ -7,7 +7,8 @@ the methods that load and write: `query`, `validate_record`, the record fns and 
 Mounting builds each def once and
 keeps it in the panel's state; every handler and cross-reference reads the request panel's copy,
 so one resource can mount read-only in one panel and writable in another. A background job gets a
-context from `Panel::context`, which mounts with the same checks.
+context from the mounted panel's `PanelHandle`; `Panel::handle` builds one with the same checks
+for a panel no router mounts.
 
 ## Rejected
 

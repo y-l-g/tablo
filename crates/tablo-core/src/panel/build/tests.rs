@@ -1298,7 +1298,10 @@ async fn an_unmounted_resource_is_refused_not_rebuilt() {
     let bare = topcoat::context::CxTestBuilder::new()
         .app_context(db.clone())
         .build();
-    let panel = Panel::new("admin").context(&db).expect("panel builds");
+    let panel = Panel::new("admin")
+        .handle(&db)
+        .expect("panel builds")
+        .context();
     for cx in [bare, panel] {
         assert!(!crate::can::<UnmountedResource>(&cx, Ability::ViewAny));
         let refused = crate::scoped_query::<UnmountedResource>(&cx).expect_err("not mounted");
@@ -1345,9 +1348,9 @@ async fn a_panel_handle_answers_from_the_mounted_def() {
     assert_eq!(DECLARE_CALLS.load(Ordering::SeqCst), 1);
 }
 
-/// [`Panel::context`] refuses a misdeclared resource with the errors a router mount reports.
+/// [`Panel::handle`] refuses a misdeclared resource with the errors a router mount reports.
 #[tokio::test]
-async fn context_refuses_a_misdeclared_resource() {
+async fn handle_refuses_a_misdeclared_resource() {
     use crate::resource::Resource;
 
     struct BadView;
@@ -1364,7 +1367,7 @@ async fn context_refuses_a_misdeclared_resource() {
 
     let db = tableless_db(toasty::models!(Dummy)).await;
     assert_eq!(
-        refusal(panel_for::<BadView>().context(&db)),
+        refusal(panel_for::<BadView>().handle(&db)),
         refusal(mount(db, panel_for::<BadView>()))
     );
 }

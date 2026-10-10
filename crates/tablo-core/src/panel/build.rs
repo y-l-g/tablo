@@ -102,8 +102,10 @@ impl RouterBuilderPanelExt for RouterBuilder {
     }
 }
 
-/// A mounted panel's resources and the router's database, which a background job keeps to build
-/// a context per run without declaring the panel again. Cloning it is cheap.
+/// A panel's mounted resources and its database, which a background job or a test keeps to build
+/// a context per run without declaring the panel again. A router's mounted panel gives it through
+/// [`panel_handle`](RouterBuilderPanelExt::panel_handle), a panel no router mounts through
+/// [`Panel::handle`]. Cloning it is cheap.
 ///
 /// ```rust,no_run
 /// # use tablo_core::{NoForm, Panel, Resource, RouterBuilderPanelExt, Tenant, scoped_query};
@@ -135,8 +137,10 @@ pub struct PanelHandle {
 
 impl PanelHandle {
     /// A context outside any request in which the panel's resources answer as the panel mounted
-    /// them, as [`Panel::context`] builds: it holds the database and the resources, and no
-    /// request, session or tenant. Add a tenant with `cx.with(Tenant(id))`.
+    /// them: what a job or a test passes to [`scoped_query`](crate::scoped_query),
+    /// [`can`](crate::can), [`write_create`](crate::write_create) and the other entry points that
+    /// answer from a mounted def. It holds the database and the resources, and no request,
+    /// session or tenant. Add a tenant with `cx.with(Tenant(id))`.
     ///
     /// The context is one unit of work, as a request is: loads it memoizes stay cached for its
     /// lifetime, so a job builds one per run.
@@ -146,20 +150,15 @@ impl PanelHandle {
 }
 
 impl Panel {
-    /// A context outside any request in which the panel's resources answer as it mounts them:
-    /// what a background job or a test passes to [`scoped_query`](crate::scoped_query),
-    /// [`can`](crate::can), [`write_create`](crate::write_create) and the other entry points that
-    /// answer from a mounted def. It holds `db` and the panel's resources, and no request,
-    /// session or tenant; add a tenant with `cx.with(Tenant(id))`.
-    ///
-    /// Like a request's, the context is one unit of work: loads it memoizes stay cached for its
-    /// lifetime. It declares and checks the panel's resources on every call, so a job that runs
-    /// beside a router keeps the mounted panel's [`PanelHandle`] instead.
+    /// The panel's resources declared and checked against `db` without a router: what a test, or
+    /// a job that runs with no router, builds its contexts from with [`PanelHandle::context`].
+    /// A job that runs beside a router takes the mounted panel's handle from
+    /// [`panel_handle`](RouterBuilderPanelExt::panel_handle) instead.
     ///
     /// # Errors
     ///
     /// The declaration errors [`panel`](RouterBuilderPanelExt::panel) refuses the resources with.
-    pub fn context(self, db: &Db) -> Result<Cx> {
+    pub fn handle(self, db: &Db) -> Result<PanelHandle> {
         let Panel {
             prefix,
             registrations,
@@ -169,11 +168,14 @@ impl Panel {
         } = self;
         let mut registry = Registry::new(prefix.clone(), Some(AppSchema::of_db(db)));
         let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
-        let cx = registry.check_all(db, &mounts, uploads.is_some(), &mut errors);
+        registry.check_all(db, &mounts, uploads.is_some(), &mut errors);
         if !errors.is_empty() {
             return Err(MountError::new(&prefix, errors).into());
         }
-        Ok(cx)
+        Ok(PanelHandle {
+            db: db.clone(),
+            mounts,
+        })
     }
 
     fn mount(self, mut builder: RouterBuilder) -> Result<RouterBuilder> {
@@ -355,14 +357,14 @@ impl Registry {
     }
 
     /// Checks every registered resource against `db` and whether the panel installs an
-    /// uploader, returning the context the checks ran in.
+    /// uploader.
     fn check_all(
         &self,
         db: &Db,
         mounts: &Arc<Mounts>,
         has_uploader: bool,
         errors: &mut Vec<DeclarationError>,
-    ) -> Cx {
+    ) {
         let cx = validation_cx(db, mounts);
         for check in &self.page_checks {
             check(&cx, errors);
@@ -380,7 +382,6 @@ impl Registry {
                 }));
             }
         }
-        cx
     }
 }
 
@@ -819,7 +820,8 @@ fn check_create_columns<R: Resource>(declared: &Mounted<R>, errors: &mut Vec<Dec
     }
 }
 
-/// Builds the context for the mount-time declaration checks and [`Panel::context`] from `db` and
+/// Builds the context for the mount-time declaration checks and [`PanelHandle::context`] from `db`
+/// and
 /// the panel's `mounts`, with no request.
 fn validation_cx(db: &Db, mounts: &Arc<Mounts>) -> Cx {
     let mut app_context = topcoat::context::AppContext::new();

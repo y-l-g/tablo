@@ -90,7 +90,11 @@ async fn tenancy_via_cx_with_tenant_scopes_query_directly() {
     use showcase::app::{PostResource, admin_panel};
     use tablo::{Tenant, scoped_query};
     let (db, t1, _) = tenanted_db().await;
-    let cx_t1 = admin_panel().context(&db).unwrap().with(Tenant(t1));
+    let cx_t1 = admin_panel()
+        .handle(&db)
+        .unwrap()
+        .context()
+        .with(Tenant(t1));
     let mut db_cx = tablo::db::db(&cx_t1);
     let rows = scoped_query::<PostResource>(&cx_t1)
         .unwrap()
@@ -331,7 +335,11 @@ async fn comments_query_scopes_directly_through_parent_post() {
     use showcase::app::{CommentResource, admin_panel};
     use tablo::{Tenant, scoped_query};
     let (db, t1, t2) = tenanted_db().await;
-    let cx_t1 = admin_panel().context(&db).unwrap().with(Tenant(t1));
+    let cx_t1 = admin_panel()
+        .handle(&db)
+        .unwrap()
+        .context()
+        .with(Tenant(t1));
     let mut db_cx = tablo::db::db(&cx_t1);
     let rows = scoped_query::<CommentResource>(&cx_t1)
         .unwrap()
