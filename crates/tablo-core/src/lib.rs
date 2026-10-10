@@ -82,10 +82,7 @@ pub mod __macro {
             tree::Retype,
             write_items,
         },
-        table::{
-            BooleanColumn, EmbeddedColumn, FileColumn, ModelColumns, RelationColumn, RelationLens,
-            RepeaterColumn, Table, TextColumn, column::model::pick,
-        },
+        table::{ModelColumns, Table, column::model::pick},
         toasty_compat::VariantId,
     };
 }
@@ -323,11 +320,19 @@ pub use tablo_macros::EmbeddedForm;
 ///   detail page only;
 /// - any other type: no column.
 ///
-/// No column shows an `#[auto]` or `#[version]` field, a relation or its foreign key, which a
-/// [`RelationColumn`] shows by the related record's title, or a `TenantId` or
-/// `Option<TenantId>` field, which belongs to the resource's [`Tenancy`]. `#[columns(skip)]`
-/// leaves out any other field, such as a secret; on a field already left out it is a compile
-/// error, as are an unknown key and a generic model.
+/// No column shows a key Toasty generates, a `#[version]` field, a relation or its foreign
+/// key, which only a declared [`RelationColumn`] shows, by the related record's title, or a
+/// `TenantId` or `Option<TenantId>` field, which belongs to the resource's [`Tenancy`]. An
+/// `#[auto]` `created_at` or `updated_at` shows like any timestamp.
+///
+/// Every other field shows, a secret such as a password hash or an API token included, to
+/// anyone the policy lets view the list: mark it `#[columns(skip)]`, which leaves it out of
+/// the table, its search and export, and the detail page. On a field already left out it is a
+/// compile error, as are an unknown key and a generic model.
+///
+/// The derive reads the model, not a form: a file path shows as text and a `String` an
+/// `#[form(options = ..)]` key labels shows its stored value. Declare a [`FileColumn`] or a
+/// formatted [`TextColumn`] for them.
 ///
 /// A resource replaces either default with [`ResourceDef::table`] or [`ResourceDef::detail`],
 /// and extends one by starting from it: `User::table().filters(..)`, with

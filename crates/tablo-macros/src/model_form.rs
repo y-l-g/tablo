@@ -258,7 +258,7 @@ pub(crate) fn foreign_keys<'a>(fields: impl Iterator<Item = &'a syn::Field>) -> 
 }
 
 /// Every identifier in `tokens`, at any depth.
-pub(crate) fn idents(tokens: TokenStream2) -> Vec<syn::Ident> {
+fn idents(tokens: TokenStream2) -> Vec<syn::Ident> {
     let mut out = Vec::new();
     for tree in tokens {
         match tree {
@@ -293,7 +293,7 @@ fn form_field(field: &syn::Field) -> syn::Field {
 }
 
 /// The tokens inside `attr`'s delimiters, empty for a bare path.
-pub(crate) fn inner(attr: &syn::Attribute) -> TokenStream2 {
+fn inner(attr: &syn::Attribute) -> TokenStream2 {
     match &attr.meta {
         syn::Meta::List(list) => list.tokens.clone(),
         syn::Meta::Path(_) | syn::Meta::NameValue(_) => TokenStream2::new(),

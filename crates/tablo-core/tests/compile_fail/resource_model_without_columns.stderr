@@ -10,8 +10,14 @@ help: the trait `ModelColumns` is not implemented for `Post`
  4 | struct Post {
    | ^^^^^^^^^^^
    = note: add `#[derive(tablo::ModelColumns)]` to `Post`, or `impl tablo::ModelColumns for Post {}` when its resources declare their own table and detail page
+help: the trait `ModelColumns` is implemented for `AdminUser`
+  --> src/auth/password.rs
+   |
+   | #[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+   |                                       ^^^^^^^^^^^^^^^^^^^
 note: required by a bound in `tablo_core::Resource::Model`
   --> src/resource.rs
    |
    |     type Model: crate::ModelColumns
    |                 ^^^^^^^^^^^^^^^^^^^ required by this bound in `Resource::Model`
+   = note: this error originates in the derive macro `crate::ModelColumns` (in Nightly builds, run with -Z macro-backtrace for more info)

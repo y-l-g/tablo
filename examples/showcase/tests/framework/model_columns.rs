@@ -1,7 +1,9 @@
 //! The table and detail page a model's `ModelColumns` give a resource that declares neither.
 
 use http::StatusCode;
-use tablo::{Detail, NoForm, Resource, ResourceDef};
+use tablo::{
+    Detail, EmbeddedColumn, FileColumn, NoForm, Resource, ResourceDef, Table, TextColumn, lens,
+};
 use toasty::Db;
 use uuid::Uuid;
 
@@ -26,6 +28,9 @@ struct Ticket {
     /// Toasty writes it; no form does.
     #[default(0)]
     reopened: i64,
+    /// Toasty writes it as the record is created.
+    #[auto]
+    created_at: jiff::Timestamp,
     #[columns(skip)]
     token: String,
 }
@@ -96,14 +101,21 @@ async fn ticket_db() -> (Db, Ticket) {
 
 /// The model's columns give the table: a sortable column per field, a field no form writes
 /// included, searchable over a `String`, an options enum by its label, and a toggle as yes or
-/// no. A skipped field shows nowhere.
+/// no, an `#[auto]` timestamp included. A skipped field shows nowhere.
 #[tokio::test]
 async fn the_model_columns_give_the_table() {
     let (db, _) = ticket_db().await;
     let router = panel_router::<TicketResource>(db);
 
     let html = body_string(get(&router, "/admin/tickets?sort=reopened&dir=desc").await).await;
-    for header in ["Subject", "Status", "Urgent", "Estimate", "Reopened"] {
+    for header in [
+        "Subject",
+        "Status",
+        "Urgent",
+        "Estimate",
+        "Reopened",
+        "Created at",
+    ] {
         assert!(html.contains(header), "a {header} column: {html}");
     }
     assert!(
@@ -193,6 +205,7 @@ struct Delivery {
     #[auto]
     id: Uuid,
     address: String,
+    receipt: String,
     stage: Stage,
     #[document]
     signatures: Vec<Signature>,
@@ -214,19 +227,7 @@ impl Resource for DeliveryResource {
 /// leaves out.
 #[tokio::test]
 async fn embedded_values_and_lists_show_on_the_detail_page_only() {
-    let mut db = memory_db(toasty::models!(Delivery)).await;
-    let delivery = toasty::create!(Delivery {
-        address: "12 Rue Haute".to_string(),
-        stage: Stage::Out {
-            note: "shipped".to_string(),
-        },
-        signatures: vec![Signature {
-            signer: "Grace".to_string(),
-        }],
-    })
-    .exec(&mut db)
-    .await
-    .expect("seed delivery");
+    let (db, delivery) = delivery_db().await;
     let router = panel_router::<DeliveryResource>(db);
 
     let list = body_string(get(&router, "/admin/deliveries").await).await;
@@ -246,4 +247,72 @@ async fn embedded_values_and_lists_show_on_the_detail_page_only() {
     assert!(entry(&detail, "Note").contains("shipped"), "{detail}");
     let signatures = detail.find(">Signatures<").expect("a Signatures entry");
     assert!(detail[signatures..].contains(">Grace<"), "{detail}");
+    assert!(
+        entry(&detail, "Receipt").contains("/uploads/receipt.pdf")
+            && !entry(&detail, "Receipt").contains("href="),
+        "the model knows no file: a path shows as text: {detail}"
+    );
+}
+
+async fn delivery_db() -> (Db, Delivery) {
+    let mut db = memory_db(toasty::models!(Delivery)).await;
+    let delivery = toasty::create!(Delivery {
+        address: "12 Rue Haute".to_string(),
+        receipt: "/uploads/receipt.pdf".to_string(),
+        stage: Stage::Out {
+            note: "shipped".to_string(),
+        },
+        signatures: vec![Signature {
+            signer: "Grace".to_string(),
+        }],
+    })
+    .exec(&mut db)
+    .await
+    .expect("seed delivery");
+    (db, delivery)
+}
+
+/// The resource declares the columns the model cannot pick: a file and an embedded value in the
+/// table.
+struct DeclaredDeliveryResource;
+
+impl Resource for DeclaredDeliveryResource {
+    type Model = Delivery;
+    type Form = NoForm<Delivery>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .policy(tablo::ReadOnly)
+            .table(Table::new((
+                TextColumn::new(lens!(Delivery.address)),
+                EmbeddedColumn::new(lens!(Delivery.stage)),
+            )))
+            .detail(Detail::new(FileColumn::new(lens!(Delivery.receipt))))
+    }
+}
+
+/// A declared file column links its path; a declared embedded column exports its leaves.
+#[tokio::test]
+async fn declared_columns_link_a_file_and_export_an_embedded_value() {
+    let (db, delivery) = delivery_db().await;
+    let router = panel_router::<DeclaredDeliveryResource>(db);
+
+    let detail = body_string(
+        get(
+            &router,
+            &format!("/admin/declared-deliveries/{}", delivery.id),
+        )
+        .await,
+    )
+    .await;
+    assert!(
+        entry(&detail, "Receipt").contains("href=\"/uploads/receipt.pdf\""),
+        "a file links its path: {detail}"
+    );
+
+    let csv = body_string(get(&router, "/admin/declared-deliveries/export").await).await;
+    assert!(
+        csv.contains("12 Rue Haute,\"Stage: Out, Note: shipped\"\n"),
+        "the embedded column exports its leaves: {csv}"
+    );
 }

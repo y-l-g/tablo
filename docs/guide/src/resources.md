@@ -5,7 +5,7 @@ and form look, who may see and change a record, and how a write runs. You implem
 `Resource` trait on a unit struct, return what it declares from `declare()` as one `ResourceDef`
 value, and register it with `Panel::resource`.
 
-The smallest resource lists rows and nothing else:
+The smallest resource lists rows and shows each one, and writes nothing:
 
 ```rust
 {{#include ../../../examples/guide/src/resources.rs:audit-resource}}

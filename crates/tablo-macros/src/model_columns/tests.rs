@@ -23,6 +23,7 @@ fn the_columns_show_what_a_person_reads_whoever_writes_it() {
              #[columns(skip)] pub token: String,
              #[default(Timestamp::now())] pub created_at: Timestamp,
              #[update(Timestamp::now())] pub updated_at: Timestamp,
+             #[auto] pub published_at: Timestamp,
              #[version] pub version: u64,
              pub seo: Seo,
              #[document] pub links: Vec<Link>,
@@ -36,8 +37,23 @@ fn the_columns_show_what_a_person_reads_whoever_writes_it() {
     );
     assert_eq!(
         fields.unwrap(),
-        ["title", "created_at", "updated_at", "seo", "links"]
+        [
+            "title",
+            "created_at",
+            "updated_at",
+            "published_at",
+            "seo",
+            "links"
+        ]
     );
+}
+
+#[test]
+fn a_generated_key_is_left_out_wherever_it_is_named() {
+    let fields = shown(
+        "#[key(id)] struct M { #[auto] id: u64, #[auto] created_at: Timestamp, slug: String }",
+    );
+    assert_eq!(fields.unwrap(), ["created_at", "slug"]);
 }
 
 #[test]

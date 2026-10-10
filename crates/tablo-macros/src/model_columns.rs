@@ -7,7 +7,7 @@ use syn::{Data, DeriveInput, Fields};
 
 use crate::{
     fields::last_segment,
-    model_form::{foreign_keys, has, is_tenant},
+    model_form::{foreign_keys, has, is_tenant, struct_keys},
 };
 
 pub fn expand_tokens(input: DeriveInput) -> TokenStream2 {
@@ -95,11 +95,13 @@ fn shown_fields(input: &DeriveInput) -> syn::Result<Vec<&syn::Field>> {
         ));
     };
     let foreign = foreign_keys(named.named.iter());
+    let keys = struct_keys(input);
     let mut shown = Vec::new();
     for field in &named.named {
         let ident = field.ident.as_ref().expect("named field");
         let skip = asks_skip(field)?;
-        match (left_out(field, foreign.contains(ident)), skip) {
+        let key = has(field, "key") || keys.contains(ident);
+        match (left_out(field, key, foreign.contains(ident)), skip) {
             (Some(reason), Some(attr)) => {
                 return Err(syn::Error::new_spanned(
                     attr,
@@ -137,9 +139,12 @@ fn asks_skip(field: &syn::Field) -> syn::Result<Option<&syn::Attribute>> {
 }
 
 /// Why no default column shows `field`, when none does.
-fn left_out(field: &syn::Field, foreign_key: bool) -> Option<&'static str> {
-    if has(field, "auto") {
-        Some("Toasty generates its value")
+///
+/// An `#[auto]` field off the key shows: Toasty writes an `#[auto] created_at` or `updated_at`
+/// timestamp a person reads.
+fn left_out(field: &syn::Field, key: bool, foreign_key: bool) -> Option<&'static str> {
+    if key && has(field, "auto") {
+        Some("Toasty generates this key")
     } else if has(field, "version") {
         Some("Toasty counts its versions")
     } else if has(field, "belongs_to")

@@ -8,9 +8,9 @@ use crate::{Detail, Table};
 /// [`ResourceDef`](crate::ResourceDef) without a [`table`](crate::ResourceDef::table) lists and
 /// without a [`detail`](crate::ResourceDef::detail) shows.
 ///
-/// Derive it with [`ModelColumns`](derive@crate::ModelColumns), which reads every field of the
-/// model, whether or not a form writes it. An impl that keeps the defaults here lists no column
-/// and turns the detail page off, for a resource that declares both.
+/// Derive it with [`ModelColumns`](derive@crate::ModelColumns), which gives a column to each field
+/// a person reads, whether a form or Toasty writes it. An impl that keeps the defaults here lists
+/// no column and turns the detail page off, for a resource that declares both.
 #[diagnostic::on_unimplemented(
     message = "`{Self}` declares no default columns",
     label = "a resource's model implements `ModelColumns`",
