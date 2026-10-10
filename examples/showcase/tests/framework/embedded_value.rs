@@ -644,7 +644,7 @@ async fn the_derived_form_renders_the_variant_select_and_every_payload() {
         assert!(html.contains(name), "missing control {name} in {html}");
     }
     assert!(
-        html.contains(">Canonical Url<"),
+        html.contains(">Canonical url<"),
         "an unlabelled field is humanized from its name, got {html}"
     );
 }
@@ -728,7 +728,7 @@ async fn a_detail_page_shows_an_embedded_value_leaf_by_leaf() {
     // Only the stored variant's payload reads: the other variants hold no values on this record.
     assert!(view.contains("superseded"), "got {view}");
     assert!(
-        !view.contains("Canonical Url") && !view.contains("Scheduled for"),
+        !view.contains("Canonical url") && !view.contains("Scheduled for"),
         "another variant's payload does not render, got {view}"
     );
     let visibility = &view[view.find(">Visibility<").expect("the visibility entry")..];

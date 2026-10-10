@@ -10,7 +10,7 @@ fn a_raw_identifier_keeps_its_spelling_without_the_raw_prefix() {
     let ident: syn::Ident = syn::parse_str("r#type").expect("a raw identifier");
     assert_eq!(label(&ident), "Type");
     let ident: syn::Ident = syn::parse_str("canonical_url").expect("an identifier");
-    assert_eq!(label(&ident), "Canonical Url");
+    assert_eq!(label(&ident), "Canonical url");
 }
 
 /// A scalar of a type that is not a form scalar fails at a bound spanned on

@@ -7,7 +7,9 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote, quote_spanned};
 use syn::{Data, DeriveInput, Fields, Type, ext::IdentExt, spanned::Spanned};
 
-use crate::fields::{Derive, FormAttrs, assert_scalar, blank_answer, blank_option, form_attrs};
+use crate::fields::{
+    Derive, FormAttrs, assert_scalar, blank_answer, blank_option, form_attrs, sentence_case,
+};
 
 pub fn expand(input: DeriveInput) -> TokenStream {
     expand_tokens(input).into()
@@ -131,24 +133,9 @@ fn chained(
     }
 }
 
-/// Humanizes the Rust field name, dropping only the `r#` prefix from a raw identifier.
+/// The Rust field name in sentence case, dropping only the `r#` prefix from a raw identifier.
 fn label(ident: &syn::Ident) -> String {
-    let name = ident.unraw().to_string();
-    let mut out = String::with_capacity(name.len());
-    for (i, part) in name.split('_').enumerate() {
-        if part.is_empty() {
-            continue;
-        }
-        if i > 0 {
-            out.push(' ');
-        }
-        let mut chars = part.chars();
-        if let Some(first) = chars.next() {
-            out.extend(first.to_uppercase());
-            out.extend(chars);
-        }
-    }
-    out
+    sentence_case(&ident.unraw().to_string())
 }
 
 fn build_member(
