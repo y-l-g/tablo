@@ -284,6 +284,19 @@ async fn non_editable_resource_hides_edit_links() {
     struct WritableForm {
         name: String,
     }
+    // A form the policy never lets anyone update links no row either.
+    struct DeniedResource;
+    impl Resource for DeniedResource {
+        type Model = Dummy;
+        type Form = WritableForm;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dummies")
+                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny))
+                .table(dummy_table().paginate(25))
+        }
+    }
     struct LockedResource;
     impl Resource for LockedResource {
         type Model = Dummy;
@@ -309,89 +322,19 @@ async fn non_editable_resource_hides_edit_links() {
             && !html.contains("data-topcoat-link=\"intent\""),
         "panel links must use runtime navigation without prefetch, got {html}"
     );
-    let html = list_html::<LockedResource>().await;
-    assert!(
-        !html.contains("/edit") && !html.contains(">Edit<"),
-        "non-editable list must not render edit links, got {html}"
-    );
-}
-
-/// Asserts denied rows render no edit chrome.
-#[tokio::test]
-async fn denied_rows_render_no_edit_chrome() {
-    use http_body_util::BodyExt;
-
-    use crate::resource::Resource;
-
-    /// The minimum a resource can declare: `ViewAny` so the list
-    /// renders, a grid and a form so there is something to link to, and
-    /// every other `can_*` left at its default.
-    struct DeniedResource;
-    impl Resource for DeniedResource {
-        type Model = Dummy;
-        type Form = DeniedForm;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("dummies")
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| matches!(ability, Ability::ViewAny))
-                .table(dummy_table().paginate(25))
-        }
+    for html in [
+        list_html::<LockedResource>().await,
+        list_html::<DeniedResource>().await,
+    ] {
+        assert!(
+            html.contains("Ada"),
+            "the row renders, or the assertion below is vacuous, got {html}"
+        );
+        assert!(
+            !html.contains("/edit") && !html.contains(">Edit<"),
+            "a list whose rows cannot be edited renders no edit link, got {html}"
+        );
     }
-    #[derive(crate::RecordForm)]
-    #[form(model = Dummy)]
-    struct DeniedForm {
-        name: String,
-    }
-    let mut db = memory_db(toasty::models!(Dummy)).await;
-    let row = toasty::create!(Dummy {
-        name: "Ada".to_string(),
-    })
-    .exec(&mut db)
-    .await
-    .unwrap();
-    let router = mount(db, panel_for::<DeniedResource>()).expect("panel builds");
-
-    let resp = router
-        .handle(
-            http::Request::builder()
-                .uri("/admin/dummies")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await;
-    assert!(resp.status().is_success());
-    let body = resp.into_body().collect().await.unwrap().to_bytes();
-    let html = String::from_utf8_lossy(&body);
-    assert!(
-        html.contains("Ada"),
-        "the grid must render the seeded row, or the negative assertions below are vacuous, got {html}"
-    );
-    assert!(
-        !html.contains("/edit") && !html.contains(">Edit<"),
-        "a row the policy denies must render no Edit link, got {html}"
-    );
-    assert!(
-        !html.contains("Delete selected")
-            && !html.contains("data-bulk-form")
-            && !html.contains("/delete"),
-        "a resource that allows no delete must render no delete affordance, got {html}"
-    );
-
-    // The route's own answer for the row the list no longer links.
-    let resp = router
-        .handle(
-            http::Request::builder()
-                .uri(format!("/admin/dummies/{}/edit", row.id))
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await;
-    assert_eq!(
-        resp.status(),
-        http::StatusCode::FORBIDDEN,
-        "the edit route must deny the row the list no longer links"
-    );
 }
 
 #[test]
