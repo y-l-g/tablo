@@ -60,15 +60,17 @@ impl<R: Resource> Mounted<R> {
             .label
             .unwrap_or_else(|| sentence_case(type_short_name::<R::Model>()));
         let plural_label = def.plural_label.unwrap_or_else(|| pluralize(&label));
-        let navigation = def
-            .navigation
-            .unwrap_or_else(|| NavigationItem {
-                label: plural_label.clone(),
-                order: def.navigation_order,
-                icon: def.icon,
-                ..NavigationItem::default()
-            })
-            .resolved(&url);
+        let mut navigation = def.navigation.unwrap_or_else(|| NavigationItem {
+            label: plural_label.clone(),
+            ..NavigationItem::default()
+        });
+        if let Some(order) = def.navigation_order {
+            navigation.order = order;
+        }
+        if let Some(icon) = def.icon {
+            navigation.icon = Some(icon);
+        }
+        let navigation = navigation.resolved(&url);
         let table = def.table.unwrap_or_else(<R::Form as RecordForm>::table);
         table.bind_with(resolver);
         let fields = <R::Form as RecordForm>::fields(resolver);
