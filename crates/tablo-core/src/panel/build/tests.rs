@@ -9,6 +9,27 @@ use crate::{
     test_support::{memory_db, tableless_db},
 };
 
+/// Declares the resource `$name` over `$model` in one statement, with `$def` as its `declare`
+/// body. Without a form the resource is list-only (`NoForm`); `$form` names the form it writes
+/// through.
+macro_rules! resource {
+    ($name:ident, $model:ty => $def:expr) => {
+        resource!($name, $model, crate::NoForm<$model> => $def);
+    };
+    ($name:ident, $model:ty, $form:ty => $def:expr) => {
+        struct $name;
+
+        impl crate::resource::Resource for $name {
+            type Model = $model;
+            type Form = $form;
+
+            fn declare() -> ResourceDef<Self> {
+                $def
+            }
+        }
+    };
+}
+
 #[derive(Debug, toasty::Model, Clone)]
 struct Subscriber {
     #[key]
@@ -193,74 +214,6 @@ async fn dark_mode_sets_the_document_class() {
     );
 }
 
-/// Accepts unique markers with a backing index.
-#[tokio::test]
-async fn panel_build_accepts_unique_markers_with_a_backing_index() {
-    use crate::{
-        resource::{Resource, ResourceDef},
-        schema::Schema,
-        table::{Table, TextColumn},
-    };
-
-    #[derive(Debug, toasty::Model, Clone)]
-    #[unique(tenant_id, email)]
-    struct Author {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        tenant_id: TenantId,
-        email: String,
-    }
-    struct AuthorResource;
-    impl Resource for AuthorResource {
-        type Model = Author;
-        type Form = AuthorForm;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("authors")
-                .policy(|_cx: &Cx, ability: Ability<'_, Author>| {
-                    matches!(ability, Ability::ViewAny | Ability::Create)
-                })
-                .table(Table::new(TextColumn::new(lens!(Author.email))))
-                .form(Schema::new(AuthorForm::controls().email.unique()))
-                // Not gated, so the tenant is not stamped: a create override would
-                // set it.
-                .create_column(Author::fields().tenant_id())
-        }
-    }
-    #[derive(crate::RecordForm)]
-    #[form(model = Author)]
-    struct AuthorForm {
-        email: String,
-    }
-    let db = tableless_db(toasty::models!(Author)).await;
-    mount(db, panel_for::<AuthorResource>()).expect("a composite unique index backs the marker");
-}
-
-/// A panel with no `Db` is a configuration error, not a panic.
-#[test]
-fn panel_build_errors_without_db() {
-    assert_eq!(
-        refusal(mount_without_db(Panel::new("admin"))),
-        [DeclarationError::panel(DeclarationErrorKind::MissingDb)]
-    );
-}
-
-/// Reports a `Db` missing the shipped auth models as a mount error naming them.
-#[tokio::test]
-async fn panel_mount_reports_missing_auth_models() {
-    let db = tableless_db(toasty::models!(Dummy)).await;
-    assert_eq!(
-        refusal(mount(db, Panel::new("admin"))),
-        [DeclarationError::panel(
-            DeclarationErrorKind::MissingAuthModels {
-                models: vec!["AuthSession", "AdminUser"],
-            }
-        )]
-    );
-}
-
 /// A parent row that carries its tenant, and a child that inherits it.
 #[derive(Debug, Clone, toasty::Model)]
 struct Parent {
@@ -285,695 +238,248 @@ struct Child {
     name: String,
 }
 
-/// Refuses a relation column labelled by a resource the panel does not register, which would
-/// otherwise show every related record by its bare key.
-#[tokio::test]
-async fn panel_mount_rejects_a_relation_column_of_an_unregistered_resource() {
-    use crate::{
-        RelationColumn, relation,
-        resource::Resource,
-        table::{Table, TextColumn},
-    };
+use crate::{
+    RelationColumn, relation,
+    schema::Schema,
+    table::{Table, TextColumn},
+};
 
-    struct Parents;
-    impl Resource for Parents {
-        type Model = Parent;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new().table(Table::new(TextColumn::new(lens!(Parent.name))))
-        }
-    }
-
-    struct Children;
-    impl Resource for Children {
-        type Model = Child;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .table(Table::new((
-                    TextColumn::new(lens!(Child.name)),
-                    RelationColumn::of::<Parents>(relation!(Child.parent)),
-                )))
-                .detail(crate::Detail::new(RelationColumn::of::<Parents>(
-                    relation!(Child.parent),
-                )))
-        }
-    }
-
-    let db = tableless_db(toasty::models!(Parent, Child)).await;
-    let panel = || Panel::new("admin").auth(crate::Auth::disabled());
-    let unregistered = DeclarationErrorKind::UnregisteredLabelSource {
-        column: "parent".to_string(),
-        source: std::any::type_name::<Parents>(),
-    };
-    assert_eq!(
-        refusal(mount(db.clone(), panel().resource::<Children>())),
-        [
-            DeclarationError::of::<Children>(Site::Table, unregistered.clone()),
-            DeclarationError::of::<Children>(Site::Detail, unregistered),
-        ]
-    );
-    mount(db, panel().resource::<Children>().resource::<Parents>())
-        .expect("a relation column of a registered resource mounts");
+#[derive(Debug, toasty::Model, Clone)]
+struct Doc {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    title: String,
 }
 
-/// Refuses a tenancy column through a relation.
-#[tokio::test]
-async fn panel_mount_rejects_a_tenancy_column_through_a_relation() {
-    use crate::{
-        resource::Resource,
-        table::{Table, TextColumn},
-    };
-
-    fn child_table() -> Table<Child> {
-        Table::new(TextColumn::new(lens!(Child.name)))
-    }
-
-    struct ColumnThroughRelation;
-    impl Resource for ColumnThroughRelation {
-        type Model = Child;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("children")
-                .tenancy(Tenancy::column(Child::fields().parent().tenant_id()))
-                .table(child_table())
-        }
-    }
-
-    struct Inherited;
-    impl Resource for Inherited {
-        type Model = Child;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("inherited")
-                .tenancy(Tenancy::via(Child::fields().parent().tenant_id()))
-                .table(child_table())
-        }
-    }
-
-    let db = tableless_db(toasty::models!(Parent, Child)).await;
-    let panel = || Panel::new("admin").auth(crate::Auth::disabled());
-
-    assert_eq!(
-        refusal(mount(
-            db.clone(),
-            panel().resource::<ColumnThroughRelation>()
-        )),
-        [DeclarationError::of::<ColumnThroughRelation>(
-            Site::Tenancy,
-            DeclarationErrorKind::TenancyColumnNotAField,
-        )]
-    );
-
-    mount(db, panel().resource::<Inherited>()).expect("`Tenancy::via` scopes through a relation");
+#[derive(Debug, Clone, toasty::Model)]
+#[key(owner, slot)]
+struct Seat {
+    owner: String,
+    slot: i64,
+    label: String,
 }
 
-/// Refuses a tenancy `via` over its own column.
-#[tokio::test]
-async fn panel_mount_rejects_a_tenancy_via_over_its_own_column() {
-    use crate::{
-        resource::Resource,
-        table::{Table, TextColumn},
-    };
-
-    struct ViaOwnColumn;
-    impl Resource for ViaOwnColumn {
-        type Model = Parent;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("parents")
-                .tenancy(Tenancy::via(Parent::fields().tenant_id()))
-                .table(Table::new(TextColumn::new(lens!(Parent.name))))
-        }
-    }
-
-    let db = tableless_db(toasty::models!(Parent, Child)).await;
-    assert_eq!(
-        refusal(mount(
-            db,
-            Panel::new("admin")
-                .auth(crate::Auth::disabled())
-                .resource::<ViaOwnColumn>(),
-        )),
-        [DeclarationError::of::<ViaOwnColumn>(
-            Site::Tenancy,
-            DeclarationErrorKind::TenancyViaOwnColumn,
-        )]
-    );
+#[derive(Debug, Clone, toasty::Embed)]
+struct Place {
+    city: String,
 }
 
-/// Refuses a tenancy `via` unless the form writes the relation's foreign key through a
-/// relationship field over a tenant-scoped resource.
-#[tokio::test]
-async fn panel_mount_requires_a_tenancy_via_key_over_a_scoped_parent() {
-    use crate::{
-        resource::Resource,
-        schema::Schema,
-        table::{Table, TextColumn},
-    };
-
-    fn parent_table() -> Table<Parent> {
-        Table::new(TextColumn::new(lens!(Parent.name)))
-    }
-
-    struct ScopedParents;
-    impl Resource for ScopedParents {
-        type Model = Parent;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("parents")
-                .tenancy(Tenancy::column(Parent::fields().tenant_id()))
-                .table(parent_table())
-        }
-    }
-
-    struct OpenParents;
-    impl Resource for OpenParents {
-        type Model = Parent;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("open-parents")
-                .table(parent_table())
-        }
-    }
-
-    #[derive(crate::RecordForm)]
-    #[form(model = Child)]
-    struct NameForm {
-        name: String,
-    }
-
-    #[derive(crate::RecordForm)]
-    #[form(model = Child)]
-    struct KeyedForm {
-        name: String,
-        parent_id: uuid::Uuid,
-    }
-
-    /// A child resource inheriting its tenant through `parent`, whose form `form` declares.
-    macro_rules! via_child {
-        ($name:ident, $form:ty, $schema:expr) => {
-            struct $name;
-            impl Resource for $name {
-                type Model = Child;
-                type Form = $form;
-
-                fn declare() -> ResourceDef<Self> {
-                    ResourceDef::new()
-                        .slug("children")
-                        .policy(|_cx: &Cx, ability: Ability<'_, Child>| {
-                            matches!(ability, Ability::ViewAny | Ability::Create)
-                        })
-                        .tenancy(Tenancy::via(Child::fields().parent().tenant_id()))
-                        .table(Table::new(TextColumn::new(lens!(Child.name))))
-                        .form($schema())
-                }
-            }
-        };
-    }
-
-    via_child!(WithoutKey, NameForm, Schema::default);
-    via_child!(OverOpenParent, KeyedForm, || {
-        let c = KeyedForm::controls();
-        Schema::new((c.name, c.parent_id.choice().relationship::<OpenParents>()))
-    });
-    via_child!(OverScopedParent, KeyedForm, || {
-        let c = KeyedForm::controls();
-        Schema::new((c.name, c.parent_id.choice().relationship::<ScopedParents>()))
-    });
-
-    let db = tableless_db(toasty::models!(Parent, Child)).await;
-    // The relationship fields' option sources are the panel's own resources.
-    let panel = || {
-        Panel::new("admin")
-            .auth(crate::Auth::disabled())
-            .resource::<OpenParents>()
-            .resource::<ScopedParents>()
-    };
-
-    let unguarded = DeclarationErrorKind::UnguardedForeignKey {
-        relation: "parent".to_string(),
-        keys: vec!["parent_id".to_string()],
-    };
-    let errors = refusal(mount(db.clone(), panel().resource::<WithoutKey>()));
-    assert!(
-        errors.contains(&DeclarationError::of::<WithoutKey>(
-            Site::Form,
-            unguarded.clone()
-        )),
-        "{errors:?}"
-    );
-    assert_eq!(
-        refusal(mount(db.clone(), panel().resource::<OverOpenParent>())),
-        [DeclarationError::of::<OverOpenParent>(
-            Site::Form,
-            unguarded
-        )]
-    );
-    mount(db, panel().resource::<OverScopedParent>())
-        .expect("a foreign key over the tenant-scoped parent mounts");
+#[derive(Debug, toasty::Model, Clone)]
+struct Ticket {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    tenant_id: TenantId,
+    title: String,
+    place: Place,
 }
 
-/// Refuses a relationship over a model whose composite primary key no option value can spell.
-#[tokio::test]
-async fn panel_mount_rejects_a_relationship_over_a_composite_key() {
-    use crate::{
-        resource::Resource,
-        schema::Schema,
-        table::{Table, TextColumn},
-    };
-
-    #[derive(Debug, Clone, toasty::Model)]
-    #[key(owner, slot)]
-    struct Seat {
-        owner: String,
-        slot: i64,
-        label: String,
-    }
-
-    struct Seats;
-    impl Resource for Seats {
-        type Model = Seat;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new().table(Table::new(TextColumn::new(lens!(Seat.label))))
-        }
-    }
-
-    #[derive(crate::RecordForm)]
-    #[form(model = Child)]
-    struct SeatedForm {
-        name: String,
-        #[form(relationship = Seats)]
-        parent_id: uuid::Uuid,
-    }
-
-    struct Seated;
-    impl Resource for Seated {
-        type Model = Child;
-        type Form = SeatedForm;
-
-        fn declare() -> ResourceDef<Self> {
-            let c = SeatedForm::controls();
-            ResourceDef::new()
-                .policy(|_cx: &Cx, ability: Ability<'_, Child>| {
-                    matches!(ability, Ability::ViewAny | Ability::Create)
-                })
-                .table(Table::new(TextColumn::new(lens!(Child.name))))
-                .form(Schema::new((c.name, c.parent_id)))
-        }
-    }
-
-    let db = tableless_db(toasty::models!(Parent, Child, Seat)).await;
-    let errors = refusal(mount(
-        db,
-        Panel::new("admin")
-            .auth(crate::Auth::disabled())
-            .resource::<Seated>(),
-    ));
-    assert!(
-        errors.contains(&DeclarationError::of::<Seated>(
-            Site::Form,
-            DeclarationErrorKind::CompositeKeyChoice {
-                field: "parent_id".to_string(),
-            },
-        )),
-        "{errors:?}"
-    );
+#[derive(Debug, toasty::Model, Clone)]
+#[unique(tenant_id, email)]
+struct Author {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    tenant_id: TenantId,
+    email: String,
 }
 
-/// Rejects a hostile slug at registration.
-#[test]
-fn panel_build_rejects_a_hostile_slug() {
-    use crate::resource::Resource;
-
-    struct HostileResource;
-    impl Resource for HostileResource {
-        type Model = Dummy;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("a\"b\r\n")
-                .table(crate::table::Table::new(crate::table::TextColumn::new(
-                    lens!(Dummy.name),
-                )))
-        }
-    }
-
-    let errors = refusal(mount_without_db(
-        Panel::new("admin").resource::<HostileResource>(),
-    ));
-    assert_eq!(
-        errors[0],
-        DeclarationError::of::<HostileResource>(
-            Site::Registration,
-            DeclarationErrorKind::InvalidSegment {
-                item: "ResourceDef::slug",
-                segment: "a\"b\r\n".to_string(),
-                fault: crate::SegmentFault::Char('"'),
-            },
-        )
-    );
+#[derive(crate::RecordForm)]
+#[form(model = Child)]
+struct NameForm {
+    name: String,
 }
 
-/// Rejects a `unique()` marker without a unique index.
-#[tokio::test]
-async fn panel_build_rejects_a_unique_marker_without_a_unique_index() {
-    use crate::{
-        resource::Resource,
-        schema::Schema,
-        table::{Table, TextColumn},
-    };
-
-    struct UnbackedResource;
-    impl Resource for UnbackedResource {
-        type Model = Subscriber;
-        type Form = UnbackedForm;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("subscribers")
-                .policy(|_cx: &Cx, ability: Ability<'_, Subscriber>| {
-                    matches!(ability, Ability::ViewAny | Ability::Create)
-                })
-                .table(Table::new(TextColumn::new(lens!(Subscriber.nickname))))
-                .form(Schema::new(UnbackedForm::controls().nickname.unique()))
-        }
-    }
-    #[derive(crate::RecordForm)]
-    #[form(model = Subscriber)]
-    struct UnbackedForm {
-        nickname: String,
-    }
-    let db = tableless_db(toasty::models!(Subscriber)).await;
-    assert_eq!(
-        refusal(mount(db, panel_for::<UnbackedResource>())),
-        [DeclarationError::of::<UnbackedResource>(
-            Site::Form,
-            DeclarationErrorKind::UniqueWithoutIndex {
-                field: "nickname".to_string(),
-            },
-        )]
-    );
+#[derive(crate::RecordForm)]
+#[form(model = Child)]
+struct KeyedForm {
+    name: String,
+    parent_id: uuid::Uuid,
 }
 
-/// Accepts keyed tables with and without chrome.
-#[tokio::test]
-async fn panel_build_accepts_keyed_tables_with_and_without_chrome() {
-    use crate::{
-        resource::Resource,
-        table::{Table, TextColumn},
-    };
-
-    fn keyed_table() -> Table<Subscriber> {
-        Table::new(TextColumn::new(lens!(Subscriber.nickname)))
-    }
-
-    struct ChromeResource;
-    impl Resource for ChromeResource {
-        type Model = Subscriber;
-        type Form = ChromeForm;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("subscribers")
-                .policy(|_cx: &Cx, ability: Ability<'_, Subscriber>| {
-                    matches!(ability, Ability::DeleteAny | Ability::Delete(_))
-                })
-                .table(keyed_table())
-        }
-    }
-    #[derive(crate::RecordForm)]
-    #[form(model = Subscriber)]
-    struct ChromeForm {
-        nickname: String,
-    }
-    struct ChromeOffResource;
-    impl Resource for ChromeOffResource {
-        type Model = Subscriber;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new().slug("subscribers").table(keyed_table())
-        }
-    }
-
-    struct ViewedResource;
-    impl Resource for ViewedResource {
-        type Model = Subscriber;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("subscribers")
-                .table(keyed_table())
-                .detail(crate::Detail::new(crate::table::TextColumn::new(lens!(
-                    Subscriber.nickname
-                ))))
-        }
-    }
-
-    let db = tableless_db(toasty::models!(Subscriber)).await;
-    let panel = || Panel::new("admin").auth(crate::Auth::disabled());
-
-    mount(db.clone(), panel().resource::<ChromeResource>())
-        .expect("a keyed table with chrome builds");
-    mount(db.clone(), panel().resource::<ChromeOffResource>())
-        .expect("a keyed table without chrome builds");
-    mount(db.clone(), panel().resource::<ViewedResource>())
-        .expect("a keyed table with a detail view builds");
+#[derive(crate::RecordForm)]
+#[form(model = Child)]
+struct SeatedForm {
+    name: String,
+    #[form(relationship = Seats)]
+    parent_id: uuid::Uuid,
 }
 
-/// Rejects an unbacked `unique()` marker even when create is denied.
-#[tokio::test]
-async fn panel_build_rejects_an_unbacked_unique_marker_even_when_create_is_denied() {
-    use crate::{
-        resource::Resource,
-        schema::Schema,
-        table::{Table, TextColumn},
-    };
-
-    struct ReadOnlyResource;
-    impl Resource for ReadOnlyResource {
-        type Model = Subscriber;
-        type Form = ReadOnlyForm;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("subscribers")
-                .policy(|_cx: &Cx, ability: Ability<'_, Subscriber>| {
-                    matches!(ability, Ability::ViewAny)
-                })
-                // `Create` keeps its default (deny); only the form is declared.
-                .table(Table::new(TextColumn::new(lens!(Subscriber.nickname))))
-                .form(Schema::new(ReadOnlyForm::controls().nickname.unique()))
-        }
-    }
-    #[derive(crate::RecordForm)]
-    #[form(model = Subscriber)]
-    struct ReadOnlyForm {
-        nickname: String,
-    }
-    let db = tableless_db(toasty::models!(Subscriber)).await;
-    assert_eq!(
-        refusal(mount(db, panel_for::<ReadOnlyResource>())),
-        [DeclarationError::of::<ReadOnlyResource>(
-            Site::Form,
-            DeclarationErrorKind::UniqueWithoutIndex {
-                field: "nickname".to_string(),
-            },
-        )]
-    );
+#[derive(crate::RecordForm)]
+#[form(model = Subscriber)]
+struct UnbackedForm {
+    nickname: String,
 }
 
-/// Rejects duplicate resource slugs.
-#[test]
-fn panel_build_rejects_duplicate_resource_slugs() {
-    use crate::resource::Resource;
-
-    struct FirstResource;
-    impl Resource for FirstResource {
-        type Model = Dummy;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("dummies")
-                .table(crate::table::Table::new(crate::table::TextColumn::new(
-                    lens!(Dummy.name),
-                )))
-        }
-    }
-    struct SecondResource;
-    impl Resource for SecondResource {
-        type Model = Dummy;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("dummies")
-                .table(crate::table::Table::new(crate::table::TextColumn::new(
-                    lens!(Dummy.name),
-                )))
-        }
-    }
-
-    let errors = refusal(mount_without_db(
-        Panel::new("admin")
-            .resource::<FirstResource>()
-            .resource::<SecondResource>(),
-    ));
-    assert_eq!(
-        errors[0],
-        DeclarationError::of::<SecondResource>(
-            Site::Registration,
-            DeclarationErrorKind::DuplicateSlug {
-                slug: "dummies".to_string(),
-            },
-        )
-    );
+#[derive(crate::RecordForm)]
+#[form(model = Subscriber)]
+struct ReadOnlyForm {
+    nickname: String,
 }
 
-/// Rejects route pattern characters in a slug.
-#[test]
-fn panel_build_rejects_route_pattern_characters_in_a_slug() {
-    use crate::resource::Resource;
+#[derive(crate::RecordForm)]
+#[form(model = Subscriber)]
+struct ChromeForm {
+    nickname: String,
+}
 
-    macro_rules! pattern_resource {
-        ($name:ident, $slug:literal) => {
-            struct $name;
-            impl Resource for $name {
-                type Model = Dummy;
-                type Form = crate::NoForm<Self::Model>;
+#[derive(crate::RecordForm)]
+#[form(model = Author)]
+struct AuthorForm {
+    email: String,
+}
 
-                fn declare() -> ResourceDef<Self> {
-                    ResourceDef::new()
-                        .slug($slug)
-                        .table(crate::table::Table::new(crate::table::TextColumn::new(
-                            lens!(Dummy.name),
-                        )))
-                }
-            }
-        };
-    }
-    pattern_resource!(BraceOpen, "a{b");
-    pattern_resource!(BraceClose, "a}b");
-    pattern_resource!(ParenOpen, "a(b");
-    pattern_resource!(ParenClose, "a)b");
+#[derive(crate::RecordForm)]
+#[form(model = Ticket)]
+struct TicketForm {
+    title: String,
+}
 
-    macro_rules! rejects {
-        ($name:ident, $slug:literal) => {{
-            let errors = refusal(mount_without_db(Panel::new("admin").resource::<$name>()));
-            assert!(
-                matches!(
-                    &errors[0].kind,
-                    DeclarationErrorKind::InvalidSegment {
-                        item: "ResourceDef::slug",
-                        segment,
-                        ..
-                    } if segment == $slug
-                ),
-                "{errors:?}"
-            );
-        }};
-    }
-    rejects!(BraceOpen, "a{b");
-    rejects!(BraceClose, "a}b");
-    rejects!(ParenOpen, "a(b");
-    rejects!(ParenClose, "a)b");
+/// [`Subscriber`]'s keyed table: one nickname column.
+fn keyed_table() -> Table<Subscriber> {
+    Table::new(TextColumn::new(lens!(Subscriber.nickname)))
+}
 
-    // The prefix goes through the same rule, once per segment.
-    let errors = refusal(mount_without_db(Panel::new("adm{in}")));
-    assert_eq!(
-        errors[0],
-        DeclarationError::panel(DeclarationErrorKind::InvalidSegment {
-            item: "panel prefix",
-            segment: "adm{in}".to_string(),
-            fault: crate::SegmentFault::Char('{'),
+resource!(Parents, Parent => ResourceDef::new().table(Table::new(TextColumn::new(lens!(Parent.name)))));
+resource!(Children, Child => ResourceDef::new()
+.table(Table::new((
+    TextColumn::new(lens!(Child.name)),
+    RelationColumn::of::<Parents>(relation!(Child.parent)),
+)))
+.detail(crate::Detail::new(RelationColumn::of::<Parents>(
+    relation!(Child.parent),
+))));
+
+resource!(ColumnThroughRelation, Child => ResourceDef::new()
+    .slug("children")
+    .tenancy(Tenancy::column(Child::fields().parent().tenant_id()))
+    .table(Table::new(TextColumn::new(lens!(Child.name)))));
+resource!(Inherited, Child => ResourceDef::new()
+    .slug("inherited")
+    .tenancy(Tenancy::via(Child::fields().parent().tenant_id()))
+    .table(Table::new(TextColumn::new(lens!(Child.name)))));
+resource!(ViaOwnColumn, Parent => ResourceDef::new()
+    .slug("parents")
+    .tenancy(Tenancy::via(Parent::fields().tenant_id()))
+    .table(Table::new(TextColumn::new(lens!(Parent.name)))));
+resource!(ScopedParents, Parent => ResourceDef::new()
+    .slug("parents")
+    .tenancy(Tenancy::column(Parent::fields().tenant_id()))
+    .table(Table::new(TextColumn::new(lens!(Parent.name)))));
+resource!(OpenParents, Parent => ResourceDef::new()
+    .slug("open-parents")
+    .table(Table::new(TextColumn::new(lens!(Parent.name)))));
+
+// A child resource inheriting its tenant through `parent`, whose form declares the key.
+resource!(WithoutKey, Child, NameForm => ResourceDef::new()
+    .slug("children")
+    .policy(|_cx: &Cx, ability: Ability<'_, Child>| {
+        matches!(ability, Ability::ViewAny | Ability::Create)
+    })
+    .tenancy(Tenancy::via(Child::fields().parent().tenant_id()))
+    .table(Table::new(TextColumn::new(lens!(Child.name))))
+    .form(Schema::default()));
+resource!(OverOpenParent, Child, KeyedForm => ResourceDef::new()
+.slug("children")
+.policy(|_cx: &Cx, ability: Ability<'_, Child>| {
+    matches!(ability, Ability::ViewAny | Ability::Create)
+})
+.tenancy(Tenancy::via(Child::fields().parent().tenant_id()))
+.table(Table::new(TextColumn::new(lens!(Child.name))))
+.form({
+    let c = KeyedForm::controls();
+    Schema::new((c.name, c.parent_id.choice().relationship::<OpenParents>()))
+}));
+resource!(OverScopedParent, Child, KeyedForm => ResourceDef::new()
+.slug("children")
+.policy(|_cx: &Cx, ability: Ability<'_, Child>| {
+    matches!(ability, Ability::ViewAny | Ability::Create)
+})
+.tenancy(Tenancy::via(Child::fields().parent().tenant_id()))
+.table(Table::new(TextColumn::new(lens!(Child.name))))
+.form({
+    let c = KeyedForm::controls();
+    Schema::new((c.name, c.parent_id.choice().relationship::<ScopedParents>()))
+}));
+
+resource!(Seats, Seat => ResourceDef::new()
+    .table(Table::new(TextColumn::new(lens!(Seat.label)))));
+resource!(Seated, Child, SeatedForm => {
+    let c = SeatedForm::controls();
+    ResourceDef::new()
+        .policy(|_cx: &Cx, ability: Ability<'_, Child>| {
+            matches!(ability, Ability::ViewAny | Ability::Create)
         })
-    );
-}
+        .table(Table::new(TextColumn::new(lens!(Child.name))))
+        .form(Schema::new((c.name, c.parent_id)))
+});
 
-/// Reports recorded table misdeclarations.
-#[tokio::test]
-async fn panel_build_reports_recorded_table_misdeclarations() {
-    use crate::{
-        resource::Resource,
-        table::{Table, TextColumn},
-    };
+// Not gated, so the tenant is not stamped: a create override would set it.
+resource!(AuthorResource, Author, AuthorForm => ResourceDef::new()
+    .slug("authors")
+    .policy(|_cx: &Cx, ability: Ability<'_, Author>| {
+        matches!(ability, Ability::ViewAny | Ability::Create)
+    })
+    .table(Table::new(TextColumn::new(lens!(Author.email))))
+    .form(Schema::new(AuthorForm::controls().email.unique()))
+    .create_column(Author::fields().tenant_id()));
+resource!(UnbackedResource, Subscriber, UnbackedForm => ResourceDef::new()
+    .slug("subscribers")
+    .policy(|_cx: &Cx, ability: Ability<'_, Subscriber>| {
+        matches!(ability, Ability::ViewAny | Ability::Create)
+    })
+    .table(Table::new(TextColumn::new(lens!(Subscriber.nickname))))
+    .form(Schema::new(UnbackedForm::controls().nickname.unique())));
+// `Create` keeps its default (deny); only the form is declared.
+resource!(ReadOnlyResource, Subscriber, ReadOnlyForm => ResourceDef::new()
+    .slug("subscribers")
+    .policy(|_cx: &Cx, ability: Ability<'_, Subscriber>| {
+        matches!(ability, Ability::ViewAny)
+    })
+    .table(Table::new(TextColumn::new(lens!(Subscriber.nickname))))
+    .form(Schema::new(ReadOnlyForm::controls().nickname.unique())));
+resource!(ChromeResource, Subscriber, ChromeForm => ResourceDef::new()
+    .slug("subscribers")
+    .policy(|_cx: &Cx, ability: Ability<'_, Subscriber>| {
+        matches!(ability, Ability::DeleteAny | Ability::Delete(_))
+    })
+    .table(keyed_table()));
+resource!(ChromeOffResource, Subscriber => ResourceDef::new()
+    .slug("subscribers")
+    .table(keyed_table()));
+resource!(ViewedResource, Subscriber => ResourceDef::new()
+.slug("subscribers")
+.table(keyed_table())
+.detail(crate::Detail::new(crate::table::TextColumn::new(lens!(
+    Subscriber.nickname
+)))));
 
-    #[derive(Debug, toasty::Model, Clone)]
-    struct Doc {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        title: String,
-    }
+// Two columns over one field: a duplicate name.
+resource!(DuplicateColumnResource, Doc => ResourceDef::new()
+.slug("docs")
+.table(Table::new((
+    TextColumn::new(lens!(Doc.title)),
+    TextColumn::new(lens!(Doc.title)),
+))));
+// A page of no rows: `Table::paginate` records zero.
+resource!(ZeroPageResource, Doc => ResourceDef::new()
+    .slug("docs")
+    .table(Table::new(TextColumn::new(lens!(Doc.title))).paginate(0)));
 
-    /// Two columns over one field: a duplicate name.
-    struct DuplicateColumnResource;
-    impl Resource for DuplicateColumnResource {
-        type Model = Doc;
-        type Form = crate::NoForm<Self::Model>;
+resource!(Tickets, Ticket, TicketForm => ResourceDef::new()
+    .slug("tickets")
+    .tenancy(Tenancy::column(Ticket::fields().tenant_id()))
+    .policy(|_cx: &Cx, ability: Ability<'_, Ticket>| {
+        matches!(ability, Ability::ViewAny | Ability::Create)
+    })
+    .table(Table::new(TextColumn::new(lens!(Ticket.title))))
+    .create_column(Ticket::fields().tenant_id())
+    .create_column(Ticket::fields().place().city()));
 
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new().slug("docs").table(Table::new((
-                TextColumn::new(lens!(Doc.title)),
-                TextColumn::new(lens!(Doc.title)),
-            )))
-        }
-    }
-
-    /// A page of no rows: `Table::paginate` records zero.
-    struct ZeroPageResource;
-    impl Resource for ZeroPageResource {
-        type Model = Doc;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("docs")
-                .table(Table::new(TextColumn::new(lens!(Doc.title))).paginate(0))
-        }
-    }
-
-    let db = tableless_db(toasty::models!(Doc)).await;
-    let panel = || Panel::new("admin").auth(crate::Auth::disabled());
-
-    assert_eq!(
-        refusal(mount(
-            db.clone(),
-            panel().resource::<DuplicateColumnResource>()
-        )),
-        [DeclarationError::of::<DuplicateColumnResource>(
-            Site::Table,
-            DeclarationErrorKind::DuplicateColumn {
-                name: "title".to_string(),
-            },
-        )]
-    );
-    assert_eq!(
-        refusal(mount(db.clone(), panel().resource::<ZeroPageResource>())),
-        [DeclarationError::of::<ZeroPageResource>(
-            Site::Table,
-            DeclarationErrorKind::ZeroPageSize,
-        )]
-    );
-}
+resource!(UnbindableView, Dummy => ResourceDef::new()
+    .table(dummy_table())
+    .detail(crate::Detail::empty().column(Unbindable)));
 
 #[tokio::test]
 async fn panel_mounts_runtime_page_rerun_routes() {
@@ -1180,33 +686,6 @@ impl crate::table::Column<Dummy> for Unbindable {
     }
 }
 
-/// Rejects a misdeclared view.
-#[tokio::test]
-async fn panel_build_rejects_a_misdeclared_view() {
-    use crate::resource::Resource;
-
-    struct BadView;
-    impl Resource for BadView {
-        type Model = Dummy;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .table(dummy_table())
-                .detail(crate::Detail::empty().column(Unbindable))
-        }
-    }
-
-    let db = tableless_db(toasty::models!(Dummy)).await;
-    assert_eq!(
-        refusal(mount(db, panel_for::<BadView>())),
-        [DeclarationError::of::<BadView>(
-            Site::Detail,
-            DeclarationErrorKind::TraversalLens { steps: 2 },
-        )]
-    );
-}
-
 /// Declares each resource once, when the panel mounts, and serves every request from that build.
 #[tokio::test]
 async fn a_resource_declares_once_when_its_panel_mounts() {
@@ -1372,65 +851,364 @@ async fn handle_refuses_a_misdeclared_resource() {
     );
 }
 
-/// `create_column` refuses the tenant column, which the framework stamps, and an embedded path,
-/// which names no one field of the model.
+/// Refuses a panel whose mistake needs no database to find: a panel with no `Db`, and a slug or
+/// prefix that is not one route segment. A panel built without a `Db` also reports that it has
+/// none.
+#[test]
+fn mounting_refuses_each_misdeclaration_without_a_db() {
+    resource!(HostileResource, Dummy => ResourceDef::new().slug("a\"b\r\n").table(dummy_table()));
+    resource!(FirstResource, Dummy => ResourceDef::new().slug("dummies").table(dummy_table()));
+    resource!(SecondResource, Dummy => ResourceDef::new().slug("dummies").table(dummy_table()));
+    resource!(BraceOpen, Dummy => ResourceDef::new().slug("a{b").table(dummy_table()));
+    resource!(BraceClose, Dummy => ResourceDef::new().slug("a}b").table(dummy_table()));
+    resource!(ParenOpen, Dummy => ResourceDef::new().slug("a(b").table(dummy_table()));
+    resource!(ParenClose, Dummy => ResourceDef::new().slug("a)b").table(dummy_table()));
+
+    let no_db = || DeclarationError::panel(DeclarationErrorKind::MissingDb);
+    let refusals = [
+        // A panel with no `Db` is a configuration error, not a panic.
+        (
+            "a panel with no Db",
+            mount_without_db(Panel::new("admin")),
+            vec![no_db()],
+        ),
+        // Rejects a hostile slug at registration.
+        (
+            "a hostile slug",
+            mount_without_db(Panel::new("admin").resource::<HostileResource>()),
+            vec![
+                DeclarationError::of::<HostileResource>(
+                    Site::Registration,
+                    DeclarationErrorKind::InvalidSegment {
+                        item: "ResourceDef::slug",
+                        segment: "a\"b\r\n".to_string(),
+                        fault: crate::SegmentFault::Char('"'),
+                    },
+                ),
+                no_db(),
+            ],
+        ),
+        // Rejects duplicate resource slugs.
+        (
+            "duplicate resource slugs",
+            mount_without_db(
+                Panel::new("admin")
+                    .resource::<FirstResource>()
+                    .resource::<SecondResource>(),
+            ),
+            vec![
+                DeclarationError::of::<SecondResource>(
+                    Site::Registration,
+                    DeclarationErrorKind::DuplicateSlug {
+                        slug: "dummies".to_string(),
+                    },
+                ),
+                no_db(),
+            ],
+        ),
+        // Rejects route pattern characters in a slug.
+        (
+            "a `{` in a slug",
+            mount_without_db(Panel::new("admin").resource::<BraceOpen>()),
+            vec![
+                DeclarationError::of::<BraceOpen>(
+                    Site::Registration,
+                    DeclarationErrorKind::InvalidSegment {
+                        item: "ResourceDef::slug",
+                        segment: "a{b".to_string(),
+                        fault: crate::SegmentFault::Char('{'),
+                    },
+                ),
+                no_db(),
+            ],
+        ),
+        (
+            "a `}` in a slug",
+            mount_without_db(Panel::new("admin").resource::<BraceClose>()),
+            vec![
+                DeclarationError::of::<BraceClose>(
+                    Site::Registration,
+                    DeclarationErrorKind::InvalidSegment {
+                        item: "ResourceDef::slug",
+                        segment: "a}b".to_string(),
+                        fault: crate::SegmentFault::Char('}'),
+                    },
+                ),
+                no_db(),
+            ],
+        ),
+        (
+            "a `(` in a slug",
+            mount_without_db(Panel::new("admin").resource::<ParenOpen>()),
+            vec![
+                DeclarationError::of::<ParenOpen>(
+                    Site::Registration,
+                    DeclarationErrorKind::InvalidSegment {
+                        item: "ResourceDef::slug",
+                        segment: "a(b".to_string(),
+                        fault: crate::SegmentFault::Char('('),
+                    },
+                ),
+                no_db(),
+            ],
+        ),
+        (
+            "a `)` in a slug",
+            mount_without_db(Panel::new("admin").resource::<ParenClose>()),
+            vec![
+                DeclarationError::of::<ParenClose>(
+                    Site::Registration,
+                    DeclarationErrorKind::InvalidSegment {
+                        item: "ResourceDef::slug",
+                        segment: "a)b".to_string(),
+                        fault: crate::SegmentFault::Char(')'),
+                    },
+                ),
+                no_db(),
+            ],
+        ),
+        // The prefix goes through the same rule, once per segment.
+        (
+            "a `{` in a panel prefix",
+            mount_without_db(Panel::new("adm{in}")),
+            vec![
+                DeclarationError::panel(DeclarationErrorKind::InvalidSegment {
+                    item: "panel prefix",
+                    segment: "adm{in}".to_string(),
+                    fault: crate::SegmentFault::Char('{'),
+                }),
+                no_db(),
+            ],
+        ),
+    ];
+    for (label, mounted, expected) in refusals {
+        assert_eq!(refusal(mounted), expected, "{label}");
+    }
+}
+
+/// Refuses each declaration mistake a panel mounts with, naming the site and kind of every
+/// error, and mounts the valid declarations that sit beside them.
 #[tokio::test]
-async fn panel_mount_refuses_a_create_column_it_cannot_honor() {
-    use crate::{
-        resource::Resource,
-        table::{Table, TextColumn},
+async fn mounting_refuses_each_misdeclaration() {
+    let db = tableless_db(toasty::models!(
+        Dummy, Parent, Child, Subscriber, Doc, Seat, Ticket, Author
+    ))
+    .await;
+    let panel = || Panel::new("admin").auth(crate::Auth::disabled());
+    // The relationship fields' option sources are the panel's own resources.
+    let via_panel = || {
+        panel()
+            .resource::<OpenParents>()
+            .resource::<ScopedParents>()
     };
 
-    #[derive(Debug, Clone, toasty::Embed)]
-    struct Place {
-        city: String,
+    let unguarded = DeclarationErrorKind::UnguardedForeignKey {
+        relation: "parent".to_string(),
+        keys: vec!["parent_id".to_string()],
+    };
+    let unregistered = DeclarationErrorKind::UnregisteredLabelSource {
+        column: "parent".to_string(),
+        source: std::any::type_name::<Parents>(),
+    };
+
+    let refusals = [
+        // Reports a `Db` missing the shipped auth models as a mount error naming them.
+        (
+            "a Db missing the auth models",
+            mount(db.clone(), Panel::new("admin")),
+            vec![DeclarationError::panel(
+                DeclarationErrorKind::MissingAuthModels {
+                    models: vec!["AuthSession", "AdminUser"],
+                },
+            )],
+        ),
+        // Refuses a relation column labelled by a resource the panel does not register, which
+        // would otherwise show every related record by its bare key.
+        (
+            "a relation column of an unregistered resource",
+            mount(db.clone(), panel().resource::<Children>()),
+            vec![
+                DeclarationError::of::<Children>(Site::Table, unregistered.clone()),
+                DeclarationError::of::<Children>(Site::Detail, unregistered),
+            ],
+        ),
+        // Refuses a tenancy column through a relation.
+        (
+            "a tenancy column through a relation",
+            mount(db.clone(), panel().resource::<ColumnThroughRelation>()),
+            vec![DeclarationError::of::<ColumnThroughRelation>(
+                Site::Tenancy,
+                DeclarationErrorKind::TenancyColumnNotAField,
+            )],
+        ),
+        // Refuses a tenancy `via` over its own column.
+        (
+            "a tenancy via over its own column",
+            mount(db.clone(), panel().resource::<ViaOwnColumn>()),
+            vec![DeclarationError::of::<ViaOwnColumn>(
+                Site::Tenancy,
+                DeclarationErrorKind::TenancyViaOwnColumn,
+            )],
+        ),
+        // Refuses a tenancy `via` unless the form writes the relation's foreign key through a
+        // relationship field over a tenant-scoped resource.
+        (
+            "a tenancy via without a key over a scoped parent",
+            mount(db.clone(), via_panel().resource::<WithoutKey>()),
+            vec![
+                DeclarationError::of::<WithoutKey>(Site::Form, unguarded.clone()),
+                DeclarationError::of::<WithoutKey>(
+                    Site::Form,
+                    DeclarationErrorKind::UnwrittenColumn {
+                        column: "parent_id".to_string(),
+                    },
+                ),
+            ],
+        ),
+        (
+            "a tenancy via over an open parent",
+            mount(db.clone(), via_panel().resource::<OverOpenParent>()),
+            vec![DeclarationError::of::<OverOpenParent>(
+                Site::Form,
+                unguarded,
+            )],
+        ),
+        // Refuses a relationship over a model whose composite primary key no option value can
+        // spell. `Seats` is not registered, so its option source is refused too.
+        (
+            "a relationship over a composite key",
+            mount(db.clone(), panel().resource::<Seated>()),
+            vec![
+                DeclarationError::of::<Seated>(
+                    Site::Form,
+                    DeclarationErrorKind::CompositeKeyChoice {
+                        field: "parent_id".to_string(),
+                    },
+                ),
+                DeclarationError::of::<Seated>(
+                    Site::Form,
+                    DeclarationErrorKind::UnregisteredOptionSource {
+                        field: "parent_id".to_string(),
+                        source: std::any::type_name::<Seats>(),
+                    },
+                ),
+            ],
+        ),
+        // Rejects a `unique()` marker without a unique index.
+        (
+            "a unique marker without a unique index",
+            mount(db.clone(), panel_for::<UnbackedResource>()),
+            vec![DeclarationError::of::<UnbackedResource>(
+                Site::Form,
+                DeclarationErrorKind::UniqueWithoutIndex {
+                    field: "nickname".to_string(),
+                },
+            )],
+        ),
+        // Rejects an unbacked `unique()` marker even when create is denied.
+        (
+            "an unbacked unique marker when create is denied",
+            mount(db.clone(), panel_for::<ReadOnlyResource>()),
+            vec![DeclarationError::of::<ReadOnlyResource>(
+                Site::Form,
+                DeclarationErrorKind::UniqueWithoutIndex {
+                    field: "nickname".to_string(),
+                },
+            )],
+        ),
+        // Reports recorded table misdeclarations.
+        (
+            "a duplicate table column",
+            mount(db.clone(), panel().resource::<DuplicateColumnResource>()),
+            vec![DeclarationError::of::<DuplicateColumnResource>(
+                Site::Table,
+                DeclarationErrorKind::DuplicateColumn {
+                    name: "title".to_string(),
+                },
+            )],
+        ),
+        (
+            "a table with a zero page size",
+            mount(db.clone(), panel().resource::<ZeroPageResource>()),
+            vec![DeclarationError::of::<ZeroPageResource>(
+                Site::Table,
+                DeclarationErrorKind::ZeroPageSize,
+            )],
+        ),
+        // Rejects a misdeclared view.
+        (
+            "a detail column whose path binds no field",
+            mount(db.clone(), panel_for::<UnbindableView>()),
+            vec![DeclarationError::of::<UnbindableView>(
+                Site::Detail,
+                DeclarationErrorKind::TraversalLens { steps: 2 },
+            )],
+        ),
+        // `create_column` refuses the tenant column, which the framework stamps, and an embedded
+        // path, which names no one field of the model. The refused columns are never written, so
+        // the form reports the embedded one unwritten too.
+        (
+            "a create column it cannot honor",
+            mount(db.clone(), panel_for::<Tickets>()),
+            vec![
+                DeclarationError::of::<Tickets>(
+                    Site::Registration,
+                    DeclarationErrorKind::TraversalLens { steps: 2 },
+                ),
+                DeclarationError::of::<Tickets>(
+                    Site::Registration,
+                    DeclarationErrorKind::CreateColumnsNameTenant {
+                        column: "tenant_id".to_string(),
+                    },
+                ),
+                DeclarationError::of::<Tickets>(
+                    Site::Form,
+                    DeclarationErrorKind::UnwrittenColumn {
+                        column: "place".to_string(),
+                    },
+                ),
+            ],
+        ),
+    ];
+    for (label, mounted, expected) in refusals {
+        assert_eq!(refusal(mounted), expected, "{label}");
     }
 
-    #[derive(Debug, toasty::Model, Clone)]
-    struct Ticket {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        tenant_id: TenantId,
-        title: String,
-        place: Place,
-    }
-
-    #[derive(crate::RecordForm)]
-    #[form(model = Ticket)]
-    struct TicketForm {
-        title: String,
-    }
-
-    struct Tickets;
-    impl Resource for Tickets {
-        type Model = Ticket;
-        type Form = TicketForm;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("tickets")
-                .tenancy(Tenancy::column(Ticket::fields().tenant_id()))
-                .policy(|_cx: &Cx, ability: Ability<'_, Ticket>| {
-                    matches!(ability, Ability::ViewAny | Ability::Create)
-                })
-                .table(Table::new(TextColumn::new(lens!(Ticket.title))))
-                .create_column(Ticket::fields().tenant_id())
-                .create_column(Ticket::fields().place().city())
-        }
-    }
-
-    let db = tableless_db(toasty::models!(Ticket)).await;
-    let kinds: Vec<_> = refusal(mount(db, panel_for::<Tickets>()))
-        .into_iter()
-        .map(|error| error.kind)
-        .collect();
-    for kind in [
-        DeclarationErrorKind::CreateColumnsNameTenant {
-            column: "tenant_id".to_string(),
-        },
-        DeclarationErrorKind::TraversalLens { steps: 2 },
-    ] {
-        assert!(kinds.contains(&kind), "{kind:?} missing from {kinds:?}");
+    // Declarations a panel must mount: the valid shapes beside each refusal above.
+    let mounts = [
+        (
+            "a relation column of a registered resource mounts",
+            mount(
+                db.clone(),
+                panel().resource::<Children>().resource::<Parents>(),
+            ),
+        ),
+        (
+            "`Tenancy::via` scopes through a relation",
+            mount(db.clone(), panel().resource::<Inherited>()),
+        ),
+        (
+            "a foreign key over the tenant-scoped parent mounts",
+            mount(db.clone(), via_panel().resource::<OverScopedParent>()),
+        ),
+        (
+            "a composite unique index backs the marker",
+            mount(db.clone(), panel_for::<AuthorResource>()),
+        ),
+        (
+            "a keyed table with chrome builds",
+            mount(db.clone(), panel().resource::<ChromeResource>()),
+        ),
+        (
+            "a keyed table without chrome builds",
+            mount(db.clone(), panel().resource::<ChromeOffResource>()),
+        ),
+        (
+            "a keyed table with a detail view builds",
+            mount(db.clone(), panel().resource::<ViewedResource>()),
+        ),
+    ];
+    for (label, mounted) in mounts {
+        mounted.expect(label);
     }
 }
