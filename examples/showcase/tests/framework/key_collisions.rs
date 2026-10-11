@@ -4,7 +4,7 @@ use http::{StatusCode, header::CONTENT_TYPE};
 use tablo::{Ability, Detail, Resource, ResourceDef, Schema, Table, TextColumn, lens};
 use toasty::Db;
 
-use crate::framework::common::{body_string, get, memory_db, panel_router};
+use crate::framework::common::{TestClient, body_string, get, memory_db, panel_router};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Tag {
@@ -28,7 +28,7 @@ impl Resource for TagResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .slug("tags")
-            .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::View(_)))
+            .policy_fn(|_cx, ability| !matches!(ability, Ability::Create))
             .table(Table::new(TextColumn::new(lens!(Tag.label))))
             .form(Schema::new(TagForm::controls().label))
             .detail(Detail::new(TextColumn::new(lens!(Tag.label))))
@@ -69,4 +69,21 @@ async fn a_key_spelling_a_list_route_serves_its_record() {
         }
     }
     assert!(misrouted.is_empty(), "misrouted: {misrouted:?}");
+}
+
+/// A record keyed `-` keeps its edit and delete routes beside the list's `-/` routes.
+#[tokio::test]
+async fn a_dash_key_reaches_its_edit_and_delete_routes() {
+    let router = panel_router::<TagResource>(tag_db(&["-"]).await);
+
+    let edit = get(&router, "/admin/tags/-/edit").await;
+    assert_eq!(edit.status(), StatusCode::OK);
+    assert!(body_string(edit).await.contains("Label of -"));
+
+    let delete = TestClient::new(&router)
+        .submit("/admin/tags/-/delete", "confirm=1")
+        .await;
+    assert!(delete.status().is_redirection(), "{}", delete.status());
+    let gone = get(&router, "/admin/tags/-").await;
+    assert_eq!(gone.status(), StatusCode::NOT_FOUND);
 }

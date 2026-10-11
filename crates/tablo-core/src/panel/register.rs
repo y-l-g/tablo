@@ -397,8 +397,8 @@ fn register_routes<R: Resource>(registry: &mut Registry, url: &str, actions: Act
 /// The route of the actions under a list or page `url`: `{url}/-/actions/{action}`.
 fn list_actions_route(url: &str) -> String {
     format!(
-        "{}/{DASH_ROUTE_SEGMENT}/{ACTIONS_ROUTE_SEGMENT}/{ACTION_ROUTE_PARAM}",
-        url.trim_end_matches('/')
+        "{}/{ACTION_ROUTE_PARAM}",
+        list_route(url, ACTIONS_ROUTE_SEGMENT)
     )
 }
 
