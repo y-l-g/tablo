@@ -27,11 +27,22 @@ pub const MSRV_PATHS: &[&str] = &[
     ".github/workflows/msrv-udeps.yml",
 ];
 
+/// What can change a published crate's public API: its sources, its dependencies, the snapshots
+/// themselves, and the nightly and CLI pins in this file.
+pub const PUBLIC_API_PATHS: &[&str] = &[
+    "crates/",
+    "Cargo.toml",
+    "Cargo.lock",
+    "public-api/",
+    "xtask/src/gates.rs",
+];
+
 /// Whether `check` skips the gates CI would not run for the change.
 #[derive(PartialEq, Eq)]
 pub enum Scope {
-    /// The fast gates only: the MSRV/udeps gates without `MSRV_PATHS` changes stay skipped, and
-    /// docs and the external build never run.
+    /// The fast gates only: the MSRV/udeps gates without `MSRV_PATHS` changes and the public-API
+    /// gate without `PUBLIC_API_PATHS` changes stay skipped, and docs and the external build never
+    /// run.
     Auto,
     /// Run every gate, including the slow docs and external builds.
     All,
@@ -113,14 +124,23 @@ impl Runner for RealRunner {
         dir: Option<&Path>,
         stdout: &Path,
     ) -> anyhow::Result<()> {
-        let file = std::fs::File::create(stdout)
-            .map_err(|error| anyhow::anyhow!("cannot create {}: {error}", stdout.display()))?;
+        // Write beside the target and rename on success, so a failed run leaves it untouched.
+        let partial = stdout.with_extension("partial");
+        let file = std::fs::File::create(&partial)
+            .map_err(|error| anyhow::anyhow!("cannot create {}: {error}", partial.display()))?;
         let mut command = Command::new(prog);
         command.args(args).stdout(file);
         if let Some(dir) = dir {
             command.current_dir(dir);
         }
-        status(&mut command, prog, args)
+        let result = status(&mut command, prog, args).and_then(|()| {
+            std::fs::rename(&partial, stdout)
+                .map_err(|error| anyhow::anyhow!("cannot write {}: {error}", stdout.display()))
+        });
+        if result.is_err() {
+            let _ = std::fs::remove_file(&partial);
+        }
+        result
     }
 }
 
@@ -253,7 +273,7 @@ pub fn public_api(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
     )
     .map_err(|error| {
         anyhow::anyhow!(
-            "{error}\nThe public API changed. Commit the rewritten `{PUBLIC_API_DIR}/` snapshots; a removed or changed line breaks callers, so mark the commit `!` with a `BREAKING CHANGE:` footer."
+            "{error}\nThe public API changed: review the diff and commit the rewritten `{PUBLIC_API_DIR}/` snapshots. Mark the commit `!` with a `BREAKING CHANGE:` footer when the change breaks callers: a removed or changed item, or an added enum variant, required trait method or public field. A line that only follows an upstream topcoat or toasty bump is not breaking."
         )
     })
 }
@@ -363,7 +383,8 @@ fn udeps_installed(run: &dyn Runner, root: &Path) -> bool {
 
 /// The CI checks as a local fail-fast runner, cheapest first. Docs and the external build run only
 /// under `Scope::All`; CI covers them in parallel jobs. The MSRV/udeps gates run only
-/// with `MSRV_PATHS` changes, matching the CI path filter.
+/// with `MSRV_PATHS` changes, matching the CI path filter, and the public-API gate only with
+/// `PUBLIC_API_PATHS` changes.
 pub fn check(run: &dyn Runner, scope: Scope) -> anyhow::Result<()> {
     let root = repo_root();
     check_with(run, &|| stage_quickstart(&root), scope, &|specs| {
@@ -406,7 +427,11 @@ fn check_with(
         Some(&root),
         &[],
     )?;
-    public_api(run, &root)?;
+    if all || touches(PUBLIC_API_PATHS) {
+        public_api(run, &root)?;
+    } else {
+        println!("skipped the public-API snapshots: no crate, manifest or pin changed");
+    }
     if all || touches(MSRV_PATHS) {
         let msrv = format!("+{MSRV}");
         run.run(

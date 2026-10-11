@@ -166,12 +166,8 @@ fn check_runs_fast_gates_by_default_and_defers_docs_and_external_to_all() {
 fn check_runs_skipped_gates_only_with_matching_changes_or_all() {
     assert_eq!(
         progs_of(&run_check(Scope::Auto, false)),
-        [
-            &["cargo", "topcoat", "git", "node", "cargo", "cargo", "cargo"][..],
-            &PUBLIC_API_PROGS,
-        ]
-        .concat(),
-        "msrv and udeps install+run are skipped"
+        ["cargo", "topcoat", "git", "node", "cargo", "cargo", "cargo"],
+        "the public-API snapshots, msrv and udeps install+run are skipped"
     );
     assert_eq!(
         run_check(Scope::All, false).len(),
@@ -215,7 +211,18 @@ fn pins_match_ci() {
     let ci = read(".github/workflows/ci.yml");
     let docs = read(".github/workflows/docs.yml");
     let msrv = read(".github/workflows/msrv-udeps.yml");
-    assert!(ci.contains(NIGHTLY), "ci.yml names the nightly");
+    assert!(
+        ci.contains(&format!(
+            "rustup toolchain install {NIGHTLY} --profile minimal --component rustfmt\n"
+        )),
+        "ci.yml's fmt job installs the pinned nightly"
+    );
+    assert!(
+        ci.contains(&format!(
+            "rustup toolchain install {NIGHTLY} --profile minimal\n"
+        )),
+        "ci.yml's public-api job installs the pinned nightly"
+    );
     let public_api = installed_version(PUBLIC_API_INSTALL);
     assert!(
         ci.contains(&format!("cargo-public-api@{public_api}")),

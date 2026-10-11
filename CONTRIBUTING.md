@@ -33,25 +33,28 @@ without one. The README has the install command.
 ## Checks
 
 ```sh
-cargo xtask check         # fmt, JS suites, test, clippy, public API; MSRV and udeps if manifests changed
-cargo xtask check --all   # also MSRV, udeps, rustdoc, the guide and the external build
+cargo xtask check         # fmt, JS suites, test, clippy; public API, MSRV, udeps if relevant
+cargo xtask check --all   # also public API, MSRV, udeps, rustdoc, the guide and the external build
 cargo xtask fmt           # the formatting checks alone
 cargo xtask public-api    # the public-API snapshots alone
 ```
 
-`check` stops at the first failure, cheapest first. "Manifests changed" means any `Cargo.toml`,
-`Cargo.lock`, `rust-toolchain.toml` or `msrv-udeps.yml` differs from `master`. CI runs the same commands in
-`.github/workflows/ci.yml` and `msrv-udeps.yml`, which hold the pinned toolchains. Run
-`check --all` before merging.
+`check` stops at the first failure, cheapest first. MSRV and udeps run when any `Cargo.toml`,
+`Cargo.lock`, `rust-toolchain.toml` or `msrv-udeps.yml` differs from `master`; the public-API
+snapshots when `crates/`, a root manifest, `public-api/` or `xtask/src/gates.rs` does. CI runs
+the same commands in `.github/workflows/ci.yml` and `msrv-udeps.yml`, which hold the pinned
+toolchains. Run `check --all` before merging.
 
 - `topcoat fmt` reflows `view!` markup differently across CLI releases, so only the pinned
   `topcoat-cli` agrees with CI. When it is missing or another version, `cargo xtask fmt` fails
   with the install command. Never hand-fix its diff.
 - `public-api/` holds one `cargo public-api` listing per published crate. `cargo xtask public-api`
   rewrites the listings and fails on a diff, so an API change lands in review as a snapshot
-  diff: commit the rewrite. A removed or changed line breaks callers, so the commit takes `!`.
-  The check needs the pinned nightly and CLI, and names the install command when either is
-  missing.
+  diff: commit the rewrite. The commit takes `!` when the diff breaks callers: a removed or
+  changed item, or an added enum variant, required trait method or public field. The listings
+  include topcoat and toasty derive output, so an upstream bump can rewrite lines without
+  breaking anything; regenerate them on its PR. The check needs the pinned nightly and CLI, and
+  names the install command when either is missing.
 - `examples/quickstart` is outside the workspace: `cargo fmt` at the root skips it, and
   `cargo xtask fmt` checks it.
 - `crates/tablo-ui/src/components/primitives/` is a verbatim copy of the registry. Never edit it:

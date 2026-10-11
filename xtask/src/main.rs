@@ -55,8 +55,9 @@ fn print_help() {
         r#"xtask — repo tasks
 
 USAGE:
-    cargo xtask check [--all]      The CI checks, fail-fast and cheapest first. MSRV and udeps
-                                   run when a manifest changed; --all adds them plus rustdoc,
+    cargo xtask check [--all]      The CI checks, fail-fast and cheapest first. The public-API
+                                   snapshots run when a crate, manifest or pin changed, MSRV and
+                                   udeps when a manifest changed; --all adds them plus rustdoc,
                                    the guide and the external build.
     cargo xtask fmt                Nightly `cargo fmt`, the quickstart's `cargo fmt`, and the
                                    pinned `topcoat fmt` with a diff guard.
