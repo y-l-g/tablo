@@ -3,7 +3,6 @@
 use http::{StatusCode, header::CONTENT_TYPE};
 use tablo::{Ability, Detail, Resource, ResourceDef, Schema, Table, TextColumn, lens};
 use toasty::Db;
-use topcoat::context::Cx;
 
 use crate::framework::common::{body_string, get, memory_db, panel_router};
 
@@ -29,9 +28,7 @@ impl Resource for TagResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .slug("tags")
-            .policy(|_cx: &Cx, ability: Ability<'_, Tag>| {
-                matches!(ability, Ability::ViewAny | Ability::View(_))
-            })
+            .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::View(_)))
             .table(Table::new(TextColumn::new(lens!(Tag.label))))
             .form(Schema::new(TagForm::controls().label))
             .detail(Detail::new(TextColumn::new(lens!(Tag.label))))
