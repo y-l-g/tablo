@@ -30,7 +30,7 @@ async fn bulk_delete_caps_ids_and_checks_the_token() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("dummies")
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| {
+                .policy_fn(|_cx, ability| {
                     matches!(
                         ability,
                         Ability::View(_) | Ability::DeleteAny | Ability::Delete(_)
@@ -143,7 +143,7 @@ async fn bulk_delete_mid_loop_failure_deletes_zero_rows() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("dummies")
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| {
+                .policy_fn(|_cx, ability| {
                     matches!(
                         ability,
                         Ability::View(_) | Ability::DeleteAny | Ability::Delete(_)

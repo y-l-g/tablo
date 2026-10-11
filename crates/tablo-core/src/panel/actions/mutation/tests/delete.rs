@@ -23,7 +23,7 @@ async fn delete_and_bulk_delete_require_view() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("dummies")
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| match ability {
+                .policy_fn(|_cx, ability| match ability {
                     Ability::View(_record) => false,
                     Ability::DeleteAny => true,
                     Ability::Delete(_) => true,
@@ -101,9 +101,7 @@ async fn delete_and_bulk_delete_require_delete_any() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("dummies")
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| {
-                    matches!(ability, Ability::View(_) | Ability::Delete(_))
-                })
+                .policy_fn(|_cx, ability| matches!(ability, Ability::View(_) | Ability::Delete(_)))
                 .table(dummy_table())
         }
     }
@@ -166,7 +164,7 @@ async fn delete_resolves_the_primary_key_only() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("dummies")
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| {
+                .policy_fn(|_cx, ability| {
                     matches!(
                         ability,
                         Ability::View(_) | Ability::DeleteAny | Ability::Delete(_)

@@ -23,8 +23,9 @@ use super::{
     state::NavEntry,
 };
 use crate::{
-    Ability, DeclarationError, DeclarationErrorKind, Page, Site,
+    Ability, DeclarationError, DeclarationErrorKind, Page, PageDef, Site,
     form::RecordForm,
+    page::MountedPage,
     resource::{Mounted, Mounts, Places, Resource, ResourceDef},
     schema::FieldResolver,
     table::{
@@ -46,10 +47,14 @@ type Customize<R> = Box<dyn FnOnce(ResourceDef<R>) -> ResourceDef<R> + Send>;
 /// [`Panel::resource_with`](super::Panel::resource_with)'s pending resource.
 pub(super) struct ResourceRegistration<R: Resource>(pub(super) Customize<R>);
 
-/// [`Panel::page`](super::Panel::page)'s pending page, or with `home` set,
+/// Adjusts a page's def for one panel.
+pub(super) type CustomizePage = Box<dyn FnOnce(PageDef) -> PageDef + Send>;
+
+/// [`Panel::page_with`](super::Panel::page_with)'s pending page, or with `home` set,
 /// [`Panel::home`](super::Panel::home)'s.
 pub(super) struct PageRegistration<P> {
     pub(super) home: bool,
+    pub(super) customize: CustomizePage,
     pub(super) _page: std::marker::PhantomData<fn() -> P>,
 }
 
@@ -61,6 +66,8 @@ pub(super) struct Registry {
     slugs: Vec<String>,
     /// The URL each resource and page serves at, by type.
     pub(super) urls: HashMap<TypeId, String>,
+    /// The registered pages as the panel mounted them, by type.
+    pub(super) mounted_pages: HashMap<TypeId, Arc<MountedPage>>,
     pub(super) nav_items: Vec<NavEntry>,
     pub(super) pages: Vec<PageFn>,
     pub(super) routes: Vec<RouteFn>,
@@ -126,6 +133,7 @@ impl Registry {
             schema,
             slugs: Vec::new(),
             urls: HashMap::new(),
+            mounted_pages: HashMap::new(),
             nav_items: Vec::new(),
             pages: Vec::new(),
             routes: Vec::new(),
@@ -252,7 +260,7 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
         }
         registry.nav_items.push(NavEntry {
             item: mounted.navigation.clone(),
-            visible: |cx| crate::can::<R>(cx, Ability::ViewAny),
+            visible: Arc::new(|cx| crate::can::<R>(cx, Ability::ViewAny)),
         });
         registry.children.insert(
             TypeId::of::<R>(),
@@ -396,7 +404,18 @@ fn list_actions_route(url: &str) -> String {
 
 impl<P: Page> Registration for PageRegistration<P> {
     fn register(self: Box<Self>, registry: &mut Registry) {
-        let url = if self.home {
+        if registry.mounted_pages.contains_key(&TypeId::of::<P>()) {
+            registry.errors.push(DeclarationError::of::<P>(
+                Site::Registration,
+                DeclarationErrorKind::DuplicatePage,
+            ));
+            return;
+        }
+        let Self {
+            home, customize, ..
+        } = *self;
+        let page = Arc::new(MountedPage::new::<P>(customize(P::declare())));
+        let url = if home {
             if matches!(registry.root, Some(Root::Home)) {
                 registry.errors.push(DeclarationError::of::<P>(
                     Site::Registration,
@@ -410,13 +429,13 @@ impl<P: Page> Registration for PageRegistration<P> {
                 .insert(TypeId::of::<P>(), registry.prefix.clone());
             registry.prefix.clone()
         } else {
-            let Some(url) = registry.claim_slug::<P>("Page::slug", &P::slug()) else {
+            let Some(url) = registry.claim_slug::<P>("PageDef::slug", &page.slug) else {
                 return;
             };
             url
         };
         registry.page(http::Method::GET, &url, page_handler::<P>);
-        if !P::header_actions().is_empty() {
+        if !page.header_actions.is_empty() {
             registry.page(
                 http::Method::POST,
                 &list_actions_route(&url),
@@ -428,12 +447,15 @@ impl<P: Page> Registration for PageRegistration<P> {
                 page_action_options::<P>,
             );
         }
-        registry.page_checks.push(check_page::<P>);
+        registry
+            .page_checks
+            .push(check_page::<P>(Arc::clone(&page)));
         let item = NavEntry {
-            item: P::navigation().resolved(&url),
-            visible: P::can_access,
+            item: page.navigation.clone().resolved(&url),
+            visible: page.access(),
         };
-        if self.home {
+        registry.mounted_pages.insert(TypeId::of::<P>(), page);
+        if home {
             registry.nav_items.insert(0, item);
         } else {
             registry.nav_items.push(item);

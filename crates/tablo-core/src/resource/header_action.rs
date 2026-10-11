@@ -13,8 +13,8 @@ use crate::{BoxFuture, form::FieldErrors, naming::sentence_case, policy::Ability
 ///
 /// A resource declares one with
 /// [`ResourceDef::header_action`](crate::ResourceDef::header_action), and its list page renders
-/// the button; a [`Page`](crate::Page) declares one in
-/// [`Page::header_actions`](crate::Page::header_actions), and renders the buttons with
+/// the button; a [`Page`](crate::Page) declares one with
+/// [`PageDef::header_action`](crate::PageDef::header_action), and renders the buttons with
 /// [`header_action_buttons`](crate::header_action_buttons):
 ///
 /// ```rust
@@ -39,7 +39,7 @@ use crate::{BoxFuture, form::FieldErrors, naming::sentence_case, policy::Ability
 ///
 /// - the route, `{url}/-/actions/{NAME}` under the list or page URL, and its CSRF check;
 /// - who may run it: on a resource, the policy's [`Ability::ViewAny`] and [`Ability::RunHeader`]
-///   with the action's `NAME`; on a page, [`Page::can_access`](crate::Page::can_access); on either,
+///   with the action's `NAME`; on a page, [`PageDef::access`](crate::PageDef::access); on either,
 ///   then [`can_run`](Self::can_run). A refusal answers 403 and renders no button;
 /// - the transaction: `run` writes through its executor, and an error rolls everything back;
 /// - on a resource, [`Resource::after_commit`](crate::Resource::after_commit) with

@@ -3,9 +3,8 @@
 use std::collections::HashMap;
 
 use tablo::{
-    Ability, NavigationItem, Notification, Page, TenantId, Uploader, csrf, db::db,
-    extend::OptionSource, notification::set_notification, require_tenant,
-    upload::sanitize_filename,
+    Ability, Notification, Page, PageDef, TenantId, Uploader, csrf, db::db, extend::OptionSource,
+    notification::set_notification, require_tenant, upload::sanitize_filename,
 };
 use topcoat::{
     Result,
@@ -108,12 +107,8 @@ pub fn media_file_view<'a>(cx: &'a Cx, asset: &MediaAsset) -> BoxView<'a> {
 pub struct MediaLibraryPage;
 
 impl Page for MediaLibraryPage {
-    fn navigation() -> NavigationItem {
-        NavigationItem::for_page::<Self>().icon(tablo::ui::icons::IMAGE)
-    }
-
-    fn slug() -> String {
-        "media".to_string()
+    fn declare() -> PageDef {
+        PageDef::new().slug("media").icon(tablo::ui::icons::IMAGE)
     }
 
     async fn render(cx: &Cx) -> Result<impl View> {

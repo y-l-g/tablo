@@ -95,7 +95,7 @@ already rewritten to a `GET`.
 The builder calls never fail; `.panel(..)` returns a `MountError` listing every mistake
 instead. It refuses a router with no `Db`, a `Db` missing the shipped auth models, two resources or pages
 with one slug, a slug the panel routes itself
-(`login`, `logout`, `register`, and `-`, which leads the home page's action routes), a slug that is not a single URL segment, a second home page, `shell_assets`
+(`login`, `logout`, `register`, and `-`, which leads the home page's action routes), a slug that is not a single URL segment, a second home page, one page type registered twice, `shell_assets`
 on a router with no asset bundle, a prefix that overlaps another panel's or Topcoat's
 `/_topcoat/runtime`, and every resource declaration check described in
 [Resources](./resources.md#startup-checks).
@@ -147,9 +147,9 @@ call it replaces the shell entirely:
 ## Sidebar
 
 Every resource and page gets one sidebar entry, labelled with its plural label (a page's
-`navigation_label()`) and linked to its list or page URL. The sidebar lists an entry only when the
+`label`) and linked to its list or page URL. The sidebar lists an entry only when the
 request's user may open it: a resource's when its policy allows `ViewAny`, a page's when
-`Page::can_access` answers `true`. Entries sort by `order` (lower first,
+its `PageDef::access` answers `true`. Entries sort by `order` (lower first,
 default `0`); entries with the same `order` keep registration order, and the home page leads its
 `order`.
 
@@ -166,14 +166,13 @@ impl Resource for UserResource {
 }
 ```
 
-A page overrides `Page::navigation()`, starting from `NavigationItem::for_page::<Self>()`.
-`NavigationItem::at(label, url)` links elsewhere, from a resource's `ResourceDef::navigation` or a
-page's `navigation()`; the panel keeps that URL as written, and a resource's `icon`,
+A page sets the same `icon`, `navigation_order` and `navigation_group` on its `PageDef`.
+`NavigationItem::at(label, url)` links elsewhere, from `ResourceDef::navigation` or
+`PageDef::navigation`; the panel keeps that URL as written, and the def's `icon`,
 `navigation_order` and `navigation_group` still apply to it. The entry whose URL is the longest
 match for the current path is marked active.
 
-`ResourceDef::navigation_group("Content")`, or `NavigationItem::group` on a page's entry, renders
-the entry in a labelled sidebar group. The ungrouped entries render first, under "Navigation";
+`navigation_group("Content")` on either def renders the entry in a labelled sidebar group. The ungrouped entries render first, under "Navigation";
 each group follows in the order of its first entry, and `order` sorts the entries within it.
 
 ## Pages
@@ -187,23 +186,33 @@ use topcoat::{Result, context::Cx, view::{View, view}};
 {{#include ../../../examples/guide/src/panel_routing.rs:panel-reports-page}}
 ```
 
+- **The def.** `Page::declare` returns a `PageDef`, as a resource's returns a `ResourceDef`: the
+  slug, the sidebar entry, who may open the page and its header actions. `render` stays a trait
+  method. `Panel::page_with::<P>(|def| …)` adjusts the def for one panel:
+
+  ```rust
+  {{#include ../../../examples/guide/src/panel_routing.rs:panel-page-def}}
+  ```
+
 - **Slug and label** default to the type name without its `Page` suffix: `ReportsPage` mounts at
   `reports` and is labelled "Reports"; `MediaLibraryPage` mounts at `media-library` and is
-  labelled "Media library". Override `slug()` and `navigation_label()` to change them. Pages and
+  labelled "Media library". `PageDef::slug` and `PageDef::label` change them. Pages and
   resources share one slug namespace.
 - **The home page.** `Panel::home::<P>()` mounts a page at the prefix itself instead of the
-  redirect to the first resource. A panel has at most one; a second fails `.panel(..)`.
+  redirect to the first resource, with its def as `declare` returns it. A panel has at most one;
+  a second fails `.panel(..)`, as does registering one page type twice.
 - **Access.** With authentication on, the page renders only for a signed-in user with panel access,
-  inside the shell layout. Override `Page::can_access(cx)` to narrow that: when it answers `false`
+  inside the shell layout. `PageDef::access(|cx| …)` narrows that: when it answers `false`
   the page answers 403 and leaves the sidebar. It is synchronous, like a policy, and reads the
   signed-in user with `auth::user::<U>(cx)`.
-- **Actions.** `Page::header_actions` declares [header actions](./actions.md#header-actions), each
-  served at `{page}/-/actions/{NAME}` behind the same sign-in and `can_access` as the page, in a
+- **Actions.** `PageDef::header_action::<A>()` declares a [header action](./actions.md#header-actions),
+  served at `{page}/-/actions/{NAME}` behind the same sign-in and `access` as the page, in a
   transaction the framework opens. `header_action_buttons::<Self>(cx)` renders their buttons where the
   page places it, usually in `page_actions`.
 - **Forms.** Any other form a page renders posts to an app `#[route]`; put that route under the
-  panel prefix so the auth gate covers it. `can_access` does not cover that route, so the route
-  calls `P::can_access(cx)` itself.
+  panel prefix so the auth gate covers it. `access` does not cover that route, so the route
+  asks `can_open::<P>(cx)` itself: the panel's sign-in and the page's `access`, as the page's
+  `GET` checks them.
 
 The `tablo::ui` composites give a page the same frame as the panel's own pages: `page` sets the
 width and padding; `page_header` holds a `page_title`, an optional `page_description` and optional

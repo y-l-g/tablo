@@ -160,9 +160,7 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("readings")
-                .policy(|_cx: &Cx, ability: Ability<'_, Reading>| {
-                    matches!(ability, Ability::ViewAny | Ability::Create)
-                })
+                .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
                 .table(tablo::Table::new(tablo::ComputedColumn::new(
                     "Words",
                     |r: &Reading| r.word_count.to_string(),

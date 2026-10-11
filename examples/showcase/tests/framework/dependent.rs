@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 
 use tablo::{
-    Ability, Action, ActionInput, ActionInputFault, DeclarationErrorKind, Field, FieldError,
+    Ability, Action, ActionInput, ActionInputFault, Allow, DeclarationErrorKind, Field, FieldError,
     NoForm, Resource, ResourceDef, Schema, Site, Table, TextColumn, lens,
 };
 use toasty::Db;
@@ -84,7 +84,7 @@ impl Resource for AddressResource {
             .depends_on(&c.country_id, City::fields().country_id());
         ResourceDef::new()
             .slug("addresses")
-            .policy(|_cx: &Cx, _ability: Ability<'_, Address>| true)
+            .policy(Allow)
             .table(Table::new(TextColumn::new(lens!(Address.id))))
             .form(Schema::new((c.country_id, city)))
     }
@@ -308,9 +308,7 @@ async fn an_action_input_cannot_hold_a_dependent_choice() {
 
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
-                .policy(|_cx: &Cx, ability: Ability<'_, Address>| {
-                    !matches!(ability, Ability::Create)
-                })
+                .policy_fn(|_cx, ability| !matches!(ability, Ability::Create))
                 .table(Table::new(TextColumn::new(lens!(Address.id))))
                 .action::<Move>()
         }

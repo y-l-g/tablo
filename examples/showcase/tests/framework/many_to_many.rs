@@ -62,7 +62,7 @@ impl Resource for ShelfResource {
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
-            .policy(|_cx: &Cx, ability: Ability<'_, Shelf>| match ability {
+            .policy_fn(|_cx, ability: Ability<'_, Shelf>| match ability {
                 Ability::Update(shelf) => shelf.name != "Locked",
                 Ability::Create => false,
                 _ => true,
@@ -106,7 +106,7 @@ impl Resource for BookResource {
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
-            .policy(|_cx: &Cx, ability: Ability<'_, Book>| match ability {
+            .policy_fn(|_cx, ability: Ability<'_, Book>| match ability {
                 Ability::View(book) => book.title != "Hidden",
                 Ability::Create => false,
                 _ => true,

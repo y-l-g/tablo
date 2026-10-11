@@ -4,9 +4,7 @@
 //! The panel reads a crafted submission the same way: a hidden key is dropped before the parse, so
 //! a create takes the field's blank answer and an edit keeps its stored value.
 
-use tablo::{
-    Ability, Auth, Panel, Resource, ResourceDef, Schema, Table, TextColumn, Uploader, lens,
-};
+use tablo::{Allow, Auth, Panel, Resource, ResourceDef, Schema, Table, TextColumn, Uploader, lens};
 use toasty::Db;
 use topcoat::router::Router;
 use uuid::Uuid;
@@ -49,7 +47,7 @@ impl Resource for CustomerResource {
         let logo = c.logo.visible_when(&c.kind, ["company"]);
         ResourceDef::new()
             .slug("customers")
-            .policy(|_cx: &topcoat::context::Cx, _ability: Ability<'_, Customer>| true)
+            .policy(Allow)
             .table(Table::new(TextColumn::new(lens!(Customer.name))))
             .form(Schema::new((c.name, c.kind, vat, logo)))
     }

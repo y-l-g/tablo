@@ -81,9 +81,7 @@ impl Resource for PlainResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .slug("plain-notes")
-            .policy(|_cx: &Cx, ability: Ability<'_, Note>| {
-                matches!(ability, Ability::ViewAny | Ability::Create)
-            })
+            .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
             .table(Table::new(TextColumn::new(lens!(Note.title))))
     }
 }
@@ -101,9 +99,7 @@ impl Resource for FailingWriteResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .slug("failing-writes")
-            .policy(|_cx: &Cx, ability: Ability<'_, Note>| {
-                matches!(ability, Ability::ViewAny | Ability::Create)
-            })
+            .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
             .table(Table::new(TextColumn::new(lens!(Note.title))))
     }
 
@@ -133,9 +129,7 @@ impl Resource for FailingHookResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .slug("failing-hooks")
-            .policy(|_cx: &Cx, ability: Ability<'_, Note>| {
-                matches!(ability, Ability::ViewAny | Ability::Create)
-            })
+            .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
             .table(Table::new(TextColumn::new(lens!(Note.title))))
     }
 

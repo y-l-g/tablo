@@ -32,11 +32,11 @@ use self::{
 };
 pub use self::{
     build::{PanelHandle, RouterBuilderPanelExt},
-    gate::can_list,
+    gate::{can_list, can_open},
     shell::Brand,
 };
 use crate::{
-    DeclarationError, DeclarationErrorKind, Page,
+    DeclarationError, DeclarationErrorKind, Page, PageDef,
     resource::{Resource, ResourceDef},
 };
 
@@ -225,21 +225,43 @@ impl Panel {
         self
     }
 
-    /// Declares a [`Page`] at `{prefix}/{slug}` with its sidebar entry; pages share the resources'
-    /// slug namespace.
-    pub fn page<P: Page>(mut self) -> Self {
+    /// Declares a [`Page`] at `{prefix}/{slug}` with its sidebar entry, as [`Page::declare`]
+    /// declares it; pages share the resources' slug namespace.
+    pub fn page<P: Page>(self) -> Self {
+        self.page_with::<P>(|def| def)
+    }
+
+    /// Declares the [`Page`] `P` as [`page`](Self::page) does, with `customize` adjusting its def
+    /// for this panel only:
+    ///
+    /// ```rust
+    /// # use tablo_core::{Page, Panel};
+    /// # use topcoat::{Result, context::Cx, view::View};
+    /// # struct ReportsPage;
+    /// # impl Page for ReportsPage {
+    /// #     async fn render(_cx: &Cx) -> Result<impl View> { Ok(()) }
+    /// # }
+    /// # fn is_manager(_cx: &Cx) -> bool { true }
+    /// Panel::new("portal").page_with::<ReportsPage>(|def| def.access(is_manager));
+    /// ```
+    pub fn page_with<P: Page>(
+        mut self,
+        customize: impl FnOnce(PageDef) -> PageDef + Send + 'static,
+    ) -> Self {
         self.registrations.push(Box::new(PageRegistration::<P> {
             home: false,
+            customize: Box::new(customize),
             _page: std::marker::PhantomData,
         }));
         self
     }
 
     /// Declares the panel's home page at the panel prefix, replacing the redirect to the first
-    /// resource's list.
+    /// resource's list. The page mounts with its def as [`Page::declare`] returns it.
     pub fn home<P: Page>(mut self) -> Self {
         self.registrations.push(Box::new(PageRegistration::<P> {
             home: true,
+            customize: Box::new(|def| def),
             _page: std::marker::PhantomData,
         }));
         self

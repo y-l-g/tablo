@@ -1,5 +1,5 @@
 use toasty::stmt::List;
-use topcoat::context::{Cx, CxTestBuilder};
+use topcoat::context::CxTestBuilder;
 
 use super::*;
 use crate::{
@@ -85,7 +85,7 @@ async fn wired_table_carries_the_declared_action_chrome() {
 
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
-                .policy(|_cx: &Cx, ability: Ability<'_, User>| {
+                .policy_fn(|_cx, ability| {
                     matches!(ability, Ability::DeleteAny | Ability::Delete(_))
                 })
                 .table(Table::new(TextColumn::new(lens!(User.name))).paginate(25))

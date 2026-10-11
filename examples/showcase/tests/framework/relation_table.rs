@@ -40,7 +40,7 @@ impl Resource for OwnerResource {
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
-            .policy(|_cx: &Cx, ability: Ability<'_, Owner>| {
+            .policy_fn(|_cx, ability| {
                 matches!(
                     ability,
                     Ability::ViewAny | Ability::View(_) | Ability::Update(_)
@@ -72,7 +72,7 @@ impl Resource for ChildResource {
     fn declare() -> ResourceDef<Self> {
         let c = ChildForm::controls();
         ResourceDef::new()
-            .policy(|cx: &Cx, ability: Ability<'_, Child>| match ability {
+            .policy_fn(|cx, ability| match ability {
                 Ability::ViewAny => !has_header(cx, "x-deny-children"),
                 Ability::View(_record) => true,
                 Ability::Create => !has_header(cx, "x-no-create"),

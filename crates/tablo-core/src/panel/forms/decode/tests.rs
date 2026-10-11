@@ -116,9 +116,7 @@ async fn multipart_over_the_form_cap_413s_through_the_router() {
 
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
-                .policy(|_cx: &Cx, ability: Ability<'_, Dummy>| {
-                    matches!(ability, Ability::ViewAny | Ability::Create)
-                })
+                .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
                 .table(dummy_table())
         }
     }

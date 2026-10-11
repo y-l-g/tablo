@@ -91,6 +91,8 @@ impl<'a, M> Ability<'a, M> {
 ///
 /// A closure `|cx: &Cx, ability: Ability<'_, M>| -> bool` is a policy, and the
 /// building blocks combine with `and` and `or`.
+/// [`ResourceDef::policy_fn`](crate::ResourceDef::policy_fn) takes a closure without naming its
+/// argument types.
 pub trait Policy<M>: Send + Sync + 'static {
     /// Whether the current user may do `ability`.
     fn allows(&self, cx: &Cx, ability: Ability<'_, M>) -> bool;
