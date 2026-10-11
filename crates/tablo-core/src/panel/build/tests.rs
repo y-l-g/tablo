@@ -161,7 +161,7 @@ async fn csrf_is_enforced_with_auth_disabled() {
         .handle(
             http::Request::builder()
                 .method(http::Method::POST)
-                .uri("/admin/dummies/create")
+                .uri("/admin/dummies/-/create")
                 .header(
                     http::header::CONTENT_TYPE,
                     "application/x-www-form-urlencoded",
@@ -735,9 +735,9 @@ async fn a_resource_declares_once_when_its_panel_mounts() {
 
     for uri in [
         "/admin/dummies".to_string(),
-        "/admin/dummies/export".to_string(),
+        "/admin/dummies/-/export".to_string(),
         format!("/admin/dummies/{}", record.id),
-        "/admin/dummies/create".to_string(),
+        "/admin/dummies/-/create".to_string(),
         format!("/admin/dummies/{}/edit", record.id),
     ] {
         let response = router

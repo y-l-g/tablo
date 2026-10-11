@@ -155,7 +155,7 @@ async fn typo_filter_warns_on_list_but_refuses_export() {
         html.contains("role=\"alert\"") && html.contains("foobar"),
         "malformed filter must banner, got {html}"
     );
-    let resp = client.get("/admin/posts/export?f.foobar=on").await;
+    let resp = client.get("/admin/posts/-/export?f.foobar=on").await;
     assert_eq!(
         resp.status(),
         400,
@@ -163,7 +163,7 @@ async fn typo_filter_warns_on_list_but_refuses_export() {
         resp.status()
     );
 
-    let resp = client.get("/admin/posts/export?f.stauts=published").await;
+    let resp = client.get("/admin/posts/-/export?f.stauts=published").await;
     assert_eq!(
         resp.status(),
         400,
@@ -171,7 +171,7 @@ async fn typo_filter_warns_on_list_but_refuses_export() {
         resp.status()
     );
 
-    let resp = client.get("/admin/posts/export?f.status=Published").await;
+    let resp = client.get("/admin/posts/-/export?f.status=Published").await;
     assert_eq!(
         resp.status(),
         400,
@@ -179,7 +179,7 @@ async fn typo_filter_warns_on_list_but_refuses_export() {
         resp.status()
     );
 
-    let resp = client.get("/admin/posts/export?f.status=published").await;
+    let resp = client.get("/admin/posts/-/export?f.status=published").await;
     assert!(resp.status().is_success(), "valid export must stay 200");
 }
 

@@ -199,7 +199,7 @@ async fn transport_keys_never_reach_the_write() {
         .handle(
             http::Request::builder()
                 .method(http::Method::POST)
-                .uri("/admin/docs/create")
+                .uri("/admin/docs/-/create")
                 .header(
                     http::header::CONTENT_TYPE,
                     format!("multipart/form-data; boundary={boundary}"),
@@ -275,7 +275,7 @@ async fn a_driver_create_failure_does_not_echo_driver_text() {
     let token = uuid::Uuid::new_v4().to_string();
     let parts = http::Request::builder()
         .method(http::Method::POST)
-        .uri("/admin/dummies/create")
+        .uri("/admin/dummies/-/create")
         .header(
             http::header::CONTENT_TYPE,
             "application/x-www-form-urlencoded",
@@ -487,7 +487,7 @@ async fn mutation_redirect_carries_the_flash_cookie_instead_of_a_query() {
     let resp = router
         .handle(
             http::Request::builder()
-                .uri("/admin/dummies/create")
+                .uri("/admin/dummies/-/create")
                 .method(http::Method::POST)
                 .header(
                     http::header::CONTENT_TYPE,
@@ -572,7 +572,7 @@ async fn two_empty_submits_on_a_unique_field_re_render_and_write_nothing() {
             .handle(
                 http::Request::builder()
                     .method(http::Method::POST)
-                    .uri("/admin/subscribers/create")
+                    .uri("/admin/subscribers/-/create")
                     .header(
                         http::header::CONTENT_TYPE,
                         "application/x-www-form-urlencoded",
@@ -671,7 +671,7 @@ async fn a_forged_carry_is_refused_by_the_default_holds() {
         .handle(
             http::Request::builder()
                 .method(http::Method::POST)
-                .uri("/admin/docs/create")
+                .uri("/admin/docs/-/create")
                 .header(
                     http::header::CONTENT_TYPE,
                     "application/x-www-form-urlencoded",

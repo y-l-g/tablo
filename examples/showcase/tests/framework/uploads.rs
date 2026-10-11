@@ -158,7 +158,7 @@ async fn an_installed_uploader_stores_the_bytes_and_the_path_reaches_the_record(
     let router = router(db.clone(), uploader.clone());
     let response = TestClient::new(&router)
         .submit_multipart(
-            "/admin/docs/create",
+            "/admin/docs/-/create",
             &[
                 ("title", None, "Notes"),
                 // A path-carrying client name reaches the uploader as its basename.
@@ -212,7 +212,7 @@ async fn a_refused_upload_is_an_inline_field_error_and_writes_nothing() {
     let router = router(db.clone(), FailingUploader);
     let response = TestClient::new(&router)
         .submit_multipart(
-            "/admin/docs/create",
+            "/admin/docs/-/create",
             &[
                 ("title", None, "Notes"),
                 ("cover", Some("cover.png"), "PNG-BYTES"),
@@ -286,7 +286,7 @@ async fn a_text_value_for_a_file_upload_is_not_stored_on_create() {
     let router = router(db.clone(), RecordingUploader::default());
     let response = TestClient::new(&router)
         .submit(
-            "/admin/docs/create",
+            "/admin/docs/-/create",
             "title=Notes&cover=javascript%3Aalert%281%29",
         )
         .await;
@@ -349,7 +349,7 @@ async fn a_text_part_after_a_file_part_does_not_forge_a_value_on_create() {
     let router = router(db.clone(), RecordingUploader::default());
     let response = TestClient::new(&router)
         .submit_multipart(
-            "/admin/docs/create",
+            "/admin/docs/-/create",
             &[
                 ("title", None, "Notes"),
                 ("cover", Some("cover.png"), "PNG-BYTES"),
@@ -418,7 +418,7 @@ async fn a_file_part_after_a_text_part_wins_on_create() {
     let router = router(db.clone(), RecordingUploader::default());
     let response = TestClient::new(&router)
         .submit_multipart(
-            "/admin/docs/create",
+            "/admin/docs/-/create",
             &[
                 ("title", None, "Notes"),
                 ("cover", None, "javascript:alert(1)"),
@@ -442,7 +442,7 @@ async fn a_rejected_filename_after_a_file_part_discards_the_staged_bytes() {
     let router = router(db.clone(), uploader.clone());
     let response = TestClient::new(&router)
         .submit_multipart(
-            "/admin/docs/create",
+            "/admin/docs/-/create",
             &[
                 ("title", None, "Notes"),
                 ("cover", Some("first.png"), "FIRST-BYTES"),
@@ -562,7 +562,7 @@ async fn an_over_cap_body_still_413s_with_an_uploader_installed() {
     let huge = "a".repeat(11 * 1024 * 1024);
     let response = TestClient::new(&router)
         .submit_multipart(
-            "/admin/docs/create",
+            "/admin/docs/-/create",
             &[
                 ("title", None, "Too big"),
                 ("cover", Some("huge.png"), &huge),
@@ -611,7 +611,7 @@ async fn a_create_form_offers_no_stored_value_and_no_clear_control() {
     let db = seeded_db().await;
     let router = router(db.clone(), RecordingUploader::default());
 
-    let response = get(&router, "/admin/docs/create").await;
+    let response = get(&router, "/admin/docs/-/create").await;
     assert!(response.status().is_success());
     let html = body_string(response).await;
     assert!(!html.contains("<img"), "{html}");

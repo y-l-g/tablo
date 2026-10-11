@@ -75,7 +75,7 @@ async fn a_hidden_variant_groups_fields_do_not_block_the_submit() {
     // and its typed leaf holds a value the type cannot parse.
     let response = client
         .submit(
-            "/admin/clips/create",
+            "/admin/clips/-/create",
             "title=Clip&body=1&body_note=hello&body_seconds=twelve",
         )
         .await;
@@ -119,7 +119,7 @@ async fn the_named_variants_fields_still_validate() {
     // refuse `twelve`.
     let response = client
         .submit(
-            "/admin/clips/create",
+            "/admin/clips/-/create",
             "title=Clip&body=2&body_seconds=twelve",
         )
         .await;
@@ -135,7 +135,7 @@ async fn the_named_variants_fields_still_validate() {
     // An emptied visible leaf carries the control's label, not the flattened
     // column: an `i64` leaf has no blank answer, so the parse refuses it as required.
     let response = client
-        .submit("/admin/clips/create", "title=Clip&body=2&body_seconds=")
+        .submit("/admin/clips/-/create", "title=Clip&body=2&body_seconds=")
         .await;
     assert_eq!(response.status(), 200, "the refused blank re-renders");
     let html = body_string(response).await;

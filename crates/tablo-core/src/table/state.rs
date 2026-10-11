@@ -462,8 +462,14 @@ impl TableState {
 /// primary key instead.
 pub(crate) const RECORD_ROUTE_PARAM: &str = "{id}";
 
-/// Path segment of the list page's create page.
+/// Path segment of the list page's create page, under [`DASH_ROUTE_SEGMENT`].
 pub(crate) const CREATE_ROUTE_SEGMENT: &str = "create";
+
+/// Path segment of the list's CSV export, under [`DASH_ROUTE_SEGMENT`].
+pub(crate) const EXPORT_ROUTE_SEGMENT: &str = "export";
+
+/// Path segment of the record form's option search, under [`DASH_ROUTE_SEGMENT`].
+pub(crate) const OPTIONS_ROUTE_SEGMENT: &str = "options";
 
 /// Path segment of a row's edit page.
 pub(crate) const EDIT_ROUTE_SEGMENT: &str = "edit";
@@ -471,7 +477,7 @@ pub(crate) const EDIT_ROUTE_SEGMENT: &str = "edit";
 /// Path segment of a row's delete POST.
 pub(crate) const DELETE_ROUTE_SEGMENT: &str = "delete";
 
-/// Path segment of the bulk-delete POST.
+/// Path segment of the bulk-delete POST, under [`DASH_ROUTE_SEGMENT`].
 pub(crate) const BULK_DELETE_ROUTE_SEGMENT: &str = "bulk-delete";
 
 /// Path segment before a custom action's name, on a row
@@ -479,8 +485,19 @@ pub(crate) const BULK_DELETE_ROUTE_SEGMENT: &str = "bulk-delete";
 /// (`{list}/-/actions/{name}`).
 pub(crate) const ACTIONS_ROUTE_SEGMENT: &str = "actions";
 
-/// Static segment guarding custom action routes from record keys.
+/// Static segment guarding the list's own routes, and a record's action and relation routes, from
+/// record keys: `matchit` prefers a static segment over `{id}`, so a record whose key is `create`
+/// would otherwise lose its detail page to the create form.
 pub(crate) const DASH_ROUTE_SEGMENT: &str = "-";
+
+/// A route of the list itself, `{list}/-/{segment}`: the create form, the export, the option
+/// search, the bulk delete.
+pub(crate) fn list_route(list_path: &str, segment: &str) -> String {
+    format!(
+        "{}/{DASH_ROUTE_SEGMENT}/{segment}",
+        list_path.trim_end_matches('/')
+    )
+}
 
 /// The action-name placeholder the route table registers: `{action}`.
 pub(crate) const ACTION_ROUTE_PARAM: &str = "{action}";
@@ -547,14 +564,19 @@ pub(crate) fn action_options_url(url: &str, name: &str) -> String {
     )
 }
 
-/// The list page's create link: `{list_path}/create`.
+/// The list page's create link: `{list_path}/-/create`.
 pub(crate) fn create_page_url(list_path: &str) -> String {
-    format!("{list_path}/{CREATE_ROUTE_SEGMENT}")
+    list_route(list_path, CREATE_ROUTE_SEGMENT)
 }
 
-/// The bulk form's POST target: `{list_path}/bulk-delete`.
+/// The list page's export link: `{list_path}/-/export`.
+pub(crate) fn export_url(list_path: &str) -> String {
+    list_route(list_path, EXPORT_ROUTE_SEGMENT)
+}
+
+/// The bulk form's POST target: `{list_path}/-/bulk-delete`.
 pub(crate) fn bulk_delete_url(list_path: &str) -> String {
-    format!("{list_path}/{BULK_DELETE_ROUTE_SEGMENT}")
+    list_route(list_path, BULK_DELETE_ROUTE_SEGMENT)
 }
 
 /// The query parameter naming the page a write lands on after it commits,

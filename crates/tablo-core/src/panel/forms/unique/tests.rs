@@ -194,7 +194,7 @@ async fn a_typed_unique_field_probes_the_declared_type() {
     let request = |body: String| {
         http::Request::builder()
             .method(http::Method::POST)
-            .uri("/admin/tagged/create")
+            .uri("/admin/tagged/-/create")
             .header(
                 http::header::CONTENT_TYPE,
                 "application/x-www-form-urlencoded",

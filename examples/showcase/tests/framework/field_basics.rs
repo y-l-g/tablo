@@ -103,7 +103,7 @@ fn control<'h>(html: &'h str, name: &str) -> &'h str {
 async fn the_create_form_renders_defaults_help_and_disabled_controls() {
     let (_db, router) = accounts().await;
     let client = TestClient::new(&router);
-    let html = body_string(client.get("/admin/accounts/create").await).await;
+    let html = body_string(client.get("/admin/accounts/-/create").await).await;
 
     let email = control(&html, "email");
     assert!(
@@ -139,7 +139,7 @@ async fn a_create_stores_the_default_of_a_disabled_field() {
     let client = TestClient::new(&router);
     let response = client
         .submit(
-            "/admin/accounts/create",
+            "/admin/accounts/-/create",
             "email=ada%40example.com&plan=enterprise&credits=3",
         )
         .await;
@@ -164,7 +164,7 @@ async fn an_edit_keeps_the_stored_value_of_a_disabled_field() {
     let client = TestClient::new(&router);
     let response = client
         .submit(
-            "/admin/accounts/create",
+            "/admin/accounts/-/create",
             "email=ada%40example.com&credits=3",
         )
         .await;
@@ -239,7 +239,7 @@ async fn a_condition_reads_a_disabled_field_as_the_browser_does() {
     let client = TestClient::new(&router);
     let response = client
         .submit(
-            "/admin/accounts/create",
+            "/admin/accounts/-/create",
             "email=ada%40example.com&credits=1&coupon=SAVE&plan=pro&referral=eve",
         )
         .await;

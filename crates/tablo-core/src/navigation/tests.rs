@@ -88,7 +88,7 @@ fn navigation_item_is_current_path() {
     assert!(users.is_current_path("/admin/users"));
     assert!(showcase.is_current_path("/admin/showcase"));
     // slash-boundary — sub-pages active
-    assert!(users.is_current_path("/admin/users/create"));
+    assert!(users.is_current_path("/admin/users/-/create"));
     assert!(showcase.is_current_path("/admin/showcase/table"));
     // slash-boundary — near-misses inactive
     assert!(!users.is_current_path("/admin/userships"));

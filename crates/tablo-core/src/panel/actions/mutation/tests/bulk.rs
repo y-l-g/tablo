@@ -63,7 +63,7 @@ async fn bulk_delete_caps_ids_and_checks_the_token() {
     let ok = router
         .handle(
             http::Request::builder()
-                .uri("/admin/dummies/bulk-delete")
+                .uri("/admin/dummies/-/bulk-delete")
                 .method(http::Method::POST)
                 .header(
                     http::header::CONTENT_TYPE,
@@ -93,7 +93,7 @@ async fn bulk_delete_caps_ids_and_checks_the_token() {
     let capped = router
         .handle(
             http::Request::builder()
-                .uri("/admin/dummies/bulk-delete")
+                .uri("/admin/dummies/-/bulk-delete")
                 .method(http::Method::POST)
                 .header(
                     http::header::CONTENT_TYPE,
@@ -114,7 +114,7 @@ async fn bulk_delete_caps_ids_and_checks_the_token() {
     let no_token = router
         .handle(
             http::Request::builder()
-                .uri("/admin/dummies/bulk-delete")
+                .uri("/admin/dummies/-/bulk-delete")
                 .method(http::Method::POST)
                 .header(
                     http::header::CONTENT_TYPE,
@@ -191,7 +191,7 @@ async fn bulk_delete_mid_loop_failure_deletes_zero_rows() {
     let resp = router
         .handle(
             http::Request::builder()
-                .uri("/admin/dummies/bulk-delete")
+                .uri("/admin/dummies/-/bulk-delete")
                 .method(http::Method::POST)
                 .header(
                     http::header::CONTENT_TYPE,

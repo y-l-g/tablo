@@ -237,7 +237,7 @@ async fn sidebar_marks_only_the_longest_matching_entry_active() {
     ];
     for (path, active_label) in [
         ("/admin", "Dashboard"),
-        ("/admin/users/create", "Users"),
+        ("/admin/users/-/create", "Users"),
         ("/admin/media", "Dashboard"),
     ] {
         let (parts, ()) = http::Request::builder()

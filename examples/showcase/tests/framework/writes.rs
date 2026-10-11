@@ -58,7 +58,7 @@ async fn create_policy_deny() {
     let client = TestClient::new(&router);
 
     let slug = "deny-creates";
-    let create_url = format!("/admin/{}/create", slug);
+    let create_url = format!("/admin/{}/-/create", slug);
     // GET create should be 403
     let resp = client.get(&create_url).await;
     assert_eq!(resp.status(), 403, "GET create should be 403 when denied");
@@ -133,7 +133,9 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
     )
     .expect("panel builds");
     let client = TestClient::new(&router);
-    let resp = client.submit("/admin/widgets/create", "name=Widget").await;
+    let resp = client
+        .submit("/admin/widgets/-/create", "name=Widget")
+        .await;
     assert_eq!(
         resp.status(),
         500,
@@ -342,7 +344,7 @@ async fn bulk_delete_hand_crafted_partial_deny_skips_the_refused_row() {
         async move {
             client
                 .submit(
-                    &format!("/admin/{slug}/bulk-delete"),
+                    &format!("/admin/{slug}/-/bulk-delete"),
                     &format!("ids={ids}&confirm=1"),
                 )
                 .await

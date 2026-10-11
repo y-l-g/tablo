@@ -195,7 +195,10 @@ async fn the_detail_page_carries_the_writes() {
     let html = body_string(get(&router, &detail).await).await;
     assert!(html.contains("data-relation=\"children\""), "{html}");
     let return_to = format!("return=%2Fadmin%2Fowners%2F{}", ada.id);
-    let create = format!("/admin/children/create?owner_id={}&amp;{return_to}", ada.id);
+    let create = format!(
+        "/admin/children/-/create?owner_id={}&amp;{return_to}",
+        ada.id
+    );
     assert!(html.contains(&create), "create link {create}: {html}");
     let found = rows(&html);
     assert_eq!(found.len(), 2, "the relation lists its two rows: {html}");
@@ -217,7 +220,7 @@ async fn the_detail_page_carries_the_writes() {
         );
     }
     assert!(
-        html.contains(&format!("/bulk-delete?{return_to}")),
+        html.contains(&format!("/-/bulk-delete?{return_to}")),
         "bulk returns: {html}"
     );
 }
@@ -232,7 +235,10 @@ async fn the_child_policies_gate_the_section_and_its_create_link() {
     assert!(!denied.contains("data-relation="), "{denied}");
     let no_create = get_with_header(&router, &detail, "x-no-create").await;
     assert!(no_create.contains("ada-first"), "{no_create}");
-    assert!(!no_create.contains("/admin/children/create"), "{no_create}");
+    assert!(
+        !no_create.contains("/admin/children/-/create"),
+        "{no_create}"
+    );
 }
 
 #[tokio::test]
@@ -244,7 +250,7 @@ async fn the_create_page_seeds_the_owner_and_keeps_the_return() {
         get(
             &router,
             &format!(
-                "/admin/children/create?owner_id={}&return=%2Fadmin%2Fowners%2F{}",
+                "/admin/children/-/create?owner_id={}&return=%2Fadmin%2Fowners%2F{}",
                 ada.id, ada.id
             ),
         )
@@ -257,7 +263,7 @@ async fn the_create_page_seeds_the_owner_and_keeps_the_return() {
     );
     assert!(
         form.contains(&format!(
-            "action=\"/admin/children/create?return=%2Fadmin%2Fowners%2F{}\"",
+            "action=\"/admin/children/-/create?return=%2Fadmin%2Fowners%2F{}\"",
             ada.id
         )),
         "the form keeps the return: {form}"
@@ -268,7 +274,7 @@ async fn the_create_page_seeds_the_owner_and_keeps_the_return() {
 #[tokio::test]
 async fn the_owner_choice_offers_each_owner_by_its_record_title() {
     let (router, _db, ada, bob) = fixture().await;
-    let form = body_string(get(&router, "/admin/children/create").await).await;
+    let form = body_string(get(&router, "/admin/children/-/create").await).await;
     assert!(
         form.contains(&format!("<option value=\"{}\">Ada</option>", ada.id)),
         "a titled owner: {form}"

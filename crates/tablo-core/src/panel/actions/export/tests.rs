@@ -55,7 +55,7 @@ async fn export_drops_rows_failing_view() {
     let resp = router
         .handle(
             http::Request::builder()
-                .uri("/admin/dummies/export")
+                .uri("/admin/dummies/-/export")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -154,7 +154,7 @@ async fn export_loads_the_relations_its_columns_include() {
     let resp = router
         .handle(
             http::Request::builder()
-                .uri("/admin/declared/export")
+                .uri("/admin/declared/-/export")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -175,7 +175,7 @@ async fn export_loads_the_relations_its_columns_include() {
     let resp = router
         .handle(
             http::Request::builder()
-                .uri("/admin/bare/export")
+                .uri("/admin/bare/-/export")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -260,7 +260,7 @@ async fn export_streams_csv_in_chunks_with_parity() {
         let body = resp.into_body().collect().await.unwrap().to_bytes();
         String::from_utf8(body.to_vec()).unwrap()
     };
-    let csv = get_csv("/admin/dummies/export").await;
+    let csv = get_csv("/admin/dummies/-/export").await;
     let mut lines = csv.lines();
     assert_eq!(lines.next(), Some("Name"));
     let mut names: Vec<&str> = lines.collect();
@@ -274,7 +274,7 @@ async fn export_streams_csv_in_chunks_with_parity() {
         expected.iter().map(String::as_str).collect::<Vec<_>>()
     );
     // BOM variant: same rows, FEFF-prefixed.
-    let bom = get_csv("/admin/dummies/export?bom=1").await;
+    let bom = get_csv("/admin/dummies/-/export?bom=1").await;
     assert!(bom.starts_with('\u{FEFF}'), "BOM must lead, got {bom:?}");
     assert_eq!(&bom['\u{FEFF}'.len_utf8()..], csv);
 }
@@ -315,12 +315,12 @@ async fn export_of_an_empty_table_emits_the_header() {
     };
 
     assert_eq!(
-        get("/admin/dummies/export").await.as_ref(),
+        get("/admin/dummies/-/export").await.as_ref(),
         b"Name\n",
         "an empty export is the header line, not a 0-byte body"
     );
     assert_eq!(
-        get("/admin/dummies/export?bom=1").await.as_ref(),
+        get("/admin/dummies/-/export?bom=1").await.as_ref(),
         "\u{FEFF}Name\n".as_bytes(),
         "the BOM variant leads with U+FEFF even when empty"
     );
@@ -414,7 +414,7 @@ async fn export_visibility_scan_loads_no_includes() {
     let resp = router
         .handle(
             http::Request::builder()
-                .uri("/admin/children/export")
+                .uri("/admin/children/-/export")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -480,7 +480,7 @@ async fn export_counts_only_viewable_rows_within_the_window() {
     let resp = router
         .handle(
             http::Request::builder()
-                .uri("/admin/dummies/export")
+                .uri("/admin/dummies/-/export")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -533,7 +533,7 @@ async fn export_refuses_when_viewable_rows_lie_past_the_window() {
     let resp = router
         .handle(
             http::Request::builder()
-                .uri("/admin/dummies/export")
+                .uri("/admin/dummies/-/export")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -759,7 +759,7 @@ async fn export_413s_above_the_cap_before_streaming() {
     let resp = router
         .handle(
             http::Request::builder()
-                .uri("/admin/dummies/export")
+                .uri("/admin/dummies/-/export")
                 .body(Body::empty())
                 .unwrap(),
         )

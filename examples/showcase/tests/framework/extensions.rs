@@ -260,7 +260,7 @@ async fn an_app_column_renders_its_view_and_exports_its_text() {
         "the header is its label: {html}"
     );
 
-    let csv = body_string(get(&router, "/admin/tasks/export").await).await;
+    let csv = body_string(get(&router, "/admin/tasks/-/export").await).await;
     assert!(
         csv.starts_with("Title,Highlighted,Done\n"),
         "the export writes every label: {csv}"
@@ -447,7 +447,7 @@ async fn a_row_renders_only_the_actions_its_record_allows() {
         "and the bulk-only action: {html}"
     );
     // The resource allows no delete, so the bulk bar carries the actions alone.
-    assert!(!html.contains("/admin/tasks/bulk-delete"), "{html}");
+    assert!(!html.contains("/admin/tasks/-/bulk-delete"), "{html}");
     // Both rows take a bulk action (`explode` runs on any task), so both
     // render a checkbox.
     let found = rows(&html);

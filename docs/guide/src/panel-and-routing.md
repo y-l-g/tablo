@@ -21,11 +21,11 @@ A resource with the slug `users`, on a panel mounted at `/admin`, serves:
 | `GET` | `/admin/users` | the list |
 | `GET` | `/admin/users/{id}` | the [detail page](./detail-pages.md); 404 when the resource's view is empty |
 | `POST` | `/admin/users/{id}/delete` | delete one record |
-| `POST` | `/admin/users/bulk-delete` | delete the selected records |
-| `GET` | `/admin/users/export` | the list as CSV |
-| `GET`, `POST` | `/admin/users/create` | the create form ¹ |
+| `POST` | `/admin/users/-/bulk-delete` | delete the selected records |
+| `GET` | `/admin/users/-/export` | the list as CSV |
+| `GET`, `POST` | `/admin/users/-/create` | the create form ¹ |
 | `GET`, `POST` | `/admin/users/{id}/edit` | the edit form ¹ |
-| `GET` | `/admin/users/options` | option search for a searchable relationship select, and a dependent choice's options ¹ |
+| `GET` | `/admin/users/-/options` | option search for a searchable relationship select, and a dependent choice's options ¹ |
 | `POST` | `/admin/users/{id}/-/actions/{action}` | run a record action on one record ² |
 | `POST` | `/admin/users/-/actions/{action}` | run a header action, or a bulk action on the selection ³ |
 | `GET` | `/admin/users/-/actions/{action}/options` | option search for an action input's relationship select ² ³ |
@@ -40,8 +40,9 @@ none of these. See [Forms](./forms.md).
 ³ Only when the resource has a header action, or an action placed on the bulk bar.
 ⁴ Only when the resource has a [many-to-many relation](./detail-pages.md#many-to-many-relations).
 
-The `-` segment keeps the action and relation routes apart from a record's own: a record whose key
-is `actions` still has its `/admin/users/actions/edit`.
+The `-` segment keeps the list's own routes, and the action and relation routes, apart from a
+record's: a record whose key is `create` still has its detail page at `/admin/users/create`, and
+one whose key is `actions` its `/admin/users/actions/edit`.
 
 `{id}` is the record's primary key. Each route checks the resource's policy, so a registered
 route is not an open one: see [Policy, auth, tenancy](./policy-auth-tenancy.md).

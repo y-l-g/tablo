@@ -154,7 +154,11 @@ async fn addresses(db: &Db) -> Vec<Address> {
 async fn the_options_endpoint_answers_the_rows_of_the_parent_value() {
     let world = world().await;
     let options = async |query: &str| {
-        let response = get(&world.router, &format!("/admin/addresses/options?{query}")).await;
+        let response = get(
+            &world.router,
+            &format!("/admin/addresses/-/options?{query}"),
+        )
+        .await;
         (response.status(), body_string(response).await)
     };
     let (status, html) = options(&format!("field=city_id&parent={}", world.france)).await;
@@ -186,7 +190,7 @@ async fn a_create_refuses_a_city_of_another_country() {
     let create = async |country: Uuid, city: Uuid| {
         post_fields(
             &world.router,
-            "/admin/addresses/create",
+            "/admin/addresses/-/create",
             &[
                 ("country_id", &country.to_string()),
                 ("city_id", &city.to_string()),
@@ -226,7 +230,7 @@ async fn an_edit_without_the_parent_reads_its_stored_value() {
     let world = world().await;
     let response = post_fields(
         &world.router,
-        "/admin/addresses/create",
+        "/admin/addresses/-/create",
         &[
             ("country_id", &world.france.to_string()),
             ("city_id", &world.paris.to_string()),

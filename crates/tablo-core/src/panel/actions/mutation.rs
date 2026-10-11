@@ -53,7 +53,7 @@ use crate::{
 enum Target {
     /// The one record in the URL: `{list}/{key}/delete`, `{list}/{key}/-/actions/{name}`.
     Record,
-    /// The `ids` the bulk form carried: `{list}/bulk-delete`, `{list}/-/actions/{name}`.
+    /// The `ids` the bulk form carried: `{list}/-/bulk-delete`, `{list}/-/actions/{name}`.
     Bulk,
 }
 
@@ -77,7 +77,7 @@ pub(crate) fn resource_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
     })
 }
 
-/// The bulk bar's Delete POST: `{list}/bulk-delete`, with the selection in the `ids` field.
+/// The bulk bar's Delete POST: `{list}/-/bulk-delete`, with the selection in the `ids` field.
 pub(crate) fn resource_bulk_delete<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
     async_page(async move {
         let resource = gate::<R>(cx)?;

@@ -57,7 +57,7 @@ async fn multipart_parts(
     capture: bool,
 ) -> Result<FormParts, topcoat::Error> {
     let (parts, ()) = http::Request::builder()
-        .uri("/admin/users/create")
+        .uri("/admin/users/-/create")
         .header(http::header::CONTENT_TYPE, content_type)
         .body(())
         .unwrap()
@@ -146,7 +146,7 @@ async fn multipart_over_the_form_cap_413s_through_the_router() {
     );
     let request = http::Request::builder()
         .method(http::Method::POST)
-        .uri("/admin/dummies/create")
+        .uri("/admin/dummies/-/create")
         .header(
             http::header::CONTENT_TYPE,
             format!("multipart/form-data; boundary={boundary}"),

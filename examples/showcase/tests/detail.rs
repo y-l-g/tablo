@@ -250,7 +250,7 @@ async fn the_detail_route_does_not_shadow_create_or_edit() {
     let mut db_q = db;
     let id = a_post_id(&mut db_q).await;
 
-    let create = client.get("/admin/posts/create").await;
+    let create = client.get("/admin/posts/-/create").await;
     assert!(
         create.status().is_success(),
         "create page must still render, got {}",

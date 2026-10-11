@@ -89,7 +89,7 @@ async fn creating_a_post_files_it_under_the_chosen_categories() {
         ("categories", &engineering.to_string()),
         ("categories", &process.to_string()),
     ]);
-    let resp = client.submit("/admin/posts/create", &body).await;
+    let resp = client.submit("/admin/posts/-/create", &body).await;
     assert_eq!(resp.status(), 303, "{}", body_string(resp).await);
     let mut db_q = db.clone();
     let post = Post::filter(Post::fields().title().eq("Filed".to_string()))
@@ -344,7 +344,7 @@ async fn the_post_form_offers_the_tenants_categories() {
     .exec(&mut db_q)
     .await
     .unwrap();
-    let html = body_string(client.get("/admin/posts/create").await).await;
+    let html = body_string(client.get("/admin/posts/-/create").await).await;
     let demo: Vec<Category> = Category::filter(
         Category::fields()
             .tenant_id()

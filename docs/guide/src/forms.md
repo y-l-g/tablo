@@ -235,7 +235,7 @@ labels one field's options otherwise, to tell apart records that share a title.
   to another tenant or hidden since the form validated refuses the write with the same field
   error.
 - At most 200 options load. Past that, a `.searchable()` choice turns into type-to-search against
-  `GET {list_url}/options`, which searches the related table's `searchable()` columns; a
+  `GET {list_url}/-/options`, which searches the related table's `searchable()` columns; a
   non-searchable choice shows an error instead. `.searchable()` also filters a short list as
   you type. Without JavaScript the plain select remains.
 
@@ -291,7 +291,7 @@ equals the value another field of the same form posts: the cities of the chosen 
 ```
 
 - The form renders the options of the parent's current value, and none while it is blank. When the
-  parent changes, the browser fetches the new options from `GET {list_url}/options` and keeps the
+  parent changes, the browser fetches the new options from `GET {list_url}/-/options` and keeps the
   current choice only if they still offer it. A choice they drop changes too, so a choice
   depending on it, or a condition watching it, follows.
 - A submission must name a record of the parent value it posts, or, on an edit that does not post
