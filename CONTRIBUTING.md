@@ -33,9 +33,10 @@ without one. The README has the install command.
 ## Checks
 
 ```sh
-cargo xtask check         # fmt, JS suites, test, clippy; MSRV and udeps if manifests changed
+cargo xtask check         # fmt, JS suites, test, clippy, public API; MSRV and udeps if manifests changed
 cargo xtask check --all   # also MSRV, udeps, rustdoc, the guide and the external build
 cargo xtask fmt           # the formatting checks alone
+cargo xtask public-api    # the public-API snapshots alone
 ```
 
 `check` stops at the first failure, cheapest first. "Manifests changed" means any `Cargo.toml`,
@@ -46,6 +47,11 @@ cargo xtask fmt           # the formatting checks alone
 - `topcoat fmt` reflows `view!` markup differently across CLI releases, so only the pinned
   `topcoat-cli` agrees with CI. When it is missing or another version, `cargo xtask fmt` fails
   with the install command. Never hand-fix its diff.
+- `public-api/` holds one `cargo public-api` listing per published crate. `cargo xtask public-api`
+  rewrites the listings and fails on a diff, so an API change lands in review as a snapshot
+  diff: commit the rewrite. A removed or changed line breaks callers, so the commit takes `!`.
+  The check needs the pinned nightly and CLI, and names the install command when either is
+  missing.
 - `examples/quickstart` is outside the workspace: `cargo fmt` at the root skips it, and
   `cargo xtask fmt` checks it.
 - `crates/tablo-ui/src/components/primitives/` is a verbatim copy of the registry. Never edit it:
