@@ -1,0 +1,142 @@
+pub mod tablo_test
+#[non_exhaustive] pub enum tablo_test::ErrorKind
+pub tablo_test::ErrorKind::Invalid
+pub tablo_test::ErrorKind::Required
+pub tablo_test::ErrorKind::Unavailable
+impl core::clone::Clone for tablo_test::ErrorKind
+pub fn tablo_test::ErrorKind::clone(&self) -> tablo_test::ErrorKind
+impl core::cmp::Eq for tablo_test::ErrorKind
+impl core::cmp::PartialEq for tablo_test::ErrorKind
+pub fn tablo_test::ErrorKind::eq(&self, &tablo_test::ErrorKind) -> bool
+impl core::fmt::Debug for tablo_test::ErrorKind
+pub fn tablo_test::ErrorKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_test::ErrorKind
+impl core::marker::StructuralPartialEq for tablo_test::ErrorKind
+impl core::marker::Freeze for tablo_test::ErrorKind
+impl core::marker::Send for tablo_test::ErrorKind
+impl core::marker::Sync for tablo_test::ErrorKind
+impl core::marker::Unpin for tablo_test::ErrorKind
+impl core::marker::UnsafeUnpin for tablo_test::ErrorKind
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::ErrorKind
+impl core::panic::unwind_safe::UnwindSafe for tablo_test::ErrorKind
+pub struct tablo_test::EmptyTable
+pub tablo_test::EmptyTable::clear: core::option::Option<alloc::string::String>
+pub tablo_test::EmptyTable::first_page: core::option::Option<alloc::string::String>
+pub tablo_test::EmptyTable::reason: alloc::string::String
+impl core::clone::Clone for tablo_test::EmptyTable
+pub fn tablo_test::EmptyTable::clone(&self) -> tablo_test::EmptyTable
+impl core::cmp::Eq for tablo_test::EmptyTable
+impl core::cmp::PartialEq for tablo_test::EmptyTable
+pub fn tablo_test::EmptyTable::eq(&self, &tablo_test::EmptyTable) -> bool
+impl core::fmt::Debug for tablo_test::EmptyTable
+pub fn tablo_test::EmptyTable::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_test::EmptyTable
+impl core::marker::Freeze for tablo_test::EmptyTable
+impl core::marker::Send for tablo_test::EmptyTable
+impl core::marker::Sync for tablo_test::EmptyTable
+impl core::marker::Unpin for tablo_test::EmptyTable
+impl core::marker::UnsafeUnpin for tablo_test::EmptyTable
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::EmptyTable
+impl core::panic::unwind_safe::UnwindSafe for tablo_test::EmptyTable
+pub struct tablo_test::FilterOption
+pub tablo_test::FilterOption::label: alloc::string::String
+pub tablo_test::FilterOption::selected: bool
+pub tablo_test::FilterOption::value: alloc::string::String
+impl core::clone::Clone for tablo_test::FilterOption
+pub fn tablo_test::FilterOption::clone(&self) -> tablo_test::FilterOption
+impl core::cmp::Eq for tablo_test::FilterOption
+impl core::cmp::PartialEq for tablo_test::FilterOption
+pub fn tablo_test::FilterOption::eq(&self, &tablo_test::FilterOption) -> bool
+impl core::fmt::Debug for tablo_test::FilterOption
+pub fn tablo_test::FilterOption::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_test::FilterOption
+impl core::marker::Freeze for tablo_test::FilterOption
+impl core::marker::Send for tablo_test::FilterOption
+impl core::marker::Sync for tablo_test::FilterOption
+impl core::marker::Unpin for tablo_test::FilterOption
+impl core::marker::UnsafeUnpin for tablo_test::FilterOption
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::FilterOption
+impl core::panic::unwind_safe::UnwindSafe for tablo_test::FilterOption
+pub struct tablo_test::Row
+pub tablo_test::Row::actions: tablo_test::RowActions
+pub tablo_test::Row::cells: alloc::vec::Vec<alloc::string::String>
+pub tablo_test::Row::select_value: core::option::Option<alloc::string::String>
+impl core::clone::Clone for tablo_test::Row
+pub fn tablo_test::Row::clone(&self) -> tablo_test::Row
+impl core::cmp::Eq for tablo_test::Row
+impl core::cmp::PartialEq for tablo_test::Row
+pub fn tablo_test::Row::eq(&self, &tablo_test::Row) -> bool
+impl core::fmt::Debug for tablo_test::Row
+pub fn tablo_test::Row::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_test::Row
+impl core::marker::Freeze for tablo_test::Row
+impl core::marker::Send for tablo_test::Row
+impl core::marker::Sync for tablo_test::Row
+impl core::marker::Unpin for tablo_test::Row
+impl core::marker::UnsafeUnpin for tablo_test::Row
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::Row
+impl core::panic::unwind_safe::UnwindSafe for tablo_test::Row
+pub struct tablo_test::RowActions
+pub tablo_test::RowActions::delete_action: core::option::Option<alloc::string::String>
+pub tablo_test::RowActions::edit: core::option::Option<alloc::string::String>
+pub tablo_test::RowActions::view: core::option::Option<alloc::string::String>
+impl core::clone::Clone for tablo_test::RowActions
+pub fn tablo_test::RowActions::clone(&self) -> tablo_test::RowActions
+impl core::cmp::Eq for tablo_test::RowActions
+impl core::cmp::PartialEq for tablo_test::RowActions
+pub fn tablo_test::RowActions::eq(&self, &tablo_test::RowActions) -> bool
+impl core::fmt::Debug for tablo_test::RowActions
+pub fn tablo_test::RowActions::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_test::RowActions
+impl core::marker::Freeze for tablo_test::RowActions
+impl core::marker::Send for tablo_test::RowActions
+impl core::marker::Sync for tablo_test::RowActions
+impl core::marker::Unpin for tablo_test::RowActions
+impl core::marker::UnsafeUnpin for tablo_test::RowActions
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::RowActions
+impl core::panic::unwind_safe::UnwindSafe for tablo_test::RowActions
+pub struct tablo_test::TestClient<'a>
+impl<'a> tablo_test::TestClient<'a>
+pub fn tablo_test::TestClient<'a>::cookie(&self, &str, &str) -> Self
+pub fn tablo_test::TestClient<'a>::cookies(&self, &[(alloc::string::String, alloc::string::String)]) -> Self
+pub fn tablo_test::TestClient<'a>::csrf(&self, &str) -> Self
+pub async fn tablo_test::TestClient<'a>::get(&self, &str) -> http::response::Response<topcoat_router::body::Body>
+pub async fn tablo_test::TestClient<'a>::log_in(&self, &str, &str, &str, &str) -> (Self, http::response::Response<topcoat_router::body::Body>)
+pub fn tablo_test::TestClient<'a>::new(&'a topcoat_router::router::Router) -> Self
+pub async fn tablo_test::TestClient<'a>::post_form(&self, &str, alloc::string::String) -> http::response::Response<topcoat_router::body::Body>
+pub async fn tablo_test::TestClient<'a>::post_multipart(&self, &str, &str, alloc::string::String) -> http::response::Response<topcoat_router::body::Body>
+pub async fn tablo_test::TestClient<'a>::sign_in(&self, &toasty::db::Db, &str, &impl tablo_core::auth::PanelUser) -> Self
+pub async fn tablo_test::TestClient<'a>::submit(&self, &str, &str) -> http::response::Response<topcoat_router::body::Body>
+pub async fn tablo_test::TestClient<'a>::submit_multipart(&self, &str, &[(&str, core::option::Option<&str>, &str)]) -> http::response::Response<topcoat_router::body::Body>
+pub fn tablo_test::TestClient<'a>::tenant(&self, uuid::Uuid) -> Self
+impl<'a> core::clone::Clone for tablo_test::TestClient<'a>
+pub fn tablo_test::TestClient<'a>::clone(&self) -> tablo_test::TestClient<'a>
+impl<'a> core::marker::Freeze for tablo_test::TestClient<'a>
+impl<'a> core::marker::Send for tablo_test::TestClient<'a>
+impl<'a> core::marker::Sync for tablo_test::TestClient<'a>
+impl<'a> core::marker::Unpin for tablo_test::TestClient<'a>
+impl<'a> core::marker::UnsafeUnpin for tablo_test::TestClient<'a>
+impl<'a> !core::panic::unwind_safe::RefUnwindSafe for tablo_test::TestClient<'a>
+impl<'a> !core::panic::unwind_safe::UnwindSafe for tablo_test::TestClient<'a>
+pub const tablo_test::SESSION_COOKIE: &str
+pub async fn tablo_test::body_bytes(http::response::Response<topcoat_router::body::Body>) -> alloc::vec::Vec<u8>
+pub async fn tablo_test::body_string(http::response::Response<topcoat_router::body::Body>) -> alloc::string::String
+pub fn tablo_test::confirms_first(&str, &str) -> core::option::Option<bool>
+pub fn tablo_test::cookie_header<'a>(impl core::iter::traits::collect::IntoIterator<Item = (&'a str, &'a str)>) -> core::option::Option<alloc::string::String>
+pub fn tablo_test::empty_table(&str) -> core::option::Option<tablo_test::EmptyTable>
+pub fn tablo_test::field_error(&str, &str) -> core::option::Option<tablo_test::ErrorKind>
+pub fn tablo_test::field_error_message(&str, &str) -> core::option::Option<alloc::string::String>
+pub fn tablo_test::filter_options(&str, &str) -> core::option::Option<alloc::vec::Vec<tablo_test::FilterOption>>
+pub fn tablo_test::find_href_with(&str, &str) -> core::option::Option<alloc::string::String>
+pub fn tablo_test::form_body(&[(&str, &str)]) -> alloc::string::String
+pub fn tablo_test::input_value(&str, &str) -> core::option::Option<alloc::string::String>
+pub fn tablo_test::mount(toasty::db::Db, tablo_core::panel::Panel) -> topcoat::Result<topcoat_router::router::Router>
+pub fn tablo_test::multipart_body(&str, &[(&str, core::option::Option<&str>, &str)]) -> alloc::string::String
+pub fn tablo_test::notification(&http::response::Response<topcoat_router::body::Body>) -> core::option::Option<tablo_core::notification::Notification>
+pub fn tablo_test::refusal<T>(topcoat::Result<T>) -> alloc::vec::Vec<tablo_core::declaration::DeclarationError>
+pub fn tablo_test::response_cookies(&http::response::Response<topcoat_router::body::Body>) -> alloc::vec::Vec<(alloc::string::String, alloc::string::String)>
+pub fn tablo_test::row_actions(&str, &str) -> core::option::Option<tablo_test::RowActions>
+pub fn tablo_test::row_keys(&str) -> alloc::vec::Vec<alloc::string::String>
+pub fn tablo_test::rows(&str) -> alloc::vec::Vec<tablo_test::Row>
+pub fn tablo_test::session_cookie_value(&http::response::Response<topcoat_router::body::Body>) -> core::option::Option<alloc::string::String>
+pub fn tablo_test::set_cookie_header(&http::response::Response<topcoat_router::body::Body>, &str) -> core::option::Option<alloc::string::String>
