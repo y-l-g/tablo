@@ -87,7 +87,7 @@ writes as the resource's `Form`, and give it a policy that allows `Create` and `
   it locally with `mdbook build docs/guide`.
 - **[API reference](https://y-l.fr/tablo/nightly/api/tablo/)**, the rustdoc of the
   workspace.
-- [`examples/showcase/`](examples/showcase/): the runnable reference.
+- [Showcase](examples/showcase/): the runnable reference.
 - [`CONTEXT.md`](CONTEXT.md): the project's vocabulary.
 - [`docs/adr/`](docs/adr/): the design decisions, one record each.
 - Upstream: the [Toasty guide](https://tokio-rs.github.io/toasty/0.11.0/guide/) (queries,
