@@ -34,19 +34,22 @@ not supported inside an embedded value.
 
 A `#[document]` list of embedded structs binds as one field too (`#[form(repeat)]`), its item
 deriving `RepeaterItem`. Each row posts its item's keys under `{key}.{row}.`, and the repeater's key
-lists the rows in the order they show. The submission folds them into that key, as a JSON array of
-each row's keys, before anything reads it, so completing an edit, hiding a field and parsing see
-one key like any other. A row keeps its number when it moves, so the browser renumbers nothing.
+lists the rows in the order they show. Reading the submission through the form's schema gathers
+them into that key's `FormValue::Rows` before anything else reads it, so completing an edit,
+hiding a field and parsing see one key like any other. A row keeps its number when it moves, so
+the browser renumbers nothing.
 
 A many-to-many field writes no column of its own. It is named like the model's
 `#[has_many(via = joins.target)]` field and typed as a `Vec` of the related keys, so the derive
 checks both against the model and the related resource. Its control posts its key once per
-checked box, which the submission folds into a JSON array as it does a repeater's rows. The
-write links and unlinks records as join rows built from the app schema, since Toasty writes
-through no multi-step `via` and the join model's type is not the field's.
+checked box, which reading the submission gathers into one `FormValue::List` as it does a
+repeater's rows. The write links and unlinks records as join rows built from the app schema, since
+Toasty writes through no multi-step `via` and the join model's type is not the field's.
 
 ## Rejected
 
+- Folding a repeater's rows and a multiple choice's values into their key as a JSON string: every
+  reader decoded it again, and each handled a decoding failure no browser causes.
 - Deriving the default table and detail page from the struct: each resource added its read-only
   columns by hand, and a list-only resource had none to derive from.
 - Building the default columns at mount from the app schema: Toasty loads a record into its struct
