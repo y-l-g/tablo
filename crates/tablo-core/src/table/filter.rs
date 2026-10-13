@@ -531,7 +531,9 @@ where
     /// [`MAX_RELATIONSHIP_OPTIONS`](crate::schema::MAX_RELATIONSHIP_OPTIONS) rows, those the
     /// user may view in the request's tenant; past the cap, or when the source refuses the
     /// load, it lists the chosen keys alone. The filter matches any key the field's
-    /// type parses: it narrows rows the table shows already.
+    /// type parses: it narrows rows the table shows already, but does not hide that they link
+    /// to a row the user cannot view (y-l-g/tablo#618). When that link is itself sensitive,
+    /// scope the table's query, or offer the filter only to roles that may view the source.
     ///
     /// ```rust
     /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]

@@ -165,7 +165,10 @@ inputs. A relationship filter loads its options as a [relationship
 choice](./forms.md#relationships) does: the source's tenant-scoped rows the user may view, each
 labelled by the source's label, at most `MAX_RELATIONSHIP_OPTIONS` of them. Past that cap, or
 when the source refuses the load, it lists only the chosen keys. It matches any key the field
-parses, which narrows the rows the table shows already. A query filter's
+parses, which narrows the rows the table shows already but does not hide that one links to a
+row the user cannot view ([#618](https://github.com/y-l-g/tablo/issues/618)): when that link is
+itself sensitive, scope the table's query, or offer the filter only to roles that may view the
+source. A query filter's
 `option_keyed(key, label, predicate)` keeps its URL value when the label changes.
 
 A filter is anything that implements `Filter<M>`, from `tablo::extend`: a name, a label, the
