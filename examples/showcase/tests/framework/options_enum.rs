@@ -46,7 +46,9 @@ async fn db() -> Db {
 }
 
 async fn titles(db: &mut Db, filter: &SelectFilter<Ticket>, value: &str) -> Vec<String> {
-    let predicate = filter.to_expr(value).expect("a listed option selects rows");
+    let predicate = filter
+        .to_expr(&value.into())
+        .expect("a listed option selects rows");
     let mut titles: Vec<String> = Ticket::filter(predicate)
         .exec(db)
         .await
@@ -65,7 +67,7 @@ async fn a_select_filter_matches_the_variant_its_option_value_names() {
     assert_eq!(titles(&mut db, &stage, "arch").await, ["archived"]);
     assert_eq!(titles(&mut db, &stage, "open").await, ["open", "reopened"]);
     assert!(
-        stage.to_expr("archived").is_none(),
+        stage.to_expr(&"archived".into()).is_none(),
         "the variant's stored name is not an option value"
     );
     let previous = SelectFilter::of(Ticket::fields().previous());

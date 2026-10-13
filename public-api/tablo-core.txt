@@ -445,8 +445,9 @@ pub fn tablo_core::extend::FilterInput::label(&self) -> &str
 pub fn tablo_core::extend::FilterInput::labelled<'a>(self, &'a topcoat_core::context::Cx, topcoat_view::view::BoxView<'a>) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::extend::FilterInput::name(&self) -> &str
 pub fn tablo_core::extend::FilterInput::param(&self) -> &str
+pub fn tablo_core::extend::FilterInput::part_param(&self, &str) -> alloc::string::String
 pub fn tablo_core::extend::FilterInput::select<'a>(self, &'a topcoat_core::context::Cx, alloc::vec::Vec<(alloc::string::String, alloc::string::String)>) -> topcoat_view::view::BoxView<'a>
-pub fn tablo_core::extend::FilterInput::value(&self) -> &str
+pub fn tablo_core::extend::FilterInput::value(&self) -> &tablo_core::FilterValue
 impl core::clone::Clone for tablo_core::extend::FilterInput
 pub fn tablo_core::extend::FilterInput::clone(&self) -> tablo_core::extend::FilterInput
 impl core::fmt::Debug for tablo_core::extend::FilterInput
@@ -458,6 +459,39 @@ impl core::marker::Unpin for tablo_core::extend::FilterInput
 impl core::marker::UnsafeUnpin for tablo_core::extend::FilterInput
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::extend::FilterInput
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::extend::FilterInput
+pub struct tablo_core::extend::FilterValue
+impl tablo_core::FilterValue
+pub fn tablo_core::FilterValue::is_empty(&self) -> bool
+pub fn tablo_core::FilterValue::new() -> Self
+pub fn tablo_core::FilterValue::part(&self, &str) -> core::option::Option<&str>
+pub fn tablo_core::FilterValue::parts(&self) -> impl core::iter::traits::iterator::Iterator<Item = (&str, &str)>
+pub fn tablo_core::FilterValue::single(&self) -> core::option::Option<&str>
+pub fn tablo_core::FilterValue::values(&self) -> &[alloc::string::String]
+pub fn tablo_core::FilterValue::with(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::FilterValue::with_part(self, impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for tablo_core::FilterValue
+pub fn tablo_core::FilterValue::clone(&self) -> tablo_core::FilterValue
+impl core::cmp::Eq for tablo_core::FilterValue
+impl core::cmp::PartialEq for tablo_core::FilterValue
+pub fn tablo_core::FilterValue::eq(&self, &tablo_core::FilterValue) -> bool
+impl core::convert::From<&str> for tablo_core::FilterValue
+pub fn tablo_core::FilterValue::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for tablo_core::FilterValue
+pub fn tablo_core::FilterValue::from(alloc::string::String) -> Self
+impl core::default::Default for tablo_core::FilterValue
+pub fn tablo_core::FilterValue::default() -> tablo_core::FilterValue
+impl core::fmt::Debug for tablo_core::FilterValue
+pub fn tablo_core::FilterValue::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tablo_core::FilterValue
+pub fn tablo_core::FilterValue::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_core::FilterValue
+impl core::marker::Freeze for tablo_core::FilterValue
+impl core::marker::Send for tablo_core::FilterValue
+impl core::marker::Sync for tablo_core::FilterValue
+impl core::marker::Unpin for tablo_core::FilterValue
+impl core::marker::UnsafeUnpin for tablo_core::FilterValue
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::FilterValue
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::FilterValue
 pub struct tablo_core::extend::Includes<M>(_, _)
 impl<M> tablo_core::extend::Includes<M>
 pub fn tablo_core::extend::Includes<M>::is_empty(&self) -> bool
@@ -591,34 +625,34 @@ impl tablo_core::extend::Control for tablo_core::Toggle
 pub fn tablo_core::Toggle::render<'a>(&self, &'a topcoat_core::context::Cx, tablo_core::extend::ControlInput) -> topcoat_view::view::BoxView<'a>
 pub trait tablo_core::extend::Filter<M>: core::marker::Send + core::marker::Sync
 pub fn tablo_core::extend::Filter::control<'a>(&self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> topcoat_view::view::BoxView<'a>
-pub fn tablo_core::extend::Filter::is_noop_value(&self, &str) -> bool
+pub fn tablo_core::extend::Filter::is_noop_value(&self, &tablo_core::FilterValue) -> bool
 pub fn tablo_core::extend::Filter::label(&self) -> &str
 pub fn tablo_core::extend::Filter::name(&self) -> &str
-pub fn tablo_core::extend::Filter::to_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
+pub fn tablo_core::extend::Filter::to_expr(&self, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 impl<M> tablo_core::extend::Filter<M> for tablo_core::DateFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync
 pub fn tablo_core::DateFilter<M>::control<'a>(&self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> topcoat_view::view::BoxView<'a>
-pub fn tablo_core::DateFilter<M>::is_noop_value(&self, &str) -> bool
+pub fn tablo_core::DateFilter<M>::is_noop_value(&self, &tablo_core::FilterValue) -> bool
 pub fn tablo_core::DateFilter<M>::label(&self) -> &str
 pub fn tablo_core::DateFilter<M>::name(&self) -> &str
-pub fn tablo_core::DateFilter<M>::to_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
+pub fn tablo_core::DateFilter<M>::to_expr(&self, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 impl<M> tablo_core::extend::Filter<M> for tablo_core::QueryFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync
 pub fn tablo_core::QueryFilter<M>::control<'a>(&self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> topcoat_view::view::BoxView<'a>
-pub fn tablo_core::QueryFilter<M>::is_noop_value(&self, &str) -> bool
+pub fn tablo_core::QueryFilter<M>::is_noop_value(&self, &tablo_core::FilterValue) -> bool
 pub fn tablo_core::QueryFilter<M>::label(&self) -> &str
 pub fn tablo_core::QueryFilter<M>::name(&self) -> &str
-pub fn tablo_core::QueryFilter<M>::to_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
+pub fn tablo_core::QueryFilter<M>::to_expr(&self, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 impl<M> tablo_core::extend::Filter<M> for tablo_core::SelectFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync
 pub fn tablo_core::SelectFilter<M>::control<'a>(&self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> topcoat_view::view::BoxView<'a>
-pub fn tablo_core::SelectFilter<M>::is_noop_value(&self, &str) -> bool
+pub fn tablo_core::SelectFilter<M>::is_noop_value(&self, &tablo_core::FilterValue) -> bool
 pub fn tablo_core::SelectFilter<M>::label(&self) -> &str
 pub fn tablo_core::SelectFilter<M>::name(&self) -> &str
-pub fn tablo_core::SelectFilter<M>::to_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
+pub fn tablo_core::SelectFilter<M>::to_expr(&self, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 impl<M> tablo_core::extend::Filter<M> for tablo_core::TernaryFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync
 pub fn tablo_core::TernaryFilter<M>::control<'a>(&self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> topcoat_view::view::BoxView<'a>
-pub fn tablo_core::TernaryFilter<M>::is_noop_value(&self, &str) -> bool
+pub fn tablo_core::TernaryFilter<M>::is_noop_value(&self, &tablo_core::FilterValue) -> bool
 pub fn tablo_core::TernaryFilter<M>::label(&self) -> &str
 pub fn tablo_core::TernaryFilter<M>::name(&self) -> &str
-pub fn tablo_core::TernaryFilter<M>::to_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
+pub fn tablo_core::TernaryFilter<M>::to_expr(&self, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub trait tablo_core::extend::FilterDate: core::marker::Sized + core::marker::Send + core::marker::Sync + 'static
 pub type tablo_core::extend::FilterDate::Value: toasty::stmt::into_expr::IntoExpr<Self>
 pub fn tablo_core::extend::FilterDate::exact(&str) -> core::option::Option<Self::Value>
@@ -2194,10 +2228,10 @@ pub fn tablo_core::DateFilter<M>::fmt(&self, &mut core::fmt::Formatter<'_>) -> c
 impl<M> tablo_core::IntoFilters<M> for tablo_core::DateFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
 impl<M> tablo_core::extend::Filter<M> for tablo_core::DateFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync
 pub fn tablo_core::DateFilter<M>::control<'a>(&self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> topcoat_view::view::BoxView<'a>
-pub fn tablo_core::DateFilter<M>::is_noop_value(&self, &str) -> bool
+pub fn tablo_core::DateFilter<M>::is_noop_value(&self, &tablo_core::FilterValue) -> bool
 pub fn tablo_core::DateFilter<M>::label(&self) -> &str
 pub fn tablo_core::DateFilter<M>::name(&self) -> &str
-pub fn tablo_core::DateFilter<M>::to_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
+pub fn tablo_core::DateFilter<M>::to_expr(&self, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 impl<M> !core::marker::Freeze for tablo_core::DateFilter<M>
 impl<M> core::marker::Send for tablo_core::DateFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::DateFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Sync
@@ -2267,6 +2301,39 @@ impl<M> core::marker::Unpin for tablo_core::FileColumn<M> where tablo_core::Lens
 impl<M> core::marker::UnsafeUnpin for tablo_core::FileColumn<M> where tablo_core::Lens<M, alloc::string::String>: core::marker::UnsafeUnpin
 impl<M> core::panic::unwind_safe::RefUnwindSafe for tablo_core::FileColumn<M> where tablo_core::Lens<M, alloc::string::String>: core::panic::unwind_safe::RefUnwindSafe
 impl<M> core::panic::unwind_safe::UnwindSafe for tablo_core::FileColumn<M> where tablo_core::Lens<M, alloc::string::String>: core::panic::unwind_safe::UnwindSafe
+pub struct tablo_core::table::FilterValue
+impl tablo_core::FilterValue
+pub fn tablo_core::FilterValue::is_empty(&self) -> bool
+pub fn tablo_core::FilterValue::new() -> Self
+pub fn tablo_core::FilterValue::part(&self, &str) -> core::option::Option<&str>
+pub fn tablo_core::FilterValue::parts(&self) -> impl core::iter::traits::iterator::Iterator<Item = (&str, &str)>
+pub fn tablo_core::FilterValue::single(&self) -> core::option::Option<&str>
+pub fn tablo_core::FilterValue::values(&self) -> &[alloc::string::String]
+pub fn tablo_core::FilterValue::with(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::FilterValue::with_part(self, impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for tablo_core::FilterValue
+pub fn tablo_core::FilterValue::clone(&self) -> tablo_core::FilterValue
+impl core::cmp::Eq for tablo_core::FilterValue
+impl core::cmp::PartialEq for tablo_core::FilterValue
+pub fn tablo_core::FilterValue::eq(&self, &tablo_core::FilterValue) -> bool
+impl core::convert::From<&str> for tablo_core::FilterValue
+pub fn tablo_core::FilterValue::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for tablo_core::FilterValue
+pub fn tablo_core::FilterValue::from(alloc::string::String) -> Self
+impl core::default::Default for tablo_core::FilterValue
+pub fn tablo_core::FilterValue::default() -> tablo_core::FilterValue
+impl core::fmt::Debug for tablo_core::FilterValue
+pub fn tablo_core::FilterValue::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tablo_core::FilterValue
+pub fn tablo_core::FilterValue::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_core::FilterValue
+impl core::marker::Freeze for tablo_core::FilterValue
+impl core::marker::Send for tablo_core::FilterValue
+impl core::marker::Sync for tablo_core::FilterValue
+impl core::marker::Unpin for tablo_core::FilterValue
+impl core::marker::UnsafeUnpin for tablo_core::FilterValue
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::FilterValue
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::FilterValue
 pub struct tablo_core::table::QueryFilter<M>
 impl<M> tablo_core::QueryFilter<M> where M: toasty::schema::model::Model
 pub fn tablo_core::QueryFilter<M>::new(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
@@ -2278,10 +2345,10 @@ pub fn tablo_core::QueryFilter<M>::fmt(&self, &mut core::fmt::Formatter<'_>) -> 
 impl<M> tablo_core::IntoFilters<M> for tablo_core::QueryFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
 impl<M> tablo_core::extend::Filter<M> for tablo_core::QueryFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync
 pub fn tablo_core::QueryFilter<M>::control<'a>(&self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> topcoat_view::view::BoxView<'a>
-pub fn tablo_core::QueryFilter<M>::is_noop_value(&self, &str) -> bool
+pub fn tablo_core::QueryFilter<M>::is_noop_value(&self, &tablo_core::FilterValue) -> bool
 pub fn tablo_core::QueryFilter<M>::label(&self) -> &str
 pub fn tablo_core::QueryFilter<M>::name(&self) -> &str
-pub fn tablo_core::QueryFilter<M>::to_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
+pub fn tablo_core::QueryFilter<M>::to_expr(&self, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 impl<M> core::marker::Freeze for tablo_core::QueryFilter<M> where core::marker::PhantomData<M>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::QueryFilter<M> where core::marker::PhantomData<M>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::QueryFilter<M> where core::marker::PhantomData<M>: core::marker::Sync
@@ -2381,10 +2448,10 @@ pub fn tablo_core::SelectFilter<M>::fmt(&self, &mut core::fmt::Formatter<'_>) ->
 impl<M> tablo_core::IntoFilters<M> for tablo_core::SelectFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
 impl<M> tablo_core::extend::Filter<M> for tablo_core::SelectFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync
 pub fn tablo_core::SelectFilter<M>::control<'a>(&self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> topcoat_view::view::BoxView<'a>
-pub fn tablo_core::SelectFilter<M>::is_noop_value(&self, &str) -> bool
+pub fn tablo_core::SelectFilter<M>::is_noop_value(&self, &tablo_core::FilterValue) -> bool
 pub fn tablo_core::SelectFilter<M>::label(&self) -> &str
 pub fn tablo_core::SelectFilter<M>::name(&self) -> &str
-pub fn tablo_core::SelectFilter<M>::to_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
+pub fn tablo_core::SelectFilter<M>::to_expr(&self, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 impl<M> !core::marker::Freeze for tablo_core::SelectFilter<M>
 impl<M> core::marker::Send for tablo_core::SelectFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::SelectFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Sync
@@ -2458,7 +2525,7 @@ impl<M> core::panic::unwind_safe::RefUnwindSafe for tablo_core::TablePage<M> whe
 impl<M> core::panic::unwind_safe::UnwindSafe for tablo_core::TablePage<M> where alloc::vec::Vec<M>: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::table::TableState
 pub tablo_core::table::TableState::cursor: core::option::Option<tablo_core::Cursor>
-pub tablo_core::table::TableState::filters: alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::string::String>
+pub tablo_core::table::TableState::filters: alloc::collections::btree::map::BTreeMap<alloc::string::String, tablo_core::FilterValue>
 pub tablo_core::table::TableState::filters_dropped: bool
 pub tablo_core::table::TableState::group_by: core::option::Option<alloc::string::String>
 pub tablo_core::table::TableState::prefix: core::option::Option<alloc::string::String>
@@ -2495,10 +2562,10 @@ pub fn tablo_core::TernaryFilter<M>::fmt(&self, &mut core::fmt::Formatter<'_>) -
 impl<M> tablo_core::IntoFilters<M> for tablo_core::TernaryFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
 impl<M> tablo_core::extend::Filter<M> for tablo_core::TernaryFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync
 pub fn tablo_core::TernaryFilter<M>::control<'a>(&self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> topcoat_view::view::BoxView<'a>
-pub fn tablo_core::TernaryFilter<M>::is_noop_value(&self, &str) -> bool
+pub fn tablo_core::TernaryFilter<M>::is_noop_value(&self, &tablo_core::FilterValue) -> bool
 pub fn tablo_core::TernaryFilter<M>::label(&self) -> &str
 pub fn tablo_core::TernaryFilter<M>::name(&self) -> &str
-pub fn tablo_core::TernaryFilter<M>::to_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
+pub fn tablo_core::TernaryFilter<M>::to_expr(&self, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 impl<M> !core::marker::Freeze for tablo_core::TernaryFilter<M>
 impl<M> core::marker::Send for tablo_core::TernaryFilter<M> where toasty::stmt::path::Path<M, bool>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::TernaryFilter<M> where toasty::stmt::path::Path<M, bool>: core::marker::Sync
@@ -2872,6 +2939,8 @@ pub tablo_core::DeclarationErrorKind::CreateColumnsNameTenant::column: alloc::st
 pub tablo_core::DeclarationErrorKind::CreateWithoutForm
 pub tablo_core::DeclarationErrorKind::DisabledWithoutValue
 pub tablo_core::DeclarationErrorKind::DisabledWithoutValue::field: alloc::string::String
+pub tablo_core::DeclarationErrorKind::DottedFilterName
+pub tablo_core::DeclarationErrorKind::DottedFilterName::name: alloc::string::String
 pub tablo_core::DeclarationErrorKind::DuplicateAction
 pub tablo_core::DeclarationErrorKind::DuplicateAction::name: &'static str
 pub tablo_core::DeclarationErrorKind::DuplicateColumn
@@ -3446,10 +3515,10 @@ pub fn tablo_core::DateFilter<M>::fmt(&self, &mut core::fmt::Formatter<'_>) -> c
 impl<M> tablo_core::IntoFilters<M> for tablo_core::DateFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
 impl<M> tablo_core::extend::Filter<M> for tablo_core::DateFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync
 pub fn tablo_core::DateFilter<M>::control<'a>(&self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> topcoat_view::view::BoxView<'a>
-pub fn tablo_core::DateFilter<M>::is_noop_value(&self, &str) -> bool
+pub fn tablo_core::DateFilter<M>::is_noop_value(&self, &tablo_core::FilterValue) -> bool
 pub fn tablo_core::DateFilter<M>::label(&self) -> &str
 pub fn tablo_core::DateFilter<M>::name(&self) -> &str
-pub fn tablo_core::DateFilter<M>::to_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
+pub fn tablo_core::DateFilter<M>::to_expr(&self, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 impl<M> !core::marker::Freeze for tablo_core::DateFilter<M>
 impl<M> core::marker::Send for tablo_core::DateFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::DateFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Sync
@@ -3717,6 +3786,39 @@ impl<F> core::marker::Unpin for tablo_core::FileField<F> where core::marker::Pha
 impl<F> core::marker::UnsafeUnpin for tablo_core::FileField<F> where core::marker::PhantomData<fn() -> F>: core::marker::UnsafeUnpin
 impl<F> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::FileField<F>
 impl<F> !core::panic::unwind_safe::UnwindSafe for tablo_core::FileField<F>
+pub struct tablo_core::FilterValue
+impl tablo_core::FilterValue
+pub fn tablo_core::FilterValue::is_empty(&self) -> bool
+pub fn tablo_core::FilterValue::new() -> Self
+pub fn tablo_core::FilterValue::part(&self, &str) -> core::option::Option<&str>
+pub fn tablo_core::FilterValue::parts(&self) -> impl core::iter::traits::iterator::Iterator<Item = (&str, &str)>
+pub fn tablo_core::FilterValue::single(&self) -> core::option::Option<&str>
+pub fn tablo_core::FilterValue::values(&self) -> &[alloc::string::String]
+pub fn tablo_core::FilterValue::with(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::FilterValue::with_part(self, impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for tablo_core::FilterValue
+pub fn tablo_core::FilterValue::clone(&self) -> tablo_core::FilterValue
+impl core::cmp::Eq for tablo_core::FilterValue
+impl core::cmp::PartialEq for tablo_core::FilterValue
+pub fn tablo_core::FilterValue::eq(&self, &tablo_core::FilterValue) -> bool
+impl core::convert::From<&str> for tablo_core::FilterValue
+pub fn tablo_core::FilterValue::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for tablo_core::FilterValue
+pub fn tablo_core::FilterValue::from(alloc::string::String) -> Self
+impl core::default::Default for tablo_core::FilterValue
+pub fn tablo_core::FilterValue::default() -> tablo_core::FilterValue
+impl core::fmt::Debug for tablo_core::FilterValue
+pub fn tablo_core::FilterValue::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tablo_core::FilterValue
+pub fn tablo_core::FilterValue::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_core::FilterValue
+impl core::marker::Freeze for tablo_core::FilterValue
+impl core::marker::Send for tablo_core::FilterValue
+impl core::marker::Sync for tablo_core::FilterValue
+impl core::marker::Unpin for tablo_core::FilterValue
+impl core::marker::UnsafeUnpin for tablo_core::FilterValue
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::FilterValue
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::FilterValue
 pub struct tablo_core::FormField<K>
 pub tablo_core::FormField::field: K
 pub tablo_core::FormField::keys: alloc::vec::Vec<alloc::string::String>
@@ -4137,10 +4239,10 @@ pub fn tablo_core::QueryFilter<M>::fmt(&self, &mut core::fmt::Formatter<'_>) -> 
 impl<M> tablo_core::IntoFilters<M> for tablo_core::QueryFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
 impl<M> tablo_core::extend::Filter<M> for tablo_core::QueryFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync
 pub fn tablo_core::QueryFilter<M>::control<'a>(&self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> topcoat_view::view::BoxView<'a>
-pub fn tablo_core::QueryFilter<M>::is_noop_value(&self, &str) -> bool
+pub fn tablo_core::QueryFilter<M>::is_noop_value(&self, &tablo_core::FilterValue) -> bool
 pub fn tablo_core::QueryFilter<M>::label(&self) -> &str
 pub fn tablo_core::QueryFilter<M>::name(&self) -> &str
-pub fn tablo_core::QueryFilter<M>::to_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
+pub fn tablo_core::QueryFilter<M>::to_expr(&self, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 impl<M> core::marker::Freeze for tablo_core::QueryFilter<M> where core::marker::PhantomData<M>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::QueryFilter<M> where core::marker::PhantomData<M>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::QueryFilter<M> where core::marker::PhantomData<M>: core::marker::Sync
@@ -4378,10 +4480,10 @@ pub fn tablo_core::SelectFilter<M>::fmt(&self, &mut core::fmt::Formatter<'_>) ->
 impl<M> tablo_core::IntoFilters<M> for tablo_core::SelectFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
 impl<M> tablo_core::extend::Filter<M> for tablo_core::SelectFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync
 pub fn tablo_core::SelectFilter<M>::control<'a>(&self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> topcoat_view::view::BoxView<'a>
-pub fn tablo_core::SelectFilter<M>::is_noop_value(&self, &str) -> bool
+pub fn tablo_core::SelectFilter<M>::is_noop_value(&self, &tablo_core::FilterValue) -> bool
 pub fn tablo_core::SelectFilter<M>::label(&self) -> &str
 pub fn tablo_core::SelectFilter<M>::name(&self) -> &str
-pub fn tablo_core::SelectFilter<M>::to_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
+pub fn tablo_core::SelectFilter<M>::to_expr(&self, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 impl<M> !core::marker::Freeze for tablo_core::SelectFilter<M>
 impl<M> core::marker::Send for tablo_core::SelectFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::SelectFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Sync
@@ -4490,7 +4592,7 @@ impl<M> core::panic::unwind_safe::RefUnwindSafe for tablo_core::TablePage<M> whe
 impl<M> core::panic::unwind_safe::UnwindSafe for tablo_core::TablePage<M> where alloc::vec::Vec<M>: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::TableState
 pub tablo_core::TableState::cursor: core::option::Option<tablo_core::Cursor>
-pub tablo_core::TableState::filters: alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::string::String>
+pub tablo_core::TableState::filters: alloc::collections::btree::map::BTreeMap<alloc::string::String, tablo_core::FilterValue>
 pub tablo_core::TableState::filters_dropped: bool
 pub tablo_core::TableState::group_by: core::option::Option<alloc::string::String>
 pub tablo_core::TableState::prefix: core::option::Option<alloc::string::String>
@@ -4622,10 +4724,10 @@ pub fn tablo_core::TernaryFilter<M>::fmt(&self, &mut core::fmt::Formatter<'_>) -
 impl<M> tablo_core::IntoFilters<M> for tablo_core::TernaryFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
 impl<M> tablo_core::extend::Filter<M> for tablo_core::TernaryFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync
 pub fn tablo_core::TernaryFilter<M>::control<'a>(&self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> topcoat_view::view::BoxView<'a>
-pub fn tablo_core::TernaryFilter<M>::is_noop_value(&self, &str) -> bool
+pub fn tablo_core::TernaryFilter<M>::is_noop_value(&self, &tablo_core::FilterValue) -> bool
 pub fn tablo_core::TernaryFilter<M>::label(&self) -> &str
 pub fn tablo_core::TernaryFilter<M>::name(&self) -> &str
-pub fn tablo_core::TernaryFilter<M>::to_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
+pub fn tablo_core::TernaryFilter<M>::to_expr(&self, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 impl<M> !core::marker::Freeze for tablo_core::TernaryFilter<M>
 impl<M> core::marker::Send for tablo_core::TernaryFilter<M> where toasty::stmt::path::Path<M, bool>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::TernaryFilter<M> where toasty::stmt::path::Path<M, bool>: core::marker::Sync

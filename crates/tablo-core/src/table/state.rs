@@ -14,7 +14,7 @@ use topcoat::{
     runtime::{Signal, signal},
 };
 
-use super::TableTarget;
+use super::{TableTarget, filter::FilterValue};
 use crate::topcoat_compat::href;
 
 /// A table's browser state: the list's query string, the bulk selection, and
@@ -149,9 +149,10 @@ pub struct TableState {
     pub sort: Option<Sort>,
     /// `?after=` or `?before=`.
     pub cursor: Option<Cursor>,
-    /// `?f.<name>=<value>`, one parameter per active filter, by name. A blank
-    /// value is no filter.
-    pub filters: BTreeMap<String, String>,
+    /// The active filters, by name: `?f.<name>=<value>`, repeated for each
+    /// value, and `?f.<name>.<part>=<value>` for each part. The parse keeps
+    /// no filter holding no value.
+    pub filters: BTreeMap<String, FilterValue>,
     /// Filter parameters the parse dropped.
     pub filters_dropped: bool,
     /// `?group_by=` — field name to group by (in-memory, `count` summarizer).
@@ -185,7 +186,10 @@ pub(crate) fn clamp_query_term(term: &str) -> String {
 /// Caps applied filters per query.
 pub(crate) const MAX_FILTERS: usize = 32;
 
-/// Caps filter name and value length in bytes.
+/// Caps the values and parts one filter holds.
+pub(crate) const MAX_FILTER_VALUES: usize = 64;
+
+/// Caps filter name, part and value length in bytes.
 pub(crate) const MAX_FILTER_LEN: usize = 256;
 
 /// The prefix that names a filter parameter: `?f.status=published`.
@@ -233,13 +237,15 @@ impl TableState {
     /// parser behind the page and its exports.
     ///
     /// A blank or unknown query parses as neutral state rather than failing
-    /// the request. A duplicate key keeps its first occurrence, so a repeated
-    /// filter never vanishes. A blank or dropped filter occurrence is no
-    /// filter, so a later occurrence of the same filter applies (a dropped one
-    /// still flags [`Self::filters_dropped`]). `q` is trimmed and clamped to
-    /// `MAX_QUERY_TERM`, `dir` is trimmed before comparing, and at most
-    /// `MAX_FILTERS` filters of at most `MAX_FILTER_LEN` bytes apply. A cursor
-    /// token is checked later, when it decodes.
+    /// the request. A duplicate key keeps its first occurrence, except a
+    /// filter's value: each `f.<name>` occurrence adds one, in order, and a
+    /// repeated value or part keeps its first occurrence. A blank or dropped
+    /// occurrence adds nothing (a dropped one flags [`Self::filters_dropped`]).
+    /// `q` is trimmed and clamped to `MAX_QUERY_TERM`, `dir` is trimmed before
+    /// comparing, and at most `MAX_FILTERS` filters of at most
+    /// `MAX_FILTER_VALUES` values and parts, each name, part and value at most
+    /// `MAX_FILTER_LEN` bytes, apply. A cursor token is checked later, when it
+    /// decodes.
     ///
     /// A rerun parses a client-owned query, so the parse is linear in its
     /// length: only the known keys are remembered.
@@ -254,19 +260,8 @@ impl TableState {
         let (mut sort, mut dir, mut after, mut before) = (None, None, None, None);
         let mut seen = [false; 6];
         for (key, value) in pairs {
-            if let Some(name) = key.strip_prefix(FILTER_PREFIX) {
-                let value = value.trim();
-                if name.is_empty() || value.is_empty() || state.filters.contains_key(name) {
-                    continue;
-                }
-                if state.filters.len() == MAX_FILTERS
-                    || name.len() > MAX_FILTER_LEN
-                    || value.len() > MAX_FILTER_LEN
-                {
-                    state.filters_dropped = true;
-                    continue;
-                }
-                state.filters.insert(name.to_string(), value.to_string());
+            if let Some(filter) = key.strip_prefix(FILTER_PREFIX) {
+                state.add_filter(filter, value.trim());
                 continue;
             }
             let slot = match key.as_ref() {
@@ -309,6 +304,40 @@ impl TableState {
         state
     }
 
+    /// Add one `f.{filter}={value}` occurrence, `filter` naming the filter
+    /// and, after its first `.`, the part.
+    fn add_filter(&mut self, filter: &str, value: &str) {
+        let (name, part) = match filter.split_once('.') {
+            Some((name, part)) => (name, Some(part)),
+            None => (filter, None),
+        };
+        let held = self.filters.get(name);
+        if name.is_empty()
+            || part == Some("")
+            || value.is_empty()
+            || held.is_some_and(|held| held.holds(part, value))
+        {
+            return;
+        }
+        let room = match held {
+            Some(held) => held.len() < MAX_FILTER_VALUES,
+            None => self.filters.len() < MAX_FILTERS,
+        };
+        if !room
+            || [name, part.unwrap_or_default(), value]
+                .iter()
+                .any(|s| s.len() > MAX_FILTER_LEN)
+        {
+            self.filters_dropped = true;
+            return;
+        }
+        let held = self.filters.entry(name.to_string()).or_default();
+        match part {
+            Some(part) => held.insert_part(part, value),
+            None => held.push(value),
+        }
+    }
+
     /// The state's full query: every parameter [`Self::list_url`] carries,
     /// without the path or the leading `?`.
     pub(crate) fn query(&self) -> String {
@@ -320,8 +349,9 @@ impl TableState {
     /// parameter cannot silently drop it from half the links.
     ///
     /// One private encoder ([`Self::project`]) holds the vocabulary in
-    /// canonical order `q, sort, dir, f.*, group_by, after|before`. The parser
-    /// is first-wins with unique keys, so order is semantically irrelevant.
+    /// canonical order `q, sort, dir, f.*, group_by, after|before`. Only a
+    /// filter's values depend on the order, and each filter writes them in
+    /// the order it holds them.
     ///
     /// Expects `group_by` pre-normalized: render seams normalize through
     /// [`Table::normalize_state`](crate::table::Table::normalize_state), so
@@ -422,7 +452,18 @@ impl TableState {
             .then_some(&self.filters)
             .into_iter()
             .flatten()
-            .map(|(name, value)| (self.filter_param(name), Some(value.as_str())));
+            .flat_map(|(name, value)| {
+                let param = self.filter_param(name);
+                let values = value
+                    .values()
+                    .iter()
+                    .map(move |v| (param.clone(), v.as_str()));
+                let parts = value
+                    .parts()
+                    .map(move |(part, v)| (self.filter_param(&format!("{name}.{part}")), v));
+                values.chain(parts)
+            })
+            .map(|(key, value)| (key, Some(value)));
         let cursor = match projection.cursor {
             Some(Cursor::After(token)) => ("after", Some(token.as_str())),
             Some(Cursor::Before(token)) => ("before", Some(token.as_str())),

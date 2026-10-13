@@ -32,7 +32,7 @@ pub use self::{
         IntoColumns, ModelColumns, RelationColumn, RelationLens, RepeaterColumn, TextColumn,
         ToOneRelation, contains_expr,
     },
-    filter::{DateFilter, IntoFilters, QueryFilter, SelectFilter, TernaryFilter},
+    filter::{DateFilter, FilterValue, IntoFilters, QueryFilter, SelectFilter, TernaryFilter},
     page::TablePage,
     state::{Cursor, Sort, TableState},
     wiring::WiredTable,
@@ -241,8 +241,10 @@ impl<M> Table<M> {
             out.push((
                 "dropped filters".to_string(),
                 format!(
-                    "more than {}, over {} bytes, or the retired filters= form",
+                    "more than {} filters, more than {} values of one, over {} bytes, or the \
+                     retired filters= form",
                     state::MAX_FILTERS,
+                    state::MAX_FILTER_VALUES,
                     state::MAX_FILTER_LEN
                 ),
             ));
@@ -325,6 +327,11 @@ impl<M> Table<M> {
         for filter in &self.filters {
             match filter.misdeclared() {
                 Some(error) => errors.push(error),
+                None if filter.name().contains('.') => {
+                    errors.push(DeclarationErrorKind::DottedFilterName {
+                        name: filter.name().to_string(),
+                    });
+                }
                 None if !seen.insert(filter.name()) => {
                     errors.push(DeclarationErrorKind::DuplicateFilter {
                         name: filter.name().to_string(),

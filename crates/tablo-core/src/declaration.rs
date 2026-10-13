@@ -360,6 +360,12 @@ pub enum DeclarationErrorKind {
         /// The shared name.
         name: String,
     },
+    /// A table filter's name holds a `.`, which its URL parameters reserve for a part:
+    /// `f.<name>.<part>`.
+    DottedFilterName {
+        /// The name.
+        name: String,
+    },
     /// A select filter option whose value the field's type does not parse, so choosing it
     /// filters nothing.
     UnparsedFilterOption {
@@ -653,6 +659,7 @@ impl fmt::Display for DeclarationErrorKind {
                 f,
                 "two filters are named '{name}': each filter needs a distinct name"
             ),
+            Self::DottedFilterName { name } => write!(f, "filter name '{name}' holds a '.'"),
             Self::UnparsedFilterOption { filter, value } => write!(
                 f,
                 "filter '{filter}' offers '{value}', which its field's type does not parse: spell \

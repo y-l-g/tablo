@@ -690,7 +690,7 @@ async fn export_and_list_agree_on_rows_and_order() {
     // resolve the same ordering without the PK fallback.
     let state = TableState {
         search: Some("a".to_string()),
-        filters: BTreeMap::from([("status".to_string(), "published".to_string())]),
+        filters: BTreeMap::from([("status".to_string(), "published".into())]),
         sort: Some(Sort {
             column: "title".to_string(),
             descending: true,

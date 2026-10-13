@@ -144,15 +144,16 @@ search and filters as a GET form.
 
 | Filter | Field | Values |
 | --- | --- | --- |
-| `SelectFilter::of(lens)` | an [`Options`](./forms.md#controls) enum, or an `Option` of one | one of the type's options |
-| `SelectFilter::new(lens, options)` | `String`, or any form scalar | one of `options`, matched exactly; the options are `Vec<(String, String)>` (an `Options` list), `Vec<String>`, or `[&str; N]` |
+| `SelectFilter::of(lens)` | an [`Options`](./forms.md#controls) enum, or an `Option` of one | one or more of the type's options |
+| `SelectFilter::new(lens, options)` | `String`, or any form scalar | one or more of `options`, matched exactly; the options are `Vec<(String, String)>` (an `Options` list), `Vec<String>`, or `[&str; N]` |
 | `TernaryFilter::new(lens)` | `bool` | `true`, `false`, or `all` (no filter) |
 | `DateFilter::new(lens)` | `jiff::Timestamp`, `jiff::civil::Date` or `jiff::civil::DateTime`, or an `Option` of one | a date `2024-01-15` matches that day (UTC for a timestamp); an RFC 3339 timestamp, or a civil date-time, matches that value |
 | `QueryFilter::new(name, label).option(label, predicate)` | any | named options, each a Toasty predicate you build |
 
-Each active filter is one parameter, `?f.<name>=<value>`, named after the field (a
-`QueryFilter` after its name), and active
-filters combine with AND.
+An active filter's parameter is `?f.<name>=<value>`, named after the field (a `QueryFilter`
+after its name). A filter taking several values repeats it, `?f.status=draft&f.status=review`,
+and a select filter matches a record holding any of them; the other built-in filters take one
+value. Active filters combine with AND.
 
 A filter is anything that implements `Filter<M>`, from `tablo::extend`: a name, a label, the
 predicate a value selects, and the control the filter bar renders. The four filters above implement it and nothing more.
@@ -161,15 +162,19 @@ predicate a value selects, and the control the filter bar renders. The four filt
 {{#include ../../../examples/guide/src/tables.rs:table-promoted-filter}}
 ```
 
-`FilterInput` carries the parameter the control submits and the current value, and
-`input.select(cx, options)` renders the built-in select:
+`FilterInput` carries the parameter the control submits and the current `FilterValue`, and
+`input.select(cx, options)` renders the built-in select. `value.single()` is the one value a
+single-choice control submits, `value.values()` every repeated value, and `value.part("from")` a
+part a control submits as `?f.<name>.from=`, under `input.part_param("from")`:
 
 ```rust
 {{#include ../../../examples/guide/src/tables.rs:table-adults-filter}}
 ```
 
 A filter of your own goes in the `filters((..))` tuple; alone, it is a one-element tuple,
-`.filters((Adults,))`. At most 32 filters apply, each name and value at most 256 bytes.
+`.filters((Adults,))`. At most 32 filters apply, each with at most 64 values and parts, each
+name, part and value at most 256 bytes. A filter's name holds no `.`, which the parameter
+reserves for a part.
 
 A filter that cannot apply — an unknown name, a value the filter rejects, or one over the limits —
 is never dropped silently: the list shows a warning banner naming it, and the export refuses the

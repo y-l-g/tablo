@@ -109,6 +109,39 @@ async fn posts_filter_date_created_at() {
     );
 }
 
+/// A repeated filter parameter keeps the posts holding any of its values, the list's links carry
+/// every value, and the export, which refuses a filter that does not apply, accepts it.
+#[tokio::test]
+async fn a_repeated_status_keeps_the_posts_holding_any_of_them() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let mut all = row_titles(&body_string(client.get("/admin/posts?sort=title").await).await);
+    let html = body_string(
+        client
+            .get("/admin/posts?sort=title&f.status=draft&f.status=published")
+            .await,
+    )
+    .await;
+    let mut both = row_titles(&html);
+    all.sort();
+    both.sort();
+    assert_eq!(both, all, "every post is a draft or published: {html}");
+    let sort = find_href_with(&html, "sort=title").expect("a sort link");
+    assert!(
+        sort.contains("f.status=draft") && sort.contains("f.status=published"),
+        "the sort link keeps both values: {sort}"
+    );
+    let export = client
+        .get("/admin/posts/-/export?f.status=draft&f.status=published")
+        .await;
+    assert_eq!(
+        export.status(),
+        200,
+        "the export refuses a filter that does not apply"
+    );
+}
+
 #[tokio::test]
 async fn posts_filter_composes_and() {
     let db = full_db().await;

@@ -71,7 +71,9 @@ async fn date_filter_date_only_matches_whole_day() {
         .unwrap();
     }
     let f = DateFilter::new(Task::fields().created_at());
-    let expr = f.to_expr("2024-01-15").expect("date-only must build");
+    let expr = f
+        .to_expr(&"2024-01-15".into())
+        .expect("date-only must build");
     let mut db2 = db.clone();
     let mut rows = Task::filter(expr).exec(&mut db2).await.unwrap();
     rows.sort_by(|a, b| a.title.cmp(&b.title));
@@ -82,36 +84,36 @@ async fn date_filter_date_only_matches_whole_day() {
     );
     // Exact RFC3339 instants still match exactly.
     let expr = f
-        .to_expr("2024-01-15T09:30:00Z")
+        .to_expr(&"2024-01-15T09:30:00Z".into())
         .expect("rfc3339 must build");
     let rows = Task::filter(expr).exec(&mut db2).await.unwrap();
     assert_eq!(rows.len(), 1);
-    assert!(f.to_expr("not-a-date").is_none());
+    assert!(f.to_expr(&"not-a-date".into()).is_none());
 }
 
 #[test]
 fn date_filter_recovers_plus_offsets_mangled_by_query_decode() {
     let f = DateFilter::new(Task::fields().created_at());
     // `+02:00` arrives as ` 02:00` after `+`-as-space decoding.
-    assert!(f.to_expr("2024-01-15T09:30:00 02:00").is_some());
-    assert!(f.to_expr("2024-01-15T09:30:00+02:00").is_some());
-    assert!(f.to_expr("not-a-date").is_none());
-    assert!(f.to_expr("").is_none());
+    assert!(f.to_expr(&"2024-01-15T09:30:00 02:00".into()).is_some());
+    assert!(f.to_expr(&"2024-01-15T09:30:00+02:00".into()).is_some());
+    assert!(f.to_expr(&"not-a-date".into()).is_none());
+    assert!(f.to_expr(&"".into()).is_none());
 }
 
 #[test]
 fn date_filter_on_the_last_representable_day_does_not_panic() {
     let f = DateFilter::new(Task::fields().created_at());
     assert!(
-        f.to_expr("9999-12-30").is_some(),
+        f.to_expr(&"9999-12-30".into()).is_some(),
         "the last day builds a lower-bounded predicate"
     );
     assert!(
-        f.to_expr("9999-12-31").is_none(),
+        f.to_expr(&"9999-12-31".into()).is_none(),
         "a day past the maximum is invalid, not a panic"
     );
     assert!(
-        f.to_expr("-009999-01-01").is_none(),
+        f.to_expr(&"-009999-01-01".into()).is_none(),
         "a day before the minimum is invalid"
     );
 }
@@ -121,17 +123,23 @@ fn a_variant_filter_accepts_only_a_declared_variant() {
     let f = vehicule_filter();
     assert_eq!(f.name(), "vehicule");
     assert_eq!(f.label(), "Véhicule");
-    assert!(f.to_expr("").is_none(), "empty yields no filter");
-    assert!(f.to_expr("   ").is_none(), "blank yields no filter");
+    assert!(f.to_expr(&"".into()).is_none(), "empty yields no filter");
+    assert!(f.to_expr(&"   ".into()).is_none(), "blank yields no filter");
     assert!(
-        f.to_expr("Avion").is_none(),
+        f.to_expr(&"Avion".into()).is_none(),
         "unknown yields no filter, got {:?}",
-        f.to_expr("Avion").is_some()
+        f.to_expr(&"Avion".into()).is_some()
     );
-    assert!(f.to_expr("Auto").is_some(), "known variant must match");
-    assert!(f.to_expr("Moto").is_some(), "known variant must match");
+    assert!(
+        f.to_expr(&"Auto".into()).is_some(),
+        "known variant must match"
+    );
+    assert!(
+        f.to_expr(&"Moto".into()).is_some(),
+        "known variant must match"
+    );
     // Whitespace trims like SelectFilter.
-    assert!(f.to_expr("  Moto  ").is_some());
+    assert!(f.to_expr(&"  Moto  ".into()).is_some());
 }
 
 #[test]
@@ -142,33 +150,36 @@ fn a_select_filter_accepts_only_its_allow_list() {
         vec!["draft".to_string(), "published".to_string()],
     );
     assert_eq!(f.name(), "status");
-    assert!(f.to_expr("published").is_some());
-    assert!(f.to_expr("draft").is_some());
-    assert!(f.to_expr("").is_none(), "empty yields no filter");
-    assert!(f.to_expr("   ").is_none(), "blank yields no filter");
+    assert!(f.to_expr(&"published".into()).is_some());
+    assert!(f.to_expr(&"draft".into()).is_some());
+    assert!(f.to_expr(&"".into()).is_none(), "empty yields no filter");
+    assert!(f.to_expr(&"   ".into()).is_none(), "blank yields no filter");
     assert!(
-        f.to_expr("unknown").is_none(),
+        f.to_expr(&"unknown".into()).is_none(),
         "off-allowlist yields no filter"
     );
     assert!(
-        f.to_expr("Published").is_none(),
+        f.to_expr(&"Published".into()).is_none(),
         "allowlist is case-sensitive"
     );
     // Whitespace trims before the allowlist check.
-    assert!(f.to_expr("  published  ").is_some());
+    assert!(f.to_expr(&"  published  ".into()).is_some());
 }
 
 #[test]
 fn a_ternary_filter_reads_true_and_false_and_ignores_the_rest() {
     let f = TernaryFilter::new(Task::fields().featured());
     assert_eq!(f.name(), "featured");
-    assert!(f.to_expr("true").is_some());
-    assert!(f.to_expr("false").is_some());
-    assert!(f.to_expr("").is_none(), "empty yields no filter");
-    assert!(f.to_expr("all").is_none(), "`all` yields no filter");
-    assert!(f.to_expr("yes").is_none());
-    assert!(f.to_expr("  true  ").is_some(), "value trims");
-    assert!(f.is_noop_value("all"), "`all` is the documented no-op");
+    assert!(f.to_expr(&"true".into()).is_some());
+    assert!(f.to_expr(&"false".into()).is_some());
+    assert!(f.to_expr(&"".into()).is_none(), "empty yields no filter");
+    assert!(f.to_expr(&"all".into()).is_none(), "`all` yields no filter");
+    assert!(f.to_expr(&"yes".into()).is_none());
+    assert!(f.to_expr(&"  true  ".into()).is_some(), "value trims");
+    assert!(
+        f.is_noop_value(&"all".into()),
+        "`all` is the documented no-op"
+    );
 }
 
 #[tokio::test]
@@ -209,7 +220,7 @@ async fn query_filter_hits_only_the_variant() {
 
     let f = vehicule_filter();
     let mut db2 = db.clone();
-    let motos = Driver::filter(f.to_expr("Moto").unwrap())
+    let motos = Driver::filter(f.to_expr(&"Moto".into()).unwrap())
         .exec(&mut db2)
         .await
         .unwrap();
@@ -220,7 +231,7 @@ async fn query_filter_hits_only_the_variant() {
     );
     assert_eq!(motos[0].name, "Bob");
 
-    let autos = Driver::filter(f.to_expr("Auto").unwrap())
+    let autos = Driver::filter(f.to_expr(&"Auto".into()).unwrap())
         .exec(&mut db2)
         .await
         .unwrap();
@@ -232,7 +243,7 @@ async fn query_filter_hits_only_the_variant() {
 
     // Composes with search via AND (the loader's contract).
     let search = Driver::fields().name().starts_with("B".to_string());
-    let both = search.and(f.to_expr("Moto").unwrap());
+    let both = search.and(f.to_expr(&"Moto".into()).unwrap());
     let rows = Driver::filter(both).exec(&mut db2).await.unwrap();
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].name, "Bob");
@@ -241,7 +252,7 @@ async fn query_filter_hits_only_the_variant() {
     let both = Driver::fields()
         .name()
         .starts_with("A".to_string())
-        .and(f.to_expr("Moto").unwrap());
+        .and(f.to_expr(&"Moto".into()).unwrap());
     let rows = Driver::filter(both).exec(&mut db2).await.unwrap();
     assert!(
         rows.is_empty(),
@@ -280,21 +291,87 @@ async fn date_filter_matches_a_day_on_each_date_type() {
     let starts_at = DateFilter::new(Event::fields().starts_at());
     let closed_at = DateFilter::new(Event::fields().closed_at());
     assert_eq!(
-        titles(&db, day.to_expr("2024-01-15").unwrap()).await,
+        titles(&db, day.to_expr(&"2024-01-15".into()).unwrap()).await,
         ["First", "Second"]
     );
     assert_eq!(
-        titles(&db, starts_at.to_expr("2024-01-15").unwrap()).await,
+        titles(&db, starts_at.to_expr(&"2024-01-15".into()).unwrap()).await,
         ["First", "Second"]
     );
     assert_eq!(
-        titles(&db, starts_at.to_expr("2024-01-15T23:00").unwrap()).await,
+        titles(&db, starts_at.to_expr(&"2024-01-15T23:00".into()).unwrap()).await,
         ["Second"],
         "a date-time names one value"
     );
     assert_eq!(
-        titles(&db, closed_at.to_expr("2024-01-15").unwrap()).await,
+        titles(&db, closed_at.to_expr(&"2024-01-15".into()).unwrap()).await,
         ["First"]
     );
-    assert!(day.to_expr("not-a-date").is_none());
+    assert!(day.to_expr(&"not-a-date".into()).is_none());
+}
+
+/// Several values select the records holding any of them; one value off the list selects none.
+#[tokio::test]
+async fn a_select_filter_matches_any_of_several_values() {
+    let mut db = memory_db(toasty::models!(Task)).await;
+    for (title, status) in [
+        ("Draft", "draft"),
+        ("Review", "review"),
+        ("Published", "published"),
+    ] {
+        toasty::create!(Task {
+            title: title.to_string(),
+            status: status.to_string(),
+            featured: false,
+            created_at: jiff::Timestamp::UNIX_EPOCH,
+        })
+        .exec(&mut db)
+        .await
+        .unwrap();
+    }
+    let f = SelectFilter::new(crate::lens!(Task.status), ["draft", "review", "published"]);
+    let mut rows = Task::filter(
+        f.to_expr(&FilterValue::from("draft").with("published"))
+            .unwrap(),
+    )
+    .exec(&mut db)
+    .await
+    .unwrap();
+    rows.sort_by(|a, b| a.title.cmp(&b.title));
+    assert_eq!(
+        rows.into_iter().map(|row| row.title).collect::<Vec<_>>(),
+        ["Draft", "Published"]
+    );
+    assert!(
+        f.to_expr(&FilterValue::from("draft").with("archived"))
+            .is_none()
+    );
+    assert!(
+        f.to_expr(&FilterValue::from("draft").with_part("from", "x"))
+            .is_none()
+    );
+}
+
+/// A filter taking one value selects nothing from several values or from a part.
+#[test]
+fn a_single_value_filter_refuses_several_values_and_parts() {
+    let several = FilterValue::from("true").with("false");
+    let part = FilterValue::from("true").with_part("to", "false");
+    let ternary = TernaryFilter::new(Task::fields().featured());
+    let date = DateFilter::new(Task::fields().created_at());
+    let query = vehicule_filter();
+    for value in [&several, &part] {
+        assert!(ternary.to_expr(value).is_none());
+        assert!(date.to_expr(value).is_none());
+        assert!(query.to_expr(value).is_none());
+    }
+}
+
+#[test]
+fn a_filter_value_spells_its_values_then_its_parts() {
+    let value = FilterValue::from("b")
+        .with("a")
+        .with_part("to", "9")
+        .with_part("from", "1");
+    assert_eq!(value.to_string(), "b,a,from=1,to=9");
 }

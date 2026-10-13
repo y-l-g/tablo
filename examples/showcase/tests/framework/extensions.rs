@@ -9,7 +9,7 @@
 use tablo::{
     Ability, Action, BooleanColumn, Committed, DeclarationErrorKind, Detail, Mutation,
     NotificationStatus, Places, Resource, ResourceDef, Schema, Site, Table, TextColumn,
-    extend::{Column, Control, ControlInput, Filter, FilterInput},
+    extend::{Column, Control, ControlInput, Filter, FilterInput, FilterValue},
     lens,
 };
 use toasty::{Db, stmt::Expr};
@@ -76,8 +76,8 @@ impl Filter<Task> for Initial {
         "Initial"
     }
 
-    fn to_expr(&self, value: &str) -> Option<Expr<bool>> {
-        let letter = value.trim();
+    fn to_expr(&self, value: &FilterValue) -> Option<Expr<bool>> {
+        let letter = value.single()?;
         (letter.len() == 1).then(|| Task::fields().title().like(format!("{letter}%")))
     }
 

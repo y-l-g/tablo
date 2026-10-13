@@ -66,7 +66,7 @@ pub(crate) fn filters_state(pairs: &[(&str, &str)]) -> TableState {
     TableState {
         filters: pairs
             .iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .map(|(k, v)| (k.to_string(), (*v).into()))
             .collect(),
         ..TableState::default()
     }

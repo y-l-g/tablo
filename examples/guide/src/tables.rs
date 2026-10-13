@@ -1,7 +1,7 @@
 //! The Tables chapter's snippets.
 
 use tablo::{
-    extend::{Column, Filter, FilterInput},
+    extend::{Column, Filter, FilterInput, FilterValue},
     prelude::*,
 };
 use toasty::stmt::Expr;
@@ -88,8 +88,8 @@ impl Filter<User> for Adults {
     fn label(&self) -> &str {
         "Adults"
     }
-    fn to_expr(&self, value: &str) -> Option<Expr<bool>> {
-        (value == "yes").then(|| User::fields().age().ge(18))
+    fn to_expr(&self, value: &FilterValue) -> Option<Expr<bool>> {
+        (value.single() == Some("yes")).then(|| User::fields().age().ge(18))
     }
     fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a> {
         input.select(cx, vec![("yes".into(), "Adults only".into())])
