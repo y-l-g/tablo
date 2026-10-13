@@ -37,6 +37,11 @@ impl FormValues {
         self.values.is_empty()
     }
 
+    /// How many keys hold a value.
+    pub fn len(&self) -> usize {
+        self.values.len()
+    }
+
     /// The value `key` holds.
     pub fn get(&self, key: &str) -> Option<&FormValue> {
         self.values.get(key)
@@ -118,9 +123,10 @@ impl IntoIterator for FormValues {
 #[non_exhaustive]
 pub enum FormValue {
     /// A scalar control's value, as typed: a text field's, a single choice's option, a toggle's
-    /// `true` or `false`, a file field's stored path. Empty when the control posts nothing.
+    /// `true` or `false`, a file field's stored path.
     Text(String),
-    /// A multiple choice's options, each once and none blank, in the order they posted.
+    /// A multiple choice's options. [`Schema::read`](crate::Schema::read) keeps each once and
+    /// none blank, in the order they posted.
     List(Vec<String>),
     /// A repeater's rows, in the order they show, each holding its item's values.
     Rows(Vec<FormValues>),

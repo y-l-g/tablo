@@ -181,7 +181,7 @@ fn a_read_input_takes_a_disabled_fields_default() {
     let input = schema.read_input(&posted, &[]).expect("reads");
     assert_eq!(input.text("reason"), Some("spam"));
     assert_eq!(input.text("note"), Some("hello"));
-    assert_eq!(schema.defaults().keys().count(), 2);
+    assert_eq!(schema.defaults().len(), 2);
 }
 
 /// A default the control never posts, one value on a multiple choice and a list elsewhere

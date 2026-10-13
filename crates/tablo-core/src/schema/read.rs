@@ -5,7 +5,7 @@
 //! repeater's rows. Every later step, from completing an edit to parsing, then reads one value per
 //! key.
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use topcoat::Result;
 
@@ -144,13 +144,15 @@ impl<F> Schema<F> {
 /// A multiple choice's posted values, trimmed, each once and none blank: its hidden empty value,
 /// which posts the key when no box is checked, drops here.
 fn distinct(posted: &[&str]) -> FormValue {
-    let mut keys: Vec<String> = Vec::new();
-    for value in posted.iter().map(|value| value.trim()) {
-        if !value.is_empty() && !keys.iter().any(|key| key == value) {
-            keys.push(value.to_string());
-        }
-    }
-    FormValue::List(keys)
+    let mut seen = HashSet::new();
+    FormValue::List(
+        posted
+            .iter()
+            .map(|value| value.trim())
+            .filter(|value| !value.is_empty() && seen.insert(*value))
+            .map(str::to_string)
+            .collect(),
+    )
 }
 
 #[cfg(test)]
