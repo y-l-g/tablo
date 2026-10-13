@@ -4,11 +4,15 @@
 use std::{collections::BTreeMap, fmt, marker::PhantomData, sync::Arc};
 
 use toasty::stmt::{Expr, IntoExpr, Path};
-use topcoat::{context::Cx, view::*};
+use topcoat::{context::Cx, icon::icon, view::*};
 
 use crate::{
+    BoxFuture,
     form::FormScalar,
-    schema::{Binding, FieldResolver, IntoOptions, Options},
+    schema::{
+        Binding, FieldResolver, IntoOptions, OptionLoadError, OptionSource, Options,
+        relationship::related_records,
+    },
 };
 
 /// One table filter declares a control and its predicate.
@@ -54,6 +58,12 @@ pub trait Filter<M>: Send + Sync {
 
     /// The control in the filter bar.
     fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a>;
+
+    /// The control in the filter bar once what it offers has loaded, such as rows a query
+    /// returns. The filter bar renders this one; it defaults to [`control`](Self::control).
+    fn load_control<'s, 'a: 's>(&'s self, cx: &'a Cx, input: FilterInput) -> ControlFuture<'s, 'a> {
+        Box::pin(async move { self.control(cx, input) })
+    }
 
     /// What is wrong with this filter's declaration.
     #[doc(hidden)]
@@ -189,9 +199,33 @@ impl fmt::Display for FilterValue {
     }
 }
 
+/// What [`Filter::load_control`] returns: the control, once what it offers has loaded.
+pub type ControlFuture<'s, 'a> = BoxFuture<'s, BoxView<'a>>;
+
 /// A filter control's label, beside its control.
 const FILTER_LABEL_CLASS: StaticClass =
     class!("flex items-center gap-2 text-sm font-medium whitespace-nowrap text-muted-foreground");
+
+/// A checklist's button, sized like the filter bar's selects.
+const CHECKLIST_BUTTON_CLASS: StaticClass = class!(
+    "flex h-9 max-w-56 min-w-32 items-center justify-between gap-2 rounded-lg border \
+     border-border bg-transparent px-3 text-sm font-normal text-foreground outline-none \
+     focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 \
+     focus-visible:ring-offset-background"
+);
+
+/// A checklist's popover, below its button.
+const CHECKLIST_POPOVER_CLASS: StaticClass = class!(
+    "inset-auto m-0 mt-1 max-h-72 min-w-48 flex-col overflow-y-auto rounded-lg border \
+     border-border bg-popover p-1 text-popover-foreground shadow-sm open:flex \
+     [position-area:bottom_span-right] [position-try-fallbacks:flip-block]"
+);
+
+/// One option of a checklist.
+const CHECKLIST_OPTION_CLASS: StaticClass = class!(
+    "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-normal text-foreground \
+     hover:bg-foreground/5"
+);
 
 /// What a [`Filter::control`] renders for one request.
 #[derive(Debug, Clone)]
@@ -274,6 +308,91 @@ impl FilterInput {
         labelled(cx, label, control)
     }
 
+    /// A labelled button opening a checkbox per option in `options`, each submitting its value
+    /// under [`param`](Self::param) and checked while the filter holds it. The button reads the
+    /// checked options' labels, or "All" while none is checked.
+    ///
+    /// The list is a popover, so it stays open while the table reruns as each box changes.
+    pub fn checklist<'a>(self, cx: &'a Cx, options: Vec<(String, String)>) -> BoxView<'a> {
+        let checked: Vec<&str> = options
+            .iter()
+            .filter(|(value, _)| self.value.holds(None, value))
+            .map(|(_, label)| label.as_str())
+            .collect();
+        let summary = if checked.is_empty() {
+            "All".to_string()
+        } else {
+            checked.join(", ")
+        };
+        let boxes: Vec<BoxView<'a>> = options
+            .iter()
+            .map(|(value, text)| {
+                let checked = self.value.holds(None, value);
+                let (name, value, text) = (self.param.clone(), value.clone(), text.clone());
+                view! {
+                    cx =>
+                    <label class=(CHECKLIST_OPTION_CLASS)>
+                        tablo_ui::checkbox(
+                            attrs: attributes! { name=(name) value=(value) checked=(checked) }
+                        )
+                        <span>(text)</span>
+                    </label>
+                }
+                .boxed()
+            })
+            .collect();
+        let empty = boxes.is_empty();
+        let Self {
+            name, param, label, ..
+        } = self;
+        let list = format!("{param}-options");
+        let label_id = format!("{param}-label");
+        // The popover sits under the button that anchors it, whatever opened it.
+        let anchor: String = list
+            .chars()
+            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+            .collect();
+        view! {
+            cx =>
+            <div class=(FILTER_LABEL_CLASS) data-filter-name=(name)>
+                <span id=(label_id.clone())>(label)</span>
+                <button
+                    type="button"
+                    popovertarget=(list.clone())
+                    aria-labelledby=(format!("{label_id} {list}-summary"))
+                    class=(CHECKLIST_BUTTON_CLASS)
+                    style=(format!("anchor-name: --{anchor}"))
+                >
+                    <span id=(format!("{list}-summary")) class="truncate">
+                        (summary)
+                    </span>
+                    icon(
+                        data: tablo_ui::icons::CHEVRON_DOWN,
+                        attrs: attributes! { class="size-4 shrink-0 opacity-50" }
+                    )
+                </button>
+                <div
+                    id=(list)
+                    popover=""
+                    role="group"
+                    aria-labelledby=(label_id)
+                    class=(CHECKLIST_POPOVER_CLASS)
+                    style=(format!("position-anchor: --{anchor}"))
+                >
+                    for checkbox in boxes {
+                        (checkbox)
+                    }
+                    if empty {
+                        <p class="px-2 py-1.5 text-sm text-muted-foreground">
+                            "No options"
+                        </p>
+                    }
+                </div>
+            </div>
+        }
+        .boxed()
+    }
+
     /// `control` beside the filter's label.
     pub fn labelled<'a>(self, cx: &'a Cx, control: BoxView<'a>) -> BoxView<'a> {
         labelled(cx, self.label, control)
@@ -322,8 +441,28 @@ macro_rules! filter_impls {
 /// A select filter's predicate for a value, typed through its field.
 type MatchFn = Arc<dyn Fn(&str) -> Option<Expr<bool>> + Send + Sync>;
 
-/// Select filter matching a field exactly: a `String`, or any [`FormScalar`]
-/// such as an [`Options`] enum. Several values match a record holding any of them.
+/// A field type a [`SelectFilter`] matches: one the form parses that compares as itself, such as
+/// a foreign key's.
+pub trait FilterKey: FormScalar + IntoExpr<Self> + Send + Sync + 'static {}
+
+impl<T: FormScalar + IntoExpr<T> + Send + Sync + 'static> FilterKey for T {}
+
+/// Loads a relationship filter's `(key, label)` options.
+type OptionLoader = Arc<
+    dyn Fn(&Cx) -> BoxFuture<'static, Result<Vec<(String, String)>, OptionLoadError>> + Send + Sync,
+>;
+
+/// The rows a relationship filter offers.
+#[derive(Clone)]
+struct Related {
+    load: OptionLoader,
+    /// Whether the source's primary key is composite, which no option value can spell.
+    composite: bool,
+}
+
+/// Select filter matching a field exactly: a `String`, any [`FormScalar`] such as an [`Options`]
+/// enum, or a foreign key to a [`relationship`](Self::relationship)'s rows. Several values match
+/// a record holding any of them, which [`multiple`](Self::multiple) lets the control choose.
 ///
 /// ```rust
 /// # #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo_core::Options)]
@@ -332,16 +471,19 @@ type MatchFn = Arc<dyn Fn(&str) -> Option<Expr<bool>> + Send + Sync>;
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, kind: String, status: Status }
 /// # use tablo_core::{SelectFilter, lens};
 /// SelectFilter::new(lens!(Post.kind), ["news", "review"]);
-/// SelectFilter::of(lens!(Post.status));
+/// SelectFilter::of(lens!(Post.status)).multiple();
 /// ```
 pub struct SelectFilter<M> {
     binding: Binding,
+    label: Option<String>,
     /// The predicate for a trimmed, listed value, or `None` when the field's type refuses it.
     matches: MatchFn,
     /// `(value, label)` pairs.
     options: Vec<(String, String)>,
     /// The first listed value the field's type does not parse.
     unparsed: Option<String>,
+    related: Option<Related>,
+    multiple: bool,
     model: PhantomData<fn() -> M>,
 }
 
@@ -371,10 +513,74 @@ where
             .map(str::to_string);
         Self {
             binding,
+            label: None,
             matches,
             options,
             unparsed,
+            related: None,
+            multiple: false,
             model: PhantomData,
+        }
+    }
+
+    /// Filter the foreign key `lens` binds to one of the rows of the related source `R`, each
+    /// valued by its primary key and labelled by the source's [`label`](OptionSource::label), as
+    /// a form's relationship choice offers them.
+    ///
+    /// The control lists at most
+    /// [`MAX_RELATIONSHIP_OPTIONS`](crate::schema::MAX_RELATIONSHIP_OPTIONS) rows, those the
+    /// user may view in the request's tenant; past the cap, or when the source refuses the
+    /// load, it lists the chosen keys alone. The filter matches any key the field's
+    /// type parses: it narrows rows the table shows already.
+    ///
+    /// ```rust
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # struct Author { #[key] #[auto] id: uuid::Uuid, name: String }
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # struct Post { #[key] #[auto] id: uuid::Uuid, author_id: uuid::Uuid }
+    /// # struct AuthorResource;
+    /// # impl tablo_core::extend::OptionSource for AuthorResource {
+    /// #     type Model = Author;
+    /// #     fn scoped_query(_cx: &topcoat::context::Cx)
+    /// #         -> topcoat::Result<toasty::stmt::Query<toasty::stmt::List<Author>>>
+    /// #     {
+    /// #         Ok(toasty::stmt::Query::all())
+    /// #     }
+    /// #     fn label(_cx: &topcoat::context::Cx, author: &Author) -> String {
+    /// #         author.name.clone()
+    /// #     }
+    /// # }
+    /// use tablo_core::{SelectFilter, lens};
+    ///
+    /// SelectFilter::relationship::<AuthorResource>(lens!(Post.author_id)).label("Author");
+    /// ```
+    pub fn relationship<R>(lens: crate::Lens<M, impl Sized, impl FilterKey>) -> Self
+    where
+        R: OptionSource,
+    {
+        let load: OptionLoader = Arc::new(|cx: &Cx| {
+            let cx = cx.clone();
+            Box::pin(async move {
+                let records = related_records::<R>(&cx, crate::tenancy::tenant_id(&cx))
+                    .await
+                    .map_err(|error| error.clone())?;
+                Ok(records
+                    .iter()
+                    .map(|record| {
+                        (
+                            crate::toasty_compat::pk::pk_text(record),
+                            R::label(&cx, record),
+                        )
+                    })
+                    .collect())
+            }) as BoxFuture<'static, _>
+        });
+        Self {
+            related: Some(Related {
+                load,
+                composite: crate::toasty_compat::pk::pk_is_composite::<R::Model>(),
+            }),
+            ..Self::new(lens, Vec::<String>::new())
         }
     }
 
@@ -386,9 +592,23 @@ where
         Self::new(lens, T::options())
     }
 
-    /// The `(value, label)` options in declaration order.
+    /// The `(value, label)` options in declaration order; a relationship filter's load per
+    /// request.
     pub fn options(&self) -> &[(String, String)] {
         &self.options
+    }
+
+    /// The label the control renders, over the field's.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
+    /// Choose several options: the control is a checklist, and the filter keeps the records
+    /// holding any checked value.
+    pub fn multiple(mut self) -> Self {
+        self.multiple = true;
+        self
     }
 }
 
@@ -401,7 +621,7 @@ where
     }
 
     fn label(&self) -> &str {
-        self.binding.label()
+        self.label.as_deref().unwrap_or(self.binding.label())
     }
 
     /// Any of the values, each listed and parsed by the field's type; `None` when one is not, or
@@ -410,7 +630,11 @@ where
         if !value.parts.is_empty() {
             return None;
         }
-        let listed = |v: &str| self.options.is_empty() || self.options.iter().any(|(o, _)| o == v);
+        let listed = |v: &str| {
+            self.related.is_some()
+                || self.options.is_empty()
+                || self.options.iter().any(|(o, _)| o == v)
+        };
         value
             .values()
             .iter()
@@ -419,32 +643,48 @@ where
             .flatten()
     }
 
-    /// A select over the options.
+    /// A select over the options, or a checklist when the filter is
+    /// [`multiple`](SelectFilter::multiple).
     fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a> {
-        let options = self
-            .options
-            .iter()
-            .map(|(value, label)| {
-                let label = if value.is_empty() {
-                    "All"
-                } else {
-                    label.as_str()
-                };
-                (value.clone(), label.to_string())
-            })
-            .collect();
-        input.select(cx, options)
+        self.control_over(cx, input, &self.options)
+    }
+
+    /// The control over the relationship's rows, once they have loaded.
+    fn load_control<'s, 'a: 's>(&'s self, cx: &'a Cx, input: FilterInput) -> ControlFuture<'s, 'a> {
+        Box::pin(async move {
+            let Some(related) = &self.related else {
+                return self.control(cx, input);
+            };
+            // Past the cap, or when the source refuses the load, the chosen keys stay checkable
+            // so the control can clear them.
+            let mut options = (related.load)(cx).await.unwrap_or_default();
+            for key in input.value().values() {
+                if !options.iter().any(|(value, _)| value == key) {
+                    options.push((key.clone(), key.clone()));
+                }
+            }
+            self.control_over(cx, input, &options)
+        })
     }
 
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
-        self.binding.misdeclared().or_else(|| {
-            self.unparsed
-                .clone()
-                .map(|value| crate::DeclarationErrorKind::UnparsedFilterOption {
-                    filter: self.binding.name().to_string(),
-                    value,
+        let name = || self.binding.name().to_string();
+        self.binding
+            .misdeclared()
+            .or_else(|| {
+                self.unparsed.clone().map(|value| {
+                    crate::DeclarationErrorKind::UnparsedFilterOption {
+                        filter: name(),
+                        value,
+                    }
                 })
-        })
+            })
+            .or_else(|| {
+                self.related
+                    .as_ref()
+                    .filter(|related| related.composite)
+                    .map(|_| crate::DeclarationErrorKind::CompositeKeyChoice { field: name() })
+            })
     }
 
     fn bind(&self, resolver: &FieldResolver) {
@@ -452,19 +692,54 @@ where
     }
 }
 
+impl<M> SelectFilter<M> {
+    /// The control over `options`: a select, or a checklist when the filter is
+    /// [`multiple`](Self::multiple).
+    fn control_over<'a>(
+        &self,
+        cx: &'a Cx,
+        input: FilterInput,
+        options: &[(String, String)],
+    ) -> BoxView<'a> {
+        // An empty value is the select's own "All".
+        let options = options
+            .iter()
+            .filter(|(value, _)| !value.is_empty())
+            .cloned()
+            .collect();
+        if self.multiple {
+            input.checklist(cx, options)
+        } else {
+            input.select(cx, options)
+        }
+    }
+}
+
 filter_impls! {
     SelectFilter, this {
         name: &this.binding.name(),
-        label: &this.binding.label(),
+        label: &this.label.as_deref().unwrap_or(this.binding.label()),
         options: &this.options,
+        relationship: &this.related.is_some(),
+        multiple: &this.multiple,
     }
-    clone { binding, matches, options, unparsed, model }
+    clone { binding, label, matches, options, unparsed, related, multiple, model }
 }
 
 /// Ternary filter matching a `bool` field.
+///
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # struct Post { #[key] #[auto] id: uuid::Uuid, featured: bool }
+/// # use tablo_core::{TernaryFilter, lens};
+/// TernaryFilter::new(lens!(Post.featured)).labels("Featured", "Not featured");
+/// ```
 pub struct TernaryFilter<M> {
     binding: Binding,
+    label: Option<String>,
     lens: Path<M, bool>,
+    /// The options' labels for `true` and `false`.
+    labels: (String, String),
 }
 
 impl<M> TernaryFilter<M>
@@ -475,7 +750,25 @@ where
     pub fn new(lens: impl Into<Path<M, bool>>) -> Self {
         let lens = lens.into();
         let binding = Binding::of(&lens.clone());
-        Self { binding, lens }
+        Self {
+            binding,
+            label: None,
+            lens,
+            labels: ("True".to_string(), "False".to_string()),
+        }
+    }
+
+    /// The label the control renders, over the field's.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
+    /// The options' labels for `true` and `false`, over "True" and "False". The URL values stay
+    /// `true` and `false`.
+    pub fn labels(mut self, true_label: impl Into<String>, false_label: impl Into<String>) -> Self {
+        self.labels = (true_label.into(), false_label.into());
+        self
     }
 }
 
@@ -496,7 +789,7 @@ where
     }
 
     fn label(&self) -> &str {
-        self.binding.label()
+        self.label.as_deref().unwrap_or(self.binding.label())
     }
 
     fn to_expr(&self, value: &FilterValue) -> Option<Expr<bool>> {
@@ -513,12 +806,10 @@ where
     }
 
     fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a> {
+        let (yes, no) = self.labels.clone();
         input.select(
             cx,
-            vec![
-                ("true".to_string(), "True".to_string()),
-                ("false".to_string(), "False".to_string()),
-            ],
+            vec![("true".to_string(), yes), ("false".to_string(), no)],
         )
     }
 }
@@ -526,9 +817,10 @@ where
 filter_impls! {
     TernaryFilter, this {
         name: &this.binding.name(),
-        label: &this.binding.label(),
+        label: &this.label.as_deref().unwrap_or(this.binding.label()),
+        labels: &this.labels,
     }
-    clone { binding, lens }
+    clone { binding, label, lens, labels }
 }
 
 /// A field type a [`DateFilter`] matches by calendar day: `jiff::Timestamp` (the day in UTC),
@@ -597,11 +889,38 @@ impl<T: FilterDate<Value = T> + IntoExpr<T>> FilterDate for Option<T> {
     }
 }
 
-/// Date filter matching a date or time field by calendar day; see [`FilterDate`] for the types.
+/// Which side of a [`DateFilter`]'s range a bound is.
+#[derive(Clone, Copy)]
+enum Bound {
+    /// The day a value names and every later one: `f.<name>.from`.
+    From,
+    /// The day a value names and every earlier one: `f.<name>.to`.
+    To,
+}
+
+/// A date filter's predicate for a value, which is one day, or one side of a range.
+type BoundFn = Arc<dyn Fn(&str, Option<Bound>) -> Option<Expr<bool>> + Send + Sync>;
+
+/// Date filter matching a date or time field by calendar day, or by a range of days; see
+/// [`FilterDate`] for the types.
+///
+/// A value names one day, `f.<name>=2024-01-15`; the parts `f.<name>.from` and `f.<name>.to`
+/// name the first and the last day of a range, either one alone leaving it open. A value naming
+/// an exact time, such as a `jiff::Timestamp`'s `2024-01-15T09:30:00Z`, matches that time, or
+/// bounds the range at it.
+///
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # struct Post { #[key] #[auto] id: uuid::Uuid, created_at: jiff::Timestamp }
+/// # use tablo_core::{DateFilter, lens};
+/// DateFilter::new(lens!(Post.created_at)).range();
+/// ```
 pub struct DateFilter<M> {
     binding: Binding,
+    label: Option<String>,
     /// The predicate for a value.
-    matches: MatchFn,
+    matches: BoundFn,
+    range: bool,
     model: PhantomData<fn() -> M>,
 }
 
@@ -609,26 +928,57 @@ impl<M> DateFilter<M>
 where
     M: toasty::schema::Model + Send + Sync + 'static,
 {
-    /// Filter the field `lens` binds to one calendar day.
+    /// Filter the field `lens` binds to one calendar day, or a range of days.
     pub fn new<T: FilterDate>(lens: impl Into<Path<M, T>>) -> Self {
         let lens = lens.into();
         let binding = Binding::of(&lens.clone());
-        let matches: MatchFn = Arc::new(move |value: &str| {
+        let matches: BoundFn = Arc::new(move |value: &str, bound: Option<Bound>| {
             if let Some(exact) = T::exact(value) {
-                return Some(lens.clone().eq(exact));
+                return Some(match bound {
+                    None => lens.clone().eq(exact),
+                    Some(Bound::From) => lens.clone().ge(exact),
+                    Some(Bound::To) => lens.clone().le(exact),
+                });
             }
             let date = value.parse::<jiff::civil::Date>().ok()?;
-            let start = lens.clone().ge(T::start_of(date)?);
-            Some(match date.tomorrow().ok().and_then(T::start_of) {
-                Some(end) => start.and(lens.clone().lt(end)),
-                None => start,
-            })
+            let start = || T::start_of(date).map(|start| lens.clone().ge(start));
+            // The day after the last day is past the type's range when there is none.
+            let end = || {
+                date.tomorrow()
+                    .ok()
+                    .and_then(T::start_of)
+                    .map(|end| lens.clone().lt(end))
+            };
+            match bound {
+                None => Some(match end() {
+                    Some(end) => start()?.and(end),
+                    None => start()?,
+                }),
+                Some(Bound::From) => start(),
+                // The last day the type holds bounds nothing.
+                Some(Bound::To) => end().or_else(|| start().map(|_| true.into_expr())),
+            }
         });
         Self {
             binding,
+            label: None,
             matches,
+            range: false,
             model: PhantomData,
         }
+    }
+
+    /// The label the control renders, over the field's.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
+    /// Choose a range of days: the control is two date inputs, submitting the `from` and `to`
+    /// parts.
+    pub fn range(mut self) -> Self {
+        self.range = true;
+        self
     }
 }
 
@@ -649,35 +999,98 @@ where
     }
 
     fn label(&self) -> &str {
-        self.binding.label()
+        self.label.as_deref().unwrap_or(self.binding.label())
     }
 
-    /// Build the predicate for a submitted value.
+    /// One day for a single value, or the range its `from` and `to` parts bound; `None` for both,
+    /// another part, or a range ending before it starts.
     fn to_expr(&self, value: &FilterValue) -> Option<Expr<bool>> {
-        (self.matches)(value.single()?)
+        if value.parts.is_empty() {
+            return (self.matches)(value.single()?, None);
+        }
+        if !value.values.is_empty()
+            || value
+                .parts()
+                .any(|(part, _)| part != "from" && part != "to")
+        {
+            return None;
+        }
+        let (from, to) = (value.part("from"), value.part("to"));
+        if let (Some(from), Some(to)) = (from, to)
+            && let (Ok(first), Ok(last)) = (
+                from.parse::<jiff::civil::Date>(),
+                to.parse::<jiff::civil::Date>(),
+            )
+            && last < first
+        {
+            return None;
+        }
+        let from = from.map(|from| (self.matches)(from, Some(Bound::From)));
+        let to = to.map(|to| (self.matches)(to, Some(Bound::To)));
+        match (from, to) {
+            (Some(from), Some(to)) => Some(from?.and(to?)),
+            (Some(bound), None) | (None, Some(bound)) => bound,
+            (None, None) => None,
+        }
     }
 
-    /// A date input.
+    /// A date input, or two bounding a range.
     fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a> {
-        let value = input.value().single().unwrap_or_default();
-        let date_value = value.split('T').next().unwrap_or(value).to_string();
-        let param = input.param().to_string();
+        let day = |value: Option<&str>| {
+            let value = value.unwrap_or_default();
+            value.split('T').next().unwrap_or(value).to_string()
+        };
         let name = input.name().to_string();
         let aria = input.label().to_string();
-        let control = view! {
-            cx =>
-            tablo_ui::input(
-                attrs: attributes! {
-                    type="date"
-                    name=(param)
-                    data-filter-name=(name)
-                    value=(date_value)
-                    aria-label=(aria)
-                    class="w-auto!"
-                }
-            )
-        }
-        .boxed();
+        let control = if self.range {
+            let (from, to) = (
+                day(input.value().part("from")),
+                day(input.value().part("to")),
+            );
+            let (from_param, to_param) = (input.part_param("from"), input.part_param("to"));
+            view! {
+                cx =>
+                <span class="flex items-center gap-1" data-filter-name=(name)>
+                    tablo_ui::input(
+                        attrs: attributes! {
+                            type="date"
+                            name=(from_param)
+                            value=(from)
+                            aria-label=(format!("{aria} from"))
+                            class="w-auto!"
+                        }
+                    )
+                    <span aria-hidden="true">"–"</span>
+                    tablo_ui::input(
+                        attrs: attributes! {
+                            type="date"
+                            name=(to_param)
+                            value=(to)
+                            aria-label=(format!("{aria} to"))
+                            class="w-auto!"
+                        }
+                    )
+                </span>
+            }
+            .boxed()
+        } else {
+            let value = day(input.value().single());
+            let param = input.param().to_string();
+            view! {
+                cx =>
+                tablo_ui::input(
+                    attrs: attributes! {
+                        type="date"
+                        name=(param)
+                        data-filter-name=(name)
+                        value=(value)
+                        aria-label=(aria)
+                        class="w-auto!"
+                    }
+                )
+            }
+            .boxed()
+        };
         input.labelled(cx, control)
     }
 }
@@ -685,13 +1098,15 @@ where
 filter_impls! {
     DateFilter, this {
         name: &this.binding.name(),
-        label: &this.binding.label(),
+        label: &this.label.as_deref().unwrap_or(this.binding.label()),
+        range: &this.range,
     }
-    clone { binding, matches, model }
+    clone { binding, label, matches, range, model }
 }
 
 /// A filter offering named predicates, such as an embedded-enum variant or any query the app
-/// names.
+/// names. Several values match a record any of their predicates selects, which
+/// [`multiple`](Self::multiple) lets the control choose.
 ///
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
@@ -700,13 +1115,19 @@ filter_impls! {
 /// # let _promoted: QueryFilter<Post> =
 /// QueryFilter::new("promoted", "Promoted")
 ///     .option("Promoted", Post::fields().featured().eq(true))
-///     .option("Backlog", Post::fields().featured().eq(false));
+///     .option_keyed(
+///         "backlog",
+///         "In the backlog",
+///         Post::fields().featured().eq(false),
+///     );
 /// # let _ = _promoted;
 /// ```
 pub struct QueryFilter<M> {
     name: String,
     label: String,
-    options: Vec<(String, Expr<bool>)>,
+    /// `(key, label, predicate)` triples.
+    options: Vec<(String, String, Expr<bool>)>,
+    multiple: bool,
     _marker: std::marker::PhantomData<M>,
 }
 
@@ -721,13 +1142,33 @@ where
             name: name.into(),
             label: label.into(),
             options: Vec::new(),
+            multiple: false,
             _marker: std::marker::PhantomData,
         }
     }
 
     /// Offer `predicate` as the option `label`, which is also its URL value.
-    pub fn option(mut self, label: impl Into<String>, predicate: Expr<bool>) -> Self {
-        self.options.push((label.into(), predicate));
+    pub fn option(self, label: impl Into<String>, predicate: Expr<bool>) -> Self {
+        let label = label.into();
+        self.option_keyed(label.clone(), label, predicate)
+    }
+
+    /// Offer `predicate` as the option `label`, whose URL value is `key`: a link keeps working
+    /// when the label changes.
+    pub fn option_keyed(
+        mut self,
+        key: impl Into<String>,
+        label: impl Into<String>,
+        predicate: Expr<bool>,
+    ) -> Self {
+        self.options.push((key.into(), label.into(), predicate));
+        self
+    }
+
+    /// Choose several options: the control is a checklist, and the filter keeps the records any
+    /// checked option's predicate selects.
+    pub fn multiple(mut self) -> Self {
+        self.multiple = true;
         self
     }
 }
@@ -744,22 +1185,39 @@ where
         &self.label
     }
 
+    /// Any of the values' predicates; `None` when one names no option, or when the value names a
+    /// part.
     fn to_expr(&self, value: &FilterValue) -> Option<Expr<bool>> {
-        let v = value.single()?;
-        self.options
+        if !value.parts.is_empty() {
+            return None;
+        }
+        let predicate = |v: &String| {
+            self.options
+                .iter()
+                .find(|(key, ..)| key == v)
+                .map(|(.., predicate)| predicate.clone())
+        };
+        value
+            .values()
             .iter()
-            .find(|(k, _)| k == v)
-            .map(|(_, e)| e.clone())
+            .map(predicate)
+            .reduce(|any, one| Some(any?.or(one?)))
+            .flatten()
     }
 
-    /// A select over the option labels.
+    /// A select over the option labels, or a checklist when the filter is
+    /// [`multiple`](QueryFilter::multiple).
     fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a> {
         let options = self
             .options
             .iter()
-            .map(|(key, _)| (key.clone(), key.clone()))
+            .map(|(key, label, _)| (key.clone(), label.clone()))
             .collect();
-        input.select(cx, options)
+        if self.multiple {
+            input.checklist(cx, options)
+        } else {
+            input.select(cx, options)
+        }
     }
 }
 
@@ -767,9 +1225,10 @@ filter_impls! {
     QueryFilter, this {
         name: &this.name,
         label: &this.label,
-        options: &this.options.iter().map(|(k, _)| k).collect::<Vec<_>>(),
+        options: &this.options.iter().map(|(key, ..)| key).collect::<Vec<_>>(),
+        multiple: &this.multiple,
     }
-    clone { name, label, options, _marker }
+    clone { name, label, options, multiple, _marker }
 }
 
 /// A table's filters, as the table stores them.

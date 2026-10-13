@@ -35,14 +35,14 @@ pub struct RowActions {
     pub delete_action: Option<String>,
 }
 
-/// One `<option>` of a filter select.
+/// One `<option>` of a filter select, or one checkbox of a filter checklist.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FilterOption {
     /// The submitted value.
     pub value: String,
     /// The shown label.
     pub label: String,
-    /// Whether the request selected it.
+    /// Whether the request selected it, or checked it.
     pub selected: bool,
 }
 
@@ -191,8 +191,8 @@ fn error_slot(html: &str, name: &str) -> Option<(Attrs, String)> {
     (!text.is_empty()).then_some((attrs, text))
 }
 
-/// The options of the select filter `name`, or `None` when `name` has no
-/// select control.
+/// The options of the select or checklist filter `name`, or `None` when `name` has neither
+/// control.
 pub fn filter_options(html: &str, name: &str) -> Option<Vec<FilterOption>> {
     let (tag, _, inner) = tags_where(html, |_, attrs| {
         attr_value(attrs, "data-filter-name").as_deref() == Some(name)
@@ -200,7 +200,20 @@ pub fn filter_options(html: &str, name: &str) -> Option<Vec<FilterOption>> {
     .into_iter()
     .next()?;
     if tag != "select" {
-        return None;
+        let options: Vec<FilterOption> = elements(&inner, "label")
+            .into_iter()
+            .filter_map(|(_, _, inner)| {
+                let (_, attrs, _) = open_tags(&inner).into_iter().find(|(tag, attrs, _)| {
+                    tag == "input" && attr_value(attrs, "type").as_deref() == Some("checkbox")
+                })?;
+                Some(FilterOption {
+                    value: attr_value(&attrs, "value").unwrap_or_default(),
+                    label: strip_text(&inner),
+                    selected: attrs.iter().any(|(name, _)| name == "checked"),
+                })
+            })
+            .collect();
+        return (!options.is_empty()).then_some(options);
     }
     let options = elements(&inner, "option")
         .into_iter()

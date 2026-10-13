@@ -352,19 +352,162 @@ async fn a_select_filter_matches_any_of_several_values() {
     );
 }
 
-/// A filter taking one value selects nothing from several values or from a part.
+/// A filter taking one value selects nothing from several values, and no filter reads a value
+/// beside a part.
 #[test]
 fn a_single_value_filter_refuses_several_values_and_parts() {
-    let several = FilterValue::from("true").with("false");
-    let part = FilterValue::from("true").with_part("to", "false");
     let ternary = TernaryFilter::new(Task::fields().featured());
+    assert!(
+        ternary
+            .to_expr(&FilterValue::from("true").with("false"))
+            .is_none()
+    );
     let date = DateFilter::new(Task::fields().created_at());
-    let query = vehicule_filter();
-    for value in [&several, &part] {
-        assert!(ternary.to_expr(value).is_none());
-        assert!(date.to_expr(value).is_none());
-        assert!(query.to_expr(value).is_none());
+    assert!(
+        date.to_expr(&FilterValue::from("2024-01-15").with("2024-01-16"))
+            .is_none()
+    );
+    let mixed = FilterValue::from("Auto").with_part("to", "2024-01-16");
+    assert!(ternary.to_expr(&mixed).is_none());
+    assert!(date.to_expr(&mixed).is_none());
+    assert!(vehicule_filter().to_expr(&mixed).is_none());
+}
+
+/// A date filter's `from` and `to` parts bound a range of whole days, either alone leaving it
+/// open; a reversed range, another part, or a value beside them selects nothing.
+#[tokio::test]
+async fn a_date_range_keeps_the_days_its_parts_bound() {
+    let mut db = memory_db(toasty::models!(Task)).await;
+    for (title, ts) in [
+        ("Before", "2024-01-14T23:59:59Z"),
+        ("First", "2024-01-15T00:00:00Z"),
+        ("Last", "2024-01-16T23:59:59Z"),
+        ("After", "2024-01-17T00:00:00Z"),
+    ] {
+        toasty::create!(Task {
+            title: title.to_string(),
+            status: "draft".to_string(),
+            featured: false,
+            created_at: ts.parse::<jiff::Timestamp>().unwrap(),
+        })
+        .exec(&mut db)
+        .await
+        .unwrap();
     }
+    let f = DateFilter::new(Task::fields().created_at()).range();
+    let titles = async |value: FilterValue| {
+        let expr = f.to_expr(&value).expect("the range builds");
+        let mut rows = Task::filter(expr).exec(&mut db.clone()).await.unwrap();
+        rows.sort_by_key(|row| row.created_at);
+        rows.into_iter().map(|row| row.title).collect::<Vec<_>>()
+    };
+    let range = |from: Option<&str>, to: Option<&str>| {
+        let value = FilterValue::new();
+        let value = from.map_or(value.clone(), |from| value.clone().with_part("from", from));
+        to.map_or(value.clone(), |to| value.with_part("to", to))
+    };
+    assert_eq!(
+        titles(range(Some("2024-01-15"), Some("2024-01-16"))).await,
+        ["First", "Last"]
+    );
+    assert_eq!(
+        titles(range(Some("2024-01-16"), None)).await,
+        ["Last", "After"]
+    );
+    assert_eq!(
+        titles(range(None, Some("2024-01-15"))).await,
+        ["Before", "First"]
+    );
+    assert_eq!(
+        titles(range(
+            Some("2024-01-15T00:00:01Z"),
+            Some("2024-01-17T00:00:00Z")
+        ))
+        .await,
+        ["Last", "After"],
+        "an exact time bounds the range at itself"
+    );
+    assert_eq!(
+        titles(range(Some("2024-01-15"), Some("2024-01-15"))).await,
+        ["First"],
+        "a one-day range is that day"
+    );
+    for refused in [
+        range(Some("2024-01-16"), Some("2024-01-15")),
+        range(Some("not-a-date"), None),
+        range(Some("2024-01-15"), Some("not-a-date")),
+        FilterValue::new().with_part("since", "2024-01-15"),
+        FilterValue::from("2024-01-15").with_part("to", "2024-01-16"),
+    ] {
+        assert!(
+            f.to_expr(&refused).is_none(),
+            "{refused} must select nothing"
+        );
+    }
+    assert!(
+        f.to_expr(&range(None, Some("9999-12-30"))).is_some(),
+        "the last representable day bounds nothing past it"
+    );
+}
+
+/// A keyed option travels as its key, never its label, and several keys select the records any
+/// of their predicates does.
+#[tokio::test]
+async fn a_query_filter_matches_its_keys_and_any_of_several() {
+    let mut db = memory_db(toasty::models!(Task)).await;
+    for (title, status, featured) in [
+        ("Draft", "draft", false),
+        ("Starred", "draft", true),
+        ("Published", "published", false),
+    ] {
+        toasty::create!(Task {
+            title: title.to_string(),
+            status: status.to_string(),
+            featured,
+            created_at: jiff::Timestamp::UNIX_EPOCH,
+        })
+        .exec(&mut db)
+        .await
+        .unwrap();
+    }
+    let f = QueryFilter::<Task>::new("pick", "Pick")
+        .option_keyed(
+            "starred",
+            "Starred posts",
+            Task::fields().featured().eq(true),
+        )
+        .option(
+            "Published",
+            Task::fields().status().eq("published".to_string()),
+        );
+    let titles = async |value: FilterValue| {
+        let expr = f.to_expr(&value).expect("the options build");
+        let mut rows = Task::filter(expr).exec(&mut db.clone()).await.unwrap();
+        rows.sort_by(|a, b| a.title.cmp(&b.title));
+        rows.into_iter().map(|row| row.title).collect::<Vec<_>>()
+    };
+    assert_eq!(titles("starred".into()).await, ["Starred"]);
+    assert_eq!(
+        titles(FilterValue::from("starred").with("Published")).await,
+        ["Published", "Starred"]
+    );
+    assert!(f.to_expr(&"Starred posts".into()).is_none());
+    assert!(
+        f.to_expr(&FilterValue::from("starred").with("archived"))
+            .is_none()
+    );
+}
+
+/// The built-in filters take a label over the field's, and a ternary filter its options' labels.
+#[test]
+fn a_built_in_filter_takes_a_label() {
+    let select = SelectFilter::new(crate::lens!(Task.status), ["draft"]);
+    assert_eq!(Filter::<Task>::label(&select), "Status");
+    assert_eq!(Filter::<Task>::label(&select.label("State")), "State");
+    let ternary = TernaryFilter::new(Task::fields().featured()).label("Starred");
+    assert_eq!(Filter::<Task>::label(&ternary), "Starred");
+    let date = DateFilter::new(Task::fields().created_at()).label("Created");
+    assert_eq!(Filter::<Task>::label(&date), "Created");
 }
 
 #[test]

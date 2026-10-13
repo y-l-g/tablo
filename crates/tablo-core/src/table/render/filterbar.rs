@@ -20,29 +20,19 @@ pub(super) struct FilterViews<'a> {
 
 impl<M> WiredTable<M> {
     /// The filter controls and ignored filters a render of `state` shows.
-    pub(super) fn filter_views<'a>(&self, cx: &'a Cx, state: &TableState) -> FilterViews<'a>
+    pub(super) async fn filter_views<'a>(&self, cx: &'a Cx, state: &TableState) -> FilterViews<'a>
     where
         M: toasty::schema::Model,
     {
-        let controls = if self.filter_bar_enabled() {
-            self.filters
-                .iter()
-                .map(|f| {
-                    let current = state.filters.get(f.name()).cloned().unwrap_or_default();
-                    f.control(
-                        cx,
-                        FilterInput::new(
-                            f.name(),
-                            state.filter_param(f.name()),
-                            f.label(),
-                            current,
-                        ),
-                    )
-                })
-                .collect()
-        } else {
-            Vec::new()
-        };
+        let mut controls = Vec::new();
+        if self.filter_bar_enabled() {
+            for f in &self.filters {
+                let current = state.filters.get(f.name()).cloned().unwrap_or_default();
+                let input =
+                    FilterInput::new(f.name(), state.filter_param(f.name()), f.label(), current);
+                controls.push(f.load_control(cx, input).await);
+            }
+        }
         let unapplied = self.unapplied_filters(state);
         let unfiltered = !unapplied.is_empty() && self.filter_expr(state).is_none();
         FilterViews {

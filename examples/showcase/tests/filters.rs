@@ -31,22 +31,31 @@ async fn posts_filter_widgets_render_typed_controls() {
     assert_eq!(
         status
             .iter()
-            .find(|option| option.value == "published")
-            .map(|option| option.selected),
-        Some(true),
-        "the request value stays selected in {html}",
+            .filter(|option| option.selected)
+            .map(|option| option.value.as_str())
+            .collect::<Vec<_>>(),
+        ["published"],
+        "the request value stays checked in {html}",
         html = html
+    );
+    let featured = filter_options(&html, "featured").expect("featured renders");
+    assert!(
+        featured
+            .iter()
+            .any(|option| option.value == "true" && option.label == "Featured"),
+        "the ternary filter reads its labels in {html}"
     );
     assert!(
         filter_options(&html, "created_at").is_none(),
         "a date filter is not a select in {html}",
         html = html
     );
-    assert!(
-        input_value(&html, "f.created_at").is_some(),
-        "missing date control in {html}",
-        html = html
-    );
+    for bound in ["f.created_at.from", "f.created_at.to"] {
+        assert!(
+            input_value(&html, bound).is_some(),
+            "missing {bound} in {html}"
+        );
+    }
     let toolbar = &html[html.find("id=\"table-toolbar\"").expect("the toolbar form")..];
     assert!(
         toolbar.contains("name=\"f.status\""),
@@ -106,6 +115,125 @@ async fn posts_filter_date_created_at() {
         row_titles(&html),
         vec!["Hello Toasty".to_string()],
         "the date filter must keep only the matching post: {html}"
+    );
+}
+
+/// The author filter offers the tenant's authors by name, valued by key, and keeps the posts of
+/// any author the request names.
+#[tokio::test]
+async fn the_author_filter_keeps_the_posts_of_the_chosen_authors() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let mut db_q = db.clone();
+    let authors = Author::all().exec(&mut db_q).await.unwrap();
+    let html = body_string(client.get("/admin/posts").await).await;
+    let options = filter_options(&html, "author_id").expect("the author filter renders");
+    let mut names: Vec<&str> = options
+        .iter()
+        .filter(|option| !option.value.is_empty())
+        .map(|option| option.label.as_str())
+        .collect();
+    names.sort();
+    let mut expected: Vec<&str> = authors.iter().map(|author| author.name.as_str()).collect();
+    expected.sort();
+    assert_eq!(names, expected, "{html}");
+    assert!(
+        html.contains(">Author<"),
+        "the filter reads its label in {html}"
+    );
+
+    let (ada, june) = (
+        authors.iter().find(|a| a.name == "Ada Author").unwrap(),
+        authors.iter().find(|a| a.name == "June Writer").unwrap(),
+    );
+    let titles_of = async |ids: &[uuid::Uuid]| {
+        let mut titles: Vec<String> = Post::all()
+            .exec(&mut db.clone())
+            .await
+            .unwrap()
+            .into_iter()
+            .filter(|post| ids.contains(&post.author_id))
+            .map(|post| post.title)
+            .collect();
+        titles.sort();
+        titles
+    };
+    for ids in [vec![ada.id], vec![ada.id, june.id]] {
+        let query: Vec<String> = ids.iter().map(|id| format!("f.author_id={id}")).collect();
+        let html = body_string(
+            client
+                .get(&format!("/admin/posts?sort=title&{}", query.join("&")))
+                .await,
+        )
+        .await;
+        let shown = row_titles(&html);
+        let expected = titles_of(&ids).await;
+        assert!(!shown.is_empty(), "{html}");
+        assert!(
+            shown.iter().all(|title| expected.contains(title)),
+            "only the chosen authors' posts show: {shown:?}"
+        );
+        assert!(
+            shown.len() == expected.len() || find_href_with(&html, "after=").is_some(),
+            "every chosen author's post shows, over pages: {shown:?}"
+        );
+        let selected: Vec<String> = filter_options(&html, "author_id")
+            .unwrap()
+            .into_iter()
+            .filter(|option| option.selected)
+            .map(|option| option.value)
+            .collect();
+        assert!(selected.contains(&ids[0].to_string()), "{html}");
+    }
+    let html = body_string(client.get("/admin/posts?f.author_id=nobody").await).await;
+    assert!(
+        html.contains("role=\"alert\"") && html.contains("author_id:nobody"),
+        "a key the field does not parse warns: {html}"
+    );
+}
+
+/// The created filter's `from` and `to` parts keep the posts created within those days.
+#[tokio::test]
+async fn the_created_range_keeps_the_posts_within_its_days() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let from: jiff::Timestamp = "2024-01-15T00:00:00Z".parse().unwrap();
+    let to: jiff::Timestamp = "2024-02-01T00:00:00Z".parse().unwrap();
+    let mut expected: Vec<String> = Post::all()
+        .exec(&mut db.clone())
+        .await
+        .unwrap()
+        .into_iter()
+        .filter(|post| post.created_at >= from && post.created_at < to)
+        .map(|post| post.title)
+        .collect();
+    expected.sort();
+    assert!(!expected.is_empty(), "the seed creates posts in January");
+    let html = body_string(
+        client
+            .get("/admin/posts?f.created_at.from=2024-01-15&f.created_at.to=2024-01-31")
+            .await,
+    )
+    .await;
+    let mut shown = row_titles(&html);
+    shown.sort();
+    assert_eq!(shown, expected, "{html}");
+    assert_eq!(
+        input_value(&html, "f.created_at.from").as_deref(),
+        Some("2024-01-15"),
+        "{html}"
+    );
+    let html = body_string(
+        client
+            .get("/admin/posts?f.created_at.from=2024-01-31&f.created_at.to=2024-01-15")
+            .await,
+    )
+    .await;
+    assert!(
+        html.contains("role=\"alert\""),
+        "a reversed range warns: {html}"
     );
 }
 

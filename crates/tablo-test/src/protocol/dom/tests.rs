@@ -94,6 +94,26 @@ fn filter_options_reads_values_and_selection() {
 }
 
 #[test]
+fn filter_options_reads_a_checklist() {
+    let html = r#"<div data-filter-name="status"><span>Status</span><button type="button">draft</button><div popover=""><label><span><input type="checkbox" name="f.status" value="draft" checked=""><svg></svg></span><span>Draft</span></label><label><span><input type="checkbox" name="f.status" value="published"></span><span>Published</span></label></div></div>"#;
+    assert_eq!(
+        filter_options(html, "status"),
+        Some(vec![
+            FilterOption {
+                value: "draft".to_string(),
+                label: "Draft".to_string(),
+                selected: true,
+            },
+            FilterOption {
+                value: "published".to_string(),
+                label: "Published".to_string(),
+                selected: false,
+            },
+        ])
+    );
+}
+
+#[test]
 fn single_quotes_and_entities_decode() {
     let html =
         "<select data-filter-name='status'><option value='a&amp;b'>A &amp; B</option></select>";

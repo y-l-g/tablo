@@ -146,14 +146,27 @@ search and filters as a GET form.
 | --- | --- | --- |
 | `SelectFilter::of(lens)` | an [`Options`](./forms.md#controls) enum, or an `Option` of one | one or more of the type's options |
 | `SelectFilter::new(lens, options)` | `String`, or any form scalar | one or more of `options`, matched exactly; the options are `Vec<(String, String)>` (an `Options` list), `Vec<String>`, or `[&str; N]` |
+| `SelectFilter::relationship::<R>(lens)` | a foreign key to the rows of `R`, a [relationship source](./forms.md#relationships) | one or more keys |
 | `TernaryFilter::new(lens)` | `bool` | `true`, `false`, or `all` (no filter) |
-| `DateFilter::new(lens)` | `jiff::Timestamp`, `jiff::civil::Date` or `jiff::civil::DateTime`, or an `Option` of one | a date `2024-01-15` matches that day (UTC for a timestamp); an RFC 3339 timestamp, or a civil date-time, matches that value |
-| `QueryFilter::new(name, label).option(label, predicate)` | any | named options, each a Toasty predicate you build |
+| `DateFilter::new(lens)` | `jiff::Timestamp`, `jiff::civil::Date` or `jiff::civil::DateTime`, or an `Option` of one | a date `2024-01-15` matches that day (UTC for a timestamp); an RFC 3339 timestamp, or a civil date-time, matches that value; the parts `from` and `to` bound a range |
+| `QueryFilter::new(name, label).option(label, predicate)` | any | one or more named options, each a Toasty predicate you build |
 
 An active filter's parameter is `?f.<name>=<value>`, named after the field (a `QueryFilter`
 after its name). A filter taking several values repeats it, `?f.status=draft&f.status=review`,
-and a select filter matches a record holding any of them; the other built-in filters take one
-value. Active filters combine with AND.
+and a select or query filter matches a record any of them selects; the ternary and date filters
+take one value. A date range travels as parts, `?f.created_at.from=2024-01-01&f.created_at.to=2024-01-31`,
+each day included and either bound alone leaving the range open. Active filters combine with
+AND.
+
+Each built-in filter takes `.label(..)` over the field's label. `.multiple()` turns a select or
+query filter's control into a checklist, a popover of checkboxes that stays open while the table
+reruns; `TernaryFilter::labels` names its two options; `DateFilter::range` renders two date
+inputs. A relationship filter loads its options as a [relationship
+choice](./forms.md#relationships) does: the source's tenant-scoped rows the user may view, each
+labelled by the source's label, at most `MAX_RELATIONSHIP_OPTIONS` of them. Past that cap, or
+when the source refuses the load, it lists only the chosen keys. It matches any key the field
+parses, which narrows the rows the table shows already. A query filter's
+`option_keyed(key, label, predicate)` keeps its URL value when the label changes.
 
 A filter is anything that implements `Filter<M>`, from `tablo::extend`: a name, a label, the
 predicate a value selects, and the control the filter bar renders. The four filters above implement it and nothing more.
@@ -163,7 +176,9 @@ predicate a value selects, and the control the filter bar renders. The four filt
 ```
 
 `FilterInput` carries the parameter the control submits and the current `FilterValue`, and
-`input.select(cx, options)` renders the built-in select. `value.single()` is the one value a
+`input.select(cx, options)` renders the built-in select, `input.checklist(cx, options)` the
+built-in checklist. A control offering what a query loads overrides `load_control`, the async
+method the filter bar calls, which defaults to `control`. `value.single()` is the one value a
 single-choice control submits, `value.values()` every repeated value, and `value.part("from")` a
 part a control submits as `?f.<name>.from=`, under `input.part_param("from")`:
 
