@@ -83,13 +83,13 @@ writes as the resource's `Form`, and give it a policy that allows `Create` and `
 
 ## Documentation
 
-- **[User guide](https://y-l.fr/tablo/nightly/guide/)**, from [`docs/guide/`](docs/guide/); build
+- **[User guide](https://y-l.fr/tablo/nightly/guide/)**, from the [guide source](docs/guide/); build
   it locally with `mdbook build docs/guide`.
 - **[API reference](https://y-l.fr/tablo/nightly/api/tablo/)**, the rustdoc of the
   workspace.
 - [Showcase](examples/showcase/): the runnable reference.
-- [`CONTEXT.md`](CONTEXT.md): the project's vocabulary.
-- [`docs/adr/`](docs/adr/): the design decisions, one record each.
+- [Vocabulary](CONTEXT.md): the project's terms.
+- [Design decisions](docs/adr/): one record each.
 - Upstream: the [Toasty guide](https://tokio-rs.github.io/toasty/0.11.0/guide/) (queries,
   relations, migrations) and the [Topcoat docs](https://docs.rs/topcoat) (`view!`,
   `#[component]`, routing, cookies and sessions).
@@ -97,8 +97,8 @@ writes as the resource's `Form`, and give it a policy that allows `Create` and `
 ## Contributing
 
 Small fixes can go straight to a pull request; open an issue first for larger changes.
-[`CONTRIBUTING.md`](CONTRIBUTING.md) covers the layout, the checks and the rules.
+The [contributing guide](CONTRIBUTING.md) covers the layout, the checks and the rules.
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+MIT — see [LICENSE](LICENSE).
