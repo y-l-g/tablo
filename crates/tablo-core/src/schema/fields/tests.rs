@@ -184,8 +184,8 @@ fn a_read_input_takes_a_disabled_fields_default() {
     assert_eq!(schema.defaults().keys().count(), 2);
 }
 
-/// A default the control never posts, a list's included, and a row control a repeater cannot
-/// disable or default, refuse the declaration.
+/// A default the control never posts, one value on a multiple choice and a list elsewhere
+/// included, and a row control a repeater cannot disable or default, refuse the declaration.
 #[test]
 fn a_default_the_control_refuses_and_a_modified_row_control_refuse_the_schema() {
     use crate::DeclarationErrorKind;
@@ -198,6 +198,15 @@ fn a_default_the_control_refuses_and_a_modified_row_control_refuse_the_schema() 
             .options(["free"])
             .multiple()
             .default("free"),
+        Field::choice_input("chosen")
+            .options(["free"])
+            .multiple()
+            .default(["free"]),
+        Field::choice_input("unoffered")
+            .options(["free"])
+            .multiple()
+            .default(["free", "pro"]),
+        Field::text_input::<String>("listed").default(["a"]),
     ))
     .declaration_errors();
     let refused: Vec<_> = errors
@@ -207,7 +216,11 @@ fn a_default_the_control_refuses_and_a_modified_row_control_refuse_the_schema() 
             _ => None,
         })
         .collect();
-    assert_eq!(refused, ["count", "plan", "tags"], "{errors:?}");
+    assert_eq!(
+        refused,
+        ["count", "plan", "tags", "unoffered", "listed"],
+        "{errors:?}"
+    );
 
     fn locked() -> Schema {
         Schema::new(Field::text_input::<String>("label").disabled())

@@ -387,12 +387,12 @@ pub enum DeclarationErrorKind {
         /// The control in its row.
         leaf: String,
     },
-    /// A field's default is a value its control never posts: one its type does not parse, or
-    /// not one of a choice's options.
+    /// A field's default is a value its control never posts: one its type does not parse, one
+    /// not among a choice's options, or a list or one value where the control posts the other.
     UnpostedDefault {
         /// The field.
         field: String,
-        /// The default.
+        /// The default, a list spelled `["a", "b"]`.
         value: String,
     },
     /// A condition watches a field the schema does not place.
@@ -676,7 +676,7 @@ impl fmt::Display for DeclarationErrorKind {
             Self::UnpostedDefault { field, value } => write!(
                 f,
                 "field '{field}' defaults to '{value}', which its control never posts: spell the \
-                 default as the field's form value"
+                 default as the field's form value, a list for a multiple choice"
             ),
             Self::UnplacedWatchedField { field } => write!(
                 f,

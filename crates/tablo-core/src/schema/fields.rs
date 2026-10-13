@@ -101,8 +101,8 @@ pub struct Field {
     help: Option<String>,
     /// When the control renders disabled and the server ignores what it posts.
     disabled: Disabled,
-    /// The create form's initial value, in the form spelling, set by `default`.
-    default: Option<String>,
+    /// The create form's initial value, as the control posts it, set by `default`.
+    default: Option<FormValue>,
 }
 
 /// When a [`Field`] renders disabled, so the browser posts nothing for it and the server drops
@@ -397,13 +397,21 @@ impl Field {
         }
     }
 
-    /// Whether the control could never post `value` as its one value: a typed text field's type
-    /// does not parse it, a single choice over static options or a checkbox does not offer it, or
-    /// the control posts a list.
-    pub(crate) fn refuses(&self, value: &str) -> bool {
-        match &self.control {
-            ControlKind::Text(text) => !value.trim().is_empty() && !text.parses(value),
-            _ => self.can_post(value) == Some(false),
+    /// Whether the control could never post `value`: a typed text field's type does not parse
+    /// it, a choice over static options or a checkbox does not offer it, or it is a list where
+    /// the control posts one value, or one value where it posts a list.
+    pub(crate) fn refuses(&self, value: &FormValue) -> bool {
+        match (&self.control, value) {
+            (ControlKind::Choice(choice), FormValue::List(items)) if choice.is_multiple() => {
+                !choice.is_relationship()
+                    && items.iter().any(|item| choice.label_of(item).is_none())
+            }
+            (ControlKind::Choice(choice), _) if choice.is_multiple() => true,
+            (ControlKind::Text(text), FormValue::Text(value)) => {
+                !value.trim().is_empty() && !text.parses(value)
+            }
+            (_, FormValue::Text(value)) => self.can_post(value) == Some(false),
+            _ => true,
         }
     }
 
@@ -426,9 +434,9 @@ impl Field {
         self.disabled == Disabled::Always
     }
 
-    /// The create form's initial value, in the form spelling.
-    pub(crate) fn default_value(&self) -> Option<&str> {
-        self.default.as_deref()
+    /// The create form's initial value, as the control posts it.
+    pub(crate) fn default_value(&self) -> Option<&FormValue> {
+        self.default.as_ref()
     }
 
     /// The validation state and help text the control renders with.

@@ -310,7 +310,8 @@ equals the value another field of the same form posts: the cities of the chosen 
 
 Every control but a repeater takes `.help(text)`, rendered under it, and `.disabled()` or
 `.disabled_on_edit()`. A text, choice or custom control also takes `.default(value)`, the value the
-create form starts with: any form scalar, or a `&str` in the form spelling.
+create form starts with: any form scalar, or a `&str` in the form spelling. A multiple choice's
+default is an array or `Vec` of them: `.multiple().default(["email", "sms"])`.
 
 ```rust
 {{#include ../../../examples/guide/src/forms.rs:forms-field-basics}}

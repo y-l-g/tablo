@@ -38,7 +38,7 @@ pub(crate) use tree::{Node, Retype, render_nodes};
 use tree::{bind_nodes, unbound_values};
 pub(crate) use validation::TypedValue;
 
-use crate::form::{FieldErrors, FormValues};
+use crate::form::{FieldErrors, FormValue, FormValues};
 
 /// Composes fields and layout blocks and resolves every field once into one list.
 ///
@@ -174,9 +174,7 @@ impl<F> Schema<F> {
     pub(crate) fn defaults(&self) -> FormValues {
         self.fields
             .iter()
-            .filter_map(|field| {
-                Some((field.name().to_string(), field.default_value()?.to_string()))
-            })
+            .filter_map(|field| Some((field.name().to_string(), field.default_value()?.clone())))
             .collect()
     }
 
@@ -194,7 +192,7 @@ impl<F> Schema<F> {
             if let Some(default) = field.default_value()
                 && !editing
             {
-                values.insert(name, default);
+                values.insert(name, default.clone());
             }
         }
     }
@@ -292,9 +290,11 @@ impl<F> Schema<F> {
         errors.extend(self.dependent_errors());
         // A control disabled on create posts nothing there, so the create needs a value.
         for field in &self.fields {
-            let blank = field
-                .default_value()
-                .is_none_or(|value| value.trim().is_empty());
+            let blank = field.default_value().is_none_or(|value| match value {
+                FormValue::Text(text) => text.trim().is_empty(),
+                FormValue::List(items) => items.is_empty(),
+                FormValue::Rows(rows) => rows.is_empty(),
+            });
             if field.is_always_disabled() && field.is_required() && blank {
                 errors.push(crate::DeclarationErrorKind::DisabledWithoutValue {
                     field: field.name().to_string(),
@@ -305,7 +305,11 @@ impl<F> Schema<F> {
             {
                 errors.push(crate::DeclarationErrorKind::UnpostedDefault {
                     field: field.name().to_string(),
-                    value: value.to_string(),
+                    value: match value {
+                        FormValue::Text(text) => text.clone(),
+                        FormValue::List(items) => format!("{items:?}"),
+                        FormValue::Rows(_) => "rows".to_string(),
+                    },
                 });
             }
             // A row's controls post under the repeater's key, which neither the disabled drop nor
