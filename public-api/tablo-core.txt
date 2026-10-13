@@ -911,6 +911,7 @@ pub fn tablo_core::FormValues::insert(&mut self, impl core::convert::Into<alloc:
 pub fn tablo_core::FormValues::is_empty(&self) -> bool
 pub fn tablo_core::FormValues::iter(&self) -> impl core::iter::traits::iterator::Iterator<Item = (&str, &tablo_core::FormValue)>
 pub fn tablo_core::FormValues::keys(&self) -> impl core::iter::traits::iterator::Iterator<Item = &str>
+pub fn tablo_core::FormValues::len(&self) -> usize
 pub fn tablo_core::FormValues::list(&self, &str) -> core::option::Option<&[alloc::string::String]>
 pub fn tablo_core::FormValues::new() -> Self
 pub fn tablo_core::FormValues::remove(&mut self, &str) -> core::option::Option<tablo_core::FormValue>
@@ -1956,13 +1957,21 @@ pub trait tablo_core::schema::EmbeddedForm: core::marker::Sized
 pub fn tablo_core::schema::EmbeddedForm::read_form<M>(&topcoat_core::context::Cx, impl core::convert::Into<toasty::stmt::path::Path<M, Self>>, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>> where M: toasty::schema::model::Model
 pub fn tablo_core::schema::EmbeddedForm::write_form<M>(&self, &topcoat_core::context::Cx, impl core::convert::Into<toasty::stmt::path::Path<M, Self>>, &mut tablo_core::FormValues) where M: toasty::schema::model::Model
 pub trait tablo_core::schema::IntoFormValue
-pub fn tablo_core::schema::IntoFormValue::into_form_value(self) -> alloc::string::String
+pub fn tablo_core::schema::IntoFormValue::into_form_value(self) -> tablo_core::FormValue
 impl tablo_core::IntoFormValue for &alloc::string::String
-pub fn &alloc::string::String::into_form_value(self) -> alloc::string::String
+pub fn &alloc::string::String::into_form_value(self) -> tablo_core::FormValue
 impl tablo_core::IntoFormValue for &str
-pub fn &str::into_form_value(self) -> alloc::string::String
+pub fn &str::into_form_value(self) -> tablo_core::FormValue
+impl tablo_core::IntoFormValue for alloc::vec::Vec<&str>
+pub fn alloc::vec::Vec<&str>::into_form_value(self) -> tablo_core::FormValue
+impl<T: tablo_core::form::FormScalar, const N: usize> tablo_core::IntoFormValue for [T; N]
+pub fn [T; N]::into_form_value(self) -> tablo_core::FormValue
 impl<T: tablo_core::form::FormScalar> tablo_core::IntoFormValue for T
-pub fn T::into_form_value(self) -> alloc::string::String
+pub fn T::into_form_value(self) -> tablo_core::FormValue
+impl<T: tablo_core::form::FormScalar> tablo_core::IntoFormValue for alloc::vec::Vec<T>
+pub fn alloc::vec::Vec<T>::into_form_value(self) -> tablo_core::FormValue
+impl<const N: usize> tablo_core::IntoFormValue for [&str; N]
+pub fn [&str; N]::into_form_value(self) -> tablo_core::FormValue
 pub trait tablo_core::schema::IntoOptions
 pub fn tablo_core::schema::IntoOptions::into_options(self) -> alloc::vec::Vec<(alloc::string::String, alloc::string::String)>
 impl tablo_core::IntoOptions for alloc::vec::Vec<(alloc::string::String, alloc::string::String)>
@@ -3732,6 +3741,7 @@ pub fn tablo_core::FormValues::insert(&mut self, impl core::convert::Into<alloc:
 pub fn tablo_core::FormValues::is_empty(&self) -> bool
 pub fn tablo_core::FormValues::iter(&self) -> impl core::iter::traits::iterator::Iterator<Item = (&str, &tablo_core::FormValue)>
 pub fn tablo_core::FormValues::keys(&self) -> impl core::iter::traits::iterator::Iterator<Item = &str>
+pub fn tablo_core::FormValues::len(&self) -> usize
 pub fn tablo_core::FormValues::list(&self, &str) -> core::option::Option<&[alloc::string::String]>
 pub fn tablo_core::FormValues::new() -> Self
 pub fn tablo_core::FormValues::remove(&mut self, &str) -> core::option::Option<tablo_core::FormValue>
@@ -4903,13 +4913,21 @@ impl<M> tablo_core::IntoFilters<M> for tablo_core::QueryFilter<M> where M: toast
 impl<M> tablo_core::IntoFilters<M> for tablo_core::SelectFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
 impl<M> tablo_core::IntoFilters<M> for tablo_core::TernaryFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
 pub trait tablo_core::IntoFormValue
-pub fn tablo_core::IntoFormValue::into_form_value(self) -> alloc::string::String
+pub fn tablo_core::IntoFormValue::into_form_value(self) -> tablo_core::FormValue
 impl tablo_core::IntoFormValue for &alloc::string::String
-pub fn &alloc::string::String::into_form_value(self) -> alloc::string::String
+pub fn &alloc::string::String::into_form_value(self) -> tablo_core::FormValue
 impl tablo_core::IntoFormValue for &str
-pub fn &str::into_form_value(self) -> alloc::string::String
+pub fn &str::into_form_value(self) -> tablo_core::FormValue
+impl tablo_core::IntoFormValue for alloc::vec::Vec<&str>
+pub fn alloc::vec::Vec<&str>::into_form_value(self) -> tablo_core::FormValue
+impl<T: tablo_core::form::FormScalar, const N: usize> tablo_core::IntoFormValue for [T; N]
+pub fn [T; N]::into_form_value(self) -> tablo_core::FormValue
 impl<T: tablo_core::form::FormScalar> tablo_core::IntoFormValue for T
-pub fn T::into_form_value(self) -> alloc::string::String
+pub fn T::into_form_value(self) -> tablo_core::FormValue
+impl<T: tablo_core::form::FormScalar> tablo_core::IntoFormValue for alloc::vec::Vec<T>
+pub fn alloc::vec::Vec<T>::into_form_value(self) -> tablo_core::FormValue
+impl<const N: usize> tablo_core::IntoFormValue for [&str; N]
+pub fn [&str; N]::into_form_value(self) -> tablo_core::FormValue
 pub trait tablo_core::IntoOptions
 pub fn tablo_core::IntoOptions::into_options(self) -> alloc::vec::Vec<(alloc::string::String, alloc::string::String)>
 impl tablo_core::IntoOptions for alloc::vec::Vec<(alloc::string::String, alloc::string::String)>
