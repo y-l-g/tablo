@@ -373,3 +373,39 @@ async fn group_by_orders_each_row_under_its_own_header() {
         "each group header needs a stable id naming its group, got {html}"
     );
 }
+
+/// A row key holding the selection wire's separator travels percent-encoded: the row checkbox and
+/// the select-all box each spell one token for it, never one token per part.
+#[tokio::test]
+async fn a_key_holding_the_selection_separator_renders_one_token() {
+    #[derive(Debug, Clone, toasty::Model)]
+    struct Tag {
+        #[key]
+        code: String,
+        label: String,
+    }
+
+    let cx = CxTestBuilder::new().build();
+    let tbl = Table::<Tag>::new(TextColumn::new(lens!(Tag.label)))
+        .wired()
+        .with_delete("/admin/tags".to_string())
+        .with_edit("/admin/tags".to_string())
+        .with_bulk_delete(true);
+    let page: TablePage<Tag> = vec![Tag {
+        code: "Doe, John".to_string(),
+        label: "Doe, John".to_string(),
+    }]
+    .into();
+    let html = tbl.render_loaded(&cx, page).await.html(&cx).await;
+    let token = ",Doe%2C%20John,";
+    let row = row_chunk(&html, "Doe, John");
+    assert!(
+        row.contains(token),
+        "the row checkbox must select the whole key, got {row}"
+    );
+    let thead = &html[..html.find("</thead>").expect("a header row")];
+    assert!(
+        thead.contains(token),
+        "select all must select the whole key, got {thead}"
+    );
+}
