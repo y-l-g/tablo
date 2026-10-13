@@ -252,8 +252,9 @@ pub(crate) fn resource_create<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> 
     })
 }
 
-/// The create form's values: each field's default, under the relationship-control query
-/// parameters, first occurrence wins.
+/// The create form's values: each field's default, under what the query parameters post for a
+/// relationship control, read as the form posts it: a multiple choice's every value, a single
+/// one's last.
 fn seeded_values<R: Resource>(cx: &Cx, resource: &Mounted<R>) -> FormValues {
     let schema = &resource.form;
     let seedable: Vec<&str> = schema
@@ -270,12 +271,12 @@ fn seeded_values<R: Resource>(cx: &Cx, resource: &Mounted<R>) -> FormValues {
     let query = topcoat::router::request::uri(cx)
         .query()
         .unwrap_or_default();
+    let posted: Vec<(String, String)> = form_urlencoded::parse(query.as_bytes())
+        .filter(|(name, _)| seedable.contains(&name.as_ref()))
+        .map(|(name, value)| (name.into_owned(), value.into_owned()))
+        .collect();
     let mut values = schema.defaults();
-    let mut seeded = HashSet::new();
-    for (name, value) in form_urlencoded::parse(query.as_bytes()) {
-        if seedable.contains(&name.as_ref()) && seeded.insert(name.clone()) {
-            values.insert(name, value.into_owned());
-        }
-    }
+    // Only relationship choices post here, and only a repeater's key refuses a read.
+    values.extend(schema.read(&posted).unwrap_or_default());
     values
 }
