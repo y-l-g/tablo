@@ -10,7 +10,7 @@ use super::{
     },
     ChoiceControl, Control, ControlKind, Field, TextControl, choice,
 };
-use crate::form::FormScalar;
+use crate::form::{FormScalar, FormValue};
 
 /// `label`, `name` and `visible_when`, shared by every builder.
 macro_rules! base_modifiers {
@@ -141,10 +141,12 @@ required_for_tests!(TextField, FileField);
 macro_rules! default_modifier {
     ($($builder:ident),*) => {$(
         impl<F> $builder<F> {
-            /// Fills the create form's control with `value`: any [`FormScalar`], or a `&str` in
-            /// the form spelling. On a [`disabled`](Self::disabled) field it is the value a
-            /// create stores. A schema refuses a default the control never posts: one a typed
-            /// field does not parse, or not one of a choice's options.
+            /// Fills the create form's control with `value`: any [`FormScalar`] or a `&str` in
+            /// the form spelling, or, for a [`multiple`](ChoiceField::multiple) choice, an array
+            /// or `Vec` of them. On a [`disabled`](Self::disabled) field it is the value a create
+            /// stores. A schema refuses a default the control never posts: one a typed field
+            /// does not parse, one not among a choice's options, a list on a control posting one
+            /// value, and one value on a multiple choice.
             ///
             /// ```rust
             /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
@@ -154,6 +156,10 @@ macro_rules! default_modifier {
             ///     .options(["draft", "published"])
             ///     .default("draft");
             /// Field::text(Post::fields().views()).default(0_i64).disabled();
+            /// Field::choice_input("channels")
+            ///     .options(["email", "sms"])
+            ///     .multiple()
+            ///     .default(["email"]);
             /// ```
             pub fn default(mut self, value: impl IntoFormValue) -> Self {
                 self.0.default = Some(value.into_form_value());
@@ -165,28 +171,52 @@ macro_rules! default_modifier {
 
 default_modifier!(TextField, ChoiceField, CustomField);
 
-/// A value a field's `default` takes: any [`FormScalar`], or a `&str` or `&String` in the form
-/// spelling.
+/// A value a field's `default` takes: any [`FormScalar`] or a `&str` or `&String` in the form
+/// spelling, or an array or `Vec` of them for a multiple choice.
 pub trait IntoFormValue {
-    /// The value's form spelling.
-    fn into_form_value(self) -> String;
+    /// The value as its control posts it.
+    fn into_form_value(self) -> FormValue;
 }
 
 impl<T: FormScalar> IntoFormValue for T {
-    fn into_form_value(self) -> String {
-        self.to_form()
+    fn into_form_value(self) -> FormValue {
+        FormValue::Text(self.to_form())
     }
 }
 
 impl IntoFormValue for &str {
-    fn into_form_value(self) -> String {
-        self.to_string()
+    fn into_form_value(self) -> FormValue {
+        FormValue::Text(self.to_string())
     }
 }
 
 impl IntoFormValue for &String {
-    fn into_form_value(self) -> String {
-        self.clone()
+    fn into_form_value(self) -> FormValue {
+        FormValue::Text(self.clone())
+    }
+}
+
+impl<T: FormScalar> IntoFormValue for Vec<T> {
+    fn into_form_value(self) -> FormValue {
+        FormValue::List(self.iter().map(FormScalar::to_form).collect())
+    }
+}
+
+impl IntoFormValue for Vec<&str> {
+    fn into_form_value(self) -> FormValue {
+        FormValue::List(self.into_iter().map(str::to_string).collect())
+    }
+}
+
+impl<T: FormScalar, const N: usize> IntoFormValue for [T; N] {
+    fn into_form_value(self) -> FormValue {
+        Vec::from(self).into_form_value()
+    }
+}
+
+impl<const N: usize> IntoFormValue for [&str; N] {
+    fn into_form_value(self) -> FormValue {
+        Vec::from(self).into_form_value()
     }
 }
 
@@ -303,7 +333,7 @@ impl<F> ChoiceField<F> {
     /// records: past them it lists none but the chosen ones, and refuses a submission choosing
     /// another. A record form's edit re-checks only the keys the record does not link yet.
     /// `searchable` filters the listed options as the user types. A condition cannot watch it,
-    /// and it cannot depend on another field.
+    /// it cannot depend on another field, and its `default` is a list.
     pub fn multiple(mut self) -> Self {
         self.choice_mut().multiple = true;
         self

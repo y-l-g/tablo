@@ -1,8 +1,6 @@
-use std::collections::HashMap;
-
 use super::*;
 use crate::{
-    form::FieldErrors,
+    form::{FieldErrors, FormValues},
     schema::{Group, Section, Source},
     test_support::{Html, cx},
 };
@@ -23,8 +21,8 @@ fn kind() -> ChoiceField {
     Field::choice(Customer::fields().kind()).options(["person", "company"])
 }
 
-fn values(kind: &str) -> HashMap<String, String> {
-    HashMap::from([("kind".to_string(), kind.to_string())])
+fn values(kind: &str) -> FormValues {
+    FormValues::from_iter([("kind".to_string(), kind.to_string())])
 }
 
 /// A field's own condition and a block's both hide what they guard, and a submission naming one
@@ -48,7 +46,7 @@ fn a_failing_condition_hides_the_fields_it_guards() {
         "a block shows for any of its values"
     );
     assert_eq!(
-        schema.hidden_fields(&HashMap::new()).len(),
+        schema.hidden_fields(&FormValues::new()).len(),
         2,
         "a submission without the watched field hides what it guards"
     );
@@ -205,8 +203,8 @@ fn a_toggle_without_a_value_reads_as_unchecked() {
     let active = Field::toggle(Customer::fields().active());
     let note = Field::text(Customer::fields().note()).visible_when(&active, ["false"]);
     let schema = Schema::new((active, note));
-    assert!(schema.condition_hidden(&HashMap::new()).is_empty());
-    let checked = HashMap::from([("active".to_string(), "true".to_string())]);
+    assert!(schema.condition_hidden(&FormValues::new()).is_empty());
+    let checked = FormValues::from_iter([("active".to_string(), "true".to_string())]);
     assert_eq!(schema.condition_hidden(&checked), ["note"]);
 }
 

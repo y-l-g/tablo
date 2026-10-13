@@ -11,9 +11,9 @@
 //! bottom drive the panicking entry a form binding uses, which that module
 //! does not.
 
-use std::collections::HashMap;
-
-use tablo::{DeclarationErrorKind, Field, FieldErrors, IntoSchema, ResourceDef, Schema, Source};
+use tablo::{
+    DeclarationErrorKind, Field, FieldErrors, FormValues, IntoSchema, ResourceDef, Schema, Source,
+};
 use topcoat::{
     context::{Cx, CxTestBuilder},
     view::ViewExt,
@@ -76,7 +76,7 @@ fn names(schema: &Schema) -> Vec<&str> {
     schema.fields().map(Field::name).collect()
 }
 
-async fn render(schema: &Schema, cx: &Cx, values: HashMap<String, String>) -> String {
+async fn render(schema: &Schema, cx: &Cx, values: FormValues) -> String {
     schema
         .render(cx, Source::form(&values, &FieldErrors::new()))
         .await
@@ -98,7 +98,7 @@ async fn embedded_leaf_resolves_to_its_flattened_column() {
         "an embedded leaf must resolve to its flattened storage column"
     );
 
-    let mut values = HashMap::new();
+    let mut values = FormValues::new();
     values.insert("meta_seo_title".to_string(), "Nested title".to_string());
     let html = render(&schema, &cx, values).await;
     assert_eq!(
@@ -142,7 +142,7 @@ async fn an_unbound_embedded_path_is_refused() {
     );
     assert!(
         schema
-            .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
+            .render(&cx, Source::form(&FormValues::new(), &FieldErrors::new()))
             .await
             .is_err(),
         "an unbound schema fails to render"
@@ -163,7 +163,7 @@ async fn a_choice_and_a_file_bind_an_embedded_leaf() {
     );
     assert_eq!(names(&schema), ["meta_seo_title", "meta_seo_description"]);
 
-    let html = render(&schema, &cx, HashMap::new()).await;
+    let html = render(&schema, &cx, FormValues::new()).await;
     assert!(
         html.contains("<select") && html.contains("name=\"meta_seo_title\""),
         "the choice posts the flattened column, got {html}"

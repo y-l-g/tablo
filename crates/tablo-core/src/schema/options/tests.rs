@@ -2,6 +2,7 @@ use super::Options;
 use crate::{
     FormScalar,
     extend::{Column as _, Filter as _},
+    form::FormValues,
 };
 
 /// One list shared by the form, the filter and the column.
@@ -53,12 +54,12 @@ async fn a_typed_field_takes_its_options_and_labels_from_its_type() {
     let schema = crate::Schema::new(
         crate::Field::choice(StatusField::fields().status()).options(Status::options()),
     );
-    let mut valid = std::collections::HashMap::new();
+    let mut valid = FormValues::new();
     valid.insert("status".to_string(), "arch".to_string());
     let cx = topcoat::context::CxTestBuilder::new().build();
     let errors = schema.checked(&cx, &valid).await;
     assert!(errors.is_empty(), "a listed option validates: {errors:?}");
-    let mut bogus = std::collections::HashMap::new();
+    let mut bogus = FormValues::new();
     bogus.insert("status".to_string(), "gone".to_string());
     assert!(
         !schema.checked(&cx, &bogus).await.is_empty(),

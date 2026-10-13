@@ -1,9 +1,6 @@
 //! [`EmbeddedColumn`]: an embedded value read off the record, one leaf at a time.
 
-use std::{
-    collections::HashMap,
-    sync::{Arc, OnceLock},
-};
+use std::sync::{Arc, OnceLock};
 
 use derive_where::derive_where;
 use topcoat::{context::Cx, view::*};
@@ -11,6 +8,7 @@ use topcoat::{context::Cx, view::*};
 use super::{Column, ColumnBase, ColumnWidth};
 use crate::{
     Lens,
+    form::FormValues,
     schema::{EmbeddedForm, FieldResolver, Schema},
 };
 
@@ -55,9 +53,9 @@ where
     base_builders!();
 
     /// The value's schema and its leaves as the form spells them, once the column is bound.
-    fn spelled(&self, row: &M) -> Option<(&Schema, HashMap<String, String>)> {
+    fn spelled(&self, row: &M) -> Option<(&Schema, FormValues)> {
         let schema = self.schema.get()?;
-        let mut values = HashMap::new();
+        let mut values = FormValues::new();
         self.lens
             .read(row)
             .write_node(schema.embedded_root(), &mut values);
@@ -82,7 +80,7 @@ where
             .into_iter()
             .filter_map(|index| {
                 let field = &schema.fields[index];
-                let value = values.get(field.name()).map_or("", String::as_str);
+                let value = values.text(field.name()).unwrap_or_default();
                 let read = field.read(value)?;
                 Some(format!("{}: {read}", field.label_str()))
             })

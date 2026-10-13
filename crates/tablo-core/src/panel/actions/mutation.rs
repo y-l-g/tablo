@@ -14,8 +14,6 @@
 //! form's submission is, and its relationship choices are re-checked inside it. A page renders
 //! only after the records pass every check, and rolls the transaction back unwritten.
 
-use std::collections::HashMap;
-
 use topcoat::{
     context::Cx,
     router::{
@@ -37,7 +35,7 @@ use super::{
 use crate::{
     BoxFuture,
     db::db,
-    form::FieldErrors,
+    form::{FieldErrors, FormValues},
     notification::{Notification, set_notification},
     policy::Ability,
     resource::{
@@ -155,8 +153,8 @@ fn after_header_commit<'c, R: Resource>(cx: &'c Cx, name: &'static str) -> BoxFu
 
 /// What the POST of an action asked for, read and checked before the transaction opens.
 struct Posted {
-    /// The whole submission: the input, the CSRF token, the confirmation and the selection.
-    values: HashMap<String, String>,
+    /// The selection the bulk form carried, as it posted it.
+    ids: Option<String>,
     pending: Pending,
 }
 
@@ -174,14 +172,16 @@ async fn read_post(
 ) -> Result<Posted, topcoat::Error> {
     // A mutation carries no file parts: only the text values are read.
     let parts = parse_form_body(cx, body).await?;
-    let values = parts.values;
-    crate::csrf::verify(cx, &values)?;
-    if confirm && !values.get("confirm").is_some_and(|v| truthy(v)) {
+    crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
+    if confirm && !parts.last("confirm").is_some_and(truthy) {
         return Err(bad_request(format!("{name} requires confirmation")).into());
     }
     // The input's checks may query, so they run before the transaction holds a connection.
-    let pending = read_input(cx, name, input, &values, &parts.lists).await?;
-    Ok(Posted { values, pending })
+    let pending = read_input(cx, name, input, &parts.pairs).await?;
+    Ok(Posted {
+        ids: parts.last("ids").map(str::to_string),
+        pending,
+    })
 }
 
 /// Runs `action` on the records `target` names.
@@ -205,13 +205,14 @@ async fn mutate<'a, R: Resource>(
     let Some(action) = action else {
         return Err(not_found().into());
     };
-    let Posted { values, pending } =
-        read_post(cx, body, action.name, action.confirm, &action.input).await?;
+    let Posted {
+        ids: posted_ids,
+        pending,
+    } = read_post(cx, body, action.name, action.confirm, &action.input).await?;
     let ids = match target {
         Target::Record => vec![path_param_segment(cx, "id").to_string()],
         Target::Bulk => {
-            let raw = values.get("ids").cloned().unwrap_or_default();
-            let ids = parse_bulk_ids(&raw, MAX_BULK_IDS);
+            let ids = parse_bulk_ids(posted_ids.as_deref().unwrap_or_default(), MAX_BULK_IDS);
             if ids.is_empty() {
                 set_notification(cx, Notification::error("Select at least one row first"));
                 return Err(see_other(landing_url(cx, &resource.url)).into());
@@ -256,7 +257,7 @@ async fn mutate<'a, R: Resource>(
             }
         };
         let mut hidden = Vec::new();
-        if let (Target::Bulk, Some(ids)) = (target, values.get("ids")) {
+        if let (Target::Bulk, Some(ids)) = (target, &posted_ids) {
             hidden.push(("ids".to_string(), ids.clone()));
         }
         let chrome = page.chrome(
@@ -276,7 +277,7 @@ async fn mutate<'a, R: Resource>(
             values: posted,
         } => {
             let errors = (action.input.schema)()
-                .recheck_relationships(cx, &posted, &HashMap::new(), &mut tx)
+                .recheck_relationships(cx, &posted, &FormValues::new(), &mut tx)
                 .await;
             if !errors.is_empty() {
                 let (page, chrome) = page(
@@ -349,7 +350,7 @@ pub(crate) async fn run_header<'a>(
     let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
     if let Some(values) = submitted {
         let errors = (action.input.schema)()
-            .recheck_relationships(cx, &values, &HashMap::new(), &mut tx)
+            .recheck_relationships(cx, &values, &FormValues::new(), &mut tx)
             .await;
         if !errors.is_empty() {
             // The page's choices may query: release the connection first.
@@ -378,7 +379,7 @@ pub(crate) async fn run_header<'a>(
 
 /// The input page an action renders instead of running: a refused submission and its errors.
 pub(super) struct InputPage {
-    pub(super) values: HashMap<String, String>,
+    pub(super) values: FormValues,
     pub(super) errors: FieldErrors,
 }
 
@@ -390,7 +391,7 @@ pub(super) enum Pending {
     /// relationship re-check inside the transaction.
     Submitted {
         input: ErasedInput,
-        values: HashMap<String, String>,
+        values: FormValues,
     },
     /// The input page to render instead of running: a refused submission.
     Page(InputPage),
@@ -406,12 +407,11 @@ pub(super) async fn read_input(
     cx: &Cx,
     name: &str,
     spec: &InputSpec,
-    values: &HashMap<String, String>,
-    lists: &HashMap<String, Vec<String>>,
+    posted: &[(String, String)],
 ) -> Result<Pending, topcoat::Error> {
     if !spec.takes_input {
         // Mounting refuses an input with no field whose parse refuses an empty submission.
-        let input = (spec.parse)(cx, &HashMap::new()).map_err(|_| {
+        let input = (spec.parse)(cx, &FormValues::new()).map_err(|_| {
             crate::error::declaration(format!(
                 "action '{name}' declares no input field but refuses an empty input"
             ))
@@ -419,7 +419,7 @@ pub(super) async fn read_input(
         return Ok(Pending::Ready(input));
     }
     let schema = (spec.schema)();
-    let input = schema.read_input(values, lists, &RESERVED_KEYS)?;
+    let input = schema.read_input(posted, &RESERVED_KEYS)?;
     let mut errors = FieldErrors::new();
     let parsed = match (spec.parse)(cx, &input) {
         Ok(parsed) => Some(parsed),
@@ -431,7 +431,7 @@ pub(super) async fn read_input(
         }
     };
     schema
-        .check_controls(cx, &input, &HashMap::new(), &mut errors)
+        .check_controls(cx, &input, &FormValues::new(), &mut errors)
         .await;
     if let Some(key) = schema.unplaced_error(&errors) {
         return Err(crate::error::declaration(format!(

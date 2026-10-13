@@ -1,20 +1,16 @@
 //! Embedded values.
 
-use std::collections::HashMap;
-
 use tablo::{
-    Detail, EmbeddedColumn, EmbeddedForm, Field, FieldErrorKind, FieldErrors, IntoSchema, NoForm,
-    Resource, ResourceDef, Schema, Section, Source, Table, TextColumn, lens,
+    Detail, EmbeddedColumn, EmbeddedForm, Field, FieldErrorKind, FieldErrors, FormValues,
+    IntoSchema, NoForm, Resource, ResourceDef, Schema, Section, Source, Table, TextColumn, lens,
 };
 use topcoat::{
     context::{Cx, CxTestBuilder},
     view::ViewExt,
 };
 
-fn mentions(schema: &Schema, values: &HashMap<String, String>) -> bool {
-    schema
-        .fields()
-        .any(|field| values.contains_key(field.name()))
+fn mentions(schema: &Schema, values: &FormValues) -> bool {
+    schema.fields().any(|field| values.contains(field.name()))
 }
 
 #[derive(Debug, Clone, PartialEq, toasty::Embed, EmbeddedForm)]
@@ -151,7 +147,7 @@ fn first_name(schema: &Schema) -> &str {
     schema.fields().next().expect("one field").name()
 }
 
-fn map(pairs: &[(&str, &str)]) -> HashMap<String, String> {
+fn map(pairs: &[(&str, &str)]) -> FormValues {
     pairs
         .iter()
         .map(|(k, v)| (k.to_string(), v.to_string()))
@@ -215,7 +211,7 @@ async fn a_struct_round_trips_through_the_flat_map() {
         description: "World".to_string(),
     };
 
-    let mut values = HashMap::new();
+    let mut values = FormValues::new();
     seo.write_form(&cx, Post::fields().seo(), &mut values);
     assert_eq!(
         values,
@@ -237,7 +233,7 @@ async fn an_enum_round_trips_with_an_explicit_discriminant() {
         canonical_url: "/hello".to_string(),
     };
 
-    let mut values = HashMap::new();
+    let mut values = FormValues::new();
     published.write_form(&cx, Post::fields().publication(), &mut values);
     assert_eq!(
         values,
@@ -354,7 +350,7 @@ async fn nested_values_delegate_to_their_own_codec() {
         },
     };
 
-    let mut values = HashMap::new();
+    let mut values = FormValues::new();
     video.write_form(&cx, Post::fields().media(), &mut values);
     assert_eq!(
         values,
@@ -377,14 +373,14 @@ async fn nested_values_delegate_to_their_own_codec() {
 async fn a_unit_variant_round_trips_on_its_discriminant_alone() {
     let cx = post_cx().await;
 
-    let mut values = HashMap::new();
+    let mut values = FormValues::new();
     Visibility::Public.write_form(&cx, Post::fields().visibility(), &mut values);
     assert_eq!(values, map(&[("visibility", "1")]));
     let read: Visibility = EmbeddedForm::read_form(&cx, Post::fields().visibility(), &values)
         .expect("the value reads");
     assert_eq!(read, Visibility::Public);
 
-    let mut values = HashMap::new();
+    let mut values = FormValues::new();
     Visibility::Private {
         reason: "draft".to_string(),
     }
@@ -412,7 +408,7 @@ async fn typed_leaves_round_trip() {
         read_minutes: 6,
     };
 
-    let mut values = HashMap::new();
+    let mut values = FormValues::new();
     stats.write_form(&cx, Post::fields().post_stats(), &mut values);
     assert_eq!(
         values,
@@ -521,7 +517,7 @@ async fn a_nested_enum_contributes_its_discriminant() {
             alt: "i".to_string(),
         },
     };
-    let mut values = HashMap::new();
+    let mut values = FormValues::new();
     wrapper.write_form(&cx, Post::fields().wrapper(), &mut values);
     assert_eq!(
         values,
@@ -548,7 +544,7 @@ async fn variant_casing_needs_no_normalisation() {
         },
         Casing::Draft,
     ] {
-        let mut values = HashMap::new();
+        let mut values = FormValues::new();
         casing.write_form(&cx, Post::fields().casing(), &mut values);
         let read: Casing = EmbeddedForm::read_form(&cx, Post::fields().casing(), &values)
             .expect("the value reads");
@@ -557,7 +553,7 @@ async fn variant_casing_needs_no_normalisation() {
 
     // And the derived form renders (a name mismatch would panic here).
     let html = Schema::new(bound(&cx, Casing::form(Post::fields().casing())))
-        .render(&cx, Source::form(&HashMap::new(), &FieldErrors::new()))
+        .render(&cx, Source::form(&FormValues::new(), &FieldErrors::new()))
         .await
         .unwrap()
         .single()
@@ -584,7 +580,7 @@ async fn typed_leaves_cover_bool_and_the_integer_family() {
         revision: 7,
     };
 
-    let mut values = HashMap::new();
+    let mut values = FormValues::new();
     flags.write_form(&cx, Post::fields().flags(), &mut values);
     assert_eq!(
         values,
@@ -613,7 +609,7 @@ async fn typed_leaves_cover_bool_and_the_integer_family() {
 async fn the_derived_form_renders_the_variant_select_and_every_payload() {
     let cx = post_cx().await;
     let schema = Schema::new(bound(&cx, Publication::form(Post::fields().publication())));
-    let mut values = HashMap::new();
+    let mut values = FormValues::new();
     Publication::Archived {
         archived_at: "2026-09-22T00:00:00Z".to_string(),
         reason: "superseded".to_string(),
@@ -739,7 +735,7 @@ async fn a_detail_page_shows_an_embedded_value_leaf_by_leaf() {
 }
 
 /// The form's HTML, hydrated with `values` (empty for a create form).
-async fn render_form(cx: &Cx, schema: &Schema, values: &HashMap<String, String>) -> String {
+async fn render_form(cx: &Cx, schema: &Schema, values: &FormValues) -> String {
     schema
         .render(cx, Source::form(values, &FieldErrors::new()))
         .await
@@ -802,7 +798,7 @@ async fn the_variant_groups_are_exactly_the_schemas_variants() {
     let html = render_form(
         &cx,
         &Schema::new(bound(&cx, Publication::form(Post::fields().publication()))),
-        &HashMap::new(),
+        &FormValues::new(),
     )
     .await;
 
@@ -874,7 +870,7 @@ async fn a_unit_variant_still_gets_its_group() {
     let html = render_form(
         &cx,
         &Schema::new(bound(&cx, Visibility::form(Post::fields().visibility()))),
-        &HashMap::new(),
+        &FormValues::new(),
     )
     .await;
     assert_eq!(variant_markers(&html), vec!["1", "2"], "got {html}");
@@ -892,7 +888,7 @@ async fn each_variants_payload_sits_in_its_own_group() {
     let html = render_form(
         &cx,
         &Schema::new(bound(&cx, Publication::form(Post::fields().publication()))),
-        &HashMap::new(),
+        &FormValues::new(),
     )
     .await;
 

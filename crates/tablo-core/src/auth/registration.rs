@@ -1,7 +1,7 @@
 //! The panel's sign-up page: the [`Registrar`] trait that creates accounts, the shipped
 //! [`SignUp`] form, and the `{prefix}/register` routes.
 
-use std::{any::TypeId, collections::HashMap, future::Future, sync::Arc};
+use std::{any::TypeId, future::Future, sync::Arc};
 
 use topcoat::{
     context::Cx,
@@ -22,7 +22,7 @@ use super::{
 };
 use crate::{
     ActionInput, BoxFuture,
-    form::{FieldError, FieldErrors, parse_password, parse_scalar},
+    form::{FieldError, FieldErrors, FormValues, parse_password, parse_scalar},
     notification::{Notification, set_notification},
     panel::{Panel, panel_prefix, state::current},
     schema::{Field, Schema, Source},
@@ -139,7 +139,7 @@ pub(crate) enum Outcome {
     Registered(Arc<dyn PanelUser>),
     /// The refused submission, its values, and why. The page renders a password control empty.
     Refused {
-        values: HashMap<String, String>,
+        values: FormValues,
         errors: FieldErrors,
     },
 }
@@ -152,7 +152,7 @@ pub(crate) trait DynRegistrar: Send + Sync {
     fn sign_up<'a>(
         &'a self,
         cx: &'a Cx,
-        values: HashMap<String, String>,
+        values: FormValues,
     ) -> BoxFuture<'a, topcoat::Result<Outcome>>;
     /// The [`TypeId`] and name of [`Registrar::User`], which mounting compares with the
     /// authenticator's.
@@ -167,7 +167,7 @@ impl<R: Registrar> DynRegistrar for R {
     fn sign_up<'a>(
         &'a self,
         cx: &'a Cx,
-        values: HashMap<String, String>,
+        values: FormValues,
     ) -> BoxFuture<'a, topcoat::Result<Outcome>> {
         Box::pin(async move {
             let schema = R::Input::schema();
@@ -182,7 +182,7 @@ impl<R: Registrar> DynRegistrar for R {
                 }
             };
             schema
-                .check_controls(cx, &values, &HashMap::new(), &mut errors)
+                .check_controls(cx, &values, &FormValues::new(), &mut errors)
                 .await;
             let refused = |errors| Outcome::Refused {
                 values: values.clone(),
@@ -271,10 +271,9 @@ impl ActionInput for SignUp {
         ))
     }
 
-    fn parse(_cx: &Cx, values: &HashMap<String, String>) -> Result<Self, Vec<FieldError>> {
+    fn parse(_cx: &Cx, values: &FormValues) -> Result<Self, Vec<FieldError>> {
         let mut errors = Vec::new();
-        type Parse =
-            fn(&str, &HashMap<String, String>, Option<String>) -> Result<String, FieldError>;
+        type Parse = fn(&str, &FormValues, Option<String>) -> Result<String, FieldError>;
         let mut read = |key: &str, parse: Parse| {
             parse(key, values, None)
                 .map_err(|error| errors.push(error))
@@ -354,7 +353,7 @@ pub(crate) fn offered(cx: &Cx) -> bool {
 pub(crate) fn register_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         let next = next_from_query(cx).unwrap_or_default();
-        page_response(cx, &HashMap::new(), &FieldErrors::new(), next, None).await
+        page_response(cx, &FormValues::new(), &FieldErrors::new(), next, None).await
     })
 }
 
@@ -367,15 +366,14 @@ pub(crate) fn register_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             .registrar()
             .ok_or_else(topcoat::router::error::not_found)?;
         let form = crate::panel::parse_form_body(cx, body).await?;
-        crate::csrf::verify(cx, &form.values)?;
+        crate::csrf::verify(cx, form.last(crate::csrf::FIELD_NAME))?;
         let next = form
-            .values
-            .get(NEXT_FIELD)
-            .and_then(|value| safe_next(value))
+            .last(NEXT_FIELD)
+            .and_then(safe_next)
             .map(str::to_string)
             .unwrap_or_default();
         let schema = registrar.schema();
-        let values = schema.read_input(&form.values, &form.lists, &RESERVED_KEYS)?;
+        let values = schema.read_input(&form.pairs, &RESERVED_KEYS)?;
         let client = client_ip(cx);
         if !panel.auth.throttle_sign_ups().attempt("", client) {
             tracing::warn!(panel = %panel.prefix, client = ?client, "sign-up attempt throttled");
@@ -435,7 +433,7 @@ pub(crate) fn register_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
 
 /// The sign-up page with the outage alert.
 async fn unavailable(cx: &Cx, next: String) -> topcoat::Result<Response> {
-    let values = HashMap::new();
+    let values = FormValues::new();
     page_response(
         cx,
         &values,
@@ -474,7 +472,7 @@ impl Alert {
 /// The sign-up page: 422 for a refused submission, the alert's status with one, else 200.
 async fn page_response(
     cx: &Cx,
-    values: &HashMap<String, String>,
+    values: &FormValues,
     errors: &FieldErrors,
     next: String,
     alert: Option<Alert>,
@@ -491,7 +489,7 @@ async fn page_response(
 /// and a link to the login page.
 async fn render_page<'a>(
     cx: &'a Cx,
-    values: &HashMap<String, String>,
+    values: &FormValues,
     errors: &FieldErrors,
     next: String,
     alert: Option<Alert>,

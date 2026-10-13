@@ -310,7 +310,8 @@ equals the value another field of the same form posts: the cities of the chosen 
 
 Every control but a repeater takes `.help(text)`, rendered under it, and `.disabled()` or
 `.disabled_on_edit()`. A text, choice or custom control also takes `.default(value)`, the value the
-create form starts with: any form scalar, or a `&str` in the form spelling.
+create form starts with: any form scalar, or a `&str` in the form spelling. A multiple choice's
+default is an array or `Vec` of them: `.multiple().default(["email", "sms"])`.
 
 ```rust
 {{#include ../../../examples/guide/src/forms.rs:forms-field-basics}}
@@ -485,8 +486,8 @@ item's controls per item, which the user adds, removes and moves.
   rows; one that posts no rows stores an empty list.
 - Adding, removing and moving rows needs JavaScript. Without it the stored rows still edit.
 - An action's input can place a repeater too, with a hand-written `ActionInput` whose `parse`
-  reads the rows with `schema::parse_items`. A page handling its own post folds the rows into
-  the repeater's key first, with `Schema::fold_repeaters`.
+  reads the rows with `schema::parse_items`. A page handling its own post reads it into
+  `FormValues` first, with `Schema::read`.
 - On the detail page, `RepeaterColumn` shows each item's fields under their labels. The model's
   default detail page includes one; its table does not.
 - Not supported inside an item: an embedded value, another repeater, a relationship, a file field

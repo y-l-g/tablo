@@ -4,13 +4,14 @@ use topcoat::context::{Cx, CxTestBuilder};
 use super::*;
 use crate::{
     Ability,
+    form::FormValues,
     schema::Field,
     test_support::{Html as _, memory_db},
 };
 
 /// Reports what a submit's option check says for one choice.
 async fn check(field: &Field, cx: &Cx, value: &str) -> Vec<String> {
-    field.validate_exists(cx, value, None, None).await
+    field.validate_exists(cx, &value.into(), None, None).await
 }
 /// Provides the related-source fixtures the option-policy tests share.
 #[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
@@ -814,8 +815,7 @@ async fn recheck_resolves_the_key_through_the_write_transaction() {
     let viewable = crate::schema::Schema::new(
         Field::choice(PolicyAuthor::fields().id()).relationship::<HideOneAuthor>(),
     );
-    let values =
-        |id: uuid::Uuid| std::collections::HashMap::from([("id".to_string(), id.to_string())]);
+    let values = |id: uuid::Uuid| FormValues::from_iter([("id".to_string(), id.to_string())]);
     let messages = |errors: crate::form::FieldErrors| -> Vec<String> {
         errors.iter().map(|error| error.message("Id")).collect()
     };
@@ -824,24 +824,14 @@ async fn recheck_resolves_the_key_through_the_write_transaction() {
     let mut tx = handle.transaction().await.unwrap();
     assert!(
         scoped
-            .recheck_relationships(
-                &cx,
-                &values(own.id),
-                &std::collections::HashMap::new(),
-                &mut tx
-            )
+            .recheck_relationships(&cx, &values(own.id), &FormValues::new(), &mut tx)
             .await
             .is_empty()
     );
     assert_eq!(
         messages(
             scoped
-                .recheck_relationships(
-                    &cx,
-                    &values(foreign.id),
-                    &std::collections::HashMap::new(),
-                    &mut tx
-                )
+                .recheck_relationships(&cx, &values(foreign.id), &FormValues::new(), &mut tx)
                 .await
         ),
         ["Id is invalid"]
@@ -849,12 +839,7 @@ async fn recheck_resolves_the_key_through_the_write_transaction() {
     assert_eq!(
         messages(
             viewable
-                .recheck_relationships(
-                    &cx,
-                    &values(hidden.id),
-                    &std::collections::HashMap::new(),
-                    &mut tx
-                )
+                .recheck_relationships(&cx, &values(hidden.id), &FormValues::new(), &mut tx)
                 .await
         ),
         ["Id is invalid"]
@@ -867,12 +852,7 @@ async fn recheck_resolves_the_key_through_the_write_transaction() {
     assert_eq!(
         messages(
             scoped
-                .recheck_relationships(
-                    &cx,
-                    &values(own.id),
-                    &std::collections::HashMap::new(),
-                    &mut tx
-                )
+                .recheck_relationships(&cx, &values(own.id), &FormValues::new(), &mut tx)
                 .await
         ),
         ["Id is invalid"]

@@ -1,7 +1,5 @@
 //! [`RepeaterColumn`]: a `#[document]` list read off the record, one item at a time.
 
-use std::collections::HashMap;
-
 use derive_where::derive_where;
 use toasty::stmt::List;
 use topcoat::{context::Cx, view::*};
@@ -9,6 +7,7 @@ use topcoat::{context::Cx, view::*};
 use super::{Column, ColumnBase, ColumnWidth};
 use crate::{
     Lens,
+    form::FormValues,
     schema::{RepeaterItem, read_only, value_cell},
 };
 
@@ -49,12 +48,12 @@ where
     base_builders!();
 
     /// Each item's keys as its row posts them.
-    fn spelled(&self, row: &M) -> Vec<HashMap<String, String>> {
+    fn spelled(&self, row: &M) -> Vec<FormValues> {
         self.lens
             .read(row)
             .iter()
             .map(|item| {
-                let mut values = HashMap::new();
+                let mut values = FormValues::new();
                 item.write(&mut values);
                 values
             })
@@ -77,7 +76,7 @@ where
                 schema
                     .fields()
                     .filter_map(|field| {
-                        let value = values.get(field.name()).map_or("", String::as_str);
+                        let value = values.text(field.name()).unwrap_or_default();
                         let read = field.read(value)?;
                         Some(format!("{}: {read}", field.label_str()))
                     })
@@ -100,9 +99,7 @@ where
             .map(|values| {
                 let fields: Vec<BoxView<'a>> = schema
                     .fields()
-                    .map(|field| {
-                        field.display(cx, values.get(field.name()).map_or("", String::as_str))
-                    })
+                    .map(|field| field.display(cx, values.text(field.name()).unwrap_or_default()))
                     .collect();
                 view! {
                     cx =>

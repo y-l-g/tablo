@@ -1,11 +1,9 @@
-use std::collections::HashMap;
-
 use super::super::{
     Field,
     test_support::{DummyUser, cx},
 };
 use crate::{
-    form::FieldErrors,
+    form::{FieldErrors, FormValue, FormValues},
     schema::{Schema, Source},
     test_support::Html as _,
 };
@@ -14,15 +12,21 @@ use crate::{
 fn text_input_email_validates() {
     let input: Field = Field::text(DummyUser::fields().email()).email().into();
     assert!(
-        input.check("not-an-email").is_some(),
+        input.check(&FormValue::from("not-an-email")).is_some(),
         "email should reject invalid"
     );
-    assert!(input.check("a@").is_some(), "email should reject partial");
     assert!(
-        input.check("a@b.com").is_none(),
+        input.check(&FormValue::from("a@")).is_some(),
+        "email should reject partial"
+    );
+    assert!(
+        input.check(&FormValue::from("a@b.com")).is_none(),
         "email should accept valid"
     );
-    assert!(input.check(" a@b.com ").is_none(), "email should trim");
+    assert!(
+        input.check(&FormValue::from(" a@b.com ")).is_none(),
+        "email should trim"
+    );
 }
 
 /// The email rule is `email_address`.
@@ -39,7 +43,10 @@ fn text_input_email_edges() {
         "user@my_host.com",
         "a@b.c",
     ] {
-        assert!(input.check(ok).is_none(), "{ok} should pass");
+        assert!(
+            input.check(&FormValue::from(ok)).is_none(),
+            "{ok} should pass"
+        );
     }
     for bad in [
         "a@b".to_string(),
@@ -67,7 +74,10 @@ fn text_input_email_edges() {
             "d".repeat(62)
         ),
     ] {
-        assert!(input.check(&bad).is_some(), "{bad} should fail");
+        assert!(
+            input.check(&FormValue::from(&bad)).is_some(),
+            "{bad} should fail"
+        );
     }
 }
 
@@ -76,7 +86,7 @@ async fn multiline_renders_a_textarea_with_the_stored_value() {
     // A `<textarea>` takes its value from content, not a `value` attribute.
     let cx = cx();
     let schema = Schema::new(Field::text(DummyUser::fields().name()).multiline(4));
-    let mut values = HashMap::new();
+    let mut values = FormValues::new();
     values.insert("name".to_string(), "Line one\nLine two".to_string());
     let html = schema
         .render(&cx, Source::form(&values, &FieldErrors::new()))
@@ -114,7 +124,7 @@ async fn multiline_renders_a_textarea_with_the_stored_value() {
 async fn password_renders_masked_and_never_echoes_its_value() {
     let cx = cx();
     let schema = Schema::new(Field::text_input::<String>("secret").password());
-    let mut values = HashMap::new();
+    let mut values = FormValues::new();
     values.insert("secret".to_string(), "hunter22".to_string());
     let html = schema
         .render(&cx, Source::form(&values, &FieldErrors::new()))
@@ -131,7 +141,7 @@ async fn password_renders_masked_and_never_echoes_its_value() {
 async fn a_typed_field_renders_its_input_type_and_value() {
     async fn input(schema: Schema, stored: &str) -> String {
         let cx = cx();
-        let values = HashMap::from([("value".to_string(), stored.to_string())]);
+        let values = FormValues::from_iter([("value".to_string(), stored.to_string())]);
         let html = schema
             .render(&cx, Source::form(&values, &FieldErrors::new()))
             .await

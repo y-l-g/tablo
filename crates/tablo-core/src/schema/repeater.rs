@@ -1,15 +1,15 @@
 //! Repeaters: a list of values stored in one `#[document]` column, edited one row per item.
 //!
 //! Each row posts its item's keys under `{key}.{row}.`, and the repeater's own key posts the rows
-//! in the order they show, so a row the browser adds, removes or moves needs no other key. A
-//! submission folds them into the repeater's key, as a JSON array of each item's keys, before
-//! anything reads it: the edit's stored value, a hidden repeater and the parse then see one key
-//! like any other field's.
+//! in the order they show, so a row the browser adds, removes or moves needs no other key.
+//! [`Schema::read`] reads them into the repeater's key as [`FormValue::Rows`], each row holding its
+//! item's values: the edit's stored value, a hidden repeater and the parse then see one key like
+//! any other field's.
 //!
 //! The browser adds a row by copying the blank row the repeater renders in a `<template>`, its
 //! keys carrying [`ROW`] for the row's number (`assets/repeaters.js`).
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use tablo_ui::{
     ButtonSize, ButtonVariant, FieldLegendVariant, button, field_error as ui_field_error,
@@ -17,8 +17,8 @@ use tablo_ui::{
 };
 use topcoat::{Result, context::Cx, view::*};
 
-use super::{Schema, fields::Field, tree::Source};
-use crate::form::{FieldError, FieldErrors};
+use super::{Schema, fields::Field, read::Pairs, tree::Source};
+use crate::form::{FieldError, FieldErrors, FormValue, FormValues};
 
 /// One item of a repeater: the typed value each row parses into, stored as a `toasty::Embed`
 /// struct in a `#[document]` list.
@@ -34,13 +34,10 @@ pub trait RepeaterItem: Sized + Send + Sync + 'static {
     /// # Errors
     ///
     /// Every key that failed, each once.
-    fn parse(
-        cx: &Cx,
-        values: &HashMap<String, String>,
-    ) -> std::result::Result<Self, Vec<FieldError>>;
+    fn parse(cx: &Cx, values: &FormValues) -> std::result::Result<Self, Vec<FieldError>>;
 
     /// Write the item's keys as its row posts them.
-    fn write(&self, out: &mut HashMap<String, String>);
+    fn write(&self, out: &mut FormValues);
 }
 
 /// What the blank row's keys carry for the number the browser gives a row it adds.
@@ -79,28 +76,25 @@ impl RepeaterControl {
         }
     }
 
-    /// Folds the rows posted under `key` into `key`, in the order it lists them. A row's key
-    /// that its item does not declare, or that a row it does not list posts, stays where it is
-    /// for the unknown-key check to refuse. A submission that does not post `key` folds nothing,
-    /// so an edit keeps the stored rows.
+    /// Reads the rows posted under `key`, in the order `key` lists them, each through its item's
+    /// schema. A row's key that its item does not declare, or that a row `key` does not list
+    /// posts, stays unclaimed for the unknown-key check to refuse. `None` when the submission does
+    /// not post `key`, so an edit keeps the stored rows.
     ///
     /// # Errors
     ///
     /// `key` lists something other than row numbers, a row twice, a row posting none of its
     /// item's keys, or more than [`MAX_ROWS`] rows. A browser posts every control of each row it
     /// shows, so none of these comes from the form.
-    pub(crate) fn fold(
+    pub(super) fn read(
         &self,
         key: &str,
-        values: &mut HashMap<String, String>,
-    ) -> std::result::Result<(), String> {
-        let Some(order) = values.remove(key) else {
-            return Ok(());
+        pairs: &mut Pairs<'_>,
+    ) -> std::result::Result<Option<FormValue>, String> {
+        let Some(order) = pairs.claim(key).pop() else {
+            return Ok(None);
         };
-        let leaves: Vec<String> = (self.item)()
-            .fields()
-            .map(|field| field.name().to_string())
-            .collect();
+        let item = (self.item)();
         let mut seen = HashSet::new();
         let mut rows = Vec::new();
         for token in order.split(',').map(str::trim).filter(|t| !t.is_empty()) {
@@ -113,40 +107,39 @@ impl RepeaterControl {
             if !seen.insert(row) {
                 return Err(format!("`{key}` lists row {row} twice"));
             }
-            let item: HashMap<String, String> = leaves
-                .iter()
-                .filter_map(|leaf| {
-                    let value = values.remove(&row_key(key, &row.to_string(), leaf))?;
-                    Some((leaf.clone(), value))
-                })
-                .collect();
-            if item.is_empty() {
+            let mut posted = Vec::new();
+            for leaf in item.fields().map(Field::name) {
+                for value in pairs.claim(&row_key(key, &row.to_string(), leaf)) {
+                    posted.push((leaf.to_string(), value.to_string()));
+                }
+            }
+            if posted.is_empty() {
                 return Err(format!("`{key}` lists row {row}, which posts nothing"));
             }
-            rows.push(item);
+            rows.push(item.read(&posted)?);
         }
-        values.insert(key.to_string(), encode(&rows));
-        Ok(())
+        Ok(Some(FormValue::Rows(rows)))
     }
 
-    /// Adds to `errors` what the item's controls' own rules refuse in each row of the folded
-    /// `value`, under the key the row's control posts: a choice that is not one of its options,
-    /// an email field's address. A value holding no rows is the parse's to refuse.
-    pub(crate) async fn check(&self, cx: &Cx, key: &str, value: &str, errors: &mut FieldErrors) {
-        for (row, item) in decode(value).unwrap_or_default().iter().enumerate() {
+    /// Adds to `errors` what the item's controls' own rules refuse in each of `rows`, under the
+    /// key the row's control posts: a choice that is not one of its options, an email field's
+    /// address.
+    pub(crate) async fn check(
+        &self,
+        cx: &Cx,
+        key: &str,
+        rows: &[FormValues],
+        errors: &mut FieldErrors,
+    ) {
+        for (row, item) in rows.iter().enumerate() {
             let (schema, values) = self.row(key, &row.to_string(), item);
-            Box::pin(schema.check_controls(cx, &values, &HashMap::new(), errors)).await;
+            Box::pin(schema.check_controls(cx, &values, &FormValues::new(), errors)).await;
         }
     }
 
     /// The item's schema posting under the row `row` of the repeater `key`, and `item`'s keys as
     /// that row posts them.
-    fn row(
-        &self,
-        key: &str,
-        row: &str,
-        item: &HashMap<String, String>,
-    ) -> (Schema, HashMap<String, String>) {
+    fn row(&self, key: &str, row: &str, item: &FormValues) -> (Schema, FormValues) {
         let prefix = row_key(key, row, "");
         let mut schema = (self.item)();
         for field in &mut schema.fields {
@@ -168,7 +161,7 @@ impl RepeaterControl {
         source: &Source<'_>,
     ) -> Result<BoxView<'a>> {
         let key = field.name().to_string();
-        let items = source.value(&key).and_then(decode).unwrap_or_default();
+        let items = source.rows(&key);
         let mut rows = Vec::with_capacity(items.len());
         for (row, item) in items.iter().enumerate() {
             rows.push(
@@ -177,7 +170,14 @@ impl RepeaterControl {
             );
         }
         let blank = self
-            .render_row(cx, &key, ROW, &HashMap::new(), &FieldErrors::new(), source)
+            .render_row(
+                cx,
+                &key,
+                ROW,
+                &FormValues::new(),
+                &FieldErrors::new(),
+                source,
+            )
             .await?;
         let order = (0..items.len())
             .map(|row| row.to_string())
@@ -243,7 +243,7 @@ impl RepeaterControl {
         cx: &'a Cx,
         key: &str,
         row: &str,
-        item: &HashMap<String, String>,
+        item: &FormValues,
         errors: &FieldErrors,
         source: &Source<'_>,
     ) -> Result<BoxView<'a>> {
@@ -288,49 +288,38 @@ pub(crate) fn row_key(key: &str, row: &str, leaf: &str) -> String {
     format!("{key}.{row}.{leaf}")
 }
 
-/// The rows' keys as the repeater's one value.
-fn encode(rows: &[HashMap<String, String>]) -> String {
-    serde_json::to_string(rows).expect("a list of string maps serializes")
-}
-
-/// The rows' keys a repeater's value holds: none for a blank one, `None` for one that is not a
-/// list of rows.
-pub(crate) fn decode(value: &str) -> Option<Vec<HashMap<String, String>>> {
-    if value.trim().is_empty() {
-        return Some(Vec::new());
-    }
-    serde_json::from_str(value).ok()
-}
-
 /// The repeater's value holding `items`: what a record form hydrates the repeater with, and what
 /// a hand-written one writes.
-pub fn write_items<T: RepeaterItem>(items: &[T]) -> String {
-    let rows: Vec<HashMap<String, String>> = items
-        .iter()
-        .map(|item| {
-            let mut out = HashMap::new();
-            item.write(&mut out);
-            out
-        })
-        .collect();
-    encode(&rows)
+pub fn write_items<T: RepeaterItem>(items: &[T]) -> FormValue {
+    FormValue::Rows(
+        items
+            .iter()
+            .map(|item| {
+                let mut out = FormValues::new();
+                item.write(&mut out);
+                out
+            })
+            .collect(),
+    )
 }
 
-/// The items the repeater `key` holds in a submission
-/// [folded](crate::Schema::fold_repeaters), none when it posts nothing: what a record form's
-/// parse reads the repeater with, and what a hand-written one or an action input reads.
+/// The items the repeater `key` holds in a submission [read](crate::Schema::read) through its
+/// schema, none when it posts nothing: what a record form's parse reads the repeater with, and
+/// what a hand-written one or an action input reads.
 ///
 /// # Errors
 ///
-/// Each row's refusals, under the key the row's control posts, or the repeater's own when its
-/// value holds no rows.
+/// Each row's refusals, under the key the row's control posts, or the repeater's own when it holds
+/// text or a list.
 pub fn parse_items<T: RepeaterItem>(
     cx: &Cx,
     key: &str,
-    values: &HashMap<String, String>,
+    values: &FormValues,
 ) -> std::result::Result<Vec<T>, Vec<FieldError>> {
-    let Some(rows) = decode(values.get(key).map_or("", String::as_str)) else {
-        return Err(vec![FieldError::invalid(key, "The rows could not be read")]);
+    let rows: &[FormValues] = match values.get(key) {
+        None => &[],
+        Some(FormValue::Rows(rows)) => rows,
+        Some(_) => return Err(vec![crate::form::unreadable(key)]),
     };
     let mut items = Vec::with_capacity(rows.len());
     let mut errors = Vec::new();

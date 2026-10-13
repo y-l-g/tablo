@@ -37,14 +37,8 @@ pub(crate) async fn parse_form_body(cx: &Cx, body: Body) -> Result<FormParts, to
             topcoat::router::error::bad_request("cannot read form body").into()
         }
     })?;
-    let pairs = form_pairs_from_request_parts(content_type.as_deref(), bytes.as_ref())?;
-    let mut lists: HashMap<String, Vec<String>> = HashMap::new();
-    for (name, value) in &pairs {
-        lists.entry(name.clone()).or_default().push(value.clone());
-    }
     Ok(FormParts {
-        values: pairs.into_iter().collect(),
-        lists,
+        pairs: form_pairs_from_request_parts(content_type.as_deref(), bytes.as_ref())?,
         files: HashMap::new(),
         file_part_names: HashSet::new(),
     })
@@ -56,8 +50,8 @@ fn is_multipart_content_type(ct: &str) -> bool {
         .is_some_and(|mime| mime.trim().eq_ignore_ascii_case("multipart/form-data"))
 }
 
-/// Streams multipart fields with last-wins duplicates, counting every byte against `MAX_FORM_BYTES`
-/// and mapping over-limit bodies to 413.
+/// Streams multipart fields in body order, a file part posting its sanitized filename, counting
+/// every byte against `MAX_FORM_BYTES` and mapping over-limit bodies to 413.
 async fn parse_multipart_values(
     cx: &Cx,
     body: Body,
@@ -66,8 +60,7 @@ async fn parse_multipart_values(
     use topcoat::router::{content::multipart::Multipart, request::FromRequest};
 
     let mut out = FormParts {
-        values: HashMap::new(),
-        lists: HashMap::new(),
+        pairs: Vec::new(),
         files: HashMap::new(),
         file_part_names: HashSet::new(),
     };
@@ -107,14 +100,14 @@ async fn parse_multipart_values(
                 }
                 // Only a chosen file part may set a file field's value.
                 out.file_part_names.insert(name.clone());
-                out.values.insert(name, sanitized);
+                out.pairs.push((name, sanitized));
             }
             Some(_) => {
                 // An empty filename still counts as a file part with an empty value.
                 read_bounded(&mut field, &mut bytes_seen, None).await?;
                 out.files.remove(&name);
                 out.file_part_names.insert(name.clone());
-                out.values.insert(name, String::new());
+                out.pairs.push((name, String::new()));
             }
             None => {
                 // Counts text reads against the same byte cap.
@@ -123,11 +116,7 @@ async fn parse_multipart_values(
                 // A later text part clears the name from the file-part set.
                 out.file_part_names.remove(&name);
                 out.files.remove(&name);
-                out.lists
-                    .entry(name.clone())
-                    .or_default()
-                    .push(text.clone());
-                out.values.insert(name, text);
+                out.pairs.push((name, text));
             }
         }
     }

@@ -1,7 +1,5 @@
-use std::collections::HashMap;
-
 use tablo::{
-    Ability, FieldError, FieldErrorKind, FieldErrors, FormScalar,
+    Ability, FieldError, FieldErrorKind, FieldErrors, FormScalar, FormValues,
     form::parse_scalar,
     schema::{Field, Schema, Source},
 };
@@ -24,8 +22,8 @@ struct Measurement {
 }
 
 /// `value` posted under `key`, as a completed submission holds it.
-fn posted(key: &str, value: &str) -> HashMap<String, String> {
-    HashMap::from([(key.to_string(), value.to_string())])
+fn posted(key: &str, value: &str) -> FormValues {
+    FormValues::from_iter([(key.to_string(), value.to_string())])
 }
 
 async fn cx() -> Cx {
@@ -44,7 +42,7 @@ async fn a_typed_field_renders_the_values_display() {
         Field::text(Measurement::fields().word_count()),
         Field::text(Measurement::fields().recorded_at()),
     ));
-    let values = HashMap::from([
+    let values = FormValues::from_iter([
         ("word_count".to_string(), "1240".to_string()),
         (
             "recorded_at".to_string(),
@@ -122,7 +120,7 @@ fn an_empty_submission_is_the_blank_answer_or_required() {
         Ok(0)
     );
     let refused =
-        parse_scalar::<i64>("word_count", &HashMap::new(), None).expect_err("no blank answer");
+        parse_scalar::<i64>("word_count", &FormValues::new(), None).expect_err("no blank answer");
     assert_eq!(refused.kind, FieldErrorKind::Required);
 }
 

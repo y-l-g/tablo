@@ -1,6 +1,6 @@
 //! Relation tables: a record page's related rows through the related resource's own list table.
 
-use std::{any::TypeId, collections::HashMap, sync::Arc};
+use std::{any::TypeId, sync::Arc};
 
 use toasty::stmt::{Expr, IntoExpr, List, Path};
 use topcoat::{Result, context::Cx};
@@ -8,7 +8,7 @@ use topcoat::{Result, context::Cx};
 use super::{ErasedInput, InputResult, InputSpec, Resource, can, scoped_query};
 use crate::{
     BoxFuture,
-    form::{FieldError, FormScalar},
+    form::{FieldError, FormScalar, FormValues},
     naming::{sentence_case, type_short_name},
     policy::Ability,
     schema::{Field, Schema},
@@ -262,8 +262,8 @@ fn attach_schema<C: Resource>() -> Schema {
 
 /// The key the attach dialog's choice posts: the schema's check proved it one of the choice's
 /// records.
-fn parse_attach(_cx: &Cx, values: &HashMap<String, String>) -> InputResult {
-    match values.get(ATTACH_KEY).map(|key| key.trim()) {
+fn parse_attach(_cx: &Cx, values: &FormValues) -> InputResult {
+    match values.text(ATTACH_KEY).map(str::trim) {
         Some(key) if !key.is_empty() => Ok(Box::new(key.to_string()) as ErasedInput),
         _ => Err(vec![FieldError::required(ATTACH_KEY)]),
     }

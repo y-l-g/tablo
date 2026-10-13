@@ -100,7 +100,7 @@ An action's `NAME` that is not one URL segment does not compile, so it never rea
 | `UniqueWithoutIndex` | a `unique()` field's column has no unique index | add `#[unique]` to the model, or drop `.unique()` |
 | `OptionalUnique` | a `unique()` field answers an empty submission and its column is not nullable, so every empty submission stores one value | make the field required, or an `Option` |
 | `DisabledWithoutValue` | a field disabled on create has no `default` and no blank answer | give it a `default`, make it optional, or use `disabled_on_edit` |
-| `UnpostedDefault` | a field's `default` is a value its control never posts | spell the default as the field's form value |
+| `UnpostedDefault` | a field's `default` is a value its control never posts, or one value on a multiple choice | spell the default as the field's form value, a list for a multiple choice |
 | `RepeaterLeafModifier` | a repeater's item disables a control of its row or gives it a default | disable the repeater's own field |
 | `UnplacedWatchedField` | a condition watches a field the schema does not place | place the watched field in the same schema |
 | `HiddenWatchedField` | a condition watches a field another condition hides while the guarded field still shows | place the guarded field inside the block that hides the watched one |

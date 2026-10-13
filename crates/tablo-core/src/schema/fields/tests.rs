@@ -1,7 +1,8 @@
-use std::collections::HashMap;
-
 use super::{test_support::DummyUser, *};
-use crate::schema::Schema;
+use crate::{
+    form::{FormValue, FormValues},
+    schema::Schema,
+};
 
 /// A control renders optional until a panel stamps its record form's presence on it.
 #[test]
@@ -49,10 +50,16 @@ fn a_field_reads_its_columns_nullability() {
 #[test]
 fn the_email_rule_checks_only_a_submitted_value() {
     let field: Field = Field::text(DummyUser::fields().email()).email().into();
-    assert_eq!(field.check(""), None, "an empty value is the record form's");
-    assert_eq!(field.check("ada@example.com"), None);
     assert_eq!(
-        field.check("nope").map(|error| error.message("Email")),
+        field.check(&FormValue::from("")),
+        None,
+        "an empty value is the record form's"
+    );
+    assert_eq!(field.check(&FormValue::from("ada@example.com")), None);
+    assert_eq!(
+        field
+            .check(&FormValue::from("nope"))
+            .map(|error| error.message("Email")),
         Some("Email must be a valid email".to_string())
     );
 }
@@ -65,7 +72,7 @@ async fn every_control_renders_disabled_where_its_modifier_says() {
 
     async fn html(schema: Schema, editing: bool) -> String {
         let cx = test_support::cx();
-        let values = HashMap::from([("name".to_string(), "/uploads/a.png".to_string())]);
+        let values = FormValues::from_iter([("name".to_string(), "/uploads/a.png".to_string())]);
         schema
             .render(
                 &cx,
@@ -130,7 +137,7 @@ async fn help_text_describes_its_control() {
     use crate::{form::FieldErrors, schema::Source, test_support::Html as _};
 
     let cx = test_support::cx();
-    let values = HashMap::new();
+    let values = FormValues::new();
     let mut errors = FieldErrors::new();
     errors.add("name", "Name is wrong");
     for schema in [
@@ -167,20 +174,18 @@ fn a_read_input_takes_a_disabled_fields_default() {
             .disabled(),
         Field::text_input::<String>("note").default("none"),
     ));
-    let posted = HashMap::from([
+    let posted = [
         ("reason".to_string(), "other".to_string()),
         ("note".to_string(), "hello".to_string()),
-    ]);
-    let input = schema
-        .read_input(&posted, &HashMap::new(), &[])
-        .expect("reads");
-    assert_eq!(input["reason"], "spam");
-    assert_eq!(input["note"], "hello");
+    ];
+    let input = schema.read_input(&posted, &[]).expect("reads");
+    assert_eq!(input.text("reason"), Some("spam"));
+    assert_eq!(input.text("note"), Some("hello"));
     assert_eq!(schema.defaults().len(), 2);
 }
 
-/// A default the control never posts, and a row control a repeater cannot disable or default,
-/// refuse the declaration.
+/// A default the control never posts, one value on a multiple choice and a list elsewhere
+/// included, and a row control a repeater cannot disable or default, refuse the declaration.
 #[test]
 fn a_default_the_control_refuses_and_a_modified_row_control_refuse_the_schema() {
     use crate::DeclarationErrorKind;
@@ -189,6 +194,19 @@ fn a_default_the_control_refuses_and_a_modified_row_control_refuse_the_schema() 
         Field::text_input::<i64>("count").default("ten"),
         Field::text_input::<i64>("fine").default(3_i64),
         Field::choice_input("plan").options(["free"]).default("pro"),
+        Field::choice_input("tags")
+            .options(["free"])
+            .multiple()
+            .default("free"),
+        Field::choice_input("chosen")
+            .options(["free"])
+            .multiple()
+            .default(["free"]),
+        Field::choice_input("unoffered")
+            .options(["free"])
+            .multiple()
+            .default(["free", "pro"]),
+        Field::text_input::<String>("listed").default(["a"]),
     ))
     .declaration_errors();
     let refused: Vec<_> = errors
@@ -198,7 +216,11 @@ fn a_default_the_control_refuses_and_a_modified_row_control_refuse_the_schema() 
             _ => None,
         })
         .collect();
-    assert_eq!(refused, ["count", "plan"], "{errors:?}");
+    assert_eq!(
+        refused,
+        ["count", "plan", "tags", "unoffered", "listed"],
+        "{errors:?}"
+    );
 
     fn locked() -> Schema {
         Schema::new(Field::text_input::<String>("label").disabled())
@@ -228,16 +250,14 @@ fn a_condition_reads_a_disabled_fields_default() {
     let coupon = Field::text_input::<String>("coupon").visible_when(&plan, ["free"]);
     let referral = Field::text_input::<String>("referral").visible_when(&plan, ["pro"]);
     let schema = Schema::new((plan, coupon, referral));
-    let posted = HashMap::from([
+    let posted = [
         ("plan".to_string(), "pro".to_string()),
         ("coupon".to_string(), "SAVE".to_string()),
         ("referral".to_string(), "eve".to_string()),
-    ]);
-    let input = schema
-        .read_input(&posted, &HashMap::new(), &[])
-        .expect("reads");
-    assert_eq!(input.get("plan").map(String::as_str), Some("free"));
-    assert_eq!(input.get("coupon").map(String::as_str), Some("SAVE"));
+    ];
+    let input = schema.read_input(&posted, &[]).expect("reads");
+    assert_eq!(input.text("plan"), Some("free"));
+    assert_eq!(input.text("coupon"), Some("SAVE"));
     assert_eq!(input.get("referral"), None, "hidden by the default");
 }
 
@@ -252,7 +272,7 @@ async fn the_error_slot_names_the_refusal_kind() {
     };
 
     let cx = test_support::cx();
-    let values = HashMap::new();
+    let values = FormValues::new();
     for (error, kind) in [
         (FieldError::required("name"), "required"),
         (FieldError::invalid("name", "Name is wrong"), "invalid"),

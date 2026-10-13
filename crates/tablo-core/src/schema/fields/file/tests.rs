@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use topcoat::context::Cx;
 
 use super::{
@@ -7,7 +5,7 @@ use super::{
     *,
 };
 use crate::{
-    form::FieldErrors,
+    form::{FieldErrors, FormValues},
     schema::{Schema, Source},
 };
 
@@ -34,7 +32,7 @@ fn cx_and_doc_schema() -> (Cx, Schema) {
 }
 
 async fn render_upload(schema: &Schema, cx: &Cx, value: Option<&str>) -> String {
-    let mut values = HashMap::new();
+    let mut values = FormValues::new();
     if let Some(value) = value {
         values.insert("path".to_string(), value.to_string());
     }

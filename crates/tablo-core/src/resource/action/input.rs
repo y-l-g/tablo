@@ -1,11 +1,9 @@
 //! What an [`Action`](super::Action) asks for before it runs: the [`ActionInput`] trait.
 
-use std::collections::HashMap;
-
 use topcoat::context::Cx;
 
 use crate::{
-    form::FieldError,
+    form::{FieldError, FormValues},
     schema::{Field, Schema},
 };
 
@@ -29,7 +27,7 @@ pub trait ActionInput: Sized + Send + 'static {
     /// # Errors
     ///
     /// Every key that failed, each once.
-    fn parse(cx: &Cx, values: &HashMap<String, String>) -> Result<Self, Vec<FieldError>>;
+    fn parse(cx: &Cx, values: &FormValues) -> Result<Self, Vec<FieldError>>;
 }
 
 /// No input: the action runs on its button.
@@ -38,7 +36,7 @@ impl ActionInput for () {
         Schema::empty()
     }
 
-    fn parse(_cx: &Cx, _values: &HashMap<String, String>) -> Result<Self, Vec<FieldError>> {
+    fn parse(_cx: &Cx, _values: &FormValues) -> Result<Self, Vec<FieldError>> {
         Ok(())
     }
 }

@@ -2,7 +2,9 @@ use topcoat::view::ViewExt;
 
 use super::*;
 use crate::{
-    Ability, Panel, ResourceDef, lens,
+    Ability, Panel, ResourceDef,
+    form::FormValues,
+    lens,
     panel::test_support::{Dummy, Subscriber, dummy_table, mount, panel_for, response_html},
     schema::{Field, Schema},
     test_support::{memory_db, tableless_db},
@@ -30,25 +32,27 @@ fn assert_opaque(rendered: &str, driver: &str, marker: &str) {
 fn completion_fills_unnamed_keys_from_the_stored_projection() {
     let schema = Schema::new(Field::text(Dummy::fields().name()));
     let named = HashSet::new();
-    let mut values = HashMap::from([("name".to_string(), "advisory".to_string())]);
-    let stored = HashMap::from([("name".to_string(), "authoritative".to_string())]);
+    let mut values = FormValues::from_iter([("name".to_string(), "advisory".to_string())]);
+    let stored = FormValues::from_iter([("name".to_string(), "authoritative".to_string())]);
     complete(&schema, &mut values, &named, &stored);
     assert_eq!(
-        values["name"], "authoritative",
+        values.text("name"),
+        Some("authoritative"),
         "an unnamed key reads the stored record"
     );
 
     let named = HashSet::from(["name".to_string()]);
-    let mut values = HashMap::from([("name".to_string(), "posted".to_string())]);
+    let mut values = FormValues::from_iter([("name".to_string(), "posted".to_string())]);
     complete(&schema, &mut values, &named, &stored);
     assert_eq!(
-        values["name"], "posted",
+        values.text("name"),
+        Some("posted"),
         "a named key keeps what was posted"
     );
 
-    let mut values = HashMap::from([("name".to_string(), "stale".to_string())]);
-    complete(&schema, &mut values, &HashSet::new(), &HashMap::new());
-    assert!(!values.contains_key("name"), "nothing stored, nothing kept");
+    let mut values = FormValues::from_iter([("name".to_string(), "stale".to_string())]);
+    complete(&schema, &mut values, &HashSet::new(), &FormValues::new());
+    assert!(!values.contains("name"), "nothing stored, nothing kept");
 }
 
 #[tokio::test]

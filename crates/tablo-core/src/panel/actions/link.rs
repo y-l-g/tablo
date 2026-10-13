@@ -107,10 +107,10 @@ async fn attach<'a, R: Resource>(
     body: Body,
 ) -> Result<BoxView<'a>, topcoat::Error> {
     let parts = parse_form_body(cx, body).await?;
-    crate::csrf::verify(cx, &parts.values)?;
+    crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
     // An owner out of scope or closed to the user answers before the input is checked.
     owner(cx, resource, &mut db(cx)).await?;
-    let pending = read_input(cx, ATTACH, &links.input, &parts.values, &parts.lists).await?;
+    let pending = read_input(cx, ATTACH, &links.input, &parts.pairs).await?;
     let id = path_param_segment(cx, "id").to_string();
     let home = format!(
         "{}/{}",
@@ -139,7 +139,7 @@ async fn attach<'a, R: Resource>(
     let owner = owner(cx, resource, &mut tx).await?;
     // A record deleted, moved to another tenant or hidden since the input validated is refused.
     let errors = (links.input.schema)()
-        .recheck_relationships(cx, &values, &std::collections::HashMap::new(), &mut tx)
+        .recheck_relationships(cx, &values, &crate::form::FormValues::new(), &mut tx)
         .await;
     if !errors.is_empty() {
         // The page's choices may query: release the connection first.
@@ -174,12 +174,12 @@ async fn detach<'a, R: Resource>(
     body: Body,
     related: Option<String>,
 ) -> Result<BoxView<'a>, topcoat::Error> {
-    let values = parse_form_body(cx, body).await?.values;
-    crate::csrf::verify(cx, &values)?;
+    let parts = parse_form_body(cx, body).await?;
+    crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
     let keys = match related {
         Some(key) => vec![key],
         None => {
-            let ids = parse_bulk_ids(values.get("ids").map_or("", String::as_str), MAX_BULK_IDS);
+            let ids = parse_bulk_ids(parts.last("ids").unwrap_or_default(), MAX_BULK_IDS);
             if ids.is_empty() {
                 set_notification(cx, Notification::error("Select at least one row first"));
                 return Err(see_other(landing_url(cx, &resource.url)).into());

@@ -20,7 +20,7 @@ use super::{
     fields::{ChoiceField, CustomField, Field, TextField},
     tree::Node,
 };
-use crate::{DeclarationErrorKind, topcoat_compat::async_page};
+use crate::{DeclarationErrorKind, form::FormValues, topcoat_compat::async_page};
 
 /// A field a condition can watch: a text, choice or custom field of the form `F`, passed to
 /// `visible_when` by reference.
@@ -83,8 +83,8 @@ impl Condition {
 
     /// Whether the submission `values` shows what the condition guards. A checkbox with no value
     /// reads as `false`, as it renders and posts.
-    fn holds(&self, values: &HashMap<String, String>) -> bool {
-        let posted = match values.get(&self.watched) {
+    fn holds(&self, values: &FormValues) -> bool {
+        let posted = match values.text(&self.watched) {
             Some(value) => value.trim(),
             None if self.checkbox => "false",
             None => "",
@@ -98,7 +98,7 @@ impl Condition {
         &self,
         cx: &'a Cx,
         scope: &str,
-        values: &HashMap<String, String>,
+        values: &FormValues,
         inner: BoxView<'a>,
     ) -> BoxView<'a> {
         let condition = self.clone();
@@ -156,7 +156,7 @@ pub(crate) fn watch<'a>(
     field: &Field,
     conditions: &[Condition],
     scope: &str,
-    values: &HashMap<String, String>,
+    values: &FormValues,
     control: BoxView<'a>,
 ) -> BoxView<'a> {
     let scope = scope.to_string();
@@ -288,7 +288,7 @@ impl<'s> Scan<'s> {
 
 impl<F> Schema<F> {
     /// The keys of the fields a condition hides in the submission `values`.
-    pub(crate) fn condition_hidden(&self, values: &HashMap<String, String>) -> Vec<String> {
+    pub(crate) fn condition_hidden(&self, values: &FormValues) -> Vec<String> {
         Scan::of(&self.nodes, &self.fields)
             .fields
             .into_iter()

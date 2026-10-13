@@ -21,28 +21,23 @@ fn reject_unknown_form_keys_allows_declared_plus_csrf() {
     }
     let schema = Schema::new(Field::text(Member::fields().name()));
 
+    let unclaimed = |posted: &[(&str, &str)]| {
+        let posted: Vec<(String, String)> = posted
+            .iter()
+            .map(|(key, value)| (key.to_string(), value.to_string()))
+            .collect();
+        schema.read_unclaimed(&posted).unwrap().1
+    };
+
     // Declared keys + csrf_token pass.
-    let values = HashMap::from([
-        ("name".to_string(), "Ada".to_string()),
-        (
-            crate::csrf::FIELD_NAME.to_string(),
-            "some-token".to_string(),
-        ),
-    ]);
-    assert!(reject_unknown_form_keys(&schema, &values).is_ok());
+    let posted = unclaimed(&[("name", "Ada"), (crate::csrf::FIELD_NAME, "some-token")]);
+    assert!(reject_unknown_form_keys(&schema, posted).is_ok());
 
     // Absent keys are fine: an edit completes them from the stored record.
-    let values = HashMap::from([(
-        crate::csrf::FIELD_NAME.to_string(),
-        "some-token".to_string(),
-    )]);
-    assert!(reject_unknown_form_keys(&schema, &values).is_ok());
+    let posted = unclaimed(&[(crate::csrf::FIELD_NAME, "some-token")]);
+    assert!(reject_unknown_form_keys(&schema, posted).is_ok());
 
     // role/tenant_id smuggling is a 400.
-    let values = HashMap::from([
-        ("name".to_string(), "Ada".to_string()),
-        ("role".to_string(), "admin".to_string()),
-        ("tenant_id".to_string(), "victim".to_string()),
-    ]);
-    assert!(reject_unknown_form_keys(&schema, &values).is_err());
+    let posted = unclaimed(&[("name", "Ada"), ("role", "admin"), ("tenant_id", "victim")]);
+    assert!(reject_unknown_form_keys(&schema, posted).is_err());
 }

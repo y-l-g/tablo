@@ -68,8 +68,9 @@ pub mod __macro {
         detail::Detail,
         extend::{Includes, OptionSource},
         form::{
-            FieldError, FormField, FormScalar, NullableScalar, RecordForm, assert_form_scalar,
-            links_include, links_key, parse_list, parse_password, parse_scalar, write_links,
+            FieldError, FormField, FormScalar, FormValues, NullableScalar, RecordForm,
+            assert_form_scalar, links_include, links_key, parse_list, parse_password, parse_scalar,
+            write_links,
         },
         resource::{ActionInput, required_input},
         schema::{
@@ -125,7 +126,8 @@ pub use declaration::{
 };
 pub use detail::{Detail, IntoDetail};
 pub use form::{
-    FieldError, FieldErrorKind, FieldErrors, FormField, FormScalar, NoForm, Posted, RecordForm,
+    FieldError, FieldErrorKind, FieldErrors, FormField, FormScalar, FormValue, FormValues, NoForm,
+    Posted, RecordForm,
 };
 pub use lens::Lens;
 pub use navigation::{NavTarget, NavigationItem};

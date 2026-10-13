@@ -1,7 +1,5 @@
 //! The media library: the `medias` table and the page that fills it.
 
-use std::collections::HashMap;
-
 use tablo::{
     Ability, Notification, Page, PageDef, TenantId, Uploader, csrf, db::db, extend::OptionSource,
     notification::set_notification, require_tenant, upload::sanitize_filename,
@@ -215,7 +213,7 @@ impl Page for MediaLibraryPage {
 #[route(POST "/admin/media")]
 async fn upload(cx: &Cx, mut multipart: Multipart) -> Result<SeeOther> {
     let tenant = require_tenant(cx)?;
-    let mut values = HashMap::new();
+    let mut token = None;
     let mut file: Option<UploadedPart> = None;
     while let Some(field) = multipart.next_field().await? {
         let Some(name) = field.name().map(str::to_string) else {
@@ -230,11 +228,11 @@ async fn upload(cx: &Cx, mut multipart: Multipart) -> Result<SeeOther> {
                 content_type,
                 bytes: bytes.to_vec(),
             });
-        } else {
-            values.insert(name, field.text().await?);
+        } else if name == csrf::FIELD_NAME {
+            token = Some(field.text().await?);
         }
     }
-    csrf::verify(cx, &values)?;
+    csrf::verify(cx, token.as_deref())?;
     let part = file.ok_or_else(|| bad_request("Choose a file before uploading."))?;
     let filename = sanitize_filename(&part.filename);
     if filename.is_empty() || part.bytes.is_empty() {

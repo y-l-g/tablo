@@ -123,6 +123,31 @@ async fn the_edit_form_checks_the_categories_the_post_is_filed_under() {
     }
 }
 
+/// The create form checks each category its query names, as the edit form checks the filed ones.
+#[tokio::test]
+async fn the_create_form_checks_the_categories_its_query_names() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let (engineering, process) = (
+        category(&db, "Engineering").await,
+        category(&db, "Process").await,
+    );
+    let url = format!("/admin/posts/-/create?categories={engineering}&categories={process}");
+    let html = body_string(client.get(&url).await).await;
+    for (name, expected) in [
+        ("Engineering", true),
+        ("Databases", false),
+        ("Process", true),
+    ] {
+        assert_eq!(
+            checked(&html, category(&db, name).await),
+            Some(expected),
+            "{name}: {html}"
+        );
+    }
+}
+
 #[tokio::test]
 async fn an_edit_files_the_post_under_exactly_the_categories_it_posts() {
     let db = full_db().await;

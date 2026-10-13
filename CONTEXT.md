@@ -26,6 +26,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Repeater | A field editing a `#[document]` list of embedded structs: a row of the item's controls per item, which the browser adds, removes and moves. | Builder, List field, Array field, Table field |
 | Model columns | The table and detail page a model reads as when its resource declares neither, from `ModelColumns`: a column per field a person reads. | Infolist, Default view, Read model |
 | Record form | The typed value a form submission parses into, one field per written column. | Patch, Draft, DTO, Form (alone) |
+| Form values | What a form holds, one value per key in the shape its control posts: text, a multiple choice's list, a repeater's rows. A record form hydrates a record into them and parses a submission from them. | Form data, Params, Input map |
 | Blank answer | What a record-form field stores when submitted empty. A field with none is required. | Default, Nullable (for presence) |
 | Join model | A model whose rows link two other models' records, one row per pair, with a `belongs_to` to each. | Pivot, Junction table, Bridge table |
 | Many-to-many field | A record-form field holding the keys of the records a join model links the record to, edited as a multiple choice. | Multi-select, BelongsToMany field, Tags field |

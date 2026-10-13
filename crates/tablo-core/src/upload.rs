@@ -11,7 +11,10 @@ use percent_encoding::percent_decode_str;
 use topcoat::context::Cx;
 
 use crate::{
-    BoxFuture, form::FieldErrors, panel::state::current, schema::Schema,
+    BoxFuture,
+    form::{FieldErrors, FormValues},
+    panel::state::current,
+    schema::Schema,
     topcoat_compat::href::encode_path_segment,
 };
 
@@ -240,7 +243,7 @@ pub(crate) async fn store_uploads(
     cx: &Cx,
     schema: &Schema,
     files: &HashMap<String, StagedUpload>,
-    values: &mut HashMap<String, String>,
+    values: &mut FormValues,
 ) -> (FieldErrors, HashSet<String>) {
     let Some(uploader) = installed_uploader(cx) else {
         return (FieldErrors::new(), HashSet::new());

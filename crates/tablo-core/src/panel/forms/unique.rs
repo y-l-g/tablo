@@ -1,11 +1,9 @@
 //! App-side uniqueness probe over `unique()`-marked text fields.
 
-use std::collections::HashMap;
-
 use topcoat::{Result, context::Cx};
 
 use crate::{
-    form::FieldErrors,
+    form::{FieldErrors, FormValues},
     resource::{Mounted, Resource},
 };
 
@@ -15,8 +13,8 @@ pub(super) async fn check_unique<R: Resource>(
     cx: &Cx,
     resource: &Mounted<R>,
     schema: &crate::schema::Schema,
-    values: &HashMap<String, String>,
-    current: &HashMap<String, String>,
+    values: &FormValues,
+    current: &FormValues,
     ex: &mut dyn toasty::Executor,
 ) -> Result<FieldErrors, topcoat::Error> {
     let mut errors = FieldErrors::new();
@@ -27,7 +25,7 @@ pub(super) async fn check_unique<R: Resource>(
         if !field.is_unique() || skip.contains(name) {
             continue;
         }
-        let Some(submitted) = values.get(name).map(|s| s.trim().to_string()) else {
+        let Some(submitted) = values.text(name).map(|s| s.trim().to_string()) else {
             continue;
         };
         // Never probes empty values: the column is nullable or the field required.
@@ -36,7 +34,7 @@ pub(super) async fn check_unique<R: Resource>(
         }
         // Skips values spelling the record's own stored value.
         let unchanged = current
-            .get(name)
+            .text(name)
             .is_some_and(|kept| field.same_value(kept, &submitted));
         if unchanged {
             continue;

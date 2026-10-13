@@ -55,19 +55,16 @@ pub fn field<'a>(cx: &'a Cx, token: &str) -> topcoat::view::BoxView<'a> {
     topcoat::view::view! { cx => <input type="hidden" name=(FIELD_NAME) value=(token)> }.boxed()
 }
 
-/// Verifies the submitted token matches the cookie with a constant-time compare, failing closed
-/// with 403.
-pub fn verify(
-    cx: &Cx,
-    values: &std::collections::HashMap<String, String>,
-) -> Result<(), topcoat::Error> {
+/// Verifies the token a POST `submitted` under [`FIELD_NAME`] matches the cookie with a
+/// constant-time compare, failing closed with 403.
+pub fn verify(cx: &Cx, submitted: Option<&str>) -> Result<(), topcoat::Error> {
     let cookie_ok = try_request_context::<CookieJarCell>(cx)
         .map(|_| cookies(cx).get(COOKIE_NAME).map(|c| c.value().to_string()))
         .unwrap_or(None);
     let Some(expected) = cookie_ok else {
         return Err(topcoat::router::error::forbidden().into());
     };
-    let Some(submitted) = values.get(FIELD_NAME) else {
+    let Some(submitted) = submitted else {
         return Err(topcoat::router::error::forbidden().into());
     };
     if !is_valid_token(&expected) || submitted.as_bytes().ct_ne(expected.as_bytes()).into() {

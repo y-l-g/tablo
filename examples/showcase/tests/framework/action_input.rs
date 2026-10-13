@@ -1,12 +1,10 @@
 //! An action that asks for input: its button opens the input in a dialog over the page, and its
 //! POST renders the input as a page until a submission parses, then runs with the typed value.
 
-use std::collections::HashMap;
-
 use tablo::{
     Ability, Action, ActionInput, ActionInputFault, DeclarationErrorKind, Field, FieldError,
-    FieldErrors, NotificationStatus, Policy, ReadOnly, Resource, ResourceDef, Schema, Site, Table,
-    TextColumn, lens, testing::field_error,
+    FieldErrors, FormValues, NotificationStatus, Policy, ReadOnly, Resource, ResourceDef, Schema,
+    Site, Table, TextColumn, lens, testing::field_error,
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
@@ -157,7 +155,7 @@ impl ActionInput for Merging {
         )
     }
 
-    fn parse(_cx: &Cx, values: &HashMap<String, String>) -> Result<Self, Vec<FieldError>> {
+    fn parse(_cx: &Cx, values: &FormValues) -> Result<Self, Vec<FieldError>> {
         let into =
             tablo::form::parse_scalar::<String>("into", values, None).map_err(|e| vec![e])?;
         Ok(Self { into })
@@ -533,7 +531,7 @@ impl ActionInput for Attaching {
         ))
     }
 
-    fn parse(_cx: &Cx, _values: &HashMap<String, String>) -> Result<Self, Vec<FieldError>> {
+    fn parse(_cx: &Cx, _values: &FormValues) -> Result<Self, Vec<FieldError>> {
         Ok(Self)
     }
 }
@@ -546,7 +544,7 @@ impl ActionInput for Strict {
         Schema::empty()
     }
 
-    fn parse(_cx: &Cx, _values: &HashMap<String, String>) -> Result<Self, Vec<FieldError>> {
+    fn parse(_cx: &Cx, _values: &FormValues) -> Result<Self, Vec<FieldError>> {
         Err(vec![FieldError::required("note")])
     }
 }
