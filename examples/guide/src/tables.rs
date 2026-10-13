@@ -7,7 +7,10 @@ use tablo::{
 use toasty::stmt::Expr;
 use topcoat::{context::Cx, view::*};
 
-use crate::models::{Author, Post, User};
+use crate::{
+    models::{Author, Post, User},
+    resources::AuthorResource,
+};
 
 // ANCHOR: post-table-post
 pub fn post_table() -> Table<Post> {
@@ -17,9 +20,13 @@ pub fn post_table() -> Table<Post> {
     ))
     // ANCHOR: table-filters
     .filters((
-        SelectFilter::of(lens!(Post.status)),
-        TernaryFilter::new(lens!(Post.featured)),
-        DateFilter::new(lens!(Post.created_at)),
+        // A checklist: the posts holding any checked status.
+        SelectFilter::of(lens!(Post.status)).multiple(),
+        TernaryFilter::new(lens!(Post.featured)).labels("Featured", "Not featured"),
+        // Two date inputs: the first and the last day.
+        DateFilter::new(lens!(Post.created_at)).range(),
+        // The authors `AuthorResource` lists, by name.
+        SelectFilter::relationship::<AuthorResource>(lens!(Post.author_id)).label("Author"),
     ))
     // ANCHOR_END: table-filters
     // ANCHOR: table-group-by
@@ -74,7 +81,12 @@ impl Column<User> for Initials {
 pub fn promoted_filter() -> QueryFilter<Post> {
     QueryFilter::new("promoted", "Promoted")
         .option("Promoted", Post::fields().featured().eq(true))
-        .option("Backlog", Post::fields().featured().eq(false))
+        // `?f.promoted=backlog`, whatever the label reads.
+        .option_keyed(
+            "backlog",
+            "In the backlog",
+            Post::fields().featured().eq(false),
+        )
 }
 // ANCHOR_END: table-promoted-filter
 

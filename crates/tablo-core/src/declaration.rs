@@ -467,9 +467,9 @@ pub enum DeclarationErrorKind {
         /// The field.
         field: String,
     },
-    /// A relationship field over a model with a composite primary key.
+    /// A relationship field, or a relationship filter, over a model with a composite primary key.
     CompositeKeyChoice {
-        /// The field.
+        /// The field, or the filter's name.
         field: String,
     },
     /// A field marked unique over a column no unique index covers.

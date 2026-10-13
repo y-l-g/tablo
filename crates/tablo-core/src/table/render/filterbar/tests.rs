@@ -156,3 +156,124 @@ async fn empty_clear_links_preserve_the_untouched_state() {
         "clear filters must drop filters: {clear}"
     );
 }
+
+/// A multiple filter renders a checklist: a checkbox per option under the filter's parameter,
+/// checked while the state holds it, in a popover its button opens and summarizes.
+#[tokio::test]
+async fn a_multiple_filter_renders_a_checklist() {
+    let cx = CxTestBuilder::new().build();
+    let table = Table::<Task>::new(TextColumn::new(lens!(Task.title))).filters(
+        SelectFilter::new(Task::fields().status(), ["draft", "review", "published"]).multiple(),
+    );
+    let state = TableState {
+        filters: BTreeMap::from([(
+            "status".to_string(),
+            crate::FilterValue::from("draft").with("published"),
+        )]),
+        ..TableState::default()
+    };
+    let html = table
+        .render_with_state(&cx, Vec::new().into(), &state, "/admin/tasks")
+        .await
+        .html(&cx)
+        .await;
+    let checkbox = |value: &str| {
+        html.split('<')
+            .find(|tag| tag.contains(&format!("value=\"{value}\"")) && tag.contains("checkbox"))
+            .unwrap_or_else(|| panic!("no {value} checkbox in {html}"))
+    };
+    for value in ["draft", "review", "published"] {
+        assert!(checkbox(value).contains("name=\"f.status\""), "{html}");
+    }
+    assert!(checkbox("draft").contains("checked=\"\""), "{html}");
+    assert!(checkbox("published").contains("checked=\"\""), "{html}");
+    assert!(!checkbox("review").contains("checked=\"\""), "{html}");
+    assert!(
+        html.contains("popovertarget=\"f.status-options\"")
+            && html.contains("id=\"f.status-options\"")
+            && html.contains("popover"),
+        "the button opens the list as a popover: {html}"
+    );
+    assert!(
+        html.contains(">draft, published<"),
+        "the button reads the checked options: {html}"
+    );
+    assert!(
+        !html.contains("<select"),
+        "a multiple filter renders no select: {html}"
+    );
+}
+
+/// A ternary filter's options read its labels and keep the URL values `true` and `false`.
+#[tokio::test]
+async fn a_ternary_filter_renders_its_labels() {
+    let cx = CxTestBuilder::new().build();
+    let table = Table::<Task>::new(TextColumn::new(lens!(Task.title))).filters(
+        crate::TernaryFilter::new(lens!(Task.featured))
+            .label("Starred")
+            .labels("Starred only", "Not starred"),
+    );
+    let html = table
+        .render_with_state(
+            &cx,
+            Vec::new().into(),
+            &TableState::default(),
+            "/admin/tasks",
+        )
+        .await
+        .html(&cx)
+        .await;
+    assert!(html.contains("Starred"), "{html}");
+    assert!(
+        html.contains("value=\"true\"") && html.contains(">Starred only<"),
+        "{html}"
+    );
+    assert!(
+        html.contains("value=\"false\"") && html.contains(">Not starred<"),
+        "{html}"
+    );
+}
+
+/// A range date filter renders two date inputs submitting its `from` and `to` parts, each
+/// holding the day the state names.
+#[tokio::test]
+async fn a_range_date_filter_renders_its_bounds() {
+    let cx = CxTestBuilder::new().build();
+    let table = Table::<Task>::new(TextColumn::new(lens!(Task.title)))
+        .filters(crate::DateFilter::new(lens!(Task.created_at)).range());
+    let state = TableState {
+        filters: BTreeMap::from([(
+            "created_at".to_string(),
+            crate::FilterValue::new()
+                .with_part("from", "2024-01-15")
+                .with_part("to", "2024-01-31T12:00:00Z"),
+        )]),
+        ..TableState::default()
+    };
+    let html = table
+        .render_with_state(&cx, Vec::new().into(), &state, "/admin/tasks")
+        .await
+        .html(&cx)
+        .await;
+    let input = |name: &str| {
+        html.split('<')
+            .find(|tag| tag.starts_with("input") && tag.contains(&format!("name=\"{name}\"")))
+            .unwrap_or_else(|| panic!("no {name} input in {html}"))
+    };
+    assert!(
+        input("f.created_at.from").contains("value=\"2024-01-15\""),
+        "{html}"
+    );
+    assert!(
+        input("f.created_at.to").contains("value=\"2024-01-31\""),
+        "{html}"
+    );
+    assert!(
+        !html.contains("name=\"f.created_at\""),
+        "a range submits no single day: {html}"
+    );
+    assert!(
+        !html.contains("role=\"alert\""),
+        "the range applies: {html}"
+    );
+}

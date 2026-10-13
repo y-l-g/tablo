@@ -215,9 +215,12 @@ fn post_table() -> Table<Post> {
         CountColumn::new(relation!(Post.comments)),
     ))
     .filters((
-        SelectFilter::of(lens!(Post.status)),
-        TernaryFilter::new(lens!(Post.featured)),
-        DateFilter::new(lens!(Post.created_at)),
+        SelectFilter::of(lens!(Post.status)).multiple(),
+        TernaryFilter::new(lens!(Post.featured)).labels("Featured", "Not featured"),
+        DateFilter::new(lens!(Post.created_at))
+            .label("Created")
+            .range(),
+        SelectFilter::relationship::<AuthorResource>(lens!(Post.author_id)).label("Author"),
         QueryFilter::new("promoted", "Promoted")
             .option(
                 "Promoted",
