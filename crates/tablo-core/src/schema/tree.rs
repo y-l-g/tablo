@@ -12,7 +12,7 @@ use super::{
     layouts::{Grid, Group, Section},
     lenses::FieldResolver,
 };
-use crate::form::{FieldError, FieldErrors};
+use crate::form::{FieldError, FieldErrors, FormValue, FormValues};
 
 #[derive(Debug)]
 pub(crate) enum Node {
@@ -42,7 +42,7 @@ impl std::fmt::Debug for Unbound {
 
 /// Holds the values and errors a schema's controls render with.
 pub struct Source<'a> {
-    values: &'a HashMap<String, String>,
+    values: &'a FormValues,
     errors: &'a FieldErrors,
     /// The conditions each watched field's key drives.
     watched: HashMap<String, Vec<Condition>>,
@@ -57,7 +57,7 @@ pub struct Source<'a> {
 
 impl<'a> Source<'a> {
     /// Renders controls hydrated with `values` and inline `errors`.
-    pub fn form(values: &'a HashMap<String, String>, errors: &'a FieldErrors) -> Self {
+    pub fn form(values: &'a FormValues, errors: &'a FieldErrors) -> Self {
         Self {
             values,
             errors,
@@ -111,8 +111,18 @@ impl<'a> Source<'a> {
         }
     }
 
-    pub(crate) fn value(&self, name: &str) -> Option<&str> {
-        self.values.get(name).map(String::as_str)
+    pub(crate) fn value(&self, name: &str) -> Option<&FormValue> {
+        self.values.get(name)
+    }
+
+    /// The text `name` holds: a scalar control's value.
+    pub(crate) fn text(&self, name: &str) -> Option<&str> {
+        self.values.text(name)
+    }
+
+    /// The rows `name` holds: a repeater's, none when it holds none.
+    pub(crate) fn rows(&self, name: &str) -> &[FormValues] {
+        self.values.rows(name).unwrap_or_default()
     }
 
     /// The errors the controls render under.
@@ -163,7 +173,7 @@ impl Node {
                     return Ok(source.guard(cx, field.condition(), view));
                 }
                 let error = source.error_for(field);
-                let parent = field.parent_key().and_then(|key| source.value(key));
+                let parent = field.parent_key().and_then(|key| source.text(key));
                 let mut view = Box::pin(field.render_under(
                     cx,
                     source.value(field.name()),

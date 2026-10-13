@@ -49,14 +49,13 @@
 //! - `optional` on a type with no empty value;
 //! - `embed` on a type that is not an [`EmbeddedForm`](crate::EmbeddedForm).
 
-use std::{
-    collections::{HashMap, HashSet},
-    fmt::Debug,
-    hash::Hash,
-};
+mod values;
+
+use std::{collections::HashSet, fmt::Debug, hash::Hash};
 
 use toasty::{Executor, schema::Model};
 use topcoat::context::Cx;
+pub use values::{FormValue, FormValues};
 
 use crate::{
     schema::{FieldResolver, OptionSource, Schema, TypedValue},
@@ -221,16 +220,27 @@ impl<K> FieldError<K> {
     }
 }
 
+/// The refusal of a key holding another shape than its parse reads: a list or rows where it reads
+/// text, or text where it reads a list. Only a schema whose controls disagree with its parse
+/// holds one.
+pub(crate) fn unreadable(key: &str) -> FieldError {
+    FieldError::invalid(key, "The value could not be read")
+}
+
 /// Read one scalar from a completed submission.
 ///
 /// Trims the value; an empty one is `blank`, the field's blank answer, or
 /// refuses as [`FieldErrorKind::Required`] when it has none.
 pub fn parse_scalar<T: FormScalar>(
     key: &str,
-    values: &HashMap<String, String>,
+    values: &FormValues,
     blank: Option<T>,
 ) -> std::result::Result<T, FieldError> {
-    let raw = values.get(key).map(|value| value.trim()).unwrap_or("");
+    let raw = match values.get(key) {
+        None => "",
+        Some(FormValue::Text(text)) => text.trim(),
+        Some(_) => return Err(unreadable(key)),
+    };
     if raw.is_empty() {
         return blank.ok_or_else(|| FieldError::required(key));
     }
@@ -241,52 +251,38 @@ pub fn parse_scalar<T: FormScalar>(
 /// but kept as typed, with its outer spaces, since a login compares the password untrimmed.
 pub fn parse_password(
     key: &str,
-    values: &HashMap<String, String>,
+    values: &FormValues,
     blank: Option<String>,
 ) -> std::result::Result<String, FieldError> {
     parse_scalar::<String>(key, values, blank)?;
-    Ok(values.get(key).cloned().unwrap_or_default())
+    Ok(values.text(key).unwrap_or_default().to_string())
 }
 
 /// The values a multiple choice holds, as its one form key carries them: what a record form
 /// hydrates a many-to-many field with, and what a hand-written one writes.
-pub fn write_list<'a, T: FormScalar + 'a>(values: impl IntoIterator<Item = &'a T>) -> String {
-    encode_list(&values.into_iter().map(T::to_form).collect::<Vec<_>>())
+pub fn write_list<'a, T: FormScalar + 'a>(values: impl IntoIterator<Item = &'a T>) -> FormValue {
+    FormValue::List(values.into_iter().map(T::to_form).collect())
 }
 
 /// Read the values a multiple choice posted, none when it posted nothing: what a record form's
 /// parse reads a many-to-many field with.
 ///
-/// The panel folds the values the choice posts under its key into the key's one value before any
-/// parse reads it.
-///
 /// # Errors
 ///
-/// A value that is not a list, or one `T` refuses, under `key`.
+/// A value `T` refuses, or a key holding no list, under `key`.
 pub fn parse_list<T: FormScalar>(
     key: &str,
-    values: &HashMap<String, String>,
+    values: &FormValues,
 ) -> std::result::Result<Vec<T>, FieldError> {
-    let Some(items) = decode_list(values.get(key).map_or("", String::as_str)) else {
-        return Err(FieldError::invalid(key, "The choices could not be read"));
+    let items: &[String] = match values.get(key) {
+        None => &[],
+        Some(FormValue::List(items)) => items,
+        Some(_) => return Err(unreadable(key)),
     };
     items
         .iter()
         .map(|item| T::parse_form(item).map_err(|message| FieldError::invalid(key, message)))
         .collect()
-}
-
-/// `items` as one form value.
-pub(crate) fn encode_list(items: &[String]) -> String {
-    serde_json::to_string(items).expect("a list of strings serializes")
-}
-
-/// The items one form value holds: none for a blank value, `None` for one that is not a list.
-pub(crate) fn decode_list(value: &str) -> Option<Vec<String>> {
-    if value.trim().is_empty() {
-        return Some(Vec::new());
-    }
-    serde_json::from_str(value).ok()
 }
 
 /// The form key of the many-to-many field `path`, a `#[has_many(via = ..)]` list of `R`'s
@@ -322,17 +318,17 @@ where
 /// The keys of the records a many-to-many field holds, as its form key carries them, or `None`
 /// when the record was loaded without them.
 #[doc(hidden)]
-pub fn write_links<T>(records: &toasty::Deferred<Vec<T>>) -> Option<String>
+pub fn write_links<T>(records: &toasty::Deferred<Vec<T>>) -> Option<FormValue>
 where
     T: Model + toasty::stmt::IntoExpr<T>,
 {
     (!records.is_unloaded()).then(|| {
-        encode_list(
-            &records
+        FormValue::List(
+            records
                 .get()
                 .iter()
                 .map(crate::toasty_compat::pk::pk_text)
-                .collect::<Vec<_>>(),
+                .collect(),
         )
     })
 }
@@ -383,7 +379,7 @@ pub trait RecordForm: Sized + Send + 'static {
     }
 
     /// The stored record as the form spells it.
-    fn hydrate(cx: &Cx, record: &Self::Model) -> HashMap<String, String>;
+    fn hydrate(cx: &Cx, record: &Self::Model) -> FormValues;
 
     /// The records each many-to-many field holds, as their keys' form spelling: what
     /// [`write_create`](crate::resource::write_create) links a new record to, and what
@@ -397,10 +393,7 @@ pub trait RecordForm: Sized + Send + 'static {
     /// # Errors
     ///
     /// Every key that failed, each once, under one of [`Self::fields`]' keys.
-    fn parse(
-        cx: &Cx,
-        values: &HashMap<String, String>,
-    ) -> std::result::Result<Self, Vec<FieldError>>;
+    fn parse(cx: &Cx, values: &FormValues) -> std::result::Result<Self, Vec<FieldError>>;
 
     /// The create builder with every field set.
     fn into_create(self) -> <Self::Model as Model>::Create;
@@ -463,14 +456,11 @@ impl<M: Model + toasty::stmt::IntoExpr<M> + Send + Sync + 'static> RecordForm fo
         match field {}
     }
 
-    fn hydrate(_cx: &Cx, _record: &M) -> HashMap<String, String> {
-        HashMap::new()
+    fn hydrate(_cx: &Cx, _record: &M) -> FormValues {
+        FormValues::new()
     }
 
-    fn parse(
-        _cx: &Cx,
-        _values: &HashMap<String, String>,
-    ) -> std::result::Result<Self, Vec<FieldError>> {
+    fn parse(_cx: &Cx, _values: &FormValues) -> std::result::Result<Self, Vec<FieldError>> {
         Self::unreachable()
     }
 

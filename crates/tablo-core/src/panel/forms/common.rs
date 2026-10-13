@@ -15,19 +15,17 @@ use super::{
 };
 use crate::{
     db::db,
-    form::{FieldErrors, RecordForm},
+    form::{FieldErrors, FormValues, RecordForm},
     policy::Ability,
     resource::{Mounted, Resource},
     topcoat_compat::async_page,
 };
 
-/// A decoded form body: the text values plus any file parts.
+/// A decoded form body: its text pairs plus any file parts.
 pub(crate) struct FormParts {
-    /// Each key's last text value.
-    pub(crate) values: HashMap<String, String>,
-    /// Every text value of each key, in the order the body posts them, which a multiple choice
-    /// posts.
-    pub(crate) lists: HashMap<String, Vec<String>>,
+    /// Every text value, and each file part's sanitized filename, in the order the body posts
+    /// them.
+    pub(crate) pairs: Vec<(String, String)>,
     /// Holds staged bytes only when an uploader is installed.
     pub(crate) files: HashMap<String, crate::upload::StagedUpload>,
     /// Names arriving as multipart parts carrying a `filename`; only these may set a file field's
@@ -35,17 +33,37 @@ pub(crate) struct FormParts {
     pub(crate) file_part_names: HashSet<String>,
 }
 
+impl FormParts {
+    /// The last value the body posts under `key`.
+    pub(crate) fn last(&self, key: &str) -> Option<&str> {
+        self.pairs
+            .iter()
+            .rev()
+            .find(|(posted, _)| posted == key)
+            .map(|(_, value)| value.as_str())
+    }
+}
+
 /// Caps the whole multipart stream at 10 MiB, file bytes included.
 pub(crate) const MAX_FORM_BYTES: usize = 10 * 1024 * 1024;
 
-/// Rejects POST keys no declared schema input owns, returning 400 for unknown fields.
+/// Rejects the posted keys no field claimed with 400, but the ones the form carries for itself:
+/// the CSRF token, and each file field's `keep_<field>` and `clear_<field>`.
 pub(super) fn reject_unknown_form_keys(
     schema: &crate::schema::Schema,
-    values: &HashMap<String, String>,
+    unclaimed: Vec<String>,
 ) -> Result<(), topcoat::Error> {
-    let mut filtered = values.clone();
-    strip_transport_keys(schema, &mut filtered);
-    let unknown = schema.unknown_keys(&filtered);
+    let unknown: Vec<String> = unclaimed
+        .into_iter()
+        .filter(|key| {
+            let file = key
+                .strip_prefix("clear_")
+                .or_else(|| key.strip_prefix("keep_"));
+            key != crate::csrf::FIELD_NAME
+                && !file
+                    .is_some_and(|file| schema.fields().any(|f| f.is_file() && f.name() == file))
+        })
+        .collect();
     if unknown.is_empty() {
         Ok(())
     } else {
@@ -62,34 +80,39 @@ pub(crate) fn truthy(v: &str) -> bool {
     v == "1" || v == "true"
 }
 
-/// Strips `csrf_token`, `clear_<field>`, and `keep_<field>` keys before any record function sees
-/// them.
-pub(super) fn strip_transport_keys(
+/// What a file field's control posts beside its file part.
+#[derive(Debug, Default)]
+pub(super) struct FileFlags {
+    /// `keep_<field>`: the stored path a refused submission carried over.
+    pub(super) keep: Option<String>,
+    /// `clear_<field>`: whether the user cleared the stored file.
+    pub(super) clear: bool,
+}
+
+/// Each file field's [`FileFlags`], from the last value `parts` posts under each flag's key.
+pub(super) fn file_flags(
     schema: &crate::schema::Schema,
-    values: &mut HashMap<String, String>,
-) {
-    let declared: HashSet<&str> = schema.fields().map(crate::schema::Field::name).collect();
-    // A declared field keeps its own transport-shaped value; only undeclared transport keys are
-    // stripped.
-    values.retain(|k, _| {
-        if k == crate::csrf::FIELD_NAME {
-            return declared.contains(k.as_str());
-        }
-        let field = k.strip_prefix("clear_").or_else(|| k.strip_prefix("keep_"));
-        match field {
-            Some(field) if schema.fields().any(|f| f.is_file() && f.name() == field) => {
-                declared.contains(k.as_str())
-            }
-            _ => true,
-        }
-    });
+    parts: &FormParts,
+) -> HashMap<String, FileFlags> {
+    schema
+        .fields()
+        .filter(|field| field.is_file())
+        .map(|field| {
+            let name = field.name();
+            let flags = FileFlags {
+                keep: parts.last(&format!("keep_{name}")).map(str::to_string),
+                clear: parts.last(&format!("clear_{name}")).is_some_and(truthy),
+            };
+            (name.to_string(), flags)
+        })
+        .collect()
 }
 
 /// Drops file-field values that did not arrive as file parts.
 pub(super) fn drop_client_typed_uploads(
     schema: &crate::schema::Schema,
     file_part_names: &HashSet<String>,
-    values: &mut HashMap<String, String>,
+    values: &mut FormValues,
 ) {
     for field in schema.fields().filter(|field| field.is_file()) {
         if !file_part_names.contains(field.name()) {
@@ -98,35 +121,31 @@ pub(super) fn drop_client_typed_uploads(
     }
 }
 
+/// Whether `values` holds no text under `key`, or a blank one.
+pub(super) fn blank(values: &FormValues, key: &str) -> bool {
+    values.text(key).is_none_or(|value| value.trim().is_empty())
+}
+
 /// Restores `keep_<field>` paths only when the installed uploader still holds them, returning
 /// restored field names.
 pub(super) async fn restore_pending_uploads(
     cx: &Cx,
-    schema: &crate::schema::Schema,
-    values: &mut HashMap<String, String>,
+    flags: &HashMap<String, FileFlags>,
+    values: &mut FormValues,
 ) -> HashSet<String> {
     let mut restored = HashSet::new();
-    for field in schema.fields().filter(|field| field.is_file()) {
-        let name = field.name();
-        let empty = values
-            .get(name)
-            .map(|value| value.trim().is_empty())
-            .unwrap_or(true);
-        let cleared = values
-            .get(&format!("clear_{name}"))
-            .is_some_and(|value| truthy(value));
-        if !empty || cleared {
+    for (name, flags) in flags {
+        if !blank(values, name) || flags.clear {
             continue;
         }
-        let Some(candidate) = values.get(&format!("keep_{name}")) else {
+        let Some(candidate) = flags.keep.as_deref().map(str::trim) else {
             continue;
         };
-        let candidate = candidate.trim().to_string();
-        if candidate.is_empty() || !crate::upload::holds(cx, &candidate).await {
+        if candidate.is_empty() || !crate::upload::holds(cx, candidate).await {
             continue;
         }
-        values.insert(name.to_string(), candidate);
-        restored.insert(name.to_string());
+        values.insert(name.clone(), candidate);
+        restored.insert(name.clone());
     }
     restored
 }
@@ -138,7 +157,7 @@ pub(super) async fn rerender_invalid_form<'a, R: Resource>(
     resource: &Mounted<R>,
     tx: toasty::Transaction<'_>,
     chrome: FormChrome,
-    values: &HashMap<String, String>,
+    values: &FormValues,
     errors: &FieldErrors,
     carried: &HashSet<String>,
 ) -> Result<BoxView<'a>> {

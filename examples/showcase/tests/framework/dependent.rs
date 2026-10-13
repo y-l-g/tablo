@@ -1,11 +1,9 @@
 //! Dependent choices over HTTP: a city choice offers the cities of the posted country, through the
 //! options endpoint and on submit.
 
-use std::collections::HashMap;
-
 use tablo::{
     Ability, Action, ActionInput, ActionInputFault, Allow, DeclarationErrorKind, Field, FieldError,
-    NoForm, Resource, ResourceDef, Schema, Site, Table, TextColumn, lens,
+    FormValues, NoForm, Resource, ResourceDef, Schema, Site, Table, TextColumn, lens,
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
@@ -275,7 +273,7 @@ async fn an_action_input_cannot_hold_a_dependent_choice() {
             Schema::new((country, city))
         }
 
-        fn parse(_cx: &Cx, _values: &HashMap<String, String>) -> Result<Self, Vec<FieldError>> {
+        fn parse(_cx: &Cx, _values: &FormValues) -> Result<Self, Vec<FieldError>> {
             Ok(Self)
         }
     }

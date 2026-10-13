@@ -384,16 +384,16 @@ fn expand_struct(
             fn hydrate(
                 cx: &#krate::__macro::Cx,
                 record: &#model,
-            ) -> ::std::collections::HashMap<::std::string::String, ::std::string::String> {
+            ) -> #krate::__macro::FormValues {
                 #(#asserts)*
-                let mut out = ::std::collections::HashMap::new();
+                let mut out = #krate::__macro::FormValues::new();
                 #(#hydrates)*
                 out
             }
 
             fn parse(
                 cx: &#krate::__macro::Cx,
-                values: &::std::collections::HashMap<::std::string::String, ::std::string::String>,
+                values: &#krate::__macro::FormValues,
             ) -> ::std::result::Result<Self, ::std::vec::Vec<#krate::__macro::FieldError>> {
                 let mut errors: ::std::vec::Vec<#krate::__macro::FieldError> = ::std::vec::Vec::new();
                 #(#reads)*

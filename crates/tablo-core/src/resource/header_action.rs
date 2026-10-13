@@ -1,12 +1,17 @@
 //! Actions on no record: the [`HeaderAction`] trait, and the [`HeaderActions`] a
 //! [`Page`](crate::Page) or a [`ResourceDef`](super::ResourceDef) declares them in.
 
-use std::{collections::HashMap, future::Future};
+use std::future::Future;
 
 use topcoat::{Result, context::Cx};
 
 use super::{ActionInput, ErasedInput, InputResult, InputSpec, parse_validated};
-use crate::{BoxFuture, form::FieldErrors, naming::sentence_case, policy::Ability};
+use crate::{
+    BoxFuture,
+    form::{FieldErrors, FormValues},
+    naming::sentence_case,
+    policy::Ability,
+};
 
 /// A mutation that acts on no record, run from a button in a page's header: "import posts",
 /// "clear the cache", "recompute the totals".
@@ -234,7 +239,7 @@ pub(crate) struct HeaderEntry {
 }
 
 /// [`ActionInput::parse`], then [`HeaderAction::validate_input`], behind a function pointer.
-fn parse_header_input<A: HeaderAction>(cx: &Cx, values: &HashMap<String, String>) -> InputResult {
+fn parse_header_input<A: HeaderAction>(cx: &Cx, values: &FormValues) -> InputResult {
     parse_validated(cx, values, A::validate_input)
 }
 

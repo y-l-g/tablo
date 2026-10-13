@@ -13,7 +13,7 @@ use super::{
     },
     Field, Placement, render_field,
 };
-use crate::{BoxFuture, form::decode_list};
+use crate::{BoxFuture, form::FormValue};
 
 mod multiple;
 
@@ -280,20 +280,23 @@ impl ChoiceControl {
         &self,
         cx: &Cx,
         label: &str,
-        value: &str,
+        value: &FormValue,
         parent: Option<&str>,
-        stored: Option<&str>,
+        stored: Option<&FormValue>,
     ) -> Vec<String> {
         if !self.multiple {
+            let Some(value) = value.as_text() else {
+                return Vec::new();
+            };
             return self.validate_one(cx, label, value, parent).await;
         }
         let keys = match chosen(label, value) {
             Ok(keys) => keys,
             Err(message) => return vec![message],
         };
-        let held = stored.and_then(decode_list).unwrap_or_default();
-        for key in keys.into_iter().filter(|key| !held.contains(key)) {
-            let errors = self.validate_one(cx, label, &key, parent).await;
+        let held = stored.and_then(FormValue::as_list).unwrap_or_default();
+        for key in keys.iter().filter(|key| !held.contains(key)) {
+            let errors = self.validate_one(cx, label, key, parent).await;
             if !errors.is_empty() {
                 return errors;
             }
@@ -348,21 +351,24 @@ impl ChoiceControl {
         &self,
         cx: &Cx,
         label: &str,
-        value: &str,
+        value: &FormValue,
         parent: Option<&str>,
-        stored: Option<&str>,
+        stored: Option<&FormValue>,
         ex: &mut dyn toasty::Executor,
     ) -> Vec<String> {
         if !self.multiple {
+            let Some(value) = value.as_text() else {
+                return Vec::new();
+            };
             return self.recheck_one(cx, label, value, parent, ex).await;
         }
         let keys = match chosen(label, value) {
             Ok(keys) => keys,
             Err(message) => return vec![message],
         };
-        let held = stored.and_then(decode_list).unwrap_or_default();
-        for key in keys.into_iter().filter(|key| !held.contains(key)) {
-            let errors = self.recheck_one(cx, label, &key, parent, &mut *ex).await;
+        let held = stored.and_then(FormValue::as_list).unwrap_or_default();
+        for key in keys.iter().filter(|key| !held.contains(key)) {
+            let errors = self.recheck_one(cx, label, key, parent, &mut *ex).await;
             if !errors.is_empty() {
                 return errors;
             }
@@ -406,15 +412,17 @@ impl ChoiceControl {
     pub(super) async fn keep_unseen(
         &self,
         cx: &Cx,
-        value: &str,
-        stored: &str,
+        value: &FormValue,
+        stored: &FormValue,
         ex: &mut dyn toasty::Executor,
-    ) -> Option<String> {
+    ) -> Option<FormValue> {
         let relationship = self.relationship.as_ref().filter(|_| self.multiple)?;
-        let mut keys = decode_list(value)?;
-        let dropped: Vec<String> = decode_list(stored)?
-            .into_iter()
+        let mut keys = value.as_list()?.to_vec();
+        let dropped: Vec<String> = stored
+            .as_list()?
+            .iter()
             .filter(|key| !keys.contains(key))
+            .cloned()
             .collect();
         let before = keys.len();
         for key in dropped {
@@ -427,14 +435,14 @@ impl ChoiceControl {
                 keys.push(key);
             }
         }
-        (keys.len() != before).then(|| crate::form::encode_list(&keys))
+        (keys.len() != before).then_some(FormValue::List(keys))
     }
 }
 
-/// The keys a multiple choice's `value` holds, or the error refusing it: a value that is no list,
-/// or one choosing more options than a choice loads.
-fn chosen(label: &str, value: &str) -> std::result::Result<Vec<String>, String> {
-    let keys = decode_list(value).ok_or_else(|| format!("{label} is invalid"))?;
+/// The keys a multiple choice's `value` holds, or the error refusing it: one choosing more options
+/// than a choice loads. A value holding no list chooses none here: the parse refuses it.
+fn chosen<'v>(label: &str, value: &'v FormValue) -> std::result::Result<&'v [String], String> {
+    let keys = value.as_list().unwrap_or_default();
     if keys.len() > MAX_RELATIONSHIP_OPTIONS {
         return Err(format!(
             "{label} takes at most {MAX_RELATIONSHIP_OPTIONS} choices"
@@ -459,17 +467,19 @@ impl Field {
         &self,
         choice: &ChoiceControl,
         cx: &'a Cx,
-        value: Option<&str>,
+        value: Option<&FormValue>,
         error: Option<&crate::form::FieldError>,
         id: String,
         placement: Placement<'_>,
     ) -> Result<BoxView<'a>> {
         let disabled = self.is_disabled(placement.editing);
         if choice.multiple {
+            let chosen = value.and_then(FormValue::as_list).unwrap_or_default();
             return self
-                .render_choices(choice, cx, value, error, id, disabled)
+                .render_choices(choice, cx, chosen, error, id, disabled)
                 .await;
         }
+        let value = value.and_then(FormValue::as_text);
         let parent = placement.parent;
         let name = self.name().to_string();
         let required = self.required && !disabled;

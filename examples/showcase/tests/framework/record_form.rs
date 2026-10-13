@@ -1,12 +1,12 @@
 //! Record forms, end to end.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use http::StatusCode;
 use tablo::{
-    Ability, ComputedColumn, DeclarationErrorKind, Detail, FieldErrorKind, FieldErrors, NoForm,
-    Panel, RecordForm, Resource, ResourceDef, Schema, Table, Tenancy, Tenant, TenantId, TextColumn,
-    lens, write_create,
+    Ability, ComputedColumn, DeclarationErrorKind, Detail, FieldErrorKind, FieldErrors, FormValues,
+    NoForm, Panel, RecordForm, Resource, ResourceDef, Schema, Table, Tenancy, Tenant, TenantId,
+    TextColumn, lens, write_create,
 };
 use toasty::Db;
 use topcoat::context::{Cx, CxTestBuilder};
@@ -112,7 +112,7 @@ fn cx_for(db: &Db) -> Cx {
     CxTestBuilder::new().app_context(db.clone()).build()
 }
 
-fn map(pairs: &[(&str, &str)]) -> HashMap<String, String> {
+fn map(pairs: &[(&str, &str)]) -> FormValues {
     pairs
         .iter()
         .map(|(key, value)| (key.to_string(), value.to_string()))
@@ -212,10 +212,10 @@ async fn hydrate_is_the_parse_s_inverse() {
     let cx = cx_for(&db);
     let record = seed_item(&db).await;
     let values = ItemForm::hydrate(&cx, &record);
-    assert_eq!(values["title"], "Stored");
-    assert_eq!(values["notes"], "keep me");
-    assert_eq!(values["priority"], "7");
-    assert_eq!(values["done"], "true");
+    assert_eq!(values.text("title"), Some("Stored"));
+    assert_eq!(values.text("notes"), Some("keep me"));
+    assert_eq!(values.text("priority"), Some("7"));
+    assert_eq!(values.text("done"), Some("true"));
     let form = ItemForm::parse(&cx, &values).expect("a hydrated record parses");
     assert_eq!(form.priority, 7);
     assert!(form.done);
@@ -530,14 +530,11 @@ async fn build_refuses_a_field_record_form_control_does_not_render() {
             Schema::default()
         }
 
-        fn hydrate(cx: &Cx, record: &Item) -> HashMap<String, String> {
+        fn hydrate(cx: &Cx, record: &Item) -> FormValues {
             TitleForm::hydrate(cx, record)
         }
 
-        fn parse(
-            cx: &Cx,
-            values: &HashMap<String, String>,
-        ) -> Result<Self, Vec<tablo::FieldError>> {
+        fn parse(cx: &Cx, values: &FormValues) -> Result<Self, Vec<tablo::FieldError>> {
             TitleForm::parse(cx, values).map(Bare)
         }
 
@@ -807,14 +804,11 @@ async fn an_unkeyable_record_rule_fails_closed() {
             Schema::default()
         }
 
-        fn hydrate(cx: &Cx, record: &Item) -> HashMap<String, String> {
+        fn hydrate(cx: &Cx, record: &Item) -> FormValues {
             PriorityForm::hydrate(cx, record)
         }
 
-        fn parse(
-            _cx: &Cx,
-            _values: &HashMap<String, String>,
-        ) -> Result<Self, Vec<tablo::FieldError>> {
+        fn parse(_cx: &Cx, _values: &FormValues) -> Result<Self, Vec<tablo::FieldError>> {
             Ok(Keyless(PriorityForm { priority: 1 }))
         }
 
@@ -884,14 +878,11 @@ async fn an_unkeyable_parse_failure_fails_closed() {
             Schema::default()
         }
 
-        fn hydrate(cx: &Cx, record: &Item) -> HashMap<String, String> {
+        fn hydrate(cx: &Cx, record: &Item) -> FormValues {
             PriorityForm::hydrate(cx, record)
         }
 
-        fn parse(
-            _cx: &Cx,
-            _values: &HashMap<String, String>,
-        ) -> Result<Self, Vec<tablo::FieldError>> {
+        fn parse(_cx: &Cx, _values: &FormValues) -> Result<Self, Vec<tablo::FieldError>> {
             Err(vec![tablo::FieldError::invalid("never", "never renders")])
         }
 

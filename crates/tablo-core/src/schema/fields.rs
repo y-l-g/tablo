@@ -32,7 +32,7 @@ use super::{
     validation::is_email,
 };
 use crate::{
-    form::{FieldError, FieldErrorKind, FormScalar},
+    form::{FieldError, FieldErrorKind, FormScalar, FormValue},
     naming::capitalize,
 };
 
@@ -243,9 +243,9 @@ impl Field {
     /// removes and moves: a record form's `#[form(repeat)]` control.
     ///
     /// Each row posts its item's keys under `{key}.{row}.`. A resource's form and an action's
-    /// input fold them into `key` before reading the submission, and a page handling its own post
-    /// folds it with [`Schema::fold_repeaters`](crate::Schema::fold_repeaters); the items then
-    /// read with [`parse_items`](crate::schema::parse_items).
+    /// input read them into `key`'s rows, and a page handling its own post reads it with
+    /// [`Schema::read`](crate::Schema::read); the items then parse with
+    /// [`parse_items`](crate::schema::parse_items).
     pub fn repeater<M, T>(lens: impl Into<Path<M, List<T>>>) -> RepeaterField
     where
         M: toasty::schema::Model,
@@ -397,12 +397,12 @@ impl Field {
         }
     }
 
-    /// Whether the control could never post `value`: a typed text field's type does not parse it,
-    /// or a single choice over static options or a checkbox does not offer it.
+    /// Whether the control could never post `value` as its one value: a typed text field's type
+    /// does not parse it, a single choice over static options or a checkbox does not offer it, or
+    /// the control posts a list.
     pub(crate) fn refuses(&self, value: &str) -> bool {
         match &self.control {
             ControlKind::Text(text) => !value.trim().is_empty() && !text.parses(value),
-            ControlKind::Choice(choice) if choice.is_multiple() => false,
             _ => self.can_post(value) == Some(false),
         }
     }
@@ -454,8 +454,8 @@ impl Field {
     }
 
     /// Refuses a non-empty submission the control's own rule refuses: an email field's address.
-    pub(crate) fn check(&self, value: &str) -> Option<FieldError> {
-        let value = value.trim();
+    pub(crate) fn check(&self, value: &FormValue) -> Option<FieldError> {
+        let value = value.as_text()?.trim();
         match &self.control {
             ControlKind::Text(text) if text.email && !value.is_empty() && !is_email(value) => {
                 Some(FieldError::invalid(
@@ -485,9 +485,9 @@ impl Field {
     pub(crate) async fn validate_exists(
         &self,
         cx: &Cx,
-        value: &str,
+        value: &FormValue,
         parent: Option<&str>,
-        stored: Option<&str>,
+        stored: Option<&FormValue>,
     ) -> Vec<String> {
         match &self.control {
             ControlKind::Choice(choice) => {
@@ -504,9 +504,9 @@ impl Field {
     pub(crate) async fn recheck(
         &self,
         cx: &Cx,
-        value: &str,
+        value: &FormValue,
         parent: Option<&str>,
-        stored: Option<&str>,
+        stored: Option<&FormValue>,
         ex: &mut dyn toasty::Executor,
     ) -> Vec<String> {
         match &self.control {
@@ -524,17 +524,18 @@ impl Field {
     pub(crate) async fn keep_unseen(
         &self,
         cx: &Cx,
-        value: &str,
-        stored: &str,
+        value: &FormValue,
+        stored: &FormValue,
         ex: &mut dyn toasty::Executor,
-    ) -> Option<String> {
+    ) -> Option<FormValue> {
         match &self.control {
             ControlKind::Choice(choice) => choice.keep_unseen(cx, value, stored, ex).await,
             _ => None,
         }
     }
 
-    /// Renders the field's control alone on its page, a dependent choice with no parent value.
+    /// Renders the field's control holding the text `value` alone on its page, a dependent choice
+    /// with no parent value.
     #[cfg(test)]
     pub(crate) async fn render<'a>(
         &self,
@@ -542,7 +543,8 @@ impl Field {
         value: Option<&str>,
         error: Option<&FieldError>,
     ) -> Result<BoxView<'a>> {
-        self.render_under(cx, value, error, Placement::default())
+        let value = value.map(FormValue::from);
+        self.render_under(cx, value.as_ref(), error, Placement::default())
             .await
     }
 
@@ -550,20 +552,21 @@ impl Field {
     pub(crate) async fn render_under<'a>(
         &self,
         cx: &'a Cx,
-        value: Option<&str>,
+        value: Option<&FormValue>,
         error: Option<&FieldError>,
         placement: Placement<'_>,
     ) -> Result<BoxView<'a>> {
         let id = placement.id(self.name());
         let disabled = self.is_disabled(placement.editing);
+        let text = value.and_then(FormValue::as_text);
         match &self.control {
-            ControlKind::Text(text) => self.render_text(text, cx, value, error, id, disabled),
+            ControlKind::Text(control) => self.render_text(control, cx, text, error, id, disabled),
             ControlKind::Choice(choice) => {
                 Box::pin(self.render_choice(choice, cx, value, error, id, placement)).await
             }
-            ControlKind::File => self.render_file(cx, value, error, id, disabled),
+            ControlKind::File => self.render_file(cx, text, error, id, disabled),
             ControlKind::Custom(control) => {
-                self.render_custom(control.as_ref(), cx, value, error, id, disabled)
+                self.render_custom(control.as_ref(), cx, text, error, id, disabled)
             }
             // Its node renders it, from the keys and errors of each row's controls.
             ControlKind::Repeater(_) => Ok(().boxed()),

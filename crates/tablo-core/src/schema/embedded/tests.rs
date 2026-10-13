@@ -1,7 +1,5 @@
-use std::collections::HashMap;
-
 use super::*;
-use crate::test_support::DummyUser;
+use crate::{form::FormValues, test_support::DummyUser};
 
 /// An enum node over the discriminant column `kind`, one variant per value,
 /// built as `EmbeddedBuilder::enumeration` builds it from the app schema.
@@ -42,7 +40,7 @@ fn two_variants() -> Schema {
     builder.finish()
 }
 
-fn map(pairs: &[(&str, &str)]) -> HashMap<String, String> {
+fn map(pairs: &[(&str, &str)]) -> FormValues {
     pairs
         .iter()
         .map(|(k, v)| (k.to_string(), v.to_string()))
@@ -175,7 +173,7 @@ async fn a_display_renders_a_shared_column_only_for_a_variant_declaring_it() {
         false,
     );
     let schema = Schema::new(builder.finish());
-    let render = |values: HashMap<String, String>| {
+    let render = |values: FormValues| {
         let schema = &schema;
         let cx = &cx;
         async move {

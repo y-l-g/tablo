@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use super::*;
 use crate::{DeclarationErrorKind, test_support::DummyUser};
 
@@ -54,7 +52,7 @@ async fn a_misdeclared_schema_fails_to_render() {
         Field::text(DummyUser::fields().name()),
     ));
     let cx = topcoat::context::CxTestBuilder::new().build();
-    let values = HashMap::new();
+    let values = FormValues::new();
     let errors = crate::form::FieldErrors::new();
     let Err(error) = schema.render(&cx, Source::form(&values, &errors)).await else {
         panic!("a misdeclared schema must not render");
@@ -63,22 +61,6 @@ async fn a_misdeclared_schema_fails_to_render() {
         error.to_string().contains("two fields are named 'name'"),
         "a duplicate field must name the field, got {error}"
     );
-}
-
-#[test]
-fn unknown_keys_flags_undeclared_post_keys() {
-    let schema = Schema::new(Field::text(DummyUser::fields().name()));
-    let mut values = HashMap::new();
-    values.insert("name".to_string(), "Ada".to_string());
-    values.insert("role".to_string(), "admin".to_string());
-    values.insert("confirm".to_string(), "1".to_string());
-    assert_eq!(
-        schema.unknown_keys(&values),
-        vec!["confirm".to_string(), "role".to_string()]
-    );
-    values.remove("role");
-    values.remove("confirm");
-    assert!(schema.unknown_keys(&values).is_empty());
 }
 
 /// A choice's option check reads `value.trim()`, the spelling the record form's parse stores, and
@@ -91,8 +73,7 @@ async fn a_choice_stores_the_value_its_check_authorised() {
             .options(vec!["red".to_string(), "blue".to_string()]),
     );
 
-    let mut values = HashMap::new();
-    values.insert("name".to_string(), "  red ".to_string());
+    let values = FormValues::from_iter([("name", "  red ")]);
     assert!(
         schema.checked(&cx, &values).await.is_empty(),
         "the option check reads the trimmed value"
@@ -103,8 +84,7 @@ async fn a_choice_stores_the_value_its_check_authorised() {
         "the stored value is the one the check authorised"
     );
 
-    let mut invalid = HashMap::new();
-    invalid.insert("name".to_string(), "  re d ".to_string());
+    let invalid = FormValues::from_iter([("name", "  re d ")]);
     assert!(
         !schema.checked(&cx, &invalid).await.is_empty(),
         "trimming does not turn a non-option into one"
@@ -128,7 +108,7 @@ fn extend_keeps_the_duplicate_field_check() {
 }
 
 /// A multiple choice over static options, posting `tags`.
-fn tags() -> Schema {
+pub(super) fn tags() -> Schema {
     Schema::new(
         Field::choice_input("tags")
             .options(["rust", "async", "sql"])
@@ -136,42 +116,16 @@ fn tags() -> Schema {
     )
 }
 
-/// A multiple choice posts its key once per checked box, after the hidden blank: the fold keeps
-/// each value once, in order, and drops the blank; a choice that posts nothing folds nothing.
-#[test]
-fn a_multiple_choice_folds_what_it_posted_into_one_list() {
-    let lists = HashMap::from([(
-        "tags".to_string(),
-        ["", "sql", " rust ", "sql"].map(String::from).to_vec(),
-    )]);
-    let mut values = HashMap::from([("tags".to_string(), "sql".to_string())]);
-    tags().fold_choices(&mut values, &lists);
-    assert_eq!(
-        crate::form::parse_list::<String>("tags", &values),
-        Ok(vec!["sql".to_string(), "rust".to_string()])
-    );
-    let mut untouched = HashMap::new();
-    tags().fold_choices(&mut untouched, &HashMap::new());
-    assert!(untouched.is_empty());
-}
-
-/// Each value a multiple choice holds is checked as one choice's would be, and a value that is
-/// no list, or lists more than a choice loads, is refused whole.
+/// Each value a multiple choice holds is checked as one choice's would be, and a list choosing
+/// more than a choice loads is refused whole.
 #[tokio::test]
 async fn a_multiple_choice_checks_each_value_it_holds() {
     let cx = crate::test_support::cx();
-    let refused = async |value: String| {
-        let values = HashMap::from([("tags".to_string(), value)]);
+    let refused = async |items: Vec<String>| {
+        let values = FormValues::from_iter([("tags", items)]);
         tags().checked(&cx, &values).await.contains_key("tags")
     };
-    let list = |items: &[&str]| {
-        crate::form::encode_list(
-            &items
-                .iter()
-                .map(|item| item.to_string())
-                .collect::<Vec<_>>(),
-        )
-    };
+    let list = |items: &[&str]| items.iter().map(|item| item.to_string()).collect();
     assert!(!refused(list(&["rust", "sql"])).await);
     assert!(!refused(list(&[])).await, "none chosen");
     assert!(
@@ -182,7 +136,6 @@ async fn a_multiple_choice_checks_each_value_it_holds() {
         refused(list(&["rust"; MAX_RELATIONSHIP_OPTIONS + 1])).await,
         "more than a choice loads"
     );
-    assert!(refused("rust".to_string()).await, "a value that is no list");
 }
 
 /// An error renders under its field's own key; a row key or a near-miss renders nowhere.

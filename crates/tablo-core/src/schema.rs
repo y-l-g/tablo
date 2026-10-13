@@ -9,15 +9,13 @@ pub(crate) mod fields;
 mod layouts;
 mod lenses;
 mod options;
+mod read;
 pub(crate) mod relationship;
 pub(crate) mod repeater;
 pub(crate) mod tree;
 pub(crate) mod validation;
 
-use std::{
-    collections::{HashMap, HashSet},
-    marker::PhantomData,
-};
+use std::{collections::HashSet, marker::PhantomData};
 
 pub use condition::Watched;
 pub use embedded::EmbeddedForm;
@@ -40,7 +38,7 @@ pub(crate) use tree::{Node, Retype, render_nodes};
 use tree::{bind_nodes, unbound_values};
 pub(crate) use validation::TypedValue;
 
-use crate::form::FieldErrors;
+use crate::form::{FieldErrors, FormValues};
 
 /// Composes fields and layout blocks and resolves every field once into one list.
 ///
@@ -172,88 +170,8 @@ impl<F> Schema<F> {
         }
     }
 
-    /// Folds each repeater's posted rows into its own key, which
-    /// [`parse_items`] reads.
-    ///
-    /// A resource's form and an action's input fold their submissions; a page handling its own
-    /// post folds it before reading it, or the rows' keys stay apart.
-    ///
-    /// # Errors
-    ///
-    /// A repeater's key lists something other than its rows, a row posting nothing, or more than
-    /// [`MAX_ROWS`] rows: no browser posts these, so a handler answers 400.
-    pub fn fold_repeaters(
-        &self,
-        values: &mut HashMap<String, String>,
-    ) -> std::result::Result<(), String> {
-        for field in &self.fields {
-            if let Some(repeater) = field.as_repeater() {
-                repeater.fold(field.name(), values)?;
-            }
-        }
-        Ok(())
-    }
-
-    /// Folds the values each multiple choice posted, listed in `lists`, into its one key: a list
-    /// without blanks or repeats, which [`parse_list`](crate::form::parse_list) reads. A choice
-    /// that posted nothing folds nothing, so an edit keeps the stored list.
-    pub(crate) fn fold_choices(
-        &self,
-        values: &mut HashMap<String, String>,
-        lists: &HashMap<String, Vec<String>>,
-    ) {
-        let multiple = self
-            .fields
-            .iter()
-            .filter(|field| field.as_choice().is_some_and(ChoiceControl::is_multiple));
-        for field in multiple {
-            let Some(posted) = lists.get(field.name()) else {
-                continue;
-            };
-            let mut keys: Vec<String> = Vec::new();
-            for value in posted.iter().map(|value| value.trim()) {
-                if !value.is_empty() && !keys.iter().any(|key| key == value) {
-                    keys.push(value.to_string());
-                }
-            }
-            values.insert(field.name().to_string(), crate::form::encode_list(&keys));
-        }
-    }
-
-    /// A posted input as its parse reads it: the `reserved` keys the POST carries for itself
-    /// dropped, each repeater's rows and each multiple choice's values folded into their one key
-    /// (read with `parse_items` and `parse_list`), and a condition-hidden field's key removed,
-    /// since the browser posts nothing for it.
-    ///
-    /// # Errors
-    ///
-    /// 400 for a malformed repeater and for a key no field declares.
-    pub(crate) fn read_input(
-        &self,
-        values: &HashMap<String, String>,
-        lists: &HashMap<String, Vec<String>>,
-        reserved: &[&str],
-    ) -> Result<HashMap<String, String>> {
-        use topcoat::router::error::bad_request;
-
-        let mut input = values.clone();
-        input.retain(|key, _| !reserved.contains(&key.as_str()));
-        self.fold_repeaters(&mut input).map_err(bad_request)?;
-        self.fold_choices(&mut input, lists);
-        let unknown = self.unknown_keys(&input);
-        if !unknown.is_empty() {
-            return Err(bad_request(format!("unknown field(s): {}", unknown.join(", "))).into());
-        }
-        // A disabled field's default first, which a condition reads as the browser did.
-        self.drop_disabled(&mut input, false);
-        for key in self.condition_hidden(&input) {
-            input.remove(&key);
-        }
-        Ok(input)
-    }
-
     /// The create form's initial values: each field's `default`.
-    pub(crate) fn defaults(&self) -> HashMap<String, String> {
+    pub(crate) fn defaults(&self) -> FormValues {
         self.fields
             .iter()
             .filter_map(|field| {
@@ -265,20 +183,18 @@ impl<F> Schema<F> {
     /// Drops what a disabled control posted, which the browser never sends: on the edit form when
     /// `editing`, else on the create form, where the field takes its `default`. Run it before
     /// [`condition_hidden`](Self::condition_hidden), which drops a hidden field's default again.
-    pub(crate) fn drop_disabled(&self, values: &mut HashMap<String, String>, editing: bool) {
+    pub(crate) fn drop_disabled(&self, values: &mut FormValues, editing: bool) {
         for field in self
             .fields
             .iter()
             .filter(|field| field.is_disabled(editing))
         {
             let name = field.name();
-            values.remove(&format!("keep_{name}"));
-            values.remove(&format!("clear_{name}"));
             values.remove(name);
             if let Some(default) = field.default_value()
                 && !editing
             {
-                values.insert(name.to_string(), default.to_string());
+                values.insert(name, default);
             }
         }
     }
@@ -295,19 +211,6 @@ impl<F> Schema<F> {
     pub fn extend(mut self, other: Schema<F>) -> Schema<F> {
         self.append(other);
         self
-    }
-
-    /// Lists keys in `values` that no declared input owns, sorted, so handlers reject
-    /// client-controlled writes.
-    pub(crate) fn unknown_keys(&self, values: &HashMap<String, String>) -> Vec<String> {
-        let known: HashSet<&str> = self.fields.iter().map(Field::name).collect();
-        let mut out: Vec<String> = values
-            .keys()
-            .filter(|k| !known.contains(k.as_str()))
-            .cloned()
-            .collect();
-        out.sort();
-        out
     }
 
     /// Returns the first key in `errors` that no control renders a message under: neither a
@@ -436,8 +339,8 @@ impl<F> Schema<F> {
 
     /// Collects the keys of the fields this submission hides: the payload of every embedded
     /// variant it does not choose, and every field a condition hides.
-    pub(crate) fn hidden_fields(&self, values: &HashMap<String, String>) -> HashSet<String> {
-        fn walk(nodes: &[Node], values: &HashMap<String, String>, out: &mut Vec<usize>) {
+    pub(crate) fn hidden_fields(&self, values: &FormValues) -> HashSet<String> {
+        fn walk(nodes: &[Node], values: &FormValues, out: &mut Vec<usize>) {
             for node in nodes {
                 match node {
                     Node::Embedded(embedded) => embedded.hidden_fields(values, out),
@@ -464,8 +367,8 @@ impl<F> Schema<F> {
     pub(crate) async fn check_controls(
         &self,
         cx: &Cx,
-        values: &HashMap<String, String>,
-        stored: &HashMap<String, String>,
+        values: &FormValues,
+        stored: &FormValues,
         errors: &mut FieldErrors,
     ) {
         let hidden = self.hidden_fields(values);
@@ -478,21 +381,17 @@ impl<F> Schema<F> {
                 continue;
             };
             if let Some(repeater) = field.as_repeater() {
-                repeater.check(cx, name, value, errors).await;
+                let rows = value.as_rows().unwrap_or_default();
+                repeater.check(cx, name, rows, errors).await;
                 continue;
             }
             if let Some(error) = field.check(value) {
                 errors.push(error);
                 continue;
             }
-            let parent = field.parent_key().and_then(|key| values.get(key));
+            let parent = field.parent_key().and_then(|key| values.text(key));
             for message in field
-                .validate_exists(
-                    cx,
-                    value,
-                    parent.map(String::as_str),
-                    stored.get(name).map(String::as_str),
-                )
+                .validate_exists(cx, value, parent, stored.get(name))
                 .await
             {
                 errors.add(name, message);
@@ -502,9 +401,9 @@ impl<F> Schema<F> {
 
     /// What the controls' own rules refuse in `values`, alone.
     #[cfg(test)]
-    pub(crate) async fn checked(&self, cx: &Cx, values: &HashMap<String, String>) -> FieldErrors {
+    pub(crate) async fn checked(&self, cx: &Cx, values: &FormValues) -> FieldErrors {
         let mut errors = FieldErrors::new();
-        self.check_controls(cx, values, &HashMap::new(), &mut errors)
+        self.check_controls(cx, values, &FormValues::new(), &mut errors)
             .await;
         errors
     }
@@ -514,8 +413,8 @@ impl<F> Schema<F> {
     pub(crate) async fn recheck_relationships(
         &self,
         cx: &Cx,
-        values: &HashMap<String, String>,
-        stored: &HashMap<String, String>,
+        values: &FormValues,
+        stored: &FormValues,
         ex: &mut dyn toasty::Executor,
     ) -> FieldErrors {
         let mut errors = FieldErrors::new();
@@ -528,15 +427,9 @@ impl<F> Schema<F> {
             let Some(value) = values.get(name) else {
                 continue;
             };
-            let parent = field.parent_key().and_then(|key| values.get(key));
+            let parent = field.parent_key().and_then(|key| values.text(key));
             for message in field
-                .recheck(
-                    cx,
-                    value,
-                    parent.map(String::as_str),
-                    stored.get(name).map(String::as_str),
-                    &mut *ex,
-                )
+                .recheck(cx, value, parent, stored.get(name), &mut *ex)
                 .await
             {
                 errors.add(name, message);
@@ -551,8 +444,8 @@ impl<F> Schema<F> {
     pub(crate) async fn keep_unseen_links(
         &self,
         cx: &Cx,
-        values: &mut HashMap<String, String>,
-        stored: &HashMap<String, String>,
+        values: &mut FormValues,
+        stored: &FormValues,
         ex: &mut dyn toasty::Executor,
     ) {
         for field in &self.fields {
@@ -561,7 +454,7 @@ impl<F> Schema<F> {
                 continue;
             };
             if let Some(kept) = field.keep_unseen(cx, value, held, &mut *ex).await {
-                values.insert(name.to_string(), kept);
+                values.insert(name, kept);
             }
         }
     }

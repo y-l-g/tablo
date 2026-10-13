@@ -1,17 +1,32 @@
 use super::*;
 
-proptest::proptest! {
-    /// A multiple choice's values read back as written, whatever they hold: a key may carry a
-    /// comma, a quote or a bracket.
-    #[test]
-    fn a_list_reads_back_as_written(items in proptest::collection::vec("\\PC*", 0..8)) {
-        proptest::prop_assert_eq!(decode_list(&encode_list(&items)), Some(items));
-    }
+#[test]
+fn a_list_parses_each_item_and_an_absent_one_as_empty() {
+    let values = FormValues::from_iter([("ids", vec!["1".to_string(), "3".to_string()])]);
+    assert_eq!(parse_list::<i64>("ids", &values), Ok(vec![1, 3]));
+    assert_eq!(parse_list::<i64>("other", &values), Ok(Vec::new()));
+    let refused = parse_list::<i64>(
+        "ids",
+        &FormValues::from_iter([("ids", vec!["x".to_string()])]),
+    );
+    assert!(matches!(
+        refused,
+        Err(FieldError {
+            kind: FieldErrorKind::Invalid(_),
+            ..
+        })
+    ));
 }
 
 #[test]
-fn a_blank_value_holds_no_item_and_another_shape_none() {
-    assert_eq!(decode_list(""), Some(Vec::new()));
-    assert_eq!(decode_list("a,b"), None);
-    assert_eq!(decode_list("{\"a\":1}"), None);
+fn a_key_of_another_shape_refuses_as_invalid() {
+    let values = FormValues::from_iter([
+        ("text", FormValue::Text("1".into())),
+        ("list", FormValue::List(vec!["1".into()])),
+    ]);
+    fn invalid<T>(result: Result<T, FieldError>, at: &str) -> bool {
+        matches!(result, Err(FieldError { key, kind: FieldErrorKind::Invalid(_) }) if key == at)
+    }
+    assert!(invalid(parse_list::<i64>("text", &values), "text"));
+    assert!(invalid(parse_scalar::<i64>("list", &values, None), "list"));
 }

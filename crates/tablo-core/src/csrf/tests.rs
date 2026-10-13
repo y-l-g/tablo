@@ -12,19 +12,10 @@ fn valid_token_format() {
 fn verify_matches_cookie_and_rejects_mismatch() {
     let token = uuid::Uuid::new_v4().to_string();
     let cx = cx_with_cookie(COOKIE_NAME, Some(&token));
-    let mut values = std::collections::HashMap::new();
-    values.insert(FIELD_NAME.to_string(), token.clone());
-    assert!(verify(&cx, &values).is_ok());
-    values.insert(FIELD_NAME.to_string(), uuid::Uuid::new_v4().to_string());
-    assert!(verify(&cx, &values).is_err());
-    assert!(verify(&cx, &std::collections::HashMap::new()).is_err());
-    assert!(
-        verify(
-            &cx_with_cookie(COOKIE_NAME, None),
-            &std::collections::HashMap::from([(FIELD_NAME.to_string(), token)])
-        )
-        .is_err()
-    );
+    assert!(verify(&cx, Some(&token)).is_ok());
+    assert!(verify(&cx, Some(&uuid::Uuid::new_v4().to_string())).is_err());
+    assert!(verify(&cx, None).is_err());
+    assert!(verify(&cx_with_cookie(COOKIE_NAME, None), Some(&token)).is_err());
 }
 
 /// The issued cookie carries the hardened `__Host-` contract,

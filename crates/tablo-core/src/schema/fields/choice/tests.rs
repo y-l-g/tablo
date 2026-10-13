@@ -1,13 +1,11 @@
 //! Dependent choices: the related rows whose column equals the parent field's value.
 
-use std::collections::HashMap;
-
 use toasty::stmt::{List, Query};
 use topcoat::context::{Cx, CxTestBuilder};
 
 use crate::{
     Ability, DeclarationErrorKind,
-    form::FieldErrors,
+    form::{FieldErrors, FormValues},
     schema::{ChoiceField, Field, OptionSource, Schema, Source, fields::Placement},
     test_support::{Html as _, memory_db},
 };
@@ -105,7 +103,7 @@ async fn world() -> World {
     }
 }
 
-async fn render(world: &World, values: &HashMap<String, String>) -> String {
+async fn render(world: &World, values: &FormValues) -> String {
     let country = country();
     let city = city(&country);
     let errors = FieldErrors::new();
@@ -122,7 +120,7 @@ async fn a_dependent_choice_offers_the_rows_of_its_parent_value() {
     let world = world().await;
     let html = render(
         &world,
-        &HashMap::from([("country_id".to_string(), world.france.clone())]),
+        &FormValues::from_iter([("country_id".to_string(), world.france.clone())]),
     )
     .await;
     assert!(
@@ -139,7 +137,7 @@ async fn a_dependent_choice_offers_the_rows_of_its_parent_value() {
         "the script learns what to refetch on: {html}"
     );
 
-    let html = render(&world, &HashMap::new()).await;
+    let html = render(&world, &FormValues::new()).await;
     assert!(
         !html.contains("Paris") && !html.contains("Berlin"),
         "a blank parent offers no city: {html}"
@@ -153,7 +151,8 @@ async fn a_dependent_choice_refuses_a_row_of_another_parent_value() {
     let country = country();
     let city = city(&country);
     let check = async |value: &str, parent: Option<&str>| {
-        city.validate_exists(&world.cx, value, parent, None).await
+        city.validate_exists(&world.cx, &value.into(), parent, None)
+            .await
     };
     assert!(check(&world.paris, Some(&world.france)).await.is_empty());
     for parent in [
@@ -172,13 +171,25 @@ async fn a_dependent_choice_refuses_a_row_of_another_parent_value() {
     let mut handle = crate::db::db(&world.cx);
     let mut tx = handle.transaction().await.unwrap();
     assert!(
-        city.recheck(&world.cx, &world.paris, Some(&world.france), None, &mut tx)
-            .await
-            .is_empty()
+        city.recheck(
+            &world.cx,
+            &(&world.paris).into(),
+            Some(&world.france),
+            None,
+            &mut tx
+        )
+        .await
+        .is_empty()
     );
     assert_eq!(
-        city.recheck(&world.cx, &world.berlin, Some(&world.france), None, &mut tx)
-            .await,
+        city.recheck(
+            &world.cx,
+            &(&world.berlin).into(),
+            Some(&world.france),
+            None,
+            &mut tx
+        )
+        .await,
         ["City id is invalid"]
     );
 }
@@ -235,13 +246,18 @@ async fn a_searchable_dependent_choice_past_the_cap_checks_among_its_parent_rows
     let country = country();
     let city = city(&country).searchable();
     assert!(
-        city.validate_exists(&world.cx, &world.paris, Some(&world.france), None)
+        city.validate_exists(&world.cx, &(&world.paris).into(), Some(&world.france), None)
             .await
             .is_empty()
     );
     assert_eq!(
-        city.validate_exists(&world.cx, &world.berlin, Some(&world.france), None)
-            .await,
+        city.validate_exists(
+            &world.cx,
+            &(&world.berlin).into(),
+            Some(&world.france),
+            None
+        )
+        .await,
         ["City id is invalid"]
     );
 

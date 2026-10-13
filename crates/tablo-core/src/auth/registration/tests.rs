@@ -1,9 +1,7 @@
-use std::collections::HashMap;
-
 use super::{SignUp, new_password_errors};
-use crate::ActionInput;
+use crate::{ActionInput, form::FormValues};
 
-fn values(pairs: &[(&str, &str)]) -> HashMap<String, String> {
+fn values(pairs: &[(&str, &str)]) -> FormValues {
     pairs
         .iter()
         .map(|(key, value)| ((*key).to_string(), (*value).to_string()))

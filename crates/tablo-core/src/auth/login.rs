@@ -132,16 +132,16 @@ pub(crate) fn login_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
 /// `POST {prefix}/login` — verify, rotate the session, redirect to `next`.
 pub(crate) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
-        let values = crate::panel::parse_form_body(cx, body).await?.values;
-        crate::csrf::verify(cx, &values)?;
-        let next = values
-            .get(NEXT_FIELD)
-            .and_then(|value| safe_next(value))
+        let parts = crate::panel::parse_form_body(cx, body).await?;
+        crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
+        let next = parts
+            .last(NEXT_FIELD)
+            .and_then(safe_next)
             .map(str::to_string)
             .or_else(|| next_from_query(cx))
             .unwrap_or_default();
-        let login = values.get(LOGIN_FIELD).map(|value| value.trim());
-        let password = values.get(PASSWORD_FIELD).map(String::as_str);
+        let login = parts.last(LOGIN_FIELD).map(str::trim);
+        let password = parts.last(PASSWORD_FIELD);
         let panel = current(cx).ok_or_else(topcoat::router::error::not_found)?;
         let client = client_ip(cx);
         let verified = match (panel.auth.authenticator(), login, password) {
@@ -215,8 +215,8 @@ pub(crate) fn logout_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         if resolved(cx).is_none() {
             return Err(unauthenticated_error(cx));
         }
-        let values = crate::panel::parse_form_body(cx, body).await?.values;
-        crate::csrf::verify(cx, &values)?;
+        let parts = crate::panel::parse_form_body(cx, body).await?;
+        crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
         if let Some(hash) = session::stop(cx).await? {
             delete_session(cx, &hash).await?;
         }
@@ -232,10 +232,10 @@ pub(crate) fn tenant_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         let Some(signed) = signed(cx) else {
             return Err(unauthenticated_error(cx));
         };
-        let values = crate::panel::parse_form_body(cx, body).await?.values;
-        crate::csrf::verify(cx, &values)?;
-        let tenant = values
-            .get(TENANT_FIELD)
+        let parts = crate::panel::parse_form_body(cx, body).await?;
+        crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
+        let tenant = parts
+            .last(TENANT_FIELD)
             .and_then(|value| uuid::Uuid::parse_str(value).ok())
             .filter(|tenant| {
                 signed

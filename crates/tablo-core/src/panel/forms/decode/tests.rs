@@ -47,7 +47,13 @@ async fn a_repeated_key_keeps_every_value_in_body_order() {
     let parts = multipart_parts(&multipart_type("X"), body.as_bytes().to_vec(), false)
         .await
         .unwrap();
-    assert_eq!(parts.lists["tags"], ["b", "a"]);
+    let tags: Vec<&str> = parts
+        .pairs
+        .iter()
+        .filter(|(key, _)| key == "tags")
+        .map(|(_, value)| value.as_str())
+        .collect();
+    assert_eq!(tags, ["b", "a"]);
 }
 
 /// Runs the streaming multipart parser over `body` with the given content type.
@@ -68,13 +74,14 @@ async fn multipart_parts(
     parse_multipart_values(&cx, Body::from(body), capture).await
 }
 
+/// The multipart `body`'s last value per key.
 async fn multipart_values(
     content_type: &str,
     body: Vec<u8>,
 ) -> Result<HashMap<String, String>, topcoat::Error> {
     multipart_parts(content_type, body, false)
         .await
-        .map(|parts| parts.values)
+        .map(|parts| parts.pairs.into_iter().collect())
 }
 
 fn multipart_type(boundary: &str) -> String {
@@ -207,10 +214,7 @@ async fn multipart_stages_file_bytes_only_when_capturing() {
     let staged = captured.files.get("image_path").expect("staged file part");
     assert_eq!(staged.filename, "photo.jpg");
     assert_eq!(staged.bytes, b"BINARYBYTES");
-    assert_eq!(
-        captured.values.get("image_path").map(String::as_str),
-        Some("photo.jpg")
-    );
+    assert_eq!(captured.last("image_path"), Some("photo.jpg"));
     assert!(
         !captured.files.contains_key("title"),
         "a text part is not a file part, got {:?}",
@@ -222,10 +226,7 @@ async fn multipart_stages_file_bytes_only_when_capturing() {
         .await
         .unwrap();
     assert!(drained.files.is_empty(), "no uploader, no buffering");
-    assert_eq!(
-        drained.values.get("image_path").map(String::as_str),
-        Some("photo.jpg")
-    );
+    assert_eq!(drained.last("image_path"), Some("photo.jpg"));
 }
 
 /// Stages nothing for a filename sanitized to empty.
@@ -236,7 +237,7 @@ async fn multipart_stages_nothing_for_a_rejected_filename() {
         .await
         .unwrap();
     assert!(parts.files.is_empty(), "a rejected name stages no bytes");
-    assert_eq!(parts.values.get("image_path").map(String::as_str), Some(""));
+    assert_eq!(parts.last("image_path"), Some(""));
 }
 
 #[tokio::test]

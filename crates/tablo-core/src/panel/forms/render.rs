@@ -1,6 +1,6 @@
 //! The shared create/edit form page and the create page.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use topcoat::{
     Result,
@@ -15,7 +15,7 @@ use super::super::{
     gate::{gate, return_target},
 };
 use crate::{
-    form::FieldErrors,
+    form::{FieldErrors, FormValues},
     policy::Ability,
     resource::{Mounted, Places, PublicLink, Resource},
     schema::Schema,
@@ -113,7 +113,7 @@ pub(crate) async fn render_form_page<'a>(
     cx: &'a Cx,
     schema: &Schema,
     chrome: FormChrome,
-    values: &HashMap<String, String>,
+    values: &FormValues,
     errors: &FieldErrors,
     carried: &HashSet<String>,
 ) -> Result<BoxView<'a>> {
@@ -153,11 +153,11 @@ pub(crate) async fn render_form_page<'a>(
     let mut carried_names: Vec<&String> = carried.iter().collect();
     carried_names.sort();
     for name in carried_names {
-        let Some(path) = values.get(name) else {
+        let Some(path) = values.text(name) else {
             continue;
         };
         let control = format!("keep_{name}");
-        let path = path.clone();
+        let path = path.to_string();
         carried_fields
             .push(view! { cx => <input type="hidden" name=(control) value=(path)> }.boxed());
     }
@@ -254,7 +254,7 @@ pub(crate) fn resource_create<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> 
 
 /// The create form's values: each field's default, under the relationship-control query
 /// parameters, first occurrence wins.
-fn seeded_values<R: Resource>(cx: &Cx, resource: &Mounted<R>) -> HashMap<String, String> {
+fn seeded_values<R: Resource>(cx: &Cx, resource: &Mounted<R>) -> FormValues {
     let schema = &resource.form;
     let seedable: Vec<&str> = schema
         .fields()
@@ -270,15 +270,12 @@ fn seeded_values<R: Resource>(cx: &Cx, resource: &Mounted<R>) -> HashMap<String,
     let query = topcoat::router::request::uri(cx)
         .query()
         .unwrap_or_default();
-    let mut seeded = HashMap::new();
+    let mut values = schema.defaults();
+    let mut seeded = HashSet::new();
     for (name, value) in form_urlencoded::parse(query.as_bytes()) {
-        if seedable.contains(&name.as_ref()) {
-            seeded
-                .entry(name.into_owned())
-                .or_insert_with(|| value.into_owned());
+        if seedable.contains(&name.as_ref()) && seeded.insert(name.clone()) {
+            values.insert(name, value.into_owned());
         }
     }
-    let mut values = schema.defaults();
-    values.extend(seeded);
     values
 }

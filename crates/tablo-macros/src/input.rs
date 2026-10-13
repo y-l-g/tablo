@@ -214,10 +214,7 @@ fn expand_struct(
             quote! {
                 fn write(
                     &self,
-                    out: &mut ::std::collections::HashMap<
-                        ::std::string::String,
-                        ::std::string::String,
-                    >,
+                    out: &mut #krate::__macro::FormValues,
                 ) {
                     #(#writes)*
                 }
@@ -233,7 +230,7 @@ fn expand_struct(
 
             fn parse(
                 cx: &#krate::__macro::Cx,
-                values: &::std::collections::HashMap<::std::string::String, ::std::string::String>,
+                values: &#krate::__macro::FormValues,
             ) -> ::std::result::Result<Self, ::std::vec::Vec<#krate::__macro::FieldError>> {
                 let _ = cx;
                 let mut errors: ::std::vec::Vec<#krate::__macro::FieldError> = ::std::vec::Vec::new();

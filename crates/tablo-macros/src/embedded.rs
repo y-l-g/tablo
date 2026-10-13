@@ -278,14 +278,14 @@ fn wrap(
             fn write_node(
                 &self,
                 node: &#krate::__macro::Embedded,
-                out: &mut ::std::collections::HashMap<::std::string::String, ::std::string::String>,
+                out: &mut #krate::__macro::FormValues,
             ) {
                 #write
             }
 
             fn read_node(
                 node: &#krate::__macro::Embedded,
-                values: &::std::collections::HashMap<::std::string::String, ::std::string::String>,
+                values: &#krate::__macro::FormValues,
             ) -> ::std::result::Result<Self, ::std::vec::Vec<#krate::__macro::FieldError>> {
                 #read
             }

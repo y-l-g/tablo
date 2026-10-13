@@ -1,7 +1,7 @@
 //! Mounting a panel: [`RouterBuilderPanelExt::panel`], the declaration
 //! checks it runs, and the route-path helpers.
 
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use toasty::Db;
 use topcoat::{
@@ -615,7 +615,7 @@ fn check_inputs<T: 'static>(
                 }
             })
             .collect();
-        if !spec.takes_input && (spec.parse)(cx, &HashMap::new()).is_err() {
+        if !spec.takes_input && (spec.parse)(cx, &crate::form::FormValues::new()).is_err() {
             faults.push(ActionInputFault::RefusesEmpty);
         }
         kinds.extend(

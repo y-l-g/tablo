@@ -144,7 +144,8 @@ macro_rules! default_modifier {
             /// Fills the create form's control with `value`: any [`FormScalar`], or a `&str` in
             /// the form spelling. On a [`disabled`](Self::disabled) field it is the value a
             /// create stores. A schema refuses a default the control never posts: one a typed
-            /// field does not parse, or not one of a choice's options.
+            /// field does not parse, one not among a choice's options, and any on a
+            /// [`multiple`](ChoiceField::multiple) choice, which posts a list.
             ///
             /// ```rust
             /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
@@ -302,8 +303,8 @@ impl<F> ChoiceField<F> {
     /// It offers at most [`MAX_RELATIONSHIP_OPTIONS`](crate::schema::MAX_RELATIONSHIP_OPTIONS)
     /// records: past them it lists none but the chosen ones, and refuses a submission choosing
     /// another. A record form's edit re-checks only the keys the record does not link yet.
-    /// `searchable` filters the listed options as the user types. A condition cannot watch it,
-    /// and it cannot depend on another field.
+    /// `searchable` filters the listed options as the user types. A condition cannot watch it, it
+    /// cannot depend on another field, and it takes no `default`.
     pub fn multiple(mut self) -> Self {
         self.choice_mut().multiple = true;
         self

@@ -2,7 +2,9 @@ use topcoat::router::Body;
 
 use super::*;
 use crate::{
-    ResourceDef, lens,
+    ResourceDef,
+    form::FormValues,
+    lens,
     panel::test_support::{Subscriber, Tagged, TaggedResource, mount, panel_for, response_html},
     test_support::{memory_db, tableless_db},
 };
@@ -40,7 +42,7 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
     let mut ex = crate::db::db(&cx);
 
     let schema = Schema::new(Field::text(Subscriber::fields().email()).unique());
-    let mut values = HashMap::new();
+    let mut values = FormValues::new();
     values.insert("email".to_string(), "a@b.c".to_string());
 
     let errors = check_unique(
@@ -48,7 +50,7 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
         &crate::resource::require_mounted::<SubscriberResource>(&cx).unwrap(),
         &schema,
         &values,
-        &HashMap::new(),
+        &FormValues::new(),
         &mut ex,
     )
     .await
@@ -59,21 +61,21 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
         "duplicate must be flagged, got {errors:?}"
     );
 
-    let mut fresh = HashMap::new();
+    let mut fresh = FormValues::new();
     fresh.insert("email".to_string(), "other@b.c".to_string());
     let errors = check_unique(
         &cx,
         &crate::resource::require_mounted::<SubscriberResource>(&cx).unwrap(),
         &schema,
         &fresh,
-        &HashMap::new(),
+        &FormValues::new(),
         &mut ex,
     )
     .await
     .unwrap();
     assert!(errors.is_empty(), "fresh value must pass, got {errors:?}");
 
-    let mut current = HashMap::new();
+    let mut current = FormValues::new();
     current.insert("email".to_string(), "a@b.c".to_string());
     let errors = check_unique(
         &cx,
@@ -90,7 +92,7 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
         "own unchanged value must be skipped, got {errors:?}"
     );
 
-    let mut changed_current = HashMap::new();
+    let mut changed_current = FormValues::new();
     changed_current.insert("email".to_string(), "old@b.c".to_string());
     let errors = check_unique(
         &cx,
@@ -108,7 +110,7 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
         "changed-to-duplicate must be flagged, got {errors:?}"
     );
 
-    let mut empty = HashMap::new();
+    let mut empty = FormValues::new();
     empty.insert("email".to_string(), "   ".to_string());
     let optional_schema = Schema::new(Field::text(Subscriber::fields().email()).unique());
     let errors = check_unique(
@@ -116,7 +118,7 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
         &crate::resource::require_mounted::<SubscriberResource>(&cx).unwrap(),
         &optional_schema,
         &empty,
-        &HashMap::new(),
+        &FormValues::new(),
         &mut ex,
     )
     .await
@@ -157,14 +159,14 @@ async fn unique_check_propagates_probe_errors() {
     let mut ex = crate::db::db(&cx);
 
     let schema = Schema::new(Field::text(Probe::fields().email()).unique());
-    let mut values = HashMap::new();
+    let mut values = FormValues::new();
     values.insert("email".to_string(), "a@b.c".to_string());
     let result = check_unique(
         &cx,
         &crate::resource::require_mounted::<ProbeResource>(&cx).unwrap(),
         &schema,
         &values,
-        &HashMap::new(),
+        &FormValues::new(),
         &mut ex,
     )
     .await;

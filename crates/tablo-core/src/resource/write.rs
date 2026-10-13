@@ -5,7 +5,7 @@ use topcoat::{Result, context::Cx};
 
 use super::{Mounted, Resource, require_mounted};
 use crate::{
-    form::{Posted, RecordForm, decode_list},
+    form::{FormValues, Posted, RecordForm},
     tenancy::require_tenant,
     toasty_compat::{join::JoinTable, model::AppSchema, pk::pk_filter},
 };
@@ -80,14 +80,11 @@ pub async fn write_update<R: Resource>(
         for (field, keys) in links {
             let join = join_table(cx, &resource, field)?;
             let key = form_key(&resource, field);
-            if !stored.contains_key(key) {
+            if !stored.contains(key) {
                 // A record loaded without its links, by an app's own update: read them now.
                 stored = linked_now::<R>(cx, &record, &mut *ex).await?;
             }
-            let held = stored
-                .get(key)
-                .and_then(|value| decode_list(value))
-                .unwrap_or_default();
+            let held = stored.list(key).unwrap_or_default();
             let removed: Vec<String> = held
                 .iter()
                 .filter(|key| !keys.contains(key))
@@ -160,7 +157,7 @@ async fn linked_now<R: Resource>(
     cx: &Cx,
     record: &R::Model,
     ex: &mut dyn Executor,
-) -> Result<std::collections::HashMap<String, String>> {
+) -> Result<FormValues> {
     let reloaded =
         toasty::stmt::Query::<toasty::stmt::List<R::Model>>::all().filter(pk_filter(record));
     let reloaded = <R::Form as RecordForm>::includes()

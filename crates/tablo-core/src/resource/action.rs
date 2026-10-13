@@ -3,7 +3,7 @@
 
 mod input;
 
-use std::{any::Any, collections::HashMap, future::Future};
+use std::{any::Any, future::Future};
 
 use derive_where::derive_where;
 pub use input::ActionInput;
@@ -15,7 +15,7 @@ use topcoat::{Result, context::Cx};
 use super::{Mounted, Resource};
 use crate::{
     BoxFuture,
-    form::{FieldError, FieldErrors},
+    form::{FieldError, FieldErrors, FormValues},
     naming::sentence_case,
     policy::Ability,
     schema::Schema,
@@ -302,14 +302,12 @@ pub(crate) struct InputSpec {
     /// Whether [`schema`](Self::schema) declares a field, so the action asks for it on a page.
     pub(crate) takes_input: bool,
     /// Parses and validates the input from a submission, as the value `run` takes.
-    pub(crate) parse: fn(&Cx, &HashMap<String, String>) -> InputResult,
+    pub(crate) parse: fn(&Cx, &FormValues) -> InputResult,
 }
 
 impl InputSpec {
     /// The input of type `I`, parsed and validated by `parse`.
-    pub(crate) fn of<I: ActionInput>(
-        parse: fn(&Cx, &HashMap<String, String>) -> InputResult,
-    ) -> Self {
+    pub(crate) fn of<I: ActionInput>(parse: fn(&Cx, &FormValues) -> InputResult) -> Self {
         Self {
             schema: I::schema,
             takes_input: !I::schema().is_empty(),
@@ -462,17 +460,14 @@ fn can_run_erased<R: Resource, A: Action<R>>(
 }
 
 /// [`ActionInput::parse`], then [`Action::validate_input`], behind a function pointer.
-fn parse_input_erased<R: Resource, A: Action<R>>(
-    cx: &Cx,
-    values: &HashMap<String, String>,
-) -> InputResult {
+fn parse_input_erased<R: Resource, A: Action<R>>(cx: &Cx, values: &FormValues) -> InputResult {
     parse_validated(cx, values, A::validate_input)
 }
 
 /// `I`'s [`ActionInput::parse`], then `validate`.
 pub(crate) fn parse_validated<I: ActionInput>(
     cx: &Cx,
-    values: &HashMap<String, String>,
+    values: &FormValues,
     validate: fn(&Cx, &I) -> FieldErrors,
 ) -> InputResult {
     let input = I::parse(cx, values)?;
@@ -484,7 +479,7 @@ pub(crate) fn parse_validated<I: ActionInput>(
 }
 
 /// A delete's input: nothing.
-fn parse_nothing(_cx: &Cx, _values: &HashMap<String, String>) -> InputResult {
+fn parse_nothing(_cx: &Cx, _values: &FormValues) -> InputResult {
     Ok(Box::new(()))
 }
 

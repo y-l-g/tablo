@@ -7,27 +7,26 @@ use tablo_ui::{
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{ChoiceControl, OptionLoadError};
-use crate::{form::decode_list, schema::fields::Field};
+use crate::schema::fields::Field;
 
 impl Field {
     /// Renders a multiple choice with the DOM id prefix `id`: a checkbox per option, checked when
-    /// `value`'s list holds it.
+    /// `chosen` holds it.
     ///
     /// A hidden empty value comes first, so a submission with no box checked still posts the key
-    /// and clears the choice; the fold drops it. A failed or overflowed load keeps the chosen keys
-    /// as boxes, so saving the form keeps them.
+    /// and clears the choice; reading the submission drops it. A failed or overflowed load keeps
+    /// the chosen keys as boxes, so saving the form keeps them.
     pub(super) async fn render_choices<'a>(
         &self,
         choice: &ChoiceControl,
         cx: &'a Cx,
-        value: Option<&str>,
+        chosen: &[String],
         error: Option<&crate::form::FieldError>,
         id: String,
         disabled: bool,
     ) -> Result<BoxView<'a>> {
         let name = self.name().to_string();
         let label = self.label_str().to_string();
-        let chosen = value.and_then(decode_list).unwrap_or_default();
         let loaded = choice.load_options(cx, None).await;
         let denied = matches!(loaded, Err(OptionLoadError::Denied));
         let failed = matches!(
@@ -38,7 +37,7 @@ impl Field {
         );
         let mut options = loaded.unwrap_or_default();
         if failed {
-            for key in &chosen {
+            for key in chosen {
                 if !options.iter().any(|(value, _)| value == key) {
                     options.push((key.clone(), key.clone()));
                 }

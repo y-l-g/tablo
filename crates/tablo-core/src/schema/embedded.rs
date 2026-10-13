@@ -1,5 +1,5 @@
-//! Embedded values: a typed value and the flat form map converted in one declared place, plus the
-//! schema node that renders it.
+//! Embedded values: a typed value and its [`FormValues`], one key per leaf, converted in one
+//! declared place, plus the schema node that renders it.
 //!
 //! An embedded leaf binds one flattened storage column and a value binds as a whole; a payload
 //! selects the variant only when the submission carries no discriminant at all, a shared column
@@ -8,8 +8,7 @@
 //! # What an app writes
 //!
 //! ```rust
-//! # use std::collections::HashMap;
-//! # use tablo_core::{EmbeddedForm, FieldError, Section};
+//! # use tablo_core::{EmbeddedForm, FieldError, FormValues, Section};
 //! # use topcoat::context::Cx;
 //! #[derive(Debug, Clone, toasty::Embed, tablo_core::EmbeddedForm)]
 //! pub struct Seo {
@@ -19,7 +18,7 @@
 //! # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 //! # struct Post { #[key] #[auto] id: uuid::Uuid, seo: Seo }
 //! # fn round_trip(cx: &Cx, record: &Post) -> Result<(), Vec<FieldError>> {
-//! # let mut values = HashMap::new();
+//! # let mut values = FormValues::new();
 //!
 //! Section::new("SEO").schema(Seo::form(Post::fields().seo()));
 //! record.seo.write_form(cx, Post::fields().seo(), &mut values);
@@ -35,8 +34,6 @@
 //! inside an enum variant are not covered.
 //!
 //! Every leaf under an embedded step reports nullable.
-
-use std::collections::HashMap;
 
 use tablo_ui::field_group as ui_field_group;
 use toasty::stmt::Path;
@@ -54,21 +51,17 @@ use super::{
     tree::{Node, Source, Unbound},
 };
 use crate::{
-    form::{FieldError, FormField},
+    form::{FieldError, FormField, FormValues},
     topcoat_compat::async_page,
 };
 
-/// Reads an embedded value from and writes it to the flat form map; derive it to generate the
-/// value's schema.
+/// Reads an embedded value from and writes it to [`FormValues`], one key per leaf; derive it to
+/// generate the value's schema.
 pub trait EmbeddedForm: Sized {
     /// Writes this value's leaves into `out`, including the active variant's discriminant for an
     /// enum.
-    fn write_form<M>(
-        &self,
-        cx: &Cx,
-        parent: impl Into<Path<M, Self>>,
-        out: &mut HashMap<String, String>,
-    ) where
+    fn write_form<M>(&self, cx: &Cx, parent: impl Into<Path<M, Self>>, out: &mut FormValues)
+    where
         M: toasty::schema::Model,
     {
         let schema = Self::build_schema(&FieldResolver::of(cx), parent.into());
@@ -85,7 +78,7 @@ pub trait EmbeddedForm: Sized {
     fn read_form<M>(
         cx: &Cx,
         parent: impl Into<Path<M, Self>>,
-        values: &HashMap<String, String>,
+        values: &FormValues,
     ) -> std::result::Result<Self, Vec<FieldError>>
     where
         M: toasty::schema::Model,
@@ -101,12 +94,12 @@ pub trait EmbeddedForm: Sized {
         M: toasty::schema::Model;
 
     #[doc(hidden)]
-    fn write_node(&self, node: &Embedded, out: &mut HashMap<String, String>);
+    fn write_node(&self, node: &Embedded, out: &mut FormValues);
 
     #[doc(hidden)]
     fn read_node(
         node: &Embedded,
-        values: &HashMap<String, String>,
+        values: &FormValues,
     ) -> std::result::Result<Self, Vec<FieldError>>;
 }
 
@@ -173,19 +166,19 @@ impl Embedded {
         }
     }
 
-    pub fn write_variant(&self, index: usize, out: &mut HashMap<String, String>) {
+    pub fn write_variant(&self, index: usize, out: &mut FormValues) {
         let e = self.enum_node();
-        out.insert(e.key.clone(), e.variants[index].value.clone());
+        out.insert(e.key.clone(), e.variants[index].value.as_str());
     }
 
     /// Returns the variant a submission reads as, falling back to the first variant with a
     /// submitted payload when it names no discriminant, and refuses an unknown discriminant.
     pub fn variant_index(
         &self,
-        values: &HashMap<String, String>,
+        values: &FormValues,
     ) -> std::result::Result<usize, Vec<FieldError>> {
         let e = self.enum_node();
-        let submitted = values.get(&e.key).map(|v| v.trim()).unwrap_or_default();
+        let submitted = values.text(&e.key).map(str::trim).unwrap_or_default();
         if submitted.is_empty() {
             let own = |member: &Member| match member {
                 Member::Leaf { key, field } => field.is_some() && is_present(values, key),
@@ -206,7 +199,7 @@ impl Embedded {
     }
 
     /// Whether a submission mentions any key of this value.
-    fn any_present(&self, values: &HashMap<String, String>) -> bool {
+    fn any_present(&self, values: &FormValues) -> bool {
         let member = |member: &Member| match member {
             Member::Leaf { key, .. } => is_present(values, key),
             Member::Nested(nested) => nested.any_present(values),
@@ -304,7 +297,7 @@ impl Embedded {
 
     /// Collects the field slots of every variant group the submission hides, hiding nothing when it
     /// names no variant.
-    pub(crate) fn hidden_fields(&self, values: &HashMap<String, String>, out: &mut Vec<usize>) {
+    pub(crate) fn hidden_fields(&self, values: &FormValues, out: &mut Vec<usize>) {
         let nested = |members: &[Member], out: &mut Vec<usize>| {
             for member in members {
                 if let Member::Nested(nested) = member {
@@ -315,7 +308,7 @@ impl Embedded {
         match &self.shape {
             Shape::Struct(members) => nested(members, out),
             Shape::Enum(e) => {
-                let chosen = values.get(&e.key).map(|v| v.trim()).unwrap_or_default();
+                let chosen = values.text(&e.key).map(str::trim).unwrap_or_default();
                 for variant in &e.variants {
                     if !chosen.is_empty() && chosen != variant.value {
                         for member in &variant.members {
@@ -350,7 +343,7 @@ impl Embedded {
                 let discriminant = Node::Field(e.discriminant)
                     .render(cx, fields, source)
                     .await?;
-                let stored = source.value(&e.key).map(str::trim);
+                let stored = source.text(&e.key).map(str::trim);
                 let mut shared = Vec::with_capacity(e.shared.len());
                 for index in &e.shared {
                     shared.push(Node::Field(*index).render(cx, fields, source).await?);
@@ -430,14 +423,14 @@ impl Embedded {
         &self,
         cx: &'a Cx,
         fields: &[Field],
-        values: &HashMap<String, String>,
+        values: &FormValues,
     ) -> BoxView<'a> {
         let views: Vec<BoxView<'a>> = self
             .shown(fields, values)
             .into_iter()
             .map(|index| {
                 let field = &fields[index];
-                field.display(cx, values.get(field.name()).map_or("", String::as_str))
+                field.display(cx, values.text(field.name()).unwrap_or_default())
             })
             .collect();
         view! {
@@ -452,13 +445,13 @@ impl Embedded {
     /// The slots of the fields a reader of the value `values` spells sees, in order: a struct's
     /// leaves, or an enum's discriminant, the shared leaves its stored variant declares, and that
     /// variant's own leaves. An enum whose stored discriminant names no variant shows nothing.
-    pub(crate) fn shown(&self, fields: &[Field], values: &HashMap<String, String>) -> Vec<usize> {
+    pub(crate) fn shown(&self, fields: &[Field], values: &FormValues) -> Vec<usize> {
         let mut out = Vec::new();
         self.shown_into(fields, values, &mut out);
         out
     }
 
-    fn shown_into(&self, fields: &[Field], values: &HashMap<String, String>, out: &mut Vec<usize>) {
+    fn shown_into(&self, fields: &[Field], values: &FormValues, out: &mut Vec<usize>) {
         let members = |members: &[Member], out: &mut Vec<usize>| {
             for member in members {
                 match member {
@@ -473,7 +466,7 @@ impl Embedded {
         match &self.shape {
             Shape::Struct(list) => members(list, out),
             Shape::Enum(e) => {
-                let stored = values.get(&e.key).map(|value| value.trim());
+                let stored = values.text(&e.key).map(str::trim);
                 let Some(variant) = e
                     .variants
                     .iter()
@@ -525,9 +518,9 @@ async fn render_members<'a>(
     .boxed())
 }
 
-fn is_present(values: &HashMap<String, String>, key: &str) -> bool {
+fn is_present(values: &FormValues, key: &str) -> bool {
     values
-        .get(key)
+        .text(key)
         .is_some_and(|value| !value.trim().is_empty())
 }
 

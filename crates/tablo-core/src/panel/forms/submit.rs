@@ -1,9 +1,6 @@
 //! The create/edit POST pipelines.
 
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::{collections::HashSet, sync::Arc};
 
 use topcoat::{
     Result,
@@ -15,8 +12,8 @@ use topcoat::{
 use super::{
     super::{actions::load_editable, gate::gate, write::commit_write},
     common::{
-        FormParts, drop_client_typed_uploads, reject_unknown_form_keys, rerender_invalid_form,
-        restore_pending_uploads, strip_transport_keys, truthy,
+        FormParts, blank, drop_client_typed_uploads, file_flags, reject_unknown_form_keys,
+        rerender_invalid_form, restore_pending_uploads,
     },
     decode::parse_form_body,
     render::FormChrome,
@@ -24,7 +21,7 @@ use super::{
 };
 use crate::{
     db::db,
-    form::{FieldError, FieldErrors, Posted, RecordForm},
+    form::{FieldError, FieldErrors, FormValues, Posted, RecordForm},
     policy::Ability,
     resource::{Committed, Mounted, Resource},
     schema::Schema,
@@ -36,7 +33,7 @@ const WRITE_UPDATE: &str = "save the changes";
 
 struct Submission {
     schema: Arc<Schema>,
-    values: HashMap<String, String>,
+    values: FormValues,
     errors: FieldErrors,
     carried: HashSet<String>,
     named: HashSet<String>,
@@ -50,19 +47,18 @@ async fn prepare_submission<R: Resource>(
     advisory: Option<&R::Model>,
 ) -> Result<Submission, topcoat::Error> {
     let schema = Arc::clone(&resource.form);
-    let FormParts {
-        mut values,
-        lists,
-        mut files,
-        file_part_names,
-    } = parts;
     // Each repeater's rows, and each multiple choice's values, become its one key, which every
     // step below reads like any other.
-    schema
-        .fold_repeaters(&mut values)
+    let (mut values, unclaimed) = schema
+        .read_unclaimed(&parts.pairs)
         .map_err(topcoat::router::error::bad_request)?;
-    schema.fold_choices(&mut values, &lists);
-    reject_unknown_form_keys(&schema, &values)?;
+    reject_unknown_form_keys(&schema, unclaimed)?;
+    let mut flags = file_flags(&schema, &parts);
+    let FormParts {
+        mut files,
+        file_part_names,
+        ..
+    } = parts;
     let stored = advisory
         .map(|advisory| <R::Form as RecordForm>::hydrate(cx, advisory))
         .unwrap_or_default();
@@ -72,6 +68,7 @@ async fn prepare_submission<R: Resource>(
     let editing = advisory.is_some();
     for key in schema.disabled_keys(editing) {
         files.remove(key);
+        flags.remove(key);
     }
     schema.drop_disabled(&mut values, editing);
     // A hidden field's control is disabled, so the browser posts nothing for it: a key posted
@@ -79,40 +76,25 @@ async fn prepare_submission<R: Resource>(
     // a create takes the blank answer. An edit that does not post the watched field reads its
     // stored value, as the parse will.
     let mut read = stored.clone();
-    read.extend(
-        values
-            .iter()
-            .map(|(key, value)| (key.clone(), value.clone())),
-    );
-    let hidden = schema.condition_hidden(&read);
-    for key in &hidden {
-        values.remove(&format!("keep_{key}"));
-        values.remove(&format!("clear_{key}"));
+    read.extend(values.clone());
+    for key in &schema.condition_hidden(&read) {
         values.remove(key);
         files.remove(key);
+        flags.remove(key);
     }
     // File fields take values only from file parts.
     drop_client_typed_uploads(&schema, &file_part_names, &mut values);
     let (upload_errors, mut carried) =
         crate::upload::store_uploads(cx, &schema, &files, &mut values).await;
-    carried.extend(restore_pending_uploads(cx, &schema, &mut values).await);
+    carried.extend(restore_pending_uploads(cx, &flags, &mut values).await);
     // An empty file input keeps the stored value; `clear_<field>` clears it unless a file was
     // chosen.
-    for field in schema.fields().filter(|field| field.is_file()) {
-        let name = field.name();
-        let cleared = values
-            .get(&format!("clear_{name}"))
-            .is_some_and(|v| truthy(v));
-        let empty = values
-            .get(name)
-            .map(|v| v.trim().is_empty())
-            .unwrap_or(true);
-        if !cleared && empty && stored.get(name).is_some_and(|v| !v.trim().is_empty()) {
+    for (name, flags) in &flags {
+        if !flags.clear && blank(&values, name) && !blank(&stored, name) {
             values.remove(name);
         }
     }
-    strip_transport_keys(&schema, &mut values);
-    let named: HashSet<String> = values.keys().cloned().collect();
+    let named: HashSet<String> = values.keys().map(str::to_string).collect();
     complete(&schema, &mut values, &named, &stored);
     let mut errors = FieldErrors::new();
     schema
@@ -132,9 +114,9 @@ async fn prepare_submission<R: Resource>(
 /// Fills unnamed keys from the stored projection, dropping keys it does not hold.
 fn complete(
     schema: &Schema,
-    values: &mut HashMap<String, String>,
+    values: &mut FormValues,
     named: &HashSet<String>,
-    stored: &HashMap<String, String>,
+    stored: &FormValues,
 ) {
     for field in schema.fields() {
         let name = field.name();
@@ -142,7 +124,7 @@ fn complete(
             continue;
         }
         match stored.get(name) {
-            Some(value) => values.insert(name.to_string(), value.clone()),
+            Some(value) => values.insert(name, value.clone()),
             None => values.remove(name),
         };
     }
@@ -158,7 +140,7 @@ fn complete(
 fn parse_form<R: Resource>(
     cx: &Cx,
     resource: &Mounted<R>,
-    values: &HashMap<String, String>,
+    values: &FormValues,
     errors: &mut FieldErrors,
 ) -> Result<Option<R::Form>, topcoat::Error> {
     let unbound = |source: &str, key: &dyn std::fmt::Debug| {
@@ -225,8 +207,8 @@ fn renders_under(form: &Schema, key: &str, failed: &str) -> bool {
 async fn recheck_relationships(
     cx: &Cx,
     schema: &Schema,
-    values: &HashMap<String, String>,
-    stored: &HashMap<String, String>,
+    values: &FormValues,
+    stored: &FormValues,
     errors: &mut FieldErrors,
     ex: &mut dyn toasty::Executor,
 ) {
@@ -254,7 +236,7 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             return Err(forbidden().into());
         }
         let parts = parse_form_body(cx, body).await?;
-        crate::csrf::verify(cx, &parts.values)?;
+        crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
         let Submission {
             schema,
             values,
@@ -266,10 +248,19 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         let mut db = db(cx);
         let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
         // App-side unique check: Toasty exposes no unique-violation predicate (tablo#117).
-        errors
-            .extend(check_unique(cx, &resource, &schema, &values, &HashMap::new(), &mut tx).await?);
+        errors.extend(
+            check_unique(cx, &resource, &schema, &values, &FormValues::new(), &mut tx).await?,
+        );
         let form = parse_form(cx, &resource, &values, &mut errors)?;
-        recheck_relationships(cx, &schema, &values, &HashMap::new(), &mut errors, &mut tx).await;
+        recheck_relationships(
+            cx,
+            &schema,
+            &values,
+            &FormValues::new(),
+            &mut errors,
+            &mut tx,
+        )
+        .await;
         let Some(form) = form.filter(|_| errors.is_empty()) else {
             return rerender_invalid_form(
                 cx,
@@ -301,7 +292,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
     async_page(async move {
         let resource = gate::<R>(cx)?;
         let parts = parse_form_body(cx, body).await?;
-        crate::csrf::verify(cx, &parts.values)?;
+        crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
         // Advisory load feeds validation; the authoritative load runs inside the transaction.
         let mut db0 = db(cx);
         let advisory = load_editable(cx, &resource, &mut db0).await?;
