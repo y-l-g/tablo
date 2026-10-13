@@ -31,7 +31,7 @@ fn filters_state(pairs: &[(&str, &str)]) -> TableState {
     TableState {
         filters: pairs
             .iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .map(|(k, v)| (k.to_string(), (*v).into()))
             .collect(),
         ..TableState::default()
     }
@@ -374,6 +374,20 @@ fn duplicate_filter_name_is_misdeclared_on_duplicate_field() {
             .iter()
             .any(|error| matches!(error, DeclarationErrorKind::DuplicateFilter { .. })),
         "{errors:?}"
+    );
+}
+
+#[test]
+fn a_filter_name_holding_a_dot_is_misdeclared() {
+    let errors = Table::<Task>::new(TextColumn::new(lens!(Task.title)))
+        .filters((QueryFilter::new("by.status", "Status")
+            .option("Published", Task::fields().status().eq("published")),))
+        .declaration_errors();
+    assert_eq!(
+        errors,
+        [DeclarationErrorKind::DottedFilterName {
+            name: "by.status".to_string()
+        }]
     );
 }
 

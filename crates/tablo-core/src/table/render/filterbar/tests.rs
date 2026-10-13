@@ -39,7 +39,7 @@ async fn empty_with_filters_shows_filtered_message() {
         SelectFilter::new(Task::fields().status(), vec!["draft".to_string()]),
     );
     let mut filters = BTreeMap::new();
-    filters.insert("status".to_string(), "draft".to_string());
+    filters.insert("status".to_string(), "draft".into());
     let state = TableState {
         filters,
         ..TableState::default()
@@ -94,7 +94,7 @@ async fn empty_clear_links_preserve_the_untouched_state() {
         .group_by(lens!(Task.status));
     let state = TableState {
         search: Some("Hello".to_string()),
-        filters: BTreeMap::from([("status".to_string(), "published".to_string())]),
+        filters: BTreeMap::from([("status".to_string(), "published".into())]),
         sort: Some(Sort {
             column: "title".to_string(),
             descending: true,
@@ -127,7 +127,7 @@ async fn empty_clear_links_preserve_the_untouched_state() {
     assert!(!clear.contains("q="), "clear search must drop q: {clear}");
 
     let state = TableState {
-        filters: BTreeMap::from([("status".to_string(), "published".to_string())]),
+        filters: BTreeMap::from([("status".to_string(), "published".into())]),
         sort: Some(Sort {
             column: "title".to_string(),
             descending: true,

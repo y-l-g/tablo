@@ -146,9 +146,9 @@ pub use schema::{
 };
 pub use table::{
     BooleanColumn, ColumnWidth, ComputedColumn, CountColumn, Cursor, DateFilter, EmbeddedColumn,
-    FileColumn, IntoColumns, IntoFilters, ModelColumns, QueryFilter, RelationColumn, RelationLens,
-    RepeaterColumn, SelectFilter, Sort, Table, TablePage, TableState, TernaryFilter, TextColumn,
-    ToOneRelation, WiredTable, contains_expr,
+    FileColumn, FilterValue, IntoColumns, IntoFilters, ModelColumns, QueryFilter, RelationColumn,
+    RelationLens, RepeaterColumn, SelectFilter, Sort, Table, TablePage, TableState, TernaryFilter,
+    TextColumn, ToOneRelation, WiredTable, contains_expr,
 };
 /// Derives [`ActionInput`](trait@ActionInput) for the typed value an [`Action`] asks for
 /// before it runs.

@@ -1,7 +1,7 @@
-//! Table filters: the [`Filter`] trait, the four built-in filters, and the
-//! [`IntoFilters`] seam.
+//! Table filters: the [`Filter`] trait, the [`FilterValue`] it reads, the four built-in filters,
+//! and the [`IntoFilters`] seam.
 
-use std::{marker::PhantomData, sync::Arc};
+use std::{collections::BTreeMap, fmt, marker::PhantomData, sync::Arc};
 
 use toasty::stmt::{Expr, IntoExpr, Path};
 use topcoat::{context::Cx, view::*};
@@ -16,7 +16,7 @@ use crate::{
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, age: i64 }
-/// # use tablo_core::extend::{Filter, FilterInput};
+/// # use tablo_core::extend::{Filter, FilterInput, FilterValue};
 /// # use toasty::stmt::Expr;
 /// # use topcoat::{context::Cx, view::BoxView};
 /// struct Adults;
@@ -28,8 +28,8 @@ use crate::{
 ///     fn label(&self) -> &str {
 ///         "Adults"
 ///     }
-///     fn to_expr(&self, value: &str) -> Option<Expr<bool>> {
-///         (value == "yes").then(|| User::fields().age().ge(18))
+///     fn to_expr(&self, value: &FilterValue) -> Option<Expr<bool>> {
+///         (value.single() == Some("yes")).then(|| User::fields().age().ge(18))
 ///     }
 ///     fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a> {
 ///         input.select(cx, vec![("yes".into(), "Adults only".into())])
@@ -43,11 +43,12 @@ pub trait Filter<M>: Send + Sync {
     /// The label the control renders beside it.
     fn label(&self) -> &str;
 
-    /// The predicate `value` selects.
-    fn to_expr(&self, value: &str) -> Option<Expr<bool>>;
+    /// The predicate `value` selects, or `None` when it selects none. The table warns about a
+    /// value that selects none unless [`is_noop_value`](Self::is_noop_value) accepts it.
+    fn to_expr(&self, value: &FilterValue) -> Option<Expr<bool>>;
 
     /// Whether `value` selects no predicate without being invalid.
-    fn is_noop_value(&self, _value: &str) -> bool {
+    fn is_noop_value(&self, _value: &FilterValue) -> bool {
         false
     }
 
@@ -65,6 +66,129 @@ pub trait Filter<M>: Send + Sync {
     fn bind(&self, _resolver: &FieldResolver) {}
 }
 
+/// What a request carries for one filter: the values its `f.<name>` parameter repeats, in the
+/// order the request carries them, and the parts its `f.<name>.<part>` parameters name.
+///
+/// A blank value is no value, and a value or part the filter holds already is not added again.
+///
+/// ```
+/// use tablo_core::{FilterValue, TableState};
+///
+/// let state = TableState::from_query("f.status=draft&f.status=review&f.created.from=2024-01-01");
+/// assert_eq!(state.filters["status"].values(), ["draft", "review"]);
+/// assert_eq!(state.filters["status"].single(), None);
+/// assert_eq!(state.filters["created"].part("from"), Some("2024-01-01"));
+/// assert_eq!(FilterValue::from("draft").single(), Some("draft"));
+/// ```
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct FilterValue {
+    values: Vec<String>,
+    parts: BTreeMap<String, String>,
+}
+
+impl FilterValue {
+    /// No value.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// This value with `value`, trimmed, after the values it holds.
+    pub fn with(mut self, value: impl Into<String>) -> Self {
+        self.push(value.into().trim());
+        self
+    }
+
+    /// This value with `part` holding `value`, trimmed, unless it holds `part` already.
+    pub fn with_part(mut self, part: impl Into<String>, value: impl Into<String>) -> Self {
+        self.insert_part(&part.into(), value.into().trim());
+        self
+    }
+
+    /// Whether it holds no value and no part.
+    pub fn is_empty(&self) -> bool {
+        self.values.is_empty() && self.parts.is_empty()
+    }
+
+    /// The values, in the order the request carries them.
+    pub fn values(&self) -> &[String] {
+        &self.values
+    }
+
+    /// The one value a single-choice filter reads: `None` unless it holds exactly one value and no
+    /// part.
+    pub fn single(&self) -> Option<&str> {
+        match self.values.as_slice() {
+            [value] if self.parts.is_empty() => Some(value),
+            _ => None,
+        }
+    }
+
+    /// The value `part` holds.
+    pub fn part(&self, part: &str) -> Option<&str> {
+        self.parts.get(part).map(String::as_str)
+    }
+
+    /// The parts, by name.
+    pub fn parts(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.parts
+            .iter()
+            .map(|(part, value)| (part.as_str(), value.as_str()))
+    }
+
+    /// How many values and parts it holds.
+    pub(crate) fn len(&self) -> usize {
+        self.values.len() + self.parts.len()
+    }
+
+    /// Whether adding `value`, under `part` when given, would change nothing.
+    pub(crate) fn holds(&self, part: Option<&str>, value: &str) -> bool {
+        match part {
+            Some(part) => self.parts.contains_key(part),
+            None => self.values.iter().any(|held| held == value),
+        }
+    }
+
+    /// Add `value`, already trimmed, after the values.
+    pub(crate) fn push(&mut self, value: &str) {
+        if !value.is_empty() && !self.holds(None, value) {
+            self.values.push(value.to_string());
+        }
+    }
+
+    /// Set `part` to `value`, already trimmed, unless it holds `part` already.
+    pub(crate) fn insert_part(&mut self, part: &str, value: &str) {
+        if !part.is_empty() && !value.is_empty() {
+            self.parts
+                .entry(part.to_string())
+                .or_insert_with(|| value.to_string());
+        }
+    }
+}
+
+impl From<&str> for FilterValue {
+    fn from(value: &str) -> Self {
+        Self::new().with(value)
+    }
+}
+
+impl From<String> for FilterValue {
+    fn from(value: String) -> Self {
+        Self::new().with(value)
+    }
+}
+
+/// The values joined by commas, then each part as `part=value`: `draft,review,from=2024-01-01`.
+impl fmt::Display for FilterValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let parts = self
+            .parts
+            .iter()
+            .map(|(part, value)| format!("{part}={value}"));
+        let spelled: Vec<String> = self.values.iter().cloned().chain(parts).collect();
+        f.write_str(&spelled.join(","))
+    }
+}
+
 /// A filter control's label, beside its control.
 const FILTER_LABEL_CLASS: StaticClass =
     class!("flex items-center gap-2 text-sm font-medium whitespace-nowrap text-muted-foreground");
@@ -75,11 +199,11 @@ pub struct FilterInput {
     name: String,
     param: String,
     label: String,
-    value: String,
+    value: FilterValue,
 }
 
 impl FilterInput {
-    pub(crate) fn new(name: &str, param: String, label: &str, value: String) -> Self {
+    pub(crate) fn new(name: &str, param: String, label: &str, value: FilterValue) -> Self {
         Self {
             name: name.to_string(),
             param,
@@ -93,9 +217,15 @@ impl FilterInput {
         &self.name
     }
 
-    /// The form field name the control submits.
+    /// The form field name the control submits a value as; a control submitting several values
+    /// repeats it.
     pub fn param(&self) -> &str {
         &self.param
+    }
+
+    /// The form field name the control submits `part` as: [`param`](Self::param)`.{part}`.
+    pub fn part_param(&self, part: &str) -> String {
+        format!("{}.{part}", self.param)
     }
 
     /// The filter's label.
@@ -104,16 +234,21 @@ impl FilterInput {
     }
 
     /// The value the request carries for this filter.
-    pub fn value(&self) -> &str {
+    pub fn value(&self) -> &FilterValue {
         &self.value
     }
 
-    /// A labelled `<select>` over `options`, led by the empty "All" option.
+    /// A labelled `<select>` over `options`, led by the empty "All" option, which is selected
+    /// while the filter holds no value.
     pub fn select<'a>(self, cx: &'a Cx, options: Vec<(String, String)>) -> BoxView<'a> {
         let option_views: Vec<BoxView<'a>> = std::iter::once((String::new(), "All".to_string()))
             .chain(options)
             .map(|(value, text)| {
-                let selected = self.value == value;
+                let selected = if value.is_empty() {
+                    self.value.is_empty()
+                } else {
+                    self.value.holds(None, &value)
+                };
                 crate::schema::option_view(cx, value, text, selected)
             })
             .collect();
@@ -188,7 +323,7 @@ macro_rules! filter_impls {
 type MatchFn = Arc<dyn Fn(&str) -> Option<Expr<bool>> + Send + Sync>;
 
 /// Select filter matching a field exactly: a `String`, or any [`FormScalar`]
-/// such as an [`Options`] enum.
+/// such as an [`Options`] enum. Several values match a record holding any of them.
 ///
 /// ```rust
 /// # #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo_core::Options)]
@@ -269,15 +404,19 @@ where
         self.binding.label()
     }
 
-    fn to_expr(&self, value: &str) -> Option<Expr<bool>> {
-        let v = value.trim();
-        if v.is_empty() {
+    /// Any of the values, each listed and parsed by the field's type; `None` when one is not, or
+    /// when the value names a part.
+    fn to_expr(&self, value: &FilterValue) -> Option<Expr<bool>> {
+        if !value.parts.is_empty() {
             return None;
         }
-        if !self.options.is_empty() && !self.options.iter().any(|(value, _)| value == v) {
-            return None;
-        }
-        (self.matches)(v)
+        let listed = |v: &str| self.options.is_empty() || self.options.iter().any(|(o, _)| o == v);
+        value
+            .values()
+            .iter()
+            .map(|v| listed(v).then(|| (self.matches)(v)).flatten())
+            .reduce(|any, one| Some(any?.or(one?)))
+            .flatten()
     }
 
     /// A select over the options.
@@ -360,8 +499,8 @@ where
         self.binding.label()
     }
 
-    fn to_expr(&self, value: &str) -> Option<Expr<bool>> {
-        match value.trim() {
+    fn to_expr(&self, value: &FilterValue) -> Option<Expr<bool>> {
+        match value.single()? {
             "true" => Some(self.lens.clone().eq(true)),
             "false" => Some(self.lens.clone().eq(false)),
             _ => None,
@@ -369,8 +508,8 @@ where
     }
 
     /// The documented no-op value selecting no predicate.
-    fn is_noop_value(&self, value: &str) -> bool {
-        value.trim() == "all"
+    fn is_noop_value(&self, value: &FilterValue) -> bool {
+        value.single() == Some("all")
     }
 
     fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a> {
@@ -461,7 +600,7 @@ impl<T: FilterDate<Value = T> + IntoExpr<T>> FilterDate for Option<T> {
 /// Date filter matching a date or time field by calendar day; see [`FilterDate`] for the types.
 pub struct DateFilter<M> {
     binding: Binding,
-    /// The predicate for a trimmed, non-empty value.
+    /// The predicate for a value.
     matches: MatchFn,
     model: PhantomData<fn() -> M>,
 }
@@ -514,17 +653,13 @@ where
     }
 
     /// Build the predicate for a submitted value.
-    fn to_expr(&self, value: &str) -> Option<Expr<bool>> {
-        let v = value.trim();
-        if v.is_empty() {
-            return None;
-        }
-        (self.matches)(v)
+    fn to_expr(&self, value: &FilterValue) -> Option<Expr<bool>> {
+        (self.matches)(value.single()?)
     }
 
     /// A date input.
     fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a> {
-        let value = input.value();
+        let value = input.value().single().unwrap_or_default();
         let date_value = value.split('T').next().unwrap_or(value).to_string();
         let param = input.param().to_string();
         let name = input.name().to_string();
@@ -609,11 +744,8 @@ where
         &self.label
     }
 
-    fn to_expr(&self, value: &str) -> Option<Expr<bool>> {
-        let v = value.trim();
-        if v.is_empty() {
-            return None;
-        }
+    fn to_expr(&self, value: &FilterValue) -> Option<Expr<bool>> {
+        let v = value.single()?;
         self.options
             .iter()
             .find(|(k, _)| k == v)

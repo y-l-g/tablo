@@ -67,9 +67,9 @@ async fn a_typed_field_takes_its_options_and_labels_from_its_type() {
     );
     let filter = crate::SelectFilter::of(StatusField::fields().status());
     assert_eq!(filter.options(), Status::options().as_slice());
-    assert!(filter.to_expr("arch").is_some());
+    assert!(filter.to_expr(&"arch".into()).is_some());
     assert!(
-        filter.to_expr("gone").is_none(),
+        filter.to_expr(&"gone".into()).is_none(),
         "an unlisted value selects nothing"
     );
     let column = crate::TextColumn::new(crate::lens!(StatusField.status));
@@ -91,7 +91,7 @@ fn an_optional_options_enum_reads_empty_as_none() {
     assert_eq!(None::<Status>.to_form(), "");
     let filter = crate::SelectFilter::of(StatusField::fields().previous());
     assert_eq!(filter.options(), Status::options().as_slice());
-    assert!(filter.to_expr("arch").is_some());
+    assert!(filter.to_expr(&"arch".into()).is_some());
     assert!(filter.misdeclared().is_none());
 }
 

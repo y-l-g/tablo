@@ -71,33 +71,74 @@ fn the_search_term_is_clamped() {
 }
 
 #[test]
-fn table_state_duplicate_params_keep_first_and_never_fail_open() {
-    // A duplicate param keeps its first value.
-    let state = TableState::from_query("f.status=published&f.status=draft&q=Ada&q=Grace");
-    assert_eq!(
-        state.filters.get("status").map(String::as_str),
-        Some("published"),
-        "first occurrence must win, not vanish"
-    );
+fn a_duplicate_param_keeps_its_first_value() {
+    let state = TableState::from_query("q=Ada&q=Grace&sort=name&sort=email");
     assert_eq!(state.search.as_deref(), Some("Ada"));
+    assert_eq!(state.sort.map(|sort| sort.column).as_deref(), Some("name"));
 }
 
 #[test]
-fn filters_are_one_parameter_each() {
-    let state = TableState::from_query("f.status=published&f.featured=true&f.empty=&f.=x");
+fn a_repeated_filter_holds_each_value_once_in_order() {
+    let state = TableState::from_query(
+        "f.status=published&f.featured=true&f.status=draft&f.status=published&f.status=%20",
+    );
     assert_eq!(
         state.filters,
         BTreeMap::from([
-            ("featured".to_string(), "true".to_string()),
-            ("status".to_string(), "published".to_string()),
+            ("featured".to_string(), "true".into()),
+            (
+                "status".to_string(),
+                FilterValue::from("published").with("draft")
+            ),
         ]),
-        "a blank value or a blank name is no filter"
     );
+    assert!(!state.filters_dropped);
+}
+
+#[test]
+fn a_filter_part_follows_the_name_and_keeps_its_first_value() {
+    let state = TableState::from_query(
+        "f.created.from=2024-01-01&f.created.to=2024-01-31&f.created.from=2023-01-01",
+    );
+    assert_eq!(
+        state.filters,
+        BTreeMap::from([(
+            "created".to_string(),
+            FilterValue::new()
+                .with_part("from", "2024-01-01")
+                .with_part("to", "2024-01-31"),
+        )]),
+    );
+}
+
+#[test]
+fn a_blank_name_part_or_value_is_no_filter() {
+    let state = TableState::from_query("f.empty=&f.=x&f..from=x&f.created.=x&f.created.to=");
+    assert_eq!(state.filters, BTreeMap::new());
     assert!(!state.filters_dropped);
 }
 
 /// A value the parser keeps as written: no surrounding whitespace, no control character.
 const KEPT: &str = "[\\PC&&\\S]([\\PC]{0,20}[\\PC&&\\S])?";
+
+/// The filter values a parse can produce: at least one value or part.
+fn filter_value() -> impl proptest::strategy::Strategy<Value = FilterValue> {
+    use proptest::{collection, prelude::*};
+
+    (
+        collection::vec(KEPT, 0..4),
+        collection::btree_map("[a-z_]{1,8}", KEPT, 0..3),
+    )
+        .prop_map(|(values, parts)| {
+            let value = values
+                .into_iter()
+                .fold(FilterValue::new(), FilterValue::with);
+            parts
+                .into_iter()
+                .fold(value, |value, (part, v)| value.with_part(part, v))
+        })
+        .prop_filter("an active filter holds a value", |value| !value.is_empty())
+}
 
 /// The states a parse can produce, every part optional.
 fn parsed_state() -> impl proptest::strategy::Strategy<Value = TableState> {
@@ -107,7 +148,7 @@ fn parsed_state() -> impl proptest::strategy::Strategy<Value = TableState> {
         option::of(KEPT),
         option::of(("[a-z_]{1,12}", any::<bool>())),
         option::of((KEPT, any::<bool>())),
-        collection::btree_map("[a-z_]{1,12}", KEPT, 0..6),
+        collection::btree_map("[a-z_]{1,12}", filter_value(), 0..6),
         option::of("[a-z_]{1,12}"),
     )
         .prop_map(|(search, sort, cursor, filters, group_by)| TableState {
@@ -150,13 +191,29 @@ fn filters_past_the_cap_are_dropped_and_flagged() {
 }
 
 #[test]
+fn values_past_the_cap_are_dropped_and_flagged() {
+    let query = (0..MAX_FILTER_VALUES + 5)
+        .map(|i| format!("f.tag=v{i}"))
+        .collect::<Vec<_>>()
+        .join("&");
+    let state = TableState::from_query(&format!("{query}&f.tag.from=x"));
+    assert_eq!(state.filters["tag"].values().len(), MAX_FILTER_VALUES);
+    assert_eq!(state.filters["tag"].part("from"), None);
+    assert!(state.filters_dropped);
+}
+
+#[test]
 fn oversized_filters_are_dropped_and_flagged() {
     let long = "a".repeat(MAX_FILTER_LEN + 1);
-    for query in [format!("f.status={long}"), format!("f.{long}=v")] {
+    for query in [
+        format!("f.status={long}"),
+        format!("f.{long}=v"),
+        format!("f.created.{long}=v"),
+    ] {
         let state = TableState::from_query(&format!("{query}&f.featured=true"));
         assert_eq!(
             state.filters,
-            BTreeMap::from([("featured".to_string(), "true".to_string())])
+            BTreeMap::from([("featured".to_string(), "true".into())])
         );
         assert!(state.filters_dropped);
     }
@@ -252,7 +309,16 @@ fn populated_state() -> TableState {
             descending: true,
         }),
         cursor: Some(Cursor::After("after-cur".to_string())),
-        filters: BTreeMap::from([("status".to_string(), "published".to_string())]),
+        filters: BTreeMap::from([
+            (
+                "created".to_string(),
+                FilterValue::new().with_part("from", "2024-01-01"),
+            ),
+            (
+                "status".to_string(),
+                FilterValue::from("published").with("draft"),
+            ),
+        ]),
         filters_dropped: false,
         group_by: Some("status".to_string()),
     }
@@ -330,7 +396,7 @@ fn prefixed_states_share_one_query_without_colliding() {
         })
     );
     assert_eq!(
-        comments.filters.get("status").map(String::as_str),
+        comments.filters.get("status").and_then(FilterValue::single),
         Some("open")
     );
     assert_eq!(comments.cursor, Some(Cursor::After("tok".to_string())));
