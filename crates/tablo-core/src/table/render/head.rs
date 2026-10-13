@@ -133,15 +133,16 @@ impl Frame<'_> {
 /// selected.
 fn select_all(cx: &Cx, signals: &TableSignals, keys: &[String]) -> Attributes {
     let bulk = signals.bulk.clone();
+    // The tokens, never the raw keys: a key may hold the wire's separator, so only the renderer
+    // can spell one (`state::bulk_token`).
     let tokens: Vec<String> = keys.iter().map(|key| bulk_token(key)).collect();
-    let keys = keys.join(",");
     attributes! {
         cx =>
         type="checkbox"
         :checked=$({
             let wire = bulk.get();
             raw!(
-                "cx.hydrate((t => t.length > 0 && t.every(k => String(${wire}).includes(k)))(String(${keys}).split(',').filter(Boolean).map(k => ',' + k + ',')))",
+                "cx.hydrate((t => t.length > 0 && t.every(k => String(${wire}).includes(k)))(${tokens}))",
                 !tokens.is_empty()
                     && tokens.iter().all(|token| wire.contains(token.as_str())),
             )
@@ -149,7 +150,7 @@ fn select_all(cx: &Cx, signals: &TableSignals, keys: &[String]) -> Attributes {
         :indeterminate=$({
             let wire = bulk.get();
             raw!(
-                "cx.hydrate((t => t.some(k => String(${wire}).includes(k)) && !t.every(k => String(${wire}).includes(k)))(String(${keys}).split(',').filter(Boolean).map(k => ',' + k + ',')))",
+                "cx.hydrate((t => t.some(k => String(${wire}).includes(k)) && !t.every(k => String(${wire}).includes(k)))(${tokens}))",
                 tokens.iter().any(|token| wire.contains(token.as_str()))
                     && !tokens.iter().all(|token| wire.contains(token.as_str())),
             )
@@ -159,14 +160,14 @@ fn select_all(cx: &Cx, signals: &TableSignals, keys: &[String]) -> Attributes {
             if e.target.checked {
                 bulk.set(
                     raw!(
-                        "cx.hydrate((w => (String(${keys}).split(',').filter(Boolean).map(k => ',' + k + ',')).filter(k => !w.includes(k)).reduce((s, k) => s + k, w))(String(${wire}).replace(/^,+$/, '')))",
+                        "cx.hydrate((w => (${tokens}).filter(k => !w.includes(k)).reduce((s, k) => s + k, w))(String(${wire}).replace(/^,+$/, '')))",
                         wire.to_owned(),
                     ),
                 );
             } else {
                 bulk.set(
                     raw!(
-                        "cx.hydrate((String(${keys}).split(',').filter(Boolean).map(k => ',' + k + ',')).reduce((s, k) => s.replaceAll(k, ','), String(${wire})).replace(/^,+$/, ''))",
+                        "cx.hydrate((${tokens}).reduce((s, k) => s.replaceAll(k, ','), String(${wire})).replace(/^,+$/, ''))",
                         wire.to_owned(),
                     ),
                 );

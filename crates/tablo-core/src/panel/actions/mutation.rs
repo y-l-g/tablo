@@ -42,7 +42,7 @@ use crate::{
         ActionEntry, Committed, ErasedInput, HeaderEntry, InputSpec, Mounted, Places,
         RESERVED_KEYS, Resource, run_after_commit,
     },
-    table::action_options_url,
+    table::{action_options_url, bulk_key},
     topcoat_compat::async_page,
 };
 
@@ -557,13 +557,19 @@ fn refuse<R: Resource>(
 pub(super) const MAX_BULK_IDS: usize = 400;
 
 /// Parses and dedupes bulk `ids` while preserving order, stopping at `max + 1` so the caller can
-/// answer 400.
+/// answer 400. Each comma-delimited part is one selection token's body, decoded through
+/// [`bulk_key`].
 pub(super) fn parse_bulk_ids(raw: &str, max: usize) -> Vec<String> {
     let mut ids: Vec<String> = Vec::new();
     let mut seen = std::collections::HashSet::new();
-    for s in raw.split(',').map(str::trim).filter(|s| !s.is_empty()) {
-        if seen.insert(s) {
-            ids.push(s.to_string());
+    let parts = raw
+        .split(',')
+        .map(str::trim)
+        .filter(|part| !part.is_empty());
+    for part in parts {
+        let key = bulk_key(part);
+        if seen.insert(key.clone()) {
+            ids.push(key);
             if ids.len() > max {
                 break;
             }

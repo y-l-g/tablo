@@ -26,7 +26,8 @@ use crate::topcoat_compat::href;
 pub(crate) struct TableSignals {
     /// The list's URL query, without the leading `?`.
     pub(crate) query: Signal<String>,
-    /// The bulk selection as `,key,` tokens; empty selects none.
+    /// The bulk selection as `,key,` tokens, each key percent-encoded ([`bulk_token`]); empty
+    /// selects none.
     pub(crate) bulk: Signal<String>,
     pub(crate) confirm: ConfirmSignals,
     /// Where each custom action asking for input posts its dialog, by the action's name.
@@ -110,9 +111,18 @@ impl TableSignals {
     }
 }
 
-/// The selection token for `key` on the bulk wire.
+/// The selection token for `key` on the bulk wire: the key percent-encoded between the commas that
+/// delimit it, so a key holding the wire's separator stays one token.
 pub(crate) fn bulk_token(key: &str) -> String {
-    format!(",{key},")
+    format!(",{},", href::encode_query_value(key))
+}
+
+/// The key a [`bulk_token`]'s body spells: the inverse of the encoding it applies.
+///
+/// A body the codec cannot read, an invalid escape or bytes that decode to no UTF-8, reads as
+/// written, so a posted id holding no escape keeps its literal text.
+pub(crate) fn bulk_key(body: &str) -> String {
+    href::decode_query_value(body)
 }
 
 /// Which column the table is currently sorted by, parsed from

@@ -25,7 +25,7 @@ where
 
 /// Runtime-path URL building Topcoat's `HrefTarget` does not cover.
 pub(crate) mod href {
-    use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
+    use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, percent_decode_str, utf8_percent_encode};
 
     /// Every byte outside the RFC 3986 `unreserved` set (`A-Z a-z 0-9 - _ . ~`)
     /// is percent-encoded in a query value or path segment.
@@ -38,6 +38,17 @@ pub(crate) mod href {
     /// Percent-encode a query parameter value (`unreserved` RFC 3986 set passes).
     pub(crate) fn encode_query_value(value: &str) -> String {
         utf8_percent_encode(value, NON_UNRESERVED).to_string()
+    }
+
+    /// Percent-decode a value [`encode_query_value`] encoded.
+    ///
+    /// A sequence that is not valid percent-encoding, or one that decodes to no UTF-8, stays as
+    /// written rather than failing the decode.
+    pub(crate) fn decode_query_value(value: &str) -> String {
+        percent_decode_str(value)
+            .decode_utf8()
+            .map(|decoded| decoded.into_owned())
+            .unwrap_or_else(|_| value.to_string())
     }
 
     /// Percent-encode a single path segment.

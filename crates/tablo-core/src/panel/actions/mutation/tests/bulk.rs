@@ -220,3 +220,89 @@ async fn bulk_delete_mid_loop_failure_deletes_zero_rows() {
         2 - rows.len()
     );
 }
+
+/// A selected record whose key holds the wire's separator deletes as one record, and the records
+/// its parts would name stay: the row's checkbox writes the key percent-encoded between the
+/// token's commas, and the parse decodes it back.
+#[tokio::test]
+async fn bulk_delete_keeps_a_key_holding_the_separator_whole() {
+    use crate::resource::Resource;
+
+    #[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+    struct Tag {
+        #[key]
+        code: String,
+        label: String,
+    }
+
+    struct TagResource;
+    impl Resource for TagResource {
+        type Model = Tag;
+        type Form = crate::NoForm<Tag>;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("tags")
+                .policy_fn(|_cx, ability| {
+                    matches!(
+                        ability,
+                        Ability::View(_) | Ability::DeleteAny | Ability::Delete(_)
+                    )
+                })
+                .table(crate::table::Table::new(crate::table::TextColumn::new(
+                    lens!(Tag.label),
+                )))
+        }
+    }
+
+    let mut db = memory_db(toasty::models!(Tag)).await;
+    for code in ["Doe, John", "Doe", "John", "Ada"] {
+        toasty::create!(Tag {
+            code: code.to_string(),
+            label: format!("Label of {code}"),
+        })
+        .exec(&mut db)
+        .await
+        .unwrap();
+    }
+    let router = mount(db.clone(), panel_for::<TagResource>()).expect("panel builds");
+    let token = uuid::Uuid::new_v4().to_string();
+    // The wire two checked rows write, each key one token, in the form encoding a browser posts
+    // the hidden `ids` field with.
+    let mut body = form_urlencoded::Serializer::new(String::new());
+    body.append_pair("ids", ",Doe%2C%20John,,Ada,")
+        .append_pair("confirm", "1")
+        .append_pair("csrf_token", &token);
+    let response = router
+        .handle(
+            http::Request::builder()
+                .uri("/admin/tags/-/bulk-delete")
+                .method(http::Method::POST)
+                .header(
+                    http::header::CONTENT_TYPE,
+                    "application/x-www-form-urlencoded",
+                )
+                .header(
+                    http::header::COOKIE,
+                    format!("{}={token}", crate::csrf::COOKIE_NAME),
+                )
+                .body(Body::from(body.finish()))
+                .unwrap(),
+        )
+        .await;
+    assert!(
+        response.status().is_redirection(),
+        "both selected records must delete, got {}",
+        response.status()
+    );
+    let mut handle = db.clone();
+    let mut left: Vec<String> = Tag::all()
+        .exec(&mut handle)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|tag| tag.code)
+        .collect();
+    left.sort();
+    assert_eq!(left, ["Doe", "John"], "only the two selected keys must go");
+}
