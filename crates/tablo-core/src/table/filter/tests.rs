@@ -447,6 +447,8 @@ async fn a_date_range_keeps_the_days_its_parts_bound() {
     );
     for refused in [
         range(Some("2024-01-16"), Some("2024-01-15")),
+        range(Some("2024-01-17T00:00:00Z"), Some("2024-01-15T00:00:00Z")),
+        range(Some("2024-01-17T00:00:00Z"), Some("2024-01-15")),
         range(Some("not-a-date"), None),
         range(Some("2024-01-15"), Some("not-a-date")),
         FilterValue::new().with_part("since", "2024-01-15"),

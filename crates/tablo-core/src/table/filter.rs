@@ -817,8 +817,8 @@ filter_impls! {
 /// A field type a [`DateFilter`] matches by calendar day: `jiff::Timestamp` (the day in UTC),
 /// `jiff::civil::Date`, `jiff::civil::DateTime`, and an `Option` of any of them.
 pub trait FilterDate: Sized + Send + Sync + 'static {
-    /// The value the field compares against.
-    type Value: IntoExpr<Self>;
+    /// The value the field compares against, and orders a range's ends by.
+    type Value: IntoExpr<Self> + PartialOrd;
 
     /// The first instant of `date`, or `None` past the type's range.
     fn start_of(date: jiff::civil::Date) -> Option<Self::Value>;
@@ -827,6 +827,28 @@ pub trait FilterDate: Sized + Send + Sync + 'static {
     fn exact(value: &str) -> Option<Self::Value> {
         let _ = value;
         None
+    }
+}
+
+/// Whether the ends `from` and `to` bound no range at all, each resolved the way the predicate
+/// resolves it: an exact value the type reads, else the day's first instant.
+///
+/// An exact end bounds the range at itself, both ends included; a day end excludes the day after
+/// it. An unresolvable end answers `false`, leaving the refusal to the predicate.
+fn reversed_range<T: FilterDate>(from: &str, to: &str) -> bool {
+    let Some(lower) =
+        T::exact(from).or_else(|| from.parse::<jiff::civil::Date>().ok().and_then(T::start_of))
+    else {
+        return false;
+    };
+    match T::exact(to) {
+        Some(upper) => upper < lower,
+        None => to
+            .parse::<jiff::civil::Date>()
+            .ok()
+            .and_then(|date| date.tomorrow().ok())
+            .and_then(T::start_of)
+            .is_some_and(|after| after <= lower),
     }
 }
 
@@ -868,7 +890,7 @@ impl FilterDate for jiff::civil::DateTime {
     }
 }
 
-impl<T: FilterDate<Value = T> + IntoExpr<T>> FilterDate for Option<T> {
+impl<T: FilterDate<Value = T> + IntoExpr<T> + PartialOrd> FilterDate for Option<T> {
     type Value = T;
 
     fn start_of(date: jiff::civil::Date) -> Option<T> {
@@ -892,6 +914,9 @@ enum Bound {
 /// A date filter's predicate for a value, which is one day, or one side of a range.
 type BoundFn = Arc<dyn Fn(&str, Option<Bound>) -> Option<Expr<bool>> + Send + Sync>;
 
+/// Whether a range's two ends bound nothing, read through the field's own type.
+type ReversedFn = Arc<dyn Fn(&str, &str) -> bool + Send + Sync>;
+
 /// Date filter matching a date or time field by calendar day, or by a range of days; see
 /// [`FilterDate`] for the types.
 ///
@@ -911,6 +936,8 @@ pub struct DateFilter<M> {
     label: Option<String>,
     /// The predicate for a value.
     matches: BoundFn,
+    /// Whether a range's `from` and `to` parts bound nothing.
+    reversed: ReversedFn,
     range: bool,
     model: PhantomData<fn() -> M>,
 }
@@ -950,10 +977,12 @@ where
                 Some(Bound::To) => end().or_else(|| start().map(|_| true.into_expr())),
             }
         });
+        let reversed: ReversedFn = Arc::new(reversed_range::<T>);
         Self {
             binding,
             label: None,
             matches,
+            reversed,
             range: false,
             model: PhantomData,
         }
@@ -1008,11 +1037,7 @@ where
         }
         let (from, to) = (value.part("from"), value.part("to"));
         if let (Some(from), Some(to)) = (from, to)
-            && let (Ok(first), Ok(last)) = (
-                from.parse::<jiff::civil::Date>(),
-                to.parse::<jiff::civil::Date>(),
-            )
-            && last < first
+            && (self.reversed)(from, to)
         {
             return None;
         }
@@ -1092,7 +1117,7 @@ filter_impls! {
         label: &this.label.as_deref().unwrap_or(this.binding.label()),
         range: &this.range,
     }
-    clone { binding, label, matches, range, model }
+    clone { binding, label, matches, reversed, range, model }
 }
 
 /// A filter offering named predicates, such as an embedded-enum variant or any query the app

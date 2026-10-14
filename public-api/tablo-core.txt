@@ -658,7 +658,7 @@ pub fn tablo_core::TernaryFilter<M>::load_control<'s, 'a: 's>(&'s self, &'a topc
 pub fn tablo_core::TernaryFilter<M>::name(&self) -> &str
 pub fn tablo_core::TernaryFilter<M>::to_expr(&self, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub trait tablo_core::extend::FilterDate: core::marker::Sized + core::marker::Send + core::marker::Sync + 'static
-pub type tablo_core::extend::FilterDate::Value: toasty::stmt::into_expr::IntoExpr<Self>
+pub type tablo_core::extend::FilterDate::Value: toasty::stmt::into_expr::IntoExpr<Self> + core::cmp::PartialOrd
 pub fn tablo_core::extend::FilterDate::exact(&str) -> core::option::Option<Self::Value>
 pub fn tablo_core::extend::FilterDate::start_of(jiff::civil::date::Date) -> core::option::Option<Self::Value>
 impl tablo_core::extend::FilterDate for jiff::civil::date::Date
@@ -673,7 +673,7 @@ impl tablo_core::extend::FilterDate for jiff::timestamp::Timestamp
 pub type jiff::timestamp::Timestamp::Value = jiff::timestamp::Timestamp
 pub fn jiff::timestamp::Timestamp::exact(&str) -> core::option::Option<Self>
 pub fn jiff::timestamp::Timestamp::start_of(jiff::civil::date::Date) -> core::option::Option<Self>
-impl<T: tablo_core::extend::FilterDate<Value = T> + toasty::stmt::into_expr::IntoExpr<T>> tablo_core::extend::FilterDate for core::option::Option<T>
+impl<T: tablo_core::extend::FilterDate<Value = T> + toasty::stmt::into_expr::IntoExpr<T> + core::cmp::PartialOrd> tablo_core::extend::FilterDate for core::option::Option<T>
 pub type core::option::Option<T>::Value = T
 pub fn core::option::Option<T>::exact(&str) -> core::option::Option<T>
 pub fn core::option::Option<T>::start_of(jiff::civil::date::Date) -> core::option::Option<T>
