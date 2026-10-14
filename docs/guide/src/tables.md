@@ -84,10 +84,11 @@ A `CountColumn` counts the loaded list, so it loads every related record of the 
 
 - **Widths.** The table uses a fixed layout: a column's width is what it declares, not the width of
   its widest cell, so paging and filtering never shift the columns. A field or `RelationColumn`
-  takes an equal share of the space left over; a computed or count column defaults to a narrow
-  share of the table (10%, scaled down when many columns claim one). Override with
-  `.width(ColumnWidth::Percent(30))`, `Rem(8)`, `Narrow` or `Wide`. A cell wider than its column
-  is truncated with an ellipsis. On a narrow screen the table keeps a minimum width and scrolls
+  takes the space left over, never less than six rem or its header; a computed or count column
+  defaults to a narrow share of the table (10%, scaled down when many columns claim one). Override
+  with `.width(ColumnWidth::Percent(30))`, `Rem(8)`, `Narrow` or `Wide`. A `Rem` length is a
+  minimum the table shares its leftover over in proportion. A cell wider than its column is
+  truncated with an ellipsis. On a narrow screen the table keeps a minimum width and scrolls
   horizontally instead of narrowing its columns.
 
 Two columns with the same name, two filters with the same name, a select filter option its field's

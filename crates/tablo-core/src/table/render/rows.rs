@@ -27,7 +27,8 @@ pub(super) struct RowChrome {
     /// Columns a group header spans: the data columns plus the chrome.
     pub(super) header_colspan: usize,
     pub(super) cell_widths: Vec<Option<Cow<'static, str>>>,
-    pub(super) actions_min: Option<Cow<'static, str>>,
+    /// The width the actions column's controls need, which its cells declare.
+    pub(super) actions: Option<Cow<'static, str>>,
     pub(super) signals: TableSignals,
     /// The DOM id of the table's write form.
     pub(super) form: String,
@@ -160,7 +161,7 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
 /// The row's actions cell: its custom actions, then View, Edit and Delete, each only when the
 /// row's policy allows it.
 fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxView<'a> {
-    let actions_min = chrome.actions_min.clone();
+    let width = chrome.actions.clone();
     let view_url = row.view_url.clone();
     let edit_url = row.edit_url.clone();
     let link_class = button_variants(ButtonVariant::Ghost, ButtonSize::Icon);
@@ -219,8 +220,8 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxV
     view! {
         cx =>
         table_cell(
-            attrs: attributes! { style=(actions_min.as_deref()) },
-            <div class="flex items-center justify-end gap-1">
+            attrs: attributes! { style=(width.as_deref()) },
+            <div class="flex flex-wrap items-center justify-end gap-1">
                 for control in custom {
                     (control)
                 }
