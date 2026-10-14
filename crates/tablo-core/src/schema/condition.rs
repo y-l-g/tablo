@@ -67,6 +67,9 @@ pub(crate) struct Condition {
     /// Whether the watched field is a checkbox, which renders unchecked with no value.
     checkbox: bool,
     values: Vec<String>,
+    /// Whether a submission that hides what this guards still parses, as an embedded shared
+    /// column's does: the codec reads that column only for the variants that declare it.
+    parses_when_hidden: bool,
 }
 
 impl Condition {
@@ -78,6 +81,21 @@ impl Condition {
             watched: watched.key().to_string(),
             checkbox: watched.checkbox(),
             values: values.into_iter().map(Into::into).collect(),
+            parses_when_hidden: false,
+        }
+    }
+
+    /// A condition watching the field named `key`, which posts a value rather than a checkbox's
+    /// checked state.
+    pub(crate) fn watching(
+        key: impl Into<String>,
+        values: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        Self {
+            watched: key.into(),
+            checkbox: false,
+            values: values.into_iter().map(Into::into).collect(),
+            parses_when_hidden: true,
         }
     }
 
@@ -267,7 +285,19 @@ impl<'s> Scan<'s> {
             match node {
                 Node::Field(index) => self.fields.push((*index, chain.clone())),
                 Node::Embedded(embedded) => {
-                    embedded.visit_fields(&mut |index| self.fields.push((index, chain.clone())));
+                    // An embedded value's leaves are placed by its node, and each carries its own
+                    // condition as a top-level field does.
+                    embedded.visit_fields(&mut |index| {
+                        let own = fields[index].condition();
+                        if let Some(condition) = own {
+                            self.conditions.push((condition, chain.clone()));
+                            chain.push(condition);
+                        }
+                        self.fields.push((index, chain.clone()));
+                        if own.is_some() {
+                            chain.pop();
+                        }
+                    });
                 }
                 node => self.walk(node.children().unwrap_or_default(), fields, chain),
             }
@@ -348,7 +378,9 @@ impl<F> Schema<F> {
         }
         for (index, chain) in &scan.fields {
             let field = &self.fields[*index];
-            if !chain.is_empty() && field.is_required() {
+            // A condition hiding a field the codec reads nothing of there needs no blank answer.
+            let hides_unparsed = chain.iter().any(|condition| !condition.parses_when_hidden);
+            if hides_unparsed && field.is_required() {
                 errors.push(DeclarationErrorKind::RequiredConditionalField {
                     field: field.name().to_string(),
                 });

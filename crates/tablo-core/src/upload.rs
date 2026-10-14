@@ -33,8 +33,12 @@ pub trait Uploader: Send + Sync + 'static {
         bytes: &[u8],
     ) -> impl Future<Output = Result<String, String>> + Send;
 
-    /// Answers `true` only for a path this store returned and still resolves
-    /// inside its own root; the default answers `false`.
+    /// Answers `true` only for a path this store could have written and still resolves inside its
+    /// own root; the default answers `false`.
+    ///
+    /// A file field carries a refused submission's pending upload back through a hidden
+    /// `keep_<field>`, so this is what decides which paths a record may point at: a store that
+    /// answers `true` for a file it never wrote lets a forged carry point the record at it.
     fn holds(&self, path: &str) -> impl Future<Output = bool> + Send {
         async move {
             let _ = path;
@@ -61,6 +65,16 @@ pub struct DirUploader {
 
 /// The longest basename [`DirUploader`] keeps: 255 bytes, less the 36-byte UUID and its dash.
 const MAX_STORED_BASENAME: usize = 255 - 37;
+
+/// Whether `name` is a basename [`DirUploader::store`] writes: the UUID it minted, then the `-`
+/// and the sanitized basename beside it, or nothing when that basename was empty.
+fn is_stored_name(name: &str) -> bool {
+    let Some((uuid, rest)) = name.split_at_checked(36) else {
+        return false;
+    };
+    uuid::Uuid::try_parse(uuid).is_ok_and(|parsed| parsed.to_string() == uuid)
+        && (rest.is_empty() || (rest.len() > 1 && rest.starts_with('-')))
+}
 
 impl DirUploader {
     /// Writes into `dir`, naming each file by a URL under `url_prefix` (`"/uploads"`).
@@ -107,11 +121,16 @@ impl Uploader for DirUploader {
         ))
     }
 
-    /// Whether the directory holds the file a URL `store` returned names.
+    /// Whether the directory holds the file a URL `store` returned names. The name `store` writes
+    /// is the check, since the directory keeps no index of what it wrote: a file whose name it
+    /// would not write is not held.
     async fn holds(&self, path: &str) -> bool {
         let Some(name) = self.file_name(path) else {
             return false;
         };
+        if !is_stored_name(&name) {
+            return false;
+        }
         tokio::fs::metadata(self.dir.join(name))
             .await
             .is_ok_and(|metadata| metadata.is_file())

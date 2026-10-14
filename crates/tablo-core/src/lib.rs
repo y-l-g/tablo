@@ -271,6 +271,10 @@ pub use tablo_macros::ActionInput;
 /// own** submitted — a `#[shared(..)]` column belongs to several variants and
 /// never selects one; otherwise the first variant.
 ///
+/// A `#[shared(..)]` column renders once, and a variant that does not declare it
+/// neither shows nor submits it: it is a conditional field there, so a variant
+/// that omits it needs the column to have a blank answer.
+///
 /// # Per-field attributes
 ///
 /// - `#[form(embed)]` — a nested `EmbeddedForm` value.

@@ -47,7 +47,7 @@ proptest::proptest! {
 }
 
 #[tokio::test]
-async fn a_dir_uploader_holds_what_it_stored_and_nothing_else() {
+async fn a_dir_uploader_holds_the_names_it_writes() {
     let dir = std::env::temp_dir().join(format!("tablo-dir-uploader-{}", uuid::Uuid::new_v4()));
     let uploader = DirUploader::new("/uploads/", &dir);
     let path = uploader.store("my cover é.png", b"png").await.unwrap();
@@ -77,7 +77,27 @@ async fn a_dir_uploader_holds_what_it_stored_and_nothing_else() {
         !uploader.holds("/uploads/other%2Epng").await,
         "a spelling store never returns"
     );
-    assert!(uploader.holds("/uploads/other.png").await);
+    assert!(
+        !uploader.holds("/uploads/other.png").await,
+        "a file beside them, named by nobody, is not held"
+    );
+    let shaped = format!("{}-other.png", uuid::Uuid::new_v4());
+    std::fs::write(dir.join(&shaped), b"x").unwrap();
+    assert!(
+        uploader.holds(&format!("/uploads/{shaped}")).await,
+        "the name store writes is the check, not an index of what it wrote"
+    );
+    for unwritable in [
+        uuid::Uuid::new_v4().simple().to_string(),
+        uuid::Uuid::new_v4().to_string().to_uppercase(),
+        format!("{}-", uuid::Uuid::new_v4()),
+    ] {
+        std::fs::write(dir.join(&unwritable), b"x").unwrap();
+        assert!(
+            !uploader.holds(&format!("/uploads/{unwritable}")).await,
+            "a name store would not write is not held: {unwritable}"
+        );
+    }
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
