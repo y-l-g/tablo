@@ -161,7 +161,7 @@ pub struct TableState {
     pub cursor: Option<Cursor>,
     /// The active filters, by name: `?f.<name>=<value>`, repeated for each
     /// value, and `?f.<name>.<part>=<value>` for each part. The parse keeps
-    /// no filter holding no value.
+    /// no filter holding no value and no part.
     pub filters: BTreeMap<String, FilterValue>,
     /// Filter parameters the parse dropped.
     pub filters_dropped: bool,
