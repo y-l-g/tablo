@@ -161,7 +161,7 @@ pub struct TableState {
     pub cursor: Option<Cursor>,
     /// The active filters, by name: `?f.<name>=<value>`, repeated for each
     /// value, and `?f.<name>.<part>=<value>` for each part. The parse keeps
-    /// no filter holding no value.
+    /// no filter holding no value and no part.
     pub filters: BTreeMap<String, FilterValue>,
     /// Filter parameters the parse dropped.
     pub filters_dropped: bool,
@@ -241,6 +241,30 @@ impl TableState {
     /// like every other parameter.
     pub(crate) fn filter_param(&self, name: &str) -> String {
         self.param(&format!("{FILTER_PREFIX}{name}"))
+    }
+
+    /// The `f.{name}` and `f.{name}.{part}` parameters `value` spells, in the order the filter
+    /// holds them, prefixed like every other parameter.
+    fn filter_pairs<'a>(
+        &'a self,
+        name: &'a str,
+        value: &'a FilterValue,
+    ) -> impl Iterator<Item = (String, &'a str)> + 'a {
+        let param = self.filter_param(name);
+        let values = value
+            .values()
+            .iter()
+            .map(move |held| (param.clone(), held.as_str()));
+        let parts = value
+            .parts()
+            .map(move |(part, held)| (self.filter_param(&format!("{name}.{part}")), held));
+        values.chain(parts)
+    }
+
+    /// How a link spells `name`'s value: the parameters it travels as, encoded like every other
+    /// parameter.
+    pub(crate) fn spell_filter(&self, name: &str, value: &FilterValue) -> String {
+        href::encode_query(&self.filter_pairs(name, value).collect::<Vec<_>>())
     }
 
     /// Parse the state from a URL query (without the leading `?`): the one
@@ -462,17 +486,7 @@ impl TableState {
             .then_some(&self.filters)
             .into_iter()
             .flatten()
-            .flat_map(|(name, value)| {
-                let param = self.filter_param(name);
-                let values = value
-                    .values()
-                    .iter()
-                    .map(move |v| (param.clone(), v.as_str()));
-                let parts = value
-                    .parts()
-                    .map(move |(part, v)| (self.filter_param(&format!("{name}.{part}")), v));
-                values.chain(parts)
-            })
+            .flat_map(|(name, value)| self.filter_pairs(name, value))
             .map(|(key, value)| (key, Some(value)));
         let cursor = match projection.cursor {
             Some(Cursor::After(token)) => ("after", Some(token.as_str())),

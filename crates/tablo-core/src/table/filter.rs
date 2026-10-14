@@ -1,7 +1,7 @@
 //! Table filters: the [`Filter`] trait, the [`FilterValue`] it reads, the four built-in filters,
 //! and the [`IntoFilters`] seam.
 
-use std::{collections::BTreeMap, fmt, marker::PhantomData, sync::Arc};
+use std::{collections::BTreeMap, marker::PhantomData, sync::Arc};
 
 use toasty::stmt::{Expr, IntoExpr, Path};
 use topcoat::{context::Cx, icon::icon, view::*};
@@ -13,6 +13,7 @@ use crate::{
         Binding, FieldResolver, IntoOptions, OptionLoadError, OptionSource, Options,
         relationship::related_records,
     },
+    table::state::{MAX_FILTER_LEN, MAX_FILTER_VALUES},
 };
 
 /// One table filter declares a control and its predicate.
@@ -80,6 +81,8 @@ pub trait Filter<M>: Send + Sync {
 /// order the request carries them, and the parts its `f.<name>.<part>` parameters name.
 ///
 /// A blank value is no value, and a value or part the filter holds already is not added again.
+/// Nor is one past what the URL codec carries — 64 values and parts, each part and value at most
+/// 256 bytes — which would spell a link the next request drops and flags.
 ///
 /// ```
 /// use tablo_core::{FilterValue, TableState};
@@ -102,13 +105,15 @@ impl FilterValue {
         Self::default()
     }
 
-    /// This value with `value`, trimmed, after the values it holds.
+    /// This value with `value`, trimmed, after the values it holds; one past the caps adds
+    /// nothing.
     pub fn with(mut self, value: impl Into<String>) -> Self {
         self.push(value.into().trim());
         self
     }
 
-    /// This value with `part` holding `value`, trimmed, unless it holds `part` already.
+    /// This value with `part` holding `value`, trimmed, unless it holds `part` already; one past
+    /// the caps adds nothing.
     pub fn with_part(mut self, part: impl Into<String>, value: impl Into<String>) -> Self {
         self.insert_part(&part.into(), value.into().trim());
         self
@@ -158,16 +163,24 @@ impl FilterValue {
         }
     }
 
+    /// Whether `value` fits what the URL codec carries: it holds text, at most
+    /// [`MAX_FILTER_LEN`] bytes, beside fewer than [`MAX_FILTER_VALUES`] values and parts. Past
+    /// that the parse drops the occurrence, so what this rejects would only encode a link the
+    /// next request flags as dropped.
+    fn fits(&self, value: &str) -> bool {
+        !value.is_empty() && value.len() <= MAX_FILTER_LEN && self.len() < MAX_FILTER_VALUES
+    }
+
     /// Add `value`, already trimmed, after the values.
     pub(crate) fn push(&mut self, value: &str) {
-        if !value.is_empty() && !self.holds(None, value) {
+        if self.fits(value) && !self.holds(None, value) {
             self.values.push(value.to_string());
         }
     }
 
     /// Set `part` to `value`, already trimmed, unless it holds `part` already.
     pub(crate) fn insert_part(&mut self, part: &str, value: &str) {
-        if !part.is_empty() && !value.is_empty() {
+        if !part.is_empty() && part.len() <= MAX_FILTER_LEN && self.fits(value) {
             self.parts
                 .entry(part.to_string())
                 .or_insert_with(|| value.to_string());
@@ -184,18 +197,6 @@ impl From<&str> for FilterValue {
 impl From<String> for FilterValue {
     fn from(value: String) -> Self {
         Self::new().with(value)
-    }
-}
-
-/// The values joined by commas, then each part as `part=value`: `draft,review,from=2024-01-01`.
-impl fmt::Display for FilterValue {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let parts = self
-            .parts
-            .iter()
-            .map(|(part, value)| format!("{part}={value}"));
-        let spelled: Vec<String> = self.values.iter().cloned().chain(parts).collect();
-        f.write_str(&spelled.join(","))
     }
 }
 
@@ -273,7 +274,9 @@ impl FilterInput {
     }
 
     /// A labelled `<select>` over `options`, led by the empty "All" option, which is selected
-    /// while the filter holds no value.
+    /// while the filter holds no value. A select submits one value, so a filter holding several
+    /// (`?f.status=draft&f.status=review`) marks the first; the rest keep applying until the form
+    /// is submitted again.
     pub fn select<'a>(self, cx: &'a Cx, options: Vec<(String, String)>) -> BoxView<'a> {
         let option_views: Vec<BoxView<'a>> = std::iter::once((String::new(), "All".to_string()))
             .chain(options)
@@ -281,7 +284,7 @@ impl FilterInput {
                 let selected = if value.is_empty() {
                     self.value.is_empty()
                 } else {
-                    self.value.holds(None, &value)
+                    self.value.values().first() == Some(&value)
                 };
                 crate::schema::option_view(cx, value, text, selected)
             })

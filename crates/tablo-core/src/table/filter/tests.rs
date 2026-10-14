@@ -441,7 +441,7 @@ async fn a_date_range_keeps_the_days_its_parts_bound() {
     ] {
         assert!(
             f.to_expr(&refused).is_none(),
-            "{refused} must select nothing"
+            "{refused:?} must select nothing"
         );
     }
     assert!(
@@ -508,13 +508,4 @@ fn a_built_in_filter_takes_a_label() {
     assert_eq!(Filter::<Task>::label(&ternary), "Starred");
     let date = DateFilter::new(Task::fields().created_at()).label("Created");
     assert_eq!(Filter::<Task>::label(&date), "Created");
-}
-
-#[test]
-fn a_filter_value_spells_its_values_then_its_parts() {
-    let value = FilterValue::from("b")
-        .with("a")
-        .with_part("to", "9")
-        .with_part("from", "1");
-    assert_eq!(value.to_string(), "b,a,from=1,to=9");
 }
