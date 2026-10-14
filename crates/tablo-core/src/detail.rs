@@ -258,43 +258,31 @@ macro_rules! block_details {
 
 block_details!(Section, Group, Grid);
 
-/// The tuple impls of [`IntoDetail`], one arity per invocation.
-macro_rules! into_detail_tuples {
-    ($($T:ident => $v:ident),+ $(,)?) => {
-        impl<M, $($T),+> IntoDetail<M> for ($($T,)+)
-        where
-            $($T: IntoDetail<M>,)+
-        {
-            fn into_detail(self) -> Detail<M> {
-                let ($($v,)+) = self;
-                let mut detail = Detail::empty();
-                $( detail.append($v.into_detail()); )+
-                detail
-            }
-        }
-    };
-}
-
-into_detail_tuples!(A => a);
-into_detail_tuples!(A => a, B => b);
-into_detail_tuples!(A => a, B => b, C => c);
-into_detail_tuples!(A => a, B => b, C => c, D => d);
-into_detail_tuples!(A => a, B => b, C => c, D => d, E => e);
-into_detail_tuples!(A => a, B => b, C => c, D => d, E => e, F => f);
-into_detail_tuples!(A => a, B => b, C => c, D => d, E => e, F => f, G => g);
-into_detail_tuples!(
+into_tuples!(IntoDetail::into_detail<M>(IntoDetail) -> Detail<M>, append Detail::empty(); A => a);
+into_tuples!(IntoDetail::into_detail<M>(IntoDetail) -> Detail<M>, append Detail::empty(); A => a, B => b);
+into_tuples!(IntoDetail::into_detail<M>(IntoDetail) -> Detail<M>, append Detail::empty(); A => a, B => b, C => c);
+into_tuples!(IntoDetail::into_detail<M>(IntoDetail) -> Detail<M>, append Detail::empty(); A => a, B => b, C => c, D => d);
+into_tuples!(IntoDetail::into_detail<M>(IntoDetail) -> Detail<M>, append Detail::empty(); A => a, B => b, C => c, D => d, E => e);
+into_tuples!(IntoDetail::into_detail<M>(IntoDetail) -> Detail<M>, append Detail::empty(); A => a, B => b, C => c, D => d, E => e, F => f);
+into_tuples!(IntoDetail::into_detail<M>(IntoDetail) -> Detail<M>, append Detail::empty(); A => a, B => b, C => c, D => d, E => e, F => f, G => g);
+into_tuples!(
+    IntoDetail::into_detail<M>(IntoDetail) -> Detail<M>, append Detail::empty();
     A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h
 );
-into_detail_tuples!(
+into_tuples!(
+    IntoDetail::into_detail<M>(IntoDetail) -> Detail<M>, append Detail::empty();
     A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i
 );
-into_detail_tuples!(
+into_tuples!(
+    IntoDetail::into_detail<M>(IntoDetail) -> Detail<M>, append Detail::empty();
     A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j
 );
-into_detail_tuples!(
+into_tuples!(
+    IntoDetail::into_detail<M>(IntoDetail) -> Detail<M>, append Detail::empty();
     A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j, K => k
 );
-into_detail_tuples!(
+into_tuples!(
+    IntoDetail::into_detail<M>(IntoDetail) -> Detail<M>, append Detail::empty();
     A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j, K => k, L => l
 );
 

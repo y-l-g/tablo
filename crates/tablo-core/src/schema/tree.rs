@@ -360,41 +360,29 @@ macro_rules! container_nodes {
 
 container_nodes!(Section, Group, Grid);
 
-/// Generates the tuple impls of [`IntoSchema`] from one list per arity.
-macro_rules! into_schema_tuples {
-    ($($T:ident => $v:ident),+ $(,)?) => {
-        impl<Form, $($T),+> IntoSchema<Form> for ($($T,)+)
-        where
-            $($T: IntoSchema<Form>,)+
-        {
-            fn into_schema(self) -> Schema<Form> {
-                let ($($v,)+) = self;
-                let mut schema = Schema::default();
-                $( schema.append($v.into_schema()); )+
-                schema
-            }
-        }
-    };
-}
-
-into_schema_tuples!(A => a, B => b);
-into_schema_tuples!(A => a, B => b, C => c);
-into_schema_tuples!(A => a, B => b, C => c, D => d);
-into_schema_tuples!(A => a, B => b, C => c, D => d, E => e);
-into_schema_tuples!(A => a, B => b, C => c, D => d, E => e, F => f);
-into_schema_tuples!(A => a, B => b, C => c, D => d, E => e, F => f, G => g);
-into_schema_tuples!(
+into_tuples!(IntoSchema::into_schema<Form>(IntoSchema) -> Schema<Form>, append Schema::default(); A => a, B => b);
+into_tuples!(IntoSchema::into_schema<Form>(IntoSchema) -> Schema<Form>, append Schema::default(); A => a, B => b, C => c);
+into_tuples!(IntoSchema::into_schema<Form>(IntoSchema) -> Schema<Form>, append Schema::default(); A => a, B => b, C => c, D => d);
+into_tuples!(IntoSchema::into_schema<Form>(IntoSchema) -> Schema<Form>, append Schema::default(); A => a, B => b, C => c, D => d, E => e);
+into_tuples!(IntoSchema::into_schema<Form>(IntoSchema) -> Schema<Form>, append Schema::default(); A => a, B => b, C => c, D => d, E => e, F => f);
+into_tuples!(IntoSchema::into_schema<Form>(IntoSchema) -> Schema<Form>, append Schema::default(); A => a, B => b, C => c, D => d, E => e, F => f, G => g);
+into_tuples!(
+    IntoSchema::into_schema<Form>(IntoSchema) -> Schema<Form>, append Schema::default();
     A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h
 );
-into_schema_tuples!(
+into_tuples!(
+    IntoSchema::into_schema<Form>(IntoSchema) -> Schema<Form>, append Schema::default();
     A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i
 );
-into_schema_tuples!(
+into_tuples!(
+    IntoSchema::into_schema<Form>(IntoSchema) -> Schema<Form>, append Schema::default();
     A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j
 );
-into_schema_tuples!(
+into_tuples!(
+    IntoSchema::into_schema<Form>(IntoSchema) -> Schema<Form>, append Schema::default();
     A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j, K => k
 );
-into_schema_tuples!(
+into_tuples!(
+    IntoSchema::into_schema<Form>(IntoSchema) -> Schema<Form>, append Schema::default();
     A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j, K => k, L => l
 );

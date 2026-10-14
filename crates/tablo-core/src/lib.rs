@@ -53,6 +53,33 @@
 // crate's own tests too.
 extern crate self as tablo_core;
 
+macro_rules! into_tuples {
+    ($Trait:ident::$method:ident<$P:ident>($Bound:ident) -> $Out:ty, vec $Boxed:ty; $($T:ident => $v:ident),+ $(,)?) => {
+        impl<$P, $($T),+> $Trait<$P> for ($($T,)+)
+        where
+            $($T: $Bound<$P> + 'static,)+
+        {
+            fn $method(self) -> $Out {
+                let ($($v,)+) = self;
+                vec![$(::std::sync::Arc::new($v) as $Boxed,)+]
+            }
+        }
+    };
+    ($Trait:ident::$method:ident<$P:ident>($Bound:ident) -> $Out:ty, append $init:expr; $($T:ident => $v:ident),+ $(,)?) => {
+        impl<$P, $($T),+> $Trait<$P> for ($($T,)+)
+        where
+            $($T: $Bound<$P>,)+
+        {
+            fn $method(self) -> $Out {
+                let ($($v,)+) = self;
+                let mut acc = $init;
+                $(acc.append($v.$method());)+
+                acc
+            }
+        }
+    };
+}
+
 #[doc(hidden)]
 pub mod __macro {
     pub use toasty::{

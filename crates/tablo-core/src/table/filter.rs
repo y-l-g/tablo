@@ -1279,41 +1279,31 @@ macro_rules! into_filters_single {
 
 into_filters_single!(SelectFilter, TernaryFilter, DateFilter, QueryFilter);
 
-/// Generate the tuple impls of [`IntoFilters`] from one list per arity.
-macro_rules! into_filters_tuples {
-    ($($T:ident => $v:ident),+ $(,)?) => {
-        impl<M, $($T),+> IntoFilters<M> for ($($T,)+)
-        where
-            $($T: Filter<M> + 'static,)+
-        {
-            fn into_filters(self) -> Vec<BoxFilter<M>> {
-                let ($($v,)+) = self;
-                vec![$(Arc::new($v) as BoxFilter<M>,)+]
-            }
-        }
-    };
-}
-
-into_filters_tuples!(A => a);
-into_filters_tuples!(A => a, B => b);
-into_filters_tuples!(A => a, B => b, C => c);
-into_filters_tuples!(A => a, B => b, C => c, D => d);
-into_filters_tuples!(A => a, B => b, C => c, D => d, E => e);
-into_filters_tuples!(A => a, B => b, C => c, D => d, E => e, F => f);
-into_filters_tuples!(A => a, B => b, C => c, D => d, E => e, F => f, G => g);
-into_filters_tuples!(
+into_tuples!(IntoFilters::into_filters<M>(Filter) -> Vec<BoxFilter<M>>, vec BoxFilter<M>; A => a);
+into_tuples!(IntoFilters::into_filters<M>(Filter) -> Vec<BoxFilter<M>>, vec BoxFilter<M>; A => a, B => b);
+into_tuples!(IntoFilters::into_filters<M>(Filter) -> Vec<BoxFilter<M>>, vec BoxFilter<M>; A => a, B => b, C => c);
+into_tuples!(IntoFilters::into_filters<M>(Filter) -> Vec<BoxFilter<M>>, vec BoxFilter<M>; A => a, B => b, C => c, D => d);
+into_tuples!(IntoFilters::into_filters<M>(Filter) -> Vec<BoxFilter<M>>, vec BoxFilter<M>; A => a, B => b, C => c, D => d, E => e);
+into_tuples!(IntoFilters::into_filters<M>(Filter) -> Vec<BoxFilter<M>>, vec BoxFilter<M>; A => a, B => b, C => c, D => d, E => e, F => f);
+into_tuples!(IntoFilters::into_filters<M>(Filter) -> Vec<BoxFilter<M>>, vec BoxFilter<M>; A => a, B => b, C => c, D => d, E => e, F => f, G => g);
+into_tuples!(
+    IntoFilters::into_filters<M>(Filter) -> Vec<BoxFilter<M>>, vec BoxFilter<M>;
     A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h
 );
-into_filters_tuples!(
+into_tuples!(
+    IntoFilters::into_filters<M>(Filter) -> Vec<BoxFilter<M>>, vec BoxFilter<M>;
     A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i
 );
-into_filters_tuples!(
+into_tuples!(
+    IntoFilters::into_filters<M>(Filter) -> Vec<BoxFilter<M>>, vec BoxFilter<M>;
     A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j
 );
-into_filters_tuples!(
+into_tuples!(
+    IntoFilters::into_filters<M>(Filter) -> Vec<BoxFilter<M>>, vec BoxFilter<M>;
     A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j, K => k
 );
-into_filters_tuples!(
+into_tuples!(
+    IntoFilters::into_filters<M>(Filter) -> Vec<BoxFilter<M>>, vec BoxFilter<M>;
     A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j, K => k, L => l
 );
 

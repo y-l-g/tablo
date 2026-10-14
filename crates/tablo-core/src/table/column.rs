@@ -850,41 +850,31 @@ impl<M> IntoColumns<M> for &[BoxColumn<M>] {
     }
 }
 
-/// The tuple impls of [`IntoColumns`], one arity per invocation.
-macro_rules! into_columns_tuples {
-    ($($T:ident => $v:ident),+ $(,)?) => {
-        impl<M, $($T),+> IntoColumns<M> for ($($T,)+)
-        where
-            $($T: Column<M> + 'static,)+
-        {
-            fn into_columns(self) -> Vec<BoxColumn<M>> {
-                let ($($v,)+) = self;
-                vec![$(Arc::new($v) as BoxColumn<M>,)+]
-            }
-        }
-    };
-}
-
-into_columns_tuples!(A => a);
-into_columns_tuples!(A => a, B => b);
-into_columns_tuples!(A => a, B => b, C => c);
-into_columns_tuples!(A => a, B => b, C => c, D => d);
-into_columns_tuples!(A => a, B => b, C => c, D => d, E => e);
-into_columns_tuples!(A => a, B => b, C => c, D => d, E => e, F => f);
-into_columns_tuples!(A => a, B => b, C => c, D => d, E => e, F => f, G => g);
-into_columns_tuples!(
+into_tuples!(IntoColumns::into_columns<M>(Column) -> Vec<BoxColumn<M>>, vec BoxColumn<M>; A => a);
+into_tuples!(IntoColumns::into_columns<M>(Column) -> Vec<BoxColumn<M>>, vec BoxColumn<M>; A => a, B => b);
+into_tuples!(IntoColumns::into_columns<M>(Column) -> Vec<BoxColumn<M>>, vec BoxColumn<M>; A => a, B => b, C => c);
+into_tuples!(IntoColumns::into_columns<M>(Column) -> Vec<BoxColumn<M>>, vec BoxColumn<M>; A => a, B => b, C => c, D => d);
+into_tuples!(IntoColumns::into_columns<M>(Column) -> Vec<BoxColumn<M>>, vec BoxColumn<M>; A => a, B => b, C => c, D => d, E => e);
+into_tuples!(IntoColumns::into_columns<M>(Column) -> Vec<BoxColumn<M>>, vec BoxColumn<M>; A => a, B => b, C => c, D => d, E => e, F => f);
+into_tuples!(IntoColumns::into_columns<M>(Column) -> Vec<BoxColumn<M>>, vec BoxColumn<M>; A => a, B => b, C => c, D => d, E => e, F => f, G => g);
+into_tuples!(
+    IntoColumns::into_columns<M>(Column) -> Vec<BoxColumn<M>>, vec BoxColumn<M>;
     A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h
 );
-into_columns_tuples!(
+into_tuples!(
+    IntoColumns::into_columns<M>(Column) -> Vec<BoxColumn<M>>, vec BoxColumn<M>;
     A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i
 );
-into_columns_tuples!(
+into_tuples!(
+    IntoColumns::into_columns<M>(Column) -> Vec<BoxColumn<M>>, vec BoxColumn<M>;
     A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j
 );
-into_columns_tuples!(
+into_tuples!(
+    IntoColumns::into_columns<M>(Column) -> Vec<BoxColumn<M>>, vec BoxColumn<M>;
     A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j, K => k
 );
-into_columns_tuples!(
+into_tuples!(
+    IntoColumns::into_columns<M>(Column) -> Vec<BoxColumn<M>>, vec BoxColumn<M>;
     A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j, K => k, L => l
 );
 
