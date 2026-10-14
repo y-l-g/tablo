@@ -241,6 +241,62 @@ async fn the_created_range_keeps_the_posts_within_its_days() {
     );
 }
 
+/// A bare day on the range filter fills both bounds, so the rerun submits the range the predicate
+/// applied; a bound naming an exact time keeps a text input, which a date input would drop.
+#[tokio::test]
+async fn the_created_range_renders_what_it_applies() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let html = body_string(client.get("/admin/posts?f.created_at=2024-01-15").await).await;
+    assert_eq!(
+        input_value(&html, "f.created_at.from").as_deref(),
+        Some("2024-01-15"),
+        "the bare day fills the range's first bound"
+    );
+    assert_eq!(
+        input_value(&html, "f.created_at.to").as_deref(),
+        Some("2024-01-15"),
+        "the bare day fills the range's last bound"
+    );
+    assert_eq!(
+        row_titles(&html),
+        vec!["Hello Toasty".to_string()],
+        "the bare day still selects that day: {html}"
+    );
+
+    let html = body_string(
+        client
+            .get("/admin/posts?f.created_at.from=2024-01-15T09:30:00Z&f.created_at.to=2024-01-31")
+            .await,
+    )
+    .await;
+    let from = input_tag(&html, "f.created_at.from");
+    assert!(
+        from.contains("type=\"text\""),
+        "an exact bound needs a text input, got {from}"
+    );
+    assert!(
+        from.contains("value=\"2024-01-15T09:30:00Z\""),
+        "the exact bound stays as submitted, got {from}"
+    );
+    let to = input_tag(&html, "f.created_at.to");
+    assert!(
+        to.contains("type=\"date\"") && to.contains("value=\"2024-01-31\""),
+        "a day bound keeps its date input, got {to}"
+    );
+}
+
+/// The `<input>` tag carrying `name`, whose attributes hold no `>` of their own.
+fn input_tag<'a>(html: &'a str, name: &str) -> &'a str {
+    let at = html
+        .find(&format!("name=\"{name}\""))
+        .unwrap_or_else(|| panic!("missing the input named {name}"));
+    let start = html[..at].rfind("<input").expect("its opening tag");
+    let end = html[at..].find('>').expect("its closing bracket") + at;
+    &html[start..end]
+}
+
 /// A repeated filter parameter keeps the posts holding any of its values, the list's links carry
 /// every value, and the export, which refuses a filter that does not apply, accepts it.
 #[tokio::test]

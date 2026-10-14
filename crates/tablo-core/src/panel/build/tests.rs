@@ -2,7 +2,7 @@ use toasty::Db;
 
 use super::*;
 use crate::{
-    Ability, ResourceDef, Tenancy, TenantId, lens,
+    Ability, ResourceDef, SelectFilter, Tenancy, TenantId, lens,
     panel::test_support::{
         Dummy, current_panel, dummy_table, mount, mount_without_db, panel_for, panel_state, refusal,
     },
@@ -342,6 +342,12 @@ fn keyed_table() -> Table<Subscriber> {
 }
 
 resource!(Parents, Parent => ResourceDef::new().table(Table::new(TextColumn::new(lens!(Parent.name)))));
+resource!(FilteredChildren, Child => ResourceDef::new()
+.slug("filtered-children")
+.table(
+    Table::new(TextColumn::new(lens!(Child.name)))
+        .filters(SelectFilter::relationship::<Parents>(lens!(Child.parent_id)))
+));
 resource!(Children, Child => ResourceDef::new()
 .table(Table::new((
     TextColumn::new(lens!(Child.name)),
@@ -1031,6 +1037,19 @@ async fn mounting_refuses_each_misdeclaration() {
                 DeclarationError::of::<Children>(Site::Table, unregistered.clone()),
                 DeclarationError::of::<Children>(Site::Detail, unregistered),
             ],
+        ),
+        // Refuses a relationship filter over a resource the panel does not register, whose
+        // control would otherwise render no option at all.
+        (
+            "a relationship filter of an unregistered resource",
+            mount(db.clone(), panel().resource::<FilteredChildren>()),
+            vec![DeclarationError::of::<FilteredChildren>(
+                Site::Table,
+                DeclarationErrorKind::UnregisteredOptionSource {
+                    field: "parent_id".to_string(),
+                    source: std::any::type_name::<Parents>(),
+                },
+            )],
         ),
         // Refuses a tenancy column through a relation.
         (

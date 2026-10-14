@@ -95,8 +95,8 @@ An action's `NAME` that is not one URL segment does not compile, so it never rea
 | `MissingControl` | a hand-written `RecordForm::control` renders no control for a record-form field | render the field's control |
 | `FormClaimsTenantColumn` | a tenant-owned resource's record form has a field for the tenant column | drop the field: the framework stamps the tenant |
 | `EmptyChoice` | a choice has neither options nor a relationship | `.options(..)`, `.relationship::<R>()`, or `#[form(relationship = R)]` |
-| `CompositeKeyChoice` | a relationship choice loads a model with a composite primary key | choose over a model with a single-column key |
-| `UnregisteredOptionSource` | a relationship choice takes its options from a resource the panel does not register | register that resource |
+| `CompositeKeyChoice` | a relationship choice or filter loads a model with a composite primary key | choose over a model with a single-column key |
+| `UnregisteredOptionSource` | a relationship choice or filter takes its options from a resource the panel does not register | register that resource |
 | `UniqueWithoutIndex` | a `unique()` field's column has no unique index | add `#[unique]` to the model, or drop `.unique()` |
 | `OptionalUnique` | a `unique()` field answers an empty submission and its column is not nullable, so every empty submission stores one value | make the field required, or an `Option` |
 | `DisabledWithoutValue` | a field disabled on create has no `default` and no blank answer | give it a `default`, make it optional, or use `disabled_on_edit` |

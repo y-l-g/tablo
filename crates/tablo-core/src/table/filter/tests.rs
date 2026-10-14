@@ -167,6 +167,19 @@ fn a_select_filter_accepts_only_its_allow_list() {
 }
 
 #[test]
+fn a_select_filter_trims_an_options_padding() {
+    let f = SelectFilter::new(crate::lens!(Task.featured), [" true", "false"]);
+    assert!(
+        f.misdeclared().is_none(),
+        "the declaration check already trims, so the option is declared clean"
+    );
+    assert!(
+        f.to_expr(&"true".into()).is_some(),
+        "the predicate must list the option the control offers"
+    );
+}
+
+#[test]
 fn a_ternary_filter_reads_true_and_false_and_ignores_the_rest() {
     let f = TernaryFilter::new(Task::fields().featured());
     assert_eq!(f.name(), "featured");
@@ -373,6 +386,27 @@ fn a_single_value_filter_refuses_several_values_and_parts() {
     assert!(vehicule_filter().to_expr(&mixed).is_none());
 }
 
+/// A single-day date filter refuses a part: its one input renders a value, not a range, so the
+/// applied filter would show nothing and vanish on the next submit.
+#[test]
+fn a_single_day_date_filter_refuses_a_range() {
+    let filter = DateFilter::new(Task::fields().created_at());
+    assert!(filter.to_expr(&"2024-01-15".into()).is_some());
+    assert!(
+        filter
+            .to_expr(&FilterValue::new().with_part("from", "2024-01-15"))
+            .is_none(),
+        "a part needs the range control"
+    );
+    assert!(
+        DateFilter::new(Task::fields().created_at())
+            .range()
+            .to_expr(&FilterValue::new().with_part("from", "2024-01-15"))
+            .is_some(),
+        "the range control renders it"
+    );
+}
+
 /// A date filter's `from` and `to` parts bound a range of whole days, either alone leaving it
 /// open; a reversed range, another part, or a value beside them selects nothing.
 #[tokio::test]
@@ -434,6 +468,8 @@ async fn a_date_range_keeps_the_days_its_parts_bound() {
     );
     for refused in [
         range(Some("2024-01-16"), Some("2024-01-15")),
+        range(Some("2024-01-17T00:00:00Z"), Some("2024-01-15T00:00:00Z")),
+        range(Some("2024-01-17T00:00:00Z"), Some("2024-01-15")),
         range(Some("not-a-date"), None),
         range(Some("2024-01-15"), Some("not-a-date")),
         FilterValue::new().with_part("since", "2024-01-15"),

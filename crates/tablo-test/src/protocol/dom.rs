@@ -191,8 +191,8 @@ fn error_slot(html: &str, name: &str) -> Option<(Attrs, String)> {
     (!text.is_empty()).then_some((attrs, text))
 }
 
-/// The options of the select or checklist filter `name`, or `None` when `name` has neither
-/// control.
+/// The options of the select or checklist filter `name`, or `None` when `name` names neither. A
+/// checklist offering no option reads as an empty list, since its control still renders.
 pub fn filter_options(html: &str, name: &str) -> Option<Vec<FilterOption>> {
     let (tag, _, inner) = tags_where(html, |_, attrs| {
         attr_value(attrs, "data-filter-name").as_deref() == Some(name)
@@ -213,7 +213,9 @@ pub fn filter_options(html: &str, name: &str) -> Option<Vec<FilterOption>> {
                 })
             })
             .collect();
-        return (!options.is_empty()).then_some(options);
+        // A checklist renders the button that opens it, with or without an option; another
+        // control's container, such as a date filter's, renders none.
+        return inner.contains("<button").then_some(options);
     }
     let options = elements(&inner, "option")
         .into_iter()

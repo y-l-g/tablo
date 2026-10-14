@@ -114,6 +114,17 @@ fn filter_options_reads_a_checklist() {
 }
 
 #[test]
+fn filter_options_reads_a_checklist_with_no_option() {
+    let html = r#"<div data-filter-name="status"><span id="f.status-label">Status</span><button type="button" popovertarget="f.status-options" aria-labelledby="f.status-label f.status-options-summary"><span id="f.status-options-summary">All</span></button><div id="f.status-options" popover="" role="group"><p>No options</p></div></div>"#;
+    assert_eq!(
+        filter_options(html, "status"),
+        Some(Vec::new()),
+        "a checklist with no option is still a control"
+    );
+    assert_eq!(filter_options(html, "other"), None);
+}
+
+#[test]
 fn single_quotes_and_entities_decode() {
     let html =
         "<select data-filter-name='status'><option value='a&amp;b'>A &amp; B</option></select>";

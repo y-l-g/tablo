@@ -9,10 +9,7 @@ use topcoat::{context::Cx, icon::icon, view::*};
 use crate::{
     BoxFuture,
     form::FormScalar,
-    schema::{
-        Binding, FieldResolver, IntoOptions, OptionLoadError, OptionSource, Options,
-        relationship::related_records,
-    },
+    schema::{Binding, FieldResolver, IntoOptions, OptionSource, Options, fields::Relationship},
     table::state::{MAX_FILTER_LEN, MAX_FILTER_VALUES},
 };
 
@@ -69,6 +66,13 @@ pub trait Filter<M>: Send + Sync {
     /// What is wrong with this filter's declaration.
     #[doc(hidden)]
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
+        None
+    }
+
+    /// The option source's type when the request's panel cannot load from it, which a mount
+    /// refuses. A filter offering no options answers `None`.
+    #[doc(hidden)]
+    fn unavailable_source(&self, _cx: &Cx) -> Option<&'static str> {
         None
     }
 
@@ -450,19 +454,6 @@ pub trait FilterKey: FormScalar + IntoExpr<Self> + Send + Sync + 'static {}
 
 impl<T: FormScalar + IntoExpr<T> + Send + Sync + 'static> FilterKey for T {}
 
-/// Loads a relationship filter's `(key, label)` options.
-type OptionLoader = Arc<
-    dyn Fn(&Cx) -> BoxFuture<'static, Result<Vec<(String, String)>, OptionLoadError>> + Send + Sync,
->;
-
-/// The rows a relationship filter offers.
-#[derive(Clone)]
-struct Related {
-    load: OptionLoader,
-    /// Whether the source's primary key is composite, which no option value can spell.
-    composite: bool,
-}
-
 /// Select filter matching a field exactly: a `String`, any [`FormScalar`] such as an [`Options`]
 /// enum, or a foreign key to a [`relationship`](Self::relationship)'s rows. Several values match
 /// a record holding any of them, which [`multiple`](Self::multiple) lets the control choose.
@@ -485,7 +476,7 @@ pub struct SelectFilter<M> {
     options: Vec<(String, String)>,
     /// The first listed value the field's type does not parse.
     unparsed: Option<String>,
-    related: Option<Related>,
+    related: Option<Relationship>,
     multiple: bool,
     model: PhantomData<fn() -> M>,
 }
@@ -508,10 +499,17 @@ where
                 .map(|value| path.clone().eq(value))
         });
         let options = options.into_options();
+        // The control offers each value as written, but the parse trims what a request submits,
+        // so the option the predicate lists must be the trimmed spelling: an option declared
+        // with padding is otherwise declared clean and never matches.
+        let options: Vec<(String, String)> = options
+            .into_iter()
+            .map(|(value, label)| (value.trim().to_string(), label))
+            .collect();
         // An empty value is the control's "All", which selects no predicate.
         let unparsed = options
             .iter()
-            .map(|(value, _)| value.trim())
+            .map(|(value, _)| value.as_str())
             .find(|value| !value.is_empty() && T::parse_form(value).is_err())
             .map(str::to_string);
         Self {
@@ -559,32 +557,13 @@ where
     ///
     /// SelectFilter::relationship::<AuthorResource>(lens!(Post.author_id)).label("Author");
     /// ```
+    /// A form's relationship choice loads the same rows the same way, so its loader is reused.
     pub fn relationship<R>(lens: crate::Lens<M, impl Sized, impl FilterKey>) -> Self
     where
         R: OptionSource,
     {
-        let load: OptionLoader = Arc::new(|cx: &Cx| {
-            let cx = cx.clone();
-            Box::pin(async move {
-                let records = related_records::<R>(&cx, crate::tenancy::tenant_id(&cx))
-                    .await
-                    .map_err(|error| error.clone())?;
-                Ok(records
-                    .iter()
-                    .map(|record| {
-                        (
-                            crate::toasty_compat::pk::pk_text(record),
-                            R::label(&cx, record),
-                        )
-                    })
-                    .collect())
-            }) as BoxFuture<'static, _>
-        });
         Self {
-            related: Some(Related {
-                load,
-                composite: crate::toasty_compat::pk::pk_is_composite::<R::Model>(),
-            }),
+            related: Some(Relationship::new::<R>(R::label)),
             ..Self::new(lens, Vec::<String>::new())
         }
     }
@@ -661,8 +640,8 @@ where
                 return self.control(cx, input);
             };
             // Past the cap, or when the source refuses the load, the chosen keys stay checkable
-            // so the control can clear them.
-            let mut options = (related.load)(cx).await.unwrap_or_default();
+            // so the control can clear them; the loader logs what failed.
+            let mut options = related.load()(cx).await.unwrap_or_default();
             for key in input.value().values() {
                 if !options.iter().any(|(value, _)| value == key) {
                     options.push((key.clone(), key.clone()));
@@ -670,6 +649,13 @@ where
             }
             self.control_over(cx, input, &options)
         })
+    }
+
+    /// The source's type when the request's panel cannot load from it.
+    fn unavailable_source(&self, cx: &Cx) -> Option<&'static str> {
+        self.related
+            .as_ref()
+            .and_then(|related| related.unavailable_source(cx))
     }
 
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
@@ -687,7 +673,7 @@ where
             .or_else(|| {
                 self.related
                     .as_ref()
-                    .filter(|related| related.composite)
+                    .filter(|related| related.has_composite_source())
                     .map(|_| crate::DeclarationErrorKind::CompositeKeyChoice { field: name() })
             })
     }
@@ -831,8 +817,8 @@ filter_impls! {
 /// A field type a [`DateFilter`] matches by calendar day: `jiff::Timestamp` (the day in UTC),
 /// `jiff::civil::Date`, `jiff::civil::DateTime`, and an `Option` of any of them.
 pub trait FilterDate: Sized + Send + Sync + 'static {
-    /// The value the field compares against.
-    type Value: IntoExpr<Self>;
+    /// The value the field compares against, and orders a range's ends by.
+    type Value: IntoExpr<Self> + PartialOrd;
 
     /// The first instant of `date`, or `None` past the type's range.
     fn start_of(date: jiff::civil::Date) -> Option<Self::Value>;
@@ -841,6 +827,28 @@ pub trait FilterDate: Sized + Send + Sync + 'static {
     fn exact(value: &str) -> Option<Self::Value> {
         let _ = value;
         None
+    }
+}
+
+/// Whether the ends `from` and `to` bound no range at all, each resolved the way the predicate
+/// resolves it: an exact value the type reads, else the day's first instant.
+///
+/// An exact end bounds the range at itself, both ends included; a day end excludes the day after
+/// it. An unresolvable end answers `false`, leaving the refusal to the predicate.
+fn reversed_range<T: FilterDate>(from: &str, to: &str) -> bool {
+    let Some(lower) =
+        T::exact(from).or_else(|| from.parse::<jiff::civil::Date>().ok().and_then(T::start_of))
+    else {
+        return false;
+    };
+    match T::exact(to) {
+        Some(upper) => upper < lower,
+        None => to
+            .parse::<jiff::civil::Date>()
+            .ok()
+            .and_then(|date| date.tomorrow().ok())
+            .and_then(T::start_of)
+            .is_some_and(|after| after <= lower),
     }
 }
 
@@ -882,7 +890,7 @@ impl FilterDate for jiff::civil::DateTime {
     }
 }
 
-impl<T: FilterDate<Value = T> + IntoExpr<T>> FilterDate for Option<T> {
+impl<T: FilterDate<Value = T> + IntoExpr<T> + PartialOrd> FilterDate for Option<T> {
     type Value = T;
 
     fn start_of(date: jiff::civil::Date) -> Option<T> {
@@ -906,13 +914,16 @@ enum Bound {
 /// A date filter's predicate for a value, which is one day, or one side of a range.
 type BoundFn = Arc<dyn Fn(&str, Option<Bound>) -> Option<Expr<bool>> + Send + Sync>;
 
+/// Whether a range's two ends bound nothing, read through the field's own type.
+type ReversedFn = Arc<dyn Fn(&str, &str) -> bool + Send + Sync>;
+
 /// Date filter matching a date or time field by calendar day, or by a range of days; see
 /// [`FilterDate`] for the types.
 ///
-/// A value names one day, `f.<name>=2024-01-15`; the parts `f.<name>.from` and `f.<name>.to`
-/// name the first and the last day of a range, either one alone leaving it open. A value naming
-/// an exact time, such as a `jiff::Timestamp`'s `2024-01-15T09:30:00Z`, matches that time, or
-/// bounds the range at it.
+/// A value names one day, `f.<name>=2024-01-15`; on a [`range`](Self::range) filter the parts
+/// `f.<name>.from` and `f.<name>.to` name the first and the last day of a range, either one
+/// alone leaving it open. A value naming an exact time, such as a `jiff::Timestamp`'s
+/// `2024-01-15T09:30:00Z`, matches that time, or bounds the range at it.
 ///
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
@@ -925,6 +936,8 @@ pub struct DateFilter<M> {
     label: Option<String>,
     /// The predicate for a value.
     matches: BoundFn,
+    /// Whether a range's `from` and `to` parts bound nothing.
+    reversed: ReversedFn,
     range: bool,
     model: PhantomData<fn() -> M>,
 }
@@ -964,10 +977,12 @@ where
                 Some(Bound::To) => end().or_else(|| start().map(|_| true.into_expr())),
             }
         });
+        let reversed: ReversedFn = Arc::new(reversed_range::<T>);
         Self {
             binding,
             label: None,
             matches,
+            reversed,
             range: false,
             model: PhantomData,
         }
@@ -979,8 +994,7 @@ where
         self
     }
 
-    /// Choose a range of days: the control is two date inputs, submitting the `from` and `to`
-    /// parts.
+    /// Choose a range of days: the control is two inputs, submitting the `from` and `to` parts.
     pub fn range(mut self) -> Self {
         self.range = true;
         self
@@ -1008,10 +1022,14 @@ where
     }
 
     /// One day for a single value, or the range its `from` and `to` parts bound; `None` for both,
-    /// another part, or a range ending before it starts.
+    /// another part, a value beside the parts, a range ending before it starts, or a part where
+    /// [`range`](Self::range) is off, whose one input does not render it.
     fn to_expr(&self, value: &FilterValue) -> Option<Expr<bool>> {
         if value.parts.is_empty() {
             return (self.matches)(value.single()?, None);
+        }
+        if !self.range {
+            return None;
         }
         if !value.values.is_empty()
             || value
@@ -1022,11 +1040,7 @@ where
         }
         let (from, to) = (value.part("from"), value.part("to"));
         if let (Some(from), Some(to)) = (from, to)
-            && let (Ok(first), Ok(last)) = (
-                from.parse::<jiff::civil::Date>(),
-                to.parse::<jiff::civil::Date>(),
-            )
-            && last < first
+            && (self.reversed)(from, to)
         {
             return None;
         }
@@ -1039,62 +1053,64 @@ where
         }
     }
 
-    /// A date input, or two bounding a range.
+    /// The bound inputs: a date input for a day, a text input for a bound a date input cannot
+    /// hold.
     fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a> {
-        let day = |value: Option<&str>| {
-            let value = value.unwrap_or_default();
-            value.split('T').next().unwrap_or(value).to_string()
-        };
+        // A date input keeps a calendar day and submits it back. A bound a date input cannot
+        // hold — an exact time, or a day spelled with one — stays in a text input, which submits
+        // it back unharmed, where a date input would drop it and the rerun would widen the bound
+        // to its day.
+        let bound =
+            |value: String, name: String, aria: String, filter: Option<String>| -> BoxView<'a> {
+                let kind = if value.is_empty()
+                    || (value.len() == 10 && value.parse::<jiff::civil::Date>().is_ok())
+                {
+                    "date"
+                } else {
+                    "text"
+                };
+                view! {
+                    cx =>
+                    tablo_ui::input(
+                        attrs: attributes! {
+                            type=(kind)
+                            name=(name)
+                            value=(value)
+                            aria-label=(aria)
+                            class="w-auto!"
+                            data-filter-name=(filter)
+                        }
+                    )
+                }
+                .boxed()
+            };
         let name = input.name().to_string();
         let aria = input.label().to_string();
+        let held = input.value();
         let control = if self.range {
-            let (from, to) = (
-                day(input.value().part("from")),
-                day(input.value().part("to")),
-            );
+            // A bare value bounds the range at itself, so both ends spell it: a rerun submits
+            // `from=` and `to=` the same, which selects what the bare value selected.
+            let (from, to) = match held.single() {
+                Some(single) => (single.to_string(), single.to_string()),
+                None => (
+                    held.part("from").unwrap_or_default().to_string(),
+                    held.part("to").unwrap_or_default().to_string(),
+                ),
+            };
             let (from_param, to_param) = (input.part_param("from"), input.part_param("to"));
             view! {
                 cx =>
                 <span class="flex items-center gap-1" data-filter-name=(name)>
-                    tablo_ui::input(
-                        attrs: attributes! {
-                            type="date"
-                            name=(from_param)
-                            value=(from)
-                            aria-label=(format!("{aria} from"))
-                            class="w-auto!"
-                        }
-                    )
+                    (bound(from, from_param, format!("{aria} from"), None))
                     <span aria-hidden="true">"–"</span>
-                    tablo_ui::input(
-                        attrs: attributes! {
-                            type="date"
-                            name=(to_param)
-                            value=(to)
-                            aria-label=(format!("{aria} to"))
-                            class="w-auto!"
-                        }
-                    )
+                    (bound(to, to_param, format!("{aria} to"), None))
                 </span>
             }
             .boxed()
         } else {
-            let value = day(input.value().single());
             let param = input.param().to_string();
-            view! {
-                cx =>
-                tablo_ui::input(
-                    attrs: attributes! {
-                        type="date"
-                        name=(param)
-                        data-filter-name=(name)
-                        value=(value)
-                        aria-label=(aria)
-                        class="w-auto!"
-                    }
-                )
-            }
-            .boxed()
+            let value = held.single().unwrap_or_default().to_string();
+            bound(value, param, aria, Some(name))
         };
         input.labelled(cx, control)
     }
@@ -1106,7 +1122,7 @@ filter_impls! {
         label: &this.label.as_deref().unwrap_or(this.binding.label()),
         range: &this.range,
     }
-    clone { binding, label, matches, range, model }
+    clone { binding, label, matches, reversed, range, model }
 }
 
 /// A filter offering named predicates, such as an embedded-enum variant or any query the app

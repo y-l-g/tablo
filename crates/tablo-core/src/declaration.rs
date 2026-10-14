@@ -301,7 +301,8 @@ pub enum DeclarationErrorKind {
     DuplicateRelation,
     /// A relation to a resource the panel does not register.
     UnregisteredRelation,
-    /// A relationship field whose options come from a resource the panel does not register.
+    /// A relationship field, or a relationship filter, whose options come from a resource the
+    /// panel does not register.
     UnregisteredOptionSource {
         /// The field.
         field: String,
@@ -743,7 +744,7 @@ impl fmt::Display for DeclarationErrorKind {
             ),
             Self::CompositeKeyChoice { field } => write!(
                 f,
-                "relationship field `{field}` loads a model with a composite primary key, which \
+                "`{field}` reads a relationship whose model has a composite primary key, which \
                  no option value can spell"
             ),
             Self::UniqueWithoutIndex { field } => write!(
