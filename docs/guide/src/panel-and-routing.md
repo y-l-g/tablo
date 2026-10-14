@@ -172,6 +172,33 @@ A page sets the same `icon`, `navigation_order` and `navigation_group` on its `P
 `navigation_order` and `navigation_group` still apply to it. The entry whose URL is the longest
 match for the current path is marked active.
 
+`tablo::ui::icons` names the Lucide icons the panel draws, its navigation entries included. An
+entry that wants another one stages the set its app's own `iconify_icon!` resolves against: in the
+app's `build.rs`,
+
+```rust
+fn main() {
+    topcoat::icon::iconify::BuildConfig::new()
+        .icon_set("lucide")
+        .stage()
+        .expect("the Lucide set stages");
+}
+```
+
+and in the app, a constant beside the def that uses it:
+
+```rust
+use topcoat::icon::{IconData, iconify::iconify_icon};
+
+pub const PACKAGE: IconData = iconify_icon!("lucide:package");
+```
+
+The app's manifest needs `topcoat` with the `icon-iconify` feature in `[dependencies]`, where the
+macro reads the staged set, and in `[build-dependencies]`, where the build script stages it. The
+first build downloads the set through the shared cache. `.cache_dir("assets/iconify")` beside
+`.icon_set_version("lucide", "1.2.137")` stages a committed `lucide.json` and its `lucide.version`
+sidecar offline instead, since a pinned set is reused only while the two agree.
+
 `navigation_group("Content")` on either def renders the entry in a labelled sidebar group. The ungrouped entries render first, under "Navigation";
 each group follows in the order of its first entry, and `order` sorts the entries within it.
 
