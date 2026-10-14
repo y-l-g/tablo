@@ -274,7 +274,9 @@ impl FilterInput {
     }
 
     /// A labelled `<select>` over `options`, led by the empty "All" option, which is selected
-    /// while the filter holds no value.
+    /// while the filter holds no value. A select submits one value, so a filter holding several
+    /// (`?f.status=draft&f.status=review`) marks the first; the rest keep applying until the form
+    /// is submitted again.
     pub fn select<'a>(self, cx: &'a Cx, options: Vec<(String, String)>) -> BoxView<'a> {
         let option_views: Vec<BoxView<'a>> = std::iter::once((String::new(), "All".to_string()))
             .chain(options)
@@ -282,7 +284,7 @@ impl FilterInput {
                 let selected = if value.is_empty() {
                     self.value.is_empty()
                 } else {
-                    self.value.holds(None, &value)
+                    self.value.values().first() == Some(&value)
                 };
                 crate::schema::option_view(cx, value, text, selected)
             })

@@ -184,7 +184,11 @@ async fn the_author_filter_keeps_the_posts_of_the_chosen_authors() {
             .filter(|option| option.selected)
             .map(|option| option.value)
             .collect();
-        assert!(selected.contains(&ids[0].to_string()), "{html}");
+        assert_eq!(
+            selected,
+            vec![ids[0].to_string()],
+            "a select marks the first of the chosen keys, not every one: {html}"
+        );
     }
     let html = body_string(client.get("/admin/posts?f.author_id=nobody").await).await;
     assert!(
