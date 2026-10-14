@@ -409,8 +409,8 @@ other store implements `Uploader`; this one refuses all but images, then stores 
 - **Keeping a file across a failed submit.** When a form re-renders with errors, the file input is
   empty again. The form carries the path `store` just returned, and the panel reuses it on the next
   submit only when `Uploader::holds(path)` answers `true`. The default answers `false`, so the user
-  uploads again. Answer `true` only for a path your store produced and still holds inside its own
-  root; checking whether an arbitrary path exists would let a client pick any file. A
+  uploads again. Answer `true` only for a path your store could have written and still holds inside
+  its own root; checking whether an arbitrary path exists would let a client pick any file. A
   `DirUploader` answers `true` for a URL spelled as its `store` spells one, naming a file in its
   directory.
 - **Editing.** The edit form shows the stored file as a link and an empty file input. Leaving it
