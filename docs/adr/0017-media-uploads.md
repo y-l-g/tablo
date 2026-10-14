@@ -10,5 +10,5 @@ library. Uploads run before the write transaction, so a rolled-back write does n
 
 `Panel::uploads_dir` installs the stock `DirUploader` over one served directory; any other store
 implements `Uploader`. `Panel::serve_dir` serves an app directory with headers that keep files inert on the panel's
-origin. A served directory is public: the auth gate covers only the panel prefix and the runtime
-(ADR-0013).
+origin. A served directory outside the panel prefix is public: the auth gate covers only that
+prefix and the runtime (ADR-0013).

@@ -137,7 +137,8 @@ Toasty and create a user with `auth::create_admin`, which stores the password's 
 After login, the user returns to `next`, which must be a same-origin path. A user has panel access
 when their `AdminUser.active` is `true`. The gate covers only the panel prefix and
 `/_topcoat/runtime`; routes elsewhere, including your app's own routes and directories served with
-`Panel::serve_dir`, are public. On a router with several panels, `/_topcoat/runtime` answers 401
+`Panel::serve_dir`, are public — a directory served under the panel prefix is the exception, since
+the gate covers the prefix. On a router with several panels, `/_topcoat/runtime` answers 401
 without a session only when every panel is gated.
 
 - **Login** verifies Argon2id hashes. An unknown email costs the same work as a wrong password,

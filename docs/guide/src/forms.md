@@ -422,8 +422,8 @@ other store implements `Uploader`; this one refuses all but images, then stores 
   detail page, only when it is a root-relative path (`/uploads/a.png`, not `//host`) or an
   `http(s)` URL; anything else renders as text.
 - **Serving.** `Panel::serve_dir(path, dir)` serves a directory (`uploads_dir` calls it), and the
-  served files are **public**: the auth gate does not cover them. An app that needs protected files serves them
-  from its own route. See [Security](./security.md) for the headers served files carry.
+  served files are **public** unless the path sits under the panel prefix, which the auth gate
+  covers. See [Security](./security.md) for the headers served files carry.
 
 ## Embedded values
 

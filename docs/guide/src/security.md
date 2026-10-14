@@ -78,4 +78,5 @@ What Tablo does by default, and what your deployment must provide for those defa
   `Content-Disposition: attachment` unless the file is a common image, audio or video type or
   plain text. An uploaded HTML or SVG file therefore downloads instead of running script. The
   policy is fixed; serve active documents from another origin.
-- Served directories are **public**: the auth gate does not cover them.
+- Served directories are **public** — the auth gate covers only the panel prefix, so a directory
+  served under that prefix is the exception.

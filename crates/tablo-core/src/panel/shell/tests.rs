@@ -222,8 +222,8 @@ async fn collapsed_sidebar_cookie_seeds_the_signal() {
 }
 
 /// A home entry at the bare prefix matches every path under it: only the
-/// most specific matching entry is active, and only the first of two entries
-/// that share a URL.
+/// most specific matching entry is active, an entry's query does not make it
+/// more specific, and only the first of two entries that share a path.
 #[tokio::test]
 async fn sidebar_marks_only_the_longest_matching_entry_active() {
     use topcoat::{context::CxTestBuilder, view::view};
@@ -234,9 +234,11 @@ async fn sidebar_marks_only_the_longest_matching_entry_active() {
         NavigationItem::at("Dashboard", "/admin"),
         NavigationItem::at("Users", "/admin/users"),
         NavigationItem::at("Overview", "/admin"),
+        NavigationItem::at("Drafts", "/admin/users?f.status=draft"),
     ];
     for (path, active_label) in [
         ("/admin", "Dashboard"),
+        ("/admin/users", "Users"),
         ("/admin/users/-/create", "Users"),
         ("/admin/media", "Dashboard"),
     ] {
