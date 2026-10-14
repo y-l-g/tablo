@@ -264,13 +264,13 @@ impl Panel {
             "navigation items are resolved by the Panel that owns them"
         );
         // One active entry: a home entry at the bare prefix matches every path
-        // under it, so the longest matching URL wins, and the first such entry
+        // under it, so the longest matching path wins, and the first such entry
         // among any that share it.
         let active = nav_items
             .iter()
             .enumerate()
             .filter(|(_, item)| item.is_current_path(current_path))
-            .min_by_key(|(_, item)| std::cmp::Reverse(item.url().map_or(0, str::len)))
+            .min_by_key(|(_, item)| std::cmp::Reverse(item.path().map_or(0, str::len)))
             .map(|(index, _)| index);
 
         // The ungrouped entries first, under the default label, then one labelled group per

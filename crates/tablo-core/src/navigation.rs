@@ -92,16 +92,24 @@ impl NavigationItem {
         self.target.url()
     }
 
-    /// Whether this item is current for the given request path.
+    /// The path this entry points at, without the query or fragment it carries.
+    pub(crate) fn path(&self) -> Option<&str> {
+        let url = self.url()?;
+        let path = url.split_once(['?', '#']).map_or(url, |(path, _)| path);
+        (!path.is_empty()).then_some(path)
+    }
+
+    /// Whether this item is current for the given request path, which carries no query or
+    /// fragment: an entry's own are the state it points with, not part of where it points.
     pub fn is_current_path(&self, current_path: &str) -> bool {
-        let Some(url) = self.url() else {
+        let Some(path) = self.path() else {
             return false;
         };
-        if current_path == url {
+        if current_path == path {
             return true;
         }
         current_path
-            .strip_prefix(url)
+            .strip_prefix(path)
             .is_some_and(|rest| rest.starts_with('/'))
     }
 }

@@ -97,4 +97,14 @@ fn navigation_item_is_current_path() {
     // unrelated
     assert!(!users.is_current_path("/other"));
     assert!(!showcase.is_current_path("/admin/users"));
+    // an entry's query or fragment is the state it points with, not part of its path
+    let posts = NavigationItem::at("Posts", "/admin/posts?f.status=draft");
+    assert!(posts.is_current_path("/admin/posts"));
+    assert!(posts.is_current_path("/admin/posts/-/create"));
+    assert!(!posts.is_current_path("/admin/postscripts"));
+    let section = NavigationItem::at("Section", "/admin/posts#top");
+    assert!(section.is_current_path("/admin/posts"));
+    // an entry naming no path is current nowhere
+    let query_only = NavigationItem::at("Query", "?f.status=draft");
+    assert!(!query_only.is_current_path("/admin/posts"));
 }
