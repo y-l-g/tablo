@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0](https://github.com/y-l-g/tablo/compare/tablo-ui-v0.6.0...tablo-ui-v0.7.0) - 2026-10-14
+
+### Fixed
+
+- *(table)* draw a false boolean as a circled cross ([#627](https://github.com/y-l-g/tablo/pull/627))
+- *(panel)* [**breaking**] route the list's own pages under `-` so record keys cannot shadow them ([#610](https://github.com/y-l-g/tablo/pull/610))
+
 ## [0.6.0](https://github.com/y-l-g/tablo/compare/tablo-ui-v0.5.1...tablo-ui-v0.6.0) - 2026-10-10
 
 ### Added

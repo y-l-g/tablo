@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0](https://github.com/y-l-g/tablo/compare/tablo-macros-v0.6.0...tablo-macros-v0.7.0) - 2026-10-14
+
+### Added
+
+- *(core)* [**breaking**] carry form values as typed FormValues ([#614](https://github.com/y-l-g/tablo/pull/614))
+- *(core)* [**breaking**] derive the default table and detail page from the model ([#607](https://github.com/y-l-g/tablo/pull/607))
+- *(macros)* derive a model's record form with ModelForm ([#605](https://github.com/y-l-g/tablo/pull/605))
+
+### Changed
+
+- *(macros)* dedup struct-shape guards ([#640](https://github.com/y-l-g/tablo/pull/640))
+
 ## [0.6.0](https://github.com/y-l-g/tablo/compare/tablo-macros-v0.5.1...tablo-macros-v0.6.0) - 2026-10-10
 
 ### Added

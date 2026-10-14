@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0](https://github.com/y-l-g/tablo/compare/tablo-core-v0.6.0...tablo-core-v0.7.0) - 2026-10-14
+
+### Added
+
+- *(table)* spell a date column as a calendar day ([#628](https://github.com/y-l-g/tablo/pull/628)) ([#629](https://github.com/y-l-g/tablo/pull/629))
+- *(table)* multi-select, date-range and relationship filters ([#617](https://github.com/y-l-g/tablo/pull/617))
+- *(table)* [**breaking**] carry filter values as typed FilterValue
+- *(core)* [**breaking**] carry form values as typed FormValues ([#614](https://github.com/y-l-g/tablo/pull/614))
+- *(core)* [**breaking**] declare a page as a PageDef and infer closure policies with policy_fn ([#608](https://github.com/y-l-g/tablo/pull/608))
+- *(core)* [**breaking**] derive the default table and detail page from the model ([#607](https://github.com/y-l-g/tablo/pull/607))
+- *(macros)* derive a model's record form with ModelForm ([#605](https://github.com/y-l-g/tablo/pull/605))
+- *(schema)* add help text, disabled controls and create defaults to fields ([#597](https://github.com/y-l-g/tablo/pull/597))
+- *(schema)* bind civil dates and times, and render numbers as number inputs ([#596](https://github.com/y-l-g/tablo/pull/596))
+- *(core)* ship a directory uploader and Panel::uploads_dir ([#595](https://github.com/y-l-g/tablo/pull/595))
+- *(core)* [**breaking**] group sidebar entries under labels ([#590](https://github.com/y-l-g/tablo/pull/590))
+
+### Changed
+
+- *(core)* dedup column sort order ([#638](https://github.com/y-l-g/tablo/pull/638))
+- *(table)* share column plumbing and derive Clone/Debug with derive-where ([#593](https://github.com/y-l-g/tablo/pull/593))
+- *(core)* [**breaking**] rename ResourceDef::view to detail ([#592](https://github.com/y-l-g/tablo/pull/592))
+- *(core)* [**breaking**] build a panel handle, not a context, from Panel ([#591](https://github.com/y-l-g/tablo/pull/591))
+
+### Fixed
+
+- *(table)* size the row actions column from its controls ([#626](https://github.com/y-l-g/tablo/pull/626))
+- *(table)* draw a false boolean as a circled cross ([#627](https://github.com/y-l-g/tablo/pull/627))
+- *(panel)* send the auth and retry links through the runtime ([#625](https://github.com/y-l-g/tablo/pull/625))
+- *(table)* [**breaking**] follow up the filter controls ([#617](https://github.com/y-l-g/tablo/pull/617)) ([#622](https://github.com/y-l-g/tablo/pull/622))
+- *(schema)* follow up the form values ([#614](https://github.com/y-l-g/tablo/pull/614)) ([#623](https://github.com/y-l-g/tablo/pull/623))
+- *(table)* [**breaking**] follow up the FilterValue codec ([#616](https://github.com/y-l-g/tablo/pull/616)) ([#621](https://github.com/y-l-g/tablo/pull/621))
+- *(panel)* follow up the sidebar and served-dir findings ([#624](https://github.com/y-l-g/tablo/pull/624))
+- *(table)* hand the select-all handler a token string ([#619](https://github.com/y-l-g/tablo/pull/619)) ([#620](https://github.com/y-l-g/tablo/pull/620))
+- *(table)* keep a key holding the selection separator whole in bulk writes ([#619](https://github.com/y-l-g/tablo/pull/619))
+- *(panel)* [**breaking**] route the list's own pages under `-` so record keys cannot shadow them ([#610](https://github.com/y-l-g/tablo/pull/610))
+- *(core)* fail closed on an input refusal no control renders ([#588](https://github.com/y-l-g/tablo/pull/588))
+
+### Test
+
+- [**breaking**] promote helpers into tablo-test, pin refusals with trybuild, assert kinds over wording ([#598](https://github.com/y-l-g/tablo/pull/598))
+
 ## [0.6.0](https://github.com/y-l-g/tablo/compare/tablo-core-v0.5.1...tablo-core-v0.6.0) - 2026-10-10
 
 ### Added
