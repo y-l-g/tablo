@@ -132,7 +132,7 @@ impl Frame<'_> {
 
         let ColumnWidths {
             cells: cell_widths,
-            actions_min,
+            actions,
             table_min_width,
             ..
         } = self.column_widths();
@@ -159,7 +159,7 @@ impl Frame<'_> {
                     + usize::from(with_bulk)
                     + usize::from(with_actions),
                 cell_widths,
-                actions_min,
+                actions,
                 signals: signals.clone(),
                 form: table_dom_id(state, "writes"),
             };

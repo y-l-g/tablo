@@ -278,12 +278,12 @@ pub(crate) const NARROW_DEFAULT_PERCENT: u8 = 10;
 /// The width a [`Column`] claims in the table's fixed layout.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ColumnWidth {
-    /// Take a share of whatever the declared columns leave.
+    /// Take the space left over, never less than six rem or the header.
     #[default]
     Wide,
     /// A share of the table for a status, boolean, date or count cell.
     Narrow,
-    /// An explicit length in whole rem.
+    /// An explicit length in whole rem; the space left over is shared over it in proportion.
     Rem(u8),
     /// An explicit share of the table in whole percent.
     Percent(u8),

@@ -51,8 +51,8 @@ pub(super) struct Frame<'t> {
     bulk_actions: Vec<BulkAction<'t>>,
     /// The custom actions asking for input, each rendering its dialog.
     inputs: Vec<InputAction<'t>>,
-    /// How many custom actions each row may show.
-    row_actions: usize,
+    /// The labels of the custom actions each row may show, which size the actions column.
+    row_actions: Vec<&'t str>,
     return_to: Option<&'t str>,
 }
 
@@ -128,7 +128,10 @@ impl<M> WiredTable<M> {
                     })
                 })
                 .collect(),
-            row_actions: self.row_custom_actions().count(),
+            row_actions: self
+                .row_custom_actions()
+                .map(|action| action.label.as_str())
+                .collect(),
             return_to: self.return_to(),
         }
     }
