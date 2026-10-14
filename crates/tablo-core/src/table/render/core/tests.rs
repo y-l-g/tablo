@@ -409,3 +409,41 @@ async fn a_key_holding_the_selection_separator_renders_one_token() {
         "select all must select the whole key, got {thead}"
     );
 }
+
+#[tokio::test]
+async fn select_all_hands_its_handler_the_tokens_as_one_string() {
+    #[derive(Debug, Clone, toasty::Model)]
+    struct Tag {
+        #[key]
+        code: String,
+        label: String,
+    }
+
+    let cx = CxTestBuilder::new().build();
+    let tbl = Table::<Tag>::new(TextColumn::new(lens!(Tag.label)))
+        .wired()
+        .with_delete("/admin/tags".to_string())
+        .with_bulk_delete(true);
+    let page: TablePage<Tag> = vec![
+        Tag {
+            code: "a".to_string(),
+            label: "A".to_string(),
+        },
+        Tag {
+            code: "b".to_string(),
+            label: "B".to_string(),
+        },
+    ]
+    .into();
+    let html = tbl.render_loaded(&cx, page).await.html(&cx).await;
+    let thead = &html[..html.find("</thead>").expect("a header row")];
+    let start = thead.rfind("<input").expect("a select-all box");
+    let select_all = &thead[start..start + thead[start..].find("></th>").expect("its cell")];
+    assert_eq!(
+        select_all
+            .matches("cx.hydrate(&quot;,a,|,b,&quot;)")
+            .count(),
+        4,
+        "every select-all expression must take the tokens as one string, got {select_all}"
+    );
+}
