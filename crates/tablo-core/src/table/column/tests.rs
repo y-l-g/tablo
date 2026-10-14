@@ -64,3 +64,39 @@ fn text_column_includes_accumulate_once_per_relation() {
         "two relations, one repeated: the column keeps each once"
     );
 }
+
+/// Every date type spells its calendar day, a null spells empty, and `TextColumn` still spells
+/// the stored value.
+#[test]
+fn a_date_column_spells_the_day_of_every_date_type() {
+    #[derive(Debug, Clone, toasty::Model)]
+    struct Event {
+        #[key]
+        #[auto]
+        id: uuid::Uuid,
+        day: jiff::civil::Date,
+        at: jiff::civil::DateTime,
+        seen: jiff::Timestamp,
+        closed: Option<jiff::civil::Date>,
+    }
+
+    let cx = crate::test_support::cx();
+    let row = Event {
+        id: uuid::Uuid::nil(),
+        day: jiff::civil::date(2026, 10, 14),
+        at: jiff::civil::date(2026, 10, 14).at(9, 30, 0, 0),
+        // Late in the UTC day, so a local-time spelling moves it.
+        seen: "2026-10-14T23:30:00Z".parse().expect("a timestamp"),
+        closed: None,
+    };
+    let text = |column: &dyn Column<Event>| column.text(&cx, &row);
+    assert_eq!(text(&DateColumn::new(lens!(Event.day))), "Oct 14, 2026");
+    assert_eq!(text(&DateColumn::new(lens!(Event.at))), "Oct 14, 2026");
+    assert_eq!(text(&DateColumn::new(lens!(Event.seen))), "Oct 14, 2026");
+    assert_eq!(text(&DateColumn::new(lens!(Event.closed))), "");
+    assert_eq!(text(&TextColumn::new(lens!(Event.day))), "2026-10-14");
+    assert_eq!(
+        Column::column_width(&DateColumn::new(lens!(Event.day))),
+        ColumnWidth::Narrow
+    );
+}

@@ -1,4 +1,4 @@
-//! Table and detail columns: the [`Column`] trait, the built-in [`TextColumn`],
+//! Table and detail columns: the [`Column`] trait, the built-in [`TextColumn`], [`DateColumn`],
 //! [`ComputedColumn`], [`RelationColumn`], [`CountColumn`], [`BooleanColumn`], [`FileColumn`] and
 //! [`EmbeddedColumn`], and the [`IntoColumns`] seam.
 
@@ -457,6 +457,108 @@ where
     }
 }
 
+/// A column of a date field, rendered as a calendar day.
+///
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # struct Post { #[key] #[auto] id: uuid::Uuid, published_at: jiff::Timestamp }
+/// tablo_core::DateColumn::new(tablo_core::lens!(Post.published_at)).sortable();
+/// ```
+///
+/// The cell spells the day `Oct 14, 2026`, and the export writes the same spelling; a `None`
+/// renders the table's dash. A [`TextColumn`] keeps the stored spelling instead,
+/// `2026-10-14T09:30:00Z` or `2026-10-14`; a group header follows the field, not the column.
+#[derive_where(Clone, Debug)]
+pub struct DateColumn<M, T> {
+    lens: Lens<M, T>,
+    base: ColumnBase,
+    sortable: bool,
+}
+
+/// The field types a [`DateColumn`] spells as a calendar day: `jiff::civil::Date`,
+/// `jiff::civil::DateTime`, `jiff::Timestamp` (read in UTC, as a
+/// [`DateFilter`](crate::DateFilter) reads it) and an `Option` of any of them.
+pub trait DateValue: Sized + Send + Sync + 'static {
+    /// The value's calendar day, `None` when it holds none.
+    fn calendar_date(&self) -> Option<jiff::civil::Date>;
+}
+
+impl DateValue for jiff::civil::Date {
+    fn calendar_date(&self) -> Option<jiff::civil::Date> {
+        Some(*self)
+    }
+}
+
+impl DateValue for jiff::civil::DateTime {
+    fn calendar_date(&self) -> Option<jiff::civil::Date> {
+        Some(self.date())
+    }
+}
+
+impl DateValue for jiff::Timestamp {
+    fn calendar_date(&self) -> Option<jiff::civil::Date> {
+        Some(self.to_zoned(jiff::tz::TimeZone::UTC).date())
+    }
+}
+
+impl<T: DateValue> DateValue for Option<T> {
+    fn calendar_date(&self) -> Option<jiff::civil::Date> {
+        self.as_ref().and_then(DateValue::calendar_date)
+    }
+}
+
+impl<M, T> DateColumn<M, T>
+where
+    M: toasty::schema::Model,
+{
+    /// Bind the column to the date field `lens` reads.
+    pub fn new(lens: Lens<M, T>) -> Self
+    where
+        T: DateValue,
+    {
+        Self {
+            base: ColumnBase::new(lens.path(), ColumnWidth::Narrow),
+            lens,
+            sortable: false,
+        }
+    }
+
+    /// Make the header a sort link.
+    pub fn sortable(mut self) -> Self {
+        self.sortable = true;
+        self
+    }
+
+    base_builders!();
+}
+
+impl<M, T> Column<M> for DateColumn<M, T>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+    T: DateValue,
+{
+    base_column_methods!(bind);
+
+    fn text(&self, _cx: &Cx, row: &M) -> String {
+        self.lens
+            .read(row)
+            .calendar_date()
+            .map(|day| day.strftime("%b %-d, %Y").to_string())
+            .unwrap_or_default()
+    }
+
+    fn is_sortable(&self) -> bool {
+        self.sortable
+    }
+
+    fn order_by(&self, descending: bool) -> Option<OrderByExpr> {
+        self.sortable.then(|| {
+            let path = self.lens.path().clone();
+            if descending { path.desc() } else { path.asc() }
+        })
+    }
+}
+
 /// A display-only column rendering any text from the row, with no query predicate.
 ///
 /// ```rust
@@ -720,6 +822,7 @@ macro_rules! column_conversions {
 
 column_conversions!(
     TextColumn<M, T>,
+    DateColumn<M, T>,
     ComputedColumn<M>,
     RelationColumn<M>,
     CountColumn<M>,
