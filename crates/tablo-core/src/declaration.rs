@@ -744,7 +744,7 @@ impl fmt::Display for DeclarationErrorKind {
             ),
             Self::CompositeKeyChoice { field } => write!(
                 f,
-                "relationship field `{field}` loads a model with a composite primary key, which \
+                "`{field}` reads a relationship whose model has a composite primary key, which \
                  no option value can spell"
             ),
             Self::UniqueWithoutIndex { field } => write!(
