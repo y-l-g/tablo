@@ -1,7 +1,7 @@
 use topcoat::{
     Result,
     icon::icon,
-    view::{Attributes, Child, StaticClass, View, class, component, view},
+    view::{Attributes, Child, StaticClass, View, class, component},
 };
 
 const EMPTY_STATE: StaticClass = class!("flex flex-col items-center gap-2 px-6 py-12 text-center");
@@ -40,18 +40,17 @@ pub async fn empty_state(
     #[default]
     mut attrs: Attributes,
 ) -> Result<impl View> {
-    Ok(view! {
-        <div class=(class!(EMPTY_STATE, attrs.remove("class"))) (attrs)>
-            <div class=(EMPTY_STATE_ICON) aria-hidden="true">
-                icon(data: crate::icons::INBOX)
-            </div>
-            <p class=(EMPTY_STATE_TITLE)>(title)</p>
-            if !detail.is_empty() {
-                <p class=(EMPTY_STATE_DETAIL)>(detail)</p>
-            }
-            if let Some(action) = action {
-                <div class=(EMPTY_STATE_ACTION)>(action)</div>
-            }
-        </div>
-    })
+    super::state_shell::state_shell!(
+        __cx,
+        title,
+        detail,
+        action,
+        attrs,
+        EMPTY_STATE,
+        EMPTY_STATE_TITLE,
+        EMPTY_STATE_DETAIL,
+        EMPTY_STATE_ACTION,
+        crate::icons::INBOX,
+        Some(EMPTY_STATE_ICON)
+    )
 }

@@ -1,7 +1,7 @@
 use topcoat::{
     Result,
     icon::{icon, iconify::iconify_icon},
-    view::{Attributes, Child, StaticClass, View, class, component, view},
+    view::{Attributes, Child, StaticClass, View, class, component},
 };
 
 const ERROR_STATE: StaticClass = class!(
@@ -52,16 +52,17 @@ pub async fn error_state(
     #[default]
     mut attrs: Attributes,
 ) -> Result<impl View> {
-    Ok(view! {
-        <div class=(class!(ERROR_STATE, attrs.remove("class"))) (attrs)>
-            icon(data: iconify_icon!("lucide:circle-alert"))
-            <p class=(class!(ERROR_STATE_TITLE))>(title)</p>
-            if !detail.is_empty() {
-                <p class=(class!(ERROR_STATE_DETAIL))>(detail)</p>
-            }
-            if let Some(action) = action {
-                <div class=(class!(ERROR_STATE_ACTION))>(action)</div>
-            }
-        </div>
-    })
+    super::state_shell::state_shell!(
+        __cx,
+        title,
+        detail,
+        action,
+        attrs,
+        ERROR_STATE,
+        class!(ERROR_STATE_TITLE),
+        class!(ERROR_STATE_DETAIL),
+        class!(ERROR_STATE_ACTION),
+        iconify_icon!("lucide:circle-alert"),
+        None::<StaticClass>
+    )
 }
