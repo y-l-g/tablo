@@ -91,7 +91,7 @@ pub(crate) fn option_view<'a>(
 
 impl Relationship {
     /// The loaders for source `R`, projecting each row to its primary key and `label`.
-    pub(super) fn new<R>(label: impl Fn(&Cx, &R::Model) -> String + Send + Sync + 'static) -> Self
+    pub(crate) fn new<R>(label: impl Fn(&Cx, &R::Model) -> String + Send + Sync + 'static) -> Self
     where
         R: OptionSource + 'static,
     {
@@ -133,6 +133,21 @@ impl Relationship {
             },
             composite: crate::toasty_compat::pk::pk_is_composite::<R::Model>(),
         }
+    }
+
+    /// The bounded option load, shared by the choice and the relationship filter.
+    pub(crate) fn load(&self) -> RelationshipLoader {
+        self.load.clone()
+    }
+
+    /// Whether the source's primary key is composite, which no option value can spell.
+    pub(crate) fn has_composite_source(&self) -> bool {
+        self.composite
+    }
+
+    /// The source's type, when the request's panel cannot load from it.
+    pub(crate) fn unavailable_source(&self, cx: &Cx) -> Option<&'static str> {
+        (!(self.available)(cx)).then_some(self.source)
     }
 }
 
@@ -234,8 +249,7 @@ impl ChoiceControl {
     pub(crate) fn unavailable_source(&self, cx: &Cx) -> Option<&'static str> {
         self.relationship
             .as_ref()
-            .filter(|relationship| !(relationship.available)(cx))
-            .map(|relationship| relationship.source)
+            .and_then(|relationship| relationship.unavailable_source(cx))
     }
 
     /// Searches options server-side among those the parent value `parent` offers, answering

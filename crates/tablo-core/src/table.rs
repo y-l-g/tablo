@@ -293,12 +293,22 @@ impl<M> Table<M> {
         self
     }
 
-    /// The columns labelling their records by a source the context's panel cannot load from.
+    /// The columns and filters reading a source the context's panel cannot load from.
     pub(crate) fn unavailable_sources(
         &self,
         cx: &topcoat::context::Cx,
     ) -> Vec<DeclarationErrorKind> {
-        crate::table::column::unavailable_sources(cx, self.columns.iter().map(|c| &**c))
+        let mut errors =
+            crate::table::column::unavailable_sources(cx, self.columns.iter().map(|c| &**c));
+        errors.extend(self.filters.iter().filter_map(|filter| {
+            filter.unavailable_source(cx).map(|source| {
+                DeclarationErrorKind::UnregisteredOptionSource {
+                    field: filter.name().to_string(),
+                    source,
+                }
+            })
+        }));
+        errors
     }
 
     /// What is wrong with this declaration.

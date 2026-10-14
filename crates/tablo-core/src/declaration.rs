@@ -301,7 +301,8 @@ pub enum DeclarationErrorKind {
     DuplicateRelation,
     /// A relation to a resource the panel does not register.
     UnregisteredRelation,
-    /// A relationship field whose options come from a resource the panel does not register.
+    /// A relationship field, or a relationship filter, whose options come from a resource the
+    /// panel does not register.
     UnregisteredOptionSource {
         /// The field.
         field: String,

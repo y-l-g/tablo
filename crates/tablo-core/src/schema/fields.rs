@@ -12,7 +12,7 @@ use std::sync::Arc;
 pub use builders::{
     ChoiceField, CustomField, FileField, IntoFormValue, IntoOptions, RepeaterField, TextField,
 };
-pub(crate) use choice::{ChoiceControl, option_view};
+pub(crate) use choice::{ChoiceControl, Relationship, option_view};
 pub use custom::Toggle;
 pub(crate) use custom::{Control, ControlInput};
 pub(crate) use file::stored_upload;

@@ -9,10 +9,7 @@ use topcoat::{context::Cx, icon::icon, view::*};
 use crate::{
     BoxFuture,
     form::FormScalar,
-    schema::{
-        Binding, FieldResolver, IntoOptions, OptionLoadError, OptionSource, Options,
-        relationship::related_records,
-    },
+    schema::{Binding, FieldResolver, IntoOptions, OptionSource, Options, fields::Relationship},
     table::state::{MAX_FILTER_LEN, MAX_FILTER_VALUES},
 };
 
@@ -69,6 +66,13 @@ pub trait Filter<M>: Send + Sync {
     /// What is wrong with this filter's declaration.
     #[doc(hidden)]
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
+        None
+    }
+
+    /// The option source's type when the request's panel cannot load from it, which a mount
+    /// refuses. A filter offering no options answers `None`.
+    #[doc(hidden)]
+    fn unavailable_source(&self, _cx: &Cx) -> Option<&'static str> {
         None
     }
 
@@ -450,19 +454,6 @@ pub trait FilterKey: FormScalar + IntoExpr<Self> + Send + Sync + 'static {}
 
 impl<T: FormScalar + IntoExpr<T> + Send + Sync + 'static> FilterKey for T {}
 
-/// Loads a relationship filter's `(key, label)` options.
-type OptionLoader = Arc<
-    dyn Fn(&Cx) -> BoxFuture<'static, Result<Vec<(String, String)>, OptionLoadError>> + Send + Sync,
->;
-
-/// The rows a relationship filter offers.
-#[derive(Clone)]
-struct Related {
-    load: OptionLoader,
-    /// Whether the source's primary key is composite, which no option value can spell.
-    composite: bool,
-}
-
 /// Select filter matching a field exactly: a `String`, any [`FormScalar`] such as an [`Options`]
 /// enum, or a foreign key to a [`relationship`](Self::relationship)'s rows. Several values match
 /// a record holding any of them, which [`multiple`](Self::multiple) lets the control choose.
@@ -485,7 +476,7 @@ pub struct SelectFilter<M> {
     options: Vec<(String, String)>,
     /// The first listed value the field's type does not parse.
     unparsed: Option<String>,
-    related: Option<Related>,
+    related: Option<Relationship>,
     multiple: bool,
     model: PhantomData<fn() -> M>,
 }
@@ -566,32 +557,13 @@ where
     ///
     /// SelectFilter::relationship::<AuthorResource>(lens!(Post.author_id)).label("Author");
     /// ```
+    /// A form's relationship choice loads the same rows the same way, so its loader is reused.
     pub fn relationship<R>(lens: crate::Lens<M, impl Sized, impl FilterKey>) -> Self
     where
         R: OptionSource,
     {
-        let load: OptionLoader = Arc::new(|cx: &Cx| {
-            let cx = cx.clone();
-            Box::pin(async move {
-                let records = related_records::<R>(&cx, crate::tenancy::tenant_id(&cx))
-                    .await
-                    .map_err(|error| error.clone())?;
-                Ok(records
-                    .iter()
-                    .map(|record| {
-                        (
-                            crate::toasty_compat::pk::pk_text(record),
-                            R::label(&cx, record),
-                        )
-                    })
-                    .collect())
-            }) as BoxFuture<'static, _>
-        });
         Self {
-            related: Some(Related {
-                load,
-                composite: crate::toasty_compat::pk::pk_is_composite::<R::Model>(),
-            }),
+            related: Some(Relationship::new::<R>(R::label)),
             ..Self::new(lens, Vec::<String>::new())
         }
     }
@@ -668,8 +640,8 @@ where
                 return self.control(cx, input);
             };
             // Past the cap, or when the source refuses the load, the chosen keys stay checkable
-            // so the control can clear them.
-            let mut options = (related.load)(cx).await.unwrap_or_default();
+            // so the control can clear them; the loader logs what failed.
+            let mut options = related.load()(cx).await.unwrap_or_default();
             for key in input.value().values() {
                 if !options.iter().any(|(value, _)| value == key) {
                     options.push((key.clone(), key.clone()));
@@ -677,6 +649,13 @@ where
             }
             self.control_over(cx, input, &options)
         })
+    }
+
+    /// The source's type when the request's panel cannot load from it.
+    fn unavailable_source(&self, cx: &Cx) -> Option<&'static str> {
+        self.related
+            .as_ref()
+            .and_then(|related| related.unavailable_source(cx))
     }
 
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
@@ -694,7 +673,7 @@ where
             .or_else(|| {
                 self.related
                     .as_ref()
-                    .filter(|related| related.composite)
+                    .filter(|related| related.has_composite_source())
                     .map(|_| crate::DeclarationErrorKind::CompositeKeyChoice { field: name() })
             })
     }
