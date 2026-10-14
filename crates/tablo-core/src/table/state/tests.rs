@@ -121,14 +121,32 @@ fn a_blank_name_part_or_value_is_no_filter() {
 /// A value the parser keeps as written: no surrounding whitespace, no control character.
 const KEPT: &str = "[\\PC&&\\S]([\\PC]{0,20}[\\PC&&\\S])?";
 
+/// A value the parser keeps, or one past the length it keeps: a filter value the codec cannot
+/// carry must not reach the query.
+fn filter_text() -> impl proptest::strategy::Strategy<Value = String> {
+    use proptest::prelude::*;
+
+    prop_oneof![
+        7 => KEPT,
+        1 => "[\\PC&&\\S]{260,300}",
+    ]
+}
+
 /// The filter values a parse can produce: at least one value or part.
 fn filter_value() -> impl proptest::strategy::Strategy<Value = FilterValue> {
     use proptest::{collection, prelude::*};
 
-    (
-        collection::vec(KEPT, 0..4),
-        collection::btree_map("[a-z_]{1,8}", KEPT, 0..3),
-    )
+    // Every eighth case spells more values and parts than the codec carries, in kept spellings
+    // that survive the length cap, so the count cap stays exercised too.
+    let values = prop_oneof![
+        7 => collection::vec(filter_text(), 0..4),
+        1 => collection::vec(KEPT, MAX_FILTER_VALUES + 1..MAX_FILTER_VALUES + 8),
+    ];
+    let parts = prop_oneof![
+        7 => collection::btree_map("[a-z_]{1,8}", filter_text(), 0..3),
+        1 => collection::btree_map("[a-z_]{1,8}", KEPT, MAX_FILTER_VALUES + 1..MAX_FILTER_VALUES + 8),
+    ];
+    (values, parts)
         .prop_map(|(values, parts)| {
             let value = values
                 .into_iter()
