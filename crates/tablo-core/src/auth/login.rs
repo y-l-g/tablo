@@ -350,7 +350,7 @@ async fn render_login_page<'a>(
                     <p class="text-center text-sm text-muted-foreground">
                         "Don't have an account? "
                         <a
-                            href=(sign_up)
+                            (crate::navigation::runtime_link(cx, &sign_up))
                             class="font-medium text-foreground underline underline-offset-4"
                         >
                             "Sign up"

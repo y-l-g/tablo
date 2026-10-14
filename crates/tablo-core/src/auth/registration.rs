@@ -538,7 +538,7 @@ async fn render_page<'a>(
                 <p class="text-center text-sm text-muted-foreground">
                     "Already have an account? "
                     <a
-                        href=(login)
+                        (crate::navigation::runtime_link(cx, &login))
                         class="font-medium text-foreground underline underline-offset-4"
                     >
                         "Sign in"
