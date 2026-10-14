@@ -72,7 +72,7 @@ The panel also serves:
 | `login_hint(text)` | adds a line under the login form | [Branding](#branding-and-theme) |
 | `auth(Auth)` | replaces or disables the built-in password login | [Policy, auth, tenancy](./policy-auth-tenancy.md#authentication) |
 | `uploads(uploader)` | sets where file fields store their bytes | [Forms](./forms.md#file-uploads) |
-| `serve_dir(path, dir)` | serves a directory of files, publicly | [Forms](./forms.md#file-uploads) |
+| `serve_dir(path, dir)` | serves a directory of files, publicly unless the path sits under the panel prefix | [Forms](./forms.md#file-uploads) |
 | `uploads_dir(url_prefix, dir)` | stores file fields' uploads in a directory and serves it | [Forms](./forms.md#file-uploads) |
 | `shell_assets(css, font)` | adds the stylesheet, font and scripts | [Assets](#assets) |
 | `layout(render)` | frames the panel's pages with your layout instead of the shell | [The shell layout](#the-shell-layout) |

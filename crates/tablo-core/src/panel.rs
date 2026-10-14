@@ -176,8 +176,9 @@ impl Panel {
             .uploads(crate::upload::DirUploader::new(url_prefix, dir))
     }
 
-    /// Serves the directory `dir` at route pattern `path`, which must end in a catch-all and sits
-    /// outside the auth gate with hardening headers.
+    /// Serves the directory `dir` at route pattern `path`, which must end in a catch-all and
+    /// carries hardening headers. The auth gate does not cover it, unless `path` sits under the
+    /// panel prefix, which the gate covers.
     pub fn serve_dir(mut self, path: impl Into<String>, dir: impl Into<PathBuf>) -> Self {
         let path = path.into();
         if !is_directory_pattern(&path) {
