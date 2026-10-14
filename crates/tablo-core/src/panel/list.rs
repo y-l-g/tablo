@@ -145,7 +145,14 @@ pub(crate) fn table_error_view<'a>(
         tablo_ui::error_state(
             title: title,
             detail: "Something went wrong while loading the records.",
-            action: Some(view! { cx => <a href=(retry_url)>"Retry"</a> }.boxed().into()),
+            action: Some(
+                view! {
+                    cx =>
+                    <a (crate::navigation::runtime_link(cx, &retry_url))>"Retry"</a>
+                }
+                    .boxed()
+                    .into(),
+            ),
             attrs: attributes! { role="alert" }
         )
     }
