@@ -76,17 +76,16 @@ impl<'a> TestClient<'a> {
     /// Attaches a cookie to every request; a later value for the same name
     /// replaces the earlier one.
     pub fn cookie(&self, name: &str, value: &str) -> Self {
-        let mut client = self.clone();
-        match client.cookies.iter_mut().find(|(kept, _)| kept == name) {
-            Some(existing) => existing.1 = value.to_string(),
-            None => client.cookies.push((name.to_string(), value.to_string())),
-        }
-        client
+        self.with_cookies(&[(name.to_string(), value.to_string())])
     }
 
     /// Attaches every `(name, value)` pair, replacing earlier values for the
     /// same name.
     pub fn cookies(&self, cookies: &[(String, String)]) -> Self {
+        self.with_cookies(cookies)
+    }
+
+    fn with_cookies(&self, cookies: &[(String, String)]) -> Self {
         let mut client = self.clone();
         for (name, value) in cookies {
             match client.cookies.iter_mut().find(|(kept, _)| kept == name) {
@@ -184,19 +183,18 @@ impl<'a> TestClient<'a> {
     }
 
     pub async fn post_form(&self, uri: &str, body: String) -> http::Response<Body> {
-        let mut request = self.request(http::Method::POST, uri);
-        request.headers_mut().insert(
-            CONTENT_TYPE,
+        self.post(
+            uri,
             http::HeaderValue::from_static("application/x-www-form-urlencoded"),
-        );
-        *request.body_mut() = Body::from(body);
-        self.router.handle(request).await
+            body,
+        )
+        .await
     }
 
     /// Posts the urlencoded `body` as a panel form does: with a fresh CSRF token in both the
     /// cookie and the `csrf_token` field.
     pub async fn submit(&self, uri: &str, body: &str) -> http::Response<Body> {
-        let token = uuid::Uuid::new_v4().to_string();
+        let token = Self::fresh_csrf_token();
         let field = form_body(&[("csrf_token", &token)]);
         let body = if body.is_empty() {
             field
@@ -214,7 +212,7 @@ impl<'a> TestClient<'a> {
         parts: &[(&str, Option<&str>, &str)],
     ) -> http::Response<Body> {
         const BOUNDARY: &str = "tablo-test-boundary";
-        let token = uuid::Uuid::new_v4().to_string();
+        let token = Self::fresh_csrf_token();
         let mut parts = parts.to_vec();
         parts.push(("csrf_token", None, &token));
         let body = multipart_body(BOUNDARY, &parts);
@@ -227,15 +225,30 @@ impl<'a> TestClient<'a> {
         boundary: &str,
         body: String,
     ) -> http::Response<Body> {
-        let mut request = self.request(http::Method::POST, uri);
-        request.headers_mut().insert(
-            CONTENT_TYPE,
+        self.post(
+            uri,
             format!("multipart/form-data; boundary={boundary}")
                 .parse()
                 .expect("multipart content type"),
-        );
+            body,
+        )
+        .await
+    }
+
+    async fn post(
+        &self,
+        uri: &str,
+        content_type: http::HeaderValue,
+        body: String,
+    ) -> http::Response<Body> {
+        let mut request = self.request(http::Method::POST, uri);
+        request.headers_mut().insert(CONTENT_TYPE, content_type);
         *request.body_mut() = Body::from(body);
         self.router.handle(request).await
+    }
+
+    fn fresh_csrf_token() -> String {
+        uuid::Uuid::new_v4().to_string()
     }
 
     fn request(&self, method: http::Method, uri: &str) -> http::Request<Body> {
