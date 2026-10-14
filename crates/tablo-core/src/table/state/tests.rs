@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use topcoat::context::{Cx, CxTestBuilder};
 
 use super::*;
-use crate::topcoat_compat::href::encode_path_segment;
+use crate::topcoat_compat::href::encode_query_value;
 
 fn cx_with_query(query: &str) -> Cx {
     let uri = if query.is_empty() {
@@ -284,11 +284,11 @@ fn both_cursors_parse_as_the_first_page() {
 #[test]
 fn path_segment_encoding_keeps_uuids_and_escapes_reserved() {
     let uuid = uuid::Uuid::nil().to_string();
-    assert_eq!(encode_path_segment(&uuid), uuid);
-    assert_eq!(encode_path_segment("a/b"), "a%2Fb");
-    assert_eq!(encode_path_segment("a+b@c.com"), "a%2Bb%40c.com");
-    assert_eq!(encode_path_segment("100%"), "100%25");
-    assert_eq!(encode_path_segment("a?b#c"), "a%3Fb%23c");
+    assert_eq!(encode_query_value(&uuid), uuid);
+    assert_eq!(encode_query_value("a/b"), "a%2Fb");
+    assert_eq!(encode_query_value("a+b@c.com"), "a%2Bb%40c.com");
+    assert_eq!(encode_query_value("100%"), "100%25");
+    assert_eq!(encode_query_value("a?b#c"), "a%3Fb%23c");
 }
 
 #[test]

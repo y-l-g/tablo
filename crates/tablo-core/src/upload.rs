@@ -15,7 +15,7 @@ use crate::{
     form::{FieldErrors, FormValues},
     panel::state::current,
     schema::Schema,
-    topcoat_compat::href::encode_path_segment,
+    topcoat_compat::href::encode_query_value,
 };
 
 /// Stores one uploaded file and names the value a record stores; installed once
@@ -92,7 +92,7 @@ impl DirUploader {
         let name = percent_decode_str(segment).decode_utf8().ok()?;
         (!name.is_empty()
             && sanitize_filename(&name) == name
-            && encode_path_segment(&name) == segment)
+            && encode_query_value(&name) == segment)
             .then(|| name.into_owned())
     }
 }
@@ -114,11 +114,7 @@ impl Uploader for DirUploader {
         tokio::fs::write(self.dir.join(&name), bytes)
             .await
             .map_err(|_| "the upload could not be written".to_string())?;
-        Ok(format!(
-            "{}/{}",
-            self.url_prefix,
-            encode_path_segment(&name)
-        ))
+        Ok(format!("{}/{}", self.url_prefix, encode_query_value(&name)))
     }
 
     /// Whether the directory holds the file a URL `store` returned names. The name `store` writes

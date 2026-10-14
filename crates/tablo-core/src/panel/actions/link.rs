@@ -115,7 +115,7 @@ async fn attach<'a, R: Resource>(
     let home = format!(
         "{}/{}",
         resource.url,
-        crate::topcoat_compat::href::encode_path_segment(&id)
+        crate::topcoat_compat::href::encode_query_value(&id)
     );
     let chrome = || {
         let url = relation_url(&resource.url, &id, path_param_segment(cx, "relation"));

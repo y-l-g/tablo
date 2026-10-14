@@ -51,16 +51,6 @@ pub(crate) mod href {
             .unwrap_or_else(|_| value.to_string())
     }
 
-    /// Percent-encode a single path segment.
-    ///
-    /// Row keys are `String` by contract, so `/`, `?`, `#`, `%`, `+` inside a key
-    /// must not rewrite the action URL. Topcoat's `path_param_segment` returns
-    /// the percent-decoded segment, so this round-trips; UUID keys pass through
-    /// unchanged.
-    pub(crate) fn encode_path_segment(value: &str) -> String {
-        encode_query_value(value)
-    }
-
     /// Encode ordered `key=value` pairs as a URL query, without the leading `?`.
     pub(crate) fn encode_query(pairs: &[(String, &str)]) -> String {
         pairs

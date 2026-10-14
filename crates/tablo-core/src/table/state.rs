@@ -582,7 +582,7 @@ pub(crate) const RELATED_ROUTE_PARAM: &str = "{related}";
 pub(crate) fn relation_url(list: &str, key: &str, slug: &str) -> String {
     format!(
         "{list}/{}/{DASH_ROUTE_SEGMENT}/{RELATIONS_ROUTE_SEGMENT}/{slug}",
-        href::encode_path_segment(key)
+        href::encode_query_value(key)
     )
 }
 
@@ -590,20 +590,20 @@ pub(crate) fn relation_url(list: &str, key: &str, slug: &str) -> String {
 pub(crate) fn row_edit_url(prefix: &str, key: &str) -> String {
     format!(
         "{prefix}/{}/{EDIT_ROUTE_SEGMENT}",
-        href::encode_path_segment(key)
+        href::encode_query_value(key)
     )
 }
 
 /// The row's `View` link: `{prefix}/{key}` — the detail page.
 pub(crate) fn row_view_url(prefix: &str, key: &str) -> String {
-    format!("{prefix}/{}", href::encode_path_segment(key))
+    format!("{prefix}/{}", href::encode_query_value(key))
 }
 
 /// The row delete form's POST target: `{prefix}/{key}/delete`.
 pub(crate) fn delete_action_url(prefix: &str, key: &str) -> String {
     format!(
         "{prefix}/{}/{DELETE_ROUTE_SEGMENT}",
-        href::encode_path_segment(key)
+        href::encode_query_value(key)
     )
 }
 
@@ -611,7 +611,7 @@ pub(crate) fn delete_action_url(prefix: &str, key: &str) -> String {
 pub(crate) fn row_action_url(prefix: &str, key: &str, name: &str) -> String {
     format!(
         "{prefix}/{}/{DASH_ROUTE_SEGMENT}/{ACTIONS_ROUTE_SEGMENT}/{name}",
-        href::encode_path_segment(key)
+        href::encode_query_value(key)
     )
 }
 
