@@ -5,10 +5,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{Data, DeriveInput, Fields};
 
-use crate::{
-    fields::last_segment,
-    model_form::{foreign_keys, has, is_tenant, struct_keys},
-};
+use crate::model_form::{ExcludedKind, excluded_kind, foreign_keys, has, struct_keys};
 
 pub fn expand_tokens(input: DeriveInput) -> TokenStream2 {
     match expand_checked(input) {
@@ -143,22 +140,22 @@ fn asks_skip(field: &syn::Field) -> syn::Result<Option<&syn::Attribute>> {
 /// An `#[auto]` field off the key shows: Toasty writes an `#[auto] created_at` or `updated_at`
 /// timestamp a person reads.
 fn left_out(field: &syn::Field, key: bool, foreign_key: bool) -> Option<&'static str> {
-    if key && has(field, "auto") {
-        Some("Toasty generates this key")
-    } else if has(field, "version") {
-        Some("Toasty counts its versions")
-    } else if has(field, "belongs_to")
-        || has(field, "has_many")
-        || has(field, "has_one")
-        || last_segment(&field.ty).is_some_and(|name| name == "Deferred")
-    {
-        Some("a relation's records show through a `RelationColumn`")
-    } else if foreign_key {
-        Some("a foreign key's record shows through a `RelationColumn`")
-    } else if is_tenant(&field.ty) {
-        Some("a `TenantId` column belongs to the resource's `Tenancy`")
-    } else {
-        None
+    match excluded_kind(field, key, foreign_key) {
+        Some(ExcludedKind::Key) if has(field, "auto") => Some("Toasty generates this key"),
+        Some(ExcludedKind::Key) | Some(ExcludedKind::Auto) => None,
+        Some(ExcludedKind::Version) => Some("Toasty counts its versions"),
+        Some(ExcludedKind::BelongsTo)
+        | Some(ExcludedKind::ManyToMany)
+        | Some(ExcludedKind::Relation) => {
+            Some("a relation's records show through a `RelationColumn`")
+        }
+        Some(ExcludedKind::ForeignKey) => {
+            Some("a foreign key's record shows through a `RelationColumn`")
+        }
+        Some(ExcludedKind::Tenant) => {
+            Some("a `TenantId` column belongs to the resource's `Tenancy`")
+        }
+        None => None,
     }
 }
 

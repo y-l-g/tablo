@@ -139,37 +139,70 @@ fn form_name(input: &DeriveInput) -> syn::Result<syn::Ident> {
     Ok(name.unwrap_or_else(|| format_ident!("{}Form", input.ident)))
 }
 
-/// Why no form writes `field`, and the fix for a form key on it, when none does.
-fn never_written(field: &syn::Field, struct_key: bool) -> Option<(&'static str, &'static str)> {
-    const DROP: &str = "drop the `#[form(..)]` key";
+pub(crate) enum ExcludedKind {
+    Key,
+    Version,
+    Auto,
+    BelongsTo,
+    ManyToMany,
+    Relation,
+    ForeignKey,
+    Tenant,
+}
+
+pub(crate) fn excluded_kind(
+    field: &syn::Field,
+    struct_key: bool,
+    foreign_key: bool,
+) -> Option<ExcludedKind> {
     if has(field, "key") || struct_key {
-        Some(("an edit never rewrites a record's key", DROP))
-    } else if has(field, "auto") || has(field, "update") || has(field, "version") {
-        Some(("Toasty writes it", DROP))
+        Some(ExcludedKind::Key)
+    } else if has(field, "version") {
+        Some(ExcludedKind::Version)
+    } else if has(field, "auto") || has(field, "update") {
+        Some(ExcludedKind::Auto)
     } else if has(field, "belongs_to") {
-        Some((
-            "a relation is written through its foreign key",
-            "put the key on the foreign key",
-        ))
+        Some(ExcludedKind::BelongsTo)
     } else if field.attrs.iter().any(|attr| {
         attr.path().is_ident("has_many") && idents(inner(attr)).iter().any(|ident| ident == "via")
     }) {
-        Some((
-            "a many-to-many field binds its records' keys, not the relation",
-            "declare a `#[derive(RecordForm)]` struct with a `Vec` of the keys",
-        ))
+        Some(ExcludedKind::ManyToMany)
     } else if has(field, "has_many")
         || has(field, "has_one")
         || last_segment(&field.ty).is_some_and(|name| name == "Deferred")
     {
-        Some(("the related records hold this relation's foreign key", DROP))
+        Some(ExcludedKind::Relation)
+    } else if foreign_key {
+        Some(ExcludedKind::ForeignKey)
     } else if is_tenant(&field.ty) {
-        Some((
-            "a `TenantId` column belongs to the resource's `Tenancy`",
-            DROP,
-        ))
+        Some(ExcludedKind::Tenant)
     } else {
         None
+    }
+}
+
+/// Why no form writes `field`, and the fix for a form key on it, when none does.
+fn never_written(field: &syn::Field, struct_key: bool) -> Option<(&'static str, &'static str)> {
+    const DROP: &str = "drop the `#[form(..)]` key";
+    match excluded_kind(field, struct_key, false) {
+        Some(ExcludedKind::Key) => Some(("an edit never rewrites a record's key", DROP)),
+        Some(ExcludedKind::Auto) | Some(ExcludedKind::Version) => Some(("Toasty writes it", DROP)),
+        Some(ExcludedKind::BelongsTo) => Some((
+            "a relation is written through its foreign key",
+            "put the key on the foreign key",
+        )),
+        Some(ExcludedKind::ManyToMany) => Some((
+            "a many-to-many field binds its records' keys, not the relation",
+            "declare a `#[derive(RecordForm)]` struct with a `Vec` of the keys",
+        )),
+        Some(ExcludedKind::Relation) => {
+            Some(("the related records hold this relation's foreign key", DROP))
+        }
+        Some(ExcludedKind::Tenant) => Some((
+            "a `TenantId` column belongs to the resource's `Tenancy`",
+            DROP,
+        )),
+        Some(ExcludedKind::ForeignKey) | None => None,
     }
 }
 
