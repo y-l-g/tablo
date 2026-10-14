@@ -604,7 +604,7 @@ where
         let (data, class) = if value {
             (tablo_ui::icons::CIRCLE_CHECK, "size-4 text-primary")
         } else {
-            (tablo_ui::icons::X, "size-4 text-muted-foreground")
+            (tablo_ui::icons::CIRCLE_X, "size-4 text-destructive")
         };
         view! {
             cx =>

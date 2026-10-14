@@ -55,7 +55,7 @@ foreign key `Relation::has_many` takes.
 | `RelationColumn::new(relation!(..), project)` | `project` of the same record, for a related model no resource or option source labels | neither |
 | `RelationColumn::list::<R>(relation!(..))` | a `Deferred` `has_many` field's records, a many-to-many `via` field's included, each titled as `R` titles it, joined by commas | neither |
 | `CountColumn::new(relation!(..))` | the number of a `Deferred` `has_many` field's records | neither |
-| `BooleanColumn::new(lens)` | a check or a cross icon for a `bool` field; the export writes `Yes`/`No` (`.labels(..)`) | `.sortable()` |
+| `BooleanColumn::new(lens)` | a circled check or circled cross for a `bool` field; the export writes `Yes`/`No` (`.labels(..)`) | `.sortable()` |
 | `FileColumn::new(lens)` | a `String` field's stored upload path, as a link when it is a rooted path or an `http(s)` URL | neither |
 | `EmbeddedColumn::new(lens)` | an embedded value's fields as `Label: value, …`; an enum's variant first, then that variant's fields | neither |
 

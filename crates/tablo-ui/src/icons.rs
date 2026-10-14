@@ -8,8 +8,10 @@ pub const ARROW_UP_DOWN: IconData = iconify_icon!("lucide:arrow-up-down");
 pub const ARROW_UP: IconData = iconify_icon!("lucide:arrow-up");
 /// Sortable column, sorted descending.
 pub const ARROW_DOWN: IconData = iconify_icon!("lucide:arrow-down");
-/// Toast success.
+/// Toast success, and a `true` boolean cell.
 pub const CIRCLE_CHECK: IconData = iconify_icon!("lucide:circle-check");
+/// A `false` boolean cell.
+pub const CIRCLE_X: IconData = iconify_icon!("lucide:circle-x");
 /// Toast info.
 pub const INFO: IconData = iconify_icon!("lucide:info");
 /// Toast warning.
