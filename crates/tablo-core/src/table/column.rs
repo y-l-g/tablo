@@ -29,6 +29,15 @@ macro_rules! base_builders {
             self
         }
     };
+    (sortable) => {
+        base_builders!();
+
+        /// Make the header a sort link.
+        pub fn sortable(mut self) -> Self {
+            self.sortable = true;
+            self
+        }
+    };
 }
 
 /// The [`Column`] methods a column over a [`ColumnBase`] answers from it, inside its `Column`
@@ -58,6 +67,14 @@ macro_rules! base_column_methods {
             self.base.binding.bind(resolver);
         }
     };
+}
+
+fn sort_order<M, T>(path: &Path<M, T>, descending: bool) -> OrderByExpr {
+    if descending {
+        path.clone().desc()
+    } else {
+        path.clone().asc()
+    }
 }
 
 mod embedded;
@@ -399,13 +416,7 @@ where
         self
     }
 
-    /// Make the header a sort link.
-    pub fn sortable(mut self) -> Self {
-        self.sortable = true;
-        self
-    }
-
-    base_builders!();
+    base_builders!(sortable);
 }
 
 impl<M, T> TextColumn<M, T>
@@ -450,10 +461,8 @@ where
     }
 
     fn order_by(&self, descending: bool) -> Option<OrderByExpr> {
-        self.sortable.then(|| {
-            let path = self.lens.path().clone();
-            if descending { path.desc() } else { path.asc() }
-        })
+        self.sortable
+            .then(|| sort_order(self.lens.path(), descending))
     }
 }
 
@@ -523,13 +532,7 @@ where
         }
     }
 
-    /// Make the header a sort link.
-    pub fn sortable(mut self) -> Self {
-        self.sortable = true;
-        self
-    }
-
-    base_builders!();
+    base_builders!(sortable);
 }
 
 impl<M, T> Column<M> for DateColumn<M, T>
@@ -552,10 +555,8 @@ where
     }
 
     fn order_by(&self, descending: bool) -> Option<OrderByExpr> {
-        self.sortable.then(|| {
-            let path = self.lens.path().clone();
-            if descending { path.desc() } else { path.asc() }
-        })
+        self.sortable
+            .then(|| sort_order(self.lens.path(), descending))
     }
 }
 
@@ -671,13 +672,7 @@ where
         }
     }
 
-    /// Make the header a sort link.
-    pub fn sortable(mut self) -> Self {
-        self.sortable = true;
-        self
-    }
-
-    base_builders!();
+    base_builders!(sortable);
 
     /// The words for `true` and `false`.
     pub fn labels(mut self, yes: impl Into<String>, no: impl Into<String>) -> Self {
@@ -726,10 +721,8 @@ where
     }
 
     fn order_by(&self, descending: bool) -> Option<OrderByExpr> {
-        self.sortable.then(|| {
-            let path = self.lens.path().clone();
-            if descending { path.desc() } else { path.asc() }
-        })
+        self.sortable
+            .then(|| sort_order(self.lens.path(), descending))
     }
 }
 
