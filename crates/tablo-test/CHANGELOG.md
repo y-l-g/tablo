@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0](https://github.com/y-l-g/tablo/compare/tablo-test-v0.6.0...tablo-test-v0.7.0) - 2026-10-14
+
+### Added
+
+- *(table)* multi-select, date-range and relationship filters ([#617](https://github.com/y-l-g/tablo/pull/617))
+
+### Changed
+
+- *(test)* dedup TestClient helpers ([#635](https://github.com/y-l-g/tablo/pull/635))
+
+### Fixed
+
+- *(table)* [**breaking**] follow up the filter controls ([#617](https://github.com/y-l-g/tablo/pull/617)) ([#622](https://github.com/y-l-g/tablo/pull/622))
+
+### Test
+
+- [**breaking**] promote helpers into tablo-test, pin refusals with trybuild, assert kinds over wording ([#598](https://github.com/y-l-g/tablo/pull/598))
+
 ## [0.6.0](https://github.com/y-l-g/tablo/compare/tablo-test-v0.5.1...tablo-test-v0.6.0) - 2026-10-10
 
 ### Added
