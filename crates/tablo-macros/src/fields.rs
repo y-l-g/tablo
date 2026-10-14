@@ -9,7 +9,7 @@
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote_spanned;
-use syn::{Type, spanned::Spanned};
+use syn::{Data, DeriveInput, Fields, Type, spanned::Spanned};
 
 /// Which derive reads the attributes: each accepts its own keys.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -32,6 +32,32 @@ impl Derive {
     /// item's do.
     fn named(self) -> bool {
         matches!(self, Self::Input | Self::Item)
+    }
+}
+
+pub(crate) fn reject_generics(input: &DeriveInput, message: &str) -> syn::Result<()> {
+    if input.generics.params.is_empty() {
+        Ok(())
+    } else {
+        Err(syn::Error::new_spanned(&input.generics, message))
+    }
+}
+
+pub(crate) fn named_fields<'a>(
+    input: &'a DeriveInput,
+    shape: &str,
+    empty: Option<&str>,
+) -> syn::Result<&'a syn::FieldsNamed> {
+    match &input.data {
+        Data::Struct(data) => match &data.fields {
+            Fields::Named(named) if !named.named.is_empty() => Ok(named),
+            Fields::Named(named) => match empty {
+                Some(message) => Err(syn::Error::new_spanned(&input.ident, message)),
+                None => Ok(named),
+            },
+            _ => Err(syn::Error::new_spanned(&input.ident, shape)),
+        },
+        _ => Err(syn::Error::new_spanned(&input.ident, shape)),
     }
 }
 

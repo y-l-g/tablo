@@ -10,7 +10,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{Data, DeriveInput, Fields};
 
-use crate::fields::sentence_case;
+use crate::fields::{reject_generics, sentence_case};
 
 pub fn expand_tokens(input: DeriveInput) -> TokenStream2 {
     match expand_checked(&input) {
@@ -26,12 +26,10 @@ struct Choice {
 }
 
 fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
-    if !input.generics.params.is_empty() {
-        return Err(syn::Error::new_spanned(
-            &input.generics,
-            "#[derive(Options)] does not support generic or lifetime parameters",
-        ));
-    }
+    reject_generics(
+        input,
+        "#[derive(Options)] does not support generic or lifetime parameters",
+    )?;
     let Data::Enum(data) = &input.data else {
         return Err(syn::Error::new_spanned(
             &input.ident,

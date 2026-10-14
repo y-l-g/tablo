@@ -3,10 +3,10 @@
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::{Data, DeriveInput, Fields};
+use syn::DeriveInput;
 
 use crate::{
-    fields::last_segment,
+    fields::{last_segment, named_fields, reject_generics},
     model_form::{foreign_keys, has, is_tenant, struct_keys},
 };
 
@@ -68,12 +68,10 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
 
 /// The fields of `input` a column shows, in declaration order.
 fn shown_fields(input: &DeriveInput) -> syn::Result<Vec<&syn::Field>> {
-    if !input.generics.params.is_empty() {
-        return Err(syn::Error::new_spanned(
-            &input.generics,
-            "#[derive(ModelColumns)] does not support a generic model",
-        ));
-    }
+    reject_generics(
+        input,
+        "#[derive(ModelColumns)] does not support a generic model",
+    )?;
     if let Some(attr) = input
         .attrs
         .iter()
@@ -84,16 +82,11 @@ fn shown_fields(input: &DeriveInput) -> syn::Result<Vec<&syn::Field>> {
             "`#[columns(..)]` goes on a field: `#[columns(skip)]`",
         ));
     }
-    let Data::Struct(syn::DataStruct {
-        fields: Fields::Named(named),
-        ..
-    }) = &input.data
-    else {
-        return Err(syn::Error::new_spanned(
-            &input.ident,
-            "#[derive(ModelColumns)] derives on a `toasty::Model` struct",
-        ));
-    };
+    let named = named_fields(
+        input,
+        "#[derive(ModelColumns)] derives on a `toasty::Model` struct",
+        None,
+    )?;
     let foreign = foreign_keys(named.named.iter());
     let keys = struct_keys(input);
     let mut shown = Vec::new();

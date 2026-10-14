@@ -5,10 +5,11 @@
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote, quote_spanned};
-use syn::{Data, DeriveInput, Fields, Type, spanned::Spanned};
+use syn::{DeriveInput, Type, spanned::Spanned};
 
 use crate::fields::{
     Derive, FormAttrs, assert_scalar, blank_answer, blank_option, form_attrs, last_segment,
+    named_fields, reject_generics,
 };
 
 /// Which trait the derive implements.
@@ -51,35 +52,17 @@ struct FieldSpec {
 
 fn expand_checked(input: DeriveInput, target: Target) -> syn::Result<TokenStream2> {
     let derive = target.name();
-    if !input.generics.params.is_empty() {
-        return Err(syn::Error::new_spanned(
-            &input.generics,
-            format!("#[derive({derive})] does not support generic or lifetime parameters"),
-        ));
-    }
-    let shape = || {
-        syn::Error::new_spanned(
-            &input.ident,
-            format!("#[derive({derive})] supports a struct with named fields"),
-        )
+    reject_generics(
+        &input,
+        &format!("#[derive({derive})] does not support generic or lifetime parameters"),
+    )?;
+    let shape = format!("#[derive({derive})] supports a struct with named fields");
+    let hint = match target {
+        Target::Input => ": an action that asks for nothing names `type Input = ();`",
+        Target::Item => "",
     };
-    let named = match &input.data {
-        Data::Struct(data) => match &data.fields {
-            Fields::Named(named) if !named.named.is_empty() => named,
-            Fields::Named(_) => {
-                let hint = match target {
-                    Target::Input => ": an action that asks for nothing names `type Input = ();`",
-                    Target::Item => "",
-                };
-                return Err(syn::Error::new_spanned(
-                    &input.ident,
-                    format!("#[derive({derive})] needs at least one field{hint}"),
-                ));
-            }
-            _ => return Err(shape()),
-        },
-        _ => return Err(shape()),
-    };
+    let empty = format!("#[derive({derive})] needs at least one field{hint}");
+    let named = named_fields(&input, &shape, Some(empty.as_str()))?;
     let fields = named
         .named
         .iter()
