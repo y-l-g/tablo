@@ -35,11 +35,11 @@ pub fn post_table() -> Table<Post> {
 }
 // ANCHOR_END: post-table-post
 
-// ANCHOR: table-format
-pub fn formatted_columns() {
-    TextColumn::new(lens!(User.created_at)).format(|at| at.strftime("%Y-%m-%d").to_string());
+// ANCHOR: table-date
+pub fn date_column() -> DateColumn<User, jiff::Timestamp> {
+    DateColumn::new(lens!(User.created_at)).sortable()
 }
-// ANCHOR_END: table-format
+// ANCHOR_END: table-date
 
 // ANCHOR: table-relation-column
 pub fn author_column() -> RelationColumn<Post> {

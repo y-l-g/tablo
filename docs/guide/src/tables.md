@@ -50,6 +50,7 @@ foreign key `Relation::has_many` takes.
 | Constructor | Cell | Search and sort |
 | --- | --- | --- |
 | `TextColumn::new(lens)` | the field's value as text (an `Options` enum's label), or `.format(\|value\| ..)` of it | `.searchable()` on a `String` field, `.sortable()` |
+| `DateColumn::new(lens)` | a `jiff::civil::Date`, `civil::DateTime` or `Timestamp` field's calendar day, `Oct 14, 2026` (a timestamp in UTC); a dash when the field holds none | `.sortable()` |
 | `ComputedColumn::new(label, project)` | `project(row)` | neither: the methods do not exist |
 | `RelationColumn::of::<R>(relation!(..))` | a `Deferred` `belongs_to` or `has_one` field's record, titled as `R` titles it: a resource's `record_title`; a dash for a nullable field holding none | neither |
 | `RelationColumn::new(relation!(..), project)` | `project` of the same record, for a related model no resource or option source labels | neither |
@@ -60,7 +61,7 @@ foreign key `Relation::has_many` takes.
 | `EmbeddedColumn::new(lens)` | an embedded value's fields as `Label: value, …`; an enum's variant first, then that variant's fields | neither |
 
 ```rust
-{{#include ../../../examples/guide/src/tables.rs:table-format}}
+{{#include ../../../examples/guide/src/tables.rs:table-date}}
 ```
 
 - **Labels.** A field or relation column is labelled from its field name (`created_at` →

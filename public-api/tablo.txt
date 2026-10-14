@@ -17,7 +17,9 @@ pub use tablo::prelude::Committed
 pub use tablo::prelude::ComputedColumn
 pub use tablo::prelude::CountColumn
 pub use tablo::prelude::CustomField
+pub use tablo::prelude::DateColumn
 pub use tablo::prelude::DateFilter
+pub use tablo::prelude::DateValue
 pub use tablo::prelude::Deny
 pub use tablo::prelude::Detail
 pub use tablo::prelude::EmbeddedColumn

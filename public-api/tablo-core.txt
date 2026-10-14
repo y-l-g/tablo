@@ -383,6 +383,8 @@ impl<M, A, B> tablo_core::detail::IntoDetail<M> for (A, B) where A: tablo_core::
 pub fn (A, B)::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, A> tablo_core::detail::IntoDetail<M> for (A) where A: tablo_core::detail::IntoDetail<M>
 pub fn (A)::into_detail(self) -> tablo_core::detail::Detail<M>
+impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::DateColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+pub fn tablo_core::DateColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::EmbeddedColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::EmbeddedColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::RepeaterColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
@@ -522,6 +524,18 @@ pub fn tablo_core::extend::Column::name(&self) -> &str
 pub fn tablo_core::extend::Column::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::extend::Column::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::extend::Column::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+impl<M, T> tablo_core::extend::Column<M> for tablo_core::DateColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::DateValue
+pub fn tablo_core::DateColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
+pub fn tablo_core::DateColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
+pub fn tablo_core::DateColumn<M, T>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
+pub fn tablo_core::DateColumn<M, T>::includes(&self) -> tablo_core::extend::Includes<M>
+pub fn tablo_core::DateColumn<M, T>::is_searchable(&self) -> bool
+pub fn tablo_core::DateColumn<M, T>::is_sortable(&self) -> bool
+pub fn tablo_core::DateColumn<M, T>::label(&self) -> &str
+pub fn tablo_core::DateColumn<M, T>::name(&self) -> &str
+pub fn tablo_core::DateColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::DateColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
+pub fn tablo_core::DateColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 impl<M, T> tablo_core::extend::Column<M> for tablo_core::EmbeddedColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::EmbeddedForm + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::EmbeddedColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::EmbeddedColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
@@ -2225,6 +2239,38 @@ impl<M> core::marker::Unpin for tablo_core::CountColumn<M> where Declared<M>: co
 impl<M> core::marker::UnsafeUnpin for tablo_core::CountColumn<M> where Declared<M>: core::marker::UnsafeUnpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::UnsafeUnpin
 impl<M> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::CountColumn<M>
 impl<M> !core::panic::unwind_safe::UnwindSafe for tablo_core::CountColumn<M>
+pub struct tablo_core::table::DateColumn<M, T>
+impl<M, T> tablo_core::DateColumn<M, T> where M: toasty::schema::model::Model
+pub fn tablo_core::DateColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::DateColumn<M, T>::new(tablo_core::Lens<M, T>) -> Self where T: tablo_core::DateValue
+pub fn tablo_core::DateColumn<M, T>::sortable(self) -> Self
+pub fn tablo_core::DateColumn<M, T>::width(self, tablo_core::ColumnWidth) -> Self
+impl<M, T> core::clone::Clone for tablo_core::DateColumn<M, T>
+pub fn tablo_core::DateColumn<M, T>::clone(&self) -> Self
+impl<M, T> core::fmt::Debug for tablo_core::DateColumn<M, T>
+pub fn tablo_core::DateColumn<M, T>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<M, T> tablo_core::IntoColumns<M> for tablo_core::DateColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::DateColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+pub fn tablo_core::DateColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
+impl<M, T> tablo_core::extend::Column<M> for tablo_core::DateColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::DateValue
+pub fn tablo_core::DateColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
+pub fn tablo_core::DateColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
+pub fn tablo_core::DateColumn<M, T>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
+pub fn tablo_core::DateColumn<M, T>::includes(&self) -> tablo_core::extend::Includes<M>
+pub fn tablo_core::DateColumn<M, T>::is_searchable(&self) -> bool
+pub fn tablo_core::DateColumn<M, T>::is_sortable(&self) -> bool
+pub fn tablo_core::DateColumn<M, T>::label(&self) -> &str
+pub fn tablo_core::DateColumn<M, T>::name(&self) -> &str
+pub fn tablo_core::DateColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::DateColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
+pub fn tablo_core::DateColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+impl<M, T> !core::marker::Freeze for tablo_core::DateColumn<M, T>
+impl<M, T> core::marker::Send for tablo_core::DateColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send
+impl<M, T> core::marker::Sync for tablo_core::DateColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync
+impl<M, T> core::marker::Unpin for tablo_core::DateColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Unpin
+impl<M, T> core::marker::UnsafeUnpin for tablo_core::DateColumn<M, T> where tablo_core::Lens<M, T>: core::marker::UnsafeUnpin
+impl<M, T> core::panic::unwind_safe::RefUnwindSafe for tablo_core::DateColumn<M, T> where tablo_core::Lens<M, T>: core::panic::unwind_safe::RefUnwindSafe
+impl<M, T> core::panic::unwind_safe::UnwindSafe for tablo_core::DateColumn<M, T> where tablo_core::Lens<M, T>: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::table::DateFilter<M>
 impl<M> tablo_core::DateFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::DateFilter<M>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
@@ -2644,6 +2690,16 @@ impl<M> core::marker::UnsafeUnpin for tablo_core::WiredTable<M> where alloc::syn
 impl<M> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::WiredTable<M>
 impl<M> !core::panic::unwind_safe::UnwindSafe for tablo_core::WiredTable<M>
 pub const tablo_core::table::DEFAULT_PAGE_SIZE: core::num::nonzero::NonZeroUsize
+pub trait tablo_core::table::DateValue: core::marker::Sized + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::table::DateValue::calendar_date(&self) -> core::option::Option<jiff::civil::date::Date>
+impl tablo_core::DateValue for jiff::civil::date::Date
+pub fn jiff::civil::date::Date::calendar_date(&self) -> core::option::Option<jiff::civil::date::Date>
+impl tablo_core::DateValue for jiff::civil::datetime::DateTime
+pub fn jiff::civil::datetime::DateTime::calendar_date(&self) -> core::option::Option<jiff::civil::date::Date>
+impl tablo_core::DateValue for jiff::timestamp::Timestamp
+pub fn jiff::timestamp::Timestamp::calendar_date(&self) -> core::option::Option<jiff::civil::date::Date>
+impl<T: tablo_core::DateValue> tablo_core::DateValue for core::option::Option<T>
+pub fn core::option::Option<T>::calendar_date(&self) -> core::option::Option<jiff::civil::date::Date>
 pub trait tablo_core::table::IntoColumns<M>
 impl<M, A, B, C, D, E, F, G, H, I, J, K, L> tablo_core::IntoColumns<M> for (A, B, C, D, E, F, G, H, I, J, K, L) where A: tablo_core::extend::Column<M> + 'static, B: tablo_core::extend::Column<M> + 'static, C: tablo_core::extend::Column<M> + 'static, D: tablo_core::extend::Column<M> + 'static, E: tablo_core::extend::Column<M> + 'static, F: tablo_core::extend::Column<M> + 'static, G: tablo_core::extend::Column<M> + 'static, H: tablo_core::extend::Column<M> + 'static, I: tablo_core::extend::Column<M> + 'static, J: tablo_core::extend::Column<M> + 'static, K: tablo_core::extend::Column<M> + 'static, L: tablo_core::extend::Column<M> + 'static
 impl<M, A, B, C, D, E, F, G, H, I, J, K> tablo_core::IntoColumns<M> for (A, B, C, D, E, F, G, H, I, J, K) where A: tablo_core::extend::Column<M> + 'static, B: tablo_core::extend::Column<M> + 'static, C: tablo_core::extend::Column<M> + 'static, D: tablo_core::extend::Column<M> + 'static, E: tablo_core::extend::Column<M> + 'static, F: tablo_core::extend::Column<M> + 'static, G: tablo_core::extend::Column<M> + 'static, H: tablo_core::extend::Column<M> + 'static, I: tablo_core::extend::Column<M> + 'static, J: tablo_core::extend::Column<M> + 'static, K: tablo_core::extend::Column<M> + 'static
@@ -2657,6 +2713,7 @@ impl<M, A, B, C, D> tablo_core::IntoColumns<M> for (A, B, C, D) where A: tablo_c
 impl<M, A, B, C> tablo_core::IntoColumns<M> for (A, B, C) where A: tablo_core::extend::Column<M> + 'static, B: tablo_core::extend::Column<M> + 'static, C: tablo_core::extend::Column<M> + 'static
 impl<M, A, B> tablo_core::IntoColumns<M> for (A, B) where A: tablo_core::extend::Column<M> + 'static, B: tablo_core::extend::Column<M> + 'static
 impl<M, A> tablo_core::IntoColumns<M> for (A) where A: tablo_core::extend::Column<M> + 'static
+impl<M, T> tablo_core::IntoColumns<M> for tablo_core::DateColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::EmbeddedColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::RepeaterColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::TextColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
@@ -3523,6 +3580,38 @@ impl<F> core::marker::Unpin for tablo_core::CustomField<F> where core::marker::P
 impl<F> core::marker::UnsafeUnpin for tablo_core::CustomField<F> where core::marker::PhantomData<fn() -> F>: core::marker::UnsafeUnpin
 impl<F> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::CustomField<F>
 impl<F> !core::panic::unwind_safe::UnwindSafe for tablo_core::CustomField<F>
+pub struct tablo_core::DateColumn<M, T>
+impl<M, T> tablo_core::DateColumn<M, T> where M: toasty::schema::model::Model
+pub fn tablo_core::DateColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::DateColumn<M, T>::new(tablo_core::Lens<M, T>) -> Self where T: tablo_core::DateValue
+pub fn tablo_core::DateColumn<M, T>::sortable(self) -> Self
+pub fn tablo_core::DateColumn<M, T>::width(self, tablo_core::ColumnWidth) -> Self
+impl<M, T> core::clone::Clone for tablo_core::DateColumn<M, T>
+pub fn tablo_core::DateColumn<M, T>::clone(&self) -> Self
+impl<M, T> core::fmt::Debug for tablo_core::DateColumn<M, T>
+pub fn tablo_core::DateColumn<M, T>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<M, T> tablo_core::IntoColumns<M> for tablo_core::DateColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::DateColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+pub fn tablo_core::DateColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
+impl<M, T> tablo_core::extend::Column<M> for tablo_core::DateColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::DateValue
+pub fn tablo_core::DateColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
+pub fn tablo_core::DateColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
+pub fn tablo_core::DateColumn<M, T>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
+pub fn tablo_core::DateColumn<M, T>::includes(&self) -> tablo_core::extend::Includes<M>
+pub fn tablo_core::DateColumn<M, T>::is_searchable(&self) -> bool
+pub fn tablo_core::DateColumn<M, T>::is_sortable(&self) -> bool
+pub fn tablo_core::DateColumn<M, T>::label(&self) -> &str
+pub fn tablo_core::DateColumn<M, T>::name(&self) -> &str
+pub fn tablo_core::DateColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::DateColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
+pub fn tablo_core::DateColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+impl<M, T> !core::marker::Freeze for tablo_core::DateColumn<M, T>
+impl<M, T> core::marker::Send for tablo_core::DateColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send
+impl<M, T> core::marker::Sync for tablo_core::DateColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync
+impl<M, T> core::marker::Unpin for tablo_core::DateColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Unpin
+impl<M, T> core::marker::UnsafeUnpin for tablo_core::DateColumn<M, T> where tablo_core::Lens<M, T>: core::marker::UnsafeUnpin
+impl<M, T> core::panic::unwind_safe::RefUnwindSafe for tablo_core::DateColumn<M, T> where tablo_core::Lens<M, T>: core::panic::unwind_safe::RefUnwindSafe
+impl<M, T> core::panic::unwind_safe::UnwindSafe for tablo_core::DateColumn<M, T> where tablo_core::Lens<M, T>: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::DateFilter<M>
 impl<M> tablo_core::DateFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::DateFilter<M>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
@@ -4892,6 +4981,16 @@ impl tablo_core::auth::Authenticator for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
 pub async fn tablo_core::PasswordAuth::find_by_id(&self, &topcoat_core::context::Cx, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
 pub async fn tablo_core::PasswordAuth::verify(&self, &topcoat_core::context::Cx, &str, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
+pub trait tablo_core::DateValue: core::marker::Sized + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::DateValue::calendar_date(&self) -> core::option::Option<jiff::civil::date::Date>
+impl tablo_core::DateValue for jiff::civil::date::Date
+pub fn jiff::civil::date::Date::calendar_date(&self) -> core::option::Option<jiff::civil::date::Date>
+impl tablo_core::DateValue for jiff::civil::datetime::DateTime
+pub fn jiff::civil::datetime::DateTime::calendar_date(&self) -> core::option::Option<jiff::civil::date::Date>
+impl tablo_core::DateValue for jiff::timestamp::Timestamp
+pub fn jiff::timestamp::Timestamp::calendar_date(&self) -> core::option::Option<jiff::civil::date::Date>
+impl<T: tablo_core::DateValue> tablo_core::DateValue for core::option::Option<T>
+pub fn core::option::Option<T>::calendar_date(&self) -> core::option::Option<jiff::civil::date::Date>
 pub trait tablo_core::EmbeddedForm: core::marker::Sized
 pub fn tablo_core::EmbeddedForm::read_form<M>(&topcoat_core::context::Cx, impl core::convert::Into<toasty::stmt::path::Path<M, Self>>, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>> where M: toasty::schema::model::Model
 pub fn tablo_core::EmbeddedForm::write_form<M>(&self, &topcoat_core::context::Cx, impl core::convert::Into<toasty::stmt::path::Path<M, Self>>, &mut tablo_core::FormValues) where M: toasty::schema::model::Model
@@ -4955,6 +5054,7 @@ impl<M, A, B, C, D> tablo_core::IntoColumns<M> for (A, B, C, D) where A: tablo_c
 impl<M, A, B, C> tablo_core::IntoColumns<M> for (A, B, C) where A: tablo_core::extend::Column<M> + 'static, B: tablo_core::extend::Column<M> + 'static, C: tablo_core::extend::Column<M> + 'static
 impl<M, A, B> tablo_core::IntoColumns<M> for (A, B) where A: tablo_core::extend::Column<M> + 'static, B: tablo_core::extend::Column<M> + 'static
 impl<M, A> tablo_core::IntoColumns<M> for (A) where A: tablo_core::extend::Column<M> + 'static
+impl<M, T> tablo_core::IntoColumns<M> for tablo_core::DateColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::EmbeddedColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::RepeaterColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::TextColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
@@ -4992,6 +5092,8 @@ impl<M, A, B> tablo_core::detail::IntoDetail<M> for (A, B) where A: tablo_core::
 pub fn (A, B)::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, A> tablo_core::detail::IntoDetail<M> for (A) where A: tablo_core::detail::IntoDetail<M>
 pub fn (A)::into_detail(self) -> tablo_core::detail::Detail<M>
+impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::DateColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+pub fn tablo_core::DateColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::EmbeddedColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::EmbeddedColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::RepeaterColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
