@@ -508,10 +508,17 @@ where
                 .map(|value| path.clone().eq(value))
         });
         let options = options.into_options();
+        // The control offers each value as written, but the parse trims what a request submits,
+        // so the option the predicate lists must be the trimmed spelling: an option declared
+        // with padding is otherwise declared clean and never matches.
+        let options: Vec<(String, String)> = options
+            .into_iter()
+            .map(|(value, label)| (value.trim().to_string(), label))
+            .collect();
         // An empty value is the control's "All", which selects no predicate.
         let unparsed = options
             .iter()
-            .map(|(value, _)| value.trim())
+            .map(|(value, _)| value.as_str())
             .find(|value| !value.is_empty() && T::parse_form(value).is_err())
             .map(str::to_string);
         Self {

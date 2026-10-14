@@ -167,6 +167,19 @@ fn a_select_filter_accepts_only_its_allow_list() {
 }
 
 #[test]
+fn a_select_filter_trims_an_options_padding() {
+    let f = SelectFilter::new(crate::lens!(Task.featured), [" true", "false"]);
+    assert!(
+        f.misdeclared().is_none(),
+        "the declaration check already trims, so the option is declared clean"
+    );
+    assert!(
+        f.to_expr(&"true".into()).is_some(),
+        "the predicate must list the option the control offers"
+    );
+}
+
+#[test]
 fn a_ternary_filter_reads_true_and_false_and_ignores_the_rest() {
     let f = TernaryFilter::new(Task::fields().featured());
     assert_eq!(f.name(), "featured");
