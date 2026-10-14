@@ -1,7 +1,7 @@
 //! Table filters: the [`Filter`] trait, the [`FilterValue`] it reads, the four built-in filters,
 //! and the [`IntoFilters`] seam.
 
-use std::{collections::BTreeMap, fmt, marker::PhantomData, sync::Arc};
+use std::{collections::BTreeMap, marker::PhantomData, sync::Arc};
 
 use toasty::stmt::{Expr, IntoExpr, Path};
 use topcoat::{context::Cx, icon::icon, view::*};
@@ -197,18 +197,6 @@ impl From<&str> for FilterValue {
 impl From<String> for FilterValue {
     fn from(value: String) -> Self {
         Self::new().with(value)
-    }
-}
-
-/// The values joined by commas, then each part as `part=value`: `draft,review,from=2024-01-01`.
-impl fmt::Display for FilterValue {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let parts = self
-            .parts
-            .iter()
-            .map(|(part, value)| format!("{part}={value}"));
-        let spelled: Vec<String> = self.values.iter().cloned().chain(parts).collect();
-        f.write_str(&spelled.join(","))
     }
 }
 

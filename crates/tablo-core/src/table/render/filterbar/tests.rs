@@ -75,7 +75,7 @@ async fn unknown_filter_warns_on_an_empty_page_too() {
         .html(&cx)
         .await;
     assert!(
-        html.contains("role=\"alert\"") && html.contains("stauts:published"),
+        html.contains("role=\"alert\"") && html.contains("f.stauts=published"),
         "empty page must still warn about ignored filters, got {html}"
     );
 }

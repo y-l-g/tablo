@@ -337,7 +337,7 @@ async fn an_app_filter_renders_its_control_and_applies_its_predicate() {
 
     let html = body_string(get(&router, "/admin/tasks?f.initial=nope").await).await;
     assert!(
-        html.contains("initial:nope (invalid value)"),
+        html.contains("f.initial=nope (invalid value)"),
         "a value the filter refuses is reported: {html}"
     );
 }

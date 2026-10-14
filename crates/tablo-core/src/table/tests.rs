@@ -228,11 +228,17 @@ fn unapplied_filters_flags_unknown_keys_and_rejected_values() {
     );
     assert_eq!(
         tbl.unapplied_filters(&filters_state(&[("stauts", "published")])),
-        vec![("stauts:published".to_string(), "unknown filter".to_string())]
+        vec![(
+            "f.stauts=published".to_string(),
+            "unknown filter".to_string()
+        )]
     );
     assert_eq!(
         tbl.unapplied_filters(&filters_state(&[("status", "Published")])),
-        vec![("status:Published".to_string(), "invalid value".to_string())]
+        vec![(
+            "f.status=Published".to_string(),
+            "invalid value".to_string()
+        )]
     );
 }
 
@@ -275,7 +281,7 @@ fn ternary_all_is_a_neutral_noop_not_an_invalid_value() {
     // Genuine garbage still flags.
     assert_eq!(
         tbl.unapplied_filters(&filters_state(&[("featured", "maybe")])),
-        vec![("featured:maybe".to_string(), "invalid value".to_string())]
+        vec![("f.featured=maybe".to_string(), "invalid value".to_string())]
     );
 }
 

@@ -118,6 +118,24 @@ fn a_blank_name_part_or_value_is_no_filter() {
     assert!(!state.filters_dropped);
 }
 
+#[test]
+fn a_filter_spells_its_parameters_encoded() {
+    let state = TableState::default();
+    let value = FilterValue::from("draft")
+        .with("review")
+        .with_part("from", "2024-01-01");
+    assert_eq!(
+        state.spell_filter("status", &value),
+        "f.status=draft&f.status=review&f.status.from=2024-01-01",
+        "one parameter per value then per part, in the order the filter holds them"
+    );
+    assert_eq!(
+        state.spell_filter("status", &FilterValue::from("R&D")),
+        "f.status=R%26D",
+        "a value holding the separator stays one parameter, as the link spells it"
+    );
+}
+
 /// A value the parser keeps as written: no surrounding whitespace, no control character.
 const KEPT: &str = "[\\PC&&\\S]([\\PC]{0,20}[\\PC&&\\S])?";
 

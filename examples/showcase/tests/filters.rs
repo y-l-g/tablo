@@ -188,7 +188,7 @@ async fn the_author_filter_keeps_the_posts_of_the_chosen_authors() {
     }
     let html = body_string(client.get("/admin/posts?f.author_id=nobody").await).await;
     assert!(
-        html.contains("role=\"alert\"") && html.contains("author_id:nobody"),
+        html.contains("role=\"alert\"") && html.contains("f.author_id=nobody"),
         "a key the field does not parse warns: {html}"
     );
 }
@@ -305,7 +305,7 @@ async fn typo_filter_warns_on_list_but_refuses_export() {
     assert!(resp.status().is_success(), "typo filter keeps 200");
     let html = body_string(resp).await;
     assert!(
-        html.contains("role=\"alert\"") && html.contains("stauts:published"),
+        html.contains("role=\"alert\"") && html.contains("f.stauts=published"),
         "typo filter must warn, got {html}"
     );
 

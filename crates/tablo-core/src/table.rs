@@ -222,7 +222,8 @@ impl<M> Table<M> {
         }
     }
 
-    /// Requested filters that produce no predicate.
+    /// Requested filters that produce no predicate, each spelled as its own parameters
+    /// (`f.status=draft&f.status=review`), beside one entry for dropped parameters.
     pub(crate) fn unapplied_filters(&self, state: &TableState) -> Vec<(String, String)>
     where
         M: toasty::schema::Model,
@@ -230,9 +231,9 @@ impl<M> Table<M> {
         let mut out = Vec::new();
         for (key, value) in &state.filters {
             match self.filters.iter().find(|f| f.name() == key) {
-                None => out.push((format!("{key}:{value}"), "unknown filter".to_string())),
+                None => out.push((state.spell_filter(key, value), "unknown filter".to_string())),
                 Some(f) if f.to_expr(value).is_none() && !f.is_noop_value(value) => {
-                    out.push((format!("{key}:{value}"), "invalid value".to_string()))
+                    out.push((state.spell_filter(key, value), "invalid value".to_string()))
                 }
                 Some(_) => {}
             }
