@@ -1,5 +1,8 @@
 use super::*;
-use crate::{form::FormValues, test_support::DummyUser};
+use crate::{
+    form::FormValues,
+    test_support::{DummyUser, Html as _},
+};
 
 /// An enum node over the discriminant column `kind`, one variant per value,
 /// built as `EmbeddedBuilder::enumeration` builds it from the app schema.
@@ -152,6 +155,75 @@ fn an_embedded_node_keeps_its_slots_when_appended() {
     };
     node.visit_fields(&mut |index| slots.push(schema.fields[index].name()));
     assert_eq!(slots, ["kind", "name"], "the node reads its own fields");
+}
+
+/// A shared column a variant does not declare shows only while the discriminant names a variant
+/// that does — or names none at all, where the codec reads the variant the payload names: the
+/// browser disables it otherwise, and the parse drops its key there.
+#[tokio::test]
+async fn a_shared_column_shows_for_the_variants_that_declare_it() {
+    let cx = crate::test_support::cx();
+    let mut builder = enumeration(&["1", "2", "3"]);
+    builder.variant();
+    builder.variant();
+    builder.shared(Field::text(DummyUser::fields().name()), true);
+    builder.variant();
+    builder.shared(Field::text(DummyUser::fields().name()), true);
+    let schema = Schema::new(builder.finish());
+
+    assert!(
+        schema.declaration_errors().is_empty(),
+        "a shared column the codec skips where it is hidden needs no blank answer: {:?}",
+        schema.declaration_errors()
+    );
+    assert_eq!(
+        schema.condition_hidden(&map(&[("kind", "1")])),
+        ["name"],
+        "a variant that declares no shared column hides it"
+    );
+    assert!(
+        schema.condition_hidden(&map(&[("kind", "2")])).is_empty(),
+        "a variant that declares it shows it"
+    );
+    assert!(
+        schema
+            .condition_hidden(&map(&[("name", "noon")]))
+            .is_empty(),
+        "a submission naming no variant keeps the column its payload may name"
+    );
+    assert!(
+        schema.watched().contains_key("kind"),
+        "the discriminant drives the shared column's condition"
+    );
+
+    let render = |kind: &'static str| {
+        let schema = &schema;
+        let cx = &cx;
+        async move {
+            let values = map(&[("kind", kind)]);
+            schema
+                .render(cx, Source::form(&values, &crate::form::FieldErrors::new()))
+                .await
+                .html(cx)
+                .await
+        }
+    };
+    for (kind, disabled) in [("1", true), ("2", false)] {
+        let html = render(kind).await;
+        let input = html
+            .find("name=\"name\"")
+            .unwrap_or_else(|| panic!("no shared control in {html}"));
+        let start = html[..input].rfind("<fieldset").expect("its fieldset");
+        let fieldset = &html[start..input];
+        let tag = &fieldset[..fieldset.find('>').expect("a closed tag")];
+        assert_eq!(
+            tag.contains(" disabled"),
+            disabled,
+            "kind={kind}: the shared column's fieldset is disabled exactly when the variant does \
+             not declare it, got {tag}"
+        );
+        assert_eq!(tag.contains(" hidden"), disabled, "kind={kind}, got {tag}");
+    }
 }
 
 /// A read-only display renders a shared column only when the stored variant declares it: a unit

@@ -46,6 +46,7 @@ use topcoat::{
 
 use super::{
     Schema,
+    condition::Condition,
     fields::Field,
     lenses::FieldResolver,
     tree::{Node, Source, Unbound},
@@ -620,7 +621,8 @@ impl EmbeddedBuilder {
         });
     }
 
-    /// Adds a `#[shared(..)]` leaf that renders once, outside the variant groups.
+    /// Adds a `#[shared(..)]` leaf that renders once, outside the variant groups, and shows only
+    /// while the discriminant names a variant that declares it.
     pub fn shared(&mut self, field: impl Into<Field>, required: bool) {
         let mut field = field.into();
         field.set_required(required);
@@ -652,13 +654,40 @@ impl EmbeddedBuilder {
     }
 
     /// Finishes the value's schema as one embedded node.
-    pub fn finish(self) -> Schema {
+    pub fn finish(mut self) -> Schema {
         if let Shape::Enum(e) = &self.shape {
             assert_eq!(
                 self.variant.map_or(0, |index| index + 1),
                 e.variants.len(),
                 "the type declares fewer variants than the app schema"
             );
+            // A shared column every variant declares shows for every one of them. One a variant
+            // does not declare shows only while the discriminant names a variant that does, so it
+            // neither renders nor submits there. A submission naming no variant reads the variant
+            // its payload names, so it keeps the column too.
+            for index in &e.shared {
+                let key = self.fields[*index].name().to_string();
+                let declares = |variant: &Variant| {
+                    variant
+                        .members
+                        .iter()
+                        .any(|member| matches!(member, Member::Leaf { key: k, .. } if *k == key))
+                };
+                let declaring: Vec<String> = e
+                    .variants
+                    .iter()
+                    .filter(|variant| declares(variant))
+                    .map(|variant| variant.value.clone())
+                    .collect();
+                if declaring.len() < e.variants.len() {
+                    assert!(
+                        self.fields[*index].condition().is_none(),
+                        "a shared column's visibility comes from the variants that declare it"
+                    );
+                    let values = std::iter::once(String::new()).chain(declaring);
+                    self.fields[*index].set_condition(Condition::watching(e.key.clone(), values));
+                }
+            }
         }
         Schema::from_parts(
             vec![Node::Embedded(Box::new(Embedded { shape: self.shape }))],

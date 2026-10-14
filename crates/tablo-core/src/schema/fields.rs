@@ -375,6 +375,11 @@ impl Field {
         self.condition.as_ref()
     }
 
+    /// Shows the field only while `condition` holds, as `visible_when` does.
+    pub(crate) fn set_condition(&mut self, condition: Condition) {
+        self.condition = Some(condition);
+    }
+
     /// Whether the control is a checkbox.
     pub(crate) fn is_checkbox(&self) -> bool {
         self.checkbox
