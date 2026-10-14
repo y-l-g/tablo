@@ -159,7 +159,8 @@ take one value. A `DateFilter::range` filter travels as parts,
 alone leaving the range open; a single date filter refuses a part, whose range its one input does
 not render. Active filters combine with AND.
 
-Each built-in filter takes `.label(..)` over the field's label. `.multiple()` turns a select or
+Each built-in filter but `QueryFilter` takes `.label(..)` over the field's label; a
+`QueryFilter` takes its label in `QueryFilter::new(name, label)`. `.multiple()` turns a select or
 query filter's control into a checklist, a popover of checkboxes that stays open while the table
 reruns; `TernaryFilter::labels` names its two options; `DateFilter::range` renders two date
 inputs, and a bound naming an exact time, such as `2024-01-15T09:30:00Z`, keeps a text input, which
