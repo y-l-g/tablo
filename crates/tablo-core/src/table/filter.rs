@@ -920,10 +920,10 @@ type ReversedFn = Arc<dyn Fn(&str, &str) -> bool + Send + Sync>;
 /// Date filter matching a date or time field by calendar day, or by a range of days; see
 /// [`FilterDate`] for the types.
 ///
-/// A value names one day, `f.<name>=2024-01-15`; the parts `f.<name>.from` and `f.<name>.to`
-/// name the first and the last day of a range, either one alone leaving it open. A value naming
-/// an exact time, such as a `jiff::Timestamp`'s `2024-01-15T09:30:00Z`, matches that time, or
-/// bounds the range at it.
+/// A value names one day, `f.<name>=2024-01-15`; on a [`range`](Self::range) filter the parts
+/// `f.<name>.from` and `f.<name>.to` name the first and the last day of a range, either one
+/// alone leaving it open. A value naming an exact time, such as a `jiff::Timestamp`'s
+/// `2024-01-15T09:30:00Z`, matches that time, or bounds the range at it.
 ///
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
@@ -994,8 +994,7 @@ where
         self
     }
 
-    /// Choose a range of days: the control is two date inputs, submitting the `from` and `to`
-    /// parts.
+    /// Choose a range of days: the control is two inputs, submitting the `from` and `to` parts.
     pub fn range(mut self) -> Self {
         self.range = true;
         self
@@ -1023,10 +1022,14 @@ where
     }
 
     /// One day for a single value, or the range its `from` and `to` parts bound; `None` for both,
-    /// another part, or a range ending before it starts.
+    /// another part, a value beside the parts, a range ending before it starts, or a part where
+    /// [`range`](Self::range) is off, whose one input does not render it.
     fn to_expr(&self, value: &FilterValue) -> Option<Expr<bool>> {
         if value.parts.is_empty() {
             return (self.matches)(value.single()?, None);
+        }
+        if !self.range {
+            return None;
         }
         if !value.values.is_empty()
             || value
@@ -1050,62 +1053,64 @@ where
         }
     }
 
-    /// A date input, or two bounding a range.
+    /// The bound inputs: a date input for a day, a text input for a bound a date input cannot
+    /// hold.
     fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a> {
-        let day = |value: Option<&str>| {
-            let value = value.unwrap_or_default();
-            value.split('T').next().unwrap_or(value).to_string()
-        };
+        // A date input keeps a calendar day and submits it back. A bound a date input cannot
+        // hold — an exact time, or a day spelled with one — stays in a text input, which submits
+        // it back unharmed, where a date input would drop it and the rerun would widen the bound
+        // to its day.
+        let bound =
+            |value: String, name: String, aria: String, filter: Option<String>| -> BoxView<'a> {
+                let kind = if value.is_empty()
+                    || (value.len() == 10 && value.parse::<jiff::civil::Date>().is_ok())
+                {
+                    "date"
+                } else {
+                    "text"
+                };
+                view! {
+                    cx =>
+                    tablo_ui::input(
+                        attrs: attributes! {
+                            type=(kind)
+                            name=(name)
+                            value=(value)
+                            aria-label=(aria)
+                            class="w-auto!"
+                            data-filter-name=(filter)
+                        }
+                    )
+                }
+                .boxed()
+            };
         let name = input.name().to_string();
         let aria = input.label().to_string();
+        let held = input.value();
         let control = if self.range {
-            let (from, to) = (
-                day(input.value().part("from")),
-                day(input.value().part("to")),
-            );
+            // A bare value bounds the range at itself, so both ends spell it: a rerun submits
+            // `from=` and `to=` the same, which selects what the bare value selected.
+            let (from, to) = match held.single() {
+                Some(single) => (single.to_string(), single.to_string()),
+                None => (
+                    held.part("from").unwrap_or_default().to_string(),
+                    held.part("to").unwrap_or_default().to_string(),
+                ),
+            };
             let (from_param, to_param) = (input.part_param("from"), input.part_param("to"));
             view! {
                 cx =>
                 <span class="flex items-center gap-1" data-filter-name=(name)>
-                    tablo_ui::input(
-                        attrs: attributes! {
-                            type="date"
-                            name=(from_param)
-                            value=(from)
-                            aria-label=(format!("{aria} from"))
-                            class="w-auto!"
-                        }
-                    )
+                    (bound(from, from_param, format!("{aria} from"), None))
                     <span aria-hidden="true">"–"</span>
-                    tablo_ui::input(
-                        attrs: attributes! {
-                            type="date"
-                            name=(to_param)
-                            value=(to)
-                            aria-label=(format!("{aria} to"))
-                            class="w-auto!"
-                        }
-                    )
+                    (bound(to, to_param, format!("{aria} to"), None))
                 </span>
             }
             .boxed()
         } else {
-            let value = day(input.value().single());
             let param = input.param().to_string();
-            view! {
-                cx =>
-                tablo_ui::input(
-                    attrs: attributes! {
-                        type="date"
-                        name=(param)
-                        data-filter-name=(name)
-                        value=(value)
-                        aria-label=(aria)
-                        class="w-auto!"
-                    }
-                )
-            }
-            .boxed()
+            let value = held.single().unwrap_or_default().to_string();
+            bound(value, param, aria, Some(name))
         };
         input.labelled(cx, control)
     }

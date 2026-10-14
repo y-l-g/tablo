@@ -234,46 +234,57 @@ async fn a_ternary_filter_renders_its_labels() {
     );
 }
 
-/// A range date filter renders two date inputs submitting its `from` and `to` parts, each
-/// holding the day the state names.
+/// A range date filter renders two inputs submitting its `from` and `to` parts: a day in a date
+/// input, and a bound naming an exact time in a text input, which keeps the value a date input
+/// would drop and the next submit would widen to its day.
 #[tokio::test]
 async fn a_range_date_filter_renders_its_bounds() {
     let cx = CxTestBuilder::new().build();
     let table = Table::<Task>::new(TextColumn::new(lens!(Task.title)))
         .filters(crate::DateFilter::new(lens!(Task.created_at)).range());
-    let state = TableState {
-        filters: BTreeMap::from([(
-            "created_at".to_string(),
-            crate::FilterValue::new()
-                .with_part("from", "2024-01-15")
-                .with_part("to", "2024-01-31T12:00:00Z"),
-        )]),
-        ..TableState::default()
-    };
-    let html = table
-        .render_with_state(&cx, Vec::new().into(), &state, "/admin/tasks")
-        .await
-        .html(&cx)
-        .await;
-    let input = |name: &str| {
-        html.split('<')
-            .find(|tag| tag.starts_with("input") && tag.contains(&format!("name=\"{name}\"")))
-            .unwrap_or_else(|| panic!("no {name} input in {html}"))
-    };
-    assert!(
-        input("f.created_at.from").contains("value=\"2024-01-15\""),
-        "{html}"
-    );
-    assert!(
-        input("f.created_at.to").contains("value=\"2024-01-31\""),
-        "{html}"
-    );
-    assert!(
-        !html.contains("name=\"f.created_at\""),
-        "a range submits no single day: {html}"
-    );
-    assert!(
-        !html.contains("role=\"alert\""),
-        "the range applies: {html}"
-    );
+    // A bound a date input cannot hold keeps a text input, whichever separator spells its time:
+    // a date input would drop it and the rerun would widen the bound to its day.
+    for exact in [
+        "2024-01-31T12:00:00Z",
+        "2024-01-31 12:00:00Z",
+        "2024-01-31t12:00:00Z",
+    ] {
+        let state = TableState {
+            filters: BTreeMap::from([(
+                "created_at".to_string(),
+                crate::FilterValue::new()
+                    .with_part("from", "2024-01-15")
+                    .with_part("to", exact),
+            )]),
+            ..TableState::default()
+        };
+        let html = table
+            .render_with_state(&cx, Vec::new().into(), &state, "/admin/tasks")
+            .await
+            .html(&cx)
+            .await;
+        let input = |name: &str| {
+            html.split('<')
+                .find(|tag| tag.starts_with("input") && tag.contains(&format!("name=\"{name}\"")))
+                .unwrap_or_else(|| panic!("no {name} input in {html}"))
+        };
+        assert!(
+            input("f.created_at.from").contains("value=\"2024-01-15\"")
+                && input("f.created_at.from").contains("type=\"date\""),
+            "a day keeps its date input: {html}"
+        );
+        assert!(
+            input("f.created_at.to").contains(&format!("value=\"{exact}\""))
+                && input("f.created_at.to").contains("type=\"text\""),
+            "{exact} keeps its text input: {html}"
+        );
+        assert!(
+            !html.contains("name=\"f.created_at\""),
+            "a range submits no single day: {html}"
+        );
+        assert!(
+            !html.contains("role=\"alert\""),
+            "the range applies: {html}"
+        );
+    }
 }

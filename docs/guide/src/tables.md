@@ -148,20 +148,22 @@ search and filters as a GET form.
 | `SelectFilter::new(lens, options)` | `String`, or any form scalar | one or more of `options`, matched exactly; the options are `Vec<(String, String)>` (an `Options` list), `Vec<String>`, or `[&str; N]` |
 | `SelectFilter::relationship::<R>(lens)` | a foreign key to the rows of `R`, a [relationship source](./forms.md#relationships) | one or more keys |
 | `TernaryFilter::new(lens)` | `bool` | `true`, `false`, or `all` (no filter) |
-| `DateFilter::new(lens)` | `jiff::Timestamp`, `jiff::civil::Date` or `jiff::civil::DateTime`, or an `Option` of one | a date `2024-01-15` matches that day (UTC for a timestamp); an RFC 3339 timestamp, or a civil date-time, matches that value; the parts `from` and `to` bound a range |
+| `DateFilter::new(lens)` | `jiff::Timestamp`, `jiff::civil::Date` or `jiff::civil::DateTime`, or an `Option` of one | a date `2024-01-15` matches that day (UTC for a timestamp); an RFC 3339 timestamp, or a civil date-time, matches that value; on a `DateFilter::range` filter the parts `from` and `to` bound a range |
 | `QueryFilter::new(name, label).option(label, predicate)` | any | one or more named options, each a Toasty predicate you build |
 
 An active filter's parameter is `?f.<name>=<value>`, named after the field (a `QueryFilter`
 after its name). A filter taking several values repeats it, `?f.status=draft&f.status=review`,
 and a select or query filter matches a record any of them selects; the ternary and date filters
-take one value. A date range travels as parts, `?f.created_at.from=2024-01-01&f.created_at.to=2024-01-31`,
-each day included and either bound alone leaving the range open. Active filters combine with
-AND.
+take one value. A `DateFilter::range` filter travels as parts,
+`?f.created_at.from=2024-01-01&f.created_at.to=2024-01-31`, each day included and either bound
+alone leaving the range open; a single date filter refuses a part, whose range its one input does
+not render. Active filters combine with AND.
 
 Each built-in filter takes `.label(..)` over the field's label. `.multiple()` turns a select or
 query filter's control into a checklist, a popover of checkboxes that stays open while the table
 reruns; `TernaryFilter::labels` names its two options; `DateFilter::range` renders two date
-inputs. A relationship filter loads its options as a [relationship
+inputs, and a bound naming an exact time, such as `2024-01-15T09:30:00Z`, keeps a text input, which
+a date input would drop. A relationship filter loads its options as a [relationship
 choice](./forms.md#relationships) does: the source's tenant-scoped rows the user may view, each
 labelled by the source's label, at most `MAX_RELATIONSHIP_OPTIONS` of them. Past that cap, or
 when the source refuses the load, it lists only the chosen keys. It matches any key the field

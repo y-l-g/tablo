@@ -386,6 +386,27 @@ fn a_single_value_filter_refuses_several_values_and_parts() {
     assert!(vehicule_filter().to_expr(&mixed).is_none());
 }
 
+/// A single-day date filter refuses a part: its one input renders a value, not a range, so the
+/// applied filter would show nothing and vanish on the next submit.
+#[test]
+fn a_single_day_date_filter_refuses_a_range() {
+    let filter = DateFilter::new(Task::fields().created_at());
+    assert!(filter.to_expr(&"2024-01-15".into()).is_some());
+    assert!(
+        filter
+            .to_expr(&FilterValue::new().with_part("from", "2024-01-15"))
+            .is_none(),
+        "a part needs the range control"
+    );
+    assert!(
+        DateFilter::new(Task::fields().created_at())
+            .range()
+            .to_expr(&FilterValue::new().with_part("from", "2024-01-15"))
+            .is_some(),
+        "the range control renders it"
+    );
+}
+
 /// A date filter's `from` and `to` parts bound a range of whole days, either alone leaving it
 /// open; a reversed range, another part, or a value beside them selects nothing.
 #[tokio::test]
