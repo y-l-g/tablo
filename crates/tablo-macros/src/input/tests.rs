@@ -1,3 +1,5 @@
+use syn::Data;
+
 use super::*;
 
 /// The refusal `source` produces, or the expansion when none fires.

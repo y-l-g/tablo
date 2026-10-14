@@ -5,7 +5,10 @@ use proc_macro2::{TokenStream as TokenStream2, TokenTree};
 use quote::{format_ident, quote};
 use syn::{Data, DeriveInput, Fields, Type};
 
-use crate::{fields::last_segment, record_form};
+use crate::{
+    fields::{last_segment, named_fields, reject_generics},
+    record_form,
+};
 
 pub fn expand_tokens(input: DeriveInput) -> TokenStream2 {
     match expand_checked(input) {
@@ -48,22 +51,15 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
 
 /// The `#[derive(RecordForm)]` input of `input`'s form: its fields a person fills.
 fn form_of(input: &DeriveInput) -> syn::Result<DeriveInput> {
-    if !input.generics.params.is_empty() {
-        return Err(syn::Error::new_spanned(
-            &input.generics,
-            "#[derive(ModelForm)] does not support a generic model",
-        ));
-    }
-    let Data::Struct(syn::DataStruct {
-        fields: Fields::Named(named),
-        ..
-    }) = &input.data
-    else {
-        return Err(syn::Error::new_spanned(
-            &input.ident,
-            "#[derive(ModelForm)] derives on a `toasty::Model` struct",
-        ));
-    };
+    reject_generics(
+        input,
+        "#[derive(ModelForm)] does not support a generic model",
+    )?;
+    let named = named_fields(
+        input,
+        "#[derive(ModelForm)] derives on a `toasty::Model` struct",
+        None,
+    )?;
     let model = &input.ident;
     let vis = &input.vis;
     let name = form_name(input)?;

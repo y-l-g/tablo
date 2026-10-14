@@ -4,9 +4,12 @@
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote, quote_spanned};
-use syn::{Data, DeriveInput, Fields, Type, spanned::Spanned};
+use syn::{DeriveInput, Type, spanned::Spanned};
 
-use crate::fields::{Derive, assert_scalar, blank_answer, blank_option, form_attrs, last_segment};
+use crate::fields::{
+    Derive, assert_scalar, blank_answer, blank_option, form_attrs, last_segment, named_fields,
+    reject_generics,
+};
 
 pub fn expand_tokens(input: DeriveInput) -> TokenStream2 {
     match expand_checked(input) {
@@ -64,36 +67,16 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
 
 /// The expansion of `input`, naming `derive` when no `tablo` dependency is found.
 pub(crate) fn expand_as(input: DeriveInput, derive: &str) -> syn::Result<TokenStream2> {
-    if !input.generics.params.is_empty() {
-        return Err(syn::Error::new_spanned(
-            &input.generics,
-            "#[derive(RecordForm)] does not support generic or lifetime parameters: a record \
-             form names one model",
-        ));
-    }
-    let named = match &input.data {
-        Data::Struct(data) => match &data.fields {
-            Fields::Named(named) if !named.named.is_empty() => named,
-            Fields::Named(_) => {
-                return Err(syn::Error::new_spanned(
-                    &input.ident,
-                    "#[derive(RecordForm)] needs at least one field",
-                ));
-            }
-            _ => {
-                return Err(syn::Error::new_spanned(
-                    &input.ident,
-                    "#[derive(RecordForm)] supports a struct with named fields",
-                ));
-            }
-        },
-        _ => {
-            return Err(syn::Error::new_spanned(
-                &input.ident,
-                "#[derive(RecordForm)] supports a struct with named fields",
-            ));
-        }
-    };
+    reject_generics(
+        &input,
+        "#[derive(RecordForm)] does not support generic or lifetime parameters: a record \
+         form names one model",
+    )?;
+    let named = named_fields(
+        &input,
+        "#[derive(RecordForm)] supports a struct with named fields",
+        Some("#[derive(RecordForm)] needs at least one field"),
+    )?;
     let attrs = struct_attrs(&input)?;
     let fields = named
         .named
