@@ -167,8 +167,12 @@ impl Panel {
             uploads,
             ..
         } = self;
-        let mut registry = Registry::new(prefix.clone(), Some(AppSchema::of_db(db)));
-        let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
+        let (registry, mounts, mut errors) = register(
+            prefix.clone(),
+            Some(AppSchema::of_db(db)),
+            registrations,
+            configuration_errors,
+        );
         registry.check_all(db, &mounts, uploads.is_some(), &mut errors);
         if !errors.is_empty() {
             return Err(MountError::new(&prefix, errors).into());
@@ -181,7 +185,6 @@ impl Panel {
 
     fn mount(self, mut builder: RouterBuilder) -> Result<RouterBuilder> {
         let db = builder.get_app_context::<Db>().cloned();
-        let mut registry = Registry::new(self.prefix.clone(), db.as_ref().map(AppSchema::of_db));
         let Panel {
             prefix,
             shell_assets,
@@ -196,7 +199,12 @@ impl Panel {
             login_hint,
             auth,
         } = self;
-        let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
+        let (registry, mounts, mut errors) = register(
+            prefix.clone(),
+            db.as_ref().map(AppSchema::of_db),
+            registrations,
+            configuration_errors,
+        );
         errors.extend(mount_errors(
             &builder,
             &prefix,
@@ -386,6 +394,17 @@ impl Registry {
             }
         }
     }
+}
+
+fn register(
+    prefix: String,
+    schema: Option<AppSchema>,
+    registrations: Vec<Box<dyn super::register::Registration>>,
+    configuration_errors: Vec<DeclarationError>,
+) -> (Registry, Arc<Mounts>, Vec<DeclarationError>) {
+    let mut registry = Registry::new(prefix, schema);
+    let (mounts, errors) = registry.register_all(registrations, configuration_errors);
+    (registry, mounts, errors)
 }
 
 /// What refuses a panel at `prefix` before its resources are checked.
