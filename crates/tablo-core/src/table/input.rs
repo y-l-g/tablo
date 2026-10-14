@@ -48,8 +48,9 @@ pub(crate) enum Posts {
     /// The target the trigger sets: a table row's action, or the bulk bar's with the selection.
     Table {
         target: TableTarget,
-        /// The table's selection as `,key,` tokens, which the bulk route reads and a row route
-        /// ignores.
+        /// The table's selection as `,token,` entries, each token's key percent-encoded
+        /// ([`bulk_token`](crate::table::state::bulk_token) spells one), which the bulk route
+        /// reads and a row route ignores.
         selection: Signal<String>,
     },
 }
@@ -204,7 +205,7 @@ impl InputDialog {
     }
 }
 
-/// The size of the table's `selection`, as `,key,` tokens.
+/// The size of the table's `selection`, counted as its `,token,` entries.
 pub(crate) fn selected_count(cx: &Cx, selection: Signal<String>) -> BoxView<'_> {
     let count = expr!({
         let wire = selection.get();
