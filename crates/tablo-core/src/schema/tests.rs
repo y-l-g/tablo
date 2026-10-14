@@ -138,6 +138,41 @@ async fn a_multiple_choice_checks_each_value_it_holds() {
     );
 }
 
+/// A multiple choice caps the choices a submission adds, not the ones the record holds already:
+/// a record holding more of them than a choice loads still saves.
+#[tokio::test]
+async fn a_multiple_choice_caps_only_the_choices_it_adds() {
+    let cx = crate::test_support::cx();
+    let held: Vec<String> = (0..=MAX_RELATIONSHIP_OPTIONS)
+        .map(|key| format!("rust{key}"))
+        .collect();
+    let refused = async |items: Vec<String>| {
+        let values = FormValues::from_iter([("tags", items)]);
+        let stored = FormValues::from_iter([("tags", held.clone())]);
+        let mut errors = crate::FieldErrors::new();
+        tags()
+            .check_controls(&cx, &values, &stored, &mut errors)
+            .await;
+        errors.contains_key("tags")
+    };
+    assert!(
+        !refused(held.clone()).await,
+        "a record keeping the choices it holds saves"
+    );
+    let mut added = held.clone();
+    added.push("sql".to_string());
+    assert!(
+        !refused(added).await,
+        "one choice beside them is not past it"
+    );
+    let mut many = held.clone();
+    many.extend((0..=MAX_RELATIONSHIP_OPTIONS).map(|key| format!("sql{key}")));
+    assert!(
+        refused(many).await,
+        "more choices than a choice loads is refused"
+    );
+}
+
 /// An error renders under its field's own key; a row key or a near-miss renders nowhere.
 #[test]
 fn an_error_no_field_renders_is_unplaced() {

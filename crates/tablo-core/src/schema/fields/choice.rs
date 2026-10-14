@@ -290,11 +290,11 @@ impl ChoiceControl {
             };
             return self.validate_one(cx, label, value, parent).await;
         }
-        let keys = match chosen(label, value) {
+        let held = stored.and_then(FormValue::as_list).unwrap_or_default();
+        let keys = match chosen(label, value, held) {
             Ok(keys) => keys,
             Err(message) => return vec![message],
         };
-        let held = stored.and_then(FormValue::as_list).unwrap_or_default();
         for key in keys.iter().filter(|key| !held.contains(key)) {
             let errors = self.validate_one(cx, label, key, parent).await;
             if !errors.is_empty() {
@@ -362,11 +362,11 @@ impl ChoiceControl {
             };
             return self.recheck_one(cx, label, value, parent, ex).await;
         }
-        let keys = match chosen(label, value) {
+        let held = stored.and_then(FormValue::as_list).unwrap_or_default();
+        let keys = match chosen(label, value, held) {
             Ok(keys) => keys,
             Err(message) => return vec![message],
         };
-        let held = stored.and_then(FormValue::as_list).unwrap_or_default();
         for key in keys.iter().filter(|key| !held.contains(key)) {
             let errors = self.recheck_one(cx, label, key, parent, &mut *ex).await;
             if !errors.is_empty() {
@@ -439,13 +439,22 @@ impl ChoiceControl {
     }
 }
 
-/// The keys a multiple choice's `value` holds, or the error refusing it: one choosing more options
+/// The keys a multiple choice's `value` holds, or the error refusing it: one adding more options
 /// than a choice loads. A value holding no list chooses none here: the parse refuses it.
-fn chosen<'v>(label: &str, value: &'v FormValue) -> std::result::Result<&'v [String], String> {
+///
+/// The keys `held` holds already are not choices this submission adds, and are not loaded again
+/// either: counting them would leave a record holding more of them than a choice loads unable to
+/// save at all.
+fn chosen<'v>(
+    label: &str,
+    value: &'v FormValue,
+    held: &[String],
+) -> std::result::Result<&'v [String], String> {
     let keys = value.as_list().unwrap_or_default();
-    if keys.len() > MAX_RELATIONSHIP_OPTIONS {
+    let added = keys.iter().filter(|key| !held.contains(key)).count();
+    if added > MAX_RELATIONSHIP_OPTIONS {
         return Err(format!(
-            "{label} takes at most {MAX_RELATIONSHIP_OPTIONS} choices"
+            "{label} takes at most {MAX_RELATIONSHIP_OPTIONS} new choices"
         ));
     }
     Ok(keys)
