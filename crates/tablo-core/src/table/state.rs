@@ -26,8 +26,8 @@ use crate::topcoat_compat::href;
 pub(crate) struct TableSignals {
     /// The list's URL query, without the leading `?`.
     pub(crate) query: Signal<String>,
-    /// The bulk selection as `,key,` tokens, each key percent-encoded ([`bulk_token`]); empty
-    /// selects none.
+    /// The bulk selection as `,token,` entries, each token's key percent-encoded ([`bulk_token`]
+    /// spells one); empty selects none.
     pub(crate) bulk: Signal<String>,
     pub(crate) confirm: ConfirmSignals,
     /// Where each custom action asking for input posts its dialog, by the action's name.
