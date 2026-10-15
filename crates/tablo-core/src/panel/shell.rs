@@ -28,12 +28,76 @@ fn sidebar_link(cx: &Cx, mut extra: Attributes) -> Attributes {
     extra
 }
 
-/// The cookie holding the visitor's theme, `light` or `dark`, which `assets/theme.js` writes.
+/// The cookie holding the visitor's theme, `light`, `dark` or `system`, which `assets/theme.js`
+/// writes.
 ///
 /// Prefixed because a cookie is shared by every app on a host whatever its port: another app's
 /// `theme` on `localhost`, possibly HttpOnly and so beyond the toggle's reach, would otherwise
 /// decide this panel's theme.
 const THEME_COOKIE: &str = "tablo_theme";
+
+/// The cookie holding the system's scheme, `light` or `dark`, which `assets/theme.js` mirrors
+/// while the visitor's theme is `system`: the server cannot see the system's preference.
+const SCHEME_COOKIE: &str = "tablo_scheme";
+
+/// A visitor's theme choice, as [`THEME_COOKIE`] stores it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Theme {
+    Light,
+    Dark,
+    /// The system's scheme, which [`SCHEME_COOKIE`] mirrors.
+    System,
+}
+
+impl Theme {
+    /// The choice the request's cookie stores, if any.
+    fn stored(cx: &Cx) -> Option<Self> {
+        match request_cookie(cx, THEME_COOKIE).as_deref() {
+            Some("light") => Some(Self::Light),
+            Some("dark") => Some(Self::Dark),
+            Some("system") => Some(Self::System),
+            _ => None,
+        }
+    }
+
+    /// The choice the user menu shows as checked: the stored one, else the panel's default.
+    fn current(cx: &Cx) -> Self {
+        Self::stored(cx).unwrap_or(if Self::panel_default_dark(cx) {
+            Self::Dark
+        } else {
+            Self::Light
+        })
+    }
+
+    /// Whether the panel shows dark to a visitor who has not chosen.
+    fn panel_default_dark(cx: &Cx) -> bool {
+        current(cx).is_some_and(|panel| panel.dark_mode)
+    }
+
+    /// Whether the request's page renders dark: the stored choice, the mirrored system scheme
+    /// under `system`, else the panel's default.
+    fn renders_dark(cx: &Cx) -> bool {
+        match Self::stored(cx) {
+            Some(Self::Dark) => true,
+            Some(Self::Light) => false,
+            Some(Self::System) => match request_cookie(cx, SCHEME_COOKIE).as_deref() {
+                Some("dark") => true,
+                Some("light") => false,
+                _ => Self::panel_default_dark(cx),
+            },
+            None => Self::panel_default_dark(cx),
+        }
+    }
+
+    /// The name the cookie and the theme script use.
+    fn name(self) -> &'static str {
+        match self {
+            Self::Light => "light",
+            Self::Dark => "dark",
+            Self::System => "system",
+        }
+    }
+}
 
 /// The cookie holding the desktop sidebar's state, which `assets/sidebar.js` writes.
 const SIDEBAR_COOKIE: &str = "tablo_sidebar";
@@ -109,109 +173,6 @@ pub(crate) struct ShellAssets {
 }
 
 impl Panel {
-    /// The top bar's tenant switcher: a disclosure listing the user's
-    /// tenants, each a form that posts to the tenant-switch route. A user
-    /// with fewer than two tenants has nothing to switch, and gets nothing.
-    fn tenant_switcher<'a>(
-        cx: &'a Cx,
-        tenants: &[crate::tenancy::Membership],
-        csrf: &str,
-    ) -> BoxView<'a> {
-        if tenants.len() < 2 {
-            return ().boxed();
-        }
-        let current = crate::auth::membership(cx);
-        let label = current.map_or_else(|| "Select a tenant".to_string(), |m| m.name.clone());
-        let current = current.map(|membership| membership.tenant);
-        let action = crate::auth::tenant_url(cx);
-        let choices: Vec<BoxView<'a>> = tenants
-            .iter()
-            .map(|membership| {
-                let selected = current == Some(membership.tenant);
-                let value = membership.tenant.to_string();
-                let name = membership.name.clone();
-                let action = action.clone();
-                let csrf = crate::csrf::field(cx, csrf);
-                view! {
-                    cx =>
-                    <form method="post" action=(action)>
-                        (csrf)
-                        <input
-                            type="hidden"
-                            name=(crate::auth::TENANT_FIELD)
-                            value=(value)
-                        >
-                        <button
-                            type="submit"
-                            aria-current=(selected.then_some("true"))
-                            class="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted"
-                        >
-                            <span class="flex-1 truncate">(name)</span>
-                            if selected {
-                                icon(
-                                    data: tablo_ui::icons::CHECK,
-                                    attrs: attributes! { class="size-4" }
-                                )
-                            }
-                        </button>
-                    </form>
-                }
-                .boxed()
-            })
-            .collect();
-        view! {
-            cx =>
-            <details class="relative" data-tenant-switcher="">
-                <summary
-                    class="flex cursor-pointer list-none items-center gap-1 rounded-md px-2 py-1 text-sm font-medium text-foreground hover:bg-muted [&::-webkit-details-marker]:hidden"
-                >
-                    <span class="max-w-40 truncate">(label)</span>
-                    icon(
-                        data: tablo_ui::icons::CHEVRON_DOWN,
-                        attrs: attributes! { class="size-4 text-muted-foreground" }
-                    )
-                </summary>
-                <div
-                    class="absolute right-0 z-50 mt-1 min-w-48 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
-                >
-                    for choice in choices {
-                        (choice)
-                    }
-                </div>
-            </details>
-        }
-        .boxed()
-    }
-
-    async fn theme_toggle(cx: &Cx) -> Result<BoxView<'_>> {
-        use tablo_ui::{ButtonSize, ButtonVariant, button};
-
-        // Both icons ship and the `dark` class on `<html>` picks the visible
-        // one, so the control needs no script of its own to show the theme.
-        Ok(view! {
-            cx =>
-            button(
-                variant: ButtonVariant::Ghost,
-                size: ButtonSize::Icon,
-                attrs: attributes! {
-                    type="button"
-                    aria-label="Toggle dark mode"
-                    title="Toggle dark mode"
-                    data-theme-toggle=""
-                },
-                icon(
-                    data: tablo_ui::icons::SUN,
-                    attrs: attributes! { class="dark:hidden" }
-                )
-                icon(
-                    data: tablo_ui::icons::MOON,
-                    attrs: attributes! { class="hidden dark:block" }
-                )
-            )
-        }
-        .boxed())
-    }
-
     /// The panel's brand: its logo, or its initial on the primary color, and its name.
     fn current_brand(cx: &Cx) -> (String, Option<String>) {
         match current(cx).and_then(|panel| panel.brand.as_ref()) {
@@ -284,7 +245,9 @@ impl Panel {
             cx =>
             <div class="flex min-w-0 items-center gap-2 font-semibold text-foreground">
                 (mark)
-                <span class="truncate">(name)</span>
+                <span class="truncate md:group-data-[collapsible=icon]/sidebar:hidden">
+                    (name)
+                </span>
             </div>
         }
         .boxed())
@@ -438,7 +401,7 @@ impl Panel {
     ) -> Result<BoxView<'a>> {
         use tablo_ui::{
             SeparatorOrientation, SidebarCollapsible, separator, sidebar, sidebar_content,
-            sidebar_header, sidebar_inset, sidebar_provider, sidebar_trigger,
+            sidebar_footer, sidebar_header, sidebar_inset, sidebar_provider, sidebar_trigger,
         };
 
         let sidebar_open = signal(cx, || Self::sidebar_starts_open(cx));
@@ -450,44 +413,27 @@ impl Panel {
         let navigation =
             Self::sidebar_navigation(cx, nav_items, current_path, mobile_open.clone()).await?;
         let sidebar_brand = Self::render_brand(cx).await?;
-        let theme_toggle = Self::theme_toggle(cx).await?;
-        // Signed-in identity + logout control, present only with a session
-        // (ADR-0013). `ensure_token` runs before any streaming starts so the
-        // logout form always carries a matching CSRF pair.
-        let account_view: BoxView<'_> = match crate::auth::signed(cx) {
+        let crumbs = breadcrumbs::render(cx, breadcrumbs::trail(nav_items, current_path));
+        // The user and tenant menus, present only with a session (ADR-0013). `ensure_token` runs
+        // before any streaming starts so their forms always carry a matching CSRF pair.
+        let (user_menu, tenant_menu): (BoxView<'_>, BoxView<'_>) = match crate::auth::signed(cx) {
             Some(signed) => {
                 let csrf = crate::csrf::ensure_token(cx);
-                let logout = crate::auth::logout_url(cx);
-                let name = signed.user.display_name().to_string();
-                let initial = name.chars().next().map(String::from).unwrap_or_default();
-                let switcher = Self::tenant_switcher(cx, signed.user.tenants(), &csrf);
-                view! {
-                    cx =>
-                    <div class="flex items-center gap-2">
-                        (switcher)
-                        <span
-                            aria-hidden="true"
-                            class="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground"
-                        >
-                            (initial)
-                        </span>
-                        <span class="max-sm:hidden text-sm font-medium text-foreground">
-                            (name)
-                        </span>
-                        <form method="post" action=(logout)>
-                            (crate::csrf::field(cx, &csrf))
-                            tablo_ui::button(
-                                variant: tablo_ui::ButtonVariant::Ghost,
-                                size: tablo_ui::ButtonSize::Icon,
-                                attrs: attributes! { type="submit" aria-label="Sign out" title="Sign out" },
-                                icon(data: tablo_ui::icons::LOG_OUT)
-                            )
-                        </form>
-                    </div>
-                }
-                .boxed()
+                let items = current(cx)
+                    .map(|panel| panel.user_menu.clone())
+                    .unwrap_or_default();
+                (
+                    Self::user_menu(
+                        cx,
+                        signed.user.as_ref(),
+                        &items,
+                        crate::auth::logout_url(cx),
+                        &csrf,
+                    ),
+                    Self::tenant_menu(cx, signed.user.tenants(), &csrf),
+                )
             }
-            None => view! { cx => <span></span> }.boxed(),
+            None => (().boxed(), ().boxed()),
         };
         let notification_view: BoxView<'_> = match take_notification(cx) {
             Some(notification) => {
@@ -520,7 +466,7 @@ impl Panel {
                 sidebar(
                     open: $(sidebar_open.get()),
                     mobile_open: $(mobile_open.get()),
-                    collapsible: SidebarCollapsible::Offcanvas,
+                    collapsible: SidebarCollapsible::Icon,
                     sheet_attrs: attributes! {
                         id="mobile-sidebar-sheet"
                         aria-label="Navigation"
@@ -555,7 +501,11 @@ impl Panel {
                             )
                         </div>
                     )
-                    sidebar_content((navigation))
+                    sidebar_content(
+                        (tenant_menu)
+                        (navigation)
+                    )
+                    sidebar_footer((user_menu))
                 )
                 sidebar_inset(
                     sidebar_header(
@@ -586,9 +536,11 @@ impl Panel {
                         </div>
                         // The separator stays a direct child of the topbar,
                         // where `sidebar_inset` sizes a vertical rule.
-                        <div class="ml-auto">(theme_toggle)</div>
-                        separator(orientation: SeparatorOrientation::Vertical)
-                        (account_view)
+                        separator(
+                            orientation: SeparatorOrientation::Vertical,
+                            attrs: attributes! { class="max-sm:hidden" }
+                        )
+                        (crumbs)
                     )
                     // `sidebar_inset` is the document's one `<main>`; a second
                     // nested landmark is invalid and confuses landmark
@@ -664,8 +616,6 @@ impl Panel {
         title: String,
         body: BoxView<'a>,
     ) -> Result<BoxView<'a>> {
-        // The panel's default: the `<html class>` a visitor who has not chosen gets.
-        let default_dark = current(cx).is_some_and(|panel| panel.dark_mode);
         let head: BoxView<'_> = match current(cx).and_then(|panel| panel.shell_assets) {
             Some(ShellAssets { stylesheet, font }) => view! {
                 cx =>
@@ -686,17 +636,15 @@ impl Panel {
         };
         // The server renders the stored choice on every page: runtime navigation copies
         // `<html>`'s attributes from the next page and runs no script.
-        let dark = match request_cookie(cx, THEME_COOKIE).as_deref() {
-            Some("dark") => true,
-            Some("light") => false,
-            _ => default_dark,
-        };
-        let html_class = dark.then_some("dark");
+        let html_class = Theme::renders_dark(cx).then_some("dark");
         Ok(view! {
             cx =>
             <!DOCTYPE html>
             <html class=(html_class)>
                 <head>
+                    <meta charset="utf-8">
+                    // Without it a phone lays the page out 980px wide and zooms it out.
+                    <meta name="viewport" content="width=device-width, initial-scale=1">
                     <title>(title)</title>
                     (head)
                 </head>
@@ -707,5 +655,7 @@ impl Panel {
     }
 }
 
+mod breadcrumbs;
 #[cfg(test)]
 mod tests;
+mod user_menu;

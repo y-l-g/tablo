@@ -194,6 +194,7 @@ impl Panel {
             uploads,
             served_dirs,
             login_hint,
+            user_menu,
             auth,
         } = self;
         let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
@@ -249,6 +250,7 @@ impl Panel {
             root_redirect: root_redirect.clone(),
             auth,
             login_hint,
+            user_menu,
             uploads,
             served_paths,
             urls,

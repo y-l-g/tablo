@@ -799,6 +799,151 @@ impl core::marker::Unpin for tablo_ui::components::primitives::alert_dialog::ale
 impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::alert_dialog::alert_dialog
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::alert_dialog::alert_dialog
 impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::alert_dialog::alert_dialog
+pub mod tablo_ui::components::primitives::avatar
+pub enum tablo_ui::components::primitives::avatar::AvatarSize
+pub tablo_ui::components::primitives::avatar::AvatarSize::Lg
+pub tablo_ui::components::primitives::avatar::AvatarSize::Md
+pub tablo_ui::components::primitives::avatar::AvatarSize::Sm
+impl core::clone::Clone for tablo_ui::components::primitives::avatar::AvatarSize
+pub fn tablo_ui::components::primitives::avatar::AvatarSize::clone(&self) -> tablo_ui::components::primitives::avatar::AvatarSize
+impl core::cmp::Eq for tablo_ui::components::primitives::avatar::AvatarSize
+impl core::cmp::PartialEq for tablo_ui::components::primitives::avatar::AvatarSize
+pub fn tablo_ui::components::primitives::avatar::AvatarSize::eq(&self, &tablo_ui::components::primitives::avatar::AvatarSize) -> bool
+impl core::default::Default for tablo_ui::components::primitives::avatar::AvatarSize
+pub fn tablo_ui::components::primitives::avatar::AvatarSize::default() -> tablo_ui::components::primitives::avatar::AvatarSize
+impl core::fmt::Debug for tablo_ui::components::primitives::avatar::AvatarSize
+pub fn tablo_ui::components::primitives::avatar::AvatarSize::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_ui::components::primitives::avatar::AvatarSize
+impl core::marker::StructuralPartialEq for tablo_ui::components::primitives::avatar::AvatarSize
+impl core::marker::Freeze for tablo_ui::components::primitives::avatar::AvatarSize
+impl core::marker::Send for tablo_ui::components::primitives::avatar::AvatarSize
+impl core::marker::Sync for tablo_ui::components::primitives::avatar::AvatarSize
+impl core::marker::Unpin for tablo_ui::components::primitives::avatar::AvatarSize
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::avatar::AvatarSize
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::avatar::AvatarSize
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::avatar::AvatarSize
+pub struct tablo_ui::components::primitives::avatar::AvatarFallbackProps<'__a>
+pub tablo_ui::components::primitives::avatar::AvatarFallbackProps::attrs: topcoat_view::html::attribute::attributes::Attributes
+pub tablo_ui::components::primitives::avatar::AvatarFallbackProps::child: topcoat_view::child::Child<'__a>
+impl<'__a> tablo_ui::components::primitives::avatar::AvatarFallbackProps<'__a>
+pub fn tablo_ui::components::primitives::avatar::AvatarFallbackProps<'__a>::builder() -> tablo_ui::components::primitives::avatar::AvatarFallbackPropsBuilder<'__a>
+impl<'__a> topcoat_view::props::Props for tablo_ui::components::primitives::avatar::AvatarFallbackProps<'__a>
+pub type tablo_ui::components::primitives::avatar::AvatarFallbackProps<'__a>::Builder = tablo_ui::components::primitives::avatar::AvatarFallbackPropsBuilder<'__a>
+pub fn tablo_ui::components::primitives::avatar::AvatarFallbackProps<'__a>::builder() -> Self::Builder
+impl<'__a> core::marker::Freeze for tablo_ui::components::primitives::avatar::AvatarFallbackProps<'__a>
+impl<'__a> core::marker::Send for tablo_ui::components::primitives::avatar::AvatarFallbackProps<'__a>
+impl<'__a> !core::marker::Sync for tablo_ui::components::primitives::avatar::AvatarFallbackProps<'__a>
+impl<'__a> core::marker::Unpin for tablo_ui::components::primitives::avatar::AvatarFallbackProps<'__a>
+impl<'__a> core::marker::UnsafeUnpin for tablo_ui::components::primitives::avatar::AvatarFallbackProps<'__a>
+impl<'__a> !core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::avatar::AvatarFallbackProps<'__a>
+impl<'__a> !core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::avatar::AvatarFallbackProps<'__a>
+pub struct tablo_ui::components::primitives::avatar::AvatarFallbackPropsBuilder<'__a>
+impl<'__a> tablo_ui::components::primitives::avatar::AvatarFallbackPropsBuilder<'__a>
+pub fn tablo_ui::components::primitives::avatar::AvatarFallbackPropsBuilder<'__a>::attrs(self, topcoat_view::html::attribute::attributes::Attributes) -> Self
+pub fn tablo_ui::components::primitives::avatar::AvatarFallbackPropsBuilder<'__a>::build(self) -> tablo_ui::components::primitives::avatar::AvatarFallbackProps<'__a>
+pub fn tablo_ui::components::primitives::avatar::AvatarFallbackPropsBuilder<'__a>::child(self, topcoat_view::child::Child<'__a>) -> Self
+impl<'__a> core::marker::Freeze for tablo_ui::components::primitives::avatar::AvatarFallbackPropsBuilder<'__a>
+impl<'__a> core::marker::Send for tablo_ui::components::primitives::avatar::AvatarFallbackPropsBuilder<'__a>
+impl<'__a> !core::marker::Sync for tablo_ui::components::primitives::avatar::AvatarFallbackPropsBuilder<'__a>
+impl<'__a> core::marker::Unpin for tablo_ui::components::primitives::avatar::AvatarFallbackPropsBuilder<'__a>
+impl<'__a> core::marker::UnsafeUnpin for tablo_ui::components::primitives::avatar::AvatarFallbackPropsBuilder<'__a>
+impl<'__a> !core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::avatar::AvatarFallbackPropsBuilder<'__a>
+impl<'__a> !core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::avatar::AvatarFallbackPropsBuilder<'__a>
+pub struct tablo_ui::components::primitives::avatar::AvatarImageProps
+pub tablo_ui::components::primitives::avatar::AvatarImageProps::alt: alloc::string::String
+pub tablo_ui::components::primitives::avatar::AvatarImageProps::attrs: topcoat_view::html::attribute::attributes::Attributes
+impl tablo_ui::components::primitives::avatar::AvatarImageProps
+pub fn tablo_ui::components::primitives::avatar::AvatarImageProps::builder() -> tablo_ui::components::primitives::avatar::AvatarImagePropsBuilder
+impl topcoat_view::props::Props for tablo_ui::components::primitives::avatar::AvatarImageProps
+pub type tablo_ui::components::primitives::avatar::AvatarImageProps::Builder = tablo_ui::components::primitives::avatar::AvatarImagePropsBuilder
+pub fn tablo_ui::components::primitives::avatar::AvatarImageProps::builder() -> Self::Builder
+impl core::marker::Freeze for tablo_ui::components::primitives::avatar::AvatarImageProps
+impl core::marker::Send for tablo_ui::components::primitives::avatar::AvatarImageProps
+impl core::marker::Sync for tablo_ui::components::primitives::avatar::AvatarImageProps
+impl core::marker::Unpin for tablo_ui::components::primitives::avatar::AvatarImageProps
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::avatar::AvatarImageProps
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::avatar::AvatarImageProps
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::avatar::AvatarImageProps
+pub struct tablo_ui::components::primitives::avatar::AvatarImagePropsBuilder
+impl tablo_ui::components::primitives::avatar::AvatarImagePropsBuilder
+pub fn tablo_ui::components::primitives::avatar::AvatarImagePropsBuilder::alt(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_ui::components::primitives::avatar::AvatarImagePropsBuilder::attrs(self, topcoat_view::html::attribute::attributes::Attributes) -> Self
+pub fn tablo_ui::components::primitives::avatar::AvatarImagePropsBuilder::build(self) -> tablo_ui::components::primitives::avatar::AvatarImageProps
+impl core::marker::Freeze for tablo_ui::components::primitives::avatar::AvatarImagePropsBuilder
+impl core::marker::Send for tablo_ui::components::primitives::avatar::AvatarImagePropsBuilder
+impl core::marker::Sync for tablo_ui::components::primitives::avatar::AvatarImagePropsBuilder
+impl core::marker::Unpin for tablo_ui::components::primitives::avatar::AvatarImagePropsBuilder
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::avatar::AvatarImagePropsBuilder
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::avatar::AvatarImagePropsBuilder
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::avatar::AvatarImagePropsBuilder
+pub struct tablo_ui::components::primitives::avatar::AvatarProps<'__a>
+pub tablo_ui::components::primitives::avatar::AvatarProps::attrs: topcoat_view::html::attribute::attributes::Attributes
+pub tablo_ui::components::primitives::avatar::AvatarProps::child: topcoat_view::child::Child<'__a>
+pub tablo_ui::components::primitives::avatar::AvatarProps::size: tablo_ui::components::primitives::avatar::AvatarSize
+impl<'__a> tablo_ui::components::primitives::avatar::AvatarProps<'__a>
+pub fn tablo_ui::components::primitives::avatar::AvatarProps<'__a>::builder() -> tablo_ui::components::primitives::avatar::AvatarPropsBuilder<'__a>
+impl<'__a> topcoat_view::props::Props for tablo_ui::components::primitives::avatar::AvatarProps<'__a>
+pub type tablo_ui::components::primitives::avatar::AvatarProps<'__a>::Builder = tablo_ui::components::primitives::avatar::AvatarPropsBuilder<'__a>
+pub fn tablo_ui::components::primitives::avatar::AvatarProps<'__a>::builder() -> Self::Builder
+impl<'__a> core::marker::Freeze for tablo_ui::components::primitives::avatar::AvatarProps<'__a>
+impl<'__a> core::marker::Send for tablo_ui::components::primitives::avatar::AvatarProps<'__a>
+impl<'__a> !core::marker::Sync for tablo_ui::components::primitives::avatar::AvatarProps<'__a>
+impl<'__a> core::marker::Unpin for tablo_ui::components::primitives::avatar::AvatarProps<'__a>
+impl<'__a> core::marker::UnsafeUnpin for tablo_ui::components::primitives::avatar::AvatarProps<'__a>
+impl<'__a> !core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::avatar::AvatarProps<'__a>
+impl<'__a> !core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::avatar::AvatarProps<'__a>
+pub struct tablo_ui::components::primitives::avatar::AvatarPropsBuilder<'__a>
+impl<'__a> tablo_ui::components::primitives::avatar::AvatarPropsBuilder<'__a>
+pub fn tablo_ui::components::primitives::avatar::AvatarPropsBuilder<'__a>::attrs(self, topcoat_view::html::attribute::attributes::Attributes) -> Self
+pub fn tablo_ui::components::primitives::avatar::AvatarPropsBuilder<'__a>::build(self) -> tablo_ui::components::primitives::avatar::AvatarProps<'__a>
+pub fn tablo_ui::components::primitives::avatar::AvatarPropsBuilder<'__a>::child(self, topcoat_view::child::Child<'__a>) -> Self
+pub fn tablo_ui::components::primitives::avatar::AvatarPropsBuilder<'__a>::size(self, tablo_ui::components::primitives::avatar::AvatarSize) -> Self
+impl<'__a> core::marker::Freeze for tablo_ui::components::primitives::avatar::AvatarPropsBuilder<'__a>
+impl<'__a> core::marker::Send for tablo_ui::components::primitives::avatar::AvatarPropsBuilder<'__a>
+impl<'__a> !core::marker::Sync for tablo_ui::components::primitives::avatar::AvatarPropsBuilder<'__a>
+impl<'__a> core::marker::Unpin for tablo_ui::components::primitives::avatar::AvatarPropsBuilder<'__a>
+impl<'__a> core::marker::UnsafeUnpin for tablo_ui::components::primitives::avatar::AvatarPropsBuilder<'__a>
+impl<'__a> !core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::avatar::AvatarPropsBuilder<'__a>
+impl<'__a> !core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::avatar::AvatarPropsBuilder<'__a>
+pub struct tablo_ui::components::primitives::avatar::avatar
+impl core::default::Default for tablo_ui::components::primitives::avatar::avatar
+pub fn tablo_ui::components::primitives::avatar::avatar::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::avatar::avatar
+pub type tablo_ui::components::primitives::avatar::avatar::Props<'__props> = tablo_ui::components::primitives::avatar::AvatarProps<'__props>
+pub fn tablo_ui::components::primitives::avatar::avatar::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::avatar::avatar
+impl core::marker::Send for tablo_ui::components::primitives::avatar::avatar
+impl core::marker::Sync for tablo_ui::components::primitives::avatar::avatar
+impl core::marker::Unpin for tablo_ui::components::primitives::avatar::avatar
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::avatar::avatar
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::avatar::avatar
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::avatar::avatar
+pub struct tablo_ui::components::primitives::avatar::avatar_fallback
+impl core::default::Default for tablo_ui::components::primitives::avatar::avatar_fallback
+pub fn tablo_ui::components::primitives::avatar::avatar_fallback::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::avatar::avatar_fallback
+pub type tablo_ui::components::primitives::avatar::avatar_fallback::Props<'__props> = tablo_ui::components::primitives::avatar::AvatarFallbackProps<'__props>
+pub fn tablo_ui::components::primitives::avatar::avatar_fallback::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::avatar::avatar_fallback
+impl core::marker::Send for tablo_ui::components::primitives::avatar::avatar_fallback
+impl core::marker::Sync for tablo_ui::components::primitives::avatar::avatar_fallback
+impl core::marker::Unpin for tablo_ui::components::primitives::avatar::avatar_fallback
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::avatar::avatar_fallback
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::avatar::avatar_fallback
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::avatar::avatar_fallback
+pub struct tablo_ui::components::primitives::avatar::avatar_image
+impl core::default::Default for tablo_ui::components::primitives::avatar::avatar_image
+pub fn tablo_ui::components::primitives::avatar::avatar_image::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::avatar::avatar_image
+pub type tablo_ui::components::primitives::avatar::avatar_image::Props<'__props> = tablo_ui::components::primitives::avatar::AvatarImageProps
+pub fn tablo_ui::components::primitives::avatar::avatar_image::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::avatar::avatar_image
+impl core::marker::Send for tablo_ui::components::primitives::avatar::avatar_image
+impl core::marker::Sync for tablo_ui::components::primitives::avatar::avatar_image
+impl core::marker::Unpin for tablo_ui::components::primitives::avatar::avatar_image
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::avatar::avatar_image
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::avatar::avatar_image
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::avatar::avatar_image
 pub mod tablo_ui::components::primitives::badge
 pub enum tablo_ui::components::primitives::badge::BadgeVariant
 pub tablo_ui::components::primitives::badge::BadgeVariant::Destructive
@@ -866,6 +1011,283 @@ impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::badge::badg
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::badge::badge
 impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::badge::badge
 pub fn tablo_ui::components::primitives::badge::badge_variants(tablo_ui::components::primitives::badge::BadgeVariant) -> topcoat_view::html::class::Class<(topcoat_view::html::class::StaticClass, topcoat_view::html::class::StaticClass)>
+pub mod tablo_ui::components::primitives::breadcrumb
+pub struct tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisProps
+pub tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisProps::attrs: topcoat_view::html::attribute::attributes::Attributes
+impl tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisProps
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisProps::builder() -> tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisPropsBuilder
+impl topcoat_view::props::Props for tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisProps
+pub type tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisProps::Builder = tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisPropsBuilder
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisProps::builder() -> Self::Builder
+impl core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisProps
+impl core::marker::Send for tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisProps
+impl core::marker::Sync for tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisProps
+impl core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisProps
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisProps
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisProps
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisProps
+pub struct tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisPropsBuilder
+impl tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisPropsBuilder
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisPropsBuilder::attrs(self, topcoat_view::html::attribute::attributes::Attributes) -> Self
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisPropsBuilder::build(self) -> tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisProps
+impl core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisPropsBuilder
+impl core::marker::Send for tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisPropsBuilder
+impl core::marker::Sync for tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisPropsBuilder
+impl core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisPropsBuilder
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisPropsBuilder
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisPropsBuilder
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisPropsBuilder
+pub struct tablo_ui::components::primitives::breadcrumb::BreadcrumbItemProps<'__a>
+pub tablo_ui::components::primitives::breadcrumb::BreadcrumbItemProps::attrs: topcoat_view::html::attribute::attributes::Attributes
+pub tablo_ui::components::primitives::breadcrumb::BreadcrumbItemProps::child: topcoat_view::child::Child<'__a>
+impl<'__a> tablo_ui::components::primitives::breadcrumb::BreadcrumbItemProps<'__a>
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbItemProps<'__a>::builder() -> tablo_ui::components::primitives::breadcrumb::BreadcrumbItemPropsBuilder<'__a>
+impl<'__a> topcoat_view::props::Props for tablo_ui::components::primitives::breadcrumb::BreadcrumbItemProps<'__a>
+pub type tablo_ui::components::primitives::breadcrumb::BreadcrumbItemProps<'__a>::Builder = tablo_ui::components::primitives::breadcrumb::BreadcrumbItemPropsBuilder<'__a>
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbItemProps<'__a>::builder() -> Self::Builder
+impl<'__a> core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::BreadcrumbItemProps<'__a>
+impl<'__a> core::marker::Send for tablo_ui::components::primitives::breadcrumb::BreadcrumbItemProps<'__a>
+impl<'__a> !core::marker::Sync for tablo_ui::components::primitives::breadcrumb::BreadcrumbItemProps<'__a>
+impl<'__a> core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbItemProps<'__a>
+impl<'__a> core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbItemProps<'__a>
+impl<'__a> !core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbItemProps<'__a>
+impl<'__a> !core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbItemProps<'__a>
+pub struct tablo_ui::components::primitives::breadcrumb::BreadcrumbItemPropsBuilder<'__a>
+impl<'__a> tablo_ui::components::primitives::breadcrumb::BreadcrumbItemPropsBuilder<'__a>
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbItemPropsBuilder<'__a>::attrs(self, topcoat_view::html::attribute::attributes::Attributes) -> Self
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbItemPropsBuilder<'__a>::build(self) -> tablo_ui::components::primitives::breadcrumb::BreadcrumbItemProps<'__a>
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbItemPropsBuilder<'__a>::child(self, topcoat_view::child::Child<'__a>) -> Self
+impl<'__a> core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::BreadcrumbItemPropsBuilder<'__a>
+impl<'__a> core::marker::Send for tablo_ui::components::primitives::breadcrumb::BreadcrumbItemPropsBuilder<'__a>
+impl<'__a> !core::marker::Sync for tablo_ui::components::primitives::breadcrumb::BreadcrumbItemPropsBuilder<'__a>
+impl<'__a> core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbItemPropsBuilder<'__a>
+impl<'__a> core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbItemPropsBuilder<'__a>
+impl<'__a> !core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbItemPropsBuilder<'__a>
+impl<'__a> !core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbItemPropsBuilder<'__a>
+pub struct tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkProps<'__a>
+pub tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkProps::attrs: topcoat_view::html::attribute::attributes::Attributes
+pub tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkProps::child: topcoat_view::child::Child<'__a>
+impl<'__a> tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkProps<'__a>
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkProps<'__a>::builder() -> tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkPropsBuilder<'__a>
+impl<'__a> topcoat_view::props::Props for tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkProps<'__a>
+pub type tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkProps<'__a>::Builder = tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkPropsBuilder<'__a>
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkProps<'__a>::builder() -> Self::Builder
+impl<'__a> core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkProps<'__a>
+impl<'__a> core::marker::Send for tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkProps<'__a>
+impl<'__a> !core::marker::Sync for tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkProps<'__a>
+impl<'__a> core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkProps<'__a>
+impl<'__a> core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkProps<'__a>
+impl<'__a> !core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkProps<'__a>
+impl<'__a> !core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkProps<'__a>
+pub struct tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkPropsBuilder<'__a>
+impl<'__a> tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkPropsBuilder<'__a>
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkPropsBuilder<'__a>::attrs(self, topcoat_view::html::attribute::attributes::Attributes) -> Self
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkPropsBuilder<'__a>::build(self) -> tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkProps<'__a>
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkPropsBuilder<'__a>::child(self, topcoat_view::child::Child<'__a>) -> Self
+impl<'__a> core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkPropsBuilder<'__a>
+impl<'__a> core::marker::Send for tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkPropsBuilder<'__a>
+impl<'__a> !core::marker::Sync for tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkPropsBuilder<'__a>
+impl<'__a> core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkPropsBuilder<'__a>
+impl<'__a> core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkPropsBuilder<'__a>
+impl<'__a> !core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkPropsBuilder<'__a>
+impl<'__a> !core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkPropsBuilder<'__a>
+pub struct tablo_ui::components::primitives::breadcrumb::BreadcrumbListProps<'__a>
+pub tablo_ui::components::primitives::breadcrumb::BreadcrumbListProps::attrs: topcoat_view::html::attribute::attributes::Attributes
+pub tablo_ui::components::primitives::breadcrumb::BreadcrumbListProps::child: topcoat_view::child::Child<'__a>
+impl<'__a> tablo_ui::components::primitives::breadcrumb::BreadcrumbListProps<'__a>
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbListProps<'__a>::builder() -> tablo_ui::components::primitives::breadcrumb::BreadcrumbListPropsBuilder<'__a>
+impl<'__a> topcoat_view::props::Props for tablo_ui::components::primitives::breadcrumb::BreadcrumbListProps<'__a>
+pub type tablo_ui::components::primitives::breadcrumb::BreadcrumbListProps<'__a>::Builder = tablo_ui::components::primitives::breadcrumb::BreadcrumbListPropsBuilder<'__a>
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbListProps<'__a>::builder() -> Self::Builder
+impl<'__a> core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::BreadcrumbListProps<'__a>
+impl<'__a> core::marker::Send for tablo_ui::components::primitives::breadcrumb::BreadcrumbListProps<'__a>
+impl<'__a> !core::marker::Sync for tablo_ui::components::primitives::breadcrumb::BreadcrumbListProps<'__a>
+impl<'__a> core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbListProps<'__a>
+impl<'__a> core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbListProps<'__a>
+impl<'__a> !core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbListProps<'__a>
+impl<'__a> !core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbListProps<'__a>
+pub struct tablo_ui::components::primitives::breadcrumb::BreadcrumbListPropsBuilder<'__a>
+impl<'__a> tablo_ui::components::primitives::breadcrumb::BreadcrumbListPropsBuilder<'__a>
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbListPropsBuilder<'__a>::attrs(self, topcoat_view::html::attribute::attributes::Attributes) -> Self
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbListPropsBuilder<'__a>::build(self) -> tablo_ui::components::primitives::breadcrumb::BreadcrumbListProps<'__a>
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbListPropsBuilder<'__a>::child(self, topcoat_view::child::Child<'__a>) -> Self
+impl<'__a> core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::BreadcrumbListPropsBuilder<'__a>
+impl<'__a> core::marker::Send for tablo_ui::components::primitives::breadcrumb::BreadcrumbListPropsBuilder<'__a>
+impl<'__a> !core::marker::Sync for tablo_ui::components::primitives::breadcrumb::BreadcrumbListPropsBuilder<'__a>
+impl<'__a> core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbListPropsBuilder<'__a>
+impl<'__a> core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbListPropsBuilder<'__a>
+impl<'__a> !core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbListPropsBuilder<'__a>
+impl<'__a> !core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbListPropsBuilder<'__a>
+pub struct tablo_ui::components::primitives::breadcrumb::BreadcrumbPageProps<'__a>
+pub tablo_ui::components::primitives::breadcrumb::BreadcrumbPageProps::attrs: topcoat_view::html::attribute::attributes::Attributes
+pub tablo_ui::components::primitives::breadcrumb::BreadcrumbPageProps::child: topcoat_view::child::Child<'__a>
+impl<'__a> tablo_ui::components::primitives::breadcrumb::BreadcrumbPageProps<'__a>
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbPageProps<'__a>::builder() -> tablo_ui::components::primitives::breadcrumb::BreadcrumbPagePropsBuilder<'__a>
+impl<'__a> topcoat_view::props::Props for tablo_ui::components::primitives::breadcrumb::BreadcrumbPageProps<'__a>
+pub type tablo_ui::components::primitives::breadcrumb::BreadcrumbPageProps<'__a>::Builder = tablo_ui::components::primitives::breadcrumb::BreadcrumbPagePropsBuilder<'__a>
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbPageProps<'__a>::builder() -> Self::Builder
+impl<'__a> core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::BreadcrumbPageProps<'__a>
+impl<'__a> core::marker::Send for tablo_ui::components::primitives::breadcrumb::BreadcrumbPageProps<'__a>
+impl<'__a> !core::marker::Sync for tablo_ui::components::primitives::breadcrumb::BreadcrumbPageProps<'__a>
+impl<'__a> core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbPageProps<'__a>
+impl<'__a> core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbPageProps<'__a>
+impl<'__a> !core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbPageProps<'__a>
+impl<'__a> !core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbPageProps<'__a>
+pub struct tablo_ui::components::primitives::breadcrumb::BreadcrumbPagePropsBuilder<'__a>
+impl<'__a> tablo_ui::components::primitives::breadcrumb::BreadcrumbPagePropsBuilder<'__a>
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbPagePropsBuilder<'__a>::attrs(self, topcoat_view::html::attribute::attributes::Attributes) -> Self
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbPagePropsBuilder<'__a>::build(self) -> tablo_ui::components::primitives::breadcrumb::BreadcrumbPageProps<'__a>
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbPagePropsBuilder<'__a>::child(self, topcoat_view::child::Child<'__a>) -> Self
+impl<'__a> core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::BreadcrumbPagePropsBuilder<'__a>
+impl<'__a> core::marker::Send for tablo_ui::components::primitives::breadcrumb::BreadcrumbPagePropsBuilder<'__a>
+impl<'__a> !core::marker::Sync for tablo_ui::components::primitives::breadcrumb::BreadcrumbPagePropsBuilder<'__a>
+impl<'__a> core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbPagePropsBuilder<'__a>
+impl<'__a> core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbPagePropsBuilder<'__a>
+impl<'__a> !core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbPagePropsBuilder<'__a>
+impl<'__a> !core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbPagePropsBuilder<'__a>
+pub struct tablo_ui::components::primitives::breadcrumb::BreadcrumbProps<'__a>
+pub tablo_ui::components::primitives::breadcrumb::BreadcrumbProps::attrs: topcoat_view::html::attribute::attributes::Attributes
+pub tablo_ui::components::primitives::breadcrumb::BreadcrumbProps::child: topcoat_view::child::Child<'__a>
+impl<'__a> tablo_ui::components::primitives::breadcrumb::BreadcrumbProps<'__a>
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbProps<'__a>::builder() -> tablo_ui::components::primitives::breadcrumb::BreadcrumbPropsBuilder<'__a>
+impl<'__a> topcoat_view::props::Props for tablo_ui::components::primitives::breadcrumb::BreadcrumbProps<'__a>
+pub type tablo_ui::components::primitives::breadcrumb::BreadcrumbProps<'__a>::Builder = tablo_ui::components::primitives::breadcrumb::BreadcrumbPropsBuilder<'__a>
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbProps<'__a>::builder() -> Self::Builder
+impl<'__a> core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::BreadcrumbProps<'__a>
+impl<'__a> core::marker::Send for tablo_ui::components::primitives::breadcrumb::BreadcrumbProps<'__a>
+impl<'__a> !core::marker::Sync for tablo_ui::components::primitives::breadcrumb::BreadcrumbProps<'__a>
+impl<'__a> core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbProps<'__a>
+impl<'__a> core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbProps<'__a>
+impl<'__a> !core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbProps<'__a>
+impl<'__a> !core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbProps<'__a>
+pub struct tablo_ui::components::primitives::breadcrumb::BreadcrumbPropsBuilder<'__a>
+impl<'__a> tablo_ui::components::primitives::breadcrumb::BreadcrumbPropsBuilder<'__a>
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbPropsBuilder<'__a>::attrs(self, topcoat_view::html::attribute::attributes::Attributes) -> Self
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbPropsBuilder<'__a>::build(self) -> tablo_ui::components::primitives::breadcrumb::BreadcrumbProps<'__a>
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbPropsBuilder<'__a>::child(self, topcoat_view::child::Child<'__a>) -> Self
+impl<'__a> core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::BreadcrumbPropsBuilder<'__a>
+impl<'__a> core::marker::Send for tablo_ui::components::primitives::breadcrumb::BreadcrumbPropsBuilder<'__a>
+impl<'__a> !core::marker::Sync for tablo_ui::components::primitives::breadcrumb::BreadcrumbPropsBuilder<'__a>
+impl<'__a> core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbPropsBuilder<'__a>
+impl<'__a> core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbPropsBuilder<'__a>
+impl<'__a> !core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbPropsBuilder<'__a>
+impl<'__a> !core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbPropsBuilder<'__a>
+pub struct tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorProps
+pub tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorProps::attrs: topcoat_view::html::attribute::attributes::Attributes
+impl tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorProps
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorProps::builder() -> tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorPropsBuilder
+impl topcoat_view::props::Props for tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorProps
+pub type tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorProps::Builder = tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorPropsBuilder
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorProps::builder() -> Self::Builder
+impl core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorProps
+impl core::marker::Send for tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorProps
+impl core::marker::Sync for tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorProps
+impl core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorProps
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorProps
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorProps
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorProps
+pub struct tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorPropsBuilder
+impl tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorPropsBuilder
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorPropsBuilder::attrs(self, topcoat_view::html::attribute::attributes::Attributes) -> Self
+pub fn tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorPropsBuilder::build(self) -> tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorProps
+impl core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorPropsBuilder
+impl core::marker::Send for tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorPropsBuilder
+impl core::marker::Sync for tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorPropsBuilder
+impl core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorPropsBuilder
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorPropsBuilder
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorPropsBuilder
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorPropsBuilder
+pub struct tablo_ui::components::primitives::breadcrumb::breadcrumb
+impl core::default::Default for tablo_ui::components::primitives::breadcrumb::breadcrumb
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::breadcrumb::breadcrumb
+pub type tablo_ui::components::primitives::breadcrumb::breadcrumb::Props<'__props> = tablo_ui::components::primitives::breadcrumb::BreadcrumbProps<'__props>
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::breadcrumb
+impl core::marker::Send for tablo_ui::components::primitives::breadcrumb::breadcrumb
+impl core::marker::Sync for tablo_ui::components::primitives::breadcrumb::breadcrumb
+impl core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::breadcrumb
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::breadcrumb
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb
+pub struct tablo_ui::components::primitives::breadcrumb::breadcrumb_ellipsis
+impl core::default::Default for tablo_ui::components::primitives::breadcrumb::breadcrumb_ellipsis
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb_ellipsis::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::breadcrumb::breadcrumb_ellipsis
+pub type tablo_ui::components::primitives::breadcrumb::breadcrumb_ellipsis::Props<'__props> = tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisProps
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb_ellipsis::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::breadcrumb_ellipsis
+impl core::marker::Send for tablo_ui::components::primitives::breadcrumb::breadcrumb_ellipsis
+impl core::marker::Sync for tablo_ui::components::primitives::breadcrumb::breadcrumb_ellipsis
+impl core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::breadcrumb_ellipsis
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::breadcrumb_ellipsis
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb_ellipsis
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb_ellipsis
+pub struct tablo_ui::components::primitives::breadcrumb::breadcrumb_item
+impl core::default::Default for tablo_ui::components::primitives::breadcrumb::breadcrumb_item
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb_item::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::breadcrumb::breadcrumb_item
+pub type tablo_ui::components::primitives::breadcrumb::breadcrumb_item::Props<'__props> = tablo_ui::components::primitives::breadcrumb::BreadcrumbItemProps<'__props>
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb_item::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::breadcrumb_item
+impl core::marker::Send for tablo_ui::components::primitives::breadcrumb::breadcrumb_item
+impl core::marker::Sync for tablo_ui::components::primitives::breadcrumb::breadcrumb_item
+impl core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::breadcrumb_item
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::breadcrumb_item
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb_item
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb_item
+pub struct tablo_ui::components::primitives::breadcrumb::breadcrumb_link
+impl core::default::Default for tablo_ui::components::primitives::breadcrumb::breadcrumb_link
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb_link::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::breadcrumb::breadcrumb_link
+pub type tablo_ui::components::primitives::breadcrumb::breadcrumb_link::Props<'__props> = tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkProps<'__props>
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb_link::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::breadcrumb_link
+impl core::marker::Send for tablo_ui::components::primitives::breadcrumb::breadcrumb_link
+impl core::marker::Sync for tablo_ui::components::primitives::breadcrumb::breadcrumb_link
+impl core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::breadcrumb_link
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::breadcrumb_link
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb_link
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb_link
+pub struct tablo_ui::components::primitives::breadcrumb::breadcrumb_list
+impl core::default::Default for tablo_ui::components::primitives::breadcrumb::breadcrumb_list
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb_list::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::breadcrumb::breadcrumb_list
+pub type tablo_ui::components::primitives::breadcrumb::breadcrumb_list::Props<'__props> = tablo_ui::components::primitives::breadcrumb::BreadcrumbListProps<'__props>
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb_list::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::breadcrumb_list
+impl core::marker::Send for tablo_ui::components::primitives::breadcrumb::breadcrumb_list
+impl core::marker::Sync for tablo_ui::components::primitives::breadcrumb::breadcrumb_list
+impl core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::breadcrumb_list
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::breadcrumb_list
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb_list
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb_list
+pub struct tablo_ui::components::primitives::breadcrumb::breadcrumb_page
+impl core::default::Default for tablo_ui::components::primitives::breadcrumb::breadcrumb_page
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb_page::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::breadcrumb::breadcrumb_page
+pub type tablo_ui::components::primitives::breadcrumb::breadcrumb_page::Props<'__props> = tablo_ui::components::primitives::breadcrumb::BreadcrumbPageProps<'__props>
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb_page::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::breadcrumb_page
+impl core::marker::Send for tablo_ui::components::primitives::breadcrumb::breadcrumb_page
+impl core::marker::Sync for tablo_ui::components::primitives::breadcrumb::breadcrumb_page
+impl core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::breadcrumb_page
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::breadcrumb_page
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb_page
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb_page
+pub struct tablo_ui::components::primitives::breadcrumb::breadcrumb_separator
+impl core::default::Default for tablo_ui::components::primitives::breadcrumb::breadcrumb_separator
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb_separator::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::breadcrumb::breadcrumb_separator
+pub type tablo_ui::components::primitives::breadcrumb::breadcrumb_separator::Props<'__props> = tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorProps
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb_separator::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::breadcrumb_separator
+impl core::marker::Send for tablo_ui::components::primitives::breadcrumb::breadcrumb_separator
+impl core::marker::Sync for tablo_ui::components::primitives::breadcrumb::breadcrumb_separator
+impl core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::breadcrumb_separator
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::breadcrumb_separator
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb_separator
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb_separator
 pub mod tablo_ui::components::primitives::button
 pub enum tablo_ui::components::primitives::button::ButtonSize
 pub tablo_ui::components::primitives::button::ButtonSize::Icon
@@ -4404,6 +4826,7 @@ pub const tablo_ui::icons::ARROW_LEFT: topcoat_icon::data::IconData
 pub const tablo_ui::icons::ARROW_UP: topcoat_icon::data::IconData
 pub const tablo_ui::icons::ARROW_UP_DOWN: topcoat_icon::data::IconData
 pub const tablo_ui::icons::CHECK: topcoat_icon::data::IconData
+pub const tablo_ui::icons::CHEVRONS_UP_DOWN: topcoat_icon::data::IconData
 pub const tablo_ui::icons::CHEVRON_DOWN: topcoat_icon::data::IconData
 pub const tablo_ui::icons::CIRCLE_CHECK: topcoat_icon::data::IconData
 pub const tablo_ui::icons::CIRCLE_X: topcoat_icon::data::IconData
@@ -4419,6 +4842,7 @@ pub const tablo_ui::icons::LAYOUT_DASHBOARD: topcoat_icon::data::IconData
 pub const tablo_ui::icons::LINK: topcoat_icon::data::IconData
 pub const tablo_ui::icons::LOG_OUT: topcoat_icon::data::IconData
 pub const tablo_ui::icons::MESSAGE_SQUARE: topcoat_icon::data::IconData
+pub const tablo_ui::icons::MONITOR: topcoat_icon::data::IconData
 pub const tablo_ui::icons::MOON: topcoat_icon::data::IconData
 pub const tablo_ui::icons::OCTAGON_X: topcoat_icon::data::IconData
 pub const tablo_ui::icons::PENCIL: topcoat_icon::data::IconData
@@ -4452,6 +4876,28 @@ impl core::marker::Unpin for tablo_ui::components::primitives::alert::AlertVaria
 impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::alert::AlertVariant
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::alert::AlertVariant
 impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::alert::AlertVariant
+pub enum tablo_ui::AvatarSize
+pub tablo_ui::AvatarSize::Lg
+pub tablo_ui::AvatarSize::Md
+pub tablo_ui::AvatarSize::Sm
+impl core::clone::Clone for tablo_ui::components::primitives::avatar::AvatarSize
+pub fn tablo_ui::components::primitives::avatar::AvatarSize::clone(&self) -> tablo_ui::components::primitives::avatar::AvatarSize
+impl core::cmp::Eq for tablo_ui::components::primitives::avatar::AvatarSize
+impl core::cmp::PartialEq for tablo_ui::components::primitives::avatar::AvatarSize
+pub fn tablo_ui::components::primitives::avatar::AvatarSize::eq(&self, &tablo_ui::components::primitives::avatar::AvatarSize) -> bool
+impl core::default::Default for tablo_ui::components::primitives::avatar::AvatarSize
+pub fn tablo_ui::components::primitives::avatar::AvatarSize::default() -> tablo_ui::components::primitives::avatar::AvatarSize
+impl core::fmt::Debug for tablo_ui::components::primitives::avatar::AvatarSize
+pub fn tablo_ui::components::primitives::avatar::AvatarSize::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_ui::components::primitives::avatar::AvatarSize
+impl core::marker::StructuralPartialEq for tablo_ui::components::primitives::avatar::AvatarSize
+impl core::marker::Freeze for tablo_ui::components::primitives::avatar::AvatarSize
+impl core::marker::Send for tablo_ui::components::primitives::avatar::AvatarSize
+impl core::marker::Sync for tablo_ui::components::primitives::avatar::AvatarSize
+impl core::marker::Unpin for tablo_ui::components::primitives::avatar::AvatarSize
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::avatar::AvatarSize
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::avatar::AvatarSize
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::avatar::AvatarSize
 pub enum tablo_ui::BadgeVariant
 pub tablo_ui::BadgeVariant::Destructive
 pub tablo_ui::BadgeVariant::Outline
@@ -4833,6 +5279,45 @@ impl core::marker::Unpin for tablo_ui::components::primitives::alert::alert_titl
 impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::alert::alert_title
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::alert::alert_title
 impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::alert::alert_title
+pub struct tablo_ui::avatar
+impl core::default::Default for tablo_ui::components::primitives::avatar::avatar
+pub fn tablo_ui::components::primitives::avatar::avatar::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::avatar::avatar
+pub type tablo_ui::components::primitives::avatar::avatar::Props<'__props> = tablo_ui::components::primitives::avatar::AvatarProps<'__props>
+pub fn tablo_ui::components::primitives::avatar::avatar::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::avatar::avatar
+impl core::marker::Send for tablo_ui::components::primitives::avatar::avatar
+impl core::marker::Sync for tablo_ui::components::primitives::avatar::avatar
+impl core::marker::Unpin for tablo_ui::components::primitives::avatar::avatar
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::avatar::avatar
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::avatar::avatar
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::avatar::avatar
+pub struct tablo_ui::avatar_fallback
+impl core::default::Default for tablo_ui::components::primitives::avatar::avatar_fallback
+pub fn tablo_ui::components::primitives::avatar::avatar_fallback::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::avatar::avatar_fallback
+pub type tablo_ui::components::primitives::avatar::avatar_fallback::Props<'__props> = tablo_ui::components::primitives::avatar::AvatarFallbackProps<'__props>
+pub fn tablo_ui::components::primitives::avatar::avatar_fallback::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::avatar::avatar_fallback
+impl core::marker::Send for tablo_ui::components::primitives::avatar::avatar_fallback
+impl core::marker::Sync for tablo_ui::components::primitives::avatar::avatar_fallback
+impl core::marker::Unpin for tablo_ui::components::primitives::avatar::avatar_fallback
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::avatar::avatar_fallback
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::avatar::avatar_fallback
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::avatar::avatar_fallback
+pub struct tablo_ui::avatar_image
+impl core::default::Default for tablo_ui::components::primitives::avatar::avatar_image
+pub fn tablo_ui::components::primitives::avatar::avatar_image::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::avatar::avatar_image
+pub type tablo_ui::components::primitives::avatar::avatar_image::Props<'__props> = tablo_ui::components::primitives::avatar::AvatarImageProps
+pub fn tablo_ui::components::primitives::avatar::avatar_image::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::avatar::avatar_image
+impl core::marker::Send for tablo_ui::components::primitives::avatar::avatar_image
+impl core::marker::Sync for tablo_ui::components::primitives::avatar::avatar_image
+impl core::marker::Unpin for tablo_ui::components::primitives::avatar::avatar_image
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::avatar::avatar_image
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::avatar::avatar_image
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::avatar::avatar_image
 pub struct tablo_ui::badge
 impl core::default::Default for tablo_ui::components::primitives::badge::badge
 pub fn tablo_ui::components::primitives::badge::badge::default() -> Self
@@ -4846,6 +5331,97 @@ impl core::marker::Unpin for tablo_ui::components::primitives::badge::badge
 impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::badge::badge
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::badge::badge
 impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::badge::badge
+pub struct tablo_ui::breadcrumb
+impl core::default::Default for tablo_ui::components::primitives::breadcrumb::breadcrumb
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::breadcrumb::breadcrumb
+pub type tablo_ui::components::primitives::breadcrumb::breadcrumb::Props<'__props> = tablo_ui::components::primitives::breadcrumb::BreadcrumbProps<'__props>
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::breadcrumb
+impl core::marker::Send for tablo_ui::components::primitives::breadcrumb::breadcrumb
+impl core::marker::Sync for tablo_ui::components::primitives::breadcrumb::breadcrumb
+impl core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::breadcrumb
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::breadcrumb
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb
+pub struct tablo_ui::breadcrumb_ellipsis
+impl core::default::Default for tablo_ui::components::primitives::breadcrumb::breadcrumb_ellipsis
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb_ellipsis::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::breadcrumb::breadcrumb_ellipsis
+pub type tablo_ui::components::primitives::breadcrumb::breadcrumb_ellipsis::Props<'__props> = tablo_ui::components::primitives::breadcrumb::BreadcrumbEllipsisProps
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb_ellipsis::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::breadcrumb_ellipsis
+impl core::marker::Send for tablo_ui::components::primitives::breadcrumb::breadcrumb_ellipsis
+impl core::marker::Sync for tablo_ui::components::primitives::breadcrumb::breadcrumb_ellipsis
+impl core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::breadcrumb_ellipsis
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::breadcrumb_ellipsis
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb_ellipsis
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb_ellipsis
+pub struct tablo_ui::breadcrumb_item
+impl core::default::Default for tablo_ui::components::primitives::breadcrumb::breadcrumb_item
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb_item::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::breadcrumb::breadcrumb_item
+pub type tablo_ui::components::primitives::breadcrumb::breadcrumb_item::Props<'__props> = tablo_ui::components::primitives::breadcrumb::BreadcrumbItemProps<'__props>
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb_item::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::breadcrumb_item
+impl core::marker::Send for tablo_ui::components::primitives::breadcrumb::breadcrumb_item
+impl core::marker::Sync for tablo_ui::components::primitives::breadcrumb::breadcrumb_item
+impl core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::breadcrumb_item
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::breadcrumb_item
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb_item
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb_item
+pub struct tablo_ui::breadcrumb_link
+impl core::default::Default for tablo_ui::components::primitives::breadcrumb::breadcrumb_link
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb_link::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::breadcrumb::breadcrumb_link
+pub type tablo_ui::components::primitives::breadcrumb::breadcrumb_link::Props<'__props> = tablo_ui::components::primitives::breadcrumb::BreadcrumbLinkProps<'__props>
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb_link::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::breadcrumb_link
+impl core::marker::Send for tablo_ui::components::primitives::breadcrumb::breadcrumb_link
+impl core::marker::Sync for tablo_ui::components::primitives::breadcrumb::breadcrumb_link
+impl core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::breadcrumb_link
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::breadcrumb_link
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb_link
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb_link
+pub struct tablo_ui::breadcrumb_list
+impl core::default::Default for tablo_ui::components::primitives::breadcrumb::breadcrumb_list
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb_list::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::breadcrumb::breadcrumb_list
+pub type tablo_ui::components::primitives::breadcrumb::breadcrumb_list::Props<'__props> = tablo_ui::components::primitives::breadcrumb::BreadcrumbListProps<'__props>
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb_list::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::breadcrumb_list
+impl core::marker::Send for tablo_ui::components::primitives::breadcrumb::breadcrumb_list
+impl core::marker::Sync for tablo_ui::components::primitives::breadcrumb::breadcrumb_list
+impl core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::breadcrumb_list
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::breadcrumb_list
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb_list
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb_list
+pub struct tablo_ui::breadcrumb_page
+impl core::default::Default for tablo_ui::components::primitives::breadcrumb::breadcrumb_page
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb_page::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::breadcrumb::breadcrumb_page
+pub type tablo_ui::components::primitives::breadcrumb::breadcrumb_page::Props<'__props> = tablo_ui::components::primitives::breadcrumb::BreadcrumbPageProps<'__props>
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb_page::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::breadcrumb_page
+impl core::marker::Send for tablo_ui::components::primitives::breadcrumb::breadcrumb_page
+impl core::marker::Sync for tablo_ui::components::primitives::breadcrumb::breadcrumb_page
+impl core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::breadcrumb_page
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::breadcrumb_page
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb_page
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb_page
+pub struct tablo_ui::breadcrumb_separator
+impl core::default::Default for tablo_ui::components::primitives::breadcrumb::breadcrumb_separator
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb_separator::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::breadcrumb::breadcrumb_separator
+pub type tablo_ui::components::primitives::breadcrumb::breadcrumb_separator::Props<'__props> = tablo_ui::components::primitives::breadcrumb::BreadcrumbSeparatorProps
+pub fn tablo_ui::components::primitives::breadcrumb::breadcrumb_separator::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::breadcrumb::breadcrumb_separator
+impl core::marker::Send for tablo_ui::components::primitives::breadcrumb::breadcrumb_separator
+impl core::marker::Sync for tablo_ui::components::primitives::breadcrumb::breadcrumb_separator
+impl core::marker::Unpin for tablo_ui::components::primitives::breadcrumb::breadcrumb_separator
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::breadcrumb::breadcrumb_separator
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb_separator
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::breadcrumb::breadcrumb_separator
 pub struct tablo_ui::button
 impl core::default::Default for tablo_ui::components::primitives::button::button
 pub fn tablo_ui::components::primitives::button::button::default() -> Self

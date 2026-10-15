@@ -46,6 +46,8 @@ pub(crate) struct PanelState {
     pub(crate) root_redirect: Option<String>,
     pub(crate) auth: Auth,
     pub(crate) login_hint: Option<String>,
+    /// The app's entries in the user menu.
+    pub(crate) user_menu: Vec<NavigationItem>,
     pub(crate) uploads: Option<InstalledUploader>,
     /// The route patterns of the directories the panel serves.
     pub(crate) served_paths: Vec<String>,

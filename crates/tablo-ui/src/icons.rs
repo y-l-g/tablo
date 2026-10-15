@@ -2,6 +2,10 @@
 
 use topcoat::icon::{IconData, iconify::iconify_icon};
 
+/// The user menu's trigger.
+pub const CHEVRONS_UP_DOWN: IconData = iconify_icon!("lucide:chevrons-up-down");
+/// The system theme.
+pub const MONITOR: IconData = iconify_icon!("lucide:monitor");
 /// A row's action menu.
 pub const ELLIPSIS: IconData = iconify_icon!("lucide:ellipsis");
 /// Sortable column, neither direction active.

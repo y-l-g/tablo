@@ -7,6 +7,11 @@ pub(crate) fn runtime_link(cx: &Cx, href: &str) -> Attributes {
     topcoat::runtime::link_attrs(cx, href.to_string(), topcoat::runtime::prefetch_mode(cx))
 }
 
+/// A dropdown menu item that navigates: the registry item's look on a link.
+pub(crate) const MENU_LINK_CLASS: &str = "flex w-full items-center gap-2 rounded-md px-2 py-1.5 \
+     text-left text-sm whitespace-nowrap outline-none hover:bg-foreground/5 \
+     focus-visible:bg-foreground/5 active:bg-foreground/10 [&_svg]:size-4 [&_svg]:shrink-0";
+
 /// Where a sidebar entry points.
 #[derive(Clone, Default, PartialEq, Eq)]
 #[non_exhaustive]

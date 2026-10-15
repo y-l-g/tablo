@@ -18,7 +18,12 @@ pub use components::{
     primitives::{
         alert::{AlertVariant, alert, alert_description, alert_title},
         alert_dialog::alert_dialog,
+        avatar::{AvatarSize, avatar, avatar_fallback, avatar_image},
         badge::{BadgeVariant, badge, badge_variants},
+        breadcrumb::{
+            breadcrumb, breadcrumb_ellipsis, breadcrumb_item, breadcrumb_link, breadcrumb_list,
+            breadcrumb_page, breadcrumb_separator,
+        },
         button::{ButtonSize, ButtonVariant, button, button_variants},
         card::{card, card_content, card_description, card_footer, card_header, card_title},
         checkbox::checkbox,

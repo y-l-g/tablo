@@ -258,7 +258,7 @@ for each tenant `PanelUser::tenants` lists, as a `Membership { tenant, name }`; 
 - **The request's tenant** is the membership the user selected, else their first, read with
   `tenant_id(cx)`; `membership(cx)` returns the whole `Membership`. A user with no membership has
   no tenant.
-- **Switching.** With two or more memberships, the top bar shows a tenant switcher. It posts to
+- **Switching.** With two or more memberships, a tenant menu sits atop the sidebar. It posts to
   `{prefix}/tenant`, which stores the choice on the session and returns to the panel's home
   page.
   A tenant the user is not a member of answers 403, and a stored choice applies only while the
