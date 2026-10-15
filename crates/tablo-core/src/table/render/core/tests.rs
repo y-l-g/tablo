@@ -602,3 +602,97 @@ async fn a_derived_table_spells_a_timestamp_as_a_day() {
         "the timestamp reads as a day, got {html}"
     );
 }
+
+fn row_action(name: &'static str, label: &str) -> crate::table::TableAction<User> {
+    crate::table::TableAction {
+        name,
+        label: label.to_string(),
+        row: true,
+        bulk: false,
+        confirm: false,
+        input: None,
+        allowed: std::sync::Arc::new(|_: &User| true),
+    }
+}
+
+/// A menu table puts a row's actions behind one button, in order: the custom actions, View and
+/// Edit, then Delete past a separator; a row its policy denies everything keeps an empty cell.
+#[tokio::test]
+async fn a_menu_table_puts_the_actions_behind_one_button() {
+    let cx = CxTestBuilder::new().build();
+    let ada = User {
+        id: uuid::Uuid::new_v4(),
+        name: "Ada".to_string(),
+    };
+    let ken = User {
+        id: uuid::Uuid::new_v4(),
+        name: "Ken".to_string(),
+    };
+    let (ada_id, ken_id) = (ada.id.to_string(), ken.id.to_string());
+    let wired = Table::<User>::new(TextColumn::new(lens!(User.name)))
+        .action_layout(crate::ActionLayout::Menu)
+        .wired()
+        .with_view("/admin/users".to_string())
+        .with_edit("/admin/users".to_string())
+        .with_delete("/admin/users".to_string())
+        .with_custom_actions(
+            "/admin/users".to_string(),
+            vec![row_action("publish", "Publish")],
+        )
+        .row_actions(|u: &User| RowActions {
+            view: u.name != "Ken",
+            edit: u.name != "Ken",
+            delete: u.name != "Ken",
+        });
+    let page: TablePage<User> = vec![ada, ken].into();
+    let html = wired.render_loaded(&cx, page).await.html(&cx).await;
+    let menu = format!(
+        "id=\"{}-actions\"",
+        crate::table::state::row_dom_id(&ada_id)
+    );
+    let at = html
+        .find(&menu)
+        .unwrap_or_else(|| panic!("Ada's menu, got {html}"));
+    let content = &html[at..];
+    let order = ["Publish", "View", "Edit", "<hr", "Delete"].map(|item| {
+        content
+            .find(item)
+            .unwrap_or_else(|| panic!("{item} in {content}"))
+    });
+    assert!(
+        order.windows(2).all(|pair| pair[0] < pair[1]),
+        "custom actions, View, Edit, the separator, then Delete, got {content}"
+    );
+    assert_eq!(
+        html.matches("aria-label=\"Actions\"").count(),
+        2,
+        "each row's menu opens from one button, got {html}"
+    );
+    assert!(
+        !html.contains("title=\"Delete\""),
+        "no action stays inline, got {html}"
+    );
+    assert!(
+        !html.contains(&format!("{ken_id}/delete")) && !html.contains(&format!("{ken_id}/edit")),
+        "the denied row's menu holds no write, got {html}"
+    );
+}
+
+/// A table puts its actions inline unless it asks for a menu.
+#[tokio::test]
+async fn actions_sit_inline_by_default() {
+    let cx = CxTestBuilder::new().build();
+    let wired = Table::<User>::new(TextColumn::new(lens!(User.name)))
+        .wired()
+        .with_delete("/admin/users".to_string());
+    let page: TablePage<User> = vec![User {
+        id: uuid::Uuid::new_v4(),
+        name: "Ada".to_string(),
+    }]
+    .into();
+    let html = wired.render_loaded(&cx, page).await.html(&cx).await;
+    assert!(
+        html.contains("aria-label=\"Delete\"") && !html.contains("popover=\"auto\""),
+        "Delete is an inline button, got {html}"
+    );
+}

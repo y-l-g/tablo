@@ -2,6 +2,8 @@
 
 use topcoat::icon::{IconData, iconify::iconify_icon};
 
+/// A row's action menu.
+pub const ELLIPSIS: IconData = iconify_icon!("lucide:ellipsis");
 /// Sortable column, neither direction active.
 pub const ARROW_UP_DOWN: IconData = iconify_icon!("lucide:arrow-up-down");
 /// Sortable column, sorted ascending.

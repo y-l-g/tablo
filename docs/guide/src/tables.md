@@ -93,6 +93,10 @@ A `CountColumn` counts the loaded list, so it loads every related record of the 
   than its card scrolls sideways.
 - **Rows.** A row opens its record's view page, or its edit page when it has no view page,
   wherever it is clicked; the checkbox and the action buttons keep their own click.
+- **Row actions.** A row's actions sit side by side at its end: View, Edit and Delete as icons,
+  a custom action by its label. `.action_layout(ActionLayout::Menu)` puts them behind one button
+  instead, Delete last; the menu opens without JavaScript and confirms and asks for input as the
+  buttons do.
 
 Two columns with the same name, two filters with the same name, a select filter option its field's
 type does not parse, a table with no columns, and a zero page size are misdeclarations: mounting

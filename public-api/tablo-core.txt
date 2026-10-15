@@ -2147,6 +2147,27 @@ impl<F> tablo_core::Watched<F> for tablo_core::TextField<F>
 pub fn tablo_core::schema::parse_items<T: tablo_core::RepeaterItem>(&topcoat_core::context::Cx, &str, &tablo_core::FormValues) -> core::result::Result<alloc::vec::Vec<T>, alloc::vec::Vec<tablo_core::form::FieldError>>
 pub fn tablo_core::schema::write_items<T: tablo_core::RepeaterItem>(&[T]) -> tablo_core::FormValue
 pub mod tablo_core::table
+pub enum tablo_core::table::ActionLayout
+pub tablo_core::table::ActionLayout::Inline
+pub tablo_core::table::ActionLayout::Menu
+impl core::clone::Clone for tablo_core::table::ActionLayout
+pub fn tablo_core::table::ActionLayout::clone(&self) -> tablo_core::table::ActionLayout
+impl core::cmp::Eq for tablo_core::table::ActionLayout
+impl core::cmp::PartialEq for tablo_core::table::ActionLayout
+pub fn tablo_core::table::ActionLayout::eq(&self, &tablo_core::table::ActionLayout) -> bool
+impl core::default::Default for tablo_core::table::ActionLayout
+pub fn tablo_core::table::ActionLayout::default() -> tablo_core::table::ActionLayout
+impl core::fmt::Debug for tablo_core::table::ActionLayout
+pub fn tablo_core::table::ActionLayout::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_core::table::ActionLayout
+impl core::marker::StructuralPartialEq for tablo_core::table::ActionLayout
+impl core::marker::Freeze for tablo_core::table::ActionLayout
+impl core::marker::Send for tablo_core::table::ActionLayout
+impl core::marker::Sync for tablo_core::table::ActionLayout
+impl core::marker::Unpin for tablo_core::table::ActionLayout
+impl core::marker::UnsafeUnpin for tablo_core::table::ActionLayout
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::table::ActionLayout
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::table::ActionLayout
 pub enum tablo_core::table::Alignment
 pub tablo_core::table::Alignment::Center
 pub tablo_core::table::Alignment::End
@@ -2803,6 +2824,7 @@ impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Sort
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::Sort
 pub struct tablo_core::table::Table<M>
 impl<M> tablo_core::table::Table<M>
+pub fn tablo_core::table::Table<M>::action_layout(self, tablo_core::table::ActionLayout) -> Self
 pub fn tablo_core::table::Table<M>::bind(self, &toasty::db::Db) -> Self
 pub fn tablo_core::table::Table<M>::column(self, impl tablo_core::extend::Column<M> + 'static) -> Self
 pub fn tablo_core::table::Table<M>::declaration_errors(&self) -> alloc::vec::Vec<tablo_core::DeclarationErrorKind>
@@ -2816,6 +2838,7 @@ pub fn tablo_core::table::Table<M>::paginate(self, usize) -> Self
 pub fn tablo_core::table::Table<M>::pagination(self, tablo_core::table::Pagination) -> Self
 pub fn tablo_core::table::Table<M>::pagination_mode(&self) -> tablo_core::table::Pagination
 pub fn tablo_core::table::Table<M>::per_page_options(self, impl core::iter::traits::collect::IntoIterator<Item = usize>) -> Self
+pub fn tablo_core::table::Table<M>::row_action_layout(&self) -> tablo_core::table::ActionLayout
 impl<M> core::clone::Clone for tablo_core::table::Table<M>
 pub fn tablo_core::table::Table<M>::clone(&self) -> Self
 impl<M> core::fmt::Debug for tablo_core::table::Table<M>
@@ -3266,6 +3289,27 @@ impl core::marker::Unpin for tablo_core::ActionInputFault
 impl core::marker::UnsafeUnpin for tablo_core::ActionInputFault
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::ActionInputFault
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::ActionInputFault
+pub enum tablo_core::ActionLayout
+pub tablo_core::ActionLayout::Inline
+pub tablo_core::ActionLayout::Menu
+impl core::clone::Clone for tablo_core::table::ActionLayout
+pub fn tablo_core::table::ActionLayout::clone(&self) -> tablo_core::table::ActionLayout
+impl core::cmp::Eq for tablo_core::table::ActionLayout
+impl core::cmp::PartialEq for tablo_core::table::ActionLayout
+pub fn tablo_core::table::ActionLayout::eq(&self, &tablo_core::table::ActionLayout) -> bool
+impl core::default::Default for tablo_core::table::ActionLayout
+pub fn tablo_core::table::ActionLayout::default() -> tablo_core::table::ActionLayout
+impl core::fmt::Debug for tablo_core::table::ActionLayout
+pub fn tablo_core::table::ActionLayout::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_core::table::ActionLayout
+impl core::marker::StructuralPartialEq for tablo_core::table::ActionLayout
+impl core::marker::Freeze for tablo_core::table::ActionLayout
+impl core::marker::Send for tablo_core::table::ActionLayout
+impl core::marker::Sync for tablo_core::table::ActionLayout
+impl core::marker::Unpin for tablo_core::table::ActionLayout
+impl core::marker::UnsafeUnpin for tablo_core::table::ActionLayout
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::table::ActionLayout
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::table::ActionLayout
 pub enum tablo_core::Alignment
 pub tablo_core::Alignment::Center
 pub tablo_core::Alignment::End
@@ -5183,6 +5227,7 @@ impl<'a> core::panic::unwind_safe::RefUnwindSafe for tablo_core::Source<'a>
 impl<'a> core::panic::unwind_safe::UnwindSafe for tablo_core::Source<'a>
 pub struct tablo_core::Table<M>
 impl<M> tablo_core::table::Table<M>
+pub fn tablo_core::table::Table<M>::action_layout(self, tablo_core::table::ActionLayout) -> Self
 pub fn tablo_core::table::Table<M>::bind(self, &toasty::db::Db) -> Self
 pub fn tablo_core::table::Table<M>::column(self, impl tablo_core::extend::Column<M> + 'static) -> Self
 pub fn tablo_core::table::Table<M>::declaration_errors(&self) -> alloc::vec::Vec<tablo_core::DeclarationErrorKind>
@@ -5196,6 +5241,7 @@ pub fn tablo_core::table::Table<M>::paginate(self, usize) -> Self
 pub fn tablo_core::table::Table<M>::pagination(self, tablo_core::table::Pagination) -> Self
 pub fn tablo_core::table::Table<M>::pagination_mode(&self) -> tablo_core::table::Pagination
 pub fn tablo_core::table::Table<M>::per_page_options(self, impl core::iter::traits::collect::IntoIterator<Item = usize>) -> Self
+pub fn tablo_core::table::Table<M>::row_action_layout(&self) -> tablo_core::table::ActionLayout
 impl<M> core::clone::Clone for tablo_core::table::Table<M>
 pub fn tablo_core::table::Table<M>::clone(&self) -> Self
 impl<M> core::fmt::Debug for tablo_core::table::Table<M>

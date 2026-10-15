@@ -141,6 +141,25 @@ pub enum Pagination {
     Cursor,
 }
 
+/// Where a table puts a row's actions: its custom actions, View, Edit and Delete.
+///
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
+/// use tablo_core::{ActionLayout, Table, TextColumn, lens};
+///
+/// Table::new(TextColumn::new(lens!(Post.title))).action_layout(ActionLayout::Menu);
+/// ```
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ActionLayout {
+    /// Side by side at the end of the row: View, Edit and Delete as icons, a custom action by its
+    /// label.
+    #[default]
+    Inline,
+    /// In a menu behind one button at the end of the row, Delete last.
+    Menu,
+}
+
 /// Table description of a `Resource`'s list view declaring columns and how they map to queries.
 ///
 /// A clone shares every column, filter and projection.
@@ -158,6 +177,7 @@ pub struct Table<M> {
     addressable: bool,
     page_size: NonZeroUsize,
     pagination: Pagination,
+    action_layout: ActionLayout,
     /// The page sizes `?per_page=` may ask for, sorted; empty offers no choice.
     per_page_options: Vec<usize>,
     hide_search: bool,
@@ -199,6 +219,7 @@ impl<M> Table<M> {
             addressable: !crate::toasty_compat::pk::pk_is_composite::<M>(),
             page_size: DEFAULT_PAGE_SIZE,
             pagination: Pagination::default(),
+            action_layout: ActionLayout::default(),
             per_page_options: DEFAULT_PER_PAGE_OPTIONS.to_vec(),
             hide_search: false,
             hide_filter_bar: false,
@@ -323,6 +344,12 @@ impl<M> Table<M> {
         self
     }
 
+    /// Put a row's actions where `layout` says; [`ActionLayout::Inline`] by default.
+    pub fn action_layout(mut self, layout: ActionLayout) -> Self {
+        self.action_layout = layout;
+        self
+    }
+
     /// The page sizes a reader may pick, beside the table's own; none offers no choice.
     /// [`DEFAULT_PER_PAGE_OPTIONS`] by default. A cursor table offers none.
     pub fn per_page_options(mut self, options: impl IntoIterator<Item = usize>) -> Self {
@@ -431,6 +458,11 @@ impl<M> Table<M> {
     /// How the table pages.
     pub fn pagination_mode(&self) -> Pagination {
         self.pagination
+    }
+
+    /// Where the table puts a row's actions.
+    pub fn row_action_layout(&self) -> ActionLayout {
+        self.action_layout
     }
 
     /// The page sizes the reader may pick, sorted, the table's own among them; empty when it

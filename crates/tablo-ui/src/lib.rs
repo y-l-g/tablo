@@ -25,10 +25,18 @@ pub use components::{
         dialog::{
             dialog, dialog_content, dialog_description, dialog_footer, dialog_header, dialog_title,
         },
+        dropdown_menu::{
+            dropdown_menu, dropdown_menu_content, dropdown_menu_item, dropdown_menu_label,
+            dropdown_menu_separator, dropdown_menu_sub, dropdown_menu_sub_content,
+            dropdown_menu_sub_trigger, dropdown_menu_trigger,
+        },
         field::{
             FieldLegendVariant, FieldOrientation, field, field_content, field_description,
             field_error, field_group, field_label, field_legend, field_separator, field_set,
             field_title,
+        },
+        floating::{
+            FLOATING_SCOPE, FloatingAlign, FloatingAnchor, FloatingSide, floating_variants,
         },
         input::input,
         label::label,

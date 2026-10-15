@@ -3,11 +3,11 @@
 use std::path::PathBuf;
 
 use tablo::{
-    Ability, Action, Auth, BooleanColumn, Brand, ComputedColumn, CountColumn, DateFilter, Detail,
-    DirUploader, EmbeddedColumn, FieldErrors, Grid, Group, HeaderAction, ModelColumns, Pagination,
-    Panel, PublicLink, QueryFilter, Relation, RelationColumn, RepeaterColumn, Resource,
-    ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy,
-    TernaryFilter, TextColumn, lens, relation, scoped_query, tenant_id, when,
+    Ability, Action, ActionLayout, Auth, BooleanColumn, Brand, ComputedColumn, CountColumn,
+    DateFilter, Detail, DirUploader, EmbeddedColumn, FieldErrors, Grid, Group, HeaderAction,
+    ModelColumns, Pagination, Panel, PublicLink, QueryFilter, Relation, RelationColumn,
+    RepeaterColumn, Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter,
+    Table, Tenancy, TernaryFilter, TextColumn, lens, relation, scoped_query, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -214,6 +214,8 @@ fn post_table() -> Table<Post> {
         post_author_column(),
         CountColumn::new(relation!(Post.comments)),
     ))
+    // Publish and Tag join View, Edit and Delete behind one button.
+    .action_layout(ActionLayout::Menu)
     .filters((
         SelectFilter::of(lens!(Post.status)).multiple(),
         TernaryFilter::new(lens!(Post.featured)).labels("Featured", "Not featured"),
