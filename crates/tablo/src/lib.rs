@@ -88,10 +88,10 @@ pub mod prelude {
         CustomField, DateColumn, DateFilter, DateValue, Deny, Detail, EmbeddedColumn, EmbeddedForm,
         Field, FieldErrors, FileColumn, FileField, FormValues, Grid, Group, HeaderAction,
         HeaderActions, ImageColumn, IntoOptions, Lens, ModelColumns, ModelForm, NavigationItem,
-        NoForm, Options, Page, PageDef, Panel, Places, Policy, Posted, PublicLink, QueryFilter,
-        ReadOnly, RecordForm, Relation, RelationColumn, RepeaterColumn, RepeaterItem, Resource,
-        ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy,
-        TenantId, TernaryFilter, TextColumn, TextField, Toggle, can, can_list, can_open, lens,
-        relation, scoped_query, tenant_id, when,
+        NoForm, Options, Page, PageDef, Pagination, Panel, Places, Policy, Posted, PublicLink,
+        QueryFilter, ReadOnly, RecordForm, Relation, RelationColumn, RepeaterColumn, RepeaterItem,
+        Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table,
+        Tenancy, TenantId, TernaryFilter, TextColumn, TextField, Toggle, can, can_list, can_open,
+        lens, relation, scoped_query, tenant_id, when,
     };
 }

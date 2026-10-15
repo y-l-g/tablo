@@ -150,15 +150,31 @@ The URL holds the list's whole state, so every view of a list is a link you can 
 | --- | --- |
 | `?q=ada` | search: each searchable column contains `ada`; any column may match |
 | `?sort=name&dir=desc` | sort by a sortable column; `dir` is `asc` (default) or `desc` |
-| `?after=…`, `?before=…` | the next or previous page, as an opaque cursor |
+| `?page=3` | the page, from 1; page 1 spells no parameter |
+| `?per_page=50` | the page size, when the table offers it |
+| `?after=…`, `?before=…` | the next or previous page of a cursor table, as an opaque cursor |
 | `?f.status=published` | a filter: see [Filters](#filters) |
 | `?group_by=status` | grouping: see [Grouping](#grouping) |
 
 - Search escapes `%` and `_`, so they match literally. Terms are trimmed and capped at 128
   characters. Matching is case-insensitive: PostgreSQL runs it as `ILIKE`, and SQLite (for ASCII)
   and MySQL (under its default collations) as `LIKE`.
-- Pagination is cursor-based, 25 rows per page unless `.paginate(n)` sets another size. The
-  primary key breaks ties, so a sort over duplicate values still pages deterministically.
+- A table shows 25 rows per page unless `.paginate(n)` sets another size. Under the rows it says
+  "Showing 26–50 of 312", offers 10, 25, 50 or 100 rows per page (`.per_page_options([..])`
+  changes the choice, `[]` removes it), and links the first and last pages, the current one and
+  its neighbors. A page number past the last page reads as the last, so a stale link lands on
+  rows. The primary key breaks ties, so a sort over duplicate values still pages
+  deterministically.
+- `.pagination(..)` picks how a table pages. Each numbered page counts the result set, one more
+  query; a table too large to count, or one rows are written to while it is read, pages another
+  way:
+
+| `Pagination::` | Pager | Cost |
+| --- | --- | --- |
+| `Pages` (default) | "Showing 26–50 of 312", page links, Previous and Next | a count and the page, by offset |
+| `Simple` | "Page 2", Previous and Next | the page and one row more, by offset |
+| `Cursor` | Previous and Next | the page and one probe row, by cursor: no row skipped or repeated when rows are added or removed between two pages, and no offset to scan past |
+
 - `.hide_search()` removes the search box, and `.hide_filter_bar()` the filter controls.
 
 ### Live updates

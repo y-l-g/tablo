@@ -5,9 +5,9 @@ use std::path::PathBuf;
 use tablo::{
     Ability, Action, Auth, BooleanColumn, Brand, ColumnWidth, ComputedColumn, CountColumn,
     DateFilter, Detail, DirUploader, EmbeddedColumn, FieldErrors, Grid, Group, HeaderAction,
-    ModelColumns, Panel, PublicLink, QueryFilter, Relation, RelationColumn, RepeaterColumn,
-    Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy,
-    TernaryFilter, TextColumn, lens, relation, scoped_query, tenant_id, when,
+    ModelColumns, Pagination, Panel, PublicLink, QueryFilter, Relation, RelationColumn,
+    RepeaterColumn, Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter,
+    Table, Tenancy, TernaryFilter, TextColumn, lens, relation, scoped_query, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -405,10 +405,14 @@ impl Resource for CommentResource {
                 _ => true,
             })
             .tenancy(Tenancy::via(Comment::fields().post().tenant_id()))
-            .table(Table::new((
-                TextColumn::new(lens!(Comment.body)).searchable().sortable(),
-                comment_post_column(),
-            )))
+            // A cursor-paged table: Previous and Next by row, without a count.
+            .table(
+                Table::new((
+                    TextColumn::new(lens!(Comment.body)).searchable().sortable(),
+                    comment_post_column(),
+                ))
+                .pagination(Pagination::Cursor),
+            )
             .detail(Detail::new(Section::new("Comment").columns((
                 TextColumn::new(lens!(Comment.body)),
                 comment_post_column(),

@@ -157,8 +157,15 @@ pub struct TableState {
     pub search: Option<String>,
     /// `?sort=` + `?dir=` — `None` when absent or blank.
     pub sort: Option<Sort>,
-    /// `?after=` or `?before=`.
+    /// `?after=` or `?before=`, which a [`Pagination::Cursor`](super::Pagination::Cursor) table
+    /// reads.
     pub cursor: Option<Cursor>,
+    /// `?page=`, from 1, which a numbered or simple table reads; `None` when absent or not a
+    /// positive number.
+    pub page: Option<u32>,
+    /// `?per_page=`, honored when the table offers it; `None` when absent or not a positive
+    /// number.
+    pub per_page: Option<u32>,
     /// The active filters, by name: `?f.<name>=<value>`, repeated for each
     /// value, and `?f.<name>.<part>=<value>` for each part. The parse keeps
     /// no filter holding no value and no part.
@@ -182,6 +189,10 @@ struct UrlProjection<'a> {
     group_by: Option<&'a str>,
     /// `?after=` or `?before=`.
     cursor: Option<&'a Cursor>,
+    /// `?page=` page number.
+    page: Option<u32>,
+    /// `?per_page=` page size.
+    per_page: Option<u32>,
 }
 
 /// Longest accepted search term, in chars; the `?q=` transport and option search share it.
@@ -292,7 +303,7 @@ impl TableState {
     fn from_pairs<'q>(pairs: impl Iterator<Item = (Cow<'q, str>, Cow<'q, str>)>) -> Self {
         let mut state = Self::default();
         let (mut sort, mut dir, mut after, mut before) = (None, None, None, None);
-        let mut seen = [false; 6];
+        let mut seen = [false; 8];
         for (key, value) in pairs {
             if let Some(filter) = key.strip_prefix(FILTER_PREFIX) {
                 state.add_filter(filter, value.trim());
@@ -305,6 +316,8 @@ impl TableState {
                 "after" => 3,
                 "before" => 4,
                 "group_by" => 5,
+                "page" => 6,
+                "per_page" => 7,
                 // The retired single-parameter filter spelling: a saved link
                 // must warn (and its export refuse), not list everything.
                 "filters" => {
@@ -317,13 +330,16 @@ impl TableState {
                 continue;
             }
             let non_empty = || Some(value.trim().to_string()).filter(|v| !v.is_empty());
+            let positive = || value.trim().parse::<u32>().ok().filter(|n| *n > 0);
             match slot {
                 0 => state.search = Some(clamp_query_term(&value)).filter(|t| !t.is_empty()),
                 1 => sort = non_empty(),
                 2 => dir = Some(value.trim() == "desc"),
                 3 => after = non_empty(),
                 4 => before = non_empty(),
-                _ => state.group_by = non_empty(),
+                5 => state.group_by = non_empty(),
+                6 => state.page = positive(),
+                _ => state.per_page = positive(),
             }
         }
         state.sort = sort.map(|column| Sort {
@@ -383,7 +399,7 @@ impl TableState {
     /// parameter cannot silently drop it from half the links.
     ///
     /// One private encoder ([`Self::project`]) holds the vocabulary in
-    /// canonical order `q, sort, dir, f.*, group_by, after|before`. Only a
+    /// canonical order `q, sort, dir, f.*, group_by, per_page, page, after|before`. Only a
     /// filter's values depend on the order, and each filter writes them in
     /// the order it holds them.
     ///
@@ -397,56 +413,67 @@ impl TableState {
         href::with_query(path, &self.query())
     }
 
-    /// Drops `q` (and the cursor of its result set); keeps the filters.
+    /// Drops `q` (and the position in its result set); keeps the filters.
     pub(crate) fn without_search(&self, path: &str) -> String {
         let projection = UrlProjection {
             search: None,
-            cursor: None,
-            ..self.full()
+            ..self.first_page_projection()
         };
         href::with_query(path, &self.project(projection))
     }
 
-    /// Drops the filters (and the cursor of their result set); keeps the
+    /// Drops the filters (and the position in their result set); keeps the
     /// search term.
     pub(crate) fn without_filters(&self, path: &str) -> String {
         let projection = UrlProjection {
             filters: false,
-            cursor: None,
-            ..self.full()
+            ..self.first_page_projection()
         };
         href::with_query(path, &self.project(projection))
     }
 
-    /// Drops the cursor; keeps everything else. Back-to-first-page and the
-    /// cursor-failure retry link.
-    pub(crate) fn without_cursor(&self, path: &str) -> String {
-        let projection = UrlProjection {
-            cursor: None,
-            ..self.full()
-        };
-        href::with_query(path, &self.project(projection))
+    /// Drops the cursor and the page number; keeps everything else, the page size included.
+    /// Back-to-first-page and the cursor-failure retry link.
+    pub(crate) fn first_page(&self, path: &str) -> String {
+        href::with_query(path, &self.project(self.first_page_projection()))
     }
 
-    /// Full state with `cursor` in place of the current one: the pager's
-    /// links.
+    /// Full state with `cursor` in place of the current position: a cursor pager's links.
     pub(crate) fn with_cursor(&self, path: &str, cursor: &Cursor) -> String {
         let projection = UrlProjection {
             cursor: Some(cursor),
-            ..self.full()
+            ..self.first_page_projection()
         };
         href::with_query(path, &self.project(projection))
     }
 
-    /// Replaces `sort`/`dir`, drops the cursor: a new ordering is a new
+    /// Full state at page `page`: a numbered pager's links. Page 1 spells no parameter.
+    pub(crate) fn with_page(&self, path: &str, page: u32) -> String {
+        let projection = UrlProjection {
+            page: Some(page).filter(|page| *page > 1),
+            ..self.first_page_projection()
+        };
+        href::with_query(path, &self.project(projection))
+    }
+
+    /// Replaces `sort`/`dir`, drops the position: a new ordering is a new
     /// result set.
     pub(crate) fn sorted_by(&self, path: &str, column: &str, descending: bool) -> String {
         let projection = UrlProjection {
             sort: Some((column, if descending { "desc" } else { "asc" })),
-            cursor: None,
-            ..self.full()
+            ..self.first_page_projection()
         };
         href::with_query(path, &self.project(projection))
+    }
+
+    /// The parameters a form rerunning this state at its first page carries, besides its own
+    /// fields: every one but `skip`, the page and the cursor.
+    pub(crate) fn hidden_pairs(&self, skip: &str) -> Vec<(String, String)> {
+        let skip = self.param(skip);
+        form_urlencoded::parse(self.project(self.first_page_projection()).as_bytes())
+            .filter(|(name, _)| *name != skip)
+            .map(|(name, value)| (name.into_owned(), value.into_owned()))
+            .collect()
     }
 
     /// `?sort=` column + `?dir=` value for the projection.
@@ -464,6 +491,17 @@ impl TableState {
             filters: true,
             group_by: self.group_by.as_deref(),
             cursor: self.cursor.as_ref(),
+            page: self.page,
+            per_page: self.per_page,
+        }
+    }
+
+    /// The projection that keeps every parameter but the position: the result set's first page.
+    fn first_page_projection(&self) -> UrlProjection<'_> {
+        UrlProjection {
+            cursor: None,
+            page: None,
+            ..self.full()
         }
     }
 
@@ -477,6 +515,8 @@ impl TableState {
             search: _,
             sort: _,
             cursor: _,
+            page: _,
+            per_page: _,
             filters: _,
             filters_dropped: _,
             group_by: _,
@@ -493,6 +533,8 @@ impl TableState {
             Some(Cursor::Before(token)) => ("before", Some(token.as_str())),
             None => ("after", None),
         };
+        let per_page = projection.per_page.map(|n| n.to_string());
+        let page = projection.page.map(|n| n.to_string());
         let pairs: Vec<(String, &str)> = [
             (self.param("q"), projection.search),
             (
@@ -505,6 +547,8 @@ impl TableState {
         .chain(filters)
         .chain([
             (self.param("group_by"), projection.group_by),
+            (self.param("per_page"), per_page.as_deref()),
+            (self.param("page"), page.as_deref()),
             (self.param(cursor.0), cursor.1),
         ])
         .filter_map(|(key, value)| value.map(|value| (key, value)))

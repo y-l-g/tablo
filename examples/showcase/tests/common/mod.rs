@@ -208,19 +208,19 @@ pub async fn tenantless_client<'a>(router: &'a Router, db: &Db) -> TestClient<'a
     signed_in_client(router, db, showcase::models::TENANTLESS_ADMIN_EMAIL).await
 }
 
-/// Finds the pager link carrying `needle`.
-pub fn find_pager_href(html: &str, needle: &str) -> Option<String> {
-    let mut rest = html;
-    loop {
-        let start = rest.find("href=\"")?;
-        rest = &rest[start + "href=\"".len()..];
-        let end = rest.find('"')?;
-        let href = &rest[..end];
-        if href.contains(needle) && !href.contains("delete=") {
-            return Some(unescape_href(href));
-        }
-        rest = &rest[end..];
-    }
+/// The decoded `href` of the pager's `rel` link, `"next"` or `"prev"`; `None` when the pager has
+/// no such link.
+pub fn pager_link(html: &str, rel: &str) -> Option<String> {
+    let marker = format!("rel=\"{rel}\"");
+    // Each anchor up to its `</a>`: the tag holds the click handler, whose `=>` is a raw `>`, so
+    // the tag's own end is no boundary to search by, and its attributes come in no fixed order.
+    html.match_indices("<a ").find_map(|(start, _)| {
+        let anchor = &html[start..start + html[start..].find("</a>")?];
+        anchor.contains(&marker).then_some(())?;
+        let href = anchor.find("href=\"")? + "href=\"".len();
+        let len = anchor[href..].find('"')?;
+        Some(unescape_href(&anchor[href..href + len]))
+    })
 }
 
 fn unescape_href(href: &str) -> String {

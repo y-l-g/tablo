@@ -427,8 +427,11 @@ async fn seeded_users(names: &[&str]) -> topcoat::context::Cx {
     CxTestBuilder::new().app_context(db).build()
 }
 
+/// A cursor-paged table of users, `per_page` to a page: the cursor walk's subject.
 fn paged_users_table(per_page: usize) -> Table<User> {
-    Table::<User>::new(TextColumn::new(lens!(User.name)).sortable()).paginate(per_page)
+    Table::<User>::new(TextColumn::new(lens!(User.name)).sortable())
+        .paginate(per_page)
+        .pagination(crate::table::Pagination::Cursor)
 }
 
 #[tokio::test]
@@ -771,7 +774,11 @@ async fn stale_cursor_is_marked_for_retry() {
     let cx = topcoat::context::CxTestBuilder::new()
         .app_context(db)
         .build();
-    let table = || Table::<Task>::new(TextColumn::new(lens!(Task.title)).sortable()).paginate(2);
+    let table = || {
+        Table::<Task>::new(TextColumn::new(lens!(Task.title)).sortable())
+            .paginate(2)
+            .pagination(crate::table::Pagination::Cursor)
+    };
     // The query orders by `title` then the PK to break ties, so a cursor
     // with three fields has one too many.
     let wide = crate::toasty_compat::cursor::encode(&Value::Record(ValueRecord::from_vec(vec![
@@ -828,4 +835,103 @@ async fn stale_cursor_is_marked_for_retry() {
         .is_ok(),
         "a matching cursor must keep loading"
     );
+}
+
+/// The rows' names and the position of the page `query` names on a numbered table of
+/// `per_page` users.
+async fn numbered_page(
+    cx: &topcoat::context::Cx,
+    table: &Table<User>,
+    query: &str,
+) -> (Vec<String>, crate::table::PagePosition) {
+    let page = TablePage::load(
+        cx,
+        table,
+        toasty::stmt::Query::<List<User>>::all(),
+        &TableState::from_query(query),
+    )
+    .await
+    .expect("the page loads");
+    let names = page.rows.iter().map(|user| user.name.clone()).collect();
+    (
+        names,
+        page.position.expect("a numbered page knows its position"),
+    )
+}
+
+/// A numbered table counts its result set, pages by offset in the sorted order, and reads a page
+/// past the last as the last.
+#[tokio::test]
+async fn numbered_pages_count_and_clamp() {
+    let cx = seeded_users(&["u01", "u02", "u03", "u04", "u05"]).await;
+    let table = Table::<User>::new(TextColumn::new(lens!(User.name)).sortable()).paginate(2);
+
+    let (rows, position) = numbered_page(&cx, &table, "").await;
+    assert_eq!(rows, ["u01", "u02"]);
+    assert_eq!((position.page, position.total), (1, Some(5)));
+    assert_eq!(position.last_page(), Some(3));
+    assert!(position.has_next);
+
+    let (rows, position) = numbered_page(&cx, &table, "page=3").await;
+    assert_eq!(rows, ["u05"]);
+    assert!(!position.has_next);
+
+    let (rows, position) = numbered_page(&cx, &table, "page=9").await;
+    assert_eq!((rows, position.page), (vec!["u05".to_string()], 3));
+
+    let (rows, _) = numbered_page(&cx, &table, "page=2&sort=name&dir=desc").await;
+    assert_eq!(rows, ["u03", "u02"]);
+
+    // The count follows the search, so the pages do too.
+    let searchable =
+        Table::<User>::new(TextColumn::new(lens!(User.name)).searchable().sortable()).paginate(2);
+    let (rows, position) = numbered_page(&cx, &searchable, "q=u0&page=2").await;
+    assert_eq!((rows.len(), position.total), (2, Some(5)));
+    let (_, position) = numbered_page(&cx, &searchable, "q=u05").await;
+    assert_eq!((position.total, position.has_next), (Some(1), false));
+}
+
+/// An empty result set is one empty page, not a page zero.
+#[tokio::test]
+async fn an_empty_numbered_table_is_page_one() {
+    let cx = seeded_users(&[]).await;
+    let table = Table::<User>::new(TextColumn::new(lens!(User.name)).sortable());
+    let (rows, position) = numbered_page(&cx, &table, "page=4").await;
+    assert!(rows.is_empty());
+    assert_eq!(
+        (position.page, position.total, position.has_next),
+        (1, Some(0), false)
+    );
+    assert_eq!(position.last_page(), Some(1));
+}
+
+/// A simple table counts nothing and learns of a next page from one extra row.
+#[tokio::test]
+async fn simple_pages_look_one_row_ahead() {
+    let cx = seeded_users(&["u01", "u02", "u03", "u04"]).await;
+    let table = Table::<User>::new(TextColumn::new(lens!(User.name)).sortable())
+        .paginate(2)
+        .pagination(crate::table::Pagination::Simple);
+    let (rows, position) = numbered_page(&cx, &table, "").await;
+    assert_eq!(rows, ["u01", "u02"]);
+    assert_eq!((position.total, position.has_next), (None, true));
+    let (rows, position) = numbered_page(&cx, &table, "page=2").await;
+    assert_eq!(rows, ["u03", "u04"]);
+    assert!(!position.has_next, "an exactly full last page has no next");
+}
+
+/// `?per_page=` sets the page size only to a size the table offers.
+#[tokio::test]
+async fn per_page_reads_only_an_offered_size() {
+    let cx = seeded_users(&["u01", "u02", "u03", "u04", "u05"]).await;
+    let table = Table::<User>::new(TextColumn::new(lens!(User.name)).sortable())
+        .paginate(2)
+        .per_page_options([4]);
+    let (rows, position) = numbered_page(&cx, &table, "per_page=4").await;
+    assert_eq!((rows.len(), position.per_page), (4, 4));
+    let (rows, _) = numbered_page(&cx, &table, "per_page=3").await;
+    assert_eq!(rows.len(), 2, "an unoffered size reads as the table's own");
+    let fixed = table.clone().per_page_options([]);
+    let (rows, _) = numbered_page(&cx, &fixed, "per_page=4").await;
+    assert_eq!(rows.len(), 2, "a table offering no choice keeps its size");
 }

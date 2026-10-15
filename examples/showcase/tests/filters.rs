@@ -1,7 +1,7 @@
 use showcase::models::{Author, Post, PostStatus};
 
 use crate::common::{
-    body_string, demo_client, filter_options, find_href_with, full_db, input_value,
+    body_string, demo_client, filter_options, find_href_with, full_db, input_value, pager_link,
     routers::router_for_tests as router, row_titles,
 };
 
@@ -175,7 +175,7 @@ async fn the_author_filter_keeps_the_posts_of_the_chosen_authors() {
             "only the chosen authors' posts show: {shown:?}"
         );
         assert!(
-            shown.len() == expected.len() || find_href_with(&html, "after=").is_some(),
+            shown.len() == expected.len() || pager_link(&html, "next").is_some(),
             "every chosen author's post shows, over pages: {shown:?}"
         );
         let selected: Vec<String> = filter_options(&html, "author_id")
@@ -405,7 +405,7 @@ async fn typo_filter_warns_on_list_but_refuses_export() {
 }
 
 #[tokio::test]
-async fn posts_filter_with_cursor_paginates_filtered_rows() {
+async fn posts_filter_paginates_filtered_rows() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -445,7 +445,7 @@ async fn posts_filter_with_cursor_paginates_filtered_rows() {
         !page1.contains("Second Post"),
         "filtered page 1 must not show drafts: {page1}"
     );
-    let next = find_href_with(&page1, "after=").expect("filtered page 1 needs a Next link");
+    let next = pager_link(&page1, "next").expect("filtered page 1 needs a Next link");
     assert!(
         next.contains("f.status=published"),
         "the pager must preserve filters, got {next}"
@@ -461,7 +461,7 @@ async fn posts_filter_with_cursor_paginates_filtered_rows() {
         !page2.contains("Second Post"),
         "filtered page 2 must not show drafts: {page2}"
     );
-    let prev = find_href_with(&page2, "before=").expect("filtered page 2 needs a Previous link");
+    let prev = pager_link(&page2, "prev").expect("filtered page 2 needs a Previous link");
     assert!(
         prev.contains("f.status=published"),
         "the Previous link must preserve filters, got {prev}"

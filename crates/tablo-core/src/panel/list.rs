@@ -33,7 +33,7 @@ pub(crate) fn retry_url_for_error(
     path: &str,
 ) -> String {
     if crate::error::TabloError::is_cursor(error) {
-        state.without_cursor(path)
+        state.first_page(path)
     } else {
         state.list_url(path)
     }
@@ -217,7 +217,7 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         let table = wire_table_actions(cx, &resource);
         let (signals, state) = table.browser_state(cx);
         // A write lands back on the list as the reader left it.
-        let back = state.without_cursor(&resource.url);
+        let back = state.first_page(&resource.url);
         let mut actions = header_bar(cx, &resource.url, &resource.header_actions, |action| {
             resource.can(
                 cx,
@@ -235,7 +235,7 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         let skeleton = table.render_skeleton(cx, &state).await?;
         let create_url = (<R::Form as RecordForm>::HAS_FORM && resource.can(cx, Ability::Create))
             .then(|| create_page_url(&resource.url));
-        let export_url = state.without_cursor(&export_url(&resource.url));
+        let export_url = state.first_page(&export_url(&resource.url));
         let header = list_header(
             cx,
             &resource.plural_label,

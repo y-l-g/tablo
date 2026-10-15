@@ -34,7 +34,7 @@ pub use self::{
         ToOneRelation, contains_expr,
     },
     filter::{DateFilter, FilterValue, IntoFilters, QueryFilter, SelectFilter, TernaryFilter},
-    page::TablePage,
+    page::{PagePosition, TablePage},
     state::{Cursor, Sort, TableState},
     wiring::WiredTable,
 };
@@ -115,6 +115,32 @@ pub(crate) struct TableAction<M> {
 /// The page size of a table that declares none with [`Table::paginate`].
 pub const DEFAULT_PAGE_SIZE: NonZeroUsize = NonZeroUsize::new(25).unwrap();
 
+/// The page sizes a table offers a reader by default, beside its own [`Table::paginate`] size.
+pub const DEFAULT_PER_PAGE_OPTIONS: [usize; 4] = [10, 25, 50, 100];
+
+/// How a table pages through its rows.
+///
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # struct Event { #[key] #[auto] id: uuid::Uuid, name: String }
+/// use tablo_core::{Pagination, Table, TextColumn, lens};
+///
+/// // A log too large to count on every page.
+/// Table::new(TextColumn::new(lens!(Event.name))).pagination(Pagination::Cursor);
+/// ```
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Pagination {
+    /// Numbered pages, `?page=3`: "Showing 51–75 of 312", the page links, and Previous and
+    /// Next. Each page counts the result set, one more query.
+    #[default]
+    Pages,
+    /// Previous and Next by page number, without a count: "Page 3".
+    Simple,
+    /// Previous and Next by row cursor, `?after=…`: neither counts nor skips rows, so it pages
+    /// a large or fast-changing table without drifting.
+    Cursor,
+}
+
 /// Table description of a `Resource`'s list view declaring columns and how they map to queries.
 ///
 /// A clone shares every column, filter and projection.
@@ -131,6 +157,9 @@ pub struct Table<M> {
     /// action.
     addressable: bool,
     page_size: NonZeroUsize,
+    pagination: Pagination,
+    /// The page sizes `?per_page=` may ask for, sorted; empty offers no choice.
+    per_page_options: Vec<usize>,
     hide_search: bool,
     hide_filter_bar: bool,
     _marker: PhantomData<M>,
@@ -146,6 +175,7 @@ impl<M> std::fmt::Debug for Table<M> {
             .field("filters", &self.filters.len())
             .field("group_by", &self.group_by.is_some())
             .field("page_size", &self.page_size)
+            .field("pagination", &self.pagination)
             .field("hide_search", &self.hide_search)
             .field("hide_filter_bar", &self.hide_filter_bar)
             .finish()
@@ -168,6 +198,8 @@ impl<M> Table<M> {
             key: crate::toasty_compat::pk::pk_text::<M>,
             addressable: !crate::toasty_compat::pk::pk_is_composite::<M>(),
             page_size: DEFAULT_PAGE_SIZE,
+            pagination: Pagination::default(),
+            per_page_options: DEFAULT_PER_PAGE_OPTIONS.to_vec(),
             hide_search: false,
             hide_filter_bar: false,
             _marker: PhantomData,
@@ -285,6 +317,19 @@ impl<M> Table<M> {
         out
     }
 
+    /// Page through the rows as `pagination` says; [`Pagination::Pages`] by default.
+    pub fn pagination(mut self, pagination: Pagination) -> Self {
+        self.pagination = pagination;
+        self
+    }
+
+    /// The page sizes a reader may pick, beside the table's own; none offers no choice.
+    /// [`DEFAULT_PER_PAGE_OPTIONS`] by default. A cursor table offers none.
+    pub fn per_page_options(mut self, options: impl IntoIterator<Item = usize>) -> Self {
+        self.per_page_options = options.into_iter().filter(|size| *size > 0).collect();
+        self
+    }
+
     /// Set the page size.
     pub fn paginate(mut self, per_page: usize) -> Self {
         match NonZeroUsize::new(per_page) {
@@ -383,6 +428,34 @@ impl<M> Table<M> {
         self.page_size.get()
     }
 
+    /// How the table pages.
+    pub fn pagination_mode(&self) -> Pagination {
+        self.pagination
+    }
+
+    /// The page sizes the reader may pick, sorted, the table's own among them; empty when it
+    /// offers no choice.
+    pub(crate) fn page_sizes(&self) -> Vec<usize> {
+        if self.per_page_options.is_empty() || self.pagination == Pagination::Cursor {
+            return Vec::new();
+        }
+        let mut sizes = self.per_page_options.clone();
+        sizes.push(self.page_size());
+        sizes.sort_unstable();
+        sizes.dedup();
+        sizes
+    }
+
+    /// The page size `state` reads at: its `?per_page=` when the table offers it, else the
+    /// table's own.
+    pub(crate) fn page_size_for(&self, state: &TableState) -> usize {
+        state
+            .per_page
+            .and_then(|asked| usize::try_from(asked).ok())
+            .filter(|asked| self.page_sizes().contains(asked))
+            .unwrap_or_else(|| self.page_size())
+    }
+
     /// The key of `record`'s row: its primary key's URL id.
     pub(crate) fn key_of(&self, record: &M) -> String {
         (self.key)(record)
@@ -448,8 +521,22 @@ impl<M> Table<M> {
         out
     }
 
-    /// Apply this table's declaration to `query`.
+    /// Apply this table's declaration to `query`: [`Self::narrow`], then the ordering.
     pub(crate) fn apply_declaration(
+        &self,
+        db: &toasty::Db,
+        query: toasty::stmt::Query<List<M>>,
+        state: &TableState,
+    ) -> toasty::stmt::Query<List<M>>
+    where
+        M: toasty::schema::Model,
+    {
+        self.order(self.narrow(db, query, state), state)
+    }
+
+    /// Narrow `query` to the rows `state`'s search and filters select, unordered: what a count
+    /// reads.
+    pub(crate) fn narrow(
         &self,
         db: &toasty::Db,
         mut query: toasty::stmt::Query<List<M>>,
@@ -466,6 +553,18 @@ impl<M> Table<M> {
         if let Some(expr) = self.filter_expr(state) {
             query = query.filter(expr);
         }
+        query
+    }
+
+    /// Order `query` as `state` sorts it.
+    pub(crate) fn order(
+        &self,
+        mut query: toasty::stmt::Query<List<M>>,
+        state: &TableState,
+    ) -> toasty::stmt::Query<List<M>>
+    where
+        M: toasty::schema::Model,
+    {
         for ord in self.order_bys_for(state) {
             query = query.order_by(ord);
         }

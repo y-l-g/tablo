@@ -50,6 +50,7 @@ pub use tablo::prelude::Options
 pub use tablo::prelude::Options
 pub use tablo::prelude::Page
 pub use tablo::prelude::PageDef
+pub use tablo::prelude::Pagination
 pub use tablo::prelude::Panel
 pub use tablo::prelude::Places
 pub use tablo::prelude::Policy

@@ -44,7 +44,7 @@ pub(super) fn hidden_state_inputs<'a>(
 /// filter is a new result set. A submit stays on the page; `change` cannot be cancelled, so the
 /// same handler serves it. An unchanged query, such as the search field's `change` as it loses
 /// focus, reruns nothing.
-fn rerun_with(signals: &TableSignals, form: &str) -> Expr<impl EventHandlerFn + use<>> {
+pub(super) fn rerun_with(signals: &TableSignals, form: &str) -> Expr<impl EventHandlerFn + use<>> {
     let query = signals.query.clone();
     let form = form.to_string();
     expr!(|e: Event| {
@@ -89,6 +89,10 @@ impl Frame<'_> {
                 (state.param("sort"), sort_hidden),
                 (state.param("dir"), dir_hidden),
                 (state.param("group_by"), state.group_by.clone()),
+                (
+                    state.param("per_page"),
+                    state.per_page.map(|n| n.to_string()),
+                ),
             ],
         );
         let search = show_search.then(|| {
