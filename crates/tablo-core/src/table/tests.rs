@@ -181,6 +181,21 @@ async fn the_sort_parameter_orders_rows_and_falls_back_to_a_stable_order() {
     );
 }
 
+/// An offset page orders by its sort, then by primary key, so rows sharing a sort value keep one
+/// order across pages; a table ordered by its key alone does not repeat it.
+#[test]
+fn an_offset_page_breaks_sort_ties_by_primary_key() {
+    let key = crate::toasty_compat::pk::pk_order_bys::<User>();
+    let sorted = Table::<User>::new(TextColumn::new(lens!(User.name)).sortable());
+    let state = TableState::default();
+    let mut expected = sorted.order_bys_for(&state);
+    expected.extend(key.clone());
+    assert_eq!(sorted.offset_order_bys_for(&state), expected);
+
+    let unsorted = Table::<User>::new(TextColumn::new(lens!(User.name)));
+    assert_eq!(unsorted.offset_order_bys_for(&state), key);
+}
+
 #[tokio::test]
 async fn table_page_round_trips_real_cursors() {
     let mut db = memory_db(toasty::models!(User)).await;

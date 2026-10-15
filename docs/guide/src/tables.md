@@ -300,8 +300,8 @@ notification.
 Both deletes require confirmation. The Delete action opens a confirmation dialog on the list page,
 as it does in the header of the record's [detail and edit pages](./actions.md#on-a-records-pages),
 and the bulk bar's button, disabled while nothing is selected, opens one stating how many rows are
-selected. Confirming posts the write, which returns to the list as it was left (its search, sort
-and filters, on the first page) with a notification. The delete handlers refuse a POST that was not
+selected. Confirming posts the write, which returns to the list as it was left (its search, sort,
+filters and page) with a notification. The delete handlers refuse a POST that was not
 confirmed through the dialog with 400. The dialogs need JavaScript: without it the Delete action
 does nothing.
 

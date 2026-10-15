@@ -120,8 +120,9 @@ where
 
     /// Load the page `?page=` names by offset, counting the result set when `counted`.
     ///
-    /// A page past the last one reads as the last, so a stale link or a narrowed search
-    /// lands on rows rather than on an empty page.
+    /// Counted, a page past the last one reads as the last, so a stale link or a narrowed search
+    /// lands on rows rather than on an empty page. Uncounted, it shows the empty state, which
+    /// links the first page.
     async fn load_numbered(
         cx: &Cx,
         table: &Table<M>,
@@ -162,8 +163,12 @@ where
             .saturating_mul(per_page);
         // A simple page fetches one row more than it shows: that row is the next page's.
         let fetch = if counted { per_page } else { per_page + 1 };
+        let ordered = table
+            .offset_order_bys_for(state)
+            .into_iter()
+            .fold(narrowed, |query, order| query.order_by(order));
         let mut rows = table
-            .include_relations(table.order(narrowed, state))
+            .include_relations(ordered)
             .limit(fetch)
             .offset(offset)
             .exec(&mut db)

@@ -438,6 +438,16 @@ impl TableState {
         href::with_query(path, &self.project(self.first_page_projection()))
     }
 
+    /// Full state but the cursor, the page number kept: where a write returns the reader. A
+    /// cursor can name a row the write removed; a page number past the end reads as the last.
+    pub(crate) fn without_cursor(&self, path: &str) -> String {
+        let projection = UrlProjection {
+            cursor: None,
+            ..self.full()
+        };
+        href::with_query(path, &self.project(projection))
+    }
+
     /// Full state with `cursor` in place of the current position: a cursor pager's links.
     pub(crate) fn with_cursor(&self, path: &str, cursor: &Cursor) -> String {
         let projection = UrlProjection {
@@ -715,8 +725,9 @@ fn fnv1a_32(s: &str) -> u32 {
 /// the record, unlike a loop index), sanitized to an HTML-safe token plus a
 /// short hash: distinct keys (`Ada Lovelace`, `Ada-Lovelace`) can sanitize to
 /// the same token, and duplicate DOM ids would make the morph follow one row.
-pub(crate) fn row_dom_id(key: &str) -> String {
-    dom_id("row", key)
+/// `scope` names the table, distinct per table on the page: two tables can hold one key.
+pub(crate) fn row_dom_id(scope: &str, key: &str) -> String {
+    dom_id(&format!("row-{scope}"), key)
 }
 
 /// Stable DOM id for a page-local group header.
@@ -724,8 +735,8 @@ pub(crate) fn row_dom_id(key: &str) -> String {
 /// Same contract as [`row_dom_id`]: the header is injected, removed and moved
 /// as the page is re-sorted, so the in-place morph needs an id derived from the
 /// group label it belongs to rather than from its position in the page.
-pub(crate) fn group_header_dom_id(label: &str) -> String {
-    dom_id("group", label)
+pub(crate) fn group_header_dom_id(scope: &str, label: &str) -> String {
+    dom_id(&format!("group-{scope}"), label)
 }
 
 /// The one sanitizer behind both ids: `{prefix}-{token}-{hash}`.

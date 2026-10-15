@@ -603,6 +603,22 @@ impl<M> Table<M> {
         query
     }
 
+    /// The ordering an offset page reads: `state`'s sort, then the primary key.
+    ///
+    /// Toasty breaks ties by the key for a cursor only; without it, rows sharing a sort value may
+    /// come back in a different order for each offset, and repeat or go missing across pages.
+    pub(crate) fn offset_order_bys_for(&self, state: &TableState) -> Vec<OrderByExpr>
+    where
+        M: toasty::schema::Model,
+    {
+        let mut order = self.order_bys_for(state);
+        let key = crate::toasty_compat::pk::pk_order_bys::<M>();
+        if order != key {
+            order.extend(key);
+        }
+        order
+    }
+
     /// Whether the declaration enables a search toolbar.
     pub(crate) fn search_enabled(&self) -> bool
     where

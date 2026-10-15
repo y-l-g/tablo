@@ -217,7 +217,7 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         let table = wire_table_actions(cx, &resource);
         let (signals, state) = table.browser_state(cx);
         // A write lands back on the list as the reader left it.
-        let back = state.first_page(&resource.url);
+        let back = state.without_cursor(&resource.url);
         let mut actions = header_bar(cx, &resource.url, &resource.header_actions, |action| {
             resource.can(
                 cx,
