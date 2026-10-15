@@ -303,6 +303,7 @@ async fn group_by_unknown_value_renders_no_headers_and_drops_param() {
         rows,
         next_cursor: Some("abc".to_string()),
         prev_cursor: None,
+        position: None,
     };
     let html = grouped
         .render_with_state(&cx, page, &state, "/admin/users")

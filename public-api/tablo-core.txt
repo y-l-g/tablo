@@ -2257,6 +2257,28 @@ impl core::marker::Unpin for tablo_core::Number
 impl core::marker::UnsafeUnpin for tablo_core::Number
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Number
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::Number
+pub enum tablo_core::table::Pagination
+pub tablo_core::table::Pagination::Cursor
+pub tablo_core::table::Pagination::Pages
+pub tablo_core::table::Pagination::Simple
+impl core::clone::Clone for tablo_core::table::Pagination
+pub fn tablo_core::table::Pagination::clone(&self) -> tablo_core::table::Pagination
+impl core::cmp::Eq for tablo_core::table::Pagination
+impl core::cmp::PartialEq for tablo_core::table::Pagination
+pub fn tablo_core::table::Pagination::eq(&self, &tablo_core::table::Pagination) -> bool
+impl core::default::Default for tablo_core::table::Pagination
+pub fn tablo_core::table::Pagination::default() -> tablo_core::table::Pagination
+impl core::fmt::Debug for tablo_core::table::Pagination
+pub fn tablo_core::table::Pagination::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_core::table::Pagination
+impl core::marker::StructuralPartialEq for tablo_core::table::Pagination
+impl core::marker::Freeze for tablo_core::table::Pagination
+impl core::marker::Send for tablo_core::table::Pagination
+impl core::marker::Sync for tablo_core::table::Pagination
+impl core::marker::Unpin for tablo_core::table::Pagination
+impl core::marker::UnsafeUnpin for tablo_core::table::Pagination
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::table::Pagination
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::table::Pagination
 pub struct tablo_core::table::BooleanColumn<M>
 impl<M> tablo_core::BooleanColumn<M> where M: toasty::schema::model::Model
 pub fn tablo_core::BooleanColumn<M>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
@@ -2602,6 +2624,29 @@ impl<M, T> core::marker::Unpin for tablo_core::ImageColumn<M, T> where tablo_cor
 impl<M, T> core::marker::UnsafeUnpin for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::marker::UnsafeUnpin
 impl<M, T> core::panic::unwind_safe::RefUnwindSafe for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::panic::unwind_safe::RefUnwindSafe
 impl<M, T> core::panic::unwind_safe::UnwindSafe for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::panic::unwind_safe::UnwindSafe
+pub struct tablo_core::table::PagePosition
+pub tablo_core::table::PagePosition::has_next: bool
+pub tablo_core::table::PagePosition::page: u32
+pub tablo_core::table::PagePosition::per_page: usize
+pub tablo_core::table::PagePosition::total: core::option::Option<u64>
+impl tablo_core::PagePosition
+pub fn tablo_core::PagePosition::last_page(&self) -> core::option::Option<u32>
+impl core::clone::Clone for tablo_core::PagePosition
+pub fn tablo_core::PagePosition::clone(&self) -> tablo_core::PagePosition
+impl core::cmp::Eq for tablo_core::PagePosition
+impl core::cmp::PartialEq for tablo_core::PagePosition
+pub fn tablo_core::PagePosition::eq(&self, &tablo_core::PagePosition) -> bool
+impl core::fmt::Debug for tablo_core::PagePosition
+pub fn tablo_core::PagePosition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_core::PagePosition
+impl core::marker::StructuralPartialEq for tablo_core::PagePosition
+impl core::marker::Freeze for tablo_core::PagePosition
+impl core::marker::Send for tablo_core::PagePosition
+impl core::marker::Sync for tablo_core::PagePosition
+impl core::marker::Unpin for tablo_core::PagePosition
+impl core::marker::UnsafeUnpin for tablo_core::PagePosition
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::PagePosition
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::PagePosition
 pub struct tablo_core::table::QueryFilter<M>
 impl<M> tablo_core::QueryFilter<M> where M: toasty::schema::model::Model
 pub fn tablo_core::QueryFilter<M>::multiple(self) -> Self
@@ -2768,6 +2813,9 @@ pub fn tablo_core::table::Table<M>::hide_search(self) -> Self
 pub fn tablo_core::table::Table<M>::new(impl tablo_core::IntoColumns<M>) -> Self where M: toasty::schema::model::Model + toasty::stmt::into_expr::IntoExpr<M>
 pub fn tablo_core::table::Table<M>::page_size(&self) -> usize
 pub fn tablo_core::table::Table<M>::paginate(self, usize) -> Self
+pub fn tablo_core::table::Table<M>::pagination(self, tablo_core::table::Pagination) -> Self
+pub fn tablo_core::table::Table<M>::pagination_mode(&self) -> tablo_core::table::Pagination
+pub fn tablo_core::table::Table<M>::per_page_options(self, impl core::iter::traits::collect::IntoIterator<Item = usize>) -> Self
 impl<M> core::clone::Clone for tablo_core::table::Table<M>
 pub fn tablo_core::table::Table<M>::clone(&self) -> Self
 impl<M> core::fmt::Debug for tablo_core::table::Table<M>
@@ -2781,6 +2829,7 @@ impl<M> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::table::Table<M>
 impl<M> !core::panic::unwind_safe::UnwindSafe for tablo_core::table::Table<M>
 pub struct tablo_core::table::TablePage<M>
 pub tablo_core::table::TablePage::next_cursor: core::option::Option<alloc::string::String>
+pub tablo_core::table::TablePage::position: core::option::Option<tablo_core::PagePosition>
 pub tablo_core::table::TablePage::prev_cursor: core::option::Option<alloc::string::String>
 pub tablo_core::table::TablePage::rows: alloc::vec::Vec<M>
 impl<M: toasty::schema::model::Model> tablo_core::TablePage<M>
@@ -2805,6 +2854,8 @@ pub tablo_core::table::TableState::cursor: core::option::Option<tablo_core::Curs
 pub tablo_core::table::TableState::filters: alloc::collections::btree::map::BTreeMap<alloc::string::String, tablo_core::FilterValue>
 pub tablo_core::table::TableState::filters_dropped: bool
 pub tablo_core::table::TableState::group_by: core::option::Option<alloc::string::String>
+pub tablo_core::table::TableState::page: core::option::Option<u32>
+pub tablo_core::table::TableState::per_page: core::option::Option<u32>
 pub tablo_core::table::TableState::prefix: core::option::Option<alloc::string::String>
 pub tablo_core::table::TableState::search: core::option::Option<alloc::string::String>
 pub tablo_core::table::TableState::sort: core::option::Option<tablo_core::Sort>
@@ -2914,6 +2965,7 @@ impl<M> core::marker::UnsafeUnpin for tablo_core::WiredTable<M> where alloc::syn
 impl<M> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::WiredTable<M>
 impl<M> !core::panic::unwind_safe::UnwindSafe for tablo_core::WiredTable<M>
 pub const tablo_core::table::DEFAULT_PAGE_SIZE: core::num::nonzero::NonZeroUsize
+pub const tablo_core::table::DEFAULT_PER_PAGE_OPTIONS: [usize; 4]
 pub trait tablo_core::table::DateValue: core::marker::Sized + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::table::DateValue::calendar_date(&self) -> core::option::Option<jiff::civil::date::Date>
 impl tablo_core::DateValue for jiff::civil::date::Date
@@ -3603,6 +3655,28 @@ impl core::marker::Unpin for tablo_core::Number
 impl core::marker::UnsafeUnpin for tablo_core::Number
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Number
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::Number
+pub enum tablo_core::Pagination
+pub tablo_core::Pagination::Cursor
+pub tablo_core::Pagination::Pages
+pub tablo_core::Pagination::Simple
+impl core::clone::Clone for tablo_core::table::Pagination
+pub fn tablo_core::table::Pagination::clone(&self) -> tablo_core::table::Pagination
+impl core::cmp::Eq for tablo_core::table::Pagination
+impl core::cmp::PartialEq for tablo_core::table::Pagination
+pub fn tablo_core::table::Pagination::eq(&self, &tablo_core::table::Pagination) -> bool
+impl core::default::Default for tablo_core::table::Pagination
+pub fn tablo_core::table::Pagination::default() -> tablo_core::table::Pagination
+impl core::fmt::Debug for tablo_core::table::Pagination
+pub fn tablo_core::table::Pagination::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_core::table::Pagination
+impl core::marker::StructuralPartialEq for tablo_core::table::Pagination
+impl core::marker::Freeze for tablo_core::table::Pagination
+impl core::marker::Send for tablo_core::table::Pagination
+impl core::marker::Sync for tablo_core::table::Pagination
+impl core::marker::Unpin for tablo_core::table::Pagination
+impl core::marker::UnsafeUnpin for tablo_core::table::Pagination
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::table::Pagination
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::table::Pagination
 #[non_exhaustive] pub enum tablo_core::SegmentFault
 pub tablo_core::SegmentFault::Char(char)
 pub tablo_core::SegmentFault::Dot
@@ -4632,6 +4706,29 @@ impl core::marker::Unpin for tablo_core::PageDef
 impl core::marker::UnsafeUnpin for tablo_core::PageDef
 impl !core::panic::unwind_safe::RefUnwindSafe for tablo_core::PageDef
 impl !core::panic::unwind_safe::UnwindSafe for tablo_core::PageDef
+pub struct tablo_core::PagePosition
+pub tablo_core::PagePosition::has_next: bool
+pub tablo_core::PagePosition::page: u32
+pub tablo_core::PagePosition::per_page: usize
+pub tablo_core::PagePosition::total: core::option::Option<u64>
+impl tablo_core::PagePosition
+pub fn tablo_core::PagePosition::last_page(&self) -> core::option::Option<u32>
+impl core::clone::Clone for tablo_core::PagePosition
+pub fn tablo_core::PagePosition::clone(&self) -> tablo_core::PagePosition
+impl core::cmp::Eq for tablo_core::PagePosition
+impl core::cmp::PartialEq for tablo_core::PagePosition
+pub fn tablo_core::PagePosition::eq(&self, &tablo_core::PagePosition) -> bool
+impl core::fmt::Debug for tablo_core::PagePosition
+pub fn tablo_core::PagePosition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_core::PagePosition
+impl core::marker::StructuralPartialEq for tablo_core::PagePosition
+impl core::marker::Freeze for tablo_core::PagePosition
+impl core::marker::Send for tablo_core::PagePosition
+impl core::marker::Sync for tablo_core::PagePosition
+impl core::marker::Unpin for tablo_core::PagePosition
+impl core::marker::UnsafeUnpin for tablo_core::PagePosition
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::PagePosition
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::PagePosition
 pub struct tablo_core::Panel
 impl tablo_core::panel::Panel
 pub fn tablo_core::panel::Panel::auth(self, tablo_core::auth::Auth) -> Self
@@ -5096,6 +5193,9 @@ pub fn tablo_core::table::Table<M>::hide_search(self) -> Self
 pub fn tablo_core::table::Table<M>::new(impl tablo_core::IntoColumns<M>) -> Self where M: toasty::schema::model::Model + toasty::stmt::into_expr::IntoExpr<M>
 pub fn tablo_core::table::Table<M>::page_size(&self) -> usize
 pub fn tablo_core::table::Table<M>::paginate(self, usize) -> Self
+pub fn tablo_core::table::Table<M>::pagination(self, tablo_core::table::Pagination) -> Self
+pub fn tablo_core::table::Table<M>::pagination_mode(&self) -> tablo_core::table::Pagination
+pub fn tablo_core::table::Table<M>::per_page_options(self, impl core::iter::traits::collect::IntoIterator<Item = usize>) -> Self
 impl<M> core::clone::Clone for tablo_core::table::Table<M>
 pub fn tablo_core::table::Table<M>::clone(&self) -> Self
 impl<M> core::fmt::Debug for tablo_core::table::Table<M>
@@ -5109,6 +5209,7 @@ impl<M> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::table::Table<M>
 impl<M> !core::panic::unwind_safe::UnwindSafe for tablo_core::table::Table<M>
 pub struct tablo_core::TablePage<M>
 pub tablo_core::TablePage::next_cursor: core::option::Option<alloc::string::String>
+pub tablo_core::TablePage::position: core::option::Option<tablo_core::PagePosition>
 pub tablo_core::TablePage::prev_cursor: core::option::Option<alloc::string::String>
 pub tablo_core::TablePage::rows: alloc::vec::Vec<M>
 impl<M: toasty::schema::model::Model> tablo_core::TablePage<M>
@@ -5133,6 +5234,8 @@ pub tablo_core::TableState::cursor: core::option::Option<tablo_core::Cursor>
 pub tablo_core::TableState::filters: alloc::collections::btree::map::BTreeMap<alloc::string::String, tablo_core::FilterValue>
 pub tablo_core::TableState::filters_dropped: bool
 pub tablo_core::TableState::group_by: core::option::Option<alloc::string::String>
+pub tablo_core::TableState::page: core::option::Option<u32>
+pub tablo_core::TableState::per_page: core::option::Option<u32>
 pub tablo_core::TableState::prefix: core::option::Option<alloc::string::String>
 pub tablo_core::TableState::search: core::option::Option<alloc::string::String>
 pub tablo_core::TableState::sort: core::option::Option<tablo_core::Sort>

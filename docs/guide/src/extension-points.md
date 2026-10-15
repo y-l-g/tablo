@@ -23,10 +23,11 @@ closed on denial.
 
 ## Table state values
 
-`tablo::Sort` (`?sort=<column>&dir=asc|desc`) and `tablo::Cursor` (`?after=`
-/ `?before=`) are the parsed sort and pagination of a list URL; see
-[Tables](./tables.md). Cursors are opaque: conflicting cursors parse as none
-and render the first page.
+`tablo::Sort` (`?sort=<column>&dir=asc|desc`), `TableState::page` and
+`per_page` (`?page=`, `?per_page=`), and `tablo::Cursor` (`?after=` / `?before=`)
+are the parsed sort and pagination of a list URL; see [Tables](./tables.md).
+`tablo::TablePage::position` says where a numbered page sits. Cursors are
+opaque: conflicting cursors parse as none and render the first page.
 
 ## Notifications
 

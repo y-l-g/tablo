@@ -345,6 +345,8 @@ fn populated_state() -> TableState {
             descending: true,
         }),
         cursor: Some(Cursor::After("after-cur".to_string())),
+        page: Some(3),
+        per_page: Some(50),
         filters: BTreeMap::from([
             (
                 "created".to_string(),
@@ -383,6 +385,7 @@ fn each_projection_changes_only_its_own_part_of_the_state() {
         expect(&|state| {
             state.search = None;
             state.cursor = None;
+            state.page = None;
         })
     );
     assert_eq!(
@@ -390,11 +393,15 @@ fn each_projection_changes_only_its_own_part_of_the_state() {
         expect(&|state| {
             state.filters = BTreeMap::new();
             state.cursor = None;
+            state.page = None;
         })
     );
     assert_eq!(
-        reparse(&source.without_cursor(path)),
-        expect(&|state| state.cursor = None)
+        reparse(&source.first_page(path)),
+        expect(&|state| {
+            state.cursor = None;
+            state.page = None;
+        })
     );
     assert_eq!(
         reparse(&source.sorted_by(path, "title", false)),
@@ -404,6 +411,7 @@ fn each_projection_changes_only_its_own_part_of_the_state() {
                 descending: false,
             });
             state.cursor = None;
+            state.page = None;
         })
     );
     for cursor in [
@@ -412,9 +420,40 @@ fn each_projection_changes_only_its_own_part_of_the_state() {
     ] {
         assert_eq!(
             reparse(&source.with_cursor(path, &cursor)),
-            expect(&|state| state.cursor = Some(cursor.clone()))
+            expect(&|state| {
+                state.cursor = Some(cursor.clone());
+                state.page = None;
+            })
         );
     }
+    assert_eq!(
+        reparse(&source.with_page(path, 7)),
+        expect(&|state| {
+            state.cursor = None;
+            state.page = Some(7);
+        })
+    );
+    // The first page spells no number, so its link is the result set's own.
+    assert_eq!(source.with_page(path, 1), source.first_page(path));
+}
+
+/// `?page=` and `?per_page=` read only a positive number, and the first occurrence of each.
+#[test]
+fn page_parameters_read_positive_numbers_only() {
+    let state = TableState::from_query("page=4&per_page=50&page=9");
+    assert_eq!((state.page, state.per_page), (Some(4), Some(50)));
+    for query in ["page=0", "page=-2", "page=two", "page=", "page=99999999999"] {
+        assert_eq!(TableState::from_query(query).page, None, "{query}");
+    }
+}
+
+/// A form rerunning the state carries every parameter but the one it sets and the position.
+#[test]
+fn hidden_pairs_leave_out_the_position_and_the_named_parameter() {
+    let state = TableState::from_query("q=ada&page=3&per_page=50&after=tok&f.status=draft");
+    let pairs = state.hidden_pairs("per_page");
+    let names: Vec<&str> = pairs.iter().map(|(name, _)| name.as_str()).collect();
+    assert_eq!(names, ["q", "f.status"]);
 }
 
 #[test]

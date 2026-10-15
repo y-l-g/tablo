@@ -47,7 +47,8 @@ impl Frame<'_> {
         } else {
             "Clear filters"
         };
-        let first_page_url = state.cursor.is_some().then(|| state.without_cursor(path));
+        let first_page_url =
+            (state.cursor.is_some() || state.page.is_some()).then(|| state.first_page(path));
         let clear_link: Option<BoxView<'a>> = clear_url.map(|url| {
             let attrs = live_link(cx, url, signals);
             view! {

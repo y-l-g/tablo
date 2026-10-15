@@ -1,10 +1,10 @@
 //! A resource's list: search, sort, cursor pagination, grouping and the empty and error states.
 
-use showcase::models::{PostStatus, Role, User};
+use showcase::models::PostStatus;
 use tablo::testing::{EmptyTable, empty_table};
 
 use crate::common::{
-    body_string, demo_client, empty_users_db, find_href_with, find_pager_href, full_db,
+    body_string, demo_client, empty_users_db, find_href_with, full_db, pager_link,
     routers::router_for_tests as router, row_keys, row_titles, seeded_db, user_count,
 };
 
@@ -71,7 +71,7 @@ async fn renders_search_box_and_sort_links() {
 }
 
 #[tokio::test]
-async fn pagination_walks_cursor_links() {
+async fn pagination_walks_page_links() {
     use showcase::models::{Role, User};
 
     let db = seeded_db().await;
@@ -113,8 +113,16 @@ async fn pagination_walks_cursor_links() {
         !page1.contains(&last),
         "page1 must not show the last overflow row {last} (page size {page_size}): {page1}"
     );
-    let next_href = find_href_with(&page1, "after=")
-        .unwrap_or_else(|| panic!("page1 missing Next (after=) link: {page1}"));
+    assert!(
+        page1.contains("Showing") && page1.contains(&format!("1–{page_size}")),
+        "page1 must say which rows it shows: {page1}"
+    );
+    let next_href =
+        pager_link(&page1, "next").unwrap_or_else(|| panic!("page1 missing Next link: {page1}"));
+    assert!(
+        next_href.contains("page=2"),
+        "Next goes to page 2: {next_href}"
+    );
     assert!(
         !next_href.contains("&amp;"),
         "the Next link must be followed decoded, got {next_href}"
@@ -139,12 +147,12 @@ async fn pagination_walks_cursor_links() {
         !page2.contains("Ada Lovelace") && !page2.contains("Alan Turing"),
         "page2 must not repeat page 1 rows: {page2}"
     );
+    let prev_href = pager_link(&page2, "prev")
+        .unwrap_or_else(|| panic!("page2 missing Previous link: {page2}"));
     assert!(
-        find_href_with(&page2, "before=").is_some(),
-        "page2 missing Previous (before=) link: {page2}"
+        !prev_href.contains("page="),
+        "the first page spells no number: {prev_href}"
     );
-
-    let prev_href = find_href_with(&page2, "before=").unwrap();
     assert!(
         !prev_href.contains("&amp;"),
         "the Previous link must be followed decoded, got {prev_href}"
@@ -164,7 +172,7 @@ async fn pagination_walks_cursor_links() {
 }
 
 #[tokio::test]
-async fn pagination_walks_descending_cursor_links() {
+async fn pagination_walks_descending_page_links() {
     use showcase::models::{Role, User};
 
     let db = seeded_db().await;
@@ -205,7 +213,7 @@ async fn pagination_walks_descending_cursor_links() {
         );
         names.extend(row_titles(&html));
         keys.extend(row_keys(&html));
-        match find_pager_href(&html, "after=") {
+        match pager_link(&html, "next") {
             Some(next) => {
                 assert!(!next.contains("&amp;"), "the link must be decoded: {next}");
                 url = next;
@@ -262,7 +270,7 @@ async fn pagination_keeps_tied_sort_values() {
         page_size - seeded,
         "the tied group must start inside page 1: {page1}"
     );
-    let next = find_pager_href(&page1, "after=").expect("page 2 link");
+    let next = pager_link(&page1, "next").expect("page 2 link");
     let page2 = body_string(client.get(&next).await).await;
     let page2_titles = row_titles(&page2);
     assert_eq!(
@@ -391,12 +399,12 @@ async fn users_list_renders_its_search_as_a_get_form() {
 
 #[tokio::test]
 async fn tampered_cursor_shows_in_region_error_with_retry() {
-    // A forged cursor fails the load inside the streamed region: the shell
+    // A forged cursor fails the load of a cursor-paged list inside the streamed region: the shell
     // (sidebar, heading) survives and the region offers a retry.
-    let db = seeded_db().await;
+    let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let resp = client.get("/admin/users?after=forged-cursor").await;
+    let resp = client.get("/admin/comments?after=forged-cursor").await;
     assert!(resp.status().is_success());
     let html = body_string(resp).await;
     assert!(
@@ -404,7 +412,7 @@ async fn tampered_cursor_shows_in_region_error_with_retry() {
         "failed load must announce in place: {html}"
     );
     assert!(
-        html.contains("href=\"/admin/users\""),
+        html.contains("href=\"/admin/comments\""),
         "retry must target the bare list: {html}"
     );
     assert!(
@@ -424,37 +432,36 @@ async fn tampered_cursor_shows_in_region_error_with_retry() {
 
 #[tokio::test]
 async fn stale_cursor_after_concurrent_delete_offers_first_page() {
-    // Void window as a real workflow: page 2 exists, its rows are removed
+    // Void window as a real workflow on a cursor-paged list: page 2 exists, its rows are removed
     // elsewhere, and revisiting the stale cursor recovers via first page.
-    let db = seeded_db().await;
+    use showcase::models::{Comment, Post};
+
+    let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    {
-        let mut db_q = db.clone();
-        for i in 0..23 {
-            toasty::create!(User {
-                name: format!("User {:02}", i),
-                email: format!("void{:02}@example.com", i),
-                role: Role::Member,
-                active: true,
-                age: 30,
-                created_at: "2024-03-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap(),
-            })
-            .exec(&mut db_q)
-            .await
-            .unwrap();
-        }
+    let mut db_q = db.clone();
+    let post = Post::all().exec(&mut db_q).await.unwrap().remove(0);
+    for i in 0..tablo::table::DEFAULT_PAGE_SIZE.get() + 1 {
+        toasty::create!(Comment {
+            // Sorts after every fixture comment, so the void rows end the list.
+            body: format!("zz void {:02}", i),
+            post_id: post.id,
+        })
+        .exec(&mut db_q)
+        .await
+        .unwrap();
     }
-    let page1 = body_string(client.get("/admin/users").await).await;
-    let next = find_href_with(&page1, "after=").expect("needs a Next link");
-    {
-        let mut db_q = db.clone();
-        User::filter(User::fields().name().starts_with("User ".to_string()))
-            .delete()
-            .exec(&mut db_q)
-            .await
-            .unwrap();
-    }
+    let page1 = body_string(client.get("/admin/comments?sort=body").await).await;
+    let next = pager_link(&page1, "next").expect("needs a Next link");
+    assert!(
+        next.contains("after="),
+        "a cursor list pages by cursor: {next}"
+    );
+    Comment::filter(Comment::fields().body().starts_with("zz void ".to_string()))
+        .delete()
+        .exec(&mut db_q)
+        .await
+        .unwrap();
     let resp = client.get(&next).await;
     assert!(resp.status().is_success());
     let html = body_string(resp).await;
@@ -462,6 +469,29 @@ async fn stale_cursor_after_concurrent_delete_offers_first_page() {
         .and_then(|empty| empty.first_page)
         .unwrap_or_else(|| panic!("a void window links back to the first page: {html}"));
     assert!(!first_page.contains("after="), "{first_page}");
+}
+
+/// A page number past the last page reads as the last page, and one that is no number as the
+/// first: a stale or hand-typed link lands on rows, never on an error.
+#[tokio::test]
+async fn out_of_range_page_numbers_land_on_rows() {
+    let db = seeded_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let first = row_titles(&body_string(client.get("/admin/users?sort=name").await).await);
+    assert!(!first.is_empty());
+    for query in ["page=999", "page=0", "page=abc"] {
+        let html = body_string(client.get(&format!("/admin/users?sort=name&{query}")).await).await;
+        assert_eq!(
+            row_titles(&html),
+            first,
+            "{query} reads as the only page: {html}"
+        );
+        assert!(
+            !html.contains("role=\"alert\""),
+            "{query} is no error: {html}"
+        );
+    }
 }
 
 #[tokio::test]
@@ -523,7 +553,7 @@ async fn no_js_fallbacks_cover_search_filter_sort_pager() {
         .unwrap();
     }
     let page1 = body_string(client.get("/admin/posts?f.status=published").await).await;
-    let next = find_href_with(&page1, "after=").expect("filtered Next link");
+    let next = pager_link(&page1, "next").expect("filtered Next link");
     assert!(
         next.contains("f.status=published"),
         "pager must preserve filters without JS: {next}"

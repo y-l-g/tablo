@@ -43,6 +43,8 @@ pub(super) struct Frame<'t> {
     columns: Vec<ColumnHead<'t>>,
     search: bool,
     filter_bar: bool,
+    /// The page sizes the reader may pick; empty offers no choice.
+    page_sizes: Vec<usize>,
     delete_prefix: Option<&'t str>,
     edit_prefix: Option<&'t str>,
     view_prefix: Option<&'t str>,
@@ -104,6 +106,7 @@ impl<M> WiredTable<M> {
                 .collect(),
             search: self.search_enabled(),
             filter_bar: self.filter_bar_enabled(),
+            page_sizes: self.page_sizes(),
             delete_prefix: self.delete_prefix(),
             edit_prefix: self.edit_prefix(),
             view_prefix: self.view_prefix(),

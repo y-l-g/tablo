@@ -7,7 +7,7 @@
 use toasty::stmt::{List, Query, Value};
 use topcoat::{Result, context::Cx};
 
-use super::{Cursor, Table, TableState};
+use super::{Cursor, Pagination, Table, TableState};
 
 /// One executed page of rows for `WiredTable::render`.
 ///
@@ -23,6 +23,31 @@ pub struct TablePage<M> {
     pub next_cursor: Option<String>,
     /// Encoded cursor for the previous page (`?before=`), when one exists.
     pub prev_cursor: Option<String>,
+    /// Where a numbered or simple page sits; `None` for a cursor page.
+    pub position: Option<PagePosition>,
+}
+
+/// Where a page numbered by `?page=` sits in its result set.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PagePosition {
+    /// The page, from 1.
+    pub page: u32,
+    /// The rows a full page holds.
+    pub per_page: usize,
+    /// The rows the result set holds; `None` for a [`Pagination::Simple`] page, which counts
+    /// nothing.
+    pub total: Option<u64>,
+    /// Whether a page follows this one.
+    pub has_next: bool,
+}
+
+impl PagePosition {
+    /// The number of pages, at least one; `None` without a total.
+    pub fn last_page(&self) -> Option<u32> {
+        let per_page = u64::try_from(self.per_page).ok()?.max(1);
+        let pages = self.total?.div_ceil(per_page).max(1);
+        Some(u32::try_from(pages).unwrap_or(u32::MAX))
+    }
 }
 
 impl<M> From<Vec<M>> for TablePage<M> {
@@ -31,6 +56,7 @@ impl<M> From<Vec<M>> for TablePage<M> {
             rows,
             next_cursor: None,
             prev_cursor: None,
+            position: None,
         }
     }
 }
@@ -55,6 +81,7 @@ impl<M: toasty::schema::Model> TablePage<M> {
                 .as_ref()
                 .map(crate::toasty_compat::cursor::encode)
                 .transpose()?,
+            position: None,
         })
     }
 }
@@ -65,7 +92,7 @@ where
 {
     /// Load the page of `table` that `state` names: `query` with the table's
     /// search, filters and ordering applied, the relations its columns declare
-    /// included, and cursor pagination at its page size.
+    /// included, and the table's [`Pagination`] at the page size `state` reads at.
     ///
     /// `query` is the caller's scope. The panel's list passes the resource's
     /// [`scoped_query`](crate::resource::scoped_query); a page that owns its
@@ -84,6 +111,89 @@ where
         query: Query<List<M>>,
         state: &TableState,
     ) -> Result<Self> {
+        match table.pagination_mode() {
+            Pagination::Pages => Self::load_numbered(cx, table, query, state, true).await,
+            Pagination::Simple => Self::load_numbered(cx, table, query, state, false).await,
+            Pagination::Cursor => Self::load_cursor(cx, table, query, state).await,
+        }
+    }
+
+    /// Load the page `?page=` names by offset, counting the result set when `counted`.
+    ///
+    /// A page past the last one reads as the last, so a stale link or a narrowed search
+    /// lands on rows rather than on an empty page.
+    async fn load_numbered(
+        cx: &Cx,
+        table: &Table<M>,
+        query: Query<List<M>>,
+        state: &TableState,
+        counted: bool,
+    ) -> Result<Self> {
+        let mut db = crate::db::db(cx);
+        let narrowed = table.narrow(&db, query, state);
+        let per_page = table.page_size_for(state);
+        let total = if counted {
+            Some(
+                narrowed
+                    .clone()
+                    .count()
+                    .exec(&mut db)
+                    .await
+                    .map_err(crate::error::unavailable)?,
+            )
+        } else {
+            None
+        };
+        let asked = state.page.unwrap_or(1);
+        let page = match total {
+            Some(total) => {
+                let position = PagePosition {
+                    page: asked,
+                    per_page,
+                    total: Some(total),
+                    has_next: false,
+                };
+                asked.min(position.last_page().unwrap_or(1))
+            }
+            None => asked,
+        };
+        let offset = usize::try_from(page - 1)
+            .unwrap_or(usize::MAX)
+            .saturating_mul(per_page);
+        // A simple page fetches one row more than it shows: that row is the next page's.
+        let fetch = if counted { per_page } else { per_page + 1 };
+        let mut rows = table
+            .include_relations(table.order(narrowed, state))
+            .limit(fetch)
+            .offset(offset)
+            .exec(&mut db)
+            .await
+            .map_err(crate::error::unavailable)?;
+        let has_next = match total {
+            Some(total) => u64::try_from(offset + rows.len()).is_ok_and(|seen| seen < total),
+            None => rows.len() > per_page,
+        };
+        rows.truncate(per_page);
+        Ok(Self {
+            rows,
+            next_cursor: None,
+            prev_cursor: None,
+            position: Some(PagePosition {
+                page,
+                per_page,
+                total,
+                has_next,
+            }),
+        })
+    }
+
+    /// Load the page `?after=` or `?before=` names by cursor.
+    async fn load_cursor(
+        cx: &Cx,
+        table: &Table<M>,
+        query: Query<List<M>>,
+        state: &TableState,
+    ) -> Result<Self> {
         // The declaration becomes predicates and an ordering through the one
         // shared routine — the export loader applies the same one to its own
         // seed. The cursor probes below reuse that filtered and ordered query
@@ -91,7 +201,7 @@ where
         let mut db = crate::db::db(cx);
         let base_query = table.apply_declaration(&db, query, state);
         let query = table.include_relations(base_query.clone());
-        let per_page = table.page_size();
+        let per_page = table.page_size_for(state);
         let mut paginated = toasty::stmt::Paginate::new(query, per_page);
         // Toasty cursor pagination takes exactly one cursor, and the state
         // holds at most one.

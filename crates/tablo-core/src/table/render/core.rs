@@ -8,6 +8,7 @@ use super::{
     super::WiredTable,
     Frame, TABLE_CARD_CLASS,
     filterbar::FilterViews,
+    pager::PagerInput,
     rows::{RowChrome, RowView, render_rows, selectable_keys},
     table_dom_id,
     widths::ColumnWidths,
@@ -67,6 +68,7 @@ impl<M> WiredTable<M> {
             rows,
             next_cursor: page.next_cursor,
             prev_cursor: page.prev_cursor,
+            position: page.position,
             filters: self.filter_views(cx, state).await,
         };
         frame.render_page(cx, loaded, state, path, signals).await
@@ -78,6 +80,7 @@ struct Loaded<'a> {
     rows: Vec<RowView<'a>>,
     next_cursor: Option<String>,
     prev_cursor: Option<String>,
+    position: Option<crate::table::PagePosition>,
     filters: FilterViews<'a>,
 }
 
@@ -95,6 +98,7 @@ impl Frame<'_> {
             rows: row_data,
             next_cursor,
             prev_cursor,
+            position,
             mut filters,
         } = loaded;
         let signals = &signals
@@ -122,8 +126,12 @@ impl Frame<'_> {
                 cx,
                 state,
                 path,
-                next_cursor.as_deref(),
-                prev_cursor.as_deref(),
+                PagerInput {
+                    next_cursor: next_cursor.as_deref(),
+                    prev_cursor: prev_cursor.as_deref(),
+                    position,
+                    rows: row_data.len(),
+                },
                 signals,
             )
             .await?;
