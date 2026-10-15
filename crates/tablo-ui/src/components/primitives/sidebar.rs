@@ -1,4 +1,4 @@
-// SYNC: topcoat-ui-registry@0.10.0 sha256:08444f46d98808fcd942dac3db5a400d11116f38508aa3e2cd67c1ea6269a393 — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
+// SYNC: topcoat-ui-registry@0.10.0 sha256:4e33fba2dea60d985c73b716e28532bef15d9a7511ea9e80335a3b976e29cd38 — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
 use topcoat::{
     Result,
     icon::{icon, iconify::iconify_icon},
@@ -115,12 +115,12 @@ pub async fn sidebar_provider(
 // Ordinary components nested in the panel inherit its palette too. The
 // scoped aliases keep buttons, inputs and captions independent of the page.
 const PANEL_THEME: StaticClass = class!(
-    "[--background:var(--sidebar)] [--foreground:var(--sidebar-foreground)] \
-     [--card:var(--sidebar)] [--card-foreground:var(--sidebar-foreground)] \
-     [--primary:var(--sidebar-primary)] \
-     [--primary-foreground:var(--sidebar-primary-foreground)] \
-     [--border:var(--sidebar-border)] [--ring:var(--sidebar-ring)] \
-     [--muted-foreground:color-mix(in_oklab,var(--sidebar-foreground)_70%,transparent)]",
+    "[--background:var(--sidebar)] [--foreground:var(--sidebar-foreground)]",
+    "[--card:var(--sidebar)] [--card-foreground:var(--sidebar-foreground)]",
+    "[--primary:var(--sidebar-primary)]",
+    "[--primary-foreground:var(--sidebar-primary-foreground)]",
+    "[--border:var(--sidebar-border)] [--ring:var(--sidebar-ring)]",
+    "[--muted-foreground:color-mix(in_oklab,var(--sidebar-foreground)_70%,transparent)]",
 );
 
 /// A desktop panel that becomes a sheet over the page below `md` (48rem).
@@ -185,7 +185,7 @@ pub async fn sidebar(
                     role="navigation"
                     aria-label="Sidebar"
                     class=(class!(
-                        "md:relative md:inset-auto md:flex md:overflow-visible md:bg-transparent md:opacity-100 md:backdrop-blur-none md:starting:open:opacity-100 md:transition-none md:group-data-[collapsible=offcanvas]/sidebar:invisible motion-reduce:transition-none",
+                        "md:relative md:inset-auto md:flex md:overflow-visible md:bg-transparent md:opacity-100 md:starting:open:opacity-100 md:transition-none md:group-data-[collapsible=offcanvas]/sidebar:invisible motion-reduce:transition-none",
                         sheet_attrs.remove("class"),
                     ))
                     (sheet_attrs)

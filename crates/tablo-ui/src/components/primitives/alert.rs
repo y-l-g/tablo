@@ -1,4 +1,4 @@
-// SYNC: topcoat-ui-registry@0.10.0 sha256:cb2c77c156e580853e877923e08108adca6a3645060f0ae04a14325ccac5f769 — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
+// SYNC: topcoat-ui-registry@0.10.0 sha256:47c33b40d0a966b88a113ad13b6c17d9c3f104128b45b7fea297eb2a0b9c5f9c — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
 use topcoat::{
     Result,
     view::{Attributes, Child, StaticClass, View, class, component, view},
@@ -29,9 +29,9 @@ impl AlertVariant {
 
 /// Classes for the alert layout. The icon column collapses when no icon is present.
 const BASE: StaticClass = class!(
-    "grid w-full grid-cols-[0_1fr] items-start gap-y-1 rounded-lg border \
-     bg-background px-4 py-3 text-sm has-[>svg]:grid-cols-[1rem_1fr] has-[>svg]:gap-x-3 \
-     [&>svg]:size-4 [&>svg]:translate-y-0.5",
+    "grid w-full grid-cols-[0_1fr] items-start gap-y-1 rounded-lg border",
+    "bg-background px-4 py-3 text-sm has-[>svg]:grid-cols-[1rem_1fr] has-[>svg]:gap-x-3",
+    "[&>svg]:size-4 [&>svg]:translate-y-0.5",
 );
 
 /// A notice displayed within the page.
