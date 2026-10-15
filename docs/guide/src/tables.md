@@ -58,7 +58,7 @@ foreign key `Relation::has_many` takes.
 | `CountColumn::new(relation!(..))` | the number of a `Deferred` `has_many` field's records | neither |
 | `BooleanColumn::new(lens)` | a circled check or circled cross for a `bool` field; the export writes `Yes`/`No` (`.labels(..)`) | `.sortable()` |
 | `FileColumn::new(lens)` | a `String` field's stored upload path, as a link when it is a rooted path or an `http(s)` URL | neither |
-| `ImageColumn::new(lens)` | the same path as a 40px thumbnail (`.size(px)`, `.circular()`) | neither |
+| `ImageColumn::new(lens)` | a rooted path as a 40px thumbnail (`.size(px)`, `.circular()`); an `http(s)` URL too once `.remote()` allows it, for a field only trusted users write, since every viewer's browser loads it from that host | neither |
 | `ColorColumn::new(lens)` | a `String` field's CSS color as a swatch beside its value; a value that is no hex color or color function shows as text | neither |
 | `EmbeddedColumn::new(lens)` | an embedded value's fields as `Label: value, …`; an enum's variant first, then that variant's fields | neither |
 

@@ -98,6 +98,11 @@ pub(crate) fn answer(cx: &Cx, error: topcoat::Error) -> topcoat::Error {
     let Some(page) = PanelError::of(&error) else {
         return error;
     };
+    // The rewrite answers in the failure's place, so a layer outside the panel sees only the
+    // rewrite: the cause is logged here or nowhere.
+    if page == PanelError::Failed {
+        tracing::error!(error = %error, "panel page failed; showing the error page");
+    }
     rewrite(
         format!("{}/{ERROR_SEGMENT}", panel_prefix(cx)),
         Body::empty(),

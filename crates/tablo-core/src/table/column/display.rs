@@ -93,7 +93,7 @@ impl Alignment {
         match self {
             Self::Start => "",
             Self::Center => "text-center",
-            Self::End => "text-right",
+            Self::End => "text-end",
         }
     }
 }
@@ -246,13 +246,16 @@ impl Currency {
 
 /// Spell `minor` units with `decimals` of them to the major unit, exactly: `-5` cents is `-0.05`.
 fn format_minor_units(minor: i128, decimals: u8) -> String {
-    let scale = 10i128.pow(decimals.into());
-    let whole = format_number(Number::Int(minor.abs() / scale), 0);
+    // Past 38 decimals no `i128` reaches one major unit.
+    let (whole, fraction) = match 10i128.checked_pow(decimals.into()) {
+        Some(scale) => (minor.abs() / scale, minor.abs() % scale),
+        None => (0, minor.abs()),
+    };
+    let whole = format_number(Number::Int(whole), 0);
     let sign = if minor < 0 { "-" } else { "" };
     if decimals == 0 {
         return format!("{sign}{whole}");
     }
-    let fraction = minor.abs() % scale;
     format!(
         "{sign}{whole}.{fraction:0width$}",
         width = usize::from(decimals)

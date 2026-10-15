@@ -24,7 +24,9 @@ pub use fields::{
     ChoiceField, CustomField, Field, FileField, IntoFormValue, IntoOptions, RepeaterField,
     TextField, Toggle,
 };
-pub(crate) use fields::{is_linkable, option_view, read_only, stored_upload, value_cell};
+pub(crate) use fields::{
+    is_linkable, is_rooted, option_view, read_only, stored_upload, value_cell,
+};
 pub use layouts::{Grid, Group, Section};
 pub(crate) use lenses::Binding;
 pub use lenses::{FieldResolver, form_key};

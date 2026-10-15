@@ -1060,14 +1060,16 @@ fn is_css_color(value: &str) -> bool {
 /// tablo_core::ImageColumn::new(tablo_core::lens!(Product.image)).circular();
 /// ```
 ///
-/// A rooted path or an absolute `http(s)` URL shows as a 40px square thumbnail, the rule a
-/// [`FileColumn`] links by; an empty value shows the table's dash, and any other value its text.
+/// A rooted path, such as an upload's, shows as a 40px square thumbnail; an empty value shows
+/// the table's dash, and any other value its text. An absolute `http(s)` URL shows as an image
+/// only once [`remote`](Self::remote) allows it.
 #[derive_where(Clone, Debug)]
 pub struct ImageColumn<M, T> {
     lens: Lens<M, T>,
     base: ColumnBase,
     size: u16,
     circular: bool,
+    remote: bool,
 }
 
 impl<M, T> ImageColumn<M, T>
@@ -1084,6 +1086,7 @@ where
             lens,
             size: 40,
             circular: false,
+            remote: false,
         }
     }
 
@@ -1096,6 +1099,14 @@ where
     /// Crop the thumbnail to a circle, for an avatar.
     pub fn circular(mut self) -> Self {
         self.circular = true;
+        self
+    }
+
+    /// Also show an absolute `http(s)` URL as an image. Every browser that renders the table
+    /// then loads it from that host as the page opens, so whoever can write the field learns who
+    /// views the list, and when: allow it for a field only trusted users write.
+    pub fn remote(mut self) -> Self {
+        self.remote = true;
         self
     }
 
@@ -1115,7 +1126,12 @@ where
 
     fn cell<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
         let src = self.text(cx, row).trim().to_string();
-        if !crate::schema::is_linkable(&src) {
+        let shown = if self.remote {
+            crate::schema::is_linkable(&src)
+        } else {
+            crate::schema::is_rooted(&src)
+        };
+        if !shown {
             return crate::schema::value_cell(cx, &src);
         }
         let class = if self.circular {
@@ -1130,6 +1146,7 @@ where
                 src=(src)
                 alt=""
                 loading="lazy"
+                referrerpolicy="no-referrer"
                 width=(size.clone())
                 height=(size)
                 class=(class)
