@@ -485,13 +485,18 @@ pub const ASSET_HOOKS: &[AssetHook] = &[
     },
     AssetHook {
         asset: "sidebar.js",
-        js: "sidebar_state",
-        rust: "sidebar_state",
+        js: "tablo_sidebar",
+        rust: "tablo_sidebar",
     },
     AssetHook {
         asset: "theme.js",
         js: "data-theme-toggle",
         rust: "data-theme-toggle",
+    },
+    AssetHook {
+        asset: "theme.js",
+        js: "tablo_theme",
+        rust: "tablo_theme",
     },
     AssetHook {
         asset: "selects.js",

@@ -274,8 +274,8 @@ tenant predicate. See [Data access](./data-access.md).
 - `brand` names the panel in the sidebar header, on the login card, and in the topbar on narrow
   screens. A brand without a logo shows its first letter.
 - `dark_mode(true)` makes the panel start dark for a visitor who has not chosen a theme. The theme
-  toggle always renders, and a visitor's choice, light or dark, is remembered and wins over this
-  default. Without the call the panel starts light.
+  toggle always renders, and a visitor's choice, light or dark, is kept in the `tablo_theme`
+  cookie and wins over this default. Without the call the panel starts light.
 - `login_hint` renders a muted line under the login form, such as demo credentials.
 
 ### Theme tokens

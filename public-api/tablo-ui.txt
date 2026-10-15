@@ -332,45 +332,6 @@ impl core::marker::Unpin for tablo_ui::components::composites::page::page_title
 impl core::marker::UnsafeUnpin for tablo_ui::components::composites::page::page_title
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::composites::page::page_title
 impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::composites::page::page_title
-pub mod tablo_ui::components::composites::theme
-pub struct tablo_ui::components::composites::theme::ThemeInitScriptProps
-pub tablo_ui::components::composites::theme::ThemeInitScriptProps::default_dark: bool
-impl tablo_ui::components::composites::theme::ThemeInitScriptProps
-pub fn tablo_ui::components::composites::theme::ThemeInitScriptProps::builder() -> tablo_ui::components::composites::theme::ThemeInitScriptPropsBuilder<__theme_init_script_props::default_dark>
-impl topcoat_view::props::Props for tablo_ui::components::composites::theme::ThemeInitScriptProps
-pub type tablo_ui::components::composites::theme::ThemeInitScriptProps::Builder = tablo_ui::components::composites::theme::ThemeInitScriptPropsBuilder
-pub fn tablo_ui::components::composites::theme::ThemeInitScriptProps::builder() -> Self::Builder
-impl core::marker::Freeze for tablo_ui::components::composites::theme::ThemeInitScriptProps
-impl core::marker::Send for tablo_ui::components::composites::theme::ThemeInitScriptProps
-impl core::marker::Sync for tablo_ui::components::composites::theme::ThemeInitScriptProps
-impl core::marker::Unpin for tablo_ui::components::composites::theme::ThemeInitScriptProps
-impl core::marker::UnsafeUnpin for tablo_ui::components::composites::theme::ThemeInitScriptProps
-impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::composites::theme::ThemeInitScriptProps
-impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::composites::theme::ThemeInitScriptProps
-pub struct tablo_ui::components::composites::theme::ThemeInitScriptPropsBuilder<__default_dark>
-impl<__default_dark> tablo_ui::components::composites::theme::ThemeInitScriptPropsBuilder<__default_dark>
-pub fn tablo_ui::components::composites::theme::ThemeInitScriptPropsBuilder<__default_dark>::build(self) -> tablo_ui::components::composites::theme::ThemeInitScriptProps where __default_dark: topcoat_view::props::IsSet
-pub fn tablo_ui::components::composites::theme::ThemeInitScriptPropsBuilder<__default_dark>::default_dark(self, bool) -> tablo_ui::components::composites::theme::ThemeInitScriptPropsBuilder<topcoat_view::props::Set>
-impl<__default_dark> core::marker::Freeze for tablo_ui::components::composites::theme::ThemeInitScriptPropsBuilder<__default_dark> where core::marker::PhantomData<(__default_dark)>: core::marker::Freeze
-impl<__default_dark> core::marker::Send for tablo_ui::components::composites::theme::ThemeInitScriptPropsBuilder<__default_dark> where core::marker::PhantomData<(__default_dark)>: core::marker::Send
-impl<__default_dark> core::marker::Sync for tablo_ui::components::composites::theme::ThemeInitScriptPropsBuilder<__default_dark> where core::marker::PhantomData<(__default_dark)>: core::marker::Sync
-impl<__default_dark> core::marker::Unpin for tablo_ui::components::composites::theme::ThemeInitScriptPropsBuilder<__default_dark> where core::marker::PhantomData<(__default_dark)>: core::marker::Unpin
-impl<__default_dark> core::marker::UnsafeUnpin for tablo_ui::components::composites::theme::ThemeInitScriptPropsBuilder<__default_dark> where core::marker::PhantomData<(__default_dark)>: core::marker::UnsafeUnpin
-impl<__default_dark> core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::composites::theme::ThemeInitScriptPropsBuilder<__default_dark> where core::marker::PhantomData<(__default_dark)>: core::panic::unwind_safe::RefUnwindSafe
-impl<__default_dark> core::panic::unwind_safe::UnwindSafe for tablo_ui::components::composites::theme::ThemeInitScriptPropsBuilder<__default_dark> where core::marker::PhantomData<(__default_dark)>: core::panic::unwind_safe::UnwindSafe
-pub struct tablo_ui::components::composites::theme::theme_init_script
-impl core::default::Default for tablo_ui::components::composites::theme::theme_init_script
-pub fn tablo_ui::components::composites::theme::theme_init_script::default() -> Self
-impl topcoat_view::component::Component for tablo_ui::components::composites::theme::theme_init_script
-pub type tablo_ui::components::composites::theme::theme_init_script::Props<'__props> = tablo_ui::components::composites::theme::ThemeInitScriptProps
-pub fn tablo_ui::components::composites::theme::theme_init_script::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
-impl core::marker::Freeze for tablo_ui::components::composites::theme::theme_init_script
-impl core::marker::Send for tablo_ui::components::composites::theme::theme_init_script
-impl core::marker::Sync for tablo_ui::components::composites::theme::theme_init_script
-impl core::marker::Unpin for tablo_ui::components::composites::theme::theme_init_script
-impl core::marker::UnsafeUnpin for tablo_ui::components::composites::theme::theme_init_script
-impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::composites::theme::theme_init_script
-impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::composites::theme::theme_init_script
 pub mod tablo_ui::components::composites::toast
 pub struct tablo_ui::components::composites::toast::ToastCloseProps
 pub tablo_ui::components::composites::toast::ToastCloseProps::attrs: topcoat_view::html::attribute::attributes::Attributes
@@ -5291,19 +5252,6 @@ impl core::marker::Unpin for tablo_ui::components::primitives::textarea::textare
 impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::textarea::textarea
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::textarea::textarea
 impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::textarea::textarea
-pub struct tablo_ui::theme_init_script
-impl core::default::Default for tablo_ui::components::composites::theme::theme_init_script
-pub fn tablo_ui::components::composites::theme::theme_init_script::default() -> Self
-impl topcoat_view::component::Component for tablo_ui::components::composites::theme::theme_init_script
-pub type tablo_ui::components::composites::theme::theme_init_script::Props<'__props> = tablo_ui::components::composites::theme::ThemeInitScriptProps
-pub fn tablo_ui::components::composites::theme::theme_init_script::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
-impl core::marker::Freeze for tablo_ui::components::composites::theme::theme_init_script
-impl core::marker::Send for tablo_ui::components::composites::theme::theme_init_script
-impl core::marker::Sync for tablo_ui::components::composites::theme::theme_init_script
-impl core::marker::Unpin for tablo_ui::components::composites::theme::theme_init_script
-impl core::marker::UnsafeUnpin for tablo_ui::components::composites::theme::theme_init_script
-impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::composites::theme::theme_init_script
-impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::composites::theme::theme_init_script
 pub struct tablo_ui::toast
 impl core::default::Default for tablo_ui::components::composites::toast::toast
 pub fn tablo_ui::components::composites::toast::toast::default() -> Self
