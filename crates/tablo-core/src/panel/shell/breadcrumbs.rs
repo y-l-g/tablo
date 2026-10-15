@@ -35,12 +35,18 @@ impl Crumb {
 }
 
 /// The trail to `current_path`: the sidebar entry it is under, the longest whose path holds it,
-/// then the page within the entry a resource's paths name. Empty when no entry holds the path.
+/// then the page within the entry. Empty when no entry holds the path.
 ///
+/// Under a resource's list, one of `resource_lists`, a path names a resource's page:
 /// `/admin/posts` is `Blog Posts`; `/admin/posts/-/create` adds `Create`, `/admin/posts/7`
 /// adds `View`, and `/admin/posts/7/edit` adds `Edit`. A deeper path under a record links the
-/// record's `View`, then names its last segment.
-pub(super) fn trail(nav_items: &[NavigationItem], current_path: &str) -> Vec<Crumb> {
+/// record's `View`, then names its last segment. Under any other entry, the home page's
+/// included, a deeper path names its last segment: `/admin/reports` is `Dashboard › Reports`.
+pub(super) fn trail(
+    nav_items: &[NavigationItem],
+    resource_lists: &[&str],
+    current_path: &str,
+) -> Vec<Crumb> {
     let Some((item, path)) = entry(nav_items, current_path) else {
         return Vec::new();
     };
@@ -49,6 +55,12 @@ pub(super) fn trail(nav_items: &[NavigationItem], current_path: &str) -> Vec<Cru
         .filter(|segment| !segment.is_empty())
         .collect();
     let entry = || Crumb::link(item.label.clone(), path);
+    if !resource_lists.contains(&path) {
+        return match rest.last() {
+            None => vec![Crumb::here(item.label.clone())],
+            Some(last) => vec![entry(), Crumb::here(humanize(last))],
+        };
+    }
     match rest.as_slice() {
         [] => vec![Crumb::here(item.label.clone())],
         ["-", "create"] => vec![entry(), Crumb::here("Create")],

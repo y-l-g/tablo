@@ -18,6 +18,9 @@ use crate::{Panel, auth::PanelUser, navigation::NavigationItem, tenancy::Members
 /// The DOM id of the user menu's panel.
 const USER_MENU: &str = "user-menu";
 
+/// The DOM id of the theme menu's panel, which a panel without sessions shows.
+const THEME_MENU: &str = "theme-menu";
+
 /// The DOM id of the tenant menu's panel.
 const TENANT_MENU: &str = "tenant-menu";
 
@@ -43,15 +46,7 @@ impl Panel {
         let name = user.display_name().to_string();
         let subtitle = user.subtitle().map(str::to_string);
         let initials = initials(&name);
-        let theme = Theme::current(cx);
-        let themes: Vec<BoxView<'a>> = [
-            (Theme::Light, "Light", tablo_ui::icons::SUN),
-            (Theme::Dark, "Dark", tablo_ui::icons::MOON),
-            (Theme::System, "System", tablo_ui::icons::MONITOR),
-        ]
-        .into_iter()
-        .map(|(choice, label, data)| theme_item(cx, choice, theme == choice, label, data))
-        .collect();
+        let themes = theme_choices(cx);
         let links: Vec<BoxView<'a>> = items
             .iter()
             .filter_map(|item| {
@@ -134,11 +129,7 @@ impl Panel {
                                 </span>
                             )
                             dropdown_menu_separator()
-                            <div role="group" aria-label="Theme">
-                                for item in themes {
-                                    (item)
-                                }
-                            </div>
+                            (themes)
                             if !links.is_empty() {
                                 dropdown_menu_separator()
                                 for link in links {
@@ -154,6 +145,47 @@ impl Panel {
                                     "Sign out"
                                 )
                             </form>
+                        )
+                    )
+                )
+            )
+        }
+        .boxed()
+    }
+
+    /// The theme menu, in the user menu's place when the panel has no session to show: the theme
+    /// choice alone.
+    pub(super) fn theme_menu(cx: &Cx) -> BoxView<'_> {
+        let themes = theme_choices(cx);
+        let trigger_class = sidebar_menu_button_variants(
+            SidebarMenuButtonVariant::Default,
+            SidebarMenuButtonSize::Md,
+        );
+        view! {
+            cx =>
+            sidebar_menu(
+                sidebar_menu_item(
+                    dropdown_menu(
+                        dropdown_menu_trigger(
+                            target: THEME_MENU,
+                            attrs: attributes! {
+                                class=(trigger_class)
+                                data-theme-menu=""
+                                aria-label="Theme"
+                            },
+                            icon(data: tablo_ui::icons::SUN)
+                            <span
+                                class="truncate md:group-data-[collapsible=icon]/sidebar:hidden"
+                            >
+                                "Theme"
+                            </span>
+                        )
+                        dropdown_menu_content(
+                            id: THEME_MENU,
+                            side: FloatingSide::Top,
+                            align: FloatingAlign::Start,
+                            attrs: attributes! { class="min-w-40" },
+                            (themes)
                         )
                     )
                 )
@@ -238,7 +270,29 @@ impl Panel {
     }
 }
 
-/// One theme choice: a radio item the theme script checks when chosen.
+/// The theme choice: Light, Dark and System, the current one checked.
+fn theme_choices(cx: &Cx) -> BoxView<'_> {
+    let theme = Theme::current(cx);
+    let items: Vec<BoxView<'_>> = [
+        (Theme::Light, "Light", tablo_ui::icons::SUN),
+        (Theme::Dark, "Dark", tablo_ui::icons::MOON),
+        (Theme::System, "System", tablo_ui::icons::MONITOR),
+    ]
+    .into_iter()
+    .map(|(choice, label, data)| theme_item(cx, choice, theme == choice, label, data))
+    .collect();
+    view! {
+        cx =>
+        <div role="radiogroup" aria-label="Theme">
+            for item in items {
+                (item)
+            }
+        </div>
+    }
+    .boxed()
+}
+
+/// One theme choice: a radio the theme script checks when chosen.
 fn theme_item<'a>(
     cx: &'a Cx,
     choice: Theme,
@@ -250,7 +304,7 @@ fn theme_item<'a>(
         cx =>
         dropdown_menu_item(
             attrs: attributes! {
-                role="menuitemradio"
+                role="radio"
                 aria-checked=(if checked { "true" } else { "false" })
                 data-theme-set=(choice.name())
             },

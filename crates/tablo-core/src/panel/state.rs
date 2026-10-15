@@ -26,6 +26,8 @@ pub(crate) struct NavEntry {
     pub(crate) item: NavigationItem,
     /// A resource's `ViewAny`, or a page's `PageDef::access`.
     pub(crate) visible: Arc<dyn Fn(&Cx) -> bool + Send + Sync>,
+    /// A resource's list path: the trail reads its create, view and edit pages under it.
+    pub(crate) resource_list: Option<String>,
 }
 
 /// One mounted panel: its prefix, its shell, its auth, and the registries its

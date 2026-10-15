@@ -105,6 +105,16 @@ async fn pages_mount_under_the_prefix_with_their_sidebar_entries() {
         html.contains("Quarterly reports"),
         "the page renders: {html}"
     );
+    assert!(
+        html.contains("data-theme-menu") && !html.contains("data-user-menu"),
+        "with no session the footer offers the theme alone: {html}"
+    );
+    for theme in ["light", "dark", "system"] {
+        assert!(
+            html.contains(&format!("data-theme-set=\"{theme}\"")),
+            "the theme menu offers {theme}: {html}"
+        );
+    }
 }
 
 /// Pages and resources share one slug namespace, in either order.
