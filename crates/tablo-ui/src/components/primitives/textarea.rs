@@ -1,4 +1,4 @@
-// SYNC: topcoat-ui-registry@0.10.0 sha256:8f1d824fcc2ed9efceac672630d3b09eada9079b706144112d97fc98f613a5b5 — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
+// SYNC: topcoat-ui-registry@0.10.0 sha256:2187e350ae708cc9fcf9935773dfc354ee740032a2a8893a4aa0d5ffbb432527 — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
 use topcoat::{
     Result,
     view::{Attributes, Child, StaticClass, View, class, component, view},
@@ -7,12 +7,12 @@ use topcoat::{
 /// Classes for a textarea that grows with its content. Browsers without content sizing
 /// support keep the minimum height and scroll.
 const TEXTAREA: StaticClass = class!(
-    "field-sizing-content min-h-16 w-full rounded-lg border border-border \
-     bg-transparent px-3 py-2 text-sm transition-colors outline-none \
-     placeholder:text-muted-foreground \
-     focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 \
-     aria-invalid:border-destructive aria-invalid:focus-visible:ring-destructive \
-     focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50",
+    "field-sizing-content min-h-16 w-full rounded-lg border border-border",
+    "bg-transparent px-3 py-2 text-sm transition-colors outline-none",
+    "placeholder:text-muted-foreground",
+    "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+    "aria-invalid:border-destructive aria-invalid:focus-visible:ring-destructive",
+    "focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50",
 );
 
 /// A text input for multiple lines.

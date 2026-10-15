@@ -1,4 +1,4 @@
-// SYNC: topcoat-ui-registry@0.10.0 sha256:7fe8728a839a821af865711347189a00c29ba28b8b11dcc0d2ee06a053ca127c — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
+// SYNC: topcoat-ui-registry@0.10.0 sha256:c96f34a75f49d24388eb854b864033954060896ae008e76a229ab306299185fd — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
 use topcoat::{
     Result,
     view::{Attributes, StaticClass, View, class, component, view},
@@ -6,13 +6,13 @@ use topcoat::{
 
 /// Classes for the input's dimensions, border, and interaction states.
 const INPUT: StaticClass = class!(
-    "h-9 w-full min-w-0 rounded-lg border border-border bg-transparent px-3 \
-     text-sm transition-colors outline-none \
-     placeholder:text-muted-foreground \
-     file:mr-3 file:h-full file:border-0 file:bg-transparent file:text-sm file:font-medium \
-     focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 \
-     aria-invalid:border-destructive aria-invalid:focus-visible:ring-destructive \
-     focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50",
+    "h-9 w-full min-w-0 rounded-lg border border-border bg-transparent px-3",
+    "text-sm transition-colors outline-none",
+    "placeholder:text-muted-foreground",
+    "file:mr-3 file:h-full file:border-0 file:bg-transparent file:text-sm file:font-medium",
+    "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+    "aria-invalid:border-destructive aria-invalid:focus-visible:ring-destructive",
+    "focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50",
 );
 
 /// A styled input.

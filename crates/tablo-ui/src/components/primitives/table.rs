@@ -1,10 +1,14 @@
-// SYNC: topcoat-ui-registry@0.10.0 sha256:a6b8a367f9d26d918521375a64e51ef88ca2e3854edd2a091a63ecf0e2cb09d6 — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
+// SYNC: topcoat-ui-registry@0.10.0 sha256:1bb770c77662b17b71a1a2c574917b177dcaab9e5d73dae274d59405e9f02ae4 — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
 use topcoat::{
     Result,
     view::{Attributes, Child, View, class, component, view},
 };
 
 /// A table inside a horizontally scrollable container.
+///
+/// Extra padding on the left and right aligns the cells with a card's content.
+/// Top and bottom borders separate the table from neighboring elements. A border
+/// is omitted when the table is the first or last child on that side.
 ///
 /// Pass table sections as children. `attrs` are forwarded to the `<table>`, with extra
 /// classes added to its classes.
@@ -33,10 +37,12 @@ pub async fn table(
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
     Ok(view! {
-        <div class="w-full overflow-x-auto">
+        <div data-slot="table" class="w-full overflow-x-auto">
+            // Put borders on the table so the caption stays outside them.
             <table
                 class=(class!(
-                    "w-full caption-bottom border-collapse text-sm",
+                    "w-full caption-bottom border-collapse border-border text-sm",
+                    "[:not(:first-child)>&]:border-t [:not(:last-child)>&]:border-b",
                     attrs.remove("class"),
                 ))
                 (attrs)
@@ -54,7 +60,10 @@ pub async fn table_header(
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
     Ok(view! {
-        <thead class=(class!("[&_tr]:border-b", attrs.remove("class"))) (attrs)>
+        <thead
+            class=(class!("bg-foreground/5 [&_tr]:border-b", attrs.remove("class")))
+            (attrs)
+        >
             (child)
         </thead>
     })
@@ -123,8 +132,8 @@ pub async fn table_head(
     Ok(view! {
         <th
             class=(class!(
-                "h-10 px-3 text-left align-middle font-medium whitespace-nowrap \
-                 text-muted-foreground",
+                "p-3 text-left align-middle font-medium whitespace-nowrap",
+                "text-muted-foreground first:pl-6 last:pr-6",
                 attrs.remove("class"),
             ))
             (attrs)
@@ -142,7 +151,10 @@ pub async fn table_cell(
 ) -> Result<impl View> {
     Ok(view! {
         <td
-            class=(class!("p-3 align-middle whitespace-nowrap", attrs.remove("class")))
+            class=(class!(
+                "p-3 align-middle whitespace-nowrap first:pl-6 last:pr-6",
+                attrs.remove("class"),
+            ))
             (attrs)
         >
             (child)

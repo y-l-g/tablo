@@ -1,4 +1,4 @@
-// SYNC: topcoat-ui-registry@0.10.0 sha256:e6ffefb0bf8890492b98ef8fb64385544ce9a55f5ecf505ff40e64caef259385 — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
+// SYNC: topcoat-ui-registry@0.10.0 sha256:fb7cb8f77818fe9a76f62b0f705494a5e5a000de9b6a49d05cca973b028abf2d — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
 use topcoat::{
     Result,
     icon::{icon, iconify::iconify_icon},
@@ -7,11 +7,11 @@ use topcoat::{
 
 /// Classes for the native checkbox input and its checked state.
 const CHECKBOX: StaticClass = class!(
-    "peer size-4 shrink-0 appearance-none rounded-[4px] border border-border \
-     bg-background transition-colors outline-none \
-     checked:border-primary checked:bg-primary \
-     focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 \
-     focus-visible:ring-offset-background disabled:pointer-events-none",
+    "peer size-4 shrink-0 appearance-none rounded-[4px] border border-border",
+    "bg-background transition-colors outline-none",
+    "checked:border-primary checked:bg-primary",
+    "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+    "focus-visible:ring-offset-background disabled:pointer-events-none",
 );
 
 /// A styled native checkbox.
@@ -24,8 +24,9 @@ const CHECKBOX: StaticClass = class!(
 /// ```ignore
 /// view! {
 ///     <div class="flex items-center gap-2">
-///         checkbox(attrs: attributes! { id="terms" name="terms" checked="" })
-///         label(attrs: attributes! { for="terms" }, "Accept terms")
+///         let terms = element_id(cx);
+///         checkbox(attrs: attributes! { id=(&terms) name="terms" checked="" })
+///         label(attrs: attributes! { for=(&terms) }, "Accept terms")
 ///     </div>
 /// }
 /// ```

@@ -27,14 +27,14 @@ env:
 
 jobs:
   msrv:
-    name: msrv (1.98)
+    name: msrv (1.99)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       # Pin the floor: an upstream release can silently raise what it needs.
-      - run: rustup toolchain install 1.98 --profile minimal
+      - run: rustup toolchain install 1.99 --profile minimal
       - uses: Swatinem/rust-cache@v2
-      - run: cargo +1.98 check --workspace --locked
+      - run: cargo +1.99 check --workspace --locked
 
   udeps:
     name: udeps

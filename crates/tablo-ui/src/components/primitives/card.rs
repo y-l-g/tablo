@@ -1,4 +1,4 @@
-// SYNC: topcoat-ui-registry@0.10.0 sha256:0d0599fb85b42d341aea108fadb25937afdd47b0521d1246dc2bf3bda42f1367 — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
+// SYNC: topcoat-ui-registry@0.10.0 sha256:9c753a11ad86ad31db0c1a06584d9b1814ee1326c1e862295d508f0a7baee95d — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
 use topcoat::{
     Result,
     view::{Attributes, Child, StaticClass, View, class, component, view},
@@ -7,14 +7,19 @@ use topcoat::{
 /// Classes for a card with vertically stacked sections. Each section supplies its own
 /// horizontal padding so other content can span the full width.
 const CARD: StaticClass = class!(
-    "flex flex-col gap-5 rounded-xl border border-border bg-card py-6 \
-     text-card-foreground shadow-sm",
+    "flex flex-col gap-5 rounded-xl border border-border bg-card py-6",
+    "text-card-foreground shadow-sm",
+    "has-[>[data-slot=table]:first-child]:overflow-hidden",
+    "has-[>[data-slot=table]:first-child]:pt-0",
+    "has-[>[data-slot=table]:last-child]:overflow-hidden",
+    "has-[>[data-slot=table]:last-child]:pb-0",
 );
 
 /// A bordered panel that groups related content.
 ///
-/// Pass sections as children. Use a header, body, or footer as needed. `attrs` are
-/// forwarded to the `<div>`, with extra classes added to its classes.
+/// Pass a header, body, footer, or table as children. A table at either end of the
+/// card sits against that edge, without padding. `attrs` adds attributes and classes
+/// to the card's `<div>`.
 ///
 /// ```ignore
 /// view! {

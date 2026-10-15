@@ -1,4 +1,4 @@
-// SYNC: topcoat-ui-registry@0.10.0 sha256:17438c510d30440dfa2ca38f888cd5503e292c9475b5f09de59b45edd35ebac0 — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
+// SYNC: topcoat-ui-registry@0.10.0 sha256:068bd99ee2bc265d4d1afeae789153b3273ec3d5a8a380af7e2cde9b28d4c66c — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
 use topcoat::{
     Result,
     view::{Attributes, Child, StaticClass, View, attributes, class, component, view},
@@ -27,9 +27,9 @@ impl FieldOrientation {
                 class!("flex-row items-center gap-3 [&>[data-slot=field-label]]:flex-1")
             }
             Self::Responsive => class!(
-                "flex-col gap-2 @md/field-group:flex-row @md/field-group:items-start \
-                 @md/field-group:gap-4 @md/field-group:[&>[data-slot=field-label]]:w-1/3 \
-                 @md/field-group:[&>[data-slot=field-label]]:shrink-0",
+                "flex-col gap-2 @md/field-group:flex-row @md/field-group:items-start",
+                "@md/field-group:gap-4 @md/field-group:[&>[data-slot=field-label]]:w-1/3",
+                "@md/field-group:[&>[data-slot=field-label]]:shrink-0",
             ),
         }
     }
@@ -171,9 +171,9 @@ pub async fn field_label(
             attrs: attributes! {
                 data-slot="field-label"
                 class=(class!(
-                    "leading-snug group-has-[:disabled]/field:opacity-50 \
-                     group-has-[[aria-invalid=true]]/field:text-destructive \
-                     group-data-[invalid=true]/field:text-destructive",
+                    "leading-snug group-has-[:disabled]/field:opacity-50",
+                    "group-has-[[aria-invalid=true]]/field:text-destructive",
+                    "group-data-[invalid=true]/field:text-destructive",
                     attrs.remove("class"),
                 ))
                 (attrs)
