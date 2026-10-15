@@ -163,6 +163,9 @@ async fn file_upload_links_only_a_rooted_or_http_url() {
         "JavaScript:alert(1)",
         "data:text/html,x",
         "//evil.example/x.png",
+        "/\\evil.example/x.png",
+        "/\t/evil.example/x.png",
+        "https://evil.example\\@site/x.png",
         "report.pdf",
     ] {
         let edit = render_upload(&schema, &cx, Some(refused)).await;

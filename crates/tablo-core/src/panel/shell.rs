@@ -213,7 +213,12 @@ impl Panel {
         };
         match logo {
             Some(logo_url) => {
-                let alt = name.to_string();
+                // A page always shows the name beside its logo, so the logo is decoration there;
+                // the icon rail hides the sidebar's name, so the sidebar logo names the brand.
+                let alt = match size {
+                    BrandSize::Sidebar => name.to_string(),
+                    BrandSize::Page => String::new(),
+                };
                 view! {
                     cx =>
                     <img

@@ -239,7 +239,8 @@ async fn color_swatch_accepts_only_plain_colors() {
     assert!(is_css_color("#FFF"));
 }
 
-/// An image column shows a thumbnail for a linkable path, and the dash for an empty one.
+/// An image column shows a thumbnail for a path on this site, and for an `http(s)` URL only when
+/// it allows remote images; anything else, an empty value included, shows as text.
 #[tokio::test]
 async fn image_thumbnail_needs_a_linkable_path() {
     let column = ImageColumn::new(lens!(Invoice.logo)).circular();
@@ -250,7 +251,15 @@ async fn image_thumbnail_needs_a_linkable_path() {
     );
     assert!(html.contains("rounded-full"), "{html}");
 
-    for path in ["", "javascript:alert(1)", "//evil.example/x.png"] {
+    let remote = "https://cdn.example/logo.png";
+    for path in [
+        "",
+        "javascript:alert(1)",
+        "//evil.example/x.png",
+        "/\\evil.example/x.png",
+        "/\t/evil.example/x.png",
+        remote,
+    ] {
         let row = Invoice {
             logo: path.to_string(),
             ..invoice()
@@ -261,4 +270,15 @@ async fn image_thumbnail_needs_a_linkable_path() {
             "`{path}` must not be an image: {html}"
         );
     }
+
+    let row = Invoice {
+        logo: remote.to_string(),
+        ..invoice()
+    };
+    let html = cell_html(&column.clone().remote(), &row).await;
+    assert!(
+        html.contains(&format!("src=\"{remote}\""))
+            && html.contains("referrerpolicy=\"no-referrer\""),
+        "a remote column loads an http(s) URL, sending no referrer: {html}"
+    );
 }

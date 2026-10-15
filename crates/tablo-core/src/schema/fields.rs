@@ -15,7 +15,7 @@ pub use builders::{
 pub(crate) use choice::{ChoiceControl, Relationship, option_view};
 pub use custom::Toggle;
 pub(crate) use custom::{Control, ControlInput};
-pub(crate) use file::{is_linkable, stored_upload};
+pub(crate) use file::{is_linkable, is_rooted, stored_upload};
 use tablo_ui::{
     field as ui_field, field_content as ui_field_content,
     field_description as ui_field_description, field_error as ui_field_error,

@@ -2620,6 +2620,7 @@ impl<M, T> tablo_core::ImageColumn<M, T> where M: toasty::schema::model::Model
 pub fn tablo_core::ImageColumn<M, T>::circular(self) -> Self
 pub fn tablo_core::ImageColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::ImageColumn<M, T>::new(tablo_core::Lens<M, T>) -> Self where T: toasty::schema::field::Field<Inner = alloc::string::String>
+pub fn tablo_core::ImageColumn<M, T>::remote(self) -> Self
 pub fn tablo_core::ImageColumn<M, T>::size(self, u16) -> Self
 pub fn tablo_core::ImageColumn<M, T>::width(self, tablo_core::ColumnWidth) -> Self
 impl<M, T> core::clone::Clone for tablo_core::ImageColumn<M, T>
@@ -4562,6 +4563,7 @@ impl<M, T> tablo_core::ImageColumn<M, T> where M: toasty::schema::model::Model
 pub fn tablo_core::ImageColumn<M, T>::circular(self) -> Self
 pub fn tablo_core::ImageColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::ImageColumn<M, T>::new(tablo_core::Lens<M, T>) -> Self where T: toasty::schema::field::Field<Inner = alloc::string::String>
+pub fn tablo_core::ImageColumn<M, T>::remote(self) -> Self
 pub fn tablo_core::ImageColumn<M, T>::size(self, u16) -> Self
 pub fn tablo_core::ImageColumn<M, T>::width(self, tablo_core::ColumnWidth) -> Self
 impl<M, T> core::clone::Clone for tablo_core::ImageColumn<M, T>

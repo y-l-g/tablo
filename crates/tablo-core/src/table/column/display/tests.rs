@@ -39,6 +39,11 @@ fn minor_units_divide_exactly() {
         "$90,071,992,547,409.93"
     );
     assert_eq!(Currency::USD.minor_units().format(250.0_f64), "$2.50");
+    // More decimals than an i128 has digits: the amount is a fraction of one unit.
+    assert_eq!(
+        Currency::new("$").decimals(40).minor_units().format(-5_i64),
+        format!("-$0.{}5", "0".repeat(39))
+    );
 }
 
 #[test]

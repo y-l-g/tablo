@@ -96,10 +96,22 @@ fn stored_path(value: Option<&str>) -> Option<String> {
 /// Whether a stored value may become an `href`; a rooted path or absolute `http(s)` URL may,
 /// anything else renders as text.
 pub(crate) fn is_linkable(path: &str) -> bool {
-    let lower = path.trim_start().to_ascii_lowercase();
-    (lower.starts_with('/') && !lower.starts_with("//"))
-        || lower.starts_with("https://")
-        || lower.starts_with("http://")
+    is_rooted(path) || {
+        let lower = path.trim_start().to_ascii_lowercase();
+        is_plain(&lower) && (lower.starts_with("https://") || lower.starts_with("http://"))
+    }
+}
+
+/// Whether a stored value is a path on this site: rooted, and no protocol-relative URL.
+pub(crate) fn is_rooted(path: &str) -> bool {
+    let path = path.trim_start();
+    is_plain(path) && path.starts_with('/') && !path.starts_with("//")
+}
+
+/// Whether `url` holds no backslash or control character. A browser reads `\` as `/` and drops
+/// tabs and newlines, so `/\host` or `/<tab>/host` would load from another host.
+fn is_plain(url: &str) -> bool {
+    !url.chars().any(|c| c == '\\' || c.is_control())
 }
 
 /// The `Current: …` row a file field shows for a stored value.
