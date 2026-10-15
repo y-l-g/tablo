@@ -6,6 +6,7 @@
 
 mod gate;
 mod login;
+mod page;
 mod password;
 mod registration;
 mod session;

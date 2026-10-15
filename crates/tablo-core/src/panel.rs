@@ -275,7 +275,8 @@ impl Panel {
         self
     }
 
-    /// Sets branding for the shell (sidebar header, login card, and the topbar below `md`).
+    /// Sets branding for the shell (sidebar header and the topbar below `md`) and for the sign-in
+    /// and sign-up pages, above their card.
     pub fn brand(mut self, brand: Brand) -> Self {
         self.brand = Some(brand);
         self
@@ -307,7 +308,7 @@ impl Panel {
         self
     }
 
-    /// Renders a line under the login form for demo credentials or deployment hints.
+    /// Renders a line under the sign-in card for demo credentials or deployment hints.
     pub fn login_hint(mut self, hint: impl Into<String>) -> Self {
         self.login_hint = Some(hint.into());
         self

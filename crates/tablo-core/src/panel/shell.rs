@@ -87,6 +87,15 @@ impl Brand {
     }
 }
 
+/// Where a brand mark renders, which sets its size.
+#[derive(Clone, Copy)]
+enum BrandSize {
+    /// The sidebar header and the narrow topbar: 28px.
+    Sidebar,
+    /// Above the card of a page outside the shell, such as sign-in: 40px.
+    Page,
+}
+
 /// The application-owned assets used by [`Panel::layout_shell`].
 ///
 /// Tailwind's generated stylesheet is necessarily a call-site asset because
@@ -203,25 +212,55 @@ impl Panel {
         .boxed())
     }
 
-    pub(crate) async fn render_brand(cx: &Cx) -> Result<BoxView<'_>> {
-        let (name, logo) = if let Some(brand) = current(cx).and_then(|panel| panel.brand.as_ref()) {
-            (brand.name.clone(), brand.logo.clone())
-        } else {
-            ("Tablo".to_string(), None)
+    /// The panel's brand: its logo, or its initial on the primary color, and its name.
+    fn current_brand(cx: &Cx) -> (String, Option<String>) {
+        match current(cx).and_then(|panel| panel.brand.as_ref()) {
+            Some(brand) => (brand.name.clone(), brand.logo.clone()),
+            None => ("Tablo".to_string(), None),
+        }
+    }
+
+    /// The request's panel brand name, `Tablo` without one.
+    pub(crate) fn brand_name(cx: &Cx) -> String {
+        Self::current_brand(cx).0
+    }
+
+    /// The brand's mark at `size`: its logo, or without one its initial on the primary token, so
+    /// a header keeps its mark.
+    fn brand_mark<'a>(
+        cx: &'a Cx,
+        name: &str,
+        logo: Option<String>,
+        size: BrandSize,
+    ) -> BoxView<'a> {
+        // A page logo keeps its own width at the page mark's height.
+        let (width, height, logo_class, initial_class) = match size {
+            BrandSize::Sidebar => (
+                Some("28"),
+                "28",
+                "size-7 shrink-0 rounded-md",
+                "flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-sm \
+                 font-semibold text-primary-foreground",
+            ),
+            BrandSize::Page => (
+                None,
+                "40",
+                "h-10 w-auto shrink-0",
+                "flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-lg \
+                 font-semibold text-primary-foreground",
+            ),
         };
-        // Without a logo the brand's initial stands in, on the primary token,
-        // so the header keeps its mark.
-        let mark: BoxView<'_> = match logo {
+        match logo {
             Some(logo_url) => {
-                let alt = name.clone();
+                let alt = name.to_string();
                 view! {
                     cx =>
                     <img
                         src=(logo_url)
                         alt=(alt)
-                        width="28"
-                        height="28"
-                        class="size-7 shrink-0 rounded-md"
+                        width=(width)
+                        height=(height)
+                        class=(logo_class)
                     >
                 }
                 .boxed()
@@ -230,16 +269,17 @@ impl Panel {
                 let initial = name.chars().next().map(String::from).unwrap_or_default();
                 view! {
                     cx =>
-                    <span
-                        aria-hidden="true"
-                        class="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground"
-                    >
-                        (initial)
-                    </span>
+                    <span aria-hidden="true" class=(initial_class)>(initial)</span>
                 }
                 .boxed()
             }
-        };
+        }
+    }
+
+    /// The brand as the sidebar header shows it: the mark beside the name.
+    pub(crate) async fn render_brand(cx: &Cx) -> Result<BoxView<'_>> {
+        let (name, logo) = Self::current_brand(cx);
+        let mark = Self::brand_mark(cx, &name, logo, BrandSize::Sidebar);
         Ok(view! {
             cx =>
             <div class="flex min-w-0 items-center gap-2 font-semibold text-foreground">
@@ -248,6 +288,22 @@ impl Panel {
             </div>
         }
         .boxed())
+    }
+
+    /// The brand as a page outside the shell shows it, above its card: the mark over the name.
+    pub(crate) fn render_page_brand(cx: &Cx) -> BoxView<'_> {
+        let (name, logo) = Self::current_brand(cx);
+        let mark = Self::brand_mark(cx, &name, logo, BrandSize::Page);
+        view! {
+            cx =>
+            <div class="flex flex-col items-center gap-3 text-center" data-brand="">
+                (mark)
+                <span class="text-lg font-semibold tracking-tight text-foreground">
+                    (name)
+                </span>
+            </div>
+        }
+        .boxed()
     }
 
     async fn sidebar_navigation<'a>(
@@ -388,7 +444,7 @@ impl Panel {
         let sidebar_open = signal(cx, || Self::sidebar_starts_open(cx));
         let mobile_open = signal(cx, || false);
         let outer_class = extra_class.clone().unwrap_or_default();
-        let header_title = brand_name(cx);
+        let header_title = Self::brand_name(cx);
         // One navigation tree: the upstream sidebar renders its children once
         // and shares them between the desktop panel and the mobile sheet.
         let navigation =
@@ -590,7 +646,7 @@ impl Panel {
             .filter(|items| !items.is_empty())
             .unwrap_or_else(|| vec![NavigationItem::at("Home", super::gate::panel_prefix(cx))]);
         let shell = Self::render_shell(cx, &nav_items, &path, slot, None).await?;
-        Self::render_document(cx, brand_name(cx), shell).await
+        Self::render_document(cx, Self::brand_name(cx), shell).await
     }
 
     /// Renders a complete HTML document around a page outside the panel prefix.
@@ -649,13 +705,6 @@ impl Panel {
         }
         .boxed())
     }
-}
-
-/// The request's panel brand name, `Tablo` without one.
-fn brand_name(cx: &Cx) -> String {
-    current(cx)
-        .and_then(|panel| panel.brand.as_ref())
-        .map_or_else(|| "Tablo".to_string(), |brand| brand.name.clone())
 }
 
 #[cfg(test)]

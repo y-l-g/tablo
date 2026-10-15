@@ -67,9 +67,9 @@ The panel also serves:
 | `resource::<R>()` | registers a resource's routes and sidebar entry | [Resources](./resources.md) |
 | `page::<P>()` | registers a page at `/{prefix}/{slug}` | [Pages](#pages) |
 | `home::<P>()` | registers a page at `/{prefix}` | [Pages](#pages) |
-| `brand(Brand)` | sets the name and optional logo in the sidebar, the topbar and the login card | [Branding](#branding-and-theme) |
+| `brand(Brand)` | sets the name and optional logo in the sidebar, the topbar, and above the sign-in and sign-up cards | [Branding](#branding-and-theme) |
 | `dark_mode(bool)` | sets the theme a first-time visitor sees | [Branding](#branding-and-theme) |
-| `login_hint(text)` | adds a line under the login form | [Branding](#branding-and-theme) |
+| `login_hint(text)` | adds a line under the sign-in card | [Branding](#branding-and-theme) |
 | `auth(Auth)` | replaces or disables the built-in password login | [Policy, auth, tenancy](./policy-auth-tenancy.md#authentication) |
 | `uploads(uploader)` | sets where file fields store their bytes | [Forms](./forms.md#file-uploads) |
 | `serve_dir(path, dir)` | serves a directory of files, publicly unless the path sits under the panel prefix | [Forms](./forms.md#file-uploads) |
@@ -271,12 +271,13 @@ tenant predicate. See [Data access](./data-access.md).
 {{#include ../../../examples/guide/src/panel_routing.rs:panel-brand-body}}
 ```
 
-- `brand` names the panel in the sidebar header, on the login card, and in the topbar on narrow
-  screens. A brand without a logo shows its first letter.
+- `brand` names the panel in the sidebar header, in the topbar on narrow screens, and above the
+  sign-in and sign-up cards, where the logo shows 40px tall. A brand without a logo shows its
+  first letter.
 - `dark_mode(true)` makes the panel start dark for a visitor who has not chosen a theme. The theme
   toggle always renders, and a visitor's choice, light or dark, is kept in the `tablo_theme`
   cookie and wins over this default. Without the call the panel starts light.
-- `login_hint` renders a muted line under the login form, such as demo credentials.
+- `login_hint` renders a muted line under the sign-in card, such as demo credentials.
 
 ### Theme tokens
 
@@ -288,7 +289,7 @@ name, such as `bg-primary` or `text-muted-foreground`, in the panel's markup and
 | Token | Paints |
 | --- | --- |
 | `--background`, `--foreground` | the page and its text |
-| `--card`, `--card-foreground` | cards, tables, dialogs and the login card |
+| `--card`, `--card-foreground` | cards, tables, dialogs and the sign-in and sign-up cards |
 | `--popover`, `--popover-foreground` | the option lists of selects and menus |
 | `--muted`, `--muted-foreground` | subdued surfaces and secondary text |
 | `--primary`, `--primary-foreground` | primary buttons and checked checkboxes |

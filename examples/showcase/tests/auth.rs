@@ -43,6 +43,44 @@ async fn login_page_is_standalone_with_csrf_and_no_demo_hint_by_default() {
         !html.contains("data-sidebar=\"sidebar\""),
         "login page must not render the sidebar shell: {html}"
     );
+    // The brand stands above the card, whose heading leads the form.
+    let brand = html.find("data-brand").expect("the page brand");
+    let heading = html.find("<h1").expect("the card heading");
+    let form = html.find("action=\"/admin/login\"").expect("the form");
+    assert!(
+        brand < heading && heading < form,
+        "brand, heading, form: {html}"
+    );
+    assert!(
+        !html.contains("data-login-hint"),
+        "no hint without one declared: {html}"
+    );
+}
+
+/// A declared login hint shows under the card, and the sign-up page shares the sign-in layout.
+#[tokio::test]
+async fn the_hint_and_the_sign_up_page_share_the_layout() {
+    let db = full_db().await;
+    let router = mount(
+        db,
+        showcase::app::admin_panel().login_hint("Demo: admin / password"),
+    )
+    .expect("panel builds");
+    let html = body_string(TestClient::new(&router).get("/admin/login").await).await;
+    let form = html.find("action=\"/admin/login\"").expect("the form");
+    let hint = html.find("data-login-hint").expect("the hint renders");
+    assert!(form < hint, "the hint follows the form: {html}");
+
+    let html = body_string(TestClient::new(&router).get("/admin/register").await).await;
+    let brand = html
+        .find("data-brand")
+        .expect("the sign-up page shows the brand");
+    let heading = html.find("<h1").expect("the card heading");
+    assert!(brand < heading, "{html}");
+    assert!(
+        html.contains("href=\"/admin/login\""),
+        "a link back to sign-in: {html}"
+    );
 }
 
 #[tokio::test]
