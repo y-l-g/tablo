@@ -1,6 +1,10 @@
 //! Row projection: the page's rows as the owned views the template renders.
 
-use tablo_ui::{ButtonSize, ButtonVariant, button, button_variants, table_cell, table_row};
+use tablo_ui::{
+    ButtonSize, ButtonVariant, FloatingAlign, button, button_variants, dropdown_menu,
+    dropdown_menu_content, dropdown_menu_item, dropdown_menu_separator, dropdown_menu_trigger,
+    table_cell, table_row,
+};
 use topcoat::{context::Cx, icon::icon, runtime::Event, view::*};
 
 use super::{
@@ -28,6 +32,8 @@ pub(super) struct RowChrome {
     pub(super) signals: TableSignals,
     /// The DOM id of the table's write form.
     pub(super) form: String,
+    /// Whether the row's actions sit in a menu.
+    pub(super) action_menu: bool,
 }
 
 /// How one column's body cells take their width and align.
@@ -200,6 +206,9 @@ fn record_link<'a>(cx: &'a Cx, url: &str, cell: BoxView<'a>) -> BoxView<'a> {
 /// The row's actions cell: its custom actions, then View, Edit and Delete, each only when the
 /// row's policy allows it.
 fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxView<'a> {
+    if chrome.action_menu {
+        return render_action_menu(cx, row, chrome);
+    }
     let view_url = row.view_url.clone();
     let edit_url = row.edit_url.clone();
     let link_class = button_variants(ButtonVariant::Ghost, ButtonSize::Icon);
@@ -293,6 +302,128 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxV
                         )
                     </button>
                 }
+            </div>
+        )
+    }
+    .boxed()
+}
+
+/// A menu item that navigates: the registry item's look on a link.
+const MENU_LINK_CLASS: &str = "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left \
+     text-sm whitespace-nowrap outline-none hover:bg-foreground/5 focus-visible:bg-foreground/5 \
+     active:bg-foreground/10 [&_svg]:size-4 [&_svg]:shrink-0";
+
+/// The row's actions behind one button: its custom actions, View and Edit, then Delete after a
+/// separator, each only when the row's policy allows it. A row allowing none keeps an empty cell.
+fn render_action_menu<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxView<'a> {
+    let described = row_dom_id(&row.key);
+    let menu = format!("{described}-actions");
+    // Closes the menu as the item runs; a submitting item navigates instead.
+    let closes = |attrs: &mut Attributes| {
+        attrs.extend(attributes! {
+            cx =>
+            popovertarget=(menu.clone())
+            popovertargetaction="hide"
+            aria-describedby=(described.clone())
+        });
+    };
+    let mut items: Vec<BoxView<'a>> = row
+        .custom
+        .iter()
+        .map(|action| {
+            let mut attrs = match action.input {
+                Some(name) => input_trigger(
+                    cx,
+                    &chrome.form,
+                    &chrome.signals,
+                    name,
+                    action.url.clone(),
+                    false,
+                ),
+                None => write_trigger(
+                    cx,
+                    &chrome.form,
+                    &chrome.signals,
+                    action.url.clone(),
+                    action.confirm.then_some(("Run this action?", "Confirm")),
+                    false,
+                ),
+            };
+            closes(&mut attrs);
+            let label = action.label.clone();
+            view! { cx => dropdown_menu_item(attrs: attrs, (label)) }.boxed()
+        })
+        .collect();
+    for (url, label, data) in [
+        (row.view_url.clone(), "View", tablo_ui::icons::EYE),
+        (row.edit_url.clone(), "Edit", tablo_ui::icons::PENCIL),
+    ] {
+        if let Some(url) = url {
+            let link = crate::navigation::runtime_link(cx, &url);
+            let described = described.clone();
+            items.push(
+                view! {
+                    cx =>
+                    <a
+                        (link)
+                        class=(MENU_LINK_CLASS)
+                        aria-label=(label)
+                        aria-describedby=(described)
+                    >
+                        icon(data: data)
+                        (label)
+                    </a>
+                }
+                .boxed(),
+            );
+        }
+    }
+    let delete = row.delete_action.clone().map(|action| {
+        let confirm = Some(("Delete this record?", "Delete"));
+        let mut attrs = write_trigger(cx, &chrome.form, &chrome.signals, action, confirm, false);
+        closes(&mut attrs);
+        attrs.extend(attributes! { cx => class="text-destructive" aria-label="Delete" });
+        attrs
+    });
+    if items.is_empty() && delete.is_none() {
+        let empty = attributes! { cx => class=(CHROME_CELL_CLASS) };
+        return view! { cx => table_cell(attrs: empty) }.boxed();
+    }
+    let separate = !items.is_empty() && delete.is_some();
+    let trigger_class = button_variants(ButtonVariant::Ghost, ButtonSize::Icon);
+    view! {
+        cx =>
+        table_cell(
+            attrs: attributes! { class=(CHROME_CELL_CLASS) },
+            <div class="relative z-10 flex justify-end">
+                dropdown_menu(
+                    dropdown_menu_trigger(
+                        target: menu.as_str(),
+                        attrs: attributes! {
+                            class=(trigger_class)
+                            aria-label="Actions"
+                            aria-describedby=(described.clone())
+                        },
+                        icon(data: tablo_ui::icons::ELLIPSIS)
+                    )
+                    dropdown_menu_content(
+                        id: menu.as_str(),
+                        align: FloatingAlign::End,
+                        for item in items {
+                            (item)
+                        }
+                        if separate {
+                            dropdown_menu_separator()
+                        }
+                        if let Some(attrs) = delete {
+                            dropdown_menu_item(
+                                attrs: attrs,
+                                icon(data: tablo_ui::icons::TRASH)
+                                "Delete"
+                            )
+                        }
+                    )
+                )
             </div>
         )
     }

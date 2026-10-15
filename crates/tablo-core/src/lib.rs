@@ -145,11 +145,12 @@ pub use schema::{
     Source, TextField, Toggle, Watched,
 };
 pub use table::{
-    Alignment, BooleanColumn, Color, ColorColumn, ColumnWidth, ComputedColumn, CountColumn,
-    Currency, Cursor, DateColumn, DateFilter, DateValue, EmbeddedColumn, FileColumn, FilterValue,
-    ImageColumn, IntoColumns, IntoFilters, ModelColumns, Number, Numeric, PagePosition, Pagination,
-    QueryFilter, RelationColumn, RelationLens, RepeaterColumn, SelectFilter, Sort, Table,
-    TablePage, TableState, TernaryFilter, TextColumn, ToOneRelation, WiredTable, contains_expr,
+    ActionLayout, Alignment, BooleanColumn, Color, ColorColumn, ColumnWidth, ComputedColumn,
+    CountColumn, Currency, Cursor, DateColumn, DateFilter, DateValue, EmbeddedColumn, FileColumn,
+    FilterValue, ImageColumn, IntoColumns, IntoFilters, ModelColumns, Number, Numeric,
+    PagePosition, Pagination, QueryFilter, RelationColumn, RelationLens, RepeaterColumn,
+    SelectFilter, Sort, Table, TablePage, TableState, TernaryFilter, TextColumn, ToOneRelation,
+    WiredTable, contains_expr,
 };
 /// Derives [`ActionInput`](trait@ActionInput) for the typed value an [`Action`] asks for
 /// before it runs.

@@ -172,6 +172,7 @@ impl Frame<'_> {
                     .collect(),
                 signals: signals.clone(),
                 form: table_dom_id(state, "writes"),
+                action_menu: self.action_menu,
             };
             let rows = render_rows(cx, row_data, &chrome);
             view! {

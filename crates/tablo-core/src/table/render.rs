@@ -30,7 +30,7 @@ use topcoat::{
 };
 
 use super::{
-    WiredTable,
+    ActionLayout, WiredTable,
     column::{Alignment, ColumnWidth},
     state::{TableSignals, TableState, query_of, with_return},
 };
@@ -54,6 +54,8 @@ pub(super) struct Frame<'t> {
     inputs: Vec<InputAction<'t>>,
     /// The labels of the custom actions each row may show.
     row_actions: Vec<&'t str>,
+    /// Whether a row's actions sit in a menu rather than side by side.
+    action_menu: bool,
     return_to: Option<&'t str>,
 }
 
@@ -136,6 +138,7 @@ impl<M> WiredTable<M> {
                 .row_custom_actions()
                 .map(|action| action.label.as_str())
                 .collect(),
+            action_menu: self.row_action_layout() == ActionLayout::Menu,
             return_to: self.return_to(),
         }
     }

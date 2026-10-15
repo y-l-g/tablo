@@ -7,6 +7,7 @@ pub use tablo::prelude::Ability
 pub use tablo::prelude::Action
 pub use tablo::prelude::ActionInput
 pub use tablo::prelude::ActionInput
+pub use tablo::prelude::ActionLayout
 pub use tablo::prelude::Alignment
 pub use tablo::prelude::Allow
 pub use tablo::prelude::Auth
