@@ -2,7 +2,7 @@
 //! [`ComputedColumn`], [`RelationColumn`], [`CountColumn`], [`BooleanColumn`], [`FileColumn`],
 //! [`ColorColumn`], [`ImageColumn`] and [`EmbeddedColumn`], and the [`IntoColumns`] seam.
 
-use std::{borrow::Cow, sync::Arc};
+use std::sync::Arc;
 
 use derive_where::derive_where;
 use toasty::stmt::{Expr, List, OrderByExpr, Path, Query};
@@ -140,7 +140,7 @@ pub trait Column<M>: Send + Sync {
 
     /// The width the column claims.
     fn column_width(&self) -> ColumnWidth {
-        ColumnWidth::Narrow
+        ColumnWidth::Auto
     }
 
     /// Where the header and the cells align their content.
@@ -295,39 +295,41 @@ impl ColumnBase {
     }
 }
 
-/// The share of the table a [`ColumnWidth::Narrow`] column claims, in whole
-/// percent.
-pub(crate) const NARROW_DEFAULT_PERCENT: u8 = 10;
-
-/// The width a [`Column`] claims in the table's fixed layout.
+/// How a [`Column`] takes the table's width.
+///
+/// The table lays out automatically: each column is as wide as its content, and the first column
+/// that [`Grow`](Self::Grow)s takes the width left over. A table wider than its card scrolls
+/// sideways.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ColumnWidth {
-    /// Take the space left over, never less than six rem or the header.
+    /// As wide as its content, on one line: a status, date, number or boolean.
     #[default]
-    Wide,
-    /// A share of the table for a status, boolean, date or count cell.
-    Narrow,
-    /// An explicit length in whole rem; the space left over is shared over it in proportion.
+    Auto,
+    /// As wide as its content up to 20rem, past which a value truncates; the first growing column
+    /// also takes the table's spare width. The default for text and relation columns.
+    Grow,
+    /// Wrap the content onto several lines, between 12rem and 28rem wide.
+    Wrap,
+    /// Exactly this many rem; a value past that truncates.
     Rem(u8),
-    /// An explicit share of the table in whole percent.
-    Percent(u8),
 }
 
 impl ColumnWidth {
-    /// The share of the table this column claims as a kind default, in whole percent.
-    pub(crate) fn default_percent(self) -> Option<u8> {
+    /// The classes of the box a body cell wraps its content in, if any.
+    pub(crate) fn content_class(self) -> Option<&'static str> {
         match self {
-            Self::Narrow => Some(NARROW_DEFAULT_PERCENT),
-            Self::Wide | Self::Rem(_) | Self::Percent(_) => None,
+            Self::Auto => None,
+            Self::Grow => Some("max-w-xs truncate"),
+            Self::Wrap => Some("min-w-48 max-w-md whitespace-normal"),
+            Self::Rem(_) => Some("truncate"),
         }
     }
 
-    /// The `style` attribute value an explicit declaration emits.
-    pub(crate) fn explicit_css(self) -> Option<Cow<'static, str>> {
+    /// The `style` of a cell of this width, header and body alike.
+    pub(crate) fn style(self) -> Option<String> {
         match self {
-            Self::Rem(rem) => Some(Cow::Owned(format!("width: {rem}rem"))),
-            Self::Percent(percent) => Some(Cow::Owned(format!("width: {percent}%"))),
-            Self::Wide | Self::Narrow => None,
+            Self::Rem(rem) => Some(format!("width: {rem}rem; max-width: {rem}rem")),
+            Self::Auto | Self::Grow | Self::Wrap => None,
         }
     }
 }
@@ -449,7 +451,7 @@ where
         T: FormScalar + Send + Sync + 'static,
     {
         Self {
-            base: ColumnBase::new(lens.path(), ColumnWidth::Wide),
+            base: ColumnBase::new(lens.path(), ColumnWidth::Grow),
             lens,
             format: Arc::new(T::to_label),
             search: None,
@@ -530,7 +532,7 @@ where
     fn amount(mut self) -> Self {
         self.alignment = Alignment::End;
         self.tabular = true;
-        self.base.width = ColumnWidth::Narrow;
+        self.base.width = ColumnWidth::Auto;
         self
     }
 }
@@ -686,7 +688,7 @@ where
         T: DateValue,
     {
         Self {
-            base: ColumnBase::new(lens.path(), ColumnWidth::Narrow),
+            base: ColumnBase::new(lens.path(), ColumnWidth::Auto),
             lens,
             sortable: false,
         }
@@ -761,7 +763,7 @@ where
             name: label.to_lowercase(),
             label,
             project: Arc::new(project),
-            width: ColumnWidth::Narrow,
+            width: ColumnWidth::Auto,
             alignment: Alignment::Start,
             includes: Includes::new(),
         }
@@ -837,7 +839,7 @@ where
     /// Bind the column to the `bool` field `lens` reads.
     pub fn new(lens: Lens<M, bool>) -> Self {
         Self {
-            base: ColumnBase::new(lens.path(), ColumnWidth::Narrow),
+            base: ColumnBase::new(lens.path(), ColumnWidth::Auto),
             lens,
             sortable: false,
             labels: ("Yes".to_string(), "No".to_string()),
@@ -921,7 +923,7 @@ where
     /// Bind the column to the `String` field `lens` reads.
     pub fn new(lens: Lens<M, String>) -> Self {
         Self {
-            base: ColumnBase::new(lens.path(), ColumnWidth::Wide),
+            base: ColumnBase::new(lens.path(), ColumnWidth::Grow),
             lens,
         }
     }
@@ -989,7 +991,7 @@ where
         T: toasty::schema::Field<Inner = String>,
     {
         Self {
-            base: ColumnBase::new(lens.path(), ColumnWidth::Narrow),
+            base: ColumnBase::new(lens.path(), ColumnWidth::Auto),
             lens,
         }
     }
@@ -1078,7 +1080,7 @@ where
         T: toasty::schema::Field<Inner = String>,
     {
         Self {
-            base: ColumnBase::new(lens.path(), ColumnWidth::Narrow),
+            base: ColumnBase::new(lens.path(), ColumnWidth::Auto),
             lens,
             size: 40,
             circular: false,

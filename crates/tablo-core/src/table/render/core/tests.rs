@@ -448,3 +448,157 @@ async fn select_all_hands_its_handler_the_tokens_as_one_string() {
         "every select-all expression must take the tokens as one string, got {select_all}"
     );
 }
+
+/// Every `<th …>` opening tag in `html`, then the text up to its closing tag.
+fn header_cells(html: &str) -> Vec<&str> {
+    html.match_indices("<th")
+        .map(|(at, _)| {
+            let end = html[at..].find("</th>").expect("the head's closing tag") + at;
+            &html[at..end]
+        })
+        .collect()
+}
+
+fn task(title: &str) -> Task {
+    Task {
+        id: uuid::Uuid::new_v4(),
+        title: title.to_string(),
+        status: "draft".to_string(),
+        featured: false,
+        created_at: "2024-01-15T09:30:00Z".parse().expect("a timestamp"),
+    }
+}
+
+/// The selection and actions columns shrink to their controls, which stay on one line: a row's
+/// Delete never wraps under its Edit, whatever the font.
+#[tokio::test]
+async fn chrome_columns_shrink_to_controls_on_one_line() {
+    let cx = CxTestBuilder::new().build();
+    let wired = Table::<User>::new(TextColumn::new(lens!(User.name)))
+        .wired()
+        .with_view("/admin/users".to_string())
+        .with_edit("/admin/users".to_string())
+        .with_delete("/admin/users".to_string())
+        .with_bulk_delete(true);
+    let page: TablePage<User> = vec![User {
+        id: uuid::Uuid::new_v4(),
+        name: "Ada".to_string(),
+    }]
+    .into();
+    let html = wired.render_loaded(&cx, page).await.html(&cx).await;
+    assert_eq!(
+        html.matches(super::super::CHROME_CELL_CLASS).count(),
+        4,
+        "the selection and actions heads and cells shrink to their controls, got {html}"
+    );
+    let body = &html[html.find("<tbody").expect("a body")..html.find("</tbody>").expect("its end")];
+    assert!(
+        !body.contains("flex-wrap") && !html.contains("table-fixed"),
+        "the controls never wrap and the layout is automatic, got {html}"
+    );
+}
+
+/// The first growing column takes the spare width; the others fit their content, so one long
+/// value cannot squeeze a short one.
+#[tokio::test]
+async fn only_the_first_growing_column_takes_the_spare_width() {
+    let cx = CxTestBuilder::new().build();
+    let wired = Table::<Task>::new((
+        crate::BooleanColumn::new(lens!(Task.featured)),
+        TextColumn::new(lens!(Task.title)),
+        TextColumn::new(lens!(Task.status)),
+    ))
+    .wired();
+    let page: TablePage<Task> = vec![task("Ship it")].into();
+    let html = wired.render_loaded(&cx, page).await.html(&cx).await;
+    let growing: Vec<&str> = header_cells(&html)
+        .into_iter()
+        .filter(|head| head.contains("w-full"))
+        .collect();
+    assert_eq!(growing.len(), 1, "one column takes the slack, got {html}");
+    assert!(
+        growing[0].contains("Title"),
+        "the first growing column takes it, got {growing:?}"
+    );
+    assert_eq!(
+        html.matches("max-w-xs truncate").count(),
+        2,
+        "both growing columns cap their value, got {html}"
+    );
+}
+
+/// An exact width holds on the head and on every cell, so a long value truncates within it.
+#[tokio::test]
+async fn an_exact_width_holds_on_head_and_cells() {
+    let cx = CxTestBuilder::new().build();
+    let wired =
+        Table::<Task>::new(TextColumn::new(lens!(Task.title)).width(crate::ColumnWidth::Rem(8)))
+            .wired();
+    let page: TablePage<Task> = vec![task("A"), task("B")].into();
+    let html = wired.render_loaded(&cx, page).await.html(&cx).await;
+    assert_eq!(
+        html.matches("width: 8rem; max-width: 8rem").count(),
+        3,
+        "the head and both cells hold eight rem, got {html}"
+    );
+}
+
+/// A row opens its record's view page, or its edit page when the table has none, from anywhere on
+/// the row; a row with neither stays plain.
+#[tokio::test]
+async fn rows_open_their_record() {
+    let cx = CxTestBuilder::new().build();
+    let ada = User {
+        id: uuid::Uuid::new_v4(),
+        name: "Ada".to_string(),
+    };
+    let id = ada.id.to_string();
+    let render = |wired: crate::table::WiredTable<User>| {
+        let page: TablePage<User> = vec![ada.clone()].into();
+        let cx = &cx;
+        async move { wired.render_loaded(cx, page).await.html(cx).await }
+    };
+    let base = || Table::<User>::new(TextColumn::new(lens!(User.name))).wired();
+
+    let html = render(
+        base()
+            .with_view("/admin/users".to_string())
+            .with_edit("/admin/users".to_string()),
+    )
+    .await;
+    let link = last_link_named(&html, "data-record-link");
+    assert!(
+        link.contains(&format!("href=\"/admin/users/{id}\"")),
+        "the row opens the view page, got {link}"
+    );
+
+    let html = render(base().with_edit("/admin/users".to_string())).await;
+    let link = last_link_named(&html, "data-record-link");
+    assert!(
+        link.contains(&format!("href=\"/admin/users/{id}/edit\"")),
+        "without a view page the row opens the edit page, got {link}"
+    );
+
+    let html = render(base()).await;
+    assert!(
+        !html.contains("data-record-link"),
+        "a row with nowhere to go links nowhere, got {html}"
+    );
+}
+
+/// A derived table spells a timestamp as its calendar day.
+#[tokio::test]
+async fn a_derived_table_spells_a_timestamp_as_a_day() {
+    let cx = CxTestBuilder::new().build();
+    let page: TablePage<Task> = vec![task("Ship it")].into();
+    let html = <Task as crate::ModelColumns>::table()
+        .wired()
+        .render_loaded(&cx, page)
+        .await
+        .html(&cx)
+        .await;
+    assert!(
+        html.contains("Jan 15, 2024") && !html.contains("2024-01-15T"),
+        "the timestamp reads as a day, got {html}"
+    );
+}

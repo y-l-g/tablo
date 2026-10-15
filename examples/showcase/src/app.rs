@@ -3,11 +3,11 @@
 use std::path::PathBuf;
 
 use tablo::{
-    Ability, Action, Auth, BooleanColumn, Brand, ColumnWidth, ComputedColumn, CountColumn,
-    DateFilter, Detail, DirUploader, EmbeddedColumn, FieldErrors, Grid, Group, HeaderAction,
-    ModelColumns, Pagination, Panel, PublicLink, QueryFilter, Relation, RelationColumn,
-    RepeaterColumn, Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter,
-    Table, Tenancy, TernaryFilter, TextColumn, lens, relation, scoped_query, tenant_id, when,
+    Ability, Action, Auth, BooleanColumn, Brand, ComputedColumn, CountColumn, DateFilter, Detail,
+    DirUploader, EmbeddedColumn, FieldErrors, Grid, Group, HeaderAction, ModelColumns, Pagination,
+    Panel, PublicLink, QueryFilter, Relation, RelationColumn, RepeaterColumn, Resource,
+    ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy,
+    TernaryFilter, TextColumn, lens, relation, scoped_query, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -209,9 +209,7 @@ fn post_author_column() -> RelationColumn<Post> {
 fn post_table() -> Table<Post> {
     Table::new((
         TextColumn::new(lens!(Post.title)).searchable().sortable(),
-        TextColumn::new(lens!(Post.status))
-            .badge()
-            .width(ColumnWidth::Narrow),
+        TextColumn::new(lens!(Post.status)).badge(),
         BooleanColumn::new(lens!(Post.featured)),
         post_author_column(),
         CountColumn::new(relation!(Post.comments)),

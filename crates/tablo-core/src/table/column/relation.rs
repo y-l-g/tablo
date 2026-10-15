@@ -215,7 +215,7 @@ where
     {
         let read = relation.read;
         Self {
-            relation: Declared::of(&relation, ColumnWidth::Wide),
+            relation: Declared::of(&relation, ColumnWidth::Grow),
             project: Arc::new(move |_cx, row| {
                 read(row)
                     .loaded()
@@ -263,7 +263,7 @@ where
         Self {
             relation: Declared {
                 source: Some((std::any::type_name::<S>(), S::available)),
-                ..Declared::of(&relation, ColumnWidth::Wide)
+                ..Declared::of(&relation, ColumnWidth::Grow)
             },
             project: Arc::new(move |cx, row| {
                 read(row).loaded().map(|target| {
@@ -328,7 +328,7 @@ where
         Self {
             relation: Declared {
                 source: Some((std::any::type_name::<S>(), S::available)),
-                ..Declared::of(&relation, ColumnWidth::Wide)
+                ..Declared::of(&relation, ColumnWidth::Grow)
             },
             project: Arc::new(move |cx, row| {
                 let records = read(row);
@@ -401,7 +401,7 @@ where
     {
         let read = relation.read;
         Self {
-            relation: Declared::of(&relation, ColumnWidth::Narrow),
+            relation: Declared::of(&relation, ColumnWidth::Auto),
             count: Arc::new(move |row| {
                 let records = read(row);
                 (!records.is_unloaded()).then(|| records.get().len())

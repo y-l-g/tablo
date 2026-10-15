@@ -1,13 +1,11 @@
 //! Row projection: the page's rows as the owned views the template renders.
 
-use std::borrow::Cow;
-
 use tablo_ui::{ButtonSize, ButtonVariant, button, button_variants, table_cell, table_row};
 use topcoat::{context::Cx, icon::icon, runtime::Event, view::*};
 
 use super::{
     super::{GroupKey, RowActions, WiredTable},
-    Frame,
+    CHROME_CELL_CLASS, Frame,
     dialog::{input_trigger, write_trigger},
 };
 use crate::table::{
@@ -18,22 +16,29 @@ use crate::table::{
     },
 };
 
-/// What every row of one render shares: the chrome columns, the declared
-/// widths (resolved once per render, the same for every row), and the
+/// What every row of one render shares: the chrome columns, each column's cell layout, and the
 /// table's signals and write form.
 pub(super) struct RowChrome {
     pub(super) with_bulk: bool,
     pub(super) with_actions: bool,
     /// Columns a group header spans: the data columns plus the chrome.
     pub(super) header_colspan: usize,
-    pub(super) cell_widths: Vec<Option<Cow<'static, str>>>,
-    /// Each data cell's class: its truncation and its column's alignment.
-    pub(super) cell_classes: Vec<String>,
-    /// The width the actions column's controls need, which its cells declare.
-    pub(super) actions: Option<Cow<'static, str>>,
+    /// Each data column's cell layout, in column order.
+    pub(super) cells: Vec<CellLayout>,
     pub(super) signals: TableSignals,
     /// The DOM id of the table's write form.
     pub(super) form: String,
+}
+
+/// How one column's body cells take their width and align.
+#[derive(Clone)]
+pub(super) struct CellLayout {
+    /// Its alignment's class, if any.
+    pub(super) class: Option<&'static str>,
+    /// Its width's `style`, for an exact width.
+    pub(super) style: Option<String>,
+    /// The classes of the box its content sits in, which caps or wraps it.
+    pub(super) content: Option<&'static str>,
 }
 
 /// One rendered row, keyed for the body's diff.
@@ -96,9 +101,11 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
             view! {
                 cx =>
                 table_cell(
+                    attrs: attributes! { class=(CHROME_CELL_CLASS) },
                     <input
                         type="checkbox"
                         value=(value)
+                        class="relative z-10"
                         aria-label="Select row"
                         aria-describedby=(described)
                         :checked=$({
@@ -126,16 +133,21 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
             }
             .boxed()
         } else {
-            view! { cx => table_cell() }.boxed()
+            view! { cx => table_cell(attrs: attributes! { class=(CHROME_CELL_CLASS) }) }.boxed()
         }
     });
-    let cells: Vec<(BoxView<'a>, Option<Cow<'static, str>>, String)> =
-        std::mem::take(&mut row.cells)
-            .into_iter()
-            .zip(chrome.cell_widths.iter().cloned())
-            .zip(chrome.cell_classes.iter().cloned())
-            .map(|((cell, width), class)| (cell, width, class))
-            .collect();
+    // The whole row opens its record: the first cell's link stretches over the row.
+    let record_url = row.view_url.clone().or_else(|| row.edit_url.clone());
+    let row_class = record_url.is_some().then_some("relative");
+    let cells: Vec<(BoxView<'a>, CellLayout)> = std::mem::take(&mut row.cells)
+        .into_iter()
+        .zip(chrome.cells.iter().cloned())
+        .enumerate()
+        .map(|(index, (cell, layout))| match record_url.as_deref() {
+            Some(url) if index == 0 => (record_link(cx, url, cell), layout),
+            _ => (cell, layout),
+        })
+        .collect();
     let actions = chrome
         .with_actions
         .then(|| render_actions(cx, &row, chrome));
@@ -145,14 +157,18 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
             (header)
         }
         table_row(
-            attrs: attributes! { id=(dom_id) },
+            attrs: attributes! { id=(dom_id) class=(row_class) },
             if let Some(cell) = bulk_cell {
                 (cell)
             }
-            for (cell, width, class) in cells {
+            for (cell, layout) in cells {
                 table_cell(
-                    attrs: attributes! { class=(class) style=(width.as_deref()) },
-                    (cell)
+                    attrs: attributes! { class=(layout.class) style=(layout.style) },
+                    if let Some(content) = layout.content {
+                        <div class=(content)>(cell)</div>
+                    } else {
+                        (cell)
+                    }
                 )
             }
             if let Some(actions) = actions {
@@ -163,10 +179,27 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
     .boxed()
 }
 
+/// `cell` inside a link to the row's record that stretches over the whole row. The View or Edit
+/// control is the keyboard's way to the record, so the link takes no tab stop.
+fn record_link<'a>(cx: &'a Cx, url: &str, cell: BoxView<'a>) -> BoxView<'a> {
+    let link = crate::navigation::runtime_link(cx, url);
+    view! {
+        cx =>
+        <a
+            (link)
+            class="after:absolute after:inset-0"
+            tabindex="-1"
+            data-record-link=""
+        >
+            (cell)
+        </a>
+    }
+    .boxed()
+}
+
 /// The row's actions cell: its custom actions, then View, Edit and Delete, each only when the
 /// row's policy allows it.
 fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxView<'a> {
-    let width = chrome.actions.clone();
     let view_url = row.view_url.clone();
     let edit_url = row.edit_url.clone();
     let link_class = button_variants(ButtonVariant::Ghost, ButtonSize::Icon);
@@ -225,8 +258,8 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxV
     view! {
         cx =>
         table_cell(
-            attrs: attributes! { style=(width.as_deref()) },
-            <div class="flex flex-wrap items-center justify-end gap-1">
+            attrs: attributes! { class=(CHROME_CELL_CLASS) },
+            <div class="relative z-10 flex items-center justify-end gap-1">
                 for control in custom {
                     (control)
                 }

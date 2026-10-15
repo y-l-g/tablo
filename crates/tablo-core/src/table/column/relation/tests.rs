@@ -78,7 +78,7 @@ fn a_relation_column_names_its_field_and_declares_its_include() {
     let column = shelf_name();
     assert_eq!(Column::<Book>::name(&column), "shelf");
     assert_eq!(Column::<Book>::label(&column), "Shelf");
-    assert_eq!(column.column_width(), ColumnWidth::Wide);
+    assert_eq!(column.column_width(), ColumnWidth::Grow);
     assert_eq!(
         column.includes().into_vec(),
         Includes::new().with(Book::fields().shelf()).into_vec()
@@ -88,7 +88,7 @@ fn a_relation_column_names_its_field_and_declares_its_include() {
     let count = CountColumn::new(relation!(Shelf.books));
     assert_eq!(Column::<Shelf>::name(&count), "books");
     assert_eq!(Column::<Shelf>::label(&count), "Books");
-    assert_eq!(count.column_width(), ColumnWidth::Narrow);
+    assert_eq!(count.column_width(), ColumnWidth::Auto);
     assert_eq!(
         count.includes().into_vec(),
         Includes::new().with(Shelf::fields().books()).into_vec()

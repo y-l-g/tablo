@@ -40,7 +40,7 @@ where
     /// Bind the column to the list `lens` reads.
     pub fn new(lens: Lens<M, Vec<T>, List<T>>) -> Self {
         Self {
-            base: ColumnBase::new(lens.path(), ColumnWidth::Wide),
+            base: ColumnBase::new(lens.path(), ColumnWidth::Grow),
             lens,
         }
     }

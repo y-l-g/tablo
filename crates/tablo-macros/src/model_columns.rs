@@ -27,7 +27,7 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
             let name = field.ident.as_ref().expect("named field");
             let ty = &field.ty;
             quote! {
-                (&&&&&&#krate::__macro::pick::ModelField(#krate::__macro::Lens::<
+                (&&&&&&&#krate::__macro::pick::ModelField(#krate::__macro::Lens::<
                     #model,
                     #ty,
                     #krate::__macro::pick::PathOf<#ty>,
@@ -43,8 +43,8 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
             fn table() -> #krate::__macro::Table<#model> {
                 #[allow(unused_imports)]
                 use #krate::__macro::pick::{
-                    PickEmbedded as _, PickNone as _, PickRepeater as _, PickScalar as _,
-                    PickString as _, PickToggle as _,
+                    PickDate as _, PickEmbedded as _, PickNone as _, PickRepeater as _,
+                    PickScalar as _, PickString as _, PickToggle as _,
                 };
                 // `__` names: a `let` pattern would match a unit struct the model's module names.
                 let __table = #krate::__macro::Table::new(());
@@ -55,8 +55,8 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
             fn detail() -> #krate::__macro::Detail<#model> {
                 #[allow(unused_imports)]
                 use #krate::__macro::pick::{
-                    PickEmbedded as _, PickNone as _, PickRepeater as _, PickScalar as _,
-                    PickString as _, PickToggle as _,
+                    PickDate as _, PickEmbedded as _, PickNone as _, PickRepeater as _,
+                    PickScalar as _, PickString as _, PickToggle as _,
                 };
                 let __detail = #krate::__macro::Detail::empty();
                 #(let __detail = #fields.detail(__detail);)*

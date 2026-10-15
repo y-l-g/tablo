@@ -3,7 +3,7 @@
 use tablo_ui::{icons, table_head, table_header, table_row};
 use topcoat::{Result, context::Cx, icon::icon, runtime::Event, view::*};
 
-use super::{Frame, live_link};
+use super::{CHROME_CELL_CLASS, Frame, live_link};
 use crate::table::state::{TableSignals, TableState, bulk_token};
 
 impl Frame<'_> {
@@ -24,10 +24,11 @@ impl Frame<'_> {
                 .iter()
                 .any(|c| c.sortable && c.name == s.column)
         });
-        let widths = self.column_widths();
         let mut heads: Vec<BoxView<'_>> = Vec::with_capacity(self.columns.len());
+        let slack = self.slack_column();
         for (index, col) in self.columns.iter().enumerate() {
-            let width = widths.cells[index].clone();
+            let width = col.width.style();
+            let fit = if slack == Some(index) { "w-full" } else { "" };
             let align = col.alignment.class();
             let label = col.label.to_string();
             let sortable = col.sortable;
@@ -83,7 +84,11 @@ impl Frame<'_> {
                     cx =>
                     table_head(
                         attrs: attributes! {
-                            class=([head_class, align].join(" ").trim().to_string())
+                            class=([head_class, fit, align]
+                                .join(" ")
+                                .split_whitespace()
+                                .collect::<Vec<_>>()
+                                .join(" "))
                             aria-sort=(aria_sort)
                             style=(width.as_deref())
                         },
@@ -102,7 +107,7 @@ impl Frame<'_> {
                 view! {
                     cx =>
                     table_head(
-                        attrs: attributes! { style=(widths.actions.as_deref()) },
+                        attrs: attributes! { class=(CHROME_CELL_CLASS) },
                         <span class="sr-only">"Actions"</span>
                     )
                 }
@@ -115,7 +120,7 @@ impl Frame<'_> {
                 table_row(
                     if let Some(attrs) = select_all {
                         table_head(
-                            attrs: attributes! { style=(widths.bulk.as_deref()) },
+                            attrs: attributes! { class=(CHROME_CELL_CLASS) },
                             <input aria-label="Select all rows" (attrs)>
                         )
                     }

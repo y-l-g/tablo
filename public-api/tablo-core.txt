@@ -2199,10 +2199,10 @@ impl core::marker::UnsafeUnpin for tablo_core::Color
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Color
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::Color
 pub enum tablo_core::table::ColumnWidth
-pub tablo_core::table::ColumnWidth::Narrow
-pub tablo_core::table::ColumnWidth::Percent(u8)
+pub tablo_core::table::ColumnWidth::Auto
+pub tablo_core::table::ColumnWidth::Grow
 pub tablo_core::table::ColumnWidth::Rem(u8)
-pub tablo_core::table::ColumnWidth::Wide
+pub tablo_core::table::ColumnWidth::Wrap
 impl core::clone::Clone for tablo_core::ColumnWidth
 pub fn tablo_core::ColumnWidth::clone(&self) -> tablo_core::ColumnWidth
 impl core::cmp::Eq for tablo_core::ColumnWidth
@@ -3318,10 +3318,10 @@ impl core::marker::UnsafeUnpin for tablo_core::Color
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Color
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::Color
 pub enum tablo_core::ColumnWidth
-pub tablo_core::ColumnWidth::Narrow
-pub tablo_core::ColumnWidth::Percent(u8)
+pub tablo_core::ColumnWidth::Auto
+pub tablo_core::ColumnWidth::Grow
 pub tablo_core::ColumnWidth::Rem(u8)
-pub tablo_core::ColumnWidth::Wide
+pub tablo_core::ColumnWidth::Wrap
 impl core::clone::Clone for tablo_core::ColumnWidth
 pub fn tablo_core::ColumnWidth::clone(&self) -> tablo_core::ColumnWidth
 impl core::cmp::Eq for tablo_core::ColumnWidth
