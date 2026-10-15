@@ -292,7 +292,8 @@ name, such as `bg-primary` or `text-muted-foreground`, in the panel's markup and
 | `--popover`, `--popover-foreground` | the option lists of selects and menus |
 | `--muted`, `--muted-foreground` | subdued surfaces and secondary text |
 | `--primary`, `--primary-foreground` | primary buttons and checked checkboxes |
-| `--destructive`, `--destructive-foreground` | delete buttons and errors |
+| `--destructive`, `--destructive-foreground` | delete buttons, errors, and the `danger` [color](./tables.md#presenting-values) |
+| `--success`, `--warning`, `--info` | the `success`, `warning` and `info` colors of badges and tinted cells |
 | `--border` | borders and dividers |
 | `--ring` | focus rings |
 | `--shadow-xs`, `--shadow-sm` | the `shadow-xs` and `shadow-sm` shadows |

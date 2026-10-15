@@ -101,6 +101,12 @@ pub trait FormScalar: Sized {
     fn to_label(&self) -> String {
         self.to_form()
     }
+
+    /// The color a badge shows the value in: an `Options` enum's `#[option(color = "…")]`, and
+    /// `None` for any other type.
+    fn color(&self) -> Option<crate::Color> {
+        None
+    }
 }
 
 impl FormScalar for String {
@@ -155,6 +161,10 @@ impl<T: NullableScalar> FormScalar for Option<T> {
 
     fn to_label(&self) -> String {
         self.as_ref().map(T::to_label).unwrap_or_default()
+    }
+
+    fn color(&self) -> Option<crate::Color> {
+        self.as_ref().and_then(T::color)
     }
 }
 

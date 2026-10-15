@@ -28,6 +28,7 @@ impl Frame<'_> {
         let mut heads: Vec<BoxView<'_>> = Vec::with_capacity(self.columns.len());
         for (index, col) in self.columns.iter().enumerate() {
             let width = widths.cells[index].clone();
+            let align = col.alignment.class();
             let label = col.label.to_string();
             let sortable = col.sortable;
             let (head_class, aria_sort, header) =
@@ -82,7 +83,7 @@ impl Frame<'_> {
                     cx =>
                     table_head(
                         attrs: attributes! {
-                            class=(head_class)
+                            class=([head_class, align].join(" ").trim().to_string())
                             aria-sort=(aria_sort)
                             style=(width.as_deref())
                         },

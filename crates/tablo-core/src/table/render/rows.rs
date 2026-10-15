@@ -27,6 +27,8 @@ pub(super) struct RowChrome {
     /// Columns a group header spans: the data columns plus the chrome.
     pub(super) header_colspan: usize,
     pub(super) cell_widths: Vec<Option<Cow<'static, str>>>,
+    /// Each data cell's class: its truncation and its column's alignment.
+    pub(super) cell_classes: Vec<String>,
     /// The width the actions column's controls need, which its cells declare.
     pub(super) actions: Option<Cow<'static, str>>,
     pub(super) signals: TableSignals,
@@ -127,10 +129,13 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
             view! { cx => table_cell() }.boxed()
         }
     });
-    let cells: Vec<(BoxView<'a>, Option<Cow<'static, str>>)> = std::mem::take(&mut row.cells)
-        .into_iter()
-        .zip(chrome.cell_widths.iter().cloned())
-        .collect();
+    let cells: Vec<(BoxView<'a>, Option<Cow<'static, str>>, String)> =
+        std::mem::take(&mut row.cells)
+            .into_iter()
+            .zip(chrome.cell_widths.iter().cloned())
+            .zip(chrome.cell_classes.iter().cloned())
+            .map(|((cell, width), class)| (cell, width, class))
+            .collect();
     let actions = chrome
         .with_actions
         .then(|| render_actions(cx, &row, chrome));
@@ -144,9 +149,9 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
             if let Some(cell) = bulk_cell {
                 (cell)
             }
-            for (cell, width) in cells {
+            for (cell, width, class) in cells {
                 table_cell(
-                    attrs: attributes! { class="truncate" style=(width.as_deref()) },
+                    attrs: attributes! { class=(class) style=(width.as_deref()) },
                     (cell)
                 )
             }

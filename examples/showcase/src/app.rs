@@ -209,7 +209,9 @@ fn post_author_column() -> RelationColumn<Post> {
 fn post_table() -> Table<Post> {
     Table::new((
         TextColumn::new(lens!(Post.title)).searchable().sortable(),
-        TextColumn::new(lens!(Post.status)).width(ColumnWidth::Narrow),
+        TextColumn::new(lens!(Post.status))
+            .badge()
+            .width(ColumnWidth::Narrow),
         BooleanColumn::new(lens!(Post.featured)),
         post_author_column(),
         CountColumn::new(relation!(Post.comments)),

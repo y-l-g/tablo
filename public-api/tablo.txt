@@ -7,15 +7,19 @@ pub use tablo::prelude::Ability
 pub use tablo::prelude::Action
 pub use tablo::prelude::ActionInput
 pub use tablo::prelude::ActionInput
+pub use tablo::prelude::Alignment
 pub use tablo::prelude::Allow
 pub use tablo::prelude::Auth
 pub use tablo::prelude::BooleanColumn
 pub use tablo::prelude::Brand
 pub use tablo::prelude::ChoiceField
+pub use tablo::prelude::Color
+pub use tablo::prelude::ColorColumn
 pub use tablo::prelude::ColumnWidth
 pub use tablo::prelude::Committed
 pub use tablo::prelude::ComputedColumn
 pub use tablo::prelude::CountColumn
+pub use tablo::prelude::Currency
 pub use tablo::prelude::CustomField
 pub use tablo::prelude::DateColumn
 pub use tablo::prelude::DateFilter
@@ -34,6 +38,7 @@ pub use tablo::prelude::Grid
 pub use tablo::prelude::Group
 pub use tablo::prelude::HeaderAction
 pub use tablo::prelude::HeaderActions
+pub use tablo::prelude::ImageColumn
 pub use tablo::prelude::IntoOptions
 pub use tablo::prelude::Lens
 pub use tablo::prelude::ModelColumns

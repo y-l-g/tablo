@@ -100,3 +100,165 @@ fn a_date_column_spells_the_day_of_every_date_type() {
         ColumnWidth::Narrow
     );
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, crate::Options)]
+enum Stage {
+    #[option(color = "success")]
+    Paid,
+    Open,
+}
+
+#[derive(Debug, Clone, toasty::Model)]
+struct Invoice {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    number: String,
+    customer: String,
+    stage: Stage,
+    total: i64,
+    color: String,
+    logo: String,
+}
+
+fn invoice() -> Invoice {
+    Invoice {
+        id: uuid::Uuid::nil(),
+        number: "INV-7".to_string(),
+        customer: "Ada".to_string(),
+        stage: Stage::Paid,
+        total: 123_456,
+        color: "#3b82f6".to_string(),
+        logo: "/uploads/logo.png".to_string(),
+    }
+}
+
+/// A cell's HTML, as the table renders it.
+async fn cell_html(column: &dyn Column<Invoice>, row: &Invoice) -> String {
+    use crate::test_support::Html as _;
+    let cx = crate::test_support::cx();
+    Ok::<_, topcoat::Error>(column.cell(&cx, row))
+        .html(&cx)
+        .await
+}
+
+/// An `Options` variant's declared color reaches its badge's dot; a variant without one shows a
+/// badge without a dot.
+#[tokio::test]
+async fn badge_dots_follow_the_option_color() {
+    let column = TextColumn::new(lens!(Invoice.stage)).badge();
+    let paid = cell_html(&column, &invoice()).await;
+    assert!(
+        paid.contains("bg-success"),
+        "a paid badge has a success dot: {paid}"
+    );
+    assert!(paid.contains("Paid"), "the badge reads the label: {paid}");
+
+    let open = Invoice {
+        stage: Stage::Open,
+        ..invoice()
+    };
+    let open = cell_html(&column, &open).await;
+    assert!(!open.contains("rounded-full"), "no color, no dot: {open}");
+
+    let overridden = TextColumn::new(lens!(Invoice.stage))
+        .badge()
+        .color(|_| Some(Color::Danger));
+    let html = cell_html(&overridden, &invoice()).await;
+    assert!(
+        html.contains("bg-destructive"),
+        "a declared color wins: {html}"
+    );
+}
+
+/// Without a badge, only a declared color tints the text: an `Options` color alone does not.
+#[tokio::test]
+async fn only_a_declared_color_tints_text() {
+    let plain = cell_html(&TextColumn::new(lens!(Invoice.stage)), &invoice()).await;
+    assert!(!plain.contains("text-success"), "{plain}");
+    let tinted = TextColumn::new(lens!(Invoice.stage)).color(|_| Some(Color::Success));
+    let tinted = cell_html(&tinted, &invoice()).await;
+    assert!(tinted.contains("text-success"), "{tinted}");
+}
+
+/// Money and numbers read formatted, in the cell and in the export, and align to the end.
+#[tokio::test]
+async fn amounts_format_and_align_to_the_end() {
+    let cx = crate::test_support::cx();
+    let money = TextColumn::new(lens!(Invoice.total)).money(Currency::USD.minor_units());
+    assert_eq!(money.text(&cx, &invoice()), "$1,234.56");
+    assert_eq!(money.alignment(), Alignment::End);
+    assert!(cell_html(&money, &invoice()).await.contains("tabular-nums"));
+
+    let count = TextColumn::new(lens!(Invoice.total)).numeric(0);
+    assert_eq!(count.text(&cx, &invoice()), "123,456");
+    assert_eq!(count.alignment(), Alignment::End);
+
+    assert_eq!(
+        TextColumn::new(lens!(Invoice.number)).alignment(),
+        Alignment::Start
+    );
+}
+
+/// The description is a second line in the cell, never part of the value the export writes.
+#[tokio::test]
+async fn description_is_a_second_line_only() {
+    let cx = crate::test_support::cx();
+    let column = TextColumn::new(lens!(Invoice.number))
+        .description(|invoice: &Invoice| invoice.customer.clone());
+    assert_eq!(column.text(&cx, &invoice()), "INV-7");
+    let html = cell_html(&column, &invoice()).await;
+    assert!(html.contains("INV-7") && html.contains("Ada"), "{html}");
+}
+
+/// A color column paints a swatch only for a value that cannot leave the `style` declaration.
+#[tokio::test]
+async fn color_swatch_accepts_only_plain_colors() {
+    let column = ColorColumn::new(lens!(Invoice.color));
+    let html = cell_html(&column, &invoice()).await;
+    assert!(html.contains("background-color: #3b82f6"), "{html}");
+
+    for hostile in [
+        "red; background-image: url(x)",
+        "#12345",
+        "rgb(1 2 3); color: red",
+        "rgb(url(x))",
+        "oklch(0.6 0.1 200",
+    ] {
+        let row = Invoice {
+            color: hostile.to_string(),
+            ..invoice()
+        };
+        let html = cell_html(&column, &row).await;
+        assert!(
+            !html.contains("style="),
+            "`{hostile}` must not reach a style: {html}"
+        );
+    }
+    assert!(is_css_color("oklch(0.6 0.1 200 / 50%)"));
+    assert!(is_css_color("#FFF"));
+}
+
+/// An image column shows a thumbnail for a linkable path, and the dash for an empty one.
+#[tokio::test]
+async fn image_thumbnail_needs_a_linkable_path() {
+    let column = ImageColumn::new(lens!(Invoice.logo)).circular();
+    let html = cell_html(&column, &invoice()).await;
+    assert!(
+        html.contains("<img") && html.contains("src=\"/uploads/logo.png\""),
+        "{html}"
+    );
+    assert!(html.contains("rounded-full"), "{html}");
+
+    for path in ["", "javascript:alert(1)", "//evil.example/x.png"] {
+        let row = Invoice {
+            logo: path.to_string(),
+            ..invoice()
+        };
+        let html = cell_html(&column, &row).await;
+        assert!(
+            !html.contains("<img"),
+            "`{path}` must not be an image: {html}"
+        );
+    }
+}

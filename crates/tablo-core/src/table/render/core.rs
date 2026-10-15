@@ -159,6 +159,15 @@ impl Frame<'_> {
                     + usize::from(with_bulk)
                     + usize::from(with_actions),
                 cell_widths,
+                cell_classes: self
+                    .columns
+                    .iter()
+                    .map(|col| {
+                        format!("truncate {}", col.alignment.class())
+                            .trim_end()
+                            .to_string()
+                    })
+                    .collect(),
                 actions,
                 signals: signals.clone(),
                 form: table_dom_id(state, "writes"),

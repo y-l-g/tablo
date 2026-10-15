@@ -1,6 +1,6 @@
 //! Table and detail columns: the [`Column`] trait, the built-in [`TextColumn`], [`DateColumn`],
-//! [`ComputedColumn`], [`RelationColumn`], [`CountColumn`], [`BooleanColumn`], [`FileColumn`] and
-//! [`EmbeddedColumn`], and the [`IntoColumns`] seam.
+//! [`ComputedColumn`], [`RelationColumn`], [`CountColumn`], [`BooleanColumn`], [`FileColumn`],
+//! [`ColorColumn`], [`ImageColumn`] and [`EmbeddedColumn`], and the [`IntoColumns`] seam.
 
 use std::{borrow::Cow, sync::Arc};
 
@@ -77,11 +77,13 @@ fn sort_order<M, T>(path: &Path<M, T>, descending: bool) -> OrderByExpr {
     }
 }
 
+mod display;
 mod embedded;
 pub(crate) mod model;
 mod relation;
 mod repeater;
 
+pub use display::{Alignment, Color, Currency, Number, Numeric};
 pub use embedded::EmbeddedColumn;
 pub use model::ModelColumns;
 pub use relation::{CountColumn, RelationColumn, RelationLens, ToOneRelation};
@@ -139,6 +141,11 @@ pub trait Column<M>: Send + Sync {
     /// The width the column claims.
     fn column_width(&self) -> ColumnWidth {
         ColumnWidth::Narrow
+    }
+
+    /// Where the header and the cells align their content.
+    fn alignment(&self) -> Alignment {
+        Alignment::Start
     }
 
     /// Whether the column joins the table's search.
@@ -346,6 +353,28 @@ impl ColumnWidth {
 /// The cell is the value's [`FormScalar::to_label`], an [`Options`](crate::Options) enum's label
 /// or any other type's form spelling, unless [`format`](Self::format) says otherwise. Only a
 /// string field is [`searchable`](Self::searchable).
+///
+/// A column presents its value as a [`badge`](Self::badge), in a [`color`](Self::color), with a
+/// muted [`description`](Self::description) line under it, or as a right-aligned
+/// [`numeric`](Self::numeric) or [`money`](Self::money) amount:
+///
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # struct Order {
+/// #     #[key] #[auto] id: uuid::Uuid,
+/// #     number: String,
+/// #     customer: String,
+/// #     status: Status,
+/// #     total_cents: i64,
+/// # }
+/// # #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo_core::Options)]
+/// # enum Status { #[option(color = "warning")] Pending, #[option(color = "success")] Paid }
+/// use tablo_core::{Currency, TextColumn, lens};
+///
+/// TextColumn::new(lens!(Order.number)).description(|order: &Order| order.customer.clone());
+/// TextColumn::new(lens!(Order.status)).badge();
+/// TextColumn::new(lens!(Order.total_cents)).money(Currency::USD.minor_units());
+/// ```
 #[derive_where(Clone, Debug)]
 pub struct TextColumn<M, T> {
     lens: Lens<M, T>,
@@ -356,10 +385,28 @@ pub struct TextColumn<M, T> {
     #[derive_where(skip(Debug))]
     search: Option<SearchFn>,
     sortable: bool,
+    /// The value's color: its own, an `Options` enum's, unless [`color`](Self::color) says
+    /// otherwise.
+    #[derive_where(skip(Debug))]
+    color: ColorFn<T>,
+    /// Whether the color tints the text, which only a declared [`color`](Self::color) does.
+    tinted: bool,
+    badge: bool,
+    /// Whether the digits take equal widths, so a column of amounts lines up.
+    tabular: bool,
+    alignment: Alignment,
+    #[derive_where(skip(Debug))]
+    description: Option<DescriptionFn<M>>,
 }
 
 /// A searchable column's predicate for an escaped `LIKE` pattern.
 type SearchFn = Arc<dyn Fn(String) -> Expr<bool> + Send + Sync>;
+
+/// A column's color for a value.
+type ColorFn<T> = Arc<dyn Fn(&T) -> Option<Color> + Send + Sync>;
+
+/// A column's second line for a row.
+type DescriptionFn<M> = Arc<dyn Fn(&M) -> String + Send + Sync>;
 
 /// The escape character the search pattern declares to `LIKE`.
 pub(crate) const LIKE_ESCAPE: char = '\\';
@@ -407,6 +454,12 @@ where
             format: Arc::new(T::to_label),
             search: None,
             sortable: false,
+            color: Arc::new(T::color),
+            tinted: false,
+            badge: false,
+            tabular: false,
+            alignment: Alignment::Start,
+            description: None,
         }
     }
 
@@ -416,7 +469,70 @@ where
         self
     }
 
+    /// Show the value as a badge, with a dot in its color: an `Options` enum's
+    /// `#[option(color = "…")]`, or the [`color`](Self::color) declared here.
+    pub fn badge(mut self) -> Self {
+        self.badge = true;
+        self
+    }
+
+    /// Color the value: its badge's dot, or its text when it is no badge.
+    pub fn color(mut self, color: impl Fn(&T) -> Option<Color> + Send + Sync + 'static) -> Self {
+        self.color = Arc::new(color);
+        self.tinted = true;
+        self
+    }
+
+    /// Show `description(row)` as a muted line under the value, such as a customer's email under
+    /// their name. Search, sort and export read the value alone.
+    pub fn description(
+        mut self,
+        description: impl Fn(&M) -> String + Send + Sync + 'static,
+    ) -> Self {
+        self.description = Some(Arc::new(description));
+        self
+    }
+
+    /// Align the header and the cells.
+    pub fn align(mut self, alignment: Alignment) -> Self {
+        self.alignment = alignment;
+        self
+    }
+
     base_builders!(sortable);
+}
+
+impl<M, T> TextColumn<M, T>
+where
+    M: toasty::schema::Model,
+    T: Numeric + 'static,
+{
+    /// Spell the value as a number with `decimals` digits after the point and its thousands
+    /// grouped, `12,345.60`, aligned to the end with equal-width digits.
+    pub fn numeric(mut self, decimals: u8) -> Self {
+        self.format = Arc::new(move |value: &T| {
+            value
+                .number()
+                .map(|number| display::format_number(number, decimals))
+                .unwrap_or_default()
+        });
+        self.amount()
+    }
+
+    /// Spell the value as an amount of `currency`, `$1,234.50`, aligned to the end with
+    /// equal-width digits.
+    pub fn money(mut self, currency: Currency) -> Self {
+        self.format = Arc::new(move |value: &T| currency.format(value));
+        self.amount()
+    }
+
+    /// Align the column as an amount.
+    fn amount(mut self) -> Self {
+        self.alignment = Alignment::End;
+        self.tabular = true;
+        self.base.width = ColumnWidth::Narrow;
+        self
+    }
 }
 
 impl<M, T> TextColumn<M, T>
@@ -443,6 +559,50 @@ where
 
     fn text(&self, _cx: &Cx, row: &M) -> String {
         (self.format)(self.lens.read(row))
+    }
+
+    fn cell<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
+        let value = self.lens.read(row);
+        let text = (self.format)(value);
+        let description = self.description.as_ref().map(|describe| describe(row));
+        let value: BoxView<'a> = if text.trim().is_empty() {
+            crate::schema::value_cell(cx, &text)
+        } else if self.badge {
+            badge_cell(cx, text, (self.color)(value))
+        } else {
+            let color = self
+                .tinted
+                .then(|| (self.color)(value))
+                .flatten()
+                .map(Color::text_class);
+            let class = [color, self.tabular.then_some("tabular-nums")]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>()
+                .join(" ");
+            if class.is_empty() {
+                view! { cx => (text) }.boxed()
+            } else {
+                view! { cx => <span class=(class)>(text)</span> }.boxed()
+            }
+        };
+        match description.filter(|description| !description.trim().is_empty()) {
+            None => value,
+            Some(description) => view! {
+                cx =>
+                <div class="flex min-w-0 flex-col">
+                    <span class="truncate">(value)</span>
+                    <span class="truncate text-xs text-muted-foreground">
+                        (description)
+                    </span>
+                </div>
+            }
+            .boxed(),
+        }
+    }
+
+    fn alignment(&self) -> Alignment {
+        self.alignment
     }
 
     fn is_searchable(&self) -> bool {
@@ -582,6 +742,7 @@ pub struct ComputedColumn<M> {
     #[derive_where(skip(Debug))]
     project: Arc<dyn Fn(&M) -> String + Send + Sync>,
     width: ColumnWidth,
+    alignment: Alignment,
     /// Relations the projection reads.
     includes: Includes<M>,
 }
@@ -601,6 +762,7 @@ where
             label,
             project: Arc::new(project),
             width: ColumnWidth::Narrow,
+            alignment: Alignment::Start,
             includes: Includes::new(),
         }
     }
@@ -614,6 +776,12 @@ where
     /// Declare this column's width.
     pub fn width(mut self, width: ColumnWidth) -> Self {
         self.width = width;
+        self
+    }
+
+    /// Align the header and the cells.
+    pub fn align(mut self, alignment: Alignment) -> Self {
+        self.alignment = alignment;
         self
     }
 }
@@ -636,6 +804,10 @@ where
 
     fn column_width(&self) -> ColumnWidth {
         self.width
+    }
+
+    fn alignment(&self) -> Alignment {
+        self.alignment
     }
 
     fn includes(&self) -> Includes<M> {
@@ -776,6 +948,195 @@ where
     }
 }
 
+/// `text` as an outline badge, led by a dot in `color` when it has one.
+fn badge_cell<'a>(cx: &'a Cx, text: String, color: Option<Color>) -> BoxView<'a> {
+    view! {
+        cx =>
+        tablo_ui::badge(
+            variant: tablo_ui::BadgeVariant::Outline,
+            if let Some(color) = color {
+                <span class=(color.dot_class()) aria-hidden="true"></span>
+            }
+            (text)
+        )
+    }
+    .boxed()
+}
+
+/// A column of a `String` field holding a CSS color, rendered as a swatch beside the value.
+///
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # struct Team { #[key] #[auto] id: uuid::Uuid, color: String }
+/// tablo_core::ColorColumn::new(tablo_core::lens!(Team.color));
+/// ```
+///
+/// A hex color (`#3b82f6`) or a color function (`rgb(…)`, `hsl(…)`, `oklch(…)`, …) shows its
+/// swatch; any other value shows as text alone, since it reaches a `style` attribute.
+#[derive_where(Clone, Debug)]
+pub struct ColorColumn<M, T> {
+    lens: Lens<M, T>,
+    base: ColumnBase,
+}
+
+impl<M, T> ColorColumn<M, T>
+where
+    M: toasty::schema::Model,
+{
+    /// Bind the column to the `String` or `Option<String>` field `lens` reads.
+    pub fn new(lens: Lens<M, T>) -> Self
+    where
+        T: toasty::schema::Field<Inner = String>,
+    {
+        Self {
+            base: ColumnBase::new(lens.path(), ColumnWidth::Narrow),
+            lens,
+        }
+    }
+
+    base_builders!();
+}
+
+impl<M, T> Column<M> for ColorColumn<M, T>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+    T: FormScalar + Send + Sync + 'static,
+{
+    base_column_methods!(bind);
+
+    fn text(&self, _cx: &Cx, row: &M) -> String {
+        self.lens.read(row).to_form()
+    }
+
+    fn cell<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
+        let value = self.text(cx, row).trim().to_string();
+        if !is_css_color(&value) {
+            return crate::schema::value_cell(cx, &value);
+        }
+        let swatch = format!("background-color: {value}");
+        view! {
+            cx =>
+            <span class="inline-flex items-center gap-2">
+                <span
+                    class="size-4 shrink-0 rounded-sm ring-1 ring-foreground/15 ring-inset"
+                    style=(swatch)
+                    aria-hidden="true"
+                ></span>
+                <span class="font-mono text-xs">(value)</span>
+            </span>
+        }
+        .boxed()
+    }
+}
+
+/// Whether `value` is a hex color or a color function of plain arguments, safe inside a `style`
+/// attribute: nothing in it can end the declaration or open another.
+fn is_css_color(value: &str) -> bool {
+    if let Some(hex) = value.strip_prefix('#') {
+        return matches!(hex.len(), 3 | 4 | 6 | 8) && hex.bytes().all(|b| b.is_ascii_hexdigit());
+    }
+    const FUNCTIONS: &[&str] = &[
+        "rgb(", "rgba(", "hsl(", "hsla(", "hwb(", "lab(", "lch(", "oklab(", "oklch(",
+    ];
+    let lower = value.to_ascii_lowercase();
+    let Some(function) = FUNCTIONS.iter().find(|f| lower.starts_with(**f)) else {
+        return false;
+    };
+    let Some(arguments) = lower[function.len()..].strip_suffix(')') else {
+        return false;
+    };
+    arguments
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || b" .,%/+-".contains(&b))
+}
+
+/// A column of a `String` field holding an uploaded image's path, rendered as a thumbnail.
+///
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # struct Product { #[key] #[auto] id: uuid::Uuid, image: String }
+/// tablo_core::ImageColumn::new(tablo_core::lens!(Product.image)).circular();
+/// ```
+///
+/// A rooted path or an absolute `http(s)` URL shows as a 40px square thumbnail, the rule a
+/// [`FileColumn`] links by; an empty value shows the table's dash, and any other value its text.
+#[derive_where(Clone, Debug)]
+pub struct ImageColumn<M, T> {
+    lens: Lens<M, T>,
+    base: ColumnBase,
+    size: u16,
+    circular: bool,
+}
+
+impl<M, T> ImageColumn<M, T>
+where
+    M: toasty::schema::Model,
+{
+    /// Bind the column to the `String` or `Option<String>` field `lens` reads.
+    pub fn new(lens: Lens<M, T>) -> Self
+    where
+        T: toasty::schema::Field<Inner = String>,
+    {
+        Self {
+            base: ColumnBase::new(lens.path(), ColumnWidth::Narrow),
+            lens,
+            size: 40,
+            circular: false,
+        }
+    }
+
+    /// Show the thumbnail `pixels` wide and tall.
+    pub fn size(mut self, pixels: u16) -> Self {
+        self.size = pixels;
+        self
+    }
+
+    /// Crop the thumbnail to a circle, for an avatar.
+    pub fn circular(mut self) -> Self {
+        self.circular = true;
+        self
+    }
+
+    base_builders!();
+}
+
+impl<M, T> Column<M> for ImageColumn<M, T>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+    T: FormScalar + Send + Sync + 'static,
+{
+    base_column_methods!(bind);
+
+    fn text(&self, _cx: &Cx, row: &M) -> String {
+        self.lens.read(row).to_form()
+    }
+
+    fn cell<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
+        let src = self.text(cx, row).trim().to_string();
+        if !crate::schema::is_linkable(&src) {
+            return crate::schema::value_cell(cx, &src);
+        }
+        let class = if self.circular {
+            "shrink-0 rounded-full object-cover ring-1 ring-foreground/10"
+        } else {
+            "shrink-0 rounded-md object-cover ring-1 ring-foreground/10"
+        };
+        let size = self.size.to_string();
+        view! {
+            cx =>
+            <img
+                src=(src)
+                alt=""
+                loading="lazy"
+                width=(size.clone())
+                height=(size)
+                class=(class)
+            >
+        }
+        .boxed()
+    }
+}
+
 /// A table's columns, as the table stores them.
 pub(crate) type BoxColumn<M> = Arc<dyn Column<M>>;
 
@@ -821,6 +1182,8 @@ column_conversions!(
     CountColumn<M>,
     BooleanColumn<M>,
     FileColumn<M>,
+    ColorColumn<M, T>,
+    ImageColumn<M, T>,
     EmbeddedColumn<M, T>,
     RepeaterColumn<M, T>,
 );

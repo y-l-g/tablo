@@ -32,7 +32,7 @@ use topcoat::{
 
 use super::{
     WiredTable,
-    column::ColumnWidth,
+    column::{Alignment, ColumnWidth},
     state::{TableSignals, TableState, query_of, with_return},
 };
 use crate::schema::Schema;
@@ -56,12 +56,13 @@ pub(super) struct Frame<'t> {
     return_to: Option<&'t str>,
 }
 
-/// One column's header and width.
+/// One column's header, width and alignment.
 struct ColumnHead<'t> {
     name: &'t str,
     label: &'t str,
     sortable: bool,
     width: ColumnWidth,
+    alignment: Alignment,
 }
 
 /// One custom action the bulk bar offers.
@@ -98,6 +99,7 @@ impl<M> WiredTable<M> {
                     label: col.label(),
                     sortable: col.is_sortable(),
                     width: col.column_width(),
+                    alignment: col.alignment(),
                 })
                 .collect(),
             search: self.search_enabled(),

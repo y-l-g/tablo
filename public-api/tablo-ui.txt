@@ -799,6 +799,73 @@ impl core::marker::Unpin for tablo_ui::components::primitives::alert_dialog::ale
 impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::alert_dialog::alert_dialog
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::alert_dialog::alert_dialog
 impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::alert_dialog::alert_dialog
+pub mod tablo_ui::components::primitives::badge
+pub enum tablo_ui::components::primitives::badge::BadgeVariant
+pub tablo_ui::components::primitives::badge::BadgeVariant::Destructive
+pub tablo_ui::components::primitives::badge::BadgeVariant::Outline
+pub tablo_ui::components::primitives::badge::BadgeVariant::Primary
+pub tablo_ui::components::primitives::badge::BadgeVariant::Secondary
+impl core::clone::Clone for tablo_ui::components::primitives::badge::BadgeVariant
+pub fn tablo_ui::components::primitives::badge::BadgeVariant::clone(&self) -> tablo_ui::components::primitives::badge::BadgeVariant
+impl core::cmp::Eq for tablo_ui::components::primitives::badge::BadgeVariant
+impl core::cmp::PartialEq for tablo_ui::components::primitives::badge::BadgeVariant
+pub fn tablo_ui::components::primitives::badge::BadgeVariant::eq(&self, &tablo_ui::components::primitives::badge::BadgeVariant) -> bool
+impl core::default::Default for tablo_ui::components::primitives::badge::BadgeVariant
+pub fn tablo_ui::components::primitives::badge::BadgeVariant::default() -> tablo_ui::components::primitives::badge::BadgeVariant
+impl core::fmt::Debug for tablo_ui::components::primitives::badge::BadgeVariant
+pub fn tablo_ui::components::primitives::badge::BadgeVariant::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_ui::components::primitives::badge::BadgeVariant
+impl core::marker::StructuralPartialEq for tablo_ui::components::primitives::badge::BadgeVariant
+impl core::marker::Freeze for tablo_ui::components::primitives::badge::BadgeVariant
+impl core::marker::Send for tablo_ui::components::primitives::badge::BadgeVariant
+impl core::marker::Sync for tablo_ui::components::primitives::badge::BadgeVariant
+impl core::marker::Unpin for tablo_ui::components::primitives::badge::BadgeVariant
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::badge::BadgeVariant
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::badge::BadgeVariant
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::badge::BadgeVariant
+pub struct tablo_ui::components::primitives::badge::BadgeProps<'__a>
+pub tablo_ui::components::primitives::badge::BadgeProps::attrs: topcoat_view::html::attribute::attributes::Attributes
+pub tablo_ui::components::primitives::badge::BadgeProps::child: topcoat_view::child::Child<'__a>
+pub tablo_ui::components::primitives::badge::BadgeProps::variant: tablo_ui::components::primitives::badge::BadgeVariant
+impl<'__a> tablo_ui::components::primitives::badge::BadgeProps<'__a>
+pub fn tablo_ui::components::primitives::badge::BadgeProps<'__a>::builder() -> tablo_ui::components::primitives::badge::BadgePropsBuilder<'__a>
+impl<'__a> topcoat_view::props::Props for tablo_ui::components::primitives::badge::BadgeProps<'__a>
+pub type tablo_ui::components::primitives::badge::BadgeProps<'__a>::Builder = tablo_ui::components::primitives::badge::BadgePropsBuilder<'__a>
+pub fn tablo_ui::components::primitives::badge::BadgeProps<'__a>::builder() -> Self::Builder
+impl<'__a> core::marker::Freeze for tablo_ui::components::primitives::badge::BadgeProps<'__a>
+impl<'__a> core::marker::Send for tablo_ui::components::primitives::badge::BadgeProps<'__a>
+impl<'__a> !core::marker::Sync for tablo_ui::components::primitives::badge::BadgeProps<'__a>
+impl<'__a> core::marker::Unpin for tablo_ui::components::primitives::badge::BadgeProps<'__a>
+impl<'__a> core::marker::UnsafeUnpin for tablo_ui::components::primitives::badge::BadgeProps<'__a>
+impl<'__a> !core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::badge::BadgeProps<'__a>
+impl<'__a> !core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::badge::BadgeProps<'__a>
+pub struct tablo_ui::components::primitives::badge::BadgePropsBuilder<'__a>
+impl<'__a> tablo_ui::components::primitives::badge::BadgePropsBuilder<'__a>
+pub fn tablo_ui::components::primitives::badge::BadgePropsBuilder<'__a>::attrs(self, topcoat_view::html::attribute::attributes::Attributes) -> Self
+pub fn tablo_ui::components::primitives::badge::BadgePropsBuilder<'__a>::build(self) -> tablo_ui::components::primitives::badge::BadgeProps<'__a>
+pub fn tablo_ui::components::primitives::badge::BadgePropsBuilder<'__a>::child(self, topcoat_view::child::Child<'__a>) -> Self
+pub fn tablo_ui::components::primitives::badge::BadgePropsBuilder<'__a>::variant(self, tablo_ui::components::primitives::badge::BadgeVariant) -> Self
+impl<'__a> core::marker::Freeze for tablo_ui::components::primitives::badge::BadgePropsBuilder<'__a>
+impl<'__a> core::marker::Send for tablo_ui::components::primitives::badge::BadgePropsBuilder<'__a>
+impl<'__a> !core::marker::Sync for tablo_ui::components::primitives::badge::BadgePropsBuilder<'__a>
+impl<'__a> core::marker::Unpin for tablo_ui::components::primitives::badge::BadgePropsBuilder<'__a>
+impl<'__a> core::marker::UnsafeUnpin for tablo_ui::components::primitives::badge::BadgePropsBuilder<'__a>
+impl<'__a> !core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::badge::BadgePropsBuilder<'__a>
+impl<'__a> !core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::badge::BadgePropsBuilder<'__a>
+pub struct tablo_ui::components::primitives::badge::badge
+impl core::default::Default for tablo_ui::components::primitives::badge::badge
+pub fn tablo_ui::components::primitives::badge::badge::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::badge::badge
+pub type tablo_ui::components::primitives::badge::badge::Props<'__props> = tablo_ui::components::primitives::badge::BadgeProps<'__props>
+pub fn tablo_ui::components::primitives::badge::badge::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::badge::badge
+impl core::marker::Send for tablo_ui::components::primitives::badge::badge
+impl core::marker::Sync for tablo_ui::components::primitives::badge::badge
+impl core::marker::Unpin for tablo_ui::components::primitives::badge::badge
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::badge::badge
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::badge::badge
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::badge::badge
+pub fn tablo_ui::components::primitives::badge::badge_variants(tablo_ui::components::primitives::badge::BadgeVariant) -> topcoat_view::html::class::Class<(topcoat_view::html::class::StaticClass, topcoat_view::html::class::StaticClass)>
 pub mod tablo_ui::components::primitives::button
 pub enum tablo_ui::components::primitives::button::ButtonSize
 pub tablo_ui::components::primitives::button::ButtonSize::Icon
@@ -3944,6 +4011,29 @@ impl core::marker::Unpin for tablo_ui::components::primitives::alert::AlertVaria
 impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::alert::AlertVariant
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::alert::AlertVariant
 impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::alert::AlertVariant
+pub enum tablo_ui::BadgeVariant
+pub tablo_ui::BadgeVariant::Destructive
+pub tablo_ui::BadgeVariant::Outline
+pub tablo_ui::BadgeVariant::Primary
+pub tablo_ui::BadgeVariant::Secondary
+impl core::clone::Clone for tablo_ui::components::primitives::badge::BadgeVariant
+pub fn tablo_ui::components::primitives::badge::BadgeVariant::clone(&self) -> tablo_ui::components::primitives::badge::BadgeVariant
+impl core::cmp::Eq for tablo_ui::components::primitives::badge::BadgeVariant
+impl core::cmp::PartialEq for tablo_ui::components::primitives::badge::BadgeVariant
+pub fn tablo_ui::components::primitives::badge::BadgeVariant::eq(&self, &tablo_ui::components::primitives::badge::BadgeVariant) -> bool
+impl core::default::Default for tablo_ui::components::primitives::badge::BadgeVariant
+pub fn tablo_ui::components::primitives::badge::BadgeVariant::default() -> tablo_ui::components::primitives::badge::BadgeVariant
+impl core::fmt::Debug for tablo_ui::components::primitives::badge::BadgeVariant
+pub fn tablo_ui::components::primitives::badge::BadgeVariant::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_ui::components::primitives::badge::BadgeVariant
+impl core::marker::StructuralPartialEq for tablo_ui::components::primitives::badge::BadgeVariant
+impl core::marker::Freeze for tablo_ui::components::primitives::badge::BadgeVariant
+impl core::marker::Send for tablo_ui::components::primitives::badge::BadgeVariant
+impl core::marker::Sync for tablo_ui::components::primitives::badge::BadgeVariant
+impl core::marker::Unpin for tablo_ui::components::primitives::badge::BadgeVariant
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::badge::BadgeVariant
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::badge::BadgeVariant
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::badge::BadgeVariant
 pub enum tablo_ui::ButtonSize
 pub tablo_ui::ButtonSize::Icon
 pub tablo_ui::ButtonSize::Lg
@@ -4238,6 +4328,19 @@ impl core::marker::Unpin for tablo_ui::components::primitives::alert::alert_titl
 impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::alert::alert_title
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::alert::alert_title
 impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::alert::alert_title
+pub struct tablo_ui::badge
+impl core::default::Default for tablo_ui::components::primitives::badge::badge
+pub fn tablo_ui::components::primitives::badge::badge::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::badge::badge
+pub type tablo_ui::components::primitives::badge::badge::Props<'__props> = tablo_ui::components::primitives::badge::BadgeProps<'__props>
+pub fn tablo_ui::components::primitives::badge::badge::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::badge::badge
+impl core::marker::Send for tablo_ui::components::primitives::badge::badge
+impl core::marker::Sync for tablo_ui::components::primitives::badge::badge
+impl core::marker::Unpin for tablo_ui::components::primitives::badge::badge
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::badge::badge
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::badge::badge
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::badge::badge
 pub struct tablo_ui::button
 impl core::default::Default for tablo_ui::components::primitives::button::button
 pub fn tablo_ui::components::primitives::button::button::default() -> Self
@@ -5347,5 +5450,6 @@ pub const tablo_ui::REPEATERS_JS: topcoat_asset::asset::Asset
 pub const tablo_ui::SELECTS_JS: topcoat_asset::asset::Asset
 pub const tablo_ui::SIDEBAR_JS: topcoat_asset::asset::Asset
 pub const tablo_ui::THEME_JS: topcoat_asset::asset::Asset
+pub fn tablo_ui::badge_variants(tablo_ui::components::primitives::badge::BadgeVariant) -> topcoat_view::html::class::Class<(topcoat_view::html::class::StaticClass, topcoat_view::html::class::StaticClass)>
 pub fn tablo_ui::button_variants(tablo_ui::components::primitives::button::ButtonVariant, tablo_ui::components::primitives::button::ButtonSize) -> topcoat_view::html::class::Class<(topcoat_view::html::class::StaticClass, topcoat_view::html::class::StaticClass, topcoat_view::html::class::StaticClass)>
 pub fn tablo_ui::sidebar_menu_button_variants(tablo_ui::components::primitives::sidebar::SidebarMenuButtonVariant, tablo_ui::components::primitives::sidebar::SidebarMenuButtonSize) -> topcoat_view::html::class::Class<(topcoat_view::html::class::StaticClass, topcoat_view::html::class::StaticClass, topcoat_view::html::class::StaticClass)>

@@ -18,6 +18,7 @@ pub use components::{
     primitives::{
         alert::{AlertVariant, alert, alert_description, alert_title},
         alert_dialog::alert_dialog,
+        badge::{BadgeVariant, badge, badge_variants},
         button::{ButtonSize, ButtonVariant, button, button_variants},
         card::{card, card_content, card_description, card_footer, card_header, card_title},
         checkbox::checkbox,

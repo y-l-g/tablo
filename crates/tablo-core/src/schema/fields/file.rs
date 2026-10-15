@@ -95,7 +95,7 @@ fn stored_path(value: Option<&str>) -> Option<String> {
 
 /// Whether a stored value may become an `href`; a rooted path or absolute `http(s)` URL may,
 /// anything else renders as text.
-fn is_linkable(path: &str) -> bool {
+pub(crate) fn is_linkable(path: &str) -> bool {
     let lower = path.trim_start().to_ascii_lowercase();
     (lower.starts_with('/') && !lower.starts_with("//"))
         || lower.starts_with("https://")

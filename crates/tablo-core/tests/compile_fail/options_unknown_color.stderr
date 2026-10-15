@@ -1,0 +1,5 @@
+error: unknown color: expected one of gray, primary, success, warning, danger, info
+ --> tests/compile_fail/options_unknown_color.rs:3:22
+  |
+3 |     #[option(color = "red")]
+  |                      ^^^^^
