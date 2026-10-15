@@ -84,11 +84,10 @@ async fn shell_dark_mode_sets_html_class_and_toggle() {
         html.contains("data-theme-toggle"),
         "theme toggle must render, got {html}"
     );
-    // the build-time default is only that — the pre-paint script
-    // can remove the class again when the visitor has stored `light`.
+    // The server renders the theme, so no script decides it before paint.
     assert!(
-        html.contains("classList.add") && html.contains("classList.remove"),
-        "the document must carry the reconciling theme script, got {html}"
+        !html.contains("classList"),
+        "the document must not carry a theme script, got {html}"
     );
 
     let html = document_html(&cx_with(Some(false))).await;
@@ -132,12 +131,27 @@ async fn theme_cookie_overrides_the_dark_mode_default() {
         html[start..=start + html[start..].find('>').unwrap()].to_string()
     }
 
-    assert_eq!(html_tag(false, "theme=dark").await, "<html class=\"dark\">");
     assert_eq!(
-        html_tag(true, "sidebar_state=collapsed; theme=light").await,
+        html_tag(false, "tablo_theme=dark").await,
+        "<html class=\"dark\">"
+    );
+    assert_eq!(
+        html_tag(true, "tablo_sidebar=collapsed; tablo_theme=light").await,
         "<html>"
     );
-    assert_eq!(html_tag(true, "theme=sepia").await, "<html class=\"dark\">");
+    assert_eq!(
+        html_tag(true, "tablo_theme=sepia").await,
+        "<html class=\"dark\">"
+    );
+    // Another app's cookie on the same host decides nothing, even listed first.
+    assert_eq!(
+        html_tag(true, "theme=light; xtablo_theme=light").await,
+        "<html class=\"dark\">"
+    );
+    assert_eq!(
+        html_tag(false, "theme=light; tablo_theme=dark").await,
+        "<html class=\"dark\">"
+    );
 }
 
 #[tokio::test]
@@ -186,7 +200,7 @@ async fn sidebar_orders_custom_items_by_sort_key() {
 
 #[tokio::test]
 async fn collapsed_sidebar_cookie_seeds_the_signal() {
-    // The persisted `sidebar_state` cookie seeds the runtime signal's
+    // The persisted `tablo_sidebar` cookie seeds the runtime signal's
     // initial value, so the first paint matches the last choice; from
     // hydration on, the browser owns the state (assets/sidebar.js mirrors
     // it back).
@@ -196,7 +210,10 @@ async fn collapsed_sidebar_cookie_seeds_the_signal() {
 
     let (parts, ()) = http::Request::builder()
         .uri("/admin/users")
-        .header(http::header::COOKIE, "theme=dark; sidebar_state=collapsed")
+        .header(
+            http::header::COOKIE,
+            "tablo_theme=dark; tablo_sidebar=collapsed",
+        )
         .body(())
         .unwrap()
         .into_parts();

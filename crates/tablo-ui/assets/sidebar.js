@@ -3,7 +3,7 @@
 // The sidebar's open state is Topcoat runtime state (signals created in
 // `Panel::render_shell`): the triggers carry `@click` handlers and the
 // panel's `data-state` changes in the browser. This script only mirrors the
-// persisted desktop state into the `sidebar_state` cookie, which seeds the
+// persisted desktop state into the `tablo_sidebar` cookie, which seeds the
 // signal on the next server render, and maps Ctrl/Cmd+B to the visible
 // trigger.
 //
@@ -28,7 +28,7 @@ new MutationObserver(records => {
     if (target.getAttribute?.('data-sidebar') !== 'sidebar') continue;
     const state = target.getAttribute('data-state');
     if (state === 'expanded' || state === 'collapsed') {
-      document.cookie = `sidebar_state=${state};path=/;max-age=604800`;
+      document.cookie = `tablo_sidebar=${state};path=/;max-age=604800;samesite=lax`;
     }
   }
 }).observe(document.documentElement, {

@@ -28,6 +28,16 @@ fn sidebar_link(cx: &Cx, mut extra: Attributes) -> Attributes {
     extra
 }
 
+/// The cookie holding the visitor's theme, `light` or `dark`, which `assets/theme.js` writes.
+///
+/// Prefixed because a cookie is shared by every app on a host whatever its port: another app's
+/// `theme` on `localhost`, possibly HttpOnly and so beyond the toggle's reach, would otherwise
+/// decide this panel's theme.
+const THEME_COOKIE: &str = "tablo_theme";
+
+/// The cookie holding the desktop sidebar's state, which `assets/sidebar.js` writes.
+const SIDEBAR_COOKIE: &str = "tablo_sidebar";
+
 /// The value of the request's `name` cookie.
 ///
 /// Parsed from the raw `Cookie` header on purpose: `topcoat::cookie::cookies`
@@ -335,14 +345,14 @@ impl Panel {
         .boxed())
     }
 
-    /// Whether the persisted `sidebar_state` cookie asks for an expanded
+    /// Whether the persisted [`SIDEBAR_COOKIE`] asks for an expanded
     /// desktop sidebar (default: expanded).
     ///
     /// The value only seeds the runtime
     /// signal's initial `data-state`; after hydration the browser owns the
     /// state, and `assets/sidebar.js` mirrors changes back to the cookie.
     fn sidebar_starts_open(cx: &Cx) -> bool {
-        request_cookie(cx, "sidebar_state").as_deref() != Some("collapsed")
+        request_cookie(cx, SIDEBAR_COOKIE).as_deref() != Some("collapsed")
     }
 
     /// Renders the shell around `slot` with an optional outer class.
@@ -598,14 +608,12 @@ impl Panel {
         title: String,
         body: BoxView<'a>,
     ) -> Result<BoxView<'a>> {
-        // The panel's default: the `<html class>` a first-time visitor gets,
-        // and the fallback the blocking script uses when nothing is stored.
+        // The panel's default: the `<html class>` a visitor who has not chosen gets.
         let default_dark = current(cx).is_some_and(|panel| panel.dark_mode);
         let head: BoxView<'_> = match current(cx).and_then(|panel| panel.shell_assets) {
             Some(ShellAssets { stylesheet, font }) => view! {
                 cx =>
                 topcoat::dev::script()
-                tablo_ui::theme_init_script(default_dark: default_dark)
                 topcoat::runtime::script()
                 topcoat::font::link(font: font)
                 <link rel="stylesheet" href=(stylesheet)>
@@ -618,14 +626,11 @@ impl Panel {
                 <script src=(tablo_ui::REPEATERS_JS) type="module"></script>
             }
             .boxed(),
-            None => view! {
-                cx =>
-                topcoat::dev::script()
-                tablo_ui::theme_init_script(default_dark: default_dark)
-            }
-            .boxed(),
+            None => view! { cx => topcoat::dev::script() }.boxed(),
         };
-        let dark = match request_cookie(cx, "theme").as_deref() {
+        // The server renders the stored choice on every page: runtime navigation copies
+        // `<html>`'s attributes from the next page and runs no script.
+        let dark = match request_cookie(cx, THEME_COOKIE).as_deref() {
             Some("dark") => true,
             Some("light") => false,
             _ => default_dark,
