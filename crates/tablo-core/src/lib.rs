@@ -64,7 +64,7 @@ pub mod __macro {
     pub use topcoat::context::Cx;
 
     pub use crate::{
-        Lens,
+        Color, Lens,
         detail::Detail,
         extend::{Includes, OptionSource},
         form::{
@@ -145,10 +145,11 @@ pub use schema::{
     Source, TextField, Toggle, Watched,
 };
 pub use table::{
-    BooleanColumn, ColumnWidth, ComputedColumn, CountColumn, Cursor, DateColumn, DateFilter,
-    DateValue, EmbeddedColumn, FileColumn, FilterValue, IntoColumns, IntoFilters, ModelColumns,
-    QueryFilter, RelationColumn, RelationLens, RepeaterColumn, SelectFilter, Sort, Table,
-    TablePage, TableState, TernaryFilter, TextColumn, ToOneRelation, WiredTable, contains_expr,
+    Alignment, BooleanColumn, Color, ColorColumn, ColumnWidth, ComputedColumn, CountColumn,
+    Currency, Cursor, DateColumn, DateFilter, DateValue, EmbeddedColumn, FileColumn, FilterValue,
+    ImageColumn, IntoColumns, IntoFilters, ModelColumns, Number, Numeric, QueryFilter,
+    RelationColumn, RelationLens, RepeaterColumn, SelectFilter, Sort, Table, TablePage, TableState,
+    TernaryFilter, TextColumn, ToOneRelation, WiredTable, contains_expr,
 };
 /// Derives [`ActionInput`](trait@ActionInput) for the typed value an [`Action`] asks for
 /// before it runs.

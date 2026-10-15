@@ -1,7 +1,8 @@
 //! `#[derive(Options)]` — a unit-variant enum as a choice's options.
 //!
 //! Each variant's value is its `snake_case` name and its label that name in
-//! sentence case; `#[option(value = "..", label = "..")]` overrides either.
+//! sentence case; `#[option(value = "..", label = "..")]` overrides either, and
+//! `#[option(color = "..")]` gives it the color a badge shows it in.
 //! The derive implements `Options` and `FormScalar`, spelling a variant as
 //! its value and reading it as its label, and gives the enum `value()`,
 //! `label()` and `from_value()`.
@@ -23,7 +24,19 @@ struct Choice {
     ident: syn::Ident,
     value: String,
     label: String,
+    /// The `Color` variant `color = ".."` names.
+    color: Option<syn::Ident>,
 }
+
+/// The names `#[option(color = "..")]` takes, and the `Color` variant each names.
+const COLORS: &[(&str, &str)] = &[
+    ("gray", "Gray"),
+    ("primary", "Primary"),
+    ("success", "Success"),
+    ("warning", "Warning"),
+    ("danger", "Danger"),
+    ("info", "Info"),
+];
 
 fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
     reject_generics(
@@ -53,6 +66,7 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
         let name = variant.ident.to_string();
         let mut value = snake_case(&name);
         let mut label = sentence_case(&value);
+        let mut color = None;
         for attr in &variant.attrs {
             if !attr.path().is_ident("option") {
                 continue;
@@ -62,9 +76,20 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
                     value = meta.value()?.parse::<syn::LitStr>()?.value();
                 } else if meta.path.is_ident("label") {
                     label = meta.value()?.parse::<syn::LitStr>()?.value();
+                } else if meta.path.is_ident("color") {
+                    let name = meta.value()?.parse::<syn::LitStr>()?;
+                    let Some((_, variant)) = COLORS.iter().find(|(n, _)| *n == name.value()) else {
+                        let names: Vec<&str> = COLORS.iter().map(|(n, _)| *n).collect();
+                        return Err(syn::Error::new_spanned(
+                            &name,
+                            format!("unknown color: expected one of {}", names.join(", ")),
+                        ));
+                    };
+                    color = Some(syn::Ident::new(variant, name.span()));
                 } else {
                     return Err(meta.error(
-                        "unknown `#[option(..)]` key: expected `value = \"…\"` or `label = \"…\"`",
+                        "unknown `#[option(..)]` key: expected `value = \"…\"`, `label = \"…\"` \
+                         or `color = \"…\"`",
                     ));
                 }
                 Ok(())
@@ -93,6 +118,7 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
             ident: variant.ident.clone(),
             value,
             label,
+            color,
         });
     }
     let krate = crate::tablo_core_path(&input.ident, "Options")?;
@@ -100,6 +126,22 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
     let idents: Vec<&syn::Ident> = choices.iter().map(|c| &c.ident).collect();
     let values: Vec<&str> = choices.iter().map(|c| c.value.as_str()).collect();
     let labels: Vec<&str> = choices.iter().map(|c| c.label.as_str()).collect();
+    // Only an enum that names a color overrides the trait's `None`.
+    let color = choices.iter().any(|c| c.color.is_some()).then(|| {
+        let colors = choices.iter().map(|c| match &c.color {
+            Some(variant) => {
+                quote! { ::std::option::Option::Some(#krate::__macro::Color::#variant) }
+            }
+            None => quote! { ::std::option::Option::None },
+        });
+        quote! {
+            fn color(&self) -> ::std::option::Option<#krate::__macro::Color> {
+                match self {
+                    #(Self::#idents => #colors,)*
+                }
+            }
+        }
+    });
     Ok(quote! {
         impl #krate::__macro::Options for #ident {
             fn options() -> ::std::vec::Vec<(::std::string::String, ::std::string::String)> {
@@ -128,6 +170,8 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
             fn to_label(&self) -> ::std::string::String {
                 ::std::string::String::from(self.label())
             }
+
+            #color
         }
 
         impl #krate::__macro::NullableScalar for #ident {}

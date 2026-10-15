@@ -8,7 +8,7 @@ use toasty::stmt::Expr;
 use topcoat::{context::Cx, view::*};
 
 use crate::{
-    models::{Author, Post, User},
+    models::{Author, Post, Theme, User},
     resources::AuthorResource,
 };
 
@@ -40,6 +40,31 @@ pub fn date_column() -> DateColumn<User, jiff::Timestamp> {
     DateColumn::new(lens!(User.created_at)).sortable()
 }
 // ANCHOR_END: table-date
+
+// ANCHOR: table-presenting
+pub fn user_columns() -> Table<User> {
+    Table::new((
+        // The email as a muted line under the name.
+        TextColumn::new(lens!(User.name)).description(|user: &User| user.email.clone()),
+        // `12,345`, right-aligned.
+        TextColumn::new(lens!(User.age)).numeric(0),
+        // `$1,234.50`, from a field holding cents.
+        ComputedColumn::new("Balance", |user: &User| {
+            Currency::USD.minor_units().format(user.age * 1250)
+        })
+        .align(Alignment::End),
+    ))
+}
+
+pub fn status_badge() -> TextColumn<Post, crate::models::PostStatus> {
+    // A dot in the variant's `#[option(color = "…")]`.
+    TextColumn::new(lens!(Post.status)).badge()
+}
+
+pub fn accent_column() -> ColorColumn<Theme, String> {
+    ColorColumn::new(lens!(Theme.accent))
+}
+// ANCHOR_END: table-presenting
 
 // ANCHOR: table-relation-column
 pub fn author_column() -> RelationColumn<Post> {

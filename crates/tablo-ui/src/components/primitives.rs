@@ -1,6 +1,7 @@
 // SYNC: topcoat-ui-registry@0.10.0 — generated from the registry manifest. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
 pub mod alert;
 pub mod alert_dialog;
+pub mod badge;
 pub mod button;
 pub mod card;
 pub mod checkbox;

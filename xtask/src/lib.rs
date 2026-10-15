@@ -14,6 +14,7 @@ use topcoat_ui::{Component, Dependency, Registry};
 pub const VENDORED_PRIMITIVES: &[&str] = &[
     "alert",
     "alert_dialog",
+    "badge",
     "button",
     "card",
     "checkbox",

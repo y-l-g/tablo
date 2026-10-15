@@ -23,11 +23,15 @@ pub enum Role {
 }
 // ANCHOR_END: role-options
 
+// ANCHOR: post-status-options
 #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo::Options)]
 pub enum PostStatus {
+    #[option(color = "gray")]
     Draft,
+    #[option(color = "success")]
     Published,
 }
+// ANCHOR_END: post-status-options
 
 #[derive(Debug, Clone, toasty::Embed, tablo::EmbeddedForm)]
 // ANCHOR: seo-struct

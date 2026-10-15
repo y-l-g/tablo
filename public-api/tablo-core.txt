@@ -383,10 +383,14 @@ impl<M, A, B> tablo_core::detail::IntoDetail<M> for (A, B) where A: tablo_core::
 pub fn (A, B)::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, A> tablo_core::detail::IntoDetail<M> for (A) where A: tablo_core::detail::IntoDetail<M>
 pub fn (A)::into_detail(self) -> tablo_core::detail::Detail<M>
+impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::ColorColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+pub fn tablo_core::ColorColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::DateColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::DateColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::EmbeddedColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::EmbeddedColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
+impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::ImageColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+pub fn tablo_core::ImageColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::RepeaterColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::RepeaterColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::TextColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
@@ -513,6 +517,7 @@ impl<M> core::marker::UnsafeUnpin for tablo_core::extend::Includes<M> where core
 impl<M> core::panic::unwind_safe::RefUnwindSafe for tablo_core::extend::Includes<M> where core::marker::PhantomData<fn() -> M>: core::panic::unwind_safe::RefUnwindSafe
 impl<M> core::panic::unwind_safe::UnwindSafe for tablo_core::extend::Includes<M> where core::marker::PhantomData<fn() -> M>: core::panic::unwind_safe::UnwindSafe
 pub trait tablo_core::extend::Column<M>: core::marker::Send + core::marker::Sync
+pub fn tablo_core::extend::Column::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::extend::Column::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::extend::Column::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::extend::Column::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -524,7 +529,21 @@ pub fn tablo_core::extend::Column::name(&self) -> &str
 pub fn tablo_core::extend::Column::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::extend::Column::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::extend::Column::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+impl<M, T> tablo_core::extend::Column<M> for tablo_core::ColorColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::ColorColumn<M, T>::alignment(&self) -> tablo_core::Alignment
+pub fn tablo_core::ColorColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
+pub fn tablo_core::ColorColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
+pub fn tablo_core::ColorColumn<M, T>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
+pub fn tablo_core::ColorColumn<M, T>::includes(&self) -> tablo_core::extend::Includes<M>
+pub fn tablo_core::ColorColumn<M, T>::is_searchable(&self) -> bool
+pub fn tablo_core::ColorColumn<M, T>::is_sortable(&self) -> bool
+pub fn tablo_core::ColorColumn<M, T>::label(&self) -> &str
+pub fn tablo_core::ColorColumn<M, T>::name(&self) -> &str
+pub fn tablo_core::ColorColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::ColorColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
+pub fn tablo_core::ColorColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 impl<M, T> tablo_core::extend::Column<M> for tablo_core::DateColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::DateValue
+pub fn tablo_core::DateColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::DateColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::DateColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::DateColumn<M, T>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -537,6 +556,7 @@ pub fn tablo_core::DateColumn<M, T>::order_by(&self, bool) -> core::option::Opti
 pub fn tablo_core::DateColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::DateColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 impl<M, T> tablo_core::extend::Column<M> for tablo_core::EmbeddedColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::EmbeddedForm + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::EmbeddedColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::EmbeddedColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::EmbeddedColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::EmbeddedColumn<M, T>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -548,7 +568,21 @@ pub fn tablo_core::EmbeddedColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::EmbeddedColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::EmbeddedColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::EmbeddedColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+impl<M, T> tablo_core::extend::Column<M> for tablo_core::ImageColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::ImageColumn<M, T>::alignment(&self) -> tablo_core::Alignment
+pub fn tablo_core::ImageColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
+pub fn tablo_core::ImageColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
+pub fn tablo_core::ImageColumn<M, T>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
+pub fn tablo_core::ImageColumn<M, T>::includes(&self) -> tablo_core::extend::Includes<M>
+pub fn tablo_core::ImageColumn<M, T>::is_searchable(&self) -> bool
+pub fn tablo_core::ImageColumn<M, T>::is_sortable(&self) -> bool
+pub fn tablo_core::ImageColumn<M, T>::label(&self) -> &str
+pub fn tablo_core::ImageColumn<M, T>::name(&self) -> &str
+pub fn tablo_core::ImageColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::ImageColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
+pub fn tablo_core::ImageColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 impl<M, T> tablo_core::extend::Column<M> for tablo_core::RepeaterColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::RepeaterItem
+pub fn tablo_core::RepeaterColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::RepeaterColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::RepeaterColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::RepeaterColumn<M, T>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -561,6 +595,7 @@ pub fn tablo_core::RepeaterColumn<M, T>::order_by(&self, bool) -> core::option::
 pub fn tablo_core::RepeaterColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::RepeaterColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 impl<M, T> tablo_core::extend::Column<M> for tablo_core::TextColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::TextColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::TextColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::TextColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::TextColumn<M, T>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -573,6 +608,7 @@ pub fn tablo_core::TextColumn<M, T>::order_by(&self, bool) -> core::option::Opti
 pub fn tablo_core::TextColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::TextColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 impl<M> tablo_core::extend::Column<M> for tablo_core::BooleanColumn<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::BooleanColumn<M>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::BooleanColumn<M>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::BooleanColumn<M>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::BooleanColumn<M>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -585,6 +621,7 @@ pub fn tablo_core::BooleanColumn<M>::order_by(&self, bool) -> core::option::Opti
 pub fn tablo_core::BooleanColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::BooleanColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 impl<M> tablo_core::extend::Column<M> for tablo_core::ComputedColumn<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::ComputedColumn<M>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::ComputedColumn<M>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::ComputedColumn<M>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::ComputedColumn<M>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -597,6 +634,7 @@ pub fn tablo_core::ComputedColumn<M>::order_by(&self, bool) -> core::option::Opt
 pub fn tablo_core::ComputedColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::ComputedColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 impl<M> tablo_core::extend::Column<M> for tablo_core::CountColumn<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::CountColumn<M>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::CountColumn<M>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::CountColumn<M>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::CountColumn<M>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -609,6 +647,7 @@ pub fn tablo_core::CountColumn<M>::order_by(&self, bool) -> core::option::Option
 pub fn tablo_core::CountColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::CountColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 impl<M> tablo_core::extend::Column<M> for tablo_core::FileColumn<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::FileColumn<M>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::FileColumn<M>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::FileColumn<M>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::FileColumn<M>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -621,6 +660,7 @@ pub fn tablo_core::FileColumn<M>::order_by(&self, bool) -> core::option::Option<
 pub fn tablo_core::FileColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::FileColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 impl<M> tablo_core::extend::Column<M> for tablo_core::RelationColumn<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::RelationColumn<M>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::RelationColumn<M>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::RelationColumn<M>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::RelationColumn<M>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -1036,6 +1076,7 @@ impl<F> core::panic::unwind_safe::UnwindSafe for tablo_core::form::Posted<F> whe
 pub trait tablo_core::form::FormScalar: core::marker::Sized
 pub const tablo_core::form::FormScalar::INPUT_TYPE: &'static str
 pub const tablo_core::form::FormScalar::STEP: core::option::Option<&'static str>
+pub fn tablo_core::form::FormScalar::color(&self) -> core::option::Option<tablo_core::Color>
 pub fn tablo_core::form::FormScalar::input_value(&str) -> alloc::string::String
 pub fn tablo_core::form::FormScalar::parse_form(&str) -> core::result::Result<Self, alloc::string::String>
 pub fn tablo_core::form::FormScalar::to_form(&self) -> alloc::string::String
@@ -1043,6 +1084,7 @@ pub fn tablo_core::form::FormScalar::to_label(&self) -> alloc::string::String
 impl tablo_core::form::FormScalar for alloc::string::String
 pub const alloc::string::String::INPUT_TYPE: &'static str
 pub const alloc::string::String::STEP: core::option::Option<&'static str>
+pub fn alloc::string::String::color(&self) -> core::option::Option<tablo_core::Color>
 pub fn alloc::string::String::input_value(&str) -> alloc::string::String
 pub fn alloc::string::String::parse_form(&str) -> core::result::Result<Self, alloc::string::String>
 pub fn alloc::string::String::to_form(&self) -> alloc::string::String
@@ -1050,6 +1092,7 @@ pub fn alloc::string::String::to_label(&self) -> alloc::string::String
 impl tablo_core::form::FormScalar for core::option::Option<alloc::string::String>
 pub const core::option::Option<alloc::string::String>::INPUT_TYPE: &'static str
 pub const core::option::Option<alloc::string::String>::STEP: core::option::Option<&'static str>
+pub fn core::option::Option<alloc::string::String>::color(&self) -> core::option::Option<tablo_core::Color>
 pub fn core::option::Option<alloc::string::String>::input_value(&str) -> alloc::string::String
 pub fn core::option::Option<alloc::string::String>::parse_form(&str) -> core::result::Result<Self, alloc::string::String>
 pub fn core::option::Option<alloc::string::String>::to_form(&self) -> alloc::string::String
@@ -1057,6 +1100,7 @@ pub fn core::option::Option<alloc::string::String>::to_label(&self) -> alloc::st
 impl<T: NullableScalar> tablo_core::form::FormScalar for core::option::Option<T>
 pub const core::option::Option<T>::INPUT_TYPE: &'static str
 pub const core::option::Option<T>::STEP: core::option::Option<&'static str>
+pub fn core::option::Option<T>::color(&self) -> core::option::Option<tablo_core::Color>
 pub fn core::option::Option<T>::input_value(&str) -> alloc::string::String
 pub fn core::option::Option<T>::parse_form(&str) -> core::result::Result<Self, alloc::string::String>
 pub fn core::option::Option<T>::to_form(&self) -> alloc::string::String
@@ -1064,6 +1108,7 @@ pub fn core::option::Option<T>::to_label(&self) -> alloc::string::String
 impl<T: tablo_core::extend::TypedValue> tablo_core::form::FormScalar for T
 pub const T::INPUT_TYPE: &'static str
 pub const T::STEP: core::option::Option<&'static str>
+pub fn T::color(&self) -> core::option::Option<tablo_core::Color>
 pub fn T::input_value(&str) -> alloc::string::String
 pub fn T::parse_form(&str) -> core::result::Result<T, alloc::string::String>
 pub fn T::to_form(&self) -> alloc::string::String
@@ -2102,6 +2147,57 @@ impl<F> tablo_core::Watched<F> for tablo_core::TextField<F>
 pub fn tablo_core::schema::parse_items<T: tablo_core::RepeaterItem>(&topcoat_core::context::Cx, &str, &tablo_core::FormValues) -> core::result::Result<alloc::vec::Vec<T>, alloc::vec::Vec<tablo_core::form::FieldError>>
 pub fn tablo_core::schema::write_items<T: tablo_core::RepeaterItem>(&[T]) -> tablo_core::FormValue
 pub mod tablo_core::table
+pub enum tablo_core::table::Alignment
+pub tablo_core::table::Alignment::Center
+pub tablo_core::table::Alignment::End
+pub tablo_core::table::Alignment::Start
+impl core::clone::Clone for tablo_core::Alignment
+pub fn tablo_core::Alignment::clone(&self) -> tablo_core::Alignment
+impl core::cmp::Eq for tablo_core::Alignment
+impl core::cmp::PartialEq for tablo_core::Alignment
+pub fn tablo_core::Alignment::eq(&self, &tablo_core::Alignment) -> bool
+impl core::default::Default for tablo_core::Alignment
+pub fn tablo_core::Alignment::default() -> tablo_core::Alignment
+impl core::fmt::Debug for tablo_core::Alignment
+pub fn tablo_core::Alignment::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for tablo_core::Alignment
+pub fn tablo_core::Alignment::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for tablo_core::Alignment
+impl core::marker::StructuralPartialEq for tablo_core::Alignment
+impl core::marker::Freeze for tablo_core::Alignment
+impl core::marker::Send for tablo_core::Alignment
+impl core::marker::Sync for tablo_core::Alignment
+impl core::marker::Unpin for tablo_core::Alignment
+impl core::marker::UnsafeUnpin for tablo_core::Alignment
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Alignment
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::Alignment
+pub enum tablo_core::table::Color
+pub tablo_core::table::Color::Danger
+pub tablo_core::table::Color::Gray
+pub tablo_core::table::Color::Info
+pub tablo_core::table::Color::Primary
+pub tablo_core::table::Color::Success
+pub tablo_core::table::Color::Warning
+impl core::clone::Clone for tablo_core::Color
+pub fn tablo_core::Color::clone(&self) -> tablo_core::Color
+impl core::cmp::Eq for tablo_core::Color
+impl core::cmp::PartialEq for tablo_core::Color
+pub fn tablo_core::Color::eq(&self, &tablo_core::Color) -> bool
+impl core::default::Default for tablo_core::Color
+pub fn tablo_core::Color::default() -> tablo_core::Color
+impl core::fmt::Debug for tablo_core::Color
+pub fn tablo_core::Color::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for tablo_core::Color
+pub fn tablo_core::Color::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for tablo_core::Color
+impl core::marker::StructuralPartialEq for tablo_core::Color
+impl core::marker::Freeze for tablo_core::Color
+impl core::marker::Send for tablo_core::Color
+impl core::marker::Sync for tablo_core::Color
+impl core::marker::Unpin for tablo_core::Color
+impl core::marker::UnsafeUnpin for tablo_core::Color
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Color
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::Color
 pub enum tablo_core::table::ColumnWidth
 pub tablo_core::table::ColumnWidth::Narrow
 pub tablo_core::table::ColumnWidth::Percent(u8)
@@ -2143,6 +2239,24 @@ impl core::marker::Unpin for tablo_core::Cursor
 impl core::marker::UnsafeUnpin for tablo_core::Cursor
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Cursor
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::Cursor
+pub enum tablo_core::table::Number
+pub tablo_core::table::Number::Float(f64)
+pub tablo_core::table::Number::Int(i128)
+impl core::clone::Clone for tablo_core::Number
+pub fn tablo_core::Number::clone(&self) -> tablo_core::Number
+impl core::cmp::PartialEq for tablo_core::Number
+pub fn tablo_core::Number::eq(&self, &tablo_core::Number) -> bool
+impl core::fmt::Debug for tablo_core::Number
+pub fn tablo_core::Number::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_core::Number
+impl core::marker::StructuralPartialEq for tablo_core::Number
+impl core::marker::Freeze for tablo_core::Number
+impl core::marker::Send for tablo_core::Number
+impl core::marker::Sync for tablo_core::Number
+impl core::marker::Unpin for tablo_core::Number
+impl core::marker::UnsafeUnpin for tablo_core::Number
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Number
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::Number
 pub struct tablo_core::table::BooleanColumn<M>
 impl<M> tablo_core::BooleanColumn<M> where M: toasty::schema::model::Model
 pub fn tablo_core::BooleanColumn<M>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
@@ -2158,6 +2272,7 @@ impl<M> tablo_core::IntoColumns<M> for tablo_core::BooleanColumn<M> where Self: 
 impl<M> tablo_core::detail::IntoDetail<M> for tablo_core::BooleanColumn<M> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::BooleanColumn<M>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M> tablo_core::extend::Column<M> for tablo_core::BooleanColumn<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::BooleanColumn<M>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::BooleanColumn<M>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::BooleanColumn<M>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::BooleanColumn<M>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -2176,8 +2291,41 @@ impl<M> core::marker::Unpin for tablo_core::BooleanColumn<M> where tablo_core::L
 impl<M> core::marker::UnsafeUnpin for tablo_core::BooleanColumn<M> where tablo_core::Lens<M, bool>: core::marker::UnsafeUnpin
 impl<M> core::panic::unwind_safe::RefUnwindSafe for tablo_core::BooleanColumn<M> where tablo_core::Lens<M, bool>: core::panic::unwind_safe::RefUnwindSafe
 impl<M> core::panic::unwind_safe::UnwindSafe for tablo_core::BooleanColumn<M> where tablo_core::Lens<M, bool>: core::panic::unwind_safe::UnwindSafe
+pub struct tablo_core::table::ColorColumn<M, T>
+impl<M, T> tablo_core::ColorColumn<M, T> where M: toasty::schema::model::Model
+pub fn tablo_core::ColorColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::ColorColumn<M, T>::new(tablo_core::Lens<M, T>) -> Self where T: toasty::schema::field::Field<Inner = alloc::string::String>
+pub fn tablo_core::ColorColumn<M, T>::width(self, tablo_core::ColumnWidth) -> Self
+impl<M, T> core::clone::Clone for tablo_core::ColorColumn<M, T>
+pub fn tablo_core::ColorColumn<M, T>::clone(&self) -> Self
+impl<M, T> core::fmt::Debug for tablo_core::ColorColumn<M, T>
+pub fn tablo_core::ColorColumn<M, T>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<M, T> tablo_core::IntoColumns<M> for tablo_core::ColorColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::ColorColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+pub fn tablo_core::ColorColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
+impl<M, T> tablo_core::extend::Column<M> for tablo_core::ColorColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::ColorColumn<M, T>::alignment(&self) -> tablo_core::Alignment
+pub fn tablo_core::ColorColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
+pub fn tablo_core::ColorColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
+pub fn tablo_core::ColorColumn<M, T>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
+pub fn tablo_core::ColorColumn<M, T>::includes(&self) -> tablo_core::extend::Includes<M>
+pub fn tablo_core::ColorColumn<M, T>::is_searchable(&self) -> bool
+pub fn tablo_core::ColorColumn<M, T>::is_sortable(&self) -> bool
+pub fn tablo_core::ColorColumn<M, T>::label(&self) -> &str
+pub fn tablo_core::ColorColumn<M, T>::name(&self) -> &str
+pub fn tablo_core::ColorColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::ColorColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
+pub fn tablo_core::ColorColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+impl<M, T> !core::marker::Freeze for tablo_core::ColorColumn<M, T>
+impl<M, T> core::marker::Send for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send
+impl<M, T> core::marker::Sync for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync
+impl<M, T> core::marker::Unpin for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Unpin
+impl<M, T> core::marker::UnsafeUnpin for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::marker::UnsafeUnpin
+impl<M, T> core::panic::unwind_safe::RefUnwindSafe for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::panic::unwind_safe::RefUnwindSafe
+impl<M, T> core::panic::unwind_safe::UnwindSafe for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::table::ComputedColumn<M>
 impl<M> tablo_core::ComputedColumn<M> where M: toasty::schema::model::Model
+pub fn tablo_core::ComputedColumn<M>::align(self, tablo_core::Alignment) -> Self
 pub fn tablo_core::ComputedColumn<M>::include<T>(self, impl core::convert::Into<toasty::stmt::include::Include<M, T>>) -> Self
 pub fn tablo_core::ComputedColumn<M>::new(impl core::convert::Into<alloc::string::String>, impl core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self
 pub fn tablo_core::ComputedColumn<M>::width(self, tablo_core::ColumnWidth) -> Self
@@ -2189,6 +2337,7 @@ impl<M> tablo_core::IntoColumns<M> for tablo_core::ComputedColumn<M> where Self:
 impl<M> tablo_core::detail::IntoDetail<M> for tablo_core::ComputedColumn<M> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::ComputedColumn<M>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M> tablo_core::extend::Column<M> for tablo_core::ComputedColumn<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::ComputedColumn<M>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::ComputedColumn<M>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::ComputedColumn<M>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::ComputedColumn<M>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -2221,6 +2370,7 @@ impl<M> tablo_core::IntoColumns<M> for tablo_core::CountColumn<M> where Self: ta
 impl<M> tablo_core::detail::IntoDetail<M> for tablo_core::CountColumn<M> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::CountColumn<M>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M> tablo_core::extend::Column<M> for tablo_core::CountColumn<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::CountColumn<M>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::CountColumn<M>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::CountColumn<M>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::CountColumn<M>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -2239,6 +2389,33 @@ impl<M> core::marker::Unpin for tablo_core::CountColumn<M> where Declared<M>: co
 impl<M> core::marker::UnsafeUnpin for tablo_core::CountColumn<M> where Declared<M>: core::marker::UnsafeUnpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::UnsafeUnpin
 impl<M> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::CountColumn<M>
 impl<M> !core::panic::unwind_safe::UnwindSafe for tablo_core::CountColumn<M>
+pub struct tablo_core::table::Currency
+impl tablo_core::Currency
+pub const tablo_core::Currency::EUR: Self
+pub const tablo_core::Currency::GBP: Self
+pub const tablo_core::Currency::JPY: Self
+pub const tablo_core::Currency::USD: Self
+pub const fn tablo_core::Currency::decimals(self, u8) -> Self
+pub fn tablo_core::Currency::format(&self, impl tablo_core::Numeric) -> alloc::string::String
+pub const fn tablo_core::Currency::minor_units(self) -> Self
+pub const fn tablo_core::Currency::new(&'static str) -> Self
+pub const fn tablo_core::Currency::symbol_after(self) -> Self
+impl core::clone::Clone for tablo_core::Currency
+pub fn tablo_core::Currency::clone(&self) -> tablo_core::Currency
+impl core::cmp::Eq for tablo_core::Currency
+impl core::cmp::PartialEq for tablo_core::Currency
+pub fn tablo_core::Currency::eq(&self, &tablo_core::Currency) -> bool
+impl core::fmt::Debug for tablo_core::Currency
+pub fn tablo_core::Currency::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_core::Currency
+impl core::marker::StructuralPartialEq for tablo_core::Currency
+impl core::marker::Freeze for tablo_core::Currency
+impl core::marker::Send for tablo_core::Currency
+impl core::marker::Sync for tablo_core::Currency
+impl core::marker::Unpin for tablo_core::Currency
+impl core::marker::UnsafeUnpin for tablo_core::Currency
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Currency
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::Currency
 pub struct tablo_core::table::DateColumn<M, T>
 impl<M, T> tablo_core::DateColumn<M, T> where M: toasty::schema::model::Model
 pub fn tablo_core::DateColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
@@ -2253,6 +2430,7 @@ impl<M, T> tablo_core::IntoColumns<M> for tablo_core::DateColumn<M, T> where Sel
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::DateColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::DateColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, T> tablo_core::extend::Column<M> for tablo_core::DateColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::DateValue
+pub fn tablo_core::DateColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::DateColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::DateColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::DateColumn<M, T>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -2308,6 +2486,7 @@ impl<M, T> tablo_core::IntoColumns<M> for tablo_core::EmbeddedColumn<M, T> where
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::EmbeddedColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::EmbeddedColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, T> tablo_core::extend::Column<M> for tablo_core::EmbeddedColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::EmbeddedForm + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::EmbeddedColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::EmbeddedColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::EmbeddedColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::EmbeddedColumn<M, T>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -2339,6 +2518,7 @@ impl<M> tablo_core::IntoColumns<M> for tablo_core::FileColumn<M> where Self: tab
 impl<M> tablo_core::detail::IntoDetail<M> for tablo_core::FileColumn<M> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::FileColumn<M>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M> tablo_core::extend::Column<M> for tablo_core::FileColumn<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::FileColumn<M>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::FileColumn<M>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::FileColumn<M>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::FileColumn<M>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -2388,6 +2568,40 @@ impl core::marker::Unpin for tablo_core::FilterValue
 impl core::marker::UnsafeUnpin for tablo_core::FilterValue
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::FilterValue
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::FilterValue
+pub struct tablo_core::table::ImageColumn<M, T>
+impl<M, T> tablo_core::ImageColumn<M, T> where M: toasty::schema::model::Model
+pub fn tablo_core::ImageColumn<M, T>::circular(self) -> Self
+pub fn tablo_core::ImageColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::ImageColumn<M, T>::new(tablo_core::Lens<M, T>) -> Self where T: toasty::schema::field::Field<Inner = alloc::string::String>
+pub fn tablo_core::ImageColumn<M, T>::size(self, u16) -> Self
+pub fn tablo_core::ImageColumn<M, T>::width(self, tablo_core::ColumnWidth) -> Self
+impl<M, T> core::clone::Clone for tablo_core::ImageColumn<M, T>
+pub fn tablo_core::ImageColumn<M, T>::clone(&self) -> Self
+impl<M, T> core::fmt::Debug for tablo_core::ImageColumn<M, T>
+pub fn tablo_core::ImageColumn<M, T>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<M, T> tablo_core::IntoColumns<M> for tablo_core::ImageColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::ImageColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+pub fn tablo_core::ImageColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
+impl<M, T> tablo_core::extend::Column<M> for tablo_core::ImageColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::ImageColumn<M, T>::alignment(&self) -> tablo_core::Alignment
+pub fn tablo_core::ImageColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
+pub fn tablo_core::ImageColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
+pub fn tablo_core::ImageColumn<M, T>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
+pub fn tablo_core::ImageColumn<M, T>::includes(&self) -> tablo_core::extend::Includes<M>
+pub fn tablo_core::ImageColumn<M, T>::is_searchable(&self) -> bool
+pub fn tablo_core::ImageColumn<M, T>::is_sortable(&self) -> bool
+pub fn tablo_core::ImageColumn<M, T>::label(&self) -> &str
+pub fn tablo_core::ImageColumn<M, T>::name(&self) -> &str
+pub fn tablo_core::ImageColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::ImageColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
+pub fn tablo_core::ImageColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+impl<M, T> !core::marker::Freeze for tablo_core::ImageColumn<M, T>
+impl<M, T> core::marker::Send for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send
+impl<M, T> core::marker::Sync for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync
+impl<M, T> core::marker::Unpin for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Unpin
+impl<M, T> core::marker::UnsafeUnpin for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::marker::UnsafeUnpin
+impl<M, T> core::panic::unwind_safe::RefUnwindSafe for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::panic::unwind_safe::RefUnwindSafe
+impl<M, T> core::panic::unwind_safe::UnwindSafe for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::table::QueryFilter<M>
 impl<M> tablo_core::QueryFilter<M> where M: toasty::schema::model::Model
 pub fn tablo_core::QueryFilter<M>::multiple(self) -> Self
@@ -2429,6 +2643,7 @@ impl<M> tablo_core::IntoColumns<M> for tablo_core::RelationColumn<M> where Self:
 impl<M> tablo_core::detail::IntoDetail<M> for tablo_core::RelationColumn<M> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::RelationColumn<M>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M> tablo_core::extend::Column<M> for tablo_core::RelationColumn<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::RelationColumn<M>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::RelationColumn<M>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::RelationColumn<M>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::RelationColumn<M>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -2475,6 +2690,7 @@ impl<M, T> tablo_core::IntoColumns<M> for tablo_core::RepeaterColumn<M, T> where
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::RepeaterColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::RepeaterColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, T> tablo_core::extend::Column<M> for tablo_core::RepeaterColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::RepeaterItem
+pub fn tablo_core::RepeaterColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::RepeaterColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::RepeaterColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::RepeaterColumn<M, T>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -2640,7 +2856,14 @@ impl<M> core::panic::unwind_safe::UnwindSafe for tablo_core::TernaryFilter<M> wh
 pub struct tablo_core::table::TextColumn<M, T>
 impl<M, T> tablo_core::TextColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: toasty::schema::field::Field<Inner = alloc::string::String> + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::TextColumn<M, T>::searchable(self) -> Self
+impl<M, T> tablo_core::TextColumn<M, T> where M: toasty::schema::model::Model, T: tablo_core::Numeric + 'static
+pub fn tablo_core::TextColumn<M, T>::money(self, tablo_core::Currency) -> Self
+pub fn tablo_core::TextColumn<M, T>::numeric(self, u8) -> Self
 impl<M, T> tablo_core::TextColumn<M, T> where M: toasty::schema::model::Model
+pub fn tablo_core::TextColumn<M, T>::align(self, tablo_core::Alignment) -> Self
+pub fn tablo_core::TextColumn<M, T>::badge(self) -> Self
+pub fn tablo_core::TextColumn<M, T>::color(self, impl core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::TextColumn<M, T>::description(self, impl core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self
 pub fn tablo_core::TextColumn<M, T>::format(self, impl core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self
 pub fn tablo_core::TextColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::TextColumn<M, T>::new(tablo_core::Lens<M, T>) -> Self where T: tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
@@ -2654,6 +2877,7 @@ impl<M, T> tablo_core::IntoColumns<M> for tablo_core::TextColumn<M, T> where Sel
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::TextColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::TextColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, T> tablo_core::extend::Column<M> for tablo_core::TextColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::TextColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::TextColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::TextColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::TextColumn<M, T>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -2666,10 +2890,10 @@ pub fn tablo_core::TextColumn<M, T>::order_by(&self, bool) -> core::option::Opti
 pub fn tablo_core::TextColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::TextColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 impl<M, T> !core::marker::Freeze for tablo_core::TextColumn<M, T>
-impl<M, T> core::marker::Send for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Send
-impl<M, T> core::marker::Sync for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Sync
-impl<M, T> core::marker::Unpin for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Unpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Unpin
-impl<M, T> core::marker::UnsafeUnpin for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::UnsafeUnpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::UnsafeUnpin
+impl<M, T> core::marker::Send for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Send, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync)>: core::marker::Send, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>>: core::marker::Send
+impl<M, T> core::marker::Sync for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Sync, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync)>: core::marker::Sync, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>>: core::marker::Sync
+impl<M, T> core::marker::Unpin for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Unpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Unpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync)>: core::marker::Unpin, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>>: core::marker::Unpin
+impl<M, T> core::marker::UnsafeUnpin for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::UnsafeUnpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::UnsafeUnpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync)>: core::marker::UnsafeUnpin, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>>: core::marker::UnsafeUnpin
 impl<M, T> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::TextColumn<M, T>
 impl<M, T> !core::panic::unwind_safe::UnwindSafe for tablo_core::TextColumn<M, T>
 pub struct tablo_core::table::WiredTable<M>
@@ -2713,8 +2937,10 @@ impl<M, A, B, C, D> tablo_core::IntoColumns<M> for (A, B, C, D) where A: tablo_c
 impl<M, A, B, C> tablo_core::IntoColumns<M> for (A, B, C) where A: tablo_core::extend::Column<M> + 'static, B: tablo_core::extend::Column<M> + 'static, C: tablo_core::extend::Column<M> + 'static
 impl<M, A, B> tablo_core::IntoColumns<M> for (A, B) where A: tablo_core::extend::Column<M> + 'static, B: tablo_core::extend::Column<M> + 'static
 impl<M, A> tablo_core::IntoColumns<M> for (A) where A: tablo_core::extend::Column<M> + 'static
+impl<M, T> tablo_core::IntoColumns<M> for tablo_core::ColorColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::DateColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::EmbeddedColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+impl<M, T> tablo_core::IntoColumns<M> for tablo_core::ImageColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::RepeaterColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::TextColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M> tablo_core::IntoColumns<M> for &[alloc::sync::Arc<dyn tablo_core::extend::Column<M>>]
@@ -2748,6 +2974,32 @@ pub fn tablo_core::table::ModelColumns::table() -> tablo_core::table::Table<Self
 impl tablo_core::ModelColumns for tablo_core::auth::AdminUser
 pub fn tablo_core::auth::AdminUser::detail() -> tablo_core::detail::Detail<tablo_core::auth::AdminUser>
 pub fn tablo_core::auth::AdminUser::table() -> tablo_core::table::Table<tablo_core::auth::AdminUser>
+pub trait tablo_core::table::Numeric
+pub fn tablo_core::table::Numeric::number(&self) -> core::option::Option<tablo_core::Number>
+impl tablo_core::Numeric for f32
+pub fn f32::number(&self) -> core::option::Option<tablo_core::Number>
+impl tablo_core::Numeric for f64
+pub fn f64::number(&self) -> core::option::Option<tablo_core::Number>
+impl tablo_core::Numeric for i16
+pub fn i16::number(&self) -> core::option::Option<tablo_core::Number>
+impl tablo_core::Numeric for i32
+pub fn i32::number(&self) -> core::option::Option<tablo_core::Number>
+impl tablo_core::Numeric for i64
+pub fn i64::number(&self) -> core::option::Option<tablo_core::Number>
+impl tablo_core::Numeric for i8
+pub fn i8::number(&self) -> core::option::Option<tablo_core::Number>
+impl tablo_core::Numeric for u16
+pub fn u16::number(&self) -> core::option::Option<tablo_core::Number>
+impl tablo_core::Numeric for u32
+pub fn u32::number(&self) -> core::option::Option<tablo_core::Number>
+impl tablo_core::Numeric for u64
+pub fn u64::number(&self) -> core::option::Option<tablo_core::Number>
+impl tablo_core::Numeric for u8
+pub fn u8::number(&self) -> core::option::Option<tablo_core::Number>
+impl<T: tablo_core::Numeric + ?core::marker::Sized> tablo_core::Numeric for &T
+pub fn &T::number(&self) -> core::option::Option<tablo_core::Number>
+impl<T: tablo_core::Numeric> tablo_core::Numeric for core::option::Option<T>
+pub fn core::option::Option<T>::number(&self) -> core::option::Option<tablo_core::Number>
 pub trait tablo_core::table::ToOneRelation<T>: tablo_core::table::column::relation::sealed::Sealed<T>
 impl<T: toasty::schema::model::Model> tablo_core::ToOneRelation<T> for toasty::schema::deferred::Deferred<T>
 impl<T: toasty::schema::model::Model> tablo_core::ToOneRelation<T> for toasty::schema::deferred::Deferred<core::option::Option<T>>
@@ -2962,6 +3214,57 @@ impl core::marker::Unpin for tablo_core::ActionInputFault
 impl core::marker::UnsafeUnpin for tablo_core::ActionInputFault
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::ActionInputFault
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::ActionInputFault
+pub enum tablo_core::Alignment
+pub tablo_core::Alignment::Center
+pub tablo_core::Alignment::End
+pub tablo_core::Alignment::Start
+impl core::clone::Clone for tablo_core::Alignment
+pub fn tablo_core::Alignment::clone(&self) -> tablo_core::Alignment
+impl core::cmp::Eq for tablo_core::Alignment
+impl core::cmp::PartialEq for tablo_core::Alignment
+pub fn tablo_core::Alignment::eq(&self, &tablo_core::Alignment) -> bool
+impl core::default::Default for tablo_core::Alignment
+pub fn tablo_core::Alignment::default() -> tablo_core::Alignment
+impl core::fmt::Debug for tablo_core::Alignment
+pub fn tablo_core::Alignment::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for tablo_core::Alignment
+pub fn tablo_core::Alignment::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for tablo_core::Alignment
+impl core::marker::StructuralPartialEq for tablo_core::Alignment
+impl core::marker::Freeze for tablo_core::Alignment
+impl core::marker::Send for tablo_core::Alignment
+impl core::marker::Sync for tablo_core::Alignment
+impl core::marker::Unpin for tablo_core::Alignment
+impl core::marker::UnsafeUnpin for tablo_core::Alignment
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Alignment
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::Alignment
+pub enum tablo_core::Color
+pub tablo_core::Color::Danger
+pub tablo_core::Color::Gray
+pub tablo_core::Color::Info
+pub tablo_core::Color::Primary
+pub tablo_core::Color::Success
+pub tablo_core::Color::Warning
+impl core::clone::Clone for tablo_core::Color
+pub fn tablo_core::Color::clone(&self) -> tablo_core::Color
+impl core::cmp::Eq for tablo_core::Color
+impl core::cmp::PartialEq for tablo_core::Color
+pub fn tablo_core::Color::eq(&self, &tablo_core::Color) -> bool
+impl core::default::Default for tablo_core::Color
+pub fn tablo_core::Color::default() -> tablo_core::Color
+impl core::fmt::Debug for tablo_core::Color
+pub fn tablo_core::Color::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for tablo_core::Color
+pub fn tablo_core::Color::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for tablo_core::Color
+impl core::marker::StructuralPartialEq for tablo_core::Color
+impl core::marker::Freeze for tablo_core::Color
+impl core::marker::Send for tablo_core::Color
+impl core::marker::Sync for tablo_core::Color
+impl core::marker::Unpin for tablo_core::Color
+impl core::marker::UnsafeUnpin for tablo_core::Color
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Color
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::Color
 pub enum tablo_core::ColumnWidth
 pub tablo_core::ColumnWidth::Narrow
 pub tablo_core::ColumnWidth::Percent(u8)
@@ -3282,6 +3585,24 @@ impl core::marker::Unpin for tablo_core::notification::NotificationStatus
 impl core::marker::UnsafeUnpin for tablo_core::notification::NotificationStatus
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::notification::NotificationStatus
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::notification::NotificationStatus
+pub enum tablo_core::Number
+pub tablo_core::Number::Float(f64)
+pub tablo_core::Number::Int(i128)
+impl core::clone::Clone for tablo_core::Number
+pub fn tablo_core::Number::clone(&self) -> tablo_core::Number
+impl core::cmp::PartialEq for tablo_core::Number
+pub fn tablo_core::Number::eq(&self, &tablo_core::Number) -> bool
+impl core::fmt::Debug for tablo_core::Number
+pub fn tablo_core::Number::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_core::Number
+impl core::marker::StructuralPartialEq for tablo_core::Number
+impl core::marker::Freeze for tablo_core::Number
+impl core::marker::Send for tablo_core::Number
+impl core::marker::Sync for tablo_core::Number
+impl core::marker::Unpin for tablo_core::Number
+impl core::marker::UnsafeUnpin for tablo_core::Number
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Number
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::Number
 #[non_exhaustive] pub enum tablo_core::SegmentFault
 pub tablo_core::SegmentFault::Char(char)
 pub tablo_core::SegmentFault::Dot
@@ -3406,6 +3727,7 @@ impl<M> tablo_core::IntoColumns<M> for tablo_core::BooleanColumn<M> where Self: 
 impl<M> tablo_core::detail::IntoDetail<M> for tablo_core::BooleanColumn<M> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::BooleanColumn<M>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M> tablo_core::extend::Column<M> for tablo_core::BooleanColumn<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::BooleanColumn<M>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::BooleanColumn<M>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::BooleanColumn<M>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::BooleanColumn<M>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -3472,6 +3794,38 @@ impl<F> core::marker::Unpin for tablo_core::ChoiceField<F> where core::marker::P
 impl<F> core::marker::UnsafeUnpin for tablo_core::ChoiceField<F> where core::marker::PhantomData<fn() -> F>: core::marker::UnsafeUnpin
 impl<F> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::ChoiceField<F>
 impl<F> !core::panic::unwind_safe::UnwindSafe for tablo_core::ChoiceField<F>
+pub struct tablo_core::ColorColumn<M, T>
+impl<M, T> tablo_core::ColorColumn<M, T> where M: toasty::schema::model::Model
+pub fn tablo_core::ColorColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::ColorColumn<M, T>::new(tablo_core::Lens<M, T>) -> Self where T: toasty::schema::field::Field<Inner = alloc::string::String>
+pub fn tablo_core::ColorColumn<M, T>::width(self, tablo_core::ColumnWidth) -> Self
+impl<M, T> core::clone::Clone for tablo_core::ColorColumn<M, T>
+pub fn tablo_core::ColorColumn<M, T>::clone(&self) -> Self
+impl<M, T> core::fmt::Debug for tablo_core::ColorColumn<M, T>
+pub fn tablo_core::ColorColumn<M, T>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<M, T> tablo_core::IntoColumns<M> for tablo_core::ColorColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::ColorColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+pub fn tablo_core::ColorColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
+impl<M, T> tablo_core::extend::Column<M> for tablo_core::ColorColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::ColorColumn<M, T>::alignment(&self) -> tablo_core::Alignment
+pub fn tablo_core::ColorColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
+pub fn tablo_core::ColorColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
+pub fn tablo_core::ColorColumn<M, T>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
+pub fn tablo_core::ColorColumn<M, T>::includes(&self) -> tablo_core::extend::Includes<M>
+pub fn tablo_core::ColorColumn<M, T>::is_searchable(&self) -> bool
+pub fn tablo_core::ColorColumn<M, T>::is_sortable(&self) -> bool
+pub fn tablo_core::ColorColumn<M, T>::label(&self) -> &str
+pub fn tablo_core::ColorColumn<M, T>::name(&self) -> &str
+pub fn tablo_core::ColorColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::ColorColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
+pub fn tablo_core::ColorColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+impl<M, T> !core::marker::Freeze for tablo_core::ColorColumn<M, T>
+impl<M, T> core::marker::Send for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send
+impl<M, T> core::marker::Sync for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync
+impl<M, T> core::marker::Unpin for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Unpin
+impl<M, T> core::marker::UnsafeUnpin for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::marker::UnsafeUnpin
+impl<M, T> core::panic::unwind_safe::RefUnwindSafe for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::panic::unwind_safe::RefUnwindSafe
+impl<M, T> core::panic::unwind_safe::UnwindSafe for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::Committed<M>
 impl<M> tablo_core::Committed<M>
 pub fn tablo_core::Committed<M>::acted<R: tablo_core::resource::Resource<Model = M>, A: tablo_core::Action<R>>(alloc::vec::Vec<M>) -> Self
@@ -3493,6 +3847,7 @@ impl<M> core::panic::unwind_safe::RefUnwindSafe for tablo_core::Committed<M> whe
 impl<M> core::panic::unwind_safe::UnwindSafe for tablo_core::Committed<M> where alloc::vec::Vec<M>: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::ComputedColumn<M>
 impl<M> tablo_core::ComputedColumn<M> where M: toasty::schema::model::Model
+pub fn tablo_core::ComputedColumn<M>::align(self, tablo_core::Alignment) -> Self
 pub fn tablo_core::ComputedColumn<M>::include<T>(self, impl core::convert::Into<toasty::stmt::include::Include<M, T>>) -> Self
 pub fn tablo_core::ComputedColumn<M>::new(impl core::convert::Into<alloc::string::String>, impl core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self
 pub fn tablo_core::ComputedColumn<M>::width(self, tablo_core::ColumnWidth) -> Self
@@ -3504,6 +3859,7 @@ impl<M> tablo_core::IntoColumns<M> for tablo_core::ComputedColumn<M> where Self:
 impl<M> tablo_core::detail::IntoDetail<M> for tablo_core::ComputedColumn<M> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::ComputedColumn<M>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M> tablo_core::extend::Column<M> for tablo_core::ComputedColumn<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::ComputedColumn<M>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::ComputedColumn<M>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::ComputedColumn<M>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::ComputedColumn<M>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -3536,6 +3892,7 @@ impl<M> tablo_core::IntoColumns<M> for tablo_core::CountColumn<M> where Self: ta
 impl<M> tablo_core::detail::IntoDetail<M> for tablo_core::CountColumn<M> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::CountColumn<M>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M> tablo_core::extend::Column<M> for tablo_core::CountColumn<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::CountColumn<M>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::CountColumn<M>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::CountColumn<M>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::CountColumn<M>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -3554,6 +3911,33 @@ impl<M> core::marker::Unpin for tablo_core::CountColumn<M> where Declared<M>: co
 impl<M> core::marker::UnsafeUnpin for tablo_core::CountColumn<M> where Declared<M>: core::marker::UnsafeUnpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::UnsafeUnpin
 impl<M> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::CountColumn<M>
 impl<M> !core::panic::unwind_safe::UnwindSafe for tablo_core::CountColumn<M>
+pub struct tablo_core::Currency
+impl tablo_core::Currency
+pub const tablo_core::Currency::EUR: Self
+pub const tablo_core::Currency::GBP: Self
+pub const tablo_core::Currency::JPY: Self
+pub const tablo_core::Currency::USD: Self
+pub const fn tablo_core::Currency::decimals(self, u8) -> Self
+pub fn tablo_core::Currency::format(&self, impl tablo_core::Numeric) -> alloc::string::String
+pub const fn tablo_core::Currency::minor_units(self) -> Self
+pub const fn tablo_core::Currency::new(&'static str) -> Self
+pub const fn tablo_core::Currency::symbol_after(self) -> Self
+impl core::clone::Clone for tablo_core::Currency
+pub fn tablo_core::Currency::clone(&self) -> tablo_core::Currency
+impl core::cmp::Eq for tablo_core::Currency
+impl core::cmp::PartialEq for tablo_core::Currency
+pub fn tablo_core::Currency::eq(&self, &tablo_core::Currency) -> bool
+impl core::fmt::Debug for tablo_core::Currency
+pub fn tablo_core::Currency::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_core::Currency
+impl core::marker::StructuralPartialEq for tablo_core::Currency
+impl core::marker::Freeze for tablo_core::Currency
+impl core::marker::Send for tablo_core::Currency
+impl core::marker::Sync for tablo_core::Currency
+impl core::marker::Unpin for tablo_core::Currency
+impl core::marker::UnsafeUnpin for tablo_core::Currency
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Currency
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::Currency
 pub struct tablo_core::CustomField<F>(_, _)
 impl<F> tablo_core::CustomField<F>
 pub fn tablo_core::CustomField<F>::choice(self) -> tablo_core::ChoiceField<F>
@@ -3594,6 +3978,7 @@ impl<M, T> tablo_core::IntoColumns<M> for tablo_core::DateColumn<M, T> where Sel
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::DateColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::DateColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, T> tablo_core::extend::Column<M> for tablo_core::DateColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::DateValue
+pub fn tablo_core::DateColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::DateColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::DateColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::DateColumn<M, T>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -3731,6 +4116,7 @@ impl<M, T> tablo_core::IntoColumns<M> for tablo_core::EmbeddedColumn<M, T> where
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::EmbeddedColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::EmbeddedColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, T> tablo_core::extend::Column<M> for tablo_core::EmbeddedColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::EmbeddedForm + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::EmbeddedColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::EmbeddedColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::EmbeddedColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::EmbeddedColumn<M, T>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -3855,6 +4241,7 @@ impl<M> tablo_core::IntoColumns<M> for tablo_core::FileColumn<M> where Self: tab
 impl<M> tablo_core::detail::IntoDetail<M> for tablo_core::FileColumn<M> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::FileColumn<M>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M> tablo_core::extend::Column<M> for tablo_core::FileColumn<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::FileColumn<M>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::FileColumn<M>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::FileColumn<M>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::FileColumn<M>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -4048,6 +4435,40 @@ impl core::marker::Unpin for tablo_core::HeaderActions
 impl core::marker::UnsafeUnpin for tablo_core::HeaderActions
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::HeaderActions
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::HeaderActions
+pub struct tablo_core::ImageColumn<M, T>
+impl<M, T> tablo_core::ImageColumn<M, T> where M: toasty::schema::model::Model
+pub fn tablo_core::ImageColumn<M, T>::circular(self) -> Self
+pub fn tablo_core::ImageColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::ImageColumn<M, T>::new(tablo_core::Lens<M, T>) -> Self where T: toasty::schema::field::Field<Inner = alloc::string::String>
+pub fn tablo_core::ImageColumn<M, T>::size(self, u16) -> Self
+pub fn tablo_core::ImageColumn<M, T>::width(self, tablo_core::ColumnWidth) -> Self
+impl<M, T> core::clone::Clone for tablo_core::ImageColumn<M, T>
+pub fn tablo_core::ImageColumn<M, T>::clone(&self) -> Self
+impl<M, T> core::fmt::Debug for tablo_core::ImageColumn<M, T>
+pub fn tablo_core::ImageColumn<M, T>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<M, T> tablo_core::IntoColumns<M> for tablo_core::ImageColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::ImageColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+pub fn tablo_core::ImageColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
+impl<M, T> tablo_core::extend::Column<M> for tablo_core::ImageColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::ImageColumn<M, T>::alignment(&self) -> tablo_core::Alignment
+pub fn tablo_core::ImageColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
+pub fn tablo_core::ImageColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
+pub fn tablo_core::ImageColumn<M, T>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
+pub fn tablo_core::ImageColumn<M, T>::includes(&self) -> tablo_core::extend::Includes<M>
+pub fn tablo_core::ImageColumn<M, T>::is_searchable(&self) -> bool
+pub fn tablo_core::ImageColumn<M, T>::is_sortable(&self) -> bool
+pub fn tablo_core::ImageColumn<M, T>::label(&self) -> &str
+pub fn tablo_core::ImageColumn<M, T>::name(&self) -> &str
+pub fn tablo_core::ImageColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::ImageColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
+pub fn tablo_core::ImageColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+impl<M, T> !core::marker::Freeze for tablo_core::ImageColumn<M, T>
+impl<M, T> core::marker::Send for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send
+impl<M, T> core::marker::Sync for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync
+impl<M, T> core::marker::Unpin for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Unpin
+impl<M, T> core::marker::UnsafeUnpin for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::marker::UnsafeUnpin
+impl<M, T> core::panic::unwind_safe::RefUnwindSafe for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::panic::unwind_safe::RefUnwindSafe
+impl<M, T> core::panic::unwind_safe::UnwindSafe for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::Lens<M, T, P>
 impl<M, T, P> tablo_core::Lens<M, T, P>
 pub fn tablo_core::Lens<M, T, P>::path(&self) -> &toasty::stmt::path::Path<M, P>
@@ -4412,6 +4833,7 @@ impl<M> tablo_core::IntoColumns<M> for tablo_core::RelationColumn<M> where Self:
 impl<M> tablo_core::detail::IntoDetail<M> for tablo_core::RelationColumn<M> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::RelationColumn<M>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M> tablo_core::extend::Column<M> for tablo_core::RelationColumn<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::RelationColumn<M>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::RelationColumn<M>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::RelationColumn<M>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::RelationColumn<M>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -4458,6 +4880,7 @@ impl<M, T> tablo_core::IntoColumns<M> for tablo_core::RepeaterColumn<M, T> where
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::RepeaterColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::RepeaterColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, T> tablo_core::extend::Column<M> for tablo_core::RepeaterColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::RepeaterItem
+pub fn tablo_core::RepeaterColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::RepeaterColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::RepeaterColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::RepeaterColumn<M, T>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -4856,7 +5279,14 @@ impl<M> core::panic::unwind_safe::UnwindSafe for tablo_core::TernaryFilter<M> wh
 pub struct tablo_core::TextColumn<M, T>
 impl<M, T> tablo_core::TextColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: toasty::schema::field::Field<Inner = alloc::string::String> + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::TextColumn<M, T>::searchable(self) -> Self
+impl<M, T> tablo_core::TextColumn<M, T> where M: toasty::schema::model::Model, T: tablo_core::Numeric + 'static
+pub fn tablo_core::TextColumn<M, T>::money(self, tablo_core::Currency) -> Self
+pub fn tablo_core::TextColumn<M, T>::numeric(self, u8) -> Self
 impl<M, T> tablo_core::TextColumn<M, T> where M: toasty::schema::model::Model
+pub fn tablo_core::TextColumn<M, T>::align(self, tablo_core::Alignment) -> Self
+pub fn tablo_core::TextColumn<M, T>::badge(self) -> Self
+pub fn tablo_core::TextColumn<M, T>::color(self, impl core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::TextColumn<M, T>::description(self, impl core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self
 pub fn tablo_core::TextColumn<M, T>::format(self, impl core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self
 pub fn tablo_core::TextColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::TextColumn<M, T>::new(tablo_core::Lens<M, T>) -> Self where T: tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
@@ -4870,6 +5300,7 @@ impl<M, T> tablo_core::IntoColumns<M> for tablo_core::TextColumn<M, T> where Sel
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::TextColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::TextColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, T> tablo_core::extend::Column<M> for tablo_core::TextColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::TextColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::TextColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::TextColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
 pub fn tablo_core::TextColumn<M, T>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -4882,10 +5313,10 @@ pub fn tablo_core::TextColumn<M, T>::order_by(&self, bool) -> core::option::Opti
 pub fn tablo_core::TextColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::TextColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 impl<M, T> !core::marker::Freeze for tablo_core::TextColumn<M, T>
-impl<M, T> core::marker::Send for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Send
-impl<M, T> core::marker::Sync for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Sync
-impl<M, T> core::marker::Unpin for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Unpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Unpin
-impl<M, T> core::marker::UnsafeUnpin for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::UnsafeUnpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::UnsafeUnpin
+impl<M, T> core::marker::Send for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Send, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync)>: core::marker::Send, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>>: core::marker::Send
+impl<M, T> core::marker::Sync for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Sync, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync)>: core::marker::Sync, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>>: core::marker::Sync
+impl<M, T> core::marker::Unpin for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Unpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Unpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync)>: core::marker::Unpin, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>>: core::marker::Unpin
+impl<M, T> core::marker::UnsafeUnpin for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::UnsafeUnpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::UnsafeUnpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync)>: core::marker::UnsafeUnpin, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>>: core::marker::UnsafeUnpin
 impl<M, T> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::TextColumn<M, T>
 impl<M, T> !core::panic::unwind_safe::UnwindSafe for tablo_core::TextColumn<M, T>
 pub struct tablo_core::TextField<F>(_, _)
@@ -5000,6 +5431,7 @@ impl<K> tablo_core::ForeignKey<K> for core::option::Option<K> where core::option
 pub trait tablo_core::FormScalar: core::marker::Sized
 pub const tablo_core::FormScalar::INPUT_TYPE: &'static str
 pub const tablo_core::FormScalar::STEP: core::option::Option<&'static str>
+pub fn tablo_core::FormScalar::color(&self) -> core::option::Option<tablo_core::Color>
 pub fn tablo_core::FormScalar::input_value(&str) -> alloc::string::String
 pub fn tablo_core::FormScalar::parse_form(&str) -> core::result::Result<Self, alloc::string::String>
 pub fn tablo_core::FormScalar::to_form(&self) -> alloc::string::String
@@ -5007,6 +5439,7 @@ pub fn tablo_core::FormScalar::to_label(&self) -> alloc::string::String
 impl tablo_core::form::FormScalar for alloc::string::String
 pub const alloc::string::String::INPUT_TYPE: &'static str
 pub const alloc::string::String::STEP: core::option::Option<&'static str>
+pub fn alloc::string::String::color(&self) -> core::option::Option<tablo_core::Color>
 pub fn alloc::string::String::input_value(&str) -> alloc::string::String
 pub fn alloc::string::String::parse_form(&str) -> core::result::Result<Self, alloc::string::String>
 pub fn alloc::string::String::to_form(&self) -> alloc::string::String
@@ -5014,6 +5447,7 @@ pub fn alloc::string::String::to_label(&self) -> alloc::string::String
 impl tablo_core::form::FormScalar for core::option::Option<alloc::string::String>
 pub const core::option::Option<alloc::string::String>::INPUT_TYPE: &'static str
 pub const core::option::Option<alloc::string::String>::STEP: core::option::Option<&'static str>
+pub fn core::option::Option<alloc::string::String>::color(&self) -> core::option::Option<tablo_core::Color>
 pub fn core::option::Option<alloc::string::String>::input_value(&str) -> alloc::string::String
 pub fn core::option::Option<alloc::string::String>::parse_form(&str) -> core::result::Result<Self, alloc::string::String>
 pub fn core::option::Option<alloc::string::String>::to_form(&self) -> alloc::string::String
@@ -5021,6 +5455,7 @@ pub fn core::option::Option<alloc::string::String>::to_label(&self) -> alloc::st
 impl<T: NullableScalar> tablo_core::form::FormScalar for core::option::Option<T>
 pub const core::option::Option<T>::INPUT_TYPE: &'static str
 pub const core::option::Option<T>::STEP: core::option::Option<&'static str>
+pub fn core::option::Option<T>::color(&self) -> core::option::Option<tablo_core::Color>
 pub fn core::option::Option<T>::input_value(&str) -> alloc::string::String
 pub fn core::option::Option<T>::parse_form(&str) -> core::result::Result<Self, alloc::string::String>
 pub fn core::option::Option<T>::to_form(&self) -> alloc::string::String
@@ -5028,6 +5463,7 @@ pub fn core::option::Option<T>::to_label(&self) -> alloc::string::String
 impl<T: tablo_core::extend::TypedValue> tablo_core::form::FormScalar for T
 pub const T::INPUT_TYPE: &'static str
 pub const T::STEP: core::option::Option<&'static str>
+pub fn T::color(&self) -> core::option::Option<tablo_core::Color>
 pub fn T::input_value(&str) -> alloc::string::String
 pub fn T::parse_form(&str) -> core::result::Result<T, alloc::string::String>
 pub fn T::to_form(&self) -> alloc::string::String
@@ -5054,8 +5490,10 @@ impl<M, A, B, C, D> tablo_core::IntoColumns<M> for (A, B, C, D) where A: tablo_c
 impl<M, A, B, C> tablo_core::IntoColumns<M> for (A, B, C) where A: tablo_core::extend::Column<M> + 'static, B: tablo_core::extend::Column<M> + 'static, C: tablo_core::extend::Column<M> + 'static
 impl<M, A, B> tablo_core::IntoColumns<M> for (A, B) where A: tablo_core::extend::Column<M> + 'static, B: tablo_core::extend::Column<M> + 'static
 impl<M, A> tablo_core::IntoColumns<M> for (A) where A: tablo_core::extend::Column<M> + 'static
+impl<M, T> tablo_core::IntoColumns<M> for tablo_core::ColorColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::DateColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::EmbeddedColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+impl<M, T> tablo_core::IntoColumns<M> for tablo_core::ImageColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::RepeaterColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::TextColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M> tablo_core::IntoColumns<M> for &[alloc::sync::Arc<dyn tablo_core::extend::Column<M>>]
@@ -5092,10 +5530,14 @@ impl<M, A, B> tablo_core::detail::IntoDetail<M> for (A, B) where A: tablo_core::
 pub fn (A, B)::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, A> tablo_core::detail::IntoDetail<M> for (A) where A: tablo_core::detail::IntoDetail<M>
 pub fn (A)::into_detail(self) -> tablo_core::detail::Detail<M>
+impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::ColorColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+pub fn tablo_core::ColorColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::DateColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::DateColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::EmbeddedColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::EmbeddedColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
+impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::ImageColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+pub fn tablo_core::ImageColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::RepeaterColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::RepeaterColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::TextColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
@@ -5225,6 +5667,32 @@ pub fn tablo_core::ModelColumns::table() -> tablo_core::table::Table<Self>
 impl tablo_core::ModelColumns for tablo_core::auth::AdminUser
 pub fn tablo_core::auth::AdminUser::detail() -> tablo_core::detail::Detail<tablo_core::auth::AdminUser>
 pub fn tablo_core::auth::AdminUser::table() -> tablo_core::table::Table<tablo_core::auth::AdminUser>
+pub trait tablo_core::Numeric
+pub fn tablo_core::Numeric::number(&self) -> core::option::Option<tablo_core::Number>
+impl tablo_core::Numeric for f32
+pub fn f32::number(&self) -> core::option::Option<tablo_core::Number>
+impl tablo_core::Numeric for f64
+pub fn f64::number(&self) -> core::option::Option<tablo_core::Number>
+impl tablo_core::Numeric for i16
+pub fn i16::number(&self) -> core::option::Option<tablo_core::Number>
+impl tablo_core::Numeric for i32
+pub fn i32::number(&self) -> core::option::Option<tablo_core::Number>
+impl tablo_core::Numeric for i64
+pub fn i64::number(&self) -> core::option::Option<tablo_core::Number>
+impl tablo_core::Numeric for i8
+pub fn i8::number(&self) -> core::option::Option<tablo_core::Number>
+impl tablo_core::Numeric for u16
+pub fn u16::number(&self) -> core::option::Option<tablo_core::Number>
+impl tablo_core::Numeric for u32
+pub fn u32::number(&self) -> core::option::Option<tablo_core::Number>
+impl tablo_core::Numeric for u64
+pub fn u64::number(&self) -> core::option::Option<tablo_core::Number>
+impl tablo_core::Numeric for u8
+pub fn u8::number(&self) -> core::option::Option<tablo_core::Number>
+impl<T: tablo_core::Numeric + ?core::marker::Sized> tablo_core::Numeric for &T
+pub fn &T::number(&self) -> core::option::Option<tablo_core::Number>
+impl<T: tablo_core::Numeric> tablo_core::Numeric for core::option::Option<T>
+pub fn core::option::Option<T>::number(&self) -> core::option::Option<tablo_core::Number>
 pub trait tablo_core::Options
 pub fn tablo_core::Options::label_of(&str) -> alloc::string::String
 pub fn tablo_core::Options::options() -> alloc::vec::Vec<(alloc::string::String, alloc::string::String)>

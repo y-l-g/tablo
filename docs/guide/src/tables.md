@@ -49,7 +49,7 @@ foreign key `Relation::has_many` takes.
 
 | Constructor | Cell | Search and sort |
 | --- | --- | --- |
-| `TextColumn::new(lens)` | the field's value as text (an `Options` enum's label), or `.format(\|value\| ..)` of it | `.searchable()` on a `String` field, `.sortable()` |
+| `TextColumn::new(lens)` | the field's value as text (an `Options` enum's label), or `.format(\|value\| ..)` of it; see [Presenting values](#presenting-values) | `.searchable()` on a `String` field, `.sortable()` |
 | `DateColumn::new(lens)` | a `jiff::civil::Date`, `civil::DateTime` or `Timestamp` field's calendar day, `Oct 14, 2026` (a timestamp in UTC); a dash when the field holds none | `.sortable()` |
 | `ComputedColumn::new(label, project)` | `project(row)` | neither: the methods do not exist |
 | `RelationColumn::of::<R>(relation!(..))` | a `Deferred` `belongs_to` or `has_one` field's record, titled as `R` titles it: a resource's `record_title`; a dash for a nullable field holding none | neither |
@@ -58,6 +58,8 @@ foreign key `Relation::has_many` takes.
 | `CountColumn::new(relation!(..))` | the number of a `Deferred` `has_many` field's records | neither |
 | `BooleanColumn::new(lens)` | a circled check or circled cross for a `bool` field; the export writes `Yes`/`No` (`.labels(..)`) | `.sortable()` |
 | `FileColumn::new(lens)` | a `String` field's stored upload path, as a link when it is a rooted path or an `http(s)` URL | neither |
+| `ImageColumn::new(lens)` | the same path as a 40px thumbnail (`.size(px)`, `.circular()`) | neither |
+| `ColorColumn::new(lens)` | a `String` field's CSS color as a swatch beside its value; a value that is no hex color or color function shows as text | neither |
 | `EmbeddedColumn::new(lens)` | an embedded value's fields as `Label: value, …`; an enum's variant first, then that variant's fields | neither |
 
 ```rust
@@ -96,6 +98,34 @@ Two columns with the same name, two filters with the same name, a select filter 
 type does not parse, a table with no columns, and a zero page size are misdeclarations: mounting
 the panel refuses the resource, and rendering the table fails with the same errors.
 
+### Presenting values
+
+A `TextColumn` presents its value beyond plain text:
+
+| Method | Cell |
+| --- | --- |
+| `.badge()` | an outline badge, led by a dot in the value's color |
+| `.color(\|value\| Some(Color::Success))` | the value's color: the badge's dot, or the text when there is no badge |
+| `.description(\|row\| ..)` | a muted second line under the value; search, sort and export read the value alone |
+| `.numeric(decimals)` | `12,345.60`, right-aligned with equal-width digits, on any integer or float field |
+| `.money(Currency::USD)` | `$1,234.50`, the same way; `Currency::EUR`, `GBP`, `JPY`, or `Currency::new("CHF").symbol_after()`, and `.minor_units()` for a field holding cents |
+| `.align(Alignment::End)` | the header and cells at the end; a `ComputedColumn` takes it too |
+
+An `Options` enum gives each variant its badge color with `#[option(color = "…")]`, one of
+`gray`, `primary`, `success`, `warning`, `danger` and `info`. Each paints with a
+[theme token](./panel-and-routing.md#theme-tokens), so a theme recolors every badge at once:
+
+```rust
+{{#include ../../../examples/guide/src/models.rs:post-status-options}}
+```
+
+```rust
+{{#include ../../../examples/guide/src/tables.rs:table-presenting}}
+```
+
+The export writes the formatted value: `$1,234.50`, not `123450`. Money uses `,` and `.` as
+separators; a locale's own spelling is a `.format(..)`.
+
 ### Your own columns
 
 A column is anything that implements `Column<M>`, from `tablo::extend`. The built-in columns
@@ -106,8 +136,9 @@ implement it and nothing more, so a column of your own reaches as far as theirs:
 ```
 
 Only `name`, `label` and `text` are required. The other methods default to a column that is
-narrow, not searchable, not sortable and reads no relation: override `column_width`,
-`is_searchable` and `search_expr`, `is_sortable` and `order_by`, or `includes` to change that. Put
+narrow, start-aligned, not searchable, not sortable and reads no relation: override
+`column_width`, `alignment`, `is_searchable` and `search_expr`, `is_sortable` and `order_by`, or
+`includes` to change that. Put
 the column in the tuple next to the built-in ones, or append it with `Table::column(..)`, which
 also takes columns past the tuple's twelve.
 
