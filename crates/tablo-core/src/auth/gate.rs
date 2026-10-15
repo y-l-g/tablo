@@ -5,20 +5,27 @@ use std::sync::Arc;
 
 use topcoat::{
     context::Cx,
+    icon::icon,
     router::{
         Body, Layer, LayerFuture, Next, Path, PathBuf,
         error::{forbidden, redirect, unauthorized},
         request::{method, uri},
+        response::{IntoResponse, Response},
     },
+    view::{ViewExt, attributes, view},
 };
 
 use super::{
     login::{login_url, logout_url},
+    page::{AuthPage, render},
+    page_load,
     registration::{offered, register_url},
     session::{resolve, session_row, session_user},
     unauthenticated_error,
 };
 use crate::panel::{
+    Panel,
+    error_page::answer,
     route_path,
     state::{CurrentPanel, PanelState, panels},
 };
@@ -48,7 +55,10 @@ impl Layer for PanelGate {
         Box::pin(async move {
             let cx = cx.with(CurrentPanel(Arc::clone(&self.panel)));
             let Some(authenticator) = self.panel.auth.authenticator() else {
-                return next.run(&cx, body).await;
+                return next
+                    .run(&cx, body)
+                    .await
+                    .map_err(|error| answer(&cx, error));
             };
             // The login page, and the sign-up page when the panel offers one,
             // must answer while logged out. Only the methods their routes
@@ -85,10 +95,15 @@ impl Layer for PanelGate {
                 uri(&cx).path() == logout_url(&cx) && matches!(*method(&cx), http::Method::POST);
             match resolve(&cx, &self.panel, authenticator).await? {
                 Some(signed) if signed.user.can_access_panel() || logout_route => {
-                    next.run(&cx.with(signed), body).await
+                    let cx = cx.with(signed);
+                    next.run(&cx, body)
+                        .await
+                        .map_err(|error| answer(&cx, error))
                 }
-                // Authenticated but not permitted: 403. The logout route
-                // is answered above.
+                // Authenticated but not permitted: 403, on a page that lets them sign out
+                // rather than inside a shell they may not see. The logout route is answered
+                // above.
+                Some(_) if page_load(&cx) => no_access(&cx).await,
                 Some(_) => Err(forbidden().into()),
                 // Pages redirect to the login route with a validated `next`;
                 // runtime endpoints, non-GET requests, and page re-runs
@@ -97,6 +112,38 @@ impl Layer for PanelGate {
             }
         })
     }
+}
+
+/// The page a signed-in user the panel refuses loads: a 403 saying so, with Sign out.
+async fn no_access(cx: &Cx) -> topcoat::Result<Response> {
+    let csrf = crate::csrf::ensure_token(cx);
+    let logout = logout_url(cx);
+    let form = view! {
+        cx =>
+        <form method="post" action=(logout)>
+            (crate::csrf::field(cx, &csrf))
+            tablo_ui::button(
+                variant: tablo_ui::ButtonVariant::Outline,
+                attrs: attributes! { type="submit" class="w-full" },
+                icon(data: tablo_ui::icons::LOG_OUT)
+                "Sign out"
+            )
+        </form>
+    }
+    .boxed();
+    let page = render(
+        cx,
+        AuthPage {
+            title: "Access denied",
+            description: format!("Your account cannot open {}.", Panel::brand_name(cx)),
+            status: Some(http::StatusCode::FORBIDDEN),
+            form,
+            switch: None,
+            note: None,
+        },
+    )
+    .await?;
+    page.single().await?.into_response(cx)
 }
 
 /// Guards Topcoat's runtime endpoints shared by all panels.

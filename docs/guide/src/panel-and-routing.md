@@ -58,6 +58,9 @@ The panel also serves:
   `Auth::registration` installs a registrar.
 - `POST /admin/{page}/-/actions/{action}` for a page's [header actions](./actions.md#header-actions),
   and `/admin/-/actions/{action}` for the home page's.
+- Every other path under `/admin`, with any method, as a 404 behind the
+  [gate](./policy-auth-tenancy.md#what-a-request-gets): a visitor signs in before learning a path
+  serves nothing. Your app's own routes under the prefix still take precedence.
 
 ## Builder reference
 
@@ -141,6 +144,10 @@ second layout there would nest a second document inside the first.
   as a sheet instead.
 - **The topbar** holds the sidebar's toggle and a trail to the page: the sidebar entry the page is
   under, then `Create`, `View` or `Edit` on a resource's pages, the entry linking back to its list.
+- **Error pages.** A page load that fails with 404, 403 or 500 shows the failure inside the shell,
+  with the trail ending in it and a link home, under the browser's URL and with the error's
+  status. A request with another method, such as a form POST, keeps the bare status. A
+  signed-in user the panel refuses outright sees a standalone 403 page with Sign out instead.
 - **The user menu,** in the sidebar's footer, shows the signed-in user's initials, their
   `display_name` and the `subtitle` their `PanelUser` returns, such as an email. It opens the
   theme choice, the entries `Panel::user_menu_item` adds, and Sign out.

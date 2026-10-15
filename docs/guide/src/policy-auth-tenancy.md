@@ -130,7 +130,7 @@ Toasty and create a user with `auth::create_admin`, which stores the password's 
 
 | Request | Signed in with panel access | Signed in without panel access | Not signed in |
 | --- | --- | --- | --- |
-| `GET` of a panel page | the page | 403 | redirect to `/admin/login?next=…` |
+| `GET` of a panel page | the page, or its [error page](./panel-and-routing.md#the-shell-layout) | 403 page with Sign out | redirect to `/admin/login?next=…` |
 | any other panel request | handled | 403 | 401 |
 | `/_topcoat/runtime` | handled | 403 | 401 |
 

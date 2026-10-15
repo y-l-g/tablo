@@ -455,20 +455,27 @@ pub fn guard(cx: &Cx) -> topcoat::Result<()> {
 
 /// The error an unauthenticated request answers with, by request kind.
 fn unauthenticated_error(cx: &Cx) -> topcoat::Error {
-    let path = uri(cx).path();
+    if page_load(cx) {
+        redirect(login::login_url_with_next(cx)).into()
+    } else {
+        unauthorized().into()
+    }
+}
+
+/// Whether the request loads a page: a `GET` or `HEAD` outside Topcoat's runtime path that is not
+/// a page re-run.
+pub(crate) fn page_load(cx: &Cx) -> bool {
     let page_method = matches!(*method(cx), http::Method::GET | http::Method::HEAD);
     // A page re-run reaches the gate as a rewritten GET: Topcoat's runtime
     // layer rewrites the browser's marked POST into a GET for the page's own
-    // URL. The original request tells it apart from a plain page load, so a
-    // logged-out re-run answers 401 like any other non-page request instead
-    // of redirecting into the login page.
+    // URL. The original request tells it apart from a plain page load.
     let rerun = !matches!(*original_method(cx), http::Method::GET | http::Method::HEAD)
         && original_headers(cx).get(&topcoat::runtime::RUNTIME_HEADER) == Some(&RERUN_MARKER);
-    if path.starts_with(crate::topcoat_compat::RUNTIME_PREFIX) || !page_method || rerun {
-        unauthorized().into()
-    } else {
-        redirect(login::login_url_with_next(cx)).into()
-    }
+    page_method
+        && !rerun
+        && !uri(cx)
+            .path()
+            .starts_with(crate::topcoat_compat::RUNTIME_PREFIX)
 }
 
 /// The panel root: where a completed login or tenant switch lands.

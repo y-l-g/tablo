@@ -235,3 +235,87 @@ async fn the_trail_links_the_list_from_a_record_page() {
         "the trail ends on the edit page, got {trail}"
     );
 }
+
+/// A page that fails to load shows the failure inside the shell, under its own URL and status:
+/// the sidebar, the user menu, a trail ending in the failure, and a way home.
+#[tokio::test]
+async fn a_failed_page_shows_the_failure_inside_the_shell() {
+    let db = seeded_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let mut db_q = db.clone();
+    let ken = showcase::models::User::filter(
+        showcase::models::User::fields()
+            .name()
+            .eq("Ken Thompson".to_string()),
+    )
+    .first()
+    .exec(&mut db_q)
+    .await
+    .unwrap()
+    .expect("Ken seed");
+
+    for (path, status, entry, failure) in [
+        (
+            "/admin/unknown".to_string(),
+            404,
+            "/admin",
+            "Page not found",
+        ),
+        (
+            format!("/admin/posts/{}", uuid::Uuid::new_v4()),
+            404,
+            "/admin/posts",
+            "Page not found",
+        ),
+        (
+            format!("/admin/users/{}/edit", ken.id),
+            403,
+            "/admin/users",
+            "Access denied",
+        ),
+    ] {
+        let response = client.get(&path).await;
+        assert_eq!(response.status(), status, "{path}");
+        let html = body_string(response).await;
+        assert!(
+            html.contains(&format!("data-panel-error=\"{status}\"")),
+            "{path}: the error page, got {html}"
+        );
+        assert!(
+            html.contains("data-sidebar=\"sidebar\"") && html.contains("data-user-menu"),
+            "{path}: the shell around it, got {html}"
+        );
+        let trail = &html[html.find("aria-label=\"breadcrumb\"").expect("a trail")..];
+        assert!(
+            find_href_with(trail, entry).is_some() && trail.contains(failure),
+            "{path}: the trail links {entry} and names the failure, got {trail}"
+        );
+    }
+}
+
+/// Only a page load shows the error page: an anonymous visitor signs in first, and a request no
+/// browser shows keeps the bare status.
+#[tokio::test]
+async fn only_a_signed_in_page_load_shows_the_error_page() {
+    let db = seeded_db().await;
+    let router = router(db.clone());
+
+    let response = TestClient::new(&router).get("/admin/unknown").await;
+    assert_eq!(
+        response.status(),
+        http::StatusCode::TEMPORARY_REDIRECT,
+        "an unknown path signs the visitor in before it answers"
+    );
+
+    let client = demo_client(&router, &db).await;
+    let response = client
+        .post_form("/admin/unknown", "confirm=1".to_string())
+        .await;
+    assert_eq!(response.status(), 404, "a POST to an unknown path is a 404");
+    let body = body_string(response).await;
+    assert!(
+        !body.contains("data-panel-error"),
+        "a POST keeps the bare 404, got {body}"
+    );
+}

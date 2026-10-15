@@ -69,3 +69,27 @@ fn an_unknown_path_has_no_trail() {
         "`/admin` holds only `/admin` and the paths under it"
     );
 }
+
+/// A failed page links the entry it is under, then names the failure.
+#[test]
+fn a_failed_page_names_the_failure_under_its_entry() {
+    assert_eq!(
+        labels(&failed(&nav(), "/admin/posts/7", "Page not found")),
+        [
+            ("Blog Posts", Some("/admin/posts")),
+            ("Page not found", None)
+        ]
+    );
+    assert_eq!(
+        labels(&failed(&nav(), "/admin/posts", "Access denied")),
+        [
+            ("Blog Posts", Some("/admin/posts")),
+            ("Access denied", None)
+        ],
+        "the entry links even from its own path"
+    );
+    assert_eq!(
+        labels(&failed(&nav(), "/elsewhere", "Page not found")),
+        [("Page not found", None)]
+    );
+}

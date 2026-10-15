@@ -10,15 +10,15 @@ use topcoat::{
     context::Cx,
     cookie::RouterBuilderCookieExt,
     router::{
-        Body, LayoutFn, Path, RouteFn, RouteFuture, RouterBuilder, RouterBuilderDirectoryExt,
-        error::redirect,
+        Body, LayoutFn, Methods, PageFn, Path, RouteFn, RouteFuture, RouterBuilder,
+        RouterBuilderDirectoryExt, error::redirect,
     },
     runtime::{PrefetchMode, RouterBuilderRuntimeExt, RuntimeSetup},
     session::{RouterBuilderSessionExt, SessionConfig},
 };
 
 use super::{
-    Panel, Root,
+    Panel, Root, error_page,
     forms::MAX_FORM_BYTES,
     headers,
     register::Registry,
@@ -317,6 +317,19 @@ impl Panel {
             prefix_path.clone(),
             layout.unwrap_or(Panel::layout_shell),
         ));
+        // A failed page load shows the error page inside the shell, and a path no route serves
+        // reaches the gate to fail there.
+        builder = builder
+            .page(PageFn::new(
+                http::Method::GET,
+                route_path(&format!("{prefix}/{}", error_page::ERROR_SEGMENT)),
+                error_page::error_page,
+            ))
+            .route(RouteFn::new(
+                Methods::Any,
+                route_path(&format!("{prefix}/{{*rest}}")),
+                error_page::unmatched,
+            ));
         for (path, dir) in served_dirs {
             builder = builder
                 .layer(headers::ServedFileHeaders::new(&path))

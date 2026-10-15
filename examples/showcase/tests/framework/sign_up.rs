@@ -116,7 +116,7 @@ async fn password_auth_refuses_a_taken_email() {
 }
 
 /// Without `Auth::registration`, the panel serves no sign-up route and the login page links to
-/// none.
+/// none: the path is gated like any other the panel does not serve.
 #[tokio::test]
 async fn a_panel_without_registration_serves_no_sign_up() {
     let db = db().await;
@@ -124,11 +124,11 @@ async fn a_panel_without_registration_serves_no_sign_up() {
     let client = tablo::testing::TestClient::new(&router);
 
     let page = client.get("/admin/register").await;
-    assert_eq!(page.status(), 404);
+    assert_eq!(page.status(), 307, "the visitor signs in first");
     let login = body_string(client.get("/admin/login").await).await;
     assert!(!login.contains("/admin/register"), "{login}");
     let response = submit(&router, &sign_up("ada@example.com")).await;
-    assert_eq!(response.status(), 404);
+    assert_eq!(response.status(), 401);
     assert!(admins(&db).await.is_empty());
 }
 
