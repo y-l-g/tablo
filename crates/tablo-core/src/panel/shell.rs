@@ -413,9 +413,18 @@ impl Panel {
         let navigation =
             Self::sidebar_navigation(cx, nav_items, current_path, mobile_open.clone()).await?;
         let sidebar_brand = Self::render_brand(cx).await?;
+        let resource_lists: Vec<&str> = current(cx)
+            .map(|panel| {
+                panel
+                    .nav_items
+                    .iter()
+                    .filter_map(|entry| entry.resource_list.as_deref())
+                    .collect()
+            })
+            .unwrap_or_default();
         let trail = match super::error_page::current_error(cx) {
             Some(error) => breadcrumbs::failed(nav_items, current_path, error.title()),
-            None => breadcrumbs::trail(nav_items, current_path),
+            None => breadcrumbs::trail(nav_items, &resource_lists, current_path),
         };
         let crumbs = breadcrumbs::render(cx, trail);
         // The user and tenant menus, present only with a session (ADR-0013). `ensure_token` runs
@@ -437,7 +446,8 @@ impl Panel {
                     Self::tenant_menu(cx, signed.user.tenants(), &csrf),
                 )
             }
-            None => (().boxed(), ().boxed()),
+            // Without a session the footer still offers the theme.
+            None => (Self::theme_menu(cx), ().boxed()),
         };
         let notification_view: BoxView<'_> = match take_notification(cx) {
             Some(notification) => {

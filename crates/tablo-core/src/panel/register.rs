@@ -256,11 +256,12 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
         };
         register_routes::<R>(registry, &url, routes);
         if registry.root.is_none() {
-            registry.root = Some(Root::Redirect(url));
+            registry.root = Some(Root::Redirect(url.clone()));
         }
         registry.nav_items.push(NavEntry {
             item: mounted.navigation.clone(),
             visible: Arc::new(|cx| crate::can::<R>(cx, Ability::ViewAny)),
+            resource_list: Some(url),
         });
         registry.children.insert(
             TypeId::of::<R>(),
@@ -453,6 +454,7 @@ impl<P: Page> Registration for PageRegistration<P> {
         let item = NavEntry {
             item: page.navigation.clone().resolved(&url),
             visible: page.access(),
+            resource_list: None,
         };
         registry.mounted_pages.insert(TypeId::of::<P>(), page);
         if home {
