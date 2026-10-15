@@ -69,6 +69,9 @@ toolchains. Run `check --all` before merging.
   `examples/quickstart`. Bump them in both manifests and the lockfile together with
   `cargo update -p topcoat -p toasty`; never run a blanket `cargo update`. To edit against a
   local checkout, add an uncommitted `[patch]` pointing at `../topcoat` or `../toasty`.
+- A committed `[patch]` to an upstream git revision is a stopgap until that upstream releases.
+  CI's `no dependency patch` job fails a release PR while one stands, since `cargo publish`
+  ignores it. A project depending on Tablo by path or git needs the same `[patch]`.
 - Read an upstream API from the version `Cargo.lock` pins, in the cargo registry cache, not from
   memory or the upstream branch tip.
 - Use the words `CONTEXT.md` defines, in code, issues and commits.
