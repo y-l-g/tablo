@@ -4,6 +4,7 @@ mod actions;
 mod bar;
 mod build;
 mod detail;
+pub(crate) mod error_page;
 mod forms;
 pub(crate) mod gate;
 mod headers;

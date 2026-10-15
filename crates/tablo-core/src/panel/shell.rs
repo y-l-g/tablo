@@ -413,7 +413,11 @@ impl Panel {
         let navigation =
             Self::sidebar_navigation(cx, nav_items, current_path, mobile_open.clone()).await?;
         let sidebar_brand = Self::render_brand(cx).await?;
-        let crumbs = breadcrumbs::render(cx, breadcrumbs::trail(nav_items, current_path));
+        let trail = match super::error_page::current_error(cx) {
+            Some(error) => breadcrumbs::failed(nav_items, current_path, error.title()),
+            None => breadcrumbs::trail(nav_items, current_path),
+        };
+        let crumbs = breadcrumbs::render(cx, trail);
         // The user and tenant menus, present only with a session (ADR-0013). `ensure_token` runs
         // before any streaming starts so their forms always carry a matching CSRF pair.
         let (user_menu, tenant_menu): (BoxView<'_>, BoxView<'_>) = match crate::auth::signed(cx) {
@@ -583,8 +587,10 @@ impl Panel {
     }
 
     async fn render_layout_shell<'a>(cx: &'a Cx, slot: Slot<'a>) -> Result<BoxView<'a>> {
-        use topcoat::router::request::uri;
-        let path = uri(cx).path().to_string();
+        // The browser's URL, not a rewrite's: the error page names where the visitor is.
+        let path = topcoat::router::request::original_uri(cx)
+            .path()
+            .to_string();
         // The panel's sidebar, or a single Home entry outside any panel.
         let nav_items = current(cx)
             .map(|panel| {

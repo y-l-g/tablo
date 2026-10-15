@@ -62,7 +62,9 @@ What Tablo does by default, and what your deployment must provide for those defa
   malformed `x-topcoat-identity` header, and the 500 for a panic.
 - **Redirects.** Return `Err(redirect(..))` (307) from a `GET` and `Err(see_other(..))` (303) after
   a write, so a reload does not repeat it. A redirect raised after streaming started becomes a
-  `window.location.replace`. Wrap a layout's `Slot` in `error_boundary` for a branded error page.
+  `window.location.replace`. A failed page load shows the panel's
+  [error page](./panel-and-routing.md#the-shell-layout); wrap part of a page in `error_boundary`
+  to show a fallback in its place instead.
 - **Notifications** are one-time flash cookies set on the redirect after a write and consumed by
   the next page, so a reload does not show them again.
 

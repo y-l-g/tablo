@@ -299,6 +299,13 @@ async fn revoked_panel_access_can_still_log_out() {
     )
     .await;
     assert_eq!(response.status(), 403, "pages deny the de-permitted user");
+    let html = body_string(response).await;
+    assert!(
+        html.contains("Access denied")
+            && html.contains("action=\"/admin/logout\"")
+            && !html.contains("data-sidebar"),
+        "the page says so and offers Sign out, outside the shell: {html}"
+    );
 
     // Logout still answers.
     let logout_csrf = Uuid::new_v4().to_string();

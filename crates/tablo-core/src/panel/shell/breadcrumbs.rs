@@ -41,12 +41,7 @@ impl Crumb {
 /// adds `View`, and `/admin/posts/7/edit` adds `Edit`. A deeper path under a record links the
 /// record's `View`, then names its last segment.
 pub(super) fn trail(nav_items: &[NavigationItem], current_path: &str) -> Vec<Crumb> {
-    let Some((item, path)) = nav_items
-        .iter()
-        .filter(|item| item.is_current_path(current_path))
-        .filter_map(|item| Some((item, item.path()?)))
-        .max_by_key(|(_, path)| path.len())
-    else {
+    let Some((item, path)) = entry(nav_items, current_path) else {
         return Vec::new();
     };
     let rest: Vec<&str> = current_path[path.len()..]
@@ -66,6 +61,29 @@ pub(super) fn trail(nav_items: &[NavigationItem], current_path: &str) -> Vec<Cru
             Crumb::here(humanize(last)),
         ],
     }
+}
+
+/// The trail to a page that failed at `current_path`: the sidebar entry it is under, then
+/// `label`, the failure.
+pub(super) fn failed(nav_items: &[NavigationItem], current_path: &str, label: &str) -> Vec<Crumb> {
+    let mut crumbs: Vec<Crumb> = entry(nav_items, current_path)
+        .map(|(item, path)| Crumb::link(item.label.clone(), path))
+        .into_iter()
+        .collect();
+    crumbs.push(Crumb::here(label));
+    crumbs
+}
+
+/// The sidebar entry `current_path` is under, the longest whose path holds it, with its path.
+fn entry<'a>(
+    nav_items: &'a [NavigationItem],
+    current_path: &str,
+) -> Option<(&'a NavigationItem, &'a str)> {
+    nav_items
+        .iter()
+        .filter(|item| item.is_current_path(current_path))
+        .filter_map(|item| Some((item, item.path()?)))
+        .max_by_key(|(_, path)| path.len())
 }
 
 /// A path segment as a label: `audit-log` reads `Audit log`.
