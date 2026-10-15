@@ -85,14 +85,14 @@ An include loads related rows through Toasty alone: the related resource's `quer
 not apply, so a relation column shows a record that resource hides, and a `CountColumn` counts it.
 A `CountColumn` counts the loaded list, so it loads every related record of the page's rows.
 
-- **Widths.** The table uses a fixed layout: a column's width is what it declares, not the width of
-  its widest cell, so paging and filtering never shift the columns. A field or `RelationColumn`
-  takes the space left over, never less than six rem or its header; a computed or count column
-  defaults to a narrow share of the table (10%, scaled down when many columns claim one). Override
-  with `.width(ColumnWidth::Percent(30))`, `Rem(8)`, `Narrow` or `Wide`. A `Rem` length is a
-  minimum the table shares its leftover over in proportion. A cell wider than its column is
-  truncated with an ellipsis. On a narrow screen the table keeps a minimum width and scrolls
-  horizontally instead of narrowing its columns.
+- **Widths.** The table lays out automatically: a column is as wide as its content, on one line.
+  A text, field or `RelationColumn` grows: it caps its value at 20rem, truncating past that, and
+  the first growing column takes the width left over. The selection checkbox and the row actions
+  shrink to their controls. Override with `.width(ColumnWidth::Auto)` for content width,
+  `Wrap` to wrap a long value over several lines, or `Rem(8)` for an exact width. A table wider
+  than its card scrolls sideways.
+- **Rows.** A row opens its record's view page, or its edit page when it has no view page,
+  wherever it is clicked; the checkbox and the action buttons keep their own click.
 
 Two columns with the same name, two filters with the same name, a select filter option its field's
 type does not parse, a table with no columns, and a zero page size are misdeclarations: mounting

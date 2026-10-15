@@ -97,7 +97,7 @@ fn a_date_column_spells_the_day_of_every_date_type() {
     assert_eq!(text(&TextColumn::new(lens!(Event.day))), "2026-10-14");
     assert_eq!(
         Column::column_width(&DateColumn::new(lens!(Event.day))),
-        ColumnWidth::Narrow
+        ColumnWidth::Auto
     );
 }
 

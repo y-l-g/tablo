@@ -9,9 +9,8 @@ use super::{
     Frame, TABLE_CARD_CLASS,
     filterbar::FilterViews,
     pager::PagerInput,
-    rows::{RowChrome, RowView, render_rows, selectable_keys},
+    rows::{CellLayout, RowChrome, RowView, render_rows, selectable_keys},
     table_dom_id,
-    widths::ColumnWidths,
 };
 use crate::table::{
     page::TablePage,
@@ -138,12 +137,6 @@ impl Frame<'_> {
         let write_form = self.render_write_form(cx, state, signals);
         let input_dialogs = self.render_input_dialogs(cx, state, signals);
 
-        let ColumnWidths {
-            cells: cell_widths,
-            actions,
-            table_min_width,
-            ..
-        } = self.column_widths();
         let mut pager_views: Vec<BoxView<'_>> = Vec::new();
         let body: BoxView<'_> = if row_data.is_empty() {
             let empty_cell = self
@@ -151,11 +144,13 @@ impl Frame<'_> {
                 .await?;
             view! {
                 cx =>
-                table(
-                    attrs: attributes! { class="table-fixed" style=(table_min_width.as_deref()) },
-                    (head)
-                    (empty_cell)
-                )
+                // Alone in a box, the registry table draws no border: the bars beside it draw theirs.
+                <div>
+                    table(
+                        (head)
+                        (empty_cell)
+                    )
+                </div>
             }
             .boxed()
         } else {
@@ -166,33 +161,32 @@ impl Frame<'_> {
                 header_colspan: self.columns.len()
                     + usize::from(with_bulk)
                     + usize::from(with_actions),
-                cell_widths,
-                cell_classes: self
+                cells: self
                     .columns
                     .iter()
-                    .map(|col| {
-                        format!("truncate {}", col.alignment.class())
-                            .trim_end()
-                            .to_string()
+                    .map(|col| CellLayout {
+                        class: Some(col.alignment.class()).filter(|class| !class.is_empty()),
+                        style: col.width.style(),
+                        content: col.width.content_class(),
                     })
                     .collect(),
-                actions,
                 signals: signals.clone(),
                 form: table_dom_id(state, "writes"),
             };
             let rows = render_rows(cx, row_data, &chrome);
             view! {
                 cx =>
-                table(
-                    attrs: attributes! { class="table-fixed" style=(table_min_width.as_deref()) },
-                    (head)
-                    table_body(
-                        #[key(row.key.as_str())]
-                        for row in rows {
-                            (row.view)
-                        }
+                <div>
+                    table(
+                        (head)
+                        table_body(
+                            #[key(row.key.as_str())]
+                            for row in rows {
+                                (row.view)
+                            }
+                        )
                     )
-                )
+                </div>
             }
             .boxed()
         };

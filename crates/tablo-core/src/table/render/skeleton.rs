@@ -27,7 +27,6 @@ impl Frame<'_> {
         let head = self
             .render_thead(cx, state, "", with_actions, with_bulk, None)
             .await?;
-        let table_min_width = self.column_widths().table_min_width;
         let column_count = self.columns.len();
         let search_pulse = self.search;
         let filter_pulse = self.filter_bar;
@@ -53,38 +52,40 @@ impl Frame<'_> {
                     <div class="animate-pulse rounded-md bg-foreground/10 h-9 w-96"></div>
                 </div>
             }
-            table(
-                attrs: attributes! { class="table-fixed" style=(table_min_width.as_deref()) },
-                (head)
-                table_body(
-                    #[key(i)]
-                    for i in 0..3 {
-                        table_row(
-                            if with_bulk {
-                                table_cell(
-                                    <div
-                                        class="animate-pulse rounded-md bg-foreground/10 h-4 w-4"
-                                    ></div>
-                                )
-                            }
-                            for _ in 0..column_count {
-                                table_cell(
-                                    <div
-                                        class="animate-pulse rounded-md bg-foreground/10 h-4 w-full"
-                                    ></div>
-                                )
-                            }
-                            if with_actions {
-                                table_cell(
-                                    <div
-                                        class="animate-pulse rounded-md bg-foreground/10 h-4 w-12"
-                                    ></div>
-                                )
-                            }
-                        )
-                    }
+            // Alone in a box, the registry table draws no border: the bars beside it draw theirs.
+            <div>
+                table(
+                    (head)
+                    table_body(
+                        #[key(i)]
+                        for i in 0..3 {
+                            table_row(
+                                if with_bulk {
+                                    table_cell(
+                                        <div
+                                            class="animate-pulse rounded-md bg-foreground/10 h-4 w-4"
+                                        ></div>
+                                    )
+                                }
+                                for _ in 0..column_count {
+                                    table_cell(
+                                        <div
+                                            class="animate-pulse rounded-md bg-foreground/10 h-4 w-full"
+                                        ></div>
+                                    )
+                                }
+                                if with_actions {
+                                    table_cell(
+                                        <div
+                                            class="animate-pulse rounded-md bg-foreground/10 h-4 w-12"
+                                        ></div>
+                                    )
+                                }
+                            )
+                        }
+                    )
                 )
-            )
+            </div>
             <div class="border-t border-border p-3" aria-hidden="true">
                 <div class="animate-pulse rounded-md bg-foreground/10 h-9 w-40"></div>
             </div>

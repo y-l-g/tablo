@@ -44,7 +44,7 @@ where
     /// Bind the column to the embedded value `lens` reads.
     pub fn new(lens: Lens<M, T>) -> Self {
         Self {
-            base: ColumnBase::new(lens.path(), ColumnWidth::Wide),
+            base: ColumnBase::new(lens.path(), ColumnWidth::Grow),
             lens,
             schema: Arc::default(),
         }

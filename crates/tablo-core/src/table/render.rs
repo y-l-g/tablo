@@ -9,7 +9,7 @@
 //!
 //! The entry points and the table chrome live in `core`, the header row in
 //! `head`, row projection and rendering in `rows`, the zero-rows cell in
-//! `empty`, column widths in `widths`, the search and bulk bars in `toolbar`,
+//! `empty`, the search and bulk bars in `toolbar`,
 //! the filter bar in `filterbar`, pagination in `pager`, the confirmation
 //! dialogs in `dialog`, and the streamed placeholder in `skeleton`.
 
@@ -22,7 +22,6 @@ mod pager;
 mod rows;
 mod skeleton;
 mod toolbar;
-mod widths;
 
 use topcoat::{
     context::Cx,
@@ -53,7 +52,7 @@ pub(super) struct Frame<'t> {
     bulk_actions: Vec<BulkAction<'t>>,
     /// The custom actions asking for input, each rendering its dialog.
     inputs: Vec<InputAction<'t>>,
-    /// The labels of the custom actions each row may show, which size the actions column.
+    /// The labels of the custom actions each row may show.
     row_actions: Vec<&'t str>,
     return_to: Option<&'t str>,
 }
@@ -143,6 +142,22 @@ impl<M> WiredTable<M> {
 }
 
 impl Frame<'_> {
+    /// Whether the table renders a row-actions column.
+    fn with_actions(&self) -> bool {
+        self.delete_prefix.is_some()
+            || self.edit_prefix.is_some()
+            || self.view_prefix.is_some()
+            || !self.row_actions.is_empty()
+    }
+
+    /// The column that takes the table's spare width: the first that
+    /// [`Grow`](ColumnWidth::Grow)s.
+    fn slack_column(&self) -> Option<usize> {
+        self.columns
+            .iter()
+            .position(|col| col.width == ColumnWidth::Grow)
+    }
+
     /// Whether the table offers bulk selection.
     fn bulk_enabled(&self) -> bool {
         self.bulk_delete || !self.bulk_actions.is_empty()
@@ -156,6 +171,10 @@ impl Frame<'_> {
         }
     }
 }
+
+/// The chrome columns, bulk selection and row actions: as narrow as their controls, which never
+/// wrap.
+const CHROME_CELL_CLASS: &str = "w-px whitespace-nowrap";
 
 /// A toolbar row above the table: the search-and-bulk row and the filter bar.
 const BAR_CLASS: StaticClass =

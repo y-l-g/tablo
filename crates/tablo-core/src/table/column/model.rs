@@ -41,7 +41,8 @@ pub mod pick {
     };
 
     use crate::{
-        BooleanColumn, Detail, EmbeddedColumn, Lens, RepeaterColumn, Table, TextColumn,
+        BooleanColumn, DateColumn, DateValue, Detail, EmbeddedColumn, Lens, RepeaterColumn, Table,
+        TextColumn,
         form::FormScalar,
         schema::{EmbeddedForm, RepeaterItem},
     };
@@ -51,6 +52,27 @@ pub mod pick {
 
     /// The type a field of type `T` names its path by: `T`, except `List<T>` for a `Vec<T>`.
     pub type PathOf<T> = <T as Field>::ExprTarget;
+
+    /// A [`DateValue`]: a sortable calendar day in the table, the stored value on the detail page,
+    /// which keeps a timestamp's time.
+    pub trait PickDate<M> {
+        fn table(&self, table: Table<M>) -> Table<M>;
+        fn detail(&self, detail: Detail<M>) -> Detail<M>;
+    }
+
+    impl<M, T> PickDate<M> for &&&&&&ModelField<M, T>
+    where
+        M: Model + Send + Sync + 'static,
+        T: DateValue + FormScalar,
+    {
+        fn table(&self, table: Table<M>) -> Table<M> {
+            table.column(DateColumn::new(self.0.clone()).sortable())
+        }
+
+        fn detail(&self, detail: Detail<M>) -> Detail<M> {
+            detail.column(TextColumn::new(self.0.clone()))
+        }
+    }
 
     /// A `bool`: a sortable yes or no.
     pub trait PickToggle<M> {
