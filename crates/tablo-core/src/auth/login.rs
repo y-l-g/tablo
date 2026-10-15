@@ -264,7 +264,6 @@ async fn render_login_page<'a>(
 ) -> topcoat::Result<BoxView<'a>> {
     let csrf = crate::csrf::ensure_token(cx);
     let action = login_url(cx);
-    let brand = Panel::render_brand(cx).await?;
     let hint = current(cx).and_then(|panel| panel.login_hint.clone());
     let sign_up = super::registration::offered(cx)
         .then(|| super::registration::with_next(super::registration::register_url(cx), &next));
@@ -273,96 +272,82 @@ async fn render_login_page<'a>(
     let notice = (error.is_none() && *topcoat::router::request::method(cx) == http::Method::GET)
         .then(|| crate::notification::take_notification(cx))
         .flatten();
-    let body = topcoat::view::view! {
+    let form = topcoat::view::view! {
         cx =>
-        <div class="flex min-h-svh items-center justify-center bg-muted p-6">
-            <div
-                class="flex w-full max-w-sm flex-col gap-6 rounded-xl border border-border bg-card p-6 text-card-foreground shadow-sm"
-            >
-                if let Some(error) = error {
-                    (error.status())
-                }
-                <div class="flex flex-col items-center gap-2">
-                    (brand)
-                    <h1 class="text-lg font-semibold text-foreground">"Sign in"</h1>
-                </div>
-                <form method="post" action=(action) class="flex flex-col gap-4">
-                    (crate::csrf::field(cx, &csrf))
-                    <input type="hidden" name=(NEXT_FIELD) value=(next)>
-                    if let Some(error) = error {
-                        tablo_ui::alert(
-                            variant: tablo_ui::AlertVariant::Destructive,
-                            attrs: topcoat::view::attributes! { role="alert" },
-                            tablo_ui::alert_title((error.message()))
-                        )
+        <form method="post" action=(action) class="flex flex-col gap-5">
+            (crate::csrf::field(cx, &csrf))
+            <input type="hidden" name=(NEXT_FIELD) value=(next)>
+            if let Some(error) = error {
+                tablo_ui::alert(
+                    variant: tablo_ui::AlertVariant::Destructive,
+                    attrs: topcoat::view::attributes! { role="alert" },
+                    tablo_ui::alert_title((error.message()))
+                )
+            }
+            if let Some(notice) = notice {
+                tablo_ui::alert(
+                    variant: match notice.status {
+                        crate::NotificationStatus::Error => tablo_ui::AlertVariant::Destructive,
+                        _ => tablo_ui::AlertVariant::Neutral,
+                    },
+                    attrs: topcoat::view::attributes! { role="status" },
+                    tablo_ui::alert_title((notice.title))
+                    if let Some(description) = notice.description {
+                        tablo_ui::alert_description((description))
                     }
-                    if let Some(notice) = notice {
-                        tablo_ui::alert(
-                            variant: match notice.status {
-                                crate::NotificationStatus::Error => tablo_ui::AlertVariant::Destructive,
-                                _ => tablo_ui::AlertVariant::Neutral,
-                            },
-                            attrs: topcoat::view::attributes! { role="status" },
-                            tablo_ui::alert_title((notice.title))
-                            if let Some(description) = notice.description {
-                                tablo_ui::alert_description((description))
-                            }
-                        )
+                )
+            }
+            tablo_ui::field(
+                tablo_ui::field_label(
+                    attrs: topcoat::view::attributes! { for="email" },
+                    "Email or username"
+                )
+                tablo_ui::input(
+                    attrs: topcoat::view::attributes! {
+                        id="email"
+                        name=(LOGIN_FIELD)
+                        type="text"
+                        required=""
+                        autocomplete="username"
+                        autofocus=""
                     }
-                    tablo_ui::field(
-                        tablo_ui::field_label(
-                            attrs: topcoat::view::attributes! { for="email" },
-                            "Email or username"
-                        )
-                        tablo_ui::input(
-                            attrs: topcoat::view::attributes! {
-                                id="email"
-                                name=(LOGIN_FIELD)
-                                type="text"
-                                required=""
-                                autocomplete="username"
-                                autofocus=""
-                            }
-                        )
-                    )
-                    tablo_ui::field(
-                        tablo_ui::field_label(
-                            attrs: topcoat::view::attributes! { for="password" },
-                            "Password"
-                        )
-                        tablo_ui::input(
-                            attrs: topcoat::view::attributes! {
-                                id="password"
-                                name=(PASSWORD_FIELD)
-                                type="password"
-                                required=""
-                                autocomplete="current-password"
-                            }
-                        )
-                    )
-                    tablo_ui::button(
-                        variant: tablo_ui::ButtonVariant::Primary,
-                        attrs: topcoat::view::attributes! { type="submit" class="w-full" },
-                        "Sign in"
-                    )
-                </form>
-                if let Some(sign_up) = sign_up {
-                    <p class="text-center text-sm text-muted-foreground">
-                        "Don't have an account? "
-                        <a
-                            (crate::navigation::runtime_link(cx, &sign_up))
-                            class="font-medium text-foreground underline underline-offset-4"
-                        >
-                            "Sign up"
-                        </a>
-                    </p>
-                }
-                if let Some(hint) = hint {
-                    <p class="text-center text-xs text-muted-foreground">(hint)</p>
-                }
-            </div>
-        </div>
+                )
+            )
+            tablo_ui::field(
+                tablo_ui::field_label(
+                    attrs: topcoat::view::attributes! { for="password" },
+                    "Password"
+                )
+                tablo_ui::input(
+                    attrs: topcoat::view::attributes! {
+                        id="password"
+                        name=(PASSWORD_FIELD)
+                        type="password"
+                        required=""
+                        autocomplete="current-password"
+                    }
+                )
+            )
+            tablo_ui::button(
+                variant: tablo_ui::ButtonVariant::Primary,
+                attrs: topcoat::view::attributes! { type="submit" class="w-full" },
+                "Sign in"
+            )
+        </form>
     }
     .boxed();
-    Panel::render_document(cx, "Sign in".to_string(), body).await
+    super::page::render(
+        cx,
+        super::page::AuthPage {
+            title: "Sign in",
+            description: format!("Welcome back. Sign in to {}.", Panel::brand_name(cx)),
+            status: error.map(|error| error.status()),
+            form,
+            switch: sign_up.map(|href| {
+                super::page::switch_link(cx, "Don't have an account?", &href, "Sign up")
+            }),
+            note: hint,
+        },
+    )
+    .await
 }

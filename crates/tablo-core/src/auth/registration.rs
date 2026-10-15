@@ -501,54 +501,45 @@ async fn render_page<'a>(
     let csrf = crate::csrf::ensure_token(cx);
     let action = register_url(cx);
     let login = with_next(login_url(cx), &next);
-    let brand = Panel::render_brand(cx).await?;
     let fields = schema.render(cx, Source::form(values, errors)).await?;
-    let body = topcoat::view::view! {
+    let form = topcoat::view::view! {
         cx =>
-        <div class="flex min-h-svh items-center justify-center bg-muted p-6">
-            <div
-                class="flex w-full max-w-sm flex-col gap-6 rounded-xl border border-border bg-card p-6 text-card-foreground shadow-sm"
-            >
-                if let Some(status) = status {
-                    (status)
-                }
-                <div class="flex flex-col items-center gap-2">
-                    (brand)
-                    <h1 class="text-lg font-semibold text-foreground">
-                        "Create an account"
-                    </h1>
-                </div>
-                <form method="post" action=(action) class="flex flex-col gap-4">
-                    (crate::csrf::field(cx, &csrf))
-                    <input type="hidden" name=(NEXT_FIELD) value=(next)>
-                    if let Some(alert) = alert {
-                        tablo_ui::alert(
-                            variant: tablo_ui::AlertVariant::Destructive,
-                            attrs: topcoat::view::attributes! { role="alert" },
-                            tablo_ui::alert_title((alert.message()))
-                        )
-                    }
-                    (fields)
-                    tablo_ui::button(
-                        variant: tablo_ui::ButtonVariant::Primary,
-                        attrs: topcoat::view::attributes! { type="submit" class="w-full" },
-                        "Sign up"
-                    )
-                </form>
-                <p class="text-center text-sm text-muted-foreground">
-                    "Already have an account? "
-                    <a
-                        (crate::navigation::runtime_link(cx, &login))
-                        class="font-medium text-foreground underline underline-offset-4"
-                    >
-                        "Sign in"
-                    </a>
-                </p>
-            </div>
-        </div>
+        <form method="post" action=(action) class="flex flex-col gap-5">
+            (crate::csrf::field(cx, &csrf))
+            <input type="hidden" name=(NEXT_FIELD) value=(next)>
+            if let Some(alert) = alert {
+                tablo_ui::alert(
+                    variant: tablo_ui::AlertVariant::Destructive,
+                    attrs: topcoat::view::attributes! { role="alert" },
+                    tablo_ui::alert_title((alert.message()))
+                )
+            }
+            (fields)
+            tablo_ui::button(
+                variant: tablo_ui::ButtonVariant::Primary,
+                attrs: topcoat::view::attributes! { type="submit" class="w-full" },
+                "Sign up"
+            )
+        </form>
     }
     .boxed();
-    Panel::render_document(cx, "Sign up".to_string(), body).await
+    super::page::render(
+        cx,
+        super::page::AuthPage {
+            title: "Create an account",
+            description: format!("Sign up for {}.", Panel::brand_name(cx)),
+            status,
+            form,
+            switch: Some(super::page::switch_link(
+                cx,
+                "Already have an account?",
+                &login,
+                "Sign in",
+            )),
+            note: None,
+        },
+    )
+    .await
 }
 
 #[cfg(test)]
