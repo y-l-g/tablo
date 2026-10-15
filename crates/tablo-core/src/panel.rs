@@ -120,6 +120,8 @@ pub struct Panel {
     /// App-owned filesystem directories served with hardening headers.
     served_dirs: Vec<(String, PathBuf)>,
     login_hint: Option<String>,
+    /// The app's entries in the user menu, above Sign out.
+    user_menu: Vec<crate::NavigationItem>,
     auth: crate::auth::Auth,
 }
 
@@ -145,6 +147,7 @@ impl Panel {
             uploads: None,
             served_dirs: Vec::new(),
             login_hint: None,
+            user_menu: Vec::new(),
             auth: crate::auth::Auth::default(),
         }
     }
@@ -305,6 +308,14 @@ impl Panel {
     /// panel that signed them in.
     pub fn auth(mut self, auth: crate::auth::Auth) -> Self {
         self.auth = auth;
+        self
+    }
+
+    /// Adds `item` to the user menu in the sidebar's footer, above Sign out: a profile or a
+    /// settings page. The item names its URL with
+    /// [`NavigationItem::at`](crate::NavigationItem::at).
+    pub fn user_menu_item(mut self, item: crate::NavigationItem) -> Self {
+        self.user_menu.push(item);
         self
     }
 

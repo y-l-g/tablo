@@ -85,8 +85,14 @@ pub trait PanelUser: Any + Send + Sync {
     /// [`Authenticator::find_by_id`] receives. Any string fits.
     fn user_id(&self) -> String;
 
-    /// The name the panel's top bar shows.
+    /// The name the user menu shows.
     fn display_name(&self) -> &str;
+
+    /// The muted line under the name in the user menu, such as an email or a role. Defaults to
+    /// none.
+    fn subtitle(&self) -> Option<&str> {
+        None
+    }
 
     /// Whether the user may enter the panel. A user who may not answers 403,
     /// indistinguishable from bad credentials at login. Defaults to `true`.

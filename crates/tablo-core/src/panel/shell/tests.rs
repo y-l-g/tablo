@@ -49,7 +49,7 @@ async fn shell_escapes_brand_name_and_logo() {
 }
 
 #[tokio::test]
-async fn shell_dark_mode_sets_html_class_and_toggle() {
+async fn shell_dark_mode_sets_html_class() {
     fn cx_with(dark: Option<bool>) -> Cx {
         use topcoat::context::CxTestBuilder;
         let (parts, ()) = http::Request::builder()
@@ -81,8 +81,8 @@ async fn shell_dark_mode_sets_html_class_and_toggle() {
         "a dark panel must set the html class, got {html}"
     );
     assert!(
-        html.contains("data-theme-toggle"),
-        "theme toggle must render, got {html}"
+        html.contains("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"),
+        "a phone lays the shell out at its own width, got {html}"
     );
     // The server renders the theme, so no script decides it before paint.
     assert!(
@@ -150,6 +150,20 @@ async fn theme_cookie_overrides_the_dark_mode_default() {
     );
     assert_eq!(
         html_tag(false, "theme=light; tablo_theme=dark").await,
+        "<html class=\"dark\">"
+    );
+    // Under `system`, the scheme the theme script mirrors decides, and the default stands in
+    // until it has.
+    assert_eq!(
+        html_tag(false, "tablo_theme=system; tablo_scheme=dark").await,
+        "<html class=\"dark\">"
+    );
+    assert_eq!(
+        html_tag(true, "tablo_theme=system; tablo_scheme=light").await,
+        "<html>"
+    );
+    assert_eq!(
+        html_tag(true, "tablo_theme=system").await,
         "<html class=\"dark\">"
     );
 }
@@ -232,8 +246,7 @@ async fn collapsed_sidebar_cookie_seeds_the_signal() {
         .html(&cx)
         .await;
     assert!(
-        html.contains("data-state=\"collapsed\"")
-            && html.contains("data-collapsible=\"offcanvas\""),
+        html.contains("data-state=\"collapsed\"") && html.contains("data-collapsible=\"icon\""),
         "collapsed cookie must seed the collapsed state in {html}"
     );
 }

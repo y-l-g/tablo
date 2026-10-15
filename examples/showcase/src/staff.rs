@@ -61,6 +61,10 @@ impl PanelUser for SignedStaff {
         &self.staff.display_name
     }
 
+    fn subtitle(&self) -> Option<&str> {
+        Some(&self.staff.email)
+    }
+
     fn can_access_panel(&self) -> bool {
         self.staff.active
     }

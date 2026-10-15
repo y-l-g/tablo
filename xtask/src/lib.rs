@@ -14,7 +14,9 @@ use topcoat_ui::{Component, Dependency, Registry};
 pub const VENDORED_PRIMITIVES: &[&str] = &[
     "alert",
     "alert_dialog",
+    "avatar",
     "badge",
+    "breadcrumb",
     "button",
     "card",
     "checkbox",
@@ -493,8 +495,13 @@ pub const ASSET_HOOKS: &[AssetHook] = &[
     },
     AssetHook {
         asset: "theme.js",
-        js: "data-theme-toggle",
-        rust: "data-theme-toggle",
+        js: "data-theme-set",
+        rust: "data-theme-set",
+    },
+    AssetHook {
+        asset: "theme.js",
+        js: "tablo_scheme",
+        rust: "tablo_scheme",
     },
     AssetHook {
         asset: "theme.js",

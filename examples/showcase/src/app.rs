@@ -5,9 +5,10 @@ use std::path::PathBuf;
 use tablo::{
     Ability, Action, ActionLayout, Auth, BooleanColumn, Brand, ComputedColumn, CountColumn,
     DateFilter, Detail, DirUploader, EmbeddedColumn, FieldErrors, Grid, Group, HeaderAction,
-    ModelColumns, Pagination, Panel, PublicLink, QueryFilter, Relation, RelationColumn,
-    RepeaterColumn, Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter,
-    Table, Tenancy, TernaryFilter, TextColumn, lens, relation, scoped_query, tenant_id, when,
+    ModelColumns, NavigationItem, Pagination, Panel, PublicLink, QueryFilter, Relation,
+    RelationColumn, RepeaterColumn, Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section,
+    SelectFilter, Table, Tenancy, TernaryFilter, TextColumn, lens, relation, scoped_query,
+    tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -473,6 +474,10 @@ pub fn admin_panel() -> Panel {
         .resource::<CategoryResource>()
         .resource::<CommentResource>()
         .page::<MediaLibraryPage>()
+        // The public blog, from the user menu.
+        .user_menu_item(
+            NavigationItem::at("View the blog", "/blog").icon(tablo::ui::icons::EXTERNAL_LINK),
+        )
 }
 
 pub fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf>) -> Router {

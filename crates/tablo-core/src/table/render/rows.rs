@@ -308,11 +308,6 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxV
     .boxed()
 }
 
-/// A menu item that navigates: the registry item's look on a link.
-const MENU_LINK_CLASS: &str = "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left \
-     text-sm whitespace-nowrap outline-none hover:bg-foreground/5 focus-visible:bg-foreground/5 \
-     active:bg-foreground/10 [&_svg]:size-4 [&_svg]:shrink-0";
-
 /// The row's actions behind one button: its custom actions, View and Edit, then Delete after a
 /// separator, each only when the row's policy allows it. A row allowing none keeps an empty cell.
 fn render_action_menu<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxView<'a> {
@@ -366,7 +361,7 @@ fn render_action_menu<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> 
                     cx =>
                     <a
                         (link)
-                        class=(MENU_LINK_CLASS)
+                        class=(crate::navigation::MENU_LINK_CLASS)
                         aria-label=(label)
                         aria-describedby=(described)
                     >

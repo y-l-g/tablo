@@ -177,3 +177,61 @@ async fn error_responses_carry_frame_ancestors() {
         "the login redirect must carry the directive"
     );
 }
+
+/// The sidebar's footer holds the signed-in user's menu: their name and email, the theme choice
+/// with the current one checked, the app's own entries, and Sign out, which posts to logout.
+#[tokio::test]
+async fn the_user_menu_holds_the_theme_the_app_entries_and_sign_out() {
+    let db = seeded_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let html = body_string(client.get("/admin/users").await).await;
+
+    let footer = &html[html.find("data-user-menu").expect("the user menu")..];
+    assert!(
+        footer.contains(showcase::models::DEMO_ADMIN_EMAIL),
+        "the menu shows the user's email, got {footer}"
+    );
+    for theme in ["light", "dark", "system"] {
+        assert!(
+            footer.contains(&format!("data-theme-set=\"{theme}\"")),
+            "the menu offers the {theme} theme, got {footer}"
+        );
+    }
+    assert_eq!(
+        footer.matches("aria-checked=\"true\"").count(),
+        1,
+        "one theme is checked, got {footer}"
+    );
+    assert!(
+        find_href_with(footer, "/blog").is_some(),
+        "the app's entry links the blog, got {footer}"
+    );
+    assert!(
+        footer.contains("action=\"/admin/logout\""),
+        "Sign out posts to logout, got {footer}"
+    );
+}
+
+/// The top bar's trail names the resource and links its list from a record's pages.
+#[tokio::test]
+async fn the_trail_links_the_list_from_a_record_page() {
+    let db = seeded_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let list = body_string(client.get("/admin/users").await).await;
+    let edit = find_href_with(&list, "/edit").expect("a row's edit link");
+    let html = body_string(client.get(&edit).await).await;
+
+    let trail = &html[html.find("aria-label=\"breadcrumb\"").expect("a trail")..];
+    let trail = &trail[..trail.find("</nav>").expect("the trail's end")];
+    assert_eq!(
+        find_href_with(trail, "/admin/users").as_deref(),
+        Some("/admin/users"),
+        "the trail links the list, got {trail}"
+    );
+    assert!(
+        trail.contains("aria-current=\"page\"") && trail.contains("Edit"),
+        "the trail ends on the edit page, got {trail}"
+    );
+}

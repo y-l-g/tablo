@@ -70,6 +70,7 @@ The panel also serves:
 | `brand(Brand)` | sets the name and optional logo in the sidebar, the topbar, and above the sign-in and sign-up cards | [Branding](#branding-and-theme) |
 | `dark_mode(bool)` | sets the theme a first-time visitor sees | [Branding](#branding-and-theme) |
 | `login_hint(text)` | adds a line under the sign-in card | [Branding](#branding-and-theme) |
+| `user_menu_item(NavigationItem)` | adds an entry to the user menu, above Sign out | [The shell layout](#the-shell-layout) |
 | `auth(Auth)` | replaces or disables the built-in password login | [Policy, auth, tenancy](./policy-auth-tenancy.md#authentication) |
 | `uploads(uploader)` | sets where file fields store their bytes | [Forms](./forms.md#file-uploads) |
 | `serve_dir(path, dir)` | serves a directory of files, publicly unless the path sits under the panel prefix | [Forms](./forms.md#file-uploads) |
@@ -132,9 +133,17 @@ with `R`'s whole sidebar entry, its label, URL and icon, which suits a dashboard
 
 ## The shell layout
 
-The panel frames every page under its prefix in the shell — sidebar, topbar, theme toggle and
-notification toasts — with a layout it registers itself. Declare no `#[layout]` of your own at the
-prefix: a second layout there would nest a second document inside the first.
+The panel frames every page under its prefix in the shell — sidebar, topbar and notification
+toasts — with a layout it registers itself. Declare no `#[layout]` of your own at the prefix: a
+second layout there would nest a second document inside the first.
+
+- **The sidebar** collapses to a rail of icons, each naming its entry on hover; below `md` it opens
+  as a sheet instead.
+- **The topbar** holds the sidebar's toggle and a trail to the page: the sidebar entry the page is
+  under, then `Create`, `View` or `Edit` on a resource's pages, the entry linking back to its list.
+- **The user menu,** in the sidebar's footer, shows the signed-in user's initials, their
+  `display_name` and the `subtitle` their `PanelUser` returns, such as an email. It opens the
+  theme choice, the entries `Panel::user_menu_item` adds, and Sign out.
 
 To change the frame, pass your own layout function to `Panel::layout`. `Panel::layout_shell` is
 the shipped one, so a layout that keeps the shell calls it around its own markup; one that does not
@@ -274,9 +283,10 @@ tenant predicate. See [Data access](./data-access.md).
 - `brand` names the panel in the sidebar header, in the topbar on narrow screens, and above the
   sign-in and sign-up cards, where the logo shows 40px tall. A brand without a logo shows its
   first letter.
-- `dark_mode(true)` makes the panel start dark for a visitor who has not chosen a theme. The theme
-  toggle always renders, and a visitor's choice, light or dark, is kept in the `tablo_theme`
-  cookie and wins over this default. Without the call the panel starts light.
+- `dark_mode(true)` makes the panel start dark for a visitor who has not chosen a theme. The user
+  menu offers light, dark and the system's theme; the choice is kept in the `tablo_theme` cookie
+  and wins over this default. Under the system's theme, `tablo-ui`'s script mirrors the system's
+  scheme into `tablo_scheme` for the server to render. Without the call the panel starts light.
 - `login_hint` renders a muted line under the sign-in card, such as demo credentials.
 
 ### Theme tokens
@@ -320,7 +330,7 @@ panel the Tailwind stylesheet and the font the shell links:
 
 `shell_assets` also makes the shell load Topcoat's runtime, which drives the live tables, the
 confirmation dialogs and the variant choice, and `tablo-ui`'s scripts: searchable selects, repeater rows, and the
-sidebar and theme toggles. Mounting refuses `shell_assets` on a
+sidebar toggle and the theme choice. Mounting refuses `shell_assets` on a
 router with no asset bundle. The stylesheet comes from `tablo_build::tailwind()` in the app's `build.rs`
 ([Your first panel](./first-panel.md#the-stylesheet)).
 
