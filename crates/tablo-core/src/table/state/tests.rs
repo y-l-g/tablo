@@ -294,45 +294,53 @@ fn path_segment_encoding_keeps_uuids_and_escapes_reserved() {
 #[test]
 fn row_dom_ids_are_stable_and_html_safe() {
     assert_eq!(
-        row_dom_id("550e8400-e29b-41d4-a716-446655440000"),
-        row_dom_id("550e8400-e29b-41d4-a716-446655440000"),
+        row_dom_id("table", "550e8400-e29b-41d4-a716-446655440000"),
+        row_dom_id("table", "550e8400-e29b-41d4-a716-446655440000"),
         "ids must be stable per key"
     );
-    let uuid_id = row_dom_id("550e8400-e29b-41d4-a716-446655440000");
-    assert!(uuid_id.starts_with("row-550e8400-e29b-41d4-a716-446655440000-"));
+    let uuid_id = row_dom_id("table", "550e8400-e29b-41d4-a716-446655440000");
+    assert!(uuid_id.starts_with("row-table-550e8400-e29b-41d4-a716-446655440000-"));
     assert!(
         uuid_id.is_ascii(),
         "id stays an ASCII token, got {uuid_id:?}"
     );
     // Keys that sanitize to the same token must not collide.
-    assert_ne!(row_dom_id("Ada Lovelace"), row_dom_id("Ada-Lovelace"));
-    assert_ne!(row_dom_id("a/b?c"), row_dom_id("a-b-c"));
+    assert_ne!(
+        row_dom_id("table", "Ada Lovelace"),
+        row_dom_id("table", "Ada-Lovelace")
+    );
+    assert_ne!(row_dom_id("table", "a/b?c"), row_dom_id("table", "a-b-c"));
+    // Two tables on one page can hold one key.
+    assert_ne!(row_dom_id("authors", "7"), row_dom_id("editors", "7"));
 }
 
 #[test]
 fn group_header_dom_ids_are_stable_and_distinct_from_row_ids() {
     assert_eq!(
-        group_header_dom_id("draft"),
-        group_header_dom_id("draft"),
+        group_header_dom_id("table", "draft"),
+        group_header_dom_id("table", "draft"),
         "ids must be stable per label"
     );
-    let draft = group_header_dom_id("draft");
+    let draft = group_header_dom_id("table", "draft");
     assert!(
-        draft.starts_with("group-draft-"),
+        draft.starts_with("group-table-draft-"),
         "the id names its group, got {draft:?}"
     );
     assert!(
-        group_header_dom_id("New York").starts_with("group-New-York-"),
+        group_header_dom_id("table", "New York").starts_with("group-table-New-York-"),
         "labels sanitize to HTML-safe tokens, got {:?}",
-        group_header_dom_id("New York")
+        group_header_dom_id("table", "New York")
     );
     // Two labels sanitizing to one token must not collide, and a group id
     // is never a row id even for the same text.
     assert_ne!(
-        group_header_dom_id("New York"),
-        group_header_dom_id("New-York")
+        group_header_dom_id("table", "New York"),
+        group_header_dom_id("table", "New-York")
     );
-    assert_ne!(group_header_dom_id("draft"), row_dom_id("draft"));
+    assert_ne!(
+        group_header_dom_id("table", "draft"),
+        row_dom_id("table", "draft")
+    );
 }
 
 /// Fully populated projection source.
@@ -367,8 +375,8 @@ fn reparse(url: &str) -> TableState {
     TableState::from_query(query_of(url))
 }
 
-/// Each projection URL changes only its own part of the state; every one but the plain list URL
-/// and a new cursor returns to the first page.
+/// Each projection URL changes only its own part of the state; every one but the plain list URL,
+/// a new cursor and a write's return returns to the first page.
 #[test]
 fn each_projection_changes_only_its_own_part_of_the_state() {
     let source = populated_state();
@@ -402,6 +410,11 @@ fn each_projection_changes_only_its_own_part_of_the_state() {
             state.cursor = None;
             state.page = None;
         })
+    );
+    assert_eq!(
+        reparse(&source.without_cursor(path)),
+        expect(&|state| state.cursor = None),
+        "a write returns to the page the reader left"
     );
     assert_eq!(
         reparse(&source.sorted_by(path, "title", false)),

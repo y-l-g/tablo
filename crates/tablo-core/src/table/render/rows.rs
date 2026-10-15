@@ -34,6 +34,17 @@ pub(super) struct RowChrome {
     pub(super) form: String,
     /// Whether the row's actions sit in a menu.
     pub(super) action_menu: bool,
+    /// The table's name in its rows' DOM ids, distinct per table on the page: two tables can
+    /// hold one key, and a duplicate id would point a row's menu or description at the other
+    /// table.
+    pub(super) id_scope: String,
+}
+
+impl RowChrome {
+    /// The DOM id of the row holding `key`.
+    fn row_id(&self, key: &str) -> String {
+        row_dom_id(&self.id_scope, key)
+    }
 }
 
 /// How one column's body cells take their width and align.
@@ -82,10 +93,11 @@ pub(super) fn render_rows<'a>(
 fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxView<'a> {
     let header = row.group_header.clone().map(|header| {
         let colspan = chrome.header_colspan;
+        let id = group_header_dom_id(&chrome.id_scope, &header.label);
         view! {
             cx =>
             table_row(
-                attrs: attributes! { id=(header.dom_id) },
+                attrs: attributes! { id=(id) },
                 table_cell(
                     attrs: attributes! {
                         colspan=(colspan)
@@ -97,7 +109,7 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
         }
         .boxed()
     });
-    let dom_id = row_dom_id(&row.key);
+    let dom_id = chrome.row_id(&row.key);
     let bulk_cell = chrome.with_bulk.then(|| {
         if row.selectable {
             let described = dom_id.clone();
@@ -111,7 +123,6 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
                     <input
                         type="checkbox"
                         value=(value)
-                        class="relative z-10"
                         aria-label="Select row"
                         aria-describedby=(described)
                         :checked=$({
@@ -142,15 +153,16 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
             view! { cx => table_cell(attrs: attributes! { class=(CHROME_CELL_CLASS) }) }.boxed()
         }
     });
-    // The whole row opens its record: the first cell's link stretches over the row.
+    // The whole row opens its record: an empty link in the first cell stretches over the row, and
+    // the cells' own links and controls rise above it.
     let record_url = row.view_url.clone().or_else(|| row.edit_url.clone());
-    let row_class = record_url.is_some().then_some("relative");
+    let row_class = record_url.is_some().then_some(RECORD_ROW_CLASS);
     let cells: Vec<(BoxView<'a>, CellLayout)> = std::mem::take(&mut row.cells)
         .into_iter()
         .zip(chrome.cells.iter().cloned())
         .enumerate()
         .map(|(index, (cell, layout))| match record_url.as_deref() {
-            Some(url) if index == 0 => (record_link(cx, url, cell), layout),
+            Some(url) if index == 0 => (with_record_link(cx, url, cell), layout),
             _ => (cell, layout),
         })
         .collect();
@@ -185,20 +197,26 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
     .boxed()
 }
 
-/// `cell` inside a link to the row's record that stretches over the whole row. The View or Edit
-/// control is the keyboard's way to the record, so the link takes no tab stop.
-fn record_link<'a>(cx: &'a Cx, url: &str, cell: BoxView<'a>) -> BoxView<'a> {
+/// A row that opens its record: it positions the record link, and lifts every link and control
+/// in its cells above that link, so they keep their own clicks.
+const RECORD_ROW_CLASS: &str = "relative [&_:is(a,button,input,select,textarea,label,summary):not([data-record-link])]:relative [&_:is(a,button,input,select,textarea,label,summary):not([data-record-link])]:z-10";
+
+/// `cell` after an empty link to the row's record that stretches over the whole row. The link
+/// wraps no cell, so a cell's own link never nests in it. The View or Edit control is the
+/// keyboard's and the screen reader's way to the record, so the link takes no tab stop and stays
+/// out of the tree.
+fn with_record_link<'a>(cx: &'a Cx, url: &str, cell: BoxView<'a>) -> BoxView<'a> {
     let link = crate::navigation::runtime_link(cx, url);
     view! {
         cx =>
         <a
             (link)
-            class="after:absolute after:inset-0"
+            class="absolute inset-0"
             tabindex="-1"
+            aria-hidden="true"
             data-record-link=""
-        >
-            (cell)
-        </a>
+        ></a>
+        (cell)
     }
     .boxed()
 }
@@ -214,7 +232,7 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxV
     let link_class = button_variants(ButtonVariant::Ghost, ButtonSize::Icon);
     let edit_class = link_class.clone();
     let delete_class = link_class.clone();
-    let described = row_dom_id(&row.key);
+    let described = chrome.row_id(&row.key);
     let custom: Vec<BoxView<'a>> = row
         .custom
         .iter()
@@ -311,7 +329,7 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxV
 /// The row's actions behind one button: its custom actions, View and Edit, then Delete after a
 /// separator, each only when the row's policy allows it. A row allowing none keeps an empty cell.
 fn render_action_menu<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxView<'a> {
-    let described = row_dom_id(&row.key);
+    let described = chrome.row_id(&row.key);
     let menu = format!("{described}-actions");
     // Closes the menu as the item runs; a submitting item navigates instead.
     let closes = |attrs: &mut Attributes| {
@@ -457,13 +475,14 @@ struct RowButton {
     input: Option<&'static str>,
 }
 
-/// One page-local group header: the label with its page-local count and the stable DOM id the
-/// injected header row carries.
+/// One page-local group header: the label with its page-local count, and the label its injected
+/// row's stable DOM id derives from.
 #[derive(Clone)]
 struct GroupHeader {
     /// `"{label} ({n} on this page)"`.
     text: String,
-    dom_id: String,
+    /// The group's label, which its DOM id derives from.
+    label: String,
 }
 
 impl<M> WiredTable<M> {
@@ -558,8 +577,8 @@ impl<M> WiredTable<M> {
                     end += 1;
                 }
                 row_data[start].group_header = Some(GroupHeader {
-                    dom_id: group_header_dom_id(&label),
                     text: format!("{label} ({} on this page)", end - start),
+                    label,
                 });
                 start = end;
             }

@@ -370,7 +370,7 @@ async fn group_by_orders_each_row_under_its_own_header() {
         "both published rows must sit under the published header, got {html}"
     );
     assert!(
-        html.contains("group-draft-") && html.contains("group-published-"),
+        html.contains("group-table-draft-") && html.contains("group-table-published-"),
         "each group header needs a stable id naming its group, got {html}"
     );
 }
@@ -571,6 +571,12 @@ async fn rows_open_their_record() {
         link.contains(&format!("href=\"/admin/users/{id}\"")),
         "the row opens the view page, got {link}"
     );
+    let at = html.find("data-record-link=\"\"").expect("the record link");
+    let after = &html[at..];
+    assert!(
+        after[after.find('>').unwrap() + 1..].starts_with("</a>"),
+        "the record link wraps no cell, so a cell's own link never nests in it, got {html}"
+    );
 
     let html = render(base().with_edit("/admin/users".to_string())).await;
     let link = last_link_named(&html, "data-record-link");
@@ -584,6 +590,41 @@ async fn rows_open_their_record() {
         !html.contains("data-record-link"),
         "a row with nowhere to go links nowhere, got {html}"
     );
+}
+
+/// Two tables on one page can hold the same key: each scopes its rows' ids, so a row's menu
+/// opens in its own table.
+#[tokio::test]
+async fn two_tables_holding_one_key_keep_distinct_row_ids() {
+    let cx = CxTestBuilder::new().build();
+    let ada = User {
+        id: uuid::Uuid::new_v4(),
+        name: "Ada".to_string(),
+    };
+    let mut ids = Vec::new();
+    for prefix in ["authors", "editors"] {
+        let state = TableState {
+            prefix: Some(prefix.to_string()),
+            ..TableState::default()
+        };
+        let page: TablePage<User> = vec![ada.clone()].into();
+        let html = Table::<User>::new(TextColumn::new(lens!(User.name)))
+            .action_layout(crate::ActionLayout::Menu)
+            .wired()
+            .with_view("/admin/users".to_string())
+            .render_loaded_with(&cx, page, &state, "/admin/users")
+            .await
+            .html(&cx)
+            .await;
+        let at = html.find("popovertarget=\"").expect("the menu's trigger") + 15;
+        let menu = &html[at..at + html[at..].find('"').unwrap()];
+        assert!(
+            menu.starts_with(&format!("row-{prefix}-")) && html.contains(&format!("id=\"{menu}\"")),
+            "the {prefix} table's menu carries its prefix, got {html}"
+        );
+        ids.push(menu.to_string());
+    }
+    assert_ne!(ids[0], ids[1]);
 }
 
 /// A derived table spells a timestamp as its calendar day.
@@ -648,7 +689,7 @@ async fn a_menu_table_puts_the_actions_behind_one_button() {
     let html = wired.render_loaded(&cx, page).await.html(&cx).await;
     let menu = format!(
         "id=\"{}-actions\"",
-        crate::table::state::row_dom_id(&ada_id)
+        crate::table::state::row_dom_id("table", &ada_id)
     );
     let at = html
         .find(&menu)
