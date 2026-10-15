@@ -486,7 +486,11 @@ impl Panel {
                         })
                     },
                     sidebar_header(
-                        <div class="flex items-center gap-2 px-2">
+                        // Collapsed to icons, the rail leaves the brand only its mark: centred,
+                        // it lines up with the menu icons below.
+                        <div
+                            class="flex items-center gap-2 px-2 md:group-data-[collapsible=icon]/sidebar:justify-center md:group-data-[collapsible=icon]/sidebar:px-0"
+                        >
                             (sidebar_brand)
                             // Below `md` the sheet covers the inset header,
                             // so the sheet's own header carries the close
@@ -506,6 +510,11 @@ impl Panel {
                         </div>
                     )
                     sidebar_content(
+                        // The icon rail is too narrow for a scrollbar: it still scrolls, without
+                        // one.
+                        attrs: attributes! {
+                            class="md:group-data-[collapsible=icon]/sidebar:[scrollbar-width:none]"
+                        },
                         (tenant_menu)
                         (navigation)
                     )
