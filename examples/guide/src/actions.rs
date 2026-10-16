@@ -34,7 +34,7 @@ impl Action<PostResource> for Publish {
 
 // ANCHOR: input-action
 /// What changing a post's status asks for.
-#[derive(ActionInput)]
+#[derive(FormInput)]
 pub(crate) struct StatusChange {
     #[form(options)]
     pub status: PostStatus,

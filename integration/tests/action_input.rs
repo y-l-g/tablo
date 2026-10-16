@@ -2,8 +2,8 @@
 //! POST renders the input as a page until a submission parses, then runs with the typed value.
 
 use tablo::{
-    Ability, Action, ActionInput, ActionInputFault, DeclarationErrorKind, Field, FieldError,
-    FieldErrors, FormValues, NotificationStatus, Policy, ReadOnly, Resource, ResourceDef, Schema,
+    Ability, Action, ActionInputFault, DeclarationErrorKind, Field, FieldError, FieldErrors,
+    FormInput, FormValues, NotificationStatus, Policy, ReadOnly, Resource, ResourceDef, Schema,
     Site, Table, TextColumn, lens, testing::field_error,
 };
 use toasty::Db;
@@ -33,7 +33,7 @@ enum Outcome {
 }
 
 /// What closing asks for.
-#[derive(ActionInput)]
+#[derive(FormInput)]
 struct Closing {
     #[form(multiline = 3, label = "Why")]
     reason: String,
@@ -94,7 +94,7 @@ impl Action<TicketResource> for Close {
 /// Purging asks first, in its input dialog rather than in the confirmation dialog.
 struct Purge;
 
-#[derive(ActionInput)]
+#[derive(FormInput)]
 struct Purging {
     #[form(optional)]
     note: String,
@@ -146,7 +146,7 @@ struct Merging {
     into: String,
 }
 
-impl ActionInput for Merging {
+impl FormInput for Merging {
     fn schema() -> Schema {
         Schema::new(
             Field::choice_input("into")
@@ -160,6 +160,8 @@ impl ActionInput for Merging {
             tablo::form::parse_scalar::<String>("into", values, None).map_err(|e| vec![e])?;
         Ok(Self { into })
     }
+
+    fn write(&self, _out: &mut FormValues) {}
 }
 
 impl Action<TicketResource> for Merge {
@@ -510,7 +512,7 @@ async fn a_refusal_no_control_renders_fails_closed() {
 }
 
 /// An input field named like a key the action's POST carries.
-#[derive(ActionInput)]
+#[derive(FormInput)]
 struct Selecting {
     #[allow(dead_code, reason = "only its name matters")]
     ids: String,
@@ -519,7 +521,7 @@ struct Selecting {
 /// A hand-written input holding a file field and a choice offering nothing.
 struct Attaching;
 
-impl ActionInput for Attaching {
+impl FormInput for Attaching {
     fn schema() -> Schema {
         Schema::new((
             Field::file(lens!(Ticket.reason)),
@@ -530,12 +532,14 @@ impl ActionInput for Attaching {
     fn parse(_cx: &Cx, _values: &FormValues) -> Result<Self, Vec<FieldError>> {
         Ok(Self)
     }
+
+    fn write(&self, _out: &mut FormValues) {}
 }
 
 /// A hand-written input with no field whose parse still requires one.
 struct Strict;
 
-impl ActionInput for Strict {
+impl FormInput for Strict {
     fn schema() -> Schema {
         Schema::empty()
     }
@@ -543,6 +547,8 @@ impl ActionInput for Strict {
     fn parse(_cx: &Cx, _values: &FormValues) -> Result<Self, Vec<FieldError>> {
         Err(vec![FieldError::required("note")])
     }
+
+    fn write(&self, _out: &mut FormValues) {}
 }
 
 struct Attach;

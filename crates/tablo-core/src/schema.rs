@@ -33,7 +33,7 @@ pub use lenses::form_key;
 pub use options::Options;
 pub use relationship::MAX_RELATIONSHIP_OPTIONS;
 pub(crate) use relationship::{OptionLoadError, OptionSource};
-pub use repeater::{MAX_ROWS, RepeaterItem, parse_items, write_items};
+pub use repeater::{MAX_ROWS, parse_items, write_items};
 use topcoat::{Result, context::Cx, view::*};
 pub use tree::{IntoSchema, Source};
 pub(crate) use tree::{Node, Retype, render_nodes};
@@ -298,6 +298,19 @@ impl<F> Schema<F> {
                     .find(|leaf| leaf.is_disabled(true) || leaf.default_value().is_some())
             {
                 errors.push(crate::DeclarationErrorKind::RepeaterLeafModifier {
+                    field: field.name().to_string(),
+                    leaf: leaf.name().to_string(),
+                });
+            }
+            // An edit renders each stored row, and a password never renders back: every save
+            // would replace the stored secret with what the user retyped, or with nothing.
+            if let Some(repeater) = field.as_repeater()
+                && let Some(leaf) = repeater
+                    .item_schema()
+                    .fields()
+                    .find(|leaf| leaf.is_password())
+            {
+                errors.push(crate::DeclarationErrorKind::RepeaterPassword {
                     field: field.name().to_string(),
                     leaf: leaf.name().to_string(),
                 });

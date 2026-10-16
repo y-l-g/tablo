@@ -11,7 +11,7 @@ enum Kind {
     Blog,
 }
 
-#[derive(Debug, Clone, PartialEq, toasty::Embed, crate::RepeaterItem)]
+#[derive(Debug, Clone, PartialEq, toasty::Embed, crate::FormInput)]
 struct Link {
     label: String,
     #[form(optional)]

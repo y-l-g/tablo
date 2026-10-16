@@ -20,18 +20,15 @@ pub(crate) enum Derive {
     /// `#[derive(RecordForm)]`: `embed`, `blank = <expr>`, `optional`, and the
     /// control keys `options`, `options = <Type>`, `relationship = <Source>`, `file`.
     Record,
-    /// `#[derive(ActionInput)]`: `label = ".."`, `multiline = N`, `placeholder = ".."`,
-    /// `blank = <expr>`, `optional`, `options`, `options = <Type>`.
+    /// `#[derive(FormInput)]`: `label = ".."`, `multiline = N`, `placeholder = ".."`, `email`,
+    /// `password`, `blank = <expr>`, `optional`, `options`, `options = <Type>`.
     Input,
-    /// `#[derive(RepeaterItem)]`: the keys `ActionInput` reads.
-    Item,
 }
 
 impl Derive {
-    /// Whether the derive's fields post their own names, as an action input's and a repeater
-    /// item's do.
+    /// Whether the derive's fields post their own names, as a form input's do.
     fn named(self) -> bool {
-        matches!(self, Self::Input | Self::Item)
+        self == Self::Input
     }
 }
 
@@ -66,7 +63,7 @@ pub(crate) fn named_fields<'a>(
 pub(crate) struct FormAttrs {
     /// `#[form(embed)]`: an `EmbeddedForm` value, bound whole.
     pub(crate) embed: bool,
-    /// `#[form(repeat)]`: a list of `RepeaterItem` values, bound whole.
+    /// `#[form(repeat)]`: a list of `FormInput` values, bound whole.
     pub(crate) repeat: bool,
     /// `#[form(label = "..")]`: the control's label.
     pub(crate) label: Option<String>,
@@ -150,10 +147,6 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
                         "`label = \"…\"`, `multiline = N`, `placeholder = \"…\"`, `email`, \
                          `password`, `blank = <expr>`, `optional`, `options`, or \
                          `options = <Type>`"
-                    }
-                    Derive::Item => {
-                        "`label = \"…\"`, `multiline = N`, `placeholder = \"…\"`, `email`, \
-                         `blank = <expr>`, `optional`, `options`, or `options = <Type>`"
                     }
                 };
                 return Err(meta.error(format!("unknown `#[form(..)]` key: expected {expected}")));

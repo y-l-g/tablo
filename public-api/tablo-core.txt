@@ -1,11 +1,10 @@
 pub mod tablo_core
-pub use tablo_core::ActionInput
 pub use tablo_core::EmbeddedForm
+pub use tablo_core::FormInput
 pub use tablo_core::ModelColumns
 pub use tablo_core::ModelForm
 pub use tablo_core::Options
 pub use tablo_core::RecordForm
-pub use tablo_core::RepeaterItem
 pub mod tablo_core::auth
 pub struct tablo_core::auth::AdminUser
 pub tablo_core::auth::AdminUser::active: bool
@@ -270,9 +269,10 @@ pub fn tablo_core::SignUp::eq(&self, &tablo_core::SignUp) -> bool
 impl core::fmt::Debug for tablo_core::SignUp
 pub fn tablo_core::SignUp::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for tablo_core::SignUp
-impl tablo_core::ActionInput for tablo_core::SignUp
+impl tablo_core::FormInput for tablo_core::SignUp
 pub fn tablo_core::SignUp::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
 pub fn tablo_core::SignUp::schema() -> tablo_core::schema::Schema
+pub fn tablo_core::SignUp::write(&self, &mut tablo_core::FormValues)
 impl core::marker::Freeze for tablo_core::SignUp
 impl core::marker::Send for tablo_core::SignUp
 impl core::marker::Sync for tablo_core::SignUp
@@ -307,7 +307,7 @@ pub fn tablo_core::auth::AdminUser::subtitle(&self) -> core::option::Option<&str
 pub fn tablo_core::auth::AdminUser::tenants(&self) -> &[tablo_core::tenancy::Membership]
 pub fn tablo_core::auth::AdminUser::user_id(&self) -> alloc::string::String
 pub trait tablo_core::auth::Registrar: core::marker::Send + core::marker::Sync + 'static
-pub type tablo_core::auth::Registrar::Input: tablo_core::ActionInput
+pub type tablo_core::auth::Registrar::Input: tablo_core::FormInput
 pub type tablo_core::auth::Registrar::User: tablo_core::auth::PanelUser
 pub fn tablo_core::auth::Registrar::register(&self, &topcoat_core::context::Cx, Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<Self::User>> + core::marker::Send
 pub fn tablo_core::auth::Registrar::validate(&self, &topcoat_core::context::Cx, &Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::form::FieldErrors>> + core::marker::Send
@@ -583,7 +583,7 @@ pub fn tablo_core::ImageColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::ImageColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::ImageColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::ImageColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
-impl<M, T> tablo_core::extend::Column<M> for tablo_core::RepeaterColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::RepeaterItem
+impl<M, T> tablo_core::extend::Column<M> for tablo_core::RepeaterColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormInput
 pub fn tablo_core::RepeaterColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::RepeaterColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::RepeaterColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
@@ -1075,6 +1075,18 @@ impl<F> core::marker::Unpin for tablo_core::form::Posted<F> where F: core::marke
 impl<F> core::marker::UnsafeUnpin for tablo_core::form::Posted<F> where F: core::marker::UnsafeUnpin, std::collections::hash::set::HashSet<<F as tablo_core::form::RecordForm>::Field>: core::marker::UnsafeUnpin
 impl<F> core::panic::unwind_safe::RefUnwindSafe for tablo_core::form::Posted<F> where F: core::panic::unwind_safe::RefUnwindSafe, std::collections::hash::set::HashSet<<F as tablo_core::form::RecordForm>::Field>: core::panic::unwind_safe::RefUnwindSafe
 impl<F> core::panic::unwind_safe::UnwindSafe for tablo_core::form::Posted<F> where F: core::panic::unwind_safe::UnwindSafe, std::collections::hash::set::HashSet<<F as tablo_core::form::RecordForm>::Field>: core::panic::unwind_safe::UnwindSafe
+pub trait tablo_core::form::FormInput: core::marker::Sized + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::form::FormInput::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn tablo_core::form::FormInput::schema() -> tablo_core::schema::Schema
+pub fn tablo_core::form::FormInput::write(&self, &mut tablo_core::FormValues)
+impl tablo_core::FormInput for ()
+pub fn ()::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn ()::schema() -> tablo_core::schema::Schema
+pub fn ()::write(&self, &mut tablo_core::FormValues)
+impl tablo_core::FormInput for tablo_core::SignUp
+pub fn tablo_core::SignUp::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn tablo_core::SignUp::schema() -> tablo_core::schema::Schema
+pub fn tablo_core::SignUp::write(&self, &mut tablo_core::FormValues)
 pub trait tablo_core::form::FormScalar: core::marker::Sized
 pub const tablo_core::form::FormScalar::INPUT_TYPE: &'static str
 pub const tablo_core::form::FormScalar::STEP: core::option::Option<&'static str>
@@ -1722,7 +1734,7 @@ impl<R> core::marker::UnsafeUnpin for tablo_core::ResourceDef<R> where alloc::sy
 impl<R> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::ResourceDef<R>
 impl<R> !core::panic::unwind_safe::UnwindSafe for tablo_core::ResourceDef<R>
 pub trait tablo_core::resource::Action<R: tablo_core::resource::Resource>: 'static
-pub type tablo_core::resource::Action::Input: tablo_core::ActionInput
+pub type tablo_core::resource::Action::Input: tablo_core::FormInput
 pub const tablo_core::resource::Action::CONFIRM: bool
 pub const tablo_core::resource::Action::NAME: &'static str
 pub const tablo_core::resource::Action::PLACES: tablo_core::Places
@@ -1731,20 +1743,11 @@ pub fn tablo_core::resource::Action::label(&topcoat_core::context::Cx) -> alloc:
 pub fn tablo_core::resource::Action::run(&topcoat_core::context::Cx, &[<R as tablo_core::resource::Resource>::Model], Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send
 pub fn tablo_core::resource::Action::success(&topcoat_core::context::Cx, usize) -> alloc::string::String
 pub fn tablo_core::resource::Action::validate_input(&topcoat_core::context::Cx, &Self::Input) -> tablo_core::form::FieldErrors
-pub trait tablo_core::resource::ActionInput: core::marker::Sized + core::marker::Send + 'static
-pub fn tablo_core::resource::ActionInput::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
-pub fn tablo_core::resource::ActionInput::schema() -> tablo_core::schema::Schema
-impl tablo_core::ActionInput for ()
-pub fn ()::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
-pub fn ()::schema() -> tablo_core::schema::Schema
-impl tablo_core::ActionInput for tablo_core::SignUp
-pub fn tablo_core::SignUp::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
-pub fn tablo_core::SignUp::schema() -> tablo_core::schema::Schema
 pub trait tablo_core::resource::ForeignKey<K>: tablo_core::resource::relation::sealed::Sealed<K> + toasty::stmt::into_expr::IntoExpr<Self> + tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
 impl<K> tablo_core::ForeignKey<K> for K where K: toasty::stmt::into_expr::IntoExpr<K> + tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
 impl<K> tablo_core::ForeignKey<K> for core::option::Option<K> where core::option::Option<K>: toasty::stmt::into_expr::IntoExpr<Self> + tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
 pub trait tablo_core::resource::HeaderAction: 'static
-pub type tablo_core::resource::HeaderAction::Input: tablo_core::ActionInput
+pub type tablo_core::resource::HeaderAction::Input: tablo_core::FormInput
 pub const tablo_core::resource::HeaderAction::CONFIRM: bool
 pub const tablo_core::resource::HeaderAction::NAME: &'static str
 pub fn tablo_core::resource::HeaderAction::can_run(&topcoat_core::context::Cx) -> bool
@@ -1832,7 +1835,7 @@ pub fn tablo_core::Field::choice_input(impl core::convert::Into<alloc::string::S
 pub fn tablo_core::Field::custom<M, T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>, impl tablo_core::extend::Control + 'static) -> tablo_core::CustomField where M: toasty::schema::model::Model, T: tablo_core::form::FormScalar
 pub fn tablo_core::Field::file<M>(impl core::convert::Into<toasty::stmt::path::Path<M, alloc::string::String>>) -> tablo_core::FileField where M: toasty::schema::model::Model
 pub fn tablo_core::Field::name(&self) -> &str
-pub fn tablo_core::Field::repeater<M, T>(impl core::convert::Into<toasty::stmt::path::Path<M, toasty::stmt::list::List<T>>>) -> tablo_core::RepeaterField where M: toasty::schema::model::Model, T: tablo_core::RepeaterItem
+pub fn tablo_core::Field::repeater<M, T>(impl core::convert::Into<toasty::stmt::path::Path<M, toasty::stmt::list::List<T>>>) -> tablo_core::RepeaterField where M: toasty::schema::model::Model, T: tablo_core::FormInput
 pub fn tablo_core::Field::text<M, T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> tablo_core::TextField where M: toasty::schema::model::Model, T: tablo_core::form::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + 'static
 pub fn tablo_core::Field::text_input<T: tablo_core::form::FormScalar>(impl core::convert::Into<alloc::string::String>) -> tablo_core::TextField
 pub fn tablo_core::Field::toggle<M>(impl core::convert::Into<toasty::stmt::path::Path<M, bool>>) -> tablo_core::CustomField where M: toasty::schema::model::Model
@@ -2144,16 +2147,12 @@ pub fn tablo_core::schema::Options::options() -> alloc::vec::Vec<(alloc::string:
 impl<T: tablo_core::Options> tablo_core::Options for core::option::Option<T>
 pub fn core::option::Option<T>::label_of(&str) -> alloc::string::String
 pub fn core::option::Option<T>::options() -> alloc::vec::Vec<(alloc::string::String, alloc::string::String)>
-pub trait tablo_core::schema::RepeaterItem: core::marker::Sized + core::marker::Send + core::marker::Sync + 'static
-pub fn tablo_core::schema::RepeaterItem::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
-pub fn tablo_core::schema::RepeaterItem::schema() -> tablo_core::schema::Schema
-pub fn tablo_core::schema::RepeaterItem::write(&self, &mut tablo_core::FormValues)
 pub trait tablo_core::schema::Watched<F>
 impl<F> tablo_core::Watched<F> for tablo_core::ChoiceField<F>
 impl<F> tablo_core::Watched<F> for tablo_core::CustomField<F>
 impl<F> tablo_core::Watched<F> for tablo_core::TextField<F>
-pub fn tablo_core::schema::parse_items<T: tablo_core::RepeaterItem>(&topcoat_core::context::Cx, &str, &tablo_core::FormValues) -> core::result::Result<alloc::vec::Vec<T>, alloc::vec::Vec<tablo_core::form::FieldError>>
-pub fn tablo_core::schema::write_items<T: tablo_core::RepeaterItem>(&[T]) -> tablo_core::FormValue
+pub fn tablo_core::schema::parse_items<T: tablo_core::FormInput>(&topcoat_core::context::Cx, &str, &tablo_core::FormValues) -> core::result::Result<alloc::vec::Vec<T>, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn tablo_core::schema::write_items<T: tablo_core::FormInput>(&[T]) -> tablo_core::FormValue
 pub mod tablo_core::table
 pub enum tablo_core::table::ActionLayout
 pub tablo_core::table::ActionLayout::Inline
@@ -2753,7 +2752,7 @@ impl<M, R> core::marker::UnsafeUnpin for tablo_core::RelationLens<M, R> where ta
 impl<M, R> core::panic::unwind_safe::RefUnwindSafe for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::panic::unwind_safe::RefUnwindSafe, fn(&M) -> &R: core::panic::unwind_safe::RefUnwindSafe
 impl<M, R> core::panic::unwind_safe::UnwindSafe for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::panic::unwind_safe::UnwindSafe, fn(&M) -> &R: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::table::RepeaterColumn<M, T>
-impl<M, T> tablo_core::RepeaterColumn<M, T> where M: toasty::schema::model::Model, T: tablo_core::RepeaterItem
+impl<M, T> tablo_core::RepeaterColumn<M, T> where M: toasty::schema::model::Model, T: tablo_core::FormInput
 pub fn tablo_core::RepeaterColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::RepeaterColumn<M, T>::new(tablo_core::Lens<M, alloc::vec::Vec<T>, toasty::stmt::list::List<T>>) -> Self
 pub fn tablo_core::RepeaterColumn<M, T>::width(self, tablo_core::ColumnWidth) -> Self
@@ -2764,7 +2763,7 @@ pub fn tablo_core::RepeaterColumn<M, T>::fmt(&self, &mut core::fmt::Formatter<'_
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::RepeaterColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::RepeaterColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::RepeaterColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
-impl<M, T> tablo_core::extend::Column<M> for tablo_core::RepeaterColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::RepeaterItem
+impl<M, T> tablo_core::extend::Column<M> for tablo_core::RepeaterColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormInput
 pub fn tablo_core::RepeaterColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::RepeaterColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::RepeaterColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
@@ -3460,6 +3459,9 @@ pub tablo_core::DeclarationErrorKind::PrefixOverlapsRuntime::prefix: alloc::stri
 pub tablo_core::DeclarationErrorKind::RepeaterLeafModifier
 pub tablo_core::DeclarationErrorKind::RepeaterLeafModifier::field: alloc::string::String
 pub tablo_core::DeclarationErrorKind::RepeaterLeafModifier::leaf: alloc::string::String
+pub tablo_core::DeclarationErrorKind::RepeaterPassword
+pub tablo_core::DeclarationErrorKind::RepeaterPassword::field: alloc::string::String
+pub tablo_core::DeclarationErrorKind::RepeaterPassword::leaf: alloc::string::String
 pub tablo_core::DeclarationErrorKind::RequiredConditionalField
 pub tablo_core::DeclarationErrorKind::RequiredConditionalField::field: alloc::string::String
 pub tablo_core::DeclarationErrorKind::ReservedSlug
@@ -4255,7 +4257,7 @@ pub fn tablo_core::Field::choice_input(impl core::convert::Into<alloc::string::S
 pub fn tablo_core::Field::custom<M, T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>, impl tablo_core::extend::Control + 'static) -> tablo_core::CustomField where M: toasty::schema::model::Model, T: tablo_core::form::FormScalar
 pub fn tablo_core::Field::file<M>(impl core::convert::Into<toasty::stmt::path::Path<M, alloc::string::String>>) -> tablo_core::FileField where M: toasty::schema::model::Model
 pub fn tablo_core::Field::name(&self) -> &str
-pub fn tablo_core::Field::repeater<M, T>(impl core::convert::Into<toasty::stmt::path::Path<M, toasty::stmt::list::List<T>>>) -> tablo_core::RepeaterField where M: toasty::schema::model::Model, T: tablo_core::RepeaterItem
+pub fn tablo_core::Field::repeater<M, T>(impl core::convert::Into<toasty::stmt::path::Path<M, toasty::stmt::list::List<T>>>) -> tablo_core::RepeaterField where M: toasty::schema::model::Model, T: tablo_core::FormInput
 pub fn tablo_core::Field::text<M, T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> tablo_core::TextField where M: toasty::schema::model::Model, T: tablo_core::form::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + 'static
 pub fn tablo_core::Field::text_input<T: tablo_core::form::FormScalar>(impl core::convert::Into<alloc::string::String>) -> tablo_core::TextField
 pub fn tablo_core::Field::toggle<M>(impl core::convert::Into<toasty::stmt::path::Path<M, bool>>) -> tablo_core::CustomField where M: toasty::schema::model::Model
@@ -4994,7 +4996,7 @@ impl<M, R> core::marker::UnsafeUnpin for tablo_core::RelationLens<M, R> where ta
 impl<M, R> core::panic::unwind_safe::RefUnwindSafe for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::panic::unwind_safe::RefUnwindSafe, fn(&M) -> &R: core::panic::unwind_safe::RefUnwindSafe
 impl<M, R> core::panic::unwind_safe::UnwindSafe for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::panic::unwind_safe::UnwindSafe, fn(&M) -> &R: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::RepeaterColumn<M, T>
-impl<M, T> tablo_core::RepeaterColumn<M, T> where M: toasty::schema::model::Model, T: tablo_core::RepeaterItem
+impl<M, T> tablo_core::RepeaterColumn<M, T> where M: toasty::schema::model::Model, T: tablo_core::FormInput
 pub fn tablo_core::RepeaterColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::RepeaterColumn<M, T>::new(tablo_core::Lens<M, alloc::vec::Vec<T>, toasty::stmt::list::List<T>>) -> Self
 pub fn tablo_core::RepeaterColumn<M, T>::width(self, tablo_core::ColumnWidth) -> Self
@@ -5005,7 +5007,7 @@ pub fn tablo_core::RepeaterColumn<M, T>::fmt(&self, &mut core::fmt::Formatter<'_
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::RepeaterColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::RepeaterColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::RepeaterColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
-impl<M, T> tablo_core::extend::Column<M> for tablo_core::RepeaterColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::RepeaterItem
+impl<M, T> tablo_core::extend::Column<M> for tablo_core::RepeaterColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormInput
 pub fn tablo_core::RepeaterColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::RepeaterColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::RepeaterColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
@@ -5170,9 +5172,10 @@ pub fn tablo_core::SignUp::eq(&self, &tablo_core::SignUp) -> bool
 impl core::fmt::Debug for tablo_core::SignUp
 pub fn tablo_core::SignUp::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for tablo_core::SignUp
-impl tablo_core::ActionInput for tablo_core::SignUp
+impl tablo_core::FormInput for tablo_core::SignUp
 pub fn tablo_core::SignUp::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
 pub fn tablo_core::SignUp::schema() -> tablo_core::schema::Schema
+pub fn tablo_core::SignUp::write(&self, &mut tablo_core::FormValues)
 impl core::marker::Freeze for tablo_core::SignUp
 impl core::marker::Send for tablo_core::SignUp
 impl core::marker::Sync for tablo_core::SignUp
@@ -5519,7 +5522,7 @@ impl<M> core::marker::UnsafeUnpin for tablo_core::WiredTable<M> where alloc::syn
 impl<M> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::WiredTable<M>
 impl<M> !core::panic::unwind_safe::UnwindSafe for tablo_core::WiredTable<M>
 pub trait tablo_core::Action<R: tablo_core::resource::Resource>: 'static
-pub type tablo_core::Action::Input: tablo_core::ActionInput
+pub type tablo_core::Action::Input: tablo_core::FormInput
 pub const tablo_core::Action::CONFIRM: bool
 pub const tablo_core::Action::NAME: &'static str
 pub const tablo_core::Action::PLACES: tablo_core::Places
@@ -5528,15 +5531,6 @@ pub fn tablo_core::Action::label(&topcoat_core::context::Cx) -> alloc::string::S
 pub fn tablo_core::Action::run(&topcoat_core::context::Cx, &[<R as tablo_core::resource::Resource>::Model], Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send
 pub fn tablo_core::Action::success(&topcoat_core::context::Cx, usize) -> alloc::string::String
 pub fn tablo_core::Action::validate_input(&topcoat_core::context::Cx, &Self::Input) -> tablo_core::form::FieldErrors
-pub trait tablo_core::ActionInput: core::marker::Sized + core::marker::Send + 'static
-pub fn tablo_core::ActionInput::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
-pub fn tablo_core::ActionInput::schema() -> tablo_core::schema::Schema
-impl tablo_core::ActionInput for ()
-pub fn ()::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
-pub fn ()::schema() -> tablo_core::schema::Schema
-impl tablo_core::ActionInput for tablo_core::SignUp
-pub fn tablo_core::SignUp::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
-pub fn tablo_core::SignUp::schema() -> tablo_core::schema::Schema
 pub trait tablo_core::Authenticator: core::marker::Send + core::marker::Sync + 'static
 pub type tablo_core::Authenticator::User: tablo_core::auth::PanelUser
 pub fn tablo_core::Authenticator::find_by_id(&self, &topcoat_core::context::Cx, &str) -> impl core::future::future::Future<Output = topcoat::Result<core::option::Option<Self::User>>> + core::marker::Send
@@ -5566,6 +5560,18 @@ pub fn tablo_core::EmbeddedForm::write_form<M>(&self, impl core::convert::Into<t
 pub trait tablo_core::ForeignKey<K>: tablo_core::resource::relation::sealed::Sealed<K> + toasty::stmt::into_expr::IntoExpr<Self> + tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
 impl<K> tablo_core::ForeignKey<K> for K where K: toasty::stmt::into_expr::IntoExpr<K> + tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
 impl<K> tablo_core::ForeignKey<K> for core::option::Option<K> where core::option::Option<K>: toasty::stmt::into_expr::IntoExpr<Self> + tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
+pub trait tablo_core::FormInput: core::marker::Sized + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::FormInput::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn tablo_core::FormInput::schema() -> tablo_core::schema::Schema
+pub fn tablo_core::FormInput::write(&self, &mut tablo_core::FormValues)
+impl tablo_core::FormInput for ()
+pub fn ()::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn ()::schema() -> tablo_core::schema::Schema
+pub fn ()::write(&self, &mut tablo_core::FormValues)
+impl tablo_core::FormInput for tablo_core::SignUp
+pub fn tablo_core::SignUp::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn tablo_core::SignUp::schema() -> tablo_core::schema::Schema
+pub fn tablo_core::SignUp::write(&self, &mut tablo_core::FormValues)
 pub trait tablo_core::FormScalar: core::marker::Sized
 pub const tablo_core::FormScalar::INPUT_TYPE: &'static str
 pub const tablo_core::FormScalar::STEP: core::option::Option<&'static str>
@@ -5607,7 +5613,7 @@ pub fn T::parse_form(&str) -> core::result::Result<T, alloc::string::String>
 pub fn T::to_form(&self) -> alloc::string::String
 pub fn T::to_label(&self) -> alloc::string::String
 pub trait tablo_core::HeaderAction: 'static
-pub type tablo_core::HeaderAction::Input: tablo_core::ActionInput
+pub type tablo_core::HeaderAction::Input: tablo_core::FormInput
 pub const tablo_core::HeaderAction::CONFIRM: bool
 pub const tablo_core::HeaderAction::NAME: &'static str
 pub fn tablo_core::HeaderAction::can_run(&topcoat_core::context::Cx) -> bool
@@ -5895,7 +5901,7 @@ pub fn tablo_core::form::NoForm<M>::into_update<'a>(self, &'a mut M, &std::colle
 pub fn tablo_core::form::NoForm<M>::links(&self) -> alloc::vec::Vec<(Self::Field, alloc::vec::Vec<alloc::string::String>)>
 pub fn tablo_core::form::NoForm<M>::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
 pub trait tablo_core::Registrar: core::marker::Send + core::marker::Sync + 'static
-pub type tablo_core::Registrar::Input: tablo_core::ActionInput
+pub type tablo_core::Registrar::Input: tablo_core::FormInput
 pub type tablo_core::Registrar::User: tablo_core::auth::PanelUser
 pub fn tablo_core::Registrar::register(&self, &topcoat_core::context::Cx, Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<Self::User>> + core::marker::Send
 pub fn tablo_core::Registrar::validate(&self, &topcoat_core::context::Cx, &Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::form::FieldErrors>> + core::marker::Send
@@ -5904,10 +5910,6 @@ pub type tablo_core::PasswordAuth::Input = tablo_core::SignUp
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
 pub async fn tablo_core::PasswordAuth::register(&self, &topcoat_core::context::Cx, tablo_core::SignUp, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::auth::AdminUser>
 pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::Cx, &tablo_core::SignUp, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::form::FieldErrors>
-pub trait tablo_core::RepeaterItem: core::marker::Sized + core::marker::Send + core::marker::Sync + 'static
-pub fn tablo_core::RepeaterItem::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
-pub fn tablo_core::RepeaterItem::schema() -> tablo_core::schema::Schema
-pub fn tablo_core::RepeaterItem::write(&self, &mut tablo_core::FormValues)
 pub trait tablo_core::Resource: core::marker::Sized + core::marker::Send + core::marker::Sync + 'static
 pub type tablo_core::Resource::Form: tablo_core::form::RecordForm<Model = Self::Model>
 pub type tablo_core::Resource::Model: tablo_core::ModelColumns + toasty::stmt::into_expr::IntoExpr<Self::Model> + core::marker::Send + core::marker::Sync + core::clone::Clone + 'static

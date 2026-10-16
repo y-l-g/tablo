@@ -240,6 +240,30 @@ fn a_default_the_control_refuses_and_a_modified_row_control_refuse_the_schema() 
     );
 }
 
+/// A row's password would render empty on every edit and overwrite the stored secret on save.
+#[test]
+fn a_repeater_refuses_a_password_in_its_row() {
+    fn credential() -> Schema {
+        Schema::new((
+            Field::text_input::<String>("host"),
+            Field::text_input::<String>("token").password(),
+        ))
+    }
+    let repeater = Field::bound(
+        Field::named("credentials".to_string()),
+        ControlKind::Repeater(super::super::repeater::RepeaterControl::of(credential)),
+    );
+    let errors = Schema::new(repeater).declaration_errors();
+    assert!(
+        errors.iter().any(|error| matches!(
+            error,
+            crate::DeclarationErrorKind::RepeaterPassword { field, leaf }
+                if field == "credentials" && leaf == "token"
+        )),
+        "{errors:?}"
+    );
+}
+
 /// A disabled watched field is read as its default, not as what a submission posts for it.
 #[test]
 fn a_condition_reads_a_disabled_fields_default() {

@@ -195,7 +195,7 @@ enum Stage {
 }
 
 /// One signature on a delivery: an item of a `#[document]` list.
-#[derive(Debug, Clone, PartialEq, toasty::Embed, tablo::RepeaterItem)]
+#[derive(Debug, Clone, PartialEq, toasty::Embed, tablo::FormInput)]
 struct Signature {
     signer: String,
 }

@@ -134,7 +134,7 @@ it was left, its search, sort and filters kept. `CONFIRM` asks first, as for a r
 ## Asking for input
 
 An action names what it asks for before it runs as `type Input`: `()` for nothing, or a struct
-deriving `ActionInput`, which `run` receives parsed. A record action and a header action ask the
+deriving `FormInput`, which `run` receives parsed. A record action and a header action ask the
 same way:
 
 ```rust

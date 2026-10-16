@@ -2,7 +2,7 @@
 
 use jiff::Timestamp;
 use tablo::{
-    ActionInput, FieldErrors, Membership, PanelUser,
+    FieldErrors, FormInput, Membership, PanelUser,
     auth::{Authenticator, Registrar, hash_password, new_password_errors, verify_password},
 };
 use toasty::Db;
@@ -139,7 +139,7 @@ impl Authenticator for StaffAuth {
 }
 
 /// What the sign-up page asks a new member of staff for: their account, and the blog they start.
-#[derive(ActionInput)]
+#[derive(FormInput)]
 pub struct StaffSignUp {
     #[form(label = "Your name")]
     pub display_name: String,

@@ -39,6 +39,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Action | A user-invoked mutation, on one record or a bulk selection. | Command, Operation, Modal |
 | Header action | A user-invoked mutation on no record, from the header of a list or a page. | Global action, Page action, Toolbar action |
 | Place | Where a record action's button renders: a row, the detail page, the edit page, the bulk bar. | Location, Context, Surface |
+| Form input | A typed value a form posts under keys no column binds, from `FormInput`: an action input, a sign-up, a repeater's item. | Input (alone), Params, Form object |
 | Action input | The typed value an action asks for before it runs, in a dialog over the page, or on its input page after a refusal. Its fields bind no column. | Action form, Parameters, Payload |
 | Authenticator | The trait that loads a panel user from credentials or a session id. | Provider, LoginManager |
 | Registrar | The trait that creates a panel user from the sign-up page's input. | Registration handler, SignupProvider, UserCreator |

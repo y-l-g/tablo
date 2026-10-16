@@ -94,7 +94,7 @@ fn stat_card(cx: &Cx, stat: Stat) -> BoxView<'_> {
 }
 
 /// What featuring by tag asks for: the tag.
-#[derive(tablo::ActionInput)]
+#[derive(tablo::FormInput)]
 pub struct FeatureTag {
     #[form(label = "Tag", placeholder = "rust")]
     pub tag: String,

@@ -111,7 +111,7 @@ pub fn open_sign_up_panel() -> Panel {
 // ANCHOR_END: policy-sign-up-password
 
 // ANCHOR: policy-staff-sign-up
-#[derive(ActionInput)]
+#[derive(FormInput)]
 pub struct StaffSignUp {
     pub name: String,
     #[form(email)]

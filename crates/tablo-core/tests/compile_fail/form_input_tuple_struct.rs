@@ -1,4 +1,4 @@
-#[derive(tablo_core::ActionInput)]
+#[derive(tablo_core::FormInput)]
 struct Rejection(String);
 
 fn main() {}

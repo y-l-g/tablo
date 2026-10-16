@@ -465,7 +465,7 @@ binds the flattened `seo_title` column, as soon as the field is built.
 
 ## Repeaters
 
-Toasty stores a `#[document]` list of embedded structs in one column. Derive `RepeaterItem`
+Toasty stores a `#[document]` list of embedded structs in one column. Derive `FormInput`
 on the struct and mark the record-form field `#[form(repeat)]`: the form renders a row of the
 item's controls per item, which the user adds, removes and moves.
 
@@ -476,8 +476,9 @@ item's controls per item, which the user adds, removes and moves.
 ```
 
 - An item's fields are scalars, declared like an [action input](./actions.md)'s: `label`,
-  `multiline`, `placeholder`, `email`, `blank`, `optional` and `options` customize a field, and a field
-  with no blank answer is required in every row.
+  `multiline`, `placeholder`, `email`, `blank`, `optional` and `options` customize a field, and a
+  field with no blank answer is required in every row. Mounting refuses a `password` in an item:
+  an edit cannot render a stored secret back, so each save would overwrite it.
 - Each row posts its item's fields under its own prefix (`steps.0.minutes`), and the repeater's
   own key lists the rows in the order they show. A refused row renders its error under its own
   control, and the rows come back in the order the user left them.
@@ -486,7 +487,7 @@ item's controls per item, which the user adds, removes and moves.
   post the repeater, such as one hidden by a [condition](#conditional-fields), keeps the stored
   rows; one that posts no rows stores an empty list.
 - Adding, removing and moving rows needs JavaScript. Without it the stored rows still edit.
-- An action's input can place a repeater too, with a hand-written `ActionInput` whose `parse`
+- An action's input can place a repeater too, with a hand-written `FormInput` whose `parse`
   reads the rows with `schema::parse_items`. A page handling its own post reads it into
   `FormValues` first, with `Schema::read`.
 - On the detail page, `RepeaterColumn` shows each item's fields under their labels. The model's

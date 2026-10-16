@@ -1,5 +1,5 @@
 use super::{SignUp, new_password_errors};
-use crate::{ActionInput, form::FormValues};
+use crate::{FormInput, form::FormValues};
 
 fn values(pairs: &[(&str, &str)]) -> FormValues {
     pairs

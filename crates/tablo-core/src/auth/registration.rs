@@ -21,8 +21,8 @@ use super::{
     session::{delete_session, record},
 };
 use crate::{
-    ActionInput, BoxFuture,
-    form::{FieldError, FieldErrors, FormValues, parse_password, parse_scalar},
+    BoxFuture,
+    form::{FieldError, FieldErrors, FormInput, FormValues, parse_password, parse_scalar},
     notification::{Notification, set_notification},
     panel::{Panel, panel_prefix, state::current},
     schema::{Field, Schema, Source},
@@ -99,9 +99,9 @@ use crate::{
 /// with a notification saying it was created.
 pub trait Registrar: Send + Sync + 'static {
     /// What the sign-up page asks for: [`SignUp`], or the app's own
-    /// [`#[derive(ActionInput)]`](derive@crate::ActionInput) struct. `#[form(password)]` masks a
+    /// [`#[derive(FormInput)]`](derive@crate::FormInput) struct. `#[form(password)]` masks a
     /// field, and `#[form(email)]` checks an address.
-    type Input: ActionInput;
+    type Input: FormInput;
 
     /// The account a sign-up creates: the type the panel's
     /// [`Authenticator`](super::Authenticator) loads, which mounting checks.
@@ -252,9 +252,9 @@ impl std::fmt::Debug for SignUp {
     }
 }
 
-impl ActionInput for SignUp {
+impl FormInput for SignUp {
     fn schema() -> Schema {
-        let field = crate::resource::required_input;
+        let field = crate::form::required_input;
         Schema::new((
             field(Field::text_input::<String>("name").label("Name")),
             field(Field::text_input::<String>("email").email().label("Email")),
@@ -296,6 +296,11 @@ impl ActionInput for SignUp {
             }
             _ => Err(errors),
         }
+    }
+
+    fn write(&self, out: &mut FormValues) {
+        out.insert("name".to_string(), self.name.clone());
+        out.insert("email".to_string(), self.email.clone());
     }
 }
 

@@ -144,7 +144,7 @@ fn repeat_marks_a_repeater_in_a_record_form_only() {
         .unwrap()
         .repeat
     );
-    for derive in [Derive::Embedded, Derive::Input, Derive::Item] {
+    for derive in [Derive::Embedded, Derive::Input] {
         let message = refusal("struct F { #[form(repeat)] links: Vec<Link> }", derive);
         assert!(message.contains("unknown"), "{message}");
     }
@@ -162,16 +162,4 @@ fn a_blank_answer_or_a_control_key_on_a_repeater_is_refused() {
             "{key}: {message}"
         );
     }
-}
-
-#[test]
-fn an_item_reads_the_keys_an_input_reads() {
-    let attrs = attrs(
-        "struct F { #[form(label = \"URL\", placeholder = \"https://\", optional)] url: String }",
-        Derive::Item,
-    )
-    .unwrap();
-    assert_eq!(attrs.label.as_deref(), Some("URL"));
-    assert_eq!(attrs.placeholder.as_deref(), Some("https://"));
-    assert!(attrs.optional);
 }

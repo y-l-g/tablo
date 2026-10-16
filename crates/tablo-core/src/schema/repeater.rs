@@ -18,27 +18,7 @@ use tablo_ui::{
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{Schema, fields::Field, read::Pairs, tree::Source};
-use crate::form::{FieldError, FieldErrors, FormValue, FormValues};
-
-/// One item of a repeater: the typed value each row parses into, stored as a `toasty::Embed`
-/// struct in a `#[document]` list.
-///
-/// Derive it with [`RepeaterItem`](derive@crate::RepeaterItem). Its fields post their own names,
-/// as an [`ActionInput`](trait@crate::ActionInput)'s do, under the row's prefix.
-pub trait RepeaterItem: Sized + Send + Sync + 'static {
-    /// One row's controls, each posting its field's name.
-    fn schema() -> Schema;
-
-    /// Parse one row's submission of [`schema`](Self::schema)'s keys.
-    ///
-    /// # Errors
-    ///
-    /// Every key that failed, each once.
-    fn parse(cx: &Cx, values: &FormValues) -> std::result::Result<Self, Vec<FieldError>>;
-
-    /// Write the item's keys as its row posts them.
-    fn write(&self, out: &mut FormValues);
-}
+use crate::form::{FieldError, FieldErrors, FormInput, FormValue, FormValues};
 
 /// What the blank row's keys carry for the number the browser gives a row it adds.
 pub(crate) const ROW: &str = "__row__";
@@ -69,7 +49,7 @@ impl RepeaterControl {
         }
     }
 
-    pub(crate) fn new<T: RepeaterItem>() -> Self {
+    pub(crate) fn new<T: FormInput>() -> Self {
         Self {
             item: T::schema,
             add_label: None,
@@ -290,7 +270,7 @@ pub(crate) fn row_key(key: &str, row: &str, leaf: &str) -> String {
 
 /// The repeater's value holding `items`: what a record form hydrates the repeater with, and what
 /// a hand-written one writes.
-pub fn write_items<T: RepeaterItem>(items: &[T]) -> FormValue {
+pub fn write_items<T: FormInput>(items: &[T]) -> FormValue {
     FormValue::Rows(
         items
             .iter()
@@ -311,7 +291,7 @@ pub fn write_items<T: RepeaterItem>(items: &[T]) -> FormValue {
 ///
 /// Each row's refusals, under the key the row's control posts, or the repeater's own when it holds
 /// text or a list.
-pub fn parse_items<T: RepeaterItem>(
+pub fn parse_items<T: FormInput>(
     cx: &Cx,
     key: &str,
     values: &FormValues,

@@ -24,7 +24,7 @@ struct FieldSpec {
     variant: syn::Ident,
     /// `#[form(embed)]`: an `EmbeddedForm` value, bound whole.
     embed: bool,
-    /// `#[form(repeat)]`: a list of `RepeaterItem` values, bound whole.
+    /// `#[form(repeat)]`: a list of `FormInput` values, bound whole.
     repeat: bool,
     /// The parse's blank answer, `Option::None` for a required field.
     blank: TokenStream2,

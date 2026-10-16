@@ -1,8 +1,7 @@
 pub mod tablo_macros
-pub proc macro tablo_macros::#[derive(ActionInput)]
 pub proc macro tablo_macros::#[derive(EmbeddedForm)]
+pub proc macro tablo_macros::#[derive(FormInput)]
 pub proc macro tablo_macros::#[derive(ModelColumns)]
 pub proc macro tablo_macros::#[derive(ModelForm)]
 pub proc macro tablo_macros::#[derive(Options)]
 pub proc macro tablo_macros::#[derive(RecordForm)]
-pub proc macro tablo_macros::#[derive(RepeaterItem)]

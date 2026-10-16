@@ -101,6 +101,7 @@ An action's `NAME` that is not one URL segment does not compile, so it never rea
 | `DisabledWithoutValue` | a field disabled on create has no `default` and no blank answer | give it a `default`, make it optional, or use `disabled_on_edit` |
 | `UnpostedDefault` | a field's `default` is a value its control never posts, or one value on a multiple choice | spell the default as the field's form value, a list for a multiple choice |
 | `RepeaterLeafModifier` | a repeater's item disables a control of its row or gives it a default | disable the repeater's own field |
+| `RepeaterPassword` | a repeater's item has a password control, which an edit never renders back | keep the secret out of the repeater's item |
 | `UnplacedWatchedField` | a condition watches a field the schema does not place | place the watched field in the same schema |
 | `HiddenWatchedField` | a condition watches a field another condition hides while the guarded field still shows | place the guarded field inside the block that hides the watched one |
 | `UnpostedConditionValue` | a condition names a value its watched field never posts | name one of its options, or `true` or `false` for a toggle |

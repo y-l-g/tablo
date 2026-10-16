@@ -33,7 +33,7 @@ wins. A `#[document]`, a relation, an `Option` of a nested value and an enum ins
 not supported inside an embedded value.
 
 A `#[document]` list of embedded structs binds as one field too (`#[form(repeat)]`), its item
-deriving `RepeaterItem`. Each row posts its item's keys under `{key}.{row}.`, and the repeater's key
+deriving `FormInput`. Each row posts its item's keys under `{key}.{row}.`, and the repeater's key
 lists the rows in the order they show. Reading the submission through the form's schema gathers
 them into that key's `FormValue::Rows` before anything else reads it, so completing an edit,
 hiding a field and parsing see one key like any other. A row keeps its number when it moves, so

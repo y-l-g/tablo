@@ -1,7 +1,7 @@
-//! `#[derive(ActionInput)]` declares the typed value an action asks for before it runs, and
-//! `#[derive(RepeaterItem)]` one item of a repeater: both post each field under its own name.
+//! `#[derive(FormInput)]` declares a typed value a form posts under its own keys: what an action
+//! asks for, what a sign-up reads, one item of a repeater. Each field posts under its own name.
 //!
-//! See `tablo-core`'s `resource::action` and `schema::repeater` modules for the contracts.
+//! See `tablo-core`'s `form::input` module for the contract.
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote, quote_spanned};
@@ -12,33 +12,8 @@ use crate::fields::{
     named_fields, reject_generics,
 };
 
-/// Which trait the derive implements.
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum Target {
-    /// `ActionInput`.
-    Input,
-    /// `RepeaterItem`, which also writes an item back as its row posts it.
-    Item,
-}
-
-impl Target {
-    fn name(self) -> &'static str {
-        match self {
-            Self::Input => "ActionInput",
-            Self::Item => "RepeaterItem",
-        }
-    }
-
-    fn derive(self) -> Derive {
-        match self {
-            Self::Input => Derive::Input,
-            Self::Item => Derive::Item,
-        }
-    }
-}
-
-pub fn expand_tokens(input: DeriveInput, target: Target) -> TokenStream2 {
-    match expand_checked(input, target) {
+pub fn expand_tokens(input: DeriveInput) -> TokenStream2 {
+    match expand_checked(input) {
         Ok(tokens) => tokens,
         Err(error) => error.to_compile_error(),
     }
@@ -50,18 +25,14 @@ struct FieldSpec {
     attrs: FormAttrs,
 }
 
-fn expand_checked(input: DeriveInput, target: Target) -> syn::Result<TokenStream2> {
-    let derive = target.name();
+fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
+    let derive = "FormInput";
     reject_generics(
         &input,
         &format!("#[derive({derive})] does not support generic or lifetime parameters"),
     )?;
     let shape = format!("#[derive({derive})] supports a struct with named fields");
-    let hint = match target {
-        Target::Input => ": an action that asks for nothing names `type Input = ();`",
-        Target::Item => "",
-    };
-    let empty = format!("#[derive({derive})] needs at least one field{hint}");
+    let empty = format!("#[derive({derive})] needs at least one field: `()` asks for nothing");
     let named = named_fields(&input, &shape, Some(empty.as_str()))?;
     let fields = named
         .named
@@ -70,17 +41,17 @@ fn expand_checked(input: DeriveInput, target: Target) -> syn::Result<TokenStream
             Ok(FieldSpec {
                 ident: field.ident.clone().expect("named field"),
                 ty: field.ty.clone(),
-                attrs: input_attrs(field, target)?,
+                attrs: input_attrs(field)?,
             })
         })
         .collect::<syn::Result<Vec<_>>>()?;
     let krate = crate::tablo_core_path(&input.ident, derive)?;
-    Ok(expand_struct(&krate, &input.ident, &fields, target))
+    Ok(expand_struct(&krate, &input.ident, &fields))
 }
 
 /// The field's `#[form(..)]` keys, refusing a text input's on a `bool`, which renders a checkbox.
-fn input_attrs(field: &syn::Field, target: Target) -> syn::Result<FormAttrs> {
-    let attrs = form_attrs(field, target.derive())?;
+fn input_attrs(field: &syn::Field) -> syn::Result<FormAttrs> {
+    let attrs = form_attrs(field, Derive::Input)?;
     if last_segment(&field.ty).as_deref() == Some("bool") && attrs.options.is_none() {
         let text_only = [
             (attrs.multiline.is_some(), "`multiline`"),
@@ -110,12 +81,7 @@ fn input_attrs(field: &syn::Field, target: Target) -> syn::Result<FormAttrs> {
     Ok(attrs)
 }
 
-fn expand_struct(
-    krate: &TokenStream2,
-    ident: &syn::Ident,
-    fields: &[FieldSpec],
-    target: Target,
-) -> TokenStream2 {
+fn expand_struct(krate: &TokenStream2, ident: &syn::Ident, fields: &[FieldSpec]) -> TokenStream2 {
     let mut controls = Vec::new();
     let mut reads = Vec::new();
     let mut writes = Vec::new();
@@ -167,13 +133,16 @@ fn expand_struct(
                 #control
             }
         });
-        let name = &field.ident;
-        writes.push(quote_spanned! {ty.span()=>
-            out.insert(
-                ::std::string::String::from(#key),
-                #krate::__macro::FormScalar::to_form(&self.#name),
-            );
-        });
+        // A password is a secret: it never renders back into a form.
+        if !attrs.password {
+            let name = &field.ident;
+            writes.push(quote_spanned! {ty.span()=>
+                out.insert(
+                    ::std::string::String::from(#key),
+                    #krate::__macro::FormScalar::to_form(&self.#name),
+                );
+            });
+        }
         let blank = blank_option(ty, attrs);
         // A password keeps its outer spaces: the login compares it as typed.
         let parse = if attrs.password {
@@ -190,22 +159,8 @@ fn expand_struct(
         .iter()
         .map(|name| format_ident!("__read_{}", name))
         .collect();
-    let (trait_name, write) = match target {
-        Target::Input => (quote! { ActionInput }, quote! {}),
-        Target::Item => (
-            quote! { RepeaterItem },
-            quote! {
-                fn write(
-                    &self,
-                    out: &mut #krate::__macro::FormValues,
-                ) {
-                    #(#writes)*
-                }
-            },
-        ),
-    };
     quote! {
-        impl #krate::__macro::#trait_name for #ident {
+        impl #krate::__macro::FormInput for #ident {
             fn schema() -> #krate::__macro::Schema {
                 #krate::__macro::Schema::empty()
                     #(.extend(#krate::__macro::IntoSchema::into_schema(#controls)))*
@@ -226,7 +181,10 @@ fn expand_struct(
                 }
             }
 
-            #write
+            fn write(&self, out: &mut #krate::__macro::FormValues) {
+                let _ = &out;
+                #(#writes)*
+            }
         }
     }
 }

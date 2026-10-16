@@ -7,17 +7,17 @@ use topcoat::{context::Cx, view::*};
 use super::{Column, ColumnBase, ColumnWidth};
 use crate::{
     Lens,
-    form::FormValues,
-    schema::{RepeaterItem, read_only, value_cell},
+    form::{FormInput, FormValues},
+    schema::{read_only, value_cell},
 };
 
-/// A column of a list of [`RepeaterItem`] values.
+/// A column of a list of [`FormInput`] items.
 ///
 /// A detail page shows each item as a block of its fields, each under its own label. A table cell
 /// lists the same fields as `label: value`, one item after another.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Embed, tablo_core::RepeaterItem)]
+/// # #[derive(Debug, Clone, toasty::Embed, tablo_core::FormInput)]
 /// # struct Link { label: String, url: String }
 /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Post {
@@ -35,7 +35,7 @@ pub struct RepeaterColumn<M, T> {
 impl<M, T> RepeaterColumn<M, T>
 where
     M: toasty::schema::Model,
-    T: RepeaterItem,
+    T: FormInput,
 {
     /// Bind the column to the list `lens` reads.
     pub fn new(lens: Lens<M, Vec<T>, List<T>>) -> Self {
@@ -64,7 +64,7 @@ where
 impl<M, T> Column<M> for RepeaterColumn<M, T>
 where
     M: toasty::schema::Model + Send + Sync + 'static,
-    T: RepeaterItem,
+    T: FormInput,
 {
     base_column_methods!(binding);
 

@@ -16,9 +16,7 @@ mod mounted;
 mod relation;
 mod write;
 
-#[doc(hidden)]
-pub use action::required_input;
-pub use action::{Action, ActionInput, Places};
+pub use action::{Action, Places};
 pub(crate) use action::{
     ActionEntry, Actions, ErasedInput, InputResult, InputSpec, RESERVED_KEYS, parse_validated,
 };

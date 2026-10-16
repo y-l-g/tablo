@@ -292,7 +292,7 @@ impl HeaderAction for PublishAllDrafts {
 }
 
 /// What tagging asks for: the tags, and whether they replace the post's own.
-#[derive(tablo::ActionInput)]
+#[derive(tablo::FormInput)]
 pub struct Tagging {
     #[form(label = "Tags", placeholder = "rust, async")]
     pub tags: String,

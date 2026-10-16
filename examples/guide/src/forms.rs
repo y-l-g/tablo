@@ -226,7 +226,7 @@ pub struct PostForm {
 // ANCHOR_END: forms-embedded-record-form
 
 // ANCHOR: forms-repeater
-#[derive(Debug, Clone, toasty::Embed, tablo::RepeaterItem)]
+#[derive(Debug, Clone, toasty::Embed, tablo::FormInput)]
 pub struct Step {
     #[form(multiline = 2)]
     pub instruction: String,
