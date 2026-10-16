@@ -235,6 +235,21 @@ async fn an_owner_the_user_may_not_update_neither_attaches_nor_detaches() {
 }
 
 #[tokio::test]
+async fn the_bulk_bar_detaches_through_the_owners_relation() {
+    let Library { router, open, .. } = library().await;
+    let html = body_string(get(&router, &format!("/admin/shelves/{}", open.id)).await).await;
+    let detach = format!("{}/-/actions/detach", relation(&open));
+    assert!(
+        html.contains(&detach),
+        "the bulk bar posts Detach to the owner's relation: {html}"
+    );
+    assert!(
+        !html.contains("/admin/books/-/actions/detach"),
+        "the bulk bar posts Detach to the books list: {html}"
+    );
+}
+
+#[tokio::test]
 async fn a_book_the_user_may_not_view_is_not_detached() {
     let Library {
         router,

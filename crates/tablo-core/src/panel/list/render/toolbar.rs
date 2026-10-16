@@ -180,12 +180,15 @@ impl Frame<'_> {
             .or(self.actions_prefix)
             .expect("bulk chrome rides the delete or the actions prefix (see bulk_enabled)")
             .to_string();
+        // A relation table's bulk actions post to its owner, not to the related resource's list
+        // that `delete_prefix` names.
+        let actions_list = self.actions_prefix.unwrap_or(list.as_str());
         let form = table_dom_id(state, "writes");
         let mut buttons: Vec<BoxView<'a>> = self
             .bulk_actions
             .iter()
             .map(|action| {
-                let url = self.action_url(bulk_action_url(&list, action.name));
+                let url = self.action_url(bulk_action_url(actions_list, action.name));
                 let mut attrs = if action.input {
                     input_trigger(cx, &form, signals, action.name, url, true)
                 } else {
