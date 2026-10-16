@@ -34,6 +34,8 @@ which the list, form and detail pages follow. This table maps their names to Tab
 | custom pages | a type implementing `Page`, registered by `Panel::page` |
 | dashboard | `Panel::home::<P>()` |
 | `$navigationGroup`, `$navigationSort`, `$navigationIcon` | `navigation_group`, `navigation_order`, `icon` on the def |
+| `getNavigationBadge()` | `ResourceDef::navigation_badge(filter)`, or `NavigationItem::badge(text)` |
+| `->favicon(..)` | `Brand::favicon(url)` |
 | tenancy | `ResourceDef::tenancy`: `Tenancy::column` or `Tenancy::via` |
 | `Notification::make()` | `Notification::success(..)` and its siblings |
 

@@ -28,7 +28,14 @@ pub(crate) struct NavEntry {
     pub(crate) visible: Arc<dyn Fn(&Cx) -> bool + Send + Sync>,
     /// A resource's list path: the trail reads its create, view and edit pages under it.
     pub(crate) resource_list: Option<String>,
+    /// A resource's [`navigation_badge`](crate::ResourceDef::navigation_badge), counted per
+    /// request.
+    pub(crate) badge: Option<BadgeFn>,
 }
+
+/// The badge text a sidebar entry counts for a request; `None` shows no badge.
+pub(crate) type BadgeFn =
+    Arc<dyn for<'a> Fn(&'a Cx) -> crate::BoxFuture<'a, Option<String>> + Send + Sync>;
 
 /// One mounted panel: its prefix, its shell, its auth, and the registries its
 /// generic handlers dispatch through.

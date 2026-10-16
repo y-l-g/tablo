@@ -70,7 +70,7 @@ The panel also serves:
 | `resource::<R>()` | registers a resource's routes and sidebar entry | [Resources](./resources.md) |
 | `page::<P>()` | registers a page at `/{prefix}/{slug}` | [Pages](#pages) |
 | `home::<P>()` | registers a page at `/{prefix}` | [Pages](#pages) |
-| `brand(Brand)` | sets the name and optional logo in the sidebar, the topbar, and above the sign-in and sign-up cards | [Branding](#branding-and-theme) |
+| `brand(Brand)` | sets the name and optional logo in the sidebar, the topbar, and above the sign-in and sign-up cards, and the optional favicon | [Branding](#branding-and-theme) |
 | `dark_mode(bool)` | sets the theme a first-time visitor sees | [Branding](#branding-and-theme) |
 | `login_hint(text)` | adds a line under the sign-in card | [Branding](#branding-and-theme) |
 | `user_menu_item(NavigationItem)` | adds an entry to the user menu, above Sign out | [The shell layout](#the-shell-layout) |
@@ -222,6 +222,12 @@ sidecar offline instead, since a pinned set is reused only while the two agree.
 `navigation_group("Content")` on either def renders the entry in a labelled sidebar group. The ungrouped entries render first, under "Navigation";
 each group follows in the order of its first entry, and `order` sorts the entries within it.
 
+An entry may carry a badge after its label. `NavigationItem::badge("New")` sets a fixed one;
+`ResourceDef::navigation_badge(Post::fields().status().eq(PostStatus::Draft))` counts the rows of
+the resource's [`scoped_query`](./data-access.md) that the filter matches, so each tenant sees its
+own count. The panel counts on every page the sidebar renders on, one query per counted badge, and
+a count of zero shows no badge.
+
 ## Pages
 
 A page that is not a record list — a dashboard, a report, a settings screen — implements `Page`:
@@ -293,7 +299,8 @@ tenant predicate. See [Data access](./data-access.md).
 
 - `brand` names the panel in the sidebar header, in the topbar on narrow screens, and above the
   sign-in and sign-up cards, where the logo shows 40px tall. A brand without a logo shows its
-  first letter.
+  first letter. `favicon` links the icon of every page the panel renders, sign-in included;
+  without it the browser asks for `/favicon.ico`.
 - `dark_mode(true)` makes the panel start dark for a visitor who has not chosen a theme. The user
   menu offers light, dark and the system's theme; the choice is kept in the `tablo_theme` cookie
   and wins over this default. Under the system's theme, `tablo-ui`'s script mirrors the system's

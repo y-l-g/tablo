@@ -1,6 +1,6 @@
 use http::header::COOKIE;
 use showcase::models::{Author, DEMO_TENANT, SIDE_TENANT, TENANTLESS_ADMIN_EMAIL};
-use tablo::TenantId;
+use tablo::{TenantId, testing::nav_badge};
 use topcoat::router::Body;
 
 use crate::common::{
@@ -41,6 +41,24 @@ async fn the_demo_admin_switches_between_their_two_blogs() {
 
     let html = body_string(client.get("/admin/authors").await).await;
     assert!(!html.contains("Ada Author"), "{html}");
+}
+
+/// The Posts entry counts the drafts of the request's tenant alone, and a tenant holding none sees
+/// no badge.
+#[tokio::test]
+async fn the_posts_badge_counts_the_tenants_own_drafts() {
+    let (db, t1, t2) = tenanted_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+
+    let t1_page = body_string(client.tenant(t1).get("/admin/authors").await).await;
+    assert_eq!(nav_badge(&t1_page, "/admin/posts"), None, "{t1_page}");
+    let t2_page = body_string(client.tenant(t2).get("/admin/authors").await).await;
+    assert_eq!(
+        nav_badge(&t2_page, "/admin/posts").as_deref(),
+        Some("1"),
+        "{t2_page}"
+    );
 }
 
 #[tokio::test]

@@ -20,7 +20,7 @@ use super::{
     list::resource_list,
     pages::{page_action, page_action_options, page_handler},
     relations::{Child, relation_table},
-    state::NavEntry,
+    state::{BadgeFn, NavEntry},
 };
 use crate::{
     Ability, DeclarationError, DeclarationErrorKind, Page, PageDef, Site,
@@ -258,6 +258,15 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
             item: mounted.navigation.clone(),
             visible: Arc::new(|cx| crate::can::<R>(cx, Ability::ViewAny)),
             resource_list: Some(url),
+            badge: mounted.counts_navigation_badge().then(|| -> BadgeFn {
+                Arc::new(|cx| {
+                    Box::pin(async move {
+                        crate::resource::mounted::<R>(cx)?
+                            .navigation_badge(cx)
+                            .await
+                    })
+                })
+            }),
         });
         registry.children.insert(
             TypeId::of::<R>(),
@@ -455,6 +464,7 @@ impl<P: Page> Registration for PageRegistration<P> {
             item: page.navigation.clone().resolved(&url),
             visible: page.access(),
             resource_list: None,
+            badge: None,
         };
         registry.mounted_pages.insert(TypeId::of::<P>(), page);
         if home {
