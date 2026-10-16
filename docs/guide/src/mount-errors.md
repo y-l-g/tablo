@@ -127,7 +127,7 @@ An action's `NAME` that is not one URL segment does not compile, so it never rea
 | --- | --- | --- |
 | `TraversalLens` | a lens of several steps goes where one field of the model is needed | name one field of the model |
 | `UnresolvedLens` | a multi-step lens reaches no single column: it hops a relation instead of stepping into embedded values | step only through embedded structs, enum variant fields and `#[document]` fields |
-| `Uncompiled` | an embedded lens's model compiles to no schema under any driver Toasty ships, so its path names no column | fix the model: no `Db` could serve it either |
+| `Uncompiled` | an embedded lens's model compiles to no schema under Toasty's PostgreSQL, SQLite, MySQL or DynamoDB driver, so its path names no column; the error gives each driver's reason | fix the model for your driver |
 
 ## Tenancy
 

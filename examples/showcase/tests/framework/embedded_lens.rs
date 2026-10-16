@@ -196,3 +196,111 @@ async fn a_column_binds_an_embedded_leaf() {
         "searched by the embedded leaf, got {searched}"
     );
 }
+
+#[derive(Debug, Clone, toasty::Embed, tablo::EmbeddedForm)]
+struct Byline {
+    #[column("headline")]
+    title: String,
+    note: String,
+}
+
+#[derive(Debug, Clone, toasty::Embed, tablo::EmbeddedForm)]
+enum Cover {
+    #[column(variant = 1)]
+    Image { url: String },
+    #[column(variant = 2)]
+    Video {
+        #[column("clip")]
+        video_url: String,
+    },
+}
+
+#[derive(Debug, Clone, toasty::Model)]
+struct Writer {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    #[has_many]
+    stories: toasty::Deferred<Vec<Story>>,
+}
+
+#[derive(Debug, Clone, toasty::Model)]
+#[table = "stories"]
+struct Story {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    #[column("by")]
+    byline: Byline,
+    cover: Cover,
+    #[index]
+    writer_id: uuid::Uuid,
+    #[belongs_to(key = writer_id, references = id)]
+    writer: toasty::Deferred<Writer>,
+}
+
+/// A lens binds, before any `Db` exists, to the column the app's own `Db` stores it in, whatever
+/// the table prefix, the other models it registers, and the renames on and inside the value.
+#[tokio::test]
+async fn a_lens_binds_to_the_column_the_db_stores_it_in() {
+    let mut keys = names(&Schema::new((
+        Field::text(Story::fields().byline().title()),
+        Field::text(Story::fields().byline().note()),
+    )))
+    .into_iter()
+    .map(str::to_string)
+    .collect::<Vec<_>>();
+    keys.extend(
+        Cover::form(Story::fields().cover())
+            .fields()
+            .map(|field| field.name().to_string()),
+    );
+    assert_eq!(
+        keys,
+        ["by_headline", "by_note", "cover", "cover_url", "cover_clip"]
+    );
+
+    let db = toasty::Db::builder()
+        .table_name_prefix("app_")
+        .models(toasty::models!(Author, Writer, Story))
+        .connect("sqlite::memory:")
+        .await
+        .expect("connect");
+    let table = db
+        .schema()
+        .db
+        .tables
+        .iter()
+        .find(|table| table.name == "app_stories")
+        .expect("the story table");
+    for key in &keys {
+        assert!(
+            table.columns.iter().any(|column| &column.name == key),
+            "the Db stores no `{key}` column"
+        );
+    }
+}
+
+#[derive(Debug, Clone, toasty::Model)]
+struct Oversized {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    /// No driver takes a 2 GB `VARCHAR`, so the model compiles to no schema.
+    #[column(type = varchar(2000000000))]
+    body: String,
+    cover: Cover,
+}
+
+/// An embedded enum of a model no driver compiles is refused at declaration, like its leaves,
+/// rather than panicking when its form is built.
+#[test]
+fn an_uncompiled_enum_is_refused_not_a_panic() {
+    let errors = Cover::form(Oversized::fields().cover()).declaration_errors();
+    assert!(
+        errors
+            .iter()
+            .any(|error| matches!(error, DeclarationErrorKind::Uncompiled { .. })),
+        "{errors:?}"
+    );
+}

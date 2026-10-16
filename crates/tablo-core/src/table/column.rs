@@ -37,7 +37,7 @@ macro_rules! base_builders {
 }
 
 /// The [`Column`] methods a column over a [`ColumnBase`] answers from it, inside its `Column`
-/// impl; `bind` adds the binding's `misdeclared`.
+/// impl; `binding` adds the binding's `misdeclared`.
 macro_rules! base_column_methods {
     () => {
         fn name(&self) -> &str {
@@ -52,7 +52,7 @@ macro_rules! base_column_methods {
             self.base.width
         }
     };
-    (bind) => {
+    (binding) => {
         base_column_methods!();
 
         fn misdeclared(&self) -> Option<$crate::DeclarationErrorKind> {
@@ -545,7 +545,7 @@ where
     M: toasty::schema::Model + Send + Sync + 'static,
     T: Send + Sync + 'static,
 {
-    base_column_methods!(bind);
+    base_column_methods!(binding);
 
     fn text(&self, _cx: &Cx, row: &M) -> String {
         (self.format)(self.lens.read(row))
@@ -716,7 +716,7 @@ where
     M: toasty::schema::Model + Send + Sync + 'static,
     T: DateValue,
 {
-    base_column_methods!(bind);
+    base_column_methods!(binding);
 
     fn text(&self, _cx: &Cx, row: &M) -> String {
         self.lens.read(row).stored_text()
@@ -879,7 +879,7 @@ impl<M> Column<M> for BooleanColumn<M>
 where
     M: toasty::schema::Model + Send + Sync + 'static,
 {
-    base_column_methods!(bind);
+    base_column_methods!(binding);
 
     fn text(&self, _cx: &Cx, row: &M) -> String {
         if *self.lens.read(row) {
@@ -955,7 +955,7 @@ impl<M> Column<M> for FileColumn<M>
 where
     M: toasty::schema::Model + Send + Sync + 'static,
 {
-    base_column_methods!(bind);
+    base_column_methods!(binding);
 
     fn text(&self, _cx: &Cx, row: &M) -> String {
         self.lens.read(row).clone()
@@ -1024,7 +1024,7 @@ where
     M: toasty::schema::Model + Send + Sync + 'static,
     T: FormScalar + Send + Sync + 'static,
 {
-    base_column_methods!(bind);
+    base_column_methods!(binding);
 
     fn text(&self, _cx: &Cx, row: &M) -> String {
         self.lens.read(row).to_form()
@@ -1138,7 +1138,7 @@ where
     M: toasty::schema::Model + Send + Sync + 'static,
     T: FormScalar + Send + Sync + 'static,
 {
-    base_column_methods!(bind);
+    base_column_methods!(binding);
 
     fn text(&self, _cx: &Cx, row: &M) -> String {
         self.lens.read(row).to_form()

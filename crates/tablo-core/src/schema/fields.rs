@@ -293,9 +293,9 @@ impl Field {
 
     /// The variant control of an embedded enum, never required since an empty submit reads the
     /// variant from the payload.
-    pub(crate) fn discriminant(name: String, variants: Vec<(String, String)>) -> Self {
+    pub(crate) fn discriminant(binding: Binding, variants: Vec<(String, String)>) -> Self {
         Self {
-            binding: Binding::named(name.clone(), capitalize(&name)),
+            binding,
             label: None,
             required: false,
             control: ControlKind::Choice(ChoiceControl {

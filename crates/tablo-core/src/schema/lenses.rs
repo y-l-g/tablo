@@ -40,6 +40,14 @@ impl Binding {
         }
     }
 
+    /// `path`, which binds no column for `error`.
+    pub(crate) fn refused<M, T>(path: &Path<M, T>, error: DeclarationErrorKind) -> Self {
+        Self {
+            placeholder: format!("{:?}", ModelPath::of(path).steps()),
+            leaf: Err(error),
+        }
+    }
+
     /// A key no path names, bound as given.
     pub(crate) fn named(name: String, label: String) -> Self {
         Self {
@@ -105,11 +113,20 @@ where
 ///
 /// `path` addresses the embedded field itself (`Post::fields().publication()`), not one of its
 /// leaves.
-pub(crate) fn resolve_enum<M, T>(path: &Path<M, T>) -> Option<EnumShape>
+///
+/// # Errors
+///
+/// A model no driver compiles.
+pub(crate) fn resolve_enum<M, T>(
+    path: &Path<M, T>,
+) -> Result<Option<EnumShape>, DeclarationErrorKind>
 where
     M: toasty::schema::Model,
 {
-    model::embedded_enum(&AppSchema::of_model::<M>().ok()?, &ModelPath::of(path))
+    let model = std::any::type_name::<M>();
+    let schema = AppSchema::of_model::<M>()
+        .map_err(|error| DeclarationErrorKind::Uncompiled { model, error })?;
+    Ok(model::embedded_enum(&schema, &ModelPath::of(path)))
 }
 
 /// The form key a record-form field binds: the column `path` resolves to.

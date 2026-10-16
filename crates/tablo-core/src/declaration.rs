@@ -332,7 +332,7 @@ pub enum DeclarationErrorKind {
     Uncompiled {
         /// The model.
         model: &'static str,
-        /// Why the last driver tried refuses it.
+        /// Each driver's reason to refuse it.
         error: String,
     },
     /// A `Tenancy::column` lens that names no field of the model.

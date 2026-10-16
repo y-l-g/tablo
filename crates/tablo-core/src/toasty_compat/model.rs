@@ -7,7 +7,7 @@
 
 use std::{
     collections::HashMap,
-    sync::{Arc, LazyLock, Mutex, PoisonError},
+    sync::{Arc, LazyLock, Mutex, OnceLock, PoisonError},
 };
 
 use toasty::{
@@ -22,12 +22,12 @@ use crate::{DeclarationErrorKind, naming::capitalize};
 /// A model's id in the app schema.
 pub(crate) type ModelId = app::ModelId;
 
-/// The compiled schema of the app's `Db`: the only place an embedded value's columns are known.
+/// A compiled schema: an app `Db`'s, or the one a `Db` registering a model would compile.
 ///
-/// `Db::schema()` gives all three halves the walk needs: `.app` carries the embedded models the
-/// owned `Model::schema()` cannot see, `.mapping` records which physical column each field
-/// resolves to, and `.db` holds the physical table and column names. So an embedded lens binds
-/// without opening a connection.
+/// It gives all three halves the walk needs: `.app` carries the embedded models the owned
+/// `Model::schema()` cannot see, `.mapping` records which physical column each field resolves to,
+/// and `.db` holds the physical table and column names. So an embedded lens binds without opening
+/// a connection.
 #[derive(Clone)]
 pub(crate) struct AppSchema(Arc<toasty_core::Schema>);
 
@@ -43,39 +43,45 @@ impl AppSchema {
     /// A column's name depends only on the models: Toasty joins an embedded field's steps with
     /// `_`, and neither the driver nor the table-name prefix enters it. So an embedded lens binds
     /// when it is declared, and to the column the app's own `Db` stores it in. The compile still
-    /// checks each model against a driver, so this tries the drivers Toasty ships until one takes
-    /// the models.
+    /// checks each model against a driver, so this tries Toasty's PostgreSQL, SQLite, MySQL and
+    /// DynamoDB drivers until one takes the models.
     ///
     /// # Errors
     ///
-    /// The models no driver compiles, which no `Db` could serve either.
+    /// Each of those drivers' reasons to refuse the models.
     pub(crate) fn of_model<M: toasty::schema::Model>() -> Result<Self, String> {
-        static COMPILED: LazyLock<Mutex<HashMap<ModelId, Result<AppSchema, String>>>> =
+        type Compiled = Arc<OnceLock<Result<AppSchema, String>>>;
+        static COMPILED: LazyLock<Mutex<HashMap<ModelId, Compiled>>> =
             LazyLock::new(Mutex::default);
-        let mut compiled = COMPILED.lock().unwrap_or_else(PoisonError::into_inner);
-        compiled
+        // The lock guards the lookup only: a model compiles outside it, and once.
+        let entry = COMPILED
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
             .entry(M::id())
-            .or_insert_with(|| {
-                let mut models = app::ModelSet::new();
-                M::register(&mut models);
-                let builder = toasty_core::schema::Builder::new();
-                let mut error = String::new();
-                for driver in [
-                    &Capability::POSTGRESQL,
-                    &Capability::SQLITE,
-                    &Capability::MYSQL,
-                    &Capability::DYNAMODB,
-                ] {
-                    let app = app::Schema::from_macro(models.clone())
-                        .map_err(|error| error.to_string())?;
-                    match builder.build(app, driver) {
-                        Ok(schema) => return Ok(Self(Arc::new(schema))),
-                        Err(refused) => error = refused.to_string(),
-                    }
-                }
-                Err(error)
-            })
-            .clone()
+            .or_default()
+            .clone();
+        entry.get_or_init(Self::compile::<M>).clone()
+    }
+
+    fn compile<M: toasty::schema::Model>() -> Result<Self, String> {
+        let mut models = app::ModelSet::new();
+        M::register(&mut models);
+        let builder = toasty_core::schema::Builder::new();
+        let mut refusals = Vec::new();
+        for driver in [
+            &Capability::POSTGRESQL,
+            &Capability::SQLITE,
+            &Capability::MYSQL,
+            &Capability::DYNAMODB,
+        ] {
+            // `app::Schema` is no `Clone`: each driver gets its own.
+            let app = app::Schema::from_macro(models.clone()).map_err(|error| error.to_string())?;
+            match builder.build(app, driver) {
+                Ok(schema) => return Ok(Self(Arc::new(schema))),
+                Err(refused) => refusals.push(format!("{}: {refused}", driver.driver_name)),
+            }
+        }
+        Err(refusals.join("; "))
     }
 
     /// The compiled schema of the `Db` the context carries, if it carries one.

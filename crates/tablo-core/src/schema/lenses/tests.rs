@@ -1,5 +1,4 @@
 use super::*;
-use crate::test_support::tableless_db;
 
 // One model carries every shape the walk reads.
 
@@ -92,7 +91,7 @@ struct Impostor {
 
 /// The embedded enum at `path`.
 fn enum_at<M: toasty::schema::Model, T>(path: impl Into<Path<M, T>>) -> Option<EnumShape> {
-    resolve_enum(&path.into())
+    resolve_enum(&path.into()).expect("the model compiles")
 }
 
 /// The leaf `path` names, as a declaration binding it would resolve it.
@@ -274,19 +273,37 @@ fn an_embedded_value_under_another_model_resolves_against_that_model() {
     );
 }
 
-/// A lens binds, without a `Db`, to the column the app's own `Db` stores it in: the compiled
-/// schema of the model alone names every column as a `Db` registering it does.
-#[tokio::test]
-async fn a_lens_binds_to_the_column_the_db_stores_it_in() {
-    let db = tableless_db(toasty::models!(LensPost)).await;
-    let columns = |schema: &toasty_core::Schema| {
-        schema
-            .db
-            .tables
-            .iter()
-            .flat_map(|table| table.columns.iter().map(|column| column.name.clone()))
-            .collect::<Vec<_>>()
+/// A model no driver compiles: no `Db` takes a 2 GB `VARCHAR`.
+#[derive(Debug, Clone, toasty::Model)]
+struct Oversized {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    #[column(type = varchar(2000000000))]
+    body: String,
+    seo: Seo,
+    media: Media,
+}
+
+/// An embedded path of a model no driver compiles names no column, and says why each driver
+/// refuses it.
+#[test]
+fn an_uncompiled_model_refuses_its_embedded_paths() {
+    let Err(DeclarationErrorKind::Uncompiled { error, .. }) =
+        leaf(Oversized::fields().seo().title())
+    else {
+        panic!("an embedded path of an uncompiled model is refused");
     };
-    let compiled = AppSchema::of_model::<LensPost>().expect("the model compiles");
-    assert_eq!(columns(db.schema()), columns(compiled.inner()));
+    for driver in ["PostgreSQL", "SQLite", "MySQL", "DynamoDB"] {
+        assert!(error.contains(driver), "{error}");
+    }
+    assert!(matches!(
+        resolve_enum(&Oversized::fields().media().into()),
+        Err(DeclarationErrorKind::Uncompiled { .. })
+    ));
+    assert_eq!(
+        leaf(Oversized::fields().body()).unwrap().name,
+        "body",
+        "a single field reads its own model, compiled or not"
+    );
 }

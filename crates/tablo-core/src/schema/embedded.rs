@@ -47,11 +47,12 @@ use super::{
     Schema,
     condition::Condition,
     fields::Field,
-    lenses,
+    lenses::{self, Binding},
     tree::{Node, Source},
 };
 use crate::{
     form::{FieldError, FormField, FormValues},
+    naming::capitalize,
     topcoat_compat::async_page,
 };
 
@@ -530,6 +531,9 @@ pub struct EmbeddedBuilder {
     fields: Vec<Field>,
     shape: Shape,
     variant: Option<usize>,
+    /// Whether the enum's model compiles to no schema, so the type, not the schema, lists its
+    /// variants.
+    refused: bool,
 }
 
 impl EmbeddedBuilder {
@@ -538,50 +542,66 @@ impl EmbeddedBuilder {
             fields: Vec::new(),
             shape: Shape::Struct(Vec::new()),
             variant: None,
+            refused: false,
         }
     }
 
     /// Builds an enum value at `parent` and panics when `parent` names no embedded enum.
+    ///
+    /// On a model no driver compiles, the variant control carries the error to mount instead, and
+    /// each `variant()` opens one as the type declares it.
     pub fn enumeration<M, T>(parent: &Path<M, T>) -> Self
     where
         M: toasty::schema::Model,
     {
-        let shape = lenses::resolve_enum(parent).unwrap_or_else(|| {
-            panic!(
+        let (binding, variants, refused) = match lenses::resolve_enum(parent) {
+            Ok(Some(shape)) => {
+                let label = capitalize(&shape.discriminant);
+                (
+                    Binding::named(shape.discriminant, label),
+                    shape.variants,
+                    false,
+                )
+            }
+            Ok(None) => panic!(
                 "{} is not an embedded enum of {}",
                 std::any::type_name::<T>(),
                 std::any::type_name::<M>()
-            )
-        });
-        let variants = shape
-            .variants
-            .iter()
-            .map(|(value, _)| Variant {
-                value: value.clone(),
-                members: Vec::new(),
-            })
-            .collect();
+            ),
+            Err(error) => (Binding::refused(parent, error), Vec::new(), true),
+        };
+        let discriminant = Field::discriminant(binding, variants.clone());
         Self {
-            fields: vec![Field::discriminant(
-                shape.discriminant.clone(),
-                shape.variants,
-            )],
             shape: Shape::Enum(EnumNode {
-                key: shape.discriminant,
+                key: discriminant.name().to_string(),
                 discriminant: 0,
                 shared: Vec::new(),
-                variants,
+                variants: variants
+                    .into_iter()
+                    .map(|(value, _)| Variant {
+                        value,
+                        members: Vec::new(),
+                    })
+                    .collect(),
             }),
+            fields: vec![discriminant],
             variant: None,
+            refused,
         }
     }
 
     /// Starts the next variant's members.
     pub fn variant(&mut self) {
         let next = self.variant.map_or(0, |index| index + 1);
-        let Shape::Enum(e) = &self.shape else {
+        let Shape::Enum(e) = &mut self.shape else {
             panic!("a struct value has no variant");
         };
+        if self.refused {
+            e.variants.push(Variant {
+                value: next.to_string(),
+                members: Vec::new(),
+            });
+        }
         assert!(
             next < e.variants.len(),
             "the type declares more variants than the app schema"

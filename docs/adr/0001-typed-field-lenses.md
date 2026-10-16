@@ -30,7 +30,7 @@ leaves are spelled through its form schema, as its form spells them.
 - Declaring first and binding to the app's `Db` schema at mount: every declaration carried an
   unbound state until then, a public `bind` step and a resolver threaded through record forms and
   embedded values, a custom page that forgot the step rendered declaration errors, and an embedded
-  value's form rebuilt its keys from the request's `Db` on every hydrate and parse.
+  value's form needed the request's `Db` to hydrate and parse.
 - Re-deriving Toasty's column naming in Tablo: the compiled mapping names every shape (flattened
   structs, enum payloads, shared columns, documents) in one place, and a copy of the rule drifts.
 - A `String` column beside an `Options` list: a query or a comparison can name a value no option
