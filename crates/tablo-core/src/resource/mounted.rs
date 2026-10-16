@@ -32,6 +32,8 @@ pub(crate) struct Mounted<R: Resource> {
     pub(crate) label: String,
     pub(crate) plural_label: String,
     pub(crate) navigation: NavigationItem,
+    /// The rows [`ResourceDef::navigation_badge`] counts.
+    navigation_badge: Option<toasty::stmt::Expr<bool>>,
     pub(crate) policy: Arc<dyn Policy<R::Model>>,
     pub(crate) tenancy: Tenancy<R::Model>,
     pub(crate) table: Arc<Table<R::Model>>,
@@ -102,6 +104,7 @@ impl<R: Resource> Mounted<R> {
             label,
             plural_label,
             navigation,
+            navigation_badge: def.navigation_badge,
             policy: def.policy,
             tenancy: def.tenancy,
             table: Arc::new(table),
@@ -115,6 +118,37 @@ impl<R: Resource> Mounted<R> {
             fields,
             create_columns: def.create_columns,
             creates: <R::Form as RecordForm>::HAS_FORM && !def.edit_only,
+        }
+    }
+
+    /// Whether [`ResourceDef::navigation_badge`] declares a badge to count.
+    pub(crate) fn counts_navigation_badge(&self) -> bool {
+        self.navigation_badge.is_some()
+    }
+
+    /// The sidebar badge [`ResourceDef::navigation_badge`] declares: the count of the rows its
+    /// filter matches, none for zero. A tenant-scoped resource shows none to a request without a
+    /// tenant, whose list refuses it too. A failed count shows none either, logged: the sidebar
+    /// renders on every page, which a badge must not fail.
+    pub(crate) async fn navigation_badge(&self, cx: &Cx) -> Option<String> {
+        let filter = self.navigation_badge.clone()?;
+        if self.tenancy.is_scoped() && crate::tenant_id(cx).is_none() {
+            return None;
+        }
+        let query = match self.scoped_query(cx) {
+            Ok(query) => query.filter(filter),
+            Err(error) => {
+                tracing::error!(error = %error, "navigation badge query");
+                return None;
+            }
+        };
+        match query.count().exec(&mut crate::db::db(cx)).await {
+            Ok(0) => None,
+            Ok(count) => Some(count.to_string()),
+            Err(error) => {
+                tracing::error!(error = %error, "navigation badge count");
+                None
+            }
         }
     }
 

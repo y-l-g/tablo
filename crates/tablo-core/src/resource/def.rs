@@ -56,6 +56,7 @@ pub struct ResourceDef<R: Resource> {
     pub(crate) navigation_order: Option<i32>,
     pub(crate) navigation_group: Option<String>,
     pub(crate) navigation: Option<NavigationItem>,
+    pub(crate) navigation_badge: Option<Expr<bool>>,
     pub(crate) policy: Arc<dyn Policy<R::Model>>,
     pub(crate) tenancy: Tenancy<R::Model>,
     pub(crate) table: Option<Table<R::Model>>,
@@ -82,6 +83,7 @@ impl<R: Resource> Default for ResourceDef<R> {
             navigation_order: None,
             navigation_group: None,
             navigation: None,
+            navigation_badge: None,
             policy: Arc::new(Deny),
             tenancy: Tenancy::none(),
             table: None,
@@ -163,11 +165,37 @@ impl<R: Resource> ResourceDef<R> {
 
     /// Replaces the sidebar entry, for one that links somewhere other than the list page:
     /// `NavigationItem::at("Drafts", "/admin/posts?f.status=draft")`. [`icon`](Self::icon),
-    /// [`navigation_order`](Self::navigation_order) and
-    /// [`navigation_group`](Self::navigation_group) still apply to it.
+    /// [`navigation_order`](Self::navigation_order),
+    /// [`navigation_group`](Self::navigation_group) and
+    /// [`navigation_badge`](Self::navigation_badge) still apply to it.
     #[must_use]
     pub fn navigation(mut self, item: NavigationItem) -> Self {
         self.navigation = Some(item);
+        self
+    }
+
+    /// Badge the sidebar entry with the number of rows of [`scoped_query`](crate::scoped_query)
+    /// that `filter` matches, so a tenant counts its own rows. The panel counts them each time its
+    /// sidebar renders, on a page load and on each runtime rerun such as a sort or a page step,
+    /// one query per badge run together, and shows no badge for zero. It replaces the
+    /// badge of a [`navigation`](Self::navigation) item.
+    ///
+    /// ```rust
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String, draft: bool }
+    /// # struct PostResource;
+    /// # impl tablo_core::Resource for PostResource {
+    /// #     type Model = Post;
+    /// #     type Form = tablo_core::NoForm<Post>;
+    /// fn declare() -> tablo_core::ResourceDef<Self> {
+    ///     // "Posts 3" while three drafts wait.
+    ///     tablo_core::ResourceDef::new().navigation_badge(Post::fields().draft().eq(true))
+    /// }
+    /// # }
+    /// ```
+    #[must_use]
+    pub fn navigation_badge(mut self, filter: Expr<bool>) -> Self {
+        self.navigation_badge = Some(filter);
         self
     }
 

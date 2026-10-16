@@ -5,7 +5,7 @@ use crate::test_support::Html as _;
 async fn shell_escapes_brand_name_and_logo() {
     use topcoat::{context::CxTestBuilder, view::view};
 
-    use crate::navigation::{NavTarget, NavigationItem};
+    use crate::navigation::NavigationItem;
 
     // Attribute-injection safety rests on `view!` escaping:
     // lock it with a hostile brand on both render paths (header + sidebar).
@@ -21,13 +21,7 @@ async fn shell_escapes_brand_name_and_logo() {
         .request_context(parts)
         .request_context(crate::panel::test_support::current_panel(panel))
         .build();
-    let nav_items = vec![NavigationItem {
-        label: "Users".to_string(),
-        target: NavTarget::Url("/admin/users".to_string()),
-        order: 0,
-        icon: None,
-        group: None,
-    }];
+    let nav_items = vec![NavigationItem::at("Users", "/admin/users")];
     let cx_ref = &cx;
     let slot = view! { cx_ref => "hello" }.boxed().into();
     let html = Panel::render_shell(&cx, &nav_items, "/admin/users", slot, None)
@@ -119,7 +113,7 @@ async fn sidebar_orders_custom_items_by_sort_key() {
     // resources; ties keep declaration order.
     use topcoat::{context::CxTestBuilder, view::view};
 
-    use crate::navigation::{NavTarget, NavigationItem};
+    use crate::navigation::NavigationItem;
 
     let (parts, ()) = http::Request::builder()
         .uri("/admin/users")
@@ -128,19 +122,10 @@ async fn sidebar_orders_custom_items_by_sort_key() {
         .into_parts();
     let cx = CxTestBuilder::new().request_context(parts).build();
     let nav_items = vec![
+        NavigationItem::at("Users", "/admin/users"),
         NavigationItem {
-            label: "Users".to_string(),
-            target: NavTarget::Url("/admin/users".to_string()),
-            order: 0,
-            icon: None,
-            group: None,
-        },
-        NavigationItem {
-            label: "Showcase".to_string(),
-            target: NavTarget::Url("/admin/showcase".to_string()),
             order: -1,
-            icon: None,
-            group: None,
+            ..NavigationItem::at("Showcase", "/admin/showcase")
         },
     ];
     let cx_ref = &cx;
@@ -165,7 +150,7 @@ async fn collapsed_sidebar_cookie_seeds_the_signal() {
     // it back).
     use topcoat::{context::CxTestBuilder, view::view};
 
-    use crate::navigation::{NavTarget, NavigationItem};
+    use crate::navigation::NavigationItem;
 
     let (parts, ()) = http::Request::builder()
         .uri("/admin/users")
@@ -178,13 +163,7 @@ async fn collapsed_sidebar_cookie_seeds_the_signal() {
         .into_parts();
     let cx = CxTestBuilder::new().request_context(parts).build();
     let cx_ref = &cx;
-    let nav_items = vec![NavigationItem {
-        label: "Users".to_string(),
-        target: NavTarget::Url("/admin/users".to_string()),
-        order: 0,
-        icon: None,
-        group: None,
-    }];
+    let nav_items = vec![NavigationItem::at("Users", "/admin/users")];
     let slot = view! { cx_ref => "hello" }.boxed().into();
     let html = Panel::render_shell(&cx, &nav_items, "/admin/users", slot, None)
         .await

@@ -319,7 +319,7 @@ impl Panel {
 
     /// Adds `item` to the user menu in the sidebar's footer, above Sign out: a profile or a
     /// settings page. The item names its URL with
-    /// [`NavigationItem::at`](crate::NavigationItem::at).
+    /// [`NavigationItem::at`](crate::NavigationItem::at); its badge shows in the sidebar only.
     pub fn user_menu_item(mut self, item: crate::NavigationItem) -> Self {
         self.user_menu.push(item);
         self

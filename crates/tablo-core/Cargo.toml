@@ -22,12 +22,15 @@ derive-where = "1.7"
 # here, and the lock keeps the entry it has.
 email_address = { version = "0.2", default-features = false }
 form_urlencoded = "1.2"
+futures-util = { version = "0.3", default-features = false, features = ["alloc"] }
 heck = "0.5"
 http = "1"
 http-body-util = { version = "0.1", features = ["channel"] }
 jiff.workspace = true
 password-hash = { version = "0.6", features = ["getrandom"] }
 percent-encoding.workspace = true
+# A text field's `pattern` rule, checked again on the server.
+regex = "1"
 subtle = "2"
 serde.workspace = true
 tokio.workspace = true

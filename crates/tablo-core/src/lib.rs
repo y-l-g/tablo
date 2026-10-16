@@ -119,8 +119,8 @@ pub use auth::{
     ProfileUpdate, Registrar, SignUp, membership,
 };
 pub use declaration::{
-    ActionInputFault, DeclarationError, DeclarationErrorKind, ManyToManyFault, MountError,
-    ProfileFault, SegmentFault, SignUpFault, Site,
+    ActionInputFault, DeclarationError, DeclarationErrorKind, FieldRuleFault, ManyToManyFault,
+    MountError, ProfileFault, SegmentFault, SignUpFault, Site,
 };
 pub use detail::{Detail, IntoDetail};
 pub use form::{

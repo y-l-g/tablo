@@ -127,6 +127,9 @@ pub struct Brand {
     pub name: String,
     /// Optional logo URL (e.g. `"/logo.svg"`). Rendered as an `<img>` when present.
     pub logo: Option<String>,
+    /// Optional favicon URL (e.g. `"/favicon.svg"`), the `<link rel="icon">` of every page the
+    /// panel renders, its sign-in pages included.
+    pub favicon: Option<String>,
 }
 
 impl Brand {
@@ -136,6 +139,7 @@ impl Brand {
         Self {
             name: name.into().trim().to_string(),
             logo: None,
+            favicon: None,
         }
     }
 
@@ -146,6 +150,15 @@ impl Brand {
         let logo = logo.into().trim().to_string();
         if !logo.is_empty() {
             self.logo = Some(logo);
+        }
+        self
+    }
+
+    /// Attach a favicon URL; a blank value is ignored, leaving the browser's default.
+    pub fn favicon(mut self, favicon: impl Into<String>) -> Self {
+        let favicon = favicon.into().trim().to_string();
+        if !favicon.is_empty() {
+            self.favicon = Some(favicon);
         }
         self
     }
@@ -283,7 +296,7 @@ impl Panel {
     ) -> Result<BoxView<'a>> {
         use tablo_ui::{
             sidebar_group, sidebar_group_content, sidebar_group_label, sidebar_menu,
-            sidebar_menu_button, sidebar_menu_item,
+            sidebar_menu_badge, sidebar_menu_button, sidebar_menu_item,
         };
         let mut nav_items = nav_items.to_vec();
         // Stable order: explicit `order` first, declaration order
@@ -353,6 +366,9 @@ impl Panel {
                                         }
                                         <span>(item.label.clone())</span>
                                     )
+                                    if let Some(badge) = item.badge.clone() {
+                                        sidebar_menu_badge((badge))
+                                    }
                                 )
                             }
                         )
@@ -633,17 +649,33 @@ impl Panel {
             .path()
             .to_string();
         // The panel's sidebar, or a single Home entry outside any panel.
-        let nav_items = current(cx)
-            .map(|panel| {
-                panel
-                    .nav_items
-                    .iter()
-                    .filter(|entry| (entry.visible)(cx))
-                    .map(|entry| entry.item.clone())
-                    .collect::<Vec<_>>()
+        let entries: Vec<_> = current(cx)
+            .iter()
+            .flat_map(|panel| &panel.nav_items)
+            .filter(|entry| (entry.visible)(cx))
+            .collect();
+        // One count per badge, run together rather than one after another.
+        let badges = futures_util::future::join_all(entries.iter().map(|entry| async {
+            match &entry.badge {
+                Some(badge) => Some(badge(cx).await),
+                None => None,
+            }
+        }))
+        .await;
+        let mut nav_items: Vec<NavigationItem> = entries
+            .iter()
+            .zip(badges)
+            .map(|(entry, badge)| {
+                let mut item = entry.item.clone();
+                if let Some(badge) = badge {
+                    item.badge = badge;
+                }
+                item
             })
-            .filter(|items| !items.is_empty())
-            .unwrap_or_else(|| vec![NavigationItem::at("Home", super::gate::panel_prefix(cx))]);
+            .collect();
+        if nav_items.is_empty() {
+            nav_items.push(NavigationItem::at("Home", super::gate::panel_prefix(cx)));
+        }
         let shell = Self::render_shell(cx, &nav_items, &path, slot, None).await?;
         Self::render_document(cx, Self::brand_name(cx), shell).await
     }
@@ -684,6 +716,9 @@ impl Panel {
         // The server renders the stored choice on every page: runtime navigation copies
         // `<html>`'s attributes from the next page and runs no script.
         let html_class = Theme::renders_dark(cx).then_some("dark");
+        let favicon = current(cx)
+            .and_then(|panel| panel.brand.as_ref())
+            .and_then(|brand| brand.favicon.clone());
         Ok(view! {
             cx =>
             <!DOCTYPE html>
@@ -693,6 +728,9 @@ impl Panel {
                     // Without it a phone lays the page out 980px wide and zooms it out.
                     <meta name="viewport" content="width=device-width, initial-scale=1">
                     <title>(title)</title>
+                    if let Some(favicon) = favicon {
+                        <link rel="icon" href=(favicon)>
+                    }
                     (head)
                 </head>
                 <body>(body)</body>

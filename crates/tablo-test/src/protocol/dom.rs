@@ -4,7 +4,7 @@
 //! the markup carries. Each helper reads one stable hook:
 //! `tr[id^="row-"]` for rows, `[aria-label]` links and buttons for actions,
 //! `#{name}-error` and its `data-error` for field errors, `[data-filter-name]` for filters,
-//! `[data-empty]` for the zero-rows message.
+//! `[data-empty]` for the zero-rows message, `[data-sidebar=menu-item]` for sidebar entries.
 //!
 //! The queries assume one table per document: rows never nest, and cells carry text rather than
 //! nested tables.
@@ -226,6 +226,23 @@ pub fn filter_options(html: &str, name: &str) -> Option<Vec<FilterOption>> {
         })
         .collect();
     Some(options)
+}
+
+/// The badge text of the sidebar entry linking to `href`, or `None` when that entry shows no
+/// badge or no entry links there.
+pub fn nav_badge(html: &str, href: &str) -> Option<String> {
+    let menu = |name: &'static str| {
+        move |_: &str, attrs: &Attrs| attr_value(attrs, "data-sidebar").as_deref() == Some(name)
+    };
+    let (_, _, entry) = tags_where(html, menu("menu-item"))
+        .into_iter()
+        .find(|(_, _, inner)| {
+            open_tags(inner).iter().any(|(tag, attrs, _)| {
+                tag == "a" && attr_value(attrs, "href").as_deref() == Some(href)
+            })
+        })?;
+    let (_, _, badge) = tags_where(&entry, menu("menu-badge")).into_iter().next()?;
+    Some(strip_text(&badge))
 }
 
 fn row(row_html: &str) -> Row {

@@ -134,34 +134,6 @@ pub enum ActionInputFault {
     DependentChoice(String),
 }
 
-impl ActionInputFault {
-    /// Writes why action `action`'s input cannot be served.
-    fn describe(&self, action: &str, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ReservedField(field) => write!(
-                f,
-                "action '{action}' declares an input field named '{field}', which its POST \
-             carries itself: rename the field"
-            ),
-            Self::FileField(field) => write!(
-                f,
-                "action '{action}' declares a file field '{field}' in its input, which an \
-             action's POST does not upload: take the file in a record form"
-            ),
-            Self::RefusesEmpty => write!(
-                f,
-                "action '{action}' declares no input field, but its input refuses an empty \
-             submission: declare the fields it parses, or name `()`"
-            ),
-            Self::DependentChoice(field) => write!(
-                f,
-                "action '{action}' declares a dependent choice '{field}' in its input, whose \
-             options only a resource's form refreshes: drop `depends_on`"
-            ),
-        }
-    }
-}
-
 /// Why a panel's sign-up page cannot be served: [`DeclarationErrorKind::SignUp`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
@@ -258,6 +230,44 @@ impl fmt::Display for SignUpFault {
              records to a visitor nobody signed in: offer static options"
             ),
         }
+    }
+}
+
+/// Why a text field's declared rules cannot work: [`DeclarationErrorKind::FieldRule`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum FieldRuleFault {
+    /// A `min` or `max` that is no value the field's type parses, or a type without an order.
+    UnorderedBound(String),
+    /// A `pattern` the server does not compile, with the compiler's reason.
+    InvalidPattern(String),
+    /// A `min_length` above the `max_length`, or a `min` above the `max`: no value passes.
+    EmptyRange,
+    /// A default that breaks a rule, so a create that keeps it is refused.
+    RefusedDefault(String),
+}
+
+/// [`DeclarationErrorKind::FieldRule`]'s sentence.
+fn fmt_field_rule(f: &mut fmt::Formatter<'_>, field: &str, fault: &FieldRuleFault) -> fmt::Result {
+    match fault {
+        FieldRuleFault::UnorderedBound(bound) => write!(
+            f,
+            "field '{field}' is bounded by '{bound}', which is no value of a type that orders: \
+             bound a number, date, time or timestamp field by a value of its type"
+        ),
+        FieldRuleFault::InvalidPattern(error) => write!(
+            f,
+            "field '{field}' has a pattern that does not compile: {error}"
+        ),
+        FieldRuleFault::EmptyRange => write!(
+            f,
+            "field '{field}' declares a minimum above its maximum, so it refuses every value"
+        ),
+        FieldRuleFault::RefusedDefault(value) => write!(
+            f,
+            "field '{field}' defaults to '{value}', which its own rules refuse: change the default \
+             or the rule"
+        ),
     }
 }
 
@@ -432,6 +442,11 @@ pub enum DeclarationErrorKind {
     NoColumns,
     /// `Table::paginate(0)`.
     ZeroPageSize,
+    /// `Table::default_sort` names no sortable column.
+    UnsortableDefaultSort {
+        /// The named column.
+        column: String,
+    },
     /// Two table columns share a name.
     DuplicateColumn {
         /// The shared name.
@@ -482,6 +497,13 @@ pub enum DeclarationErrorKind {
         field: String,
         /// The password control in its row.
         leaf: String,
+    },
+    /// A text field's declared length, bounds or pattern cannot work.
+    FieldRule {
+        /// The field, or `repeater.leaf` for a control in a repeater's rows.
+        field: String,
+        /// What is wrong.
+        fault: FieldRuleFault,
     },
     /// A field's default is a value its control never posts: one its type does not parse, one
     /// not among a choice's options, or a list or one value where the control posts the other.
@@ -661,7 +683,7 @@ impl fmt::Display for DeclarationErrorKind {
                 f,
                 "two actions are named '{name}': each needs a distinct `NAME`"
             ),
-            Self::ActionInput { action, fault } => fault.describe(action, f),
+            Self::ActionInput { action, fault } => fmt_action_input(f, action, fault),
             Self::SignUp(fault) => fault.fmt(f),
             Self::Profile(fault) => fault.fmt(f),
             Self::DuplicateRelation => {
@@ -718,6 +740,10 @@ impl fmt::Display for DeclarationErrorKind {
                 "no column: declare columns with `Table::new(columns)` or in `ResourceDef::table`",
             ),
             Self::ZeroPageSize => f.write_str("`Table::paginate` needs a page size of at least 1"),
+            Self::UnsortableDefaultSort { column } => write!(
+                f,
+                "`Table::default_sort` names '{column}', but no sortable column has that name"
+            ),
             Self::DuplicateColumn { name } => write!(
                 f,
                 "two columns are named '{name}': each column needs a distinct name"
@@ -752,6 +778,7 @@ impl fmt::Display for DeclarationErrorKind {
                 "repeater '{field}' rows hold password '{leaf}', which an edit never renders \
                  back, so each save overwrites it: keep the secret out of the item"
             ),
+            Self::FieldRule { field, fault } => fmt_field_rule(f, field, fault),
             Self::UnpostedDefault { field, value } => write!(
                 f,
                 "field '{field}' defaults to '{value}', which its control never posts: spell the \
@@ -838,39 +865,78 @@ impl fmt::Display for DeclarationErrorKind {
                  names it, so every create would fail at the driver; a resource that creates \
                  nothing declares `edit_only`"
             ),
-            Self::ManyToMany { field, fault } => match fault {
-                ManyToManyFault::NotJoinModel => write!(
-                    f,
-                    "`{field}` is no many-to-many field: declare it \
-                     `#[has_many(via = joins.target)]`, through a `has_many` to a join model and \
-                     the join model's `belongs_to` to the target"
-                ),
-                ManyToManyFault::CompositeKey => write!(
-                    f,
-                    "`{field}`'s join model holds a key of several columns, or one referencing no \
-                     single-column primary key: a link writes one column per side"
-                ),
-                ManyToManyFault::UnwritableColumn { model, column } => write!(
-                    f,
-                    "`{field}`'s join model `{model}` has a column `{column}` a new link cannot \
-                     fill: make it nullable or `#[auto]`, or link the records in your own record fn"
-                ),
-                ManyToManyFault::NotMultipleChoice => write!(
-                    f,
-                    "`{field}` is a many-to-many field, so its control is a multiple choice over \
-                     a relationship: `.choice().relationship::<R>().multiple()`"
-                ),
-                ManyToManyFault::OtherSource => write!(
-                    f,
-                    "`{field}` offers another model's records than the ones its join model links"
-                ),
-                ManyToManyFault::NoJoin => write!(
-                    f,
-                    "multiple choice `{field}` names no many-to-many field of the model, so \
-                     nothing would store its records: bind it to a `#[has_many(via = ..)]` field"
-                ),
-            },
+            Self::ManyToMany { field, fault } => fmt_many_to_many(f, field, fault),
         }
+    }
+}
+
+/// [`DeclarationErrorKind::ActionInput`]'s sentence.
+fn fmt_action_input(
+    f: &mut fmt::Formatter<'_>,
+    action: &str,
+    fault: &ActionInputFault,
+) -> fmt::Result {
+    match fault {
+        ActionInputFault::ReservedField(field) => write!(
+            f,
+            "action '{action}' declares an input field named '{field}', which its POST \
+             carries itself: rename the field"
+        ),
+        ActionInputFault::FileField(field) => write!(
+            f,
+            "action '{action}' declares a file field '{field}' in its input, which an \
+             action's POST does not upload: take the file in a record form"
+        ),
+        ActionInputFault::RefusesEmpty => write!(
+            f,
+            "action '{action}' declares no input field, but its input refuses an empty \
+             submission: declare the fields it parses, or name `()`"
+        ),
+        ActionInputFault::DependentChoice(field) => write!(
+            f,
+            "action '{action}' declares a dependent choice '{field}' in its input, whose \
+             options only a resource's form refreshes: drop `depends_on`"
+        ),
+    }
+}
+
+/// [`DeclarationErrorKind::ManyToMany`]'s sentence.
+fn fmt_many_to_many(
+    f: &mut fmt::Formatter<'_>,
+    field: &str,
+    fault: &ManyToManyFault,
+) -> fmt::Result {
+    match fault {
+        ManyToManyFault::NotJoinModel => write!(
+            f,
+            "`{field}` is no many-to-many field: declare it \
+             `#[has_many(via = joins.target)]`, through a `has_many` to a join model and \
+             the join model's `belongs_to` to the target"
+        ),
+        ManyToManyFault::CompositeKey => write!(
+            f,
+            "`{field}`'s join model holds a key of several columns, or one referencing no \
+             single-column primary key: a link writes one column per side"
+        ),
+        ManyToManyFault::UnwritableColumn { model, column } => write!(
+            f,
+            "`{field}`'s join model `{model}` has a column `{column}` a new link cannot \
+             fill: make it nullable or `#[auto]`, or link the records in your own record fn"
+        ),
+        ManyToManyFault::NotMultipleChoice => write!(
+            f,
+            "`{field}` is a many-to-many field, so its control is a multiple choice over \
+             a relationship: `.choice().relationship::<R>().multiple()`"
+        ),
+        ManyToManyFault::OtherSource => write!(
+            f,
+            "`{field}` offers another model's records than the ones its join model links"
+        ),
+        ManyToManyFault::NoJoin => write!(
+            f,
+            "multiple choice `{field}` names no many-to-many field of the model, so \
+             nothing would store its records: bind it to a `#[has_many(via = ..)]` field"
+        ),
     }
 }
 

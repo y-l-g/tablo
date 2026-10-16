@@ -15,7 +15,7 @@
 //!
 //! It re-exports [`tablo_core`] at its root, the UI components as [`ui`], and
 //! the in-memory HTTP client as `testing` with the `testing` feature; the driver
-//! features (`sqlite`, `postgresql`, `mysql`) turn on Toasty's driver of the same
+//! features (`sqlite`, `postgresql`, `mysql`, `turso`) turn on Toasty's driver of the same
 //! name, and the toolkit itself enables none.
 //!
 //! A minimal app is one model, the record form [`ModelForm`](derive@ModelForm)
@@ -90,7 +90,7 @@ pub mod prelude {
         HeaderAction, HeaderActions, ImageColumn, IntoOptions, Lens, ModelColumns, ModelForm,
         NavigationItem, NoForm, Options, Page, PageDef, Pagination, Panel, Places, Policy, Posted,
         PublicLink, QueryFilter, ReadOnly, RecordForm, Relation, RelationColumn, RepeaterColumn,
-        Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table,
+        Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter, Sort, Table,
         Tenancy, TenantId, TernaryFilter, TextColumn, TextField, Toggle, can, can_list, can_open,
         lens, relation, scoped_query, tenant_id, when,
     };

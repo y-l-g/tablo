@@ -15,6 +15,7 @@ mod conditions;
 mod dependent;
 mod extensions;
 mod field_basics;
+mod field_rules;
 mod header_actions;
 mod key_collisions;
 mod model_columns;

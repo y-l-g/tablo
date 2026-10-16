@@ -111,6 +111,13 @@ pub trait FormScalar: Sized {
     fn color(&self) -> Option<crate::Color> {
         None
     }
+
+    /// How `self` orders against `other` for a text field's [`min`](crate::TextField::min) and
+    /// [`max`](crate::TextField::max): a [`TypedValue`]'s [`order`](TypedValue::order), and
+    /// `None` for any other type.
+    fn order(&self, _other: &Self) -> Option<std::cmp::Ordering> {
+        None
+    }
 }
 
 impl FormScalar for String {
@@ -137,6 +144,10 @@ impl<T: TypedValue> FormScalar for T {
 
     fn to_form(&self) -> String {
         self.to_string()
+    }
+
+    fn order(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        TypedValue::order(self, other)
     }
 }
 
@@ -169,6 +180,10 @@ impl<T: NullableScalar> FormScalar for Option<T> {
 
     fn color(&self) -> Option<crate::Color> {
         self.as_ref().and_then(T::color)
+    }
+
+    fn order(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        T::order(self.as_ref()?, other.as_ref()?)
     }
 }
 

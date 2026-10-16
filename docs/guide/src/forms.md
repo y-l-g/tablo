@@ -146,7 +146,9 @@ stored). Outside a panel no record form applies, and every control renders optio
 control's builder, which offers only that control's modifiers, so a modifier on the wrong control
 does not compile:
 
-- text (`TextField`): `.email()`, `.password()`, `.unique()`, `.placeholder(..)`, `.multiline(rows)`;
+- text (`TextField`): `.email()`, `.password()`, `.unique()`, `.placeholder(..)`, `.multiline(rows)`,
+  and the [rules](#length-bounds-and-patterns) `.min_length(n)`, `.max_length(n)`, `.min(..)`,
+  `.max(..)`, `.pattern(..)`;
 - choice (`ChoiceField`): `.options(..)`, `.relationship::<R>()`, `.searchable()`, `.depends_on(..)`,
   `.multiple()`.
 
@@ -196,7 +198,43 @@ A `datetime-local` input carries no time zone, so a timestamp displays and parse
 
 Implement `tablo::extend::TypedValue` to bind your own type: `NOUN` names it in errors,
 `INPUT_TYPE` and `STEP` set the input's `type` and `step`, `parse_input` reads a submission (by
-default through `FromStr`), and `input_value` spells a stored value for the input.
+default through `FromStr`), `input_value` spells a stored value for the input, and `order` orders
+two values for `.min` and `.max` (by default it orders none, and the type takes no bound).
+
+### Length, bounds and patterns
+
+A text field declares the rules a value keeps. Each renders as the HTML attribute of the same name,
+so the browser checks it before it submits, and the server checks it again on the trimmed value,
+after the field's type parses it; a refused value is an inline error, and nothing is written. A
+blank value is the field's blank answer, which no rule refuses, and a value the record already
+stores is not checked again, so a rule added over existing rows does not lock them. A default
+that breaks a rule fails the mount.
+
+```rust
+{{#include ../../../examples/guide/src/forms.rs:forms-rules}}
+```
+
+- `.min_length(n)` and `.max_length(n)` count the characters of the trimmed value, as a database's
+  `VARCHAR(n)` does. A browser counts UTF-16 units of the untrimmed value, so it may let through
+  a value the server then refuses, never the reverse for `max_length`. A `<textarea>` takes them
+  too.
+- `.min(bound)` and `.max(bound)` are inclusive, and compare values of the field's type: a number
+  as a number, a date, time or timestamp in time, so `.min(date(2026, 1, 1))` bounds a
+  `jiff::civil::Date` field. The bound is a value of that type; one it does not parse, or a type
+  without an order such as `String`, fails the mount. A time's control edits it to the minute, so
+  give a time bound in whole minutes.
+- `.pattern(expr)` must match the whole value. The server matches it with the `regex` crate and the
+  browser as a JavaScript expression in its `v` mode, so write it in the syntax both read:
+  classes, groups, alternation and repetition. Spell digits `[0-9]`, since the server's `\d` also
+  matches other scripts' digits; escape a `-` inside a class (`[a-z\-]`), which the browser
+  otherwise refuses, dropping the whole pattern; and leave out lookaround, backreferences and
+  inline flags such as `(?i)`. One that does not compile on the server fails the mount.
+- A browser checks `pattern` and the lengths only on text-like inputs, and `min` and `max` only on
+  numbers, dates and times; a `.multiline` textarea renders no `pattern`. The server checks every
+  rule either way.
+- A minimum above its maximum fails the mount, since no value would pass.
+
+A rule across fields, or one these do not express, belongs in `Resource::validate_record`.
 
 ### Email and uniqueness
 

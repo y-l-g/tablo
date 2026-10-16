@@ -347,7 +347,7 @@ impl<R: Resource> crate::schema::OptionSource for R {
     }
 
     fn order_by(cx: &Cx) -> Option<toasty::stmt::OrderByExpr> {
-        mounted::<R>(cx)?.table.order_by(false)
+        mounted::<R>(cx)?.table.first_order_by()
     }
 
     /// The record's title, as its detail page shows it.

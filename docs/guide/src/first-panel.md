@@ -19,10 +19,10 @@ tablo = { version = "0.7.0", features = ["sqlite"] }
 tablo-build = "0.7.0"
 ```
 
-The toolkit enables no driver itself: `sqlite`, `postgresql` and `mysql` each turn on Toasty's
-driver of the same name. The `[workspace.dependencies]` of Tablo's `Cargo.toml` hold the pinned
-versions. `tablo` is the only Tablo dependency the app names: every path in this guide starts with
-`tablo::`, and the derives work through it.
+The toolkit enables no driver itself: `sqlite`, `postgresql`, `mysql` and `turso` each turn on
+Toasty's driver of the same name. The `[workspace.dependencies]` of Tablo's `Cargo.toml` hold the
+pinned versions. `tablo` is the only Tablo dependency the app names: every path in this guide
+starts with `tablo::`, and the derives work through it.
 
 ## The app
 

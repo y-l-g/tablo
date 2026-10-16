@@ -142,6 +142,91 @@ async fn the_sort_parameter_orders_rows_and_falls_back_to_a_stable_order() {
     );
 }
 
+/// The titles in the order `table` sorts the tasks for `state`.
+async fn titles_in_order(
+    db: &mut toasty::Db,
+    table: &Table<Task>,
+    state: &TableState,
+) -> Vec<String> {
+    table
+        .order_bys_for(state)
+        .iter()
+        .fold(Task::all(), |query, order| query.order_by(order.clone()))
+        .exec(db)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|task| task.title)
+        .collect()
+}
+
+/// A declared default sort orders a request whose sort parameter names no sortable column, and is
+/// the sort its header marks; a parameter naming one overrides it.
+#[tokio::test]
+async fn a_default_sort_orders_a_request_naming_no_sortable_column() {
+    let mut db = memory_db(toasty::models!(Task)).await;
+    for (title, status) in [("Bravo", "a"), ("Alpha", "c"), ("Charlie", "b")] {
+        toasty::create!(Task {
+            title,
+            status,
+            featured: false,
+            created_at: jiff::Timestamp::UNIX_EPOCH,
+        })
+        .exec(&mut db)
+        .await
+        .unwrap();
+    }
+    let table = Table::<Task>::new((
+        TextColumn::new(lens!(Task.title)).sortable(),
+        TextColumn::new(lens!(Task.status)).sortable(),
+    ))
+    .default_sort(Sort::desc("title"));
+    let sorted = |sort: Sort| TableState {
+        sort: Some(sort),
+        ..TableState::default()
+    };
+
+    let unsorted = TableState::default();
+    assert_eq!(table.sort_for(&unsorted), Some(Sort::desc("title")));
+    assert_eq!(
+        titles_in_order(&mut db, &table, &unsorted).await,
+        ["Charlie", "Bravo", "Alpha"]
+    );
+    let unknown = sorted(Sort::asc("nope"));
+    assert_eq!(table.sort_for(&unknown), Some(Sort::desc("title")));
+    assert_eq!(
+        titles_in_order(&mut db, &table, &unknown).await,
+        ["Charlie", "Bravo", "Alpha"],
+        "a parameter naming no sortable column reads the default, direction included"
+    );
+    let by_status = sorted(Sort::asc("status"));
+    assert_eq!(table.sort_for(&by_status), Some(Sort::asc("status")));
+    assert_eq!(
+        titles_in_order(&mut db, &table, &by_status).await,
+        ["Bravo", "Charlie", "Alpha"]
+    );
+}
+
+/// A default sort naming no sortable column is a declaration error, whether no column bears the
+/// name or the one that does is not sortable.
+#[test]
+fn a_default_sort_naming_no_sortable_column_is_misdeclared() {
+    for column in ["nope", "status"] {
+        let errors = Table::<Task>::new((
+            TextColumn::new(lens!(Task.title)).sortable(),
+            TextColumn::new(lens!(Task.status)),
+        ))
+        .default_sort(Sort::asc(column))
+        .declaration_errors();
+        assert_eq!(
+            errors,
+            [DeclarationErrorKind::UnsortableDefaultSort {
+                column: column.to_string()
+            }]
+        );
+    }
+}
+
 /// An offset page orders by its sort, then by primary key, so rows sharing a sort value keep one
 /// order across pages; a table ordered by its key alone does not repeat it.
 #[test]

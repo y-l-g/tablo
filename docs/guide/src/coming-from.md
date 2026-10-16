@@ -10,6 +10,7 @@ which the list, form and detail pages follow. This table maps their names to Tab
 | `getEloquentQuery()` | `Resource::query` |
 | `table()`: columns | `ResourceDef::table(Table::new(columns))` |
 | `->searchable()`, `->sortable()` | `.searchable()`, `.sortable()` on a column |
+| `->defaultSort('created_at', 'desc')` | `Table::default_sort(Sort::desc("created_at"))` |
 | table filters | `Table::filters`: `SelectFilter`, `TernaryFilter`, `DateFilter`, `QueryFilter` |
 | `->paginated([..])` | `Table::paginate(n)` |
 | `->groups([..])` | `Table::group_by(lens)` |
@@ -22,6 +23,7 @@ which the list, form and detail pages follow. This table maps their names to Tab
 | `->visible(fn (Get $get) ..)` | `.visible_when(..)`, a [condition](./forms.md#conditional-fields) |
 | a dependent `Select` | `.depends_on(..)`, a [dependent choice](./forms.md#dependent-choices) |
 | `Repeater` | `Field::repeater` over a `#[document]` list |
+| `->minLength()`, `->maxLength()`, `->minValue()`, `->maxValue()`, `->regex()` | `.min_length(n)`, `.max_length(n)`, `.min(..)`, `.max(..)`, `.pattern(..)` on a text field |
 | `rules()`, `->unique()` | `Resource::validate_record`, `.unique()` |
 | `mutateFormDataBeforeCreate`, `handleRecordCreation` | `Resource::create_record`, `update_record`, delegating to `write_create`, `write_update` |
 | `infolist()` | `ResourceDef::detail`: a [`Detail`](./detail-pages.md) of columns |
@@ -34,6 +36,8 @@ which the list, form and detail pages follow. This table maps their names to Tab
 | custom pages | a type implementing `Page`, registered by `Panel::page` |
 | dashboard | `Panel::home::<P>()` |
 | `$navigationGroup`, `$navigationSort`, `$navigationIcon` | `navigation_group`, `navigation_order`, `icon` on the def |
+| `getNavigationBadge()` | `ResourceDef::navigation_badge(filter)`, or `NavigationItem::badge(text)` |
+| `->favicon(..)` | `Brand::favicon(url)` |
 | tenancy | `ResourceDef::tenancy`: `Tenancy::column` or `Tenancy::via` |
 | `Notification::make()` | `Notification::success(..)` and its siblings |
 

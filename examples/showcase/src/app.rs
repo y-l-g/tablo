@@ -125,6 +125,8 @@ impl Resource for PostResource {
             .label("Blog Post")
             .icon(tablo::ui::icons::FILE_TEXT)
             .navigation_group("Blog")
+            // The drafts waiting in the current blog.
+            .navigation_badge(Post::fields().status().eq(PostStatus::Draft))
             .policy(when(blog_open))
             .tenancy(Tenancy::column(lens!(Post.tenant_id)))
             .table(post_table())
@@ -457,6 +459,9 @@ pub struct MediaStore(pub DirUploader);
 /// The URL prefix uploads are served under.
 pub const UPLOAD_URL_PREFIX: &str = "/uploads";
 
+/// The brand's mark, an inline SVG: the sidebar logo and the favicon.
+const LOGO: &str = "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Ccircle%20cx='12'%20cy='12'%20r='10'%20fill='%236366f1'/%3E%3Ctext%20x='12'%20y='16'%20text-anchor='middle'%20font-size='12'%20fill='white'%20font-family='sans-serif'%3EA%3C/text%3E%3C/svg%3E";
+
 /// The admin panel's resources and pages: what the router mounts, and what a test builds its
 /// handle from with [`Panel::handle`].
 pub fn admin_panel() -> Panel {
@@ -466,11 +471,7 @@ pub fn admin_panel() -> Panel {
                 .registration(StaffAuth)
                 .profile(StaffAuth),
         )
-        .brand(
-            Brand::new("Tablo Blog").logo(
-                "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Ccircle%20cx='12'%20cy='12'%20r='10'%20fill='%236366f1'/%3E%3Ctext%20x='12'%20y='16'%20text-anchor='middle'%20font-size='12'%20fill='white'%20font-family='sans-serif'%3EA%3C/text%3E%3C/svg%3E",
-            ),
-        )
+        .brand(Brand::new("Tablo Blog").logo(LOGO).favicon(LOGO))
         .home::<Dashboard>()
         .resource::<UserResource>()
         .resource::<AuthorResource>()
