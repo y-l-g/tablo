@@ -108,3 +108,35 @@ fn navigation_item_is_current_path() {
     let query_only = NavigationItem::at("Query", "?f.status=draft");
     assert!(!query_only.is_current_path("/admin/posts"));
 }
+
+/// Of the entries holding a path, the longest path wins; of those sharing it, the entry whose
+/// query the request carries wins, then the one naming more of it, then the first declared.
+#[test]
+fn current_index_prefers_the_entry_the_request_holds() {
+    let items = [
+        NavigationItem::at("Drafts", "/admin/users?f.status=draft"),
+        NavigationItem::at("Users", "/admin/users"),
+        NavigationItem::at("Dashboard", "/admin"),
+        NavigationItem::at("Both", "/admin/users?f.status=draft&sort=name"),
+    ];
+    assert_eq!(
+        current_index(&items, "/admin/users", ""),
+        Some(1),
+        "the plain entry, not the one its query names"
+    );
+    assert_eq!(
+        current_index(&items, "/admin/users", "f.status=review"),
+        Some(1)
+    );
+    assert_eq!(
+        current_index(&items, "/admin/users", "f.status=draft"),
+        Some(0)
+    );
+    assert_eq!(
+        current_index(&items, "/admin/users", "sort=name&f.status=draft"),
+        Some(3),
+        "the entry naming more of the request's query"
+    );
+    assert_eq!(current_index(&items, "/admin/media", ""), Some(2));
+    assert_eq!(current_index(&items, "/elsewhere", ""), None);
+}

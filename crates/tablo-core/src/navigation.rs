@@ -117,6 +117,48 @@ impl NavigationItem {
             .strip_prefix(path)
             .is_some_and(|rest| rest.starts_with('/'))
     }
+
+    /// The query the entry points with: the text between its `?` and any fragment.
+    fn query(&self) -> &str {
+        let url = self.url().unwrap_or_default();
+        let before_fragment = url.split_once('#').map_or(url, |(before, _)| before);
+        before_fragment
+            .split_once('?')
+            .map_or("", |(_, query)| query)
+    }
+
+    /// The `&`-separated parameters the entry's query names.
+    fn query_pairs(&self) -> impl Iterator<Item = &str> {
+        self.query().split('&').filter(|pair| !pair.is_empty())
+    }
+
+    /// Whether `request_query` carries every parameter the entry's query names.
+    pub(crate) fn query_held(&self, request_query: &str) -> bool {
+        self.query_pairs()
+            .all(|pair| request_query.split('&').any(|held| held == pair))
+    }
+}
+
+/// The index of the entry a request is under, given the request's path and query. Entries whose
+/// path holds `path` compete, and the longest path wins. Of the entries sharing it, the one whose
+/// query `query` carries wins, then the one naming more of that query, then the first declared.
+pub(crate) fn current_index(
+    nav_items: &[NavigationItem],
+    path: &str,
+    query: &str,
+) -> Option<usize> {
+    nav_items
+        .iter()
+        .enumerate()
+        .filter(|(_, item)| item.is_current_path(path))
+        .min_by_key(|(_, item)| {
+            (
+                std::cmp::Reverse(item.path().map_or(0, str::len)),
+                !item.query_held(query),
+                std::cmp::Reverse(item.query_pairs().count()),
+            )
+        })
+        .map(|(index, _)| index)
 }
 
 #[cfg(test)]

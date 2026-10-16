@@ -278,6 +278,7 @@ impl Panel {
         cx: &'a Cx,
         nav_items: &[NavigationItem],
         current_path: &str,
+        current_query: &str,
         mobile_open: Signal<bool>,
     ) -> Result<BoxView<'a>> {
         use tablo_ui::{
@@ -297,15 +298,8 @@ impl Panel {
             nav_items.iter().all(|item| item.url().is_some()),
             "navigation items are resolved by the Panel that owns them"
         );
-        // One active entry: a home entry at the bare prefix matches every path
-        // under it, so the longest matching path wins, and the first such entry
-        // among any that share it.
-        let active = nav_items
-            .iter()
-            .enumerate()
-            .filter(|(_, item)| item.is_current_path(current_path))
-            .min_by_key(|(_, item)| std::cmp::Reverse(item.path().map_or(0, str::len)))
-            .map(|(index, _)| index);
+        // One active entry, chosen the way the breadcrumbs choose theirs.
+        let active = crate::navigation::current_index(&nav_items, current_path, current_query);
 
         // The ungrouped entries first, under the default label, then one labelled group per
         // `group`, in the order of its first entry.
@@ -415,8 +409,19 @@ impl Panel {
         let header_title = Self::brand_name(cx);
         // One navigation tree: the upstream sidebar renders its children once
         // and shares them between the desktop panel and the mobile sheet.
-        let navigation =
-            Self::sidebar_navigation(cx, nav_items, current_path, mobile_open.clone()).await?;
+        // The query the browser sent: an entry that names parameters the request carries wins
+        // over one that names none, at the same path.
+        let current_query = topcoat::router::request::original_uri(cx)
+            .query()
+            .unwrap_or_default();
+        let navigation = Self::sidebar_navigation(
+            cx,
+            nav_items,
+            current_path,
+            current_query,
+            mobile_open.clone(),
+        )
+        .await?;
         let sidebar_brand = Self::render_brand(cx).await?;
         let resource_lists: Vec<&str> = current(cx)
             .map(|panel| {
@@ -428,8 +433,10 @@ impl Panel {
             })
             .unwrap_or_default();
         let trail = match super::error_page::current_error(cx) {
-            Some(error) => breadcrumbs::failed(nav_items, current_path, error.title()),
-            None => breadcrumbs::trail(nav_items, &resource_lists, current_path),
+            Some(error) => {
+                breadcrumbs::failed(nav_items, current_path, current_query, error.title())
+            }
+            None => breadcrumbs::trail(nav_items, &resource_lists, current_path, current_query),
         };
         let crumbs = breadcrumbs::render(cx, trail);
         // The user and tenant menus, present only with a session (ADR-0013). `ensure_token` runs
