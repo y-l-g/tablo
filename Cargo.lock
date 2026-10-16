@@ -3484,6 +3484,7 @@ dependencies = [
  "password-hash",
  "percent-encoding",
  "proptest",
+ "regex",
  "serde",
  "serde_json",
  "subtle",

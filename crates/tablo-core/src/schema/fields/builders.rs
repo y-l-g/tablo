@@ -8,7 +8,7 @@ use super::{
         IntoSchema, OptionSource, Retype, Schema,
         condition::{Condition, Watched},
     },
-    ChoiceControl, Control, ControlKind, Field, TextControl, choice,
+    ChoiceControl, Control, ControlKind, Field, Pattern, TextControl, choice,
 };
 use crate::form::{FormScalar, FormValue};
 
@@ -304,6 +304,59 @@ impl<F> TextField<F> {
     /// for a column holding prose.
     pub fn multiline(mut self, rows: u32) -> Self {
         self.text().rows = Some(rows);
+        self
+    }
+
+    /// Refuse a value of fewer than `chars` characters, and render `minlength`.
+    ///
+    /// Like every rule here, the browser checks it before it submits, and the server checks it
+    /// again on the trimmed value, beside the field's type. A blank value is the field's blank
+    /// answer, which no rule refuses.
+    pub fn min_length(mut self, chars: usize) -> Self {
+        self.text().rules.min_length = Some(chars);
+        self
+    }
+
+    /// Refuse a value of more than `chars` characters, and render `maxlength`, which stops the
+    /// browser's input there.
+    pub fn max_length(mut self, chars: usize) -> Self {
+        self.text().rules.max_length = Some(chars);
+        self
+    }
+
+    /// Refuse a value below `bound`, and render `min`.
+    ///
+    /// The bound is a value of the field's type, which orders: a number, or a `jiff` date, time,
+    /// date and time, or timestamp. `.min(0)` on an `i64` field, `.min(date(2024, 1, 1))` on a
+    /// `jiff::civil::Date` one; a bound the type does not parse or order fails the mount.
+    pub fn min(mut self, bound: impl std::fmt::Display) -> Self {
+        self.text().rules.min = Some(bound.to_string());
+        self
+    }
+
+    /// Refuse a value above `bound`, and render `max`; [`min`](Self::min) says which bounds a
+    /// field takes.
+    pub fn max(mut self, bound: impl std::fmt::Display) -> Self {
+        self.text().rules.max = Some(bound.to_string());
+        self
+    }
+
+    /// Refuse a value the regular expression `pattern` does not match whole, and render it as
+    /// the `pattern` attribute.
+    ///
+    /// The server matches it with the `regex` crate and the browser as a JavaScript expression,
+    /// both against the whole value, so write it in the syntax they share: classes, groups,
+    /// alternation and repetition, without lookaround or backreferences. One the `regex` crate
+    /// does not compile fails the mount.
+    ///
+    /// ```rust
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # struct Product { #[key] #[auto] id: uuid::Uuid, sku: String }
+    /// # use tablo_core::{Field, lens};
+    /// Field::text(lens!(Product.sku)).pattern("[A-Z]{3}-[0-9]{4}");
+    /// ```
+    pub fn pattern(mut self, pattern: impl Into<String>) -> Self {
+        self.text().rules.pattern = Some(Pattern::new(pattern.into()));
         self
     }
 }

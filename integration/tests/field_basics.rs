@@ -11,7 +11,7 @@ use toasty::Db;
 use topcoat::router::Router;
 use uuid::Uuid;
 
-use crate::common::{TestClient, body_string, mount, refusal};
+use crate::common::{TestClient, body_string, control, mount, refusal};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Account {
@@ -84,16 +84,6 @@ async fn only_account(db: &Db) -> Account {
     let mut all = Account::all().exec(&mut db).await.unwrap();
     assert_eq!(all.len(), 1, "one account");
     all.remove(0)
-}
-
-/// The opening tag of the control posting `name`.
-fn control<'h>(html: &'h str, name: &str) -> &'h str {
-    let needle = format!("name=\"{name}\"");
-    let at = html
-        .find(&needle)
-        .unwrap_or_else(|| panic!("no {name} control in {html}"));
-    let start = html[..at].rfind('<').unwrap();
-    &html[start..at + html[at..].find('>').unwrap()]
 }
 
 #[tokio::test]

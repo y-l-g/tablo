@@ -9,6 +9,16 @@ use toasty::Db;
 use topcoat::router::{Body, Router, response::Response};
 use uuid::Uuid;
 
+/// The opening tag of the control posting `name`.
+pub fn control<'h>(html: &'h str, name: &str) -> &'h str {
+    let needle = format!("name=\"{name}\"");
+    let at = html
+        .find(&needle)
+        .unwrap_or_else(|| panic!("no {name} control in {html}"));
+    let start = html[..at].rfind('<').unwrap();
+    &html[start..at + html[at..].find('>').unwrap()]
+}
+
 pub async fn memory_db(models: toasty::schema::ModelSet) -> Db {
     let db = Db::builder()
         .models(models)

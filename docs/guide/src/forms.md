@@ -146,7 +146,9 @@ stored). Outside a panel no record form applies, and every control renders optio
 control's builder, which offers only that control's modifiers, so a modifier on the wrong control
 does not compile:
 
-- text (`TextField`): `.email()`, `.password()`, `.unique()`, `.placeholder(..)`, `.multiline(rows)`;
+- text (`TextField`): `.email()`, `.password()`, `.unique()`, `.placeholder(..)`, `.multiline(rows)`,
+  and the [rules](#length-bounds-and-patterns) `.min_length(n)`, `.max_length(n)`, `.min(..)`,
+  `.max(..)`, `.pattern(..)`;
 - choice (`ChoiceField`): `.options(..)`, `.relationship::<R>()`, `.searchable()`, `.depends_on(..)`,
   `.multiple()`.
 
@@ -196,7 +198,32 @@ A `datetime-local` input carries no time zone, so a timestamp displays and parse
 
 Implement `tablo::extend::TypedValue` to bind your own type: `NOUN` names it in errors,
 `INPUT_TYPE` and `STEP` set the input's `type` and `step`, `parse_input` reads a submission (by
-default through `FromStr`), and `input_value` spells a stored value for the input.
+default through `FromStr`), `input_value` spells a stored value for the input, and `order` orders
+two values for `.min` and `.max` (by default it orders none, and the type takes no bound).
+
+### Length, bounds and patterns
+
+A text field declares the rules a value keeps. Each renders as the HTML attribute of the same name,
+so the browser checks it before it submits, and the server checks it again on the trimmed value,
+after the field's type parses it; a refused value is an inline error, and nothing is written. A
+blank value is the field's blank answer, which no rule refuses.
+
+```rust
+{{#include ../../../examples/guide/src/forms.rs:forms-rules}}
+```
+
+- `.min_length(n)` and `.max_length(n)` count characters. A `<textarea>` takes them too.
+- `.min(bound)` and `.max(bound)` are inclusive, and compare values of the field's type: a number
+  as a number, a date, time or timestamp in time, so `.min(date(2026, 1, 1))` bounds a
+  `jiff::civil::Date` field. The bound is a value of that type; one it does not parse, or a type
+  without an order such as `String`, fails the mount.
+- `.pattern(expr)` must match the whole value. The server matches it with the `regex` crate and the
+  browser as a JavaScript expression, so write it in the syntax both read: classes, groups,
+  alternation and repetition, without lookaround or backreferences. One that does not compile
+  fails the mount.
+- A minimum above its maximum fails the mount, since no value would pass.
+
+A rule across fields, or one these do not express, belongs in `Resource::validate_record`.
 
 ### Email and uniqueness
 
