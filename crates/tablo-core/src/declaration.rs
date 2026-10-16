@@ -353,6 +353,11 @@ pub enum DeclarationErrorKind {
     NoColumns,
     /// `Table::paginate(0)`.
     ZeroPageSize,
+    /// `Table::default_sort` names no sortable column.
+    UnsortableDefaultSort {
+        /// The named column.
+        column: String,
+    },
     /// Two table columns share a name.
     DuplicateColumn {
         /// The shared name.
@@ -659,6 +664,10 @@ impl fmt::Display for DeclarationErrorKind {
                 "no column: declare columns with `Table::new(columns)` or in `ResourceDef::table`",
             ),
             Self::ZeroPageSize => f.write_str("`Table::paginate` needs a page size of at least 1"),
+            Self::UnsortableDefaultSort { column } => write!(
+                f,
+                "`Table::default_sort` names '{column}', which no sortable column is named"
+            ),
             Self::DuplicateColumn { name } => write!(
                 f,
                 "two columns are named '{name}': each column needs a distinct name"

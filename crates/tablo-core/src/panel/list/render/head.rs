@@ -6,13 +6,13 @@ use topcoat::{Result, context::Cx, icon::icon, runtime::Event, view::*};
 use super::{CHROME_CELL_CLASS, Frame, live_link};
 use crate::{
     panel::list::TableSignals,
-    table::{TableState, bulk_token},
+    table::{Sort, TableState, bulk_token},
 };
 
 impl Frame<'_> {
-    /// Render the column-header row: sort links that write the table's query, and the
-    /// select-all box over the page's selectable `keys`. Without `links` (the skeleton) the headers
-    /// are plain labels.
+    /// Render the column-header row: sort links that write the table's query, the column the
+    /// rows are `sorted` by marked, and the select-all box over the page's selectable `keys`.
+    /// Without `links` (the skeleton) the headers are plain labels.
     pub(super) async fn render_thead<'a>(
         &self,
         cx: &'a Cx,
@@ -20,13 +20,8 @@ impl Frame<'_> {
         path: &str,
         with_actions: bool,
         with_bulk: bool,
-        links: Option<(&TableSignals, Vec<String>)>,
+        links: Option<(&TableSignals, Option<&Sort>, Vec<String>)>,
     ) -> Result<BoxView<'a>> {
-        let active = state.sort.as_ref().filter(|s| {
-            self.columns
-                .iter()
-                .any(|c| c.sortable && c.name == s.column)
-        });
         let mut heads: Vec<BoxView<'_>> = Vec::with_capacity(self.columns.len());
         let slack = self.slack_column();
         for (index, col) in self.columns.iter().enumerate() {
@@ -36,8 +31,8 @@ impl Frame<'_> {
             let label = col.label.to_string();
             let sortable = col.sortable;
             let (head_class, aria_sort, header) =
-                if let (true, Some((signals, _))) = (sortable, links.as_ref()) {
-                    let (aria, sort_icon, next_desc) = match active {
+                if let (true, Some((signals, sorted, _))) = (sortable, links.as_ref()) {
+                    let (aria, sort_icon, next_desc) = match sorted {
                         Some(s) if s.column == col.name => (
                             if s.descending {
                                 "descending"
@@ -102,7 +97,7 @@ impl Frame<'_> {
             );
         }
         let select_all = with_bulk.then(|| match &links {
-            Some((signals, keys)) => select_all(cx, signals, keys),
+            Some((signals, _, keys)) => select_all(cx, signals, keys),
             None => attributes! { cx => type="checkbox" disabled="" },
         });
         if with_actions {
