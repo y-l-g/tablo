@@ -236,6 +236,92 @@ impl core::marker::Unpin for tablo_core::auth::AuthSession
 impl core::marker::UnsafeUnpin for tablo_core::auth::AuthSession
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::auth::AuthSession
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::auth::AuthSession
+pub struct tablo_core::auth::ColumnPreference
+pub tablo_core::auth::ColumnPreference::columns: alloc::string::String
+pub tablo_core::auth::ColumnPreference::key: alloc::string::String
+pub tablo_core::auth::ColumnPreference::panel: alloc::string::String
+pub tablo_core::auth::ColumnPreference::resource: alloc::string::String
+pub tablo_core::auth::ColumnPreference::user_id: alloc::string::String
+impl tablo_core::auth::ColumnPreference
+pub fn tablo_core::auth::ColumnPreference::all() -> ColumnPreferenceQuery
+pub fn tablo_core::auth::ColumnPreference::create() -> ColumnPreferenceCreate
+pub fn tablo_core::auth::ColumnPreference::create_many() -> toasty::stmt::create_many::CreateMany<tablo_core::auth::ColumnPreference>
+pub fn tablo_core::auth::ColumnPreference::delete(self) -> toasty::stmt::delete::Delete<()>
+pub async fn tablo_core::auth::ColumnPreference::delete_by_key(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> toasty_core::Result<()>
+pub async fn tablo_core::auth::ColumnPreference::delete_by_user_id(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> toasty_core::Result<()>
+pub fn tablo_core::auth::ColumnPreference::fields() -> ColumnPreferenceFields<tablo_core::auth::ColumnPreference>
+pub fn tablo_core::auth::ColumnPreference::filter(toasty::stmt::expr::Expr<bool>) -> ColumnPreferenceQuery
+pub fn tablo_core::auth::ColumnPreference::filter_by_key(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> ColumnPreferenceQuery
+pub fn tablo_core::auth::ColumnPreference::filter_by_user_id(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> ColumnPreferenceQuery
+pub async fn tablo_core::auth::ColumnPreference::get_by_key(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> toasty_core::Result<tablo_core::auth::ColumnPreference>
+pub async fn tablo_core::auth::ColumnPreference::get_by_user_id(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> toasty_core::Result<tablo_core::auth::ColumnPreference>
+pub fn tablo_core::auth::ColumnPreference::update(&mut self) -> ColumnPreferenceUpdate<&mut Self>
+pub fn tablo_core::auth::ColumnPreference::update_by_key(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> ColumnPreferenceUpdate
+pub fn tablo_core::auth::ColumnPreference::update_by_user_id(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> ColumnPreferenceUpdate
+impl tablo_core::auth::ColumnPreference
+pub fn tablo_core::auth::ColumnPreference::upsert_by_key(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> ColumnPreferenceUpsertByKey
+impl core::clone::Clone for tablo_core::auth::ColumnPreference
+pub fn tablo_core::auth::ColumnPreference::clone(&self) -> tablo_core::auth::ColumnPreference
+impl core::fmt::Debug for tablo_core::auth::ColumnPreference
+pub fn tablo_core::auth::ColumnPreference::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl toasty::codegen_support::ModelCodegen for tablo_core::auth::ColumnPreference
+pub fn tablo_core::auth::ColumnPreference::new_one_field<__Origin, __Target>(toasty::stmt::path::Path<__Origin, __Target>) -> Self::OneField
+pub fn tablo_core::auth::ColumnPreference::to_relation_expr(&self, &[&str]) -> toasty_core::stmt::expr::Expr
+impl toasty::schema::load::Load for tablo_core::auth::ColumnPreference
+pub type tablo_core::auth::ColumnPreference::Output = tablo_core::auth::ColumnPreference
+pub fn tablo_core::auth::ColumnPreference::load(toasty_core::stmt::value::Value) -> toasty_core::Result<Self>
+pub fn tablo_core::auth::ColumnPreference::reload(&mut Self, toasty_core::stmt::value::Value) -> toasty_core::Result<()>
+pub fn tablo_core::auth::ColumnPreference::ty() -> toasty_core::stmt::ty::Type
+impl toasty::schema::model::Model for tablo_core::auth::ColumnPreference
+pub type tablo_core::auth::ColumnPreference::Create = ColumnPreferenceCreate
+pub type tablo_core::auth::ColumnPreference::ManyField<__Origin> = ColumnPreferenceListFields<__Origin>
+pub type tablo_core::auth::ColumnPreference::OneField<__Origin, __Target> = ColumnPreferenceFields<__Origin, __Target>
+pub type tablo_core::auth::ColumnPreference::Path<__Origin> = ColumnPreferenceFields<__Origin>
+pub type tablo_core::auth::ColumnPreference::PrimaryKey = alloc::string::String
+pub type tablo_core::auth::ColumnPreference::Query<__T> = ColumnPreferenceQuery<__T>
+pub type tablo_core::auth::ColumnPreference::Update<'a> = ColumnPreferenceUpdate<&'a mut tablo_core::auth::ColumnPreference>
+pub type tablo_core::auth::ColumnPreference::UpdateQuery = ColumnPreferenceUpdate
+pub fn tablo_core::auth::ColumnPreference::field_name_to_id(&str) -> toasty_core::schema::app::field::FieldId
+pub fn tablo_core::auth::ColumnPreference::find_by_primary_key(toasty::stmt::expr::Expr<Self::PrimaryKey>) -> Self::Query
+pub fn tablo_core::auth::ColumnPreference::id() -> toasty_core::schema::app::model::ModelId
+pub fn tablo_core::auth::ColumnPreference::new_many_field<__Origin>(toasty::stmt::path::Path<__Origin, toasty::stmt::list::List<Self>>) -> ColumnPreferenceListFields<__Origin>
+pub fn tablo_core::auth::ColumnPreference::new_path<__Origin>(toasty::stmt::path::Path<__Origin, Self>) -> Self::Path
+pub fn tablo_core::auth::ColumnPreference::query_first(Self::Query) -> Self::Query
+pub fn tablo_core::auth::ColumnPreference::query_one(Self::Query) -> Self::Query
+pub fn tablo_core::auth::ColumnPreference::register(&mut toasty_core::schema::app::model::ModelSet)
+pub fn tablo_core::auth::ColumnPreference::schema() -> toasty_core::schema::app::model::Model
+pub fn tablo_core::auth::ColumnPreference::wrap_query<__T>(toasty::stmt::query::Query<__T>) -> Self::Query
+impl toasty::schema::via::ViaTarget for tablo_core::auth::ColumnPreference
+pub type tablo_core::auth::ColumnPreference::Path<__Origin> = <tablo_core::auth::ColumnPreference as toasty::schema::model::Model>::ManyField
+pub type tablo_core::auth::ColumnPreference::Query = ColumnPreferenceQuery
+pub fn tablo_core::auth::ColumnPreference::make_via_query(toasty::stmt::association::Association<toasty::stmt::list::List<tablo_core::auth::ColumnPreference>>) -> Self::Query
+pub fn tablo_core::auth::ColumnPreference::new_path<__Origin>(toasty::stmt::path::Path<__Origin, toasty::stmt::list::List<tablo_core::auth::ColumnPreference>>) -> Self::Path
+pub fn tablo_core::auth::ColumnPreference::via_field_ty(toasty_core::schema::name::Name, toasty_core::stmt::path::Path) -> toasty_core::schema::app::field::FieldTy
+impl toasty::stmt::assignment::Assign<tablo_core::auth::ColumnPreference> for tablo_core::auth::ColumnPreference
+pub fn tablo_core::auth::ColumnPreference::into_assignment(self) -> toasty::stmt::assignment::Assignment<tablo_core::auth::ColumnPreference>
+impl toasty::stmt::into_expr::IntoExpr<tablo_core::auth::ColumnPreference> for tablo_core::auth::ColumnPreference
+pub fn tablo_core::auth::ColumnPreference::by_ref(&self) -> toasty::stmt::expr::Expr<tablo_core::auth::ColumnPreference>
+pub fn tablo_core::auth::ColumnPreference::into_expr(self) -> toasty::stmt::expr::Expr<tablo_core::auth::ColumnPreference>
+impl toasty::stmt::into_statement::IntoStatement for &mut tablo_core::auth::ColumnPreference
+pub type &mut tablo_core::auth::ColumnPreference::Returning = tablo_core::auth::ColumnPreference
+pub fn &mut tablo_core::auth::ColumnPreference::into_statement(self) -> toasty::stmt::Statement<tablo_core::auth::ColumnPreference>
+impl toasty::stmt::into_statement::IntoStatement for &tablo_core::auth::ColumnPreference
+pub type &tablo_core::auth::ColumnPreference::Returning = tablo_core::auth::ColumnPreference
+pub fn &tablo_core::auth::ColumnPreference::into_statement(self) -> toasty::stmt::Statement<tablo_core::auth::ColumnPreference>
+impl toasty::stmt::into_statement::IntoStatement for tablo_core::auth::ColumnPreference
+pub type tablo_core::auth::ColumnPreference::Returning = tablo_core::auth::ColumnPreference
+pub fn tablo_core::auth::ColumnPreference::into_statement(self) -> toasty::stmt::Statement<tablo_core::auth::ColumnPreference>
+impl toasty::update_target::UpdateTarget for &mut tablo_core::auth::ColumnPreference
+pub type &mut tablo_core::auth::ColumnPreference::Returning = tablo_core::auth::ColumnPreference
+pub fn &mut tablo_core::auth::ColumnPreference::apply_result(self, toasty_core::stmt::value::Value) -> toasty_core::Result<()>
+pub fn &mut tablo_core::auth::ColumnPreference::to_update_stmt(&mut self, toasty_core::stmt::assignments::Assignments) -> toasty::stmt::update::Update<tablo_core::auth::ColumnPreference>
+impl core::marker::Freeze for tablo_core::auth::ColumnPreference
+impl core::marker::Send for tablo_core::auth::ColumnPreference
+impl core::marker::Sync for tablo_core::auth::ColumnPreference
+impl core::marker::Unpin for tablo_core::auth::ColumnPreference
+impl core::marker::UnsafeUnpin for tablo_core::auth::ColumnPreference
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::auth::ColumnPreference
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::auth::ColumnPreference
 pub struct tablo_core::auth::LoginThrottle
 impl tablo_core::LoginThrottle
 pub fn tablo_core::LoginThrottle::new(u32, core::time::Duration) -> Self
@@ -597,6 +683,7 @@ pub fn tablo_core::extend::Column::name(&self) -> &str
 pub fn tablo_core::extend::Column::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::extend::Column::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::extend::Column::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::extend::Column::toggle(&self) -> tablo_core::ColumnToggle
 impl<M, T> tablo_core::extend::Column<M> for tablo_core::ColorColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::ColorColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::ColorColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -610,6 +697,7 @@ pub fn tablo_core::ColorColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::ColorColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::ColorColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::ColorColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::ColorColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M, T> tablo_core::extend::Column<M> for tablo_core::DateColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::DateValue
 pub fn tablo_core::DateColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::DateColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -623,6 +711,7 @@ pub fn tablo_core::DateColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::DateColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::DateColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::DateColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::DateColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M, T> tablo_core::extend::Column<M> for tablo_core::EmbeddedColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::EmbeddedForm + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::EmbeddedColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::EmbeddedColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -636,6 +725,7 @@ pub fn tablo_core::EmbeddedColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::EmbeddedColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::EmbeddedColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::EmbeddedColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::EmbeddedColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M, T> tablo_core::extend::Column<M> for tablo_core::ImageColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::ImageColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::ImageColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -649,6 +739,7 @@ pub fn tablo_core::ImageColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::ImageColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::ImageColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::ImageColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::ImageColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M, T> tablo_core::extend::Column<M> for tablo_core::RepeaterColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormInput
 pub fn tablo_core::RepeaterColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::RepeaterColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -662,6 +753,7 @@ pub fn tablo_core::RepeaterColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::RepeaterColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::RepeaterColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::RepeaterColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::RepeaterColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M, T> tablo_core::extend::Column<M> for tablo_core::TextColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::TextColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::TextColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -675,6 +767,7 @@ pub fn tablo_core::TextColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::TextColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::TextColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::TextColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::TextColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M> tablo_core::extend::Column<M> for tablo_core::BooleanColumn<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::BooleanColumn<M>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::BooleanColumn<M>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -688,6 +781,7 @@ pub fn tablo_core::BooleanColumn<M>::name(&self) -> &str
 pub fn tablo_core::BooleanColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::BooleanColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::BooleanColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::BooleanColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M> tablo_core::extend::Column<M> for tablo_core::ComputedColumn<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::ComputedColumn<M>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::ComputedColumn<M>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -701,6 +795,7 @@ pub fn tablo_core::ComputedColumn<M>::name(&self) -> &str
 pub fn tablo_core::ComputedColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::ComputedColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::ComputedColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::ComputedColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M> tablo_core::extend::Column<M> for tablo_core::CountColumn<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::CountColumn<M>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::CountColumn<M>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -714,6 +809,7 @@ pub fn tablo_core::CountColumn<M>::name(&self) -> &str
 pub fn tablo_core::CountColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::CountColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::CountColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::CountColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M> tablo_core::extend::Column<M> for tablo_core::FileColumn<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::FileColumn<M>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::FileColumn<M>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -727,6 +823,7 @@ pub fn tablo_core::FileColumn<M>::name(&self) -> &str
 pub fn tablo_core::FileColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::FileColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::FileColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::FileColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M> tablo_core::extend::Column<M> for tablo_core::RelationColumn<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::RelationColumn<M>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::RelationColumn<M>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -740,6 +837,7 @@ pub fn tablo_core::RelationColumn<M>::name(&self) -> &str
 pub fn tablo_core::RelationColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::RelationColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::RelationColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::RelationColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
 pub trait tablo_core::extend::Control: core::marker::Send + core::marker::Sync
 pub fn tablo_core::extend::Control::render<'a>(&self, &'a topcoat_core::context::Cx, tablo_core::extend::ControlInput) -> topcoat_view::view::BoxView<'a>
 impl tablo_core::extend::Control for tablo_core::Toggle
@@ -2333,6 +2431,28 @@ impl core::marker::Unpin for tablo_core::Color
 impl core::marker::UnsafeUnpin for tablo_core::Color
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Color
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::Color
+pub enum tablo_core::table::ColumnToggle
+pub tablo_core::table::ColumnToggle::Fixed
+pub tablo_core::table::ColumnToggle::HiddenByDefault
+pub tablo_core::table::ColumnToggle::ShownByDefault
+impl core::clone::Clone for tablo_core::ColumnToggle
+pub fn tablo_core::ColumnToggle::clone(&self) -> tablo_core::ColumnToggle
+impl core::cmp::Eq for tablo_core::ColumnToggle
+impl core::cmp::PartialEq for tablo_core::ColumnToggle
+pub fn tablo_core::ColumnToggle::eq(&self, &tablo_core::ColumnToggle) -> bool
+impl core::default::Default for tablo_core::ColumnToggle
+pub fn tablo_core::ColumnToggle::default() -> tablo_core::ColumnToggle
+impl core::fmt::Debug for tablo_core::ColumnToggle
+pub fn tablo_core::ColumnToggle::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_core::ColumnToggle
+impl core::marker::StructuralPartialEq for tablo_core::ColumnToggle
+impl core::marker::Freeze for tablo_core::ColumnToggle
+impl core::marker::Send for tablo_core::ColumnToggle
+impl core::marker::Sync for tablo_core::ColumnToggle
+impl core::marker::Unpin for tablo_core::ColumnToggle
+impl core::marker::UnsafeUnpin for tablo_core::ColumnToggle
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::ColumnToggle
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::ColumnToggle
 pub enum tablo_core::table::ColumnWidth
 pub tablo_core::table::ColumnWidth::Auto
 pub tablo_core::table::ColumnWidth::Grow
@@ -2416,10 +2536,12 @@ impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::table::Pagination
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::table::Pagination
 pub struct tablo_core::table::BooleanColumn<M>
 impl<M> tablo_core::BooleanColumn<M> where M: toasty::schema::model::Model
+pub fn tablo_core::BooleanColumn<M>::hidden_by_default(self) -> Self
 pub fn tablo_core::BooleanColumn<M>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::BooleanColumn<M>::labels(self, impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::BooleanColumn<M>::new(tablo_core::Lens<M, bool>) -> Self
 pub fn tablo_core::BooleanColumn<M>::sortable(self) -> Self
+pub fn tablo_core::BooleanColumn<M>::toggleable(self) -> Self
 pub fn tablo_core::BooleanColumn<M>::width(self, tablo_core::ColumnWidth) -> Self
 impl<M> core::clone::Clone for tablo_core::BooleanColumn<M>
 pub fn tablo_core::BooleanColumn<M>::clone(&self) -> Self
@@ -2441,6 +2563,7 @@ pub fn tablo_core::BooleanColumn<M>::name(&self) -> &str
 pub fn tablo_core::BooleanColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::BooleanColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::BooleanColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::BooleanColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M> core::marker::Freeze for tablo_core::BooleanColumn<M> where tablo_core::Lens<M, bool>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::BooleanColumn<M> where tablo_core::Lens<M, bool>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::BooleanColumn<M> where tablo_core::Lens<M, bool>: core::marker::Sync
@@ -2450,8 +2573,10 @@ impl<M> core::panic::unwind_safe::RefUnwindSafe for tablo_core::BooleanColumn<M>
 impl<M> core::panic::unwind_safe::UnwindSafe for tablo_core::BooleanColumn<M> where tablo_core::Lens<M, bool>: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::table::ColorColumn<M, T>
 impl<M, T> tablo_core::ColorColumn<M, T> where M: toasty::schema::model::Model
+pub fn tablo_core::ColorColumn<M, T>::hidden_by_default(self) -> Self
 pub fn tablo_core::ColorColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::ColorColumn<M, T>::new(tablo_core::Lens<M, T>) -> Self where T: toasty::schema::field::Field<Inner = alloc::string::String>
+pub fn tablo_core::ColorColumn<M, T>::toggleable(self) -> Self
 pub fn tablo_core::ColorColumn<M, T>::width(self, tablo_core::ColumnWidth) -> Self
 impl<M, T> core::clone::Clone for tablo_core::ColorColumn<M, T>
 pub fn tablo_core::ColorColumn<M, T>::clone(&self) -> Self
@@ -2473,6 +2598,7 @@ pub fn tablo_core::ColorColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::ColorColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::ColorColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::ColorColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::ColorColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M, T> core::marker::Freeze for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Freeze
 impl<M, T> core::marker::Send for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send
 impl<M, T> core::marker::Sync for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync
@@ -2483,8 +2609,10 @@ impl<M, T> core::panic::unwind_safe::UnwindSafe for tablo_core::ColorColumn<M, T
 pub struct tablo_core::table::ComputedColumn<M>
 impl<M> tablo_core::ComputedColumn<M> where M: toasty::schema::model::Model
 pub fn tablo_core::ComputedColumn<M>::align(self, tablo_core::Alignment) -> Self
+pub fn tablo_core::ComputedColumn<M>::hidden_by_default(self) -> Self
 pub fn tablo_core::ComputedColumn<M>::include<T>(self, impl core::convert::Into<toasty::stmt::include::Include<M, T>>) -> Self
 pub fn tablo_core::ComputedColumn<M>::new(impl core::convert::Into<alloc::string::String>, impl core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::ComputedColumn<M>::toggleable(self) -> Self
 pub fn tablo_core::ComputedColumn<M>::width(self, tablo_core::ColumnWidth) -> Self
 impl<M> core::clone::Clone for tablo_core::ComputedColumn<M>
 pub fn tablo_core::ComputedColumn<M>::clone(&self) -> Self
@@ -2506,6 +2634,7 @@ pub fn tablo_core::ComputedColumn<M>::name(&self) -> &str
 pub fn tablo_core::ComputedColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::ComputedColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::ComputedColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::ComputedColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M> core::marker::Freeze for tablo_core::ComputedColumn<M> where alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Freeze, tablo_core::extend::Includes<M>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::ComputedColumn<M> where alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Send, tablo_core::extend::Includes<M>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::ComputedColumn<M> where alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Sync, tablo_core::extend::Includes<M>: core::marker::Sync
@@ -2517,7 +2646,9 @@ pub struct tablo_core::table::CountColumn<M>
 impl<M> tablo_core::CountColumn<M> where M: toasty::schema::model::Model
 pub fn tablo_core::CountColumn<M>::new<T>(tablo_core::RelationLens<M, toasty::schema::deferred::Deferred<alloc::vec::Vec<T>>>) -> Self where T: toasty::schema::model::Model + 'static, M: 'static
 impl<M> tablo_core::CountColumn<M>
+pub fn tablo_core::CountColumn<M>::hidden_by_default(self) -> Self
 pub fn tablo_core::CountColumn<M>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::CountColumn<M>::toggleable(self) -> Self
 pub fn tablo_core::CountColumn<M>::width(self, tablo_core::ColumnWidth) -> Self
 impl<M> core::clone::Clone for tablo_core::CountColumn<M>
 pub fn tablo_core::CountColumn<M>::clone(&self) -> Self
@@ -2539,6 +2670,7 @@ pub fn tablo_core::CountColumn<M>::name(&self) -> &str
 pub fn tablo_core::CountColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::CountColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::CountColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::CountColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M> core::marker::Freeze for tablo_core::CountColumn<M> where Declared<M>: core::marker::Freeze, alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::CountColumn<M> where Declared<M>: core::marker::Send, alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::CountColumn<M> where Declared<M>: core::marker::Sync, alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::Sync
@@ -2575,9 +2707,11 @@ impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Currency
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::Currency
 pub struct tablo_core::table::DateColumn<M, T>
 impl<M, T> tablo_core::DateColumn<M, T> where M: toasty::schema::model::Model
+pub fn tablo_core::DateColumn<M, T>::hidden_by_default(self) -> Self
 pub fn tablo_core::DateColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::DateColumn<M, T>::new(tablo_core::Lens<M, T>) -> Self where T: tablo_core::DateValue
 pub fn tablo_core::DateColumn<M, T>::sortable(self) -> Self
+pub fn tablo_core::DateColumn<M, T>::toggleable(self) -> Self
 pub fn tablo_core::DateColumn<M, T>::width(self, tablo_core::ColumnWidth) -> Self
 impl<M, T> core::clone::Clone for tablo_core::DateColumn<M, T>
 pub fn tablo_core::DateColumn<M, T>::clone(&self) -> Self
@@ -2599,6 +2733,7 @@ pub fn tablo_core::DateColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::DateColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::DateColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::DateColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::DateColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M, T> core::marker::Freeze for tablo_core::DateColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Freeze
 impl<M, T> core::marker::Send for tablo_core::DateColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send
 impl<M, T> core::marker::Sync for tablo_core::DateColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync
@@ -2632,8 +2767,10 @@ impl<M> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::DateFilter<M>
 impl<M> !core::panic::unwind_safe::UnwindSafe for tablo_core::DateFilter<M>
 pub struct tablo_core::table::EmbeddedColumn<M, T>
 impl<M, T> tablo_core::EmbeddedColumn<M, T> where M: toasty::schema::model::Model, T: tablo_core::EmbeddedForm
+pub fn tablo_core::EmbeddedColumn<M, T>::hidden_by_default(self) -> Self
 pub fn tablo_core::EmbeddedColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::EmbeddedColumn<M, T>::new(tablo_core::Lens<M, T>) -> Self
+pub fn tablo_core::EmbeddedColumn<M, T>::toggleable(self) -> Self
 pub fn tablo_core::EmbeddedColumn<M, T>::width(self, tablo_core::ColumnWidth) -> Self
 impl<M, T> core::clone::Clone for tablo_core::EmbeddedColumn<M, T>
 pub fn tablo_core::EmbeddedColumn<M, T>::clone(&self) -> Self
@@ -2655,6 +2792,7 @@ pub fn tablo_core::EmbeddedColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::EmbeddedColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::EmbeddedColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::EmbeddedColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::EmbeddedColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M, T> core::marker::Freeze for tablo_core::EmbeddedColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Freeze
 impl<M, T> core::marker::Send for tablo_core::EmbeddedColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send
 impl<M, T> core::marker::Sync for tablo_core::EmbeddedColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync
@@ -2664,8 +2802,10 @@ impl<M, T> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::EmbeddedColu
 impl<M, T> !core::panic::unwind_safe::UnwindSafe for tablo_core::EmbeddedColumn<M, T>
 pub struct tablo_core::table::FileColumn<M>
 impl<M> tablo_core::FileColumn<M> where M: toasty::schema::model::Model
+pub fn tablo_core::FileColumn<M>::hidden_by_default(self) -> Self
 pub fn tablo_core::FileColumn<M>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::FileColumn<M>::new(tablo_core::Lens<M, alloc::string::String>) -> Self
+pub fn tablo_core::FileColumn<M>::toggleable(self) -> Self
 pub fn tablo_core::FileColumn<M>::width(self, tablo_core::ColumnWidth) -> Self
 impl<M> core::clone::Clone for tablo_core::FileColumn<M>
 pub fn tablo_core::FileColumn<M>::clone(&self) -> Self
@@ -2687,6 +2827,7 @@ pub fn tablo_core::FileColumn<M>::name(&self) -> &str
 pub fn tablo_core::FileColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::FileColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::FileColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::FileColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M> core::marker::Freeze for tablo_core::FileColumn<M> where tablo_core::Lens<M, alloc::string::String>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::FileColumn<M> where tablo_core::Lens<M, alloc::string::String>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::FileColumn<M> where tablo_core::Lens<M, alloc::string::String>: core::marker::Sync
@@ -2728,10 +2869,12 @@ impl core::panic::unwind_safe::UnwindSafe for tablo_core::FilterValue
 pub struct tablo_core::table::ImageColumn<M, T>
 impl<M, T> tablo_core::ImageColumn<M, T> where M: toasty::schema::model::Model
 pub fn tablo_core::ImageColumn<M, T>::circular(self) -> Self
+pub fn tablo_core::ImageColumn<M, T>::hidden_by_default(self) -> Self
 pub fn tablo_core::ImageColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::ImageColumn<M, T>::new(tablo_core::Lens<M, T>) -> Self where T: toasty::schema::field::Field<Inner = alloc::string::String>
 pub fn tablo_core::ImageColumn<M, T>::remote(self) -> Self
 pub fn tablo_core::ImageColumn<M, T>::size(self, u16) -> Self
+pub fn tablo_core::ImageColumn<M, T>::toggleable(self) -> Self
 pub fn tablo_core::ImageColumn<M, T>::width(self, tablo_core::ColumnWidth) -> Self
 impl<M, T> core::clone::Clone for tablo_core::ImageColumn<M, T>
 pub fn tablo_core::ImageColumn<M, T>::clone(&self) -> Self
@@ -2753,6 +2896,7 @@ pub fn tablo_core::ImageColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::ImageColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::ImageColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::ImageColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::ImageColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M, T> core::marker::Freeze for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Freeze
 impl<M, T> core::marker::Send for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send
 impl<M, T> core::marker::Sync for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync
@@ -2814,7 +2958,9 @@ pub fn tablo_core::RelationColumn<M>::list<S>(tablo_core::RelationLens<M, toasty
 pub fn tablo_core::RelationColumn<M>::new<T>(tablo_core::RelationLens<M, impl tablo_core::ToOneRelation<T> + 'static>, impl core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self where M: 'static
 pub fn tablo_core::RelationColumn<M>::of<S>(tablo_core::RelationLens<M, impl tablo_core::ToOneRelation<<S as tablo_core::extend::OptionSource>::Model> + 'static>) -> Self where S: tablo_core::extend::OptionSource, M: 'static
 impl<M> tablo_core::RelationColumn<M>
+pub fn tablo_core::RelationColumn<M>::hidden_by_default(self) -> Self
 pub fn tablo_core::RelationColumn<M>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::RelationColumn<M>::toggleable(self) -> Self
 pub fn tablo_core::RelationColumn<M>::width(self, tablo_core::ColumnWidth) -> Self
 impl<M> core::clone::Clone for tablo_core::RelationColumn<M>
 pub fn tablo_core::RelationColumn<M>::clone(&self) -> Self
@@ -2836,6 +2982,7 @@ pub fn tablo_core::RelationColumn<M>::name(&self) -> &str
 pub fn tablo_core::RelationColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::RelationColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::RelationColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::RelationColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M> core::marker::Freeze for tablo_core::RelationColumn<M> where Declared<M>: core::marker::Freeze, alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> core::option::Option<alloc::string::String> + core::marker::Send + core::marker::Sync)>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::RelationColumn<M> where Declared<M>: core::marker::Send, alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> core::option::Option<alloc::string::String> + core::marker::Send + core::marker::Sync)>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::RelationColumn<M> where Declared<M>: core::marker::Sync, alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> core::option::Option<alloc::string::String> + core::marker::Send + core::marker::Sync)>: core::marker::Sync
@@ -2860,8 +3007,10 @@ impl<M, R> core::panic::unwind_safe::RefUnwindSafe for tablo_core::RelationLens<
 impl<M, R> core::panic::unwind_safe::UnwindSafe for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::panic::unwind_safe::UnwindSafe, fn(&M) -> &R: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::table::RepeaterColumn<M, T>
 impl<M, T> tablo_core::RepeaterColumn<M, T> where M: toasty::schema::model::Model, T: tablo_core::FormInput
+pub fn tablo_core::RepeaterColumn<M, T>::hidden_by_default(self) -> Self
 pub fn tablo_core::RepeaterColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::RepeaterColumn<M, T>::new(tablo_core::Lens<M, alloc::vec::Vec<T>, toasty::stmt::list::List<T>>) -> Self
+pub fn tablo_core::RepeaterColumn<M, T>::toggleable(self) -> Self
 pub fn tablo_core::RepeaterColumn<M, T>::width(self, tablo_core::ColumnWidth) -> Self
 impl<M, T> core::clone::Clone for tablo_core::RepeaterColumn<M, T>
 pub fn tablo_core::RepeaterColumn<M, T>::clone(&self) -> Self
@@ -2883,6 +3032,7 @@ pub fn tablo_core::RepeaterColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::RepeaterColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::RepeaterColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::RepeaterColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::RepeaterColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M, T> core::marker::Freeze for tablo_core::RepeaterColumn<M, T> where tablo_core::Lens<M, alloc::vec::Vec<T>, toasty::stmt::list::List<T>>: core::marker::Freeze
 impl<M, T> core::marker::Send for tablo_core::RepeaterColumn<M, T> where tablo_core::Lens<M, alloc::vec::Vec<T>, toasty::stmt::list::List<T>>: core::marker::Send
 impl<M, T> core::marker::Sync for tablo_core::RepeaterColumn<M, T> where tablo_core::Lens<M, alloc::vec::Vec<T>, toasty::stmt::list::List<T>>: core::marker::Sync
@@ -3057,9 +3207,11 @@ pub fn tablo_core::TextColumn<M, T>::badge(self) -> Self
 pub fn tablo_core::TextColumn<M, T>::color(self, impl core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync + 'static) -> Self
 pub fn tablo_core::TextColumn<M, T>::description(self, impl core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self
 pub fn tablo_core::TextColumn<M, T>::format(self, impl core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::TextColumn<M, T>::hidden_by_default(self) -> Self
 pub fn tablo_core::TextColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::TextColumn<M, T>::new(tablo_core::Lens<M, T>) -> Self where T: tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::TextColumn<M, T>::sortable(self) -> Self
+pub fn tablo_core::TextColumn<M, T>::toggleable(self) -> Self
 pub fn tablo_core::TextColumn<M, T>::width(self, tablo_core::ColumnWidth) -> Self
 impl<M, T> core::clone::Clone for tablo_core::TextColumn<M, T>
 pub fn tablo_core::TextColumn<M, T>::clone(&self) -> Self
@@ -3081,6 +3233,7 @@ pub fn tablo_core::TextColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::TextColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::TextColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::TextColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::TextColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M, T> core::marker::Freeze for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Freeze, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Freeze, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync)>: core::marker::Freeze, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>>: core::marker::Freeze
 impl<M, T> core::marker::Send for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Send, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync)>: core::marker::Send, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>>: core::marker::Send
 impl<M, T> core::marker::Sync for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Sync, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync)>: core::marker::Sync, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>>: core::marker::Sync
@@ -3468,6 +3621,28 @@ impl core::marker::Unpin for tablo_core::Color
 impl core::marker::UnsafeUnpin for tablo_core::Color
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Color
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::Color
+pub enum tablo_core::ColumnToggle
+pub tablo_core::ColumnToggle::Fixed
+pub tablo_core::ColumnToggle::HiddenByDefault
+pub tablo_core::ColumnToggle::ShownByDefault
+impl core::clone::Clone for tablo_core::ColumnToggle
+pub fn tablo_core::ColumnToggle::clone(&self) -> tablo_core::ColumnToggle
+impl core::cmp::Eq for tablo_core::ColumnToggle
+impl core::cmp::PartialEq for tablo_core::ColumnToggle
+pub fn tablo_core::ColumnToggle::eq(&self, &tablo_core::ColumnToggle) -> bool
+impl core::default::Default for tablo_core::ColumnToggle
+pub fn tablo_core::ColumnToggle::default() -> tablo_core::ColumnToggle
+impl core::fmt::Debug for tablo_core::ColumnToggle
+pub fn tablo_core::ColumnToggle::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_core::ColumnToggle
+impl core::marker::StructuralPartialEq for tablo_core::ColumnToggle
+impl core::marker::Freeze for tablo_core::ColumnToggle
+impl core::marker::Send for tablo_core::ColumnToggle
+impl core::marker::Sync for tablo_core::ColumnToggle
+impl core::marker::Unpin for tablo_core::ColumnToggle
+impl core::marker::UnsafeUnpin for tablo_core::ColumnToggle
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::ColumnToggle
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::ColumnToggle
 pub enum tablo_core::ColumnWidth
 pub tablo_core::ColumnWidth::Auto
 pub tablo_core::ColumnWidth::Grow
@@ -4013,10 +4188,12 @@ impl !core::panic::unwind_safe::RefUnwindSafe for tablo_core::auth::Auth
 impl !core::panic::unwind_safe::UnwindSafe for tablo_core::auth::Auth
 pub struct tablo_core::BooleanColumn<M>
 impl<M> tablo_core::BooleanColumn<M> where M: toasty::schema::model::Model
+pub fn tablo_core::BooleanColumn<M>::hidden_by_default(self) -> Self
 pub fn tablo_core::BooleanColumn<M>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::BooleanColumn<M>::labels(self, impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::BooleanColumn<M>::new(tablo_core::Lens<M, bool>) -> Self
 pub fn tablo_core::BooleanColumn<M>::sortable(self) -> Self
+pub fn tablo_core::BooleanColumn<M>::toggleable(self) -> Self
 pub fn tablo_core::BooleanColumn<M>::width(self, tablo_core::ColumnWidth) -> Self
 impl<M> core::clone::Clone for tablo_core::BooleanColumn<M>
 pub fn tablo_core::BooleanColumn<M>::clone(&self) -> Self
@@ -4038,6 +4215,7 @@ pub fn tablo_core::BooleanColumn<M>::name(&self) -> &str
 pub fn tablo_core::BooleanColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::BooleanColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::BooleanColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::BooleanColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M> core::marker::Freeze for tablo_core::BooleanColumn<M> where tablo_core::Lens<M, bool>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::BooleanColumn<M> where tablo_core::Lens<M, bool>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::BooleanColumn<M> where tablo_core::Lens<M, bool>: core::marker::Sync
@@ -4097,8 +4275,10 @@ impl<F> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::ChoiceField<F>
 impl<F> !core::panic::unwind_safe::UnwindSafe for tablo_core::ChoiceField<F>
 pub struct tablo_core::ColorColumn<M, T>
 impl<M, T> tablo_core::ColorColumn<M, T> where M: toasty::schema::model::Model
+pub fn tablo_core::ColorColumn<M, T>::hidden_by_default(self) -> Self
 pub fn tablo_core::ColorColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::ColorColumn<M, T>::new(tablo_core::Lens<M, T>) -> Self where T: toasty::schema::field::Field<Inner = alloc::string::String>
+pub fn tablo_core::ColorColumn<M, T>::toggleable(self) -> Self
 pub fn tablo_core::ColorColumn<M, T>::width(self, tablo_core::ColumnWidth) -> Self
 impl<M, T> core::clone::Clone for tablo_core::ColorColumn<M, T>
 pub fn tablo_core::ColorColumn<M, T>::clone(&self) -> Self
@@ -4120,6 +4300,7 @@ pub fn tablo_core::ColorColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::ColorColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::ColorColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::ColorColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::ColorColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M, T> core::marker::Freeze for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Freeze
 impl<M, T> core::marker::Send for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send
 impl<M, T> core::marker::Sync for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync
@@ -4149,8 +4330,10 @@ impl<M> core::panic::unwind_safe::UnwindSafe for tablo_core::Committed<M> where 
 pub struct tablo_core::ComputedColumn<M>
 impl<M> tablo_core::ComputedColumn<M> where M: toasty::schema::model::Model
 pub fn tablo_core::ComputedColumn<M>::align(self, tablo_core::Alignment) -> Self
+pub fn tablo_core::ComputedColumn<M>::hidden_by_default(self) -> Self
 pub fn tablo_core::ComputedColumn<M>::include<T>(self, impl core::convert::Into<toasty::stmt::include::Include<M, T>>) -> Self
 pub fn tablo_core::ComputedColumn<M>::new(impl core::convert::Into<alloc::string::String>, impl core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::ComputedColumn<M>::toggleable(self) -> Self
 pub fn tablo_core::ComputedColumn<M>::width(self, tablo_core::ColumnWidth) -> Self
 impl<M> core::clone::Clone for tablo_core::ComputedColumn<M>
 pub fn tablo_core::ComputedColumn<M>::clone(&self) -> Self
@@ -4172,6 +4355,7 @@ pub fn tablo_core::ComputedColumn<M>::name(&self) -> &str
 pub fn tablo_core::ComputedColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::ComputedColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::ComputedColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::ComputedColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M> core::marker::Freeze for tablo_core::ComputedColumn<M> where alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Freeze, tablo_core::extend::Includes<M>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::ComputedColumn<M> where alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Send, tablo_core::extend::Includes<M>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::ComputedColumn<M> where alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Sync, tablo_core::extend::Includes<M>: core::marker::Sync
@@ -4183,7 +4367,9 @@ pub struct tablo_core::CountColumn<M>
 impl<M> tablo_core::CountColumn<M> where M: toasty::schema::model::Model
 pub fn tablo_core::CountColumn<M>::new<T>(tablo_core::RelationLens<M, toasty::schema::deferred::Deferred<alloc::vec::Vec<T>>>) -> Self where T: toasty::schema::model::Model + 'static, M: 'static
 impl<M> tablo_core::CountColumn<M>
+pub fn tablo_core::CountColumn<M>::hidden_by_default(self) -> Self
 pub fn tablo_core::CountColumn<M>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::CountColumn<M>::toggleable(self) -> Self
 pub fn tablo_core::CountColumn<M>::width(self, tablo_core::ColumnWidth) -> Self
 impl<M> core::clone::Clone for tablo_core::CountColumn<M>
 pub fn tablo_core::CountColumn<M>::clone(&self) -> Self
@@ -4205,6 +4391,7 @@ pub fn tablo_core::CountColumn<M>::name(&self) -> &str
 pub fn tablo_core::CountColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::CountColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::CountColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::CountColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M> core::marker::Freeze for tablo_core::CountColumn<M> where Declared<M>: core::marker::Freeze, alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::CountColumn<M> where Declared<M>: core::marker::Send, alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::CountColumn<M> where Declared<M>: core::marker::Sync, alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::Sync
@@ -4267,9 +4454,11 @@ impl<F> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::CustomField<F>
 impl<F> !core::panic::unwind_safe::UnwindSafe for tablo_core::CustomField<F>
 pub struct tablo_core::DateColumn<M, T>
 impl<M, T> tablo_core::DateColumn<M, T> where M: toasty::schema::model::Model
+pub fn tablo_core::DateColumn<M, T>::hidden_by_default(self) -> Self
 pub fn tablo_core::DateColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::DateColumn<M, T>::new(tablo_core::Lens<M, T>) -> Self where T: tablo_core::DateValue
 pub fn tablo_core::DateColumn<M, T>::sortable(self) -> Self
+pub fn tablo_core::DateColumn<M, T>::toggleable(self) -> Self
 pub fn tablo_core::DateColumn<M, T>::width(self, tablo_core::ColumnWidth) -> Self
 impl<M, T> core::clone::Clone for tablo_core::DateColumn<M, T>
 pub fn tablo_core::DateColumn<M, T>::clone(&self) -> Self
@@ -4291,6 +4480,7 @@ pub fn tablo_core::DateColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::DateColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::DateColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::DateColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::DateColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M, T> core::marker::Freeze for tablo_core::DateColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Freeze
 impl<M, T> core::marker::Send for tablo_core::DateColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send
 impl<M, T> core::marker::Sync for tablo_core::DateColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync
@@ -4405,8 +4595,10 @@ impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::upload::DirUploader
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::upload::DirUploader
 pub struct tablo_core::EmbeddedColumn<M, T>
 impl<M, T> tablo_core::EmbeddedColumn<M, T> where M: toasty::schema::model::Model, T: tablo_core::EmbeddedForm
+pub fn tablo_core::EmbeddedColumn<M, T>::hidden_by_default(self) -> Self
 pub fn tablo_core::EmbeddedColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::EmbeddedColumn<M, T>::new(tablo_core::Lens<M, T>) -> Self
+pub fn tablo_core::EmbeddedColumn<M, T>::toggleable(self) -> Self
 pub fn tablo_core::EmbeddedColumn<M, T>::width(self, tablo_core::ColumnWidth) -> Self
 impl<M, T> core::clone::Clone for tablo_core::EmbeddedColumn<M, T>
 pub fn tablo_core::EmbeddedColumn<M, T>::clone(&self) -> Self
@@ -4428,6 +4620,7 @@ pub fn tablo_core::EmbeddedColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::EmbeddedColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::EmbeddedColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::EmbeddedColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::EmbeddedColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M, T> core::marker::Freeze for tablo_core::EmbeddedColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Freeze
 impl<M, T> core::marker::Send for tablo_core::EmbeddedColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send
 impl<M, T> core::marker::Sync for tablo_core::EmbeddedColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync
@@ -4518,8 +4711,10 @@ impl<K> core::panic::unwind_safe::RefUnwindSafe for tablo_core::form::FieldError
 impl<K> core::panic::unwind_safe::UnwindSafe for tablo_core::form::FieldErrors<K> where alloc::vec::Vec<tablo_core::form::FieldError<K>>: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::FileColumn<M>
 impl<M> tablo_core::FileColumn<M> where M: toasty::schema::model::Model
+pub fn tablo_core::FileColumn<M>::hidden_by_default(self) -> Self
 pub fn tablo_core::FileColumn<M>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::FileColumn<M>::new(tablo_core::Lens<M, alloc::string::String>) -> Self
+pub fn tablo_core::FileColumn<M>::toggleable(self) -> Self
 pub fn tablo_core::FileColumn<M>::width(self, tablo_core::ColumnWidth) -> Self
 impl<M> core::clone::Clone for tablo_core::FileColumn<M>
 pub fn tablo_core::FileColumn<M>::clone(&self) -> Self
@@ -4541,6 +4736,7 @@ pub fn tablo_core::FileColumn<M>::name(&self) -> &str
 pub fn tablo_core::FileColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::FileColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::FileColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::FileColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M> core::marker::Freeze for tablo_core::FileColumn<M> where tablo_core::Lens<M, alloc::string::String>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::FileColumn<M> where tablo_core::Lens<M, alloc::string::String>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::FileColumn<M> where tablo_core::Lens<M, alloc::string::String>: core::marker::Sync
@@ -4726,10 +4922,12 @@ impl core::panic::unwind_safe::UnwindSafe for tablo_core::HeaderActions
 pub struct tablo_core::ImageColumn<M, T>
 impl<M, T> tablo_core::ImageColumn<M, T> where M: toasty::schema::model::Model
 pub fn tablo_core::ImageColumn<M, T>::circular(self) -> Self
+pub fn tablo_core::ImageColumn<M, T>::hidden_by_default(self) -> Self
 pub fn tablo_core::ImageColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::ImageColumn<M, T>::new(tablo_core::Lens<M, T>) -> Self where T: toasty::schema::field::Field<Inner = alloc::string::String>
 pub fn tablo_core::ImageColumn<M, T>::remote(self) -> Self
 pub fn tablo_core::ImageColumn<M, T>::size(self, u16) -> Self
+pub fn tablo_core::ImageColumn<M, T>::toggleable(self) -> Self
 pub fn tablo_core::ImageColumn<M, T>::width(self, tablo_core::ColumnWidth) -> Self
 impl<M, T> core::clone::Clone for tablo_core::ImageColumn<M, T>
 pub fn tablo_core::ImageColumn<M, T>::clone(&self) -> Self
@@ -4751,6 +4949,7 @@ pub fn tablo_core::ImageColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::ImageColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::ImageColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::ImageColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::ImageColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M, T> core::marker::Freeze for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Freeze
 impl<M, T> core::marker::Send for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send
 impl<M, T> core::marker::Sync for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync
@@ -5171,7 +5370,9 @@ pub fn tablo_core::RelationColumn<M>::list<S>(tablo_core::RelationLens<M, toasty
 pub fn tablo_core::RelationColumn<M>::new<T>(tablo_core::RelationLens<M, impl tablo_core::ToOneRelation<T> + 'static>, impl core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self where M: 'static
 pub fn tablo_core::RelationColumn<M>::of<S>(tablo_core::RelationLens<M, impl tablo_core::ToOneRelation<<S as tablo_core::extend::OptionSource>::Model> + 'static>) -> Self where S: tablo_core::extend::OptionSource, M: 'static
 impl<M> tablo_core::RelationColumn<M>
+pub fn tablo_core::RelationColumn<M>::hidden_by_default(self) -> Self
 pub fn tablo_core::RelationColumn<M>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::RelationColumn<M>::toggleable(self) -> Self
 pub fn tablo_core::RelationColumn<M>::width(self, tablo_core::ColumnWidth) -> Self
 impl<M> core::clone::Clone for tablo_core::RelationColumn<M>
 pub fn tablo_core::RelationColumn<M>::clone(&self) -> Self
@@ -5193,6 +5394,7 @@ pub fn tablo_core::RelationColumn<M>::name(&self) -> &str
 pub fn tablo_core::RelationColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::RelationColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::RelationColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::RelationColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M> core::marker::Freeze for tablo_core::RelationColumn<M> where Declared<M>: core::marker::Freeze, alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> core::option::Option<alloc::string::String> + core::marker::Send + core::marker::Sync)>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::RelationColumn<M> where Declared<M>: core::marker::Send, alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> core::option::Option<alloc::string::String> + core::marker::Send + core::marker::Sync)>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::RelationColumn<M> where Declared<M>: core::marker::Sync, alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> core::option::Option<alloc::string::String> + core::marker::Send + core::marker::Sync)>: core::marker::Sync
@@ -5217,8 +5419,10 @@ impl<M, R> core::panic::unwind_safe::RefUnwindSafe for tablo_core::RelationLens<
 impl<M, R> core::panic::unwind_safe::UnwindSafe for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::panic::unwind_safe::UnwindSafe, fn(&M) -> &R: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::RepeaterColumn<M, T>
 impl<M, T> tablo_core::RepeaterColumn<M, T> where M: toasty::schema::model::Model, T: tablo_core::FormInput
+pub fn tablo_core::RepeaterColumn<M, T>::hidden_by_default(self) -> Self
 pub fn tablo_core::RepeaterColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::RepeaterColumn<M, T>::new(tablo_core::Lens<M, alloc::vec::Vec<T>, toasty::stmt::list::List<T>>) -> Self
+pub fn tablo_core::RepeaterColumn<M, T>::toggleable(self) -> Self
 pub fn tablo_core::RepeaterColumn<M, T>::width(self, tablo_core::ColumnWidth) -> Self
 impl<M, T> core::clone::Clone for tablo_core::RepeaterColumn<M, T>
 pub fn tablo_core::RepeaterColumn<M, T>::clone(&self) -> Self
@@ -5240,6 +5444,7 @@ pub fn tablo_core::RepeaterColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::RepeaterColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::RepeaterColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::RepeaterColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::RepeaterColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M, T> core::marker::Freeze for tablo_core::RepeaterColumn<M, T> where tablo_core::Lens<M, alloc::vec::Vec<T>, toasty::stmt::list::List<T>>: core::marker::Freeze
 impl<M, T> core::marker::Send for tablo_core::RepeaterColumn<M, T> where tablo_core::Lens<M, alloc::vec::Vec<T>, toasty::stmt::list::List<T>>: core::marker::Send
 impl<M, T> core::marker::Sync for tablo_core::RepeaterColumn<M, T> where tablo_core::Lens<M, alloc::vec::Vec<T>, toasty::stmt::list::List<T>>: core::marker::Sync
@@ -5650,9 +5855,11 @@ pub fn tablo_core::TextColumn<M, T>::badge(self) -> Self
 pub fn tablo_core::TextColumn<M, T>::color(self, impl core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync + 'static) -> Self
 pub fn tablo_core::TextColumn<M, T>::description(self, impl core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self
 pub fn tablo_core::TextColumn<M, T>::format(self, impl core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::TextColumn<M, T>::hidden_by_default(self) -> Self
 pub fn tablo_core::TextColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::TextColumn<M, T>::new(tablo_core::Lens<M, T>) -> Self where T: tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::TextColumn<M, T>::sortable(self) -> Self
+pub fn tablo_core::TextColumn<M, T>::toggleable(self) -> Self
 pub fn tablo_core::TextColumn<M, T>::width(self, tablo_core::ColumnWidth) -> Self
 impl<M, T> core::clone::Clone for tablo_core::TextColumn<M, T>
 pub fn tablo_core::TextColumn<M, T>::clone(&self) -> Self
@@ -5674,6 +5881,7 @@ pub fn tablo_core::TextColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::TextColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::TextColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::TextColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::TextColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M, T> core::marker::Freeze for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Freeze, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Freeze, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync)>: core::marker::Freeze, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>>: core::marker::Freeze
 impl<M, T> core::marker::Send for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Send, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync)>: core::marker::Send, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>>: core::marker::Send
 impl<M, T> core::marker::Sync for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Sync, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync)>: core::marker::Sync, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>>: core::marker::Sync

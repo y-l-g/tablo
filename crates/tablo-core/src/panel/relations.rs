@@ -15,7 +15,7 @@ use topcoat::{
 use super::{
     bar::ActionBar,
     gate::enforce_tenant,
-    list::{declared_chrome, load_scoped_page, table_error_view, wire_table},
+    list::{choose_columns, declared_chrome, load_scoped_page, table_error_view, wire_table},
     state::current,
 };
 use crate::{
@@ -163,7 +163,12 @@ pub(crate) fn relation_table<C: Resource>(cx: &Cx, relation: BoundRelation) -> B
         // A table wires its custom actions under one route; a many-to-many relation's posts
         // Detach to the owner's, so it wires none of the related resource's own.
         chrome.actions = seed.is_some();
-        let mut table = wire_table(cx, &resource, chrome).prefixed(&key);
+        let mut table = choose_columns(
+            cx,
+            &resource,
+            wire_table(cx, &resource, chrome).prefixed(&key),
+        )
+        .await;
         if let Some(linking) = &linking {
             table =
                 table.with_custom_actions(linking.url.clone(), vec![detach_action(cx, &resource)]);

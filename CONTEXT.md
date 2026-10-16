@@ -17,6 +17,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Schema | The layout of a form: layout blocks, fields, embedded values. | Form, Infolist, Fieldset |
 | Detail | The declaration of a detail page: columns in layout blocks, set by `ResourceDef::detail`. | Infolist, Show page |
 | Column | One value read off a record, shown down a table or as an entry on a detail page; one row's value of it is a cell. | Field (in a table), Attribute |
+| Column choice | The toggleable columns one signed-in user shows or hides in one resource's list, against their defaults; a `ColumnPreference` row keeps it. | Column manager, Column visibility, Layout |
 | Filter | A predicate a table adds to its query from a UI control. | Scope, Constraint, Where |
 | Field | One entry of a schema, bound to a model column or to a name in an action input, and rendered as a control. | Input, Widget |
 | Control | What a field renders and posts: a text input, a select, a toggle, a file input, or a type implementing `Control`. | Widget, Input (for the field) |

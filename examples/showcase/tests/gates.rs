@@ -3,7 +3,7 @@ use showcase::models::{
     Author, BLOCKED_TENANT, Category, Comment, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, Post,
     PostCategory, PostStatus, Publication, Seo,
 };
-use tablo::TenantId;
+use tablo::{TenantId, auth::ColumnPreference};
 use uuid::Uuid;
 
 use crate::common::{
@@ -116,6 +116,33 @@ async fn forged_posts_answer_403_and_change_nothing() {
         post_count(&db).await,
         before,
         "a forged bulk delete must remove nothing"
+    );
+
+    for (body, label) in [
+        (
+            format!("column=created_at&csrf_token={field}"),
+            "mismatched token",
+        ),
+        ("column=created_at".to_string(), "missing token"),
+    ] {
+        let resp = client
+            .csrf(&cookie)
+            .post_form("/admin/posts/-/columns", body)
+            .await;
+        assert_eq!(
+            resp.status(),
+            403,
+            "column picker {label}: a forged POST must 403, got {}",
+            resp.status()
+        );
+    }
+    assert!(
+        ColumnPreference::all()
+            .exec(&mut db_q)
+            .await
+            .unwrap()
+            .is_empty(),
+        "a forged column choice must store nothing"
     );
 
     let drafts = draft_count(&db).await;
@@ -756,6 +783,7 @@ async fn anonymous_requests_are_gated_on_every_route() {
         format!("/admin/posts/{}/edit", post.id),
         format!("/admin/posts/{}/delete", post.id),
         "/admin/posts/-/bulk-delete".to_string(),
+        "/admin/posts/-/columns".to_string(),
         "/admin/posts/-/actions/publish-all-drafts".to_string(),
         "/admin/-/actions/feature-tagged".to_string(),
         format!("{relation}/-/actions/attach"),

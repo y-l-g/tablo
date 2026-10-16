@@ -29,7 +29,8 @@ apply them before the new binary starts.
 
 `toasty-cli` is a library: the app builds its own small binary around the same `Db` its server
 uses, so the migrations cover every model the panel reads, the shipped `AdminUser` and
-`AuthSession` included when authentication is on:
+`AuthSession` included when authentication is on, and `ColumnPreference` when a list has a
+[toggleable column](./tables.md#hiding-columns):
 
 ```rust,ignore
 // src/bin/migrate.rs

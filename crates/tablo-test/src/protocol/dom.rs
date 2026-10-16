@@ -4,7 +4,8 @@
 //! the markup carries. Each helper reads one stable hook:
 //! `tr[id^="row-"]` for rows, `[aria-label]` links and buttons for actions,
 //! `#{name}-error` and its `data-error` for field errors, `[data-filter-name]` for filters,
-//! `[data-empty]` for the zero-rows message, `[data-sidebar=menu-item]` for sidebar entries.
+//! `[data-empty]` for the zero-rows message, `[data-sidebar=menu-item]` for sidebar entries,
+//! `th[data-column]` for the shown columns, and the `column` checkboxes for the column picker.
 //!
 //! The queries assume one table per document: rows never nest, and cells carry text rather than
 //! nested tables.
@@ -46,6 +47,15 @@ pub struct FilterOption {
     pub selected: bool,
 }
 
+/// One toggleable column the column picker offers.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PickerColumn {
+    /// The column's name, which the picker posts.
+    pub name: String,
+    /// Whether the reader's choice shows it: its box is checked.
+    pub shown: bool,
+}
+
 /// Why a table rendered no rows, and the links it offers out of that state.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EmptyTable {
@@ -74,6 +84,34 @@ pub fn empty_table(html: &str) -> Option<EmptyTable> {
         clear: link("clear"),
         first_page: link("first-page"),
     })
+}
+
+/// The names of the columns the table's header shows, in order, without the bulk and actions
+/// columns.
+pub fn columns(html: &str) -> Vec<String> {
+    open_tags(html)
+        .into_iter()
+        .filter(|(tag, _, _)| tag == "th")
+        .filter_map(|(_, attrs, _)| attr_value(&attrs, "data-column"))
+        .collect()
+}
+
+/// The toggleable columns the column picker offers, in order, or `None` when the table renders
+/// no picker.
+pub fn column_picker(html: &str) -> Option<Vec<PickerColumn>> {
+    let columns: Vec<PickerColumn> = open_tags(html)
+        .into_iter()
+        .filter(|(tag, attrs, _)| {
+            tag == "input"
+                && attr_value(attrs, "type").as_deref() == Some("checkbox")
+                && attr_value(attrs, "name").as_deref() == Some("column")
+        })
+        .map(|(_, attrs, _)| PickerColumn {
+            name: attr_value(&attrs, "value").unwrap_or_default(),
+            shown: attrs.iter().any(|(name, _)| name == "checked"),
+        })
+        .collect();
+    (!columns.is_empty()).then_some(columns)
 }
 
 /// The data rows of `html` in document order, excluding group headers.

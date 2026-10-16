@@ -7,7 +7,7 @@ use topcoat::context::Cx;
 use super::TableSignals;
 use crate::{
     schema::Schema,
-    table::{Table, TableState},
+    table::{BoxColumn, ColumnChoice, Table, TableState},
 };
 
 /// Per-record action policy reads which row actions one model instance allows.
@@ -79,6 +79,10 @@ pub(crate) struct Wiring<M> {
     return_to: Option<String>,
     /// The prefix the table's URL parameters carry.
     prefix: Option<String>,
+    /// The reader's choice of toggleable columns.
+    choice: ColumnChoice,
+    /// Where the column picker posts a new choice; `None` renders no picker.
+    columns_url: Option<String>,
 }
 
 impl<M> Default for Wiring<M> {
@@ -93,6 +97,8 @@ impl<M> Default for Wiring<M> {
             actions_prefix: None,
             return_to: None,
             prefix: None,
+            choice: ColumnChoice::default(),
+            columns_url: None,
         }
     }
 }
@@ -135,6 +141,8 @@ impl<M> std::fmt::Debug for WiredTable<M> {
             )
             .field("return_to", &wiring.return_to)
             .field("prefix", &wiring.prefix)
+            .field("choice", &wiring.choice)
+            .field("columns_url", &wiring.columns_url)
             .finish()
     }
 }
@@ -200,6 +208,13 @@ impl<M> WiredTable<M> {
         self
     }
 
+    /// Show the columns `choice` shows, and let the reader post a new choice to `url`.
+    pub(crate) fn with_column_choice(mut self, choice: ColumnChoice, url: Option<String>) -> Self {
+        self.wiring.choice = choice;
+        self.wiring.columns_url = url;
+        self
+    }
+
     /// Send the writes this table starts back to `url`.
     pub(crate) fn returning_to(mut self, url: String) -> Self {
         self.wiring.return_to = Some(url);
@@ -229,6 +244,21 @@ impl<M> WiredTable<M> {
             .row_policy
             .as_ref()
             .map_or(RowActions::ALL, |policy| policy(record))
+    }
+
+    /// Whether the reader's choice shows `col`.
+    pub(super) fn shows(&self, col: &BoxColumn<M>) -> bool {
+        self.wiring.choice.shows(col.name(), col.toggle())
+    }
+
+    /// The declared columns the reader's choice shows, in declaration order.
+    pub(super) fn visible_columns(&self) -> impl Iterator<Item = &BoxColumn<M>> {
+        self.declared_columns().iter().filter(|col| self.shows(col))
+    }
+
+    /// Where the column picker posts, when the table renders one.
+    pub(super) fn columns_url(&self) -> Option<&str> {
+        self.wiring.columns_url.as_deref()
     }
 
     pub(super) fn return_to(&self) -> Option<&str> {

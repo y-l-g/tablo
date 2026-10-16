@@ -30,7 +30,8 @@ pub async fn empty_schema_db() -> Db {
         showcase::models::Staff,
         showcase::models::Workspace,
         showcase::models::Seat,
-        tablo::auth::AuthSession
+        tablo::auth::AuthSession,
+        tablo::auth::ColumnPreference
     ));
     let url = match std::env::var("TABLO_TEST_DATABASE_URL") {
         Ok(url) => {

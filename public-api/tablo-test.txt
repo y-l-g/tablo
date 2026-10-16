@@ -57,6 +57,24 @@ impl core::marker::Unpin for tablo_test::FilterOption
 impl core::marker::UnsafeUnpin for tablo_test::FilterOption
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::FilterOption
 impl core::panic::unwind_safe::UnwindSafe for tablo_test::FilterOption
+pub struct tablo_test::PickerColumn
+pub tablo_test::PickerColumn::name: alloc::string::String
+pub tablo_test::PickerColumn::shown: bool
+impl core::clone::Clone for tablo_test::PickerColumn
+pub fn tablo_test::PickerColumn::clone(&self) -> tablo_test::PickerColumn
+impl core::cmp::Eq for tablo_test::PickerColumn
+impl core::cmp::PartialEq for tablo_test::PickerColumn
+pub fn tablo_test::PickerColumn::eq(&self, &tablo_test::PickerColumn) -> bool
+impl core::fmt::Debug for tablo_test::PickerColumn
+pub fn tablo_test::PickerColumn::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_test::PickerColumn
+impl core::marker::Freeze for tablo_test::PickerColumn
+impl core::marker::Send for tablo_test::PickerColumn
+impl core::marker::Sync for tablo_test::PickerColumn
+impl core::marker::Unpin for tablo_test::PickerColumn
+impl core::marker::UnsafeUnpin for tablo_test::PickerColumn
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::PickerColumn
+impl core::panic::unwind_safe::UnwindSafe for tablo_test::PickerColumn
 pub struct tablo_test::Row
 pub tablo_test::Row::actions: tablo_test::RowActions
 pub tablo_test::Row::cells: alloc::vec::Vec<alloc::string::String>
@@ -121,6 +139,8 @@ impl<'a> !core::panic::unwind_safe::UnwindSafe for tablo_test::TestClient<'a>
 pub const tablo_test::SESSION_COOKIE: &str
 pub async fn tablo_test::body_bytes(http::response::Response<topcoat_router::body::Body>) -> alloc::vec::Vec<u8>
 pub async fn tablo_test::body_string(http::response::Response<topcoat_router::body::Body>) -> alloc::string::String
+pub fn tablo_test::column_picker(&str) -> core::option::Option<alloc::vec::Vec<tablo_test::PickerColumn>>
+pub fn tablo_test::columns(&str) -> alloc::vec::Vec<alloc::string::String>
 pub fn tablo_test::confirms_first(&str, &str) -> core::option::Option<bool>
 pub fn tablo_test::cookie_header<'a>(impl core::iter::traits::collect::IntoIterator<Item = (&'a str, &'a str)>) -> core::option::Option<alloc::string::String>
 pub fn tablo_test::empty_table(&str) -> core::option::Option<tablo_test::EmptyTable>

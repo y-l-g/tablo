@@ -15,6 +15,7 @@ mod common;
 mod actions;
 mod auth;
 mod blog;
+mod columns;
 mod create;
 mod delete;
 mod detail;

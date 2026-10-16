@@ -10,7 +10,11 @@ use topcoat::{
     Result,
     context::Cx,
     icon::icon,
-    router::{Body, error::forbidden, request::original_method},
+    router::{
+        Body,
+        error::{forbidden, see_other},
+        request::original_method,
+    },
     view::{BoxView, SuspenseMode, ViewExt, attributes, internal::ThenView, suspense, view},
 };
 
@@ -21,16 +25,23 @@ pub(crate) use self::{
 };
 use super::{
     bar::{ActionBar, header_bar},
-    gate::gate,
-    url::{create_page_url, export_url},
+    forms::{parse_form_body, truthy},
+    gate::{gate, landing_url},
+    url::{columns_url, create_page_url, export_url},
 };
 use crate::{
     form::RecordForm,
     policy::Ability,
     resource::{Mounted, Places, Resource},
-    table::{Table, TablePage, TableState},
+    table::{ColumnChoice, Table, TablePage, TableState},
     topcoat_compat::async_page,
 };
+
+/// The field each checked box of the column picker posts a column's name under.
+pub(crate) const COLUMN_FIELD: &str = "column";
+
+/// The field the column picker's Reset posts, restoring every column's default.
+pub(crate) const RESET_FIELD: &str = "reset";
 
 /// Returns the retry link for a failed table load, dropping pagination for cursor failures and
 /// keeping it otherwise.
@@ -54,6 +65,48 @@ pub(crate) fn declared_chrome<R: Resource>(cx: &Cx, resource: &Mounted<R>) -> Ta
         view: resource.viewed(),
         actions: true,
     }
+}
+
+/// `table` showing the columns the request's user chose for `R`'s list, its picker posting to the
+/// list's column route while a signed-in user may keep a choice.
+pub(crate) async fn choose_columns<R: Resource>(
+    cx: &Cx,
+    resource: &Mounted<R>,
+    table: WiredTable<R::Model>,
+) -> WiredTable<R::Model> {
+    if !table.has_toggleable_columns() {
+        return table;
+    }
+    let choice = crate::auth::load_choice(cx, &resource.slug).await;
+    let url = crate::auth::signed_in(cx).then(|| columns_url(&resource.url));
+    table.with_column_choice(choice, url)
+}
+
+/// The column picker's POST, `{list}/-/columns`: stores the signed-in user's choice of `R`'s
+/// toggleable columns, the boxes it checks under [`COLUMN_FIELD`], or the defaults with
+/// [`RESET_FIELD`], and lands back where the picker was.
+pub(crate) fn resource_columns<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
+    async_page(async move {
+        let resource = gate::<R>(cx)?;
+        if !resource.can(cx, Ability::ViewAny) {
+            return Err(forbidden().into());
+        }
+        let parts = parse_form_body(cx, body).await?;
+        crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
+        let choice = if parts.last(RESET_FIELD).is_some_and(truthy) {
+            ColumnChoice::default()
+        } else {
+            let checked: Vec<&str> = parts
+                .pairs
+                .iter()
+                .filter(|(name, _)| name == COLUMN_FIELD)
+                .map(|(_, value)| value.as_str())
+                .collect();
+            ColumnChoice::checked(resource.table.declared_columns(), &checked)
+        };
+        crate::auth::save_choice(cx, &resource.slug, &choice).await?;
+        Err::<(), _>(see_other(landing_url(cx, &resource.url)).into())
+    })
 }
 
 /// Wires `R`'s delete, bulk, edit, view, and custom actions onto the table.
@@ -221,7 +274,7 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         }
         crate::csrf::ensure_token(cx);
         // Normalizes once per request.
-        let table = wire_table_actions(cx, &resource);
+        let table = choose_columns(cx, &resource, wire_table_actions(cx, &resource)).await;
         let (signals, state) = table.browser_state(cx);
         // A write lands back on the list as the reader left it.
         let back = state.without_cursor(&resource.url);

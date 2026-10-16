@@ -206,7 +206,8 @@ impl Panel {
         match &db {
             Some(db) => {
                 registry.check_all(db, &mounts, uploads.is_some(), &mut errors);
-                if let Err(kind) = crate::auth::check_models_registered(db, &auth) {
+                let toggles = registry.resources.iter().any(|resource| resource.toggles);
+                if let Err(kind) = crate::auth::check_models_registered(db, &auth, toggles) {
                     errors.push(DeclarationError::panel(kind));
                 }
                 errors.extend(

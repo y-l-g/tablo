@@ -66,6 +66,18 @@ pub fn accent_column() -> ColorColumn<Theme, String> {
 }
 // ANCHOR_END: table-presenting
 
+// ANCHOR: table-toggleable
+pub fn user_table() -> Table<User> {
+    Table::new((
+        TextColumn::new(lens!(User.name)),
+        // Shown until a reader hides it.
+        TextColumn::new(lens!(User.email)).toggleable(),
+        // Hidden until a reader shows it.
+        DateColumn::new(lens!(User.created_at)).hidden_by_default(),
+    ))
+}
+// ANCHOR_END: table-toggleable
+
 // ANCHOR: table-relation-column
 pub fn author_column() -> RelationColumn<Post> {
     RelationColumn::new(relation!(Post.author), |a: &Author| a.name.clone())

@@ -620,10 +620,10 @@ impl fmt::Display for DeclarationErrorKind {
             ),
             Self::MissingAuthModels { models } => write!(
                 f,
-                "auth is on, but the Db does not register its shipped models ({}): register them \
-                 with `toasty::models!(…, tablo_core::auth::AdminUser, \
-                 tablo_core::auth::AuthSession)`, or opt out with `.auth(Auth::disabled())`",
-                models.join(", ")
+                "auth is on, but the Db does not register its shipped models ({models}): register \
+                 them from `tablo_core::auth` with `toasty::models!(…, {models})`, or opt out \
+                 with `.auth(Auth::disabled())`",
+                models = models.join(", ")
             ),
             Self::ShellAssetsWithoutBundle => f.write_str(
                 "shell_assets need the router's asset bundle: install it with `.assets(..)` \

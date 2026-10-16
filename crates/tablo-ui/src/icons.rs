@@ -58,6 +58,8 @@ pub const CHEVRON_DOWN: IconData = iconify_icon!("lucide:chevron-down");
 pub const CHECK: IconData = iconify_icon!("lucide:check");
 /// Relation action: link a record to the one the page shows.
 pub const LINK: IconData = iconify_icon!("lucide:link");
+/// The table's column picker.
+pub const COLUMNS_3: IconData = iconify_icon!("lucide:columns-3");
 
 // Navigation icons for `NavigationItem::icon`.
 /// Navigation: a dashboard or home page.

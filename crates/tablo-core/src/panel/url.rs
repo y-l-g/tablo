@@ -80,6 +80,9 @@ pub(crate) const DELETE_ROUTE_SEGMENT: &str = "delete";
 /// Path segment of the bulk-delete POST, under [`DASH_ROUTE_SEGMENT`].
 pub(crate) const BULK_DELETE_ROUTE_SEGMENT: &str = "bulk-delete";
 
+/// Path segment of the column picker's POST, under [`DASH_ROUTE_SEGMENT`].
+pub(crate) const COLUMNS_ROUTE_SEGMENT: &str = "columns";
+
 /// Path segment before a custom action's name, on a row
 /// (`{prefix}/{key}/-/actions/{name}`) and on the list
 /// (`{list}/-/actions/{name}`).
@@ -172,6 +175,11 @@ pub(crate) fn create_page_url(list_path: &str) -> String {
 /// The list page's export link: `{list_path}/-/export`.
 pub(crate) fn export_url(list_path: &str) -> String {
     list_route(list_path, EXPORT_ROUTE_SEGMENT)
+}
+
+/// The column picker's POST target: `{list_path}/-/columns`.
+pub(crate) fn columns_url(list_path: &str) -> String {
+    list_route(list_path, COLUMNS_ROUTE_SEGMENT)
 }
 
 /// The bulk form's POST target: `{list_path}/-/bulk-delete`.

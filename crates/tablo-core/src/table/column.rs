@@ -24,6 +24,8 @@ macro_rules! base_builders {
             self.base.width = width;
             self
         }
+
+        toggle_builders!(base.toggle);
     };
     (sortable) => {
         base_builders!();
@@ -31,6 +33,24 @@ macro_rules! base_builders {
         /// Make the header a sort link.
         pub fn sortable(mut self) -> Self {
             self.sortable = true;
+            self
+        }
+    };
+}
+
+/// The `toggleable` and `hidden_by_default` builders of a column holding its [`ColumnToggle`] at
+/// the field path given, inside its inherent impl.
+macro_rules! toggle_builders {
+    ($($field:ident).+) => {
+        /// Let each reader hide this column from their list; it starts shown.
+        pub fn toggleable(mut self) -> Self {
+            self.$($field).+ = $crate::table::ColumnToggle::ShownByDefault;
+            self
+        }
+
+        /// Let each reader show this column in their list; it starts hidden.
+        pub fn hidden_by_default(mut self) -> Self {
+            self.$($field).+ = $crate::table::ColumnToggle::HiddenByDefault;
             self
         }
     };
@@ -50,6 +70,10 @@ macro_rules! base_column_methods {
 
         fn column_width(&self) -> $crate::table::ColumnWidth {
             self.base.width
+        }
+
+        fn toggle(&self) -> $crate::table::ColumnToggle {
+            self.base.toggle
         }
     };
     (binding) => {
@@ -133,6 +157,12 @@ pub trait Column<M>: Send + Sync {
     /// The width the column claims.
     fn column_width(&self) -> ColumnWidth {
         ColumnWidth::Auto
+    }
+
+    /// Whether each reader may hide or show the column in their list, and how it starts. A
+    /// detail page shows every column.
+    fn toggle(&self) -> ColumnToggle {
+        ColumnToggle::Fixed
     }
 
     /// Where the header and the cells align their content.
@@ -259,6 +289,7 @@ struct ColumnBase {
     /// The declared label, over the binding's.
     label: Option<String>,
     width: ColumnWidth,
+    toggle: ColumnToggle,
 }
 
 impl ColumnBase {
@@ -271,6 +302,7 @@ impl ColumnBase {
             binding: Binding::of(path),
             label: None,
             width,
+            toggle: ColumnToggle::Fixed,
         }
     }
 
@@ -300,6 +332,37 @@ pub enum ColumnWidth {
     Wrap,
     /// Exactly this many rem; a value past that truncates.
     Rem(u8),
+}
+
+/// Whether each reader may hide a [`Column`] from their list, and whether it starts shown.
+///
+/// A panel keeps each signed-in user's choice per resource, so the relation tables over a resource
+/// show what its list shows. Search, sort and export still read every column.
+///
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String, slug: String }
+/// use tablo_core::{TextColumn, lens};
+///
+/// TextColumn::new(lens!(Post.title)).toggleable();
+/// TextColumn::new(lens!(Post.slug)).hidden_by_default();
+/// ```
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ColumnToggle {
+    /// Always shown.
+    #[default]
+    Fixed,
+    /// Shown until the reader hides it: `toggleable()`.
+    ShownByDefault,
+    /// Hidden until the reader shows it: `hidden_by_default()`.
+    HiddenByDefault,
+}
+
+impl ColumnToggle {
+    /// Whether the reader may hide or show the column.
+    pub(crate) fn is_toggleable(self) -> bool {
+        self != Self::Fixed
+    }
 }
 
 impl ColumnWidth {
@@ -765,6 +828,7 @@ pub struct ComputedColumn<M> {
     project: Arc<dyn Fn(&M) -> String + Send + Sync>,
     width: ColumnWidth,
     alignment: Alignment,
+    toggle: ColumnToggle,
     /// Relations the projection reads.
     includes: Includes<M>,
 }
@@ -785,6 +849,7 @@ where
             project: Arc::new(project),
             width: ColumnWidth::Auto,
             alignment: Alignment::Start,
+            toggle: ColumnToggle::Fixed,
             includes: Includes::new(),
         }
     }
@@ -806,6 +871,8 @@ where
         self.alignment = alignment;
         self
     }
+
+    toggle_builders!(toggle);
 }
 
 impl<M> Column<M> for ComputedColumn<M>
@@ -826,6 +893,10 @@ where
 
     fn column_width(&self) -> ColumnWidth {
         self.width
+    }
+
+    fn toggle(&self) -> ColumnToggle {
+        self.toggle
     }
 
     fn alignment(&self) -> Alignment {

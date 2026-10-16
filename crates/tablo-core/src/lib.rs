@@ -145,12 +145,12 @@ pub use schema::{
     Watched,
 };
 pub use table::{
-    ActionLayout, Alignment, BooleanColumn, Color, ColorColumn, ColumnWidth, ComputedColumn,
-    CountColumn, Currency, Cursor, DateColumn, DateFilter, DateValue, EmbeddedColumn, FileColumn,
-    FilterValue, ImageColumn, IntoColumns, IntoFilters, ModelColumns, Number, Numeric,
-    PagePosition, Pagination, QueryFilter, RelationColumn, RelationLens, RepeaterColumn,
-    SelectFilter, Sort, Table, TablePage, TableState, TernaryFilter, TextColumn, ToOneRelation,
-    contains_expr,
+    ActionLayout, Alignment, BooleanColumn, Color, ColorColumn, ColumnToggle, ColumnWidth,
+    ComputedColumn, CountColumn, Currency, Cursor, DateColumn, DateFilter, DateValue,
+    EmbeddedColumn, FileColumn, FilterValue, ImageColumn, IntoColumns, IntoFilters, ModelColumns,
+    Number, Numeric, PagePosition, Pagination, QueryFilter, RelationColumn, RelationLens,
+    RepeaterColumn, SelectFilter, Sort, Table, TablePage, TableState, TernaryFilter, TextColumn,
+    ToOneRelation, contains_expr,
 };
 /// Derives `EmbeddedForm` for an embedded struct or enum.
 ///

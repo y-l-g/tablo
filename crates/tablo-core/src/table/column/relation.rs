@@ -8,7 +8,7 @@ use derive_where::derive_where;
 use toasty::{Deferred, stmt::Path};
 use topcoat::context::Cx;
 
-use super::{Column, ColumnWidth, Includes};
+use super::{Column, ColumnToggle, ColumnWidth, Includes};
 use crate::{DeclarationErrorKind, policy::Ability, schema::OptionSource, toasty_compat::model};
 
 /// A relation field's include, which loads it, paired with the function that reads the loaded
@@ -427,6 +427,7 @@ struct Declared<M> {
     misdeclared: Option<DeclarationErrorKind>,
     includes: Includes<M>,
     width: ColumnWidth,
+    toggle: ColumnToggle,
     /// The source a [`RelationColumn::of`] labels by, and whether a context's panel can load
     /// from it.
     source: Option<LabelSource>,
@@ -445,6 +446,7 @@ impl<M> Declared<M> {
             misdeclared,
             includes: relation.includes().clone(),
             width,
+            toggle: ColumnToggle::Fixed,
             source: None,
         }
     }
@@ -487,6 +489,8 @@ macro_rules! relation_column {
                 self.relation.width = width;
                 self
             }
+
+            toggle_builders!(relation.toggle);
         }
 
         impl<M> Column<M> for $ty<M>
@@ -507,6 +511,10 @@ macro_rules! relation_column {
 
             fn column_width(&self) -> ColumnWidth {
                 self.relation.width
+            }
+
+            fn toggle(&self) -> ColumnToggle {
+                self.relation.toggle
             }
 
             fn includes(&self) -> Includes<M> {
