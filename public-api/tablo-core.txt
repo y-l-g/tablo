@@ -3457,8 +3457,9 @@ pub tablo_core::DeclarationErrorKind::DuplicateSlug
 pub tablo_core::DeclarationErrorKind::DuplicateSlug::slug: alloc::string::String
 pub tablo_core::DeclarationErrorKind::EmptyChoice
 pub tablo_core::DeclarationErrorKind::EmptyChoice::field: alloc::string::String
-pub tablo_core::DeclarationErrorKind::EmptyRange
-pub tablo_core::DeclarationErrorKind::EmptyRange::field: alloc::string::String
+pub tablo_core::DeclarationErrorKind::FieldRule
+pub tablo_core::DeclarationErrorKind::FieldRule::fault: tablo_core::FieldRuleFault
+pub tablo_core::DeclarationErrorKind::FieldRule::field: alloc::string::String
 pub tablo_core::DeclarationErrorKind::FileFieldWithoutUploader
 pub tablo_core::DeclarationErrorKind::FileFieldWithoutUploader::field: alloc::string::String
 pub tablo_core::DeclarationErrorKind::FormClaimsTenantColumn
@@ -3466,9 +3467,6 @@ pub tablo_core::DeclarationErrorKind::FormClaimsTenantColumn::column: alloc::str
 pub tablo_core::DeclarationErrorKind::FormClaimsTenantColumn::field: alloc::string::String
 pub tablo_core::DeclarationErrorKind::HiddenWatchedField
 pub tablo_core::DeclarationErrorKind::HiddenWatchedField::field: alloc::string::String
-pub tablo_core::DeclarationErrorKind::InvalidPattern
-pub tablo_core::DeclarationErrorKind::InvalidPattern::error: alloc::string::String
-pub tablo_core::DeclarationErrorKind::InvalidPattern::field: alloc::string::String
 pub tablo_core::DeclarationErrorKind::InvalidSegment
 pub tablo_core::DeclarationErrorKind::InvalidSegment::fault: tablo_core::SegmentFault
 pub tablo_core::DeclarationErrorKind::InvalidSegment::item: &'static str
@@ -3527,9 +3525,6 @@ pub tablo_core::DeclarationErrorKind::UnguardedForeignKey::keys: alloc::vec::Vec
 pub tablo_core::DeclarationErrorKind::UnguardedForeignKey::relation: alloc::string::String
 pub tablo_core::DeclarationErrorKind::UniqueWithoutIndex
 pub tablo_core::DeclarationErrorKind::UniqueWithoutIndex::field: alloc::string::String
-pub tablo_core::DeclarationErrorKind::UnorderedBound
-pub tablo_core::DeclarationErrorKind::UnorderedBound::bound: alloc::string::String
-pub tablo_core::DeclarationErrorKind::UnorderedBound::field: alloc::string::String
 pub tablo_core::DeclarationErrorKind::UnparsedFilterOption
 pub tablo_core::DeclarationErrorKind::UnparsedFilterOption::filter: alloc::string::String
 pub tablo_core::DeclarationErrorKind::UnparsedFilterOption::value: alloc::string::String
@@ -3592,6 +3587,26 @@ impl core::marker::Unpin for tablo_core::form::FieldErrorKind
 impl core::marker::UnsafeUnpin for tablo_core::form::FieldErrorKind
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::form::FieldErrorKind
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::form::FieldErrorKind
+#[non_exhaustive] pub enum tablo_core::FieldRuleFault
+pub tablo_core::FieldRuleFault::EmptyRange
+pub tablo_core::FieldRuleFault::InvalidPattern(alloc::string::String)
+pub tablo_core::FieldRuleFault::RefusedDefault(alloc::string::String)
+pub tablo_core::FieldRuleFault::UnorderedBound(alloc::string::String)
+impl core::clone::Clone for tablo_core::FieldRuleFault
+pub fn tablo_core::FieldRuleFault::clone(&self) -> tablo_core::FieldRuleFault
+impl core::cmp::Eq for tablo_core::FieldRuleFault
+impl core::cmp::PartialEq for tablo_core::FieldRuleFault
+pub fn tablo_core::FieldRuleFault::eq(&self, &tablo_core::FieldRuleFault) -> bool
+impl core::fmt::Debug for tablo_core::FieldRuleFault
+pub fn tablo_core::FieldRuleFault::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_core::FieldRuleFault
+impl core::marker::Freeze for tablo_core::FieldRuleFault
+impl core::marker::Send for tablo_core::FieldRuleFault
+impl core::marker::Sync for tablo_core::FieldRuleFault
+impl core::marker::Unpin for tablo_core::FieldRuleFault
+impl core::marker::UnsafeUnpin for tablo_core::FieldRuleFault
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::FieldRuleFault
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::FieldRuleFault
 #[non_exhaustive] pub enum tablo_core::FormValue
 pub tablo_core::FormValue::List(alloc::vec::Vec<alloc::string::String>)
 pub tablo_core::FormValue::Rows(alloc::vec::Vec<tablo_core::FormValues>)
