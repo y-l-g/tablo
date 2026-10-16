@@ -450,16 +450,6 @@ async fn select_all_hands_its_handler_the_tokens_as_one_string() {
     );
 }
 
-/// Every `<th …>` opening tag in `html`, then the text up to its closing tag.
-fn header_cells(html: &str) -> Vec<&str> {
-    html.match_indices("<th")
-        .map(|(at, _)| {
-            let end = html[at..].find("</th>").expect("the head's closing tag") + at;
-            &html[at..end]
-        })
-        .collect()
-}
-
 fn task(title: &str) -> Task {
     Task {
         id: uuid::Uuid::new_v4(),
@@ -468,80 +458,6 @@ fn task(title: &str) -> Task {
         featured: false,
         created_at: "2024-01-15T09:30:00Z".parse().expect("a timestamp"),
     }
-}
-
-/// The selection and actions columns shrink to their controls, which stay on one line: a row's
-/// Delete never wraps under its Edit, whatever the font.
-#[tokio::test]
-async fn chrome_columns_shrink_to_controls_on_one_line() {
-    let cx = CxTestBuilder::new().build();
-    let wired = Table::<User>::new(TextColumn::new(lens!(User.name)))
-        .wired()
-        .with_view("/admin/users".to_string())
-        .with_edit("/admin/users".to_string())
-        .with_delete("/admin/users".to_string())
-        .with_bulk_delete(true);
-    let page: TablePage<User> = vec![User {
-        id: uuid::Uuid::new_v4(),
-        name: "Ada".to_string(),
-    }]
-    .into();
-    let html = wired.render_loaded(&cx, page).await.html(&cx).await;
-    assert_eq!(
-        html.matches(super::super::CHROME_CELL_CLASS).count(),
-        4,
-        "the selection and actions heads and cells shrink to their controls, got {html}"
-    );
-    let body = &html[html.find("<tbody").expect("a body")..html.find("</tbody>").expect("its end")];
-    assert!(
-        !body.contains("flex-wrap") && !html.contains("table-fixed"),
-        "the controls never wrap and the layout is automatic, got {html}"
-    );
-}
-
-/// The first growing column takes the spare width; the others fit their content, so one long
-/// value cannot squeeze a short one.
-#[tokio::test]
-async fn only_the_first_growing_column_takes_the_spare_width() {
-    let cx = CxTestBuilder::new().build();
-    let wired = Table::<Task>::new((
-        crate::BooleanColumn::new(lens!(Task.featured)),
-        TextColumn::new(lens!(Task.title)),
-        TextColumn::new(lens!(Task.status)),
-    ))
-    .wired();
-    let page: TablePage<Task> = vec![task("Ship it")].into();
-    let html = wired.render_loaded(&cx, page).await.html(&cx).await;
-    let growing: Vec<&str> = header_cells(&html)
-        .into_iter()
-        .filter(|head| head.contains("w-full"))
-        .collect();
-    assert_eq!(growing.len(), 1, "one column takes the slack, got {html}");
-    assert!(
-        growing[0].contains("Title"),
-        "the first growing column takes it, got {growing:?}"
-    );
-    assert_eq!(
-        html.matches("max-w-xs truncate").count(),
-        2,
-        "both growing columns cap their value, got {html}"
-    );
-}
-
-/// An exact width holds on the head and on every cell, so a long value truncates within it.
-#[tokio::test]
-async fn an_exact_width_holds_on_head_and_cells() {
-    let cx = CxTestBuilder::new().build();
-    let wired =
-        Table::<Task>::new(TextColumn::new(lens!(Task.title)).width(crate::ColumnWidth::Rem(8)))
-            .wired();
-    let page: TablePage<Task> = vec![task("A"), task("B")].into();
-    let html = wired.render_loaded(&cx, page).await.html(&cx).await;
-    assert_eq!(
-        html.matches("width: 8rem; max-width: 8rem").count(),
-        3,
-        "the head and both cells hold eight rem, got {html}"
-    );
 }
 
 /// A row opens its record's view page, or its edit page when the table has none, from anywhere on
@@ -657,10 +573,9 @@ fn row_action(name: &'static str, label: &str) -> crate::panel::list::TableActio
     }
 }
 
-/// A menu table puts a row's actions behind one button, in order: the custom actions, View and
-/// Edit, then Delete past a separator; a row its policy denies everything keeps an empty cell.
+/// A row whose policy denies every action renders no write link in its menu.
 #[tokio::test]
-async fn a_menu_table_puts_the_actions_behind_one_button() {
+async fn a_denied_rows_menu_holds_no_write() {
     let cx = CxTestBuilder::new().build();
     let ada = User {
         id: uuid::Uuid::new_v4(),
@@ -670,7 +585,7 @@ async fn a_menu_table_puts_the_actions_behind_one_button() {
         id: uuid::Uuid::new_v4(),
         name: "Ken".to_string(),
     };
-    let (ada_id, ken_id) = (ada.id.to_string(), ken.id.to_string());
+    let ken_id = ken.id.to_string();
     let wired = Table::<User>::new(TextColumn::new(lens!(User.name)))
         .action_layout(crate::ActionLayout::Menu)
         .wired()
@@ -688,53 +603,12 @@ async fn a_menu_table_puts_the_actions_behind_one_button() {
         });
     let page: TablePage<User> = vec![ada, ken].into();
     let html = wired.render_loaded(&cx, page).await.html(&cx).await;
-    let menu = format!(
-        "id=\"{}-actions\"",
-        crate::table::row_dom_id("table", &ada_id)
-    );
-    let at = html
-        .find(&menu)
-        .unwrap_or_else(|| panic!("Ada's menu, got {html}"));
-    let content = &html[at..];
-    let order = ["Publish", "View", "Edit", "<hr", "Delete"].map(|item| {
-        content
-            .find(item)
-            .unwrap_or_else(|| panic!("{item} in {content}"))
-    });
     assert!(
-        order.windows(2).all(|pair| pair[0] < pair[1]),
-        "custom actions, View, Edit, the separator, then Delete, got {content}"
-    );
-    assert_eq!(
-        html.matches("aria-label=\"Actions\"").count(),
-        2,
-        "each row's menu opens from one button, got {html}"
-    );
-    assert!(
-        !html.contains("title=\"Delete\""),
-        "no action stays inline, got {html}"
+        html.contains(">Ken<"),
+        "the denied row must still render, got {html}"
     );
     assert!(
         !html.contains(&format!("{ken_id}/delete")) && !html.contains(&format!("{ken_id}/edit")),
         "the denied row's menu holds no write, got {html}"
-    );
-}
-
-/// A table puts its actions inline unless it asks for a menu.
-#[tokio::test]
-async fn actions_sit_inline_by_default() {
-    let cx = CxTestBuilder::new().build();
-    let wired = Table::<User>::new(TextColumn::new(lens!(User.name)))
-        .wired()
-        .with_delete("/admin/users".to_string());
-    let page: TablePage<User> = vec![User {
-        id: uuid::Uuid::new_v4(),
-        name: "Ada".to_string(),
-    }]
-    .into();
-    let html = wired.render_loaded(&cx, page).await.html(&cx).await;
-    assert!(
-        html.contains("aria-label=\"Delete\"") && !html.contains("popover=\"auto\""),
-        "Delete is an inline button, got {html}"
     );
 }

@@ -286,21 +286,25 @@ async fn a_boolean_column_renders_an_icon_with_its_label() {
     seed(&db, "Alpha", true).await;
     let router = panel_router::<TaskResource>(db.clone());
 
+    // The icon's label is the cell's text, the one a reader and a screen reader both get.
     let html = body_string(get(&router, "/admin/tasks").await).await;
+    let alpha = rows(&html)
+        .into_iter()
+        .find(|row| row.cells.iter().any(|cell| cell == "Alpha"))
+        .expect("Alpha's row");
     assert!(
-        html.contains("data-boolean=\"true\""),
-        "the cell carries the value: {html}"
-    );
-    assert!(
-        html.contains("<span class=\"sr-only\">Yes</span>"),
-        "the icon is labelled for assistive tech: {html}"
+        alpha.cells.iter().any(|cell| cell == "Yes"),
+        "a true value reads Yes: {html}"
     );
 
     seed(&db, "Bravo", false).await;
     let html = body_string(get(&router, "/admin/tasks").await).await;
-    assert!(html.contains("data-boolean=\"false\""), "{html}");
+    let bravo = rows(&html)
+        .into_iter()
+        .find(|row| row.cells.iter().any(|cell| cell == "Bravo"))
+        .expect("Bravo's row");
     assert!(
-        html.contains("<span class=\"sr-only\">No</span>"),
+        bravo.cells.iter().any(|cell| cell == "No"),
         "a false value reads No: {html}"
     );
 }

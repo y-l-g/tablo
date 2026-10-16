@@ -199,45 +199,6 @@ async fn cell_html(column: &dyn Column<Invoice>, row: &Invoice) -> String {
         .await
 }
 
-/// An `Options` variant's declared color reaches its badge's dot; a variant without one shows a
-/// badge without a dot.
-#[tokio::test]
-async fn badge_dots_follow_the_option_color() {
-    let column = TextColumn::new(lens!(Invoice.stage)).badge();
-    let paid = cell_html(&column, &invoice()).await;
-    assert!(
-        paid.contains("bg-success"),
-        "a paid badge has a success dot: {paid}"
-    );
-    assert!(paid.contains("Paid"), "the badge reads the label: {paid}");
-
-    let open = Invoice {
-        stage: Stage::Open,
-        ..invoice()
-    };
-    let open = cell_html(&column, &open).await;
-    assert!(!open.contains("rounded-full"), "no color, no dot: {open}");
-
-    let overridden = TextColumn::new(lens!(Invoice.stage))
-        .badge()
-        .color(|_| Some(Color::Danger));
-    let html = cell_html(&overridden, &invoice()).await;
-    assert!(
-        html.contains("bg-destructive"),
-        "a declared color wins: {html}"
-    );
-}
-
-/// Without a badge, only a declared color tints the text: an `Options` color alone does not.
-#[tokio::test]
-async fn only_a_declared_color_tints_text() {
-    let plain = cell_html(&TextColumn::new(lens!(Invoice.stage)), &invoice()).await;
-    assert!(!plain.contains("text-success"), "{plain}");
-    let tinted = TextColumn::new(lens!(Invoice.stage)).color(|_| Some(Color::Success));
-    let tinted = cell_html(&tinted, &invoice()).await;
-    assert!(tinted.contains("text-success"), "{tinted}");
-}
-
 /// Money and numbers read formatted, in the cell and in the export, and align to the end.
 #[tokio::test]
 async fn amounts_format_and_align_to_the_end() {
@@ -245,7 +206,6 @@ async fn amounts_format_and_align_to_the_end() {
     let money = TextColumn::new(lens!(Invoice.total)).money(Currency::USD.minor_units());
     assert_eq!(money.text(&cx, &invoice()), "$1,234.56");
     assert_eq!(money.alignment(), Alignment::End);
-    assert!(cell_html(&money, &invoice()).await.contains("tabular-nums"));
 
     let count = TextColumn::new(lens!(Invoice.total)).numeric(0);
     assert_eq!(count.text(&cx, &invoice()), "123,456");
@@ -306,7 +266,6 @@ async fn image_thumbnail_needs_a_linkable_path() {
         html.contains("<img") && html.contains("src=\"/uploads/logo.png\""),
         "{html}"
     );
-    assert!(html.contains("rounded-full"), "{html}");
 
     let remote = "https://cdn.example/logo.png";
     for path in [

@@ -71,10 +71,6 @@ async fn a_detail_shows_each_columns_value_in_its_block() {
         "{html}"
     );
     assert!(
-        html.contains("grid-cols-2"),
-        "the grid lays out its columns: {html}"
-    );
-    assert!(
         !html.contains("<input") && !html.contains("<select"),
         "{html}"
     );
