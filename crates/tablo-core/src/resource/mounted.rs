@@ -44,6 +44,9 @@ pub(crate) struct Mounted<R: Resource> {
     pub(crate) header_actions: HeaderActions,
     pub(crate) fields: Vec<FormField<<R::Form as RecordForm>::Field>>,
     pub(crate) create_columns: Vec<Result<String, DeclarationErrorKind>>,
+    /// Whether the resource serves a create page: it has a record form and is not
+    /// [`edit_only`](ResourceDef::edit_only).
+    pub(crate) creates: bool,
 }
 
 impl<R: Resource> Mounted<R> {
@@ -117,6 +120,7 @@ impl<R: Resource> Mounted<R> {
             header_actions: def.header_actions,
             fields,
             create_columns: def.create_columns,
+            creates: <R::Form as RecordForm>::HAS_FORM && !def.edit_only,
         }
     }
 

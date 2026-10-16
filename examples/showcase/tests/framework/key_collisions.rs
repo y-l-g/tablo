@@ -29,6 +29,7 @@ impl Resource for TagResource {
         ResourceDef::new()
             .slug("tags")
             .policy_fn(|_cx, ability| !matches!(ability, Ability::Create))
+            .edit_only()
             .table(Table::new(TextColumn::new(lens!(Tag.label))))
             .form(Schema::new(TagForm::controls().label))
             .detail(Detail::new(TextColumn::new(lens!(Tag.label))))

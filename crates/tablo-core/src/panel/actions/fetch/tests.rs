@@ -94,6 +94,7 @@ async fn composite_pk_edit_fails_loudly_not_404() {
 
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
+                .edit_only()
                 .slug("pairs")
                 .policy_fn(|_cx, ability| {
                     matches!(

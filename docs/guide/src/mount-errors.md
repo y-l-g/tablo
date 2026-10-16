@@ -61,8 +61,7 @@ A test matches on the kind rather than the message; see
 | `DuplicateSlug` | two resources or pages share a slug | give each a distinct slug |
 | `DuplicateAction` | two actions of a resource, record or header, share a `NAME` | rename one |
 | `ActionInput` | an action's input cannot be served; the `ActionInputFault` says why | see below |
-| `CreateWithoutForm` | a `NoForm` resource's policy allows `Create` | name a record form in `type Form`, or deny `Create` |
-| `UnwrittenColumn` | the policy allows `Create` and nothing writes a non-nullable column: not the form, not a Toasty `#[default(..)]`, not the tenant stamp, not a `create_column` | add the field to the form, a default to the model, or a `create_column` |
+| `UnwrittenColumn` | the resource serves a create page and nothing writes a non-nullable column: not the form, not a Toasty `#[default(..)]`, not the tenant stamp, not a `create_column` | add the field to the form, a default to the model, or a `create_column`; or make the resource `edit_only` |
 | `CreateColumnsNameTenant` | a `create_column` names the tenant column | drop it: the framework stamps the tenant |
 
 `ActionInputFault`:

@@ -233,7 +233,7 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
             table.returning_to(back)
         };
         let skeleton = table.render_skeleton(cx, &state).await?;
-        let create_url = (<R::Form as RecordForm>::HAS_FORM && resource.can(cx, Ability::Create))
+        let create_url = (resource.creates && resource.can(cx, Ability::Create))
             .then(|| create_page_url(&resource.url));
         let export_url = state.first_page(&export_url(&resource.url));
         let header = list_header(

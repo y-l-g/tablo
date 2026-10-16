@@ -54,9 +54,11 @@ it does, in declaration order, so a form that adjusts one control places only th
 last block, outside every section; a form arranged in sections places every control. Any control
 takes an app's own input with `.custom(control)`: see [Custom controls](#custom-controls).
 
-When the policy allows `Create`, mounting the panel refuses the resource unless every
-non-nullable column is filled by the form, by Toasty, by the tenant stamp, or by an overridden
-`create_record` whose def names it with `create_column`.
+A resource with a record form serves a create page, whoever its policy lets in, so mounting the
+panel refuses it unless every non-nullable column is filled by the form, by Toasty, by the tenant
+stamp, or by an overridden `create_record` whose def names it with `create_column`. A resource
+whose records arrive another way declares `.edit_only()`: it serves the edit page, no create page,
+and skips the check.
 
 ## A form from the model
 

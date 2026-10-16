@@ -384,6 +384,7 @@ impl Resource for ClubResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .policy(tablo::ReadOnly)
+            .edit_only()
             .table(Table::new(TextColumn::new(lens!(Club.name))))
             .relation(Relation::belongs_to_many::<BookResource>(
                 Club::fields().members(),

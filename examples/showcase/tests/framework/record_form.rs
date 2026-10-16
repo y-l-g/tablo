@@ -569,6 +569,7 @@ async fn build_refuses_a_field_record_form_control_does_not_render() {
                 .slug("items")
                 .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny))
                 .table(item_table())
+                .edit_only()
         }
     }
 
@@ -597,12 +598,15 @@ async fn build_refuses_a_choice_that_offers_nothing() {
     );
 }
 
+/// Whether a resource serves a create page is its form's to say, not its policy's: a list-only
+/// resource whose policy allows create mounts, and serves none.
 #[tokio::test]
-async fn build_refuses_a_list_only_resource_that_allows_create() {
+async fn a_list_only_resource_mounts_whatever_its_policy_allows() {
     list_only_resource!(Creating, true);
+    let router = panel_router::<Creating>(item_db().await);
     assert_eq!(
-        refused::<Creating>(item_db().await),
-        [DeclarationErrorKind::CreateWithoutForm]
+        get(&router, "/admin/items/-/create").await.status(),
+        StatusCode::NOT_FOUND
     );
 }
 
@@ -728,6 +732,67 @@ async fn build_refuses_a_create_that_leaves_a_required_column_unset() {
     );
 }
 
+/// The mount checks run with no request, where a policy reading the user denies every create:
+/// the check holds whatever the policy answers there, since the create page is served anyway.
+#[tokio::test]
+async fn build_refuses_an_unset_column_whatever_the_policy() {
+    struct Guarded;
+
+    impl Resource for Guarded {
+        type Model = Item;
+        type Form = TitleForm;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("items")
+                .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny))
+                .table(item_table())
+        }
+    }
+
+    let errors = refused::<Guarded>(item_db().await);
+    assert!(
+        errors.contains(&DeclarationErrorKind::UnwrittenColumn {
+            column: "notes".to_string()
+        }),
+        "{errors:?}"
+    );
+}
+
+/// An edit-only resource serves its edit page but no create page, so nothing checks what a
+/// create would leave unset.
+#[tokio::test]
+async fn an_edit_only_resource_serves_no_create_page() {
+    struct Retitled;
+
+    impl Resource for Retitled {
+        type Model = Item;
+        type Form = TitleForm;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("items")
+                .policy_fn(|_cx, _ability| true)
+                .table(item_table())
+                .edit_only()
+        }
+    }
+
+    let db = item_db().await;
+    let item = seed_item(&db).await;
+    let router = panel_router::<Retitled>(db.clone());
+    let edit = format!("/admin/items/{}/edit", item.id);
+    assert_eq!(get(&router, &edit).await.status(), StatusCode::OK);
+    for response in [
+        get(&router, "/admin/items/-/create").await,
+        post_fields(&router, "/admin/items/-/create", &[("title", "New")]).await,
+    ] {
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+    let list = body_string(get(&router, "/admin/items").await).await;
+    assert!(!list.contains("/admin/items/-/create"), "{list}");
+}
+
 #[tokio::test]
 async fn create_columns_names_what_an_override_sets() {
     title_only_resource!(Covered, [notes, priority, done]);
@@ -755,6 +820,7 @@ async fn a_value_the_form_type_refuses_renders_inline() {
                 .slug("items")
                 .policy_fn(|_cx, ability| matches!(ability, Ability::View(_) | Ability::Update(_)))
                 .table(item_table())
+                .edit_only()
                 .form(
                     // A static-options select checks membership, not the column's type.
                     Schema::new(
@@ -843,6 +909,7 @@ async fn an_unkeyable_record_rule_fails_closed() {
                 .slug("items")
                 .policy_fn(|_cx, ability| matches!(ability, Ability::View(_) | Ability::Update(_)))
                 .table(item_table())
+                .edit_only()
         }
 
         fn validate_record(_cx: &Cx, _form: &Keyless) -> FieldErrors<PriorityFormField> {
@@ -917,6 +984,7 @@ async fn an_unkeyable_parse_failure_fails_closed() {
                 .slug("items")
                 .policy_fn(|_cx, ability| matches!(ability, Ability::View(_) | Ability::Update(_)))
                 .table(item_table())
+                .edit_only()
         }
     }
 
