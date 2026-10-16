@@ -198,6 +198,30 @@ pub enum FieldRuleFault {
     RefusedDefault(String),
 }
 
+/// [`DeclarationErrorKind::FieldRule`]'s sentence.
+fn fmt_field_rule(f: &mut fmt::Formatter<'_>, field: &str, fault: &FieldRuleFault) -> fmt::Result {
+    match fault {
+        FieldRuleFault::UnorderedBound(bound) => write!(
+            f,
+            "field '{field}' is bounded by '{bound}', which is no value of a type that orders: \
+             bound a number, date, time or timestamp field by a value of its type"
+        ),
+        FieldRuleFault::InvalidPattern(error) => write!(
+            f,
+            "field '{field}' has a pattern that does not compile: {error}"
+        ),
+        FieldRuleFault::EmptyRange => write!(
+            f,
+            "field '{field}' declares a minimum above its maximum, so it refuses every value"
+        ),
+        FieldRuleFault::RefusedDefault(value) => write!(
+            f,
+            "field '{field}' defaults to '{value}', which its own rules refuse: change the default \
+             or the rule"
+        ),
+    }
+}
+
 /// Why a many-to-many field or relation cannot link records:
 /// [`DeclarationErrorKind::ManyToMany`].
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -811,30 +835,6 @@ fn fmt_action_input(
             f,
             "action '{action}' declares a dependent choice '{field}' in its input, whose \
              options only a resource's form refreshes: drop `depends_on`"
-        ),
-    }
-}
-
-/// [`DeclarationErrorKind::FieldRule`]'s sentence.
-fn fmt_field_rule(f: &mut fmt::Formatter<'_>, field: &str, fault: &FieldRuleFault) -> fmt::Result {
-    match fault {
-        FieldRuleFault::UnorderedBound(bound) => write!(
-            f,
-            "field '{field}' is bounded by '{bound}', which is no value of a type that orders: \
-             bound a number, date, time or timestamp field by a value of its type"
-        ),
-        FieldRuleFault::InvalidPattern(error) => write!(
-            f,
-            "field '{field}' has a pattern that does not compile: {error}"
-        ),
-        FieldRuleFault::EmptyRange => write!(
-            f,
-            "field '{field}' declares a minimum above its maximum, so it refuses every value"
-        ),
-        FieldRuleFault::RefusedDefault(value) => write!(
-            f,
-            "field '{field}' defaults to '{value}', which its own rules refuse: change the default \
-             or the rule"
         ),
     }
 }
