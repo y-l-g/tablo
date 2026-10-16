@@ -6,7 +6,7 @@ use topcoat::{Result, context::Cx, view::*};
 pub(crate) use self::rules::Pattern;
 use self::rules::{Order, Rules, order};
 use super::{Field, render_field};
-use crate::{DeclarationErrorKind, form::FormScalar};
+use crate::{FieldRuleFault, form::FormScalar};
 
 /// The equality expression a text field's unique probe binds.
 type EqProbe = std::sync::Arc<dyn Fn(&str) -> Option<toasty::stmt::Expr<bool>> + Send + Sync>;
@@ -94,15 +94,19 @@ impl TextControl {
         matches!(((self.spell)(a), (self.spell)(b)), (Some(a), Some(b)) if a == b)
     }
 
-    /// The sentence refusing `value`, a trimmed, non-empty submission the field's type parses,
-    /// for the first declared rule it breaks.
+    /// The sentence refusing `value`, a trimmed, non-empty submission, for the first declared
+    /// rule it breaks. `None` for a value the field's type does not parse: its parse refuses it,
+    /// in the type's own words.
     pub(crate) fn refusal(&self, label: &str, value: &str) -> Option<String> {
+        if !self.parses(value) {
+            return None;
+        }
         self.rules.refusal(label, value, self.order)
     }
 
-    /// What is wrong with the rules field `field` declares.
-    pub(crate) fn rule_errors(&self, field: &str) -> Vec<DeclarationErrorKind> {
-        self.rules.declaration_errors(field, self.order)
+    /// What is wrong with the declared rules.
+    pub(crate) fn rule_faults(&self) -> Vec<FieldRuleFault> {
+        self.rules.faults(self.order)
     }
 
     /// The equality expression the app-side unique check probes with.

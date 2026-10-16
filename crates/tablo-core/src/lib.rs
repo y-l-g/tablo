@@ -118,7 +118,8 @@ pub use auth::{
     Auth, Authenticator, LoginThrottle, PanelUser, PasswordAuth, Registrar, SignUp, membership,
 };
 pub use declaration::{
-    ActionInputFault, DeclarationError, DeclarationErrorKind, ManyToManyFault, MountError,
+    ActionInputFault, DeclarationError, DeclarationErrorKind, FieldRuleFault, ManyToManyFault,
+    MountError,
     SegmentFault, SignUpFault, Site,
 };
 pub use detail::{Detail, IntoDetail};

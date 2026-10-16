@@ -103,7 +103,7 @@ impl RepeaterControl {
 
     /// Adds to `errors` what the item's controls' own rules refuse in each of `rows`, under the
     /// key the row's control posts: a choice that is not one of its options, an email field's
-    /// address.
+    /// address, a text field's declared length, bounds and pattern.
     pub(crate) async fn check(
         &self,
         cx: &Cx,

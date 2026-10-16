@@ -310,8 +310,9 @@ impl<F> TextField<F> {
     /// Refuse a value of fewer than `chars` characters, and render `minlength`.
     ///
     /// Like every rule here, the browser checks it before it submits, and the server checks it
-    /// again on the trimmed value, beside the field's type. A blank value is the field's blank
-    /// answer, which no rule refuses.
+    /// again on the trimmed value once the field's type parses it. A blank value is the field's
+    /// blank answer, which no rule refuses, and a value the record already stores is not checked
+    /// again. A length counts characters, where a browser counts UTF-16 units.
     pub fn min_length(mut self, chars: usize) -> Self {
         self.text().rules.min_length = Some(chars);
         self
@@ -328,7 +329,8 @@ impl<F> TextField<F> {
     ///
     /// The bound is a value of the field's type, which orders: a number, or a `jiff` date, time,
     /// date and time, or timestamp. `.min(0)` on an `i64` field, `.min(date(2024, 1, 1))` on a
-    /// `jiff::civil::Date` one; a bound the type does not parse or order fails the mount.
+    /// `jiff::civil::Date` one; a bound the type does not parse or order fails the mount. A time's
+    /// control edits it to the minute, so give a time bound in whole minutes.
     pub fn min(mut self, bound: impl std::fmt::Display) -> Self {
         self.text().rules.min = Some(bound.to_string());
         self
@@ -344,10 +346,13 @@ impl<F> TextField<F> {
     /// Refuse a value the regular expression `pattern` does not match whole, and render it as
     /// the `pattern` attribute.
     ///
-    /// The server matches it with the `regex` crate and the browser as a JavaScript expression,
-    /// both against the whole value, so write it in the syntax they share: classes, groups,
-    /// alternation and repetition, without lookaround or backreferences. One the `regex` crate
-    /// does not compile fails the mount.
+    /// The server matches it with the `regex` crate and the browser as a JavaScript expression in
+    /// its `v` mode, both against the whole value, so write it in the syntax they share: classes,
+    /// groups, alternation and repetition. Spell digits `[0-9]`, since the server's `\d` matches
+    /// other scripts' digits too; escape a `-` inside a class, which the browser otherwise refuses
+    /// along with the whole pattern; and leave out lookaround, backreferences and inline flags.
+    /// One the `regex` crate does not compile fails the mount. A `.multiline` textarea renders no
+    /// `pattern`, so only the server checks it there.
     ///
     /// ```rust
     /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]

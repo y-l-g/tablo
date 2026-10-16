@@ -6,7 +6,7 @@ use std::cmp::Ordering;
 
 use regex::Regex;
 
-use crate::{DeclarationErrorKind, form::FormScalar};
+use crate::{FieldRuleFault, form::FormScalar};
 
 /// How a field's type orders two submissions, `None` when it parses neither or has no order.
 pub(super) type Order = fn(&str, &str) -> Option<Ordering>;
@@ -51,30 +51,20 @@ impl Pattern {
 }
 
 impl Rules {
-    /// What is wrong with the rules field `field` declares: a bound its type does not parse or
-    /// does not order, a pattern that does not compile, or a range no value fits.
-    pub(crate) fn declaration_errors(
-        &self,
-        field: &str,
-        order: Order,
-    ) -> Vec<DeclarationErrorKind> {
-        let mut errors = Vec::new();
+    /// What is wrong with the rules: a bound the field's type does not parse or does not order, a
+    /// pattern that does not compile, or a range no value fits.
+    pub(crate) fn faults(&self, order: Order) -> Vec<FieldRuleFault> {
+        let mut faults = Vec::new();
         for bound in [&self.min, &self.max].into_iter().flatten() {
             if order(bound, bound).is_none() {
-                errors.push(DeclarationErrorKind::UnorderedBound {
-                    field: field.to_string(),
-                    bound: bound.clone(),
-                });
+                faults.push(FieldRuleFault::UnorderedBound(bound.clone()));
             }
         }
         if let Some(Pattern {
             regex: Err(error), ..
         }) = &self.pattern
         {
-            errors.push(DeclarationErrorKind::InvalidPattern {
-                field: field.to_string(),
-                error: error.clone(),
-            });
+            faults.push(FieldRuleFault::InvalidPattern(error.clone()));
         }
         let lengths_cross =
             matches!((self.min_length, self.max_length), (Some(min), Some(max)) if min > max);
@@ -83,15 +73,14 @@ impl Rules {
             _ => false,
         };
         if lengths_cross || bounds_cross {
-            errors.push(DeclarationErrorKind::EmptyRange {
-                field: field.to_string(),
-            });
+            faults.push(FieldRuleFault::EmptyRange);
         }
-        errors
+        faults
     }
 
     /// The sentence refusing `value`, a trimmed, non-empty submission its type parses, for the
-    /// first rule it breaks; `None` when it keeps them all.
+    /// first rule it breaks; `None` when it keeps them all. A length counts characters, as a
+    /// database's `VARCHAR(n)` does, where a browser counts UTF-16 units of the untrimmed value.
     pub(crate) fn refusal(&self, label: &str, value: &str, order: Order) -> Option<String> {
         let length = value.chars().count();
         if let Some(min) = self.min_length

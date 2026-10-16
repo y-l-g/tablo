@@ -267,9 +267,11 @@ impl<F> Schema<F> {
         errors.extend(self.dependent_errors());
         // A control disabled on create posts nothing there, so the create needs a value.
         for field in &self.fields {
-            errors.extend(field.rule_errors());
+            errors.extend(field.rule_errors(field.name()));
             if let Some(repeater) = field.as_repeater() {
-                errors.extend(repeater.item_schema().fields().flat_map(Field::rule_errors));
+                for leaf in repeater.item_schema().fields() {
+                    errors.extend(leaf.rule_errors(&format!("{}.{}", field.name(), leaf.name())));
+                }
             }
             let blank = field.default_value().is_none_or(|value| match value {
                 FormValue::Text(text) => text.trim().is_empty(),
@@ -361,8 +363,9 @@ impl<F> Schema<F> {
 
     /// Adds to `errors` what the controls' own rules refuse in a submission: an email field's
     /// address, a text field's declared length, bounds and pattern, and a choice that is not one
-    /// of its options. Skips hidden fields and keys
-    /// `errors` already refuses.
+    /// of its options. Skips hidden fields and keys `errors` already refuses. A value the record
+    /// already stores keeps its rules unchecked: a disabled control posts it back, and a rule
+    /// declared since must not lock the record.
     pub(crate) async fn check_controls(
         &self,
         cx: &Cx,
@@ -384,7 +387,9 @@ impl<F> Schema<F> {
                 repeater.check(cx, name, rows, errors).await;
                 continue;
             }
-            if let Some(error) = field.check(value) {
+            if stored.get(name) != Some(value)
+                && let Some(error) = field.check(value)
+            {
                 errors.push(error);
                 continue;
             }

@@ -1,7 +1,7 @@
 use http::header::{CONTENT_SECURITY_POLICY, CONTENT_TYPE, COOKIE};
 pub use tablo::testing::{
     TestClient, body_bytes, body_string, confirms_first, cookie_header, field_error,
-    filter_options, form_body, input_value, mount, refusal, response_cookies, rows,
+    field_error_message, filter_options, form_body, input_value, mount, refusal, response_cookies, rows,
     set_cookie_header,
 };
 use tablo::{Auth, Notification, Panel, Resource};

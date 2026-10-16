@@ -482,12 +482,27 @@ impl Field {
         Some(FieldError::invalid(self.name(), message))
     }
 
-    /// What is wrong with the rules the field's text control declares.
-    pub(crate) fn rule_errors(&self) -> Vec<crate::DeclarationErrorKind> {
-        match &self.control {
-            ControlKind::Text(text) => text.rule_errors(self.name()),
-            _ => Vec::new(),
+    /// What is wrong with the rules the field's text control declares, reported under `field`:
+    /// one that cannot work, or a default that breaks one.
+    pub(crate) fn rule_errors(&self, field: &str) -> Vec<crate::DeclarationErrorKind> {
+        let ControlKind::Text(text) = &self.control else {
+            return Vec::new();
+        };
+        let mut faults = text.rule_faults();
+        if let Some(value) = self.default_value()
+            && self.check(value).is_some()
+        {
+            faults.push(crate::FieldRuleFault::RefusedDefault(
+                value.as_text().unwrap_or_default().to_string(),
+            ));
         }
+        faults
+            .into_iter()
+            .map(|fault| crate::DeclarationErrorKind::FieldRule {
+                field: field.to_string(),
+                fault,
+            })
+            .collect()
     }
 
     /// Whether two submissions spell the same stored value, as the unique check compares them.

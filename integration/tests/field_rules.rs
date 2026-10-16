@@ -3,14 +3,16 @@
 
 use jiff::civil::date;
 use tablo::{
-    Allow, Auth, DeclarationErrorKind, Panel, Resource, ResourceDef, Schema, Table, TextColumn,
-    lens, testing::ErrorKind,
+    Allow, Auth, DeclarationErrorKind, FieldRuleFault, Panel, Resource, ResourceDef, Schema, Table,
+    TextColumn, lens, testing::ErrorKind,
 };
 use toasty::Db;
 use topcoat::router::Router;
 use uuid::Uuid;
 
-use crate::common::{TestClient, body_string, control, field_error, memory_db, mount, refusal};
+use crate::common::{
+    TestClient, body_string, control, field_error, field_error_message, memory_db, mount, refusal,
+};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Ticket {
@@ -46,7 +48,7 @@ impl Resource for TicketResource {
             .table(Table::new(TextColumn::new(lens!(Ticket.code))))
             .form(Schema::new((
                 c.code.pattern("[A-Z]{3}-[0-9]{2}"),
-                c.seats.min(1).max(10),
+                c.seats.min(1).max(10).max_length(2),
                 c.day.min(date(2026, 1, 1)),
                 c.note.min_length(2).max_length(5).multiline(3),
             )))
@@ -116,6 +118,8 @@ async fn the_server_refuses_a_value_breaking_a_rule() {
             "code=ABC-12&seats=2&day=2026-02-01&note=hello+there",
             "note",
         ),
+        // Six characters, though fewer than six code points of some scripts fill more bytes.
+        ("code=ABC-12&seats=2&day=2026-02-01&note=%C3%A9t%C3%A9+%C3%A9t", "note"),
     ] {
         let response = client.submit("/admin/tickets/-/create", body).await;
         assert_eq!(response.status(), 200, "{body}");
@@ -143,7 +147,61 @@ async fn the_server_refuses_a_value_breaking_a_rule() {
         )
         .await;
     assert_eq!(response.status(), 303);
-    assert_eq!(ticket_count(&db).await, 2);
+    // Five characters in ten bytes: a length counts characters.
+    let response = client
+        .submit(
+            "/admin/tickets/-/create",
+            "code=XYZ-98&seats=9&day=2026-01-01&note=%C3%A9t%C3%A9s",
+        )
+        .await;
+    assert_eq!(response.status(), 303);
+    assert_eq!(ticket_count(&db).await, 3);
+}
+
+/// A value the field's type does not parse is refused in the type's words, though it also
+/// breaks a rule: `lots` is too long for `seats` too.
+#[tokio::test]
+async fn the_type_refuses_before_the_rules() {
+    let (_db, router) = tickets().await;
+    let html = body_string(
+        TestClient::new(&router)
+            .submit(
+                "/admin/tickets/-/create",
+                "code=ABC-12&seats=lots&day=2026-02-01&note=hey",
+            )
+            .await,
+    )
+    .await;
+    let message = field_error_message(&html, "seats").expect("seats is refused");
+    assert!(message.contains("whole number"), "{message}");
+}
+
+/// A rule declared over stored data does not lock the records breaking it: an edit that leaves
+/// the value as stored saves, and one that changes it keeps the rule.
+#[tokio::test]
+async fn an_edit_keeping_a_stored_value_skips_its_rules() {
+    let (db, router) = tickets().await;
+    let ticket = toasty::create!(Ticket {
+        code: "legacy".to_string(),
+        seats: 50,
+        day: date(2020, 1, 1),
+        note: "x".to_string(),
+    })
+    .exec(&mut db.clone())
+    .await
+    .unwrap();
+    let client = TestClient::new(&router);
+    let edit = format!("/admin/tickets/{}/edit", ticket.id);
+    let response = client
+        .submit(&edit, "code=legacy&seats=50&day=2020-01-01&note=x")
+        .await;
+    assert_eq!(response.status(), 303);
+    let response = client
+        .submit(&edit, "code=legacy&seats=51&day=2020-01-01&note=x")
+        .await;
+    assert_eq!(response.status(), 200);
+    let html = body_string(response).await;
+    assert_eq!(field_error(&html, "seats"), Some(ErrorKind::Invalid), "{html}");
 }
 
 /// A rule no value can keep, or one the field cannot check, refuses the mount.
@@ -161,7 +219,7 @@ async fn a_misdeclared_rule_refuses_the_mount() {
                 .slug("tickets")
                 .policy(Allow)
                 .form(Schema::new((
-                    c.code.min("a"),
+                    c.code.min("a").default("abc").pattern("[a-z]{4}"),
                     c.seats.min("many").max(1).min_length(4).max_length(3),
                     c.day.min(date(2026, 2, 1)).max(date(2026, 1, 1)),
                     c.note.pattern("("),
@@ -177,25 +235,26 @@ async fn a_misdeclared_rule_refuses_the_mount() {
             .resource::<Misdeclared>(),
     ));
     let kinds: Vec<_> = errors.into_iter().map(|error| error.kind).collect();
-    let unordered = |field: &str, bound: &str| DeclarationErrorKind::UnorderedBound {
+    let rule = |field: &str, fault: FieldRuleFault| DeclarationErrorKind::FieldRule {
         field: field.to_string(),
-        bound: bound.to_string(),
-    };
-    let empty = |field: &str| DeclarationErrorKind::EmptyRange {
-        field: field.to_string(),
+        fault,
     };
     for expected in [
-        unordered("code", "a"),
-        unordered("seats", "many"),
-        empty("seats"),
-        empty("day"),
+        rule("code", FieldRuleFault::UnorderedBound("a".to_string())),
+        rule("code", FieldRuleFault::RefusedDefault("abc".to_string())),
+        rule("seats", FieldRuleFault::UnorderedBound("many".to_string())),
+        rule("seats", FieldRuleFault::EmptyRange),
+        rule("day", FieldRuleFault::EmptyRange),
     ] {
         assert!(kinds.contains(&expected), "{expected:?} in {kinds:?}");
     }
     assert!(
         kinds.iter().any(|kind| matches!(
             kind,
-            DeclarationErrorKind::InvalidPattern { field, .. } if field == "note"
+            DeclarationErrorKind::FieldRule {
+                field,
+                fault: FieldRuleFault::InvalidPattern(_),
+            } if field == "note"
         )),
         "{kinds:?}"
     );
