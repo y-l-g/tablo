@@ -645,7 +645,7 @@ impl fmt::Display for DeclarationErrorKind {
             Self::ZeroPageSize => f.write_str("`Table::paginate` needs a page size of at least 1"),
             Self::UnsortableDefaultSort { column } => write!(
                 f,
-                "`Table::default_sort` names '{column}', which no sortable column is named"
+                "`Table::default_sort` names '{column}', but no sortable column has that name"
             ),
             Self::DuplicateColumn { name } => write!(
                 f,

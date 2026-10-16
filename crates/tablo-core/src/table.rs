@@ -503,12 +503,13 @@ impl<M> Table<M> {
             })
     }
 
-    /// The order-by of the sort a request naming none reads.
-    pub(crate) fn default_order_by(&self) -> Option<OrderByExpr>
+    /// The first sortable column's ascending order-by: the order a relationship's choices list in,
+    /// whatever the list's [default](Self::default_sort).
+    pub(crate) fn first_order_by(&self) -> Option<OrderByExpr>
     where
         M: toasty::schema::Model,
     {
-        self.order_by(&self.sort_for(&TableState::default())?)
+        self.columns.iter().find_map(|c| c.order_by(false))
     }
 
     /// The order-by `sort` names.
