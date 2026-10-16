@@ -53,7 +53,7 @@ impl Resource for TicketResource {
     type Form = TicketForm;
 
     fn declare() -> ResourceDef<Self> {
-        ResourceDef::new().policy(tablo::ReadOnly)
+        ResourceDef::new().policy(tablo::ReadOnly).edit_only()
     }
 }
 
@@ -67,6 +67,7 @@ impl Resource for UnviewedTicketResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .policy(tablo::ReadOnly)
+            .edit_only()
             .detail(Detail::empty())
     }
 }

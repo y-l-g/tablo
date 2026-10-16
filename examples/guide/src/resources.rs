@@ -97,6 +97,8 @@ impl Resource for PostResource {
             // ANCHOR: post-policy-editors
             .policy(ReadOnly.or(when(editors_only)))
             // ANCHOR_END: post-policy-editors
+            // Posts are written on the blog, with their author and SEO; the panel edits them.
+            .edit_only()
             // ANCHOR: post-tenancy
             .tenancy(Tenancy::column(lens!(Post.tenant_id)))
             // ANCHOR_END: post-tenancy

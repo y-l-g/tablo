@@ -445,8 +445,6 @@ pub enum DeclarationErrorKind {
         /// The field.
         field: String,
     },
-    /// A resource whose policy allows create but that has no form.
-    CreateWithoutForm,
     /// A record-form field binding a key no control posts, after the form renders every field
     /// it does not place: a hand-written [`RecordForm::control`](crate::RecordForm::control)
     /// that renders no control for it.
@@ -488,7 +486,7 @@ pub enum DeclarationErrorKind {
         /// The tenant column.
         column: String,
     },
-    /// A non-nullable column nothing writes on create.
+    /// A non-nullable column nothing writes on create, for a resource that serves a create page.
     UnwrittenColumn {
         /// The column.
         column: String,
@@ -722,10 +720,6 @@ impl fmt::Display for DeclarationErrorKind {
                 "field '{field}' is conditional but has no blank answer: a submission that hides \
                  it posts nothing, so make it an `Option` or give it `#[form(blank = ..)]`"
             ),
-            Self::CreateWithoutForm => f.write_str(
-                "the policy allows create, but there is no form: name the record form in `type \
-                 Form`",
-            ),
             Self::MissingControl { field, key } => write!(
                 f,
                 "record-form field `{field}` binds key `{key}`, but no control posts it: \
@@ -766,9 +760,10 @@ impl fmt::Display for DeclarationErrorKind {
             ),
             Self::UnwrittenColumn { column } => write!(
                 f,
-                "the policy allows create, but nothing writes the non-nullable column `{column}`: \
-                 the record form has no such field, toasty fills no `#[default(..)]` for it, and \
-                 no `create_column` names it, so every create would fail at the driver"
+                "nothing writes the non-nullable column `{column}` on create: the record form has \
+                 no such field, toasty fills no `#[default(..)]` for it, and no `create_column` \
+                 names it, so every create would fail at the driver; a resource that creates \
+                 nothing declares `edit_only`"
             ),
             Self::ManyToMany { field, fault } => match fault {
                 ManyToManyFault::NotJoinModel => write!(

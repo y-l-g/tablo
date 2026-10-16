@@ -19,7 +19,6 @@ use super::{
     state::current,
 };
 use crate::{
-    form::RecordForm,
     navigation::runtime_link,
     policy::Ability,
     resource::{InputSpec, Links, Mounted, RelationKind, Resource, mounted},
@@ -171,7 +170,7 @@ pub(crate) fn relation_table<C: Resource>(cx: &Cx, relation: BoundRelation) -> B
         let back = state.list_url(&page);
         let table = table.returning_to(back.clone());
         let create_url = seed
-            .filter(|_| <C::Form as RecordForm>::HAS_FORM && resource.can(cx, Ability::Create))
+            .filter(|_| resource.creates && resource.can(cx, Ability::Create))
             .map(|(column, value)| {
                 let query = form_urlencoded::Serializer::new(String::new())
                     .append_pair(&column, &value)

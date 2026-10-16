@@ -1676,6 +1676,7 @@ impl<R: tablo_core::resource::Resource> tablo_core::ResourceDef<R>
 pub fn tablo_core::ResourceDef<R>::action<A: tablo_core::Action<R>>(self) -> Self
 pub fn tablo_core::ResourceDef<R>::create_column<T>(self, impl core::convert::Into<toasty::stmt::path::Path<<R as tablo_core::resource::Resource>::Model, T>>) -> Self
 pub fn tablo_core::ResourceDef<R>::detail(self, tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>) -> Self
+pub fn tablo_core::ResourceDef<R>::edit_only(self) -> Self
 pub fn tablo_core::ResourceDef<R>::form(self, tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>) -> Self
 pub fn tablo_core::ResourceDef<R>::header_action<A: tablo_core::HeaderAction>(self) -> Self
 pub fn tablo_core::ResourceDef<R>::icon(self, topcoat_icon::data::IconData) -> Self
@@ -3415,7 +3416,6 @@ pub tablo_core::DeclarationErrorKind::CompositeKeyChoice
 pub tablo_core::DeclarationErrorKind::CompositeKeyChoice::field: alloc::string::String
 pub tablo_core::DeclarationErrorKind::CreateColumnsNameTenant
 pub tablo_core::DeclarationErrorKind::CreateColumnsNameTenant::column: alloc::string::String
-pub tablo_core::DeclarationErrorKind::CreateWithoutForm
 pub tablo_core::DeclarationErrorKind::DisabledWithoutValue
 pub tablo_core::DeclarationErrorKind::DisabledWithoutValue::field: alloc::string::String
 pub tablo_core::DeclarationErrorKind::DottedFilterName
@@ -5070,6 +5070,7 @@ impl<R: tablo_core::resource::Resource> tablo_core::ResourceDef<R>
 pub fn tablo_core::ResourceDef<R>::action<A: tablo_core::Action<R>>(self) -> Self
 pub fn tablo_core::ResourceDef<R>::create_column<T>(self, impl core::convert::Into<toasty::stmt::path::Path<<R as tablo_core::resource::Resource>::Model, T>>) -> Self
 pub fn tablo_core::ResourceDef<R>::detail(self, tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>) -> Self
+pub fn tablo_core::ResourceDef<R>::edit_only(self) -> Self
 pub fn tablo_core::ResourceDef<R>::form(self, tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>) -> Self
 pub fn tablo_core::ResourceDef<R>::header_action<A: tablo_core::HeaderAction>(self) -> Self
 pub fn tablo_core::ResourceDef<R>::icon(self, topcoat_icon::data::IconData) -> Self

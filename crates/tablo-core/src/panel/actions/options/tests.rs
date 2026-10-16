@@ -51,6 +51,7 @@ async fn options_endpoint_searches_and_gates() {
 
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
+                .edit_only()
                 .slug("opt-posts")
                 .policy(ReadOnly)
                 .table(crate::table::Table::new(crate::table::TextColumn::new(
@@ -202,6 +203,7 @@ async fn option_load_loads_no_relation() {
 
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
+                .edit_only()
                 .slug("owners")
                 .table(crate::table::Table::new(crate::table::TextColumn::new(
                     lens!(Owner.name),
@@ -313,6 +315,7 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
 
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
+                .edit_only()
                 .slug("big-ps")
                 .table(crate::table::Table::new(crate::table::TextColumn::new(
                     lens!(BigP.name),
@@ -335,6 +338,7 @@ async fn options_endpoint_rejects_non_searchable_and_overflows() {
 
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
+                .edit_only()
                 .slug("plain-ps")
                 .table(crate::table::Table::new(crate::table::TextColumn::new(
                     lens!(BigP.name),

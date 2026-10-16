@@ -31,7 +31,6 @@ use crate::{
     declaration::segment_fault,
     form::RecordForm,
     page::MountedPage,
-    policy::Ability,
     resource::{InputSpec, MountScope, Mounted, Mounts, Resource, require_mounted},
     tenancy::TenantSource,
     toasty_compat::{
@@ -667,8 +666,6 @@ fn check_form_declaration<R: Resource>(
     }
     if <R::Form as RecordForm>::HAS_FORM {
         check_form_inner(cx, declared, errors);
-    } else if declared.can(cx, Ability::Create) {
-        errors.push(form_error::<R>(DeclarationErrorKind::CreateWithoutForm));
     }
 }
 
@@ -726,7 +723,9 @@ fn check_form_inner<R: Resource>(
         check_via_foreign_keys(cx, declared, errors);
     }
     check_many_to_many(cx, declared, errors);
-    if declared.can(cx, Ability::Create) {
+    // Whether the page exists, not whether the policy allows it: the checks run with no request,
+    // so a policy reading the user would deny every create here and skip the check.
+    if declared.creates {
         check_create_columns(declared, errors);
     }
     let columns = model::fields::<R::Model>();

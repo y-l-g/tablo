@@ -68,6 +68,8 @@ pub struct ResourceDef<R: Resource> {
     pub(crate) header_actions: HeaderActions,
     /// The columns [`Self::create_column`] names, or why a path names no column.
     pub(crate) create_columns: Vec<Result<String, DeclarationErrorKind>>,
+    /// Whether [`Self::edit_only`] turned the create page off.
+    pub(crate) edit_only: bool,
 }
 
 impl<R: Resource> Default for ResourceDef<R> {
@@ -91,6 +93,7 @@ impl<R: Resource> Default for ResourceDef<R> {
             actions: Actions::default(),
             header_actions: HeaderActions::new(),
             create_columns: Vec::new(),
+            edit_only: false,
         }
     }
 }
@@ -374,6 +377,19 @@ impl<R: Resource> ResourceDef<R> {
         let path = ModelPath::of(&path.into());
         self.create_columns
             .push(model::field::<R::Model>(&path).map(|field| field.name));
+        self
+    }
+
+    /// Serves the edit page but no create page, for records that arrive another way: an import,
+    /// a seed, an action.
+    ///
+    /// A resource with a record form creates through it unless it opts out here; the policy
+    /// decides who may create, per request, but never whether the page exists. Without the page,
+    /// mounting skips the check that a create fills every non-nullable column, and the list and
+    /// the relations offer no create button.
+    #[must_use]
+    pub fn edit_only(mut self) -> Self {
+        self.edit_only = true;
         self
     }
 }

@@ -41,6 +41,7 @@ async fn create_policy_deny() {
     #[form(model = DummyUser)]
     struct DenyCreateForm {
         name: String,
+        email: String,
     }
     let db = Db::builder()
         .models(toasty::models!(DummyUser))

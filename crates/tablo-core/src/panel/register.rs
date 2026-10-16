@@ -245,7 +245,8 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
             return;
         };
         let entries = mounted.actions.entries();
-        let routes = ActionRoutes {
+        let routes = OptionalRoutes {
+            create: mounted.creates,
             record: entries.iter().any(|a| a.places.intersects(Places::RECORD)),
             list: !mounted.header_actions.is_empty()
                 || entries.iter().any(|a| a.places.contains(Places::BULK)),
@@ -292,8 +293,10 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
     }
 }
 
-/// Which action routes a resource serves.
-struct ActionRoutes {
+/// Which optional routes a resource serves.
+struct OptionalRoutes {
+    /// The create page: a record form, and not [`edit_only`](crate::ResourceDef::edit_only).
+    create: bool,
     /// One record's: an action placed on a row or a detail or edit page.
     record: bool,
     /// The list's: a header action, or an action placed on the bulk bar.
@@ -303,7 +306,7 @@ struct ActionRoutes {
 }
 
 /// Registers a resource's routes under its list `url`.
-fn register_routes<R: Resource>(registry: &mut Registry, url: &str, actions: ActionRoutes) {
+fn register_routes<R: Resource>(registry: &mut Registry, url: &str, routes: OptionalRoutes) {
     use http::Method;
 
     registry.page(Method::GET, url, resource_list::<R>);
@@ -327,7 +330,7 @@ fn register_routes<R: Resource>(registry: &mut Registry, url: &str, actions: Act
     );
     // The `-` segment keeps `actions` from shadowing the edit and delete
     // routes of a record whose key is `actions`.
-    if actions.record {
+    if routes.record {
         registry.page(
             Method::POST,
             &format!(
@@ -336,7 +339,7 @@ fn register_routes<R: Resource>(registry: &mut Registry, url: &str, actions: Act
             resource_record_action::<R>,
         );
     }
-    if actions.list {
+    if routes.list {
         registry.page(
             Method::POST,
             &list_actions_route(url),
@@ -344,14 +347,14 @@ fn register_routes<R: Resource>(registry: &mut Registry, url: &str, actions: Act
         );
     }
     // A record's action asks for the same input as the list's, so one route serves both.
-    if actions.record || actions.list {
+    if routes.record || routes.list {
         registry.route(
             Method::GET,
             &format!("{}/options", list_actions_route(url)),
             resource_action_options::<R>,
         );
     }
-    if actions.links {
+    if routes.links {
         // `{url}/{id}/-/relations/{relation}`: the `-` segment keeps it from a record's own
         // routes, as it does the record's actions.
         let relation = format!(
@@ -380,10 +383,12 @@ fn register_routes<R: Resource>(registry: &mut Registry, url: &str, actions: Act
         &list_route(url, EXPORT_ROUTE_SEGMENT),
         resource_export::<R>,
     );
-    if <R::Form as RecordForm>::HAS_FORM {
+    if routes.create {
         let create_url = list_route(url, CREATE_ROUTE_SEGMENT);
         registry.page(Method::GET, &create_url, resource_create::<R>);
         registry.page(Method::POST, &create_url, resource_create_post::<R>);
+    }
+    if <R::Form as RecordForm>::HAS_FORM {
         let edit_url = format!("{url}/{RECORD_ROUTE_PARAM}/{EDIT_ROUTE_SEGMENT}");
         registry.page(Method::GET, &edit_url, resource_edit::<R>);
         registry.page(Method::POST, &edit_url, resource_edit_post::<R>);
