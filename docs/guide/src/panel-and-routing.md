@@ -56,6 +56,8 @@ The panel also serves:
   authentication is disabled.
 - `GET`, `POST /admin/register`, the [sign-up page](./policy-auth-tenancy.md#sign-up), when
   `Auth::registration` installs a registrar.
+- `GET`, `POST /admin/profile`, the [profile page](./policy-auth-tenancy.md#profile), when
+  `Auth::profile` installs a profile editor.
 - `POST /admin/{page}/-/actions/{action}` for a page's [header actions](./actions.md#header-actions),
   and `/admin/-/actions/{action}` for the home page's.
 - Every other path under `/admin`, with any method, as a 404 behind the
@@ -152,7 +154,9 @@ second layout there would nest a second document inside the first.
   signed-in user the panel refuses outright sees a standalone 403 page with Sign out instead.
 - **The user menu,** in the sidebar's footer, shows the signed-in user's initials, their
   `display_name` and the `subtitle` their `PanelUser` returns, such as an email. It opens the
-  theme choice, the entries `Panel::user_menu_item` adds, and Sign out. A panel with
+  theme choice, a Profile link when the panel has a
+  [profile page](./policy-auth-tenancy.md#profile), the entries `Panel::user_menu_item` adds, and
+  Sign out. A panel with
   `Auth::disabled()` has no user to show, so its footer offers the theme choice alone.
 
 To change the frame, pass your own layout function to `Panel::layout`. `Panel::layout_shell` is

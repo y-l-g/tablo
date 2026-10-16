@@ -466,7 +466,11 @@ const LOGO: &str = "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/sv
 /// handle from with [`Panel::handle`].
 pub fn admin_panel() -> Panel {
     Panel::new("admin")
-        .auth(Auth::custom(StaffAuth).registration(StaffAuth))
+        .auth(
+            Auth::custom(StaffAuth)
+                .registration(StaffAuth)
+                .profile(StaffAuth),
+        )
         .brand(Brand::new("Tablo Blog").logo(LOGO).favicon(LOGO))
         .home::<Dashboard>()
         .resource::<UserResource>()

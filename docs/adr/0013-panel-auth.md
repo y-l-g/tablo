@@ -14,6 +14,11 @@ is the explicit opt-out.
 - Sign-up is opt-in through a second seam, a `Registrar` beside the `Authenticator` and for the
   same user type: it takes an action input, validates and writes in one transaction, and signs
   the new account in only when it has panel access.
+- The profile page is opt-in through a third seam, a `ProfileEditor` for the same user type: it
+  fills a form input from the signed-in user, validates and writes in one transaction, and says
+  whether a credential changed. A credential change ends the user's sessions on every panel that
+  loads the same user type, in the transaction that saves, and starts a new one for the browser
+  that saved.
 
 ## Rejected
 
@@ -22,3 +27,6 @@ is the explicit opt-out.
 - A `register` method on `Authenticator` with a refusing default: mounting could not tell an
   authenticator that registers from one that does not. A fixed sign-up form: an app that asks
   for more than a name, an email and a password would rebuild the page.
+- Profile editing as a resource over the user table: its edit page would need the user's own
+  record and a policy that admits only it, and nothing would ask for the current password or
+  revoke sessions when a credential changes.

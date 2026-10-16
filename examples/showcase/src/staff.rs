@@ -3,7 +3,10 @@
 use jiff::Timestamp;
 use tablo::{
     FieldErrors, FormInput, Membership, PanelUser,
-    auth::{Authenticator, Registrar, hash_password, new_password_errors, verify_password},
+    auth::{
+        Authenticator, Profile, ProfileEditor, ProfileUpdate, Registrar, hash_password,
+        new_password_errors, verify_password,
+    },
 };
 use toasty::Db;
 use topcoat::context::Cx;
@@ -207,6 +210,75 @@ impl Registrar for StaffAuth {
         Ok(SignedStaff {
             staff,
             workspaces: vec![Membership::new(workspace.id, workspace.name)],
+        })
+    }
+}
+
+/// Lets a member of staff edit their name, email and password, asking for the current password
+/// before the email or the password changes.
+impl ProfileEditor for StaffAuth {
+    type Input = Profile;
+    type User = SignedStaff;
+
+    fn fill(&self, _cx: &Cx, signed: &SignedStaff) -> Profile {
+        Profile {
+            name: signed.staff.display_name.clone(),
+            email: signed.staff.email.clone(),
+            password: None,
+            password_confirmation: String::new(),
+            current_password: None,
+        }
+    }
+
+    async fn validate(
+        &self,
+        _cx: &Cx,
+        signed: &SignedStaff,
+        profile: &Profile,
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<FieldErrors> {
+        let staff = &signed.staff;
+        let mut errors = profile.password_errors();
+        let new_email = profile.email != staff.email;
+        if new_email || profile.password.is_some() {
+            let current = profile.current_password.as_deref().unwrap_or_default();
+            if !verify_password(current, Some(&staff.password_hash)) {
+                errors.add("current_password", "The current password is incorrect");
+            }
+        }
+        // Only the account's owner learns whether another account holds an email.
+        if new_email && !errors.contains_key("current_password") {
+            let taken = Staff::filter(Staff::fields().email().eq(profile.email.clone()))
+                .first()
+                .exec(ex)
+                .await?;
+            if taken.is_some() {
+                errors.add("email", "Email has already been taken");
+            }
+        }
+        Ok(errors)
+    }
+
+    async fn save(
+        &self,
+        _cx: &Cx,
+        signed: &SignedStaff,
+        profile: Profile,
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<ProfileUpdate> {
+        let credentials = profile.email != signed.staff.email || profile.password.is_some();
+        let mut update = Staff::filter(Staff::fields().id().eq(signed.staff.id))
+            .update()
+            .display_name(profile.name)
+            .email(profile.email);
+        if let Some(password) = &profile.password {
+            update.set_password_hash(hash_password(password)?);
+        }
+        update.exec(ex).await?;
+        Ok(if credentials {
+            ProfileUpdate::Credentials
+        } else {
+            ProfileUpdate::Details
         })
     }
 }

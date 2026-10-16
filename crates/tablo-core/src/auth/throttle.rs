@@ -92,6 +92,14 @@ impl LoginThrottle {
         self.attempt_at(login, client, Instant::now())
     }
 
+    /// The window's length in whole seconds, rounded up: how long a refused client waits at
+    /// most. Zero for a throttle that counts nothing.
+    pub(crate) fn window_secs(&self) -> u64 {
+        self.limit.map_or(0, |limit| {
+            limit.window.as_secs() + u64::from(limit.window.subsec_nanos() > 0)
+        })
+    }
+
     fn attempt_at(&self, login: &str, client: Option<IpAddr>, now: Instant) -> bool {
         let Some(limit) = self.limit else {
             return true;

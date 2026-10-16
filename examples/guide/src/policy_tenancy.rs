@@ -2,7 +2,10 @@
 
 use tablo::{
     Membership, PanelUser, PasswordAuth,
-    auth::{Authenticator, Registrar, hash_password, new_password_errors, verify_password},
+    auth::{
+        Authenticator, Profile, ProfileEditor, ProfileUpdate, Registrar, hash_password,
+        new_password_errors, verify_password,
+    },
     prelude::*,
 };
 use topcoat::{Result, context::Cx};
@@ -173,6 +176,75 @@ pub fn staff_sign_up_panel() -> Panel {
     Panel::new("admin").auth(Auth::custom(StaffAuth).registration(StaffAuth))
 }
 // ANCHOR_END: policy-staff-sign-up-panel
+
+// ANCHOR: policy-profile-password
+pub fn profile_panel() -> Panel {
+    Panel::new("admin").auth(Auth::password().profile(PasswordAuth))
+}
+// ANCHOR_END: policy-profile-password
+
+// ANCHOR: policy-staff-profile
+impl ProfileEditor for StaffAuth {
+    type Input = Profile;
+    type User = SignedStaff;
+
+    fn fill(&self, _cx: &Cx, signed: &SignedStaff) -> Profile {
+        Profile {
+            name: signed.staff.name.clone(),
+            email: signed.staff.email.clone(),
+            password: None,
+            password_confirmation: String::new(),
+            current_password: None,
+        }
+    }
+
+    async fn validate(
+        &self,
+        _cx: &Cx,
+        signed: &SignedStaff,
+        profile: &Profile,
+        ex: &mut dyn toasty::Executor,
+    ) -> Result<FieldErrors> {
+        let mut errors = profile.password_errors();
+        let current = profile.current_password.as_deref().unwrap_or_default();
+        let credentials = profile.password.is_some() || profile.email != signed.staff.email;
+        if credentials && !verify_password(current, Some(&signed.staff.password_hash)) {
+            errors.add("current_password", "The current password is incorrect");
+        } else if profile.email != signed.staff.email && email_taken(ex, &profile.email).await? {
+            // Asked only once the password verifies: a stolen session learns no addresses.
+            errors.add("email", "Email has already been taken");
+        }
+        Ok(errors)
+    }
+
+    async fn save(
+        &self,
+        _cx: &Cx,
+        signed: &SignedStaff,
+        profile: Profile,
+        ex: &mut dyn toasty::Executor,
+    ) -> Result<ProfileUpdate> {
+        let update = if profile.password.is_some() || profile.email != signed.staff.email {
+            ProfileUpdate::Credentials
+        } else {
+            ProfileUpdate::Details
+        };
+        let hash = profile.password.as_deref().map(hash_password).transpose()?;
+        update_staff(ex, &signed.staff, &profile.name, &profile.email, hash).await?;
+        Ok(update)
+    }
+}
+// ANCHOR_END: policy-staff-profile
+
+pub async fn update_staff(
+    _ex: &mut dyn toasty::Executor,
+    _staff: &Staff,
+    _name: &str,
+    _email: &str,
+    _password_hash: Option<String>,
+) -> Result<()> {
+    todo!()
+}
 
 // ANCHOR: policy-auth-disabled-body
 pub fn open_panel() -> Panel {

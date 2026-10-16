@@ -30,6 +30,8 @@ pub const X: IconData = iconify_icon!("lucide:x");
 pub const SUN: IconData = iconify_icon!("lucide:sun");
 /// Theme toggle, shown in dark mode.
 pub const MOON: IconData = iconify_icon!("lucide:moon");
+/// The user menu's profile link.
+pub const USER: IconData = iconify_icon!("lucide:user");
 /// Sign-out control.
 pub const LOG_OUT: IconData = iconify_icon!("lucide:log-out");
 /// Row action: view the record.

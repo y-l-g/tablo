@@ -222,7 +222,7 @@ impl Registry {
 
 /// The segments the panel routes under its prefix itself, which no resource or page may take as its
 /// slug: `-` leads the home page's action routes.
-const RESERVED_SLUGS: &[&str] = &["login", "logout", "register", "-"];
+const RESERVED_SLUGS: &[&str] = &["login", "logout", "register", "profile", "-"];
 
 impl<R: Resource> Registration for ResourceRegistration<R> {
     fn register(self: Box<Self>, registry: &mut Registry) {

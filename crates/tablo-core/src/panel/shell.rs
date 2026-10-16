@@ -460,9 +460,19 @@ impl Panel {
         let (user_menu, tenant_menu): (BoxView<'_>, BoxView<'_>) = match crate::auth::signed(cx) {
             Some(signed) => {
                 let csrf = crate::csrf::ensure_token(cx);
-                let items = current(cx)
-                    .map(|panel| panel.user_menu.clone())
-                    .unwrap_or_default();
+                // The profile page leads the app's own links.
+                let profile = crate::auth::profile_offered(cx).then(|| {
+                    NavigationItem::at("Profile", crate::auth::profile_url(cx))
+                        .icon(tablo_ui::icons::USER)
+                });
+                let items: Vec<NavigationItem> = profile
+                    .into_iter()
+                    .chain(
+                        current(cx)
+                            .map(|panel| panel.user_menu.clone())
+                            .unwrap_or_default(),
+                    )
+                    .collect();
                 (
                     Self::user_menu(
                         cx,

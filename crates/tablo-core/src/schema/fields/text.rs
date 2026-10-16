@@ -22,6 +22,9 @@ pub(crate) struct TextControl {
     pub(super) placeholder: Option<String>,
     pub(super) email: bool,
     pub(super) password: bool,
+    /// The password the user signs in with today, which a password manager fills, rather than
+    /// a new one it would offer to generate.
+    pub(super) current_password: bool,
     pub(super) unique: bool,
     pub(super) rules: Rules,
     probe: Option<EqProbe>,
@@ -58,6 +61,7 @@ impl TextControl {
             placeholder: None,
             email: false,
             password: false,
+            current_password: false,
             unique,
             rules: Rules::default(),
             probe: Some(probe),
@@ -76,6 +80,7 @@ impl TextControl {
             placeholder: None,
             email: false,
             password: false,
+            current_password: false,
             unique: false,
             rules: Rules::default(),
             probe: None,
@@ -167,7 +172,11 @@ impl Field {
             };
             // A password never travels back to the browser: a refused form renders it empty.
             let value = value.filter(|_| !text.password);
-            let autocomplete = text.password.then_some("new-password");
+            let autocomplete = text.password.then_some(if text.current_password {
+                "current-password"
+            } else {
+                "new-password"
+            });
             let value_owned = value.map(text.input_value);
             let step = text.step.filter(|_| input_type == text.input_type);
             let min = rules.min.as_deref().map(text.input_value);

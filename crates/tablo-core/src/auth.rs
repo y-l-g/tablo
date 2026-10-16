@@ -8,6 +8,7 @@ mod gate;
 mod login;
 mod page;
 mod password;
+mod profile;
 mod registration;
 mod session;
 mod throttle;
@@ -33,11 +34,15 @@ pub(crate) use self::{
         MAX_LOGIN_BYTES, login_page, login_post, logout_post, logout_url, safe_next, tenant_post,
         tenant_url,
     },
+    profile::{
+        DynProfileEditor, offered as profile_offered, profile_page, profile_post, profile_url,
+    },
     registration::{DynRegistrar, register_page, register_post},
 };
 pub use self::{
     login::{LOGIN_FIELD, NEXT_FIELD, PASSWORD_FIELD, TENANT_FIELD},
     password::{AdminUser, PasswordAuth, create_admin, hash_password, verify_password},
+    profile::{Profile, ProfileEditor, ProfileUpdate},
     registration::{MIN_PASSWORD_CHARS, Registrar, SignUp, new_password_errors},
     session::{AuthSession, SESSION_LIFETIME, mint_session, revoke_sessions_for_user},
     throttle::LoginThrottle,
@@ -204,12 +209,14 @@ impl<A: Authenticator> DynAuthenticator for A {
 /// The default is [`Auth::password`]; [`Auth::custom`] installs an app-owned
 /// [`Authenticator`]; [`Auth::disabled`] is the explicit fail-open opt-out.
 /// Sign-in attempts are throttled per login by default; see [`Auth::throttle`].
-/// [`Auth::registration`] adds a sign-up page.
+/// [`Auth::registration`] adds a sign-up page, and [`Auth::profile`] a profile page.
 pub struct Auth {
     authenticator: Option<Box<dyn DynAuthenticator>>,
     throttle: LoginThrottle,
     registrar: Option<Box<dyn DynRegistrar>>,
     sign_up_throttle: LoginThrottle,
+    profile_editor: Option<Box<dyn DynProfileEditor>>,
+    profile_throttle: LoginThrottle,
 }
 
 impl Auth {
@@ -227,6 +234,8 @@ impl Auth {
             throttle: LoginThrottle::default(),
             registrar: None,
             sign_up_throttle: LoginThrottle::default(),
+            profile_editor: None,
+            profile_throttle: LoginThrottle::default(),
         }
     }
 
@@ -239,6 +248,8 @@ impl Auth {
             throttle: LoginThrottle::off(),
             registrar: None,
             sign_up_throttle: LoginThrottle::off(),
+            profile_editor: None,
+            profile_throttle: LoginThrottle::off(),
         }
     }
 
@@ -280,6 +291,34 @@ impl Auth {
         self
     }
 
+    /// Lets the signed-in user edit their own account at `{prefix}/profile`, through `editor`;
+    /// the user menu links to it.
+    ///
+    /// ```rust
+    /// use tablo_core::{Auth, PasswordAuth};
+    ///
+    /// let auth = Auth::password().profile(PasswordAuth);
+    /// # let _ = auth;
+    /// ```
+    ///
+    /// [`PasswordAuth`] edits an [`AdminUser`]'s name, email and password through a [`Profile`],
+    /// asking for the current password before the email or the password changes. Mounting
+    /// refuses an editor whose [`User`](ProfileEditor::User) is not the type the authenticator
+    /// loads, and a profile on [`Auth::disabled`].
+    #[must_use]
+    pub fn profile(mut self, editor: impl ProfileEditor) -> Self {
+        self.profile_editor = Some(Box::new(editor));
+        self
+    }
+
+    /// How many profile saves one user may submit in a window, from any address; defaults to five
+    /// a minute. Every profile POST counts, whether or not it saves.
+    #[must_use]
+    pub fn profile_throttle(mut self, throttle: LoginThrottle) -> Self {
+        self.profile_throttle = throttle;
+        self
+    }
+
     /// Whether the explicit opt-out is set.
     #[must_use]
     pub fn is_disabled(&self) -> bool {
@@ -305,6 +344,18 @@ impl Auth {
     pub(crate) fn throttle_sign_ups(&self) -> &LoginThrottle {
         &self.sign_up_throttle
     }
+
+    /// The profile editor, or `None` without a profile page.
+    pub(crate) fn profile_editor(&self) -> Option<&dyn DynProfileEditor> {
+        self.authenticator
+            .as_ref()
+            .and(self.profile_editor.as_deref())
+    }
+
+    /// The profile throttle, counted per user.
+    pub(crate) fn throttle_profile(&self) -> &LoginThrottle {
+        &self.profile_throttle
+    }
 }
 
 impl Default for Auth {
@@ -321,6 +372,7 @@ impl std::fmt::Debug for Auth {
             f.debug_struct("Auth")
                 .field("throttle", &self.throttle)
                 .field("registration", &self.registrar.is_some())
+                .field("profile", &self.profile_editor.is_some())
                 .finish_non_exhaustive()
         }
     }
@@ -576,6 +628,46 @@ pub(crate) fn check_registration(auth: &Auth) -> Vec<crate::DeclarationErrorKind
             return None;
         };
         Some(DeclarationErrorKind::SignUp(fault))
+    }));
+    kinds
+}
+
+/// The mistakes in a panel's [`Auth::profile`]: a profile without auth, an editor whose user is
+/// not the authenticator's, and a profile form field the page cannot serve.
+pub(crate) fn check_profile(auth: &Auth) -> Vec<crate::DeclarationErrorKind> {
+    use crate::{DeclarationErrorKind, declaration::ProfileFault};
+
+    let Some(editor) = auth.profile_editor.as_deref() else {
+        return Vec::new();
+    };
+    let Some(authenticator) = auth.authenticator() else {
+        return vec![DeclarationErrorKind::Profile(ProfileFault::AuthDisabled)];
+    };
+    let mut kinds = Vec::new();
+    let (user, user_name) = editor.user_type();
+    if user != authenticator.user_type() {
+        kinds.push(DeclarationErrorKind::Profile(ProfileFault::UserType {
+            editor: user_name,
+        }));
+    }
+    let schema = editor.schema();
+    kinds.extend(schema.declaration_errors());
+    kinds.extend(schema.empty_choices());
+    kinds.extend(schema.fields().filter_map(|field| {
+        let name = field.name().to_string();
+        let fault = if profile::RESERVED_KEYS.contains(&name.as_str()) {
+            ProfileFault::ReservedField(name)
+        } else if field.is_file() {
+            ProfileFault::FileField(name)
+        } else if field
+            .as_choice()
+            .is_some_and(|choice| choice.is_relationship())
+        {
+            ProfileFault::RelationshipField(name)
+        } else {
+            return None;
+        };
+        Some(DeclarationErrorKind::Profile(fault))
     }));
     kinds
 }

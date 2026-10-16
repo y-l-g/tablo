@@ -21,6 +21,7 @@ mod key_collisions;
 mod model_columns;
 mod options_enum;
 mod panels;
+mod profile;
 mod resource_query_override;
 mod sign_up;
 mod sqlite;
