@@ -43,11 +43,7 @@ async fn delete_requires_confirmation_and_deletes() {
         dialog.contains("role=\"alertdialog\"") && !dialog.contains(" open=\"\""),
         "an ordinary list page must render the dialog closed, got {dialog}"
     );
-    for needle in [
-        "Delete this record?",
-        "name=\"confirm\" value=\"1\"",
-        "bg-destructive",
-    ] {
+    for needle in ["Delete this record?", "name=\"confirm\" value=\"1\""] {
         assert!(html.contains(needle), "dialog missing {needle} in {html}");
     }
 

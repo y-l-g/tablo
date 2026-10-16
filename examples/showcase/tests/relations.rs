@@ -381,9 +381,13 @@ async fn the_post_page_lists_its_own_comments_through_the_comments_table() {
     );
 
     let html = body_string(client.get(&format!("/admin/posts/{}", commented.id)).await).await;
+    let listed: Vec<String> = tablo::testing::rows(&html)
+        .into_iter()
+        .flat_map(|row| row.cells)
+        .collect();
     for comment in &related {
         assert!(
-            html.contains(&comment.body),
+            listed.contains(&comment.body),
             "every related row renders: missing {:?} in {html}",
             comment.body
         );
@@ -431,9 +435,13 @@ async fn searching_the_relation_stays_on_the_post_page() {
 
     let page = format!("/admin/posts/{}", commented.id);
     let html = body_string(client.get(&format!("{page}?comments.q={term}")).await).await;
-    assert!(html.contains(&kept.body), "{html}");
+    let listed: Vec<String> = tablo::testing::rows(&html)
+        .into_iter()
+        .flat_map(|row| row.cells)
+        .collect();
+    assert!(listed.contains(&kept.body), "{html}");
     assert!(
-        !html.contains(&dropped.body),
+        !listed.contains(&dropped.body),
         "the search narrows the relation: {html}"
     );
     assert!(
@@ -629,12 +637,17 @@ async fn comments_list_shows_body_and_post_title() {
     assert!(resp.status().is_success());
     let html = body_string(resp).await;
     assert!(html.contains("Comments</h1>"), "missing heading: {html}");
+    // The parent title sits in the same row as the body it belongs to.
+    let comment = tablo::testing::rows(&html)
+        .into_iter()
+        .find(|row| {
+            row.cells
+                .iter()
+                .any(|cell| cell.starts_with("Clear write-up"))
+        })
+        .unwrap_or_else(|| panic!("missing seeded comment body: {html}"));
     assert!(
-        html.contains("Clear write-up"),
-        "missing seeded comment body: {html}"
-    );
-    assert!(
-        html.contains("Hello Toasty"),
+        comment.cells.iter().any(|cell| cell == "Hello Toasty"),
         "missing parent post title via include: {html}"
     );
     assert!(

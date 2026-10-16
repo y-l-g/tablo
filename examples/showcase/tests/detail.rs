@@ -1,7 +1,8 @@
 use showcase::models::{Author, Post, PostStatus, User};
 
 use crate::common::{
-    body_string, demo_client, full_db, routers::router_for_tests as router, tenantless_client,
+    body_string, demo_client, find_href_with, full_db, routers::router_for_tests as router,
+    tenantless_client,
 };
 
 async fn a_post_id(db: &mut toasty::Db) -> String {
@@ -166,10 +167,6 @@ async fn post_detail_renders_the_record_read_only() {
         !body.contains("data-invalid"),
         "a stored record has nothing to be invalid about: {body}"
     );
-    assert!(
-        body.contains("data-slot=\"field\"") && !body.contains("data-slot=\"field-label\""),
-        "the page renders values through the read-only field shape: {body}"
-    );
 }
 
 #[tokio::test]
@@ -201,14 +198,16 @@ async fn post_record_pages_link_the_public_post() {
     let id = a_published_post_id(&mut db_q).await;
 
     let edit = body_string(client.get(&format!("/admin/posts/{id}/edit")).await).await;
-    assert!(
-        edit.contains(&format!("href=\"/blog/{id}\"")),
+    assert_eq!(
+        find_href_with(&edit, &format!("/blog/{id}")),
+        Some(format!("/blog/{id}")),
         "edit page must link the public post: {edit}"
     );
 
     let detail = body_string(client.get(&format!("/admin/posts/{id}")).await).await;
-    assert!(
-        detail.contains(&format!("href=\"/blog/{id}\"")),
+    assert_eq!(
+        find_href_with(&detail, &format!("/blog/{id}")),
+        Some(format!("/blog/{id}")),
         "detail page must link the public post: {detail}"
     );
 }

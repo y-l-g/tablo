@@ -5,7 +5,7 @@
 use http::header::LOCATION;
 use tablo::{
     Ability, DeclarationErrorKind, Relation, Resource, ResourceDef, Schema, Site, Table,
-    TextColumn, lens,
+    TextColumn, lens, testing::find_href_with,
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
@@ -149,15 +149,22 @@ async fn fixture() -> (Router, Db, Owner, Owner) {
     (router, db, ada, bob)
 }
 
+/// The child bodies the relation's table lists, sorted: the rows a reader sees, in any order.
+fn listed_bodies(html: &str) -> Vec<String> {
+    let mut bodies: Vec<String> = rows(html)
+        .into_iter()
+        .flat_map(|row| row.cells)
+        .filter(|cell| cell.starts_with("ada-") || cell.starts_with("bob-"))
+        .collect();
+    bodies.sort();
+    bodies
+}
+
 #[tokio::test]
 async fn the_detail_page_lists_only_the_owners_children() {
     let (router, _db, ada, _bob) = fixture().await;
     let html = body_string(get(&router, &format!("/admin/owners/{}", ada.id)).await).await;
-    assert!(
-        html.contains("ada-first") && html.contains("ada-second"),
-        "{html}"
-    );
-    assert!(!html.contains("bob-first"), "another owner's rows: {html}");
+    assert_eq!(listed_bodies(&html), ["ada-first", "ada-second"], "{html}");
     assert!(html.contains("data-relation=\"children\""), "{html}");
 }
 
@@ -167,19 +174,19 @@ async fn the_relation_reads_and_writes_only_its_prefixed_state() {
     let page = format!("/admin/owners/{}", ada.id);
     // A bare `q` belongs to no relation; the keyed one narrows the table.
     let html = body_string(get(&router, &format!("{page}?q=zzz&children.q=second")).await).await;
-    assert!(
-        html.contains("ada-second") && !html.contains("ada-first"),
-        "{html}"
-    );
+    assert_eq!(listed_bodies(&html), ["ada-second"], "{html}");
     assert!(
         html.contains("name=\"children.q\""),
         "keyed search input: {html}"
     );
     assert!(
-        html.contains("children.sort=body"),
+        find_href_with(&html, "children.sort=body").is_some(),
         "keyed sort links: {html}"
     );
-    assert!(!html.contains("?sort="), "no bare sort link: {html}");
+    assert!(
+        find_href_with(&html, "?sort=").is_none(),
+        "no bare sort link: {html}"
+    );
 }
 
 /// The detail page carries the relation's writes, each returning to it; the edit page renders no
@@ -234,9 +241,13 @@ async fn the_child_policies_gate_the_section_and_its_create_link() {
     let denied = get_with_header(&router, &detail, "x-deny-children").await;
     assert!(!denied.contains("data-relation="), "{denied}");
     let no_create = get_with_header(&router, &detail, "x-no-create").await;
-    assert!(no_create.contains("ada-first"), "{no_create}");
+    assert_eq!(
+        listed_bodies(&no_create),
+        ["ada-first", "ada-second"],
+        "{no_create}"
+    );
     assert!(
-        !no_create.contains("/admin/children/-/create"),
+        find_href_with(&no_create, "/admin/children/-/create").is_none(),
         "{no_create}"
     );
 }

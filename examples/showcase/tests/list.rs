@@ -29,7 +29,7 @@ async fn renders_search_box_and_sort_links() {
         "missing search input type in {html}"
     );
     assert!(
-        html.contains("sort=name&amp;dir=asc"),
+        find_href_with(&html, "sort=name&dir=asc").is_some(),
         "missing sort link in {html}"
     );
     assert!(
@@ -45,7 +45,7 @@ async fn renders_search_box_and_sort_links() {
     );
     let sorted = body_string(response).await;
     assert!(
-        sorted.contains("sort=name&amp;dir=desc"),
+        find_href_with(&sorted, "sort=name&dir=desc").is_some(),
         "missing sort toggle link in {sorted}"
     );
     assert!(
@@ -65,7 +65,7 @@ async fn renders_search_box_and_sort_links() {
         "missing aria-sort=descending in {desc}"
     );
     assert!(
-        desc.contains("sort=name&amp;dir=asc"),
+        find_href_with(&desc, "sort=name&dir=asc").is_some(),
         "missing toggle back to ascending in {desc}"
     );
 }

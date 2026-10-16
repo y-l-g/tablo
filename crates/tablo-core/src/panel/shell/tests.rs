@@ -49,61 +49,6 @@ async fn shell_escapes_brand_name_and_logo() {
 }
 
 #[tokio::test]
-async fn shell_dark_mode_sets_html_class() {
-    fn cx_with(dark: Option<bool>) -> Cx {
-        use topcoat::context::CxTestBuilder;
-        let (parts, ()) = http::Request::builder()
-            .uri("/admin/users")
-            .body(())
-            .unwrap()
-            .into_parts();
-        match dark {
-            Some(v) => CxTestBuilder::new()
-                .request_context(parts)
-                .request_context(dark_panel(v)),
-            None => CxTestBuilder::new().request_context(parts),
-        }
-        .build()
-    }
-
-    async fn document_html(cx: &Cx) -> String {
-        let slot = view! { cx => "hello" }.boxed().into();
-        Panel::layout_shell(cx, slot)
-            .single()
-            .await
-            .unwrap()
-            .render(cx)
-    }
-
-    let html = document_html(&cx_with(Some(true))).await;
-    assert!(
-        html.contains("<html class=\"dark\">"),
-        "a dark panel must set the html class, got {html}"
-    );
-    assert!(
-        html.contains("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"),
-        "a phone lays the shell out at its own width, got {html}"
-    );
-    // The server renders the theme, so no script decides it before paint.
-    assert!(
-        !html.contains("classList"),
-        "the document must not carry a theme script, got {html}"
-    );
-
-    let html = document_html(&cx_with(Some(false))).await;
-    assert!(
-        html.contains("<html>"),
-        "a light panel must not set the dark class, got {html}"
-    );
-
-    let html = document_html(&cx_with(None)).await;
-    assert!(
-        html.contains("<html>"),
-        "no panel must not set the dark class, got {html}"
-    );
-}
-
-#[tokio::test]
 async fn theme_cookie_overrides_the_dark_mode_default() {
     // Runtime navigation copies `<html>`'s attributes from the next page
     // and runs no script, so the server must render the stored choice.

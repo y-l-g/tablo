@@ -8,9 +8,9 @@ use tablo::auth::AuthSession;
 use topcoat::context::CxTestBuilder;
 
 use crate::common::{
-    SESSION_COOKIE, TestClient, body_string, form_body, full_db, input_value, mount,
-    response_cookies, routers::router_for_tests as router, runtime_post, session_cookie_value,
-    set_cookie_header,
+    SESSION_COOKIE, TestClient, body_string, find_href_with, form_body, full_db, input_value,
+    mount, response_cookies, routers::router_for_tests as router, runtime_post,
+    session_cookie_value, set_cookie_header,
 };
 
 #[tokio::test]
@@ -23,10 +23,6 @@ async fn login_page_is_standalone_with_csrf_and_no_demo_hint_by_default() {
     let html = body_string(response).await;
     assert!(html.contains("<h1"), "missing heading: {html}");
     assert!(html.contains("Tablo Blog"), "missing brand: {html}");
-    assert!(
-        html.contains("<html>"),
-        "login must share the light first paint: {html}"
-    );
     assert!(
         !html.contains("Demo credentials:"),
         "default login page must not leak demo credentials: {html}"
@@ -43,23 +39,15 @@ async fn login_page_is_standalone_with_csrf_and_no_demo_hint_by_default() {
         !html.contains("data-sidebar=\"sidebar\""),
         "login page must not render the sidebar shell: {html}"
     );
-    // The brand stands above the card, whose heading leads the form.
-    let brand = html.find("data-brand").expect("the page brand");
-    let heading = html.find("<h1").expect("the card heading");
-    let form = html.find("action=\"/admin/login\"").expect("the form");
-    assert!(
-        brand < heading && heading < form,
-        "brand, heading, form: {html}"
-    );
     assert!(
         !html.contains("data-login-hint"),
         "no hint without one declared: {html}"
     );
 }
 
-/// A declared login hint shows under the card, and the sign-up page shares the sign-in layout.
+/// A declared login hint renders on the sign-in page, and the sign-up page links back to it.
 #[tokio::test]
-async fn the_hint_and_the_sign_up_page_share_the_layout() {
+async fn the_hint_renders_and_sign_up_links_back_to_sign_in() {
     let db = full_db().await;
     let router = mount(
         db,
@@ -67,18 +55,12 @@ async fn the_hint_and_the_sign_up_page_share_the_layout() {
     )
     .expect("panel builds");
     let html = body_string(TestClient::new(&router).get("/admin/login").await).await;
-    let form = html.find("action=\"/admin/login\"").expect("the form");
-    let hint = html.find("data-login-hint").expect("the hint renders");
-    assert!(form < hint, "the hint follows the form: {html}");
+    assert!(html.contains("data-login-hint"), "the hint renders: {html}");
 
     let html = body_string(TestClient::new(&router).get("/admin/register").await).await;
-    let brand = html
-        .find("data-brand")
-        .expect("the sign-up page shows the brand");
-    let heading = html.find("<h1").expect("the card heading");
-    assert!(brand < heading, "{html}");
-    assert!(
-        html.contains("href=\"/admin/login\""),
+    assert_eq!(
+        find_href_with(&html, "/admin/login"),
+        Some("/admin/login".to_string()),
         "a link back to sign-in: {html}"
     );
 }

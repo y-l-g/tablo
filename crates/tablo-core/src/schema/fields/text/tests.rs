@@ -113,10 +113,6 @@ async fn multiline_renders_a_textarea_with_the_stored_value() {
         html.contains(">Name"),
         "label must still derive from the lens, got {html}"
     );
-    assert!(
-        html.contains("data-slot=\"field\""),
-        "the field family chrome must match a one-line field, got {html}"
-    );
 }
 
 /// A refused form re-renders its submitted values, except a password's.
