@@ -3477,6 +3477,7 @@ dependencies = [
  "derive-where",
  "email_address",
  "form_urlencoded",
+ "futures-util",
  "heck",
  "http",
  "http-body-util",

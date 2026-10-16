@@ -45,6 +45,7 @@ impl std::fmt::Debug for NavTarget {
 /// A sidebar entry: a resource's, from its [`ResourceDef`](super::ResourceDef), or a `Page`'s.
 #[derive(Clone, Debug, Default)]
 pub struct NavigationItem {
+    /// The entry's text.
     pub label: String,
     /// Where this entry points.
     pub target: NavTarget,
@@ -55,6 +56,8 @@ pub struct NavigationItem {
     /// The labelled sidebar group the entry renders in; `None` renders it with the ungrouped
     /// entries, above every group.
     pub group: Option<String>,
+    /// The text of the badge after the label, if any.
+    pub badge: Option<String>,
 }
 
 impl NavigationItem {
@@ -66,6 +69,7 @@ impl NavigationItem {
             order: 0,
             icon: None,
             group: None,
+            badge: None,
         }
     }
 
@@ -81,6 +85,18 @@ impl NavigationItem {
     #[must_use]
     pub fn group(mut self, group: impl Into<String>) -> Self {
         self.group = Some(group.into());
+        self
+    }
+
+    /// This entry with a badge reading `text` after its label, such as `"New"`; a blank `text`
+    /// is ignored. A resource's [`navigation_badge`](crate::ResourceDef::navigation_badge) counts
+    /// its rows for one instead.
+    #[must_use]
+    pub fn badge(mut self, text: impl Into<String>) -> Self {
+        let text = text.into().trim().to_string();
+        if !text.is_empty() {
+            self.badge = Some(text);
+        }
         self
     }
 

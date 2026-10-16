@@ -1181,6 +1181,7 @@ impl core::marker::UnsafeUnpin for tablo_core::navigation::NavTarget
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::navigation::NavTarget
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::navigation::NavTarget
 pub struct tablo_core::navigation::NavigationItem
+pub tablo_core::navigation::NavigationItem::badge: core::option::Option<alloc::string::String>
 pub tablo_core::navigation::NavigationItem::group: core::option::Option<alloc::string::String>
 pub tablo_core::navigation::NavigationItem::icon: core::option::Option<topcoat_icon::data::IconData>
 pub tablo_core::navigation::NavigationItem::label: alloc::string::String
@@ -1188,6 +1189,7 @@ pub tablo_core::navigation::NavigationItem::order: i32
 pub tablo_core::navigation::NavigationItem::target: tablo_core::navigation::NavTarget
 impl tablo_core::navigation::NavigationItem
 pub fn tablo_core::navigation::NavigationItem::at(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::navigation::NavigationItem::badge(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::navigation::NavigationItem::group(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::navigation::NavigationItem::icon(self, topcoat_icon::data::IconData) -> Self
 pub fn tablo_core::navigation::NavigationItem::is_current_path(&self, &str) -> bool
@@ -1330,9 +1332,11 @@ pub fn tablo_core::panel::url::page<P: tablo_core::Page>(&topcoat_core::context:
 pub fn tablo_core::panel::url::panel(&topcoat_core::context::Cx) -> core::option::Option<alloc::string::String>
 pub fn tablo_core::panel::url::resource<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx) -> core::option::Option<alloc::string::String>
 pub struct tablo_core::panel::Brand
+pub tablo_core::panel::Brand::favicon: core::option::Option<alloc::string::String>
 pub tablo_core::panel::Brand::logo: core::option::Option<alloc::string::String>
 pub tablo_core::panel::Brand::name: alloc::string::String
 impl tablo_core::Brand
+pub fn tablo_core::Brand::favicon(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::Brand::logo(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::Brand::new(impl core::convert::Into<alloc::string::String>) -> Self
 impl core::clone::Clone for tablo_core::Brand
@@ -1710,6 +1714,7 @@ pub fn tablo_core::ResourceDef<R>::header_action<A: tablo_core::HeaderAction>(se
 pub fn tablo_core::ResourceDef<R>::icon(self, topcoat_icon::data::IconData) -> Self
 pub fn tablo_core::ResourceDef<R>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::ResourceDef<R>::navigation(self, tablo_core::navigation::NavigationItem) -> Self
+pub fn tablo_core::ResourceDef<R>::navigation_badge(self, toasty::stmt::expr::Expr<bool>) -> Self
 pub fn tablo_core::ResourceDef<R>::navigation_group(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::ResourceDef<R>::navigation_order(self, i32) -> Self
 pub fn tablo_core::ResourceDef<R>::new() -> Self
@@ -3869,9 +3874,11 @@ impl<M> core::marker::UnsafeUnpin for tablo_core::BooleanColumn<M> where tablo_c
 impl<M> core::panic::unwind_safe::RefUnwindSafe for tablo_core::BooleanColumn<M> where tablo_core::Lens<M, bool>: core::panic::unwind_safe::RefUnwindSafe
 impl<M> core::panic::unwind_safe::UnwindSafe for tablo_core::BooleanColumn<M> where tablo_core::Lens<M, bool>: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::Brand
+pub tablo_core::Brand::favicon: core::option::Option<alloc::string::String>
 pub tablo_core::Brand::logo: core::option::Option<alloc::string::String>
 pub tablo_core::Brand::name: alloc::string::String
 impl tablo_core::Brand
+pub fn tablo_core::Brand::favicon(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::Brand::logo(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::Brand::new(impl core::convert::Into<alloc::string::String>) -> Self
 impl core::clone::Clone for tablo_core::Brand
@@ -4650,6 +4657,7 @@ impl core::marker::UnsafeUnpin for tablo_core::MountError
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::MountError
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::MountError
 pub struct tablo_core::NavigationItem
+pub tablo_core::NavigationItem::badge: core::option::Option<alloc::string::String>
 pub tablo_core::NavigationItem::group: core::option::Option<alloc::string::String>
 pub tablo_core::NavigationItem::icon: core::option::Option<topcoat_icon::data::IconData>
 pub tablo_core::NavigationItem::label: alloc::string::String
@@ -4657,6 +4665,7 @@ pub tablo_core::NavigationItem::order: i32
 pub tablo_core::NavigationItem::target: tablo_core::navigation::NavTarget
 impl tablo_core::navigation::NavigationItem
 pub fn tablo_core::navigation::NavigationItem::at(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::navigation::NavigationItem::badge(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::navigation::NavigationItem::group(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::navigation::NavigationItem::icon(self, topcoat_icon::data::IconData) -> Self
 pub fn tablo_core::navigation::NavigationItem::is_current_path(&self, &str) -> bool
@@ -5062,6 +5071,7 @@ pub fn tablo_core::ResourceDef<R>::header_action<A: tablo_core::HeaderAction>(se
 pub fn tablo_core::ResourceDef<R>::icon(self, topcoat_icon::data::IconData) -> Self
 pub fn tablo_core::ResourceDef<R>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::ResourceDef<R>::navigation(self, tablo_core::navigation::NavigationItem) -> Self
+pub fn tablo_core::ResourceDef<R>::navigation_badge(self, toasty::stmt::expr::Expr<bool>) -> Self
 pub fn tablo_core::ResourceDef<R>::navigation_group(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::ResourceDef<R>::navigation_order(self, i32) -> Self
 pub fn tablo_core::ResourceDef<R>::new() -> Self

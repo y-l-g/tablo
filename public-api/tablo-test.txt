@@ -132,6 +132,7 @@ pub fn tablo_test::form_body(&[(&str, &str)]) -> alloc::string::String
 pub fn tablo_test::input_value(&str, &str) -> core::option::Option<alloc::string::String>
 pub fn tablo_test::mount(toasty::db::Db, tablo_core::panel::Panel) -> topcoat::Result<topcoat_router::router::Router>
 pub fn tablo_test::multipart_body(&str, &[(&str, core::option::Option<&str>, &str)]) -> alloc::string::String
+pub fn tablo_test::nav_badge(&str, &str) -> core::option::Option<alloc::string::String>
 pub fn tablo_test::notification(&http::response::Response<topcoat_router::body::Body>) -> core::option::Option<tablo_core::notification::Notification>
 pub fn tablo_test::refusal<T>(topcoat::Result<T>) -> alloc::vec::Vec<tablo_core::declaration::DeclarationError>
 pub fn tablo_test::response_cookies(&http::response::Response<topcoat_router::body::Body>) -> alloc::vec::Vec<(alloc::string::String, alloc::string::String)>
