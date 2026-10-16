@@ -1,19 +1,14 @@
-//! Embedded lens resolution through the request's app schema.
+//! Embedded lens resolution.
 //!
-//! A path through an embedded value names a flattened storage column only the
-//! app schema knows, so it stays unbound until its schema binds (`Schema::bind`,
-//! or a panel mount), and the leaf then arrives as its flattened storage column.
+//! A path through an embedded value binds the flattened storage column the
+//! app's `Db` stores it in, as soon as its field is declared.
 //!
 //! This is the render-path proof: the flattened name is what the form posts
 //! and what the unknown-key allow-list accepts, or a bound embedded field
-//! would render blank and then be refused as an unknown key. The resolver walk
-//! itself is covered by `schema::lenses`'s own tests; the two refusals at the
-//! bottom drive the panicking entry a form binding uses, which that module
-//! does not.
+//! would render blank and then be refused as an unknown key. The walk itself is
+//! covered by `schema::lenses`'s own tests.
 
-use tablo::{
-    DeclarationErrorKind, Field, FieldErrors, FormValues, IntoSchema, ResourceDef, Schema, Source,
-};
+use tablo::{DeclarationErrorKind, Field, FieldErrors, FormValues, ResourceDef, Schema, Source};
 use topcoat::{
     context::{Cx, CxTestBuilder},
     view::ViewExt,
@@ -65,13 +60,6 @@ async fn article_cx() -> Cx {
     CxTestBuilder::new().app_context(db).build()
 }
 
-/// `children` as a schema bound to the app schema of the `Db` `cx` carries, as a panel mount binds
-/// it.
-fn bound(cx: &Cx, children: impl IntoSchema) -> Schema {
-    let db = topcoat::context::try_app_context::<toasty::Db>(cx).expect("the cx carries a Db");
-    Schema::new(children).bind(db)
-}
-
 fn names(schema: &Schema) -> Vec<&str> {
     schema.fields().map(Field::name).collect()
 }
@@ -91,7 +79,7 @@ async fn render(schema: &Schema, cx: &Cx, values: FormValues) -> String {
 async fn embedded_leaf_resolves_to_its_flattened_column() {
     let cx = article_cx().await;
     // Two levels deep: Article.meta.seo.title -> meta_seo_title.
-    let schema = bound(&cx, Field::text(Article::fields().meta().seo().title()));
+    let schema = Schema::new(Field::text(Article::fields().meta().seo().title()));
     assert_eq!(
         names(&schema),
         ["meta_seo_title"],
@@ -111,13 +99,10 @@ async fn embedded_leaf_resolves_to_its_flattened_column() {
 /// A traversal lens over a relation is not an embedded step, and this walk is
 /// for embedded binding only. It is refused rather than bound to anything —
 /// `author_id` and `name` are different columns, so a silent misbind here would
-/// write the wrong one. No `lenses.rs` test reaches this branch: its
-/// refusals come from the missing/foreign-root model check, not from a
-/// relation hop in the walk.
-#[tokio::test]
-async fn a_relation_traversal_is_refused_rather_than_misbound() {
-    let cx = article_cx().await;
-    let errors = bound(&cx, Field::text(Article::fields().author().name())).declaration_errors();
+/// write the wrong one.
+#[test]
+fn a_relation_traversal_is_refused_rather_than_misbound() {
+    let errors = Schema::new(Field::text(Article::fields().author().name())).declaration_errors();
     assert!(
         errors
             .iter()
@@ -126,41 +111,14 @@ async fn a_relation_traversal_is_refused_rather_than_misbound() {
     );
 }
 
-/// An embedded path never bound to the app schema refuses to render rather than bind the wrong
-/// column.
-#[tokio::test]
-async fn an_unbound_embedded_path_is_refused() {
-    let cx = article_cx().await;
-    let schema = Schema::new(Field::text(Article::fields().meta().note()));
-    assert!(
-        matches!(
-            schema.declaration_errors().as_slice(),
-            [DeclarationErrorKind::Unbound { .. }]
-        ),
-        "{:?}",
-        schema.declaration_errors()
-    );
-    assert!(
-        schema
-            .render(&cx, Source::form(&FormValues::new(), &FieldErrors::new()))
-            .await
-            .is_err(),
-        "an unbound schema fails to render"
-    );
-}
-
 /// Every kind of field binds an embedded leaf and posts its flattened column.
 #[tokio::test]
 async fn a_choice_and_a_file_bind_an_embedded_leaf() {
     let cx = article_cx().await;
-    let schema = bound(
-        &cx,
-        (
-            Field::choice(Article::fields().meta().seo().title())
-                .options(vec!["draft".to_string()]),
-            Field::file(Article::fields().meta().seo().description()),
-        ),
-    );
+    let schema = Schema::new((
+        Field::choice(Article::fields().meta().seo().title()).options(vec!["draft".to_string()]),
+        Field::file(Article::fields().meta().seo().description()),
+    ));
     assert_eq!(names(&schema), ["meta_seo_title", "meta_seo_description"]);
 
     let html = render(&schema, &cx, FormValues::new()).await;
@@ -201,7 +159,7 @@ impl tablo::Resource for PageResource {
     }
 }
 
-/// A column binds an embedded leaf at mount: it renders, sorts and searches by the flattened
+/// A column binds an embedded leaf: it renders, sorts and searches by the flattened
 /// column.
 #[tokio::test]
 async fn a_column_binds_an_embedded_leaf() {

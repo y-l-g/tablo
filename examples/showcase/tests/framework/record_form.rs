@@ -522,8 +522,8 @@ async fn build_refuses_a_field_record_form_control_does_not_render() {
         type Model = Item;
         type Field = TitleFormField;
 
-        fn fields(resolver: &tablo::FieldResolver) -> Vec<tablo::FormField<TitleFormField>> {
-            TitleForm::fields(resolver)
+        fn fields() -> Vec<tablo::FormField<TitleFormField>> {
+            TitleForm::fields()
         }
 
         fn control(_field: TitleFormField) -> Schema<Self> {
@@ -862,7 +862,7 @@ async fn an_unkeyable_record_rule_fails_closed() {
         type Model = Item;
         type Field = PriorityFormField;
 
-        fn fields(_: &tablo::FieldResolver) -> Vec<tablo::FormField<PriorityFormField>> {
+        fn fields() -> Vec<tablo::FormField<PriorityFormField>> {
             Vec::new()
         }
 
@@ -937,7 +937,7 @@ async fn an_unkeyable_parse_failure_fails_closed() {
         type Model = Item;
         type Field = PriorityFormField;
 
-        fn fields(_: &tablo::FieldResolver) -> Vec<tablo::FormField<PriorityFormField>> {
+        fn fields() -> Vec<tablo::FormField<PriorityFormField>> {
             Vec::new()
         }
 

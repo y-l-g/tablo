@@ -5,13 +5,16 @@
 //! module is the one reader of them, and answers in Tablo's own terms: [`FieldInfo`],
 //! [`LeafField`], [`EnumShape`], [`BelongsTo`].
 
-use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    sync::{Arc, LazyLock, Mutex, PoisonError},
+};
 
 use toasty::{
     schema::{app, mapping},
     stmt::{IntoExpr, IntoInsert, Path},
 };
-use toasty_core::stmt::PathRoot;
+use toasty_core::{driver::Capability, stmt::PathRoot};
 use topcoat::context::Cx;
 
 use crate::{DeclarationErrorKind, naming::capitalize};
@@ -32,6 +35,47 @@ impl AppSchema {
     /// `db`'s compiled schema.
     pub(crate) fn of_db(db: &toasty::Db) -> Self {
         Self(db.schema().clone())
+    }
+
+    /// The schema a `Db` registering `M` compiles for `M` and every model its fields reach,
+    /// compiled once per process.
+    ///
+    /// A column's name depends only on the models: Toasty joins an embedded field's steps with
+    /// `_`, and neither the driver nor the table-name prefix enters it. So an embedded lens binds
+    /// when it is declared, and to the column the app's own `Db` stores it in. The compile still
+    /// checks each model against a driver, so this tries the drivers Toasty ships until one takes
+    /// the models.
+    ///
+    /// # Errors
+    ///
+    /// The models no driver compiles, which no `Db` could serve either.
+    pub(crate) fn of_model<M: toasty::schema::Model>() -> Result<Self, String> {
+        static COMPILED: LazyLock<Mutex<HashMap<ModelId, Result<AppSchema, String>>>> =
+            LazyLock::new(Mutex::default);
+        let mut compiled = COMPILED.lock().unwrap_or_else(PoisonError::into_inner);
+        compiled
+            .entry(M::id())
+            .or_insert_with(|| {
+                let mut models = app::ModelSet::new();
+                M::register(&mut models);
+                let builder = toasty_core::schema::Builder::new();
+                let mut error = String::new();
+                for driver in [
+                    &Capability::POSTGRESQL,
+                    &Capability::SQLITE,
+                    &Capability::MYSQL,
+                    &Capability::DYNAMODB,
+                ] {
+                    let app = app::Schema::from_macro(models.clone())
+                        .map_err(|error| error.to_string())?;
+                    match builder.build(app, driver) {
+                        Ok(schema) => return Ok(Self(Arc::new(schema))),
+                        Err(refused) => error = refused.to_string(),
+                    }
+                }
+                Err(error)
+            })
+            .clone()
     }
 
     /// The compiled schema of the `Db` the context carries, if it carries one.
@@ -282,24 +326,19 @@ pub(crate) fn single_field<M: toasty::schema::Model>(
     field::<M>(path).map(LeafField::from)
 }
 
-/// Resolve an embedded path of the model named `model` through `schema`; without one, the path is
-/// a traversal the single-field rule refuses, since binding its first segment misbinds in release.
+/// Resolve an embedded path of the model named `model` through `schema`.
 ///
 /// # Errors
 ///
-/// No schema to resolve through, or a path that reaches no single column.
+/// A path that reaches no single column.
 pub(crate) fn embedded_leaf(
-    schema: Option<&AppSchema>,
+    AppSchema(schema): &AppSchema,
     path: &ModelPath,
     model: &'static str,
 ) -> Result<LeafField, DeclarationErrorKind> {
-    let steps = path.steps();
-    let Some(AppSchema(schema)) = schema else {
-        return Err(DeclarationErrorKind::TraversalLens { steps: steps.len() });
-    };
     walk_embedded(schema, &path.0).ok_or_else(|| DeclarationErrorKind::UnresolvedLens {
         model,
-        steps: steps.to_vec(),
+        steps: path.steps().to_vec(),
     })
 }
 

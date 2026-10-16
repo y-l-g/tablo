@@ -1,6 +1,6 @@
 //! [`EmbeddedColumn`]: an embedded value read off the record, one leaf at a time.
 
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 
 use derive_where::derive_where;
 use topcoat::{context::Cx, view::*};
@@ -9,7 +9,7 @@ use super::{Column, ColumnBase, ColumnWidth};
 use crate::{
     Lens,
     form::FormValues,
-    schema::{EmbeddedForm, FieldResolver, Schema},
+    schema::{EmbeddedForm, Schema},
 };
 
 /// A column of an [`EmbeddedForm`] value.
@@ -24,16 +24,12 @@ use crate::{
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, seo: Seo }
 /// tablo_core::EmbeddedColumn::new(tablo_core::lens!(Post.seo));
 /// ```
-///
-/// The value's leaves resolve through the app schema, which the column reads when it binds: a
-/// panel binds the declarations it mounts, and [`Detail::bind`](crate::Detail::bind) binds one
-/// built outside a panel.
 #[derive_where(Clone, Debug)]
 pub struct EmbeddedColumn<M, T> {
     lens: Lens<M, T>,
     base: ColumnBase,
-    /// The value's schema, built when the column binds.
-    schema: Arc<OnceLock<Schema>>,
+    /// The value's schema.
+    schema: Arc<Schema>,
 }
 
 impl<M, T> EmbeddedColumn<M, T>
@@ -45,21 +41,20 @@ where
     pub fn new(lens: Lens<M, T>) -> Self {
         Self {
             base: ColumnBase::new(lens.path(), ColumnWidth::Grow),
+            schema: Arc::new(T::build_schema(lens.path().clone())),
             lens,
-            schema: Arc::default(),
         }
     }
 
     base_builders!();
 
-    /// The value's schema and its leaves as the form spells them, once the column is bound.
-    fn spelled(&self, row: &M) -> Option<(&Schema, FormValues)> {
-        let schema = self.schema.get()?;
+    /// The value's schema and its leaves as the form spells them.
+    fn spelled(&self, row: &M) -> (&Schema, FormValues) {
         let mut values = FormValues::new();
         self.lens
             .read(row)
-            .write_node(schema.embedded_root(), &mut values);
-        Some((schema, values))
+            .write_node(self.schema.embedded_root(), &mut values);
+        (&self.schema, values)
     }
 }
 
@@ -71,9 +66,7 @@ where
     base_column_methods!();
 
     fn text(&self, _cx: &Cx, row: &M) -> String {
-        let Some((schema, values)) = self.spelled(row) else {
-            return String::new();
-        };
+        let (schema, values) = self.spelled(row);
         schema
             .embedded_root()
             .shown(&schema.fields, &values)
@@ -89,27 +82,14 @@ where
     }
 
     fn entry<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
-        match self.spelled(row) {
-            Some((schema, values)) => schema.embedded_root().display(cx, &schema.fields, &values),
-            None => ().boxed(),
-        }
+        let (schema, values) = self.spelled(row);
+        schema.embedded_root().display(cx, &schema.fields, &values)
     }
 
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
         if let Some(error) = self.base.binding.misdeclared() {
             return Some(error);
         }
-        match self.schema.get() {
-            Some(schema) => schema.declaration_errors().into_iter().next(),
-            None => Some(crate::DeclarationErrorKind::Unbound {
-                item: std::any::type_name::<T>(),
-            }),
-        }
-    }
-
-    fn bind(&self, resolver: &FieldResolver) {
-        self.base.binding.bind(resolver);
-        self.schema
-            .get_or_init(|| T::build_schema(resolver, self.lens.path().clone()));
+        self.schema.declaration_errors().into_iter().next()
     }
 }

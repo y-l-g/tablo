@@ -7,7 +7,7 @@
 //! rest as one [`ResourceDef`] value: its [`Policy`], which denies by default, and any [`Table`],
 //! [`Schema`] or [`Detail`] that replaces or extends the defaults.
 //! The app mounts the panel on its own Topcoat router with [`RouterBuilderPanelExt::panel`], which
-//! builds each def once, binds it to the database schema and checks it first; one router mounts any
+//! builds each def once and checks it against the database schema first; one router mounts any
 //! number of panels at distinct prefixes.
 //!
 //! ```rust,no_run
@@ -74,11 +74,9 @@ pub mod __macro {
         },
         resource::{ActionInput, required_input},
         schema::{
-            ChoiceField, CustomField, EmbeddedForm, Field, FieldResolver, FileField, IntoSchema,
-            Options, RepeaterField, RepeaterItem, Schema, TextField,
-            embedded::{
-                Embedded, EmbeddedBuilder, embedded_field, embedded_form, take_leaf, take_value,
-            },
+            ChoiceField, CustomField, EmbeddedForm, Field, FileField, IntoSchema, Options,
+            RepeaterField, RepeaterItem, Schema, TextField,
+            embedded::{Embedded, EmbeddedBuilder, embedded_field, take_leaf, take_value},
             form_key, parse_items,
             tree::Retype,
             write_items,
@@ -142,9 +140,9 @@ pub use resource::{
     PublicLink, Relation, Resource, ResourceDef, can, scoped_query, write_create, write_update,
 };
 pub use schema::{
-    ChoiceField, CustomField, EmbeddedForm, Field, FieldResolver, FileField, Grid, Group,
-    IntoFormValue, IntoOptions, IntoSchema, Options, RepeaterField, RepeaterItem, Schema, Section,
-    Source, TextField, Toggle, Watched,
+    ChoiceField, CustomField, EmbeddedForm, Field, FileField, Grid, Group, IntoFormValue,
+    IntoOptions, IntoSchema, Options, RepeaterField, RepeaterItem, Schema, Section, Source,
+    TextField, Toggle, Watched,
 };
 pub use table::{
     ActionLayout, Alignment, BooleanColumn, Color, ColorColumn, ColumnWidth, ComputedColumn,

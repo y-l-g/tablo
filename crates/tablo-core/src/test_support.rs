@@ -61,11 +61,7 @@ pub(crate) fn panel_cx<R: crate::Resource>(db: &toasty::Db) -> Cx {
 /// `R`'s declaration with its defaults filled in at a `/admin` prefix, for a unit that takes the
 /// mounted def directly; a panel mounting `R` may adjust the def with `resource_with`.
 pub(crate) fn mounted<R: crate::Resource>() -> std::sync::Arc<crate::resource::Mounted<R>> {
-    std::sync::Arc::new(crate::resource::Mounted::new(
-        R::declare(),
-        "/admin",
-        &crate::schema::FieldResolver::of(&cx()),
-    ))
+    std::sync::Arc::new(crate::resource::Mounted::new(R::declare(), "/admin"))
 }
 
 /// A fresh in-memory SQLite `Db` with the tables of `models` pushed.

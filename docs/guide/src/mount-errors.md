@@ -127,7 +127,7 @@ An action's `NAME` that is not one URL segment does not compile, so it never rea
 | --- | --- | --- |
 | `TraversalLens` | a lens of several steps goes where one field of the model is needed | name one field of the model |
 | `UnresolvedLens` | a multi-step lens reaches no single column: it hops a relation instead of stepping into embedded values | step only through embedded structs, enum variant fields and `#[document]` fields |
-| `Unbound` | a table or schema built outside a panel renders an embedded path it never bound | call `.bind(&db)` on it first; a panel binds what it mounts |
+| `Uncompiled` | an embedded lens's model compiles to no schema under any driver Toasty ships, so its path names no column | fix the model: no `Db` could serve it either |
 
 ## Tenancy
 

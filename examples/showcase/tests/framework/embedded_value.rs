@@ -1,8 +1,8 @@
 //! Embedded values.
 
 use tablo::{
-    Detail, EmbeddedColumn, EmbeddedForm, Field, FieldErrorKind, FieldErrors, FormValues,
-    IntoSchema, NoForm, Resource, ResourceDef, Schema, Section, Source, Table, TextColumn, lens,
+    Detail, EmbeddedColumn, EmbeddedForm, Field, FieldErrorKind, FieldErrors, FormValues, NoForm,
+    Resource, ResourceDef, Schema, Section, Source, Table, TextColumn, lens,
 };
 use topcoat::{
     context::{Cx, CxTestBuilder},
@@ -136,13 +136,6 @@ async fn post_cx() -> Cx {
     CxTestBuilder::new().app_context(db).build()
 }
 
-/// `children` as a schema bound to the app schema of the `Db` `cx` carries, as a panel mount binds
-/// it.
-fn bound(cx: &Cx, children: impl IntoSchema) -> Schema {
-    let db = topcoat::context::try_app_context::<toasty::Db>(cx).expect("the cx carries a Db");
-    Schema::new(children).bind(db)
-}
-
 fn first_name(schema: &Schema) -> &str {
     schema.fields().next().expect("one field").name()
 }
@@ -155,27 +148,24 @@ fn map(pairs: &[(&str, &str)]) -> FormValues {
 }
 
 /// The framework names every key.
-#[tokio::test]
-async fn keys_come_from_the_compiled_mapping() {
-    let cx = post_cx().await;
-
+#[test]
+fn keys_come_from_the_compiled_mapping() {
     assert_eq!(
-        first_name(&bound(&cx, Field::text(Post::fields().seo().title()))),
+        first_name(&Schema::new(Field::text(Post::fields().seo().title()))),
         "seo_title",
         "an embedded struct's leaf is its flattened column"
     );
     assert_eq!(
-        first_name(&bound(
-            &cx,
-            Field::text(Post::fields().post_stats().word_count())
-        )),
+        first_name(&Schema::new(Field::text(
+            Post::fields().post_stats().word_count()
+        ))),
         "post_stats_word_count"
     );
 
     // The enum's variant control comes first, on the discriminant column
     // named after the field; then the shared column, once, and each
     // variant's own payload.
-    let publication = bound(&cx, Publication::form(Post::fields().publication()));
+    let publication = Schema::new(Publication::form(Post::fields().publication()));
     assert_eq!(
         publication.fields().map(Field::name).collect::<Vec<_>>(),
         [
@@ -189,30 +179,29 @@ async fn keys_come_from_the_compiled_mapping() {
 
     // A value knows which keys are its own.
     assert!(mentions(
-        &bound(&cx, Publication::form(Post::fields().publication())),
+        &Schema::new(Publication::form(Post::fields().publication())),
         &map(&[("publication", "1")])
     ));
     assert!(mentions(
-        &bound(&cx, Publication::form(Post::fields().publication())),
+        &Schema::new(Publication::form(Post::fields().publication())),
         &map(&[("publication_timestamp", "t")])
     ));
     assert!(mentions(
-        &bound(&cx, Publication::form(Post::fields().publication())),
+        &Schema::new(Publication::form(Post::fields().publication())),
         &map(&[("publication_canonical_url", "/x")])
     ));
 }
 
 /// A struct round-trips through the flat map.
-#[tokio::test]
-async fn a_struct_round_trips_through_the_flat_map() {
-    let cx = post_cx().await;
+#[test]
+fn a_struct_round_trips_through_the_flat_map() {
     let seo = Seo {
         title: "Hello".to_string(),
         description: "World".to_string(),
     };
 
     let mut values = FormValues::new();
-    seo.write_form(&cx, Post::fields().seo(), &mut values);
+    seo.write_form(Post::fields().seo(), &mut values);
     assert_eq!(
         values,
         map(&[("seo_title", "Hello"), ("seo_description", "World")]),
@@ -220,21 +209,20 @@ async fn a_struct_round_trips_through_the_flat_map() {
     );
 
     let read: Seo =
-        EmbeddedForm::read_form(&cx, Post::fields().seo(), &values).expect("the value reads");
+        EmbeddedForm::read_form(Post::fields().seo(), &values).expect("the value reads");
     assert_eq!(read, seo);
 }
 
 /// An enum round-trips with an explicit discriminant.
-#[tokio::test]
-async fn an_enum_round_trips_with_an_explicit_discriminant() {
-    let cx = post_cx().await;
+#[test]
+fn an_enum_round_trips_with_an_explicit_discriminant() {
     let published = Publication::Published {
         published_at: "2026-09-22T00:00:00Z".to_string(),
         canonical_url: "/hello".to_string(),
     };
 
     let mut values = FormValues::new();
-    published.write_form(&cx, Post::fields().publication(), &mut values);
+    published.write_form(Post::fields().publication(), &mut values);
     assert_eq!(
         values,
         map(&[
@@ -245,8 +233,8 @@ async fn an_enum_round_trips_with_an_explicit_discriminant() {
         "an enum writes its discriminant and the active variant's leaves"
     );
 
-    let read: Publication = EmbeddedForm::read_form(&cx, Post::fields().publication(), &values)
-        .expect("the value reads");
+    let read: Publication =
+        EmbeddedForm::read_form(Post::fields().publication(), &values).expect("the value reads");
     assert_eq!(read, published);
 
     // The discriminating case.
@@ -256,9 +244,8 @@ async fn an_enum_round_trips_with_an_explicit_discriminant() {
         ("publication_canonical_url", "/hello"),
         ("publication_reason", "superseded"),
     ]);
-    let read: Publication =
-        EmbeddedForm::read_form(&cx, Post::fields().publication(), &contradictory)
-            .expect("the value reads");
+    let read: Publication = EmbeddedForm::read_form(Post::fields().publication(), &contradictory)
+        .expect("the value reads");
     assert_eq!(
         read,
         Publication::Archived {
@@ -270,17 +257,15 @@ async fn an_enum_round_trips_with_an_explicit_discriminant() {
 }
 
 /// A missing discriminant infers the variant from its payload.
-#[tokio::test]
-async fn a_missing_discriminant_infers_the_variant_from_its_payload() {
-    let cx = post_cx().await;
-
+#[test]
+fn a_missing_discriminant_infers_the_variant_from_its_payload() {
     // Filling the Published payload creates a Published value.
     let published = map(&[
         ("publication_timestamp", "2026-09-22T00:00:00Z"),
         ("publication_canonical_url", "/hello"),
     ]);
-    let read: Publication = EmbeddedForm::read_form(&cx, Post::fields().publication(), &published)
-        .expect("the value reads");
+    let read: Publication =
+        EmbeddedForm::read_form(Post::fields().publication(), &published).expect("the value reads");
     assert_eq!(
         read,
         Publication::Published {
@@ -294,8 +279,8 @@ async fn a_missing_discriminant_infers_the_variant_from_its_payload() {
         ("publication_timestamp", "2026-09-22T00:00:00Z"),
         ("publication_reason", "superseded"),
     ]);
-    let read: Publication = EmbeddedForm::read_form(&cx, Post::fields().publication(), &archived)
-        .expect("the value reads");
+    let read: Publication =
+        EmbeddedForm::read_form(Post::fields().publication(), &archived).expect("the value reads");
     assert_eq!(
         read,
         Publication::Archived {
@@ -307,9 +292,8 @@ async fn a_missing_discriminant_infers_the_variant_from_its_payload() {
 
     // A shared payload infers nothing.
     let shared_only = map(&[("publication_timestamp", "2026-09-22T00:00:00Z")]);
-    let read: Publication =
-        EmbeddedForm::read_form(&cx, Post::fields().publication(), &shared_only)
-            .expect("the value reads");
+    let read: Publication = EmbeddedForm::read_form(Post::fields().publication(), &shared_only)
+        .expect("the value reads");
     assert_eq!(
         read,
         Publication::Scheduled {
@@ -321,14 +305,13 @@ async fn a_missing_discriminant_infers_the_variant_from_its_payload() {
 }
 
 /// An unknown discriminant is refused.
-#[tokio::test]
-async fn an_unknown_discriminant_is_refused() {
-    let cx = post_cx().await;
+#[test]
+fn an_unknown_discriminant_is_refused() {
     let values = map(&[
         ("publication", "99"),
         ("publication_canonical_url", "/hello"),
     ]);
-    let errors = EmbeddedForm::read_form(&cx, Post::fields().publication(), &values)
+    let errors = EmbeddedForm::read_form(Post::fields().publication(), &values)
         .expect_err("an undeclared variant is refused");
     assert_eq!(errors.len(), 1);
     assert_eq!(errors[0].key, "publication");
@@ -336,9 +319,8 @@ async fn an_unknown_discriminant_is_refused() {
 }
 
 /// Nested values delegate to their own codec.
-#[tokio::test]
-async fn nested_values_delegate_to_their_own_codec() {
-    let cx = post_cx().await;
+#[test]
+fn nested_values_delegate_to_their_own_codec() {
     let video = Media::Video {
         video_url: "/v.mp4".to_string(),
         poster: Poster {
@@ -351,7 +333,7 @@ async fn nested_values_delegate_to_their_own_codec() {
     };
 
     let mut values = FormValues::new();
-    video.write_form(&cx, Post::fields().media(), &mut values);
+    video.write_form(Post::fields().media(), &mut values);
     assert_eq!(
         values,
         map(&[
@@ -364,33 +346,31 @@ async fn nested_values_delegate_to_their_own_codec() {
     );
 
     let read: Media =
-        EmbeddedForm::read_form(&cx, Post::fields().media(), &values).expect("the value reads");
+        EmbeddedForm::read_form(Post::fields().media(), &values).expect("the value reads");
     assert_eq!(read, video);
 }
 
 /// A unit variant round-trips on its discriminant alone.
-#[tokio::test]
-async fn a_unit_variant_round_trips_on_its_discriminant_alone() {
-    let cx = post_cx().await;
-
+#[test]
+fn a_unit_variant_round_trips_on_its_discriminant_alone() {
     let mut values = FormValues::new();
-    Visibility::Public.write_form(&cx, Post::fields().visibility(), &mut values);
+    Visibility::Public.write_form(Post::fields().visibility(), &mut values);
     assert_eq!(values, map(&[("visibility", "1")]));
-    let read: Visibility = EmbeddedForm::read_form(&cx, Post::fields().visibility(), &values)
-        .expect("the value reads");
+    let read: Visibility =
+        EmbeddedForm::read_form(Post::fields().visibility(), &values).expect("the value reads");
     assert_eq!(read, Visibility::Public);
 
     let mut values = FormValues::new();
     Visibility::Private {
         reason: "draft".to_string(),
     }
-    .write_form(&cx, Post::fields().visibility(), &mut values);
+    .write_form(Post::fields().visibility(), &mut values);
     assert_eq!(
         values,
         map(&[("visibility", "2"), ("visibility_reason", "draft")])
     );
-    let read: Visibility = EmbeddedForm::read_form(&cx, Post::fields().visibility(), &values)
-        .expect("the value reads");
+    let read: Visibility =
+        EmbeddedForm::read_form(Post::fields().visibility(), &values).expect("the value reads");
     assert_eq!(
         read,
         Visibility::Private {
@@ -400,16 +380,15 @@ async fn a_unit_variant_round_trips_on_its_discriminant_alone() {
 }
 
 /// A typed leaf keeps its own spelling rule.
-#[tokio::test]
-async fn typed_leaves_round_trip() {
-    let cx = post_cx().await;
+#[test]
+fn typed_leaves_round_trip() {
     let stats = PostStats {
         word_count: 1200,
         read_minutes: 6,
     };
 
     let mut values = FormValues::new();
-    stats.write_form(&cx, Post::fields().post_stats(), &mut values);
+    stats.write_form(Post::fields().post_stats(), &mut values);
     assert_eq!(
         values,
         map(&[
@@ -417,23 +396,21 @@ async fn typed_leaves_round_trip() {
             ("post_stats_read_minutes", "6"),
         ])
     );
-    let read: PostStats = EmbeddedForm::read_form(&cx, Post::fields().post_stats(), &values)
-        .expect("the value reads");
+    let read: PostStats =
+        EmbeddedForm::read_form(Post::fields().post_stats(), &values).expect("the value reads");
     assert_eq!(read, stats);
 }
 
 /// A blank leaf takes its own answer, or is refused on its key.
-#[tokio::test]
-async fn a_blank_leaf_takes_its_answer_or_is_refused() {
-    let cx = post_cx().await;
-
+#[test]
+fn a_blank_leaf_takes_its_answer_or_is_refused() {
     // `read_minutes` declares `#[form(blank = 0)]`; `word_count` declares none.
     let declared = map(&[
         ("post_stats_word_count", "1200"),
         ("post_stats_read_minutes", "  "),
     ]);
-    let read: PostStats = EmbeddedForm::read_form(&cx, Post::fields().post_stats(), &declared)
-        .expect("the value reads");
+    let read: PostStats =
+        EmbeddedForm::read_form(Post::fields().post_stats(), &declared).expect("the value reads");
     assert_eq!(
         read,
         PostStats {
@@ -447,7 +424,7 @@ async fn a_blank_leaf_takes_its_answer_or_is_refused() {
         ("post_stats_word_count", ""),
         ("post_stats_read_minutes", ""),
     ]);
-    let errors = EmbeddedForm::read_form(&cx, Post::fields().post_stats(), &empty)
+    let errors = EmbeddedForm::read_form(Post::fields().post_stats(), &empty)
         .expect_err("a leaf with no blank answer is refused");
     assert_eq!(errors.len(), 1);
     assert_eq!(errors[0].key, "post_stats_word_count");
@@ -455,11 +432,10 @@ async fn a_blank_leaf_takes_its_answer_or_is_refused() {
 }
 
 /// An unparseable typed leaf is refused.
-#[tokio::test]
-async fn an_unparseable_typed_leaf_is_refused() {
-    let cx = post_cx().await;
+#[test]
+fn an_unparseable_typed_leaf_is_refused() {
     let values = map(&[("post_stats_word_count", "many")]);
-    let errors = EmbeddedForm::read_form(&cx, Post::fields().post_stats(), &values)
+    let errors = EmbeddedForm::read_form(Post::fields().post_stats(), &values)
         .expect_err("an unparseable leaf is refused");
     assert_eq!(errors.len(), 1);
     assert_eq!(errors[0].key, "post_stats_word_count");
@@ -470,41 +446,38 @@ async fn an_unparseable_typed_leaf_is_refused() {
 }
 
 /// Value keys name every key of a value.
-#[tokio::test]
-async fn value_keys_name_every_key_of_a_value() {
-    let cx = post_cx().await;
+#[test]
+fn value_keys_name_every_key_of_a_value() {
     assert!(mentions(
-        &bound(&cx, Seo::form(Post::fields().seo())),
+        &Schema::new(Seo::form(Post::fields().seo())),
         &map(&[("seo_title", "x")])
     ));
     assert!(!mentions(
-        &bound(&cx, Seo::form(Post::fields().seo())),
+        &Schema::new(Seo::form(Post::fields().seo())),
         &map(&[("title", "x")])
     ));
     // The discriminant counts: a form that only posts the variant mentioned it.
     assert!(mentions(
-        &bound(&cx, Publication::form(Post::fields().publication())),
+        &Schema::new(Publication::form(Post::fields().publication())),
         &map(&[("publication", "1")])
     ));
 }
 
 /// A nested enum contributes its discriminant.
-#[tokio::test]
-async fn a_nested_enum_contributes_its_discriminant() {
-    let cx = post_cx().await;
-
+#[test]
+fn a_nested_enum_contributes_its_discriminant() {
     // The nested enum's discriminant is a key of the value: naming only it
     // mentions the wrapper.
     assert!(
         mentions(
-            &bound(&cx, Wrapper::form(Post::fields().wrapper())),
+            &Schema::new(Wrapper::form(Post::fields().wrapper())),
             &map(&[("wrapper_inner", "1")])
         ),
         "naming only the nested variant mentions the value"
     );
     assert!(
         !mentions(
-            &bound(&cx, Wrapper::form(Post::fields().wrapper())),
+            &Schema::new(Wrapper::form(Post::fields().wrapper())),
             &map(&[("title", "x")])
         ),
         "a key outside the value does not mention it"
@@ -518,7 +491,7 @@ async fn a_nested_enum_contributes_its_discriminant() {
         },
     };
     let mut values = FormValues::new();
-    wrapper.write_form(&cx, Post::fields().wrapper(), &mut values);
+    wrapper.write_form(Post::fields().wrapper(), &mut values);
     assert_eq!(
         values,
         map(&[
@@ -529,7 +502,7 @@ async fn a_nested_enum_contributes_its_discriminant() {
         ])
     );
     let read: Wrapper =
-        EmbeddedForm::read_form(&cx, Post::fields().wrapper(), &values).expect("the value reads");
+        EmbeddedForm::read_form(Post::fields().wrapper(), &values).expect("the value reads");
     assert_eq!(read, wrapper);
 }
 
@@ -545,14 +518,14 @@ async fn variant_casing_needs_no_normalisation() {
         Casing::Draft,
     ] {
         let mut values = FormValues::new();
-        casing.write_form(&cx, Post::fields().casing(), &mut values);
-        let read: Casing = EmbeddedForm::read_form(&cx, Post::fields().casing(), &values)
-            .expect("the value reads");
+        casing.write_form(Post::fields().casing(), &mut values);
+        let read: Casing =
+            EmbeddedForm::read_form(Post::fields().casing(), &values).expect("the value reads");
         assert_eq!(read, casing, "wrote {values:?}");
     }
 
     // And the derived form renders (a name mismatch would panic here).
-    let html = Schema::new(bound(&cx, Casing::form(Post::fields().casing())))
+    let html = Casing::form(Post::fields().casing())
         .render(&cx, Source::form(&FormValues::new(), &FieldErrors::new()))
         .await
         .unwrap()
@@ -571,9 +544,8 @@ async fn variant_casing_needs_no_normalisation() {
 }
 
 /// Typed leaves cover bool and the integer family.
-#[tokio::test]
-async fn typed_leaves_cover_bool_and_the_integer_family() {
-    let cx = post_cx().await;
+#[test]
+fn typed_leaves_cover_bool_and_the_integer_family() {
     let flags = Flags {
         featured: true,
         level: 3,
@@ -581,7 +553,7 @@ async fn typed_leaves_cover_bool_and_the_integer_family() {
     };
 
     let mut values = FormValues::new();
-    flags.write_form(&cx, Post::fields().flags(), &mut values);
+    flags.write_form(Post::fields().flags(), &mut values);
     assert_eq!(
         values,
         map(&[
@@ -591,12 +563,12 @@ async fn typed_leaves_cover_bool_and_the_integer_family() {
         ])
     );
     let read: Flags =
-        EmbeddedForm::read_form(&cx, Post::fields().flags(), &values).expect("the value reads");
+        EmbeddedForm::read_form(Post::fields().flags(), &values).expect("the value reads");
     assert_eq!(read, flags);
 
     // A bad `bool` is refused before a record fn runs.
     let bad = map(&[("flags_featured", "yes")]);
-    let errors = <Flags as EmbeddedForm>::read_form(&cx, Post::fields().flags(), &bad)
+    let errors = <Flags as EmbeddedForm>::read_form(Post::fields().flags(), &bad)
         .expect_err("the leaf's type refuses `yes`");
     assert!(
         errors.iter().any(|error| error.key == "flags_featured"),
@@ -608,13 +580,13 @@ async fn typed_leaves_cover_bool_and_the_integer_family() {
 #[tokio::test]
 async fn the_derived_form_renders_the_variant_select_and_every_payload() {
     let cx = post_cx().await;
-    let schema = Schema::new(bound(&cx, Publication::form(Post::fields().publication())));
+    let schema = Publication::form(Post::fields().publication());
     let mut values = FormValues::new();
     Publication::Archived {
         archived_at: "2026-09-22T00:00:00Z".to_string(),
         reason: "superseded".to_string(),
     }
-    .write_form(&cx, Post::fields().publication(), &mut values);
+    .write_form(Post::fields().publication(), &mut values);
 
     let html = render_form(&cx, &schema, &values).await;
 
@@ -797,7 +769,7 @@ async fn the_variant_groups_are_exactly_the_schemas_variants() {
     let cx = post_cx().await;
     let html = render_form(
         &cx,
-        &Schema::new(bound(&cx, Publication::form(Post::fields().publication()))),
+        &Publication::form(Post::fields().publication()),
         &FormValues::new(),
     )
     .await;
@@ -844,7 +816,7 @@ async fn only_the_chosen_variants_controls_are_enabled() {
     let cx = post_cx().await;
     let html = render_form(
         &cx,
-        &Schema::new(bound(&cx, Publication::form(Post::fields().publication()))),
+        &Publication::form(Post::fields().publication()),
         &map(&[("publication", "2")]),
     )
     .await;
@@ -869,7 +841,7 @@ async fn a_unit_variant_still_gets_its_group() {
     let cx = post_cx().await;
     let html = render_form(
         &cx,
-        &Schema::new(bound(&cx, Visibility::form(Post::fields().visibility()))),
+        &Visibility::form(Post::fields().visibility()),
         &FormValues::new(),
     )
     .await;
@@ -887,7 +859,7 @@ async fn each_variants_payload_sits_in_its_own_group() {
     let cx = post_cx().await;
     let html = render_form(
         &cx,
-        &Schema::new(bound(&cx, Publication::form(Post::fields().publication()))),
+        &Publication::form(Post::fields().publication()),
         &FormValues::new(),
     )
     .await;

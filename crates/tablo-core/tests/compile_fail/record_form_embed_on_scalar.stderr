@@ -3,15 +3,6 @@ error[E0277]: the trait bound `std::string::String: EmbeddedForm` is not satisfi
    |
 14 |     name: String,
    |           ^^^^^^ the trait `EmbeddedForm` is not implemented for `std::string::String`
-   |
-note: required by a bound in `tablo_core::__macro::embedded_form`
-  --> src/schema/embedded.rs
-   |
-   | pub fn embedded_form<M, T>(parent: Path<M, T>) -> Schema
-   |        ------------- required by a bound in this function
-...
-   |     T: EmbeddedForm + Send + Sync + 'static,
-   |        ^^^^^^^^^^^^ required by this bound in `embedded_form`
 
 error[E0277]: the trait bound `std::string::String: EmbeddedForm` is not satisfied
   --> tests/compile_fail/record_form_embed_on_scalar.rs:14:11
@@ -35,9 +26,3 @@ error[E0277]: the trait bound `std::string::String: EmbeddedForm` is not satisfi
    |          ^^^^^^^^^^^^^^^^^^^^^^ the trait `EmbeddedForm` is not implemented for `std::string::String`
    |
    = note: this error originates in the derive macro `tablo_core::RecordForm` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error[E0277]: the trait bound `std::string::String: EmbeddedForm` is not satisfied
-  --> tests/compile_fail/record_form_embed_on_scalar.rs:14:11
-   |
-14 |     name: String,
-   |           ^^^^^^ the trait `EmbeddedForm` is not implemented for `std::string::String`

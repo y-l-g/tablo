@@ -27,7 +27,7 @@ use topcoat::{Result, context::Cx, view::*};
 
 use super::{
     condition::Condition,
-    lenses::{Binding, FieldResolver},
+    lenses::Binding,
     repeater::{RepeaterControl, RepeaterItem},
     validation::is_email,
 };
@@ -309,11 +309,6 @@ impl Field {
             disabled: Disabled::Never,
             default: None,
         }
-    }
-
-    /// Bind an embedded path through `resolver`'s app schema.
-    pub(crate) fn bind(&self, resolver: &FieldResolver) {
-        self.binding.bind(resolver);
     }
 
     pub(crate) fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
