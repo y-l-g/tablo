@@ -43,8 +43,8 @@ pub mod pick {
     use crate::{
         BooleanColumn, DateColumn, DateValue, Detail, EmbeddedColumn, Lens, RepeaterColumn, Table,
         TextColumn,
-        form::FormScalar,
-        schema::{EmbeddedForm, RepeaterItem},
+        form::{FormInput, FormScalar},
+        schema::EmbeddedForm,
     };
 
     /// One model field, as the derive hands it to the `Pick*` traits.
@@ -153,7 +153,7 @@ pub mod pick {
         }
     }
 
-    /// A list of [`RepeaterItem`] values: its items on the detail page, no table column.
+    /// A list of [`FormInput`] values: its items on the detail page, no table column.
     pub trait PickRepeater<M> {
         fn table(&self, table: Table<M>) -> Table<M>;
         fn detail(&self, detail: Detail<M>) -> Detail<M>;
@@ -162,7 +162,7 @@ pub mod pick {
     impl<M, T> PickRepeater<M> for &ModelField<M, Vec<T>, List<T>>
     where
         M: Model + Send + Sync + 'static,
-        T: RepeaterItem + Send + Sync + 'static,
+        T: FormInput,
     {
         fn table(&self, table: Table<M>) -> Table<M> {
             table

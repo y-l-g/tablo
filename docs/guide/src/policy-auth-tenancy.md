@@ -218,7 +218,7 @@ transaction the framework opens:
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-staff-sign-up-panel}}
 ```
 
-- **The form** is any `ActionInput`, or the shipped `SignUp`. `#[form(password)]` renders a
+- **The form** is any `FormInput`, or the shipped `SignUp`. `#[form(password)]` renders a
   masked control that a refused form renders empty, and reads the password as typed, outer
   spaces included, as the login compares it. `#[form(email)]` refuses a malformed address before
   `validate` runs. A missing field and a malformed value answer 422 with the error

@@ -1,5 +1,0 @@
-error: #[derive(ActionInput)] does not support generic or lifetime parameters
- --> tests/compile_fail/action_input_generic.rs:2:17
-  |
-2 | struct Rejection<T> {
-  |                 ^^^

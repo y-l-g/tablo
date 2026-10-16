@@ -26,13 +26,10 @@ use toasty::stmt::{List, Path};
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{
-    condition::Condition,
-    lenses::Binding,
-    repeater::{RepeaterControl, RepeaterItem},
-    validation::is_email,
+    condition::Condition, lenses::Binding, repeater::RepeaterControl, validation::is_email,
 };
 use crate::{
-    form::{FieldError, FieldErrorKind, FormScalar, FormValue},
+    form::{FieldError, FieldErrorKind, FormInput, FormScalar, FormValue},
     naming::capitalize,
 };
 
@@ -249,7 +246,7 @@ impl Field {
     pub fn repeater<M, T>(lens: impl Into<Path<M, List<T>>>) -> RepeaterField
     where
         M: toasty::schema::Model,
-        T: RepeaterItem,
+        T: FormInput,
     {
         RepeaterField::new(Self::bound(
             Binding::of::<M, List<T>>(&lens.into()),
@@ -257,7 +254,7 @@ impl Field {
         ))
     }
 
-    /// A text field posting `name`, a key no column binds: an [`ActionInput`](crate::ActionInput)
+    /// A text field posting `name`, a key no column binds: a [`FormInput`](crate::FormInput)
     /// field. `T` picks the input type, as a column's type does for [`Field::text`].
     pub fn text_input<T: FormScalar>(name: impl Into<String>) -> TextField {
         TextField::new(Self::bound(

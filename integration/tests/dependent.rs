@@ -2,7 +2,7 @@
 //! options endpoint and on submit.
 
 use tablo::{
-    Ability, Action, ActionInput, ActionInputFault, Allow, DeclarationErrorKind, Field, FieldError,
+    Ability, Action, ActionInputFault, Allow, DeclarationErrorKind, Field, FieldError, FormInput,
     FormValues, NoForm, Resource, ResourceDef, Schema, Site, Table, TextColumn, lens,
 };
 use toasty::Db;
@@ -263,7 +263,7 @@ async fn an_edit_without_the_parent_reads_its_stored_value() {
 async fn an_action_input_cannot_hold_a_dependent_choice() {
     struct Moving;
 
-    impl ActionInput for Moving {
+    impl FormInput for Moving {
         fn schema() -> Schema {
             let country =
                 Field::choice(lens!(Address.country_id)).relationship::<CountryResource>();
@@ -276,6 +276,8 @@ async fn an_action_input_cannot_hold_a_dependent_choice() {
         fn parse(_cx: &Cx, _values: &FormValues) -> Result<Self, Vec<FieldError>> {
             Ok(Self)
         }
+
+        fn write(&self, _out: &mut FormValues) {}
     }
 
     struct Move;

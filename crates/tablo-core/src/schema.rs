@@ -33,7 +33,7 @@ pub use lenses::form_key;
 pub use options::Options;
 pub use relationship::MAX_RELATIONSHIP_OPTIONS;
 pub(crate) use relationship::{OptionLoadError, OptionSource};
-pub use repeater::{MAX_ROWS, RepeaterItem, parse_items, write_items};
+pub use repeater::{MAX_ROWS, parse_items, write_items};
 use topcoat::{Result, context::Cx, view::*};
 pub use tree::{IntoSchema, Source};
 pub(crate) use tree::{Node, Retype, render_nodes};

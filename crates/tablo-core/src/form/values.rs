@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 /// [read](crate::Schema::read), or a stored record as its record form spells it.
 ///
 /// A record form's [`hydrate`](crate::RecordForm::hydrate) writes one and its
-/// [`parse`](crate::RecordForm::parse) reads one, as an [`ActionInput`](crate::ActionInput)'s parse
+/// [`parse`](crate::RecordForm::parse) reads one, as a [`FormInput`](crate::FormInput)'s parse
 /// does. Each key holds the shape its control posts: [`Text`](FormValue::Text) for a scalar
 /// control, a [`List`](FormValue::List) for a multiple choice, and [`Rows`](FormValue::Rows) for a
 /// repeater.

@@ -5,9 +5,9 @@ use std::future::Future;
 
 use topcoat::{Result, context::Cx};
 
-use super::{ActionInput, ErasedInput, InputResult, InputSpec, parse_validated};
+use super::{ErasedInput, InputResult, InputSpec, parse_validated};
 use crate::{
-    BoxFuture,
+    BoxFuture, FormInput,
     form::{FieldErrors, FormValues},
     naming::sentence_case,
     policy::Ability,
@@ -55,8 +55,8 @@ use crate::{
 /// record's action does, and runs on its submit.
 pub trait HeaderAction: 'static {
     /// What the action asks for before it runs: `()` for nothing, or an
-    /// [`ActionInput`](derive@crate::ActionInput) struct.
-    type Input: ActionInput;
+    /// [`FormInput`](derive@crate::FormInput) struct.
+    type Input: FormInput;
 
     /// The action's URL segment, distinct among the actions of its resource or page.
     ///
@@ -238,7 +238,7 @@ pub(crate) struct HeaderEntry {
     pub(crate) confirm: bool,
 }
 
-/// [`ActionInput::parse`], then [`HeaderAction::validate_input`], behind a function pointer.
+/// [`FormInput::parse`], then [`HeaderAction::validate_input`], behind a function pointer.
 fn parse_header_input<A: HeaderAction>(cx: &Cx, values: &FormValues) -> InputResult {
     parse_validated(cx, values, A::validate_input)
 }

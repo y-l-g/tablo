@@ -70,7 +70,7 @@ pub struct Seo {
 }
 
 /// A link a post points its readers to: one row of its repeater.
-#[derive(Debug, Clone, PartialEq, toasty::Embed, tablo::RepeaterItem)]
+#[derive(Debug, Clone, PartialEq, toasty::Embed, tablo::FormInput)]
 pub struct Link {
     pub label: String,
     #[form(label = "URL", placeholder = "https://")]

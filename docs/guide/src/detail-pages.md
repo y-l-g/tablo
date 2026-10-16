@@ -34,7 +34,7 @@ show the same arrangement.
 - a `bool` shows as yes or no;
 - an `EmbeddedForm` value shows each leaf under its own label, and an embedded enum shows its
   variant's name and that variant's leaves only;
-- a `#[document]` list of `RepeaterItem` values shows each item's fields.
+- a `#[document]` list of `FormInput` items shows each item's fields.
 
 A key Toasty generates, a relation and its foreign key, and a `TenantId` show nowhere; the related
 record's title shows through a column that includes the relation, as `Author` does above. A file

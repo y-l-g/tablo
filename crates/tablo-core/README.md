@@ -2,7 +2,7 @@
 
 The toolkit behind the [`tablo`](https://crates.io/crates/tablo) facade: `Panel`, `Resource` and
 `ResourceDef`, the `Table` and `Schema` builders, `Policy`, auth, tenancy and uploads, plus the
-`RecordForm`, `ModelForm`, `EmbeddedForm`, `ActionInput`, `RepeaterItem` and `Options` derives.
+`RecordForm`, `ModelForm`, `EmbeddedForm`, `FormInput` and `Options` derives.
 
 An app depends on `tablo`, which re-exports this crate at its root; a direct dependency skips the
 facade's driver features and testing client. The [user guide](https://y-l.fr/tablo/nightly/guide/)

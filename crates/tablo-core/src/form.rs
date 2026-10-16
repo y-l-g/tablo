@@ -49,10 +49,12 @@
 //! - `optional` on a type with no empty value;
 //! - `embed` on a type that is not an [`EmbeddedForm`](crate::EmbeddedForm).
 
+mod input;
 mod values;
 
 use std::{collections::HashSet, fmt::Debug, hash::Hash};
 
+pub use input::FormInput;
 use toasty::{Executor, schema::Model};
 use topcoat::context::Cx;
 pub use values::{FormValue, FormValues};

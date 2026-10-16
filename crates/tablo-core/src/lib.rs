@@ -68,14 +68,14 @@ pub mod __macro {
         detail::Detail,
         extend::{Includes, OptionSource},
         form::{
-            FieldError, FormField, FormScalar, FormValues, NullableScalar, RecordForm,
+            FieldError, FormField, FormInput, FormScalar, FormValues, NullableScalar, RecordForm,
             assert_form_scalar, links_include, links_key, parse_list, parse_password, parse_scalar,
             write_links,
         },
-        resource::{ActionInput, required_input},
+        resource::required_input,
         schema::{
             ChoiceField, CustomField, EmbeddedForm, Field, FileField, IntoSchema, Options,
-            RepeaterField, RepeaterItem, Schema, TextField,
+            RepeaterField, Schema, TextField,
             embedded::{Embedded, EmbeddedBuilder, embedded_field, take_leaf, take_value},
             form_key, parse_items,
             tree::Retype,
@@ -124,8 +124,8 @@ pub use declaration::{
 };
 pub use detail::{Detail, IntoDetail};
 pub use form::{
-    FieldError, FieldErrorKind, FieldErrors, FormField, FormScalar, FormValue, FormValues, NoForm,
-    Posted, RecordForm,
+    FieldError, FieldErrorKind, FieldErrors, FormField, FormInput, FormScalar, FormValue,
+    FormValues, NoForm, Posted, RecordForm,
 };
 pub use lens::Lens;
 pub use navigation::{NavTarget, NavigationItem};
@@ -136,13 +136,13 @@ pub use panel::{
 };
 pub use policy::{Ability, Allow, Deny, Policy, ReadOnly, when};
 pub use resource::{
-    Action, ActionInput, Committed, ForeignKey, HeaderAction, HeaderActions, Mutation, Places,
-    PublicLink, Relation, Resource, ResourceDef, can, scoped_query, write_create, write_update,
+    Action, Committed, ForeignKey, HeaderAction, HeaderActions, Mutation, Places, PublicLink,
+    Relation, Resource, ResourceDef, can, scoped_query, write_create, write_update,
 };
 pub use schema::{
     ChoiceField, CustomField, EmbeddedForm, Field, FileField, Grid, Group, IntoFormValue,
-    IntoOptions, IntoSchema, Options, RepeaterField, RepeaterItem, Schema, Section, Source,
-    TextField, Toggle, Watched,
+    IntoOptions, IntoSchema, Options, RepeaterField, Schema, Section, Source, TextField, Toggle,
+    Watched,
 };
 pub use table::{
     ActionLayout, Alignment, BooleanColumn, Color, ColorColumn, ColumnWidth, ComputedColumn,
@@ -152,77 +152,6 @@ pub use table::{
     SelectFilter, Sort, Table, TablePage, TableState, TernaryFilter, TextColumn, ToOneRelation,
     contains_expr,
 };
-/// Derives [`ActionInput`](trait@ActionInput) for the typed value an [`Action`] asks for
-/// before it runs.
-///
-/// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
-/// # struct Post { #[key] #[auto] id: uuid::Uuid, status: String }
-/// # use tablo_core::{Action, ActionInput, NoForm, Resource};
-/// # use topcoat::{Result, context::Cx};
-/// # struct PostResource;
-/// # impl Resource for PostResource {
-/// #     type Model = Post;
-/// #     type Form = NoForm<Post>;
-/// # }
-/// #[derive(tablo_core::ActionInput)]
-/// pub struct Rejection {
-///     #[form(multiline = 4)]
-///     pub reason: String,
-///     pub notify_author: bool,
-/// }
-///
-/// struct Reject;
-///
-/// impl Action<PostResource> for Reject {
-///     type Input = Rejection;
-///     const NAME: &'static str = "reject";
-///
-///     async fn run(
-///         _cx: &Cx,
-///         posts: &[Post],
-///         rejection: Rejection,
-///         ex: &mut dyn toasty::Executor,
-///     ) -> Result<()> {
-///         // Store `rejection.reason`, notify when `rejection.notify_author` holds…
-///         # let _ = (posts, rejection.reason, rejection.notify_author, ex);
-///         Ok(())
-///     }
-/// }
-/// ```
-///
-/// Each field posts its own name, which no column binds, and renders the control its type
-/// picks: a `bool` a checkbox, `#[form(options)]` a choice over the field type's
-/// [`Options`](derive@Options), `#[form(options = T)]` one over `T`'s, and any other
-/// [`FormScalar`] a text input of the type's input type.
-///
-/// A field's **blank answer** is its `#[form(blank = ..)]`, `""` for an `#[form(optional)]`
-/// `String`, `None` for an `Option`, or `false` for a `bool`. A field with none is required:
-/// its control renders required and the parse refuses an empty submission.
-///
-/// # Per-field attributes
-///
-/// - `#[form(label = "Reason")]` — the control's label (default: the field name in sentence
-///   case).
-/// - `#[form(multiline = 4)]` — a `<textarea>` of 4 rows.
-/// - `#[form(placeholder = "rust, async")]` — a text input's placeholder.
-/// - `#[form(email)]` — a text input that refuses a malformed email address.
-/// - `#[form(password)]` — a masked text input on a `String`, read untrimmed, that a refused
-///   form renders empty.
-/// - `#[form(blank = ..)]`, `#[form(optional)]` — the blank answer.
-/// - `#[form(options)]`, `#[form(options = T)]` — a choice. An `Option<T>` field names its
-///   options type: `#[form(options = T)]`.
-///
-/// A generic struct, a tuple struct, an empty struct (name `()` instead), an unknown key, a
-/// text input's key with `options` or on a `bool`, `password` with `multiline`, and a field
-/// that is not a `FormScalar` are compile errors.
-/// [`RouterBuilderPanelExt::panel`] refuses a field named `csrf_token`, `confirm` or `ids`,
-/// the keys an action's POST carries besides its input.
-///
-/// A hand-written impl builds its fields with [`Field::text_input`], [`Field::choice_input`]
-/// and [`Field::toggle_input`]; its controls render without the `required` mark, though its
-/// `parse` still refuses what it requires.
-pub use tablo_macros::ActionInput;
 /// Derives `EmbeddedForm` for an embedded struct or enum.
 ///
 /// Builds the schema node and converts the value through that node's keys.
@@ -290,6 +219,111 @@ pub use tablo_macros::ActionInput;
 /// `optional` on an embedded value, `blank` or `optional` on an `Option`, and `optional` on a
 /// type other than `String`.
 pub use tablo_macros::EmbeddedForm;
+/// Derives [`FormInput`](trait@FormInput) for a typed value a form posts under its own keys:
+/// what an [`Action`] asks for before it runs, or one item of a repeater.
+///
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # struct Post { #[key] #[auto] id: uuid::Uuid, status: String }
+/// # use tablo_core::{Action, FormInput, NoForm, Resource};
+/// # use topcoat::{Result, context::Cx};
+/// # struct PostResource;
+/// # impl Resource for PostResource {
+/// #     type Model = Post;
+/// #     type Form = NoForm<Post>;
+/// # }
+/// #[derive(tablo_core::FormInput)]
+/// pub struct Rejection {
+///     #[form(multiline = 4)]
+///     pub reason: String,
+///     pub notify_author: bool,
+/// }
+///
+/// struct Reject;
+///
+/// impl Action<PostResource> for Reject {
+///     type Input = Rejection;
+///     const NAME: &'static str = "reject";
+///
+///     async fn run(
+///         _cx: &Cx,
+///         posts: &[Post],
+///         rejection: Rejection,
+///         ex: &mut dyn toasty::Executor,
+///     ) -> Result<()> {
+///         // Store `rejection.reason`, notify when `rejection.notify_author` holds…
+///         # let _ = (posts, rejection.reason, rejection.notify_author, ex);
+///         Ok(())
+///     }
+/// }
+/// ```
+///
+/// Each field posts its own name, which no column binds, and renders the control its type
+/// picks: a `bool` a checkbox, `#[form(options)]` a choice over the field type's
+/// [`Options`](derive@Options), `#[form(options = T)]` one over `T`'s, and any other
+/// [`FormScalar`] a text input of the type's input type.
+///
+/// One item of a repeater is an embedded struct a `#[document]` list stores, which a
+/// [`RecordForm`](derive@RecordForm) edits with `#[form(repeat)]`:
+///
+/// ```rust
+/// #[derive(Debug, Clone, toasty::Embed, tablo_core::FormInput)]
+/// pub struct Link {
+///     pub label: String,
+///     #[form(label = "URL")]
+///     pub url: String,
+/// }
+///
+/// #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// pub struct Post {
+///     #[key]
+///     #[auto]
+///     id: uuid::Uuid,
+///     #[document]
+///     #[default(Vec::<Link>::new())]
+///     links: Vec<Link>,
+/// }
+///
+/// #[derive(tablo_core::RecordForm)]
+/// #[form(model = Post)]
+/// pub struct PostForm {
+///     #[form(repeat)]
+///     pub links: Vec<Link>,
+/// }
+/// ```
+///
+/// Each row posts the item's keys under its own prefix (`links.0.url`) and answers to its
+/// controls' own rules, such as a choice offering only its options. A repeater takes at most
+/// [`MAX_ROWS`](schema::MAX_ROWS) rows.
+///
+/// A field's **blank answer** is its `#[form(blank = ..)]`, `""` for an `#[form(optional)]`
+/// `String`, `None` for an `Option`, or `false` for a `bool`. A field with none is required:
+/// its control renders required and the parse refuses an empty submission.
+///
+/// # Per-field attributes
+///
+/// - `#[form(label = "Reason")]` — the control's label (default: the field name in sentence
+///   case).
+/// - `#[form(multiline = 4)]` — a `<textarea>` of 4 rows.
+/// - `#[form(placeholder = "rust, async")]` — a text input's placeholder.
+/// - `#[form(email)]` — a text input that refuses a malformed email address.
+/// - `#[form(password)]` — a masked text input on a `String`, read untrimmed, that a refused
+///   form and a stored repeater row render empty.
+/// - `#[form(blank = ..)]`, `#[form(optional)]` — the blank answer.
+/// - `#[form(options)]`, `#[form(options = T)]` — a choice. An `Option<T>` field names its
+///   options type: `#[form(options = T)]`.
+///
+/// A generic struct, a tuple struct, an empty struct (name `()` instead), an unknown key, a
+/// text input's key with `options` or on a `bool`, `password` with `multiline`, and a field
+/// that is not a `FormScalar` are compile errors.
+/// [`RouterBuilderPanelExt::panel`] refuses a field named `csrf_token`, `confirm` or `ids`,
+/// the keys an action's POST carries besides its input.
+///
+/// A hand-written impl builds its fields with [`Field::text_input`], [`Field::choice_input`]
+/// and [`Field::toggle_input`]; its controls render without the `required` mark, though its
+/// `parse` still refuses what it requires. Its `write` fills a repeater row from a stored
+/// item.
+pub use tablo_macros::FormInput;
 /// Derive a model's [`ModelColumns`](trait@ModelColumns): the table a resource lists it in and
 /// the detail page it shows it on, when the resource declares neither.
 ///
@@ -324,8 +358,8 @@ pub use tablo_macros::EmbeddedForm;
 ///   by its label;
 /// - an [`EmbeddedForm`](derive@EmbeddedForm) value: an [`EmbeddedColumn`], leaf by leaf, on
 ///   the detail page only;
-/// - a list of [`RepeaterItem`](derive@RepeaterItem) values: a [`RepeaterColumn`], on the
-///   detail page only;
+/// - a list of [`FormInput`](derive@FormInput) items: a [`RepeaterColumn`], on the detail page
+///   only;
 /// - any other type: no column.
 ///
 /// No column shows a key Toasty generates, a `#[version]` field, a relation or its foreign
@@ -472,9 +506,9 @@ pub use tablo_macros::Options;
 ///   blank answer; an edit that does not post it keeps the record's links.
 /// - `#[form(file)]` on a `String`: a file field.
 /// - `#[form(embed)]` on an `EmbeddedForm` value.
-/// - `#[form(repeat)]` on a `#[document]` list of [`RepeaterItem`](derive@RepeaterItem)
-///   values: a repeater, a row per item, which the browser adds, removes and moves. No rows is
-///   its blank answer.
+/// - `#[form(repeat)]` on a `#[document]` list of [`FormInput`](derive@FormInput) items: a
+///   repeater, a row per item, which the browser adds, removes and moves. No rows is its blank
+///   answer.
 ///
 /// A scalar's **blank answer** is its `blank`, `""` for an `optional` `String`, `None` for an
 /// `Option`, or `false` for a `bool`. A field with none is required: the panel renders its
@@ -486,39 +520,5 @@ pub use tablo_macros::Options;
 /// model lacks, a type the model's field does not have, a scalar that is not a `FormScalar`,
 /// and a many-to-many field whose keys are not its source's primary key.
 pub use tablo_macros::RecordForm;
-/// Derives [`RepeaterItem`](trait@RepeaterItem) for one item of a repeater: an embedded struct
-/// a `#[document]` list stores.
-///
-/// ```rust
-/// #[derive(Debug, Clone, toasty::Embed, tablo_core::RepeaterItem)]
-/// pub struct Link {
-///     pub label: String,
-///     #[form(label = "URL")]
-///     pub url: String,
-/// }
-///
-/// #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
-/// pub struct Post {
-///     #[key]
-///     #[auto]
-///     id: uuid::Uuid,
-///     #[document]
-///     #[default(Vec::<Link>::new())]
-///     links: Vec<Link>,
-/// }
-///
-/// #[derive(tablo_core::RecordForm)]
-/// #[form(model = Post)]
-/// pub struct PostForm {
-///     #[form(repeat)]
-///     pub links: Vec<Link>,
-/// }
-/// ```
-///
-/// Its fields, controls and attributes are an [`ActionInput`](derive@ActionInput)'s: each row
-/// posts them under its own prefix (`links.0.url`). An item's blank answers and required
-/// fields work the same way, and each row answers to its controls' own rules, such as a choice
-/// offering only its options. A repeater takes at most [`MAX_ROWS`](schema::MAX_ROWS) rows.
-pub use tablo_macros::RepeaterItem;
 pub use tenancy::{Membership, Tenancy, Tenant, TenantColumn, TenantId, require_tenant, tenant_id};
 pub use upload::{DirUploader, Uploader};

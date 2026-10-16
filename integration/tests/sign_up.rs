@@ -6,9 +6,8 @@ use std::time::Duration;
 
 use http::header::LOCATION;
 use tablo::{
-    ActionInput, Auth, DeclarationErrorKind, FieldErrors, LoginThrottle, NoForm,
-    NotificationStatus, PanelUser, PasswordAuth, ReadOnly, Resource, ResourceDef, SignUpFault,
-    Table, TextColumn,
+    Auth, DeclarationErrorKind, FieldErrors, FormInput, LoginThrottle, NoForm, NotificationStatus,
+    PanelUser, PasswordAuth, ReadOnly, Resource, ResourceDef, SignUpFault, Table, TextColumn,
     auth::{AdminUser, AuthSession, Registrar, SignUp, create_admin},
     lens,
     testing::form_body,
@@ -226,7 +225,7 @@ impl Registrar for VisitorRegistrar {
 }
 
 /// A sign-up form posting the keys the page carries itself.
-#[derive(ActionInput)]
+#[derive(FormInput)]
 struct Clashing {
     next: String,
     #[form(email)]

@@ -6,7 +6,6 @@ mod input;
 use std::{any::Any, future::Future};
 
 use derive_where::derive_where;
-pub use input::ActionInput;
 pub(crate) use input::RESERVED_KEYS;
 #[doc(hidden)]
 pub use input::required_input;
@@ -15,7 +14,7 @@ use topcoat::{Result, context::Cx};
 use super::{Mounted, Resource};
 use crate::{
     BoxFuture,
-    form::{FieldError, FieldErrors, FormValues},
+    form::{FieldError, FieldErrors, FormInput, FormValues},
     naming::sentence_case,
     policy::Ability,
     schema::Schema,
@@ -97,8 +96,8 @@ use crate::{
 /// allows renders no checkbox.
 pub trait Action<R: Resource>: 'static {
     /// What the action asks for before it runs: `()` for nothing, or an
-    /// [`ActionInput`](derive@crate::ActionInput) struct, such as a rejection's reason.
-    type Input: ActionInput;
+    /// [`FormInput`](derive@crate::FormInput) struct, such as a rejection's reason.
+    type Input: FormInput;
 
     /// The action's URL segment, distinct among the resource's actions.
     ///
@@ -307,7 +306,7 @@ pub(crate) struct InputSpec {
 
 impl InputSpec {
     /// The input of type `I`, parsed and validated by `parse`.
-    pub(crate) fn of<I: ActionInput>(parse: fn(&Cx, &FormValues) -> InputResult) -> Self {
+    pub(crate) fn of<I: FormInput>(parse: fn(&Cx, &FormValues) -> InputResult) -> Self {
         Self {
             schema: I::schema,
             takes_input: !I::schema().is_empty(),
@@ -459,13 +458,13 @@ fn can_run_erased<R: Resource, A: Action<R>>(
     ) && A::can_run(cx, record)
 }
 
-/// [`ActionInput::parse`], then [`Action::validate_input`], behind a function pointer.
+/// [`FormInput::parse`], then [`Action::validate_input`], behind a function pointer.
 fn parse_input_erased<R: Resource, A: Action<R>>(cx: &Cx, values: &FormValues) -> InputResult {
     parse_validated(cx, values, A::validate_input)
 }
 
-/// `I`'s [`ActionInput::parse`], then `validate`.
-pub(crate) fn parse_validated<I: ActionInput>(
+/// `I`'s [`FormInput::parse`], then `validate`.
+pub(crate) fn parse_validated<I: FormInput>(
     cx: &Cx,
     values: &FormValues,
     validate: fn(&Cx, &I) -> FieldErrors,

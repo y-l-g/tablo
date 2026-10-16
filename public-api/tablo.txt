@@ -5,8 +5,6 @@ pub use tablo::ui
 pub mod tablo::prelude
 pub use tablo::prelude::Ability
 pub use tablo::prelude::Action
-pub use tablo::prelude::ActionInput
-pub use tablo::prelude::ActionInput
 pub use tablo::prelude::ActionLayout
 pub use tablo::prelude::Alignment
 pub use tablo::prelude::Allow
@@ -34,6 +32,8 @@ pub use tablo::prelude::Field
 pub use tablo::prelude::FieldErrors
 pub use tablo::prelude::FileColumn
 pub use tablo::prelude::FileField
+pub use tablo::prelude::FormInput
+pub use tablo::prelude::FormInput
 pub use tablo::prelude::FormValues
 pub use tablo::prelude::Grid
 pub use tablo::prelude::Group
@@ -64,8 +64,6 @@ pub use tablo::prelude::RecordForm
 pub use tablo::prelude::Relation
 pub use tablo::prelude::RelationColumn
 pub use tablo::prelude::RepeaterColumn
-pub use tablo::prelude::RepeaterItem
-pub use tablo::prelude::RepeaterItem
 pub use tablo::prelude::Resource
 pub use tablo::prelude::ResourceDef
 pub use tablo::prelude::RouterBuilderPanelExt

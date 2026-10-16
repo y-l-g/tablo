@@ -1,45 +1,7 @@
-//! What an [`Action`](super::Action) asks for before it runs: the [`ActionInput`] trait.
+//! What an [`Action`](super::Action)'s input form refuses or marks: its reserved keys, its required
+//! controls.
 
-use topcoat::context::Cx;
-
-use crate::{
-    form::{FieldError, FormValues},
-    schema::{Field, Schema},
-};
-
-/// The typed value an [`Action`](super::Action) asks for before it runs: a rejection's reason, a
-/// publication date, the author to reassign to.
-///
-/// Derive it with [`ActionInput`](derive@crate::ActionInput) on a struct of form scalars, or
-/// name `()` for an action that asks for nothing. Its fields post keys no column binds, so an
-/// input describes values the action reads rather than columns it writes.
-///
-/// An action with input asks for it before it runs: its button opens the input form in a dialog
-/// over the page, and its submit runs the action with the parsed value. A refused value renders
-/// the form as a page with the field's error, and writes nothing.
-pub trait ActionInput: Sized + Send + 'static {
-    /// The input form's controls. An empty schema asks for nothing: the action runs on its
-    /// button.
-    fn schema() -> Schema;
-
-    /// Parse a submission of [`schema`](Self::schema)'s keys.
-    ///
-    /// # Errors
-    ///
-    /// Every key that failed, each once.
-    fn parse(cx: &Cx, values: &FormValues) -> Result<Self, Vec<FieldError>>;
-}
-
-/// No input: the action runs on its button.
-impl ActionInput for () {
-    fn schema() -> Schema {
-        Schema::empty()
-    }
-
-    fn parse(_cx: &Cx, _values: &FormValues) -> Result<Self, Vec<FieldError>> {
-        Ok(())
-    }
-}
+use crate::schema::Field;
 
 /// Renders `field`'s control required: the derive marks each field with no blank answer.
 #[doc(hidden)]

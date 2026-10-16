@@ -121,7 +121,7 @@ impl HeaderAction for CloseAll {
 }
 
 /// What opening a ticket asks for.
-#[derive(tablo::ActionInput)]
+#[derive(tablo::FormInput)]
 struct Opening {
     title: String,
 }
