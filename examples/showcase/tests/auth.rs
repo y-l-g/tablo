@@ -4,8 +4,12 @@
 
 use http::header::LOCATION;
 use showcase::models::{DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, Staff};
-use tablo::auth::AuthSession;
-use topcoat::context::CxTestBuilder;
+use tablo::{RouterBuilderPanelExt, auth::AuthSession};
+use topcoat::{
+    context::CxTestBuilder,
+    mail::{MailConfig, MemoryTransport, RouterBuilderMailExt},
+    router::{Router, RouterBuilderDiscoverExt},
+};
 
 use crate::common::{
     SESSION_COOKIE, TestClient, body_string, find_href_with, form_body, full_db, input_value,
@@ -49,11 +53,17 @@ async fn login_page_is_standalone_with_csrf_and_no_demo_hint_by_default() {
 #[tokio::test]
 async fn the_hint_renders_and_sign_up_links_back_to_sign_in() {
     let db = full_db().await;
-    let router = mount(
-        db,
-        showcase::app::admin_panel().login_hint("Demo: admin / password"),
-    )
-    .expect("panel builds");
+    let router = Router::builder()
+        .discover()
+        .app_context(db)
+        .mail(
+            MailConfig::builder()
+                .transport(MemoryTransport::new())
+                .build(),
+        )
+        .panel(showcase::app::admin_panel().login_hint("Demo: admin / password"))
+        .expect("panel builds")
+        .build();
     let html = body_string(TestClient::new(&router).get("/admin/login").await).await;
     assert!(html.contains("data-login-hint"), "the hint renders: {html}");
 
@@ -460,4 +470,36 @@ async fn auth_disabled_serves_the_panel_without_login() {
         404,
         "no login routes when auth is off"
     );
+}
+
+/// `StaffAuth` finds a member of staff by email for a reset: a request for one records a link,
+/// and a request for an address no one uses records none and answers the same.
+#[tokio::test]
+async fn a_reset_request_records_a_link_for_staff_only() {
+    let db = full_db().await;
+    let router = router(db.clone());
+
+    for email in [DEMO_ADMIN_EMAIL, "nobody@example.com"] {
+        let response = TestClient::new(&router)
+            .submit("/admin/forgot-password", &form_body(&[("email", email)]))
+            .await;
+        assert_eq!(response.status(), 303, "{email}");
+        assert_eq!(
+            response.headers().get(LOCATION).unwrap(),
+            "/admin/login",
+            "{email}"
+        );
+    }
+    let links = tablo::auth::PasswordResetToken::all()
+        .exec(&mut db.clone())
+        .await
+        .unwrap();
+    let staff = Staff::filter(Staff::fields().email().eq(DEMO_ADMIN_EMAIL.to_string()))
+        .first()
+        .exec(&mut db.clone())
+        .await
+        .unwrap()
+        .expect("the demo admin exists");
+    assert_eq!(links.len(), 1);
+    assert_eq!(links[0].user_id, staff.id.to_string());
 }

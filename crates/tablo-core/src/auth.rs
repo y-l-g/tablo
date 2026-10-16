@@ -11,6 +11,7 @@ mod page;
 mod password;
 mod profile;
 mod registration;
+mod reset;
 mod session;
 mod throttle;
 
@@ -35,6 +36,7 @@ pub use self::{
     password::{AdminUser, PasswordAuth, create_admin, hash_password, verify_password},
     profile::{Profile, ProfileEditor, ProfileUpdate},
     registration::{MIN_PASSWORD_CHARS, Registrar, SignUp, new_password_errors},
+    reset::{PasswordReset, PasswordResetToken, PasswordResetter, RESET_LIFETIME},
     session::{AuthSession, SESSION_LIFETIME, mint_session, revoke_sessions_for_user},
     throttle::LoginThrottle,
 };
@@ -49,6 +51,7 @@ pub(crate) use self::{
         DynProfileEditor, offered as profile_offered, profile_page, profile_post, profile_url,
     },
     registration::{DynRegistrar, register_page, register_post},
+    reset::{forgot_page, forgot_post, reset_page, reset_post},
 };
 use crate::{
     BoxFuture,
@@ -212,7 +215,8 @@ impl<A: Authenticator> DynAuthenticator for A {
 /// The default is [`Auth::password`]; [`Auth::custom`] installs an app-owned
 /// [`Authenticator`]; [`Auth::disabled`] is the explicit fail-open opt-out.
 /// Sign-in attempts are throttled per login by default; see [`Auth::throttle`].
-/// [`Auth::registration`] adds a sign-up page, and [`Auth::profile`] a profile page.
+/// [`Auth::registration`] adds a sign-up page, [`Auth::profile`] a profile page, and
+/// [`Auth::password_reset`] a forgot-password page that mails reset links.
 pub struct Auth {
     authenticator: Option<Box<dyn DynAuthenticator>>,
     throttle: LoginThrottle,
@@ -220,6 +224,7 @@ pub struct Auth {
     sign_up_throttle: LoginThrottle,
     profile_editor: Option<Box<dyn DynProfileEditor>>,
     profile_throttle: LoginThrottle,
+    reset: Option<PasswordReset>,
 }
 
 impl Auth {
@@ -239,6 +244,7 @@ impl Auth {
             sign_up_throttle: LoginThrottle::default(),
             profile_editor: None,
             profile_throttle: LoginThrottle::default(),
+            reset: None,
         }
     }
 
@@ -253,6 +259,7 @@ impl Auth {
             sign_up_throttle: LoginThrottle::off(),
             profile_editor: None,
             profile_throttle: LoginThrottle::off(),
+            reset: None,
         }
     }
 
@@ -322,6 +329,23 @@ impl Auth {
         self
     }
 
+    /// Lets a visitor who forgot their password ask for a reset link at
+    /// `{prefix}/forgot-password`, mailed through the router's
+    /// [`MailConfig`](topcoat::mail::MailConfig), and choose a new password at
+    /// `{prefix}/reset-password`; the login page links to it.
+    ///
+    /// The request page answers the same whether an account uses the address or not. A link
+    /// works once, for [`RESET_LIFETIME`], on this panel. Using it ends every session and reset
+    /// link the account holds on each panel signing in its user type. Mounting refuses a reset
+    /// whose [`User`](PasswordResetter::User) is not the type the authenticator loads, a reset
+    /// on [`Auth::disabled`], a base URL that is not absolute, and a router without a
+    /// `MailConfig`, which the app registers with `.mail(..)` before mounting the panel.
+    #[must_use]
+    pub fn password_reset(mut self, reset: PasswordReset) -> Self {
+        self.reset = Some(reset);
+        self
+    }
+
     /// Whether the explicit opt-out is set.
     #[must_use]
     pub fn is_disabled(&self) -> bool {
@@ -359,6 +383,11 @@ impl Auth {
     pub(crate) fn throttle_profile(&self) -> &LoginThrottle {
         &self.profile_throttle
     }
+
+    /// The password reset, or `None` without a forgot-password page.
+    pub(crate) fn reset(&self) -> Option<&PasswordReset> {
+        self.authenticator.as_ref().and(self.reset.as_ref())
+    }
 }
 
 impl Default for Auth {
@@ -376,6 +405,7 @@ impl std::fmt::Debug for Auth {
                 .field("throttle", &self.throttle)
                 .field("registration", &self.registrar.is_some())
                 .field("profile", &self.profile_editor.is_some())
+                .field("password_reset", &self.reset)
                 .finish_non_exhaustive()
         }
     }
@@ -587,6 +617,7 @@ pub(crate) fn check_models_registered(
         (!registered("AuthSession")).then_some("AuthSession"),
         (shipped_user && !registered("AdminUser")).then_some("AdminUser"),
         (toggles && !registered("ColumnPreference")).then_some("ColumnPreference"),
+        (auth.reset.is_some() && !registered("PasswordResetToken")).then_some("PasswordResetToken"),
     ]
     .into_iter()
     .flatten()
@@ -676,6 +707,42 @@ pub(crate) fn check_profile(auth: &Auth) -> Vec<crate::DeclarationErrorKind> {
         Some(DeclarationErrorKind::Profile(fault))
     }));
     kinds
+}
+
+/// The mistakes in a panel's [`Auth::password_reset`]: a reset without auth, a resetter whose
+/// user is not the authenticator's, a base URL that is not absolute, and a router that cannot
+/// send mail.
+pub(crate) fn check_password_reset(
+    auth: &Auth,
+    has_mail: bool,
+) -> Vec<crate::DeclarationErrorKind> {
+    use crate::{DeclarationErrorKind, declaration::ResetFault};
+
+    let Some(reset) = auth.reset.as_ref() else {
+        return Vec::new();
+    };
+    let Some(authenticator) = auth.authenticator() else {
+        return vec![DeclarationErrorKind::PasswordReset(
+            ResetFault::AuthDisabled,
+        )];
+    };
+    let mut faults = Vec::new();
+    let (user, user_name) = reset.resetter().user_type();
+    if user != authenticator.user_type() {
+        faults.push(ResetFault::UserType {
+            resetter: user_name,
+        });
+    }
+    if !reset.base_url_is_absolute() {
+        faults.push(ResetFault::BaseUrl(reset.base_url().to_string()));
+    }
+    if !has_mail {
+        faults.push(ResetFault::MissingMail);
+    }
+    faults
+        .into_iter()
+        .map(DeclarationErrorKind::PasswordReset)
+        .collect()
 }
 
 #[cfg(test)]

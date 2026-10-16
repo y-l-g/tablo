@@ -286,13 +286,54 @@ shipped `Profile` input fits any table with a name, an email and a password:
   keeps a stolen session from guessing the current password. A user past the limit can still sign
   in.
 
+### Password reset
+
+`Auth::password_reset` adds a "Forgot your password?" link to the login page. It leads to
+`{prefix}/forgot-password`, which mails a reset link, and the link opens `{prefix}/reset-password`,
+where the visitor chooses a new password. The mail goes through the router's `MailConfig`, so
+register one before mounting the panel, and add `PasswordResetToken` to the `Db`'s models:
+
+```rust
+{{#include ../../../examples/guide/src/policy_tenancy.rs:policy-password-reset}}
+```
+
+The base URL is the scheme and host the app answers on. Reset links start with it rather than with
+the request's `Host` header, which the client chooses and could point at another host.
+
+Your own user table resets through a `PasswordResetter` beside its `Authenticator`:
+`find_by_email` loads the account an address signs in as, `email` names the address the account
+stores, and `reset_password` sets the new password inside the reset's transaction.
+
+- **The request page** answers the same whether an account uses the address or not: it redirects
+  to the login page with a notification. An account that may not enter the panel gets no link, and
+  a failed send is logged, not shown.
+- **The link goes to the stored address**, never the typed one. A lookup that matches loosely,
+  such as a collation that folds accents, would otherwise mail one account's link to another
+  address.
+- **A link** works once, for one hour, on the panel that mailed it. A new request replaces the
+  account's earlier link. The token is stored only as a hash, and the reset page sends no
+  referrer.
+- **A reset** checks the new password with `new_password_errors`, then sets it, ends the account's
+  sessions and reset links on every panel whose authenticator loads the same user type, and
+  redirects to the login page. All of this commits in one transaction.
+- **Throttling.** Each address may request five links a minute, from any client, counted whether
+  or not an account uses it; `PasswordReset::throttle` changes the limit. Past it the page answers
+  429.
+- **Mounting refuses** a resetter whose `User` is not the type the authenticator loads, a reset on
+  `Auth::disabled()`, a base URL that is not an absolute `http` or `https` URL, and a router
+  without a `MailConfig`.
+
+Sending the mail takes time only when an account uses the address, so the response time can still
+tell the two apart. A `Transport` that queues the mail and returns at once closes that gap.
+
 ### Turning it off
 
 ```rust
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-auth-disabled-body}}
 ```
 
-Every panel route is then public and the login, sign-up and profile routes are not registered. Use it for public
+Every panel route is then public and the login, sign-up, profile and password reset routes are not
+registered. Use it for public
 demos and tests only.
 
 ## Tenancy

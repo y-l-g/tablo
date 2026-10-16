@@ -67,21 +67,13 @@ pub(super) async fn record(
     .map_err(infrastructure_failure)
 }
 
-/// Replaces every session `user_id` holds, on every panel whose authenticator loads `user_type`,
-/// with `session` on the panel and tenant `signed` acts under, through `ex`: what a credential
-/// change does inside the transaction that writes it, so the new credential and the revocation
-/// commit together.
-pub(super) async fn replace_sessions(
-    cx: &Cx,
-    ex: &mut dyn toasty::Executor,
-    signed: &SignedIn,
-    user_type: std::any::TypeId,
-    session: &session::Session,
-) -> topcoat::Result<()> {
-    // Another panel signing the same users in shares their credentials, so it shares the
-    // revocation.
-    let prefixes: Vec<String> = crate::panel::state::panels(cx)
-        .map(|panels| {
+/// The prefixes of the panels whose authenticator loads `user_type`, or `own` outside a router:
+/// the panels that share a user's credentials, so a credential change ends the user's sessions
+/// on each.
+pub(super) fn credential_panels(cx: &Cx, user_type: std::any::TypeId, own: &str) -> Vec<String> {
+    crate::panel::state::panels(cx).map_or_else(
+        || vec![own.to_string()],
+        |panels| {
             panels
                 .0
                 .iter()
@@ -93,19 +85,42 @@ pub(super) async fn replace_sessions(
                 })
                 .map(|panel| panel.prefix.clone())
                 .collect()
-        })
-        .unwrap_or_else(|| vec![signed.panel.prefix.clone()]);
-    let user_id = signed.user.user_id();
+        },
+    )
+}
+
+/// Deletes every session `user_id` holds on the panels `prefixes` names, through `ex`.
+pub(super) async fn end_sessions(
+    ex: &mut dyn toasty::Executor,
+    user_id: &str,
+    prefixes: Vec<String>,
+) -> topcoat::Result<()> {
     AuthSession::filter(
         AuthSession::fields()
             .user_id()
-            .eq(user_id.clone())
+            .eq(user_id.to_string())
             .and(AuthSession::fields().panel().in_list(prefixes)),
     )
     .delete()
-    .exec(&mut *ex)
+    .exec(ex)
     .await
-    .map_err(infrastructure_failure)?;
+    .map_err(infrastructure_failure)
+}
+
+/// Replaces every session `user_id` holds, on every panel whose authenticator loads `user_type`,
+/// with `session` on the panel and tenant `signed` acts under, through `ex`: what a credential
+/// change does inside the transaction that writes it, so the new credential and the revocation
+/// commit together.
+pub(super) async fn replace_sessions(
+    cx: &Cx,
+    ex: &mut dyn toasty::Executor,
+    signed: &SignedIn,
+    user_type: std::any::TypeId,
+    session: &session::Session,
+) -> topcoat::Result<()> {
+    let prefixes = credential_panels(cx, user_type, &signed.panel.prefix);
+    let user_id = signed.user.user_id();
+    end_sessions(&mut *ex, &user_id, prefixes).await?;
     let expires_at = Timestamp::try_from(session.expires_at).map_err(topcoat::Error::from)?;
     insert(
         ex,

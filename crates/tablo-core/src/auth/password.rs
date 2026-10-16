@@ -6,8 +6,8 @@ use topcoat::context::Cx;
 use uuid::Uuid;
 
 use super::{
-    Authenticator, PanelUser, Profile, ProfileEditor, ProfileUpdate, Registrar, SignUp,
-    infrastructure_failure, profile::CURRENT_PASSWORD_FIELD,
+    Authenticator, PanelUser, PasswordResetter, Profile, ProfileEditor, ProfileUpdate, Registrar,
+    SignUp, infrastructure_failure, profile::CURRENT_PASSWORD_FIELD,
 };
 use crate::FieldErrors;
 
@@ -202,6 +202,43 @@ impl ProfileEditor for PasswordAuth {
         } else {
             ProfileUpdate::Details
         })
+    }
+}
+
+/// Resets an [`AdminUser`]'s password, mailing the link to the email the account stores.
+/// Install it with [`Auth::password_reset`](super::Auth::password_reset).
+impl PasswordResetter for PasswordAuth {
+    type User = AdminUser;
+
+    async fn find_by_email(&self, cx: &Cx, email: &str) -> topcoat::Result<Option<AdminUser>> {
+        let mut db = crate::db::db(cx);
+        AdminUser::filter(AdminUser::fields().email().eq(email.to_string()))
+            .first()
+            .exec(&mut db)
+            .await
+            .map_err(infrastructure_failure)
+    }
+
+    fn email<'u>(&self, admin: &'u AdminUser) -> &'u str {
+        &admin.email
+    }
+
+    async fn reset_password(
+        &self,
+        _cx: &Cx,
+        user_id: &str,
+        password: &str,
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<()> {
+        let Ok(id) = Uuid::parse_str(user_id) else {
+            return Ok(());
+        };
+        AdminUser::filter(AdminUser::fields().id().eq(id))
+            .update()
+            .password_hash(hash_password(password)?)
+            .exec(ex)
+            .await?;
+        Ok(())
     }
 }
 

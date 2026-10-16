@@ -347,6 +347,51 @@ async fn forged_sign_up_answers_403_and_creates_no_account() {
     assert!(staff.is_none(), "a forged sign-up must create nothing");
 }
 
+/// A forged reset request or reset answers 403 before anything runs: no link is recorded, and
+/// the password stays.
+#[tokio::test]
+async fn forged_password_resets_answer_403_and_change_nothing() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let field = Uuid::new_v4().to_string();
+    let cookie = Uuid::new_v4().to_string();
+
+    for (submitted, label) in [
+        (Some(field.as_str()), "mismatched token"),
+        (None, "missing token"),
+    ] {
+        for (path, mut pairs) in [
+            ("/admin/forgot-password", vec![("email", DEMO_ADMIN_EMAIL)]),
+            (
+                "/admin/reset-password",
+                vec![
+                    ("token", "forged"),
+                    ("password", "forged password"),
+                    ("password_confirmation", "forged password"),
+                ],
+            ),
+        ] {
+            if let Some(field) = submitted {
+                pairs.push(("csrf_token", field));
+            }
+            let resp = TestClient::new(&router)
+                .csrf(&cookie)
+                .post_form(path, form_body(&pairs))
+                .await;
+            assert_eq!(resp.status(), 403, "{path} {label}");
+        }
+    }
+    let links = tablo::auth::PasswordResetToken::all()
+        .exec(&mut db.clone())
+        .await
+        .unwrap();
+    assert!(links.is_empty(), "a forged request must record no link");
+    let (_, login) = TestClient::new(&router)
+        .log_in("admin", DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, "")
+        .await;
+    assert_eq!(login.status(), 303, "the password must stay");
+}
+
 /// A forged profile save answers 403 before the profile editor runs: the account keeps its name.
 #[tokio::test]
 async fn forged_profile_save_answers_403_and_changes_nothing() {

@@ -58,6 +58,9 @@ The panel also serves:
   `Auth::registration` installs a registrar.
 - `GET`, `POST /admin/profile`, the [profile page](./policy-auth-tenancy.md#profile), when
   `Auth::profile` installs a profile editor.
+- `GET`, `POST /admin/forgot-password` and `GET`, `POST /admin/reset-password`, the
+  [password reset](./policy-auth-tenancy.md#password-reset), when `Auth::password_reset` installs
+  one.
 - `POST /admin/{page}/-/actions/{action}` for a page's [header actions](./actions.md#header-actions),
   and `/admin/-/actions/{action}` for the home page's.
 - Every other path under `/admin`, with any method, as a 404 behind the

@@ -1,14 +1,19 @@
 //! The Policy, auth, tenancy chapter's snippets.
 
 use tablo::{
-    Membership, PanelUser, PasswordAuth,
+    Membership, PanelUser, PasswordAuth, PasswordReset, RouterBuilderPanelExt,
     auth::{
         Authenticator, Profile, ProfileEditor, ProfileUpdate, Registrar, hash_password,
         new_password_errors, verify_password,
     },
     prelude::*,
 };
-use topcoat::{Result, context::Cx};
+use topcoat::{
+    Result,
+    context::Cx,
+    mail::{FileTransport, MailConfig, Mailbox, RouterBuilderMailExt},
+    router::Router,
+};
 
 use crate::{
     actions::Publish,
@@ -37,7 +42,9 @@ pub fn auth_models() {
     let _ = toasty::models!(
         crate::Book,
         tablo::auth::AdminUser,
-        tablo::auth::AuthSession
+        tablo::auth::AuthSession,
+        // Only with `Auth::password_reset`.
+        tablo::auth::PasswordResetToken
     );
 }
 // ANCHOR_END: policy-models
@@ -245,6 +252,27 @@ pub async fn update_staff(
 ) -> Result<()> {
     todo!()
 }
+
+// ANCHOR: policy-password-reset
+pub fn reset_router(db: toasty::Db) -> Result<Router> {
+    let reset = PasswordReset::new(
+        PasswordAuth,
+        Mailbox::named("Example", "no-reply@example.com")?,
+        "https://admin.example.com",
+    );
+    Ok(Router::builder()
+        .app_context(db)
+        // Before the panel, which checks for it. `SmtpTransport`, behind Topcoat's `mail-smtp`
+        // feature, delivers in production; `FileTransport` writes `.eml` files instead.
+        .mail(
+            MailConfig::builder()
+                .transport(FileTransport::new("target/mail"))
+                .build(),
+        )
+        .panel(Panel::new("admin").auth(Auth::password().password_reset(reset)))?
+        .build())
+}
+// ANCHOR_END: policy-password-reset
 
 // ANCHOR: policy-auth-disabled-body
 pub fn open_panel() -> Panel {
