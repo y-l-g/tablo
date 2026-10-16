@@ -189,7 +189,8 @@ A page sets the same `icon`, `navigation_order` and `navigation_group` on its `P
 `NavigationItem::at(label, url)` links elsewhere, from `ResourceDef::navigation` or
 `PageDef::navigation`; the panel keeps that URL as written, and the def's `icon`,
 `navigation_order` and `navigation_group` still apply to it. The entry whose URL is the longest
-match for the current path is marked active.
+match for the current path is marked active. Of the entries sharing that path, the one whose
+query the request carries wins, then the one naming more of that query, then the first declared.
 
 `tablo::ui::icons` names the Lucide icons the panel draws, its navigation entries included. An
 entry that wants another one stages the set its app's own `iconify_icon!` resolves against: in the

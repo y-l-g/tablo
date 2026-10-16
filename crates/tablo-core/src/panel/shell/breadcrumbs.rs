@@ -9,7 +9,7 @@ use topcoat::{
     view::{BoxView, ViewExt, view},
 };
 
-use crate::navigation::NavigationItem;
+use crate::navigation::{NavigationItem, current_index};
 
 /// One step of a trail: its label, and its link unless it is the page the request is on.
 #[derive(Debug, PartialEq, Eq)]
@@ -34,8 +34,8 @@ impl Crumb {
     }
 }
 
-/// The trail to `current_path`: the sidebar entry it is under, the longest whose path holds it,
-/// then the page within the entry. Empty when no entry holds the path.
+/// The trail to `current_path` under `current_query`: the sidebar entry it is under, as the
+/// sidebar marks it, then the page within the entry. Empty when no entry holds the path.
 ///
 /// Under a resource's list, one of `resource_lists`, a path names a resource's page:
 /// `/admin/posts` is `Blog Posts`; `/admin/posts/-/create` adds `Create`, `/admin/posts/7`
@@ -46,8 +46,9 @@ pub(super) fn trail(
     nav_items: &[NavigationItem],
     resource_lists: &[&str],
     current_path: &str,
+    current_query: &str,
 ) -> Vec<Crumb> {
-    let Some((item, path)) = entry(nav_items, current_path) else {
+    let Some((item, path)) = entry(nav_items, current_path, current_query) else {
         return Vec::new();
     };
     let rest: Vec<&str> = current_path[path.len()..]
@@ -75,10 +76,15 @@ pub(super) fn trail(
     }
 }
 
-/// The trail to a page that failed at `current_path`: the sidebar entry it is under, then
-/// `label`, the failure.
-pub(super) fn failed(nav_items: &[NavigationItem], current_path: &str, label: &str) -> Vec<Crumb> {
-    let mut crumbs: Vec<Crumb> = entry(nav_items, current_path)
+/// The trail to a page that failed at `current_path` under `current_query`: the sidebar entry it
+/// is under, then `label`, the failure.
+pub(super) fn failed(
+    nav_items: &[NavigationItem],
+    current_path: &str,
+    current_query: &str,
+    label: &str,
+) -> Vec<Crumb> {
+    let mut crumbs: Vec<Crumb> = entry(nav_items, current_path, current_query)
         .map(|(item, path)| Crumb::link(item.label.clone(), path))
         .into_iter()
         .collect();
@@ -86,16 +92,14 @@ pub(super) fn failed(nav_items: &[NavigationItem], current_path: &str, label: &s
     crumbs
 }
 
-/// The sidebar entry `current_path` is under, the longest whose path holds it, with its path.
+/// The sidebar entry the request is under, as the sidebar marks it, with its path.
 fn entry<'a>(
     nav_items: &'a [NavigationItem],
     current_path: &str,
+    current_query: &str,
 ) -> Option<(&'a NavigationItem, &'a str)> {
-    nav_items
-        .iter()
-        .filter(|item| item.is_current_path(current_path))
-        .filter_map(|item| Some((item, item.path()?)))
-        .max_by_key(|(_, path)| path.len())
+    let item = &nav_items[current_index(nav_items, current_path, current_query)?];
+    Some((item, item.path()?))
 }
 
 /// A path segment as a label: `audit-log` reads `Audit log`.

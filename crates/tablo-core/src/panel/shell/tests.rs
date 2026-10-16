@@ -251,29 +251,33 @@ async fn collapsed_sidebar_cookie_seeds_the_signal() {
     );
 }
 
-/// A home entry at the bare prefix matches every path under it: only the
-/// most specific matching entry is active, an entry's query does not make it
-/// more specific, and only the first of two entries that share a path.
+/// A home entry at the bare prefix matches every path under it, so only the most specific
+/// matching entry is active. Of two entries on one path, the one whose query the request
+/// carries is active, and the first declared wins a tie.
 #[tokio::test]
 async fn sidebar_marks_only_the_longest_matching_entry_active() {
     use topcoat::{context::CxTestBuilder, view::view};
 
     use crate::navigation::NavigationItem;
 
+    // The query entry comes first: declaration order must not decide between it and `Users`.
     let nav_items = vec![
+        NavigationItem::at("Drafts", "/admin/users?f.status=draft"),
         NavigationItem::at("Dashboard", "/admin"),
         NavigationItem::at("Users", "/admin/users"),
         NavigationItem::at("Overview", "/admin"),
-        NavigationItem::at("Drafts", "/admin/users?f.status=draft"),
     ];
-    for (path, active_label) in [
+    for (uri, active_label) in [
         ("/admin", "Dashboard"),
         ("/admin/users", "Users"),
+        ("/admin/users?f.status=review", "Users"),
+        ("/admin/users?f.status=draft", "Drafts"),
         ("/admin/users/-/create", "Users"),
         ("/admin/media", "Dashboard"),
     ] {
+        let path = uri.split_once('?').map_or(uri, |(path, _)| path);
         let (parts, ()) = http::Request::builder()
-            .uri(path)
+            .uri(uri)
             .body(())
             .unwrap()
             .into_parts();
