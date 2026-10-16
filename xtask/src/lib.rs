@@ -36,7 +36,32 @@ pub const VENDORED_PRIMITIVES: &[&str] = &[
     "textarea",
 ];
 
+/// The vendored primitives that are part of `tablo-ui`'s public API: the ones a custom page builds
+/// from. `primitives.rs` declares every other one `#[doc(hidden)]`, so a registry change to it
+/// never moves Tablo's semver; `tablo-core` still uses it.
+pub const PUBLIC_PRIMITIVES: &[&str] = &[
+    "alert",
+    "badge",
+    "button",
+    "card",
+    "checkbox",
+    "field",
+    "input",
+    "label",
+    "select",
+    "separator",
+    "skeleton",
+    "table",
+    "textarea",
+];
+
 fn vendored_components(registry: &Registry) -> anyhow::Result<Vec<Component<'_>>> {
+    if let Some(name) = PUBLIC_PRIMITIVES
+        .iter()
+        .find(|name| !VENDORED_PRIMITIVES.contains(name))
+    {
+        anyhow::bail!("PUBLIC_PRIMITIVES names `{name}`, which is not in VENDORED_PRIMITIVES");
+    }
     let components: Vec<Component<'_>> = VENDORED_PRIMITIVES
         .iter()
         .map(|name| {
@@ -81,6 +106,19 @@ fn mod_header(version: &str) -> String {
     format!(
         "// SYNC: topcoat-ui-registry@{version} — generated from the registry manifest. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).\n"
     )
+}
+
+/// The content of `primitives.rs`: one module per vendored component, hidden unless it is in
+/// [`PUBLIC_PRIMITIVES`].
+fn primitives_mod_content(version: &str, components: &[Component<'_>]) -> String {
+    let mut content = mod_header(version);
+    for component in components {
+        if !PUBLIC_PRIMITIVES.contains(&component.name()) {
+            content.push_str("#[doc(hidden)]\n");
+        }
+        content.push_str(&format!("pub mod {};\n", component.name()));
+    }
+    content
 }
 
 /// The `primitives` module file beside [`primitives_dir`], which declares each vendored component.
@@ -324,10 +362,7 @@ fn ensure_primitives_mod(
     dry_run: bool,
 ) -> anyhow::Result<()> {
     let mod_path = primitives_mod(dst_dir);
-    let mut content = mod_header(version);
-    for component in components {
-        content.push_str(&format!("pub mod {};\n", component.name()));
-    }
+    let content = primitives_mod_content(version, components);
     if dry_run {
         println!("would write {}", mod_path.display());
     } else {
@@ -386,10 +421,7 @@ pub fn verify_sync() -> anyhow::Result<()> {
     }
 
     let mod_path = primitives_mod(&dst_dir);
-    let mut expected = mod_header(&version);
-    for component in &components {
-        expected.push_str(&format!("pub mod {};\n", component.name()));
-    }
+    let expected = primitives_mod_content(&version, &components);
     match std::fs::read_to_string(&mod_path) {
         Ok(actual) if actual == expected => {}
         Ok(_) => failures.push(format!(
