@@ -2813,6 +2813,9 @@ impl<M> !core::panic::unwind_safe::UnwindSafe for tablo_core::SelectFilter<M>
 pub struct tablo_core::table::Sort
 pub tablo_core::table::Sort::column: alloc::string::String
 pub tablo_core::table::Sort::descending: bool
+impl tablo_core::Sort
+pub fn tablo_core::Sort::asc(impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::Sort::desc(impl core::convert::Into<alloc::string::String>) -> Self
 impl core::clone::Clone for tablo_core::Sort
 pub fn tablo_core::Sort::clone(&self) -> tablo_core::Sort
 impl core::cmp::Eq for tablo_core::Sort
@@ -2835,6 +2838,7 @@ impl<M> tablo_core::table::Table<M>
 pub fn tablo_core::table::Table<M>::action_layout(self, tablo_core::table::ActionLayout) -> Self
 pub fn tablo_core::table::Table<M>::column(self, impl tablo_core::extend::Column<M> + 'static) -> Self
 pub fn tablo_core::table::Table<M>::declaration_errors(&self) -> alloc::vec::Vec<tablo_core::DeclarationErrorKind>
+pub fn tablo_core::table::Table<M>::default_sort(self, tablo_core::Sort) -> Self
 pub fn tablo_core::table::Table<M>::filters(self, impl tablo_core::IntoFilters<M>) -> Self where M: toasty::schema::model::Model
 pub fn tablo_core::table::Table<M>::group_by<T>(self, tablo_core::Lens<M, T>) -> Self where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::table::Table<M>::hide_filter_bar(self) -> Self
@@ -3513,6 +3517,8 @@ pub tablo_core::DeclarationErrorKind::UnregisteredRelation
 pub tablo_core::DeclarationErrorKind::UnresolvedLens
 pub tablo_core::DeclarationErrorKind::UnresolvedLens::model: &'static str
 pub tablo_core::DeclarationErrorKind::UnresolvedLens::steps: alloc::vec::Vec<usize>
+pub tablo_core::DeclarationErrorKind::UnsortableDefaultSort
+pub tablo_core::DeclarationErrorKind::UnsortableDefaultSort::column: alloc::string::String
 pub tablo_core::DeclarationErrorKind::UnwrittenColumn
 pub tablo_core::DeclarationErrorKind::UnwrittenColumn::column: alloc::string::String
 pub tablo_core::DeclarationErrorKind::ZeroPageSize
@@ -5186,6 +5192,9 @@ impl core::panic::unwind_safe::UnwindSafe for tablo_core::SignUp
 pub struct tablo_core::Sort
 pub tablo_core::Sort::column: alloc::string::String
 pub tablo_core::Sort::descending: bool
+impl tablo_core::Sort
+pub fn tablo_core::Sort::asc(impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::Sort::desc(impl core::convert::Into<alloc::string::String>) -> Self
 impl core::clone::Clone for tablo_core::Sort
 pub fn tablo_core::Sort::clone(&self) -> tablo_core::Sort
 impl core::cmp::Eq for tablo_core::Sort
@@ -5218,6 +5227,7 @@ impl<M> tablo_core::table::Table<M>
 pub fn tablo_core::table::Table<M>::action_layout(self, tablo_core::table::ActionLayout) -> Self
 pub fn tablo_core::table::Table<M>::column(self, impl tablo_core::extend::Column<M> + 'static) -> Self
 pub fn tablo_core::table::Table<M>::declaration_errors(&self) -> alloc::vec::Vec<tablo_core::DeclarationErrorKind>
+pub fn tablo_core::table::Table<M>::default_sort(self, tablo_core::Sort) -> Self
 pub fn tablo_core::table::Table<M>::filters(self, impl tablo_core::IntoFilters<M>) -> Self where M: toasty::schema::model::Model
 pub fn tablo_core::table::Table<M>::group_by<T>(self, tablo_core::Lens<M, T>) -> Self where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::table::Table<M>::hide_filter_bar(self) -> Self
