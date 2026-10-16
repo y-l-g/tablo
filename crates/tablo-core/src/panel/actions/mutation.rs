@@ -463,7 +463,7 @@ impl InputPage {
         confirm: bool,
         hidden: Vec<(String, String)>,
         home: &str,
-    ) -> FormChrome {
+    ) -> FormChrome<'static> {
         let mut carried = Vec::new();
         if confirm {
             carried.push(("confirm".to_string(), "1".to_string()));
@@ -484,7 +484,7 @@ impl InputPage {
         self,
         cx: &'a Cx,
         spec: &InputSpec,
-        chrome: FormChrome,
+        chrome: FormChrome<'a>,
     ) -> topcoat::Result<BoxView<'a>> {
         render_form_page(
             cx,

@@ -1,6 +1,6 @@
-//! Renders each [`Relation`](crate::resource::Relation) of a resource on its records' detail page,
-//! as the related resource's table narrowed to the record. A many-to-many relation's attach and
-//! detach post to the owner's routes, which `actions::link` serves.
+//! Renders each [`Relation`](crate::resource::Relation) of a resource on its records' detail and
+//! edit pages, as the related resource's table narrowed to the record. A many-to-many relation's
+//! attach and detach post to the owner's routes, which `actions::link` serves.
 
 use std::sync::Arc;
 
@@ -59,7 +59,7 @@ pub(crate) struct BoundRelation {
     pub(crate) seed: Option<(String, String)>,
     /// Where a many-to-many relation's table attaches and detaches, when the user may.
     pub(crate) linking: Option<Linking>,
-    /// The path of the record's detail page, which renders the table.
+    /// The path of the record's page that renders the table: its detail or its edit page.
     pub(crate) page: String,
 }
 
@@ -142,8 +142,7 @@ pub(crate) fn linked_relation<'r, R: Resource>(
 /// Renders one relation's section as `C`'s list table over the rows the owner holds.
 ///
 /// The table's parameters carry the child's slug, so each relation on the page keeps its own
-/// state, and a change reruns the detail page in place. The edit page renders none: a rerun
-/// resets the form fields the reader has not saved.
+/// state, and a change reruns the page in place.
 pub(crate) fn relation_table<C: Resource>(cx: &Cx, relation: BoundRelation) -> BoxView<'_> {
     async_page(async move {
         let Some(resource) = mounted::<C>(cx) else {

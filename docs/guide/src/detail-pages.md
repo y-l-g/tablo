@@ -102,7 +102,7 @@ page loads no relation, so a link reads only the record's own columns.
 ## Related tables
 
 `ResourceDef::relation` adds a related resource whose rows belong to a record. Each renders on
-the record's detail page as that resource's own list table, narrowed to the record:
+the record's detail and edit pages as that resource's own list table, narrowed to the record:
 
 ```rust
 impl Resource for PostResource {
@@ -127,8 +127,7 @@ one it does not.
   only the actions its record allows.
 - **Actions.** Rows carry the related resource's View, Edit, Delete and custom actions, the table
   has its bulk bar, and a create button appears when the related resource has a form and its
-  policy allows `Create`. The edit page renders no related table: a change to one reruns the page,
-  which would reset the form fields not yet saved.
+  policy allows `Create`.
 - **Creating from the parent.** The create button opens the related resource's create page with
   the owner preselected, as in `/admin/comments/-/create?post_id=…`. The create page accepts such a
   parameter only for a relationship choice; the value is a default, and the submitted form is
@@ -138,7 +137,10 @@ one it does not.
 - **URL parameters.** Each related table's parameters are prefixed with the related resource's
   slug — `?comments.q=`, `?comments.sort=`, `?comments.after=` — so several tables share one page.
 - **Live updates.** Sorting, searching, filtering and paging update the table in place, like a
-  list's. Without JavaScript its links and its search form load the page.
+  list's. Without JavaScript its links and its search form load the page. On the edit page, the
+  form keeps the fields the user edited, but loses repeater rows added and options fetched since
+  the page loaded ([#515](https://github.com/y-l-g/tablo/issues/515)). A refused save renders no
+  related table.
 
 Mounting the panel refuses a relation to a resource the panel does not register, and two relations of
 one resource to the same related resource.

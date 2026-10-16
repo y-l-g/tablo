@@ -6,8 +6,9 @@ Writes are plain form posts that redirect back to the list. Tablo ships no table
 script; a handler escapes to one line of JavaScript only where the runtime has no word, and an
 action's input dialog to one more handler, which resets its form as it closes. Links carry an
 `href` and the toolbar is a GET form, so reading works without JavaScript; confirmed writes and
-an action's input need it. Related tables render on the detail page only, because a rerun resets unsaved
-form fields.
+an action's input need it. Related tables render on the detail and edit pages: a rerun keeps the
+form fields the user edited, but drops repeater rows and fetched options a script added
+([#515](https://github.com/y-l-g/tablo/issues/515)).
 
 ## Rejected
 

@@ -10,7 +10,7 @@ use topcoat::{
 };
 
 use super::{
-    super::{actions::load_editable, gate::gate},
+    super::{actions::load_editable, gate::gate, relations::render_relations},
     render::{FormChrome, render_form_page},
 };
 use crate::{
@@ -156,7 +156,7 @@ pub(super) async fn rerender_invalid_form<'a, R: Resource>(
     cx: &'a Cx,
     resource: &Mounted<R>,
     tx: toasty::Transaction<'_>,
-    chrome: FormChrome,
+    chrome: FormChrome<'a>,
     values: &FormValues,
     errors: &FieldErrors,
     carried: &HashSet<String>,
@@ -176,10 +176,14 @@ pub(crate) fn resource_edit<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         }
         crate::csrf::ensure_token(cx);
         let values = <R::Form as RecordForm>::hydrate(cx, &record);
+        // A table's rerun keeps the fields the reader edited, but drops repeater rows and fetched
+        // options a script added (tablo#515). A refused save renders none: a rerun would drop
+        // its errors.
+        let relations = render_relations(cx, &resource, &record);
         let html = render_form_page(
             cx,
             &resource.form,
-            FormChrome::edit(cx, &resource, &record),
+            FormChrome::edit(cx, &resource, &record).with_relations(relations),
             &values,
             &FieldErrors::new(),
             &HashSet::new(),

@@ -51,8 +51,7 @@
 // re-installation.
 //
 // A script rather than Topcoat handlers: fetching options as the user types,
-// or when a parent field changes, would otherwise rerun the page, and a rerun
-// clears the fields the user has typed into (topcoat#504).
+// or when a parent field changes, would otherwise rerun the whole page.
 
 const serverTimers = new WeakMap();
 const serverControllers = new WeakMap();
