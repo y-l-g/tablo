@@ -326,6 +326,11 @@ impl Field {
         self.as_choice().is_some_and(ChoiceControl::offers_nothing)
     }
 
+    /// Whether the field is a masked text control, whose value never renders back.
+    pub(crate) fn is_password(&self) -> bool {
+        matches!(&self.control, ControlKind::Text(text) if text.password)
+    }
+
     pub(crate) fn as_repeater(&self) -> Option<&RepeaterControl> {
         match &self.control {
             ControlKind::Repeater(repeater) => Some(repeater),

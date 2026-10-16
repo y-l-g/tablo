@@ -3,7 +3,7 @@
 use topcoat::context::Cx;
 
 use super::{FieldError, FormValues};
-use crate::schema::Schema;
+use crate::schema::{Field, Schema};
 
 /// A typed value a form posts under its own keys, which no column binds: what an
 /// [`Action`](crate::Action) asks for before it runs, what a sign-up reads, one item of a
@@ -31,8 +31,10 @@ pub trait FormInput: Sized + Send + Sync + 'static {
     /// Every key that failed, each once.
     fn parse(cx: &Cx, values: &FormValues) -> Result<Self, Vec<FieldError>>;
 
-    /// Write the value's keys as its form posts them. A password is a secret, never rendered back
-    /// into a form, so it writes nothing.
+    /// Write the value's keys as its form posts them: a repeater fills a stored item's row from
+    /// them, and its detail-page column reads them. A password writes nothing, as it never renders
+    /// back into a form. Nothing writes an action's input or a sign-up, so a type used only there
+    /// writes nothing too.
     fn write(&self, out: &mut FormValues);
 }
 
@@ -47,4 +49,12 @@ impl FormInput for () {
     }
 
     fn write(&self, _out: &mut FormValues) {}
+}
+
+/// Renders `field`'s control required: the derive marks each field with no blank answer.
+#[doc(hidden)]
+pub fn required_input(field: impl Into<Field>) -> Field {
+    let mut field = field.into();
+    field.set_required(true);
+    field
 }

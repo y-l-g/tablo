@@ -70,9 +70,8 @@ pub mod __macro {
         form::{
             FieldError, FormField, FormInput, FormScalar, FormValues, NullableScalar, RecordForm,
             assert_form_scalar, links_include, links_key, parse_list, parse_password, parse_scalar,
-            write_links,
+            required_input, write_links,
         },
-        resource::required_input,
         schema::{
             ChoiceField, CustomField, EmbeddedForm, Field, FileField, IntoSchema, Options,
             RepeaterField, Schema, TextField,
@@ -220,7 +219,8 @@ pub use table::{
 /// type other than `String`.
 pub use tablo_macros::EmbeddedForm;
 /// Derives [`FormInput`](trait@FormInput) for a typed value a form posts under its own keys:
-/// what an [`Action`] asks for before it runs, or one item of a repeater.
+/// what an [`Action`] asks for before it runs, what a sign-up reads, or one item of a
+/// repeater.
 ///
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
@@ -308,7 +308,8 @@ pub use tablo_macros::EmbeddedForm;
 /// - `#[form(placeholder = "rust, async")]` — a text input's placeholder.
 /// - `#[form(email)]` — a text input that refuses a malformed email address.
 /// - `#[form(password)]` — a masked text input on a `String`, read untrimmed, that a refused
-///   form and a stored repeater row render empty.
+///   form renders empty. A repeater refuses one in its item at mount: an edit could not render
+///   the stored secret back, so each save would overwrite it.
 /// - `#[form(blank = ..)]`, `#[form(optional)]` — the blank answer.
 /// - `#[form(options)]`, `#[form(options = T)]` — a choice. An `Option<T>` field names its
 ///   options type: `#[form(options = T)]`.
@@ -316,13 +317,14 @@ pub use tablo_macros::EmbeddedForm;
 /// A generic struct, a tuple struct, an empty struct (name `()` instead), an unknown key, a
 /// text input's key with `options` or on a `bool`, `password` with `multiline`, and a field
 /// that is not a `FormScalar` are compile errors.
-/// [`RouterBuilderPanelExt::panel`] refuses a field named `csrf_token`, `confirm` or `ids`,
-/// the keys an action's POST carries besides its input.
+/// [`RouterBuilderPanelExt::panel`] refuses an action's input with a field named `csrf_token`,
+/// `confirm` or `ids`, and a sign-up's with one named `csrf_token` or `next`: the keys each
+/// POST carries besides its input.
 ///
 /// A hand-written impl builds its fields with [`Field::text_input`], [`Field::choice_input`]
 /// and [`Field::toggle_input`]; its controls render without the `required` mark, though its
 /// `parse` still refuses what it requires. Its `write` fills a repeater row from a stored
-/// item.
+/// item, and writes nothing for a type no repeater holds.
 pub use tablo_macros::FormInput;
 /// Derive a model's [`ModelColumns`](trait@ModelColumns): the table a resource lists it in and
 /// the detail page it shows it on, when the resource declares neither.

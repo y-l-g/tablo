@@ -3459,6 +3459,9 @@ pub tablo_core::DeclarationErrorKind::PrefixOverlapsRuntime::prefix: alloc::stri
 pub tablo_core::DeclarationErrorKind::RepeaterLeafModifier
 pub tablo_core::DeclarationErrorKind::RepeaterLeafModifier::field: alloc::string::String
 pub tablo_core::DeclarationErrorKind::RepeaterLeafModifier::leaf: alloc::string::String
+pub tablo_core::DeclarationErrorKind::RepeaterPassword
+pub tablo_core::DeclarationErrorKind::RepeaterPassword::field: alloc::string::String
+pub tablo_core::DeclarationErrorKind::RepeaterPassword::leaf: alloc::string::String
 pub tablo_core::DeclarationErrorKind::RequiredConditionalField
 pub tablo_core::DeclarationErrorKind::RequiredConditionalField::field: alloc::string::String
 pub tablo_core::DeclarationErrorKind::ReservedSlug

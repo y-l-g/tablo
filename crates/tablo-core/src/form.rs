@@ -55,6 +55,8 @@ mod values;
 use std::{collections::HashSet, fmt::Debug, hash::Hash};
 
 pub use input::FormInput;
+#[doc(hidden)]
+pub use input::required_input;
 use toasty::{Executor, schema::Model};
 use topcoat::context::Cx;
 pub use values::{FormValue, FormValues};

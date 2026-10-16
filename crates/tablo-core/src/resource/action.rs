@@ -1,14 +1,9 @@
 //! Custom actions: the [`Action`] trait, and the [`Actions`] list a
 //! [`ResourceDef`](super::ResourceDef) declares them in.
 
-mod input;
-
 use std::{any::Any, future::Future};
 
 use derive_where::derive_where;
-pub(crate) use input::RESERVED_KEYS;
-#[doc(hidden)]
-pub use input::required_input;
 use topcoat::{Result, context::Cx};
 
 use super::{Mounted, Resource};
@@ -19,6 +14,9 @@ use crate::{
     policy::Ability,
     schema::Schema,
 };
+
+/// The keys an action's POST carries besides its input, which no input field may post.
+pub(crate) const RESERVED_KEYS: [&str; 3] = [crate::csrf::FIELD_NAME, "confirm", "ids"];
 
 /// A mutation beyond create, update and delete: "publish", "archive",
 /// "resend the invite".

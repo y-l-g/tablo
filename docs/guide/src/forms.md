@@ -476,8 +476,9 @@ item's controls per item, which the user adds, removes and moves.
 ```
 
 - An item's fields are scalars, declared like an [action input](./actions.md)'s: `label`,
-  `multiline`, `placeholder`, `email`, `blank`, `optional` and `options` customize a field, and a field
-  with no blank answer is required in every row.
+  `multiline`, `placeholder`, `email`, `blank`, `optional` and `options` customize a field, and a
+  field with no blank answer is required in every row. Mounting refuses a `password` in an item:
+  an edit cannot render a stored secret back, so each save would overwrite it.
 - Each row posts its item's fields under its own prefix (`steps.0.minutes`), and the repeater's
   own key lists the rows in the order they show. A refused row renders its error under its own
   control, and the rows come back in the order the user left them.

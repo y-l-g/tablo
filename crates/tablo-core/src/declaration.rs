@@ -396,6 +396,14 @@ pub enum DeclarationErrorKind {
         /// The control in its row.
         leaf: String,
     },
+    /// A repeater's item has a password control, which an edit cannot render back, so every save
+    /// would overwrite the stored secret.
+    RepeaterPassword {
+        /// The repeater.
+        field: String,
+        /// The password control in its row.
+        leaf: String,
+    },
     /// A field's default is a value its control never posts: one its type does not parse, one
     /// not among a choice's options, or a list or one value where the control posts the other.
     UnpostedDefault {
@@ -679,6 +687,11 @@ impl fmt::Display for DeclarationErrorKind {
                 f,
                 "repeater '{field}' disables its row's '{leaf}' or gives it a default, which a \
                  row does not apply: disable the repeater's own field instead"
+            ),
+            Self::RepeaterPassword { field, leaf } => write!(
+                f,
+                "repeater '{field}' rows hold password '{leaf}', which an edit never renders \
+                 back, so each save overwrites it: keep the secret out of the item"
             ),
             Self::UnpostedDefault { field, value } => write!(
                 f,

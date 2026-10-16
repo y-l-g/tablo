@@ -254,7 +254,7 @@ impl std::fmt::Debug for SignUp {
 
 impl FormInput for SignUp {
     fn schema() -> Schema {
-        let field = crate::resource::required_input;
+        let field = crate::form::required_input;
         Schema::new((
             field(Field::text_input::<String>("name").label("Name")),
             field(Field::text_input::<String>("email").email().label("Email")),

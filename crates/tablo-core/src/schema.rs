@@ -302,6 +302,19 @@ impl<F> Schema<F> {
                     leaf: leaf.name().to_string(),
                 });
             }
+            // An edit renders each stored row, and a password never renders back: every save
+            // would replace the stored secret with what the user retyped, or with nothing.
+            if let Some(repeater) = field.as_repeater()
+                && let Some(leaf) = repeater
+                    .item_schema()
+                    .fields()
+                    .find(|leaf| leaf.is_password())
+            {
+                errors.push(crate::DeclarationErrorKind::RepeaterPassword {
+                    field: field.name().to_string(),
+                    leaf: leaf.name().to_string(),
+                });
+            }
         }
         let mut seen = HashSet::new();
         for field in &self.fields {
