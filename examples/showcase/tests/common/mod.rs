@@ -14,9 +14,9 @@ use topcoat::router::{Body, Router};
 
 /// Returns a fresh `Db` with the full showcase schema and no rows.
 ///
-/// The database is in-memory SQLite, or the server `TABLO_TEST_DATABASE_URL` names, built with the
-/// showcase's `postgresql` or `mysql` feature. Tests share that server's database, so each test's
-/// tables carry a prefix of their own.
+/// The database is in-memory SQLite, or the one `TABLO_TEST_DATABASE_URL` names, built with the
+/// showcase's `postgresql`, `mysql` or `turso` feature. Tests may share that database, so each
+/// test's tables carry a prefix of their own.
 pub async fn empty_schema_db() -> Db {
     let mut builder = Db::builder();
     builder.models(toasty::models!(
