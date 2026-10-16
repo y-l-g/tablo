@@ -639,17 +639,30 @@ impl Panel {
             .path()
             .to_string();
         // The panel's sidebar, or a single Home entry outside any panel.
-        let mut nav_items = Vec::new();
-        for entry in current(cx).iter().flat_map(|panel| &panel.nav_items) {
-            if !(entry.visible)(cx) {
-                continue;
+        let entries: Vec<_> = current(cx)
+            .iter()
+            .flat_map(|panel| &panel.nav_items)
+            .filter(|entry| (entry.visible)(cx))
+            .collect();
+        // One count per badge, run together rather than one after another.
+        let badges = futures_util::future::join_all(entries.iter().map(|entry| async {
+            match &entry.badge {
+                Some(badge) => Some(badge(cx).await),
+                None => None,
             }
-            let mut item = entry.item.clone();
-            if let Some(badge) = &entry.badge {
-                item.badge = badge(cx).await;
-            }
-            nav_items.push(item);
-        }
+        }))
+        .await;
+        let mut nav_items: Vec<NavigationItem> = entries
+            .iter()
+            .zip(badges)
+            .map(|(entry, badge)| {
+                let mut item = entry.item.clone();
+                if let Some(badge) = badge {
+                    item.badge = badge;
+                }
+                item
+            })
+            .collect();
         if nav_items.is_empty() {
             nav_items.push(NavigationItem::at("Home", super::gate::panel_prefix(cx)));
         }

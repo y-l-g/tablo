@@ -225,8 +225,9 @@ each group follows in the order of its first entry, and `order` sorts the entrie
 An entry may carry a badge after its label. `NavigationItem::badge("New")` sets a fixed one;
 `ResourceDef::navigation_badge(Post::fields().status().eq(PostStatus::Draft))` counts the rows of
 the resource's [`scoped_query`](./data-access.md) that the filter matches, so each tenant sees its
-own count. The panel counts on every page the sidebar renders on, one query per counted badge, and
-a count of zero shows no badge.
+own count. The panel counts each time the sidebar renders, on a page load and on each rerun such
+as a sort or a page step, one query per counted badge, run together; a count of zero shows no
+badge. A badge is the sidebar's: a `Panel::user_menu_item` shows none.
 
 ## Pages
 

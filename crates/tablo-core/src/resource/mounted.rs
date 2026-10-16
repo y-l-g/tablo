@@ -127,10 +127,14 @@ impl<R: Resource> Mounted<R> {
     }
 
     /// The sidebar badge [`ResourceDef::navigation_badge`] declares: the count of the rows its
-    /// filter matches, none for zero. A failed count shows none either, logged: the sidebar
+    /// filter matches, none for zero. A tenant-scoped resource shows none to a request without a
+    /// tenant, whose list refuses it too. A failed count shows none either, logged: the sidebar
     /// renders on every page, which a badge must not fail.
     pub(crate) async fn navigation_badge(&self, cx: &Cx) -> Option<String> {
         let filter = self.navigation_badge.clone()?;
+        if self.tenancy.is_scoped() && crate::tenant_id(cx).is_none() {
+            return None;
+        }
         let query = match self.scoped_query(cx) {
             Ok(query) => query.filter(filter),
             Err(error) => {

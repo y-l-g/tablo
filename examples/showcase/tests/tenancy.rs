@@ -1,6 +1,9 @@
 use http::header::COOKIE;
 use showcase::models::{Author, DEMO_TENANT, SIDE_TENANT, TENANTLESS_ADMIN_EMAIL};
-use tablo::{TenantId, testing::nav_badge};
+use tablo::{
+    TenantId,
+    testing::{find_href_with, nav_badge},
+};
 use topcoat::router::Body;
 
 use crate::common::{
@@ -59,6 +62,19 @@ async fn the_posts_badge_counts_the_tenants_own_drafts() {
         Some("1"),
         "{t2_page}"
     );
+}
+
+#[tokio::test]
+async fn a_tenantless_request_counts_no_badge() {
+    let (db, _, _) = tenanted_db().await;
+    let router = router(db.clone());
+    let client = tenantless_client(&router, &db).await;
+
+    let response = client.get("/admin/users").await;
+    assert_eq!(response.status(), 200);
+    let page = body_string(response).await;
+    assert!(find_href_with(&page, "/admin/posts").is_some(), "{page}");
+    assert_eq!(nav_badge(&page, "/admin/posts"), None, "{page}");
 }
 
 #[tokio::test]

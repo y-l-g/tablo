@@ -88,11 +88,15 @@ impl NavigationItem {
         self
     }
 
-    /// This entry with a badge reading `text` after its label, such as `"New"`. A resource's
-    /// [`navigation_badge`](crate::ResourceDef::navigation_badge) counts its rows for one instead.
+    /// This entry with a badge reading `text` after its label, such as `"New"`; a blank `text`
+    /// is ignored. A resource's [`navigation_badge`](crate::ResourceDef::navigation_badge) counts
+    /// its rows for one instead.
     #[must_use]
     pub fn badge(mut self, text: impl Into<String>) -> Self {
-        self.badge = Some(text.into());
+        let text = text.into().trim().to_string();
+        if !text.is_empty() {
+            self.badge = Some(text);
+        }
         self
     }
 

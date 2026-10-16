@@ -165,8 +165,9 @@ impl<R: Resource> ResourceDef<R> {
 
     /// Replaces the sidebar entry, for one that links somewhere other than the list page:
     /// `NavigationItem::at("Drafts", "/admin/posts?f.status=draft")`. [`icon`](Self::icon),
-    /// [`navigation_order`](Self::navigation_order) and
-    /// [`navigation_group`](Self::navigation_group) still apply to it.
+    /// [`navigation_order`](Self::navigation_order),
+    /// [`navigation_group`](Self::navigation_group) and
+    /// [`navigation_badge`](Self::navigation_badge) still apply to it.
     #[must_use]
     pub fn navigation(mut self, item: NavigationItem) -> Self {
         self.navigation = Some(item);
@@ -174,8 +175,9 @@ impl<R: Resource> ResourceDef<R> {
     }
 
     /// Badge the sidebar entry with the number of rows of [`scoped_query`](crate::scoped_query)
-    /// that `filter` matches, so a tenant counts its own rows. The panel counts them on each page
-    /// its sidebar renders on, one query per badge, and shows no badge for zero. It replaces the
+    /// that `filter` matches, so a tenant counts its own rows. The panel counts them each time its
+    /// sidebar renders, on a page load and on each runtime rerun such as a sort or a page step,
+    /// one query per badge run together, and shows no badge for zero. It replaces the
     /// badge of a [`navigation`](Self::navigation) item.
     ///
     /// ```rust
