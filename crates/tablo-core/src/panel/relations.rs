@@ -20,12 +20,15 @@ use super::{
 };
 use crate::{
     navigation::runtime_link,
+    panel::{
+        list::TableAction,
+        url::{
+            RETURN_PARAM, action_options_url, bulk_action_url, create_page_url, relation_url,
+            with_return,
+        },
+    },
     policy::Ability,
     resource::{InputSpec, Links, Mounted, RelationKind, Resource, mounted},
-    table::{
-        RETURN_PARAM, TableAction, action_options_url, bulk_action_url, create_page_url,
-        relation_url, with_return,
-    },
     topcoat_compat::async_page,
 };
 

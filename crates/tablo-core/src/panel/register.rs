@@ -26,14 +26,14 @@ use crate::{
     Ability, DeclarationError, DeclarationErrorKind, Page, PageDef, Site,
     form::RecordForm,
     page::MountedPage,
-    resource::{Mounted, Mounts, Places, Resource, ResourceDef},
-    schema::FieldResolver,
-    table::{
+    panel::url::{
         ACTION_ROUTE_PARAM, ACTIONS_ROUTE_SEGMENT, BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT,
         DASH_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT, EXPORT_ROUTE_SEGMENT,
         OPTIONS_ROUTE_SEGMENT, RECORD_ROUTE_PARAM, RELATED_ROUTE_PARAM, RELATION_ROUTE_PARAM,
         RELATIONS_ROUTE_SEGMENT, list_route,
     },
+    resource::{Mounted, Mounts, Places, Resource, ResourceDef},
+    schema::FieldResolver,
 };
 
 /// A resource or page waiting for its panel to mount.

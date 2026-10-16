@@ -3,7 +3,8 @@ use topcoat::context::CxTestBuilder;
 use super::*;
 use crate::{
     lens,
-    table::{QueryFilter, RowActions, SelectFilter, Sort, Table, TextColumn},
+    panel::list::RowActions,
+    table::{QueryFilter, SelectFilter, Sort, Table, TextColumn},
     test_support::Html as _,
 };
 
@@ -553,7 +554,7 @@ async fn rows_open_their_record() {
         name: "Ada".to_string(),
     };
     let id = ada.id.to_string();
-    let render = |wired: crate::table::WiredTable<User>| {
+    let render = |wired: crate::WiredTable<User>| {
         let page: TablePage<User> = vec![ada.clone()].into();
         let cx = &cx;
         async move { wired.render_loaded(cx, page).await.html(cx).await }
@@ -644,8 +645,8 @@ async fn a_derived_table_spells_a_timestamp_as_a_day() {
     );
 }
 
-fn row_action(name: &'static str, label: &str) -> crate::table::TableAction<User> {
-    crate::table::TableAction {
+fn row_action(name: &'static str, label: &str) -> crate::panel::list::TableAction<User> {
+    crate::panel::list::TableAction {
         name,
         label: label.to_string(),
         row: true,
@@ -689,7 +690,7 @@ async fn a_menu_table_puts_the_actions_behind_one_button() {
     let html = wired.render_loaded(&cx, page).await.html(&cx).await;
     let menu = format!(
         "id=\"{}-actions\"",
-        crate::table::state::row_dom_id("table", &ada_id)
+        crate::table::row_dom_id("table", &ada_id)
     );
     let at = html
         .find(&menu)

@@ -8,9 +8,9 @@ use tablo_ui::{
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{Frame, live_link, table_dom_id, toolbar::rerun_with};
-use crate::table::{
-    PagePosition,
-    state::{Cursor, TableSignals, TableState},
+use crate::{
+    panel::list::TableSignals,
+    table::{Cursor, PagePosition, TableState},
 };
 
 /// The bar the pager renders in, under the rows.

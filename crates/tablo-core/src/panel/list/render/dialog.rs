@@ -8,9 +8,13 @@ use tablo_ui::{
 use topcoat::{context::Cx, runtime::Event, view::*};
 
 use super::{Frame, table_dom_id};
-use crate::table::{
-    InputDialog, Posts, action_options_url, open_dialog, selected_count,
-    state::{ConfirmSignals, TableSignals, TableState},
+use crate::{
+    panel::{
+        input::{InputDialog, Posts, open_dialog, selected_count},
+        list::signals::{ConfirmSignals, TableSignals},
+        url::action_options_url,
+    },
+    table::TableState,
 };
 
 impl Frame<'_> {

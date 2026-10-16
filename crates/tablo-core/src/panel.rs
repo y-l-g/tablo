@@ -8,6 +8,7 @@ pub(crate) mod error_page;
 mod forms;
 pub(crate) mod gate;
 mod headers;
+mod input;
 mod list;
 mod pages;
 mod register;
@@ -34,6 +35,7 @@ use self::{
 pub use self::{
     build::{PanelHandle, RouterBuilderPanelExt},
     gate::{can_list, can_open},
+    list::WiredTable,
     shell::Brand,
 };
 use crate::{
@@ -43,14 +45,14 @@ use crate::{
 
 /// Returns the panel's list table for `R`, with the request's row actions wired on, for a page
 /// that owns its table; render it over the page's own query with
-/// [`WiredTable::render`](crate::table::WiredTable::render).
+/// [`WiredTable::render`](WiredTable::render).
 ///
 /// # Errors
 ///
 /// A declaration error when the context's panel does not mount `R`.
 pub fn wired_table<R: Resource>(
     cx: &topcoat::context::Cx,
-) -> topcoat::Result<crate::table::WiredTable<R::Model>> {
+) -> topcoat::Result<WiredTable<R::Model>> {
     let resource = crate::resource::require_mounted::<R>(cx)?;
     Ok(self::list::wire_table_actions(cx, &resource))
 }

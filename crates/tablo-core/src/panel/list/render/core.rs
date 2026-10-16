@@ -5,17 +5,14 @@ use toasty::stmt::{List, Query};
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{
-    super::WiredTable,
+    super::{TableSignals, WiredTable},
     Frame, TABLE_CARD_CLASS,
     filterbar::FilterViews,
     pager::PagerInput,
     rows::{CellLayout, RowChrome, RowView, render_rows, selectable_keys},
     table_dom_id,
 };
-use crate::table::{
-    page::TablePage,
-    state::{TableSignals, TableState},
-};
+use crate::table::{TablePage, TableState};
 
 impl<M> WiredTable<M> {
     /// Load the page of `query` the table's browser state selects, and render it.

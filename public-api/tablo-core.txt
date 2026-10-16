@@ -1381,6 +1381,23 @@ impl core::marker::Unpin for tablo_core::PanelHandle
 impl core::marker::UnsafeUnpin for tablo_core::PanelHandle
 impl !core::panic::unwind_safe::RefUnwindSafe for tablo_core::PanelHandle
 impl !core::panic::unwind_safe::UnwindSafe for tablo_core::PanelHandle
+pub struct tablo_core::panel::WiredTable<M>
+impl<M> tablo_core::WiredTable<M>
+pub fn tablo_core::WiredTable<M>::prefixed(self, impl core::convert::Into<alloc::string::String>) -> Self
+impl<M> tablo_core::WiredTable<M>
+pub async fn tablo_core::WiredTable<M>::render<'a>(&self, &'a topcoat_core::context::Cx, toasty::stmt::query::Query<toasty::stmt::list::List<M>>) -> topcoat::Result<topcoat_view::view::BoxView<'a>> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
+impl<M> core::fmt::Debug for tablo_core::WiredTable<M>
+pub fn tablo_core::WiredTable<M>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<M> core::ops::deref::Deref for tablo_core::WiredTable<M>
+pub type tablo_core::WiredTable<M>::Target = tablo_core::table::Table<M>
+pub fn tablo_core::WiredTable<M>::deref(&self) -> &tablo_core::table::Table<M>
+impl<M> core::marker::Freeze for tablo_core::WiredTable<M> where alloc::sync::Arc<tablo_core::table::Table<M>>: core::marker::Freeze, Wiring<M>: core::marker::Freeze
+impl<M> core::marker::Send for tablo_core::WiredTable<M> where alloc::sync::Arc<tablo_core::table::Table<M>>: core::marker::Send, Wiring<M>: core::marker::Send
+impl<M> core::marker::Sync for tablo_core::WiredTable<M> where alloc::sync::Arc<tablo_core::table::Table<M>>: core::marker::Sync, Wiring<M>: core::marker::Sync
+impl<M> core::marker::Unpin for tablo_core::WiredTable<M> where alloc::sync::Arc<tablo_core::table::Table<M>>: core::marker::Unpin, Wiring<M>: core::marker::Unpin
+impl<M> core::marker::UnsafeUnpin for tablo_core::WiredTable<M> where alloc::sync::Arc<tablo_core::table::Table<M>>: core::marker::UnsafeUnpin, Wiring<M>: core::marker::UnsafeUnpin
+impl<M> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::WiredTable<M>
+impl<M> !core::panic::unwind_safe::UnwindSafe for tablo_core::WiredTable<M>
 pub trait tablo_core::panel::RouterBuilderPanelExt: core::marker::Sized
 pub fn tablo_core::panel::RouterBuilderPanelExt::panel(self, tablo_core::panel::Panel) -> topcoat::Result<Self>
 pub fn tablo_core::panel::RouterBuilderPanelExt::panel_handle(&self, &str) -> core::option::Option<tablo_core::PanelHandle>
@@ -2976,23 +2993,6 @@ impl<M, T> core::marker::Unpin for tablo_core::TextColumn<M, T> where tablo_core
 impl<M, T> core::marker::UnsafeUnpin for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::UnsafeUnpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::UnsafeUnpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync)>: core::marker::UnsafeUnpin, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>>: core::marker::UnsafeUnpin
 impl<M, T> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::TextColumn<M, T>
 impl<M, T> !core::panic::unwind_safe::UnwindSafe for tablo_core::TextColumn<M, T>
-pub struct tablo_core::table::WiredTable<M>
-impl<M> tablo_core::WiredTable<M>
-pub fn tablo_core::WiredTable<M>::prefixed(self, impl core::convert::Into<alloc::string::String>) -> Self
-impl<M> tablo_core::WiredTable<M>
-pub async fn tablo_core::WiredTable<M>::render<'a>(&self, &'a topcoat_core::context::Cx, toasty::stmt::query::Query<toasty::stmt::list::List<M>>) -> topcoat::Result<topcoat_view::view::BoxView<'a>> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
-impl<M> core::fmt::Debug for tablo_core::WiredTable<M>
-pub fn tablo_core::WiredTable<M>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl<M> core::ops::deref::Deref for tablo_core::WiredTable<M>
-pub type tablo_core::WiredTable<M>::Target = tablo_core::table::Table<M>
-pub fn tablo_core::WiredTable<M>::deref(&self) -> &tablo_core::table::Table<M>
-impl<M> core::marker::Freeze for tablo_core::WiredTable<M> where alloc::sync::Arc<tablo_core::table::Table<M>>: core::marker::Freeze, Wiring<M>: core::marker::Freeze
-impl<M> core::marker::Send for tablo_core::WiredTable<M> where alloc::sync::Arc<tablo_core::table::Table<M>>: core::marker::Send, Wiring<M>: core::marker::Send
-impl<M> core::marker::Sync for tablo_core::WiredTable<M> where alloc::sync::Arc<tablo_core::table::Table<M>>: core::marker::Sync, Wiring<M>: core::marker::Sync
-impl<M> core::marker::Unpin for tablo_core::WiredTable<M> where alloc::sync::Arc<tablo_core::table::Table<M>>: core::marker::Unpin, Wiring<M>: core::marker::Unpin
-impl<M> core::marker::UnsafeUnpin for tablo_core::WiredTable<M> where alloc::sync::Arc<tablo_core::table::Table<M>>: core::marker::UnsafeUnpin, Wiring<M>: core::marker::UnsafeUnpin
-impl<M> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::WiredTable<M>
-impl<M> !core::panic::unwind_safe::UnwindSafe for tablo_core::WiredTable<M>
 pub const tablo_core::table::DEFAULT_PAGE_SIZE: core::num::nonzero::NonZeroUsize
 pub const tablo_core::table::DEFAULT_PER_PAGE_OPTIONS: [usize; 4]
 pub trait tablo_core::table::DateValue: core::marker::Sized + core::marker::Send + core::marker::Sync + 'static

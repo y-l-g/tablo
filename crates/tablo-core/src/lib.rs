@@ -133,7 +133,9 @@ pub use lens::Lens;
 pub use navigation::{NavTarget, NavigationItem};
 pub use notification::{Notification, NotificationStatus};
 pub use page::{Page, PageDef, header_action_buttons};
-pub use panel::{Brand, Panel, PanelHandle, RouterBuilderPanelExt, can_list, can_open, url};
+pub use panel::{
+    Brand, Panel, PanelHandle, RouterBuilderPanelExt, WiredTable, can_list, can_open, url,
+};
 pub use policy::{Ability, Allow, Deny, Policy, ReadOnly, when};
 pub use resource::{
     Action, ActionInput, Committed, ForeignKey, HeaderAction, HeaderActions, Mutation, Places,
@@ -150,7 +152,7 @@ pub use table::{
     FilterValue, ImageColumn, IntoColumns, IntoFilters, ModelColumns, Number, Numeric,
     PagePosition, Pagination, QueryFilter, RelationColumn, RelationLens, RepeaterColumn,
     SelectFilter, Sort, Table, TablePage, TableState, TernaryFilter, TextColumn, ToOneRelation,
-    WiredTable, contains_expr,
+    contains_expr,
 };
 /// Derives [`ActionInput`](trait@ActionInput) for the typed value an [`Action`] asks for
 /// before it runs.

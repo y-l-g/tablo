@@ -2,7 +2,8 @@ use super::*;
 use crate::{
     Ability, ResourceDef, lens,
     panel::test_support::{Dummy, dummy_table, mount, panel_for},
-    test_support::memory_db,
+    table::TextColumn,
+    test_support::{User, memory_db, tableless_db},
 };
 
 /// Renders the list body with one seeded row.
@@ -128,7 +129,7 @@ async fn a_rerun_renders_the_query_its_signal_carries() {
                 .slug("dummies")
                 .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny))
                 .table(crate::table::Table::new(
-                    crate::table::TextColumn::new(lens!(Dummy.name)).searchable(),
+                    TextColumn::new(lens!(Dummy.name)).searchable(),
                 ))
         }
     }
@@ -361,5 +362,43 @@ fn retry_url_for_error_drops_only_bad_cursors() {
     assert!(
         retry.contains("after=cur"),
         "transient failures retry the same evidence, got {retry}"
+    );
+}
+
+#[tokio::test]
+async fn wired_table_carries_the_declared_action_chrome() {
+    struct ChromeResource;
+    impl Resource for ChromeResource {
+        type Model = User;
+        type Form = crate::NoForm<Self::Model>;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .policy_fn(|_cx, ability| {
+                    matches!(ability, Ability::DeleteAny | Ability::Delete(_))
+                })
+                .table(Table::new(TextColumn::new(lens!(User.name))).paginate(25))
+        }
+    }
+
+    let db = tableless_db(toasty::models!(User)).await;
+    // The wiring derives the action URLs from the request path, so the Cx needs one.
+    let parts = http::Request::builder()
+        .uri("/admin/dummies")
+        .body(())
+        .unwrap()
+        .into_parts()
+        .0;
+    let cx = crate::test_support::panel_cx::<ChromeResource>(&db).with(parts);
+    let declared = crate::resource::require_mounted::<ChromeResource>(&cx).unwrap();
+    let wired = crate::panel::wired_table::<ChromeResource>(&cx).unwrap();
+    assert!(
+        wired.bulk_delete_enabled(),
+        "wired_table must attach the delete/bulk chrome the resource declares"
+    );
+    assert_eq!(
+        wired.page_size(),
+        declared.table.page_size(),
+        "wired_table must keep the declared page size"
     );
 }

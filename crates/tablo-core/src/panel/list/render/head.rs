@@ -4,7 +4,10 @@ use tablo_ui::{icons, table_head, table_header, table_row};
 use topcoat::{Result, context::Cx, icon::icon, runtime::Event, view::*};
 
 use super::{CHROME_CELL_CLASS, Frame, live_link};
-use crate::table::state::{TableSignals, TableState, bulk_token};
+use crate::{
+    panel::list::TableSignals,
+    table::{TableState, bulk_token},
+};
 
 impl Frame<'_> {
     /// Render the column-header row: sort links that write the table's query, and the

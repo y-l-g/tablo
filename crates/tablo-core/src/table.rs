@@ -1,8 +1,9 @@
 //! A resource's list view: the [`Table`] builder and its columns and filters, the URL state a list
-//! reads, query planning (`filter_expr`/`search_expr`/`order_bys_for`), and the page a table loads.
+//! reads, query planning (`filter_expr`/`search_expr`/`order_bys_for`), the page a table loads, and
+//! CSV export.
 //!
-//! What a request wires onto a table (row actions, policy) lives in `wiring`, rendering
-//! in `render`, CSV export in `export`.
+//! A column renders its own cell and a filter its own control. What a request wires onto a table
+//! and the list page around it belong to the panel: [`WiredTable`](crate::panel::WiredTable).
 
 use std::{marker::PhantomData, num::NonZeroUsize, sync::Arc};
 
@@ -14,17 +15,14 @@ use self::filter::BoxFilter;
 use crate::{
     DeclarationErrorKind, Lens,
     form::FormScalar,
-    schema::{Binding, FieldResolver, Schema},
+    schema::{Binding, FieldResolver},
 };
 
 pub(crate) mod column;
 mod export;
 pub(crate) mod filter;
-mod input;
 mod page;
-mod render;
 mod state;
-mod wiring;
 
 pub use self::{
     column::{
@@ -36,80 +34,23 @@ pub use self::{
     filter::{DateFilter, FilterValue, IntoFilters, QueryFilter, SelectFilter, TernaryFilter},
     page::{PagePosition, TablePage},
     state::{Cursor, Sort, TableState},
-    wiring::WiredTable,
 };
 pub(crate) use self::{
-    input::{InputDialog, Posts, TableTarget, open_dialog, selected_count},
     page::{Past, row_exists_past},
     state::{
-        ACTION_ROUTE_PARAM, ACTIONS_ROUTE_SEGMENT, BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT,
-        DASH_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT, EXPORT_ROUTE_SEGMENT,
-        OPTIONS_ROUTE_SEGMENT, RECORD_ROUTE_PARAM, RELATED_ROUTE_PARAM, RELATION_ROUTE_PARAM,
-        RELATIONS_ROUTE_SEGMENT, RETURN_PARAM, action_options_url, bulk_action_url, bulk_key,
-        clamp_query_term, create_page_url, delete_action_url, export_url, list_route, relation_url,
-        row_action_url, with_return,
+        bulk_key, bulk_token, clamp_query_term, group_header_dom_id, query_of, request_query,
+        row_dom_id,
     },
 };
 
 /// Group-label projection reads a row's group off one model instance.
 pub(crate) type GroupKey<M> = Arc<dyn Fn(&M) -> String + Send + Sync>;
 
-/// Per-record action policy reads which row actions one model instance allows.
-pub(crate) type RowPolicy<M> = Arc<dyn Fn(&M) -> RowActions + Send + Sync>;
-
-/// Which row actions one record may use.
-///
-/// A denied action emits no link, and a row denied `delete` renders no bulk checkbox.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct RowActions {
-    /// Whether the row renders its `View` link.
-    pub view: bool,
-    /// Whether the row renders its `Edit` link.
-    pub edit: bool,
-    /// Whether the row renders its `Delete` link and an enabled bulk checkbox.
-    pub delete: bool,
-}
-
-impl RowActions {
-    /// Every action allowed.
-    pub const ALL: Self = Self {
-        view: true,
-        edit: true,
-        delete: true,
-    };
-}
-
 /// A named grouping a `Table` renders.
 #[derive_where(Clone)]
 pub(crate) struct GroupDef<M> {
     binding: Binding,
     key: GroupKey<M>,
-}
-
-/// The action chrome a resource declares.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub(crate) struct TableChrome {
-    /// Whether the row renders a Delete action (which also enables bulk).
-    pub(crate) delete: bool,
-    /// Whether the row renders an Edit action.
-    pub(crate) edit: bool,
-    /// Whether the row renders a View action.
-    pub(crate) view: bool,
-    /// Whether the table renders the resource's custom actions.
-    pub(crate) actions: bool,
-}
-
-/// One custom [`Action`](crate::resource::Action) as a table renders it.
-pub(crate) struct TableAction<M> {
-    pub(crate) name: &'static str,
-    pub(crate) label: String,
-    pub(crate) row: bool,
-    pub(crate) bulk: bool,
-    /// Whether the action confirms: in the confirmation dialog, or in its input dialog.
-    pub(crate) confirm: bool,
-    /// The action's input form, when it asks for one: its buttons open the input's dialog.
-    pub(crate) input: Option<fn() -> Schema>,
-    pub(crate) allowed: Arc<dyn Fn(&M) -> bool + Send + Sync>,
 }
 
 /// The page size of a table that declares none with [`Table::paginate`].
@@ -243,6 +184,16 @@ impl<M> Table<M> {
         self
     }
 
+    /// The declared columns, in order.
+    pub(crate) fn declared_columns(&self) -> &[BoxColumn<M>] {
+        &self.columns
+    }
+
+    /// The declared filters, in order.
+    pub(crate) fn declared_filters(&self) -> &[BoxFilter<M>] {
+        &self.filters
+    }
+
     /// Include every relation this table's columns declare, once each.
     pub(crate) fn include_relations(
         &self,
@@ -322,7 +273,7 @@ impl<M> Table<M> {
     }
 
     /// The declared grouping iff `state.group_by` names it.
-    fn effective_group_key(&self, state: &TableState) -> Option<GroupKey<M>> {
+    pub(crate) fn effective_group_key(&self, state: &TableState) -> Option<GroupKey<M>> {
         match (&self.group_by, &state.group_by) {
             (Some(def), Some(want)) if def.binding.name() == want => Some(def.key.clone()),
             _ => None,
