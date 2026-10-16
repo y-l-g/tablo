@@ -4,10 +4,10 @@ use std::path::PathBuf;
 
 use tablo::{
     Ability, Action, ActionLayout, Auth, BooleanColumn, Brand, ComputedColumn, CountColumn,
-    DateFilter, Detail, DirUploader, EmbeddedColumn, FieldErrors, Grid, Group, HeaderAction,
-    ModelColumns, NavigationItem, Pagination, Panel, PublicLink, QueryFilter, Relation,
-    RelationColumn, RepeaterColumn, Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section,
-    SelectFilter, Table, Tenancy, TernaryFilter, TextColumn, lens, relation, scoped_query,
+    DateColumn, DateFilter, Detail, DirUploader, EmbeddedColumn, FieldErrors, Grid, Group,
+    HeaderAction, ModelColumns, NavigationItem, Pagination, Panel, PublicLink, QueryFilter,
+    Relation, RelationColumn, RepeaterColumn, Resource, ResourceDef, RouterBuilderPanelExt, Schema,
+    Section, SelectFilter, Table, Tenancy, TernaryFilter, TextColumn, lens, relation, scoped_query,
     tenant_id, when,
 };
 use toasty::Db;
@@ -212,10 +212,12 @@ fn post_author_column() -> RelationColumn<Post> {
 fn post_table() -> Table<Post> {
     Table::new((
         TextColumn::new(lens!(Post.title)).searchable().sortable(),
-        TextColumn::new(lens!(Post.status)).badge(),
+        // Each reader picks whether the status and the creation date show.
+        TextColumn::new(lens!(Post.status)).badge().toggleable(),
         BooleanColumn::new(lens!(Post.featured)),
         post_author_column(),
         CountColumn::new(relation!(Post.comments)),
+        DateColumn::new(lens!(Post.created_at)).hidden_by_default(),
     ))
     // Publish and Tag join View, Edit and Delete behind one button.
     .action_layout(ActionLayout::Menu)

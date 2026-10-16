@@ -17,7 +17,7 @@ use super::{
     },
     detail::resource_view,
     forms::{resource_create, resource_create_post, resource_edit, resource_edit_post},
-    list::resource_list,
+    list::{resource_columns, resource_list},
     pages::{page_action, page_action_options, page_handler},
     relations::{Child, relation_table},
     state::{BadgeFn, NavEntry},
@@ -27,10 +27,10 @@ use crate::{
     form::RecordForm,
     page::MountedPage,
     panel::url::{
-        ACTION_ROUTE_PARAM, ACTIONS_ROUTE_SEGMENT, BULK_DELETE_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT,
-        DASH_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT, EDIT_ROUTE_SEGMENT, EXPORT_ROUTE_SEGMENT,
-        OPTIONS_ROUTE_SEGMENT, RECORD_ROUTE_PARAM, RELATED_ROUTE_PARAM, RELATION_ROUTE_PARAM,
-        RELATIONS_ROUTE_SEGMENT, list_route,
+        ACTION_ROUTE_PARAM, ACTIONS_ROUTE_SEGMENT, BULK_DELETE_ROUTE_SEGMENT,
+        COLUMNS_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT, DASH_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT,
+        EDIT_ROUTE_SEGMENT, EXPORT_ROUTE_SEGMENT, OPTIONS_ROUTE_SEGMENT, RECORD_ROUTE_PARAM,
+        RELATED_ROUTE_PARAM, RELATION_ROUTE_PARAM, RELATIONS_ROUTE_SEGMENT, list_route,
     },
     resource::{Mounted, Mounts, Places, Resource, ResourceDef},
 };
@@ -89,6 +89,11 @@ pub(super) struct Registered {
     pub(super) check: ResourceCheck,
     /// The form's file fields, whose bytes only an installed uploader keeps.
     pub(super) file_fields: Vec<String>,
+    /// Whether the list declares a toggleable column, whose choice a [`ColumnPreference`]
+    /// keeps.
+    ///
+    /// [`ColumnPreference`]: crate::auth::ColumnPreference
+    pub(super) toggles: bool,
     relations: Vec<Link>,
 }
 
@@ -249,7 +254,9 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
                 .relations
                 .iter()
                 .any(|relation| relation.links().is_some()),
+            columns: mounted.table.has_toggleable_columns(),
         };
+        let toggles = routes.columns;
         register_routes::<R>(registry, &url, routes);
         if registry.root.is_none() {
             registry.root = Some(Root::Redirect(url.clone()));
@@ -281,6 +288,7 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
             name: std::any::type_name::<R>(),
             slug: mounted.slug.clone(),
             check: check_resource::<R>,
+            toggles,
             file_fields: mounted
                 .form
                 .fields()
@@ -307,6 +315,8 @@ struct OptionalRoutes {
     list: bool,
     /// A record's many-to-many relations': attach and detach.
     links: bool,
+    /// The column picker's: a toggleable column on the list.
+    columns: bool,
 }
 
 /// Registers a resource's routes under its list `url`.
@@ -332,6 +342,13 @@ fn register_routes<R: Resource>(registry: &mut Registry, url: &str, routes: Opti
         &list_route(url, BULK_DELETE_ROUTE_SEGMENT),
         resource_bulk_delete::<R>,
     );
+    if routes.columns {
+        registry.page(
+            Method::POST,
+            &list_route(url, COLUMNS_ROUTE_SEGMENT),
+            resource_columns::<R>,
+        );
+    }
     // The `-` segment keeps `actions` from shadowing the edit and delete
     // routes of a record whose key is `actions`.
     if routes.record {

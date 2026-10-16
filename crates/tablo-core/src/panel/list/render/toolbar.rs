@@ -1,6 +1,10 @@
 //! The toolbar above the table: the search field, the filter controls, and the bulk actions.
 
-use tablo_ui::{ButtonSize, ButtonVariant, button, input as ui_input};
+use tablo_ui::{
+    ButtonSize, ButtonVariant, FloatingAlign, button, button_variants, checkbox, dropdown_menu,
+    dropdown_menu_content, dropdown_menu_label, dropdown_menu_separator, dropdown_menu_trigger,
+    input as ui_input,
+};
 use topcoat::{
     Result,
     context::Cx,
@@ -10,13 +14,13 @@ use topcoat::{
 };
 
 use super::{
-    BAR_CLASS, Frame, SEARCH_FIELD_CLASS, SEARCH_ICON_CLASS,
+    BAR_CLASS, ColumnPicker, Frame, SEARCH_FIELD_CLASS, SEARCH_ICON_CLASS,
     dialog::{input_trigger, write_trigger},
     table_dom_id,
 };
 use crate::{
     panel::{
-        list::TableSignals,
+        list::{COLUMN_FIELD, RESET_FIELD, TableSignals},
         url::{bulk_action_url, bulk_delete_url},
     },
     table::TableState,
@@ -80,7 +84,12 @@ impl Frame<'_> {
         let show_search = self.search;
         let show_filters = self.filter_bar;
         let with_bulk = self.bulk_enabled();
-        if !show_search && !show_filters && !with_bulk {
+        let (picker, picker_form) = self
+            .picker
+            .as_ref()
+            .map(|picker| self.render_picker(cx, state, picker))
+            .unzip();
+        if !show_search && !show_filters && !with_bulk && picker.is_none() {
             return Ok(().boxed());
         }
         let form = table_dom_id(state, "toolbar");
@@ -149,22 +158,129 @@ impl Frame<'_> {
             >
                 (hidden)
                 <button type="submit" class="sr-only" tabindex="-1">"Search"</button>
-                if search.is_some() || bulk.is_some() {
+                if search.is_some() || bulk.is_some() || picker.is_some() {
                     <div class=(BAR_CLASS)>
                         if let Some(search) = search {
                             (search)
                         }
-                        if let Some(bulk) = bulk {
-                            (bulk)
-                        }
+                        <div class="ml-auto flex items-center gap-2">
+                            if let Some(bulk) = bulk {
+                                (bulk)
+                            }
+                            if let Some(picker) = picker {
+                                (picker)
+                            }
+                        </div>
                     </div>
                 }
                 if let Some(filters) = filters {
                     (filters)
                 }
             </form>
+            // Forms do not nest: the picker's controls name this form from inside the toolbar's.
+            if let Some(form) = picker_form {
+                (form)
+            }
         }
         .boxed())
+    }
+
+    /// Render the column picker: a menu checking each toggleable column the reader's choice shows,
+    /// whose Apply posts the checked ones and whose Reset restores the defaults, and the POST form
+    /// its controls name, which renders outside the toolbar's.
+    fn render_picker<'a>(
+        &self,
+        cx: &'a Cx,
+        state: &TableState,
+        picker: &ColumnPicker<'_>,
+    ) -> (BoxView<'a>, BoxView<'a>) {
+        let menu = table_dom_id(state, "columns");
+        let form = table_dom_id(state, "columns-form");
+        let boxes: Vec<BoxView<'a>> = picker
+            .columns
+            .iter()
+            .map(|column| {
+                let name = column.name.to_string();
+                let label = column.label.to_string();
+                let checked = column.shown.then_some("");
+                let form = form.clone();
+                view! {
+                    cx =>
+                    <label
+                        class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-foreground/5"
+                    >
+                        checkbox(
+                            attrs: attributes! {
+                                name=(COLUMN_FIELD)
+                                value=(name)
+                                form=(form)
+                                checked=(checked)
+                            }
+                        )
+                        (label)
+                    </label>
+                }
+                .boxed()
+            })
+            .collect();
+        let trigger = button_variants(ButtonVariant::Outline, ButtonSize::Md);
+        let (reset_form, apply_form) = (form.clone(), form.clone());
+        let menu_view = view! {
+            cx =>
+            dropdown_menu(
+                dropdown_menu_trigger(
+                    target: &menu,
+                    attrs: attributes! { class=(trigger) },
+                    icon(data: tablo_ui::icons::COLUMNS_3)
+                    "Columns"
+                )
+                dropdown_menu_content(
+                    id: &menu,
+                    align: FloatingAlign::End,
+                    // The boxes belong to the picker's form but sit inside the toolbar's, whose
+                    // `change` handler would rerun the list on each tick and drop its page.
+                    attrs: attributes! {
+                        class="min-w-56"
+                        @change=$(|e: Event| e.stop_propagation())
+                    },
+                    dropdown_menu_label("Columns")
+                    for item in boxes {
+                        (item)
+                    }
+                    dropdown_menu_separator()
+                    <div class="flex justify-end gap-2 p-1">
+                        button(
+                            variant: ButtonVariant::Ghost,
+                            size: ButtonSize::Sm,
+                            attrs: attributes! {
+                                type="submit"
+                                form=(reset_form)
+                                name=(RESET_FIELD)
+                                value="1"
+                            },
+                            "Reset"
+                        )
+                        button(
+                            variant: ButtonVariant::Primary,
+                            size: ButtonSize::Sm,
+                            attrs: attributes! { type="submit" form=(apply_form) },
+                            "Apply"
+                        )
+                    </div>
+                )
+            )
+        }
+        .boxed();
+        let action = self.action_url(picker.url.to_string());
+        let csrf = crate::csrf::current_token(cx);
+        let form_view = view! {
+            cx =>
+            <form id=(form) method="post" action=(action)>
+                (crate::csrf::field(cx, &csrf))
+            </form>
+        }
+        .boxed();
+        (menu_view, form_view)
     }
 
     /// Render the bulk actions: each submits the table's write form with the selection, and is
@@ -235,7 +351,7 @@ impl Frame<'_> {
         }
         view! {
             cx =>
-            <div class="ml-auto flex items-center gap-2">
+            <div class="flex items-center gap-2">
                 for control in buttons {
                     (control)
                 }

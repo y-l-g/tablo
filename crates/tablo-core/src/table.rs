@@ -10,10 +10,14 @@ use std::{marker::PhantomData, num::NonZeroUsize, sync::Arc};
 use derive_where::derive_where;
 use toasty::stmt::{Expr, List, OrderByExpr};
 
-pub(crate) use self::column::{BoxColumn, Column, include_relations};
 use self::filter::BoxFilter;
+pub(crate) use self::{
+    choice::ColumnChoice,
+    column::{BoxColumn, Column, include_relations},
+};
 use crate::{DeclarationErrorKind, Lens, form::FormScalar, schema::Binding};
 
+mod choice;
 pub(crate) mod column;
 mod export;
 pub(crate) mod filter;
@@ -22,10 +26,10 @@ mod state;
 
 pub use self::{
     column::{
-        Alignment, BooleanColumn, Color, ColorColumn, ColumnWidth, ComputedColumn, CountColumn,
-        Currency, DateColumn, DateValue, EmbeddedColumn, FileColumn, ImageColumn, IntoColumns,
-        ModelColumns, Number, Numeric, RelationColumn, RelationLens, RepeaterColumn, TextColumn,
-        ToOneRelation, contains_expr,
+        Alignment, BooleanColumn, Color, ColorColumn, ColumnToggle, ColumnWidth, ComputedColumn,
+        CountColumn, Currency, DateColumn, DateValue, EmbeddedColumn, FileColumn, ImageColumn,
+        IntoColumns, ModelColumns, Number, Numeric, RelationColumn, RelationLens, RepeaterColumn,
+        TextColumn, ToOneRelation, contains_expr,
     },
     filter::{DateFilter, FilterValue, IntoFilters, QueryFilter, SelectFilter, TernaryFilter},
     page::{PagePosition, TablePage},
@@ -182,6 +186,11 @@ impl<M> Table<M> {
         let filters = filters.into_filters();
         self.filters = filters;
         self
+    }
+
+    /// Whether a reader may hide or show any of the columns.
+    pub(crate) fn has_toggleable_columns(&self) -> bool {
+        self.columns.iter().any(|c| c.toggle().is_toggleable())
     }
 
     /// The declared columns, in order.

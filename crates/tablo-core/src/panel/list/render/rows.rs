@@ -518,8 +518,7 @@ impl<M> WiredTable<M> {
                     RowActions::ALL
                 };
                 let cells: Vec<BoxView<'a>> = self
-                    .declared_columns()
-                    .iter()
+                    .visible_columns()
                     .map(|col| col.cell(cx, row))
                     .collect();
                 let edit_url = frame

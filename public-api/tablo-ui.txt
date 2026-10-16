@@ -2239,6 +2239,7 @@ pub const tablo_ui::icons::CHEVRONS_UP_DOWN: topcoat_icon::data::IconData
 pub const tablo_ui::icons::CHEVRON_DOWN: topcoat_icon::data::IconData
 pub const tablo_ui::icons::CIRCLE_CHECK: topcoat_icon::data::IconData
 pub const tablo_ui::icons::CIRCLE_X: topcoat_icon::data::IconData
+pub const tablo_ui::icons::COLUMNS_3: topcoat_icon::data::IconData
 pub const tablo_ui::icons::DOWNLOAD: topcoat_icon::data::IconData
 pub const tablo_ui::icons::ELLIPSIS: topcoat_icon::data::IconData
 pub const tablo_ui::icons::EXTERNAL_LINK: topcoat_icon::data::IconData

@@ -39,7 +39,10 @@ use crate::{
 /// What rendering reads from a [`WiredTable`], without its model: the declared columns and
 /// toolbars, and the action wiring.
 pub(super) struct Frame<'t> {
+    /// The columns the reader's choice shows.
     columns: Vec<ColumnHead<'t>>,
+    /// The column picker, for a reader who may keep a choice.
+    picker: Option<ColumnPicker<'t>>,
     search: bool,
     filter_bar: bool,
     /// The page sizes the reader may pick; empty offers no choice.
@@ -66,6 +69,21 @@ struct ColumnHead<'t> {
     sortable: bool,
     width: ColumnWidth,
     alignment: Alignment,
+}
+
+/// The toolbar's menu of the toggleable columns, posting the reader's choice.
+struct ColumnPicker<'t> {
+    /// The route the choice posts to.
+    url: &'t str,
+    columns: Vec<PickerColumn<'t>>,
+}
+
+/// One toggleable column in the [`ColumnPicker`].
+struct PickerColumn<'t> {
+    name: &'t str,
+    label: &'t str,
+    /// Whether the reader's choice shows it.
+    shown: bool,
 }
 
 /// One custom action the bulk bar offers.
@@ -95,8 +113,7 @@ impl<M> WiredTable<M> {
     {
         Frame {
             columns: self
-                .declared_columns()
-                .iter()
+                .visible_columns()
                 .map(|col| ColumnHead {
                     name: col.name(),
                     label: col.label(),
@@ -105,6 +122,19 @@ impl<M> WiredTable<M> {
                     alignment: col.alignment(),
                 })
                 .collect(),
+            picker: self.columns_url().map(|url| ColumnPicker {
+                url,
+                columns: self
+                    .declared_columns()
+                    .iter()
+                    .filter(|col| col.toggle().is_toggleable())
+                    .map(|col| PickerColumn {
+                        name: col.name(),
+                        label: col.label(),
+                        shown: self.shows(col),
+                    })
+                    .collect(),
+            }),
             search: self.search_enabled(),
             filter_bar: self.filter_bar_enabled(),
             page_sizes: self.page_sizes(),

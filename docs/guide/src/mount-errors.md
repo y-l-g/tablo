@@ -29,7 +29,7 @@ A test matches on the kind rather than the message; see
 | Kind | Refused when | Fix |
 | --- | --- | --- |
 | `MissingDb` | the router holds no `toasty::Db` | call `.app_context(db)` before `.panel(..)` |
-| `MissingAuthModels` | auth is on and the `Db` does not register `AdminUser` and `AuthSession` | add them to `toasty::models!(..)`, or `.auth(Auth::disabled())` |
+| `MissingAuthModels` | auth is on and the `Db` does not register `AdminUser` and `AuthSession`, or `ColumnPreference` while a list has a toggleable column | add them to `toasty::models!(..)`, or `.auth(Auth::disabled())` |
 | `ShellAssetsWithoutBundle` | `shell_assets` is set and the router has no asset bundle | call `.assets(..)` before `.panel(..)` |
 | `FileFieldWithoutUploader` | a form declares a file field and the panel installs no uploader | `Panel::uploads` or `Panel::uploads_dir` |
 | `InvalidSegment` | the prefix, a `ResourceDef::slug` or a `PageDef::slug` is empty, `.` or `..`, or holds whitespace, a control character, URL punctuation, a quote, a backslash or one of `{ } ( )` | pick a plain segment such as `blog-posts` |

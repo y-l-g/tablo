@@ -29,6 +29,8 @@ impl Frame<'_> {
             let fit = if slack == Some(index) { "w-full" } else { "" };
             let align = col.alignment.class();
             let label = col.label.to_string();
+            // The skeleton's placeholder header names no column: only a loaded table's does.
+            let name = links.is_some().then(|| col.name.to_string());
             let sortable = col.sortable;
             let (head_class, aria_sort, header) =
                 if let (true, Some((signals, sorted, _))) = (sortable, links.as_ref()) {
@@ -89,6 +91,7 @@ impl Frame<'_> {
                                 .join(" "))
                             aria-sort=(aria_sort)
                             style=(width.as_deref())
+                            data-column=(name)
                         },
                         (header)
                     )

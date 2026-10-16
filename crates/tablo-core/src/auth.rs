@@ -4,6 +4,7 @@
 //! Reads the signed-in user through [`user`] and [`require_user`]. Stores sessions in
 //! [`AuthSession`] for every authenticator, scoped to the issuing panel.
 
+mod columns;
 mod gate;
 mod login;
 mod page;
@@ -28,7 +29,17 @@ use topcoat::{
 };
 use uuid::Uuid;
 
+pub use self::{
+    columns::ColumnPreference,
+    login::{LOGIN_FIELD, NEXT_FIELD, PASSWORD_FIELD, TENANT_FIELD},
+    password::{AdminUser, PasswordAuth, create_admin, hash_password, verify_password},
+    profile::{Profile, ProfileEditor, ProfileUpdate},
+    registration::{MIN_PASSWORD_CHARS, Registrar, SignUp, new_password_errors},
+    session::{AuthSession, SESSION_LIFETIME, mint_session, revoke_sessions_for_user},
+    throttle::LoginThrottle,
+};
 pub(crate) use self::{
+    columns::{load_choice, save_choice},
     gate::{PanelGate, RuntimeGate},
     login::{
         MAX_LOGIN_BYTES, login_page, login_post, logout_post, logout_url, safe_next, tenant_post,
@@ -38,14 +49,6 @@ pub(crate) use self::{
         DynProfileEditor, offered as profile_offered, profile_page, profile_post, profile_url,
     },
     registration::{DynRegistrar, register_page, register_post},
-};
-pub use self::{
-    login::{LOGIN_FIELD, NEXT_FIELD, PASSWORD_FIELD, TENANT_FIELD},
-    password::{AdminUser, PasswordAuth, create_admin, hash_password, verify_password},
-    profile::{Profile, ProfileEditor, ProfileUpdate},
-    registration::{MIN_PASSWORD_CHARS, Registrar, SignUp, new_password_errors},
-    session::{AuthSession, SESSION_LIFETIME, mint_session, revoke_sessions_for_user},
-    throttle::LoginThrottle,
 };
 use crate::{
     BoxFuture,
@@ -567,10 +570,12 @@ static RERUN_MARKER: http::HeaderValue = http::HeaderValue::from_static("true");
 
 /// Fail loudly at mount when a required shipped model is missing from the
 /// app's `Db` (ADR-0013): the table is never pushed, and the first login
-/// would otherwise be a confusing runtime error.
+/// would otherwise be a confusing runtime error. [`ColumnPreference`] is
+/// required only when some list declares a toggleable column (`toggles`).
 pub(crate) fn check_models_registered(
     db: &toasty::Db,
     auth: &Auth,
+    toggles: bool,
 ) -> Result<(), crate::DeclarationErrorKind> {
     let Some(authenticator) = auth.authenticator() else {
         return Ok(());
@@ -581,6 +586,7 @@ pub(crate) fn check_models_registered(
     let models: Vec<&'static str> = [
         (!registered("AuthSession")).then_some("AuthSession"),
         (shipped_user && !registered("AdminUser")).then_some("AdminUser"),
+        (toggles && !registered("ColumnPreference")).then_some("ColumnPreference"),
     ]
     .into_iter()
     .flatten()

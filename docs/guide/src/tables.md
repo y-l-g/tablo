@@ -131,6 +131,26 @@ The export writes the formatted value: `$1,234.50`, not `123450`. Money uses `,`
 separators; a locale's own spelling is a `.format(..)`. A date column is the exception: its export
 writes the stored value, `2026-10-14T09:30:00Z`, while its cell shows the day.
 
+### Hiding columns
+
+`.toggleable()` lets each reader hide a column from the list, and `.hidden_by_default()` starts it
+hidden until they show it. Every built-in column takes both:
+
+```rust
+{{#include ../../../examples/guide/src/tables.rs:table-toggleable}}
+```
+
+A list with such a column renders a Columns menu at the right end of its toolbar, checking each toggleable
+column the reader sees; Apply keeps the checked ones and Reset restores the defaults. The panel
+keeps the choice per signed-in user and per resource, in the shipped `ColumnPreference` model,
+which the `Db` registers beside `AuthSession`. The relation tables over a resource show the
+columns its list shows. A column added later, or one whose default changes, takes its default
+until the reader picks otherwise.
+
+Search, sort and the export still read every column, hidden or not, and a detail page shows them
+all. A panel without auth has no user to keep a choice for: it renders no menu and shows the
+defaults, as does a table an app renders on its own page with `wired_table`.
+
 ### Your own columns
 
 A column is anything that implements `Column<M>`, from `tablo::extend`. The built-in columns
@@ -141,9 +161,9 @@ implement it and nothing more, so a column of your own reaches as far as theirs:
 ```
 
 Only `name`, `label` and `text` are required. The other methods default to a column that is
-narrow, start-aligned, not searchable, not sortable and reads no relation: override
-`column_width`, `alignment`, `is_searchable` and `search_expr`, `is_sortable` and `order_by`, or
-`includes` to change that. Put
+narrow, start-aligned, not searchable, not sortable, always shown and reads no relation: override
+`column_width`, `alignment`, `is_searchable` and `search_expr`, `is_sortable` and `order_by`,
+`toggle`, or `includes` to change that. Put
 the column in the tuple next to the built-in ones, or append it with `Table::column(..)`, which
 also takes columns past the tuple's twelve.
 

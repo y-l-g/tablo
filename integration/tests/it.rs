@@ -26,6 +26,7 @@ mod resource_query_override;
 mod sign_up;
 mod sqlite;
 mod stream_pool;
+mod toggleable_columns;
 mod typed_leaves;
 mod uploads;
 mod upstream;
