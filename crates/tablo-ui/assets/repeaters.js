@@ -16,8 +16,7 @@
 // button is `type="button"`, so none submits the form.
 //
 // A script rather than Topcoat handlers: rendering the rows from a signal
-// would rerun the page on each add, and a rerun clears the rows the user typed
-// into (topcoat#504).
+// would rerun the whole page on each add.
 
 const ROW = '__row__';
 

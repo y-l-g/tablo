@@ -610,24 +610,6 @@ async fn a_comment_deleted_from_the_post_page_returns_to_it() {
     );
 }
 
-/// The edit page renders no relation: a change to one reruns the page, which resets the fields
-/// the reader has not saved.
-#[tokio::test]
-async fn the_post_edit_page_renders_no_relation() {
-    let db = full_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
-    let mut db_q = db.clone();
-    let (commented, _) = fixture_posts(&mut db_q).await;
-    let html = body_string(
-        client
-            .get(&format!("/admin/posts/{}/edit", commented.id))
-            .await,
-    )
-    .await;
-    assert!(!html.contains("data-relation="), "{html}");
-}
-
 #[tokio::test]
 async fn comments_list_shows_body_and_post_title() {
     let db = full_db().await;

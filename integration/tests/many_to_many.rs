@@ -305,8 +305,9 @@ async fn an_edit_leaves_linked_the_books_the_user_may_not_view() {
         ..
     } = library().await;
     let html = body_string(get(&router, &format!("/admin/shelves/{}/edit", open.id)).await).await;
+    // The shelf's books table under the form still lists it, as on the detail page.
     assert!(
-        !html.contains(&hidden.id.to_string()),
+        !html.contains(&format!("name=\"books\" value=\"{}\"", hidden.id)),
         "the form offers no hidden book: {html}"
     );
     // Unchecking every box the form offers unlinks only what it offered.

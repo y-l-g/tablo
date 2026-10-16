@@ -23,7 +23,7 @@ use crate::{
 };
 
 /// What a form page shows around its form: the create page and the edit page differ only here.
-pub(crate) struct FormChrome {
+pub(crate) struct FormChrome<'a> {
     title: String,
     submit_label: String,
     /// Whether the submit button renders destructive: an action that confirms, whose page says
@@ -42,9 +42,11 @@ pub(crate) struct FormChrome {
     options: Option<String>,
     /// Whether the form edits a stored record.
     editing: bool,
+    /// The record's relation tables, under the form.
+    relations: Vec<BoxView<'a>>,
 }
 
-impl FormChrome {
+impl<'a> FormChrome<'a> {
     pub(super) fn create<R: Resource>(resource: &Mounted<R>) -> Self {
         Self {
             title: format!("Create {}", resource.label),
@@ -56,6 +58,7 @@ impl FormChrome {
             hidden: Vec::new(),
             options: None,
             editing: false,
+            relations: Vec::new(),
         }
     }
 
@@ -79,7 +82,14 @@ impl FormChrome {
             hidden: Vec::new(),
             options: None,
             editing: true,
+            relations: Vec::new(),
         }
+    }
+
+    /// Renders `relations` under the form.
+    pub(super) fn with_relations(mut self, relations: Vec<BoxView<'a>>) -> Self {
+        self.relations = relations;
+        self
     }
 
     /// An action's input page: titled `title`, submitted by the action's `label`, carrying
@@ -103,6 +113,7 @@ impl FormChrome {
             hidden,
             options: Some(options),
             editing: false,
+            relations: Vec::new(),
         }
     }
 }
@@ -112,7 +123,7 @@ impl FormChrome {
 pub(crate) async fn render_form_page<'a>(
     cx: &'a Cx,
     schema: &Schema,
-    chrome: FormChrome,
+    chrome: FormChrome<'a>,
     values: &FormValues,
     errors: &FieldErrors,
     carried: &HashSet<String>,
@@ -127,6 +138,7 @@ pub(crate) async fn render_form_page<'a>(
         hidden,
         options,
         editing,
+        relations,
     } = chrome;
     let mut source = crate::schema::Source::form(values, errors).editing(editing);
     if let Some(url) = options {
@@ -225,6 +237,9 @@ pub(crate) async fn render_form_page<'a>(
                         </a>
                     </div>
                 </form>
+                for relation in relations {
+                    (relation)
+                }
             )
         )
     }

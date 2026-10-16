@@ -5,7 +5,8 @@
 use http::header::LOCATION;
 use tablo::{
     Ability, DeclarationErrorKind, Relation, Resource, ResourceDef, Schema, Site, Table,
-    TextColumn, lens, testing::find_href_with,
+    TextColumn, lens,
+    testing::{field_error, find_href_with},
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
@@ -187,15 +188,38 @@ async fn the_relation_reads_and_writes_only_its_prefixed_state() {
     );
 }
 
-/// The detail page carries the relation's writes, each returning to it; the edit page renders no
-/// relation.
+/// The edit page lists the owner's children under its form, its writes returning to the edit page.
 #[tokio::test]
-async fn the_detail_page_carries_the_writes() {
+async fn the_edit_page_lists_the_owners_children_and_returns_to_itself() {
     let (router, _db, ada, _bob) = fixture().await;
     let edit = format!("/admin/owners/{}/edit", ada.id);
     let html = body_string(get(&router, &edit).await).await;
-    assert!(!html.contains("data-relation="), "{html}");
+    assert_eq!(listed_bodies(&html), ["ada-first", "ada-second"], "{html}");
+    let return_to = format!("return=%2Fadmin%2Fowners%2F{}%2Fedit", ada.id);
+    assert!(
+        find_href_with(
+            &html,
+            &format!("/admin/children/-/create?owner_id={}", ada.id)
+        )
+        .is_some_and(|create| create.contains(&return_to)),
+        "create link returns to the edit page: {html}"
+    );
+}
 
+/// A refused save renders no relation: a rerun would drop its errors.
+#[tokio::test]
+async fn a_refused_save_renders_no_relation() {
+    let (router, _db, ada, _bob) = fixture().await;
+    let edit = format!("/admin/owners/{}/edit", ada.id);
+    let html = body_string(post_fields(&router, &edit, &[("name", "")]).await).await;
+    assert!(field_error(&html, "name").is_some(), "{html}");
+    assert!(!html.contains("data-relation="), "{html}");
+}
+
+/// The detail page carries the relation's writes, each returning to it.
+#[tokio::test]
+async fn the_detail_page_carries_the_writes() {
+    let (router, _db, ada, _bob) = fixture().await;
     let detail = format!("/admin/owners/{}", ada.id);
     let html = body_string(get(&router, &detail).await).await;
     assert!(html.contains("data-relation=\"children\""), "{html}");
