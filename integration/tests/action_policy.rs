@@ -11,9 +11,7 @@ use toasty::Db;
 use topcoat::{context::Cx, router::Router};
 use uuid::Uuid;
 
-use crate::framework::common::{
-    body_string, flash, get, memory_db, mount, panel, post_fields, rows,
-};
+use crate::common::{body_string, flash, get, memory_db, mount, panel, post_fields, rows};
 
 #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
 struct Ticket {

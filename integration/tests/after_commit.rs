@@ -4,7 +4,7 @@ use toasty::Db;
 use topcoat::{context::Cx, router::Body};
 use uuid::Uuid;
 
-use crate::framework::common::{body_string, memory_db, panel_router, post_fields};
+use crate::common::{body_string, memory_db, panel_router, post_fields};
 
 #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
 struct Note {

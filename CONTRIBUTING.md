@@ -15,8 +15,9 @@ be accepted before the implementation PR.
 | `crates/tablo-ui` | `primitives/` synced from `topcoat-ui-registry`, `composites/` owned here |
 | `crates/tablo-test` | the in-memory HTTP client, re-exported as `tablo::testing` |
 | `crates/tablo-build` | `tailwind()`, the app's Tailwind build over Tablo's sources |
-| `examples/showcase` | the runnable admin and the integration suite |
+| `examples/showcase` | the runnable admin and the suite over its resources |
 | `examples/guide` | the guide's compiled snippets, included by `docs/guide/` |
+| `integration` | the integration suite over test-local models, unpublished |
 | `examples/quickstart` | the smallest app, outside the workspace, built from outside the repo by `external-check` |
 | `benchmarks/` | the list-path benchmark |
 | `xtask` | the check runner, the primitives sync, and the repo guards |
@@ -90,8 +91,7 @@ toolchains. Run `check --all` before merging.
 - Unit tests live in `tests.rs` beside their source file (`foo/tests.rs` for `foo.rs`), and build
   their databases and HTML through `test_support` (`memory_db`, `tableless_db`, `Html`).
 - The showcase suite runs on in-memory SQLite, or on the server `TABLO_TEST_DATABASE_URL` names
-  with the matching feature, and CI runs it on PostgreSQL and MySQL too; `tests/framework/` builds
-  its own SQLite databases:
+  with the matching feature, and CI runs it on PostgreSQL and MySQL too:
 
   ```sh
   TABLO_TEST_DATABASE_URL=postgresql://postgres:postgres@localhost/tablo \
@@ -102,8 +102,10 @@ toolchains. Run `check --all` before merging.
   change it.
 - `examples/showcase/tests/it.rs` is one test binary whose modules are the suite files, one
   framework feature each: `cargo test -p showcase --test it list::` runs one file. `gates` holds the
-  anonymous, CSRF and cross-tenant matrices, so a new route joins them there. `tests/framework/`
-  covers what the showcase's resources do not reach, with test-local models.
+  anonymous, CSRF and cross-tenant matrices, so a new route joins them there.
+- `integration/tests/it.rs` covers what the showcase's resources do not reach, with test-local
+  models on their own SQLite databases: `cargo test -p tablo-integration --test it uploads::` runs
+  one file. It is its own crate so that no published crate dev-depends on `tablo-test`.
 
 ## Writing
 

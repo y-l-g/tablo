@@ -14,7 +14,7 @@ use topcoat::{
     view::ViewExt,
 };
 
-use crate::framework::common::input_value;
+use crate::common::input_value;
 
 #[derive(Debug, Clone, toasty::Embed)]
 struct Seo {
@@ -163,7 +163,7 @@ impl tablo::Resource for PageResource {
 /// column.
 #[tokio::test]
 async fn a_column_binds_an_embedded_leaf() {
-    let mut db = crate::framework::common::memory_db(toasty::models!(Page)).await;
+    let mut db = crate::common::memory_db(toasty::models!(Page)).await;
     for (title, seo) in [("First", "Zulu"), ("Second", "Alpha")] {
         toasty::create!(Page {
             title: title.to_string(),
@@ -176,13 +176,10 @@ async fn a_column_binds_an_embedded_leaf() {
         .await
         .expect("create");
     }
-    let router = crate::framework::common::panel_router::<PageResource>(db);
+    let router = crate::common::panel_router::<PageResource>(db);
     let list = |uri: &'static str| {
         let router = &router;
-        async move {
-            crate::framework::common::body_string(crate::framework::common::get(router, uri).await)
-                .await
-        }
+        async move { crate::common::body_string(crate::common::get(router, uri).await).await }
     };
 
     let sorted = list("/admin/pages?sort=seo_title&dir=asc").await;

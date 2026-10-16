@@ -4,7 +4,7 @@ use http::{StatusCode, header::CONTENT_TYPE};
 use tablo::{Ability, Detail, Resource, ResourceDef, Schema, Table, TextColumn, lens};
 use toasty::Db;
 
-use crate::framework::common::{TestClient, body_string, get, memory_db, panel_router};
+use crate::common::{TestClient, body_string, get, memory_db, panel_router};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Tag {

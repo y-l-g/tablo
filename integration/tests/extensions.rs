@@ -16,7 +16,7 @@ use toasty::{Db, stmt::Expr};
 use topcoat::{context::Cx, view::*};
 use uuid::Uuid;
 
-use crate::framework::common::{
+use crate::common::{
     body_string, confirms_first, filter_options, flash, get, input_value, memory_db, mount, panel,
     panel_router, post_fields, refusal, rows,
 };

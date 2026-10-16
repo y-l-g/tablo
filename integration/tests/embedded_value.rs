@@ -641,7 +641,7 @@ impl Resource for PostDetail {
 /// and that variant's leaves alone, with no control.
 #[tokio::test]
 async fn a_detail_page_shows_an_embedded_value_leaf_by_leaf() {
-    let mut db = crate::framework::common::memory_db(toasty::models!(Post)).await;
+    let mut db = crate::common::memory_db(toasty::models!(Post)).await;
     let post = toasty::create!(Post {
         title: "Launch".to_string(),
         seo: Seo {
@@ -671,9 +671,9 @@ async fn a_detail_page_shows_an_embedded_value_leaf_by_leaf() {
     .exec(&mut db)
     .await
     .expect("seed post");
-    let router = crate::framework::common::panel_router::<PostDetail>(db);
-    let view = crate::framework::common::body_string(
-        crate::framework::common::get(&router, &format!("/admin/posts/{}", post.id)).await,
+    let router = crate::common::panel_router::<PostDetail>(db);
+    let view = crate::common::body_string(
+        crate::common::get(&router, &format!("/admin/posts/{}", post.id)).await,
     )
     .await;
 

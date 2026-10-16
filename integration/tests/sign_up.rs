@@ -17,7 +17,7 @@ use toasty::Db;
 use topcoat::{context::Cx, router::Router};
 use uuid::Uuid;
 
-use crate::framework::common::{TestClient, body_string, flash, memory_db, mount, refusal};
+use crate::common::{TestClient, body_string, flash, memory_db, mount, refusal};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Note {

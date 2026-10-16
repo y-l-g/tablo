@@ -1,7 +1,7 @@
 //! Upstream behavior Tablo rests on, pinned so a dependency bump that changes it fails here, named
 //! for what changed, rather than as a symptom elsewhere.
 
-use crate::framework::common::memory_db;
+use crate::common::memory_db;
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Note {

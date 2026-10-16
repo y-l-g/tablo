@@ -4,10 +4,7 @@
 use tablo::{Ability, NotificationStatus, lens};
 use toasty::Db;
 
-use crate::{
-    common::{TestClient, body_string, mount, set_cookie_header},
-    framework::common::flash,
-};
+use crate::common::{TestClient, body_string, flash, mount, set_cookie_header};
 
 #[tokio::test]
 async fn create_policy_deny() {

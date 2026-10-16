@@ -9,7 +9,7 @@ use topcoat::{
     view::ViewExt,
 };
 
-use crate::framework::common::{field_error, input_value, mount};
+use crate::common::{field_error, input_value, mount};
 
 #[derive(Debug, toasty::Model)]
 struct Measurement {

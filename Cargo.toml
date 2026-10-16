@@ -10,6 +10,7 @@ members = [
     "crates/tablo-ui",
     "examples/guide",
     "examples/showcase",
+    "integration",
     "xtask",
 ]
 
