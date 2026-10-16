@@ -2997,14 +2997,19 @@ pub const tablo_core::table::DEFAULT_PAGE_SIZE: core::num::nonzero::NonZeroUsize
 pub const tablo_core::table::DEFAULT_PER_PAGE_OPTIONS: [usize; 4]
 pub trait tablo_core::table::DateValue: core::marker::Sized + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::table::DateValue::calendar_date(&self) -> core::option::Option<jiff::civil::date::Date>
+pub fn tablo_core::table::DateValue::stored_text(&self) -> alloc::string::String
 impl tablo_core::DateValue for jiff::civil::date::Date
 pub fn jiff::civil::date::Date::calendar_date(&self) -> core::option::Option<jiff::civil::date::Date>
+pub fn jiff::civil::date::Date::stored_text(&self) -> alloc::string::String
 impl tablo_core::DateValue for jiff::civil::datetime::DateTime
 pub fn jiff::civil::datetime::DateTime::calendar_date(&self) -> core::option::Option<jiff::civil::date::Date>
+pub fn jiff::civil::datetime::DateTime::stored_text(&self) -> alloc::string::String
 impl tablo_core::DateValue for jiff::timestamp::Timestamp
 pub fn jiff::timestamp::Timestamp::calendar_date(&self) -> core::option::Option<jiff::civil::date::Date>
+pub fn jiff::timestamp::Timestamp::stored_text(&self) -> alloc::string::String
 impl<T: tablo_core::DateValue> tablo_core::DateValue for core::option::Option<T>
 pub fn core::option::Option<T>::calendar_date(&self) -> core::option::Option<jiff::civil::date::Date>
+pub fn core::option::Option<T>::stored_text(&self) -> alloc::string::String
 pub trait tablo_core::table::IntoColumns<M>
 impl<M, A, B, C, D, E, F, G, H, I, J, K, L> tablo_core::IntoColumns<M> for (A, B, C, D, E, F, G, H, I, J, K, L) where A: tablo_core::extend::Column<M> + 'static, B: tablo_core::extend::Column<M> + 'static, C: tablo_core::extend::Column<M> + 'static, D: tablo_core::extend::Column<M> + 'static, E: tablo_core::extend::Column<M> + 'static, F: tablo_core::extend::Column<M> + 'static, G: tablo_core::extend::Column<M> + 'static, H: tablo_core::extend::Column<M> + 'static, I: tablo_core::extend::Column<M> + 'static, J: tablo_core::extend::Column<M> + 'static, K: tablo_core::extend::Column<M> + 'static, L: tablo_core::extend::Column<M> + 'static
 impl<M, A, B, C, D, E, F, G, H, I, J, K> tablo_core::IntoColumns<M> for (A, B, C, D, E, F, G, H, I, J, K) where A: tablo_core::extend::Column<M> + 'static, B: tablo_core::extend::Column<M> + 'static, C: tablo_core::extend::Column<M> + 'static, D: tablo_core::extend::Column<M> + 'static, E: tablo_core::extend::Column<M> + 'static, F: tablo_core::extend::Column<M> + 'static, G: tablo_core::extend::Column<M> + 'static, H: tablo_core::extend::Column<M> + 'static, I: tablo_core::extend::Column<M> + 'static, J: tablo_core::extend::Column<M> + 'static, K: tablo_core::extend::Column<M> + 'static
@@ -5571,14 +5576,19 @@ pub async fn tablo_core::PasswordAuth::find_by_id(&self, &topcoat_core::context:
 pub async fn tablo_core::PasswordAuth::verify(&self, &topcoat_core::context::Cx, &str, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
 pub trait tablo_core::DateValue: core::marker::Sized + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::DateValue::calendar_date(&self) -> core::option::Option<jiff::civil::date::Date>
+pub fn tablo_core::DateValue::stored_text(&self) -> alloc::string::String
 impl tablo_core::DateValue for jiff::civil::date::Date
 pub fn jiff::civil::date::Date::calendar_date(&self) -> core::option::Option<jiff::civil::date::Date>
+pub fn jiff::civil::date::Date::stored_text(&self) -> alloc::string::String
 impl tablo_core::DateValue for jiff::civil::datetime::DateTime
 pub fn jiff::civil::datetime::DateTime::calendar_date(&self) -> core::option::Option<jiff::civil::date::Date>
+pub fn jiff::civil::datetime::DateTime::stored_text(&self) -> alloc::string::String
 impl tablo_core::DateValue for jiff::timestamp::Timestamp
 pub fn jiff::timestamp::Timestamp::calendar_date(&self) -> core::option::Option<jiff::civil::date::Date>
+pub fn jiff::timestamp::Timestamp::stored_text(&self) -> alloc::string::String
 impl<T: tablo_core::DateValue> tablo_core::DateValue for core::option::Option<T>
 pub fn core::option::Option<T>::calendar_date(&self) -> core::option::Option<jiff::civil::date::Date>
+pub fn core::option::Option<T>::stored_text(&self) -> alloc::string::String
 pub trait tablo_core::EmbeddedForm: core::marker::Sized
 pub fn tablo_core::EmbeddedForm::read_form<M>(&topcoat_core::context::Cx, impl core::convert::Into<toasty::stmt::path::Path<M, Self>>, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>> where M: toasty::schema::model::Model
 pub fn tablo_core::EmbeddedForm::write_form<M>(&self, &topcoat_core::context::Cx, impl core::convert::Into<toasty::stmt::path::Path<M, Self>>, &mut tablo_core::FormValues) where M: toasty::schema::model::Model

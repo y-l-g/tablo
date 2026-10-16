@@ -636,9 +636,9 @@ where
 /// tablo_core::DateColumn::new(tablo_core::lens!(Post.published_at)).sortable();
 /// ```
 ///
-/// The cell spells the day `Oct 14, 2026`, and the export writes the same spelling; a `None`
-/// renders the table's dash. A [`TextColumn`] keeps the stored spelling instead,
-/// `2026-10-14T09:30:00Z` or `2026-10-14`; a group header follows the field, not the column.
+/// The cell spells the day `Oct 14, 2026`, and a `None` renders the table's dash. The export
+/// writes the stored spelling, `2026-10-14T09:30:00Z` or `2026-10-14`, as a [`TextColumn`] does;
+/// a group header follows the field, not the column.
 #[derive_where(Clone, Debug)]
 pub struct DateColumn<M, T> {
     lens: Lens<M, T>,
@@ -652,11 +652,23 @@ pub struct DateColumn<M, T> {
 pub trait DateValue: Sized + Send + Sync + 'static {
     /// The value's calendar day, `None` when it holds none.
     fn calendar_date(&self) -> Option<jiff::civil::Date>;
+
+    /// The value's stored spelling, which a column's text and export carry. The default spells
+    /// the calendar day as an ISO date.
+    fn stored_text(&self) -> String {
+        self.calendar_date()
+            .map(|day| day.to_string())
+            .unwrap_or_default()
+    }
 }
 
 impl DateValue for jiff::civil::Date {
     fn calendar_date(&self) -> Option<jiff::civil::Date> {
         Some(*self)
+    }
+
+    fn stored_text(&self) -> String {
+        FormScalar::to_label(self)
     }
 }
 
@@ -664,17 +676,31 @@ impl DateValue for jiff::civil::DateTime {
     fn calendar_date(&self) -> Option<jiff::civil::Date> {
         Some(self.date())
     }
+
+    fn stored_text(&self) -> String {
+        FormScalar::to_label(self)
+    }
 }
 
 impl DateValue for jiff::Timestamp {
     fn calendar_date(&self) -> Option<jiff::civil::Date> {
         Some(self.to_zoned(jiff::tz::TimeZone::UTC).date())
     }
+
+    fn stored_text(&self) -> String {
+        FormScalar::to_label(self)
+    }
 }
 
 impl<T: DateValue> DateValue for Option<T> {
     fn calendar_date(&self) -> Option<jiff::civil::Date> {
         self.as_ref().and_then(DateValue::calendar_date)
+    }
+
+    fn stored_text(&self) -> String {
+        self.as_ref()
+            .map(DateValue::stored_text)
+            .unwrap_or_default()
     }
 }
 
@@ -705,11 +731,17 @@ where
     base_column_methods!(bind);
 
     fn text(&self, _cx: &Cx, row: &M) -> String {
-        self.lens
+        self.lens.read(row).stored_text()
+    }
+
+    fn cell<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
+        let day = self
+            .lens
             .read(row)
             .calendar_date()
             .map(|day| day.strftime("%b %-d, %Y").to_string())
-            .unwrap_or_default()
+            .unwrap_or_default();
+        crate::schema::value_cell(cx, &day)
     }
 
     fn is_sortable(&self) -> bool {

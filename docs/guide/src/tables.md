@@ -50,7 +50,7 @@ foreign key `Relation::has_many` takes.
 | Constructor | Cell | Search and sort |
 | --- | --- | --- |
 | `TextColumn::new(lens)` | the field's value as text (an `Options` enum's label), or `.format(\|value\| ..)` of it; see [Presenting values](#presenting-values) | `.searchable()` on a `String` field, `.sortable()` |
-| `DateColumn::new(lens)` | a `jiff::civil::Date`, `civil::DateTime` or `Timestamp` field's calendar day, `Oct 14, 2026` (a timestamp in UTC); a dash when the field holds none | `.sortable()` |
+| `DateColumn::new(lens)` | a `jiff::civil::Date`, `civil::DateTime` or `Timestamp` field's calendar day, `Oct 14, 2026` (a timestamp in UTC); a dash when the field holds none. The export writes the stored value, `2026-10-14T09:30:00Z`. | `.sortable()` |
 | `ComputedColumn::new(label, project)` | `project(row)` | neither: the methods do not exist |
 | `RelationColumn::of::<R>(relation!(..))` | a `Deferred` `belongs_to` or `has_one` field's record, titled as `R` titles it: a resource's `record_title`; a dash for a nullable field holding none | neither |
 | `RelationColumn::new(relation!(..), project)` | `project` of the same record, for a related model no resource or option source labels | neither |
@@ -128,7 +128,8 @@ An `Options` enum gives each variant its badge color with `#[option(color = "…
 ```
 
 The export writes the formatted value: `$1,234.50`, not `123450`. Money uses `,` and `.` as
-separators; a locale's own spelling is a `.format(..)`.
+separators; a locale's own spelling is a `.format(..)`. A date column is the exception: its export
+writes the stored value, `2026-10-14T09:30:00Z`, while its cell shows the day.
 
 ### Your own columns
 
