@@ -19,8 +19,8 @@ use topcoat::{
 };
 
 use super::{
-    PanelUser, SignedIn, infrastructure_failure, panel_root, registration::new_password_errors,
-    session::record, signed, unauthenticated_error,
+    PanelUser, SignedIn, panel_root, registration::new_password_errors, session::replace_sessions,
+    signed, unauthenticated_error,
 };
 use crate::{
     BoxFuture,
@@ -36,8 +36,8 @@ use crate::{
 ///
 /// It mirrors a [`Registrar`](super::Registrar): [`Input`](Self::Input) is the form the page
 /// shows, [`fill`](Self::fill) seeds it from the account, [`validate`](Self::validate) refuses a
-/// submission field by field, and [`save`](Self::save) writes it. Both run in one transaction
-/// the framework opens.
+/// submission field by field, and [`save`](Self::save) writes it. `validate` and `save` run in one
+/// transaction the framework opens.
 ///
 /// The shipped [`PasswordAuth`](super::PasswordAuth) edits an [`AdminUser`](super::AdminUser)
 /// through a [`Profile`]; an app with its own user table implements it beside its
@@ -131,18 +131,20 @@ pub trait ProfileEditor: Send + Sync + 'static {
 
 /// What a [`ProfileEditor::save`] changed, which decides what happens to the user's sessions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ProfileUpdate {
     /// Nothing the user signs in with: every session stays signed in.
     Details,
-    /// Something the user signs in with, such as a password: every other session of the user is
-    /// revoked, and the browser that saved gets a new session.
+    /// Something the user signs in with, such as a password: the user's sessions end on every
+    /// panel whose authenticator loads the same user type, in the transaction that saves, and the
+    /// browser that saved gets a new session under the tenant it acted for.
     Credentials,
 }
 
 /// What a profile submission came to.
 pub(crate) enum Outcome {
-    /// The committed change.
-    Saved(ProfileUpdate),
+    /// The committed change, its sessions replaced when a credential changed.
+    Saved,
     /// The refused submission, its values, and why. The page renders a password control empty.
     Refused {
         values: FormValues,
@@ -156,11 +158,12 @@ pub(crate) trait DynProfileEditor: Send + Sync {
     fn schema(&self) -> Schema;
     /// The form's first values for `user`, or `None` for a user of another type.
     fn values(&self, cx: &Cx, user: &dyn PanelUser) -> Option<FormValues>;
-    /// Parses, checks, validates and saves one submission for `user`.
+    /// Parses, checks, validates and saves one submission for `signed`'s user, replacing their
+    /// sessions in the same transaction when a credential changed.
     fn submit<'a>(
         &'a self,
         cx: &'a Cx,
-        user: &'a dyn PanelUser,
+        signed: &'a SignedIn,
         values: FormValues,
     ) -> BoxFuture<'a, topcoat::Result<Outcome>>;
     /// The [`TypeId`] and name of [`ProfileEditor::User`], which mounting compares with the
@@ -184,15 +187,25 @@ impl<E: ProfileEditor> DynProfileEditor for E {
     fn submit<'a>(
         &'a self,
         cx: &'a Cx,
-        user: &'a dyn PanelUser,
-        values: FormValues,
+        signed: &'a SignedIn,
+        mut values: FormValues,
     ) -> BoxFuture<'a, topcoat::Result<Outcome>> {
         Box::pin(async move {
-            let any: &dyn Any = user;
+            let any: &dyn Any = &*signed.user;
             let user = any
                 .downcast_ref::<E::User>()
                 .ok_or_else(|| topcoat::Error::from(forbidden()))?;
             let schema = E::Input::schema();
+            let mut stored = FormValues::new();
+            self.fill(cx, user).write(&mut stored);
+            // A control the page renders disabled posts nothing the user may change: it keeps
+            // what `fill` wrote, whatever a crafted POST carries.
+            for key in schema.disabled_keys(true) {
+                match stored.get(key) {
+                    Some(value) => values.insert(key, value.clone()),
+                    None => values.remove(key),
+                };
+            }
             let mut errors = FieldErrors::new();
             let parsed = match E::Input::parse(cx, &values) {
                 Ok(parsed) => Some(parsed),
@@ -203,8 +216,6 @@ impl<E: ProfileEditor> DynProfileEditor for E {
                     None
                 }
             };
-            let mut stored = FormValues::new();
-            self.fill(cx, user).write(&mut stored);
             schema
                 .check_controls(cx, &values, &stored, &mut errors)
                 .await;
@@ -221,8 +232,11 @@ impl<E: ProfileEditor> DynProfileEditor for E {
                 return Ok(refused(errors));
             };
             let mut db = crate::db::db(cx);
-            let mut tx = db.transaction().await.map_err(infrastructure_failure)?;
-            let errors = self.validate(cx, user, &input, &mut tx).await?;
+            let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
+            let errors = self
+                .validate(cx, user, &input, &mut tx)
+                .await
+                .map_err(write_failure)?;
             if let Some(key) = schema.unplaced_error(&errors) {
                 return Err(crate::error::declaration(format!(
                     "the profile editor refused key `{key}`, which no profile control renders"
@@ -231,15 +245,30 @@ impl<E: ProfileEditor> DynProfileEditor for E {
             if !errors.is_empty() {
                 return Ok(refused(errors));
             }
-            let update = self.save(cx, user, input, &mut tx).await?;
-            tx.commit().await.map_err(infrastructure_failure)?;
-            Ok(Outcome::Saved(update))
+            let update = self
+                .save(cx, user, input, &mut tx)
+                .await
+                .map_err(write_failure)?;
+            if update == ProfileUpdate::Credentials {
+                // The new credential and the end of the sessions the old one opened commit
+                // together, or neither does. The token only reaches the browser with the response.
+                let session = session::start(cx).await?;
+                replace_sessions(cx, &mut tx, signed, TypeId::of::<E::User>(), &session).await?;
+            }
+            tx.commit().await.map_err(crate::error::unavailable)?;
+            Ok(Outcome::Saved)
         })
     }
 
     fn user_type(&self) -> (TypeId, &'static str) {
         (TypeId::of::<E::User>(), std::any::type_name::<E::User>())
     }
+}
+
+/// A failed profile write: a database failure becomes the opaque outage, logged; an editor's own
+/// error keeps its mapping.
+fn write_failure(error: topcoat::Error) -> topcoat::Error {
+    crate::error::driver_failure(error, crate::error::DATABASE_UNAVAILABLE)
 }
 
 /// The profile form [`PasswordAuth`](super::PasswordAuth) edits an
@@ -303,7 +332,7 @@ impl FormInput for Profile {
                 .password()
                 .label("Confirm new password"),
             Field::text_input::<String>(CURRENT_PASSWORD_FIELD)
-                .password()
+                .current_password()
                 .label("Current password")
                 .help("Required to change your email or password."),
         ))
@@ -387,26 +416,20 @@ pub(crate) fn profile_post(cx: &Cx, body: Body) -> BoxView<'_> {
         let form = crate::panel::parse_form_body(cx, body).await?;
         crate::csrf::verify(cx, form.last(crate::csrf::FIELD_NAME))?;
         let values = editor.schema().read_input(&form.pairs, &RESERVED_KEYS)?;
-        let user_id = signed.user.user_id();
-        let client = client_ip(cx);
         // A stolen session must not try passwords against the current-password check at will.
+        // Counted per user alone, from any address: a lockout only holds back profile saves,
+        // never a sign-in.
         let throttle = signed.panel.auth.throttle_profile();
-        if !throttle.attempt(&user_id, client) {
-            tracing::warn!(panel = %signed.panel.prefix, client = ?client, "profile save throttled");
+        if !throttle.attempt(&signed.user.user_id(), None) {
+            tracing::warn!(
+                panel = %signed.panel.prefix,
+                client = ?client_ip(cx),
+                "profile save throttled"
+            );
             return Err(too_many_requests(throttle.window_secs()).into());
         }
-        let update = match editor.submit(cx, signed.user.as_ref(), values).await? {
-            Outcome::Saved(update) => update,
-            Outcome::Refused { values, errors } => {
-                return render(cx, editor, &values, &errors).await;
-            }
-        };
-        if update == ProfileUpdate::Credentials {
-            // Every session the old credential opened ends; this browser gets a new one, as a
-            // login would issue.
-            super::revoke_sessions_for_user(cx, &user_id).await?;
-            let session = session::start(cx).await?;
-            record(cx, &session, signed.user.as_ref(), &signed.panel).await?;
+        if let Outcome::Refused { values, errors } = editor.submit(cx, signed, values).await? {
+            return render(cx, editor, &values, &errors).await;
         }
         set_notification(cx, Notification::success("Profile saved"));
         Err(see_other(profile_url(cx)).into())

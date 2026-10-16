@@ -246,7 +246,8 @@ impl ProfileEditor for StaffAuth {
                 errors.add("current_password", "The current password is incorrect");
             }
         }
-        if new_email {
+        // Only the account's owner learns whether another account holds an email.
+        if new_email && !errors.contains_key("current_password") {
             let taken = Staff::filter(Staff::fields().email().eq(profile.email.clone()))
                 .first()
                 .exec(ex)

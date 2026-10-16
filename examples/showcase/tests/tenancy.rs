@@ -1,5 +1,7 @@
 use http::header::COOKIE;
-use showcase::models::{Author, DEMO_TENANT, SIDE_TENANT, TENANTLESS_ADMIN_EMAIL};
+use showcase::models::{
+    Author, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, DEMO_TENANT, SIDE_TENANT, TENANTLESS_ADMIN_EMAIL,
+};
 use tablo::{
     TenantId,
     testing::{find_href_with, nav_badge},
@@ -8,7 +10,7 @@ use topcoat::router::Body;
 
 use crate::common::{
     SESSION_COOKIE, body_string, demo_client, form_body, full_db, input_value, mint_session,
-    routers::router_for_tests as router, tenanted_db, tenantless_client,
+    response_cookies, routers::router_for_tests as router, tenanted_db, tenantless_client,
 };
 
 #[tokio::test]
@@ -43,6 +45,41 @@ async fn the_demo_admin_switches_between_their_two_blogs() {
     assert_eq!(switched.status(), 303);
 
     let html = body_string(client.get("/admin/authors").await).await;
+    assert!(!html.contains("Ada Author"), "{html}");
+}
+
+/// A changed password renews the session under the tenant the user acted for, not their first.
+#[tokio::test]
+async fn a_changed_password_keeps_the_selected_tenant() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let switched = client
+        .submit(
+            "/admin/tenant",
+            &form_body(&[("tenant", &SIDE_TENANT.to_string())]),
+        )
+        .await;
+    assert_eq!(switched.status(), 303);
+
+    let saved = client
+        .submit(
+            "/admin/profile",
+            &form_body(&[
+                ("name", "Demo Admin"),
+                ("email", DEMO_ADMIN_EMAIL),
+                ("password", "a new password"),
+                ("password_confirmation", "a new password"),
+                ("current_password", DEMO_ADMIN_PASSWORD),
+            ]),
+        )
+        .await;
+    assert_eq!(saved.status(), 303);
+
+    let renewed = client.cookies(&response_cookies(&saved));
+    let page = renewed.get("/admin/authors").await;
+    assert_eq!(page.status(), 200);
+    let html = body_string(page).await;
     assert!(!html.contains("Ada Author"), "{html}");
 }
 

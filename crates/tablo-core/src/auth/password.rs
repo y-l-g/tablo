@@ -128,9 +128,9 @@ impl Registrar for PasswordAuth {
 
 /// Edits the signed-in [`AdminUser`]'s name, email and password through a [`Profile`]. Changing
 /// the email or the password asks for the current password, and refuses a new password
-/// [`new_password_errors`](super::new_password_errors) refuses and an email another account
-/// holds. A changed email or password is a [`ProfileUpdate::Credentials`]. Install it with
-/// [`Auth::profile`](super::Auth::profile).
+/// [`new_password_errors`](super::new_password_errors) refuses and, once the current password
+/// verifies, an email another account holds. A changed email or password is a
+/// [`ProfileUpdate::Credentials`]. Install it with [`Auth::profile`](super::Auth::profile).
 impl ProfileEditor for PasswordAuth {
     type Input = Profile;
     type User = AdminUser;
@@ -166,7 +166,9 @@ impl ProfileEditor for PasswordAuth {
                 Some(_) => {}
             }
         }
-        if new_email {
+        // Only the account's owner learns whether another account holds an email: a stolen
+        // session without the password must not probe addresses.
+        if new_email && !errors.contains_key(CURRENT_PASSWORD_FIELD) {
             let taken = AdminUser::filter(AdminUser::fields().email().eq(profile.email.clone()))
                 .first()
                 .exec(ex)

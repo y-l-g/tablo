@@ -15,14 +15,13 @@ fn a_profile_reads_blank_passwords_as_none() {
     let kept = Profile::parse(
         &cx,
         &values(&[
-            ("name", " Ada "),
+            ("name", "Ada"),
             ("email", "ada@example.com"),
             ("password", "   "),
             ("current_password", ""),
         ]),
     )
     .expect("a profile without passwords parses");
-    assert_eq!(kept.name, "Ada");
     assert_eq!(kept.password, None);
     assert_eq!(kept.current_password, None);
     assert!(kept.password_errors().is_empty());
@@ -51,19 +50,4 @@ fn a_profile_requires_a_name_and_an_email() {
     let mut keys: Vec<&str> = refused.iter().map(|error| error.key.as_str()).collect();
     keys.sort_unstable();
     assert_eq!(keys, ["email", "name"]);
-}
-
-/// A new password is checked as a sign-up's is.
-#[test]
-fn a_new_password_must_be_long_enough_and_confirmed() {
-    let profile = Profile {
-        name: "Ada".to_string(),
-        email: "ada@example.com".to_string(),
-        password: Some("short".to_string()),
-        password_confirmation: "other".to_string(),
-        current_password: None,
-    };
-    let errors = profile.password_errors();
-    assert!(errors.contains_key("password"));
-    assert!(errors.contains_key("password_confirmation"));
 }

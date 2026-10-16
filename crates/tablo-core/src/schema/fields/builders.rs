@@ -288,6 +288,15 @@ impl<F> TextField<F> {
         self
     }
 
+    /// A [`password`](Self::password) the user signs in with today, as a profile's current
+    /// password: the control asks a password manager to fill the stored one.
+    pub(crate) fn current_password(mut self) -> Self {
+        let text = self.text();
+        text.password = true;
+        text.current_password = true;
+        self
+    }
+
     /// Probes a unique index before the write.
     pub fn unique(mut self) -> Self {
         self.text().unique = true;

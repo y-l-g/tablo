@@ -311,8 +311,8 @@ impl Auth {
         self
     }
 
-    /// How many profile saves one user may submit from one client address in a window; defaults
-    /// to five a minute. Every profile POST counts, whether or not it saves.
+    /// How many profile saves one user may submit in a window, from any address; defaults to five
+    /// a minute. Every profile POST counts, whether or not it saves.
     #[must_use]
     pub fn profile_throttle(mut self, throttle: LoginThrottle) -> Self {
         self.profile_throttle = throttle;
@@ -352,7 +352,7 @@ impl Auth {
             .and(self.profile_editor.as_deref())
     }
 
-    /// The profile throttle, counted per user and client address.
+    /// The profile throttle, counted per user.
     pub(crate) fn throttle_profile(&self) -> &LoginThrottle {
         &self.profile_throttle
     }

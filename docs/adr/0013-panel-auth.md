@@ -16,8 +16,9 @@ is the explicit opt-out.
   the new account in only when it has panel access.
 - The profile page is opt-in through a third seam, a `ProfileEditor` for the same user type: it
   fills a form input from the signed-in user, validates and writes in one transaction, and says
-  whether a credential changed. A credential change revokes the user's sessions and starts a new
-  one for the browser that saved.
+  whether a credential changed. A credential change ends the user's sessions on every panel that
+  loads the same user type, in the transaction that saves, and starts a new one for the browser
+  that saved.
 
 ## Rejected
 

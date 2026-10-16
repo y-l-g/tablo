@@ -6,7 +6,7 @@ pub use tablo_core::ModelForm
 pub use tablo_core::Options
 pub use tablo_core::RecordForm
 pub mod tablo_core::auth
-pub enum tablo_core::auth::ProfileUpdate
+#[non_exhaustive] pub enum tablo_core::auth::ProfileUpdate
 pub tablo_core::auth::ProfileUpdate::Credentials
 pub tablo_core::auth::ProfileUpdate::Details
 impl core::clone::Clone for tablo_core::ProfileUpdate
@@ -3881,7 +3881,7 @@ impl core::marker::Unpin for tablo_core::ProfileFault
 impl core::marker::UnsafeUnpin for tablo_core::ProfileFault
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::ProfileFault
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::ProfileFault
-pub enum tablo_core::ProfileUpdate
+#[non_exhaustive] pub enum tablo_core::ProfileUpdate
 pub tablo_core::ProfileUpdate::Credentials
 pub tablo_core::ProfileUpdate::Details
 impl core::clone::Clone for tablo_core::ProfileUpdate

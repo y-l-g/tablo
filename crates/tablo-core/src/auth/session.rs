@@ -60,6 +60,59 @@ pub(super) async fn record(
         &session.token_hash,
         user.user_id(),
         panel.prefix.clone(),
+        None,
+        expires_at,
+    )
+    .await
+    .map_err(infrastructure_failure)
+}
+
+/// Replaces every session `user_id` holds, on every panel whose authenticator loads `user_type`,
+/// with `session` on the panel and tenant `signed` acts under, through `ex`: what a credential
+/// change does inside the transaction that writes it, so the new credential and the revocation
+/// commit together.
+pub(super) async fn replace_sessions(
+    cx: &Cx,
+    ex: &mut dyn toasty::Executor,
+    signed: &SignedIn,
+    user_type: std::any::TypeId,
+    session: &session::Session,
+) -> topcoat::Result<()> {
+    // Another panel signing the same users in shares their credentials, so it shares the
+    // revocation.
+    let prefixes: Vec<String> = crate::panel::state::panels(cx)
+        .map(|panels| {
+            panels
+                .0
+                .iter()
+                .filter(|panel| {
+                    panel
+                        .auth
+                        .authenticator()
+                        .is_some_and(|auth| auth.user_type() == user_type)
+                })
+                .map(|panel| panel.prefix.clone())
+                .collect()
+        })
+        .unwrap_or_else(|| vec![signed.panel.prefix.clone()]);
+    let user_id = signed.user.user_id();
+    AuthSession::filter(
+        AuthSession::fields()
+            .user_id()
+            .eq(user_id.clone())
+            .and(AuthSession::fields().panel().in_list(prefixes)),
+    )
+    .delete()
+    .exec(&mut *ex)
+    .await
+    .map_err(infrastructure_failure)?;
+    let expires_at = Timestamp::try_from(session.expires_at).map_err(topcoat::Error::from)?;
+    insert(
+        ex,
+        &session.token_hash,
+        user_id,
+        signed.panel.prefix.clone(),
+        signed.tenant,
         expires_at,
     )
     .await
@@ -85,6 +138,7 @@ pub async fn mint_session(
         &token.hash(),
         user.user_id(),
         crate::panel::normalize_prefix(panel),
+        None,
         expires_at,
     )
     .await?;
@@ -96,13 +150,14 @@ async fn insert(
     hash: &TokenHash,
     user_id: String,
     panel: String,
+    tenant: Option<Uuid>,
     expires_at: Timestamp,
 ) -> toasty::Result<()> {
     toasty::create!(AuthSession {
         token_hash: token_key(hash),
         user_id,
         panel,
-        tenant: None,
+        tenant,
         expires_at,
         created_at: Timestamp::now(),
     })

@@ -203,13 +203,16 @@ impl ProfileEditor for StaffAuth {
         _cx: &Cx,
         signed: &SignedStaff,
         profile: &Profile,
-        _ex: &mut dyn toasty::Executor,
+        ex: &mut dyn toasty::Executor,
     ) -> Result<FieldErrors> {
         let mut errors = profile.password_errors();
         let current = profile.current_password.as_deref().unwrap_or_default();
         let credentials = profile.password.is_some() || profile.email != signed.staff.email;
         if credentials && !verify_password(current, Some(&signed.staff.password_hash)) {
             errors.add("current_password", "The current password is incorrect");
+        } else if profile.email != signed.staff.email && email_taken(ex, &profile.email).await? {
+            // Asked only once the password verifies: a stolen session learns no addresses.
+            errors.add("email", "Email has already been taken");
         }
         Ok(errors)
     }

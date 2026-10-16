@@ -6,14 +6,20 @@ use std::time::Duration;
 
 use http::header::LOCATION;
 use tablo::{
-    Auth, DeclarationErrorKind, LoginThrottle, NoForm, NotificationStatus, PanelUser, PasswordAuth,
-    ProfileFault, ReadOnly, Resource, ResourceDef, Table, TextColumn,
+    Auth, DeclarationErrorKind, FieldError, FormInput, FormValues, LoginThrottle, NoForm,
+    NotificationStatus, PanelUser, PasswordAuth, ProfileFault, ReadOnly, Resource, ResourceDef,
+    RouterBuilderPanelExt, Table, TextColumn,
     auth::{AdminUser, AuthSession, Profile, ProfileEditor, ProfileUpdate, create_admin},
+    form::parse_scalar,
     lens,
+    schema::{Field, Schema},
     testing::{find_href_with, form_body, session_cookie_value},
 };
 use toasty::Db;
-use topcoat::{context::Cx, router::Router};
+use topcoat::{
+    context::Cx,
+    router::{Router, RouterBuilderDiscoverExt},
+};
 use uuid::Uuid;
 
 use crate::common::{TestClient, body_string, field_error, flash, memory_db, mount, refusal};
@@ -108,11 +114,12 @@ async fn the_profile_page_shows_the_signed_in_account() {
 
 /// A new name saves without the current password, and every session stays signed in.
 #[tokio::test]
-async fn renaming_keeps_the_session() {
+async fn renaming_keeps_the_sessions() {
     let db = db().await;
     let admin = ada(&db).await;
     let router = router(db.clone(), Auth::password().profile(PasswordAuth));
     let client = TestClient::new(&router).sign_in(&db, "admin", &admin).await;
+    let elsewhere = TestClient::new(&router).sign_in(&db, "admin", &admin).await;
 
     let response = client
         .submit("/admin/profile", &profile(&[("name", "Ada Lovelace")]))
@@ -124,6 +131,7 @@ async fn renaming_keeps_the_session() {
     assert!(session_cookie_value(&response).is_none());
     assert_eq!(reload(&db, &admin).await.display_name, "Ada Lovelace");
     assert_eq!(client.get("/admin/notes").await.status(), 200);
+    assert_eq!(elsewhere.get("/admin/notes").await.status(), 200);
 }
 
 /// A new password needs the current one: without it, or with a wrong one, nothing is written.
@@ -198,11 +206,15 @@ async fn a_new_email_is_checked() {
     let router = router(db.clone(), Auth::password().profile(PasswordAuth));
     let client = TestClient::new(&router).sign_in(&db, "admin", &admin).await;
 
-    let response = client
-        .submit("/admin/profile", &profile(&[("email", "new@example.com")]))
-        .await;
-    let html = body_string(response).await;
-    assert!(field_error(&html, "current_password").is_some(), "{html}");
+    // Without the current password, a taken address reads like a free one.
+    for email in ["new@example.com", "grace@example.com"] {
+        let response = client
+            .submit("/admin/profile", &profile(&[("email", email)]))
+            .await;
+        let html = body_string(response).await;
+        assert!(field_error(&html, "current_password").is_some(), "{html}");
+        assert!(field_error(&html, "email").is_none(), "{html}");
+    }
 
     let response = client
         .submit(
@@ -338,4 +350,133 @@ async fn mounting_refuses_a_profile_the_panel_cannot_serve() {
         let kinds: Vec<_> = errors.iter().map(|error| error.kind.clone()).collect();
         assert_eq!(kinds, vec![DeclarationErrorKind::Profile(fault)]);
     }
+}
+
+/// One back office and one reader portal, both signing in `AdminUser`s.
+fn two_panels(db: Db) -> Router {
+    Router::builder()
+        .discover()
+        .app_context(db)
+        .panel(
+            tablo::Panel::new("admin")
+                .auth(Auth::password().profile(PasswordAuth))
+                .resource::<NoteResource>(),
+        )
+        .expect("the admin panel mounts")
+        .panel(
+            tablo::Panel::new("portal")
+                .auth(Auth::password())
+                .resource::<NoteResource>(),
+        )
+        .expect("the portal mounts")
+        .build()
+}
+
+/// A password changed on one panel ends the sessions it opened on another panel that signs the
+/// same users in.
+#[tokio::test]
+async fn a_changed_password_ends_the_sessions_on_every_panel_of_the_user() {
+    let db = db().await;
+    let admin = ada(&db).await;
+    let router = two_panels(db.clone());
+    let saving = TestClient::new(&router).sign_in(&db, "admin", &admin).await;
+    let portal = TestClient::new(&router)
+        .sign_in(&db, "portal", &admin)
+        .await;
+    assert_eq!(portal.get("/portal/notes").await.status(), 200);
+
+    let response = saving
+        .submit(
+            "/admin/profile",
+            &profile(&[
+                ("password", "new password"),
+                ("password_confirmation", "new password"),
+                ("current_password", "old password"),
+            ]),
+        )
+        .await;
+
+    assert_eq!(response.status(), 303);
+    assert_eq!(portal.get("/portal/notes").await.status(), 307);
+}
+
+/// A name the user edits, and an email the page shows but no save changes.
+struct LockedEmail {
+    name: String,
+    email: String,
+}
+
+impl FormInput for LockedEmail {
+    fn schema() -> Schema {
+        Schema::new((
+            Field::text_input::<String>("name"),
+            Field::text_input::<String>("email").disabled_on_edit(),
+        ))
+    }
+
+    fn parse(_cx: &Cx, values: &FormValues) -> Result<Self, Vec<FieldError>> {
+        let name = parse_scalar::<String>("name", values, None);
+        let email = parse_scalar::<String>("email", values, None);
+        match (name, email) {
+            (Ok(name), Ok(email)) => Ok(Self { name, email }),
+            (name, email) => Err(name.err().into_iter().chain(email.err()).collect()),
+        }
+    }
+
+    fn write(&self, out: &mut FormValues) {
+        out.insert("name".to_string(), self.name.clone());
+        out.insert("email".to_string(), self.email.clone());
+    }
+}
+
+/// Saves whatever the input carries, trusting the page to keep the email.
+struct LockedEmailProfile;
+
+impl ProfileEditor for LockedEmailProfile {
+    type Input = LockedEmail;
+    type User = AdminUser;
+
+    fn fill(&self, _cx: &Cx, admin: &AdminUser) -> LockedEmail {
+        LockedEmail {
+            name: admin.display_name.clone(),
+            email: admin.email.clone(),
+        }
+    }
+
+    async fn save(
+        &self,
+        _cx: &Cx,
+        admin: &AdminUser,
+        input: LockedEmail,
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<ProfileUpdate> {
+        AdminUser::filter(AdminUser::fields().id().eq(admin.id))
+            .update()
+            .display_name(input.name)
+            .email(input.email)
+            .exec(ex)
+            .await?;
+        Ok(ProfileUpdate::Details)
+    }
+}
+
+/// A control the page renders disabled keeps the account's value, whatever a crafted POST says.
+#[tokio::test]
+async fn a_disabled_control_keeps_the_stored_value() {
+    let db = db().await;
+    let admin = ada(&db).await;
+    let router = router(db.clone(), Auth::password().profile(LockedEmailProfile));
+    let client = TestClient::new(&router).sign_in(&db, "admin", &admin).await;
+
+    let response = client
+        .submit(
+            "/admin/profile",
+            &form_body(&[("name", "Ada Lovelace"), ("email", "mallory@example.com")]),
+        )
+        .await;
+
+    assert_eq!(response.status(), 303);
+    let stored = reload(&db, &admin).await;
+    assert_eq!(stored.display_name, "Ada Lovelace");
+    assert_eq!(stored.email, "ada@example.com");
 }
