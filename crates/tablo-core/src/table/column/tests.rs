@@ -65,10 +65,12 @@ fn text_column_includes_accumulate_once_per_relation() {
     );
 }
 
-/// Every date type spells its calendar day, a null spells empty, and `TextColumn` still spells
-/// the stored value.
-#[test]
-fn a_date_column_spells_the_day_of_every_date_type() {
+/// A date column's text is the stored spelling of every date type, a null spells empty, and
+/// `TextColumn` still spells the stored value. Its cell spells the calendar day.
+#[tokio::test]
+async fn a_date_column_texts_the_stored_value_and_shows_the_day() {
+    use crate::test_support::Html as _;
+
     #[derive(Debug, Clone, toasty::Model)]
     struct Event {
         #[key]
@@ -90,14 +92,69 @@ fn a_date_column_spells_the_day_of_every_date_type() {
         closed: None,
     };
     let text = |column: &dyn Column<Event>| column.text(&cx, &row);
-    assert_eq!(text(&DateColumn::new(lens!(Event.day))), "Oct 14, 2026");
-    assert_eq!(text(&DateColumn::new(lens!(Event.at))), "Oct 14, 2026");
-    assert_eq!(text(&DateColumn::new(lens!(Event.seen))), "Oct 14, 2026");
+    assert_eq!(text(&DateColumn::new(lens!(Event.day))), "2026-10-14");
+    assert_eq!(
+        text(&DateColumn::new(lens!(Event.at))),
+        "2026-10-14T09:30:00"
+    );
+    assert_eq!(
+        text(&DateColumn::new(lens!(Event.seen))),
+        "2026-10-14T23:30:00Z"
+    );
     assert_eq!(text(&DateColumn::new(lens!(Event.closed))), "");
     assert_eq!(text(&TextColumn::new(lens!(Event.day))), "2026-10-14");
+
+    let shown = async |column: &dyn Column<Event>| {
+        Ok::<_, topcoat::Error>(column.cell(&cx, &row))
+            .html(&cx)
+            .await
+    };
+    assert!(
+        shown(&DateColumn::new(lens!(Event.day)))
+            .await
+            .contains("Oct 14, 2026")
+    );
+    assert!(
+        shown(&DateColumn::new(lens!(Event.at)))
+            .await
+            .contains("Oct 14, 2026")
+    );
+    assert!(
+        shown(&DateColumn::new(lens!(Event.seen)))
+            .await
+            .contains("Oct 14, 2026")
+    );
+    assert!(
+        shown(&DateColumn::new(lens!(Event.closed)))
+            .await
+            .contains('—')
+    );
     assert_eq!(
         Column::column_width(&DateColumn::new(lens!(Event.day))),
         ColumnWidth::Auto
+    );
+}
+
+/// A derived date column exports the stored value, so a derived table keeps a timestamp's time.
+#[test]
+fn a_derived_date_column_exports_the_stored_timestamp() {
+    #[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+    struct Stamped {
+        #[key]
+        #[auto]
+        id: uuid::Uuid,
+        seen: jiff::Timestamp,
+    }
+
+    let cx = crate::test_support::cx();
+    let row = Stamped {
+        id: uuid::Uuid::nil(),
+        seen: "2026-10-14T23:30:00Z".parse().expect("a timestamp"),
+    };
+    assert!(
+        Stamped::table()
+            .csv_row(&cx, &row)
+            .contains("2026-10-14T23:30:00Z")
     );
 }
 
