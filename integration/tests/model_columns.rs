@@ -7,7 +7,7 @@ use tablo::{
 use toasty::Db;
 use uuid::Uuid;
 
-use crate::framework::common::{body_string, get, input_value, memory_db, panel_router};
+use crate::common::{body_string, get, input_value, memory_db, panel_router};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo::Options)]
 enum TicketStatus {

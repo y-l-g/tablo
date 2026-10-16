@@ -1,6 +1,9 @@
-//! The framework cases: panels built from test-local models and resources, for behavior the
-//! showcase's own resources do not reach (mount errors, extension seams, embedded values, upload
-//! edge cases). `common` holds their fixtures.
+//! Tablo's integration suite: panels built from test-local models and resources, served over
+//! HTTP (mount errors, extension seams, embedded values, upload edge cases). `common` holds their
+//! fixtures.
+//!
+//! Every test file is a module of one binary: one link for the whole suite. Filter per file with
+//! `cargo test -p tablo-integration --test it <module>::`.
 
 mod common;
 

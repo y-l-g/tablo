@@ -14,7 +14,7 @@ use topcoat::{
 };
 use uuid::Uuid;
 
-use crate::framework::common::{
+use crate::common::{
     body_string, get_with_cookies, input_value, memory_db, mount, post_form, response_cookies,
     router_with,
 };

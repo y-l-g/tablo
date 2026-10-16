@@ -16,7 +16,7 @@ use toasty::Db;
 use topcoat::router::{Body, Router, response::Response};
 use uuid::Uuid;
 
-use crate::framework::common::{
+use crate::common::{
     TestClient, body_bytes, body_string, csp, field_error, get, memory_db, mount, panel, refusal,
 };
 
