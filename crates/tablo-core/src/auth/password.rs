@@ -5,7 +5,10 @@ use jiff::Timestamp;
 use topcoat::context::Cx;
 use uuid::Uuid;
 
-use super::{Authenticator, PanelUser, Registrar, SignUp, infrastructure_failure};
+use super::{
+    Authenticator, PanelUser, Profile, ProfileEditor, ProfileUpdate, Registrar, SignUp,
+    infrastructure_failure, profile::CURRENT_PASSWORD_FIELD,
+};
 use crate::FieldErrors;
 
 /// A dummy Argon2id PHC string verified against when the account does not
@@ -120,6 +123,83 @@ impl Registrar for PasswordAuth {
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<AdminUser> {
         create_admin(ex, &sign_up.email, &sign_up.password, &sign_up.name).await
+    }
+}
+
+/// Edits the signed-in [`AdminUser`]'s name, email and password through a [`Profile`]. Changing
+/// the email or the password asks for the current password, and refuses a new password
+/// [`new_password_errors`](super::new_password_errors) refuses and an email another account
+/// holds. A changed email or password is a [`ProfileUpdate::Credentials`]. Install it with
+/// [`Auth::profile`](super::Auth::profile).
+impl ProfileEditor for PasswordAuth {
+    type Input = Profile;
+    type User = AdminUser;
+
+    fn fill(&self, _cx: &Cx, admin: &AdminUser) -> Profile {
+        Profile {
+            name: admin.display_name.clone(),
+            email: admin.email.clone(),
+            password: None,
+            password_confirmation: String::new(),
+            current_password: None,
+        }
+    }
+
+    async fn validate(
+        &self,
+        _cx: &Cx,
+        admin: &AdminUser,
+        profile: &Profile,
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<FieldErrors> {
+        let mut errors = profile.password_errors();
+        let new_email = profile.email != admin.email;
+        if new_email || profile.password.is_some() {
+            match &profile.current_password {
+                None => errors.add(
+                    CURRENT_PASSWORD_FIELD,
+                    "Enter your current password to change your email or password",
+                ),
+                Some(current) if !verify_password(current, Some(&admin.password_hash)) => {
+                    errors.add(CURRENT_PASSWORD_FIELD, "The current password is incorrect");
+                }
+                Some(_) => {}
+            }
+        }
+        if new_email {
+            let taken = AdminUser::filter(AdminUser::fields().email().eq(profile.email.clone()))
+                .first()
+                .exec(ex)
+                .await
+                .map_err(infrastructure_failure)?;
+            if taken.is_some_and(|other| other.id != admin.id) {
+                errors.add("email", "Email has already been taken");
+            }
+        }
+        Ok(errors)
+    }
+
+    async fn save(
+        &self,
+        _cx: &Cx,
+        admin: &AdminUser,
+        profile: Profile,
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<ProfileUpdate> {
+        let credentials = profile.email != admin.email || profile.password.is_some();
+        let mut update = AdminUser::filter(AdminUser::fields().id().eq(admin.id))
+            .update()
+            .display_name(profile.name)
+            .email(profile.email);
+        if let Some(password) = &profile.password {
+            update.set_password_hash(hash_password(password)?);
+        }
+        update.exec(ex).await?;
+        Ok(if credentials {
+            ProfileUpdate::Credentials
+        } else {
+            ProfileUpdate::Details
+        })
     }
 }
 

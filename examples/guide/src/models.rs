@@ -110,6 +110,7 @@ pub struct Order {
 pub struct Staff {
     pub id: uuid::Uuid,
     pub name: String,
+    pub email: String,
     pub active: bool,
     pub editor: bool,
     pub password_hash: String,

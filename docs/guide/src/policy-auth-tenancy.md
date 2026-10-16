@@ -240,13 +240,51 @@ The sign-up page tells a visitor whether an email is taken, which the login page
 app that must keep its accounts private verifies the address by email before saying so, which
 Tablo does not ship.
 
+### Profile
+
+`Auth::profile` adds a profile page at `{prefix}/profile`, which the user menu links to, where the
+signed-in user edits their own account. `PasswordAuth` edits an `AdminUser`'s name, email address
+and password:
+
+```rust
+{{#include ../../../examples/guide/src/policy_tenancy.rs:policy-profile-password}}
+```
+
+It asks for the current password before the email or the password changes, refuses a new password
+`new_password_errors` refuses and an email another account holds, and leaves the password as it
+is when the new-password field is blank.
+
+Your own user table edits through a `ProfileEditor` beside its `Authenticator`, which works like a
+`Registrar`: `fill` seeds the form from the signed-in user, `validate` refuses a submission field by
+field, and `save` writes it. Both run in one transaction the framework opens. The shipped `Profile`
+input fits any table with a name, an email and a password:
+
+```rust
+{{#include ../../../examples/guide/src/policy_tenancy.rs:policy-staff-profile}}
+```
+
+- **The form** is any `FormInput`, rendered in the panel's shell. The page shows what the input's
+  `write` writes, so `Profile` never shows a password. A refused save renders the form again with
+  each error under its field; nothing is written.
+- **`save` answers** `ProfileUpdate::Details`, which keeps every session, or
+  `ProfileUpdate::Credentials` for a change to what the user signs in with: every session of the
+  user on the panel is then revoked, and the browser that saved gets a new one. `PasswordAuth`
+  answers `Credentials` for a new email or password.
+- **After the commit** the page reloads with a notification.
+- **Mounting refuses** an editor whose `User` is not the type the authenticator loads, a profile on
+  `Auth::disabled()`, a form field named `csrf_token`, a file field and a relationship choice,
+  whose options no route serves the page.
+- **Throttling.** Each user may submit five saves a minute from one address, counted whether or
+  not they save; `Auth::profile_throttle` changes the limit. Past it the page answers 429, which
+  keeps a stolen session from guessing the current password.
+
 ### Turning it off
 
 ```rust
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-auth-disabled-body}}
 ```
 
-Every panel route is then public and the login and sign-up routes are not registered. Use it for public
+Every panel route is then public and the login, sign-up and profile routes are not registered. Use it for public
 demos and tests only.
 
 ## Tenancy

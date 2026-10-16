@@ -39,6 +39,7 @@ A test matches on the kind rather than the message; see
 | `ServeDirTwice` | the panel serves one pattern twice | drop the second `serve_dir` |
 | `ServeDirTaken` | another panel already serves the pattern | serve it from one panel |
 | `SignUp` | the sign-up page cannot be served; the `SignUpFault` says why | see below |
+| `Profile` | the profile page cannot be served; the `ProfileFault` says why | see below |
 
 `SignUpFault`:
 
@@ -50,6 +51,16 @@ A test matches on the kind rather than the message; see
 | `FileField` | the sign-up form has a file field | ask for the file once the account signs in |
 | `RelationshipField` | the sign-up form has a relationship choice, which would list records to an anonymous visitor | offer static options |
 
+`ProfileFault`:
+
+| Fault | Refused when | Fix |
+| --- | --- | --- |
+| `AuthDisabled` | `Auth::profile` on `Auth::disabled()` | turn authentication on |
+| `UserType` | the profile editor edits another user type than the authenticator loads | edit the type the panel signs in |
+| `ReservedField` | a profile field is named `csrf_token` | rename the field |
+| `FileField` | the profile form has a file field | edit the file on a resource's form |
+| `RelationshipField` | the profile form has a relationship choice, whose options no route serves the page | offer static options |
+
 ## Registration
 
 | Kind | Refused when | Fix |
@@ -57,7 +68,7 @@ A test matches on the kind rather than the message; see
 | `DuplicateResource` | one resource type is registered twice on a panel | register it once; mount a variant under its own type |
 | `DuplicatePage` | one page type is registered twice on a panel, as `home` or `page` | register it once; mount a variant under its own type |
 | `SecondHome` | `Panel::home` is called twice | keep one home page; register the other with `page` |
-| `ReservedSlug` | a slug is `login`, `logout`, `register` or `-`, which the panel routes itself | rename it with `ResourceDef::slug` or `PageDef::slug` |
+| `ReservedSlug` | a slug is `login`, `logout`, `register`, `profile` or `-`, which the panel routes itself | rename it with `ResourceDef::slug` or `PageDef::slug` |
 | `DuplicateSlug` | two resources or pages share a slug | give each a distinct slug |
 | `DuplicateAction` | two actions of a resource, record or header, share a `NAME` | rename one |
 | `ActionInput` | an action's input cannot be served; the `ActionInputFault` says why | see below |

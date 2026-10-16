@@ -25,7 +25,10 @@ use std::path::PathBuf;
 use topcoat::{asset::Asset, font::Font, router::LayoutRenderFn};
 
 pub(crate) use self::{
-    bar::header_bar, build::route_path, forms::parse_form_body, gate::panel_prefix,
+    bar::header_bar,
+    build::route_path,
+    forms::{FormChrome, parse_form_body, render_form_page},
+    gate::panel_prefix,
 };
 use self::{
     build::is_directory_pattern,

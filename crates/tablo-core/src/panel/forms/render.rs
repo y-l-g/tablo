@@ -92,6 +92,22 @@ impl<'a> FormChrome<'a> {
         self
     }
 
+    /// The profile page's: titled `Profile`, saved by `Save`, cancelled to `home`.
+    pub(crate) fn profile(home: String) -> Self {
+        Self {
+            title: "Profile".to_string(),
+            submit_label: "Save".to_string(),
+            destructive: false,
+            public_link: None,
+            actions: ActionBar::default(),
+            cancel: home,
+            hidden: Vec::new(),
+            options: None,
+            editing: true,
+            relations: Vec::new(),
+        }
+    }
+
     /// An action's input page: titled `title`, submitted by the action's `label`, carrying
     /// `hidden` back to the action's POST, cancelled to `cancel`, and searching its choices'
     /// options at `options`.

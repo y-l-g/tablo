@@ -6,6 +6,25 @@ pub use tablo_core::ModelForm
 pub use tablo_core::Options
 pub use tablo_core::RecordForm
 pub mod tablo_core::auth
+pub enum tablo_core::auth::ProfileUpdate
+pub tablo_core::auth::ProfileUpdate::Credentials
+pub tablo_core::auth::ProfileUpdate::Details
+impl core::clone::Clone for tablo_core::ProfileUpdate
+pub fn tablo_core::ProfileUpdate::clone(&self) -> tablo_core::ProfileUpdate
+impl core::cmp::Eq for tablo_core::ProfileUpdate
+impl core::cmp::PartialEq for tablo_core::ProfileUpdate
+pub fn tablo_core::ProfileUpdate::eq(&self, &tablo_core::ProfileUpdate) -> bool
+impl core::fmt::Debug for tablo_core::ProfileUpdate
+pub fn tablo_core::ProfileUpdate::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_core::ProfileUpdate
+impl core::marker::StructuralPartialEq for tablo_core::ProfileUpdate
+impl core::marker::Freeze for tablo_core::ProfileUpdate
+impl core::marker::Send for tablo_core::ProfileUpdate
+impl core::marker::Sync for tablo_core::ProfileUpdate
+impl core::marker::Unpin for tablo_core::ProfileUpdate
+impl core::marker::UnsafeUnpin for tablo_core::ProfileUpdate
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::ProfileUpdate
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::ProfileUpdate
 pub struct tablo_core::auth::AdminUser
 pub tablo_core::auth::AdminUser::active: bool
 pub tablo_core::auth::AdminUser::created_at: jiff::timestamp::Timestamp
@@ -110,6 +129,8 @@ pub fn tablo_core::auth::Auth::custom(impl tablo_core::auth::Authenticator) -> S
 pub fn tablo_core::auth::Auth::disabled() -> Self
 pub fn tablo_core::auth::Auth::is_disabled(&self) -> bool
 pub fn tablo_core::auth::Auth::password() -> Self
+pub fn tablo_core::auth::Auth::profile(self, impl tablo_core::ProfileEditor) -> Self
+pub fn tablo_core::auth::Auth::profile_throttle(self, tablo_core::LoginThrottle) -> Self
 pub fn tablo_core::auth::Auth::registration(self, impl tablo_core::Registrar) -> Self
 pub fn tablo_core::auth::Auth::sign_up_throttle(self, tablo_core::LoginThrottle) -> Self
 pub fn tablo_core::auth::Auth::throttle(self, tablo_core::LoginThrottle) -> Self
@@ -238,6 +259,12 @@ pub fn tablo_core::PasswordAuth::default() -> tablo_core::PasswordAuth
 impl core::fmt::Debug for tablo_core::PasswordAuth
 pub fn tablo_core::PasswordAuth::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for tablo_core::PasswordAuth
+impl tablo_core::ProfileEditor for tablo_core::PasswordAuth
+pub type tablo_core::PasswordAuth::Input = tablo_core::Profile
+pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
+pub fn tablo_core::PasswordAuth::fill(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser) -> tablo_core::Profile
+pub async fn tablo_core::PasswordAuth::save(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser, tablo_core::Profile, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::ProfileUpdate>
+pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser, &tablo_core::Profile, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::form::FieldErrors>
 impl tablo_core::Registrar for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::Input = tablo_core::SignUp
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
@@ -254,6 +281,33 @@ impl core::marker::Unpin for tablo_core::PasswordAuth
 impl core::marker::UnsafeUnpin for tablo_core::PasswordAuth
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::PasswordAuth
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::PasswordAuth
+pub struct tablo_core::auth::Profile
+pub tablo_core::auth::Profile::current_password: core::option::Option<alloc::string::String>
+pub tablo_core::auth::Profile::email: alloc::string::String
+pub tablo_core::auth::Profile::name: alloc::string::String
+pub tablo_core::auth::Profile::password: core::option::Option<alloc::string::String>
+pub tablo_core::auth::Profile::password_confirmation: alloc::string::String
+impl tablo_core::Profile
+pub fn tablo_core::Profile::password_errors(&self) -> tablo_core::form::FieldErrors
+impl core::clone::Clone for tablo_core::Profile
+pub fn tablo_core::Profile::clone(&self) -> tablo_core::Profile
+impl core::cmp::Eq for tablo_core::Profile
+impl core::cmp::PartialEq for tablo_core::Profile
+pub fn tablo_core::Profile::eq(&self, &tablo_core::Profile) -> bool
+impl core::fmt::Debug for tablo_core::Profile
+pub fn tablo_core::Profile::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_core::Profile
+impl tablo_core::FormInput for tablo_core::Profile
+pub fn tablo_core::Profile::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn tablo_core::Profile::schema() -> tablo_core::schema::Schema
+pub fn tablo_core::Profile::write(&self, &mut tablo_core::FormValues)
+impl core::marker::Freeze for tablo_core::Profile
+impl core::marker::Send for tablo_core::Profile
+impl core::marker::Sync for tablo_core::Profile
+impl core::marker::Unpin for tablo_core::Profile
+impl core::marker::UnsafeUnpin for tablo_core::Profile
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Profile
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::Profile
 pub struct tablo_core::auth::SignUp
 pub tablo_core::auth::SignUp::email: alloc::string::String
 pub tablo_core::auth::SignUp::name: alloc::string::String
@@ -306,6 +360,18 @@ pub fn tablo_core::auth::AdminUser::display_name(&self) -> &str
 pub fn tablo_core::auth::AdminUser::subtitle(&self) -> core::option::Option<&str>
 pub fn tablo_core::auth::AdminUser::tenants(&self) -> &[tablo_core::tenancy::Membership]
 pub fn tablo_core::auth::AdminUser::user_id(&self) -> alloc::string::String
+pub trait tablo_core::auth::ProfileEditor: core::marker::Send + core::marker::Sync + 'static
+pub type tablo_core::auth::ProfileEditor::Input: tablo_core::FormInput
+pub type tablo_core::auth::ProfileEditor::User: tablo_core::auth::PanelUser
+pub fn tablo_core::auth::ProfileEditor::fill(&self, &topcoat_core::context::Cx, &Self::User) -> Self::Input
+pub fn tablo_core::auth::ProfileEditor::save(&self, &topcoat_core::context::Cx, &Self::User, Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::ProfileUpdate>> + core::marker::Send
+pub fn tablo_core::auth::ProfileEditor::validate(&self, &topcoat_core::context::Cx, &Self::User, &Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::form::FieldErrors>> + core::marker::Send
+impl tablo_core::ProfileEditor for tablo_core::PasswordAuth
+pub type tablo_core::PasswordAuth::Input = tablo_core::Profile
+pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
+pub fn tablo_core::PasswordAuth::fill(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser) -> tablo_core::Profile
+pub async fn tablo_core::PasswordAuth::save(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser, tablo_core::Profile, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::ProfileUpdate>
+pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser, &tablo_core::Profile, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::form::FieldErrors>
 pub trait tablo_core::auth::Registrar: core::marker::Send + core::marker::Sync + 'static
 pub type tablo_core::auth::Registrar::Input: tablo_core::FormInput
 pub type tablo_core::auth::Registrar::User: tablo_core::auth::PanelUser
@@ -1083,6 +1149,10 @@ impl tablo_core::FormInput for ()
 pub fn ()::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
 pub fn ()::schema() -> tablo_core::schema::Schema
 pub fn ()::write(&self, &mut tablo_core::FormValues)
+impl tablo_core::FormInput for tablo_core::Profile
+pub fn tablo_core::Profile::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn tablo_core::Profile::schema() -> tablo_core::schema::Schema
+pub fn tablo_core::Profile::write(&self, &mut tablo_core::FormValues)
 impl tablo_core::FormInput for tablo_core::SignUp
 pub fn tablo_core::SignUp::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
 pub fn tablo_core::SignUp::schema() -> tablo_core::schema::Schema
@@ -3456,6 +3526,7 @@ pub tablo_core::DeclarationErrorKind::PrefixOverlapsPanel
 pub tablo_core::DeclarationErrorKind::PrefixOverlapsPanel::other: alloc::string::String
 pub tablo_core::DeclarationErrorKind::PrefixOverlapsRuntime
 pub tablo_core::DeclarationErrorKind::PrefixOverlapsRuntime::prefix: alloc::string::String
+pub tablo_core::DeclarationErrorKind::Profile(tablo_core::ProfileFault)
 pub tablo_core::DeclarationErrorKind::RepeaterLeafModifier
 pub tablo_core::DeclarationErrorKind::RepeaterLeafModifier::field: alloc::string::String
 pub tablo_core::DeclarationErrorKind::RepeaterLeafModifier::leaf: alloc::string::String
@@ -3719,6 +3790,49 @@ impl core::marker::Unpin for tablo_core::table::Pagination
 impl core::marker::UnsafeUnpin for tablo_core::table::Pagination
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::table::Pagination
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::table::Pagination
+#[non_exhaustive] pub enum tablo_core::ProfileFault
+pub tablo_core::ProfileFault::AuthDisabled
+pub tablo_core::ProfileFault::FileField(alloc::string::String)
+pub tablo_core::ProfileFault::RelationshipField(alloc::string::String)
+pub tablo_core::ProfileFault::ReservedField(alloc::string::String)
+pub tablo_core::ProfileFault::UserType
+pub tablo_core::ProfileFault::UserType::editor: &'static str
+impl core::clone::Clone for tablo_core::ProfileFault
+pub fn tablo_core::ProfileFault::clone(&self) -> tablo_core::ProfileFault
+impl core::cmp::Eq for tablo_core::ProfileFault
+impl core::cmp::PartialEq for tablo_core::ProfileFault
+pub fn tablo_core::ProfileFault::eq(&self, &tablo_core::ProfileFault) -> bool
+impl core::fmt::Debug for tablo_core::ProfileFault
+pub fn tablo_core::ProfileFault::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tablo_core::ProfileFault
+pub fn tablo_core::ProfileFault::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_core::ProfileFault
+impl core::marker::Freeze for tablo_core::ProfileFault
+impl core::marker::Send for tablo_core::ProfileFault
+impl core::marker::Sync for tablo_core::ProfileFault
+impl core::marker::Unpin for tablo_core::ProfileFault
+impl core::marker::UnsafeUnpin for tablo_core::ProfileFault
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::ProfileFault
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::ProfileFault
+pub enum tablo_core::ProfileUpdate
+pub tablo_core::ProfileUpdate::Credentials
+pub tablo_core::ProfileUpdate::Details
+impl core::clone::Clone for tablo_core::ProfileUpdate
+pub fn tablo_core::ProfileUpdate::clone(&self) -> tablo_core::ProfileUpdate
+impl core::cmp::Eq for tablo_core::ProfileUpdate
+impl core::cmp::PartialEq for tablo_core::ProfileUpdate
+pub fn tablo_core::ProfileUpdate::eq(&self, &tablo_core::ProfileUpdate) -> bool
+impl core::fmt::Debug for tablo_core::ProfileUpdate
+pub fn tablo_core::ProfileUpdate::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_core::ProfileUpdate
+impl core::marker::StructuralPartialEq for tablo_core::ProfileUpdate
+impl core::marker::Freeze for tablo_core::ProfileUpdate
+impl core::marker::Send for tablo_core::ProfileUpdate
+impl core::marker::Sync for tablo_core::ProfileUpdate
+impl core::marker::Unpin for tablo_core::ProfileUpdate
+impl core::marker::UnsafeUnpin for tablo_core::ProfileUpdate
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::ProfileUpdate
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::ProfileUpdate
 #[non_exhaustive] pub enum tablo_core::SegmentFault
 pub tablo_core::SegmentFault::Char(char)
 pub tablo_core::SegmentFault::Dot
@@ -3814,6 +3928,8 @@ pub fn tablo_core::auth::Auth::custom(impl tablo_core::auth::Authenticator) -> S
 pub fn tablo_core::auth::Auth::disabled() -> Self
 pub fn tablo_core::auth::Auth::is_disabled(&self) -> bool
 pub fn tablo_core::auth::Auth::password() -> Self
+pub fn tablo_core::auth::Auth::profile(self, impl tablo_core::ProfileEditor) -> Self
+pub fn tablo_core::auth::Auth::profile_throttle(self, tablo_core::LoginThrottle) -> Self
 pub fn tablo_core::auth::Auth::registration(self, impl tablo_core::Registrar) -> Self
 pub fn tablo_core::auth::Auth::sign_up_throttle(self, tablo_core::LoginThrottle) -> Self
 pub fn tablo_core::auth::Auth::throttle(self, tablo_core::LoginThrottle) -> Self
@@ -4813,6 +4929,12 @@ pub fn tablo_core::PasswordAuth::default() -> tablo_core::PasswordAuth
 impl core::fmt::Debug for tablo_core::PasswordAuth
 pub fn tablo_core::PasswordAuth::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for tablo_core::PasswordAuth
+impl tablo_core::ProfileEditor for tablo_core::PasswordAuth
+pub type tablo_core::PasswordAuth::Input = tablo_core::Profile
+pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
+pub fn tablo_core::PasswordAuth::fill(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser) -> tablo_core::Profile
+pub async fn tablo_core::PasswordAuth::save(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser, tablo_core::Profile, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::ProfileUpdate>
+pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser, &tablo_core::Profile, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::form::FieldErrors>
 impl tablo_core::Registrar for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::Input = tablo_core::SignUp
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
@@ -4871,6 +4993,33 @@ impl<F> core::marker::Unpin for tablo_core::form::Posted<F> where F: core::marke
 impl<F> core::marker::UnsafeUnpin for tablo_core::form::Posted<F> where F: core::marker::UnsafeUnpin, std::collections::hash::set::HashSet<<F as tablo_core::form::RecordForm>::Field>: core::marker::UnsafeUnpin
 impl<F> core::panic::unwind_safe::RefUnwindSafe for tablo_core::form::Posted<F> where F: core::panic::unwind_safe::RefUnwindSafe, std::collections::hash::set::HashSet<<F as tablo_core::form::RecordForm>::Field>: core::panic::unwind_safe::RefUnwindSafe
 impl<F> core::panic::unwind_safe::UnwindSafe for tablo_core::form::Posted<F> where F: core::panic::unwind_safe::UnwindSafe, std::collections::hash::set::HashSet<<F as tablo_core::form::RecordForm>::Field>: core::panic::unwind_safe::UnwindSafe
+pub struct tablo_core::Profile
+pub tablo_core::Profile::current_password: core::option::Option<alloc::string::String>
+pub tablo_core::Profile::email: alloc::string::String
+pub tablo_core::Profile::name: alloc::string::String
+pub tablo_core::Profile::password: core::option::Option<alloc::string::String>
+pub tablo_core::Profile::password_confirmation: alloc::string::String
+impl tablo_core::Profile
+pub fn tablo_core::Profile::password_errors(&self) -> tablo_core::form::FieldErrors
+impl core::clone::Clone for tablo_core::Profile
+pub fn tablo_core::Profile::clone(&self) -> tablo_core::Profile
+impl core::cmp::Eq for tablo_core::Profile
+impl core::cmp::PartialEq for tablo_core::Profile
+pub fn tablo_core::Profile::eq(&self, &tablo_core::Profile) -> bool
+impl core::fmt::Debug for tablo_core::Profile
+pub fn tablo_core::Profile::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_core::Profile
+impl tablo_core::FormInput for tablo_core::Profile
+pub fn tablo_core::Profile::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn tablo_core::Profile::schema() -> tablo_core::schema::Schema
+pub fn tablo_core::Profile::write(&self, &mut tablo_core::FormValues)
+impl core::marker::Freeze for tablo_core::Profile
+impl core::marker::Send for tablo_core::Profile
+impl core::marker::Sync for tablo_core::Profile
+impl core::marker::Unpin for tablo_core::Profile
+impl core::marker::UnsafeUnpin for tablo_core::Profile
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Profile
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::Profile
 pub struct tablo_core::PublicLink
 pub tablo_core::PublicLink::label: &'static str
 pub tablo_core::PublicLink::url: alloc::string::String
@@ -5568,6 +5717,10 @@ impl tablo_core::FormInput for ()
 pub fn ()::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
 pub fn ()::schema() -> tablo_core::schema::Schema
 pub fn ()::write(&self, &mut tablo_core::FormValues)
+impl tablo_core::FormInput for tablo_core::Profile
+pub fn tablo_core::Profile::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn tablo_core::Profile::schema() -> tablo_core::schema::Schema
+pub fn tablo_core::Profile::write(&self, &mut tablo_core::FormValues)
 impl tablo_core::FormInput for tablo_core::SignUp
 pub fn tablo_core::SignUp::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
 pub fn tablo_core::SignUp::schema() -> tablo_core::schema::Schema
@@ -5874,6 +6027,18 @@ impl<M> tablo_core::policy::Policy<M> for tablo_core::policy::Deny
 pub fn tablo_core::policy::Deny::allows(&self, &topcoat_core::context::Cx, tablo_core::policy::Ability<'_, M>) -> bool
 impl<M> tablo_core::policy::Policy<M> for tablo_core::policy::ReadOnly
 pub fn tablo_core::policy::ReadOnly::allows(&self, &topcoat_core::context::Cx, tablo_core::policy::Ability<'_, M>) -> bool
+pub trait tablo_core::ProfileEditor: core::marker::Send + core::marker::Sync + 'static
+pub type tablo_core::ProfileEditor::Input: tablo_core::FormInput
+pub type tablo_core::ProfileEditor::User: tablo_core::auth::PanelUser
+pub fn tablo_core::ProfileEditor::fill(&self, &topcoat_core::context::Cx, &Self::User) -> Self::Input
+pub fn tablo_core::ProfileEditor::save(&self, &topcoat_core::context::Cx, &Self::User, Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::ProfileUpdate>> + core::marker::Send
+pub fn tablo_core::ProfileEditor::validate(&self, &topcoat_core::context::Cx, &Self::User, &Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::form::FieldErrors>> + core::marker::Send
+impl tablo_core::ProfileEditor for tablo_core::PasswordAuth
+pub type tablo_core::PasswordAuth::Input = tablo_core::Profile
+pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
+pub fn tablo_core::PasswordAuth::fill(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser) -> tablo_core::Profile
+pub async fn tablo_core::PasswordAuth::save(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser, tablo_core::Profile, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::ProfileUpdate>
+pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser, &tablo_core::Profile, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::form::FieldErrors>
 pub trait tablo_core::RecordForm: core::marker::Sized + core::marker::Send + 'static
 pub type tablo_core::RecordForm::Field: core::marker::Copy + core::cmp::Eq + core::hash::Hash + core::fmt::Debug + core::marker::Send + core::marker::Sync + 'static
 pub type tablo_core::RecordForm::Model: toasty::schema::model::Model + toasty::stmt::into_expr::IntoExpr<Self::Model> + core::marker::Send + core::marker::Sync + 'static

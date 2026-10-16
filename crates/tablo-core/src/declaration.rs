@@ -134,6 +134,34 @@ pub enum ActionInputFault {
     DependentChoice(String),
 }
 
+impl ActionInputFault {
+    /// Writes why action `action`'s input cannot be served.
+    fn describe(&self, action: &str, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ReservedField(field) => write!(
+                f,
+                "action '{action}' declares an input field named '{field}', which its POST \
+             carries itself: rename the field"
+            ),
+            Self::FileField(field) => write!(
+                f,
+                "action '{action}' declares a file field '{field}' in its input, which an \
+             action's POST does not upload: take the file in a record form"
+            ),
+            Self::RefusesEmpty => write!(
+                f,
+                "action '{action}' declares no input field, but its input refuses an empty \
+             submission: declare the fields it parses, or name `()`"
+            ),
+            Self::DependentChoice(field) => write!(
+                f,
+                "action '{action}' declares a dependent choice '{field}' in its input, whose \
+             options only a resource's form refreshes: drop `depends_on`"
+            ),
+        }
+    }
+}
+
 /// Why a panel's sign-up page cannot be served: [`DeclarationErrorKind::SignUp`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
@@ -151,6 +179,55 @@ pub enum SignUpFault {
     FileField(String),
     /// A relationship choice, whose options would list records to a visitor nobody signed in.
     RelationshipField(String),
+}
+
+/// Why a panel's profile page cannot be served: [`DeclarationErrorKind::Profile`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ProfileFault {
+    /// `Auth::profile` on `Auth::disabled`, which signs nobody in to edit.
+    AuthDisabled,
+    /// The editor edits another user type than the authenticator loads.
+    UserType {
+        /// The editor's `User` type.
+        editor: &'static str,
+    },
+    /// A field named like a key the profile POST carries itself: `csrf_token`.
+    ReservedField(String),
+    /// A file field, whose upload the profile POST does not read.
+    FileField(String),
+    /// A relationship choice, whose options no route serves the profile page.
+    RelationshipField(String),
+}
+
+impl fmt::Display for ProfileFault {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::AuthDisabled => {
+                f.write_str("a profile page needs auth: `Auth::disabled()` signs nobody in to edit")
+            }
+            Self::UserType { editor } => write!(
+                f,
+                "the profile editor edits `{editor}`, but the authenticator loads another \
+             type: edit the type the panel signs in"
+            ),
+            Self::ReservedField(field) => write!(
+                f,
+                "the profile form declares a field named '{field}', which its POST carries \
+             itself: rename the field"
+            ),
+            Self::FileField(field) => write!(
+                f,
+                "the profile form declares a file field '{field}', which its POST does not \
+             upload: edit the file on a resource's form"
+            ),
+            Self::RelationshipField(field) => write!(
+                f,
+                "the profile form declares a relationship choice '{field}', whose options no \
+             route serves the profile page: offer static options"
+            ),
+        }
+    }
 }
 
 impl fmt::Display for SignUpFault {
@@ -297,6 +374,8 @@ pub enum DeclarationErrorKind {
     },
     /// The panel's sign-up page cannot be served.
     SignUp(SignUpFault),
+    /// The panel's profile page cannot be served.
+    Profile(ProfileFault),
     /// Two relations to the same resource.
     DuplicateRelation,
     /// A relation to a resource the panel does not register.
@@ -582,29 +661,9 @@ impl fmt::Display for DeclarationErrorKind {
                 f,
                 "two actions are named '{name}': each needs a distinct `NAME`"
             ),
-            Self::ActionInput { action, fault } => match fault {
-                ActionInputFault::ReservedField(field) => write!(
-                    f,
-                    "action '{action}' declares an input field named '{field}', which its POST \
-                     carries itself: rename the field"
-                ),
-                ActionInputFault::FileField(field) => write!(
-                    f,
-                    "action '{action}' declares a file field '{field}' in its input, which an \
-                     action's POST does not upload: take the file in a record form"
-                ),
-                ActionInputFault::RefusesEmpty => write!(
-                    f,
-                    "action '{action}' declares no input field, but its input refuses an empty \
-                     submission: declare the fields it parses, or name `()`"
-                ),
-                ActionInputFault::DependentChoice(field) => write!(
-                    f,
-                    "action '{action}' declares a dependent choice '{field}' in its input, whose \
-                     options only a resource's form refreshes: drop `depends_on`"
-                ),
-            },
+            Self::ActionInput { action, fault } => fault.describe(action, f),
             Self::SignUp(fault) => fault.fmt(f),
+            Self::Profile(fault) => fault.fmt(f),
             Self::DuplicateRelation => {
                 f.write_str("declared twice: each related resource is one relation")
             }

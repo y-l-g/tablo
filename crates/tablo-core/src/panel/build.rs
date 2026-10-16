@@ -212,6 +212,7 @@ impl Panel {
                 errors.extend(
                     crate::auth::check_registration(&auth)
                         .into_iter()
+                        .chain(crate::auth::check_profile(&auth))
                         .map(DeclarationError::panel),
                 );
             }
@@ -310,6 +311,20 @@ impl Panel {
                     http::Method::POST,
                     register_path,
                     crate::auth::register_post,
+                ));
+        }
+        if state.auth.profile_editor().is_some() {
+            let profile_path = route_path(&format!("{prefix}/profile"));
+            builder = builder
+                .page(PageFn::new(
+                    http::Method::GET,
+                    profile_path.clone(),
+                    crate::auth::profile_page,
+                ))
+                .page(PageFn::new(
+                    http::Method::POST,
+                    profile_path,
+                    crate::auth::profile_post,
                 ));
         }
         builder = builder.layout(LayoutFn::new(
