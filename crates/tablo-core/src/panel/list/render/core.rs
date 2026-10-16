@@ -12,7 +12,7 @@ use super::{
     rows::{CellLayout, RowChrome, RowView, render_rows, selectable_keys},
     table_dom_id,
 };
-use crate::table::{TablePage, TableState};
+use crate::table::{Sort, TablePage, TableState};
 
 impl<M> WiredTable<M> {
     /// Load the page of `query` the table's browser state selects, and render it.
@@ -65,6 +65,7 @@ impl<M> WiredTable<M> {
             next_cursor: page.next_cursor,
             prev_cursor: page.prev_cursor,
             position: page.position,
+            sort: self.sort_for(state),
             filters: self.filter_views(cx, state).await,
         };
         frame.render_page(cx, loaded, state, path, signals).await
@@ -77,6 +78,8 @@ struct Loaded<'a> {
     next_cursor: Option<String>,
     prev_cursor: Option<String>,
     position: Option<crate::table::PagePosition>,
+    /// The sort the rows are in.
+    sort: Option<Sort>,
     filters: FilterViews<'a>,
 }
 
@@ -95,6 +98,7 @@ impl Frame<'_> {
             next_cursor,
             prev_cursor,
             position,
+            sort,
             mut filters,
         } = loaded;
         let signals = &signals
@@ -109,7 +113,7 @@ impl Frame<'_> {
                 path,
                 with_actions,
                 with_bulk,
-                Some((signals, selectable_keys(&row_data))),
+                Some((signals, sort.as_ref(), selectable_keys(&row_data))),
             )
             .await?;
         let filter_warning = self.render_filter_warning(cx, state, path, signals, &filters);

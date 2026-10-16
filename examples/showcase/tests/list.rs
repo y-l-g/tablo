@@ -28,13 +28,23 @@ async fn renders_search_box_and_sort_links() {
         html.contains("type=\"search\""),
         "missing search input type in {html}"
     );
+    // Without `?sort=` the rows sort by the first sortable column, ascending, and its header
+    // says so and links the descending sort; the other sortable columns link their ascending one.
     assert!(
-        find_href_with(&html, "sort=name&dir=asc").is_some(),
-        "missing sort link in {html}"
+        html.contains("aria-sort=\"ascending\""),
+        "missing aria-sort=ascending on the implicit sort in {html}"
+    );
+    assert!(
+        find_href_with(&html, "sort=name&dir=desc").is_some(),
+        "missing toggle of the implicit sort in {html}"
     );
     assert!(
         html.contains("aria-sort=\"none\""),
-        "missing aria-sort on sortable column in {html}"
+        "missing aria-sort on another sortable column in {html}"
+    );
+    assert!(
+        find_href_with(&html, "sort=email&dir=asc").is_some(),
+        "missing sort link in {html}"
     );
 
     let response = client.get("/admin/users?sort=name&dir=asc").await;

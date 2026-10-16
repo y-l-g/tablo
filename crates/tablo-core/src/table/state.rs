@@ -25,14 +25,32 @@ pub(crate) fn bulk_key(body: &str) -> String {
     href::decode_query_value(body)
 }
 
-/// Which column the table is currently sorted by, parsed from
-/// `?sort=<column>&dir=asc|desc`.
+/// A column and a direction to sort a table by: parsed from `?sort=<column>&dir=asc|desc`, or
+/// declared as the table's [default](super::Table::default_sort).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Sort {
     /// The app-level field name of the column (matches `TextColumn::name`).
     pub column: String,
     /// `true` for `dir=desc`.
     pub descending: bool,
+}
+
+impl Sort {
+    /// Sort by `column`, smallest first.
+    pub fn asc(column: impl Into<String>) -> Self {
+        Self {
+            column: column.into(),
+            descending: false,
+        }
+    }
+
+    /// Sort by `column`, largest first.
+    pub fn desc(column: impl Into<String>) -> Self {
+        Self {
+            column: column.into(),
+            descending: true,
+        }
+    }
 }
 
 /// A pagination cursor: the page after, or the page before, an encoded row.

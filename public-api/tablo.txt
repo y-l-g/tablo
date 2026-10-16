@@ -70,6 +70,7 @@ pub use tablo::prelude::RouterBuilderPanelExt
 pub use tablo::prelude::Schema
 pub use tablo::prelude::Section
 pub use tablo::prelude::SelectFilter
+pub use tablo::prelude::Sort
 pub use tablo::prelude::Table
 pub use tablo::prelude::Tenancy
 pub use tablo::prelude::TenantId

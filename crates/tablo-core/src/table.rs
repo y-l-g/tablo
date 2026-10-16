@@ -117,6 +117,8 @@ pub struct Table<M> {
     action_layout: ActionLayout,
     /// The page sizes `?per_page=` may ask for, sorted; empty offers no choice.
     per_page_options: Vec<usize>,
+    /// The sort a request naming no sortable column reads.
+    default_sort: Option<Sort>,
     hide_search: bool,
     hide_filter_bar: bool,
     _marker: PhantomData<M>,
@@ -133,6 +135,7 @@ impl<M> std::fmt::Debug for Table<M> {
             .field("group_by", &self.group_by.is_some())
             .field("page_size", &self.page_size)
             .field("pagination", &self.pagination)
+            .field("default_sort", &self.default_sort)
             .field("hide_search", &self.hide_search)
             .field("hide_filter_bar", &self.hide_filter_bar)
             .finish()
@@ -158,6 +161,7 @@ impl<M> Table<M> {
             pagination: Pagination::default(),
             action_layout: ActionLayout::default(),
             per_page_options: DEFAULT_PER_PAGE_OPTIONS.to_vec(),
+            default_sort: None,
             hide_search: false,
             hide_filter_bar: false,
             _marker: PhantomData,
@@ -304,6 +308,28 @@ impl<M> Table<M> {
         self
     }
 
+    /// Sort by `sort` when the URL names no sortable column; by the first sortable column,
+    /// ascending, by default.
+    ///
+    /// ```rust
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String, published_at: jiff::Timestamp }
+    /// use tablo_core::{DateColumn, Sort, Table, TextColumn, lens};
+    ///
+    /// // The newest posts first.
+    /// Table::new((
+    ///     TextColumn::new(lens!(Post.title)).sortable(),
+    ///     DateColumn::new(lens!(Post.published_at)).sortable(),
+    /// ))
+    /// .default_sort(Sort::desc("published_at"));
+    /// ```
+    ///
+    /// A `sort` naming no sortable column is a declaration error.
+    pub fn default_sort(mut self, sort: Sort) -> Self {
+        self.default_sort = Some(sort);
+        self
+    }
+
     /// Set the page size.
     pub fn paginate(mut self, per_page: usize) -> Self {
         match NonZeroUsize::new(per_page) {
@@ -341,6 +367,13 @@ impl<M> Table<M> {
         );
         if self.columns.is_empty() {
             errors.push(DeclarationErrorKind::NoColumns);
+        }
+        if let Some(sort) = &self.default_sort
+            && self.sortable_column(&sort.column).is_none()
+        {
+            errors.push(DeclarationErrorKind::UnsortableDefaultSort {
+                column: sort.column.clone(),
+            });
         }
         let mut seen = std::collections::HashSet::with_capacity(self.columns.len());
         for column in &self.columns {
@@ -448,33 +481,56 @@ impl<M> Table<M> {
         Some(exprs.fold(first, |acc, e| acc.or(e)))
     }
 
-    /// The first sortable column's order-by.
-    pub(crate) fn order_by(&self, descending: bool) -> Option<OrderByExpr>
+    /// The sortable column named `name`.
+    fn sortable_column(&self, name: &str) -> Option<&BoxColumn<M>> {
+        self.columns
+            .iter()
+            .find(|c| c.is_sortable() && c.name() == name)
+    }
+
+    /// The sort `state` reads: its own when it names a sortable column, else the
+    /// [default](Self::default_sort), else the first sortable column's, ascending. `None` when no
+    /// column sorts.
+    pub(crate) fn sort_for(&self, state: &TableState) -> Option<Sort> {
+        [state.sort.as_ref(), self.default_sort.as_ref()]
+            .into_iter()
+            .flatten()
+            .find(|sort| self.sortable_column(&sort.column).is_some())
+            .cloned()
+            .or_else(|| {
+                let first = self.columns.iter().find(|c| c.is_sortable())?;
+                Some(Sort::asc(first.name()))
+            })
+    }
+
+    /// The first sortable column's ascending order-by: the order a relationship's choices list in,
+    /// whatever the list's [default](Self::default_sort).
+    pub(crate) fn first_order_by(&self) -> Option<OrderByExpr>
     where
         M: toasty::schema::Model,
     {
-        self.columns.iter().find_map(|c| c.order_by(descending))
+        self.columns.iter().find_map(|c| c.order_by(false))
     }
 
-    /// Resolve the full query ordering for a request.
+    /// The order-by `sort` names.
+    fn order_by(&self, sort: &Sort) -> Option<OrderByExpr>
+    where
+        M: toasty::schema::Model,
+    {
+        self.sortable_column(&sort.column)?
+            .order_by(sort.descending)
+    }
+
+    /// Resolve the full query ordering for a request: its [sort](Self::sort_for), or the primary
+    /// key when no column sorts.
     pub(crate) fn order_bys_for(&self, state: &TableState) -> Vec<OrderByExpr>
     where
         M: toasty::schema::Model,
     {
-        if let Some(sort) = &state.sort
-            && let Some(col) = self
-                .columns
-                .iter()
-                .find(|c| c.is_sortable() && c.name() == sort.column)
-            && let Some(ord) = col.order_by(sort.descending)
-        {
-            return vec![ord];
+        match self.sort_for(state).and_then(|sort| self.order_by(&sort)) {
+            Some(ord) => vec![ord],
+            None => crate::toasty_compat::pk::pk_order_bys::<M>(),
         }
-        let out: Vec<OrderByExpr> = self.order_by(false).into_iter().collect();
-        if out.is_empty() {
-            return crate::toasty_compat::pk::pk_order_bys::<M>();
-        }
-        out
     }
 
     /// Apply this table's declaration to `query`: [`Self::narrow`], then the ordering.
