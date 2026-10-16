@@ -1,4 +1,4 @@
-//! [`WiredTable`](super::WiredTable) HTML rendering: the entry points plus the chrome.
+//! [`WiredTable`] HTML rendering: the entry points plus the chrome.
 //!
 //! The model-typed code stops at the projection: the table's rows become [`rows::RowView`]s,
 //! its filters become controls, and its declaration and wiring become a [`Frame`]. Everything
@@ -29,12 +29,12 @@ use topcoat::{
     view::{Attributes, StaticClass, attributes, class},
 };
 
-use super::{
-    ActionLayout, WiredTable,
-    column::{Alignment, ColumnWidth},
-    state::{TableSignals, TableState, query_of, with_return},
+use super::{TableSignals, WiredTable};
+use crate::{
+    panel::url::with_return,
+    schema::Schema,
+    table::{ActionLayout, Alignment, ColumnWidth, TableState, query_of},
 };
-use crate::schema::Schema;
 
 /// What rendering reads from a [`WiredTable`], without its model: the declared columns and
 /// toolbars, and the action wiring.
@@ -95,7 +95,7 @@ impl<M> WiredTable<M> {
     {
         Frame {
             columns: self
-                .columns
+                .declared_columns()
                 .iter()
                 .map(|col| ColumnHead {
                     name: col.name(),

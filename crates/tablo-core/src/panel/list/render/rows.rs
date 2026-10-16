@@ -8,16 +8,13 @@ use tablo_ui::{
 use topcoat::{context::Cx, icon::icon, runtime::Event, view::*};
 
 use super::{
-    super::{GroupKey, RowActions, WiredTable},
+    super::{RowActions, TableSignals, WiredTable},
     CHROME_CELL_CLASS, Frame,
     dialog::{input_trigger, write_trigger},
 };
-use crate::table::{
-    page::TablePage,
-    state::{
-        TableSignals, bulk_token, delete_action_url, group_header_dom_id, row_action_url,
-        row_dom_id, row_edit_url, row_view_url,
-    },
+use crate::{
+    panel::url::{delete_action_url, row_action_url, row_edit_url, row_view_url},
+    table::{GroupKey, TablePage, bulk_token, group_header_dom_id, row_dom_id},
 };
 
 /// What every row of one render shares: the chrome columns, each column's cell layout, and the
@@ -520,8 +517,11 @@ impl<M> WiredTable<M> {
                 } else {
                     RowActions::ALL
                 };
-                let cells: Vec<BoxView<'a>> =
-                    self.columns.iter().map(|col| col.cell(cx, row)).collect();
+                let cells: Vec<BoxView<'a>> = self
+                    .declared_columns()
+                    .iter()
+                    .map(|col| col.cell(cx, row))
+                    .collect();
                 let edit_url = frame
                     .edit_prefix
                     .filter(|_| actions.edit)

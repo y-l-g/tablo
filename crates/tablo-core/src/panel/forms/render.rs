@@ -137,7 +137,7 @@ pub(crate) async fn render_form_page<'a>(
     let path = topcoat::router::request::uri(cx).path();
     let return_to = return_target(cx);
     let action = match &return_to {
-        Some(target) => crate::table::with_return(path, target),
+        Some(target) => crate::panel::url::with_return(path, target),
         None => path.to_string(),
     };
     let cancel = return_to.unwrap_or(cancel);

@@ -42,7 +42,7 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         let uri = topcoat::router::request::uri(cx);
         let edit = (<R::Form as RecordForm>::HAS_FORM
             && resource.can(cx, Ability::Update(&record)))
-        .then(|| format!("{}/{}", uri.path(), crate::table::EDIT_ROUTE_SEGMENT));
+        .then(|| format!("{}/{}", uri.path(), super::url::EDIT_ROUTE_SEGMENT));
         // An action lands back on the page as it was left: its related tables' state included.
         let here = uri
             .path_and_query()

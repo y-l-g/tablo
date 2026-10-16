@@ -3,10 +3,9 @@ use topcoat::context::CxTestBuilder;
 
 use super::*;
 use crate::{
-    Ability, ComputedColumn, lens,
-    resource::{Resource, ResourceDef},
+    ComputedColumn, lens,
     table::{SelectFilter, Sort, TablePage, TableState, TernaryFilter, TextColumn},
-    test_support::{Html as _, User, memory_db, tableless_db},
+    test_support::{Html as _, User, memory_db},
 };
 
 #[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
@@ -74,44 +73,6 @@ async fn a_search_ors_its_term_across_the_searchable_columns() {
     assert!(table.search_expr("   ").is_none());
     let unsearchable = Table::<Task>::new(TextColumn::new(lens!(Task.title)));
     assert!(unsearchable.search_expr("Ada").is_none());
-}
-
-#[tokio::test]
-async fn wired_table_carries_the_declared_action_chrome() {
-    struct ChromeResource;
-    impl Resource for ChromeResource {
-        type Model = User;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .policy_fn(|_cx, ability| {
-                    matches!(ability, Ability::DeleteAny | Ability::Delete(_))
-                })
-                .table(Table::new(TextColumn::new(lens!(User.name))).paginate(25))
-        }
-    }
-
-    let db = tableless_db(toasty::models!(User)).await;
-    // The wiring derives the action URLs from the request path, so the Cx needs one.
-    let parts = http::Request::builder()
-        .uri("/admin/dummies")
-        .body(())
-        .unwrap()
-        .into_parts()
-        .0;
-    let cx = crate::test_support::panel_cx::<ChromeResource>(&db).with(parts);
-    let declared = crate::resource::require_mounted::<ChromeResource>(&cx).unwrap();
-    let wired = crate::panel::wired_table::<ChromeResource>(&cx).unwrap();
-    assert!(
-        wired.bulk_delete_enabled(),
-        "wired_table must attach the delete/bulk chrome the resource declares"
-    );
-    assert_eq!(
-        wired.page_size(),
-        declared.table.page_size(),
-        "wired_table must keep the declared page size"
-    );
 }
 
 #[test]

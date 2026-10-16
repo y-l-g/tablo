@@ -2,11 +2,11 @@
 
 use topcoat::{context::Cx, view::*};
 
-use super::{super::WiredTable, BAR_CLASS, Frame, QUIET_LINK_CLASS, live_link};
-use crate::table::{
-    filter::FilterInput,
-    state::{TableSignals, TableState},
+use super::{
+    super::{TableSignals, WiredTable},
+    BAR_CLASS, Frame, QUIET_LINK_CLASS, live_link,
 };
+use crate::table::{TableState, filter::FilterInput};
 
 /// What a render shows of the table's filters.
 pub(super) struct FilterViews<'a> {
@@ -26,7 +26,7 @@ impl<M> WiredTable<M> {
     {
         let mut controls = Vec::new();
         if self.filter_bar_enabled() {
-            for f in &self.filters {
+            for f in self.declared_filters() {
                 let current = state.filters.get(f.name()).cloned().unwrap_or_default();
                 let input =
                     FilterInput::new(f.name(), state.filter_param(f.name()), f.label(), current);

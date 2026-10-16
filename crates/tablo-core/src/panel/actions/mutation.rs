@@ -37,12 +37,13 @@ use crate::{
     db::db,
     form::{FieldErrors, FormValues},
     notification::{Notification, set_notification},
+    panel::url::action_options_url,
     policy::Ability,
     resource::{
         ActionEntry, Committed, ErasedInput, HeaderEntry, InputSpec, Mounted, Places,
         RESERVED_KEYS, Resource, run_after_commit,
     },
-    table::{action_options_url, bulk_key},
+    table::bulk_key,
     topcoat_compat::async_page,
 };
 

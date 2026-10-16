@@ -7,8 +7,8 @@ use topcoat::{Result, context::Cx};
 
 use super::state::current;
 use crate::{
+    panel::url::RETURN_PARAM,
     resource::{Mounted, Resource, mounted, require_mounted},
-    table::RETURN_PARAM,
 };
 
 /// Rejects tenant-scoped requests without a tenant, never serving unscoped rows.

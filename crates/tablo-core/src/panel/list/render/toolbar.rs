@@ -14,7 +14,13 @@ use super::{
     dialog::{input_trigger, write_trigger},
     table_dom_id,
 };
-use crate::table::state::{TableSignals, TableState, bulk_action_url, bulk_delete_url};
+use crate::{
+    panel::{
+        list::TableSignals,
+        url::{bulk_action_url, bulk_delete_url},
+    },
+    table::TableState,
+};
 
 /// The hidden inputs a table toolbar carries across its submit, in the order
 /// given; an input whose state holds no value renders nothing.

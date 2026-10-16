@@ -4,7 +4,7 @@ use tablo_ui::{table, table_body, table_cell, table_row};
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{super::WiredTable, Frame, core::table_frame};
-use crate::table::state::TableState;
+use crate::table::TableState;
 
 impl<M> WiredTable<M> {
     /// Render the skeleton placeholder table shown while rows load.

@@ -49,7 +49,7 @@ pub(crate) enum Posts {
     Table {
         target: TableTarget,
         /// The table's selection as `,token,` entries, each token's key percent-encoded
-        /// ([`bulk_token`](crate::table::state::bulk_token) spells one), which the bulk route
+        /// ([`bulk_token`](crate::table::bulk_token) spells one), which the bulk route
         /// reads and a row route ignores.
         selection: Signal<String>,
     },

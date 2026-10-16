@@ -36,9 +36,9 @@ use super::{
 use crate::{
     db::db,
     notification::{Notification, set_notification},
+    panel::url::{action_options_url, relation_url},
     policy::Ability,
     resource::{Committed, Links, Mounted, Resource},
-    table::{action_options_url, relation_url},
     topcoat_compat::async_page,
 };
 

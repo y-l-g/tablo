@@ -9,12 +9,14 @@ use topcoat::{context::Cx, icon::icon, runtime::Event, view::*};
 
 use crate::{
     HeaderActions,
+    panel::{
+        input::{InputDialog, Posts, open_dialog},
+        url::{
+            action_options_url, bulk_action_url, delete_action_url, row_action_url, with_return,
+        },
+    },
     policy::Ability,
     resource::{HeaderEntry, InputSpec, Mounted, Places, Resource},
-    table::{
-        InputDialog, Posts, action_options_url, bulk_action_url, delete_action_url, open_dialog,
-        row_action_url, with_return,
-    },
 };
 
 /// The buttons of one page header, each a POST of its own form.

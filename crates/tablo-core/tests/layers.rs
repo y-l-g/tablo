@@ -1,5 +1,6 @@
-//! The crate's layers: a module names its own layer and the ones below it, never one above; and
-//! only `toasty_compat` reaches Toasty's internals.
+//! The crate's layers: a module names its own layer and the ones below it, never one above; only
+//! the serving layer and the render hooks below it name `tablo_ui`; and only `toasty_compat`
+//! reaches Toasty's internals.
 //!
 //! The checks read the sources: every `crate::` path, every `super::` path that leaves its
 //! top-level module, and every root re-export they go through. Tests and their fixtures are
@@ -83,6 +84,77 @@ fn every_module_reaches_only_its_own_layer_and_the_ones_below() {
         "a module reaches a layer above its own:\n{}",
         reached_up.join("\n")
     );
+}
+
+/// The files below the serving layer that render markup: a column's cell, a filter's control, and
+/// a form's controls and layouts. A page, a dialog or a table's chrome belongs to the serving
+/// layer.
+const RENDER_HOOKS: &[&str] = &[
+    "schema/embedded.rs",
+    "schema/fields.rs",
+    "schema/fields/choice.rs",
+    "schema/fields/choice/multiple.rs",
+    "schema/fields/custom.rs",
+    "schema/fields/file.rs",
+    "schema/fields/text.rs",
+    "schema/layouts.rs",
+    "schema/repeater.rs",
+    "table/column.rs",
+    "table/filter.rs",
+];
+
+#[test]
+fn only_serving_and_the_render_hooks_name_tablo_ui() {
+    let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let serving = LAYERS.len() - 1;
+    let mut named = Vec::new();
+    let mut hooks_naming = Vec::new();
+    for file in sources(&src) {
+        let relative = file.strip_prefix(&src).expect("under src");
+        let segments = module_path(relative);
+        if layer(&segments[0]) == Some(serving) {
+            continue;
+        }
+        let text = strip(&fs::read_to_string(&file).expect("read a source"));
+        if !names(&text, "tablo_ui") {
+            continue;
+        }
+        let path = relative
+            .iter()
+            .map(|segment| segment.to_string_lossy())
+            .collect::<Vec<_>>()
+            .join("/");
+        if RENDER_HOOKS.contains(&path.as_str()) {
+            hooks_naming.push(path);
+        } else {
+            named.push(path);
+        }
+    }
+    named.sort();
+    assert!(
+        named.is_empty(),
+        "below the serving layer, only a render hook names `tablo_ui`; move these to `panel`, or \
+         list a render hook in `RENDER_HOOKS`:\n{}",
+        named.join("\n")
+    );
+    let stale: Vec<_> = RENDER_HOOKS
+        .iter()
+        .filter(|hook| !hooks_naming.iter().any(|path| path == *hook))
+        .collect();
+    assert!(
+        stale.is_empty(),
+        "these `RENDER_HOOKS` name no `tablo_ui`; remove them: {stale:?}"
+    );
+}
+
+/// Whether `text` names the path that starts with `word`.
+fn names(text: &str, word: &str) -> bool {
+    text.match_indices(word).any(|(at, _)| {
+        let before = text[..at].chars().next_back();
+        let after = text[at + word.len()..].chars().next();
+        !before.is_some_and(|c| c.is_alphanumeric() || c == '_')
+            && !after.is_some_and(|c| c.is_alphanumeric() || c == '_')
+    })
 }
 
 /// What names Toasty's internals: its internal crate, and the reads of a model's `app`, `mapping`

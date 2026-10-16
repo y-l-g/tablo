@@ -1,4 +1,8 @@
-//! Serves each resource's list page.
+//! Serves each resource's list page, and renders the [`WiredTable`] it and a related table show.
+
+mod render;
+mod signals;
+mod wiring;
 
 use std::sync::Arc;
 
@@ -10,18 +14,21 @@ use topcoat::{
     view::{BoxView, SuspenseMode, ViewExt, attributes, internal::ThenView, suspense, view},
 };
 
+pub use self::wiring::WiredTable;
+pub(crate) use self::{
+    signals::TableSignals,
+    wiring::{RowActions, TableAction, TableChrome},
+};
 use super::{
     bar::{ActionBar, header_bar},
     gate::gate,
+    url::{create_page_url, export_url},
 };
 use crate::{
     form::RecordForm,
     policy::Ability,
     resource::{Mounted, Places, Resource},
-    table::{
-        RowActions, Table, TableAction, TableChrome, TablePage, TableState, WiredTable,
-        create_page_url, export_url,
-    },
+    table::{Table, TablePage, TableState},
     topcoat_compat::async_page,
 };
 

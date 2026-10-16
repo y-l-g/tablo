@@ -4,7 +4,7 @@ use tablo_ui::{table_body, table_cell, table_row};
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{EMPTY_LINK_CLASS, Frame, live_link};
-use crate::table::state::{TableSignals, TableState};
+use crate::{panel::list::TableSignals, table::TableState};
 
 impl Frame<'_> {
     /// Render the zero-rows cell spanning the table, with clear and back-to-first-page links when

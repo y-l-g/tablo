@@ -4,10 +4,62 @@ use std::{ops::Deref, sync::Arc};
 
 use topcoat::context::Cx;
 
-use super::{
-    RowActions, RowPolicy, Table, TableAction,
-    state::{TableSignals, TableState},
+use super::TableSignals;
+use crate::{
+    schema::Schema,
+    table::{Table, TableState},
 };
+
+/// Per-record action policy reads which row actions one model instance allows.
+pub(crate) type RowPolicy<M> = Arc<dyn Fn(&M) -> RowActions + Send + Sync>;
+
+/// Which row actions one record may use.
+///
+/// A denied action emits no link, and a row denied `delete` renders no bulk checkbox.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct RowActions {
+    /// Whether the row renders its `View` link.
+    pub view: bool,
+    /// Whether the row renders its `Edit` link.
+    pub edit: bool,
+    /// Whether the row renders its `Delete` link and an enabled bulk checkbox.
+    pub delete: bool,
+}
+
+impl RowActions {
+    /// Every action allowed.
+    pub const ALL: Self = Self {
+        view: true,
+        edit: true,
+        delete: true,
+    };
+}
+
+/// The action chrome a resource declares.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct TableChrome {
+    /// Whether the row renders a Delete action (which also enables bulk).
+    pub(crate) delete: bool,
+    /// Whether the row renders an Edit action.
+    pub(crate) edit: bool,
+    /// Whether the row renders a View action.
+    pub(crate) view: bool,
+    /// Whether the table renders the resource's custom actions.
+    pub(crate) actions: bool,
+}
+
+/// One custom [`Action`](crate::resource::Action) as a table renders it.
+pub(crate) struct TableAction<M> {
+    pub(crate) name: &'static str,
+    pub(crate) label: String,
+    pub(crate) row: bool,
+    pub(crate) bulk: bool,
+    /// Whether the action confirms: in the confirmation dialog, or in its input dialog.
+    pub(crate) confirm: bool,
+    /// The action's input form, when it asks for one: its buttons open the input's dialog.
+    pub(crate) input: Option<fn() -> Schema>,
+    pub(crate) allowed: Arc<dyn Fn(&M) -> bool + Send + Sync>,
+}
 
 /// What a request wires onto a declared table: the action URLs its rows and bulk bar link to,
 /// and which actions each row allows.
@@ -107,7 +159,7 @@ impl<M> WiredTable<M> {
 
     /// Enable the row-level `Delete` action.
     pub(crate) fn with_delete(mut self, prefix: String) -> Self {
-        if self.addressable {
+        if self.is_addressable() {
             self.wiring.delete_prefix = Some(prefix);
         }
         self
@@ -115,7 +167,7 @@ impl<M> WiredTable<M> {
 
     /// Enable the row-level `Edit` action.
     pub(crate) fn with_edit(mut self, prefix: String) -> Self {
-        if self.addressable {
+        if self.is_addressable() {
             self.wiring.edit_prefix = Some(prefix);
         }
         self
@@ -123,7 +175,7 @@ impl<M> WiredTable<M> {
 
     /// Enable the row-level `View` action.
     pub(crate) fn with_view(mut self, prefix: String) -> Self {
-        if self.addressable {
+        if self.is_addressable() {
             self.wiring.view_prefix = Some(prefix);
         }
         self
@@ -141,7 +193,7 @@ impl<M> WiredTable<M> {
         prefix: String,
         actions: Vec<TableAction<M>>,
     ) -> Self {
-        if self.addressable {
+        if self.is_addressable() {
             self.wiring.actions_prefix = Some(prefix);
             self.wiring.custom_actions = actions;
         }
