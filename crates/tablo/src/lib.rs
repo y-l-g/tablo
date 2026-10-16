@@ -15,7 +15,7 @@
 //!
 //! It re-exports [`tablo_core`] at its root, the UI components as [`ui`], and
 //! the in-memory HTTP client as `testing` with the `testing` feature; the driver
-//! features (`sqlite`, `postgresql`, `mysql`) turn on Toasty's driver of the same
+//! features (`sqlite`, `postgresql`, `mysql`, `turso`) turn on Toasty's driver of the same
 //! name, and the toolkit itself enables none.
 //!
 //! A minimal app is one model, the record form [`ModelForm`](derive@ModelForm)

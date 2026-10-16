@@ -17,6 +17,7 @@ links = "tablo"
 sqlite = ["toasty/sqlite"]
 postgresql = ["toasty/postgresql"]
 mysql = ["toasty/mysql"]
+turso = ["toasty/turso"]
 # `tablo::testing`: the in-memory HTTP client the Tablo suites drive a panel with.
 testing = ["dep:tablo-test"]
 
