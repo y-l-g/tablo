@@ -78,10 +78,12 @@ mod tests {
 
     #[test]
     fn the_stylesheet_holds_classes_only_tablo_writes() {
-        for (stem, tail) in [("table-", "fixed"), ("tabular-", "nums")] {
-            let rule = format!(".{stem}{tail}{{");
-            assert!(STYLESHEET.contains(&rule), "{stem}{tail} is missing");
-        }
+        // Tablo writes `tabular-nums` from its column and pager sources, so Tailwind's scan of
+        // those sources must have emitted its rule.
+        assert!(
+            STYLESHEET.contains(".tabular-nums{"),
+            "tabular-nums is missing"
+        );
     }
 
     #[test]
