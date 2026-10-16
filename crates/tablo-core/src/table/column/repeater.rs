@@ -66,7 +66,7 @@ where
     M: toasty::schema::Model + Send + Sync + 'static,
     T: RepeaterItem,
 {
-    base_column_methods!(bind);
+    base_column_methods!(binding);
 
     fn text(&self, _cx: &Cx, row: &M) -> String {
         let schema = T::schema();

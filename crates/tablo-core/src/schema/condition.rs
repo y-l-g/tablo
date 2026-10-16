@@ -254,7 +254,7 @@ impl Node {
             Node::Section(s) => s.condition.as_ref(),
             Node::Group(g) => g.condition.as_ref(),
             Node::Grid(g) => g.condition.as_ref(),
-            Node::Embedded(_) | Node::Unbound(_) => None,
+            Node::Embedded(_) => None,
         }
     }
 }

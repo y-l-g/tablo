@@ -339,7 +339,6 @@ pub fn tablo_core::db::db(&topcoat_core::context::Cx) -> toasty::db::Db
 pub mod tablo_core::detail
 pub struct tablo_core::detail::Detail<M>
 impl<M> tablo_core::detail::Detail<M>
-pub fn tablo_core::detail::Detail<M>::bind(self, &toasty::db::Db) -> Self
 pub fn tablo_core::detail::Detail<M>::column(self, impl tablo_core::extend::Column<M> + 'static) -> Self
 pub fn tablo_core::detail::Detail<M>::declaration_errors(&self) -> alloc::vec::Vec<tablo_core::DeclarationErrorKind>
 pub fn tablo_core::detail::Detail<M>::empty() -> Self
@@ -1047,7 +1046,7 @@ pub type tablo_core::form::NoForm<M>::Model = M
 pub const tablo_core::form::NoForm<M>::HAS_FORM: bool
 pub fn tablo_core::form::NoForm<M>::control(Self::Field) -> tablo_core::schema::Schema<Self>
 pub fn tablo_core::form::NoForm<M>::exec_update<'a>(<M as toasty::schema::model::Model>::Update, &'a mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = toasty_core::Result<()>> + core::marker::Send + 'a
-pub fn tablo_core::form::NoForm<M>::fields(&tablo_core::FieldResolver) -> alloc::vec::Vec<tablo_core::form::FormField<Self::Field>>
+pub fn tablo_core::form::NoForm<M>::fields() -> alloc::vec::Vec<tablo_core::form::FormField<Self::Field>>
 pub fn tablo_core::form::NoForm<M>::hydrate(&topcoat_core::context::Cx, &M) -> tablo_core::FormValues
 pub fn tablo_core::form::NoForm<M>::includes() -> tablo_core::extend::Includes<Self::Model>
 pub fn tablo_core::form::NoForm<M>::into_create(self) -> <M as toasty::schema::model::Model>::Create
@@ -1122,7 +1121,7 @@ pub type tablo_core::form::RecordForm::Model: toasty::schema::model::Model + toa
 pub const tablo_core::form::RecordForm::HAS_FORM: bool
 pub fn tablo_core::form::RecordForm::control(Self::Field) -> tablo_core::schema::Schema<Self>
 pub fn tablo_core::form::RecordForm::exec_update<'a>(<Self::Model as toasty::schema::model::Model>::Update, &'a mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = toasty_core::Result<()>> + core::marker::Send + 'a
-pub fn tablo_core::form::RecordForm::fields(&tablo_core::FieldResolver) -> alloc::vec::Vec<tablo_core::form::FormField<Self::Field>>
+pub fn tablo_core::form::RecordForm::fields() -> alloc::vec::Vec<tablo_core::form::FormField<Self::Field>>
 pub fn tablo_core::form::RecordForm::hydrate(&topcoat_core::context::Cx, &Self::Model) -> tablo_core::FormValues
 pub fn tablo_core::form::RecordForm::includes() -> tablo_core::extend::Includes<Self::Model>
 pub fn tablo_core::form::RecordForm::into_create(self) -> <Self::Model as toasty::schema::model::Model>::Create
@@ -1135,7 +1134,7 @@ pub type tablo_core::form::NoForm<M>::Model = M
 pub const tablo_core::form::NoForm<M>::HAS_FORM: bool
 pub fn tablo_core::form::NoForm<M>::control(Self::Field) -> tablo_core::schema::Schema<Self>
 pub fn tablo_core::form::NoForm<M>::exec_update<'a>(<M as toasty::schema::model::Model>::Update, &'a mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = toasty_core::Result<()>> + core::marker::Send + 'a
-pub fn tablo_core::form::NoForm<M>::fields(&tablo_core::FieldResolver) -> alloc::vec::Vec<tablo_core::form::FormField<Self::Field>>
+pub fn tablo_core::form::NoForm<M>::fields() -> alloc::vec::Vec<tablo_core::form::FormField<Self::Field>>
 pub fn tablo_core::form::NoForm<M>::hydrate(&topcoat_core::context::Cx, &M) -> tablo_core::FormValues
 pub fn tablo_core::form::NoForm<M>::includes() -> tablo_core::extend::Includes<Self::Model>
 pub fn tablo_core::form::NoForm<M>::into_create(self) -> <M as toasty::schema::model::Model>::Create
@@ -1715,7 +1714,7 @@ impl<R: tablo_core::resource::Resource> core::default::Default for tablo_core::R
 pub fn tablo_core::ResourceDef<R>::default() -> Self
 impl<R: tablo_core::resource::Resource> core::fmt::Debug for tablo_core::ResourceDef<R>
 pub fn tablo_core::ResourceDef<R>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl<R> !core::marker::Freeze for tablo_core::ResourceDef<R>
+impl<R> core::marker::Freeze for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::Freeze, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::Freeze, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::Freeze, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, Actions<R>: core::marker::Freeze
 impl<R> core::marker::Send for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::Send, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::Send, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::Send, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, Actions<R>: core::marker::Send
 impl<R> core::marker::Sync for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::Sync, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::Sync, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::Sync, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, Actions<R>: core::marker::Sync
 impl<R> core::marker::Unpin for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::Unpin, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::Unpin, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::Unpin, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, Actions<R>: core::marker::Unpin
@@ -1793,7 +1792,7 @@ pub fn tablo_core::Field::from(tablo_core::ChoiceField<F>) -> tablo_core::Field
 impl<F> tablo_core::IntoSchema<F> for tablo_core::ChoiceField<F>
 pub fn tablo_core::ChoiceField<F>::into_schema(self) -> tablo_core::schema::Schema<F>
 impl<F> tablo_core::Watched<F> for tablo_core::ChoiceField<F>
-impl<F> !core::marker::Freeze for tablo_core::ChoiceField<F>
+impl<F> core::marker::Freeze for tablo_core::ChoiceField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Freeze
 impl<F> core::marker::Send for tablo_core::ChoiceField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Send
 impl<F> core::marker::Sync for tablo_core::ChoiceField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Sync
 impl<F> core::marker::Unpin for tablo_core::ChoiceField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Unpin
@@ -1819,7 +1818,7 @@ pub fn tablo_core::Field::from(tablo_core::CustomField<F>) -> tablo_core::Field
 impl<F> tablo_core::IntoSchema<F> for tablo_core::CustomField<F>
 pub fn tablo_core::CustomField<F>::into_schema(self) -> tablo_core::schema::Schema<F>
 impl<F> tablo_core::Watched<F> for tablo_core::CustomField<F>
-impl<F> !core::marker::Freeze for tablo_core::CustomField<F>
+impl<F> core::marker::Freeze for tablo_core::CustomField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Freeze
 impl<F> core::marker::Send for tablo_core::CustomField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Send
 impl<F> core::marker::Sync for tablo_core::CustomField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Sync
 impl<F> core::marker::Unpin for tablo_core::CustomField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Unpin
@@ -1852,25 +1851,13 @@ impl<F> core::convert::From<tablo_core::RepeaterField<F>> for tablo_core::Field
 pub fn tablo_core::Field::from(tablo_core::RepeaterField<F>) -> tablo_core::Field
 impl<F> core::convert::From<tablo_core::TextField<F>> for tablo_core::Field
 pub fn tablo_core::Field::from(tablo_core::TextField<F>) -> tablo_core::Field
-impl !core::marker::Freeze for tablo_core::Field
+impl core::marker::Freeze for tablo_core::Field
 impl core::marker::Send for tablo_core::Field
 impl core::marker::Sync for tablo_core::Field
 impl core::marker::Unpin for tablo_core::Field
 impl core::marker::UnsafeUnpin for tablo_core::Field
 impl !core::panic::unwind_safe::RefUnwindSafe for tablo_core::Field
 impl !core::panic::unwind_safe::UnwindSafe for tablo_core::Field
-pub struct tablo_core::schema::FieldResolver
-impl core::clone::Clone for tablo_core::FieldResolver
-pub fn tablo_core::FieldResolver::clone(&self) -> tablo_core::FieldResolver
-impl core::default::Default for tablo_core::FieldResolver
-pub fn tablo_core::FieldResolver::default() -> tablo_core::FieldResolver
-impl core::marker::Freeze for tablo_core::FieldResolver
-impl core::marker::Send for tablo_core::FieldResolver
-impl core::marker::Sync for tablo_core::FieldResolver
-impl core::marker::Unpin for tablo_core::FieldResolver
-impl core::marker::UnsafeUnpin for tablo_core::FieldResolver
-impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::FieldResolver
-impl core::panic::unwind_safe::UnwindSafe for tablo_core::FieldResolver
 pub struct tablo_core::schema::FileField<F>(_, _)
 impl<F> tablo_core::FileField<F>
 pub fn tablo_core::FileField<F>::choice(self) -> tablo_core::ChoiceField<F>
@@ -1887,7 +1874,7 @@ impl<F> core::convert::From<tablo_core::FileField<F>> for tablo_core::Field
 pub fn tablo_core::Field::from(tablo_core::FileField<F>) -> tablo_core::Field
 impl<F> tablo_core::IntoSchema<F> for tablo_core::FileField<F>
 pub fn tablo_core::FileField<F>::into_schema(self) -> tablo_core::schema::Schema<F>
-impl<F> !core::marker::Freeze for tablo_core::FileField<F>
+impl<F> core::marker::Freeze for tablo_core::FileField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Freeze
 impl<F> core::marker::Send for tablo_core::FileField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Send
 impl<F> core::marker::Sync for tablo_core::FileField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Sync
 impl<F> core::marker::Unpin for tablo_core::FileField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Unpin
@@ -1955,7 +1942,7 @@ impl<F> core::convert::From<tablo_core::RepeaterField<F>> for tablo_core::Field
 pub fn tablo_core::Field::from(tablo_core::RepeaterField<F>) -> tablo_core::Field
 impl<F> tablo_core::IntoSchema<F> for tablo_core::RepeaterField<F>
 pub fn tablo_core::RepeaterField<F>::into_schema(self) -> tablo_core::schema::Schema<F>
-impl<F> !core::marker::Freeze for tablo_core::RepeaterField<F>
+impl<F> core::marker::Freeze for tablo_core::RepeaterField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Freeze
 impl<F> core::marker::Send for tablo_core::RepeaterField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Send
 impl<F> core::marker::Sync for tablo_core::RepeaterField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Sync
 impl<F> core::marker::Unpin for tablo_core::RepeaterField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Unpin
@@ -1966,7 +1953,6 @@ pub struct tablo_core::schema::Schema<F>
 impl tablo_core::schema::Schema
 pub fn tablo_core::schema::Schema::empty() -> Self
 impl<F> tablo_core::schema::Schema<F>
-pub fn tablo_core::schema::Schema<F>::bind(self, &toasty::db::Db) -> Self
 pub fn tablo_core::schema::Schema<F>::declaration_errors(&self) -> alloc::vec::Vec<tablo_core::DeclarationErrorKind>
 pub fn tablo_core::schema::Schema<F>::extend(self, tablo_core::schema::Schema<F>) -> tablo_core::schema::Schema<F>
 pub fn tablo_core::schema::Schema<F>::fields(&self) -> impl core::iter::traits::iterator::Iterator<Item = &tablo_core::Field>
@@ -2049,7 +2035,7 @@ pub fn tablo_core::Field::from(tablo_core::TextField<F>) -> tablo_core::Field
 impl<F> tablo_core::IntoSchema<F> for tablo_core::TextField<F>
 pub fn tablo_core::TextField<F>::into_schema(self) -> tablo_core::schema::Schema<F>
 impl<F> tablo_core::Watched<F> for tablo_core::TextField<F>
-impl<F> !core::marker::Freeze for tablo_core::TextField<F>
+impl<F> core::marker::Freeze for tablo_core::TextField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Freeze
 impl<F> core::marker::Send for tablo_core::TextField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Send
 impl<F> core::marker::Sync for tablo_core::TextField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Sync
 impl<F> core::marker::Unpin for tablo_core::TextField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Unpin
@@ -2076,8 +2062,8 @@ impl core::panic::unwind_safe::UnwindSafe for tablo_core::Toggle
 pub const tablo_core::schema::MAX_RELATIONSHIP_OPTIONS: usize
 pub const tablo_core::schema::MAX_ROWS: usize
 pub trait tablo_core::schema::EmbeddedForm: core::marker::Sized
-pub fn tablo_core::schema::EmbeddedForm::read_form<M>(&topcoat_core::context::Cx, impl core::convert::Into<toasty::stmt::path::Path<M, Self>>, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>> where M: toasty::schema::model::Model
-pub fn tablo_core::schema::EmbeddedForm::write_form<M>(&self, &topcoat_core::context::Cx, impl core::convert::Into<toasty::stmt::path::Path<M, Self>>, &mut tablo_core::FormValues) where M: toasty::schema::model::Model
+pub fn tablo_core::schema::EmbeddedForm::read_form<M>(impl core::convert::Into<toasty::stmt::path::Path<M, Self>>, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>> where M: toasty::schema::model::Model
+pub fn tablo_core::schema::EmbeddedForm::write_form<M>(&self, impl core::convert::Into<toasty::stmt::path::Path<M, Self>>, &mut tablo_core::FormValues) where M: toasty::schema::model::Model
 pub trait tablo_core::schema::IntoFormValue
 pub fn tablo_core::schema::IntoFormValue::into_form_value(self) -> tablo_core::FormValue
 impl tablo_core::IntoFormValue for &alloc::string::String
@@ -2349,7 +2335,7 @@ pub fn tablo_core::BooleanColumn<M>::name(&self) -> &str
 pub fn tablo_core::BooleanColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::BooleanColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::BooleanColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
-impl<M> !core::marker::Freeze for tablo_core::BooleanColumn<M>
+impl<M> core::marker::Freeze for tablo_core::BooleanColumn<M> where tablo_core::Lens<M, bool>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::BooleanColumn<M> where tablo_core::Lens<M, bool>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::BooleanColumn<M> where tablo_core::Lens<M, bool>: core::marker::Sync
 impl<M> core::marker::Unpin for tablo_core::BooleanColumn<M> where tablo_core::Lens<M, bool>: core::marker::Unpin
@@ -2381,7 +2367,7 @@ pub fn tablo_core::ColorColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::ColorColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::ColorColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::ColorColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
-impl<M, T> !core::marker::Freeze for tablo_core::ColorColumn<M, T>
+impl<M, T> core::marker::Freeze for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Freeze
 impl<M, T> core::marker::Send for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send
 impl<M, T> core::marker::Sync for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync
 impl<M, T> core::marker::Unpin for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Unpin
@@ -2507,7 +2493,7 @@ pub fn tablo_core::DateColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::DateColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::DateColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::DateColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
-impl<M, T> !core::marker::Freeze for tablo_core::DateColumn<M, T>
+impl<M, T> core::marker::Freeze for tablo_core::DateColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Freeze
 impl<M, T> core::marker::Send for tablo_core::DateColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send
 impl<M, T> core::marker::Sync for tablo_core::DateColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync
 impl<M, T> core::marker::Unpin for tablo_core::DateColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Unpin
@@ -2531,7 +2517,7 @@ pub fn tablo_core::DateFilter<M>::label(&self) -> &str
 pub fn tablo_core::DateFilter<M>::load_control<'s, 'a: 's>(&'s self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> tablo_core::extend::ControlFuture<'s, 'a>
 pub fn tablo_core::DateFilter<M>::name(&self) -> &str
 pub fn tablo_core::DateFilter<M>::to_expr(&self, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
-impl<M> !core::marker::Freeze for tablo_core::DateFilter<M>
+impl<M> core::marker::Freeze for tablo_core::DateFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::DateFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::DateFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Sync
 impl<M> core::marker::Unpin for tablo_core::DateFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Unpin
@@ -2563,7 +2549,7 @@ pub fn tablo_core::EmbeddedColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::EmbeddedColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::EmbeddedColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::EmbeddedColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
-impl<M, T> !core::marker::Freeze for tablo_core::EmbeddedColumn<M, T>
+impl<M, T> core::marker::Freeze for tablo_core::EmbeddedColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Freeze
 impl<M, T> core::marker::Send for tablo_core::EmbeddedColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send
 impl<M, T> core::marker::Sync for tablo_core::EmbeddedColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync
 impl<M, T> core::marker::Unpin for tablo_core::EmbeddedColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Unpin
@@ -2595,7 +2581,7 @@ pub fn tablo_core::FileColumn<M>::name(&self) -> &str
 pub fn tablo_core::FileColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::FileColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::FileColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
-impl<M> !core::marker::Freeze for tablo_core::FileColumn<M>
+impl<M> core::marker::Freeze for tablo_core::FileColumn<M> where tablo_core::Lens<M, alloc::string::String>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::FileColumn<M> where tablo_core::Lens<M, alloc::string::String>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::FileColumn<M> where tablo_core::Lens<M, alloc::string::String>: core::marker::Sync
 impl<M> core::marker::Unpin for tablo_core::FileColumn<M> where tablo_core::Lens<M, alloc::string::String>: core::marker::Unpin
@@ -2661,7 +2647,7 @@ pub fn tablo_core::ImageColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::ImageColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::ImageColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::ImageColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
-impl<M, T> !core::marker::Freeze for tablo_core::ImageColumn<M, T>
+impl<M, T> core::marker::Freeze for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Freeze
 impl<M, T> core::marker::Send for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send
 impl<M, T> core::marker::Sync for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync
 impl<M, T> core::marker::Unpin for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Unpin
@@ -2791,7 +2777,7 @@ pub fn tablo_core::RepeaterColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::RepeaterColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::RepeaterColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::RepeaterColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
-impl<M, T> !core::marker::Freeze for tablo_core::RepeaterColumn<M, T>
+impl<M, T> core::marker::Freeze for tablo_core::RepeaterColumn<M, T> where tablo_core::Lens<M, alloc::vec::Vec<T>, toasty::stmt::list::List<T>>: core::marker::Freeze
 impl<M, T> core::marker::Send for tablo_core::RepeaterColumn<M, T> where tablo_core::Lens<M, alloc::vec::Vec<T>, toasty::stmt::list::List<T>>: core::marker::Send
 impl<M, T> core::marker::Sync for tablo_core::RepeaterColumn<M, T> where tablo_core::Lens<M, alloc::vec::Vec<T>, toasty::stmt::list::List<T>>: core::marker::Sync
 impl<M, T> core::marker::Unpin for tablo_core::RepeaterColumn<M, T> where tablo_core::Lens<M, alloc::vec::Vec<T>, toasty::stmt::list::List<T>>: core::marker::Unpin
@@ -2818,7 +2804,7 @@ pub fn tablo_core::SelectFilter<M>::label(&self) -> &str
 pub fn tablo_core::SelectFilter<M>::load_control<'s, 'a: 's>(&'s self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> tablo_core::extend::ControlFuture<'s, 'a>
 pub fn tablo_core::SelectFilter<M>::name(&self) -> &str
 pub fn tablo_core::SelectFilter<M>::to_expr(&self, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
-impl<M> !core::marker::Freeze for tablo_core::SelectFilter<M>
+impl<M> core::marker::Freeze for tablo_core::SelectFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::SelectFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::SelectFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Sync
 impl<M> core::marker::Unpin for tablo_core::SelectFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Unpin
@@ -2848,7 +2834,6 @@ impl core::panic::unwind_safe::UnwindSafe for tablo_core::Sort
 pub struct tablo_core::table::Table<M>
 impl<M> tablo_core::table::Table<M>
 pub fn tablo_core::table::Table<M>::action_layout(self, tablo_core::table::ActionLayout) -> Self
-pub fn tablo_core::table::Table<M>::bind(self, &toasty::db::Db) -> Self
 pub fn tablo_core::table::Table<M>::column(self, impl tablo_core::extend::Column<M> + 'static) -> Self
 pub fn tablo_core::table::Table<M>::declaration_errors(&self) -> alloc::vec::Vec<tablo_core::DeclarationErrorKind>
 pub fn tablo_core::table::Table<M>::filters(self, impl tablo_core::IntoFilters<M>) -> Self where M: toasty::schema::model::Model
@@ -2866,7 +2851,7 @@ impl<M> core::clone::Clone for tablo_core::table::Table<M>
 pub fn tablo_core::table::Table<M>::clone(&self) -> Self
 impl<M> core::fmt::Debug for tablo_core::table::Table<M>
 pub fn tablo_core::table::Table<M>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl<M> !core::marker::Freeze for tablo_core::table::Table<M>
+impl<M> core::marker::Freeze for tablo_core::table::Table<M> where alloc::vec::Vec<alloc::sync::Arc<dyn tablo_core::extend::Column<M>>>: core::marker::Freeze, alloc::vec::Vec<alloc::sync::Arc<dyn tablo_core::extend::Filter<M>>>: core::marker::Freeze, core::option::Option<GroupDef<M>>: core::marker::Freeze, fn(&M) -> alloc::string::String: core::marker::Freeze, core::marker::PhantomData<M>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::table::Table<M> where alloc::vec::Vec<alloc::sync::Arc<dyn tablo_core::extend::Column<M>>>: core::marker::Send, alloc::vec::Vec<alloc::sync::Arc<dyn tablo_core::extend::Filter<M>>>: core::marker::Send, core::option::Option<GroupDef<M>>: core::marker::Send, fn(&M) -> alloc::string::String: core::marker::Send, core::marker::PhantomData<M>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::table::Table<M> where alloc::vec::Vec<alloc::sync::Arc<dyn tablo_core::extend::Column<M>>>: core::marker::Sync, alloc::vec::Vec<alloc::sync::Arc<dyn tablo_core::extend::Filter<M>>>: core::marker::Sync, core::option::Option<GroupDef<M>>: core::marker::Sync, fn(&M) -> alloc::string::String: core::marker::Sync, core::marker::PhantomData<M>: core::marker::Sync
 impl<M> core::marker::Unpin for tablo_core::table::Table<M> where alloc::vec::Vec<alloc::sync::Arc<dyn tablo_core::extend::Column<M>>>: core::marker::Unpin, alloc::vec::Vec<alloc::sync::Arc<dyn tablo_core::extend::Filter<M>>>: core::marker::Unpin, core::option::Option<GroupDef<M>>: core::marker::Unpin, fn(&M) -> alloc::string::String: core::marker::Unpin, core::marker::PhantomData<M>: core::marker::Unpin
@@ -2943,7 +2928,7 @@ pub fn tablo_core::TernaryFilter<M>::label(&self) -> &str
 pub fn tablo_core::TernaryFilter<M>::load_control<'s, 'a: 's>(&'s self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> tablo_core::extend::ControlFuture<'s, 'a>
 pub fn tablo_core::TernaryFilter<M>::name(&self) -> &str
 pub fn tablo_core::TernaryFilter<M>::to_expr(&self, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
-impl<M> !core::marker::Freeze for tablo_core::TernaryFilter<M>
+impl<M> core::marker::Freeze for tablo_core::TernaryFilter<M> where toasty::stmt::path::Path<M, bool>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::TernaryFilter<M> where toasty::stmt::path::Path<M, bool>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::TernaryFilter<M> where toasty::stmt::path::Path<M, bool>: core::marker::Sync
 impl<M> core::marker::Unpin for tablo_core::TernaryFilter<M> where toasty::stmt::path::Path<M, bool>: core::marker::Unpin
@@ -2986,7 +2971,7 @@ pub fn tablo_core::TextColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::TextColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::TextColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::TextColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
-impl<M, T> !core::marker::Freeze for tablo_core::TextColumn<M, T>
+impl<M, T> core::marker::Freeze for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Freeze, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Freeze, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync)>: core::marker::Freeze, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>>: core::marker::Freeze
 impl<M, T> core::marker::Send for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Send, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync)>: core::marker::Send, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>>: core::marker::Send
 impl<M, T> core::marker::Sync for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Sync, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync)>: core::marker::Sync, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>>: core::marker::Sync
 impl<M, T> core::marker::Unpin for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Unpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Unpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync)>: core::marker::Unpin, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>>: core::marker::Unpin
@@ -3494,8 +3479,9 @@ pub tablo_core::DeclarationErrorKind::TenancyViaOwnColumn
 pub tablo_core::DeclarationErrorKind::TenancyViaWithoutBelongsTo
 pub tablo_core::DeclarationErrorKind::TraversalLens
 pub tablo_core::DeclarationErrorKind::TraversalLens::steps: usize
-pub tablo_core::DeclarationErrorKind::Unbound
-pub tablo_core::DeclarationErrorKind::Unbound::item: &'static str
+pub tablo_core::DeclarationErrorKind::Uncompiled
+pub tablo_core::DeclarationErrorKind::Uncompiled::error: alloc::string::String
+pub tablo_core::DeclarationErrorKind::Uncompiled::model: &'static str
 pub tablo_core::DeclarationErrorKind::UnguardedForeignKey
 pub tablo_core::DeclarationErrorKind::UnguardedForeignKey::keys: alloc::vec::Vec<alloc::string::String>
 pub tablo_core::DeclarationErrorKind::UnguardedForeignKey::relation: alloc::string::String
@@ -3867,7 +3853,7 @@ pub fn tablo_core::BooleanColumn<M>::name(&self) -> &str
 pub fn tablo_core::BooleanColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::BooleanColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::BooleanColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
-impl<M> !core::marker::Freeze for tablo_core::BooleanColumn<M>
+impl<M> core::marker::Freeze for tablo_core::BooleanColumn<M> where tablo_core::Lens<M, bool>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::BooleanColumn<M> where tablo_core::Lens<M, bool>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::BooleanColumn<M> where tablo_core::Lens<M, bool>: core::marker::Sync
 impl<M> core::marker::Unpin for tablo_core::BooleanColumn<M> where tablo_core::Lens<M, bool>: core::marker::Unpin
@@ -3915,7 +3901,7 @@ pub fn tablo_core::Field::from(tablo_core::ChoiceField<F>) -> tablo_core::Field
 impl<F> tablo_core::IntoSchema<F> for tablo_core::ChoiceField<F>
 pub fn tablo_core::ChoiceField<F>::into_schema(self) -> tablo_core::schema::Schema<F>
 impl<F> tablo_core::Watched<F> for tablo_core::ChoiceField<F>
-impl<F> !core::marker::Freeze for tablo_core::ChoiceField<F>
+impl<F> core::marker::Freeze for tablo_core::ChoiceField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Freeze
 impl<F> core::marker::Send for tablo_core::ChoiceField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Send
 impl<F> core::marker::Sync for tablo_core::ChoiceField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Sync
 impl<F> core::marker::Unpin for tablo_core::ChoiceField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Unpin
@@ -3947,7 +3933,7 @@ pub fn tablo_core::ColorColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::ColorColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::ColorColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::ColorColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
-impl<M, T> !core::marker::Freeze for tablo_core::ColorColumn<M, T>
+impl<M, T> core::marker::Freeze for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Freeze
 impl<M, T> core::marker::Send for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send
 impl<M, T> core::marker::Sync for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync
 impl<M, T> core::marker::Unpin for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Unpin
@@ -4085,7 +4071,7 @@ pub fn tablo_core::Field::from(tablo_core::CustomField<F>) -> tablo_core::Field
 impl<F> tablo_core::IntoSchema<F> for tablo_core::CustomField<F>
 pub fn tablo_core::CustomField<F>::into_schema(self) -> tablo_core::schema::Schema<F>
 impl<F> tablo_core::Watched<F> for tablo_core::CustomField<F>
-impl<F> !core::marker::Freeze for tablo_core::CustomField<F>
+impl<F> core::marker::Freeze for tablo_core::CustomField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Freeze
 impl<F> core::marker::Send for tablo_core::CustomField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Send
 impl<F> core::marker::Sync for tablo_core::CustomField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Sync
 impl<F> core::marker::Unpin for tablo_core::CustomField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Unpin
@@ -4118,7 +4104,7 @@ pub fn tablo_core::DateColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::DateColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::DateColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::DateColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
-impl<M, T> !core::marker::Freeze for tablo_core::DateColumn<M, T>
+impl<M, T> core::marker::Freeze for tablo_core::DateColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Freeze
 impl<M, T> core::marker::Send for tablo_core::DateColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send
 impl<M, T> core::marker::Sync for tablo_core::DateColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync
 impl<M, T> core::marker::Unpin for tablo_core::DateColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Unpin
@@ -4142,7 +4128,7 @@ pub fn tablo_core::DateFilter<M>::label(&self) -> &str
 pub fn tablo_core::DateFilter<M>::load_control<'s, 'a: 's>(&'s self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> tablo_core::extend::ControlFuture<'s, 'a>
 pub fn tablo_core::DateFilter<M>::name(&self) -> &str
 pub fn tablo_core::DateFilter<M>::to_expr(&self, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
-impl<M> !core::marker::Freeze for tablo_core::DateFilter<M>
+impl<M> core::marker::Freeze for tablo_core::DateFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::DateFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::DateFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Sync
 impl<M> core::marker::Unpin for tablo_core::DateFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Unpin
@@ -4193,7 +4179,6 @@ impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::policy::Deny
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::policy::Deny
 pub struct tablo_core::Detail<M>
 impl<M> tablo_core::detail::Detail<M>
-pub fn tablo_core::detail::Detail<M>::bind(self, &toasty::db::Db) -> Self
 pub fn tablo_core::detail::Detail<M>::column(self, impl tablo_core::extend::Column<M> + 'static) -> Self
 pub fn tablo_core::detail::Detail<M>::declaration_errors(&self) -> alloc::vec::Vec<tablo_core::DeclarationErrorKind>
 pub fn tablo_core::detail::Detail<M>::empty() -> Self
@@ -4256,7 +4241,7 @@ pub fn tablo_core::EmbeddedColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::EmbeddedColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::EmbeddedColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::EmbeddedColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
-impl<M, T> !core::marker::Freeze for tablo_core::EmbeddedColumn<M, T>
+impl<M, T> core::marker::Freeze for tablo_core::EmbeddedColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Freeze
 impl<M, T> core::marker::Send for tablo_core::EmbeddedColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send
 impl<M, T> core::marker::Sync for tablo_core::EmbeddedColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync
 impl<M, T> core::marker::Unpin for tablo_core::EmbeddedColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Unpin
@@ -4289,7 +4274,7 @@ impl<F> core::convert::From<tablo_core::RepeaterField<F>> for tablo_core::Field
 pub fn tablo_core::Field::from(tablo_core::RepeaterField<F>) -> tablo_core::Field
 impl<F> core::convert::From<tablo_core::TextField<F>> for tablo_core::Field
 pub fn tablo_core::Field::from(tablo_core::TextField<F>) -> tablo_core::Field
-impl !core::marker::Freeze for tablo_core::Field
+impl core::marker::Freeze for tablo_core::Field
 impl core::marker::Send for tablo_core::Field
 impl core::marker::Sync for tablo_core::Field
 impl core::marker::Unpin for tablo_core::Field
@@ -4344,18 +4329,6 @@ impl<K> core::marker::Unpin for tablo_core::form::FieldErrors<K> where alloc::ve
 impl<K> core::marker::UnsafeUnpin for tablo_core::form::FieldErrors<K> where alloc::vec::Vec<tablo_core::form::FieldError<K>>: core::marker::UnsafeUnpin
 impl<K> core::panic::unwind_safe::RefUnwindSafe for tablo_core::form::FieldErrors<K> where alloc::vec::Vec<tablo_core::form::FieldError<K>>: core::panic::unwind_safe::RefUnwindSafe
 impl<K> core::panic::unwind_safe::UnwindSafe for tablo_core::form::FieldErrors<K> where alloc::vec::Vec<tablo_core::form::FieldError<K>>: core::panic::unwind_safe::UnwindSafe
-pub struct tablo_core::FieldResolver
-impl core::clone::Clone for tablo_core::FieldResolver
-pub fn tablo_core::FieldResolver::clone(&self) -> tablo_core::FieldResolver
-impl core::default::Default for tablo_core::FieldResolver
-pub fn tablo_core::FieldResolver::default() -> tablo_core::FieldResolver
-impl core::marker::Freeze for tablo_core::FieldResolver
-impl core::marker::Send for tablo_core::FieldResolver
-impl core::marker::Sync for tablo_core::FieldResolver
-impl core::marker::Unpin for tablo_core::FieldResolver
-impl core::marker::UnsafeUnpin for tablo_core::FieldResolver
-impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::FieldResolver
-impl core::panic::unwind_safe::UnwindSafe for tablo_core::FieldResolver
 pub struct tablo_core::FileColumn<M>
 impl<M> tablo_core::FileColumn<M> where M: toasty::schema::model::Model
 pub fn tablo_core::FileColumn<M>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
@@ -4381,7 +4354,7 @@ pub fn tablo_core::FileColumn<M>::name(&self) -> &str
 pub fn tablo_core::FileColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::FileColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::FileColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
-impl<M> !core::marker::Freeze for tablo_core::FileColumn<M>
+impl<M> core::marker::Freeze for tablo_core::FileColumn<M> where tablo_core::Lens<M, alloc::string::String>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::FileColumn<M> where tablo_core::Lens<M, alloc::string::String>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::FileColumn<M> where tablo_core::Lens<M, alloc::string::String>: core::marker::Sync
 impl<M> core::marker::Unpin for tablo_core::FileColumn<M> where tablo_core::Lens<M, alloc::string::String>: core::marker::Unpin
@@ -4404,7 +4377,7 @@ impl<F> core::convert::From<tablo_core::FileField<F>> for tablo_core::Field
 pub fn tablo_core::Field::from(tablo_core::FileField<F>) -> tablo_core::Field
 impl<F> tablo_core::IntoSchema<F> for tablo_core::FileField<F>
 pub fn tablo_core::FileField<F>::into_schema(self) -> tablo_core::schema::Schema<F>
-impl<F> !core::marker::Freeze for tablo_core::FileField<F>
+impl<F> core::marker::Freeze for tablo_core::FileField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Freeze
 impl<F> core::marker::Send for tablo_core::FileField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Send
 impl<F> core::marker::Sync for tablo_core::FileField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Sync
 impl<F> core::marker::Unpin for tablo_core::FileField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Unpin
@@ -4591,7 +4564,7 @@ pub fn tablo_core::ImageColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::ImageColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::ImageColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::ImageColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
-impl<M, T> !core::marker::Freeze for tablo_core::ImageColumn<M, T>
+impl<M, T> core::marker::Freeze for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Freeze
 impl<M, T> core::marker::Send for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send
 impl<M, T> core::marker::Sync for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync
 impl<M, T> core::marker::Unpin for tablo_core::ImageColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Unpin
@@ -4700,7 +4673,7 @@ pub type tablo_core::form::NoForm<M>::Model = M
 pub const tablo_core::form::NoForm<M>::HAS_FORM: bool
 pub fn tablo_core::form::NoForm<M>::control(Self::Field) -> tablo_core::schema::Schema<Self>
 pub fn tablo_core::form::NoForm<M>::exec_update<'a>(<M as toasty::schema::model::Model>::Update, &'a mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = toasty_core::Result<()>> + core::marker::Send + 'a
-pub fn tablo_core::form::NoForm<M>::fields(&tablo_core::FieldResolver) -> alloc::vec::Vec<tablo_core::form::FormField<Self::Field>>
+pub fn tablo_core::form::NoForm<M>::fields() -> alloc::vec::Vec<tablo_core::form::FormField<Self::Field>>
 pub fn tablo_core::form::NoForm<M>::hydrate(&topcoat_core::context::Cx, &M) -> tablo_core::FormValues
 pub fn tablo_core::form::NoForm<M>::includes() -> tablo_core::extend::Includes<Self::Model>
 pub fn tablo_core::form::NoForm<M>::into_create(self) -> <M as toasty::schema::model::Model>::Create
@@ -5045,7 +5018,7 @@ pub fn tablo_core::RepeaterColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::RepeaterColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::RepeaterColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::RepeaterColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
-impl<M, T> !core::marker::Freeze for tablo_core::RepeaterColumn<M, T>
+impl<M, T> core::marker::Freeze for tablo_core::RepeaterColumn<M, T> where tablo_core::Lens<M, alloc::vec::Vec<T>, toasty::stmt::list::List<T>>: core::marker::Freeze
 impl<M, T> core::marker::Send for tablo_core::RepeaterColumn<M, T> where tablo_core::Lens<M, alloc::vec::Vec<T>, toasty::stmt::list::List<T>>: core::marker::Send
 impl<M, T> core::marker::Sync for tablo_core::RepeaterColumn<M, T> where tablo_core::Lens<M, alloc::vec::Vec<T>, toasty::stmt::list::List<T>>: core::marker::Sync
 impl<M, T> core::marker::Unpin for tablo_core::RepeaterColumn<M, T> where tablo_core::Lens<M, alloc::vec::Vec<T>, toasty::stmt::list::List<T>>: core::marker::Unpin
@@ -5063,7 +5036,7 @@ impl<F> core::convert::From<tablo_core::RepeaterField<F>> for tablo_core::Field
 pub fn tablo_core::Field::from(tablo_core::RepeaterField<F>) -> tablo_core::Field
 impl<F> tablo_core::IntoSchema<F> for tablo_core::RepeaterField<F>
 pub fn tablo_core::RepeaterField<F>::into_schema(self) -> tablo_core::schema::Schema<F>
-impl<F> !core::marker::Freeze for tablo_core::RepeaterField<F>
+impl<F> core::marker::Freeze for tablo_core::RepeaterField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Freeze
 impl<F> core::marker::Send for tablo_core::RepeaterField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Send
 impl<F> core::marker::Sync for tablo_core::RepeaterField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Sync
 impl<F> core::marker::Unpin for tablo_core::RepeaterField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Unpin
@@ -5097,7 +5070,7 @@ impl<R: tablo_core::resource::Resource> core::default::Default for tablo_core::R
 pub fn tablo_core::ResourceDef<R>::default() -> Self
 impl<R: tablo_core::resource::Resource> core::fmt::Debug for tablo_core::ResourceDef<R>
 pub fn tablo_core::ResourceDef<R>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl<R> !core::marker::Freeze for tablo_core::ResourceDef<R>
+impl<R> core::marker::Freeze for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::Freeze, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::Freeze, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::Freeze, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, Actions<R>: core::marker::Freeze
 impl<R> core::marker::Send for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::Send, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::Send, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::Send, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, Actions<R>: core::marker::Send
 impl<R> core::marker::Sync for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::Sync, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::Sync, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::Sync, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, Actions<R>: core::marker::Sync
 impl<R> core::marker::Unpin for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::Unpin, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::Unpin, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::Unpin, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, Actions<R>: core::marker::Unpin
@@ -5108,7 +5081,6 @@ pub struct tablo_core::Schema<F>
 impl tablo_core::schema::Schema
 pub fn tablo_core::schema::Schema::empty() -> Self
 impl<F> tablo_core::schema::Schema<F>
-pub fn tablo_core::schema::Schema<F>::bind(self, &toasty::db::Db) -> Self
 pub fn tablo_core::schema::Schema<F>::declaration_errors(&self) -> alloc::vec::Vec<tablo_core::DeclarationErrorKind>
 pub fn tablo_core::schema::Schema<F>::extend(self, tablo_core::schema::Schema<F>) -> tablo_core::schema::Schema<F>
 pub fn tablo_core::schema::Schema<F>::fields(&self) -> impl core::iter::traits::iterator::Iterator<Item = &tablo_core::Field>
@@ -5176,7 +5148,7 @@ pub fn tablo_core::SelectFilter<M>::label(&self) -> &str
 pub fn tablo_core::SelectFilter<M>::load_control<'s, 'a: 's>(&'s self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> tablo_core::extend::ControlFuture<'s, 'a>
 pub fn tablo_core::SelectFilter<M>::name(&self) -> &str
 pub fn tablo_core::SelectFilter<M>::to_expr(&self, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
-impl<M> !core::marker::Freeze for tablo_core::SelectFilter<M>
+impl<M> core::marker::Freeze for tablo_core::SelectFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::SelectFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::SelectFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Sync
 impl<M> core::marker::Unpin for tablo_core::SelectFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Unpin
@@ -5241,7 +5213,6 @@ impl<'a> core::panic::unwind_safe::UnwindSafe for tablo_core::Source<'a>
 pub struct tablo_core::Table<M>
 impl<M> tablo_core::table::Table<M>
 pub fn tablo_core::table::Table<M>::action_layout(self, tablo_core::table::ActionLayout) -> Self
-pub fn tablo_core::table::Table<M>::bind(self, &toasty::db::Db) -> Self
 pub fn tablo_core::table::Table<M>::column(self, impl tablo_core::extend::Column<M> + 'static) -> Self
 pub fn tablo_core::table::Table<M>::declaration_errors(&self) -> alloc::vec::Vec<tablo_core::DeclarationErrorKind>
 pub fn tablo_core::table::Table<M>::filters(self, impl tablo_core::IntoFilters<M>) -> Self where M: toasty::schema::model::Model
@@ -5259,7 +5230,7 @@ impl<M> core::clone::Clone for tablo_core::table::Table<M>
 pub fn tablo_core::table::Table<M>::clone(&self) -> Self
 impl<M> core::fmt::Debug for tablo_core::table::Table<M>
 pub fn tablo_core::table::Table<M>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl<M> !core::marker::Freeze for tablo_core::table::Table<M>
+impl<M> core::marker::Freeze for tablo_core::table::Table<M> where alloc::vec::Vec<alloc::sync::Arc<dyn tablo_core::extend::Column<M>>>: core::marker::Freeze, alloc::vec::Vec<alloc::sync::Arc<dyn tablo_core::extend::Filter<M>>>: core::marker::Freeze, core::option::Option<GroupDef<M>>: core::marker::Freeze, fn(&M) -> alloc::string::String: core::marker::Freeze, core::marker::PhantomData<M>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::table::Table<M> where alloc::vec::Vec<alloc::sync::Arc<dyn tablo_core::extend::Column<M>>>: core::marker::Send, alloc::vec::Vec<alloc::sync::Arc<dyn tablo_core::extend::Filter<M>>>: core::marker::Send, core::option::Option<GroupDef<M>>: core::marker::Send, fn(&M) -> alloc::string::String: core::marker::Send, core::marker::PhantomData<M>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::table::Table<M> where alloc::vec::Vec<alloc::sync::Arc<dyn tablo_core::extend::Column<M>>>: core::marker::Sync, alloc::vec::Vec<alloc::sync::Arc<dyn tablo_core::extend::Filter<M>>>: core::marker::Sync, core::option::Option<GroupDef<M>>: core::marker::Sync, fn(&M) -> alloc::string::String: core::marker::Sync, core::marker::PhantomData<M>: core::marker::Sync
 impl<M> core::marker::Unpin for tablo_core::table::Table<M> where alloc::vec::Vec<alloc::sync::Arc<dyn tablo_core::extend::Column<M>>>: core::marker::Unpin, alloc::vec::Vec<alloc::sync::Arc<dyn tablo_core::extend::Filter<M>>>: core::marker::Unpin, core::option::Option<GroupDef<M>>: core::marker::Unpin, fn(&M) -> alloc::string::String: core::marker::Unpin, core::marker::PhantomData<M>: core::marker::Unpin
@@ -5431,7 +5402,7 @@ pub fn tablo_core::TernaryFilter<M>::label(&self) -> &str
 pub fn tablo_core::TernaryFilter<M>::load_control<'s, 'a: 's>(&'s self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> tablo_core::extend::ControlFuture<'s, 'a>
 pub fn tablo_core::TernaryFilter<M>::name(&self) -> &str
 pub fn tablo_core::TernaryFilter<M>::to_expr(&self, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
-impl<M> !core::marker::Freeze for tablo_core::TernaryFilter<M>
+impl<M> core::marker::Freeze for tablo_core::TernaryFilter<M> where toasty::stmt::path::Path<M, bool>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::TernaryFilter<M> where toasty::stmt::path::Path<M, bool>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::TernaryFilter<M> where toasty::stmt::path::Path<M, bool>: core::marker::Sync
 impl<M> core::marker::Unpin for tablo_core::TernaryFilter<M> where toasty::stmt::path::Path<M, bool>: core::marker::Unpin
@@ -5474,7 +5445,7 @@ pub fn tablo_core::TextColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::TextColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
 pub fn tablo_core::TextColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::TextColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
-impl<M, T> !core::marker::Freeze for tablo_core::TextColumn<M, T>
+impl<M, T> core::marker::Freeze for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Freeze, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Freeze, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync)>: core::marker::Freeze, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>>: core::marker::Freeze
 impl<M, T> core::marker::Send for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Send, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync)>: core::marker::Send, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>>: core::marker::Send
 impl<M, T> core::marker::Sync for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Sync, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync)>: core::marker::Sync, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>>: core::marker::Sync
 impl<M, T> core::marker::Unpin for tablo_core::TextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Unpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Unpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&T) -> core::option::Option<tablo_core::Color> + core::marker::Send + core::marker::Sync)>: core::marker::Unpin, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>>: core::marker::Unpin
@@ -5506,7 +5477,7 @@ pub fn tablo_core::Field::from(tablo_core::TextField<F>) -> tablo_core::Field
 impl<F> tablo_core::IntoSchema<F> for tablo_core::TextField<F>
 pub fn tablo_core::TextField<F>::into_schema(self) -> tablo_core::schema::Schema<F>
 impl<F> tablo_core::Watched<F> for tablo_core::TextField<F>
-impl<F> !core::marker::Freeze for tablo_core::TextField<F>
+impl<F> core::marker::Freeze for tablo_core::TextField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Freeze
 impl<F> core::marker::Send for tablo_core::TextField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Send
 impl<F> core::marker::Sync for tablo_core::TextField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Sync
 impl<F> core::marker::Unpin for tablo_core::TextField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Unpin
@@ -5590,8 +5561,8 @@ impl<T: tablo_core::DateValue> tablo_core::DateValue for core::option::Option<T>
 pub fn core::option::Option<T>::calendar_date(&self) -> core::option::Option<jiff::civil::date::Date>
 pub fn core::option::Option<T>::stored_text(&self) -> alloc::string::String
 pub trait tablo_core::EmbeddedForm: core::marker::Sized
-pub fn tablo_core::EmbeddedForm::read_form<M>(&topcoat_core::context::Cx, impl core::convert::Into<toasty::stmt::path::Path<M, Self>>, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>> where M: toasty::schema::model::Model
-pub fn tablo_core::EmbeddedForm::write_form<M>(&self, &topcoat_core::context::Cx, impl core::convert::Into<toasty::stmt::path::Path<M, Self>>, &mut tablo_core::FormValues) where M: toasty::schema::model::Model
+pub fn tablo_core::EmbeddedForm::read_form<M>(impl core::convert::Into<toasty::stmt::path::Path<M, Self>>, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>> where M: toasty::schema::model::Model
+pub fn tablo_core::EmbeddedForm::write_form<M>(&self, impl core::convert::Into<toasty::stmt::path::Path<M, Self>>, &mut tablo_core::FormValues) where M: toasty::schema::model::Model
 pub trait tablo_core::ForeignKey<K>: tablo_core::resource::relation::sealed::Sealed<K> + toasty::stmt::into_expr::IntoExpr<Self> + tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
 impl<K> tablo_core::ForeignKey<K> for K where K: toasty::stmt::into_expr::IntoExpr<K> + tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
 impl<K> tablo_core::ForeignKey<K> for core::option::Option<K> where core::option::Option<K>: toasty::stmt::into_expr::IntoExpr<Self> + tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
@@ -5903,7 +5874,7 @@ pub type tablo_core::RecordForm::Model: toasty::schema::model::Model + toasty::s
 pub const tablo_core::RecordForm::HAS_FORM: bool
 pub fn tablo_core::RecordForm::control(Self::Field) -> tablo_core::schema::Schema<Self>
 pub fn tablo_core::RecordForm::exec_update<'a>(<Self::Model as toasty::schema::model::Model>::Update, &'a mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = toasty_core::Result<()>> + core::marker::Send + 'a
-pub fn tablo_core::RecordForm::fields(&tablo_core::FieldResolver) -> alloc::vec::Vec<tablo_core::form::FormField<Self::Field>>
+pub fn tablo_core::RecordForm::fields() -> alloc::vec::Vec<tablo_core::form::FormField<Self::Field>>
 pub fn tablo_core::RecordForm::hydrate(&topcoat_core::context::Cx, &Self::Model) -> tablo_core::FormValues
 pub fn tablo_core::RecordForm::includes() -> tablo_core::extend::Includes<Self::Model>
 pub fn tablo_core::RecordForm::into_create(self) -> <Self::Model as toasty::schema::model::Model>::Create
@@ -5916,7 +5887,7 @@ pub type tablo_core::form::NoForm<M>::Model = M
 pub const tablo_core::form::NoForm<M>::HAS_FORM: bool
 pub fn tablo_core::form::NoForm<M>::control(Self::Field) -> tablo_core::schema::Schema<Self>
 pub fn tablo_core::form::NoForm<M>::exec_update<'a>(<M as toasty::schema::model::Model>::Update, &'a mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = toasty_core::Result<()>> + core::marker::Send + 'a
-pub fn tablo_core::form::NoForm<M>::fields(&tablo_core::FieldResolver) -> alloc::vec::Vec<tablo_core::form::FormField<Self::Field>>
+pub fn tablo_core::form::NoForm<M>::fields() -> alloc::vec::Vec<tablo_core::form::FormField<Self::Field>>
 pub fn tablo_core::form::NoForm<M>::hydrate(&topcoat_core::context::Cx, &M) -> tablo_core::FormValues
 pub fn tablo_core::form::NoForm<M>::includes() -> tablo_core::extend::Includes<Self::Model>
 pub fn tablo_core::form::NoForm<M>::into_create(self) -> <M as toasty::schema::model::Model>::Create

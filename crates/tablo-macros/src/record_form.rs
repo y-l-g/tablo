@@ -279,7 +279,7 @@ fn expand_struct(
                 (
                     quote! { #krate::__macro::Schema },
                     quote! {
-                        #krate::__macro::embedded_form::<#model, #ty>(
+                        <#ty as #krate::__macro::EmbeddedForm>::build_schema::<#model>(
                             ::std::convert::Into::into(#path),
                         )
                     },
@@ -344,11 +344,7 @@ fn expand_struct(
                 }
             }
 
-            fn fields(
-                resolver: &#krate::__macro::FieldResolver,
-            ) -> ::std::vec::Vec<#krate::__macro::FormField<#field_enum>> {
-                // Only an embedded field resolves its keys through the app schema.
-                let _ = resolver;
+            fn fields() -> ::std::vec::Vec<#krate::__macro::FormField<#field_enum>> {
                 ::std::vec![#(#claims),*]
             }
 
@@ -506,18 +502,17 @@ fn field_parts(
     if field.embed {
         parts.claims.push(quote! {
             #krate::__macro::embedded_field::<#model, #ty, _>(
-                resolver,
                 #path,
                 #field_enum::#variant,
                 #name_str,
             )
         });
         parts.hydrates.push(quote! {
-            #krate::__macro::EmbeddedForm::write_form(&record.#name, cx, #path, &mut out);
+            #krate::__macro::EmbeddedForm::write_form(&record.#name, #path, &mut out);
         });
         parts.reads.push(quote! {
             let #binding = #krate::__macro::take_value(
-                <#ty as #krate::__macro::EmbeddedForm>::read_form(cx, #path, values),
+                <#ty as #krate::__macro::EmbeddedForm>::read_form(#path, values),
                 &mut errors,
             );
         });

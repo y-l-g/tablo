@@ -9,7 +9,7 @@ use topcoat::{context::Cx, icon::icon, view::*};
 use crate::{
     BoxFuture,
     form::FormScalar,
-    schema::{Binding, FieldResolver, IntoOptions, OptionSource, Options, fields::Relationship},
+    schema::{Binding, IntoOptions, OptionSource, Options, fields::Relationship},
     table::state::{MAX_FILTER_LEN, MAX_FILTER_VALUES},
 };
 
@@ -75,10 +75,6 @@ pub trait Filter<M>: Send + Sync {
     fn unavailable_source(&self, _cx: &Cx) -> Option<&'static str> {
         None
     }
-
-    /// Bind an embedded path through `resolver`'s app schema.
-    #[doc(hidden)]
-    fn bind(&self, _resolver: &FieldResolver) {}
 }
 
 /// What a request carries for one filter: the values its `f.<name>` parameter repeats, in the
@@ -677,10 +673,6 @@ where
                     .map(|_| crate::DeclarationErrorKind::CompositeKeyChoice { field: name() })
             })
     }
-
-    fn bind(&self, resolver: &FieldResolver) {
-        self.binding.bind(resolver);
-    }
 }
 
 impl<M> SelectFilter<M> {
@@ -769,10 +761,6 @@ where
 {
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
         self.binding.misdeclared()
-    }
-
-    fn bind(&self, resolver: &FieldResolver) {
-        self.binding.bind(resolver);
     }
 
     fn name(&self) -> &str {
@@ -1007,10 +995,6 @@ where
 {
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
         self.binding.misdeclared()
-    }
-
-    fn bind(&self, resolver: &FieldResolver) {
-        self.binding.bind(resolver);
     }
 
     fn name(&self) -> &str {

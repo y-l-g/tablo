@@ -71,11 +71,7 @@ fn derived_targets_resolve_against_the_owning_panel() {
 #[test]
 fn slugs_follow_the_filament_convention() {
     // UserResource → strip "Resource" → pluralize → kebab-case
-    let mounted = crate::resource::Mounted::new(
-        UserResource::declare(),
-        "/admin",
-        &crate::schema::FieldResolver::default(),
-    );
+    let mounted = crate::resource::Mounted::new(UserResource::declare(), "/admin");
     assert_eq!(mounted.slug, "users");
     assert_eq!(mounted.plural_label, "Users");
 }

@@ -461,8 +461,7 @@ A Toasty `#[derive(Embed)]` struct or enum is stored in its parent's row as flat
 
 A resource's form places an embedded value whole, as its record form's control. A page's schema
 can bind a single embedded field on its own by its path: `Field::text(lens!(Post.seo.title))`
-binds the flattened `seo_title` column. Bind such a schema with `.bind(&db)` before rendering it;
-rendering one whose embedded paths are unbound fails rather than post the wrong key.
+binds the flattened `seo_title` column, as soon as the field is built.
 
 ## Repeaters
 

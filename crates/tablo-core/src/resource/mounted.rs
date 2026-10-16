@@ -19,7 +19,7 @@ use crate::{
     naming::{kebab_case, pluralize, sentence_case, type_short_name, type_stem},
     navigation::NavigationItem,
     policy::{Ability, Policy},
-    schema::{FieldResolver, Retype, Schema},
+    schema::{Retype, Schema},
     table::{ModelColumns, Table},
     tenancy::Tenancy,
 };
@@ -50,9 +50,8 @@ pub(crate) struct Mounted<R: Resource> {
 }
 
 impl<R: Resource> Mounted<R> {
-    /// Fills in `def`'s defaults for a panel at `prefix` and binds its declarations through
-    /// `resolver`'s app schema.
-    pub(crate) fn new(def: ResourceDef<R>, prefix: &str, resolver: &FieldResolver) -> Self {
+    /// Fills in `def`'s defaults for a panel at `prefix`.
+    pub(crate) fn new(def: ResourceDef<R>, prefix: &str) -> Self {
         let slug = def
             .slug
             .unwrap_or_else(|| kebab_case(&pluralize(type_stem::<R>("Resource"))));
@@ -76,19 +75,15 @@ impl<R: Resource> Mounted<R> {
         }
         let navigation = navigation.resolved(&url);
         let table = def.table.unwrap_or_else(<R::Model as ModelColumns>::table);
-        table.bind_with(resolver);
-        let fields = <R::Form as RecordForm>::fields(resolver);
+        let fields = <R::Form as RecordForm>::fields();
         let mut form: Schema = def.form.unwrap_or_default().retype();
-        form.bind_with(resolver);
         // A field the form does not place follows the ones it does, with its default control.
         for field in &fields {
             let placed = form
                 .fields()
                 .any(|control| field.keys.iter().any(|key| key == control.name()));
             if !placed {
-                let mut control = <R::Form as RecordForm>::control(field.field).retype();
-                control.bind_with(resolver);
-                form.append(control);
+                form.append(<R::Form as RecordForm>::control(field.field).retype());
             }
         }
         // The record form decides which controls an empty submission fails.
@@ -101,7 +96,6 @@ impl<R: Resource> Mounted<R> {
         let detail = def
             .detail
             .unwrap_or_else(<R::Model as ModelColumns>::detail);
-        detail.bind_with(resolver);
         Self {
             slug,
             url,

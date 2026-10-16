@@ -1,10 +1,6 @@
-use topcoat::context::CxTestBuilder;
-
 use super::*;
-use crate::test_support::tableless_db;
 
-// `FieldResolver` reads the compiled schema the request carries, so these tests build a `Db` over
-// one model carrying every shape the resolver reads.
+// One model carries every shape the walk reads.
 
 /// An embedded struct: its leaves flatten into the parent's table.
 #[derive(Debug, Clone, toasty::Embed)]
@@ -93,25 +89,21 @@ struct Impostor {
     wrapper: Wrapper,
 }
 
-/// The request context a resolver reads its schema from.
-async fn cx_with(models: toasty::schema::ModelSet) -> Cx {
-    let db = tableless_db(models).await;
-    CxTestBuilder::new().app_context(db).build()
+/// The embedded enum at `path`.
+fn enum_at<M: toasty::schema::Model, T>(path: impl Into<Path<M, T>>) -> Option<EnumShape> {
+    resolve_enum(&path.into()).expect("the model compiles")
 }
 
-/// The context `LensPost`'s lenses resolve against.
-async fn lens_cx() -> Cx {
-    cx_with(toasty::models!(LensPost)).await
+/// The leaf `path` names, as a declaration binding it would resolve it.
+fn leaf<M: toasty::schema::Model, T>(path: Path<M, T>) -> Result<LeafField, DeclarationErrorKind> {
+    resolve::<M>(&ModelPath::of(&path))
 }
 
 /// A plain leaf: a single segment on a model root never enters the walk, so
 /// the owned app field answers name, label and nullability.
-#[tokio::test]
-async fn a_plain_leaf_resolves_through_the_app_field() {
-    let cx = lens_cx().await;
-    let leaf = FieldResolver::of(&cx)
-        .resolve(LensPost::fields().title())
-        .unwrap();
+#[test]
+fn a_plain_leaf_resolves_through_the_app_field() {
+    let leaf = leaf(LensPost::fields().title()).unwrap();
     assert_eq!(leaf.name, "title");
     assert_eq!(leaf.label, "Title");
     assert!(
@@ -121,12 +113,9 @@ async fn a_plain_leaf_resolves_through_the_app_field() {
 }
 
 /// Resolves one embedded step to its flattened column.
-#[tokio::test]
-async fn a_leaf_in_an_embedded_struct_resolves_to_its_flattened_column() {
-    let cx = lens_cx().await;
-    let leaf = FieldResolver::of(&cx)
-        .resolve(LensPost::fields().seo().title())
-        .unwrap();
+#[test]
+fn a_leaf_in_an_embedded_struct_resolves_to_its_flattened_column() {
+    let leaf = leaf(LensPost::fields().seo().title()).unwrap();
     assert_eq!(leaf.name, "seo_title");
     assert_eq!(
         leaf.label, "Seo title",
@@ -139,58 +128,46 @@ async fn a_leaf_in_an_embedded_struct_resolves_to_its_flattened_column() {
 }
 
 /// Resolves a variant-rooted path through nested structs to one flat column.
-#[tokio::test]
-async fn a_leaf_in_a_struct_nested_in_an_enum_variant_resolves_to_one_column() {
-    let cx = lens_cx().await;
-    let resolver = FieldResolver::of(&cx);
-
+#[test]
+fn a_leaf_in_a_struct_nested_in_an_enum_variant_resolves_to_one_column() {
     // media.image().url() — the other variant, one level down.
     assert_eq!(
-        resolver
-            .resolve(LensPost::fields().media().image().url())
-            .unwrap()
-            .name,
+        leaf(LensPost::fields().media().image().url()).unwrap().name,
         "media_url"
     );
     // media.video().poster().url() — a struct one level inside the variant.
     assert_eq!(
-        resolver
-            .resolve(LensPost::fields().media().video().poster().url())
+        leaf(LensPost::fields().media().video().poster().url())
             .unwrap()
             .name,
         "media_poster_url"
     );
     // media.video().poster().credit().author() — three levels, one column.
-    let leaf = resolver
-        .resolve(
-            LensPost::fields()
-                .media()
-                .video()
-                .poster()
-                .credit()
-                .author(),
-        )
-        .unwrap();
+    let leaf = leaf(
+        LensPost::fields()
+            .media()
+            .video()
+            .poster()
+            .credit()
+            .author(),
+    )
+    .unwrap();
     assert_eq!(leaf.name, "media_poster_credit_author");
     assert_eq!(leaf.label, "Media poster credit author");
     assert!(leaf.nullable);
 }
 
 /// Resolves a variant-rooted path through an embedded struct.
-#[tokio::test]
-async fn a_variant_rooted_path_through_an_embedded_struct_resolves() {
-    let cx = lens_cx().await;
-    let resolver = FieldResolver::of(&cx);
+#[test]
+fn a_variant_rooted_path_through_an_embedded_struct_resolves() {
     assert_eq!(
-        resolver
-            .resolve(LensPost::fields().wrapper().inner().image().url())
+        leaf(LensPost::fields().wrapper().inner().image().url())
             .unwrap()
             .name,
         "wrapper_inner_url"
     );
     assert_eq!(
-        resolver
-            .resolve(LensPost::fields().wrapper().inner().video().video_url())
+        leaf(LensPost::fields().wrapper().inner().video().video_url())
             .unwrap()
             .name,
         "wrapper_inner_video_url"
@@ -198,27 +175,22 @@ async fn a_variant_rooted_path_through_an_embedded_struct_resolves() {
 }
 
 /// Resolves a shared column for every variant that declares it.
-#[tokio::test]
-async fn a_shared_column_resolves_for_every_variant_that_declares_it() {
-    let cx = lens_cx().await;
-    let resolver = FieldResolver::of(&cx);
+#[test]
+fn a_shared_column_resolves_for_every_variant_that_declares_it() {
     assert_eq!(
-        resolver
-            .resolve(LensPost::fields().publication().scheduled().scheduled_at())
+        leaf(LensPost::fields().publication().scheduled().scheduled_at())
             .unwrap()
             .name,
         "publication_timestamp"
     );
     assert_eq!(
-        resolver
-            .resolve(LensPost::fields().publication().published().published_at())
+        leaf(LensPost::fields().publication().published().published_at())
             .unwrap()
             .name,
         "publication_timestamp"
     );
     assert_eq!(
-        resolver
-            .resolve(LensPost::fields().publication().published().canonical_url())
+        leaf(LensPost::fields().publication().published().canonical_url())
             .unwrap()
             .name,
         "publication_canonical_url"
@@ -226,12 +198,9 @@ async fn a_shared_column_resolves_for_every_variant_that_declares_it() {
 }
 
 /// Resolves a document leaf to the document column.
-#[tokio::test]
-async fn a_document_leaf_resolves_to_the_document_column() {
-    let cx = lens_cx().await;
-    let leaf = FieldResolver::of(&cx)
-        .resolve(LensPost::fields().stats().word_count())
-        .unwrap();
+#[test]
+fn a_document_leaf_resolves_to_the_document_column() {
+    let leaf = leaf(LensPost::fields().stats().word_count()).unwrap();
     assert_eq!(leaf.name, "stats");
     assert_eq!(leaf.label, "Stats");
     assert!(
@@ -240,46 +209,10 @@ async fn a_document_leaf_resolves_to_the_document_column() {
     );
 }
 
-/// Resolves to nothing when the schema does not carry the lens's root model.
-#[tokio::test]
-async fn a_root_model_the_schema_does_not_carry_resolves_to_nothing() {
-    let cx = cx_with(toasty::models!(Impostor)).await;
-    let resolver = FieldResolver::of(&cx);
-    assert!(resolver.has_schema(), "the Db carries the app schema");
-    assert!(
-        !AppSchema::of(&cx)
-            .expect("the Db carries the app schema")
-            .registers("LensPost"),
-        "this schema carries no model under the lens's name"
-    );
-    assert!(
-        resolver
-            .resolve_enum(LensPost::fields().publication().into())
-            .is_none(),
-        "an enum cannot resolve against a schema that has no LensPost"
-    );
-}
-
-/// Refuses a leaf lens the schema does not carry.
-#[tokio::test]
-async fn a_root_model_the_schema_does_not_carry_refuses_a_leaf_lens() {
-    let cx = cx_with(toasty::models!(Impostor)).await;
-    let error = FieldResolver::of(&cx)
-        .resolve(LensPost::fields().seo().title())
-        .expect_err("a lens the schema cannot bind is refused");
-    assert!(
-        matches!(error, DeclarationErrorKind::UnresolvedLens { .. }),
-        "{error}"
-    );
-}
-
 /// Resolves an embedded enum's discriminant and variants in declaration order.
-#[tokio::test]
-async fn an_embedded_enum_resolves_its_discriminant_and_variants() {
-    let cx = lens_cx().await;
-    let shape = FieldResolver::of(&cx)
-        .resolve_enum(LensPost::fields().publication().into())
-        .expect("an embedded enum resolves");
+#[test]
+fn an_embedded_enum_resolves_its_discriminant_and_variants() {
+    let shape = enum_at(LensPost::fields().publication()).expect("an embedded enum resolves");
     assert_eq!(shape.discriminant, "publication");
     assert_eq!(
         shape.variants,
@@ -291,54 +224,86 @@ async fn an_embedded_enum_resolves_its_discriminant_and_variants() {
 }
 
 /// Resolves an enum nested in a struct through the struct's path.
-#[tokio::test]
-async fn an_enum_inside_a_struct_resolves_through_its_path() {
-    let cx = lens_cx().await;
-    let shape = FieldResolver::of(&cx)
-        .resolve_enum(LensPost::fields().wrapper().inner().into())
-        .expect("the nested enum resolves");
+#[test]
+fn an_enum_inside_a_struct_resolves_through_its_path() {
+    let shape = enum_at(LensPost::fields().wrapper().inner()).expect("the nested enum resolves");
     assert_eq!(shape.discriminant, "wrapper_inner");
 }
 
 /// Resolves anything but an enum to nothing.
-#[tokio::test]
-async fn anything_but_an_enum_resolves_to_nothing() {
-    let cx = lens_cx().await;
-    let resolver = FieldResolver::of(&cx);
+#[test]
+fn anything_but_an_enum_resolves_to_nothing() {
     assert!(
-        resolver
-            .resolve_enum(LensPost::fields().seo().into())
-            .is_none(),
+        enum_at(LensPost::fields().seo()).is_none(),
         "a struct has no variant"
     );
     assert!(
-        resolver.resolve_enum(LensPost::fields().title()).is_none(),
+        enum_at(LensPost::fields().title()).is_none(),
         "a primitive field is a leaf"
     );
     assert!(
-        resolver
-            .resolve_enum(LensPost::fields().stats().into())
-            .is_none(),
+        enum_at(LensPost::fields().stats()).is_none(),
         "a #[document] stores as one column"
     );
     assert!(
-        resolver
-            .resolve_enum(LensPost::fields().media().video().video_url())
-            .is_none(),
+        enum_at(LensPost::fields().media().video().video_url()).is_none(),
         "a variant-rooted path names one variant, not the value"
     );
 }
 
-/// Resolves to nothing without a schema.
+/// The same embedded type under another model resolves to that model's columns: a path's root
+/// model, not the value's type, picks the schema it walks.
 #[test]
-fn without_a_schema_there_is_no_walk() {
-    let cx = CxTestBuilder::new().build();
-    let resolver = FieldResolver::of(&cx);
-    assert!(!resolver.has_schema(), "a bare Cx carries no Db");
-    assert!(
-        resolver
-            .resolve_enum(LensPost::fields().publication().into())
-            .is_none(),
-        "an enum needs the app schema"
+fn an_embedded_value_under_another_model_resolves_against_that_model() {
+    assert_eq!(
+        leaf(Impostor::fields().seo().title()).unwrap().name,
+        "seo_title"
+    );
+    assert_eq!(
+        leaf(Impostor::fields().wrapper().inner().image().url())
+            .unwrap()
+            .name,
+        "wrapper_inner_url"
+    );
+    assert_eq!(
+        enum_at(Impostor::fields().wrapper().inner())
+            .expect("the nested enum resolves")
+            .discriminant,
+        "wrapper_inner"
+    );
+}
+
+/// A model no driver compiles: no `Db` takes a 2 GB `VARCHAR`.
+#[derive(Debug, Clone, toasty::Model)]
+struct Oversized {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    #[column(type = varchar(2000000000))]
+    body: String,
+    seo: Seo,
+    media: Media,
+}
+
+/// An embedded path of a model no driver compiles names no column, and says why each driver
+/// refuses it.
+#[test]
+fn an_uncompiled_model_refuses_its_embedded_paths() {
+    let Err(DeclarationErrorKind::Uncompiled { error, .. }) =
+        leaf(Oversized::fields().seo().title())
+    else {
+        panic!("an embedded path of an uncompiled model is refused");
+    };
+    for driver in ["PostgreSQL", "SQLite", "MySQL", "DynamoDB"] {
+        assert!(error.contains(driver), "{error}");
+    }
+    assert!(matches!(
+        resolve_enum(&Oversized::fields().media().into()),
+        Err(DeclarationErrorKind::Uncompiled { .. })
+    ));
+    assert_eq!(
+        leaf(Oversized::fields().body()).unwrap().name,
+        "body",
+        "a single field reads its own model, compiled or not"
     );
 }

@@ -12,11 +12,7 @@ use toasty::stmt::{Expr, List, OrderByExpr};
 
 pub(crate) use self::column::{BoxColumn, Column, include_relations};
 use self::filter::BoxFilter;
-use crate::{
-    DeclarationErrorKind, Lens,
-    form::FormScalar,
-    schema::{Binding, FieldResolver},
-};
+use crate::{DeclarationErrorKind, Lens, form::FormScalar, schema::Binding};
 
 pub(crate) mod column;
 mod export;
@@ -376,29 +372,6 @@ impl<M> Table<M> {
             }
         }
         errors
-    }
-
-    /// Binds the table's embedded paths to `db`'s app schema.
-    ///
-    /// A panel binds the tables it mounts; bind one built outside a panel so its
-    /// [`declaration_errors`](Self::declaration_errors) reports no unbound path. A table with no
-    /// embedded path is bound from the start.
-    pub fn bind(self, db: &toasty::Db) -> Self {
-        self.bind_with(&FieldResolver::of_db(db));
-        self
-    }
-
-    /// Binds every column, filter, and the grouping through `resolver`.
-    pub(crate) fn bind_with(&self, resolver: &FieldResolver) {
-        for column in &self.columns {
-            column.bind(resolver);
-        }
-        for filter in &self.filters {
-            filter.bind(resolver);
-        }
-        if let Some(def) = &self.group_by {
-            def.binding.bind(resolver);
-        }
     }
 
     /// The page size.

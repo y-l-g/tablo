@@ -7,7 +7,7 @@ use topcoat::{context::Cx, view::*};
 
 use crate::{
     DeclarationErrorKind,
-    schema::{FieldResolver, Grid, Group, Section},
+    schema::{Grid, Group, Section},
     table::{BoxColumn, Column, include_relations},
 };
 
@@ -115,29 +115,11 @@ impl<M> Detail<M> {
             .collect()
     }
 
-    /// Binds the declaration's embedded paths and values to `db`'s app schema.
-    ///
-    /// A panel binds the detail pages it mounts; bind one built outside a panel so its
-    /// [`declaration_errors`](Self::declaration_errors) reports no unbound path. A detail page with
-    /// no embedded path or value is bound from the start.
-    pub fn bind(self, db: &toasty::Db) -> Self {
-        self.bind_with(&FieldResolver::of_db(db));
-        self
-    }
-
-    /// Binds every column through `resolver`.
-    pub(crate) fn bind_with(&self, resolver: &FieldResolver) {
-        for column in self.columns() {
-            column.bind(resolver);
-        }
-    }
-
     /// Renders `record`'s entries in their blocks: each column's [`entry`](Column::entry),
     /// read-only.
     ///
     /// The panel's detail page renders its view this way. A page of the app's own renders one for
-    /// a record it loaded through [`include_relations`](Self::include_relations), after
-    /// [`bind`](Self::bind) when it shows an embedded value.
+    /// a record it loaded through [`include_relations`](Self::include_relations).
     pub fn render<'a>(&self, cx: &'a Cx, record: &M) -> BoxView<'a> {
         let views: Vec<BoxView<'a>> = self
             .nodes

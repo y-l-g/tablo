@@ -29,7 +29,7 @@ pub(crate) use fields::{
 };
 pub use layouts::{Grid, Group, Section};
 pub(crate) use lenses::Binding;
-pub use lenses::{FieldResolver, form_key};
+pub use lenses::form_key;
 pub use options::Options;
 pub use relationship::MAX_RELATIONSHIP_OPTIONS;
 pub(crate) use relationship::{OptionLoadError, OptionSource};
@@ -37,7 +37,6 @@ pub use repeater::{MAX_ROWS, RepeaterItem, parse_items, write_items};
 use topcoat::{Result, context::Cx, view::*};
 pub use tree::{IntoSchema, Source};
 pub(crate) use tree::{Node, Retype, render_nodes};
-use tree::{bind_nodes, unbound_values};
 pub(crate) use validation::TypedValue;
 
 use crate::form::{FieldErrors, FormValue, FormValues};
@@ -106,27 +105,9 @@ impl<F> Schema<F> {
     }
 
     /// Every field, in the order it joins the schema: a layout's fields as it composes, in
-    /// declaration order, and an embedded value's fields when it binds.
+    /// declaration order.
     pub fn fields(&self) -> impl Iterator<Item = &Field> {
         self.fields.iter()
-    }
-
-    /// Binds the schema's embedded values and embedded paths to `db`'s app schema.
-    ///
-    /// A panel binds the schemas it mounts; bind one a custom page renders before rendering it.
-    /// A schema with no embedded value or path is bound from the start.
-    pub fn bind(mut self, db: &toasty::Db) -> Self {
-        self.bind_with(&FieldResolver::of_db(db));
-        self
-    }
-
-    /// Binds the schema through `resolver`: builds each unbound embedded value in place, then
-    /// binds every field's path.
-    pub(crate) fn bind_with(&mut self, resolver: &FieldResolver) {
-        bind_nodes(&mut self.nodes, &mut self.fields, resolver);
-        for field in &self.fields {
-            field.bind(resolver);
-        }
     }
 
     /// Renders each control required exactly when `required` names its key.
@@ -279,16 +260,10 @@ impl<F> Schema<F> {
         errors
     }
 
-    /// Reports what is wrong with this declaration: an embedded value or path never bound, a field
-    /// whose lens binds no single column, and two fields sharing a name.
+    /// Reports what is wrong with this declaration: a field whose lens binds no single column, and
+    /// two fields sharing a name.
     pub fn declaration_errors(&self) -> Vec<crate::DeclarationErrorKind> {
-        let mut unbound = Vec::new();
-        unbound_values(&self.nodes, &mut unbound);
-        let mut errors: Vec<_> = unbound
-            .into_iter()
-            .map(|item| crate::DeclarationErrorKind::Unbound { item })
-            .collect();
-        errors.extend(self.condition_errors());
+        let mut errors = self.condition_errors();
         errors.extend(self.dependent_errors());
         // A control disabled on create posts nothing there, so the create needs a value.
         for field in &self.fields {

@@ -1,19 +1,14 @@
-//! Embedded lens resolution through the request's app schema.
+//! Embedded lens resolution.
 //!
-//! A path through an embedded value names a flattened storage column only the
-//! app schema knows, so it stays unbound until its schema binds (`Schema::bind`,
-//! or a panel mount), and the leaf then arrives as its flattened storage column.
+//! A path through an embedded value binds the flattened storage column the
+//! app's `Db` stores it in, as soon as its field is declared.
 //!
 //! This is the render-path proof: the flattened name is what the form posts
 //! and what the unknown-key allow-list accepts, or a bound embedded field
-//! would render blank and then be refused as an unknown key. The resolver walk
-//! itself is covered by `schema::lenses`'s own tests; the two refusals at the
-//! bottom drive the panicking entry a form binding uses, which that module
-//! does not.
+//! would render blank and then be refused as an unknown key. The walk itself is
+//! covered by `schema::lenses`'s own tests.
 
-use tablo::{
-    DeclarationErrorKind, Field, FieldErrors, FormValues, IntoSchema, ResourceDef, Schema, Source,
-};
+use tablo::{DeclarationErrorKind, Field, FieldErrors, FormValues, ResourceDef, Schema, Source};
 use topcoat::{
     context::{Cx, CxTestBuilder},
     view::ViewExt,
@@ -65,13 +60,6 @@ async fn article_cx() -> Cx {
     CxTestBuilder::new().app_context(db).build()
 }
 
-/// `children` as a schema bound to the app schema of the `Db` `cx` carries, as a panel mount binds
-/// it.
-fn bound(cx: &Cx, children: impl IntoSchema) -> Schema {
-    let db = topcoat::context::try_app_context::<toasty::Db>(cx).expect("the cx carries a Db");
-    Schema::new(children).bind(db)
-}
-
 fn names(schema: &Schema) -> Vec<&str> {
     schema.fields().map(Field::name).collect()
 }
@@ -91,7 +79,7 @@ async fn render(schema: &Schema, cx: &Cx, values: FormValues) -> String {
 async fn embedded_leaf_resolves_to_its_flattened_column() {
     let cx = article_cx().await;
     // Two levels deep: Article.meta.seo.title -> meta_seo_title.
-    let schema = bound(&cx, Field::text(Article::fields().meta().seo().title()));
+    let schema = Schema::new(Field::text(Article::fields().meta().seo().title()));
     assert_eq!(
         names(&schema),
         ["meta_seo_title"],
@@ -111,13 +99,10 @@ async fn embedded_leaf_resolves_to_its_flattened_column() {
 /// A traversal lens over a relation is not an embedded step, and this walk is
 /// for embedded binding only. It is refused rather than bound to anything —
 /// `author_id` and `name` are different columns, so a silent misbind here would
-/// write the wrong one. No `lenses.rs` test reaches this branch: its
-/// refusals come from the missing/foreign-root model check, not from a
-/// relation hop in the walk.
-#[tokio::test]
-async fn a_relation_traversal_is_refused_rather_than_misbound() {
-    let cx = article_cx().await;
-    let errors = bound(&cx, Field::text(Article::fields().author().name())).declaration_errors();
+/// write the wrong one.
+#[test]
+fn a_relation_traversal_is_refused_rather_than_misbound() {
+    let errors = Schema::new(Field::text(Article::fields().author().name())).declaration_errors();
     assert!(
         errors
             .iter()
@@ -126,41 +111,14 @@ async fn a_relation_traversal_is_refused_rather_than_misbound() {
     );
 }
 
-/// An embedded path never bound to the app schema refuses to render rather than bind the wrong
-/// column.
-#[tokio::test]
-async fn an_unbound_embedded_path_is_refused() {
-    let cx = article_cx().await;
-    let schema = Schema::new(Field::text(Article::fields().meta().note()));
-    assert!(
-        matches!(
-            schema.declaration_errors().as_slice(),
-            [DeclarationErrorKind::Unbound { .. }]
-        ),
-        "{:?}",
-        schema.declaration_errors()
-    );
-    assert!(
-        schema
-            .render(&cx, Source::form(&FormValues::new(), &FieldErrors::new()))
-            .await
-            .is_err(),
-        "an unbound schema fails to render"
-    );
-}
-
 /// Every kind of field binds an embedded leaf and posts its flattened column.
 #[tokio::test]
 async fn a_choice_and_a_file_bind_an_embedded_leaf() {
     let cx = article_cx().await;
-    let schema = bound(
-        &cx,
-        (
-            Field::choice(Article::fields().meta().seo().title())
-                .options(vec!["draft".to_string()]),
-            Field::file(Article::fields().meta().seo().description()),
-        ),
-    );
+    let schema = Schema::new((
+        Field::choice(Article::fields().meta().seo().title()).options(vec!["draft".to_string()]),
+        Field::file(Article::fields().meta().seo().description()),
+    ));
     assert_eq!(names(&schema), ["meta_seo_title", "meta_seo_description"]);
 
     let html = render(&schema, &cx, FormValues::new()).await;
@@ -201,7 +159,7 @@ impl tablo::Resource for PageResource {
     }
 }
 
-/// A column binds an embedded leaf at mount: it renders, sorts and searches by the flattened
+/// A column binds an embedded leaf: it renders, sorts and searches by the flattened
 /// column.
 #[tokio::test]
 async fn a_column_binds_an_embedded_leaf() {
@@ -236,5 +194,113 @@ async fn a_column_binds_an_embedded_leaf() {
     assert!(
         searched.contains("First") && !searched.contains("Second"),
         "searched by the embedded leaf, got {searched}"
+    );
+}
+
+#[derive(Debug, Clone, toasty::Embed, tablo::EmbeddedForm)]
+struct Byline {
+    #[column("headline")]
+    title: String,
+    note: String,
+}
+
+#[derive(Debug, Clone, toasty::Embed, tablo::EmbeddedForm)]
+enum Cover {
+    #[column(variant = 1)]
+    Image { url: String },
+    #[column(variant = 2)]
+    Video {
+        #[column("clip")]
+        video_url: String,
+    },
+}
+
+#[derive(Debug, Clone, toasty::Model)]
+struct Writer {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    #[has_many]
+    stories: toasty::Deferred<Vec<Story>>,
+}
+
+#[derive(Debug, Clone, toasty::Model)]
+#[table = "stories"]
+struct Story {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    #[column("by")]
+    byline: Byline,
+    cover: Cover,
+    #[index]
+    writer_id: uuid::Uuid,
+    #[belongs_to(key = writer_id, references = id)]
+    writer: toasty::Deferred<Writer>,
+}
+
+/// A lens binds, before any `Db` exists, to the column the app's own `Db` stores it in, whatever
+/// the table prefix, the other models it registers, and the renames on and inside the value.
+#[tokio::test]
+async fn a_lens_binds_to_the_column_the_db_stores_it_in() {
+    let mut keys = names(&Schema::new((
+        Field::text(Story::fields().byline().title()),
+        Field::text(Story::fields().byline().note()),
+    )))
+    .into_iter()
+    .map(str::to_string)
+    .collect::<Vec<_>>();
+    keys.extend(
+        Cover::form(Story::fields().cover())
+            .fields()
+            .map(|field| field.name().to_string()),
+    );
+    assert_eq!(
+        keys,
+        ["by_headline", "by_note", "cover", "cover_url", "cover_clip"]
+    );
+
+    let db = toasty::Db::builder()
+        .table_name_prefix("app_")
+        .models(toasty::models!(Author, Writer, Story))
+        .connect("sqlite::memory:")
+        .await
+        .expect("connect");
+    let table = db
+        .schema()
+        .db
+        .tables
+        .iter()
+        .find(|table| table.name == "app_stories")
+        .expect("the story table");
+    for key in &keys {
+        assert!(
+            table.columns.iter().any(|column| &column.name == key),
+            "the Db stores no `{key}` column"
+        );
+    }
+}
+
+#[derive(Debug, Clone, toasty::Model)]
+struct Oversized {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    /// No driver takes a 2 GB `VARCHAR`, so the model compiles to no schema.
+    #[column(type = varchar(2000000000))]
+    body: String,
+    cover: Cover,
+}
+
+/// An embedded enum of a model no driver compiles is refused at declaration, like its leaves,
+/// rather than panicking when its form is built.
+#[test]
+fn an_uncompiled_enum_is_refused_not_a_panic() {
+    let errors = Cover::form(Oversized::fields().cover()).declaration_errors();
+    assert!(
+        errors
+            .iter()
+            .any(|error| matches!(error, DeclarationErrorKind::Uncompiled { .. })),
+        "{errors:?}"
     );
 }

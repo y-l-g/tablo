@@ -1,5 +1,5 @@
 //! Registering a panel's resources and pages as it mounts: each resource's def is built once and
-//! bound to the app schema, and every slug, route and sidebar entry follows from it.
+//! filled in, and every slug, route and sidebar entry follows from it.
 
 use std::{any::TypeId, collections::HashMap, sync::Arc};
 
@@ -33,7 +33,6 @@ use crate::{
         RELATIONS_ROUTE_SEGMENT, list_route,
     },
     resource::{Mounted, Mounts, Places, Resource, ResourceDef},
-    schema::FieldResolver,
 };
 
 /// A resource or page waiting for its panel to mount.
@@ -236,11 +235,7 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
         }
         let Self(customize) = *self;
         let prefix = registry.prefix.clone();
-        let mounted = Mounted::new(
-            customize(R::declare()),
-            &prefix,
-            &FieldResolver::new(registry.schema.clone()),
-        );
+        let mounted = Mounted::new(customize(R::declare()), &prefix);
         let Some(url) = registry.claim_slug::<R>("ResourceDef::slug", &mounted.slug) else {
             return;
         };

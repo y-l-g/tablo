@@ -27,7 +27,7 @@ use topcoat::{Result, context::Cx, view::*};
 
 use super::{
     condition::Condition,
-    lenses::{Binding, FieldResolver},
+    lenses::Binding,
     repeater::{RepeaterControl, RepeaterItem},
     validation::is_email,
 };
@@ -293,9 +293,9 @@ impl Field {
 
     /// The variant control of an embedded enum, never required since an empty submit reads the
     /// variant from the payload.
-    pub(crate) fn discriminant(name: String, variants: Vec<(String, String)>) -> Self {
+    pub(crate) fn discriminant(binding: Binding, variants: Vec<(String, String)>) -> Self {
         Self {
-            binding: Binding::named(name.clone(), capitalize(&name)),
+            binding,
             label: None,
             required: false,
             control: ControlKind::Choice(ChoiceControl {
@@ -309,11 +309,6 @@ impl Field {
             disabled: Disabled::Never,
             default: None,
         }
-    }
-
-    /// Bind an embedded path through `resolver`'s app schema.
-    pub(crate) fn bind(&self, resolver: &FieldResolver) {
-        self.binding.bind(resolver);
     }
 
     pub(crate) fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
