@@ -1,5 +1,7 @@
 //! The typed values a text field parses, and the email rule.
 
+use std::cmp::Ordering;
+
 use email_address::{EmailAddress, Options};
 
 /// Parses a typed column's text submission and names the type in the error it produces.
@@ -22,6 +24,22 @@ pub trait TypedValue: std::fmt::Display + std::str::FromStr {
     fn input_value(stored: &str) -> String {
         stored.to_string()
     }
+
+    /// How `self` orders against `other`, which a text field's
+    /// [`min`](crate::TextField::min) and [`max`](crate::TextField::max) compare by. `None` by
+    /// default: a type without an order takes no bound.
+    fn order(&self, _other: &Self) -> Option<Ordering> {
+        None
+    }
+}
+
+/// Orders by `PartialOrd`, for a type whose order is its value's.
+macro_rules! ordered_by_value {
+    () => {
+        fn order(&self, other: &Self) -> Option<Ordering> {
+            self.partial_cmp(other)
+        }
+    };
 }
 
 /// Binds the integer types a typed field accepts.
@@ -31,6 +49,7 @@ macro_rules! typed_whole_number {
             impl TypedValue for $ty {
                 const NOUN: &'static str = "whole number";
                 const INPUT_TYPE: &'static str = "number";
+                ordered_by_value!();
             }
         )*
     };
@@ -57,6 +76,8 @@ impl TypedValue for f32 {
             .ok()
             .filter(|parsed| parsed.is_finite())
     }
+
+    ordered_by_value!();
 }
 
 impl TypedValue for f64 {
@@ -71,6 +92,8 @@ impl TypedValue for f64 {
             .ok()
             .filter(|parsed| parsed.is_finite())
     }
+
+    ordered_by_value!();
 }
 
 impl TypedValue for uuid::Uuid {
@@ -97,12 +120,16 @@ impl TypedValue for jiff::Timestamp {
     fn input_value(stored: &str) -> String {
         format_timestamp_input(stored)
     }
+
+    ordered_by_value!();
 }
 
 /// Binds a calendar date to a `date` control.
 impl TypedValue for jiff::civil::Date {
     const NOUN: &'static str = "date";
     const INPUT_TYPE: &'static str = "date";
+
+    ordered_by_value!();
 }
 
 /// Binds a wall-clock time to a `time` control, which edits it to the minute.
@@ -115,6 +142,8 @@ impl TypedValue for jiff::civil::Time {
             time.strftime("%H:%M").to_string()
         })
     }
+
+    ordered_by_value!();
 }
 
 /// Binds a date and wall-clock time without a zone to a `datetime-local` control, which edits it to
@@ -128,6 +157,8 @@ impl TypedValue for jiff::civil::DateTime {
             datetime.strftime("%Y-%m-%dT%H:%M").to_string()
         })
     }
+
+    ordered_by_value!();
 }
 
 /// Formats a stored civil value for its control, rendering anything that does not parse empty.

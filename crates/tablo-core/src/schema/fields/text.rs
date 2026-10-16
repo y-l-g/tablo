@@ -3,13 +3,16 @@
 use tablo_ui::{input as ui_input, textarea as ui_textarea};
 use topcoat::{Result, context::Cx, view::*};
 
+pub(crate) use self::rules::Pattern;
+use self::rules::{Order, Rules, order};
 use super::{Field, render_field};
-use crate::form::FormScalar;
+use crate::{FieldRuleFault, form::FormScalar};
 
 /// The equality expression a text field's unique probe binds.
 type EqProbe = std::sync::Arc<dyn Fn(&str) -> Option<toasty::stmt::Expr<bool>> + Send + Sync>;
 
-/// The text control's input type, placeholder, rows, email and password rules, and unique probe.
+/// The text control's input type, placeholder, rows, email and password rules, declared rules,
+/// and unique probe.
 pub(crate) struct TextControl {
     input_type: &'static str,
     step: Option<&'static str>,
@@ -20,9 +23,12 @@ pub(crate) struct TextControl {
     pub(super) email: bool,
     pub(super) password: bool,
     pub(super) unique: bool,
+    pub(super) rules: Rules,
     probe: Option<EqProbe>,
     /// The stored spelling of a submission, or `None` when the type refuses it.
     spell: fn(&str) -> Option<String>,
+    /// How the field's type orders two submissions, for its bounds.
+    order: Order,
 }
 
 /// The stored spelling of a `T` submission.
@@ -53,8 +59,10 @@ impl TextControl {
             email: false,
             password: false,
             unique,
+            rules: Rules::default(),
             probe: Some(probe),
             spell: spell::<T>,
+            order: order::<T>,
         }
     }
 
@@ -69,8 +77,10 @@ impl TextControl {
             email: false,
             password: false,
             unique: false,
+            rules: Rules::default(),
             probe: None,
             spell: spell::<T>,
+            order: order::<T>,
         }
     }
 
@@ -82,6 +92,21 @@ impl TextControl {
     /// Whether two submissions spell the same stored value: `01` and `1` do for an integer.
     pub(crate) fn same_value(&self, a: &str, b: &str) -> bool {
         matches!(((self.spell)(a), (self.spell)(b)), (Some(a), Some(b)) if a == b)
+    }
+
+    /// The sentence refusing `value`, a trimmed, non-empty submission, for the first declared
+    /// rule it breaks. `None` for a value the field's type does not parse: its parse refuses it,
+    /// in the type's own words.
+    pub(crate) fn refusal(&self, label: &str, value: &str) -> Option<String> {
+        if !self.parses(value) {
+            return None;
+        }
+        self.rules.refusal(label, value, self.order)
+    }
+
+    /// What is wrong with the declared rules.
+    pub(crate) fn rule_faults(&self) -> Vec<FieldRuleFault> {
+        self.rules.faults(self.order)
     }
 
     /// The equality expression the app-side unique check probes with.
@@ -107,6 +132,8 @@ impl Field {
         let chrome = self.chrome(id.clone(), error, None);
         let aria_invalid = chrome.aria_invalid();
         let described_by = chrome.described_by();
+        let rules = &text.rules;
+        let (min_length, max_length) = (rules.min_length, rules.max_length);
         let control = if let Some(rows) = text.rows {
             // A `<textarea>` takes its initial value from content, not a `value` attribute.
             let value_owned = value.unwrap_or("").to_string();
@@ -118,6 +145,8 @@ impl Field {
                         name=(name.clone())
                         placeholder=(placeholder.clone())
                         rows=(rows)
+                        minlength=(min_length)
+                        maxlength=(max_length)
                         required=(required)
                         disabled=(disabled)
                         aria-required=(required.then_some("true"))
@@ -141,6 +170,9 @@ impl Field {
             let autocomplete = text.password.then_some("new-password");
             let value_owned = value.map(text.input_value);
             let step = text.step.filter(|_| input_type == text.input_type);
+            let min = rules.min.as_deref().map(text.input_value);
+            let max = rules.max.as_deref().map(text.input_value);
+            let pattern = rules.pattern.as_ref().map(|pattern| pattern.source.clone());
             view! {
                 cx =>
                 ui_input(
@@ -151,6 +183,11 @@ impl Field {
                         name=(name.clone())
                         value=(value_owned.clone())
                         placeholder=(placeholder.clone())
+                        minlength=(min_length)
+                        maxlength=(max_length)
+                        min=(min)
+                        max=(max)
+                        pattern=(pattern)
                         autocomplete=(autocomplete)
                         required=(required)
                         disabled=(disabled)
@@ -173,5 +210,6 @@ impl Field {
     }
 }
 
+mod rules;
 #[cfg(test)]
 mod tests;

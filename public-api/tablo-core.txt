@@ -756,132 +756,154 @@ pub const tablo_core::extend::TypedValue::INPUT_TYPE: &'static str
 pub const tablo_core::extend::TypedValue::NOUN: &'static str
 pub const tablo_core::extend::TypedValue::STEP: core::option::Option<&'static str>
 pub fn tablo_core::extend::TypedValue::input_value(&str) -> alloc::string::String
+pub fn tablo_core::extend::TypedValue::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn tablo_core::extend::TypedValue::parse_input(&str) -> core::option::Option<Self>
 impl tablo_core::extend::TypedValue for bool
 pub const bool::INPUT_TYPE: &'static str
 pub const bool::NOUN: &'static str
 pub const bool::STEP: core::option::Option<&'static str>
 pub fn bool::input_value(&str) -> alloc::string::String
+pub fn bool::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn bool::parse_input(&str) -> core::option::Option<Self>
 impl tablo_core::extend::TypedValue for f32
 pub const f32::INPUT_TYPE: &'static str
 pub const f32::NOUN: &'static str
 pub const f32::STEP: core::option::Option<&'static str>
 pub fn f32::input_value(&str) -> alloc::string::String
+pub fn f32::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn f32::parse_input(&str) -> core::option::Option<Self>
 impl tablo_core::extend::TypedValue for f64
 pub const f64::INPUT_TYPE: &'static str
 pub const f64::NOUN: &'static str
 pub const f64::STEP: core::option::Option<&'static str>
 pub fn f64::input_value(&str) -> alloc::string::String
+pub fn f64::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn f64::parse_input(&str) -> core::option::Option<Self>
 impl tablo_core::extend::TypedValue for i128
 pub const i128::INPUT_TYPE: &'static str
 pub const i128::NOUN: &'static str
 pub const i128::STEP: core::option::Option<&'static str>
 pub fn i128::input_value(&str) -> alloc::string::String
+pub fn i128::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn i128::parse_input(&str) -> core::option::Option<Self>
 impl tablo_core::extend::TypedValue for i16
 pub const i16::INPUT_TYPE: &'static str
 pub const i16::NOUN: &'static str
 pub const i16::STEP: core::option::Option<&'static str>
 pub fn i16::input_value(&str) -> alloc::string::String
+pub fn i16::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn i16::parse_input(&str) -> core::option::Option<Self>
 impl tablo_core::extend::TypedValue for i32
 pub const i32::INPUT_TYPE: &'static str
 pub const i32::NOUN: &'static str
 pub const i32::STEP: core::option::Option<&'static str>
 pub fn i32::input_value(&str) -> alloc::string::String
+pub fn i32::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn i32::parse_input(&str) -> core::option::Option<Self>
 impl tablo_core::extend::TypedValue for i64
 pub const i64::INPUT_TYPE: &'static str
 pub const i64::NOUN: &'static str
 pub const i64::STEP: core::option::Option<&'static str>
 pub fn i64::input_value(&str) -> alloc::string::String
+pub fn i64::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn i64::parse_input(&str) -> core::option::Option<Self>
 impl tablo_core::extend::TypedValue for i8
 pub const i8::INPUT_TYPE: &'static str
 pub const i8::NOUN: &'static str
 pub const i8::STEP: core::option::Option<&'static str>
 pub fn i8::input_value(&str) -> alloc::string::String
+pub fn i8::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn i8::parse_input(&str) -> core::option::Option<Self>
 impl tablo_core::extend::TypedValue for isize
 pub const isize::INPUT_TYPE: &'static str
 pub const isize::NOUN: &'static str
 pub const isize::STEP: core::option::Option<&'static str>
 pub fn isize::input_value(&str) -> alloc::string::String
+pub fn isize::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn isize::parse_input(&str) -> core::option::Option<Self>
 impl tablo_core::extend::TypedValue for jiff::civil::date::Date
 pub const jiff::civil::date::Date::INPUT_TYPE: &'static str
 pub const jiff::civil::date::Date::NOUN: &'static str
 pub const jiff::civil::date::Date::STEP: core::option::Option<&'static str>
 pub fn jiff::civil::date::Date::input_value(&str) -> alloc::string::String
+pub fn jiff::civil::date::Date::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn jiff::civil::date::Date::parse_input(&str) -> core::option::Option<Self>
 impl tablo_core::extend::TypedValue for jiff::civil::datetime::DateTime
 pub const jiff::civil::datetime::DateTime::INPUT_TYPE: &'static str
 pub const jiff::civil::datetime::DateTime::NOUN: &'static str
 pub const jiff::civil::datetime::DateTime::STEP: core::option::Option<&'static str>
 pub fn jiff::civil::datetime::DateTime::input_value(&str) -> alloc::string::String
+pub fn jiff::civil::datetime::DateTime::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn jiff::civil::datetime::DateTime::parse_input(&str) -> core::option::Option<Self>
 impl tablo_core::extend::TypedValue for jiff::civil::time::Time
 pub const jiff::civil::time::Time::INPUT_TYPE: &'static str
 pub const jiff::civil::time::Time::NOUN: &'static str
 pub const jiff::civil::time::Time::STEP: core::option::Option<&'static str>
 pub fn jiff::civil::time::Time::input_value(&str) -> alloc::string::String
+pub fn jiff::civil::time::Time::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn jiff::civil::time::Time::parse_input(&str) -> core::option::Option<Self>
 impl tablo_core::extend::TypedValue for jiff::timestamp::Timestamp
 pub const jiff::timestamp::Timestamp::INPUT_TYPE: &'static str
 pub const jiff::timestamp::Timestamp::NOUN: &'static str
 pub const jiff::timestamp::Timestamp::STEP: core::option::Option<&'static str>
 pub fn jiff::timestamp::Timestamp::input_value(&str) -> alloc::string::String
+pub fn jiff::timestamp::Timestamp::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn jiff::timestamp::Timestamp::parse_input(&str) -> core::option::Option<Self>
 impl tablo_core::extend::TypedValue for tablo_core::TenantId
 pub const tablo_core::TenantId::INPUT_TYPE: &'static str
 pub const tablo_core::TenantId::NOUN: &'static str
 pub const tablo_core::TenantId::STEP: core::option::Option<&'static str>
 pub fn tablo_core::TenantId::input_value(&str) -> alloc::string::String
+pub fn tablo_core::TenantId::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn tablo_core::TenantId::parse_input(&str) -> core::option::Option<Self>
 impl tablo_core::extend::TypedValue for u128
 pub const u128::INPUT_TYPE: &'static str
 pub const u128::NOUN: &'static str
 pub const u128::STEP: core::option::Option<&'static str>
 pub fn u128::input_value(&str) -> alloc::string::String
+pub fn u128::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn u128::parse_input(&str) -> core::option::Option<Self>
 impl tablo_core::extend::TypedValue for u16
 pub const u16::INPUT_TYPE: &'static str
 pub const u16::NOUN: &'static str
 pub const u16::STEP: core::option::Option<&'static str>
 pub fn u16::input_value(&str) -> alloc::string::String
+pub fn u16::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn u16::parse_input(&str) -> core::option::Option<Self>
 impl tablo_core::extend::TypedValue for u32
 pub const u32::INPUT_TYPE: &'static str
 pub const u32::NOUN: &'static str
 pub const u32::STEP: core::option::Option<&'static str>
 pub fn u32::input_value(&str) -> alloc::string::String
+pub fn u32::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn u32::parse_input(&str) -> core::option::Option<Self>
 impl tablo_core::extend::TypedValue for u64
 pub const u64::INPUT_TYPE: &'static str
 pub const u64::NOUN: &'static str
 pub const u64::STEP: core::option::Option<&'static str>
 pub fn u64::input_value(&str) -> alloc::string::String
+pub fn u64::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn u64::parse_input(&str) -> core::option::Option<Self>
 impl tablo_core::extend::TypedValue for u8
 pub const u8::INPUT_TYPE: &'static str
 pub const u8::NOUN: &'static str
 pub const u8::STEP: core::option::Option<&'static str>
 pub fn u8::input_value(&str) -> alloc::string::String
+pub fn u8::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn u8::parse_input(&str) -> core::option::Option<Self>
 impl tablo_core::extend::TypedValue for usize
 pub const usize::INPUT_TYPE: &'static str
 pub const usize::NOUN: &'static str
 pub const usize::STEP: core::option::Option<&'static str>
 pub fn usize::input_value(&str) -> alloc::string::String
+pub fn usize::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn usize::parse_input(&str) -> core::option::Option<Self>
 impl tablo_core::extend::TypedValue for uuid::Uuid
 pub const uuid::Uuid::INPUT_TYPE: &'static str
 pub const uuid::Uuid::NOUN: &'static str
 pub const uuid::Uuid::STEP: core::option::Option<&'static str>
 pub fn uuid::Uuid::input_value(&str) -> alloc::string::String
+pub fn uuid::Uuid::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn uuid::Uuid::parse_input(&str) -> core::option::Option<Self>
 pub type tablo_core::extend::ControlFuture<'s, 'a> = core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = topcoat_view::view::BoxView<'a>> + core::marker::Send + 's)>>
 pub mod tablo_core::form
@@ -1092,6 +1114,7 @@ pub const tablo_core::form::FormScalar::INPUT_TYPE: &'static str
 pub const tablo_core::form::FormScalar::STEP: core::option::Option<&'static str>
 pub fn tablo_core::form::FormScalar::color(&self) -> core::option::Option<tablo_core::Color>
 pub fn tablo_core::form::FormScalar::input_value(&str) -> alloc::string::String
+pub fn tablo_core::form::FormScalar::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn tablo_core::form::FormScalar::parse_form(&str) -> core::result::Result<Self, alloc::string::String>
 pub fn tablo_core::form::FormScalar::to_form(&self) -> alloc::string::String
 pub fn tablo_core::form::FormScalar::to_label(&self) -> alloc::string::String
@@ -1100,6 +1123,7 @@ pub const alloc::string::String::INPUT_TYPE: &'static str
 pub const alloc::string::String::STEP: core::option::Option<&'static str>
 pub fn alloc::string::String::color(&self) -> core::option::Option<tablo_core::Color>
 pub fn alloc::string::String::input_value(&str) -> alloc::string::String
+pub fn alloc::string::String::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn alloc::string::String::parse_form(&str) -> core::result::Result<Self, alloc::string::String>
 pub fn alloc::string::String::to_form(&self) -> alloc::string::String
 pub fn alloc::string::String::to_label(&self) -> alloc::string::String
@@ -1108,6 +1132,7 @@ pub const core::option::Option<alloc::string::String>::INPUT_TYPE: &'static str
 pub const core::option::Option<alloc::string::String>::STEP: core::option::Option<&'static str>
 pub fn core::option::Option<alloc::string::String>::color(&self) -> core::option::Option<tablo_core::Color>
 pub fn core::option::Option<alloc::string::String>::input_value(&str) -> alloc::string::String
+pub fn core::option::Option<alloc::string::String>::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn core::option::Option<alloc::string::String>::parse_form(&str) -> core::result::Result<Self, alloc::string::String>
 pub fn core::option::Option<alloc::string::String>::to_form(&self) -> alloc::string::String
 pub fn core::option::Option<alloc::string::String>::to_label(&self) -> alloc::string::String
@@ -1116,6 +1141,7 @@ pub const core::option::Option<T>::INPUT_TYPE: &'static str
 pub const core::option::Option<T>::STEP: core::option::Option<&'static str>
 pub fn core::option::Option<T>::color(&self) -> core::option::Option<tablo_core::Color>
 pub fn core::option::Option<T>::input_value(&str) -> alloc::string::String
+pub fn core::option::Option<T>::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn core::option::Option<T>::parse_form(&str) -> core::result::Result<Self, alloc::string::String>
 pub fn core::option::Option<T>::to_form(&self) -> alloc::string::String
 pub fn core::option::Option<T>::to_label(&self) -> alloc::string::String
@@ -1124,6 +1150,7 @@ pub const T::INPUT_TYPE: &'static str
 pub const T::STEP: core::option::Option<&'static str>
 pub fn T::color(&self) -> core::option::Option<tablo_core::Color>
 pub fn T::input_value(&str) -> alloc::string::String
+pub fn T::order(&self, &T) -> core::option::Option<core::cmp::Ordering>
 pub fn T::parse_form(&str) -> core::result::Result<T, alloc::string::String>
 pub fn T::to_form(&self) -> alloc::string::String
 pub fn T::to_label(&self) -> alloc::string::String
@@ -2030,8 +2057,13 @@ impl<F> tablo_core::TextField<F>
 pub fn tablo_core::TextField<F>::default(self, impl tablo_core::IntoFormValue) -> Self
 impl<F> tablo_core::TextField<F>
 pub fn tablo_core::TextField<F>::email(self) -> Self
+pub fn tablo_core::TextField<F>::max(self, impl core::fmt::Display) -> Self
+pub fn tablo_core::TextField<F>::max_length(self, usize) -> Self
+pub fn tablo_core::TextField<F>::min(self, impl core::fmt::Display) -> Self
+pub fn tablo_core::TextField<F>::min_length(self, usize) -> Self
 pub fn tablo_core::TextField<F>::multiline(self, u32) -> Self
 pub fn tablo_core::TextField<F>::password(self) -> Self
+pub fn tablo_core::TextField<F>::pattern(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::TextField<F>::placeholder(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::TextField<F>::unique(self) -> Self
 impl<F> tablo_core::TextField<F>
@@ -3172,6 +3204,7 @@ pub const tablo_core::TenantId::INPUT_TYPE: &'static str
 pub const tablo_core::TenantId::NOUN: &'static str
 pub const tablo_core::TenantId::STEP: core::option::Option<&'static str>
 pub fn tablo_core::TenantId::input_value(&str) -> alloc::string::String
+pub fn tablo_core::TenantId::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn tablo_core::TenantId::parse_input(&str) -> core::option::Option<Self>
 impl toasty::codegen_support::index::IndexableField for tablo_core::TenantId
 impl toasty::schema::field::Field for tablo_core::TenantId
@@ -3433,6 +3466,9 @@ pub tablo_core::DeclarationErrorKind::DuplicateSlug
 pub tablo_core::DeclarationErrorKind::DuplicateSlug::slug: alloc::string::String
 pub tablo_core::DeclarationErrorKind::EmptyChoice
 pub tablo_core::DeclarationErrorKind::EmptyChoice::field: alloc::string::String
+pub tablo_core::DeclarationErrorKind::FieldRule
+pub tablo_core::DeclarationErrorKind::FieldRule::fault: tablo_core::FieldRuleFault
+pub tablo_core::DeclarationErrorKind::FieldRule::field: alloc::string::String
 pub tablo_core::DeclarationErrorKind::FileFieldWithoutUploader
 pub tablo_core::DeclarationErrorKind::FileFieldWithoutUploader::field: alloc::string::String
 pub tablo_core::DeclarationErrorKind::FormClaimsTenantColumn
@@ -3562,6 +3598,26 @@ impl core::marker::Unpin for tablo_core::form::FieldErrorKind
 impl core::marker::UnsafeUnpin for tablo_core::form::FieldErrorKind
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::form::FieldErrorKind
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::form::FieldErrorKind
+#[non_exhaustive] pub enum tablo_core::FieldRuleFault
+pub tablo_core::FieldRuleFault::EmptyRange
+pub tablo_core::FieldRuleFault::InvalidPattern(alloc::string::String)
+pub tablo_core::FieldRuleFault::RefusedDefault(alloc::string::String)
+pub tablo_core::FieldRuleFault::UnorderedBound(alloc::string::String)
+impl core::clone::Clone for tablo_core::FieldRuleFault
+pub fn tablo_core::FieldRuleFault::clone(&self) -> tablo_core::FieldRuleFault
+impl core::cmp::Eq for tablo_core::FieldRuleFault
+impl core::cmp::PartialEq for tablo_core::FieldRuleFault
+pub fn tablo_core::FieldRuleFault::eq(&self, &tablo_core::FieldRuleFault) -> bool
+impl core::fmt::Debug for tablo_core::FieldRuleFault
+pub fn tablo_core::FieldRuleFault::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_core::FieldRuleFault
+impl core::marker::Freeze for tablo_core::FieldRuleFault
+impl core::marker::Send for tablo_core::FieldRuleFault
+impl core::marker::Sync for tablo_core::FieldRuleFault
+impl core::marker::Unpin for tablo_core::FieldRuleFault
+impl core::marker::UnsafeUnpin for tablo_core::FieldRuleFault
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::FieldRuleFault
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::FieldRuleFault
 #[non_exhaustive] pub enum tablo_core::FormValue
 pub tablo_core::FormValue::List(alloc::vec::Vec<alloc::string::String>)
 pub tablo_core::FormValue::Rows(alloc::vec::Vec<tablo_core::FormValues>)
@@ -5379,6 +5435,7 @@ pub const tablo_core::TenantId::INPUT_TYPE: &'static str
 pub const tablo_core::TenantId::NOUN: &'static str
 pub const tablo_core::TenantId::STEP: core::option::Option<&'static str>
 pub fn tablo_core::TenantId::input_value(&str) -> alloc::string::String
+pub fn tablo_core::TenantId::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn tablo_core::TenantId::parse_input(&str) -> core::option::Option<Self>
 impl toasty::codegen_support::index::IndexableField for tablo_core::TenantId
 impl toasty::schema::field::Field for tablo_core::TenantId
@@ -5487,8 +5544,13 @@ impl<F> tablo_core::TextField<F>
 pub fn tablo_core::TextField<F>::default(self, impl tablo_core::IntoFormValue) -> Self
 impl<F> tablo_core::TextField<F>
 pub fn tablo_core::TextField<F>::email(self) -> Self
+pub fn tablo_core::TextField<F>::max(self, impl core::fmt::Display) -> Self
+pub fn tablo_core::TextField<F>::max_length(self, usize) -> Self
+pub fn tablo_core::TextField<F>::min(self, impl core::fmt::Display) -> Self
+pub fn tablo_core::TextField<F>::min_length(self, usize) -> Self
 pub fn tablo_core::TextField<F>::multiline(self, u32) -> Self
 pub fn tablo_core::TextField<F>::password(self) -> Self
+pub fn tablo_core::TextField<F>::pattern(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::TextField<F>::placeholder(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::TextField<F>::unique(self) -> Self
 impl<F> tablo_core::TextField<F>
@@ -5597,6 +5659,7 @@ pub const tablo_core::FormScalar::INPUT_TYPE: &'static str
 pub const tablo_core::FormScalar::STEP: core::option::Option<&'static str>
 pub fn tablo_core::FormScalar::color(&self) -> core::option::Option<tablo_core::Color>
 pub fn tablo_core::FormScalar::input_value(&str) -> alloc::string::String
+pub fn tablo_core::FormScalar::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn tablo_core::FormScalar::parse_form(&str) -> core::result::Result<Self, alloc::string::String>
 pub fn tablo_core::FormScalar::to_form(&self) -> alloc::string::String
 pub fn tablo_core::FormScalar::to_label(&self) -> alloc::string::String
@@ -5605,6 +5668,7 @@ pub const alloc::string::String::INPUT_TYPE: &'static str
 pub const alloc::string::String::STEP: core::option::Option<&'static str>
 pub fn alloc::string::String::color(&self) -> core::option::Option<tablo_core::Color>
 pub fn alloc::string::String::input_value(&str) -> alloc::string::String
+pub fn alloc::string::String::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn alloc::string::String::parse_form(&str) -> core::result::Result<Self, alloc::string::String>
 pub fn alloc::string::String::to_form(&self) -> alloc::string::String
 pub fn alloc::string::String::to_label(&self) -> alloc::string::String
@@ -5613,6 +5677,7 @@ pub const core::option::Option<alloc::string::String>::INPUT_TYPE: &'static str
 pub const core::option::Option<alloc::string::String>::STEP: core::option::Option<&'static str>
 pub fn core::option::Option<alloc::string::String>::color(&self) -> core::option::Option<tablo_core::Color>
 pub fn core::option::Option<alloc::string::String>::input_value(&str) -> alloc::string::String
+pub fn core::option::Option<alloc::string::String>::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn core::option::Option<alloc::string::String>::parse_form(&str) -> core::result::Result<Self, alloc::string::String>
 pub fn core::option::Option<alloc::string::String>::to_form(&self) -> alloc::string::String
 pub fn core::option::Option<alloc::string::String>::to_label(&self) -> alloc::string::String
@@ -5621,6 +5686,7 @@ pub const core::option::Option<T>::INPUT_TYPE: &'static str
 pub const core::option::Option<T>::STEP: core::option::Option<&'static str>
 pub fn core::option::Option<T>::color(&self) -> core::option::Option<tablo_core::Color>
 pub fn core::option::Option<T>::input_value(&str) -> alloc::string::String
+pub fn core::option::Option<T>::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
 pub fn core::option::Option<T>::parse_form(&str) -> core::result::Result<Self, alloc::string::String>
 pub fn core::option::Option<T>::to_form(&self) -> alloc::string::String
 pub fn core::option::Option<T>::to_label(&self) -> alloc::string::String
@@ -5629,6 +5695,7 @@ pub const T::INPUT_TYPE: &'static str
 pub const T::STEP: core::option::Option<&'static str>
 pub fn T::color(&self) -> core::option::Option<tablo_core::Color>
 pub fn T::input_value(&str) -> alloc::string::String
+pub fn T::order(&self, &T) -> core::option::Option<core::cmp::Ordering>
 pub fn T::parse_form(&str) -> core::result::Result<T, alloc::string::String>
 pub fn T::to_form(&self) -> alloc::string::String
 pub fn T::to_label(&self) -> alloc::string::String

@@ -38,6 +38,18 @@ pub fn account_form() -> Schema<UserForm> {
 }
 // ANCHOR_END: forms-field-basics
 
+// ANCHOR: forms-rules
+pub fn checked_account_form() -> Schema<UserForm> {
+    let c = UserForm::controls();
+    Schema::new((
+        c.name.min_length(2).max_length(80),
+        c.email.email().pattern(r".+@example\.com"),
+        c.role,
+        c.age.min(18).max(130),
+    ))
+}
+// ANCHOR_END: forms-rules
+
 // ANCHOR: forms-conditions
 #[derive(tablo::RecordForm)]
 #[form(model = User)]

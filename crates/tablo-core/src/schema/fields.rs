@@ -21,7 +21,7 @@ use tablo_ui::{
     field_description as ui_field_description, field_error as ui_field_error,
     field_label as ui_field_label, field_title as ui_field_title,
 };
-pub(crate) use text::TextControl;
+pub(crate) use text::{Pattern, TextControl};
 use toasty::stmt::{List, Path};
 use topcoat::{Result, context::Cx, view::*};
 
@@ -463,18 +463,46 @@ impl Field {
         self.binding.nullable()
     }
 
-    /// Refuses a non-empty submission the control's own rule refuses: an email field's address.
+    /// Refuses a non-empty submission the control's own rules refuse: an email field's address, and
+    /// a text field's declared length, bounds and pattern.
     pub(crate) fn check(&self, value: &FormValue) -> Option<FieldError> {
         let value = value.as_text()?.trim();
-        match &self.control {
-            ControlKind::Text(text) if text.email && !value.is_empty() && !is_email(value) => {
-                Some(FieldError::invalid(
-                    self.name(),
-                    format!("{} must be a valid email", self.label_str()),
-                ))
-            }
-            _ => None,
+        let ControlKind::Text(text) = &self.control else {
+            return None;
+        };
+        if value.is_empty() {
+            return None;
         }
+        let label = self.label_str();
+        let message = if text.email && !is_email(value) {
+            format!("{label} must be a valid email")
+        } else {
+            text.refusal(label, value)?
+        };
+        Some(FieldError::invalid(self.name(), message))
+    }
+
+    /// What is wrong with the rules the field's text control declares, reported under `field`:
+    /// one that cannot work, or a default that breaks one.
+    pub(crate) fn rule_errors(&self, field: &str) -> Vec<crate::DeclarationErrorKind> {
+        let ControlKind::Text(text) = &self.control else {
+            return Vec::new();
+        };
+        let mut faults = text.rule_faults();
+        if let Some(value) = self.default_value()
+            && self.check(value).is_some()
+        {
+            faults.push(crate::FieldRuleFault::RefusedDefault(
+                value.as_text().unwrap_or_default().to_string(),
+            ));
+        }
+        faults
+            .into_iter()
+            .map(|fault| crate::DeclarationErrorKind::FieldRule {
+                field: field.to_string(),
+                fault,
+            })
+            .collect()
     }
 
     /// Whether two submissions spell the same stored value, as the unique check compares them.

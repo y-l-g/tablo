@@ -184,6 +184,44 @@ impl fmt::Display for SignUpFault {
     }
 }
 
+/// Why a text field's declared rules cannot work: [`DeclarationErrorKind::FieldRule`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum FieldRuleFault {
+    /// A `min` or `max` that is no value the field's type parses, or a type without an order.
+    UnorderedBound(String),
+    /// A `pattern` the server does not compile, with the compiler's reason.
+    InvalidPattern(String),
+    /// A `min_length` above the `max_length`, or a `min` above the `max`: no value passes.
+    EmptyRange,
+    /// A default that breaks a rule, so a create that keeps it is refused.
+    RefusedDefault(String),
+}
+
+/// [`DeclarationErrorKind::FieldRule`]'s sentence.
+fn fmt_field_rule(f: &mut fmt::Formatter<'_>, field: &str, fault: &FieldRuleFault) -> fmt::Result {
+    match fault {
+        FieldRuleFault::UnorderedBound(bound) => write!(
+            f,
+            "field '{field}' is bounded by '{bound}', which is no value of a type that orders: \
+             bound a number, date, time or timestamp field by a value of its type"
+        ),
+        FieldRuleFault::InvalidPattern(error) => write!(
+            f,
+            "field '{field}' has a pattern that does not compile: {error}"
+        ),
+        FieldRuleFault::EmptyRange => write!(
+            f,
+            "field '{field}' declares a minimum above its maximum, so it refuses every value"
+        ),
+        FieldRuleFault::RefusedDefault(value) => write!(
+            f,
+            "field '{field}' defaults to '{value}', which its own rules refuse: change the default \
+             or the rule"
+        ),
+    }
+}
+
 /// Why a many-to-many field or relation cannot link records:
 /// [`DeclarationErrorKind::ManyToMany`].
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -408,6 +446,13 @@ pub enum DeclarationErrorKind {
         field: String,
         /// The password control in its row.
         leaf: String,
+    },
+    /// A text field's declared length, bounds or pattern cannot work.
+    FieldRule {
+        /// The field, or `repeater.leaf` for a control in a repeater's rows.
+        field: String,
+        /// What is wrong.
+        fault: FieldRuleFault,
     },
     /// A field's default is a value its control never posts: one its type does not parse, one
     /// not among a choice's options, or a list or one value where the control posts the other.
@@ -681,6 +726,7 @@ impl fmt::Display for DeclarationErrorKind {
                 "repeater '{field}' rows hold password '{leaf}', which an edit never renders \
                  back, so each save overwrites it: keep the secret out of the item"
             ),
+            Self::FieldRule { field, fault } => fmt_field_rule(f, field, fault),
             Self::UnpostedDefault { field, value } => write!(
                 f,
                 "field '{field}' defaults to '{value}', which its control never posts: spell the \

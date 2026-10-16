@@ -1,13 +1,23 @@
 use http::header::{CONTENT_SECURITY_POLICY, CONTENT_TYPE, COOKIE};
 pub use tablo::testing::{
     TestClient, body_bytes, body_string, confirms_first, cookie_header, field_error,
-    filter_options, form_body, input_value, mount, refusal, response_cookies, rows,
-    set_cookie_header,
+    field_error_message, filter_options, form_body, input_value, mount, refusal, response_cookies,
+    rows, set_cookie_header,
 };
 use tablo::{Auth, Notification, Panel, Resource};
 use toasty::Db;
 use topcoat::router::{Body, Router, response::Response};
 use uuid::Uuid;
+
+/// The opening tag of the control posting `name`.
+pub fn control<'h>(html: &'h str, name: &str) -> &'h str {
+    let needle = format!("name=\"{name}\"");
+    let at = html
+        .find(&needle)
+        .unwrap_or_else(|| panic!("no {name} control in {html}"));
+    let start = html[..at].rfind('<').unwrap();
+    &html[start..at + html[at..].find('>').unwrap()]
+}
 
 pub async fn memory_db(models: toasty::schema::ModelSet) -> Db {
     let db = Db::builder()
