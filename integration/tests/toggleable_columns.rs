@@ -39,6 +39,24 @@ impl Resource for BookResource {
     }
 }
 
+/// The same books, every column toggleable.
+struct ShelfResource;
+
+impl Resource for ShelfResource {
+    type Model = Book;
+    type Form = tablo::NoForm<Self::Model>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("shelf")
+            .policy(ReadOnly)
+            .table(Table::new((
+                TextColumn::new(lens!(Book.title)).toggleable(),
+                TextColumn::new(lens!(Book.author)).hidden_by_default(),
+            )))
+    }
+}
+
 /// The columns a client's book list shows.
 async fn shown(client: &TestClient<'_>) -> Vec<String> {
     tablo::testing::columns(&body_string(client.get("/admin/books").await).await)
@@ -79,6 +97,7 @@ fn panel() -> Panel {
     Panel::new("admin")
         .auth(Auth::password())
         .resource::<BookResource>()
+        .resource::<ShelfResource>()
 }
 
 #[tokio::test]
@@ -129,6 +148,22 @@ async fn a_reset_restores_the_defaults_and_stores_nothing() {
         .await
         .expect("read the preferences");
     assert!(stored.is_empty(), "the defaults keep no row: {stored:?}");
+}
+
+#[tokio::test]
+async fn a_choice_hiding_every_column_shows_the_defaults() {
+    let (db, ada, _) = library().await;
+    let router = mount(db.clone(), panel()).expect("the panel mounts");
+    let ada = TestClient::new(&router).sign_in(&db, "admin", &ada).await;
+
+    let resp = ada.submit("/admin/shelf/-/columns", &form_body(&[])).await;
+    assert_eq!(resp.status(), 303);
+    let html = body_string(ada.get("/admin/shelf").await).await;
+    assert_eq!(
+        tablo::testing::columns(&html),
+        ["title"],
+        "an empty table would show nothing to read"
+    );
 }
 
 #[tokio::test]

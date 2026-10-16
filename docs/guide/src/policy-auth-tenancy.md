@@ -120,6 +120,9 @@ Toasty and create a user with `auth::create_admin`, which stores the password's 
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-models}}
 ```
 
+A panel whose lists declare [toggleable columns](tables.md#hiding-columns) also keeps each user's
+choice in the `ColumnPreference` table; register it too.
+
 ```rust
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-hash-password}}
 ```
@@ -189,8 +192,8 @@ use tablo::{Membership, PanelUser, auth::{Authenticator, verify_password}};
 - **`find_by_id`** reloads the user on every request, so deactivating a user or removing a
   membership takes effect immediately.
 
-Sessions stay in `AuthSession`, so register it; the provided `AdminUser` is needed only by
-`PasswordAuth`.
+Sessions stay in `AuthSession`, so register it, and `ColumnPreference` when a list toggles
+columns; the provided `AdminUser` is needed only by `PasswordAuth`.
 
 ### Sign-up
 

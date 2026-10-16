@@ -208,9 +208,16 @@ impl<M> WiredTable<M> {
         self
     }
 
-    /// Show the columns `choice` shows, and let the reader post a new choice to `url`.
+    /// Show the columns `choice` shows, and let the reader post a new choice to `url`. A choice
+    /// hiding every column would leave no table to read, so the defaults show instead.
     pub(crate) fn with_column_choice(mut self, choice: ColumnChoice, url: Option<String>) -> Self {
-        self.wiring.choice = choice;
+        let shows_any = self
+            .declared_columns()
+            .iter()
+            .any(|col| choice.shows(col.name(), col.toggle()));
+        if shows_any {
+            self.wiring.choice = choice;
+        }
         self.wiring.columns_url = url;
         self
     }

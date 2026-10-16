@@ -18,14 +18,17 @@ pub struct ColumnPreference {
     /// The panel, the user and the resource, query-encoded: one row per user per list.
     #[key]
     pub key: String,
-    /// [`PanelUser::user_id`](crate::PanelUser::user_id) of the user who chose.
+    /// [`PanelUser::user_id`](crate::PanelUser::user_id) of the user who chose; indexed so an app
+    /// deleting a user can delete their rows, which the panel leaves behind.
     #[index]
     pub user_id: String,
     /// The prefix of the panel the list is on (e.g. `/admin`).
     pub panel: String,
     /// The slug of the resource whose list it is.
     pub resource: String,
-    /// The columns the user hides or shows against their defaults, query-encoded.
+    /// The columns the user hides or shows against their defaults, query-encoded. Text, since a
+    /// few names outgrow the `VARCHAR(191)` MySQL gives a `String`.
+    #[column(type = text)]
     pub columns: String,
 }
 

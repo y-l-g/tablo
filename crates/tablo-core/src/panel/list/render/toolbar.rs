@@ -237,7 +237,12 @@ impl Frame<'_> {
                 dropdown_menu_content(
                     id: &menu,
                     align: FloatingAlign::End,
-                    attrs: attributes! { class="min-w-56" },
+                    // The boxes belong to the picker's form but sit inside the toolbar's, whose
+                    // `change` handler would rerun the list on each tick and drop its page.
+                    attrs: attributes! {
+                        class="min-w-56"
+                        @change=$(|e: Event| e.stop_propagation())
+                    },
                     dropdown_menu_label("Columns")
                     for item in boxes {
                         (item)

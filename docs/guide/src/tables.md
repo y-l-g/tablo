@@ -140,7 +140,7 @@ hidden until they show it. Every built-in column takes both:
 {{#include ../../../examples/guide/src/tables.rs:table-toggleable}}
 ```
 
-A list with such a column renders a Columns menu beside its search, checking each toggleable
+A list with such a column renders a Columns menu at the right end of its toolbar, checking each toggleable
 column the reader sees; Apply keeps the checked ones and Reset restores the defaults. The panel
 keeps the choice per signed-in user and per resource, in the shipped `ColumnPreference` model,
 which the `Db` registers beside `AuthSession`. The relation tables over a resource show the
