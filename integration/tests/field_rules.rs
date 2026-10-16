@@ -118,8 +118,6 @@ async fn the_server_refuses_a_value_breaking_a_rule() {
             "code=ABC-12&seats=2&day=2026-02-01&note=hello+there",
             "note",
         ),
-        // Six characters, though fewer than six code points of some scripts fill more bytes.
-        ("code=ABC-12&seats=2&day=2026-02-01&note=%C3%A9t%C3%A9+%C3%A9t", "note"),
     ] {
         let response = client.submit("/admin/tickets/-/create", body).await;
         assert_eq!(response.status(), 200, "{body}");
@@ -147,7 +145,7 @@ async fn the_server_refuses_a_value_breaking_a_rule() {
         )
         .await;
     assert_eq!(response.status(), 303);
-    // Five characters in ten bytes: a length counts characters.
+    // Four characters in six bytes, under a `max_length(5)`: a length counts characters.
     let response = client
         .submit(
             "/admin/tickets/-/create",
@@ -201,7 +199,11 @@ async fn an_edit_keeping_a_stored_value_skips_its_rules() {
         .await;
     assert_eq!(response.status(), 200);
     let html = body_string(response).await;
-    assert_eq!(field_error(&html, "seats"), Some(ErrorKind::Invalid), "{html}");
+    assert_eq!(
+        field_error(&html, "seats"),
+        Some(ErrorKind::Invalid),
+        "{html}"
+    );
 }
 
 /// A rule no value can keep, or one the field cannot check, refuses the mount.

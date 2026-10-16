@@ -119,8 +119,7 @@ pub use auth::{
 };
 pub use declaration::{
     ActionInputFault, DeclarationError, DeclarationErrorKind, FieldRuleFault, ManyToManyFault,
-    MountError,
-    SegmentFault, SignUpFault, Site,
+    MountError, SegmentFault, SignUpFault, Site,
 };
 pub use detail::{Detail, IntoDetail};
 pub use form::{
