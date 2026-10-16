@@ -18,8 +18,9 @@ pub(crate) fn bulk_token(key: &str) -> String {
 
 /// The key a [`bulk_token`]'s body spells: the inverse of the encoding it applies.
 ///
-/// A body the codec cannot read, an invalid escape or bytes that decode to no UTF-8, reads as
-/// written, so a posted id holding no escape keeps its literal text.
+/// Each valid escape decodes, and a `%` that starts no valid escape stays as written. A body
+/// whose decoded bytes are not UTF-8 reads as written, whole, so a posted id holding no escape
+/// keeps its literal text.
 pub(crate) fn bulk_key(body: &str) -> String {
     href::decode_query_value(body)
 }

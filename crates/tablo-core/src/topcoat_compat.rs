@@ -42,8 +42,8 @@ pub(crate) mod href {
 
     /// Percent-decode a value [`encode_query_value`] encoded.
     ///
-    /// A sequence that is not valid percent-encoding, or one that decodes to no UTF-8, stays as
-    /// written rather than failing the decode.
+    /// A `%` that starts no valid escape stays as written, and the valid escapes around it still
+    /// decode. A value whose decoded bytes are not UTF-8 is returned as written, whole.
     pub(crate) fn decode_query_value(value: &str) -> String {
         percent_decode_str(value)
             .decode_utf8()
