@@ -975,3 +975,33 @@ async fn an_undeclared_shard_admits_every_panels_session() {
         );
     }
 }
+
+/// Revokes the signed-in user's sessions from the admin panel, as an app's own password change
+/// does.
+#[topcoat::router::route(POST "/admin/tablo-test-revoke")]
+async fn revoke_own_sessions(cx: &Cx) -> topcoat::Result<&'static str> {
+    let id = require_user::<AdminUser>(cx)?.user_id();
+    revoke_sessions_for_user(cx, &id).await?;
+    Ok("revoked")
+}
+
+/// A revocation on one panel ends the user's sessions on every panel that signs in the same
+/// users, as the profile's own password change does: the credential they share changed.
+#[tokio::test]
+async fn revoking_on_a_panel_ends_the_sessions_of_panels_sharing_its_users() {
+    let router = two_panel_router().await;
+    let admin = session_on(&router, "/admin").await;
+    let portal = session_on(&router, "/portal").await;
+
+    let revoke = http::Request::builder()
+        .method(http::Method::POST)
+        .uri("/admin/tablo-test-revoke")
+        .header(http::header::COOKIE, &admin)
+        .body(Body::empty())
+        .unwrap();
+    assert_eq!(router.handle(revoke).await.status(), http::StatusCode::OK);
+
+    let path = "/_topcoat/runtime/shards/tablo-test-portal-report";
+    let response = router.handle(shard_request(path, &portal)).await;
+    assert_eq!(response.status(), http::StatusCode::UNAUTHORIZED);
+}
