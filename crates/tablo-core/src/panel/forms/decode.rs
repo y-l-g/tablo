@@ -13,6 +13,7 @@ use topcoat::{
 };
 
 use super::common::{FormParts, MAX_FORM_BYTES};
+use crate::panel::state::uploader;
 
 /// Parses urlencoded and multipart bodies into `FormParts`, streaming file parts.
 pub(crate) async fn parse_form_body(cx: &Cx, body: Body) -> Result<FormParts, topcoat::Error> {
@@ -27,7 +28,7 @@ pub(crate) async fn parse_form_body(cx: &Cx, body: Body) -> Result<FormParts, to
         .as_deref()
         .is_some_and(is_multipart_content_type)
     {
-        return parse_multipart_values(cx, body, crate::upload::installed(cx)).await;
+        return parse_multipart_values(cx, body, uploader(cx).is_some()).await;
     }
     let bytes = Bytes::from_request(cx, body).await.map_err(|error| {
         // Maps over-limit reads to 413 and other read failures to 400.

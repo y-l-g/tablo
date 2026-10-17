@@ -138,6 +138,11 @@ pub(crate) fn current(cx: &Cx) -> Option<&Arc<PanelState>> {
     }
 }
 
+/// The uploader the request's panel was mounted with, if it has one.
+pub(crate) fn uploader(cx: &Cx) -> Option<&InstalledUploader> {
+    current(cx)?.uploads.as_ref()
+}
+
 /// The mounted panels, if the router mounts any.
 pub(crate) fn panels(cx: &Cx) -> Option<&Panels> {
     try_app_context::<Panels>(cx)

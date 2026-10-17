@@ -13,7 +13,8 @@ use std::{
 };
 
 /// The top-level modules of each layer, lowest first. A module names only the modules listed
-/// before it, so the modules form no cycle and the list reads as the order to learn them in.
+/// before it, so outside [`BACK_EDGES`] the modules form no cycle and the list reads as the order
+/// to learn them in.
 const LAYERS: &[(&str, &[&str])] = &[
     (
         "foundations",
@@ -44,15 +45,35 @@ const LAYERS: &[(&str, &[&str])] = &[
             "extend",
         ],
     ),
-    ("resources", &["resource"]),
-    (
-        "serving",
-        &["auth", "notification", "page", "panel", "upload"],
-    ),
+    ("resources", &["resource", "page"]),
+    ("serving", &["upload", "notification", "auth", "panel"]),
 ];
 
-/// The layers whose modules may still name each other in any order.
-const UNORDERED: &[&str] = &["serving"];
+/// The edges that reach a module listed later in the same layer, each a cycle, with the files that
+/// take it and the reason it stands. The check fails on any other file, and on a listed file that
+/// no longer takes its edge.
+const BACK_EDGES: &[(&str, &[&str], &str)] = &[
+    (
+        "auth",
+        &["notification.rs"],
+        "the live toaster shard restates the auth gate, and `auth` flashes notifications",
+    ),
+    (
+        "panel",
+        &[
+            "auth.rs",
+            "auth/gate.rs",
+            "auth/login.rs",
+            "auth/page.rs",
+            "auth/profile.rs",
+            "auth/registration.rs",
+            "auth/reset.rs",
+            "auth/session.rs",
+        ],
+        "the auth pages render in the panel's shell, parse its form bodies and read the request's \
+         panel, whose state holds the auth",
+    ),
+];
 
 #[test]
 fn every_module_reaches_only_the_modules_listed_before_it() {
@@ -66,11 +87,13 @@ fn every_module_reaches_only_the_modules_listed_before_it() {
     }
     let exports = root_exports(&lib);
     let mut reached_up = Vec::new();
+    let mut back_edges = Vec::new();
     for file in sources(&src) {
         let relative = file.strip_prefix(&src).expect("under src");
         let segments = module_path(relative);
         let from = &segments[0];
         let (from_layer, from_rank) = rank(from).expect("every module is in a layer");
+        let path = slashed(relative);
         let text = strip(&fs::read_to_string(&file).expect("read a source"));
         for target in reached_modules(&text, &segments) {
             let target = exports.get(&target).cloned().unwrap_or(target);
@@ -83,10 +106,14 @@ fn every_module_reaches_only_the_modules_listed_before_it() {
                     relative.display(),
                     LAYERS[to_layer].0
                 ));
-            } else if to_layer == from_layer
-                && to_rank > from_rank
-                && !UNORDERED.contains(&LAYERS[to_layer].0)
-            {
+            } else if to_layer == from_layer && to_rank > from_rank {
+                if BACK_EDGES
+                    .iter()
+                    .any(|(to, files, _)| *to == target && files.contains(&path.as_str()))
+                {
+                    back_edges.push((path.clone(), target));
+                    continue;
+                }
                 reached_up.push(format!(
                     "{} reaches `{target}`, listed after `{from}`",
                     relative.display()
@@ -101,6 +128,15 @@ fn every_module_reaches_only_the_modules_listed_before_it() {
         "a module reaches one listed after it in `LAYERS`; move what it needs down, or the caller \
          up:\n{}",
         reached_up.join("\n")
+    );
+    let stale: Vec<_> = BACK_EDGES
+        .iter()
+        .flat_map(|(to, files, _)| files.iter().map(move |file| (*file, *to)))
+        .filter(|(file, to)| !back_edges.iter().any(|(f, t)| f == file && t == to))
+        .collect();
+    assert!(
+        stale.is_empty(),
+        "these `BACK_EDGES` are no longer taken; remove them: {stale:?}"
     );
 }
 
@@ -139,11 +175,7 @@ fn only_serving_and_the_render_hooks_name_tablo_ui() {
         if !names(&text, "tablo_ui") {
             continue;
         }
-        let path = relative
-            .iter()
-            .map(|segment| segment.to_string_lossy())
-            .collect::<Vec<_>>()
-            .join("/");
+        let path = slashed(relative);
         if RENDER_HOOKS.contains(&path.as_str()) {
             hooks_naming.push(path);
         } else {
@@ -282,6 +314,15 @@ fn sources(dir: &Path) -> Vec<PathBuf> {
         }
     }
     files
+}
+
+/// `relative` with `/` between its segments, as [`BACK_EDGES`] and [`RENDER_HOOKS`] spell it.
+fn slashed(relative: &Path) -> String {
+    relative
+        .iter()
+        .map(|segment| segment.to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/")
 }
 
 /// `panel/forms/submit.rs` → `[panel, forms, submit]`; a `mod.rs` names its directory.

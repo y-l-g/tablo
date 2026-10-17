@@ -10,7 +10,7 @@ pub(crate) mod gate;
 mod headers;
 mod input;
 mod list;
-mod pages;
+pub(crate) mod pages;
 mod register;
 mod relations;
 mod shell;

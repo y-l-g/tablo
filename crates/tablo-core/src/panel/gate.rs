@@ -43,7 +43,7 @@ pub fn can_list<R: Resource>(cx: &Cx) -> bool {
 /// does not cover; the route asks `can_open::<P>(cx)` itself.
 pub fn can_open<P: crate::Page>(cx: &Cx) -> bool {
     crate::auth::guard(cx).is_ok()
-        && crate::page::mounted_page::<P>(cx).is_some_and(|page| page.admits(cx))
+        && super::pages::mounted_page::<P>(cx).is_some_and(|page| page.admits(cx))
 }
 
 /// The request's panel prefix, else the request path's first segment, else `/admin`.

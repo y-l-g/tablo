@@ -136,9 +136,10 @@ pub use form::{NoForm, Posted, RecordForm};
 pub use lens::Lens;
 pub use navigation::{NavTarget, NavigationItem};
 pub use notification::{Notification, NotificationStatus};
-pub use page::{Page, PageDef, header_action_buttons};
+pub use page::{Page, PageDef};
 pub use panel::{
-    Brand, Panel, PanelHandle, RouterBuilderPanelExt, WiredTable, can_list, can_open, url,
+    Brand, Panel, PanelHandle, RouterBuilderPanelExt, WiredTable, can_list, can_open,
+    pages::header_action_buttons, url,
 };
 pub use policy::{Ability, Allow, Deny, Policy, ReadOnly, when};
 pub use resource::{
