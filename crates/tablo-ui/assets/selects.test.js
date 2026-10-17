@@ -439,17 +439,47 @@ test('an arrow key moves the active descendant with the selection', () => {
   );
 });
 
+// An Escape keydown on `world`'s filter, reporting whether it was prevented.
+function escape(document, world) {
+  const event = {
+    key: 'Escape',
+    target: world.filter,
+    prevented: false,
+    preventDefault() {
+      this.prevented = true;
+    },
+  };
+  document.listeners('keydown').forEach((handler) => handler(event));
+  return event.prevented;
+}
+
 test('closing the combobox collapses it and clears the active row', () => {
   const world = searchableField();
   const document = standInDocument([world.filter]);
   load(document);
   document.listeners('focusin').forEach((handler) => handler({ target: world.filter }));
-  document.listeners('keydown').forEach((handler) => {
-    handler({ key: 'Escape', target: world.filter, preventDefault() {} });
-  });
+  // Unprevented, the keystroke would also close a dialog the field sits in.
+  assert.equal(escape(document, world), true, 'Escape closes the list alone');
   assert.equal(world.list.hidden, true);
   assert.equal(world.filter.getAttribute('aria-expanded'), 'false');
   assert.equal(world.filter.getAttribute('aria-activedescendant'), null);
+  assert.equal(escape(document, world), false, 'a closed list leaves Escape to the page');
+});
+
+test('Escape closes a list showing a status line', () => {
+  const world = searchableField({ server: 'author_id' });
+  const document = standInDocument([world.filter]);
+  const realSetTimeout = global.setTimeout;
+  global.setTimeout = () => 0;
+  try {
+    load(document);
+    document.listeners('input').forEach((handler) => handler({ target: world.filter }));
+    assert.equal(world.list.hidden, false, 'the status row shows the search');
+    assert.equal(escape(document, world), true);
+    assert.equal(world.list.hidden, true);
+  } finally {
+    global.setTimeout = realSetTimeout;
+  }
 });
 
 test('Enter while the combobox has focus never submits the form', () => {
