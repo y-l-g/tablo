@@ -44,15 +44,25 @@ const LAYERS: &[(&str, &[&str])] = &[
             "extend",
         ],
     ),
-    ("resources", &["resource"]),
-    (
-        "serving",
-        &["auth", "notification", "page", "panel", "upload"],
-    ),
+    ("resources", &["resource", "page"]),
+    ("serving", &["upload", "notification", "auth", "panel"]),
 ];
 
-/// The layers whose modules may still name each other in any order.
-const UNORDERED: &[&str] = &["serving"];
+/// The edges that reach a module listed later in the same layer, each with the reason it stands.
+/// The check fails on any other, and on a listed one nothing takes any more.
+const BACK_EDGES: &[(&str, &str, &str)] = &[
+    (
+        "notification",
+        "auth",
+        "the live toaster shard restates the auth gate, and `auth` flashes notifications",
+    ),
+    (
+        "auth",
+        "panel",
+        "the auth pages render in the panel's shell and read the request's panel, whose state \
+         holds the auth",
+    ),
+];
 
 #[test]
 fn every_module_reaches_only_the_modules_listed_before_it() {
@@ -66,6 +76,7 @@ fn every_module_reaches_only_the_modules_listed_before_it() {
     }
     let exports = root_exports(&lib);
     let mut reached_up = Vec::new();
+    let mut back_edges = Vec::new();
     for file in sources(&src) {
         let relative = file.strip_prefix(&src).expect("under src");
         let segments = module_path(relative);
@@ -83,10 +94,14 @@ fn every_module_reaches_only_the_modules_listed_before_it() {
                     relative.display(),
                     LAYERS[to_layer].0
                 ));
-            } else if to_layer == from_layer
-                && to_rank > from_rank
-                && !UNORDERED.contains(&LAYERS[to_layer].0)
-            {
+            } else if to_layer == from_layer && to_rank > from_rank {
+                if BACK_EDGES
+                    .iter()
+                    .any(|(from_edge, to_edge, _)| from_edge == from && *to_edge == target)
+                {
+                    back_edges.push((from.clone(), target));
+                    continue;
+                }
                 reached_up.push(format!(
                     "{} reaches `{target}`, listed after `{from}`",
                     relative.display()
@@ -101,6 +116,14 @@ fn every_module_reaches_only_the_modules_listed_before_it() {
         "a module reaches one listed after it in `LAYERS`; move what it needs down, or the caller \
          up:\n{}",
         reached_up.join("\n")
+    );
+    let stale: Vec<_> = BACK_EDGES
+        .iter()
+        .filter(|(from, to, _)| !back_edges.iter().any(|(f, t)| f == from && t == to))
+        .collect();
+    assert!(
+        stale.is_empty(),
+        "these `BACK_EDGES` are no longer taken; remove them: {stale:?}"
     );
 }
 

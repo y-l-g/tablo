@@ -1,7 +1,7 @@
 # 0024 `tablo-core` is layered, and a test enforces it
 
-The crate's top-level modules form four layers: foundations, the declaration model, resources,
-and serving. A module names its own layer and the ones below; `tests/layers.rs` lists the layers
+The crate's top-level modules form four layers: foundations, the declaration model, resources
+(and pages), and serving. A module names its own layer and the ones below; `tests/layers.rs` lists the layers
 and fails on any path that reaches up. A lower layer needing request state asks through a
 function the serving layer installs in the app context (`MountScope`, `TenantSource`).
 
@@ -11,8 +11,9 @@ reads as the order to learn them in. A concept two modules share lives in a modu
 the public module a user names re-exports it: `column`, what a table lists and a detail page shows,
 under `table`; `values`, the form values, scalars and field errors a schema reads and renders and a
 record form hydrates and parses, under `form`; `display`, the colors and number spellings a cell
-and an option share, under `table`. `UNORDERED` names the layers whose modules may still name each
-other in any order.
+and an option share, under `table`. `BACK_EDGES` lists the few edges that
+still reach a module listed later in its layer, each with its reason; the check fails on any other
+edge, and on a listed one nothing takes any more.
 
 A module's layer follows what it does, not what it is about. The panel's URL scheme, the list
 page's chrome and dialogs, and a table's request wiring serve requests, so they live under `panel`,
