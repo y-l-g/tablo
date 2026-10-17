@@ -96,6 +96,7 @@ async fn prepare_submission<R: Resource>(
     }
     let named: HashSet<String> = values.keys().map(str::to_string).collect();
     complete(&schema, &mut values, &named, &stored);
+    schema.keep_unedited(&mut values, &stored);
     let mut errors = FieldErrors::new();
     schema
         .check_controls(cx, &values, &stored, &mut errors)

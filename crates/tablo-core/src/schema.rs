@@ -412,6 +412,20 @@ impl<F> Schema<F> {
         errors
     }
 
+    /// Puts back the stored value of each text field whose control posted it as rendered: see
+    /// [`Field::keep_unedited`].
+    pub(crate) fn keep_unedited(&self, values: &mut FormValues, stored: &FormValues) {
+        for field in &self.fields {
+            let name = field.name();
+            let (Some(value), Some(held)) = (values.get(name), stored.get(name)) else {
+                continue;
+            };
+            if let Some(kept) = field.keep_unedited(value, held) {
+                values.insert(name, kept);
+            }
+        }
+    }
+
     /// Re-checks every submitted relationship key through the write's open transaction, but a
     /// multiple choice's keys the record's stored value in `stored` holds already.
     pub(crate) async fn recheck_relationships(
