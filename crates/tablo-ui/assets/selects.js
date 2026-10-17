@@ -523,7 +523,7 @@ function install() {
     chooseOption(parts, optionFor(parts.select, item.dataset.value));
   });
 
-  // Arrows move through the list, Enter picks, Escape closes. Focus stays in the
+  // Arrows move through the list, Enter picks, Escape closes it. Focus stays in the
   // input, which is what makes typing-to-narrow continuous. The input is a
   // combobox, not a text box with an implicit submit: Enter while it has focus
   // is the list's, and never the form's — when the list is showing a
@@ -546,6 +546,16 @@ function install() {
       }
       return;
     }
+    // Escape closes the open list and nothing else: in a modal `<dialog>`, the
+    // browser's default would also close the dialog, whose close resets the
+    // form the user is filling in. A closed list leaves Escape to the page.
+    if (e.key === 'Escape') {
+      if (!parts.list.hidden) {
+        e.preventDefault();
+        closeList(parts.combo);
+      }
+      return;
+    }
     if (parts.list.hidden) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -564,8 +574,6 @@ function install() {
       next.setAttribute('aria-selected', 'true');
       setActiveDescendant(parts.filter, next);
       next.scrollIntoView({ block: 'nearest' });
-    } else if (e.key === 'Escape') {
-      closeList(parts.combo);
     }
   });
 
