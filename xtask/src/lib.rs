@@ -6,6 +6,7 @@ use std::{
 };
 
 pub mod gates;
+pub mod sizes;
 
 use topcoat_ui::{Component, Dependency, Registry};
 
@@ -790,3 +791,6 @@ pub fn verify_asset_hooks() -> anyhow::Result<()> {
         anyhow::bail!("asset hook drift detected:\n{}", failures.join("\n"));
     }
 }
+
+#[cfg(test)]
+mod tests;

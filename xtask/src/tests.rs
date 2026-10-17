@@ -97,3 +97,42 @@ fn guide_includes_resolve_in_tree() {
         panic!("{error}");
     }
 }
+
+#[test]
+fn a_test_source_answers_to_the_test_limit() {
+    assert_eq!(
+        sizes::limit("crates/a/src/b/tests.rs"),
+        sizes::MAX_TEST_LINES
+    );
+    assert_eq!(
+        sizes::limit("integration/tests/c.rs"),
+        sizes::MAX_TEST_LINES
+    );
+    assert_eq!(sizes::limit("crates/a/src/contests.rs"), sizes::MAX_LINES);
+}
+
+#[test]
+fn the_ratchet_refuses_growth_and_a_stale_entry() {
+    let path = "crates/a/src/b.rs";
+    assert!(sizes::violation(path, sizes::MAX_LINES, None).is_none());
+    assert!(sizes::violation(path, sizes::MAX_LINES + 1, None).is_some());
+    assert!(sizes::violation(path, 700, Some(700)).is_none());
+    assert!(
+        sizes::violation(path, 701, Some(700)).is_some(),
+        "a capped file grew"
+    );
+    assert!(
+        sizes::violation(path, sizes::MAX_LINES, Some(700)).is_some(),
+        "a file back under its limit stays listed"
+    );
+}
+
+/// The live tree backs this: a source past its limit, or one grown past its cap, fails `cargo
+/// test` instead of growing unnoticed.
+#[test]
+fn file_sizes_hold_in_tree() {
+    let root = gates::repo_root();
+    if let Err(error) = sizes::verify_file_sizes(&root) {
+        panic!("{error}");
+    }
+}
