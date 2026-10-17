@@ -211,7 +211,7 @@ async fn a_session_belongs_to_the_panel_that_signed_it_in() {
     let mut db = books_db().await;
     toasty::create!(AdminUser {
         email: "ada@example.com".to_string(),
-        password_hash: hash_password("opensesame").expect("hash"),
+        password_hash: hash_password("opensesame").await.expect("hash"),
         display_name: "Ada".to_string(),
         active: true,
         created_at: jiff::Timestamp::now(),

@@ -79,10 +79,11 @@ async fn library() -> (Db, AdminUser, AdminUser) {
     .exec(&mut db)
     .await
     .expect("seed a book");
+    let hash = hash_password("opensesame").await.expect("hash");
     let admin = |name: &str| {
         toasty::create!(AdminUser {
             email: format!("{name}@example.com"),
-            password_hash: hash_password("opensesame").expect("hash"),
+            password_hash: hash.clone(),
             display_name: name.to_string(),
             active: true,
             created_at: jiff::Timestamp::now(),

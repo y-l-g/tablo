@@ -41,15 +41,34 @@ proptest::proptest! {
     }
 }
 
-#[test]
-fn password_hashes_verify_round_trip() {
-    let phc = hash_password("correct horse battery staple").expect("hash");
+#[tokio::test]
+async fn password_hashes_verify_round_trip() {
+    let phc = hash_password("correct horse battery staple")
+        .await
+        .expect("hash");
     assert!(phc.starts_with("$argon2id$"), "{phc}");
-    assert!(verify_password("correct horse battery staple", Some(&phc)));
-    assert!(!verify_password("wrong", Some(&phc)));
-    assert!(!verify_password("anything", Some("not-a-phc")));
+    assert!(verify_password("correct horse battery staple", Some(&phc)).await);
+    assert!(!verify_password("wrong", Some(&phc)).await);
+    assert!(!verify_password("anything", Some("not-a-phc")).await);
     // An unknown account pays a verification and never passes.
-    assert!(!verify_password("anything", None));
+    assert!(!verify_password("anything", None).await);
+}
+
+/// A verification leaves the async worker free: on a single-threaded runtime, a task polled
+/// after it finishes first.
+#[tokio::test(flavor = "current_thread")]
+async fn a_password_verifies_off_the_async_worker() {
+    let order = std::sync::Mutex::new(Vec::new());
+    tokio::join!(
+        async {
+            verify_password("anything", None).await;
+            order.lock().unwrap().push("verify");
+        },
+        async {
+            order.lock().unwrap().push("other");
+        },
+    );
+    assert_eq!(*order.lock().unwrap(), ["other", "verify"]);
 }
 
 #[test]
@@ -207,7 +226,7 @@ async fn a_rejected_password_still_renders_the_generic_error() {
     db.push_schema().await.expect("push schema");
     toasty::create!(AdminUser {
         email: "ada@example.com".to_string(),
-        password_hash: hash_password("opensesame").expect("hash"),
+        password_hash: hash_password("opensesame").await.expect("hash"),
         display_name: "Ada".to_string(),
         active: true,
         created_at: Timestamp::now(),
@@ -382,7 +401,7 @@ async fn db_with_admin(email: &str) -> Db {
     let mut db = memory_db(toasty::models!(AdminUser, AuthSession)).await;
     toasty::create!(AdminUser {
         email: email.to_string(),
-        password_hash: hash_password("opensesame").expect("hash"),
+        password_hash: hash_password("opensesame").await.expect("hash"),
         display_name: "Ada".to_string(),
         active: true,
         created_at: Timestamp::now(),
@@ -442,7 +461,7 @@ async fn login_sweeps_every_expired_session() {
     let mut db = db_with_admin("ada@example.com").await;
     let other = toasty::create!(AdminUser {
         email: "grace@example.com".to_string(),
-        password_hash: hash_password("opensesame").expect("hash"),
+        password_hash: hash_password("opensesame").await.expect("hash"),
         display_name: "Grace".to_string(),
         active: true,
         created_at: Timestamp::now(),

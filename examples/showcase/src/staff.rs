@@ -115,7 +115,7 @@ impl Authenticator for StaffAuth {
             .first()
             .exec(&mut db)
             .await?;
-        if !verify_password(password, staff.as_ref().map(|s| s.password_hash.as_str())) {
+        if !verify_password(password, staff.as_ref().map(|s| s.password_hash.as_str())).await {
             return Ok(None);
         }
         match staff {
@@ -186,7 +186,7 @@ impl Registrar for StaffAuth {
     ) -> topcoat::Result<SignedStaff> {
         let staff = toasty::create!(Staff {
             email: sign_up.email,
-            password_hash: hash_password(&sign_up.password)?,
+            password_hash: hash_password(&sign_up.password).await?,
             display_name: sign_up.display_name,
             active: true,
             created_at: Timestamp::now(),
@@ -242,7 +242,7 @@ impl ProfileEditor for StaffAuth {
         let new_email = profile.email != staff.email;
         if new_email || profile.password.is_some() {
             let current = profile.current_password.as_deref().unwrap_or_default();
-            if !verify_password(current, Some(&staff.password_hash)) {
+            if !verify_password(current, Some(&staff.password_hash)).await {
                 errors.add("current_password", "The current password is incorrect");
             }
         }
@@ -272,7 +272,7 @@ impl ProfileEditor for StaffAuth {
             .display_name(profile.name)
             .email(profile.email);
         if let Some(password) = &profile.password {
-            update.set_password_hash(hash_password(password)?);
+            update.set_password_hash(hash_password(password).await?);
         }
         update.exec(ex).await?;
         Ok(if credentials {
@@ -315,7 +315,7 @@ impl PasswordResetter for StaffAuth {
         };
         Staff::filter(Staff::fields().id().eq(id))
             .update()
-            .password_hash(hash_password(password)?)
+            .password_hash(hash_password(password).await?)
             .exec(ex)
             .await?;
         Ok(())
@@ -332,7 +332,7 @@ pub async fn create_staff(
 ) -> toasty::Result<Staff> {
     let staff = toasty::create!(Staff {
         email: email.to_string(),
-        password_hash: crate::seed::memoized_password_hash(password),
+        password_hash: crate::seed::memoized_password_hash(password).await,
         display_name: display_name.to_string(),
         active: true,
         created_at: Timestamp::now(),

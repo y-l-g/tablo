@@ -85,7 +85,7 @@ use crate::{
 ///     ) -> topcoat::Result<Staff> {
 ///         Ok(toasty::create!(Staff {
 ///             email: sign_up.email,
-///             password_hash: hash_password(&sign_up.password)?,
+///             password_hash: hash_password(&sign_up.password).await?,
 ///             name: sign_up.name,
 ///         })
 ///         .exec(ex)

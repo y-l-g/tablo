@@ -153,10 +153,7 @@ async fn a_new_password_needs_the_current_one() {
         let html = body_string(response).await;
         assert!(field_error(&html, "current_password").is_some(), "{html}");
         let stored = reload(&db, &admin).await;
-        assert!(tablo::auth::verify_password(
-            "old password",
-            Some(&stored.password_hash)
-        ));
+        assert!(tablo::auth::verify_password("old password", Some(&stored.password_hash)).await);
     }
 }
 
@@ -183,10 +180,7 @@ async fn a_changed_password_ends_the_other_sessions() {
 
     assert_eq!(response.status(), 303);
     let stored = reload(&db, &admin).await;
-    assert!(tablo::auth::verify_password(
-        "new password",
-        Some(&stored.password_hash)
-    ));
+    assert!(tablo::auth::verify_password("new password", Some(&stored.password_hash)).await);
     assert_eq!(elsewhere.get("/admin/notes").await.status(), 307);
     assert_eq!(saving.get("/admin/notes").await.status(), 307);
     let renewed = saving.cookies(&tablo::testing::response_cookies(&response));

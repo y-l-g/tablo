@@ -59,7 +59,7 @@ async fn a_sign_up_creates_the_account_and_its_workspace_and_signs_it_in() {
         .expect("the sign-up writes the member of staff");
     assert_eq!(staff.display_name, "Ada Lovelace");
     assert!(staff.active);
-    assert!(verify_password(PASSWORD, Some(&staff.password_hash)));
+    assert!(verify_password(PASSWORD, Some(&staff.password_hash)).await);
     let seats = Seat::filter(Seat::fields().staff_id().eq(staff.id))
         .exec(&mut db.clone())
         .await

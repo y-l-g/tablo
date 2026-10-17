@@ -57,8 +57,8 @@ pub async fn seed_admin(mut db: toasty::Db) -> Result<()> {
 }
 
 /// Your own user table hashes with the same function.
-pub fn staff_hash() -> Result<String> {
-    tablo::auth::hash_password("secret")
+pub async fn staff_hash() -> Result<String> {
+    tablo::auth::hash_password("secret").await
 }
 // ANCHOR_END: policy-hash-password
 
@@ -90,7 +90,7 @@ impl Authenticator for StaffAuth {
 
     async fn verify(&self, cx: &Cx, login: &str, password: &str) -> Result<Option<SignedStaff>> {
         let staff = find_staff_by_email(cx, login).await?;
-        if !verify_password(password, staff.as_ref().map(|s| s.password_hash.as_str())) {
+        if !verify_password(password, staff.as_ref().map(|s| s.password_hash.as_str())).await {
             return Ok(None);
         }
         // … load the memberships and return Some(SignedStaff { .. })
@@ -155,7 +155,7 @@ impl Registrar for StaffAuth {
         sign_up: StaffSignUp,
         ex: &mut dyn toasty::Executor,
     ) -> Result<SignedStaff> {
-        let hash = hash_password(&sign_up.password)?;
+        let hash = hash_password(&sign_up.password).await?;
         let staff = create_staff(ex, &sign_up.name, &sign_up.email, &hash).await?;
         Ok(SignedStaff {
             staff,
@@ -215,7 +215,7 @@ impl ProfileEditor for StaffAuth {
         let mut errors = profile.password_errors();
         let current = profile.current_password.as_deref().unwrap_or_default();
         let credentials = profile.password.is_some() || profile.email != signed.staff.email;
-        if credentials && !verify_password(current, Some(&signed.staff.password_hash)) {
+        if credentials && !verify_password(current, Some(&signed.staff.password_hash)).await {
             errors.add("current_password", "The current password is incorrect");
         } else if profile.email != signed.staff.email && email_taken(ex, &profile.email).await? {
             // Asked only once the password verifies: a stolen session learns no addresses.
@@ -236,7 +236,10 @@ impl ProfileEditor for StaffAuth {
         } else {
             ProfileUpdate::Details
         };
-        let hash = profile.password.as_deref().map(hash_password).transpose()?;
+        let hash = match &profile.password {
+            Some(password) => Some(hash_password(password).await?),
+            None => None,
+        };
         update_staff(ex, &signed.staff, &profile.name, &profile.email, hash).await?;
         Ok(update)
     }

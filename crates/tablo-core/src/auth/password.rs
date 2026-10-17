@@ -70,7 +70,7 @@ impl Authenticator for PasswordAuth {
             .await
             .map_err(infrastructure_failure)?;
         let hash = user.as_ref().map(|user| user.password_hash.as_str());
-        if !verify_password(password, hash) {
+        if !verify_password(password, hash).await {
             return Ok(None);
         }
         Ok(user)
@@ -160,7 +160,7 @@ impl ProfileEditor for PasswordAuth {
                     CURRENT_PASSWORD_FIELD,
                     "Enter your current password to change your email or password",
                 ),
-                Some(current) if !verify_password(current, Some(&admin.password_hash)) => {
+                Some(current) if !verify_password(current, Some(&admin.password_hash)).await => {
                     errors.add(CURRENT_PASSWORD_FIELD, "The current password is incorrect");
                 }
                 Some(_) => {}
@@ -194,7 +194,7 @@ impl ProfileEditor for PasswordAuth {
             .display_name(profile.name)
             .email(profile.email);
         if let Some(password) = &profile.password {
-            update.set_password_hash(hash_password(password)?);
+            update.set_password_hash(hash_password(password).await?);
         }
         update.exec(ex).await?;
         Ok(if credentials {
@@ -235,7 +235,7 @@ impl PasswordResetter for PasswordAuth {
         };
         AdminUser::filter(AdminUser::fields().id().eq(id))
             .update()
-            .password_hash(hash_password(password)?)
+            .password_hash(hash_password(password).await?)
             .exec(ex)
             .await?;
         Ok(())
@@ -264,7 +264,7 @@ pub async fn create_admin(
 ) -> topcoat::Result<AdminUser> {
     let admin = toasty::create!(AdminUser {
         email: email.to_string(),
-        password_hash: hash_password(password)?,
+        password_hash: hash_password(password).await?,
         display_name: display_name.to_string(),
         active: true,
         created_at: Timestamp::now(),
@@ -275,19 +275,30 @@ pub async fn create_admin(
 }
 
 /// Hashes a password with Argon2id into a PHC string for storage; never stores
-/// the plaintext.
-pub fn hash_password(password: &str) -> topcoat::Result<String> {
+/// the plaintext. Runs on Tokio's blocking pool, as [`verify_password`] does.
+///
+/// # Errors
+///
+/// Argon2 refuses the password.
+pub async fn hash_password(password: &str) -> topcoat::Result<String> {
     use argon2::password_hash::PasswordHasher;
 
-    argon2::Argon2::default()
-        .hash_password(password.as_bytes())
-        .map(|hash| hash.to_string())
-        .map_err(topcoat::Error::from)
+    let password = password.to_string();
+    off_executor(move || {
+        argon2::Argon2::default()
+            .hash_password(password.as_bytes())
+            .map(|hash| hash.to_string())
+            .map_err(topcoat::Error::from)
+    })
+    .await
 }
 
 /// Verifies a password against an Argon2id PHC hash, or `None` for an unknown
 /// account; unknown accounts verify against a dummy hash so response times do
 /// not reveal which accounts exist.
+///
+/// Runs on Tokio's blocking pool: a verification takes tens of milliseconds of CPU, which on
+/// an async worker would stall every request that worker serves.
 ///
 /// ```rust,no_run
 /// # use tablo_core::auth::verify_password;
@@ -301,21 +312,33 @@ pub fn hash_password(password: &str) -> topcoat::Result<String> {
 /// # async fn sign_in(mut db: toasty::Db, login: &str, password: &str)
 /// # -> topcoat::Result<Option<Staff>> {
 /// let staff = Staff::filter_by_email(login).first().exec(&mut db).await?;
-/// if !verify_password(password, staff.as_ref().map(|s| s.password_hash.as_str())) {
+/// if !verify_password(password, staff.as_ref().map(|s| s.password_hash.as_str())).await {
 ///     return Ok(None);
 /// }
 /// # Ok(staff)
 /// # }
 /// ```
-#[must_use]
-pub fn verify_password(password: &str, hash: Option<&str>) -> bool {
+pub async fn verify_password(password: &str, hash: Option<&str>) -> bool {
     use argon2::password_hash::{PasswordVerifier, phc::PasswordHash};
 
-    let Ok(parsed) = PasswordHash::new(hash.unwrap_or(DUMMY_PASSWORD_HASH)) else {
-        return false;
-    };
-    let verified = argon2::Argon2::default()
-        .verify_password(password.as_bytes(), &parsed)
-        .is_ok();
-    verified && hash.is_some()
+    let known = hash.is_some();
+    let password = password.to_string();
+    let hash = hash.unwrap_or(DUMMY_PASSWORD_HASH).to_string();
+    let verified = off_executor(move || {
+        PasswordHash::new(&hash).is_ok_and(|parsed| {
+            argon2::Argon2::default()
+                .verify_password(password.as_bytes(), &parsed)
+                .is_ok()
+        })
+    })
+    .await;
+    verified && known
+}
+
+/// Runs `work` on Tokio's blocking pool, re-raising its panic here.
+async fn off_executor<T: Send + 'static>(work: impl FnOnce() -> T + Send + 'static) -> T {
+    match tokio::task::spawn_blocking(work).await {
+        Ok(value) => value,
+        Err(error) => std::panic::resume_unwind(error.into_panic()),
+    }
 }
