@@ -262,3 +262,32 @@ fn the_column_lists_each_item_as_label_value_pairs() {
         "Label: Guide, Url: https://docs.example, Kind: Docs; Label: Notes, Url: , Kind: Blog"
     );
 }
+
+/// The add button's opening tag in `html`.
+fn add_button(html: &str) -> &str {
+    let at = html.find("data-repeater-add").expect("an add button");
+    let start = html[..at].rfind("<button").expect("a button tag");
+    &html[start..at + html[at..].find('>').expect("the tag ends")]
+}
+
+/// A repeater holding as many rows as it takes renders its add button disabled, and names the
+/// cap the script keeps it at.
+#[tokio::test]
+async fn a_full_repeater_disables_its_add_button() {
+    let cx = crate::test_support::cx();
+    for (count, disabled) in [(MAX_ROWS - 1, false), (MAX_ROWS, true)] {
+        let items = vec![link("Docs", ""); count];
+        let values = FormValues::from_iter([("links", write_items(&items))]);
+        let html = repeater()
+            .render(&cx, Source::form(&values, &crate::form::FieldErrors::new()))
+            .await
+            .html(&cx)
+            .await;
+        assert!(html.contains(&format!(r#"data-repeater-max="{MAX_ROWS}""#)));
+        let tag = add_button(&html);
+        let attribute = tag
+            .split(' ')
+            .any(|part| part == "disabled" || part.starts_with("disabled="));
+        assert_eq!(attribute, disabled, "{count} rows: {tag}");
+    }
+}

@@ -8,7 +8,9 @@
 //   controls post under `<key>.<n>.`;
 // * a `template[data-repeater-blank]` holding one blank row, whose keys, ids
 //   and `data-repeater-row` carry `__row__` for the row's number;
-// * `data-repeater-next`, the next number no row has used.
+// * `data-repeater-next`, the next number no row has used;
+// * `data-repeater-max`, the most rows the server takes: the add button is
+//   disabled while the list holds that many.
 //
 // The server reads the rows in the order the hidden input lists them, so
 // adding, removing and moving a row touch only the list and that input: a row
@@ -49,9 +51,22 @@ function partsOf(node) {
   };
 }
 
+// The most rows the repeater takes, or no limit when it names none.
+function maxRows(parts) {
+  const max = Number(parts.repeater.getAttribute('data-repeater-max'));
+  return max > 0 ? max : Infinity;
+}
+
+// Disable the add button while the list holds as many rows as the repeater
+// takes: the server refuses a submission listing more.
+function syncAdd(parts) {
+  parts.add.disabled = parts.list.children.length >= maxRows(parts);
+}
+
 // Append a copy of the blank row, numbered with the next unused number, and
-// focus its first control.
+// focus its first control; nothing once the list is full.
 function addRow(parts) {
+  if (parts.list.children.length >= maxRows(parts)) return;
   const row = parts.repeater.getAttribute('data-repeater-next');
   const copy = parts.blank.content.cloneNode(true);
   const added = copy.firstElementChild;
@@ -73,6 +88,7 @@ function act(button) {
     if (!row) return false;
     if (button.hasAttribute('data-repeater-remove')) {
       row.remove();
+      syncAdd(parts);
       parts.add.focus();
     } else if (button.hasAttribute('data-repeater-up')) {
       const previous = row.previousElementSibling;
@@ -85,6 +101,7 @@ function act(button) {
     }
   }
   parts.order.value = rowOrder(Array.from(parts.list.children));
+  syncAdd(parts);
   return true;
 }
 

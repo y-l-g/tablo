@@ -164,6 +164,7 @@ impl RepeaterControl {
             .collect::<Vec<_>>()
             .join(",");
         let next = items.len().to_string();
+        let full = items.len() >= MAX_ROWS;
         let label = field.label_str().to_string();
         let add = self
             .add_label
@@ -180,6 +181,7 @@ impl RepeaterControl {
                     class="ac-field gap-3"
                     data-repeater=(key.clone())
                     data-repeater-next=(next)
+                    data-repeater-max=(MAX_ROWS)
                 },
                 field_legend(
                     variant: FieldLegendVariant::Label,
@@ -207,7 +209,7 @@ impl RepeaterControl {
                     button(
                         variant: ButtonVariant::Outline,
                         size: ButtonSize::Sm,
-                        attrs: attributes! { type="button" data-repeater-add="" },
+                        attrs: attributes! { type="button" data-repeater-add="" disabled=(full) },
                         (add)
                     )
                 </div>
