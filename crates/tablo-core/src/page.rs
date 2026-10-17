@@ -1,14 +1,9 @@
 //! [`Page`] — a panel page that is not a resource: a dashboard, a report, a
 //! settings screen, a media library — and the [`PageDef`] it declares.
 
-use std::{any::TypeId, future::Future, sync::Arc};
+use std::{future::Future, sync::Arc};
 
-use topcoat::{
-    Result,
-    context::Cx,
-    icon::IconData,
-    view::{BoxView, View, ViewExt},
-};
+use topcoat::{Result, context::Cx, icon::IconData, view::View};
 
 use crate::{
     HeaderAction, HeaderActions,
@@ -182,9 +177,9 @@ impl PageDef {
     }
 
     /// Adds the [`HeaderAction`] `A` after the ones already declared, served at
-    /// `{url}/-/actions/{NAME}`. [`header_action_buttons`] renders their buttons where
-    /// [`render`](Page::render) places it. An `A::NAME` that is not a single URL path segment does
-    /// not compile.
+    /// `{url}/-/actions/{NAME}`. [`header_action_buttons`](crate::header_action_buttons) renders
+    /// their buttons where [`render`](Page::render) places it. An `A::NAME` that is not a
+    /// single URL path segment does not compile.
     ///
     /// The actions run for whoever may open the page: a page has no policy. An action that writes
     /// a resource's records asks that resource's policy in its own
@@ -268,58 +263,5 @@ impl MountedPage {
     }
 }
 
-/// `P` as the request's panel mounted it, if it did.
-pub(crate) fn mounted_page<P: Page>(cx: &Cx) -> Option<&Arc<MountedPage>> {
-    crate::panel::state::current(cx)?
-        .mounted_pages
-        .get(&TypeId::of::<P>())
-}
-
 #[cfg(test)]
 mod tests;
-
-/// The header buttons of the page `P` the request may run, for its
-/// [`page_actions`](tablo_ui::page_actions):
-///
-/// ```rust
-/// # use tablo_core::{HeaderAction, Page, PageDef};
-/// # use topcoat::{Result, context::Cx, view::{View, view}};
-/// # struct ClearCache;
-/// # impl HeaderAction for ClearCache {
-/// #     type Input = ();
-/// #     const NAME: &'static str = "clear-cache";
-/// #     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<()> { Ok(()) }
-/// # }
-/// struct MaintenancePage;
-///
-/// impl Page for MaintenancePage {
-///     fn declare() -> PageDef {
-///         PageDef::new().header_action::<ClearCache>()
-///     }
-///
-///     async fn render(cx: &Cx) -> Result<impl View> {
-///         Ok(view! {
-///             cx =>
-///             tablo_ui::page(
-///                 tablo_ui::page_header(
-///                     tablo_ui::page_title("Maintenance")
-///                     tablo_ui::page_actions((tablo_core::header_action_buttons::<Self>(cx)))
-///                 )
-///             )
-///         })
-///     }
-/// }
-/// ```
-///
-/// It renders nothing outside a request to `P`'s panel or for a request
-/// [`PageDef::access`] refuses, and no button for an action whose
-/// [`can_run`](crate::HeaderAction::can_run) refuses the request.
-pub fn header_action_buttons<P: Page>(cx: &Cx) -> BoxView<'_> {
-    let Some(page) = mounted_page::<P>(cx).filter(|page| page.admits(cx)) else {
-        return ().boxed();
-    };
-    let Some(url) = crate::panel::url::page::<P>(cx) else {
-        return ().boxed();
-    };
-    crate::panel::header_bar(cx, &url, &page.header_actions, |_| true).render(cx)
-}
