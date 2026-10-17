@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0](https://github.com/y-l-g/tablo/compare/tablo-build-v0.7.0...tablo-build-v0.8.0) - 2026-10-17
+
+### Added
+
+- *(table)* present values as badges, money, numbers, colors and images ([#644](https://github.com/y-l-g/tablo/pull/644))
+
 ## [0.7.0](https://github.com/y-l-g/tablo/compare/tablo-build-v0.6.0...tablo-build-v0.7.0) - 2026-10-14
 
 ### Added

@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0](https://github.com/y-l-g/tablo/compare/tablo-ui-v0.7.0...tablo-ui-v0.8.0) - 2026-10-17
+
+### Added
+
+- *(table)* let each user toggle a list's columns ([#675](https://github.com/y-l-g/tablo/pull/675))
+- *(auth)* [**breaking**] add a profile page for the signed-in user ([#676](https://github.com/y-l-g/tablo/pull/676))
+- *(panel)* render relation tables on the edit page ([#668](https://github.com/y-l-g/tablo/pull/668))
+- *(panel)* put the user in a sidebar menu and trail every page ([#650](https://github.com/y-l-g/tablo/pull/650))
+- *(table)* offer a row's actions in a menu ([#649](https://github.com/y-l-g/tablo/pull/649))
+- *(table)* present values as badges, money, numbers, colors and images ([#644](https://github.com/y-l-g/tablo/pull/644))
+
+### Changed
+
+- *(ui)* [**breaking**] publish only the primitives a custom page builds from ([#666](https://github.com/y-l-g/tablo/pull/666))
+- *(deps)* [**breaking**] track Topcoat main until its next release ([#647](https://github.com/y-l-g/tablo/pull/647))
+
+### Fixed
+
+- [**breaking**] probe scoped composite indexes, keep a closed select closed, keep profile seconds, whole acronym slugs ([#694](https://github.com/y-l-g/tablo/pull/694))
+- *(ui)* mask a multiline password, cap a repeater's add button, and list every option of a searchable select ([#688](https://github.com/y-l-g/tablo/pull/688))
+- *(ui)* close a select's list on Escape without closing its dialog ([#681](https://github.com/y-l-g/tablo/pull/681))
+- *(ui)* keep a searchable select's server matches in its list ([#679](https://github.com/y-l-g/tablo/pull/679))
+- *(panel)* [**breaking**] keep the theme in one Tablo-named cookie ([#642](https://github.com/y-l-g/tablo/pull/642))
+
 ## [0.7.0](https://github.com/y-l-g/tablo/compare/tablo-ui-v0.6.0...tablo-ui-v0.7.0) - 2026-10-14
 
 ### Fixed

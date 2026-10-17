@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0](https://github.com/y-l-g/tablo/compare/tablo-test-v0.7.0...tablo-test-v0.8.0) - 2026-10-17
+
+### Added
+
+- *(table)* let each user toggle a list's columns ([#675](https://github.com/y-l-g/tablo/pull/675))
+- *(panel)* [**breaking**] add a favicon to `Brand` and badges to sidebar entries ([#673](https://github.com/y-l-g/tablo/pull/673))
+
 ## [0.7.0](https://github.com/y-l-g/tablo/compare/tablo-test-v0.6.0...tablo-test-v0.7.0) - 2026-10-14
 
 ### Added
