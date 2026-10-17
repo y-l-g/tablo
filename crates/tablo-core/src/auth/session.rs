@@ -13,7 +13,7 @@ use uuid::Uuid;
 use super::{DynAuthenticator, PanelUser, SignedIn, infrastructure_failure};
 use crate::panel::state::{PanelState, current};
 
-/// How long a session stays valid: seven days, fixed (ADR-0013).
+/// How long a session stays valid: seven days, fixed.
 pub const SESSION_LIFETIME: Duration = Duration::from_hours(24 * 7);
 
 /// Shipped server-side session record: the SHA-256 hash of the client token,

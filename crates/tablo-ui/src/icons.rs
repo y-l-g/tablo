@@ -52,7 +52,7 @@ pub const ARROW_LEFT: IconData = iconify_icon!("lucide:arrow-left");
 pub const INBOX: IconData = iconify_icon!("lucide:inbox");
 /// A link that leaves the panel (a public page).
 pub const EXTERNAL_LINK: IconData = iconify_icon!("lucide:external-link");
-/// A menu that switches between choices: the tenant switcher.
+/// A button that opens a list below it: a filter's checklist.
 pub const CHEVRON_DOWN: IconData = iconify_icon!("lucide:chevron-down");
 /// The selected choice in a menu.
 pub const CHECK: IconData = iconify_icon!("lucide:check");

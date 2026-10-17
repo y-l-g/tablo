@@ -21,8 +21,9 @@ tablo-build = "0.7.0"
 
 The toolkit enables no driver itself: `sqlite`, `postgresql`, `mysql` and `turso` each turn on
 Toasty's driver of the same name. The `[workspace.dependencies]` of Tablo's `Cargo.toml` hold the
-pinned versions. `tablo` is the only Tablo dependency the app names: every path in this guide
-starts with `tablo::`, and the derives work through it.
+pinned versions. Besides `tablo-build`, which only `build.rs` names, `tablo` is the only Tablo
+dependency the app names: every path in this guide starts with `tablo::`, and the derives work
+through it.
 
 ## The app
 
@@ -96,7 +97,9 @@ changes:
 `build.rs` runs the build:
 
 ```rust
+fn main() {
 {{#include ../../../examples/guide/src/build_script.rs:build-script}}
+}
 ```
 
 `tablo_build::tailwind()` adds Tablo's own sources to the build, wherever Cargo unpacked them, and

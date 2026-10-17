@@ -11,11 +11,7 @@ description = "The Topcoat components Tablo renders: primitives synced from topc
 links = "tablo-ui"
 
 [dependencies]
-http = "1"
-topcoat = { workspace = true, features = ["font", "font-fontsource", "asset", "icon", "icon-iconify", "runtime"] }
-
-[dev-dependencies]
-tokio = { workspace = true }
+topcoat = { workspace = true, features = ["asset", "icon", "icon-iconify", "runtime"] }
 
 [build-dependencies]
 topcoat = { workspace = true, features = ["icon-iconify"] }

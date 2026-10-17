@@ -294,7 +294,8 @@ impl Auth {
     }
 
     /// How many sign-ups one client address may submit in a window; defaults to five a minute.
-    /// Every sign-up POST counts, whether or not it creates an account.
+    /// Every sign-up POST that passes the CSRF check and parses counts, whether or not it creates
+    /// an account.
     #[must_use]
     pub fn sign_up_throttle(mut self, throttle: LoginThrottle) -> Self {
         self.sign_up_throttle = throttle;
@@ -322,7 +323,8 @@ impl Auth {
     }
 
     /// How many profile saves one user may submit in a window, from any address; defaults to five
-    /// a minute. Every profile POST counts, whether or not it saves.
+    /// a minute. Every profile POST that passes the CSRF check and parses counts, whether or not
+    /// it saves.
     #[must_use]
     pub fn profile_throttle(mut self, throttle: LoginThrottle) -> Self {
         self.profile_throttle = throttle;

@@ -104,7 +104,8 @@ already rewritten to a `GET`.
 The builder calls never fail; `.panel(..)` returns a `MountError` listing every mistake
 instead. It refuses a router with no `Db`, a `Db` missing the shipped auth models, two resources or pages
 with one slug, a slug the panel routes itself
-(`login`, `logout`, `register`, and `-`, which leads the home page's action routes), a slug that is not a single URL segment, a second home page, one page type registered twice, `shell_assets`
+(`login`, `logout`, `register`, `profile`, `forgot-password`, `reset-password`, and `-`, which
+leads the home page's action routes), a slug that is not a single URL segment, a second home page, one page type registered twice, `shell_assets`
 on a router with no asset bundle, a prefix that overlaps another panel's or Topcoat's
 `/_topcoat/runtime`, and every resource declaration check described in
 [Resources](./resources.md#startup-checks).

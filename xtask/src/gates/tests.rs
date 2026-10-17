@@ -77,7 +77,7 @@ fn fmt_runs_nightly_detached_and_topcoat_checks() {
         vec![&nightly, "fmt", "--all", "--", "--check"]
     );
     assert_eq!(commands[1].0, "cargo");
-    assert_eq!(commands[1].1, vec!["fmt", "--", "--check"]);
+    assert_eq!(commands[1].1, vec![&nightly, "fmt", "--", "--check"]);
     assert_eq!(commands[1].2, Some(root.join(QUICKSTART)));
     assert_eq!(commands[2].0, "git");
     assert_eq!(commands[2].1, vec!["diff", "--quiet"]);
@@ -301,8 +301,10 @@ fn git_in(dir: &Path, args: &[&str]) {
     assert!(status.success(), "git {args:?} failed");
 }
 
+/// A fresh repository under the temp directory, named for this process so concurrent runs from
+/// other worktrees never share it.
 fn scratch_repo(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(name);
+    let dir = std::env::temp_dir().join(format!("{name}-{}", std::process::id()));
     if dir.exists() {
         std::fs::remove_dir_all(&dir).expect("clear the scratch repo");
     }
@@ -318,7 +320,7 @@ fn scratch_repo(name: &str) -> PathBuf {
 /// git cannot answer.
 #[test]
 fn changes_touch_reads_committed_and_uncommitted_state() {
-    let outside = std::env::temp_dir().join("tablo-gates-no-repo");
+    let outside = std::env::temp_dir().join(format!("tablo-gates-no-repo-{}", std::process::id()));
     assert!(
         changes_touch(&outside, MSRV_PATHS),
         "a gate that cannot prove irrelevance runs"

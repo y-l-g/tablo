@@ -9,7 +9,7 @@ cargo add tablo --features sqlite
 cargo add --build tablo-build
 ```
 
-`sqlite`, `postgresql` and `mysql` each turn on Toasty's driver of the same name; the toolkit
+`sqlite`, `postgresql`, `mysql` and `turso` each turn on Toasty's driver of the same name; the toolkit
 enables none of them itself, and the `testing` feature adds the in-memory client `tablo::testing`.
 An app also names `topcoat` and `toasty` for their macros — the
 [first panel](https://y-l.fr/tablo/nightly/guide/first-panel.html) chapter has the full manifest.

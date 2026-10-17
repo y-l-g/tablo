@@ -81,8 +81,9 @@ foreign key `Relation::has_many` takes.
 {{#include ../../../examples/guide/src/tables.rs:table-relation-column}}
 ```
 
-An include loads related rows through Toasty alone: the related resource's `query` and policy do
-not apply, so a relation column shows a record that resource hides, and a `CountColumn` counts it.
+An include loads related rows through Toasty alone: the related resource's `query` and tenant
+scope do not apply. `RelationColumn::list` leaves out a record the related resource's policy does
+not let the user view, but `RelationColumn::of` shows it, and a `CountColumn` counts it.
 A `CountColumn` counts the loaded list, so it loads every related record of the page's rows.
 
 - **Widths.** The table lays out automatically: a column is as wide as its content, on one line.
