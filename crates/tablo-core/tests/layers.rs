@@ -64,6 +64,7 @@ const BACK_EDGES: &[(&str, &[&str], &str)] = &[
             "auth.rs",
             "auth/gate.rs",
             "auth/login.rs",
+            "auth/mount.rs",
             "auth/page.rs",
             "auth/profile.rs",
             "auth/registration.rs",

@@ -8,7 +8,7 @@ use topcoat::{
 };
 
 use super::{
-    login::GENERIC_ERROR,
+    login::{GENERIC_ERROR, MAX_LOGIN_BYTES, login_post},
     session::{SESSION_SWEEP_BATCH, sweep_expired_sessions, token_key},
     *,
 };

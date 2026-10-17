@@ -328,13 +328,13 @@ impl ForgotAlert {
 }
 
 /// `GET {prefix}/forgot-password` — the form asking for an email address.
-pub(crate) fn forgot_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
+pub(super) fn forgot_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move { forgot_response(cx, "", &FieldErrors::new(), None).await })
 }
 
 /// `POST {prefix}/forgot-password` — mail a reset link to the account the address names, then
 /// answer the same whether one does or not.
-pub(crate) fn forgot_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
+pub(super) fn forgot_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         let panel = current(cx).ok_or_else(topcoat::router::error::not_found)?;
         let reset = panel
@@ -574,7 +574,7 @@ fn token_from_query(cx: &Cx) -> String {
 
 /// `GET {prefix}/reset-password?token=…` — the form choosing a new password, or the page saying
 /// the link no longer works.
-pub(crate) fn reset_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
+pub(super) fn reset_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         let token = token_from_query(cx);
         let mut db = crate::db::db(cx);
@@ -588,7 +588,7 @@ pub(crate) fn reset_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
 
 /// `POST {prefix}/reset-password` — set the new password, end every session and reset link the
 /// account holds, and send it to sign in.
-pub(crate) fn reset_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
+pub(super) fn reset_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         let panel = current(cx).ok_or_else(topcoat::router::error::not_found)?;
         let reset = panel
@@ -768,4 +768,40 @@ async fn render<'a>(
         },
     )
     .await
+}
+
+/// The mistakes in a panel's [`Auth::password_reset`](super::Auth::password_reset): a reset without
+/// auth, a resetter whose user is not the authenticator's, a base URL that is not absolute, and a
+/// router that cannot send mail.
+pub(super) fn declaration_errors(
+    auth: &super::Auth,
+    has_mail: bool,
+) -> Vec<crate::DeclarationErrorKind> {
+    use crate::{DeclarationErrorKind, declaration::ResetFault};
+
+    let Some(reset) = auth.reset.as_ref() else {
+        return Vec::new();
+    };
+    let Some(authenticator) = auth.authenticator() else {
+        return vec![DeclarationErrorKind::PasswordReset(
+            ResetFault::AuthDisabled,
+        )];
+    };
+    let mut faults = Vec::new();
+    let (user, user_name) = reset.resetter().user_type();
+    if user != authenticator.user_type() {
+        faults.push(ResetFault::UserType {
+            resetter: user_name,
+        });
+    }
+    if !reset.base_url_is_absolute() {
+        faults.push(ResetFault::BaseUrl(reset.base_url().to_string()));
+    }
+    if !has_mail {
+        faults.push(ResetFault::MissingMail);
+    }
+    faults
+        .into_iter()
+        .map(DeclarationErrorKind::PasswordReset)
+        .collect()
 }
