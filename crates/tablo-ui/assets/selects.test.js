@@ -388,7 +388,7 @@ test('a swap keeps the current option under its own label', () => {
   // primary key as its own.
   assert.equal(
     preservedOption('pk-ada', 'Ada Author', '<option value="pk-ken">Ken</option>'),
-    '<option value="pk-ada" selected>Ada Author</option>',
+    '<option value="pk-ada" selected data-options-kept="">Ada Author</option>',
   );
 });
 
@@ -406,7 +406,7 @@ test('an empty selection preserves nothing', () => {
 test('a record label cannot break out of the option markup', () => {
   assert.equal(
     preservedOption('pk-1', 'A "quoted" <name>', ''),
-    '<option value="pk-1" selected>A &quot;quoted&quot; &lt;name&gt;</option>',
+    '<option value="pk-1" selected data-options-kept="">A &quot;quoted&quot; &lt;name&gt;</option>',
   );
 });
 
@@ -509,6 +509,60 @@ test('Enter while the server is searching does not submit', () => {
     global.setTimeout = realSetTimeout;
     global.clearTimeout = realClearTimeout;
   }
+});
+
+// --- a server answer ---------------------------------------------------------
+
+// An `<option>` of a server answer, as `optionRows` reads it.
+function answered(value, textContent, attrs = {}) {
+  return {
+    value,
+    textContent,
+    disabled: 'disabled' in attrs,
+    selected: 'selected' in attrs,
+    hasAttribute: (name) => name in attrs,
+  };
+}
+
+// The list a focus on `world`'s filter renders, holding `options` for `needle`.
+function listFor(world, options, needle) {
+  world.select.options.splice(0, world.select.options.length, ...options);
+  world.list.replaceChildren = (...items) => {
+    world.rows.splice(0, world.rows.length, ...items);
+  };
+  world.filter.value = needle;
+  const document = standInDocument([world.filter]);
+  load(document);
+  document.listeners('focusin').forEach((handler) => handler({ target: world.filter }));
+  return world.rows;
+}
+
+test('a server answer is offered whatever its labels hold', () => {
+  // The server matched the needle on a column the label does not show.
+  const world = searchableField({ server: 'author_id' });
+  const rows = listFor(
+    world,
+    [
+      answered('', '-- Select --'),
+      answered('pk-ken', 'Ken Writer', { selected: '', 'data-options-kept': '' }),
+      answered('pk-ada', 'Ada Author'),
+    ],
+    'ada@example.com',
+  );
+  assert.deepEqual(
+    rows.map((row) => row.dataset.value),
+    ['pk-ada'],
+    'the kept current option is judged by its label',
+  );
+});
+
+test("an overflowed server answer shows its status line, not 'no match'", () => {
+  const world = searchableField({ server: 'author_id' });
+  const status = answered('', 'Too many results', { disabled: '' });
+  const rows = listFor(world, [answered('', '-- Select --'), status], 'a');
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].textContent, status.textContent);
+  assert.equal(rows[0].getAttribute('role'), null, 'a status line is not an option');
 });
 
 // --- dependent choices -------------------------------------------------------

@@ -83,11 +83,13 @@ function escapeAttr(s) {
 // one the option showed before the swap: the answer covers the
 // needle, not the selection, and the value is a primary key, so using it as the
 // label would show a raw UUID. The label is escaped: it comes from a record.
+// The option is marked kept: the server did not match it, so the list offers it
+// only when its label holds the needle.
 function preservedOption(current, label, html) {
   if (current === '') return null;
   const escCurrent = escapeAttr(current);
   if (html.includes(`value="${escCurrent}"`)) return null;
-  return `<option value="${escCurrent}" selected>${escapeAttr(label)}</option>`;
+  return `<option value="${escCurrent}" selected data-options-kept="">${escapeAttr(label)}</option>`;
 }
 
 // The `&parent=` a dependent choice's fetch carries, or nothing for an
@@ -244,16 +246,20 @@ const MAX_LIST_ITEMS = 50;
 // An option with an empty `value` is the placeholder ("-- Select --"): it is
 // offered whenever the needle is empty (the way back to "no choice") and is
 // never counted against the cap, so the cap always buys `limit` real choices.
+// A disabled option is a status line, never a choice. An option marked
+// `matched` is one the server answered for the needle: it may have matched a
+// searchable column the label does not show, so the label does not judge it.
 function matchingOptions(options, needle, limit) {
   const lowered = needle.trim().toLowerCase();
   const rows = [];
   let choices = 0;
   for (const opt of options) {
+    if (opt.disabled) continue;
     if (opt.value === '') {
       if (lowered === '') rows.push({ ...opt });
       continue;
     }
-    if (lowered !== '' && !opt.label.toLowerCase().includes(lowered)) continue;
+    if (lowered !== '' && !opt.matched && !opt.label.toLowerCase().includes(lowered)) continue;
     if (choices >= limit) break;
     choices += 1;
     rows.push({ ...opt });
@@ -278,16 +284,26 @@ function partsOf(node) {
 //
 // `value` comes from the option's property rather than its attribute: an
 // option with no `value` falls back to its text, which is exactly what the
-// browser would submit.
-function optionRows(select, needle) {
+// browser would submit. Past the cap, `server` is set: the options are the
+// server's answer for the needle, but the current one the swap kept.
+function optionRows(select, needle, server) {
   const options = Array.from(select.querySelectorAll('option')).map((opt) => ({
     // An option with no `value` submits its text, so that is its value here
     // too; only a genuinely empty value is the placeholder.
     value: opt.value,
     label: (opt.textContent || '').trim(),
     selected: opt.selected,
+    disabled: opt.disabled,
+    matched: server && !opt.hasAttribute('data-options-kept'),
   }));
   return matchingOptions(options, needle, MAX_LIST_ITEMS);
+}
+
+// The status line a server answer carries instead of options, as its one
+// disabled option ("Too many results — keep typing"), or null.
+function statusOption(select) {
+  const status = Array.from(select.querySelectorAll('option')).find((opt) => opt.disabled);
+  return status ? (status.textContent || '').trim() : null;
 }
 
 function closeList(combo) {
@@ -342,16 +358,18 @@ function setActiveDescendant(filter, item) {
   }
 }
 
-function renderList({ combo, filter, list, select }) {
+function renderList({ combo, filter, list, select, wrap }) {
   if (!combo || !filter || !list || !select) return;
   const needle = filter.value.trim();
-  const rows = optionRows(select, needle);
+  const server = Boolean(wrap) && wrap.getAttribute('data-options-server') === 'true';
+  const rows = optionRows(select, needle, server);
   if (rows.length === 0) {
     // "Nothing matched" is the whole reason this list exists, so it says so
     // instead of leaving an empty box.
     messageRow(
       { combo, filter, list, select },
-      needle === '' ? 'No options' : 'No matching options',
+      (server && statusOption(select))
+        || (needle === '' ? 'No options' : 'No matching options'),
     );
     return;
   }
