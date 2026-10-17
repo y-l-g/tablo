@@ -152,17 +152,17 @@ pub(crate) struct FieldInfo {
     ///
     /// A **composite** unique index counts too: `#[unique(tenant_id, email)]` is how a
     /// tenant-scoped resource expresses "unique within the tenant", and the app-side pre-check
-    /// has to recognise it or the field's `unique()` declaration is silently dead. Recognizing the
-    /// index is not checking it exactly: the pre-check probes inside the tenant-scoped query's
-    /// scope, so it enforces the constraint only when that scope matches the index's remaining
-    /// components. An index with components outside the scope stays a gap, and it is not
-    /// checkable here because a query's filters are not introspectable; see `Resource::query`'s
-    /// note and tablo#117.
+    /// has to recognise it or the field's `unique()` declaration is silently dead. The pre-check
+    /// probes it on all its fields, through [`unique_with`](Self::unique_with).
     ///
     /// The primary key is excluded: a key column is unique by construction, not by a declared
     /// constraint. This reports declared schema uniqueness, not a global guarantee: SQL permits
     /// multiple `NULL`s in a unique index, so a nullable unique field can still repeat.
     pub(crate) unique: bool,
+    /// Each unique index covering the field, as the names of its other fields: an empty list
+    /// for a single-field index. The pre-check probes a composite index on all its fields, or a
+    /// slug another row holds under another locale of `#[unique(slug, locale)]` reads as taken.
+    pub(crate) unique_with: Vec<Vec<String>>,
     /// Whether the field is a relation, which stores no column of its own.
     pub(crate) relation: bool,
 }
@@ -218,6 +218,23 @@ fn field_info(field: &app::Field, root: &app::ModelRoot) -> Option<FieldInfo> {
         unique: root.indices.iter().any(|index| {
             index.unique && !index.primary_key && index.fields.iter().any(|f| f.field == field.id)
         }),
+        unique_with: root
+            .indices
+            .iter()
+            .filter(|index| {
+                index.unique
+                    && !index.primary_key
+                    && index.fields.iter().any(|f| f.field == field.id)
+            })
+            .map(|index| {
+                index
+                    .fields
+                    .iter()
+                    .filter(|f| f.field != field.id)
+                    .filter_map(|f| root.fields.get(f.field.index)?.name.app.clone())
+                    .collect()
+            })
+            .collect(),
         relation: field.is_relation(),
     })
 }
@@ -308,6 +325,8 @@ pub(crate) struct LeafField {
     /// Whether a unique index covers the column. Always `false` for an embedded leaf, which
     /// declares no index of its own.
     pub(crate) unique: bool,
+    /// Each unique index covering the column, as [`FieldInfo::unique_with`] reads it.
+    pub(crate) unique_with: Vec<Vec<String>>,
 }
 
 impl From<FieldInfo> for LeafField {
@@ -317,6 +336,7 @@ impl From<FieldInfo> for LeafField {
             label: field.label,
             nullable: field.nullable,
             unique: field.unique,
+            unique_with: field.unique_with,
         }
     }
 }
@@ -533,6 +553,7 @@ fn column_of(schema: &toasty_core::Schema, field: &MappingField) -> Option<LeafF
         // struct's flattened column is.
         nullable: true,
         unique: false,
+        unique_with: Vec::new(),
     })
 }
 
