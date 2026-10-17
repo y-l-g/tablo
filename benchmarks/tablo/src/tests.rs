@@ -9,6 +9,8 @@ fn bench_database_guard_accepts_bench_names_and_refuses_the_rest() {
     }
     for bad in [
         "postgresql://localhost/production",
+        "postgresql://localhost/latest",
+        "postgresql://localhost/contest_results",
         "postgresql://localhost/app",
         "postgresql://localhost/",
         "not-a-url",

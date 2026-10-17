@@ -9,8 +9,9 @@ and never gated. CI builds and lints the harness but does not run it.
 # In-process bench, no server:
 cargo run -p storefront-tablo -- --bench --iterations 100
 
-# Add the Postgres leg; the URL must name a disposable database, which each run resets:
-TABLO_BENCH_POSTGRES_URL=postgresql://toasty:toasty@localhost:5432/toasty \
+# Add the Postgres leg; the URL must name a disposable database, with `bench` or `test` as a
+# word of its name, which each run resets:
+TABLO_BENCH_POSTGRES_URL=postgresql://toasty:toasty@localhost:5432/tablo_bench \
   cargo run -p storefront-tablo -- --bench
 
 # Full run with the HTTP leg (needs `oha`), written to benchmarks/results/<timestamp>/:
