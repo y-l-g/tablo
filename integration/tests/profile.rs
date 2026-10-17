@@ -475,3 +475,93 @@ async fn a_disabled_control_keeps_the_stored_value() {
     assert_eq!(stored.display_name, "Ada Lovelace");
     assert_eq!(stored.email, "ada@example.com");
 }
+
+/// A name, and the instant a timestamp control edits to the minute.
+struct Shift {
+    name: String,
+    starts_at: jiff::Timestamp,
+}
+
+/// The instant [`ShiftProfile`] fills, with seconds its control does not show.
+const STARTS_AT: &str = "2026-03-04T05:06:07.5Z";
+
+impl FormInput for Shift {
+    fn schema() -> Schema {
+        Schema::new((
+            Field::text_input::<String>("name"),
+            Field::text_input::<jiff::Timestamp>("starts_at"),
+        ))
+    }
+
+    fn parse(_cx: &Cx, values: &FormValues) -> Result<Self, Vec<FieldError>> {
+        let name = parse_scalar::<String>("name", values, None);
+        let starts_at = parse_scalar::<jiff::Timestamp>("starts_at", values, None);
+        match (name, starts_at) {
+            (Ok(name), Ok(starts_at)) => Ok(Self { name, starts_at }),
+            (name, starts_at) => Err(name.err().into_iter().chain(starts_at.err()).collect()),
+        }
+    }
+
+    fn write(&self, out: &mut FormValues) {
+        out.insert("name".to_string(), self.name.clone());
+        out.insert("starts_at".to_string(), self.starts_at.to_string());
+    }
+}
+
+/// Fills a fixed instant and records the one each save receives.
+struct ShiftProfile(std::sync::Arc<std::sync::Mutex<Option<jiff::Timestamp>>>);
+
+impl ProfileEditor for ShiftProfile {
+    type Input = Shift;
+    type User = AdminUser;
+
+    fn fill(&self, _cx: &Cx, admin: &AdminUser) -> Shift {
+        Shift {
+            name: admin.display_name.clone(),
+            starts_at: STARTS_AT.parse().unwrap(),
+        }
+    }
+
+    async fn save(
+        &self,
+        _cx: &Cx,
+        _admin: &AdminUser,
+        input: Shift,
+        _ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<ProfileUpdate> {
+        *self.0.lock().unwrap() = Some(input.starts_at);
+        Ok(ProfileUpdate::Details)
+    }
+}
+
+/// A timestamp the user leaves as its control shows it keeps its seconds; a changed minute is
+/// saved as posted.
+#[tokio::test]
+async fn an_untouched_timestamp_keeps_its_seconds() {
+    let db = db().await;
+    let admin = ada(&db).await;
+    let saved = std::sync::Arc::default();
+    let router = router(
+        db.clone(),
+        Auth::password().profile(ShiftProfile(std::sync::Arc::clone(&saved))),
+    );
+    let client = TestClient::new(&router).sign_in(&db, "admin", &admin).await;
+
+    for (posted, expected) in [
+        ("2026-03-04T05:06", STARTS_AT),
+        ("2026-03-04T05:07", "2026-03-04T05:07:00Z"),
+    ] {
+        let response = client
+            .submit(
+                "/admin/profile",
+                &form_body(&[("name", "Ada"), ("starts_at", posted)]),
+            )
+            .await;
+        assert_eq!(response.status(), 303, "{posted}");
+        assert_eq!(
+            *saved.lock().unwrap(),
+            Some(expected.parse::<jiff::Timestamp>().unwrap()),
+            "{posted}"
+        );
+    }
+}

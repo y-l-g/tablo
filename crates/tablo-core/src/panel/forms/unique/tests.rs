@@ -419,3 +419,66 @@ async fn a_composite_index_is_probed_on_all_its_fields() {
         "a record moving onto another's pair"
     );
 }
+
+#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+#[unique(owner, slug)]
+struct Post {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    owner: String,
+    slug: String,
+}
+
+/// An index member the form does not post is the one the resource's query fixes, as the guide
+/// advises scoping an index: the probe matches the posted fields through that query.
+#[tokio::test]
+async fn an_index_member_the_form_does_not_post_is_left_to_the_scope() {
+    use crate::schema::{Field, Schema};
+
+    struct MyPosts;
+    impl Resource for MyPosts {
+        type Model = Post;
+        type Form = crate::NoForm<Self::Model>;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
+                lens!(Post.slug),
+            )))
+        }
+
+        fn query(_cx: &topcoat::context::Cx) -> toasty::stmt::Query<toasty::stmt::List<Post>> {
+            toasty::stmt::Query::<toasty::stmt::List<Post>>::all()
+                .filter(Post::fields().owner().eq("me"))
+        }
+    }
+
+    let mut db = memory_db(toasty::models!(Post)).await;
+    for (owner, slug) in [("me", "about"), ("them", "contact")] {
+        toasty::create!(Post { owner, slug })
+            .exec(&mut db)
+            .await
+            .unwrap();
+    }
+    let cx = crate::test_support::panel_cx::<MyPosts>(&db);
+    let mut ex = crate::db::db(&cx);
+    let schema = Schema::new(Field::text(Post::fields().slug()));
+    let resource = crate::resource::require_mounted::<MyPosts>(&cx).unwrap();
+    let mut check = async |slug: &str| {
+        let values = FormValues::from_iter([("slug".to_string(), slug.to_string())]);
+        let errors = check_unique(
+            &cx,
+            &resource,
+            &schema,
+            &values,
+            &FormValues::new(),
+            &mut ex,
+        )
+        .await
+        .unwrap();
+        messages(&errors, "slug")
+    };
+
+    assert_eq!(check("about").await, ["Slug has already been taken"]);
+    assert!(check("contact").await.is_empty(), "another owner's slug");
+}

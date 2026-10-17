@@ -154,6 +154,7 @@ function searchableField({ server = null } = {}) {
   select.parentElement = control;
   wrap.querySelector = (selector) => (selector === 'select' ? select : null);
   wrap.getAttribute = (name) => (name in wrapAttrs ? wrapAttrs[name] : null);
+  wrap.hasAttribute = (name) => name in wrapAttrs;
   wrap.dataset = {};
   rows.forEach((row) => {
     row.closest = (selector) =>
@@ -499,19 +500,29 @@ test('closing the combobox collapses it and clears the active row', () => {
   assert.equal(escape(document, world), false, 'a closed list leaves Escape to the page');
 });
 
-test('Escape closes a list showing a status line', () => {
+test('Escape closes a list showing a status line, and the search landing keeps it closed', async () => {
   const world = searchableField({ server: 'author_id' });
   const document = standInDocument([world.filter]);
   const realSetTimeout = global.setTimeout;
-  global.setTimeout = () => 0;
+  let search;
+  global.setTimeout = (callback) => {
+    search = callback;
+    return 0;
+  };
+  global.window = { location: { pathname: '/admin/books/-/create' } };
+  global.fetch = async () => ({ ok: false, headers: { get: () => null }, text: async () => '' });
   try {
     load(document);
     document.listeners('input').forEach((handler) => handler({ target: world.filter }));
     assert.equal(world.list.hidden, false, 'the status row shows the search');
     assert.equal(escape(document, world), true);
     assert.equal(world.list.hidden, true);
+    await search();
+    assert.equal(world.list.hidden, true, 'the landed search does not reopen the list');
   } finally {
     global.setTimeout = realSetTimeout;
+    delete global.fetch;
+    delete global.window;
   }
 });
 
