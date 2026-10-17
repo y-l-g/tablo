@@ -32,3 +32,11 @@ fn primitives_match_registry_verbatim() {
 fn vendored_primitives_are_closed_under_registry_dependencies() {
     xtask::verify_vendored_closure().expect("the vendored set is closed under its dependencies");
 }
+
+/// Guards the file-size ratchet over the live tree: a source past its limit, one grown past its
+/// `OVERSIZED` cap, or a cap left above its file's size fails here instead of drifting unnoticed.
+#[test]
+fn file_sizes_hold_in_tree() {
+    xtask::sizes::verify_file_sizes(&xtask::gates::repo_root())
+        .expect("every source holds within its limit or its cap");
+}
