@@ -94,14 +94,20 @@ impl Panels {
         self.0.iter().find(|panel| panel.prefix == prefix)
     }
 
-    /// The panels that declared the runtime endpoint at `path`, in mount order.
+    /// The panels that declared the runtime endpoint at `path`, in mount order. A trailing slash
+    /// does not count: under [`TrailingSlash::Serve`](topcoat::router::TrailingSlash::Serve) the
+    /// endpoint answers both forms of its path.
     pub(crate) fn declaring<'a>(
         &'a self,
         path: &'a str,
     ) -> impl Iterator<Item = &'a Arc<PanelState>> {
-        self.0
-            .iter()
-            .filter(move |panel| panel.endpoints.iter().any(|endpoint| endpoint == path))
+        let bare = |path: &'a str| path.strip_suffix('/').unwrap_or(path);
+        self.0.iter().filter(move |panel| {
+            panel
+                .endpoints
+                .iter()
+                .any(|endpoint| bare(endpoint) == bare(path))
+        })
     }
 
     /// Whether every mounted panel requires a signed-in user.
