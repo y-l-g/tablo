@@ -20,8 +20,9 @@ use crate::FieldErrors;
 const DUMMY_PASSWORD_HASH: &str = "$argon2id$v=19$m=19456,t=2,p=1$h3oXdPBVwhcgZ1OTO/PuzQ$zLrHLgIkwhqu4ZlLTfSyB8mPuL6mAtaswv/eXJ5ADO8";
 
 /// Shipped credential model with unique email, Argon2id PHC hash, display name,
-/// and active flag; belongs to no tenant. The email is stored, and looked up, trimmed and
-/// lowercased, so one address holds one account whatever case it is typed in.
+/// and active flag; belongs to no tenant. [`PasswordAuth`] stores the email, and looks it up,
+/// trimmed and lowercased, so one address holds one account whatever case it is typed in; a
+/// resource that edits the email must store it the same way.
 /// Its [`ModelColumns`](crate::ModelColumns) leave out the hash, so a resource over the panel's
 /// admins lists them.
 #[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
