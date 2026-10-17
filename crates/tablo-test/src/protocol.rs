@@ -4,9 +4,9 @@
 pub mod dom;
 
 pub use dom::{
-    EmptyTable, ErrorKind, FilterOption, PickerColumn, Row, RowActions, column_picker, columns,
-    confirms_first, empty_table, field_error, field_error_message, filter_options, find_href_with,
-    nav_badge, row_actions, row_keys, rows,
+    EmptyReason, EmptyTable, ErrorKind, FilterOption, PickerColumn, Row, RowActions, column_picker,
+    columns, confirms_first, empty_table, field_error, field_error_message, filter_options,
+    find_href_with, nav_badge, row_actions, row_keys, rows,
 };
 use http_body_util::BodyExt;
 use tablo_core::Notification;

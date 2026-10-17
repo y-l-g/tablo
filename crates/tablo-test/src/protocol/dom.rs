@@ -10,6 +10,8 @@
 //! The queries assume one table per document: rows never nest, and cells carry text rather than
 //! nested tables.
 
+use tablo_core::dom::{empty, error};
+
 type Attrs = Vec<(String, Option<String>)>;
 type Element = (String, Attrs, String);
 
@@ -59,16 +61,32 @@ pub struct PickerColumn {
 /// Why a table rendered no rows, and the links it offers out of that state.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EmptyTable {
-    /// What emptied it: `"none"` for no records, `"search"` or `"filters"` when the request
-    /// narrowed it.
-    pub reason: String,
+    /// What emptied it.
+    pub reason: EmptyReason,
     /// The link that clears the search or the filters, `None` when nothing narrowed the table.
     pub clear: Option<String>,
     /// The link back to the first page, `None` without a cursor.
     pub first_page: Option<String>,
 }
 
+/// What emptied a table, as its zero-rows message's `data-empty` names it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum EmptyReason {
+    /// The table holds no records.
+    NoRecords,
+    /// The request's search matched no record.
+    Search,
+    /// The request's filters matched no record.
+    Filters,
+}
+
 /// The zero-rows message of `html`, or `None` when the table renders rows.
+///
+/// # Panics
+///
+/// When the message names no reason this version knows: a renderer that drops `data-empty`'s
+/// value would otherwise read as any reason.
 pub fn empty_table(html: &str) -> Option<EmptyTable> {
     let (_, attrs, inner) = tags_where(html, |_, attrs| attr_value(attrs, "data-empty").is_some())
         .into_iter()
@@ -79,10 +97,16 @@ pub fn empty_table(html: &str) -> Option<EmptyTable> {
             .find(|(_, attrs, _)| attr_value(attrs, "data-empty-link").as_deref() == Some(kind))
             .and_then(|(_, attrs, _)| attr_value(&attrs, "href"))
     };
+    let reason = match attr_value(&attrs, "data-empty").as_deref() {
+        Some(empty::NONE) => EmptyReason::NoRecords,
+        Some(empty::SEARCH) => EmptyReason::Search,
+        Some(empty::FILTERS) => EmptyReason::Filters,
+        other => panic!("the zero-rows message names no known reason: {other:?}"),
+    };
     Some(EmptyTable {
-        reason: attr_value(&attrs, "data-empty").unwrap_or_default(),
-        clear: link("clear"),
-        first_page: link("first-page"),
+        reason,
+        clear: link(empty::CLEAR_LINK),
+        first_page: link(empty::FIRST_PAGE_LINK),
     })
 }
 
@@ -205,9 +229,9 @@ pub enum ErrorKind {
 pub fn field_error(html: &str, name: &str) -> Option<ErrorKind> {
     let (attrs, _) = error_slot(html, name)?;
     Some(match attr_value(&attrs, "data-error").as_deref() {
-        Some("required") => ErrorKind::Required,
-        Some("invalid") => ErrorKind::Invalid,
-        Some("unavailable") => ErrorKind::Unavailable,
+        Some(error::REQUIRED) => ErrorKind::Required,
+        Some(error::INVALID) => ErrorKind::Invalid,
+        Some(error::UNAVAILABLE) => ErrorKind::Unavailable,
         other => panic!("the error slot of `{name}` names no known kind: {other:?}"),
     })
 }

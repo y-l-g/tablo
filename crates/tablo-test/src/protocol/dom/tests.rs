@@ -139,7 +139,7 @@ fn empty_table_reads_the_reason_and_its_links() {
     assert_eq!(
         empty_table(html),
         Some(EmptyTable {
-            reason: "search".to_string(),
+            reason: EmptyReason::Search,
             clear: Some("/admin/users".to_string()),
             first_page: Some("/admin/users?q=x".to_string()),
         })
@@ -147,7 +147,7 @@ fn empty_table_reads_the_reason_and_its_links() {
     let bare = r#"<div data-empty="none"><p>No records yet</p></div>"#;
     assert_eq!(
         empty_table(bare).map(|empty| (empty.reason, empty.clear, empty.first_page)),
-        Some(("none".to_string(), None, None))
+        Some((EmptyReason::NoRecords, None, None))
     );
     assert_eq!(empty_table(TABLE), None, "a table with rows is not empty");
 }

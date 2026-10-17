@@ -1,7 +1,7 @@
 //! A resource's list: search, sort, cursor pagination, grouping and the empty and error states.
 
 use showcase::models::PostStatus;
-use tablo::testing::{EmptyTable, empty_table};
+use tablo::testing::{EmptyReason, EmptyTable, empty_table};
 
 use crate::common::{
     body_string, demo_client, empty_users_db, find_href_with, full_db, pager_link,
@@ -368,7 +368,7 @@ async fn the_empty_state_says_why_the_table_is_empty() {
     assert_eq!(
         empty_table(&searched),
         Some(EmptyTable {
-            reason: "search".to_string(),
+            reason: EmptyReason::Search,
             clear: Some("/admin/users".to_string()),
             first_page: None,
         }),
@@ -382,7 +382,7 @@ async fn the_empty_state_says_why_the_table_is_empty() {
     assert_eq!(
         empty_table(&empty),
         Some(EmptyTable {
-            reason: "none".to_string(),
+            reason: EmptyReason::NoRecords,
             clear: None,
             first_page: None,
         }),
