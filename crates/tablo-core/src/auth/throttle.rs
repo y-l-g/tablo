@@ -10,7 +10,8 @@ use std::{
 };
 
 /// The most counts a throttle keeps at once; past it, an expired count is dropped first, else the
-/// oldest.
+/// oldest under its limit, and the oldest refusing one only when every count refuses: a flood of
+/// fresh logins cannot release a refused one.
 const MAX_TRACKED: usize = 10_000;
 
 /// How many sign-in attempts one login may make from one client address in a window, as
@@ -114,7 +115,7 @@ impl LoginThrottle {
             if counts.len() >= MAX_TRACKED
                 && let Some(oldest) = counts
                     .iter()
-                    .min_by_key(|(_, count)| count.since)
+                    .min_by_key(|(_, count)| (count.attempts >= limit.attempts, count.since))
                     .map(|(key, _)| *key)
             {
                 counts.remove(&oldest);

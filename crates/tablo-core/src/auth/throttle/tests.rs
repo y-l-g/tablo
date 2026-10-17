@@ -66,6 +66,22 @@ fn a_full_map_drops_the_oldest_count() {
 }
 
 #[test]
+fn a_full_map_keeps_a_refusing_count_over_younger_ones_under_their_limit() {
+    let throttle = LoginThrottle::new(2, MINUTE);
+    let start = Instant::now();
+    assert!(throttle.attempt_at("guessed", HOME, start));
+    assert!(throttle.attempt_at("guessed", HOME, start));
+    for n in 1..MAX_TRACKED {
+        assert!(throttle.attempt_at(&n.to_string(), HOME, start + Duration::from_millis(1)));
+    }
+    assert!(throttle.attempt_at("one more", HOME, start + Duration::from_millis(2)));
+    assert!(
+        !throttle.attempt_at("guessed", HOME, start + Duration::from_millis(3)),
+        "the flood dropped a count under its limit, not the refusing one"
+    );
+}
+
+#[test]
 fn a_full_map_drops_expired_counts_before_the_oldest() {
     let throttle = LoginThrottle::new(1, MINUTE);
     let start = Instant::now();
