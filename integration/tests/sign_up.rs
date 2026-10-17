@@ -16,7 +16,9 @@ use toasty::Db;
 use topcoat::{context::Cx, router::Router};
 use uuid::Uuid;
 
-use crate::common::{TestClient, body_string, flash, memory_db, mount, refusal};
+use crate::common::{
+    TestClient, body_string, flash, memory_db, mount, new_csrf, post_form, refusal,
+};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Note {
@@ -91,24 +93,48 @@ async fn password_auth_registers_an_admin_user_and_signs_it_in() {
     assert!(tablo::auth::verify_password("correct horse", Some(&admins[0].password_hash)).await);
 }
 
-/// `PasswordAuth` refuses an email another account holds, and nothing is written.
+/// `PasswordAuth` refuses an email another account holds, in any case, and nothing is written.
 #[tokio::test]
 async fn password_auth_refuses_a_taken_email() {
     let mut db = db().await;
-    create_admin(&mut db, "ada@example.com", "secret", "Ada")
+    create_admin(&mut db, "Ada@Example.com", "secret", "Ada")
         .await
         .unwrap();
     let router = router(db.clone(), Auth::password().registration(PasswordAuth));
 
-    let response = submit(&router, &sign_up("ada@example.com")).await;
+    for email in ["ada@example.com", " ADA@example.COM"] {
+        let response = submit(&router, &sign_up(email)).await;
 
-    assert_eq!(response.status(), 422);
-    let html = body_string(response).await;
-    assert!(
-        tablo::testing::field_error(&html, "email").is_some(),
-        "{html}"
-    );
+        assert_eq!(response.status(), 422, "{email}");
+        let html = body_string(response).await;
+        assert!(
+            tablo::testing::field_error(&html, "email").is_some(),
+            "{html}"
+        );
+    }
     assert_eq!(admins(&db).await.len(), 1);
+}
+
+/// `PasswordAuth` signs an account in whatever case its email is typed in.
+#[tokio::test]
+async fn password_auth_signs_in_an_email_in_any_case() {
+    let mut db = db().await;
+    create_admin(&mut db, "Ada@Example.com", "secret password", "Ada")
+        .await
+        .unwrap();
+    let router = router(db.clone(), Auth::password());
+
+    let csrf = new_csrf();
+    let login = post_form(
+        &router,
+        "/admin/login",
+        &[(tablo::csrf::COOKIE_NAME, csrf.clone())],
+        format!("email=+aDA%40example.COM&password=secret+password&csrf_token={csrf}"),
+    )
+    .await;
+
+    assert_eq!(login.status(), 303);
+    assert_eq!(login.headers().get(LOCATION).unwrap(), "/admin");
 }
 
 /// Without `Auth::registration`, the panel serves no sign-up route and the login page links to

@@ -10,7 +10,6 @@ use topcoat::{
         request::client_ip,
         response::{IntoResponse, Response},
     },
-    session,
     view::{BoxView, ViewExt},
 };
 
@@ -18,7 +17,7 @@ use super::{
     PanelUser, infrastructure_failure,
     login::{NEXT_FIELD, login_url, next_from_query, safe_next},
     panel_root,
-    session::{delete_session, record},
+    session::{fresh_session, record},
 };
 use crate::{
     BoxFuture,
@@ -413,11 +412,11 @@ pub(crate) fn register_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             return topcoat::router::error::see_other(login_url(cx)).into_response(cx);
         }
         // Rotate as a login does, so a session presented before the sign-up cannot be replayed.
-        if let Some(hash) = session::token_hash(cx).await? {
-            delete_session(cx, &hash).await?;
-        }
-        let session = session::start(cx).await?;
-        if let Err(error) = record(cx, &session, &*user, panel).await {
+        let recorded = match fresh_session(cx).await {
+            Ok(session) => record(cx, &session, &*user, panel).await,
+            Err(error) => Err(error),
+        };
+        if let Err(error) = recorded {
             // The account is committed: send it to sign in rather than to a sign-up whose retry
             // would find its email taken.
             tracing::error!(error = %infrastructure_failure(error), "sign-up session not recorded");

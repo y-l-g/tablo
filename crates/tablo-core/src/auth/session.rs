@@ -215,6 +215,22 @@ pub(super) async fn delete_session(cx: &Cx, hash: &TokenHash) -> topcoat::Result
     delete_session_row(cx, &token_key(hash)).await
 }
 
+/// Ends the session the request presents and starts a new one, so a token presented before a
+/// sign-in cannot be replayed after it.
+///
+/// # Errors
+///
+/// The opaque sign-in outage when the database cannot answer; any other failure keeps its mapping.
+pub(super) async fn fresh_session(cx: &Cx) -> topcoat::Result<session::Session> {
+    if let Some(hash) = session::token_hash(cx)
+        .await
+        .map_err(infrastructure_failure)?
+    {
+        delete_session(cx, &hash).await?;
+    }
+    session::start(cx).await.map_err(infrastructure_failure)
+}
+
 async fn delete_session_row(cx: &Cx, key: &str) -> topcoat::Result<()> {
     let mut db = crate::db::db(cx);
     AuthSession::filter(AuthSession::fields().token_hash().eq(key.to_string()))
