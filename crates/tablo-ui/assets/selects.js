@@ -360,7 +360,7 @@ function setActiveDescendant(filter, item) {
 
 function renderList({ combo, filter, list, select, wrap }) {
   if (!combo || !filter || !list || !select) return;
-  const needle = filter.value.trim();
+  const needle = listNeedle(filter, select);
   const server = Boolean(wrap) && wrap.getAttribute('data-options-server') === 'true';
   const rows = optionRows(select, needle, server);
   if (rows.length === 0) {
@@ -389,6 +389,15 @@ function renderList({ combo, filter, list, select, wrap }) {
   list.hidden = false;
   setExpanded(filter, true);
   setActiveDescendant(filter, activeItem(list));
+}
+
+// What the list filters by: the box's text, or nothing while the box shows the
+// current choice's label, so entering an edit form's field lists every option
+// rather than only the one it holds.
+function listNeedle(filter, select) {
+  const needle = filter.value.trim();
+  const current = select.value === '' ? null : optionFor(select, select.value);
+  return current && needle === (current.textContent || '').trim() ? '' : needle;
 }
 
 // The option behind a list row, matched on the property (never an escaped
@@ -477,6 +486,13 @@ function hideNativeSelect(parts) {
     parts.select.required = false;
     parts.filter.setAttribute('aria-required', 'true');
   }
+  // A hidden control leaves the accessibility tree, and with it the field's
+  // error state and the ids of its description and error message: the box the
+  // user reaches carries them instead.
+  ['aria-invalid', 'aria-describedby'].forEach((name) => {
+    const value = parts.select.getAttribute(name);
+    if (value !== null) parts.filter.setAttribute(name, value);
+  });
 }
 
 // Hide the control behind every wired combobox in `root`, or in the document.
