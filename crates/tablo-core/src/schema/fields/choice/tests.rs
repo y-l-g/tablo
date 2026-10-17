@@ -5,7 +5,7 @@ use topcoat::context::{Cx, CxTestBuilder};
 
 use crate::{
     Ability, DeclarationErrorKind,
-    form::{FieldErrors, FormValues},
+    form::{FieldErrors, FormValue, FormValues},
     schema::{ChoiceField, Field, OptionSource, Schema, Source, fields::Placement},
     test_support::{Html as _, memory_db},
 };
@@ -225,6 +225,37 @@ fn a_dependent_choice_names_a_column_of_its_source_and_a_placed_parent() {
     let country = country();
     let city = city(&country);
     assert!(Schema::new((country, city)).declaration_errors().is_empty());
+}
+
+/// Past the cap a choice that cannot search keeps the key the record stores, which its select
+/// renders, and refuses any other.
+#[tokio::test]
+async fn a_choice_past_the_cap_keeps_its_stored_key() {
+    let world = world().await;
+    let france: uuid::Uuid = world.france.parse().unwrap();
+    let mut db = crate::db::db(&world.cx);
+    for i in 0..crate::schema::MAX_RELATIONSHIP_OPTIONS {
+        toasty::create!(City {
+            country_id: france,
+            name: format!("Town {i}"),
+        })
+        .exec(&mut db)
+        .await
+        .unwrap();
+    }
+    let country = country();
+    let city = city(&country);
+    let paris = FormValue::from(world.paris.as_str());
+    let check = async |stored: Option<&FormValue>| {
+        city.validate_exists(&world.cx, &paris, Some(&world.france), stored)
+            .await
+    };
+    assert!(check(Some(&paris)).await.is_empty(), "the stored key");
+    assert_eq!(
+        check(None).await,
+        ["City id could not load options, retry"],
+        "a key the record does not store"
+    );
 }
 
 /// Past the cap a searchable dependent choice checks the posted key among its parent's rows, and
