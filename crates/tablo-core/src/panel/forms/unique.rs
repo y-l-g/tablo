@@ -12,9 +12,10 @@ use crate::{
 /// Refuses duplicated `unique()` values with `<Label> has already been taken`, skipping empty
 /// submits and the record's own value (tablo#117).
 ///
-/// A composite index is probed on all its fields: the tenant column through the tenant-scoped
-/// query, and every other one through the value its own text field posts. An index with a field
-/// no text field posts, or posting no value, is left to the database.
+/// A composite index is probed on all the fields the form posts, each through the value its own
+/// text field posts. A field the form has no control for, the tenant column among them, is left to
+/// the scoped query, as [`Resource::query`]'s scope fixes it. An index with a field whose control
+/// posts no value, or is not a text field, is left to the database.
 pub(super) async fn check_unique<R: Resource>(
     cx: &Cx,
     resource: &Mounted<R>,
@@ -26,11 +27,6 @@ pub(super) async fn check_unique<R: Resource>(
     let mut errors = FieldErrors::new();
     // Skips the variant groups the submission hides.
     let skip = schema.hidden_fields(values);
-    let tenant = resource
-        .tenancy
-        .column_field()
-        .and_then(Result::ok)
-        .map(|field| field.name.as_str());
     // A composite index two text fields post is probed once, for the first.
     let mut probed = HashSet::new();
     for field in schema.fields() {
@@ -42,7 +38,7 @@ pub(super) async fn check_unique<R: Resource>(
             let mut members: Vec<&str> = others
                 .iter()
                 .map(String::as_str)
-                .filter(|other| Some(*other) != tenant)
+                .filter(|other| schema.fields().any(|field| field.name() == *other))
                 .chain([name])
                 .collect();
             members.sort_unstable();
