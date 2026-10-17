@@ -328,7 +328,7 @@ impl Panel {
     /// it, whichever panel that is. A declared one runs as this panel: a session another panel
     /// signed in is no session here, so it answers 401 when the panel requires sign-in, and
     /// [`auth::guard`](crate::auth::guard), [`auth::user`](crate::auth::user), the tenant and
-    /// [`can_list`](crate::can_list) answer for this panel. Several panels may declare the same
+    /// [`can_list`] answer for this panel. Several panels may declare the same
     /// endpoint; each of their sessions reaches it.
     ///
     /// The router still registers the endpoint, through discovery or `.route(..)`. A route
