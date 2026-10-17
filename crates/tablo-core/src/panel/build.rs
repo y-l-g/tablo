@@ -198,6 +198,7 @@ impl Panel {
             login_hint,
             user_menu,
             auth,
+            endpoints,
         } = self;
         let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
         errors.extend(mount_errors(
@@ -260,6 +261,7 @@ impl Panel {
             served_paths,
             urls,
             mounted_pages,
+            endpoints,
         });
         let prefix_path = route_path(&prefix);
         builder =

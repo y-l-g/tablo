@@ -115,4 +115,5 @@ Share a query between components of one request with Topcoat's `#[memoize]`, and
 A table updates through a rerun of its page, which runs the page's layers and checks like any
 request. Topcoat serves a shard at its own runtime path, where the page's checks do not run: a
 shard you write starts with `auth::guard(cx)?`, and checks `can_list::<R>(cx)` before it lists
-`R`'s rows.
+`R`'s rows. On a router with several panels, declare it on its panel with `Panel::endpoint` so
+only that panel's sessions reach it.

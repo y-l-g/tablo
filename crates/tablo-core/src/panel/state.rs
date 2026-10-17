@@ -64,6 +64,9 @@ pub(crate) struct PanelState {
     pub(crate) urls: HashMap<TypeId, String>,
     /// The registered pages as the panel mounted them, by type.
     pub(crate) mounted_pages: HashMap<TypeId, Arc<MountedPage>>,
+    /// The paths of the runtime endpoints the panel declared with
+    /// [`Panel::endpoint`](super::Panel::endpoint).
+    pub(crate) endpoints: Vec<String>,
 }
 
 impl PanelState {
@@ -91,6 +94,16 @@ impl Panels {
         self.0.iter().find(|panel| panel.prefix == prefix)
     }
 
+    /// The panels that declared the runtime endpoint at `path`, in mount order.
+    pub(crate) fn declaring<'a>(
+        &'a self,
+        path: &'a str,
+    ) -> impl Iterator<Item = &'a Arc<PanelState>> {
+        self.0
+            .iter()
+            .filter(move |panel| panel.endpoints.iter().any(|endpoint| endpoint == path))
+    }
+
     /// Whether every mounted panel requires a signed-in user.
     pub(crate) fn all_gate(&self) -> bool {
         self.0.iter().all(|panel| panel.gates())
@@ -106,9 +119,9 @@ impl Panels {
 #[derive(Clone)]
 pub(crate) struct CurrentPanel(pub(crate) Arc<PanelState>);
 
-/// The request's panel: the one whose prefix the request is under, or the
-/// panel whose session signed in a runtime request. A router with a single
-/// panel answers it for any request.
+/// The request's panel: the one whose prefix the request is under, or, for a
+/// runtime request, the panel that declared its endpoint or whose session sent it. A router with a
+/// single panel answers it for any request.
 pub(crate) fn current(cx: &Cx) -> Option<&Arc<PanelState>> {
     if let Some(CurrentPanel(panel)) = try_request_context::<CurrentPanel>(cx) {
         return Some(panel);

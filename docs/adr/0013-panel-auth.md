@@ -7,6 +7,8 @@ is the explicit opt-out.
 
 - Sessions are server-side rows keyed by token hash, rotated on login, revocable per user, and
   bound to the panel that issued them.
+  A shard or procedure serves outside every prefix, so a panel declares the ones its pages use;
+  a request to a declared endpoint runs as that panel and ignores other panels' sessions.
 - The gate fails closed: pages redirect to login, runtime endpoints answer 401, and a user without
   access is refused like a bad password.
 - Passwords use Argon2id, and login verifies even for an unknown user.

@@ -376,6 +376,11 @@ pub enum DeclarationErrorKind {
         /// The other panel's prefix.
         other: String,
     },
+    /// A `Panel::endpoint` route outside Topcoat's runtime endpoints.
+    EndpointOutsideRuntime {
+        /// The route's path.
+        path: String,
+    },
     /// A `Panel::serve_dir` pattern that does not end in a catch-all.
     ServeDirWithoutCatchAll {
         /// The pattern.
@@ -691,6 +696,12 @@ impl fmt::Display for DeclarationErrorKind {
                 f,
                 "the prefix overlaps the panel mounted at '{other}': each panel needs a prefix of \
                  its own"
+            ),
+            Self::EndpointOutsideRuntime { path } => write!(
+                f,
+                "endpoint '{path}' is not a shard or procedure under '{}': the panel's prefix or \
+                 the app's own layers guard a route elsewhere",
+                crate::topcoat_compat::RUNTIME_PREFIX
             ),
             Self::ServeDirWithoutCatchAll { path } => write!(
                 f,

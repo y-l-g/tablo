@@ -107,8 +107,13 @@ to lists checks it before rendering each link.
 
 A page, route or shard the app serves under a panel calls `auth::guard(cx)?` to require the
 panel's signed-in user exactly as the panel's own pages do. A shard needs it: Topcoat serves
-shards at its runtime path, where the page's checks do not run. A form route verifies the CSRF
-token it posted under `csrf::FIELD_NAME` with `csrf::verify(cx, token)`.
+shards at its runtime path, where the page's checks do not run. On a router with several panels,
+the panel declares the shards and procedures its pages use with `Panel::endpoint(shard)`: a
+request to one then runs as that panel, and a session another panel signed in answers 401. A
+shard no panel declares runs as the panel whose session sent the request, whichever it is.
+
+A form route verifies the CSRF token it posted under `csrf::FIELD_NAME` with
+`csrf::verify(cx, token)`.
 
 ## Authentication
 

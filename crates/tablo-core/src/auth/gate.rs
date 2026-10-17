@@ -16,6 +16,7 @@ use topcoat::{
 };
 
 use super::{
+    SignedIn,
     login::{login_url, logout_url},
     page::{AuthPage, render},
     page_load,
@@ -28,7 +29,7 @@ use crate::panel::{
     Panel,
     error_page::answer,
     route_path,
-    state::{CurrentPanel, PanelState, panels},
+    state::{CurrentPanel, PanelState, Panels, panels},
 };
 
 /// Resolves the panel prefix's session into request `Cx` and answers fail-closed
@@ -150,9 +151,10 @@ async fn no_access(cx: &Cx) -> topcoat::Result<Response> {
 
 /// Guards Topcoat's runtime endpoints shared by all panels.
 ///
-/// Resolves the session through its issuing panel's auth; answers 401 when
-/// every mounted panel is gated, otherwise passes on for each panel's shard
-/// to re-check.
+/// An endpoint a panel declared with [`Panel::endpoint`] runs as that panel: only its sessions
+/// sign in, and it answers 401 without one when the panel is gated. Any other endpoint resolves
+/// the session through its issuing panel's auth; it answers 401 when every mounted panel is
+/// gated, otherwise passes on for each panel's shard to re-check.
 pub(crate) struct RuntimeGate {
     path: PathBuf,
 }
@@ -172,30 +174,55 @@ impl Layer for RuntimeGate {
 
     fn handle<'a>(&'a self, cx: &'a Cx, body: Body, next: Next<'a>) -> LayerFuture<'a> {
         Box::pin(async move {
-            let Some(panels) = panels(cx).filter(|panels| panels.any_gates()) else {
+            let Some(panels) = panels(cx) else {
                 return next.run(cx, body).await;
             };
-            let signed = match session_row(cx).await? {
-                Some(row) => match panels
-                    .by_prefix(&row.panel)
-                    .and_then(|panel| Some((panel, panel.auth.authenticator()?)))
-                {
-                    Some((panel, authenticator)) => {
-                        session_user(cx, row, panel, authenticator).await?
-                    }
-                    None => None,
-                },
-                None => None,
+            let declaring: Vec<_> = panels.declaring(uri(cx).path()).collect();
+            let signed = if panels.any_gates() {
+                signed_in(cx, panels).await?
+            } else {
+                None
             };
-            match signed {
+            if declaring.is_empty() {
+                return match signed {
+                    Some(signed) if signed.user.can_access_panel() => {
+                        let panel = CurrentPanel(Arc::clone(&signed.panel));
+                        next.run(&cx.with_many((signed, panel)), body).await
+                    }
+                    Some(_) => Err(forbidden().into()),
+                    None if panels.all_gate() => Err(unauthorized().into()),
+                    None => next.run(cx, body).await,
+                };
+            }
+            // A session another panel signed in is no session for the declaring panels.
+            match signed.filter(|signed| declaring.iter().any(|p| Arc::ptr_eq(p, &signed.panel))) {
                 Some(signed) if signed.user.can_access_panel() => {
                     let panel = CurrentPanel(Arc::clone(&signed.panel));
                     next.run(&cx.with_many((signed, panel)), body).await
                 }
                 Some(_) => Err(forbidden().into()),
-                None if panels.all_gate() => Err(unauthorized().into()),
-                None => next.run(cx, body).await,
+                None => match declaring.iter().find(|panel| !panel.gates()) {
+                    Some(open) => {
+                        next.run(&cx.with(CurrentPanel(Arc::clone(open))), body)
+                            .await
+                    }
+                    None => Err(unauthorized().into()),
+                },
             }
         })
+    }
+}
+
+/// The user the request's session signed in, through the auth of the panel that issued it.
+async fn signed_in(cx: &Cx, panels: &Panels) -> topcoat::Result<Option<SignedIn>> {
+    let Some(row) = session_row(cx).await? else {
+        return Ok(None);
+    };
+    match panels
+        .by_prefix(&row.panel)
+        .and_then(|panel| Some((panel, panel.auth.authenticator()?)))
+    {
+        Some((panel, authenticator)) => session_user(cx, row, panel, authenticator).await,
+        None => Ok(None),
     }
 }

@@ -63,6 +63,7 @@ pub(crate) fn panel_state(prefix: &str, auth: crate::Auth) -> super::state::Pane
         uploads: None,
         served_paths: Vec::new(),
         urls: std::collections::HashMap::new(),
+        endpoints: Vec::new(),
     }
 }
 
