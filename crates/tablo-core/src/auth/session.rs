@@ -225,38 +225,31 @@ async fn delete_session_row(cx: &Cx, key: &str) -> topcoat::Result<()> {
     Ok(())
 }
 
-/// Revokes every live session and reset link of `user_id` for the current panel, or on every
-/// panel outside any panel; call it whenever a credential changes.
+/// Revokes every live session and reset link of `user_id` on the current panel and on each panel
+/// sharing its users, whose authenticator loads the same user type, or on every panel outside any
+/// panel; call it whenever a credential changes.
 ///
 /// # Errors
 ///
 /// The opaque sign-in outage when the database cannot answer.
 pub async fn revoke_sessions_for_user(cx: &Cx, user_id: &str) -> topcoat::Result<()> {
     let mut db = crate::db::db(cx);
-    let user = AuthSession::fields().user_id().eq(user_id.to_string());
-    let (sessions, links) = match current(cx) {
-        Some(panel) => (
-            AuthSession::filter(user.and(AuthSession::fields().panel().eq(panel.prefix.clone()))),
-            panel
-                .auth
-                .reset()
-                .is_some()
-                .then(|| Some(vec![panel.prefix.clone()])),
-        ),
-        None => (
-            AuthSession::filter(user),
-            crate::panel::state::panels(cx)
-                .is_some_and(|panels| panels.0.iter().any(|panel| panel.auth.reset().is_some()))
-                .then_some(None),
-        ),
-    };
-    sessions
+    if let Some(panel) = current(cx) {
+        let panels = match panel.auth.authenticator() {
+            Some(auth) => credential_panels(cx, auth.user_type(), panel),
+            None => vec![Arc::clone(panel)],
+        };
+        return end_credentials(&mut db, user_id, &panels).await;
+    }
+    AuthSession::filter(AuthSession::fields().user_id().eq(user_id.to_string()))
         .delete()
         .exec(&mut db)
         .await
         .map_err(infrastructure_failure)?;
-    if let Some(panels) = links {
-        super::reset::end_links(&mut db, user_id, panels).await?;
+    let resets = crate::panel::state::panels(cx)
+        .is_some_and(|panels| panels.0.iter().any(|panel| panel.auth.reset().is_some()));
+    if resets {
+        super::reset::end_links(&mut db, user_id, None).await?;
     }
     Ok(())
 }

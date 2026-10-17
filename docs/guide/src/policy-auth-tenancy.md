@@ -162,9 +162,9 @@ without a session only when every panel is gated.
   its panel. Renaming a panel's prefix invalidates the sessions it issued.
 - **Revoking.** Call `auth::revoke_sessions_for_user(cx, user_id)` when a user's password changes
   or their account is deactivated; otherwise existing sessions stay valid until they expire. On a
-  panel's request it revokes the sessions and reset links that panel issued; outside any panel,
-  the user's sessions and links on every panel, so a password change of your own for a user with
-  two panels revokes from outside a panel or once per panel.
+  panel's request it revokes the sessions and reset links of every panel whose authenticator loads
+  the same user type, as the profile's own password change does; outside any panel, the user's
+  sessions and links on every panel.
 - **Several panels.** Each panel has its own `Auth` and its own login page, and a session belongs
   to the panel that signed the user in: the session row records the panel's prefix. Another
   panel's gate treats the request as anonymous, and `auth::user` answers `None` there. One
