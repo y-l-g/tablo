@@ -9,6 +9,7 @@ use topcoat::{Result, context::Cx};
 use crate::form::{FieldErrors, Posted, RecordForm};
 
 mod action;
+mod check;
 mod commit;
 mod def;
 mod header_action;
@@ -20,6 +21,7 @@ pub use action::{Action, Places};
 pub(crate) use action::{
     ActionEntry, Actions, ErasedInput, InputResult, InputSpec, RESERVED_KEYS, parse_validated,
 };
+pub(crate) use check::{ResourceCheck, check_inputs, check_resource};
 pub(crate) use commit::run_after_commit;
 pub use commit::{Committed, Mutation};
 pub use def::{PublicLink, ResourceDef};

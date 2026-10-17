@@ -12,9 +12,7 @@ use super::{
         resource_action_options, resource_bulk_delete, resource_delete, resource_export,
         resource_list_action, resource_options, resource_record_action,
     },
-    build::{
-        PageCheck, ResourceCheck, check_page, check_resource, route_path, validate_route_segment,
-    },
+    build::{route_path, validate_route_segment},
     detail::resource_view,
     forms::{resource_create, resource_create_post, resource_edit, resource_edit_post},
     list::{resource_columns, resource_list},
@@ -25,14 +23,14 @@ use super::{
 use crate::{
     Ability, DeclarationError, DeclarationErrorKind, Page, PageDef, Site,
     form::RecordForm,
-    page::MountedPage,
+    page::{MountedPage, PageCheck, check_page},
     panel::url::{
         ACTION_ROUTE_PARAM, ACTIONS_ROUTE_SEGMENT, BULK_DELETE_ROUTE_SEGMENT,
         COLUMNS_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT, DASH_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT,
         EDIT_ROUTE_SEGMENT, EXPORT_ROUTE_SEGMENT, OPTIONS_ROUTE_SEGMENT, RECORD_ROUTE_PARAM,
         RELATED_ROUTE_PARAM, RELATION_ROUTE_PARAM, RELATIONS_ROUTE_SEGMENT, list_route,
     },
-    resource::{Mounted, Mounts, Places, Resource, ResourceDef},
+    resource::{Mounted, Mounts, Places, Resource, ResourceCheck, ResourceDef, check_resource},
 };
 
 /// A resource or page waiting for its panel to mount.
