@@ -891,3 +891,87 @@ fn the_request_acts_for_the_selected_membership_else_the_first() {
     let cx = member_cx(&[a, b], None, Some(b));
     assert_eq!(membership(&cx).map(|m| m.tenant), Some(b));
 }
+
+/// A shard the portal declares, which renders for whoever its guard admits.
+#[topcoat::runtime::shard("/_topcoat/runtime/shards/tablo-test-portal-report")]
+async fn portal_report(cx: &Cx) -> topcoat::Result<impl topcoat::view::View> {
+    guard(cx)?;
+    Ok(topcoat::view::view! { "report" })
+}
+
+/// A router with two password panels over ada's account, the portal declaring `portal_report`.
+async fn two_panel_router() -> topcoat::router::Router {
+    use topcoat::router::RouterBuilderDiscoverExt as _;
+
+    use crate::RouterBuilderPanelExt as _;
+
+    topcoat::router::Router::builder()
+        .discover()
+        .app_context(db_with_admin("ada@example.com").await)
+        .panel(Panel::new("admin"))
+        .expect("admin builds")
+        .panel(Panel::new("portal").endpoint(portal_report))
+        .expect("portal builds")
+        .build()
+}
+
+/// Signs ada in on the panel at `prefix`, answering the session cookie's `name=value`.
+async fn session_on(router: &topcoat::router::Router, prefix: &str) -> String {
+    let token = Uuid::new_v4().to_string();
+    let mut request = login_request(
+        format!("email=ada@example.com&password=opensesame&csrf_token={token}"),
+        &token,
+    );
+    *request.uri_mut() = format!("{prefix}/login").parse().unwrap();
+    let response = router.handle(request).await;
+    assert_eq!(response.status(), http::StatusCode::SEE_OTHER, "signs in");
+    let cookie = session_cookie(&response).expect("a session cookie");
+    cookie.split(';').next().unwrap().to_string()
+}
+
+/// A shard request carrying `cookie`.
+fn shard_request(path: &str, cookie: &str) -> http::Request<Body> {
+    http::Request::builder()
+        .method(http::Method::POST)
+        .uri(path)
+        .header(http::header::CONTENT_TYPE, "application/json")
+        .header(http::header::COOKIE, cookie)
+        .body(Body::from(r#"{"args":[]}"#.to_owned()))
+        .unwrap()
+}
+
+/// A shard a panel declares answers only that panel's sessions: a session the admin panel signed
+/// in is no session on the portal's shard, as it is none on the portal's pages (ADR-0013).
+#[tokio::test]
+async fn a_declared_shard_refuses_another_panels_session() {
+    let router = two_panel_router().await;
+    let path = "/_topcoat/runtime/shards/tablo-test-portal-report";
+
+    let admin = session_on(&router, "/admin").await;
+    let response = router.handle(shard_request(path, &admin)).await;
+    assert_eq!(response.status(), http::StatusCode::UNAUTHORIZED);
+
+    let portal = session_on(&router, "/portal").await;
+    let response = router.handle(shard_request(path, &portal)).await;
+    assert_eq!(response.status(), http::StatusCode::OK);
+}
+
+/// A shard no panel declares answers every panel's sessions: the live toaster serves them all.
+#[tokio::test]
+async fn an_undeclared_shard_admits_every_panels_session() {
+    let router = two_panel_router().await;
+    for prefix in ["/admin", "/portal"] {
+        let cookie = session_on(&router, prefix).await;
+        let response = router
+            .handle(shard_request(
+                crate::notification::LIVE_TOASTER_PATH,
+                &cookie,
+            ))
+            .await;
+        assert_ne!(
+            response.status(),
+            http::StatusCode::UNAUTHORIZED,
+            "{prefix}"
+        );
+    }
+}

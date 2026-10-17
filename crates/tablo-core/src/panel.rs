@@ -129,6 +129,8 @@ pub struct Panel {
     /// The app's entries in the user menu, above Sign out.
     user_menu: Vec<crate::NavigationItem>,
     auth: crate::auth::Auth,
+    /// The paths of the runtime endpoints that answer only this panel's sessions.
+    endpoints: Vec<String>,
 }
 
 impl Panel {
@@ -155,6 +157,7 @@ impl Panel {
             login_hint: None,
             user_menu: Vec::new(),
             auth: crate::auth::Auth::default(),
+            endpoints: Vec::new(),
         }
     }
 
@@ -314,6 +317,43 @@ impl Panel {
     /// panel that signed them in.
     pub fn auth(mut self, auth: crate::auth::Auth) -> Self {
         self.auth = auth;
+        self
+    }
+
+    /// Declares a shard or procedure the app serves on this panel's pages: a request to it
+    /// answers as a request under the prefix does.
+    ///
+    /// Topcoat serves shards and procedures under its runtime path, outside every panel's
+    /// prefix. A request to an endpoint no panel declares runs as the panel whose session sent
+    /// it, whichever panel that is. A declared one runs as this panel: a session another panel
+    /// signed in is no session here, so it answers 401 when the panel requires sign-in, and
+    /// [`auth::guard`](crate::auth::guard), [`auth::user`](crate::auth::user), the tenant and
+    /// [`can_list`] answer for this panel. Several panels may declare the same
+    /// endpoint; each of their sessions reaches it.
+    ///
+    /// The router still registers the endpoint, through discovery or `.route(..)`. A route
+    /// outside Topcoat's runtime path refuses to mount: the panel's prefix or the app's own
+    /// layers guard it.
+    ///
+    /// ```rust
+    /// # use tablo_core::{Panel, auth};
+    /// # use topcoat::{Result, context::Cx, runtime::shard, view::{View, view}};
+    /// #[shard]
+    /// async fn revenue(cx: &Cx) -> Result<impl View> {
+    ///     auth::guard(cx)?;
+    ///     Ok(view! { "…" })
+    /// }
+    ///
+    /// Panel::new("admin").endpoint(revenue);
+    /// ```
+    pub fn endpoint(mut self, endpoint: impl topcoat::router::Route) -> Self {
+        let path = endpoint.path().as_str().to_owned();
+        if !state::under_prefix(crate::topcoat_compat::RUNTIME_PREFIX, &path) {
+            self.configuration_errors.push(DeclarationError::panel(
+                DeclarationErrorKind::EndpointOutsideRuntime { path: path.clone() },
+            ));
+        }
+        self.endpoints.push(path);
         self
     }
 

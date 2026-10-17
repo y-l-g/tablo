@@ -1670,6 +1670,7 @@ impl tablo_core::panel::Panel
 pub fn tablo_core::panel::Panel::auth(self, tablo_core::auth::Auth) -> Self
 pub fn tablo_core::panel::Panel::brand(self, tablo_core::Brand) -> Self
 pub fn tablo_core::panel::Panel::dark_mode(self, bool) -> Self
+pub fn tablo_core::panel::Panel::endpoint(self, impl topcoat_router::route::Route) -> Self
 pub fn tablo_core::panel::Panel::frame_ancestors(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::panel::Panel::home<P: tablo_core::Page>(self) -> Self
 pub fn tablo_core::panel::Panel::layout(self, topcoat_router::page::LayoutRenderFn) -> Self
@@ -3831,6 +3832,8 @@ pub tablo_core::DeclarationErrorKind::DuplicateSlug
 pub tablo_core::DeclarationErrorKind::DuplicateSlug::slug: alloc::string::String
 pub tablo_core::DeclarationErrorKind::EmptyChoice
 pub tablo_core::DeclarationErrorKind::EmptyChoice::field: alloc::string::String
+pub tablo_core::DeclarationErrorKind::EndpointOutsideRuntime
+pub tablo_core::DeclarationErrorKind::EndpointOutsideRuntime::path: alloc::string::String
 pub tablo_core::DeclarationErrorKind::FieldRule
 pub tablo_core::DeclarationErrorKind::FieldRule::fault: tablo_core::FieldRuleFault
 pub tablo_core::DeclarationErrorKind::FieldRule::field: alloc::string::String
@@ -5295,6 +5298,7 @@ impl tablo_core::panel::Panel
 pub fn tablo_core::panel::Panel::auth(self, tablo_core::auth::Auth) -> Self
 pub fn tablo_core::panel::Panel::brand(self, tablo_core::Brand) -> Self
 pub fn tablo_core::panel::Panel::dark_mode(self, bool) -> Self
+pub fn tablo_core::panel::Panel::endpoint(self, impl topcoat_router::route::Route) -> Self
 pub fn tablo_core::panel::Panel::frame_ancestors(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::panel::Panel::home<P: tablo_core::Page>(self) -> Self
 pub fn tablo_core::panel::Panel::layout(self, topcoat_router::page::LayoutRenderFn) -> Self

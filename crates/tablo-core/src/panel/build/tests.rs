@@ -1231,3 +1231,22 @@ async fn mounting_refuses_each_misdeclaration() {
         mounted.expect(label);
     }
 }
+
+/// `Panel::endpoint` binds a shard or procedure: a route outside Topcoat's runtime path refuses to
+/// mount, since the runtime gate never sees it.
+#[test]
+fn an_endpoint_outside_the_runtime_path_refuses_the_panel() {
+    let route = RouteFn::new(
+        http::Method::GET,
+        route_path("/reports"),
+        panel_root_redirect,
+    );
+    let errors = refusal(mount_without_db(Panel::new("admin").endpoint(route)));
+    assert!(
+        errors.iter().any(|error| error.kind
+            == DeclarationErrorKind::EndpointOutsideRuntime {
+                path: "/reports".to_string()
+            }),
+        "{errors:?}"
+    );
+}
