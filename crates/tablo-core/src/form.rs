@@ -62,8 +62,8 @@ use topcoat::context::Cx;
 pub use values::{FormValue, FormValues};
 
 use crate::{
+    column::Includes,
     schema::{OptionSource, Schema, TypedValue},
-    table::column::Includes,
 };
 
 /// A type one form key reads and writes: `String`, every [`TypedValue`] type,
