@@ -1,7 +1,10 @@
 //! The shipped credentials: the [`AdminUser`] model, Argon2id hashing, and the
 //! [`PasswordAuth`] authenticator over them.
 
+use std::sync::{Arc, LazyLock};
+
 use jiff::Timestamp;
+use tokio::sync::Semaphore;
 use topcoat::context::Cx;
 use uuid::Uuid;
 
@@ -291,7 +294,8 @@ fn normalize_email(email: &str) -> String {
 }
 
 /// Hashes a password with Argon2id into a PHC string for storage; never stores
-/// the plaintext. Runs on Tokio's blocking pool, as [`verify_password`] does.
+/// the plaintext. Runs on Tokio's blocking pool, as [`verify_password`] does, one hash per core
+/// at once.
 ///
 /// # Errors
 ///
@@ -314,7 +318,8 @@ pub async fn hash_password(password: &str) -> topcoat::Result<String> {
 /// not reveal which accounts exist.
 ///
 /// Runs on Tokio's blocking pool: a verification takes tens of milliseconds of CPU, which on
-/// an async worker would stall every request that worker serves.
+/// an async worker would stall every request that worker serves. One verification or hash per
+/// core runs at once, and the rest wait their turn.
 ///
 /// ```rust,no_run
 /// # use tablo_core::auth::verify_password;
@@ -334,6 +339,7 @@ pub async fn hash_password(password: &str) -> topcoat::Result<String> {
 /// # Ok(staff)
 /// # }
 /// ```
+#[must_use]
 pub async fn verify_password(password: &str, hash: Option<&str>) -> bool {
     use argon2::password_hash::{PasswordVerifier, phc::PasswordHash};
 
@@ -355,8 +361,35 @@ pub async fn verify_password(password: &str, hash: Option<&str>) -> bool {
     verified && known
 }
 
-/// Runs `work` on Tokio's blocking pool, re-raising its panic here.
+/// How many Argon2 runs the process allows at once: one per core. Each run holds about 19 MiB,
+/// so a flood of sign-ins under distinct logins, which no throttle count refuses, waits here
+/// instead of filling Tokio's blocking pool and the memory with hashes.
+static ARGON2_PERMITS: LazyLock<Arc<Semaphore>> = LazyLock::new(|| {
+    let cores = std::thread::available_parallelism().map_or(1, std::num::NonZero::get);
+    Arc::new(Semaphore::new(cores))
+});
+
+/// Runs `work` on Tokio's blocking pool once one of [`ARGON2_PERMITS`] is free, re-raising its
+/// panic here.
 async fn off_executor<T: Send + 'static>(work: impl FnOnce() -> T + Send + 'static) -> T {
+    permitted(&ARGON2_PERMITS, work).await
+}
+
+/// Runs `work` on Tokio's blocking pool while holding one of `permits`. The work keeps its permit
+/// until it ends, even when the request awaiting it is dropped.
+pub(super) async fn permitted<T: Send + 'static>(
+    permits: &Arc<Semaphore>,
+    work: impl FnOnce() -> T + Send + 'static,
+) -> T {
+    let permit = Arc::clone(permits)
+        .acquire_owned()
+        .await
+        .expect("the Argon2 semaphore is never closed");
+    let work = move || {
+        let value = work();
+        drop(permit);
+        value
+    };
     match tokio::task::spawn_blocking(work).await {
         Ok(value) => value,
         Err(error) => std::panic::resume_unwind(error.into_panic()),

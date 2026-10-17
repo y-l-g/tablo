@@ -35,7 +35,8 @@ pluralizer = "0.5"
 regex = "1"
 subtle = "2"
 serde.workspace = true
-tokio.workspace = true
+# `sync` bounds how many Argon2 runs the blocking pool holds at once.
+tokio = { workspace = true, features = ["sync"] }
 toasty.workspace = true
 toasty-core.workspace = true
 # `fs` is for `Panel::serve_dir`: serving an upload directory is a

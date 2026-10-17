@@ -61,7 +61,7 @@ async fn a_password_verifies_off_the_async_worker() {
     let order = std::sync::Mutex::new(Vec::new());
     tokio::join!(
         async {
-            verify_password("anything", None).await;
+            let _ = verify_password("anything", None).await;
             order.lock().unwrap().push("verify");
         },
         async {
@@ -69,6 +69,27 @@ async fn a_password_verifies_off_the_async_worker() {
         },
     );
     assert_eq!(*order.lock().unwrap(), ["other", "verify"]);
+}
+
+/// Hashing work past the permits waits for one, so no more runs at once than the permits allow.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn hashing_runs_no_more_at_once_than_its_permits() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    let permits = Arc::new(tokio::sync::Semaphore::new(2));
+    let running = Arc::new(AtomicUsize::new(0));
+    let most = Arc::new(AtomicUsize::new(0));
+    let runs = (0..8).map(|_| {
+        let (running, most) = (Arc::clone(&running), Arc::clone(&most));
+        password::permitted(&permits, move || {
+            let now = running.fetch_add(1, Ordering::SeqCst) + 1;
+            most.fetch_max(now, Ordering::SeqCst);
+            std::thread::sleep(std::time::Duration::from_millis(20));
+            running.fetch_sub(1, Ordering::SeqCst);
+        })
+    });
+    futures_util::future::join_all(runs).await;
+    assert_eq!(most.load(Ordering::SeqCst), 2);
 }
 
 #[test]
