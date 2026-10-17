@@ -27,6 +27,7 @@ use topcoat::{Result, context::Cx, view::*};
 
 use super::{condition::Condition, lenses::Binding, repeater::RepeaterControl};
 use crate::{
+    dom,
     naming::capitalize,
     schema::FormInput,
     values::{FieldError, FieldErrorKind, FormScalar, FormValue, is_email},
@@ -760,13 +761,10 @@ pub(crate) struct FieldChrome {
 /// instead of the sentence.
 pub(crate) fn error_kind(error: &FieldError) -> &'static str {
     match error.kind {
-        FieldErrorKind::Required => "required",
-        FieldErrorKind::Invalid(_) => "invalid",
+        FieldErrorKind::Required => dom::error::REQUIRED,
+        FieldErrorKind::Invalid(_) => dom::error::INVALID,
     }
 }
-
-/// The `data-error` of a choice whose options the user may not read.
-pub(crate) const UNAVAILABLE: &str = "unavailable";
 
 impl FieldChrome {
     /// The chrome of the control labelled `label`, refused with `error`. `fallback` is the
@@ -780,9 +778,11 @@ impl FieldChrome {
     ) -> Self {
         let message = error.map(|error| error.message(label));
         let (error_text, error_kind) = match (message, fallback) {
-            (Some(message), Some(_)) if !message.is_empty() => (message, Some(UNAVAILABLE)),
+            (Some(message), Some(_)) if !message.is_empty() => {
+                (message, Some(dom::error::UNAVAILABLE))
+            }
             (Some(message), None) => (message, error.map(error_kind)),
-            (_, Some(fallback)) => (fallback, Some(UNAVAILABLE)),
+            (_, Some(fallback)) => (fallback, Some(dom::error::UNAVAILABLE)),
             (None, None) => (String::new(), None),
         };
         Self {

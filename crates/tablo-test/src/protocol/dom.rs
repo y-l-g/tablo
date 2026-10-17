@@ -10,6 +10,8 @@
 //! The queries assume one table per document: rows never nest, and cells carry text rather than
 //! nested tables.
 
+use tablo_core::dom::{empty, error};
+
 type Attrs = Vec<(String, Option<String>)>;
 type Element = (String, Attrs, String);
 
@@ -81,8 +83,8 @@ pub fn empty_table(html: &str) -> Option<EmptyTable> {
     };
     Some(EmptyTable {
         reason: attr_value(&attrs, "data-empty").unwrap_or_default(),
-        clear: link("clear"),
-        first_page: link("first-page"),
+        clear: link(empty::CLEAR_LINK),
+        first_page: link(empty::FIRST_PAGE_LINK),
     })
 }
 
@@ -205,9 +207,9 @@ pub enum ErrorKind {
 pub fn field_error(html: &str, name: &str) -> Option<ErrorKind> {
     let (attrs, _) = error_slot(html, name)?;
     Some(match attr_value(&attrs, "data-error").as_deref() {
-        Some("required") => ErrorKind::Required,
-        Some("invalid") => ErrorKind::Invalid,
-        Some("unavailable") => ErrorKind::Unavailable,
+        Some(error::REQUIRED) => ErrorKind::Required,
+        Some(error::INVALID) => ErrorKind::Invalid,
+        Some(error::UNAVAILABLE) => ErrorKind::Unavailable,
         other => panic!("the error slot of `{name}` names no known kind: {other:?}"),
     })
 }
