@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0](https://github.com/y-l-g/tablo/compare/tablo-macros-v0.7.0...tablo-macros-v0.8.0) - 2026-10-17
+
+### Added
+
+- *(table)* [**breaking**] lay tables out by their content and open a record from its row ([#648](https://github.com/y-l-g/tablo/pull/648))
+- *(table)* present values as badges, money, numbers, colors and images ([#644](https://github.com/y-l-g/tablo/pull/644))
+
+### Changed
+
+- *(core)* [**breaking**] merge `ActionInput` and `RepeaterItem` into `FormInput` ([#667](https://github.com/y-l-g/tablo/pull/667))
+- *(schema)* [**breaking**] bind lenses when they are declared, not at mount ([#664](https://github.com/y-l-g/tablo/pull/664))
+
+### Fixed
+
+- handle page 0, a toggle made a choice, blank option values and encoded breadcrumbs ([#691](https://github.com/y-l-g/tablo/pull/691))
+
 ## [0.7.0](https://github.com/y-l-g/tablo/compare/tablo-macros-v0.6.0...tablo-macros-v0.7.0) - 2026-10-14
 
 ### Added
