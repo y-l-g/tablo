@@ -111,6 +111,9 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// `filter`, `order_by` and `Paginate::new` work on the raw form for any
     /// `M: Model` — so one panel handler drives every resource's list page.
     ///
+    /// A list and its export replace any ordering this sets with the table's own sort: order a
+    /// list with [`Table::default_sort`](crate::Table::default_sort).
+    ///
     /// # Keep unique constraints in step with this scope
     ///
     /// The app-side unique pre-check probes through the same tenant-scoped

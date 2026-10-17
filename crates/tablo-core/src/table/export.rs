@@ -23,7 +23,8 @@ impl<M> Table<M> {
     /// defused per OWASP (a leading `'` is prepended when the first
     /// non-whitespace/control character is `=`, `+`, `-`, `@`, `|` or `%`,
     /// including CR/LF- or tab-led variants) so a stored value like
-    /// `=1+1` opens as text, not a live spreadsheet formula.
+    /// `=1+1` opens as text, not a live spreadsheet formula. A negative
+    /// number such as `-$1,234.50` stays as it is, so it opens as a number.
     pub(crate) fn csv_row(&self, cx: &Cx, row: &M) -> String
     where
         M: toasty::schema::Model,
@@ -52,10 +53,26 @@ fn defuse_formula(s: &str) -> String {
     });
     if let Some(first) = trimmed.chars().next()
         && matches!(first, '=' | '+' | '-' | '@' | '|' | '%')
+        && !is_negative_number(trimmed)
     {
         return format!("'{s}");
     }
     s.to_string()
+}
+
+/// Whether `s` is a negative number as a column formats one (`-1234.5`, `-$1,234.50`, `-12%`):
+/// a spreadsheet reads it as a number, not a formula, so a `'` would only turn it into text.
+fn is_negative_number(s: &str) -> bool {
+    s.strip_prefix('-').is_some_and(|rest| {
+        rest.chars().any(|c| c.is_ascii_digit())
+            && rest.chars().all(|c| {
+                c.is_ascii_digit()
+                    || matches!(
+                        c,
+                        '.' | ',' | ' ' | '\u{A0}' | '\u{202F}' | '$' | '€' | '£' | '¥' | '%'
+                    )
+            })
+    })
 }
 
 fn escape_csv(s: &str) -> String {

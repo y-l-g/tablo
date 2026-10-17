@@ -163,10 +163,10 @@ where
             .saturating_mul(per_page);
         // A simple page fetches one row more than it shows: that row is the next page's.
         let fetch = if counted { per_page } else { per_page + 1 };
-        let ordered = table
-            .offset_order_bys_for(state)
-            .into_iter()
-            .fold(narrowed, |query, order| query.order_by(order));
+        let mut ordered = narrowed;
+        ordered.set_order_by(toasty::stmt::OrderBy {
+            exprs: table.offset_order_bys_for(state),
+        });
         let mut rows = table
             .include_relations(ordered)
             .limit(fetch)

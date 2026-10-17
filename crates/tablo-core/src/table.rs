@@ -8,7 +8,7 @@
 use std::{marker::PhantomData, num::NonZeroUsize, sync::Arc};
 
 use derive_where::derive_where;
-use toasty::stmt::{Expr, List, OrderByExpr};
+use toasty::stmt::{Expr, List, OrderBy, OrderByExpr};
 
 use self::filter::BoxFilter;
 pub(crate) use self::{
@@ -577,7 +577,9 @@ impl<M> Table<M> {
         query
     }
 
-    /// Order `query` as `state` sorts it.
+    /// Order `query` as `state` sorts it, replacing any ordering `query` carries: Toasty appends
+    /// an `order_by` after the existing ones, so a [`Resource::query`](crate::Resource::query)
+    /// ordering would otherwise outrank the user's sort.
     pub(crate) fn order(
         &self,
         mut query: toasty::stmt::Query<List<M>>,
@@ -586,9 +588,9 @@ impl<M> Table<M> {
     where
         M: toasty::schema::Model,
     {
-        for ord in self.order_bys_for(state) {
-            query = query.order_by(ord);
-        }
+        query.set_order_by(OrderBy {
+            exprs: self.order_bys_for(state),
+        });
         query
     }
 

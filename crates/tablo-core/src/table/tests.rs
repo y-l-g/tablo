@@ -996,3 +996,27 @@ async fn per_page_reads_only_an_offered_size() {
     let (rows, _) = numbered_page(&cx, &fixed, "per_page=4").await;
     assert_eq!(rows.len(), 2, "a table offering no choice keeps its size");
 }
+
+/// The list's sort outranks an ordering the resource's query carries, on every pagination: Toasty
+/// appends an `order_by`, so the query's ordering would otherwise come first.
+#[tokio::test]
+async fn the_sort_outranks_the_resource_querys_ordering() {
+    let cx = seeded_users(&["u01", "u02", "u03"]).await;
+    let table = Table::<User>::new(TextColumn::new(lens!(User.name)).sortable());
+    for pagination in [
+        crate::table::Pagination::Cursor,
+        crate::table::Pagination::Pages,
+        crate::table::Pagination::Simple,
+    ] {
+        let page = TablePage::load(
+            &cx,
+            &table.clone().pagination(pagination),
+            toasty::stmt::Query::<List<User>>::all().order_by(User::fields().name().desc()),
+            &TableState::from_query("sort=name"),
+        )
+        .await
+        .expect("the page loads");
+        let names: Vec<_> = page.rows.iter().map(|user| user.name.as_str()).collect();
+        assert_eq!(names, ["u01", "u02", "u03"], "{pagination:?}");
+    }
+}
