@@ -157,9 +157,9 @@ without a session only when every panel is gated.
   its panel. Renaming a panel's prefix invalidates the sessions it issued.
 - **Revoking.** Call `auth::revoke_sessions_for_user(cx, user_id)` when a user's password changes
   or their account is deactivated; otherwise existing sessions stay valid until they expire. On a
-  panel's request it revokes the sessions that panel issued; outside any panel, the user's
-  sessions on every panel, so a reset flow for a user with two panels revokes from outside a panel
-  or once per panel.
+  panel's request it revokes the sessions and reset links that panel issued; outside any panel,
+  the user's sessions and links on every panel, so a password change of your own for a user with
+  two panels revokes from outside a panel or once per panel.
 - **Several panels.** Each panel has its own `Auth` and its own login page, and a session belongs
   to the panel that signed the user in: the session row records the panel's prefix. Another
   panel's gate treats the request as anonymous, and `auth::user` answers `None` there. One
@@ -286,13 +286,53 @@ shipped `Profile` input fits any table with a name, an email and a password:
   keeps a stolen session from guessing the current password. A user past the limit can still sign
   in.
 
+### Password reset
+
+`Auth::password_reset` adds a "Forgot your password?" link to the login page. It leads to
+`{prefix}/forgot-password`, which mails a reset link, and the link opens `{prefix}/reset-password`,
+where the visitor chooses a new password. The mail goes through the router's `MailConfig`, so
+register one before mounting the panel, and add `PasswordResetToken` to the `Db`'s models:
+
+```rust
+{{#include ../../../examples/guide/src/policy_tenancy.rs:policy-password-reset}}
+```
+
+The base URL is the scheme and host the app answers on. Reset links start with it rather than with
+the request's `Host` header, which the client chooses and could point at another host.
+
+Your own user table resets through a `PasswordResetter` beside its `Authenticator`:
+`find_by_email` loads the account an address signs in as, `email` names the address the account
+stores, and `reset_password` sets the new password inside the reset's transaction.
+
+- **The request page** answers the same whether an account uses the address or not: it redirects
+  to the login page with a notification, and writes and mails the link after answering, so the
+  database and the mail server add no time when an account exists. An account that may not enter
+  the panel gets no link, and a failed send is logged, not shown.
+- **The link goes to the stored address**, never the typed one. A lookup that matches loosely,
+  such as a collation that folds accents, would otherwise mail one account's link to another
+  address.
+- **A link** works once, for one hour, on the panel that mailed it, and only while the account may
+  still enter the panel. A new request replaces the account's earlier link, and a password change
+  on the profile page ends it. The token is stored only as a hash, and the reset page sends no
+  referrer and may not be cached.
+- **A reset** checks the new password with `new_password_errors`, then sets it, ends the account's
+  sessions and reset links on every panel whose authenticator loads the same user type, and
+  redirects to the login page. All of this commits in one transaction.
+- **Throttling.** Each address may request three links in fifteen minutes, from any client,
+  counted whether or not an account uses it; `PasswordReset::throttle` changes the limit. Past it
+  the page answers 429. A limit per client belongs at the proxy.
+- **Mounting refuses** a resetter whose `User` is not the type the authenticator loads, a reset on
+  `Auth::disabled()`, a base URL that is not an absolute `http` or `https` URL or that carries a
+  query or fragment, and a router without a `MailConfig`.
+
 ### Turning it off
 
 ```rust
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-auth-disabled-body}}
 ```
 
-Every panel route is then public and the login, sign-up and profile routes are not registered. Use it for public
+Every panel route is then public and the login, sign-up, profile and password reset routes are not
+registered. Use it for public
 demos and tests only.
 
 ## Tenancy

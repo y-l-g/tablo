@@ -172,6 +172,47 @@ pub enum ProfileFault {
     RelationshipField(String),
 }
 
+/// Why a panel's password reset cannot be served: [`DeclarationErrorKind::PasswordReset`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ResetFault {
+    /// `Auth::password_reset` on `Auth::disabled`, which signs nobody in after a reset.
+    AuthDisabled,
+    /// The resetter resets another user type than the authenticator loads.
+    UserType {
+        /// The resetter's `User` type.
+        resetter: &'static str,
+    },
+    /// The base URL reset links start with is not an absolute `http` or `https` URL.
+    BaseUrl(String),
+    /// The router registers no `MailConfig` to send reset links through.
+    MissingMail,
+}
+
+impl fmt::Display for ResetFault {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::AuthDisabled => f.write_str(
+                "a password reset needs auth: `Auth::disabled()` serves no sign-in to reset",
+            ),
+            Self::UserType { resetter } => write!(
+                f,
+                "the password resetter resets `{resetter}`, but the authenticator loads another \
+             type: reset the type the panel signs in"
+            ),
+            Self::BaseUrl(url) => write!(
+                f,
+                "the password reset's base URL '{url}' is not an absolute http or https URL: \
+             pass the scheme and host the app answers on, such as `https://admin.example.com`"
+            ),
+            Self::MissingMail => f.write_str(
+                "a password reset mails its links, but the router registers no `MailConfig`: \
+             install one with `.mail(..)` before mounting the panel",
+            ),
+        }
+    }
+}
+
 impl fmt::Display for ProfileFault {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -386,6 +427,8 @@ pub enum DeclarationErrorKind {
     SignUp(SignUpFault),
     /// The panel's profile page cannot be served.
     Profile(ProfileFault),
+    /// The panel's password reset cannot be served.
+    PasswordReset(ResetFault),
     /// Two relations to the same resource.
     DuplicateRelation,
     /// A relation to a resource the panel does not register.
@@ -686,6 +729,7 @@ impl fmt::Display for DeclarationErrorKind {
             Self::ActionInput { action, fault } => fmt_action_input(f, action, fault),
             Self::SignUp(fault) => fault.fmt(f),
             Self::Profile(fault) => fault.fmt(f),
+            Self::PasswordReset(fault) => fault.fmt(f),
             Self::DuplicateRelation => {
                 f.write_str("declared twice: each related resource is one relation")
             }

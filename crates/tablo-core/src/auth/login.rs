@@ -265,10 +265,11 @@ async fn render_login_page<'a>(
     let csrf = crate::csrf::ensure_token(cx);
     let action = login_url(cx);
     let hint = current(cx).and_then(|panel| panel.login_hint.clone());
+    let forgot = super::reset::offered(cx).then(|| super::reset::forgot_url(cx));
     let sign_up = super::registration::offered(cx)
         .then(|| super::registration::with_next(super::registration::register_url(cx), &next));
-    // A sign-up lands here with a notification. Only a GET takes it: a HEAD renders nothing,
-    // and a failed attempt's page shows the failure.
+    // A sign-up or a password reset lands here with a notification. Only a GET takes it: a HEAD
+    // renders nothing, and a failed attempt's page shows the failure.
     let notice = (error.is_none() && *topcoat::router::request::method(cx) == http::Method::GET)
         .then(|| crate::notification::take_notification(cx))
         .flatten();
@@ -328,6 +329,14 @@ async fn render_login_page<'a>(
                     }
                 )
             )
+            if let Some(forgot) = forgot {
+                <a
+                    (crate::navigation::runtime_link(cx, &forgot))
+                    class="-mt-2 self-end text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                >
+                    "Forgot your password?"
+                </a>
+            }
             tablo_ui::button(
                 variant: tablo_ui::ButtonVariant::Primary,
                 attrs: topcoat::view::attributes! { type="submit" class="w-full" },

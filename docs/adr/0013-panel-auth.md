@@ -16,9 +16,14 @@ is the explicit opt-out.
   the new account in only when it has panel access.
 - The profile page is opt-in through a third seam, a `ProfileEditor` for the same user type: it
   fills a form input from the signed-in user, validates and writes in one transaction, and says
-  whether a credential changed. A credential change ends the user's sessions on every panel that
-  loads the same user type, in the transaction that saves, and starts a new one for the browser
-  that saved.
+  whether a credential changed. A credential change ends the user's sessions and reset links on
+  every panel that loads the same user type, in the transaction that saves, and starts a new
+  session for the browser that saved.
+- Password reset is opt-in through a fourth seam, a `PasswordResetter` for the same user type:
+  it finds an account by email and sets its password. Tablo mails a single-use link through
+  Topcoat mail, stores only the token's hash, and starts the link with a configured base URL. The
+  link is written and mailed after the response, so the answer takes as long for an unknown
+  address. A reset ends the account's sessions and links like a credential change.
 
 ## Rejected
 
@@ -30,3 +35,6 @@ is the explicit opt-out.
 - Profile editing as a resource over the user table: its edit page would need the user's own
   record and a policy that admits only it, and nothing would ask for the current password or
   revoke sessions when a credential changes.
+- Reset links built from the request's `Host` header: the client chooses it, so a forged request
+  would mail the victim a link to another host. A reset behind a Tablo cargo feature: the mail
+  builder adds little to the dependency tree, and SMTP stays behind Topcoat's own feature.

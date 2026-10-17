@@ -67,21 +67,17 @@ pub(super) async fn record(
     .map_err(infrastructure_failure)
 }
 
-/// Replaces every session `user_id` holds, on every panel whose authenticator loads `user_type`,
-/// with `session` on the panel and tenant `signed` acts under, through `ex`: what a credential
-/// change does inside the transaction that writes it, so the new credential and the revocation
-/// commit together.
-pub(super) async fn replace_sessions(
+/// The panels whose authenticator loads `user_type`, or `own` outside a router: the panels that
+/// share a user's credentials, so a credential change ends the user's sessions and reset links on
+/// each.
+pub(super) fn credential_panels(
     cx: &Cx,
-    ex: &mut dyn toasty::Executor,
-    signed: &SignedIn,
     user_type: std::any::TypeId,
-    session: &session::Session,
-) -> topcoat::Result<()> {
-    // Another panel signing the same users in shares their credentials, so it shares the
-    // revocation.
-    let prefixes: Vec<String> = crate::panel::state::panels(cx)
-        .map(|panels| {
+    own: &Arc<PanelState>,
+) -> Vec<Arc<PanelState>> {
+    crate::panel::state::panels(cx).map_or_else(
+        || vec![Arc::clone(own)],
+        |panels| {
             panels
                 .0
                 .iter()
@@ -91,21 +87,56 @@ pub(super) async fn replace_sessions(
                         .authenticator()
                         .is_some_and(|auth| auth.user_type() == user_type)
                 })
-                .map(|panel| panel.prefix.clone())
+                .cloned()
                 .collect()
-        })
-        .unwrap_or_else(|| vec![signed.panel.prefix.clone()]);
-    let user_id = signed.user.user_id();
+        },
+    )
+}
+
+/// Deletes every session `user_id` holds on `panels`, and every reset link it holds on those that
+/// offer a reset, through `ex`: what a credential change ends.
+pub(super) async fn end_credentials(
+    ex: &mut dyn toasty::Executor,
+    user_id: &str,
+    panels: &[Arc<PanelState>],
+) -> topcoat::Result<()> {
+    let prefixes: Vec<String> = panels.iter().map(|panel| panel.prefix.clone()).collect();
     AuthSession::filter(
         AuthSession::fields()
             .user_id()
-            .eq(user_id.clone())
+            .eq(user_id.to_string())
             .and(AuthSession::fields().panel().in_list(prefixes)),
     )
     .delete()
     .exec(&mut *ex)
     .await
     .map_err(infrastructure_failure)?;
+    let resets: Vec<String> = panels
+        .iter()
+        .filter(|panel| panel.auth.reset().is_some())
+        .map(|panel| panel.prefix.clone())
+        .collect();
+    if resets.is_empty() {
+        // Without a reset the token model may be unregistered.
+        return Ok(());
+    }
+    super::reset::end_links(ex, user_id, Some(resets)).await
+}
+
+/// Replaces every session `user_id` holds, on every panel whose authenticator loads `user_type`,
+/// with `session` on the panel and tenant `signed` acts under, and ends its reset links there,
+/// through `ex`: what a credential change does inside the transaction that writes it, so the new
+/// credential and the revocation commit together.
+pub(super) async fn replace_sessions(
+    cx: &Cx,
+    ex: &mut dyn toasty::Executor,
+    signed: &SignedIn,
+    user_type: std::any::TypeId,
+    session: &session::Session,
+) -> topcoat::Result<()> {
+    let panels = credential_panels(cx, user_type, &signed.panel);
+    let user_id = signed.user.user_id();
+    end_credentials(&mut *ex, &user_id, &panels).await?;
     let expires_at = Timestamp::try_from(session.expires_at).map_err(topcoat::Error::from)?;
     insert(
         ex,
@@ -194,7 +225,7 @@ async fn delete_session_row(cx: &Cx, key: &str) -> topcoat::Result<()> {
     Ok(())
 }
 
-/// Revokes every live session of `user_id` for the current panel, or on every
+/// Revokes every live session and reset link of `user_id` for the current panel, or on every
 /// panel outside any panel; call it whenever a credential changes.
 ///
 /// # Errors
@@ -203,17 +234,30 @@ async fn delete_session_row(cx: &Cx, key: &str) -> topcoat::Result<()> {
 pub async fn revoke_sessions_for_user(cx: &Cx, user_id: &str) -> topcoat::Result<()> {
     let mut db = crate::db::db(cx);
     let user = AuthSession::fields().user_id().eq(user_id.to_string());
-    let sessions = match current(cx) {
-        Some(panel) => {
-            AuthSession::filter(user.and(AuthSession::fields().panel().eq(panel.prefix.clone())))
-        }
-        None => AuthSession::filter(user),
+    let (sessions, links) = match current(cx) {
+        Some(panel) => (
+            AuthSession::filter(user.and(AuthSession::fields().panel().eq(panel.prefix.clone()))),
+            panel
+                .auth
+                .reset()
+                .is_some()
+                .then(|| Some(vec![panel.prefix.clone()])),
+        ),
+        None => (
+            AuthSession::filter(user),
+            crate::panel::state::panels(cx)
+                .is_some_and(|panels| panels.0.iter().any(|panel| panel.auth.reset().is_some()))
+                .then_some(None),
+        ),
     };
     sessions
         .delete()
         .exec(&mut db)
         .await
         .map_err(infrastructure_failure)?;
+    if let Some(panels) = links {
+        super::reset::end_links(&mut db, user_id, panels).await?;
+    }
     Ok(())
 }
 

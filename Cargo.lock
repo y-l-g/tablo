@@ -4015,6 +4015,7 @@ dependencies = [
  "topcoat-icon",
  "topcoat-icon-macro",
  "topcoat-mail",
+ "topcoat-mail-macro",
  "topcoat-router",
  "topcoat-router-macro",
  "topcoat-runtime",
@@ -4181,6 +4182,29 @@ dependencies = [
  "topcoat-core",
  "topcoat-router",
  "topcoat-view",
+]
+
+[[package]]
+name = "topcoat-mail-grammar"
+version = "0.10.0"
+source = "git+https://github.com/tokio-rs/topcoat?rev=b7a85c349100e99a18cd4f03c0e90dfe61a23180#b7a85c349100e99a18cd4f03c0e90dfe61a23180"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.9",
+ "topcoat-core-grammar",
+ "topcoat-mail",
+ "topcoat-view-grammar",
+]
+
+[[package]]
+name = "topcoat-mail-macro"
+version = "0.10.0"
+source = "git+https://github.com/tokio-rs/topcoat?rev=b7a85c349100e99a18cd4f03c0e90dfe61a23180#b7a85c349100e99a18cd4f03c0e90dfe61a23180"
+dependencies = [
+ "quote",
+ "syn 3.0.9",
+ "topcoat-mail-grammar",
 ]
 
 [[package]]

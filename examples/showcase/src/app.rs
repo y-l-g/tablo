@@ -5,10 +5,10 @@ use std::path::PathBuf;
 use tablo::{
     Ability, Action, ActionLayout, Auth, BooleanColumn, Brand, ComputedColumn, CountColumn,
     DateColumn, DateFilter, Detail, DirUploader, EmbeddedColumn, FieldErrors, Grid, Group,
-    HeaderAction, ModelColumns, NavigationItem, Pagination, Panel, PublicLink, QueryFilter,
-    Relation, RelationColumn, RepeaterColumn, Resource, ResourceDef, RouterBuilderPanelExt, Schema,
-    Section, SelectFilter, Table, Tenancy, TernaryFilter, TextColumn, lens, relation, scoped_query,
-    tenant_id, when,
+    HeaderAction, ModelColumns, NavigationItem, Pagination, Panel, PasswordReset, PublicLink,
+    QueryFilter, Relation, RelationColumn, RepeaterColumn, Resource, ResourceDef,
+    RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy, TernaryFilter,
+    TextColumn, lens, relation, scoped_query, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -16,6 +16,7 @@ use topcoat::{
     asset::{AssetBundle, RouterBuilderAssetExt},
     context::Cx,
     font::{Font, fontsource::fontsource_font},
+    mail::{FileTransport, MailConfig, Mailbox, RouterBuilderMailExt},
     router::{Router, RouterBuilderDiscoverExt},
     tailwind,
 };
@@ -471,7 +472,14 @@ pub fn admin_panel() -> Panel {
         .auth(
             Auth::custom(StaffAuth)
                 .registration(StaffAuth)
-                .profile(StaffAuth),
+                .profile(StaffAuth)
+                .password_reset(PasswordReset::new(
+                    StaffAuth,
+                    Mailbox::named("Tablo Blog", "no-reply@example.com")
+                        .expect("the showcase's sender address parses"),
+                    std::env::var("SHOWCASE_BASE_URL")
+                        .unwrap_or_else(|_| "http://localhost:3000".to_string()),
+                )),
         )
         .brand(Brand::new("Tablo Blog").logo(LOGO).favicon(LOGO))
         .home::<Dashboard>()
@@ -494,7 +502,11 @@ pub fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf
     {
         panel = panel.login_hint(hint);
     }
-    let mut builder = Router::builder().discover().app_context(db);
+    // Reset links land in `target/mail` as `.eml` files instead of an inbox.
+    let mut builder = Router::builder()
+        .discover()
+        .app_context(db)
+        .mail(MailConfig::builder().transport(mail_transport()).build());
     if let Some(dir) = uploads {
         builder = builder.app_context(MediaStore(DirUploader::new(UPLOAD_URL_PREFIX, dir.clone())));
         panel = panel.uploads_dir(UPLOAD_URL_PREFIX, dir);
@@ -504,6 +516,14 @@ pub fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf
         panel = panel.shell_assets(tailwind::stylesheet!(), GEIST);
     }
     builder.panel(panel).expect("showcase panel mounts").build()
+}
+
+/// The directory reset links are written to, unless `SHOWCASE_MAIL_DIR` names another.
+fn mail_transport() -> FileTransport {
+    FileTransport::new(
+        std::env::var_os("SHOWCASE_MAIL_DIR")
+            .map_or_else(|| PathBuf::from("target/mail"), PathBuf::from),
+    )
 }
 
 /// `cargo run` builds the binary but not the bundle beside it; the Topcoat CLI builds both.

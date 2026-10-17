@@ -29,7 +29,7 @@ A test matches on the kind rather than the message; see
 | Kind | Refused when | Fix |
 | --- | --- | --- |
 | `MissingDb` | the router holds no `toasty::Db` | call `.app_context(db)` before `.panel(..)` |
-| `MissingAuthModels` | auth is on and the `Db` does not register `AdminUser` and `AuthSession`, or `ColumnPreference` while a list has a toggleable column | add them to `toasty::models!(..)`, or `.auth(Auth::disabled())` |
+| `MissingAuthModels` | auth is on and the `Db` does not register `AuthSession`, `AdminUser` for the shipped authenticator, `ColumnPreference` while a list has a toggleable column, or `PasswordResetToken` for a password reset | add them to `toasty::models!(..)`, or `.auth(Auth::disabled())` |
 | `ShellAssetsWithoutBundle` | `shell_assets` is set and the router has no asset bundle | call `.assets(..)` before `.panel(..)` |
 | `FileFieldWithoutUploader` | a form declares a file field and the panel installs no uploader | `Panel::uploads` or `Panel::uploads_dir` |
 | `InvalidSegment` | the prefix, a `ResourceDef::slug` or a `PageDef::slug` is empty, `.` or `..`, or holds whitespace, a control character, URL punctuation, a quote, a backslash or one of `{ } ( )` | pick a plain segment such as `blog-posts` |
@@ -40,6 +40,7 @@ A test matches on the kind rather than the message; see
 | `ServeDirTaken` | another panel already serves the pattern | serve it from one panel |
 | `SignUp` | the sign-up page cannot be served; the `SignUpFault` says why | see below |
 | `Profile` | the profile page cannot be served; the `ProfileFault` says why | see below |
+| `PasswordReset` | the password reset cannot be served; the `ResetFault` says why | see below |
 
 `SignUpFault`:
 
@@ -61,6 +62,15 @@ A test matches on the kind rather than the message; see
 | `FileField` | the profile form has a file field | edit the file on a resource's form |
 | `RelationshipField` | the profile form has a relationship choice, whose options no route serves the page | offer static options |
 
+`ResetFault`:
+
+| Fault | Refused when | Fix |
+| --- | --- | --- |
+| `AuthDisabled` | `Auth::password_reset` on `Auth::disabled()` | turn authentication on |
+| `UserType` | the resetter resets another user type than the authenticator loads | reset the type the panel signs in |
+| `BaseUrl` | the base URL is not an absolute `http` or `https` URL, or carries a query or fragment | pass the scheme and host, such as `https://admin.example.com` |
+| `MissingMail` | the router registers no `MailConfig` | call `.mail(..)` before `.panel(..)` |
+
 ## Registration
 
 | Kind | Refused when | Fix |
@@ -68,7 +78,7 @@ A test matches on the kind rather than the message; see
 | `DuplicateResource` | one resource type is registered twice on a panel | register it once; mount a variant under its own type |
 | `DuplicatePage` | one page type is registered twice on a panel, as `home` or `page` | register it once; mount a variant under its own type |
 | `SecondHome` | `Panel::home` is called twice | keep one home page; register the other with `page` |
-| `ReservedSlug` | a slug is `login`, `logout`, `register`, `profile` or `-`, which the panel routes itself | rename it with `ResourceDef::slug` or `PageDef::slug` |
+| `ReservedSlug` | a slug is `login`, `logout`, `register`, `profile`, `forgot-password`, `reset-password` or `-`, which the panel routes itself | rename it with `ResourceDef::slug` or `PageDef::slug` |
 | `DuplicateSlug` | two resources or pages share a slug | give each a distinct slug |
 | `DuplicateAction` | two actions of a resource, record or header, share a `NAME` | rename one |
 | `ActionInput` | an action's input cannot be served; the `ActionInputFault` says why | see below |

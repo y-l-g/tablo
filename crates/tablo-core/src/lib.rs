@@ -115,12 +115,12 @@ pub mod upload;
 pub(crate) type BoxFuture<'a, T> = std::pin::Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
 pub use auth::{
-    Auth, Authenticator, LoginThrottle, PanelUser, PasswordAuth, Profile, ProfileEditor,
-    ProfileUpdate, Registrar, SignUp, membership,
+    Auth, Authenticator, LoginThrottle, PanelUser, PasswordAuth, PasswordReset, Profile,
+    ProfileEditor, ProfileUpdate, Registrar, SignUp, membership,
 };
 pub use declaration::{
     ActionInputFault, DeclarationError, DeclarationErrorKind, FieldRuleFault, ManyToManyFault,
-    MountError, ProfileFault, SegmentFault, SignUpFault, Site,
+    MountError, ProfileFault, ResetFault, SegmentFault, SignUpFault, Site,
 };
 pub use detail::{Detail, IntoDetail};
 pub use form::{

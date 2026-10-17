@@ -20,6 +20,7 @@ use super::{
     page::{AuthPage, render},
     page_load,
     registration::{offered, register_url},
+    reset::{forgot_url, offered as reset_offered, reset_url},
     session::{resolve, session_row, session_user},
     unauthenticated_error,
 };
@@ -60,13 +61,14 @@ impl Layer for PanelGate {
                     .await
                     .map_err(|error| answer(&cx, error));
             };
-            // The login page, and the sign-up page when the panel offers one,
-            // must answer while logged out. Only the methods their routes
+            // The login page, and the sign-up and password reset pages when the panel offers
+            // them, must answer while logged out. Only the methods their routes
             // serve (GET, its HEAD, and POST) pass: an app route at the same
             // path under another method stays gated.
             let path = uri(&cx).path();
             let sign_up = offered(&cx) && path == register_url(&cx);
-            let public = path == login_url(&cx) || sign_up;
+            let reset = reset_offered(&cx) && (path == forgot_url(&cx) || path == reset_url(&cx));
+            let public = path == login_url(&cx) || sign_up || reset;
             if public
                 && matches!(
                     *method(&cx),

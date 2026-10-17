@@ -5,14 +5,14 @@ error[E0277]: the trait bound `toasty::stmt::List<std::string::String>: IntoExpr
   |          ^^^^^^^^^^^^^^^^^^^^^^ the trait `IntoExpr<toasty::stmt::List<std::string::String>>` is not implemented for `toasty::stmt::List<std::string::String>`
   |
   = help: the following other types implement trait `IntoExpr<T>`:
-            `(E0,)` implements `IntoExpr<(T0,)>`
-            `(E0, E1)` implements `IntoExpr<(T0, T1)>`
-            `(E0, E1, E2)` implements `IntoExpr<(T0, T1, T2)>`
-            `(E0, E1, E2, E3)` implements `IntoExpr<(T0, T1, T2, T3)>`
-            `(E0, E1, E2, E3, E4)` implements `IntoExpr<(T0, T1, T2, T3, T4)>`
-            `(E0, E1, E2, E3, E4, E5)` implements `IntoExpr<(T0, T1, T2, T3, T4, T5)>`
-            `(E0, E1, E2, E3, E4, E5, E6)` implements `IntoExpr<(T0, T1, T2, T3, T4, T5, T6)>`
             `&Arc<T>` implements `IntoExpr<T>`
+            `&Box<T>` implements `IntoExpr<T>`
+            `&Deferred<T>` implements `IntoExpr<T>`
+            `&Rc<T>` implements `IntoExpr<T>`
+            `&T` implements `IntoExpr<Option<T>>`
+            `&T` implements `IntoExpr<T>`
+            `&[E]` implements `IntoExpr<toasty::stmt::List<T>>`
+            `&[U; N]` implements `IntoExpr<toasty::stmt::List<T>>`
           and $N others
 note: required by a bound in `tablo_core::Field::text`
  --> src/schema/fields.rs

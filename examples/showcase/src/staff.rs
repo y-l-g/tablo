@@ -4,8 +4,8 @@ use jiff::Timestamp;
 use tablo::{
     FieldErrors, FormInput, Membership, PanelUser,
     auth::{
-        Authenticator, Profile, ProfileEditor, ProfileUpdate, Registrar, hash_password,
-        new_password_errors, verify_password,
+        Authenticator, PasswordResetter, Profile, ProfileEditor, ProfileUpdate, Registrar,
+        hash_password, new_password_errors, verify_password,
     },
 };
 use toasty::Db;
@@ -280,6 +280,45 @@ impl ProfileEditor for StaffAuth {
         } else {
             ProfileUpdate::Details
         })
+    }
+}
+
+/// Mails a member of staff who forgot their password a link to choose a new one.
+impl PasswordResetter for StaffAuth {
+    type User = SignedStaff;
+
+    async fn find_by_email(&self, cx: &Cx, email: &str) -> topcoat::Result<Option<SignedStaff>> {
+        let mut db = tablo::db::db(cx);
+        let staff = Staff::filter(Staff::fields().email().eq(email.to_string()))
+            .first()
+            .exec(&mut db)
+            .await?;
+        match staff {
+            Some(staff) => Ok(Some(Self::signed(cx, staff).await?)),
+            None => Ok(None),
+        }
+    }
+
+    fn email<'u>(&self, signed: &'u SignedStaff) -> &'u str {
+        &signed.staff.email
+    }
+
+    async fn reset_password(
+        &self,
+        _cx: &Cx,
+        user_id: &str,
+        password: &str,
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<()> {
+        let Ok(id) = Uuid::parse_str(user_id) else {
+            return Ok(());
+        };
+        Staff::filter(Staff::fields().id().eq(id))
+            .update()
+            .password_hash(hash_password(password)?)
+            .exec(ex)
+            .await?;
+        Ok(())
     }
 }
 

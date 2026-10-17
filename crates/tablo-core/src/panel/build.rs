@@ -180,6 +180,9 @@ impl Panel {
 
     fn mount(self, mut builder: RouterBuilder) -> Result<RouterBuilder> {
         let db = builder.get_app_context::<Db>().cloned();
+        let has_mail = builder
+            .get_app_context::<topcoat::mail::MailConfig>()
+            .is_some();
         let mut registry = Registry::new(self.prefix.clone(), db.as_ref().map(AppSchema::of_db));
         let Panel {
             prefix,
@@ -214,6 +217,7 @@ impl Panel {
                     crate::auth::check_registration(&auth)
                         .into_iter()
                         .chain(crate::auth::check_profile(&auth))
+                        .chain(crate::auth::check_password_reset(&auth, has_mail))
                         .map(DeclarationError::panel),
                 );
             }
@@ -327,6 +331,29 @@ impl Panel {
                     profile_path,
                     crate::auth::profile_post,
                 ));
+        }
+        if state.auth.reset().is_some() {
+            for (path, page, post) in [
+                (
+                    format!("{prefix}/forgot-password"),
+                    crate::auth::forgot_page as topcoat::router::RouteHandlerFn,
+                    crate::auth::forgot_post as topcoat::router::RouteHandlerFn,
+                ),
+                (
+                    format!("{prefix}/reset-password"),
+                    crate::auth::reset_page,
+                    crate::auth::reset_post,
+                ),
+            ] {
+                let path = route_path(&path);
+                builder = builder
+                    .layer(
+                        topcoat::router::BodyLimit::max(crate::auth::MAX_LOGIN_BYTES)
+                            .at(path.clone()),
+                    )
+                    .route(RouteFn::new(http::Method::GET, path.clone(), page))
+                    .route(RouteFn::new(http::Method::POST, path, post));
+            }
         }
         builder = builder.layout(LayoutFn::new(
             prefix_path.clone(),

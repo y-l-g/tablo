@@ -22,7 +22,7 @@ toasty = { workspace = true, features = ["sqlite"] }
 # `fs` is for the demo uploader's `tokio::fs` write; `multipart` is the extractor the media
 # library's page parses its own upload body with.
 tokio = { workspace = true, features = ["fs"] }
-topcoat = { workspace = true, features = ["serve", "tailwind", "font", "font-fontsource", "asset", "runtime", "multipart"] }
+topcoat = { workspace = true, features = ["serve", "tailwind", "font", "font-fontsource", "asset", "runtime", "multipart", "mail"] }
 uuid.workspace = true
 
 # The integration suite's other drivers: `TABLO_TEST_DATABASE_URL` names the database.

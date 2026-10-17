@@ -22,7 +22,7 @@ jiff.workspace = true
 tablo = { path = "../crates/tablo", features = ["testing"] }
 toasty = { workspace = true, features = ["sqlite"] }
 tokio.workspace = true
-topcoat.workspace = true
+topcoat = { workspace = true, features = ["mail"] }
 uuid.workspace = true
 
 [lints]
