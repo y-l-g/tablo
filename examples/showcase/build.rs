@@ -8,14 +8,15 @@ fn main() {
     match tablo_build::tailwind() {
         Ok(_) => {}
         Err(e) => {
-            eprintln!(
-                "warning: tablo_build::tailwind failed: {e} - creating empty stylesheet for offline \
-                 build"
+            // Cargo shows a build script's output only when it fails, or as a `cargo::warning`.
+            println!(
+                "cargo::warning=tablo_build::tailwind failed: {e} - creating empty stylesheet for \
+                 offline build"
             );
-            if let Ok(out_dir) = std::env::var("OUT_DIR") {
-                let out = std::path::Path::new(&out_dir).join("tailwind.css");
-                let _ = std::fs::write(out, "/* tailwind build failed - offline */\n");
-            }
+            let out_dir = std::env::var("OUT_DIR").expect("cargo sets OUT_DIR");
+            let out = std::path::Path::new(&out_dir).join("tailwind.css");
+            std::fs::write(out, "/* tailwind build failed - offline */\n")
+                .expect("the fallback stylesheet is written");
         }
     }
 }

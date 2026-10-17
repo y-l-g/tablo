@@ -1,6 +1,6 @@
 // Option search for Tablo selects.
 //
-// A `Select::searchable()` renders an `input[data-options-filter]` and an empty
+// A `ChoiceField::searchable()` renders an `input[data-options-filter]` and an empty
 // `ul[data-options-list]` above its `<select>`, inside
 // `[data-select-filterable]`.
 //
@@ -214,7 +214,7 @@ async function serverSearch(filter, wrap, select, field, needle) {
   }
   const placeholder = select.querySelector('option[value=""]');
   const placeholderHtml = placeholder ? placeholder.outerHTML : '<option value="">-- Select --</option>';
-  // Preserve the current selection across swaps (D2): the server answers the
+  // Preserve the current selection across swaps: the server answers the
   // needle and never echoes the current record, so re-attach it when absent.
   // Its label is only in the option the swap is about to drop: the
   // PK is the value, never the thing to show.
@@ -611,7 +611,7 @@ function install() {
     }
   });
 
-  // Tab away: close. Captured, because `focusout` does not bubble usefully here.
+  // Tab away: close the list once focus leaves its field.
   document.addEventListener(
     'focusout',
     (e) => {

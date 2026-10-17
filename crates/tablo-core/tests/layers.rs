@@ -23,7 +23,6 @@ const LAYERS: &[(&str, &[&str])] = &[
             "error",
             "lens",
             "naming",
-            "query_term",
             "toasty_compat",
             "topcoat_compat",
         ],

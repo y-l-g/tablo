@@ -128,6 +128,8 @@ rolls the transaction back and nothing is written.
 `delete_record` once per record in one transaction, so overriding `delete_record` — for a soft
 delete, say — covers both. A bulk delete runs like a bulk action: it deletes the selected records
 the policy's `Delete` allows and reports the rest as skipped (`"Bulk deleted (2 of 5 skipped)"`).
+A selected record the policy's `View` refuses refuses the whole request with 403, and nothing is
+deleted.
 
 ### After the commit
 

@@ -244,7 +244,6 @@ impl<M> Includes<M> {
     }
 }
 
-/// Include in `query` every relation `columns` declare, once each.
 /// One [`UnregisteredLabelSource`](DeclarationErrorKind::UnregisteredLabelSource) per column
 /// labelling its records by a source `cx`'s panel cannot load from.
 pub(crate) fn unavailable_sources<'c, M: 'c>(

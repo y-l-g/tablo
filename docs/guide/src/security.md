@@ -20,8 +20,9 @@ What Tablo does by default, and what your deployment must provide for those defa
 
 ## Requests and writes
 
-- Every panel POST, login and logout included, verifies a double-submit CSRF token before touching
-  the database; a missing or wrong token answers 403.
+- Every panel POST, login and logout included, verifies a double-submit CSRF token before it
+  writes anything; a missing or wrong token answers 403. The gate reads the request's session first,
+  as it does for any request.
 - Delete and bulk-delete POSTs also require the `confirm=1` marker the confirmation dialog sends.
   It prevents accidental deletes; it is not a security boundary.
 - A form POST with a key the form does not declare answers 400, so a client cannot write a

@@ -201,11 +201,12 @@ pub fn nightly_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
     )
 }
 
-/// Checks fmt for the detached quickstart.
+/// Checks fmt for the detached quickstart, on the [`NIGHTLY`] the workspace's `rustfmt.toml` needs.
 pub fn detached_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
+    let toolchain = format!("+{NIGHTLY}");
     run.run(
         "cargo",
-        &["fmt", "--", "--check"],
+        &[&toolchain, "fmt", "--", "--check"],
         Some(&root.join(QUICKSTART)),
         &[],
     )

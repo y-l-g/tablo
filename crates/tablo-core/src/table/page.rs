@@ -66,8 +66,7 @@ impl<M: toasty::schema::Model> TablePage<M> {
     ///
     /// # Errors
     ///
-    /// Errors when a cursor contains a value the URL codec cannot represent
-    /// (see `crate::cursor`).
+    /// Errors when a cursor contains a value the URL codec cannot represent.
     pub fn from_toasty_page(page: toasty::stmt::Page<M>) -> Result<Self> {
         Ok(Self {
             rows: page.items,
