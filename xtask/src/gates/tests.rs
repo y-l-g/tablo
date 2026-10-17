@@ -66,7 +66,11 @@ fn fmt_runs_nightly_detached_and_topcoat_checks() {
     fmt_check(&run).expect("fake commands succeed");
     let root = repo_root();
     let commands = run.commands();
-    assert_eq!(commands.len(), 4, "1 nightly + quickstart + topcoat + diff");
+    assert_eq!(
+        commands.len(),
+        5,
+        "1 nightly + quickstart + unstaged guard + topcoat + diff"
+    );
     let nightly = format!("+{NIGHTLY}");
     assert_eq!(
         commands[0].1,
@@ -75,10 +79,12 @@ fn fmt_runs_nightly_detached_and_topcoat_checks() {
     assert_eq!(commands[1].0, "cargo");
     assert_eq!(commands[1].1, vec!["fmt", "--", "--check"]);
     assert_eq!(commands[1].2, Some(root.join(QUICKSTART)));
-    assert_eq!(commands[2].0, "topcoat");
-    assert_eq!(commands[2].1, vec!["fmt"]);
-    assert_eq!(commands[3].0, "git");
-    assert_eq!(commands[3].1, vec!["diff", "--exit-code"]);
+    assert_eq!(commands[2].0, "git");
+    assert_eq!(commands[2].1, vec!["diff", "--quiet"]);
+    assert_eq!(commands[3].0, "topcoat");
+    assert_eq!(commands[3].1, vec!["fmt"]);
+    assert_eq!(commands[4].0, "git");
+    assert_eq!(commands[4].1, vec!["diff", "--exit-code"]);
     assert!(commands.iter().all(|command| {
         command
             .2
@@ -154,7 +160,9 @@ fn check_runs_fast_gates_by_default_and_defers_docs_and_external_to_all() {
     assert_eq!(
         progs_of(&run_check(Scope::Auto, true)),
         [
-            &["cargo", "topcoat", "git", "node", "cargo", "cargo", "cargo"][..],
+            &[
+                "cargo", "git", "topcoat", "git", "node", "cargo", "cargo", "cargo"
+            ][..],
             &PUBLIC_API_PROGS,
             &["cargo", "cargo", "cargo"],
         ]
@@ -166,12 +174,14 @@ fn check_runs_fast_gates_by_default_and_defers_docs_and_external_to_all() {
 fn check_runs_skipped_gates_only_with_matching_changes_or_all() {
     assert_eq!(
         progs_of(&run_check(Scope::Auto, false)),
-        ["cargo", "topcoat", "git", "node", "cargo", "cargo", "cargo"],
+        [
+            "cargo", "git", "topcoat", "git", "node", "cargo", "cargo", "cargo"
+        ],
         "the public-API snapshots, msrv and udeps install+run are skipped"
     );
     assert_eq!(
         run_check(Scope::All, false).len(),
-        20,
+        21,
         "`--all` forces every gate"
     );
 }

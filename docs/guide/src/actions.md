@@ -164,8 +164,8 @@ the list or the page, behind the same checks as the action's POST before it load
 Each field posts its own name and renders the control its type picks: a `bool` is a checkbox,
 `#[form(options)]` a choice over the field type's `Options` and `#[form(options = T)]` one over
 `T`'s, and any other `FormScalar` a text input. A field with no blank answer is required, as on a
-record form: `#[form(blank = ..)]`, `#[form(optional)]` on a `String`, an `Option` or a `bool`
-gives it one. `#[form(label = "..")]` labels the control, `#[form(placeholder = "..")]` sets a text
+record form: an `Option` field has one, `#[form(optional)]` gives a `String` the empty string, and
+`#[form(blank = ..)]` gives any other type a value. `#[form(label = "..")]` labels the control, `#[form(placeholder = "..")]` sets a text
 input's placeholder, and `#[form(multiline = N)]` makes it a `<textarea>`. `#[form(email)]`
 refuses a malformed email address, and `#[form(password)]` masks a `String` input, reads it
 untrimmed, and renders it empty when the form comes back refused. An `Option` choice names its

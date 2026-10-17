@@ -258,8 +258,12 @@ fn assert_bench_database(url: &str) {
         .map(|(_, tail)| tail.split('?').next().unwrap_or(tail))
         .unwrap_or("")
         .to_ascii_lowercase();
+    // Whole words only: `latest` or `contest` holds `test` and names no disposable database.
+    let disposable = dbname
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .any(|word| matches!(word, "bench" | "benchmark" | "test" | "tests"));
     assert!(
-        dbname.contains("bench") || dbname.contains("test"),
+        disposable,
         "refusing to reset Postgres database {dbname:?}: name a disposable bench/test database"
     );
 }

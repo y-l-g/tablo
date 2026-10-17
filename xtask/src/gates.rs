@@ -217,8 +217,16 @@ const TOPCOAT_INSTALL: &str = "cargo install topcoat-cli --version 0.10.0 --lock
 /// Installs the mdBook version the guide build needs.
 const MDBOOK_INSTALL: &str = "cargo install mdbook --version 0.5.2 --locked --force";
 
-/// The pinned-CLI `topcoat fmt` check plus diff guard.
+/// The pinned-CLI `topcoat fmt` check plus diff guard. The guard reads the unstaged diff, so the
+/// tree must hold none before `topcoat fmt` rewrites it: an unstaged edit would read as its
+/// rewrite.
 pub fn topcoat_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
+    run.run("git", &["diff", "--quiet"], Some(root), &[])
+        .map_err(|error| {
+            anyhow::anyhow!(
+                "{error}\nthe tree has unstaged edits: stage them with `git add` first, so the `topcoat fmt` check can tell its rewrites from yours"
+            )
+        })?;
     run.run("topcoat", &["fmt"], Some(root), &[])
         .map_err(|error| {
             anyhow::anyhow!(

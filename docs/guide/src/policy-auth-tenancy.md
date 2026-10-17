@@ -156,8 +156,8 @@ without a session only when every panel is gated.
 - **Sessions** are rows in `AuthSession`, identified by a hash of the cookie's token. A session
   lasts seven days from login, is replaced on each login and deleted on logout. Each successful
   login also deletes up to 500 expired sessions. The row records the prefix of the panel that
-  signed the user in, so an existing `auth_session` table needs a migration: add a non-null
-  `panel` column and backfill it to the panel's prefix (for example `ALTER TABLE auth_session
+  signed the user in, so an existing `auth_sessions` table needs a migration: add a non-null
+  `panel` column and backfill it to the panel's prefix (for example `ALTER TABLE auth_sessions
   ADD COLUMN panel TEXT NOT NULL DEFAULT '/admin'`), then drop the default when every row names
   its panel. Renaming a panel's prefix invalidates the sessions it issued.
 - **Revoking.** Call `auth::revoke_sessions_for_user(cx, user_id)` when a user's password changes
@@ -354,7 +354,7 @@ for each tenant `PanelUser::tenants` lists, as a `Membership { tenant, name }`; 
   `{prefix}/tenant`, which stores the choice on the session and returns to the panel's home
   page.
   A tenant the user is not a member of answers 403, and a stored choice applies only while the
-  membership lasts. The session table records the choice, so an existing `auth_session` table
+  membership lasts. The session table records the choice, so an existing `auth_sessions` table
   needs a nullable `tenant` column, typed as Toasty stores a `Uuid` on your database. One
   browser acts for one tenant at a time, in every tab.
 - **Overrides.** No request header sets the tenant. Server code such as a middleware or a test

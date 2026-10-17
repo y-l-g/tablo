@@ -11,11 +11,12 @@ struct Note {
     body: String,
 }
 
-/// Toasty refuses an update that assigns nothing, which is why `RecordForm::into_update` answers
-/// `None` when a submission names no field.
+/// Toasty does not refuse an update that assigns nothing: its connection worker panics, and the
+/// caller panics on the dropped reply. `RecordForm::into_update` answers `None` when a submission
+/// names no field, so no such update is sent.
 #[tokio::test]
 #[should_panic(expected = "RecvError")]
-async fn toasty_refuses_an_update_with_no_assignment() {
+async fn toasty_panics_on_an_update_with_no_assignment() {
     let mut db = memory_db(toasty::models!(Note)).await;
     let mut note = toasty::create!(Note {
         body: "kept".to_string(),
