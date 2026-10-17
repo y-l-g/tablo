@@ -56,7 +56,7 @@ impl<R: Resource> Mounted<R> {
     pub(crate) fn new(def: ResourceDef<R>, prefix: &str) -> Self {
         let slug = def
             .slug
-            .unwrap_or_else(|| kebab_case(&pluralize(type_stem::<R>("Resource"))));
+            .unwrap_or_else(|| kebab_case(&pluralize(&sentence_case(type_stem::<R>("Resource")))));
         let url = format!("{prefix}/{slug}");
         let label = def
             .label

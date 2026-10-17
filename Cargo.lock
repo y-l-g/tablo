@@ -3484,6 +3484,7 @@ dependencies = [
  "jiff",
  "password-hash",
  "percent-encoding",
+ "pluralizer",
  "proptest",
  "regex",
  "serde",

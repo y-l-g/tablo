@@ -196,3 +196,33 @@ fn a_declared_record_title_titles_the_record_with_its_column() {
         "a record whose column is blank falls back to the key"
     );
 }
+
+#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+struct ContactPerson {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    name: String,
+}
+
+struct ContactPersonResource;
+
+impl Resource for ContactPersonResource {
+    type Model = ContactPerson;
+    type Form = crate::NoForm<Self::Model>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
+            lens!(ContactPerson.name),
+        )))
+    }
+}
+
+/// The default slug pluralizes the phrase the label does, so a multi-word irregular reads the
+/// same in the URL and the sidebar.
+#[test]
+fn the_default_slug_and_plural_label_agree() {
+    let mounted = crate::test_support::mounted::<ContactPersonResource>();
+    assert_eq!(mounted.plural_label, "Contact people");
+    assert_eq!(mounted.url, "/admin/contact-people");
+}

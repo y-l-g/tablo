@@ -40,16 +40,13 @@ pub(crate) fn sentence_case(name: &str) -> String {
     capitalize(&words.join(" "))
 }
 
-/// Pluralize a capitalized English word with a compact ruleset (Filament
-/// pluralizes via Laravel's `Str::plural`; this is the admin-grade subset):
-/// a small irregular table (`person` → `people`, …), consonant-`y` → `ies`
-/// (`Category` → `Categories`), sibilant endings → `es` (`Box` → `Boxes`),
-/// `f`/`fe` → `ves` (`Knife` → `Knives`) with a few `+s` exceptions, and the
-/// default `+s`.
+/// Pluralize an English noun phrase through the `pluralizer` crate, the rules Toasty names its
+/// tables with: irregulars (`Person` → `People`), uncountables (`Staff`), `f`/`fe` → `ves` where
+/// English takes it (`Knife` → `Knives`, `Cafe` → `Cafes`) and the rest.
 ///
-/// A multi-word label pluralizes its last word only, so a noun phrase keeps its
-/// head noun's rules: `Sales Person` → `Sales People`, `Blog Post` →
-/// `Blog Posts`.
+/// A multi-word label pluralizes its last word only, so a noun phrase keeps its head noun's
+/// rules: `Sales person` → `Sales people`, `Blog post` → `Blog posts`. The word keeps its case: a
+/// capitalized word stays capitalized, and an acronym keeps its capitals (`URL` → `URLs`).
 pub(crate) fn pluralize(label: &str) -> String {
     match label.rsplit_once(' ') {
         Some((head, last)) => format!("{head} {}", pluralize_word(last)),
@@ -59,69 +56,16 @@ pub(crate) fn pluralize(label: &str) -> String {
 
 /// [`pluralize`] for one word.
 fn pluralize_word(word: &str) -> String {
-    if word.is_empty() {
-        return word.to_string();
-    }
     let lower = word.to_lowercase();
-    const IRREGULAR: &[(&str, &str)] = &[
-        ("person", "people"),
-        ("man", "men"),
-        ("woman", "women"),
-        ("child", "children"),
-        ("mouse", "mice"),
-        ("goose", "geese"),
-        ("foot", "feet"),
-        ("tooth", "teeth"),
-        ("datum", "data"),
-        ("criterion", "criteria"),
-        ("index", "indices"),
-        ("matrix", "matrices"),
-        ("vertex", "vertices"),
-        ("axis", "axes"),
-        ("crisis", "crises"),
-        ("analysis", "analyses"),
-    ];
-    if let Some((_, plural)) = IRREGULAR.iter().find(|(singular, _)| *singular == lower) {
-        return match word.chars().next() {
-            Some(first) if first.is_uppercase() => capitalize(plural),
-            _ => (*plural).to_string(),
-        };
-    }
-    // `f`/`fe` → `ves`, except the words that simply take `s`.
-    const F_EXCEPTIONS: &[&str] = &["roof", "chief", "belief", "chef", "cliff", "cuff"];
-    const UNCOUNTABLE: &[&str] = &[
-        "fish",
-        "sheep",
-        "deer",
-        "moose",
-        "series",
-        "species",
-        "news",
-        "equipment",
-        "information",
-        "rice",
-    ];
-    if UNCOUNTABLE.contains(&lower.as_str()) {
-        return word.to_string();
-    }
-    if F_EXCEPTIONS.contains(&lower.as_str()) {
-        format!("{word}s")
-    } else if lower.ends_with('f') {
-        format!("{}ves", &word[..word.len() - 1])
-    } else if lower.ends_with("fe") {
-        format!("{}ves", &word[..word.len() - 2])
-    } else if lower.ends_with('y')
-        && word.len() > 1
-        && !"aeiou".contains(word.chars().nth(word.len() - 2).unwrap_or(' '))
-    {
-        format!("{}ies", &word[..word.len() - 1])
-    } else if ["s", "ss", "sh", "ch", "x", "z"]
-        .iter()
-        .any(|suffix| lower.ends_with(suffix))
-    {
-        format!("{word}es")
-    } else {
-        format!("{word}s")
+    let plural = pluralizer::pluralize(&lower, 2, false);
+    let acronym = word.chars().filter(|c| c.is_alphabetic()).count() > 1
+        && !word.chars().any(char::is_lowercase);
+    match plural.strip_prefix(lower.as_str()) {
+        // An acronym keeps its letters and takes a lowercase suffix: `URL` → `URLs`.
+        Some(suffix) if acronym => format!("{word}{suffix}"),
+        _ if acronym => plural.to_uppercase(),
+        _ if word.starts_with(char::is_uppercase) => capitalize(&plural),
+        _ => plural,
     }
 }
 
