@@ -64,13 +64,13 @@ The names default from the type names, following Filament's conventions:
 
 | `ResourceDef` method | Default | `BlogPostResource` over `BlogPost` |
 | --- | --- | --- |
-| `slug(..)` | resource name without `Resource`, in sentence case, pluralized, kebab-cased | `blog-posts` |
+| `slug(..)` | resource name without `Resource`, in sentence case, pluralized, lowercased with hyphens | `blog-posts` |
 | `label(..)` | the model's type name in sentence case; used in "Create …" and "Edit …" | `Blog post` |
 | `plural_label(..)` | the label pluralized; the sidebar entry and list title | `Blog posts` |
 
 The plural rules are the `pluralizer` crate's, which Toasty names its tables with: `Person` reads
-`People` and `ContactPerson` serves `contact-people`. Set `label` to rename a record, and
-`plural_label` only when the rules guess wrong.
+`People`, `ContactPerson` serves `contact-people` and `URLResource` serves `urls`. Set `label`
+to rename a record, and `plural_label` only when the rules guess wrong.
 
 ## Scoping the query
 

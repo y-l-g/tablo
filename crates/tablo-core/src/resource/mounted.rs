@@ -16,7 +16,7 @@ use crate::{
     DeclarationError, DeclarationErrorKind, Site,
     detail::Detail,
     form::{FormField, RecordForm},
-    naming::{kebab_case, pluralize, sentence_case, type_short_name, type_stem},
+    naming::{pluralize, sentence_case, slug_case, type_short_name, type_stem},
     navigation::NavigationItem,
     policy::{Ability, Policy},
     schema::{Retype, Schema},
@@ -56,7 +56,7 @@ impl<R: Resource> Mounted<R> {
     pub(crate) fn new(def: ResourceDef<R>, prefix: &str) -> Self {
         let slug = def
             .slug
-            .unwrap_or_else(|| kebab_case(&pluralize(&sentence_case(type_stem::<R>("Resource")))));
+            .unwrap_or_else(|| slug_case(&pluralize(&sentence_case(type_stem::<R>("Resource")))));
         let url = format!("{prefix}/{slug}");
         let label = def
             .label

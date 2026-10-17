@@ -226,3 +226,34 @@ fn the_default_slug_and_plural_label_agree() {
     assert_eq!(mounted.plural_label, "Contact people");
     assert_eq!(mounted.url, "/admin/contact-people");
 }
+
+#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+#[allow(clippy::upper_case_acronyms)]
+struct URL {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    href: String,
+}
+
+#[allow(clippy::upper_case_acronyms)]
+struct URLResource;
+
+impl Resource for URLResource {
+    type Model = URL;
+    type Form = crate::NoForm<Self::Model>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
+            lens!(URL.href),
+        )))
+    }
+}
+
+/// An acronym's plural is one word in the slug, as it is in the label.
+#[test]
+fn an_acronyms_default_slug_keeps_its_plural_whole() {
+    let mounted = crate::test_support::mounted::<URLResource>();
+    assert_eq!(mounted.plural_label, "URLs");
+    assert_eq!(mounted.url, "/admin/urls");
+}

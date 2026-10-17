@@ -69,6 +69,13 @@ fn pluralize_word(word: &str) -> String {
     }
 }
 
+/// A phrase [`sentence_case`] and [`pluralize`] spelled, as a slug: its words lowercased and
+/// joined by hyphens. `Contact people` → `contact-people`; an acronym's plural stays one word,
+/// `URLs` → `urls`, where [`kebab_case`] would split it at its last capital.
+pub(crate) fn slug_case(phrase: &str) -> String {
+    phrase.to_lowercase().replace(' ', "-")
+}
+
 /// Convert a CamelCase identifier to kebab-case: `BlogPost` → `blog-post`,
 /// `APIKey` → `api-key`.
 ///
