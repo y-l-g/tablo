@@ -173,7 +173,8 @@ impl Field {
     {
         let path: Path<M, T> = lens.into();
         let binding = Binding::of(&path);
-        let control = TextControl::new::<M, T>(path, binding.unique());
+        let control =
+            TextControl::new::<M, T>(path, binding.unique(), binding.unique_with().to_vec());
         TextField::new(Self::bound(binding, ControlKind::Text(control)))
     }
 
@@ -365,6 +366,14 @@ impl Field {
 
     pub(crate) fn is_unique(&self) -> bool {
         matches!(&self.control, ControlKind::Text(text) if text.unique)
+    }
+
+    /// The fields each unique index covering a unique text field holds besides it.
+    pub(crate) fn unique_with(&self) -> Vec<&[String]> {
+        match &self.control {
+            ControlKind::Text(text) if text.unique => text.unique_with(),
+            _ => Vec::new(),
+        }
     }
 
     /// The condition showing the field, if any.

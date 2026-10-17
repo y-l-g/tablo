@@ -57,6 +57,7 @@ impl Binding {
                 label,
                 nullable: true,
                 unique: false,
+                unique_with: Vec::new(),
             }),
         }
     }
@@ -81,6 +82,11 @@ impl Binding {
 
     pub(crate) fn unique(&self) -> bool {
         self.leaf().is_some_and(|leaf| leaf.unique)
+    }
+
+    /// Each unique index covering the column, as the names of its other fields.
+    pub(crate) fn unique_with(&self) -> &[Vec<String>] {
+        self.leaf().map_or(&[], |leaf| &leaf.unique_with)
     }
 
     /// Why the path binds no column, when it does not.

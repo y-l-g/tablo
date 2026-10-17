@@ -26,6 +26,8 @@ pub(crate) struct TextControl {
     /// a new one it would offer to generate.
     pub(super) current_password: bool,
     pub(super) unique: bool,
+    /// Each unique index covering the column, as the names of its other fields.
+    unique_with: Vec<Vec<String>>,
     pub(super) rules: Rules,
     probe: Option<EqProbe>,
     /// The stored spelling of a submission, or `None` when the type refuses it.
@@ -44,7 +46,11 @@ fn spell<T: FormScalar>(value: &str) -> Option<String> {
 impl TextControl {
     /// Parses a submission into `T` and compares through the lens, so `01` and `1` check as the
     /// stored integer.
-    pub(super) fn new<M, T>(path: toasty::stmt::Path<M, T>, unique: bool) -> Self
+    pub(super) fn new<M, T>(
+        path: toasty::stmt::Path<M, T>,
+        unique: bool,
+        unique_with: Vec<Vec<String>>,
+    ) -> Self
     where
         T: FormScalar + toasty::stmt::IntoExpr<T> + 'static,
     {
@@ -63,6 +69,7 @@ impl TextControl {
             password: false,
             current_password: false,
             unique,
+            unique_with,
             rules: Rules::default(),
             probe: Some(probe),
             spell: spell::<T>,
@@ -82,6 +89,7 @@ impl TextControl {
             password: false,
             current_password: false,
             unique: false,
+            unique_with: Vec::new(),
             rules: Rules::default(),
             probe: None,
             spell: spell::<T>,
@@ -92,6 +100,15 @@ impl TextControl {
     /// The control's `value` for the stored spelling `stored`.
     pub(crate) fn rendering(&self, stored: &str) -> String {
         (self.input_value)(stored)
+    }
+
+    /// The fields each unique index covering the column holds besides it: one empty list for a
+    /// field marked unique with no index, which the declaration check refuses.
+    pub(crate) fn unique_with(&self) -> Vec<&[String]> {
+        if self.unique_with.is_empty() {
+            return vec![&[]];
+        }
+        self.unique_with.iter().map(Vec::as_slice).collect()
     }
 
     /// Whether the field's type parses `value`.

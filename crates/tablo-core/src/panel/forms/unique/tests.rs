@@ -338,3 +338,84 @@ async fn a_typed_unique_field_skips_the_records_own_value_on_edit() {
         "a refused edit writes nothing"
     );
 }
+
+#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+#[unique(slug, locale)]
+struct Page {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    slug: String,
+    locale: String,
+}
+
+/// A composite index refuses only a value every one of its fields repeats: a slug another
+/// locale holds is free.
+#[tokio::test]
+async fn a_composite_index_is_probed_on_all_its_fields() {
+    use crate::schema::{Field, Schema};
+
+    struct PageResource;
+    impl Resource for PageResource {
+        type Model = Page;
+        type Form = crate::NoForm<Self::Model>;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
+                lens!(Page.slug),
+            )))
+        }
+    }
+
+    let mut db = memory_db(toasty::models!(Page)).await;
+    toasty::create!(Page {
+        slug: "about",
+        locale: "en"
+    })
+    .exec(&mut db)
+    .await
+    .unwrap();
+    let cx = crate::test_support::panel_cx::<PageResource>(&db);
+    let mut ex = crate::db::db(&cx);
+    let schema = Schema::new((
+        Field::text(Page::fields().slug()),
+        Field::text(Page::fields().locale()),
+    ));
+    let page = |slug: &str, locale: &str| {
+        FormValues::from_iter([
+            ("slug".to_string(), slug.to_string()),
+            ("locale".to_string(), locale.to_string()),
+        ])
+    };
+    let resource = crate::resource::require_mounted::<PageResource>(&cx).unwrap();
+    let mut check = async |values: &FormValues, current: &FormValues| {
+        check_unique(&cx, &resource, &schema, values, current, &mut ex)
+            .await
+            .unwrap()
+    };
+
+    assert!(
+        check(&page("about", "fr"), &FormValues::new())
+            .await
+            .is_empty(),
+        "another locale"
+    );
+    let errors = check(&page("about", "en"), &FormValues::new()).await;
+    assert_eq!(messages(&errors, "slug"), ["Slug has already been taken"]);
+    assert!(
+        messages(&errors, "locale").is_empty(),
+        "one refusal per index"
+    );
+    assert!(
+        check(&page("about", "en"), &page("about", "en"))
+            .await
+            .is_empty(),
+        "the record's own values"
+    );
+    assert!(
+        !check(&page("about", "en"), &page("about", "fr"))
+            .await
+            .is_empty(),
+        "a record moving onto another's pair"
+    );
+}
