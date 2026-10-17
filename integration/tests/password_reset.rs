@@ -226,7 +226,7 @@ async fn a_reset_link_sets_the_password_once_and_ends_every_session() {
     assert_eq!(saved.headers().get(LOCATION).unwrap(), "/admin/login");
     assert_eq!(flash(&saved).status, NotificationStatus::Success);
     let admin = reload(&db, &admin).await;
-    assert!(verify_password("new password", Some(&admin.password_hash)));
+    assert!(verify_password("new password", Some(&admin.password_hash)).await);
     assert!(
         AuthSession::all()
             .exec(&mut db.clone())
@@ -242,10 +242,13 @@ async fn a_reset_link_sets_the_password_once_and_ends_every_session() {
 
     let reused = choose(&router, &token(&link), "another password").await;
     assert_eq!(reused.status(), 404);
-    assert!(verify_password(
-        "new password",
-        Some(&reload(&db, &admin).await.password_hash)
-    ));
+    assert!(
+        verify_password(
+            "new password",
+            Some(&reload(&db, &admin).await.password_hash)
+        )
+        .await
+    );
 }
 
 /// An expired link resets nothing, and neither does an unknown one.
@@ -271,7 +274,7 @@ async fn an_expired_or_unknown_link_resets_nothing() {
     assert_eq!(expired.status(), 404);
     assert_eq!(unknown.status(), 404);
     let admin = reload(&db, &admin).await;
-    assert!(verify_password("old password", Some(&admin.password_hash)));
+    assert!(verify_password("old password", Some(&admin.password_hash)).await);
 }
 
 /// A new password the rules refuse keeps the link working.
@@ -302,10 +305,13 @@ async fn a_refused_password_keeps_the_link() {
         field_error(&html, "password_confirmation").is_some(),
         "{html}"
     );
-    assert!(verify_password(
-        "old password",
-        Some(&reload(&db, &admin).await.password_hash)
-    ));
+    assert!(
+        verify_password(
+            "old password",
+            Some(&reload(&db, &admin).await.password_hash)
+        )
+        .await
+    );
     assert_eq!(choose(&router, &token, "new password").await.status(), 303);
 }
 
@@ -425,10 +431,13 @@ async fn a_forged_reset_answers_403() {
         .await;
 
     assert_eq!(forged.status(), 403);
-    assert!(verify_password(
-        "old password",
-        Some(&reload(&db, &admin).await.password_hash)
-    ));
+    assert!(
+        verify_password(
+            "old password",
+            Some(&reload(&db, &admin).await.password_hash)
+        )
+        .await
+    );
 }
 
 /// A link resets nothing once its account may no longer enter the panel.
@@ -448,10 +457,13 @@ async fn a_deactivated_account_cannot_use_its_link() {
         .unwrap();
 
     assert_eq!(choose(&router, &token, "new password").await.status(), 404);
-    assert!(verify_password(
-        "old password",
-        Some(&reload(&db, &admin).await.password_hash)
-    ));
+    assert!(
+        verify_password(
+            "old password",
+            Some(&reload(&db, &admin).await.password_hash)
+        )
+        .await
+    );
 }
 
 /// A password changed on the profile page ends the account's reset link.
@@ -490,10 +502,13 @@ async fn a_changed_password_ends_the_reset_link() {
     assert_eq!(saved.status(), 303);
     assert!(tokens(&db).await.is_empty());
     assert_eq!(choose(&router, &token, "new password").await.status(), 404);
-    assert!(verify_password(
-        "profile password",
-        Some(&reload(&db, &admin).await.password_hash)
-    ));
+    assert!(
+        verify_password(
+            "profile password",
+            Some(&reload(&db, &admin).await.password_hash)
+        )
+        .await
+    );
 }
 
 /// A link works only on the panel that mailed it, and a reset ends the account's sessions and

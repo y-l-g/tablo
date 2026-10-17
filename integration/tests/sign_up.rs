@@ -88,10 +88,7 @@ async fn password_auth_registers_an_admin_user_and_signs_it_in() {
     assert_eq!(admins[0].email, "ada@example.com");
     assert_eq!(admins[0].display_name, "Ada");
     assert!(admins[0].active);
-    assert!(tablo::auth::verify_password(
-        "correct horse",
-        Some(&admins[0].password_hash)
-    ));
+    assert!(tablo::auth::verify_password("correct horse", Some(&admins[0].password_hash)).await);
 }
 
 /// `PasswordAuth` refuses an email another account holds, and nothing is written.

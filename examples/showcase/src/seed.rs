@@ -215,19 +215,29 @@ pub const TENANTLESS_ADMIN_EMAIL: &str = "root@example.com";
 pub const REMOVED_COMMENT_BODY: &str = "[removed]";
 
 /// Returns the Argon2id PHC hash of a demo password, memoized per process.
-pub(crate) fn memoized_password_hash(password: &str) -> String {
+pub(crate) async fn memoized_password_hash(password: &str) -> String {
     use std::{
         collections::HashMap,
         sync::{Mutex, OnceLock},
     };
 
     static HASHES: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
-    HASHES
-        .get_or_init(|| Mutex::new(HashMap::new()))
+    let hashes = HASHES.get_or_init(|| Mutex::new(HashMap::new()));
+    let cached = hashes
+        .lock()
+        .expect("the demo hash cache is never poisoned")
+        .get(password)
+        .cloned();
+    if let Some(hash) = cached {
+        return hash;
+    }
+    // Two seeds racing on one password each hash it; either hash verifies.
+    let hash = hash_password(password).await.expect("hash a demo password");
+    hashes
         .lock()
         .expect("the demo hash cache is never poisoned")
         .entry(password.to_string())
-        .or_insert_with(|| hash_password(password).expect("hash a demo password"))
+        .or_insert(hash)
         .clone()
 }
 /// Returns the embedded shapes a filler row carries.

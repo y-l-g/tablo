@@ -591,14 +591,14 @@ pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::C
 pub async fn tablo_core::auth::create_admin(&mut dyn toasty::db::executor::Executor, &str, &str, &str) -> topcoat::Result<tablo_core::auth::AdminUser>
 pub fn tablo_core::auth::enforced(&topcoat_core::context::Cx) -> bool
 pub fn tablo_core::auth::guard(&topcoat_core::context::Cx) -> topcoat::Result<()>
-pub fn tablo_core::auth::hash_password(&str) -> topcoat::Result<alloc::string::String>
+pub async fn tablo_core::auth::hash_password(&str) -> topcoat::Result<alloc::string::String>
 pub fn tablo_core::auth::membership(&topcoat_core::context::Cx) -> core::option::Option<&tablo_core::tenancy::Membership>
 pub fn tablo_core::auth::new_password_errors(&str, &str) -> tablo_core::form::FieldErrors
 pub fn tablo_core::auth::require_user<U: tablo_core::auth::PanelUser>(&topcoat_core::context::Cx) -> topcoat::Result<&U>
 pub async fn tablo_core::auth::revoke_sessions_for_user(&topcoat_core::context::Cx, &str) -> topcoat::Result<()>
 pub fn tablo_core::auth::signed_in(&topcoat_core::context::Cx) -> bool
 pub fn tablo_core::auth::user<U: tablo_core::auth::PanelUser>(&topcoat_core::context::Cx) -> core::option::Option<&U>
-pub fn tablo_core::auth::verify_password(&str, core::option::Option<&str>) -> bool
+pub async fn tablo_core::auth::verify_password(&str, core::option::Option<&str>) -> bool
 pub mod tablo_core::csrf
 pub const tablo_core::csrf::COOKIE_NAME: &str
 pub const tablo_core::csrf::FIELD_NAME: &str

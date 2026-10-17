@@ -86,7 +86,7 @@ pub const RESET_LIFETIME: Duration = Duration::from_hours(1);
 ///         };
 ///         Staff::filter_by_id(id)
 ///             .update()
-///             .password_hash(hash_password(password)?)
+///             .password_hash(hash_password(password).await?)
 ///             .exec(ex)
 ///             .await?;
 ///         Ok(())

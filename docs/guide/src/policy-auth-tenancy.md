@@ -188,7 +188,8 @@ use tablo::{Membership, PanelUser, auth::{Authenticator, verify_password}};
   all, and answers `None` on a panel whose authenticator loads another type.
 - **`verify`** checks credentials. Return `Ok(None)` for every credential failure.
   `verify_password` checks an Argon2id hash and, given `None` for an unknown account, does the
-  same work, so response times do not reveal which accounts exist.
+  same work, so response times do not reveal which accounts exist. It and `hash_password` run on
+  Tokio's blocking pool, so await them rather than hashing on the request's task.
 - **`find_by_id`** reloads the user on every request, so deactivating a user or removing a
   membership takes effect immediately.
 

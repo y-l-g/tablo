@@ -103,7 +103,7 @@ impl Authenticator for MemberAuth {
             .first()
             .exec(&mut db)
             .await?;
-        if !verify_password(password, member.as_ref().map(|m| m.password_hash.as_str())) {
+        if !verify_password(password, member.as_ref().map(|m| m.password_hash.as_str())).await {
             return Ok(None);
         }
         match member {
@@ -179,7 +179,9 @@ async fn seeded_db() -> Db {
         tablo::auth::AuthSession
     ))
     .await;
-    let hash = tablo::auth::hash_password("opensesame").expect("hash");
+    let hash = tablo::auth::hash_password("opensesame")
+        .await
+        .expect("hash");
     let ada = toasty::create!(Member {
         handle: "ada".to_string(),
         password_hash: hash.clone(),
