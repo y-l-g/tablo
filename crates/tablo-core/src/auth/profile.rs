@@ -135,9 +135,9 @@ pub trait ProfileEditor: Send + Sync + 'static {
 pub enum ProfileUpdate {
     /// Nothing the user signs in with: every session stays signed in.
     Details,
-    /// Something the user signs in with, such as a password: the user's sessions end on every
-    /// panel whose authenticator loads the same user type, in the transaction that saves, and the
-    /// browser that saved gets a new session under the tenant it acted for.
+    /// Something the user signs in with, such as a password: the user's sessions and reset links
+    /// end on every panel whose authenticator loads the same user type, in the transaction that
+    /// saves, and the browser that saved gets a new session under the tenant it acted for.
     Credentials,
 }
 

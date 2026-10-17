@@ -68,7 +68,7 @@ A test matches on the kind rather than the message; see
 | --- | --- | --- |
 | `AuthDisabled` | `Auth::password_reset` on `Auth::disabled()` | turn authentication on |
 | `UserType` | the resetter resets another user type than the authenticator loads | reset the type the panel signs in |
-| `BaseUrl` | the base URL is not an absolute `http` or `https` URL | pass the scheme and host, such as `https://admin.example.com` |
+| `BaseUrl` | the base URL is not an absolute `http` or `https` URL, or carries a query or fragment | pass the scheme and host, such as `https://admin.example.com` |
 | `MissingMail` | the router registers no `MailConfig` | call `.mail(..)` before `.panel(..)` |
 
 ## Registration

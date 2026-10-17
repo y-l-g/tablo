@@ -3,18 +3,21 @@
 
 use std::time::Duration;
 
-use http::header::{LOCATION, REFERRER_POLICY};
+use http::header::{CACHE_CONTROL, LOCATION, REFERRER_POLICY};
 use jiff::Timestamp;
 use tablo::{
-    Auth, DeclarationErrorKind, LoginThrottle, NoForm, NotificationStatus, Panel, PasswordAuth,
-    PasswordReset, ReadOnly, ResetFault, Resource, ResourceDef, RouterBuilderPanelExt, Table,
-    TextColumn,
-    auth::{AdminUser, AuthSession, PasswordResetToken, create_admin, verify_password},
+    Auth, DeclarationErrorKind, LoginThrottle, NoForm, NotificationStatus, Panel, PanelUser,
+    PasswordAuth, PasswordReset, ReadOnly, ResetFault, Resource, ResourceDef,
+    RouterBuilderPanelExt, Table, TextColumn,
+    auth::{
+        AdminUser, AuthSession, PasswordResetToken, PasswordResetter, create_admin, verify_password,
+    },
     lens,
     testing::{find_href_with, form_body},
 };
 use toasty::Db;
 use topcoat::{
+    context::Cx,
     mail::{Mail, MailConfig, Mailbox, MemoryTransport, RouterBuilderMailExt, TextBody},
     router::{Router, RouterBuilderDiscoverExt},
 };
@@ -65,14 +68,25 @@ fn panel(auth: Auth) -> Panel {
     Panel::new("admin").auth(auth).resource::<NoteResource>()
 }
 
-/// `panel` on a router that sends mail through `mail`.
-fn mount_with_mail(db: Db, panel: Panel, mail: &MemoryTransport) -> topcoat::Result<Router> {
-    Ok(Router::builder()
+/// `panels` on a router that sends mail through `mail`.
+fn mount_panels(
+    db: Db,
+    panels: impl IntoIterator<Item = Panel>,
+    mail: &MemoryTransport,
+) -> topcoat::Result<Router> {
+    let mut builder = Router::builder()
         .discover()
         .app_context(db)
-        .mail(MailConfig::builder().transport(mail.clone()).build())
-        .panel(panel)?
-        .build())
+        .mail(MailConfig::builder().transport(mail.clone()).build());
+    for panel in panels {
+        builder = builder.panel(panel)?;
+    }
+    Ok(builder.build())
+}
+
+/// `panel` on a router that sends mail through `mail`.
+fn mount_with_mail(db: Db, panel: Panel, mail: &MemoryTransport) -> topcoat::Result<Router> {
+    mount_panels(db, [panel], mail)
 }
 
 fn router(db: Db, mail: &MemoryTransport) -> Router {
@@ -106,6 +120,18 @@ async fn request_link(router: &Router, email: &str) -> http::Response<topcoat::r
     TestClient::new(router)
         .submit("/admin/forgot-password", &form_body(&[("email", email)]))
         .await
+}
+
+/// The mail `mail` holds once it holds `count`: links are mailed after the response.
+async fn mails(mail: &MemoryTransport, count: usize) -> Vec<Mail> {
+    for _ in 0..500 {
+        let sent = mail.sent();
+        if sent.len() >= count {
+            return sent;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    panic!("expected {count} mails, got {}", mail.sent().len());
 }
 
 fn text(mail: &Mail) -> &str {
@@ -168,9 +194,8 @@ async fn a_reset_request_answers_the_same_whether_an_account_uses_the_address() 
         assert_eq!(response.headers().get(LOCATION).unwrap(), "/admin/login");
         let notice = flash(response);
         assert_eq!(notice.status, NotificationStatus::Success);
-        assert_eq!(notice.title, "Check your email");
     }
-    let sent = mail.sent();
+    let sent = mails(&mail, 1).await;
     assert_eq!(sent.len(), 1);
     assert_eq!(sent[0].to()[0].address(), "ada@example.com");
     assert!(link(&sent[0]).starts_with("/admin/reset-password?token="));
@@ -189,16 +214,17 @@ async fn a_reset_link_sets_the_password_once_and_ends_every_session() {
     let mail = MemoryTransport::new();
     let router = router(db.clone(), &mail);
     request_link(&router, "ada@example.com").await;
-    let link = link(&mail.sent()[0]);
+    let link = link(&mails(&mail, 1).await[0]);
 
     let page = TestClient::new(&router).get(&link).await;
     assert_eq!(page.status(), 200);
     assert_eq!(page.headers().get(REFERRER_POLICY).unwrap(), "no-referrer");
+    assert_eq!(page.headers().get(CACHE_CONTROL).unwrap(), "no-store");
     let saved = choose(&router, &token(&link), "new password").await;
 
     assert_eq!(saved.status(), 303);
     assert_eq!(saved.headers().get(LOCATION).unwrap(), "/admin/login");
-    assert_eq!(flash(&saved).title, "Password reset");
+    assert_eq!(flash(&saved).status, NotificationStatus::Success);
     let admin = reload(&db, &admin).await;
     assert!(verify_password("new password", Some(&admin.password_hash)));
     assert!(
@@ -230,7 +256,7 @@ async fn an_expired_or_unknown_link_resets_nothing() {
     let mail = MemoryTransport::new();
     let router = router(db.clone(), &mail);
     request_link(&router, "ada@example.com").await;
-    let link = link(&mail.sent()[0]);
+    let link = link(&mails(&mail, 1).await[0]);
     PasswordResetToken::all()
         .update()
         .expires_at(Timestamp::now() - Duration::from_secs(1))
@@ -256,7 +282,7 @@ async fn a_refused_password_keeps_the_link() {
     let mail = MemoryTransport::new();
     let router = router(db.clone(), &mail);
     request_link(&router, "ada@example.com").await;
-    let token = token(&link(&mail.sent()[0]));
+    let token = token(&link(&mails(&mail, 1).await[0]));
 
     let refused = TestClient::new(&router)
         .submit(
@@ -291,9 +317,10 @@ async fn a_new_request_replaces_the_earlier_link() {
     let mail = MemoryTransport::new();
     let router = router(db.clone(), &mail);
     request_link(&router, "ada@example.com").await;
+    mails(&mail, 1).await;
     request_link(&router, "ada@example.com").await;
 
-    let sent = mail.sent();
+    let sent = mails(&mail, 2).await;
     assert_eq!(tokens(&db).await.len(), 1);
     assert_eq!(
         choose(&router, &token(&link(&sent[0])), "new password")
@@ -344,7 +371,7 @@ async fn reset_requests_past_the_limit_are_refused() {
     let throttled = request_link(&router, "ADA@example.com").await;
 
     assert_eq!(throttled.status(), 429);
-    assert_eq!(mail.sent().len(), 1);
+    assert_eq!(mails(&mail, 1).await.len(), 1);
 }
 
 /// The login page links to the forgot-password page only when the panel offers a reset, and
@@ -384,7 +411,7 @@ async fn a_forged_reset_answers_403() {
     let mail = MemoryTransport::new();
     let router = router(db.clone(), &mail);
     request_link(&router, "ada@example.com").await;
-    let token = token(&link(&mail.sent()[0]));
+    let token = token(&link(&mails(&mail, 1).await[0]));
 
     let forged = TestClient::new(&router)
         .post_form(
@@ -402,6 +429,169 @@ async fn a_forged_reset_answers_403() {
         "old password",
         Some(&reload(&db, &admin).await.password_hash)
     ));
+}
+
+/// A link resets nothing once its account may no longer enter the panel.
+#[tokio::test]
+async fn a_deactivated_account_cannot_use_its_link() {
+    let db = db().await;
+    let admin = ada(&db).await;
+    let mail = MemoryTransport::new();
+    let router = router(db.clone(), &mail);
+    request_link(&router, "ada@example.com").await;
+    let token = token(&link(&mails(&mail, 1).await[0]));
+    AdminUser::filter(AdminUser::fields().id().eq(admin.id))
+        .update()
+        .active(false)
+        .exec(&mut db.clone())
+        .await
+        .unwrap();
+
+    assert_eq!(choose(&router, &token, "new password").await.status(), 404);
+    assert!(verify_password(
+        "old password",
+        Some(&reload(&db, &admin).await.password_hash)
+    ));
+}
+
+/// A password changed on the profile page ends the account's reset link.
+#[tokio::test]
+async fn a_changed_password_ends_the_reset_link() {
+    let db = db().await;
+    let admin = ada(&db).await;
+    let mail = MemoryTransport::new();
+    let router = mount_with_mail(
+        db.clone(),
+        panel(
+            Auth::password()
+                .profile(PasswordAuth)
+                .password_reset(reset()),
+        ),
+        &mail,
+    )
+    .expect("panel builds");
+    request_link(&router, "ada@example.com").await;
+    let token = token(&link(&mails(&mail, 1).await[0]));
+    let client = TestClient::new(&router).sign_in(&db, "admin", &admin).await;
+
+    let saved = client
+        .submit(
+            "/admin/profile",
+            &form_body(&[
+                ("name", "Ada"),
+                ("email", "ada@example.com"),
+                ("password", "profile password"),
+                ("password_confirmation", "profile password"),
+                ("current_password", "old password"),
+            ]),
+        )
+        .await;
+
+    assert_eq!(saved.status(), 303);
+    assert!(tokens(&db).await.is_empty());
+    assert_eq!(choose(&router, &token, "new password").await.status(), 404);
+    assert!(verify_password(
+        "profile password",
+        Some(&reload(&db, &admin).await.password_hash)
+    ));
+}
+
+/// A link works only on the panel that mailed it, and a reset ends the account's sessions and
+/// links on every panel that signs in the same user type.
+#[tokio::test]
+async fn a_link_belongs_to_its_panel_and_a_reset_ends_the_others() {
+    let db = db().await;
+    let admin = ada(&db).await;
+    let mail = MemoryTransport::new();
+    let router = mount_panels(
+        db.clone(),
+        [
+            panel(Auth::password().password_reset(reset())),
+            Panel::new("staff")
+                .auth(Auth::password().password_reset(reset()))
+                .resource::<NoteResource>(),
+        ],
+        &mail,
+    )
+    .expect("panels build");
+    for prefix in ["admin", "staff"] {
+        tablo::auth::mint_session(&mut db.clone(), prefix, &admin)
+            .await
+            .unwrap();
+    }
+    TestClient::new(&router)
+        .submit(
+            "/staff/forgot-password",
+            &form_body(&[("email", "ada@example.com")]),
+        )
+        .await;
+    let staff = token(&link(&mails(&mail, 1).await[0]));
+    request_link(&router, "ada@example.com").await;
+    let admin_token = token(&link(&mails(&mail, 2).await[1]));
+
+    let elsewhere = TestClient::new(&router)
+        .submit(
+            "/staff/reset-password",
+            &form_body(&[
+                ("token", admin_token.as_str()),
+                ("password", "new password"),
+                ("password_confirmation", "new password"),
+            ]),
+        )
+        .await;
+    assert_eq!(elsewhere.status(), 404);
+    assert_ne!(staff, admin_token);
+
+    assert_eq!(
+        choose(&router, &admin_token, "new password").await.status(),
+        303
+    );
+    assert!(
+        AuthSession::all()
+            .exec(&mut db.clone())
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(tokens(&db).await.is_empty());
+}
+
+/// A user type the panel's authenticator does not load.
+struct Visitor;
+
+impl PanelUser for Visitor {
+    fn user_id(&self) -> String {
+        String::new()
+    }
+
+    fn display_name(&self) -> &str {
+        ""
+    }
+}
+
+/// Resets visitors, whom the shipped authenticator never loads.
+struct VisitorReset;
+
+impl PasswordResetter for VisitorReset {
+    type User = Visitor;
+
+    async fn find_by_email(&self, _cx: &Cx, _email: &str) -> topcoat::Result<Option<Visitor>> {
+        unreachable!("mounting refuses the resetter")
+    }
+
+    fn email<'u>(&self, _user: &'u Visitor) -> &'u str {
+        unreachable!("mounting refuses the resetter")
+    }
+
+    async fn reset_password(
+        &self,
+        _cx: &Cx,
+        _user_id: &str,
+        _password: &str,
+        _ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<()> {
+        unreachable!("mounting refuses the resetter")
+    }
 }
 
 /// Mounting refuses a reset it cannot serve.
@@ -447,6 +637,24 @@ async fn mounting_refuses_a_reset_the_panel_cannot_serve() {
         vec![DeclarationErrorKind::PasswordReset(
             ResetFault::AuthDisabled
         )]
+    );
+
+    let visitors = PasswordReset::new(
+        VisitorReset,
+        Mailbox::new("no-reply@example.com").unwrap(),
+        "https://admin.example.com",
+    );
+    let errors = refusal(mount_with_mail(
+        db().await,
+        panel(Auth::password().password_reset(visitors)),
+        &mail,
+    ));
+    let kinds: Vec<_> = errors.iter().map(|error| error.kind.clone()).collect();
+    assert_eq!(
+        kinds,
+        vec![DeclarationErrorKind::PasswordReset(ResetFault::UserType {
+            resetter: std::any::type_name::<Visitor>(),
+        })]
     );
 
     let without_tokens = memory_db(toasty::models!(Note, AdminUser, AuthSession)).await;

@@ -490,10 +490,18 @@ async fn a_reset_request_records_a_link_for_staff_only() {
             "{email}"
         );
     }
-    let links = tablo::auth::PasswordResetToken::all()
-        .exec(&mut db.clone())
-        .await
-        .unwrap();
+    // The link is written after the response.
+    let mut links = Vec::new();
+    for _ in 0..500 {
+        links = tablo::auth::PasswordResetToken::all()
+            .exec(&mut db.clone())
+            .await
+            .unwrap();
+        if !links.is_empty() {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
     let staff = Staff::filter(Staff::fields().email().eq(DEMO_ADMIN_EMAIL.to_string()))
         .first()
         .exec(&mut db.clone())

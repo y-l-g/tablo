@@ -14,8 +14,8 @@
 //! - [`value_text`]: a value's text, for URL ids and enum discriminants.
 //! - [`case_insensitive_search`]: a search predicate's `LIKE` matches run as `ILIKE` where the
 //!   driver has it.
-//! - [`UntypedInclude`] and [`Assignments`]: the `toasty_core` types a public Toasty API takes
-//!   without re-exporting them.
+//! - [`UntypedInclude`], [`Assignments`] and [`IsolationLevel`]: the `toasty_core` types a public
+//!   Toasty API takes without re-exporting them.
 //! - [`VariantId`]: an embedded enum variant's id, re-exported for the derives.
 
 pub(crate) mod cursor;
@@ -31,6 +31,8 @@ pub(crate) type UntypedInclude = toasty_core::stmt::Include;
 
 /// An embedded enum variant's id, which the derives name.
 pub use toasty::schema::app::VariantId;
+/// The isolation level `toasty::TransactionBuilder::isolation` takes.
+pub(crate) use toasty_core::driver::operation::IsolationLevel;
 /// The assignments `toasty::schema::Field::new_update` takes.
 pub(crate) use toasty_core::stmt::Assignments;
 
