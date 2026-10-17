@@ -26,6 +26,17 @@ fn pluralize_and_kebab_follow_english_rules() {
     assert_eq!(pluralize("Person"), "People");
     assert_eq!(pluralize("Child"), "Children");
     assert_eq!(pluralize("Index"), "Indices");
+    // words a suffix rule alone gets wrong
+    assert_eq!(pluralize("Cafe"), "Cafes");
+    assert_eq!(pluralize("Giraffe"), "Giraffes");
+    assert_eq!(pluralize("Brief"), "Briefs");
+    assert_eq!(pluralize("Hero"), "Heroes");
+    assert_eq!(pluralize("Staff"), "Staff");
+    assert_eq!(pluralize("Quiz"), "Quizzes");
+    assert_eq!(pluralize("URL"), "URLs");
+    assert_eq!(pluralize("KEY"), "KEYs");
+    assert_eq!(pluralize("Contact person"), "Contact people");
+    assert_eq!(pluralize("API key"), "API keys");
     // kebab
     assert_eq!(kebab_case("Users"), "users");
     assert_eq!(kebab_case("BlogPost"), "blog-post");
