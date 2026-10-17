@@ -8,7 +8,7 @@ use std::{borrow::Cow, collections::BTreeMap};
 use topcoat::context::Cx;
 
 use super::filter::FilterValue;
-use crate::topcoat_compat::href;
+use crate::{schema::clamp_query_term, topcoat_compat::href};
 
 /// The selection token for `key` on the bulk wire: the key percent-encoded between the commas that
 /// delimit it, so a key holding the wire's separator stays one token.
@@ -111,15 +111,6 @@ struct UrlProjection<'a> {
     page: Option<u32>,
     /// `?per_page=` page size.
     per_page: Option<u32>,
-}
-
-/// Longest accepted search term, in chars; the `?q=` transport and option search share it.
-pub(crate) const MAX_QUERY_TERM: usize = 128;
-
-/// Clamps a search term to [`MAX_QUERY_TERM`] chars, so a multibyte term truncates on a char
-/// boundary.
-pub(crate) fn clamp_query_term(term: &str) -> String {
-    term.trim().chars().take(MAX_QUERY_TERM).collect()
 }
 
 /// Caps applied filters per query.

@@ -12,13 +12,11 @@
 //! `jiff::civil` `Date`, `Time` and `DateTime` are [`TypedValue`]s.
 
 pub use crate::{
+    column::{Column, Includes},
     schema::{
         fields::custom::{Control, ControlInput},
         relationship::OptionSource,
         validation::TypedValue,
     },
-    table::{
-        column::{Column, Includes},
-        filter::{ControlFuture, Filter, FilterDate, FilterInput, FilterKey, FilterValue},
-    },
+    table::filter::{ControlFuture, Filter, FilterDate, FilterInput, FilterKey, FilterValue},
 };

@@ -189,3 +189,6 @@ pub mod pick {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

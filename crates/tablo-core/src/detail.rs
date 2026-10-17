@@ -7,8 +7,12 @@ use topcoat::{context::Cx, view::*};
 
 use crate::{
     DeclarationErrorKind,
+    column::{
+        BooleanColumn, BoxColumn, ColorColumn, Column, ComputedColumn, CountColumn, DateColumn,
+        EmbeddedColumn, FileColumn, ImageColumn, RelationColumn, RepeaterColumn, TextColumn,
+        include_relations, unavailable_sources,
+    },
     schema::{Grid, Group, Section},
-    table::{BoxColumn, Column, include_relations},
 };
 
 /// The declaration of a detail page: [`Column`]s, the same ones a [`Table`](crate::Table) lists,
@@ -104,7 +108,7 @@ impl<M> Detail<M> {
 
     /// The columns labelling their records by a source the context's panel cannot load from.
     pub(crate) fn unavailable_sources(&self, cx: &Cx) -> Vec<DeclarationErrorKind> {
-        crate::table::column::unavailable_sources(cx, self.columns().into_iter().map(|c| &**c))
+        unavailable_sources(cx, self.columns().into_iter().map(|c| &**c))
     }
 
     /// What is wrong with this declaration: each column whose path binds no single field.
@@ -216,6 +220,52 @@ impl<M> IntoDetail<M> for BoxColumn<M> {
         }
     }
 }
+
+/// The [`IntoDetail`] impls of the built-in columns: each is one column.
+macro_rules! column_details {
+    ($($ty:ident<$($g:ident),+>),+ $(,)?) => {
+        $(
+            impl<$($g),+> IntoDetail<M> for $ty<$($g),+>
+            where
+                Self: Column<M> + 'static,
+            {
+                fn into_detail(self) -> Detail<M> {
+                    Detail::empty().column(self)
+                }
+            }
+        )+
+    };
+}
+
+column_details!(
+    TextColumn<M, T>,
+    DateColumn<M, T>,
+    ComputedColumn<M>,
+    RelationColumn<M>,
+    CountColumn<M>,
+    BooleanColumn<M>,
+    FileColumn<M>,
+    ColorColumn<M, T>,
+    ImageColumn<M, T>,
+    EmbeddedColumn<M, T>,
+    RepeaterColumn<M, T>,
+);
+
+/// The `columns` builders of the layout blocks: each holds a detail page's columns and blocks.
+macro_rules! block_columns {
+    ($($ty:ident),+ $(,)?) => {
+        $(
+            impl $ty<()> {
+                /// Holds a detail page's columns and blocks.
+                pub fn columns<M>(self, children: impl IntoDetail<M>) -> $ty<Detail<M>> {
+                    self.holding(children.into_detail())
+                }
+            }
+        )+
+    };
+}
+
+block_columns!(Section, Group, Grid);
 
 /// The single-node [`IntoDetail`] impls of every layout block, holding columns or nothing.
 macro_rules! block_details {
