@@ -532,7 +532,9 @@ function install() {
         serverTimers.delete(parts.filter);
         await serverSearch(parts.filter, parts.wrap, parts.select, field, needle);
         delete parts.wrap.dataset.optionsSearching;
-        renderList(partsOf(parts.filter));
+        // A list closed while searching, by Escape or by leaving the field, stays closed.
+        const landed = partsOf(parts.filter);
+        if (landed.list && !landed.list.hidden) renderList(landed);
       }, 200);
       serverTimers.set(parts.filter, timer);
       return;
