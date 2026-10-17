@@ -89,6 +89,11 @@ impl TextControl {
         }
     }
 
+    /// The control's `value` for the stored spelling `stored`.
+    pub(crate) fn rendering(&self, stored: &str) -> String {
+        (self.input_value)(stored)
+    }
+
     /// Whether the field's type parses `value`.
     pub(crate) fn parses(&self, value: &str) -> bool {
         (self.spell)(value).is_some()

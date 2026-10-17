@@ -557,6 +557,19 @@ impl Field {
         }
     }
 
+    /// The stored value `stored` when a text control posts `value` as it rendered `stored`, or
+    /// `None` when the user changed it. A control coarser than its column, as a timestamp's is to
+    /// the minute, renders a rounded value: posting it back untouched must not round the column.
+    pub(crate) fn keep_unedited(&self, value: &FormValue, stored: &FormValue) -> Option<FormValue> {
+        let ControlKind::Text(text) = &self.control else {
+            return None;
+        };
+        let (Some(value), Some(held)) = (value.as_text(), stored.as_text()) else {
+            return None;
+        };
+        (value != held && value.trim() == text.rendering(held)).then(|| stored.clone())
+    }
+
     /// A multiple choice's `value` with the stored keys it drops that the user cannot view put
     /// back, or `None` when it drops none.
     pub(crate) async fn keep_unseen(

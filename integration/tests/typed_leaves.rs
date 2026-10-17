@@ -258,3 +258,83 @@ fn a_timestamp_round_trips_offset_and_subsecond_precision() {
         );
     }
 }
+
+/// A timestamp's control edits to the minute: saving the form without touching it keeps the
+/// stored seconds, and a changed minute is written as posted.
+#[tokio::test]
+async fn an_untouched_timestamp_keeps_its_seconds() {
+    use tablo::{Allow, Auth, Panel, Resource, ResourceDef, Table, TextColumn, lens};
+
+    use crate::common::{TestClient, memory_db};
+
+    #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+    struct Shift {
+        #[key]
+        #[auto]
+        id: uuid::Uuid,
+        label: String,
+        starts_at: jiff::Timestamp,
+    }
+    #[derive(tablo::RecordForm)]
+    #[form(model = Shift)]
+    struct ShiftForm {
+        label: String,
+        starts_at: jiff::Timestamp,
+    }
+    struct ShiftResource;
+    impl Resource for ShiftResource {
+        type Model = Shift;
+        type Form = ShiftForm;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("shifts")
+                .policy(Allow)
+                .table(Table::new(TextColumn::new(lens!(Shift.label))))
+        }
+    }
+    let db = memory_db(toasty::models!(Shift)).await;
+    let router = mount(
+        db.clone(),
+        Panel::new("admin")
+            .auth(Auth::disabled())
+            .resource::<ShiftResource>(),
+    )
+    .expect("panel builds");
+    let starts_at: jiff::Timestamp = "2026-03-04T05:06:07.5Z".parse().unwrap();
+    let shift = toasty::create!(Shift {
+        label: "Early".to_string(),
+        starts_at,
+    })
+    .exec(&mut db.clone())
+    .await
+    .unwrap();
+    let client = TestClient::new(&router);
+    let edit = format!("/admin/shifts/{}/edit", shift.id);
+    let stored = async || {
+        Shift::filter(Shift::fields().id().eq(shift.id))
+            .first()
+            .exec(&mut db.clone())
+            .await
+            .unwrap()
+            .expect("the shift")
+    };
+
+    let response = client
+        .submit(&edit, "label=Late&starts_at=2026-03-04T05%3A06")
+        .await;
+    assert_eq!(response.status(), 303);
+    let saved = stored().await;
+    assert_eq!(saved.label, "Late");
+    assert_eq!(saved.starts_at, starts_at, "the untouched timestamp");
+
+    let response = client
+        .submit(&edit, "label=Late&starts_at=2026-03-04T05%3A07")
+        .await;
+    assert_eq!(response.status(), 303);
+    assert_eq!(
+        stored().await.starts_at,
+        "2026-03-04T05:07:00Z".parse::<jiff::Timestamp>().unwrap(),
+        "a changed minute"
+    );
+}
