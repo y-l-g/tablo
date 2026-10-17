@@ -152,7 +152,12 @@ without a session only when every panel is gated.
 - **Login** verifies Argon2id hashes. An unknown email costs the same work as a wrong password,
   and every failure shows the same message. `PasswordAuth` stores an email trimmed and
   lowercased, and looks it up the same way, so `Ada@Example.com` and `ada@example.com` are one
-  account. Each login may make five attempts a minute from
+  account. A resource that edits an admin's email must store it the same way. A row an earlier
+  version stored with capitals cannot sign in or reset its password: list the accounts that
+  differ only in case with `SELECT LOWER(TRIM(email)) FROM admin_users GROUP BY 1 HAVING
+  COUNT(*) > 1`, merge or delete them, then run `UPDATE admin_users SET email =
+  LOWER(TRIM(email))`. SQLite's `LOWER` folds ASCII letters only, so lowercase any other capital
+  by hand. Each login may make five attempts a minute from
   one address; set another limit with `Auth::throttle`, as
   [Security](./security.md#authentication) shows.
 - **Sessions** are rows in `AuthSession`, identified by a hash of the cookie's token. A session

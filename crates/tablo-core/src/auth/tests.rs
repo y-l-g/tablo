@@ -61,7 +61,7 @@ async fn a_password_verifies_off_the_async_worker() {
     let order = std::sync::Mutex::new(Vec::new());
     tokio::join!(
         async {
-            verify_password("anything", None).await;
+            let _ = verify_password("anything", None).await;
             order.lock().unwrap().push("verify");
         },
         async {
@@ -69,6 +69,27 @@ async fn a_password_verifies_off_the_async_worker() {
         },
     );
     assert_eq!(*order.lock().unwrap(), ["other", "verify"]);
+}
+
+/// Hashing work past the permits waits for one, so no more runs at once than the permits allow.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn hashing_runs_no_more_at_once_than_its_permits() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    let permits = Arc::new(tokio::sync::Semaphore::new(2));
+    let running = Arc::new(AtomicUsize::new(0));
+    let most = Arc::new(AtomicUsize::new(0));
+    let runs = (0..8).map(|_| {
+        let (running, most) = (Arc::clone(&running), Arc::clone(&most));
+        password::permitted(&permits, move || {
+            let now = running.fetch_add(1, Ordering::SeqCst) + 1;
+            most.fetch_max(now, Ordering::SeqCst);
+            std::thread::sleep(std::time::Duration::from_millis(20));
+            running.fetch_sub(1, Ordering::SeqCst);
+        })
+    });
+    futures_util::future::join_all(runs).await;
+    assert_eq!(most.load(Ordering::SeqCst), 2);
 }
 
 #[test]
@@ -901,11 +922,20 @@ async fn portal_report(cx: &Cx) -> topcoat::Result<impl topcoat::view::View> {
 
 /// A router with two password panels over ada's account, the portal declaring `portal_report`.
 async fn two_panel_router() -> topcoat::router::Router {
+    two_panel_router_serving(topcoat::router::TrailingSlash::default()).await
+}
+
+/// [`two_panel_router`] answering the other trailing-slash form of each path as `trailing_slash`
+/// says.
+async fn two_panel_router_serving(
+    trailing_slash: topcoat::router::TrailingSlash,
+) -> topcoat::router::Router {
     use topcoat::router::RouterBuilderDiscoverExt as _;
 
     use crate::RouterBuilderPanelExt as _;
 
     topcoat::router::Router::builder()
+        .trailing_slash(trailing_slash)
         .discover()
         .app_context(db_with_admin("ada@example.com").await)
         .panel(Panel::new("admin"))
@@ -946,6 +976,22 @@ fn shard_request(path: &str, cookie: &str) -> http::Request<Body> {
 async fn a_declared_shard_refuses_another_panels_session() {
     let router = two_panel_router().await;
     let path = "/_topcoat/runtime/shards/tablo-test-portal-report";
+
+    let admin = session_on(&router, "/admin").await;
+    let response = router.handle(shard_request(path, &admin)).await;
+    assert_eq!(response.status(), http::StatusCode::UNAUTHORIZED);
+
+    let portal = session_on(&router, "/portal").await;
+    let response = router.handle(shard_request(path, &portal)).await;
+    assert_eq!(response.status(), http::StatusCode::OK);
+}
+
+/// A router serving a path's trailing-slash twin serves a declared shard there too, and the twin
+/// refuses another panel's session as the declared path does.
+#[tokio::test]
+async fn a_declared_shard_refuses_another_panels_session_at_its_twin_path() {
+    let router = two_panel_router_serving(topcoat::router::TrailingSlash::Serve).await;
+    let path = "/_topcoat/runtime/shards/tablo-test-portal-report/";
 
     let admin = session_on(&router, "/admin").await;
     let response = router.handle(shard_request(path, &admin)).await;
