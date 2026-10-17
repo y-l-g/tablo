@@ -16,7 +16,7 @@ pub use crate::{
     schema::{
         fields::custom::{Control, ControlInput},
         relationship::OptionSource,
-        validation::TypedValue,
     },
     table::filter::{ControlFuture, Filter, FilterDate, FilterInput, FilterKey, FilterValue},
+    values::TypedValue,
 };

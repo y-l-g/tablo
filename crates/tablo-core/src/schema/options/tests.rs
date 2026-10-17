@@ -2,7 +2,7 @@ use super::Options;
 use crate::{
     FormScalar,
     extend::{Column as _, Filter as _},
-    form::FormValues,
+    values::FormValues,
 };
 
 /// One list shared by the form, the filter and the column.

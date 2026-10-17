@@ -1,4 +1,4 @@
-use crate::form::FormScalar;
+use crate::values::FormScalar;
 
 /// The typed rule words one message for a value the type cannot parse and
 /// for one it parses into a value it does not accept.

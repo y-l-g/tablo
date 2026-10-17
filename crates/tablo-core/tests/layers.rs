@@ -1,6 +1,6 @@
-//! The crate's layers: a module names its own layer and the ones below it, never one above; only
-//! the serving layer and the render hooks below it name `tablo_ui`; and only `toasty_compat`
-//! reaches Toasty's internals.
+//! The crate's layers: a module names the modules listed before it, in its own layer or a lower
+//! one, never one listed after it; only the serving layer and the render hooks below it name
+//! `tablo_ui`; and only `toasty_compat` reaches Toasty's internals.
 //!
 //! The checks read the sources: every `crate::` path, every `super::` path that leaves its
 //! top-level module, and every root re-export they go through. Tests and their fixtures are
@@ -12,33 +12,36 @@ use std::{
     path::{Path, PathBuf},
 };
 
-/// The top-level modules of each layer, lowest first.
+/// The top-level modules of each layer, lowest first. A module names only the modules listed
+/// before it, so the modules form no cycle and the list reads as the order to learn them in.
 const LAYERS: &[(&str, &[&str])] = &[
     (
         "foundations",
         &[
-            "csrf",
-            "db",
+            "naming",
+            "topcoat_compat",
             "declaration",
             "error",
-            "lens",
-            "naming",
             "toasty_compat",
-            "topcoat_compat",
+            "lens",
+            "db",
+            "csrf",
         ],
     ),
     (
         "the declaration model",
         &[
+            "policy",
+            "tenancy",
+            "navigation",
+            "display",
+            "values",
+            "schema",
             "column",
             "detail",
-            "extend",
-            "form",
-            "navigation",
-            "policy",
-            "schema",
             "table",
-            "tenancy",
+            "form",
+            "extend",
         ],
     ),
     ("resources", &["resource"]),
@@ -48,13 +51,16 @@ const LAYERS: &[(&str, &[&str])] = &[
     ),
 ];
 
+/// The layers whose modules may still name each other in any order.
+const UNORDERED: &[&str] = &["serving"];
+
 #[test]
-fn every_module_reaches_only_its_own_layer_and_the_ones_below() {
+fn every_module_reaches_only_the_modules_listed_before_it() {
     let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
     let lib = strip(&fs::read_to_string(src.join("lib.rs")).expect("read lib.rs"));
     for module in declared_modules(&lib) {
         assert!(
-            layer(&module).is_some(),
+            rank(&module).is_some(),
             "`{module}` is in no layer: add it to `LAYERS`"
         );
     }
@@ -64,15 +70,26 @@ fn every_module_reaches_only_its_own_layer_and_the_ones_below() {
         let relative = file.strip_prefix(&src).expect("under src");
         let segments = module_path(relative);
         let from = &segments[0];
-        let from_layer = layer(from).expect("every module is in a layer");
+        let (from_layer, from_rank) = rank(from).expect("every module is in a layer");
         let text = strip(&fs::read_to_string(&file).expect("read a source"));
         for target in reached_modules(&text, &segments) {
             let target = exports.get(&target).cloned().unwrap_or(target);
-            if layer(&target).is_some_and(|to| to > from_layer) {
+            let Some((to_layer, to_rank)) = rank(&target) else {
+                continue;
+            };
+            if to_layer > from_layer {
                 reached_up.push(format!(
                     "{} reaches `{target}` in {}",
                     relative.display(),
-                    LAYERS[layer(&target).expect("checked")].0
+                    LAYERS[to_layer].0
+                ));
+            } else if to_layer == from_layer
+                && to_rank > from_rank
+                && !UNORDERED.contains(&LAYERS[to_layer].0)
+            {
+                reached_up.push(format!(
+                    "{} reaches `{target}`, listed after `{from}`",
+                    relative.display()
                 ));
             }
         }
@@ -81,7 +98,8 @@ fn every_module_reaches_only_its_own_layer_and_the_ones_below() {
     reached_up.dedup();
     assert!(
         reached_up.is_empty(),
-        "a module reaches a layer above its own:\n{}",
+        "a module reaches one listed after it in `LAYERS`; move what it needs down, or the caller \
+         up:\n{}",
         reached_up.join("\n")
     );
 }
@@ -114,7 +132,7 @@ fn only_serving_and_the_render_hooks_name_tablo_ui() {
     for file in sources(&src) {
         let relative = file.strip_prefix(&src).expect("under src");
         let segments = module_path(relative);
-        if layer(&segments[0]) == Some(serving) {
+        if rank(&segments[0]).map(|(layer, _)| layer) == Some(serving) {
             continue;
         }
         let text = strip(&fs::read_to_string(&file).expect("read a source"));
@@ -231,10 +249,14 @@ fn schema_halves(text: &str) -> Vec<String> {
     named
 }
 
-fn layer(module: &str) -> Option<usize> {
-    LAYERS
-        .iter()
-        .position(|(_, modules)| modules.contains(&module))
+/// The layer `module` is in, and its place in that layer.
+fn rank(module: &str) -> Option<(usize, usize)> {
+    LAYERS.iter().enumerate().find_map(|(layer, (_, modules))| {
+        modules
+            .iter()
+            .position(|listed| *listed == module)
+            .map(|place| (layer, place))
+    })
 }
 
 /// The source files the check reads: everything under `src` but the crate root, tests and test

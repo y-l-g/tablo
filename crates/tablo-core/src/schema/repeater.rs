@@ -17,8 +17,8 @@ use tablo_ui::{
 };
 use topcoat::{Result, context::Cx, view::*};
 
-use super::{Schema, fields::Field, read::Pairs, tree::Source};
-use crate::form::{FieldError, FieldErrors, FormInput, FormValue, FormValues};
+use super::{FormInput, Schema, fields::Field, read::Pairs, tree::Source};
+use crate::values::{FieldError, FieldErrors, FormValue, FormValues};
 
 /// What the blank row's keys carry for the number the browser gives a row it adds.
 pub(crate) const ROW: &str = "__row__";
@@ -301,7 +301,7 @@ pub fn parse_items<T: FormInput>(
     let rows: &[FormValues] = match values.get(key) {
         None => &[],
         Some(FormValue::Rows(rows)) => rows,
-        Some(_) => return Err(vec![crate::form::unreadable(key)]),
+        Some(_) => return Err(vec![crate::values::unreadable(key)]),
     };
     let mut items = Vec::with_capacity(rows.len());
     let mut errors = Vec::new();

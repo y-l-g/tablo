@@ -43,8 +43,8 @@ pub mod pick {
     use crate::{
         BooleanColumn, DateColumn, DateValue, Detail, EmbeddedColumn, Lens, RepeaterColumn, Table,
         TextColumn,
-        form::{FormInput, FormScalar},
-        schema::EmbeddedForm,
+        schema::{EmbeddedForm, FormInput},
+        values::FormScalar,
     };
 
     /// One model field, as the derive hands it to the `Pick*` traits.

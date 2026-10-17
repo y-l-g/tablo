@@ -6,7 +6,7 @@ use std::cmp::Ordering;
 
 use regex::Regex;
 
-use crate::{FieldRuleFault, form::FormScalar};
+use crate::{FieldRuleFault, values::FormScalar};
 
 /// How a field's type orders two submissions, `None` when it parses neither or has no order.
 pub(super) type Order = fn(&str, &str) -> Option<Ordering>;

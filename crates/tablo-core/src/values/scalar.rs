@@ -1,0 +1,140 @@
+//! [`FormScalar`]: a type one form key reads and writes, and the blanket impls over
+//! [`TypedValue`] and `Option`.
+
+use super::TypedValue;
+
+/// A type one form key reads and writes: `String`, every [`TypedValue`] type,
+/// every enum deriving [`Options`](crate::Options), and an `Option` of any of them.
+///
+/// The value the parse sees is trimmed and non-empty; an empty submission is the
+/// record-form field's **blank answer** instead, and a field with none is required.
+///
+/// A text field binds a path of any `FormScalar` type
+/// ([`Field::text`](crate::Field::text)), and the form derives read and write
+/// every field that is not `#[form(embed)]` through it.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a form scalar",
+    label = "a form field of this type has no text spelling",
+    note = "a form scalar is `String`, a `TypedValue` type, an `Options` enum, or an `Option` of \
+            one; implement `TypedValue` for an app type, derive `Options` for a unit enum, or \
+            mark an `EmbeddedForm` value `#[form(embed)]`"
+)]
+pub trait FormScalar: Sized {
+    /// The `type` attribute of the text control that edits it.
+    const INPUT_TYPE: &'static str = "text";
+
+    /// The control's `step` attribute, when its input type takes one.
+    const STEP: Option<&'static str> = None;
+
+    /// The control's `value` for a stored value's form spelling.
+    fn input_value(stored: &str) -> String {
+        stored.to_string()
+    }
+
+    /// Parse a trimmed, non-empty submission, or return the error message.
+    fn parse_form(value: &str) -> std::result::Result<Self, String>;
+
+    /// The form spelling of a stored value.
+    fn to_form(&self) -> String;
+
+    /// What a column cell and a group header read: the form spelling, or an
+    /// `Options` enum's label.
+    fn to_label(&self) -> String {
+        self.to_form()
+    }
+
+    /// The color a badge shows the value in: an `Options` enum's `#[option(color = "…")]`, and
+    /// `None` for any other type.
+    fn color(&self) -> Option<crate::Color> {
+        None
+    }
+
+    /// How `self` orders against `other` for a text field's [`min`](crate::TextField::min) and
+    /// [`max`](crate::TextField::max): a [`TypedValue`]'s [`order`](TypedValue::order), and
+    /// `None` for any other type.
+    fn order(&self, _other: &Self) -> Option<std::cmp::Ordering> {
+        None
+    }
+}
+
+impl FormScalar for String {
+    fn parse_form(value: &str) -> std::result::Result<Self, String> {
+        Ok(value.to_string())
+    }
+
+    fn to_form(&self) -> String {
+        self.clone()
+    }
+}
+
+impl<T: TypedValue> FormScalar for T {
+    const INPUT_TYPE: &'static str = T::INPUT_TYPE;
+    const STEP: Option<&'static str> = T::STEP;
+
+    fn input_value(stored: &str) -> String {
+        T::input_value(stored)
+    }
+
+    fn parse_form(value: &str) -> std::result::Result<Self, String> {
+        T::parse_input(value).ok_or_else(|| format!("`{value}` is not a valid {}", T::NOUN))
+    }
+
+    fn to_form(&self) -> String {
+        self.to_string()
+    }
+
+    fn order(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        TypedValue::order(self, other)
+    }
+}
+
+/// A form scalar whose `Option` is one too: every [`TypedValue`] type, and every enum deriving
+/// [`Options`](crate::Options), which implements it.
+#[doc(hidden)]
+pub trait NullableScalar: FormScalar {}
+
+impl<T: TypedValue> NullableScalar for T {}
+
+impl<T: NullableScalar> FormScalar for Option<T> {
+    const INPUT_TYPE: &'static str = T::INPUT_TYPE;
+    const STEP: Option<&'static str> = T::STEP;
+
+    fn input_value(stored: &str) -> String {
+        T::input_value(stored)
+    }
+
+    fn parse_form(value: &str) -> std::result::Result<Self, String> {
+        T::parse_form(value).map(Some)
+    }
+
+    fn to_form(&self) -> String {
+        self.as_ref().map(T::to_form).unwrap_or_default()
+    }
+
+    fn to_label(&self) -> String {
+        self.as_ref().map(T::to_label).unwrap_or_default()
+    }
+
+    fn color(&self) -> Option<crate::Color> {
+        self.as_ref().and_then(T::color)
+    }
+
+    fn order(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        T::order(self.as_ref()?, other.as_ref()?)
+    }
+}
+
+impl FormScalar for Option<String> {
+    fn parse_form(value: &str) -> std::result::Result<Self, String> {
+        Ok(Some(value.to_string()))
+    }
+
+    fn to_form(&self) -> String {
+        self.clone().unwrap_or_default()
+    }
+}
+
+/// Compiles only for a form scalar: the form derives call it, spanned on a
+/// field's type, so a field of another type fails there.
+#[doc(hidden)]
+pub fn assert_form_scalar<T: FormScalar>() {}
