@@ -7,10 +7,12 @@ use derive_where::derive_where;
 use toasty::stmt::{Expr, OrderByExpr};
 use topcoat::{context::Cx, view::*};
 
-use super::{
-    Alignment, Color, Column, ColumnBase, ColumnWidth, Currency, Numeric, display, sort_order,
+use super::{Column, ColumnBase, ColumnWidth, sort_order};
+use crate::{
+    Lens,
+    display::{Alignment, Color, Currency, Numeric},
+    values::FormScalar,
 };
-use crate::{Lens, form::FormScalar};
 
 /// A column of one field, rendered as text and bound through a [`Lens`] for sorting and search.
 ///
@@ -193,7 +195,7 @@ where
         self.format = Arc::new(move |value: &T| {
             value
                 .number()
-                .map(|number| display::format_number(number, decimals))
+                .map(|number| crate::display::format_number(number, decimals))
                 .unwrap_or_default()
         });
         self.amount()

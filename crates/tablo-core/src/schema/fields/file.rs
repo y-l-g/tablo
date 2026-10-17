@@ -11,7 +11,7 @@ impl Field {
         &self,
         cx: &'a Cx,
         value: Option<&str>,
-        error: Option<&crate::form::FieldError>,
+        error: Option<&crate::values::FieldError>,
         id: String,
         disabled: bool,
     ) -> Result<BoxView<'a>> {

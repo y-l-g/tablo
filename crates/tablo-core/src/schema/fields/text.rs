@@ -6,7 +6,7 @@ use topcoat::{Result, context::Cx, view::*};
 pub(crate) use self::rules::Pattern;
 use self::rules::{Order, Rules, order};
 use super::{Field, render_field};
-use crate::{FieldRuleFault, form::FormScalar};
+use crate::{FieldRuleFault, values::FormScalar};
 
 /// The equality expression a text field's unique probe binds.
 type EqProbe = std::sync::Arc<dyn Fn(&str) -> Option<toasty::stmt::Expr<bool>> + Send + Sync>;
@@ -149,7 +149,7 @@ impl Field {
         text: &TextControl,
         cx: &'a Cx,
         value: Option<&str>,
-        error: Option<&crate::form::FieldError>,
+        error: Option<&crate::values::FieldError>,
         id: String,
         disabled: bool,
     ) -> Result<BoxView<'a>> {

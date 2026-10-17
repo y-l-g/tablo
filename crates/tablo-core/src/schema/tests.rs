@@ -53,7 +53,7 @@ async fn a_misdeclared_schema_fails_to_render() {
     ));
     let cx = topcoat::context::CxTestBuilder::new().build();
     let values = FormValues::new();
-    let errors = crate::form::FieldErrors::new();
+    let errors = crate::values::FieldErrors::new();
     let Err(error) = schema.render(&cx, Source::form(&values, &errors)).await else {
         panic!("a misdeclared schema must not render");
     };
@@ -79,7 +79,7 @@ async fn a_choice_stores_the_value_its_check_authorised() {
         "the option check reads the trimmed value"
     );
     assert_eq!(
-        crate::form::parse_scalar::<String>("name", &values, None),
+        crate::values::parse_scalar::<String>("name", &values, None),
         Ok("red".to_string()),
         "the stored value is the one the check authorised"
     );
@@ -203,7 +203,7 @@ async fn a_multiple_choices_list_default_checks_its_boxes() {
             .default(["rust", "sql"]),
     );
     let cx = crate::test_support::cx();
-    let (values, errors) = (schema.defaults(), crate::form::FieldErrors::new());
+    let (values, errors) = (schema.defaults(), crate::values::FieldErrors::new());
     let html = schema
         .render(&cx, Source::form(&values, &errors))
         .await

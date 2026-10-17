@@ -5,8 +5,8 @@ use super::{
     *,
 };
 use crate::{
-    form::{FieldErrors, FormValues},
     schema::{Schema, Source},
+    values::{FieldErrors, FormValues},
 };
 
 /// The opening `<input …>` tag around the file control, so assertions do

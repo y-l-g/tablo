@@ -3,9 +3,9 @@ use super::super::{
     test_support::{DummyUser, cx},
 };
 use crate::{
-    form::{FieldErrors, FormValue, FormValues},
     schema::{Schema, Source},
     test_support::Html as _,
+    values::{FieldErrors, FormValue, FormValues},
 };
 
 #[test]

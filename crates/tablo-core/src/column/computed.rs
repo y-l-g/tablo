@@ -5,7 +5,8 @@ use std::sync::Arc;
 use derive_where::derive_where;
 use topcoat::context::Cx;
 
-use super::{Alignment, Column, ColumnToggle, ColumnWidth, Includes};
+use super::{Column, ColumnToggle, ColumnWidth, Includes};
+use crate::display::Alignment;
 
 /// A display-only column rendering any text from the row, with no query predicate.
 ///

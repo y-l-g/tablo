@@ -1,6 +1,22 @@
-//! What a form holds: one typed value per key.
+//! Form values: what a form holds, one typed value per key; the [`FormScalar`] types a key reads
+//! and writes, the [`TypedValue`]s among them, and the [`FieldError`]s a key is refused with.
+//!
+//! The module sits below `schema`, which reads and renders form values, and `form`, whose record
+//! forms hydrate and parse them; `form` re-exports it.
+
+mod error;
+mod parse;
+mod scalar;
+mod typed;
 
 use std::collections::BTreeMap;
+
+pub(crate) use error::unreadable;
+pub use error::{FieldError, FieldErrorKind, FieldErrors};
+pub use parse::{parse_list, parse_password, parse_scalar, write_list};
+pub use scalar::{FormScalar, NullableScalar, assert_form_scalar};
+pub use typed::TypedValue;
+pub(crate) use typed::is_email;
 
 /// What a form holds, one [`FormValue`] per key: a submission its schema
 /// [read](crate::Schema::read), or a stored record as its record form spells it.
@@ -186,4 +202,20 @@ impl From<Vec<FormValues>> for FormValue {
     fn from(rows: Vec<FormValues>) -> Self {
         Self::Rows(rows)
     }
+}
+
+/// One record-form field and the form keys it binds.
+#[derive(Debug, Clone)]
+pub struct FormField<K> {
+    /// The field, as the form's field enum names it.
+    pub field: K,
+    /// The Rust field name, for build-time refusals.
+    pub name: &'static str,
+    /// The keys the field binds: one for a scalar, every key of an embedded
+    /// value (an enum's discriminant first). An error on the field renders
+    /// under the first.
+    pub keys: Vec<String>,
+    /// The keys with no blank answer, which an empty submission refuses: the
+    /// panel renders their controls required.
+    pub required: Vec<String>,
 }

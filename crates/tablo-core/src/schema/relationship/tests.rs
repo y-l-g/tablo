@@ -4,9 +4,9 @@ use topcoat::context::{Cx, CxTestBuilder};
 use super::*;
 use crate::{
     Ability,
-    form::FormValues,
     schema::Field,
     test_support::{Html as _, memory_db},
+    values::FormValues,
 };
 
 /// Reports what a submit's option check says for one choice.
@@ -225,7 +225,7 @@ async fn relationship_load_fails_closed_when_view_any_is_refused() {
         "denied render must show the form-level error: {html}"
     );
     // The submit's refusal re-renders over the same denied load, which still names the slot.
-    let refused = crate::form::FieldError::invalid("id", "Id is not available");
+    let refused = crate::values::FieldError::invalid("id", "Id is not available");
     let html = select
         .render(&cx, Some(&pk), Some(&refused))
         .await
@@ -816,7 +816,7 @@ async fn recheck_resolves_the_key_through_the_write_transaction() {
         Field::choice(PolicyAuthor::fields().id()).relationship::<HideOneAuthor>(),
     );
     let values = |id: uuid::Uuid| FormValues::from_iter([("id".to_string(), id.to_string())]);
-    let messages = |errors: crate::form::FieldErrors| -> Vec<String> {
+    let messages = |errors: crate::values::FieldErrors| -> Vec<String> {
         errors.iter().map(|error| error.message("Id")).collect()
     };
 

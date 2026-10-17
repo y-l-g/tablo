@@ -20,7 +20,7 @@ use super::{
     fields::{ChoiceField, CustomField, Field, TextField},
     tree::Node,
 };
-use crate::{DeclarationErrorKind, form::FormValues, topcoat_compat::async_page};
+use crate::{DeclarationErrorKind, topcoat_compat::async_page, values::FormValues};
 
 /// A field a condition can watch: a text, choice or custom field of the form `F`, passed to
 /// `visible_when` by reference.

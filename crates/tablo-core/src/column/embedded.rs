@@ -8,8 +8,8 @@ use topcoat::{context::Cx, view::*};
 use super::{Column, ColumnBase, ColumnWidth};
 use crate::{
     Lens,
-    form::FormValues,
     schema::{EmbeddedForm, Schema},
+    values::FormValues,
 };
 
 /// A column of an [`EmbeddedForm`] value.
