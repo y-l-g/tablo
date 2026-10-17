@@ -22,3 +22,16 @@ fn a_variant_stores_its_snake_case_name_and_reads_in_sentence_case() {
     assert_eq!(snake_case("PublishedLate"), "published_late");
     assert_eq!(sentence_case("published_late"), "Published late");
 }
+
+#[test]
+fn a_blank_or_padded_value_is_refused() {
+    for value in ["", " ", " a", "a "] {
+        let message = refusal(&format!(r#"enum S {{ #[option(value = "{value}")] A }}"#));
+        assert!(
+            message.contains("no space at either end"),
+            "{value:?}: {message}"
+        );
+    }
+    let inner = refusal(r#"enum S { #[option(value = "a b")] A }"#);
+    assert!(!inner.contains("no space at either end"), "{inner}");
+}

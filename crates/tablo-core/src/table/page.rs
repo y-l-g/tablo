@@ -145,7 +145,8 @@ where
         } else {
             None
         };
-        let asked = state.page.unwrap_or(1);
+        // `TableState` is public, so a page of 0 can reach here: it reads as the first.
+        let asked = state.page.unwrap_or(1).max(1);
         let page = match total {
             Some(total) => {
                 let position = PagePosition {

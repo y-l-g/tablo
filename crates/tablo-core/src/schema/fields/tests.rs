@@ -45,6 +45,17 @@ fn a_field_reads_its_columns_nullability() {
     assert!(!Field::text(Coded::fields().code()).is_nullable());
 }
 
+/// A toggle turned into a choice posts the choice's options, not a checkbox's `true` or `false`.
+#[test]
+fn a_toggle_turned_into_a_choice_takes_its_options() {
+    let field: Field = Field::toggle_input("plan")
+        .choice()
+        .options(["monthly", "yearly"])
+        .into();
+    assert!(!field.refuses(&FormValue::from("yearly")));
+    assert!(field.refuses(&FormValue::from("true")));
+}
+
 /// The email rule refuses a non-empty value that is not an address, and leaves presence to the
 /// record form.
 #[test]
