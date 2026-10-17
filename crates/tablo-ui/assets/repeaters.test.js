@@ -136,8 +136,9 @@ function matchesOne(element, selector) {
   return true;
 }
 
-// A repeater of `links` with the rows `numbers`, each holding one text input.
-function repeater(numbers) {
+// A repeater of `links` with the rows `numbers`, each holding one text input,
+// taking at most `max` rows when given.
+function repeater(numbers, max) {
   const row = (n) =>
     new Element('li', { 'data-repeater-row': String(n) }, [
       new Element('input', { type: 'hidden', name: `links.${n}.id` }),
@@ -156,11 +157,9 @@ function repeater(numbers) {
     'data-repeater-order': '',
   });
   const add = new Element('button', { 'data-repeater-add': '' });
-  const root = new Element(
-    'fieldset',
-    { 'data-repeater': 'links', 'data-repeater-next': String(Math.max(-1, ...numbers) + 1) },
-    [order, list, blank, add],
-  );
+  const attrs = { 'data-repeater': 'links', 'data-repeater-next': String(Math.max(-1, ...numbers) + 1) };
+  if (max !== undefined) attrs['data-repeater-max'] = String(max);
+  const root = new Element('fieldset', attrs, [order, list, blank, add]);
   return { root, order, list, add };
 }
 
@@ -226,6 +225,17 @@ test('moving a row reorders it and keeps its number', () => {
   act(button(list.children[2], 'down'));
   assert.equal(order.value, '2,0,1');
   assert.equal(list.children[0].querySelector('input:not([type="hidden"])').getAttribute('name'), 'links.2.url');
+});
+
+test('a full repeater disables its add button, and a removal enables it', () => {
+  const { order, list, add } = repeater([0], 2);
+  act(add);
+  assert.equal(add.disabled, true);
+  act(add);
+  assert.equal(order.value, '0,1', 'a full list takes no row');
+  act(button(list.children[0], 'remove'));
+  assert.equal(add.disabled, false);
+  assert.equal(add.focused, true);
 });
 
 test('a button outside any repeater does nothing', () => {

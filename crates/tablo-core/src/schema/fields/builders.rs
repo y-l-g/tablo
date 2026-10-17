@@ -34,7 +34,9 @@ macro_rules! base_modifiers {
             /// Shows the field only while `watched` posts one of `values`: an option's value, or
             /// `true` for a checked toggle. A hidden field posts nothing, so an edit keeps its
             /// stored value and a create takes its blank answer; a field with no blank answer
-            /// cannot be conditional.
+            /// cannot be conditional. A field shows under one condition: a later call replaces an
+            /// earlier one, so a field depending on two watched fields sits in a
+            /// [`Section`](crate::Section) guarded by the other.
             ///
             /// ```rust
             /// # #[derive(Debug, Clone, toasty::Model)]
@@ -282,7 +284,8 @@ impl<F> TextField<F> {
     }
 
     /// Render `type="password"`: the browser masks the value, and a refused form renders the
-    /// control empty rather than echoing the password back into the page.
+    /// control empty rather than echoing the password back into the page. It renders the one-line
+    /// input even when [`multiline`](Self::multiline).
     pub fn password(mut self) -> Self {
         self.text().password = true;
         self

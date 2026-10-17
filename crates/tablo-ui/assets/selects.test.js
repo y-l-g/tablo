@@ -133,11 +133,16 @@ function searchableField({ server = null } = {}) {
     selector === '[data-options-filter]' ? filter
       : selector === '[data-options-list]' ? list
         : null;
+  const selectAttrs = {};
   const select = {
     value: '',
     options,
     required: false,
     events: [],
+    getAttribute: (name) => (name in selectAttrs ? selectAttrs[name] : null),
+    setAttribute: (name, value) => {
+      selectAttrs[name] = value;
+    },
     querySelectorAll: (selector) => (selector === 'option' ? options : []),
     dispatchEvent(event) {
       this.events.push(event);
@@ -373,6 +378,34 @@ test('an edit form shows the current option label in the box', () => {
   world.select.value = 'pk-ada';
   load(standInDocument([world.filter]));
   assert.equal(world.filter.value, 'Ada Author');
+});
+
+test("entering an edit form's field lists every option, not only the current one", () => {
+  const world = searchableField();
+  world.select.value = 'pk-ada';
+  const document = standInDocument([world.filter]);
+  load(document);
+  document.listeners('focusin').forEach((handler) => handler({ target: world.filter }));
+  assert.ok(
+    world.rows.some((row) => row.textContent === 'Alan Author'),
+    'the box shows the current label, which filters nothing',
+  );
+  world.filter.value = 'Ala';
+  document.listeners('input').forEach((handler) => handler({ target: world.filter }));
+  assert.deepEqual(
+    world.rows.map((row) => row.textContent),
+    ['Alan Author'],
+    'typed text still filters',
+  );
+});
+
+test("the box carries the hidden select's error state and description", () => {
+  const world = searchableField();
+  world.select.setAttribute('aria-invalid', 'true');
+  world.select.setAttribute('aria-describedby', 'author-error');
+  load(standInDocument([world.filter]));
+  assert.equal(world.filter.getAttribute('aria-invalid'), 'true');
+  assert.equal(world.filter.getAttribute('aria-describedby'), 'author-error');
 });
 
 test('a field with no current option leaves the box empty', () => {

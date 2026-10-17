@@ -161,7 +161,9 @@ impl Field {
         let described_by = chrome.described_by();
         let rules = &text.rules;
         let (min_length, max_length) = (rules.min_length, rules.max_length);
-        let control = if let Some(rows) = text.rows {
+        // A password renders the masked input even when declared multiline: a `<textarea>` would
+        // show it and echo it back into a refused form.
+        let control = if let Some(rows) = text.rows.filter(|_| !text.password) {
             // A `<textarea>` takes its initial value from content, not a `value` attribute.
             let value_owned = value.unwrap_or("").to_string();
             view! {
