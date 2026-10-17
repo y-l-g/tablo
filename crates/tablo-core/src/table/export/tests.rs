@@ -15,11 +15,23 @@ fn unquote(cell: &str) -> String {
 }
 
 /// Whether a spreadsheet would run `cell` as a formula: its first character past whitespace,
-/// controls and zero-width format characters starts one.
+/// controls and zero-width format characters starts one, and it is more than a minus sign and
+/// a number's digits and separators.
 fn runs_as_formula(cell: &str) -> bool {
-    cell.chars()
-        .find(|c| !(c.is_whitespace() || c.is_control() || matches!(c, '\u{FEFF}' | '\u{200B}')))
+    let lead = cell.trim_start_matches(|c: char| {
+        c.is_whitespace() || c.is_control() || matches!(c, '\u{FEFF}' | '\u{200B}')
+    });
+    let numeral = lead.strip_prefix('-').is_some_and(|rest| {
+        !rest.is_empty()
+            && rest
+                .chars()
+                .all(|c| c.is_ascii_digit() || ".,$€£¥% \u{A0}\u{202F}".contains(c))
+            && rest.chars().any(|c| c.is_ascii_digit())
+    });
+    lead.chars()
+        .next()
         .is_some_and(|c| matches!(c, '=' | '+' | '-' | '@' | '|' | '%'))
+        && !numeral
 }
 
 /// A cell spreadsheets could misread: formula leads behind whitespace, controls and format
@@ -68,4 +80,16 @@ fn a_csv_row_escapes_each_cell() {
         table.csv_row(&crate::test_support::cx(), &user),
         "\"'=Ada, \"\"the\"\" first\"\n"
     );
+}
+
+/// A negative number exports as itself, so a spreadsheet reads a number; a cell carrying anything
+/// more is still defused.
+#[test]
+fn a_negative_number_exports_undefused() {
+    for number in ["-12", "-1234.50", "-$1,234.50", "-12%", " -7"] {
+        assert_eq!(unquote(&escape_csv(number)), number);
+    }
+    for formula in ["-1+1", "-A1", "-", "-$", "-2*3", "-1)"] {
+        assert_eq!(unquote(&escape_csv(formula)), format!("'{formula}"));
+    }
 }
