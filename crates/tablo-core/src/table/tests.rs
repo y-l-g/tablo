@@ -1020,3 +1020,29 @@ async fn the_sort_outranks_the_resource_querys_ordering() {
         assert_eq!(names, ["u01", "u02", "u03"], "{pagination:?}");
     }
 }
+
+/// A state naming page 0, which `TableState`'s public field allows, loads the first page.
+#[tokio::test]
+async fn page_zero_loads_the_first_page() {
+    let cx = seeded_users(&["u01", "u02"]).await;
+    let table = Table::<User>::new(TextColumn::new(lens!(User.name)).sortable());
+    for pagination in [
+        crate::table::Pagination::Pages,
+        crate::table::Pagination::Simple,
+    ] {
+        let state = TableState {
+            page: Some(0),
+            ..TableState::from_query("sort=name")
+        };
+        let page = TablePage::load(
+            &cx,
+            &table.clone().pagination(pagination),
+            toasty::stmt::Query::<List<User>>::all(),
+            &state,
+        )
+        .await
+        .expect("the page loads");
+        let names: Vec<_> = page.rows.iter().map(|user| user.name.as_str()).collect();
+        assert_eq!(names, ["u01", "u02"], "{pagination:?}");
+    }
+}

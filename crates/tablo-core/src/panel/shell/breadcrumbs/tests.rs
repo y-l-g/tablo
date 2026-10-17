@@ -130,3 +130,12 @@ fn a_page_under_another_entry_names_itself() {
         [("Dashboard", Some("/admin")), ("Edit", None)]
     );
 }
+
+/// A segment the URL percent-encodes reads decoded.
+#[test]
+fn an_encoded_segment_reads_decoded() {
+    assert_eq!(
+        labels(&trail(&nav(), &LISTS, "/admin/reports/Q1%20sales", "")),
+        [("Dashboard", Some("/admin")), ("Q1 sales", None)]
+    );
+}

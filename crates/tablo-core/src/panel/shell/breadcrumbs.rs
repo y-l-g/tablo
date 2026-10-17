@@ -102,9 +102,10 @@ fn entry<'a>(
     Some((item, item.path()?))
 }
 
-/// A path segment as a label: `audit-log` reads `Audit log`.
+/// A path segment as a label: `audit-log` reads `Audit log`, and `Q1%20sales` reads `Q1 sales`.
 fn humanize(segment: &str) -> String {
-    let words = segment.replace(['-', '_'], " ");
+    let decoded = percent_encoding::percent_decode_str(segment).decode_utf8_lossy();
+    let words = decoded.replace(['-', '_'], " ");
     let mut chars = words.chars();
     chars
         .next()

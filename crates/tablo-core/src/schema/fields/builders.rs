@@ -261,6 +261,7 @@ macro_rules! to_choice {
             /// The replaced control's own modifiers are dropped with it.
             pub fn choice(mut self) -> ChoiceField<F> {
                 self.0.control = ControlKind::Choice(ChoiceControl::default());
+                self.0.checkbox = false;
                 ChoiceField(self.0, PhantomData)
             }
         }

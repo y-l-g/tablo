@@ -95,6 +95,17 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
                 Ok(())
             })?;
         }
+        // A form posts the value trimmed, and a blank one as no choice: neither could select it.
+        if value.trim().is_empty() || value.trim() != value {
+            return Err(syn::Error::new_spanned(
+                variant,
+                format!(
+                    "`{}` stores \"{value}\": an option's value needs a character other than a \
+                     space, and no space at either end",
+                    variant.ident
+                ),
+            ));
+        }
         if let Some(earlier) = choices.iter().find(|c: &&Choice| c.value == value) {
             return Err(syn::Error::new_spanned(
                 variant,
