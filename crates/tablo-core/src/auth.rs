@@ -7,6 +7,7 @@
 mod columns;
 mod gate;
 mod login;
+pub(crate) mod mount;
 mod page;
 mod password;
 mod profile;
@@ -43,15 +44,9 @@ pub use self::{
 pub(crate) use self::{
     columns::{load_choice, save_choice},
     gate::{PanelGate, RuntimeGate},
-    login::{
-        MAX_LOGIN_BYTES, login_page, login_post, logout_post, logout_url, safe_next, tenant_post,
-        tenant_url,
-    },
-    profile::{
-        DynProfileEditor, offered as profile_offered, profile_page, profile_post, profile_url,
-    },
-    registration::{DynRegistrar, register_page, register_post},
-    reset::{forgot_page, forgot_post, reset_page, reset_post},
+    login::{logout_url, safe_next, tenant_url},
+    profile::{DynProfileEditor, offered as profile_offered, profile_url},
+    registration::DynRegistrar,
 };
 use crate::{
     BoxFuture,
@@ -599,153 +594,6 @@ const UNAVAILABLE_ERROR: &str = "Sign-in is unavailable right now. Try again sho
 /// The runtime-header value marking a page re-run POST (`true`, per Topcoat's
 /// page-rerun protocol).
 static RERUN_MARKER: http::HeaderValue = http::HeaderValue::from_static("true");
-
-/// Fail loudly at mount when a required shipped model is missing from the
-/// app's `Db` (ADR-0013): the table is never pushed, and the first login
-/// would otherwise be a confusing runtime error. [`ColumnPreference`] is
-/// required only when some list declares a toggleable column (`toggles`).
-pub(crate) fn check_models_registered(
-    db: &toasty::Db,
-    auth: &Auth,
-    toggles: bool,
-) -> Result<(), crate::DeclarationErrorKind> {
-    let Some(authenticator) = auth.authenticator() else {
-        return Ok(());
-    };
-    let schema = crate::toasty_compat::model::AppSchema::of_db(db);
-    let registered = |name: &str| schema.registers(name);
-    let shipped_user = authenticator.user_type() == TypeId::of::<AdminUser>();
-    let models: Vec<&'static str> = [
-        (!registered("AuthSession")).then_some("AuthSession"),
-        (shipped_user && !registered("AdminUser")).then_some("AdminUser"),
-        (toggles && !registered("ColumnPreference")).then_some("ColumnPreference"),
-        (auth.reset.is_some() && !registered("PasswordResetToken")).then_some("PasswordResetToken"),
-    ]
-    .into_iter()
-    .flatten()
-    .collect();
-    if models.is_empty() {
-        Ok(())
-    } else {
-        Err(crate::DeclarationErrorKind::MissingAuthModels { models })
-    }
-}
-
-/// The mistakes in a panel's [`Auth::registration`]: a registration without auth, a registrar
-/// whose user is not the authenticator's, and a sign-up form field the page cannot serve.
-pub(crate) fn check_registration(auth: &Auth) -> Vec<crate::DeclarationErrorKind> {
-    use crate::{DeclarationErrorKind, declaration::SignUpFault};
-
-    let Some(registrar) = auth.registrar.as_deref() else {
-        return Vec::new();
-    };
-    let Some(authenticator) = auth.authenticator() else {
-        return vec![DeclarationErrorKind::SignUp(SignUpFault::AuthDisabled)];
-    };
-    let mut kinds = Vec::new();
-    let (user, user_name) = registrar.user_type();
-    if user != authenticator.user_type() {
-        kinds.push(DeclarationErrorKind::SignUp(SignUpFault::UserType {
-            registrar: user_name,
-        }));
-    }
-    let schema = registrar.schema();
-    kinds.extend(schema.declaration_errors());
-    kinds.extend(schema.empty_choices());
-    kinds.extend(schema.fields().filter_map(|field| {
-        let name = field.name().to_string();
-        let fault = if registration::RESERVED_KEYS.contains(&name.as_str()) {
-            SignUpFault::ReservedField(name)
-        } else if field.is_file() {
-            SignUpFault::FileField(name)
-        } else if field
-            .as_choice()
-            .is_some_and(|choice| choice.is_relationship())
-        {
-            SignUpFault::RelationshipField(name)
-        } else {
-            return None;
-        };
-        Some(DeclarationErrorKind::SignUp(fault))
-    }));
-    kinds
-}
-
-/// The mistakes in a panel's [`Auth::profile`]: a profile without auth, an editor whose user is
-/// not the authenticator's, and a profile form field the page cannot serve.
-pub(crate) fn check_profile(auth: &Auth) -> Vec<crate::DeclarationErrorKind> {
-    use crate::{DeclarationErrorKind, declaration::ProfileFault};
-
-    let Some(editor) = auth.profile_editor.as_deref() else {
-        return Vec::new();
-    };
-    let Some(authenticator) = auth.authenticator() else {
-        return vec![DeclarationErrorKind::Profile(ProfileFault::AuthDisabled)];
-    };
-    let mut kinds = Vec::new();
-    let (user, user_name) = editor.user_type();
-    if user != authenticator.user_type() {
-        kinds.push(DeclarationErrorKind::Profile(ProfileFault::UserType {
-            editor: user_name,
-        }));
-    }
-    let schema = editor.schema();
-    kinds.extend(schema.declaration_errors());
-    kinds.extend(schema.empty_choices());
-    kinds.extend(schema.fields().filter_map(|field| {
-        let name = field.name().to_string();
-        let fault = if profile::RESERVED_KEYS.contains(&name.as_str()) {
-            ProfileFault::ReservedField(name)
-        } else if field.is_file() {
-            ProfileFault::FileField(name)
-        } else if field
-            .as_choice()
-            .is_some_and(|choice| choice.is_relationship())
-        {
-            ProfileFault::RelationshipField(name)
-        } else {
-            return None;
-        };
-        Some(DeclarationErrorKind::Profile(fault))
-    }));
-    kinds
-}
-
-/// The mistakes in a panel's [`Auth::password_reset`]: a reset without auth, a resetter whose
-/// user is not the authenticator's, a base URL that is not absolute, and a router that cannot
-/// send mail.
-pub(crate) fn check_password_reset(
-    auth: &Auth,
-    has_mail: bool,
-) -> Vec<crate::DeclarationErrorKind> {
-    use crate::{DeclarationErrorKind, declaration::ResetFault};
-
-    let Some(reset) = auth.reset.as_ref() else {
-        return Vec::new();
-    };
-    let Some(authenticator) = auth.authenticator() else {
-        return vec![DeclarationErrorKind::PasswordReset(
-            ResetFault::AuthDisabled,
-        )];
-    };
-    let mut faults = Vec::new();
-    let (user, user_name) = reset.resetter().user_type();
-    if user != authenticator.user_type() {
-        faults.push(ResetFault::UserType {
-            resetter: user_name,
-        });
-    }
-    if !reset.base_url_is_absolute() {
-        faults.push(ResetFault::BaseUrl(reset.base_url().to_string()));
-    }
-    if !has_mail {
-        faults.push(ResetFault::MissingMail);
-    }
-    faults
-        .into_iter()
-        .map(DeclarationErrorKind::PasswordReset)
-        .collect()
-}
 
 #[cfg(test)]
 mod tests;

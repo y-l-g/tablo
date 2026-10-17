@@ -354,7 +354,7 @@ pub(crate) fn offered(cx: &Cx) -> bool {
 }
 
 /// `GET {prefix}/register` — the standalone sign-up page.
-pub(crate) fn register_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
+pub(super) fn register_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         let next = next_from_query(cx).unwrap_or_default();
         page_response(cx, &FormValues::new(), &FieldErrors::new(), next, None).await
@@ -362,7 +362,7 @@ pub(crate) fn register_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
 }
 
 /// `POST {prefix}/register` — create the account, then sign it in or send it to the login page.
-pub(crate) fn register_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
+pub(super) fn register_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         let panel = current(cx).ok_or_else(topcoat::router::error::not_found)?;
         let registrar = panel
@@ -544,6 +544,47 @@ async fn render_page<'a>(
         },
     )
     .await
+}
+
+/// The mistakes in a panel's [`Auth::registration`](super::Auth::registration): a registration
+/// without auth, a registrar whose user is not the authenticator's, and a sign-up form field the
+/// page cannot serve.
+pub(super) fn declaration_errors(auth: &super::Auth) -> Vec<crate::DeclarationErrorKind> {
+    use crate::{DeclarationErrorKind, declaration::SignUpFault};
+
+    let Some(registrar) = auth.registrar.as_deref() else {
+        return Vec::new();
+    };
+    let Some(authenticator) = auth.authenticator() else {
+        return vec![DeclarationErrorKind::SignUp(SignUpFault::AuthDisabled)];
+    };
+    let mut kinds = Vec::new();
+    let (user, user_name) = registrar.user_type();
+    if user != authenticator.user_type() {
+        kinds.push(DeclarationErrorKind::SignUp(SignUpFault::UserType {
+            registrar: user_name,
+        }));
+    }
+    let schema = registrar.schema();
+    kinds.extend(schema.declaration_errors());
+    kinds.extend(schema.empty_choices());
+    kinds.extend(schema.fields().filter_map(|field| {
+        let name = field.name().to_string();
+        let fault = if RESERVED_KEYS.contains(&name.as_str()) {
+            SignUpFault::ReservedField(name)
+        } else if field.is_file() {
+            SignUpFault::FileField(name)
+        } else if field
+            .as_choice()
+            .is_some_and(|choice| choice.is_relationship())
+        {
+            SignUpFault::RelationshipField(name)
+        } else {
+            return None;
+        };
+        Some(DeclarationErrorKind::SignUp(fault))
+    }));
+    kinds
 }
 
 #[cfg(test)]
