@@ -189,7 +189,8 @@ async fn a_changed_password_ends_the_other_sessions() {
     assert_eq!(sessions.len(), 1);
 }
 
-/// A new email needs the current password and may not be another account's.
+/// A new email needs the current password, may not be another account's in any case, and is
+/// stored lowercased.
 #[tokio::test]
 async fn a_new_email_is_checked() {
     let db = db().await;
@@ -214,7 +215,7 @@ async fn a_new_email_is_checked() {
         .submit(
             "/admin/profile",
             &profile(&[
-                ("email", "grace@example.com"),
+                ("email", "GRACE@example.com"),
                 ("current_password", "old password"),
             ]),
         )
@@ -227,7 +228,7 @@ async fn a_new_email_is_checked() {
         .submit(
             "/admin/profile",
             &profile(&[
-                ("email", "new@example.com"),
+                ("email", "New@Example.com"),
                 ("current_password", "old password"),
             ]),
         )

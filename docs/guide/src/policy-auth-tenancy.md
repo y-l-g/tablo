@@ -150,7 +150,9 @@ the gate covers the prefix. On a router with several panels, `/_topcoat/runtime`
 without a session only when every panel is gated.
 
 - **Login** verifies Argon2id hashes. An unknown email costs the same work as a wrong password,
-  and every failure shows the same message. Each login may make five attempts a minute from
+  and every failure shows the same message. `PasswordAuth` stores an email trimmed and
+  lowercased, and looks it up the same way, so `Ada@Example.com` and `ada@example.com` are one
+  account. Each login may make five attempts a minute from
   one address; set another limit with `Auth::throttle`, as
   [Security](./security.md#authentication) shows.
 - **Sessions** are rows in `AuthSession`, identified by a hash of the cookie's token. A session

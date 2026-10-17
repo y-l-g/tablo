@@ -14,7 +14,7 @@ use topcoat::{
 
 use super::{
     UNAVAILABLE_ERROR, infrastructure_failure, panel_root, resolved,
-    session::{delete_session, record, select_tenant, sweep_expired_sessions},
+    session::{delete_session, fresh_session, record, select_tenant, sweep_expired_sessions},
     signed, unauthenticated_error,
 };
 use crate::panel::{Panel, panel_prefix, state::current};
@@ -173,15 +173,14 @@ pub(crate) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         if let Some(login) = login {
             panel.auth.login_throttle().clear(login, client);
         }
-        // Rotate on login so a presented token cannot be replayed.
-        if let Some(hash) = session::token_hash(cx).await? {
-            delete_session(cx, &hash).await?;
-        }
         if let Err(error) = sweep_expired_sessions(cx).await {
             tracing::error!(error = %error, "expired-session sweep failed");
         }
-        let session = session::start(cx).await?;
-        if let Err(error) = record(cx, &session, &*user, panel).await {
+        let recorded = match fresh_session(cx).await {
+            Ok(session) => record(cx, &session, &*user, panel).await,
+            Err(error) => Err(error),
+        };
+        if let Err(error) = recorded {
             return failed(cx, error, next).await;
         }
         let target = if next.is_empty() {

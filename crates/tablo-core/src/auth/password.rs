@@ -17,7 +17,8 @@ use crate::FieldErrors;
 const DUMMY_PASSWORD_HASH: &str = "$argon2id$v=19$m=19456,t=2,p=1$h3oXdPBVwhcgZ1OTO/PuzQ$zLrHLgIkwhqu4ZlLTfSyB8mPuL6mAtaswv/eXJ5ADO8";
 
 /// Shipped credential model with unique email, Argon2id PHC hash, display name,
-/// and active flag; belongs to no tenant.
+/// and active flag; belongs to no tenant. The email is stored, and looked up, trimmed and
+/// lowercased, so one address holds one account whatever case it is typed in.
 /// Its [`ModelColumns`](crate::ModelColumns) leave out the hash, so a resource over the panel's
 /// admins lists them.
 #[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
@@ -64,7 +65,7 @@ impl Authenticator for PasswordAuth {
         password: &str,
     ) -> topcoat::Result<Option<AdminUser>> {
         let mut db = crate::db::db(cx);
-        let user = AdminUser::filter(AdminUser::fields().email().eq(login.to_string()))
+        let user = AdminUser::filter(AdminUser::fields().email().eq(normalize_email(login)))
             .first()
             .exec(&mut db)
             .await
@@ -105,11 +106,15 @@ impl Registrar for PasswordAuth {
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<FieldErrors> {
         let mut errors = sign_up.password_errors();
-        let taken = AdminUser::filter(AdminUser::fields().email().eq(sign_up.email.clone()))
-            .first()
-            .exec(ex)
-            .await
-            .map_err(infrastructure_failure)?;
+        let taken = AdminUser::filter(
+            AdminUser::fields()
+                .email()
+                .eq(normalize_email(&sign_up.email)),
+        )
+        .first()
+        .exec(ex)
+        .await
+        .map_err(infrastructure_failure)?;
         if taken.is_some() {
             errors.add("email", "Email has already been taken");
         }
@@ -153,7 +158,7 @@ impl ProfileEditor for PasswordAuth {
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<FieldErrors> {
         let mut errors = profile.password_errors();
-        let new_email = profile.email != admin.email;
+        let new_email = normalize_email(&profile.email) != admin.email;
         if new_email || profile.password.is_some() {
             match &profile.current_password {
                 None => errors.add(
@@ -169,11 +174,15 @@ impl ProfileEditor for PasswordAuth {
         // Only the account's owner learns whether another account holds an email: a stolen
         // session without the password must not probe addresses.
         if new_email && !errors.contains_key(CURRENT_PASSWORD_FIELD) {
-            let taken = AdminUser::filter(AdminUser::fields().email().eq(profile.email.clone()))
-                .first()
-                .exec(ex)
-                .await
-                .map_err(infrastructure_failure)?;
+            let taken = AdminUser::filter(
+                AdminUser::fields()
+                    .email()
+                    .eq(normalize_email(&profile.email)),
+            )
+            .first()
+            .exec(ex)
+            .await
+            .map_err(infrastructure_failure)?;
             if taken.is_some_and(|other| other.id != admin.id) {
                 errors.add("email", "Email has already been taken");
             }
@@ -188,11 +197,12 @@ impl ProfileEditor for PasswordAuth {
         profile: Profile,
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<ProfileUpdate> {
-        let credentials = profile.email != admin.email || profile.password.is_some();
+        let email = normalize_email(&profile.email);
+        let credentials = email != admin.email || profile.password.is_some();
         let mut update = AdminUser::filter(AdminUser::fields().id().eq(admin.id))
             .update()
             .display_name(profile.name)
-            .email(profile.email);
+            .email(email);
         if let Some(password) = &profile.password {
             update.set_password_hash(hash_password(password).await?);
         }
@@ -212,7 +222,7 @@ impl PasswordResetter for PasswordAuth {
 
     async fn find_by_email(&self, cx: &Cx, email: &str) -> topcoat::Result<Option<AdminUser>> {
         let mut db = crate::db::db(cx);
-        AdminUser::filter(AdminUser::fields().email().eq(email.to_string()))
+        AdminUser::filter(AdminUser::fields().email().eq(normalize_email(email)))
             .first()
             .exec(&mut db)
             .await
@@ -243,7 +253,8 @@ impl PasswordResetter for PasswordAuth {
 }
 
 /// Creates an active [`AdminUser`] that signs in with `email` and `password`, storing only the
-/// password's Argon2id hash: the account a new app seeds to reach its panel.
+/// password's Argon2id hash: the account a new app seeds to reach its panel. The email is stored
+/// trimmed and lowercased.
 ///
 /// ```rust,no_run
 /// # async fn seed(mut db: toasty::Db) -> topcoat::Result<()> {
@@ -263,7 +274,7 @@ pub async fn create_admin(
     display_name: &str,
 ) -> topcoat::Result<AdminUser> {
     let admin = toasty::create!(AdminUser {
-        email: email.to_string(),
+        email: normalize_email(email),
         password_hash: hash_password(password).await?,
         display_name: display_name.to_string(),
         active: true,
@@ -272,6 +283,11 @@ pub async fn create_admin(
     .exec(ex)
     .await?;
     Ok(admin)
+}
+
+/// `email` as [`AdminUser`] stores it: trimmed and lowercased.
+fn normalize_email(email: &str) -> String {
+    email.trim().to_lowercase()
 }
 
 /// Hashes a password with Argon2id into a PHC string for storage; never stores
@@ -324,12 +340,16 @@ pub async fn verify_password(password: &str, hash: Option<&str>) -> bool {
     let known = hash.is_some();
     let password = password.to_string();
     let hash = hash.unwrap_or(DUMMY_PASSWORD_HASH).to_string();
-    let verified = off_executor(move || {
-        PasswordHash::new(&hash).is_ok_and(|parsed| {
-            argon2::Argon2::default()
-                .verify_password(password.as_bytes(), &parsed)
-                .is_ok()
-        })
+    let verified = off_executor(move || match PasswordHash::new(&hash) {
+        Ok(parsed) => argon2::Argon2::default()
+            .verify_password(password.as_bytes(), &parsed)
+            .is_ok(),
+        // No password matches a hash that does not parse: the account cannot sign in until an
+        // operator resets it, so say why.
+        Err(error) => {
+            tracing::error!(error = %error, "a stored password hash does not parse");
+            false
+        }
     })
     .await;
     verified && known

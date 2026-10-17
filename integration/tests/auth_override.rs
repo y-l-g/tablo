@@ -576,3 +576,66 @@ async fn a_policy_reads_the_apps_own_user_type() {
     let grace = login_as(&router, "grace").await;
     assert_eq!(notes(&router, &grace).await.0, 403);
 }
+
+/// Signs Ada in without reading the database.
+struct OfflineAuth;
+
+impl Authenticator for OfflineAuth {
+    type User = SignedMember;
+
+    async fn verify(
+        &self,
+        _cx: &Cx,
+        _login: &str,
+        _password: &str,
+    ) -> topcoat::Result<Option<SignedMember>> {
+        Ok(Some(SignedMember {
+            member: Member {
+                id: Uuid::nil(),
+                handle: "ada".to_string(),
+                password_hash: String::new(),
+                display_name: "Ada".to_string(),
+                active: true,
+            },
+            tenants: Vec::new(),
+        }))
+    }
+
+    async fn find_by_id(&self, _cx: &Cx, _id: &str) -> topcoat::Result<Option<SignedMember>> {
+        Ok(None)
+    }
+}
+
+/// A login that cannot end the session it presents answers the sign-in outage page, not a bare
+/// 500.
+#[tokio::test]
+async fn a_login_that_cannot_end_the_old_session_answers_the_outage_page() {
+    // No table exists, so the old session's delete is the first query that fails.
+    let db = Db::builder()
+        .models(toasty::models!(
+            Member,
+            Seat,
+            Note,
+            tablo::auth::AuthSession
+        ))
+        .connect("sqlite::memory:")
+        .await
+        .expect("connect");
+    let router = router_with::<MemberResource>(db, Auth::custom(OfflineAuth));
+    let (csrf_cookie, csrf) = csrf_pair(&router).await;
+
+    let login = post_form(
+        &router,
+        "/admin/login",
+        &[
+            (tablo::csrf::COOKIE_NAME, csrf_cookie),
+            ("__Host-session", topcoat::session::Token::random().encode()),
+        ],
+        format!("email=ada&password=opensesame&csrf_token={csrf}"),
+    )
+    .await;
+
+    assert_eq!(login.status(), 503);
+    let html = body_string(login).await;
+    assert!(html.contains("Sign-in is unavailable"), "{html}");
+}
