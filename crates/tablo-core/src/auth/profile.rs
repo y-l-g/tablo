@@ -206,6 +206,7 @@ impl<E: ProfileEditor> DynProfileEditor for E {
                     None => values.remove(key),
                 };
             }
+            schema.keep_unedited(&mut values, &stored);
             let mut errors = FieldErrors::new();
             let parsed = match E::Input::parse(cx, &values) {
                 Ok(parsed) => Some(parsed),
