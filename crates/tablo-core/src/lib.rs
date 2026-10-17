@@ -92,6 +92,7 @@ pub mod csrf;
 pub mod db;
 mod declaration;
 pub mod detail;
+mod display;
 mod error;
 pub mod extend;
 pub mod form;
@@ -111,6 +112,7 @@ mod test_support;
 mod toasty_compat;
 mod topcoat_compat;
 pub mod upload;
+mod values;
 
 /// The future a type-erased, dyn-compatible method returns.
 pub(crate) type BoxFuture<'a, T> = std::pin::Pin<Box<dyn Future<Output = T> + Send + 'a>>;
@@ -120,20 +122,17 @@ pub use auth::{
     ProfileEditor, ProfileUpdate, Registrar, SignUp, membership,
 };
 pub use column::{
-    Alignment, BooleanColumn, Color, ColorColumn, ColumnToggle, ColumnWidth, ComputedColumn,
-    CountColumn, Currency, DateColumn, DateValue, EmbeddedColumn, FileColumn, ImageColumn,
-    IntoColumns, Number, Numeric, RelationColumn, RelationLens, RepeaterColumn, TextColumn,
-    ToOneRelation, contains_expr,
+    BooleanColumn, ColorColumn, ColumnToggle, ColumnWidth, ComputedColumn, CountColumn, DateColumn,
+    DateValue, EmbeddedColumn, FileColumn, ImageColumn, IntoColumns, RelationColumn, RelationLens,
+    RepeaterColumn, TextColumn, ToOneRelation, contains_expr,
 };
 pub use declaration::{
     ActionInputFault, DeclarationError, DeclarationErrorKind, FieldRuleFault, ManyToManyFault,
     MountError, ProfileFault, ResetFault, SegmentFault, SignUpFault, Site,
 };
 pub use detail::{Detail, IntoDetail};
-pub use form::{
-    FieldError, FieldErrorKind, FieldErrors, FormField, FormInput, FormScalar, FormValue,
-    FormValues, NoForm, Posted, RecordForm,
-};
+pub use display::{Alignment, Color, Currency, Number, Numeric};
+pub use form::{NoForm, Posted, RecordForm};
 pub use lens::Lens;
 pub use navigation::{NavTarget, NavigationItem};
 pub use notification::{Notification, NotificationStatus};
@@ -149,7 +148,7 @@ pub use resource::{
 pub use schema::{
     ChoiceField, CustomField, EmbeddedForm, Field, FileField, Grid, Group, IntoFormValue,
     IntoOptions, IntoSchema, Options, RepeaterField, Schema, Section, Source, TextField, Toggle,
-    Watched,
+    Watched, input::FormInput,
 };
 pub use table::{
     ActionLayout, Cursor, DateFilter, FilterValue, IntoFilters, ModelColumns, PagePosition,
@@ -528,3 +527,6 @@ pub use tablo_macros::Options;
 pub use tablo_macros::RecordForm;
 pub use tenancy::{Membership, Tenancy, Tenant, TenantColumn, TenantId, require_tenant, tenant_id};
 pub use upload::{DirUploader, Uploader};
+pub use values::{
+    FieldError, FieldErrorKind, FieldErrors, FormField, FormScalar, FormValue, FormValues,
+};

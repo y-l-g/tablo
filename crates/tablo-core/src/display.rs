@@ -107,7 +107,7 @@ pub enum Number {
     Float(f64),
 }
 
-/// A field a [`TextColumn`](super::TextColumn) can spell as a number or an amount of money:
+/// A field a [`TextColumn`](crate::TextColumn) can spell as a number or an amount of money:
 /// every integer and float type, and an `Option` of one, which reads as the table's dash when
 /// `None`.
 pub trait Numeric {
@@ -169,7 +169,7 @@ impl<T: Numeric> Numeric for Option<T> {
 /// ```
 ///
 /// The separators are `,` and `.`: a locale's own spelling is the column's
-/// [`format`](super::TextColumn::format).
+/// [`format`](crate::TextColumn::format).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Currency {
     symbol: &'static str,

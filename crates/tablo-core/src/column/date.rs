@@ -5,7 +5,7 @@ use toasty::stmt::OrderByExpr;
 use topcoat::{context::Cx, view::*};
 
 use super::{Column, ColumnBase, ColumnWidth, sort_order};
-use crate::{Lens, form::FormScalar};
+use crate::{Lens, values::FormScalar};
 
 /// A column of a date field, rendered as a calendar day.
 ///

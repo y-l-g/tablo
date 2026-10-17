@@ -1,8 +1,8 @@
 use super::*;
 use crate::{
-    form::{FieldErrors, FormValues},
     schema::{Group, Section, Source},
     test_support::{Html, cx},
+    values::{FieldErrors, FormValues},
 };
 
 #[derive(Debug, toasty::Model)]

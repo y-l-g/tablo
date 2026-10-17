@@ -21,7 +21,7 @@ impl Field {
         choice: &ChoiceControl,
         cx: &'a Cx,
         chosen: &[String],
-        error: Option<&crate::form::FieldError>,
+        error: Option<&crate::values::FieldError>,
         id: String,
         disabled: bool,
     ) -> Result<BoxView<'a>> {

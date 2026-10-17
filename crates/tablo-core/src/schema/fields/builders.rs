@@ -10,7 +10,7 @@ use super::{
     },
     ChoiceControl, Control, ControlKind, Field, Pattern, TextControl, choice,
 };
-use crate::form::{FormScalar, FormValue};
+use crate::values::{FormScalar, FormValue};
 
 /// `label`, `name` and `visible_when`, shared by every builder.
 macro_rules! base_modifiers {
@@ -398,7 +398,7 @@ impl<F> ChoiceField<F> {
 
     /// Takes several options: a checkbox per option, posting the field's key once per checked
     /// box. A record form's many-to-many field (`Vec<K>` with `#[form(relationship = R)]`) is one;
-    /// [`parse_list`](crate::form::parse_list) reads one in an action's input.
+    /// [`parse_list`](crate::values::parse_list) reads one in an action's input.
     ///
     /// It offers at most [`MAX_RELATIONSHIP_OPTIONS`](crate::schema::MAX_RELATIONSHIP_OPTIONS)
     /// records: past them it lists none but the chosen ones, and refuses a submission choosing

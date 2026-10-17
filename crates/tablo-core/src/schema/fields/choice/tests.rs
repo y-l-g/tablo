@@ -5,9 +5,9 @@ use topcoat::context::{Cx, CxTestBuilder};
 
 use crate::{
     Ability, DeclarationErrorKind,
-    form::{FieldErrors, FormValue, FormValues},
     schema::{ChoiceField, Field, OptionSource, Schema, Source, fields::Placement},
     test_support::{Html as _, memory_db},
+    values::{FieldErrors, FormValue, FormValues},
 };
 
 #[derive(Debug, toasty::Model, Clone)]

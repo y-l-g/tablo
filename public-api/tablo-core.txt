@@ -351,12 +351,12 @@ pub type tablo_core::PasswordAuth::Input = tablo_core::Profile
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
 pub fn tablo_core::PasswordAuth::fill(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser) -> tablo_core::Profile
 pub async fn tablo_core::PasswordAuth::save(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser, tablo_core::Profile, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::ProfileUpdate>
-pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser, &tablo_core::Profile, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::form::FieldErrors>
+pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser, &tablo_core::Profile, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::FieldErrors>
 impl tablo_core::Registrar for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::Input = tablo_core::SignUp
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
 pub async fn tablo_core::PasswordAuth::register(&self, &topcoat_core::context::Cx, tablo_core::SignUp, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::auth::AdminUser>
-pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::Cx, &tablo_core::SignUp, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::form::FieldErrors>
+pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::Cx, &tablo_core::SignUp, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::FieldErrors>
 impl tablo_core::auth::Authenticator for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
 pub async fn tablo_core::PasswordAuth::find_by_id(&self, &topcoat_core::context::Cx, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
@@ -483,7 +483,7 @@ pub tablo_core::auth::Profile::name: alloc::string::String
 pub tablo_core::auth::Profile::password: core::option::Option<alloc::string::String>
 pub tablo_core::auth::Profile::password_confirmation: alloc::string::String
 impl tablo_core::Profile
-pub fn tablo_core::Profile::password_errors(&self) -> tablo_core::form::FieldErrors
+pub fn tablo_core::Profile::password_errors(&self) -> tablo_core::FieldErrors
 impl core::clone::Clone for tablo_core::Profile
 pub fn tablo_core::Profile::clone(&self) -> tablo_core::Profile
 impl core::cmp::Eq for tablo_core::Profile
@@ -493,7 +493,7 @@ impl core::fmt::Debug for tablo_core::Profile
 pub fn tablo_core::Profile::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for tablo_core::Profile
 impl tablo_core::FormInput for tablo_core::Profile
-pub fn tablo_core::Profile::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn tablo_core::Profile::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::FieldError>>
 pub fn tablo_core::Profile::schema() -> tablo_core::schema::Schema
 pub fn tablo_core::Profile::write(&self, &mut tablo_core::FormValues)
 impl core::marker::Freeze for tablo_core::Profile
@@ -509,7 +509,7 @@ pub tablo_core::auth::SignUp::name: alloc::string::String
 pub tablo_core::auth::SignUp::password: alloc::string::String
 pub tablo_core::auth::SignUp::password_confirmation: alloc::string::String
 impl tablo_core::SignUp
-pub fn tablo_core::SignUp::password_errors(&self) -> tablo_core::form::FieldErrors
+pub fn tablo_core::SignUp::password_errors(&self) -> tablo_core::FieldErrors
 impl core::clone::Clone for tablo_core::SignUp
 pub fn tablo_core::SignUp::clone(&self) -> tablo_core::SignUp
 impl core::cmp::Eq for tablo_core::SignUp
@@ -519,7 +519,7 @@ impl core::fmt::Debug for tablo_core::SignUp
 pub fn tablo_core::SignUp::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for tablo_core::SignUp
 impl tablo_core::FormInput for tablo_core::SignUp
-pub fn tablo_core::SignUp::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn tablo_core::SignUp::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::FieldError>>
 pub fn tablo_core::SignUp::schema() -> tablo_core::schema::Schema
 pub fn tablo_core::SignUp::write(&self, &mut tablo_core::FormValues)
 impl core::marker::Freeze for tablo_core::SignUp
@@ -571,29 +571,29 @@ pub type tablo_core::auth::ProfileEditor::Input: tablo_core::FormInput
 pub type tablo_core::auth::ProfileEditor::User: tablo_core::auth::PanelUser
 pub fn tablo_core::auth::ProfileEditor::fill(&self, &topcoat_core::context::Cx, &Self::User) -> Self::Input
 pub fn tablo_core::auth::ProfileEditor::save(&self, &topcoat_core::context::Cx, &Self::User, Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::ProfileUpdate>> + core::marker::Send
-pub fn tablo_core::auth::ProfileEditor::validate(&self, &topcoat_core::context::Cx, &Self::User, &Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::form::FieldErrors>> + core::marker::Send
+pub fn tablo_core::auth::ProfileEditor::validate(&self, &topcoat_core::context::Cx, &Self::User, &Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::FieldErrors>> + core::marker::Send
 impl tablo_core::ProfileEditor for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::Input = tablo_core::Profile
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
 pub fn tablo_core::PasswordAuth::fill(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser) -> tablo_core::Profile
 pub async fn tablo_core::PasswordAuth::save(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser, tablo_core::Profile, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::ProfileUpdate>
-pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser, &tablo_core::Profile, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::form::FieldErrors>
+pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser, &tablo_core::Profile, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::FieldErrors>
 pub trait tablo_core::auth::Registrar: core::marker::Send + core::marker::Sync + 'static
 pub type tablo_core::auth::Registrar::Input: tablo_core::FormInput
 pub type tablo_core::auth::Registrar::User: tablo_core::auth::PanelUser
 pub fn tablo_core::auth::Registrar::register(&self, &topcoat_core::context::Cx, Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<Self::User>> + core::marker::Send
-pub fn tablo_core::auth::Registrar::validate(&self, &topcoat_core::context::Cx, &Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::form::FieldErrors>> + core::marker::Send
+pub fn tablo_core::auth::Registrar::validate(&self, &topcoat_core::context::Cx, &Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::FieldErrors>> + core::marker::Send
 impl tablo_core::Registrar for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::Input = tablo_core::SignUp
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
 pub async fn tablo_core::PasswordAuth::register(&self, &topcoat_core::context::Cx, tablo_core::SignUp, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::auth::AdminUser>
-pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::Cx, &tablo_core::SignUp, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::form::FieldErrors>
+pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::Cx, &tablo_core::SignUp, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::FieldErrors>
 pub async fn tablo_core::auth::create_admin(&mut dyn toasty::db::executor::Executor, &str, &str, &str) -> topcoat::Result<tablo_core::auth::AdminUser>
 pub fn tablo_core::auth::enforced(&topcoat_core::context::Cx) -> bool
 pub fn tablo_core::auth::guard(&topcoat_core::context::Cx) -> topcoat::Result<()>
 pub async fn tablo_core::auth::hash_password(&str) -> topcoat::Result<alloc::string::String>
 pub fn tablo_core::auth::membership(&topcoat_core::context::Cx) -> core::option::Option<&tablo_core::tenancy::Membership>
-pub fn tablo_core::auth::new_password_errors(&str, &str) -> tablo_core::form::FieldErrors
+pub fn tablo_core::auth::new_password_errors(&str, &str) -> tablo_core::FieldErrors
 pub fn tablo_core::auth::require_user<U: tablo_core::auth::PanelUser>(&topcoat_core::context::Cx) -> topcoat::Result<&U>
 pub async fn tablo_core::auth::revoke_sessions_for_user(&topcoat_core::context::Cx, &str) -> topcoat::Result<()>
 pub fn tablo_core::auth::signed_in(&topcoat_core::context::Cx) -> bool
@@ -804,7 +804,7 @@ pub fn tablo_core::extend::Column::order_by(&self, bool) -> core::option::Option
 pub fn tablo_core::extend::Column::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::extend::Column::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::extend::Column::toggle(&self) -> tablo_core::ColumnToggle
-impl<M, T> tablo_core::extend::Column<M> for tablo_core::ColorColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
+impl<M, T> tablo_core::extend::Column<M> for tablo_core::ColorColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormScalar + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::ColorColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::ColorColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::ColorColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
@@ -846,7 +846,7 @@ pub fn tablo_core::EmbeddedColumn<M, T>::order_by(&self, bool) -> core::option::
 pub fn tablo_core::EmbeddedColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::EmbeddedColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::EmbeddedColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
-impl<M, T> tablo_core::extend::Column<M> for tablo_core::ImageColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
+impl<M, T> tablo_core::extend::Column<M> for tablo_core::ImageColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormScalar + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::ImageColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::ImageColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::ImageColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
@@ -1017,8 +1017,8 @@ impl<T: tablo_core::extend::FilterDate<Value = T> + toasty::stmt::into_expr::Int
 pub type core::option::Option<T>::Value = T
 pub fn core::option::Option<T>::exact(&str) -> core::option::Option<T>
 pub fn core::option::Option<T>::start_of(jiff::civil::date::Date) -> core::option::Option<T>
-pub trait tablo_core::extend::FilterKey: tablo_core::form::FormScalar + toasty::stmt::into_expr::IntoExpr<Self> + core::marker::Send + core::marker::Sync + 'static
-impl<T: tablo_core::form::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + core::marker::Send + core::marker::Sync + 'static> tablo_core::extend::FilterKey for T
+pub trait tablo_core::extend::FilterKey: tablo_core::FormScalar + toasty::stmt::into_expr::IntoExpr<Self> + core::marker::Send + core::marker::Sync + 'static
+impl<T: tablo_core::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + core::marker::Send + core::marker::Sync + 'static> tablo_core::extend::FilterKey for T
 pub trait tablo_core::extend::OptionSource: core::marker::Sized + core::marker::Send + core::marker::Sync + 'static
 pub type tablo_core::extend::OptionSource::Model: toasty::schema::model::Model + toasty::stmt::into_expr::IntoExpr<Self::Model> + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::extend::OptionSource::allows(&topcoat_core::context::Cx, tablo_core::policy::Ability<'_, Self::Model>) -> bool
@@ -1194,21 +1194,21 @@ pub mod tablo_core::form
 #[non_exhaustive] pub enum tablo_core::form::FieldErrorKind
 pub tablo_core::form::FieldErrorKind::Invalid(alloc::string::String)
 pub tablo_core::form::FieldErrorKind::Required
-impl core::clone::Clone for tablo_core::form::FieldErrorKind
-pub fn tablo_core::form::FieldErrorKind::clone(&self) -> tablo_core::form::FieldErrorKind
-impl core::cmp::Eq for tablo_core::form::FieldErrorKind
-impl core::cmp::PartialEq for tablo_core::form::FieldErrorKind
-pub fn tablo_core::form::FieldErrorKind::eq(&self, &tablo_core::form::FieldErrorKind) -> bool
-impl core::fmt::Debug for tablo_core::form::FieldErrorKind
-pub fn tablo_core::form::FieldErrorKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl core::marker::StructuralPartialEq for tablo_core::form::FieldErrorKind
-impl core::marker::Freeze for tablo_core::form::FieldErrorKind
-impl core::marker::Send for tablo_core::form::FieldErrorKind
-impl core::marker::Sync for tablo_core::form::FieldErrorKind
-impl core::marker::Unpin for tablo_core::form::FieldErrorKind
-impl core::marker::UnsafeUnpin for tablo_core::form::FieldErrorKind
-impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::form::FieldErrorKind
-impl core::panic::unwind_safe::UnwindSafe for tablo_core::form::FieldErrorKind
+impl core::clone::Clone for tablo_core::FieldErrorKind
+pub fn tablo_core::FieldErrorKind::clone(&self) -> tablo_core::FieldErrorKind
+impl core::cmp::Eq for tablo_core::FieldErrorKind
+impl core::cmp::PartialEq for tablo_core::FieldErrorKind
+pub fn tablo_core::FieldErrorKind::eq(&self, &tablo_core::FieldErrorKind) -> bool
+impl core::fmt::Debug for tablo_core::FieldErrorKind
+pub fn tablo_core::FieldErrorKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_core::FieldErrorKind
+impl core::marker::Freeze for tablo_core::FieldErrorKind
+impl core::marker::Send for tablo_core::FieldErrorKind
+impl core::marker::Sync for tablo_core::FieldErrorKind
+impl core::marker::Unpin for tablo_core::FieldErrorKind
+impl core::marker::UnsafeUnpin for tablo_core::FieldErrorKind
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::FieldErrorKind
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::FieldErrorKind
 #[non_exhaustive] pub enum tablo_core::form::FormValue
 pub tablo_core::form::FormValue::List(alloc::vec::Vec<alloc::string::String>)
 pub tablo_core::form::FormValue::Rows(alloc::vec::Vec<tablo_core::FormValues>)
@@ -1244,68 +1244,68 @@ impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::FormValue
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::FormValue
 pub struct tablo_core::form::FieldError<K>
 pub tablo_core::form::FieldError::key: K
-pub tablo_core::form::FieldError::kind: tablo_core::form::FieldErrorKind
-impl<K> tablo_core::form::FieldError<K>
-pub fn tablo_core::form::FieldError<K>::invalid(impl core::convert::Into<K>, impl core::convert::Into<alloc::string::String>) -> Self
-pub fn tablo_core::form::FieldError<K>::message(&self, &str) -> alloc::string::String
-pub fn tablo_core::form::FieldError<K>::required(impl core::convert::Into<K>) -> Self
-impl<K: core::clone::Clone> core::clone::Clone for tablo_core::form::FieldError<K>
-pub fn tablo_core::form::FieldError<K>::clone(&self) -> tablo_core::form::FieldError<K>
-impl<K: core::cmp::Eq> core::cmp::Eq for tablo_core::form::FieldError<K>
-impl<K: core::cmp::PartialEq> core::cmp::PartialEq for tablo_core::form::FieldError<K>
-pub fn tablo_core::form::FieldError<K>::eq(&self, &tablo_core::form::FieldError<K>) -> bool
-impl<K: core::cmp::PartialEq> core::marker::StructuralPartialEq for tablo_core::form::FieldError<K>
-impl<K: core::fmt::Debug> core::fmt::Debug for tablo_core::form::FieldError<K>
-pub fn tablo_core::form::FieldError<K>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl<K> core::marker::Freeze for tablo_core::form::FieldError<K> where K: core::marker::Freeze
-impl<K> core::marker::Send for tablo_core::form::FieldError<K> where K: core::marker::Send
-impl<K> core::marker::Sync for tablo_core::form::FieldError<K> where K: core::marker::Sync
-impl<K> core::marker::Unpin for tablo_core::form::FieldError<K> where K: core::marker::Unpin
-impl<K> core::marker::UnsafeUnpin for tablo_core::form::FieldError<K> where K: core::marker::UnsafeUnpin
-impl<K> core::panic::unwind_safe::RefUnwindSafe for tablo_core::form::FieldError<K> where K: core::panic::unwind_safe::RefUnwindSafe
-impl<K> core::panic::unwind_safe::UnwindSafe for tablo_core::form::FieldError<K> where K: core::panic::unwind_safe::UnwindSafe
+pub tablo_core::form::FieldError::kind: tablo_core::FieldErrorKind
+impl<K> tablo_core::FieldError<K>
+pub fn tablo_core::FieldError<K>::invalid(impl core::convert::Into<K>, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::FieldError<K>::message(&self, &str) -> alloc::string::String
+pub fn tablo_core::FieldError<K>::required(impl core::convert::Into<K>) -> Self
+impl<K: core::clone::Clone> core::clone::Clone for tablo_core::FieldError<K>
+pub fn tablo_core::FieldError<K>::clone(&self) -> tablo_core::FieldError<K>
+impl<K: core::cmp::Eq> core::cmp::Eq for tablo_core::FieldError<K>
+impl<K: core::cmp::PartialEq> core::cmp::PartialEq for tablo_core::FieldError<K>
+pub fn tablo_core::FieldError<K>::eq(&self, &tablo_core::FieldError<K>) -> bool
+impl<K: core::cmp::PartialEq> core::marker::StructuralPartialEq for tablo_core::FieldError<K>
+impl<K: core::fmt::Debug> core::fmt::Debug for tablo_core::FieldError<K>
+pub fn tablo_core::FieldError<K>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<K> core::marker::Freeze for tablo_core::FieldError<K> where K: core::marker::Freeze
+impl<K> core::marker::Send for tablo_core::FieldError<K> where K: core::marker::Send
+impl<K> core::marker::Sync for tablo_core::FieldError<K> where K: core::marker::Sync
+impl<K> core::marker::Unpin for tablo_core::FieldError<K> where K: core::marker::Unpin
+impl<K> core::marker::UnsafeUnpin for tablo_core::FieldError<K> where K: core::marker::UnsafeUnpin
+impl<K> core::panic::unwind_safe::RefUnwindSafe for tablo_core::FieldError<K> where K: core::panic::unwind_safe::RefUnwindSafe
+impl<K> core::panic::unwind_safe::UnwindSafe for tablo_core::FieldError<K> where K: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::form::FieldErrors<K>
-impl tablo_core::form::FieldErrors
-pub fn tablo_core::form::FieldErrors::contains_key(&self, &str) -> bool
-pub fn tablo_core::form::FieldErrors::first(&self, &str) -> core::option::Option<&tablo_core::form::FieldError>
-impl<K> tablo_core::form::FieldErrors<K>
-pub fn tablo_core::form::FieldErrors<K>::add(&mut self, impl core::convert::Into<K>, impl core::convert::Into<alloc::string::String>)
-pub fn tablo_core::form::FieldErrors<K>::extend(&mut self, Self)
-pub fn tablo_core::form::FieldErrors<K>::is_empty(&self) -> bool
-pub fn tablo_core::form::FieldErrors<K>::iter(&self) -> impl core::iter::traits::iterator::Iterator<Item = &tablo_core::form::FieldError<K>>
-pub fn tablo_core::form::FieldErrors<K>::new() -> Self
-pub fn tablo_core::form::FieldErrors<K>::push(&mut self, tablo_core::form::FieldError<K>)
-impl<K: core::fmt::Debug> core::fmt::Debug for tablo_core::form::FieldErrors<K>
-pub fn tablo_core::form::FieldErrors<K>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl<K> core::default::Default for tablo_core::form::FieldErrors<K>
-pub fn tablo_core::form::FieldErrors<K>::default() -> Self
-impl<K> core::iter::traits::collect::IntoIterator for tablo_core::form::FieldErrors<K>
-pub type tablo_core::form::FieldErrors<K>::IntoIter = alloc::vec::into_iter::IntoIter<tablo_core::form::FieldError<K>>
-pub type tablo_core::form::FieldErrors<K>::Item = tablo_core::form::FieldError<K>
-pub fn tablo_core::form::FieldErrors<K>::into_iter(self) -> Self::IntoIter
-impl<K> core::marker::Freeze for tablo_core::form::FieldErrors<K> where alloc::vec::Vec<tablo_core::form::FieldError<K>>: core::marker::Freeze
-impl<K> core::marker::Send for tablo_core::form::FieldErrors<K> where alloc::vec::Vec<tablo_core::form::FieldError<K>>: core::marker::Send
-impl<K> core::marker::Sync for tablo_core::form::FieldErrors<K> where alloc::vec::Vec<tablo_core::form::FieldError<K>>: core::marker::Sync
-impl<K> core::marker::Unpin for tablo_core::form::FieldErrors<K> where alloc::vec::Vec<tablo_core::form::FieldError<K>>: core::marker::Unpin
-impl<K> core::marker::UnsafeUnpin for tablo_core::form::FieldErrors<K> where alloc::vec::Vec<tablo_core::form::FieldError<K>>: core::marker::UnsafeUnpin
-impl<K> core::panic::unwind_safe::RefUnwindSafe for tablo_core::form::FieldErrors<K> where alloc::vec::Vec<tablo_core::form::FieldError<K>>: core::panic::unwind_safe::RefUnwindSafe
-impl<K> core::panic::unwind_safe::UnwindSafe for tablo_core::form::FieldErrors<K> where alloc::vec::Vec<tablo_core::form::FieldError<K>>: core::panic::unwind_safe::UnwindSafe
+impl tablo_core::FieldErrors
+pub fn tablo_core::FieldErrors::contains_key(&self, &str) -> bool
+pub fn tablo_core::FieldErrors::first(&self, &str) -> core::option::Option<&tablo_core::FieldError>
+impl<K> tablo_core::FieldErrors<K>
+pub fn tablo_core::FieldErrors<K>::add(&mut self, impl core::convert::Into<K>, impl core::convert::Into<alloc::string::String>)
+pub fn tablo_core::FieldErrors<K>::extend(&mut self, Self)
+pub fn tablo_core::FieldErrors<K>::is_empty(&self) -> bool
+pub fn tablo_core::FieldErrors<K>::iter(&self) -> impl core::iter::traits::iterator::Iterator<Item = &tablo_core::FieldError<K>>
+pub fn tablo_core::FieldErrors<K>::new() -> Self
+pub fn tablo_core::FieldErrors<K>::push(&mut self, tablo_core::FieldError<K>)
+impl<K: core::fmt::Debug> core::fmt::Debug for tablo_core::FieldErrors<K>
+pub fn tablo_core::FieldErrors<K>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<K> core::default::Default for tablo_core::FieldErrors<K>
+pub fn tablo_core::FieldErrors<K>::default() -> Self
+impl<K> core::iter::traits::collect::IntoIterator for tablo_core::FieldErrors<K>
+pub type tablo_core::FieldErrors<K>::IntoIter = alloc::vec::into_iter::IntoIter<tablo_core::FieldError<K>>
+pub type tablo_core::FieldErrors<K>::Item = tablo_core::FieldError<K>
+pub fn tablo_core::FieldErrors<K>::into_iter(self) -> Self::IntoIter
+impl<K> core::marker::Freeze for tablo_core::FieldErrors<K> where alloc::vec::Vec<tablo_core::FieldError<K>>: core::marker::Freeze
+impl<K> core::marker::Send for tablo_core::FieldErrors<K> where alloc::vec::Vec<tablo_core::FieldError<K>>: core::marker::Send
+impl<K> core::marker::Sync for tablo_core::FieldErrors<K> where alloc::vec::Vec<tablo_core::FieldError<K>>: core::marker::Sync
+impl<K> core::marker::Unpin for tablo_core::FieldErrors<K> where alloc::vec::Vec<tablo_core::FieldError<K>>: core::marker::Unpin
+impl<K> core::marker::UnsafeUnpin for tablo_core::FieldErrors<K> where alloc::vec::Vec<tablo_core::FieldError<K>>: core::marker::UnsafeUnpin
+impl<K> core::panic::unwind_safe::RefUnwindSafe for tablo_core::FieldErrors<K> where alloc::vec::Vec<tablo_core::FieldError<K>>: core::panic::unwind_safe::RefUnwindSafe
+impl<K> core::panic::unwind_safe::UnwindSafe for tablo_core::FieldErrors<K> where alloc::vec::Vec<tablo_core::FieldError<K>>: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::form::FormField<K>
 pub tablo_core::form::FormField::field: K
 pub tablo_core::form::FormField::keys: alloc::vec::Vec<alloc::string::String>
 pub tablo_core::form::FormField::name: &'static str
 pub tablo_core::form::FormField::required: alloc::vec::Vec<alloc::string::String>
-impl<K: core::clone::Clone> core::clone::Clone for tablo_core::form::FormField<K>
-pub fn tablo_core::form::FormField<K>::clone(&self) -> tablo_core::form::FormField<K>
-impl<K: core::fmt::Debug> core::fmt::Debug for tablo_core::form::FormField<K>
-pub fn tablo_core::form::FormField<K>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl<K> core::marker::Freeze for tablo_core::form::FormField<K> where K: core::marker::Freeze
-impl<K> core::marker::Send for tablo_core::form::FormField<K> where K: core::marker::Send
-impl<K> core::marker::Sync for tablo_core::form::FormField<K> where K: core::marker::Sync
-impl<K> core::marker::Unpin for tablo_core::form::FormField<K> where K: core::marker::Unpin
-impl<K> core::marker::UnsafeUnpin for tablo_core::form::FormField<K> where K: core::marker::UnsafeUnpin
-impl<K> core::panic::unwind_safe::RefUnwindSafe for tablo_core::form::FormField<K> where K: core::panic::unwind_safe::RefUnwindSafe
-impl<K> core::panic::unwind_safe::UnwindSafe for tablo_core::form::FormField<K> where K: core::panic::unwind_safe::UnwindSafe
+impl<K: core::clone::Clone> core::clone::Clone for tablo_core::FormField<K>
+pub fn tablo_core::FormField<K>::clone(&self) -> tablo_core::FormField<K>
+impl<K: core::fmt::Debug> core::fmt::Debug for tablo_core::FormField<K>
+pub fn tablo_core::FormField<K>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<K> core::marker::Freeze for tablo_core::FormField<K> where K: core::marker::Freeze
+impl<K> core::marker::Send for tablo_core::FormField<K> where K: core::marker::Send
+impl<K> core::marker::Sync for tablo_core::FormField<K> where K: core::marker::Sync
+impl<K> core::marker::Unpin for tablo_core::FormField<K> where K: core::marker::Unpin
+impl<K> core::marker::UnsafeUnpin for tablo_core::FormField<K> where K: core::marker::UnsafeUnpin
+impl<K> core::panic::unwind_safe::RefUnwindSafe for tablo_core::FormField<K> where K: core::panic::unwind_safe::RefUnwindSafe
+impl<K> core::panic::unwind_safe::UnwindSafe for tablo_core::FormField<K> where K: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::form::FormValues
 impl tablo_core::FormValues
 pub fn tablo_core::FormValues::contains(&self, &str) -> bool
@@ -1352,13 +1352,13 @@ pub type tablo_core::form::NoForm<M>::Model = M
 pub const tablo_core::form::NoForm<M>::HAS_FORM: bool
 pub fn tablo_core::form::NoForm<M>::control(Self::Field) -> tablo_core::schema::Schema<Self>
 pub fn tablo_core::form::NoForm<M>::exec_update<'a>(<M as toasty::schema::model::Model>::Update, &'a mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = toasty_core::Result<()>> + core::marker::Send + 'a
-pub fn tablo_core::form::NoForm<M>::fields() -> alloc::vec::Vec<tablo_core::form::FormField<Self::Field>>
+pub fn tablo_core::form::NoForm<M>::fields() -> alloc::vec::Vec<tablo_core::FormField<Self::Field>>
 pub fn tablo_core::form::NoForm<M>::hydrate(&topcoat_core::context::Cx, &M) -> tablo_core::FormValues
 pub fn tablo_core::form::NoForm<M>::includes() -> tablo_core::extend::Includes<Self::Model>
 pub fn tablo_core::form::NoForm<M>::into_create(self) -> <M as toasty::schema::model::Model>::Create
 pub fn tablo_core::form::NoForm<M>::into_update<'a>(self, &'a mut M, &std::collections::hash::set::HashSet<Self::Field>) -> core::option::Option<<M as toasty::schema::model::Model>::Update>
 pub fn tablo_core::form::NoForm<M>::links(&self) -> alloc::vec::Vec<(Self::Field, alloc::vec::Vec<alloc::string::String>)>
-pub fn tablo_core::form::NoForm<M>::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn tablo_core::form::NoForm<M>::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::FieldError>>
 impl<M> core::marker::Freeze for tablo_core::form::NoForm<M> where core::marker::PhantomData<fn() -> M>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::form::NoForm<M> where core::marker::PhantomData<fn() -> M>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::form::NoForm<M> where core::marker::PhantomData<fn() -> M>: core::marker::Sync
@@ -1382,19 +1382,19 @@ impl<F> core::marker::UnsafeUnpin for tablo_core::form::Posted<F> where F: core:
 impl<F> core::panic::unwind_safe::RefUnwindSafe for tablo_core::form::Posted<F> where F: core::panic::unwind_safe::RefUnwindSafe, std::collections::hash::set::HashSet<<F as tablo_core::form::RecordForm>::Field>: core::panic::unwind_safe::RefUnwindSafe
 impl<F> core::panic::unwind_safe::UnwindSafe for tablo_core::form::Posted<F> where F: core::panic::unwind_safe::UnwindSafe, std::collections::hash::set::HashSet<<F as tablo_core::form::RecordForm>::Field>: core::panic::unwind_safe::UnwindSafe
 pub trait tablo_core::form::FormInput: core::marker::Sized + core::marker::Send + core::marker::Sync + 'static
-pub fn tablo_core::form::FormInput::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn tablo_core::form::FormInput::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::FieldError>>
 pub fn tablo_core::form::FormInput::schema() -> tablo_core::schema::Schema
 pub fn tablo_core::form::FormInput::write(&self, &mut tablo_core::FormValues)
 impl tablo_core::FormInput for ()
-pub fn ()::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn ()::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::FieldError>>
 pub fn ()::schema() -> tablo_core::schema::Schema
 pub fn ()::write(&self, &mut tablo_core::FormValues)
 impl tablo_core::FormInput for tablo_core::Profile
-pub fn tablo_core::Profile::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn tablo_core::Profile::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::FieldError>>
 pub fn tablo_core::Profile::schema() -> tablo_core::schema::Schema
 pub fn tablo_core::Profile::write(&self, &mut tablo_core::FormValues)
 impl tablo_core::FormInput for tablo_core::SignUp
-pub fn tablo_core::SignUp::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn tablo_core::SignUp::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::FieldError>>
 pub fn tablo_core::SignUp::schema() -> tablo_core::schema::Schema
 pub fn tablo_core::SignUp::write(&self, &mut tablo_core::FormValues)
 pub trait tablo_core::form::FormScalar: core::marker::Sized
@@ -1406,7 +1406,7 @@ pub fn tablo_core::form::FormScalar::order(&self, &Self) -> core::option::Option
 pub fn tablo_core::form::FormScalar::parse_form(&str) -> core::result::Result<Self, alloc::string::String>
 pub fn tablo_core::form::FormScalar::to_form(&self) -> alloc::string::String
 pub fn tablo_core::form::FormScalar::to_label(&self) -> alloc::string::String
-impl tablo_core::form::FormScalar for alloc::string::String
+impl tablo_core::FormScalar for alloc::string::String
 pub const alloc::string::String::INPUT_TYPE: &'static str
 pub const alloc::string::String::STEP: core::option::Option<&'static str>
 pub fn alloc::string::String::color(&self) -> core::option::Option<tablo_core::Color>
@@ -1415,7 +1415,7 @@ pub fn alloc::string::String::order(&self, &Self) -> core::option::Option<core::
 pub fn alloc::string::String::parse_form(&str) -> core::result::Result<Self, alloc::string::String>
 pub fn alloc::string::String::to_form(&self) -> alloc::string::String
 pub fn alloc::string::String::to_label(&self) -> alloc::string::String
-impl tablo_core::form::FormScalar for core::option::Option<alloc::string::String>
+impl tablo_core::FormScalar for core::option::Option<alloc::string::String>
 pub const core::option::Option<alloc::string::String>::INPUT_TYPE: &'static str
 pub const core::option::Option<alloc::string::String>::STEP: core::option::Option<&'static str>
 pub fn core::option::Option<alloc::string::String>::color(&self) -> core::option::Option<tablo_core::Color>
@@ -1424,7 +1424,7 @@ pub fn core::option::Option<alloc::string::String>::order(&self, &Self) -> core:
 pub fn core::option::Option<alloc::string::String>::parse_form(&str) -> core::result::Result<Self, alloc::string::String>
 pub fn core::option::Option<alloc::string::String>::to_form(&self) -> alloc::string::String
 pub fn core::option::Option<alloc::string::String>::to_label(&self) -> alloc::string::String
-impl<T: NullableScalar> tablo_core::form::FormScalar for core::option::Option<T>
+impl<T: NullableScalar> tablo_core::FormScalar for core::option::Option<T>
 pub const core::option::Option<T>::INPUT_TYPE: &'static str
 pub const core::option::Option<T>::STEP: core::option::Option<&'static str>
 pub fn core::option::Option<T>::color(&self) -> core::option::Option<tablo_core::Color>
@@ -1433,13 +1433,13 @@ pub fn core::option::Option<T>::order(&self, &Self) -> core::option::Option<core
 pub fn core::option::Option<T>::parse_form(&str) -> core::result::Result<Self, alloc::string::String>
 pub fn core::option::Option<T>::to_form(&self) -> alloc::string::String
 pub fn core::option::Option<T>::to_label(&self) -> alloc::string::String
-impl<T: tablo_core::extend::TypedValue> tablo_core::form::FormScalar for T
+impl<T: tablo_core::extend::TypedValue> tablo_core::FormScalar for T
 pub const T::INPUT_TYPE: &'static str
 pub const T::STEP: core::option::Option<&'static str>
 pub fn T::color(&self) -> core::option::Option<tablo_core::Color>
 pub fn T::input_value(&str) -> alloc::string::String
-pub fn T::order(&self, &T) -> core::option::Option<core::cmp::Ordering>
-pub fn T::parse_form(&str) -> core::result::Result<T, alloc::string::String>
+pub fn T::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+pub fn T::parse_form(&str) -> core::result::Result<Self, alloc::string::String>
 pub fn T::to_form(&self) -> alloc::string::String
 pub fn T::to_label(&self) -> alloc::string::String
 pub trait tablo_core::form::RecordForm: core::marker::Sized + core::marker::Send + 'static
@@ -1448,30 +1448,30 @@ pub type tablo_core::form::RecordForm::Model: toasty::schema::model::Model + toa
 pub const tablo_core::form::RecordForm::HAS_FORM: bool
 pub fn tablo_core::form::RecordForm::control(Self::Field) -> tablo_core::schema::Schema<Self>
 pub fn tablo_core::form::RecordForm::exec_update<'a>(<Self::Model as toasty::schema::model::Model>::Update, &'a mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = toasty_core::Result<()>> + core::marker::Send + 'a
-pub fn tablo_core::form::RecordForm::fields() -> alloc::vec::Vec<tablo_core::form::FormField<Self::Field>>
+pub fn tablo_core::form::RecordForm::fields() -> alloc::vec::Vec<tablo_core::FormField<Self::Field>>
 pub fn tablo_core::form::RecordForm::hydrate(&topcoat_core::context::Cx, &Self::Model) -> tablo_core::FormValues
 pub fn tablo_core::form::RecordForm::includes() -> tablo_core::extend::Includes<Self::Model>
 pub fn tablo_core::form::RecordForm::into_create(self) -> <Self::Model as toasty::schema::model::Model>::Create
 pub fn tablo_core::form::RecordForm::into_update<'a>(self, &'a mut Self::Model, &std::collections::hash::set::HashSet<Self::Field>) -> core::option::Option<<Self::Model as toasty::schema::model::Model>::Update>
 pub fn tablo_core::form::RecordForm::links(&self) -> alloc::vec::Vec<(Self::Field, alloc::vec::Vec<alloc::string::String>)>
-pub fn tablo_core::form::RecordForm::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn tablo_core::form::RecordForm::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::FieldError>>
 impl<M: toasty::schema::model::Model + toasty::stmt::into_expr::IntoExpr<M> + core::marker::Send + core::marker::Sync + 'static> tablo_core::form::RecordForm for tablo_core::form::NoForm<M>
 pub type tablo_core::form::NoForm<M>::Field = core::convert::Infallible
 pub type tablo_core::form::NoForm<M>::Model = M
 pub const tablo_core::form::NoForm<M>::HAS_FORM: bool
 pub fn tablo_core::form::NoForm<M>::control(Self::Field) -> tablo_core::schema::Schema<Self>
 pub fn tablo_core::form::NoForm<M>::exec_update<'a>(<M as toasty::schema::model::Model>::Update, &'a mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = toasty_core::Result<()>> + core::marker::Send + 'a
-pub fn tablo_core::form::NoForm<M>::fields() -> alloc::vec::Vec<tablo_core::form::FormField<Self::Field>>
+pub fn tablo_core::form::NoForm<M>::fields() -> alloc::vec::Vec<tablo_core::FormField<Self::Field>>
 pub fn tablo_core::form::NoForm<M>::hydrate(&topcoat_core::context::Cx, &M) -> tablo_core::FormValues
 pub fn tablo_core::form::NoForm<M>::includes() -> tablo_core::extend::Includes<Self::Model>
 pub fn tablo_core::form::NoForm<M>::into_create(self) -> <M as toasty::schema::model::Model>::Create
 pub fn tablo_core::form::NoForm<M>::into_update<'a>(self, &'a mut M, &std::collections::hash::set::HashSet<Self::Field>) -> core::option::Option<<M as toasty::schema::model::Model>::Update>
 pub fn tablo_core::form::NoForm<M>::links(&self) -> alloc::vec::Vec<(Self::Field, alloc::vec::Vec<alloc::string::String>)>
-pub fn tablo_core::form::NoForm<M>::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
-pub fn tablo_core::form::parse_list<T: tablo_core::form::FormScalar>(&str, &tablo_core::FormValues) -> core::result::Result<alloc::vec::Vec<T>, tablo_core::form::FieldError>
-pub fn tablo_core::form::parse_password(&str, &tablo_core::FormValues, core::option::Option<alloc::string::String>) -> core::result::Result<alloc::string::String, tablo_core::form::FieldError>
-pub fn tablo_core::form::parse_scalar<T: tablo_core::form::FormScalar>(&str, &tablo_core::FormValues, core::option::Option<T>) -> core::result::Result<T, tablo_core::form::FieldError>
-pub fn tablo_core::form::write_list<'a, T: tablo_core::form::FormScalar + 'a>(impl core::iter::traits::collect::IntoIterator<Item = &'a T>) -> tablo_core::FormValue
+pub fn tablo_core::form::NoForm<M>::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::FieldError>>
+pub fn tablo_core::form::parse_list<T: tablo_core::FormScalar>(&str, &tablo_core::FormValues) -> core::result::Result<alloc::vec::Vec<T>, tablo_core::FieldError>
+pub fn tablo_core::form::parse_password(&str, &tablo_core::FormValues, core::option::Option<alloc::string::String>) -> core::result::Result<alloc::string::String, tablo_core::FieldError>
+pub fn tablo_core::form::parse_scalar<T: tablo_core::FormScalar>(&str, &tablo_core::FormValues, core::option::Option<T>) -> core::result::Result<T, tablo_core::FieldError>
+pub fn tablo_core::form::write_list<'a, T: tablo_core::FormScalar + 'a>(impl core::iter::traits::collect::IntoIterator<Item = &'a T>) -> tablo_core::FormValue
 pub mod tablo_core::navigation
 #[non_exhaustive] pub enum tablo_core::navigation::NavTarget
 pub tablo_core::navigation::NavTarget::Derived
@@ -2038,7 +2038,7 @@ pub fn tablo_core::ResourceDef<R>::plural_label(self, impl core::convert::Into<a
 pub fn tablo_core::ResourceDef<R>::policy(self, impl tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>) -> Self
 pub fn tablo_core::ResourceDef<R>::policy_fn(self, impl core::ops::function::Fn(&topcoat_core::context::Cx, tablo_core::policy::Ability<'_, <R as tablo_core::resource::Resource>::Model>) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
 pub fn tablo_core::ResourceDef<R>::public_link(self, impl core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync + 'static) -> Self
-pub fn tablo_core::ResourceDef<R>::record_title<T>(self, tablo_core::Lens<<R as tablo_core::resource::Resource>::Model, T>) -> Self where T: tablo_core::form::FormScalar + toasty::schema::field::Field<Inner = alloc::string::String> + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::ResourceDef<R>::record_title<T>(self, tablo_core::Lens<<R as tablo_core::resource::Resource>::Model, T>) -> Self where T: tablo_core::FormScalar + toasty::schema::field::Field<Inner = alloc::string::String> + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::ResourceDef<R>::relation(self, tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>) -> Self
 pub fn tablo_core::ResourceDef<R>::slug(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::ResourceDef<R>::table(self, tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>) -> Self
@@ -2063,10 +2063,10 @@ pub fn tablo_core::resource::Action::can_run(&topcoat_core::context::Cx, &<R as 
 pub fn tablo_core::resource::Action::label(&topcoat_core::context::Cx) -> alloc::string::String
 pub fn tablo_core::resource::Action::run(&topcoat_core::context::Cx, &[<R as tablo_core::resource::Resource>::Model], Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send
 pub fn tablo_core::resource::Action::success(&topcoat_core::context::Cx, usize) -> alloc::string::String
-pub fn tablo_core::resource::Action::validate_input(&topcoat_core::context::Cx, &Self::Input) -> tablo_core::form::FieldErrors
-pub trait tablo_core::resource::ForeignKey<K>: tablo_core::resource::relation::sealed::Sealed<K> + toasty::stmt::into_expr::IntoExpr<Self> + tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
-impl<K> tablo_core::ForeignKey<K> for K where K: toasty::stmt::into_expr::IntoExpr<K> + tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
-impl<K> tablo_core::ForeignKey<K> for core::option::Option<K> where core::option::Option<K>: toasty::stmt::into_expr::IntoExpr<Self> + tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::resource::Action::validate_input(&topcoat_core::context::Cx, &Self::Input) -> tablo_core::FieldErrors
+pub trait tablo_core::resource::ForeignKey<K>: tablo_core::resource::relation::sealed::Sealed<K> + toasty::stmt::into_expr::IntoExpr<Self> + tablo_core::FormScalar + core::marker::Send + core::marker::Sync + 'static
+impl<K> tablo_core::ForeignKey<K> for K where K: toasty::stmt::into_expr::IntoExpr<K> + tablo_core::FormScalar + core::marker::Send + core::marker::Sync + 'static
+impl<K> tablo_core::ForeignKey<K> for core::option::Option<K> where core::option::Option<K>: toasty::stmt::into_expr::IntoExpr<Self> + tablo_core::FormScalar + core::marker::Send + core::marker::Sync + 'static
 pub trait tablo_core::resource::HeaderAction: 'static
 pub type tablo_core::resource::HeaderAction::Input: tablo_core::FormInput
 pub const tablo_core::resource::HeaderAction::CONFIRM: bool
@@ -2075,7 +2075,7 @@ pub fn tablo_core::resource::HeaderAction::can_run(&topcoat_core::context::Cx) -
 pub fn tablo_core::resource::HeaderAction::label(&topcoat_core::context::Cx) -> alloc::string::String
 pub fn tablo_core::resource::HeaderAction::run(&topcoat_core::context::Cx, Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send
 pub fn tablo_core::resource::HeaderAction::success(&topcoat_core::context::Cx) -> alloc::string::String
-pub fn tablo_core::resource::HeaderAction::validate_input(&topcoat_core::context::Cx, &Self::Input) -> tablo_core::form::FieldErrors
+pub fn tablo_core::resource::HeaderAction::validate_input(&topcoat_core::context::Cx, &Self::Input) -> tablo_core::FieldErrors
 pub trait tablo_core::resource::Resource: core::marker::Sized + core::marker::Send + core::marker::Sync + 'static
 pub type tablo_core::resource::Resource::Form: tablo_core::form::RecordForm<Model = Self::Model>
 pub type tablo_core::resource::Resource::Model: tablo_core::ModelColumns + toasty::stmt::into_expr::IntoExpr<Self::Model> + core::marker::Send + core::marker::Sync + core::clone::Clone + 'static
@@ -2086,7 +2086,7 @@ pub fn tablo_core::resource::Resource::declare() -> tablo_core::ResourceDef<Self
 pub fn tablo_core::resource::Resource::delete_record(&topcoat_core::context::Cx, &Self::Model, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
 pub fn tablo_core::resource::Resource::query(&topcoat_core::context::Cx) -> toasty::stmt::query::Query<toasty::stmt::list::List<Self::Model>>
 pub fn tablo_core::resource::Resource::update_record(&topcoat_core::context::Cx, Self::Model, tablo_core::form::Posted<Self::Form>, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<Self::Model>> + core::marker::Send
-pub fn tablo_core::resource::Resource::validate_record(&topcoat_core::context::Cx, &Self::Form) -> tablo_core::form::FieldErrors<<Self::Form as tablo_core::form::RecordForm>::Field>
+pub fn tablo_core::resource::Resource::validate_record(&topcoat_core::context::Cx, &Self::Form) -> tablo_core::FieldErrors<<Self::Form as tablo_core::form::RecordForm>::Field>
 pub fn tablo_core::resource::can<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx, tablo_core::policy::Ability<'_, <R as tablo_core::resource::Resource>::Model>) -> bool
 pub fn tablo_core::resource::scoped_query<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx) -> topcoat::Result<toasty::stmt::query::Query<toasty::stmt::list::List<<R as tablo_core::resource::Resource>::Model>>>
 pub async fn tablo_core::resource::write_create<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx, <R as tablo_core::resource::Resource>::Form, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<<R as tablo_core::resource::Resource>::Model>
@@ -2101,7 +2101,7 @@ pub fn tablo_core::ChoiceField<F>::help(self, impl core::convert::Into<alloc::st
 impl<F> tablo_core::ChoiceField<F>
 pub fn tablo_core::ChoiceField<F>::default(self, impl tablo_core::IntoFormValue) -> Self
 impl<F> tablo_core::ChoiceField<F>
-pub fn tablo_core::ChoiceField<F>::depends_on<M, T>(self, &impl tablo_core::Watched<F>, impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> Self where M: core::marker::Send + core::marker::Sync + 'static, T: tablo_core::form::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::ChoiceField<F>::depends_on<M, T>(self, &impl tablo_core::Watched<F>, impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> Self where M: core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::ChoiceField<F>::multiple(self) -> Self
 pub fn tablo_core::ChoiceField<F>::options(self, impl tablo_core::IntoOptions) -> Self
 pub fn tablo_core::ChoiceField<F>::relationship<R>(self) -> Self where R: tablo_core::extend::OptionSource + 'static
@@ -2153,12 +2153,12 @@ pub struct tablo_core::schema::Field
 impl tablo_core::Field
 pub fn tablo_core::Field::choice<M, T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> tablo_core::ChoiceField where M: toasty::schema::model::Model
 pub fn tablo_core::Field::choice_input(impl core::convert::Into<alloc::string::String>) -> tablo_core::ChoiceField
-pub fn tablo_core::Field::custom<M, T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>, impl tablo_core::extend::Control + 'static) -> tablo_core::CustomField where M: toasty::schema::model::Model, T: tablo_core::form::FormScalar
+pub fn tablo_core::Field::custom<M, T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>, impl tablo_core::extend::Control + 'static) -> tablo_core::CustomField where M: toasty::schema::model::Model, T: tablo_core::FormScalar
 pub fn tablo_core::Field::file<M>(impl core::convert::Into<toasty::stmt::path::Path<M, alloc::string::String>>) -> tablo_core::FileField where M: toasty::schema::model::Model
 pub fn tablo_core::Field::name(&self) -> &str
 pub fn tablo_core::Field::repeater<M, T>(impl core::convert::Into<toasty::stmt::path::Path<M, toasty::stmt::list::List<T>>>) -> tablo_core::RepeaterField where M: toasty::schema::model::Model, T: tablo_core::FormInput
-pub fn tablo_core::Field::text<M, T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> tablo_core::TextField where M: toasty::schema::model::Model, T: tablo_core::form::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + 'static
-pub fn tablo_core::Field::text_input<T: tablo_core::form::FormScalar>(impl core::convert::Into<alloc::string::String>) -> tablo_core::TextField
+pub fn tablo_core::Field::text<M, T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> tablo_core::TextField where M: toasty::schema::model::Model, T: tablo_core::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + 'static
+pub fn tablo_core::Field::text_input<T: tablo_core::FormScalar>(impl core::convert::Into<alloc::string::String>) -> tablo_core::TextField
 pub fn tablo_core::Field::toggle<M>(impl core::convert::Into<toasty::stmt::path::Path<M, bool>>) -> tablo_core::CustomField where M: toasty::schema::model::Model
 pub fn tablo_core::Field::toggle_input(impl core::convert::Into<alloc::string::String>) -> tablo_core::CustomField
 impl core::fmt::Debug for tablo_core::Field
@@ -2329,7 +2329,7 @@ impl<C> core::panic::unwind_safe::RefUnwindSafe for tablo_core::Section<C> where
 impl<C> core::panic::unwind_safe::UnwindSafe for tablo_core::Section<C> where C: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::schema::Source<'a>
 impl<'a> tablo_core::Source<'a>
-pub fn tablo_core::Source<'a>::form(&'a tablo_core::FormValues, &'a tablo_core::form::FieldErrors) -> Self
+pub fn tablo_core::Source<'a>::form(&'a tablo_core::FormValues, &'a tablo_core::FieldErrors) -> Self
 impl<'a> core::marker::Freeze for tablo_core::Source<'a>
 impl<'a> core::marker::Send for tablo_core::Source<'a>
 impl<'a> core::marker::Sync for tablo_core::Source<'a>
@@ -2394,7 +2394,7 @@ impl core::panic::unwind_safe::UnwindSafe for tablo_core::Toggle
 pub const tablo_core::schema::MAX_RELATIONSHIP_OPTIONS: usize
 pub const tablo_core::schema::MAX_ROWS: usize
 pub trait tablo_core::schema::EmbeddedForm: core::marker::Sized
-pub fn tablo_core::schema::EmbeddedForm::read_form<M>(impl core::convert::Into<toasty::stmt::path::Path<M, Self>>, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>> where M: toasty::schema::model::Model
+pub fn tablo_core::schema::EmbeddedForm::read_form<M>(impl core::convert::Into<toasty::stmt::path::Path<M, Self>>, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::FieldError>> where M: toasty::schema::model::Model
 pub fn tablo_core::schema::EmbeddedForm::write_form<M>(&self, impl core::convert::Into<toasty::stmt::path::Path<M, Self>>, &mut tablo_core::FormValues) where M: toasty::schema::model::Model
 pub trait tablo_core::schema::IntoFormValue
 pub fn tablo_core::schema::IntoFormValue::into_form_value(self) -> tablo_core::FormValue
@@ -2404,11 +2404,11 @@ impl tablo_core::IntoFormValue for &str
 pub fn &str::into_form_value(self) -> tablo_core::FormValue
 impl tablo_core::IntoFormValue for alloc::vec::Vec<&str>
 pub fn alloc::vec::Vec<&str>::into_form_value(self) -> tablo_core::FormValue
-impl<T: tablo_core::form::FormScalar, const N: usize> tablo_core::IntoFormValue for [T; N]
+impl<T: tablo_core::FormScalar, const N: usize> tablo_core::IntoFormValue for [T; N]
 pub fn [T; N]::into_form_value(self) -> tablo_core::FormValue
-impl<T: tablo_core::form::FormScalar> tablo_core::IntoFormValue for T
+impl<T: tablo_core::FormScalar> tablo_core::IntoFormValue for T
 pub fn T::into_form_value(self) -> tablo_core::FormValue
-impl<T: tablo_core::form::FormScalar> tablo_core::IntoFormValue for alloc::vec::Vec<T>
+impl<T: tablo_core::FormScalar> tablo_core::IntoFormValue for alloc::vec::Vec<T>
 pub fn alloc::vec::Vec<T>::into_form_value(self) -> tablo_core::FormValue
 impl<const N: usize> tablo_core::IntoFormValue for [&str; N]
 pub fn [&str; N]::into_form_value(self) -> tablo_core::FormValue
@@ -2480,7 +2480,7 @@ pub trait tablo_core::schema::Watched<F>
 impl<F> tablo_core::Watched<F> for tablo_core::ChoiceField<F>
 impl<F> tablo_core::Watched<F> for tablo_core::CustomField<F>
 impl<F> tablo_core::Watched<F> for tablo_core::TextField<F>
-pub fn tablo_core::schema::parse_items<T: tablo_core::FormInput>(&topcoat_core::context::Cx, &str, &tablo_core::FormValues) -> core::result::Result<alloc::vec::Vec<T>, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn tablo_core::schema::parse_items<T: tablo_core::FormInput>(&topcoat_core::context::Cx, &str, &tablo_core::FormValues) -> core::result::Result<alloc::vec::Vec<T>, alloc::vec::Vec<tablo_core::FieldError>>
 pub fn tablo_core::schema::write_items<T: tablo_core::FormInput>(&[T]) -> tablo_core::FormValue
 pub mod tablo_core::table
 pub enum tablo_core::table::ActionLayout
@@ -2709,7 +2709,7 @@ pub fn tablo_core::ColorColumn<M, T>::fmt(&self, &mut core::fmt::Formatter<'_>) 
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::ColorColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::ColorColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::ColorColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
-impl<M, T> tablo_core::extend::Column<M> for tablo_core::ColorColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
+impl<M, T> tablo_core::extend::Column<M> for tablo_core::ColorColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormScalar + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::ColorColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::ColorColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::ColorColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
@@ -3007,7 +3007,7 @@ pub fn tablo_core::ImageColumn<M, T>::fmt(&self, &mut core::fmt::Formatter<'_>) 
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::ImageColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::ImageColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::ImageColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
-impl<M, T> tablo_core::extend::Column<M> for tablo_core::ImageColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
+impl<M, T> tablo_core::extend::Column<M> for tablo_core::ImageColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormScalar + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::ImageColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::ImageColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::ImageColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
@@ -3168,8 +3168,8 @@ pub struct tablo_core::table::SelectFilter<M>
 impl<M> tablo_core::SelectFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::SelectFilter<M>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::SelectFilter<M>::multiple(self) -> Self
-pub fn tablo_core::SelectFilter<M>::new<T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>, impl tablo_core::IntoOptions) -> Self where T: tablo_core::form::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + core::marker::Send + core::marker::Sync + 'static
-pub fn tablo_core::SelectFilter<M>::of<T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> Self where T: tablo_core::Options + tablo_core::form::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::SelectFilter<M>::new<T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>, impl tablo_core::IntoOptions) -> Self where T: tablo_core::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::SelectFilter<M>::of<T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> Self where T: tablo_core::Options + tablo_core::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::SelectFilter<M>::options(&self) -> &[(alloc::string::String, alloc::string::String)]
 pub fn tablo_core::SelectFilter<M>::relationship<R>(tablo_core::Lens<M, impl core::marker::Sized, impl tablo_core::extend::FilterKey>) -> Self where R: tablo_core::extend::OptionSource
 impl<M> core::clone::Clone for tablo_core::SelectFilter<M>
@@ -3221,7 +3221,7 @@ pub fn tablo_core::table::Table<M>::column(self, impl tablo_core::extend::Column
 pub fn tablo_core::table::Table<M>::declaration_errors(&self) -> alloc::vec::Vec<tablo_core::DeclarationErrorKind>
 pub fn tablo_core::table::Table<M>::default_sort(self, tablo_core::Sort) -> Self
 pub fn tablo_core::table::Table<M>::filters(self, impl tablo_core::IntoFilters<M>) -> Self where M: toasty::schema::model::Model
-pub fn tablo_core::table::Table<M>::group_by<T>(self, tablo_core::Lens<M, T>) -> Self where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::table::Table<M>::group_by<T>(self, tablo_core::Lens<M, T>) -> Self where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormScalar + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::table::Table<M>::hide_filter_bar(self) -> Self
 pub fn tablo_core::table::Table<M>::hide_search(self) -> Self
 pub fn tablo_core::table::Table<M>::new(impl tablo_core::IntoColumns<M>) -> Self where M: toasty::schema::model::Model + toasty::stmt::into_expr::IntoExpr<M>
@@ -3333,7 +3333,7 @@ pub fn tablo_core::TextColumn<M, T>::description(self, impl core::ops::function:
 pub fn tablo_core::TextColumn<M, T>::format(self, impl core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self
 pub fn tablo_core::TextColumn<M, T>::hidden_by_default(self) -> Self
 pub fn tablo_core::TextColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
-pub fn tablo_core::TextColumn<M, T>::new(tablo_core::Lens<M, T>) -> Self where T: tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::TextColumn<M, T>::new(tablo_core::Lens<M, T>) -> Self where T: tablo_core::FormScalar + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::TextColumn<M, T>::sortable(self) -> Self
 pub fn tablo_core::TextColumn<M, T>::toggleable(self) -> Self
 pub fn tablo_core::TextColumn<M, T>::width(self, tablo_core::ColumnWidth) -> Self
@@ -3956,21 +3956,21 @@ impl core::panic::unwind_safe::UnwindSafe for tablo_core::DeclarationErrorKind
 #[non_exhaustive] pub enum tablo_core::FieldErrorKind
 pub tablo_core::FieldErrorKind::Invalid(alloc::string::String)
 pub tablo_core::FieldErrorKind::Required
-impl core::clone::Clone for tablo_core::form::FieldErrorKind
-pub fn tablo_core::form::FieldErrorKind::clone(&self) -> tablo_core::form::FieldErrorKind
-impl core::cmp::Eq for tablo_core::form::FieldErrorKind
-impl core::cmp::PartialEq for tablo_core::form::FieldErrorKind
-pub fn tablo_core::form::FieldErrorKind::eq(&self, &tablo_core::form::FieldErrorKind) -> bool
-impl core::fmt::Debug for tablo_core::form::FieldErrorKind
-pub fn tablo_core::form::FieldErrorKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl core::marker::StructuralPartialEq for tablo_core::form::FieldErrorKind
-impl core::marker::Freeze for tablo_core::form::FieldErrorKind
-impl core::marker::Send for tablo_core::form::FieldErrorKind
-impl core::marker::Sync for tablo_core::form::FieldErrorKind
-impl core::marker::Unpin for tablo_core::form::FieldErrorKind
-impl core::marker::UnsafeUnpin for tablo_core::form::FieldErrorKind
-impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::form::FieldErrorKind
-impl core::panic::unwind_safe::UnwindSafe for tablo_core::form::FieldErrorKind
+impl core::clone::Clone for tablo_core::FieldErrorKind
+pub fn tablo_core::FieldErrorKind::clone(&self) -> tablo_core::FieldErrorKind
+impl core::cmp::Eq for tablo_core::FieldErrorKind
+impl core::cmp::PartialEq for tablo_core::FieldErrorKind
+pub fn tablo_core::FieldErrorKind::eq(&self, &tablo_core::FieldErrorKind) -> bool
+impl core::fmt::Debug for tablo_core::FieldErrorKind
+pub fn tablo_core::FieldErrorKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_core::FieldErrorKind
+impl core::marker::Freeze for tablo_core::FieldErrorKind
+impl core::marker::Send for tablo_core::FieldErrorKind
+impl core::marker::Sync for tablo_core::FieldErrorKind
+impl core::marker::Unpin for tablo_core::FieldErrorKind
+impl core::marker::UnsafeUnpin for tablo_core::FieldErrorKind
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::FieldErrorKind
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::FieldErrorKind
 #[non_exhaustive] pub enum tablo_core::FieldRuleFault
 pub tablo_core::FieldRuleFault::EmptyRange
 pub tablo_core::FieldRuleFault::InvalidPattern(alloc::string::String)
@@ -4402,7 +4402,7 @@ pub fn tablo_core::ChoiceField<F>::help(self, impl core::convert::Into<alloc::st
 impl<F> tablo_core::ChoiceField<F>
 pub fn tablo_core::ChoiceField<F>::default(self, impl tablo_core::IntoFormValue) -> Self
 impl<F> tablo_core::ChoiceField<F>
-pub fn tablo_core::ChoiceField<F>::depends_on<M, T>(self, &impl tablo_core::Watched<F>, impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> Self where M: core::marker::Send + core::marker::Sync + 'static, T: tablo_core::form::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::ChoiceField<F>::depends_on<M, T>(self, &impl tablo_core::Watched<F>, impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> Self where M: core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::ChoiceField<F>::multiple(self) -> Self
 pub fn tablo_core::ChoiceField<F>::options(self, impl tablo_core::IntoOptions) -> Self
 pub fn tablo_core::ChoiceField<F>::relationship<R>(self) -> Self where R: tablo_core::extend::OptionSource + 'static
@@ -4438,7 +4438,7 @@ pub fn tablo_core::ColorColumn<M, T>::fmt(&self, &mut core::fmt::Formatter<'_>) 
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::ColorColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::ColorColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::ColorColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
-impl<M, T> tablo_core::extend::Column<M> for tablo_core::ColorColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
+impl<M, T> tablo_core::extend::Column<M> for tablo_core::ColorColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormScalar + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::ColorColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::ColorColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::ColorColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
@@ -4783,12 +4783,12 @@ pub struct tablo_core::Field
 impl tablo_core::Field
 pub fn tablo_core::Field::choice<M, T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> tablo_core::ChoiceField where M: toasty::schema::model::Model
 pub fn tablo_core::Field::choice_input(impl core::convert::Into<alloc::string::String>) -> tablo_core::ChoiceField
-pub fn tablo_core::Field::custom<M, T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>, impl tablo_core::extend::Control + 'static) -> tablo_core::CustomField where M: toasty::schema::model::Model, T: tablo_core::form::FormScalar
+pub fn tablo_core::Field::custom<M, T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>, impl tablo_core::extend::Control + 'static) -> tablo_core::CustomField where M: toasty::schema::model::Model, T: tablo_core::FormScalar
 pub fn tablo_core::Field::file<M>(impl core::convert::Into<toasty::stmt::path::Path<M, alloc::string::String>>) -> tablo_core::FileField where M: toasty::schema::model::Model
 pub fn tablo_core::Field::name(&self) -> &str
 pub fn tablo_core::Field::repeater<M, T>(impl core::convert::Into<toasty::stmt::path::Path<M, toasty::stmt::list::List<T>>>) -> tablo_core::RepeaterField where M: toasty::schema::model::Model, T: tablo_core::FormInput
-pub fn tablo_core::Field::text<M, T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> tablo_core::TextField where M: toasty::schema::model::Model, T: tablo_core::form::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + 'static
-pub fn tablo_core::Field::text_input<T: tablo_core::form::FormScalar>(impl core::convert::Into<alloc::string::String>) -> tablo_core::TextField
+pub fn tablo_core::Field::text<M, T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> tablo_core::TextField where M: toasty::schema::model::Model, T: tablo_core::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + 'static
+pub fn tablo_core::Field::text_input<T: tablo_core::FormScalar>(impl core::convert::Into<alloc::string::String>) -> tablo_core::TextField
 pub fn tablo_core::Field::toggle<M>(impl core::convert::Into<toasty::stmt::path::Path<M, bool>>) -> tablo_core::CustomField where M: toasty::schema::model::Model
 pub fn tablo_core::Field::toggle_input(impl core::convert::Into<alloc::string::String>) -> tablo_core::CustomField
 impl core::fmt::Debug for tablo_core::Field
@@ -4814,52 +4814,52 @@ impl !core::panic::unwind_safe::RefUnwindSafe for tablo_core::Field
 impl !core::panic::unwind_safe::UnwindSafe for tablo_core::Field
 pub struct tablo_core::FieldError<K>
 pub tablo_core::FieldError::key: K
-pub tablo_core::FieldError::kind: tablo_core::form::FieldErrorKind
-impl<K> tablo_core::form::FieldError<K>
-pub fn tablo_core::form::FieldError<K>::invalid(impl core::convert::Into<K>, impl core::convert::Into<alloc::string::String>) -> Self
-pub fn tablo_core::form::FieldError<K>::message(&self, &str) -> alloc::string::String
-pub fn tablo_core::form::FieldError<K>::required(impl core::convert::Into<K>) -> Self
-impl<K: core::clone::Clone> core::clone::Clone for tablo_core::form::FieldError<K>
-pub fn tablo_core::form::FieldError<K>::clone(&self) -> tablo_core::form::FieldError<K>
-impl<K: core::cmp::Eq> core::cmp::Eq for tablo_core::form::FieldError<K>
-impl<K: core::cmp::PartialEq> core::cmp::PartialEq for tablo_core::form::FieldError<K>
-pub fn tablo_core::form::FieldError<K>::eq(&self, &tablo_core::form::FieldError<K>) -> bool
-impl<K: core::cmp::PartialEq> core::marker::StructuralPartialEq for tablo_core::form::FieldError<K>
-impl<K: core::fmt::Debug> core::fmt::Debug for tablo_core::form::FieldError<K>
-pub fn tablo_core::form::FieldError<K>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl<K> core::marker::Freeze for tablo_core::form::FieldError<K> where K: core::marker::Freeze
-impl<K> core::marker::Send for tablo_core::form::FieldError<K> where K: core::marker::Send
-impl<K> core::marker::Sync for tablo_core::form::FieldError<K> where K: core::marker::Sync
-impl<K> core::marker::Unpin for tablo_core::form::FieldError<K> where K: core::marker::Unpin
-impl<K> core::marker::UnsafeUnpin for tablo_core::form::FieldError<K> where K: core::marker::UnsafeUnpin
-impl<K> core::panic::unwind_safe::RefUnwindSafe for tablo_core::form::FieldError<K> where K: core::panic::unwind_safe::RefUnwindSafe
-impl<K> core::panic::unwind_safe::UnwindSafe for tablo_core::form::FieldError<K> where K: core::panic::unwind_safe::UnwindSafe
+pub tablo_core::FieldError::kind: tablo_core::FieldErrorKind
+impl<K> tablo_core::FieldError<K>
+pub fn tablo_core::FieldError<K>::invalid(impl core::convert::Into<K>, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::FieldError<K>::message(&self, &str) -> alloc::string::String
+pub fn tablo_core::FieldError<K>::required(impl core::convert::Into<K>) -> Self
+impl<K: core::clone::Clone> core::clone::Clone for tablo_core::FieldError<K>
+pub fn tablo_core::FieldError<K>::clone(&self) -> tablo_core::FieldError<K>
+impl<K: core::cmp::Eq> core::cmp::Eq for tablo_core::FieldError<K>
+impl<K: core::cmp::PartialEq> core::cmp::PartialEq for tablo_core::FieldError<K>
+pub fn tablo_core::FieldError<K>::eq(&self, &tablo_core::FieldError<K>) -> bool
+impl<K: core::cmp::PartialEq> core::marker::StructuralPartialEq for tablo_core::FieldError<K>
+impl<K: core::fmt::Debug> core::fmt::Debug for tablo_core::FieldError<K>
+pub fn tablo_core::FieldError<K>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<K> core::marker::Freeze for tablo_core::FieldError<K> where K: core::marker::Freeze
+impl<K> core::marker::Send for tablo_core::FieldError<K> where K: core::marker::Send
+impl<K> core::marker::Sync for tablo_core::FieldError<K> where K: core::marker::Sync
+impl<K> core::marker::Unpin for tablo_core::FieldError<K> where K: core::marker::Unpin
+impl<K> core::marker::UnsafeUnpin for tablo_core::FieldError<K> where K: core::marker::UnsafeUnpin
+impl<K> core::panic::unwind_safe::RefUnwindSafe for tablo_core::FieldError<K> where K: core::panic::unwind_safe::RefUnwindSafe
+impl<K> core::panic::unwind_safe::UnwindSafe for tablo_core::FieldError<K> where K: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::FieldErrors<K>
-impl tablo_core::form::FieldErrors
-pub fn tablo_core::form::FieldErrors::contains_key(&self, &str) -> bool
-pub fn tablo_core::form::FieldErrors::first(&self, &str) -> core::option::Option<&tablo_core::form::FieldError>
-impl<K> tablo_core::form::FieldErrors<K>
-pub fn tablo_core::form::FieldErrors<K>::add(&mut self, impl core::convert::Into<K>, impl core::convert::Into<alloc::string::String>)
-pub fn tablo_core::form::FieldErrors<K>::extend(&mut self, Self)
-pub fn tablo_core::form::FieldErrors<K>::is_empty(&self) -> bool
-pub fn tablo_core::form::FieldErrors<K>::iter(&self) -> impl core::iter::traits::iterator::Iterator<Item = &tablo_core::form::FieldError<K>>
-pub fn tablo_core::form::FieldErrors<K>::new() -> Self
-pub fn tablo_core::form::FieldErrors<K>::push(&mut self, tablo_core::form::FieldError<K>)
-impl<K: core::fmt::Debug> core::fmt::Debug for tablo_core::form::FieldErrors<K>
-pub fn tablo_core::form::FieldErrors<K>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl<K> core::default::Default for tablo_core::form::FieldErrors<K>
-pub fn tablo_core::form::FieldErrors<K>::default() -> Self
-impl<K> core::iter::traits::collect::IntoIterator for tablo_core::form::FieldErrors<K>
-pub type tablo_core::form::FieldErrors<K>::IntoIter = alloc::vec::into_iter::IntoIter<tablo_core::form::FieldError<K>>
-pub type tablo_core::form::FieldErrors<K>::Item = tablo_core::form::FieldError<K>
-pub fn tablo_core::form::FieldErrors<K>::into_iter(self) -> Self::IntoIter
-impl<K> core::marker::Freeze for tablo_core::form::FieldErrors<K> where alloc::vec::Vec<tablo_core::form::FieldError<K>>: core::marker::Freeze
-impl<K> core::marker::Send for tablo_core::form::FieldErrors<K> where alloc::vec::Vec<tablo_core::form::FieldError<K>>: core::marker::Send
-impl<K> core::marker::Sync for tablo_core::form::FieldErrors<K> where alloc::vec::Vec<tablo_core::form::FieldError<K>>: core::marker::Sync
-impl<K> core::marker::Unpin for tablo_core::form::FieldErrors<K> where alloc::vec::Vec<tablo_core::form::FieldError<K>>: core::marker::Unpin
-impl<K> core::marker::UnsafeUnpin for tablo_core::form::FieldErrors<K> where alloc::vec::Vec<tablo_core::form::FieldError<K>>: core::marker::UnsafeUnpin
-impl<K> core::panic::unwind_safe::RefUnwindSafe for tablo_core::form::FieldErrors<K> where alloc::vec::Vec<tablo_core::form::FieldError<K>>: core::panic::unwind_safe::RefUnwindSafe
-impl<K> core::panic::unwind_safe::UnwindSafe for tablo_core::form::FieldErrors<K> where alloc::vec::Vec<tablo_core::form::FieldError<K>>: core::panic::unwind_safe::UnwindSafe
+impl tablo_core::FieldErrors
+pub fn tablo_core::FieldErrors::contains_key(&self, &str) -> bool
+pub fn tablo_core::FieldErrors::first(&self, &str) -> core::option::Option<&tablo_core::FieldError>
+impl<K> tablo_core::FieldErrors<K>
+pub fn tablo_core::FieldErrors<K>::add(&mut self, impl core::convert::Into<K>, impl core::convert::Into<alloc::string::String>)
+pub fn tablo_core::FieldErrors<K>::extend(&mut self, Self)
+pub fn tablo_core::FieldErrors<K>::is_empty(&self) -> bool
+pub fn tablo_core::FieldErrors<K>::iter(&self) -> impl core::iter::traits::iterator::Iterator<Item = &tablo_core::FieldError<K>>
+pub fn tablo_core::FieldErrors<K>::new() -> Self
+pub fn tablo_core::FieldErrors<K>::push(&mut self, tablo_core::FieldError<K>)
+impl<K: core::fmt::Debug> core::fmt::Debug for tablo_core::FieldErrors<K>
+pub fn tablo_core::FieldErrors<K>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<K> core::default::Default for tablo_core::FieldErrors<K>
+pub fn tablo_core::FieldErrors<K>::default() -> Self
+impl<K> core::iter::traits::collect::IntoIterator for tablo_core::FieldErrors<K>
+pub type tablo_core::FieldErrors<K>::IntoIter = alloc::vec::into_iter::IntoIter<tablo_core::FieldError<K>>
+pub type tablo_core::FieldErrors<K>::Item = tablo_core::FieldError<K>
+pub fn tablo_core::FieldErrors<K>::into_iter(self) -> Self::IntoIter
+impl<K> core::marker::Freeze for tablo_core::FieldErrors<K> where alloc::vec::Vec<tablo_core::FieldError<K>>: core::marker::Freeze
+impl<K> core::marker::Send for tablo_core::FieldErrors<K> where alloc::vec::Vec<tablo_core::FieldError<K>>: core::marker::Send
+impl<K> core::marker::Sync for tablo_core::FieldErrors<K> where alloc::vec::Vec<tablo_core::FieldError<K>>: core::marker::Sync
+impl<K> core::marker::Unpin for tablo_core::FieldErrors<K> where alloc::vec::Vec<tablo_core::FieldError<K>>: core::marker::Unpin
+impl<K> core::marker::UnsafeUnpin for tablo_core::FieldErrors<K> where alloc::vec::Vec<tablo_core::FieldError<K>>: core::marker::UnsafeUnpin
+impl<K> core::panic::unwind_safe::RefUnwindSafe for tablo_core::FieldErrors<K> where alloc::vec::Vec<tablo_core::FieldError<K>>: core::panic::unwind_safe::RefUnwindSafe
+impl<K> core::panic::unwind_safe::UnwindSafe for tablo_core::FieldErrors<K> where alloc::vec::Vec<tablo_core::FieldError<K>>: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::FileColumn<M>
 impl<M> tablo_core::FileColumn<M> where M: toasty::schema::model::Model
 pub fn tablo_core::FileColumn<M>::hidden_by_default(self) -> Self
@@ -4954,17 +4954,17 @@ pub tablo_core::FormField::field: K
 pub tablo_core::FormField::keys: alloc::vec::Vec<alloc::string::String>
 pub tablo_core::FormField::name: &'static str
 pub tablo_core::FormField::required: alloc::vec::Vec<alloc::string::String>
-impl<K: core::clone::Clone> core::clone::Clone for tablo_core::form::FormField<K>
-pub fn tablo_core::form::FormField<K>::clone(&self) -> tablo_core::form::FormField<K>
-impl<K: core::fmt::Debug> core::fmt::Debug for tablo_core::form::FormField<K>
-pub fn tablo_core::form::FormField<K>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl<K> core::marker::Freeze for tablo_core::form::FormField<K> where K: core::marker::Freeze
-impl<K> core::marker::Send for tablo_core::form::FormField<K> where K: core::marker::Send
-impl<K> core::marker::Sync for tablo_core::form::FormField<K> where K: core::marker::Sync
-impl<K> core::marker::Unpin for tablo_core::form::FormField<K> where K: core::marker::Unpin
-impl<K> core::marker::UnsafeUnpin for tablo_core::form::FormField<K> where K: core::marker::UnsafeUnpin
-impl<K> core::panic::unwind_safe::RefUnwindSafe for tablo_core::form::FormField<K> where K: core::panic::unwind_safe::RefUnwindSafe
-impl<K> core::panic::unwind_safe::UnwindSafe for tablo_core::form::FormField<K> where K: core::panic::unwind_safe::UnwindSafe
+impl<K: core::clone::Clone> core::clone::Clone for tablo_core::FormField<K>
+pub fn tablo_core::FormField<K>::clone(&self) -> tablo_core::FormField<K>
+impl<K: core::fmt::Debug> core::fmt::Debug for tablo_core::FormField<K>
+pub fn tablo_core::FormField<K>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<K> core::marker::Freeze for tablo_core::FormField<K> where K: core::marker::Freeze
+impl<K> core::marker::Send for tablo_core::FormField<K> where K: core::marker::Send
+impl<K> core::marker::Sync for tablo_core::FormField<K> where K: core::marker::Sync
+impl<K> core::marker::Unpin for tablo_core::FormField<K> where K: core::marker::Unpin
+impl<K> core::marker::UnsafeUnpin for tablo_core::FormField<K> where K: core::marker::UnsafeUnpin
+impl<K> core::panic::unwind_safe::RefUnwindSafe for tablo_core::FormField<K> where K: core::panic::unwind_safe::RefUnwindSafe
+impl<K> core::panic::unwind_safe::UnwindSafe for tablo_core::FormField<K> where K: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::FormValues
 impl tablo_core::FormValues
 pub fn tablo_core::FormValues::contains(&self, &str) -> bool
@@ -5089,7 +5089,7 @@ pub fn tablo_core::ImageColumn<M, T>::fmt(&self, &mut core::fmt::Formatter<'_>) 
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::ImageColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::ImageColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::ImageColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
-impl<M, T> tablo_core::extend::Column<M> for tablo_core::ImageColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
+impl<M, T> tablo_core::extend::Column<M> for tablo_core::ImageColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormScalar + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::ImageColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::ImageColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
 pub fn tablo_core::ImageColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
@@ -5214,13 +5214,13 @@ pub type tablo_core::form::NoForm<M>::Model = M
 pub const tablo_core::form::NoForm<M>::HAS_FORM: bool
 pub fn tablo_core::form::NoForm<M>::control(Self::Field) -> tablo_core::schema::Schema<Self>
 pub fn tablo_core::form::NoForm<M>::exec_update<'a>(<M as toasty::schema::model::Model>::Update, &'a mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = toasty_core::Result<()>> + core::marker::Send + 'a
-pub fn tablo_core::form::NoForm<M>::fields() -> alloc::vec::Vec<tablo_core::form::FormField<Self::Field>>
+pub fn tablo_core::form::NoForm<M>::fields() -> alloc::vec::Vec<tablo_core::FormField<Self::Field>>
 pub fn tablo_core::form::NoForm<M>::hydrate(&topcoat_core::context::Cx, &M) -> tablo_core::FormValues
 pub fn tablo_core::form::NoForm<M>::includes() -> tablo_core::extend::Includes<Self::Model>
 pub fn tablo_core::form::NoForm<M>::into_create(self) -> <M as toasty::schema::model::Model>::Create
 pub fn tablo_core::form::NoForm<M>::into_update<'a>(self, &'a mut M, &std::collections::hash::set::HashSet<Self::Field>) -> core::option::Option<<M as toasty::schema::model::Model>::Update>
 pub fn tablo_core::form::NoForm<M>::links(&self) -> alloc::vec::Vec<(Self::Field, alloc::vec::Vec<alloc::string::String>)>
-pub fn tablo_core::form::NoForm<M>::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn tablo_core::form::NoForm<M>::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::FieldError>>
 impl<M> core::marker::Freeze for tablo_core::form::NoForm<M> where core::marker::PhantomData<fn() -> M>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::form::NoForm<M> where core::marker::PhantomData<fn() -> M>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::form::NoForm<M> where core::marker::PhantomData<fn() -> M>: core::marker::Sync
@@ -5358,12 +5358,12 @@ pub type tablo_core::PasswordAuth::Input = tablo_core::Profile
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
 pub fn tablo_core::PasswordAuth::fill(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser) -> tablo_core::Profile
 pub async fn tablo_core::PasswordAuth::save(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser, tablo_core::Profile, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::ProfileUpdate>
-pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser, &tablo_core::Profile, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::form::FieldErrors>
+pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser, &tablo_core::Profile, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::FieldErrors>
 impl tablo_core::Registrar for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::Input = tablo_core::SignUp
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
 pub async fn tablo_core::PasswordAuth::register(&self, &topcoat_core::context::Cx, tablo_core::SignUp, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::auth::AdminUser>
-pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::Cx, &tablo_core::SignUp, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::form::FieldErrors>
+pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::Cx, &tablo_core::SignUp, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::FieldErrors>
 impl tablo_core::auth::Authenticator for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
 pub async fn tablo_core::PasswordAuth::find_by_id(&self, &topcoat_core::context::Cx, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
@@ -5442,7 +5442,7 @@ pub tablo_core::Profile::name: alloc::string::String
 pub tablo_core::Profile::password: core::option::Option<alloc::string::String>
 pub tablo_core::Profile::password_confirmation: alloc::string::String
 impl tablo_core::Profile
-pub fn tablo_core::Profile::password_errors(&self) -> tablo_core::form::FieldErrors
+pub fn tablo_core::Profile::password_errors(&self) -> tablo_core::FieldErrors
 impl core::clone::Clone for tablo_core::Profile
 pub fn tablo_core::Profile::clone(&self) -> tablo_core::Profile
 impl core::cmp::Eq for tablo_core::Profile
@@ -5452,7 +5452,7 @@ impl core::fmt::Debug for tablo_core::Profile
 pub fn tablo_core::Profile::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for tablo_core::Profile
 impl tablo_core::FormInput for tablo_core::Profile
-pub fn tablo_core::Profile::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn tablo_core::Profile::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::FieldError>>
 pub fn tablo_core::Profile::schema() -> tablo_core::schema::Schema
 pub fn tablo_core::Profile::write(&self, &mut tablo_core::FormValues)
 impl core::marker::Freeze for tablo_core::Profile
@@ -5661,7 +5661,7 @@ pub fn tablo_core::ResourceDef<R>::plural_label(self, impl core::convert::Into<a
 pub fn tablo_core::ResourceDef<R>::policy(self, impl tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>) -> Self
 pub fn tablo_core::ResourceDef<R>::policy_fn(self, impl core::ops::function::Fn(&topcoat_core::context::Cx, tablo_core::policy::Ability<'_, <R as tablo_core::resource::Resource>::Model>) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
 pub fn tablo_core::ResourceDef<R>::public_link(self, impl core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync + 'static) -> Self
-pub fn tablo_core::ResourceDef<R>::record_title<T>(self, tablo_core::Lens<<R as tablo_core::resource::Resource>::Model, T>) -> Self where T: tablo_core::form::FormScalar + toasty::schema::field::Field<Inner = alloc::string::String> + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::ResourceDef<R>::record_title<T>(self, tablo_core::Lens<<R as tablo_core::resource::Resource>::Model, T>) -> Self where T: tablo_core::FormScalar + toasty::schema::field::Field<Inner = alloc::string::String> + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::ResourceDef<R>::relation(self, tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>) -> Self
 pub fn tablo_core::ResourceDef<R>::slug(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::ResourceDef<R>::table(self, tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>) -> Self
@@ -5733,8 +5733,8 @@ pub struct tablo_core::SelectFilter<M>
 impl<M> tablo_core::SelectFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::SelectFilter<M>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::SelectFilter<M>::multiple(self) -> Self
-pub fn tablo_core::SelectFilter<M>::new<T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>, impl tablo_core::IntoOptions) -> Self where T: tablo_core::form::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + core::marker::Send + core::marker::Sync + 'static
-pub fn tablo_core::SelectFilter<M>::of<T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> Self where T: tablo_core::Options + tablo_core::form::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::SelectFilter<M>::new<T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>, impl tablo_core::IntoOptions) -> Self where T: tablo_core::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::SelectFilter<M>::of<T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> Self where T: tablo_core::Options + tablo_core::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::SelectFilter<M>::options(&self) -> &[(alloc::string::String, alloc::string::String)]
 pub fn tablo_core::SelectFilter<M>::relationship<R>(tablo_core::Lens<M, impl core::marker::Sized, impl tablo_core::extend::FilterKey>) -> Self where R: tablo_core::extend::OptionSource
 impl<M> core::clone::Clone for tablo_core::SelectFilter<M>
@@ -5762,7 +5762,7 @@ pub tablo_core::SignUp::name: alloc::string::String
 pub tablo_core::SignUp::password: alloc::string::String
 pub tablo_core::SignUp::password_confirmation: alloc::string::String
 impl tablo_core::SignUp
-pub fn tablo_core::SignUp::password_errors(&self) -> tablo_core::form::FieldErrors
+pub fn tablo_core::SignUp::password_errors(&self) -> tablo_core::FieldErrors
 impl core::clone::Clone for tablo_core::SignUp
 pub fn tablo_core::SignUp::clone(&self) -> tablo_core::SignUp
 impl core::cmp::Eq for tablo_core::SignUp
@@ -5772,7 +5772,7 @@ impl core::fmt::Debug for tablo_core::SignUp
 pub fn tablo_core::SignUp::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for tablo_core::SignUp
 impl tablo_core::FormInput for tablo_core::SignUp
-pub fn tablo_core::SignUp::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn tablo_core::SignUp::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::FieldError>>
 pub fn tablo_core::SignUp::schema() -> tablo_core::schema::Schema
 pub fn tablo_core::SignUp::write(&self, &mut tablo_core::FormValues)
 impl core::marker::Freeze for tablo_core::SignUp
@@ -5807,7 +5807,7 @@ impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Sort
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::Sort
 pub struct tablo_core::Source<'a>
 impl<'a> tablo_core::Source<'a>
-pub fn tablo_core::Source<'a>::form(&'a tablo_core::FormValues, &'a tablo_core::form::FieldErrors) -> Self
+pub fn tablo_core::Source<'a>::form(&'a tablo_core::FormValues, &'a tablo_core::FieldErrors) -> Self
 impl<'a> core::marker::Freeze for tablo_core::Source<'a>
 impl<'a> core::marker::Send for tablo_core::Source<'a>
 impl<'a> core::marker::Sync for tablo_core::Source<'a>
@@ -5822,7 +5822,7 @@ pub fn tablo_core::table::Table<M>::column(self, impl tablo_core::extend::Column
 pub fn tablo_core::table::Table<M>::declaration_errors(&self) -> alloc::vec::Vec<tablo_core::DeclarationErrorKind>
 pub fn tablo_core::table::Table<M>::default_sort(self, tablo_core::Sort) -> Self
 pub fn tablo_core::table::Table<M>::filters(self, impl tablo_core::IntoFilters<M>) -> Self where M: toasty::schema::model::Model
-pub fn tablo_core::table::Table<M>::group_by<T>(self, tablo_core::Lens<M, T>) -> Self where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::table::Table<M>::group_by<T>(self, tablo_core::Lens<M, T>) -> Self where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormScalar + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::table::Table<M>::hide_filter_bar(self) -> Self
 pub fn tablo_core::table::Table<M>::hide_search(self) -> Self
 pub fn tablo_core::table::Table<M>::new(impl tablo_core::IntoColumns<M>) -> Self where M: toasty::schema::model::Model + toasty::stmt::into_expr::IntoExpr<M>
@@ -6030,7 +6030,7 @@ pub fn tablo_core::TextColumn<M, T>::description(self, impl core::ops::function:
 pub fn tablo_core::TextColumn<M, T>::format(self, impl core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self
 pub fn tablo_core::TextColumn<M, T>::hidden_by_default(self) -> Self
 pub fn tablo_core::TextColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
-pub fn tablo_core::TextColumn<M, T>::new(tablo_core::Lens<M, T>) -> Self where T: tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::TextColumn<M, T>::new(tablo_core::Lens<M, T>) -> Self where T: tablo_core::FormScalar + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::TextColumn<M, T>::sortable(self) -> Self
 pub fn tablo_core::TextColumn<M, T>::toggleable(self) -> Self
 pub fn tablo_core::TextColumn<M, T>::width(self, tablo_core::ColumnWidth) -> Self
@@ -6142,7 +6142,7 @@ pub fn tablo_core::Action::can_run(&topcoat_core::context::Cx, &<R as tablo_core
 pub fn tablo_core::Action::label(&topcoat_core::context::Cx) -> alloc::string::String
 pub fn tablo_core::Action::run(&topcoat_core::context::Cx, &[<R as tablo_core::resource::Resource>::Model], Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send
 pub fn tablo_core::Action::success(&topcoat_core::context::Cx, usize) -> alloc::string::String
-pub fn tablo_core::Action::validate_input(&topcoat_core::context::Cx, &Self::Input) -> tablo_core::form::FieldErrors
+pub fn tablo_core::Action::validate_input(&topcoat_core::context::Cx, &Self::Input) -> tablo_core::FieldErrors
 pub trait tablo_core::Authenticator: core::marker::Send + core::marker::Sync + 'static
 pub type tablo_core::Authenticator::User: tablo_core::auth::PanelUser
 pub fn tablo_core::Authenticator::find_by_id(&self, &topcoat_core::context::Cx, &str) -> impl core::future::future::Future<Output = topcoat::Result<core::option::Option<Self::User>>> + core::marker::Send
@@ -6167,25 +6167,25 @@ impl<T: tablo_core::DateValue> tablo_core::DateValue for core::option::Option<T>
 pub fn core::option::Option<T>::calendar_date(&self) -> core::option::Option<jiff::civil::date::Date>
 pub fn core::option::Option<T>::stored_text(&self) -> alloc::string::String
 pub trait tablo_core::EmbeddedForm: core::marker::Sized
-pub fn tablo_core::EmbeddedForm::read_form<M>(impl core::convert::Into<toasty::stmt::path::Path<M, Self>>, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>> where M: toasty::schema::model::Model
+pub fn tablo_core::EmbeddedForm::read_form<M>(impl core::convert::Into<toasty::stmt::path::Path<M, Self>>, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::FieldError>> where M: toasty::schema::model::Model
 pub fn tablo_core::EmbeddedForm::write_form<M>(&self, impl core::convert::Into<toasty::stmt::path::Path<M, Self>>, &mut tablo_core::FormValues) where M: toasty::schema::model::Model
-pub trait tablo_core::ForeignKey<K>: tablo_core::resource::relation::sealed::Sealed<K> + toasty::stmt::into_expr::IntoExpr<Self> + tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
-impl<K> tablo_core::ForeignKey<K> for K where K: toasty::stmt::into_expr::IntoExpr<K> + tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
-impl<K> tablo_core::ForeignKey<K> for core::option::Option<K> where core::option::Option<K>: toasty::stmt::into_expr::IntoExpr<Self> + tablo_core::form::FormScalar + core::marker::Send + core::marker::Sync + 'static
+pub trait tablo_core::ForeignKey<K>: tablo_core::resource::relation::sealed::Sealed<K> + toasty::stmt::into_expr::IntoExpr<Self> + tablo_core::FormScalar + core::marker::Send + core::marker::Sync + 'static
+impl<K> tablo_core::ForeignKey<K> for K where K: toasty::stmt::into_expr::IntoExpr<K> + tablo_core::FormScalar + core::marker::Send + core::marker::Sync + 'static
+impl<K> tablo_core::ForeignKey<K> for core::option::Option<K> where core::option::Option<K>: toasty::stmt::into_expr::IntoExpr<Self> + tablo_core::FormScalar + core::marker::Send + core::marker::Sync + 'static
 pub trait tablo_core::FormInput: core::marker::Sized + core::marker::Send + core::marker::Sync + 'static
-pub fn tablo_core::FormInput::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn tablo_core::FormInput::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::FieldError>>
 pub fn tablo_core::FormInput::schema() -> tablo_core::schema::Schema
 pub fn tablo_core::FormInput::write(&self, &mut tablo_core::FormValues)
 impl tablo_core::FormInput for ()
-pub fn ()::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn ()::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::FieldError>>
 pub fn ()::schema() -> tablo_core::schema::Schema
 pub fn ()::write(&self, &mut tablo_core::FormValues)
 impl tablo_core::FormInput for tablo_core::Profile
-pub fn tablo_core::Profile::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn tablo_core::Profile::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::FieldError>>
 pub fn tablo_core::Profile::schema() -> tablo_core::schema::Schema
 pub fn tablo_core::Profile::write(&self, &mut tablo_core::FormValues)
 impl tablo_core::FormInput for tablo_core::SignUp
-pub fn tablo_core::SignUp::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn tablo_core::SignUp::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::FieldError>>
 pub fn tablo_core::SignUp::schema() -> tablo_core::schema::Schema
 pub fn tablo_core::SignUp::write(&self, &mut tablo_core::FormValues)
 pub trait tablo_core::FormScalar: core::marker::Sized
@@ -6197,7 +6197,7 @@ pub fn tablo_core::FormScalar::order(&self, &Self) -> core::option::Option<core:
 pub fn tablo_core::FormScalar::parse_form(&str) -> core::result::Result<Self, alloc::string::String>
 pub fn tablo_core::FormScalar::to_form(&self) -> alloc::string::String
 pub fn tablo_core::FormScalar::to_label(&self) -> alloc::string::String
-impl tablo_core::form::FormScalar for alloc::string::String
+impl tablo_core::FormScalar for alloc::string::String
 pub const alloc::string::String::INPUT_TYPE: &'static str
 pub const alloc::string::String::STEP: core::option::Option<&'static str>
 pub fn alloc::string::String::color(&self) -> core::option::Option<tablo_core::Color>
@@ -6206,7 +6206,7 @@ pub fn alloc::string::String::order(&self, &Self) -> core::option::Option<core::
 pub fn alloc::string::String::parse_form(&str) -> core::result::Result<Self, alloc::string::String>
 pub fn alloc::string::String::to_form(&self) -> alloc::string::String
 pub fn alloc::string::String::to_label(&self) -> alloc::string::String
-impl tablo_core::form::FormScalar for core::option::Option<alloc::string::String>
+impl tablo_core::FormScalar for core::option::Option<alloc::string::String>
 pub const core::option::Option<alloc::string::String>::INPUT_TYPE: &'static str
 pub const core::option::Option<alloc::string::String>::STEP: core::option::Option<&'static str>
 pub fn core::option::Option<alloc::string::String>::color(&self) -> core::option::Option<tablo_core::Color>
@@ -6215,7 +6215,7 @@ pub fn core::option::Option<alloc::string::String>::order(&self, &Self) -> core:
 pub fn core::option::Option<alloc::string::String>::parse_form(&str) -> core::result::Result<Self, alloc::string::String>
 pub fn core::option::Option<alloc::string::String>::to_form(&self) -> alloc::string::String
 pub fn core::option::Option<alloc::string::String>::to_label(&self) -> alloc::string::String
-impl<T: NullableScalar> tablo_core::form::FormScalar for core::option::Option<T>
+impl<T: NullableScalar> tablo_core::FormScalar for core::option::Option<T>
 pub const core::option::Option<T>::INPUT_TYPE: &'static str
 pub const core::option::Option<T>::STEP: core::option::Option<&'static str>
 pub fn core::option::Option<T>::color(&self) -> core::option::Option<tablo_core::Color>
@@ -6224,13 +6224,13 @@ pub fn core::option::Option<T>::order(&self, &Self) -> core::option::Option<core
 pub fn core::option::Option<T>::parse_form(&str) -> core::result::Result<Self, alloc::string::String>
 pub fn core::option::Option<T>::to_form(&self) -> alloc::string::String
 pub fn core::option::Option<T>::to_label(&self) -> alloc::string::String
-impl<T: tablo_core::extend::TypedValue> tablo_core::form::FormScalar for T
+impl<T: tablo_core::extend::TypedValue> tablo_core::FormScalar for T
 pub const T::INPUT_TYPE: &'static str
 pub const T::STEP: core::option::Option<&'static str>
 pub fn T::color(&self) -> core::option::Option<tablo_core::Color>
 pub fn T::input_value(&str) -> alloc::string::String
-pub fn T::order(&self, &T) -> core::option::Option<core::cmp::Ordering>
-pub fn T::parse_form(&str) -> core::result::Result<T, alloc::string::String>
+pub fn T::order(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+pub fn T::parse_form(&str) -> core::result::Result<Self, alloc::string::String>
 pub fn T::to_form(&self) -> alloc::string::String
 pub fn T::to_label(&self) -> alloc::string::String
 pub trait tablo_core::HeaderAction: 'static
@@ -6241,7 +6241,7 @@ pub fn tablo_core::HeaderAction::can_run(&topcoat_core::context::Cx) -> bool
 pub fn tablo_core::HeaderAction::label(&topcoat_core::context::Cx) -> alloc::string::String
 pub fn tablo_core::HeaderAction::run(&topcoat_core::context::Cx, Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send
 pub fn tablo_core::HeaderAction::success(&topcoat_core::context::Cx) -> alloc::string::String
-pub fn tablo_core::HeaderAction::validate_input(&topcoat_core::context::Cx, &Self::Input) -> tablo_core::form::FieldErrors
+pub fn tablo_core::HeaderAction::validate_input(&topcoat_core::context::Cx, &Self::Input) -> tablo_core::FieldErrors
 pub trait tablo_core::IntoColumns<M>
 impl<M, A, B, C, D, E, F, G, H, I, J, K, L> tablo_core::IntoColumns<M> for (A, B, C, D, E, F, G, H, I, J, K, L) where A: tablo_core::extend::Column<M> + 'static, B: tablo_core::extend::Column<M> + 'static, C: tablo_core::extend::Column<M> + 'static, D: tablo_core::extend::Column<M> + 'static, E: tablo_core::extend::Column<M> + 'static, F: tablo_core::extend::Column<M> + 'static, G: tablo_core::extend::Column<M> + 'static, H: tablo_core::extend::Column<M> + 'static, I: tablo_core::extend::Column<M> + 'static, J: tablo_core::extend::Column<M> + 'static, K: tablo_core::extend::Column<M> + 'static, L: tablo_core::extend::Column<M> + 'static
 impl<M, A, B, C, D, E, F, G, H, I, J, K> tablo_core::IntoColumns<M> for (A, B, C, D, E, F, G, H, I, J, K) where A: tablo_core::extend::Column<M> + 'static, B: tablo_core::extend::Column<M> + 'static, C: tablo_core::extend::Column<M> + 'static, D: tablo_core::extend::Column<M> + 'static, E: tablo_core::extend::Column<M> + 'static, F: tablo_core::extend::Column<M> + 'static, G: tablo_core::extend::Column<M> + 'static, H: tablo_core::extend::Column<M> + 'static, I: tablo_core::extend::Column<M> + 'static, J: tablo_core::extend::Column<M> + 'static, K: tablo_core::extend::Column<M> + 'static
@@ -6360,11 +6360,11 @@ impl tablo_core::IntoFormValue for &str
 pub fn &str::into_form_value(self) -> tablo_core::FormValue
 impl tablo_core::IntoFormValue for alloc::vec::Vec<&str>
 pub fn alloc::vec::Vec<&str>::into_form_value(self) -> tablo_core::FormValue
-impl<T: tablo_core::form::FormScalar, const N: usize> tablo_core::IntoFormValue for [T; N]
+impl<T: tablo_core::FormScalar, const N: usize> tablo_core::IntoFormValue for [T; N]
 pub fn [T; N]::into_form_value(self) -> tablo_core::FormValue
-impl<T: tablo_core::form::FormScalar> tablo_core::IntoFormValue for T
+impl<T: tablo_core::FormScalar> tablo_core::IntoFormValue for T
 pub fn T::into_form_value(self) -> tablo_core::FormValue
-impl<T: tablo_core::form::FormScalar> tablo_core::IntoFormValue for alloc::vec::Vec<T>
+impl<T: tablo_core::FormScalar> tablo_core::IntoFormValue for alloc::vec::Vec<T>
 pub fn alloc::vec::Vec<T>::into_form_value(self) -> tablo_core::FormValue
 impl<const N: usize> tablo_core::IntoFormValue for [&str; N]
 pub fn [&str; N]::into_form_value(self) -> tablo_core::FormValue
@@ -6500,49 +6500,49 @@ pub type tablo_core::ProfileEditor::Input: tablo_core::FormInput
 pub type tablo_core::ProfileEditor::User: tablo_core::auth::PanelUser
 pub fn tablo_core::ProfileEditor::fill(&self, &topcoat_core::context::Cx, &Self::User) -> Self::Input
 pub fn tablo_core::ProfileEditor::save(&self, &topcoat_core::context::Cx, &Self::User, Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::ProfileUpdate>> + core::marker::Send
-pub fn tablo_core::ProfileEditor::validate(&self, &topcoat_core::context::Cx, &Self::User, &Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::form::FieldErrors>> + core::marker::Send
+pub fn tablo_core::ProfileEditor::validate(&self, &topcoat_core::context::Cx, &Self::User, &Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::FieldErrors>> + core::marker::Send
 impl tablo_core::ProfileEditor for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::Input = tablo_core::Profile
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
 pub fn tablo_core::PasswordAuth::fill(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser) -> tablo_core::Profile
 pub async fn tablo_core::PasswordAuth::save(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser, tablo_core::Profile, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::ProfileUpdate>
-pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser, &tablo_core::Profile, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::form::FieldErrors>
+pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::Cx, &tablo_core::auth::AdminUser, &tablo_core::Profile, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::FieldErrors>
 pub trait tablo_core::RecordForm: core::marker::Sized + core::marker::Send + 'static
 pub type tablo_core::RecordForm::Field: core::marker::Copy + core::cmp::Eq + core::hash::Hash + core::fmt::Debug + core::marker::Send + core::marker::Sync + 'static
 pub type tablo_core::RecordForm::Model: toasty::schema::model::Model + toasty::stmt::into_expr::IntoExpr<Self::Model> + core::marker::Send + core::marker::Sync + 'static
 pub const tablo_core::RecordForm::HAS_FORM: bool
 pub fn tablo_core::RecordForm::control(Self::Field) -> tablo_core::schema::Schema<Self>
 pub fn tablo_core::RecordForm::exec_update<'a>(<Self::Model as toasty::schema::model::Model>::Update, &'a mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = toasty_core::Result<()>> + core::marker::Send + 'a
-pub fn tablo_core::RecordForm::fields() -> alloc::vec::Vec<tablo_core::form::FormField<Self::Field>>
+pub fn tablo_core::RecordForm::fields() -> alloc::vec::Vec<tablo_core::FormField<Self::Field>>
 pub fn tablo_core::RecordForm::hydrate(&topcoat_core::context::Cx, &Self::Model) -> tablo_core::FormValues
 pub fn tablo_core::RecordForm::includes() -> tablo_core::extend::Includes<Self::Model>
 pub fn tablo_core::RecordForm::into_create(self) -> <Self::Model as toasty::schema::model::Model>::Create
 pub fn tablo_core::RecordForm::into_update<'a>(self, &'a mut Self::Model, &std::collections::hash::set::HashSet<Self::Field>) -> core::option::Option<<Self::Model as toasty::schema::model::Model>::Update>
 pub fn tablo_core::RecordForm::links(&self) -> alloc::vec::Vec<(Self::Field, alloc::vec::Vec<alloc::string::String>)>
-pub fn tablo_core::RecordForm::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn tablo_core::RecordForm::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::FieldError>>
 impl<M: toasty::schema::model::Model + toasty::stmt::into_expr::IntoExpr<M> + core::marker::Send + core::marker::Sync + 'static> tablo_core::form::RecordForm for tablo_core::form::NoForm<M>
 pub type tablo_core::form::NoForm<M>::Field = core::convert::Infallible
 pub type tablo_core::form::NoForm<M>::Model = M
 pub const tablo_core::form::NoForm<M>::HAS_FORM: bool
 pub fn tablo_core::form::NoForm<M>::control(Self::Field) -> tablo_core::schema::Schema<Self>
 pub fn tablo_core::form::NoForm<M>::exec_update<'a>(<M as toasty::schema::model::Model>::Update, &'a mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = toasty_core::Result<()>> + core::marker::Send + 'a
-pub fn tablo_core::form::NoForm<M>::fields() -> alloc::vec::Vec<tablo_core::form::FormField<Self::Field>>
+pub fn tablo_core::form::NoForm<M>::fields() -> alloc::vec::Vec<tablo_core::FormField<Self::Field>>
 pub fn tablo_core::form::NoForm<M>::hydrate(&topcoat_core::context::Cx, &M) -> tablo_core::FormValues
 pub fn tablo_core::form::NoForm<M>::includes() -> tablo_core::extend::Includes<Self::Model>
 pub fn tablo_core::form::NoForm<M>::into_create(self) -> <M as toasty::schema::model::Model>::Create
 pub fn tablo_core::form::NoForm<M>::into_update<'a>(self, &'a mut M, &std::collections::hash::set::HashSet<Self::Field>) -> core::option::Option<<M as toasty::schema::model::Model>::Update>
 pub fn tablo_core::form::NoForm<M>::links(&self) -> alloc::vec::Vec<(Self::Field, alloc::vec::Vec<alloc::string::String>)>
-pub fn tablo_core::form::NoForm<M>::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::form::FieldError>>
+pub fn tablo_core::form::NoForm<M>::parse(&topcoat_core::context::Cx, &tablo_core::FormValues) -> core::result::Result<Self, alloc::vec::Vec<tablo_core::FieldError>>
 pub trait tablo_core::Registrar: core::marker::Send + core::marker::Sync + 'static
 pub type tablo_core::Registrar::Input: tablo_core::FormInput
 pub type tablo_core::Registrar::User: tablo_core::auth::PanelUser
 pub fn tablo_core::Registrar::register(&self, &topcoat_core::context::Cx, Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<Self::User>> + core::marker::Send
-pub fn tablo_core::Registrar::validate(&self, &topcoat_core::context::Cx, &Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::form::FieldErrors>> + core::marker::Send
+pub fn tablo_core::Registrar::validate(&self, &topcoat_core::context::Cx, &Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::FieldErrors>> + core::marker::Send
 impl tablo_core::Registrar for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::Input = tablo_core::SignUp
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
 pub async fn tablo_core::PasswordAuth::register(&self, &topcoat_core::context::Cx, tablo_core::SignUp, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::auth::AdminUser>
-pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::Cx, &tablo_core::SignUp, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::form::FieldErrors>
+pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::Cx, &tablo_core::SignUp, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::FieldErrors>
 pub trait tablo_core::Resource: core::marker::Sized + core::marker::Send + core::marker::Sync + 'static
 pub type tablo_core::Resource::Form: tablo_core::form::RecordForm<Model = Self::Model>
 pub type tablo_core::Resource::Model: tablo_core::ModelColumns + toasty::stmt::into_expr::IntoExpr<Self::Model> + core::marker::Send + core::marker::Sync + core::clone::Clone + 'static
@@ -6553,7 +6553,7 @@ pub fn tablo_core::Resource::declare() -> tablo_core::ResourceDef<Self>
 pub fn tablo_core::Resource::delete_record(&topcoat_core::context::Cx, &Self::Model, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
 pub fn tablo_core::Resource::query(&topcoat_core::context::Cx) -> toasty::stmt::query::Query<toasty::stmt::list::List<Self::Model>>
 pub fn tablo_core::Resource::update_record(&topcoat_core::context::Cx, Self::Model, tablo_core::form::Posted<Self::Form>, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<Self::Model>> + core::marker::Send
-pub fn tablo_core::Resource::validate_record(&topcoat_core::context::Cx, &Self::Form) -> tablo_core::form::FieldErrors<<Self::Form as tablo_core::form::RecordForm>::Field>
+pub fn tablo_core::Resource::validate_record(&topcoat_core::context::Cx, &Self::Form) -> tablo_core::FieldErrors<<Self::Form as tablo_core::form::RecordForm>::Field>
 pub trait tablo_core::RouterBuilderPanelExt: core::marker::Sized
 pub fn tablo_core::RouterBuilderPanelExt::panel(self, tablo_core::panel::Panel) -> topcoat::Result<Self>
 pub fn tablo_core::RouterBuilderPanelExt::panel_handle(&self, &str) -> core::option::Option<tablo_core::PanelHandle>

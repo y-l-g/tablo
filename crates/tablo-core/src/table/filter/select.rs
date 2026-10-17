@@ -8,8 +8,8 @@ use topcoat::{context::Cx, view::*};
 
 use super::{ControlFuture, Filter, FilterInput, FilterValue};
 use crate::{
-    form::FormScalar,
     schema::{Binding, IntoOptions, OptionSource, Options, fields::Relationship},
+    values::FormScalar,
 };
 
 /// A select filter's predicate for a value, typed through its field.

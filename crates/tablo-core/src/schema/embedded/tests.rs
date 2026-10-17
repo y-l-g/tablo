@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
-    form::FormValues,
     test_support::{DummyUser, Html as _},
+    values::FormValues,
 };
 
 /// An enum node over the discriminant column `kind`, one variant per value,
@@ -205,7 +205,10 @@ async fn a_shared_column_shows_for_the_variants_that_declare_it() {
         async move {
             let values = map(&[("kind", kind)]);
             schema
-                .render(cx, Source::form(&values, &crate::form::FieldErrors::new()))
+                .render(
+                    cx,
+                    Source::form(&values, &crate::values::FieldErrors::new()),
+                )
                 .await
                 .html(cx)
                 .await

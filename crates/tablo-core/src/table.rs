@@ -13,7 +13,7 @@ use toasty::stmt::{Expr, List, OrderBy, OrderByExpr};
 pub(crate) use self::choice::ColumnChoice;
 use self::filter::BoxFilter;
 pub(crate) use crate::column::{BoxColumn, Column, include_relations};
-use crate::{DeclarationErrorKind, Lens, form::FormScalar, schema::Binding};
+use crate::{DeclarationErrorKind, Lens, schema::Binding, values::FormScalar};
 
 mod choice;
 mod export;
@@ -32,11 +32,13 @@ pub(crate) use self::{
     page::{Past, row_exists_past},
     state::{bulk_key, bulk_token, group_header_dom_id, query_of, request_query, row_dom_id},
 };
-pub use crate::column::{
-    Alignment, BooleanColumn, Color, ColorColumn, ColumnToggle, ColumnWidth, ComputedColumn,
-    CountColumn, Currency, DateColumn, DateValue, EmbeddedColumn, FileColumn, ImageColumn,
-    IntoColumns, Number, Numeric, RelationColumn, RelationLens, RepeaterColumn, TextColumn,
-    ToOneRelation, contains_expr,
+pub use crate::{
+    column::{
+        BooleanColumn, ColorColumn, ColumnToggle, ColumnWidth, ComputedColumn, CountColumn,
+        DateColumn, DateValue, EmbeddedColumn, FileColumn, ImageColumn, IntoColumns,
+        RelationColumn, RelationLens, RepeaterColumn, TextColumn, ToOneRelation, contains_expr,
+    },
+    display::{Alignment, Color, Currency, Number, Numeric},
 };
 
 /// Group-label projection reads a row's group off one model instance.

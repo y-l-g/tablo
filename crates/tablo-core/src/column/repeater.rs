@@ -7,8 +7,8 @@ use topcoat::{context::Cx, view::*};
 use super::{Column, ColumnBase, ColumnWidth};
 use crate::{
     Lens,
-    form::{FormInput, FormValues},
-    schema::{read_only, value_cell},
+    schema::{FormInput, read_only, value_cell},
+    values::FormValues,
 };
 
 /// A column of a list of [`FormInput`] items.
