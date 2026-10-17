@@ -65,6 +65,9 @@ toolchains. Run `check --all` before merging.
 
 - A struct is followed by its inherent `impl`, then its trait impls. A module is `foo.rs`
   beside `foo/`, never `foo/mod.rs`.
+- A source holds at most 600 lines, a test source 1000. `xtask/src/sizes.rs` lists the files
+  past that, each capped at its size; split one rather than raise its cap, and drop it from the
+  list once it fits.
 - Shared dependency versions live in the root `[workspace.dependencies]`.
 - `topcoat` and `toasty` are crates.io dependencies of the workspace and of
   `examples/quickstart`. Bump them in both manifests and the lockfile together with
