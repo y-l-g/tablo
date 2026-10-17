@@ -14,7 +14,6 @@ use super::{
     fields::Field,
     tree::{IntoSchema, Source, render_nodes},
 };
-use crate::detail::{Detail, IntoDetail};
 
 /// Renders a `Section`'s titled panel.
 const PANEL: StaticClass = class!(
@@ -22,7 +21,7 @@ const PANEL: StaticClass = class!(
 );
 
 /// A titled block holding a form's fields ([`schema`](Self::schema)) or a detail page's columns
-/// ([`columns`](Self::columns)).
+/// ([`columns`](Self::columns), which `detail` declares).
 #[derive(Debug)]
 pub struct Section<C = Schema> {
     title: String,
@@ -44,11 +43,6 @@ impl Section<()> {
     /// Holds a form's fields and blocks.
     pub fn schema<F>(self, children: impl IntoSchema<F>) -> Section<Schema<F>> {
         self.holding(children.into_schema())
-    }
-
-    /// Holds a detail page's columns and blocks.
-    pub fn columns<M>(self, children: impl IntoDetail<M>) -> Section<Detail<M>> {
-        self.holding(children.into_detail())
     }
 }
 
@@ -140,11 +134,6 @@ impl Group<()> {
     pub fn schema<F>(self, children: impl IntoSchema<F>) -> Group<Schema<F>> {
         self.holding(children.into_schema())
     }
-
-    /// Holds a detail page's columns and blocks.
-    pub fn columns<M>(self, children: impl IntoDetail<M>) -> Group<Detail<M>> {
-        self.holding(children.into_detail())
-    }
 }
 
 impl<C> Group<C> {
@@ -198,11 +187,6 @@ impl Grid<()> {
     /// Holds a form's fields and blocks.
     pub fn schema<F>(self, children: impl IntoSchema<F>) -> Grid<Schema<F>> {
         self.holding(children.into_schema())
-    }
-
-    /// Holds a detail page's columns and blocks.
-    pub fn columns<M>(self, children: impl IntoDetail<M>) -> Grid<Detail<M>> {
-        self.holding(children.into_detail())
     }
 }
 

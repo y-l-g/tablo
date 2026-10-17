@@ -372,7 +372,7 @@ async fn filter_banner_reports_unfiltered_when_nothing_applies() {
 struct NoColumns;
 
 impl<M> IntoColumns<M> for NoColumns {
-    fn into_columns(self) -> Vec<crate::table::column::BoxColumn<M>> {
+    fn into_columns(self) -> Vec<crate::column::BoxColumn<M>> {
         Vec::new()
     }
 }

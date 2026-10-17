@@ -16,8 +16,7 @@ use super::{super::gate::gate, mutation::header_allowed};
 use crate::{
     error::TabloError,
     resource::{InputSpec, Resource},
-    schema::{OptionLoadError, Schema, option_view},
-    table::clamp_query_term,
+    schema::{OptionLoadError, Schema, clamp_query_term, option_view},
 };
 
 /// Relationship option search endpoint (D2/D5).

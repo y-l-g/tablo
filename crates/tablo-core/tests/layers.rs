@@ -30,6 +30,7 @@ const LAYERS: &[(&str, &[&str])] = &[
     (
         "the declaration model",
         &[
+            "column",
             "detail",
             "extend",
             "form",
@@ -89,6 +90,8 @@ fn every_module_reaches_only_its_own_layer_and_the_ones_below() {
 /// a form's controls and layouts. A page, a dialog or a table's chrome belongs to the serving
 /// layer.
 const RENDER_HOOKS: &[&str] = &[
+    "column/boolean.rs",
+    "column/text.rs",
     "schema/embedded.rs",
     "schema/fields.rs",
     "schema/fields/choice.rs",
@@ -98,8 +101,6 @@ const RENDER_HOOKS: &[&str] = &[
     "schema/fields/text.rs",
     "schema/layouts.rs",
     "schema/repeater.rs",
-    "table/column/boolean.rs",
-    "table/column/text.rs",
     "table/filter/date.rs",
     "table/filter/input.rs",
 ];

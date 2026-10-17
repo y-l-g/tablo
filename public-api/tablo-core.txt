@@ -2208,6 +2208,7 @@ impl<F> !core::panic::unwind_safe::UnwindSafe for tablo_core::FileField<F>
 pub struct tablo_core::schema::Grid<C>
 impl tablo_core::Grid<()>
 pub fn tablo_core::Grid<()>::columns<M>(self, impl tablo_core::detail::IntoDetail<M>) -> tablo_core::Grid<tablo_core::detail::Detail<M>>
+impl tablo_core::Grid<()>
 pub fn tablo_core::Grid<()>::new(u8) -> Self
 pub fn tablo_core::Grid<()>::schema<F>(self, impl tablo_core::IntoSchema<F>) -> tablo_core::Grid<tablo_core::schema::Schema<F>>
 impl<F> tablo_core::Grid<tablo_core::schema::Schema<F>>
@@ -2232,6 +2233,7 @@ impl<C> core::panic::unwind_safe::UnwindSafe for tablo_core::Grid<C> where C: co
 pub struct tablo_core::schema::Group<C>
 impl tablo_core::Group<()>
 pub fn tablo_core::Group<()>::columns<M>(self, impl tablo_core::detail::IntoDetail<M>) -> tablo_core::Group<tablo_core::detail::Detail<M>>
+impl tablo_core::Group<()>
 pub fn tablo_core::Group<()>::new() -> Self
 pub fn tablo_core::Group<()>::schema<F>(self, impl tablo_core::IntoSchema<F>) -> tablo_core::Group<tablo_core::schema::Schema<F>>
 impl<F> tablo_core::Group<tablo_core::schema::Schema<F>>
@@ -2301,6 +2303,7 @@ impl<F> !core::panic::unwind_safe::UnwindSafe for tablo_core::schema::Schema<F>
 pub struct tablo_core::schema::Section<C>
 impl tablo_core::Section<()>
 pub fn tablo_core::Section<()>::columns<M>(self, impl tablo_core::detail::IntoDetail<M>) -> tablo_core::Section<tablo_core::detail::Detail<M>>
+impl tablo_core::Section<()>
 pub fn tablo_core::Section<()>::new(impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::Section<()>::schema<F>(self, impl tablo_core::IntoSchema<F>) -> tablo_core::Section<tablo_core::schema::Schema<F>>
 impl<C> tablo_core::Section<C>
@@ -3455,7 +3458,7 @@ impl<T: tablo_core::Numeric + ?core::marker::Sized> tablo_core::Numeric for &T
 pub fn &T::number(&self) -> core::option::Option<tablo_core::Number>
 impl<T: tablo_core::Numeric> tablo_core::Numeric for core::option::Option<T>
 pub fn core::option::Option<T>::number(&self) -> core::option::Option<tablo_core::Number>
-pub trait tablo_core::table::ToOneRelation<T>: tablo_core::table::column::relation::sealed::Sealed<T>
+pub trait tablo_core::table::ToOneRelation<T>: tablo_core::column::relation::sealed::Sealed<T>
 impl<T: toasty::schema::model::Model> tablo_core::ToOneRelation<T> for toasty::schema::deferred::Deferred<T>
 impl<T: toasty::schema::model::Model> tablo_core::ToOneRelation<T> for toasty::schema::deferred::Deferred<core::option::Option<T>>
 pub fn tablo_core::table::contains_expr<M, T>(&tablo_core::Lens<M, T>, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>> where M: toasty::schema::model::Model, T: toasty::schema::field::Field<Inner = alloc::string::String>
@@ -5004,6 +5007,7 @@ impl core::panic::unwind_safe::UnwindSafe for tablo_core::FormValues
 pub struct tablo_core::Grid<C>
 impl tablo_core::Grid<()>
 pub fn tablo_core::Grid<()>::columns<M>(self, impl tablo_core::detail::IntoDetail<M>) -> tablo_core::Grid<tablo_core::detail::Detail<M>>
+impl tablo_core::Grid<()>
 pub fn tablo_core::Grid<()>::new(u8) -> Self
 pub fn tablo_core::Grid<()>::schema<F>(self, impl tablo_core::IntoSchema<F>) -> tablo_core::Grid<tablo_core::schema::Schema<F>>
 impl<F> tablo_core::Grid<tablo_core::schema::Schema<F>>
@@ -5028,6 +5032,7 @@ impl<C> core::panic::unwind_safe::UnwindSafe for tablo_core::Grid<C> where C: co
 pub struct tablo_core::Group<C>
 impl tablo_core::Group<()>
 pub fn tablo_core::Group<()>::columns<M>(self, impl tablo_core::detail::IntoDetail<M>) -> tablo_core::Group<tablo_core::detail::Detail<M>>
+impl tablo_core::Group<()>
 pub fn tablo_core::Group<()>::new() -> Self
 pub fn tablo_core::Group<()>::schema<F>(self, impl tablo_core::IntoSchema<F>) -> tablo_core::Group<tablo_core::schema::Schema<F>>
 impl<F> tablo_core::Group<tablo_core::schema::Schema<F>>
@@ -5700,6 +5705,7 @@ impl<F> !core::panic::unwind_safe::UnwindSafe for tablo_core::schema::Schema<F>
 pub struct tablo_core::Section<C>
 impl tablo_core::Section<()>
 pub fn tablo_core::Section<()>::columns<M>(self, impl tablo_core::detail::IntoDetail<M>) -> tablo_core::Section<tablo_core::detail::Detail<M>>
+impl tablo_core::Section<()>
 pub fn tablo_core::Section<()>::new(impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::Section<()>::schema<F>(self, impl tablo_core::IntoSchema<F>) -> tablo_core::Section<tablo_core::schema::Schema<F>>
 impl<C> tablo_core::Section<C>
@@ -6560,7 +6566,7 @@ impl tablo_core::TenantColumn for core::option::Option<tablo_core::TenantId>
 pub fn core::option::Option<tablo_core::TenantId>::from_tenant(uuid::Uuid) -> Self
 impl tablo_core::TenantColumn for tablo_core::TenantId
 pub fn tablo_core::TenantId::from_tenant(uuid::Uuid) -> Self
-pub trait tablo_core::ToOneRelation<T>: tablo_core::table::column::relation::sealed::Sealed<T>
+pub trait tablo_core::ToOneRelation<T>: tablo_core::column::relation::sealed::Sealed<T>
 impl<T: toasty::schema::model::Model> tablo_core::ToOneRelation<T> for toasty::schema::deferred::Deferred<T>
 impl<T: toasty::schema::model::Model> tablo_core::ToOneRelation<T> for toasty::schema::deferred::Deferred<core::option::Option<T>>
 pub trait tablo_core::Uploader: core::marker::Send + core::marker::Sync + 'static
