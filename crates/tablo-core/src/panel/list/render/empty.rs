@@ -4,7 +4,7 @@ use tablo_ui::{table_body, table_cell, table_row};
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{EMPTY_LINK_CLASS, Frame, live_link};
-use crate::{panel::list::TableSignals, table::TableState};
+use crate::{dom, panel::list::TableSignals, table::TableState};
 
 impl Frame<'_> {
     /// Render the zero-rows cell spanning the table, with clear and back-to-first-page links when
@@ -35,11 +35,15 @@ impl Frame<'_> {
         });
         // `reason` is the hook tests read in place of the message.
         let (reason, message) = match &state.search {
-            Some(term) => ("search", format!("No matches for \u{201c}{term}\u{201d}")),
-            None if !state.filters.is_empty() => {
-                ("filters", "No results for these filters".to_string())
-            }
-            None => ("none", "No records yet".to_string()),
+            Some(term) => (
+                dom::empty::SEARCH,
+                format!("No matches for \u{201c}{term}\u{201d}"),
+            ),
+            None if !state.filters.is_empty() => (
+                dom::empty::FILTERS,
+                "No results for these filters".to_string(),
+            ),
+            None => (dom::empty::NONE, "No records yet".to_string()),
         };
         let clears_search = state.search.is_some();
         let clear_label = if clears_search {
@@ -53,7 +57,11 @@ impl Frame<'_> {
             let attrs = live_link(cx, url, signals);
             view! {
                 cx =>
-                <a class=(EMPTY_LINK_CLASS) data-empty-link="clear" (attrs)>
+                <a
+                    class=(EMPTY_LINK_CLASS)
+                    data-empty-link=(dom::empty::CLEAR_LINK)
+                    (attrs)
+                >
                     (clear_label)
                 </a>
             }
@@ -63,7 +71,11 @@ impl Frame<'_> {
             let attrs = live_link(cx, url, signals);
             view! {
                 cx =>
-                <a class=(EMPTY_LINK_CLASS) data-empty-link="first-page" (attrs)>
+                <a
+                    class=(EMPTY_LINK_CLASS)
+                    data-empty-link=(dom::empty::FIRST_PAGE_LINK)
+                    (attrs)
+                >
                     "Back to first page"
                 </a>
             }

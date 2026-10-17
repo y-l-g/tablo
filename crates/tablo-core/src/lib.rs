@@ -93,6 +93,8 @@ pub mod db;
 mod declaration;
 pub mod detail;
 mod display;
+#[doc(hidden)]
+pub mod dom;
 mod error;
 pub mod extend;
 pub mod form;
