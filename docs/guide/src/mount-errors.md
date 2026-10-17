@@ -35,6 +35,7 @@ A test matches on the kind rather than the message; see
 | `InvalidSegment` | the prefix, a `ResourceDef::slug` or a `PageDef::slug` is empty, `.` or `..`, or holds whitespace, a control character, URL punctuation, a quote, a backslash or one of `{ } ( )` | pick a plain segment such as `blog-posts` |
 | `PrefixOverlapsRuntime` | the prefix overlaps Topcoat's `/_topcoat/runtime` | pick another prefix |
 | `PrefixOverlapsPanel` | the prefix is another panel's, or one is under the other (`/admin` and `/admin/reports`) | give each panel a prefix of its own |
+| `EndpointOutsideRuntime` | a `Panel::endpoint` route is not a shard or procedure under `/_topcoat/runtime` | declare only shards and procedures; the panel's prefix guards its other routes |
 | `ServeDirWithoutCatchAll` | a `serve_dir` pattern does not end in a catch-all | end it in `{*file}`: `/uploads/{*file}` |
 | `ServeDirTwice` | the panel serves one pattern twice | drop the second `serve_dir` |
 | `ServeDirTaken` | another panel already serves the pattern | serve it from one panel |
@@ -102,8 +103,10 @@ An action's `NAME` that is not one URL segment does not compile, so it never rea
 | --- | --- | --- |
 | `NoColumns` | a table has no column | declare columns; a resource whose model's table lists nothing declares its own `table` |
 | `ZeroPageSize` | `Table::paginate(0)` | a page size of at least 1 |
+| `UnsortableDefaultSort` | `Table::default_sort` names no sortable column | name a column declared `.sortable()` |
 | `DuplicateColumn` | two columns share a name | rename one |
 | `DuplicateFilter` | two filters share a name | rename one |
+| `DottedFilterName` | a filter's name holds a `.`, which its URL parameters reserve for a part | rename it without the `.` |
 | `UnparsedFilterOption` | a `SelectFilter` option's value does not parse as the field's type, so it filters nothing | spell it as the field's form value, or build the filter with `SelectFilter::of` |
 | `UnregisteredLabelSource` | `RelationColumn::of::<R>` names a resource the panel does not register | register `R`, or use `RelationColumn::new` with a projection |
 
@@ -130,7 +133,17 @@ An action's `NAME` that is not one URL segment does not compile, so it never rea
 | `MisdeclaredDependentChoice` | a dependent choice has no relationship, or its column is not on the relationship's model | `relationship::<R>()`, and a column of `R`'s model in `depends_on` |
 | `MultipleDependentChoice` | a dependent choice is multiple, or depends on a multiple one | drop `depends_on` or `multiple` |
 | `UnplacedParentField` | a dependent choice depends on a field the schema does not place | place that field in the same schema |
+| `FieldRule` | a text field's length, bounds or pattern cannot work; the `FieldRuleFault` says why | see below |
 | `ManyToMany` | a many-to-many field cannot link records; the `ManyToManyFault` says why | see below |
+
+`FieldRuleFault`, for a field or a control in a repeater's rows:
+
+| Fault | Refused when | Fix |
+| --- | --- | --- |
+| `UnorderedBound` | a `min` or `max` is no value of the field's type, or the type has no order | bound a number, date, time or timestamp field by a value of its type |
+| `InvalidPattern` | a `pattern` does not compile on the server | fix the pattern |
+| `EmptyRange` | a minimum is above its maximum, so the field refuses every value | lower the minimum or raise the maximum |
+| `RefusedDefault` | the field's default breaks one of its rules, so a create that keeps it is refused | change the default or the rule |
 
 `ManyToManyFault`, for a form's field or a `Relation::belongs_to_many`:
 
