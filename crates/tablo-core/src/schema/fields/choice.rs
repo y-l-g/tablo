@@ -288,7 +288,7 @@ impl ChoiceControl {
     }
 
     /// Checks whether a non-empty `value` matches an option the parent value `parent` offers, or
-    /// for a multiple choice, whether each value its list holds does, but the ones the stored list
+    /// for a multiple choice, whether each value its list holds does, but the stored value
     /// `stored` holds already: keeping a link changes nothing, so it holds past the option cap.
     pub(super) async fn validate_exists(
         &self,
@@ -302,6 +302,12 @@ impl ChoiceControl {
             let Some(value) = value.as_text() else {
                 return Vec::new();
             };
+            let kept = stored
+                .and_then(FormValue::as_text)
+                .is_some_and(|held| held.trim() == value.trim());
+            if kept {
+                return Vec::new();
+            }
             return self.validate_one(cx, label, value, parent).await;
         }
         let held = stored.and_then(FormValue::as_list).unwrap_or_default();
