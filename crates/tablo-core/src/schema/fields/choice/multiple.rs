@@ -45,14 +45,17 @@ impl Field {
         }
         // A denied choice reads unavailable whatever refused the submission.
         let (error, error_kind) = match error {
-            Some(error) if denied => (Some(error.message(&label)), Some(super::super::UNAVAILABLE)),
+            Some(error) if denied => (
+                Some(error.message(&label)),
+                Some(crate::dom::error::UNAVAILABLE),
+            ),
             Some(error) => (
                 Some(error.message(&label)),
                 Some(super::super::error_kind(error)),
             ),
             None if denied => (
                 Some(format!("{label} is not available")),
-                Some(super::super::UNAVAILABLE),
+                Some(crate::dom::error::UNAVAILABLE),
             ),
             None => (None, None),
         };

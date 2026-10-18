@@ -1,4 +1,24 @@
 pub mod tablo_test
+#[non_exhaustive] pub enum tablo_test::EmptyReason
+pub tablo_test::EmptyReason::Filters
+pub tablo_test::EmptyReason::NoRecords
+pub tablo_test::EmptyReason::Search
+impl core::clone::Clone for tablo_test::EmptyReason
+pub fn tablo_test::EmptyReason::clone(&self) -> tablo_test::EmptyReason
+impl core::cmp::Eq for tablo_test::EmptyReason
+impl core::cmp::PartialEq for tablo_test::EmptyReason
+pub fn tablo_test::EmptyReason::eq(&self, &tablo_test::EmptyReason) -> bool
+impl core::fmt::Debug for tablo_test::EmptyReason
+pub fn tablo_test::EmptyReason::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_test::EmptyReason
+impl core::marker::StructuralPartialEq for tablo_test::EmptyReason
+impl core::marker::Freeze for tablo_test::EmptyReason
+impl core::marker::Send for tablo_test::EmptyReason
+impl core::marker::Sync for tablo_test::EmptyReason
+impl core::marker::Unpin for tablo_test::EmptyReason
+impl core::marker::UnsafeUnpin for tablo_test::EmptyReason
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::EmptyReason
+impl core::panic::unwind_safe::UnwindSafe for tablo_test::EmptyReason
 #[non_exhaustive] pub enum tablo_test::ErrorKind
 pub tablo_test::ErrorKind::Invalid
 pub tablo_test::ErrorKind::Required
@@ -22,7 +42,7 @@ impl core::panic::unwind_safe::UnwindSafe for tablo_test::ErrorKind
 pub struct tablo_test::EmptyTable
 pub tablo_test::EmptyTable::clear: core::option::Option<alloc::string::String>
 pub tablo_test::EmptyTable::first_page: core::option::Option<alloc::string::String>
-pub tablo_test::EmptyTable::reason: alloc::string::String
+pub tablo_test::EmptyTable::reason: tablo_test::EmptyReason
 impl core::clone::Clone for tablo_test::EmptyTable
 pub fn tablo_test::EmptyTable::clone(&self) -> tablo_test::EmptyTable
 impl core::cmp::Eq for tablo_test::EmptyTable

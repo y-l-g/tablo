@@ -19,6 +19,7 @@ const LAYERS: &[(&str, &[&str])] = &[
     (
         "foundations",
         &[
+            "dom",
             "naming",
             "topcoat_compat",
             "declaration",
