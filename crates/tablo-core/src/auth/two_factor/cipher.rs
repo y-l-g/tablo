@@ -1,5 +1,5 @@
-//! Seals an authenticator secret before it is stored: AES-256-GCM under a key derived from the
-//! router's cookie [`Key`], so a database read alone yields no secret.
+//! Seals an authenticator secret before it is stored, and hashes a recovery code, under keys
+//! derived from the router's cookie [`Key`]: a database read alone yields neither.
 
 use aes_gcm::{
     Aes256Gcm, KeyInit, Nonce,
@@ -7,11 +7,15 @@ use aes_gcm::{
 };
 use data_encoding::BASE64URL_NOPAD;
 use hkdf::Hkdf;
+use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use topcoat::cookie::Key;
 
 /// What the derivation binds the key to: no other use of the cookie key derives this one.
 const PURPOSE: &[u8] = b"tablo two-factor secret v1";
+
+/// What the recovery-code derivation binds its key to.
+const RECOVERY_PURPOSE: &[u8] = b"tablo two-factor recovery code v1";
 
 /// The bytes of a GCM nonce.
 const NONCE_BYTES: usize = 12;
@@ -23,6 +27,32 @@ fn cipher(key: &Key) -> Aes256Gcm {
         .expand(PURPOSE, &mut derived)
         .expect("32 bytes is a valid HKDF-SHA256 output length");
     Aes256Gcm::new(&derived.into())
+}
+
+/// `value` hashed for the row `binding` names: HMAC-SHA256 under the key `purpose` derives from
+/// `key`, in hex.
+fn keyed_hash(key: &Key, purpose: &[u8], binding: &str, value: &str) -> String {
+    let mut derived = [0; 32];
+    Hkdf::<Sha256>::new(None, key.master())
+        .expand(purpose, &mut derived)
+        .expect("32 bytes is a valid HKDF-SHA256 output length");
+    let mut mac =
+        <Hmac<Sha256> as Mac>::new_from_slice(&derived).expect("HMAC takes a key of any length");
+    mac.update(binding.as_bytes());
+    mac.update(b"\n");
+    mac.update(value.as_bytes());
+    mac.finalize()
+        .into_bytes()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+/// A recovery code as stored, for the row `binding` names. Its fifty bits would fall to an
+/// offline search of a plain hash, and one search would serve every row of an unsalted one: the
+/// key and the binding keep both out of reach.
+pub(super) fn recovery_hash(key: &Key, binding: &str, code: &str) -> String {
+    keyed_hash(key, RECOVERY_PURPOSE, binding, code)
 }
 
 /// `secret` sealed under `key` for the row `aad` names: a random nonce and the ciphertext, in
@@ -80,5 +110,18 @@ mod tests {
         assert_eq!(open(&Key::generate(), &sealed, "user:/admin"), None);
         assert_ne!(seal(&key, b"secret", "user:/admin"), sealed);
         assert_eq!(open(&key, "not base64!", "user:/admin"), None);
+    }
+
+    /// A recovery code hashes apart for each key and row.
+    #[test]
+    fn a_recovery_hash_is_bound_to_its_key_and_row() {
+        let key = Key::generate();
+        let hash = recovery_hash(&key, "user:/admin", "abcdefghij");
+        assert_eq!(recovery_hash(&key, "user:/admin", "abcdefghij"), hash);
+        assert_ne!(recovery_hash(&key, "other:/admin", "abcdefghij"), hash);
+        assert_ne!(
+            recovery_hash(&Key::generate(), "user:/admin", "abcdefghij"),
+            hash
+        );
     }
 }

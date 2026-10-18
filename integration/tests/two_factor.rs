@@ -84,29 +84,44 @@ fn code(secret: &str, steps: i64) -> String {
     authenticator_code_at(secret, now().saturating_add_signed(steps * 30))
 }
 
-/// Ada, signed in, turns two-factor sign-in on with the current code; answers the secret, her
-/// recovery codes and the client holding her new session.
+/// A six-digit code no step around now shows for `secret`: a code the panel refuses.
+fn wrong(secret: &str) -> String {
+    let near: Vec<String> = (-1..=1).map(|steps| code(secret, steps)).collect();
+    ["000000", "111111", "222222", "333333"]
+        .into_iter()
+        .find(|candidate| !near.iter().any(|code| code == candidate))
+        .expect("three codes cannot cover four candidates")
+        .to_string()
+}
+
+/// Ada, signed in, turns two-factor sign-in on with the current code after her password;
+/// answers the secret, the code that confirmed it, her recovery codes and the client holding her
+/// new session.
 async fn enrol<'r>(
     router: &'r Router,
     db: &Db,
     ada: &AdminUser,
-) -> (String, Vec<String>, TestClient<'r>) {
+) -> (String, String, Vec<String>, TestClient<'r>) {
     let client = TestClient::new(router).sign_in(db, "admin", ada).await;
     let page = body_string(client.get(SETTINGS).await).await;
     assert_eq!(two_factor_state(&page).as_deref(), Some("off"));
 
     let started = client
-        .submit(SETTINGS, &form_body(&[("intent", "start")]))
+        .submit(
+            SETTINGS,
+            &form_body(&[("intent", "start"), ("current_password", PASSWORD)]),
+        )
         .await;
     assert_eq!(started.status(), 200);
     let page = body_string(started).await;
     assert_eq!(two_factor_state(&page).as_deref(), Some("setup"));
     let secret = two_factor_secret(&page).expect("the set-up shows its key");
 
+    let setup_code = code(&secret, 0);
     let confirmed = client
         .submit(
             SETTINGS,
-            &form_body(&[("intent", "confirm"), ("code", &code(&secret, 0))]),
+            &form_body(&[("intent", "confirm"), ("code", &setup_code)]),
         )
         .await;
     assert_eq!(confirmed.status(), 200);
@@ -115,6 +130,7 @@ async fn enrol<'r>(
     assert_eq!(codes.len(), 8);
     (
         secret,
+        setup_code,
         codes,
         TestClient::new(router).cookie(SESSION_COOKIE, &session),
     )
@@ -155,7 +171,7 @@ async fn sessions(db: &Db) -> Vec<AuthSession> {
 async fn an_enrolled_account_signs_in_with_its_code_after_its_password() {
     let (db, ada) = db().await;
     let router = router(db.clone(), TwoFactor::new());
-    let (secret, _, signed) = enrol(&router, &db, &ada).await;
+    let (secret, _, _, signed) = enrol(&router, &db, &ada).await;
     let page = body_string(signed.get(SETTINGS).await).await;
     assert_eq!(two_factor_state(&page).as_deref(), Some("on"));
 
@@ -166,7 +182,7 @@ async fn an_enrolled_account_signs_in_with_its_code_after_its_password() {
         307,
         "the challenge opens nothing else"
     );
-    assert_eq!(answer(&challenged, "000000").await.status(), 422);
+    assert_eq!(answer(&challenged, &wrong(&secret)).await.status(), 422);
 
     let signed_in = answer(&challenged, &code(&secret, 1)).await;
     assert_eq!(signed_in.status(), 303);
@@ -201,11 +217,11 @@ async fn an_account_without_an_authenticator_signs_in_with_its_password() {
 async fn an_authenticator_code_signs_in_once() {
     let (db, ada) = db().await;
     let router = router(db.clone(), TwoFactor::new());
-    let (secret, _, _) = enrol(&router, &db, &ada).await;
+    let (secret, setup_code, _, _) = enrol(&router, &db, &ada).await;
 
     let challenged = password(&router).await;
     assert_eq!(
-        answer(&challenged, &code(&secret, 0)).await.status(),
+        answer(&challenged, &setup_code).await.status(),
         422,
         "the set-up's code is spent"
     );
@@ -214,12 +230,89 @@ async fn an_authenticator_code_signs_in_once() {
     assert_eq!(answer(&again, &code(&secret, 1)).await.status(), 422);
 }
 
+/// A code typed as an app shows it, in two groups of three, signs in.
+#[tokio::test]
+async fn a_spaced_code_signs_in() {
+    let (db, ada) = db().await;
+    let router = router(db.clone(), TwoFactor::new());
+    let (secret, _, _, _) = enrol(&router, &db, &ada).await;
+
+    let challenged = password(&router).await;
+    let next = code(&secret, 1);
+    let spaced = format!("{} {}", &next[..3], &next[3..]);
+    assert_eq!(answer(&challenged, &spaced).await.status(), 303);
+}
+
+/// A challenge answered without the form's CSRF token is refused, and leaves the challenge
+/// standing.
+#[tokio::test]
+async fn a_forged_challenge_answer_is_refused() {
+    let (db, ada) = db().await;
+    let router = router(db.clone(), TwoFactor::new());
+    let (secret, _, _, _) = enrol(&router, &db, &ada).await;
+
+    let challenged = password(&router).await;
+    let forged = challenged
+        .post_form(CHALLENGE, form_body(&[("code", &code(&secret, 1))]))
+        .await;
+    assert_eq!(forged.status(), 403);
+    assert_eq!(answer(&challenged, &code(&secret, 1)).await.status(), 303);
+}
+
+/// Setting up an authenticator takes the current password: a session alone sets none up.
+#[tokio::test]
+async fn a_set_up_takes_the_current_password() {
+    let (db, ada) = db().await;
+    let router = router(db.clone(), TwoFactor::new());
+    let client = TestClient::new(&router).sign_in(&db, "admin", &ada).await;
+    for password in ["", "not her password"] {
+        let refused = client
+            .submit(
+                SETTINGS,
+                &form_body(&[("intent", "start"), ("current_password", password)]),
+            )
+            .await;
+        let page = body_string(refused).await;
+        assert_eq!(two_factor_state(&page).as_deref(), Some("off"));
+        assert!(two_factor_secret(&page).is_none());
+    }
+    assert!(
+        AuthFactor::all()
+            .exec(&mut db.clone())
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+/// The set-up and the recovery codes reach no cache, and the stored secret is not the key the
+/// app reads.
+#[tokio::test]
+async fn the_secret_and_the_codes_stay_out_of_caches_and_the_database() {
+    let (db, ada) = db().await;
+    let router = router(db.clone(), TwoFactor::new());
+    let (secret, _, codes, client) = enrol(&router, &db, &ada).await;
+    let page = client.get(SETTINGS).await;
+    assert_eq!(
+        page.headers().get(http::header::CACHE_CONTROL).unwrap(),
+        "no-store"
+    );
+    let stored = AuthFactor::all().exec(&mut db.clone()).await.unwrap();
+    for secret in codes.iter().chain([&secret]) {
+        assert!(
+            stored
+                .iter()
+                .all(|factor| !factor.secret.contains(secret.as_str()))
+        );
+    }
+}
+
 /// A recovery code signs in in place of the app, once.
 #[tokio::test]
 async fn a_recovery_code_signs_in_once() {
     let (db, ada) = db().await;
     let router = router(db.clone(), TwoFactor::new());
-    let (_, codes, _) = enrol(&router, &db, &ada).await;
+    let (_, _, codes, _) = enrol(&router, &db, &ada).await;
 
     let challenged = password(&router).await;
     assert_eq!(
@@ -236,7 +329,7 @@ async fn a_recovery_code_signs_in_once() {
 async fn turning_it_off_takes_a_code_and_ends_the_other_sessions() {
     let (db, ada) = db().await;
     let router = router(db.clone(), TwoFactor::new());
-    let (secret, _, client) = enrol(&router, &db, &ada).await;
+    let (secret, _, _, client) = enrol(&router, &db, &ada).await;
     tablo::auth::mint_session(&mut db.clone(), "admin", &ada)
         .await
         .unwrap();
@@ -244,7 +337,7 @@ async fn turning_it_off_takes_a_code_and_ends_the_other_sessions() {
     let refused = client
         .submit(
             SETTINGS,
-            &form_body(&[("intent", "disable"), ("code", "000000")]),
+            &form_body(&[("intent", "disable"), ("code", &wrong(&secret))]),
         )
         .await;
     assert_eq!(refused.status(), 200);
@@ -285,7 +378,7 @@ async fn turning_it_off_takes_a_code_and_ends_the_other_sessions() {
 async fn new_recovery_codes_replace_the_earlier_ones() {
     let (db, ada) = db().await;
     let router = router(db.clone(), TwoFactor::new());
-    let (_, first, client) = enrol(&router, &db, &ada).await;
+    let (_, _, first, client) = enrol(&router, &db, &ada).await;
 
     let issued = client
         .submit(
@@ -312,7 +405,7 @@ async fn a_required_authenticator_comes_before_the_panel() {
     assert_eq!(diverted.headers().get(LOCATION).unwrap(), SETTINGS);
     assert_eq!(client.get(SETTINGS).await.status(), 200);
 
-    let (_, _, client) = enrol(&router, &db, &ada).await;
+    let (_, _, _, client) = enrol(&router, &db, &ada).await;
     assert_eq!(client.get("/admin/invoices").await.status(), 200);
 }
 
@@ -322,11 +415,11 @@ async fn the_challenge_throttles_its_codes() {
     let (db, ada) = db().await;
     let throttle = LoginThrottle::new(2, std::time::Duration::from_mins(1));
     let router = router(db.clone(), TwoFactor::new().throttle(throttle));
-    let (secret, _, _) = enrol(&router, &db, &ada).await;
+    let (secret, _, _, _) = enrol(&router, &db, &ada).await;
 
     let challenged = password(&router).await;
     for _ in 0..2 {
-        assert_eq!(answer(&challenged, "000000").await.status(), 422);
+        assert_eq!(answer(&challenged, &wrong(&secret)).await.status(), 422);
     }
     assert_eq!(answer(&challenged, &code(&secret, 1)).await.status(), 429);
 }

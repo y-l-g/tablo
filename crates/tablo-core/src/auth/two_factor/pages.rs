@@ -10,7 +10,7 @@ use topcoat::{
 
 use super::{
     challenge::{CODE_FIELD, challenge_url},
-    settings::INTENT_FIELD,
+    settings::{INTENT_FIELD, PASSWORD_FIELD},
 };
 use crate::auth::{
     login::{NEXT_FIELD, login_url},
@@ -96,10 +96,37 @@ fn code_field<'a>(cx: &'a Cx, label: &'static str, help: &'static str) -> BoxVie
     .boxed()
 }
 
+/// The current password a set-up asks for.
+fn password_field(cx: &Cx) -> BoxView<'_> {
+    view! {
+        cx =>
+        tablo_ui::field(
+            tablo_ui::field_label(
+                attrs: attributes! { for="two-factor-password" },
+                "Current password"
+            )
+            tablo_ui::input(
+                attrs: attributes! {
+                    id="two-factor-password"
+                    name=(PASSWORD_FIELD)
+                    type="password"
+                    required=""
+                    autocomplete="current-password"
+                }
+            )
+            tablo_ui::field_description(
+                "Confirm it is you before adding a second factor."
+            )
+        )
+    }
+    .boxed()
+}
+
 /// What the settings page shows.
 pub(super) enum Settings {
-    /// No authenticator: the button that starts a set-up.
-    Off,
+    /// No authenticator: the password and the button that start a set-up, with `refused` when
+    /// the password just failed.
+    Off { refused: bool },
     /// An authenticator being set up: its QR code, its secret, and the confirming form.
     Setup {
         uri: String,
@@ -146,19 +173,34 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
         .boxed()
     };
     let body = match settings {
-        Settings::Off => view! {
+        Settings::Off { refused } => view! {
             cx =>
             <p class="text-sm text-muted-foreground">
                 "Two-factor sign-in is off. Turn it on to ask for a code from an authenticator \
                  app each time you sign in."
             </p>
-            <form method="post" action=(action) data-two-factor="off">
+            <form
+                method="post"
+                action=(action)
+                class="flex max-w-sm flex-col gap-4"
+                data-two-factor="off"
+            >
                 (crate::csrf::field(cx, &csrf))
-                (intent(
-                    "start",
-                    "Set up an authenticator app",
-                    tablo_ui::ButtonVariant::Primary,
-                ))
+                if refused {
+                    tablo_ui::alert(
+                        variant: tablo_ui::AlertVariant::Destructive,
+                        attrs: attributes! { role="alert" data-error="password" },
+                        tablo_ui::alert_title("That password is not right.")
+                    )
+                }
+                (password_field(cx))
+                <div class="flex flex-wrap items-center gap-2">
+                    (intent(
+                        "start",
+                        "Set up an authenticator app",
+                        tablo_ui::ButtonVariant::Primary,
+                    ))
+                </div>
             </form>
         }
         .boxed(),

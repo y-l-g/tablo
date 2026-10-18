@@ -686,6 +686,7 @@ pub async fn tablo_core::PasswordAuth::register(&self, &topcoat_core::context::C
 pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::Cx, &tablo_core::SignUp, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::FieldErrors>
 impl tablo_core::auth::Authenticator for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
+pub fn tablo_core::PasswordAuth::confirm_password(&self, &topcoat_core::context::Cx, &Self::User, &str) -> impl core::future::future::Future<Output = topcoat::Result<bool>> + core::marker::Send
 pub async fn tablo_core::PasswordAuth::find_by_id(&self, &topcoat_core::context::Cx, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
 pub async fn tablo_core::PasswordAuth::verify(&self, &topcoat_core::context::Cx, &str, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
 impl tablo_core::auth::EmailVerifier for tablo_core::PasswordAuth
@@ -808,10 +809,12 @@ pub const tablo_core::auth::TENANT_FIELD: &str
 pub const tablo_core::auth::VERIFICATION_LIFETIME: core::time::Duration
 pub trait tablo_core::auth::Authenticator: core::marker::Send + core::marker::Sync + 'static
 pub type tablo_core::auth::Authenticator::User: tablo_core::auth::PanelUser
+pub fn tablo_core::auth::Authenticator::confirm_password(&self, &topcoat_core::context::Cx, &Self::User, &str) -> impl core::future::future::Future<Output = topcoat::Result<bool>> + core::marker::Send
 pub fn tablo_core::auth::Authenticator::find_by_id(&self, &topcoat_core::context::Cx, &str) -> impl core::future::future::Future<Output = topcoat::Result<core::option::Option<Self::User>>> + core::marker::Send
 pub fn tablo_core::auth::Authenticator::verify(&self, &topcoat_core::context::Cx, &str, &str) -> impl core::future::future::Future<Output = topcoat::Result<core::option::Option<Self::User>>> + core::marker::Send
 impl tablo_core::auth::Authenticator for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
+pub fn tablo_core::PasswordAuth::confirm_password(&self, &topcoat_core::context::Cx, &Self::User, &str) -> impl core::future::future::Future<Output = topcoat::Result<bool>> + core::marker::Send
 pub async fn tablo_core::PasswordAuth::find_by_id(&self, &topcoat_core::context::Cx, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
 pub async fn tablo_core::PasswordAuth::verify(&self, &topcoat_core::context::Cx, &str, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
 pub trait tablo_core::auth::EmailVerifier: core::marker::Send + core::marker::Sync + 'static
@@ -5801,6 +5804,7 @@ pub async fn tablo_core::PasswordAuth::register(&self, &topcoat_core::context::C
 pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::Cx, &tablo_core::SignUp, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::FieldErrors>
 impl tablo_core::auth::Authenticator for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
+pub fn tablo_core::PasswordAuth::confirm_password(&self, &topcoat_core::context::Cx, &Self::User, &str) -> impl core::future::future::Future<Output = topcoat::Result<bool>> + core::marker::Send
 pub async fn tablo_core::PasswordAuth::find_by_id(&self, &topcoat_core::context::Cx, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
 pub async fn tablo_core::PasswordAuth::verify(&self, &topcoat_core::context::Cx, &str, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
 impl tablo_core::auth::EmailVerifier for tablo_core::PasswordAuth
@@ -6612,10 +6616,12 @@ pub fn tablo_core::Action::success(&topcoat_core::context::Cx, usize) -> alloc::
 pub fn tablo_core::Action::validate_input(&topcoat_core::context::Cx, &Self::Input) -> tablo_core::FieldErrors
 pub trait tablo_core::Authenticator: core::marker::Send + core::marker::Sync + 'static
 pub type tablo_core::Authenticator::User: tablo_core::auth::PanelUser
+pub fn tablo_core::Authenticator::confirm_password(&self, &topcoat_core::context::Cx, &Self::User, &str) -> impl core::future::future::Future<Output = topcoat::Result<bool>> + core::marker::Send
 pub fn tablo_core::Authenticator::find_by_id(&self, &topcoat_core::context::Cx, &str) -> impl core::future::future::Future<Output = topcoat::Result<core::option::Option<Self::User>>> + core::marker::Send
 pub fn tablo_core::Authenticator::verify(&self, &topcoat_core::context::Cx, &str, &str) -> impl core::future::future::Future<Output = topcoat::Result<core::option::Option<Self::User>>> + core::marker::Send
 impl tablo_core::auth::Authenticator for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
+pub fn tablo_core::PasswordAuth::confirm_password(&self, &topcoat_core::context::Cx, &Self::User, &str) -> impl core::future::future::Future<Output = topcoat::Result<bool>> + core::marker::Send
 pub async fn tablo_core::PasswordAuth::find_by_id(&self, &topcoat_core::context::Cx, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
 pub async fn tablo_core::PasswordAuth::verify(&self, &topcoat_core::context::Cx, &str, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
 pub trait tablo_core::DateValue: core::marker::Sized + core::marker::Send + core::marker::Sync + 'static

@@ -7,6 +7,7 @@ use topcoat::{
         Body,
         error::{forbidden, not_found, see_other, too_many_requests},
         request::client_ip,
+        response::response_headers,
     },
     view::BoxView,
 };
@@ -29,10 +30,13 @@ use crate::{
 /// The form field naming what a settings POST does.
 pub(super) const INTENT_FIELD: &str = "intent";
 
+/// The form field the current password posts under, which a set-up asks for.
+pub(super) const PASSWORD_FIELD: &str = "current_password";
+
 /// What a settings POST asks for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Intent {
-    /// Start setting up an authenticator.
+    /// Start setting up an authenticator, proven by the current password.
     Start,
     /// Confirm the authenticator being set up with one of its codes.
     Confirm,
@@ -56,9 +60,12 @@ impl Intent {
         })
     }
 
-    /// Whether the intent checks a code, which the throttle counts.
-    fn checks_code(self) -> bool {
-        matches!(self, Self::Confirm | Self::RecoveryCodes | Self::Disable)
+    /// Whether the intent checks a code or the password, which the throttle counts.
+    fn checks_secret(self) -> bool {
+        matches!(
+            self,
+            Self::Start | Self::Confirm | Self::RecoveryCodes | Self::Disable
+        )
     }
 }
 
@@ -92,9 +99,9 @@ async fn standing<'a>(
         },
         (None, Some(factor)) => match secret(cx, factor)? {
             Some(secret) => setup(cx, signed, &secret, refused),
-            None => Settings::Off,
+            None => Settings::Off { refused: false },
         },
-        (None, None) => Settings::Off,
+        (None, None) => Settings::Off { refused: false },
     };
     pages::settings(cx, settings).await
 }
@@ -113,10 +120,20 @@ fn setup(cx: &Cx, signed: &SignedIn, secret: &[u8], refused: bool) -> Settings {
     }
 }
 
+/// Keeps the response out of every cache: a set-up shows the secret, and a confirmation the
+/// recovery codes.
+fn no_store(cx: &Cx) {
+    response_headers(cx).append(
+        http::header::CACHE_CONTROL,
+        http::HeaderValue::from_static("no-store"),
+    );
+}
+
 /// `GET {prefix}/two-factor` — the settings, as the account's factors stand.
 pub(in crate::auth) fn settings_page(cx: &Cx, _body: Body) -> BoxView<'_> {
     async_page(async move {
         let (signed, _) = configuring(cx)?;
+        no_store(cx);
         crate::csrf::ensure_token(cx);
         let mut db = crate::db::db(cx);
         let enrolment = enrolment(cx, &mut db, &signed.user.user_id()).await?;
@@ -128,6 +145,7 @@ pub(in crate::auth) fn settings_page(cx: &Cx, _body: Body) -> BoxView<'_> {
 pub(in crate::auth) fn settings_post(cx: &Cx, body: Body) -> BoxView<'_> {
     async_page(async move {
         let (signed, two_factor) = configuring(cx)?;
+        no_store(cx);
         let form = crate::panel::parse_form_body(cx, body).await?;
         crate::csrf::verify(cx, form.last(crate::csrf::FIELD_NAME))?;
         let intent = form
@@ -136,8 +154,9 @@ pub(in crate::auth) fn settings_post(cx: &Cx, body: Body) -> BoxView<'_> {
             .ok_or_else(forbidden)?;
         let code = form.last(super::challenge::CODE_FIELD).unwrap_or_default();
         let user_id = signed.user.user_id();
-        // A stolen session must not guess codes at will to turn the second factor off.
-        if intent.checks_code() && !two_factor.throttle.attempt(&user_id, None) {
+        // A stolen session must not guess codes at will to turn the second factor off, nor
+        // passwords to turn it on.
+        if intent.checks_secret() && !two_factor.throttle.attempt(&user_id, None) {
             tracing::warn!(
                 panel = %signed.panel.prefix,
                 client = ?client_ip(cx),
@@ -145,15 +164,24 @@ pub(in crate::auth) fn settings_post(cx: &Cx, body: Body) -> BoxView<'_> {
             );
             return Err(too_many_requests(two_factor.throttle.window_secs()).into());
         }
+        let authenticator = signed.panel.auth.authenticator().ok_or_else(not_found)?;
+        // A stolen session must not set up a factor its thief holds and lock the owner out. The
+        // authenticator reads through a connection of its own, so this runs before the
+        // transaction opens.
+        if intent == Intent::Start {
+            let password = form.last(PASSWORD_FIELD).unwrap_or_default();
+            if !authenticator
+                .confirm_password(cx, signed.user.as_ref(), password)
+                .await
+                .map_err(infrastructure_failure)?
+            {
+                return pages::settings(cx, Settings::Off { refused: true }).await;
+            }
+        }
         let mut db = crate::db::db(cx);
         let mut tx = serializable(&mut db).await?;
         let enrolment = enrolment(cx, &mut tx, &user_id).await?;
-        let user_type = signed
-            .panel
-            .auth
-            .authenticator()
-            .ok_or_else(not_found)?
-            .user_type();
+        let user_type = authenticator.user_type();
         match (intent, &enrolment.confirmed, &enrolment.unconfirmed) {
             (Intent::Start, None, _) => {
                 let secret = start(cx, &mut tx, &user_id).await?;

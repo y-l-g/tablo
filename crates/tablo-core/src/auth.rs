@@ -181,6 +181,27 @@ pub trait Authenticator: Send + Sync + 'static {
         cx: &Cx,
         id: &str,
     ) -> impl Future<Output = topcoat::Result<Option<Self::User>>> + Send;
+
+    /// Whether `password` is `user`'s current password: what a page asks before a change a stolen
+    /// session must not make, such as turning two-factor sign-in on.
+    ///
+    /// It defaults to [`verify`](Self::verify) with the user's [`email`](PanelUser::email) as the
+    /// login, and answers `false` for a user without one: override it when users sign in with
+    /// something else.
+    fn confirm_password(
+        &self,
+        cx: &Cx,
+        user: &Self::User,
+        password: &str,
+    ) -> impl Future<Output = topcoat::Result<bool>> + Send {
+        async move {
+            let Some(login) = user.email() else {
+                return Ok(false);
+            };
+            let verified = self.verify(cx, login, password).await?;
+            Ok(verified.is_some_and(|found| found.user_id() == user.user_id()))
+        }
+    }
 }
 
 /// [`Authenticator`] with its user type erased, as the panel keeps it.
@@ -196,6 +217,13 @@ pub(crate) trait DynAuthenticator: Send + Sync {
         cx: &'a Cx,
         id: &'a str,
     ) -> BoxFuture<'a, topcoat::Result<Option<Arc<dyn PanelUser>>>>;
+    /// Whether `password` is `user`'s; a user of another type has none.
+    fn confirm_password<'a>(
+        &'a self,
+        cx: &'a Cx,
+        user: &'a dyn PanelUser,
+        password: &'a str,
+    ) -> BoxFuture<'a, topcoat::Result<bool>>;
     /// The [`TypeId`] of [`Authenticator::User`], so mounting knows when the
     /// shipped [`AdminUser`] must be registered.
     fn user_type(&self) -> TypeId;
@@ -222,6 +250,21 @@ impl<A: Authenticator> DynAuthenticator for A {
         Box::pin(async move {
             let user = Authenticator::find_by_id(self, cx, id).await?;
             Ok(user.map(|user| Arc::new(user) as Arc<dyn PanelUser>))
+        })
+    }
+
+    fn confirm_password<'a>(
+        &'a self,
+        cx: &'a Cx,
+        user: &'a dyn PanelUser,
+        password: &'a str,
+    ) -> BoxFuture<'a, topcoat::Result<bool>> {
+        Box::pin(async move {
+            let user: &dyn Any = user;
+            match user.downcast_ref::<A::User>() {
+                Some(user) => Authenticator::confirm_password(self, cx, user, password).await,
+                None => Ok(false),
+            }
         })
     }
 

@@ -400,17 +400,27 @@ the router's cookie `Key`, which the router must hold:
 
 Add `AuthFactor` and `AuthToken` to the `Db`'s models.
 
-- **Setting up** happens at `{prefix}/two-factor`, which the user menu links to. The page shows a
-  QR code and the key, and turns two-factor sign-in on once a code from the app matches. It then
-  shows eight recovery codes, once: the panel stores only their hashes.
+- **Setting up** happens at `{prefix}/two-factor`, which the user menu links to. It asks for the
+  current password first, through `Authenticator::confirm_password`, so a stolen session cannot
+  add a factor its thief holds. That method verifies with the user's `PanelUser::email` as the
+  login; override it when users sign in with something else. The page then shows a QR code and
+  the key, and turns two-factor sign-in on once a code from the app matches. It then shows eight
+  recovery codes, once: the panel stores only their hashes, keyed like the secrets. The pages
+  answer `Cache-Control: no-store`.
+- **Each panel enrols apart.** A factor signs in to the panel that set it up only, even when other
+  panels load the same user type: enrol on each.
 - **Signing in**, a correct password leads to `{prefix}/two-factor-challenge` instead of a
   session. The challenge lasts five minutes in its own cookie and takes a code from the app or a
   recovery code. Each code works once: an app code does not sign in twice, and a recovery code is
   used up.
 - **Turning it on or off** is a credential change: the account's other sessions and links end.
   Turning it off, and showing new recovery codes, take a code.
-- **Throttling.** Each account may try five codes a minute, at sign-in and on the settings page
-  together; `TwoFactor::throttle` changes the limit. Past it the page answers 429.
+- **Throttling.** Each account may try five codes or passwords a minute, at sign-in and on the
+  settings page together; `TwoFactor::throttle` changes the limit. Past it the page answers 429.
+  The count lives in each process: behind several, the limit holds per process. Someone who knows
+  the password can use up the owner's attempts, and each new sign-in replaces the last challenge.
+- **The cookie `Key` seals the secrets.** Rotating it makes every app code fail until its owner
+  signs in with a recovery code and sets the app up again; a leaked key opens every secret.
 - **Requiring it.** `TwoFactor::new().required()` sends a signed-in user without an authenticator
   to `{prefix}/two-factor` before anything else, as an unverified address does: a page redirects
   there and any other request answers 403.

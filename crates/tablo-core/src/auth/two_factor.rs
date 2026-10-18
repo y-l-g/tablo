@@ -11,7 +11,6 @@ mod totp;
 use std::time::Duration;
 
 use jiff::Timestamp;
-use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
 use topcoat::{
     context::{Cx, try_app_context},
@@ -89,8 +88,8 @@ pub struct AuthFactor {
     /// The prefix of the panel that enrolled the factor: the only panel it signs in to.
     pub panel: String,
     pub kind: FactorKind,
-    /// The authenticator secret, sealed under the router's cookie key, or the hex SHA-256 of a
-    /// recovery code.
+    /// The authenticator secret, sealed under the router's cookie key, or the hash of a recovery
+    /// code, keyed under it.
     pub secret: String,
     /// When a code proved the authenticator app holds the secret; `None` while it is being set
     /// up. A recovery code is confirmed when issued.
@@ -283,15 +282,21 @@ async fn accept_code(
     Ok(true)
 }
 
-/// A recovery code as stored: the hex SHA-256 of its characters, lowercase, without separators.
-fn recovery_hash(code: &str) -> String {
-    let normalized: String = code
-        .chars()
+/// A recovery code as typed, read the way it was issued: lowercase, without separators.
+fn normalize_recovery_code(code: &str) -> String {
+    code.chars()
         .filter(char::is_ascii_alphanumeric)
         .map(|c| c.to_ascii_lowercase())
-        .collect();
-    let digest = Sha256::digest(normalized.as_bytes());
-    digest.iter().map(|byte| format!("{byte:02x}")).collect()
+        .collect()
+}
+
+/// A recovery code as `user_id`'s row on `panel` stores it: keyed under the router's cookie key.
+fn recovery_hash(cx: &Cx, user_id: &str, panel: &str, code: &str) -> topcoat::Result<String> {
+    Ok(cipher::recovery_hash(
+        key(cx)?,
+        &binding(user_id, panel),
+        &normalize_recovery_code(code),
+    ))
 }
 
 /// Whether `code` is one of `user_id`'s recovery codes on the request's panel; a match is deleted
@@ -302,8 +307,9 @@ async fn spend_recovery_code(
     user_id: &str,
     code: &str,
 ) -> topcoat::Result<bool> {
-    let hash = recovery_hash(code);
-    let codes = factors(&mut *ex, &panel_prefix(cx), user_id).await?;
+    let panel = panel_prefix(cx);
+    let hash = recovery_hash(cx, user_id, &panel, code)?;
+    let codes = factors(&mut *ex, &panel, user_id).await?;
     let Some(matched) = codes.iter().find(|factor| {
         factor.kind == FactorKind::RecoveryCode
             && bool::from(factor.secret.as_bytes().ct_eq(hash.as_bytes()))
@@ -330,10 +336,12 @@ pub(super) async fn accept(
     let Some(factor) = enrolment.confirmed else {
         return Ok(false);
     };
-    if code.trim().bytes().all(|b| b.is_ascii_digit()) {
-        accept_code(cx, ex, &factor, code).await
+    // Apps show a code as "123 456"; a recovery code is ten characters, so six digits are a code.
+    let code: String = code.chars().filter(|c| !c.is_whitespace()).collect();
+    if code.len() == 6 && code.bytes().all(|b| b.is_ascii_digit()) {
+        accept_code(cx, ex, &factor, &code).await
     } else {
-        spend_recovery_code(cx, ex, user_id, code).await
+        spend_recovery_code(cx, ex, user_id, &code).await
     }
 }
 
@@ -364,7 +372,7 @@ async fn issue_recovery_codes(
             user_id: user_id.to_string(),
             panel: panel.clone(),
             kind: FactorKind::RecoveryCode,
-            secret: recovery_hash(&code),
+            secret: recovery_hash(cx, user_id, &panel, &code)?,
             confirmed_at: Some(now),
             last_step: None,
             created_at: now,
@@ -435,8 +443,9 @@ mod tests {
     fn a_recovery_code_matches_however_it_is_typed() {
         let code = recovery_code();
         assert_eq!(code.len(), 11);
-        assert_eq!(recovery_hash(&code), recovery_hash(&code.to_uppercase()));
-        assert_eq!(recovery_hash(&code), recovery_hash(&code.replace('-', " ")));
-        assert_ne!(recovery_hash(&code), recovery_hash(&recovery_code()));
+        let read = normalize_recovery_code(&code);
+        assert_eq!(normalize_recovery_code(&code.to_uppercase()), read);
+        assert_eq!(normalize_recovery_code(&code.replace('-', " ")), read);
+        assert_ne!(normalize_recovery_code(&recovery_code()), read);
     }
 }
