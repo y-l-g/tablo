@@ -263,5 +263,23 @@ impl MountedPage {
     }
 }
 
+/// A page's declaration check, run by
+/// [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) as a resource's is.
+pub(crate) type PageCheck = Box<dyn Fn(&Cx, &mut Vec<crate::DeclarationError>) + Send>;
+
+/// Checks the header actions of `page`, the page `P` as the panel mounted it, as a resource's are.
+pub(crate) fn check_page<P: Page>(page: Arc<MountedPage>) -> PageCheck {
+    Box::new(move |cx, errors| {
+        crate::resource::check_inputs::<P>(
+            cx,
+            page.header_actions
+                .entries()
+                .iter()
+                .map(|action| (action.name, action.input)),
+            errors,
+        );
+    })
+}
+
 #[cfg(test)]
 mod tests;

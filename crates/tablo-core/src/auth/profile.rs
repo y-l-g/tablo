@@ -399,7 +399,7 @@ fn editing(cx: &Cx) -> topcoat::Result<(&SignedIn, &dyn DynProfileEditor)> {
 }
 
 /// `GET {prefix}/profile` — the profile form, filled from the signed-in account.
-pub(crate) fn profile_page(cx: &Cx, _body: Body) -> BoxView<'_> {
+pub(super) fn profile_page(cx: &Cx, _body: Body) -> BoxView<'_> {
     async_page(async move {
         let (signed, editor) = editing(cx)?;
         let values = editor
@@ -411,7 +411,7 @@ pub(crate) fn profile_page(cx: &Cx, _body: Body) -> BoxView<'_> {
 }
 
 /// `POST {prefix}/profile` — save the profile, then land back on the page.
-pub(crate) fn profile_post(cx: &Cx, body: Body) -> BoxView<'_> {
+pub(super) fn profile_post(cx: &Cx, body: Body) -> BoxView<'_> {
     async_page(async move {
         let (signed, editor) = editing(cx)?;
         let form = crate::panel::parse_form_body(cx, body).await?;
@@ -454,6 +454,46 @@ async fn render<'a>(
         &HashSet::new(),
     )
     .await
+}
+
+/// The mistakes in a panel's [`Auth::profile`](super::Auth::profile): a profile without auth, an
+/// editor whose user is not the authenticator's, and a profile form field the page cannot serve.
+pub(super) fn declaration_errors(auth: &super::Auth) -> Vec<crate::DeclarationErrorKind> {
+    use crate::{DeclarationErrorKind, declaration::ProfileFault};
+
+    let Some(editor) = auth.profile_editor.as_deref() else {
+        return Vec::new();
+    };
+    let Some(authenticator) = auth.authenticator() else {
+        return vec![DeclarationErrorKind::Profile(ProfileFault::AuthDisabled)];
+    };
+    let mut kinds = Vec::new();
+    let (user, user_name) = editor.user_type();
+    if user != authenticator.user_type() {
+        kinds.push(DeclarationErrorKind::Profile(ProfileFault::UserType {
+            editor: user_name,
+        }));
+    }
+    let schema = editor.schema();
+    kinds.extend(schema.declaration_errors());
+    kinds.extend(schema.empty_choices());
+    kinds.extend(schema.fields().filter_map(|field| {
+        let name = field.name().to_string();
+        let fault = if RESERVED_KEYS.contains(&name.as_str()) {
+            ProfileFault::ReservedField(name)
+        } else if field.is_file() {
+            ProfileFault::FileField(name)
+        } else if field
+            .as_choice()
+            .is_some_and(|choice| choice.is_relationship())
+        {
+            ProfileFault::RelationshipField(name)
+        } else {
+            return None;
+        };
+        Some(DeclarationErrorKind::Profile(fault))
+    }));
+    kinds
 }
 
 #[cfg(test)]

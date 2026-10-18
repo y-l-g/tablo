@@ -21,7 +21,7 @@ use crate::panel::{Panel, panel_prefix, state::current};
 
 /// Caps the login body at 64 KiB; the panel's 10 MiB form cap covers multipart
 /// uploads the login route never carries.
-pub(crate) const MAX_LOGIN_BYTES: usize = 64 * 1024;
+pub(super) const MAX_LOGIN_BYTES: usize = 64 * 1024;
 
 /// Form field carrying the login identifier (the shipped default reads it as
 /// an email address).
@@ -124,13 +124,13 @@ async fn login_response(
 }
 
 /// `GET {prefix}/login` — the standalone login page.
-pub(crate) fn login_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
+pub(super) fn login_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     let next = next_from_query(cx).unwrap_or_default();
     Box::pin(login_response(cx, None, next))
 }
 
 /// `POST {prefix}/login` — verify, rotate the session, redirect to `next`.
-pub(crate) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
+pub(super) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         let parts = crate::panel::parse_form_body(cx, body).await?;
         crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
@@ -207,7 +207,7 @@ async fn failed(
 }
 
 /// `POST {prefix}/logout` — delete the session row and clear the cookie.
-pub(crate) fn logout_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
+pub(super) fn logout_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         // Any resolved user may log out, including one without panel access,
         // so the session row and cookie do not linger to expiry.
@@ -226,7 +226,7 @@ pub(crate) fn logout_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
 
 /// `POST {prefix}/tenant` — act for another of the user's tenants, then land
 /// on the panel root; a tenant outside the user's memberships answers 403.
-pub(crate) fn tenant_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
+pub(super) fn tenant_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         let Some(signed) = signed(cx) else {
             return Err(unauthenticated_error(cx));
