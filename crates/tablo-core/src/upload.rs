@@ -8,12 +8,10 @@ use std::{
 };
 
 use percent_encoding::percent_decode_str;
-use topcoat::context::Cx;
 
 use crate::{
     BoxFuture,
     form::{FieldErrors, FormValues},
-    panel::state::current,
     schema::Schema,
     topcoat_compat::href::encode_path_segment,
 };
@@ -233,38 +231,25 @@ impl<U: Uploader> DynUploader for U {
     }
 }
 
-/// Whether this panel has an uploader installed.
-pub(crate) fn installed(cx: &Cx) -> bool {
-    installed_uploader(cx).is_some()
-}
-
-type DynUploaderRef<'a> = &'a (dyn DynUploader + Send + Sync);
-
-fn installed_uploader<'a>(cx: &'a Cx) -> Option<DynUploaderRef<'a>> {
-    current(cx)
-        .and_then(|panel| panel.uploads.as_ref())
-        .map(|installed| &*installed.0)
-}
-
-/// Whether the installed uploader still holds `path`; `false` without one.
-pub(crate) async fn holds(cx: &Cx, path: &str) -> bool {
-    match installed_uploader(cx) {
-        Some(uploader) => uploader.holds(path).await,
+/// Whether `uploader`, a panel's installed one, still holds `path`; `false` without one.
+pub(crate) async fn holds(uploader: Option<&InstalledUploader>, path: &str) -> bool {
+    match uploader {
+        Some(uploader) => uploader.0.holds(path).await,
         None => false,
     }
 }
 
-/// Runs the installed uploader over this form's file parts, returning inline
+/// Runs `uploader`, a panel's installed one, over this form's file parts, returning inline
 /// errors and the fields whose value is now the stored path. A failed store
 /// becomes an inline field error and drops the submitted value; call outside
 /// the write transaction.
 pub(crate) async fn store_uploads(
-    cx: &Cx,
+    uploader: Option<&InstalledUploader>,
     schema: &Schema,
     files: &HashMap<String, StagedUpload>,
     values: &mut FormValues,
 ) -> (FieldErrors, HashSet<String>) {
-    let Some(uploader) = installed_uploader(cx) else {
+    let Some(InstalledUploader(uploader)) = uploader else {
         return (FieldErrors::new(), HashSet::new());
     };
     let mut errors = FieldErrors::new();

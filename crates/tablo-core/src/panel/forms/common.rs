@@ -16,6 +16,7 @@ use super::{
 use crate::{
     db::db,
     form::{FieldErrors, FormValues, RecordForm},
+    panel::state::uploader,
     policy::Ability,
     resource::{Mounted, Resource},
     topcoat_compat::async_page,
@@ -141,7 +142,7 @@ pub(super) async fn restore_pending_uploads(
         let Some(candidate) = flags.keep.as_deref().map(str::trim) else {
             continue;
         };
-        if candidate.is_empty() || !crate::upload::holds(cx, candidate).await {
+        if candidate.is_empty() || !crate::upload::holds(uploader(cx), candidate).await {
             continue;
         }
         values.insert(name.clone(), candidate);
