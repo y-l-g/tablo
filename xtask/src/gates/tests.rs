@@ -291,6 +291,20 @@ fn skip_filters_match_ci_workflows() {
     );
 }
 
+/// Cargo runs this test with xtask's package variables, as `cargo run` runs `check`; the commands
+/// a gate spawns see none of them.
+#[test]
+fn gate_commands_drop_the_package_variables() {
+    assert!(std::env::var_os("CARGO_PKG_NAME").is_some());
+    let output = command("env").output().expect("env runs");
+    let env = String::from_utf8_lossy(&output.stdout);
+    let leaked: Vec<&str> = env
+        .lines()
+        .filter(|line| line.starts_with("CARGO_PKG_") || line.starts_with("CARGO_MANIFEST_"))
+        .collect();
+    assert!(leaked.is_empty(), "{leaked:?}");
+}
+
 fn git_in(dir: &Path, args: &[&str]) {
     let status = std::process::Command::new("git")
         .arg("-C")

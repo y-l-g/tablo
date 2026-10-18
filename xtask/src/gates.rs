@@ -99,6 +99,27 @@ pub trait Runner {
 
 pub struct RealRunner;
 
+/// `prog` without the package variables `cargo run` gave xtask. Build scripts that watch them,
+/// such as `ring`'s, would rebuild under xtask, then again under a plain `cargo test`.
+fn command(prog: &str) -> Command {
+    let mut command = Command::new(prog);
+    for (key, _) in std::env::vars_os() {
+        if let Some(name) = key.to_str()
+            && (name.starts_with("CARGO_PKG_")
+                || name.starts_with("CARGO_MANIFEST_")
+                || [
+                    "CARGO_CRATE_NAME",
+                    "CARGO_BIN_NAME",
+                    "CARGO_PRIMARY_PACKAGE",
+                ]
+                .contains(&name))
+        {
+            command.env_remove(name);
+        }
+    }
+    command
+}
+
 impl Runner for RealRunner {
     fn run(
         &self,
@@ -107,7 +128,7 @@ impl Runner for RealRunner {
         dir: Option<&Path>,
         env: &[(&str, &str)],
     ) -> anyhow::Result<()> {
-        let mut command = Command::new(prog);
+        let mut command = command(prog);
         command.args(args);
         if let Some(dir) = dir {
             command.current_dir(dir);
@@ -129,7 +150,7 @@ impl Runner for RealRunner {
         let partial = stdout.with_extension("partial");
         let file = std::fs::File::create(&partial)
             .map_err(|error| anyhow::anyhow!("cannot create {}: {error}", partial.display()))?;
-        let mut command = Command::new(prog);
+        let mut command = command(prog);
         command.args(args).stdout(file);
         if let Some(dir) = dir {
             command.current_dir(dir);

@@ -76,7 +76,7 @@ impl<M, T, P> From<Lens<M, T, P>> for Path<M, P> {
 /// let name: Lens<User, String> = lens!(User.name);
 /// let seo: Lens<Post, Seo> = lens!(Post.seo); // an embedded value, whole
 /// let title: Lens<Post, String> = lens!(Post.seo.title); // an embedded struct's field
-/// let qualified = lens!(crate::blog::Post.title);
+/// let qualified = lens!(blog::Post.title);
 /// # let _ = (name, seo, title, qualified);
 /// # }
 /// ```
