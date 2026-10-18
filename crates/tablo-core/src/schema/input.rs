@@ -2,8 +2,8 @@
 
 use topcoat::context::Cx;
 
-use super::{FieldError, FormValues};
-use crate::schema::{Field, Schema};
+use super::{Field, Schema};
+use crate::values::{FieldError, FormValues};
 
 /// A typed value a form posts under its own keys, which no column binds: what an
 /// [`Action`](crate::Action) asks for before it runs, what a sign-up reads, one item of a

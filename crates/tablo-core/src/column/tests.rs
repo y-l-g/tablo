@@ -1,5 +1,5 @@
 use super::*;
-use crate::{ComputedColumn, lens, test_support::User};
+use crate::{ComputedColumn, display::Currency, lens, test_support::User};
 
 /// `%` and `_` in a search term are literal characters, not
 /// wildcards, and the term is wrapped for a substring match.

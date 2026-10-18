@@ -1,7 +1,7 @@
 use super::{test_support::DummyUser, *};
 use crate::{
-    form::{FormValue, FormValues},
     schema::Schema,
+    values::{FormValue, FormValues},
 };
 
 /// A control renders optional until a panel stamps its record form's presence on it.
@@ -79,7 +79,7 @@ fn the_email_rule_checks_only_a_submitted_value() {
 /// disabled with it.
 #[tokio::test]
 async fn every_control_renders_disabled_where_its_modifier_says() {
-    use crate::{form::FieldErrors, schema::Source, test_support::Html as _};
+    use crate::{schema::Source, test_support::Html as _, values::FieldErrors};
 
     async fn html(schema: Schema, editing: bool) -> String {
         let cx = test_support::cx();
@@ -145,7 +145,7 @@ async fn every_control_renders_disabled_where_its_modifier_says() {
 /// Help renders under every control, which names it in `aria-describedby` beside its error.
 #[tokio::test]
 async fn help_text_describes_its_control() {
-    use crate::{form::FieldErrors, schema::Source, test_support::Html as _};
+    use crate::{schema::Source, test_support::Html as _, values::FieldErrors};
 
     let cx = test_support::cx();
     let values = FormValues::new();
@@ -301,9 +301,9 @@ fn a_condition_reads_a_disabled_fields_default() {
 #[tokio::test]
 async fn the_error_slot_names_the_refusal_kind() {
     use crate::{
-        form::{FieldError, FieldErrors},
         schema::Source,
         test_support::Html as _,
+        values::{FieldError, FieldErrors},
     };
 
     let cx = test_support::cx();

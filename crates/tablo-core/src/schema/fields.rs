@@ -25,12 +25,11 @@ pub(crate) use text::{Pattern, TextControl};
 use toasty::stmt::{List, Path};
 use topcoat::{Result, context::Cx, view::*};
 
-use super::{
-    condition::Condition, lenses::Binding, repeater::RepeaterControl, validation::is_email,
-};
+use super::{condition::Condition, lenses::Binding, repeater::RepeaterControl};
 use crate::{
-    form::{FieldError, FieldErrorKind, FormInput, FormScalar, FormValue},
     naming::capitalize,
+    schema::FormInput,
+    values::{FieldError, FieldErrorKind, FormScalar, FormValue, is_email},
 };
 
 /// One form field binding a lens to the control editing it, offering only that control's modifiers

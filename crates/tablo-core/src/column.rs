@@ -12,7 +12,7 @@ use derive_where::derive_where;
 use toasty::stmt::{Expr, List, OrderByExpr, Path, Query};
 use topcoat::{context::Cx, view::*};
 
-use crate::schema::Binding;
+use crate::{display::Alignment, schema::Binding};
 
 /// The `label` and `width` builders of a column over a [`ColumnBase`], inside its inherent impl.
 macro_rules! base_builders {
@@ -101,7 +101,6 @@ mod boolean;
 mod color;
 mod computed;
 mod date;
-mod display;
 mod embedded;
 mod file;
 mod image;
@@ -113,7 +112,6 @@ pub use boolean::BooleanColumn;
 pub use color::ColorColumn;
 pub use computed::ComputedColumn;
 pub use date::{DateColumn, DateValue};
-pub use display::{Alignment, Color, Currency, Number, Numeric};
 pub use embedded::EmbeddedColumn;
 pub use file::FileColumn;
 pub use image::ImageColumn;

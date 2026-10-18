@@ -6,6 +6,7 @@
 mod condition;
 pub(crate) mod embedded;
 pub(crate) mod fields;
+pub(crate) mod input;
 mod layouts;
 mod lenses;
 mod options;
@@ -13,7 +14,6 @@ mod read;
 pub(crate) mod relationship;
 pub(crate) mod repeater;
 pub(crate) mod tree;
-pub(crate) mod validation;
 
 use std::{collections::HashSet, marker::PhantomData};
 
@@ -27,6 +27,7 @@ pub use fields::{
 pub(crate) use fields::{
     is_linkable, is_rooted, option_view, read_only, stored_upload, value_cell,
 };
+pub(crate) use input::FormInput;
 pub use layouts::{Grid, Group, Section};
 pub(crate) use lenses::Binding;
 pub use lenses::form_key;
@@ -37,9 +38,8 @@ pub use repeater::{MAX_ROWS, parse_items, write_items};
 use topcoat::{Result, context::Cx, view::*};
 pub use tree::{IntoSchema, Source};
 pub(crate) use tree::{Node, Retype, render_nodes};
-pub(crate) use validation::TypedValue;
 
-use crate::form::{FieldErrors, FormValue, FormValues};
+use crate::values::{FieldErrors, FormValue, FormValues};
 
 /// Composes fields and layout blocks and resolves every field once into one list.
 ///

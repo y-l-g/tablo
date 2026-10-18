@@ -1,8 +1,8 @@
 use super::*;
 use crate::{
-    form::FieldErrorKind,
     schema::{Field, Source},
     test_support::Html,
+    values::FieldErrorKind,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, crate::Options)]
@@ -161,7 +161,7 @@ async fn the_repeater_renders_a_row_per_item_and_a_blank_row_to_copy() {
         "links",
         write_items(&[link("Docs", "https://docs.example"), link("Blog", "")]),
     )]);
-    let mut errors = crate::form::FieldErrors::new();
+    let mut errors = crate::values::FieldErrors::new();
     errors.push(FieldError::required("links.1.label"));
     let html = repeater()
         .render(&cx, Source::form(&values, &errors).scoped("dialog"))
@@ -223,7 +223,7 @@ async fn a_repeater_hidden_by_a_condition_posts_nothing() {
         ("links", write_items(&[link("Docs", "")])),
     ]);
     assert!(schema.hidden_fields(&values).contains("links"));
-    let errors = crate::form::FieldErrors::new();
+    let errors = crate::values::FieldErrors::new();
     let html = schema
         .render(&cx, Source::form(&values, &errors))
         .await
@@ -279,7 +279,10 @@ async fn a_full_repeater_disables_its_add_button() {
         let items = vec![link("Docs", ""); count];
         let values = FormValues::from_iter([("links", write_items(&items))]);
         let html = repeater()
-            .render(&cx, Source::form(&values, &crate::form::FieldErrors::new()))
+            .render(
+                &cx,
+                Source::form(&values, &crate::values::FieldErrors::new()),
+            )
             .await
             .html(&cx)
             .await;

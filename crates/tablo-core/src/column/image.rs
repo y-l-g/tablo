@@ -4,7 +4,7 @@ use derive_where::derive_where;
 use topcoat::{context::Cx, view::*};
 
 use super::{Column, ColumnBase, ColumnWidth};
-use crate::{Lens, form::FormScalar};
+use crate::{Lens, values::FormScalar};
 
 /// A column of a `String` field holding an uploaded image's path, rendered as a thumbnail.
 ///

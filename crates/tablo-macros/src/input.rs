@@ -1,7 +1,7 @@
 //! `#[derive(FormInput)]` declares a typed value a form posts under its own keys: what an action
 //! asks for, what a sign-up reads, one item of a repeater. Each field posts under its own name.
 //!
-//! See `tablo-core`'s `form::input` module for the contract.
+//! See `tablo-core`'s `schema::input` module for the contract.
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote, quote_spanned};

@@ -10,7 +10,7 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use topcoat::Result;
 
 use super::{Schema, fields::ChoiceControl};
-use crate::form::{FormValue, FormValues};
+use crate::values::{FormValue, FormValues};
 
 /// A posted body's pairs, indexed by key, recording which ones a field claimed.
 pub(super) struct Pairs<'p> {

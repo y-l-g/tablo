@@ -13,7 +13,7 @@ use super::{
     },
     Field, Placement, render_field,
 };
-use crate::{BoxFuture, form::FormValue};
+use crate::{BoxFuture, values::FormValue};
 
 mod multiple;
 
@@ -497,7 +497,7 @@ impl Field {
         choice: &ChoiceControl,
         cx: &'a Cx,
         value: Option<&FormValue>,
-        error: Option<&crate::form::FieldError>,
+        error: Option<&crate::values::FieldError>,
         id: String,
         placement: Placement<'_>,
     ) -> Result<BoxView<'a>> {
