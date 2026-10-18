@@ -215,75 +215,8 @@ impl Frame<'_> {
     }
 }
 
-#[cfg(test)]
-impl<M> crate::table::Table<M>
-where
-    M: toasty::schema::Model + Send + Sync + 'static,
-{
-    /// This table, wired with nothing, rendering `page` as [`WiredTable::render_loaded`] does.
-    pub(crate) async fn render<'a>(&self, cx: &'a Cx, page: TablePage<M>) -> Result<BoxView<'a>> {
-        self.clone()
-            .wired()
-            .render_loaded_with(cx, page, &TableState::default(), "")
-            .await
-    }
-
-    /// [`Self::render`] for `state`, its links pointing at `path`.
-    pub(crate) async fn render_with_state<'a>(
-        &self,
-        cx: &'a Cx,
-        page: TablePage<M>,
-        state: &TableState,
-        path: &str,
-    ) -> Result<BoxView<'a>> {
-        self.clone()
-            .wired()
-            .render_loaded_with(cx, page, state, path)
-            .await
-    }
-}
-
-#[cfg(test)]
-impl<M> WiredTable<M>
-where
-    M: toasty::schema::Model + Send + Sync + 'static,
-{
-    /// Render a loaded `page` with neutral state inside a page body, as a test's view resolves it.
-    pub(crate) async fn render_loaded<'a>(
-        self,
-        cx: &'a Cx,
-        page: TablePage<M>,
-    ) -> Result<BoxView<'a>> {
-        self.render_loaded_with(cx, page, &TableState::default(), "")
-            .await
-    }
-
-    /// [`Self::render_loaded`] for `state`, its links pointing at `path`.
-    pub(crate) async fn render_loaded_with<'a>(
-        self,
-        cx: &'a Cx,
-        page: TablePage<M>,
-        state: &TableState,
-        path: &str,
-    ) -> Result<BoxView<'a>> {
-        let errors = self.declaration_errors();
-        if !errors.is_empty() {
-            return Err(crate::error::misdeclared(&errors));
-        }
-        let (state, path) = (state.clone(), path.to_string());
-        Ok(crate::topcoat_compat::async_page(async move {
-            let signals = TableSignals::new(cx, state.prefix.as_deref());
-            let state = self.normalize_state(&state);
-            self.render_page(cx, page, &state, &path, &signals).await
-        }))
-    }
-}
-
 /// Render the table's card, shared by the loaded table and its skeleton.
 pub(super) fn table_frame<'a>(cx: &'a Cx, busy: bool, content: BoxView<'a>) -> BoxView<'a> {
     let busy = busy.then_some("true");
     view! { cx => <div class=(TABLE_CARD_CLASS) aria-busy=(busy)>(content)</div> }.boxed()
 }
-
-#[cfg(test)]
-pub(super) mod tests;

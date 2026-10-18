@@ -66,11 +66,10 @@ fn text_column_includes_accumulate_once_per_relation() {
 }
 
 /// A date column's text is the stored spelling of every date type, a null spells empty, and
-/// `TextColumn` still spells the stored value. Its cell spells the calendar day.
-#[tokio::test]
-async fn a_date_column_texts_the_stored_value_and_shows_the_day() {
-    use crate::test_support::Html as _;
-
+/// `TextColumn` still spells the stored value. The day its cell shows is the stored value's own,
+/// never one a local time zone moves.
+#[test]
+fn a_date_column_texts_the_stored_value_and_names_its_day() {
     #[derive(Debug, Clone, toasty::Model)]
     struct Event {
         #[key]
@@ -104,42 +103,15 @@ async fn a_date_column_texts_the_stored_value_and_shows_the_day() {
     assert_eq!(text(&DateColumn::new(lens!(Event.closed))), "");
     assert_eq!(text(&TextColumn::new(lens!(Event.day))), "2026-10-14");
 
-    let shown = async |column: &dyn Column<Event>| {
-        Ok::<_, topcoat::Error>(column.cell(&cx, &row))
-            .html(&cx)
-            .await
-    };
-    assert!(
-        shown(&DateColumn::new(lens!(Event.day)))
-            .await
-            .contains("Oct 14, 2026")
-    );
-    assert!(
-        shown(&DateColumn::new(lens!(Event.at)))
-            .await
-            .contains("Oct 14, 2026")
-    );
-    assert!(
-        shown(&DateColumn::new(lens!(Event.seen)))
-            .await
-            .contains("Oct 14, 2026")
-    );
-    assert!(
-        shown(&DateColumn::new(lens!(Event.closed)))
-            .await
-            .contains('—')
-    );
+    let day = Some(jiff::civil::date(2026, 10, 14));
+    assert_eq!(row.day.calendar_date(), day);
+    assert_eq!(row.at.calendar_date(), day);
+    assert_eq!(row.seen.calendar_date(), day);
+    assert_eq!(row.closed.calendar_date(), None);
     assert_eq!(
         Column::column_width(&DateColumn::new(lens!(Event.day))),
         ColumnWidth::Auto
     );
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, crate::Options)]
-enum Stage {
-    #[option(color = "success")]
-    Paid,
-    Open,
 }
 
 #[derive(Debug, Clone, toasty::Model)]
@@ -149,10 +121,7 @@ struct Invoice {
     id: uuid::Uuid,
     number: String,
     customer: String,
-    stage: Stage,
     total: i64,
-    color: String,
-    logo: String,
 }
 
 fn invoice() -> Invoice {
@@ -160,25 +129,13 @@ fn invoice() -> Invoice {
         id: uuid::Uuid::nil(),
         number: "INV-7".to_string(),
         customer: "Ada".to_string(),
-        stage: Stage::Paid,
         total: 123_456,
-        color: "#3b82f6".to_string(),
-        logo: "/uploads/logo.png".to_string(),
     }
 }
 
-/// A cell's HTML, as the table renders it.
-async fn cell_html(column: &dyn Column<Invoice>, row: &Invoice) -> String {
-    use crate::test_support::Html as _;
-    let cx = crate::test_support::cx();
-    Ok::<_, topcoat::Error>(column.cell(&cx, row))
-        .html(&cx)
-        .await
-}
-
 /// Money and numbers read formatted, in the cell and in the export, and align to the end.
-#[tokio::test]
-async fn amounts_format_and_align_to_the_end() {
+#[test]
+fn amounts_format_and_align_to_the_end() {
     let cx = crate::test_support::cx();
     let money = TextColumn::new(lens!(Invoice.total)).money(Currency::USD.minor_units());
     assert_eq!(money.text(&cx, &invoice()), "$1,234.56");
@@ -194,24 +151,23 @@ async fn amounts_format_and_align_to_the_end() {
     );
 }
 
-/// The description is a second line in the cell, never part of the value the export writes.
-#[tokio::test]
-async fn description_is_a_second_line_only() {
+/// The description is never part of the value the export writes; the integration suite's
+/// `columns` shows it on the cell.
+#[test]
+fn a_description_stays_out_of_the_text() {
     let cx = crate::test_support::cx();
     let column = TextColumn::new(lens!(Invoice.number))
         .description(|invoice: &Invoice| invoice.customer.clone());
     assert_eq!(column.text(&cx, &invoice()), "INV-7");
-    let html = cell_html(&column, &invoice()).await;
-    assert!(html.contains("INV-7") && html.contains("Ada"), "{html}");
 }
 
-/// A color column paints a swatch only for a value that cannot leave the `style` declaration.
-#[tokio::test]
-async fn color_swatch_accepts_only_plain_colors() {
-    let column = ColorColumn::new(lens!(Invoice.color));
-    let html = cell_html(&column, &invoice()).await;
-    assert!(html.contains("background-color: #3b82f6"), "{html}");
-
+/// A color reaches a `style` declaration only when nothing in it can end the declaration or open
+/// another.
+#[test]
+fn a_swatch_color_is_plain() {
+    for plain in ["#3b82f6", "#FFF", "oklch(0.6 0.1 200 / 50%)", "rgb(1 2 3)"] {
+        assert!(is_css_color(plain), "{plain}");
+    }
     for hostile in [
         "red; background-image: url(x)",
         "#12345",
@@ -219,59 +175,6 @@ async fn color_swatch_accepts_only_plain_colors() {
         "rgb(url(x))",
         "oklch(0.6 0.1 200",
     ] {
-        let row = Invoice {
-            color: hostile.to_string(),
-            ..invoice()
-        };
-        let html = cell_html(&column, &row).await;
-        assert!(
-            !html.contains("style="),
-            "`{hostile}` must not reach a style: {html}"
-        );
+        assert!(!is_css_color(hostile), "{hostile}");
     }
-    assert!(is_css_color("oklch(0.6 0.1 200 / 50%)"));
-    assert!(is_css_color("#FFF"));
-}
-
-/// An image column shows a thumbnail for a path on this site, and for an `http(s)` URL only when
-/// it allows remote images; anything else, an empty value included, shows as text.
-#[tokio::test]
-async fn image_thumbnail_needs_a_linkable_path() {
-    let column = ImageColumn::new(lens!(Invoice.logo)).circular();
-    let html = cell_html(&column, &invoice()).await;
-    assert!(
-        html.contains("<img") && html.contains("src=\"/uploads/logo.png\""),
-        "{html}"
-    );
-
-    let remote = "https://cdn.example/logo.png";
-    for path in [
-        "",
-        "javascript:alert(1)",
-        "//evil.example/x.png",
-        "/\\evil.example/x.png",
-        "/\t/evil.example/x.png",
-        remote,
-    ] {
-        let row = Invoice {
-            logo: path.to_string(),
-            ..invoice()
-        };
-        let html = cell_html(&column, &row).await;
-        assert!(
-            !html.contains("<img"),
-            "`{path}` must not be an image: {html}"
-        );
-    }
-
-    let row = Invoice {
-        logo: remote.to_string(),
-        ..invoice()
-    };
-    let html = cell_html(&column.clone().remote(), &row).await;
-    assert!(
-        html.contains(&format!("src=\"{remote}\""))
-            && html.contains("referrerpolicy=\"no-referrer\""),
-        "a remote column loads an http(s) URL, sending no referrer: {html}"
-    );
 }

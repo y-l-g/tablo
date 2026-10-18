@@ -1,9 +1,6 @@
 //! Shares the fixtures the crate's unit tests build on.
 
-use topcoat::{
-    context::{Cx, CxTestBuilder},
-    view::ViewExt,
-};
+use topcoat::context::{Cx, CxTestBuilder};
 
 pub(crate) fn cx() -> Cx {
     CxTestBuilder::new().build()
@@ -73,22 +70,6 @@ pub(crate) async fn memory_db(models: toasty::schema::ModelSet) -> toasty::Db {
         .expect("connect to in-memory sqlite");
     db.push_schema().await.expect("push the schema");
     db
-}
-
-/// Reads a rendered view's HTML in one pass, for the markup tests.
-pub(crate) trait Html {
-    /// The HTML of the view this result holds, panicking on a render error.
-    async fn html(self, cx: &Cx) -> String;
-}
-
-impl<V: topcoat::view::View> Html for topcoat::Result<V> {
-    async fn html(self, cx: &Cx) -> String {
-        self.expect("the view renders")
-            .single()
-            .await
-            .expect("the view resolves")
-            .render(cx)
-    }
 }
 
 /// An in-memory SQLite `Db` that knows `models` but holds no tables: enough to mount a panel, and

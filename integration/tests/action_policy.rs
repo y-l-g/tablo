@@ -216,3 +216,52 @@ async fn a_record_the_policy_refuses_to_run_on_has_no_button_and_is_skipped() {
     assert!(closed(&db, open.id).await, "the allowed record is written");
     assert!(!closed(&db, locked.id).await, "the refused one is not");
 }
+
+/// Allows every ability, but none on the ticket titled "Locked", which may only be listed.
+fn locked_away(_cx: &Cx, ability: Ability<'_, Ticket>) -> bool {
+    match ability {
+        Ability::View(ticket) | Ability::Update(ticket) | Ability::Delete(ticket) => {
+            ticket.title != "Locked"
+        }
+        Ability::Run { record, .. } => record.title != "Locked",
+        _ => true,
+    }
+}
+
+/// A row's menu, like its buttons, holds no write its record's policy refuses.
+#[tokio::test]
+async fn a_refused_rows_menu_holds_no_write() {
+    let db = db().await;
+    let open = seed(&db, "Open").await;
+    let locked = seed(&db, "Locked").await;
+    let router = mount(
+        db.clone(),
+        panel().resource_with::<TicketResource>(|def| {
+            def.policy(locked_away).table(
+                Table::new(TextColumn::new(lens!(Ticket.title)))
+                    .action_layout(tablo::ActionLayout::Menu),
+            )
+        }),
+    )
+    .expect("panel builds");
+
+    let html = body_string(get(&router, "/admin/tickets").await).await;
+    assert!(
+        html.contains("Locked"),
+        "the refused row still lists: {html}"
+    );
+    for write in [
+        format!("/admin/tickets/{}/edit", open.id),
+        format!("/admin/tickets/{}/delete", open.id),
+        row_close(&open),
+    ] {
+        assert!(html.contains(&write), "the open row offers {write}: {html}");
+    }
+    let locked_id = locked.id.to_string();
+    assert!(
+        !html.contains(&format!("{locked_id}/edit"))
+            && !html.contains(&format!("{locked_id}/delete"))
+            && !html.contains(&row_close(&locked)),
+        "the locked row's menu holds no write: {html}"
+    );
+}

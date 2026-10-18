@@ -88,6 +88,33 @@ async fn only_customer(db: &Db) -> Customer {
     all.remove(0)
 }
 
+/// The browser neither validates nor posts a hidden field: its fieldset is disabled exactly while
+/// the condition hides it.
+#[tokio::test]
+async fn a_hidden_field_renders_in_a_disabled_fieldset() {
+    let (db, router) = customers().await;
+    let client = TestClient::new(&router);
+    let vat_fieldset = |html: &str| {
+        let input = html.find("name=\"vat\"").expect("the vat input");
+        let start = html[..input].rfind("<fieldset").expect("its fieldset");
+        html[start..start + html[start..].find('>').unwrap()].to_string()
+    };
+
+    let create = body_string(client.get("/admin/customers/-/create").await).await;
+    assert!(vat_fieldset(&create).contains(" disabled"), "{create}");
+
+    let response = client
+        .submit(
+            "/admin/customers/-/create",
+            "name=Acme&kind=company&vat=FR1",
+        )
+        .await;
+    assert!(response.status().is_redirection());
+    let edit = format!("/admin/customers/{}/edit", only_customer(&db).await.id);
+    let html = body_string(client.get(&edit).await).await;
+    assert!(!vat_fieldset(&html).contains(" disabled"), "{html}");
+}
+
 /// A create that hides the field drops its posted key: the field takes its blank answer, and a
 /// create that shows it writes the posted value.
 #[tokio::test]

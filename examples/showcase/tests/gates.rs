@@ -854,6 +854,18 @@ async fn anonymous_requests_are_gated_on_every_route() {
         401,
         "an anonymous page re-run must answer 401, not a redirect"
     );
+    // A shard's path is fixed, so the refusal is all that keeps it from being probed.
+    let shard = http::Request::builder()
+        .method(http::Method::POST)
+        .uri("/_topcoat/runtime/shards/tablo-live-toaster")
+        .header(http::header::CONTENT_TYPE, "application/json")
+        .body(topcoat::router::Body::from("{}"))
+        .unwrap();
+    assert_eq!(
+        router.handle(shard).await.status(),
+        401,
+        "an anonymous shard request must answer 401, not a redirect"
+    );
 }
 
 /// The posts of every tenant still in draft.

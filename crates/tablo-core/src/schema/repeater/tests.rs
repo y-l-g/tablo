@@ -1,9 +1,5 @@
 use super::*;
-use crate::{
-    schema::{Field, Source},
-    test_support::Html,
-    values::FieldErrorKind,
-};
+use crate::{schema::Field, values::FieldErrorKind};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, crate::Options)]
 enum Kind {
@@ -155,42 +151,6 @@ fn a_refusal_names_the_key_its_row_posts() {
 }
 
 #[tokio::test]
-async fn the_repeater_renders_a_row_per_item_and_a_blank_row_to_copy() {
-    let cx = crate::test_support::cx();
-    let values = FormValues::from_iter([(
-        "links",
-        write_items(&[link("Docs", "https://docs.example"), link("Blog", "")]),
-    )]);
-    let mut errors = crate::values::FieldErrors::new();
-    errors.push(FieldError::required("links.1.label"));
-    let html = repeater()
-        .render(&cx, Source::form(&values, &errors).scoped("dialog"))
-        .await
-        .html(&cx)
-        .await;
-    for needle in [
-        r#"data-repeater="links""#,
-        r#"data-repeater-next="2""#,
-        r#"name="links" value="0,1""#,
-        r#"name="links.0.label""#,
-        r#"id="dialog-links.0.label""#,
-        r#"value="https://docs.example""#,
-        r#"id="dialog-links.1.label-error""#,
-        "Label is required",
-        r#"name="links.__row__.url""#,
-        r#"data-repeater-row="__row__""#,
-        "Add item",
-    ] {
-        assert!(html.contains(needle), "no {needle} in {html}");
-    }
-    let template = &html[html.find("<template").unwrap()..];
-    assert!(
-        !template.contains("is required"),
-        "the blank row carries no error: {template}"
-    );
-}
-
-#[tokio::test]
 async fn each_row_answers_to_its_items_control_rules() {
     let cx = crate::test_support::cx();
     let schema = repeater();
@@ -212,9 +172,9 @@ async fn each_row_answers_to_its_items_control_rules() {
     );
 }
 
-#[tokio::test]
-async fn a_repeater_hidden_by_a_condition_posts_nothing() {
-    let cx = crate::test_support::cx();
+/// A condition hides the repeater as one field, so the parse drops every row key it posts.
+#[test]
+fn a_repeater_hidden_by_a_condition_posts_nothing() {
     let shown = Field::choice(Page::fields().shown()).options(["yes", "no"]);
     let links = Field::repeater(Page::fields().links()).visible_when(&shown, ["yes"]);
     let schema = Schema::new((shown, links));
@@ -223,20 +183,6 @@ async fn a_repeater_hidden_by_a_condition_posts_nothing() {
         ("links", write_items(&[link("Docs", "")])),
     ]);
     assert!(schema.hidden_fields(&values).contains("links"));
-    let errors = crate::values::FieldErrors::new();
-    let html = schema
-        .render(&cx, Source::form(&values, &errors))
-        .await
-        .html(&cx)
-        .await;
-    let own = html[..html.find("data-repeater=").unwrap()]
-        .rfind("<fieldset")
-        .unwrap();
-    let guard = &html[html[..own].rfind("<fieldset").unwrap()..own];
-    assert!(
-        guard.contains("disabled") && guard.contains("hidden"),
-        "the guard disables the rows: {guard}"
-    );
 }
 
 #[test]
@@ -261,36 +207,4 @@ fn the_column_lists_each_item_as_label_value_pairs() {
         crate::table::Column::text(&column, &cx, &page),
         "Label: Guide, Url: https://docs.example, Kind: Docs; Label: Notes, Url: , Kind: Blog"
     );
-}
-
-/// The add button's opening tag in `html`.
-fn add_button(html: &str) -> &str {
-    let at = html.find("data-repeater-add").expect("an add button");
-    let start = html[..at].rfind("<button").expect("a button tag");
-    &html[start..at + html[at..].find('>').expect("the tag ends")]
-}
-
-/// A repeater holding as many rows as it takes renders its add button disabled, and names the
-/// cap the script keeps it at.
-#[tokio::test]
-async fn a_full_repeater_disables_its_add_button() {
-    let cx = crate::test_support::cx();
-    for (count, disabled) in [(MAX_ROWS - 1, false), (MAX_ROWS, true)] {
-        let items = vec![link("Docs", ""); count];
-        let values = FormValues::from_iter([("links", write_items(&items))]);
-        let html = repeater()
-            .render(
-                &cx,
-                Source::form(&values, &crate::values::FieldErrors::new()),
-            )
-            .await
-            .html(&cx)
-            .await;
-        assert!(html.contains(&format!(r#"data-repeater-max="{MAX_ROWS}""#)));
-        let tag = add_button(&html);
-        let attribute = tag
-            .split(' ')
-            .any(|part| part == "disabled" || part.starts_with("disabled="));
-        assert_eq!(attribute, disabled, "{count} rows: {tag}");
-    }
 }

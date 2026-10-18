@@ -1,340 +1,9 @@
 use super::*;
 use crate::{
     Ability, ResourceDef, lens,
-    panel::test_support::{Dummy, dummy_table, mount, panel_for},
     table::TextColumn,
-    test_support::{User, memory_db, tableless_db},
+    test_support::{User, tableless_db},
 };
-
-/// Renders the list body with one seeded row.
-async fn list_html<R: Resource>() -> String {
-    list_html_with::<R>(&["Ada"]).await
-}
-
-/// Renders the list body with the named rows seeded in order.
-async fn list_html_with<R: Resource>(names: &[&str]) -> String {
-    list_html_via(names, panel_for::<R>).await
-}
-
-/// Renders the list body of the panel `panel` builds over a db seeded with `names`.
-async fn list_html_via(names: &[&str], panel: fn() -> crate::Panel) -> String {
-    use http_body_util::BodyExt;
-
-    let mut db = memory_db(toasty::models!(Dummy)).await;
-    for name in names {
-        toasty::create!(Dummy {
-            name: (*name).to_string(),
-        })
-        .exec(&mut db)
-        .await
-        .unwrap();
-    }
-    let router = mount(db, panel()).expect("panel builds");
-    let resp = router
-        .handle(
-            http::Request::builder()
-                .uri("/admin/dummies")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await;
-    assert!(resp.status().is_success());
-    let body = resp.into_body().collect().await.unwrap().to_bytes();
-    String::from_utf8_lossy(&body).to_string()
-}
-
-/// Asserts two lists declare distinct signal ids.
-#[tokio::test]
-async fn two_lists_declare_distinct_signal_ids() {
-    use http_body_util::BodyExt;
-
-    use crate::resource::Resource;
-
-    macro_rules! list_resource {
-        ($name:ident, $slug:literal) => {
-            struct $name;
-            impl Resource for $name {
-                type Model = Dummy;
-                type Form = crate::NoForm<Self::Model>;
-
-                fn declare() -> ResourceDef<Self> {
-                    ResourceDef::new()
-                        .slug($slug)
-                        .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny))
-                        .table(dummy_table().paginate(25))
-                }
-            }
-        };
-    }
-    list_resource!(FirstResource, "firsts");
-    list_resource!(SecondResource, "seconds");
-
-    let db = memory_db(toasty::models!(Dummy)).await;
-    // The shell's sidebar signals match on every page; a bare layout leaves only the tables' own.
-    fn bare<'a>(_cx: &'a Cx, slot: topcoat::router::Slot<'a>) -> topcoat::view::BoxView<'a> {
-        topcoat::view::ViewExt::boxed(slot)
-    }
-    let router = mount(
-        db,
-        crate::Panel::new("admin")
-            .resource::<FirstResource>()
-            .resource::<SecondResource>()
-            .auth(crate::Auth::disabled())
-            .layout(bare),
-    )
-    .expect("panel builds");
-    let mut ids = Vec::new();
-    for uri in ["/admin/firsts", "/admin/seconds"] {
-        let resp = router
-            .handle(
-                http::Request::builder()
-                    .uri(uri)
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await;
-        let body = resp.into_body().collect().await.unwrap().to_bytes();
-        let html = String::from_utf8_lossy(&body).to_string();
-        let page: std::collections::HashSet<String> = html
-            .split("&quot;id&quot;:&quot;")
-            .skip(1)
-            .filter_map(|rest| rest.split("&quot;").next().map(str::to_string))
-            .collect();
-        assert!(
-            !page.is_empty(),
-            "{uri} must declare its table signals, got {html}"
-        );
-        ids.push(page);
-    }
-    assert!(
-        ids[0].is_disjoint(&ids[1]),
-        "two lists share signal ids {:?}",
-        ids[0].intersection(&ids[1]).collect::<Vec<_>>()
-    );
-}
-
-/// A list reads its state from its query signal: a rerun carrying another query renders that
-/// query's rows, whatever the URL says.
-#[tokio::test]
-async fn a_rerun_renders_the_query_its_signal_carries() {
-    use http_body_util::BodyExt;
-
-    struct SearchResource;
-    impl Resource for SearchResource {
-        type Model = Dummy;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("dummies")
-                .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny))
-                .table(crate::table::Table::new(
-                    TextColumn::new(lens!(Dummy.name)).searchable(),
-                ))
-        }
-    }
-
-    let mut db = memory_db(toasty::models!(Dummy)).await;
-    for name in ["Ada", "Bob"] {
-        toasty::create!(Dummy {
-            name: name.to_string(),
-        })
-        .exec(&mut db)
-        .await
-        .unwrap();
-    }
-    let router = mount(db, panel_for::<SearchResource>()).expect("panel builds");
-    let read = |resp: http::Response<Body>| async move {
-        let body = resp.into_body().collect().await.unwrap().to_bytes();
-        String::from_utf8_lossy(&body).to_string()
-    };
-
-    let html = read(
-        router
-            .handle(
-                http::Request::builder()
-                    .uri("/admin/dummies?q=Bob")
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await,
-    )
-    .await;
-    assert!(html.contains(">Bob<") && !html.contains(">Ada<"), "{html}");
-    let declaration = html
-        .split("::topcoat::signal(")
-        .skip(1)
-        .find(|declaration| declaration.contains("&quot;v&quot;:&quot;q=Bob&quot;"))
-        .unwrap_or_else(|| panic!("the page must declare its query signal, got {html}"));
-    let id = declaration
-        .split("&quot;id&quot;:&quot;")
-        .nth(1)
-        .and_then(|rest| rest.split("&quot;").next())
-        .expect("a signal id");
-
-    let rerun = read(
-        router
-            .handle(
-                http::Request::builder()
-                    .method(http::Method::POST)
-                    .uri("/admin/dummies?q=Bob")
-                    .header("X-Topcoat-Runtime", "true")
-                    .header(http::header::CONTENT_TYPE, "application/json")
-                    .body(Body::from(format!(r#"{{"signals":{{"{id}":"q=Ada"}}}}"#)))
-                    .unwrap(),
-            )
-            .await,
-    )
-    .await;
-    assert!(
-        rerun.contains(">Ada<") && !rerun.contains(">Bob<"),
-        "{rerun}"
-    );
-}
-
-#[tokio::test]
-async fn read_only_resource_hides_delete_chrome() {
-    use http_body_util::BodyExt;
-
-    use crate::resource::Resource;
-
-    struct ReadOnlyResource;
-    impl Resource for ReadOnlyResource {
-        type Model = Dummy;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("dummies")
-                .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny))
-                .table(dummy_table().paginate(25))
-        }
-    }
-
-    let mut db = memory_db(toasty::models!(Dummy)).await;
-    toasty::create!(Dummy {
-        name: "Ada".to_string(),
-    })
-    .exec(&mut db)
-    .await
-    .unwrap();
-    let router = mount(db, panel_for::<ReadOnlyResource>()).expect("panel builds");
-    let resp = router
-        .handle(
-            http::Request::builder()
-                .uri("/admin/dummies")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await;
-    assert!(resp.status().is_success());
-    let body = resp.into_body().collect().await.unwrap().to_bytes();
-    let html = String::from_utf8_lossy(&body);
-    assert!(
-        html.contains("Ada"),
-        "the grid must render the seeded row, or the negative assertions below are vacuous, got {html}"
-    );
-    assert!(
-        !html.contains("Delete selected"),
-        "read-only list must not render bulk chrome, got {html}"
-    );
-    assert!(
-        !html.contains("/delete"),
-        "read-only list must not render delete actions, got {html}"
-    );
-    // the read-only example must not emit an Edit link it cannot
-    // honour — it has no record form and allows no delete.
-    assert!(
-        !html.contains("/edit") && !html.contains(">Edit<"),
-        "read-only list must not render edit actions, got {html}"
-    );
-}
-
-#[tokio::test]
-async fn non_editable_resource_hides_edit_links() {
-    // The per-row Edit link follows the record form: a `NoForm` resource
-    // hides it, a resource with a form links each row to
-    // `{list}/{id}/edit`.
-
-    use crate::resource::Resource;
-
-    struct WritableResource;
-    impl Resource for WritableResource {
-        type Model = Dummy;
-        type Form = WritableForm;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("dummies")
-                // The row policy mirrors the edit route's own `View`
-                // + `Update` check, so a form beside default-deny predicates
-                // renders no link.
-                .policy_fn(|_cx, ability| {
-                    matches!(
-                        ability,
-                        Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)
-                    )
-                })
-                .table(dummy_table().paginate(25))
-        }
-    }
-    #[derive(crate::RecordForm)]
-    #[form(model = Dummy)]
-    struct WritableForm {
-        name: String,
-    }
-    // A form the policy never lets anyone update links no row either.
-    struct DeniedResource;
-    impl Resource for DeniedResource {
-        type Model = Dummy;
-        type Form = WritableForm;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("dummies")
-                .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny))
-                .table(dummy_table().paginate(25))
-        }
-    }
-    struct LockedResource;
-    impl Resource for LockedResource {
-        type Model = Dummy;
-        type Form = crate::NoForm<Self::Model>;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("dummies")
-                .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny))
-                .table(dummy_table().paginate(25))
-        }
-    }
-
-    let html = list_html::<WritableResource>().await;
-    assert!(
-        html.contains("/edit") && html.contains("aria-label=\"Edit\""),
-        "editable list must link rows to their edit pages, got {html}"
-    );
-    // The row and Create links navigate through the runtime, and the
-    // panel's router turns prefetching off.
-    assert!(
-        html.contains("data-topcoat-link=\"never\"")
-            && !html.contains("data-topcoat-link=\"intent\""),
-        "panel links must use runtime navigation without prefetch, got {html}"
-    );
-    for html in [
-        list_html::<LockedResource>().await,
-        list_html::<DeniedResource>().await,
-    ] {
-        assert!(
-            html.contains("Ada"),
-            "the row renders, or the assertion below is vacuous, got {html}"
-        );
-        assert!(
-            !html.contains("/edit") && !html.contains(">Edit<"),
-            "a list whose rows cannot be edited renders no edit link, got {html}"
-        );
-    }
-}
 
 #[test]
 fn retry_url_for_error_drops_only_bad_cursors() {
@@ -400,5 +69,30 @@ async fn wired_table_carries_the_declared_action_chrome() {
         wired.page_size(),
         declared.table.page_size(),
         "wired_table must keep the declared page size"
+    );
+}
+
+/// A misdeclared table fails to render, naming what is wrong, rather than render columns that lie.
+#[tokio::test]
+async fn a_misdeclared_table_fails_to_render() {
+    let table = crate::Table::<User>::new((
+        TextColumn::new(lens!(User.name)),
+        TextColumn::new(lens!(User.name)),
+    ))
+    .wired();
+    let cx = topcoat::context::CxTestBuilder::new().build();
+    let view = crate::topcoat_compat::async_page(async {
+        let signals = TableSignals::new(&cx, None);
+        let page = crate::table::TablePage::<User>::from(vec![]);
+        table
+            .render_page(&cx, page, &crate::TableState::default(), "", &signals)
+            .await
+    });
+    let Err(error) = view.single().await else {
+        panic!("a misdeclared table must not render");
+    };
+    assert!(
+        error.to_string().contains("two columns are named 'name'"),
+        "a duplicate column must name the field, got {error}"
     );
 }

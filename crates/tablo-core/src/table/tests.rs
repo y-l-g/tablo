@@ -5,7 +5,7 @@ use super::*;
 use crate::{
     ComputedColumn, lens,
     table::{SelectFilter, Sort, TablePage, TableState, TernaryFilter, TextColumn},
-    test_support::{Html as _, User, memory_db},
+    test_support::{User, memory_db},
 };
 
 #[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
@@ -346,26 +346,18 @@ fn ternary_all_is_a_neutral_noop_not_an_invalid_value() {
     );
 }
 
-#[tokio::test]
-async fn filter_banner_reports_unfiltered_when_nothing_applies() {
-    let cx = CxTestBuilder::new().build();
+/// A request whose every filter is ignored lists the table unfiltered, which the list's banner
+/// says; one that names a valid filter beside them still filters.
+#[test]
+fn ignored_filters_alone_leave_the_table_unfiltered() {
     let tbl = status_table();
-    let render_banner = async |pairs: &[(&str, &str)]| {
-        let page = crate::table::TablePage::<Task>::from(vec![]);
-        tbl.render_with_state(&cx, page, &filters_state(pairs), "/admin/tasks")
-            .await
-            .html(&cx)
-            .await
-    };
-    let html = render_banner(&[("status", "typo")]).await;
     assert!(
-        html.contains("showing unfiltered results"),
-        "invalid-only banner must admit unfiltered, got {html}"
+        tbl.filter_expr(&filters_state(&[("status", "typo")]))
+            .is_none()
     );
-    let html = render_banner(&[("status", "published"), ("bogus", "x")]).await;
     assert!(
-        html.contains("other filter(s) still apply"),
-        "mixed banner keeps the tail, got {html}"
+        tbl.filter_expr(&filters_state(&[("status", "published"), ("bogus", "x")]))
+            .is_some()
     );
 }
 
@@ -455,23 +447,6 @@ fn a_filter_name_holding_a_dot_is_misdeclared() {
         [DeclarationErrorKind::DottedFilterName {
             name: "by.status".to_string()
         }]
-    );
-}
-
-#[tokio::test]
-async fn a_misdeclared_table_fails_to_render() {
-    let table = Table::<User>::new((
-        TextColumn::new(lens!(User.name)),
-        TextColumn::new(lens!(User.name)),
-    ));
-    let cx = CxTestBuilder::new().build();
-    let page = crate::table::TablePage::<User>::from(vec![]);
-    let Err(error) = table.render(&cx, page).await else {
-        panic!("a misdeclared table must not render");
-    };
-    assert!(
-        error.to_string().contains("two columns are named 'name'"),
-        "a duplicate column must name the field, got {error}"
     );
 }
 

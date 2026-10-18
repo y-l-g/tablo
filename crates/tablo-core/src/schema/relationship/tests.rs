@@ -2,12 +2,7 @@ use toasty::stmt::{List, Query};
 use topcoat::context::{Cx, CxTestBuilder};
 
 use super::*;
-use crate::{
-    Ability,
-    schema::Field,
-    test_support::{Html as _, memory_db},
-    values::FormValues,
-};
+use crate::{Ability, schema::Field, test_support::memory_db, values::FormValues};
 
 /// Reports what a submit's option check says for one choice.
 async fn check(field: &Field, cx: &Cx, value: &str) -> Vec<String> {
@@ -129,16 +124,6 @@ async fn relationship_loader_fails_past_option_cap() {
         errs.iter().any(|e| e.contains("could not load options")),
         "overflow must surface retry error, got {errs:?}"
     );
-    // An overflowed load keeps the stored FK selectable.
-    let html = select
-        .render(&cx, Some("stored-fk"), None)
-        .await
-        .html(&cx)
-        .await;
-    assert!(
-        html.contains("value=\"stored-fk\""),
-        "over-cap render must keep the stored value: {html}"
-    );
 }
 
 #[tokio::test]
@@ -181,14 +166,16 @@ async fn relationship_option_values_are_primary_keys_not_table_ids() {
         check(&select, &cx, "Ada").await,
         vec!["Name is invalid".to_string()]
     );
-    let html = select.render(&cx, Some(&pk), None).await.html(&cx).await;
-    assert!(
-        html.contains(&format!("value=\"{pk}\"")),
-        "option value must be the PK, got {html}"
-    );
-    assert!(
-        !html.contains("value=\"Ada\""),
-        "the label leaked into option values: {html}"
+    let options = select
+        .as_choice()
+        .expect("a choice")
+        .search_options(&cx, "", None)
+        .await
+        .unwrap();
+    assert_eq!(
+        options,
+        [(pk, "Ada".to_string())],
+        "a row's value is its key"
     );
 }
 
@@ -210,30 +197,14 @@ async fn relationship_load_fails_closed_when_view_any_is_refused() {
         check(&select, &cx, &pk).await,
         vec!["Id is not available".to_string()]
     );
-    let html = select.render(&cx, Some(&pk), None).await.html(&cx).await;
-    assert!(
-        !html.contains("Ada"),
-        "denied labels must not render: {html}"
-    );
-    assert!(
-        !html.contains(&pk),
-        "denied values must not render either: {html}"
-    );
-    // The empty select explains itself on GET.
-    assert!(
-        html.contains("Id is not available") && html.contains(r#"data-error="unavailable""#),
-        "denied render must show the form-level error: {html}"
-    );
-    // The submit's refusal re-renders over the same denied load, which still names the slot.
-    let refused = crate::values::FieldError::invalid("id", "Id is not available");
-    let html = select
-        .render(&cx, Some(&pk), Some(&refused))
-        .await
-        .html(&cx)
-        .await;
-    assert!(
-        html.contains(r#"data-error="unavailable""#),
-        "a refused submission of a denied choice still reads unavailable: {html}"
+    assert_eq!(
+        select
+            .as_choice()
+            .expect("a choice")
+            .search_options(&cx, "", None)
+            .await,
+        Err(OptionLoadError::Denied),
+        "the load offers no row, so no label or key leaks"
     );
 }
 
@@ -296,16 +267,13 @@ async fn relationship_load_filters_rows_by_view() {
         check(&select, &cx, &hidden.id.to_string()).await,
         vec!["Id is invalid".to_string()]
     );
-    let html = select
-        .render(&cx, Some(&visible.id.to_string()), None)
+    let options = select
+        .as_choice()
+        .expect("a choice")
+        .search_options(&cx, "", None)
         .await
-        .html(&cx)
-        .await;
-    assert!(html.contains("Visible"), "viewable row must render: {html}");
-    assert!(
-        !html.contains("Hidden"),
-        "a row `View` refuses must not render: {html}"
-    );
+        .unwrap();
+    assert_eq!(options, [(visible.id.to_string(), "Visible".to_string())]);
 }
 
 #[tokio::test]
@@ -340,7 +308,8 @@ async fn relationship_cap_counts_raw_rows_not_viewable_ones() {
 
 #[tokio::test]
 async fn relationship_can_view_filtering_out_every_row_yields_invalid() {
-    // A row `View` refuses is absent from options, validation, and re-render.
+    // A row `View` refuses is absent from validation; the integration suite's
+    // `relationship_options` shows it absent from the form.
 
     let mut db = memory_db(toasty::models!(PolicyAuthor)).await;
     let hidden = toasty::create!(PolicyAuthor {
@@ -355,11 +324,6 @@ async fn relationship_can_view_filtering_out_every_row_yields_invalid() {
     assert_eq!(
         check(&select, &cx, &pk).await,
         vec!["Id is invalid".to_string()]
-    );
-    let html = select.render(&cx, Some(&pk), None).await.html(&cx).await;
-    assert!(
-        !html.contains("Hidden") && !html.contains(&pk),
-        "filtered-out stored value must not render: {html}"
     );
 }
 
@@ -410,11 +374,10 @@ async fn relationship_options_share_one_load_per_request_and_tenant() {
     OPTION_LOADS.store(0, Ordering::SeqCst);
     assert!(check(&s1, &cx, &id).await.is_empty());
     assert!(check(&s2, &cx, &id).await.is_empty());
-    let _ = s1.render(&cx, Some(&id), None).await.html(&cx).await;
     assert_eq!(
         OPTION_LOADS.load(Ordering::SeqCst),
         1,
-        "two selects + re-render must share one load"
+        "two selects must share one load"
     );
 
     // Same cache, other tenant → separate load (no cross-tenant sharing).
@@ -667,124 +630,6 @@ async fn relationship_overflowed_searchable_validates_via_targeted_check() {
     assert_eq!(
         check(&plain, &cx, &visible_pk).await,
         vec!["Name could not load options, retry".to_string()]
-    );
-}
-
-#[tokio::test]
-async fn relationship_overflowed_searchable_renders_hint_and_keeps_value() {
-    // Over-cap searchable renders the stored value, the search input, and the hint.
-
-    #[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
-    struct HintRef {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        name: String,
-    }
-    struct HintRefSource;
-    impl OptionSource for HintRefSource {
-        type Model = HintRef;
-        fn label(_cx: &Cx, record: &HintRef) -> String {
-            record.name.clone()
-        }
-        fn scoped_query(_cx: &Cx) -> Result<Query<List<HintRef>>> {
-            Ok(Query::all())
-        }
-        fn allows(_cx: &Cx, ability: Ability<'_, HintRef>) -> bool {
-            ability.is_read()
-        }
-        fn search_expr(_cx: &Cx, term: &str) -> Option<Expr<bool>> {
-            name_search_expr(HintRef::fields().name(), term)
-        }
-    }
-
-    let mut db = memory_db(toasty::models!(HintRef)).await;
-    for i in 0..=MAX_RELATIONSHIP_OPTIONS {
-        toasty::create!(HintRef {
-            name: format!("author-{i}"),
-        })
-        .exec(&mut db)
-        .await
-        .unwrap();
-    }
-    let cx = CxTestBuilder::new().app_context(db).build();
-    let select = Field::choice(HintRef::fields().name())
-        .searchable()
-        .relationship::<HintRefSource>();
-    let html = select
-        .render(&cx, Some("stored-fk"), None)
-        .await
-        .html(&cx)
-        .await;
-    assert!(
-        html.contains("value=\"stored-fk\""),
-        "overflow must keep stored value: {html}"
-    );
-    assert!(
-        html.contains("Too many options — type to search"),
-        "overflow searchable must hint: {html}"
-    );
-    assert!(
-        html.contains("data-options-server"),
-        "overflow searchable must flag server fetch: {html}"
-    );
-    assert!(
-        html.contains("data-options-field"),
-        "server fetch needs the field name: {html}"
-    );
-}
-
-#[tokio::test]
-async fn relationship_bounded_searchable_keeps_client_filter() {
-    // Bounded searchable sets filter in the browser; the server flag is overflow-only.
-
-    #[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
-    struct SmallRef {
-        #[key]
-        #[auto]
-        id: uuid::Uuid,
-        name: String,
-    }
-    struct SmallRefSource;
-    impl OptionSource for SmallRefSource {
-        type Model = SmallRef;
-        fn label(_cx: &Cx, record: &SmallRef) -> String {
-            record.name.clone()
-        }
-        fn scoped_query(_cx: &Cx) -> Result<Query<List<SmallRef>>> {
-            Ok(Query::all())
-        }
-        fn allows(_cx: &Cx, ability: Ability<'_, SmallRef>) -> bool {
-            ability.is_read()
-        }
-        fn search_expr(_cx: &Cx, term: &str) -> Option<Expr<bool>> {
-            name_search_expr(SmallRef::fields().name(), term)
-        }
-    }
-
-    let mut db = memory_db(toasty::models!(SmallRef)).await;
-    toasty::create!(SmallRef {
-        name: "Ada".to_string(),
-    })
-    .exec(&mut db)
-    .await
-    .unwrap();
-    let cx = CxTestBuilder::new().app_context(db).build();
-    let select = Field::choice(SmallRef::fields().name())
-        .searchable()
-        .relationship::<SmallRefSource>();
-    let html = select.render(&cx, None, None).await.html(&cx).await;
-    assert!(
-        html.contains("data-options-filter"),
-        "bounded searchable keeps the client filter input: {html}"
-    );
-    assert!(
-        !html.contains("data-options-server"),
-        "bounded searchable must not flag server fetch: {html}"
-    );
-    assert!(
-        !html.contains("Too many options"),
-        "bounded searchable must not hint: {html}"
     );
 }
 

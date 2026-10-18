@@ -497,15 +497,3 @@ impl<P: Page> Registration for PageRegistration<P> {
         }
     }
 }
-
-#[cfg(test)]
-impl super::Panel {
-    /// Runs the panel's registrations with no app schema, as mounting does first.
-    pub(super) fn registered(self) -> Registry {
-        let mut registry = Registry::new(self.prefix, None);
-        for registration in self.registrations {
-            registration.register(&mut registry);
-        }
-        registry
-    }
-}

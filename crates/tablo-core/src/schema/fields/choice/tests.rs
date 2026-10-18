@@ -5,9 +5,9 @@ use topcoat::context::{Cx, CxTestBuilder};
 
 use crate::{
     Ability, DeclarationErrorKind,
-    schema::{ChoiceField, Field, OptionSource, Schema, Source, fields::Placement},
-    test_support::{Html as _, memory_db},
-    values::{FieldErrors, FormValue, FormValues},
+    schema::{ChoiceField, Field, OptionSource, Schema},
+    test_support::memory_db,
+    values::FormValue,
 };
 
 #[derive(Debug, toasty::Model, Clone)]
@@ -101,47 +101,6 @@ async fn world() -> World {
         paris,
         berlin,
     }
-}
-
-async fn render(world: &World, values: &FormValues) -> String {
-    let country = country();
-    let city = city(&country);
-    let errors = FieldErrors::new();
-    Schema::new((country, city))
-        .render(&world.cx, Source::form(values, &errors))
-        .await
-        .html(&world.cx)
-        .await
-}
-
-/// The city select offers the chosen country's cities, and none before a country is chosen.
-#[tokio::test]
-async fn a_dependent_choice_offers_the_rows_of_its_parent_value() {
-    let world = world().await;
-    let html = render(
-        &world,
-        &FormValues::from_iter([("country_id".to_string(), world.france.clone())]),
-    )
-    .await;
-    assert!(
-        html.contains("Paris"),
-        "the parent's row is offered: {html}"
-    );
-    assert!(
-        !html.contains("Berlin"),
-        "another parent's row is not: {html}"
-    );
-    assert!(
-        html.contains("data-options-parent=\"country_id\"")
-            && html.contains(&format!("data-options-parent-value=\"{}\"", world.france)),
-        "the script learns what to refetch on: {html}"
-    );
-
-    let html = render(&world, &FormValues::new()).await;
-    assert!(
-        !html.contains("Paris") && !html.contains("Berlin"),
-        "a blank parent offers no city: {html}"
-    );
 }
 
 /// A submission must name a row of the parent value it posts, at validation and in the write.
@@ -258,8 +217,7 @@ async fn a_choice_past_the_cap_keeps_its_stored_key() {
     );
 }
 
-/// Past the cap a searchable dependent choice checks the posted key among its parent's rows, and
-/// shows the type-to-search hint only while its parent's rows overflow.
+/// Past the cap a searchable dependent choice checks the posted key among its parent's rows.
 #[tokio::test]
 async fn a_searchable_dependent_choice_past_the_cap_checks_among_its_parent_rows() {
     let world = world().await;
@@ -291,66 +249,4 @@ async fn a_searchable_dependent_choice_past_the_cap_checks_among_its_parent_rows
         .await,
         ["City id is invalid"]
     );
-
-    let hint = async |parent: &str| {
-        let html = city
-            .render_under(
-                &world.cx,
-                None,
-                None,
-                Placement {
-                    parent: Some(parent),
-                    ..Placement::default()
-                },
-            )
-            .await
-            .html(&world.cx)
-            .await;
-        let start = html
-            .find("data-options-hint")
-            .expect("a searchable dependent renders it");
-        let tag = &html[html[..start].rfind('<').unwrap()..];
-        !tag[..tag.find('>').unwrap()].contains("hidden")
-    };
-    assert!(hint(&world.france).await, "France overflows the cap");
-    let germany = {
-        let mut db = crate::db::db(&world.cx);
-        let berlin: uuid::Uuid = world.berlin.parse().unwrap();
-        City::filter(City::fields().id().eq(berlin))
-            .first()
-            .exec(&mut db)
-            .await
-            .unwrap()
-            .unwrap()
-            .country_id
-            .to_string()
-    };
-    assert!(!hint(&germany).await, "Germany does not");
-
-    // In a form sharing its page, the choice carries its form's prefix and searches the route
-    // the form names.
-    let html = city
-        .render_under(
-            &world.cx,
-            None,
-            None,
-            Placement {
-                parent: Some(&world.france),
-                scope: "move",
-                options: Some("/admin/addresses/-/actions/move/options"),
-                editing: false,
-            },
-        )
-        .await
-        .html(&world.cx)
-        .await;
-    for expected in [
-        "data-options-url=\"/admin/addresses/-/actions/move/options\"",
-        "id=\"move-city_id\"",
-        "for=\"move-city_id\"",
-        "id=\"move-city_id-options-list\"",
-        "name=\"city_id\"",
-    ] {
-        assert!(html.contains(expected), "{expected} in {html}");
-    }
 }

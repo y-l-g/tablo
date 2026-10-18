@@ -8,13 +8,12 @@ use topcoat::{
 };
 
 use super::{
-    login::{GENERIC_ERROR, MAX_LOGIN_BYTES, login_post},
+    login::{GENERIC_ERROR, login_post},
     session::{SESSION_SWEEP_BATCH, sweep_expired_sessions, token_key},
     *,
 };
 use crate::{
-    Panel,
-    panel::{state::PanelState, test_support::mount},
+    panel::state::PanelState,
     test_support::{memory_db, tableless_db},
 };
 
@@ -329,94 +328,6 @@ async fn a_login_past_its_limit_is_refused_before_the_authenticator() {
     assert_eq!(counting.calls(), 2, "the authenticator is not asked");
 }
 
-/// A login POST to `router` from `client` for ada with `password`, answering its status.
-async fn sign_in_from(
-    router: &topcoat::router::Router,
-    client: [u8; 4],
-    password: &str,
-) -> http::StatusCode {
-    let token = Uuid::new_v4().to_string();
-    let mut request = login_request(
-        format!("email=ada@example.com&password={password}&csrf_token={token}"),
-        &token,
-    );
-    request
-        .extensions_mut()
-        .insert(topcoat::router::RemoteAddr(std::net::SocketAddr::from((
-            client, 4242,
-        ))));
-    router.handle(request).await.status()
-}
-
-/// The default throttle counts per address: a guesser elsewhere does not lock the owner out, and
-/// the owner's sign-in clears only the owner's count.
-#[tokio::test]
-async fn a_sign_in_clears_its_own_count_and_no_other() {
-    const OWNER: [u8; 4] = [192, 0, 2, 1];
-    const GUESSER: [u8; 4] = [198, 51, 100, 7];
-    let router = auth_router(db_with_admin("ada@example.com").await);
-    for _ in 0..5 {
-        assert_eq!(
-            sign_in_from(&router, GUESSER, "wrong").await,
-            http::StatusCode::FORBIDDEN
-        );
-    }
-    for _ in 0..4 {
-        sign_in_from(&router, OWNER, "wrong").await;
-    }
-    assert_eq!(
-        sign_in_from(&router, OWNER, "opensesame").await,
-        http::StatusCode::SEE_OTHER,
-        "the owner's fifth attempt signs in"
-    );
-    for _ in 0..4 {
-        sign_in_from(&router, OWNER, "wrong").await;
-    }
-    assert_eq!(
-        sign_in_from(&router, OWNER, "opensesame").await,
-        http::StatusCode::SEE_OTHER,
-        "the sign-in cleared the owner's count"
-    );
-    assert_eq!(
-        sign_in_from(&router, GUESSER, "opensesame").await,
-        http::StatusCode::FORBIDDEN,
-        "the guesser's count stays"
-    );
-}
-
-/// Builds a router for a password-auth panel over `db`.
-fn auth_router(db: Db) -> topcoat::router::Router {
-    mount(db, Panel::new("admin").auth(Auth::password())).expect("panel builds")
-}
-
-/// Builds a login POST carrying the CSRF cookie the double-submit check reads.
-fn login_request(body: String, csrf: &str) -> http::Request<Body> {
-    http::Request::builder()
-        .method(http::Method::POST)
-        .uri("/admin/login")
-        .header(
-            http::header::CONTENT_TYPE,
-            "application/x-www-form-urlencoded",
-        )
-        .header(
-            http::header::COOKIE,
-            format!("{}={csrf}", crate::csrf::COOKIE_NAME),
-        )
-        .body(Body::from(body))
-        .unwrap()
-}
-
-/// Reads the session token's `Set-Cookie` header, when the response set one.
-fn session_cookie(response: &http::Response<Body>) -> Option<String> {
-    response
-        .headers()
-        .get_all(http::header::SET_COOKIE)
-        .iter()
-        .filter_map(|value| value.to_str().ok())
-        .find(|value| value.starts_with("__Host-session="))
-        .map(str::to_string)
-}
-
 /// Builds a `Db` with pushed schema and one active admin.
 async fn db_with_admin(email: &str) -> Db {
     let mut db = memory_db(toasty::models!(AdminUser, AuthSession)).await;
@@ -433,157 +344,9 @@ async fn db_with_admin(email: &str) -> Db {
     db
 }
 
-/// A login body over the credential cap answers 413 and starts no session.
+/// One sweep, as one login runs, deletes at most [`SESSION_SWEEP_BATCH`] rows.
 #[tokio::test]
-async fn an_oversized_login_post_is_refused() {
-    let db = db_with_admin("ada@example.com").await;
-    let router = auth_router(db);
-
-    let token = Uuid::new_v4().to_string();
-    let oversized = format!(
-        "email={}&password=opensesame&csrf_token={token}",
-        "a".repeat(MAX_LOGIN_BYTES)
-    );
-    let resp = router.handle(login_request(oversized, &token)).await;
-    assert_eq!(
-        resp.status(),
-        http::StatusCode::PAYLOAD_TOO_LARGE,
-        "a login body over the credential cap must be refused, got {}",
-        resp.status()
-    );
-    assert!(
-        session_cookie(&resp).is_none(),
-        "a refused login must not start a session"
-    );
-
-    // A normal credential POST still signs in.
-    let token = Uuid::new_v4().to_string();
-    let resp = router
-        .handle(login_request(
-            format!("email=ada@example.com&password=opensesame&csrf_token={token}"),
-            &token,
-        ))
-        .await;
-    assert_eq!(
-        resp.status(),
-        http::StatusCode::SEE_OTHER,
-        "a normal credential POST must sign in, got {}",
-        resp.status()
-    );
-    assert!(
-        session_cookie(&resp).is_some(),
-        "a successful login starts a session"
-    );
-}
-
-/// Login sweeps every expired session row, whoever owns it.
-#[tokio::test]
-async fn login_sweeps_every_expired_session() {
-    let mut db = db_with_admin("ada@example.com").await;
-    let other = toasty::create!(AdminUser {
-        email: "grace@example.com".to_string(),
-        password_hash: hash_password("opensesame").await.expect("hash"),
-        display_name: "Grace".to_string(),
-        active: true,
-        created_at: Timestamp::now(),
-    })
-    .exec(&mut db)
-    .await
-    .expect("seed the other admin");
-    let ada = AdminUser::filter(
-        AdminUser::fields()
-            .email()
-            .eq("ada@example.com".to_string()),
-    )
-    .first()
-    .exec(&mut db)
-    .await
-    .expect("look up ada")
-    .expect("ada exists");
-    let expired = "2000-01-01T00:00:00Z"
-        .parse::<Timestamp>()
-        .expect("a past timestamp");
-    let live = "2100-01-01T00:00:00Z"
-        .parse::<Timestamp>()
-        .expect("a future timestamp");
-    for (token_hash, user_id, expires_at) in [
-        ("expired-mine", ada.id.to_string(), expired),
-        ("live-mine", ada.id.to_string(), live),
-        ("expired-other", other.id.to_string(), expired),
-    ] {
-        toasty::create!(AuthSession {
-            token_hash: token_hash.to_string(),
-            user_id,
-            panel: "/admin".to_string(),
-            expires_at,
-            created_at: Timestamp::now(),
-        })
-        .exec(&mut db)
-        .await
-        .expect("seed a session row");
-    }
-
-    let router = auth_router(db.clone());
-    let token = Uuid::new_v4().to_string();
-    let resp = router
-        .handle(login_request(
-            format!("email=ada@example.com&password=opensesame&csrf_token={token}"),
-            &token,
-        ))
-        .await;
-    assert_eq!(
-        resp.status(),
-        http::StatusCode::SEE_OTHER,
-        "the login must succeed"
-    );
-
-    let mut check = db.clone();
-    assert!(
-        AuthSession::filter(
-            AuthSession::fields()
-                .token_hash()
-                .eq("expired-mine".to_string())
-        )
-        .first()
-        .exec(&mut check)
-        .await
-        .expect("query")
-        .is_none(),
-        "the signing-in user's expired session must be purged"
-    );
-    let mut check = db.clone();
-    assert!(
-        AuthSession::filter(
-            AuthSession::fields()
-                .token_hash()
-                .eq("live-mine".to_string())
-        )
-        .first()
-        .exec(&mut check)
-        .await
-        .expect("query")
-        .is_some(),
-        "a live session of the same user survives the purge"
-    );
-    let mut check = db.clone();
-    assert!(
-        AuthSession::filter(
-            AuthSession::fields()
-                .token_hash()
-                .eq("expired-other".to_string())
-        )
-        .first()
-        .exec(&mut check)
-        .await
-        .expect("query")
-        .is_none(),
-        "the sweep does not wait for the expired row's owner to sign in"
-    );
-}
-
-/// One login sweeps at most [`SESSION_SWEEP_BATCH`] rows.
-#[tokio::test]
-async fn login_sweeps_at_most_a_batch() {
+async fn a_sweep_deletes_at_most_a_batch() {
     let mut db = db_with_admin("ada@example.com").await;
     let ada = AdminUser::filter(
         AdminUser::fields()
@@ -611,30 +374,11 @@ async fn login_sweeps_at_most_a_batch() {
     }
     seed.exec(&mut db).await.expect("seed the expired rows");
 
-    let router = auth_router(db.clone());
-    let token = Uuid::new_v4().to_string();
-    let resp = router
-        .handle(login_request(
-            format!("email=ada@example.com&password=opensesame&csrf_token={token}"),
-            &token,
-        ))
-        .await;
-    assert_eq!(
-        resp.status(),
-        http::StatusCode::SEE_OTHER,
-        "the login must succeed"
-    );
-
-    let mut check = db.clone();
-    let remaining = AuthSession::all()
-        .exec(&mut check)
+    sweep_expired_sessions(&login_cx(db.clone(), "token"))
         .await
-        .expect("query")
-        .len();
-    assert_eq!(
-        remaining, 2,
-        "one expired row past the batch, plus the session this login created"
-    );
+        .expect("the sweep runs");
+    let remaining = AuthSession::all().exec(&mut db).await.expect("query").len();
+    assert_eq!(remaining, 1, "one expired row past the batch");
 }
 
 /// A sweep failure answers the opaque sign-in copy with no driver text.
@@ -689,49 +433,6 @@ async fn a_driver_session_delete_failure_does_not_echo_driver_text() {
     assert!(
         !rendered.contains(&driver) && !rendered.contains("no such table"),
         "driver text must not reach the response: the driver said {driver:?}, the response said {rendered:?}"
-    );
-}
-
-/// An app route at the login path under a method the login routes do not serve.
-#[topcoat::router::route(PUT "/admin/login")]
-async fn app_put_at_the_login_path() -> topcoat::Result<&'static str> {
-    Ok("app route ran")
-}
-
-/// Admits only the login methods at the login path: a logged-out PUT stops at
-/// the gate.
-#[tokio::test]
-async fn the_login_bypass_is_scoped_to_the_login_methods() {
-    let db = db_with_admin("ada@example.com").await;
-    let router = auth_router(db);
-
-    let put = router
-        .handle(
-            http::Request::builder()
-                .method(http::Method::PUT)
-                .uri("/admin/login")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await;
-    assert_eq!(
-        put.status(),
-        http::StatusCode::UNAUTHORIZED,
-        "a logged-out PUT at the login path must stop at the gate"
-    );
-
-    let get = router
-        .handle(
-            http::Request::builder()
-                .uri("/admin/login")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await;
-    assert_eq!(
-        get.status(),
-        http::StatusCode::OK,
-        "the login page must still answer while logged out"
     );
 }
 
@@ -911,143 +612,4 @@ fn the_request_acts_for_the_selected_membership_else_the_first() {
     assert_eq!(membership(&cx), None);
     let cx = member_cx(&[a, b], None, Some(b));
     assert_eq!(membership(&cx).map(|m| m.tenant), Some(b));
-}
-
-/// A shard the portal declares, which renders for whoever its guard admits.
-#[topcoat::runtime::shard("/_topcoat/runtime/shards/tablo-test-portal-report")]
-async fn portal_report(cx: &Cx) -> topcoat::Result<impl topcoat::view::View> {
-    guard(cx)?;
-    Ok(topcoat::view::view! { "report" })
-}
-
-/// A router with two password panels over ada's account, the portal declaring `portal_report`.
-async fn two_panel_router() -> topcoat::router::Router {
-    two_panel_router_serving(topcoat::router::TrailingSlash::default()).await
-}
-
-/// [`two_panel_router`] answering the other trailing-slash form of each path as `trailing_slash`
-/// says.
-async fn two_panel_router_serving(
-    trailing_slash: topcoat::router::TrailingSlash,
-) -> topcoat::router::Router {
-    use topcoat::router::RouterBuilderDiscoverExt as _;
-
-    use crate::RouterBuilderPanelExt as _;
-
-    topcoat::router::Router::builder()
-        .trailing_slash(trailing_slash)
-        .discover()
-        .app_context(db_with_admin("ada@example.com").await)
-        .panel(Panel::new("admin"))
-        .expect("admin builds")
-        .panel(Panel::new("portal").endpoint(portal_report))
-        .expect("portal builds")
-        .build()
-}
-
-/// Signs ada in on the panel at `prefix`, answering the session cookie's `name=value`.
-async fn session_on(router: &topcoat::router::Router, prefix: &str) -> String {
-    let token = Uuid::new_v4().to_string();
-    let mut request = login_request(
-        format!("email=ada@example.com&password=opensesame&csrf_token={token}"),
-        &token,
-    );
-    *request.uri_mut() = format!("{prefix}/login").parse().unwrap();
-    let response = router.handle(request).await;
-    assert_eq!(response.status(), http::StatusCode::SEE_OTHER, "signs in");
-    let cookie = session_cookie(&response).expect("a session cookie");
-    cookie.split(';').next().unwrap().to_string()
-}
-
-/// A shard request carrying `cookie`.
-fn shard_request(path: &str, cookie: &str) -> http::Request<Body> {
-    http::Request::builder()
-        .method(http::Method::POST)
-        .uri(path)
-        .header(http::header::CONTENT_TYPE, "application/json")
-        .header(http::header::COOKIE, cookie)
-        .body(Body::from(r#"{"args":[]}"#.to_owned()))
-        .unwrap()
-}
-
-/// A shard a panel declares answers only that panel's sessions: a session the admin panel signed
-/// in is no session on the portal's shard, as it is none on the portal's pages (ADR-0013).
-#[tokio::test]
-async fn a_declared_shard_refuses_another_panels_session() {
-    let router = two_panel_router().await;
-    let path = "/_topcoat/runtime/shards/tablo-test-portal-report";
-
-    let admin = session_on(&router, "/admin").await;
-    let response = router.handle(shard_request(path, &admin)).await;
-    assert_eq!(response.status(), http::StatusCode::UNAUTHORIZED);
-
-    let portal = session_on(&router, "/portal").await;
-    let response = router.handle(shard_request(path, &portal)).await;
-    assert_eq!(response.status(), http::StatusCode::OK);
-}
-
-/// A router serving a path's trailing-slash twin serves a declared shard there too, and the twin
-/// refuses another panel's session as the declared path does.
-#[tokio::test]
-async fn a_declared_shard_refuses_another_panels_session_at_its_twin_path() {
-    let router = two_panel_router_serving(topcoat::router::TrailingSlash::Serve).await;
-    let path = "/_topcoat/runtime/shards/tablo-test-portal-report/";
-
-    let admin = session_on(&router, "/admin").await;
-    let response = router.handle(shard_request(path, &admin)).await;
-    assert_eq!(response.status(), http::StatusCode::UNAUTHORIZED);
-
-    let portal = session_on(&router, "/portal").await;
-    let response = router.handle(shard_request(path, &portal)).await;
-    assert_eq!(response.status(), http::StatusCode::OK);
-}
-
-/// A shard no panel declares answers every panel's sessions: the live toaster serves them all.
-#[tokio::test]
-async fn an_undeclared_shard_admits_every_panels_session() {
-    let router = two_panel_router().await;
-    for prefix in ["/admin", "/portal"] {
-        let cookie = session_on(&router, prefix).await;
-        let response = router
-            .handle(shard_request(
-                crate::notification::LIVE_TOASTER_PATH,
-                &cookie,
-            ))
-            .await;
-        assert_ne!(
-            response.status(),
-            http::StatusCode::UNAUTHORIZED,
-            "{prefix}"
-        );
-    }
-}
-
-/// Revokes the signed-in user's sessions from the admin panel, as an app's own password change
-/// does.
-#[topcoat::router::route(POST "/admin/tablo-test-revoke")]
-async fn revoke_own_sessions(cx: &Cx) -> topcoat::Result<&'static str> {
-    let id = require_user::<AdminUser>(cx)?.user_id();
-    revoke_sessions_for_user(cx, &id).await?;
-    Ok("revoked")
-}
-
-/// A revocation on one panel ends the user's sessions on every panel that signs in the same
-/// users, as the profile's own password change does: the credential they share changed.
-#[tokio::test]
-async fn revoking_on_a_panel_ends_the_sessions_of_panels_sharing_its_users() {
-    let router = two_panel_router().await;
-    let admin = session_on(&router, "/admin").await;
-    let portal = session_on(&router, "/portal").await;
-
-    let revoke = http::Request::builder()
-        .method(http::Method::POST)
-        .uri("/admin/tablo-test-revoke")
-        .header(http::header::COOKIE, &admin)
-        .body(Body::empty())
-        .unwrap();
-    assert_eq!(router.handle(revoke).await.status(), http::StatusCode::OK);
-
-    let path = "/_topcoat/runtime/shards/tablo-test-portal-report";
-    let response = router.handle(shard_request(path, &portal)).await;
-    assert_eq!(response.status(), http::StatusCode::UNAUTHORIZED);
 }

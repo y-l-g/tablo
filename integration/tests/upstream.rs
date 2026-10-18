@@ -26,3 +26,33 @@ async fn toasty_panics_on_an_update_with_no_assignment() {
     .expect("seed a note");
     let _ = note.update().exec(&mut db).await;
 }
+
+#[derive(Debug, toasty::Model, tablo::ModelColumns)]
+struct Subscriber {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    #[unique]
+    email: String,
+}
+
+/// SQLite's default BINARY collation treats case variants as distinct, in the unique index and in
+/// an equality probe alike, so the app-side `unique()` probe agrees with the index it guards.
+#[tokio::test]
+async fn sqlite_unique_and_its_probe_agree_on_case() {
+    let mut db = memory_db(toasty::models!(Subscriber)).await;
+    for email in ["alice@example.com", "Alice@example.com"] {
+        toasty::create!(Subscriber { email })
+            .exec(&mut db)
+            .await
+            .expect("a case variant is a distinct value");
+    }
+    for (probe, found) in [("alice@example.com", 1), ("ALICE@EXAMPLE.COM", 0)] {
+        let matches = Subscriber::all()
+            .filter(Subscriber::fields().email().eq(probe))
+            .exec(&mut db)
+            .await
+            .expect("probe");
+        assert_eq!(matches.len(), found, "{probe}");
+    }
+}

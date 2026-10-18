@@ -105,7 +105,7 @@ toolchains. Run `check --all` before merging.
   driver error mid-write.
 - An invariant over a parser or an encoder is a `proptest` property, not a hand-picked input list.
 - Unit tests live in `tests.rs` beside their source file (`foo/tests.rs` for `foo.rs`), and build
-  their databases and HTML through `test_support` (`memory_db`, `tableless_db`, `Html`).
+  their databases through `test_support` (`memory_db`, `tableless_db`).
 - The showcase suite runs on in-memory SQLite, or on the database `TABLO_TEST_DATABASE_URL` names
   with the matching feature, and CI runs it on PostgreSQL, MySQL and Turso too:
 
