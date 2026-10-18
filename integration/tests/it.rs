@@ -44,6 +44,7 @@ mod tenant_profile;
 mod tenant_registration;
 mod toggleable_columns;
 mod two_factor;
+mod two_factor_email;
 mod typed_leaves;
 mod unique;
 mod upload;

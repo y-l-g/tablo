@@ -477,7 +477,7 @@ pub fn admin_panel() -> Panel {
                 .profile(StaffAuth)
                 .tenant_registration(TenantRegistration::new(StaffAuth))
                 .tenant_profile(StaffAuth)
-                .two_factor(TwoFactor::new())
+                .two_factor(TwoFactor::new().email_codes())
                 .mail(AuthMail::new(
                     Mailbox::named("Tablo Blog", "no-reply@example.com")
                         .expect("the showcase's sender address parses"),

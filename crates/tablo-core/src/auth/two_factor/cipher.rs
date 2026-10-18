@@ -1,5 +1,5 @@
-//! Seals an authenticator secret before it is stored, and hashes a recovery code, under keys
-//! derived from the router's cookie [`Key`]: a database read alone yields neither.
+//! Seals an authenticator secret before it is stored, and hashes a recovery code or a mailed
+//! code, under keys derived from the router's cookie [`Key`]: a database read alone yields none.
 
 use aes_gcm::{
     Aes256Gcm, KeyInit, Nonce,
@@ -16,6 +16,9 @@ const PURPOSE: &[u8] = b"tablo two-factor secret v1";
 
 /// What the recovery-code derivation binds its key to.
 const RECOVERY_PURPOSE: &[u8] = b"tablo two-factor recovery code v1";
+
+/// What the code-hash derivation binds its key to.
+const CODE_PURPOSE: &[u8] = b"tablo two-factor mailed code v1";
 
 /// The bytes of a GCM nonce.
 const NONCE_BYTES: usize = 12;
@@ -53,6 +56,12 @@ fn keyed_hash(key: &Key, purpose: &[u8], binding: &str, value: &str) -> String {
 /// key and the binding keep both out of reach.
 pub(super) fn recovery_hash(key: &Key, binding: &str, code: &str) -> String {
     keyed_hash(key, RECOVERY_PURPOSE, binding, code)
+}
+
+/// A mailed code as stored, for the row `binding` names. Six digits hash to a million values,
+/// which a database read alone could try in an instant: the key keeps them out of reach.
+pub(super) fn code_hash(key: &Key, binding: &str, code: &str) -> String {
+    keyed_hash(key, CODE_PURPOSE, binding, code.trim())
 }
 
 /// `secret` sealed under `key` for the row `aad` names: a random nonce and the ciphertext, in
@@ -123,5 +132,15 @@ mod tests {
             recovery_hash(&Key::generate(), "user:/admin", "abcdefghij"),
             hash
         );
+    }
+
+    /// A mailed code hashes apart for each key and row, and alike however it is padded.
+    #[test]
+    fn a_code_hash_is_bound_to_its_key_and_row() {
+        let key = Key::generate();
+        let hash = code_hash(&key, "user:/admin", "123456");
+        assert_eq!(code_hash(&key, "user:/admin", " 123456 "), hash);
+        assert_ne!(code_hash(&key, "other:/admin", "123456"), hash);
+        assert_ne!(code_hash(&Key::generate(), "user:/admin", "123456"), hash);
     }
 }

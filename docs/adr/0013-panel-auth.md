@@ -51,6 +51,10 @@ is the explicit opt-out.
   a session, and the challenge page trades it and an RFC 6238 code, or a recovery code, for one.
   An app code works once. Turning it on or off is a credential change, and a panel that requires
   it sends a user without one to its page, like an unverified user.
+- Codes by email are a second kind of factor an account may hold in place of an app: each
+  sign-in mails six digits, held as an `AuthToken` whose hash is an HMAC under a key derived
+  from the cookie `Key`, so a database read cannot try the million codes. An account holds one
+  factor at a time.
 - Every mailed link and pending sign-in is one `AuthToken` row: the token's hash, its purpose,
   the account, the issuing panel and the expiry. A credential change ends the account's sign-in
   tokens; a reset, a cancelled email change and a revocation also end a pending change. A link

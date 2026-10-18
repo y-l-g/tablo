@@ -78,6 +78,7 @@ const BACK_EDGES: &[(&str, &[&str], &str)] = &[
             "auth/token.rs",
             "auth/two_factor.rs",
             "auth/two_factor/challenge.rs",
+            "auth/two_factor/email.rs",
             "auth/two_factor/settings.rs",
             "auth/verification.rs",
         ],

@@ -27,6 +27,7 @@ impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::auth::EmailChange
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::auth::EmailChange
 #[non_exhaustive] pub enum tablo_core::auth::FactorKind
 pub tablo_core::auth::FactorKind::Authenticator
+pub tablo_core::auth::FactorKind::EmailCode
 pub tablo_core::auth::FactorKind::RecoveryCode
 impl core::clone::Clone for tablo_core::auth::FactorKind
 pub fn tablo_core::auth::FactorKind::clone(&self) -> tablo_core::auth::FactorKind
@@ -96,6 +97,7 @@ pub tablo_core::auth::TokenPurpose::EmailChangeCancel
 pub tablo_core::auth::TokenPurpose::EmailVerification
 pub tablo_core::auth::TokenPurpose::PasswordReset
 pub tablo_core::auth::TokenPurpose::TwoFactorChallenge
+pub tablo_core::auth::TokenPurpose::TwoFactorEmailCode
 impl core::clone::Clone for tablo_core::auth::TokenPurpose
 pub fn tablo_core::auth::TokenPurpose::clone(&self) -> tablo_core::auth::TokenPurpose
 impl core::cmp::Eq for tablo_core::auth::TokenPurpose
@@ -785,6 +787,8 @@ impl !core::panic::unwind_safe::RefUnwindSafe for tablo_core::TenantRegistration
 impl !core::panic::unwind_safe::UnwindSafe for tablo_core::TenantRegistration
 pub struct tablo_core::auth::TwoFactor
 impl tablo_core::TwoFactor
+pub fn tablo_core::TwoFactor::email_codes(self) -> Self
+pub fn tablo_core::TwoFactor::mail_throttle(self, tablo_core::LoginThrottle) -> Self
 pub fn tablo_core::TwoFactor::new() -> Self
 pub fn tablo_core::TwoFactor::required(self) -> Self
 pub fn tablo_core::TwoFactor::throttle(self, tablo_core::LoginThrottle) -> Self
@@ -6573,6 +6577,8 @@ impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Toggle
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::Toggle
 pub struct tablo_core::TwoFactor
 impl tablo_core::TwoFactor
+pub fn tablo_core::TwoFactor::email_codes(self) -> Self
+pub fn tablo_core::TwoFactor::mail_throttle(self, tablo_core::LoginThrottle) -> Self
 pub fn tablo_core::TwoFactor::new() -> Self
 pub fn tablo_core::TwoFactor::required(self) -> Self
 pub fn tablo_core::TwoFactor::throttle(self, tablo_core::LoginThrottle) -> Self

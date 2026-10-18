@@ -113,7 +113,7 @@ A test matches on the kind rather than the message; see
 
 | Fault | Refused when | Fix |
 | --- | --- | --- |
-| `Unset` | a feature that mails links, such as `Auth::password_reset` or `Auth::email_verification`, on an `Auth` without `Auth::mail` | install a sender with `Auth::mail(AuthMail::new(..))` |
+| `Unset` | a feature that sends mail, such as `Auth::password_reset`, `Auth::email_verification` or `Auth::two_factor` with codes by email, on an `Auth` without `Auth::mail` | install a sender with `Auth::mail(AuthMail::new(..))` |
 | `BaseUrl` | the base URL is not an absolute `http` or `https` URL, or carries a query or fragment | pass the scheme and host, such as `https://admin.example.com` |
 | `MissingMail` | the router registers no `MailConfig` | call `.mail(..)` before `.panel(..)` |
 
