@@ -104,11 +104,13 @@ async fn an_owner_renames_the_tenant_they_act_for() {
     assert!(list.contains(r#"data-tenant-page="profile""#));
     let page = body_string(client.get("/admin/tenant/profile").await).await;
     assert_eq!(input_value(&page, "name").as_deref(), Some("Acme"));
+    let acme = ada.tenants[0].tenant.to_string();
+    assert_eq!(input_value(&page, "editing_tenant"), Some(acme.clone()));
 
     let saved = client
         .submit(
             "/admin/tenant/profile",
-            &form_body(&[("name", "Acme Corp")]),
+            &form_body(&[("name", "Acme Corp"), ("editing_tenant", &acme)]),
         )
         .await;
     assert_eq!(saved.status(), 303);
@@ -128,8 +130,12 @@ async fn a_refused_save_renders_its_errors_and_changes_nothing() {
     let router = router(db.clone());
     let client = TestClient::new(&router).sign_in(&db, "admin", &ada).await;
 
+    let acme = ada.tenants[0].tenant.to_string();
     let refused = client
-        .submit("/admin/tenant/profile", &form_body(&[("name", "-")]))
+        .submit(
+            "/admin/tenant/profile",
+            &form_body(&[("name", "-"), ("editing_tenant", &acme)]),
+        )
         .await;
     let html = body_string(refused).await;
     assert_eq!(field_error(&html, "name"), Some(ErrorKind::Invalid));
@@ -182,12 +188,41 @@ async fn the_page_edits_the_tenant_the_request_acts_for() {
     client
         .submit(
             "/admin/tenant/profile",
-            &form_body(&[("name", "Globex Inc")]),
+            &form_body(&[("name", "Globex Inc"), ("editing_tenant", &globex)]),
         )
         .await;
     let mut names = names(&db, &ada).await;
     names.sort();
     assert_eq!(names, ["Acme", "Globex Inc"]);
+}
+
+/// A form filled for one tenant, posted after another tab switched to a second, saves nothing.
+#[tokio::test]
+async fn a_form_for_another_tenant_saves_nothing() {
+    let db = db().await;
+    let ada = member(&db, "Ada", &["Acme", "Globex"]).await;
+    let router = router(db.clone());
+    let client = TestClient::new(&router).sign_in(&db, "admin", &ada).await;
+    let acme = ada.tenants[0].tenant.to_string();
+    let globex = ada.tenants[1].tenant.to_string();
+    client
+        .submit("/admin/tenant", &form_body(&[("tenant", &globex)]))
+        .await;
+
+    let stale = client
+        .submit(
+            "/admin/tenant/profile",
+            &form_body(&[("name", "Acme Corp"), ("editing_tenant", &acme)]),
+        )
+        .await;
+    assert_eq!(
+        stale.headers().get(LOCATION).unwrap(),
+        "/admin/tenant/profile"
+    );
+    assert_eq!(flash(&stale).status, NotificationStatus::Warning);
+    let mut names = names(&db, &ada).await;
+    names.sort();
+    assert_eq!(names, ["Acme", "Globex"]);
 }
 
 /// Edits tenants for the shipped admin, whom `MemberAuth` never loads.

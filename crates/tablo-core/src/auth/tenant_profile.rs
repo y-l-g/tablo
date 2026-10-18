@@ -271,8 +271,12 @@ fn write_failure(error: topcoat::Error) -> topcoat::Error {
     crate::error::driver_failure(error, crate::error::DATABASE_UNAVAILABLE)
 }
 
+/// The hidden field naming the tenant the form was filled from: a tab opened before another
+/// switched tenants must not save over the new one.
+const TENANT_FIELD: &str = "editing_tenant";
+
 /// The keys a tenant settings POST carries besides its input, which no input field may post.
-pub(crate) const RESERVED_KEYS: [&str; 1] = [crate::csrf::FIELD_NAME];
+pub(crate) const RESERVED_KEYS: [&str; 2] = [crate::csrf::FIELD_NAME, TENANT_FIELD];
 
 /// Where the panel's tenant settings page lives: `{prefix}/tenant/profile`.
 pub(crate) fn tenant_profile_url(cx: &Cx) -> String {
@@ -308,7 +312,7 @@ pub(super) fn tenant_profile_page(cx: &Cx, _body: Body) -> BoxView<'_> {
             .await?
             .ok_or_else(forbidden)?;
         crate::csrf::ensure_token(cx);
-        render(cx, editor, &values, &FieldErrors::new()).await
+        render(cx, editor, tenant, &values, &FieldErrors::new()).await
     })
 }
 
@@ -318,29 +322,41 @@ pub(super) fn tenant_profile_post(cx: &Cx, body: Body) -> BoxView<'_> {
         let (signed, editor, tenant) = editing(cx)?;
         let form = crate::panel::parse_form_body(cx, body).await?;
         crate::csrf::verify(cx, form.last(crate::csrf::FIELD_NAME))?;
+        if form.last(TENANT_FIELD) != Some(tenant.tenant.to_string().as_str()) {
+            set_notification(
+                cx,
+                Notification::warning("Nothing saved").description(format!(
+                    "You now act for {}. Check its settings before saving.",
+                    tenant.name
+                )),
+            );
+            return Err(see_other(tenant_profile_url(cx)).into());
+        }
         let values = editor.schema().read_input(&form.pairs, &RESERVED_KEYS)?;
         if let Outcome::Refused { values, errors } =
             editor.submit(cx, signed, tenant, values).await?
         {
-            return render(cx, editor, &values, &errors).await;
+            return render(cx, editor, tenant, &values, &errors).await;
         }
         set_notification(cx, Notification::success("Tenant saved"));
         Err(see_other(tenant_profile_url(cx)).into())
     })
 }
 
-/// The settings page in the panel's shell: the editor's form with `values` and `errors`, saved to
-/// the page itself, cancelled to the panel's home.
+/// The settings page in the panel's shell: the editor's form for `tenant` with `values` and
+/// `errors`, saved to the page itself, cancelled to the panel's home.
 async fn render<'a>(
     cx: &'a Cx,
     editor: &dyn DynTenantEditor,
+    tenant: &Membership,
     values: &FormValues,
     errors: &FieldErrors,
 ) -> topcoat::Result<BoxView<'a>> {
     render_form_page(
         cx,
         &editor.schema(),
-        FormChrome::settings("Tenant settings", panel_root(cx)),
+        FormChrome::settings("Tenant settings", panel_root(cx))
+            .with_hidden(TENANT_FIELD, tenant.tenant.to_string()),
         values,
         errors,
         &HashSet::new(),

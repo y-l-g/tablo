@@ -97,7 +97,7 @@ A test matches on the kind rather than the message; see
 | --- | --- | --- |
 | `AuthDisabled` | `Auth::tenant_profile` on `Auth::disabled()` | turn authentication on |
 | `UserType` | the editor edits tenants for another user type than the authenticator loads | edit for the type the panel signs in |
-| `ReservedField` | a settings field is named `csrf_token` | rename the field |
+| `ReservedField` | a settings field is named `csrf_token` or `editing_tenant` | rename the field |
 | `FileField` | the settings form has a file field | edit the file on a resource's form |
 | `RelationshipField` | the settings form has a relationship choice, whose options no route serves the page | offer static options |
 

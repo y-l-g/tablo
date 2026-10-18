@@ -109,6 +109,12 @@ impl<'a> FormChrome<'a> {
         }
     }
 
+    /// The chrome with the hidden `(name, value)` control the submit carries besides the schema's.
+    pub(crate) fn with_hidden(mut self, name: &str, value: String) -> Self {
+        self.hidden.push((name.to_string(), value));
+        self
+    }
+
     /// An action's input page: titled `title`, submitted by the action's `label`, carrying
     /// `hidden` back to the action's POST, cancelled to `cancel`, and searching its choices'
     /// options at `options`.
