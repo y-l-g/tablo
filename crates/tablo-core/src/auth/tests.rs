@@ -654,3 +654,20 @@ fn the_request_acts_for_the_selected_membership_else_the_first() {
     let cx = member_cx(&[a, b], None, Some(b));
     assert_eq!(membership(&cx).map(|m| m.tenant), Some(b));
 }
+
+/// A user without an address has nothing to verify: verification never holds them.
+#[test]
+fn verification_holds_only_a_user_with_an_address() {
+    struct Nameless;
+    impl PanelUser for Nameless {
+        fn user_id(&self) -> String {
+            "nameless".to_string()
+        }
+        fn display_name(&self) -> &str {
+            "Nameless"
+        }
+    }
+    let auth = Auth::password().email_verification(EmailVerification::new(PasswordAuth));
+    let panel = crate::panel::test_support::panel_state("/admin", auth);
+    assert!(!verification::pending(&panel, &Nameless));
+}

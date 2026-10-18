@@ -254,9 +254,7 @@ impl PasswordResetter for PasswordAuth {
         password: &str,
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<()> {
-        let Ok(id) = Uuid::parse_str(user_id) else {
-            return Ok(());
-        };
+        let id = Uuid::parse_str(user_id).map_err(|_| topcoat::router::error::not_found())?;
         AdminUser::filter(AdminUser::fields().id().eq(id))
             .update()
             .password_hash(hash_password(password).await?)
@@ -275,16 +273,14 @@ impl EmailVerifier for PasswordAuth {
         admin.email_verified_at.is_some()
     }
 
-    async fn verify(
+    async fn store_verified_email(
         &self,
         _cx: &Cx,
         user_id: &str,
         email: &str,
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<()> {
-        let Ok(id) = Uuid::parse_str(user_id) else {
-            return Ok(());
-        };
+        let id = Uuid::parse_str(user_id).map_err(|_| topcoat::router::error::not_found())?;
         AdminUser::filter(AdminUser::fields().id().eq(id))
             .update()
             .email(normalize_email(email))

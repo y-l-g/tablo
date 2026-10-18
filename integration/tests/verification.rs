@@ -340,7 +340,7 @@ impl EmailVerifier for VisitorVerifier {
         unreachable!("mounting refuses the verifier")
     }
 
-    async fn verify(
+    async fn store_verified_email(
         &self,
         _cx: &Cx,
         _user_id: &str,

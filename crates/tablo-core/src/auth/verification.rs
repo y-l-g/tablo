@@ -74,16 +74,16 @@ pub const VERIFICATION_LIFETIME: Duration = Duration::from_hours(24);
 ///         staff.email_verified_at.is_some()
 ///     }
 ///
-///     async fn verify(
+///     async fn store_verified_email(
 ///         &self,
 ///         _cx: &Cx,
 ///         user_id: &str,
 ///         email: &str,
 ///         ex: &mut dyn toasty::Executor,
 ///     ) -> topcoat::Result<()> {
-///         let Ok(id) = user_id.parse::<uuid::Uuid>() else {
-///             return Ok(());
-///         };
+///         let id = user_id
+///             .parse::<uuid::Uuid>()
+///             .map_err(|_| topcoat::router::error::not_found())?;
 ///         Staff::filter_by_id(id)
 ///             .update()
 ///             .email(email)
@@ -105,8 +105,9 @@ pub trait EmailVerifier: Send + Sync + 'static {
 
     /// Record, through the transaction `ex`, which commits when it returns `Ok`, that the account
     /// [`PanelUser::user_id`] `user_id` names proved it reads `email`: store `email` as the
-    /// address it signs in with and mark it verified.
-    fn verify(
+    /// address it signs in with, which an email change makes new, and mark it verified. An id
+    /// that names no account is an error, not a success: the link is spent either way.
+    fn store_verified_email(
         &self,
         cx: &Cx,
         user_id: &str,
@@ -119,7 +120,7 @@ pub trait EmailVerifier: Send + Sync + 'static {
 pub(crate) trait DynEmailVerifier: Send + Sync {
     /// Whether `user` is verified; a user of another type is not.
     fn is_verified(&self, user: &dyn PanelUser) -> bool;
-    fn verify<'a>(
+    fn store_verified_email<'a>(
         &'a self,
         cx: &'a Cx,
         user_id: &'a str,
@@ -137,14 +138,16 @@ impl<V: EmailVerifier> DynEmailVerifier for V {
             .is_some_and(|user| EmailVerifier::is_verified(self, user))
     }
 
-    fn verify<'a>(
+    fn store_verified_email<'a>(
         &'a self,
         cx: &'a Cx,
         user_id: &'a str,
         email: &'a str,
         ex: &'a mut dyn toasty::Executor,
     ) -> BoxFuture<'a, topcoat::Result<()>> {
-        Box::pin(EmailVerifier::verify(self, cx, user_id, email, ex))
+        Box::pin(EmailVerifier::store_verified_email(
+            self, cx, user_id, email, ex,
+        ))
     }
 
     fn user_type(&self) -> (TypeId, &'static str) {
@@ -219,12 +222,14 @@ pub(crate) fn confirm_url(cx: &Cx) -> String {
     format!("{}/verify-email/confirm", panel_prefix(cx))
 }
 
-/// Whether `panel` makes `user` verify their address before anything else.
+/// Whether `panel` makes `user` verify their address before anything else: a user without one has
+/// nothing to prove, and no link could reach them.
 pub(crate) fn pending(panel: &PanelState, user: &dyn PanelUser) -> bool {
-    panel
-        .auth
-        .verification()
-        .is_some_and(|verification| !verification.verifier().is_verified(user))
+    user.email().is_some()
+        && panel
+            .auth
+            .verification()
+            .is_some_and(|verification| !verification.verifier().is_verified(user))
 }
 
 /// Mails a verification link to `user` after the response, when the request's panel verifies
@@ -357,7 +362,7 @@ pub(super) fn confirm_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
         }
         verification
             .verifier()
-            .verify(cx, &row.user_id, &email, &mut tx)
+            .store_verified_email(cx, &row.user_id, &email, &mut tx)
             .await
             .map_err(infrastructure_failure)?;
         token::spend(&mut tx, &row).await?;

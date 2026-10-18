@@ -337,16 +337,14 @@ impl EmailVerifier for StaffAuth {
         signed.staff.email_verified_at.is_some()
     }
 
-    async fn verify(
+    async fn store_verified_email(
         &self,
         _cx: &Cx,
         user_id: &str,
         email: &str,
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<()> {
-        let Ok(id) = Uuid::parse_str(user_id) else {
-            return Ok(());
-        };
+        let id = Uuid::parse_str(user_id).map_err(|_| topcoat::router::error::not_found())?;
         Staff::filter(Staff::fields().id().eq(id))
             .update()
             .email(email.to_string())

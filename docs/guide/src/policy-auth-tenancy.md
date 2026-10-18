@@ -351,12 +351,16 @@ an account that answers none gets no link.
 ```
 
 Your own user table verifies through an `EmailVerifier` beside its `Authenticator`: `is_verified`
-says whether the user has proved their address, and `verify` stores the address a link proved and
-marks it verified, inside the link's transaction. `PasswordAuth` keeps the proof in
+says whether the user has proved their address, and `store_verified_email` stores the address a
+link proved and marks it verified, inside the link's transaction. `PasswordAuth` keeps the proof in
 `AdminUser::email_verified_at`; `create_admin` seeds a verified account.
 
 - **Until the user verifies**, a page redirects to `{prefix}/verify-email` and any other request
-  answers 403. The page offers to mail a link, and to sign out.
+  answers 403. The page offers to mail a link, and to sign out. A user whose `PanelUser::email` is
+  `None` has no address to prove and is not held.
+- **Accounts that predate verification** are unverified: turning it on sends each of them,
+  seeded admins included, to `{prefix}/verify-email` at their next request. Backfill
+  `email_verified_at` (from `created_at`, say) for the addresses you already trust.
 - **A sign-up** mails the link at once, after the response.
 - **A link** works once, for one day, on the panel that mailed it, and only while the account may
   enter the panel and still stores the address it was mailed to. It verifies on `GET` in any

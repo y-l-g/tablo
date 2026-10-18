@@ -531,7 +531,7 @@ pub async fn tablo_core::PasswordAuth::verify(&self, &topcoat_core::context::Cx,
 impl tablo_core::auth::EmailVerifier for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
 pub fn tablo_core::PasswordAuth::is_verified(&self, &tablo_core::auth::AdminUser) -> bool
-pub async fn tablo_core::PasswordAuth::verify(&self, &topcoat_core::context::Cx, &str, &str, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<()>
+pub async fn tablo_core::PasswordAuth::store_verified_email(&self, &topcoat_core::context::Cx, &str, &str, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<()>
 impl tablo_core::auth::PasswordResetter for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
 pub async fn tablo_core::PasswordAuth::find_by_email(&self, &topcoat_core::context::Cx, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
@@ -628,11 +628,11 @@ pub async fn tablo_core::PasswordAuth::verify(&self, &topcoat_core::context::Cx,
 pub trait tablo_core::auth::EmailVerifier: core::marker::Send + core::marker::Sync + 'static
 pub type tablo_core::auth::EmailVerifier::User: tablo_core::auth::PanelUser
 pub fn tablo_core::auth::EmailVerifier::is_verified(&self, &Self::User) -> bool
-pub fn tablo_core::auth::EmailVerifier::verify(&self, &topcoat_core::context::Cx, &str, &str, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send
+pub fn tablo_core::auth::EmailVerifier::store_verified_email(&self, &topcoat_core::context::Cx, &str, &str, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send
 impl tablo_core::auth::EmailVerifier for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
 pub fn tablo_core::PasswordAuth::is_verified(&self, &tablo_core::auth::AdminUser) -> bool
-pub async fn tablo_core::PasswordAuth::verify(&self, &topcoat_core::context::Cx, &str, &str, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<()>
+pub async fn tablo_core::PasswordAuth::store_verified_email(&self, &topcoat_core::context::Cx, &str, &str, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<()>
 pub trait tablo_core::auth::PanelUser: core::any::Any + core::marker::Send + core::marker::Sync
 pub fn tablo_core::auth::PanelUser::can_access_panel(&self) -> bool
 pub fn tablo_core::auth::PanelUser::display_name(&self) -> &str
@@ -5530,7 +5530,7 @@ pub async fn tablo_core::PasswordAuth::verify(&self, &topcoat_core::context::Cx,
 impl tablo_core::auth::EmailVerifier for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
 pub fn tablo_core::PasswordAuth::is_verified(&self, &tablo_core::auth::AdminUser) -> bool
-pub async fn tablo_core::PasswordAuth::verify(&self, &topcoat_core::context::Cx, &str, &str, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<()>
+pub async fn tablo_core::PasswordAuth::store_verified_email(&self, &topcoat_core::context::Cx, &str, &str, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<()>
 impl tablo_core::auth::PasswordResetter for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
 pub async fn tablo_core::PasswordAuth::find_by_email(&self, &topcoat_core::context::Cx, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
