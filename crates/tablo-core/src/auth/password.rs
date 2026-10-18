@@ -50,6 +50,10 @@ impl PanelUser for AdminUser {
         &self.display_name
     }
 
+    fn email(&self) -> Option<&str> {
+        Some(&self.email)
+    }
+
     fn can_access_panel(&self) -> bool {
         self.active
     }
@@ -231,10 +235,6 @@ impl PasswordResetter for PasswordAuth {
             .exec(&mut db)
             .await
             .map_err(infrastructure_failure)
-    }
-
-    fn email<'u>(&self, admin: &'u AdminUser) -> &'u str {
-        &admin.email
     }
 
     async fn reset_password(

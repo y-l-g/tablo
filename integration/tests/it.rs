@@ -25,6 +25,7 @@ mod header_action;
 mod key_collisions;
 mod list;
 mod login;
+mod mail;
 mod many_to_many;
 mod model_columns;
 mod options_enum;

@@ -93,8 +93,8 @@ pub(super) fn credential_panels(
     )
 }
 
-/// Deletes every session `user_id` holds on `panels`, and every reset link it holds on those that
-/// offer a reset, through `ex`: what a credential change ends.
+/// Deletes every session `user_id` holds on `panels`, and every [`AuthToken`](super::AuthToken)
+/// it holds on those that issue them, through `ex`: what a credential change ends.
 pub(super) async fn end_credentials(
     ex: &mut dyn toasty::Executor,
     user_id: &str,
@@ -111,20 +111,20 @@ pub(super) async fn end_credentials(
     .exec(&mut *ex)
     .await
     .map_err(infrastructure_failure)?;
-    let resets: Vec<String> = panels
+    let issuing: Vec<String> = panels
         .iter()
-        .filter(|panel| panel.auth.reset().is_some())
+        .filter(|panel| panel.auth.issues_tokens())
         .map(|panel| panel.prefix.clone())
         .collect();
-    if resets.is_empty() {
-        // Without a reset the token model may be unregistered.
+    if issuing.is_empty() {
+        // A panel that issues no token may leave its model unregistered.
         return Ok(());
     }
-    super::password_reset::end_links(ex, user_id, Some(resets)).await
+    super::token::end_all(ex, user_id, Some(issuing)).await
 }
 
 /// Replaces every session `user_id` holds, on every panel whose authenticator loads `user_type`,
-/// with `session` on the panel and tenant `signed` acts under, and ends its reset links there,
+/// with `session` on the panel and tenant `signed` acts under, and ends its tokens there,
 /// through `ex`: what a credential change does inside the transaction that writes it, so the new
 /// credential and the revocation commit together.
 pub(super) async fn replace_sessions(
@@ -241,7 +241,7 @@ async fn delete_session_row(cx: &Cx, key: &str) -> topcoat::Result<()> {
     Ok(())
 }
 
-/// Revokes every live session and reset link of `user_id` on the current panel and on each panel
+/// Revokes every live session and token of `user_id` on the current panel and on each panel
 /// sharing its users, whose authenticator loads the same user type, or on every panel outside any
 /// panel; call it whenever a credential changes.
 ///
@@ -262,10 +262,10 @@ pub async fn revoke_sessions_for_user(cx: &Cx, user_id: &str) -> topcoat::Result
         .exec(&mut db)
         .await
         .map_err(infrastructure_failure)?;
-    let resets = crate::panel::state::panels(cx)
-        .is_some_and(|panels| panels.0.iter().any(|panel| panel.auth.reset().is_some()));
-    if resets {
-        super::password_reset::end_links(&mut db, user_id, None).await?;
+    let issuing = crate::panel::state::panels(cx)
+        .is_some_and(|panels| panels.0.iter().any(|panel| panel.auth.issues_tokens()));
+    if issuing {
+        super::token::end_all(&mut db, user_id, None).await?;
     }
     Ok(())
 }

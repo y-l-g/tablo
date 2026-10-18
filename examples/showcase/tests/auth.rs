@@ -493,7 +493,7 @@ async fn a_reset_request_records_a_link_for_staff_only() {
     // The link is written after the response.
     let mut links = Vec::new();
     for _ in 0..500 {
-        links = tablo::auth::PasswordResetToken::all()
+        links = tablo::auth::AuthToken::all()
             .exec(&mut db.clone())
             .await
             .unwrap();

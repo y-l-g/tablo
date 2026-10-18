@@ -381,7 +381,7 @@ async fn forged_password_resets_answer_403_and_change_nothing() {
             assert_eq!(resp.status(), 403, "{path} {label}");
         }
     }
-    let links = tablo::auth::PasswordResetToken::all()
+    let links = tablo::auth::AuthToken::all()
         .exec(&mut db.clone())
         .await
         .unwrap();

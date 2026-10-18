@@ -68,6 +68,10 @@ impl PanelUser for SignedStaff {
         Some(&self.staff.email)
     }
 
+    fn email(&self) -> Option<&str> {
+        Some(&self.staff.email)
+    }
+
     fn can_access_panel(&self) -> bool {
         self.staff.active
     }
@@ -297,10 +301,6 @@ impl PasswordResetter for StaffAuth {
             Some(staff) => Ok(Some(Self::signed(cx, staff).await?)),
             None => Ok(None),
         }
-    }
-
-    fn email<'u>(&self, signed: &'u SignedStaff) -> &'u str {
-        &signed.staff.email
     }
 
     async fn reset_password(

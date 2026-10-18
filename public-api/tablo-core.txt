@@ -25,6 +25,51 @@ impl core::marker::Unpin for tablo_core::ProfileUpdate
 impl core::marker::UnsafeUnpin for tablo_core::ProfileUpdate
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::ProfileUpdate
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::ProfileUpdate
+pub enum tablo_core::auth::TokenPurpose
+pub tablo_core::auth::TokenPurpose::PasswordReset
+impl core::clone::Clone for tablo_core::auth::TokenPurpose
+pub fn tablo_core::auth::TokenPurpose::clone(&self) -> tablo_core::auth::TokenPurpose
+impl core::cmp::Eq for tablo_core::auth::TokenPurpose
+impl core::cmp::PartialEq for tablo_core::auth::TokenPurpose
+pub fn tablo_core::auth::TokenPurpose::eq(&self, &tablo_core::auth::TokenPurpose) -> bool
+impl core::fmt::Debug for tablo_core::auth::TokenPurpose
+pub fn tablo_core::auth::TokenPurpose::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_core::auth::TokenPurpose
+impl core::marker::StructuralPartialEq for tablo_core::auth::TokenPurpose
+impl toasty::codegen_support::index::IndexableField for tablo_core::auth::TokenPurpose
+impl toasty::schema::embed::Embed for tablo_core::auth::TokenPurpose
+pub fn tablo_core::auth::TokenPurpose::id() -> toasty_core::schema::app::model::ModelId
+pub fn tablo_core::auth::TokenPurpose::schema() -> toasty_core::schema::app::model::Model
+impl toasty::schema::field::Field for tablo_core::auth::TokenPurpose
+pub type tablo_core::auth::TokenPurpose::ExprTarget = tablo_core::auth::TokenPurpose
+pub type tablo_core::auth::TokenPurpose::Inner = tablo_core::auth::TokenPurpose
+pub type tablo_core::auth::TokenPurpose::ListPath<__Origin> = TokenPurposeListFields<__Origin>
+pub type tablo_core::auth::TokenPurpose::Path<__Origin> = TokenPurposeFields<__Origin>
+pub type tablo_core::auth::TokenPurpose::Update<'a> = ()
+pub fn tablo_core::auth::TokenPurpose::field_ty(core::option::Option<toasty_core::schema::db::ty::Type>) -> toasty_core::schema::app::field::FieldTy
+pub fn tablo_core::auth::TokenPurpose::key_constraint<__Origin>(&self, toasty::stmt::path::Path<__Origin, Self::Inner>) -> toasty::stmt::expr::Expr<bool>
+pub fn tablo_core::auth::TokenPurpose::new_list_path<__Origin>(toasty::stmt::path::Path<__Origin, toasty::stmt::list::List<Self::ExprTarget>>) -> Self::ListPath
+pub fn tablo_core::auth::TokenPurpose::new_path<__Origin>(toasty::stmt::path::Path<__Origin, Self>) -> Self::Path
+pub fn tablo_core::auth::TokenPurpose::new_update<'a>(&'a mut toasty_core::stmt::assignments::Assignments, toasty_core::stmt::projection::Projection) -> Self::Update
+pub fn tablo_core::auth::TokenPurpose::register(&mut toasty_core::schema::app::model::ModelSet)
+impl toasty::schema::field::Scalar for tablo_core::auth::TokenPurpose
+impl toasty::schema::load::Load for tablo_core::auth::TokenPurpose
+pub type tablo_core::auth::TokenPurpose::Output = tablo_core::auth::TokenPurpose
+pub fn tablo_core::auth::TokenPurpose::load(toasty_core::stmt::value::Value) -> toasty_core::Result<Self>
+pub fn tablo_core::auth::TokenPurpose::reload(&mut Self, toasty_core::stmt::value::Value) -> toasty_core::Result<()>
+pub fn tablo_core::auth::TokenPurpose::ty() -> toasty_core::stmt::ty::Type
+impl toasty::stmt::assignment::Assign<tablo_core::auth::TokenPurpose> for tablo_core::auth::TokenPurpose
+pub fn tablo_core::auth::TokenPurpose::into_assignment(self) -> toasty::stmt::assignment::Assignment<tablo_core::auth::TokenPurpose>
+impl toasty::stmt::into_expr::IntoExpr<tablo_core::auth::TokenPurpose> for tablo_core::auth::TokenPurpose
+pub fn tablo_core::auth::TokenPurpose::by_ref(&self) -> toasty::stmt::expr::Expr<tablo_core::auth::TokenPurpose>
+pub fn tablo_core::auth::TokenPurpose::into_expr(self) -> toasty::stmt::expr::Expr<tablo_core::auth::TokenPurpose>
+impl core::marker::Freeze for tablo_core::auth::TokenPurpose
+impl core::marker::Send for tablo_core::auth::TokenPurpose
+impl core::marker::Sync for tablo_core::auth::TokenPurpose
+impl core::marker::Unpin for tablo_core::auth::TokenPurpose
+impl core::marker::UnsafeUnpin for tablo_core::auth::TokenPurpose
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::auth::TokenPurpose
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::auth::TokenPurpose
 pub struct tablo_core::auth::AdminUser
 pub tablo_core::auth::AdminUser::active: bool
 pub tablo_core::auth::AdminUser::created_at: jiff::timestamp::Timestamp
@@ -62,6 +107,7 @@ pub fn tablo_core::auth::AdminUser::table() -> tablo_core::table::Table<tablo_co
 impl tablo_core::auth::PanelUser for tablo_core::auth::AdminUser
 pub fn tablo_core::auth::AdminUser::can_access_panel(&self) -> bool
 pub fn tablo_core::auth::AdminUser::display_name(&self) -> &str
+pub fn tablo_core::auth::AdminUser::email(&self) -> core::option::Option<&str>
 pub fn tablo_core::auth::AdminUser::subtitle(&self) -> core::option::Option<&str>
 pub fn tablo_core::auth::AdminUser::tenants(&self) -> &[tablo_core::tenancy::Membership]
 pub fn tablo_core::auth::AdminUser::user_id(&self) -> alloc::string::String
@@ -124,28 +170,41 @@ impl core::marker::UnsafeUnpin for tablo_core::auth::AdminUser
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::auth::AdminUser
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::auth::AdminUser
 pub struct tablo_core::auth::Auth
-impl tablo_core::auth::Auth
-pub fn tablo_core::auth::Auth::custom(impl tablo_core::auth::Authenticator) -> Self
-pub fn tablo_core::auth::Auth::disabled() -> Self
-pub fn tablo_core::auth::Auth::is_disabled(&self) -> bool
-pub fn tablo_core::auth::Auth::password() -> Self
-pub fn tablo_core::auth::Auth::password_reset(self, tablo_core::PasswordReset) -> Self
-pub fn tablo_core::auth::Auth::profile(self, impl tablo_core::ProfileEditor) -> Self
-pub fn tablo_core::auth::Auth::profile_throttle(self, tablo_core::LoginThrottle) -> Self
-pub fn tablo_core::auth::Auth::registration(self, impl tablo_core::Registrar) -> Self
-pub fn tablo_core::auth::Auth::sign_up_throttle(self, tablo_core::LoginThrottle) -> Self
-pub fn tablo_core::auth::Auth::throttle(self, tablo_core::LoginThrottle) -> Self
-impl core::default::Default for tablo_core::auth::Auth
-pub fn tablo_core::auth::Auth::default() -> Self
-impl core::fmt::Debug for tablo_core::auth::Auth
-pub fn tablo_core::auth::Auth::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl !core::marker::Freeze for tablo_core::auth::Auth
-impl core::marker::Send for tablo_core::auth::Auth
-impl core::marker::Sync for tablo_core::auth::Auth
-impl core::marker::Unpin for tablo_core::auth::Auth
-impl core::marker::UnsafeUnpin for tablo_core::auth::Auth
-impl !core::panic::unwind_safe::RefUnwindSafe for tablo_core::auth::Auth
-impl !core::panic::unwind_safe::UnwindSafe for tablo_core::auth::Auth
+impl tablo_core::Auth
+pub fn tablo_core::Auth::custom(impl tablo_core::auth::Authenticator) -> Self
+pub fn tablo_core::Auth::disabled() -> Self
+pub fn tablo_core::Auth::is_disabled(&self) -> bool
+pub fn tablo_core::Auth::mail(self, tablo_core::AuthMail) -> Self
+pub fn tablo_core::Auth::password() -> Self
+pub fn tablo_core::Auth::password_reset(self, tablo_core::PasswordReset) -> Self
+pub fn tablo_core::Auth::profile(self, impl tablo_core::ProfileEditor) -> Self
+pub fn tablo_core::Auth::profile_throttle(self, tablo_core::LoginThrottle) -> Self
+pub fn tablo_core::Auth::registration(self, impl tablo_core::Registrar) -> Self
+pub fn tablo_core::Auth::sign_up_throttle(self, tablo_core::LoginThrottle) -> Self
+pub fn tablo_core::Auth::throttle(self, tablo_core::LoginThrottle) -> Self
+impl core::default::Default for tablo_core::Auth
+pub fn tablo_core::Auth::default() -> Self
+impl core::fmt::Debug for tablo_core::Auth
+pub fn tablo_core::Auth::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl !core::marker::Freeze for tablo_core::Auth
+impl core::marker::Send for tablo_core::Auth
+impl core::marker::Sync for tablo_core::Auth
+impl core::marker::Unpin for tablo_core::Auth
+impl core::marker::UnsafeUnpin for tablo_core::Auth
+impl !core::panic::unwind_safe::RefUnwindSafe for tablo_core::Auth
+impl !core::panic::unwind_safe::UnwindSafe for tablo_core::Auth
+pub struct tablo_core::auth::AuthMail
+impl tablo_core::AuthMail
+pub fn tablo_core::AuthMail::new(topcoat_mail::mailbox::Mailbox, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::fmt::Debug for tablo_core::AuthMail
+pub fn tablo_core::AuthMail::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tablo_core::AuthMail
+impl core::marker::Send for tablo_core::AuthMail
+impl core::marker::Sync for tablo_core::AuthMail
+impl core::marker::Unpin for tablo_core::AuthMail
+impl core::marker::UnsafeUnpin for tablo_core::AuthMail
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::AuthMail
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::AuthMail
 pub struct tablo_core::auth::AuthSession
 pub tablo_core::auth::AuthSession::created_at: jiff::timestamp::Timestamp
 pub tablo_core::auth::AuthSession::expires_at: jiff::timestamp::Timestamp
@@ -237,6 +296,98 @@ impl core::marker::Unpin for tablo_core::auth::AuthSession
 impl core::marker::UnsafeUnpin for tablo_core::auth::AuthSession
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::auth::AuthSession
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::auth::AuthSession
+pub struct tablo_core::auth::AuthToken
+pub tablo_core::auth::AuthToken::created_at: jiff::timestamp::Timestamp
+pub tablo_core::auth::AuthToken::email: core::option::Option<alloc::string::String>
+pub tablo_core::auth::AuthToken::expires_at: jiff::timestamp::Timestamp
+pub tablo_core::auth::AuthToken::panel: alloc::string::String
+pub tablo_core::auth::AuthToken::purpose: tablo_core::auth::TokenPurpose
+pub tablo_core::auth::AuthToken::token_hash: alloc::string::String
+pub tablo_core::auth::AuthToken::user_id: alloc::string::String
+impl tablo_core::auth::AuthToken
+pub fn tablo_core::auth::AuthToken::all() -> AuthTokenQuery
+pub fn tablo_core::auth::AuthToken::create() -> AuthTokenCreate
+pub fn tablo_core::auth::AuthToken::create_many() -> toasty::stmt::create_many::CreateMany<tablo_core::auth::AuthToken>
+pub fn tablo_core::auth::AuthToken::delete(self) -> toasty::stmt::delete::Delete<()>
+pub async fn tablo_core::auth::AuthToken::delete_by_expires_at(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<jiff::timestamp::Timestamp>>) -> toasty_core::Result<()>
+pub async fn tablo_core::auth::AuthToken::delete_by_token_hash(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> toasty_core::Result<()>
+pub async fn tablo_core::auth::AuthToken::delete_by_user_id(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> toasty_core::Result<()>
+pub fn tablo_core::auth::AuthToken::fields() -> AuthTokenFields<tablo_core::auth::AuthToken>
+pub fn tablo_core::auth::AuthToken::filter(toasty::stmt::expr::Expr<bool>) -> AuthTokenQuery
+pub fn tablo_core::auth::AuthToken::filter_by_expires_at(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<jiff::timestamp::Timestamp>>) -> AuthTokenQuery
+pub fn tablo_core::auth::AuthToken::filter_by_token_hash(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> AuthTokenQuery
+pub fn tablo_core::auth::AuthToken::filter_by_user_id(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> AuthTokenQuery
+pub async fn tablo_core::auth::AuthToken::get_by_expires_at(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<jiff::timestamp::Timestamp>>) -> toasty_core::Result<tablo_core::auth::AuthToken>
+pub async fn tablo_core::auth::AuthToken::get_by_token_hash(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> toasty_core::Result<tablo_core::auth::AuthToken>
+pub async fn tablo_core::auth::AuthToken::get_by_user_id(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> toasty_core::Result<tablo_core::auth::AuthToken>
+pub fn tablo_core::auth::AuthToken::update(&mut self) -> AuthTokenUpdate<&mut Self>
+pub fn tablo_core::auth::AuthToken::update_by_expires_at(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<jiff::timestamp::Timestamp>>) -> AuthTokenUpdate
+pub fn tablo_core::auth::AuthToken::update_by_token_hash(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> AuthTokenUpdate
+pub fn tablo_core::auth::AuthToken::update_by_user_id(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> AuthTokenUpdate
+impl tablo_core::auth::AuthToken
+pub fn tablo_core::auth::AuthToken::upsert_by_token_hash(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> AuthTokenUpsertByTokenHash
+impl core::clone::Clone for tablo_core::auth::AuthToken
+pub fn tablo_core::auth::AuthToken::clone(&self) -> tablo_core::auth::AuthToken
+impl core::fmt::Debug for tablo_core::auth::AuthToken
+pub fn tablo_core::auth::AuthToken::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl toasty::codegen_support::ModelCodegen for tablo_core::auth::AuthToken
+pub fn tablo_core::auth::AuthToken::new_one_field<__Origin, __Target>(toasty::stmt::path::Path<__Origin, __Target>) -> Self::OneField
+pub fn tablo_core::auth::AuthToken::to_relation_expr(&self, &[&str]) -> toasty_core::stmt::expr::Expr
+impl toasty::schema::load::Load for tablo_core::auth::AuthToken
+pub type tablo_core::auth::AuthToken::Output = tablo_core::auth::AuthToken
+pub fn tablo_core::auth::AuthToken::load(toasty_core::stmt::value::Value) -> toasty_core::Result<Self>
+pub fn tablo_core::auth::AuthToken::reload(&mut Self, toasty_core::stmt::value::Value) -> toasty_core::Result<()>
+pub fn tablo_core::auth::AuthToken::ty() -> toasty_core::stmt::ty::Type
+impl toasty::schema::model::Model for tablo_core::auth::AuthToken
+pub type tablo_core::auth::AuthToken::Create = AuthTokenCreate
+pub type tablo_core::auth::AuthToken::ManyField<__Origin> = AuthTokenListFields<__Origin>
+pub type tablo_core::auth::AuthToken::OneField<__Origin, __Target> = AuthTokenFields<__Origin, __Target>
+pub type tablo_core::auth::AuthToken::Path<__Origin> = AuthTokenFields<__Origin>
+pub type tablo_core::auth::AuthToken::PrimaryKey = alloc::string::String
+pub type tablo_core::auth::AuthToken::Query<__T> = AuthTokenQuery<__T>
+pub type tablo_core::auth::AuthToken::Update<'a> = AuthTokenUpdate<&'a mut tablo_core::auth::AuthToken>
+pub type tablo_core::auth::AuthToken::UpdateQuery = AuthTokenUpdate
+pub fn tablo_core::auth::AuthToken::field_name_to_id(&str) -> toasty_core::schema::app::field::FieldId
+pub fn tablo_core::auth::AuthToken::find_by_primary_key(toasty::stmt::expr::Expr<Self::PrimaryKey>) -> Self::Query
+pub fn tablo_core::auth::AuthToken::id() -> toasty_core::schema::app::model::ModelId
+pub fn tablo_core::auth::AuthToken::new_many_field<__Origin>(toasty::stmt::path::Path<__Origin, toasty::stmt::list::List<Self>>) -> AuthTokenListFields<__Origin>
+pub fn tablo_core::auth::AuthToken::new_path<__Origin>(toasty::stmt::path::Path<__Origin, Self>) -> Self::Path
+pub fn tablo_core::auth::AuthToken::query_first(Self::Query) -> Self::Query
+pub fn tablo_core::auth::AuthToken::query_one(Self::Query) -> Self::Query
+pub fn tablo_core::auth::AuthToken::register(&mut toasty_core::schema::app::model::ModelSet)
+pub fn tablo_core::auth::AuthToken::schema() -> toasty_core::schema::app::model::Model
+pub fn tablo_core::auth::AuthToken::wrap_query<__T>(toasty::stmt::query::Query<__T>) -> Self::Query
+impl toasty::schema::via::ViaTarget for tablo_core::auth::AuthToken
+pub type tablo_core::auth::AuthToken::Path<__Origin> = <tablo_core::auth::AuthToken as toasty::schema::model::Model>::ManyField
+pub type tablo_core::auth::AuthToken::Query = AuthTokenQuery
+pub fn tablo_core::auth::AuthToken::make_via_query(toasty::stmt::association::Association<toasty::stmt::list::List<tablo_core::auth::AuthToken>>) -> Self::Query
+pub fn tablo_core::auth::AuthToken::new_path<__Origin>(toasty::stmt::path::Path<__Origin, toasty::stmt::list::List<tablo_core::auth::AuthToken>>) -> Self::Path
+pub fn tablo_core::auth::AuthToken::via_field_ty(toasty_core::schema::name::Name, toasty_core::stmt::path::Path) -> toasty_core::schema::app::field::FieldTy
+impl toasty::stmt::assignment::Assign<tablo_core::auth::AuthToken> for tablo_core::auth::AuthToken
+pub fn tablo_core::auth::AuthToken::into_assignment(self) -> toasty::stmt::assignment::Assignment<tablo_core::auth::AuthToken>
+impl toasty::stmt::into_expr::IntoExpr<tablo_core::auth::AuthToken> for tablo_core::auth::AuthToken
+pub fn tablo_core::auth::AuthToken::by_ref(&self) -> toasty::stmt::expr::Expr<tablo_core::auth::AuthToken>
+pub fn tablo_core::auth::AuthToken::into_expr(self) -> toasty::stmt::expr::Expr<tablo_core::auth::AuthToken>
+impl toasty::stmt::into_statement::IntoStatement for &mut tablo_core::auth::AuthToken
+pub type &mut tablo_core::auth::AuthToken::Returning = tablo_core::auth::AuthToken
+pub fn &mut tablo_core::auth::AuthToken::into_statement(self) -> toasty::stmt::Statement<tablo_core::auth::AuthToken>
+impl toasty::stmt::into_statement::IntoStatement for &tablo_core::auth::AuthToken
+pub type &tablo_core::auth::AuthToken::Returning = tablo_core::auth::AuthToken
+pub fn &tablo_core::auth::AuthToken::into_statement(self) -> toasty::stmt::Statement<tablo_core::auth::AuthToken>
+impl toasty::stmt::into_statement::IntoStatement for tablo_core::auth::AuthToken
+pub type tablo_core::auth::AuthToken::Returning = tablo_core::auth::AuthToken
+pub fn tablo_core::auth::AuthToken::into_statement(self) -> toasty::stmt::Statement<tablo_core::auth::AuthToken>
+impl toasty::update_target::UpdateTarget for &mut tablo_core::auth::AuthToken
+pub type &mut tablo_core::auth::AuthToken::Returning = tablo_core::auth::AuthToken
+pub fn &mut tablo_core::auth::AuthToken::apply_result(self, toasty_core::stmt::value::Value) -> toasty_core::Result<()>
+pub fn &mut tablo_core::auth::AuthToken::to_update_stmt(&mut self, toasty_core::stmt::assignments::Assignments) -> toasty::stmt::update::Update<tablo_core::auth::AuthToken>
+impl core::marker::Freeze for tablo_core::auth::AuthToken
+impl core::marker::Send for tablo_core::auth::AuthToken
+impl core::marker::Sync for tablo_core::auth::AuthToken
+impl core::marker::Unpin for tablo_core::auth::AuthToken
+impl core::marker::UnsafeUnpin for tablo_core::auth::AuthToken
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::auth::AuthToken
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::auth::AuthToken
 pub struct tablo_core::auth::ColumnPreference
 pub tablo_core::auth::ColumnPreference::columns: alloc::string::String
 pub tablo_core::auth::ColumnPreference::key: alloc::string::String
@@ -363,7 +514,6 @@ pub async fn tablo_core::PasswordAuth::find_by_id(&self, &topcoat_core::context:
 pub async fn tablo_core::PasswordAuth::verify(&self, &topcoat_core::context::Cx, &str, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
 impl tablo_core::auth::PasswordResetter for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
-pub fn tablo_core::PasswordAuth::email<'u>(&self, &'u tablo_core::auth::AdminUser) -> &'u str
 pub async fn tablo_core::PasswordAuth::find_by_email(&self, &topcoat_core::context::Cx, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
 pub async fn tablo_core::PasswordAuth::reset_password(&self, &topcoat_core::context::Cx, &str, &str, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<()>
 impl core::marker::Freeze for tablo_core::PasswordAuth
@@ -375,7 +525,7 @@ impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::PasswordAuth
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::PasswordAuth
 pub struct tablo_core::auth::PasswordReset
 impl tablo_core::PasswordReset
-pub fn tablo_core::PasswordReset::new(impl tablo_core::auth::PasswordResetter, topcoat_mail::mailbox::Mailbox, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::PasswordReset::new(impl tablo_core::auth::PasswordResetter) -> Self
 pub fn tablo_core::PasswordReset::throttle(self, tablo_core::LoginThrottle) -> Self
 impl core::fmt::Debug for tablo_core::PasswordReset
 pub fn tablo_core::PasswordReset::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
@@ -386,96 +536,6 @@ impl core::marker::Unpin for tablo_core::PasswordReset
 impl core::marker::UnsafeUnpin for tablo_core::PasswordReset
 impl !core::panic::unwind_safe::RefUnwindSafe for tablo_core::PasswordReset
 impl !core::panic::unwind_safe::UnwindSafe for tablo_core::PasswordReset
-pub struct tablo_core::auth::PasswordResetToken
-pub tablo_core::auth::PasswordResetToken::created_at: jiff::timestamp::Timestamp
-pub tablo_core::auth::PasswordResetToken::expires_at: jiff::timestamp::Timestamp
-pub tablo_core::auth::PasswordResetToken::panel: alloc::string::String
-pub tablo_core::auth::PasswordResetToken::token_hash: alloc::string::String
-pub tablo_core::auth::PasswordResetToken::user_id: alloc::string::String
-impl tablo_core::auth::PasswordResetToken
-pub fn tablo_core::auth::PasswordResetToken::all() -> PasswordResetTokenQuery
-pub fn tablo_core::auth::PasswordResetToken::create() -> PasswordResetTokenCreate
-pub fn tablo_core::auth::PasswordResetToken::create_many() -> toasty::stmt::create_many::CreateMany<tablo_core::auth::PasswordResetToken>
-pub fn tablo_core::auth::PasswordResetToken::delete(self) -> toasty::stmt::delete::Delete<()>
-pub async fn tablo_core::auth::PasswordResetToken::delete_by_expires_at(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<jiff::timestamp::Timestamp>>) -> toasty_core::Result<()>
-pub async fn tablo_core::auth::PasswordResetToken::delete_by_token_hash(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> toasty_core::Result<()>
-pub async fn tablo_core::auth::PasswordResetToken::delete_by_user_id(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> toasty_core::Result<()>
-pub fn tablo_core::auth::PasswordResetToken::fields() -> PasswordResetTokenFields<tablo_core::auth::PasswordResetToken>
-pub fn tablo_core::auth::PasswordResetToken::filter(toasty::stmt::expr::Expr<bool>) -> PasswordResetTokenQuery
-pub fn tablo_core::auth::PasswordResetToken::filter_by_expires_at(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<jiff::timestamp::Timestamp>>) -> PasswordResetTokenQuery
-pub fn tablo_core::auth::PasswordResetToken::filter_by_token_hash(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> PasswordResetTokenQuery
-pub fn tablo_core::auth::PasswordResetToken::filter_by_user_id(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> PasswordResetTokenQuery
-pub async fn tablo_core::auth::PasswordResetToken::get_by_expires_at(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<jiff::timestamp::Timestamp>>) -> toasty_core::Result<tablo_core::auth::PasswordResetToken>
-pub async fn tablo_core::auth::PasswordResetToken::get_by_token_hash(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> toasty_core::Result<tablo_core::auth::PasswordResetToken>
-pub async fn tablo_core::auth::PasswordResetToken::get_by_user_id(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> toasty_core::Result<tablo_core::auth::PasswordResetToken>
-pub fn tablo_core::auth::PasswordResetToken::update(&mut self) -> PasswordResetTokenUpdate<&mut Self>
-pub fn tablo_core::auth::PasswordResetToken::update_by_expires_at(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<jiff::timestamp::Timestamp>>) -> PasswordResetTokenUpdate
-pub fn tablo_core::auth::PasswordResetToken::update_by_token_hash(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> PasswordResetTokenUpdate
-pub fn tablo_core::auth::PasswordResetToken::update_by_user_id(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> PasswordResetTokenUpdate
-impl tablo_core::auth::PasswordResetToken
-pub fn tablo_core::auth::PasswordResetToken::upsert_by_token_hash(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> PasswordResetTokenUpsertByTokenHash
-impl core::clone::Clone for tablo_core::auth::PasswordResetToken
-pub fn tablo_core::auth::PasswordResetToken::clone(&self) -> tablo_core::auth::PasswordResetToken
-impl core::fmt::Debug for tablo_core::auth::PasswordResetToken
-pub fn tablo_core::auth::PasswordResetToken::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl toasty::codegen_support::ModelCodegen for tablo_core::auth::PasswordResetToken
-pub fn tablo_core::auth::PasswordResetToken::new_one_field<__Origin, __Target>(toasty::stmt::path::Path<__Origin, __Target>) -> Self::OneField
-pub fn tablo_core::auth::PasswordResetToken::to_relation_expr(&self, &[&str]) -> toasty_core::stmt::expr::Expr
-impl toasty::schema::load::Load for tablo_core::auth::PasswordResetToken
-pub type tablo_core::auth::PasswordResetToken::Output = tablo_core::auth::PasswordResetToken
-pub fn tablo_core::auth::PasswordResetToken::load(toasty_core::stmt::value::Value) -> toasty_core::Result<Self>
-pub fn tablo_core::auth::PasswordResetToken::reload(&mut Self, toasty_core::stmt::value::Value) -> toasty_core::Result<()>
-pub fn tablo_core::auth::PasswordResetToken::ty() -> toasty_core::stmt::ty::Type
-impl toasty::schema::model::Model for tablo_core::auth::PasswordResetToken
-pub type tablo_core::auth::PasswordResetToken::Create = PasswordResetTokenCreate
-pub type tablo_core::auth::PasswordResetToken::ManyField<__Origin> = PasswordResetTokenListFields<__Origin>
-pub type tablo_core::auth::PasswordResetToken::OneField<__Origin, __Target> = PasswordResetTokenFields<__Origin, __Target>
-pub type tablo_core::auth::PasswordResetToken::Path<__Origin> = PasswordResetTokenFields<__Origin>
-pub type tablo_core::auth::PasswordResetToken::PrimaryKey = alloc::string::String
-pub type tablo_core::auth::PasswordResetToken::Query<__T> = PasswordResetTokenQuery<__T>
-pub type tablo_core::auth::PasswordResetToken::Update<'a> = PasswordResetTokenUpdate<&'a mut tablo_core::auth::PasswordResetToken>
-pub type tablo_core::auth::PasswordResetToken::UpdateQuery = PasswordResetTokenUpdate
-pub fn tablo_core::auth::PasswordResetToken::field_name_to_id(&str) -> toasty_core::schema::app::field::FieldId
-pub fn tablo_core::auth::PasswordResetToken::find_by_primary_key(toasty::stmt::expr::Expr<Self::PrimaryKey>) -> Self::Query
-pub fn tablo_core::auth::PasswordResetToken::id() -> toasty_core::schema::app::model::ModelId
-pub fn tablo_core::auth::PasswordResetToken::new_many_field<__Origin>(toasty::stmt::path::Path<__Origin, toasty::stmt::list::List<Self>>) -> PasswordResetTokenListFields<__Origin>
-pub fn tablo_core::auth::PasswordResetToken::new_path<__Origin>(toasty::stmt::path::Path<__Origin, Self>) -> Self::Path
-pub fn tablo_core::auth::PasswordResetToken::query_first(Self::Query) -> Self::Query
-pub fn tablo_core::auth::PasswordResetToken::query_one(Self::Query) -> Self::Query
-pub fn tablo_core::auth::PasswordResetToken::register(&mut toasty_core::schema::app::model::ModelSet)
-pub fn tablo_core::auth::PasswordResetToken::schema() -> toasty_core::schema::app::model::Model
-pub fn tablo_core::auth::PasswordResetToken::wrap_query<__T>(toasty::stmt::query::Query<__T>) -> Self::Query
-impl toasty::schema::via::ViaTarget for tablo_core::auth::PasswordResetToken
-pub type tablo_core::auth::PasswordResetToken::Path<__Origin> = <tablo_core::auth::PasswordResetToken as toasty::schema::model::Model>::ManyField
-pub type tablo_core::auth::PasswordResetToken::Query = PasswordResetTokenQuery
-pub fn tablo_core::auth::PasswordResetToken::make_via_query(toasty::stmt::association::Association<toasty::stmt::list::List<tablo_core::auth::PasswordResetToken>>) -> Self::Query
-pub fn tablo_core::auth::PasswordResetToken::new_path<__Origin>(toasty::stmt::path::Path<__Origin, toasty::stmt::list::List<tablo_core::auth::PasswordResetToken>>) -> Self::Path
-pub fn tablo_core::auth::PasswordResetToken::via_field_ty(toasty_core::schema::name::Name, toasty_core::stmt::path::Path) -> toasty_core::schema::app::field::FieldTy
-impl toasty::stmt::assignment::Assign<tablo_core::auth::PasswordResetToken> for tablo_core::auth::PasswordResetToken
-pub fn tablo_core::auth::PasswordResetToken::into_assignment(self) -> toasty::stmt::assignment::Assignment<tablo_core::auth::PasswordResetToken>
-impl toasty::stmt::into_expr::IntoExpr<tablo_core::auth::PasswordResetToken> for tablo_core::auth::PasswordResetToken
-pub fn tablo_core::auth::PasswordResetToken::by_ref(&self) -> toasty::stmt::expr::Expr<tablo_core::auth::PasswordResetToken>
-pub fn tablo_core::auth::PasswordResetToken::into_expr(self) -> toasty::stmt::expr::Expr<tablo_core::auth::PasswordResetToken>
-impl toasty::stmt::into_statement::IntoStatement for &mut tablo_core::auth::PasswordResetToken
-pub type &mut tablo_core::auth::PasswordResetToken::Returning = tablo_core::auth::PasswordResetToken
-pub fn &mut tablo_core::auth::PasswordResetToken::into_statement(self) -> toasty::stmt::Statement<tablo_core::auth::PasswordResetToken>
-impl toasty::stmt::into_statement::IntoStatement for &tablo_core::auth::PasswordResetToken
-pub type &tablo_core::auth::PasswordResetToken::Returning = tablo_core::auth::PasswordResetToken
-pub fn &tablo_core::auth::PasswordResetToken::into_statement(self) -> toasty::stmt::Statement<tablo_core::auth::PasswordResetToken>
-impl toasty::stmt::into_statement::IntoStatement for tablo_core::auth::PasswordResetToken
-pub type tablo_core::auth::PasswordResetToken::Returning = tablo_core::auth::PasswordResetToken
-pub fn tablo_core::auth::PasswordResetToken::into_statement(self) -> toasty::stmt::Statement<tablo_core::auth::PasswordResetToken>
-impl toasty::update_target::UpdateTarget for &mut tablo_core::auth::PasswordResetToken
-pub type &mut tablo_core::auth::PasswordResetToken::Returning = tablo_core::auth::PasswordResetToken
-pub fn &mut tablo_core::auth::PasswordResetToken::apply_result(self, toasty_core::stmt::value::Value) -> toasty_core::Result<()>
-pub fn &mut tablo_core::auth::PasswordResetToken::to_update_stmt(&mut self, toasty_core::stmt::assignments::Assignments) -> toasty::stmt::update::Update<tablo_core::auth::PasswordResetToken>
-impl core::marker::Freeze for tablo_core::auth::PasswordResetToken
-impl core::marker::Send for tablo_core::auth::PasswordResetToken
-impl core::marker::Sync for tablo_core::auth::PasswordResetToken
-impl core::marker::Unpin for tablo_core::auth::PasswordResetToken
-impl core::marker::UnsafeUnpin for tablo_core::auth::PasswordResetToken
-impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::auth::PasswordResetToken
-impl core::panic::unwind_safe::UnwindSafe for tablo_core::auth::PasswordResetToken
 pub struct tablo_core::auth::Profile
 pub tablo_core::auth::Profile::current_password: core::option::Option<alloc::string::String>
 pub tablo_core::auth::Profile::email: alloc::string::String
@@ -547,23 +607,23 @@ pub async fn tablo_core::PasswordAuth::verify(&self, &topcoat_core::context::Cx,
 pub trait tablo_core::auth::PanelUser: core::any::Any + core::marker::Send + core::marker::Sync
 pub fn tablo_core::auth::PanelUser::can_access_panel(&self) -> bool
 pub fn tablo_core::auth::PanelUser::display_name(&self) -> &str
+pub fn tablo_core::auth::PanelUser::email(&self) -> core::option::Option<&str>
 pub fn tablo_core::auth::PanelUser::subtitle(&self) -> core::option::Option<&str>
 pub fn tablo_core::auth::PanelUser::tenants(&self) -> &[tablo_core::tenancy::Membership]
 pub fn tablo_core::auth::PanelUser::user_id(&self) -> alloc::string::String
 impl tablo_core::auth::PanelUser for tablo_core::auth::AdminUser
 pub fn tablo_core::auth::AdminUser::can_access_panel(&self) -> bool
 pub fn tablo_core::auth::AdminUser::display_name(&self) -> &str
+pub fn tablo_core::auth::AdminUser::email(&self) -> core::option::Option<&str>
 pub fn tablo_core::auth::AdminUser::subtitle(&self) -> core::option::Option<&str>
 pub fn tablo_core::auth::AdminUser::tenants(&self) -> &[tablo_core::tenancy::Membership]
 pub fn tablo_core::auth::AdminUser::user_id(&self) -> alloc::string::String
 pub trait tablo_core::auth::PasswordResetter: core::marker::Send + core::marker::Sync + 'static
 pub type tablo_core::auth::PasswordResetter::User: tablo_core::auth::PanelUser
-pub fn tablo_core::auth::PasswordResetter::email<'u>(&self, &'u Self::User) -> &'u str
 pub fn tablo_core::auth::PasswordResetter::find_by_email(&self, &topcoat_core::context::Cx, &str) -> impl core::future::future::Future<Output = topcoat::Result<core::option::Option<Self::User>>> + core::marker::Send
 pub fn tablo_core::auth::PasswordResetter::reset_password(&self, &topcoat_core::context::Cx, &str, &str, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send
 impl tablo_core::auth::PasswordResetter for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
-pub fn tablo_core::PasswordAuth::email<'u>(&self, &'u tablo_core::auth::AdminUser) -> &'u str
 pub async fn tablo_core::PasswordAuth::find_by_email(&self, &topcoat_core::context::Cx, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
 pub async fn tablo_core::PasswordAuth::reset_password(&self, &topcoat_core::context::Cx, &str, &str, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<()>
 pub trait tablo_core::auth::ProfileEditor: core::marker::Send + core::marker::Sync + 'static
@@ -1667,7 +1727,7 @@ impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Brand
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::Brand
 pub struct tablo_core::panel::Panel
 impl tablo_core::panel::Panel
-pub fn tablo_core::panel::Panel::auth(self, tablo_core::auth::Auth) -> Self
+pub fn tablo_core::panel::Panel::auth(self, tablo_core::Auth) -> Self
 pub fn tablo_core::panel::Panel::brand(self, tablo_core::Brand) -> Self
 pub fn tablo_core::panel::Panel::dark_mode(self, bool) -> Self
 pub fn tablo_core::panel::Panel::endpoint(self, impl topcoat_router::route::Route) -> Self
@@ -3718,6 +3778,28 @@ impl core::marker::Unpin for tablo_core::Alignment
 impl core::marker::UnsafeUnpin for tablo_core::Alignment
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Alignment
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::Alignment
+#[non_exhaustive] pub enum tablo_core::AuthMailFault
+pub tablo_core::AuthMailFault::BaseUrl(alloc::string::String)
+pub tablo_core::AuthMailFault::MissingMail
+pub tablo_core::AuthMailFault::Unset
+pub tablo_core::AuthMailFault::Unset::feature: &'static str
+impl core::clone::Clone for tablo_core::AuthMailFault
+pub fn tablo_core::AuthMailFault::clone(&self) -> tablo_core::AuthMailFault
+impl core::cmp::Eq for tablo_core::AuthMailFault
+impl core::cmp::PartialEq for tablo_core::AuthMailFault
+pub fn tablo_core::AuthMailFault::eq(&self, &tablo_core::AuthMailFault) -> bool
+impl core::fmt::Debug for tablo_core::AuthMailFault
+pub fn tablo_core::AuthMailFault::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tablo_core::AuthMailFault
+pub fn tablo_core::AuthMailFault::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_core::AuthMailFault
+impl core::marker::Freeze for tablo_core::AuthMailFault
+impl core::marker::Send for tablo_core::AuthMailFault
+impl core::marker::Sync for tablo_core::AuthMailFault
+impl core::marker::Unpin for tablo_core::AuthMailFault
+impl core::marker::UnsafeUnpin for tablo_core::AuthMailFault
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::AuthMailFault
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::AuthMailFault
 pub enum tablo_core::Color
 pub tablo_core::Color::Danger
 pub tablo_core::Color::Gray
@@ -3812,6 +3894,7 @@ impl core::panic::unwind_safe::UnwindSafe for tablo_core::Cursor
 pub tablo_core::DeclarationErrorKind::ActionInput
 pub tablo_core::DeclarationErrorKind::ActionInput::action: &'static str
 pub tablo_core::DeclarationErrorKind::ActionInput::fault: tablo_core::ActionInputFault
+pub tablo_core::DeclarationErrorKind::AuthMail(tablo_core::AuthMailFault)
 pub tablo_core::DeclarationErrorKind::CompositeKeyChoice
 pub tablo_core::DeclarationErrorKind::CompositeKeyChoice::field: alloc::string::String
 pub tablo_core::DeclarationErrorKind::CreateColumnsNameTenant
@@ -4204,8 +4287,6 @@ impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::ProfileUpdate
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::ProfileUpdate
 #[non_exhaustive] pub enum tablo_core::ResetFault
 pub tablo_core::ResetFault::AuthDisabled
-pub tablo_core::ResetFault::BaseUrl(alloc::string::String)
-pub tablo_core::ResetFault::MissingMail
 pub tablo_core::ResetFault::UserType
 pub tablo_core::ResetFault::UserType::resetter: &'static str
 impl core::clone::Clone for tablo_core::ResetFault
@@ -4315,28 +4396,41 @@ impl core::marker::UnsafeUnpin for tablo_core::policy::Allow
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::policy::Allow
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::policy::Allow
 pub struct tablo_core::Auth
-impl tablo_core::auth::Auth
-pub fn tablo_core::auth::Auth::custom(impl tablo_core::auth::Authenticator) -> Self
-pub fn tablo_core::auth::Auth::disabled() -> Self
-pub fn tablo_core::auth::Auth::is_disabled(&self) -> bool
-pub fn tablo_core::auth::Auth::password() -> Self
-pub fn tablo_core::auth::Auth::password_reset(self, tablo_core::PasswordReset) -> Self
-pub fn tablo_core::auth::Auth::profile(self, impl tablo_core::ProfileEditor) -> Self
-pub fn tablo_core::auth::Auth::profile_throttle(self, tablo_core::LoginThrottle) -> Self
-pub fn tablo_core::auth::Auth::registration(self, impl tablo_core::Registrar) -> Self
-pub fn tablo_core::auth::Auth::sign_up_throttle(self, tablo_core::LoginThrottle) -> Self
-pub fn tablo_core::auth::Auth::throttle(self, tablo_core::LoginThrottle) -> Self
-impl core::default::Default for tablo_core::auth::Auth
-pub fn tablo_core::auth::Auth::default() -> Self
-impl core::fmt::Debug for tablo_core::auth::Auth
-pub fn tablo_core::auth::Auth::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl !core::marker::Freeze for tablo_core::auth::Auth
-impl core::marker::Send for tablo_core::auth::Auth
-impl core::marker::Sync for tablo_core::auth::Auth
-impl core::marker::Unpin for tablo_core::auth::Auth
-impl core::marker::UnsafeUnpin for tablo_core::auth::Auth
-impl !core::panic::unwind_safe::RefUnwindSafe for tablo_core::auth::Auth
-impl !core::panic::unwind_safe::UnwindSafe for tablo_core::auth::Auth
+impl tablo_core::Auth
+pub fn tablo_core::Auth::custom(impl tablo_core::auth::Authenticator) -> Self
+pub fn tablo_core::Auth::disabled() -> Self
+pub fn tablo_core::Auth::is_disabled(&self) -> bool
+pub fn tablo_core::Auth::mail(self, tablo_core::AuthMail) -> Self
+pub fn tablo_core::Auth::password() -> Self
+pub fn tablo_core::Auth::password_reset(self, tablo_core::PasswordReset) -> Self
+pub fn tablo_core::Auth::profile(self, impl tablo_core::ProfileEditor) -> Self
+pub fn tablo_core::Auth::profile_throttle(self, tablo_core::LoginThrottle) -> Self
+pub fn tablo_core::Auth::registration(self, impl tablo_core::Registrar) -> Self
+pub fn tablo_core::Auth::sign_up_throttle(self, tablo_core::LoginThrottle) -> Self
+pub fn tablo_core::Auth::throttle(self, tablo_core::LoginThrottle) -> Self
+impl core::default::Default for tablo_core::Auth
+pub fn tablo_core::Auth::default() -> Self
+impl core::fmt::Debug for tablo_core::Auth
+pub fn tablo_core::Auth::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl !core::marker::Freeze for tablo_core::Auth
+impl core::marker::Send for tablo_core::Auth
+impl core::marker::Sync for tablo_core::Auth
+impl core::marker::Unpin for tablo_core::Auth
+impl core::marker::UnsafeUnpin for tablo_core::Auth
+impl !core::panic::unwind_safe::RefUnwindSafe for tablo_core::Auth
+impl !core::panic::unwind_safe::UnwindSafe for tablo_core::Auth
+pub struct tablo_core::AuthMail
+impl tablo_core::AuthMail
+pub fn tablo_core::AuthMail::new(topcoat_mail::mailbox::Mailbox, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::fmt::Debug for tablo_core::AuthMail
+pub fn tablo_core::AuthMail::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tablo_core::AuthMail
+impl core::marker::Send for tablo_core::AuthMail
+impl core::marker::Sync for tablo_core::AuthMail
+impl core::marker::Unpin for tablo_core::AuthMail
+impl core::marker::UnsafeUnpin for tablo_core::AuthMail
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::AuthMail
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::AuthMail
 pub struct tablo_core::BooleanColumn<M>
 impl<M> tablo_core::BooleanColumn<M> where M: toasty::schema::model::Model
 pub fn tablo_core::BooleanColumn<M>::hidden_by_default(self) -> Self
@@ -5300,7 +5394,7 @@ impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::PagePosition
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::PagePosition
 pub struct tablo_core::Panel
 impl tablo_core::panel::Panel
-pub fn tablo_core::panel::Panel::auth(self, tablo_core::auth::Auth) -> Self
+pub fn tablo_core::panel::Panel::auth(self, tablo_core::Auth) -> Self
 pub fn tablo_core::panel::Panel::brand(self, tablo_core::Brand) -> Self
 pub fn tablo_core::panel::Panel::dark_mode(self, bool) -> Self
 pub fn tablo_core::panel::Panel::endpoint(self, impl topcoat_router::route::Route) -> Self
@@ -5370,7 +5464,6 @@ pub async fn tablo_core::PasswordAuth::find_by_id(&self, &topcoat_core::context:
 pub async fn tablo_core::PasswordAuth::verify(&self, &topcoat_core::context::Cx, &str, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
 impl tablo_core::auth::PasswordResetter for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
-pub fn tablo_core::PasswordAuth::email<'u>(&self, &'u tablo_core::auth::AdminUser) -> &'u str
 pub async fn tablo_core::PasswordAuth::find_by_email(&self, &topcoat_core::context::Cx, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
 pub async fn tablo_core::PasswordAuth::reset_password(&self, &topcoat_core::context::Cx, &str, &str, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<()>
 impl core::marker::Freeze for tablo_core::PasswordAuth
@@ -5382,7 +5475,7 @@ impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::PasswordAuth
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::PasswordAuth
 pub struct tablo_core::PasswordReset
 impl tablo_core::PasswordReset
-pub fn tablo_core::PasswordReset::new(impl tablo_core::auth::PasswordResetter, topcoat_mail::mailbox::Mailbox, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::PasswordReset::new(impl tablo_core::auth::PasswordResetter) -> Self
 pub fn tablo_core::PasswordReset::throttle(self, tablo_core::LoginThrottle) -> Self
 impl core::fmt::Debug for tablo_core::PasswordReset
 pub fn tablo_core::PasswordReset::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
@@ -6470,12 +6563,14 @@ pub fn tablo_core::Page::render(&topcoat_core::context::Cx) -> impl core::future
 pub trait tablo_core::PanelUser: core::any::Any + core::marker::Send + core::marker::Sync
 pub fn tablo_core::PanelUser::can_access_panel(&self) -> bool
 pub fn tablo_core::PanelUser::display_name(&self) -> &str
+pub fn tablo_core::PanelUser::email(&self) -> core::option::Option<&str>
 pub fn tablo_core::PanelUser::subtitle(&self) -> core::option::Option<&str>
 pub fn tablo_core::PanelUser::tenants(&self) -> &[tablo_core::tenancy::Membership]
 pub fn tablo_core::PanelUser::user_id(&self) -> alloc::string::String
 impl tablo_core::auth::PanelUser for tablo_core::auth::AdminUser
 pub fn tablo_core::auth::AdminUser::can_access_panel(&self) -> bool
 pub fn tablo_core::auth::AdminUser::display_name(&self) -> &str
+pub fn tablo_core::auth::AdminUser::email(&self) -> core::option::Option<&str>
 pub fn tablo_core::auth::AdminUser::subtitle(&self) -> core::option::Option<&str>
 pub fn tablo_core::auth::AdminUser::tenants(&self) -> &[tablo_core::tenancy::Membership]
 pub fn tablo_core::auth::AdminUser::user_id(&self) -> alloc::string::String

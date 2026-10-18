@@ -27,7 +27,7 @@ pub async fn empty_schema_db() -> Db {
         showcase::models::Seat,
         tablo::auth::AuthSession,
         tablo::auth::ColumnPreference,
-        tablo::auth::PasswordResetToken
+        tablo::auth::AuthToken
     ))
     .await
 }

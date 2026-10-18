@@ -1,7 +1,7 @@
 //! The Policy, auth, tenancy chapter's snippets.
 
 use tablo::{
-    Membership, PanelUser, PasswordAuth, PasswordReset, RouterBuilderPanelExt,
+    AuthMail, Membership, PanelUser, PasswordAuth, PasswordReset, RouterBuilderPanelExt,
     auth::{
         Authenticator, Profile, ProfileEditor, ProfileUpdate, Registrar, hash_password,
         new_password_errors, verify_password,
@@ -43,8 +43,8 @@ pub fn auth_models() {
         crate::Book,
         tablo::auth::AdminUser,
         tablo::auth::AuthSession,
-        // Only with `Auth::password_reset`.
-        tablo::auth::PasswordResetToken
+        // Only with a feature that mails links, such as `Auth::password_reset`.
+        tablo::auth::AuthToken
     );
 }
 // ANCHOR_END: policy-models
@@ -258,11 +258,12 @@ pub async fn update_staff(
 
 // ANCHOR: policy-password-reset
 pub fn reset_router(db: toasty::Db) -> Result<Router> {
-    let reset = PasswordReset::new(
-        PasswordAuth,
-        Mailbox::named("Example", "no-reply@example.com")?,
-        "https://admin.example.com",
-    );
+    let auth = Auth::password()
+        .mail(AuthMail::new(
+            Mailbox::named("Example", "no-reply@example.com")?,
+            "https://admin.example.com",
+        ))
+        .password_reset(PasswordReset::new(PasswordAuth));
     Ok(Router::builder()
         .app_context(db)
         // Before the panel, which checks for it. `SmtpTransport`, behind Topcoat's `mail-smtp`
@@ -272,7 +273,7 @@ pub fn reset_router(db: toasty::Db) -> Result<Router> {
                 .transport(FileTransport::new("target/mail"))
                 .build(),
         )
-        .panel(Panel::new("admin").auth(Auth::password().password_reset(reset)))?
+        .panel(Panel::new("admin").auth(auth))?
         .build())
 }
 // ANCHOR_END: policy-password-reset

@@ -28,7 +28,8 @@ pub(crate) fn declaration_errors(
         .into_iter()
         .chain(super::registration::declaration_errors(auth))
         .chain(super::profile::declaration_errors(auth))
-        .chain(super::password_reset::declaration_errors(auth, has_mail))
+        .chain(super::password_reset::declaration_errors(auth))
+        .chain(super::mail::declaration_errors(auth, has_mail))
         .collect()
 }
 
@@ -47,7 +48,7 @@ fn missing_models(db: &toasty::Db, auth: &Auth, toggles: bool) -> Result<(), Dec
         (!registered("AuthSession")).then_some("AuthSession"),
         (shipped_user && !registered("AdminUser")).then_some("AdminUser"),
         (toggles && !registered("ColumnPreference")).then_some("ColumnPreference"),
-        (auth.reset.is_some() && !registered("PasswordResetToken")).then_some("PasswordResetToken"),
+        (auth.issues_tokens() && !registered("AuthToken")).then_some("AuthToken"),
     ]
     .into_iter()
     .flatten()

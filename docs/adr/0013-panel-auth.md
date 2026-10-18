@@ -23,9 +23,12 @@ is the explicit opt-out.
   session for the browser that saved.
 - Password reset is opt-in through a fourth seam, a `PasswordResetter` for the same user type:
   it finds an account by email and sets its password. Tablo mails a single-use link through
-  Topcoat mail, stores only the token's hash, and starts the link with a configured base URL. The
-  link is written and mailed after the response, so the answer takes as long for an unknown
-  address. A reset ends the account's sessions and links like a credential change.
+  Topcoat mail to the address `PanelUser::email` answers. The link is written and mailed after
+  the response, so the answer takes as long for an unknown address. A reset ends the account's
+  sessions and links like a credential change.
+- Every mailed link and pending sign-in is one `AuthToken` row: the token's hash, its purpose,
+  the account, the issuing panel and the expiry. A credential change ends all of an account's
+  tokens. One `AuthMail` names the sender and the configured base URL every link starts with.
 
 ## Rejected
 
@@ -40,3 +43,6 @@ is the explicit opt-out.
 - Reset links built from the request's `Host` header: the client chooses it, so a forged request
   would mail the victim a link to another host. A reset behind a Tablo cargo feature: the mail
   builder adds little to the dependency tree, and SMTP stays behind Topcoat's own feature.
+- A table per mailed link, and a sender and base URL per feature: each feature repeated the
+  hashing, expiry and revocation, and an app repeated its sender. An address method on each
+  seam: every seam that mails asks the same question of the same user type.
