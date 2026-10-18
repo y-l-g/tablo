@@ -1,6 +1,10 @@
-//! Table and detail columns: the [`Column`] trait, the built-in [`TextColumn`], [`DateColumn`],
-//! [`ComputedColumn`], [`RelationColumn`], [`CountColumn`], [`BooleanColumn`], [`FileColumn`],
-//! [`ColorColumn`], [`ImageColumn`] and [`EmbeddedColumn`], and the [`IntoColumns`] seam.
+//! Columns, which a [`Table`](crate::Table) lists and a [`Detail`](crate::Detail) shows: the
+//! [`Column`] trait, the built-in [`TextColumn`], [`DateColumn`], [`ComputedColumn`],
+//! [`RelationColumn`], [`CountColumn`], [`BooleanColumn`], [`FileColumn`], [`ColorColumn`],
+//! [`ImageColumn`], [`EmbeddedColumn`] and [`RepeaterColumn`], and the [`IntoColumns`] seam.
+//!
+//! The module sits below both: `table` re-exports it, and `detail` implements
+//! [`IntoDetail`](crate::IntoDetail) for each built-in column.
 
 use std::sync::Arc;
 
@@ -8,7 +12,7 @@ use derive_where::derive_where;
 use toasty::stmt::{Expr, List, OrderByExpr, Path, Query};
 use topcoat::{context::Cx, view::*};
 
-use crate::{Detail, IntoDetail, schema::Binding};
+use crate::schema::Binding;
 
 /// The `label` and `width` builders of a column over a [`ColumnBase`], inside its inherent impl.
 macro_rules! base_builders {
@@ -20,7 +24,7 @@ macro_rules! base_builders {
         }
 
         /// Declare this column's width.
-        pub fn width(mut self, width: $crate::table::ColumnWidth) -> Self {
+        pub fn width(mut self, width: $crate::column::ColumnWidth) -> Self {
             self.base.width = width;
             self
         }
@@ -44,13 +48,13 @@ macro_rules! toggle_builders {
     ($($field:ident).+) => {
         /// Let each reader hide this column from their list; it starts shown.
         pub fn toggleable(mut self) -> Self {
-            self.$($field).+ = $crate::table::ColumnToggle::ShownByDefault;
+            self.$($field).+ = $crate::column::ColumnToggle::ShownByDefault;
             self
         }
 
         /// Let each reader show this column in their list; it starts hidden.
         pub fn hidden_by_default(mut self) -> Self {
-            self.$($field).+ = $crate::table::ColumnToggle::HiddenByDefault;
+            self.$($field).+ = $crate::column::ColumnToggle::HiddenByDefault;
             self
         }
     };
@@ -68,11 +72,11 @@ macro_rules! base_column_methods {
             self.base.label()
         }
 
-        fn column_width(&self) -> $crate::table::ColumnWidth {
+        fn column_width(&self) -> $crate::column::ColumnWidth {
             self.base.width
         }
 
-        fn toggle(&self) -> $crate::table::ColumnToggle {
+        fn toggle(&self) -> $crate::column::ColumnToggle {
             self.base.toggle
         }
     };
@@ -101,7 +105,6 @@ mod display;
 mod embedded;
 mod file;
 mod image;
-pub(crate) mod model;
 mod relation;
 mod repeater;
 mod text;
@@ -114,7 +117,6 @@ pub use display::{Alignment, Color, Currency, Number, Numeric};
 pub use embedded::EmbeddedColumn;
 pub use file::FileColumn;
 pub use image::ImageColumn;
-pub use model::ModelColumns;
 pub use relation::{CountColumn, RelationColumn, RelationLens, ToOneRelation};
 pub use repeater::RepeaterColumn;
 pub use text::{TextColumn, contains_expr};
@@ -406,13 +408,13 @@ pub(crate) type BoxColumn<M> = Arc<dyn Column<M>>;
 /// Convert a single built-in column, a tuple of any [`Column`]s, a `Vec` or slice
 /// of boxed columns, or `()` for none yet, into a table's column list.
 ///
-/// [`Table::column`](super::Table::column) appends past it.
+/// [`Table::column`](crate::Table::column) appends past it.
 pub trait IntoColumns<M> {
     #[doc(hidden)]
     fn into_columns(self) -> Vec<BoxColumn<M>>;
 }
 
-/// The [`IntoColumns`] and [`IntoDetail`] impls of the built-in columns: each is one column.
+/// The [`IntoColumns`] impls of the built-in columns: each is one column.
 macro_rules! column_conversions {
     ($($ty:ident<$($g:ident),+>),+ $(,)?) => {
         $(
@@ -422,15 +424,6 @@ macro_rules! column_conversions {
             {
                 fn into_columns(self) -> Vec<BoxColumn<M>> {
                     vec![Arc::new(self)]
-                }
-            }
-
-            impl<$($g),+> IntoDetail<M> for $ty<$($g),+>
-            where
-                Self: Column<M> + 'static,
-            {
-                fn into_detail(self) -> Detail<M> {
-                    Detail::empty().column(self)
                 }
             }
         )+

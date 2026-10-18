@@ -192,6 +192,16 @@ where
     Ok(records)
 }
 
+/// Longest accepted search term, in chars; a relationship's option search and a table's `?q=`
+/// search share it.
+pub(crate) const MAX_QUERY_TERM: usize = 128;
+
+/// Clamps a search term to [`MAX_QUERY_TERM`] chars, so a multibyte term truncates on a char
+/// boundary.
+pub(crate) fn clamp_query_term(term: &str) -> String {
+    term.trim().chars().take(MAX_QUERY_TERM).collect()
+}
+
 /// Searches the related table's declared searchable columns, among the rows `scope` selects, in
 /// one bounded round-trip and fails past the cap with `Overflow`.
 pub(crate) async fn related_records_search<R>(
@@ -203,7 +213,7 @@ where
     R: OptionSource,
 {
     ensure_option_access::<R>(cx)?;
-    let term = crate::table::clamp_query_term(&q);
+    let term = clamp_query_term(&q);
     let mut query = option_query::<R>(cx)?;
     if let Some(scope) = scope {
         query = query.filter(scope);

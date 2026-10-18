@@ -80,13 +80,14 @@ pub mod __macro {
             tree::Retype,
             write_items,
         },
-        table::{ModelColumns, Table, column::model::pick},
+        table::{ModelColumns, Table, model::pick},
         toasty_compat::VariantId,
     };
 }
 // The toolkit surface: Panel, Resource, Table, Schema, Notification,
 // Tenancy, CSRF, and the `Db` glue.
 pub mod auth;
+mod column;
 pub mod csrf;
 pub mod db;
 mod declaration;
@@ -118,6 +119,12 @@ pub use auth::{
     Auth, Authenticator, LoginThrottle, PanelUser, PasswordAuth, PasswordReset, Profile,
     ProfileEditor, ProfileUpdate, Registrar, SignUp, membership,
 };
+pub use column::{
+    Alignment, BooleanColumn, Color, ColorColumn, ColumnToggle, ColumnWidth, ComputedColumn,
+    CountColumn, Currency, DateColumn, DateValue, EmbeddedColumn, FileColumn, ImageColumn,
+    IntoColumns, Number, Numeric, RelationColumn, RelationLens, RepeaterColumn, TextColumn,
+    ToOneRelation, contains_expr,
+};
 pub use declaration::{
     ActionInputFault, DeclarationError, DeclarationErrorKind, FieldRuleFault, ManyToManyFault,
     MountError, ProfileFault, ResetFault, SegmentFault, SignUpFault, Site,
@@ -145,12 +152,8 @@ pub use schema::{
     Watched,
 };
 pub use table::{
-    ActionLayout, Alignment, BooleanColumn, Color, ColorColumn, ColumnToggle, ColumnWidth,
-    ComputedColumn, CountColumn, Currency, Cursor, DateColumn, DateFilter, DateValue,
-    EmbeddedColumn, FileColumn, FilterValue, ImageColumn, IntoColumns, IntoFilters, ModelColumns,
-    Number, Numeric, PagePosition, Pagination, QueryFilter, RelationColumn, RelationLens,
-    RepeaterColumn, SelectFilter, Sort, Table, TablePage, TableState, TernaryFilter, TextColumn,
-    ToOneRelation, contains_expr,
+    ActionLayout, Cursor, DateFilter, FilterValue, IntoFilters, ModelColumns, PagePosition,
+    Pagination, QueryFilter, SelectFilter, Sort, Table, TablePage, TableState, TernaryFilter,
 };
 /// Derives `EmbeddedForm` for an embedded struct or enum.
 ///

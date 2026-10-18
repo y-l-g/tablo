@@ -10,37 +10,33 @@ use std::{marker::PhantomData, num::NonZeroUsize, sync::Arc};
 use derive_where::derive_where;
 use toasty::stmt::{Expr, List, OrderBy, OrderByExpr};
 
+pub(crate) use self::choice::ColumnChoice;
 use self::filter::BoxFilter;
-pub(crate) use self::{
-    choice::ColumnChoice,
-    column::{BoxColumn, Column, include_relations},
-};
+pub(crate) use crate::column::{BoxColumn, Column, include_relations};
 use crate::{DeclarationErrorKind, Lens, form::FormScalar, schema::Binding};
 
 mod choice;
-pub(crate) mod column;
 mod export;
 pub(crate) mod filter;
+pub(crate) mod model;
 mod page;
 mod state;
 
 pub use self::{
-    column::{
-        Alignment, BooleanColumn, Color, ColorColumn, ColumnToggle, ColumnWidth, ComputedColumn,
-        CountColumn, Currency, DateColumn, DateValue, EmbeddedColumn, FileColumn, ImageColumn,
-        IntoColumns, ModelColumns, Number, Numeric, RelationColumn, RelationLens, RepeaterColumn,
-        TextColumn, ToOneRelation, contains_expr,
-    },
     filter::{DateFilter, FilterValue, IntoFilters, QueryFilter, SelectFilter, TernaryFilter},
+    model::ModelColumns,
     page::{PagePosition, TablePage},
     state::{Cursor, Sort, TableState},
 };
 pub(crate) use self::{
     page::{Past, row_exists_past},
-    state::{
-        bulk_key, bulk_token, clamp_query_term, group_header_dom_id, query_of, request_query,
-        row_dom_id,
-    },
+    state::{bulk_key, bulk_token, group_header_dom_id, query_of, request_query, row_dom_id},
+};
+pub use crate::column::{
+    Alignment, BooleanColumn, Color, ColorColumn, ColumnToggle, ColumnWidth, ComputedColumn,
+    CountColumn, Currency, DateColumn, DateValue, EmbeddedColumn, FileColumn, ImageColumn,
+    IntoColumns, Number, Numeric, RelationColumn, RelationLens, RepeaterColumn, TextColumn,
+    ToOneRelation, contains_expr,
 };
 
 /// Group-label projection reads a row's group off one model instance.
@@ -211,7 +207,7 @@ impl<M> Table<M> {
     where
         M: toasty::schema::Model,
     {
-        column::include_relations(query, &self.columns)
+        include_relations(query, &self.columns)
     }
 
     /// Filter predicate for the current `TableState`.
@@ -353,8 +349,7 @@ impl<M> Table<M> {
         &self,
         cx: &topcoat::context::Cx,
     ) -> Vec<DeclarationErrorKind> {
-        let mut errors =
-            crate::table::column::unavailable_sources(cx, self.columns.iter().map(|c| &**c));
+        let mut errors = crate::column::unavailable_sources(cx, self.columns.iter().map(|c| &**c));
         errors.extend(self.filters.iter().filter_map(|filter| {
             filter.unavailable_source(cx).map(|source| {
                 DeclarationErrorKind::UnregisteredOptionSource {
