@@ -75,8 +75,9 @@ pub(super) async fn notice(cx: &Cx, email: &str) -> topcoat::Result<Response> {
     page.single().await?.into_response(cx)
 }
 
-/// The page an unknown, expired, used or outdated link lands on: 404, linking to the login page.
-pub(super) async fn invalid_link(cx: &Cx) -> topcoat::Result<Response> {
+/// The page an unknown, expired, used or outdated verification or email-change link lands on:
+/// 404, linking to the login page.
+pub(in crate::auth) async fn invalid_link(cx: &Cx) -> topcoat::Result<Response> {
     let login = login_url(cx);
     let link = crate::navigation::runtime_link(cx, &login);
     let form = view! {

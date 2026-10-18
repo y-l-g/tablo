@@ -15,6 +15,7 @@ mod column;
 mod condition;
 mod declaration;
 mod dependent;
+mod email_change;
 mod embedded_lens;
 mod embedded_value;
 mod export;

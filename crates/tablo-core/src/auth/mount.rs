@@ -6,7 +6,7 @@ use std::any::TypeId;
 use topcoat::router::{BodyLimit, PageFn, RouteFn, RouteHandlerFn, RouterBuilder};
 
 use super::{
-    AdminUser, Auth,
+    AdminUser, Auth, email_change,
     login::{MAX_LOGIN_BYTES, login_page, login_post, logout_post, tenant_post},
     password_reset::{forgot_page, forgot_post, reset_page, reset_post},
     profile::{profile_page, profile_post},
@@ -139,6 +139,16 @@ pub(crate) fn routes(mut builder: RouterBuilder, prefix: &str, auth: &Auth) -> R
                 http::Method::GET,
                 route_path(&format!("{prefix}/verify-email/confirm")),
                 confirm_page,
+            ))
+            .route(RouteFn::new(
+                http::Method::GET,
+                route_path(&format!("{prefix}/email-change/confirm")),
+                email_change::confirm_page,
+            ))
+            .route(RouteFn::new(
+                http::Method::GET,
+                route_path(&format!("{prefix}/email-change/cancel")),
+                email_change::cancel_page,
             ));
     }
     builder

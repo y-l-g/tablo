@@ -16,7 +16,7 @@ use topcoat::{
 };
 
 use super::{
-    SignedIn,
+    SignedIn, email_change,
     login::{login_url, logout_url},
     page::{AuthPage, render},
     page_load,
@@ -70,7 +70,12 @@ impl Layer for PanelGate {
             let sign_up = offered(&cx) && path == register_url(&cx);
             let reset = reset_offered(&cx) && (path == forgot_url(&cx) || path == reset_url(&cx));
             let confirm = self.panel.auth.verification().is_some()
-                && path == verification::confirm_url(&cx)
+                && [
+                    verification::confirm_url(&cx),
+                    email_change::confirm_url(&cx),
+                    email_change::cancel_url(&cx),
+                ]
+                .contains(&path.to_string())
                 && matches!(*method(&cx), http::Method::GET | http::Method::HEAD);
             let public = path == login_url(&cx) || sign_up || reset || confirm;
             if public

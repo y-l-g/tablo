@@ -6,6 +6,7 @@
 
 mod columns;
 mod config;
+mod email_change;
 mod gate;
 mod login;
 mod mail;
@@ -38,6 +39,7 @@ use uuid::Uuid;
 pub use self::{
     columns::ColumnPreference,
     config::Auth,
+    email_change::{EmailChange, request_email_change},
     login::{LOGIN_FIELD, NEXT_FIELD, PASSWORD_FIELD, TENANT_FIELD},
     mail::AuthMail,
     password::{AdminUser, PasswordAuth, create_admin, hash_password, verify_password},

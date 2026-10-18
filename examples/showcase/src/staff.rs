@@ -4,8 +4,8 @@ use jiff::Timestamp;
 use tablo::{
     FieldErrors, FormInput, Membership, PanelUser,
     auth::{
-        Authenticator, EmailVerifier, PasswordResetter, Profile, ProfileEditor, ProfileUpdate,
-        Registrar, hash_password, new_password_errors, verify_password,
+        self, Authenticator, EmailChange, EmailVerifier, PasswordResetter, Profile, ProfileEditor,
+        ProfileUpdate, Registrar, hash_password, new_password_errors, verify_password,
     },
 };
 use toasty::Db;
@@ -268,19 +268,21 @@ impl ProfileEditor for StaffAuth {
 
     async fn save(
         &self,
-        _cx: &Cx,
+        cx: &Cx,
         signed: &SignedStaff,
         profile: Profile,
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<ProfileUpdate> {
-        let new_email = profile.email != signed.staff.email;
-        let credentials = new_email || profile.password.is_some();
+        // The panel verifies addresses, so a new one waits for its link.
+        let stored = profile.email != signed.staff.email
+            && auth::request_email_change(cx, &mut *ex, signed, &profile.email).await?
+                == EmailChange::Immediate;
+        let credentials = stored || profile.password.is_some();
         let mut update = Staff::filter(Staff::fields().id().eq(signed.staff.id))
             .update()
-            .display_name(profile.name)
-            .email(profile.email);
-        if new_email {
-            update.set_email_verified_at(None);
+            .display_name(profile.name);
+        if stored {
+            update.set_email(profile.email);
         }
         if let Some(password) = &profile.password {
             update.set_password_hash(hash_password(password).await?);

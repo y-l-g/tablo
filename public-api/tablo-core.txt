@@ -6,6 +6,25 @@ pub use tablo_core::ModelForm
 pub use tablo_core::Options
 pub use tablo_core::RecordForm
 pub mod tablo_core::auth
+pub enum tablo_core::auth::EmailChange
+pub tablo_core::auth::EmailChange::Immediate
+pub tablo_core::auth::EmailChange::Pending
+impl core::clone::Clone for tablo_core::auth::EmailChange
+pub fn tablo_core::auth::EmailChange::clone(&self) -> tablo_core::auth::EmailChange
+impl core::cmp::Eq for tablo_core::auth::EmailChange
+impl core::cmp::PartialEq for tablo_core::auth::EmailChange
+pub fn tablo_core::auth::EmailChange::eq(&self, &tablo_core::auth::EmailChange) -> bool
+impl core::fmt::Debug for tablo_core::auth::EmailChange
+pub fn tablo_core::auth::EmailChange::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_core::auth::EmailChange
+impl core::marker::StructuralPartialEq for tablo_core::auth::EmailChange
+impl core::marker::Freeze for tablo_core::auth::EmailChange
+impl core::marker::Send for tablo_core::auth::EmailChange
+impl core::marker::Sync for tablo_core::auth::EmailChange
+impl core::marker::Unpin for tablo_core::auth::EmailChange
+impl core::marker::UnsafeUnpin for tablo_core::auth::EmailChange
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::auth::EmailChange
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::auth::EmailChange
 #[non_exhaustive] pub enum tablo_core::auth::ProfileUpdate
 pub tablo_core::auth::ProfileUpdate::Credentials
 pub tablo_core::auth::ProfileUpdate::Details
@@ -26,6 +45,8 @@ impl core::marker::UnsafeUnpin for tablo_core::ProfileUpdate
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::ProfileUpdate
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::ProfileUpdate
 #[non_exhaustive] pub enum tablo_core::auth::TokenPurpose
+pub tablo_core::auth::TokenPurpose::EmailChange
+pub tablo_core::auth::TokenPurpose::EmailChangeCancel
 pub tablo_core::auth::TokenPurpose::EmailVerification
 pub tablo_core::auth::TokenPurpose::PasswordReset
 impl core::clone::Clone for tablo_core::auth::TokenPurpose
@@ -683,6 +704,7 @@ pub fn tablo_core::auth::guard(&topcoat_core::context::Cx) -> topcoat::Result<()
 pub async fn tablo_core::auth::hash_password(&str) -> topcoat::Result<alloc::string::String>
 pub fn tablo_core::auth::membership(&topcoat_core::context::Cx) -> core::option::Option<&tablo_core::tenancy::Membership>
 pub fn tablo_core::auth::new_password_errors(&str, &str) -> tablo_core::FieldErrors
+pub async fn tablo_core::auth::request_email_change(&topcoat_core::context::Cx, &mut dyn toasty::db::executor::Executor, &dyn tablo_core::auth::PanelUser, &str) -> topcoat::Result<tablo_core::auth::EmailChange>
 pub fn tablo_core::auth::require_user<U: tablo_core::auth::PanelUser>(&topcoat_core::context::Cx) -> topcoat::Result<&U>
 pub async fn tablo_core::auth::revoke_sessions_for_user(&topcoat_core::context::Cx, &str) -> topcoat::Result<()>
 pub fn tablo_core::auth::signed_in(&topcoat_core::context::Cx) -> bool

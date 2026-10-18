@@ -44,6 +44,10 @@ pub enum TokenPurpose {
     PasswordReset,
     /// A mailed link that proves the account reads the address it was mailed to.
     EmailVerification,
+    /// A link mailed to a new address that makes it the account's.
+    EmailChange,
+    /// A link mailed to the old address that cancels a pending change.
+    EmailChangeCancel,
 }
 
 /// A new token for `purpose` on the request's panel, held by `user_id` until `lifetime` passes,

@@ -19,7 +19,8 @@ use topcoat::{
     },
 };
 
-use self::pages::{invalid_link, notice};
+pub(super) use self::pages::invalid_link;
+use self::pages::notice;
 use super::{
     LoginThrottle, PanelUser, infrastructure_failure,
     login::login_url,
