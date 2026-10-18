@@ -1,5 +1,6 @@
 //! Email-change confirmation: a new address waits for its link, the link stores it and ends the
-//! account's other sessions, and the link to the old address cancels the change.
+//! account's other sessions, and the link to the old address keeps it, before or after the change.
+//! Opening either link only shows a button: a mail scanner that fetches it changes nothing.
 
 use http::header::LOCATION;
 use tablo::{
@@ -12,13 +13,13 @@ use tablo::{
 use toasty::Db;
 use topcoat::{
     mail::{Mail, MailConfig, Mailbox, MemoryTransport, RouterBuilderMailExt},
-    router::{Router, RouterBuilderDiscoverExt},
+    router::{Body, Router, RouterBuilderDiscoverExt},
 };
 use uuid::Uuid;
 
 use crate::common::{
     TestClient, flash,
-    mail::{BASE_URL, link, mails},
+    mail::{BASE_URL, link, mails, token},
     test_db,
 };
 
@@ -85,6 +86,16 @@ async fn sessions(db: &Db) -> Vec<AuthSession> {
     AuthSession::all().exec(&mut db.clone()).await.unwrap()
 }
 
+/// Opens `link` in `client` as a browser does: the page changes nothing, and its button posts the
+/// link's token. Answers the post's response.
+async fn follow(client: &TestClient<'_>, link: &str) -> http::Response<Body> {
+    assert_eq!(client.get(link).await.status(), 200);
+    let path = link.split_once('?').unwrap().0;
+    client
+        .submit(path, &form_body(&[("token", &token(link))]))
+        .await
+}
+
 /// Ada, signed in, asks to sign in as `ada@new.example` from now on; answers the client and the
 /// mail to the new address, then the mail to the old one.
 async fn ask_for_change<'r>(
@@ -129,7 +140,7 @@ async fn a_new_email_waits_for_its_link_and_the_link_stores_it() {
 
     let confirm = link(&to_new);
     assert!(confirm.starts_with("/admin/email-change/confirm?token="));
-    let confirmed = client.get(&confirm).await;
+    let confirmed = follow(&client, &confirm).await;
     assert_eq!(confirmed.headers().get(LOCATION).unwrap(), "/admin");
 
     let ada = reload(&db, &ada).await;
@@ -151,7 +162,7 @@ async fn a_link_opened_signed_out_ends_every_session() {
     let router = router(db.clone(), &mail);
     let (_, to_new, _) = ask_for_change(&router, &db, &ada, &mail).await;
 
-    let confirmed = TestClient::new(&router).get(&link(&to_new)).await;
+    let confirmed = follow(&TestClient::new(&router), &link(&to_new)).await;
     assert_eq!(confirmed.headers().get(LOCATION).unwrap(), "/admin/login");
     assert_eq!(reload(&db, &ada).await.email, "ada@new.example");
     assert!(sessions(&db).await.is_empty());
@@ -167,7 +178,7 @@ async fn the_link_to_the_old_address_cancels_the_change_and_signs_everyone_out()
 
     let cancel = link(&to_old);
     assert!(cancel.starts_with("/admin/email-change/cancel?token="));
-    let cancelled = TestClient::new(&router).get(&cancel).await;
+    let cancelled = follow(&TestClient::new(&router), &cancel).await;
     assert_eq!(cancelled.headers().get(LOCATION).unwrap(), "/admin/login");
 
     assert!(sessions(&db).await.is_empty());
@@ -177,4 +188,76 @@ async fn the_link_to_the_old_address_cancels_the_change_and_signs_everyone_out()
         404
     );
     assert_eq!(reload(&db, &ada).await.email, "ada@example.com");
+}
+
+/// Whoever confirmed a change first, the link to the old address still restores it.
+#[tokio::test]
+async fn the_link_to_the_old_address_undoes_a_confirmed_change() {
+    let (db, ada) = db().await;
+    let mail = MemoryTransport::new();
+    let router = router(db.clone(), &mail);
+    let (_, to_new, to_old) = ask_for_change(&router, &db, &ada, &mail).await;
+    follow(&TestClient::new(&router), &link(&to_new)).await;
+    assert_eq!(reload(&db, &ada).await.email, "ada@new.example");
+
+    let kept = follow(&TestClient::new(&router), &link(&to_old)).await;
+    assert_eq!(kept.headers().get(LOCATION).unwrap(), "/admin/login");
+    let ada = reload(&db, &ada).await;
+    assert_eq!(ada.email, "ada@example.com");
+    assert!(ada.email_verified_at.is_some());
+    assert!(sessions(&db).await.is_empty());
+}
+
+/// Opening a link, as a mail scanner does, changes nothing, and a post without the form's CSRF
+/// token is refused.
+#[tokio::test]
+async fn opening_a_link_changes_nothing() {
+    let (db, ada) = db().await;
+    let mail = MemoryTransport::new();
+    let router = router(db.clone(), &mail);
+    let (_, to_new, to_old) = ask_for_change(&router, &db, &ada, &mail).await;
+    let scanner = TestClient::new(&router);
+    for link in [link(&to_new), link(&to_old)] {
+        assert_eq!(scanner.get(&link).await.status(), 200);
+        let path = link.split_once('?').unwrap().0;
+        let forged = scanner
+            .post_form(path, form_body(&[("token", &token(&link))]))
+            .await;
+        assert_eq!(forged.status(), 403);
+    }
+    assert_eq!(reload(&db, &ada).await.email, "ada@example.com");
+    assert_eq!(sessions(&db).await.len(), 2);
+}
+
+/// A save that changes the password and the address together keeps the new address's link.
+#[tokio::test]
+async fn a_new_password_keeps_the_change_saved_with_it() {
+    let (db, ada) = db().await;
+    let mail = MemoryTransport::new();
+    let router = router(db.clone(), &mail);
+    let client = TestClient::new(&router).sign_in(&db, "admin", &ada).await;
+    let saved = client
+        .submit(
+            "/admin/profile",
+            &form_body(&[
+                ("name", "Ada"),
+                ("email", "ada@new.example"),
+                ("password", "a new password"),
+                ("password_confirmation", "a new password"),
+                ("current_password", "a password"),
+            ]),
+        )
+        .await;
+    assert_eq!(saved.status(), 303);
+    let renewed = session_cookie_value(&saved).expect("a new password renews the session");
+    let to_new = mails(&mail, 2)
+        .await
+        .into_iter()
+        .find(|mail| mail.to()[0].address() == "ada@new.example")
+        .expect("a mail to the new address");
+
+    let client = TestClient::new(&router).cookie(SESSION_COOKIE, &renewed);
+    let confirmed = follow(&client, &link(&to_new)).await;
+    assert_eq!(confirmed.headers().get(LOCATION).unwrap(), "/admin");
+    assert_eq!(reload(&db, &ada).await.email, "ada@new.example");
 }

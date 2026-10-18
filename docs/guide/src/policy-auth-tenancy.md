@@ -369,13 +369,19 @@ link proved and marks it verified, inside the link's transaction. `PasswordAuth`
 - **A new email** waits for its own link. A profile editor calls `auth::request_email_change`
   from `save` in place of writing the address: on a panel with email verification it records the
   change and answers `EmailChange::Pending`, and once the save commits the panel mails the new
-  address a link that stores it and the old address a link that cancels it. Elsewhere it answers
+  address a link that stores it and the old address a link that keeps it. Elsewhere it answers
   `EmailChange::Immediate` and the editor stores the address itself. `PasswordAuth` does this.
+  The link proves only that whoever asked reads the new mailbox, so ask for the current password
+  before calling it, as `PasswordAuth` does: a stolen session could name its thief's mailbox.
+- **Either link** opens a page whose button does the work, so a mail scanner that fetches it
+  changes nothing.
 - **The new address's link** stores it, verified, once, for one day. It is a credential change:
-  the account's sessions and links end on every panel signing in its user type, and the browser
-  that opened it keeps a new session when it was signed in as the account.
-- **The old address's link** keeps the address and ends every session and link the account
-  holds, the cancelling browser's included: whoever asked for the change may hold one.
+  the account's sessions and sign-in links end on every panel signing in its user type, and the
+  browser that confirmed keeps a new session when it was signed in as the account.
+- **The old address's link** works for a week, before or after the change goes through: it keeps
+  the old address, restoring it if the change went through, and ends every session, sign-in link
+  and pending change the account holds, the cancelling browser's included: whoever asked for the
+  change may hold one.
 - **Throttling.** Each account may ask for three links in fifteen minutes;
   `EmailVerification::throttle` changes the limit. Past it the page answers 429.
 - **Mounting refuses** a verifier whose `User` is not the type the authenticator loads, a

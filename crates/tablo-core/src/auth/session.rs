@@ -10,7 +10,10 @@ use topcoat::{
 };
 use uuid::Uuid;
 
-use super::{DynAuthenticator, PanelUser, SignedIn, infrastructure_failure};
+use super::{
+    DynAuthenticator, PanelUser, SignedIn, infrastructure_failure,
+    token::{CREDENTIALS, REVOCATION, TokenPurpose},
+};
 use crate::panel::state::{PanelState, current};
 
 /// How long a session stays valid: seven days, fixed.
@@ -94,11 +97,13 @@ pub(super) fn credential_panels(
 }
 
 /// Deletes every session `user_id` holds on `panels`, and every [`AuthToken`](super::AuthToken)
-/// it holds on those that issue them, through `ex`: what a credential change ends.
+/// for one of `purposes` it holds on those that issue them, through `ex`: what a credential
+/// change ends, with [`CREDENTIALS`], or a revocation, with [`REVOCATION`].
 pub(super) async fn end_credentials(
     ex: &mut dyn toasty::Executor,
     user_id: &str,
     panels: &[Arc<PanelState>],
+    purposes: &[TokenPurpose],
 ) -> topcoat::Result<()> {
     let prefixes: Vec<String> = panels.iter().map(|panel| panel.prefix.clone()).collect();
     AuthSession::filter(
@@ -120,7 +125,7 @@ pub(super) async fn end_credentials(
         // A panel that issues no token may leave its model unregistered.
         return Ok(());
     }
-    super::token::end_all(ex, user_id, Some(issuing)).await
+    super::token::end_all(ex, user_id, Some(issuing), purposes).await
 }
 
 /// Replaces every session `user_id` holds, on every panel whose authenticator loads `user_type`,
@@ -136,7 +141,7 @@ pub(super) async fn replace_sessions(
 ) -> topcoat::Result<()> {
     let panels = credential_panels(cx, user_type, &signed.panel);
     let user_id = signed.user.user_id();
-    end_credentials(&mut *ex, &user_id, &panels).await?;
+    end_credentials(&mut *ex, &user_id, &panels, CREDENTIALS).await?;
     let expires_at = Timestamp::try_from(session.expires_at).map_err(topcoat::Error::from)?;
     insert(
         ex,
@@ -241,9 +246,10 @@ async fn delete_session_row(cx: &Cx, key: &str) -> topcoat::Result<()> {
     Ok(())
 }
 
-/// Revokes every live session and token of `user_id` on the current panel and on each panel
-/// sharing its users, whose authenticator loads the same user type, or on every panel outside any
-/// panel; call it whenever a credential changes.
+/// Revokes every live session of `user_id`, its pending sign-ins, its reset links and its pending
+/// email change, on the current panel and on each panel sharing its users, whose authenticator
+/// loads the same user type, or on every panel outside any panel; call it whenever a credential
+/// changes. A link that proves an address or undoes an email change survives.
 ///
 /// # Errors
 ///
@@ -255,7 +261,7 @@ pub async fn revoke_sessions_for_user(cx: &Cx, user_id: &str) -> topcoat::Result
             Some(auth) => credential_panels(cx, auth.user_type(), panel),
             None => vec![Arc::clone(panel)],
         };
-        return end_credentials(&mut db, user_id, &panels).await;
+        return end_credentials(&mut db, user_id, &panels, REVOCATION).await;
     }
     AuthSession::filter(AuthSession::fields().user_id().eq(user_id.to_string()))
         .delete()
@@ -265,7 +271,7 @@ pub async fn revoke_sessions_for_user(cx: &Cx, user_id: &str) -> topcoat::Result
     let issuing = crate::panel::state::panels(cx)
         .is_some_and(|panels| panels.0.iter().any(|panel| panel.auth.issues_tokens()));
     if issuing {
-        super::token::end_all(&mut db, user_id, None).await?;
+        super::token::end_all(&mut db, user_id, None, REVOCATION).await?;
     }
     Ok(())
 }

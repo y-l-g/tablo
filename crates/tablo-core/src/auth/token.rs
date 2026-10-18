@@ -127,14 +127,27 @@ pub(super) async fn spend(ex: &mut dyn toasty::Executor, row: &AuthToken) -> top
         .map_err(infrastructure_failure)
 }
 
-/// Deletes every token `user_id` holds on the panels `prefixes` names, or on every panel for
-/// `None`, through `ex`: what a credential change ends.
+/// The purposes a credential change ends: the tokens that sign in or set a credential. A link
+/// that proves an address, makes a change the account asked for, or undoes one outlives it.
+pub(super) const CREDENTIALS: &[TokenPurpose] = &[TokenPurpose::PasswordReset];
+
+/// The purposes a reset, a cancelled email change or a revocation ends: those of a credential
+/// change, and a pending email change, which whoever knew the password may have asked for.
+pub(super) const REVOCATION: &[TokenPurpose] =
+    &[TokenPurpose::PasswordReset, TokenPurpose::EmailChange];
+
+/// Deletes every token for one of `purposes` that `user_id` holds on the panels `prefixes` names,
+/// or on every panel for `None`, through `ex`.
 pub(super) async fn end_all(
     ex: &mut dyn toasty::Executor,
     user_id: &str,
     prefixes: Option<Vec<String>>,
+    purposes: &[TokenPurpose],
 ) -> topcoat::Result<()> {
-    let user = AuthToken::fields().user_id().eq(user_id.to_string());
+    let user = AuthToken::fields()
+        .user_id()
+        .eq(user_id.to_string())
+        .and(AuthToken::fields().purpose().in_list(purposes.to_vec()));
     match prefixes {
         Some(prefixes) => {
             AuthToken::filter(user.and(AuthToken::fields().panel().in_list(prefixes)))

@@ -18,7 +18,7 @@ use super::{
     mail::{TOKEN_FIELD, after_response, token_from_query},
     registration::new_password_errors,
     session::{credential_panels, end_credentials},
-    token::{self, TokenPurpose, serializable},
+    token::{self, REVOCATION, TokenPurpose, serializable},
 };
 use crate::{
     BoxFuture,
@@ -413,7 +413,7 @@ pub(super) fn reset_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             .map_err(infrastructure_failure)?;
         let (user_type, _) = reset.resetter().user_type();
         let panels = credential_panels(cx, user_type, panel);
-        end_credentials(&mut tx, &row.user_id, &panels).await?;
+        end_credentials(&mut tx, &row.user_id, &panels, REVOCATION).await?;
         tx.commit().await.map_err(infrastructure_failure)?;
         set_notification(
             cx,

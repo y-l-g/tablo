@@ -139,17 +139,25 @@ pub(crate) fn routes(mut builder: RouterBuilder, prefix: &str, auth: &Auth) -> R
                 http::Method::GET,
                 route_path(&format!("{prefix}/verify-email/confirm")),
                 confirm_page,
-            ))
-            .route(RouteFn::new(
-                http::Method::GET,
-                route_path(&format!("{prefix}/email-change/confirm")),
-                email_change::confirm_page,
-            ))
-            .route(RouteFn::new(
-                http::Method::GET,
-                route_path(&format!("{prefix}/email-change/cancel")),
-                email_change::cancel_page,
             ));
+        for (path, page, post) in [
+            (
+                "email-change/confirm",
+                email_change::confirm_page as RouteHandlerFn,
+                email_change::confirm_post as RouteHandlerFn,
+            ),
+            (
+                "email-change/cancel",
+                email_change::cancel_page,
+                email_change::cancel_post,
+            ),
+        ] {
+            let path = route_path(&format!("{prefix}/{path}"));
+            builder = builder
+                .layer(BodyLimit::max(MAX_LOGIN_BYTES).at(path.clone()))
+                .route(RouteFn::new(http::Method::GET, path.clone(), page))
+                .route(RouteFn::new(http::Method::POST, path, post));
+        }
     }
     builder
 }

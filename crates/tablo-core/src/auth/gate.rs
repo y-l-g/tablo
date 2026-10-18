@@ -69,15 +69,15 @@ impl Layer for PanelGate {
             let path = uri(&cx).path();
             let sign_up = offered(&cx) && path == register_url(&cx);
             let reset = reset_offered(&cx) && (path == forgot_url(&cx) || path == reset_url(&cx));
-            let confirm = self.panel.auth.verification().is_some()
-                && [
-                    verification::confirm_url(&cx),
-                    email_change::confirm_url(&cx),
-                    email_change::cancel_url(&cx),
-                ]
-                .contains(&path.to_string())
+            let verifies = self.panel.auth.verification().is_some();
+            // A verification link acts on GET; an email-change link shows a button that posts.
+            let confirm = verifies
+                && path == verification::confirm_url(&cx)
                 && matches!(*method(&cx), http::Method::GET | http::Method::HEAD);
-            let public = path == login_url(&cx) || sign_up || reset || confirm;
+            let email_change = verifies
+                && (path == email_change::confirm_url(&cx)
+                    || path == email_change::cancel_url(&cx));
+            let public = path == login_url(&cx) || sign_up || reset || confirm || email_change;
             if public
                 && matches!(
                     *method(&cx),

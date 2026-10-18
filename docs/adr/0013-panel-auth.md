@@ -32,11 +32,14 @@ is the explicit opt-out.
   verifies on `GET`, signed in or not, and only the address the account still stores.
 - With verification on, a new email waits for its link: the profile editor calls
   `auth::request_email_change` in place of writing it, the panel mails the new address a link
-  that stores it as a credential change, and the old address a link that cancels it and signs
-  every browser out.
+  that stores it as a credential change, and the old address a link that keeps it, for a week,
+  restoring it if the change went through, and signs every browser out. Unlike the verification
+  link, both links act only on the `POST` of the page they open: a scanner on the old mailbox
+  would otherwise sign the user out at delivery.
 - Every mailed link and pending sign-in is one `AuthToken` row: the token's hash, its purpose,
-  the account, the issuing panel and the expiry. A credential change ends all of an account's
-  tokens. One `AuthMail` names the sender and the configured base URL every link starts with.
+  the account, the issuing panel and the expiry. A credential change ends the account's sign-in
+  tokens; a reset, a cancelled email change and a revocation also end a pending change. A link
+  that proves an address or keeps the old one outlives both. One `AuthMail` names the sender and the configured base URL every link starts with.
 
 ## Rejected
 
