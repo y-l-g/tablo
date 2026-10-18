@@ -48,8 +48,8 @@ pub(super) enum Sent {
     /// Mailed nothing: the account had as many codes as the throttle allows, and the last one
     /// still works.
     Throttled,
-    /// Mailed nothing: the user stores no address.
-    NoAddress,
+    /// Mailed nothing: the user stores no address, or the panel no longer mails codes.
+    Unavailable,
 }
 
 impl Sent {
@@ -59,28 +59,27 @@ impl Sent {
             Self::Throttled => {
                 Err(too_many_requests(two_factor.mail_throttle.window_secs()).into())
             }
-            Self::Mailed | Self::NoAddress => Ok(()),
+            Self::Mailed | Self::Unavailable => Ok(()),
         }
     }
 }
 
 /// Mails `user` a new code, in place of any earlier one, unless the account had as many as the
-/// throttle allows.
+/// throttle allows. A panel that stopped mailing codes mails none: the account's recovery codes
+/// still sign in.
 pub(super) async fn send(
     cx: &Cx,
     two_factor: &TwoFactor,
     user: &dyn PanelUser,
 ) -> topcoat::Result<Sent> {
-    let Some(address) = user.email() else {
-        return Ok(Sent::NoAddress);
+    let mail = crate::panel::state::current(cx).and_then(|panel| panel.auth.auth_mail());
+    let (Some(address), Some(mail), true) = (user.email(), mail, two_factor.mails()) else {
+        return Ok(Sent::Unavailable);
     };
     let user_id = user.user_id();
     if !two_factor.mail_throttle.attempt(&user_id, None) {
         return Ok(Sent::Throttled);
     }
-    let mail = crate::panel::state::current(cx)
-        .and_then(|panel| panel.auth.auth_mail())
-        .ok_or_else(topcoat::router::error::not_found)?;
     let code = code();
     let mut db = crate::db::db(cx);
     token::record(
@@ -103,7 +102,11 @@ pub(super) async fn send(
              knows it.\n"
         ),
     )?;
-    topcoat::mail::send(cx, message).await?;
+    // The code is recorded: a mail server that fails leaves the page up, and its button to send
+    // another, rather than a 500 after the password verified.
+    if let Err(error) = topcoat::mail::send(cx, message).await {
+        tracing::error!(error = %error, "two-factor code not sent");
+    }
     Ok(Sent::Mailed)
 }
 

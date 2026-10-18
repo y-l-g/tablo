@@ -420,6 +420,9 @@ Add `AuthFactor` and `AuthToken` to the `Db`'s models.
   works once, for ten minutes; the challenge page mails a new one on request, in place of the
   last. Each account may have three mailed in fifteen minutes; `TwoFactor::mail_throttle` changes
   the limit. An account holds one factor at a time: it turns one off before setting up the other.
+  A panel that drops `email_codes()` mails no more codes: an account set up for them signs in
+  with a recovery code. A mail server that fails leaves the challenge up, with its button to send
+  another code.
 - **Throttling.** Each account may try five codes or passwords a minute, at sign-in and on the
   settings page together; `TwoFactor::throttle` changes the limit. Past it the page answers 429.
   The count lives in each process: behind several, the limit holds per process. Someone who knows

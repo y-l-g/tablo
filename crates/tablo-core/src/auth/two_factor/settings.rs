@@ -40,7 +40,7 @@ pub(super) const PASSWORD_FIELD: &str = "current_password";
 enum Intent {
     /// Start setting up an authenticator, proven by the current password.
     Start,
-    /// Start setting up mailed codes: mail the first.
+    /// Start setting up mailed codes, proven by the current password: mail the first.
     StartEmail,
     /// Mail a new code, for the mailed codes being set up or on.
     Send,
@@ -72,7 +72,7 @@ impl Intent {
     fn checks_secret(self) -> bool {
         matches!(
             self,
-            Self::Start | Self::Confirm | Self::RecoveryCodes | Self::Disable
+            Self::Start | Self::StartEmail | Self::Confirm | Self::RecoveryCodes | Self::Disable
         )
     }
 }
@@ -195,7 +195,7 @@ pub(in crate::auth) fn settings_post(cx: &Cx, body: Body) -> BoxView<'_> {
         // A stolen session must not set up a factor its thief holds and lock the owner out. The
         // authenticator reads through a connection of its own, so this runs before the
         // transaction opens.
-        if intent == Intent::Start {
+        if matches!(intent, Intent::Start | Intent::StartEmail) {
             let password = form.last(PASSWORD_FIELD).unwrap_or_default();
             if !authenticator
                 .confirm_password(cx, signed.user.as_ref(), password)

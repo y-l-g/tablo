@@ -44,6 +44,11 @@ async fn db() -> (Db, AdminUser) {
 
 /// The `admin` panel signing in by password with `two_factor`, mailing through `mail`.
 fn router(db: Db, mail: &MemoryTransport, two_factor: TwoFactor) -> Router {
+    keyed_router(db, mail, two_factor, Key::generate())
+}
+
+/// [`router`] under the cookie key `key`, which seals what a factor stores.
+fn keyed_router(db: Db, mail: &MemoryTransport, two_factor: TwoFactor, key: Key) -> Router {
     let auth = Auth::password()
         .mail(AuthMail::new(
             Mailbox::new("no-reply@example.com").unwrap(),
@@ -53,7 +58,7 @@ fn router(db: Db, mail: &MemoryTransport, two_factor: TwoFactor) -> Router {
     Router::builder()
         .discover()
         .app_context(db)
-        .app_context(Key::generate())
+        .app_context(key)
         .mail(MailConfig::builder().transport(mail.clone()).build())
         .panel(Panel::new("admin").auth(auth))
         .expect("panel builds")
@@ -76,9 +81,22 @@ async fn enrol<'r>(
     ada: &AdminUser,
     mail: &MemoryTransport,
 ) -> TestClient<'r> {
+    enrol_with_codes(router, db, ada, mail).await.0
+}
+
+/// [`enrol`], answering her recovery codes too.
+async fn enrol_with_codes<'r>(
+    router: &'r Router,
+    db: &Db,
+    ada: &AdminUser,
+    mail: &MemoryTransport,
+) -> (TestClient<'r>, Vec<String>) {
     let client = TestClient::new(router).sign_in(db, "admin", ada).await;
     let started = client
-        .submit(SETTINGS, &form_body(&[("intent", "start-email")]))
+        .submit(
+            SETTINGS,
+            &form_body(&[("intent", "start-email"), ("current_password", PASSWORD)]),
+        )
         .await;
     assert_eq!(started.headers().get(LOCATION).unwrap(), SETTINGS);
     let page = body_string(client.get(SETTINGS).await).await;
@@ -92,8 +110,12 @@ async fn enrol<'r>(
         .await;
     assert_eq!(confirmed.status(), 200);
     let session = session_cookie_value(&confirmed).expect("turning it on renews the session");
-    assert_eq!(recovery_codes(&body_string(confirmed).await).len(), 8);
-    TestClient::new(router).cookie(SESSION_COOKIE, &session)
+    let codes = recovery_codes(&body_string(confirmed).await);
+    assert_eq!(codes.len(), 8);
+    (
+        TestClient::new(router).cookie(SESSION_COOKIE, &session),
+        codes,
+    )
 }
 
 /// Ada's password, posted through the login form: answers the client holding the challenge.
@@ -183,6 +205,48 @@ async fn turning_mailed_codes_off_takes_a_mailed_code() {
     assert!(session_cookie_value(&response).is_some());
 }
 
+/// A panel that stopped mailing codes mails none at sign-in, and a recovery code still signs in.
+#[tokio::test]
+async fn a_panel_that_stopped_mailing_codes_takes_a_recovery_code() {
+    let (db, ada) = db().await;
+    let mail = MemoryTransport::new();
+    let key = Key::generate();
+    let mailing = keyed_router(
+        db.clone(),
+        &mail,
+        TwoFactor::new().email_codes(),
+        key.clone(),
+    );
+    let (_, codes) = enrol_with_codes(&mailing, &db, &ada, &mail).await;
+    let mailed = mail.sent().len();
+
+    let router = keyed_router(db.clone(), &mail, TwoFactor::new(), key);
+    let challenged = password(&router).await;
+    assert_eq!(mail.sent().len(), mailed);
+    assert_eq!(challenged.get(CHALLENGE).await.status(), 200);
+    assert_eq!(post(&challenged, &[("code", &codes[0])]).await, 303);
+}
+
+/// Turning codes by email on takes the current password.
+#[tokio::test]
+async fn turning_mailed_codes_on_takes_the_current_password() {
+    let (db, ada) = db().await;
+    let mail = MemoryTransport::new();
+    let router = router(db.clone(), &mail, TwoFactor::new().email_codes());
+    let client = TestClient::new(&router).sign_in(&db, "admin", &ada).await;
+    let refused = client
+        .submit(
+            SETTINGS,
+            &form_body(&[("intent", "start-email"), ("current_password", "wrong")]),
+        )
+        .await;
+    assert_eq!(
+        two_factor_state(&body_string(refused).await).as_deref(),
+        Some("off")
+    );
+    assert!(mail.sent().is_empty());
+}
+
 /// A panel without mailed codes offers none and refuses to set them up.
 #[tokio::test]
 async fn a_panel_without_mailed_codes_sets_none_up() {
@@ -191,7 +255,10 @@ async fn a_panel_without_mailed_codes_sets_none_up() {
     let router = router(db.clone(), &mail, TwoFactor::new());
     let client = TestClient::new(&router).sign_in(&db, "admin", &ada).await;
     let started = client
-        .submit(SETTINGS, &form_body(&[("intent", "start-email")]))
+        .submit(
+            SETTINGS,
+            &form_body(&[("intent", "start-email"), ("current_password", PASSWORD)]),
+        )
         .await;
     assert_eq!(started.headers().get(LOCATION).unwrap(), SETTINGS);
     assert!(mail.sent().is_empty());
