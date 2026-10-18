@@ -88,8 +88,21 @@ toolchains. Run `check --all` before merging.
   through the `tablo-test` queries (`rows`, `row_actions`, `field_error`, `filter_options`,
   `empty_table`, `notification`). Post a form with `TestClient::submit`, which carries the CSRF
   pair.
-- A behavior is pinned once, by a unit test or an integration test. Delete a test that proves
+- A behavior is pinned once, in the one tier whose row below names it. Delete a test that proves
   nothing.
+
+  | Tier | Pins | Lives in |
+  | --- | --- | --- |
+  | unit | a function's result, a derive's expansion, a failure the public API cannot cause | `tests.rs` beside its source |
+  | compile-fail | a misuse the type system refuses | `crates/tablo-core/tests/compile_fail/` |
+  | showcase | what a request does to the showcase's resources, on every driver | `examples/showcase/tests/` |
+  | integration | what a request does to a panel the showcase does not build, what a mount refuses, what a derived impl does in an app's crate, the upstream behavior Tablo rests on | `integration/tests/` |
+  | example | an example's own code: the guide's snippets, the quickstart's stylesheet | `examples/*/` |
+  | guard | the repo's rules: the core's layers, file sizes, the primitives copy | `crates/tablo-core/tests/layers.rs`, `xtask/tests/` |
+
+  What a panel built from the public API does is pinned through a request, in the showcase or
+  integration suite. A unit test may serve a request only to cause what no app can, such as a
+  driver error mid-write.
 - An invariant over a parser or an encoder is a `proptest` property, not a hand-picked input list.
 - Unit tests live in `tests.rs` beside their source file (`foo/tests.rs` for `foo.rs`), and build
   their databases and HTML through `test_support` (`memory_db`, `tableless_db`, `Html`).
