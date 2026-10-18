@@ -1,12 +1,6 @@
-use toasty::Db;
-
 use super::{
     super::common::{FormParts, MAX_FORM_BYTES},
     *,
-};
-use crate::{
-    Ability, ResourceDef,
-    panel::test_support::{Dummy, dummy_table, mount, panel_for},
 };
 
 /// The urlencoded `bytes`' last value per key.
@@ -108,64 +102,6 @@ fn multipart_drain_counts_bytes_and_413s_one_past_the_cap() {
         err.downcast_ref::<topcoat::router::error::ContentTooLargeError>()
             .is_some(),
         "a single over-cap chunk must 413, got {err}"
-    );
-}
-
-/// An 11 MiB multipart upload rejects with 413 through the router.
-#[tokio::test]
-async fn multipart_over_the_form_cap_413s_through_the_router() {
-    use crate::resource::Resource;
-
-    struct DummyResource;
-    impl Resource for DummyResource {
-        type Model = Dummy;
-        type Form = DummyForm;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
-                .table(dummy_table())
-        }
-    }
-    #[derive(crate::RecordForm)]
-    #[form(model = Dummy)]
-    struct DummyForm {
-        #[form(file)]
-        name: String,
-    }
-    struct NameUploader;
-    impl crate::Uploader for NameUploader {
-        async fn store(
-            &self,
-            filename: &str,
-            _bytes: &[u8],
-        ) -> std::result::Result<String, String> {
-            Ok(filename.to_string())
-        }
-    }
-    let db = Db::builder().connect("sqlite::memory:").await.unwrap();
-    let router =
-        mount(db, panel_for::<DummyResource>().uploads(NameUploader)).expect("panel builds");
-    let boundary = "----Boundary123";
-    let payload = "x".repeat(MAX_FORM_BYTES + 1024);
-    let body = format!(
-        "--{boundary}\r\nContent-Disposition: form-data; name=\"name\"; filename=\"big.bin\"\r\nContent-Type: application/octet-stream\r\n\r\n{payload}\r\n--{boundary}--\r\n"
-    );
-    let request = http::Request::builder()
-        .method(http::Method::POST)
-        .uri("/admin/dummies/-/create")
-        .header(
-            http::header::CONTENT_TYPE,
-            format!("multipart/form-data; boundary={boundary}"),
-        )
-        .body(Body::from(body))
-        .unwrap();
-    let resp = router.handle(request).await;
-    assert_eq!(
-        resp.status(),
-        http::StatusCode::PAYLOAD_TOO_LARGE,
-        "an 11 MiB multipart upload must 413 through the router, got {}",
-        resp.status()
     );
 }
 

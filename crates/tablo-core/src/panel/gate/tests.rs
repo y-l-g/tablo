@@ -1,11 +1,5 @@
-use topcoat::router::Body;
-
 use super::*;
-use crate::{
-    Panel,
-    panel::test_support::{current_panel, mount, panel_state},
-    test_support::memory_db,
-};
+use crate::panel::test_support::{current_panel, panel_state};
 
 #[test]
 fn panel_prefix_prefers_the_panel_over_the_request_path() {
@@ -50,36 +44,6 @@ fn panel_prefix_prefers_the_panel_over_the_request_path() {
         .into_parts();
     let cx = CxTestBuilder::new().request_context(parts).build();
     assert_eq!(panel_prefix(&cx), "/admin");
-}
-
-/// The named runtime endpoints answer the gate: a request
-/// without a session to a shard's fixed path is refused with 401, not a
-/// login redirect and not the shard's content. The path is stable, so the
-/// refusal is the only thing that keeps it from being probed.
-#[tokio::test]
-async fn named_shard_endpoints_answer_401_without_a_session() {
-    let db = memory_db(toasty::models!(
-        crate::auth::AdminUser,
-        crate::auth::AuthSession
-    ))
-    .await;
-    let router =
-        mount(db, Panel::new("admin").auth(crate::Auth::password())).expect("panel builds");
-
-    for path in [crate::notification::LIVE_TOASTER_PATH] {
-        let request = http::Request::builder()
-            .method(http::Method::POST)
-            .uri(path)
-            .header(http::header::CONTENT_TYPE, "application/json")
-            .body(Body::from("{}".to_owned()))
-            .unwrap();
-        let response = router.handle(request).await;
-        assert_eq!(
-            response.status(),
-            http::StatusCode::UNAUTHORIZED,
-            "an unauthenticated shard request must answer 401: {path}"
-        );
-    }
 }
 
 /// `?return=` is followed only to a path under the panel prefix: never off

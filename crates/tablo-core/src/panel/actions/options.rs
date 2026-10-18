@@ -183,6 +183,3 @@ fn options_query(cx: &Cx) -> OptionsQuery {
     }
     out
 }
-
-#[cfg(test)]
-mod tests;

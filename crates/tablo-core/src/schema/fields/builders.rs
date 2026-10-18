@@ -137,7 +137,7 @@ macro_rules! required_for_tests {
 }
 
 #[cfg(test)]
-required_for_tests!(TextField, FileField);
+required_for_tests!(TextField);
 
 /// `default`, on every builder whose control a value fills.
 macro_rules! default_modifier {

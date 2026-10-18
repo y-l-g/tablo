@@ -17,7 +17,8 @@ use topcoat::router::{Body, Router, response::Response};
 use uuid::Uuid;
 
 use crate::common::{
-    TestClient, body_bytes, body_string, csp, field_error, get, memory_db, mount, panel, refusal,
+    TestClient, body_bytes, body_string, control, csp, field_error, get, memory_db, mount, panel,
+    refusal,
 };
 
 /// A document with one required and one optional upload.
@@ -309,6 +310,50 @@ async fn a_text_value_for_a_file_upload_is_not_stored_on_create() {
         docs(&db).await.is_empty(),
         "a client-typed upload value must not create the record"
     );
+}
+
+/// A forged `keep_<field>` names no file the uploader holds, so the field stays empty.
+#[tokio::test]
+async fn a_forged_carry_is_refused() {
+    let db = seeded_db().await;
+    let router = router(db.clone(), RecordingUploader::default());
+    let response = TestClient::new(&router)
+        .submit(
+            "/admin/docs/-/create",
+            "title=Notes&keep_cover=javascript%3Aalert%281%29",
+        )
+        .await;
+    assert_eq!(response.status(), 200);
+    let html = body_string(response).await;
+    assert_eq!(
+        field_error(&html, "cover"),
+        Some(tablo::testing::ErrorKind::Required),
+        "{html}"
+    );
+    assert!(docs(&db).await.is_empty());
+}
+
+/// The transport keys beside a chosen file, a clear and a forged carry, never reach the write:
+/// the chosen file does.
+#[tokio::test]
+async fn the_transport_keys_never_reach_the_write() {
+    let db = seeded_db().await;
+    let router = router(db.clone(), RecordingUploader::default());
+    let response = TestClient::new(&router)
+        .submit_multipart(
+            "/admin/docs/-/create",
+            &[
+                ("title", None, "Notes"),
+                ("cover", Some("a.png"), "BYTES"),
+                ("clear_cover", None, "1"),
+                ("keep_cover", None, "javascript:alert(1)"),
+            ],
+        )
+        .await;
+    assert!(response.status().is_redirection(), "{}", response.status());
+    let stored = docs(&db).await;
+    assert_eq!(stored.len(), 1);
+    assert_eq!(stored[0].cover, "/uploads/a.png");
 }
 
 /// A multipart text part under a declared file field's name is dropped too.
@@ -604,6 +649,52 @@ async fn the_edit_form_links_the_stored_files() {
     // Both stored values offer the clear control.
     assert!(html.contains("name=\"clear_cover\""), "{html}");
     assert!(html.contains("name=\"clear_attachment\""), "{html}");
+    // A file input cannot be pre-filled, so a required one would block every save.
+    assert!(
+        !control(&html, "cover").contains("required"),
+        "a stored file makes its control optional: {html}"
+    );
+}
+
+/// A create has no file to keep, and neither has a stored path of blanks.
+#[tokio::test]
+async fn a_required_upload_is_required_until_a_file_is_stored() {
+    let db = seeded_db().await;
+    let router = router(db.clone(), RecordingUploader::default());
+
+    let create = body_string(get(&router, "/admin/docs/-/create").await).await;
+    assert!(control(&create, "cover").contains("required"), "{create}");
+
+    let blank = seed_doc(&db, "Blank", "   ", "").await;
+    let edit = body_string(get(&router, &format!("/admin/docs/{}/edit", blank.id)).await).await;
+    assert!(control(&edit, "cover").contains("required"), "{edit}");
+    assert!(!edit.contains("name=\"clear_cover\""), "{edit}");
+}
+
+/// The edit form links a stored value only when it is a path on this site or an `http(s)` URL;
+/// any other spelling stays text.
+#[tokio::test]
+async fn the_edit_form_links_only_a_rooted_or_http_value() {
+    let db = seeded_db().await;
+    let router = router(db.clone(), RecordingUploader::default());
+    let doc = seed_doc(
+        &db,
+        "Notes",
+        "javascript:alert(1)",
+        "/media/photo.JPG?token=abc",
+    )
+    .await;
+
+    let html = body_string(get(&router, &format!("/admin/docs/{}/edit", doc.id)).await).await;
+    assert!(!html.contains("href=\"javascript:"), "{html}");
+    assert!(
+        html.contains("javascript:alert(1)"),
+        "a refused value stays readable: {html}"
+    );
+    assert!(
+        html.contains("href=\"/media/photo.JPG?token=abc\""),
+        "a stored path reaches the link verbatim: {html}"
+    );
 }
 
 #[tokio::test]

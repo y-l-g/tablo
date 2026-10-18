@@ -1,8 +1,5 @@
 use super::*;
-use crate::{
-    test_support::{DummyUser, Html as _},
-    values::FormValues,
-};
+use crate::{test_support::DummyUser, values::FormValues};
 
 /// An enum node over the discriminant column `kind`, one variant per value,
 /// built as `EmbeddedBuilder::enumeration` builds it from the app schema.
@@ -163,9 +160,8 @@ fn an_embedded_node_keeps_its_slots_when_appended() {
 /// A shared column a variant does not declare shows only while the discriminant names a variant
 /// that does — or names none at all, where the codec reads the variant the payload names: the
 /// browser disables it otherwise, and the parse drops its key there.
-#[tokio::test]
-async fn a_shared_column_shows_for_the_variants_that_declare_it() {
-    let cx = crate::test_support::cx();
+#[test]
+fn a_shared_column_shows_for_the_variants_that_declare_it() {
     let mut builder = enumeration(&["1", "2", "3"]);
     builder.variant();
     builder.variant();
@@ -197,87 +193,5 @@ async fn a_shared_column_shows_for_the_variants_that_declare_it() {
     assert!(
         schema.watched().contains_key("kind"),
         "the discriminant drives the shared column's condition"
-    );
-
-    let render = |kind: &'static str| {
-        let schema = &schema;
-        let cx = &cx;
-        async move {
-            let values = map(&[("kind", kind)]);
-            schema
-                .render(
-                    cx,
-                    Source::form(&values, &crate::values::FieldErrors::new()),
-                )
-                .await
-                .html(cx)
-                .await
-        }
-    };
-    for (kind, disabled) in [("1", true), ("2", false)] {
-        let html = render(kind).await;
-        let input = html
-            .find("name=\"name\"")
-            .unwrap_or_else(|| panic!("no shared control in {html}"));
-        let start = html[..input].rfind("<fieldset").expect("its fieldset");
-        let fieldset = &html[start..input];
-        let tag = &fieldset[..fieldset.find('>').expect("a closed tag")];
-        assert_eq!(
-            tag.contains(" disabled"),
-            disabled,
-            "kind={kind}: the shared column's fieldset is disabled exactly when the variant does \
-             not declare it, got {tag}"
-        );
-        assert_eq!(tag.contains(" hidden"), disabled, "kind={kind}, got {tag}");
-    }
-}
-
-/// A read-only display renders a shared column only when the stored variant declares it: a unit
-/// variant stores nothing in the column, so its key is absent from the record's values and must
-/// not render as an empty field.
-#[tokio::test]
-async fn a_display_renders_a_shared_column_only_for_a_variant_declaring_it() {
-    let cx = crate::test_support::cx();
-    let mut builder = enumeration(&["1", "2", "3"]);
-    builder.variant();
-    builder.variant();
-    builder.shared(
-        Field::text(DummyUser::fields().name()).label("Stamp"),
-        false,
-    );
-    builder.variant();
-    builder.shared(
-        Field::text(DummyUser::fields().name()).label("Stamp"),
-        false,
-    );
-    let schema = Schema::new(builder.finish());
-    let render = |values: FormValues| {
-        let schema = &schema;
-        let cx = &cx;
-        async move {
-            schema
-                .embedded_root()
-                .display(cx, &schema.fields, &values)
-                .single()
-                .await
-                .unwrap()
-                .render(cx)
-        }
-    };
-
-    let unit = render(map(&[("kind", "1")])).await;
-    assert!(
-        unit.contains("Variant 1"),
-        "the stored variant is named: {unit}"
-    );
-    assert!(
-        !unit.contains("Stamp"),
-        "a unit variant declares no shared column: {unit}"
-    );
-
-    let stamped = render(map(&[("kind", "3"), ("name", "noon")])).await;
-    assert!(
-        stamped.contains("Stamp") && stamped.contains("noon"),
-        "{stamped}"
     );
 }

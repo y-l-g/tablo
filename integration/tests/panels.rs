@@ -448,3 +448,127 @@ async fn mounting_refuses_a_prefix_another_panel_covers() {
         );
     }
 }
+
+/// Books under the slug `S`, readable by all.
+struct SluggedBooks<const STAR: bool>;
+
+impl<const STAR: bool> Resource for SluggedBooks<STAR> {
+    type Model = Book;
+    type Form = tablo::NoForm<Self::Model>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug(if STAR {
+                "user*profiles"
+            } else {
+                "user-profiles_2"
+            })
+            .policy(ReadOnly)
+            .table(Table::new(TextColumn::new(lens!(Book.title))))
+    }
+}
+
+/// A slug of URL-segment characters, a `*` among them, builds a list route that resolves.
+#[tokio::test]
+async fn a_slug_of_segment_characters_resolves() {
+    let router = mount(
+        memory_db(toasty::models!(Book)).await,
+        crate::common::panel()
+            .resource::<SluggedBooks<false>>()
+            .resource::<SluggedBooks<true>>(),
+    )
+    .expect("the slugs build");
+    for uri in ["/admin/user-profiles_2", "/admin/user*profiles"] {
+        let response = get(&router, uri).await;
+        assert_eq!(response.status(), http::StatusCode::OK, "{uri}");
+        assert!(body_string(response).await.contains("Books</h1>"), "{uri}");
+    }
+}
+
+/// A panel page is not frameable by default; a deployment framing it names who may, or opts out
+/// and sends no policy of its own.
+#[tokio::test]
+async fn a_panel_page_sends_frame_ancestors_unless_opted_out() {
+    async fn policy(panel: Panel) -> Option<String> {
+        let router = mount(
+            memory_db(toasty::models!(Book)).await,
+            panel.auth(Auth::disabled()).resource::<BookResource>(),
+        )
+        .expect("panel builds");
+        let response = get(&router, "/admin/books").await;
+        assert_eq!(response.status(), http::StatusCode::OK);
+        response
+            .headers()
+            .get(http::header::CONTENT_SECURITY_POLICY)
+            .map(|value| value.to_str().unwrap().to_string())
+    }
+    assert_eq!(
+        policy(Panel::new("admin")).await.as_deref(),
+        Some("frame-ancestors 'self'")
+    );
+    assert_eq!(
+        policy(Panel::new("admin").frame_ancestors("'self' https://intranet.example"))
+            .await
+            .as_deref(),
+        Some("frame-ancestors 'self' https://intranet.example")
+    );
+    assert_eq!(
+        policy(Panel::new("admin").without_frame_ancestors()).await,
+        None
+    );
+}
+
+static DECLARE_CALLS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+#[derive(tablo::RecordForm)]
+#[form(model = Book)]
+struct CountedForm {
+    title: String,
+}
+
+/// Counts its declarations.
+struct CountedResource;
+
+impl Resource for CountedResource {
+    type Model = Book;
+    type Form = CountedForm;
+
+    fn declare() -> ResourceDef<Self> {
+        DECLARE_CALLS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        ResourceDef::new()
+            .slug("books")
+            .policy(tablo::Allow)
+            .table(Table::new(TextColumn::new(lens!(Book.title))))
+            .detail(tablo::Detail::new(TextColumn::new(lens!(Book.title))))
+    }
+}
+
+/// A resource declares once, when its panel mounts, and every page serves from that build.
+#[tokio::test]
+async fn a_resource_declares_once_when_its_panel_mounts() {
+    use std::sync::atomic::Ordering;
+
+    let mut db = memory_db(toasty::models!(Book)).await;
+    let book = toasty::create!(Book {
+        title: "Dune".to_string(),
+    })
+    .exec(&mut db)
+    .await
+    .unwrap();
+    let router = crate::common::panel_router::<CountedResource>(db);
+    assert_eq!(DECLARE_CALLS.load(Ordering::SeqCst), 1);
+    for uri in [
+        "/admin/books".to_string(),
+        "/admin/books/-/export".to_string(),
+        format!("/admin/books/{}", book.id),
+        "/admin/books/-/create".to_string(),
+        format!("/admin/books/{}/edit", book.id),
+    ] {
+        assert_eq!(
+            get(&router, &uri).await.status(),
+            http::StatusCode::OK,
+            "{uri}"
+        );
+    }
+    assert_eq!(DECLARE_CALLS.load(Ordering::SeqCst), 1);
+}

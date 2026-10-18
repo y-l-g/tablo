@@ -191,31 +191,20 @@ fn an_error_no_field_renders_is_unplaced() {
     assert_eq!(unplaced("names").as_deref(), Some("names"));
 }
 
-/// A multiple choice's list default checks its boxes on the create form.
-#[tokio::test]
-async fn a_multiple_choices_list_default_checks_its_boxes() {
-    use crate::test_support::Html;
-
+/// A multiple choice's list default fills the create form with each value it lists.
+#[test]
+fn a_multiple_choices_list_default_fills_the_create_form() {
     let schema = Schema::new(
         Field::choice_input("tags")
             .options(["rust", "async", "sql"])
             .multiple()
             .default(["rust", "sql"]),
     );
-    let cx = crate::test_support::cx();
-    let (values, errors) = (schema.defaults(), crate::values::FieldErrors::new());
-    let html = schema
-        .render(&cx, Source::form(&values, &errors))
-        .await
-        .html(&cx)
-        .await;
-    let checked: Vec<&str> = ["rust", "async", "sql"]
-        .into_iter()
-        .filter(|tag| {
-            html.split("<input").any(|input| {
-                input.contains(&format!("value=\"{tag}\"")) && input.contains("checked=\"\"")
-            })
-        })
-        .collect();
-    assert_eq!(checked, ["rust", "sql"], "{html}");
+    assert_eq!(
+        schema.defaults().get("tags"),
+        Some(&crate::values::FormValue::List(vec![
+            "rust".to_string(),
+            "sql".to_string()
+        ]))
+    );
 }

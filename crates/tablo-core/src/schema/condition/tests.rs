@@ -1,8 +1,7 @@
 use super::*;
 use crate::{
-    schema::{Group, Section, Source},
-    test_support::{Html, cx},
-    values::{FieldErrors, FormValues},
+    schema::{Group, Section},
+    values::FormValues,
 };
 
 #[derive(Debug, toasty::Model)]
@@ -52,90 +51,20 @@ fn a_failing_condition_hides_the_fields_it_guards() {
     );
 }
 
-/// The browser disables a hidden field, so it neither validates nor posts it, and enables a shown
-/// one.
-#[tokio::test]
-async fn a_hidden_field_renders_in_a_disabled_fieldset() {
-    let cx = cx();
-    let render = |kind_value: &'static str| {
-        let cx = &cx;
-        async move {
-            let kind = kind();
-            let vat = Field::text(Customer::fields().vat()).visible_when(&kind, ["company"]);
-            let values = values(kind_value);
-            let errors = FieldErrors::new();
-            Schema::new((kind, vat))
-                .render(cx, Source::form(&values, &errors))
-                .await
-                .html(cx)
-                .await
-        }
-    };
-    for (kind, disabled) in [("person", true), ("company", false)] {
-        let html = render(kind).await;
-        let input = html.find("name=\"vat\"").expect("the vat input");
-        let fieldset = &html[html[..input].rfind("<fieldset").expect("its fieldset")..input];
-        let tag = &fieldset[..fieldset.find('>').expect("a closed tag")];
-        assert_eq!(
-            tag.contains(" disabled"),
-            disabled,
-            "kind={kind}: the fieldset must be disabled exactly when hidden, got {tag}"
-        );
-        assert_eq!(tag.contains(" hidden"), disabled, "kind={kind}, got {tag}");
-        let select = html.find("<select").expect("the kind select");
-        assert!(
-            html[..select].contains("data-topcoat-on:change"),
-            "the watched field renders inside its change handler, got {html}"
-        );
-    }
-}
-
-/// Two forms on one page, such as an action's input in a dialog over a record's form, keep their
-/// own DOM ids and follow their own watched fields, though they post the same keys.
-#[tokio::test]
-async fn forms_sharing_a_page_keep_their_ids_and_conditions_apart() {
-    let cx = cx();
-    let render = |scope: &'static str, kind_value: &'static str| {
-        let cx = &cx;
-        async move {
-            let kind = kind();
-            let vat = Field::text(Customer::fields().vat()).visible_when(&kind, ["company"]);
-            let values = values(kind_value);
-            let errors = FieldErrors::new();
-            Schema::new((kind, vat))
-                .render(cx, Source::form(&values, &errors).scoped(scope))
-                .await
-                .html(cx)
-                .await
-        }
-    };
-    let mut signals = Vec::new();
-    for (scope, kind, disabled) in [("first", "person", true), ("second", "company", false)] {
-        let html = render(scope, kind).await;
-        // The browser keeps one value per signal id: a shared one would show both forms' fields
-        // from whichever kind changed last.
-        let marker = "::topcoat::signal({&quot;t&quot;:&quot;signal&quot;,&quot;id&quot;:&quot;";
-        let at = html.find(marker).expect("the condition's signal") + marker.len();
-        signals.push(html[at..at + 32].to_string());
-        for expected in [
-            format!("id=\"{scope}-vat\""),
-            format!("for=\"{scope}-vat\""),
-            format!("id=\"{scope}-kind\""),
-        ] {
-            assert!(html.contains(&expected), "{expected} in {html}");
-        }
-        let input = html.find("name=\"vat\"").expect("the vat input");
-        let fieldset = &html[html[..input].rfind("<fieldset").expect("its fieldset")..input];
-        let tag = &fieldset[..fieldset.find('>').expect("a closed tag")];
-        assert_eq!(
-            tag.contains(" disabled"),
-            disabled,
-            "{scope} follows its own kind={kind}, got {tag}"
-        );
-    }
+/// Two forms on one page, such as an action's input in a dialog over a record's form, follow
+/// their own watched fields though they post the same keys: the browser keeps one value per
+/// signal, so a shared one would show both forms' fields from whichever changed last. Another
+/// page's form starts from its own values.
+#[test]
+fn each_form_and_page_names_its_own_signal() {
+    let company = Condition::watching("kind", ["company"]);
+    let key = |page, scope| signal_key(page, scope, &company);
+    assert_eq!(key("/a", "first"), key("/a", "first"));
+    assert_ne!(key("/a", "first"), key("/a", "second"));
+    assert_ne!(key("/a", "first"), key("/b", "first"));
     assert_ne!(
-        signals[0], signals[1],
-        "each form's condition has its own signal"
+        key("/a", "first"),
+        signal_key("/a", "first", &Condition::watching("kind", ["person"]))
     );
 }
 

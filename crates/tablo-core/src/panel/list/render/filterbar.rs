@@ -113,6 +113,3 @@ impl Frame<'_> {
         .boxed()
     }
 }
-
-#[cfg(test)]
-mod tests;

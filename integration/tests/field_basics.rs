@@ -257,3 +257,100 @@ async fn a_condition_reads_a_disabled_field_as_the_browser_does() {
         "the stored plan hides it"
     );
 }
+
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+struct Note {
+    #[key]
+    #[auto]
+    id: Uuid,
+    title: String,
+    body: String,
+    secret: String,
+    token: String,
+}
+
+#[derive(tablo::RecordForm)]
+#[form(model = Note)]
+struct NoteForm {
+    title: String,
+    body: String,
+    #[form(optional)]
+    secret: String,
+    #[form(optional)]
+    token: String,
+}
+
+struct NoteResource;
+
+impl Resource for NoteResource {
+    type Model = Note;
+    type Form = NoteForm;
+
+    fn declare() -> ResourceDef<Self> {
+        let c = NoteForm::controls();
+        ResourceDef::new()
+            .slug("notes")
+            .policy(Allow)
+            .table(Table::new(TextColumn::new(lens!(Note.title))))
+            .form(Schema::new((
+                c.title,
+                c.body.multiline(4),
+                c.secret.password(),
+                c.token.password().multiline(3),
+            )))
+    }
+}
+
+/// A multi-line control holds the stored text, so saving the form keeps it; a password, one line
+/// or several, never renders a value, stored or just refused.
+#[tokio::test]
+async fn a_form_shows_the_stored_text_and_never_a_password() {
+    let db = crate::common::memory_db(toasty::models!(Note)).await;
+    let router = mount(
+        db.clone(),
+        Panel::new("admin")
+            .auth(Auth::disabled())
+            .resource::<NoteResource>(),
+    )
+    .expect("panel builds");
+    let note = toasty::create!(Note {
+        title: "Plan".to_string(),
+        body: "Line one\nLine two".to_string(),
+        secret: "hunter22".to_string(),
+        token: "s3cr3t-token".to_string(),
+    })
+    .exec(&mut db.clone())
+    .await
+    .unwrap();
+    let client = TestClient::new(&router);
+    let edit = format!("/admin/notes/{}/edit", note.id);
+
+    let html = body_string(client.get(&edit).await).await;
+    assert!(html.contains("Line one\nLine two"), "{html}");
+    for name in ["secret", "token"] {
+        assert!(
+            control(&html, name).contains("type=\"password\""),
+            "{name}: {html}"
+        );
+    }
+    assert!(
+        !html.contains("hunter22") && !html.contains("s3cr3t-token"),
+        "{html}"
+    );
+
+    let refused = body_string(
+        client
+            .submit(&edit, "title=&body=x&secret=typed-pass&token=typed-token")
+            .await,
+    )
+    .await;
+    assert_eq!(
+        crate::common::field_error(&refused, "title"),
+        Some(tablo::testing::ErrorKind::Required),
+        "{refused}"
+    );
+    assert!(
+        !refused.contains("typed-pass") && !refused.contains("typed-token"),
+        "{refused}"
+    );
+}

@@ -390,6 +390,62 @@ async fn the_empty_state_says_why_the_table_is_empty() {
     );
 }
 
+/// An empty state's link clears only what emptied the table, keeping the sort, the grouping and
+/// whatever else narrowed it; an ignored filter still warns on an empty page.
+#[tokio::test]
+async fn an_empty_state_clears_only_what_emptied_the_table() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let query = "sort=title&dir=desc&group_by=status";
+
+    let html = body_string(
+        client
+            .get(&format!("/admin/posts?q=zzz-none&f.featured=true&{query}"))
+            .await,
+    )
+    .await;
+    let empty = empty_table(&html).expect("an empty table");
+    assert_eq!(empty.reason, EmptyReason::Search, "{html}");
+    let clear = empty.clear.expect("a link clearing the search");
+    for kept in [
+        "sort=title",
+        "dir=desc",
+        "group_by=status",
+        "f.featured=true",
+    ] {
+        assert!(clear.contains(kept), "{kept} in {clear}");
+    }
+    assert!(!clear.contains("q="), "{clear}");
+
+    let nobody = uuid::Uuid::from_u128(7);
+    let html = body_string(
+        client
+            .get(&format!("/admin/posts?f.author_id={nobody}&{query}"))
+            .await,
+    )
+    .await;
+    let empty = empty_table(&html).expect("an empty table");
+    assert_eq!(empty.reason, EmptyReason::Filters, "{html}");
+    let clear = empty.clear.expect("a link clearing the filters");
+    for kept in ["sort=title", "dir=desc", "group_by=status"] {
+        assert!(clear.contains(kept), "{kept} in {clear}");
+    }
+    assert!(!clear.contains("f."), "{clear}");
+
+    let html = body_string(
+        client
+            .get("/admin/posts?q=zzz-none&f.stauts=published")
+            .await,
+    )
+    .await;
+    assert!(empty_table(&html).is_some(), "{html}");
+    assert!(
+        html.contains("role=\"alert\"") && html.contains("f.stauts=published"),
+        "an empty page still warns about the ignored filter: {html}"
+    );
+}
+
 #[tokio::test]
 async fn users_list_renders_its_search_as_a_get_form() {
     let db = seeded_db().await;
@@ -602,14 +658,70 @@ async fn posts_group_by_status_shows_counts() {
     // bare label is not asserted separately: the status SelectFilter renders
     // "Published" and "Draft" as options on every list page, so a label-only
     // check passes with grouping off. `on this page` is emitted only by a
-    // group header (`render.rs`), and core pins the ordering and exact
-    // "draft (2 on this page)" labels in
-    // `group_by_orders_each_row_under_its_own_header`.
+    // group header.
     let label = showcase::models::PostStatus::Published.label();
     assert!(
         html.contains(&format!("{label} ({published} on this page)")),
         "missing the published group header in {html}"
     );
+
+    // Each row sits under its own status's header, and each status's rows sit together.
+    let posts = showcase::models::Post::all().exec(&mut db_q).await.unwrap();
+    let status_of = |title: &str| {
+        posts
+            .iter()
+            .find(|post| post.title == title)
+            .unwrap_or_else(|| panic!("no post titled {title}"))
+            .status
+    };
+    let mut seen = Vec::new();
+    for title in row_titles(&html) {
+        let status = status_of(&title);
+        let header = html
+            .find(&format!("{} (", status.label()))
+            .unwrap_or_else(|| panic!("no {status:?} header in {html}"));
+        let row = html.find(&format!(">{title}<")).expect("the row's title");
+        assert!(header < row, "{title} sits under its header: {html}");
+        if seen.last() != Some(&status) {
+            assert!(
+                !seen.contains(&status),
+                "the {status:?} rows sit together: {html}"
+            );
+            seen.push(status);
+        }
+    }
+    assert!(seen.len() > 1, "the fixture spans two statuses");
+}
+
+/// A grouping the table does not declare groups nothing, and no link carries it on.
+#[tokio::test]
+async fn an_unknown_grouping_groups_nothing() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let html = body_string(client.get("/admin/posts?group_by=bogus").await).await;
+    assert!(!row_titles(&html).is_empty(), "{html}");
+    assert!(!html.contains("on this page"), "{html}");
+    assert_eq!(find_href_with(&html, "group_by"), None, "{html}");
+}
+
+/// A row opens its record's page from anywhere on the row.
+#[tokio::test]
+async fn a_row_opens_its_record() {
+    let db = seeded_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let html = body_string(client.get("/admin/users").await).await;
+    let keys = row_keys(&html);
+    assert!(!keys.is_empty(), "{html}");
+    for key in keys {
+        let href = format!("href=\"/admin/users/{key}\"");
+        assert!(
+            html.split('<')
+                .any(|tag| tag.contains("data-record-link") && tag.contains(&href)),
+            "the {key} row opens its record: {html}"
+        );
+    }
 }
 
 #[tokio::test]

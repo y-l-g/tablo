@@ -78,6 +78,23 @@ enum Visibility {
     Private { reason: String },
 }
 
+/// A unit variant beside variants sharing a column, which it does not declare.
+#[derive(Debug, Clone, PartialEq, toasty::Embed, EmbeddedForm)]
+enum Review {
+    #[column(variant = 1)]
+    Pending,
+    #[column(variant = 2)]
+    Approved {
+        #[shared(decided_at)]
+        approved_at: String,
+    },
+    #[column(variant = 3)]
+    Rejected {
+        #[shared(decided_at)]
+        rejected_at: String,
+    },
+}
+
 /// A struct holding an enum.
 #[derive(Debug, Clone, PartialEq, toasty::Embed, EmbeddedForm)]
 struct Wrapper {
@@ -122,6 +139,7 @@ struct Post {
     media: Media,
     post_stats: PostStats,
     visibility: Visibility,
+    review: Review,
     wrapper: Wrapper,
     casing: Casing,
     flags: Flags,
@@ -633,6 +651,7 @@ impl Resource for PostDetail {
                 Section::new("SEO").columns(EmbeddedColumn::new(lens!(Post.seo))),
                 Section::new("Publication").columns(EmbeddedColumn::new(lens!(Post.publication))),
                 EmbeddedColumn::new(lens!(Post.visibility)),
+                EmbeddedColumn::new(lens!(Post.review)),
             )))
     }
 }
@@ -658,6 +677,7 @@ async fn a_detail_page_shows_an_embedded_value_leaf_by_leaf() {
         },
         post_stats: PostStats::default(),
         visibility: Visibility::Public,
+        review: Review::Pending,
         wrapper: Wrapper {
             label: "w".to_string(),
             inner: Media::Image {
@@ -703,6 +723,13 @@ async fn a_detail_page_shows_an_embedded_value_leaf_by_leaf() {
     assert!(
         visibility.contains(">Public<") && !visibility.contains(">Reason<"),
         "a unit variant reads as its name alone, got {view}"
+    );
+    let review = &view[view.find(">Review<").expect("the review entry")..];
+    assert!(
+        review.contains(">Pending<")
+            && !review.contains(">Approved at<")
+            && !review.contains(">Rejected at<"),
+        "a unit variant shows no column the other variants share, got {view}"
     );
 }
 

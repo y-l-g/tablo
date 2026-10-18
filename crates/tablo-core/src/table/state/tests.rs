@@ -512,3 +512,16 @@ fn prefixed_states_share_one_query_without_colliding() {
         "a prefixed link round-trips"
     );
 }
+
+proptest::proptest! {
+    /// A row's selection token holds the separator only at its ends, whatever its key spells, so a
+    /// key holding a comma selects one row, and the token reads back as that key.
+    #[test]
+    fn a_bulk_token_is_one_token_for_its_key(key in "\\PC{0,24}") {
+        let token = bulk_token(&key);
+        let body = &token[1..token.len() - 1];
+        proptest::prop_assert!(token.starts_with(',') && token.ends_with(','));
+        proptest::prop_assert!(!body.contains(','), "{token}");
+        proptest::prop_assert_eq!(bulk_key(body), key);
+    }
+}

@@ -376,3 +376,100 @@ async fn bulk_delete_hand_crafted_partial_deny_skips_the_refused_row() {
     assert_eq!(remaining.len(), 1, "only the refused row survives");
     assert_eq!(remaining[0].name, "b");
 }
+
+/// Editing needs `View` as well as `Update`: the form answers 403, and so does its POST, with a
+/// valid token or without one.
+#[tokio::test]
+async fn an_edit_needs_view_as_well_as_update() {
+    use tablo::{Resource, ResourceDef, Table, TextColumn};
+
+    #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+    struct Dummy {
+        #[key]
+        #[auto]
+        id: uuid::Uuid,
+        name: String,
+    }
+
+    #[derive(tablo::RecordForm)]
+    #[form(model = Dummy)]
+    struct DummyForm {
+        name: String,
+    }
+
+    struct ViewDeniedResource;
+    impl Resource for ViewDeniedResource {
+        type Model = Dummy;
+        type Form = DummyForm;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dummies")
+                .policy_fn(|_cx, ability| matches!(ability, Ability::Update(_)))
+                .table(Table::new(TextColumn::new(lens!(Dummy.name))))
+        }
+    }
+
+    let mut db = crate::common::memory_db(toasty::models!(Dummy)).await;
+    let row = toasty::create!(Dummy {
+        name: "Ada".to_string(),
+    })
+    .exec(&mut db)
+    .await
+    .unwrap();
+    let router = crate::common::panel_router::<ViewDeniedResource>(db.clone());
+    let client = TestClient::new(&router);
+    let url = format!("/admin/dummies/{}/edit", row.id);
+    assert_eq!(client.get(&url).await.status(), 403);
+    assert_eq!(client.submit(&url, "name=Bob").await.status(), 403);
+    assert_eq!(
+        client
+            .post_form(&url, "name=Bob".to_string())
+            .await
+            .status(),
+        403
+    );
+    let stored = Dummy::all().exec(&mut db).await.unwrap();
+    assert_eq!(stored[0].name, "Ada");
+}
+
+/// A panel with auth disabled still refuses a write that carries no CSRF token.
+#[tokio::test]
+async fn a_write_needs_its_csrf_token_with_auth_disabled() {
+    use tablo::{Resource, ResourceDef, Table, TextColumn};
+
+    #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+    struct Dummy {
+        #[key]
+        #[auto]
+        id: uuid::Uuid,
+        name: String,
+    }
+
+    #[derive(tablo::RecordForm)]
+    #[form(model = Dummy)]
+    struct DummyForm {
+        name: String,
+    }
+
+    struct CreatingResource;
+    impl Resource for CreatingResource {
+        type Model = Dummy;
+        type Form = DummyForm;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("dummies")
+                .policy_fn(|_cx, ability| matches!(ability, Ability::Create))
+                .table(Table::new(TextColumn::new(lens!(Dummy.name))))
+        }
+    }
+
+    let mut db = crate::common::memory_db(toasty::models!(Dummy)).await;
+    let router = crate::common::panel_router::<CreatingResource>(db.clone());
+    let response = TestClient::new(&router)
+        .post_form("/admin/dummies/-/create", "name=Ada".to_string())
+        .await;
+    assert_eq!(response.status(), 403);
+    assert!(Dummy::all().exec(&mut db).await.unwrap().is_empty());
+}

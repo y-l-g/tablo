@@ -594,20 +594,6 @@ impl Field {
         }
     }
 
-    /// Renders the field's control holding the text `value` alone on its page, a dependent choice
-    /// with no parent value.
-    #[cfg(test)]
-    pub(crate) async fn render<'a>(
-        &self,
-        cx: &'a Cx,
-        value: Option<&str>,
-        error: Option<&FieldError>,
-    ) -> Result<BoxView<'a>> {
-        let value = value.map(FormValue::from);
-        self.render_under(cx, value.as_ref(), error, Placement::default())
-            .await
-    }
-
     /// Renders the field's control where `placement` puts it.
     pub(crate) async fn render_under<'a>(
         &self,
@@ -878,28 +864,7 @@ pub(crate) fn render_field<'a>(
 
 #[cfg(test)]
 mod test_support {
-    pub(super) use crate::test_support::{DummyUser, cx};
-
-    /// The opening tag carrying `needle` (Topcoat renders attributes in no fixed order).
-    pub(super) fn tag_with<'h>(html: &'h str, needle: &str) -> &'h str {
-        let at = html
-            .find(needle)
-            .unwrap_or_else(|| panic!("no {needle} in {html}"));
-        opening_tag_at(html, html[..at].rfind('<').expect("its opening tag"))
-    }
-
-    /// Slices the opening tag at `start`, honouring quoting.
-    pub(super) fn opening_tag_at(html: &str, start: usize) -> &str {
-        let mut quoted = false;
-        for (offset, byte) in html.as_bytes()[start..].iter().enumerate() {
-            match byte {
-                b'"' => quoted = !quoted,
-                b'>' if !quoted => return &html[start..start + offset],
-                _ => {}
-            }
-        }
-        panic!("unterminated tag at byte {start} in {html}");
-    }
+    pub(super) use crate::test_support::DummyUser;
 }
 
 #[cfg(test)]

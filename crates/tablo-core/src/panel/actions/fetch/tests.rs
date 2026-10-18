@@ -1,11 +1,5 @@
-use topcoat::router::Body;
-
 use super::*;
-use crate::{
-    Ability, ResourceDef, lens,
-    panel::test_support::{Subscriber, mount, panel_for},
-    test_support::memory_db,
-};
+use crate::{ResourceDef, lens, panel::test_support::Subscriber, test_support::memory_db};
 
 #[tokio::test]
 async fn find_by_key_loads_one_row_scoped_and_404s_malformed() {
@@ -69,64 +63,6 @@ async fn find_by_key_loads_one_row_scoped_and_404s_malformed() {
         .await
         .is_err(),
         "malformed id must not resolve"
-    );
-}
-
-#[tokio::test]
-async fn composite_pk_edit_fails_loudly_not_404() {
-    // a composite-PK resource is a programming error the URL
-    // scheme cannot serve — 500 with a message, never per-id 404s.
-
-    use crate::resource::Resource;
-
-    #[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
-    struct Pair {
-        #[key]
-        a: String,
-        #[key]
-        b: String,
-        name: String,
-    }
-    struct PairResource;
-    impl Resource for PairResource {
-        type Model = Pair;
-        type Form = PairForm;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .edit_only()
-                .slug("pairs")
-                .policy_fn(|_cx, ability| {
-                    matches!(
-                        ability,
-                        Ability::ViewAny | Ability::View(_) | Ability::Update(_)
-                    )
-                })
-                .table(crate::table::Table::new(crate::table::TextColumn::new(
-                    lens!(Pair.name),
-                )))
-        }
-    }
-    #[derive(crate::RecordForm)]
-    #[form(model = Pair)]
-    struct PairForm {
-        name: String,
-    }
-    let db = memory_db(toasty::models!(Pair)).await;
-    let router = mount(db, panel_for::<PairResource>()).expect("panel builds");
-    let resp = router
-        .handle(
-            http::Request::builder()
-                .uri("/admin/pairs/whatever/edit")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await;
-    assert_eq!(
-        resp.status(),
-        http::StatusCode::INTERNAL_SERVER_ERROR,
-        "composite PK must fail loudly, got {}",
-        resp.status()
     );
 }
 

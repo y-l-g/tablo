@@ -149,16 +149,23 @@ fn shown(cx: &Cx, scope: &str, condition: &Condition, initial: bool) -> Signal<b
     let page = topcoat::context::try_request_context::<http::request::Parts>(cx)
         .map(|parts| parts.uri.path().to_string())
         .unwrap_or_default();
-    let values = condition.values.join("\u{1f}");
-    signal(
-        &cx.keyed((
-            "tablo-condition",
-            page,
-            scope,
-            condition.watched.as_str(),
-            values,
-        )),
-        move || initial,
+    signal(&cx.keyed(signal_key(&page, scope, condition)), move || {
+        initial
+    })
+}
+
+/// What names the signal of `condition` in the form `scope` on the page at `page`.
+fn signal_key(
+    page: &str,
+    scope: &str,
+    condition: &Condition,
+) -> (&'static str, String, String, String, String) {
+    (
+        "tablo-condition",
+        page.to_string(),
+        scope.to_string(),
+        condition.watched.clone(),
+        condition.values.join("\u{1f}"),
     )
 }
 

@@ -23,15 +23,13 @@ const VENDORED: &str = "crates/tablo-ui/src/components/primitives/";
 /// and one back under its limit leaves the list.
 pub const OVERSIZED: &[(&str, usize)] = &[
     ("crates/tablo-core/src/auth/reset.rs", 807),
-    ("crates/tablo-core/src/auth/tests.rs", 1053),
     ("crates/tablo-core/src/declaration.rs", 1085),
-    ("crates/tablo-core/src/panel/build/tests.rs", 1252),
-    ("crates/tablo-core/src/panel/shell.rs", 746),
+    ("crates/tablo-core/src/panel/shell.rs", 718),
     ("crates/tablo-core/src/schema/embedded.rs", 750),
-    ("crates/tablo-core/src/schema/fields.rs", 906),
+    ("crates/tablo-core/src/schema/fields.rs", 871),
     ("crates/tablo-core/src/schema/fields/choice.rs", 643),
     ("crates/tablo-core/src/table.rs", 625),
-    ("crates/tablo-core/src/table/tests.rs", 1048),
+    ("crates/tablo-core/src/table/tests.rs", 1023),
     ("crates/tablo-core/src/toasty_compat/model.rs", 635),
     ("integration/tests/record_form.rs", 1202),
     ("xtask/src/lib.rs", 796),

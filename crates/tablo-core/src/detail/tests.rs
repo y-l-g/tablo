@@ -1,8 +1,5 @@
 use super::*;
-use crate::{
-    BooleanColumn, ComputedColumn, TextColumn, lens,
-    test_support::{cx, memory_db},
-};
+use crate::{ComputedColumn, TextColumn, lens, test_support::memory_db};
 
 #[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
 struct Shelf {
@@ -18,87 +15,10 @@ struct Book {
     #[auto]
     id: uuid::Uuid,
     title: String,
-    lent: bool,
     #[index]
     shelf_id: uuid::Uuid,
     #[belongs_to(key = shelf_id, references = id)]
     shelf: toasty::Deferred<Shelf>,
-}
-
-fn book() -> Book {
-    Book {
-        id: uuid::Uuid::nil(),
-        title: "Dune".to_string(),
-        lent: true,
-        shelf_id: uuid::Uuid::nil(),
-        shelf: toasty::Deferred::default(),
-    }
-}
-
-async fn render(detail: &Detail<Book>, record: &Book) -> String {
-    let cx = cx();
-    detail
-        .render(&cx, record)
-        .single()
-        .await
-        .unwrap()
-        .render(&cx)
-}
-
-/// Each column shows its label over the value it reads off the typed record, inside the block
-/// that holds it, and no control.
-#[tokio::test]
-async fn a_detail_shows_each_columns_value_in_its_block() {
-    let detail = Detail::new((
-        Section::new("Book").columns(Grid::new(2).columns((
-            TextColumn::new(lens!(Book.title)),
-            BooleanColumn::new(lens!(Book.lent)).labels("Lent", "On the shelf"),
-        ))),
-        ComputedColumn::new("Initial", |b: &Book| b.title[..1].to_string()),
-    ));
-    let html = render(&detail, &book()).await;
-    let at = |needle: &str| {
-        html.find(needle)
-            .unwrap_or_else(|| panic!("no {needle} in {html}"))
-    };
-    assert!(
-        at("Book") < at(">Title<") && at(">Title<") < at("Dune"),
-        "{html}"
-    );
-    assert!(at(">Lent<") > at("Dune"), "the boolean's label: {html}");
-    assert!(
-        at(">Initial<") > at(">Lent<") && html.contains(">D<"),
-        "{html}"
-    );
-    assert!(
-        !html.contains("<input") && !html.contains("<select"),
-        "{html}"
-    );
-}
-
-/// The framework stores `""` rather than NULL, so a stored record cannot tell "no value" from an
-/// empty one: both read as the dash.
-#[tokio::test]
-async fn an_empty_value_renders_as_a_dash() {
-    let detail = Detail::new(TextColumn::new(lens!(Book.title)));
-    let html = render(
-        &detail,
-        &Book {
-            title: String::new(),
-            ..book()
-        },
-    )
-    .await;
-    // The value node is the innermost `<div>` of the entry: located structurally rather than by
-    // its utility classes, so a restyle cannot silently turn the lookup into an empty string.
-    let start = html.rfind("<div").expect("the render has the value node");
-    let open_end = html[start..].find('>').expect("its tag's end") + start + 1;
-    let close = html[open_end..].find("</div>").expect("its closing tag") + open_end;
-    assert!(
-        html[open_end..close].contains('—'),
-        "the value is the dash: {html}"
-    );
-    assert!(html.contains("Title"), "the label still renders: {html}");
 }
 
 /// The relations every column declares load with the record, however deep its block, so a column
@@ -114,7 +34,6 @@ async fn a_detail_loads_the_relations_its_columns_declare() {
     .unwrap();
     toasty::create!(Book {
         title: "Dune".to_string(),
-        lent: false,
         shelf_id: shelf.id,
     })
     .exec(&mut db)
@@ -147,5 +66,5 @@ async fn a_detail_loads_the_relations_its_columns_declare() {
         .unwrap()
         .unwrap();
     assert!(!record.shelf.is_unloaded(), "the nested column's include");
-    assert!(render(&detail, &record).await.contains("Sci-fi"));
+    assert_eq!(record.shelf.get().name, "Sci-fi");
 }
