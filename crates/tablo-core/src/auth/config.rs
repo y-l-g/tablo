@@ -3,7 +3,8 @@
 
 use super::{
     AuthMail, Authenticator, DynAuthenticator, EmailVerification, LoginThrottle, PasswordAuth,
-    PasswordReset, ProfileEditor, Registrar, profile::DynProfileEditor, registration::DynRegistrar,
+    PasswordReset, ProfileEditor, Registrar, TenantRegistration, profile::DynProfileEditor,
+    registration::DynRegistrar,
 };
 
 /// The panel's authentication configuration (ADR-0013).
@@ -13,7 +14,7 @@ use super::{
 /// Sign-in attempts are throttled per login by default; see [`Auth::throttle`].
 /// [`Auth::registration`] adds a sign-up page, [`Auth::profile`] a profile page, and
 /// [`Auth::password_reset`] a forgot-password page that mails reset links through
-/// [`Auth::mail`].
+/// [`Auth::mail`], and [`Auth::tenant_registration`] a page creating a tenant.
 pub struct Auth {
     authenticator: Option<Box<dyn DynAuthenticator>>,
     throttle: LoginThrottle,
@@ -24,6 +25,7 @@ pub struct Auth {
     pub(super) reset: Option<PasswordReset>,
     pub(super) mail: Option<AuthMail>,
     pub(super) verification: Option<EmailVerification>,
+    pub(super) tenant_registration: Option<TenantRegistration>,
 }
 
 impl Auth {
@@ -46,6 +48,7 @@ impl Auth {
             reset: None,
             mail: None,
             verification: None,
+            tenant_registration: None,
         }
     }
 
@@ -63,6 +66,7 @@ impl Auth {
             reset: None,
             mail: None,
             verification: None,
+            tenant_registration: None,
         }
     }
 
@@ -168,6 +172,19 @@ impl Auth {
         self
     }
 
+    /// Lets the signed-in user create a tenant to act for at `{prefix}/register-tenant`, through
+    /// `registration`'s [`TenantRegistrar`](super::TenantRegistrar); the tenant menu links to
+    /// it. The session acts for the new tenant at once. [`TenantRegistration::required`] sends a
+    /// user who acts for no tenant there first.
+    ///
+    /// Mounting refuses a registrar whose [`User`](super::TenantRegistrar::User) is not the type
+    /// the authenticator loads, and a registration on [`Auth::disabled`].
+    #[must_use]
+    pub fn tenant_registration(mut self, registration: TenantRegistration) -> Self {
+        self.tenant_registration = Some(registration);
+        self
+    }
+
     /// Sends the panel's auth mail, such as reset links, from `mail`'s sender, with links that
     /// start with its base URL. Mounting refuses a base URL that is not absolute, and a router
     /// without a [`MailConfig`](topcoat::mail::MailConfig).
@@ -225,6 +242,13 @@ impl Auth {
         self.authenticator.as_ref().and(self.verification.as_ref())
     }
 
+    /// The tenant registration, or `None` without a tenant registration page.
+    pub(crate) fn tenant_registration_page(&self) -> Option<&TenantRegistration> {
+        self.authenticator
+            .as_ref()
+            .and(self.tenant_registration.as_ref())
+    }
+
     /// The auth mail, or `None` when the panel mails nothing.
     pub(crate) fn auth_mail(&self) -> Option<&AuthMail> {
         self.authenticator.as_ref().and(self.mail.as_ref())
@@ -264,6 +288,7 @@ impl std::fmt::Debug for Auth {
                 .field("profile", &self.profile_editor.is_some())
                 .field("password_reset", &self.reset)
                 .field("email_verification", &self.verification)
+                .field("tenant_registration", &self.tenant_registration)
                 .field("mail", &self.mail)
                 .finish_non_exhaustive()
         }

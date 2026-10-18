@@ -2,10 +2,10 @@
 
 use tablo::{
     AuthMail, EmailVerification, Membership, PanelUser, PasswordAuth, PasswordReset,
-    RouterBuilderPanelExt,
+    RouterBuilderPanelExt, TenantRegistration,
     auth::{
-        Authenticator, Profile, ProfileEditor, ProfileUpdate, Registrar, hash_password,
-        new_password_errors, verify_password,
+        Authenticator, Profile, ProfileEditor, ProfileUpdate, Registrar, TenantRegistrar,
+        hash_password, new_password_errors, verify_password,
     },
     prelude::*,
 };
@@ -290,6 +290,50 @@ pub fn verified_auth() -> Result<Auth> {
         .email_verification(EmailVerification::new(PasswordAuth)))
 }
 // ANCHOR_END: policy-email-verification
+
+// ANCHOR: policy-tenant-registration
+#[derive(FormInput)]
+pub struct NewWorkspace {
+    pub name: String,
+}
+
+impl TenantRegistrar for StaffAuth {
+    type Input = NewWorkspace;
+    type User = SignedStaff;
+
+    async fn register(
+        &self,
+        _cx: &Cx,
+        signed: &SignedStaff,
+        workspace: NewWorkspace,
+        ex: &mut dyn toasty::Executor,
+    ) -> Result<Membership> {
+        let id = create_workspace(ex, &workspace.name).await?;
+        seat_staff(ex, signed.staff.id, id).await?;
+        Ok(Membership::new(id, workspace.name))
+    }
+}
+
+pub fn workspace_panel() -> Panel {
+    Panel::new("admin").auth(
+        Auth::custom(StaffAuth)
+            .registration(StaffAuth)
+            .tenant_registration(TenantRegistration::new(StaffAuth).required()),
+    )
+}
+// ANCHOR_END: policy-tenant-registration
+
+pub async fn create_workspace(_ex: &mut dyn toasty::Executor, _name: &str) -> Result<uuid::Uuid> {
+    todo!()
+}
+
+pub async fn seat_staff(
+    _ex: &mut dyn toasty::Executor,
+    _staff: uuid::Uuid,
+    _workspace: uuid::Uuid,
+) -> Result<()> {
+    todo!()
+}
 
 // ANCHOR: policy-auth-disabled-body
 pub fn open_panel() -> Panel {

@@ -205,6 +205,7 @@ pub fn tablo_core::Auth::profile(self, impl tablo_core::ProfileEditor) -> Self
 pub fn tablo_core::Auth::profile_throttle(self, tablo_core::LoginThrottle) -> Self
 pub fn tablo_core::Auth::registration(self, impl tablo_core::Registrar) -> Self
 pub fn tablo_core::Auth::sign_up_throttle(self, tablo_core::LoginThrottle) -> Self
+pub fn tablo_core::Auth::tenant_registration(self, tablo_core::TenantRegistration) -> Self
 pub fn tablo_core::Auth::throttle(self, tablo_core::LoginThrottle) -> Self
 impl core::default::Default for tablo_core::Auth
 pub fn tablo_core::Auth::default() -> Self
@@ -630,6 +631,19 @@ impl core::marker::Unpin for tablo_core::SignUp
 impl core::marker::UnsafeUnpin for tablo_core::SignUp
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::SignUp
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::SignUp
+pub struct tablo_core::auth::TenantRegistration
+impl tablo_core::TenantRegistration
+pub fn tablo_core::TenantRegistration::new(impl tablo_core::auth::TenantRegistrar) -> Self
+pub fn tablo_core::TenantRegistration::required(self) -> Self
+impl core::fmt::Debug for tablo_core::TenantRegistration
+pub fn tablo_core::TenantRegistration::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tablo_core::TenantRegistration
+impl core::marker::Send for tablo_core::TenantRegistration
+impl core::marker::Sync for tablo_core::TenantRegistration
+impl core::marker::Unpin for tablo_core::TenantRegistration
+impl core::marker::UnsafeUnpin for tablo_core::TenantRegistration
+impl !core::panic::unwind_safe::RefUnwindSafe for tablo_core::TenantRegistration
+impl !core::panic::unwind_safe::UnwindSafe for tablo_core::TenantRegistration
 pub const tablo_core::auth::LOGIN_FIELD: &str
 pub const tablo_core::auth::MIN_PASSWORD_CHARS: usize
 pub const tablo_core::auth::NEXT_FIELD: &str
@@ -698,6 +712,11 @@ pub type tablo_core::PasswordAuth::Input = tablo_core::SignUp
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
 pub async fn tablo_core::PasswordAuth::register(&self, &topcoat_core::context::Cx, tablo_core::SignUp, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::auth::AdminUser>
 pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::Cx, &tablo_core::SignUp, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::FieldErrors>
+pub trait tablo_core::auth::TenantRegistrar: core::marker::Send + core::marker::Sync + 'static
+pub type tablo_core::auth::TenantRegistrar::Input: tablo_core::FormInput
+pub type tablo_core::auth::TenantRegistrar::User: tablo_core::auth::PanelUser
+pub fn tablo_core::auth::TenantRegistrar::register(&self, &topcoat_core::context::Cx, &Self::User, Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::tenancy::Membership>> + core::marker::Send
+pub fn tablo_core::auth::TenantRegistrar::validate(&self, &topcoat_core::context::Cx, &Self::User, &Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::FieldErrors>> + core::marker::Send
 pub async fn tablo_core::auth::create_admin(&mut dyn toasty::db::executor::Executor, &str, &str, &str) -> topcoat::Result<tablo_core::auth::AdminUser>
 pub fn tablo_core::auth::enforced(&topcoat_core::context::Cx) -> bool
 pub fn tablo_core::auth::guard(&topcoat_core::context::Cx) -> topcoat::Result<()>
@@ -4032,6 +4051,7 @@ pub tablo_core::DeclarationErrorKind::SignUp(tablo_core::SignUpFault)
 pub tablo_core::DeclarationErrorKind::TenancyColumnNotAField
 pub tablo_core::DeclarationErrorKind::TenancyViaOwnColumn
 pub tablo_core::DeclarationErrorKind::TenancyViaWithoutBelongsTo
+pub tablo_core::DeclarationErrorKind::TenantRegistration(tablo_core::TenantRegistrationFault)
 pub tablo_core::DeclarationErrorKind::TraversalLens
 pub tablo_core::DeclarationErrorKind::TraversalLens::steps: usize
 pub tablo_core::DeclarationErrorKind::Uncompiled
@@ -4427,6 +4447,30 @@ impl core::marker::Unpin for tablo_core::Site
 impl core::marker::UnsafeUnpin for tablo_core::Site
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Site
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::Site
+#[non_exhaustive] pub enum tablo_core::TenantRegistrationFault
+pub tablo_core::TenantRegistrationFault::AuthDisabled
+pub tablo_core::TenantRegistrationFault::FileField(alloc::string::String)
+pub tablo_core::TenantRegistrationFault::RelationshipField(alloc::string::String)
+pub tablo_core::TenantRegistrationFault::ReservedField(alloc::string::String)
+pub tablo_core::TenantRegistrationFault::UserType
+pub tablo_core::TenantRegistrationFault::UserType::registrar: &'static str
+impl core::clone::Clone for tablo_core::TenantRegistrationFault
+pub fn tablo_core::TenantRegistrationFault::clone(&self) -> tablo_core::TenantRegistrationFault
+impl core::cmp::Eq for tablo_core::TenantRegistrationFault
+impl core::cmp::PartialEq for tablo_core::TenantRegistrationFault
+pub fn tablo_core::TenantRegistrationFault::eq(&self, &tablo_core::TenantRegistrationFault) -> bool
+impl core::fmt::Debug for tablo_core::TenantRegistrationFault
+pub fn tablo_core::TenantRegistrationFault::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tablo_core::TenantRegistrationFault
+pub fn tablo_core::TenantRegistrationFault::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_core::TenantRegistrationFault
+impl core::marker::Freeze for tablo_core::TenantRegistrationFault
+impl core::marker::Send for tablo_core::TenantRegistrationFault
+impl core::marker::Sync for tablo_core::TenantRegistrationFault
+impl core::marker::Unpin for tablo_core::TenantRegistrationFault
+impl core::marker::UnsafeUnpin for tablo_core::TenantRegistrationFault
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::TenantRegistrationFault
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::TenantRegistrationFault
 #[non_exhaustive] pub enum tablo_core::VerificationFault
 pub tablo_core::VerificationFault::AuthDisabled
 pub tablo_core::VerificationFault::UserType
@@ -4481,6 +4525,7 @@ pub fn tablo_core::Auth::profile(self, impl tablo_core::ProfileEditor) -> Self
 pub fn tablo_core::Auth::profile_throttle(self, tablo_core::LoginThrottle) -> Self
 pub fn tablo_core::Auth::registration(self, impl tablo_core::Registrar) -> Self
 pub fn tablo_core::Auth::sign_up_throttle(self, tablo_core::LoginThrottle) -> Self
+pub fn tablo_core::Auth::tenant_registration(self, tablo_core::TenantRegistration) -> Self
 pub fn tablo_core::Auth::throttle(self, tablo_core::LoginThrottle) -> Self
 impl core::default::Default for tablo_core::Auth
 pub fn tablo_core::Auth::default() -> Self
@@ -6176,6 +6221,19 @@ impl core::marker::Unpin for tablo_core::TenantId
 impl core::marker::UnsafeUnpin for tablo_core::TenantId
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::TenantId
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::TenantId
+pub struct tablo_core::TenantRegistration
+impl tablo_core::TenantRegistration
+pub fn tablo_core::TenantRegistration::new(impl tablo_core::auth::TenantRegistrar) -> Self
+pub fn tablo_core::TenantRegistration::required(self) -> Self
+impl core::fmt::Debug for tablo_core::TenantRegistration
+pub fn tablo_core::TenantRegistration::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tablo_core::TenantRegistration
+impl core::marker::Send for tablo_core::TenantRegistration
+impl core::marker::Sync for tablo_core::TenantRegistration
+impl core::marker::Unpin for tablo_core::TenantRegistration
+impl core::marker::UnsafeUnpin for tablo_core::TenantRegistration
+impl !core::panic::unwind_safe::RefUnwindSafe for tablo_core::TenantRegistration
+impl !core::panic::unwind_safe::UnwindSafe for tablo_core::TenantRegistration
 pub struct tablo_core::TernaryFilter<M>
 impl<M> tablo_core::TernaryFilter<M> where M: toasty::schema::model::Model
 pub fn tablo_core::TernaryFilter<M>::label(self, impl core::convert::Into<alloc::string::String>) -> Self

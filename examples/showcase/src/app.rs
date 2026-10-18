@@ -8,7 +8,7 @@ use tablo::{
     FieldErrors, Grid, Group, HeaderAction, ModelColumns, NavigationItem, Pagination, Panel,
     PasswordReset, PublicLink, QueryFilter, Relation, RelationColumn, RepeaterColumn, Resource,
     ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy,
-    TernaryFilter, TextColumn, lens, relation, scoped_query, tenant_id, when,
+    TenantRegistration, TernaryFilter, TextColumn, lens, relation, scoped_query, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -473,6 +473,7 @@ pub fn admin_panel() -> Panel {
             Auth::custom(StaffAuth)
                 .registration(StaffAuth)
                 .profile(StaffAuth)
+                .tenant_registration(TenantRegistration::new(StaffAuth))
                 .mail(AuthMail::new(
                     Mailbox::named("Tablo Blog", "no-reply@example.com")
                         .expect("the showcase's sender address parses"),

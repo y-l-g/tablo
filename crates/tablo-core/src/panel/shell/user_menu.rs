@@ -195,10 +195,13 @@ impl Panel {
     }
 
     /// The tenant menu atop the navigation: the tenant the request acts for, opening the user's
-    /// `tenants`, each a form posting to the tenant-switch route. A user with fewer than two
-    /// tenants has nothing to switch, and gets nothing.
+    /// `tenants`, each a form posting to the tenant-switch route, then the tenant registration
+    /// page when the panel offers one. A user with fewer than two tenants and nowhere to create
+    /// another has nothing to choose, and gets nothing.
     pub(super) fn tenant_menu<'a>(cx: &'a Cx, tenants: &[Membership], csrf: &str) -> BoxView<'a> {
-        if tenants.len() < 2 {
+        let register = crate::auth::tenant_registration_offered(cx)
+            .then(|| crate::navigation::runtime_link(cx, &crate::auth::register_tenant_url(cx)));
+        if tenants.len() < 2 && register.is_none() {
             return ().boxed();
         }
         let current = crate::auth::membership(cx);
@@ -261,6 +264,17 @@ impl Panel {
                         dropdown_menu_label("Tenants")
                         for choice in choices {
                             (choice)
+                        }
+                        if let Some(register) = register {
+                            dropdown_menu_separator()
+                            <a
+                                (register)
+                                class=(crate::navigation::MENU_LINK_CLASS)
+                                data-tenant-registration=""
+                            >
+                                icon(data: tablo_ui::icons::PLUS)
+                                "Create tenant"
+                            </a>
                         }
                     )
                 )

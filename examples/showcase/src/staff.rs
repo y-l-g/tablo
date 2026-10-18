@@ -5,7 +5,8 @@ use tablo::{
     FieldErrors, FormInput, Membership, PanelUser,
     auth::{
         self, Authenticator, EmailChange, EmailVerifier, PasswordResetter, Profile, ProfileEditor,
-        ProfileUpdate, Registrar, hash_password, new_password_errors, verify_password,
+        ProfileUpdate, Registrar, TenantRegistrar, hash_password, new_password_errors,
+        verify_password,
     },
 };
 use toasty::Db;
@@ -218,6 +219,41 @@ impl Registrar for StaffAuth {
             staff,
             workspaces: vec![Membership::new(workspace.id, workspace.name)],
         })
+    }
+}
+
+/// What the tenant registration page asks for: the new blog's name.
+#[derive(FormInput)]
+pub struct NewBlog {
+    #[form(label = "Blog name", placeholder = "My blog")]
+    pub name: String,
+}
+
+/// Starts a new workspace with a seat for the member of staff who asked for it.
+impl TenantRegistrar for StaffAuth {
+    type Input = NewBlog;
+    type User = SignedStaff;
+
+    async fn register(
+        &self,
+        _cx: &Cx,
+        signed: &SignedStaff,
+        blog: NewBlog,
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<Membership> {
+        let workspace = toasty::create!(Workspace {
+            id: Uuid::new_v4(),
+            name: blog.name,
+        })
+        .exec(&mut *ex)
+        .await?;
+        toasty::create!(Seat {
+            staff_id: signed.staff.id,
+            workspace_id: workspace.id,
+        })
+        .exec(ex)
+        .await?;
+        Ok(Membership::new(workspace.id, workspace.name))
     }
 }
 

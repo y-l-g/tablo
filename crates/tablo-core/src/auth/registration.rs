@@ -14,7 +14,7 @@ use topcoat::{
 };
 
 use super::{
-    PanelUser, infrastructure_failure,
+    PanelUser, infrastructure_failure, input,
     login::{NEXT_FIELD, login_url, next_from_query, safe_next},
     panel_root,
     session::{fresh_session, record},
@@ -169,42 +169,17 @@ impl<R: Registrar> DynRegistrar for R {
         values: FormValues,
     ) -> BoxFuture<'a, topcoat::Result<Outcome>> {
         Box::pin(async move {
-            let schema = R::Input::schema();
-            let mut errors = FieldErrors::new();
-            let parsed = match R::Input::parse(cx, &values) {
-                Ok(parsed) => Some(parsed),
-                Err(refused) => {
-                    for error in refused {
-                        errors.push(error);
-                    }
-                    None
-                }
-            };
-            schema
-                .check_controls(cx, &values, &FormValues::new(), &mut errors)
-                .await;
-            let refused = |errors| Outcome::Refused {
-                values: values.clone(),
-                errors,
-            };
-            if let Some(key) = schema.unplaced_error(&errors) {
-                return Err(crate::error::declaration(format!(
-                    "the sign-up input refused key `{key}`, which no sign-up control renders"
-                )));
-            }
-            let Some(input) = parsed.filter(|_| errors.is_empty()) else {
-                return Ok(refused(errors));
-            };
+            let input =
+                match input::parse::<R::Input>(cx, &values, &FormValues::new(), "sign-up").await? {
+                    Ok(input) => input,
+                    Err(errors) => return Ok(Outcome::Refused { values, errors }),
+                };
             let mut db = crate::db::db(cx);
             let mut tx = db.transaction().await.map_err(infrastructure_failure)?;
             let errors = self.validate(cx, &input, &mut tx).await?;
-            if let Some(key) = schema.unplaced_error(&errors) {
-                return Err(crate::error::declaration(format!(
-                    "the registrar refused key `{key}`, which no sign-up control renders"
-                )));
-            }
+            input::placed(&R::Input::schema(), &errors, "the registrar", "sign-up")?;
             if !errors.is_empty() {
-                return Ok(refused(errors));
+                return Ok(Outcome::Refused { values, errors });
             }
             let user = self.register(cx, input, &mut tx).await?;
             tx.commit().await.map_err(infrastructure_failure)?;
@@ -551,6 +526,7 @@ async fn render_page<'a>(
 /// without auth, a registrar whose user is not the authenticator's, and a sign-up form field the
 /// page cannot serve.
 pub(super) fn declaration_errors(auth: &super::Auth) -> Vec<crate::DeclarationErrorKind> {
+    use super::input::FieldFault;
     use crate::{DeclarationErrorKind, declaration::SignUpFault};
 
     let Some(registrar) = auth.registrar.as_deref() else {
@@ -569,22 +545,15 @@ pub(super) fn declaration_errors(auth: &super::Auth) -> Vec<crate::DeclarationEr
     let schema = registrar.schema();
     kinds.extend(schema.declaration_errors());
     kinds.extend(schema.empty_choices());
-    kinds.extend(schema.fields().filter_map(|field| {
-        let name = field.name().to_string();
-        let fault = if RESERVED_KEYS.contains(&name.as_str()) {
-            SignUpFault::ReservedField(name)
-        } else if field.is_file() {
-            SignUpFault::FileField(name)
-        } else if field
-            .as_choice()
-            .is_some_and(|choice| choice.is_relationship())
-        {
-            SignUpFault::RelationshipField(name)
-        } else {
-            return None;
-        };
-        Some(DeclarationErrorKind::SignUp(fault))
-    }));
+    kinds.extend(
+        input::field_faults(&schema, &RESERVED_KEYS).map(|(fault, name)| {
+            DeclarationErrorKind::SignUp(match fault {
+                FieldFault::Reserved => SignUpFault::ReservedField(name),
+                FieldFault::File => SignUpFault::FileField(name),
+                FieldFault::Relationship => SignUpFault::RelationshipField(name),
+            })
+        }),
+    );
     kinds
 }
 

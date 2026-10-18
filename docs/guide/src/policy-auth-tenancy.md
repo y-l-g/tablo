@@ -393,8 +393,8 @@ link proved and marks it verified, inside the link's transaction. `PasswordAuth`
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-auth-disabled-body}}
 ```
 
-Every panel route is then public and the login, sign-up, profile and password reset routes are not
-registered. Use it for public
+Every panel route is then public and the login, sign-up, profile, password reset and tenant
+registration routes are not registered. Use it for public
 demos and tests only.
 
 ## Tenancy
@@ -413,8 +413,24 @@ for each tenant `PanelUser::tenants` lists, as a `Membership { tenant, name }`; 
   membership lasts. The session table records the choice, so an existing `auth_sessions` table
   needs a nullable `tenant` column, typed as Toasty stores a `Uuid` on your database. One
   browser acts for one tenant at a time, in every tab.
+- **Registering a tenant.** `Auth::tenant_registration` adds a page at `{prefix}/register-tenant`
+  where the signed-in user creates a tenant, through a `TenantRegistrar` for the type the
+  authenticator loads. Its `Input` is the page's form; `validate` and `register` run in one
+  transaction, and `register` writes the tenant and the user's membership of it, answering that
+  `Membership`. The session then acts for the new tenant, and the next request's `find_by_id`
+  must list it. The tenant menu links to the page, so it shows from one membership on.
+- **A user with no membership** on a panel with tenant registration reaches nothing else: a page
+  redirects to the registration page and any other request answers 403, as with an unverified
+  address, which comes first. A sign-up that creates no tenant lands there.
 - **Overrides.** No request header sets the tenant. Server code such as a middleware or a test
   can, by inserting a `Tenant` request extension or putting `Tenant(id)` on the `Cx`.
+
+```rust
+{{#include ../../../examples/guide/src/policy_tenancy.rs:policy-tenant-registration}}
+```
+
+Mounting refuses a registrar whose `User` is not the type the authenticator loads, a registration
+on `Auth::disabled()`, and a form field named `csrf_token`, a file field or a relationship choice.
 
 Declare the resource's tenancy with the column its rows carry their tenant in:
 
