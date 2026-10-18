@@ -141,9 +141,18 @@ impl<R: PasswordResetter> DynPasswordResetter for R {
     ) -> BoxFuture<'a, topcoat::Result<Option<(String, String)>>> {
         Box::pin(async move {
             let user = self.find_by_email(cx, email).await?;
-            Ok(user
-                .filter(PanelUser::can_access_panel)
-                .and_then(|user| Some((user.email()?.to_string(), user.user_id()))))
+            let Some(user) = user.filter(PanelUser::can_access_panel) else {
+                return Ok(None);
+            };
+            let Some(email) = user.email() else {
+                // The page still answers that a link is on its way: it never says who exists.
+                tracing::warn!(
+                    user = std::any::type_name::<R::User>(),
+                    "a password reset found an account whose `PanelUser::email` is `None`"
+                );
+                return Ok(None);
+            };
+            Ok(Some((email.to_string(), user.user_id())))
         })
     }
 

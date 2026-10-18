@@ -7,7 +7,10 @@ use jiff::Timestamp;
 use topcoat::{context::Cx, session::Token};
 
 use super::{infrastructure_failure, session::token_key};
-use crate::{panel::panel_prefix, toasty_compat::IsolationLevel};
+use crate::{
+    panel::{panel_prefix, state::current},
+    toasty_compat::IsolationLevel,
+};
 
 /// Shipped single-use secret record: the SHA-256 hash of the token a mailed link or a pending
 /// sign-in carries, what it is for, the account and the panel it acts on, and its expiry. The
@@ -42,8 +45,8 @@ pub enum TokenPurpose {
 }
 
 /// A new token for `purpose` on the request's panel, held by `user_id` until `lifetime` passes,
-/// written through `ex`. The account's earlier tokens for the purpose on that panel end, and so
-/// does every expired token.
+/// written through `ex`. The account's earlier tokens for the purpose on that panel end; expired
+/// ones wait for [`sweep_expired`].
 pub(super) async fn issue(
     cx: &Cx,
     ex: &mut dyn toasty::Executor,
@@ -62,8 +65,7 @@ pub(super) async fn issue(
             .user_id()
             .eq(user_id.to_string())
             .and(AuthToken::fields().panel().eq(panel.clone()))
-            .and(AuthToken::fields().purpose().eq(purpose))
-            .or(AuthToken::fields().expires_at().le(now)),
+            .and(AuthToken::fields().purpose().eq(purpose)),
     )
     .delete()
     .exec(&mut *ex)
@@ -126,6 +128,47 @@ pub(super) async fn end_all(
     }
     .delete()
     .exec(ex)
+    .await
+    .map_err(infrastructure_failure)
+}
+
+/// How many expired token rows one sweep drops: the bound that keeps one login from deleting an
+/// unbounded number of rows.
+pub(super) const TOKEN_SWEEP_BATCH: usize = 500;
+
+/// Drops up to [`TOKEN_SWEEP_BATCH`] expired token rows when a login succeeds on a panel that
+/// issues tokens, outside any transaction: inside one, every issue would contend on the same rows.
+pub(super) async fn sweep_expired(cx: &Cx) -> topcoat::Result<()> {
+    // A panel that issues no token may leave the model unregistered.
+    if current(cx).is_some_and(|panel| panel.auth.issues_tokens()) {
+        sweep(&mut crate::db::db(cx)).await?;
+    }
+    Ok(())
+}
+
+/// Drops up to [`TOKEN_SWEEP_BATCH`] expired token rows from `db`.
+pub(super) async fn sweep(db: &mut toasty::Db) -> topcoat::Result<()> {
+    let now = Timestamp::now();
+    let expired: Vec<String> = AuthToken::filter(AuthToken::fields().expires_at().le(now))
+        .limit(TOKEN_SWEEP_BATCH)
+        .exec(&mut *db)
+        .await
+        .map_err(infrastructure_failure)?
+        .into_iter()
+        .map(|row| row.token_hash)
+        .collect();
+    if expired.is_empty() {
+        return Ok(());
+    }
+    // The expiry is re-checked: the select and the delete are two statements.
+    AuthToken::filter(
+        AuthToken::fields()
+            .token_hash()
+            .in_list(expired)
+            .and(AuthToken::fields().expires_at().le(now)),
+    )
+    .delete()
+    .exec(db)
     .await
     .map_err(infrastructure_failure)
 }

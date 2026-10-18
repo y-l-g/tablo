@@ -381,6 +381,46 @@ async fn a_sweep_deletes_at_most_a_batch() {
     assert_eq!(remaining, 1, "one expired row past the batch");
 }
 
+/// One token sweep deletes at most [`TOKEN_SWEEP_BATCH`](super::token::TOKEN_SWEEP_BATCH)
+/// expired rows, and no live one.
+#[tokio::test]
+async fn a_token_sweep_deletes_at_most_a_batch_of_expired_rows() {
+    use super::token::{TOKEN_SWEEP_BATCH, TokenPurpose, sweep};
+
+    let mut db = memory_db(toasty::models!(AuthToken)).await;
+    let expired = "2000-01-01T00:00:00Z"
+        .parse::<Timestamp>()
+        .expect("a past timestamp");
+    let live = "2999-01-01T00:00:00Z"
+        .parse::<Timestamp>()
+        .expect("a future timestamp");
+    let mut seed = AuthToken::create_many();
+    for (index, expires_at) in (0..=TOKEN_SWEEP_BATCH)
+        .map(|index| (index, expired))
+        .chain([(usize::MAX, live)])
+    {
+        seed = seed.item(
+            AuthToken::create()
+                .token_hash(format!("token-{index}"))
+                .purpose(TokenPurpose::PasswordReset)
+                .user_id("ada")
+                .panel("/admin")
+                .expires_at(expires_at)
+                .created_at(Timestamp::now()),
+        );
+    }
+    seed.exec(&mut db).await.expect("seed the token rows");
+
+    sweep(&mut db).await.expect("the sweep runs");
+    let remaining = AuthToken::all().exec(&mut db).await.expect("query");
+    assert_eq!(
+        remaining.len(),
+        2,
+        "one expired row past the batch, and the live one"
+    );
+    assert!(remaining.iter().any(|row| row.expires_at == live));
+}
+
 /// A sweep failure answers the opaque sign-in copy with no driver text.
 #[tokio::test]
 async fn a_sweep_failure_maps_to_the_opaque_sign_in_copy() {
