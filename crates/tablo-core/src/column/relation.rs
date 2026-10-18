@@ -110,7 +110,7 @@ impl<M, R> RelationLens<M, R> {
 /// # fn main() {
 /// let author: RelationLens<Post, Deferred<Author>> = relation!(Post.author);
 /// let comments: RelationLens<Post, Deferred<Vec<Comment>>> = relation!(Post.comments);
-/// let qualified = relation!(crate::blog::Post.author);
+/// let qualified = relation!(blog::Post.author);
 /// # let _ = (author, comments, qualified);
 /// # }
 /// ```
