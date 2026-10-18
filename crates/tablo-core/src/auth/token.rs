@@ -35,6 +35,7 @@ pub struct AuthToken {
 /// purpose a later release adds needs no migration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed)]
 #[column(type = text)]
+#[non_exhaustive]
 pub enum TokenPurpose {
     /// A mailed link that sets a new password.
     PasswordReset,

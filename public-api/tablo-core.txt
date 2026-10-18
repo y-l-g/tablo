@@ -25,7 +25,7 @@ impl core::marker::Unpin for tablo_core::ProfileUpdate
 impl core::marker::UnsafeUnpin for tablo_core::ProfileUpdate
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::ProfileUpdate
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::ProfileUpdate
-pub enum tablo_core::auth::TokenPurpose
+#[non_exhaustive] pub enum tablo_core::auth::TokenPurpose
 pub tablo_core::auth::TokenPurpose::PasswordReset
 impl core::clone::Clone for tablo_core::auth::TokenPurpose
 pub fn tablo_core::auth::TokenPurpose::clone(&self) -> tablo_core::auth::TokenPurpose
