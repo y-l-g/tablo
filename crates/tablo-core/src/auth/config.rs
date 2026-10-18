@@ -26,7 +26,7 @@ pub struct Auth {
 }
 
 impl Auth {
-    /// The shipped Argon2id + [`AdminUser`] authenticator.
+    /// The shipped Argon2id + [`AdminUser`](super::AdminUser) authenticator.
     #[must_use]
     pub fn password() -> Self {
         Self::custom(PasswordAuth)
@@ -82,11 +82,11 @@ impl Auth {
     /// # let _ = auth;
     /// ```
     ///
-    /// [`PasswordAuth`] registers an active [`AdminUser`] from a [`SignUp`], who signs in to the
-    /// panel at once: only open it where any visitor may hold an account. A custom
-    /// [`Registrar`] decides what a new account may do. Mounting refuses a registrar whose
-    /// [`User`](Registrar::User) is not the type the authenticator loads, and a registration
-    /// on [`Auth::disabled`].
+    /// [`PasswordAuth`] registers an active [`AdminUser`](super::AdminUser) from a
+    /// [`SignUp`](super::SignUp), who signs in to the panel at once: only open it where any
+    /// visitor may hold an account. A custom [`Registrar`] decides what a new account may do.
+    /// Mounting refuses a registrar whose [`User`](Registrar::User) is not the type the
+    /// authenticator loads, and a registration on [`Auth::disabled`].
     #[must_use]
     pub fn registration(mut self, registrar: impl Registrar) -> Self {
         self.registrar = Some(Box::new(registrar));
@@ -112,10 +112,10 @@ impl Auth {
     /// # let _ = auth;
     /// ```
     ///
-    /// [`PasswordAuth`] edits an [`AdminUser`]'s name, email and password through a [`Profile`],
-    /// asking for the current password before the email or the password changes. Mounting
-    /// refuses an editor whose [`User`](ProfileEditor::User) is not the type the authenticator
-    /// loads, and a profile on [`Auth::disabled`].
+    /// [`PasswordAuth`] edits an [`AdminUser`](super::AdminUser)'s name, email and password through
+    /// a [`Profile`](super::Profile), asking for the current password before the email or the
+    /// password changes. Mounting refuses an editor whose [`User`](ProfileEditor::User) is not
+    /// the type the authenticator loads, and a profile on [`Auth::disabled`].
     #[must_use]
     pub fn profile(mut self, editor: impl ProfileEditor) -> Self {
         self.profile_editor = Some(Box::new(editor));
