@@ -92,10 +92,11 @@ impl<'a> FormChrome<'a> {
         self
     }
 
-    /// The profile page's: titled `Profile`, saved by `Save`, cancelled to `home`.
-    pub(crate) fn profile(home: String) -> Self {
+    /// A settings page's, such as the profile: titled `title`, saved by `Save`, cancelled to
+    /// `home`.
+    pub(crate) fn settings(title: &str, home: String) -> Self {
         Self {
-            title: "Profile".to_string(),
+            title: title.to_string(),
             submit_label: "Save".to_string(),
             destructive: false,
             public_link: None,

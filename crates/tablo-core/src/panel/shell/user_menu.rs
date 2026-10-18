@@ -195,13 +195,47 @@ impl Panel {
     }
 
     /// The tenant menu atop the navigation: the tenant the request acts for, opening the user's
-    /// `tenants`, each a form posting to the tenant-switch route, then the tenant registration
-    /// page when the panel offers one. A user with fewer than two tenants and nowhere to create
-    /// another has nothing to choose, and gets nothing.
+    /// `tenants`, each a form posting to the tenant-switch route, then the current tenant's
+    /// settings page and the tenant registration page, where the panel offers them. A user with
+    /// fewer than two tenants and neither page has nothing to choose, and gets nothing.
     pub(super) fn tenant_menu<'a>(cx: &'a Cx, tenants: &[Membership], csrf: &str) -> BoxView<'a> {
-        let register = crate::auth::tenant_registration_offered(cx)
-            .then(|| crate::navigation::runtime_link(cx, &crate::auth::register_tenant_url(cx)));
-        if tenants.len() < 2 && register.is_none() {
+        let link = |offered: bool, url: fn(&Cx) -> String, label: &'static str, data, page| {
+            offered.then(|| {
+                let link = crate::navigation::runtime_link(cx, &url(cx));
+                view! {
+                    cx =>
+                    <a
+                        (link)
+                        class=(crate::navigation::MENU_LINK_CLASS)
+                        data-tenant-page=(page)
+                    >
+                        icon(data: data)
+                        (label)
+                    </a>
+                }
+                .boxed()
+            })
+        };
+        let links: Vec<BoxView<'a>> = [
+            link(
+                crate::auth::tenant_profile_offered(cx),
+                crate::auth::tenant_profile_url,
+                "Tenant settings",
+                tablo_ui::icons::PENCIL,
+                "profile",
+            ),
+            link(
+                crate::auth::tenant_registration_offered(cx),
+                crate::auth::register_tenant_url,
+                "Create tenant",
+                tablo_ui::icons::PLUS,
+                "registration",
+            ),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+        if tenants.len() < 2 && links.is_empty() {
             return ().boxed();
         }
         let current = crate::auth::membership(cx);
@@ -265,16 +299,11 @@ impl Panel {
                         for choice in choices {
                             (choice)
                         }
-                        if let Some(register) = register {
+                        if !links.is_empty() {
                             dropdown_menu_separator()
-                            <a
-                                (register)
-                                class=(crate::navigation::MENU_LINK_CLASS)
-                                data-tenant-registration=""
-                            >
-                                icon(data: tablo_ui::icons::PLUS)
-                                "Create tenant"
-                            </a>
+                            for link in links {
+                                (link)
+                            }
                         }
                     )
                 )

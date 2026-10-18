@@ -44,6 +44,7 @@ A test matches on the kind rather than the message; see
 | `PasswordReset` | the password reset cannot be served; the `ResetFault` says why | see below |
 | `EmailVerification` | the email verification cannot be served; the `VerificationFault` says why | see below |
 | `TenantRegistration` | the tenant registration page cannot be served; the `TenantRegistrationFault` says why | see below |
+| `TenantProfile` | the tenant settings page cannot be served; the `TenantProfileFault` says why | see below |
 | `AuthMail` | the auth's mail cannot be sent; the `AuthMailFault` says why | see below |
 
 `SignUpFault`:
@@ -89,6 +90,16 @@ A test matches on the kind rather than the message; see
 | `ReservedField` | a registration field is named `csrf_token` | rename the field |
 | `FileField` | the registration form has a file field | ask for the file on a resource's form |
 | `RelationshipField` | the registration form has a relationship choice, whose options no route serves the page | offer static options |
+
+`TenantProfileFault`:
+
+| Fault | Refused when | Fix |
+| --- | --- | --- |
+| `AuthDisabled` | `Auth::tenant_profile` on `Auth::disabled()` | turn authentication on |
+| `UserType` | the editor edits tenants for another user type than the authenticator loads | edit for the type the panel signs in |
+| `ReservedField` | a settings field is named `csrf_token` | rename the field |
+| `FileField` | the settings form has a file field | edit the file on a resource's form |
+| `RelationshipField` | the settings form has a relationship choice, whose options no route serves the page | offer static options |
 
 `AuthMailFault`:
 

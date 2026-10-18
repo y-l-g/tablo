@@ -3,8 +3,8 @@
 
 use super::{
     AuthMail, Authenticator, DynAuthenticator, EmailVerification, LoginThrottle, PasswordAuth,
-    PasswordReset, ProfileEditor, Registrar, TenantRegistration, profile::DynProfileEditor,
-    registration::DynRegistrar,
+    PasswordReset, ProfileEditor, Registrar, TenantEditor, TenantRegistration,
+    profile::DynProfileEditor, registration::DynRegistrar, tenant_profile::DynTenantEditor,
 };
 
 /// The panel's authentication configuration (ADR-0013).
@@ -14,7 +14,8 @@ use super::{
 /// Sign-in attempts are throttled per login by default; see [`Auth::throttle`].
 /// [`Auth::registration`] adds a sign-up page, [`Auth::profile`] a profile page, and
 /// [`Auth::password_reset`] a forgot-password page that mails reset links through
-/// [`Auth::mail`], and [`Auth::tenant_registration`] a page creating a tenant.
+/// [`Auth::mail`], [`Auth::tenant_registration`] a page creating a tenant, and
+/// [`Auth::tenant_profile`] a page editing one.
 pub struct Auth {
     authenticator: Option<Box<dyn DynAuthenticator>>,
     throttle: LoginThrottle,
@@ -26,6 +27,7 @@ pub struct Auth {
     pub(super) mail: Option<AuthMail>,
     pub(super) verification: Option<EmailVerification>,
     pub(super) tenant_registration: Option<TenantRegistration>,
+    pub(super) tenant_editor: Option<Box<dyn DynTenantEditor>>,
 }
 
 impl Auth {
@@ -49,6 +51,7 @@ impl Auth {
             mail: None,
             verification: None,
             tenant_registration: None,
+            tenant_editor: None,
         }
     }
 
@@ -67,6 +70,7 @@ impl Auth {
             mail: None,
             verification: None,
             tenant_registration: None,
+            tenant_editor: None,
         }
     }
 
@@ -185,6 +189,17 @@ impl Auth {
         self
     }
 
+    /// Lets the signed-in user edit the tenant they act for at `{prefix}/tenant/profile`, through
+    /// `editor`; the tenant menu links to it for a user [`TenantEditor::may_edit`] admits.
+    ///
+    /// Mounting refuses an editor whose [`User`](TenantEditor::User) is not the type the
+    /// authenticator loads, and a settings page on [`Auth::disabled`].
+    #[must_use]
+    pub fn tenant_profile(mut self, editor: impl TenantEditor) -> Self {
+        self.tenant_editor = Some(Box::new(editor));
+        self
+    }
+
     /// Sends the panel's auth mail, such as reset links, from `mail`'s sender, with links that
     /// start with its base URL. Mounting refuses a base URL that is not absolute, and a router
     /// without a [`MailConfig`](topcoat::mail::MailConfig).
@@ -249,6 +264,13 @@ impl Auth {
             .and(self.tenant_registration.as_ref())
     }
 
+    /// The tenant editor, or `None` without a tenant settings page.
+    pub(crate) fn tenant_editor(&self) -> Option<&dyn DynTenantEditor> {
+        self.authenticator
+            .as_ref()
+            .and(self.tenant_editor.as_deref())
+    }
+
     /// The auth mail, or `None` when the panel mails nothing.
     pub(crate) fn auth_mail(&self) -> Option<&AuthMail> {
         self.authenticator.as_ref().and(self.mail.as_ref())
@@ -289,6 +311,7 @@ impl std::fmt::Debug for Auth {
                 .field("password_reset", &self.reset)
                 .field("email_verification", &self.verification)
                 .field("tenant_registration", &self.tenant_registration)
+                .field("tenant_profile", &self.tenant_editor.is_some())
                 .field("mail", &self.mail)
                 .finish_non_exhaustive()
         }

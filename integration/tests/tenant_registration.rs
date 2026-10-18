@@ -3,105 +3,20 @@
 
 use http::header::LOCATION;
 use tablo::{
-    Auth, DeclarationErrorKind, FieldErrors, FormInput, Membership, NotificationStatus, Panel,
-    PanelUser, ReadOnly, Resource, ResourceDef, RouterBuilderPanelExt, Table, Tenancy, TenantId,
-    TenantRegistration, TenantRegistrationFault, TextColumn,
-    auth::{AdminUser, AuthSession, Authenticator, TenantRegistrar},
-    lens,
+    Auth, DeclarationErrorKind, FieldErrors, FormInput, Membership, NotificationStatus,
+    TenantRegistration, TenantRegistrationFault,
+    auth::{AdminUser, TenantRegistrar},
     testing::{ErrorKind, field_error, form_body},
 };
 use toasty::Db;
-use topcoat::{
-    context::Cx,
-    router::{Router, RouterBuilderDiscoverExt},
-};
+use topcoat::{context::Cx, router::Router};
 use uuid::Uuid;
 
-use crate::common::{TestClient, body_string, flash, refusal, test_db};
-
-/// An account of the app's own user table.
-#[derive(Debug, Clone, toasty::Model)]
-struct Member {
-    #[key]
-    #[auto]
-    id: Uuid,
-    name: String,
-}
-
-/// A member's seat in one tenant.
-#[derive(Debug, Clone, toasty::Model)]
-struct Seat {
-    #[key]
-    #[auto]
-    id: Uuid,
-    #[index]
-    member_id: Uuid,
-    tenant: Uuid,
-    tenant_name: String,
-}
-
-/// The signed-in member and the tenants they hold a seat in.
-#[derive(Debug)]
-struct SignedMember {
-    member: Member,
-    tenants: Vec<Membership>,
-}
-
-impl PanelUser for SignedMember {
-    fn user_id(&self) -> String {
-        self.member.id.to_string()
-    }
-
-    fn display_name(&self) -> &str {
-        &self.member.name
-    }
-
-    fn tenants(&self) -> &[Membership] {
-        &self.tenants
-    }
-}
-
-/// Loads members and their seats; signs nobody in by password, since the tests sign in directly.
-struct MemberAuth;
-
-impl Authenticator for MemberAuth {
-    type User = SignedMember;
-
-    async fn verify(
-        &self,
-        _cx: &Cx,
-        _login: &str,
-        _password: &str,
-    ) -> topcoat::Result<Option<SignedMember>> {
-        Ok(None)
-    }
-
-    async fn find_by_id(&self, cx: &Cx, id: &str) -> topcoat::Result<Option<SignedMember>> {
-        let Ok(id) = Uuid::parse_str(id) else {
-            return Ok(None);
-        };
-        let mut db = tablo::db::db(cx);
-        let Some(member) = Member::filter(Member::fields().id().eq(id))
-            .first()
-            .exec(&mut db)
-            .await?
-        else {
-            return Ok(None);
-        };
-        let tenants = seats(&mut db, member.id)
-            .await?
-            .into_iter()
-            .map(|seat| Membership::new(seat.tenant, seat.tenant_name))
-            .collect();
-        Ok(Some(SignedMember { member, tenants }))
-    }
-}
-
-async fn seats(ex: &mut dyn toasty::Executor, member: Uuid) -> toasty::Result<Vec<Seat>> {
-    Seat::filter(Seat::fields().member_id().eq(member))
-        .exec(ex)
-        .await
-}
+use crate::common::{
+    TestClient, body_string, flash,
+    members::{MemberAuth, Seat, SignedMember, db, member, mount, seats, session_tenant},
+    refusal,
+};
 
 /// What the registration page asks for.
 #[derive(FormInput)]
@@ -142,47 +57,12 @@ impl TenantRegistrar for Teams {
             member_id: signed.member.id,
             tenant,
             tenant_name: team.name.clone(),
+            owner: true,
         })
         .exec(ex)
         .await?;
         Ok(Membership::new(tenant, team.name))
     }
-}
-
-/// A tenant-owned note.
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
-struct Note {
-    #[key]
-    #[auto]
-    id: Uuid,
-    tenant_id: TenantId,
-    body: String,
-}
-
-struct NoteResource;
-
-impl Resource for NoteResource {
-    type Model = Note;
-    type Form = tablo::NoForm<Self::Model>;
-
-    fn declare() -> ResourceDef<Self> {
-        ResourceDef::new()
-            .policy(ReadOnly)
-            .tenancy(Tenancy::column(Note::fields().tenant_id()))
-            .table(Table::new(TextColumn::new(lens!(Note.body))))
-    }
-}
-
-async fn db() -> Db {
-    test_db(toasty::models!(Member, Seat, Note, AuthSession)).await
-}
-
-fn mount(db: Db, auth: Auth) -> topcoat::Result<Router> {
-    Ok(Router::builder()
-        .discover()
-        .app_context(db)
-        .panel(Panel::new("admin").auth(auth).resource::<NoteResource>())?
-        .build())
 }
 
 fn router(db: Db) -> Router {
@@ -191,39 +71,6 @@ fn router(db: Db) -> Router {
         Auth::custom(MemberAuth).tenant_registration(TenantRegistration::new(Teams).required()),
     )
     .expect("panel builds")
-}
-
-/// A member named `name` with a seat in each of `tenants`.
-async fn member(db: &Db, name: &str, tenants: &[&str]) -> SignedMember {
-    let member = toasty::create!(Member {
-        name: name.to_string(),
-    })
-    .exec(&mut db.clone())
-    .await
-    .unwrap();
-    let mut memberships = Vec::new();
-    for tenant_name in tenants {
-        let seat = toasty::create!(Seat {
-            member_id: member.id,
-            tenant: Uuid::new_v4(),
-            tenant_name: tenant_name.to_string(),
-        })
-        .exec(&mut db.clone())
-        .await
-        .unwrap();
-        memberships.push(Membership::new(seat.tenant, seat.tenant_name));
-    }
-    SignedMember {
-        member,
-        tenants: memberships,
-    }
-}
-
-/// The tenant the member's one session acts for.
-async fn session_tenant(db: &Db) -> Option<Uuid> {
-    let sessions = AuthSession::all().exec(&mut db.clone()).await.unwrap();
-    assert_eq!(sessions.len(), 1);
-    sessions[0].tenant
 }
 
 /// A member who acts for no tenant reaches only the registration page; registering one makes
@@ -269,7 +116,7 @@ async fn a_member_registers_another_tenant_and_acts_for_it() {
     let client = TestClient::new(&router).sign_in(&db, "admin", &ada).await;
 
     let list = body_string(client.get("/admin/notes").await).await;
-    assert!(list.contains("data-tenant-registration"));
+    assert!(list.contains(r#"data-tenant-page="registration""#));
 
     client
         .submit("/admin/register-tenant", &form_body(&[("name", "Globex")]))

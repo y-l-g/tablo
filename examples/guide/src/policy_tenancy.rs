@@ -4,8 +4,8 @@ use tablo::{
     AuthMail, EmailVerification, Membership, PanelUser, PasswordAuth, PasswordReset,
     RouterBuilderPanelExt, TenantRegistration,
     auth::{
-        Authenticator, Profile, ProfileEditor, ProfileUpdate, Registrar, TenantRegistrar,
-        hash_password, new_password_errors, verify_password,
+        Authenticator, Profile, ProfileEditor, ProfileUpdate, Registrar, TenantEditor,
+        TenantRegistrar, hash_password, new_password_errors, verify_password,
     },
     prelude::*,
 };
@@ -318,10 +318,52 @@ pub fn workspace_panel() -> Panel {
     Panel::new("admin").auth(
         Auth::custom(StaffAuth)
             .registration(StaffAuth)
-            .tenant_registration(TenantRegistration::new(StaffAuth).required()),
+            .tenant_registration(TenantRegistration::new(StaffAuth).required())
+            .tenant_profile(StaffAuth),
     )
 }
 // ANCHOR_END: policy-tenant-registration
+
+// ANCHOR: policy-tenant-profile
+impl TenantEditor for StaffAuth {
+    type Input = NewWorkspace;
+    type User = SignedStaff;
+
+    fn may_edit(&self, _cx: &Cx, signed: &SignedStaff, _workspace: &Membership) -> bool {
+        signed.staff.editor
+    }
+
+    async fn fill(
+        &self,
+        _cx: &Cx,
+        _signed: &SignedStaff,
+        workspace: &Membership,
+    ) -> Result<NewWorkspace> {
+        Ok(NewWorkspace {
+            name: workspace.name.clone(),
+        })
+    }
+
+    async fn save(
+        &self,
+        _cx: &Cx,
+        _signed: &SignedStaff,
+        workspace: &Membership,
+        renamed: NewWorkspace,
+        ex: &mut dyn toasty::Executor,
+    ) -> Result<()> {
+        rename_workspace(ex, workspace.tenant, &renamed.name).await
+    }
+}
+// ANCHOR_END: policy-tenant-profile
+
+pub async fn rename_workspace(
+    _ex: &mut dyn toasty::Executor,
+    _workspace: uuid::Uuid,
+    _name: &str,
+) -> Result<()> {
+    todo!()
+}
 
 pub async fn create_workspace(_ex: &mut dyn toasty::Executor, _name: &str) -> Result<uuid::Uuid> {
     todo!()

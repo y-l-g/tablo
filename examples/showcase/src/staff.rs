@@ -5,8 +5,8 @@ use tablo::{
     FieldErrors, FormInput, Membership, PanelUser,
     auth::{
         self, Authenticator, EmailChange, EmailVerifier, PasswordResetter, Profile, ProfileEditor,
-        ProfileUpdate, Registrar, TenantRegistrar, hash_password, new_password_errors,
-        verify_password,
+        ProfileUpdate, Registrar, TenantEditor, TenantRegistrar, hash_password,
+        new_password_errors, verify_password,
     },
 };
 use toasty::Db;
@@ -222,23 +222,23 @@ impl Registrar for StaffAuth {
     }
 }
 
-/// What the tenant registration page asks for: the new blog's name.
+/// What the tenant registration and settings pages ask for: the blog's name.
 #[derive(FormInput)]
-pub struct NewBlog {
+pub struct BlogName {
     #[form(label = "Blog name", placeholder = "My blog")]
     pub name: String,
 }
 
 /// Starts a new workspace with a seat for the member of staff who asked for it.
 impl TenantRegistrar for StaffAuth {
-    type Input = NewBlog;
+    type Input = BlogName;
     type User = SignedStaff;
 
     async fn register(
         &self,
         _cx: &Cx,
         signed: &SignedStaff,
-        blog: NewBlog,
+        blog: BlogName,
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<Membership> {
         let workspace = toasty::create!(Workspace {
@@ -254,6 +254,39 @@ impl TenantRegistrar for StaffAuth {
         .exec(ex)
         .await?;
         Ok(Membership::new(workspace.id, workspace.name))
+    }
+}
+
+/// Renames the workspace a member of staff acts for.
+impl TenantEditor for StaffAuth {
+    type Input = BlogName;
+    type User = SignedStaff;
+
+    async fn fill(
+        &self,
+        _cx: &Cx,
+        _signed: &SignedStaff,
+        blog: &Membership,
+    ) -> topcoat::Result<BlogName> {
+        Ok(BlogName {
+            name: blog.name.clone(),
+        })
+    }
+
+    async fn save(
+        &self,
+        _cx: &Cx,
+        _signed: &SignedStaff,
+        blog: &Membership,
+        renamed: BlogName,
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<()> {
+        Workspace::filter(Workspace::fields().id().eq(blog.tenant))
+            .update()
+            .name(renamed.name)
+            .exec(ex)
+            .await?;
+        Ok(())
     }
 }
 

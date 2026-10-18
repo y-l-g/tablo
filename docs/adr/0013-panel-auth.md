@@ -41,6 +41,9 @@ is the explicit opt-out.
   transaction, and answers the membership the session then selects. A panel with it sends a user
   with no membership to its page, as it sends an unverified user to theirs: core auth still never
   requires a tenant, a panel that registers them does.
+- The tenant settings page is opt-in through a seventh seam, a `TenantEditor` for the same user
+  type: it says which members may edit the tenant the request acts for, loads the form from it,
+  and validates and writes in one transaction.
 - Every mailed link and pending sign-in is one `AuthToken` row: the token's hash, its purpose,
   the account, the issuing panel and the expiry. A credential change ends the account's sign-in
   tokens; a reset, a cancelled email change and a revocation also end a pending change. A link
