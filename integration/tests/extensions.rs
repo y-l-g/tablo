@@ -428,10 +428,11 @@ async fn a_row_renders_only_the_actions_its_record_allows() {
 
     let html = body_string(get(&router, "/admin/tasks").await).await;
     assert!(
-        html.contains(&format!(
-            "formaction=\"/admin/tasks/{}/-/actions/complete\"",
-            open.id
-        )),
+        confirms_first(
+            &html,
+            &format!("/admin/tasks/{}/-/actions/complete", open.id)
+        )
+        .is_some(),
         "an open task offers Complete: {html}"
     );
     assert!(
@@ -443,11 +444,11 @@ async fn a_row_renders_only_the_actions_its_record_allows() {
         "a bulk-only action renders no row button: {html}"
     );
     assert!(
-        html.contains("formaction=\"/admin/tasks/-/actions/complete\""),
+        confirms_first(&html, "/admin/tasks/-/actions/complete").is_some(),
         "the bulk bar offers Complete for the selection: {html}"
     );
     assert!(
-        html.contains("formaction=\"/admin/tasks/-/actions/explode\""),
+        confirms_first(&html, "/admin/tasks/-/actions/explode").is_some(),
         "and the bulk-only action: {html}"
     );
     // The resource allows no delete, so the bulk bar carries the actions alone.

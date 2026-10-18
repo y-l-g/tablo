@@ -216,7 +216,7 @@ async fn the_library_lists_one_tenants_rows() {
 
     let html = body_string(demo_client(&router, &db).await.get(MEDIA_PATH).await).await;
     assert!(
-        html.contains("No media has been uploaded yet."),
+        !html.contains("data-media-row"),
         "another tenant's media must not be listed: {html}"
     );
 }

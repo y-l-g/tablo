@@ -11,7 +11,9 @@ use toasty::Db;
 use topcoat::{context::Cx, router::Router};
 use uuid::Uuid;
 
-use crate::common::{body_string, flash, get, memory_db, mount, panel, post_fields, rows};
+use crate::common::{
+    body_string, confirms_first, flash, get, memory_db, mount, panel, post_fields, rows,
+};
 
 #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
 struct Ticket {
@@ -152,11 +154,11 @@ async fn an_allowing_policy_runs_the_action_on_a_row_and_a_selection() {
 
     let html = body_string(get(&router, "/admin/tickets").await).await;
     assert!(
-        html.contains(&format!("formaction=\"{}\"", row_close(&first))),
+        confirms_first(&html, &row_close(&first)).is_some(),
         "the row offers Close: {html}"
     );
     assert!(
-        html.contains(&format!("formaction=\"{BULK_CLOSE}\"")),
+        confirms_first(&html, BULK_CLOSE).is_some(),
         "the bulk bar offers Close: {html}"
     );
 
@@ -188,7 +190,7 @@ async fn a_record_the_policy_refuses_to_run_on_has_no_button_and_is_skipped() {
 
     let html = body_string(get(&router, "/admin/tickets").await).await;
     assert!(
-        html.contains(&format!("formaction=\"{}\"", row_close(&open))),
+        confirms_first(&html, &row_close(&open)).is_some(),
         "the open ticket offers Close: {html}"
     );
     assert!(

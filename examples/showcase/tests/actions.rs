@@ -101,7 +101,7 @@ async fn a_draft_post_is_published_from_its_row() {
         "a published post's row does not: {html}"
     );
     assert!(
-        html.contains("formaction=\"/admin/posts/-/actions/publish\""),
+        tablo::testing::confirms_first(&html, "/admin/posts/-/actions/publish").is_some(),
         "the bulk bar offers Publish for the selection: {html}"
     );
     let resp = client.submit(&publish, "").await;

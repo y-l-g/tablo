@@ -2,7 +2,7 @@ use super::*;
 
 const TABLE: &str = r#"<table><thead><tr><th>Name</th></tr></thead><tbody>
 <tr id="row-Ada-12345678"><td><input type="checkbox" value="Ada" aria-label="Select row"></td><td>Ada</td><td><div class="flex"><a href="/admin/dummies/Ada" aria-label="View">V</a><a href="/admin/dummies/Ada/edit" aria-label="Edit">E</a><button type="button" formaction="/admin/dummies/Ada/delete" aria-label="Delete">D</button></div></td></tr>
-<tr id="group-Active-87654321"><td colspan="3">Active (1 on this page)</td></tr>
+<tr id="group-Active-87654321" data-group="Active"><td colspan="3">Active (1 on this page)</td></tr>
 <tr id="row-Ken-abcdef12"><td></td><td>Ken</td><td></td></tr>
 <tr><td colspan="3">No records yet</td></tr>
 <tr id="row-NoBox-99999999"><td></td><td>NoBox</td><td><div class="flex"><a href="/admin/dummies/NoBox" aria-label="View">V</a></div></td></tr>
@@ -23,6 +23,22 @@ fn rows_skips_group_headers_and_reads_actions() {
     assert_eq!(found[1].select_value, None);
     assert!(found[1].cells.iter().any(|cell| cell == "Ken"));
     assert_eq!(found[1].actions.view, None);
+}
+
+/// A group holds the rows from its header to the next one; a row before any header is in none.
+#[test]
+fn groups_hold_the_rows_under_their_header() {
+    let found = groups(TABLE);
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].label, "Active");
+    let names: Vec<&str> = found[0]
+        .rows
+        .iter()
+        .filter_map(|row| row.cells.iter().find(|cell| !cell.is_empty()))
+        .map(String::as_str)
+        .collect();
+    assert_eq!(names, ["Ken", "NoBox", "Prefixed"]);
+    assert!(groups("<table><tr id=\"row-Ada-1\"><td>Ada</td></tr></table>").is_empty());
 }
 
 #[test]

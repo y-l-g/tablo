@@ -303,10 +303,8 @@ async fn revoked_panel_access_can_still_log_out() {
     assert_eq!(response.status(), 403, "pages deny the de-permitted user");
     let html = body_string(response).await;
     assert!(
-        html.contains("Access denied")
-            && html.contains("action=\"/admin/logout\"")
-            && !html.contains("data-sidebar"),
-        "the page says so and offers Sign out, outside the shell: {html}"
+        html.contains("action=\"/admin/logout\"") && !html.contains("data-sidebar"),
+        "the page offers Sign out, outside the shell: {html}"
     );
 
     // Logout still answers.
@@ -636,6 +634,8 @@ async fn a_login_that_cannot_end_the_old_session_answers_the_outage_page() {
     .await;
 
     assert_eq!(login.status(), 503);
-    let html = body_string(login).await;
-    assert!(html.contains("Sign-in is unavailable"), "{html}");
+    assert!(
+        input_value(&body_string(login).await, "csrf_token").is_some(),
+        "the sign-in form shows again"
+    );
 }

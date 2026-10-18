@@ -1,7 +1,7 @@
 //! A resource's list: search, sort, cursor pagination, grouping and the empty and error states.
 
 use showcase::models::PostStatus;
-use tablo::testing::{EmptyReason, EmptyTable, empty_table};
+use tablo::testing::{EmptyReason, EmptyTable, empty_table, groups};
 
 use crate::common::{
     body_string, demo_client, empty_users_db, find_href_with, full_db, pager_link,
@@ -122,10 +122,6 @@ async fn pagination_walks_page_links() {
     assert!(
         !page1.contains(&last),
         "page1 must not show the last overflow row {last} (page size {page_size}): {page1}"
-    );
-    assert!(
-        page1.contains("Showing") && page1.contains(&format!("1–{page_size}")),
-        "page1 must say which rows it shows: {page1}"
     );
     let next_href =
         pager_link(&page1, "next").unwrap_or_else(|| panic!("page1 missing Next link: {page1}"));
@@ -654,18 +650,9 @@ async fn posts_group_by_status_shows_counts() {
         resp.status()
     );
     let html = body_string(resp).await;
-    // The header reads the option's label, with its page-local count. The
-    // bare label is not asserted separately: the status SelectFilter renders
-    // "Published" and "Draft" as options on every list page, so a label-only
-    // check passes with grouping off. `on this page` is emitted only by a
-    // group header.
-    let label = showcase::models::PostStatus::Published.label();
-    assert!(
-        html.contains(&format!("{label} ({published} on this page)")),
-        "missing the published group header in {html}"
-    );
 
-    // Each row sits under its own status's header, and each status's rows sit together.
+    // Each status heads one group, every row sits under its own status's header, and the
+    // published group holds every published post.
     let posts = showcase::models::Post::all().exec(&mut db_q).await.unwrap();
     let status_of = |title: &str| {
         posts
@@ -674,23 +661,35 @@ async fn posts_group_by_status_shows_counts() {
             .unwrap_or_else(|| panic!("no post titled {title}"))
             .status
     };
-    let mut seen = Vec::new();
-    for title in row_titles(&html) {
-        let status = status_of(&title);
-        let header = html
-            .find(&format!("{} (", status.label()))
-            .unwrap_or_else(|| panic!("no {status:?} header in {html}"));
-        let row = html.find(&format!(">{title}<")).expect("the row's title");
-        assert!(header < row, "{title} sits under its header: {html}");
-        if seen.last() != Some(&status) {
-            assert!(
-                !seen.contains(&status),
-                "the {status:?} rows sit together: {html}"
+    let groups = groups(&html);
+    assert!(groups.len() > 1, "the fixture spans two statuses: {html}");
+    let mut labels: Vec<&str> = groups.iter().map(|group| group.label.as_str()).collect();
+    labels.sort_unstable();
+    labels.dedup();
+    assert_eq!(
+        labels.len(),
+        groups.len(),
+        "each status's rows sit together: {html}"
+    );
+    for group in &groups {
+        for title in group
+            .rows
+            .iter()
+            .filter_map(|row| row.cells.iter().find(|cell| !cell.is_empty()))
+        {
+            assert_eq!(
+                status_of(title).label(),
+                group.label,
+                "{title} sits under its header"
             );
-            seen.push(status);
         }
     }
-    assert!(seen.len() > 1, "the fixture spans two statuses");
+    let label = PostStatus::Published.label();
+    let published_group = groups
+        .iter()
+        .find(|group| group.label == label)
+        .unwrap_or_else(|| panic!("no {label} group in {html}"));
+    assert_eq!(published_group.rows.len(), published, "{html}");
 }
 
 /// A grouping the table does not declare groups nothing, and no link carries it on.
@@ -701,7 +700,7 @@ async fn an_unknown_grouping_groups_nothing() {
     let client = demo_client(&router, &db).await;
     let html = body_string(client.get("/admin/posts?group_by=bogus").await).await;
     assert!(!row_titles(&html).is_empty(), "{html}");
-    assert!(!html.contains("on this page"), "{html}");
+    assert!(groups(&html).is_empty(), "{html}");
     assert_eq!(find_href_with(&html, "group_by"), None, "{html}");
 }
 

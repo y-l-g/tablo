@@ -260,7 +260,8 @@ async fn the_option_search_narrows_only_a_searchable_choice() {
     }
 }
 
-/// A search matching past the cap answers with a hint to keep typing.
+/// A search matching past the cap answers no option, and tells the choice's script to search the
+/// server from now on.
 #[tokio::test]
 async fn a_search_past_the_cap_asks_for_more() {
     let names: Vec<String> = (0..=MAX_RELATIONSHIP_OPTIONS)
@@ -273,8 +274,9 @@ async fn a_search_past_the_cap_asks_for_more() {
     )
     .await;
     assert_eq!(response.status(), http::StatusCode::OK);
+    assert_eq!(response.headers()["x-options-overflow"], "true");
     let html = body_string(response).await;
-    assert!(html.contains("keep typing"), "{html}");
+    assert!(!html.contains("author-"), "{html}");
 }
 
 /// An option's label reaches the page as text.

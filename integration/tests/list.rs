@@ -12,7 +12,7 @@ use topcoat::{
 };
 use uuid::Uuid;
 
-use crate::common::{body_string, get, memory_db, mount, panel, rows};
+use crate::common::{body_string, confirms_first, get, memory_db, mount, panel, rows};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Item {
@@ -152,7 +152,11 @@ async fn a_row_offers_only_the_writes_the_resource_allows() {
         assert_eq!(rows[0].actions.edit, None, "{html}");
         assert_eq!(rows[0].actions.delete_action, None, "{html}");
         assert_eq!(rows[0].select_value, None, "no bulk selection: {html}");
-        assert!(!html.contains("Delete selected"), "{html}");
+        assert_eq!(
+            confirms_first(&html, "/admin/items/-/bulk-delete"),
+            None,
+            "no bulk delete: {html}"
+        );
     }
 }
 

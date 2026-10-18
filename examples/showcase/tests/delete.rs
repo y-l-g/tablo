@@ -43,9 +43,15 @@ async fn delete_requires_confirmation_and_deletes() {
         dialog.contains("role=\"alertdialog\"") && !dialog.contains(" open=\"\""),
         "an ordinary list page must render the dialog closed, got {dialog}"
     );
-    for needle in ["Delete this record?", "name=\"confirm\" value=\"1\""] {
-        assert!(html.contains(needle), "dialog missing {needle} in {html}");
-    }
+    assert_eq!(
+        tablo::testing::confirms_first(&html, &delete_url),
+        Some(true),
+        "the row's delete asks first: {html}"
+    );
+    assert!(
+        html.contains("name=\"confirm\" value=\"1\""),
+        "the dialog posts the confirmation marker: {html}"
+    );
 
     let resp = client.submit(&delete_url, "").await;
     assert_eq!(
@@ -164,10 +170,10 @@ async fn bulk_delete_deletes_selected() {
 
     let resp = client.get("/admin/users").await;
     let html = body_string(resp).await;
-    assert!(
-        html.contains("id=\"table-writes\"")
-            && html.contains("formaction=\"/admin/users/-/bulk-delete\""),
-        "list should carry the write form and the bulk delete, got {html}"
+    assert_eq!(
+        tablo::testing::confirms_first(&html, "/admin/users/-/bulk-delete"),
+        Some(true),
+        "the list offers a bulk delete that asks first: {html}"
     );
 
     let resp = client

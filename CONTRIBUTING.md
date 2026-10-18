@@ -85,9 +85,10 @@ toolchains. Run `check --all` before merging.
 - A test pins a behavior that a plausible bug breaks. Derive the expected value from the intended
   behavior, never by re-running the implementation.
 - Assert structure and state (row counts, redirects, link targets, database rows), not wording,
-  through the `tablo-test` queries (`rows`, `row_actions`, `field_error`, `filter_options`,
-  `empty_table`, `notification`). Post a form with `TestClient::submit`, which carries the CSRF
-  pair.
+  through the `tablo-test` queries (`rows`, `groups`, `row_actions`, `confirms_first`,
+  `field_error`, `filter_options`, `empty_table`, `notification`). When no query reads what a test
+  needs, add one over a `data-` hook rather than grep Tablo's markup or copy. Post a form with
+  `TestClient::submit`, which carries the CSRF pair.
 - A behavior is pinned once, in the one tier whose row below names it. Delete a test that proves
   nothing.
 
