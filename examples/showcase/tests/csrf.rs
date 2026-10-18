@@ -275,6 +275,36 @@ async fn forged_tenant_save_answers_403_and_changes_nothing() {
     assert!(!renamed, "a forged save must rename nothing");
 }
 
+/// A forged two-factor set-up answers 403 before it stores a secret.
+#[tokio::test]
+async fn forged_two_factor_setup_answers_403_and_stores_nothing() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let field = Uuid::new_v4().to_string();
+    let cookie = Uuid::new_v4().to_string();
+
+    for (submitted, label) in [
+        (Some(field.as_str()), "mismatched token"),
+        (None, "missing token"),
+    ] {
+        let mut pairs = vec![("intent", "start")];
+        if let Some(field) = submitted {
+            pairs.push(("csrf_token", field));
+        }
+        let resp = client
+            .csrf(&cookie)
+            .post_form("/admin/two-factor", form_body(&pairs))
+            .await;
+        assert_eq!(resp.status(), 403, "two-factor set-up {label}");
+    }
+    let factors = tablo::auth::AuthFactor::all()
+        .exec(&mut db.clone())
+        .await
+        .unwrap();
+    assert!(factors.is_empty(), "a forged set-up must store no secret");
+}
+
 /// A forged logout POST is refused and leaves the session usable.
 ///
 /// Both a mismatched token and a missing `csrf_token` field must 403. The

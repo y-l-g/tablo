@@ -2,7 +2,7 @@
 
 use tablo::{
     AuthMail, EmailVerification, Membership, PanelUser, PasswordAuth, PasswordReset,
-    RouterBuilderPanelExt, TenantRegistration,
+    RouterBuilderPanelExt, TenantRegistration, TwoFactor,
     auth::{
         Authenticator, Profile, ProfileEditor, ProfileUpdate, Registrar, TenantEditor,
         TenantRegistrar, hash_password, new_password_errors, verify_password,
@@ -12,6 +12,7 @@ use tablo::{
 use topcoat::{
     Result,
     context::Cx,
+    cookie::Key,
     mail::{FileTransport, MailConfig, Mailbox, RouterBuilderMailExt},
     router::Router,
 };
@@ -44,8 +45,11 @@ pub fn auth_models() {
         crate::Book,
         tablo::auth::AdminUser,
         tablo::auth::AuthSession,
-        // Only with a feature that mails links, such as `Auth::password_reset`.
-        tablo::auth::AuthToken
+        // Only with a feature that mails links, such as `Auth::password_reset`, or with
+        // `Auth::two_factor`.
+        tablo::auth::AuthToken,
+        // Only with `Auth::two_factor`.
+        tablo::auth::AuthFactor
     );
 }
 // ANCHOR_END: policy-models
@@ -290,6 +294,19 @@ pub fn verified_auth() -> Result<Auth> {
         .email_verification(EmailVerification::new(PasswordAuth)))
 }
 // ANCHOR_END: policy-email-verification
+
+// ANCHOR: policy-two-factor
+pub fn two_factor_router(db: toasty::Db, cookie_key: &[u8]) -> Result<Router> {
+    let auth = Auth::password().two_factor(TwoFactor::new());
+    Ok(Router::builder()
+        .app_context(db)
+        // Seals each authenticator secret. Load the same 64 random bytes or more at every start,
+        // kept with the app's other secrets: a new key opens no secret sealed under the old one.
+        .app_context(Key::from(cookie_key))
+        .panel(Panel::new("admin").auth(auth))?
+        .build())
+}
+// ANCHOR_END: policy-two-factor
 
 // ANCHOR: policy-tenant-registration
 #[derive(FormInput)]

@@ -15,6 +15,18 @@ use topcoat::{
 use super::Theme;
 use crate::{Panel, auth::PanelUser, navigation::NavigationItem, tenancy::Membership};
 
+/// The auth pages that lead the app's own links in the user menu: the profile, then two-factor
+/// sign-in.
+pub(super) fn account_items(cx: &Cx) -> Vec<NavigationItem> {
+    let profile = crate::auth::profile_offered(cx).then(|| {
+        NavigationItem::at("Profile", crate::auth::profile_url(cx)).icon(tablo_ui::icons::USER)
+    });
+    let two_factor = crate::auth::two_factor_offered(cx).then(|| {
+        NavigationItem::at("Two-factor sign-in", crate::auth::two_factor_url(cx))
+            .icon(tablo_ui::icons::CIRCLE_CHECK)
+    });
+    profile.into_iter().chain(two_factor).collect()
+}
 /// The DOM id of the user menu's panel.
 const USER_MENU: &str = "user-menu";
 

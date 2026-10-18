@@ -56,6 +56,7 @@ async fn the_hint_renders_and_sign_up_links_back_to_sign_in() {
     let router = Router::builder()
         .discover()
         .app_context(db)
+        .app_context(topcoat::cookie::Key::generate())
         .mail(
             MailConfig::builder()
                 .transport(MemoryTransport::new())

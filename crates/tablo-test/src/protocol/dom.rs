@@ -13,8 +13,8 @@
 
 use tablo_core::dom::{empty, error};
 
-type Attrs = Vec<(String, Option<String>)>;
-type Element = (String, Attrs, String);
+pub(crate) type Attrs = Vec<(String, Option<String>)>;
+pub(crate) type Element = (String, Attrs, String);
 
 /// One data row of a rendered table.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -379,7 +379,7 @@ fn is_selected(attrs: &Attrs) -> bool {
     attrs.iter().any(|(name, _)| name == "selected")
 }
 
-fn attr_value(attrs: &Attrs, name: &str) -> Option<String> {
+pub(crate) fn attr_value(attrs: &Attrs, name: &str) -> Option<String> {
     attrs
         .iter()
         .find(|(attr, _)| attr == name)
@@ -390,7 +390,7 @@ fn attr_value(attrs: &Attrs, name: &str) -> Option<String> {
 ///
 /// Only an accepted tag's inner HTML is read, so a query over one element costs one scan of the
 /// document rather than one per tag.
-fn tags_where(html: &str, keep: impl Fn(&str, &Attrs) -> bool) -> Vec<Element> {
+pub(crate) fn tags_where(html: &str, keep: impl Fn(&str, &Attrs) -> bool) -> Vec<Element> {
     open_tags(html)
         .into_iter()
         .filter(|(tag, attrs, _)| keep(tag, attrs))
@@ -567,7 +567,7 @@ fn is_void(tag: &str) -> bool {
     )
 }
 
-fn strip_text(fragment: &str) -> String {
+pub(crate) fn strip_text(fragment: &str) -> String {
     let mut text = String::new();
     let mut pos = 0;
     while pos < fragment.len() {

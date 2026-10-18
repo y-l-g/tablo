@@ -20,7 +20,8 @@ async fn main() {
             showcase::models::Seat,
             tablo::auth::AuthSession,
             tablo::auth::ColumnPreference,
-            tablo::auth::AuthToken
+            tablo::auth::AuthToken,
+            tablo::auth::AuthFactor
         ))
         .connect("sqlite::memory:")
         .await

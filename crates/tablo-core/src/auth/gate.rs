@@ -23,7 +23,7 @@ use super::{
     password_reset::{forgot_url, offered as reset_offered, reset_url},
     registration::{offered, register_url},
     session::{resolve, session_row, session_user},
-    tenant_registration, unauthenticated_error, verification,
+    tenant_registration, two_factor, unauthenticated_error, verification,
 };
 use crate::panel::{
     Panel,
@@ -77,7 +77,10 @@ impl Layer for PanelGate {
             let email_change = verifies
                 && (path == email_change::confirm_url(&cx)
                     || path == email_change::cancel_url(&cx));
-            let public = path == login_url(&cx) || sign_up || reset || confirm || email_change;
+            let challenge = self.panel.auth.two_factor_config().is_some()
+                && path == two_factor::challenge_url(&cx);
+            let public =
+                path == login_url(&cx) || sign_up || reset || confirm || email_change || challenge;
             if public
                 && matches!(
                     *method(&cx),
@@ -104,21 +107,22 @@ impl Layer for PanelGate {
             // identity to any handler an app might mount at the same path.
             let logout_route =
                 uri(&cx).path() == logout_url(&cx) && matches!(*method(&cx), http::Method::POST);
-            match resolve(&cx, &self.panel, authenticator).await? {
-                // A user who owes a step, such as verifying their address, reaches only the step's
-                // page and the logout route.
-                Some(signed)
-                    if signed.user.can_access_panel()
-                        && !logout_route
-                        && let Some(step) = owed_step(&self.panel, &signed)
-                        && !step.serves(&cx) =>
-                {
-                    if page_load(&cx) {
-                        Err(redirect(step.url(&cx)).into())
-                    } else {
-                        Err(forbidden().into())
-                    }
-                }
+            let signed = resolve(&cx, &self.panel, authenticator).await?;
+            // A user who owes a step, such as verifying their address, reaches only the step's
+            // page and the logout route.
+            if let Some(signed) = &signed
+                && signed.user.can_access_panel()
+                && !logout_route
+                && let Some(step) = owed_step(&cx, &self.panel, signed).await?
+                && !step.serves(&cx)
+            {
+                return if page_load(&cx) {
+                    Err(redirect(step.url(&cx)).into())
+                } else {
+                    Err(forbidden().into())
+                };
+            }
+            match signed {
                 Some(signed) if signed.user.can_access_panel() || logout_route => {
                     let cx = cx.with(signed);
                     next.run(&cx, body)
@@ -144,6 +148,8 @@ impl Layer for PanelGate {
 enum Step {
     /// Prove they read the address they store.
     VerifyEmail,
+    /// Set up the authenticator app the panel requires.
+    SetUpTwoFactor,
     /// Create a tenant to act for.
     RegisterTenant,
 }
@@ -153,6 +159,7 @@ impl Step {
     fn url(self, cx: &Cx) -> String {
         match self {
             Self::VerifyEmail => verification::notice_url(cx),
+            Self::SetUpTwoFactor => two_factor::settings_url(cx),
             Self::RegisterTenant => tenant_registration::register_tenant_url(cx),
         }
     }
@@ -167,20 +174,26 @@ impl Step {
     }
 }
 
-/// The step `signed` owes `panel`, if any: an unverified address first, since registering a
-/// tenant is reaching the panel.
-fn owed_step(panel: &PanelState, signed: &SignedIn) -> Option<Step> {
+/// The step `signed` owes `panel`, if any: an unverified address first, then a required
+/// authenticator, since registering a tenant is reaching the panel.
+async fn owed_step(
+    cx: &Cx,
+    panel: &PanelState,
+    signed: &SignedIn,
+) -> topcoat::Result<Option<Step>> {
     let user = signed.user.as_ref();
-    if verification::pending(panel, user) {
+    Ok(if verification::pending(panel, user) {
         Some(Step::VerifyEmail)
+    } else if two_factor::setup_pending(cx, panel, user).await? {
+        Some(Step::SetUpTwoFactor)
     } else {
         tenant_registration::pending(panel, user).then_some(Step::RegisterTenant)
-    }
+    })
 }
 
 /// Whether `signed` may reach any endpoint: they have panel access and owe no step.
-fn admitted(signed: &SignedIn) -> bool {
-    signed.user.can_access_panel() && owed_step(&signed.panel, signed).is_none()
+async fn admitted(cx: &Cx, signed: &SignedIn) -> topcoat::Result<bool> {
+    Ok(signed.user.can_access_panel() && owed_step(cx, &signed.panel, signed).await?.is_none())
 }
 
 /// The page a signed-in user the panel refuses loads: a 403 saying so, with Sign out.
@@ -249,9 +262,13 @@ impl Layer for RuntimeGate {
             } else {
                 None
             };
+            let admitted = match &signed {
+                Some(signed) => admitted(cx, signed).await?,
+                None => false,
+            };
             if declaring.is_empty() {
                 return match signed {
-                    Some(signed) if admitted(&signed) => {
+                    Some(signed) if admitted => {
                         let panel = CurrentPanel(Arc::clone(&signed.panel));
                         next.run(&cx.with_many((signed, panel)), body).await
                     }
@@ -262,7 +279,7 @@ impl Layer for RuntimeGate {
             }
             // A session another panel signed in is no session for the declaring panels.
             match signed.filter(|signed| declaring.iter().any(|p| Arc::ptr_eq(p, &signed.panel))) {
-                Some(signed) if admitted(&signed) => {
+                Some(signed) if admitted => {
                     let panel = CurrentPanel(Arc::clone(&signed.panel));
                     next.run(&cx.with_many((signed, panel)), body).await
                 }

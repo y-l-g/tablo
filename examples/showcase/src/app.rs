@@ -8,13 +8,15 @@ use tablo::{
     FieldErrors, Grid, Group, HeaderAction, ModelColumns, NavigationItem, Pagination, Panel,
     PasswordReset, PublicLink, QueryFilter, Relation, RelationColumn, RepeaterColumn, Resource,
     ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy,
-    TenantRegistration, TernaryFilter, TextColumn, lens, relation, scoped_query, tenant_id, when,
+    TenantRegistration, TernaryFilter, TextColumn, TwoFactor, lens, relation, scoped_query,
+    tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
     Result,
     asset::{AssetBundle, RouterBuilderAssetExt},
     context::Cx,
+    cookie::Key,
     font::{Font, fontsource::fontsource_font},
     mail::{FileTransport, MailConfig, Mailbox, RouterBuilderMailExt},
     router::{Router, RouterBuilderDiscoverExt},
@@ -475,6 +477,7 @@ pub fn admin_panel() -> Panel {
                 .profile(StaffAuth)
                 .tenant_registration(TenantRegistration::new(StaffAuth))
                 .tenant_profile(StaffAuth)
+                .two_factor(TwoFactor::new())
                 .mail(AuthMail::new(
                     Mailbox::named("Tablo Blog", "no-reply@example.com")
                         .expect("the showcase's sender address parses"),
@@ -509,6 +512,9 @@ pub fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf
     let mut builder = Router::builder()
         .discover()
         .app_context(db)
+        // Seals two-factor secrets. An app loads a fixed key from a secret; the showcase's
+        // in-memory database forgets every sealed secret with the key at each start.
+        .app_context(Key::generate())
         .mail(MailConfig::builder().transport(mail_transport()).build());
     if let Some(dir) = uploads {
         builder = builder.app_context(MediaStore(DirUploader::new(UPLOAD_URL_PREFIX, dir.clone())));

@@ -22,6 +22,7 @@ mod tenant_profile;
 mod tenant_registration;
 mod throttle;
 mod token;
+mod two_factor;
 mod verification;
 
 use std::{
@@ -54,6 +55,7 @@ pub use self::{
     tenant_registration::{TenantRegistrar, TenantRegistration},
     throttle::LoginThrottle,
     token::{AuthToken, TokenPurpose},
+    two_factor::{AuthFactor, FactorKind, TwoFactor},
     verification::{EmailVerification, EmailVerifier, VERIFICATION_LIFETIME},
 };
 pub(crate) use self::{
@@ -63,6 +65,7 @@ pub(crate) use self::{
     profile::{offered as profile_offered, profile_url},
     tenant_profile::{offered as tenant_profile_offered, tenant_profile_url},
     tenant_registration::{offered as tenant_registration_offered, register_tenant_url},
+    two_factor::{offered as two_factor_offered, settings_url as two_factor_url},
 };
 use crate::{
     BoxFuture,

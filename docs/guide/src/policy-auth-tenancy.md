@@ -387,14 +387,44 @@ link proved and marks it verified, inside the link's transaction. `PasswordAuth`
 - **Mounting refuses** a verifier whose `User` is not the type the authenticator loads, a
   verification on `Auth::disabled()`, and one without `Auth::mail`.
 
+### Two-factor sign-in
+
+`Auth::two_factor` lets each signed-in user add an authenticator app, and asks an account that
+has one for a code from it after its password. The panel stores the factors itself, as
+`AuthFactor` rows, so it works with any `Authenticator`. Each authenticator secret is sealed under
+the router's cookie `Key`, which the router must hold:
+
+```rust
+{{#include ../../../examples/guide/src/policy_tenancy.rs:policy-two-factor}}
+```
+
+Add `AuthFactor` and `AuthToken` to the `Db`'s models.
+
+- **Setting up** happens at `{prefix}/two-factor`, which the user menu links to. The page shows a
+  QR code and the key, and turns two-factor sign-in on once a code from the app matches. It then
+  shows eight recovery codes, once: the panel stores only their hashes.
+- **Signing in**, a correct password leads to `{prefix}/two-factor-challenge` instead of a
+  session. The challenge lasts five minutes in its own cookie and takes a code from the app or a
+  recovery code. Each code works once: an app code does not sign in twice, and a recovery code is
+  used up.
+- **Turning it on or off** is a credential change: the account's other sessions and links end.
+  Turning it off, and showing new recovery codes, take a code.
+- **Throttling.** Each account may try five codes a minute, at sign-in and on the settings page
+  together; `TwoFactor::throttle` changes the limit. Past it the page answers 429.
+- **Requiring it.** `TwoFactor::new().required()` sends a signed-in user without an authenticator
+  to `{prefix}/two-factor` before anything else, as an unverified address does: a page redirects
+  there and any other request answers 403.
+- **Mounting refuses** two-factor sign-in on `Auth::disabled()`, and a router without a cookie
+  `Key`.
+
 ### Turning it off
 
 ```rust
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-auth-disabled-body}}
 ```
 
-Every panel route is then public and the login, sign-up, profile, password reset and tenant
-routes are not registered. Use it for public
+Every panel route is then public and the login, sign-up, profile, password reset, two-factor and
+tenant routes are not registered. Use it for public
 demos and tests only.
 
 ## Tenancy

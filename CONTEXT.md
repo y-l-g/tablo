@@ -51,6 +51,8 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Tenant editor | The trait that lets an admitted member edit the tenant the request acts for on the tenant settings page. | Team settings, TenantProvider |
 | Auth mail | The sender and base URL a panel's auth mails its links from, set by `Auth::mail`. | Mailer, Notifier |
 | Auth token | A single-use secret a mailed link or a pending sign-in carries, stored as an `AuthToken` row holding its hash. | Nonce, Signed URL, Reset token |
+| Two-factor sign-in | Signing in with a code from an authenticator app, or a recovery code, after the password, set by `Auth::two_factor`. | MFA, 2FA, TOTP |
+| Auth factor | A second factor an account holds on a panel: its sealed authenticator secret, or one recovery code's hash, stored as an `AuthFactor` row. | Two-factor secret, Backup code |
 | Panel user | The app's own user type: id, display name, panel access, tenant memberships. | CurrentUser, AuthUser, Principal |
 | Uploader | The trait that decides where a file field's bytes go, installed once per panel. | FileStore, Blob store |
 | DirUploader | The stock `Uploader`: writes each file into one served directory and stores its URL. | DiskStore |

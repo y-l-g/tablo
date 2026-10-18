@@ -599,6 +599,7 @@ async fn anonymous_requests_are_gated_on_every_route() {
         "/admin/verify-email".to_string(),
         "/admin/register-tenant".to_string(),
         "/admin/tenant/profile".to_string(),
+        "/admin/two-factor".to_string(),
     ] {
         let resp = client.get(&path).await;
         assert_eq!(
@@ -632,6 +633,7 @@ async fn anonymous_requests_are_gated_on_every_route() {
         "/admin/verify-email".to_string(),
         "/admin/register-tenant".to_string(),
         "/admin/tenant/profile".to_string(),
+        "/admin/two-factor".to_string(),
     ] {
         let resp = client.post_form(&path, "confirm=1".to_string()).await;
         assert_eq!(

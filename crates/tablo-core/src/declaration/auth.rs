@@ -301,3 +301,30 @@ impl fmt::Display for TenantProfileFault {
         }
     }
 }
+
+/// Why the panel's two-factor sign-in cannot be served:
+/// [`DeclarationErrorKind::TwoFactor`](super::DeclarationErrorKind::TwoFactor).
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum TwoFactorFault {
+    /// `Auth::two_factor` on `Auth::disabled`, which signs nobody in.
+    AuthDisabled,
+    /// The router registers no cookie `Key` as app context, which seals the authenticator
+    /// secrets.
+    MissingKey,
+}
+
+impl fmt::Display for TwoFactorFault {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::AuthDisabled => f.write_str(
+                "two-factor sign-in needs auth: `Auth::disabled()` signs nobody in to ask a \
+             second factor of",
+            ),
+            Self::MissingKey => f.write_str(
+                "two-factor sign-in seals each authenticator secret under the router's cookie \
+             key, and the router has none: register a `topcoat::cookie::Key` as app context",
+            ),
+        }
+    }
+}

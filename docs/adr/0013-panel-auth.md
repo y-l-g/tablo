@@ -44,6 +44,13 @@ is the explicit opt-out.
 - The tenant settings page is opt-in through a seventh seam, a `TenantEditor` for the same user
   type: it says which members may edit the tenant the request acts for, loads the form from it,
   and validates and writes in one transaction.
+- Two-factor sign-in is opt-in through `Auth::two_factor` and needs no seam: Tablo stores each
+  account's authenticator secret and recovery-code hashes as `AuthFactor` rows, per panel. The
+  secret is sealed with AES-256-GCM under a key derived from the router's cookie `Key`, bound to
+  its row. A correct password then issues a short-lived `AuthToken` in its own cookie instead of
+  a session, and the challenge page trades it and an RFC 6238 code, or a recovery code, for one.
+  An app code works once. Turning it on or off is a credential change, and a panel that requires
+  it sends a user without one to its page, like an unverified user.
 - Every mailed link and pending sign-in is one `AuthToken` row: the token's hash, its purpose,
   the account, the issuing panel and the expiry. A credential change ends the account's sign-in
   tokens; a reset, a cancelled email change and a revocation also end a pending change. A link
@@ -73,6 +80,11 @@ is the explicit opt-out.
   the app's own rows in its own shape, and a membership is all a request needs of one. Tenant
   registration as a resource create page: it would not seat the user in the tenant it creates,
   nor make the session act for it.
+- Two-factor columns on the app's user table behind a seam, as Fortify adds them to `users`:
+  every app would migrate its table and implement a seam for state Tablo alone reads. A secret
+  stored in the clear: a database read would yield every account's second factor. A key of its
+  own: the cookie `Key` is already the secret an app keeps. A session row in a half-signed-in
+  state: every gate would have to check it, where a challenge token opens nothing.
 - A table per mailed link, and a sender and base URL per feature: each feature repeated the
   hashing, expiry and revocation, and an app repeated its sender. An address method on each
   seam: every seam that mails asks the same question of the same user type.
