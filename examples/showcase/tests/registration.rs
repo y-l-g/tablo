@@ -35,10 +35,10 @@ async fn workspace_count(db: &Db) -> usize {
 }
 
 /// A sign-up writes the member of staff, their workspace and their seat in one go, stores only
-/// the password's hash, and signs them in: the session acts for the new workspace, whose posts
-/// list is empty.
+/// the password's hash, and signs them in unverified: once the address is verified, the session
+/// acts for the new workspace, whose posts list is empty.
 #[tokio::test]
-async fn a_sign_up_creates_the_account_and_its_workspace_and_signs_it_in() {
+async fn a_sign_up_creates_the_account_and_its_workspace_and_signs_it_in_unverified() {
     let db = full_db().await;
     let router = router(db.clone());
 
@@ -81,6 +81,18 @@ async fn a_sign_up_creates_the_account_and_its_workspace_and_signs_it_in() {
     assert_eq!(sessions.len(), 1);
     assert_eq!(sessions[0].panel, "/admin");
     let client = TestClient::new(&router).cookie(tablo::testing::SESSION_COOKIE, &session);
+    // The panel verifies addresses: the new account reaches only the page asking for the proof.
+    let unverified = client.get("/admin/posts").await;
+    assert_eq!(
+        unverified.headers().get(LOCATION).unwrap(),
+        "/admin/verify-email"
+    );
+    Staff::filter(Staff::fields().id().eq(staff.id))
+        .update()
+        .email_verified_at(Some(jiff::Timestamp::now()))
+        .exec(&mut db.clone())
+        .await
+        .unwrap();
     let posts = client.get("/admin/posts").await;
     assert_eq!(posts.status(), 200);
     assert!(rows(&body_string(posts).await).is_empty());

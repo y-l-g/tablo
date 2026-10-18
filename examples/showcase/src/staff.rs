@@ -4,8 +4,8 @@ use jiff::Timestamp;
 use tablo::{
     FieldErrors, FormInput, Membership, PanelUser,
     auth::{
-        Authenticator, PasswordResetter, Profile, ProfileEditor, ProfileUpdate, Registrar,
-        hash_password, new_password_errors, verify_password,
+        Authenticator, EmailVerifier, PasswordResetter, Profile, ProfileEditor, ProfileUpdate,
+        Registrar, hash_password, new_password_errors, verify_password,
     },
 };
 use toasty::Db;
@@ -25,6 +25,8 @@ pub struct Staff {
     pub display_name: String,
     /// `false` denies login and panel access immediately.
     pub active: bool,
+    /// When the member of staff opened the link mailed to `email`.
+    pub email_verified_at: Option<Timestamp>,
     pub created_at: Timestamp,
 }
 
@@ -193,6 +195,7 @@ impl Registrar for StaffAuth {
             password_hash: hash_password(&sign_up.password).await?,
             display_name: sign_up.display_name,
             active: true,
+            email_verified_at: None,
             created_at: Timestamp::now(),
         })
         .exec(&mut *ex)
@@ -270,11 +273,15 @@ impl ProfileEditor for StaffAuth {
         profile: Profile,
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<ProfileUpdate> {
-        let credentials = profile.email != signed.staff.email || profile.password.is_some();
+        let new_email = profile.email != signed.staff.email;
+        let credentials = new_email || profile.password.is_some();
         let mut update = Staff::filter(Staff::fields().id().eq(signed.staff.id))
             .update()
             .display_name(profile.name)
             .email(profile.email);
+        if new_email {
+            update.set_email_verified_at(None);
+        }
         if let Some(password) = &profile.password {
             update.set_password_hash(hash_password(password).await?);
         }
@@ -322,7 +329,35 @@ impl PasswordResetter for StaffAuth {
     }
 }
 
-/// Creates an active member of staff with a seat in each of `workspaces`.
+/// Records the address a member of staff proved they read.
+impl EmailVerifier for StaffAuth {
+    type User = SignedStaff;
+
+    fn is_verified(&self, signed: &SignedStaff) -> bool {
+        signed.staff.email_verified_at.is_some()
+    }
+
+    async fn verify(
+        &self,
+        _cx: &Cx,
+        user_id: &str,
+        email: &str,
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<()> {
+        let Ok(id) = Uuid::parse_str(user_id) else {
+            return Ok(());
+        };
+        Staff::filter(Staff::fields().id().eq(id))
+            .update()
+            .email(email.to_string())
+            .email_verified_at(Some(Timestamp::now()))
+            .exec(ex)
+            .await?;
+        Ok(())
+    }
+}
+
+/// Creates an active, verified member of staff with a seat in each of `workspaces`.
 pub async fn create_staff(
     db: &mut Db,
     email: &str,
@@ -335,6 +370,7 @@ pub async fn create_staff(
         password_hash: crate::seed::memoized_password_hash(password).await,
         display_name: display_name.to_string(),
         active: true,
+        email_verified_at: Some(Timestamp::now()),
         created_at: Timestamp::now(),
     })
     .exec(db)

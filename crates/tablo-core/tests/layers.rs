@@ -73,6 +73,7 @@ const BACK_EDGES: &[(&str, &[&str], &str)] = &[
             "auth/registration.rs",
             "auth/session.rs",
             "auth/token.rs",
+            "auth/verification.rs",
         ],
         "the auth pages render in the panel's shell, parse its form bodies and read the request's \
          panel, whose state holds the auth",

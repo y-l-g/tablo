@@ -11,6 +11,7 @@ use super::{
     password_reset::{forgot_page, forgot_post, reset_page, reset_post},
     profile::{profile_page, profile_post},
     registration::{register_page, register_post},
+    verification::{confirm_page, notice_page, notice_post},
 };
 use crate::{DeclarationErrorKind, panel::route_path, toasty_compat::model::AppSchema};
 
@@ -29,6 +30,7 @@ pub(crate) fn declaration_errors(
         .chain(super::registration::declaration_errors(auth))
         .chain(super::profile::declaration_errors(auth))
         .chain(super::password_reset::declaration_errors(auth))
+        .chain(super::verification::declaration_errors(auth))
         .chain(super::mail::declaration_errors(auth, has_mail))
         .collect()
 }
@@ -61,8 +63,8 @@ fn missing_models(db: &toasty::Db, auth: &Auth, toggles: bool) -> Result<(), Dec
 }
 
 /// Mount `auth`'s routes under `prefix`: sign-in, sign-out and the tenant switch while the panel
-/// gates, then the sign-up, profile and password-reset pages `auth` declares. Each form route
-/// carries [`MAX_LOGIN_BYTES`] in place of the panel's form cap.
+/// gates, then the sign-up, profile, password-reset and email-verification pages `auth` declares.
+/// Each form route carries [`MAX_LOGIN_BYTES`] in place of the panel's form cap.
 pub(crate) fn routes(mut builder: RouterBuilder, prefix: &str, auth: &Auth) -> RouterBuilder {
     if !auth.is_disabled() {
         let login_path = route_path(&format!("{prefix}/login"));
@@ -126,6 +128,18 @@ pub(crate) fn routes(mut builder: RouterBuilder, prefix: &str, auth: &Auth) -> R
                 .route(RouteFn::new(http::Method::GET, path.clone(), page))
                 .route(RouteFn::new(http::Method::POST, path, post));
         }
+    }
+    if auth.verification().is_some() {
+        let notice = route_path(&format!("{prefix}/verify-email"));
+        builder = builder
+            .layer(BodyLimit::max(MAX_LOGIN_BYTES).at(notice.clone()))
+            .route(RouteFn::new(http::Method::GET, notice.clone(), notice_page))
+            .route(RouteFn::new(http::Method::POST, notice, notice_post))
+            .route(RouteFn::new(
+                http::Method::GET,
+                route_path(&format!("{prefix}/verify-email/confirm")),
+                confirm_page,
+            ));
     }
     builder
 }

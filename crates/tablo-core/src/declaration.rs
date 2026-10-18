@@ -3,8 +3,11 @@
 use std::fmt;
 
 mod auth;
+mod field_rule;
 
-pub use auth::{AuthMailFault, ProfileFault, ResetFault, SignUpFault};
+pub use auth::{AuthMailFault, ProfileFault, ResetFault, SignUpFault, VerificationFault};
+pub use field_rule::FieldRuleFault;
+use field_rule::fmt_field_rule;
 
 /// Why [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) refused a panel:
 /// every declaration mistake it found.
@@ -138,44 +141,6 @@ pub enum ActionInputFault {
     DependentChoice(String),
 }
 
-/// Why a text field's declared rules cannot work: [`DeclarationErrorKind::FieldRule`].
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum FieldRuleFault {
-    /// A `min` or `max` that is no value the field's type parses, or a type without an order.
-    UnorderedBound(String),
-    /// A `pattern` the server does not compile, with the compiler's reason.
-    InvalidPattern(String),
-    /// A `min_length` above the `max_length`, or a `min` above the `max`: no value passes.
-    EmptyRange,
-    /// A default that breaks a rule, so a create that keeps it is refused.
-    RefusedDefault(String),
-}
-
-/// [`DeclarationErrorKind::FieldRule`]'s sentence.
-fn fmt_field_rule(f: &mut fmt::Formatter<'_>, field: &str, fault: &FieldRuleFault) -> fmt::Result {
-    match fault {
-        FieldRuleFault::UnorderedBound(bound) => write!(
-            f,
-            "field '{field}' is bounded by '{bound}', which is no value of a type that orders: \
-             bound a number, date, time or timestamp field by a value of its type"
-        ),
-        FieldRuleFault::InvalidPattern(error) => write!(
-            f,
-            "field '{field}' has a pattern that does not compile: {error}"
-        ),
-        FieldRuleFault::EmptyRange => write!(
-            f,
-            "field '{field}' declares a minimum above its maximum, so it refuses every value"
-        ),
-        FieldRuleFault::RefusedDefault(value) => write!(
-            f,
-            "field '{field}' defaults to '{value}', which its own rules refuse: change the default \
-             or the rule"
-        ),
-    }
-}
-
 /// Why a many-to-many field or relation cannot link records:
 /// [`DeclarationErrorKind::ManyToMany`].
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -298,6 +263,8 @@ pub enum DeclarationErrorKind {
     Profile(ProfileFault),
     /// The panel's password reset cannot be served.
     PasswordReset(ResetFault),
+    /// The panel's email verification cannot be served.
+    EmailVerification(VerificationFault),
     /// The panel's auth mail cannot be sent.
     AuthMail(AuthMailFault),
     /// Two relations to the same resource.
@@ -607,6 +574,7 @@ impl fmt::Display for DeclarationErrorKind {
             Self::SignUp(fault) => fault.fmt(f),
             Self::Profile(fault) => fault.fmt(f),
             Self::PasswordReset(fault) => fault.fmt(f),
+            Self::EmailVerification(fault) => fault.fmt(f),
             Self::AuthMail(fault) => fault.fmt(f),
             Self::DuplicateRelation => {
                 f.write_str("declared twice: each related resource is one relation")

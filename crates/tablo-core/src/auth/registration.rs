@@ -426,6 +426,7 @@ pub(super) fn register_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             );
             return topcoat::router::error::see_other(login_url(cx)).into_response(cx);
         }
+        super::verification::mail_after_sign_up(cx, &*user);
         let target = if next.is_empty() {
             panel_root(cx)
         } else {

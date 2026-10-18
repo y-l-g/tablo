@@ -496,6 +496,7 @@ fn ada() -> AdminUser {
         password_hash: String::new(),
         display_name: "Ada".to_string(),
         active: true,
+        email_verified_at: None,
         created_at: Timestamp::UNIX_EPOCH,
     }
 }

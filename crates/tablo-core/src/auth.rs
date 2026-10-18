@@ -18,6 +18,7 @@ mod registration;
 mod session;
 mod throttle;
 mod token;
+mod verification;
 
 use std::{
     any::{Any, TypeId},
@@ -46,6 +47,7 @@ pub use self::{
     session::{AuthSession, SESSION_LIFETIME, mint_session, revoke_sessions_for_user},
     throttle::LoginThrottle,
     token::{AuthToken, TokenPurpose},
+    verification::{EmailVerification, EmailVerifier, VERIFICATION_LIFETIME},
 };
 pub(crate) use self::{
     columns::{load_choice, save_choice},

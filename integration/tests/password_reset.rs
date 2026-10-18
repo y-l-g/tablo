@@ -16,12 +16,16 @@ use tablo::{
 use toasty::Db;
 use topcoat::{
     context::Cx,
-    mail::{Mail, MailConfig, Mailbox, MemoryTransport, RouterBuilderMailExt, TextBody},
+    mail::{MailConfig, Mailbox, MemoryTransport, RouterBuilderMailExt},
     router::{Router, RouterBuilderDiscoverExt},
 };
 use uuid::Uuid;
 
-use crate::common::{TestClient, body_string, field_error, flash, refusal, test_db};
+use crate::common::{
+    TestClient, body_string, field_error, flash,
+    mail::{link, mails, token},
+    refusal, test_db,
+};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Note {
@@ -112,44 +116,6 @@ async fn request_link(router: &Router, email: &str) -> http::Response<topcoat::r
     TestClient::new(router)
         .submit("/admin/forgot-password", &form_body(&[("email", email)]))
         .await
-}
-
-/// The mail `mail` holds once it holds `count`: links are mailed after the response.
-async fn mails(mail: &MemoryTransport, count: usize) -> Vec<Mail> {
-    for _ in 0..500 {
-        let sent = mail.sent();
-        if sent.len() >= count {
-            return sent;
-        }
-        tokio::time::sleep(Duration::from_millis(10)).await;
-    }
-    panic!("expected {count} mails, got {}", mail.sent().len());
-}
-
-fn text(mail: &Mail) -> &str {
-    match mail.text() {
-        TextBody::Text(text) => text,
-        other => panic!("the reset mail is plain text, got {other:?}"),
-    }
-}
-
-/// The path and query of the reset link `mail` carries.
-fn link(mail: &Mail) -> String {
-    let start = text(mail)
-        .find("https://admin.example.com/")
-        .expect("the mail carries the link");
-    let url = text(mail)[start..].split_whitespace().next().unwrap();
-    url.strip_prefix("https://admin.example.com")
-        .unwrap()
-        .to_string()
-}
-
-fn token(link: &str) -> String {
-    let query = link.split_once('?').unwrap().1;
-    form_urlencoded::parse(query.as_bytes())
-        .find(|(key, _)| key == "token")
-        .map(|(_, value)| value.into_owned())
-        .expect("the link carries a token")
 }
 
 async fn choose(

@@ -1,7 +1,8 @@
 //! The Policy, auth, tenancy chapter's snippets.
 
 use tablo::{
-    AuthMail, Membership, PanelUser, PasswordAuth, PasswordReset, RouterBuilderPanelExt,
+    AuthMail, EmailVerification, Membership, PanelUser, PasswordAuth, PasswordReset,
+    RouterBuilderPanelExt,
     auth::{
         Authenticator, Profile, ProfileEditor, ProfileUpdate, Registrar, hash_password,
         new_password_errors, verify_password,
@@ -277,6 +278,18 @@ pub fn reset_router(db: toasty::Db) -> Result<Router> {
         .build())
 }
 // ANCHOR_END: policy-password-reset
+
+// ANCHOR: policy-email-verification
+pub fn verified_auth() -> Result<Auth> {
+    Ok(Auth::password()
+        .mail(AuthMail::new(
+            Mailbox::named("Example", "no-reply@example.com")?,
+            "https://admin.example.com",
+        ))
+        .registration(PasswordAuth)
+        .email_verification(EmailVerification::new(PasswordAuth)))
+}
+// ANCHOR_END: policy-email-verification
 
 // ANCHOR: policy-auth-disabled-body
 pub fn open_panel() -> Panel {
