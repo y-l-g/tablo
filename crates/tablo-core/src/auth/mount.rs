@@ -8,9 +8,9 @@ use topcoat::router::{BodyLimit, PageFn, RouteFn, RouteHandlerFn, RouterBuilder}
 use super::{
     AdminUser, Auth,
     login::{MAX_LOGIN_BYTES, login_page, login_post, logout_post, tenant_post},
+    password_reset::{forgot_page, forgot_post, reset_page, reset_post},
     profile::{profile_page, profile_post},
     registration::{register_page, register_post},
-    reset::{forgot_page, forgot_post, reset_page, reset_post},
 };
 use crate::{DeclarationErrorKind, panel::route_path, toasty_compat::model::AppSchema};
 
@@ -28,7 +28,7 @@ pub(crate) fn declaration_errors(
         .into_iter()
         .chain(super::registration::declaration_errors(auth))
         .chain(super::profile::declaration_errors(auth))
-        .chain(super::reset::declaration_errors(auth, has_mail))
+        .chain(super::password_reset::declaration_errors(auth, has_mail))
         .collect()
 }
 

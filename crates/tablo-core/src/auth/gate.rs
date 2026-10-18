@@ -20,8 +20,8 @@ use super::{
     login::{login_url, logout_url},
     page::{AuthPage, render},
     page_load,
+    password_reset::{forgot_url, offered as reset_offered, reset_url},
     registration::{offered, register_url},
-    reset::{forgot_url, offered as reset_offered, reset_url},
     session::{resolve, session_row, session_user},
     unauthenticated_error,
 };

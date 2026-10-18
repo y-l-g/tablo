@@ -12,22 +12,22 @@
 
 mod common;
 
-mod actions;
+mod action;
 mod auth;
 mod blog;
-mod columns;
 mod create;
 mod delete;
 mod detail;
 mod edit;
 mod export;
-mod filters;
+mod filter;
 mod gates;
 mod list;
 mod many_to_many;
 mod media;
-mod panel;
+mod registration;
 mod relations;
-mod repeaters;
-mod sign_up;
+mod repeater;
+mod shell;
 mod tenancy;
+mod toggleable_columns;

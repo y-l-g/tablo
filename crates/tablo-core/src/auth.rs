@@ -10,9 +10,9 @@ mod login;
 pub(crate) mod mount;
 mod page;
 mod password;
+mod password_reset;
 mod profile;
 mod registration;
-mod reset;
 mod session;
 mod throttle;
 
@@ -35,9 +35,9 @@ pub use self::{
     columns::ColumnPreference,
     login::{LOGIN_FIELD, NEXT_FIELD, PASSWORD_FIELD, TENANT_FIELD},
     password::{AdminUser, PasswordAuth, create_admin, hash_password, verify_password},
+    password_reset::{PasswordReset, PasswordResetToken, PasswordResetter, RESET_LIFETIME},
     profile::{Profile, ProfileEditor, ProfileUpdate},
     registration::{MIN_PASSWORD_CHARS, Registrar, SignUp, new_password_errors},
-    reset::{PasswordReset, PasswordResetToken, PasswordResetter, RESET_LIFETIME},
     session::{AuthSession, SESSION_LIFETIME, mint_session, revoke_sessions_for_user},
     throttle::LoginThrottle,
 };
