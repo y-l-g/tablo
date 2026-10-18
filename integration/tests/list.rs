@@ -12,7 +12,7 @@ use topcoat::{
 };
 use uuid::Uuid;
 
-use crate::common::{body_string, confirms_first, get, memory_db, mount, panel, rows};
+use crate::common::{body_string, confirms_first, get, mount, panel, rows, test_db};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Item {
@@ -104,7 +104,7 @@ impl Resource for OtherResource {
 }
 
 async fn items(names: &[&str]) -> Db {
-    let mut db = memory_db(toasty::models!(Item)).await;
+    let mut db = test_db(toasty::models!(Item)).await;
     for name in names {
         toasty::create!(Item {
             name: name.to_string(),

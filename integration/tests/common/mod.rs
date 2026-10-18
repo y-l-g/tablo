@@ -2,7 +2,7 @@ use http::header::{CONTENT_SECURITY_POLICY, CONTENT_TYPE, COOKIE};
 pub use tablo::testing::{
     TestClient, body_bytes, body_string, confirms_first, cookie_header, field_error,
     field_error_message, filter_options, form_body, input_value, mount, refusal, response_cookies,
-    rows, set_cookie_header,
+    rows, set_cookie_header, test_db,
 };
 use tablo::{Auth, Notification, Panel, Resource};
 use toasty::Db;
@@ -17,16 +17,6 @@ pub fn control<'h>(html: &'h str, name: &str) -> &'h str {
         .unwrap_or_else(|| panic!("no {name} control in {html}"));
     let start = html[..at].rfind('<').unwrap();
     &html[start..at + html[at..].find('>').unwrap()]
-}
-
-pub async fn memory_db(models: toasty::schema::ModelSet) -> Db {
-    let db = Db::builder()
-        .models(models)
-        .connect("sqlite::memory:")
-        .await
-        .expect("connect");
-    db.push_schema().await.expect("push_schema");
-    db
 }
 
 pub fn panel() -> Panel {

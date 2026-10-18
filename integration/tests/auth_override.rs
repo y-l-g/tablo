@@ -15,8 +15,8 @@ use topcoat::{
 use uuid::Uuid;
 
 use crate::common::{
-    body_string, get_with_cookies, input_value, memory_db, mount, post_form, response_cookies,
-    router_with,
+    body_string, get_with_cookies, input_value, mount, post_form, response_cookies, router_with,
+    test_db,
 };
 
 /// A custom user table.
@@ -172,7 +172,7 @@ impl Resource for NoteResource {
 
 /// Ada, with seats in Acme and Globex, and Grace, with none.
 async fn seeded_db() -> Db {
-    let mut db = memory_db(toasty::models!(
+    let mut db = test_db(toasty::models!(
         Member,
         Seat,
         Note,

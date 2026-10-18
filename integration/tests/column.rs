@@ -5,7 +5,7 @@ use tablo::{ColorColumn, ImageColumn, ReadOnly, Resource, ResourceDef, Table, Te
 use toasty::Db;
 use uuid::Uuid;
 
-use crate::common::{body_string, get, memory_db, panel_router, rows};
+use crate::common::{body_string, get, panel_router, rows, test_db};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Brand {
@@ -52,7 +52,7 @@ impl Resource for RemoteBrandResource {
 }
 
 async fn brands(rows: &[(&str, &str, &str)]) -> Db {
-    let mut db = memory_db(toasty::models!(Brand)).await;
+    let mut db = test_db(toasty::models!(Brand)).await;
     for (name, color, logo) in rows {
         toasty::create!(Brand {
             name: name.to_string(),

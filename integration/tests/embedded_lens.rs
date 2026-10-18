@@ -14,7 +14,7 @@ use topcoat::{
     view::ViewExt,
 };
 
-use crate::common::input_value;
+use crate::common::{input_value, test_db};
 
 #[derive(Debug, Clone, toasty::Embed)]
 struct Seo {
@@ -163,7 +163,7 @@ impl tablo::Resource for PageResource {
 /// column.
 #[tokio::test]
 async fn a_column_binds_an_embedded_leaf() {
-    let mut db = crate::common::memory_db(toasty::models!(Page)).await;
+    let mut db = test_db(toasty::models!(Page)).await;
     for (title, seo) in [("First", "Zulu"), ("Second", "Alpha")] {
         toasty::create!(Page {
             title: title.to_string(),

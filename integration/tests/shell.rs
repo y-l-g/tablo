@@ -5,7 +5,7 @@ use tablo::{Brand, Panel, ReadOnly, Resource, ResourceDef, Table, TextColumn, le
 use topcoat::router::{Body, Router};
 use uuid::Uuid;
 
-use crate::common::{body_string, memory_db, mount, panel};
+use crate::common::{body_string, mount, panel, test_db};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Book {
@@ -30,7 +30,7 @@ impl Resource for BookResource {
 }
 
 async fn books(panel: Panel) -> Router {
-    let db = memory_db(toasty::models!(Book)).await;
+    let db = test_db(toasty::models!(Book)).await;
     mount(db, panel.resource::<BookResource>()).expect("the panel mounts")
 }
 
@@ -126,7 +126,7 @@ async fn the_sidebar_cookie_restores_a_collapsed_sidebar() {
 /// The sign-in page, which renders outside the shell, starts dark too.
 #[tokio::test]
 async fn the_sign_in_page_follows_the_dark_mode_default() {
-    let db = memory_db(toasty::models!(
+    let db = test_db(toasty::models!(
         tablo::auth::AdminUser,
         tablo::auth::AuthSession
     ))

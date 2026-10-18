@@ -17,8 +17,8 @@ use topcoat::{
 use uuid::Uuid;
 
 use crate::common::{
-    body_string, cookie_header, get, get_with_cookies, memory_db, mount, new_csrf, post_form,
-    refusal, response_cookies, rows,
+    body_string, cookie_header, get, get_with_cookies, mount, new_csrf, post_form, refusal,
+    response_cookies, rows, test_db,
 };
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
@@ -87,7 +87,7 @@ impl Page for UrlsPage {
 }
 
 async fn books_db() -> Db {
-    let mut db = memory_db(toasty::models!(Book, Note, AdminUser, AuthSession)).await;
+    let mut db = test_db(toasty::models!(Book, Note, AdminUser, AuthSession)).await;
     toasty::create!(Book {
         title: "Dune".to_string(),
     })
@@ -472,7 +472,7 @@ impl<const STAR: bool> Resource for SluggedBooks<STAR> {
 #[tokio::test]
 async fn a_slug_of_segment_characters_resolves() {
     let router = mount(
-        memory_db(toasty::models!(Book)).await,
+        test_db(toasty::models!(Book)).await,
         crate::common::panel()
             .resource::<SluggedBooks<false>>()
             .resource::<SluggedBooks<true>>(),
@@ -491,7 +491,7 @@ async fn a_slug_of_segment_characters_resolves() {
 async fn a_panel_page_sends_frame_ancestors_unless_opted_out() {
     async fn policy(panel: Panel) -> Option<String> {
         let router = mount(
-            memory_db(toasty::models!(Book)).await,
+            test_db(toasty::models!(Book)).await,
             panel.auth(Auth::disabled()).resource::<BookResource>(),
         )
         .expect("panel builds");
@@ -548,7 +548,7 @@ impl Resource for CountedResource {
 async fn a_resource_declares_once_when_its_panel_mounts() {
     use std::sync::atomic::Ordering;
 
-    let mut db = memory_db(toasty::models!(Book)).await;
+    let mut db = test_db(toasty::models!(Book)).await;
     let book = toasty::create!(Book {
         title: "Dune".to_string(),
     })

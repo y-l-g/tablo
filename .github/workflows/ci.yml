@@ -94,9 +94,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace --locked
 
-  # `test` runs the showcase suite on SQLite; these run it on the other drivers: the servers, whose
-  # `LIKE`, collation and identifier rules differ, and Turso, a separate engine behind SQLite's
-  # dialect.
+  # `test` runs the showcase and integration suites on SQLite; these run them on the other drivers:
+  # the servers, whose `LIKE`, collation and identifier rules differ, and Turso, a separate engine
+  # behind SQLite's dialect.
   postgresql:
     name: test (postgresql)
     runs-on: ubuntu-latest
@@ -116,6 +116,7 @@ jobs:
       - run: rustup update stable && rustup default stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo test -p showcase --features postgresql --test it --locked
+      - run: cargo test -p tablo-integration --features postgresql --test it --locked
 
   mysql:
     name: test (mysql)
@@ -137,6 +138,7 @@ jobs:
       - run: rustup update stable && rustup default stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo test -p showcase --features mysql --test it --locked
+      - run: cargo test -p tablo-integration --features mysql --test it --locked
 
   turso:
     name: test (turso)
@@ -148,6 +150,7 @@ jobs:
       - run: rustup update stable && rustup default stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo test -p showcase --features turso --test it --locked
+      - run: cargo test -p tablo-integration --features turso --test it --locked
 
   # The suites are named rather than globbed: a glob would silently shrink the run when a
   # suite is renamed, while a missing path fails the job.

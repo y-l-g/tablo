@@ -11,7 +11,7 @@ use toasty::Db;
 use topcoat::{context::Cx, router::Router};
 use uuid::Uuid;
 
-use crate::common::{body_string, get, memory_db, mount, panel};
+use crate::common::{body_string, get, mount, panel, test_db};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Author {
@@ -137,7 +137,7 @@ impl Resource for LockedBookResource {
 
 /// A panel over the authors named `names`, and one book by the first.
 async fn library(names: &[String]) -> (Router, Book, Vec<Author>) {
-    let mut db: Db = memory_db(toasty::models!(Author, Book)).await;
+    let mut db: Db = test_db(toasty::models!(Author, Book)).await;
     let mut authors = Vec::new();
     for name in names {
         authors.push(
@@ -384,7 +384,7 @@ impl Resource for ReaderResource {
 /// is unloaded, so the option shows only if the load skipped them.
 #[tokio::test]
 async fn an_option_load_loads_no_relation() {
-    let mut db = memory_db(toasty::models!(Shelf, Volume, Reader)).await;
+    let mut db = test_db(toasty::models!(Shelf, Volume, Reader)).await;
     let shelf = toasty::create!(Shelf {
         name: "Sci-fi".to_string(),
     })

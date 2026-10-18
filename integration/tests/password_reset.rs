@@ -23,7 +23,7 @@ use topcoat::{
 };
 use uuid::Uuid;
 
-use crate::common::{TestClient, body_string, field_error, flash, memory_db, refusal};
+use crate::common::{TestClient, body_string, field_error, flash, refusal, test_db};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Note {
@@ -47,7 +47,7 @@ impl Resource for NoteResource {
 }
 
 async fn db() -> Db {
-    memory_db(toasty::models!(
+    test_db(toasty::models!(
         Note,
         AdminUser,
         AuthSession,
@@ -672,7 +672,7 @@ async fn mounting_refuses_a_reset_the_panel_cannot_serve() {
         })]
     );
 
-    let without_tokens = memory_db(toasty::models!(Note, AdminUser, AuthSession)).await;
+    let without_tokens = test_db(toasty::models!(Note, AdminUser, AuthSession)).await;
     let errors = refusal(mount_with_mail(
         without_tokens,
         panel(Auth::password().password_reset(reset())),

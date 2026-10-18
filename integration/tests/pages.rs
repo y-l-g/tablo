@@ -12,7 +12,7 @@ use topcoat::{
 };
 use uuid::Uuid;
 
-use crate::common::{body_string, csp, get, memory_db, mount};
+use crate::common::{body_string, csp, get, mount, test_db};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Book {
@@ -99,7 +99,7 @@ impl Page for Probe {
 }
 
 async fn books(panel: Panel) -> Router {
-    let db = memory_db(toasty::models!(Book)).await;
+    let db = test_db(toasty::models!(Book)).await;
     mount(
         db,
         panel

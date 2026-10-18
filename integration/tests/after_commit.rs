@@ -4,7 +4,7 @@ use toasty::Db;
 use topcoat::{context::Cx, router::Body};
 use uuid::Uuid;
 
-use crate::common::{body_string, memory_db, panel_router, post_fields};
+use crate::common::{body_string, panel_router, post_fields, test_db};
 
 #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
 struct Note {
@@ -144,7 +144,7 @@ struct FailingHookForm {
     title: String,
 }
 async fn seeded_db() -> Db {
-    memory_db(toasty::models!(Note, Audit)).await
+    test_db(toasty::models!(Note, Audit)).await
 }
 
 async fn seed_note(db: &Db, title: &str) -> Note {

@@ -11,7 +11,7 @@ use toasty::Db;
 use topcoat::router::Router;
 use uuid::Uuid;
 
-use crate::common::{TestClient, body_string, control, mount, refusal};
+use crate::common::{TestClient, body_string, control, mount, refusal, test_db};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Account {
@@ -63,12 +63,7 @@ struct AccountForm {
 }
 
 async fn accounts() -> (Db, Router) {
-    let db = Db::builder()
-        .models(toasty::models!(Account))
-        .connect("sqlite::memory:")
-        .await
-        .expect("connect");
-    db.push_schema().await.expect("push schema");
+    let db = test_db(toasty::models!(Account)).await;
     let router = mount(
         db.clone(),
         Panel::new("admin")
@@ -305,7 +300,7 @@ impl Resource for NoteResource {
 /// or several, never renders a value, stored or just refused.
 #[tokio::test]
 async fn a_form_shows_the_stored_text_and_never_a_password() {
-    let db = crate::common::memory_db(toasty::models!(Note)).await;
+    let db = test_db(toasty::models!(Note)).await;
     let router = mount(
         db.clone(),
         Panel::new("admin")

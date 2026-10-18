@@ -9,7 +9,7 @@ use toasty::Db;
 use topcoat::router::Router;
 use uuid::Uuid;
 
-use crate::common::{TestClient, body_string, memory_db, panel_router};
+use crate::common::{TestClient, body_string, panel_router, test_db};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Subscriber {
@@ -45,7 +45,7 @@ impl Resource for SubscriberResource {
 /// with the presence error, and none writes.
 #[tokio::test]
 async fn an_empty_unique_value_is_required_and_writes_nothing() {
-    let db = memory_db(toasty::models!(Subscriber)).await;
+    let db = test_db(toasty::models!(Subscriber)).await;
     let router = panel_router::<SubscriberResource>(db.clone());
     for submitted in ["email=+", "email="] {
         let response = TestClient::new(&router)
@@ -106,7 +106,7 @@ const MINE: &str = "0f8fad5b-d9cb-469f-a165-70867728950e";
 const THEIRS: &str = "3f8fad5b-d9cb-469f-a165-70867728950e";
 
 async fn tagged(tokens: &[(&str, &str)]) -> (Db, Router, Vec<Tagged>) {
-    let mut db = memory_db(toasty::models!(Tagged)).await;
+    let mut db = test_db(toasty::models!(Tagged)).await;
     let mut rows = Vec::new();
     for (name, token) in tokens {
         rows.push(

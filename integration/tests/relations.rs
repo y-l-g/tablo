@@ -12,7 +12,7 @@ use toasty::Db;
 use topcoat::{context::Cx, router::Router};
 use uuid::Uuid;
 
-use crate::common::{body_string, get, memory_db, mount, panel, post_fields, refusal, rows};
+use crate::common::{body_string, get, mount, panel, post_fields, refusal, rows, test_db};
 
 #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
 struct Owner {
@@ -115,7 +115,7 @@ async fn get_with_header(router: &Router, uri: &str, name: &str) -> String {
 
 /// Two owners with two children each, and the router over both resources.
 async fn fixture() -> (Router, Db, Owner, Owner) {
-    let mut db = memory_db(toasty::models!(Owner, Child)).await;
+    let mut db = test_db(toasty::models!(Owner, Child)).await;
     let ada = toasty::create!(Owner { name: "Ada" })
         .exec(&mut db)
         .await
@@ -365,7 +365,7 @@ async fn a_write_returns_to_a_panel_page_and_ignores_any_other_target() {
 
 #[tokio::test]
 async fn a_relation_to_an_unregistered_resource_does_not_build() {
-    let db = memory_db(toasty::models!(Owner, Child)).await;
+    let db = test_db(toasty::models!(Owner, Child)).await;
     let errors = refusal(mount(db, panel().resource::<OwnerResource>()));
     assert_eq!(errors.len(), 1, "{errors:?}");
     // An unregistered child has no slug on the panel, so the site names its type.
@@ -395,7 +395,7 @@ async fn two_relations_to_one_child_do_not_build() {
         }
     }
 
-    let db = memory_db(toasty::models!(Owner, Child)).await;
+    let db = test_db(toasty::models!(Owner, Child)).await;
     let errors = refusal(mount(
         db,
         panel()

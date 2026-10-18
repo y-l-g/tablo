@@ -9,7 +9,7 @@ use toasty::Db;
 use topcoat::{context::Cx, router::Router};
 use uuid::Uuid;
 
-use crate::common::{body_string, get, memory_db, mount, panel, post_fields, refusal};
+use crate::common::{body_string, get, mount, panel, post_fields, refusal, test_db};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Country {
@@ -108,7 +108,7 @@ struct World {
 }
 
 async fn world() -> World {
-    let mut db = memory_db(toasty::models!(Country, City, Address)).await;
+    let mut db = test_db(toasty::models!(Country, City, Address)).await;
     let mut ids = Vec::new();
     for (country, city) in [("France", "Paris"), ("Germany", "Berlin")] {
         let country = toasty::create!(Country { name: country })
@@ -314,7 +314,7 @@ async fn an_action_input_cannot_hold_a_dependent_choice() {
         }
     }
 
-    let db = memory_db(toasty::models!(Country, City, Address)).await;
+    let db = test_db(toasty::models!(Country, City, Address)).await;
     let errors = refusal(mount(
         db,
         panel()

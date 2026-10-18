@@ -7,7 +7,7 @@ use tablo::{
 use toasty::Db;
 use uuid::Uuid;
 
-use crate::common::{body_string, get, input_value, memory_db, panel_router};
+use crate::common::{body_string, get, input_value, panel_router, test_db};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo::Options)]
 enum TicketStatus {
@@ -75,7 +75,7 @@ impl Resource for UnviewedTicketResource {
 const TOKEN: &str = "d1ce-secret";
 
 async fn ticket_db() -> (Db, Ticket) {
-    let mut db = memory_db(toasty::models!(Ticket)).await;
+    let mut db = test_db(toasty::models!(Ticket)).await;
     let ticket = toasty::create!(Ticket {
         subject: "Printer jam".to_string(),
         status: TicketStatus::Waiting,
@@ -256,7 +256,7 @@ async fn embedded_values_and_lists_show_on_the_detail_page_only() {
 }
 
 async fn delivery_db() -> (Db, Delivery) {
-    let mut db = memory_db(toasty::models!(Delivery)).await;
+    let mut db = test_db(toasty::models!(Delivery)).await;
     let delivery = toasty::create!(Delivery {
         address: "12 Rue Haute".to_string(),
         receipt: "/uploads/receipt.pdf".to_string(),
