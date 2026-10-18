@@ -175,6 +175,7 @@ impl<'a> core::marker::UnsafeUnpin for tablo_test::TestClient<'a>
 impl<'a> !core::panic::unwind_safe::RefUnwindSafe for tablo_test::TestClient<'a>
 impl<'a> !core::panic::unwind_safe::UnwindSafe for tablo_test::TestClient<'a>
 pub const tablo_test::SESSION_COOKIE: &str
+pub const tablo_test::TEST_DATABASE_URL: &str
 pub async fn tablo_test::body_bytes(http::response::Response<topcoat_router::body::Body>) -> alloc::vec::Vec<u8>
 pub async fn tablo_test::body_string(http::response::Response<topcoat_router::body::Body>) -> alloc::string::String
 pub fn tablo_test::column_picker(&str) -> core::option::Option<alloc::vec::Vec<tablo_test::PickerColumn>>
@@ -200,3 +201,4 @@ pub fn tablo_test::row_keys(&str) -> alloc::vec::Vec<alloc::string::String>
 pub fn tablo_test::rows(&str) -> alloc::vec::Vec<tablo_test::Row>
 pub fn tablo_test::session_cookie_value(&http::response::Response<topcoat_router::body::Body>) -> core::option::Option<alloc::string::String>
 pub fn tablo_test::set_cookie_header(&http::response::Response<topcoat_router::body::Body>, &str) -> core::option::Option<alloc::string::String>
+pub async fn tablo_test::test_db(toasty_core::schema::app::model::ModelSet) -> toasty::db::Db

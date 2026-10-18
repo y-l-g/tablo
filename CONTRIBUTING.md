@@ -96,7 +96,7 @@ toolchains. Run `check --all` before merging.
   | --- | --- | --- |
   | unit | a function's result, a derive's expansion, a failure the public API cannot cause | `tests.rs` beside its source |
   | compile-fail | a misuse the type system refuses | `crates/tablo-core/tests/compile_fail/` |
-  | showcase | what a request does to the showcase's resources, on every driver | `examples/showcase/tests/` |
+  | showcase | what a request does to the showcase's resources | `examples/showcase/tests/` |
   | integration | what a request does to a panel the showcase does not build, what a mount refuses, what a derived impl does in an app's crate, the upstream behavior Tablo rests on | `integration/tests/` |
   | example | an example's own code: the guide's snippets, the quickstart's stylesheet | `examples/*/` |
   | guard | the repo's rules: the core's layers, file sizes, the primitives copy | `crates/tablo-core/tests/layers.rs`, `xtask/tests/` |
@@ -107,14 +107,18 @@ toolchains. Run `check --all` before merging.
 - An invariant over a parser or an encoder is a `proptest` property, not a hand-picked input list.
 - Unit tests live in `tests.rs` beside their source file (`foo/tests.rs` for `foo.rs`), and build
   their databases through `test_support` (`memory_db`, `tableless_db`).
-- The showcase suite runs on in-memory SQLite, or on the database `TABLO_TEST_DATABASE_URL` names
-  with the matching feature, and CI runs it on PostgreSQL, MySQL and Turso too:
+- Both HTTP suites build their databases with `tablo::testing::test_db`: in-memory SQLite, or the
+  database `TABLO_TEST_DATABASE_URL` names with the matching feature. CI runs them on PostgreSQL,
+  MySQL and Turso too:
 
   ```sh
   TABLO_TEST_DATABASE_URL=postgresql://postgres:postgres@localhost/tablo \
     cargo test -p showcase --features postgresql --test it
-  TABLO_TEST_DATABASE_URL=turso::memory: cargo test -p showcase --features turso --test it
+  TABLO_TEST_DATABASE_URL=turso::memory: cargo test -p tablo-integration --features turso --test it
   ```
+
+  A test connects to `sqlite::memory:` itself only when it touches no table: a database that lends
+  only its schema, or a failure that needs the tables missing.
 
   An order or a match the test computes in Rust holds on every driver only when collation cannot
   change it.
@@ -122,8 +126,8 @@ toolchains. Run `check --all` before merging.
   framework feature each: `cargo test -p showcase --test it list::` runs one file. `gates` holds the
   anonymous, CSRF and cross-tenant matrices, so a new route joins them there.
 - `integration/tests/it.rs` covers what the showcase's resources do not reach, with test-local
-  models on their own SQLite databases: `cargo test -p tablo-integration --test it upload::` runs
-  one file. It is its own crate so that no published crate dev-depends on `tablo-test`.
+  models on their own databases: `cargo test -p tablo-integration --test it upload::` runs one
+  file. It is its own crate so that no published crate dev-depends on `tablo-test`.
 - A suite file that pins one feature takes the name of the feature's source module in every tier:
   `panel/shell.rs` is pinned by `shell` in both suites, `auth/login.rs` by `login`. A feature split
   over several files shares a prefix (`action_input`, `action_policy`), and a file that crosses

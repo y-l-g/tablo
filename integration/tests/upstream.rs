@@ -1,7 +1,7 @@
 //! Upstream behavior Tablo rests on, pinned so a dependency bump that changes it fails here, named
 //! for what changed, rather than as a symptom elsewhere.
 
-use crate::common::memory_db;
+use crate::common::test_db;
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Note {
@@ -17,7 +17,7 @@ struct Note {
 #[tokio::test]
 #[should_panic(expected = "RecvError")]
 async fn toasty_panics_on_an_update_with_no_assignment() {
-    let mut db = memory_db(toasty::models!(Note)).await;
+    let mut db = test_db(toasty::models!(Note)).await;
     let mut note = toasty::create!(Note {
         body: "kept".to_string(),
     })
@@ -36,23 +36,33 @@ struct Subscriber {
     email: String,
 }
 
-/// SQLite's default BINARY collation treats case variants as distinct, in the unique index and in
-/// an equality probe alike, so the app-side `unique()` probe agrees with the index it guards.
+/// The driver's default collation decides whether case variants are one value: SQLite, Turso and
+/// PostgreSQL keep them apart, MySQL's merges them. The unique index and an equality probe follow
+/// the same collation, so the app-side `unique()` probe agrees with the index it guards.
 #[tokio::test]
-async fn sqlite_unique_and_its_probe_agree_on_case() {
-    let mut db = memory_db(toasty::models!(Subscriber)).await;
-    for email in ["alice@example.com", "Alice@example.com"] {
-        toasty::create!(Subscriber { email })
-            .exec(&mut db)
-            .await
-            .expect("a case variant is a distinct value");
-    }
-    for (probe, found) in [("alice@example.com", 1), ("ALICE@EXAMPLE.COM", 0)] {
-        let matches = Subscriber::all()
-            .filter(Subscriber::fields().email().eq(probe))
-            .exec(&mut db)
-            .await
-            .expect("probe");
-        assert_eq!(matches.len(), found, "{probe}");
-    }
+async fn a_unique_index_and_its_probe_agree_on_case() {
+    let mut db = test_db(toasty::models!(Subscriber)).await;
+    toasty::create!(Subscriber {
+        email: "alice@example.com",
+    })
+    .exec(&mut db)
+    .await
+    .expect("seed a subscriber");
+    let probed = Subscriber::all()
+        .filter(Subscriber::fields().email().eq("ALICE@EXAMPLE.COM"))
+        .exec(&mut db)
+        .await
+        .expect("probe");
+    let refused = toasty::create!(Subscriber {
+        email: "ALICE@EXAMPLE.COM",
+    })
+    .exec(&mut db)
+    .await
+    .is_err();
+    assert_eq!(
+        probed.len() == 1,
+        refused,
+        "the probe found {} rows, the index refused: {refused}",
+        probed.len()
+    );
 }

@@ -12,7 +12,7 @@ use topcoat::{context::Cx, router::Router};
 use uuid::Uuid;
 
 use crate::common::{
-    body_string, confirms_first, flash, get, memory_db, mount, panel, post_fields, rows,
+    body_string, confirms_first, flash, get, mount, panel, post_fields, rows, test_db,
 };
 
 #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
@@ -77,7 +77,7 @@ struct TicketForm {
 }
 
 async fn db() -> Db {
-    memory_db(toasty::models!(Ticket)).await
+    test_db(toasty::models!(Ticket)).await
 }
 
 async fn seed(db: &Db, title: &str) -> Ticket {

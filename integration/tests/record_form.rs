@@ -13,8 +13,8 @@ use topcoat::context::{Cx, CxTestBuilder};
 use uuid::Uuid;
 
 use crate::common::{
-    body_string, field_error, get, input_value, memory_db, mount, panel, panel_cx, panel_router,
-    post_fields, refusal,
+    body_string, field_error, get, input_value, mount, panel, panel_cx, panel_router, post_fields,
+    refusal, test_db,
 };
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
@@ -85,7 +85,7 @@ impl Resource for ItemResource {
 }
 
 async fn item_db() -> Db {
-    memory_db(toasty::models!(Item)).await
+    test_db(toasty::models!(Item)).await
 }
 
 async fn seed_item(db: &Db) -> Item {
@@ -373,7 +373,7 @@ impl Resource for OwnedResource {
 
 #[tokio::test]
 async fn the_derived_create_stamps_the_request_tenant() {
-    let db = memory_db(toasty::models!(Owned)).await;
+    let db = test_db(toasty::models!(Owned)).await;
     let tenant = Uuid::new_v4();
     let cx = panel_cx::<OwnedResource>(&db).with(Tenant(tenant));
     let mut handle = db.clone();
@@ -481,7 +481,7 @@ async fn build_refuses_a_gated_form_claiming_the_tenant_column() {
         }
     }
 
-    let errors = refused::<Claiming>(memory_db(toasty::models!(Owned)).await);
+    let errors = refused::<Claiming>(test_db(toasty::models!(Owned)).await);
     assert!(
         errors.contains(&DeclarationErrorKind::FormClaimsTenantColumn {
             field: "tenant_id".to_string(),
@@ -1079,7 +1079,7 @@ async fn the_derived_default_form_renders_and_writes() {
         }
     }
 
-    let db = memory_db(toasty::models!(Widget)).await;
+    let db = test_db(toasty::models!(Widget)).await;
     let router = panel_router::<WidgetResource>(db.clone());
     let create = get(&router, "/admin/widgets/-/create").await;
     assert_eq!(create.status(), StatusCode::OK);
@@ -1192,7 +1192,7 @@ async fn build_refuses_a_unique_field_an_empty_submission_answers() {
         }
     }
 
-    let errors = refused::<HandleResource>(memory_db(toasty::models!(Handle)).await);
+    let errors = refused::<HandleResource>(test_db(toasty::models!(Handle)).await);
     assert_eq!(
         errors,
         [DeclarationErrorKind::OptionalUnique {

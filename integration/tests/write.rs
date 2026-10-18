@@ -2,9 +2,8 @@
 //! resources never take.
 
 use tablo::{Ability, NotificationStatus, lens};
-use toasty::Db;
 
-use crate::common::{TestClient, body_string, flash, mount, set_cookie_header};
+use crate::common::{TestClient, body_string, flash, mount, set_cookie_header, test_db};
 
 #[tokio::test]
 async fn create_policy_deny() {
@@ -40,12 +39,7 @@ async fn create_policy_deny() {
         name: String,
         email: String,
     }
-    let db = Db::builder()
-        .models(toasty::models!(DummyUser))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let db = test_db(toasty::models!(DummyUser)).await;
     let router = mount(
         db.clone(),
         tablo::Panel::new("admin")
@@ -117,12 +111,7 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
     struct FailingForm {
         name: String,
     }
-    let db = Db::builder()
-        .models(toasty::models!(Widget))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let db = test_db(toasty::models!(Widget)).await;
     let router = mount(
         db,
         tablo::Panel::new("admin")
@@ -217,12 +206,7 @@ async fn forged_delete_runs_no_record_query() {
         }
     }
 
-    let mut db = Db::builder()
-        .models(toasty::models!(Dummy))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = test_db(toasty::models!(Dummy)).await;
     let rec = toasty::create!(Dummy {
         name: "x".to_string()
     })
@@ -310,12 +294,7 @@ async fn bulk_delete_hand_crafted_partial_deny_skips_the_refused_row() {
         }
     }
 
-    let mut db = Db::builder()
-        .models(toasty::models!(DummyUser))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = test_db(toasty::models!(DummyUser)).await;
     let a = toasty::create!(DummyUser {
         name: "a".to_string()
     })
@@ -410,7 +389,7 @@ async fn an_edit_needs_view_as_well_as_update() {
         }
     }
 
-    let mut db = crate::common::memory_db(toasty::models!(Dummy)).await;
+    let mut db = test_db(toasty::models!(Dummy)).await;
     let row = toasty::create!(Dummy {
         name: "Ada".to_string(),
     })
@@ -465,7 +444,7 @@ async fn a_write_needs_its_csrf_token_with_auth_disabled() {
         }
     }
 
-    let mut db = crate::common::memory_db(toasty::models!(Dummy)).await;
+    let mut db = test_db(toasty::models!(Dummy)).await;
     let router = crate::common::panel_router::<CreatingResource>(db.clone());
     let response = TestClient::new(&router)
         .post_form("/admin/dummies/-/create", "name=Ada".to_string())

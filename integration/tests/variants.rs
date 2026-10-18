@@ -8,10 +8,9 @@
 //! inactive variant so a validated group would refuse the submission.
 
 use tablo::{Ability, Auth, Panel, Resource, ResourceDef, Table, TextColumn, lens};
-use toasty::Db;
 use uuid::Uuid;
 
-use crate::common::{TestClient, body_string, mount};
+use crate::common::{TestClient, body_string, mount, test_db};
 
 /// The embedded value under test: one variant whose payload is a typed leaf.
 #[derive(Debug, Clone, PartialEq, toasty::Embed, tablo::EmbeddedForm)]
@@ -57,12 +56,7 @@ struct ClipForm {
 }
 #[tokio::test]
 async fn a_hidden_variant_groups_fields_do_not_block_the_submit() {
-    let db = Db::builder()
-        .models(toasty::models!(Clip))
-        .connect("sqlite::memory:")
-        .await
-        .expect("connect");
-    db.push_schema().await.expect("push schema");
+    let db = test_db(toasty::models!(Clip)).await;
     let router = mount(
         db.clone(),
         Panel::new("admin")
@@ -101,12 +95,7 @@ async fn a_hidden_variant_groups_fields_do_not_block_the_submit() {
 /// validates its own fields, hidden or not.
 #[tokio::test]
 async fn the_named_variants_fields_still_validate() {
-    let db = Db::builder()
-        .models(toasty::models!(Clip))
-        .connect("sqlite::memory:")
-        .await
-        .expect("connect");
-    db.push_schema().await.expect("push schema");
+    let db = test_db(toasty::models!(Clip)).await;
     let router = mount(
         db.clone(),
         Panel::new("admin")

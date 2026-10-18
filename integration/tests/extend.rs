@@ -17,8 +17,8 @@ use topcoat::{context::Cx, view::*};
 use uuid::Uuid;
 
 use crate::common::{
-    body_string, confirms_first, filter_options, flash, get, input_value, memory_db, mount, panel,
-    panel_router, post_fields, refusal, rows,
+    body_string, confirms_first, filter_options, flash, get, input_value, mount, panel,
+    panel_router, post_fields, refusal, rows, test_db,
 };
 
 #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
@@ -218,7 +218,7 @@ struct TaskForm {
 }
 
 async fn db() -> Db {
-    memory_db(toasty::models!(Task, Log)).await
+    test_db(toasty::models!(Task, Log)).await
 }
 
 async fn seed(db: &Db, title: &str, done: bool) -> Task {

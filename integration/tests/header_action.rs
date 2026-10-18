@@ -15,7 +15,7 @@ use topcoat::{
 };
 use uuid::Uuid;
 
-use crate::common::{body_string, flash, get, memory_db, mount, panel, post_fields, refusal};
+use crate::common::{body_string, flash, get, mount, panel, post_fields, refusal, test_db};
 
 #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
 struct Ticket {
@@ -290,7 +290,7 @@ impl Page for PlainPage {
 }
 
 async fn db() -> Db {
-    memory_db(toasty::models!(Ticket, Log)).await
+    test_db(toasty::models!(Ticket, Log)).await
 }
 
 async fn seed(db: &Db, title: &str, closed: bool) -> Ticket {

@@ -17,8 +17,8 @@ use topcoat::router::{Body, Router, response::Response};
 use uuid::Uuid;
 
 use crate::common::{
-    TestClient, body_bytes, body_string, control, csp, field_error, get, memory_db, mount, panel,
-    refusal,
+    TestClient, body_bytes, body_string, control, csp, field_error, get, mount, panel, refusal,
+    test_db,
 };
 
 /// A document with one required and one optional upload.
@@ -96,12 +96,12 @@ struct DocForm {
     attachment: String,
 }
 async fn seeded_db() -> Db {
-    memory_db(toasty::models!(Doc)).await
+    test_db(toasty::models!(Doc)).await
 }
 
 /// The same DB with the shipped auth models registered.
 async fn auth_seeded_db() -> Db {
-    memory_db(toasty::models!(
+    test_db(toasty::models!(
         Doc,
         tablo::auth::AdminUser,
         tablo::auth::AuthSession

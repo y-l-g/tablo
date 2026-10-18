@@ -3,7 +3,7 @@
 use tablo::{ReadOnly, Resource, ResourceDef, Table, TextColumn, lens};
 use uuid::Uuid;
 
-use crate::common::{body_string, get, memory_db, mount, panel};
+use crate::common::{body_string, get, mount, panel, test_db};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct PoolDummy {
@@ -29,7 +29,7 @@ impl Resource for PoolResource {
 
 #[tokio::test]
 async fn a_dropped_list_body_frees_the_pool_for_the_next_request() {
-    let mut db = memory_db(toasty::models!(PoolDummy)).await;
+    let mut db = test_db(toasty::models!(PoolDummy)).await;
     toasty::create!(PoolDummy {
         name: "Ada".to_string(),
     })

@@ -10,7 +10,7 @@ use toasty::Db;
 use topcoat::{context::Cx, router::Router};
 use uuid::Uuid;
 
-use crate::common::{body_bytes, body_string, get, memory_db, panel_router};
+use crate::common::{body_bytes, body_string, get, panel_router, test_db};
 
 /// The cap the guide documents.
 const MAX_EXPORT_ROWS: usize = 10_000;
@@ -62,7 +62,7 @@ impl Resource for VisibleItemResource {
 }
 
 async fn items(rows: usize, name: impl Fn(usize) -> String) -> Db {
-    let mut db = memory_db(toasty::models!(Item)).await;
+    let mut db = test_db(toasty::models!(Item)).await;
     if rows > 0 {
         let mut create = Item::create_many();
         for i in 0..rows {
@@ -273,7 +273,7 @@ impl Resource for TalliedVolumeResource {
 }
 
 async fn one_volume() -> Db {
-    let mut db = memory_db(toasty::models!(Shelf, Volume)).await;
+    let mut db = test_db(toasty::models!(Shelf, Volume)).await;
     let shelf = toasty::create!(Shelf {
         name: "Sci-fi".to_string(),
     })

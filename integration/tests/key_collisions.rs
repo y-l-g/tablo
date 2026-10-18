@@ -5,7 +5,7 @@ use http::{StatusCode, header::CONTENT_TYPE};
 use tablo::{Ability, Detail, Resource, ResourceDef, Schema, Table, TextColumn, lens};
 use toasty::Db;
 
-use crate::common::{TestClient, body_string, get, memory_db, panel_router};
+use crate::common::{TestClient, body_string, get, panel_router, test_db};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Tag {
@@ -38,7 +38,7 @@ impl Resource for TagResource {
 }
 
 async fn tag_db(codes: &[&str]) -> Db {
-    let db = memory_db(toasty::models!(Tag)).await;
+    let db = test_db(toasty::models!(Tag)).await;
     let mut handle = db.clone();
     for code in codes {
         toasty::create!(Tag {
@@ -123,7 +123,7 @@ impl Resource for SeatResource {
 /// A composite key has no URL form, so its row lists with no action to reach it.
 #[tokio::test]
 async fn a_composite_key_row_lists_with_no_action() {
-    let db = memory_db(toasty::models!(Seat)).await;
+    let db = test_db(toasty::models!(Seat)).await;
     toasty::create!(Seat {
         owner: "ada".to_string(),
         slot: 2,
@@ -148,7 +148,7 @@ async fn a_composite_key_row_lists_with_no_action() {
 /// fails loudly, never as a 404 per id.
 #[tokio::test]
 async fn a_composite_key_record_url_fails_loudly() {
-    let router = panel_router::<SeatResource>(memory_db(toasty::models!(Seat)).await);
+    let router = panel_router::<SeatResource>(test_db(toasty::models!(Seat)).await);
     assert_eq!(
         get(&router, "/admin/seats/whatever/edit").await.status(),
         StatusCode::INTERNAL_SERVER_ERROR

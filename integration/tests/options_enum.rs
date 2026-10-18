@@ -4,6 +4,8 @@
 use tablo::{SelectFilter, extend::Filter as _};
 use toasty::Db;
 
+use crate::common::test_db;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo::Options)]
 enum Stage {
     Open,
@@ -22,12 +24,7 @@ struct Ticket {
 }
 
 async fn db() -> Db {
-    let mut db = Db::builder()
-        .models(toasty::models!(Ticket))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let mut db = test_db(toasty::models!(Ticket)).await;
     for (title, stage, previous) in [
         ("open", Stage::Open, None),
         ("archived", Stage::Archived, Some(Stage::Open)),

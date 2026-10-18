@@ -13,13 +13,13 @@ use topcoat::{
 };
 use uuid::Uuid;
 
-use crate::common::{memory_db, mount, set_cookie_header};
+use crate::common::{mount, set_cookie_header, test_db};
 
 const SESSION_COOKIE: &str = "__Host-session";
 
 /// A database holding ada, whose password is `opensesame`.
 async fn db_with_ada() -> Db {
-    let mut db = memory_db(toasty::models!(AdminUser, AuthSession)).await;
+    let mut db = test_db(toasty::models!(AdminUser, AuthSession)).await;
     create_admin(&mut db, "ada@example.com", "opensesame", "Ada")
         .await
         .expect("seed ada");

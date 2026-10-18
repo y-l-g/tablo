@@ -11,7 +11,7 @@ use toasty::{Db, Deferred};
 use topcoat::{context::Cx, router::Router};
 use uuid::Uuid;
 
-use crate::common::{body_string, get, memory_db, mount, panel, post_fields, refusal};
+use crate::common::{body_string, get, mount, panel, post_fields, refusal, test_db};
 
 #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
 struct Shelf {
@@ -126,7 +126,7 @@ struct Library {
 
 /// Both shelves hold both books.
 async fn library() -> Library {
-    let mut db = memory_db(toasty::models!(Shelf, Book, Placement)).await;
+    let mut db = test_db(toasty::models!(Shelf, Book, Placement)).await;
     let open = toasty::create!(Shelf { name: "Open" })
         .exec(&mut db)
         .await
@@ -417,7 +417,7 @@ struct ClubForm {
 
 #[tokio::test]
 async fn mounting_refuses_a_join_model_a_link_cannot_fill() {
-    let db = memory_db(toasty::models!(Club, Book, Membership)).await;
+    let db = test_db(toasty::models!(Club, Book, Membership)).await;
     let fault = ManyToManyFault::UnwritableColumn {
         model: "Membership".to_string(),
         column: "role".to_string(),
@@ -468,7 +468,7 @@ struct TaggedShelfForm {
 
 #[tokio::test]
 async fn mounting_refuses_a_multiple_choice_over_a_column() {
-    let db = memory_db(toasty::models!(Shelf, Book, Placement)).await;
+    let db = test_db(toasty::models!(Shelf, Book, Placement)).await;
     let kinds: Vec<DeclarationErrorKind> =
         refusal(mount(db, panel().resource::<TaggedShelfResource>()))
             .into_iter()

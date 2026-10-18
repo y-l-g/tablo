@@ -6,20 +6,15 @@ use showcase::models::{DEMO_ADMIN_EMAIL, seed, seed_content, seed_staff};
 pub use tablo::testing::{
     SESSION_COOKIE, TestClient, body_string, filter_options, find_href_with, form_body,
     input_value, mount, multipart_body, response_cookies, row_keys, session_cookie_value,
-    set_cookie_header,
+    set_cookie_header, test_db,
 };
 use tablo::{TenantId, testing::rows};
 use toasty::Db;
 use topcoat::router::{Body, Router};
 
-/// Returns a fresh `Db` with the full showcase schema and no rows.
-///
-/// The database is in-memory SQLite, or the one `TABLO_TEST_DATABASE_URL` names, built with the
-/// showcase's `postgresql`, `mysql` or `turso` feature. Tests may share that database, so each
-/// test's tables carry a prefix of their own.
+/// A fresh `Db` with the full showcase schema and no rows, on the database [`test_db`] picks.
 pub async fn empty_schema_db() -> Db {
-    let mut builder = Db::builder();
-    builder.models(toasty::models!(
+    test_db(toasty::models!(
         showcase::models::User,
         showcase::models::Author,
         showcase::models::Post,
@@ -33,33 +28,8 @@ pub async fn empty_schema_db() -> Db {
         tablo::auth::AuthSession,
         tablo::auth::ColumnPreference,
         tablo::auth::PasswordResetToken
-    ));
-    let url = match std::env::var("TABLO_TEST_DATABASE_URL") {
-        Ok(url) => {
-            builder.table_name_prefix(&table_prefix());
-            url
-        }
-        Err(_) => "sqlite::memory:".to_string(),
-    };
-    let db = builder.connect(&url).await.expect("connect");
-    db.push_schema().await.expect("push_schema");
-    db
-}
-
-/// A table-name prefix no other test of this run or of an earlier run uses. It stays short:
-/// PostgreSQL truncates an identifier past 63 bytes, so a long prefix could make two index names
-/// collide.
-fn table_prefix() -> String {
-    static RUN: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
-    static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-    let run = RUN.get_or_init(|| {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default();
-        now.as_secs() as u32 ^ now.subsec_nanos()
-    });
-    let test = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    format!("t{run:08x}{test}_")
+    ))
+    .await
 }
 
 /// [`empty_schema_db`] with the demo admin seeded and zero user rows.

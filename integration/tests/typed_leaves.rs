@@ -2,9 +2,8 @@
 //! value is a field error on the page, and an untouched value keeps what the control cannot show.
 
 use tablo::{Ability, Allow, Auth, Panel, Resource, ResourceDef, Table, TextColumn, lens};
-use toasty::Db;
 
-use crate::common::{TestClient, body_string, control, field_error, input_value, memory_db, mount};
+use crate::common::{TestClient, body_string, control, field_error, input_value, mount, test_db};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Measurement {
@@ -50,7 +49,7 @@ impl Resource for MeasurementResource {
 /// spelling that input accepts: a timestamp in UTC, to the minute.
 #[tokio::test]
 async fn a_typed_field_renders_its_input_and_the_stored_value() {
-    let db = memory_db(toasty::models!(Measurement)).await;
+    let db = test_db(toasty::models!(Measurement)).await;
     let router = mount(
         db.clone(),
         Panel::new("admin")
@@ -143,12 +142,7 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
     struct ReadingForm {
         word_count: i64,
     }
-    let db = Db::builder()
-        .models(toasty::models!(Reading))
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    db.push_schema().await.unwrap();
+    let db = test_db(toasty::models!(Reading)).await;
     let router: Router = mount(
         db.clone(),
         Panel::new("admin")
@@ -235,7 +229,7 @@ async fn an_untouched_timestamp_keeps_its_seconds() {
                 .table(Table::new(TextColumn::new(lens!(Shift.label))))
         }
     }
-    let db = memory_db(toasty::models!(Shift)).await;
+    let db = test_db(toasty::models!(Shift)).await;
     let router = mount(
         db.clone(),
         Panel::new("admin")

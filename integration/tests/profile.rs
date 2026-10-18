@@ -22,7 +22,7 @@ use topcoat::{
 };
 use uuid::Uuid;
 
-use crate::common::{TestClient, body_string, field_error, flash, memory_db, mount, refusal};
+use crate::common::{TestClient, body_string, field_error, flash, mount, refusal, test_db};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Note {
@@ -46,7 +46,7 @@ impl Resource for NoteResource {
 }
 
 async fn db() -> Db {
-    memory_db(toasty::models!(Note, AdminUser, AuthSession)).await
+    test_db(toasty::models!(Note, AdminUser, AuthSession)).await
 }
 
 fn router(db: Db, auth: Auth) -> Router {

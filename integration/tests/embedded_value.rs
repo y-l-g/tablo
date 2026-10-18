@@ -9,6 +9,8 @@ use topcoat::{
     view::ViewExt,
 };
 
+use crate::common::test_db;
+
 fn mentions(schema: &Schema, values: &FormValues) -> bool {
     schema.fields().any(|field| values.contains(field.name()))
 }
@@ -660,7 +662,7 @@ impl Resource for PostDetail {
 /// and that variant's leaves alone, with no control.
 #[tokio::test]
 async fn a_detail_page_shows_an_embedded_value_leaf_by_leaf() {
-    let mut db = crate::common::memory_db(toasty::models!(Post)).await;
+    let mut db = test_db(toasty::models!(Post)).await;
     let post = toasty::create!(Post {
         title: "Launch".to_string(),
         seo: Seo {

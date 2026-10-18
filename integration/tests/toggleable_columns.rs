@@ -9,7 +9,7 @@ use tablo::{
 use toasty::Db;
 use uuid::Uuid;
 
-use crate::common::{TestClient, body_string, form_body, memory_db, mount, refusal, rows};
+use crate::common::{TestClient, body_string, form_body, mount, refusal, rows, test_db};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Book {
@@ -64,7 +64,7 @@ async fn shown(client: &TestClient<'_>) -> Vec<String> {
 
 /// A database holding one book and the admins `ada` and `grace`.
 async fn library() -> (Db, AdminUser, AdminUser) {
-    let mut db = memory_db(toasty::models!(
+    let mut db = test_db(toasty::models!(
         Book,
         AdminUser,
         AuthSession,
@@ -169,7 +169,7 @@ async fn a_choice_hiding_every_column_shows_the_defaults() {
 
 #[tokio::test]
 async fn toggleable_columns_need_the_preference_model_only_behind_auth() {
-    let db = memory_db(toasty::models!(Book, AdminUser, AuthSession)).await;
+    let db = test_db(toasty::models!(Book, AdminUser, AuthSession)).await;
     let kinds: Vec<DeclarationErrorKind> = refusal(mount(db.clone(), panel()))
         .into_iter()
         .map(|error| error.kind)

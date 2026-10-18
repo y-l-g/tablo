@@ -1,8 +1,10 @@
 //! Drives a built `Router` without a socket, carrying cookies, CSRF token, and
 //! tenant, and reads values back out of its responses.
 
+mod db;
 mod protocol;
 
+pub use db::{TEST_DATABASE_URL, test_db};
 use http::header::{CONTENT_TYPE, COOKIE};
 pub use protocol::{
     EmptyReason, EmptyTable, ErrorKind, FilterOption, Group, PickerColumn, Row, RowActions,

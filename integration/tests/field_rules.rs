@@ -11,7 +11,7 @@ use topcoat::router::Router;
 use uuid::Uuid;
 
 use crate::common::{
-    TestClient, body_string, control, field_error, field_error_message, memory_db, mount, refusal,
+    TestClient, body_string, control, field_error, field_error_message, mount, refusal, test_db,
 };
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
@@ -56,7 +56,7 @@ impl Resource for TicketResource {
 }
 
 async fn tickets() -> (Db, Router) {
-    let db = memory_db(toasty::models!(Ticket)).await;
+    let db = test_db(toasty::models!(Ticket)).await;
     let router = mount(
         db.clone(),
         Panel::new("admin")
@@ -229,7 +229,7 @@ async fn a_misdeclared_rule_refuses_the_mount() {
         }
     }
 
-    let db = memory_db(toasty::models!(Ticket)).await;
+    let db = test_db(toasty::models!(Ticket)).await;
     let errors = refusal(mount(
         db,
         Panel::new("admin")
