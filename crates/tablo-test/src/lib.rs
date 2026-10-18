@@ -5,11 +5,11 @@ mod protocol;
 
 use http::header::{CONTENT_TYPE, COOKIE};
 pub use protocol::{
-    EmptyReason, EmptyTable, ErrorKind, FilterOption, PickerColumn, Row, RowActions,
+    EmptyReason, EmptyTable, ErrorKind, FilterOption, Group, PickerColumn, Row, RowActions,
     SESSION_COOKIE, body_bytes, body_string, column_picker, columns, confirms_first, cookie_header,
     empty_table, field_error, field_error_message, filter_options, find_href_with, form_body,
-    input_value, multipart_body, nav_badge, notification, response_cookies, row_actions, row_keys,
-    rows, session_cookie_value, set_cookie_header,
+    groups, input_value, multipart_body, nav_badge, notification, response_cookies, row_actions,
+    row_keys, rows, session_cookie_value, set_cookie_header,
 };
 use tablo_core::{DeclarationError, MountError, Panel, PanelUser, RouterBuilderPanelExt};
 use topcoat::router::{Body, Router, RouterBuilderDiscoverExt};

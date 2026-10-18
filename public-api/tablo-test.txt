@@ -77,6 +77,24 @@ impl core::marker::Unpin for tablo_test::FilterOption
 impl core::marker::UnsafeUnpin for tablo_test::FilterOption
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::FilterOption
 impl core::panic::unwind_safe::UnwindSafe for tablo_test::FilterOption
+pub struct tablo_test::Group
+pub tablo_test::Group::label: alloc::string::String
+pub tablo_test::Group::rows: alloc::vec::Vec<tablo_test::Row>
+impl core::clone::Clone for tablo_test::Group
+pub fn tablo_test::Group::clone(&self) -> tablo_test::Group
+impl core::cmp::Eq for tablo_test::Group
+impl core::cmp::PartialEq for tablo_test::Group
+pub fn tablo_test::Group::eq(&self, &tablo_test::Group) -> bool
+impl core::fmt::Debug for tablo_test::Group
+pub fn tablo_test::Group::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_test::Group
+impl core::marker::Freeze for tablo_test::Group
+impl core::marker::Send for tablo_test::Group
+impl core::marker::Sync for tablo_test::Group
+impl core::marker::Unpin for tablo_test::Group
+impl core::marker::UnsafeUnpin for tablo_test::Group
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::Group
+impl core::panic::unwind_safe::UnwindSafe for tablo_test::Group
 pub struct tablo_test::PickerColumn
 pub tablo_test::PickerColumn::name: alloc::string::String
 pub tablo_test::PickerColumn::shown: bool
@@ -169,6 +187,7 @@ pub fn tablo_test::field_error_message(&str, &str) -> core::option::Option<alloc
 pub fn tablo_test::filter_options(&str, &str) -> core::option::Option<alloc::vec::Vec<tablo_test::FilterOption>>
 pub fn tablo_test::find_href_with(&str, &str) -> core::option::Option<alloc::string::String>
 pub fn tablo_test::form_body(&[(&str, &str)]) -> alloc::string::String
+pub fn tablo_test::groups(&str) -> alloc::vec::Vec<tablo_test::Group>
 pub fn tablo_test::input_value(&str, &str) -> core::option::Option<alloc::string::String>
 pub fn tablo_test::mount(toasty::db::Db, tablo_core::panel::Panel) -> topcoat::Result<topcoat_router::router::Router>
 pub fn tablo_test::multipart_body(&str, &[(&str, core::option::Option<&str>, &str)]) -> alloc::string::String

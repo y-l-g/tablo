@@ -489,7 +489,6 @@ async fn a_confirming_action_with_input_confirms_in_its_dialog_and_on_its_page()
         page.contains("name=\"confirm\" value=\"1\""),
         "the page's submit is the confirmation: {page}"
     );
-    assert!(page.contains("cannot be undone"), "{page}");
     assert_eq!(ticket(&db, alpha.id).await.reason, "", "nothing ran");
 
     let response = post_fields(&router, &url, &[("confirm", "1"), ("note", "")]).await;

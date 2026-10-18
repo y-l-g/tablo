@@ -2,10 +2,11 @@
 //!
 //! The table and form renderers own their markup; tests assert the behavior
 //! the markup carries. Each helper reads one stable hook:
-//! `tr[id^="row-"]` for rows, `[aria-label]` links and buttons for actions,
-//! `#{name}-error` and its `data-error` for field errors, `[data-filter-name]` for filters,
-//! `[data-empty]` for the zero-rows message, `[data-sidebar=menu-item]` for sidebar entries,
-//! `th[data-column]` for the shown columns, and the `column` checkboxes for the column picker.
+//! `tr[id^="row-"]` for rows, `tr[data-group]` for group headers, `[aria-label]` links and buttons
+//! for actions, `#{name}-error` and its `data-error` for field errors, `[data-filter-name]` for
+//! filters, `[data-empty]` for the zero-rows message, `[data-sidebar=menu-item]` for sidebar
+//! entries, `th[data-column]` for the shown columns, and the `column` checkboxes for the column
+//! picker.
 //!
 //! The queries assume one table per document: rows never nest, and cells carry text rather than
 //! nested tables.
@@ -149,6 +150,34 @@ pub fn rows(html: &str) -> Vec<Row> {
             continue;
         }
         out.push(row(&inner));
+    }
+    out
+}
+
+/// One group of a grouped table: its header's label and the rows under it on this page.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Group {
+    /// The label the group's header shows.
+    pub label: String,
+    /// The group's rows on this page, in document order.
+    pub rows: Vec<Row>,
+}
+
+/// The groups of `html` in document order, empty when the table renders ungrouped. A group holds
+/// the rows from its header to the next one.
+pub fn groups(html: &str) -> Vec<Group> {
+    let mut out: Vec<Group> = Vec::new();
+    for (_, attrs, inner) in elements(html, "tr") {
+        if let Some(label) = attr_value(&attrs, "data-group") {
+            out.push(Group {
+                label,
+                rows: Vec::new(),
+            });
+        } else if attr_value(&attrs, "id").is_some_and(|id| id.starts_with("row-"))
+            && let Some(group) = out.last_mut()
+        {
+            group.rows.push(row(&inner));
+        }
     }
     out
 }

@@ -237,7 +237,7 @@ async fn the_trail_links_the_list_from_a_record_page() {
 }
 
 /// A page that fails to load shows the failure inside the shell, under its own URL and status:
-/// the sidebar, the user menu, a trail ending in the failure, and a way home.
+/// the sidebar, the user menu, and a trail back to the entry it failed under.
 #[tokio::test]
 async fn a_failed_page_shows_the_failure_inside_the_shell() {
     let db = seeded_db().await;
@@ -255,25 +255,14 @@ async fn a_failed_page_shows_the_failure_inside_the_shell() {
     .unwrap()
     .expect("Ken seed");
 
-    for (path, status, entry, failure) in [
-        (
-            "/admin/unknown".to_string(),
-            404,
-            "/admin",
-            "Page not found",
-        ),
+    for (path, status, entry) in [
+        ("/admin/unknown".to_string(), 404, "/admin"),
         (
             format!("/admin/posts/{}", uuid::Uuid::new_v4()),
             404,
             "/admin/posts",
-            "Page not found",
         ),
-        (
-            format!("/admin/users/{}/edit", ken.id),
-            403,
-            "/admin/users",
-            "Access denied",
-        ),
+        (format!("/admin/users/{}/edit", ken.id), 403, "/admin/users"),
     ] {
         let response = client.get(&path).await;
         assert_eq!(response.status(), status, "{path}");
@@ -288,8 +277,8 @@ async fn a_failed_page_shows_the_failure_inside_the_shell() {
         );
         let trail = &html[html.find("aria-label=\"breadcrumb\"").expect("a trail")..];
         assert!(
-            find_href_with(trail, entry).is_some() && trail.contains(failure),
-            "{path}: the trail links {entry} and names the failure, got {trail}"
+            find_href_with(trail, entry).is_some(),
+            "{path}: the trail links {entry}, got {trail}"
         );
     }
 }

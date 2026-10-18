@@ -654,7 +654,7 @@ async fn comments_list_offers_row_and_bulk_delete() {
     let resp = client.get("/admin/comments").await;
     let html = body_string(resp).await;
     assert!(
-        html.contains("formaction=\"/admin/comments/-/bulk-delete\""),
+        tablo::testing::confirms_first(&html, "/admin/comments/-/bulk-delete").is_some(),
         "the moderation queue must offer bulk delete: {html}"
     );
     let rendered = tablo::testing::rows(&html);

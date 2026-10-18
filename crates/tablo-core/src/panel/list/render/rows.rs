@@ -91,10 +91,11 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
     let header = row.group_header.clone().map(|header| {
         let colspan = chrome.header_colspan;
         let id = group_header_dom_id(&chrome.id_scope, &header.label);
+        let label = header.label.clone();
         view! {
             cx =>
             table_row(
-                attrs: attributes! { id=(id) },
+                attrs: attributes! { id=(id) data-group=(label) },
                 table_cell(
                     attrs: attributes! {
                         colspan=(colspan)
