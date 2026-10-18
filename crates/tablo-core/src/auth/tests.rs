@@ -577,8 +577,8 @@ fn an_inactive_user_is_not_signed_in() {
     );
 }
 
-/// A user holding the memberships it carries.
-struct Member(Vec<Membership>);
+/// A user holding the memberships it carries, and the default tenant it names.
+struct Member(Vec<Membership>, Option<uuid::Uuid>);
 
 impl PanelUser for Member {
     fn user_id(&self) -> String {
@@ -592,12 +592,26 @@ impl PanelUser for Member {
     fn tenants(&self) -> &[Membership] {
         &self.0
     }
+
+    fn default_tenant(&self) -> Option<uuid::Uuid> {
+        self.1
+    }
 }
 
 /// A request on `/admin` signed in as a member of `tenants`, whose session
 /// selected `selected`, with an optional `Tenant` override on the `Cx`.
 fn member_cx(
     tenants: &[uuid::Uuid],
+    selected: Option<uuid::Uuid>,
+    overridden: Option<uuid::Uuid>,
+) -> Cx {
+    defaulting_cx(tenants, None, selected, overridden)
+}
+
+/// [`member_cx`] for a member naming `default` as their default tenant.
+fn defaulting_cx(
+    tenants: &[uuid::Uuid],
+    default: Option<uuid::Uuid>,
     selected: Option<uuid::Uuid>,
     overridden: Option<uuid::Uuid>,
 ) -> Cx {
@@ -615,7 +629,7 @@ fn member_cx(
             &panel,
         )))
         .request_context(SignedIn {
-            user: std::sync::Arc::new(Member(memberships)),
+            user: std::sync::Arc::new(Member(memberships, default)),
             panel,
             tenant: selected,
         })
@@ -670,4 +684,20 @@ fn verification_holds_only_a_user_with_an_address() {
     let auth = Auth::password().email_verification(EmailVerification::new(PasswordAuth));
     let panel = crate::panel::test_support::panel_state("/admin", auth);
     assert!(!verification::pending(&panel, &Nameless));
+}
+
+/// Before the session selects one, the request acts for the user's default tenant while they are
+/// a member of it, else their first.
+#[test]
+fn the_default_tenant_comes_before_the_first() {
+    let (a, b, stranger) = (
+        uuid::Uuid::from_u128(1),
+        uuid::Uuid::from_u128(2),
+        uuid::Uuid::from_u128(3),
+    );
+    let tenant =
+        |default, selected| crate::tenant_id(&defaulting_cx(&[a, b], default, selected, None));
+    assert_eq!(tenant(Some(b), None), Some(b));
+    assert_eq!(tenant(Some(b), Some(a)), Some(a), "a selection wins");
+    assert_eq!(tenant(Some(stranger), None), Some(a));
 }

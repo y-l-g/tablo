@@ -284,8 +284,9 @@ impl<F> TextField<F> {
         self
     }
 
-    /// Render `type="password"`: the browser masks the value, and a refused form renders the
-    /// control empty rather than echoing the password back into the page. It renders the one-line
+    /// Render `type="password"`: the browser masks the value, a button beside it shows what was
+    /// typed, and a refused form renders the control empty rather than echoing the password back
+    /// into the page. It renders the one-line
     /// input even when [`multiline`](Self::multiline).
     pub fn password(mut self) -> Self {
         self.text().password = true;

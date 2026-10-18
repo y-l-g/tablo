@@ -178,6 +178,7 @@ pub fn tablo_core::auth::AdminUser::detail() -> tablo_core::detail::Detail<tablo
 pub fn tablo_core::auth::AdminUser::table() -> tablo_core::table::Table<tablo_core::auth::AdminUser>
 impl tablo_core::auth::PanelUser for tablo_core::auth::AdminUser
 pub fn tablo_core::auth::AdminUser::can_access_panel(&self) -> bool
+pub fn tablo_core::auth::AdminUser::default_tenant(&self) -> core::option::Option<uuid::Uuid>
 pub fn tablo_core::auth::AdminUser::display_name(&self) -> &str
 pub fn tablo_core::auth::AdminUser::email(&self) -> core::option::Option<&str>
 pub fn tablo_core::auth::AdminUser::subtitle(&self) -> core::option::Option<&str>
@@ -831,6 +832,7 @@ pub fn tablo_core::PasswordAuth::is_verified(&self, &tablo_core::auth::AdminUser
 pub async fn tablo_core::PasswordAuth::store_verified_email(&self, &topcoat_core::context::Cx, &str, &str, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<()>
 pub trait tablo_core::auth::PanelUser: core::any::Any + core::marker::Send + core::marker::Sync
 pub fn tablo_core::auth::PanelUser::can_access_panel(&self) -> bool
+pub fn tablo_core::auth::PanelUser::default_tenant(&self) -> core::option::Option<uuid::Uuid>
 pub fn tablo_core::auth::PanelUser::display_name(&self) -> &str
 pub fn tablo_core::auth::PanelUser::email(&self) -> core::option::Option<&str>
 pub fn tablo_core::auth::PanelUser::subtitle(&self) -> core::option::Option<&str>
@@ -838,6 +840,7 @@ pub fn tablo_core::auth::PanelUser::tenants(&self) -> &[tablo_core::tenancy::Mem
 pub fn tablo_core::auth::PanelUser::user_id(&self) -> alloc::string::String
 impl tablo_core::auth::PanelUser for tablo_core::auth::AdminUser
 pub fn tablo_core::auth::AdminUser::can_access_panel(&self) -> bool
+pub fn tablo_core::auth::AdminUser::default_tenant(&self) -> core::option::Option<uuid::Uuid>
 pub fn tablo_core::auth::AdminUser::display_name(&self) -> &str
 pub fn tablo_core::auth::AdminUser::email(&self) -> core::option::Option<&str>
 pub fn tablo_core::auth::AdminUser::subtitle(&self) -> core::option::Option<&str>
@@ -6948,6 +6951,7 @@ pub fn tablo_core::Page::declare() -> tablo_core::PageDef
 pub fn tablo_core::Page::render(&topcoat_core::context::Cx) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send
 pub trait tablo_core::PanelUser: core::any::Any + core::marker::Send + core::marker::Sync
 pub fn tablo_core::PanelUser::can_access_panel(&self) -> bool
+pub fn tablo_core::PanelUser::default_tenant(&self) -> core::option::Option<uuid::Uuid>
 pub fn tablo_core::PanelUser::display_name(&self) -> &str
 pub fn tablo_core::PanelUser::email(&self) -> core::option::Option<&str>
 pub fn tablo_core::PanelUser::subtitle(&self) -> core::option::Option<&str>
@@ -6955,6 +6959,7 @@ pub fn tablo_core::PanelUser::tenants(&self) -> &[tablo_core::tenancy::Membershi
 pub fn tablo_core::PanelUser::user_id(&self) -> alloc::string::String
 impl tablo_core::auth::PanelUser for tablo_core::auth::AdminUser
 pub fn tablo_core::auth::AdminUser::can_access_panel(&self) -> bool
+pub fn tablo_core::auth::AdminUser::default_tenant(&self) -> core::option::Option<uuid::Uuid>
 pub fn tablo_core::auth::AdminUser::display_name(&self) -> &str
 pub fn tablo_core::auth::AdminUser::email(&self) -> core::option::Option<&str>
 pub fn tablo_core::auth::AdminUser::subtitle(&self) -> core::option::Option<&str>

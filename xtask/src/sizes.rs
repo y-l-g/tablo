@@ -23,7 +23,7 @@ const VENDORED: &str = "crates/tablo-ui/src/components/primitives/";
 /// and one back under its limit leaves the list.
 pub const OVERSIZED: &[(&str, usize)] = &[
     ("crates/tablo-core/src/declaration.rs", 742),
-    ("crates/tablo-core/src/panel/shell.rs", 713),
+    ("crates/tablo-core/src/panel/shell.rs", 712),
     ("crates/tablo-core/src/schema/embedded.rs", 750),
     ("crates/tablo-core/src/schema/fields.rs", 871),
     ("crates/tablo-core/src/schema/fields/choice.rs", 643),
@@ -31,7 +31,7 @@ pub const OVERSIZED: &[(&str, usize)] = &[
     ("crates/tablo-core/src/table/tests.rs", 1023),
     ("crates/tablo-core/src/toasty_compat/model.rs", 635),
     ("integration/tests/record_form.rs", 1202),
-    ("xtask/src/lib.rs", 796),
+    ("xtask/src/lib.rs", 659),
 ];
 
 /// Whether `path`, relative to the root with `/` separators, is a test source.
