@@ -122,8 +122,12 @@ toolchains. Run `check --all` before merging.
   framework feature each: `cargo test -p showcase --test it list::` runs one file. `gates` holds the
   anonymous, CSRF and cross-tenant matrices, so a new route joins them there.
 - `integration/tests/it.rs` covers what the showcase's resources do not reach, with test-local
-  models on their own SQLite databases: `cargo test -p tablo-integration --test it uploads::` runs
+  models on their own SQLite databases: `cargo test -p tablo-integration --test it upload::` runs
   one file. It is its own crate so that no published crate dev-depends on `tablo-test`.
+- A suite file that pins one feature takes the name of the feature's source module in every tier:
+  `panel/shell.rs` is pinned by `shell` in both suites, `auth/login.rs` by `login`. A feature split
+  over several files shares a prefix (`action_input`, `action_policy`), and a file that crosses
+  features names what it crosses (`gates`, `key_collisions`).
 
 ## Writing
 

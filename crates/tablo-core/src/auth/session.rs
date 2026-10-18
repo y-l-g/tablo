@@ -120,7 +120,7 @@ pub(super) async fn end_credentials(
         // Without a reset the token model may be unregistered.
         return Ok(());
     }
-    super::reset::end_links(ex, user_id, Some(resets)).await
+    super::password_reset::end_links(ex, user_id, Some(resets)).await
 }
 
 /// Replaces every session `user_id` holds, on every panel whose authenticator loads `user_type`,
@@ -265,7 +265,7 @@ pub async fn revoke_sessions_for_user(cx: &Cx, user_id: &str) -> topcoat::Result
     let resets = crate::panel::state::panels(cx)
         .is_some_and(|panels| panels.0.iter().any(|panel| panel.auth.reset().is_some()));
     if resets {
-        super::reset::end_links(&mut db, user_id, None).await?;
+        super::password_reset::end_links(&mut db, user_id, None).await?;
     }
     Ok(())
 }
