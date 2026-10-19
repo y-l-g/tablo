@@ -1990,10 +1990,11 @@ pub fn tablo_core::panel::Panel::user_menu_item(self, tablo_core::navigation::Na
 pub fn tablo_core::panel::Panel::without_frame_ancestors(self) -> Self
 impl tablo_core::panel::Panel
 pub async fn tablo_core::panel::Panel::document<'a>(&'a topcoat_core::context::Cx, impl core::convert::Into<alloc::string::String>, impl topcoat_view::view::View + 'a) -> topcoat::Result<topcoat_view::view::BoxView<'a>>
-pub fn tablo_core::panel::Panel::layout_shell<'a>(&'a topcoat_core::context::Cx, topcoat_router::page::Slot<'a>) -> topcoat_view::view::BoxView<'a>
-pub async fn tablo_core::panel::Panel::render_shell<'a>(&'a topcoat_core::context::Cx, &[tablo_core::navigation::NavigationItem], &str, topcoat_view::child::Child<'a>, core::option::Option<alloc::string::String>) -> topcoat::Result<topcoat_view::view::BoxView<'a>>
 impl tablo_core::panel::Panel
 pub fn tablo_core::panel::Panel::handle(self, &toasty::db::Db) -> topcoat::Result<tablo_core::PanelHandle>
+impl tablo_core::panel::Panel
+pub fn tablo_core::panel::Panel::layout_shell<'a>(&'a topcoat_core::context::Cx, topcoat_router::page::Slot<'a>) -> topcoat_view::view::BoxView<'a>
+pub async fn tablo_core::panel::Panel::render_shell<'a>(&'a topcoat_core::context::Cx, &[tablo_core::navigation::NavigationItem], &str, topcoat_view::child::Child<'a>, core::option::Option<alloc::string::String>) -> topcoat::Result<topcoat_view::view::BoxView<'a>>
 impl !core::marker::Freeze for tablo_core::panel::Panel
 impl core::marker::Send for tablo_core::panel::Panel
 impl !core::marker::Sync for tablo_core::panel::Panel
@@ -2004,6 +2005,9 @@ impl !core::panic::unwind_safe::UnwindSafe for tablo_core::panel::Panel
 pub struct tablo_core::panel::PanelHandle
 impl tablo_core::PanelHandle
 pub fn tablo_core::PanelHandle::context(&self) -> topcoat_core::context::Cx
+pub async fn tablo_core::PanelHandle::document<'a>(&'a self, &'a topcoat_core::context::Cx, impl core::convert::Into<alloc::string::String>, impl topcoat_view::view::View + 'a) -> topcoat::Result<topcoat_view::view::BoxView<'a>>
+pub fn tablo_core::PanelHandle::enter(&self, &topcoat_core::context::Cx) -> topcoat_core::context::Cx
+pub fn tablo_core::PanelHandle::url(&self) -> core::option::Option<alloc::string::String>
 impl core::clone::Clone for tablo_core::PanelHandle
 pub fn tablo_core::PanelHandle::clone(&self) -> tablo_core::PanelHandle
 impl core::marker::Freeze for tablo_core::PanelHandle
@@ -5767,10 +5771,11 @@ pub fn tablo_core::panel::Panel::user_menu_item(self, tablo_core::navigation::Na
 pub fn tablo_core::panel::Panel::without_frame_ancestors(self) -> Self
 impl tablo_core::panel::Panel
 pub async fn tablo_core::panel::Panel::document<'a>(&'a topcoat_core::context::Cx, impl core::convert::Into<alloc::string::String>, impl topcoat_view::view::View + 'a) -> topcoat::Result<topcoat_view::view::BoxView<'a>>
-pub fn tablo_core::panel::Panel::layout_shell<'a>(&'a topcoat_core::context::Cx, topcoat_router::page::Slot<'a>) -> topcoat_view::view::BoxView<'a>
-pub async fn tablo_core::panel::Panel::render_shell<'a>(&'a topcoat_core::context::Cx, &[tablo_core::navigation::NavigationItem], &str, topcoat_view::child::Child<'a>, core::option::Option<alloc::string::String>) -> topcoat::Result<topcoat_view::view::BoxView<'a>>
 impl tablo_core::panel::Panel
 pub fn tablo_core::panel::Panel::handle(self, &toasty::db::Db) -> topcoat::Result<tablo_core::PanelHandle>
+impl tablo_core::panel::Panel
+pub fn tablo_core::panel::Panel::layout_shell<'a>(&'a topcoat_core::context::Cx, topcoat_router::page::Slot<'a>) -> topcoat_view::view::BoxView<'a>
+pub async fn tablo_core::panel::Panel::render_shell<'a>(&'a topcoat_core::context::Cx, &[tablo_core::navigation::NavigationItem], &str, topcoat_view::child::Child<'a>, core::option::Option<alloc::string::String>) -> topcoat::Result<topcoat_view::view::BoxView<'a>>
 impl !core::marker::Freeze for tablo_core::panel::Panel
 impl core::marker::Send for tablo_core::panel::Panel
 impl !core::marker::Sync for tablo_core::panel::Panel
@@ -5781,6 +5786,9 @@ impl !core::panic::unwind_safe::UnwindSafe for tablo_core::panel::Panel
 pub struct tablo_core::PanelHandle
 impl tablo_core::PanelHandle
 pub fn tablo_core::PanelHandle::context(&self) -> topcoat_core::context::Cx
+pub async fn tablo_core::PanelHandle::document<'a>(&'a self, &'a topcoat_core::context::Cx, impl core::convert::Into<alloc::string::String>, impl topcoat_view::view::View + 'a) -> topcoat::Result<topcoat_view::view::BoxView<'a>>
+pub fn tablo_core::PanelHandle::enter(&self, &topcoat_core::context::Cx) -> topcoat_core::context::Cx
+pub fn tablo_core::PanelHandle::url(&self) -> core::option::Option<alloc::string::String>
 impl core::clone::Clone for tablo_core::PanelHandle
 pub fn tablo_core::PanelHandle::clone(&self) -> tablo_core::PanelHandle
 impl core::marker::Freeze for tablo_core::PanelHandle

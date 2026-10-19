@@ -9,7 +9,9 @@
 
 use showcase::models::{Post, PostStatus};
 
-use crate::common::{TestClient, body_string, full_db, routers::router_for_tests as router};
+use crate::common::{
+    TestClient, body_string, find_href_with, full_db, routers::router_for_tests as router,
+};
 
 /// The one published seed post.
 async fn published_post(db: &toasty::Db) -> Post {
@@ -77,6 +79,13 @@ async fn blog_list_and_detail_are_public() {
         assert!(
             !html.contains("data-sidebar=\"sidebar\""),
             "the {name} page must not render the admin shell: {html}"
+        );
+        // Outside the prefix the request belongs to no panel: the blog names the admin panel
+        // through its handle, which spells the link.
+        assert_eq!(
+            find_href_with(html, "/admin").as_deref(),
+            Some("/admin"),
+            "the {name} page must link the admin panel: {html}"
         );
     }
 }

@@ -69,7 +69,7 @@ pub(super) async fn render<'a>(cx: &'a Cx, page: AuthPage<'a>) -> topcoat::Resul
         </main>
     }
     .boxed();
-    Panel::render_document(cx, title.to_string(), body).await
+    Panel::document(cx, title.to_string(), body).await
 }
 
 /// `prompt` and a link to `href` reading `label`: the line under the card.

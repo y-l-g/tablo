@@ -1,7 +1,8 @@
 //! URLs into the request's panel, so app code never spells a prefix.
 //!
 //! Each helper answers for the panel serving the request: the one whose
-//! prefix the request is under, or the only panel when the router mounts one.
+//! prefix the request is under, or the one it entered with
+//! [`PanelHandle::enter`](crate::PanelHandle::enter).
 //! A resource or page that panel does not register has no URL there, and the
 //! helper returns `None`.
 //!

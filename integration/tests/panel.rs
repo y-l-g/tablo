@@ -572,3 +572,57 @@ async fn a_resource_declares_once_when_its_panel_mounts() {
     }
     assert_eq!(DECLARE_CALLS.load(Ordering::SeqCst), 1);
 }
+
+/// Counts the books `BookResource`'s panel lets the request see: through the `PanelHandle` the
+/// app context holds when the route is `/entered/books`, through the request alone otherwise.
+fn book_count(cx: &Cx, _body: Body) -> RouteFuture<'_> {
+    Box::pin(async move {
+        let cx = match topcoat::context::try_app_context::<tablo::PanelHandle>(cx) {
+            Some(admin) if topcoat::router::request::uri(cx).path() == "/entered/books" => {
+                admin.enter(cx)
+            }
+            _ => cx.clone(),
+        };
+        let count = tablo::scoped_query::<BookResource>(&cx)?
+            .count()
+            .exec(&mut tablo::db::db(&cx))
+            .await?;
+        let url = tablo::url::resource::<BookResource>(&cx).unwrap_or_default();
+        format!("{count} {url}").into_response(&cx)
+    })
+}
+
+#[tokio::test]
+async fn a_route_outside_every_panel_answers_as_the_panel_it_enters() {
+    let builder = Router::builder()
+        .discover()
+        .app_context(books_db().await)
+        .route(RouteFn::new(http::Method::GET, "/books", book_count))
+        .route(RouteFn::new(
+            http::Method::GET,
+            "/entered/books",
+            book_count,
+        ))
+        .panel(
+            Panel::new("admin")
+                .auth(Auth::disabled())
+                .resource::<BookResource>(),
+        )
+        .expect("the panel mounts");
+    let admin = builder.panel_handle("admin").expect("mounted above");
+    let router = builder.app_context(admin).build();
+
+    let ambient = get(&router, "/books").await;
+    assert_eq!(
+        ambient.status(),
+        500,
+        "a request outside the prefix belongs to no panel, even on a router with one"
+    );
+    let entered = get(&router, "/entered/books").await;
+    assert_eq!(entered.status(), 200);
+    assert_eq!(
+        body_string(entered).await,
+        "1 /admin/books",
+        "the entered panel scopes the query and spells its URLs"
+    );
+}

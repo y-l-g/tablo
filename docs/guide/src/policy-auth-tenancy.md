@@ -110,7 +110,8 @@ panel's signed-in user exactly as the panel's own pages do. A shard needs it: To
 shards at its runtime path, where the page's checks do not run. On a router with several panels,
 the panel declares the shards and procedures its pages use with `Panel::endpoint(shard)`: a
 request to one then runs as that panel, and a session another panel signed in answers 401. A
-shard no panel declares runs as the panel whose session sent the request, whichever it is.
+shard no panel declares runs as the panel whose session sent the request, whichever it is, and
+as no panel when no session did, as on a panel with `Auth::disabled()`.
 
 A form route verifies the CSRF token it posted under `csrf::FIELD_NAME` with
 `csrf::verify(cx, token)`.

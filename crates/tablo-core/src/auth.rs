@@ -382,9 +382,8 @@ pub fn signed_in(cx: &Cx) -> bool {
 
 /// Whether the request's panel requires a signed-in user.
 ///
-/// Outside any panel — an app's own shard or page on a router that mounts
-/// several — it answers whether some mounted panel does, so a check there
-/// fails closed.
+/// Outside any panel — an app's own page, or a shard no panel declared — it
+/// answers whether some mounted panel does, so a check there fails closed.
 pub fn enforced(cx: &Cx) -> bool {
     match current(cx) {
         Some(panel) => panel.gates(),
