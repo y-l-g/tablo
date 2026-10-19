@@ -40,7 +40,7 @@ jiff.workspace = true
 password-hash = { version = "0.6", features = ["getrandom"] }
 percent-encoding.workspace = true
 # The default plural of a resource's label and slug; Toasty pluralizes its table names with it.
-pluralizer = "0.5"
+pluralizer = "0.6"
 # The QR code a two-factor set-up shows, drawn as one SVG path: no image renderer.
 qrcode = { version = "0.14", default-features = false }
 # A text field's `pattern` rule, checked again on the server.
