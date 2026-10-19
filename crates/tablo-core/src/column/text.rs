@@ -246,41 +246,11 @@ where
     fn cell<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
         let value = self.lens.read(row);
         let text = (self.format)(value);
+        let color = (!text.trim().is_empty() && (self.badge || self.tinted))
+            .then(|| (self.color)(value))
+            .flatten();
         let description = self.description.as_ref().map(|describe| describe(row));
-        let value: BoxView<'a> = if text.trim().is_empty() {
-            crate::schema::value_cell(cx, &text)
-        } else if self.badge {
-            badge_cell(cx, text, (self.color)(value))
-        } else {
-            let color = self
-                .tinted
-                .then(|| (self.color)(value))
-                .flatten()
-                .map(Color::text_class);
-            let class = [color, self.tabular.then_some("tabular-nums")]
-                .into_iter()
-                .flatten()
-                .collect::<Vec<_>>()
-                .join(" ");
-            if class.is_empty() {
-                view! { cx => (text) }.boxed()
-            } else {
-                view! { cx => <span class=(class)>(text)</span> }.boxed()
-            }
-        };
-        match description.filter(|description| !description.trim().is_empty()) {
-            None => value,
-            Some(description) => view! {
-                cx =>
-                <div class="flex min-w-0 flex-col">
-                    <span class="truncate">(value)</span>
-                    <span class="truncate text-xs text-muted-foreground">
-                        (description)
-                    </span>
-                </div>
-            }
-            .boxed(),
-        }
+        text_cell(cx, text, color, self.badge, self.tabular, description)
     }
 
     fn alignment(&self) -> Alignment {
@@ -305,6 +275,50 @@ where
     fn order_by(&self, descending: bool) -> Option<OrderByExpr> {
         self.sortable
             .then(|| sort_order(self.lens.path(), descending))
+    }
+}
+
+/// A text cell: `text`, as a badge or tinted by `color`, over its `description`. A free function,
+/// so tablo-core compiles the view once rather than once for each model and field type.
+fn text_cell<'a>(
+    cx: &'a Cx,
+    text: String,
+    color: Option<Color>,
+    badge: bool,
+    tabular: bool,
+    description: Option<String>,
+) -> BoxView<'a> {
+    let value: BoxView<'a> = if text.trim().is_empty() {
+        crate::schema::value_cell(cx, &text)
+    } else if badge {
+        badge_cell(cx, text, color)
+    } else {
+        let class = [
+            color.map(Color::text_class),
+            tabular.then_some("tabular-nums"),
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>()
+        .join(" ");
+        if class.is_empty() {
+            view! { cx => (text) }.boxed()
+        } else {
+            view! { cx => <span class=(class)>(text)</span> }.boxed()
+        }
+    };
+    match description.filter(|description| !description.trim().is_empty()) {
+        None => value,
+        Some(description) => view! {
+            cx =>
+            <div class="flex min-w-0 flex-col">
+                <span class="truncate">(value)</span>
+                <span class="truncate text-xs text-muted-foreground">
+                    (description)
+                </span>
+            </div>
+        }
+        .boxed(),
     }
 }
 

@@ -68,28 +68,37 @@ impl<C> Section<C> {
 
     /// The titled panel around `body`, or the title alone when the section holds nothing.
     pub(crate) fn chrome<'a>(&self, cx: &'a Cx, body: Option<BoxView<'a>>) -> BoxView<'a> {
-        let title = self.title.clone();
-        let extra = self.extra_class.clone();
-        match body {
-            Some(body) => view! {
-                cx =>
-                <div class=(class!(PANEL, extra.clone()))>
-                    card_header(card_title((title)))
-                    card_content(
-                        attrs: attributes! { class="flex flex-col gap-6" },
-                        (body)
-                    )
-                </div>
-            }
-            .boxed(),
-            None => view! {
-                cx =>
-                <div class=(class!(PANEL, extra.clone()))>
-                    card_header(card_title((title)))
-                </div>
-            }
-            .boxed(),
+        section_chrome(cx, &self.title, self.extra_class.as_deref(), body)
+    }
+}
+
+// The chromes are free functions, not methods of the generic blocks, so tablo-core compiles each
+// view once rather than once for every detail model an app declares.
+
+fn section_chrome<'a>(
+    cx: &'a Cx,
+    title: &str,
+    extra: Option<&str>,
+    body: Option<BoxView<'a>>,
+) -> BoxView<'a> {
+    let title = title.to_string();
+    let extra = extra.map(str::to_string);
+    match body {
+        Some(body) => view! {
+            cx =>
+            <div class=(class!(PANEL, extra.clone()))>
+                card_header(card_title((title)))
+                card_content(attrs: attributes! { class="flex flex-col gap-6" }, (body))
+            </div>
         }
+        .boxed(),
+        None => view! {
+            cx =>
+            <div class=(class!(PANEL, extra.clone()))>
+                card_header(card_title((title)))
+            </div>
+        }
+        .boxed(),
     }
 }
 
@@ -150,8 +159,12 @@ impl<C> Group<C> {
 
     /// The group around `body`.
     pub(crate) fn chrome<'a>(&self, cx: &'a Cx, body: BoxView<'a>) -> BoxView<'a> {
-        view! { cx => ui_field_group((body)) }.boxed()
+        group_chrome(cx, body)
     }
+}
+
+fn group_chrome<'a>(cx: &'a Cx, body: BoxView<'a>) -> BoxView<'a> {
+    view! { cx => ui_field_group((body)) }.boxed()
 }
 
 impl Group<Schema> {
@@ -205,24 +218,28 @@ impl<C> Grid<C> {
 
     /// The grid around `body`.
     pub(crate) fn chrome<'a>(&self, cx: &'a Cx, body: BoxView<'a>) -> BoxView<'a> {
-        // Static literals for Tailwind scanner — `format!("grid grid-cols-{}")` would be
-        // purged because Tailwind only sees literal substrings.
-        let class: &'static str = match self.cols {
-            1 => "grid grid-cols-1 gap-4",
-            2 => "grid grid-cols-2 gap-4",
-            3 => "grid grid-cols-3 gap-4",
-            4 => "grid grid-cols-4 gap-4",
-            5 => "grid grid-cols-5 gap-4",
-            6 => "grid grid-cols-6 gap-4",
-            7 => "grid grid-cols-7 gap-4",
-            8 => "grid grid-cols-8 gap-4",
-            9 => "grid grid-cols-9 gap-4",
-            10 => "grid grid-cols-10 gap-4",
-            11 => "grid grid-cols-11 gap-4",
-            _ => "grid grid-cols-12 gap-4",
-        };
-        view! { cx => <div class=(class)>(body)</div> }.boxed()
+        grid_chrome(cx, self.cols, body)
     }
+}
+
+fn grid_chrome<'a>(cx: &'a Cx, cols: u8, body: BoxView<'a>) -> BoxView<'a> {
+    // Static literals for Tailwind scanner — `format!("grid grid-cols-{}")` would be
+    // purged because Tailwind only sees literal substrings.
+    let class: &'static str = match cols {
+        1 => "grid grid-cols-1 gap-4",
+        2 => "grid grid-cols-2 gap-4",
+        3 => "grid grid-cols-3 gap-4",
+        4 => "grid grid-cols-4 gap-4",
+        5 => "grid grid-cols-5 gap-4",
+        6 => "grid grid-cols-6 gap-4",
+        7 => "grid grid-cols-7 gap-4",
+        8 => "grid grid-cols-8 gap-4",
+        9 => "grid grid-cols-9 gap-4",
+        10 => "grid grid-cols-10 gap-4",
+        11 => "grid grid-cols-11 gap-4",
+        _ => "grid grid-cols-12 gap-4",
+    };
+    view! { cx => <div class=(class)>(body)</div> }.boxed()
 }
 
 impl Grid<Schema> {
