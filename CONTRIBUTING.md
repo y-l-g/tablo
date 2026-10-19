@@ -68,6 +68,10 @@ toolchains. Run `check --all` before merging.
 - A source holds at most 600 lines, a test source 1000. `xtask/src/sizes.rs` lists the files
   past that, each capped at its current size; split one rather than raise its cap, lower the cap
   when the file shrinks, and drop it from the list once it fits.
+- Code generic over a model or resource is compiled again in every app crate, once per type.
+  Keep what does not read the type out of it: a view built from strings goes in a free function,
+  not a method of `impl<M>`, and a future only a generic caller awaits is returned boxed, as
+  `BoxFuture`, so tablo-core compiles it once.
 - Shared dependency versions live in the root `[workspace.dependencies]`.
 - `topcoat` and `toasty` are crates.io dependencies of the workspace and of
   `examples/quickstart`. Bump them in both manifests and the lockfile together with

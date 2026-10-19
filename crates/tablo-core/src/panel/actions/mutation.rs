@@ -320,7 +320,19 @@ async fn mutate<'a, R: Resource>(
 
 /// Runs the header action `action`, whose resource-wide or page check already passed, landing on
 /// `home` or the POST's `?return=`, and runs `after` once its write commits.
-pub(crate) async fn run_header<'a>(
+///
+/// Boxed for the reason the list's `Frame::render_page` is: only generic handlers poll it.
+pub(crate) fn run_header<'f, 'a: 'f>(
+    cx: &'a Cx,
+    body: Body,
+    action: HeaderEntry,
+    home: &'f str,
+    after: Option<AfterCommit>,
+) -> BoxFuture<'f, Result<BoxView<'a>, topcoat::Error>> {
+    Box::pin(header_run(cx, body, action, home, after))
+}
+
+async fn header_run<'a>(
     cx: &'a Cx,
     body: Body,
     action: HeaderEntry,

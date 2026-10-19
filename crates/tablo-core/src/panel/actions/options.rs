@@ -14,6 +14,7 @@ use topcoat::{
 
 use super::{super::gate::gate, mutation::header_allowed};
 use crate::{
+    BoxFuture,
     error::TabloError,
     resource::{InputSpec, Resource},
     schema::{OptionLoadError, Schema, clamp_query_term, option_view},
@@ -81,7 +82,16 @@ pub(crate) async fn input_options(
 }
 
 /// Answers the option search for the relationship field of `form` the query names.
-async fn options_response(cx: &Cx, form: &Schema) -> topcoat::Result<http::Response<Body>> {
+///
+/// Boxed for the reason the list's `Frame::render_page` is: only generic handlers poll it.
+fn options_response<'a>(
+    cx: &'a Cx,
+    form: &'a Schema,
+) -> BoxFuture<'a, topcoat::Result<http::Response<Body>>> {
+    Box::pin(search_options(cx, form))
+}
+
+async fn search_options(cx: &Cx, form: &Schema) -> topcoat::Result<http::Response<Body>> {
     let OptionsQuery { field, q, parent } = options_query(cx);
     let field = field.trim();
     if field.is_empty() {
