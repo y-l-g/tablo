@@ -255,52 +255,6 @@ async fn a_link_verifies_only_the_address_it_was_mailed_to_while_it_lasts() {
     );
 }
 
-/// A changed email is unverified until its link is opened.
-#[tokio::test]
-async fn a_changed_email_needs_verifying_again() {
-    let db = db().await;
-    let ada = create_admin(&mut db.clone(), "ada@example.com", "a password", "Ada")
-        .await
-        .unwrap();
-    let mail = MemoryTransport::new();
-    let router = mount(
-        db.clone(),
-        verifying(EmailVerification::new(PasswordAuth)).profile(PasswordAuth),
-        &mail,
-    )
-    .expect("panel builds");
-    let (client, _) = TestClient::new(&router)
-        .log_in("admin", "ada@example.com", "a password", "")
-        .await;
-    assert_eq!(client.get("/admin/tickets").await.status(), 200);
-
-    let saved = client
-        .submit(
-            "/admin/profile",
-            &form_body(&[
-                ("name", "Ada"),
-                ("email", "ada@new.example"),
-                ("current_password", "a password"),
-            ]),
-        )
-        .await;
-    assert_eq!(saved.status(), 303);
-    let client = client.cookie(
-        SESSION_COOKIE,
-        &session_cookie_value(&saved).expect("a credential change starts a new session"),
-    );
-
-    let page = client.get("/admin/tickets").await;
-    assert_eq!(page.headers().get(LOCATION).unwrap(), "/admin/verify-email");
-    assert!(
-        admin(&db, "ada@new.example")
-            .await
-            .email_verified_at
-            .is_none()
-    );
-    assert_eq!(ada.email, "ada@example.com");
-}
-
 /// The notice mails no more links than its throttle allows one account.
 #[tokio::test]
 async fn link_requests_past_the_throttle_answer_429() {

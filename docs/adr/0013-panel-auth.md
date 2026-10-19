@@ -30,9 +30,16 @@ is the explicit opt-out.
   it says whether a user proved their address and records an address a link proved. The gate
   sends an unverified user to the page that mails the link, and answers 403 elsewhere. The link
   verifies on `GET`, signed in or not, and only the address the account still stores.
+- With verification on, a new email waits for its link: the profile editor calls
+  `auth::request_email_change` in place of writing it, the panel mails the new address a link
+  that stores it as a credential change, and the old address a link that keeps it, for a week,
+  restoring it if the change went through, and signs every browser out. Unlike the verification
+  link, both links act only on the `POST` of the page they open: a scanner on the old mailbox
+  would otherwise sign the user out at delivery.
 - Every mailed link and pending sign-in is one `AuthToken` row: the token's hash, its purpose,
-  the account, the issuing panel and the expiry. A credential change ends all of an account's
-  tokens. One `AuthMail` names the sender and the configured base URL every link starts with.
+  the account, the issuing panel and the expiry. A credential change ends the account's sign-in
+  tokens; a reset, a cancelled email change and a revocation also end a pending change. A link
+  that proves an address or keeps the old one outlives both. One `AuthMail` names the sender and the configured base URL every link starts with.
 
 ## Rejected
 
@@ -50,6 +57,9 @@ is the explicit opt-out.
 - A verification link opened by `POST` behind a confirm button, which a mail scanner would not
   press: the scanner reads the mailbox the link proves, and a click less is worth more. A
   verification link that needs the account's session: the link is often opened on another device.
+- Tablo writing the new email itself after `ProfileEditor::save`: it cannot tell which field of
+  an app's own input is the address. A new `ProfileUpdate` variant carrying the address: the
+  editor would still have to skip writing it, and the variant would not say so.
 - A table per mailed link, and a sender and base URL per feature: each feature repeated the
   hashing, expiry and revocation, and an app repeated its sender. An address method on each
   seam: every seam that mails asks the same question of the same user type.

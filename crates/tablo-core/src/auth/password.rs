@@ -9,8 +9,9 @@ use topcoat::context::Cx;
 use uuid::Uuid;
 
 use super::{
-    Authenticator, EmailVerifier, PanelUser, PasswordResetter, Profile, ProfileEditor,
+    Authenticator, EmailChange, EmailVerifier, PanelUser, PasswordResetter, Profile, ProfileEditor,
     ProfileUpdate, Registrar, SignUp, infrastructure_failure, profile::CURRENT_PASSWORD_FIELD,
+    request_email_change,
 };
 use crate::FieldErrors;
 
@@ -146,9 +147,10 @@ impl Registrar for PasswordAuth {
 /// Edits the signed-in [`AdminUser`]'s name, email and password through a [`Profile`]. Changing
 /// the email or the password asks for the current password, and refuses a new password
 /// [`new_password_errors`](super::new_password_errors) refuses and, once the current password
-/// verifies, an email another account holds. A changed email or password is a
-/// [`ProfileUpdate::Credentials`], and a changed email is unverified until its owner opens the
-/// link [`Auth::email_verification`](super::Auth::email_verification) mails. Install it with
+/// verifies, an email another account holds. A changed password is a
+/// [`ProfileUpdate::Credentials`]. A new email goes through [`request_email_change`]: on a panel
+/// with [`Auth::email_verification`](super::Auth::email_verification) it waits for its link,
+/// elsewhere it is stored at once, as a credential change. Install it with
 /// [`Auth::profile`](super::Auth::profile).
 impl ProfileEditor for PasswordAuth {
     type Input = Profile;
@@ -206,19 +208,20 @@ impl ProfileEditor for PasswordAuth {
 
     async fn save(
         &self,
-        _cx: &Cx,
+        cx: &Cx,
         admin: &AdminUser,
         profile: Profile,
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<ProfileUpdate> {
         let email = normalize_email(&profile.email);
-        let new_email = email != admin.email;
-        let credentials = new_email || profile.password.is_some();
+        let stored = email != admin.email
+            && request_email_change(cx, &mut *ex, admin, &email).await? == EmailChange::Immediate;
+        let credentials = stored || profile.password.is_some();
         let mut update = AdminUser::filter(AdminUser::fields().id().eq(admin.id))
             .update()
-            .display_name(profile.name)
-            .email(email);
-        if new_email {
+            .display_name(profile.name);
+        if stored {
+            update.set_email(email);
             update.set_email_verified_at(None);
         }
         if let Some(password) = &profile.password {

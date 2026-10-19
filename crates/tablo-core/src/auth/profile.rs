@@ -8,7 +8,7 @@ use std::{
 };
 
 use topcoat::{
-    context::Cx,
+    context::{Cx, try_request_context},
     router::{
         Body,
         error::{forbidden, not_found, see_other, too_many_requests},
@@ -19,8 +19,8 @@ use topcoat::{
 };
 
 use super::{
-    PanelUser, SignedIn, panel_root, registration::new_password_errors, session::replace_sessions,
-    signed, unauthenticated_error,
+    PanelUser, SignedIn, email_change::Requested, panel_root, registration::new_password_errors,
+    session::replace_sessions, signed, unauthenticated_error,
 };
 use crate::{
     BoxFuture,
@@ -143,8 +143,9 @@ pub enum ProfileUpdate {
 
 /// What a profile submission came to.
 pub(crate) enum Outcome {
-    /// The committed change, its sessions replaced when a credential changed.
-    Saved,
+    /// The committed change, its sessions replaced when a credential changed; `email_pending`
+    /// when it asked a new address to confirm itself.
+    Saved { email_pending: bool },
     /// The refused submission, its values, and why. The page renders a password control empty.
     Refused {
         values: FormValues,
@@ -257,7 +258,9 @@ impl<E: ProfileEditor> DynProfileEditor for E {
                 replace_sessions(cx, &mut tx, signed, TypeId::of::<E::User>(), &session).await?;
             }
             tx.commit().await.map_err(crate::error::unavailable)?;
-            Ok(Outcome::Saved)
+            let email_pending =
+                try_request_context::<Requested>(cx).is_some_and(|requested| requested.mail(cx));
+            Ok(Outcome::Saved { email_pending })
         })
     }
 
@@ -429,10 +432,23 @@ pub(super) fn profile_post(cx: &Cx, body: Body) -> BoxView<'_> {
             );
             return Err(too_many_requests(throttle.window_secs()).into());
         }
-        if let Outcome::Refused { values, errors } = editor.submit(cx, signed, values).await? {
-            return render(cx, editor, &values, &errors).await;
-        }
-        set_notification(cx, Notification::success("Profile saved"));
+        // An email change the editor asks to confirm is mailed once the save commits.
+        let saving = cx.with(Requested::default());
+        let email_pending = match editor.submit(&saving, signed, values).await? {
+            Outcome::Refused { values, errors } => {
+                return render(cx, editor, &values, &errors).await;
+            }
+            Outcome::Saved { email_pending } => email_pending,
+        };
+        let saved = Notification::success("Profile saved");
+        set_notification(
+            cx,
+            if email_pending {
+                saved.description("Open the link we mailed to your new address to start using it.")
+            } else {
+                saved
+            },
+        );
         Err(see_other(profile_url(cx)).into())
     })
 }
