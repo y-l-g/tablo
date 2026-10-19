@@ -139,14 +139,20 @@ impl<M> Detail<M> {
                 Node::Grid(grid) => grid.chrome(cx, grid.children.render(cx, record)),
             })
             .collect();
-        view! {
-            cx =>
-            for v in views {
-                (v)
-            }
-        }
-        .boxed()
+        stack(cx, views)
     }
+}
+
+/// `views` one after another. A free function, so tablo-core compiles the view once rather than
+/// once for each model with a detail page.
+fn stack<'a>(cx: &'a Cx, views: Vec<BoxView<'a>>) -> BoxView<'a> {
+    view! {
+        cx =>
+        for v in views {
+            (v)
+        }
+    }
+    .boxed()
 }
 
 impl<M> Default for Detail<M> {

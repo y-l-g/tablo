@@ -99,7 +99,9 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
         let (tx, body) = http_body_util::Channel::<bytes::Bytes, std::io::Error>::new(8);
         let cx2 = cx.clone();
         let filename = export_filename(&resource.slug);
-        tokio::spawn(async move {
+        // Spawned boxed, so one task type serves every resource rather than tokio's task code
+        // being compiled once per model.
+        let stream: crate::BoxFuture<'static, ()> = Box::pin(async move {
             let mut tx = tx;
             let mut chunker = match export_base_query(&cx2, &resource, &table, &state) {
                 Ok(query) => ExportChunker::new(table.include_relations(query)),
@@ -157,6 +159,7 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
                 tx.abort(std::io::Error::other("export overflowed its window"));
             }
         });
+        tokio::spawn(stream);
         let res = http::Response::builder()
             .status(200)
             .header(http::header::CONTENT_TYPE, "text/csv; charset=utf-8")

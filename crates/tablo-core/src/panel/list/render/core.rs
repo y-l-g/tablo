@@ -12,7 +12,10 @@ use super::{
     rows::{CellLayout, RowChrome, RowView, render_rows, selectable_keys},
     table_dom_id,
 };
-use crate::table::{Sort, TablePage, TableState};
+use crate::{
+    BoxFuture,
+    table::{Sort, TablePage, TableState},
+};
 
 impl<M> WiredTable<M> {
     /// Load the page of `query` the table's browser state selects, and render it.
@@ -85,7 +88,21 @@ struct Loaded<'a> {
 
 impl Frame<'_> {
     /// Render `loaded` for `state`, its links pointing at `path` and writing `signals`.
-    async fn render_page<'a>(
+    ///
+    /// Boxed so tablo-core compiles the render once. A future only a generic caller polls is
+    /// compiled in each crate that instantiates the caller, that is, in every app.
+    fn render_page<'f, 'a: 'f>(
+        &'f self,
+        cx: &'a Cx,
+        loaded: Loaded<'a>,
+        state: &'f TableState,
+        path: &'f str,
+        signals: &'f TableSignals,
+    ) -> BoxFuture<'f, Result<BoxView<'a>>> {
+        Box::pin(self.render_loaded(cx, loaded, state, path, signals))
+    }
+
+    async fn render_loaded<'a>(
         &self,
         cx: &'a Cx,
         loaded: Loaded<'a>,

@@ -4,7 +4,7 @@ use tablo_ui::{table, table_body, table_cell, table_row};
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{super::WiredTable, Frame, core::table_frame};
-use crate::table::TableState;
+use crate::{BoxFuture, table::TableState};
 
 impl<M> WiredTable<M> {
     /// Render the skeleton placeholder table shown while rows load.
@@ -21,7 +21,16 @@ impl<M> WiredTable<M> {
 }
 
 impl Frame<'_> {
-    async fn render_skeleton<'a>(&self, cx: &'a Cx, state: &TableState) -> Result<BoxView<'a>> {
+    /// Boxed for the reason [`Frame::render_page`] is.
+    fn render_skeleton<'f, 'a: 'f>(
+        &'f self,
+        cx: &'a Cx,
+        state: &'f TableState,
+    ) -> BoxFuture<'f, Result<BoxView<'a>>> {
+        Box::pin(self.render_placeholder(cx, state))
+    }
+
+    async fn render_placeholder<'a>(&self, cx: &'a Cx, state: &TableState) -> Result<BoxView<'a>> {
         let with_actions = self.with_actions();
         let with_bulk = self.bulk_enabled();
         let head = self
