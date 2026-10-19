@@ -33,7 +33,7 @@ impl Action<TicketResource> for Close {
     }
 
     async fn run(
-        _cx: &Cx,
+        cx: &Cx,
         tickets: &[Ticket],
         _: (),
         ex: &mut dyn toasty::Executor,
@@ -45,9 +45,13 @@ impl Action<TicketResource> for Close {
                 .exec(&mut *ex)
                 .await?;
         }
-        Ok(Outcome::done()
-            .notify(Notification::warning(format!("Closed {}", tickets.len())))
-            .redirect(format!("/admin/tickets/{}", tickets[0].id)))
+        let first = tablo::url::record::<TicketResource>(cx, &tickets[0]);
+        let outcome =
+            Outcome::done().notify(Notification::warning(format!("Closed {}", tickets.len())));
+        Ok(match first {
+            Some(first) => outcome.redirect(first),
+            None => outcome,
+        })
     }
 }
 
