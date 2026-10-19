@@ -1945,8 +1945,13 @@ pub fn tablo_core::notification::set_notification(&topcoat_core::context::Cx, ta
 pub fn tablo_core::notification::take_notification(&topcoat_core::context::Cx) -> core::option::Option<tablo_core::Notification>
 pub mod tablo_core::panel
 pub mod tablo_core::panel::url
+pub fn tablo_core::panel::url::action<R: tablo_core::resource::Resource, A: tablo_core::Action<R>>(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<alloc::string::String>
+pub fn tablo_core::panel::url::bulk_action<R: tablo_core::resource::Resource, A: tablo_core::Action<R>>(&topcoat_core::context::Cx) -> core::option::Option<alloc::string::String>
+pub fn tablo_core::panel::url::create<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx) -> core::option::Option<alloc::string::String>
+pub fn tablo_core::panel::url::edit<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<alloc::string::String>
 pub fn tablo_core::panel::url::page<P: tablo_core::Page>(&topcoat_core::context::Cx) -> core::option::Option<alloc::string::String>
 pub fn tablo_core::panel::url::panel(&topcoat_core::context::Cx) -> core::option::Option<alloc::string::String>
+pub fn tablo_core::panel::url::record<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<alloc::string::String>
 pub fn tablo_core::panel::url::resource<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx) -> core::option::Option<alloc::string::String>
 pub struct tablo_core::panel::Brand
 pub tablo_core::panel::Brand::favicon: core::option::Option<alloc::string::String>
@@ -3924,8 +3929,13 @@ pub async fn tablo_core::upload::DirUploader::holds(&self, &str) -> bool
 pub async fn tablo_core::upload::DirUploader::store(&self, &str, &[u8]) -> core::result::Result<alloc::string::String, alloc::string::String>
 pub fn tablo_core::upload::sanitize_filename(&str) -> alloc::string::String
 pub mod tablo_core::url
+pub fn tablo_core::url::action<R: tablo_core::resource::Resource, A: tablo_core::Action<R>>(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<alloc::string::String>
+pub fn tablo_core::url::bulk_action<R: tablo_core::resource::Resource, A: tablo_core::Action<R>>(&topcoat_core::context::Cx) -> core::option::Option<alloc::string::String>
+pub fn tablo_core::url::create<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx) -> core::option::Option<alloc::string::String>
+pub fn tablo_core::url::edit<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<alloc::string::String>
 pub fn tablo_core::url::page<P: tablo_core::Page>(&topcoat_core::context::Cx) -> core::option::Option<alloc::string::String>
 pub fn tablo_core::url::panel(&topcoat_core::context::Cx) -> core::option::Option<alloc::string::String>
+pub fn tablo_core::url::record<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<alloc::string::String>
 pub fn tablo_core::url::resource<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx) -> core::option::Option<alloc::string::String>
 pub macro tablo_core::lens!
 pub macro tablo_core::models!

@@ -95,9 +95,11 @@ ran from. `.notify(..)` flashes a notification of the run's own instead, such as
 same-origin path, such as the record a "duplicate" action made:
 
 ```rust
-Ok(Outcome::done()
-    .notify(Notification::success(format!("Duplicated {}", post.title)))
-    .redirect(format!("/admin/posts/{}/edit", copy.id)))
+let outcome = Outcome::done().notify(Notification::success(format!("Duplicated {}", post.title)));
+Ok(match tablo::url::edit::<PostResource>(cx, &copy) {
+    Some(edit) => outcome.redirect(edit),
+    None => outcome,
+})
 ```
 
 A selection that skipped records appends the skipped count to the notification's title either

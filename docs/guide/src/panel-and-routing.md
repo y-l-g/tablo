@@ -141,6 +141,18 @@ such as a public page, has no panel until it enters one with `PanelHandle::enter
 there, and the helper returns `None`. `tablo::panel::navigation::<R>(cx)` answers the same way
 with `R`'s whole sidebar entry, its label, URL and icon, which suits a dashboard linking to lists.
 
+A record's routes have helpers too, typed by the resource and spelled with the key encoding its
+list uses:
+
+- `url::record::<R>(cx, &record)` is its detail page, `None` when `R`'s detail is empty, and
+  `url::edit::<R>(cx, &record)` its edit page, `None` when `R` has no record form.
+- `url::create::<R>(cx)` is the create page, `None` when `R` serves none.
+- `url::action::<R, A>(cx, &record)` runs the action `A` on the record, and
+  `url::bulk_action::<R, A>(cx)` on a selection; each is `None` when `R` does not declare `A`
+  there: on a row, detail or edit page for the first, in the bulk bar for the second.
+
+They answer in a `PanelHandle::context()` as well, so a job or a test spells no record path either.
+
 ## The shell layout
 
 The panel frames every page under its prefix in the shell — sidebar, topbar and notification

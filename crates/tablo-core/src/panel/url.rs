@@ -4,7 +4,8 @@
 //! prefix the request is under, or the one it entered with
 //! [`PanelHandle::enter`](crate::PanelHandle::enter).
 //! A resource or page that panel does not register has no URL there, and the
-//! helper returns `None`.
+//! helper returns `None`. The record helpers, [`record`], [`edit`], [`create`], [`action`] and
+//! [`bulk_action`], also answer in a [`PanelHandle::context`](crate::PanelHandle::context).
 //!
 //! ```rust,no_run
 //! # use tablo_core::{NoForm, Page, Resource};
@@ -31,7 +32,11 @@ use std::any::TypeId;
 use topcoat::context::Cx;
 
 use super::state::current;
-use crate::{Page, resource::Resource, topcoat_compat::href};
+use crate::{
+    Page, RecordForm,
+    resource::{Action, Mounted, Places, Resource, mounted},
+    topcoat_compat::href,
+};
 
 /// The request's panel prefix, e.g. `/admin`.
 pub fn panel(cx: &Cx) -> Option<String> {
@@ -51,6 +56,68 @@ pub fn page<P: Page>(cx: &Cx) -> Option<String> {
 
 fn registered<T: 'static>(cx: &Cx) -> Option<String> {
     current(cx).and_then(|panel| panel.urls.get(&TypeId::of::<T>()).cloned())
+}
+
+/// `record`'s detail page in the context's panel, e.g. `/admin/posts/42`, or `None` when `R`
+/// declares no detail.
+///
+/// This and the other record helpers answer in a
+/// [`PanelHandle::context`](crate::PanelHandle::context) too, so a job or a test spells no record
+/// path. They return `None` when the panel does not mount `R`, when `R`'s key has no URL form,
+/// or when the panel serves no such route for `R`.
+pub fn record<R: Resource>(cx: &Cx, record: &R::Model) -> Option<String> {
+    keyed::<R>(cx, record, Mounted::viewed).map(|(list, key)| row_view_url(&list, &key))
+}
+
+/// `record`'s edit page, e.g. `/admin/posts/42/edit`, or `None` when `R` has no record form.
+pub fn edit<R: Resource>(cx: &Cx, record: &R::Model) -> Option<String> {
+    keyed::<R>(cx, record, |_| <R::Form as RecordForm>::HAS_FORM)
+        .map(|(list, key)| row_edit_url(&list, &key))
+}
+
+/// `R`'s create page, e.g. `/admin/posts/-/create`, or `None` when `R` serves none.
+pub fn create<R: Resource>(cx: &Cx) -> Option<String> {
+    mounted::<R>(cx)
+        .filter(|mounted| mounted.creates)
+        .map(|mounted| create_page_url(&mounted.url))
+}
+
+/// The route the action `A` runs on `record` at, e.g. `/admin/posts/42/-/actions/publish`, or
+/// `None` when `R` does not declare `A` on a record: on its rows, detail or edit page.
+pub fn action<R: Resource, A: Action<R>>(cx: &Cx, record: &R::Model) -> Option<String> {
+    keyed::<R>(cx, record, |mounted| {
+        declares::<R, A>(mounted, Places::RECORD)
+    })
+    .map(|(list, key)| row_action_url(&list, &key, A::NAME))
+}
+
+/// The route the action `A` runs on a selection at, e.g. `/admin/posts/-/actions/publish`, which
+/// takes the selected keys in its `ids` field, or `None` when `R` does not declare `A` in its
+/// bulk bar.
+pub fn bulk_action<R: Resource, A: Action<R>>(cx: &Cx) -> Option<String> {
+    mounted::<R>(cx)
+        .filter(|mounted| declares::<R, A>(mounted, Places::BULK))
+        .map(|mounted| bulk_action_url(&mounted.url, A::NAME))
+}
+
+/// `R`'s list URL and `record`'s key, when `R` is mounted, its rows have routes, and `serves`
+/// holds for it.
+fn keyed<R: Resource>(
+    cx: &Cx,
+    record: &R::Model,
+    serves: impl FnOnce(&Mounted<R>) -> bool,
+) -> Option<(String, String)> {
+    let mounted = mounted::<R>(cx)?;
+    (mounted.table.is_addressable() && serves(&*mounted))
+        .then(|| (mounted.url.clone(), mounted.table.key_of(record)))
+}
+
+/// Whether `R` declares `A` in one of `places`: the action routes refuse it elsewhere.
+fn declares<R: Resource, A: Action<R>>(mounted: &Mounted<R>, places: Places) -> bool {
+    mounted
+        .actions
+        .find(A::NAME)
+        .is_some_and(|action| action.places.intersects(places))
 }
 
 // The panel's URL scheme: the path segments its route table registers and the builders its

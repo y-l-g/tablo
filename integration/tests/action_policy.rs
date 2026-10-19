@@ -4,15 +4,15 @@
 //! `Panel::resource_with`, the guide's way to serve a resource read-only in a second panel.
 
 use tablo::{
-    Ability, Action, Allow, NotificationStatus, Policy, ReadOnly, Resource, ResourceDef, Table,
-    TextColumn, lens,
+    Ability, Action, Allow, Detail, NoForm, NotificationStatus, Places, Policy, ReadOnly, Resource,
+    ResourceDef, Table, TextColumn, lens, url,
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
 use uuid::Uuid;
 
 use crate::common::{
-    body_string, confirms_first, flash, get, mount, panel, post_fields, rows, test_db,
+    body_string, confirms_first, flash, get, mount, panel, panel_cx, post_fields, rows, test_db,
 };
 
 #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
@@ -108,11 +108,135 @@ fn router(db: &Db, policy: impl Policy<Ticket>) -> Router {
     .expect("panel builds")
 }
 
-fn row_close(ticket: &Ticket) -> String {
-    format!("/admin/tickets/{}/-/actions/close", ticket.id)
+fn row_close(db: &Db, ticket: &Ticket) -> String {
+    url::action::<TicketResource, Close>(&panel_cx::<TicketResource>(db), ticket)
+        .expect("the tickets declare Close")
 }
 
-const BULK_CLOSE: &str = "/admin/tickets/-/actions/close";
+fn bulk_close(db: &Db) -> String {
+    url::bulk_action::<TicketResource, Close>(&panel_cx::<TicketResource>(db))
+        .expect("the tickets declare Close")
+}
+
+/// Reopens a ticket; no resource declares it.
+struct Reopen;
+
+impl Action<TicketResource> for Reopen {
+    type Input = ();
+    const NAME: &'static str = "reopen";
+
+    fn label(_cx: &Cx) -> String {
+        "Reopen".to_string()
+    }
+
+    async fn run(
+        _cx: &Cx,
+        _: &[Ticket],
+        _: (),
+        _: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<tablo::Outcome> {
+        Ok(tablo::Outcome::done())
+    }
+}
+
+/// Archives a selection; declared in the bulk bar only.
+struct Archive;
+
+impl Action<TicketResource> for Archive {
+    type Input = ();
+    const NAME: &'static str = "archive";
+    const PLACES: Places = Places::BULK;
+
+    fn label(_cx: &Cx) -> String {
+        "Archive".to_string()
+    }
+
+    async fn run(
+        _cx: &Cx,
+        _: &[Ticket],
+        _: (),
+        _: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<tablo::Outcome> {
+        Ok(tablo::Outcome::done())
+    }
+}
+
+/// The tickets, listed with no record form: no create or edit page.
+struct TicketLog;
+
+impl Resource for TicketLog {
+    type Model = Ticket;
+    type Form = NoForm<Ticket>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("ticket-log")
+            .policy(Allow)
+            .table(Table::new(TextColumn::new(lens!(Ticket.title))))
+    }
+}
+
+#[tokio::test]
+async fn the_url_helpers_spell_a_records_routes() {
+    let db = db().await;
+    let ticket = seed(&db, "Alpha").await;
+    let cx = panel()
+        .resource_with::<TicketResource>(|def| def.action::<Archive>())
+        .resource::<TicketLog>()
+        .handle(&db)
+        .expect("panel builds")
+        .context();
+    let id = ticket.id;
+
+    assert_eq!(
+        url::record::<TicketResource>(&cx, &ticket),
+        Some(format!("/admin/tickets/{id}"))
+    );
+    assert_eq!(
+        url::edit::<TicketResource>(&cx, &ticket),
+        Some(format!("/admin/tickets/{id}/edit"))
+    );
+    assert_eq!(
+        url::create::<TicketResource>(&cx).as_deref(),
+        Some("/admin/tickets/-/create")
+    );
+    assert_eq!(
+        url::action::<TicketResource, Close>(&cx, &ticket),
+        Some(format!("/admin/tickets/{id}/-/actions/close"))
+    );
+    assert_eq!(
+        url::bulk_action::<TicketResource, Close>(&cx).as_deref(),
+        Some("/admin/tickets/-/actions/close")
+    );
+    assert_eq!(
+        url::action::<TicketResource, Reopen>(&cx, &ticket),
+        None,
+        "an action the resource does not declare has no route"
+    );
+    assert_eq!(
+        url::bulk_action::<TicketResource, Archive>(&cx).as_deref(),
+        Some("/admin/tickets/-/actions/archive")
+    );
+    assert_eq!(
+        url::action::<TicketResource, Archive>(&cx, &ticket),
+        None,
+        "the record route refuses an action declared in the bulk bar only"
+    );
+
+    // Without a detail or a record form, the panel serves no such page.
+    let undetailed = panel()
+        .resource_with::<TicketResource>(|def| def.detail(Detail::empty()))
+        .handle(&db)
+        .expect("panel builds")
+        .context();
+    assert_eq!(
+        url::record::<TicketResource>(&undetailed, &ticket),
+        None,
+        "a resource with an empty detail has no detail page"
+    );
+    assert_eq!(url::edit::<TicketLog>(&cx, &ticket), None);
+    assert_eq!(url::create::<TicketLog>(&cx), None);
+}
 
 #[tokio::test]
 async fn a_read_only_policy_refuses_the_action_and_writes_nothing() {
@@ -136,10 +260,10 @@ async fn a_read_only_policy_refuses_the_action_and_writes_nothing() {
         "no bulk write takes the row, so it renders no checkbox: {html}"
     );
 
-    let row = post_fields(&router, &row_close(&ticket), &[]).await;
+    let row = post_fields(&router, &row_close(&db, &ticket), &[]).await;
     assert_eq!(row.status(), 403, "the row route refuses");
     let ids = ticket.id.to_string();
-    let bulk = post_fields(&router, BULK_CLOSE, &[("ids", &ids)]).await;
+    let bulk = post_fields(&router, &bulk_close(&db), &[("ids", &ids)]).await;
     assert_eq!(bulk.status(), 403, "the bulk route refuses");
     assert!(!closed(&db, ticket.id).await, "nothing was written");
 }
@@ -154,20 +278,20 @@ async fn an_allowing_policy_runs_the_action_on_a_row_and_a_selection() {
 
     let html = body_string(get(&router, "/admin/tickets").await).await;
     assert!(
-        confirms_first(&html, &row_close(&first)).is_some(),
+        confirms_first(&html, &row_close(&db, &first)).is_some(),
         "the row offers Close: {html}"
     );
     assert!(
-        confirms_first(&html, BULK_CLOSE).is_some(),
+        confirms_first(&html, &bulk_close(&db)).is_some(),
         "the bulk bar offers Close: {html}"
     );
 
-    let row = post_fields(&router, &row_close(&first), &[]).await;
+    let row = post_fields(&router, &row_close(&db, &first), &[]).await;
     assert_eq!(row.status(), 303, "the row action commits");
     assert!(closed(&db, first.id).await);
 
     let ids = format!("{},{}", second.id, third.id);
-    let bulk = post_fields(&router, BULK_CLOSE, &[("ids", &ids)]).await;
+    let bulk = post_fields(&router, &bulk_close(&db), &[("ids", &ids)]).await;
     assert_eq!(bulk.status(), 303, "the bulk action commits");
     assert!(closed(&db, second.id).await && closed(&db, third.id).await);
 }
@@ -190,20 +314,20 @@ async fn a_record_the_policy_refuses_to_run_on_has_no_button_and_is_skipped() {
 
     let html = body_string(get(&router, "/admin/tickets").await).await;
     assert!(
-        confirms_first(&html, &row_close(&open)).is_some(),
+        confirms_first(&html, &row_close(&db, &open)).is_some(),
         "the open ticket offers Close: {html}"
     );
     assert!(
-        !html.contains(&row_close(&locked)),
+        !html.contains(&row_close(&db, &locked)),
         "the locked ticket does not: {html}"
     );
 
-    let row = post_fields(&router, &row_close(&locked), &[]).await;
+    let row = post_fields(&router, &row_close(&db, &locked), &[]).await;
     assert_eq!(row.status(), 403, "the refused row answers 403");
     assert!(!closed(&db, locked.id).await);
 
     let ids = format!("{},{}", open.id, locked.id);
-    let bulk = post_fields(&router, BULK_CLOSE, &[("ids", &ids)]).await;
+    let bulk = post_fields(&router, &bulk_close(&db), &[("ids", &ids)]).await;
     assert_eq!(
         bulk.status(),
         303,
@@ -253,9 +377,9 @@ async fn a_refused_rows_menu_holds_no_write() {
         "the refused row still lists: {html}"
     );
     for write in [
-        format!("/admin/tickets/{}/edit", open.id),
+        url::edit::<TicketResource>(&panel_cx::<TicketResource>(&db), &open).expect("an edit page"),
         format!("/admin/tickets/{}/delete", open.id),
-        row_close(&open),
+        row_close(&db, &open),
     ] {
         assert!(html.contains(&write), "the open row offers {write}: {html}");
     }
@@ -263,7 +387,7 @@ async fn a_refused_rows_menu_holds_no_write() {
     assert!(
         !html.contains(&format!("{locked_id}/edit"))
             && !html.contains(&format!("{locked_id}/delete"))
-            && !html.contains(&row_close(&locked)),
+            && !html.contains(&row_close(&db, &locked)),
         "the locked row's menu holds no write: {html}"
     );
 }
