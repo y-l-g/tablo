@@ -63,6 +63,20 @@ the table keeps its state in signals the page reads, so a change reruns your pag
 links point at your page's own URL. A page that renders two tables gives each a prefix with
 `.prefixed("posts")`, which spells its parameters `posts.q`, `posts.sort`, and so on.
 
+## Outside a panel
+
+A request outside every panel's prefix, such as a public page, belongs to no panel, however many
+the router mounts: `scoped_query` answers it with an error naming the resource. Keep the handle
+`panel_handle("admin")` returns (below) in the app context, and enter the panel for the request:
+
+```rust
+let cx = admin.enter(cx);
+let posts = scoped_query::<PostResource>(&cx)?;
+```
+
+The entered context answers as the panel mounted its resources, and the `tablo::url` helpers
+answer with its URLs. It runs no auth gate, so it knows no signed-in user.
+
 ## Outside a request
 
 `scoped_query`, `can`, `write_create` and the other entry points that answer from a mounted def

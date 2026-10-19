@@ -135,8 +135,9 @@ The `tablo::url` helpers answer for the request's panel, so app code never spell
 {{#include ../../../examples/guide/src/panel_routing.rs:panel-urls-body}}
 ```
 
-The request's panel is the one whose prefix the request is under; on a router with a single panel
-it is that panel for every request. A resource or page that panel does not register has no URL
+The request's panel is the one whose prefix the request is under. A request outside every prefix,
+such as a public page, has no panel until it enters one with `PanelHandle::enter`; see
+[Data access](./data-access.md#outside-a-panel). A resource or page that panel does not register has no URL
 there, and the helper returns `None`. `tablo::panel::navigation::<R>(cx)` answers the same way
 with `R`'s whole sidebar entry, its label, URL and icon, which suits a dashboard linking to lists.
 

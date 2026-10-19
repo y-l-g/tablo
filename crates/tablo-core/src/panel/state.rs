@@ -126,16 +126,10 @@ impl Panels {
 pub(crate) struct CurrentPanel(pub(crate) Arc<PanelState>);
 
 /// The request's panel: the one whose prefix the request is under, or, for a
-/// runtime request, the panel that declared its endpoint or whose session sent it. A router with a
-/// single panel answers it for any request.
+/// runtime request, the panel that declared its endpoint or whose session sent it. A request
+/// outside every panel has none, however many panels the router mounts.
 pub(crate) fn current(cx: &Cx) -> Option<&Arc<PanelState>> {
-    if let Some(CurrentPanel(panel)) = try_request_context::<CurrentPanel>(cx) {
-        return Some(panel);
-    }
-    match try_app_context::<Panels>(cx).map(|panels| panels.0.as_slice()) {
-        Some([only]) => Some(only),
-        _ => None,
-    }
+    try_request_context::<CurrentPanel>(cx).map(|CurrentPanel(panel)| panel)
 }
 
 /// The uploader the request's panel was mounted with, if it has one.

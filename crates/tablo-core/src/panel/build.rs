@@ -22,7 +22,7 @@ use super::{
     forms::MAX_FORM_BYTES,
     headers,
     register::Registry,
-    state::{PanelState, Panels, current, under_prefix},
+    state::{CurrentPanel, PanelState, Panels, current, under_prefix},
 };
 use crate::{
     DeclarationError, DeclarationErrorKind, MountError, Site,
@@ -92,6 +92,7 @@ impl RouterBuilderPanelExt for RouterBuilder {
         Some(PanelHandle {
             db: self.get_app_context::<Db>()?.clone(),
             mounts: Arc::clone(&panel.mounts),
+            panel: Some(Arc::clone(panel)),
         })
     }
 }
@@ -127,6 +128,8 @@ impl RouterBuilderPanelExt for RouterBuilder {
 pub struct PanelHandle {
     db: Db,
     mounts: Arc<Mounts>,
+    /// The mounted panel, for a handle a router gives; `None` for [`Panel::handle`]'s.
+    panel: Option<Arc<PanelState>>,
 }
 
 impl PanelHandle {
@@ -140,6 +143,47 @@ impl PanelHandle {
     /// lifetime, so a job builds one per run.
     pub fn context(&self) -> Cx {
         validation_cx(&self.db, &self.mounts)
+    }
+
+    /// `cx` answering as this panel, for a request outside every panel's prefix, such as a
+    /// public page: [`scoped_query`](crate::scoped_query), [`can`](crate::can) and the other
+    /// entry points that answer from a mounted def answer as this panel mounted its resources,
+    /// and, for a handle a router gives, the [`url`](crate::url) helpers answer with its URLs.
+    /// A request outside every prefix answers as no panel until it enters one, however many
+    /// panels the router mounts. It runs no auth gate: the signed-in user stays unknown.
+    ///
+    /// ```rust,no_run
+    /// # use tablo_core::{NoForm, PanelHandle, Resource, scoped_query};
+    /// # use topcoat::{Result, context::Cx};
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
+    /// # struct PostResource;
+    /// # impl Resource for PostResource { type Model = Post; type Form = NoForm<Post>; }
+    /// async fn public_posts(cx: &Cx, admin: &PanelHandle) -> Result<Vec<Post>> {
+    ///     let cx = admin.enter(cx);
+    ///     Ok(scoped_query::<PostResource>(&cx)?
+    ///         .exec(&mut tablo_core::db::db(&cx))
+    ///         .await?)
+    /// }
+    /// ```
+    pub fn enter(&self, cx: &Cx) -> Cx {
+        match &self.panel {
+            Some(panel) => cx.with(CurrentPanel(Arc::clone(panel))),
+            None => cx.with(EnteredPanel(Arc::clone(&self.mounts))),
+        }
+    }
+}
+
+/// The resources [`PanelHandle::enter`] put in scope for a request outside every panel.
+struct EnteredPanel(Arc<Mounts>);
+
+/// The resources the request answers from: its own panel's, or the ones
+/// [`PanelHandle::enter`] put in scope.
+fn request_mounts(cx: &Cx) -> Option<&Mounts> {
+    match current(cx) {
+        Some(panel) => Some(&*panel.mounts),
+        None => topcoat::context::try_request_context::<EnteredPanel>(cx)
+            .map(|EnteredPanel(mounts)| &**mounts),
     }
 }
 
@@ -169,6 +213,7 @@ impl Panel {
         Ok(PanelHandle {
             db: db.clone(),
             mounts,
+            panel: None,
         })
     }
 
@@ -411,7 +456,7 @@ fn install_shared(mut builder: RouterBuilder) -> RouterBuilder {
     builder = builder
         .layer(RuntimeGate::new())
         .app_context(Panels::default())
-        .app_context(MountScope(|cx| current(cx).map(|panel| &*panel.mounts)))
+        .app_context(MountScope(request_mounts))
         .app_context(TenantSource(crate::auth::session_tenant));
     // The runtime layer has no path, so a page re-run reaches the panel's layers already rewritten
     // to a `GET`.

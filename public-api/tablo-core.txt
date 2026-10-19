@@ -1703,6 +1703,7 @@ impl !core::panic::unwind_safe::UnwindSafe for tablo_core::panel::Panel
 pub struct tablo_core::panel::PanelHandle
 impl tablo_core::PanelHandle
 pub fn tablo_core::PanelHandle::context(&self) -> topcoat_core::context::Cx
+pub fn tablo_core::PanelHandle::enter(&self, &topcoat_core::context::Cx) -> topcoat_core::context::Cx
 impl core::clone::Clone for tablo_core::PanelHandle
 pub fn tablo_core::PanelHandle::clone(&self) -> tablo_core::PanelHandle
 impl core::marker::Freeze for tablo_core::PanelHandle
@@ -5336,6 +5337,7 @@ impl !core::panic::unwind_safe::UnwindSafe for tablo_core::panel::Panel
 pub struct tablo_core::PanelHandle
 impl tablo_core::PanelHandle
 pub fn tablo_core::PanelHandle::context(&self) -> topcoat_core::context::Cx
+pub fn tablo_core::PanelHandle::enter(&self, &topcoat_core::context::Cx) -> topcoat_core::context::Cx
 impl core::clone::Clone for tablo_core::PanelHandle
 pub fn tablo_core::PanelHandle::clone(&self) -> tablo_core::PanelHandle
 impl core::marker::Freeze for tablo_core::PanelHandle
