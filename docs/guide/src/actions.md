@@ -86,6 +86,25 @@ record refuses writes nothing and returns to the list with an error notification
 fails the policy's `View`, and one the scoped query no longer returns, fail the whole POST
 instead: 403 and 404, and nothing is written.
 
+### What a run returns
+
+`run` returns an `Outcome`, which says what the response does once the write commits.
+`Outcome::done()` keeps the defaults: the `success` notification, landing back where the action
+ran from. `.notify(..)` flashes a notification of the run's own instead, such as
+`Notification::warning("3 sent").description("1 bounced")`, and `.redirect(..)` lands on another
+same-origin path, such as the record a "duplicate" action made:
+
+```rust
+Ok(Outcome::done()
+    .notify(Notification::success(format!("Duplicated {}", post.title)))
+    .redirect(format!("/admin/posts/{}/edit", copy.id)))
+```
+
+A selection that skipped records appends the skipped count to the notification's title either
+way. A redirect off the site, such as `https://…` or `//host`, lands where the action ran from
+and logs an error: the write has committed by then, so the run does not fail. A file to download
+is a redirect to an app route that serves it.
+
 A destructive action declares `const CONFIRM: bool = true` to ask first through the delete's
 confirmation dialog; an unconfirmed POST answers 400. Confirmation dialogs need JavaScript: without
 it their buttons do nothing.
@@ -129,7 +148,8 @@ record is loaded, so nothing scopes `run` to the request's tenant**: an action o
 records reads them through `scoped_query`, as `PublishDrafts` does. After the commit, a resource's
 `after_commit` receives `Mutation::Action(NAME)` with no record, and the list or the page shows
 `HeaderAction::success`, by default the label and "done". A run from the list lands back on it as
-it was left, its search, sort and filters kept. `CONFIRM` asks first, as for a record action.
+it was left, its search, sort and filters kept; its `Outcome` changes either, as a record
+action's does. `CONFIRM` asks first, as for a record action.
 
 ## Asking for input
 

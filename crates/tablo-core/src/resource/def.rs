@@ -382,8 +382,8 @@ impl<R: Resource> ResourceDef<R> {
     ///     type Input = ();
     ///     const NAME: &'static str = "recount/tags";
     ///
-    ///     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<()> {
-    ///         Ok(())
+    ///     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome> {
+    ///         Ok(tablo_core::Outcome::done())
     ///     }
     /// }
     ///

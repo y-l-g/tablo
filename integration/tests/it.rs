@@ -30,6 +30,7 @@ mod mail;
 mod many_to_many;
 mod model_columns;
 mod options_enum;
+mod outcome;
 mod pages;
 mod panel;
 mod password_reset;

@@ -68,14 +68,7 @@ pub(super) fn login_url_with_next(cx: &Cx) -> String {
 /// Accepts only same-origin relative paths as a post-login destination;
 /// rejects absolute URLs, `//host` targets, backslashes, and control characters.
 pub(crate) fn safe_next(next: &str) -> Option<&str> {
-    let next = next.trim();
-    if !next.starts_with('/') || next.starts_with("//") {
-        return None;
-    }
-    if next.contains('\\') || next.chars().any(|c| c.is_control()) {
-        return None;
-    }
-    Some(next)
+    crate::outcome::same_origin_path(next)
 }
 
 /// The validated `?next=` the login page embeds as a hidden field.

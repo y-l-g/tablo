@@ -2,7 +2,6 @@
 //! in the `Panel` shell; stored as a JSON flash cookie with hardened attributes
 //! that Topcoat flushes on error responses too (topcoat#408).
 
-use serde::{Deserialize, Serialize};
 use tablo_ui::{
     icons, toast, toast_close, toast_content, toast_description, toast_icon, toast_title,
 };
@@ -14,73 +13,7 @@ use topcoat::{
     view::{Attributes, BoxView, View, ViewExt, attributes, view},
 };
 
-/// The kind of notification (status).
-///
-/// The serde tokens are lowercase so the JSON cookie reads naturally.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-#[non_exhaustive]
-pub enum NotificationStatus {
-    Success,
-    Error,
-    Info,
-    Warning,
-}
-
-impl NotificationStatus {
-    /// The lowercase token, shared with the flash cookie and `data-type`.
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Success => "success",
-            Self::Error => "error",
-            Self::Info => "info",
-            Self::Warning => "warning",
-        }
-    }
-}
-
-/// A transient message shown after a mutation.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Notification {
-    pub status: NotificationStatus,
-    pub title: String,
-    /// Supporting line under the title; `None` keeps the cookie wire format so
-    /// older cookies still decode.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-}
-
-impl Notification {
-    pub fn success(title: impl Into<String>) -> Self {
-        Self::new(NotificationStatus::Success, title)
-    }
-
-    pub fn error(title: impl Into<String>) -> Self {
-        Self::new(NotificationStatus::Error, title)
-    }
-
-    pub fn info(title: impl Into<String>) -> Self {
-        Self::new(NotificationStatus::Info, title)
-    }
-
-    pub fn warning(title: impl Into<String>) -> Self {
-        Self::new(NotificationStatus::Warning, title)
-    }
-
-    fn new(status: NotificationStatus, title: impl Into<String>) -> Self {
-        Self {
-            status,
-            title: title.into(),
-            description: None,
-        }
-    }
-
-    /// Attach the supporting line under the title.
-    pub fn description(mut self, description: impl Into<String>) -> Self {
-        self.description = Some(description.into());
-        self
-    }
-}
+pub use crate::outcome::{Notification, NotificationStatus};
 
 pub(crate) const COOKIE_NAME: &str = "__Host-tablo_notification";
 

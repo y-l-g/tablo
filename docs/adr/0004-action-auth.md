@@ -36,6 +36,11 @@ tenant's records through `scoped_query` itself. `after_commit` receives its `NAM
 response: the place for side effects that must not survive a rollback. A failing hook logs and
 does not roll back.
 
+`run` returns an `Outcome`: the notification the response flashes and the same-origin path it
+lands on, each defaulting to the action's `success` and to where it ran from. The response applies
+it only after the commit and the hook. A redirect off the site falls back to the default landing
+and logs, since the write it follows has committed.
+
 ## Rejected
 
 - Authorizing an action through `View` and `can_run`: `can_run` is a static fn on the action
@@ -55,6 +60,11 @@ does not roll back.
   fails closed: an exhaustive policy stops compiling until it answers it.
 - A header action authorized by `Ability::Create` or `ViewAny` alone: neither says the user may
   run it, as neither says so for a record action.
+- `run` returning `Result<impl IntoOutcome>`, so an impl returning `Result<()>` kept compiling:
+  a nested `impl Trait` an impl narrows trips `refining_impl_trait`, an error under
+  `warnings = "deny"`.
+- An outcome that answers with a file: a write's response is a redirect from a page handler,
+  which Topcoat gives no way to carry a body; a redirect to an app route serves the file.
 - A policy the framework asks of a page's action: a page has no model to type one over, and
   `PageDef::access` already answers who may use the page. An action that writes a resource's
   records asks that resource's policy in its `can_run`.

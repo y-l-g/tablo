@@ -123,7 +123,7 @@ impl Action<TaskResource> for Complete {
         tasks: &[Task],
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<()> {
+    ) -> topcoat::Result<tablo::Outcome> {
         for task in tasks {
             Task::filter(Task::fields().id().eq(task.id))
                 .update()
@@ -131,7 +131,7 @@ impl Action<TaskResource> for Complete {
                 .exec(&mut *ex)
                 .await?;
         }
-        Ok(())
+        Ok(tablo::Outcome::done())
     }
 }
 
@@ -156,7 +156,7 @@ impl Action<TaskResource> for Explode {
         tasks: &[Task],
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<()> {
+    ) -> topcoat::Result<tablo::Outcome> {
         for task in tasks {
             Task::filter(Task::fields().id().eq(task.id))
                 .update()
@@ -661,8 +661,13 @@ impl Action<TwiceResource> for Twice {
         true
     }
 
-    async fn run(_cx: &Cx, _: &[Task], _: (), _: &mut dyn toasty::Executor) -> topcoat::Result<()> {
-        Ok(())
+    async fn run(
+        _cx: &Cx,
+        _: &[Task],
+        _: (),
+        _: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<tablo::Outcome> {
+        Ok(tablo::Outcome::done())
     }
 }
 
@@ -708,7 +713,7 @@ impl Action<ConfirmResource> for Archive {
         tasks: &[Task],
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<()> {
+    ) -> topcoat::Result<tablo::Outcome> {
         for task in tasks {
             Task::filter(Task::fields().id().eq(task.id))
                 .update()
@@ -716,7 +721,7 @@ impl Action<ConfirmResource> for Archive {
                 .exec(&mut *ex)
                 .await?;
         }
-        Ok(())
+        Ok(tablo::Outcome::done())
     }
 }
 

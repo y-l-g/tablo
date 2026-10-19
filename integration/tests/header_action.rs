@@ -52,7 +52,7 @@ impl Action<TicketResource> for Close {
         tickets: &[Ticket],
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<()> {
+    ) -> topcoat::Result<tablo::Outcome> {
         for ticket in tickets {
             Ticket::filter(Ticket::fields().id().eq(ticket.id))
                 .update()
@@ -60,7 +60,7 @@ impl Action<TicketResource> for Close {
                 .exec(&mut *ex)
                 .await?;
         }
-        Ok(())
+        Ok(tablo::Outcome::done())
     }
 }
 
@@ -72,8 +72,13 @@ impl Action<TicketResource> for Reopen {
     const NAME: &'static str = "reopen";
     const PLACES: Places = Places::ROW;
 
-    async fn run(_: &Cx, _: &[Ticket], _: (), _: &mut dyn toasty::Executor) -> topcoat::Result<()> {
-        Ok(())
+    async fn run(
+        _: &Cx,
+        _: &[Ticket],
+        _: (),
+        _: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<tablo::Outcome> {
+        Ok(tablo::Outcome::done())
     }
 }
 
@@ -90,7 +95,7 @@ impl Action<TicketResource> for Retitle {
         tickets: &[Ticket],
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<()> {
+    ) -> topcoat::Result<tablo::Outcome> {
         for ticket in tickets {
             Ticket::filter(Ticket::fields().id().eq(ticket.id))
                 .update()
@@ -98,7 +103,7 @@ impl Action<TicketResource> for Retitle {
                 .exec(&mut *ex)
                 .await?;
         }
-        Ok(())
+        Ok(tablo::Outcome::done())
     }
 }
 
@@ -110,13 +115,17 @@ impl HeaderAction for CloseAll {
     const NAME: &'static str = "close-all";
     const CONFIRM: bool = true;
 
-    async fn run(_cx: &Cx, _: (), ex: &mut dyn toasty::Executor) -> topcoat::Result<()> {
+    async fn run(
+        _cx: &Cx,
+        _: (),
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<tablo::Outcome> {
         Ticket::filter(Ticket::fields().closed().eq(false))
             .update()
             .closed(true)
             .exec(&mut *ex)
             .await?;
-        Ok(())
+        Ok(tablo::Outcome::done())
     }
 }
 
@@ -141,14 +150,18 @@ impl HeaderAction for OpenTicket {
         errors
     }
 
-    async fn run(_cx: &Cx, opening: Opening, ex: &mut dyn toasty::Executor) -> topcoat::Result<()> {
+    async fn run(
+        _cx: &Cx,
+        opening: Opening,
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<tablo::Outcome> {
         toasty::create!(Ticket {
             title: opening.title,
             closed: false,
         })
         .exec(&mut *ex)
         .await?;
-        Ok(())
+        Ok(tablo::Outcome::done())
     }
 }
 
@@ -163,8 +176,8 @@ impl HeaderAction for Flagged {
         false
     }
 
-    async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> topcoat::Result<()> {
-        Ok(())
+    async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> topcoat::Result<tablo::Outcome> {
+        Ok(tablo::Outcome::done())
     }
 }
 
@@ -175,7 +188,11 @@ impl HeaderAction for Explode {
     type Input = ();
     const NAME: &'static str = "explode";
 
-    async fn run(_cx: &Cx, _: (), ex: &mut dyn toasty::Executor) -> topcoat::Result<()> {
+    async fn run(
+        _cx: &Cx,
+        _: (),
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<tablo::Outcome> {
         Ticket::filter(Ticket::fields().closed().eq(false))
             .update()
             .title("exploded".to_string())
@@ -235,12 +252,16 @@ impl HeaderAction for Sweep {
     type Input = ();
     const NAME: &'static str = "sweep";
 
-    async fn run(_cx: &Cx, _: (), ex: &mut dyn toasty::Executor) -> topcoat::Result<()> {
+    async fn run(
+        _cx: &Cx,
+        _: (),
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<tablo::Outcome> {
         Ticket::filter(Ticket::fields().closed().eq(true))
             .delete()
             .exec(&mut *ex)
             .await?;
-        Ok(())
+        Ok(tablo::Outcome::done())
     }
 }
 
@@ -739,8 +760,8 @@ impl HeaderAction for CloseHeader {
     type Input = ();
     const NAME: &'static str = "close";
 
-    async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> topcoat::Result<()> {
-        Ok(())
+    async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> topcoat::Result<tablo::Outcome> {
+        Ok(tablo::Outcome::done())
     }
 }
 

@@ -51,7 +51,12 @@ pub(crate) const RESERVED_KEYS: [&str; 3] = [crate::csrf::FIELD_NAME, "confirm",
 ///         post.status != "published"
 ///     }
 ///
-///     async fn run(_cx: &Cx, posts: &[Post], _: (), ex: &mut dyn Executor) -> Result<()> {
+///     async fn run(
+///         _cx: &Cx,
+///         posts: &[Post],
+///         _: (),
+///         ex: &mut dyn Executor,
+///     ) -> Result<tablo_core::Outcome> {
 ///         for post in posts {
 ///             Post::filter(Post::fields().id().eq(post.id))
 ///                 .update()
@@ -59,7 +64,7 @@ pub(crate) const RESERVED_KEYS: [&str; 3] = [crate::csrf::FIELD_NAME, "confirm",
 ///                 .exec(&mut *ex)
 ///                 .await?;
 ///         }
-///         Ok(())
+///         Ok(tablo_core::Outcome::done())
 ///     }
 /// }
 /// ```
@@ -121,7 +126,7 @@ pub trait Action<R: Resource>: 'static {
     ///     type Input = ();
     ///     const NAME: &'static str = "archive/all";
     /// #   fn can_run(_: &Cx, _: &Post) -> bool { true }
-    /// #   async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<()> { Ok(()) }
+    /// #   async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome> { Ok(tablo_core::Outcome::done()) }
     /// }
     ///
     /// let def = ResourceDef::<PostResource>::new().action::<Archive>();
@@ -171,13 +176,15 @@ pub trait Action<R: Resource>: 'static {
 
     /// Perform the action on `records`, the records of the row or selection that
     /// passed [`Ability::Run`] and [`can_run`](Self::can_run), with the parsed `input`, through
-    /// the framework's transaction `ex`.
+    /// the framework's transaction `ex`, and say what the response does once it commits:
+    /// [`Outcome::done`](crate::Outcome::done) for the [`success`](Self::success) notification,
+    /// landing back where the action ran from.
     fn run(
         cx: &Cx,
         records: &[R::Model],
         input: Self::Input,
         ex: &mut dyn toasty::Executor,
-    ) -> impl Future<Output = Result<()>> + Send;
+    ) -> impl Future<Output = Result<crate::Outcome>> + Send;
 
     /// The success notification after a commit. Defaults to the label and
     /// the record count: `"Publish: 3 records"`. A bulk run the action refused
@@ -257,7 +264,7 @@ impl<M> Ability<'_, M> {
     /// # impl Action<PostResource> for Publish {
     /// #     type Input = ();
     /// #     const NAME: &'static str = "publish";
-    /// #     async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<()> { Ok(()) }
+    /// #     async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome> { Ok(tablo_core::Outcome::done()) }
     /// # }
     /// # fn is_editor(_cx: &Cx) -> bool { true }
     /// fn post_policy(cx: &Cx, ability: Ability<'_, Post>) -> bool {
@@ -283,7 +290,7 @@ pub(crate) type RunAction<R> = for<'a> fn(
     &'a [<R as Resource>::Model],
     ErasedInput,
     &'a mut dyn toasty::Executor,
-) -> BoxFuture<'a, Result<()>>;
+) -> BoxFuture<'a, Result<crate::Outcome>>;
 
 /// A parsed [`Action::Input`] with its type erased; `run` downcasts it back.
 pub(crate) type ErasedInput = Box<dyn Any + Send>;
@@ -486,7 +493,7 @@ fn run_erased<'a, R: Resource, A: Action<R>>(
     records: &'a [R::Model],
     input: ErasedInput,
     ex: &'a mut dyn toasty::Executor,
-) -> BoxFuture<'a, Result<()>> {
+) -> BoxFuture<'a, Result<crate::Outcome>> {
     let input = *input
         .downcast::<A::Input>()
         .expect("the pipeline parses the input `run` takes");
@@ -499,12 +506,12 @@ fn delete_erased<'a, R: Resource>(
     records: &'a [R::Model],
     _input: ErasedInput,
     ex: &'a mut dyn toasty::Executor,
-) -> BoxFuture<'a, Result<()>> {
+) -> BoxFuture<'a, Result<crate::Outcome>> {
     Box::pin(async move {
         for record in records {
             R::delete_record(cx, record, &mut *ex).await?;
         }
-        Ok(())
+        Ok(crate::Outcome::done())
     })
 }
 
@@ -514,6 +521,9 @@ fn bulk_delete_erased<'a, R: Resource>(
     records: &'a [R::Model],
     _input: ErasedInput,
     ex: &'a mut dyn toasty::Executor,
-) -> BoxFuture<'a, Result<()>> {
-    Box::pin(R::bulk_delete_records(cx, records, ex))
+) -> BoxFuture<'a, Result<crate::Outcome>> {
+    Box::pin(async move {
+        R::bulk_delete_records(cx, records, ex).await?;
+        Ok(crate::Outcome::done())
+    })
 }

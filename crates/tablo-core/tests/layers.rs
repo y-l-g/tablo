@@ -28,6 +28,7 @@ const LAYERS: &[(&str, &[&str])] = &[
             "lens",
             "db",
             "csrf",
+            "outcome",
         ],
     ),
     (

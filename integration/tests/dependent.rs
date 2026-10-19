@@ -295,8 +295,8 @@ async fn an_action_input_cannot_hold_a_dependent_choice() {
             _: &[Address],
             _: Moving,
             _: &mut dyn toasty::Executor,
-        ) -> topcoat::Result<()> {
-            Ok(())
+        ) -> topcoat::Result<tablo::Outcome> {
+            Ok(tablo::Outcome::done())
         }
     }
 
