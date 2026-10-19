@@ -9,7 +9,7 @@ use topcoat::{
     icon::icon,
     router::Slot,
     runtime::{Event, Signal, signal},
-    view::{Attributes, BoxView, Child, View, ViewExt, attributes, internal::ThenView, view},
+    view::{Attributes, BoxView, Child, ViewExt, attributes, internal::ThenView, view},
 };
 
 use super::{Panel, state::current};
@@ -75,17 +75,17 @@ impl Theme {
     }
 
     /// Whether the request's page renders dark: the stored choice, the mirrored system scheme
-    /// under `system`, else the panel's default.
-    fn renders_dark(cx: &Cx) -> bool {
+    /// under `system`, else `default_dark`, the panel's default.
+    fn renders_dark(cx: &Cx, default_dark: bool) -> bool {
         match Self::stored(cx) {
             Some(Self::Dark) => true,
             Some(Self::Light) => false,
             Some(Self::System) => match request_cookie(cx, SCHEME_COOKIE).as_deref() {
                 Some("dark") => true,
                 Some("light") => false,
-                _ => Self::panel_default_dark(cx),
+                _ => default_dark,
             },
-            None => Self::panel_default_dark(cx),
+            None => default_dark,
         }
     }
 
@@ -645,68 +645,17 @@ impl Panel {
             nav_items.push(NavigationItem::at("Home", super::gate::panel_prefix(cx)));
         }
         let shell = Self::render_shell(cx, &nav_items, &path, slot, None).await?;
-        Self::render_document(cx, Self::brand_name(cx), shell).await
-    }
-
-    /// Renders a complete HTML document around a page outside the panel prefix.
-    pub async fn document<'a>(
-        cx: &'a Cx,
-        title: impl Into<String>,
-        body: impl View + 'a,
-    ) -> Result<BoxView<'a>> {
-        Self::render_document(cx, title.into(), body.boxed()).await
-    }
-
-    /// Renders the HTML document with assets and the dark-mode class.
-    pub(crate) async fn render_document<'a>(
-        cx: &'a Cx,
-        title: String,
-        body: BoxView<'a>,
-    ) -> Result<BoxView<'a>> {
-        let head: BoxView<'_> = match current(cx).and_then(|panel| panel.shell_assets) {
-            Some(ShellAssets { stylesheet, font }) => view! {
-                cx =>
-                topcoat::dev::script()
-                topcoat::runtime::script()
-                topcoat::font::link(font: font)
-                <link rel="stylesheet" href=(stylesheet)>
-                // Modules, so each script's top-level names stay its own: as classic scripts they
-                // share one global scope, where a later script's `partsOf` replaces an earlier one's.
-                // A module is deferred like these were.
-                for script in tablo_ui::SHELL_SCRIPTS {
-                    <script src=(script) type="module"></script>
-                }
-            }
-            .boxed(),
-            None => view! { cx => topcoat::dev::script() }.boxed(),
-        };
-        // The server renders the stored choice on every page: runtime navigation copies
-        // `<html>`'s attributes from the next page and runs no script.
-        let html_class = Theme::renders_dark(cx).then_some("dark");
-        let favicon = current(cx)
-            .and_then(|panel| panel.brand.as_ref())
-            .and_then(|brand| brand.favicon.clone());
-        Ok(view! {
-            cx =>
-            <!DOCTYPE html>
-            <html class=(html_class)>
-                <head>
-                    <meta charset="utf-8">
-                    // Without it a phone lays the page out 980px wide and zooms it out.
-                    <meta name="viewport" content="width=device-width, initial-scale=1">
-                    <title>(title)</title>
-                    if let Some(favicon) = favicon {
-                        <link rel="icon" href=(favicon)>
-                    }
-                    (head)
-                </head>
-                <body>(body)</body>
-            </html>
-        }
-        .boxed())
+        Self::render_document(
+            cx,
+            current(cx).map(|panel| &**panel),
+            Self::brand_name(cx),
+            shell,
+        )
+        .await
     }
 }
 
 mod breadcrumbs;
+mod document;
 mod sidebar;
 mod user_menu;

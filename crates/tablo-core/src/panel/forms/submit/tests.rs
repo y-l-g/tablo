@@ -217,7 +217,7 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
     .to_string();
     drop(raw);
 
-    // The route sits outside the panel's prefix, where the router's one panel still answers.
+    // The route sits under the panel's prefix, so the request answers as the panel.
     let router = Router::builder()
         .discover()
         .app_context(db)
@@ -229,7 +229,7 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
         .expect("panel builds")
         .route(RouteFn::new(
             http::Method::POST,
-            "/capture/{id}",
+            "/admin/capture/{id}",
             edit_error,
         ))
         .build();
@@ -238,7 +238,7 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
         .handle(
             http::Request::builder()
                 .method(http::Method::POST)
-                .uri(format!("/capture/{}", row.id))
+                .uri(format!("/admin/capture/{}", row.id))
                 .header(
                     http::header::CONTENT_TYPE,
                     "application/x-www-form-urlencoded",

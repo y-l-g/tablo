@@ -167,16 +167,22 @@ impl Page for MediaLibraryPage {
 // ANCHOR_END: panel-public-page
 
 // ANCHOR: panel-blog
+/// The handle `builder.panel_handle("admin")` returned, which the router builder adds with
+/// `.app_context(Admin(admin))` after mounting the panel.
+pub struct Admin(pub tablo::PanelHandle);
+
 // A layout wraps every route under its path: this one wraps /blog and /blog/{id}.
 // A layout at "/" would wrap /admin too.
 #[layout("/blog")]
 pub async fn blog_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
-    Panel::document(
-        cx,
-        "Blog",
-        view! { <div class="mx-auto max-w-3xl px-6 py-10">(slot)</div> },
-    )
-    .await
+    let Admin(admin) = topcoat::context::app_context::<Admin>(cx);
+    admin
+        .document(
+            cx,
+            "Blog",
+            view! { <div class="mx-auto max-w-3xl px-6 py-10">(slot)</div> },
+        )
+        .await
 }
 
 #[page("/blog")]

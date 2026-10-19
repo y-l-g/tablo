@@ -6,8 +6,8 @@ use tablo::{
     Ability, Action, ActionLayout, Auth, AuthMail, BooleanColumn, Brand, ComputedColumn,
     CountColumn, DateColumn, DateFilter, Detail, DirUploader, EmailVerification, EmbeddedColumn,
     FieldErrors, Grid, Group, HeaderAction, ModelColumns, NavigationItem, Pagination, Panel,
-    PasswordReset, PublicLink, QueryFilter, Relation, RelationColumn, RepeaterColumn, Resource,
-    ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy,
+    PanelHandle, PasswordReset, PublicLink, QueryFilter, Relation, RelationColumn, RepeaterColumn,
+    Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy,
     TenantRegistration, TernaryFilter, TextColumn, TwoFactor, lens, relation, scoped_query,
     tenant_id, when,
 };
@@ -524,8 +524,13 @@ pub fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf
         builder = builder.assets(bundle);
         panel = panel.shell_assets(tailwind::stylesheet!(), GEIST);
     }
-    builder.panel(panel).expect("showcase panel mounts").build()
+    let builder = builder.panel(panel).expect("showcase panel mounts");
+    let admin = builder.panel_handle("admin").expect("mounted above");
+    builder.app_context(AdminPanel(admin)).build()
 }
+
+/// The mounted admin panel, which the public blog renders its document with and links to.
+pub struct AdminPanel(pub PanelHandle);
 
 /// The directory reset links are written to, unless `SHOWCASE_MAIL_DIR` names another.
 fn mail_transport() -> FileTransport {

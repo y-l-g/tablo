@@ -1,10 +1,10 @@
 //! The public blog: `/blog` and `/blog/{id}`, served with no session.
 
-use tablo::{Panel, db::db};
+use tablo::db::db;
 use toasty::stmt::Include;
 use topcoat::{
     Result,
-    context::Cx,
+    context::{Cx, app_context},
     router::{
         Slot,
         error::{RouterErrorExt, not_found},
@@ -13,14 +13,19 @@ use topcoat::{
     view::{View, class, view},
 };
 
-use crate::models::{Author, MediaAsset, Post, PostStatus};
+use crate::{
+    app::AdminPanel,
+    models::{Author, MediaAsset, Post, PostStatus},
+};
 
 path_param!(pub id: uuid::Uuid);
 
 /// The public shell.
 #[layout("/blog")]
 async fn blog_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
-    Panel::document(
+    // Outside the admin prefix the request belongs to no panel, so the blog names it.
+    let AdminPanel(admin) = app_context::<AdminPanel>(cx);
+    admin.document(
         cx,
         "Tablo Blog",
         view! {
@@ -42,7 +47,7 @@ async fn blog_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                         >
                             "Tablo Blog"
                         </a>
-                        if let Some(admin) = tablo::url::panel(cx) {
+                        if let Some(admin) = admin.url() {
                             <a
                                 href=(admin)
                                 class="ml-auto text-sm text-muted-foreground hover:text-foreground"
