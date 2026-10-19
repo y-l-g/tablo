@@ -32,6 +32,11 @@
       "description": "argon2 + password-hash bump as one coupled set, never separately",
       "matchPackageNames": ["argon2", "password-hash"],
       "groupName": "argon2-password-hash"
+    },
+    {
+      "description": "hkdf, hmac, sha1 + sha2 bump as one coupled set, never separately: they all build on digest, and a mix of digest versions does not compile",
+      "matchPackageNames": ["hkdf", "hmac", "sha1", "sha2"],
+      "groupName": "rustcrypto-digest"
     }
   ]
 }

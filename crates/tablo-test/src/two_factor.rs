@@ -5,7 +5,7 @@
 //! pins RFC 6238 rather than agreeing with itself.
 
 use data_encoding::BASE32_NOPAD;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use sha1::Sha1;
 
 use crate::protocol::dom::{attr_value, strip_text, tags_where};

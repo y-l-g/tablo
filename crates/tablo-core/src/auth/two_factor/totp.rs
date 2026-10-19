@@ -1,7 +1,7 @@
 //! RFC 6238 time-based one-time codes, as authenticator apps compute them: HMAC-SHA1 over the
 //! 30-second step count, six digits.
 
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use sha1::Sha1;
 use subtle::ConstantTimeEq;
 

@@ -39,8 +39,8 @@ fn keyed_hash(key: &Key, purpose: &[u8], binding: &str, value: &str) -> String {
     Hkdf::<Sha256>::new(None, key.master())
         .expand(purpose, &mut derived)
         .expect("32 bytes is a valid HKDF-SHA256 output length");
-    let mut mac =
-        <Hmac<Sha256> as Mac>::new_from_slice(&derived).expect("HMAC takes a key of any length");
+    let mut mac = <Hmac<Sha256> as KeyInit>::new_from_slice(&derived)
+        .expect("HMAC takes a key of any length");
     mac.update(binding.as_bytes());
     mac.update(b"\n");
     mac.update(value.as_bytes());
@@ -71,7 +71,7 @@ pub(super) fn seal(key: &Key, secret: &[u8], aad: &str) -> String {
     getrandom::fill(&mut nonce).expect("the two-factor nonce randomness source failed");
     let sealed = cipher(key)
         .encrypt(
-            Nonce::from_slice(&nonce),
+            &Nonce::from(nonce),
             Payload {
                 msg: secret,
                 aad: aad.as_bytes(),
@@ -93,7 +93,7 @@ pub(super) fn open(key: &Key, stored: &str, aad: &str) -> Option<Vec<u8>> {
     let (nonce, sealed) = stored.split_at(NONCE_BYTES);
     cipher(key)
         .decrypt(
-            Nonce::from_slice(nonce),
+            &Nonce::try_from(nonce).ok()?,
             Payload {
                 msg: sealed,
                 aad: aad.as_bytes(),
