@@ -144,7 +144,7 @@ hidden until they show it. Every built-in column takes both:
 A list with such a column renders a Columns menu at the right end of its toolbar, checking each toggleable
 column the reader sees; Apply keeps the checked ones and Reset restores the defaults. The panel
 keeps the choice per signed-in user and per resource, in the shipped `ColumnPreference` model,
-which the `Db` registers beside `AuthSession`. The relation tables over a resource show the
+which `tablo::models!` registers beside `AuthSession`. The relation tables over a resource show the
 columns its list shows. A column added later, or one whose default changes, takes its default
 until the reader picks otherwise.
 

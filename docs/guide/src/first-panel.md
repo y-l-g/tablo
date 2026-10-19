@@ -48,9 +48,9 @@ cargo run
 - **`impl Resource`** declares the panel's pages for one model. A resource must name `Model` and
   `Form`; every other item has a default, and the default policy denies everything. See
   [Resources](./resources.md).
-- **`Db::builder().models(..)`** lists every model Toasty maps, including the two tables the
-  built-in login uses. With authentication on, mounting the panel returns an error naming the
-  missing models.
+- **`tablo::models!(..)`** lists every model Toasty maps: the app's, then the ones Tablo ships,
+  the built-in login's users and sessions among them. Built with `toasty::models!` instead, a `Db`
+  missing one fails the mount with an error naming it.
 - **`db.push_schema()`** creates the tables, which suits a prototype. A production app runs
   `toasty-cli` migrations instead.
 - **`Router::builder().discover()`** starts the app's own router: the app owns it, and the panel

@@ -28,20 +28,15 @@ database holding data. In production, generate SQL migrations with Toasty's migr
 apply them before the new binary starts.
 
 `toasty-cli` is a library: the app builds its own small binary around the same `Db` its server
-uses, so the migrations cover every model the panel reads, the shipped `AdminUser` and
-`AuthSession` included when authentication is on, and `ColumnPreference` when a list has a
-[toggleable column](./tables.md#hiding-columns):
+uses, so the migrations cover every model the panel reads, the ones `tablo::models!` adds
+included:
 
 ```rust,ignore
 // src/bin/migrate.rs
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let db = toasty::Db::builder()
-        .models(toasty::models!(
-            my_app::Post,
-            tablo::auth::AdminUser,
-            tablo::auth::AuthSession
-        ))
+        .models(tablo::models!(my_app::Post))
         .connect(&std::env::var("DATABASE_URL")?)
         .await?;
     toasty_cli::ToastyCli::with_config(db, toasty_cli::Config::load()?)

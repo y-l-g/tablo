@@ -1,9 +1,7 @@
 //! Your first panel: the complete one-file admin.
 
-/// The login page needs these two tables registered alongside the model.
 // ANCHOR: book-app
-use tablo::auth::{AdminUser, AuthSession, create_admin};
-use tablo::prelude::*;
+use tablo::{auth::create_admin, prelude::*};
 use toasty::Db;
 use topcoat::{
     Result,
@@ -36,12 +34,8 @@ impl Resource for BookResource {
 #[tokio::main]
 pub async fn main() -> Result<()> {
     let mut db = Db::builder()
-        .models(toasty::models!(
-            Book,
-            // The built-in password login reads these two tables.
-            AdminUser,
-            AuthSession
-        ))
+        // `Book`, and the tables Tablo ships: the login's users and sessions among them.
+        .models(tablo::models!(Book))
         .connect("sqlite::memory:")
         .await?;
     db.push_schema().await?;

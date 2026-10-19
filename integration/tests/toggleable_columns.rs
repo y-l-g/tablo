@@ -190,3 +190,9 @@ async fn toggleable_columns_need_the_preference_model_only_behind_auth() {
     assert_eq!(tablo::testing::columns(&html), ["title", "author"]);
     assert_eq!(tablo::testing::column_picker(&html), None);
 }
+
+#[tokio::test]
+async fn a_db_from_tablo_models_holds_every_model_auth_reads() {
+    let db = test_db(tablo::models!(Book)).await;
+    mount(db, panel()).expect("tablo::models! registers the session, user and preference models");
+}

@@ -1,7 +1,4 @@
-use tablo::{
-    auth::{AdminUser, AuthSession, create_admin},
-    prelude::*,
-};
+use tablo::{auth::create_admin, prelude::*};
 use toasty::Db;
 use topcoat::{
     Result,
@@ -43,7 +40,7 @@ fn router(db: Db) -> RouterBuilder {
 
 async fn connect() -> Result<Db> {
     let db = Db::builder()
-        .models(toasty::models!(Book, AdminUser, AuthSession))
+        .models(tablo::models!(Book))
         .connect("sqlite::memory:")
         .await?;
     db.push_schema().await?;

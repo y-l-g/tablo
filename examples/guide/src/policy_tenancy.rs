@@ -41,16 +41,8 @@ pub fn post_policy(cx: &Cx, ability: Ability<'_, Post>) -> bool {
 
 // ANCHOR: policy-models
 pub fn auth_models() {
-    let _ = toasty::models!(
-        crate::Book,
-        tablo::auth::AdminUser,
-        tablo::auth::AuthSession,
-        // Only with a feature that mails links, such as `Auth::password_reset`, or with
-        // `Auth::two_factor`.
-        tablo::auth::AuthToken,
-        // Only with `Auth::two_factor`.
-        tablo::auth::AuthFactor
-    );
+    // `Book`, beside `AdminUser`, `AuthSession`, `ColumnPreference`, `AuthToken` and `AuthFactor`.
+    let _ = tablo::models!(crate::Book);
 }
 // ANCHOR_END: policy-models
 
