@@ -9,6 +9,8 @@ use toasty::Db;
 use topcoat::router::{Body, Router, response::Response};
 use uuid::Uuid;
 
+pub mod mail;
+
 /// The opening tag of the control posting `name`.
 pub fn control<'h>(html: &'h str, name: &str) -> &'h str {
     let needle = format!("name=\"{name}\"");

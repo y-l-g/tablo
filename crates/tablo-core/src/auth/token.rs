@@ -42,6 +42,8 @@ pub struct AuthToken {
 pub enum TokenPurpose {
     /// A mailed link that sets a new password.
     PasswordReset,
+    /// A mailed link that proves the account reads the address it was mailed to.
+    EmailVerification,
 }
 
 /// A new token for `purpose` on the request's panel, held by `user_id` until `lifetime` passes,
@@ -110,6 +112,15 @@ pub(super) async fn live(
     Ok(row.filter(|row| {
         row.purpose == purpose && row.panel == prefix && row.expires_at > Timestamp::now()
     }))
+}
+
+/// Deletes `row` through `ex`: a used token works once.
+pub(super) async fn spend(ex: &mut dyn toasty::Executor, row: &AuthToken) -> topcoat::Result<()> {
+    AuthToken::filter(AuthToken::fields().token_hash().eq(row.token_hash.clone()))
+        .delete()
+        .exec(ex)
+        .await
+        .map_err(infrastructure_failure)
 }
 
 /// Deletes every token `user_id` holds on the panels `prefixes` names, or on every panel for

@@ -26,6 +26,7 @@ impl core::marker::UnsafeUnpin for tablo_core::ProfileUpdate
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::ProfileUpdate
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::ProfileUpdate
 #[non_exhaustive] pub enum tablo_core::auth::TokenPurpose
+pub tablo_core::auth::TokenPurpose::EmailVerification
 pub tablo_core::auth::TokenPurpose::PasswordReset
 impl core::clone::Clone for tablo_core::auth::TokenPurpose
 pub fn tablo_core::auth::TokenPurpose::clone(&self) -> tablo_core::auth::TokenPurpose
@@ -75,6 +76,7 @@ pub tablo_core::auth::AdminUser::active: bool
 pub tablo_core::auth::AdminUser::created_at: jiff::timestamp::Timestamp
 pub tablo_core::auth::AdminUser::display_name: alloc::string::String
 pub tablo_core::auth::AdminUser::email: alloc::string::String
+pub tablo_core::auth::AdminUser::email_verified_at: core::option::Option<jiff::timestamp::Timestamp>
 pub tablo_core::auth::AdminUser::id: uuid::Uuid
 pub tablo_core::auth::AdminUser::password_hash: alloc::string::String
 impl tablo_core::auth::AdminUser
@@ -173,6 +175,7 @@ pub struct tablo_core::auth::Auth
 impl tablo_core::Auth
 pub fn tablo_core::Auth::custom(impl tablo_core::auth::Authenticator) -> Self
 pub fn tablo_core::Auth::disabled() -> Self
+pub fn tablo_core::Auth::email_verification(self, tablo_core::EmailVerification) -> Self
 pub fn tablo_core::Auth::is_disabled(&self) -> bool
 pub fn tablo_core::Auth::mail(self, tablo_core::AuthMail) -> Self
 pub fn tablo_core::Auth::password() -> Self
@@ -474,6 +477,19 @@ impl core::marker::Unpin for tablo_core::auth::ColumnPreference
 impl core::marker::UnsafeUnpin for tablo_core::auth::ColumnPreference
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::auth::ColumnPreference
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::auth::ColumnPreference
+pub struct tablo_core::auth::EmailVerification
+impl tablo_core::EmailVerification
+pub fn tablo_core::EmailVerification::new(impl tablo_core::auth::EmailVerifier) -> Self
+pub fn tablo_core::EmailVerification::throttle(self, tablo_core::LoginThrottle) -> Self
+impl core::fmt::Debug for tablo_core::EmailVerification
+pub fn tablo_core::EmailVerification::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl !core::marker::Freeze for tablo_core::EmailVerification
+impl core::marker::Send for tablo_core::EmailVerification
+impl core::marker::Sync for tablo_core::EmailVerification
+impl core::marker::Unpin for tablo_core::EmailVerification
+impl core::marker::UnsafeUnpin for tablo_core::EmailVerification
+impl !core::panic::unwind_safe::RefUnwindSafe for tablo_core::EmailVerification
+impl !core::panic::unwind_safe::UnwindSafe for tablo_core::EmailVerification
 pub struct tablo_core::auth::LoginThrottle
 impl tablo_core::LoginThrottle
 pub fn tablo_core::LoginThrottle::new(u32, core::time::Duration) -> Self
@@ -512,6 +528,10 @@ impl tablo_core::auth::Authenticator for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
 pub async fn tablo_core::PasswordAuth::find_by_id(&self, &topcoat_core::context::Cx, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
 pub async fn tablo_core::PasswordAuth::verify(&self, &topcoat_core::context::Cx, &str, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
+impl tablo_core::auth::EmailVerifier for tablo_core::PasswordAuth
+pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
+pub fn tablo_core::PasswordAuth::is_verified(&self, &tablo_core::auth::AdminUser) -> bool
+pub async fn tablo_core::PasswordAuth::store_verified_email(&self, &topcoat_core::context::Cx, &str, &str, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<()>
 impl tablo_core::auth::PasswordResetter for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
 pub async fn tablo_core::PasswordAuth::find_by_email(&self, &topcoat_core::context::Cx, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
@@ -596,6 +616,7 @@ pub const tablo_core::auth::PASSWORD_FIELD: &str
 pub const tablo_core::auth::RESET_LIFETIME: core::time::Duration
 pub const tablo_core::auth::SESSION_LIFETIME: core::time::Duration
 pub const tablo_core::auth::TENANT_FIELD: &str
+pub const tablo_core::auth::VERIFICATION_LIFETIME: core::time::Duration
 pub trait tablo_core::auth::Authenticator: core::marker::Send + core::marker::Sync + 'static
 pub type tablo_core::auth::Authenticator::User: tablo_core::auth::PanelUser
 pub fn tablo_core::auth::Authenticator::find_by_id(&self, &topcoat_core::context::Cx, &str) -> impl core::future::future::Future<Output = topcoat::Result<core::option::Option<Self::User>>> + core::marker::Send
@@ -604,6 +625,14 @@ impl tablo_core::auth::Authenticator for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
 pub async fn tablo_core::PasswordAuth::find_by_id(&self, &topcoat_core::context::Cx, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
 pub async fn tablo_core::PasswordAuth::verify(&self, &topcoat_core::context::Cx, &str, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
+pub trait tablo_core::auth::EmailVerifier: core::marker::Send + core::marker::Sync + 'static
+pub type tablo_core::auth::EmailVerifier::User: tablo_core::auth::PanelUser
+pub fn tablo_core::auth::EmailVerifier::is_verified(&self, &Self::User) -> bool
+pub fn tablo_core::auth::EmailVerifier::store_verified_email(&self, &topcoat_core::context::Cx, &str, &str, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send
+impl tablo_core::auth::EmailVerifier for tablo_core::PasswordAuth
+pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
+pub fn tablo_core::PasswordAuth::is_verified(&self, &tablo_core::auth::AdminUser) -> bool
+pub async fn tablo_core::PasswordAuth::store_verified_email(&self, &topcoat_core::context::Cx, &str, &str, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<()>
 pub trait tablo_core::auth::PanelUser: core::any::Any + core::marker::Send + core::marker::Sync
 pub fn tablo_core::auth::PanelUser::can_access_panel(&self) -> bool
 pub fn tablo_core::auth::PanelUser::display_name(&self) -> &str
@@ -3916,6 +3945,7 @@ pub tablo_core::DeclarationErrorKind::DuplicateRelation
 pub tablo_core::DeclarationErrorKind::DuplicateResource
 pub tablo_core::DeclarationErrorKind::DuplicateSlug
 pub tablo_core::DeclarationErrorKind::DuplicateSlug::slug: alloc::string::String
+pub tablo_core::DeclarationErrorKind::EmailVerification(tablo_core::VerificationFault)
 pub tablo_core::DeclarationErrorKind::EmptyChoice
 pub tablo_core::DeclarationErrorKind::EmptyChoice::field: alloc::string::String
 pub tablo_core::DeclarationErrorKind::EndpointOutsideRuntime
@@ -4375,6 +4405,27 @@ impl core::marker::Unpin for tablo_core::Site
 impl core::marker::UnsafeUnpin for tablo_core::Site
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Site
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::Site
+#[non_exhaustive] pub enum tablo_core::VerificationFault
+pub tablo_core::VerificationFault::AuthDisabled
+pub tablo_core::VerificationFault::UserType
+pub tablo_core::VerificationFault::UserType::verifier: &'static str
+impl core::clone::Clone for tablo_core::VerificationFault
+pub fn tablo_core::VerificationFault::clone(&self) -> tablo_core::VerificationFault
+impl core::cmp::Eq for tablo_core::VerificationFault
+impl core::cmp::PartialEq for tablo_core::VerificationFault
+pub fn tablo_core::VerificationFault::eq(&self, &tablo_core::VerificationFault) -> bool
+impl core::fmt::Debug for tablo_core::VerificationFault
+pub fn tablo_core::VerificationFault::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tablo_core::VerificationFault
+pub fn tablo_core::VerificationFault::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_core::VerificationFault
+impl core::marker::Freeze for tablo_core::VerificationFault
+impl core::marker::Send for tablo_core::VerificationFault
+impl core::marker::Sync for tablo_core::VerificationFault
+impl core::marker::Unpin for tablo_core::VerificationFault
+impl core::marker::UnsafeUnpin for tablo_core::VerificationFault
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::VerificationFault
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::VerificationFault
 pub struct tablo_core::Allow
 impl tablo_core::policy::Allow
 pub fn tablo_core::policy::Allow::and<P>(self, P) -> tablo_core::policy::And<Self, P>
@@ -4399,6 +4450,7 @@ pub struct tablo_core::Auth
 impl tablo_core::Auth
 pub fn tablo_core::Auth::custom(impl tablo_core::auth::Authenticator) -> Self
 pub fn tablo_core::Auth::disabled() -> Self
+pub fn tablo_core::Auth::email_verification(self, tablo_core::EmailVerification) -> Self
 pub fn tablo_core::Auth::is_disabled(&self) -> bool
 pub fn tablo_core::Auth::mail(self, tablo_core::AuthMail) -> Self
 pub fn tablo_core::Auth::password() -> Self
@@ -4838,6 +4890,19 @@ impl core::marker::Unpin for tablo_core::upload::DirUploader
 impl core::marker::UnsafeUnpin for tablo_core::upload::DirUploader
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::upload::DirUploader
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::upload::DirUploader
+pub struct tablo_core::EmailVerification
+impl tablo_core::EmailVerification
+pub fn tablo_core::EmailVerification::new(impl tablo_core::auth::EmailVerifier) -> Self
+pub fn tablo_core::EmailVerification::throttle(self, tablo_core::LoginThrottle) -> Self
+impl core::fmt::Debug for tablo_core::EmailVerification
+pub fn tablo_core::EmailVerification::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl !core::marker::Freeze for tablo_core::EmailVerification
+impl core::marker::Send for tablo_core::EmailVerification
+impl core::marker::Sync for tablo_core::EmailVerification
+impl core::marker::Unpin for tablo_core::EmailVerification
+impl core::marker::UnsafeUnpin for tablo_core::EmailVerification
+impl !core::panic::unwind_safe::RefUnwindSafe for tablo_core::EmailVerification
+impl !core::panic::unwind_safe::UnwindSafe for tablo_core::EmailVerification
 pub struct tablo_core::EmbeddedColumn<M, T>
 impl<M, T> tablo_core::EmbeddedColumn<M, T> where M: toasty::schema::model::Model, T: tablo_core::EmbeddedForm
 pub fn tablo_core::EmbeddedColumn<M, T>::hidden_by_default(self) -> Self
@@ -5462,6 +5527,10 @@ impl tablo_core::auth::Authenticator for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
 pub async fn tablo_core::PasswordAuth::find_by_id(&self, &topcoat_core::context::Cx, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
 pub async fn tablo_core::PasswordAuth::verify(&self, &topcoat_core::context::Cx, &str, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
+impl tablo_core::auth::EmailVerifier for tablo_core::PasswordAuth
+pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
+pub fn tablo_core::PasswordAuth::is_verified(&self, &tablo_core::auth::AdminUser) -> bool
+pub async fn tablo_core::PasswordAuth::store_verified_email(&self, &topcoat_core::context::Cx, &str, &str, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<()>
 impl tablo_core::auth::PasswordResetter for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
 pub async fn tablo_core::PasswordAuth::find_by_email(&self, &topcoat_core::context::Cx, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>

@@ -9,8 +9,8 @@ use topcoat::context::Cx;
 use uuid::Uuid;
 
 use super::{
-    Authenticator, PanelUser, PasswordResetter, Profile, ProfileEditor, ProfileUpdate, Registrar,
-    SignUp, infrastructure_failure, profile::CURRENT_PASSWORD_FIELD,
+    Authenticator, EmailVerifier, PanelUser, PasswordResetter, Profile, ProfileEditor,
+    ProfileUpdate, Registrar, SignUp, infrastructure_failure, profile::CURRENT_PASSWORD_FIELD,
 };
 use crate::FieldErrors;
 
@@ -38,6 +38,10 @@ pub struct AdminUser {
     pub display_name: String,
     /// `false` denies login and panel access immediately.
     pub active: bool,
+    /// When the account proved it reads `email`; `None` until it does, and again after the
+    /// email changes. Read only by a panel with
+    /// [`Auth::email_verification`](super::Auth::email_verification).
+    pub email_verified_at: Option<Timestamp>,
     pub created_at: Timestamp,
 }
 
@@ -135,7 +139,7 @@ impl Registrar for PasswordAuth {
         sign_up: SignUp,
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<AdminUser> {
-        create_admin(ex, &sign_up.email, &sign_up.password, &sign_up.name).await
+        insert_admin(ex, &sign_up.email, &sign_up.password, &sign_up.name, None).await
     }
 }
 
@@ -143,7 +147,9 @@ impl Registrar for PasswordAuth {
 /// the email or the password asks for the current password, and refuses a new password
 /// [`new_password_errors`](super::new_password_errors) refuses and, once the current password
 /// verifies, an email another account holds. A changed email or password is a
-/// [`ProfileUpdate::Credentials`]. Install it with [`Auth::profile`](super::Auth::profile).
+/// [`ProfileUpdate::Credentials`], and a changed email is unverified until its owner opens the
+/// link [`Auth::email_verification`](super::Auth::email_verification) mails. Install it with
+/// [`Auth::profile`](super::Auth::profile).
 impl ProfileEditor for PasswordAuth {
     type Input = Profile;
     type User = AdminUser;
@@ -206,11 +212,15 @@ impl ProfileEditor for PasswordAuth {
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<ProfileUpdate> {
         let email = normalize_email(&profile.email);
-        let credentials = email != admin.email || profile.password.is_some();
+        let new_email = email != admin.email;
+        let credentials = new_email || profile.password.is_some();
         let mut update = AdminUser::filter(AdminUser::fields().id().eq(admin.id))
             .update()
             .display_name(profile.name)
             .email(email);
+        if new_email {
+            update.set_email_verified_at(None);
+        }
         if let Some(password) = &profile.password {
             update.set_password_hash(hash_password(password).await?);
         }
@@ -244,9 +254,7 @@ impl PasswordResetter for PasswordAuth {
         password: &str,
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<()> {
-        let Ok(id) = Uuid::parse_str(user_id) else {
-            return Ok(());
-        };
+        let id = Uuid::parse_str(user_id).map_err(|_| topcoat::router::error::not_found())?;
         AdminUser::filter(AdminUser::fields().id().eq(id))
             .update()
             .password_hash(hash_password(password).await?)
@@ -256,9 +264,36 @@ impl PasswordResetter for PasswordAuth {
     }
 }
 
+/// Verifies an [`AdminUser`]'s address, storing the one the link proved. Install it with
+/// [`Auth::email_verification`](super::Auth::email_verification).
+impl EmailVerifier for PasswordAuth {
+    type User = AdminUser;
+
+    fn is_verified(&self, admin: &AdminUser) -> bool {
+        admin.email_verified_at.is_some()
+    }
+
+    async fn store_verified_email(
+        &self,
+        _cx: &Cx,
+        user_id: &str,
+        email: &str,
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<()> {
+        let id = Uuid::parse_str(user_id).map_err(|_| topcoat::router::error::not_found())?;
+        AdminUser::filter(AdminUser::fields().id().eq(id))
+            .update()
+            .email(normalize_email(email))
+            .email_verified_at(Some(Timestamp::now()))
+            .exec(ex)
+            .await?;
+        Ok(())
+    }
+}
+
 /// Creates an active [`AdminUser`] that signs in with `email` and `password`, storing only the
 /// password's Argon2id hash: the account a new app seeds to reach its panel. The email is stored
-/// trimmed and lowercased.
+/// trimmed and lowercased, and verified: whoever seeds the account vouches for the address.
 ///
 /// ```rust,no_run
 /// # async fn seed(mut db: toasty::Db) -> topcoat::Result<()> {
@@ -277,11 +312,23 @@ pub async fn create_admin(
     password: &str,
     display_name: &str,
 ) -> topcoat::Result<AdminUser> {
+    insert_admin(ex, email, password, display_name, Some(Timestamp::now())).await
+}
+
+/// Inserts an active [`AdminUser`], verified at `verified_at`.
+async fn insert_admin(
+    ex: &mut dyn toasty::Executor,
+    email: &str,
+    password: &str,
+    display_name: &str,
+    verified_at: Option<Timestamp>,
+) -> topcoat::Result<AdminUser> {
     let admin = toasty::create!(AdminUser {
         email: normalize_email(email),
         password_hash: hash_password(password).await?,
         display_name: display_name.to_string(),
         active: true,
+        email_verified_at: verified_at,
         created_at: Timestamp::now(),
     })
     .exec(ex)

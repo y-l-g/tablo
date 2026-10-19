@@ -116,6 +116,7 @@ async fn panel_root_redirect_rechecks_auth_before_the_root_target() {
             password_hash: String::new(),
             display_name: "Ada".to_string(),
             active: true,
+            email_verified_at: None,
             created_at: jiff::Timestamp::UNIX_EPOCH,
         }),
         panel: Arc::clone(&gated.0),

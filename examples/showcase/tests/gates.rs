@@ -431,6 +431,33 @@ async fn forged_profile_save_answers_403_and_changes_nothing() {
     );
 }
 
+/// A forged request for a verification link answers 403 before any link is written.
+#[tokio::test]
+async fn forged_verification_request_answers_403_and_mails_nothing() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let field = Uuid::new_v4().to_string();
+    let cookie = Uuid::new_v4().to_string();
+
+    for (submitted, label) in [
+        (Some(field.as_str()), "mismatched token"),
+        (None, "missing token"),
+    ] {
+        let pairs: Vec<(&str, &str)> = submitted.map(|f| ("csrf_token", f)).into_iter().collect();
+        let resp = client
+            .csrf(&cookie)
+            .post_form("/admin/verify-email", form_body(&pairs))
+            .await;
+        assert_eq!(resp.status(), 403, "verification {label}");
+    }
+    let links = tablo::auth::AuthToken::all()
+        .exec(&mut db.clone())
+        .await
+        .unwrap();
+    assert!(links.is_empty(), "a forged request must record no link");
+}
+
 /// A forged logout POST is refused and leaves the session usable.
 ///
 /// Both a mismatched token and a missing `csrf_token` field must 403. The
@@ -805,6 +832,7 @@ async fn anonymous_requests_are_gated_on_every_route() {
         "/admin/-/error".to_string(),
         "/admin/unknown".to_string(),
         "/admin/profile".to_string(),
+        "/admin/verify-email".to_string(),
     ] {
         let resp = client.get(&path).await;
         assert_eq!(
@@ -835,6 +863,7 @@ async fn anonymous_requests_are_gated_on_every_route() {
         format!("{relation}/-/actions/detach"),
         format!("{relation}/{}/-/actions/detach", post.id),
         "/admin/profile".to_string(),
+        "/admin/verify-email".to_string(),
     ] {
         let resp = client.post_form(&path, "confirm=1".to_string()).await;
         assert_eq!(

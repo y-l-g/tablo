@@ -120,8 +120,8 @@ mod values;
 pub(crate) type BoxFuture<'a, T> = std::pin::Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
 pub use auth::{
-    Auth, AuthMail, Authenticator, LoginThrottle, PanelUser, PasswordAuth, PasswordReset, Profile,
-    ProfileEditor, ProfileUpdate, Registrar, SignUp, membership,
+    Auth, AuthMail, Authenticator, EmailVerification, LoginThrottle, PanelUser, PasswordAuth,
+    PasswordReset, Profile, ProfileEditor, ProfileUpdate, Registrar, SignUp, membership,
 };
 pub use column::{
     BooleanColumn, ColorColumn, ColumnToggle, ColumnWidth, ComputedColumn, CountColumn, DateColumn,
@@ -131,6 +131,7 @@ pub use column::{
 pub use declaration::{
     ActionInputFault, AuthMailFault, DeclarationError, DeclarationErrorKind, FieldRuleFault,
     ManyToManyFault, MountError, ProfileFault, ResetFault, SegmentFault, SignUpFault, Site,
+    VerificationFault,
 };
 pub use detail::{Detail, IntoDetail};
 pub use display::{Alignment, Color, Currency, Number, Numeric};

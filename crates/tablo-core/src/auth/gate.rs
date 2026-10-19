@@ -23,7 +23,7 @@ use super::{
     password_reset::{forgot_url, offered as reset_offered, reset_url},
     registration::{offered, register_url},
     session::{resolve, session_row, session_user},
-    unauthenticated_error,
+    unauthenticated_error, verification,
 };
 use crate::panel::{
     Panel,
@@ -62,14 +62,17 @@ impl Layer for PanelGate {
                     .await
                     .map_err(|error| answer(&cx, error));
             };
-            // The login page, and the sign-up and password reset pages when the panel offers
-            // them, must answer while logged out. Only the methods their routes
+            // The login page, and the sign-up, password reset and verification link pages when
+            // the panel offers them, must answer while logged out. Only the methods their routes
             // serve (GET, its HEAD, and POST) pass: an app route at the same
             // path under another method stays gated.
             let path = uri(&cx).path();
             let sign_up = offered(&cx) && path == register_url(&cx);
             let reset = reset_offered(&cx) && (path == forgot_url(&cx) || path == reset_url(&cx));
-            let public = path == login_url(&cx) || sign_up || reset;
+            let confirm = self.panel.auth.verification().is_some()
+                && path == verification::confirm_url(&cx)
+                && matches!(*method(&cx), http::Method::GET | http::Method::HEAD);
+            let public = path == login_url(&cx) || sign_up || reset || confirm;
             if public
                 && matches!(
                     *method(&cx),
@@ -97,6 +100,20 @@ impl Layer for PanelGate {
             let logout_route =
                 uri(&cx).path() == logout_url(&cx) && matches!(*method(&cx), http::Method::POST);
             match resolve(&cx, &self.panel, authenticator).await? {
+                // A user who owes a step, such as verifying their address, reaches only the step's
+                // page and the logout route.
+                Some(signed)
+                    if signed.user.can_access_panel()
+                        && !logout_route
+                        && let Some(step) = owed_step(&self.panel, &signed)
+                        && !step.serves(&cx) =>
+                {
+                    if page_load(&cx) {
+                        Err(redirect(step.url(&cx)).into())
+                    } else {
+                        Err(forbidden().into())
+                    }
+                }
                 Some(signed) if signed.user.can_access_panel() || logout_route => {
                     let cx = cx.with(signed);
                     next.run(&cx, body)
@@ -115,6 +132,41 @@ impl Layer for PanelGate {
             }
         })
     }
+}
+
+/// What a signed-in user with panel access must do before the panel serves them anything else.
+#[derive(Debug, Clone, Copy)]
+enum Step {
+    /// Prove they read the address they store.
+    VerifyEmail,
+}
+
+impl Step {
+    /// Where the step's page lives.
+    fn url(self, cx: &Cx) -> String {
+        match self {
+            Self::VerifyEmail => verification::notice_url(cx),
+        }
+    }
+
+    /// Whether the request is one the step's page answers.
+    fn serves(self, cx: &Cx) -> bool {
+        uri(cx).path() == self.url(cx)
+            && matches!(
+                *method(cx),
+                http::Method::GET | http::Method::HEAD | http::Method::POST
+            )
+    }
+}
+
+/// The step `signed` owes `panel`, if any.
+fn owed_step(panel: &PanelState, signed: &SignedIn) -> Option<Step> {
+    verification::pending(panel, signed.user.as_ref()).then_some(Step::VerifyEmail)
+}
+
+/// Whether `signed` may reach any endpoint: they have panel access and owe no step.
+fn admitted(signed: &SignedIn) -> bool {
+    signed.user.can_access_panel() && owed_step(&signed.panel, signed).is_none()
 }
 
 /// The page a signed-in user the panel refuses loads: a 403 saying so, with Sign out.
@@ -185,7 +237,7 @@ impl Layer for RuntimeGate {
             };
             if declaring.is_empty() {
                 return match signed {
-                    Some(signed) if signed.user.can_access_panel() => {
+                    Some(signed) if admitted(&signed) => {
                         let panel = CurrentPanel(Arc::clone(&signed.panel));
                         next.run(&cx.with_many((signed, panel)), body).await
                     }
@@ -196,7 +248,7 @@ impl Layer for RuntimeGate {
             }
             // A session another panel signed in is no session for the declaring panels.
             match signed.filter(|signed| declaring.iter().any(|p| Arc::ptr_eq(p, &signed.panel))) {
-                Some(signed) if signed.user.can_access_panel() => {
+                Some(signed) if admitted(&signed) => {
                     let panel = CurrentPanel(Arc::clone(&signed.panel));
                     next.run(&cx.with_many((signed, panel)), body).await
                 }

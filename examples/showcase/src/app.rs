@@ -4,11 +4,11 @@ use std::path::PathBuf;
 
 use tablo::{
     Ability, Action, ActionLayout, Auth, AuthMail, BooleanColumn, Brand, ComputedColumn,
-    CountColumn, DateColumn, DateFilter, Detail, DirUploader, EmbeddedColumn, FieldErrors, Grid,
-    Group, HeaderAction, ModelColumns, NavigationItem, Pagination, Panel, PasswordReset,
-    PublicLink, QueryFilter, Relation, RelationColumn, RepeaterColumn, Resource, ResourceDef,
-    RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy, TernaryFilter,
-    TextColumn, lens, relation, scoped_query, tenant_id, when,
+    CountColumn, DateColumn, DateFilter, Detail, DirUploader, EmailVerification, EmbeddedColumn,
+    FieldErrors, Grid, Group, HeaderAction, ModelColumns, NavigationItem, Pagination, Panel,
+    PasswordReset, PublicLink, QueryFilter, Relation, RelationColumn, RepeaterColumn, Resource,
+    ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy,
+    TernaryFilter, TextColumn, lens, relation, scoped_query, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -479,7 +479,8 @@ pub fn admin_panel() -> Panel {
                     std::env::var("SHOWCASE_BASE_URL")
                         .unwrap_or_else(|_| "http://localhost:3000".to_string()),
                 ))
-                .password_reset(PasswordReset::new(StaffAuth)),
+                .password_reset(PasswordReset::new(StaffAuth))
+                .email_verification(EmailVerification::new(StaffAuth)),
         )
         .brand(Brand::new("Tablo Blog").logo(LOGO).favicon(LOGO))
         .home::<Dashboard>()

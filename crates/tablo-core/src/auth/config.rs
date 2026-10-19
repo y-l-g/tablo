@@ -2,8 +2,8 @@
 //! mail it adds.
 
 use super::{
-    AuthMail, Authenticator, DynAuthenticator, LoginThrottle, PasswordAuth, PasswordReset,
-    ProfileEditor, Registrar, profile::DynProfileEditor, registration::DynRegistrar,
+    AuthMail, Authenticator, DynAuthenticator, EmailVerification, LoginThrottle, PasswordAuth,
+    PasswordReset, ProfileEditor, Registrar, profile::DynProfileEditor, registration::DynRegistrar,
 };
 
 /// The panel's authentication configuration (ADR-0013).
@@ -23,6 +23,7 @@ pub struct Auth {
     profile_throttle: LoginThrottle,
     pub(super) reset: Option<PasswordReset>,
     pub(super) mail: Option<AuthMail>,
+    pub(super) verification: Option<EmailVerification>,
 }
 
 impl Auth {
@@ -44,6 +45,7 @@ impl Auth {
             profile_throttle: LoginThrottle::default(),
             reset: None,
             mail: None,
+            verification: None,
         }
     }
 
@@ -60,6 +62,7 @@ impl Auth {
             profile_throttle: LoginThrottle::off(),
             reset: None,
             mail: None,
+            verification: None,
         }
     }
 
@@ -146,6 +149,25 @@ impl Auth {
         self
     }
 
+    /// Makes each signed-in user prove they read the address [`PanelUser::email`] answers before
+    /// they reach anything but `{prefix}/verify-email`, which mails them a link through
+    /// [`Auth::mail`]. A sign-up mails the link at once.
+    ///
+    /// Until the user verifies, a page answers with a redirect to that page and any other
+    /// request with 403. A link works once, for
+    /// [`VERIFICATION_LIFETIME`](super::VERIFICATION_LIFETIME), on this panel, and only while
+    /// the account stores the address it was mailed to; it works in a browser signed in as
+    /// someone else, or as nobody. Mounting refuses a verification whose
+    /// [`User`](super::EmailVerifier::User) is not the type the authenticator loads, a
+    /// verification on [`Auth::disabled`], and one without [`Auth::mail`].
+    ///
+    /// [`PanelUser::email`]: super::PanelUser::email
+    #[must_use]
+    pub fn email_verification(mut self, verification: EmailVerification) -> Self {
+        self.verification = Some(verification);
+        self
+    }
+
     /// Sends the panel's auth mail, such as reset links, from `mail`'s sender, with links that
     /// start with its base URL. Mounting refuses a base URL that is not absolute, and a router
     /// without a [`MailConfig`](topcoat::mail::MailConfig).
@@ -198,6 +220,11 @@ impl Auth {
         self.authenticator.as_ref().and(self.reset.as_ref())
     }
 
+    /// The email verification, or `None` when the panel asks for none.
+    pub(crate) fn verification(&self) -> Option<&EmailVerification> {
+        self.authenticator.as_ref().and(self.verification.as_ref())
+    }
+
     /// The auth mail, or `None` when the panel mails nothing.
     pub(crate) fn auth_mail(&self) -> Option<&AuthMail> {
         self.authenticator.as_ref().and(self.mail.as_ref())
@@ -205,10 +232,13 @@ impl Auth {
 
     /// The features that mail a link, by name, for the mount's checks.
     pub(super) fn mailing(&self) -> Vec<&'static str> {
-        [self.reset.is_some().then_some("password_reset")]
-            .into_iter()
-            .flatten()
-            .collect()
+        [
+            self.reset.is_some().then_some("password_reset"),
+            self.verification.is_some().then_some("email_verification"),
+        ]
+        .into_iter()
+        .flatten()
+        .collect()
     }
 
     /// Whether the panel issues [`AuthToken`]s, so the model must be registered.
@@ -233,6 +263,7 @@ impl std::fmt::Debug for Auth {
                 .field("registration", &self.registrar.is_some())
                 .field("profile", &self.profile_editor.is_some())
                 .field("password_reset", &self.reset)
+                .field("email_verification", &self.verification)
                 .field("mail", &self.mail)
                 .finish_non_exhaustive()
         }

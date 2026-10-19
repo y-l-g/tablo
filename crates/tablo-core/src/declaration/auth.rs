@@ -1,5 +1,5 @@
-//! The declaration mistakes of a panel's auth: its sign-up, profile and password-reset pages,
-//! and the mail they send.
+//! The declaration mistakes of a panel's auth: its sign-up, profile, password-reset and
+//! email-verification pages, and the mail they send.
 
 use std::fmt;
 
@@ -166,6 +166,35 @@ impl fmt::Display for AuthMailFault {
             Self::MissingMail => f.write_str(
                 "the panel's auth mails links, but the router registers no `MailConfig`: install \
              one with `.mail(..)` before mounting the panel",
+            ),
+        }
+    }
+}
+
+/// Why a panel's email verification cannot be served:
+/// [`DeclarationErrorKind::EmailVerification`](super::DeclarationErrorKind::EmailVerification).
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum VerificationFault {
+    /// `Auth::email_verification` on `Auth::disabled`, which signs nobody in to verify.
+    AuthDisabled,
+    /// The verifier verifies another user type than the authenticator loads.
+    UserType {
+        /// The verifier's `User` type.
+        verifier: &'static str,
+    },
+}
+
+impl fmt::Display for VerificationFault {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::AuthDisabled => f.write_str(
+                "email verification needs auth: `Auth::disabled()` signs nobody in to verify",
+            ),
+            Self::UserType { verifier } => write!(
+                f,
+                "the email verifier verifies `{verifier}`, but the authenticator loads another \
+             type: verify the type the panel signs in"
             ),
         }
     }

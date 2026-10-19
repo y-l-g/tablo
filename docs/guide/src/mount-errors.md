@@ -42,6 +42,7 @@ A test matches on the kind rather than the message; see
 | `SignUp` | the sign-up page cannot be served; the `SignUpFault` says why | see below |
 | `Profile` | the profile page cannot be served; the `ProfileFault` says why | see below |
 | `PasswordReset` | the password reset cannot be served; the `ResetFault` says why | see below |
+| `EmailVerification` | the email verification cannot be served; the `VerificationFault` says why | see below |
 | `AuthMail` | the auth's mail cannot be sent; the `AuthMailFault` says why | see below |
 
 `SignUpFault`:
@@ -71,11 +72,18 @@ A test matches on the kind rather than the message; see
 | `AuthDisabled` | `Auth::password_reset` on `Auth::disabled()` | turn authentication on |
 | `UserType` | the resetter resets another user type than the authenticator loads | reset the type the panel signs in |
 
+`VerificationFault`:
+
+| Fault | Refused when | Fix |
+| --- | --- | --- |
+| `AuthDisabled` | `Auth::email_verification` on `Auth::disabled()` | turn authentication on |
+| `UserType` | the verifier verifies another user type than the authenticator loads | verify the type the panel signs in |
+
 `AuthMailFault`:
 
 | Fault | Refused when | Fix |
 | --- | --- | --- |
-| `Unset` | a feature that mails links, such as `Auth::password_reset`, on an `Auth` without `Auth::mail` | install a sender with `Auth::mail(AuthMail::new(..))` |
+| `Unset` | a feature that mails links, such as `Auth::password_reset` or `Auth::email_verification`, on an `Auth` without `Auth::mail` | install a sender with `Auth::mail(AuthMail::new(..))` |
 | `BaseUrl` | the base URL is not an absolute `http` or `https` URL, or carries a query or fragment | pass the scheme and host, such as `https://admin.example.com` |
 | `MissingMail` | the router registers no `MailConfig` | call `.mail(..)` before `.panel(..)` |
 

@@ -328,8 +328,8 @@ an account that answers none gets no link.
   address.
 - **A link** works once, for one hour, on the panel that mailed it, and only while the account may
   still enter the panel. A new request replaces the account's earlier link, and a password change
-  on the profile page ends it, as it ends every link the account holds. The token is stored only as a hash, and the reset page sends no
-  referrer and may not be cached.
+  on the profile page ends it, as it ends every link the account holds. The token is stored only
+  as a hash, and the reset page sends no referrer and may not be cached.
 - **A reset** checks the new password with `new_password_errors`, then sets it, ends the account's
   sessions and reset links on every panel whose authenticator loads the same user type, and
   redirects to the login page. All of this commits in one transaction.
@@ -337,8 +337,41 @@ an account that answers none gets no link.
   counted whether or not an account uses it; `PasswordReset::throttle` changes the limit. Past it
   the page answers 429. A limit per client belongs at the proxy.
 - **Mounting refuses** a resetter whose `User` is not the type the authenticator loads, a reset on
-  `Auth::disabled()`, a base URL that is not an absolute `http` or `https` URL or that carries a
-  query or fragment, and a router without a `MailConfig`.
+  `Auth::disabled()`, a reset without `Auth::mail`, a base URL that is not an absolute `http` or
+  `https` URL or that carries a query or fragment, and a router without a `MailConfig`.
+
+### Email verification
+
+`Auth::email_verification` makes every signed-in user prove they read the address
+`PanelUser::email` answers before the panel serves them anything else. It mails links through
+`Auth::mail`, like a password reset:
+
+```rust
+{{#include ../../../examples/guide/src/policy_tenancy.rs:policy-email-verification}}
+```
+
+Your own user table verifies through an `EmailVerifier` beside its `Authenticator`: `is_verified`
+says whether the user has proved their address, and `store_verified_email` stores the address a
+link proved and marks it verified, inside the link's transaction. `PasswordAuth` keeps the proof in
+`AdminUser::email_verified_at`; `create_admin` seeds a verified account.
+
+- **Until the user verifies**, a page redirects to `{prefix}/verify-email` and any other request
+  answers 403. The page offers to mail a link, and to sign out. A user whose `PanelUser::email` is
+  `None` has no address to prove and is not held.
+- **Accounts that predate verification** are unverified: turning it on sends each of them,
+  seeded admins included, to `{prefix}/verify-email` at their next request. Backfill
+  `email_verified_at` (from `created_at`, say) for the addresses you already trust.
+- **A sign-up** mails the link at once, after the response.
+- **A link** works once, for one day, on the panel that mailed it, and only while the account may
+  enter the panel and still stores the address it was mailed to. It verifies on `GET` in any
+  browser, signed in or not, then lands on the panel or on the login page. A mail scanner that
+  opens the link verifies the address too: it fetched the link from the mailbox the link proves.
+- **A changed email** is unverified again: `PasswordAuth`'s profile clears
+  `email_verified_at` when the email changes, so the user verifies the new address.
+- **Throttling.** Each account may ask for three links in fifteen minutes;
+  `EmailVerification::throttle` changes the limit. Past it the page answers 429.
+- **Mounting refuses** a verifier whose `User` is not the type the authenticator loads, a
+  verification on `Auth::disabled()`, and one without `Auth::mail`.
 
 ### Turning it off
 
