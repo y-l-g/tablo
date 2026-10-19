@@ -285,6 +285,23 @@ async fn render_login_page<'a>(
     let notice = (error.is_none() && *topcoat::router::request::method(cx) == http::Method::GET)
         .then(|| crate::notification::take_notification(cx))
         .flatten();
+    let password = crate::schema::fields::password_reveal(
+        cx,
+        "password".to_string(),
+        topcoat::view::view! {
+            cx =>
+            tablo_ui::input(
+                attrs: topcoat::view::attributes! {
+                    id="password"
+                    name=(PASSWORD_FIELD)
+                    type="password"
+                    required=""
+                    autocomplete="current-password"
+                }
+            )
+        }
+        .boxed(),
+    );
     let form = topcoat::view::view! {
         cx =>
         <form method="post" action=(action) class="flex flex-col gap-5">
@@ -331,15 +348,7 @@ async fn render_login_page<'a>(
                     attrs: topcoat::view::attributes! { for="password" },
                     "Password"
                 )
-                tablo_ui::input(
-                    attrs: topcoat::view::attributes! {
-                        id="password"
-                        name=(PASSWORD_FIELD)
-                        type="password"
-                        required=""
-                        autocomplete="current-password"
-                    }
-                )
+                (password)
             )
             if let Some(forgot) = forgot {
                 <a

@@ -235,7 +235,7 @@ transaction the framework opens:
 ```
 
 - **The form** is any `FormInput`, or the shipped `SignUp`. `#[form(password)]` renders a
-  masked control that a refused form renders empty, and reads the password as typed, outer
+  masked control, with a button that shows what was typed, that a refused form renders empty, and reads the password as typed, outer
   spaces included, as the login compares it. `#[form(email)]` refuses a malformed address before
   `validate` runs. A missing field and a malformed value answer 422 with the error
   under the field, as `validate`'s refusals do; nothing is written.
@@ -451,9 +451,10 @@ A tenant-owned resource shows each user only the rows of the tenant they act for
 for each tenant `PanelUser::tenants` lists, as a `Membership { tenant, name }`; the provided
 `AdminUser` belongs to none, so a tenanted app signs in [its own user table](#your-own-user-table).
 
-- **The request's tenant** is the membership the user selected, else their first, read with
-  `tenant_id(cx)`; `membership(cx)` returns the whole `Membership`. A user with no membership has
-  no tenant.
+- **The request's tenant** is the membership the user selected, else the one
+  `PanelUser::default_tenant` names while the user holds it, such as a default the user picks on
+  their profile, else their first. Read it with `tenant_id(cx)`; `membership(cx)` returns the
+  whole `Membership`. A user with no membership has no tenant.
 - **Switching.** With two or more memberships, a tenant menu sits atop the sidebar. It posts to
   `{prefix}/tenant`, which stores the choice on the session and returns to the panel's home
   page.

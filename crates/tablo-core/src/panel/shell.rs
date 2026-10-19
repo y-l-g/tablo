@@ -673,10 +673,9 @@ impl Panel {
                 // Modules, so each script's top-level names stay its own: as classic scripts they
                 // share one global scope, where a later script's `partsOf` replaces an earlier one's.
                 // A module is deferred like these were.
-                <script src=(tablo_ui::SIDEBAR_JS) type="module"></script>
-                <script src=(tablo_ui::THEME_JS) type="module"></script>
-                <script src=(tablo_ui::SELECTS_JS) type="module"></script>
-                <script src=(tablo_ui::REPEATERS_JS) type="module"></script>
+                for script in tablo_ui::SHELL_SCRIPTS {
+                    <script src=(script) type="module"></script>
+                }
             }
             .boxed(),
             None => view! { cx => topcoat::dev::script() }.boxed(),

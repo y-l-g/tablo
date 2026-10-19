@@ -1,7 +1,7 @@
 //! The text control: a one-line `<input>`, or a `<textarea>` with `rows`.
 
 use tablo_ui::{input as ui_input, textarea as ui_textarea};
-use topcoat::{Result, context::Cx, view::*};
+use topcoat::{Result, context::Cx, icon::icon, view::*};
 
 pub(crate) use self::rules::Pattern;
 use self::rules::{Order, Rules, order};
@@ -206,7 +206,8 @@ impl Field {
             let min = rules.min.as_deref().map(text.input_value);
             let max = rules.max.as_deref().map(text.input_value);
             let pattern = rules.pattern.as_ref().map(|pattern| pattern.source.clone());
-            view! {
+            let controls = id.clone();
+            let input = view! {
                 cx =>
                 ui_input(
                     attrs: attributes! {
@@ -230,7 +231,12 @@ impl Field {
                     }
                 )
             }
-            .boxed()
+            .boxed();
+            if text.password {
+                password_reveal(cx, controls, input)
+            } else {
+                input
+            }
         };
         render_field(
             cx,
@@ -241,6 +247,28 @@ impl Field {
             control,
         )
     }
+}
+
+/// `input`, the password input `id` names, with the button beside it that shows or masks the
+/// value: `assets/password.js` toggles it.
+pub(crate) fn password_reveal<'a>(cx: &'a Cx, id: String, input: BoxView<'a>) -> BoxView<'a> {
+    view! {
+        cx =>
+        <div class="relative">
+            (input)
+            <button
+                type="button"
+                class="absolute inset-y-0 right-0 flex w-9 items-center justify-center rounded-r-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&>svg]:size-4"
+                aria-controls=(id)
+                aria-label="Show password"
+                aria-pressed="false"
+                data-password-toggle=""
+            >
+                icon(data: tablo_ui::icons::EYE)
+            </button>
+        </div>
+    }
+    .boxed()
 }
 
 mod rules;

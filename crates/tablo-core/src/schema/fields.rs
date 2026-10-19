@@ -21,7 +21,7 @@ use tablo_ui::{
     field_description as ui_field_description, field_error as ui_field_error,
     field_label as ui_field_label, field_title as ui_field_title,
 };
-pub(crate) use text::{Pattern, TextControl};
+pub(crate) use text::{Pattern, TextControl, password_reveal};
 use toasty::stmt::{List, Path};
 use topcoat::{Result, context::Cx, view::*};
 

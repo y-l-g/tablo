@@ -64,6 +64,7 @@ pub const PUBLISHED_CRATES: &[(&str, &[&str])] = &[
 
 /// JS asset suites, named rather than globbed so a rename fails loudly.
 pub const ASSET_SUITES: &[&str] = &[
+    "crates/tablo-ui/assets/password.test.js",
     "crates/tablo-ui/assets/repeaters.test.js",
     "crates/tablo-ui/assets/selects.test.js",
     "crates/tablo-ui/assets/theme.test.js",

@@ -132,10 +132,17 @@ pub trait PanelUser: Any + Send + Sync {
     }
 
     /// The tenants the user may act for, in the order the tenant switcher
-    /// lists them. The first is the default tenant until the user selects
-    /// another. Defaults to none: the user has no tenant.
+    /// lists them. A session acts for the [`default_tenant`](Self::default_tenant)
+    /// until the user selects another. Defaults to none: the user has no tenant.
     fn tenants(&self) -> &[Membership] {
         &[]
+    }
+
+    /// The tenant a session acts for until the user selects another, while it is one of
+    /// [`tenants`](Self::tenants), such as one the user picks on their profile page and the app
+    /// stores. Defaults to none: the first of `tenants`.
+    fn default_tenant(&self) -> Option<Uuid> {
+        None
     }
 }
 
@@ -303,7 +310,8 @@ pub(crate) fn signed(cx: &Cx) -> Option<&SignedIn> {
 
 /// The signed-in user's membership the request acts under: the tenant the
 /// session selected while it is still one of the user's
-/// [`tenants`](PanelUser::tenants), else the first. `None` without a
+/// [`tenants`](PanelUser::tenants), else the user's
+/// [`default_tenant`](PanelUser::default_tenant), else the first. `None` without a
 /// signed-in user, for a user with no tenant, and when a `Tenant` override
 /// names a tenant the user is not a member of.
 pub fn membership(cx: &Cx) -> Option<&Membership> {
@@ -315,14 +323,16 @@ pub fn membership(cx: &Cx) -> Option<&Membership> {
         .find(|m| m.tenant == tenant)
 }
 
-/// The tenant of the session's selected membership, else of the user's first: the
-/// [`TenantSource`](crate::tenancy::TenantSource) the panel installs.
+/// The tenant of the session's selected membership, else of the user's default, else of their
+/// first: the [`TenantSource`](crate::tenancy::TenantSource) the panel installs.
 pub(crate) fn session_tenant(cx: &Cx) -> Option<Uuid> {
     let signed = signed(cx)?;
     let tenants = signed.user.tenants();
+    let member = |tenant: Uuid| tenants.iter().find(|m| m.tenant == tenant);
     signed
         .tenant
-        .and_then(|tenant| tenants.iter().find(|m| m.tenant == tenant))
+        .and_then(member)
+        .or_else(|| signed.user.default_tenant().and_then(member))
         .or_else(|| tenants.first())
         .map(|membership| membership.tenant)
 }
