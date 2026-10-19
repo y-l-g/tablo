@@ -17,7 +17,7 @@ http = "1"
 http-body-util = "0.1"
 percent-encoding.workspace = true
 serde_json = "1"
-sha1 = "0.10"
+sha1 = "0.11"
 toasty.workspace = true
 topcoat = { workspace = true }
 uuid.workspace = true
