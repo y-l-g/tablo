@@ -19,8 +19,8 @@ use topcoat::{
 };
 
 use super::{
-    PanelUser, SignedIn, email_change::Requested, panel_root, registration::new_password_errors,
-    session::replace_sessions, signed, unauthenticated_error,
+    PanelUser, SignedIn, email_change::Requested, input, panel_root,
+    registration::new_password_errors, session::replace_sessions, signed, unauthenticated_error,
 };
 use crate::{
     BoxFuture,
@@ -208,30 +208,9 @@ impl<E: ProfileEditor> DynProfileEditor for E {
                 };
             }
             schema.keep_unedited(&mut values, &stored);
-            let mut errors = FieldErrors::new();
-            let parsed = match E::Input::parse(cx, &values) {
-                Ok(parsed) => Some(parsed),
-                Err(refused) => {
-                    for error in refused {
-                        errors.push(error);
-                    }
-                    None
-                }
-            };
-            schema
-                .check_controls(cx, &values, &stored, &mut errors)
-                .await;
-            let refused = |errors| Outcome::Refused {
-                values: values.clone(),
-                errors,
-            };
-            if let Some(key) = schema.unplaced_error(&errors) {
-                return Err(crate::error::declaration(format!(
-                    "the profile input refused key `{key}`, which no profile control renders"
-                )));
-            }
-            let Some(input) = parsed.filter(|_| errors.is_empty()) else {
-                return Ok(refused(errors));
+            let input = match input::parse::<E::Input>(cx, &values, &stored, "profile").await? {
+                Ok(input) => input,
+                Err(errors) => return Ok(Outcome::Refused { values, errors }),
             };
             let mut db = crate::db::db(cx);
             let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
@@ -239,13 +218,9 @@ impl<E: ProfileEditor> DynProfileEditor for E {
                 .validate(cx, user, &input, &mut tx)
                 .await
                 .map_err(write_failure)?;
-            if let Some(key) = schema.unplaced_error(&errors) {
-                return Err(crate::error::declaration(format!(
-                    "the profile editor refused key `{key}`, which no profile control renders"
-                )));
-            }
+            input::placed(&schema, &errors, "the profile editor", "profile")?;
             if !errors.is_empty() {
-                return Ok(refused(errors));
+                return Ok(Outcome::Refused { values, errors });
             }
             let update = self
                 .save(cx, user, input, &mut tx)
@@ -475,6 +450,7 @@ async fn render<'a>(
 /// The mistakes in a panel's [`Auth::profile`](super::Auth::profile): a profile without auth, an
 /// editor whose user is not the authenticator's, and a profile form field the page cannot serve.
 pub(super) fn declaration_errors(auth: &super::Auth) -> Vec<crate::DeclarationErrorKind> {
+    use super::input::FieldFault;
     use crate::{DeclarationErrorKind, declaration::ProfileFault};
 
     let Some(editor) = auth.profile_editor.as_deref() else {
@@ -493,22 +469,15 @@ pub(super) fn declaration_errors(auth: &super::Auth) -> Vec<crate::DeclarationEr
     let schema = editor.schema();
     kinds.extend(schema.declaration_errors());
     kinds.extend(schema.empty_choices());
-    kinds.extend(schema.fields().filter_map(|field| {
-        let name = field.name().to_string();
-        let fault = if RESERVED_KEYS.contains(&name.as_str()) {
-            ProfileFault::ReservedField(name)
-        } else if field.is_file() {
-            ProfileFault::FileField(name)
-        } else if field
-            .as_choice()
-            .is_some_and(|choice| choice.is_relationship())
-        {
-            ProfileFault::RelationshipField(name)
-        } else {
-            return None;
-        };
-        Some(DeclarationErrorKind::Profile(fault))
-    }));
+    kinds.extend(
+        input::field_faults(&schema, &RESERVED_KEYS).map(|(fault, name)| {
+            DeclarationErrorKind::Profile(match fault {
+                FieldFault::Reserved => ProfileFault::ReservedField(name),
+                FieldFault::File => ProfileFault::FileField(name),
+                FieldFault::Relationship => ProfileFault::RelationshipField(name),
+            })
+        }),
+    );
     kinds
 }
 

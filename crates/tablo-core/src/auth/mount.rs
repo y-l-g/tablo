@@ -11,13 +11,15 @@ use super::{
     password_reset::{forgot_page, forgot_post, reset_page, reset_post},
     profile::{profile_page, profile_post},
     registration::{register_page, register_post},
+    tenant_registration::{register_tenant_page, register_tenant_post},
     verification::{confirm_page, notice_page, notice_post},
 };
 use crate::{DeclarationErrorKind, panel::route_path, toasty_compat::model::AppSchema};
 
 /// Every mistake in `auth` the mount refuses: a shipped model missing from `db`, and the
-/// registration, profile and password-reset declarations. `toggles` says whether some list
-/// declares a toggleable column, and `has_mail` whether the router can send mail.
+/// sign-up, profile, password-reset, email-verification and tenant registration declarations.
+/// `toggles` says whether some list declares a toggleable column, and `has_mail` whether the router
+/// can send mail.
 pub(crate) fn declaration_errors(
     db: &toasty::Db,
     auth: &Auth,
@@ -31,6 +33,7 @@ pub(crate) fn declaration_errors(
         .chain(super::profile::declaration_errors(auth))
         .chain(super::password_reset::declaration_errors(auth))
         .chain(super::verification::declaration_errors(auth))
+        .chain(super::tenant_registration::declaration_errors(auth))
         .chain(super::mail::declaration_errors(auth, has_mail))
         .collect()
 }
@@ -63,7 +66,8 @@ fn missing_models(db: &toasty::Db, auth: &Auth, toggles: bool) -> Result<(), Dec
 }
 
 /// Mount `auth`'s routes under `prefix`: sign-in, sign-out and the tenant switch while the panel
-/// gates, then the sign-up, profile, password-reset and email-verification pages `auth` declares.
+/// gates, then the sign-up, tenant registration, profile, password-reset and email-verification
+/// pages `auth` declares.
 /// Each form route carries [`MAX_LOGIN_BYTES`] in place of the panel's form cap.
 pub(crate) fn routes(mut builder: RouterBuilder, prefix: &str, auth: &Auth) -> RouterBuilder {
     if !auth.is_disabled() {
@@ -101,6 +105,17 @@ pub(crate) fn routes(mut builder: RouterBuilder, prefix: &str, auth: &Auth) -> R
                 register_path,
                 register_post,
             ));
+    }
+    if auth.tenant_registration_page().is_some() {
+        let path = route_path(&format!("{prefix}/register-tenant"));
+        builder = builder
+            .layer(BodyLimit::max(MAX_LOGIN_BYTES).at(path.clone()))
+            .route(RouteFn::new(
+                http::Method::GET,
+                path.clone(),
+                register_tenant_page,
+            ))
+            .route(RouteFn::new(http::Method::POST, path, register_tenant_post));
     }
     if auth.profile_editor().is_some() {
         // The profile page renders in the panel's shell, under the panel's own form cap.

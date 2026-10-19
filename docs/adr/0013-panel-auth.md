@@ -36,10 +36,16 @@ is the explicit opt-out.
   restoring it if the change went through, and signs every browser out. Unlike the verification
   link, both links act only on the `POST` of the page they open: a scanner on the old mailbox
   would otherwise sign the user out at delivery.
+- Tenant registration is opt-in through a sixth seam, a `TenantRegistrar` for the same user
+  type: it takes a form input, validates and writes the tenant and the user's membership in one
+  transaction, and answers the membership the session then selects. A panel with it sends a user
+  with no membership to its page, as it sends an unverified user to theirs: core auth still never
+  requires a tenant, a panel that registers them does.
 - Every mailed link and pending sign-in is one `AuthToken` row: the token's hash, its purpose,
   the account, the issuing panel and the expiry. A credential change ends the account's sign-in
   tokens; a reset, a cancelled email change and a revocation also end a pending change. A link
-  that proves an address or keeps the old one outlives both. One `AuthMail` names the sender and the configured base URL every link starts with.
+  that proves an address or keeps the old one outlives both. One `AuthMail` names the sender
+  and the configured base URL every link starts with.
 
 ## Rejected
 
@@ -60,6 +66,10 @@ is the explicit opt-out.
 - Tablo writing the new email itself after `ProfileEditor::save`: it cannot tell which field of
   an app's own input is the address. A new `ProfileUpdate` variant carrying the address: the
   editor would still have to skip writing it, and the variant would not say so.
+- A tenant model Tablo ships, or a `Tenant` trait the app's tenant type implements: tenants are
+  the app's own rows in its own shape, and a membership is all a request needs of one. Tenant
+  registration as a resource create page: it would not seat the user in the tenant it creates,
+  nor make the session act for it.
 - A table per mailed link, and a sender and base URL per feature: each feature repeated the
   hashing, expiry and revocation, and an app repeated its sender. An address method on each
   seam: every seam that mails asks the same question of the same user type.

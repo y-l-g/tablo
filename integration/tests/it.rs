@@ -40,6 +40,7 @@ mod relations;
 mod relationship_options;
 mod shell;
 mod stream_pool;
+mod tenant_registration;
 mod toggleable_columns;
 mod typed_leaves;
 mod unique;

@@ -16,6 +16,7 @@ mod action;
 mod auth;
 mod blog;
 mod create;
+mod csrf;
 mod delete;
 mod detail;
 mod edit;

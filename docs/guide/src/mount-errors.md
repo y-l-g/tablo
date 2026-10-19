@@ -43,6 +43,7 @@ A test matches on the kind rather than the message; see
 | `Profile` | the profile page cannot be served; the `ProfileFault` says why | see below |
 | `PasswordReset` | the password reset cannot be served; the `ResetFault` says why | see below |
 | `EmailVerification` | the email verification cannot be served; the `VerificationFault` says why | see below |
+| `TenantRegistration` | the tenant registration page cannot be served; the `TenantRegistrationFault` says why | see below |
 | `AuthMail` | the auth's mail cannot be sent; the `AuthMailFault` says why | see below |
 
 `SignUpFault`:
@@ -78,6 +79,16 @@ A test matches on the kind rather than the message; see
 | --- | --- | --- |
 | `AuthDisabled` | `Auth::email_verification` on `Auth::disabled()` | turn authentication on |
 | `UserType` | the verifier verifies another user type than the authenticator loads | verify the type the panel signs in |
+
+`TenantRegistrationFault`:
+
+| Fault | Refused when | Fix |
+| --- | --- | --- |
+| `AuthDisabled` | `Auth::tenant_registration` on `Auth::disabled()` | turn authentication on |
+| `UserType` | the registrar registers tenants for another user type than the authenticator loads | register for the type the panel signs in |
+| `ReservedField` | a registration field is named `csrf_token` | rename the field |
+| `FileField` | the registration form has a file field | ask for the file on a resource's form |
+| `RelationshipField` | the registration form has a relationship choice, whose options no route serves the page | offer static options |
 
 `AuthMailFault`:
 

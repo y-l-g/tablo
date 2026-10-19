@@ -1,5 +1,5 @@
-//! The declaration mistakes of a panel's auth: its sign-up, profile, password-reset and
-//! email-verification pages, and the mail they send.
+//! The declaration mistakes of a panel's auth: its sign-up, profile, password-reset,
+//! email-verification and tenant registration pages, and the mail they send.
 
 use std::fmt;
 
@@ -195,6 +195,57 @@ impl fmt::Display for VerificationFault {
                 f,
                 "the email verifier verifies `{verifier}`, but the authenticator loads another \
              type: verify the type the panel signs in"
+            ),
+        }
+    }
+}
+
+/// Why a panel's tenant registration page cannot be served:
+/// [`DeclarationErrorKind::TenantRegistration`](super::DeclarationErrorKind::TenantRegistration).
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum TenantRegistrationFault {
+    /// `Auth::tenant_registration` on `Auth::disabled`, which signs nobody in to register one.
+    AuthDisabled,
+    /// The registrar registers tenants for another user type than the authenticator loads.
+    UserType {
+        /// The registrar's `User` type.
+        registrar: &'static str,
+    },
+    /// A field named like a key the registration POST carries itself: `csrf_token`.
+    ReservedField(String),
+    /// A file field, whose upload the registration POST does not read.
+    FileField(String),
+    /// A relationship choice, whose options no route serves the registration page.
+    RelationshipField(String),
+}
+
+impl fmt::Display for TenantRegistrationFault {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::AuthDisabled => f.write_str(
+                "tenant registration needs auth: `Auth::disabled()` signs nobody in to register \
+             a tenant",
+            ),
+            Self::UserType { registrar } => write!(
+                f,
+                "the tenant registrar registers tenants for `{registrar}`, but the authenticator \
+             loads another type: register for the type the panel signs in"
+            ),
+            Self::ReservedField(field) => write!(
+                f,
+                "the tenant registration form declares a field named '{field}', which its POST \
+             carries itself: rename the field"
+            ),
+            Self::FileField(field) => write!(
+                f,
+                "the tenant registration form declares a file field '{field}', which its POST \
+             does not upload: ask for the file on a resource's form"
+            ),
+            Self::RelationshipField(field) => write!(
+                f,
+                "the tenant registration form declares a relationship choice '{field}', whose \
+             options no route serves the registration page: offer static options"
             ),
         }
     }

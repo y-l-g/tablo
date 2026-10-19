@@ -23,7 +23,7 @@ use super::{
     password_reset::{forgot_url, offered as reset_offered, reset_url},
     registration::{offered, register_url},
     session::{resolve, session_row, session_user},
-    unauthenticated_error, verification,
+    tenant_registration, unauthenticated_error, verification,
 };
 use crate::panel::{
     Panel,
@@ -144,6 +144,8 @@ impl Layer for PanelGate {
 enum Step {
     /// Prove they read the address they store.
     VerifyEmail,
+    /// Create a tenant to act for.
+    RegisterTenant,
 }
 
 impl Step {
@@ -151,6 +153,7 @@ impl Step {
     fn url(self, cx: &Cx) -> String {
         match self {
             Self::VerifyEmail => verification::notice_url(cx),
+            Self::RegisterTenant => tenant_registration::register_tenant_url(cx),
         }
     }
 
@@ -164,9 +167,15 @@ impl Step {
     }
 }
 
-/// The step `signed` owes `panel`, if any.
+/// The step `signed` owes `panel`, if any: an unverified address first, since registering a
+/// tenant is reaching the panel.
 fn owed_step(panel: &PanelState, signed: &SignedIn) -> Option<Step> {
-    verification::pending(panel, signed.user.as_ref()).then_some(Step::VerifyEmail)
+    let user = signed.user.as_ref();
+    if verification::pending(panel, user) {
+        Some(Step::VerifyEmail)
+    } else {
+        tenant_registration::pending(panel, user).then_some(Step::RegisterTenant)
+    }
 }
 
 /// Whether `signed` may reach any endpoint: they have panel access and owe no step.

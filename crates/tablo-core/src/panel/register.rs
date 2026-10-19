@@ -229,9 +229,13 @@ const RESERVED_SLUGS: &[&str] = &[
     "login",
     "logout",
     "register",
+    "register-tenant",
+    "tenant",
     "profile",
     "forgot-password",
     "reset-password",
+    "verify-email",
+    "email-change",
     "-",
 ];
 
