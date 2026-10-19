@@ -29,8 +29,8 @@ impl Action<PostResource> for Publish {
     type Input = ();
     const NAME: &'static str = "publish";
 
-    async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<()> {
-        Ok(())
+    async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome> {
+        Ok(tablo_core::Outcome::done())
     }
 }
 

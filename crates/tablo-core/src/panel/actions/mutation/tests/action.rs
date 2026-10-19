@@ -15,8 +15,13 @@ impl Action<Hidden> for Rename {
         "Rename".to_string()
     }
 
-    async fn run(_: &Cx, _: &[Dummy], _: (), _: &mut dyn toasty::Executor) -> topcoat::Result<()> {
-        Ok(())
+    async fn run(
+        _: &Cx,
+        _: &[Dummy],
+        _: (),
+        _: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<crate::Outcome> {
+        Ok(crate::Outcome::done())
     }
 }
 

@@ -300,10 +300,12 @@ async fn mutate<'a, R: Resource>(
             return input_page.render(cx, &action.input, chrome).await;
         }
     };
-    let mut note = (action.success)(cx, rows.len());
-    note.push_str(skipped.as_deref().unwrap_or_default());
+    let skipped = skipped.unwrap_or_default();
+    let note = (action.success)(cx, rows.len()) + &skipped;
     // A delete's hook names what was removed: the pre-delete snapshot.
-    let written = (action.run)(cx, &rows, input, &mut tx).await.map(|()| rows);
+    let written = (action.run)(cx, &rows, input, &mut tx)
+        .await
+        .map(|outcome| (rows, outcome.skipping(&skipped)));
     commit_write(
         cx,
         resource,
@@ -360,7 +362,9 @@ pub(crate) async fn run_header<'a>(
             return page.render(cx, &action.input, chrome).await;
         }
     }
-    let written = (action.run)(cx, input, &mut tx).await;
+    let written = (action.run)(cx, input, &mut tx)
+        .await
+        .map(|outcome| ((), outcome));
     let note = (action.success)(cx);
     commit_then(
         cx,

@@ -49,6 +49,7 @@ pub use tablo::prelude::NavigationItem
 pub use tablo::prelude::NoForm
 pub use tablo::prelude::Options
 pub use tablo::prelude::Options
+pub use tablo::prelude::Outcome
 pub use tablo::prelude::Page
 pub use tablo::prelude::PageDef
 pub use tablo::prelude::Pagination

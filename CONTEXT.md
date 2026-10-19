@@ -38,6 +38,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Tenancy | How a resource's rows belong to a tenant, through a `TenantId` column. | Tenant scope, Multi-tenancy mode |
 | Relation | A related resource's rows that belong to a record, rendered as that resource's table: its rows holding the record's key, or the records a join model links the record to, which the table attaches and detaches. | Relation manager, Sub-table |
 | Action | A user-invoked mutation, on one record or a bulk selection. | Command, Operation, Modal |
+| Outcome | What an action's run asks of the response once its write commits: the notification it flashes and where it lands. | Result, Response, Effect |
 | Header action | A user-invoked mutation on no record, from the header of a list or a page. | Global action, Page action, Toolbar action |
 | Place | Where a record action's button renders: a row, the detail page, the edit page, the bulk bar. | Location, Context, Surface |
 | Form input | A typed value a form posts under keys no column binds, from `FormInput`: an action input, a sign-up, a repeater's item. | Input (alone), Params, Form object |
