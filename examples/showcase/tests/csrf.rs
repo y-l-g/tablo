@@ -1,5 +1,5 @@
 //! The CSRF check on the auth forms: a forged sign-in, sign-up, reset, profile save, link
-//! request, tenant registration or sign-out answers 403 before it changes anything.
+//! request, tenant registration, tenant save or sign-out answers 403 before it changes anything.
 
 use showcase::models::{DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD};
 use uuid::Uuid;
@@ -241,6 +241,38 @@ async fn forged_tenant_registration_answers_403_and_creates_nothing() {
         before,
         "a forged registration must create nothing"
     );
+}
+
+/// A forged tenant save answers 403 before the tenant editor runs: the workspace keeps its name.
+#[tokio::test]
+async fn forged_tenant_save_answers_403_and_changes_nothing() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let field = Uuid::new_v4().to_string();
+    let cookie = Uuid::new_v4().to_string();
+
+    for (submitted, label) in [
+        (Some(field.as_str()), "mismatched token"),
+        (None, "missing token"),
+    ] {
+        let mut pairs = vec![("name", "Forged")];
+        if let Some(field) = submitted {
+            pairs.push(("csrf_token", field));
+        }
+        let resp = client
+            .csrf(&cookie)
+            .post_form("/admin/tenant/profile", form_body(&pairs))
+            .await;
+        assert_eq!(resp.status(), 403, "tenant save {label}");
+    }
+    let renamed = showcase::models::Workspace::all()
+        .exec(&mut db.clone())
+        .await
+        .unwrap()
+        .into_iter()
+        .any(|workspace| workspace.name == "Forged");
+    assert!(!renamed, "a forged save must rename nothing");
 }
 
 /// A forged logout POST is refused and leaves the session usable.

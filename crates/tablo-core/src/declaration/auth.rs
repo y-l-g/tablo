@@ -1,5 +1,5 @@
 //! The declaration mistakes of a panel's auth: its sign-up, profile, password-reset,
-//! email-verification and tenant registration pages, and the mail they send.
+//! email-verification, tenant registration and tenant settings pages, and the mail they send.
 
 use std::fmt;
 
@@ -246,6 +246,57 @@ impl fmt::Display for TenantRegistrationFault {
                 f,
                 "the tenant registration form declares a relationship choice '{field}', whose \
              options no route serves the registration page: offer static options"
+            ),
+        }
+    }
+}
+
+/// Why a panel's tenant settings page cannot be served:
+/// [`DeclarationErrorKind::TenantProfile`](super::DeclarationErrorKind::TenantProfile).
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum TenantProfileFault {
+    /// `Auth::tenant_profile` on `Auth::disabled`, which signs nobody in to edit a tenant.
+    AuthDisabled,
+    /// The editor edits tenants for another user type than the authenticator loads.
+    UserType {
+        /// The editor's `User` type.
+        editor: &'static str,
+    },
+    /// A field named like a key the settings POST carries itself: `csrf_token`.
+    ReservedField(String),
+    /// A file field, whose upload the settings POST does not read.
+    FileField(String),
+    /// A relationship choice, whose options no route serves the settings page.
+    RelationshipField(String),
+}
+
+impl fmt::Display for TenantProfileFault {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::AuthDisabled => f.write_str(
+                "a tenant settings page needs auth: `Auth::disabled()` signs nobody in to edit a \
+             tenant",
+            ),
+            Self::UserType { editor } => write!(
+                f,
+                "the tenant editor edits tenants for `{editor}`, but the authenticator loads \
+             another type: edit for the type the panel signs in"
+            ),
+            Self::ReservedField(field) => write!(
+                f,
+                "the tenant settings form declares a field named '{field}', which its POST \
+             carries itself: rename the field"
+            ),
+            Self::FileField(field) => write!(
+                f,
+                "the tenant settings form declares a file field '{field}', which its POST does \
+             not upload: edit the file on a resource's form"
+            ),
+            Self::RelationshipField(field) => write!(
+                f,
+                "the tenant settings form declares a relationship choice '{field}', whose \
+             options no route serves the settings page: offer static options"
             ),
         }
     }

@@ -92,10 +92,11 @@ impl<'a> FormChrome<'a> {
         self
     }
 
-    /// The profile page's: titled `Profile`, saved by `Save`, cancelled to `home`.
-    pub(crate) fn profile(home: String) -> Self {
+    /// A settings page's, such as the profile: titled `title`, saved by `Save`, cancelled to
+    /// `home`.
+    pub(crate) fn settings(title: &str, home: String) -> Self {
         Self {
-            title: "Profile".to_string(),
+            title: title.to_string(),
             submit_label: "Save".to_string(),
             destructive: false,
             public_link: None,
@@ -106,6 +107,12 @@ impl<'a> FormChrome<'a> {
             editing: true,
             relations: Vec::new(),
         }
+    }
+
+    /// The chrome with the hidden `(name, value)` control the submit carries besides the schema's.
+    pub(crate) fn with_hidden(mut self, name: &str, value: String) -> Self {
+        self.hidden.push((name.to_string(), value));
+        self
     }
 
     /// An action's input page: titled `title`, submitted by the action's `label`, carrying

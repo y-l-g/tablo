@@ -18,6 +18,7 @@ mod password_reset;
 mod profile;
 mod registration;
 mod session;
+mod tenant_profile;
 mod tenant_registration;
 mod throttle;
 mod token;
@@ -49,6 +50,7 @@ pub use self::{
     profile::{Profile, ProfileEditor, ProfileUpdate},
     registration::{MIN_PASSWORD_CHARS, Registrar, SignUp, new_password_errors},
     session::{AuthSession, SESSION_LIFETIME, mint_session, revoke_sessions_for_user},
+    tenant_profile::TenantEditor,
     tenant_registration::{TenantRegistrar, TenantRegistration},
     throttle::LoginThrottle,
     token::{AuthToken, TokenPurpose},
@@ -59,6 +61,7 @@ pub(crate) use self::{
     gate::{PanelGate, RuntimeGate},
     login::{logout_url, safe_next, tenant_url},
     profile::{offered as profile_offered, profile_url},
+    tenant_profile::{offered as tenant_profile_offered, tenant_profile_url},
     tenant_registration::{offered as tenant_registration_offered, register_tenant_url},
 };
 use crate::{

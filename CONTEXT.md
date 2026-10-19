@@ -48,6 +48,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Password resetter | The trait that finds an account by email and sets its password when a mailed reset link is used. | Password broker, ResetProvider |
 | Email verifier | The trait that says whether a panel user proved they read their address, and records an address a mailed link proved. | Verification provider, MustVerifyEmail |
 | Tenant registrar | The trait that creates a tenant, with the signed-in panel user a member of it, from the tenant registration page's input. | Team creator, TenantProvider |
+| Tenant editor | The trait that lets an admitted member edit the tenant the request acts for on the tenant settings page. | Team settings, TenantProvider |
 | Auth mail | The sender and base URL a panel's auth mails its links from, set by `Auth::mail`. | Mailer, Notifier |
 | Auth token | A single-use secret a mailed link or a pending sign-in carries, stored as an `AuthToken` row holding its hash. | Nonce, Signed URL, Reset token |
 | Panel user | The app's own user type: id, display name, panel access, tenant memberships. | CurrentUser, AuthUser, Principal |

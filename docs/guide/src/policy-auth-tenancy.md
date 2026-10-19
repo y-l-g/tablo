@@ -394,7 +394,7 @@ link proved and marks it verified, inside the link's transaction. `PasswordAuth`
 ```
 
 Every panel route is then public and the login, sign-up, profile, password reset and tenant
-registration routes are not registered. Use it for public
+routes are not registered. Use it for public
 demos and tests only.
 
 ## Tenancy
@@ -429,8 +429,19 @@ for each tenant `PanelUser::tenants` lists, as a `Membership { tenant, name }`; 
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-tenant-registration}}
 ```
 
-Mounting refuses a registrar whose `User` is not the type the authenticator loads, a registration
-on `Auth::disabled()`, and a form field named `csrf_token`, a file field or a relationship choice.
+`Auth::tenant_profile` adds a settings page at `{prefix}/tenant/profile` for the tenant the
+request acts for, through a `TenantEditor`. `may_edit` says which members may open it, by default
+all of them; the tenant menu links to it for them, and the page answers 403 to anyone else. `fill`
+loads the form from the tenant, and `validate` and `save` run in one transaction. The form names
+the tenant it was filled from, so one posted after another tab switched tenants saves nothing:
+
+```rust
+{{#include ../../../examples/guide/src/policy_tenancy.rs:policy-tenant-profile}}
+```
+
+Mounting refuses a registrar or an editor whose `User` is not the type the authenticator loads,
+either page on `Auth::disabled()`, a form field named `csrf_token` (or `editing_tenant` on the
+settings page), a file field and a relationship choice.
 
 Declare the resource's tenancy with the column its rows carry their tenant in:
 

@@ -439,7 +439,7 @@ async fn render<'a>(
     render_form_page(
         cx,
         &editor.schema(),
-        FormChrome::profile(panel_root(cx)),
+        FormChrome::settings("Profile", panel_root(cx)),
         values,
         errors,
         &HashSet::new(),
