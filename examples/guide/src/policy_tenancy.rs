@@ -39,13 +39,8 @@ pub fn post_policy(cx: &Cx, ability: Ability<'_, Post>) -> bool {
 
 // ANCHOR: policy-models
 pub fn auth_models() {
-    let _ = toasty::models!(
-        crate::Book,
-        tablo::auth::AdminUser,
-        tablo::auth::AuthSession,
-        // Only with `Auth::password_reset`.
-        tablo::auth::PasswordResetToken
-    );
+    // `Book`, beside `AdminUser`, `AuthSession`, `ColumnPreference` and `PasswordResetToken`.
+    let _ = tablo::models!(crate::Book);
 }
 // ANCHOR_END: policy-models
 
