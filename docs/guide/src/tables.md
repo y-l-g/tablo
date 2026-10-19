@@ -164,7 +164,8 @@ implement it and nothing more, so a column of your own reaches as far as theirs:
 Only `name`, `label` and `text` are required. The other methods default to a column that is
 narrow, start-aligned, not searchable, not sortable, always shown and reads no relation: override
 `column_width`, `alignment`, `is_searchable` and `search_expr`, `is_sortable` and `order_by`,
-`toggle`, or `includes` to change that. Put
+`toggle`, or `includes` to change that. A sortable column of your own is the table's default
+sort through `default_sort_by(Sort::desc("revenue"))`, which names it by its `name`. Put
 the column in the tuple next to the built-in ones, or append it with `Table::column(..)`, which
 also takes columns past the tuple's twelve.
 
@@ -183,8 +184,9 @@ The URL holds the list's whole state, so every view of a list is a link you can 
 | `?group_by=status` | grouping: see [Grouping](#grouping) |
 
 - Without a `?sort=` naming a sortable column, the rows sort by the table's
-  `.default_sort(Sort::desc("created_at"))`, else by the first sortable column, ascending, and
-  the header marks that column. A `.default_sort` naming no sortable column fails the mount.
+  `.default_sort(lens)` (smallest first) or `.default_sort_desc(lens!(Post.created_at))`, else by
+  the first sortable column, ascending, and the header marks that column. A default sort on a field
+  with no sortable column fails the mount.
 - Search escapes `%` and `_`, so they match literally. Terms are trimmed and capped at 128
   characters. Matching is case-insensitive: PostgreSQL runs it as `ILIKE`, and SQLite (for ASCII)
   and MySQL (under its default collations) as `LIKE`.

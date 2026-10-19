@@ -148,7 +148,7 @@ An action's `NAME` that is not one URL segment does not compile, so it never rea
 | --- | --- | --- |
 | `NoColumns` | a table has no column | declare columns; a resource whose model's table lists nothing declares its own `table` |
 | `ZeroPageSize` | `Table::paginate(0)` | a page size of at least 1 |
-| `UnsortableDefaultSort` | `Table::default_sort` names no sortable column | name a column declared `.sortable()` |
+| `UnsortableDefaultSort` | `Table::default_sort` names a field with no sortable column | declare its column `.sortable()` |
 | `DuplicateColumn` | two columns share a name | rename one |
 | `DuplicateFilter` | two filters share a name | rename one |
 | `DottedFilterName` | a filter's name holds a `.`, which its URL parameters reserve for a part | rename it without the `.` |
