@@ -3,10 +3,10 @@
 use std::path::PathBuf;
 
 use tablo::{
-    Ability, Action, ActionLayout, Auth, BooleanColumn, Brand, ComputedColumn, CountColumn,
-    DateColumn, DateFilter, Detail, DirUploader, EmbeddedColumn, FieldErrors, Grid, Group,
-    HeaderAction, ModelColumns, NavigationItem, Pagination, Panel, PasswordReset, PublicLink,
-    QueryFilter, Relation, RelationColumn, RepeaterColumn, Resource, ResourceDef,
+    Ability, Action, ActionLayout, Auth, AuthMail, BooleanColumn, Brand, ComputedColumn,
+    CountColumn, DateColumn, DateFilter, Detail, DirUploader, EmbeddedColumn, FieldErrors, Grid,
+    Group, HeaderAction, ModelColumns, NavigationItem, Pagination, Panel, PasswordReset,
+    PublicLink, QueryFilter, Relation, RelationColumn, RepeaterColumn, Resource, ResourceDef,
     RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy, TernaryFilter,
     TextColumn, lens, relation, scoped_query, tenant_id, when,
 };
@@ -473,13 +473,13 @@ pub fn admin_panel() -> Panel {
             Auth::custom(StaffAuth)
                 .registration(StaffAuth)
                 .profile(StaffAuth)
-                .password_reset(PasswordReset::new(
-                    StaffAuth,
+                .mail(AuthMail::new(
                     Mailbox::named("Tablo Blog", "no-reply@example.com")
                         .expect("the showcase's sender address parses"),
                     std::env::var("SHOWCASE_BASE_URL")
                         .unwrap_or_else(|_| "http://localhost:3000".to_string()),
-                )),
+                ))
+                .password_reset(PasswordReset::new(StaffAuth)),
         )
         .brand(Brand::new("Tablo Blog").logo(LOGO).favicon(LOGO))
         .home::<Dashboard>()

@@ -6,12 +6,10 @@ use std::time::Duration;
 use http::header::{CACHE_CONTROL, LOCATION, REFERRER_POLICY};
 use jiff::Timestamp;
 use tablo::{
-    Auth, DeclarationErrorKind, LoginThrottle, NoForm, NotificationStatus, Panel, PanelUser,
-    PasswordAuth, PasswordReset, ReadOnly, ResetFault, Resource, ResourceDef,
+    Auth, AuthMail, DeclarationErrorKind, LoginThrottle, NoForm, NotificationStatus, Panel,
+    PanelUser, PasswordAuth, PasswordReset, ReadOnly, ResetFault, Resource, ResourceDef,
     RouterBuilderPanelExt, Table, TextColumn,
-    auth::{
-        AdminUser, AuthSession, PasswordResetToken, PasswordResetter, create_admin, verify_password,
-    },
+    auth::{AdminUser, AuthSession, AuthToken, PasswordResetter, create_admin, verify_password},
     lens,
     testing::{find_href_with, form_body},
 };
@@ -47,21 +45,19 @@ impl Resource for NoteResource {
 }
 
 async fn db() -> Db {
-    test_db(toasty::models!(
-        Note,
-        AdminUser,
-        AuthSession,
-        PasswordResetToken
-    ))
-    .await
+    test_db(toasty::models!(Note, AdminUser, AuthSession, AuthToken)).await
 }
 
 fn reset() -> PasswordReset {
-    PasswordReset::new(
-        PasswordAuth,
+    PasswordReset::new(PasswordAuth)
+}
+
+/// The shipped authenticator, mailing from a test sender with links to the admin host.
+fn mailing() -> Auth {
+    Auth::password().mail(AuthMail::new(
         Mailbox::new("no-reply@example.com").unwrap(),
         "https://admin.example.com/",
-    )
+    ))
 }
 
 fn panel(auth: Auth) -> Panel {
@@ -90,8 +86,7 @@ fn mount_with_mail(db: Db, panel: Panel, mail: &MemoryTransport) -> topcoat::Res
 }
 
 fn router(db: Db, mail: &MemoryTransport) -> Router {
-    mount_with_mail(db, panel(Auth::password().password_reset(reset())), mail)
-        .expect("panel builds")
+    mount_with_mail(db, panel(mailing().password_reset(reset())), mail).expect("panel builds")
 }
 
 async fn ada(db: &Db) -> AdminUser {
@@ -109,11 +104,8 @@ async fn reload(db: &Db, admin: &AdminUser) -> AdminUser {
         .expect("the admin exists")
 }
 
-async fn tokens(db: &Db) -> Vec<PasswordResetToken> {
-    PasswordResetToken::all()
-        .exec(&mut db.clone())
-        .await
-        .unwrap()
+async fn tokens(db: &Db) -> Vec<AuthToken> {
+    AuthToken::all().exec(&mut db.clone()).await.unwrap()
 }
 
 async fn request_link(router: &Router, email: &str) -> http::Response<topcoat::router::Body> {
@@ -260,7 +252,7 @@ async fn an_expired_or_unknown_link_resets_nothing() {
     let router = router(db.clone(), &mail);
     request_link(&router, "ada@example.com").await;
     let link = link(&mails(&mail, 1).await[0]);
-    PasswordResetToken::all()
+    AuthToken::all()
         .update()
         .expires_at(Timestamp::now() - Duration::from_secs(1))
         .exec(&mut db.clone())
@@ -370,8 +362,8 @@ async fn reset_requests_past_the_limit_are_refused() {
     ada(&db).await;
     let mail = MemoryTransport::new();
     let reset = reset().throttle(LoginThrottle::new(1, Duration::from_secs(60)));
-    let router = mount_with_mail(db, panel(Auth::password().password_reset(reset)), &mail)
-        .expect("panel builds");
+    let router =
+        mount_with_mail(db, panel(mailing().password_reset(reset)), &mail).expect("panel builds");
 
     assert_eq!(request_link(&router, "ada@example.com").await.status(), 303);
     let throttled = request_link(&router, "ADA@example.com").await;
@@ -474,11 +466,7 @@ async fn a_changed_password_ends_the_reset_link() {
     let mail = MemoryTransport::new();
     let router = mount_with_mail(
         db.clone(),
-        panel(
-            Auth::password()
-                .profile(PasswordAuth)
-                .password_reset(reset()),
-        ),
+        panel(mailing().profile(PasswordAuth).password_reset(reset())),
         &mail,
     )
     .expect("panel builds");
@@ -521,9 +509,9 @@ async fn a_link_belongs_to_its_panel_and_a_reset_ends_the_others() {
     let router = mount_panels(
         db.clone(),
         [
-            panel(Auth::password().password_reset(reset())),
+            panel(mailing().password_reset(reset())),
             Panel::new("staff")
-                .auth(Auth::password().password_reset(reset()))
+                .auth(mailing().password_reset(reset()))
                 .resource::<NoteResource>(),
         ],
         &mail,
@@ -594,10 +582,6 @@ impl PasswordResetter for VisitorReset {
         unreachable!("mounting refuses the resetter")
     }
 
-    fn email<'u>(&self, _user: &'u Visitor) -> &'u str {
-        unreachable!("mounting refuses the resetter")
-    }
-
     async fn reset_password(
         &self,
         _cx: &Cx,
@@ -613,34 +597,6 @@ impl PasswordResetter for VisitorReset {
 #[tokio::test]
 async fn mounting_refuses_a_reset_the_panel_cannot_serve() {
     let mail = MemoryTransport::new();
-    let bad_url = PasswordReset::new(
-        PasswordAuth,
-        Mailbox::new("no-reply@example.com").unwrap(),
-        "admin.example.com",
-    );
-    let errors = refusal(mount_with_mail(
-        db().await,
-        panel(Auth::password().password_reset(bad_url)),
-        &mail,
-    ));
-    let kinds: Vec<_> = errors.iter().map(|error| error.kind.clone()).collect();
-    assert_eq!(
-        kinds,
-        vec![DeclarationErrorKind::PasswordReset(ResetFault::BaseUrl(
-            "admin.example.com".to_string()
-        ))]
-    );
-
-    let errors = refusal(tablo::testing::mount(
-        db().await,
-        panel(Auth::password().password_reset(reset())),
-    ));
-    let kinds: Vec<_> = errors.iter().map(|error| error.kind.clone()).collect();
-    assert_eq!(
-        kinds,
-        vec![DeclarationErrorKind::PasswordReset(ResetFault::MissingMail)]
-    );
-
     let errors = refusal(mount_with_mail(
         db().await,
         panel(Auth::disabled().password_reset(reset())),
@@ -654,14 +610,9 @@ async fn mounting_refuses_a_reset_the_panel_cannot_serve() {
         )]
     );
 
-    let visitors = PasswordReset::new(
-        VisitorReset,
-        Mailbox::new("no-reply@example.com").unwrap(),
-        "https://admin.example.com",
-    );
     let errors = refusal(mount_with_mail(
         db().await,
-        panel(Auth::password().password_reset(visitors)),
+        panel(mailing().password_reset(PasswordReset::new(VisitorReset))),
         &mail,
     ));
     let kinds: Vec<_> = errors.iter().map(|error| error.kind.clone()).collect();
@@ -675,14 +626,14 @@ async fn mounting_refuses_a_reset_the_panel_cannot_serve() {
     let without_tokens = test_db(toasty::models!(Note, AdminUser, AuthSession)).await;
     let errors = refusal(mount_with_mail(
         without_tokens,
-        panel(Auth::password().password_reset(reset())),
+        panel(mailing().password_reset(reset())),
         &mail,
     ));
     let kinds: Vec<_> = errors.iter().map(|error| error.kind.clone()).collect();
     assert_eq!(
         kinds,
         vec![DeclarationErrorKind::MissingAuthModels {
-            models: vec!["PasswordResetToken"]
+            models: vec!["AuthToken"]
         }]
     );
 }

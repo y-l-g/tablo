@@ -176,6 +176,9 @@ pub(super) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         if let Err(error) = sweep_expired_sessions(cx).await {
             tracing::error!(error = %error, "expired-session sweep failed");
         }
+        if let Err(error) = super::token::sweep_expired(cx).await {
+            tracing::error!(error = %error, "expired-token sweep failed");
+        }
         let recorded = match fresh_session(cx).await {
             Ok(session) => record(cx, &session, &*user, panel).await,
             Err(error) => Err(error),

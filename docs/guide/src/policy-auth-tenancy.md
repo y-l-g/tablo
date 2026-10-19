@@ -303,8 +303,9 @@ shipped `Profile` input fits any table with a name, an email and a password:
 
 `Auth::password_reset` adds a "Forgot your password?" link to the login page. It leads to
 `{prefix}/forgot-password`, which mails a reset link, and the link opens `{prefix}/reset-password`,
-where the visitor chooses a new password. The mail goes through the router's `MailConfig`, so
-register one before mounting the panel, and add `PasswordResetToken` to the `Db`'s models:
+where the visitor chooses a new password. `Auth::mail` names the sender and the base URL every
+link the panel mails starts with. The mail goes through the router's `MailConfig`, so register one
+before mounting the panel, and add `AuthToken` to the `Db`'s models:
 
 ```rust
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-password-reset}}
@@ -314,8 +315,9 @@ The base URL is the scheme and host the app answers on. Reset links start with i
 the request's `Host` header, which the client chooses and could point at another host.
 
 Your own user table resets through a `PasswordResetter` beside its `Authenticator`:
-`find_by_email` loads the account an address signs in as, `email` names the address the account
-stores, and `reset_password` sets the new password inside the reset's transaction.
+`find_by_email` loads the account an address signs in as, and `reset_password` sets the new
+password inside the reset's transaction. The link goes to the address `PanelUser::email` answers;
+an account that answers none gets no link.
 
 - **The request page** answers the same whether an account uses the address or not: it redirects
   to the login page with a notification, and writes and mails the link after answering, so the
@@ -326,7 +328,7 @@ stores, and `reset_password` sets the new password inside the reset's transactio
   address.
 - **A link** works once, for one hour, on the panel that mailed it, and only while the account may
   still enter the panel. A new request replaces the account's earlier link, and a password change
-  on the profile page ends it. The token is stored only as a hash, and the reset page sends no
+  on the profile page ends it, as it ends every link the account holds. The token is stored only as a hash, and the reset page sends no
   referrer and may not be cached.
 - **A reset** checks the new password with `new_password_errors`, then sets it, ends the account's
   sessions and reset links on every panel whose authenticator loads the same user type, and

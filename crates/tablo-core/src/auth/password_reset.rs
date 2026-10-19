@@ -1,39 +1,33 @@
 //! The panel's password reset: the [`PasswordResetter`] trait that finds an account by email and
-//! sets its password, the [`PasswordReset`] configuration, the [`PasswordResetToken`] rows, and
-//! the `{prefix}/forgot-password` and `{prefix}/reset-password` routes.
+//! sets its password, the [`PasswordReset`] configuration, and the `{prefix}/forgot-password` and
+//! `{prefix}/reset-password` routes.
 
-use std::{any::TypeId, future::Future, sync::Arc, time::Duration};
+mod pages;
 
-use jiff::Timestamp;
+use std::{any::TypeId, future::Future, time::Duration};
+
 use topcoat::{
     context::Cx,
-    mail::{Mail, Mailbox},
-    router::{
-        Body, RouteFuture,
-        error::see_other,
-        request::uri,
-        response::{IntoResponse, Response},
-    },
-    session::Token,
-    view::{BoxView, ViewExt},
+    router::{Body, RouteFuture, error::see_other, response::IntoResponse},
 };
 
+use self::pages::{ForgotAlert, forgot_response, invalid_link, reset_response};
 use super::{
     LoginThrottle, PanelUser, infrastructure_failure,
     login::login_url,
+    mail::{TOKEN_FIELD, after_response, token_from_query},
     registration::new_password_errors,
-    session::{credential_panels, end_credentials, token_key},
+    session::{credential_panels, end_credentials},
+    token::{self, TokenPurpose, serializable},
 };
 use crate::{
     BoxFuture,
-    form::{FieldErrors, FormValues},
+    form::FieldErrors,
     notification::{Notification, set_notification},
     panel::{
         Panel, panel_prefix,
         state::{PanelState, current},
     },
-    schema::{Field, Schema, Source},
-    toasty_compat::IsolationLevel,
 };
 
 /// How long a reset link works: one hour, fixed.
@@ -44,7 +38,10 @@ pub const RESET_LIFETIME: Duration = Duration::from_hours(1);
 ///
 /// The shipped [`PasswordAuth`](super::PasswordAuth) resets an [`AdminUser`](super::AdminUser);
 /// an app with its own user table implements it beside its
-/// [`Authenticator`](super::Authenticator), for the same user type:
+/// [`Authenticator`](super::Authenticator), for the same user type. The link goes to the address
+/// [`PanelUser::email`] answers, the one the account stores, never the one the visitor typed: a
+/// lookup that matches loosely, such as a collation folding accents, would otherwise mail one
+/// account's link to another address. An account without one gets no link.
 ///
 /// ```rust
 /// # use tablo_core::{PanelUser, auth::{PasswordResetter, hash_password}};
@@ -59,6 +56,7 @@ pub const RESET_LIFETIME: Duration = Duration::from_hours(1);
 /// # impl PanelUser for Staff {
 /// #     fn user_id(&self) -> String { self.id.to_string() }
 /// #     fn display_name(&self) -> &str { &self.name }
+/// #     fn email(&self) -> Option<&str> { Some(&self.email) }
 /// # }
 /// struct StaffAuth;
 ///
@@ -68,10 +66,6 @@ pub const RESET_LIFETIME: Duration = Duration::from_hours(1);
 ///     async fn find_by_email(&self, cx: &Cx, email: &str) -> topcoat::Result<Option<Staff>> {
 ///         let mut db = tablo_core::db::db(cx);
 ///         Ok(Staff::filter_by_email(email).first().exec(&mut db).await?)
-///     }
-///
-///     fn email<'u>(&self, staff: &'u Staff) -> &'u str {
-///         &staff.email
 ///     }
 ///
 ///     async fn reset_password(
@@ -106,11 +100,6 @@ pub trait PasswordResetter: Send + Sync + 'static {
         email: &str,
     ) -> impl Future<Output = topcoat::Result<Option<Self::User>>> + Send;
 
-    /// The address the reset link goes to: the one the account stores, never the one the
-    /// visitor typed. A lookup that matches loosely, such as a collation folding accents, would
-    /// otherwise mail one account's link to another address.
-    fn email<'u>(&self, user: &'u Self::User) -> &'u str;
-
     /// Set the password of the account [`PanelUser::user_id`] `user_id` names to `password`,
     /// through the reset's transaction `ex`, which commits when it returns `Ok`. The panel's
     /// authenticator still loads the account and it may enter the panel; the password is at
@@ -127,7 +116,7 @@ pub trait PasswordResetter: Send + Sync + 'static {
 /// [`PasswordResetter`] with its user type erased, as the panel keeps it.
 pub(crate) trait DynPasswordResetter: Send + Sync {
     /// The address to mail a reset link to for `email`, and the account's id, when an account
-    /// that may enter the panel signs in as `email`.
+    /// that may enter the panel and stores an address signs in as `email`.
     fn recipient<'a>(
         &'a self,
         cx: &'a Cx,
@@ -152,9 +141,18 @@ impl<R: PasswordResetter> DynPasswordResetter for R {
     ) -> BoxFuture<'a, topcoat::Result<Option<(String, String)>>> {
         Box::pin(async move {
             let user = self.find_by_email(cx, email).await?;
-            Ok(user
-                .filter(PanelUser::can_access_panel)
-                .map(|user| (self.email(&user).to_string(), user.user_id())))
+            let Some(user) = user.filter(PanelUser::can_access_panel) else {
+                return Ok(None);
+            };
+            let Some(email) = user.email() else {
+                // The page still answers that a link is on its way: it never says who exists.
+                tracing::warn!(
+                    user = std::any::type_name::<R::User>(),
+                    "a password reset found an account whose `PanelUser::email` is `None`"
+                );
+                return Ok(None);
+            };
+            Ok(Some((email.to_string(), user.user_id())))
         })
     }
 
@@ -176,50 +174,36 @@ impl<R: PasswordResetter> DynPasswordResetter for R {
 }
 
 /// A panel's password reset, installed with
-/// [`Auth::password_reset`](super::Auth::password_reset): the [`PasswordResetter`], the mailbox
-/// the link comes from, and the absolute URL the link starts with.
+/// [`Auth::password_reset`](super::Auth::password_reset): the [`PasswordResetter`], and how many
+/// links one address may ask for. The links go out through the panel's
+/// [`AuthMail`](super::AuthMail).
 ///
 /// ```rust
-/// use tablo_core::{Auth, PasswordAuth, PasswordReset};
+/// use tablo_core::{Auth, AuthMail, PasswordAuth, PasswordReset};
 /// use topcoat::mail::Mailbox;
 ///
 /// # fn main() -> Result<(), topcoat::mail::AddressError> {
-/// let reset = PasswordReset::new(
-///     PasswordAuth,
-///     Mailbox::named("Example", "no-reply@example.com")?,
-///     "https://admin.example.com",
-/// );
-/// let auth = Auth::password().password_reset(reset);
+/// let auth = Auth::password()
+///     .mail(AuthMail::new(
+///         Mailbox::new("no-reply@example.com")?,
+///         "https://admin.example.com",
+///     ))
+///     .password_reset(PasswordReset::new(PasswordAuth));
 /// # let _ = auth;
 /// # Ok(())
 /// # }
 /// ```
 pub struct PasswordReset {
     resetter: Box<dyn DynPasswordResetter>,
-    from: Mailbox,
-    base_url: String,
     throttle: LoginThrottle,
 }
 
 impl PasswordReset {
-    /// Resets passwords through `resetter`, mailing links from `from` that start with
-    /// `base_url`, such as `https://admin.example.com`: the scheme and host the app answers on,
-    /// before the panel's prefix.
-    ///
-    /// The base URL is configuration, not the request's `Host` header, which the client
-    /// chooses: a link built from it could point a victim's email at another host. Mounting
-    /// refuses a base URL that is not an absolute `http` or `https` URL, or that carries a query
-    /// or fragment.
+    /// Resets passwords through `resetter`.
     #[must_use]
-    pub fn new(
-        resetter: impl PasswordResetter,
-        from: Mailbox,
-        base_url: impl Into<String>,
-    ) -> Self {
+    pub fn new(resetter: impl PasswordResetter) -> Self {
         Self {
             resetter: Box::new(resetter),
-            from,
-            base_url: base_url.into().trim_end_matches('/').to_string(),
             throttle: LoginThrottle::new(3, Duration::from_mins(15)),
         }
     }
@@ -236,50 +220,16 @@ impl PasswordReset {
     pub(crate) fn resetter(&self) -> &dyn DynPasswordResetter {
         &*self.resetter
     }
-
-    /// Whether the base URL is an absolute `http` or `https` URL without a query or fragment.
-    pub(crate) fn base_url_is_absolute(&self) -> bool {
-        self.base_url.parse::<http::Uri>().is_ok_and(|uri| {
-            matches!(uri.scheme_str(), Some("http" | "https"))
-                && uri.authority().is_some()
-                && uri.query().is_none()
-        }) && !self.base_url.contains('#')
-    }
-
-    pub(crate) fn base_url(&self) -> &str {
-        &self.base_url
-    }
 }
 
 impl std::fmt::Debug for PasswordReset {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PasswordReset")
-            .field("from", &self.from.address())
-            .field("base_url", &self.base_url)
             .field("throttle", &self.throttle)
             .finish_non_exhaustive()
     }
 }
 
-/// Shipped reset-link record: the SHA-256 hash of the token the link carries, the account it
-/// resets, the panel that mailed it, and its expiry. The raw token is never stored.
-#[derive(Debug, Clone, toasty::Model)]
-pub struct PasswordResetToken {
-    /// Hex-encoded SHA-256 of the link's token.
-    #[key]
-    pub token_hash: String,
-    /// [`PanelUser::user_id`] of the account the link resets.
-    #[index]
-    pub user_id: String,
-    /// The prefix of the panel that mailed the link: the only panel it resets on.
-    pub panel: String,
-    #[index]
-    pub expires_at: Timestamp,
-    pub created_at: Timestamp,
-}
-
-/// The key the reset form posts the link's token under.
-const TOKEN_FIELD: &str = "token";
 /// The key the forgot-password form posts the address under.
 const EMAIL_FIELD: &str = "email";
 /// The keys the reset form's password controls post under, as [`new_password_errors`] names
@@ -300,31 +250,6 @@ pub(crate) fn reset_url(cx: &Cx) -> String {
 /// Whether the request's panel installs a [`PasswordReset`].
 pub(crate) fn offered(cx: &Cx) -> bool {
     current(cx).is_some_and(|panel| panel.auth.reset().is_some())
-}
-
-/// What the forgot-password page says above its form.
-#[derive(Debug, Clone, Copy)]
-enum ForgotAlert {
-    /// The address is past its limit; answers 429.
-    Throttled,
-    /// The database behind the lookup could not answer; answers 503.
-    Unavailable,
-}
-
-impl ForgotAlert {
-    fn message(self) -> &'static str {
-        match self {
-            Self::Throttled => "Too many reset requests. Try again shortly.",
-            Self::Unavailable => "Password reset is unavailable right now. Try again shortly.",
-        }
-    }
-
-    fn status(self) -> http::StatusCode {
-        match self {
-            Self::Throttled => http::StatusCode::TOO_MANY_REQUESTS,
-            Self::Unavailable => http::StatusCode::SERVICE_UNAVAILABLE,
-        }
-    }
 }
 
 /// `GET {prefix}/forgot-password` — the form asking for an email address.
@@ -371,18 +296,8 @@ pub(super) fn forgot_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             }
         };
         if let Some((address, user_id)) = recipient {
-            // The link is written and mailed after the answer, and a failure only logs: waiting
-            // on the database or the mail server, or answering differently, would tell the
-            // visitor an account uses the address.
-            let cx = cx.clone();
-            let panel = Arc::clone(panel);
-            tokio::spawn(async move {
-                let Some(reset) = panel.auth.reset() else {
-                    return;
-                };
-                if let Err(error) = mail_link(&cx, reset, &panel.prefix, &address, &user_id).await {
-                    tracing::error!(error = %error, panel = %panel.prefix, "password reset link not sent");
-                }
+            after_response(cx, "password reset link", move |cx, panel| async move {
+                mail_link(&cx, &panel, &address, &user_id).await
             });
         }
         set_notification(
@@ -396,180 +311,53 @@ pub(super) fn forgot_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
 }
 
 /// Records a new reset token for `user_id` on `panel`, replacing the account's earlier ones
-/// there and dropping every expired one, and mails its link to `address`.
+/// there, and mails its link to `address`.
 async fn mail_link(
     cx: &Cx,
-    reset: &PasswordReset,
-    panel: &str,
+    panel: &PanelState,
     address: &str,
     user_id: &str,
 ) -> topcoat::Result<()> {
-    let token = Token::random();
-    let now = Timestamp::now();
-    let expires_at = Timestamp::try_from(std::time::SystemTime::now() + RESET_LIFETIME)
-        .map_err(topcoat::Error::from)?;
+    let mail = panel
+        .auth
+        .auth_mail()
+        .ok_or_else(topcoat::router::error::not_found)?;
     let mut db = crate::db::db(cx);
     let mut tx = serializable(&mut db).await?;
-    PasswordResetToken::filter(
-        PasswordResetToken::fields()
-            .user_id()
-            .eq(user_id.to_string())
-            .and(PasswordResetToken::fields().panel().eq(panel.to_string()))
-            .or(PasswordResetToken::fields().expires_at().le(now)),
+    let token = token::issue(
+        cx,
+        &mut tx,
+        TokenPurpose::PasswordReset,
+        user_id,
+        None,
+        RESET_LIFETIME,
     )
-    .delete()
-    .exec(&mut tx)
-    .await
-    .map_err(infrastructure_failure)?;
-    toasty::create!(PasswordResetToken {
-        token_hash: token_key(&token.hash()),
-        user_id: user_id.to_string(),
-        panel: panel.to_string(),
-        expires_at,
-        created_at: now,
-    })
-    .exec(&mut tx)
-    .await
-    .map_err(infrastructure_failure)?;
+    .await?;
     tx.commit().await.map_err(infrastructure_failure)?;
-    let query = form_urlencoded::Serializer::new(String::new())
-        .append_pair(TOKEN_FIELD, &token.encode())
-        .finish();
-    let link = format!("{}{}?{query}", reset.base_url, reset_url(cx));
+    let link = mail.link(&reset_url(cx), &token);
     let brand = Panel::brand_name(cx);
     let minutes = RESET_LIFETIME.as_secs() / 60;
-    let mail = Mail::builder()
-        .from(reset.from.clone())
-        .to([Mailbox::new(address)?])
-        .subject(format!("Reset your {brand} password"))
-        .text(format!(
+    let message = mail.compose(
+        address,
+        format!("Reset your {brand} password"),
+        format!(
             "Someone asked to reset the password of your {brand} account.\n\n\
              Open this link to choose a new one. It works once, for the next {minutes} \
              minutes:\n\n{link}\n\n\
              If you did not ask, ignore this email: your password stays the same.\n"
-        ))
-        .build();
-    topcoat::mail::send(cx, mail).await?;
+        ),
+    )?;
+    topcoat::mail::send(cx, message).await?;
     Ok(())
 }
 
-/// A serializable transaction on `db`: two requests racing on one link, or one account, then
-/// cannot both commit.
-async fn serializable(db: &mut toasty::Db) -> topcoat::Result<toasty::Transaction<'_>> {
-    db.transaction_builder()
-        .isolation(IsolationLevel::Serializable)
-        .begin()
-        .await
-        .map_err(infrastructure_failure)
-}
-
-/// Deletes the reset links `user_id` holds on the panels `prefixes` names, or on every panel for
-/// `None`, through `ex`.
-pub(super) async fn end_links(
-    ex: &mut dyn toasty::Executor,
-    user_id: &str,
-    prefixes: Option<Vec<String>>,
-) -> topcoat::Result<()> {
-    let user = PasswordResetToken::fields()
-        .user_id()
-        .eq(user_id.to_string());
-    match prefixes {
-        Some(prefixes) => PasswordResetToken::filter(
-            user.and(PasswordResetToken::fields().panel().in_list(prefixes)),
-        ),
-        None => PasswordResetToken::filter(user),
-    }
-    .delete()
-    .exec(ex)
-    .await
-    .map_err(infrastructure_failure)
-}
-
-/// The forgot-password page: 422 for a missing address, the alert's status with one, else 200.
-async fn forgot_response(
-    cx: &Cx,
-    email: &str,
-    errors: &FieldErrors,
-    alert: Option<ForgotAlert>,
-) -> topcoat::Result<Response> {
-    let status = match alert {
-        Some(alert) => Some(alert.status()),
-        None => (!errors.is_empty()).then_some(http::StatusCode::UNPROCESSABLE_ENTITY),
-    };
-    let schema = Schema::new(crate::form::required_input(
-        Field::text_input::<String>(EMAIL_FIELD)
-            .email()
-            .label("Email"),
-    ));
-    let mut values = FormValues::new();
-    values.insert(EMAIL_FIELD.to_string(), email.to_string());
-    let fields = schema.render(cx, Source::form(&values, errors)).await?;
-    let csrf = crate::csrf::ensure_token(cx);
-    let action = forgot_url(cx);
-    let form = topcoat::view::view! {
-        cx =>
-        <form method="post" action=(action) class="flex flex-col gap-5">
-            (crate::csrf::field(cx, &csrf))
-            if let Some(alert) = alert {
-                tablo_ui::alert(
-                    variant: tablo_ui::AlertVariant::Destructive,
-                    attrs: topcoat::view::attributes! { role="alert" },
-                    tablo_ui::alert_title((alert.message()))
-                )
-            }
-            (fields)
-            tablo_ui::button(
-                variant: tablo_ui::ButtonVariant::Primary,
-                attrs: topcoat::view::attributes! { type="submit" class="w-full" },
-                "Email me a reset link"
-            )
-        </form>
-    }
-    .boxed();
-    let page = render(
-        cx,
-        "Forgot your password?",
-        "Enter your email and we will send you a link to choose a new password.".to_string(),
-        status,
-        form,
-    )
-    .await?;
-    page.single().await?.into_response(cx)
-}
-
-/// The live reset token `encoded` names on the request's panel, or `None` for an unknown,
-/// expired, or other panel's one.
+/// The live reset token `encoded` names on the request's panel.
 async fn live_token(
     cx: &Cx,
     ex: &mut dyn toasty::Executor,
     encoded: &str,
-) -> topcoat::Result<Option<PasswordResetToken>> {
-    let Ok(token) = Token::decode(encoded) else {
-        return Ok(None);
-    };
-    let row = PasswordResetToken::filter(
-        PasswordResetToken::fields()
-            .token_hash()
-            .eq(token_key(&token.hash())),
-    )
-    .first()
-    .exec(ex)
-    .await
-    .map_err(infrastructure_failure)?;
-    let prefix = panel_prefix(cx);
-    Ok(row.filter(|row| row.panel == prefix && row.expires_at > Timestamp::now()))
-}
-
-/// The token the reset page's query carries.
-fn token_from_query(cx: &Cx) -> String {
-    uri(cx)
-        .query()
-        .and_then(|query| {
-            form_urlencoded::parse(query.as_bytes())
-                .find(|(key, _)| key == TOKEN_FIELD)
-                .map(|(_, value)| value.into_owned())
-        })
-        .unwrap_or_default()
+) -> topcoat::Result<Option<token::AuthToken>> {
+    token::live(cx, ex, TokenPurpose::PasswordReset, encoded).await
 }
 
 /// `GET {prefix}/reset-password?token=…` — the form choosing a new password, or the page saying
@@ -648,135 +436,10 @@ async fn may_enter(cx: &Cx, panel: &PanelState, user_id: &str) -> topcoat::Resul
     Ok(user.is_some_and(|user| user.can_access_panel()))
 }
 
-/// The reset form for `token`: 422 for refused passwords, else 200. It sends no referrer, so
-/// the token in the page's URL stays on it, and no cache keeps it.
-async fn reset_response(cx: &Cx, token: &str, errors: &FieldErrors) -> topcoat::Result<Response> {
-    let status = (!errors.is_empty()).then_some(http::StatusCode::UNPROCESSABLE_ENTITY);
-    let field = crate::form::required_input;
-    let schema = Schema::new((
-        field(
-            Field::text_input::<String>(PASSWORD_FIELD)
-                .password()
-                .label("New password"),
-        ),
-        field(
-            Field::text_input::<String>(CONFIRMATION_FIELD)
-                .password()
-                .label("Confirm new password"),
-        ),
-    ));
-    let values = FormValues::new();
-    let fields = schema.render(cx, Source::form(&values, errors)).await?;
-    let csrf = crate::csrf::ensure_token(cx);
-    let action = reset_url(cx);
-    let token = token.to_string();
-    let form = topcoat::view::view! {
-        cx =>
-        <form method="post" action=(action) class="flex flex-col gap-5">
-            (crate::csrf::field(cx, &csrf))
-            <input type="hidden" name=(TOKEN_FIELD) value=(token)>
-            (fields)
-            tablo_ui::button(
-                variant: tablo_ui::ButtonVariant::Primary,
-                attrs: topcoat::view::attributes! { type="submit" class="w-full" },
-                "Reset password"
-            )
-        </form>
-    }
-    .boxed();
-    let page = render(
-        cx,
-        "Choose a new password",
-        format!("Use at least {} characters.", super::MIN_PASSWORD_CHARS),
-        status,
-        form,
-    )
-    .await?;
-    private(page.single().await?.into_response(cx)?)
-}
-
-/// The page an unknown, expired or used link lands on: 404, linking to a new request.
-async fn invalid_link(cx: &Cx) -> topcoat::Result<Response> {
-    let forgot = forgot_url(cx);
-    let link = crate::navigation::runtime_link(cx, &forgot);
-    let form = topcoat::view::view! {
-        cx =>
-        <div class="flex flex-col gap-5">
-            tablo_ui::alert(
-                variant: tablo_ui::AlertVariant::Destructive,
-                attrs: topcoat::view::attributes! { role="alert" },
-                tablo_ui::alert_title("This reset link is invalid or has expired.")
-            )
-            <a
-                (link)
-                class="text-center text-sm font-medium text-foreground underline underline-offset-4 hover:text-primary"
-            >
-                "Request a new link"
-            </a>
-        </div>
-    }
-    .boxed();
-    let page = render(
-        cx,
-        "Reset link expired",
-        "Each link works once, for one hour.".to_string(),
-        Some(http::StatusCode::NOT_FOUND),
-        form,
-    )
-    .await?;
-    private(page.single().await?.into_response(cx)?)
-}
-
-/// `response` with `Referrer-Policy: no-referrer` and `Cache-Control: no-store`: a page whose
-/// URL or form carries a reset token.
-fn private(mut response: Response) -> topcoat::Result<Response> {
-    let headers = response.headers_mut();
-    headers.insert(
-        http::header::REFERRER_POLICY,
-        http::HeaderValue::from_static("no-referrer"),
-    );
-    headers.insert(
-        http::header::CACHE_CONTROL,
-        http::HeaderValue::from_static("no-store"),
-    );
-    Ok(response)
-}
-
-/// A reset page: the shared auth layout, with a link back to the login page.
-async fn render<'a>(
-    cx: &'a Cx,
-    title: &'static str,
-    description: String,
-    status: Option<http::StatusCode>,
-    form: BoxView<'a>,
-) -> topcoat::Result<BoxView<'a>> {
-    let login = login_url(cx);
-    super::page::render(
-        cx,
-        super::page::AuthPage {
-            title,
-            description,
-            status,
-            form,
-            switch: Some(super::page::switch_link(
-                cx,
-                "Remember your password?",
-                &login,
-                "Sign in",
-            )),
-            note: None,
-        },
-    )
-    .await
-}
-
 /// The mistakes in a panel's [`Auth::password_reset`](super::Auth::password_reset): a reset without
-/// auth, a resetter whose user is not the authenticator's, a base URL that is not absolute, and a
-/// router that cannot send mail.
-pub(super) fn declaration_errors(
-    auth: &super::Auth,
-    has_mail: bool,
-) -> Vec<crate::DeclarationErrorKind> {
+/// auth, and a resetter whose user is not the authenticator's. What its mail needs,
+/// [`super::mail_declaration_errors`] checks.
+pub(super) fn declaration_errors(auth: &super::Auth) -> Vec<crate::DeclarationErrorKind> {
     use crate::{DeclarationErrorKind, declaration::ResetFault};
 
     let Some(reset) = auth.reset.as_ref() else {
@@ -787,21 +450,11 @@ pub(super) fn declaration_errors(
             ResetFault::AuthDisabled,
         )];
     };
-    let mut faults = Vec::new();
     let (user, user_name) = reset.resetter().user_type();
-    if user != authenticator.user_type() {
-        faults.push(ResetFault::UserType {
-            resetter: user_name,
-        });
+    if user == authenticator.user_type() {
+        return Vec::new();
     }
-    if !reset.base_url_is_absolute() {
-        faults.push(ResetFault::BaseUrl(reset.base_url().to_string()));
-    }
-    if !has_mail {
-        faults.push(ResetFault::MissingMail);
-    }
-    faults
-        .into_iter()
-        .map(DeclarationErrorKind::PasswordReset)
-        .collect()
+    vec![DeclarationErrorKind::PasswordReset(ResetFault::UserType {
+        resetter: user_name,
+    })]
 }

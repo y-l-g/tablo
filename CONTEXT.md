@@ -46,6 +46,8 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Registrar | The trait that creates a panel user from the sign-up page's input. | Registration handler, SignupProvider, UserCreator |
 | Profile editor | The trait that lets the signed-in panel user edit their own account on the profile page. | Account settings, ProfileProvider, UserUpdater |
 | Password resetter | The trait that finds an account by email and sets its password when a mailed reset link is used. | Password broker, ResetProvider |
+| Auth mail | The sender and base URL a panel's auth mails its links from, set by `Auth::mail`. | Mailer, Notifier |
+| Auth token | A single-use secret a mailed link or a pending sign-in carries, stored as an `AuthToken` row holding its hash. | Nonce, Signed URL, Reset token |
 | Panel user | The app's own user type: id, display name, panel access, tenant memberships. | CurrentUser, AuthUser, Principal |
 | Uploader | The trait that decides where a file field's bytes go, installed once per panel. | FileStore, Blob store |
 | DirUploader | The stock `Uploader`: writes each file into one served directory and stores its URL. | DiskStore |
