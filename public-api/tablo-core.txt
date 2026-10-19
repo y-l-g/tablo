@@ -3524,7 +3524,6 @@ impl<M> tablo_core::table::Table<M>
 pub fn tablo_core::table::Table<M>::action_layout(self, tablo_core::table::ActionLayout) -> Self
 pub fn tablo_core::table::Table<M>::column(self, impl tablo_core::extend::Column<M> + 'static) -> Self
 pub fn tablo_core::table::Table<M>::declaration_errors(&self) -> alloc::vec::Vec<tablo_core::DeclarationErrorKind>
-pub fn tablo_core::table::Table<M>::default_sort(self, tablo_core::Sort) -> Self
 pub fn tablo_core::table::Table<M>::filters(self, impl tablo_core::IntoFilters<M>) -> Self where M: toasty::schema::model::Model
 pub fn tablo_core::table::Table<M>::group_by<T>(self, tablo_core::Lens<M, T>) -> Self where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormScalar + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::table::Table<M>::hide_filter_bar(self) -> Self
@@ -3536,6 +3535,10 @@ pub fn tablo_core::table::Table<M>::pagination(self, tablo_core::table::Paginati
 pub fn tablo_core::table::Table<M>::pagination_mode(&self) -> tablo_core::table::Pagination
 pub fn tablo_core::table::Table<M>::per_page_options(self, impl core::iter::traits::collect::IntoIterator<Item = usize>) -> Self
 pub fn tablo_core::table::Table<M>::row_action_layout(&self) -> tablo_core::table::ActionLayout
+impl<M> tablo_core::table::Table<M>
+pub fn tablo_core::table::Table<M>::default_sort<T>(self, impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> Self where M: toasty::schema::model::Model
+pub fn tablo_core::table::Table<M>::default_sort_by(self, tablo_core::Sort) -> Self
+pub fn tablo_core::table::Table<M>::default_sort_desc<T>(self, impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> Self where M: toasty::schema::model::Model
 impl<M> core::clone::Clone for tablo_core::table::Table<M>
 pub fn tablo_core::table::Table<M>::clone(&self) -> Self
 impl<M> core::fmt::Debug for tablo_core::table::Table<M>
@@ -6295,7 +6298,6 @@ impl<M> tablo_core::table::Table<M>
 pub fn tablo_core::table::Table<M>::action_layout(self, tablo_core::table::ActionLayout) -> Self
 pub fn tablo_core::table::Table<M>::column(self, impl tablo_core::extend::Column<M> + 'static) -> Self
 pub fn tablo_core::table::Table<M>::declaration_errors(&self) -> alloc::vec::Vec<tablo_core::DeclarationErrorKind>
-pub fn tablo_core::table::Table<M>::default_sort(self, tablo_core::Sort) -> Self
 pub fn tablo_core::table::Table<M>::filters(self, impl tablo_core::IntoFilters<M>) -> Self where M: toasty::schema::model::Model
 pub fn tablo_core::table::Table<M>::group_by<T>(self, tablo_core::Lens<M, T>) -> Self where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormScalar + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::table::Table<M>::hide_filter_bar(self) -> Self
@@ -6307,6 +6309,10 @@ pub fn tablo_core::table::Table<M>::pagination(self, tablo_core::table::Paginati
 pub fn tablo_core::table::Table<M>::pagination_mode(&self) -> tablo_core::table::Pagination
 pub fn tablo_core::table::Table<M>::per_page_options(self, impl core::iter::traits::collect::IntoIterator<Item = usize>) -> Self
 pub fn tablo_core::table::Table<M>::row_action_layout(&self) -> tablo_core::table::ActionLayout
+impl<M> tablo_core::table::Table<M>
+pub fn tablo_core::table::Table<M>::default_sort<T>(self, impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> Self where M: toasty::schema::model::Model
+pub fn tablo_core::table::Table<M>::default_sort_by(self, tablo_core::Sort) -> Self
+pub fn tablo_core::table::Table<M>::default_sort_desc<T>(self, impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> Self where M: toasty::schema::model::Model
 impl<M> core::clone::Clone for tablo_core::table::Table<M>
 pub fn tablo_core::table::Table<M>::clone(&self) -> Self
 impl<M> core::fmt::Debug for tablo_core::table::Table<M>
