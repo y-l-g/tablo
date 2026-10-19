@@ -183,8 +183,9 @@ The URL holds the list's whole state, so every view of a list is a link you can 
 | `?group_by=status` | grouping: see [Grouping](#grouping) |
 
 - Without a `?sort=` naming a sortable column, the rows sort by the table's
-  `.default_sort(Sort::desc("created_at"))`, else by the first sortable column, ascending, and
-  the header marks that column. A `.default_sort` naming no sortable column fails the mount.
+  `.default_sort(lens)` (smallest first) or `.default_sort_desc(lens!(Post.created_at))`, else by
+  the first sortable column, ascending, and the header marks that column. A default sort on a field
+  with no sortable column fails the mount.
 - Search escapes `%` and `_`, so they match literally. Terms are trimmed and capped at 128
   characters. Matching is case-insensitive: PostgreSQL runs it as `ILIKE`, and SQLite (for ASCII)
   and MySQL (under its default collations) as `LIKE`.

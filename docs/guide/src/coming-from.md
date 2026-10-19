@@ -10,7 +10,7 @@ which the list, form and detail pages follow. This table maps their names to Tab
 | `getEloquentQuery()` | `Resource::query` |
 | `table()`: columns | `ResourceDef::table(Table::new(columns))` |
 | `->searchable()`, `->sortable()` | `.searchable()`, `.sortable()` on a column |
-| `->defaultSort('created_at', 'desc')` | `Table::default_sort(Sort::desc("created_at"))` |
+| `->defaultSort('created_at', 'desc')` | `Table::default_sort_desc(lens!(Post.created_at))` |
 | table filters | `Table::filters`: `SelectFilter`, `TernaryFilter`, `DateFilter`, `QueryFilter` |
 | `->paginated([..])` | `Table::paginate(n)` |
 | `->groups([..])` | `Table::group_by(lens)` |

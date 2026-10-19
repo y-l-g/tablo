@@ -8,7 +8,7 @@
 use std::{marker::PhantomData, num::NonZeroUsize, sync::Arc};
 
 use derive_where::derive_where;
-use toasty::stmt::{Expr, List, OrderBy, OrderByExpr};
+use toasty::stmt::{Expr, List};
 
 pub(crate) use self::choice::ColumnChoice;
 use self::filter::BoxFilter;
@@ -20,6 +20,7 @@ mod export;
 pub(crate) mod filter;
 pub(crate) mod model;
 mod page;
+mod sort;
 mod state;
 
 pub use self::{
@@ -315,28 +316,6 @@ impl<M> Table<M> {
         self
     }
 
-    /// Sort by `sort` when the URL names no sortable column; by the first sortable column,
-    /// ascending, by default.
-    ///
-    /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
-    /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String, published_at: jiff::Timestamp }
-    /// use tablo_core::{DateColumn, Sort, Table, TextColumn, lens};
-    ///
-    /// // The newest posts first.
-    /// Table::new((
-    ///     TextColumn::new(lens!(Post.title)).sortable(),
-    ///     DateColumn::new(lens!(Post.published_at)).sortable(),
-    /// ))
-    /// .default_sort(Sort::desc("published_at"));
-    /// ```
-    ///
-    /// A `sort` naming no sortable column is a declaration error.
-    pub fn default_sort(mut self, sort: Sort) -> Self {
-        self.default_sort = Some(sort);
-        self
-    }
-
     /// Set the page size.
     pub fn paginate(mut self, per_page: usize) -> Self {
         match NonZeroUsize::new(per_page) {
@@ -487,58 +466,6 @@ impl<M> Table<M> {
         Some(exprs.fold(first, |acc, e| acc.or(e)))
     }
 
-    /// The sortable column named `name`.
-    fn sortable_column(&self, name: &str) -> Option<&BoxColumn<M>> {
-        self.columns
-            .iter()
-            .find(|c| c.is_sortable() && c.name() == name)
-    }
-
-    /// The sort `state` reads: its own when it names a sortable column, else the
-    /// [default](Self::default_sort), else the first sortable column's, ascending. `None` when no
-    /// column sorts.
-    pub(crate) fn sort_for(&self, state: &TableState) -> Option<Sort> {
-        [state.sort.as_ref(), self.default_sort.as_ref()]
-            .into_iter()
-            .flatten()
-            .find(|sort| self.sortable_column(&sort.column).is_some())
-            .cloned()
-            .or_else(|| {
-                let first = self.columns.iter().find(|c| c.is_sortable())?;
-                Some(Sort::asc(first.name()))
-            })
-    }
-
-    /// The first sortable column's ascending order-by: the order a relationship's choices list in,
-    /// whatever the list's [default](Self::default_sort).
-    pub(crate) fn first_order_by(&self) -> Option<OrderByExpr>
-    where
-        M: toasty::schema::Model,
-    {
-        self.columns.iter().find_map(|c| c.order_by(false))
-    }
-
-    /// The order-by `sort` names.
-    fn order_by(&self, sort: &Sort) -> Option<OrderByExpr>
-    where
-        M: toasty::schema::Model,
-    {
-        self.sortable_column(&sort.column)?
-            .order_by(sort.descending)
-    }
-
-    /// Resolve the full query ordering for a request: its [sort](Self::sort_for), or the primary
-    /// key when no column sorts.
-    pub(crate) fn order_bys_for(&self, state: &TableState) -> Vec<OrderByExpr>
-    where
-        M: toasty::schema::Model,
-    {
-        match self.sort_for(state).and_then(|sort| self.order_by(&sort)) {
-            Some(ord) => vec![ord],
-            None => crate::toasty_compat::pk::pk_order_bys::<M>(),
-        }
-    }
-
     /// Apply this table's declaration to `query`: [`Self::narrow`], then the ordering.
     pub(crate) fn apply_declaration(
         &self,
@@ -572,39 +499,6 @@ impl<M> Table<M> {
             query = query.filter(expr);
         }
         query
-    }
-
-    /// Order `query` as `state` sorts it, replacing any ordering `query` carries: Toasty appends
-    /// an `order_by` after the existing ones, so a [`Resource::query`](crate::Resource::query)
-    /// ordering would otherwise outrank the user's sort.
-    pub(crate) fn order(
-        &self,
-        mut query: toasty::stmt::Query<List<M>>,
-        state: &TableState,
-    ) -> toasty::stmt::Query<List<M>>
-    where
-        M: toasty::schema::Model,
-    {
-        query.set_order_by(OrderBy {
-            exprs: self.order_bys_for(state),
-        });
-        query
-    }
-
-    /// The ordering an offset page reads: `state`'s sort, then the primary key.
-    ///
-    /// Toasty breaks ties by the key for a cursor only; without it, rows sharing a sort value may
-    /// come back in a different order for each offset, and repeat or go missing across pages.
-    pub(crate) fn offset_order_bys_for(&self, state: &TableState) -> Vec<OrderByExpr>
-    where
-        M: toasty::schema::Model,
-    {
-        let mut order = self.order_bys_for(state);
-        let key = crate::toasty_compat::pk::pk_order_bys::<M>();
-        if order != key {
-            order.extend(key);
-        }
-        order
     }
 
     /// Whether the declaration enables a search toolbar.
