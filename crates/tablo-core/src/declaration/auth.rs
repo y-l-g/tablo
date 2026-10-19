@@ -138,7 +138,7 @@ impl fmt::Display for SignUpFault {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum AuthMailFault {
-    /// A feature that mails links, named as its `Auth` method, on an `Auth` without
+    /// A feature that mails links or codes, named as its `Auth` method, on an `Auth` without
     /// `Auth::mail`.
     Unset {
         /// The `Auth` method that installs the feature, such as `password_reset`.
@@ -155,7 +155,7 @@ impl fmt::Display for AuthMailFault {
         match self {
             Self::Unset { feature } => write!(
                 f,
-                "`Auth::{feature}` mails links, but the auth sets no sender: install one with \
+                "`Auth::{feature}` sends mail, but the auth sets no sender: install one with \
              `Auth::mail(AuthMail::new(..))`"
             ),
             Self::BaseUrl(url) => write!(

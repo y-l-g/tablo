@@ -50,6 +50,8 @@ pub enum TokenPurpose {
     EmailChangeCancel,
     /// A sign-in whose password verified, waiting for its second factor.
     TwoFactorChallenge,
+    /// A code mailed as a second factor, to sign in or to set the factor up.
+    TwoFactorEmailCode,
 }
 
 /// A new token for `purpose` on the request's panel, held by `user_id` until `lifetime` passes,
@@ -64,6 +66,30 @@ pub(super) async fn issue(
     lifetime: Duration,
 ) -> topcoat::Result<Token> {
     let token = Token::random();
+    record(
+        cx,
+        ex,
+        purpose,
+        user_id,
+        email,
+        lifetime,
+        token_key(&token.hash()),
+    )
+    .await?;
+    Ok(token)
+}
+
+/// Records `token_hash` as `user_id`'s token for `purpose` on the request's panel until
+/// `lifetime` passes, in place of the account's earlier ones there and every expired token.
+pub(super) async fn record(
+    cx: &Cx,
+    ex: &mut dyn toasty::Executor,
+    purpose: TokenPurpose,
+    user_id: &str,
+    email: Option<String>,
+    lifetime: Duration,
+    token_hash: String,
+) -> topcoat::Result<()> {
     let now = Timestamp::now();
     let expires_at = Timestamp::try_from(std::time::SystemTime::now() + lifetime)
         .map_err(topcoat::Error::from)?;
@@ -80,7 +106,7 @@ pub(super) async fn issue(
     .await
     .map_err(infrastructure_failure)?;
     toasty::create!(AuthToken {
-        token_hash: token_key(&token.hash()),
+        token_hash,
         purpose,
         user_id: user_id.to_string(),
         panel,
@@ -91,7 +117,7 @@ pub(super) async fn issue(
     .exec(ex)
     .await
     .map_err(infrastructure_failure)?;
-    Ok(token)
+    Ok(())
 }
 
 /// The live token for `purpose` that `encoded` names on the request's panel, or `None` for an
@@ -105,15 +131,21 @@ pub(super) async fn live(
     let Ok(token) = Token::decode(encoded) else {
         return Ok(None);
     };
-    let row = AuthToken::filter(
-        AuthToken::fields()
-            .token_hash()
-            .eq(token_key(&token.hash())),
-    )
-    .first()
-    .exec(ex)
-    .await
-    .map_err(infrastructure_failure)?;
+    recorded(cx, ex, purpose, token_key(&token.hash())).await
+}
+
+/// The live token for `purpose` that [`record`] stored as `token_hash` on the request's panel.
+pub(super) async fn recorded(
+    cx: &Cx,
+    ex: &mut dyn toasty::Executor,
+    purpose: TokenPurpose,
+    token_hash: String,
+) -> topcoat::Result<Option<AuthToken>> {
+    let row = AuthToken::filter(AuthToken::fields().token_hash().eq(token_hash))
+        .first()
+        .exec(ex)
+        .await
+        .map_err(infrastructure_failure)?;
     let prefix = panel_prefix(cx);
     Ok(row.filter(|row| {
         row.purpose == purpose && row.panel == prefix && row.expires_at > Timestamp::now()
@@ -134,6 +166,7 @@ pub(super) async fn spend(ex: &mut dyn toasty::Executor, row: &AuthToken) -> top
 pub(super) const CREDENTIALS: &[TokenPurpose] = &[
     TokenPurpose::PasswordReset,
     TokenPurpose::TwoFactorChallenge,
+    TokenPurpose::TwoFactorEmailCode,
 ];
 
 /// The purposes a reset, a cancelled email change or a revocation ends: those of a credential
@@ -141,6 +174,7 @@ pub(super) const CREDENTIALS: &[TokenPurpose] = &[
 pub(super) const REVOCATION: &[TokenPurpose] = &[
     TokenPurpose::PasswordReset,
     TokenPurpose::TwoFactorChallenge,
+    TokenPurpose::TwoFactorEmailCode,
     TokenPurpose::EmailChange,
 ];
 

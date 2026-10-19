@@ -42,3 +42,12 @@ pub fn token(link: &str) -> String {
         .map(|(_, value)| value.into_owned())
         .expect("the link carries a token")
 }
+
+/// The six-digit code `mail` carries.
+pub fn code(mail: &Mail) -> String {
+    text(mail)
+        .split(|c: char| !c.is_ascii_digit())
+        .find(|run| run.len() == 6)
+        .expect("the mail carries a six-digit code")
+        .to_string()
+}

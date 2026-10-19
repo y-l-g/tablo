@@ -15,7 +15,10 @@ use topcoat::{
     },
 };
 
-use super::{accept, pages};
+use super::{
+    FactorKind, accept, email, enrolment,
+    pages::{self, Notice},
+};
 use crate::{
     auth::{
         PanelUser, infrastructure_failure,
@@ -45,11 +48,13 @@ pub(crate) fn challenge_url(cx: &Cx) -> String {
     format!("{}/two-factor-challenge", panel_prefix(cx))
 }
 
-/// Hands `user`, whose password just verified, a challenge instead of a session: a token in its
-/// own cookie, and a redirect to the challenge page carrying `next`.
+/// Hands `user`, whose password just verified, a challenge for their factor of `kind` instead of
+/// a session: a token in its own cookie, a code mailed for mailed codes, and a redirect to the
+/// challenge page carrying `next`.
 pub(in crate::auth) async fn begin(
     cx: &Cx,
     user: &dyn PanelUser,
+    kind: FactorKind,
     next: &str,
 ) -> topcoat::Result<Response> {
     let mut db = crate::db::db(cx);
@@ -73,7 +78,21 @@ pub(in crate::auth) async fn begin(
             ))
             .build(),
     );
+    if kind == FactorKind::EmailCode
+        && let Some(two_factor) = current(cx).and_then(|panel| panel.auth.two_factor_config())
+    {
+        // A throttled sign-in mails nothing: the code mailed last still works.
+        email::send(cx, two_factor, user).await?;
+    }
     private(see_other(with_next(challenge_url(cx), next)).into_response(cx)?)
+}
+
+/// Whether `user_id`'s factor on the request's panel mails its codes.
+async fn mails(cx: &Cx, ex: &mut dyn toasty::Executor, user_id: &str) -> topcoat::Result<bool> {
+    Ok(enrolment(cx, ex, user_id)
+        .await?
+        .confirmed
+        .is_some_and(|factor| factor.kind == FactorKind::EmailCode))
 }
 
 /// The challenge token the request's cookie carries.
@@ -105,18 +124,18 @@ pub(in crate::auth) fn challenge_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         let next = next_from_query(cx).unwrap_or_default();
         let mut db = crate::db::db(cx);
-        if token::live(
+        let Some(row) = token::live(
             cx,
             &mut db,
             TokenPurpose::TwoFactorChallenge,
             &presented(cx),
         )
         .await?
-        .is_none()
-        {
+        else {
             return expired(cx, &next);
-        }
-        pages::challenge(cx, &next, false).await
+        };
+        let mailed = mails(cx, &mut db, &row.user_id).await?;
+        pages::challenge(cx, &next, mailed, Notice::None).await
     })
 }
 
@@ -137,6 +156,7 @@ pub(in crate::auth) fn challenge_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             .map(str::to_string)
             .unwrap_or_default();
         let code = form.last(CODE_FIELD).unwrap_or_default();
+        let resend = form.last(super::settings::INTENT_FIELD) == Some("send");
         let encoded = presented(cx);
         let mut db = crate::db::db(cx);
         let Some(row) =
@@ -144,14 +164,6 @@ pub(in crate::auth) fn challenge_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         else {
             return expired(cx, &next);
         };
-        if !two_factor.throttle.attempt(&row.user_id, None) {
-            tracing::warn!(
-                panel = %panel.prefix,
-                client = ?client_ip(cx),
-                "two-factor attempt throttled"
-            );
-            return Err(too_many_requests(two_factor.throttle.window_secs()).into());
-        }
         let user = authenticator
             .find_by_id(cx, &row.user_id)
             .await
@@ -160,6 +172,22 @@ pub(in crate::auth) fn challenge_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         let Some(user) = user else {
             return expired(cx, &next);
         };
+        let mailed = mails(cx, &mut db, &row.user_id).await?;
+        if resend && mailed {
+            email::send(cx, two_factor, &*user)
+                .await?
+                .or_too_many(two_factor)?;
+            return pages::challenge(cx, &next, mailed, Notice::Sent).await;
+        }
+        // A request for a new code checks none: only a code counts against the throttle.
+        if !two_factor.throttle.attempt(&row.user_id, None) {
+            tracing::warn!(
+                panel = %panel.prefix,
+                client = ?client_ip(cx),
+                "two-factor attempt throttled"
+            );
+            return Err(too_many_requests(two_factor.throttle.window_secs()).into());
+        }
         let mut tx = serializable(&mut db).await?;
         // Read again inside the transaction: of two requests racing on one challenge, one commits.
         if token::live(cx, &mut tx, TokenPurpose::TwoFactorChallenge, &encoded)
@@ -170,7 +198,7 @@ pub(in crate::auth) fn challenge_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         }
         if !accept(cx, &mut tx, &row.user_id, code).await? {
             drop(tx);
-            return pages::challenge(cx, &next, true).await;
+            return pages::challenge(cx, &next, mailed, Notice::Refused).await;
         }
         token::spend(&mut tx, &row).await?;
         tx.commit().await.map_err(infrastructure_failure)?;

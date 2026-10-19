@@ -4,6 +4,7 @@
 
 mod challenge;
 mod cipher;
+mod email;
 mod pages;
 mod settings;
 mod totp;
@@ -26,8 +27,9 @@ use super::{LoginThrottle, PanelUser, infrastructure_failure};
 use crate::panel::{panel_prefix, state::PanelState};
 
 /// A panel's two-factor sign-in, installed with [`Auth::two_factor`](super::Auth::two_factor):
-/// each signed-in user may add an authenticator app at `{prefix}/two-factor`, and an account that
-/// has one signs in with a code from it after its password.
+/// each signed-in user may add an authenticator app, or codes by email when the panel mails them,
+/// at `{prefix}/two-factor`, and an account that has one signs in with a code from it after its
+/// password.
 ///
 /// ```rust
 /// use tablo_core::{Auth, TwoFactor};
@@ -38,7 +40,9 @@ use crate::panel::{panel_prefix, state::PanelState};
 #[derive(Debug)]
 pub struct TwoFactor {
     required: bool,
+    email: bool,
     throttle: LoginThrottle,
+    mail_throttle: LoginThrottle,
 }
 
 impl TwoFactor {
@@ -47,16 +51,35 @@ impl TwoFactor {
     pub fn new() -> Self {
         Self {
             required: false,
+            email: false,
             throttle: LoginThrottle::new(5, Duration::from_mins(1)),
+            mail_throttle: LoginThrottle::new(3, Duration::from_mins(15)),
         }
     }
 
-    /// Sends a signed-in user without an authenticator to `{prefix}/two-factor` before anything
+    /// Sends a signed-in user without a second factor to `{prefix}/two-factor` before anything
     /// else: a page answers with a redirect to it and any other request with 403, after an
     /// unverified address.
     #[must_use]
     pub fn required(mut self) -> Self {
         self.required = true;
+        self
+    }
+
+    /// Lets a user with an address choose codes mailed to it in place of an authenticator app:
+    /// each sign-in mails one, through [`Auth::mail`](super::Auth::mail), which mounting then
+    /// requires. A mailed code works once, for ten minutes.
+    #[must_use]
+    pub fn email_codes(mut self) -> Self {
+        self.email = true;
+        self
+    }
+
+    /// How many codes one account may have mailed in a window; defaults to three in fifteen
+    /// minutes.
+    #[must_use]
+    pub fn mail_throttle(mut self, throttle: LoginThrottle) -> Self {
+        self.mail_throttle = throttle;
         self
     }
 
@@ -66,6 +89,13 @@ impl TwoFactor {
     pub fn throttle(mut self, throttle: LoginThrottle) -> Self {
         self.throttle = throttle;
         self
+    }
+}
+
+impl TwoFactor {
+    /// Whether the panel mails codes.
+    pub(in crate::auth) fn mails(&self) -> bool {
+        self.email
     }
 }
 
@@ -109,6 +139,8 @@ pub enum FactorKind {
     Authenticator,
     /// A single-use recovery code, for an account that lost its authenticator.
     RecoveryCode,
+    /// Codes mailed to the account's address, one per sign-in; the row holds no secret.
+    EmailCode,
 }
 
 /// How many recovery codes a set-up or a regeneration issues.
@@ -145,8 +177,8 @@ async fn factors(
     .map_err(infrastructure_failure)
 }
 
-/// What `user_id` holds on the request's panel: a confirmed authenticator, an unconfirmed one,
-/// and how many recovery codes are left.
+/// What `user_id` holds on the request's panel: the confirmed factor, an authenticator or mailed
+/// codes, the one being set up, and how many recovery codes are left.
 #[derive(Debug, Default)]
 pub(super) struct Enrolment {
     pub(super) confirmed: Option<AuthFactor>,
@@ -172,21 +204,21 @@ async fn enrolment_on(
     let mut enrolment = Enrolment::default();
     for factor in factors(ex, panel, user_id).await? {
         match (factor.kind, factor.confirmed_at.is_some()) {
-            (FactorKind::Authenticator, true) => enrolment.confirmed = Some(factor),
-            (FactorKind::Authenticator, false) => enrolment.unconfirmed = Some(factor),
             (FactorKind::RecoveryCode, _) => enrolment.recovery_codes += 1,
+            (_, true) => enrolment.confirmed = Some(factor),
+            (_, false) => enrolment.unconfirmed = Some(factor),
         }
     }
     Ok(enrolment)
 }
 
-/// Whether `user` signs in to the request's panel with a second factor.
-pub(super) async fn enrolled(cx: &Cx, user: &dyn PanelUser) -> topcoat::Result<bool> {
+/// The kind of second factor `user` signs in to the request's panel with, if any.
+pub(super) async fn enrolled(cx: &Cx, user: &dyn PanelUser) -> topcoat::Result<Option<FactorKind>> {
     let mut db = crate::db::db(cx);
     Ok(enrolment(cx, &mut db, &user.user_id())
         .await?
         .confirmed
-        .is_some())
+        .map(|factor| factor.kind))
 }
 
 /// Whether the request's panel offers the signed-in user two-factor sign-in.
@@ -211,29 +243,33 @@ pub(super) async fn setup_pending(
     }
 }
 
-/// Starts setting up an authenticator for `user_id`: a new secret, unconfirmed, in place of any
-/// earlier unconfirmed one. Answers the secret, for the QR code.
-async fn start(cx: &Cx, ex: &mut dyn toasty::Executor, user_id: &str) -> topcoat::Result<Vec<u8>> {
+/// Starts setting up a factor of `kind` holding `secret` for `user_id`, unconfirmed, in place of
+/// any factor set up before and not confirmed.
+async fn start(
+    cx: &Cx,
+    ex: &mut dyn toasty::Executor,
+    user_id: &str,
+    kind: FactorKind,
+    secret: String,
+) -> topcoat::Result<()> {
     let panel = panel_prefix(cx);
+    // A recovery code is confirmed when issued: only a factor being set up matches.
     AuthFactor::filter(
         AuthFactor::fields()
             .user_id()
             .eq(user_id.to_string())
             .and(AuthFactor::fields().panel().eq(panel.clone()))
-            .and(AuthFactor::fields().kind().eq(FactorKind::Authenticator))
             .and(AuthFactor::fields().confirmed_at().is_none()),
     )
     .delete()
     .exec(&mut *ex)
     .await
     .map_err(infrastructure_failure)?;
-    let secret = totp::secret();
-    let sealed = cipher::seal(key(cx)?, &secret, &binding(user_id, &panel));
     toasty::create!(AuthFactor {
         user_id: user_id.to_string(),
         panel,
-        kind: FactorKind::Authenticator,
-        secret: sealed,
+        kind,
+        secret,
         confirmed_at: None,
         last_step: None,
         created_at: Timestamp::now(),
@@ -241,6 +277,19 @@ async fn start(cx: &Cx, ex: &mut dyn toasty::Executor, user_id: &str) -> topcoat
     .exec(ex)
     .await
     .map_err(infrastructure_failure)?;
+    Ok(())
+}
+
+/// Starts setting up an authenticator for `user_id`: a new secret, sealed. Answers the secret,
+/// for the QR code.
+async fn start_authenticator(
+    cx: &Cx,
+    ex: &mut dyn toasty::Executor,
+    user_id: &str,
+) -> topcoat::Result<Vec<u8>> {
+    let secret = totp::secret();
+    let sealed = cipher::seal(key(cx)?, &secret, &binding(user_id, &panel_prefix(cx)));
+    start(cx, ex, user_id, FactorKind::Authenticator, sealed).await?;
     Ok(secret.to_vec())
 }
 
@@ -324,8 +373,23 @@ async fn spend_recovery_code(
     Ok(true)
 }
 
-/// Whether `code` proves `user_id` holds their second factor on the request's panel: the current
-/// code of their confirmed authenticator, or one of their recovery codes, which it uses up.
+/// Whether `code` is a code of `factor`, used up: its authenticator's current one, or the one
+/// last mailed for it.
+async fn accept_factor(
+    cx: &Cx,
+    ex: &mut dyn toasty::Executor,
+    factor: &AuthFactor,
+    code: &str,
+) -> topcoat::Result<bool> {
+    match factor.kind {
+        FactorKind::Authenticator => accept_code(cx, ex, factor, code).await,
+        FactorKind::EmailCode => email::accept(cx, ex, &factor.user_id, code).await,
+        FactorKind::RecoveryCode => Ok(false),
+    }
+}
+
+/// Whether `code` proves `user_id` holds their second factor on the request's panel: a code of
+/// their confirmed factor, or one of their recovery codes, which it uses up.
 pub(super) async fn accept(
     cx: &Cx,
     ex: &mut dyn toasty::Executor,
@@ -339,7 +403,7 @@ pub(super) async fn accept(
     // Apps show a code as "123 456"; a recovery code is ten characters, so six digits are a code.
     let code: String = code.chars().filter(|c| !c.is_whitespace()).collect();
     if code.len() == 6 && code.bytes().all(|b| b.is_ascii_digit()) {
-        accept_code(cx, ex, &factor, &code).await
+        accept_factor(cx, ex, &factor, &code).await
     } else {
         spend_recovery_code(cx, ex, user_id, &code).await
     }

@@ -297,11 +297,15 @@ impl Auth {
         self.authenticator.as_ref().and(self.mail.as_ref())
     }
 
-    /// The features that mail a link, by name, for the mount's checks.
+    /// The features that send mail, by name, for the mount's checks.
     pub(super) fn mailing(&self) -> Vec<&'static str> {
         [
             self.reset.is_some().then_some("password_reset"),
             self.verification.is_some().then_some("email_verification"),
+            self.two_factor
+                .as_ref()
+                .is_some_and(|two_factor| two_factor.mails())
+                .then_some("two_factor"),
         ]
         .into_iter()
         .flatten()

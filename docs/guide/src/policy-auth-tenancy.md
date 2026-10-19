@@ -415,17 +415,25 @@ Add `AuthFactor` and `AuthToken` to the `Db`'s models.
   used up.
 - **Turning it on or off** is a credential change: the account's other sessions and links end.
   Turning it off, and showing new recovery codes, take a code.
+- **Codes by email.** `TwoFactor::new().email_codes()` lets a user with an address choose codes
+  mailed to it in place of an app, through `Auth::mail`. Each sign-in mails a six-digit code that
+  works once, for ten minutes; the challenge page mails a new one on request, in place of the
+  last. Each account may have three mailed in fifteen minutes; `TwoFactor::mail_throttle` changes
+  the limit. An account holds one factor at a time: it turns one off before setting up the other.
+  A panel that drops `email_codes()` mails no more codes: an account set up for them signs in
+  with a recovery code. A mail server that fails leaves the challenge up, with its button to send
+  another code.
 - **Throttling.** Each account may try five codes or passwords a minute, at sign-in and on the
   settings page together; `TwoFactor::throttle` changes the limit. Past it the page answers 429.
   The count lives in each process: behind several, the limit holds per process. Someone who knows
   the password can use up the owner's attempts, and each new sign-in replaces the last challenge.
 - **The cookie `Key` seals the secrets.** Rotating it makes every app code fail until its owner
   signs in with a recovery code and sets the app up again; a leaked key opens every secret.
-- **Requiring it.** `TwoFactor::new().required()` sends a signed-in user without an authenticator
+- **Requiring it.** `TwoFactor::new().required()` sends a signed-in user without a second factor
   to `{prefix}/two-factor` before anything else, as an unverified address does: a page redirects
   there and any other request answers 403.
-- **Mounting refuses** two-factor sign-in on `Auth::disabled()`, and a router without a cookie
-  `Key`.
+- **Mounting refuses** two-factor sign-in on `Auth::disabled()`, a router without a cookie
+  `Key`, and codes by email without `Auth::mail`.
 
 ### Turning it off
 

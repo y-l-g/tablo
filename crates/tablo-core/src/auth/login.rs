@@ -182,8 +182,10 @@ pub(super) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         // An account with a second factor gets a challenge, not yet a session.
         if panel.auth.two_factor_config().is_some() {
             match super::two_factor::enrolled(cx, &*user).await {
-                Ok(true) => return super::two_factor::begin_challenge(cx, &*user, &next).await,
-                Ok(false) => {}
+                Ok(Some(kind)) => {
+                    return super::two_factor::begin_challenge(cx, &*user, kind, &next).await;
+                }
+                Ok(None) => {}
                 Err(error) => return failed(cx, error, next).await,
             }
         }
