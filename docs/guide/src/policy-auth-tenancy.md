@@ -387,14 +387,54 @@ link proved and marks it verified, inside the link's transaction. `PasswordAuth`
 - **Mounting refuses** a verifier whose `User` is not the type the authenticator loads, a
   verification on `Auth::disabled()`, and one without `Auth::mail`.
 
+### Two-factor sign-in
+
+`Auth::two_factor` lets each signed-in user add an authenticator app, and asks an account that
+has one for a code from it after its password. The panel stores the factors itself, as
+`AuthFactor` rows, so it works with any `Authenticator`. Each authenticator secret is sealed under
+the router's cookie `Key`, which the router must hold:
+
+```rust
+{{#include ../../../examples/guide/src/policy_tenancy.rs:policy-two-factor}}
+```
+
+Add `AuthFactor` and `AuthToken` to the `Db`'s models.
+
+- **Setting up** happens at `{prefix}/two-factor`, which the user menu links to. It asks for the
+  current password first, through `Authenticator::confirm_password`, so a stolen session cannot
+  add a factor its thief holds. That method verifies with the user's `PanelUser::email` as the
+  login; override it when users sign in with something else. The page then shows a QR code and
+  the key, and turns two-factor sign-in on once a code from the app matches. It then shows eight
+  recovery codes, once: the panel stores only their hashes, keyed like the secrets. The pages
+  answer `Cache-Control: no-store`.
+- **Each panel enrols apart.** A factor signs in to the panel that set it up only, even when other
+  panels load the same user type: enrol on each.
+- **Signing in**, a correct password leads to `{prefix}/two-factor-challenge` instead of a
+  session. The challenge lasts five minutes in its own cookie and takes a code from the app or a
+  recovery code. Each code works once: an app code does not sign in twice, and a recovery code is
+  used up.
+- **Turning it on or off** is a credential change: the account's other sessions and links end.
+  Turning it off, and showing new recovery codes, take a code.
+- **Throttling.** Each account may try five codes or passwords a minute, at sign-in and on the
+  settings page together; `TwoFactor::throttle` changes the limit. Past it the page answers 429.
+  The count lives in each process: behind several, the limit holds per process. Someone who knows
+  the password can use up the owner's attempts, and each new sign-in replaces the last challenge.
+- **The cookie `Key` seals the secrets.** Rotating it makes every app code fail until its owner
+  signs in with a recovery code and sets the app up again; a leaked key opens every secret.
+- **Requiring it.** `TwoFactor::new().required()` sends a signed-in user without an authenticator
+  to `{prefix}/two-factor` before anything else, as an unverified address does: a page redirects
+  there and any other request answers 403.
+- **Mounting refuses** two-factor sign-in on `Auth::disabled()`, and a router without a cookie
+  `Key`.
+
 ### Turning it off
 
 ```rust
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-auth-disabled-body}}
 ```
 
-Every panel route is then public and the login, sign-up, profile, password reset and tenant
-routes are not registered. Use it for public
+Every panel route is then public and the login, sign-up, profile, password reset, two-factor and
+tenant routes are not registered. Use it for public
 demos and tests only.
 
 ## Tenancy

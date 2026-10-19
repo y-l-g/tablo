@@ -3,7 +3,7 @@
 
 use super::{
     AuthMail, Authenticator, DynAuthenticator, EmailVerification, LoginThrottle, PasswordAuth,
-    PasswordReset, ProfileEditor, Registrar, TenantEditor, TenantRegistration,
+    PasswordReset, ProfileEditor, Registrar, TenantEditor, TenantRegistration, TwoFactor,
     profile::DynProfileEditor, registration::DynRegistrar, tenant_profile::DynTenantEditor,
 };
 
@@ -28,6 +28,7 @@ pub struct Auth {
     pub(super) verification: Option<EmailVerification>,
     pub(super) tenant_registration: Option<TenantRegistration>,
     pub(super) tenant_editor: Option<Box<dyn DynTenantEditor>>,
+    pub(super) two_factor: Option<TwoFactor>,
 }
 
 impl Auth {
@@ -52,6 +53,7 @@ impl Auth {
             verification: None,
             tenant_registration: None,
             tenant_editor: None,
+            two_factor: None,
         }
     }
 
@@ -71,6 +73,7 @@ impl Auth {
             verification: None,
             tenant_registration: None,
             tenant_editor: None,
+            two_factor: None,
         }
     }
 
@@ -200,6 +203,19 @@ impl Auth {
         self
     }
 
+    /// Lets each signed-in user add an authenticator app at `{prefix}/two-factor`; the user menu
+    /// links to it. An account with one signs in with a code from it, or a recovery code, at
+    /// `{prefix}/two-factor-challenge` after its password.
+    ///
+    /// Turning it on or off is a credential change. The secrets are sealed under the router's
+    /// cookie [`Key`](topcoat::cookie::Key): mounting refuses a router without one, and two-factor
+    /// sign-in on [`Auth::disabled`].
+    #[must_use]
+    pub fn two_factor(mut self, two_factor: TwoFactor) -> Self {
+        self.two_factor = Some(two_factor);
+        self
+    }
+
     /// Sends the panel's auth mail, such as reset links, from `mail`'s sender, with links that
     /// start with its base URL. Mounting refuses a base URL that is not absolute, and a router
     /// without a [`MailConfig`](topcoat::mail::MailConfig).
@@ -271,6 +287,11 @@ impl Auth {
             .and(self.tenant_editor.as_deref())
     }
 
+    /// The two-factor sign-in, or `None` when the panel asks for one factor.
+    pub(crate) fn two_factor_config(&self) -> Option<&TwoFactor> {
+        self.authenticator.as_ref().and(self.two_factor.as_ref())
+    }
+
     /// The auth mail, or `None` when the panel mails nothing.
     pub(crate) fn auth_mail(&self) -> Option<&AuthMail> {
         self.authenticator.as_ref().and(self.mail.as_ref())
@@ -287,9 +308,10 @@ impl Auth {
         .collect()
     }
 
-    /// Whether the panel issues [`AuthToken`]s, so the model must be registered.
+    /// Whether the panel issues [`AuthToken`](super::AuthToken)s, so the model must be registered:
+    /// it mails links, or challenges a second factor.
     pub(crate) fn issues_tokens(&self) -> bool {
-        self.authenticator.is_some() && !self.mailing().is_empty()
+        self.authenticator.is_some() && (!self.mailing().is_empty() || self.two_factor.is_some())
     }
 }
 
@@ -312,6 +334,7 @@ impl std::fmt::Debug for Auth {
                 .field("email_verification", &self.verification)
                 .field("tenant_registration", &self.tenant_registration)
                 .field("tenant_profile", &self.tenant_editor.is_some())
+                .field("two_factor", &self.two_factor)
                 .field("mail", &self.mail)
                 .finish_non_exhaustive()
         }

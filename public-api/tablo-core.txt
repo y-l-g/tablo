@@ -25,6 +25,52 @@ impl core::marker::Unpin for tablo_core::auth::EmailChange
 impl core::marker::UnsafeUnpin for tablo_core::auth::EmailChange
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::auth::EmailChange
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::auth::EmailChange
+#[non_exhaustive] pub enum tablo_core::auth::FactorKind
+pub tablo_core::auth::FactorKind::Authenticator
+pub tablo_core::auth::FactorKind::RecoveryCode
+impl core::clone::Clone for tablo_core::auth::FactorKind
+pub fn tablo_core::auth::FactorKind::clone(&self) -> tablo_core::auth::FactorKind
+impl core::cmp::Eq for tablo_core::auth::FactorKind
+impl core::cmp::PartialEq for tablo_core::auth::FactorKind
+pub fn tablo_core::auth::FactorKind::eq(&self, &tablo_core::auth::FactorKind) -> bool
+impl core::fmt::Debug for tablo_core::auth::FactorKind
+pub fn tablo_core::auth::FactorKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_core::auth::FactorKind
+impl core::marker::StructuralPartialEq for tablo_core::auth::FactorKind
+impl toasty::codegen_support::index::IndexableField for tablo_core::auth::FactorKind
+impl toasty::schema::embed::Embed for tablo_core::auth::FactorKind
+pub fn tablo_core::auth::FactorKind::id() -> toasty_core::schema::app::model::ModelId
+pub fn tablo_core::auth::FactorKind::schema() -> toasty_core::schema::app::model::Model
+impl toasty::schema::field::Field for tablo_core::auth::FactorKind
+pub type tablo_core::auth::FactorKind::ExprTarget = tablo_core::auth::FactorKind
+pub type tablo_core::auth::FactorKind::Inner = tablo_core::auth::FactorKind
+pub type tablo_core::auth::FactorKind::ListPath<__Origin> = FactorKindListFields<__Origin>
+pub type tablo_core::auth::FactorKind::Path<__Origin> = FactorKindFields<__Origin>
+pub type tablo_core::auth::FactorKind::Update<'a> = ()
+pub fn tablo_core::auth::FactorKind::field_ty(core::option::Option<toasty_core::schema::db::ty::Type>) -> toasty_core::schema::app::field::FieldTy
+pub fn tablo_core::auth::FactorKind::key_constraint<__Origin>(&self, toasty::stmt::path::Path<__Origin, Self::Inner>) -> toasty::stmt::expr::Expr<bool>
+pub fn tablo_core::auth::FactorKind::new_list_path<__Origin>(toasty::stmt::path::Path<__Origin, toasty::stmt::list::List<Self::ExprTarget>>) -> Self::ListPath
+pub fn tablo_core::auth::FactorKind::new_path<__Origin>(toasty::stmt::path::Path<__Origin, Self>) -> Self::Path
+pub fn tablo_core::auth::FactorKind::new_update<'a>(&'a mut toasty_core::stmt::assignments::Assignments, toasty_core::stmt::projection::Projection) -> Self::Update
+pub fn tablo_core::auth::FactorKind::register(&mut toasty_core::schema::app::model::ModelSet)
+impl toasty::schema::field::Scalar for tablo_core::auth::FactorKind
+impl toasty::schema::load::Load for tablo_core::auth::FactorKind
+pub type tablo_core::auth::FactorKind::Output = tablo_core::auth::FactorKind
+pub fn tablo_core::auth::FactorKind::load(toasty_core::stmt::value::Value) -> toasty_core::Result<Self>
+pub fn tablo_core::auth::FactorKind::reload(&mut Self, toasty_core::stmt::value::Value) -> toasty_core::Result<()>
+pub fn tablo_core::auth::FactorKind::ty() -> toasty_core::stmt::ty::Type
+impl toasty::stmt::assignment::Assign<tablo_core::auth::FactorKind> for tablo_core::auth::FactorKind
+pub fn tablo_core::auth::FactorKind::into_assignment(self) -> toasty::stmt::assignment::Assignment<tablo_core::auth::FactorKind>
+impl toasty::stmt::into_expr::IntoExpr<tablo_core::auth::FactorKind> for tablo_core::auth::FactorKind
+pub fn tablo_core::auth::FactorKind::by_ref(&self) -> toasty::stmt::expr::Expr<tablo_core::auth::FactorKind>
+pub fn tablo_core::auth::FactorKind::into_expr(self) -> toasty::stmt::expr::Expr<tablo_core::auth::FactorKind>
+impl core::marker::Freeze for tablo_core::auth::FactorKind
+impl core::marker::Send for tablo_core::auth::FactorKind
+impl core::marker::Sync for tablo_core::auth::FactorKind
+impl core::marker::Unpin for tablo_core::auth::FactorKind
+impl core::marker::UnsafeUnpin for tablo_core::auth::FactorKind
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::auth::FactorKind
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::auth::FactorKind
 #[non_exhaustive] pub enum tablo_core::auth::ProfileUpdate
 pub tablo_core::auth::ProfileUpdate::Credentials
 pub tablo_core::auth::ProfileUpdate::Details
@@ -49,6 +95,7 @@ pub tablo_core::auth::TokenPurpose::EmailChange
 pub tablo_core::auth::TokenPurpose::EmailChangeCancel
 pub tablo_core::auth::TokenPurpose::EmailVerification
 pub tablo_core::auth::TokenPurpose::PasswordReset
+pub tablo_core::auth::TokenPurpose::TwoFactorChallenge
 impl core::clone::Clone for tablo_core::auth::TokenPurpose
 pub fn tablo_core::auth::TokenPurpose::clone(&self) -> tablo_core::auth::TokenPurpose
 impl core::cmp::Eq for tablo_core::auth::TokenPurpose
@@ -208,6 +255,7 @@ pub fn tablo_core::Auth::sign_up_throttle(self, tablo_core::LoginThrottle) -> Se
 pub fn tablo_core::Auth::tenant_profile(self, impl tablo_core::auth::TenantEditor) -> Self
 pub fn tablo_core::Auth::tenant_registration(self, tablo_core::TenantRegistration) -> Self
 pub fn tablo_core::Auth::throttle(self, tablo_core::LoginThrottle) -> Self
+pub fn tablo_core::Auth::two_factor(self, tablo_core::TwoFactor) -> Self
 impl core::default::Default for tablo_core::Auth
 pub fn tablo_core::Auth::default() -> Self
 impl core::fmt::Debug for tablo_core::Auth
@@ -219,6 +267,95 @@ impl core::marker::Unpin for tablo_core::Auth
 impl core::marker::UnsafeUnpin for tablo_core::Auth
 impl !core::panic::unwind_safe::RefUnwindSafe for tablo_core::Auth
 impl !core::panic::unwind_safe::UnwindSafe for tablo_core::Auth
+pub struct tablo_core::auth::AuthFactor
+pub tablo_core::auth::AuthFactor::confirmed_at: core::option::Option<jiff::timestamp::Timestamp>
+pub tablo_core::auth::AuthFactor::created_at: jiff::timestamp::Timestamp
+pub tablo_core::auth::AuthFactor::id: uuid::Uuid
+pub tablo_core::auth::AuthFactor::kind: tablo_core::auth::FactorKind
+pub tablo_core::auth::AuthFactor::last_step: core::option::Option<i64>
+pub tablo_core::auth::AuthFactor::panel: alloc::string::String
+pub tablo_core::auth::AuthFactor::secret: alloc::string::String
+pub tablo_core::auth::AuthFactor::user_id: alloc::string::String
+impl tablo_core::auth::AuthFactor
+pub fn tablo_core::auth::AuthFactor::all() -> AuthFactorQuery
+pub fn tablo_core::auth::AuthFactor::create() -> AuthFactorCreate
+pub fn tablo_core::auth::AuthFactor::create_many() -> toasty::stmt::create_many::CreateMany<tablo_core::auth::AuthFactor>
+pub fn tablo_core::auth::AuthFactor::delete(self) -> toasty::stmt::delete::Delete<()>
+pub async fn tablo_core::auth::AuthFactor::delete_by_id(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<uuid::Uuid>>) -> toasty_core::Result<()>
+pub async fn tablo_core::auth::AuthFactor::delete_by_user_id(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> toasty_core::Result<()>
+pub fn tablo_core::auth::AuthFactor::fields() -> AuthFactorFields<tablo_core::auth::AuthFactor>
+pub fn tablo_core::auth::AuthFactor::filter(toasty::stmt::expr::Expr<bool>) -> AuthFactorQuery
+pub fn tablo_core::auth::AuthFactor::filter_by_id(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<uuid::Uuid>>) -> AuthFactorQuery
+pub fn tablo_core::auth::AuthFactor::filter_by_user_id(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> AuthFactorQuery
+pub async fn tablo_core::auth::AuthFactor::get_by_id(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<uuid::Uuid>>) -> toasty_core::Result<tablo_core::auth::AuthFactor>
+pub async fn tablo_core::auth::AuthFactor::get_by_user_id(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> toasty_core::Result<tablo_core::auth::AuthFactor>
+pub fn tablo_core::auth::AuthFactor::update(&mut self) -> AuthFactorUpdate<&mut Self>
+pub fn tablo_core::auth::AuthFactor::update_by_id(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<uuid::Uuid>>) -> AuthFactorUpdate
+pub fn tablo_core::auth::AuthFactor::update_by_user_id(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> AuthFactorUpdate
+impl tablo_core::auth::AuthFactor
+pub fn tablo_core::auth::AuthFactor::upsert_by_id(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<uuid::Uuid>>) -> AuthFactorUpsertById
+impl core::clone::Clone for tablo_core::auth::AuthFactor
+pub fn tablo_core::auth::AuthFactor::clone(&self) -> tablo_core::auth::AuthFactor
+impl core::fmt::Debug for tablo_core::auth::AuthFactor
+pub fn tablo_core::auth::AuthFactor::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl toasty::codegen_support::ModelCodegen for tablo_core::auth::AuthFactor
+pub fn tablo_core::auth::AuthFactor::new_one_field<__Origin, __Target>(toasty::stmt::path::Path<__Origin, __Target>) -> Self::OneField
+pub fn tablo_core::auth::AuthFactor::to_relation_expr(&self, &[&str]) -> toasty_core::stmt::expr::Expr
+impl toasty::schema::load::Load for tablo_core::auth::AuthFactor
+pub type tablo_core::auth::AuthFactor::Output = tablo_core::auth::AuthFactor
+pub fn tablo_core::auth::AuthFactor::load(toasty_core::stmt::value::Value) -> toasty_core::Result<Self>
+pub fn tablo_core::auth::AuthFactor::reload(&mut Self, toasty_core::stmt::value::Value) -> toasty_core::Result<()>
+pub fn tablo_core::auth::AuthFactor::ty() -> toasty_core::stmt::ty::Type
+impl toasty::schema::model::Model for tablo_core::auth::AuthFactor
+pub type tablo_core::auth::AuthFactor::Create = AuthFactorCreate
+pub type tablo_core::auth::AuthFactor::ManyField<__Origin> = AuthFactorListFields<__Origin>
+pub type tablo_core::auth::AuthFactor::OneField<__Origin, __Target> = AuthFactorFields<__Origin, __Target>
+pub type tablo_core::auth::AuthFactor::Path<__Origin> = AuthFactorFields<__Origin>
+pub type tablo_core::auth::AuthFactor::PrimaryKey = uuid::Uuid
+pub type tablo_core::auth::AuthFactor::Query<__T> = AuthFactorQuery<__T>
+pub type tablo_core::auth::AuthFactor::Update<'a> = AuthFactorUpdate<&'a mut tablo_core::auth::AuthFactor>
+pub type tablo_core::auth::AuthFactor::UpdateQuery = AuthFactorUpdate
+pub fn tablo_core::auth::AuthFactor::field_name_to_id(&str) -> toasty_core::schema::app::field::FieldId
+pub fn tablo_core::auth::AuthFactor::find_by_primary_key(toasty::stmt::expr::Expr<Self::PrimaryKey>) -> Self::Query
+pub fn tablo_core::auth::AuthFactor::id() -> toasty_core::schema::app::model::ModelId
+pub fn tablo_core::auth::AuthFactor::new_many_field<__Origin>(toasty::stmt::path::Path<__Origin, toasty::stmt::list::List<Self>>) -> AuthFactorListFields<__Origin>
+pub fn tablo_core::auth::AuthFactor::new_path<__Origin>(toasty::stmt::path::Path<__Origin, Self>) -> Self::Path
+pub fn tablo_core::auth::AuthFactor::query_first(Self::Query) -> Self::Query
+pub fn tablo_core::auth::AuthFactor::query_one(Self::Query) -> Self::Query
+pub fn tablo_core::auth::AuthFactor::register(&mut toasty_core::schema::app::model::ModelSet)
+pub fn tablo_core::auth::AuthFactor::schema() -> toasty_core::schema::app::model::Model
+pub fn tablo_core::auth::AuthFactor::wrap_query<__T>(toasty::stmt::query::Query<__T>) -> Self::Query
+impl toasty::schema::via::ViaTarget for tablo_core::auth::AuthFactor
+pub type tablo_core::auth::AuthFactor::Path<__Origin> = <tablo_core::auth::AuthFactor as toasty::schema::model::Model>::ManyField
+pub type tablo_core::auth::AuthFactor::Query = AuthFactorQuery
+pub fn tablo_core::auth::AuthFactor::make_via_query(toasty::stmt::association::Association<toasty::stmt::list::List<tablo_core::auth::AuthFactor>>) -> Self::Query
+pub fn tablo_core::auth::AuthFactor::new_path<__Origin>(toasty::stmt::path::Path<__Origin, toasty::stmt::list::List<tablo_core::auth::AuthFactor>>) -> Self::Path
+pub fn tablo_core::auth::AuthFactor::via_field_ty(toasty_core::schema::name::Name, toasty_core::stmt::path::Path) -> toasty_core::schema::app::field::FieldTy
+impl toasty::stmt::assignment::Assign<tablo_core::auth::AuthFactor> for tablo_core::auth::AuthFactor
+pub fn tablo_core::auth::AuthFactor::into_assignment(self) -> toasty::stmt::assignment::Assignment<tablo_core::auth::AuthFactor>
+impl toasty::stmt::into_expr::IntoExpr<tablo_core::auth::AuthFactor> for tablo_core::auth::AuthFactor
+pub fn tablo_core::auth::AuthFactor::by_ref(&self) -> toasty::stmt::expr::Expr<tablo_core::auth::AuthFactor>
+pub fn tablo_core::auth::AuthFactor::into_expr(self) -> toasty::stmt::expr::Expr<tablo_core::auth::AuthFactor>
+impl toasty::stmt::into_statement::IntoStatement for &mut tablo_core::auth::AuthFactor
+pub type &mut tablo_core::auth::AuthFactor::Returning = tablo_core::auth::AuthFactor
+pub fn &mut tablo_core::auth::AuthFactor::into_statement(self) -> toasty::stmt::Statement<tablo_core::auth::AuthFactor>
+impl toasty::stmt::into_statement::IntoStatement for &tablo_core::auth::AuthFactor
+pub type &tablo_core::auth::AuthFactor::Returning = tablo_core::auth::AuthFactor
+pub fn &tablo_core::auth::AuthFactor::into_statement(self) -> toasty::stmt::Statement<tablo_core::auth::AuthFactor>
+impl toasty::stmt::into_statement::IntoStatement for tablo_core::auth::AuthFactor
+pub type tablo_core::auth::AuthFactor::Returning = tablo_core::auth::AuthFactor
+pub fn tablo_core::auth::AuthFactor::into_statement(self) -> toasty::stmt::Statement<tablo_core::auth::AuthFactor>
+impl toasty::update_target::UpdateTarget for &mut tablo_core::auth::AuthFactor
+pub type &mut tablo_core::auth::AuthFactor::Returning = tablo_core::auth::AuthFactor
+pub fn &mut tablo_core::auth::AuthFactor::apply_result(self, toasty_core::stmt::value::Value) -> toasty_core::Result<()>
+pub fn &mut tablo_core::auth::AuthFactor::to_update_stmt(&mut self, toasty_core::stmt::assignments::Assignments) -> toasty::stmt::update::Update<tablo_core::auth::AuthFactor>
+impl core::marker::Freeze for tablo_core::auth::AuthFactor
+impl core::marker::Send for tablo_core::auth::AuthFactor
+impl core::marker::Sync for tablo_core::auth::AuthFactor
+impl core::marker::Unpin for tablo_core::auth::AuthFactor
+impl core::marker::UnsafeUnpin for tablo_core::auth::AuthFactor
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::auth::AuthFactor
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::auth::AuthFactor
 pub struct tablo_core::auth::AuthMail
 impl tablo_core::AuthMail
 pub fn tablo_core::AuthMail::new(topcoat_mail::mailbox::Mailbox, impl core::convert::Into<alloc::string::String>) -> Self
@@ -549,6 +686,7 @@ pub async fn tablo_core::PasswordAuth::register(&self, &topcoat_core::context::C
 pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::Cx, &tablo_core::SignUp, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::FieldErrors>
 impl tablo_core::auth::Authenticator for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
+pub fn tablo_core::PasswordAuth::confirm_password(&self, &topcoat_core::context::Cx, &Self::User, &str) -> impl core::future::future::Future<Output = topcoat::Result<bool>> + core::marker::Send
 pub async fn tablo_core::PasswordAuth::find_by_id(&self, &topcoat_core::context::Cx, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
 pub async fn tablo_core::PasswordAuth::verify(&self, &topcoat_core::context::Cx, &str, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
 impl tablo_core::auth::EmailVerifier for tablo_core::PasswordAuth
@@ -645,6 +783,22 @@ impl core::marker::Unpin for tablo_core::TenantRegistration
 impl core::marker::UnsafeUnpin for tablo_core::TenantRegistration
 impl !core::panic::unwind_safe::RefUnwindSafe for tablo_core::TenantRegistration
 impl !core::panic::unwind_safe::UnwindSafe for tablo_core::TenantRegistration
+pub struct tablo_core::auth::TwoFactor
+impl tablo_core::TwoFactor
+pub fn tablo_core::TwoFactor::new() -> Self
+pub fn tablo_core::TwoFactor::required(self) -> Self
+pub fn tablo_core::TwoFactor::throttle(self, tablo_core::LoginThrottle) -> Self
+impl core::default::Default for tablo_core::TwoFactor
+pub fn tablo_core::TwoFactor::default() -> Self
+impl core::fmt::Debug for tablo_core::TwoFactor
+pub fn tablo_core::TwoFactor::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl !core::marker::Freeze for tablo_core::TwoFactor
+impl core::marker::Send for tablo_core::TwoFactor
+impl core::marker::Sync for tablo_core::TwoFactor
+impl core::marker::Unpin for tablo_core::TwoFactor
+impl core::marker::UnsafeUnpin for tablo_core::TwoFactor
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::TwoFactor
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::TwoFactor
 pub const tablo_core::auth::LOGIN_FIELD: &str
 pub const tablo_core::auth::MIN_PASSWORD_CHARS: usize
 pub const tablo_core::auth::NEXT_FIELD: &str
@@ -655,10 +809,12 @@ pub const tablo_core::auth::TENANT_FIELD: &str
 pub const tablo_core::auth::VERIFICATION_LIFETIME: core::time::Duration
 pub trait tablo_core::auth::Authenticator: core::marker::Send + core::marker::Sync + 'static
 pub type tablo_core::auth::Authenticator::User: tablo_core::auth::PanelUser
+pub fn tablo_core::auth::Authenticator::confirm_password(&self, &topcoat_core::context::Cx, &Self::User, &str) -> impl core::future::future::Future<Output = topcoat::Result<bool>> + core::marker::Send
 pub fn tablo_core::auth::Authenticator::find_by_id(&self, &topcoat_core::context::Cx, &str) -> impl core::future::future::Future<Output = topcoat::Result<core::option::Option<Self::User>>> + core::marker::Send
 pub fn tablo_core::auth::Authenticator::verify(&self, &topcoat_core::context::Cx, &str, &str) -> impl core::future::future::Future<Output = topcoat::Result<core::option::Option<Self::User>>> + core::marker::Send
 impl tablo_core::auth::Authenticator for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
+pub fn tablo_core::PasswordAuth::confirm_password(&self, &topcoat_core::context::Cx, &Self::User, &str) -> impl core::future::future::Future<Output = topcoat::Result<bool>> + core::marker::Send
 pub async fn tablo_core::PasswordAuth::find_by_id(&self, &topcoat_core::context::Cx, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
 pub async fn tablo_core::PasswordAuth::verify(&self, &topcoat_core::context::Cx, &str, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
 pub trait tablo_core::auth::EmailVerifier: core::marker::Send + core::marker::Sync + 'static
@@ -4063,6 +4219,7 @@ pub tablo_core::DeclarationErrorKind::TenantProfile(tablo_core::TenantProfileFau
 pub tablo_core::DeclarationErrorKind::TenantRegistration(tablo_core::TenantRegistrationFault)
 pub tablo_core::DeclarationErrorKind::TraversalLens
 pub tablo_core::DeclarationErrorKind::TraversalLens::steps: usize
+pub tablo_core::DeclarationErrorKind::TwoFactor(tablo_core::TwoFactorFault)
 pub tablo_core::DeclarationErrorKind::Uncompiled
 pub tablo_core::DeclarationErrorKind::Uncompiled::error: alloc::string::String
 pub tablo_core::DeclarationErrorKind::Uncompiled::model: &'static str
@@ -4504,6 +4661,26 @@ impl core::marker::Unpin for tablo_core::TenantRegistrationFault
 impl core::marker::UnsafeUnpin for tablo_core::TenantRegistrationFault
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::TenantRegistrationFault
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::TenantRegistrationFault
+#[non_exhaustive] pub enum tablo_core::TwoFactorFault
+pub tablo_core::TwoFactorFault::AuthDisabled
+pub tablo_core::TwoFactorFault::MissingKey
+impl core::clone::Clone for tablo_core::TwoFactorFault
+pub fn tablo_core::TwoFactorFault::clone(&self) -> tablo_core::TwoFactorFault
+impl core::cmp::Eq for tablo_core::TwoFactorFault
+impl core::cmp::PartialEq for tablo_core::TwoFactorFault
+pub fn tablo_core::TwoFactorFault::eq(&self, &tablo_core::TwoFactorFault) -> bool
+impl core::fmt::Debug for tablo_core::TwoFactorFault
+pub fn tablo_core::TwoFactorFault::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tablo_core::TwoFactorFault
+pub fn tablo_core::TwoFactorFault::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_core::TwoFactorFault
+impl core::marker::Freeze for tablo_core::TwoFactorFault
+impl core::marker::Send for tablo_core::TwoFactorFault
+impl core::marker::Sync for tablo_core::TwoFactorFault
+impl core::marker::Unpin for tablo_core::TwoFactorFault
+impl core::marker::UnsafeUnpin for tablo_core::TwoFactorFault
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::TwoFactorFault
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::TwoFactorFault
 #[non_exhaustive] pub enum tablo_core::VerificationFault
 pub tablo_core::VerificationFault::AuthDisabled
 pub tablo_core::VerificationFault::UserType
@@ -4561,6 +4738,7 @@ pub fn tablo_core::Auth::sign_up_throttle(self, tablo_core::LoginThrottle) -> Se
 pub fn tablo_core::Auth::tenant_profile(self, impl tablo_core::auth::TenantEditor) -> Self
 pub fn tablo_core::Auth::tenant_registration(self, tablo_core::TenantRegistration) -> Self
 pub fn tablo_core::Auth::throttle(self, tablo_core::LoginThrottle) -> Self
+pub fn tablo_core::Auth::two_factor(self, tablo_core::TwoFactor) -> Self
 impl core::default::Default for tablo_core::Auth
 pub fn tablo_core::Auth::default() -> Self
 impl core::fmt::Debug for tablo_core::Auth
@@ -5626,6 +5804,7 @@ pub async fn tablo_core::PasswordAuth::register(&self, &topcoat_core::context::C
 pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::Cx, &tablo_core::SignUp, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<tablo_core::FieldErrors>
 impl tablo_core::auth::Authenticator for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
+pub fn tablo_core::PasswordAuth::confirm_password(&self, &topcoat_core::context::Cx, &Self::User, &str) -> impl core::future::future::Future<Output = topcoat::Result<bool>> + core::marker::Send
 pub async fn tablo_core::PasswordAuth::find_by_id(&self, &topcoat_core::context::Cx, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
 pub async fn tablo_core::PasswordAuth::verify(&self, &topcoat_core::context::Cx, &str, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
 impl tablo_core::auth::EmailVerifier for tablo_core::PasswordAuth
@@ -6392,6 +6571,22 @@ impl core::marker::Unpin for tablo_core::Toggle
 impl core::marker::UnsafeUnpin for tablo_core::Toggle
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Toggle
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::Toggle
+pub struct tablo_core::TwoFactor
+impl tablo_core::TwoFactor
+pub fn tablo_core::TwoFactor::new() -> Self
+pub fn tablo_core::TwoFactor::required(self) -> Self
+pub fn tablo_core::TwoFactor::throttle(self, tablo_core::LoginThrottle) -> Self
+impl core::default::Default for tablo_core::TwoFactor
+pub fn tablo_core::TwoFactor::default() -> Self
+impl core::fmt::Debug for tablo_core::TwoFactor
+pub fn tablo_core::TwoFactor::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl !core::marker::Freeze for tablo_core::TwoFactor
+impl core::marker::Send for tablo_core::TwoFactor
+impl core::marker::Sync for tablo_core::TwoFactor
+impl core::marker::Unpin for tablo_core::TwoFactor
+impl core::marker::UnsafeUnpin for tablo_core::TwoFactor
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::TwoFactor
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::TwoFactor
 pub struct tablo_core::WiredTable<M>
 impl<M> tablo_core::WiredTable<M>
 pub fn tablo_core::WiredTable<M>::prefixed(self, impl core::convert::Into<alloc::string::String>) -> Self
@@ -6421,10 +6616,12 @@ pub fn tablo_core::Action::success(&topcoat_core::context::Cx, usize) -> alloc::
 pub fn tablo_core::Action::validate_input(&topcoat_core::context::Cx, &Self::Input) -> tablo_core::FieldErrors
 pub trait tablo_core::Authenticator: core::marker::Send + core::marker::Sync + 'static
 pub type tablo_core::Authenticator::User: tablo_core::auth::PanelUser
+pub fn tablo_core::Authenticator::confirm_password(&self, &topcoat_core::context::Cx, &Self::User, &str) -> impl core::future::future::Future<Output = topcoat::Result<bool>> + core::marker::Send
 pub fn tablo_core::Authenticator::find_by_id(&self, &topcoat_core::context::Cx, &str) -> impl core::future::future::Future<Output = topcoat::Result<core::option::Option<Self::User>>> + core::marker::Send
 pub fn tablo_core::Authenticator::verify(&self, &topcoat_core::context::Cx, &str, &str) -> impl core::future::future::Future<Output = topcoat::Result<core::option::Option<Self::User>>> + core::marker::Send
 impl tablo_core::auth::Authenticator for tablo_core::PasswordAuth
 pub type tablo_core::PasswordAuth::User = tablo_core::auth::AdminUser
+pub fn tablo_core::PasswordAuth::confirm_password(&self, &topcoat_core::context::Cx, &Self::User, &str) -> impl core::future::future::Future<Output = topcoat::Result<bool>> + core::marker::Send
 pub async fn tablo_core::PasswordAuth::find_by_id(&self, &topcoat_core::context::Cx, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
 pub async fn tablo_core::PasswordAuth::verify(&self, &topcoat_core::context::Cx, &str, &str) -> topcoat::Result<core::option::Option<tablo_core::auth::AdminUser>>
 pub trait tablo_core::DateValue: core::marker::Sized + core::marker::Send + core::marker::Sync + 'static

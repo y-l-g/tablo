@@ -176,6 +176,8 @@ impl<'a> !core::panic::unwind_safe::RefUnwindSafe for tablo_test::TestClient<'a>
 impl<'a> !core::panic::unwind_safe::UnwindSafe for tablo_test::TestClient<'a>
 pub const tablo_test::SESSION_COOKIE: &str
 pub const tablo_test::TEST_DATABASE_URL: &str
+pub fn tablo_test::authenticator_code(&str) -> alloc::string::String
+pub fn tablo_test::authenticator_code_at(&str, u64) -> alloc::string::String
 pub async fn tablo_test::body_bytes(http::response::Response<topcoat_router::body::Body>) -> alloc::vec::Vec<u8>
 pub async fn tablo_test::body_string(http::response::Response<topcoat_router::body::Body>) -> alloc::string::String
 pub fn tablo_test::column_picker(&str) -> core::option::Option<alloc::vec::Vec<tablo_test::PickerColumn>>
@@ -194,6 +196,8 @@ pub fn tablo_test::mount(toasty::db::Db, tablo_core::panel::Panel) -> topcoat::R
 pub fn tablo_test::multipart_body(&str, &[(&str, core::option::Option<&str>, &str)]) -> alloc::string::String
 pub fn tablo_test::nav_badge(&str, &str) -> core::option::Option<alloc::string::String>
 pub fn tablo_test::notification(&http::response::Response<topcoat_router::body::Body>) -> core::option::Option<tablo_core::notification::Notification>
+pub fn tablo_test::now() -> u64
+pub fn tablo_test::recovery_codes(&str) -> alloc::vec::Vec<alloc::string::String>
 pub fn tablo_test::refusal<T>(topcoat::Result<T>) -> alloc::vec::Vec<tablo_core::declaration::DeclarationError>
 pub fn tablo_test::response_cookies(&http::response::Response<topcoat_router::body::Body>) -> alloc::vec::Vec<(alloc::string::String, alloc::string::String)>
 pub fn tablo_test::row_actions(&str, &str) -> core::option::Option<tablo_test::RowActions>
@@ -202,3 +206,5 @@ pub fn tablo_test::rows(&str) -> alloc::vec::Vec<tablo_test::Row>
 pub fn tablo_test::session_cookie_value(&http::response::Response<topcoat_router::body::Body>) -> core::option::Option<alloc::string::String>
 pub fn tablo_test::set_cookie_header(&http::response::Response<topcoat_router::body::Body>, &str) -> core::option::Option<alloc::string::String>
 pub async fn tablo_test::test_db(toasty_core::schema::app::model::ModelSet) -> toasty::db::Db
+pub fn tablo_test::two_factor_secret(&str) -> core::option::Option<alloc::string::String>
+pub fn tablo_test::two_factor_state(&str) -> core::option::Option<alloc::string::String>

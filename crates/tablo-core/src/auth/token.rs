@@ -48,6 +48,8 @@ pub enum TokenPurpose {
     EmailChange,
     /// A link mailed to the old address that cancels a pending change.
     EmailChangeCancel,
+    /// A sign-in whose password verified, waiting for its second factor.
+    TwoFactorChallenge,
 }
 
 /// A new token for `purpose` on the request's panel, held by `user_id` until `lifetime` passes,
@@ -129,12 +131,18 @@ pub(super) async fn spend(ex: &mut dyn toasty::Executor, row: &AuthToken) -> top
 
 /// The purposes a credential change ends: the tokens that sign in or set a credential. A link
 /// that proves an address, makes a change the account asked for, or undoes one outlives it.
-pub(super) const CREDENTIALS: &[TokenPurpose] = &[TokenPurpose::PasswordReset];
+pub(super) const CREDENTIALS: &[TokenPurpose] = &[
+    TokenPurpose::PasswordReset,
+    TokenPurpose::TwoFactorChallenge,
+];
 
 /// The purposes a reset, a cancelled email change or a revocation ends: those of a credential
 /// change, and a pending email change, which whoever knew the password may have asked for.
-pub(super) const REVOCATION: &[TokenPurpose] =
-    &[TokenPurpose::PasswordReset, TokenPurpose::EmailChange];
+pub(super) const REVOCATION: &[TokenPurpose] = &[
+    TokenPurpose::PasswordReset,
+    TokenPurpose::TwoFactorChallenge,
+    TokenPurpose::EmailChange,
+];
 
 /// Deletes every token for one of `purposes` that `user_id` holds on the panels `prefixes` names,
 /// or on every panel for `None`, through `ex`.

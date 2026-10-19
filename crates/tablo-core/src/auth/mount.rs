@@ -13,20 +13,29 @@ use super::{
     registration::{register_page, register_post},
     tenant_profile::{tenant_profile_page, tenant_profile_post},
     tenant_registration::{register_tenant_page, register_tenant_post},
+    two_factor::{challenge_page, challenge_post, settings_page, settings_post},
     verification::{confirm_page, notice_page, notice_post},
 };
 use crate::{DeclarationErrorKind, panel::route_path, toasty_compat::model::AppSchema};
 
+/// What the router installs that auth features need.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Services {
+    /// A `MailConfig`, which mailed links go out through.
+    pub(crate) mail: bool,
+    /// A cookie `Key`, which seals two-factor secrets.
+    pub(crate) cookie_key: bool,
+}
+
 /// Every mistake in `auth` the mount refuses: a shipped model missing from `db`, and the
-/// sign-up, profile, password-reset, email-verification, tenant registration and tenant settings
-/// declarations.
-/// `toggles` says whether some list declares a toggleable column, and `has_mail` whether the router
-/// can send mail.
+/// sign-up, profile, password-reset, email-verification, tenant, two-factor and mail
+/// declarations. `toggles` says whether some list declares a toggleable column, and `services`
+/// what the router installs.
 pub(crate) fn declaration_errors(
     db: &toasty::Db,
     auth: &Auth,
     toggles: bool,
-    has_mail: bool,
+    services: Services,
 ) -> Vec<DeclarationErrorKind> {
     missing_models(db, auth, toggles)
         .err()
@@ -37,7 +46,11 @@ pub(crate) fn declaration_errors(
         .chain(super::verification::declaration_errors(auth))
         .chain(super::tenant_registration::declaration_errors(auth))
         .chain(super::tenant_profile::declaration_errors(auth))
-        .chain(super::mail::declaration_errors(auth, has_mail))
+        .chain(super::two_factor::declaration_errors(
+            auth,
+            services.cookie_key,
+        ))
+        .chain(super::mail::declaration_errors(auth, services.mail))
         .collect()
 }
 
@@ -57,6 +70,7 @@ fn missing_models(db: &toasty::Db, auth: &Auth, toggles: bool) -> Result<(), Dec
         (shipped_user && !registered("AdminUser")).then_some("AdminUser"),
         (toggles && !registered("ColumnPreference")).then_some("ColumnPreference"),
         (auth.issues_tokens() && !registered("AuthToken")).then_some("AuthToken"),
+        (auth.two_factor.is_some() && !registered("AuthFactor")).then_some("AuthFactor"),
     ]
     .into_iter()
     .flatten()
@@ -69,8 +83,8 @@ fn missing_models(db: &toasty::Db, auth: &Auth, toggles: bool) -> Result<(), Dec
 }
 
 /// Mount `auth`'s routes under `prefix`: sign-in, sign-out and the tenant switch while the panel
-/// gates, then the sign-up, tenant registration, profile, tenant settings, password-reset and
-/// email-verification pages `auth` declares.
+/// gates, then the sign-up, tenant registration, profile, tenant settings, two-factor,
+/// password-reset and email-verification pages `auth` declares.
 /// Each form route carries [`MAX_LOGIN_BYTES`] in place of the panel's form cap.
 pub(crate) fn routes(mut builder: RouterBuilder, prefix: &str, auth: &Auth) -> RouterBuilder {
     if !auth.is_disabled() {
@@ -141,6 +155,25 @@ pub(crate) fn routes(mut builder: RouterBuilder, prefix: &str, auth: &Auth) -> R
                 tenant_profile_page,
             ))
             .page(PageFn::new(http::Method::POST, path, tenant_profile_post));
+    }
+    if auth.two_factor_config().is_some() {
+        let challenge = route_path(&format!("{prefix}/two-factor-challenge"));
+        // The settings page renders in the panel's shell, under the panel's own form cap.
+        let settings = route_path(&format!("{prefix}/two-factor"));
+        builder = builder
+            .layer(BodyLimit::max(MAX_LOGIN_BYTES).at(challenge.clone()))
+            .route(RouteFn::new(
+                http::Method::GET,
+                challenge.clone(),
+                challenge_page,
+            ))
+            .route(RouteFn::new(http::Method::POST, challenge, challenge_post))
+            .page(PageFn::new(
+                http::Method::GET,
+                settings.clone(),
+                settings_page,
+            ))
+            .page(PageFn::new(http::Method::POST, settings, settings_post));
     }
     if auth.reset().is_some() {
         for (path, page, post) in [

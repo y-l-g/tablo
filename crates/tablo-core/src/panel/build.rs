@@ -174,9 +174,12 @@ impl Panel {
 
     fn mount(self, mut builder: RouterBuilder) -> Result<RouterBuilder> {
         let db = builder.get_app_context::<Db>().cloned();
-        let has_mail = builder
-            .get_app_context::<topcoat::mail::MailConfig>()
-            .is_some();
+        let services = crate::auth::mount::Services {
+            mail: builder
+                .get_app_context::<topcoat::mail::MailConfig>()
+                .is_some(),
+            cookie_key: builder.get_app_context::<topcoat::cookie::Key>().is_some(),
+        };
         let mut registry = Registry::new(self.prefix.clone(), db.as_ref().map(AppSchema::of_db));
         let Panel {
             prefix,
@@ -206,7 +209,7 @@ impl Panel {
                 registry.check_all(db, &mounts, uploads.is_some(), &mut errors);
                 let toggles = registry.resources.iter().any(|resource| resource.toggles);
                 errors.extend(
-                    crate::auth::mount::declaration_errors(db, &auth, toggles, has_mail)
+                    crate::auth::mount::declaration_errors(db, &auth, toggles, services)
                         .into_iter()
                         .map(DeclarationError::panel),
                 );

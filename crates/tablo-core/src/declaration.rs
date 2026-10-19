@@ -2,14 +2,17 @@
 
 use std::fmt;
 
+mod action_input;
 mod auth;
 mod field_rule;
 mod many_to_many;
 mod segment;
 
+pub use action_input::ActionInputFault;
+use action_input::fmt_action_input;
 pub use auth::{
     AuthMailFault, ProfileFault, ResetFault, SignUpFault, TenantProfileFault,
-    TenantRegistrationFault, VerificationFault,
+    TenantRegistrationFault, TwoFactorFault, VerificationFault,
 };
 pub use field_rule::FieldRuleFault;
 use field_rule::fmt_field_rule;
@@ -134,22 +137,6 @@ pub enum Site {
     Relation(String),
 }
 
-/// Why an action's input cannot be served:
-/// [`DeclarationErrorKind::ActionInput`].
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum ActionInputFault {
-    /// A field named like a key the action's POST carries itself: `csrf_token`, `confirm` or
-    /// `ids`.
-    ReservedField(String),
-    /// A file field, whose upload an action's POST does not read.
-    FileField(String),
-    /// No field, but a parse that refuses an empty submission, so the action could never run.
-    RefusesEmpty,
-    /// A dependent choice, whose options no route serves an action's input.
-    DependentChoice(String),
-}
-
 /// What is wrong with a declaration.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
@@ -251,6 +238,8 @@ pub enum DeclarationErrorKind {
     TenantRegistration(TenantRegistrationFault),
     /// The panel's tenant settings page cannot be served.
     TenantProfile(TenantProfileFault),
+    /// The panel's two-factor sign-in cannot be served.
+    TwoFactor(TwoFactorFault),
     /// The panel's auth mail cannot be sent.
     AuthMail(AuthMailFault),
     /// Two relations to the same resource.
@@ -563,6 +552,7 @@ impl fmt::Display for DeclarationErrorKind {
             Self::EmailVerification(fault) => fault.fmt(f),
             Self::TenantRegistration(fault) => fault.fmt(f),
             Self::TenantProfile(fault) => fault.fmt(f),
+            Self::TwoFactor(fault) => fault.fmt(f),
             Self::AuthMail(fault) => fault.fmt(f),
             Self::DuplicateRelation => {
                 f.write_str("declared twice: each related resource is one relation")
@@ -745,36 +735,6 @@ impl fmt::Display for DeclarationErrorKind {
             ),
             Self::ManyToMany { field, fault } => fmt_many_to_many(f, field, fault),
         }
-    }
-}
-
-/// [`DeclarationErrorKind::ActionInput`]'s sentence.
-fn fmt_action_input(
-    f: &mut fmt::Formatter<'_>,
-    action: &str,
-    fault: &ActionInputFault,
-) -> fmt::Result {
-    match fault {
-        ActionInputFault::ReservedField(field) => write!(
-            f,
-            "action '{action}' declares an input field named '{field}', which its POST \
-             carries itself: rename the field"
-        ),
-        ActionInputFault::FileField(field) => write!(
-            f,
-            "action '{action}' declares a file field '{field}' in its input, which an \
-             action's POST does not upload: take the file in a record form"
-        ),
-        ActionInputFault::RefusesEmpty => write!(
-            f,
-            "action '{action}' declares no input field, but its input refuses an empty \
-             submission: declare the fields it parses, or name `()`"
-        ),
-        ActionInputFault::DependentChoice(field) => write!(
-            f,
-            "action '{action}' declares a dependent choice '{field}' in its input, whose \
-             options only a resource's form refreshes: drop `depends_on`"
-        ),
     }
 }
 

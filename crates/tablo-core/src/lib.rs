@@ -122,7 +122,7 @@ pub(crate) type BoxFuture<'a, T> = std::pin::Pin<Box<dyn Future<Output = T> + Se
 pub use auth::{
     Auth, AuthMail, Authenticator, EmailVerification, LoginThrottle, PanelUser, PasswordAuth,
     PasswordReset, Profile, ProfileEditor, ProfileUpdate, Registrar, SignUp, TenantRegistration,
-    membership,
+    TwoFactor, membership,
 };
 pub use column::{
     BooleanColumn, ColorColumn, ColumnToggle, ColumnWidth, ComputedColumn, CountColumn, DateColumn,
@@ -132,7 +132,7 @@ pub use column::{
 pub use declaration::{
     ActionInputFault, AuthMailFault, DeclarationError, DeclarationErrorKind, FieldRuleFault,
     ManyToManyFault, MountError, ProfileFault, ResetFault, SegmentFault, SignUpFault, Site,
-    TenantProfileFault, TenantRegistrationFault, VerificationFault,
+    TenantProfileFault, TenantRegistrationFault, TwoFactorFault, VerificationFault,
 };
 pub use detail::{Detail, IntoDetail};
 pub use display::{Alignment, Color, Currency, Number, Numeric};

@@ -29,7 +29,7 @@ A test matches on the kind rather than the message; see
 | Kind | Refused when | Fix |
 | --- | --- | --- |
 | `MissingDb` | the router holds no `toasty::Db` | call `.app_context(db)` before `.panel(..)` |
-| `MissingAuthModels` | auth is on and the `Db` does not register `AuthSession`, `AdminUser` for the shipped authenticator, `ColumnPreference` while a list has a toggleable column, or `AuthToken` for a feature that mails links | add them to `toasty::models!(..)`, or `.auth(Auth::disabled())` |
+| `MissingAuthModels` | auth is on and the `Db` does not register `AuthSession`, `AdminUser` for the shipped authenticator, `ColumnPreference` while a list has a toggleable column, `AuthToken` for a feature that mails links or two-factor sign-in, or `AuthFactor` for two-factor sign-in | add them to `toasty::models!(..)`, or `.auth(Auth::disabled())` |
 | `ShellAssetsWithoutBundle` | `shell_assets` is set and the router has no asset bundle | call `.assets(..)` before `.panel(..)` |
 | `FileFieldWithoutUploader` | a form declares a file field and the panel installs no uploader | `Panel::uploads` or `Panel::uploads_dir` |
 | `InvalidSegment` | the prefix, a `ResourceDef::slug` or a `PageDef::slug` is empty, `.` or `..`, or holds whitespace, a control character, URL punctuation, a quote, a backslash or one of `{ } ( )` | pick a plain segment such as `blog-posts` |
@@ -45,6 +45,7 @@ A test matches on the kind rather than the message; see
 | `EmailVerification` | the email verification cannot be served; the `VerificationFault` says why | see below |
 | `TenantRegistration` | the tenant registration page cannot be served; the `TenantRegistrationFault` says why | see below |
 | `TenantProfile` | the tenant settings page cannot be served; the `TenantProfileFault` says why | see below |
+| `TwoFactor` | two-factor sign-in cannot be served; the `TwoFactorFault` says why | see below |
 | `AuthMail` | the auth's mail cannot be sent; the `AuthMailFault` says why | see below |
 
 `SignUpFault`:
@@ -100,6 +101,13 @@ A test matches on the kind rather than the message; see
 | `ReservedField` | a settings field is named `csrf_token` or `editing_tenant` | rename the field |
 | `FileField` | the settings form has a file field | edit the file on a resource's form |
 | `RelationshipField` | the settings form has a relationship choice, whose options no route serves the page | offer static options |
+
+`TwoFactorFault`:
+
+| Fault | Refused when | Fix |
+| --- | --- | --- |
+| `AuthDisabled` | `Auth::two_factor` on `Auth::disabled()` | turn authentication on |
+| `MissingKey` | the router registers no `topcoat::cookie::Key` as app context | call `.app_context(Key::from(..))` before `.panel(..)` |
 
 `AuthMailFault`:
 

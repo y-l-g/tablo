@@ -3,6 +3,7 @@
 
 mod db;
 mod protocol;
+mod two_factor;
 
 pub use db::{TEST_DATABASE_URL, test_db};
 use http::header::{CONTENT_TYPE, COOKIE};
@@ -15,6 +16,10 @@ pub use protocol::{
 };
 use tablo_core::{DeclarationError, MountError, Panel, PanelUser, RouterBuilderPanelExt};
 use topcoat::router::{Body, Router, RouterBuilderDiscoverExt};
+pub use two_factor::{
+    authenticator_code, authenticator_code_at, now, recovery_codes, two_factor_secret,
+    two_factor_state,
+};
 
 /// `panel` mounted on a router holding `db`, beside the app's own discovered pages and routes:
 /// the router an app builds, without its asset bundle.

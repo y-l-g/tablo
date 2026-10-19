@@ -43,6 +43,7 @@ mod stream_pool;
 mod tenant_profile;
 mod tenant_registration;
 mod toggleable_columns;
+mod two_factor;
 mod typed_leaves;
 mod unique;
 mod upload;
