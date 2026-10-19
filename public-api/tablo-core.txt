@@ -124,28 +124,28 @@ impl core::marker::UnsafeUnpin for tablo_core::auth::AdminUser
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::auth::AdminUser
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::auth::AdminUser
 pub struct tablo_core::auth::Auth
-impl tablo_core::auth::Auth
-pub fn tablo_core::auth::Auth::custom(impl tablo_core::auth::Authenticator) -> Self
-pub fn tablo_core::auth::Auth::disabled() -> Self
-pub fn tablo_core::auth::Auth::is_disabled(&self) -> bool
-pub fn tablo_core::auth::Auth::password() -> Self
-pub fn tablo_core::auth::Auth::password_reset(self, tablo_core::PasswordReset) -> Self
-pub fn tablo_core::auth::Auth::profile(self, impl tablo_core::ProfileEditor) -> Self
-pub fn tablo_core::auth::Auth::profile_throttle(self, tablo_core::LoginThrottle) -> Self
-pub fn tablo_core::auth::Auth::registration(self, impl tablo_core::Registrar) -> Self
-pub fn tablo_core::auth::Auth::sign_up_throttle(self, tablo_core::LoginThrottle) -> Self
-pub fn tablo_core::auth::Auth::throttle(self, tablo_core::LoginThrottle) -> Self
-impl core::default::Default for tablo_core::auth::Auth
-pub fn tablo_core::auth::Auth::default() -> Self
-impl core::fmt::Debug for tablo_core::auth::Auth
-pub fn tablo_core::auth::Auth::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl !core::marker::Freeze for tablo_core::auth::Auth
-impl core::marker::Send for tablo_core::auth::Auth
-impl core::marker::Sync for tablo_core::auth::Auth
-impl core::marker::Unpin for tablo_core::auth::Auth
-impl core::marker::UnsafeUnpin for tablo_core::auth::Auth
-impl !core::panic::unwind_safe::RefUnwindSafe for tablo_core::auth::Auth
-impl !core::panic::unwind_safe::UnwindSafe for tablo_core::auth::Auth
+impl tablo_core::Auth
+pub fn tablo_core::Auth::custom(impl tablo_core::auth::Authenticator) -> Self
+pub fn tablo_core::Auth::disabled() -> Self
+pub fn tablo_core::Auth::is_disabled(&self) -> bool
+pub fn tablo_core::Auth::password() -> Self
+pub fn tablo_core::Auth::password_reset(self, tablo_core::PasswordReset) -> Self
+pub fn tablo_core::Auth::profile(self, impl tablo_core::ProfileEditor) -> Self
+pub fn tablo_core::Auth::profile_throttle(self, tablo_core::LoginThrottle) -> Self
+pub fn tablo_core::Auth::registration(self, impl tablo_core::Registrar) -> Self
+pub fn tablo_core::Auth::sign_up_throttle(self, tablo_core::LoginThrottle) -> Self
+pub fn tablo_core::Auth::throttle(self, tablo_core::LoginThrottle) -> Self
+impl core::default::Default for tablo_core::Auth
+pub fn tablo_core::Auth::default() -> Self
+impl core::fmt::Debug for tablo_core::Auth
+pub fn tablo_core::Auth::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl !core::marker::Freeze for tablo_core::Auth
+impl core::marker::Send for tablo_core::Auth
+impl core::marker::Sync for tablo_core::Auth
+impl core::marker::Unpin for tablo_core::Auth
+impl core::marker::UnsafeUnpin for tablo_core::Auth
+impl !core::panic::unwind_safe::RefUnwindSafe for tablo_core::Auth
+impl !core::panic::unwind_safe::UnwindSafe for tablo_core::Auth
 pub struct tablo_core::auth::AuthSession
 pub tablo_core::auth::AuthSession::created_at: jiff::timestamp::Timestamp
 pub tablo_core::auth::AuthSession::expires_at: jiff::timestamp::Timestamp
@@ -1673,7 +1673,7 @@ impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Brand
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::Brand
 pub struct tablo_core::panel::Panel
 impl tablo_core::panel::Panel
-pub fn tablo_core::panel::Panel::auth(self, tablo_core::auth::Auth) -> Self
+pub fn tablo_core::panel::Panel::auth(self, tablo_core::Auth) -> Self
 pub fn tablo_core::panel::Panel::brand(self, tablo_core::Brand) -> Self
 pub fn tablo_core::panel::Panel::dark_mode(self, bool) -> Self
 pub fn tablo_core::panel::Panel::endpoint(self, impl topcoat_router::route::Route) -> Self
@@ -3879,6 +3879,7 @@ pub tablo_core::DeclarationErrorKind::MissingControl::key: alloc::string::String
 pub tablo_core::DeclarationErrorKind::MissingDb
 pub tablo_core::DeclarationErrorKind::MultipleDependentChoice
 pub tablo_core::DeclarationErrorKind::MultipleDependentChoice::field: alloc::string::String
+pub tablo_core::DeclarationErrorKind::NoAuth
 pub tablo_core::DeclarationErrorKind::NoColumns
 pub tablo_core::DeclarationErrorKind::NotMounted
 pub tablo_core::DeclarationErrorKind::OptionalUnique
@@ -4330,28 +4331,28 @@ impl core::marker::UnsafeUnpin for tablo_core::policy::Allow
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::policy::Allow
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::policy::Allow
 pub struct tablo_core::Auth
-impl tablo_core::auth::Auth
-pub fn tablo_core::auth::Auth::custom(impl tablo_core::auth::Authenticator) -> Self
-pub fn tablo_core::auth::Auth::disabled() -> Self
-pub fn tablo_core::auth::Auth::is_disabled(&self) -> bool
-pub fn tablo_core::auth::Auth::password() -> Self
-pub fn tablo_core::auth::Auth::password_reset(self, tablo_core::PasswordReset) -> Self
-pub fn tablo_core::auth::Auth::profile(self, impl tablo_core::ProfileEditor) -> Self
-pub fn tablo_core::auth::Auth::profile_throttle(self, tablo_core::LoginThrottle) -> Self
-pub fn tablo_core::auth::Auth::registration(self, impl tablo_core::Registrar) -> Self
-pub fn tablo_core::auth::Auth::sign_up_throttle(self, tablo_core::LoginThrottle) -> Self
-pub fn tablo_core::auth::Auth::throttle(self, tablo_core::LoginThrottle) -> Self
-impl core::default::Default for tablo_core::auth::Auth
-pub fn tablo_core::auth::Auth::default() -> Self
-impl core::fmt::Debug for tablo_core::auth::Auth
-pub fn tablo_core::auth::Auth::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl !core::marker::Freeze for tablo_core::auth::Auth
-impl core::marker::Send for tablo_core::auth::Auth
-impl core::marker::Sync for tablo_core::auth::Auth
-impl core::marker::Unpin for tablo_core::auth::Auth
-impl core::marker::UnsafeUnpin for tablo_core::auth::Auth
-impl !core::panic::unwind_safe::RefUnwindSafe for tablo_core::auth::Auth
-impl !core::panic::unwind_safe::UnwindSafe for tablo_core::auth::Auth
+impl tablo_core::Auth
+pub fn tablo_core::Auth::custom(impl tablo_core::auth::Authenticator) -> Self
+pub fn tablo_core::Auth::disabled() -> Self
+pub fn tablo_core::Auth::is_disabled(&self) -> bool
+pub fn tablo_core::Auth::password() -> Self
+pub fn tablo_core::Auth::password_reset(self, tablo_core::PasswordReset) -> Self
+pub fn tablo_core::Auth::profile(self, impl tablo_core::ProfileEditor) -> Self
+pub fn tablo_core::Auth::profile_throttle(self, tablo_core::LoginThrottle) -> Self
+pub fn tablo_core::Auth::registration(self, impl tablo_core::Registrar) -> Self
+pub fn tablo_core::Auth::sign_up_throttle(self, tablo_core::LoginThrottle) -> Self
+pub fn tablo_core::Auth::throttle(self, tablo_core::LoginThrottle) -> Self
+impl core::default::Default for tablo_core::Auth
+pub fn tablo_core::Auth::default() -> Self
+impl core::fmt::Debug for tablo_core::Auth
+pub fn tablo_core::Auth::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl !core::marker::Freeze for tablo_core::Auth
+impl core::marker::Send for tablo_core::Auth
+impl core::marker::Sync for tablo_core::Auth
+impl core::marker::Unpin for tablo_core::Auth
+impl core::marker::UnsafeUnpin for tablo_core::Auth
+impl !core::panic::unwind_safe::RefUnwindSafe for tablo_core::Auth
+impl !core::panic::unwind_safe::UnwindSafe for tablo_core::Auth
 pub struct tablo_core::BooleanColumn<M>
 impl<M> tablo_core::BooleanColumn<M> where M: toasty::schema::model::Model
 pub fn tablo_core::BooleanColumn<M>::hidden_by_default(self) -> Self
@@ -5333,7 +5334,7 @@ impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::PagePosition
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::PagePosition
 pub struct tablo_core::Panel
 impl tablo_core::panel::Panel
-pub fn tablo_core::panel::Panel::auth(self, tablo_core::auth::Auth) -> Self
+pub fn tablo_core::panel::Panel::auth(self, tablo_core::Auth) -> Self
 pub fn tablo_core::panel::Panel::brand(self, tablo_core::Brand) -> Self
 pub fn tablo_core::panel::Panel::dark_mode(self, bool) -> Self
 pub fn tablo_core::panel::Panel::endpoint(self, impl topcoat_router::route::Route) -> Self

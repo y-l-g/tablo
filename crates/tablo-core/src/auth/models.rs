@@ -1,18 +1,20 @@
 //! The models auth ships, and [`models!`](crate::models!), which registers them beside the app's.
 
-use super::{AdminUser, AuthSession, ColumnPreference, PasswordResetToken};
+use super::{AuthSession, ColumnPreference};
 
-/// Register every model Tablo ships in `models`: [`AdminUser`], [`AuthSession`],
-/// [`ColumnPreference`] and [`PasswordResetToken`].
+/// Register every model Tablo ships in `models`: [`AuthSession`], [`ColumnPreference`], the
+/// `password` feature's `AdminUser` and the `mail` feature's `PasswordResetToken`.
 ///
 /// [`models!`](crate::models!) calls it; call it directly when the app builds its
 /// [`ModelSet`](toasty::schema::ModelSet) by hand. A model the panel never reads costs an empty
 /// table and nothing else.
 pub fn register_models(models: &mut toasty::schema::ModelSet) {
-    <AdminUser as toasty::schema::Model>::register(models);
     <AuthSession as toasty::schema::Model>::register(models);
     <ColumnPreference as toasty::schema::Model>::register(models);
-    <PasswordResetToken as toasty::schema::Model>::register(models);
+    #[cfg(feature = "password")]
+    <super::AdminUser as toasty::schema::Model>::register(models);
+    #[cfg(feature = "mail")]
+    <super::PasswordResetToken as toasty::schema::Model>::register(models);
 }
 
 /// [`toasty::models!`] with the models Tablo ships appended, so a panel's `Db` holds every table

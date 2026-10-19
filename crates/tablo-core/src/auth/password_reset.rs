@@ -2,6 +2,8 @@
 //! sets its password, the [`PasswordReset`] configuration, the [`PasswordResetToken`] rows, and
 //! the `{prefix}/forgot-password` and `{prefix}/reset-password` routes.
 
+mod mount;
+
 use std::{any::TypeId, future::Future, sync::Arc, time::Duration};
 
 use jiff::Timestamp;
@@ -18,6 +20,8 @@ use topcoat::{
     view::{BoxView, ViewExt},
 };
 
+pub(crate) use self::mount::router_sends_mail;
+pub(super) use self::mount::{declaration_errors, routes};
 use super::{
     LoginThrottle, PanelUser, infrastructure_failure,
     login::login_url,
@@ -288,18 +292,28 @@ const PASSWORD_FIELD: &str = "password";
 const CONFIRMATION_FIELD: &str = "password_confirmation";
 
 /// Where the panel's forgot-password page lives: `{prefix}/forgot-password`.
-pub(crate) fn forgot_url(cx: &Cx) -> String {
+fn forgot_url(cx: &Cx) -> String {
     format!("{}/forgot-password", panel_prefix(cx))
 }
 
 /// Where the panel's reset page lives: `{prefix}/reset-password`.
-pub(crate) fn reset_url(cx: &Cx) -> String {
+fn reset_url(cx: &Cx) -> String {
     format!("{}/reset-password", panel_prefix(cx))
 }
 
 /// Whether the request's panel installs a [`PasswordReset`].
-pub(crate) fn offered(cx: &Cx) -> bool {
+fn offered(cx: &Cx) -> bool {
     current(cx).is_some_and(|panel| panel.auth.reset().is_some())
+}
+
+/// The forgot-password page the login page links to, when the request's panel offers a reset.
+pub(super) fn forgot_link(cx: &Cx) -> Option<String> {
+    offered(cx).then(|| forgot_url(cx))
+}
+
+/// Whether `path` is one of the reset pages the request's panel serves to a signed-out visitor.
+pub(super) fn is_reset_page(cx: &Cx, path: &str) -> bool {
+    offered(cx) && (path == forgot_url(cx) || path == reset_url(cx))
 }
 
 /// What the forgot-password page says above its form.
@@ -328,13 +342,13 @@ impl ForgotAlert {
 }
 
 /// `GET {prefix}/forgot-password` — the form asking for an email address.
-pub(super) fn forgot_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
+fn forgot_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move { forgot_response(cx, "", &FieldErrors::new(), None).await })
 }
 
 /// `POST {prefix}/forgot-password` — mail a reset link to the account the address names, then
 /// answer the same whether one does or not.
-pub(super) fn forgot_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
+fn forgot_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         let panel = current(cx).ok_or_else(topcoat::router::error::not_found)?;
         let reset = panel
@@ -574,7 +588,7 @@ fn token_from_query(cx: &Cx) -> String {
 
 /// `GET {prefix}/reset-password?token=…` — the form choosing a new password, or the page saying
 /// the link no longer works.
-pub(super) fn reset_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
+fn reset_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         let token = token_from_query(cx);
         let mut db = crate::db::db(cx);
@@ -588,7 +602,7 @@ pub(super) fn reset_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
 
 /// `POST {prefix}/reset-password` — set the new password, end every session and reset link the
 /// account holds, and send it to sign in.
-pub(super) fn reset_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
+fn reset_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         let panel = current(cx).ok_or_else(topcoat::router::error::not_found)?;
         let reset = panel
@@ -768,40 +782,4 @@ async fn render<'a>(
         },
     )
     .await
-}
-
-/// The mistakes in a panel's [`Auth::password_reset`](super::Auth::password_reset): a reset without
-/// auth, a resetter whose user is not the authenticator's, a base URL that is not absolute, and a
-/// router that cannot send mail.
-pub(super) fn declaration_errors(
-    auth: &super::Auth,
-    has_mail: bool,
-) -> Vec<crate::DeclarationErrorKind> {
-    use crate::{DeclarationErrorKind, declaration::ResetFault};
-
-    let Some(reset) = auth.reset.as_ref() else {
-        return Vec::new();
-    };
-    let Some(authenticator) = auth.authenticator() else {
-        return vec![DeclarationErrorKind::PasswordReset(
-            ResetFault::AuthDisabled,
-        )];
-    };
-    let mut faults = Vec::new();
-    let (user, user_name) = reset.resetter().user_type();
-    if user != authenticator.user_type() {
-        faults.push(ResetFault::UserType {
-            resetter: user_name,
-        });
-    }
-    if !reset.base_url_is_absolute() {
-        faults.push(ResetFault::BaseUrl(reset.base_url().to_string()));
-    }
-    if !has_mail {
-        faults.push(ResetFault::MissingMail);
-    }
-    faults
-        .into_iter()
-        .map(DeclarationErrorKind::PasswordReset)
-        .collect()
 }

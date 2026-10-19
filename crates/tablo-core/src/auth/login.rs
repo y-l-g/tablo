@@ -257,7 +257,7 @@ async fn render_login_page<'a>(
     let csrf = crate::csrf::ensure_token(cx);
     let action = login_url(cx);
     let hint = current(cx).and_then(|panel| panel.login_hint.clone());
-    let forgot = super::password_reset::offered(cx).then(|| super::password_reset::forgot_url(cx));
+    let forgot = super::password_reset::forgot_link(cx);
     let sign_up = super::registration::offered(cx)
         .then(|| super::registration::with_next(super::registration::register_url(cx), &next));
     // A sign-up or a password reset lands here with a notification. Only a GET takes it: a HEAD

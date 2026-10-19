@@ -29,6 +29,7 @@ A test matches on the kind rather than the message; see
 | Kind | Refused when | Fix |
 | --- | --- | --- |
 | `MissingDb` | the router holds no `toasty::Db` | call `.app_context(db)` before `.panel(..)` |
+| `NoAuth` | the panel calls no `.auth(..)` and Tablo is built without its `password` feature | pass `.auth(Auth::custom(..))`, or turn `password` back on |
 | `MissingAuthModels` | auth is on and the `Db` does not register `AuthSession`, `AdminUser` for the shipped authenticator, `ColumnPreference` while a list has a toggleable column, or `PasswordResetToken` for a password reset | build the `Db` from `tablo::models!(..)`, add them to `toasty::models!(..)`, or `.auth(Auth::disabled())` |
 | `ShellAssetsWithoutBundle` | `shell_assets` is set and the router has no asset bundle | call `.assets(..)` before `.panel(..)` |
 | `FileFieldWithoutUploader` | a form declares a file field and the panel installs no uploader | `Panel::uploads` or `Panel::uploads_dir` |

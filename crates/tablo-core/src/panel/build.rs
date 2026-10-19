@@ -219,9 +219,7 @@ impl Panel {
 
     fn mount(self, mut builder: RouterBuilder) -> Result<RouterBuilder> {
         let db = builder.get_app_context::<Db>().cloned();
-        let has_mail = builder
-            .get_app_context::<topcoat::mail::MailConfig>()
-            .is_some();
+        let has_mail = crate::auth::router_sends_mail(&builder);
         let mut registry = Registry::new(self.prefix.clone(), db.as_ref().map(AppSchema::of_db));
         let Panel {
             prefix,
@@ -240,6 +238,11 @@ impl Panel {
             endpoints,
         } = self;
         let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
+        let auth = crate::auth::or_default(auth).unwrap_or_else(|error| {
+            errors.push(DeclarationError::panel(error));
+            // Never served: the error refuses the mount below.
+            crate::auth::Auth::disabled()
+        });
         errors.extend(mount_errors(
             &builder,
             &prefix,

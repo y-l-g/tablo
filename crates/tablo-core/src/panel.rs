@@ -128,7 +128,9 @@ pub struct Panel {
     login_hint: Option<String>,
     /// The app's entries in the user menu, above Sign out.
     user_menu: Vec<crate::NavigationItem>,
-    auth: crate::auth::Auth,
+    /// `None` until [`Panel::auth`] names one: mount then uses [`Auth::password`](crate::Auth),
+    /// or refuses without the `password` feature.
+    auth: Option<crate::auth::Auth>,
     /// The paths of the runtime endpoints that answer only this panel's sessions.
     endpoints: Vec<String>,
 }
@@ -156,7 +158,7 @@ impl Panel {
             served_dirs: Vec::new(),
             login_hint: None,
             user_menu: Vec::new(),
-            auth: crate::auth::Auth::default(),
+            auth: None,
             endpoints: Vec::new(),
         }
     }
@@ -314,9 +316,10 @@ impl Panel {
     }
 
     /// Configures this panel's authentication, defaulting to password auth; sessions belong to the
-    /// panel that signed them in.
+    /// panel that signed them in. Without the `password` feature there is no default, and a panel
+    /// that names none refuses to mount.
     pub fn auth(mut self, auth: crate::auth::Auth) -> Self {
-        self.auth = auth;
+        self.auth = Some(auth);
         self
     }
 

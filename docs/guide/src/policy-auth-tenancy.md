@@ -212,6 +212,18 @@ Sessions stay in `AuthSession`, which `tablo::models!` registers. It registers t
 `AdminUser` too, which only `PasswordAuth` reads: with another authenticator its table stays
 empty.
 
+An authenticator that checks no password, such as one behind single sign-on, needs none of the
+shipped credentials. Turn off Tablo's default features to leave out `AdminUser`, `PasswordAuth`,
+`hash_password` and `verify_password` with their Argon2 dependency (`password`), and
+`Auth::password_reset` with Topcoat's mailer (`mail`):
+
+```toml
+tablo = { version = "0.7.0", default-features = false, features = ["sqlite"] }
+```
+
+Without `password` a panel has no default authenticator, so each one names its own with
+`.auth(Auth::custom(..))`; one that names none refuses to mount with `NoAuth`.
+
 ### Sign-up
 
 `Auth::registration` lets visitors create their own account at `{prefix}/register`, which the

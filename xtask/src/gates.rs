@@ -458,6 +458,23 @@ fn check_with(
         Some(&root),
         &[],
     )?;
+    // The workspace build unifies the default features on; this one builds Tablo without the
+    // password auth and the mailer, so code they gate cannot leak into the rest.
+    run.run(
+        "cargo",
+        &[
+            "clippy",
+            "--package",
+            "tablo",
+            "--no-default-features",
+            "--locked",
+            "--",
+            "-D",
+            "warnings",
+        ],
+        Some(&root),
+        &[],
+    )?;
     if all || touches(PUBLIC_API_PATHS) {
         public_api(run, &root)?;
     } else {

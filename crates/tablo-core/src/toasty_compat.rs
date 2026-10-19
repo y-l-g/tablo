@@ -32,6 +32,7 @@ pub(crate) type UntypedInclude = toasty_core::stmt::Include;
 /// An embedded enum variant's id, which the derives name.
 pub use toasty::schema::app::VariantId;
 /// The isolation level `toasty::TransactionBuilder::isolation` takes.
+#[cfg(feature = "mail")]
 pub(crate) use toasty_core::driver::operation::IsolationLevel;
 /// The assignments `toasty::schema::Field::new_update` takes.
 pub(crate) use toasty_core::stmt::Assignments;

@@ -11,6 +11,8 @@ cargo add --build tablo-build
 
 `sqlite`, `postgresql`, `mysql` and `turso` each turn on Toasty's driver of the same name; the toolkit
 enables none of them itself, and the `testing` feature adds the in-memory client `tablo::testing`.
+The default `password` and `mail` features ship the Argon2id `PasswordAuth` and the mailed
+password reset; an app that signs users in its own way can turn them off.
 An app also names `topcoat` and `toasty` for their macros — the
 [first panel](https://y-l.fr/tablo/nightly/guide/first-panel.html) chapter has the full manifest.
 

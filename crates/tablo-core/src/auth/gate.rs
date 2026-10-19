@@ -20,7 +20,7 @@ use super::{
     login::{login_url, logout_url},
     page::{AuthPage, render},
     page_load,
-    password_reset::{forgot_url, offered as reset_offered, reset_url},
+    password_reset::is_reset_page,
     registration::{offered, register_url},
     session::{resolve, session_row, session_user},
     unauthenticated_error,
@@ -68,7 +68,7 @@ impl Layer for PanelGate {
             // path under another method stays gated.
             let path = uri(&cx).path();
             let sign_up = offered(&cx) && path == register_url(&cx);
-            let reset = reset_offered(&cx) && (path == forgot_url(&cx) || path == reset_url(&cx));
+            let reset = is_reset_page(&cx, path);
             let public = path == login_url(&cx) || sign_up || reset;
             if public
                 && matches!(

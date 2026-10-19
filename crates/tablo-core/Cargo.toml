@@ -10,10 +10,19 @@ description = "The core toolkit types for Tablo, a server-rendered admin toolkit
 # app's Tailwind build scans (`DEP_TABLO_CORE_SRC`).
 links = "tablo-core"
 
+[features]
+default = ["password", "mail"]
+# The shipped `AdminUser` and `PasswordAuth`, and Argon2id hashing (`hash_password`,
+# `verify_password`). An app that signs users in through its own `Authenticator` without
+# storing passwords turns it off; a panel then names its auth with `Panel::auth`.
+password = ["dep:argon2", "dep:password-hash"]
+# `Auth::password_reset`, which mails reset links through Topcoat's mailer.
+mail = ["topcoat/mail"]
+
 [dependencies]
 tablo-macros = { path = "../tablo-macros", version = "0.7.0" }
 tablo-ui = { path = "../tablo-ui", version = "0.7.0" }
-argon2 = "0.6"
+argon2 = { version = "0.6", optional = true }
 bytes = "1"
 # `Clone` and `Debug` impls without `derive`'s bound on the model type.
 derive-where = "1.7"
@@ -27,7 +36,7 @@ heck = "0.5"
 http = "1"
 http-body-util = { version = "0.1", features = ["channel"] }
 jiff.workspace = true
-password-hash = { version = "0.6", features = ["getrandom"] }
+password-hash = { version = "0.6", features = ["getrandom"], optional = true }
 percent-encoding.workspace = true
 # The default plural of a resource's label and slug; Toasty pluralizes its table names with it.
 pluralizer = "0.5"
@@ -41,7 +50,7 @@ toasty.workspace = true
 toasty-core.workspace = true
 # `fs` is for `Panel::serve_dir`: serving an upload directory is a
 # panel-level route, and upstream the directory route lives behind that feature.
-topcoat = { workspace = true, features = ["view", "router", "discover", "asset", "font", "runtime", "cookie", "multipart", "icon", "fs", "session", "mail"] }
+topcoat = { workspace = true, features = ["view", "router", "discover", "asset", "font", "runtime", "cookie", "multipart", "icon", "fs", "session"] }
 tracing = "0.1"
 uuid.workspace = true
 

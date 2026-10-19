@@ -11,6 +11,11 @@ description = "Admin toolkit for Rust, server-rendered on Topcoat and persisted 
 links = "tablo"
 
 [features]
+default = ["password", "mail"]
+# The shipped `AdminUser`, `PasswordAuth` and Argon2id hashing.
+password = ["tablo-core/password"]
+# `Auth::password_reset`, which mails reset links.
+mail = ["tablo-core/mail"]
 # The database driver is the app's choice. Each feature turns on Toasty's
 # driver of the same name; an app can equally enable it on its own `toasty`
 # dependency.
@@ -22,7 +27,7 @@ turso = ["toasty/turso"]
 testing = ["dep:tablo-test"]
 
 [dependencies]
-tablo-core = { path = "../tablo-core", version = "0.7.0" }
+tablo-core = { path = "../tablo-core", version = "0.7.0", default-features = false }
 tablo-test = { path = "../tablo-test", version = "0.7.0", optional = true }
 tablo-ui = { path = "../tablo-ui", version = "0.7.0" }
 toasty.workspace = true

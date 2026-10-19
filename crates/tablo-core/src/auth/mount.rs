@@ -1,14 +1,11 @@
 //! What a panel mounts for its auth: the declaration checks the mount runs, and every route auth
 //! serves under the panel's prefix with the body cap each one carries.
 
-use std::any::TypeId;
-
-use topcoat::router::{BodyLimit, PageFn, RouteFn, RouteHandlerFn, RouterBuilder};
+use topcoat::router::{BodyLimit, PageFn, RouteFn, RouterBuilder};
 
 use super::{
-    AdminUser, Auth,
+    Auth,
     login::{MAX_LOGIN_BYTES, login_page, login_post, logout_post, tenant_post},
-    password_reset::{forgot_page, forgot_post, reset_page, reset_post},
     profile::{profile_page, profile_post},
     registration::{register_page, register_post},
 };
@@ -42,7 +39,7 @@ fn missing_models(db: &toasty::Db, auth: &Auth, toggles: bool) -> Result<(), Dec
     };
     let schema = AppSchema::of_db(db);
     let registered = |name: &str| schema.registers(name);
-    let shipped_user = authenticator.user_type() == TypeId::of::<AdminUser>();
+    let shipped_user = loads_admin_users(authenticator);
     let models: Vec<&'static str> = [
         (!registered("AuthSession")).then_some("AuthSession"),
         (shipped_user && !registered("AdminUser")).then_some("AdminUser"),
@@ -57,6 +54,18 @@ fn missing_models(db: &toasty::Db, auth: &Auth, toggles: bool) -> Result<(), Dec
     } else {
         Err(DeclarationErrorKind::MissingAuthModels { models })
     }
+}
+
+/// Whether `authenticator` loads the shipped [`AdminUser`](super::AdminUser).
+#[cfg(feature = "password")]
+fn loads_admin_users(authenticator: &dyn super::DynAuthenticator) -> bool {
+    authenticator.user_type() == std::any::TypeId::of::<super::AdminUser>()
+}
+
+/// Without the `password` feature no authenticator loads a shipped user.
+#[cfg(not(feature = "password"))]
+fn loads_admin_users(_authenticator: &dyn super::DynAuthenticator) -> bool {
+    false
 }
 
 /// Mount `auth`'s routes under `prefix`: sign-in, sign-out and the tenant switch while the panel
@@ -110,21 +119,5 @@ pub(crate) fn routes(mut builder: RouterBuilder, prefix: &str, auth: &Auth) -> R
             ))
             .page(PageFn::new(http::Method::POST, profile_path, profile_post));
     }
-    if auth.reset().is_some() {
-        for (path, page, post) in [
-            (
-                "forgot-password",
-                forgot_page as RouteHandlerFn,
-                forgot_post as RouteHandlerFn,
-            ),
-            ("reset-password", reset_page, reset_post),
-        ] {
-            let path = route_path(&format!("{prefix}/{path}"));
-            builder = builder
-                .layer(BodyLimit::max(MAX_LOGIN_BYTES).at(path.clone()))
-                .route(RouteFn::new(http::Method::GET, path.clone(), page))
-                .route(RouteFn::new(http::Method::POST, path, post));
-        }
-    }
-    builder
+    super::password_reset::routes(builder, prefix, auth)
 }

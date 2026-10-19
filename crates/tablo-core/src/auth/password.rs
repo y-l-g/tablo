@@ -8,9 +8,11 @@ use tokio::sync::Semaphore;
 use topcoat::context::Cx;
 use uuid::Uuid;
 
+#[cfg(feature = "mail")]
+use super::PasswordResetter;
 use super::{
-    Authenticator, PanelUser, PasswordResetter, Profile, ProfileEditor, ProfileUpdate, Registrar,
-    SignUp, infrastructure_failure, profile::CURRENT_PASSWORD_FIELD,
+    Authenticator, PanelUser, Profile, ProfileEditor, ProfileUpdate, Registrar, SignUp,
+    infrastructure_failure, profile::CURRENT_PASSWORD_FIELD,
 };
 use crate::FieldErrors;
 
@@ -221,6 +223,7 @@ impl ProfileEditor for PasswordAuth {
 
 /// Resets an [`AdminUser`]'s password, mailing the link to the email the account stores.
 /// Install it with [`Auth::password_reset`](super::Auth::password_reset).
+#[cfg(feature = "mail")]
 impl PasswordResetter for PasswordAuth {
     type User = AdminUser;
 

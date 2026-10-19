@@ -120,9 +120,13 @@ mod values;
 /// The future a type-erased, dyn-compatible method returns.
 pub(crate) type BoxFuture<'a, T> = std::pin::Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
+#[cfg(feature = "password")]
+pub use auth::PasswordAuth;
+#[cfg(feature = "mail")]
+pub use auth::PasswordReset;
 pub use auth::{
-    Auth, Authenticator, LoginThrottle, PanelUser, PasswordAuth, PasswordReset, Profile,
-    ProfileEditor, ProfileUpdate, Registrar, SignUp, membership,
+    Auth, Authenticator, LoginThrottle, PanelUser, Profile, ProfileEditor, ProfileUpdate,
+    Registrar, SignUp, membership,
 };
 pub use column::{
     BooleanColumn, ColorColumn, ColumnToggle, ColumnWidth, ComputedColumn, CountColumn, DateColumn,
