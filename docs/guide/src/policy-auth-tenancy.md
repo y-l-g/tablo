@@ -119,15 +119,20 @@ A form route verifies the CSRF token it posted under `csrf::FIELD_NAME` with
 ## Authentication
 
 Authentication is on by default. The built-in login checks an email and password against the
-`AdminUser` table and keeps sessions in the `AuthSession` table; register both models with
-Toasty and create a user with `auth::create_admin`, which stores the password's hash:
+`AdminUser` table and keeps sessions in the `AuthSession` table. `tablo::models!` registers both
+beside the app's models; create a user with `auth::create_admin`, which stores the password's
+hash:
 
 ```rust
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-models}}
 ```
 
 A panel whose lists declare [toggleable columns](tables.md#hiding-columns) also keeps each user's
-choice in the `ColumnPreference` table; register it too.
+choice in the `ColumnPreference` table. A feature that mails links, such as a password reset,
+keeps its tokens in `AuthToken`, and two-factor sign-in its factors in `AuthFactor`;
+`tablo::models!` registers all three. An app listing its models with `toasty::models!` lists these
+too, and the mount names any it misses. Toasty names a table after its model, so an app with a
+model named as one of Tablo's, such as its own `AdminUser`, lists its models that way.
 
 ```rust
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-hash-password}}
@@ -206,8 +211,9 @@ use tablo::{Membership, PanelUser, auth::{Authenticator, verify_password}};
 - **`find_by_id`** reloads the user on every request, so deactivating a user or removing a
   membership takes effect immediately.
 
-Sessions stay in `AuthSession`, so register it, and `ColumnPreference` when a list toggles
-columns; the provided `AdminUser` is needed only by `PasswordAuth`.
+Sessions stay in `AuthSession`, which `tablo::models!` registers. It registers the shipped
+`AdminUser` too, which only `PasswordAuth` reads: with another authenticator its table stays
+empty.
 
 ### Sign-up
 

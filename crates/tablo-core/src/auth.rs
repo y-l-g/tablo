@@ -1,8 +1,7 @@
 //! Authenticates panel users and gates panel routes.
 //!
-//! Gates panels by default; installs [`PasswordAuth`] or a custom [`Authenticator`].
-//! Reads the signed-in user through [`user`] and [`require_user`]. Stores sessions in
-//! [`AuthSession`] for every authenticator, scoped to the issuing panel.
+//! Gates panels by default with [`PasswordAuth`] or a custom [`Authenticator`], reads the signed-in
+//! user through [`user`] and [`require_user`], and keeps each panel's [`AuthSession`]s.
 
 mod columns;
 mod config;
@@ -11,6 +10,7 @@ mod gate;
 mod input;
 mod login;
 mod mail;
+mod models;
 pub(crate) mod mount;
 mod page;
 mod password;
@@ -46,6 +46,7 @@ pub use self::{
     email_change::{EmailChange, request_email_change},
     login::{LOGIN_FIELD, NEXT_FIELD, PASSWORD_FIELD, TENANT_FIELD},
     mail::AuthMail,
+    models::register_models,
     password::{AdminUser, PasswordAuth, create_admin, hash_password, verify_password},
     password_reset::{PasswordReset, PasswordResetter, RESET_LIFETIME},
     profile::{Profile, ProfileEditor, ProfileUpdate},

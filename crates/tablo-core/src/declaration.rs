@@ -476,9 +476,9 @@ impl fmt::Display for DeclarationErrorKind {
             ),
             Self::MissingAuthModels { models } => write!(
                 f,
-                "auth is on, but the Db does not register its shipped models ({models}): register \
-                 them from `tablo_core::auth` with `toasty::models!(…, {models})`, or opt out \
-                 with `.auth(Auth::disabled())`",
+                "auth is on, but the Db does not register its shipped models ({models}): build \
+                 the Db from `tablo::models!(…)`, which registers them, or opt out with \
+                 `.auth(Auth::disabled())`",
                 models = models.join(", ")
             ),
             Self::ShellAssetsWithoutBundle => f.write_str(
