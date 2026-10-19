@@ -72,7 +72,7 @@ impl Action<TicketResource> for Close {
         tickets: &[Ticket],
         closing: Closing,
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<()> {
+    ) -> topcoat::Result<tablo::Outcome> {
         let suffix = if closing.reopenable { "" } else { " (final)" };
         for ticket in tickets {
             Ticket::filter(Ticket::fields().id().eq(ticket.id))
@@ -87,7 +87,7 @@ impl Action<TicketResource> for Close {
                 .exec(&mut *ex)
                 .await?;
         }
-        Ok(())
+        Ok(tablo::Outcome::done())
     }
 }
 
@@ -125,7 +125,7 @@ impl Action<TicketResource> for Purge {
         tickets: &[Ticket],
         purging: Purging,
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<()> {
+    ) -> topcoat::Result<tablo::Outcome> {
         for ticket in tickets {
             Ticket::filter(Ticket::fields().id().eq(ticket.id))
                 .update()
@@ -133,7 +133,7 @@ impl Action<TicketResource> for Purge {
                 .exec(&mut *ex)
                 .await?;
         }
-        Ok(())
+        Ok(tablo::Outcome::done())
     }
 }
 
@@ -177,7 +177,7 @@ impl Action<TicketResource> for Merge {
         tickets: &[Ticket],
         merging: Merging,
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<()> {
+    ) -> topcoat::Result<tablo::Outcome> {
         for ticket in tickets {
             Ticket::filter(Ticket::fields().id().eq(ticket.id))
                 .update()
@@ -185,7 +185,7 @@ impl Action<TicketResource> for Merge {
                 .exec(&mut *ex)
                 .await?;
         }
-        Ok(())
+        Ok(tablo::Outcome::done())
     }
 }
 
@@ -565,8 +565,8 @@ impl Action<SelectResource> for Attach {
         _: &[Ticket],
         _: Attaching,
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<()> {
-        Ok(())
+    ) -> topcoat::Result<tablo::Outcome> {
+        Ok(tablo::Outcome::done())
     }
 }
 
@@ -585,8 +585,8 @@ impl Action<SelectResource> for Refuse {
         _: &[Ticket],
         _: Strict,
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<()> {
-        Ok(())
+    ) -> topcoat::Result<tablo::Outcome> {
+        Ok(tablo::Outcome::done())
     }
 }
 
@@ -605,8 +605,8 @@ impl Action<SelectResource> for Select {
         _: &[Ticket],
         _: Selecting,
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<()> {
-        Ok(())
+    ) -> topcoat::Result<tablo::Outcome> {
+        Ok(tablo::Outcome::done())
     }
 }
 

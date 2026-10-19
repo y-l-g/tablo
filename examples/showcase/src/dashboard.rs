@@ -121,7 +121,11 @@ impl HeaderAction for FeatureTagged {
         errors
     }
 
-    async fn run(cx: &Cx, input: FeatureTag, ex: &mut dyn toasty::Executor) -> Result<()> {
+    async fn run(
+        cx: &Cx,
+        input: FeatureTag,
+        ex: &mut dyn toasty::Executor,
+    ) -> Result<tablo::Outcome> {
         let tag = input.tag.trim();
         let posts = scoped_query::<PostResource>(cx)?.exec(&mut *ex).await?;
         for post in posts {
@@ -133,7 +137,7 @@ impl HeaderAction for FeatureTagged {
                     .await?;
             }
         }
-        Ok(())
+        Ok(tablo::Outcome::done())
     }
 }
 

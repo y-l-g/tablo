@@ -1528,27 +1528,27 @@ pub tablo_core::notification::NotificationStatus::Error
 pub tablo_core::notification::NotificationStatus::Info
 pub tablo_core::notification::NotificationStatus::Success
 pub tablo_core::notification::NotificationStatus::Warning
-impl tablo_core::notification::NotificationStatus
-pub fn tablo_core::notification::NotificationStatus::as_str(&self) -> &'static str
-impl core::clone::Clone for tablo_core::notification::NotificationStatus
-pub fn tablo_core::notification::NotificationStatus::clone(&self) -> tablo_core::notification::NotificationStatus
-impl core::cmp::Eq for tablo_core::notification::NotificationStatus
-impl core::cmp::PartialEq for tablo_core::notification::NotificationStatus
-pub fn tablo_core::notification::NotificationStatus::eq(&self, &tablo_core::notification::NotificationStatus) -> bool
-impl core::fmt::Debug for tablo_core::notification::NotificationStatus
-pub fn tablo_core::notification::NotificationStatus::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl core::marker::StructuralPartialEq for tablo_core::notification::NotificationStatus
-impl serde_core::ser::Serialize for tablo_core::notification::NotificationStatus
-pub fn tablo_core::notification::NotificationStatus::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
-impl<'de> serde_core::de::Deserialize<'de> for tablo_core::notification::NotificationStatus
-pub fn tablo_core::notification::NotificationStatus::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
-impl core::marker::Freeze for tablo_core::notification::NotificationStatus
-impl core::marker::Send for tablo_core::notification::NotificationStatus
-impl core::marker::Sync for tablo_core::notification::NotificationStatus
-impl core::marker::Unpin for tablo_core::notification::NotificationStatus
-impl core::marker::UnsafeUnpin for tablo_core::notification::NotificationStatus
-impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::notification::NotificationStatus
-impl core::panic::unwind_safe::UnwindSafe for tablo_core::notification::NotificationStatus
+impl tablo_core::NotificationStatus
+pub fn tablo_core::NotificationStatus::as_str(&self) -> &'static str
+impl core::clone::Clone for tablo_core::NotificationStatus
+pub fn tablo_core::NotificationStatus::clone(&self) -> tablo_core::NotificationStatus
+impl core::cmp::Eq for tablo_core::NotificationStatus
+impl core::cmp::PartialEq for tablo_core::NotificationStatus
+pub fn tablo_core::NotificationStatus::eq(&self, &tablo_core::NotificationStatus) -> bool
+impl core::fmt::Debug for tablo_core::NotificationStatus
+pub fn tablo_core::NotificationStatus::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_core::NotificationStatus
+impl serde_core::ser::Serialize for tablo_core::NotificationStatus
+pub fn tablo_core::NotificationStatus::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tablo_core::NotificationStatus
+pub fn tablo_core::NotificationStatus::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tablo_core::NotificationStatus
+impl core::marker::Send for tablo_core::NotificationStatus
+impl core::marker::Sync for tablo_core::NotificationStatus
+impl core::marker::Unpin for tablo_core::NotificationStatus
+impl core::marker::UnsafeUnpin for tablo_core::NotificationStatus
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::NotificationStatus
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::NotificationStatus
 pub struct tablo_core::notification::LiveToast
 pub tablo_core::notification::LiveToast::description: topcoat_runtime::signal::Signal<alloc::string::String>
 pub tablo_core::notification::LiveToast::serial: topcoat_runtime::signal::Signal<u64>
@@ -1596,29 +1596,29 @@ impl<__status, __title, __description, __serial> core::panic::unwind_safe::RefUn
 impl<__status, __title, __description, __serial> core::panic::unwind_safe::UnwindSafe for tablo_core::notification::LiveToasterPropsBuilder<__status, __title, __description, __serial> where core::marker::PhantomData<(__status, __title, __description, __serial)>: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::notification::Notification
 pub tablo_core::notification::Notification::description: core::option::Option<alloc::string::String>
-pub tablo_core::notification::Notification::status: tablo_core::notification::NotificationStatus
+pub tablo_core::notification::Notification::status: tablo_core::NotificationStatus
 pub tablo_core::notification::Notification::title: alloc::string::String
-impl tablo_core::notification::Notification
-pub fn tablo_core::notification::Notification::description(self, impl core::convert::Into<alloc::string::String>) -> Self
-pub fn tablo_core::notification::Notification::error(impl core::convert::Into<alloc::string::String>) -> Self
-pub fn tablo_core::notification::Notification::info(impl core::convert::Into<alloc::string::String>) -> Self
-pub fn tablo_core::notification::Notification::success(impl core::convert::Into<alloc::string::String>) -> Self
-pub fn tablo_core::notification::Notification::warning(impl core::convert::Into<alloc::string::String>) -> Self
-impl core::clone::Clone for tablo_core::notification::Notification
-pub fn tablo_core::notification::Notification::clone(&self) -> tablo_core::notification::Notification
-impl core::fmt::Debug for tablo_core::notification::Notification
-pub fn tablo_core::notification::Notification::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl serde_core::ser::Serialize for tablo_core::notification::Notification
-pub fn tablo_core::notification::Notification::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
-impl<'de> serde_core::de::Deserialize<'de> for tablo_core::notification::Notification
-pub fn tablo_core::notification::Notification::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
-impl core::marker::Freeze for tablo_core::notification::Notification
-impl core::marker::Send for tablo_core::notification::Notification
-impl core::marker::Sync for tablo_core::notification::Notification
-impl core::marker::Unpin for tablo_core::notification::Notification
-impl core::marker::UnsafeUnpin for tablo_core::notification::Notification
-impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::notification::Notification
-impl core::panic::unwind_safe::UnwindSafe for tablo_core::notification::Notification
+impl tablo_core::Notification
+pub fn tablo_core::Notification::description(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::Notification::error(impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::Notification::info(impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::Notification::success(impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::Notification::warning(impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for tablo_core::Notification
+pub fn tablo_core::Notification::clone(&self) -> tablo_core::Notification
+impl core::fmt::Debug for tablo_core::Notification
+pub fn tablo_core::Notification::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for tablo_core::Notification
+pub fn tablo_core::Notification::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tablo_core::Notification
+pub fn tablo_core::Notification::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tablo_core::Notification
+impl core::marker::Send for tablo_core::Notification
+impl core::marker::Sync for tablo_core::Notification
+impl core::marker::Unpin for tablo_core::Notification
+impl core::marker::UnsafeUnpin for tablo_core::Notification
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Notification
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::Notification
 pub struct tablo_core::notification::live_toaster
 impl core::default::Default for tablo_core::notification::live_toaster
 pub fn tablo_core::notification::live_toaster::default() -> Self
@@ -1638,9 +1638,9 @@ impl core::marker::UnsafeUnpin for tablo_core::notification::live_toaster
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::notification::live_toaster
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::notification::live_toaster
 pub fn tablo_core::notification::live_toast(&topcoat_core::context::Cx) -> tablo_core::notification::LiveToast
-pub async fn tablo_core::notification::render_notification<'a>(&'a topcoat_core::context::Cx, tablo_core::notification::Notification, topcoat_view::html::attribute::attributes::Attributes) -> topcoat::Result<topcoat_view::view::BoxView<'a>>
-pub fn tablo_core::notification::set_notification(&topcoat_core::context::Cx, tablo_core::notification::Notification)
-pub fn tablo_core::notification::take_notification(&topcoat_core::context::Cx) -> core::option::Option<tablo_core::notification::Notification>
+pub async fn tablo_core::notification::render_notification<'a>(&'a topcoat_core::context::Cx, tablo_core::Notification, topcoat_view::html::attribute::attributes::Attributes) -> topcoat::Result<topcoat_view::view::BoxView<'a>>
+pub fn tablo_core::notification::set_notification(&topcoat_core::context::Cx, tablo_core::Notification)
+pub fn tablo_core::notification::take_notification(&topcoat_core::context::Cx) -> core::option::Option<tablo_core::Notification>
 pub mod tablo_core::panel
 pub mod tablo_core::panel::url
 pub fn tablo_core::panel::url::page<P: tablo_core::Page>(&topcoat_core::context::Cx) -> core::option::Option<alloc::string::String>
@@ -2062,7 +2062,7 @@ pub const tablo_core::resource::Action::NAME: &'static str
 pub const tablo_core::resource::Action::PLACES: tablo_core::Places
 pub fn tablo_core::resource::Action::can_run(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> bool
 pub fn tablo_core::resource::Action::label(&topcoat_core::context::Cx) -> alloc::string::String
-pub fn tablo_core::resource::Action::run(&topcoat_core::context::Cx, &[<R as tablo_core::resource::Resource>::Model], Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send
+pub fn tablo_core::resource::Action::run(&topcoat_core::context::Cx, &[<R as tablo_core::resource::Resource>::Model], Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::Outcome>> + core::marker::Send
 pub fn tablo_core::resource::Action::success(&topcoat_core::context::Cx, usize) -> alloc::string::String
 pub fn tablo_core::resource::Action::validate_input(&topcoat_core::context::Cx, &Self::Input) -> tablo_core::FieldErrors
 pub trait tablo_core::resource::ForeignKey<K>: tablo_core::resource::relation::sealed::Sealed<K> + toasty::stmt::into_expr::IntoExpr<Self> + tablo_core::FormScalar + core::marker::Send + core::marker::Sync + 'static
@@ -2074,7 +2074,7 @@ pub const tablo_core::resource::HeaderAction::CONFIRM: bool
 pub const tablo_core::resource::HeaderAction::NAME: &'static str
 pub fn tablo_core::resource::HeaderAction::can_run(&topcoat_core::context::Cx) -> bool
 pub fn tablo_core::resource::HeaderAction::label(&topcoat_core::context::Cx) -> alloc::string::String
-pub fn tablo_core::resource::HeaderAction::run(&topcoat_core::context::Cx, Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send
+pub fn tablo_core::resource::HeaderAction::run(&topcoat_core::context::Cx, Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::Outcome>> + core::marker::Send
 pub fn tablo_core::resource::HeaderAction::success(&topcoat_core::context::Cx) -> alloc::string::String
 pub fn tablo_core::resource::HeaderAction::validate_input(&topcoat_core::context::Cx, &Self::Input) -> tablo_core::FieldErrors
 pub trait tablo_core::resource::Resource: core::marker::Sized + core::marker::Send + core::marker::Sync + 'static
@@ -4099,27 +4099,27 @@ pub tablo_core::NotificationStatus::Error
 pub tablo_core::NotificationStatus::Info
 pub tablo_core::NotificationStatus::Success
 pub tablo_core::NotificationStatus::Warning
-impl tablo_core::notification::NotificationStatus
-pub fn tablo_core::notification::NotificationStatus::as_str(&self) -> &'static str
-impl core::clone::Clone for tablo_core::notification::NotificationStatus
-pub fn tablo_core::notification::NotificationStatus::clone(&self) -> tablo_core::notification::NotificationStatus
-impl core::cmp::Eq for tablo_core::notification::NotificationStatus
-impl core::cmp::PartialEq for tablo_core::notification::NotificationStatus
-pub fn tablo_core::notification::NotificationStatus::eq(&self, &tablo_core::notification::NotificationStatus) -> bool
-impl core::fmt::Debug for tablo_core::notification::NotificationStatus
-pub fn tablo_core::notification::NotificationStatus::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl core::marker::StructuralPartialEq for tablo_core::notification::NotificationStatus
-impl serde_core::ser::Serialize for tablo_core::notification::NotificationStatus
-pub fn tablo_core::notification::NotificationStatus::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
-impl<'de> serde_core::de::Deserialize<'de> for tablo_core::notification::NotificationStatus
-pub fn tablo_core::notification::NotificationStatus::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
-impl core::marker::Freeze for tablo_core::notification::NotificationStatus
-impl core::marker::Send for tablo_core::notification::NotificationStatus
-impl core::marker::Sync for tablo_core::notification::NotificationStatus
-impl core::marker::Unpin for tablo_core::notification::NotificationStatus
-impl core::marker::UnsafeUnpin for tablo_core::notification::NotificationStatus
-impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::notification::NotificationStatus
-impl core::panic::unwind_safe::UnwindSafe for tablo_core::notification::NotificationStatus
+impl tablo_core::NotificationStatus
+pub fn tablo_core::NotificationStatus::as_str(&self) -> &'static str
+impl core::clone::Clone for tablo_core::NotificationStatus
+pub fn tablo_core::NotificationStatus::clone(&self) -> tablo_core::NotificationStatus
+impl core::cmp::Eq for tablo_core::NotificationStatus
+impl core::cmp::PartialEq for tablo_core::NotificationStatus
+pub fn tablo_core::NotificationStatus::eq(&self, &tablo_core::NotificationStatus) -> bool
+impl core::fmt::Debug for tablo_core::NotificationStatus
+pub fn tablo_core::NotificationStatus::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_core::NotificationStatus
+impl serde_core::ser::Serialize for tablo_core::NotificationStatus
+pub fn tablo_core::NotificationStatus::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tablo_core::NotificationStatus
+pub fn tablo_core::NotificationStatus::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tablo_core::NotificationStatus
+impl core::marker::Send for tablo_core::NotificationStatus
+impl core::marker::Sync for tablo_core::NotificationStatus
+impl core::marker::Unpin for tablo_core::NotificationStatus
+impl core::marker::UnsafeUnpin for tablo_core::NotificationStatus
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::NotificationStatus
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::NotificationStatus
 pub enum tablo_core::Number
 pub tablo_core::Number::Float(f64)
 pub tablo_core::Number::Int(i128)
@@ -5231,29 +5231,47 @@ impl<M> core::panic::unwind_safe::RefUnwindSafe for tablo_core::form::NoForm<M> 
 impl<M> core::panic::unwind_safe::UnwindSafe for tablo_core::form::NoForm<M> where core::marker::PhantomData<fn() -> M>: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::Notification
 pub tablo_core::Notification::description: core::option::Option<alloc::string::String>
-pub tablo_core::Notification::status: tablo_core::notification::NotificationStatus
+pub tablo_core::Notification::status: tablo_core::NotificationStatus
 pub tablo_core::Notification::title: alloc::string::String
-impl tablo_core::notification::Notification
-pub fn tablo_core::notification::Notification::description(self, impl core::convert::Into<alloc::string::String>) -> Self
-pub fn tablo_core::notification::Notification::error(impl core::convert::Into<alloc::string::String>) -> Self
-pub fn tablo_core::notification::Notification::info(impl core::convert::Into<alloc::string::String>) -> Self
-pub fn tablo_core::notification::Notification::success(impl core::convert::Into<alloc::string::String>) -> Self
-pub fn tablo_core::notification::Notification::warning(impl core::convert::Into<alloc::string::String>) -> Self
-impl core::clone::Clone for tablo_core::notification::Notification
-pub fn tablo_core::notification::Notification::clone(&self) -> tablo_core::notification::Notification
-impl core::fmt::Debug for tablo_core::notification::Notification
-pub fn tablo_core::notification::Notification::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl serde_core::ser::Serialize for tablo_core::notification::Notification
-pub fn tablo_core::notification::Notification::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
-impl<'de> serde_core::de::Deserialize<'de> for tablo_core::notification::Notification
-pub fn tablo_core::notification::Notification::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
-impl core::marker::Freeze for tablo_core::notification::Notification
-impl core::marker::Send for tablo_core::notification::Notification
-impl core::marker::Sync for tablo_core::notification::Notification
-impl core::marker::Unpin for tablo_core::notification::Notification
-impl core::marker::UnsafeUnpin for tablo_core::notification::Notification
-impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::notification::Notification
-impl core::panic::unwind_safe::UnwindSafe for tablo_core::notification::Notification
+impl tablo_core::Notification
+pub fn tablo_core::Notification::description(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::Notification::error(impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::Notification::info(impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::Notification::success(impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::Notification::warning(impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for tablo_core::Notification
+pub fn tablo_core::Notification::clone(&self) -> tablo_core::Notification
+impl core::fmt::Debug for tablo_core::Notification
+pub fn tablo_core::Notification::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for tablo_core::Notification
+pub fn tablo_core::Notification::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tablo_core::Notification
+pub fn tablo_core::Notification::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tablo_core::Notification
+impl core::marker::Send for tablo_core::Notification
+impl core::marker::Sync for tablo_core::Notification
+impl core::marker::Unpin for tablo_core::Notification
+impl core::marker::UnsafeUnpin for tablo_core::Notification
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Notification
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::Notification
+pub struct tablo_core::Outcome
+impl tablo_core::Outcome
+pub fn tablo_core::Outcome::done() -> Self
+pub fn tablo_core::Outcome::notify(self, tablo_core::Notification) -> Self
+pub fn tablo_core::Outcome::redirect(self, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for tablo_core::Outcome
+pub fn tablo_core::Outcome::clone(&self) -> tablo_core::Outcome
+impl core::default::Default for tablo_core::Outcome
+pub fn tablo_core::Outcome::default() -> tablo_core::Outcome
+impl core::fmt::Debug for tablo_core::Outcome
+pub fn tablo_core::Outcome::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tablo_core::Outcome
+impl core::marker::Send for tablo_core::Outcome
+impl core::marker::Sync for tablo_core::Outcome
+impl core::marker::Unpin for tablo_core::Outcome
+impl core::marker::UnsafeUnpin for tablo_core::Outcome
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Outcome
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::Outcome
 pub struct tablo_core::PageDef
 impl tablo_core::PageDef
 pub fn tablo_core::PageDef::access(self, impl core::ops::function::Fn(&topcoat_core::context::Cx) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
@@ -6142,7 +6160,7 @@ pub const tablo_core::Action::NAME: &'static str
 pub const tablo_core::Action::PLACES: tablo_core::Places
 pub fn tablo_core::Action::can_run(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> bool
 pub fn tablo_core::Action::label(&topcoat_core::context::Cx) -> alloc::string::String
-pub fn tablo_core::Action::run(&topcoat_core::context::Cx, &[<R as tablo_core::resource::Resource>::Model], Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send
+pub fn tablo_core::Action::run(&topcoat_core::context::Cx, &[<R as tablo_core::resource::Resource>::Model], Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::Outcome>> + core::marker::Send
 pub fn tablo_core::Action::success(&topcoat_core::context::Cx, usize) -> alloc::string::String
 pub fn tablo_core::Action::validate_input(&topcoat_core::context::Cx, &Self::Input) -> tablo_core::FieldErrors
 pub trait tablo_core::Authenticator: core::marker::Send + core::marker::Sync + 'static
@@ -6241,7 +6259,7 @@ pub const tablo_core::HeaderAction::CONFIRM: bool
 pub const tablo_core::HeaderAction::NAME: &'static str
 pub fn tablo_core::HeaderAction::can_run(&topcoat_core::context::Cx) -> bool
 pub fn tablo_core::HeaderAction::label(&topcoat_core::context::Cx) -> alloc::string::String
-pub fn tablo_core::HeaderAction::run(&topcoat_core::context::Cx, Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send
+pub fn tablo_core::HeaderAction::run(&topcoat_core::context::Cx, Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::Outcome>> + core::marker::Send
 pub fn tablo_core::HeaderAction::success(&topcoat_core::context::Cx) -> alloc::string::String
 pub fn tablo_core::HeaderAction::validate_input(&topcoat_core::context::Cx, &Self::Input) -> tablo_core::FieldErrors
 pub trait tablo_core::IntoColumns<M>

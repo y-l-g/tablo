@@ -41,7 +41,7 @@ impl Action<TicketResource> for Close {
         tickets: &[Ticket],
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<()> {
+    ) -> topcoat::Result<tablo::Outcome> {
         for ticket in tickets {
             Ticket::filter(Ticket::fields().id().eq(ticket.id))
                 .update()
@@ -49,7 +49,7 @@ impl Action<TicketResource> for Close {
                 .exec(&mut *ex)
                 .await?;
         }
-        Ok(())
+        Ok(tablo::Outcome::done())
     }
 }
 

@@ -259,7 +259,12 @@ impl Action<PostResource> for PublishPosts {
         post.status != PostStatus::Published
     }
 
-    async fn run(_cx: &Cx, posts: &[Post], _: (), ex: &mut dyn toasty::Executor) -> Result<()> {
+    async fn run(
+        _cx: &Cx,
+        posts: &[Post],
+        _: (),
+        ex: &mut dyn toasty::Executor,
+    ) -> Result<tablo::Outcome> {
         for post in posts {
             Post::filter(Post::fields().id().eq(post.id))
                 .update()
@@ -267,7 +272,7 @@ impl Action<PostResource> for PublishPosts {
                 .exec(&mut *ex)
                 .await?;
         }
-        Ok(())
+        Ok(tablo::Outcome::done())
     }
 }
 
@@ -279,7 +284,7 @@ impl HeaderAction for PublishAllDrafts {
     const NAME: &'static str = "publish-all-drafts";
     const CONFIRM: bool = true;
 
-    async fn run(cx: &Cx, _: (), ex: &mut dyn toasty::Executor) -> Result<()> {
+    async fn run(cx: &Cx, _: (), ex: &mut dyn toasty::Executor) -> Result<tablo::Outcome> {
         // The tenant-scoped query: a header action sees no record, so it scopes its own.
         let drafts = scoped_query::<PostResource>(cx)?
             .filter(Post::fields().status().eq(PostStatus::Draft))
@@ -292,7 +297,7 @@ impl HeaderAction for PublishAllDrafts {
                 .exec(&mut *ex)
                 .await?;
         }
-        Ok(())
+        Ok(tablo::Outcome::done())
     }
 }
 
@@ -317,7 +322,7 @@ impl Action<PostResource> for TagPosts {
         posts: &[Post],
         tagging: Tagging,
         ex: &mut dyn toasty::Executor,
-    ) -> Result<()> {
+    ) -> Result<tablo::Outcome> {
         for post in posts {
             let kept = if tagging.replace {
                 ""
@@ -330,7 +335,7 @@ impl Action<PostResource> for TagPosts {
                 .exec(&mut *ex)
                 .await?;
         }
-        Ok(())
+        Ok(tablo::Outcome::done())
     }
 }
 

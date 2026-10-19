@@ -32,9 +32,9 @@ use crate::{
 ///     type Input = ();
 ///     const NAME: &'static str = "recount-tags";
 ///
-///     async fn run(_cx: &Cx, _: (), _ex: &mut dyn Executor) -> Result<()> {
+///     async fn run(_cx: &Cx, _: (), _ex: &mut dyn Executor) -> Result<tablo_core::Outcome> {
 ///         // Recount through `ex`, the framework's transaction.
-///         Ok(())
+///         Ok(tablo_core::Outcome::done())
 ///     }
 /// }
 /// ```
@@ -90,12 +90,14 @@ pub trait HeaderAction: 'static {
         FieldErrors::new()
     }
 
-    /// Perform the action with the parsed `input`, through the framework's transaction `ex`.
+    /// Perform the action with the parsed `input`, through the framework's transaction `ex`,
+    /// and say what the response does once it commits: [`Outcome::done`](crate::Outcome::done)
+    /// for the [`success`](Self::success) notification, landing back on the list or page.
     fn run(
         cx: &Cx,
         input: Self::Input,
         ex: &mut dyn toasty::Executor,
-    ) -> impl Future<Output = Result<()>> + Send;
+    ) -> impl Future<Output = Result<crate::Outcome>> + Send;
 
     /// The success notification after a commit. Defaults to the label: `"Recount tags: done"`.
     fn success(cx: &Cx) -> String {
@@ -116,7 +118,7 @@ impl<M> Ability<'_, M> {
     /// # impl HeaderAction for RecountTags {
     /// #     type Input = ();
     /// #     const NAME: &'static str = "recount-tags";
-    /// #     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<()> { Ok(()) }
+    /// #     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome> { Ok(tablo_core::Outcome::done()) }
     /// # }
     /// # fn is_admin(_cx: &Cx) -> bool { true }
     /// fn post_policy(cx: &Cx, ability: Ability<'_, Post>) -> bool {
@@ -141,7 +143,7 @@ impl<M> Ability<'_, M> {
 /// # impl HeaderAction for ClearCache {
 /// #     type Input = ();
 /// #     const NAME: &'static str = "clear-cache";
-/// #     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<()> { Ok(()) }
+/// #     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome> { Ok(tablo_core::Outcome::done()) }
 /// # }
 /// let actions = HeaderActions::new().add::<ClearCache>();
 /// # let _ = actions;
@@ -181,8 +183,8 @@ impl HeaderActions {
     ///     type Input = ();
     ///     const NAME: &'static str = "clear cache";
     ///
-    ///     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<()> {
-    ///         Ok(())
+    ///     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome> {
+    ///         Ok(tablo_core::Outcome::done())
     ///     }
     /// }
     ///
@@ -232,8 +234,11 @@ pub(crate) struct HeaderEntry {
     pub(crate) label: fn(&Cx) -> String,
     pub(crate) can_run: fn(&Cx) -> bool,
     pub(crate) input: InputSpec,
-    pub(crate) run:
-        for<'a> fn(&'a Cx, ErasedInput, &'a mut dyn toasty::Executor) -> BoxFuture<'a, Result<()>>,
+    pub(crate) run: for<'a> fn(
+        &'a Cx,
+        ErasedInput,
+        &'a mut dyn toasty::Executor,
+    ) -> BoxFuture<'a, Result<crate::Outcome>>,
     pub(crate) success: fn(&Cx) -> String,
     pub(crate) confirm: bool,
 }
@@ -248,7 +253,7 @@ fn run_header_erased<'a, A: HeaderAction>(
     cx: &'a Cx,
     input: ErasedInput,
     ex: &'a mut dyn toasty::Executor,
-) -> BoxFuture<'a, Result<()>> {
+) -> BoxFuture<'a, Result<crate::Outcome>> {
     let input = *input
         .downcast::<A::Input>()
         .expect("the pipeline parses the input `run` takes");

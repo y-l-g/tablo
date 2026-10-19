@@ -102,6 +102,7 @@ mod lens;
 mod naming;
 pub mod navigation;
 pub mod notification;
+mod outcome;
 mod page;
 pub mod panel;
 pub mod policy;
@@ -138,6 +139,7 @@ pub use form::{NoForm, Posted, RecordForm};
 pub use lens::Lens;
 pub use navigation::{NavTarget, NavigationItem};
 pub use notification::{Notification, NotificationStatus};
+pub use outcome::Outcome;
 pub use page::{Page, PageDef};
 pub use panel::{
     Brand, Panel, PanelHandle, RouterBuilderPanelExt, WiredTable, can_list, can_open,
@@ -256,10 +258,10 @@ pub use tablo_macros::EmbeddedForm;
 ///         posts: &[Post],
 ///         rejection: Rejection,
 ///         ex: &mut dyn toasty::Executor,
-///     ) -> Result<()> {
+///     ) -> Result<tablo_core::Outcome> {
 ///         // Store `rejection.reason`, notify when `rejection.notify_author` holds…
 ///         # let _ = (posts, rejection.reason, rejection.notify_author, ex);
-///         Ok(())
+///         Ok(tablo_core::Outcome::done())
 ///     }
 /// }
 /// ```
