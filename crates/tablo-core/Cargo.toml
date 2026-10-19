@@ -33,7 +33,7 @@ getrandom = "0.4"
 heck = "0.5"
 hkdf = "0.12"
 # RFC 6238 one-time codes are HMAC-SHA1.
-hmac = "0.12"
+hmac = "0.13"
 http = "1"
 http-body-util = { version = "0.1", features = ["channel"] }
 jiff.workspace = true

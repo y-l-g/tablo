@@ -3489,7 +3489,7 @@ dependencies = [
  "getrandom 0.4.3",
  "heck",
  "hkdf",
- "hmac 0.12.1",
+ "hmac 0.13.0",
  "http",
  "http-body-util",
  "jiff",
@@ -3546,7 +3546,7 @@ version = "0.7.0"
 dependencies = [
  "data-encoding",
  "form_urlencoded",
- "hmac 0.12.1",
+ "hmac 0.13.0",
  "http",
  "http-body-util",
  "percent-encoding",
