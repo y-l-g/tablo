@@ -16,10 +16,11 @@ use super::{
         rerender_invalid_form, restore_pending_uploads,
     },
     decode::parse_form_body,
-    render::FormChrome,
+    render::{FormChrome, VERSION_FIELD, render_form_page},
     unique::check_unique,
 };
 use crate::{
+    ModelColumns as _,
     db::db,
     form::{FieldError, FieldErrors, FormValues, Posted, RecordForm},
     panel::state::uploader,
@@ -295,6 +296,13 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         let resource = gate::<R>(cx)?;
         let parts = parse_form_body(cx, body).await?;
         crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
+        // The version the form opened on: a form that posts none skips the comparison below,
+        // and the write's own condition still refuses a save overtaken mid-transaction.
+        let opened = parts
+            .last(VERSION_FIELD)
+            .map(str::parse::<u64>)
+            .transpose()
+            .map_err(|error| topcoat::router::error::bad_request(error.to_string()))?;
         // Advisory load feeds validation; the authoritative load runs inside the transaction.
         let mut db0 = db(cx);
         let advisory = load_editable(cx, &resource, &mut db0).await?;
@@ -324,12 +332,17 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         errors.extend(check_unique(cx, &resource, &schema, &values, &stored, &mut tx).await?);
         let form = parse_form(cx, &resource, &values, &mut errors)?;
         recheck_relationships(cx, &schema, &values, &stored, &mut errors, &mut tx).await;
-        let Some(form) = form.filter(|_| errors.is_empty()) else {
+        // Another save landed since the form opened: refuse this one rather than overwrite it.
+        let stale = record
+            .version()
+            .is_some_and(|now| opened.is_some_and(|opened| opened != now));
+        let Some(form) = form.filter(|_| errors.is_empty() && !stale) else {
+            let chrome = FormChrome::edit(cx, &resource, &record);
             return rerender_invalid_form(
                 cx,
                 &resource,
                 tx,
-                FormChrome::edit(cx, &resource, &record),
+                if stale { chrome.stale() } else { chrome },
                 &values,
                 &errors,
                 &carried,
@@ -338,6 +351,24 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         };
         let posted = Posted::new(form, named_fields(&resource, &named));
         let written = R::update_record(cx, record, posted, &mut tx).await;
+        if written.as_ref().is_err_and(overtaken) {
+            // Toasty's version condition refused the write: a save landed between the load
+            // above and the write. Re-render on the record as it now stands.
+            drop(tx);
+            let record = load_editable(cx, &resource, &mut crate::db::db(cx)).await?;
+            if !resource.can(cx, Ability::Update(&record)) {
+                return Err(forbidden().into());
+            }
+            return render_form_page(
+                cx,
+                &resource.form,
+                FormChrome::edit(cx, &resource, &record).stale(),
+                &values,
+                &FieldErrors::new(),
+                &carried,
+            )
+            .await;
+        }
         commit_write(
             cx,
             &resource,
@@ -349,6 +380,14 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         )
         .await
     })
+}
+
+/// Whether a write failed on Toasty's `#[version]` condition: another save changed the record
+/// between the load and the write.
+fn overtaken(error: &topcoat::Error) -> bool {
+    error
+        .downcast_ref::<toasty::Error>()
+        .is_some_and(toasty::Error::is_condition_failed)
 }
 
 #[cfg(test)]

@@ -22,6 +22,11 @@ use crate::{
     topcoat_compat::async_page,
 };
 
+/// The hidden control the edit form carries the record's [`ModelColumns::version`] in.
+///
+/// [`ModelColumns::version`]: crate::ModelColumns::version
+pub(super) const VERSION_FIELD: &str = "record_version";
+
 /// What a form page shows around its form: the create page and the edit page differ only here.
 pub(crate) struct FormChrome<'a> {
     title: String,
@@ -44,6 +49,8 @@ pub(crate) struct FormChrome<'a> {
     editing: bool,
     /// The record's relation tables, under the form.
     relations: Vec<BoxView<'a>>,
+    /// Whether the page refuses a save because another changed the record since the form opened.
+    stale: bool,
 }
 
 impl<'a> FormChrome<'a> {
@@ -59,12 +66,19 @@ impl<'a> FormChrome<'a> {
             options: None,
             editing: false,
             relations: Vec::new(),
+            stale: false,
         }
     }
 
     /// The edit page's: its header carries the record's actions placed on [`Places::EDIT`], each
-    /// landing back on the page, and its Delete.
+    /// landing back on the page, and its Delete, and its form the record's version.
     pub(super) fn edit<R: Resource>(cx: &Cx, resource: &Mounted<R>, record: &R::Model) -> Self {
+        use crate::ModelColumns as _;
+        let hidden = record
+            .version()
+            .map(|version| (VERSION_FIELD.to_string(), version.to_string()))
+            .into_iter()
+            .collect();
         Self {
             title: format!("Edit {}", resource.label),
             submit_label: "Save".to_string(),
@@ -79,11 +93,19 @@ impl<'a> FormChrome<'a> {
                 record_bar(cx, resource, record, Places::EDIT, here)
             },
             cancel: resource.url.clone(),
-            hidden: Vec::new(),
+            hidden,
             options: None,
             editing: true,
             relations: Vec::new(),
+            stale: false,
         }
+    }
+
+    /// Marks the page as refusing a save another save overtook: the form shows the alert, and
+    /// carries the version it was rendered from, so saving again overwrites.
+    pub(super) fn stale(mut self) -> Self {
+        self.stale = true;
+        self
     }
 
     /// Renders `relations` under the form.
@@ -106,6 +128,7 @@ impl<'a> FormChrome<'a> {
             options: None,
             editing: true,
             relations: Vec::new(),
+            stale: false,
         }
     }
 
@@ -137,6 +160,7 @@ impl<'a> FormChrome<'a> {
             options: Some(options),
             editing: false,
             relations: Vec::new(),
+            stale: false,
         }
     }
 }
@@ -162,6 +186,7 @@ pub(crate) async fn render_form_page<'a>(
         options,
         editing,
         relations,
+        stale,
     } = chrome;
     let mut source = crate::schema::Source::form(values, errors).editing(editing);
     if let Some(url) = options {
@@ -239,6 +264,19 @@ pub(crate) async fn render_form_page<'a>(
                     class="flex flex-col gap-4"
                 >
                     (crate::csrf::field(cx, &csrf))
+                    if stale {
+                        tablo_ui::alert(
+                            variant: tablo_ui::AlertVariant::Destructive,
+                            attrs: attributes! { role="alert" data-stale="" },
+                            tablo_ui::alert_title(
+                                "This record changed since you opened it"
+                            )
+                            tablo_ui::alert_description(
+                                "Saving again replaces those changes with yours. Reload the page \
+                                 to see them first."
+                            )
+                        )
+                    }
                     for carried in carried_fields {
                         (carried)
                     }

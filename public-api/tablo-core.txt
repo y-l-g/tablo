@@ -176,6 +176,7 @@ pub fn tablo_core::auth::AdminUser::fmt(&self, &mut core::fmt::Formatter<'_>) ->
 impl tablo_core::ModelColumns for tablo_core::auth::AdminUser
 pub fn tablo_core::auth::AdminUser::detail() -> tablo_core::detail::Detail<tablo_core::auth::AdminUser>
 pub fn tablo_core::auth::AdminUser::table() -> tablo_core::table::Table<tablo_core::auth::AdminUser>
+pub fn tablo_core::auth::AdminUser::version(&self) -> core::option::Option<u64>
 impl tablo_core::auth::PanelUser for tablo_core::auth::AdminUser
 pub fn tablo_core::auth::AdminUser::can_access_panel(&self) -> bool
 pub fn tablo_core::auth::AdminUser::default_tenant(&self) -> core::option::Option<uuid::Uuid>
@@ -3990,9 +3991,11 @@ impl<M> tablo_core::IntoFilters<M> for tablo_core::TernaryFilter<M> where M: toa
 pub trait tablo_core::table::ModelColumns: toasty::schema::model::Model + toasty::stmt::into_expr::IntoExpr<Self> + core::marker::Sized
 pub fn tablo_core::table::ModelColumns::detail() -> tablo_core::detail::Detail<Self>
 pub fn tablo_core::table::ModelColumns::table() -> tablo_core::table::Table<Self>
+pub fn tablo_core::table::ModelColumns::version(&self) -> core::option::Option<u64>
 impl tablo_core::ModelColumns for tablo_core::auth::AdminUser
 pub fn tablo_core::auth::AdminUser::detail() -> tablo_core::detail::Detail<tablo_core::auth::AdminUser>
 pub fn tablo_core::auth::AdminUser::table() -> tablo_core::table::Table<tablo_core::auth::AdminUser>
+pub fn tablo_core::auth::AdminUser::version(&self) -> core::option::Option<u64>
 pub trait tablo_core::table::Numeric
 pub fn tablo_core::table::Numeric::number(&self) -> core::option::Option<tablo_core::Number>
 impl tablo_core::Numeric for f32
@@ -7248,9 +7251,11 @@ pub fn (A, B)::into_schema(self) -> tablo_core::schema::Schema<Form>
 pub trait tablo_core::ModelColumns: toasty::schema::model::Model + toasty::stmt::into_expr::IntoExpr<Self> + core::marker::Sized
 pub fn tablo_core::ModelColumns::detail() -> tablo_core::detail::Detail<Self>
 pub fn tablo_core::ModelColumns::table() -> tablo_core::table::Table<Self>
+pub fn tablo_core::ModelColumns::version(&self) -> core::option::Option<u64>
 impl tablo_core::ModelColumns for tablo_core::auth::AdminUser
 pub fn tablo_core::auth::AdminUser::detail() -> tablo_core::detail::Detail<tablo_core::auth::AdminUser>
 pub fn tablo_core::auth::AdminUser::table() -> tablo_core::table::Table<tablo_core::auth::AdminUser>
+pub fn tablo_core::auth::AdminUser::version(&self) -> core::option::Option<u64>
 pub trait tablo_core::Numeric
 pub fn tablo_core::Numeric::number(&self) -> core::option::Option<tablo_core::Number>
 impl tablo_core::Numeric for f32

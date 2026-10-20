@@ -53,4 +53,5 @@ mod upload;
 mod upstream;
 mod variants;
 mod verification;
+mod version;
 mod write;

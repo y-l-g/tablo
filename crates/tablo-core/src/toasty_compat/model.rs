@@ -283,11 +283,12 @@ pub(crate) fn belongs_to<M: toasty::schema::Model>(index: usize) -> Option<Belon
     })
 }
 
-/// Which of `M`'s root fields the create builder fills before any setter runs: `#[auto]` fields,
-/// which the database fills, and `#[default(..)]` ones, by field index.
+/// Which of `M`'s root fields a create fills when no setter does, by field index: `#[auto]`
+/// fields, which the database fills, `#[default(..)]` ones, and the `#[version]` field, which
+/// Toasty's insert starts at 1.
 ///
 /// Read off `M::Create::default()`, because toasty keeps a `#[default]` in its generated code
-/// only, never in the app schema.
+/// only, never in the app schema, and the version off the schema, since the insert fills it.
 pub(crate) fn prefilled_fields<M: toasty::schema::Model>() -> Vec<bool> {
     let insert = <M::Create as Default>::default().into_insert();
     let toasty_core::stmt::Expr::Stmt(statement) = toasty_core::stmt::Expr::from(insert) else {
@@ -300,10 +301,9 @@ pub(crate) fn prefilled_fields<M: toasty::schema::Model>() -> Vec<bool> {
         .and_then(|values| values.rows.last())
         .and_then(|row| row.as_record())
         .map(|record| {
-            record
-                .fields
-                .iter()
-                .map(|expr| !expr.is_value_null())
+            let model = M::schema();
+            (record.fields.iter().zip(model.fields()))
+                .map(|(expr, field)| !expr.is_value_null() || field.is_versionable())
                 .collect()
         })
         .unwrap_or_default()

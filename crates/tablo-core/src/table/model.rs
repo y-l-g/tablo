@@ -27,6 +27,15 @@ pub trait ModelColumns: Model + IntoExpr<Self> + Sized {
     fn detail() -> Detail<Self> {
         Detail::empty()
     }
+
+    /// The record's `#[version]` counter, or `None` for a model without one.
+    ///
+    /// The edit form carries it, so a save refuses a record another save changed since the form
+    /// opened. The derive reads the model's `#[version]` field; an impl written by hand keeps
+    /// this default unless it returns the counter itself.
+    fn version(&self) -> Option<u64> {
+        None
+    }
 }
 
 /// How the [`ModelColumns`](derive@crate::ModelColumns) derive picks a field's column from its

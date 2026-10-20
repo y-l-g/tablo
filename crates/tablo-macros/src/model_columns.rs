@@ -38,6 +38,16 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
             }
         })
         .collect();
+    let version = version_field(&input)?.map(|field| {
+        let name = field.ident.as_ref().expect("named field");
+        quote! {
+            fn version(&self) -> ::core::option::Option<u64> {
+                ::core::option::Option::Some(
+                    #krate::__macro::Version::as_u64(self.#name),
+                )
+            }
+        }
+    });
     Ok(quote! {
         impl #krate::__macro::ModelColumns for #model {
             fn table() -> #krate::__macro::Table<#model> {
@@ -62,6 +72,8 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
                 #(let __detail = #fields.detail(__detail);)*
                 __detail
             }
+
+            #version
         }
     })
 }
@@ -109,6 +121,16 @@ fn shown_fields(input: &DeriveInput) -> syn::Result<Vec<&syn::Field>> {
         }
     }
     Ok(shown)
+}
+
+/// The model's `#[version]` field, which Toasty allows once per model.
+fn version_field(input: &DeriveInput) -> syn::Result<Option<&syn::Field>> {
+    let named = named_fields(
+        input,
+        "#[derive(ModelColumns)] derives on a `toasty::Model` struct",
+        None,
+    )?;
+    Ok(named.named.iter().find(|field| has(field, "version")))
 }
 
 /// The field's `#[columns(skip)]`, if it has one.
