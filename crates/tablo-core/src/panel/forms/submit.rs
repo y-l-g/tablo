@@ -10,14 +10,18 @@ use topcoat::{
 };
 
 use super::{
-    super::{actions::load_editable, gate::gate, write::commit_write},
+    super::{
+        actions::load_editable,
+        gate::gate,
+        write::{commit_write, failed_write},
+    },
     common::{
         FormParts, blank, drop_client_typed_uploads, file_flags, reject_unknown_form_keys,
         rerender_invalid_form, restore_pending_uploads,
     },
     decode::parse_form_body,
     render::{FormChrome, VERSION_FIELD, render_form_page},
-    unique::check_unique,
+    unique::{check_unique, taken_since},
 };
 use crate::{
     ModelColumns as _,
@@ -250,7 +254,8 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         // Opens the transaction after validation so loaders never block on the held connection.
         let mut db = db(cx);
         let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
-        // App-side unique check: Toasty exposes no unique-violation predicate (tablo#117).
+        // App-side unique check: Toasty exposes no unique-violation predicate (tablo#117). A
+        // write the index refuses all the same re-probes through `taken_since`.
         errors.extend(
             check_unique(cx, &resource, &schema, &values, &FormValues::new(), &mut tx).await?,
         );
@@ -276,12 +281,31 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             )
             .await;
         };
-        let written = R::create_record(cx, form, &mut tx).await;
+        let written = match R::create_record(cx, form, &mut tx).await {
+            Ok(written) => written,
+            Err(error) => {
+                drop(tx);
+                let taken =
+                    taken_since(cx, &resource, &schema, &values, &FormValues::new(), &error).await;
+                if taken.is_empty() {
+                    return Err(failed_write(cx, WRITE_CREATE, error));
+                }
+                return render_form_page(
+                    cx,
+                    &resource.form,
+                    FormChrome::create(&resource),
+                    &values,
+                    &taken,
+                    &carried,
+                )
+                .await;
+            }
+        };
         commit_write(
             cx,
             &resource,
             tx,
-            written.map(|value| (value, crate::Outcome::done())),
+            Ok((written, crate::Outcome::done())),
             Committed::created,
             "Created",
             WRITE_CREATE,
@@ -350,32 +374,46 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
             .await;
         };
         let posted = Posted::new(form, named_fields(&resource, &named));
-        // A model without a version has no condition of its own for a write to fail on.
-        let versioned = record.version().is_some();
-        let written = R::update_record(cx, record, posted, &mut tx).await;
-        if versioned && written.as_ref().is_err_and(overtaken) {
-            // Toasty's version condition refused the write: a save landed between the load
-            // above and the write. Re-render on the record as it now stands.
-            drop(tx);
-            let record = load_editable(cx, &resource, &mut crate::db::db(cx)).await?;
-            if !resource.can(cx, Ability::Update(&record)) {
-                return Err(forbidden().into());
+        // The version the write starts from: a model without one has no condition to fail on.
+        let version = record.version();
+        let written = match R::update_record(cx, record, posted, &mut tx).await {
+            Ok(written) => written,
+            Err(error) => {
+                drop(tx);
+                // A version condition means another save overtook this one; any other database
+                // error may be a unique index refusing a value another write took.
+                let was_overtaken = version.is_some() && overtaken(&error);
+                let taken = if was_overtaken {
+                    FieldErrors::new()
+                } else {
+                    taken_since(cx, &resource, &schema, &values, &stored, &error).await
+                };
+                if !was_overtaken && taken.is_empty() {
+                    return Err(failed_write(cx, WRITE_UPDATE, error));
+                }
+                // The edit page renders on the record as it now stands.
+                let record = load_editable(cx, &resource, &mut crate::db::db(cx)).await?;
+                if !resource.can(cx, Ability::Update(&record)) {
+                    return Err(forbidden().into());
+                }
+                let stale = was_overtaken || record.version() != version;
+                let chrome = FormChrome::edit(cx, &resource, &record);
+                return render_form_page(
+                    cx,
+                    &resource.form,
+                    if stale { chrome.stale() } else { chrome },
+                    &values,
+                    &taken,
+                    &carried,
+                )
+                .await;
             }
-            return render_form_page(
-                cx,
-                &resource.form,
-                FormChrome::edit(cx, &resource, &record).stale(),
-                &values,
-                &FieldErrors::new(),
-                &carried,
-            )
-            .await;
-        }
+        };
         commit_write(
             cx,
             &resource,
             tx,
-            written.map(|value| (value, crate::Outcome::done())),
+            Ok((written, crate::Outcome::done())),
             Committed::updated,
             "Updated",
             WRITE_UPDATE,
