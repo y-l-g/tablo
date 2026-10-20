@@ -609,12 +609,17 @@ async fn a_relationship_filter_admits_only_the_keys_its_source_shows() {
             let value = keys
                 .iter()
                 .fold(FilterValue::new(), |value, key| value.with(*key));
-            filter.admits(&cx, &value).await
+            filter.admits(&cx, &value).await.unwrap()
         };
         let nobody = uuid::Uuid::new_v4().to_string();
         assert!(admits(&[&shown]).await, "{extra} more writers");
         assert!(!admits(&[&hidden]).await, "{extra} more writers");
         assert!(!admits(&[&nobody]).await, "{extra} more writers");
         assert!(!admits(&[&shown, &hidden]).await, "{extra} more writers");
+        // A key matches as the option value spells it, under the cap and past it.
+        assert!(
+            !admits(&[&shown.to_uppercase()]).await,
+            "{extra} more writers"
+        );
     }
 }

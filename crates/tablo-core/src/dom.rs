@@ -15,6 +15,18 @@ pub mod error {
     pub const UNAVAILABLE: &str = "unavailable";
 }
 
+/// Why a table ignores a requested filter, as its entry in the ignored-filters banner names it in
+/// `data-ignored`.
+pub mod ignored {
+    /// The table declares no filter of that name.
+    pub const UNKNOWN: &str = "unknown";
+    /// The filter selects nothing by the value, or refuses it, as it refuses a key naming a
+    /// record the user may not see.
+    pub const INVALID: &str = "invalid";
+    /// The request carried more filters, values or bytes than the URL codec reads.
+    pub const DROPPED: &str = "dropped";
+}
+
 /// A table's zero-rows message: what emptied the table, as the message's `data-empty` names it,
 /// and the links it offers, as each link's `data-empty-link` names it.
 pub mod empty {

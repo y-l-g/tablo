@@ -248,9 +248,11 @@ a date input would drop. A relationship filter loads its options as a [relations
 choice](./forms.md#relationships) does: the source's tenant-scoped rows the user may view, each
 labelled by the source's label, at most `MAX_RELATIONSHIP_OPTIONS` of them. Past that cap, or
 when the source refuses the load, it lists only the chosen keys. It applies only the keys of rows
-the user may view: within the cap, the keys its options list; past it, each key checked against
-the source's tenant-scoped query and its `View` policy. Another key is ignored as one no row holds:
-the list warns, and the export answers 400. A query filter's
+the user may view: within the cap, the keys its options list; past it, the keys one query through
+the source's tenant-scoped query returns and its `View` policy allows. Another key is ignored as
+one no row holds: the list warns, and the export answers 400. `SelectFilter::new` or `of` over a
+foreign key checks no source, so it does not hide that a key links to a row the user cannot view:
+filter a foreign key through `relationship`. A query filter's
 `option_keyed(key, label, predicate)` keeps its URL value when the label changes.
 
 A filter is anything that implements `Filter<M>`, from `tablo::extend`: a name, a label, the

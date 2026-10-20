@@ -63,10 +63,15 @@ pub trait Filter<M>: Send + Sync {
 
     /// Whether the request may filter by `value`, asked before the table builds its predicate. A
     /// filter whose value names another resource's records admits only the ones the user may
-    /// see; a refused value reads as invalid, as one that names no record does.
+    /// see; a refused value reads as invalid, as one that names no record does. An error is the
+    /// database failing the check.
     #[doc(hidden)]
-    fn admits<'s>(&'s self, _cx: &'s Cx, _value: &'s FilterValue) -> BoxFuture<'s, bool> {
-        Box::pin(async { true })
+    fn admits<'s>(
+        &'s self,
+        _cx: &'s Cx,
+        _value: &'s FilterValue,
+    ) -> BoxFuture<'s, topcoat::Result<bool>> {
+        Box::pin(async { Ok(true) })
     }
 
     /// What is wrong with this filter's declaration.

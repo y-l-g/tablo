@@ -111,7 +111,7 @@ where
         query: Query<List<M>>,
         state: &TableState,
     ) -> Result<Self> {
-        let refused = table.refused_filters(cx, state).await;
+        let refused = table.refused_filters(cx, state).await?;
         match table.pagination_mode() {
             Pagination::Pages => Self::load_numbered(cx, table, query, state, &refused, true).await,
             Pagination::Simple => {

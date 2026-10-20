@@ -1,4 +1,4 @@
-//! A relationship choice's loaders: the bounded option load, the search, and the check past
+//! A relationship choice's loaders: the bounded option load, the search, and the checks past
 //! the cap.
 
 use toasty::stmt::Expr;
@@ -7,16 +7,26 @@ use topcoat::{Result, context::Cx};
 use super::super::super::relationship::{
     OptionLoadError, OptionSource, RelatedCheck, RelationshipChecker, RelationshipLoader,
     RelationshipSearchLoader, related_record_check, related_records, related_records_search,
+    viewable_keys,
 };
 use crate::BoxFuture;
 
-/// A relationship's three loaders: the bounded option load, the server-side
-/// search, and the targeted existence check past the cap.
+/// Reads which of a filter's keys name a row the user may view, past the cap.
+type ViewableKeys =
+    for<'a> fn(
+        &'a Cx,
+        &'a [String],
+    ) -> BoxFuture<'a, Result<std::collections::HashSet<String>, OptionLoadError>>;
+
+/// A relationship's loaders: the bounded option load, the server-side search, the targeted
+/// existence check past the cap, and the keys a filter may name past it.
 #[derive(Clone)]
 pub(crate) struct Relationship {
     pub(super) load: RelationshipLoader,
     pub(super) search: RelationshipSearchLoader,
     pub(super) check: RelationshipChecker,
+    /// Which of a relationship filter's keys the user may name, past the cap.
+    pub(super) viewable: ViewableKeys,
     /// The source's type, named in declaration errors.
     pub(super) source: &'static str,
     /// The source's model, which a dependent choice's column must belong to.
@@ -67,6 +77,14 @@ impl Relationship {
             load,
             search,
             check,
+            viewable: |cx, keys| {
+                Box::pin(async move {
+                    viewable_keys::<R>(cx, crate::tenancy::tenant_id(cx), keys)
+                        .await
+                        .cloned()
+                        .map_err(Clone::clone)
+                })
+            },
             source: std::any::type_name::<R>(),
             model: std::any::TypeId::of::<R::Model>(),
             model_id: <R::Model as toasty::schema::Model>::id(),
@@ -85,24 +103,22 @@ impl Relationship {
 
     /// Whether the user may name every one of `keys`: each is among the rows the bounded option
     /// load lists, or, past its cap, a row the source's tenant-scoped query holds and lets them
-    /// view. A refused load admits none.
-    pub(crate) async fn admits(&self, cx: &Cx, keys: &[String]) -> bool {
-        match (self.load)(cx).await {
-            Ok(options) => keys
-                .iter()
-                .all(|key| options.iter().any(|(value, _)| value == key)),
-            Err(OptionLoadError::Overflow) => {
-                let mut db = crate::db::db(cx);
-                for key in keys {
-                    let check = (self.check)(cx, key.clone(), None, &mut db).await;
-                    if !matches!(check, Ok(RelatedCheck::FoundViewable)) {
-                        return false;
-                    }
-                }
-                true
-            }
-            Err(_) => false,
-        }
+    /// view, which one query reads. A key matches as the option value spells it. A source the
+    /// request may not load from admits none.
+    ///
+    /// # Errors
+    ///
+    /// The database failing the load or the check.
+    pub(crate) async fn admits(&self, cx: &Cx, keys: &[String]) -> Result<bool> {
+        let shown: std::collections::HashSet<String> = match (self.load)(cx).await {
+            Ok(options) => options.into_iter().map(|(value, _)| value).collect(),
+            Err(OptionLoadError::Overflow) => match (self.viewable)(cx, keys).await {
+                Ok(keys) => keys,
+                Err(error) => return refusal(error),
+            },
+            Err(error) => return refusal(error),
+        };
+        Ok(keys.iter().all(|key| shown.contains(key)))
     }
 
     /// Whether the source's primary key is composite, which no option value can spell.
@@ -113,6 +129,16 @@ impl Relationship {
     /// The source's type, when the request's panel cannot load from it.
     pub(crate) fn unavailable_source(&self, cx: &Cx) -> Option<&'static str> {
         (!(self.available)(cx)).then_some(self.source)
+    }
+}
+
+/// A refused load admits nothing; a failed one fails the request.
+fn refusal(error: OptionLoadError) -> Result<bool> {
+    match error {
+        OptionLoadError::LoadFailed => Err(crate::error::unavailable(
+            "relationship filter check failed",
+        )),
+        _ => Ok(false),
     }
 }
 

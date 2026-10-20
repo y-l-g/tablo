@@ -1,11 +1,12 @@
 //! What a relationship choice offers on its form and through its options endpoint: only the rows
 //! the related resource lets the reader view, nothing at all when it refuses the list, the stored
-//! row past the option cap, and a server search for a searchable choice.
+//! row past the option cap, and a server search for a searchable choice. A relationship filter
+//! over the same source applies only the rows the reader may view.
 
 use tablo::{
-    Ability, Allow, NoForm, Resource, ResourceDef, Schema, Table, TextColumn, lens,
+    Ability, Allow, NoForm, Resource, ResourceDef, Schema, SelectFilter, Table, TextColumn, lens,
     schema::MAX_RELATIONSHIP_OPTIONS,
-    testing::{ErrorKind, field_error},
+    testing::{ErrorKind, IgnoredFilter, IgnoredReason, field_error, ignored_filters},
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
@@ -97,10 +98,13 @@ impl Resource for BookResource {
     type Form = BookForm;
 
     fn declare() -> ResourceDef<Self> {
-        ResourceDef::new()
-            .slug("books")
-            .policy(Allow)
-            .table(Table::new(TextColumn::new(lens!(Book.title))))
+        ResourceDef::new().slug("books").policy(Allow).table(
+            Table::new(TextColumn::new(lens!(Book.title))).filters(SelectFilter::relationship::<
+                AuthorResource,
+            >(lens!(
+                Book.author_id
+            ))),
+        )
     }
 }
 
@@ -409,4 +413,41 @@ async fn an_option_load_loads_no_relation() {
     assert_eq!(response.status(), http::StatusCode::OK);
     let html = body_string(response).await;
     assert!(html.contains("Only Volume"), "{html}");
+}
+
+/// The author filter applies an author the reader may view, and ignores one `View` refuses as it
+/// ignores a key no author holds, under the option cap and past it.
+#[tokio::test]
+async fn a_relationship_filter_ignores_an_author_the_reader_may_not_view() {
+    for extra in [0, MAX_RELATIONSHIP_OPTIONS] {
+        let names: Vec<String> = ["Ada", "Hidden"]
+            .into_iter()
+            .map(String::from)
+            .chain((0..extra).map(|i| format!("author-{i}")))
+            .collect();
+        let (router, _, authors) = library(&names).await;
+        let ignored = async |key: &str| {
+            let url = format!("/admin/books?f.author_id={key}");
+            ignored_filters(&body_string(get(&router, &url).await).await)
+        };
+        let invalid = |key: &str| {
+            vec![IgnoredFilter {
+                filter: format!("f.author_id={key}"),
+                reason: IgnoredReason::Invalid,
+            }]
+        };
+        let (ada, hidden) = (authors[0].id.to_string(), authors[1].id.to_string());
+        let nobody = Uuid::new_v4().to_string();
+        assert_eq!(ignored(&ada).await, [], "{extra} more authors");
+        assert_eq!(
+            ignored(&hidden).await,
+            invalid(&hidden),
+            "{extra} more authors"
+        );
+        assert_eq!(
+            ignored(&nobody).await,
+            invalid(&nobody),
+            "{extra} more authors"
+        );
+    }
 }

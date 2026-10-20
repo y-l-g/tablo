@@ -13,7 +13,7 @@ use toasty::stmt::{Expr, List};
 pub(crate) use self::choice::ColumnChoice;
 use self::filter::BoxFilter;
 pub(crate) use crate::column::{BoxColumn, Column, include_relations};
-use crate::{DeclarationErrorKind, Lens, schema::Binding, values::FormScalar};
+use crate::{DeclarationErrorKind, Lens, dom::ignored, schema::Binding, values::FormScalar};
 
 mod choice;
 mod export;
@@ -216,20 +216,24 @@ impl<M> Table<M> {
     /// The names of the requested filters whose value [`Filter::admits`] refuses: values naming
     /// records the user may not see, which [`Self::filter_expr`] and
     /// [`Self::unapplied_filters`] treat as invalid.
+    ///
+    /// # Errors
+    ///
+    /// The database failing a filter's check.
     pub(crate) async fn refused_filters(
         &self,
         cx: &topcoat::context::Cx,
         state: &TableState,
-    ) -> Vec<String> {
+    ) -> topcoat::Result<Vec<String>> {
         let mut refused = Vec::new();
         for f in &self.filters {
             if let Some(value) = state.filters.get(f.name())
-                && !f.admits(cx, value).await
+                && !f.admits(cx, value).await?
             {
                 refused.push(f.name().to_string());
             }
         }
-        refused
+        Ok(refused)
     }
 
     /// Filter predicate for the current `TableState`, without the `refused` filters.
@@ -258,39 +262,31 @@ impl<M> Table<M> {
     /// Requested filters that produce no predicate, each spelled as its own parameters
     /// (`f.status=draft&f.status=review`), beside one entry for dropped parameters. A `refused`
     /// filter reads as an invalid value, as one naming no record does, so the answer does not
-    /// tell a hidden record from a missing one.
+    /// tell a hidden record from a missing one. Each names why as a [`crate::dom::ignored`] kind,
+    /// which [`ignored_reason`] words.
     pub(crate) fn unapplied_filters(
         &self,
         state: &TableState,
         refused: &[String],
-    ) -> Vec<(String, String)>
+    ) -> Vec<(String, &'static str)>
     where
         M: toasty::schema::Model,
     {
         let mut out = Vec::new();
         for (key, value) in &state.filters {
             match self.filters.iter().find(|f| f.name() == key) {
-                None => out.push((state.spell_filter(key, value), "unknown filter".to_string())),
+                None => out.push((state.spell_filter(key, value), ignored::UNKNOWN)),
                 Some(f)
                     if refused.iter().any(|name| name == key)
                         || (f.to_expr(value).is_none() && !f.is_noop_value(value)) =>
                 {
-                    out.push((state.spell_filter(key, value), "invalid value".to_string()))
+                    out.push((state.spell_filter(key, value), ignored::INVALID))
                 }
                 Some(_) => {}
             }
         }
         if state.filters_dropped {
-            out.push((
-                "dropped filters".to_string(),
-                format!(
-                    "more than {} filters, more than {} values of one, over {} bytes, or the \
-                     retired filters= form",
-                    state::MAX_FILTERS,
-                    state::MAX_FILTER_VALUES,
-                    state::MAX_FILTER_LEN
-                ),
-            ));
+            out.push(("dropped filters".to_string(), ignored::DROPPED));
         }
         out.sort();
         out
@@ -543,6 +539,22 @@ impl<M> Table<M> {
     /// Whether the declaration enables a filter bar.
     pub(crate) fn filter_bar_enabled(&self) -> bool {
         !self.hide_filter_bar && !self.filters.is_empty()
+    }
+}
+
+/// The wording of a [`crate::dom::ignored`] kind, which the list's banner and the export's
+/// refusal show.
+pub(crate) fn ignored_reason(kind: &str) -> String {
+    match kind {
+        ignored::UNKNOWN => "unknown filter".to_string(),
+        ignored::DROPPED => format!(
+            "more than {} filters, more than {} values of one, over {} bytes, or the retired \
+             filters= form",
+            state::MAX_FILTERS,
+            state::MAX_FILTER_VALUES,
+            state::MAX_FILTER_LEN
+        ),
+        _ => "invalid value".to_string(),
     }
 }
 

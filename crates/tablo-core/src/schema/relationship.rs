@@ -286,5 +286,44 @@ where
     }
 }
 
+/// The keys among `keys` naming a row `R`'s tenant-scoped query holds and its policy lets the
+/// user view, read in one query: what a relationship filter admits past the cap. Memoized per
+/// request, so the list and its filter bar ask once.
+#[topcoat::context::memoize(as_ref)]
+pub(crate) async fn viewable_keys<R>(
+    cx: &Cx,
+    _tenant: Option<uuid::Uuid>,
+    keys: &[String],
+) -> Result<std::collections::HashSet<String>, OptionLoadError>
+where
+    R: OptionSource,
+{
+    ensure_option_access::<R>(cx)?;
+    let Some(any) = keys
+        .iter()
+        .filter_map(|key| crate::toasty_compat::pk::pk_eq_expr::<R::Model>(key))
+        .reduce(|any, one| any.or(one))
+    else {
+        return Ok(std::collections::HashSet::new());
+    };
+    let rows = option_query::<R>(cx)?
+        .filter(any)
+        .exec(&mut crate::db::db(cx))
+        .await
+        .map_err(|e| {
+            tracing::warn!(
+                resource = std::any::type_name::<R>(),
+                error = %e,
+                "relationship filter check failed"
+            );
+            OptionLoadError::LoadFailed
+        })?;
+    Ok(rows
+        .iter()
+        .filter(|record| R::allows(cx, Ability::View(record)))
+        .map(crate::toasty_compat::pk::pk_text)
+        .collect())
+}
+
 #[cfg(test)]
 mod tests;

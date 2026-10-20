@@ -4,7 +4,7 @@ use showcase::models::{
 };
 use tablo::{
     TenantId,
-    testing::{find_href_with, nav_badge},
+    testing::{IgnoredFilter, IgnoredReason, find_href_with, ignored_filters, nav_badge, row_keys},
 };
 use topcoat::router::Body;
 
@@ -535,34 +535,28 @@ async fn the_author_filter_refuses_another_tenants_author() {
     let id_of = |name: &str| authors.iter().find(|a| a.name == name).unwrap().id;
     let (own, other, nobody) = (id_of("Alice T1"), id_of("Bob T2"), uuid::Uuid::new_v4());
 
-    let html = body_string(
-        client
-            .tenant(t1)
-            .get(&format!("/admin/posts?f.author_id={own}"))
-            .await,
-    )
-    .await;
-    assert!(
-        html.contains("T1 Post") && !html.contains("role=\"alert\""),
-        "the tenant's own author applies: {html}"
-    );
-    let banner = async |id: uuid::Uuid| {
-        let html = body_string(
-            client
-                .tenant(t1)
-                .get(&format!("/admin/posts?f.author_id={id}"))
-                .await,
-        )
-        .await;
-        let start = html.find("role=\"alert\"").expect("the filter warns");
-        let end = start + html[start..].find("<a").unwrap();
-        html[start..end].replace(&id.to_string(), "KEY")
+    let ignored = async |id: uuid::Uuid| {
+        let url = format!("/admin/posts?f.author_id={id}");
+        let html = body_string(client.tenant(t1).get(&url).await).await;
+        (ignored_filters(&html), row_keys(&html).len())
+    };
+    let invalid = |id: uuid::Uuid| {
+        vec![IgnoredFilter {
+            filter: format!("f.author_id={id}"),
+            reason: IgnoredReason::Invalid,
+        }]
     };
     assert_eq!(
-        banner(other).await,
-        banner(nobody).await,
-        "another tenant's author reads as a key no author holds"
+        ignored(own).await,
+        (vec![], 1),
+        "the tenant's own author applies"
     );
+    assert_eq!(
+        ignored(other).await,
+        (invalid(other), 1),
+        "another tenant's author is ignored, and the list is unfiltered"
+    );
+    assert_eq!(ignored(nobody).await, (invalid(nobody), 1));
     for id in [other, nobody] {
         let resp = client
             .tenant(t1)

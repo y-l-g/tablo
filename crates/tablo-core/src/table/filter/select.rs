@@ -53,7 +53,9 @@ where
     M: toasty::schema::Model + Send + Sync + 'static,
 {
     /// Filter the field `lens` binds to one of `options`, each value in the field type's form
-    /// spelling.
+    /// spelling. Over a foreign key with no options, it applies any key the field parses, which
+    /// shows whether a row the user cannot view holds that key:
+    /// [`relationship`](Self::relationship) checks the key against its source.
     pub fn new<T>(lens: impl Into<Path<M, T>>, options: impl IntoOptions) -> Self
     where
         T: FormScalar + IntoExpr<T> + Send + Sync + 'static,
@@ -99,8 +101,8 @@ where
     /// [`MAX_RELATIONSHIP_OPTIONS`](crate::schema::MAX_RELATIONSHIP_OPTIONS) rows, those the
     /// user may view in the request's tenant; past the cap, or when the source refuses the
     /// load, it lists the chosen keys alone. The filter applies only the keys of rows the user may
-    /// view, checked past the cap against the source's tenant-scoped query and `View` policy;
-    /// the table ignores another key as it ignores one no row holds.
+    /// view, checked past the cap in one query through the source's tenant-scoped query and its
+    /// `View` policy; the table ignores another key as it ignores one no row holds.
     ///
     /// ```rust
     /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
@@ -219,11 +221,15 @@ where
 
     /// A relationship filter admits only the keys of records its source shows the user, as its
     /// control lists them.
-    fn admits<'s>(&'s self, cx: &'s Cx, value: &'s FilterValue) -> crate::BoxFuture<'s, bool> {
+    fn admits<'s>(
+        &'s self,
+        cx: &'s Cx,
+        value: &'s FilterValue,
+    ) -> crate::BoxFuture<'s, topcoat::Result<bool>> {
         Box::pin(async move {
             match &self.related {
                 Some(related) => related.admits(cx, value.values()).await,
-                None => true,
+                None => Ok(true),
             }
         })
     }

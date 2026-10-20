@@ -70,14 +70,14 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
         let state = TableState::from_cx(cx);
         let table = resource.table.clone();
         // Fails closed on unapplied filters, a refused one included.
-        let refused = table.refused_filters(cx, &state).await;
+        let refused = table.refused_filters(cx, &state).await?;
         let unapplied = table.unapplied_filters(&state, &refused);
         if !unapplied.is_empty() {
             return Err(topcoat::router::error::bad_request(format!(
                 "invalid filters: {}",
                 unapplied
                     .iter()
-                    .map(|(pair, reason)| format!("{pair} ({reason})"))
+                    .map(|(pair, kind)| format!("{pair} ({})", crate::table::ignored_reason(kind)))
                     .collect::<Vec<_>>()
                     .join(", ")
             ))

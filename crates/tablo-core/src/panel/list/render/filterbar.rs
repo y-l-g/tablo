@@ -6,21 +6,26 @@ use super::{
     super::{TableSignals, WiredTable},
     BAR_CLASS, Frame, QUIET_LINK_CLASS, live_link,
 };
-use crate::table::{TableState, filter::FilterInput};
+use crate::table::{TableState, filter::FilterInput, ignored_reason};
 
 /// What a render shows of the table's filters.
 pub(super) struct FilterViews<'a> {
     /// One control per filter, empty when the filter bar is hidden.
     pub(super) controls: Vec<BoxView<'a>>,
-    /// Requested filters that produce no predicate, each with the reason.
-    unapplied: Vec<(String, String)>,
+    /// Requested filters that produce no predicate, each with why, as `dom::ignored` names it.
+    unapplied: Vec<(String, &'static str)>,
     /// Whether no requested filter produces a predicate.
     unfiltered: bool,
 }
 
 impl<M> WiredTable<M> {
-    /// The filter controls and ignored filters a render of `state` shows.
-    pub(super) async fn filter_views<'a>(&self, cx: &'a Cx, state: &TableState) -> FilterViews<'a>
+    /// The filter controls and ignored filters a render of `state` shows, or the database failing
+    /// a filter's check.
+    pub(super) async fn filter_views<'a>(
+        &self,
+        cx: &'a Cx,
+        state: &TableState,
+    ) -> topcoat::Result<FilterViews<'a>>
     where
         M: toasty::schema::Model,
     {
@@ -33,14 +38,14 @@ impl<M> WiredTable<M> {
                 controls.push(f.load_control(cx, input).await);
             }
         }
-        let refused = self.refused_filters(cx, state).await;
+        let refused = self.refused_filters(cx, state).await?;
         let unapplied = self.unapplied_filters(state, &refused);
         let unfiltered = !unapplied.is_empty() && self.filter_expr(state, &refused).is_none();
-        FilterViews {
+        Ok(FilterViews {
             controls,
             unapplied,
             unfiltered,
-        }
+        })
     }
 }
 
@@ -58,17 +63,21 @@ impl Frame<'_> {
         if unapplied.is_empty() {
             return None;
         }
-        let detail = unapplied
+        let entries: Vec<_> = unapplied
             .iter()
-            .map(|(pair, reason)| format!("{pair} ({reason})"))
-            .collect::<Vec<_>>()
-            .join(", ");
+            .enumerate()
+            .map(|(i, (pair, kind))| {
+                let separator = if i == 0 { "" } else { ", " };
+                let text = format!("{pair} ({})", ignored_reason(kind));
+                (separator, pair.clone(), *kind, text)
+            })
+            .collect();
         let consequence = if filters.unfiltered {
             "showing unfiltered results"
         } else {
             "other filter(s) still apply"
         };
-        let text = format!("Ignored filter(s): {detail} — {consequence}.");
+        let consequence = format!(" — {consequence}.");
         let clear = live_link(cx, state.without_filters(path), signals);
         Some(
             view! {
@@ -77,7 +86,14 @@ impl Frame<'_> {
                     class="border-b border-border bg-destructive/10 px-4 py-2 text-sm text-destructive"
                     role="alert"
                 >
-                    (text)
+                    "Ignored filter(s): "
+                    for (separator, pair, kind, text) in entries {
+                        (separator)
+                        <span data-ignored=(kind) data-ignored-filter=(pair)>
+                            (text)
+                        </span>
+                    }
+                    (consequence)
                     " "
                     <a class="font-medium underline underline-offset-4" (clear)>
                         "Clear filters"
