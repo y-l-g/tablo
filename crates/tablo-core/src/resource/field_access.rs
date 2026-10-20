@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use topcoat::context::Cx;
 
-use super::{Mounted, Resource, is_restricted_model};
+use super::{Mounted, Resource, is_resource_name, is_restricted_model};
 use crate::{
     DeclarationError, DeclarationErrorKind, FieldAccessFault, Site, form::FormField,
     schema::FormMask, toasty_compat::model,
@@ -276,7 +276,8 @@ pub(crate) fn check<R: Resource>(declared: &Mounted<R>, errors: &mut Vec<Declara
 }
 
 /// What shows the records of a model a mounted resource restricts a field of under no resource's
-/// field access: a column whose includes load one and that masks none of what it shows.
+/// field access: a column whose includes load one and that neither shows no field nor scopes
+/// through a resource the panel mounts.
 pub(crate) fn check_related<R: Resource>(
     cx: &Cx,
     declared: &Mounted<R>,
@@ -295,7 +296,14 @@ pub(crate) fn check_related<R: Resource>(
                 .map(|column| (Site::Detail, column)),
         );
     for (site, column) in columns {
-        if column.masks_related() {
+        // A count shows no field of the related records. A scoped column shows under the
+        // resource it names only when that source is one of the panel's resources: a label
+        // source that is not one is not mounted anywhere and answers no field access.
+        let fieldless = column.masks_related() && column.source_name().is_none();
+        let mounted = column
+            .source_name()
+            .is_some_and(|name| is_resource_name(cx, name));
+        if fieldless || mounted {
             continue;
         }
         let includes = column.includes().into_vec();

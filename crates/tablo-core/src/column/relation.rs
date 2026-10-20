@@ -572,6 +572,10 @@ macro_rules! relation_column {
                 self.relation.masks_related
             }
 
+            fn source_name(&self) -> Option<&'static str> {
+                self.relation.source.as_ref().map(|(name, _)| *name)
+            }
+
             fn misdeclared(&self) -> Option<DeclarationErrorKind> {
                 self.relation.misdeclared.clone()
             }

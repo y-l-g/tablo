@@ -267,6 +267,15 @@ pub trait Column<M>: Send + Sync {
         false
     }
 
+    /// The `type_name` of the [`OptionSource`](crate::extend::OptionSource) the column scopes
+    /// its related records through. A source that is a resource the panel mounts masks the
+    /// column through its field access; the mount refuses one that is not over a model a
+    /// mounted resource restricts a field of.
+    #[doc(hidden)]
+    fn source_name(&self) -> Option<&'static str> {
+        None
+    }
+
     /// What is wrong with this column's declaration.
     #[doc(hidden)]
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {

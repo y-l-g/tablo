@@ -13,6 +13,21 @@ use uuid::Uuid;
 
 use crate::common::{TestClient, body_bytes, body_string, mount, panel, refusal, test_db};
 
+/// A label source that is not a resource: no panel mounts it, and it answers no field access.
+struct BareSource;
+
+impl tablo::extend::OptionSource for BareSource {
+    type Model = Member;
+
+    fn scoped_query(_cx: &Cx) -> topcoat::Result<toasty::stmt::Query<toasty::stmt::List<Member>>> {
+        Ok(toasty::stmt::Query::all())
+    }
+
+    fn label(_cx: &Cx, member: &Member) -> String {
+        member.name.clone()
+    }
+}
+
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Member {
     #[key]
@@ -172,7 +187,7 @@ async fn a_related_hidden_field_leaves_another_resources_pages() {
 
 /// A column showing a member under no resource's field access, an unscoped relation column or a
 /// computed column including the relation, is refused while a resource restricts a member's
-/// field.
+/// field, and so is one scoped to a label source that is not a resource.
 #[tokio::test]
 async fn an_unmasked_projection_of_a_restricted_record_is_refused() {
     struct Unmasked;
@@ -190,6 +205,12 @@ async fn an_unmasked_projection_of_a_restricted_record_is_refused() {
                         .label("Raw"),
                     ComputedColumn::new("Computed", |c: &Card| c.member.get().salary.clone())
                         .include_unscoped(Card::fields().member()),
+                    RelationColumn::new::<BareSource>(
+                        relation!(Card.member),
+                        lens!(Member.salary),
+                        |m: &Member| m.salary.clone(),
+                    )
+                    .label("By source"),
                 )))
                 .detail(Detail::empty())
         }
@@ -206,7 +227,7 @@ async fn an_unmasked_projection_of_a_restricted_record_is_refused() {
             _ => None,
         })
         .collect();
-    for column in ["raw", "computed"] {
+    for column in ["raw", "computed", "by source"] {
         let fault = FieldAccessFault::UnmaskedRelation {
             column: column.to_string(),
             model: "Member".to_string(),

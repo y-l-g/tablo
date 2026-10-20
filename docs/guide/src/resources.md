@@ -181,11 +181,12 @@ RelationColumn::new::<EmployeeResource>(relation!(Badge.owner), lens!(Employee.s
 
 `RelationColumn::of::<R>` and `list::<R>` show the record's title, which the startup checks keep
 clear of a hidden field, and `CountColumn` shows no field. A column showing the record under no
-resource, `RelationColumn::unscoped` or a `ComputedColumn` including the relation, is refused
-while a mounted resource restricts a field of its model. The rules are the resource's, not the
-model's: a column naming another resource over the same model shows what that one shows. A
-`QueryFilter`'s query through a relation runs under no resource's rules, so it may match on a
-field the related resource hides.
+resource, `RelationColumn::unscoped`, one whose source is not a resource, or a `ComputedColumn`
+including the relation, is refused while a mounted resource restricts a field of its model. The
+rules are the resource's, not the model's: a column naming another resource over the same model
+shows what that one shows. A `QueryFilter`'s query through a relation runs under no resource's
+rules, so it may match on a field the related resource hides, and a column closure reading a
+relation the resource's own query loads outside a column's declaration is the app's own too.
 
 ## Writes
 

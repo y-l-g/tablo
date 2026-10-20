@@ -257,6 +257,8 @@ pub(crate) struct Mounts {
     resources: HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
     tenant_models: std::collections::HashSet<crate::toasty_compat::model::ModelId>,
     restricted_models: std::collections::HashSet<crate::toasty_compat::model::ModelId>,
+    /// The resources' `type_name`s: a relation column names its label source the same way.
+    resource_names: std::collections::HashSet<&'static str>,
 }
 
 impl Mounts {
@@ -275,6 +277,7 @@ impl Mounts {
             self.restricted_models
                 .insert(<R::Model as toasty::schema::Model>::id());
         }
+        self.resource_names.insert(std::any::type_name::<R>());
         self.resources.insert(TypeId::of::<R>(), mounted);
     }
 
@@ -286,6 +289,11 @@ impl Mounts {
     /// Whether a mounted resource restricts who views a field of `model`.
     pub(crate) fn is_restricted_model(&self, model: crate::toasty_compat::model::ModelId) -> bool {
         self.restricted_models.contains(&model)
+    }
+
+    /// Whether one of the panel's resources `type_name`s to `name`.
+    pub(crate) fn is_resource_name(&self, name: &str) -> bool {
+        self.resource_names.contains(name)
     }
 
     pub(crate) fn get<R: Resource>(&self) -> Option<Arc<Mounted<R>>> {
@@ -321,6 +329,13 @@ pub(crate) fn is_restricted_model(cx: &Cx, model: crate::toasty_compat::model::M
     try_app_context::<MountScope>(cx)
         .and_then(|MountScope(mounts)| mounts(cx))
         .is_some_and(|mounts| mounts.is_restricted_model(model))
+}
+
+/// Whether the context's panel mounts a resource whose `type_name` is `name`.
+pub(crate) fn is_resource_name(cx: &Cx, name: &str) -> bool {
+    try_app_context::<MountScope>(cx)
+        .and_then(|MountScope(mounts)| mounts(cx))
+        .is_some_and(|mounts| mounts.is_resource_name(name))
 }
 
 /// `R` as the request's panel mounted it.

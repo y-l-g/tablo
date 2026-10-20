@@ -17,10 +17,12 @@ The mask is the resource's, not the model's, and it follows the record onto anot
 pages through the resource a relation column names. `RelationColumn::new::<R>` names the fields of
 the record its closure reads, so a request `R`'s mask hides one drops the column as its own table
 would; `of` and `list` show the title, kept clear of a hidden field, and a count shows none. A
-column showing the record under no resource, `RelationColumn::unscoped` or a `ComputedColumn` or
-custom column including the relation, is refused while a mounted resource restricts a field of the
-model: the panel cannot see which fields its closure reads, and no resource's mask applies. A
-`QueryFilter`'s query through a relation stays the app's own. A `has_many` or a `has_one` is
+column showing the record under no resource, `RelationColumn::unscoped`, one whose label source
+is not a resource, or a `ComputedColumn` or custom column including the relation, is refused while
+a mounted resource restricts a field of the model: the panel cannot see which fields its closure
+reads, and no resource's mask applies. A `QueryFilter`'s query through a relation stays the app's
+own, and so does a column closure reading an include the resource's own query loads beyond what a
+column declares. A `has_many` or a `has_one` is
 refused: its records are the related resource's, which its policy restricts, and the relation
 table and its links read none of the owner's mask. So is the soft-delete column, whose state the
 trash control shows.

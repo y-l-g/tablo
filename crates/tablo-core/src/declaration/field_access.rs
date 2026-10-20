@@ -31,8 +31,8 @@ pub enum FieldAccessFault {
         name: String,
     },
     /// A column shows records of a model a mounted resource restricts a field of under no
-    /// resource's field access: an unscoped relation column, a computed column's include, or a
-    /// custom column's.
+    /// resource's field access: an unscoped relation column, one whose label source is not a
+    /// resource, or a computed or custom column's include.
     UnmaskedRelation {
         /// The column's name.
         column: String,
@@ -74,7 +74,10 @@ impl fmt::Display for FieldAccessFault {
             ),
             Self::UnmaskedRelation { column, model } => write!(
                 f,
-                "column `{column}` shows `{model}` records under no resource's field access, and                  a mounted resource restricts a field of `{model}`: show them with                  `RelationColumn::new::<R>` naming the fields it reads, or by their title with                  `RelationColumn::of::<R>`"
+                "column `{column}` shows `{model}` records under no resource's field access, and \
+                 a mounted resource restricts a field of `{model}`: show them with \
+                 `RelationColumn::new::<R>` naming the fields it reads, or by their title with \
+                 `RelationColumn::of::<R>`"
             ),
         }
     }

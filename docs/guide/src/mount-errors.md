@@ -246,7 +246,7 @@ An action's `NAME` that is not one URL segment does not compile, so it never rea
 | `RecordTitle` | the field has a `view` rule, and the record title reads it: every page and relationship choice names a record by its title | title the record by a field every user may view |
 | `Watched` | the field has a `view` rule, and a form condition or a dependent choice outside it watches it, so what the form shows tells what it holds | watch a field every user may view |
 | `UndeclaredReads` | a resource restricts a field, and one of its table columns, filters or detail columns does not declare the fields it reads | `.reading(Reads::of(..))` on a `ComputedColumn`, a `QueryFilter` or a described `TextColumn`, or implement `reads` on a custom column or filter |
-| `UnmaskedRelation` | a column shows records of a model a mounted resource restricts a field of under no resource's rules: a `RelationColumn::unscoped`, or a `ComputedColumn` or custom column including the relation | `RelationColumn::new::<R>` naming the fields it reads, or `RelationColumn::of::<R>` |
+| `UnmaskedRelation` | a column shows records of a model a mounted resource restricts a field of under no resource's rules: a `RelationColumn::unscoped`, one by a label source that is not a `Resource`, or a `ComputedColumn` or custom column including the relation | `RelationColumn::new::<R>` naming the fields it reads, or `RelationColumn::of::<R>` |
 
 A `field_access` lens that is not one field of the model is refused with a
 [lens kind](#lenses-and-bindings).

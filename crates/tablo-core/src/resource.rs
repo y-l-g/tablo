@@ -32,7 +32,8 @@ pub(crate) use field_access::{FieldMask, FieldRule};
 pub(crate) use header_action::HeaderEntry;
 pub use header_action::{HeaderAction, HeaderActions};
 pub(crate) use mounted::{
-    MountScope, Mounted, Mounts, is_restricted_model, is_tenant_model, mounted, require_mounted,
+    MountScope, Mounted, Mounts, is_resource_name, is_restricted_model, is_tenant_model, mounted,
+    require_mounted,
 };
 pub use relation::{ForeignKey, Relation};
 pub(crate) use relation::{Links, RelationKind};
