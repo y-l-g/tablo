@@ -6,16 +6,15 @@ use toasty::stmt::Expr;
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{
-    super::relationship::{
-        MAX_RELATIONSHIP_OPTIONS, OptionLoadError, OptionSource, RelatedCheck, RelationshipChecker,
-        RelationshipLoader, RelationshipSearchLoader, related_record_check, related_records,
-        related_records_search,
-    },
+    super::relationship::{MAX_RELATIONSHIP_OPTIONS, OptionLoadError, RelatedCheck},
     Field, Placement, render_field,
 };
-use crate::{BoxFuture, values::FormValue};
+use crate::values::FormValue;
 
 mod multiple;
+mod relationship;
+
+pub(crate) use relationship::Relationship;
 
 /// What a choice field declares beyond presence.
 #[derive(Clone, Default)]
@@ -57,28 +56,6 @@ enum Scope {
     Nothing,
 }
 
-/// A relationship's three loaders: the bounded option load, the server-side
-/// search, and the targeted existence check past the cap.
-#[derive(Clone)]
-pub(crate) struct Relationship {
-    load: RelationshipLoader,
-    search: RelationshipSearchLoader,
-    check: RelationshipChecker,
-    /// The source's type, named in declaration errors.
-    source: &'static str,
-    /// The source's model, which a dependent choice's column must belong to.
-    model: std::any::TypeId,
-    /// The source's model in the app schema, which a many-to-many field's target must be.
-    model_id: crate::toasty_compat::model::ModelId,
-    /// Whether the request's panel can load from the source.
-    available: fn(&Cx) -> bool,
-    /// The source model when its rows are tenant-owned, so a key the write
-    /// re-checks cannot name another tenant's row.
-    tenant_scoped_model: fn(&Cx) -> Option<crate::toasty_compat::model::ModelId>,
-    /// Whether the source's primary key is composite, which no option value can spell.
-    composite: bool,
-}
-
 /// One `<option>` with its value and label.
 pub(crate) fn option_view<'a>(
     cx: &'a Cx,
@@ -87,80 +64,6 @@ pub(crate) fn option_view<'a>(
     selected: bool,
 ) -> BoxView<'a> {
     view! { cx => <option value=(value) selected=(selected)>(label)</option> }.boxed()
-}
-
-impl Relationship {
-    /// The loaders for source `R`, projecting each row to its primary key and `label`.
-    pub(crate) fn new<R>(label: impl Fn(&Cx, &R::Model) -> String + Send + Sync + 'static) -> Self
-    where
-        R: OptionSource + 'static,
-    {
-        let project = std::sync::Arc::new(move |cx: &Cx, record: &R::Model| {
-            (crate::toasty_compat::pk::pk_text(record), label(cx, record))
-        });
-        let search_project = project.clone();
-        let load = std::sync::Arc::new(move |cx: &Cx| {
-            let project = project.clone();
-            let cx = cx.clone();
-            Box::pin(async move {
-                let records = related_records::<R>(&cx, crate::tenancy::tenant_id(&cx))
-                    .await
-                    .map_err(|error| error.clone())?;
-                Ok(records.iter().map(|record| project(&cx, record)).collect())
-            }) as BoxFuture<'static, _>
-        }) as RelationshipLoader;
-        let search = std::sync::Arc::new(move |cx: &Cx, q: String, scope: Option<Expr<bool>>| {
-            let project = search_project.clone();
-            let cx = cx.clone();
-            Box::pin(async move {
-                let records = related_records_search::<R>(&cx, q, scope)
-                    .await
-                    .map_err(|error| error.clone())?;
-                Ok(records.iter().map(|record| project(&cx, record)).collect())
-            }) as BoxFuture<'static, _>
-        }) as RelationshipSearchLoader;
-        let check = std::sync::Arc::new(check_record::<R>) as RelationshipChecker;
-        Self {
-            load,
-            search,
-            check,
-            source: std::any::type_name::<R>(),
-            model: std::any::TypeId::of::<R::Model>(),
-            model_id: <R::Model as toasty::schema::Model>::id(),
-            available: R::available,
-            tenant_scoped_model: |cx| {
-                R::requires_tenant(cx).then(<R::Model as toasty::schema::Model>::id)
-            },
-            composite: crate::toasty_compat::pk::pk_is_composite::<R::Model>(),
-        }
-    }
-
-    /// The bounded option load, shared by the choice and the relationship filter.
-    pub(crate) fn load(&self) -> RelationshipLoader {
-        self.load.clone()
-    }
-
-    /// Whether the source's primary key is composite, which no option value can spell.
-    pub(crate) fn has_composite_source(&self) -> bool {
-        self.composite
-    }
-
-    /// The source's type, when the request's panel cannot load from it.
-    pub(crate) fn unavailable_source(&self, cx: &Cx) -> Option<&'static str> {
-        (!(self.available)(cx)).then_some(self.source)
-    }
-}
-
-fn check_record<'a, R>(
-    cx: &'a Cx,
-    value: String,
-    scope: Option<Expr<bool>>,
-    ex: &'a mut dyn toasty::Executor,
-) -> BoxFuture<'a, Result<RelatedCheck, OptionLoadError>>
-where
-    R: OptionSource,
-{
-    Box::pin(related_record_check::<R>(cx, value, scope, ex))
 }
 
 impl ChoiceControl {

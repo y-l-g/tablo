@@ -5,7 +5,7 @@ use showcase::models::{
 };
 use tablo::{
     TenantId,
-    testing::{find_href_with, nav_badge},
+    testing::{IgnoredFilter, IgnoredReason, find_href_with, ignored_filters, nav_badge, row_keys},
 };
 use topcoat::router::Body;
 
@@ -523,6 +523,48 @@ async fn duplicate_email_within_one_tenant_is_reported_inline() {
         before,
         "a refused duplicate must not be written"
     );
+}
+
+/// The author filter refuses another tenant's author as it refuses a key no author holds: the
+/// list warns the same way for both, and the export answers 400.
+#[tokio::test]
+async fn the_author_filter_refuses_another_tenants_author() {
+    let (db, t1, _) = tenanted_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let authors = Author::all().exec(&mut db.clone()).await.unwrap();
+    let id_of = |name: &str| authors.iter().find(|a| a.name == name).unwrap().id;
+    let (own, other, nobody) = (id_of("Alice T1"), id_of("Bob T2"), uuid::Uuid::new_v4());
+
+    let ignored = async |id: uuid::Uuid| {
+        let url = format!("/admin/posts?f.author_id={id}");
+        let html = body_string(client.tenant(t1).get(&url).await).await;
+        (ignored_filters(&html), row_keys(&html).len())
+    };
+    let invalid = |id: uuid::Uuid| {
+        vec![IgnoredFilter {
+            filter: format!("f.author_id={id}"),
+            reason: IgnoredReason::Invalid,
+        }]
+    };
+    assert_eq!(
+        ignored(own).await,
+        (vec![], 1),
+        "the tenant's own author applies"
+    );
+    assert_eq!(
+        ignored(other).await,
+        (invalid(other), 1),
+        "another tenant's author is ignored, and the list is unfiltered"
+    );
+    assert_eq!(ignored(nobody).await, (invalid(nobody), 1));
+    for id in [other, nobody] {
+        let resp = client
+            .tenant(t1)
+            .get(&format!("/admin/posts/-/export?f.author_id={id}"))
+            .await;
+        assert_eq!(resp.status(), 400, "{id}");
+    }
 }
 
 /// A T1 post pointing at T2's author shows no author on T1's list, detail page or export: the

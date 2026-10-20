@@ -39,6 +39,26 @@ impl core::marker::Unpin for tablo_test::ErrorKind
 impl core::marker::UnsafeUnpin for tablo_test::ErrorKind
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::ErrorKind
 impl core::panic::unwind_safe::UnwindSafe for tablo_test::ErrorKind
+#[non_exhaustive] pub enum tablo_test::IgnoredReason
+pub tablo_test::IgnoredReason::Dropped
+pub tablo_test::IgnoredReason::Invalid
+pub tablo_test::IgnoredReason::Unknown
+impl core::clone::Clone for tablo_test::IgnoredReason
+pub fn tablo_test::IgnoredReason::clone(&self) -> tablo_test::IgnoredReason
+impl core::cmp::Eq for tablo_test::IgnoredReason
+impl core::cmp::PartialEq for tablo_test::IgnoredReason
+pub fn tablo_test::IgnoredReason::eq(&self, &tablo_test::IgnoredReason) -> bool
+impl core::fmt::Debug for tablo_test::IgnoredReason
+pub fn tablo_test::IgnoredReason::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_test::IgnoredReason
+impl core::marker::StructuralPartialEq for tablo_test::IgnoredReason
+impl core::marker::Freeze for tablo_test::IgnoredReason
+impl core::marker::Send for tablo_test::IgnoredReason
+impl core::marker::Sync for tablo_test::IgnoredReason
+impl core::marker::Unpin for tablo_test::IgnoredReason
+impl core::marker::UnsafeUnpin for tablo_test::IgnoredReason
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::IgnoredReason
+impl core::panic::unwind_safe::UnwindSafe for tablo_test::IgnoredReason
 pub struct tablo_test::Bell
 pub tablo_test::Bell::notifications: alloc::vec::Vec<tablo_test::BellNotification>
 pub tablo_test::Bell::unread: u64
@@ -134,6 +154,24 @@ impl core::marker::Unpin for tablo_test::Group
 impl core::marker::UnsafeUnpin for tablo_test::Group
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::Group
 impl core::panic::unwind_safe::UnwindSafe for tablo_test::Group
+pub struct tablo_test::IgnoredFilter
+pub tablo_test::IgnoredFilter::filter: alloc::string::String
+pub tablo_test::IgnoredFilter::reason: tablo_test::IgnoredReason
+impl core::clone::Clone for tablo_test::IgnoredFilter
+pub fn tablo_test::IgnoredFilter::clone(&self) -> tablo_test::IgnoredFilter
+impl core::cmp::Eq for tablo_test::IgnoredFilter
+impl core::cmp::PartialEq for tablo_test::IgnoredFilter
+pub fn tablo_test::IgnoredFilter::eq(&self, &tablo_test::IgnoredFilter) -> bool
+impl core::fmt::Debug for tablo_test::IgnoredFilter
+pub fn tablo_test::IgnoredFilter::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_test::IgnoredFilter
+impl core::marker::Freeze for tablo_test::IgnoredFilter
+impl core::marker::Send for tablo_test::IgnoredFilter
+impl core::marker::Sync for tablo_test::IgnoredFilter
+impl core::marker::Unpin for tablo_test::IgnoredFilter
+impl core::marker::UnsafeUnpin for tablo_test::IgnoredFilter
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::IgnoredFilter
+impl core::panic::unwind_safe::UnwindSafe for tablo_test::IgnoredFilter
 pub struct tablo_test::PickerColumn
 pub tablo_test::PickerColumn::name: alloc::string::String
 pub tablo_test::PickerColumn::shown: bool
@@ -232,6 +270,7 @@ pub fn tablo_test::filter_options(&str, &str) -> core::option::Option<alloc::vec
 pub fn tablo_test::find_href_with(&str, &str) -> core::option::Option<alloc::string::String>
 pub fn tablo_test::form_body(&[(&str, &str)]) -> alloc::string::String
 pub fn tablo_test::groups(&str) -> alloc::vec::Vec<tablo_test::Group>
+pub fn tablo_test::ignored_filters(&str) -> alloc::vec::Vec<tablo_test::IgnoredFilter>
 pub fn tablo_test::input_value(&str, &str) -> core::option::Option<alloc::string::String>
 pub fn tablo_test::mount(toasty::db::Db, tablo_core::panel::Panel) -> topcoat::Result<topcoat_router::router::Router>
 pub fn tablo_test::multipart_body(&str, &[(&str, core::option::Option<&str>, &str)]) -> alloc::string::String

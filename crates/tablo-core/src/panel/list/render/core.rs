@@ -69,7 +69,7 @@ impl<M> WiredTable<M> {
             prev_cursor: page.prev_cursor,
             position: page.position,
             sort: self.sort_for(state),
-            filters: self.filter_views(cx, state).await,
+            filters: self.filter_views(cx, state).await?,
         };
         frame.render_page(cx, loaded, state, path, signals).await
     }
