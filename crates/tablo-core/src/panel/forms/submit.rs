@@ -284,7 +284,8 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             Ok(written) => written,
             Err(error) => {
                 drop(tx);
-                let taken = taken_since(cx, &resource, &schema, &values, &FormValues::new()).await;
+                let taken =
+                    taken_since(cx, &resource, &schema, &values, &FormValues::new(), &error).await;
                 if taken.is_empty() {
                     return Err(failed_write(cx, WRITE_CREATE, error));
                 }
@@ -364,7 +365,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
             Ok(written) => written,
             Err(error) => {
                 drop(tx);
-                let taken = taken_since(cx, &resource, &schema, &values, &stored).await;
+                let taken = taken_since(cx, &resource, &schema, &values, &stored, &error).await;
                 if taken.is_empty() {
                     return Err(failed_write(cx, WRITE_UPDATE, error));
                 }

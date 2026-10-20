@@ -263,3 +263,131 @@ async fn a_value_taken_after_the_probe_renders_inline() {
         1
     );
 }
+
+/// An edit whose value another write took after the probe passed it re-renders the edit form
+/// with the field's error, and keeps the record's stored value.
+#[tokio::test]
+async fn an_edit_to_a_value_taken_after_the_probe_renders_inline() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    use toasty::stmt::{List, Query};
+    use topcoat::context::Cx;
+
+    const RIVAL: &str = "rival@example.com";
+    static WRITING: AtomicBool = AtomicBool::new(false);
+
+    struct RacedResource;
+
+    impl Resource for RacedResource {
+        type Model = Subscriber;
+        type Form = SubscriberForm;
+
+        fn declare() -> ResourceDef<Self> {
+            subscribers().policy_fn(|_cx, _ability| true)
+        }
+
+        fn query(_cx: &Cx) -> Query<List<Subscriber>> {
+            let all = Query::<List<Subscriber>>::all();
+            if WRITING.load(Ordering::SeqCst) {
+                all
+            } else {
+                all.filter(Subscriber::fields().email().ne(RIVAL))
+            }
+        }
+
+        async fn update_record(
+            cx: &Cx,
+            record: Subscriber,
+            posted: tablo::Posted<SubscriberForm>,
+            ex: &mut dyn toasty::Executor,
+        ) -> topcoat::Result<Subscriber> {
+            WRITING.store(true, Ordering::SeqCst);
+            tablo::write_update::<Self>(cx, record, posted, ex).await
+        }
+    }
+
+    let mut db = test_db(toasty::models!(Subscriber)).await;
+    for email in [RIVAL, "mine@example.com"] {
+        toasty::create!(Subscriber {
+            email: email.to_string(),
+        })
+        .exec(&mut db)
+        .await
+        .unwrap();
+    }
+    let mine = Subscriber::filter_by_email("mine@example.com")
+        .get(&mut db)
+        .await
+        .unwrap();
+    let router = panel_router::<RacedResource>(db.clone());
+    let response = TestClient::new(&router)
+        .submit(
+            &format!("/admin/subscribers/{}/edit", mine.id),
+            &format!("email={RIVAL}"),
+        )
+        .await;
+    assert_eq!(response.status(), 200);
+    let html = body_string(response).await;
+    assert_eq!(
+        field_error(&html, "email"),
+        Some(ErrorKind::Invalid),
+        "{html}"
+    );
+    let stored = Subscriber::get_by_id(&mut db, mine.id).await.unwrap();
+    assert_eq!(stored.email, "mine@example.com");
+}
+
+/// An error the app's own `create_record` returns is no unique violation, even with the value
+/// taken by then: it answers as the app chose.
+#[tokio::test]
+async fn an_app_error_is_not_read_as_a_taken_value() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    use toasty::stmt::{List, Query};
+    use topcoat::context::Cx;
+
+    const RIVAL: &str = "rival@example.com";
+    static WRITING: AtomicBool = AtomicBool::new(false);
+
+    struct Refusing;
+
+    impl Resource for Refusing {
+        type Model = Subscriber;
+        type Form = SubscriberForm;
+
+        fn declare() -> ResourceDef<Self> {
+            subscribers()
+        }
+
+        fn query(_cx: &Cx) -> Query<List<Subscriber>> {
+            let all = Query::<List<Subscriber>>::all();
+            if WRITING.load(Ordering::SeqCst) {
+                all
+            } else {
+                all.filter(Subscriber::fields().email().ne(RIVAL))
+            }
+        }
+
+        async fn create_record(
+            _cx: &Cx,
+            _form: SubscriberForm,
+            _ex: &mut dyn toasty::Executor,
+        ) -> topcoat::Result<Subscriber> {
+            WRITING.store(true, Ordering::SeqCst);
+            Err(topcoat::router::error::forbidden().into())
+        }
+    }
+
+    let mut db = test_db(toasty::models!(Subscriber)).await;
+    toasty::create!(Subscriber {
+        email: RIVAL.to_string(),
+    })
+    .exec(&mut db)
+    .await
+    .unwrap();
+    let router = panel_router::<Refusing>(db.clone());
+    let response = TestClient::new(&router)
+        .submit("/admin/subscribers/-/create", &format!("email={RIVAL}"))
+        .await;
+    assert_eq!(response.status(), 403);
+}
