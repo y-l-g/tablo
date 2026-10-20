@@ -239,7 +239,6 @@ impl<M> WiredTable<M> {
         self
     }
 
-    /// The table's signals and the list state they hold. Creates the signals, so it carries
     /// Keeps the delete and the custom actions that take some of the records `shown` admits, so
     /// the bulk bar of a list showing only trashed records offers what a trashed record takes.
     pub(crate) fn taking(mut self, shown: Trashed) -> Self {
@@ -258,6 +257,7 @@ impl<M> WiredTable<M> {
         self
     }
 
+    /// The table's signals and the list state they hold. Creates the signals, so it carries
     /// [`topcoat::runtime::signal`]'s contract: call it while a page body runs.
     pub(crate) fn browser_state(&self, cx: &Cx) -> (TableSignals, TableState) {
         let prefix = self.wiring.prefix.as_deref();

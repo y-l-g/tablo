@@ -181,3 +181,37 @@ async fn can_list_checks_the_policy_and_the_tenant() {
         "`can` asks the policy alone"
     );
 }
+
+struct KeptNotes;
+impl Resource for KeptNotes {
+    type Model = Note;
+    type Form = crate::NoForm<Note>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .policy(|_cx: &Cx, ability: Ability<'_, Note>| {
+                !matches!(ability, Ability::DeleteAny | Ability::Delete(_))
+            })
+            .tenancy(crate::Tenancy::none())
+            .table(note_table())
+    }
+}
+
+/// A policy refusing a delete refuses the force delete its catch-all arm would allow.
+#[tokio::test]
+async fn a_force_delete_needs_the_delete() {
+    let db = tableless_db(toasty::models!(Note)).await;
+    let cx = crate::Panel::new("admin")
+        .resource::<KeptNotes>()
+        .handle(&db)
+        .expect("panel builds")
+        .context();
+    let note = Note {
+        id: uuid::Uuid::new_v4(),
+        tenant_id: TenantId::from(uuid::Uuid::new_v4()),
+        title: "kept".into(),
+    };
+    assert!(!can::<KeptNotes>(&cx, Ability::ForceDeleteAny));
+    assert!(!can::<KeptNotes>(&cx, Ability::ForceDelete(&note)));
+    assert!(can::<KeptNotes>(&cx, Ability::Restore(&note)));
+}

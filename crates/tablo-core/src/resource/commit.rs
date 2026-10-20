@@ -56,7 +56,8 @@ impl<M> Committed<M> {
         }
     }
 
-    /// The rows a restore brought back, as they stand after it.
+    /// The rows a restore brought back, as they were before it: their deleted-at column still
+    /// holds the time they were trashed.
     pub fn restored(records: Vec<M>) -> Self {
         Self {
             mutation: Mutation::Restore,

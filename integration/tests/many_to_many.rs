@@ -23,6 +23,7 @@ struct Shelf {
     placements: Deferred<Vec<Placement>>,
     #[has_many(via = placements.book)]
     books: Deferred<Vec<Book>>,
+    deleted_at: Option<jiff::Timestamp>,
 }
 
 #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
@@ -31,6 +32,7 @@ struct Book {
     #[auto]
     id: Uuid,
     title: String,
+    deleted_at: Option<jiff::Timestamp>,
 }
 
 /// The join model: an optional note is a column a link leaves empty.
@@ -67,6 +69,7 @@ impl Resource for ShelfResource {
                 Ability::Create => false,
                 _ => true,
             })
+            .soft_delete(lens!(Shelf.deleted_at))
             .table(Table::new(TextColumn::new(lens!(Shelf.name))))
             .detail(tablo::Detail::new(TextColumn::new(lens!(Shelf.name))))
             .relation(Relation::belongs_to_many::<BookResource>(
@@ -111,6 +114,7 @@ impl Resource for BookResource {
                 Ability::Create => false,
                 _ => true,
             })
+            .soft_delete(lens!(Book.deleted_at))
             .table(Table::new(TextColumn::new(lens!(Book.title)).searchable()))
     }
 }
@@ -267,6 +271,53 @@ async fn a_book_the_user_may_not_view_is_not_detached() {
     .await;
     assert_eq!(resp.status(), 403);
     assert_eq!(held(&db, &open).await, before);
+}
+
+/// A trashed book stays linked, and the table that lists it with the trash control unlinks it.
+#[tokio::test]
+async fn a_trashed_book_is_detached() {
+    let Library {
+        router,
+        db,
+        open,
+        seen,
+        hidden,
+        ..
+    } = library().await;
+    let resp = post_fields(
+        &router,
+        &format!("/admin/books/{}/delete", seen.id),
+        &[("confirm", "1")],
+    )
+    .await;
+    assert_eq!(resp.status(), 303);
+    let resp = post_fields(
+        &router,
+        &format!("{}/{}/-/actions/detach", relation(&open), seen.id),
+        &[],
+    )
+    .await;
+    assert_eq!(resp.status(), 303);
+    assert_eq!(held(&db, &open).await, [hidden.id]);
+}
+
+/// A trashed shelf's page offers no attach, detach or new book: every write loads the live
+/// shelves, so each would answer 404.
+#[tokio::test]
+async fn a_trashed_shelf_offers_no_writes() {
+    let Library { router, open, .. } = library().await;
+    let resp = post_fields(
+        &router,
+        &format!("/admin/shelves/{}/delete", open.id),
+        &[("confirm", "1")],
+    )
+    .await;
+    assert_eq!(resp.status(), 303);
+    let html = body_string(get(&router, &format!("/admin/shelves/{}", open.id)).await).await;
+    assert!(
+        !html.contains("/-/relations/books/"),
+        "the table offers neither attach nor detach: {html}"
+    );
 }
 
 #[tokio::test]

@@ -49,9 +49,11 @@ pub enum Ability<'a, M> {
     /// Restore one trashed record.
     Restore(&'a M),
     /// Delete trashed records for good at all, on a resource that
-    /// [soft-deletes](crate::ResourceDef::soft_delete).
+    /// [soft-deletes](crate::ResourceDef::soft_delete). Allowed only with
+    /// [`DeleteAny`](Self::DeleteAny).
     ForceDeleteAny,
-    /// Delete one trashed record for good.
+    /// Delete one trashed record for good. Allowed only with [`Delete`](Self::Delete) of it, so a
+    /// policy refusing a record's delete refuses its force delete too.
     ForceDelete(&'a M),
     /// Run the custom [`Action`](crate::Action) whose [`NAME`](crate::Action::NAME) is `action`
     /// at all, before [`Run`](Self::Run) is asked of each record.

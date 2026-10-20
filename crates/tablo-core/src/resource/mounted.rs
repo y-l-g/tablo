@@ -190,9 +190,15 @@ impl<R: Resource> Mounted<R> {
         self.public_link.as_ref().and_then(|link| link(cx, record))
     }
 
-    /// Whether the policy allows `ability`.
+    /// Whether the policy allows `ability`. A force delete is a delete too, so the policy must
+    /// also allow the delete: a policy that keeps a record from the trash keeps it whole.
     pub(crate) fn can(&self, cx: &Cx, ability: Ability<'_, R::Model>) -> bool {
-        self.policy.allows(cx, ability)
+        let implied = match ability {
+            Ability::ForceDeleteAny => self.policy.allows(cx, Ability::DeleteAny),
+            Ability::ForceDelete(record) => self.policy.allows(cx, Ability::Delete(record)),
+            _ => true,
+        };
+        implied && self.policy.allows(cx, ability)
     }
 }
 
