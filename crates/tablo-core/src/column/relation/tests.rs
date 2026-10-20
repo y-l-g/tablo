@@ -45,21 +45,18 @@ fn borrower_name() -> RelationColumn<Book> {
     RelationColumn::unscoped(relation!(Book.borrower), |r: &Reader| r.name.clone())
 }
 
-/// `detail`'s records as a page loads them: its includes, then each column's restriction.
-async fn load<M>(detail: &Detail<M>, db: &mut Db) -> Vec<M>
+/// `detail`'s records as a page loads them in the request `cx`: its includes, then each column's
+/// restriction.
+async fn load<M>(cx: &Cx, detail: &Detail<M>, db: &mut Db) -> Vec<M>
 where
     M: toasty::schema::Model + Send + Sync + 'static,
 {
-    let cx = crate::test_support::cx();
-    let mut records = detail
+    let records = detail
         .include_relations(toasty::stmt::Query::all())
         .exec(&mut *db)
         .await
         .unwrap();
-    detail
-        .restrict_relations(&cx, &mut records, db)
-        .await
-        .unwrap();
+    detail.restrict_relations(cx, &records, db).await.unwrap();
     records
 }
 
@@ -146,7 +143,7 @@ async fn a_relation_column_of_a_source_shows_its_label() {
     let mut db = library().await;
     let column = RelationColumn::of::<Shelves>(relation!(Book.shelf));
     assert_eq!(Column::<Book>::name(&column), "shelf");
-    let books = load(&Detail::new(column.clone()), &mut db).await;
+    let books = load(&cx, &Detail::new(column.clone()), &mut db).await;
     assert_eq!(column.text(&cx, &books[0]), "Shelf Sci-fi");
 }
 
@@ -176,7 +173,7 @@ async fn the_page_loads_the_relations_its_relation_columns_read() {
     let cx = crate::test_support::cx();
     let mut db = library().await;
 
-    let books = load(&Detail::new((shelf_name(), borrower_name())), &mut db).await;
+    let books = load(&cx, &Detail::new((shelf_name(), borrower_name())), &mut db).await;
     let mut rows: Vec<_> = books
         .iter()
         .map(|b| {
@@ -198,7 +195,7 @@ async fn the_page_loads_the_relations_its_relation_columns_read() {
     );
 
     let count = CountColumn::unscoped(relation!(Shelf.books));
-    let shelves = load(&Detail::new(count.clone()), &mut db).await;
+    let shelves = load(&cx, &Detail::new(count.clone()), &mut db).await;
     assert_eq!(
         count.text(&cx, &shelves[0]),
         "3",
@@ -215,25 +212,25 @@ async fn a_scoped_column_shows_only_what_its_source_shows() {
 
     let titles = RelationColumn::list::<Titles>(relation!(Shelf.books));
     let count = CountColumn::of::<Titles>(relation!(Shelf.books));
-    let shelves = load(&Detail::new((titles.clone(), count.clone())), &mut db).await;
+    let shelves = load(&cx, &Detail::new((titles.clone(), count.clone())), &mut db).await;
     assert_eq!(titles.text(&cx, &shelves[0]), "Dune");
     assert_eq!(count.text(&cx, &shelves[0]), "1");
 
-    // A required relation whose record is hidden reads as empty.
+    // A hidden record renders empty, a required one or a nullable one, while the row keeps what
+    // its include loaded, so a policy reading the relation sees it whole.
     let shelf = RelationColumn::of::<NoShelves>(relation!(Book.shelf));
-    let books = load(&Detail::new(shelf.clone()), &mut db).await;
-    assert!(books.iter().all(|b| b.shelf.is_unloaded()));
+    let books = load(&cx, &Detail::new(shelf.clone()), &mut db).await;
     assert!(books.iter().all(|b| shelf.text(&cx, b).is_empty()));
-
-    // A nullable relation whose record is hidden holds none.
+    assert!(books.iter().all(|b| b.shelf.get().name == "Sci-fi"));
     let borrower = RelationColumn::of::<NoReaders>(relation!(Book.borrower));
-    let books = load(&Detail::new(borrower.clone()), &mut db).await;
-    assert!(
-        books
-            .iter()
-            .all(|b| matches!(b.borrower.loaded(), Some(None)))
-    );
+    let books = load(&cx, &Detail::new(borrower.clone()), &mut db).await;
     assert!(books.iter().all(|b| borrower.text(&cx, b).is_empty()));
+    assert!(books.iter().any(|b| b.borrower.get().is_some()));
+
+    // A record another request checked, or none checked, shows nothing either.
+    let elsewhere = crate::test_support::cx();
+    assert_eq!(titles.text(&elsewhere, &shelves[0]), "");
+    assert_eq!(count.text(&elsewhere, &shelves[0]), "0");
 }
 
 /// Books, labelled by their title: the query leaves "Solaris" out, and "Ubik" cannot be viewed.

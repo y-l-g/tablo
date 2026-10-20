@@ -3292,7 +3292,7 @@ pub struct tablo_core::table::ComputedColumn<M>
 impl<M> tablo_core::ComputedColumn<M> where M: toasty::schema::model::Model
 pub fn tablo_core::ComputedColumn<M>::align(self, tablo_core::Alignment) -> Self
 pub fn tablo_core::ComputedColumn<M>::hidden_by_default(self) -> Self
-pub fn tablo_core::ComputedColumn<M>::include<T>(self, impl core::convert::Into<toasty::stmt::include::Include<M, T>>) -> Self
+pub fn tablo_core::ComputedColumn<M>::include_unscoped<T>(self, impl core::convert::Into<toasty::stmt::include::Include<M, T>>) -> Self
 pub fn tablo_core::ComputedColumn<M>::new(impl core::convert::Into<alloc::string::String>, impl core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self
 pub fn tablo_core::ComputedColumn<M>::toggleable(self) -> Self
 pub fn tablo_core::ComputedColumn<M>::width(self, tablo_core::ColumnWidth) -> Self
@@ -3354,11 +3354,11 @@ pub fn tablo_core::CountColumn<M>::order_by(&self, bool) -> core::option::Option
 pub fn tablo_core::CountColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::CountColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::CountColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
-impl<M> core::marker::Freeze for tablo_core::CountColumn<M> where Declared<M>: core::marker::Freeze, alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::Freeze
-impl<M> core::marker::Send for tablo_core::CountColumn<M> where Declared<M>: core::marker::Send, alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::Send
-impl<M> core::marker::Sync for tablo_core::CountColumn<M> where Declared<M>: core::marker::Sync, alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::Sync
-impl<M> core::marker::Unpin for tablo_core::CountColumn<M> where Declared<M>: core::marker::Unpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::Unpin
-impl<M> core::marker::UnsafeUnpin for tablo_core::CountColumn<M> where Declared<M>: core::marker::UnsafeUnpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::UnsafeUnpin
+impl<M> core::marker::Freeze for tablo_core::CountColumn<M> where Declared<M>: core::marker::Freeze, alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::Freeze
+impl<M> core::marker::Send for tablo_core::CountColumn<M> where Declared<M>: core::marker::Send, alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::Send
+impl<M> core::marker::Sync for tablo_core::CountColumn<M> where Declared<M>: core::marker::Sync, alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::Sync
+impl<M> core::marker::Unpin for tablo_core::CountColumn<M> where Declared<M>: core::marker::Unpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::Unpin
+impl<M> core::marker::UnsafeUnpin for tablo_core::CountColumn<M> where Declared<M>: core::marker::UnsafeUnpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::UnsafeUnpin
 impl<M> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::CountColumn<M>
 impl<M> !core::panic::unwind_safe::UnwindSafe for tablo_core::CountColumn<M>
 pub struct tablo_core::table::Currency
@@ -3682,13 +3682,13 @@ impl<M, R> core::clone::Clone for tablo_core::RelationLens<M, R>
 pub fn tablo_core::RelationLens<M, R>::clone(&self) -> Self
 impl<M, R> core::fmt::Debug for tablo_core::RelationLens<M, R>
 pub fn tablo_core::RelationLens<M, R>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl<M, R> core::marker::Freeze for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::marker::Freeze, fn(&M) -> &R: core::marker::Freeze, fn(&mut M) -> &mut R: core::marker::Freeze
-impl<M, R> core::marker::Send for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::marker::Send, fn(&M) -> &R: core::marker::Send, fn(&mut M) -> &mut R: core::marker::Send
-impl<M, R> core::marker::Sync for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::marker::Sync, fn(&M) -> &R: core::marker::Sync, fn(&mut M) -> &mut R: core::marker::Sync
-impl<M, R> core::marker::Unpin for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::marker::Unpin, fn(&M) -> &R: core::marker::Unpin, fn(&mut M) -> &mut R: core::marker::Unpin
-impl<M, R> core::marker::UnsafeUnpin for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::marker::UnsafeUnpin, fn(&M) -> &R: core::marker::UnsafeUnpin, fn(&mut M) -> &mut R: core::marker::UnsafeUnpin
-impl<M, R> core::panic::unwind_safe::RefUnwindSafe for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::panic::unwind_safe::RefUnwindSafe, fn(&M) -> &R: core::panic::unwind_safe::RefUnwindSafe, fn(&mut M) -> &mut R: core::panic::unwind_safe::RefUnwindSafe
-impl<M, R> core::panic::unwind_safe::UnwindSafe for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::panic::unwind_safe::UnwindSafe, fn(&M) -> &R: core::panic::unwind_safe::UnwindSafe, fn(&mut M) -> &mut R: core::panic::unwind_safe::UnwindSafe
+impl<M, R> core::marker::Freeze for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::marker::Freeze, fn(&M) -> &R: core::marker::Freeze
+impl<M, R> core::marker::Send for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::marker::Send, fn(&M) -> &R: core::marker::Send
+impl<M, R> core::marker::Sync for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::marker::Sync, fn(&M) -> &R: core::marker::Sync
+impl<M, R> core::marker::Unpin for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::marker::Unpin, fn(&M) -> &R: core::marker::Unpin
+impl<M, R> core::marker::UnsafeUnpin for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::marker::UnsafeUnpin, fn(&M) -> &R: core::marker::UnsafeUnpin
+impl<M, R> core::panic::unwind_safe::RefUnwindSafe for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::panic::unwind_safe::RefUnwindSafe, fn(&M) -> &R: core::panic::unwind_safe::RefUnwindSafe
+impl<M, R> core::panic::unwind_safe::UnwindSafe for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::panic::unwind_safe::UnwindSafe, fn(&M) -> &R: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::table::RepeaterColumn<M, T>
 impl<M, T> tablo_core::RepeaterColumn<M, T> where M: toasty::schema::model::Model, T: tablo_core::FormInput
 pub fn tablo_core::RepeaterColumn<M, T>::hidden_by_default(self) -> Self
@@ -5183,7 +5183,7 @@ pub struct tablo_core::ComputedColumn<M>
 impl<M> tablo_core::ComputedColumn<M> where M: toasty::schema::model::Model
 pub fn tablo_core::ComputedColumn<M>::align(self, tablo_core::Alignment) -> Self
 pub fn tablo_core::ComputedColumn<M>::hidden_by_default(self) -> Self
-pub fn tablo_core::ComputedColumn<M>::include<T>(self, impl core::convert::Into<toasty::stmt::include::Include<M, T>>) -> Self
+pub fn tablo_core::ComputedColumn<M>::include_unscoped<T>(self, impl core::convert::Into<toasty::stmt::include::Include<M, T>>) -> Self
 pub fn tablo_core::ComputedColumn<M>::new(impl core::convert::Into<alloc::string::String>, impl core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self
 pub fn tablo_core::ComputedColumn<M>::toggleable(self) -> Self
 pub fn tablo_core::ComputedColumn<M>::width(self, tablo_core::ColumnWidth) -> Self
@@ -5245,11 +5245,11 @@ pub fn tablo_core::CountColumn<M>::order_by(&self, bool) -> core::option::Option
 pub fn tablo_core::CountColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::CountColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::CountColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
-impl<M> core::marker::Freeze for tablo_core::CountColumn<M> where Declared<M>: core::marker::Freeze, alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::Freeze
-impl<M> core::marker::Send for tablo_core::CountColumn<M> where Declared<M>: core::marker::Send, alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::Send
-impl<M> core::marker::Sync for tablo_core::CountColumn<M> where Declared<M>: core::marker::Sync, alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::Sync
-impl<M> core::marker::Unpin for tablo_core::CountColumn<M> where Declared<M>: core::marker::Unpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::Unpin
-impl<M> core::marker::UnsafeUnpin for tablo_core::CountColumn<M> where Declared<M>: core::marker::UnsafeUnpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::UnsafeUnpin
+impl<M> core::marker::Freeze for tablo_core::CountColumn<M> where Declared<M>: core::marker::Freeze, alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::Freeze
+impl<M> core::marker::Send for tablo_core::CountColumn<M> where Declared<M>: core::marker::Send, alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::Send
+impl<M> core::marker::Sync for tablo_core::CountColumn<M> where Declared<M>: core::marker::Sync, alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::Sync
+impl<M> core::marker::Unpin for tablo_core::CountColumn<M> where Declared<M>: core::marker::Unpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::Unpin
+impl<M> core::marker::UnsafeUnpin for tablo_core::CountColumn<M> where Declared<M>: core::marker::UnsafeUnpin, alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> core::option::Option<usize> + core::marker::Send + core::marker::Sync)>: core::marker::UnsafeUnpin
 impl<M> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::CountColumn<M>
 impl<M> !core::panic::unwind_safe::UnwindSafe for tablo_core::CountColumn<M>
 pub struct tablo_core::Currency
@@ -6369,13 +6369,13 @@ impl<M, R> core::clone::Clone for tablo_core::RelationLens<M, R>
 pub fn tablo_core::RelationLens<M, R>::clone(&self) -> Self
 impl<M, R> core::fmt::Debug for tablo_core::RelationLens<M, R>
 pub fn tablo_core::RelationLens<M, R>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl<M, R> core::marker::Freeze for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::marker::Freeze, fn(&M) -> &R: core::marker::Freeze, fn(&mut M) -> &mut R: core::marker::Freeze
-impl<M, R> core::marker::Send for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::marker::Send, fn(&M) -> &R: core::marker::Send, fn(&mut M) -> &mut R: core::marker::Send
-impl<M, R> core::marker::Sync for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::marker::Sync, fn(&M) -> &R: core::marker::Sync, fn(&mut M) -> &mut R: core::marker::Sync
-impl<M, R> core::marker::Unpin for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::marker::Unpin, fn(&M) -> &R: core::marker::Unpin, fn(&mut M) -> &mut R: core::marker::Unpin
-impl<M, R> core::marker::UnsafeUnpin for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::marker::UnsafeUnpin, fn(&M) -> &R: core::marker::UnsafeUnpin, fn(&mut M) -> &mut R: core::marker::UnsafeUnpin
-impl<M, R> core::panic::unwind_safe::RefUnwindSafe for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::panic::unwind_safe::RefUnwindSafe, fn(&M) -> &R: core::panic::unwind_safe::RefUnwindSafe, fn(&mut M) -> &mut R: core::panic::unwind_safe::RefUnwindSafe
-impl<M, R> core::panic::unwind_safe::UnwindSafe for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::panic::unwind_safe::UnwindSafe, fn(&M) -> &R: core::panic::unwind_safe::UnwindSafe, fn(&mut M) -> &mut R: core::panic::unwind_safe::UnwindSafe
+impl<M, R> core::marker::Freeze for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::marker::Freeze, fn(&M) -> &R: core::marker::Freeze
+impl<M, R> core::marker::Send for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::marker::Send, fn(&M) -> &R: core::marker::Send
+impl<M, R> core::marker::Sync for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::marker::Sync, fn(&M) -> &R: core::marker::Sync
+impl<M, R> core::marker::Unpin for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::marker::Unpin, fn(&M) -> &R: core::marker::Unpin
+impl<M, R> core::marker::UnsafeUnpin for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::marker::UnsafeUnpin, fn(&M) -> &R: core::marker::UnsafeUnpin
+impl<M, R> core::panic::unwind_safe::RefUnwindSafe for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::panic::unwind_safe::RefUnwindSafe, fn(&M) -> &R: core::panic::unwind_safe::RefUnwindSafe
+impl<M, R> core::panic::unwind_safe::UnwindSafe for tablo_core::RelationLens<M, R> where tablo_core::extend::Includes<M>: core::panic::unwind_safe::UnwindSafe, fn(&M) -> &R: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::RepeaterColumn<M, T>
 impl<M, T> tablo_core::RepeaterColumn<M, T> where M: toasty::schema::model::Model, T: tablo_core::FormInput
 pub fn tablo_core::RepeaterColumn<M, T>::hidden_by_default(self) -> Self

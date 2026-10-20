@@ -76,7 +76,7 @@ foreign key `Relation::has_many` takes.
 - **Relations.** A relation column declares the include its `relation!` names, so the list, the
   export and the detail page load the related records with the page's rows. A relation no column
   includes is not loaded; a `ComputedColumn` whose closure reads one, say to combine two, declares
-  each with `.include(..)`.
+  each with `.include_unscoped(..)`, and reads it under no resource's query or policy.
 
 ```rust
 {{#include ../../../examples/guide/src/tables.rs:table-relation-column}}
@@ -84,10 +84,12 @@ foreign key `Relation::has_many` takes.
 
 A relation column over `R` shows only the related records `R` shows the user, as a relationship
 choice over `R` offers them: the ones `R`'s tenant-scoped `query` returns and its policy lets the
-user `View`. Once the page's rows load, each such column asks `R` which of the loaded records it
-shows, in one query, and drops the rest: a soft-deleted author renders empty, and a `CountColumn`
-leaves out the comments the user cannot view. `unscoped` columns show whatever the include loads.
-A `CountColumn` counts the loaded list, so it loads every related record of the page's rows.
+user `View`. Once the page's rows load, the columns ask `R` which of the loaded records it shows,
+one query per 500 records not yet asked about in the request, and render only those: a
+soft-deleted author renders empty, and a `CountColumn` leaves out the comments the user cannot
+view. The rows keep what the include loaded, so a policy reading the relation sees it whole.
+`unscoped` columns show whatever the include loads. A `CountColumn` counts the loaded list, so it
+loads every related record of the page's rows.
 
 - **Widths.** The table lays out automatically: a column is as wide as its content, on one line.
   A text, field or `RelationColumn` grows: it caps its value at 20rem, truncating past that, and

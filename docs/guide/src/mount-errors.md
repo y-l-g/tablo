@@ -153,7 +153,7 @@ An action's `NAME` that is not one URL segment does not compile, so it never rea
 | `DuplicateFilter` | two filters share a name | rename one |
 | `DottedFilterName` | a filter's name holds a `.`, which its URL parameters reserve for a part | rename it without the `.` |
 | `UnparsedFilterOption` | a `SelectFilter` option's value does not parse as the field's type, so it filters nothing | spell it as the field's form value, or build the filter with `SelectFilter::of` |
-| `UnregisteredLabelSource` | `RelationColumn::of::<R>` names a resource the panel does not register | register `R`, or use `RelationColumn::unscoped` for a model no resource administers |
+| `UnregisteredLabelSource` | `RelationColumn::{new, of, list}::<R>` or `CountColumn::of::<R>` names a resource the panel does not register | register `R`, or use `RelationColumn::unscoped` for a model no resource administers |
 
 ## Forms
 

@@ -55,9 +55,9 @@ fn text_column_includes_accumulate_once_per_relation() {
     }
 
     let column = ComputedColumn::new("Owner", |p: &Pet| p.id.to_string())
-        .include(Pet::fields().owner())
-        .include(Pet::fields().vet())
-        .include(Pet::fields().owner());
+        .include_unscoped(Pet::fields().owner())
+        .include_unscoped(Pet::fields().vet())
+        .include_unscoped(Pet::fields().owner());
     assert_eq!(
         column.includes().len(),
         2,

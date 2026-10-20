@@ -41,7 +41,7 @@ async fn a_detail_loads_the_relations_its_columns_declare() {
     .unwrap();
     let shelf_name = || {
         ComputedColumn::new("Shelf", |b: &Book| b.shelf.get().name.clone())
-            .include(Book::fields().shelf())
+            .include_unscoped(Book::fields().shelf())
     };
 
     let bare = Detail::new(TextColumn::new(lens!(Book.title)));

@@ -211,14 +211,14 @@ pub trait Column<M>: Send + Sync {
         Includes::new()
     }
 
-    /// Drop from each of `rows` the related records [`includes`](Self::includes) loaded that the
-    /// related resource does not show the user, before any cell renders. Every loader that applies
-    /// the includes runs it through `ex`, the executor that loaded the rows.
+    /// Check which related records [`includes`](Self::includes) loaded into `rows` the related
+    /// resource shows the user, before any cell renders: a cell shows only those. Every loader
+    /// that applies the includes runs it through `ex`, the executor that loaded the rows.
     #[doc(hidden)]
     fn restrict<'a>(
         &'a self,
         _cx: &'a Cx,
-        _rows: &'a mut [M],
+        _rows: &'a [M],
         _ex: &'a mut dyn toasty::Executor,
     ) -> crate::BoxFuture<'a, topcoat::Result<()>> {
         Box::pin(async { Ok(()) })
@@ -314,7 +314,7 @@ where
 pub(crate) async fn restrict_relations<'c, M>(
     cx: &Cx,
     columns: impl IntoIterator<Item = &'c BoxColumn<M>>,
-    rows: &mut [M],
+    rows: &[M],
     ex: &mut dyn toasty::Executor,
 ) -> topcoat::Result<()>
 where

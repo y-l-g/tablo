@@ -12,10 +12,13 @@ relation and links no column to a resource, so it is not the `Relation` trait re
 A relation column names the resource `R` whose rules govern the related records:
 `RelationColumn::of::<R>`, `new::<R>`, `list::<R>` and `CountColumn::of::<R>`. The include still
 loads the relation, and the loader that applied it then runs `Column::restrict`: one query through
-`R`'s tenant-scoped query, keyed by the loaded records, and `R`'s `View` policy on each, dropping
-the records `R` does not show the user. A to-one record it drops renders empty. The include itself
-stays unfiltered: Toasty 0.11 refuses a filtered include over a `via` relation, and a required
-`belongs_to` has no shape for a filtered-out record. `unscoped` columns, for a model no resource
+`R`'s tenant-scoped query, keyed by the loaded records, and `R`'s `View` policy on each, which
+records for the request whether `R` shows each record. A cell renders only the records recorded as
+shown, so a hidden to-one record renders empty, and so does a record no loader checked. The rows
+keep what the include loaded: a policy, a title or a computed column reading the same relation
+sees it whole, and a required relation never reads as unloaded. The include itself stays
+unfiltered: Toasty 0.11 panics (`todo!`) on a filtered include over a `via` relation, and a
+required `belongs_to` has no shape for a filtered-out record. `unscoped` columns, for a model no resource
 administers, show what the include loads. `Resource::query` stays row scoping only; a relation
 belongs there only when every loader reads it, such as one the policy checks. An unscoped relation
 column whose row was loaded without its include renders `"(unloaded)"` and fails a debug
@@ -31,5 +34,8 @@ A related table on a detail page is the related resource's own table, run throug
   declared in two places, and drift apart.
 - Relation columns that show what the include loads, under no resource's rules: a soft-deleted,
   hidden or other tenant's record showed wherever another resource pointed at it.
+- Dropping the hidden records from the loaded rows: the parent's policy, its title and its row
+  actions then read a relation the column rewrote, so a policy over a nullable relation allowed a
+  record it would refuse, and a required one read as unloaded and panicked.
 - A relation column over a bare relation path: a path loads the relation but cannot read it
   off the row, so the column would need a reader naming the field a second time.

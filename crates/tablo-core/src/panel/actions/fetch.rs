@@ -124,14 +124,14 @@ pub(crate) async fn load_detail<R: Resource>(
 }
 
 /// [`find_by_key`] with the relations the detail page's columns declare, so
-/// they arrive loaded, narrowed to the related records their sources show.
+/// they arrive loaded, and the related records their sources show checked.
 async fn find_detail<R: Resource>(
     cx: &Cx,
     resource: &Mounted<R>,
     id: &str,
     ex: &mut dyn toasty::Executor,
 ) -> Result<R::Model> {
-    let mut record = find_by_key_in(resource, id, &mut *ex, || {
+    let record = find_by_key_in(resource, id, &mut *ex, || {
         resource
             .scoped_query(cx)
             .map(|query| resource.detail.include_relations(query))
@@ -139,7 +139,7 @@ async fn find_detail<R: Resource>(
     .await?;
     resource
         .detail
-        .restrict_relations(cx, std::slice::from_mut(&mut record), ex)
+        .restrict_relations(cx, std::slice::from_ref(&record), ex)
         .await?;
     Ok(record)
 }

@@ -32,29 +32,22 @@ pub struct RelationLens<M, R> {
     field: Result<(String, String), DeclarationErrorKind>,
     #[derive_where(skip(Debug))]
     pub(super) read: fn(&M) -> &R,
-    #[derive_where(skip(Debug))]
-    pub(super) write: fn(&mut M) -> &mut R,
 }
 
 impl<M, R> RelationLens<M, R>
 where
     M: toasty::schema::Model,
 {
-    /// Pair the relation `path` with the functions reading and writing the same field;
-    /// [`relation!`](crate::relation!) writes all three from one field name.
+    /// Pair the relation `path` with the function reading the same field;
+    /// [`relation!`](crate::relation!) writes both from one field name.
     #[doc(hidden)]
-    pub fn new<T>(
-        path: impl Into<Path<M, T>>,
-        read: fn(&M) -> &R,
-        write: fn(&mut M) -> &mut R,
-    ) -> Self {
+    pub fn new<T>(path: impl Into<Path<M, T>>, read: fn(&M) -> &R) -> Self {
         let path = path.into();
         let field = model::field::<M>(&model::ModelPath::of(&path)).map(|f| (f.name, f.label));
         Self {
             includes: Includes::new().with(path),
             field,
             read,
-            write,
         }
     }
 }
@@ -82,7 +75,7 @@ impl<M, R> RelationLens<M, R> {
 /// Build a [`RelationLens`] from a model and one of its relation fields.
 ///
 /// `relation!(Post.author)` is the include `Post::fields().author()` paired with
-/// `|post| &post.author` and `|post| &mut post.author`.
+/// `|post| &post.author`.
 ///
 /// ```rust
 /// # use tablo_core::{RelationLens, relation};
@@ -122,7 +115,6 @@ macro_rules! relation {
         $crate::RelationLens::new(
             <$($model)::+>::fields().$field(),
             |record: &$($model)::+| &record.$field,
-            |record: &mut $($model)::+| &mut record.$field,
         )
     };
 }

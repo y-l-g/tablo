@@ -224,7 +224,7 @@ impl<const INCLUDES: bool> Resource for VolumeResource<INCLUDES> {
     fn declare() -> ResourceDef<Self> {
         let column = ComputedColumn::new("Shelf", shelf_name);
         let column = if INCLUDES {
-            column.include(Volume::fields().shelf())
+            column.include_unscoped(Volume::fields().shelf())
         } else {
             column
         };
@@ -267,7 +267,7 @@ impl Resource for TalliedVolumeResource {
             .slug("tallied")
             .policy(tally_shelves)
             .table(Table::new(
-                ComputedColumn::new("Shelf", shelf_name).include(Volume::fields().shelf()),
+                ComputedColumn::new("Shelf", shelf_name).include_unscoped(Volume::fields().shelf()),
             ))
     }
 }

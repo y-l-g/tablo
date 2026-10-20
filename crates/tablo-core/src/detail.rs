@@ -98,9 +98,9 @@ impl<M> Detail<M> {
     }
 
     /// Load the records `query` names as a page rendering this declaration reads them: with every
-    /// relation the columns declare, once each, narrowed to the related records the columns'
-    /// sources show the user. Pass the resource's scope, as in
-    /// `detail.load(cx, scoped_query::<R>(cx)?)`.
+    /// relation the columns declare, once each, and the related records the columns' sources show
+    /// the user checked, so [`render`](Self::render) shows only those. Pass the resource's scope,
+    /// as in `detail.load(cx, scoped_query::<R>(cx)?)`.
     ///
     /// # Errors
     ///
@@ -110,12 +110,12 @@ impl<M> Detail<M> {
         M: toasty::schema::Model + Send + Sync + 'static,
     {
         let mut db = crate::db::db(cx);
-        let mut records = self
+        let records = self
             .include_relations(query)
             .exec(&mut db)
             .await
             .map_err(crate::error::unavailable)?;
-        self.restrict_relations(cx, &mut records, &mut db).await?;
+        self.restrict_relations(cx, &records, &mut db).await?;
         Ok(records)
     }
 
@@ -127,12 +127,12 @@ impl<M> Detail<M> {
         include_relations(query, self.columns())
     }
 
-    /// Drop from `records`, loaded through [`Self::include_relations`], the related records the
-    /// columns' sources do not show the user.
+    /// Check which related records `records`, loaded through [`Self::include_relations`], hold
+    /// that the columns' sources show the user.
     pub(crate) async fn restrict_relations(
         &self,
         cx: &Cx,
-        records: &mut [M],
+        records: &[M],
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<()> {
         restrict_relations(cx, self.columns(), records, ex).await
@@ -155,7 +155,8 @@ impl<M> Detail<M> {
     /// read-only.
     ///
     /// The panel's detail page renders its view this way. A page of the app's own renders one for
-    /// a record it loaded through [`load`](Self::load).
+    /// a record it loaded through [`load`](Self::load): a scoped relation column over a record
+    /// loaded otherwise shows no related record.
     pub fn render<'a>(&self, cx: &'a Cx, record: &M) -> BoxView<'a> {
         let views: Vec<BoxView<'a>> = self
             .nodes

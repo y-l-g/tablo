@@ -15,13 +15,14 @@ mod lens;
 mod restrict;
 
 pub use lens::RelationLens;
-use restrict::{Restrict, restrict_many, restrict_one};
+use restrict::{Restrict, restrict_many, restrict_one, shows};
 
 /// The text an unscoped relation column renders for a row whose relation was not loaded.
 const UNLOADED: &str = "(unloaded)";
 
-/// What a relation column reads off a row, or `None` when the row's relation was not loaded.
-type Loaded<M, T> = Arc<dyn Fn(&M) -> Option<T> + Send + Sync>;
+/// What a relation column reads off a row in the request's context, or `None` when the row's
+/// relation was not loaded.
+type Loaded<M, T> = Arc<dyn Fn(&Cx, &M) -> Option<T> + Send + Sync>;
 
 /// A label source's type name, and whether a context's panel can load from it.
 type LabelSource = (&'static str, fn(&Cx) -> bool);
@@ -41,11 +42,6 @@ pub trait ToOneRelation<T>: sealed::Sealed<T> {
     /// relation was not loaded.
     #[doc(hidden)]
     fn loaded(&self) -> Option<Option<&T>>;
-
-    /// Drop the related record unless `keep` accepts it: a nullable relation then holds none, and
-    /// a required one reads as unloaded.
-    #[doc(hidden)]
-    fn retain(&mut self, keep: &dyn Fn(&T) -> bool);
 }
 
 mod sealed {
@@ -59,23 +55,11 @@ impl<T: toasty::schema::Model> ToOneRelation<T> for Deferred<T> {
     fn loaded(&self) -> Option<Option<&T>> {
         (!self.is_unloaded()).then(|| Some(self.get()))
     }
-
-    fn retain(&mut self, keep: &dyn Fn(&T) -> bool) {
-        if !self.is_unloaded() && !keep(self.get()) {
-            self.unload();
-        }
-    }
 }
 
 impl<T: toasty::schema::Model> ToOneRelation<T> for Deferred<Option<T>> {
     fn loaded(&self) -> Option<Option<&T>> {
         (!self.is_unloaded()).then(|| self.get().as_ref())
-    }
-
-    fn retain(&mut self, keep: &dyn Fn(&T) -> bool) {
-        if !self.is_unloaded() && self.get().as_ref().is_some_and(|record| !keep(record)) {
-            *self = Deferred::from(None);
-        }
     }
 }
 
@@ -116,7 +100,10 @@ impl<T: toasty::schema::Model> ToOneRelation<T> for Deferred<Option<T>> {
 /// A column over a source `S` shows only the related records `S` shows the user: the ones its
 /// [`scoped_query`](OptionSource::scoped_query) returns and its policy lets the user view, as a
 /// relationship choice over `S` offers them. A related record it hides, soft-deleted or another
-/// tenant's, renders empty. [`unscoped`](Self::unscoped) shows whatever the include loads.
+/// tenant's, renders empty, and so does every record of a row loaded around the table's or the
+/// [`Detail`](crate::Detail)'s loader, which checks them. The row keeps what the include loaded,
+/// so a policy reading the relation sees it whole. [`unscoped`](Self::unscoped) shows whatever
+/// the include loads.
 #[derive_where(Clone, Debug)]
 pub struct RelationColumn<M> {
     relation: Declared<M>,
@@ -139,11 +126,14 @@ where
         let read = relation.read;
         Self {
             relation: Declared::of(&relation, ColumnWidth::Grow)
-                .scoped::<S>(restrict_one::<M, S, _>(relation.read, relation.write)),
-            project: Arc::new(move |_cx, row| {
-                read(row)
-                    .loaded()
-                    .map(|target| target.map(&project).unwrap_or_default())
+                .scoped::<S>(restrict_one::<M, S, _>(relation.read)),
+            project: Arc::new(move |cx, row| {
+                read(row).loaded().map(|target| {
+                    target
+                        .filter(|target| shows::<S>(cx, target))
+                        .map(&project)
+                        .unwrap_or_default()
+                })
             }),
         }
     }
@@ -185,10 +175,11 @@ where
         let read = relation.read;
         Self {
             relation: Declared::of(&relation, ColumnWidth::Grow)
-                .scoped::<S>(restrict_one::<M, S, _>(relation.read, relation.write)),
+                .scoped::<S>(restrict_one::<M, S, _>(relation.read)),
             project: Arc::new(move |cx, row| {
                 read(row).loaded().map(|target| {
                     target
+                        .filter(|target| shows::<S>(cx, target))
                         .map(|target| S::label(cx, target))
                         .unwrap_or_default()
                 })
@@ -247,13 +238,14 @@ where
         let read = relation.read;
         Self {
             relation: Declared::of(&relation, ColumnWidth::Grow)
-                .scoped::<S>(restrict_many::<M, S>(relation.read, relation.write)),
+                .scoped::<S>(restrict_many::<M, S>(relation.read)),
             project: Arc::new(move |cx, row| {
                 let records = read(row);
                 (!records.is_unloaded()).then(|| {
                     records
                         .get()
                         .iter()
+                        .filter(|record| shows::<S>(cx, record))
                         .map(|record| S::label(cx, record))
                         .collect::<Vec<_>>()
                         .join(", ")
@@ -325,9 +317,9 @@ impl<M> RelationColumn<M> {
 /// The header and the column's name are the field's name, capitalized, until
 /// [`label`](Self::label) replaces both.
 ///
-/// The count is the length of the loaded list once `S` has dropped the records it does not show
-/// the user, as [`RelationColumn`] drops them: a page loads every related record of every row it
-/// counts. [`unscoped`](Self::unscoped) counts every record the include loads.
+/// The count is how many of the loaded records `S` shows the user, which [`RelationColumn`]
+/// decides the same way: a page loads every related record of every row it counts.
+/// [`unscoped`](Self::unscoped) counts every record the include loads.
 #[derive_where(Clone, Debug)]
 pub struct CountColumn<M> {
     relation: Declared<M>,
@@ -346,8 +338,8 @@ where
     {
         Self {
             relation: Declared::of(&relation, ColumnWidth::Auto)
-                .scoped::<S>(restrict_many::<M, S>(relation.read, relation.write)),
-            count: count(relation.read),
+                .scoped::<S>(restrict_many::<M, S>(relation.read)),
+            count: count(relation.read, shows::<S>),
         }
     }
 
@@ -359,23 +351,27 @@ where
     {
         Self {
             relation: Declared::of(&relation, ColumnWidth::Auto),
-            count: count(relation.read),
+            count: count(relation.read, |_, _| true),
         }
     }
 }
 
 impl<M> CountColumn<M> {
     /// The row's count, or `None` when its relation was not loaded.
-    fn loaded_text(&self, _cx: &Cx, row: &M) -> Option<String> {
-        (self.count)(row).map(|count| count.to_string())
+    fn loaded_text(&self, cx: &Cx, row: &M) -> Option<String> {
+        (self.count)(cx, row).map(|count| count.to_string())
     }
 }
 
-/// The length of the list `read` reads off a row, or `None` when it was not loaded.
-fn count<M: 'static, T: 'static>(read: fn(&M) -> &Deferred<Vec<T>>) -> Loaded<M, usize> {
-    Arc::new(move |row| {
+/// How many records of the list `read` reads off a row `shown` accepts, or `None` when it was not
+/// loaded.
+fn count<M: 'static, T: 'static>(
+    read: fn(&M) -> &Deferred<Vec<T>>,
+    shown: fn(&Cx, &T) -> bool,
+) -> Loaded<M, usize> {
+    Arc::new(move |cx, row| {
         let records = read(row);
-        (!records.is_unloaded()).then(|| records.get().len())
+        (!records.is_unloaded()).then(|| records.get().iter().filter(|r| shown(cx, r)).count())
     })
 }
 
@@ -503,7 +499,7 @@ macro_rules! relation_column {
             fn restrict<'a>(
                 &'a self,
                 cx: &'a Cx,
-                rows: &'a mut [M],
+                rows: &'a [M],
                 ex: &'a mut dyn Executor,
             ) -> BoxFuture<'a, Result<()>> {
                 match &self.relation.restrict {

@@ -213,12 +213,12 @@ impl<M> Table<M> {
         include_relations(query, &self.columns)
     }
 
-    /// Drop from `rows`, loaded through [`Self::include_relations`], the related records the
-    /// columns' sources do not show the user.
+    /// Check which related records `rows`, loaded through [`Self::include_relations`], hold that
+    /// the columns' sources show the user.
     pub(crate) async fn restrict_relations(
         &self,
         cx: &topcoat::context::Cx,
-        rows: &mut [M],
+        rows: &[M],
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<()> {
         restrict_relations(cx, &self.columns, rows, ex).await
