@@ -217,14 +217,16 @@ pub(super) fn logout_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         // Any resolved user may log out, including one without panel access,
         // so the session row and cookie do not linger to expiry.
-        if resolved(cx).is_none() {
+        let Some(signed) = resolved(cx) else {
             return Err(unauthenticated_error(cx));
-        }
+        };
         let parts = crate::panel::parse_form_body(cx, body).await?;
         crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
         if let Some(hash) = session::stop(cx).await? {
             delete_session(cx, &hash).await?;
         }
+        // The session's open bells check it again, and stop.
+        crate::notification::bus(cx).wake(&signed.panel.prefix, &signed.user.user_id());
         let target = login_url(cx);
         topcoat::router::error::see_other(target).into_response(cx)
     })
@@ -251,6 +253,9 @@ pub(super) fn tenant_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             })
             .ok_or_else(topcoat::router::error::forbidden)?;
         select_tenant(cx, tenant).await?;
+        // The session's open bells list the old tenant's notifications: they check it again,
+        // and stop.
+        crate::notification::bus(cx).wake(&signed.panel.prefix, &signed.user.user_id());
         topcoat::router::error::see_other(panel_root(cx)).into_response(cx)
     })
 }

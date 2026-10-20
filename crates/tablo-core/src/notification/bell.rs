@@ -19,13 +19,14 @@ use topcoat::{
     context::Cx,
     icon::icon,
     router::error::{not_found, unauthorized},
-    runtime::{Event, Signal, connected, connected_untracked, procedure, shard, signal},
+    runtime::{Event, Signal, connected, procedure, shard, signal},
     view::{BoxView, EmitToken, View, ViewExt, attributes, emit, live, view},
 };
 use uuid::Uuid;
 
 use super::{
     StoredNotification,
+    bus::Subscription,
     stored::{Inbox, bus},
 };
 use crate::panel::state::current;
@@ -58,13 +59,21 @@ async fn render_bell(cx: &Cx) -> Result<BoxView<'_>> {
     let shown = signal(cx, || PAGE);
     // A tracked read: "Show more" renders the shard again, with more rows.
     let limit = shown.get().clamp(PAGE, MAX_SHOWN);
+    // Subscribed before the read, so a send between the read and a region's first wait still
+    // wakes it.
+    let badge_wakes = bus(cx).subscribe(&inbox.panel, &inbox.user_id);
+    let list_wakes = bus(cx).subscribe(&inbox.panel, &inbox.user_id);
     // The layout read the first page before the page's body started streaming; a region's
     // first emission then needs no connection, which that body may still hold.
-    let snapshot = match first_page(cx).await {
-        Some(snapshot) if limit == PAGE => snapshot.clone(),
-        _ => Snapshot::read(cx, &inbox, limit).await?,
+    let snapshot = if limit == PAGE {
+        first_page(cx).await.clone()
+    } else {
+        Snapshot::read(cx, &inbox, limit).await.ok()
     };
-    let list_inbox = Inbox::of(cx).expect("the bell's inbox has a signed-in user");
+    // The read logged its failure: the page renders without its bell rather than failing.
+    let Some(snapshot) = snapshot else {
+        return Ok(().boxed());
+    };
     Ok(view! {
         cx =>
         <div class="relative">
@@ -80,7 +89,7 @@ async fn render_bell(cx: &Cx) -> Result<BoxView<'_>> {
                 },
                 icon(data: icons::BELL)
             )
-            (unread_badge(cx, inbox, snapshot.clone()))
+            (unread_badge(cx, inbox.clone(), badge_wakes, snapshot.clone()))
         </div>
         sheet(
             open: $(open.get()),
@@ -115,7 +124,7 @@ async fn render_bell(cx: &Cx) -> Result<BoxView<'_>> {
                         icon(data: icons::X)
                     )
                 )
-                (notification_list(cx, list_inbox, snapshot, limit, shown))
+                (notification_list(cx, inbox, list_wakes, snapshot, limit, shown))
             )
         )
     }
@@ -144,9 +153,6 @@ struct Snapshot {
     rows: Vec<StoredNotification>,
     /// Whether rows past the limit remain for "Show more".
     more: bool,
-    /// When the newest unread row was sent, read only for a connected render, whose later
-    /// emissions toast what arrives after it.
-    newest_unread: Option<Timestamp>,
 }
 
 impl Snapshot {
@@ -156,23 +162,17 @@ impl Snapshot {
         let mut rows = inbox.latest(&db, limit + 1).await?;
         let more = rows.len() > limit && limit < MAX_SHOWN;
         rows.truncate(limit);
-        let newest_unread = if connected_untracked(cx) {
-            inbox.newest_unread(&db).await?.map(|row| row.created_at)
-        } else {
-            None
-        };
         Ok(Self {
             unread: inbox.unread(&db).await?,
             rows,
             more,
-            newest_unread,
         })
     }
 }
 
 /// The bell's first page for the request, read once: the layout calls it before it renders, as it
 /// counts the sidebar's badges, and the shard reuses what it read. `None` without a bell, or when
-/// the read failed and the shard should read, and fail, itself.
+/// the read failed, which logs.
 #[topcoat::context::memoize]
 async fn first_page(cx: &Cx) -> Option<Snapshot> {
     let inbox = bell_inbox(cx)?;
@@ -186,19 +186,19 @@ pub(crate) async fn prefetch(cx: &Cx) {
 
 /// Waits for the next change to `inbox` and checks the session again; `false` once the
 /// connected render must stop, because the session ended or the bus is gone.
-async fn next_change(cx: &Cx, wakes: &mut super::bus::Subscription) -> Result<bool> {
+async fn next_change(cx: &Cx, wakes: &mut Subscription) -> Result<bool> {
     Ok(wakes.changed().await && crate::auth::still_signed_in(cx).await?)
 }
 
 /// The unread count over the trigger, and a toast for each notification that arrives while the
 /// page is open.
-fn unread_badge(cx: &Cx, inbox: Inbox, initial: Snapshot) -> BoxView<'_> {
+fn unread_badge(cx: &Cx, inbox: Inbox, mut wakes: Subscription, initial: Snapshot) -> BoxView<'_> {
     live! {
         cx =>
         let db = crate::db::db(cx);
-        let mut wakes = bus(cx).subscribe(&inbox.panel, &inbox.user_id);
-        // The newest unread row the page already showed: only a later one toasts.
-        let mut seen = initial.newest_unread;
+        // When the newest row the page already showed was sent: only a later one toasts, so
+        // marking an older one unread does not.
+        let mut seen = initial.rows.first().map(|row| row.created_at);
         let mut unread = initial.unread;
         let mut arrival: Option<StoredNotification> = None;
         loop {
@@ -208,11 +208,13 @@ fn unread_badge(cx: &Cx, inbox: Inbox, initial: Snapshot) -> BoxView<'_> {
                 break Ok::<EmitToken, topcoat::Error>(token);
             }
             unread = inbox.unread(&db).await?;
-            let newest = inbox.newest_unread(&db).await?;
-            let newest_at = newest.as_ref().map(|row| row.created_at);
-            if newest_at > seen {
-                arrival = newest;
-                seen = newest_at;
+            let newest = inbox.latest(&db, 1).await?.pop();
+            if let Some(newest) = newest.filter(|row| Some(row.created_at) > seen) {
+                seen = Some(newest.created_at);
+                // One already read elsewhere arrived, but has nothing to say.
+                if newest.read_at.is_none() {
+                    arrival = Some(newest);
+                }
             }
         }
     }
@@ -257,13 +259,13 @@ async fn badge_view(
 fn notification_list(
     cx: &Cx,
     inbox: Inbox,
+    mut wakes: Subscription,
     initial: Snapshot,
     limit: usize,
     shown: Signal<usize>,
 ) -> BoxView<'_> {
     live! {
         cx =>
-        let mut wakes = bus(cx).subscribe(&inbox.panel, &inbox.user_id);
         let mut snapshot = initial;
         loop {
             let Snapshot { unread, rows, more, .. } = snapshot;
@@ -486,9 +488,8 @@ fn procedure_inbox(cx: &Cx) -> Result<Inbox> {
 }
 
 /// Wakes the user's bells, this one included, so each reads the change back.
-fn changed(cx: &Cx, inbox: &Inbox) -> Result<bool> {
+fn changed(cx: &Cx, inbox: &Inbox) {
     bus(cx).wake(&inbox.panel, &inbox.user_id);
-    Ok(true)
 }
 
 /// Parses the id a browser sent; one that is no id names no notification.
@@ -499,35 +500,39 @@ fn parse_id(id: &str) -> Result<Uuid> {
 /// Marks one of the user's notifications read, or unread with `read` false. An id the user's
 /// inbox does not hold changes nothing.
 #[procedure("/_topcoat/runtime/procedures/tablo-notifications/mark")]
-pub async fn mark_notification(cx: &Cx, id: String, read: bool) -> Result<bool> {
+pub async fn mark_notification(cx: &Cx, id: String, read: bool) -> Result<()> {
     let inbox = procedure_inbox(cx)?;
     let id = parse_id(&id)?;
     inbox.mark(&crate::db::db(cx), id, read).await?;
-    changed(cx, &inbox)
+    changed(cx, &inbox);
+    Ok(())
 }
 
 /// Removes one of the user's notifications. An id the user's inbox does not hold changes
 /// nothing.
 #[procedure("/_topcoat/runtime/procedures/tablo-notifications/remove")]
-pub async fn remove_notification(cx: &Cx, id: String) -> Result<bool> {
+pub async fn remove_notification(cx: &Cx, id: String) -> Result<()> {
     let inbox = procedure_inbox(cx)?;
     let id = parse_id(&id)?;
     inbox.remove(&crate::db::db(cx), id).await?;
-    changed(cx, &inbox)
+    changed(cx, &inbox);
+    Ok(())
 }
 
 /// Marks every notification the bell lists read.
 #[procedure("/_topcoat/runtime/procedures/tablo-notifications/read-all")]
-pub async fn mark_all_notifications_read(cx: &Cx) -> Result<bool> {
+pub async fn mark_all_notifications_read(cx: &Cx) -> Result<()> {
     let inbox = procedure_inbox(cx)?;
     inbox.mark_all_read(&crate::db::db(cx)).await?;
-    changed(cx, &inbox)
+    changed(cx, &inbox);
+    Ok(())
 }
 
 /// Removes every notification the bell lists.
 #[procedure("/_topcoat/runtime/procedures/tablo-notifications/clear")]
-pub async fn clear_notifications(cx: &Cx) -> Result<bool> {
+pub async fn clear_notifications(cx: &Cx) -> Result<()> {
     let inbox = procedure_inbox(cx)?;
     inbox.clear(&crate::db::db(cx)).await?;
-    changed(cx, &inbox)
+    changed(cx, &inbox);
+    Ok(())
 }

@@ -1977,21 +1977,25 @@ pub fn tablo_core::notification::StoredNotification::all() -> StoredNotification
 pub fn tablo_core::notification::StoredNotification::create() -> StoredNotificationCreate
 pub fn tablo_core::notification::StoredNotification::create_many() -> toasty::stmt::create_many::CreateMany<tablo_core::notification::StoredNotification>
 pub fn tablo_core::notification::StoredNotification::delete(self) -> toasty::stmt::delete::Delete<()>
-pub async fn tablo_core::notification::StoredNotification::delete_by_created_at(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<jiff::timestamp::Timestamp>>) -> toasty_core::Result<()>
 pub async fn tablo_core::notification::StoredNotification::delete_by_id(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<uuid::Uuid>>) -> toasty_core::Result<()>
 pub async fn tablo_core::notification::StoredNotification::delete_by_user_id(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> toasty_core::Result<()>
+pub async fn tablo_core::notification::StoredNotification::delete_by_user_id_and_panel(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> toasty_core::Result<()>
+pub async fn tablo_core::notification::StoredNotification::delete_by_user_id_and_panel_and_created_at(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<jiff::timestamp::Timestamp>>) -> toasty_core::Result<()>
 pub fn tablo_core::notification::StoredNotification::fields() -> StoredNotificationFields<tablo_core::notification::StoredNotification>
 pub fn tablo_core::notification::StoredNotification::filter(toasty::stmt::expr::Expr<bool>) -> StoredNotificationQuery
-pub fn tablo_core::notification::StoredNotification::filter_by_created_at(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<jiff::timestamp::Timestamp>>) -> StoredNotificationQuery
 pub fn tablo_core::notification::StoredNotification::filter_by_id(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<uuid::Uuid>>) -> StoredNotificationQuery
 pub fn tablo_core::notification::StoredNotification::filter_by_user_id(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> StoredNotificationQuery
-pub async fn tablo_core::notification::StoredNotification::get_by_created_at(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<jiff::timestamp::Timestamp>>) -> toasty_core::Result<tablo_core::notification::StoredNotification>
+pub fn tablo_core::notification::StoredNotification::filter_by_user_id_and_panel(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> StoredNotificationQuery
+pub fn tablo_core::notification::StoredNotification::filter_by_user_id_and_panel_and_created_at(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<jiff::timestamp::Timestamp>>) -> StoredNotificationQuery
 pub async fn tablo_core::notification::StoredNotification::get_by_id(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<uuid::Uuid>>) -> toasty_core::Result<tablo_core::notification::StoredNotification>
 pub async fn tablo_core::notification::StoredNotification::get_by_user_id(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> toasty_core::Result<tablo_core::notification::StoredNotification>
+pub async fn tablo_core::notification::StoredNotification::get_by_user_id_and_panel(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> toasty_core::Result<tablo_core::notification::StoredNotification>
+pub async fn tablo_core::notification::StoredNotification::get_by_user_id_and_panel_and_created_at(&mut dyn toasty::db::executor::Executor, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<jiff::timestamp::Timestamp>>) -> toasty_core::Result<tablo_core::notification::StoredNotification>
 pub fn tablo_core::notification::StoredNotification::update(&mut self) -> StoredNotificationUpdate<&mut Self>
-pub fn tablo_core::notification::StoredNotification::update_by_created_at(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<jiff::timestamp::Timestamp>>) -> StoredNotificationUpdate
 pub fn tablo_core::notification::StoredNotification::update_by_id(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<uuid::Uuid>>) -> StoredNotificationUpdate
 pub fn tablo_core::notification::StoredNotification::update_by_user_id(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> StoredNotificationUpdate
+pub fn tablo_core::notification::StoredNotification::update_by_user_id_and_panel(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>) -> StoredNotificationUpdate
+pub fn tablo_core::notification::StoredNotification::update_by_user_id_and_panel_and_created_at(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<alloc::string::String>>, impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<jiff::timestamp::Timestamp>>) -> StoredNotificationUpdate
 impl tablo_core::notification::StoredNotification
 pub fn tablo_core::notification::StoredNotification::upsert_by_id(impl toasty::stmt::into_expr::IntoExpr<toasty::codegen_support::FieldExprTarget<uuid::Uuid>>) -> StoredNotificationUpsertById
 impl core::clone::Clone for tablo_core::notification::StoredNotification
@@ -2067,7 +2071,7 @@ pub fn tablo_core::notification::clear_notifications::methods(&self) -> topcoat_
 pub fn tablo_core::notification::clear_notifications::path(&self) -> &topcoat_router::path::Path
 impl topcoat_runtime::procedure::TypedProcedure for tablo_core::notification::clear_notifications
 pub type tablo_core::notification::clear_notifications::Args = ()
-pub type tablo_core::notification::clear_notifications::Output = <core::result::Result<bool, topcoat_core::error::Error> as topcoat_core::internal::ResultExt>::T
+pub type tablo_core::notification::clear_notifications::Output = <core::result::Result<(), topcoat_core::error::Error> as topcoat_core::internal::ResultExt>::T
 impl topcoat_runtime::surrogate::Surrogated for tablo_core::notification::clear_notifications
 pub type tablo_core::notification::clear_notifications::Surrogate = &'static topcoat_runtime::procedure::ProcedureSurrogate<tablo_core::notification::clear_notifications>
 pub fn tablo_core::notification::clear_notifications::into_surrogate(self) -> Self::Surrogate
@@ -2107,7 +2111,7 @@ pub fn tablo_core::notification::mark_all_notifications_read::methods(&self) -> 
 pub fn tablo_core::notification::mark_all_notifications_read::path(&self) -> &topcoat_router::path::Path
 impl topcoat_runtime::procedure::TypedProcedure for tablo_core::notification::mark_all_notifications_read
 pub type tablo_core::notification::mark_all_notifications_read::Args = ()
-pub type tablo_core::notification::mark_all_notifications_read::Output = <core::result::Result<bool, topcoat_core::error::Error> as topcoat_core::internal::ResultExt>::T
+pub type tablo_core::notification::mark_all_notifications_read::Output = <core::result::Result<(), topcoat_core::error::Error> as topcoat_core::internal::ResultExt>::T
 impl topcoat_runtime::surrogate::Surrogated for tablo_core::notification::mark_all_notifications_read
 pub type tablo_core::notification::mark_all_notifications_read::Surrogate = &'static topcoat_runtime::procedure::ProcedureSurrogate<tablo_core::notification::mark_all_notifications_read>
 pub fn tablo_core::notification::mark_all_notifications_read::into_surrogate(self) -> Self::Surrogate
@@ -2129,7 +2133,7 @@ pub fn tablo_core::notification::mark_notification::methods(&self) -> topcoat_ro
 pub fn tablo_core::notification::mark_notification::path(&self) -> &topcoat_router::path::Path
 impl topcoat_runtime::procedure::TypedProcedure for tablo_core::notification::mark_notification
 pub type tablo_core::notification::mark_notification::Args = (alloc::string::String, bool)
-pub type tablo_core::notification::mark_notification::Output = <core::result::Result<bool, topcoat_core::error::Error> as topcoat_core::internal::ResultExt>::T
+pub type tablo_core::notification::mark_notification::Output = <core::result::Result<(), topcoat_core::error::Error> as topcoat_core::internal::ResultExt>::T
 impl topcoat_runtime::surrogate::Surrogated for tablo_core::notification::mark_notification
 pub type tablo_core::notification::mark_notification::Surrogate = &'static topcoat_runtime::procedure::ProcedureSurrogate<tablo_core::notification::mark_notification>
 pub fn tablo_core::notification::mark_notification::into_surrogate(self) -> Self::Surrogate
@@ -2169,7 +2173,7 @@ pub fn tablo_core::notification::remove_notification::methods(&self) -> topcoat_
 pub fn tablo_core::notification::remove_notification::path(&self) -> &topcoat_router::path::Path
 impl topcoat_runtime::procedure::TypedProcedure for tablo_core::notification::remove_notification
 pub type tablo_core::notification::remove_notification::Args = (alloc::string::String)
-pub type tablo_core::notification::remove_notification::Output = <core::result::Result<bool, topcoat_core::error::Error> as topcoat_core::internal::ResultExt>::T
+pub type tablo_core::notification::remove_notification::Output = <core::result::Result<(), topcoat_core::error::Error> as topcoat_core::internal::ResultExt>::T
 impl topcoat_runtime::surrogate::Surrogated for tablo_core::notification::remove_notification
 pub type tablo_core::notification::remove_notification::Surrogate = &'static topcoat_runtime::procedure::ProcedureSurrogate<tablo_core::notification::remove_notification>
 pub fn tablo_core::notification::remove_notification::into_surrogate(self) -> Self::Surrogate

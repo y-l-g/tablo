@@ -114,19 +114,32 @@ async fn a_bell_lists_its_tenants_notifications_and_the_tenantless() {
     let ada = member(&db, "Ada", &["Acme", "Globex"]).await;
     let (acme, globex) = (ada.tenants[0].tenant, ada.tenants[1].tenant);
     let notifications = admin.notifications();
+    let mut ids = Vec::new();
     for (tenant, title) in [
         (Some(acme), "Acme report"),
         (Some(globex), "Globex report"),
         (None, "Everywhere"),
     ] {
-        notifications
+        let stored = notifications
             .clone()
             .tenant(tenant)
             .send(&ada.user_id(), Notification::info(title))
             .await
             .unwrap();
+        ids.push(stored.id.to_string());
     }
     let client = TestClient::new(&router).sign_in(&db, "admin", &ada).await;
+
+    // Acting for Acme, the Globex row's id names nothing to mark or remove.
+    let globex_id = &ids[1];
+    for (path, args) in [
+        (MARK, format!(r#"["{globex_id}", true]"#)),
+        (REMOVE, format!(r#"["{globex_id}"]"#)),
+    ] {
+        let response = client.tenant(acme).call_procedure(path, &args).await;
+        assert_eq!(response.status(), 200, "{path}");
+    }
+    assert_eq!(bell_of(&client.tenant(globex)).await.unread, 2);
 
     let in_acme = bell_of(&client.tenant(acme)).await;
     assert_eq!(
@@ -146,6 +159,57 @@ async fn a_bell_lists_its_tenants_notifications_and_the_tenantless() {
     assert_eq!(
         titles(&bell_of(&client.tenant(globex)).await),
         BTreeSet::from(["Globex report".to_owned()])
+    );
+}
+
+/// Each panel's bell lists what was sent on it, and its procedures change nothing on another
+/// panel the same user signs in to.
+#[tokio::test]
+async fn a_bell_lists_only_its_panels_notifications() {
+    let db = db().await;
+    let builder = Router::builder()
+        .discover()
+        .app_context(db.clone())
+        .panel(panel().notifications())
+        .expect("the admin panel mounts")
+        .panel(
+            Panel::new("portal")
+                .auth(Auth::custom(MemberAuth))
+                .resource::<NoteResource>()
+                .notifications(),
+        )
+        .expect("the portal panel mounts");
+    let admin = builder.panel_handle("admin").expect("mounted above");
+    let portal = builder.panel_handle("portal").expect("mounted above");
+    let router = builder.build();
+    let ada = member(&db, "Ada", &["Acme"]).await;
+    send(&admin, &ada, Notification::info("On admin")).await;
+    let portals = send(&portal, &ada, Notification::info("On portal")).await;
+    let on_admin = TestClient::new(&router).sign_in(&db, "admin", &ada).await;
+    let on_portal = TestClient::new(&router).sign_in(&db, "portal", &ada).await;
+
+    assert_eq!(
+        titles(&bell_of(&on_admin).await),
+        BTreeSet::from(["On admin".to_owned()])
+    );
+    for (path, args) in [
+        (MARK, format!(r#"["{portals}", true]"#)),
+        (REMOVE, format!(r#"["{portals}"]"#)),
+        (READ_ALL, "[]".to_owned()),
+        (CLEAR, "[]".to_owned()),
+    ] {
+        let response = on_admin.call_procedure(path, &args).await;
+        assert_eq!(response.status(), 200, "{path}");
+    }
+    let response = on_portal.get("/portal/notes").await;
+    let portal_bell = bell(&body_string(response).await).expect("the portal shows a bell");
+    assert_eq!(
+        portal_bell.unread, 1,
+        "the admin bell changed nothing on the portal"
+    );
+    assert_eq!(
+        titles(&portal_bell),
+        BTreeSet::from(["On portal".to_owned()])
     );
 }
 
@@ -320,36 +384,11 @@ async fn an_open_bell_updates_until_its_session_ends() {
     let (router, admin) = mount(db.clone(), panel().notifications());
     let ada = member(&db, "Ada", &["Acme"]).await;
     let token = mint_session(&mut db.clone(), "admin", &ada).await.unwrap();
-
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let addr = listener.local_addr().unwrap();
-    let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
-    let server = tokio::spawn(topcoat::serve_until(listener, router, async {
-        stopped.await.ok();
-    }));
-
-    let mut request = format!("ws://{addr}/admin/notes")
-        .into_client_request()
-        .unwrap();
-    let headers = request.headers_mut();
-    headers.insert(
-        http::header::SEC_WEBSOCKET_PROTOCOL,
-        http::HeaderValue::from_static("topcoat-runtime"),
-    );
-    headers.insert(
-        http::header::COOKIE,
-        format!("{SESSION_COOKIE}={token}").parse().unwrap(),
-    );
-    let (mut socket, _) = tokio_tungstenite::connect_async(request).await.unwrap();
-    // The run the browser starts for the bell once the page loaded.
-    let run = serde_json::json!({
-        "run": 1,
-        "method": "POST",
-        "path": BELL,
-        "headers": { "content-type": "application/json" },
-        "body": r#"{"args":[],"signals":{}}"#,
-    });
-    socket.send(Message::text(run.to_string())).await.unwrap();
+    let OpenBell {
+        mut socket,
+        stop,
+        server,
+    } = open_bell(router, &token).await;
     // The connected render's first emission: nothing to show yet.
     assert!(frames_until(&mut socket, "No notifications").await);
 
@@ -372,22 +411,116 @@ async fn an_open_bell_updates_until_its_session_ends() {
     let _ = tokio::time::timeout(Duration::from_secs(5), server).await;
 }
 
+/// An open bell toasts a notification that arrives, and not an older one marked unread again.
+#[tokio::test]
+async fn an_open_bell_toasts_only_what_arrives() {
+    let db = db().await;
+    let (router, admin) = mount(db.clone(), panel().notifications());
+    let ada = member(&db, "Ada", &["Acme"]).await;
+    let old = send(&admin, &ada, Notification::info("Old")).await;
+    let token = mint_session(&mut db.clone(), "admin", &ada).await.unwrap();
+    let client = TestClient::new(&router).cookie(SESSION_COOKIE, &token);
+    client
+        .call_procedure(MARK, &format!(r#"["{old}", true]"#))
+        .await;
+    let OpenBell {
+        mut socket,
+        stop,
+        server,
+    } = open_bell(router.clone(), &token).await;
+    assert!(frames_until(&mut socket, "Old").await);
+
+    client
+        .call_procedure(MARK, &format!(r#"["{old}", false]"#))
+        .await;
+    let badge = frame_with(&mut socket, r#"data-unread="1""#)
+        .await
+        .expect("the badge counts the unread one");
+    assert!(
+        !badge.contains("tablo-arrival-"),
+        "an old notification marked unread is no arrival"
+    );
+
+    let fresh = send(&admin, &ada, Notification::success("Fresh")).await;
+    assert!(
+        frames_until(&mut socket, &format!("tablo-arrival-{fresh}")).await,
+        "what arrives toasts"
+    );
+
+    stop.send(()).ok();
+    drop(socket);
+    let _ = tokio::time::timeout(Duration::from_secs(5), server).await;
+}
+
+type Socket =
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+
+/// A served router with one tab's runtime socket rendering the bell.
+struct OpenBell {
+    socket: Socket,
+    stop: tokio::sync::oneshot::Sender<()>,
+    server: tokio::task::JoinHandle<std::io::Result<()>>,
+}
+
+/// Serves `router` and starts the bell's run over the runtime socket, as a browser does once the
+/// page loaded, signed in with the session `token`.
+async fn open_bell(router: Router, token: &str) -> OpenBell {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
+    let server = tokio::spawn(topcoat::serve_until(listener, router, async {
+        stopped.await.ok();
+    }));
+
+    let mut request = format!("ws://{addr}/admin/notes")
+        .into_client_request()
+        .unwrap();
+    let headers = request.headers_mut();
+    headers.insert(
+        http::header::SEC_WEBSOCKET_PROTOCOL,
+        http::HeaderValue::from_static("topcoat-runtime"),
+    );
+    headers.insert(
+        http::header::COOKIE,
+        format!("{SESSION_COOKIE}={token}").parse().unwrap(),
+    );
+    let (mut socket, _) = tokio_tungstenite::connect_async(request).await.unwrap();
+    let run = serde_json::json!({
+        "run": 1,
+        "method": "POST",
+        "path": BELL,
+        "headers": { "content-type": "application/json" },
+        "body": r#"{"args":[],"signals":{}}"#,
+    });
+    socket.send(Message::text(run.to_string())).await.unwrap();
+    OpenBell {
+        socket,
+        stop,
+        server,
+    }
+}
+
 /// Reads the socket until a frame carries `needle`, for up to two seconds.
-async fn frames_until(
-    socket: &mut (impl StreamExt<Item = Result<Message, tokio_tungstenite::tungstenite::Error>> + Unpin),
-    needle: &str,
-) -> bool {
+async fn frames_until(socket: &mut Socket, needle: &str) -> bool {
+    frame_with(socket, needle).await.is_some()
+}
+
+/// The first frame whose HTML carries `needle`, read for up to two seconds.
+async fn frame_with(socket: &mut Socket, needle: &str) -> Option<String> {
     let read = async {
         while let Some(Ok(message)) = socket.next().await {
-            if let Message::Text(text) = message
-                && text.contains(needle)
-            {
-                return true;
+            if let Message::Text(text) = message {
+                // A frame is JSON: the quotes of its HTML arrive escaped.
+                let html = text.replace("\\\"", "\"");
+                if html.contains(needle) {
+                    return Some(html);
+                }
             }
         }
-        false
+        None
     };
     tokio::time::timeout(Duration::from_secs(2), read)
         .await
-        .unwrap_or(false)
+        .ok()
+        .flatten()
 }

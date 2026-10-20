@@ -14,8 +14,9 @@ is one JSON column, so a field `Notification` gains needs no migration. `Notific
   and a user id, never content. A woken bell checks its session again, then reads back through
   the `Inbox` filter: the signed-in user, the request's panel, the acting tenant or none. Every
   read and write of the bell filters through it, never through an id alone.
-- `revoke_sessions_for_user` wakes the user's bells, so an open tab stops at once; any other end
-  of a session stops it at its next wake, before it shows anything new.
+- `revoke_sessions_for_user`, signing out and switching tenant wake the user's bells, so an open
+  tab stops at once; any other end of a session stops it at its next wake, before it shows
+  anything new.
 - Marking read, removing, marking all read and clearing are procedures, applied in place: the
   procedure wakes the bells, and each connected bell re-renders itself. This departs from
   [0026](0026-topcoat-runtime-only.md), whose writes are form posts that redirect back: a

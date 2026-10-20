@@ -18,12 +18,12 @@ use crate::panel::state::current;
 /// [`Notifications::send`] writes it and the bell of a panel with
 /// [`Panel::notifications`](crate::Panel::notifications) lists it.
 #[derive(Debug, Clone, toasty::Model)]
+#[index(user_id, panel, created_at)]
 pub struct StoredNotification {
     #[key]
     #[auto]
     pub id: Uuid,
     /// [`PanelUser::user_id`](crate::PanelUser::user_id) of the user it is for.
-    #[index]
     pub user_id: String,
     /// The prefix of the panel whose bell lists it, e.g. `/admin`.
     pub panel: String,
@@ -36,7 +36,6 @@ pub struct StoredNotification {
     pub notification: toasty::Json<Notification>,
     /// When the user marked it read; `None` while unread.
     pub read_at: Option<Timestamp>,
-    #[index]
     pub created_at: Timestamp,
 }
 
@@ -176,6 +175,7 @@ pub(crate) fn bus(cx: &Cx) -> NotificationBus {
 /// The stored notifications the signed-in user's bell answers for: theirs, on the request's
 /// panel, for the tenant the request acts for or for none. Every read and write the bell makes
 /// filters through it, never through an id alone.
+#[derive(Clone)]
 pub(crate) struct Inbox {
     pub(crate) panel: String,
     pub(crate) user_id: String,
@@ -233,22 +233,6 @@ impl Inbox {
                 .and(StoredNotification::fields().read_at().is_none()),
         )
         .count()
-        .exec(&mut db.clone())
-        .await
-        .map_err(failure)
-    }
-
-    /// The newest unread row, if any.
-    pub(crate) async fn newest_unread(
-        &self,
-        db: &Db,
-    ) -> topcoat::Result<Option<StoredNotification>> {
-        StoredNotification::filter(
-            self.holds()
-                .and(StoredNotification::fields().read_at().is_none()),
-        )
-        .order_by(StoredNotification::fields().created_at().desc())
-        .first()
         .exec(&mut db.clone())
         .await
         .map_err(failure)
