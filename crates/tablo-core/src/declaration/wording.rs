@@ -125,25 +125,7 @@ impl fmt::Display for DeclarationErrorKind {
                 f,
                 "`{model}` compiles to no schema, so its embedded paths name no column: {error}"
             ),
-            Self::TenancyColumnNotAField => f.write_str(
-                "the `Tenancy::column` lens names no field of the model: name a field typed \
-                 `TenantId`, or use `Tenancy::via` for a tenant reached through a relation",
-            ),
-            Self::TenancyViaOwnColumn => f.write_str(
-                "the `Tenancy::via` lens names one field of the model: use `Tenancy::column` for \
-                 the model's own tenant column",
-            ),
-            Self::TenancyViaWithoutBelongsTo => f.write_str(
-                "the `Tenancy::via` lens does not start at a `belongs_to` relation: the tenant \
-                 must be the parent's its foreign key names",
-            ),
-            Self::UnguardedForeignKey { relation, keys } => write!(
-                f,
-                "foreign key `{}` is not written through a relationship field over a \
-                 tenant-scoped resource of `{relation}`'s model: the write re-checks only such a \
-                 field's key, so any other could attach the row to another tenant's parent",
-                keys.join("`, `")
-            ),
+            Self::Tenancy { fault } => fault.fmt(f),
             Self::NoColumns => f.write_str(
                 "no column: declare columns with `Table::new(columns)` or in `ResourceDef::table`",
             ),

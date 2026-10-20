@@ -8,6 +8,7 @@ mod field_rule;
 mod many_to_many;
 mod mount_error;
 mod segment;
+mod tenancy;
 mod wording;
 
 pub use action_input::ActionInputFault;
@@ -23,6 +24,7 @@ use many_to_many::fmt_many_to_many;
 pub use mount_error::MountError;
 pub use segment::SegmentFault;
 pub(crate) use segment::segment_fault;
+pub use tenancy::TenancyFault;
 
 /// One declaration mistake: who declares it, where, and what is wrong.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -243,19 +245,10 @@ pub enum DeclarationErrorKind {
         /// Each driver's reason to refuse it.
         error: String,
     },
-    /// A `Tenancy::column` lens that names no field of the model.
-    TenancyColumnNotAField,
-    /// A `Tenancy::via` lens that names one field of the model.
-    TenancyViaOwnColumn,
-    /// A `Tenancy::via` lens whose first step is no `belongs_to` relation.
-    TenancyViaWithoutBelongsTo,
-    /// A `Tenancy::via` resource whose form writes the parent's foreign key other than through a
-    /// relationship field over a tenant-scoped resource of the parent's model.
-    UnguardedForeignKey {
-        /// The `belongs_to` relation the lens steps through.
-        relation: String,
-        /// The foreign-key columns written another way.
-        keys: Vec<String>,
+    /// A resource's tenancy that cannot scope its rows.
+    Tenancy {
+        /// What is wrong.
+        fault: TenancyFault,
     },
     /// A table with no column.
     NoColumns,

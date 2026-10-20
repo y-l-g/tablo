@@ -10,7 +10,7 @@ use toasty::stmt::{Expr, Path};
 use topcoat::context::{Cx, try_app_context, try_request_context};
 
 use crate::{
-    DeclarationErrorKind,
+    DeclarationErrorKind, TenancyFault,
     toasty_compat::model::{self, ModelPath},
 };
 
@@ -124,7 +124,9 @@ pub(crate) struct TenantField {
 type TenantFilter = Box<dyn Fn(uuid::Uuid) -> Expr<bool> + Send + Sync>;
 
 enum Scope {
-    None,
+    /// Unscoped: [`Tenancy::none`] when `declared`, else the default a resource that never called
+    /// [`ResourceDef::tenancy`](crate::ResourceDef::tenancy) holds.
+    None { declared: bool },
     /// The model's own column, resolved when declared: its field, or `None`
     /// when the lens names none.
     Column {
@@ -153,9 +155,19 @@ impl<M: toasty::schema::Model + 'static> Tenancy<M> {
 
     /// Rows belong to no tenant: the resource is served as
     /// [`query`](crate::resource::Resource::query) states it, to every
-    /// request. The default.
+    /// request.
+    ///
+    /// A resource that declares no tenancy is served the same way, unless its model has a
+    /// [`TenantId`] column: mounting the panel refuses that resource until it declares one, so a
+    /// resource over tenant-owned rows declares `Tenancy::none()` to serve every tenant on
+    /// purpose.
     pub fn none() -> Self {
-        Self::scoped(Scope::None)
+        Self::scoped(Scope::None { declared: true })
+    }
+
+    /// The tenancy of a resource that never declared one.
+    pub(crate) fn undeclared() -> Self {
+        Self::scoped(Scope::None { declared: false })
     }
 
     /// Rows carry their tenant in one [`TenantId`] column of their own model,
@@ -210,13 +222,18 @@ impl<M: toasty::schema::Model + 'static> Tenancy<M> {
 
     /// Whether the rows belong to a tenant, so every handler requires one.
     pub fn is_scoped(&self) -> bool {
-        !matches!(self.scope, Scope::None)
+        !matches!(self.scope, Scope::None { .. })
+    }
+
+    /// Whether the resource never declared its tenancy.
+    pub(crate) fn is_undeclared(&self) -> bool {
+        matches!(self.scope, Scope::None { declared: false })
     }
 
     /// `<lens> = tenant`, or `None` for an unscoped resource.
     pub(crate) fn filter(&self, tenant: uuid::Uuid) -> Option<Expr<bool>> {
         match &self.scope {
-            Scope::None => None,
+            Scope::None { .. } => None,
             Scope::Column { filter, .. } | Scope::Via { filter, .. } => Some(filter(tenant)),
         }
     }
@@ -227,7 +244,7 @@ impl<M: toasty::schema::Model + 'static> Tenancy<M> {
     pub(crate) fn via_is_single(&self) -> Option<bool> {
         match &self.scope {
             Scope::Via { single, .. } => Some(*single),
-            Scope::None | Scope::Column { .. } => None,
+            Scope::None { .. } | Scope::Column { .. } => None,
         }
     }
 
@@ -235,7 +252,7 @@ impl<M: toasty::schema::Model + 'static> Tenancy<M> {
     pub(crate) fn via_hop(&self) -> Option<usize> {
         match &self.scope {
             Scope::Via { hop, .. } => *hop,
-            Scope::None | Scope::Column { .. } => None,
+            Scope::None { .. } | Scope::Column { .. } => None,
         }
     }
 
@@ -243,19 +260,13 @@ impl<M: toasty::schema::Model + 'static> Tenancy<M> {
     /// or the mistake of a lens that names none.
     pub(crate) fn column_field(&self) -> Option<Result<&TenantField, DeclarationErrorKind>> {
         match &self.scope {
-            Scope::Column { field, .. } => Some(
-                field
-                    .as_ref()
-                    .ok_or(DeclarationErrorKind::TenancyColumnNotAField),
-            ),
-            Scope::None | Scope::Via { .. } => None,
+            Scope::Column { field, .. } => {
+                Some(field.as_ref().ok_or(DeclarationErrorKind::Tenancy {
+                    fault: TenancyFault::ColumnNotAField,
+                }))
+            }
+            Scope::None { .. } | Scope::Via { .. } => None,
         }
-    }
-}
-
-impl<M: toasty::schema::Model + 'static> Default for Tenancy<M> {
-    fn default() -> Self {
-        Self::none()
     }
 }
 

@@ -18,7 +18,10 @@ pub fn expand_tokens(input: DeriveInput) -> TokenStream2 {
 }
 
 fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
-    let shown = shown_fields(&input)?;
+    let Fields {
+        shown,
+        tenant_columns,
+    } = fields(&input)?;
     let krate = crate::tablo_core_path(&input.ident, "ModelColumns")?;
     let model = &input.ident;
     let fields: Vec<TokenStream2> = shown
@@ -50,6 +53,8 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
     });
     Ok(quote! {
         impl #krate::__macro::ModelColumns for #model {
+            const TENANT_COLUMNS: &'static [&'static str] = &[#(#tenant_columns),*];
+
             fn table() -> #krate::__macro::Table<#model> {
                 #[allow(unused_imports)]
                 use #krate::__macro::pick::{
@@ -78,8 +83,16 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
     })
 }
 
-/// The fields of `input` a column shows, in declaration order.
-fn shown_fields(input: &DeriveInput) -> syn::Result<Vec<&syn::Field>> {
+/// What the derive reads off a model's fields.
+struct Fields<'a> {
+    /// The fields a column shows, in declaration order.
+    shown: Vec<&'a syn::Field>,
+    /// The names of the fields typed `TenantId` or `Option<TenantId>`.
+    tenant_columns: Vec<String>,
+}
+
+/// The fields of `input` a column shows, and its tenant columns.
+fn fields(input: &DeriveInput) -> syn::Result<Fields<'_>> {
     reject_generics(
         input,
         "#[derive(ModelColumns)] does not support a generic model",
@@ -102,8 +115,12 @@ fn shown_fields(input: &DeriveInput) -> syn::Result<Vec<&syn::Field>> {
     let foreign = foreign_keys(named.named.iter());
     let keys = struct_keys(input);
     let mut shown = Vec::new();
+    let mut tenant_columns = Vec::new();
     for field in &named.named {
         let ident = field.ident.as_ref().expect("named field");
+        if is_tenant(&field.ty) {
+            tenant_columns.push(ident.to_string());
+        }
         let skip = asks_skip(field)?;
         let key = has(field, "key") || keys.contains(ident);
         match (left_out(field, key, foreign.contains(ident)), skip) {
@@ -120,7 +137,10 @@ fn shown_fields(input: &DeriveInput) -> syn::Result<Vec<&syn::Field>> {
             _ => {}
         }
     }
-    Ok(shown)
+    Ok(Fields {
+        shown,
+        tenant_columns,
+    })
 }
 
 /// The model's `#[version]` field, which Toasty allows once per model.

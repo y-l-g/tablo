@@ -111,7 +111,10 @@ impl Resource for OpenNotes {
     type Form = crate::NoForm<Note>;
 
     fn declare() -> ResourceDef<Self> {
-        ResourceDef::new().policy(ReadOnly).table(note_table())
+        ResourceDef::new()
+            .policy(ReadOnly)
+            .tenancy(crate::Tenancy::none())
+            .table(note_table())
     }
 }
 
@@ -134,7 +137,9 @@ impl Resource for ClosedNotes {
     type Form = crate::NoForm<Note>;
 
     fn declare() -> ResourceDef<Self> {
-        ResourceDef::new().table(note_table())
+        ResourceDef::new()
+            .tenancy(crate::Tenancy::none())
+            .table(note_table())
     }
 }
 

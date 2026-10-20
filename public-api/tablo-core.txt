@@ -174,6 +174,7 @@ pub fn tablo_core::auth::AdminUser::clone(&self) -> tablo_core::auth::AdminUser
 impl core::fmt::Debug for tablo_core::auth::AdminUser
 pub fn tablo_core::auth::AdminUser::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl tablo_core::ModelColumns for tablo_core::auth::AdminUser
+pub const tablo_core::auth::AdminUser::TENANT_COLUMNS: &'static [&'static str]
 pub fn tablo_core::auth::AdminUser::detail() -> tablo_core::detail::Detail<tablo_core::auth::AdminUser>
 pub fn tablo_core::auth::AdminUser::table() -> tablo_core::table::Table<tablo_core::auth::AdminUser>
 pub fn tablo_core::auth::AdminUser::version(&self) -> core::option::Option<u64>
@@ -3989,10 +3990,12 @@ impl<M> tablo_core::IntoFilters<M> for tablo_core::QueryFilter<M> where M: toast
 impl<M> tablo_core::IntoFilters<M> for tablo_core::SelectFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
 impl<M> tablo_core::IntoFilters<M> for tablo_core::TernaryFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
 pub trait tablo_core::table::ModelColumns: toasty::schema::model::Model + toasty::stmt::into_expr::IntoExpr<Self> + core::marker::Sized
+pub const tablo_core::table::ModelColumns::TENANT_COLUMNS: &'static [&'static str]
 pub fn tablo_core::table::ModelColumns::detail() -> tablo_core::detail::Detail<Self>
 pub fn tablo_core::table::ModelColumns::table() -> tablo_core::table::Table<Self>
 pub fn tablo_core::table::ModelColumns::version(&self) -> core::option::Option<u64>
 impl tablo_core::ModelColumns for tablo_core::auth::AdminUser
+pub const tablo_core::auth::AdminUser::TENANT_COLUMNS: &'static [&'static str]
 pub fn tablo_core::auth::AdminUser::detail() -> tablo_core::detail::Detail<tablo_core::auth::AdminUser>
 pub fn tablo_core::auth::AdminUser::table() -> tablo_core::table::Table<tablo_core::auth::AdminUser>
 pub fn tablo_core::auth::AdminUser::version(&self) -> core::option::Option<u64>
@@ -4055,8 +4058,6 @@ pub fn tablo_core::tenancy::Tenancy<M>::column<T>(impl core::convert::Into<toast
 pub fn tablo_core::tenancy::Tenancy<M>::is_scoped(&self) -> bool
 pub fn tablo_core::tenancy::Tenancy<M>::none() -> Self
 pub fn tablo_core::tenancy::Tenancy<M>::via<T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> Self where T: tablo_core::TenantColumn, M: core::marker::Send + core::marker::Sync
-impl<M: toasty::schema::model::Model + 'static> core::default::Default for tablo_core::tenancy::Tenancy<M>
-pub fn tablo_core::tenancy::Tenancy<M>::default() -> Self
 impl<M> core::marker::Freeze for tablo_core::tenancy::Tenancy<M> where core::marker::PhantomData<fn() -> M>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::tenancy::Tenancy<M> where core::marker::PhantomData<fn() -> M>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::tenancy::Tenancy<M> where core::marker::PhantomData<fn() -> M>: core::marker::Sync
@@ -4491,9 +4492,8 @@ pub tablo_core::DeclarationErrorKind::ServeDirWithoutCatchAll
 pub tablo_core::DeclarationErrorKind::ServeDirWithoutCatchAll::path: alloc::string::String
 pub tablo_core::DeclarationErrorKind::ShellAssetsWithoutBundle
 pub tablo_core::DeclarationErrorKind::SignUp(tablo_core::SignUpFault)
-pub tablo_core::DeclarationErrorKind::TenancyColumnNotAField
-pub tablo_core::DeclarationErrorKind::TenancyViaOwnColumn
-pub tablo_core::DeclarationErrorKind::TenancyViaWithoutBelongsTo
+pub tablo_core::DeclarationErrorKind::Tenancy
+pub tablo_core::DeclarationErrorKind::Tenancy::fault: tablo_core::TenancyFault
 pub tablo_core::DeclarationErrorKind::TenantProfile(tablo_core::TenantProfileFault)
 pub tablo_core::DeclarationErrorKind::TenantRegistration(tablo_core::TenantRegistrationFault)
 pub tablo_core::DeclarationErrorKind::TraversalLens
@@ -4502,9 +4502,6 @@ pub tablo_core::DeclarationErrorKind::TwoFactor(tablo_core::TwoFactorFault)
 pub tablo_core::DeclarationErrorKind::Uncompiled
 pub tablo_core::DeclarationErrorKind::Uncompiled::error: alloc::string::String
 pub tablo_core::DeclarationErrorKind::Uncompiled::model: &'static str
-pub tablo_core::DeclarationErrorKind::UnguardedForeignKey
-pub tablo_core::DeclarationErrorKind::UnguardedForeignKey::keys: alloc::vec::Vec<alloc::string::String>
-pub tablo_core::DeclarationErrorKind::UnguardedForeignKey::relation: alloc::string::String
 pub tablo_core::DeclarationErrorKind::UniqueWithoutIndex
 pub tablo_core::DeclarationErrorKind::UniqueWithoutIndex::field: alloc::string::String
 pub tablo_core::DeclarationErrorKind::UnparsedFilterOption
@@ -4892,6 +4889,36 @@ impl core::marker::Unpin for tablo_core::Site
 impl core::marker::UnsafeUnpin for tablo_core::Site
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Site
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::Site
+#[non_exhaustive] pub enum tablo_core::TenancyFault
+pub tablo_core::TenancyFault::ColumnNotAField
+pub tablo_core::TenancyFault::Undeclared
+pub tablo_core::TenancyFault::Undeclared::columns: alloc::vec::Vec<&'static str>
+pub tablo_core::TenancyFault::Undeclared::model: &'static str
+pub tablo_core::TenancyFault::UndeclaredChild
+pub tablo_core::TenancyFault::UndeclaredChild::model: &'static str
+pub tablo_core::TenancyFault::UndeclaredChild::relation: alloc::string::String
+pub tablo_core::TenancyFault::UnguardedForeignKey
+pub tablo_core::TenancyFault::UnguardedForeignKey::keys: alloc::vec::Vec<alloc::string::String>
+pub tablo_core::TenancyFault::UnguardedForeignKey::relation: alloc::string::String
+pub tablo_core::TenancyFault::ViaOwnColumn
+pub tablo_core::TenancyFault::ViaWithoutBelongsTo
+impl core::clone::Clone for tablo_core::TenancyFault
+pub fn tablo_core::TenancyFault::clone(&self) -> tablo_core::TenancyFault
+impl core::cmp::Eq for tablo_core::TenancyFault
+impl core::cmp::PartialEq for tablo_core::TenancyFault
+pub fn tablo_core::TenancyFault::eq(&self, &tablo_core::TenancyFault) -> bool
+impl core::fmt::Debug for tablo_core::TenancyFault
+pub fn tablo_core::TenancyFault::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tablo_core::TenancyFault
+pub fn tablo_core::TenancyFault::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_core::TenancyFault
+impl core::marker::Freeze for tablo_core::TenancyFault
+impl core::marker::Send for tablo_core::TenancyFault
+impl core::marker::Sync for tablo_core::TenancyFault
+impl core::marker::Unpin for tablo_core::TenancyFault
+impl core::marker::UnsafeUnpin for tablo_core::TenancyFault
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::TenancyFault
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::TenancyFault
 #[non_exhaustive] pub enum tablo_core::TenantProfileFault
 pub tablo_core::TenantProfileFault::AuthDisabled
 pub tablo_core::TenantProfileFault::FileField(alloc::string::String)
@@ -6693,8 +6720,6 @@ pub fn tablo_core::tenancy::Tenancy<M>::column<T>(impl core::convert::Into<toast
 pub fn tablo_core::tenancy::Tenancy<M>::is_scoped(&self) -> bool
 pub fn tablo_core::tenancy::Tenancy<M>::none() -> Self
 pub fn tablo_core::tenancy::Tenancy<M>::via<T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> Self where T: tablo_core::TenantColumn, M: core::marker::Send + core::marker::Sync
-impl<M: toasty::schema::model::Model + 'static> core::default::Default for tablo_core::tenancy::Tenancy<M>
-pub fn tablo_core::tenancy::Tenancy<M>::default() -> Self
 impl<M> core::marker::Freeze for tablo_core::tenancy::Tenancy<M> where core::marker::PhantomData<fn() -> M>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::tenancy::Tenancy<M> where core::marker::PhantomData<fn() -> M>: core::marker::Send
 impl<M> core::marker::Sync for tablo_core::tenancy::Tenancy<M> where core::marker::PhantomData<fn() -> M>: core::marker::Sync
@@ -7251,10 +7276,12 @@ pub fn (A, B, C)::into_schema(self) -> tablo_core::schema::Schema<Form>
 impl<Form, A, B> tablo_core::IntoSchema<Form> for (A, B) where A: tablo_core::IntoSchema<Form>, B: tablo_core::IntoSchema<Form>
 pub fn (A, B)::into_schema(self) -> tablo_core::schema::Schema<Form>
 pub trait tablo_core::ModelColumns: toasty::schema::model::Model + toasty::stmt::into_expr::IntoExpr<Self> + core::marker::Sized
+pub const tablo_core::ModelColumns::TENANT_COLUMNS: &'static [&'static str]
 pub fn tablo_core::ModelColumns::detail() -> tablo_core::detail::Detail<Self>
 pub fn tablo_core::ModelColumns::table() -> tablo_core::table::Table<Self>
 pub fn tablo_core::ModelColumns::version(&self) -> core::option::Option<u64>
 impl tablo_core::ModelColumns for tablo_core::auth::AdminUser
+pub const tablo_core::auth::AdminUser::TENANT_COLUMNS: &'static [&'static str]
 pub fn tablo_core::auth::AdminUser::detail() -> tablo_core::detail::Detail<tablo_core::auth::AdminUser>
 pub fn tablo_core::auth::AdminUser::table() -> tablo_core::table::Table<tablo_core::auth::AdminUser>
 pub fn tablo_core::auth::AdminUser::version(&self) -> core::option::Option<u64>
