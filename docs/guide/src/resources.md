@@ -202,6 +202,7 @@ declaration names one. It refuses the resource when:
 - a `Tenancy::column` lens is not one field of the model, a `Tenancy::via` lens is, or the form
   of a `Tenancy::via` resource writes the parent's foreign key other than through a relationship
   field over a tenant-scoped resource;
+- a `soft_delete` lens is not one field of the model, or the record form writes its column;
 - two actions share a `NAME`, record or header;
 - a many-to-many field or relation goes through a join model a link cannot write, or a multiple
   choice in a resource's form names no many-to-many field;
@@ -210,7 +211,7 @@ declaration names one. It refuses the resource when:
 
 The refusal lists every mistake the panel found, not only the first. `.panel(..)` returns it as a
 `MountError`: each of its `DeclarationError`s names the resource, the `Site` of the declaration
-it is in (`Panel`, `Registration`, `Tenancy`, `Table`, `Form`, `Detail`, a `Relation`) and a
+it is in (`Panel`, `Registration`, `Tenancy`, `SoftDelete`, `Table`, `Form`, `Detail`, a `Relation`) and a
 `DeclarationErrorKind`, whose `Display` is the message. [Mount errors](./mount-errors.md) lists
 every kind with its fix.
 [Testing](./testing-and-benchmarks.md#testing-a-panel) shows a test matching on the kind.
