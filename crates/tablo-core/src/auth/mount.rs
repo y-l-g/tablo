@@ -29,15 +29,19 @@ pub(crate) struct Services {
 
 /// Every mistake in `auth` the mount refuses: a shipped model missing from `db`, and the
 /// sign-up, profile, password-reset, email-verification, tenant, two-factor and mail
-/// declarations. `toggles` says whether some list declares a toggleable column, and `services`
-/// what the router installs.
+/// declarations. `toggles` says whether some list declares a toggleable column, `notifications`
+/// whether the panel shows the bell, and `services` what the router installs.
 pub(crate) fn declaration_errors(
     db: &toasty::Db,
     auth: &Auth,
     toggles: bool,
+    notifications: bool,
     services: Services,
 ) -> Vec<DeclarationErrorKind> {
-    missing_models(db, auth, toggles)
+    if notifications && auth.is_disabled() {
+        return vec![DeclarationErrorKind::NotificationsWithoutAuth];
+    }
+    missing_models(db, auth, toggles, notifications)
         .err()
         .into_iter()
         .chain(super::registration::declaration_errors(auth))
@@ -57,8 +61,15 @@ pub(crate) fn declaration_errors(
 /// Fail loudly at mount when a required shipped model is missing from the
 /// app's `Db` (ADR-0013): the table is never pushed, and the first login
 /// would otherwise be a confusing runtime error. [`ColumnPreference`](super::ColumnPreference) is
-/// required only when some list declares a toggleable column (`toggles`).
-fn missing_models(db: &toasty::Db, auth: &Auth, toggles: bool) -> Result<(), DeclarationErrorKind> {
+/// required only when some list declares a toggleable column (`toggles`), and
+/// [`StoredNotification`](crate::notification::StoredNotification) only when the panel shows the
+/// bell (`notifications`).
+fn missing_models(
+    db: &toasty::Db,
+    auth: &Auth,
+    toggles: bool,
+    notifications: bool,
+) -> Result<(), DeclarationErrorKind> {
     let Some(authenticator) = auth.authenticator() else {
         return Ok(());
     };
@@ -71,6 +82,7 @@ fn missing_models(db: &toasty::Db, auth: &Auth, toggles: bool) -> Result<(), Dec
         (toggles && !registered("ColumnPreference")).then_some("ColumnPreference"),
         (auth.issues_tokens() && !registered("AuthToken")).then_some("AuthToken"),
         (auth.two_factor.is_some() && !registered("AuthFactor")).then_some("AuthFactor"),
+        (notifications && !registered("StoredNotification")).then_some("StoredNotification"),
     ]
     .into_iter()
     .flatten()

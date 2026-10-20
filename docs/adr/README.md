@@ -19,3 +19,4 @@ record disagree, the code wins and the record is fixed. Missing numbers are reti
 | [0024](0024-core-layers.md) | `tablo-core` is layered, and a test enforces it |
 | [0026](0026-topcoat-runtime-only.md) | Topcoat's runtime is the browser layer |
 | [0027](0027-filter-values.md) | A filter's value is a list of values and a set of named parts |
+| [0028](0028-stored-notifications.md) | Stored notifications ride the runtime connection |

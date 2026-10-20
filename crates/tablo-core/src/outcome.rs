@@ -28,8 +28,9 @@ impl NotificationStatus {
     }
 }
 
-/// A transient message shown after a mutation.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// A message for a panel user: flashed as a toast after a write, or stored for the bell with
+/// [`Notifications::send`](crate::notification::Notifications::send).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Notification {
     pub status: NotificationStatus,
     pub title: String,
@@ -37,6 +38,31 @@ pub struct Notification {
     /// older cookies still decode.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// The links under the text, in the order they were added.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub actions: Vec<NotificationAction>,
+}
+
+/// A link a [`Notification`] offers under its text, such as "Download" or "View order".
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NotificationAction {
+    pub label: String,
+    /// A same-origin path such as `/admin/orders/42`, or an `http` or `https` URL. Anything else,
+    /// such as `javascript:…`, renders no link.
+    pub url: String,
+}
+
+impl NotificationAction {
+    /// The URL when a browser may follow it: a same-origin path, or an `http` or `https` URL.
+    pub(crate) fn safe_url(&self) -> Option<&str> {
+        let url = self.url.trim();
+        if same_origin_path(url).is_some() {
+            return Some(url);
+        }
+        let lower = url.get(..8).unwrap_or(url).to_ascii_lowercase();
+        let web = lower.starts_with("https://") || lower.starts_with("http://");
+        (web && !url.chars().any(|c| c.is_control() || c == '\\')).then_some(url)
+    }
 }
 
 impl Notification {
@@ -61,12 +87,23 @@ impl Notification {
             status,
             title: title.into(),
             description: None,
+            actions: Vec::new(),
         }
     }
 
     /// Attach the supporting line under the title.
     pub fn description(mut self, description: impl Into<String>) -> Self {
         self.description = Some(description.into());
+        self
+    }
+
+    /// Adds a link under the text: `url` is a same-origin path such as `/admin/orders/42`, or an
+    /// `http` or `https` URL. A URL of any other scheme renders no link.
+    pub fn action(mut self, label: impl Into<String>, url: impl Into<String>) -> Self {
+        self.actions.push(NotificationAction {
+            label: label.into(),
+            url: url.into(),
+        });
         self
     }
 }

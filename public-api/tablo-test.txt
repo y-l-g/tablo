@@ -39,6 +39,45 @@ impl core::marker::Unpin for tablo_test::ErrorKind
 impl core::marker::UnsafeUnpin for tablo_test::ErrorKind
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::ErrorKind
 impl core::panic::unwind_safe::UnwindSafe for tablo_test::ErrorKind
+pub struct tablo_test::Bell
+pub tablo_test::Bell::notifications: alloc::vec::Vec<tablo_test::BellNotification>
+pub tablo_test::Bell::unread: u64
+impl core::clone::Clone for tablo_test::Bell
+pub fn tablo_test::Bell::clone(&self) -> tablo_test::Bell
+impl core::cmp::Eq for tablo_test::Bell
+impl core::cmp::PartialEq for tablo_test::Bell
+pub fn tablo_test::Bell::eq(&self, &tablo_test::Bell) -> bool
+impl core::fmt::Debug for tablo_test::Bell
+pub fn tablo_test::Bell::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_test::Bell
+impl core::marker::Freeze for tablo_test::Bell
+impl core::marker::Send for tablo_test::Bell
+impl core::marker::Sync for tablo_test::Bell
+impl core::marker::Unpin for tablo_test::Bell
+impl core::marker::UnsafeUnpin for tablo_test::Bell
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::Bell
+impl core::panic::unwind_safe::UnwindSafe for tablo_test::Bell
+pub struct tablo_test::BellNotification
+pub tablo_test::BellNotification::actions: alloc::vec::Vec<(alloc::string::String, alloc::string::String)>
+pub tablo_test::BellNotification::id: alloc::string::String
+pub tablo_test::BellNotification::read: bool
+pub tablo_test::BellNotification::status: alloc::string::String
+pub tablo_test::BellNotification::title: alloc::string::String
+impl core::clone::Clone for tablo_test::BellNotification
+pub fn tablo_test::BellNotification::clone(&self) -> tablo_test::BellNotification
+impl core::cmp::Eq for tablo_test::BellNotification
+impl core::cmp::PartialEq for tablo_test::BellNotification
+pub fn tablo_test::BellNotification::eq(&self, &tablo_test::BellNotification) -> bool
+impl core::fmt::Debug for tablo_test::BellNotification
+pub fn tablo_test::BellNotification::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_test::BellNotification
+impl core::marker::Freeze for tablo_test::BellNotification
+impl core::marker::Send for tablo_test::BellNotification
+impl core::marker::Sync for tablo_test::BellNotification
+impl core::marker::Unpin for tablo_test::BellNotification
+impl core::marker::UnsafeUnpin for tablo_test::BellNotification
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::BellNotification
+impl core::panic::unwind_safe::UnwindSafe for tablo_test::BellNotification
 pub struct tablo_test::EmptyTable
 pub tablo_test::EmptyTable::clear: core::option::Option<alloc::string::String>
 pub tablo_test::EmptyTable::first_page: core::option::Option<alloc::string::String>
@@ -153,6 +192,7 @@ impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::RowActions
 impl core::panic::unwind_safe::UnwindSafe for tablo_test::RowActions
 pub struct tablo_test::TestClient<'a>
 impl<'a> tablo_test::TestClient<'a>
+pub async fn tablo_test::TestClient<'a>::call_procedure(&self, &str, &str) -> http::response::Response<topcoat_router::body::Body>
 pub fn tablo_test::TestClient<'a>::cookie(&self, &str, &str) -> Self
 pub fn tablo_test::TestClient<'a>::cookies(&self, &[(alloc::string::String, alloc::string::String)]) -> Self
 pub fn tablo_test::TestClient<'a>::csrf(&self, &str) -> Self
@@ -178,6 +218,7 @@ pub const tablo_test::SESSION_COOKIE: &str
 pub const tablo_test::TEST_DATABASE_URL: &str
 pub fn tablo_test::authenticator_code(&str) -> alloc::string::String
 pub fn tablo_test::authenticator_code_at(&str, u64) -> alloc::string::String
+pub fn tablo_test::bell(&str) -> core::option::Option<tablo_test::Bell>
 pub async fn tablo_test::body_bytes(http::response::Response<topcoat_router::body::Body>) -> alloc::vec::Vec<u8>
 pub async fn tablo_test::body_string(http::response::Response<topcoat_router::body::Body>) -> alloc::string::String
 pub fn tablo_test::column_picker(&str) -> core::option::Option<alloc::vec::Vec<tablo_test::PickerColumn>>

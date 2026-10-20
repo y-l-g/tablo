@@ -261,7 +261,13 @@ pub async fn revoke_sessions_for_user(cx: &Cx, user_id: &str) -> topcoat::Result
             Some(auth) => credential_panels(cx, auth.user_type(), panel),
             None => vec![Arc::clone(panel)],
         };
-        return end_credentials(&mut db, user_id, &panels, REVOCATION).await;
+        end_credentials(&mut db, user_id, &panels, REVOCATION).await?;
+        wake_bells(
+            cx,
+            user_id,
+            panels.iter().map(|panel| panel.prefix.as_str()),
+        );
+        return Ok(());
     }
     AuthSession::filter(AuthSession::fields().user_id().eq(user_id.to_string()))
         .delete()
@@ -273,7 +279,24 @@ pub async fn revoke_sessions_for_user(cx: &Cx, user_id: &str) -> topcoat::Result
     if issuing {
         super::token::end_all(&mut db, user_id, None, REVOCATION).await?;
     }
+    let panels = crate::panel::state::panels(cx).map(|panels| &panels.0[..]);
+    wake_bells(
+        cx,
+        user_id,
+        panels
+            .unwrap_or_default()
+            .iter()
+            .map(|panel| panel.prefix.as_str()),
+    );
     Ok(())
+}
+
+/// Wakes the bells `user_id` has open on `panels`, so each checks its session again and stops.
+fn wake_bells<'a>(cx: &Cx, user_id: &str, panels: impl Iterator<Item = &'a str>) {
+    let bus = crate::notification::bus(cx);
+    for panel in panels {
+        bus.wake(panel, user_id);
+    }
 }
 
 /// How many expired session rows one sweep drops: the bound that keeps one

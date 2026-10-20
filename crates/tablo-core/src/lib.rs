@@ -140,7 +140,7 @@ pub use display::{Alignment, Color, Currency, Number, Numeric};
 pub use form::{NoForm, Posted, RecordForm};
 pub use lens::Lens;
 pub use navigation::{NavTarget, NavigationItem};
-pub use notification::{Notification, NotificationStatus};
+pub use notification::{Notification, NotificationAction, NotificationStatus, Notifications};
 pub use outcome::Outcome;
 pub use page::{Page, PageDef};
 pub use panel::{

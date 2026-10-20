@@ -196,6 +196,27 @@ async fn admitted(cx: &Cx, signed: &SignedIn) -> topcoat::Result<bool> {
     Ok(signed.user.can_access_panel() && owed_step(cx, &signed.panel, signed).await?.is_none())
 }
 
+/// Whether the session that signed the request in still signs in the same user, admitted, acting
+/// for the same tenant: what a connected render checks before it shows anything new, since the
+/// gate ran once, when the render started.
+pub(crate) async fn still_signed_in(cx: &Cx) -> topcoat::Result<bool> {
+    let Some(signed) = super::signed(cx) else {
+        return Ok(false);
+    };
+    let Some(authenticator) = signed.panel.auth.authenticator() else {
+        return Ok(true);
+    };
+    let Some(now) = resolve(cx, &signed.panel, authenticator).await? else {
+        return Ok(false);
+    };
+    let tenant = crate::tenant_id(cx);
+    let member = tenant.is_none_or(|tenant| now.user.tenants().iter().any(|m| m.tenant == tenant));
+    Ok(now.user.user_id() == signed.user.user_id()
+        && now.tenant == signed.tenant
+        && member
+        && admitted(cx, &now).await?)
+}
+
 /// The page a signed-in user the panel refuses loads: a 403 saying so, with Sign out.
 async fn no_access(cx: &Cx) -> topcoat::Result<Response> {
     let csrf = crate::csrf::ensure_token(cx);

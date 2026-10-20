@@ -39,6 +39,9 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Relation | A related resource's rows that belong to a record, rendered as that resource's table: its rows holding the record's key, or the records a join model links the record to, which the table attaches and detaches. | Relation manager, Sub-table |
 | Action | A user-invoked mutation, on one record or a bulk selection. | Command, Operation, Modal |
 | Outcome | What an action's run asks of the response once its write commits: the notification it flashes and where it lands. | Result, Response, Effect |
+| Notification | A message for a panel user: a status, a title, a description and links. A write flashes one as a toast; `Notifications` stores one. | Alert, Message, Flash (for the type) |
+| Stored notification | A notification kept for one panel user on one panel, for one tenant or none, as a `StoredNotification` row; the bell lists it. | Database notification, Inbox item |
+| Bell | The topbar control `Panel::notifications` shows: the unread count, and the sheet listing the user's stored notifications. | Inbox, Notification center, Drawer |
 | Header action | A user-invoked mutation on no record, from the header of a list or a page. | Global action, Page action, Toolbar action |
 | Place | Where a record action's button renders: a row, the detail page, the edit page, the bulk bar. | Location, Context, Surface |
 | Form input | A typed value a form posts under keys no column binds, from `FormInput`: an action input, a sign-up, a repeater's item. | Input (alone), Params, Form object |

@@ -61,7 +61,7 @@ pub use self::{
 };
 pub(crate) use self::{
     columns::{load_choice, save_choice},
-    gate::{PanelGate, RuntimeGate},
+    gate::{PanelGate, RuntimeGate, still_signed_in},
     login::{logout_url, safe_next, tenant_url},
     profile::{offered as profile_offered, profile_url},
     tenant_profile::{offered as tenant_profile_offered, tenant_profile_url},

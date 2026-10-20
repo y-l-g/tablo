@@ -2,7 +2,8 @@
 
 Tables and their dialogs run on Topcoat's runtime: each table keeps its list query in a signal,
 and a sort, filter, search or page change reruns the page through its own route and guards.
-Writes are plain form posts that redirect back to the list. Tablo ships no table or dialog
+Writes are plain form posts that redirect back to the list; the notification bell's are
+procedures ([0028](0028-stored-notifications.md)). Tablo ships no table or dialog
 script; a handler escapes to one line of JavaScript only where the runtime has no word, and an
 action's input dialog to one more handler, which resets its form as it closes. Links carry an
 `href` and the toolbar is a GET form, so reading works without JavaScript; confirmed writes and

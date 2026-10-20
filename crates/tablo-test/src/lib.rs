@@ -8,11 +8,11 @@ mod two_factor;
 pub use db::{TEST_DATABASE_URL, test_db};
 use http::header::{CONTENT_TYPE, COOKIE};
 pub use protocol::{
-    EmptyReason, EmptyTable, ErrorKind, FilterOption, Group, PickerColumn, Row, RowActions,
-    SESSION_COOKIE, body_bytes, body_string, column_picker, columns, confirms_first, cookie_header,
-    empty_table, field_error, field_error_message, filter_options, find_href_with, form_body,
-    groups, input_value, multipart_body, nav_badge, notification, response_cookies, row_actions,
-    row_keys, rows, session_cookie_value, set_cookie_header,
+    Bell, BellNotification, EmptyReason, EmptyTable, ErrorKind, FilterOption, Group, PickerColumn,
+    Row, RowActions, SESSION_COOKIE, bell, body_bytes, body_string, column_picker, columns,
+    confirms_first, cookie_header, empty_table, field_error, field_error_message, filter_options,
+    find_href_with, form_body, groups, input_value, multipart_body, nav_badge, notification,
+    response_cookies, row_actions, row_keys, rows, session_cookie_value, set_cookie_header,
 };
 use tablo_core::{DeclarationError, MountError, Panel, PanelUser, RouterBuilderPanelExt};
 use topcoat::router::{Body, Router, RouterBuilderDiscoverExt};
@@ -239,6 +239,30 @@ impl<'a> TestClient<'a> {
                 .parse()
                 .expect("multipart content type"),
             body,
+        )
+        .await
+    }
+
+    /// Calls the runtime procedure served at `path` with `args`, the JSON array of its
+    /// arguments, as the browser's runtime does: a JSON `POST` that answers with the JSON of its
+    /// result.
+    ///
+    /// ```rust,no_run
+    /// # async fn read(client: &tablo_test::TestClient<'_>, id: &str) {
+    /// let response = client
+    ///     .call_procedure(
+    ///         "/_topcoat/runtime/procedures/tablo-notifications/mark",
+    ///         &format!(r#"["{id}", true]"#),
+    ///     )
+    ///     .await;
+    /// assert_eq!(response.status(), 200);
+    /// # }
+    /// ```
+    pub async fn call_procedure(&self, path: &str, args: &str) -> http::Response<Body> {
+        self.post(
+            path,
+            http::HeaderValue::from_static("application/json"),
+            args.to_string(),
         )
         .await
     }

@@ -1,9 +1,10 @@
 //! The models auth ships, and [`models!`](crate::models!), which registers them beside the app's.
 
 use super::{AdminUser, AuthFactor, AuthSession, AuthToken, ColumnPreference};
+use crate::notification::StoredNotification;
 
 /// Register every model Tablo ships in `models`: [`AdminUser`], [`AuthSession`],
-/// [`ColumnPreference`], [`AuthToken`] and [`AuthFactor`].
+/// [`ColumnPreference`], [`AuthToken`], [`AuthFactor`] and [`StoredNotification`].
 ///
 /// [`models!`](crate::models!) calls it; call it directly when the app builds its
 /// [`ModelSet`](toasty::schema::ModelSet) by hand. A model the panel never reads costs an empty
@@ -18,6 +19,7 @@ pub fn register_models(models: &mut toasty::schema::ModelSet) {
     <ColumnPreference as toasty::schema::Model>::register(models);
     <AuthToken as toasty::schema::Model>::register(models);
     <AuthFactor as toasty::schema::Model>::register(models);
+    <StoredNotification as toasty::schema::Model>::register(models);
 }
 
 /// [`toasty::models!`] with the models Tablo ships appended, so a panel's `Db` holds every table

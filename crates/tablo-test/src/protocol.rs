@@ -1,8 +1,10 @@
 //! Reads values back out of rendered responses: bodies, cookies, form data,
-//! and the semantic HTML queries over tables, fields, and filters.
+//! and the semantic HTML queries over tables, fields, filters, and the notification bell.
 
+mod bell;
 pub mod dom;
 
+pub use bell::{Bell, BellNotification, bell};
 pub use dom::{
     EmptyReason, EmptyTable, ErrorKind, FilterOption, Group, PickerColumn, Row, RowActions,
     column_picker, columns, confirms_first, empty_table, field_error, field_error_message,

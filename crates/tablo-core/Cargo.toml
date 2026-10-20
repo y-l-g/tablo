@@ -51,7 +51,8 @@ sha2 = "0.11"
 subtle = "2"
 # `sync` bounds how many Argon2 runs the blocking pool holds at once.
 tokio = { workspace = true, features = ["sync"] }
-toasty.workspace = true
+# `serde` is for `toasty::Json`, the column a stored notification keeps its content in.
+toasty = { workspace = true, features = ["serde"] }
 toasty-core.workspace = true
 # `fs` is for `Panel::serve_dir`: serving an upload directory is a
 # panel-level route, and upstream the directory route lives behind that feature.
