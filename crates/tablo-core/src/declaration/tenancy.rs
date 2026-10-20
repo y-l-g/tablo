@@ -10,8 +10,18 @@ pub enum TenancyFault {
     /// No tenancy declared over a model with a `TenantId` column, which would serve every
     /// tenant's rows.
     Undeclared {
-        /// The model's tenant column.
-        column: &'static str,
+        /// The model's name.
+        model: &'static str,
+        /// The model's tenant columns.
+        columns: Vec<&'static str>,
+    },
+    /// No tenancy declared over a model that belongs to one a mounted resource scopes by tenant,
+    /// which would serve every tenant's children.
+    UndeclaredChild {
+        /// The model's name.
+        model: &'static str,
+        /// The `belongs_to` relation to the tenant-owned parent.
+        relation: String,
     },
     /// A `Tenancy::column` lens that names no field of the model.
     ColumnNotAField,
@@ -32,12 +42,21 @@ pub enum TenancyFault {
 impl fmt::Display for TenancyFault {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Undeclared { column } => write!(
+            Self::Undeclared { model, columns } => write!(
                 f,
-                "the model has the tenant column `{column}` and the resource declares no \
-                 tenancy, so it would serve every tenant's rows: declare \
-                 `Tenancy::column(lens!(Model.{column}))`, or `Tenancy::none()` to serve every \
-                 tenant on purpose"
+                "`{model}` has the tenant column `{}` and the resource declares no tenancy, so \
+                 it would serve every tenant's rows: declare \
+                 `Tenancy::column(lens!({model}.{}))`, or `Tenancy::none()` to serve every \
+                 tenant on purpose",
+                columns.join("`, `"),
+                columns.first().copied().unwrap_or_default(),
+            ),
+            Self::UndeclaredChild { model, relation } => write!(
+                f,
+                "`{model}` belongs to `{relation}`, whose rows a tenant-scoped resource serves, \
+                 and the resource declares no tenancy, so it would serve every tenant's rows: \
+                 declare `Tenancy::via({model}::fields().{relation}().<tenant column>())`, or \
+                 `Tenancy::none()` to serve every tenant on purpose"
             ),
             Self::ColumnNotAField => f.write_str(
                 "the `Tenancy::column` lens names no field of the model: name a field typed \

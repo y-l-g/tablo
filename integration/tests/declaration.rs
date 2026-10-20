@@ -451,11 +451,13 @@ resource!(Parents, Parent => ResourceDef::new()
     .table(Table::new(TextColumn::new(lens!(Parent.name)))));
 resource!(FilteredChildren, Child => ResourceDef::new()
 .slug("filtered-children")
+.tenancy(Tenancy::none())
 .table(
     Table::new(TextColumn::new(lens!(Child.name)))
         .filters(SelectFilter::relationship::<Parents>(lens!(Child.parent_id)))
 ));
 resource!(Children, Child => ResourceDef::new()
+    .tenancy(Tenancy::none())
     .table(Table::new((
         TextColumn::new(lens!(Child.name)),
         RelationColumn::of::<Parents>(relation!(Child.parent)),
@@ -486,6 +488,10 @@ resource!(OpenParents, Parent => ResourceDef::new()
 resource!(UndeclaredParents, Parent => ResourceDef::new()
     .slug("undeclared-parents")
     .table(Table::new(TextColumn::new(lens!(Parent.name)))));
+// Declares no tenancy over a child of a model a tenant-scoped resource serves.
+resource!(UndeclaredChildren, Child => ResourceDef::new()
+    .slug("undeclared-children")
+    .table(Table::new(TextColumn::new(lens!(Child.name)))));
 // A child inheriting its tenant through `parent`, whose form declares no key.
 resource!(WithoutKey, Child, NameForm => ResourceDef::new()
     .slug("children")
@@ -655,7 +661,25 @@ async fn a_mount_refuses_each_misdeclaration() {
                 Site::Tenancy,
                 DeclarationErrorKind::Tenancy {
                     fault: TenancyFault::Undeclared {
-                        column: "tenant_id",
+                        model: "Parent",
+                        columns: vec!["tenant_id"],
+                    },
+                },
+            )],
+        ),
+        (
+            "no tenancy over a child of a tenant-scoped model",
+            refused(mounted(
+                panel()
+                    .resource::<UndeclaredChildren>()
+                    .resource::<ScopedParents>(),
+            )),
+            vec![of::<UndeclaredChildren>(
+                Site::Tenancy,
+                DeclarationErrorKind::Tenancy {
+                    fault: TenancyFault::UndeclaredChild {
+                        model: "Child",
+                        relation: "parent".to_string(),
                     },
                 },
             )],

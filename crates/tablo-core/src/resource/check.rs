@@ -8,7 +8,7 @@ use crate::{
     ActionInputFault, DeclarationError, DeclarationErrorKind, ManyToManyFault, ModelColumns, Site,
     TenancyFault,
     form::RecordForm,
-    resource::{InputSpec, Mounted, Resource, require_mounted},
+    resource::{InputSpec, Mounted, Resource, is_tenant_model, require_mounted},
     toasty_compat::{
         join::JoinTable,
         model::{self, AppSchema},
@@ -26,10 +26,8 @@ pub(crate) fn check_resource<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationE
         return;
     };
     let tenancy = &declared.tenancy;
-    if tenancy.is_undeclared()
-        && let Some(column) = <R::Model as ModelColumns>::TENANT_COLUMNS.first()
-    {
-        errors.push(tenancy_error::<R>(TenancyFault::Undeclared { column }));
+    if tenancy.is_undeclared() {
+        check_undeclared_tenancy::<R>(cx, errors);
     }
     if let Some(Err(kind)) = tenancy.column_field() {
         errors.push(DeclarationError::of::<R>(Site::Tenancy, kind));
@@ -63,6 +61,32 @@ pub(crate) fn check_resource<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationE
     }
     check_actions(cx, &declared, errors);
     check_form_declaration(cx, &declared, form_is_sound, errors);
+}
+
+/// A resource that declares no tenancy serves every tenant's rows, so its model must hold none:
+/// it has no tenant column, and belongs to no model a mounted resource scopes by tenant.
+fn check_undeclared_tenancy<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationError>) {
+    let columns = <R::Model as ModelColumns>::TENANT_COLUMNS;
+    if !columns.is_empty() {
+        errors.push(tenancy_error::<R>(TenancyFault::Undeclared {
+            model: model_name::<R>(),
+            columns: columns.to_vec(),
+        }));
+    }
+    for parent in model::belongs_tos::<R::Model>() {
+        if is_tenant_model(cx, parent.target) {
+            errors.push(tenancy_error::<R>(TenancyFault::UndeclaredChild {
+                model: model_name::<R>(),
+                relation: parent.name,
+            }));
+        }
+    }
+}
+
+/// `R`'s model's name, as a lens spells it.
+fn model_name<R: Resource>() -> &'static str {
+    let name = std::any::type_name::<R::Model>();
+    name.rsplit("::").next().unwrap_or(name)
 }
 
 /// A mistake in `R`'s tenancy declaration.

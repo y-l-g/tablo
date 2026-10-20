@@ -4887,7 +4887,11 @@ impl core::panic::unwind_safe::UnwindSafe for tablo_core::Site
 #[non_exhaustive] pub enum tablo_core::TenancyFault
 pub tablo_core::TenancyFault::ColumnNotAField
 pub tablo_core::TenancyFault::Undeclared
-pub tablo_core::TenancyFault::Undeclared::column: &'static str
+pub tablo_core::TenancyFault::Undeclared::columns: alloc::vec::Vec<&'static str>
+pub tablo_core::TenancyFault::Undeclared::model: &'static str
+pub tablo_core::TenancyFault::UndeclaredChild
+pub tablo_core::TenancyFault::UndeclaredChild::model: &'static str
+pub tablo_core::TenancyFault::UndeclaredChild::relation: alloc::string::String
 pub tablo_core::TenancyFault::UnguardedForeignKey
 pub tablo_core::TenancyFault::UnguardedForeignKey::keys: alloc::vec::Vec<alloc::string::String>
 pub tablo_core::TenancyFault::UnguardedForeignKey::relation: alloc::string::String

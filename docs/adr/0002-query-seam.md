@@ -7,10 +7,15 @@ list, form and record loader reads through it. Tenancy is declared on the `Resou
 `scoped_query`, not `query`. A resource serving several tenants declares `Tenancy::none()` and
 scopes in `query`, giving up the 403 when a request has no tenant.
 
-A resource that declares no tenancy over a model with a `TenantId` field does not mount: it would
-serve every tenant's rows, and forgetting `.tenancy(..)` is the likelier cause than intent. The
-`ModelColumns` derive lists the model's `TenantId` fields, so the check needs no declaration of its
-own; `Tenancy::none()` states the intent.
+A resource that declares no tenancy over tenant-owned rows does not mount: it would serve every
+tenant's rows, and forgetting `.tenancy(..)` is the likelier cause than intent. Rows are
+tenant-owned when the model has a `TenantId` field, or a `belongs_to` to a model the panel mounts a
+resource over, when that resource is tenant-scoped or the model has a `TenantId` field, as a comment
+belongs to a post. The `ModelColumns`
+derive lists the model's `TenantId` fields in `TENANT_COLUMNS`, which has no default so that an impl
+by hand states it too; the check needs no declaration of its own, and `Tenancy::none()` states the
+intent. The derive recognizes the field by its type's name, `TenantId`, so an alias of it goes
+unseen, as it does for `ModelForm`.
 
 The tenant column is typed `TenantId` (or `Option<TenantId>`), and a tenancy lens must name a
 field implementing `TenantColumn`. The type is the only thing that tells a tenant column apart

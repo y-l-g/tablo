@@ -524,7 +524,9 @@ That one declaration does two things:
 The column is a `TenantId` field of the model, or `Option<TenantId>` for a nullable one, named by
 its lens; the name itself is the app's choice. Do not repeat the filter in `query`. Mounting the
 panel refuses a `Tenancy::column` lens that is not one field of the model, and a resource that
-declares no tenancy over a model with a `TenantId` field, which would serve every tenant's rows.
+declares no tenancy over tenant-owned rows, which would serve every tenant's rows: a model with a
+`TenantId` field, or one with a `belongs_to` to a model the panel mounts a resource over, when
+that resource is tenant-scoped or the model has a `TenantId` field.
 
 **A row that inherits its tenant.** A comment has no tenant column of its own; it belongs to a post
 that does. `Tenancy::via` names the tenant through the relation, and the framework checks and
