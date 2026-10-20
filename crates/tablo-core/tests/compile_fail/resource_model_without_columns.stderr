@@ -9,7 +9,7 @@ help: the trait `ModelColumns` is not implemented for `Post`
    |
  4 | struct Post {
    | ^^^^^^^^^^^
-   = note: add `#[derive(tablo::ModelColumns)]` to `Post`, or `impl tablo::ModelColumns for Post {}` when its resources declare their own table and detail page
+   = note: add `#[derive(tablo::ModelColumns)]` to `Post`, or `impl tablo::ModelColumns for Post { const TENANT_COLUMNS: &[&str] = &[..]; }`, naming its `TenantId` fields, when its resources declare their own table and detail page
 help: the trait `ModelColumns` is implemented for `AdminUser`
   --> src/auth/password.rs
    |

@@ -189,22 +189,37 @@ impl<R: Resource> Mounted<R> {
     }
 }
 
-/// The resources one panel mounted, by resource type.
+/// The resources one panel mounted, by resource type, and the models whose rows belong to a
+/// tenant: a resource over one is tenant-scoped, or the model has a tenant column.
 #[derive(Default)]
-pub(crate) struct Mounts(HashMap<TypeId, Arc<dyn Any + Send + Sync>>);
+pub(crate) struct Mounts {
+    resources: HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
+    tenant_models: std::collections::HashSet<crate::toasty_compat::model::ModelId>,
+}
 
 impl Mounts {
     pub(crate) fn insert<R: Resource>(&mut self, mounted: Arc<Mounted<R>>) {
-        self.0.insert(TypeId::of::<R>(), mounted);
+        if mounted.tenancy.is_scoped()
+            || !<R::Model as crate::ModelColumns>::TENANT_COLUMNS.is_empty()
+        {
+            self.tenant_models
+                .insert(<R::Model as toasty::schema::Model>::id());
+        }
+        self.resources.insert(TypeId::of::<R>(), mounted);
+    }
+
+    /// Whether the rows of `model` belong to a tenant, as a mounted resource over it says.
+    pub(crate) fn is_tenant_model(&self, model: crate::toasty_compat::model::ModelId) -> bool {
+        self.tenant_models.contains(&model)
     }
 
     pub(crate) fn get<R: Resource>(&self) -> Option<Arc<Mounted<R>>> {
-        let mounted = self.0.get(&TypeId::of::<R>())?;
+        let mounted = self.resources.get(&TypeId::of::<R>())?;
         Arc::clone(mounted).downcast().ok()
     }
 
     pub(crate) fn contains(&self, resource: TypeId) -> bool {
-        self.0.contains_key(&resource)
+        self.resources.contains_key(&resource)
     }
 }
 
@@ -217,6 +232,13 @@ pub(crate) struct MountScope(pub(crate) fn(&Cx) -> Option<&Mounts>);
 pub(crate) fn mounted<R: Resource>(cx: &Cx) -> Option<Arc<Mounted<R>>> {
     let MountScope(mounts) = try_app_context::<MountScope>(cx)?;
     mounts(cx)?.get::<R>()
+}
+
+/// Whether the context's panel mounts a resource saying `model`'s rows belong to a tenant.
+pub(crate) fn is_tenant_model(cx: &Cx, model: crate::toasty_compat::model::ModelId) -> bool {
+    try_app_context::<MountScope>(cx)
+        .and_then(|MountScope(mounts)| mounts(cx))
+        .is_some_and(|mounts| mounts.is_tenant_model(model))
 }
 
 /// `R` as the request's panel mounted it.

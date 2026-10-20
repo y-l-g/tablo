@@ -33,7 +33,7 @@ the model, or a `#[derive(RecordForm)]` struct, with one form control per field.
 | `action::<A>()` | none | a record action, on rows, the detail and edit pages and the bulk bar: [Actions](./actions.md#record-actions) |
 | `header_action::<A>()` | none | an action on no record, in the list's header: [Actions](./actions.md#header-actions) |
 | `policy(..)` | `Deny` | what the user may do: [Policy, auth, tenancy](./policy-auth-tenancy.md#policy) |
-| `tenancy(..)` | `Tenancy::none()` | how rows belong to a tenant: [Policy, auth, tenancy](./policy-auth-tenancy.md#tenancy) |
+| `tenancy(..)` | none: served to every tenant, which mounting refuses over tenant-owned rows | how rows belong to a tenant: [Policy, auth, tenancy](./policy-auth-tenancy.md#tenancy) |
 | `create_column(..)` | none | a column an overridden `create_record` sets itself, once per column |
 | `slug(..)`, `label(..)`, `plural_label(..)` | from the type names | URLs and titles: [Naming](#naming) |
 | `icon(..)`, `navigation_order(..)`, `navigation_group(..)`, `navigation(..)` | the default entry | the sidebar entry: [Sidebar](./panel-and-routing.md#sidebar) |
