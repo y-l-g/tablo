@@ -1,5 +1,6 @@
 //! The time zone a request reads and shows wall-clock times in, from the signed-in user, else the
-//! panel: a timestamp's control, its `DateColumn` day and its `DateFilter` days.
+//! panel: a timestamp's control, in a repeater's rows too, its `DateColumn` day and its
+//! `DateFilter` days.
 
 use jiff::{
     Timestamp,
@@ -24,6 +25,15 @@ struct Shift {
     id: Uuid,
     label: String,
     starts_at: Timestamp,
+    #[document]
+    #[default(Vec::<Break>::new())]
+    breaks: Vec<Break>,
+}
+
+/// One break in a shift: an item of a `#[document]` list.
+#[derive(Debug, Clone, toasty::Embed, tablo::FormInput)]
+struct Break {
+    starts_at: Timestamp,
 }
 
 #[derive(tablo::RecordForm)]
@@ -31,6 +41,8 @@ struct Shift {
 struct ShiftForm {
     label: String,
     starts_at: Timestamp,
+    #[form(repeat)]
+    breaks: Vec<Break>,
 }
 
 struct ShiftResource;
@@ -110,11 +122,15 @@ async fn db() -> Db {
 
 /// The panel two hours ahead of UTC, signing planners in when `auth` says so.
 fn router(db: &Db, auth: Auth) -> Router {
+    router_in(db, auth, hours(2))
+}
+
+fn router_in(db: &Db, auth: Auth, zone: TimeZone) -> Router {
     mount(
         db.clone(),
         Panel::new("admin")
             .auth(auth)
-            .time_zone(hours(2))
+            .time_zone(zone)
             .resource::<ShiftResource>(),
     )
     .expect("panel builds")
@@ -124,6 +140,7 @@ async fn shift(db: &Db, label: &str, starts_at: &str) -> Shift {
     toasty::create!(Shift {
         label: label.to_string(),
         starts_at: starts_at.parse::<Timestamp>().unwrap(),
+        breaks: Vec::<Break>::new(),
     })
     .exec(&mut db.clone())
     .await
@@ -131,13 +148,16 @@ async fn shift(db: &Db, label: &str, starts_at: &str) -> Shift {
 }
 
 async fn stored(db: &Db, label: &str) -> Timestamp {
+    stored_shift(db, label).await.starts_at
+}
+
+async fn stored_shift(db: &Db, label: &str) -> Shift {
     Shift::filter(Shift::fields().label().eq(label.to_string()))
         .first()
         .exec(&mut db.clone())
         .await
         .unwrap()
         .expect("the shift")
-        .starts_at
 }
 
 /// A wall-clock time entered in the panel's zone stores the instant it names there, and the edit
@@ -248,4 +268,46 @@ async fn a_timestamps_day_is_the_day_in_the_zone() {
             "{day}: {listed:?}"
         );
     }
+}
+
+/// A stored instant in the hour a zone repeats shows as a wall-clock time that also names the
+/// hour's earlier instant: posting it back untouched keeps the stored one, in a repeater's row as
+/// in a top-level control.
+#[tokio::test]
+async fn an_untouched_time_in_a_repeated_hour_keeps_its_instant() {
+    let db = db().await;
+    let paris = TimeZone::posix("CET-1CEST,M3.5.0,M10.5.0/3").unwrap();
+    let router = router_in(&db, Auth::disabled(), paris);
+    let client = TestClient::new(&router);
+    // 02:30 CET, after the clocks went back from 03:00 CEST.
+    let second = "2026-10-25T01:30:00Z".parse::<Timestamp>().unwrap();
+    let night = toasty::create!(Shift {
+        label: "Night".to_string(),
+        starts_at: second,
+        breaks: vec![Break { starts_at: second }],
+    })
+    .exec(&mut db.clone())
+    .await
+    .unwrap();
+
+    let edit = format!("/admin/shifts/{}/edit", night.id);
+    let html = body_string(client.get(&edit).await).await;
+    for key in ["starts_at", "breaks.0.starts_at"] {
+        assert_eq!(
+            input_value(&html, key).as_deref(),
+            Some("2026-10-25T02:30"),
+            "{key}"
+        );
+    }
+    let response = client
+        .submit(
+            &edit,
+            "label=Night&starts_at=2026-10-25T02%3A30\
+             &breaks=0&breaks.0.starts_at=2026-10-25T02%3A30",
+        )
+        .await;
+    assert_eq!(response.status(), 303);
+    let night = stored_shift(&db, "Night").await;
+    assert_eq!(night.starts_at, second, "the untouched timestamp");
+    assert_eq!(night.breaks[0].starts_at, second, "the untouched row");
 }

@@ -213,14 +213,19 @@ the panel's `Panel::time_zone`, else UTC.
 ```
 
 - **A timestamp's control** shows the stored instant as the wall-clock time in that zone, and the
-  time it posts back stores the instant it names there: `14:00` entered in Paris in October stores
-  `12:00:00Z`. A time the zone skips moves forward by the gap, and a time it repeats takes the
-  earlier instant. A value posted with an offset, such as `2026-10-20T14:00:00-05:00`, keeps it.
+  time it posts back stores the instant it names there: `14:00` entered in Paris on 20 October
+  stores `12:00:00Z`. A time the zone skips moves forward by the gap, and a time it repeats takes
+  the earlier instant; a value posted back untouched keeps its stored instant, in a repeater's
+  rows too. A value posted with an offset, such as `2026-10-20T14:00:00-05:00`, names that
+  instant and stores it in UTC. A `min` or `max` refusal spells the bound as the control shows it.
 - **A `DateColumn` and a `DateFilter`** read a timestamp's calendar day in the same zone, so a
   user sees and filters by their own day. A civil date or date-time names its day whatever the
-  zone.
-- **The stored value is the instant.** An export, a `TextColumn` and the detail page spell it in
-  RFC 3339, in UTC.
+  zone. A filter's link therefore selects by the viewer's day: two users in different zones who
+  open the same `?f.starts_at=2026-10-20` see different rows.
+- **The stored value is the instant.** An export and a `TextColumn`, on the list or the detail
+  page, spell it in RFC 3339, in UTC; a `DateColumn` shows the zone's day there too.
+- **A custom control** receives the stored RFC 3339 value and posts a value the panel does not
+  convert: it posts an instant with an offset, since a wall-clock time is refused.
 - **`Schema::read(cx, pairs)`**, which a page handling its own post calls, reads a timestamp's
   wall-clock time in the request's zone too; `parse_input` alone refuses one, since it names no
   instant.
@@ -232,7 +237,7 @@ so the browser checks it before it submits, and the server checks it again on th
 after the field's type parses it; a refused value is an inline error, and nothing is written. A
 blank value is the field's blank answer, which no rule refuses, and a value the record already
 stores is not checked again, so a rule added over existing rows does not lock them. A default
-that breaks a rule fails the mount.
+that breaks a rule, or that its type does not parse, fails the mount.
 
 ```rust
 {{#include ../../../examples/guide/src/forms.rs:forms-rules}}

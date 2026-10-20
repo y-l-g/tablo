@@ -365,7 +365,7 @@ async fn list_view(
 async fn item_view(cx: &Cx, row: StoredNotification, now: Timestamp) -> Result<BoxView<'_>> {
     let id = row.id.to_string();
     let read = row.read_at.is_some();
-    let when = ago(row.created_at, now);
+    let when = ago(row.created_at, now, &crate::time_zone(cx));
     let stamp = row.created_at.to_string();
     let super::Notification {
         status,
@@ -464,15 +464,18 @@ async fn item_view(cx: &Cx, row: StoredNotification, now: Timestamp) -> Result<B
 }
 
 /// How long ago `then` was, as the sheet prints it: "just now", "5 min ago", "3 h ago", then the
-/// date.
-pub(crate) fn ago(then: Timestamp, now: Timestamp) -> String {
+/// date in `zone`.
+pub(crate) fn ago(then: Timestamp, now: Timestamp, zone: &jiff::tz::TimeZone) -> String {
     let seconds = now.duration_since(then).as_secs();
     match seconds {
         ..60 => "just now".to_owned(),
         60..3_600 => format!("{} min ago", seconds / 60),
         3_600..86_400 => format!("{} h ago", seconds / 3_600),
         86_400..604_800 => format!("{} d ago", seconds / 86_400),
-        _ => then.strftime("%b %-d, %Y").to_string(),
+        _ => then
+            .to_zoned(zone.clone())
+            .strftime("%b %-d, %Y")
+            .to_string(),
     }
 }
 

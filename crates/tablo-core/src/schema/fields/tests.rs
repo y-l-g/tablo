@@ -1,3 +1,5 @@
+use jiff::tz::TimeZone;
+
 use super::{test_support::DummyUser, *};
 use crate::{schema::Schema, test_support::cx, values::FormValue};
 
@@ -59,14 +61,17 @@ fn a_toggle_turned_into_a_choice_takes_its_options() {
 fn the_email_rule_checks_only_a_submitted_value() {
     let field: Field = Field::text(DummyUser::fields().email()).email().into();
     assert_eq!(
-        field.check(&FormValue::from("")),
+        field.check(&FormValue::from(""), &TimeZone::UTC),
         None,
         "an empty value is the record form's"
     );
-    assert_eq!(field.check(&FormValue::from("ada@example.com")), None);
+    assert_eq!(
+        field.check(&FormValue::from("ada@example.com"), &TimeZone::UTC),
+        None
+    );
     assert_eq!(
         field
-            .check(&FormValue::from("nope"))
+            .check(&FormValue::from("nope"), &TimeZone::UTC)
             .map(|error| error.message("Email")),
         Some("Email must be a valid email".to_string())
     );

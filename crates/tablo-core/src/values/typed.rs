@@ -131,10 +131,15 @@ impl TypedValue for jiff::Timestamp {
         format_timestamp_input(stored, zone)
     }
 
+    /// An instant spelled with an offset comes back in RFC 3339 UTC, and a `datetime-local` value
+    /// is read in `zone`; anything else is kept as posted, for the parse to refuse.
     fn form_value(posted: &str, zone: &TimeZone) -> String {
-        read_datetime_local(posted, zone)
-            .map(|instant| instant.to_string())
-            .unwrap_or_else(|| posted.to_string())
+        posted
+            .trim()
+            .parse::<jiff::Timestamp>()
+            .ok()
+            .or_else(|| read_datetime_local(posted, zone))
+            .map_or_else(|| posted.to_string(), |instant| instant.to_string())
     }
 
     ordered_by_value!();
@@ -183,12 +188,16 @@ fn civil_input<T: std::str::FromStr>(stored: &str, format: impl Fn(T) -> String)
 }
 
 /// The instant a `datetime-local` value names as a wall-clock time in `zone`, or `None` when the
-/// value is not a date and time, or carries an offset: jiff's civil parse would drop it. A time the
-/// zone skips or repeats resolves as jiff's compatible disambiguation does: a skipped time moves
-/// forward by the gap, a repeated one takes its earlier instant.
-fn read_datetime_local(value: &str, zone: &TimeZone) -> Option<jiff::Timestamp> {
+/// value is not a date and time, or carries an offset or a zone annotation: jiff's civil parse
+/// would drop either. A time the zone skips or repeats resolves as jiff's compatible
+/// disambiguation does: a skipped time moves forward by the gap, a repeated one takes its earlier
+/// instant.
+pub(crate) fn read_datetime_local(value: &str, zone: &TimeZone) -> Option<jiff::Timestamp> {
     let value = value.trim();
-    if !value.contains(['T', 't']) || value.parse::<jiff::Timestamp>().is_ok() {
+    if !value.contains(['T', 't'])
+        || value.contains('[')
+        || value.parse::<jiff::Timestamp>().is_ok()
+    {
         return None;
     }
     let wall = value.parse::<jiff::civil::DateTime>().ok()?;

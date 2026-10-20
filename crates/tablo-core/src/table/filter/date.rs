@@ -66,10 +66,7 @@ impl FilterDate for jiff::Timestamp {
             .parse()
             .or_else(|_| value.replace(' ', "+").parse())
             .ok()
-            .or_else(|| {
-                let wall = <jiff::civil::DateTime as FilterDate>::exact(value, zone)?;
-                zone.to_ambiguous_timestamp(wall).compatible().ok()
-            })
+            .or_else(|| crate::values::read_datetime_local(value, zone))
     }
 }
 

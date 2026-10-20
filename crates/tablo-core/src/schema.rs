@@ -388,7 +388,7 @@ impl<F> Schema<F> {
                 continue;
             }
             if stored.get(name) != Some(value)
-                && let Some(error) = field.check(value)
+                && let Some(error) = field.check(value, &crate::time_zone(cx))
             {
                 errors.push(error);
                 continue;

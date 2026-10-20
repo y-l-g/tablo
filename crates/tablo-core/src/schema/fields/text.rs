@@ -9,7 +9,7 @@ use self::rules::{Order, Rules, order};
 use super::{ControlKind, Field, render_field};
 use crate::{
     FieldRuleFault,
-    values::{FormScalar, FormValue},
+    values::{FieldError, FormScalar, FormValue, is_email},
 };
 
 /// The equality expression a text field's unique probe binds.
@@ -136,12 +136,16 @@ impl TextControl {
 
     /// The sentence refusing `value`, a trimmed, non-empty submission, for the first declared
     /// rule it breaks. `None` for a value the field's type does not parse: its parse refuses it,
-    /// in the type's own words.
-    pub(crate) fn refusal(&self, label: &str, value: &str) -> Option<String> {
+    /// in the type's own words. A bound reads as the control shows it in `zone`.
+    pub(crate) fn refusal(&self, label: &str, value: &str, zone: &TimeZone) -> Option<String> {
         if !self.parses(value) {
             return None;
         }
-        self.rules.refusal(label, value, self.order)
+        self.rules.refusal(label, value, self.order, |bound| {
+            Some(self.rendering(bound, zone))
+                .filter(|shown| !shown.is_empty())
+                .unwrap_or_else(|| bound.to_string())
+        })
     }
 
     /// What is wrong with the declared rules.
@@ -170,21 +174,54 @@ impl Field {
     /// `zone`, or `None` when the user changed it. A control coarser than its column, as a
     /// timestamp's is to the minute, renders a rounded value: posting it back untouched must not
     /// round the column. `value` is already read in `zone`, so the rendering is read back the same
-    /// way before the two compare.
+    /// way before the two compare. A repeater pairs its posted rows with its stored rows by
+    /// position and keeps each row's unedited values the same way.
     pub(crate) fn keep_unedited(
         &self,
         value: &FormValue,
         stored: &FormValue,
         zone: &TimeZone,
     ) -> Option<FormValue> {
-        let ControlKind::Text(text) = &self.control else {
-            return None;
+        let text = match &self.control {
+            ControlKind::Text(text) => text,
+            ControlKind::Repeater(repeater) => {
+                let (Some(rows), Some(held)) = (value.as_rows(), stored.as_rows()) else {
+                    return None;
+                };
+                let item = repeater.item_schema();
+                let mut rows = rows.to_vec();
+                for (row, held) in rows.iter_mut().zip(held) {
+                    item.keep_unedited(row, held, zone);
+                }
+                return Some(FormValue::Rows(rows));
+            }
+            _ => return None,
         };
         let (Some(value), Some(held)) = (value.as_text(), stored.as_text()) else {
             return None;
         };
         let rendered = text.reading(&text.rendering(held, zone), zone);
         (value != held && value.trim() == rendered).then(|| stored.clone())
+    }
+
+    /// Refuses a non-empty submission the control's own rules refuse: an email field's address, and
+    /// a text field's declared length, bounds and pattern, its bounds spelled as the control shows
+    /// them in `zone`.
+    pub(crate) fn check(&self, value: &FormValue, zone: &TimeZone) -> Option<FieldError> {
+        let value = value.as_text()?.trim();
+        let ControlKind::Text(text) = &self.control else {
+            return None;
+        };
+        if value.is_empty() {
+            return None;
+        }
+        let label = self.label_str();
+        let message = if text.email && !is_email(value) {
+            format!("{label} must be a valid email")
+        } else {
+            text.refusal(label, value, zone)?
+        };
+        Some(FieldError::invalid(self.name(), message))
     }
 
     /// Renders a text field's control.

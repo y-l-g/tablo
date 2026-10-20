@@ -4603,6 +4603,7 @@ pub tablo_core::FieldRuleFault::EmptyRange
 pub tablo_core::FieldRuleFault::InvalidPattern(alloc::string::String)
 pub tablo_core::FieldRuleFault::RefusedDefault(alloc::string::String)
 pub tablo_core::FieldRuleFault::UnorderedBound(alloc::string::String)
+pub tablo_core::FieldRuleFault::UnparsedDefault(alloc::string::String)
 impl core::clone::Clone for tablo_core::FieldRuleFault
 pub fn tablo_core::FieldRuleFault::clone(&self) -> tablo_core::FieldRuleFault
 impl core::cmp::Eq for tablo_core::FieldRuleFault

@@ -100,7 +100,27 @@ fn a_timestamp_reads_a_wall_clock_time_in_the_zone_only() {
     );
     assert_eq!(
         Timestamp::form_value("2026-10-20T14:00:00-05:00", &paris_summer),
-        "2026-10-20T14:00:00-05:00"
+        "2026-10-20T19:00:00Z"
     );
+    let annotated = "2026-10-20T14:00[America/New_York]";
+    assert_eq!(Timestamp::form_value(annotated, &paris_summer), annotated);
+    assert!(Timestamp::parse_form(annotated).is_err());
     assert_eq!(Timestamp::form_value("soon", &paris_summer), "soon");
+}
+
+/// A wall-clock time the zone skips moves forward by the gap, and one it repeats takes its
+/// earlier instant.
+#[test]
+fn a_timestamp_reads_a_skipped_or_repeated_time_compatibly() {
+    use jiff::{Timestamp, tz::TimeZone};
+
+    let paris = TimeZone::posix("CET-1CEST,M3.5.0,M10.5.0/3").unwrap();
+    assert_eq!(
+        Timestamp::form_value("2026-03-29T02:30", &paris),
+        "2026-03-29T01:30:00Z"
+    );
+    assert_eq!(
+        Timestamp::form_value("2026-10-25T02:30", &paris),
+        "2026-10-25T00:30:00Z"
+    );
 }

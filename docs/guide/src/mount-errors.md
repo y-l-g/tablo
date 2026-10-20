@@ -189,6 +189,7 @@ An action's `NAME` that is not one URL segment does not compile, so it never rea
 | `InvalidPattern` | a `pattern` does not compile on the server | fix the pattern |
 | `EmptyRange` | a minimum is above its maximum, so the field refuses every value | lower the minimum or raise the maximum |
 | `RefusedDefault` | the field's default breaks one of its rules, so a create that keeps it is refused | change the default or the rule |
+| `UnparsedDefault` | the field's default is no value of its type, as a timestamp spelled without an offset, so a create that keeps it is refused | spell the default as the type does, or pass a value of the type |
 
 `ManyToManyFault`, for a form's field or a `Relation::belongs_to_many`:
 
