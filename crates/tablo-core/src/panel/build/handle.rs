@@ -21,7 +21,7 @@ use crate::{
 
 /// A panel's mounted resources and its database, which a background job or a test keeps to build
 /// a context per run without declaring the panel again. A router's mounted panel gives it through
-/// [`panel_handle`](RouterBuilderPanelExt::panel_handle), a panel no router mounts through
+/// [`panel_handle`](super::RouterBuilderPanelExt::panel_handle), a panel no router mounts through
 /// [`Panel::handle`]. Cloning it is cheap.
 ///
 /// ```rust,no_run
