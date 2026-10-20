@@ -11,6 +11,7 @@ pub mod detail_pages;
 pub mod first_panel;
 pub mod forms;
 pub mod models;
+pub mod notifications;
 pub mod panel_routing;
 pub mod policy_tenancy;
 pub mod resources;

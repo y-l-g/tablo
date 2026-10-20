@@ -3,13 +3,13 @@
 use std::path::PathBuf;
 
 use tablo::{
-    Ability, Action, ActionLayout, Auth, AuthMail, BooleanColumn, Brand, ComputedColumn,
+    Ability, ActionLayout, Auth, AuthMail, BooleanColumn, Brand, Committed, ComputedColumn,
     CountColumn, DateColumn, DateFilter, Detail, DirUploader, EmailVerification, EmbeddedColumn,
-    FieldErrors, Grid, Group, HeaderAction, ModelColumns, NavigationItem, Pagination, Panel,
-    PanelHandle, PasswordReset, PublicLink, QueryFilter, Relation, RelationColumn, RepeaterColumn,
-    Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy,
-    TenantRegistration, TernaryFilter, TextColumn, TwoFactor, lens, relation, scoped_query,
-    tenant_id, when,
+    FieldErrors, Grid, Group, HeaderAction, ModelColumns, Mutation, NavigationItem, Notification,
+    Notifications, Pagination, Panel, PanelHandle, PanelUser, PasswordReset, PublicLink,
+    QueryFilter, Relation, RelationColumn, RepeaterColumn, Resource, ResourceDef,
+    RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy, TenantRegistration,
+    TernaryFilter, TextColumn, TwoFactor, lens, relation, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -30,7 +30,8 @@ use crate::{
         Author, AuthorForm, BLOCKED_TENANT, Category, CategoryForm, Comment, Link, Post,
         PostStatus, Publication, REMOVED_COMMENT_BODY, Seo, User, UserForm, UserFormField,
     },
-    staff::StaffAuth,
+    post_actions::{PublishAllDrafts, PublishPosts, TagPosts},
+    staff::{SignedStaff, StaffAuth},
 };
 
 /// The theme's sans font.
@@ -155,6 +156,28 @@ impl Resource for PostResource {
             // Publishes every draft from the list's header, confirming first.
             .header_action::<PublishAllDrafts>()
     }
+
+    /// Tells whoever published every draft, in their bell, once the drafts are live.
+    async fn after_commit(cx: &Cx, committed: Committed<Post>) -> Result<()> {
+        let Mutation::Action(PublishAllDrafts::NAME) = committed.mutation() else {
+            return Ok(());
+        };
+        let (Some(staff), Some(posts)) = (
+            tablo::auth::user::<SignedStaff>(cx),
+            tablo::url::resource::<PostResource>(cx),
+        ) else {
+            return Ok(());
+        };
+        Notifications::of(cx)?
+            .send(
+                &staff.user_id(),
+                Notification::success("Every draft is published")
+                    .description("The blog's readers can see them now.")
+                    .action("View posts", posts),
+            )
+            .await?;
+        Ok(())
+    }
 }
 
 /// The post form: content, details, SEO and publication.
@@ -248,108 +271,6 @@ fn post_table() -> Table<Post> {
             ),
     ))
     .group_by(lens!(Post.status))
-}
-
-/// Publishes draft posts.
-pub struct PublishPosts;
-
-impl Action<PostResource> for PublishPosts {
-    type Input = ();
-    const NAME: &'static str = "publish";
-
-    fn can_run(_cx: &Cx, post: &Post) -> bool {
-        post.status != PostStatus::Published
-    }
-
-    async fn run(
-        _cx: &Cx,
-        posts: &[Post],
-        _: (),
-        ex: &mut dyn toasty::Executor,
-    ) -> Result<tablo::Outcome> {
-        for post in posts {
-            Post::filter(Post::fields().id().eq(post.id))
-                .update()
-                .status(PostStatus::Published)
-                .exec(&mut *ex)
-                .await?;
-        }
-        Ok(tablo::Outcome::done())
-    }
-}
-
-/// Publishes every draft of the tenant, from the post list's header.
-pub struct PublishAllDrafts;
-
-impl HeaderAction for PublishAllDrafts {
-    type Input = ();
-    const NAME: &'static str = "publish-all-drafts";
-    const CONFIRM: bool = true;
-
-    async fn run(cx: &Cx, _: (), ex: &mut dyn toasty::Executor) -> Result<tablo::Outcome> {
-        // The tenant-scoped query: a header action sees no record, so it scopes its own.
-        let drafts = scoped_query::<PostResource>(cx)?
-            .filter(Post::fields().status().eq(PostStatus::Draft))
-            .exec(&mut *ex)
-            .await?;
-        for post in drafts {
-            Post::filter(Post::fields().id().eq(post.id))
-                .update()
-                .status(PostStatus::Published)
-                .exec(&mut *ex)
-                .await?;
-        }
-        Ok(tablo::Outcome::done())
-    }
-}
-
-/// What tagging asks for: the tags, and whether they replace the post's own.
-#[derive(tablo::FormInput)]
-pub struct Tagging {
-    #[form(label = "Tags", placeholder = "rust, async")]
-    pub tags: String,
-    #[form(label = "Replace existing tags")]
-    pub replace: bool,
-}
-
-/// Adds tags to posts, or replaces theirs, from a row or for the selection.
-pub struct TagPosts;
-
-impl Action<PostResource> for TagPosts {
-    type Input = Tagging;
-    const NAME: &'static str = "tag";
-
-    async fn run(
-        _cx: &Cx,
-        posts: &[Post],
-        tagging: Tagging,
-        ex: &mut dyn toasty::Executor,
-    ) -> Result<tablo::Outcome> {
-        for post in posts {
-            let kept = if tagging.replace {
-                ""
-            } else {
-                post.tags.as_str()
-            };
-            Post::filter(Post::fields().id().eq(post.id))
-                .update()
-                .tags(merge_tags(kept, &tagging.tags))
-                .exec(&mut *ex)
-                .await?;
-        }
-        Ok(tablo::Outcome::done())
-    }
-}
-
-/// `added`'s comma-separated tags after `kept`'s, trimmed, each once, in first-seen order.
-fn merge_tags(kept: &str, added: &str) -> String {
-    let mut tags: Vec<&str> = Vec::new();
-    for tag in kept.split(',').chain(added.split(',')).map(str::trim) {
-        if !tag.is_empty() && !tags.contains(&tag) {
-            tags.push(tag);
-        }
-    }
-    tags.join(",")
 }
 
 #[derive(tablo::RecordForm)]
@@ -500,6 +421,8 @@ pub fn admin_panel() -> Panel {
         .resource::<CategoryResource>()
         .resource::<CommentResource>()
         .page::<MediaLibraryPage>()
+        // The bell over each user's stored notifications, in the topbar.
+        .notifications()
         // The public blog, from the user menu.
         .user_menu_item(
             NavigationItem::at("View the blog", "/blog").icon(tablo::ui::icons::EXTERNAL_LINK),

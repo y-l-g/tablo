@@ -57,8 +57,13 @@ const LAYERS: &[(&str, &[&str])] = &[
 const BACK_EDGES: &[(&str, &[&str], &str)] = &[
     (
         "auth",
-        &["notification.rs"],
-        "the live toaster shard restates the auth gate, and `auth` flashes notifications",
+        &[
+            "notification.rs",
+            "notification/bell.rs",
+            "notification/stored.rs",
+        ],
+        "the live toaster and the bell restate the auth gate, the bell reads its signed-in user, \
+         and `auth` flashes notifications, registers stored ones and wakes the bells it revokes",
     ),
     (
         "panel",
@@ -82,9 +87,12 @@ const BACK_EDGES: &[(&str, &[&str], &str)] = &[
             "auth/two_factor/email.rs",
             "auth/two_factor/settings.rs",
             "auth/verification.rs",
+            "notification/bell.rs",
+            "notification/stored.rs",
         ],
         "the auth pages render in the panel's shell, parse its form bodies and read the request's \
-         panel, whose state holds the auth",
+         panel, whose state holds the auth; the bell and stored notifications read the request's \
+         panel too, and the shell renders the bell",
     ),
 ];
 

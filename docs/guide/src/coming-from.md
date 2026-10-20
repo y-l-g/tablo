@@ -40,6 +40,8 @@ which the list, form and detail pages follow. This table maps their names to Tab
 | `->favicon(..)` | `Brand::favicon(url)` |
 | tenancy | `ResourceDef::tenancy`: `Tenancy::column` or `Tenancy::via` |
 | `Notification::make()` | `Notification::success(..)` and its siblings |
+| `->databaseNotifications()`, `sendToDatabase($user)` | `Panel::notifications()`, `Notifications::of(cx)?.send(&user_id, ..)`: the [bell](./notifications.md) |
+| `->broadcast($user)`, `->databaseNotificationsPolling()` | the bell updates over Topcoat's runtime connection, without Echo or polling |
 
 ## What works differently
 

@@ -3623,12 +3623,15 @@ name = "tablo-integration"
 version = "0.7.0"
 dependencies = [
  "form_urlencoded",
+ "futures-util",
  "http",
  "http-body-util",
  "jiff",
+ "serde_json",
  "tablo",
  "toasty",
  "tokio",
+ "tokio-tungstenite",
  "topcoat",
  "uuid",
 ]
@@ -3814,6 +3817,8 @@ dependencies = [
  "indexmap",
  "inventory",
  "jiff",
+ "serde_core",
+ "serde_json",
  "toasty-core",
  "toasty-driver-mysql",
  "toasty-driver-postgresql",

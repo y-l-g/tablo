@@ -2234,7 +2234,9 @@ pub const tablo_ui::icons::ARROW_DOWN: topcoat_icon::data::IconData
 pub const tablo_ui::icons::ARROW_LEFT: topcoat_icon::data::IconData
 pub const tablo_ui::icons::ARROW_UP: topcoat_icon::data::IconData
 pub const tablo_ui::icons::ARROW_UP_DOWN: topcoat_icon::data::IconData
+pub const tablo_ui::icons::BELL: topcoat_icon::data::IconData
 pub const tablo_ui::icons::CHECK: topcoat_icon::data::IconData
+pub const tablo_ui::icons::CHECK_CHECK: topcoat_icon::data::IconData
 pub const tablo_ui::icons::CHEVRONS_UP_DOWN: topcoat_icon::data::IconData
 pub const tablo_ui::icons::CHEVRON_DOWN: topcoat_icon::data::IconData
 pub const tablo_ui::icons::CIRCLE_CHECK: topcoat_icon::data::IconData
@@ -2251,6 +2253,7 @@ pub const tablo_ui::icons::INFO: topcoat_icon::data::IconData
 pub const tablo_ui::icons::LAYOUT_DASHBOARD: topcoat_icon::data::IconData
 pub const tablo_ui::icons::LINK: topcoat_icon::data::IconData
 pub const tablo_ui::icons::LOG_OUT: topcoat_icon::data::IconData
+pub const tablo_ui::icons::MAIL: topcoat_icon::data::IconData
 pub const tablo_ui::icons::MESSAGE_SQUARE: topcoat_icon::data::IconData
 pub const tablo_ui::icons::MONITOR: topcoat_icon::data::IconData
 pub const tablo_ui::icons::MOON: topcoat_icon::data::IconData

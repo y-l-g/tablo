@@ -1,6 +1,11 @@
-//! Transient user-visible message produced by an `Action`'s result and rendered
-//! in the `Panel` shell; stored as a JSON flash cookie with hardened attributes
-//! that Topcoat flushes on error responses too (topcoat#408).
+//! Messages for a panel user: the toast a write flashes, kept in a JSON flash cookie with
+//! hardened attributes that Topcoat flushes on error responses too (topcoat#408), and the
+//! [`StoredNotification`]s [`Notifications`] sends to the bell of a panel with
+//! [`Panel::notifications`](crate::Panel::notifications).
+
+mod bell;
+mod bus;
+mod stored;
 
 use tablo_ui::{
     icons, toast, toast_close, toast_content, toast_description, toast_icon, toast_title,
@@ -13,7 +18,19 @@ use topcoat::{
     view::{Attributes, BoxView, View, ViewExt, attributes, view},
 };
 
-pub use crate::outcome::{Notification, NotificationStatus};
+pub use self::{
+    bell::{
+        clear_notifications, mark_all_notifications_read, mark_notification, notification_bell,
+        remove_notification,
+    },
+    stored::{Notifications, StoredNotification},
+};
+pub(crate) use self::{
+    bell::{prefetch as prefetch_bell, topbar_bell},
+    bus::NotificationBus,
+    stored::bus,
+};
+pub use crate::outcome::{Notification, NotificationAction, NotificationStatus};
 
 pub(crate) const COOKIE_NAME: &str = "__Host-tablo_notification";
 
@@ -69,6 +86,16 @@ pub fn take_notification(cx: &Cx) -> Option<Notification> {
     }
 }
 
+/// The icon a notification of `status` shows, and its classes.
+pub(crate) fn status_icon(status: &NotificationStatus) -> (topcoat::icon::IconData, &'static str) {
+    match status {
+        NotificationStatus::Success => (icons::CIRCLE_CHECK, "size-4"),
+        NotificationStatus::Error => (icons::OCTAGON_X, "size-4 text-destructive"),
+        NotificationStatus::Info => (icons::INFO, "size-4"),
+        NotificationStatus::Warning => (icons::TRIANGLE_ALERT, "size-4"),
+    }
+}
+
 /// Renders one notification as the toast, with `attrs` merged onto its surface.
 pub async fn render_notification<'a>(
     cx: &'a Cx,
@@ -79,18 +106,13 @@ pub async fn render_notification<'a>(
         status,
         title,
         description,
+        actions,
     } = notification;
-    let icon_data = match status {
-        NotificationStatus::Success => icons::CIRCLE_CHECK,
-        NotificationStatus::Error => icons::OCTAGON_X,
-        NotificationStatus::Info => icons::INFO,
-        NotificationStatus::Warning => icons::TRIANGLE_ALERT,
-    };
-    let icon_class = if status == NotificationStatus::Error {
-        "size-4 text-destructive"
-    } else {
-        "size-4"
-    };
+    let (icon_data, icon_class) = status_icon(&status);
+    let links: Vec<(String, String)> = actions
+        .iter()
+        .filter_map(|action| Some((action.label.clone(), action.safe_url()?.to_owned())))
+        .collect();
     let status = status.as_str();
     Ok(view! {
         cx =>
@@ -101,6 +123,18 @@ pub async fn render_notification<'a>(
                 toast_title((title))
                 if let Some(description) = description {
                     toast_description((description))
+                }
+                if !links.is_empty() {
+                    <div class="flex flex-wrap gap-3 pt-1">
+                        for (label, url) in links {
+                            <a
+                                href=(url)
+                                class="font-medium text-primary underline-offset-4 hover:underline"
+                            >
+                                (label)
+                            </a>
+                        }
+                    </div>
                 }
             )
             toast_close()

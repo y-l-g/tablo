@@ -67,6 +67,9 @@ pub(crate) struct PanelState {
     /// The paths of the runtime endpoints the panel declared with
     /// [`Panel::endpoint`](super::Panel::endpoint).
     pub(crate) endpoints: Vec<String>,
+    /// Whether the topbar shows the bell, set by
+    /// [`Panel::notifications`](super::Panel::notifications).
+    pub(crate) notifications: bool,
 }
 
 impl PanelState {

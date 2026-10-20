@@ -131,6 +131,8 @@ pub struct Panel {
     auth: crate::auth::Auth,
     /// The paths of the runtime endpoints that answer only this panel's sessions.
     endpoints: Vec<String>,
+    /// Whether the topbar shows the bell over the user's stored notifications.
+    notifications: bool,
 }
 
 impl Panel {
@@ -158,6 +160,7 @@ impl Panel {
             user_menu: Vec::new(),
             auth: crate::auth::Auth::default(),
             endpoints: Vec::new(),
+            notifications: false,
         }
     }
 
@@ -362,6 +365,27 @@ impl Panel {
     /// [`NavigationItem::at`](crate::NavigationItem::at); its badge shows in the sidebar only.
     pub fn user_menu_item(mut self, item: crate::NavigationItem) -> Self {
         self.user_menu.push(item);
+        self
+    }
+
+    /// Shows a bell in the topbar over the signed-in user's
+    /// [stored notifications](crate::notification::Notifications): an unread count, and a sheet
+    /// that lists them newest first, to mark read or unread and remove. Once the page loads, the
+    /// bell keeps updating over Topcoat's runtime connection, and a notification sent while the
+    /// page is open also shows as a toast.
+    ///
+    /// The bell lists what was sent on this panel for the tenant the user acts for, and what was
+    /// sent for no tenant. The panel needs auth and the [`StoredNotification`] model, which
+    /// [`models!`](crate::models!) registers.
+    ///
+    /// ```rust
+    /// # use tablo_core::Panel;
+    /// Panel::new("admin").notifications();
+    /// ```
+    ///
+    /// [`StoredNotification`]: crate::notification::StoredNotification
+    pub fn notifications(mut self) -> Self {
+        self.notifications = true;
         self
     }
 

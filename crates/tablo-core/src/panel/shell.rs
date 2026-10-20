@@ -15,7 +15,7 @@ use topcoat::{
 use super::{Panel, state::current};
 use crate::{
     navigation::NavigationItem,
-    notification::{LiveToast, live_toast, live_toaster, take_notification},
+    notification::{LiveToast, live_toast, live_toaster, take_notification, topbar_bell},
     topcoat_compat::async_page,
 };
 
@@ -298,10 +298,8 @@ impl Panel {
             sidebar_group, sidebar_group_content, sidebar_group_label, sidebar_menu,
             sidebar_menu_badge, sidebar_menu_button, sidebar_menu_item,
         };
-        // A Panel resolves every item it owns (`Panel::resource`, `page`,
-        // `home`); one that
-        // reaches the sidebar unresolved has no URL to render, which is a
-        // framework bug rather than user error.
+        // A Panel resolves every item it owns (`Panel::resource`, `page`, `home`); one that
+        // reaches the sidebar unresolved has no URL to render: a framework bug, not user error.
         debug_assert!(
             nav_items.iter().all(|item| item.url().is_some()),
             "navigation items are resolved by the Panel that owns them"
@@ -557,9 +555,8 @@ impl Panel {
                                 @click=$(|_e: Event| mobile_open.toggle())
                             }
                         )
-                        // The sidebar carries the brand on desktop; below md
-                        // it hides in the sheet, so the topbar names the
-                        // panel there.
+                        // The sidebar carries the brand on desktop; below md it hides in
+                        // the sheet, so the topbar names the panel there.
                         <div class="md:hidden font-semibold text-foreground">
                             (header_title)
                         </div>
@@ -570,6 +567,7 @@ impl Panel {
                             attrs: attributes! { class="max-sm:hidden" }
                         )
                         (crumbs)
+                        (topbar_bell(cx))
                     )
                     // `sidebar_inset` is the document's one `<main>`; a second
                     // nested landmark is invalid and confuses landmark
@@ -630,6 +628,7 @@ impl Panel {
             }
         }))
         .await;
+        crate::notification::prefetch_bell(cx).await;
         let mut nav_items: Vec<NavigationItem> = entries
             .iter()
             .zip(badges)

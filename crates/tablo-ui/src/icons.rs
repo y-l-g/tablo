@@ -58,6 +58,12 @@ pub const CHEVRON_DOWN: IconData = iconify_icon!("lucide:chevron-down");
 pub const CHECK: IconData = iconify_icon!("lucide:check");
 /// Relation action: link a record to the one the page shows.
 pub const LINK: IconData = iconify_icon!("lucide:link");
+/// The notification bell in the topbar.
+pub const BELL: IconData = iconify_icon!("lucide:bell");
+/// Marking every notification read.
+pub const CHECK_CHECK: IconData = iconify_icon!("lucide:check-check");
+/// Marking a notification unread.
+pub const MAIL: IconData = iconify_icon!("lucide:mail");
 /// The table's column picker.
 pub const COLUMNS_3: IconData = iconify_icon!("lucide:columns-3");
 

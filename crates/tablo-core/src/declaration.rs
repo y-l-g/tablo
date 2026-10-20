@@ -6,6 +6,7 @@ mod action_input;
 mod auth;
 mod field_rule;
 mod many_to_many;
+mod mount_error;
 mod segment;
 
 pub use action_input::ActionInputFault;
@@ -18,50 +19,9 @@ pub use field_rule::FieldRuleFault;
 use field_rule::fmt_field_rule;
 pub use many_to_many::ManyToManyFault;
 use many_to_many::fmt_many_to_many;
+pub use mount_error::MountError;
 pub use segment::SegmentFault;
 pub(crate) use segment::segment_fault;
-
-/// Why [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) refused a panel:
-/// every declaration mistake it found.
-///
-/// The router's builder returns it as a [`topcoat::Error`]; recover it with
-/// `error.downcast_ref::<MountError>()`.
-#[derive(Debug)]
-pub struct MountError {
-    panel: String,
-    errors: Vec<DeclarationError>,
-}
-
-impl MountError {
-    pub(crate) fn new(panel: &str, errors: Vec<DeclarationError>) -> Self {
-        Self {
-            panel: panel.to_string(),
-            errors,
-        }
-    }
-
-    /// The refused panel's prefix.
-    pub fn panel(&self) -> &str {
-        &self.panel
-    }
-
-    /// Every mistake found, in declaration order.
-    pub fn errors(&self) -> &[DeclarationError] {
-        &self.errors
-    }
-}
-
-impl fmt::Display for MountError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "panel '{}' cannot mount:", self.panel)?;
-        for error in &self.errors {
-            write!(f, "\n  - {error}")?;
-        }
-        Ok(())
-    }
-}
-
-impl std::error::Error for MountError {}
 
 /// One declaration mistake: who declares it, where, and what is wrong.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -150,6 +110,8 @@ pub enum DeclarationErrorKind {
     },
     /// `Panel::shell_assets` is set, but the router has no asset bundle.
     ShellAssetsWithoutBundle,
+    /// `Panel::notifications` on `Auth::disabled`, which signs nobody in to notify.
+    NotificationsWithoutAuth,
     /// A form declares a file field, but the panel installs no `Uploader` to store its bytes.
     FileFieldWithoutUploader {
         /// The file field's name.
@@ -484,6 +446,9 @@ impl fmt::Display for DeclarationErrorKind {
             Self::ShellAssetsWithoutBundle => f.write_str(
                 "shell_assets need the router's asset bundle: install it with `.assets(..)` \
                  before mounting the panel",
+            ),
+            Self::NotificationsWithoutAuth => f.write_str(
+                "notifications are for signed-in users: `Panel::notifications` needs auth on",
             ),
             Self::FileFieldWithoutUploader { field } => write!(
                 f,
