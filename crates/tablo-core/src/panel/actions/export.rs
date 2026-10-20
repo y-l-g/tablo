@@ -121,7 +121,7 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
             }
             let mut visible = 0usize;
             loop {
-                let rows = match chunker.next_chunk(&mut db_handle).await {
+                let mut rows = match chunker.next_chunk(&mut db_handle).await {
                     Ok(Some(rows)) => rows,
                     Ok(None) => break,
                     Err(error) => {
@@ -130,6 +130,14 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
                         return;
                     }
                 };
+                if let Err(error) = table
+                    .restrict_relations(&cx2, &mut rows, &mut db_handle)
+                    .await
+                {
+                    tracing::error!(resource = resource.slug, error = %error, "export stream failed");
+                    tx.abort(std::io::Error::other("export unavailable"));
+                    return;
+                }
                 let mut fragment = String::new();
                 for row in &rows {
                     if resource.can(&cx2, Ability::View(row)) {

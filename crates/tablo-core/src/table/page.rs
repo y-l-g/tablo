@@ -91,7 +91,8 @@ where
 {
     /// Load the page of `table` that `state` names: `query` with the table's
     /// search, filters and ordering applied, the relations its columns declare
-    /// included, and the table's [`Pagination`] at the page size `state` reads at.
+    /// included and narrowed to what their sources show the user, and the table's
+    /// [`Pagination`] at the page size `state` reads at.
     ///
     /// `query` is the caller's scope. The panel's list passes the resource's
     /// [`scoped_query`](crate::resource::scoped_query); a page that owns its
@@ -110,11 +111,15 @@ where
         query: Query<List<M>>,
         state: &TableState,
     ) -> Result<Self> {
-        match table.pagination_mode() {
+        let mut page = match table.pagination_mode() {
             Pagination::Pages => Self::load_numbered(cx, table, query, state, true).await,
             Pagination::Simple => Self::load_numbered(cx, table, query, state, false).await,
             Pagination::Cursor => Self::load_cursor(cx, table, query, state).await,
-        }
+        }?;
+        table
+            .restrict_relations(cx, &mut page.rows, &mut crate::db::db(cx))
+            .await?;
+        Ok(page)
     }
 
     /// Load the page `?page=` names by offset, counting the result set when `counted`.

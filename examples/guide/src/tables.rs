@@ -9,7 +9,7 @@ use topcoat::{context::Cx, view::*};
 
 use crate::{
     models::{Author, Post, Theme, User},
-    resources::AuthorResource,
+    resources::{AuthorResource, CommentResource},
 };
 
 // ANCHOR: post-table-post
@@ -80,11 +80,11 @@ pub fn user_table() -> Table<User> {
 
 // ANCHOR: table-relation-column
 pub fn author_column() -> RelationColumn<Post> {
-    RelationColumn::new(relation!(Post.author), |a: &Author| a.name.clone())
+    RelationColumn::new::<AuthorResource>(relation!(Post.author), |a: &Author| a.name.clone())
 }
 
 pub fn comment_count_column() -> CountColumn<Post> {
-    CountColumn::new(relation!(Post.comments))
+    CountColumn::of::<CommentResource>(relation!(Post.comments))
 }
 // ANCHOR_END: table-relation-column
 

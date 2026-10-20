@@ -1,7 +1,7 @@
 use toasty::Db;
 
 use super::*;
-use crate::{Detail, policy::Ability, test_support::memory_db};
+use crate::{Detail, policy::Ability, relation, test_support::memory_db};
 
 #[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
 struct Shelf {
@@ -38,11 +38,29 @@ struct Book {
 }
 
 fn shelf_name() -> RelationColumn<Book> {
-    RelationColumn::new(relation!(Book.shelf), |s: &Shelf| s.name.clone())
+    RelationColumn::unscoped(relation!(Book.shelf), |s: &Shelf| s.name.clone())
 }
 
 fn borrower_name() -> RelationColumn<Book> {
-    RelationColumn::new(relation!(Book.borrower), |r: &Reader| r.name.clone())
+    RelationColumn::unscoped(relation!(Book.borrower), |r: &Reader| r.name.clone())
+}
+
+/// `detail`'s records as a page loads them: its includes, then each column's restriction.
+async fn load<M>(detail: &Detail<M>, db: &mut Db) -> Vec<M>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+{
+    let cx = crate::test_support::cx();
+    let mut records = detail
+        .include_relations(toasty::stmt::Query::all())
+        .exec(&mut *db)
+        .await
+        .unwrap();
+    detail
+        .restrict_relations(&cx, &mut records, db)
+        .await
+        .unwrap();
+    records
 }
 
 async fn library() -> Db {
@@ -59,7 +77,11 @@ async fn library() -> Db {
     .exec(&mut db)
     .await
     .unwrap();
-    for (title, borrower_id) in [("Dune", Some(reader.id)), ("Solaris", None)] {
+    for (title, borrower_id) in [
+        ("Dune", Some(reader.id)),
+        ("Solaris", None),
+        ("Ubik", Some(reader.id)),
+    ] {
         toasty::create!(Book {
             title: title.to_string(),
             shelf_id: shelf.id,
@@ -85,7 +107,7 @@ fn a_relation_column_names_its_field_and_declares_its_include() {
     );
     assert!(column.misdeclared().is_none());
 
-    let count = CountColumn::new(relation!(Shelf.books));
+    let count = CountColumn::unscoped(relation!(Shelf.books));
     assert_eq!(Column::<Shelf>::name(&count), "books");
     assert_eq!(Column::<Shelf>::label(&count), "Books");
     assert_eq!(count.column_width(), ColumnWidth::Auto);
@@ -110,6 +132,10 @@ impl crate::schema::OptionSource for Shelves {
     fn label(_cx: &topcoat::context::Cx, shelf: &Shelf) -> String {
         format!("Shelf {}", shelf.name)
     }
+
+    fn allows(_cx: &topcoat::context::Cx, _ability: Ability<'_, Shelf>) -> bool {
+        true
+    }
 }
 
 /// A relation column of a source shows each related record by the source's label, the one its
@@ -120,14 +146,8 @@ async fn a_relation_column_of_a_source_shows_its_label() {
     let mut db = library().await;
     let column = RelationColumn::of::<Shelves>(relation!(Book.shelf));
     assert_eq!(Column::<Book>::name(&column), "shelf");
-    let book = Detail::new(column.clone())
-        .include_relations(toasty::stmt::Query::all())
-        .first()
-        .exec(&mut db)
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(column.text(&cx, &book), "Shelf Sci-fi");
+    let books = load(&Detail::new(column.clone()), &mut db).await;
+    assert_eq!(column.text(&cx, &books[0]), "Shelf Sci-fi");
 }
 
 /// A label renames the column, so one table shows two values of one relation.
@@ -135,7 +155,8 @@ async fn a_relation_column_of_a_source_shows_its_label() {
 fn two_labelled_columns_over_one_relation_declare_one_table() {
     let table = crate::Table::new((
         shelf_name(),
-        RelationColumn::new(relation!(Book.shelf), |s: &Shelf| s.id.to_string()).label("Shelf id"),
+        RelationColumn::unscoped(relation!(Book.shelf), |s: &Shelf| s.id.to_string())
+            .label("Shelf id"),
     ));
     assert_eq!(table.declaration_errors(), []);
 
@@ -155,12 +176,7 @@ async fn the_page_loads_the_relations_its_relation_columns_read() {
     let cx = crate::test_support::cx();
     let mut db = library().await;
 
-    let detail = Detail::new((shelf_name(), borrower_name()));
-    let books = detail
-        .include_relations(toasty::stmt::Query::all())
-        .exec(&mut db)
-        .await
-        .unwrap();
+    let books = load(&Detail::new((shelf_name(), borrower_name())), &mut db).await;
     let mut rows: Vec<_> = books
         .iter()
         .map(|b| {
@@ -177,48 +193,57 @@ async fn the_page_loads_the_relations_its_relation_columns_read() {
         [
             ("Dune", "Sci-fi".to_string(), "Ada".to_string()),
             ("Solaris", "Sci-fi".to_string(), String::new()),
+            ("Ubik", "Sci-fi".to_string(), "Ada".to_string()),
         ]
     );
 
-    let count = CountColumn::new(relation!(Shelf.books));
-    let shelf = Detail::new(count.clone())
-        .include_relations(toasty::stmt::Query::all())
-        .first()
-        .exec(&mut db)
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(count.text(&cx, &shelf), "2");
-
-    let titles = RelationColumn::list::<Titles>(relation!(Shelf.books));
-    let shelf = Detail::new(titles.clone())
-        .include_relations(toasty::stmt::Query::all())
-        .first()
-        .exec(&mut db)
-        .await
-        .unwrap()
-        .unwrap();
-    let mut listed: Vec<String> = titles
-        .text(&cx, &shelf)
-        .split(", ")
-        .map(str::to_string)
-        .collect();
-    listed.sort();
+    let count = CountColumn::unscoped(relation!(Shelf.books));
+    let shelves = load(&Detail::new(count.clone()), &mut db).await;
     assert_eq!(
-        listed,
-        ["Dune"],
-        "each record the user may view, by the source's label"
+        count.text(&cx, &shelves[0]),
+        "3",
+        "unscoped, it counts every book"
     );
 }
 
-/// Books, labelled by their title; "Solaris" cannot be viewed.
+/// A column over a source drops the related records the source's query leaves out ("Solaris") and
+/// the ones its policy does not let the user view ("Ubik"), whatever the relation's shape.
+#[tokio::test]
+async fn a_scoped_column_shows_only_what_its_source_shows() {
+    let cx = crate::test_support::cx();
+    let mut db = library().await;
+
+    let titles = RelationColumn::list::<Titles>(relation!(Shelf.books));
+    let count = CountColumn::of::<Titles>(relation!(Shelf.books));
+    let shelves = load(&Detail::new((titles.clone(), count.clone())), &mut db).await;
+    assert_eq!(titles.text(&cx, &shelves[0]), "Dune");
+    assert_eq!(count.text(&cx, &shelves[0]), "1");
+
+    // A required relation whose record is hidden reads as empty.
+    let shelf = RelationColumn::of::<NoShelves>(relation!(Book.shelf));
+    let books = load(&Detail::new(shelf.clone()), &mut db).await;
+    assert!(books.iter().all(|b| b.shelf.is_unloaded()));
+    assert!(books.iter().all(|b| shelf.text(&cx, b).is_empty()));
+
+    // A nullable relation whose record is hidden holds none.
+    let borrower = RelationColumn::of::<NoReaders>(relation!(Book.borrower));
+    let books = load(&Detail::new(borrower.clone()), &mut db).await;
+    assert!(
+        books
+            .iter()
+            .all(|b| matches!(b.borrower.loaded(), Some(None)))
+    );
+    assert!(books.iter().all(|b| borrower.text(&cx, b).is_empty()));
+}
+
+/// Books, labelled by their title: the query leaves "Solaris" out, and "Ubik" cannot be viewed.
 struct Titles;
 
 impl OptionSource for Titles {
     type Model = Book;
 
     fn scoped_query(_cx: &Cx) -> topcoat::Result<toasty::stmt::Query<toasty::stmt::List<Book>>> {
-        Ok(toasty::stmt::Query::all())
+        Ok(toasty::stmt::Query::all().filter(Book::fields().title().ne("Solaris")))
     }
 
     fn label(_cx: &Cx, book: &Book) -> String {
@@ -226,7 +251,45 @@ impl OptionSource for Titles {
     }
 
     fn allows(_cx: &Cx, ability: Ability<'_, Book>) -> bool {
-        !matches!(ability, Ability::View(book) if book.title == "Solaris")
+        !matches!(ability, Ability::View(book) if book.title == "Ubik")
+    }
+}
+
+/// Shelves the user may list and none of which they may view.
+struct NoShelves;
+
+impl OptionSource for NoShelves {
+    type Model = Shelf;
+
+    fn scoped_query(_cx: &Cx) -> topcoat::Result<toasty::stmt::Query<toasty::stmt::List<Shelf>>> {
+        Ok(toasty::stmt::Query::all())
+    }
+
+    fn label(_cx: &Cx, shelf: &Shelf) -> String {
+        shelf.name.clone()
+    }
+
+    fn allows(_cx: &Cx, ability: Ability<'_, Shelf>) -> bool {
+        matches!(ability, Ability::ViewAny)
+    }
+}
+
+/// Readers the user may list and none of whom they may view.
+struct NoReaders;
+
+impl OptionSource for NoReaders {
+    type Model = Reader;
+
+    fn scoped_query(_cx: &Cx) -> topcoat::Result<toasty::stmt::Query<toasty::stmt::List<Reader>>> {
+        Ok(toasty::stmt::Query::all())
+    }
+
+    fn label(_cx: &Cx, reader: &Reader) -> String {
+        reader.name.clone()
+    }
+
+    fn allows(_cx: &Cx, ability: Ability<'_, Reader>) -> bool {
+        matches!(ability, Ability::ViewAny)
     }
 }
 
