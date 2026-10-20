@@ -133,7 +133,7 @@ pub use column::{
 pub use declaration::{
     ActionInputFault, AuthMailFault, DeclarationError, DeclarationErrorKind, FieldRuleFault,
     ManyToManyFault, MountError, ProfileFault, ResetFault, SegmentFault, SignUpFault, Site,
-    TenantProfileFault, TenantRegistrationFault, TwoFactorFault, VerificationFault,
+    TenancyFault, TenantProfileFault, TenantRegistrationFault, TwoFactorFault, VerificationFault,
 };
 pub use detail::{Detail, IntoDetail};
 pub use display::{Alignment, Color, Currency, Number, Numeric};

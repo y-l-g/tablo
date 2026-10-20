@@ -523,7 +523,8 @@ That one declaration does two things:
 
 The column is a `TenantId` field of the model, or `Option<TenantId>` for a nullable one, named by
 its lens; the name itself is the app's choice. Do not repeat the filter in `query`. Mounting the
-panel refuses a `Tenancy::column` lens that is not one field of the model.
+panel refuses a `Tenancy::column` lens that is not one field of the model, and a resource that
+declares no tenancy over a model with a `TenantId` field, which would serve every tenant's rows.
 
 **A row that inherits its tenant.** A comment has no tenant column of its own; it belongs to a post
 that does. `Tenancy::via` names the tenant through the relation, and the framework checks and
@@ -546,8 +547,8 @@ relation, and the form declares that relation's foreign key (`post_id`) as a
 must be one of the request tenant's posts. Mounting the panel refuses a form that writes the key any
 other way, or a lens that does not start at a `belongs_to`.
 
-**A deliberately cross-tenant resource** — a super-admin view — declares no tenancy and filters in
-`query()`. That gives up both the tenant check and the scope.
+**A deliberately cross-tenant resource** — a super-admin view — declares `Tenancy::none()` and
+filters in `query()`. That gives up both the tenant check and the scope.
 
 **In your own code**, load rows with `scoped_query::<PostResource>(cx)?`. It applies the tenant
 scope and answers 403 when the request has no tenant. `PostResource::query(cx)` does not apply the

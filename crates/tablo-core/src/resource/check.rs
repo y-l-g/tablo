@@ -5,7 +5,8 @@
 use topcoat::context::Cx;
 
 use crate::{
-    ActionInputFault, DeclarationError, DeclarationErrorKind, ManyToManyFault, Site,
+    ActionInputFault, DeclarationError, DeclarationErrorKind, ManyToManyFault, ModelColumns, Site,
+    TenancyFault,
     form::RecordForm,
     resource::{InputSpec, Mounted, Resource, require_mounted},
     toasty_compat::{
@@ -25,14 +26,16 @@ pub(crate) fn check_resource<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationE
         return;
     };
     let tenancy = &declared.tenancy;
+    if tenancy.is_undeclared()
+        && let Some(column) = <R::Model as ModelColumns>::TENANT_COLUMNS.first()
+    {
+        errors.push(tenancy_error::<R>(TenancyFault::Undeclared { column }));
+    }
     if let Some(Err(kind)) = tenancy.column_field() {
         errors.push(DeclarationError::of::<R>(Site::Tenancy, kind));
     }
     if tenancy.via_is_single() == Some(true) {
-        errors.push(DeclarationError::of::<R>(
-            Site::Tenancy,
-            DeclarationErrorKind::TenancyViaOwnColumn,
-        ));
+        errors.push(tenancy_error::<R>(TenancyFault::ViaOwnColumn));
     }
     let mut form_errors = declared.form.declaration_errors();
     form_errors.extend(declared.form.empty_choices());
@@ -60,6 +63,11 @@ pub(crate) fn check_resource<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationE
     }
     check_actions(cx, &declared, errors);
     check_form_declaration(cx, &declared, form_is_sound, errors);
+}
+
+/// A mistake in `R`'s tenancy declaration.
+fn tenancy_error<R: Resource>(fault: TenancyFault) -> DeclarationError {
+    DeclarationError::of::<R>(Site::Tenancy, DeclarationErrorKind::Tenancy { fault })
 }
 
 /// Every custom and header action's name is distinct among the resource's actions: the routes
@@ -338,10 +346,7 @@ fn check_via_foreign_keys<R: Resource>(
         .via_hop()
         .and_then(model::belongs_to::<R::Model>)
     else {
-        errors.push(DeclarationError::of::<R>(
-            Site::Tenancy,
-            DeclarationErrorKind::TenancyViaWithoutBelongsTo,
-        ));
+        errors.push(tenancy_error::<R>(TenancyFault::ViaWithoutBelongsTo));
         return;
     };
     let unguarded: Vec<String> = keys
@@ -357,9 +362,11 @@ fn check_via_foreign_keys<R: Resource>(
         })
         .collect();
     if !unguarded.is_empty() {
-        errors.push(form_error::<R>(DeclarationErrorKind::UnguardedForeignKey {
-            relation,
-            keys: unguarded,
+        errors.push(form_error::<R>(DeclarationErrorKind::Tenancy {
+            fault: TenancyFault::UnguardedForeignKey {
+                relation,
+                keys: unguarded,
+            },
         }));
     }
 }

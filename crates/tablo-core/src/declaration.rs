@@ -8,6 +8,7 @@ mod field_rule;
 mod many_to_many;
 mod mount_error;
 mod segment;
+mod tenancy;
 
 pub use action_input::ActionInputFault;
 use action_input::fmt_action_input;
@@ -22,6 +23,7 @@ use many_to_many::fmt_many_to_many;
 pub use mount_error::MountError;
 pub use segment::SegmentFault;
 pub(crate) use segment::segment_fault;
+pub use tenancy::TenancyFault;
 
 /// One declaration mistake: who declares it, where, and what is wrong.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -242,19 +244,10 @@ pub enum DeclarationErrorKind {
         /// Each driver's reason to refuse it.
         error: String,
     },
-    /// A `Tenancy::column` lens that names no field of the model.
-    TenancyColumnNotAField,
-    /// A `Tenancy::via` lens that names one field of the model.
-    TenancyViaOwnColumn,
-    /// A `Tenancy::via` lens whose first step is no `belongs_to` relation.
-    TenancyViaWithoutBelongsTo,
-    /// A `Tenancy::via` resource whose form writes the parent's foreign key other than through a
-    /// relationship field over a tenant-scoped resource of the parent's model.
-    UnguardedForeignKey {
-        /// The `belongs_to` relation the lens steps through.
-        relation: String,
-        /// The foreign-key columns written another way.
-        keys: Vec<String>,
+    /// A resource's tenancy that cannot scope its rows.
+    Tenancy {
+        /// What is wrong.
+        fault: TenancyFault,
     },
     /// A table with no column.
     NoColumns,
@@ -550,25 +543,7 @@ impl fmt::Display for DeclarationErrorKind {
                 f,
                 "`{model}` compiles to no schema, so its embedded paths name no column: {error}"
             ),
-            Self::TenancyColumnNotAField => f.write_str(
-                "the `Tenancy::column` lens names no field of the model: name a field typed \
-                 `TenantId`, or use `Tenancy::via` for a tenant reached through a relation",
-            ),
-            Self::TenancyViaOwnColumn => f.write_str(
-                "the `Tenancy::via` lens names one field of the model: use `Tenancy::column` for \
-                 the model's own tenant column",
-            ),
-            Self::TenancyViaWithoutBelongsTo => f.write_str(
-                "the `Tenancy::via` lens does not start at a `belongs_to` relation: the tenant \
-                 must be the parent's its foreign key names",
-            ),
-            Self::UnguardedForeignKey { relation, keys } => write!(
-                f,
-                "foreign key `{}` is not written through a relationship field over a \
-                 tenant-scoped resource of `{relation}`'s model: the write re-checks only such a \
-                 field's key, so any other could attach the row to another tenant's parent",
-                keys.join("`, `")
-            ),
+            Self::Tenancy { fault } => fault.fmt(f),
             Self::NoColumns => f.write_str(
                 "no column: declare columns with `Table::new(columns)` or in `ResourceDef::table`",
             ),

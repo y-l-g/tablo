@@ -18,6 +18,12 @@ use crate::{Detail, Table};
             {Self} {{}}` when its resources declare their own table and detail page"
 )]
 pub trait ModelColumns: Model + IntoExpr<Self> + Sized {
+    /// The model's [`TenantId`](crate::TenantId) fields, by name: the derive lists each field
+    /// typed `TenantId` or `Option<TenantId>`. Mounting a panel refuses a resource over a model
+    /// that lists one and declares no [`tenancy`](crate::ResourceDef::tenancy), which would serve
+    /// every tenant's rows. An impl that keeps the empty default opts out of that check.
+    const TENANT_COLUMNS: &'static [&'static str] = &[];
+
     /// The default table, which lists no column here.
     fn table() -> Table<Self> {
         Table::new(())

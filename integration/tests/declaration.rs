@@ -4,7 +4,7 @@
 use tablo::{
     Ability, Auth, DeclarationErrorKind, Detail, NoForm, Page, PageDef, Panel, RelationColumn,
     Resource, ResourceDef, RouterBuilderPanelExt, Schema, SegmentFault, SelectFilter, Site, Table,
-    Tenancy, TenantId, TextColumn, lens, relation,
+    Tenancy, TenancyFault, TenantId, TextColumn, lens, relation,
 };
 use toasty::Db;
 use topcoat::{
@@ -446,7 +446,9 @@ fn nicknames() -> Table<Subscriber> {
     Table::new(TextColumn::new(lens!(Subscriber.nickname)))
 }
 
-resource!(Parents, Parent => ResourceDef::new().table(Table::new(TextColumn::new(lens!(Parent.name)))));
+resource!(Parents, Parent => ResourceDef::new()
+    .tenancy(Tenancy::none())
+    .table(Table::new(TextColumn::new(lens!(Parent.name)))));
 resource!(FilteredChildren, Child => ResourceDef::new()
 .slug("filtered-children")
 .table(
@@ -475,8 +477,14 @@ resource!(ScopedParents, Parent => ResourceDef::new()
     .slug("parents")
     .tenancy(Tenancy::column(Parent::fields().tenant_id()))
     .table(Table::new(TextColumn::new(lens!(Parent.name)))));
+// Serves every tenant's parents on purpose.
 resource!(OpenParents, Parent => ResourceDef::new()
     .slug("open-parents")
+    .tenancy(Tenancy::none())
+    .table(Table::new(TextColumn::new(lens!(Parent.name)))));
+// Declares no tenancy over a model with a tenant column.
+resource!(UndeclaredParents, Parent => ResourceDef::new()
+    .slug("undeclared-parents")
     .table(Table::new(TextColumn::new(lens!(Parent.name)))));
 // A child inheriting its tenant through `parent`, whose form declares no key.
 resource!(WithoutKey, Child, NameForm => ResourceDef::new()
@@ -515,9 +523,9 @@ resource!(Seated, Child, SeatedForm => {
 resource!(AuthorResource, Author, AuthorForm => ResourceDef::new()
     .slug("authors")
     .policy(creates)
+    .tenancy(Tenancy::column(Author::fields().tenant_id()))
     .table(Table::new(TextColumn::new(lens!(Author.email))))
-    .form(Schema::new(AuthorForm::controls().email.unique()))
-    .create_column(Author::fields().tenant_id()));
+    .form(Schema::new(AuthorForm::controls().email.unique())));
 resource!(UnbackedResource, Subscriber, NicknameForm => ResourceDef::new()
     .slug("subscribers")
     .policy(creates)
@@ -576,9 +584,11 @@ async fn a_mount_refuses_each_misdeclaration() {
     };
     let mounted = |panel: Panel| mount(db.clone(), panel);
 
-    let unguarded = DeclarationErrorKind::UnguardedForeignKey {
-        relation: "parent".to_string(),
-        keys: vec!["parent_id".to_string()],
+    let unguarded = DeclarationErrorKind::Tenancy {
+        fault: TenancyFault::UnguardedForeignKey {
+            relation: "parent".to_string(),
+            keys: vec!["parent_id".to_string()],
+        },
     };
     let unregistered = DeclarationErrorKind::UnregisteredLabelSource {
         column: "parent".to_string(),
@@ -623,7 +633,9 @@ async fn a_mount_refuses_each_misdeclaration() {
             refused(mounted(panel().resource::<ColumnThroughRelation>())),
             vec![of::<ColumnThroughRelation>(
                 Site::Tenancy,
-                DeclarationErrorKind::TenancyColumnNotAField,
+                DeclarationErrorKind::Tenancy {
+                    fault: TenancyFault::ColumnNotAField,
+                },
             )],
         ),
         (
@@ -631,7 +643,21 @@ async fn a_mount_refuses_each_misdeclaration() {
             refused(mounted(panel().resource::<ViaOwnColumn>())),
             vec![of::<ViaOwnColumn>(
                 Site::Tenancy,
-                DeclarationErrorKind::TenancyViaOwnColumn,
+                DeclarationErrorKind::Tenancy {
+                    fault: TenancyFault::ViaOwnColumn,
+                },
+            )],
+        ),
+        (
+            "no tenancy over a model with a tenant column",
+            refused(mounted(panel().resource::<UndeclaredParents>())),
+            vec![of::<UndeclaredParents>(
+                Site::Tenancy,
+                DeclarationErrorKind::Tenancy {
+                    fault: TenancyFault::Undeclared {
+                        column: "tenant_id",
+                    },
+                },
             )],
         ),
         // A tenancy `via` needs the form to write the relation's key through a relationship
