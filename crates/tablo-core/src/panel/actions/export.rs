@@ -70,11 +70,11 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
         let state = TableState::from_cx(cx);
         let table = resource.table.clone();
         // Fails closed on unapplied filters.
-        if !table.unapplied_filters(&state).is_empty() {
+        if !table.unapplied_filters(cx, &state).is_empty() {
             return Err(topcoat::router::error::bad_request(format!(
                 "invalid filters: {}",
                 table
-                    .unapplied_filters(&state)
+                    .unapplied_filters(cx, &state)
                     .iter()
                     .map(|(pair, reason)| format!("{pair} ({reason})"))
                     .collect::<Vec<_>>()
@@ -180,7 +180,7 @@ fn export_base_query<R: Resource>(
     table: &Table<R::Model>,
     state: &TableState,
 ) -> Result<toasty::stmt::Query<toasty::stmt::List<R::Model>>> {
-    Ok(table.apply_declaration(&crate::db::db(cx), resource.scoped_query(cx)?, state))
+    Ok(table.apply_declaration(cx, &crate::db::db(cx), resource.scoped_query(cx)?, state))
 }
 
 /// Walks an export base query in cursor chunks.

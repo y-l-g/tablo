@@ -44,6 +44,7 @@ mod shell;
 mod stream_pool;
 mod tenant_profile;
 mod tenant_registration;
+mod time_zone;
 mod toggleable_columns;
 mod two_factor;
 mod two_factor_email;

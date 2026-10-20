@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
     schema::{Field, tests::tags},
-    test_support::DummyUser,
+    test_support::{DummyUser, cx},
 };
 
 fn posted(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
@@ -15,13 +15,16 @@ fn posted(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
 fn a_scalar_reads_its_last_value_and_an_undeclared_key_stays_unclaimed() {
     let schema = Schema::new(Field::text(DummyUser::fields().name()));
     let (values, unclaimed) = schema
-        .read_unclaimed(&posted(&[
-            ("role", "admin"),
-            ("name", "Ada"),
-            ("confirm", "1"),
-            ("name", "Grace"),
-            ("role", "owner"),
-        ]))
+        .read_unclaimed(
+            &cx(),
+            &posted(&[
+                ("role", "admin"),
+                ("name", "Ada"),
+                ("confirm", "1"),
+                ("name", "Grace"),
+                ("role", "owner"),
+            ]),
+        )
         .unwrap();
     assert_eq!(values, FormValues::from_iter([("name", "Grace")]));
     assert_eq!(unclaimed, ["confirm", "role"]);
@@ -30,7 +33,12 @@ fn a_scalar_reads_its_last_value_and_an_undeclared_key_stays_unclaimed() {
 #[test]
 fn a_field_posting_nothing_holds_nothing() {
     let schema = Schema::new((Field::text(DummyUser::fields().name()), tags()));
-    assert!(schema.read(&posted(&[("other", "x")])).unwrap().is_empty());
+    assert!(
+        schema
+            .read(&cx(), &posted(&[("other", "x")]))
+            .unwrap()
+            .is_empty()
+    );
 }
 
 proptest::proptest! {
@@ -42,7 +50,7 @@ proptest::proptest! {
     ) {
         let pairs: Vec<(String, String)> =
             items.iter().map(|item| ("tags".to_string(), item.clone())).collect();
-        let values = tags().read(&pairs).unwrap();
+        let values = tags().read(&cx(), &pairs).unwrap();
         if items.is_empty() {
             proptest::prop_assert!(values.is_empty());
             return Ok(());

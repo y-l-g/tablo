@@ -1,5 +1,5 @@
 use super::{test_support::DummyUser, *};
-use crate::{schema::Schema, values::FormValue};
+use crate::{schema::Schema, test_support::cx, values::FormValue};
 
 /// A control renders optional until a panel stamps its record form's presence on it.
 #[test]
@@ -85,7 +85,7 @@ fn a_read_input_takes_a_disabled_fields_default() {
         ("reason".to_string(), "other".to_string()),
         ("note".to_string(), "hello".to_string()),
     ];
-    let input = schema.read_input(&posted, &[]).expect("reads");
+    let input = schema.read_input(&cx(), &posted, &[]).expect("reads");
     assert_eq!(input.text("reason"), Some("spam"));
     assert_eq!(input.text("note"), Some("hello"));
     assert_eq!(schema.defaults().len(), 2);
@@ -186,7 +186,7 @@ fn a_condition_reads_a_disabled_fields_default() {
         ("coupon".to_string(), "SAVE".to_string()),
         ("referral".to_string(), "eve".to_string()),
     ];
-    let input = schema.read_input(&posted, &[]).expect("reads");
+    let input = schema.read_input(&cx(), &posted, &[]).expect("reads");
     assert_eq!(input.text("plan"), Some("free"));
     assert_eq!(input.text("coupon"), Some("SAVE"));
     assert_eq!(input.get("referral"), None, "hidden by the default");

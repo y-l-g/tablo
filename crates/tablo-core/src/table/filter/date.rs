@@ -3,46 +3,51 @@
 
 use std::{marker::PhantomData, sync::Arc};
 
+use jiff::tz::TimeZone;
 use toasty::stmt::{Expr, IntoExpr, Path};
 use topcoat::{context::Cx, view::*};
 
 use super::{Filter, FilterInput, FilterValue};
 use crate::schema::Binding;
 
-/// A field type a [`DateFilter`] matches by calendar day: `jiff::Timestamp` (the day in UTC),
-/// `jiff::civil::Date`, `jiff::civil::DateTime`, and an `Option` of any of them.
+/// A field type a [`DateFilter`] matches by calendar day: `jiff::Timestamp` (the day in the
+/// request's [`time_zone`](crate::time_zone)), `jiff::civil::Date`, `jiff::civil::DateTime`, and an
+/// `Option` of any of them.
 pub trait FilterDate: Sized + Send + Sync + 'static {
     /// The value the field compares against, and orders a range's ends by.
     type Value: IntoExpr<Self> + PartialOrd;
 
-    /// The first instant of `date`, or `None` past the type's range.
-    fn start_of(date: jiff::civil::Date) -> Option<Self::Value>;
+    /// The first instant of `date` in `zone`, or `None` past the type's range. A civil type's day
+    /// starts at its own midnight, whatever the zone.
+    fn start_of(date: jiff::civil::Date, zone: &TimeZone) -> Option<Self::Value>;
 
-    /// A submitted value naming one exact value rather than a day.
-    fn exact(value: &str) -> Option<Self::Value> {
-        let _ = value;
+    /// A submitted value naming one exact value rather than a day, a wall-clock time read in
+    /// `zone`.
+    fn exact(value: &str, zone: &TimeZone) -> Option<Self::Value> {
+        let _ = (value, zone);
         None
     }
 }
 
 /// Whether the ends `from` and `to` bound no range at all, each resolved the way the predicate
-/// resolves it: an exact value the type reads, else the day's first instant.
+/// resolves it in `zone`: an exact value the type reads, else the day's first instant.
 ///
 /// An exact end bounds the range at itself, both ends included; a day end excludes the day after
 /// it. An unresolvable end answers `false`, leaving the refusal to the predicate.
-fn reversed_range<T: FilterDate>(from: &str, to: &str) -> bool {
+fn reversed_range<T: FilterDate>(from: &str, to: &str, zone: &TimeZone) -> bool {
+    let start_of = |date| T::start_of(date, zone);
     let Some(lower) =
-        T::exact(from).or_else(|| from.parse::<jiff::civil::Date>().ok().and_then(T::start_of))
+        T::exact(from, zone).or_else(|| from.parse::<jiff::civil::Date>().ok().and_then(start_of))
     else {
         return false;
     };
-    match T::exact(to) {
+    match T::exact(to, zone) {
         Some(upper) => upper < lower,
         None => to
             .parse::<jiff::civil::Date>()
             .ok()
             .and_then(|date| date.tomorrow().ok())
-            .and_then(T::start_of)
+            .and_then(start_of)
             .is_some_and(|after| after <= lower),
     }
 }
@@ -50,25 +55,28 @@ fn reversed_range<T: FilterDate>(from: &str, to: &str) -> bool {
 impl FilterDate for jiff::Timestamp {
     type Value = Self;
 
-    fn start_of(date: jiff::civil::Date) -> Option<Self> {
-        date.to_zoned(jiff::tz::TimeZone::UTC)
-            .ok()
-            .map(|day| day.timestamp())
+    fn start_of(date: jiff::civil::Date, zone: &TimeZone) -> Option<Self> {
+        date.to_zoned(zone.clone()).ok().map(|day| day.timestamp())
     }
 
-    fn exact(value: &str) -> Option<Self> {
+    /// An RFC 3339 timestamp, or a date and time without an offset, read in `zone`.
+    fn exact(value: &str, zone: &TimeZone) -> Option<Self> {
         // Query decoding turns `+` into space.
         value
             .parse()
             .or_else(|_| value.replace(' ', "+").parse())
             .ok()
+            .or_else(|| {
+                let wall = <jiff::civil::DateTime as FilterDate>::exact(value, zone)?;
+                zone.to_ambiguous_timestamp(wall).compatible().ok()
+            })
     }
 }
 
 impl FilterDate for jiff::civil::Date {
     type Value = Self;
 
-    fn start_of(date: jiff::civil::Date) -> Option<Self> {
+    fn start_of(date: jiff::civil::Date, _zone: &TimeZone) -> Option<Self> {
         Some(date)
     }
 }
@@ -76,11 +84,11 @@ impl FilterDate for jiff::civil::Date {
 impl FilterDate for jiff::civil::DateTime {
     type Value = Self;
 
-    fn start_of(date: jiff::civil::Date) -> Option<Self> {
+    fn start_of(date: jiff::civil::Date, _zone: &TimeZone) -> Option<Self> {
         Some(date.to_datetime(jiff::civil::Time::midnight()))
     }
 
-    fn exact(value: &str) -> Option<Self> {
+    fn exact(value: &str, _zone: &TimeZone) -> Option<Self> {
         value.contains('T').then(|| value.parse().ok()).flatten()
     }
 }
@@ -88,12 +96,12 @@ impl FilterDate for jiff::civil::DateTime {
 impl<T: FilterDate<Value = T> + IntoExpr<T> + PartialOrd> FilterDate for Option<T> {
     type Value = T;
 
-    fn start_of(date: jiff::civil::Date) -> Option<T> {
-        T::start_of(date)
+    fn start_of(date: jiff::civil::Date, zone: &TimeZone) -> Option<T> {
+        T::start_of(date, zone)
     }
 
-    fn exact(value: &str) -> Option<T> {
-        T::exact(value)
+    fn exact(value: &str, zone: &TimeZone) -> Option<T> {
+        T::exact(value, zone)
     }
 }
 
@@ -106,19 +114,22 @@ enum Bound {
     To,
 }
 
-/// A date filter's predicate for a value, which is one day, or one side of a range.
-type BoundFn = Arc<dyn Fn(&str, Option<Bound>) -> Option<Expr<bool>> + Send + Sync>;
+/// A date filter's predicate for a value, which is one day, or one side of a range, read in a
+/// time zone.
+type BoundFn = Arc<dyn Fn(&str, Option<Bound>, &TimeZone) -> Option<Expr<bool>> + Send + Sync>;
 
-/// Whether a range's two ends bound nothing, read through the field's own type.
-type ReversedFn = Arc<dyn Fn(&str, &str) -> bool + Send + Sync>;
+/// Whether a range's two ends bound nothing, read through the field's own type in a time zone.
+type ReversedFn = Arc<dyn Fn(&str, &str, &TimeZone) -> bool + Send + Sync>;
 
 /// Date filter matching a date or time field by calendar day, or by a range of days; see
 /// [`FilterDate`] for the types.
 ///
-/// A value names one day, `f.<name>=2024-01-15`; on a [`range`](Self::range) filter the parts
+/// A value names one day, `f.<name>=2024-01-15`, a timestamp's in the request's
+/// [`time_zone`](crate::time_zone); on a [`range`](Self::range) filter the parts
 /// `f.<name>.from` and `f.<name>.to` name the first and the last day of a range, either one
 /// alone leaving it open. A value naming an exact time, such as a `jiff::Timestamp`'s
-/// `2024-01-15T09:30:00Z`, matches that time, or bounds the range at it.
+/// `2024-01-15T09:30:00Z`, or its `2024-01-15T09:30` read in the request's time zone, matches that
+/// time, or bounds the range at it.
 ///
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
@@ -145,8 +156,8 @@ where
     pub fn new<T: FilterDate>(lens: impl Into<Path<M, T>>) -> Self {
         let lens = lens.into();
         let binding = Binding::of(&lens.clone());
-        let matches: BoundFn = Arc::new(move |value: &str, bound: Option<Bound>| {
-            if let Some(exact) = T::exact(value) {
+        let matches: BoundFn = Arc::new(move |value: &str, bound: Option<Bound>, zone| {
+            if let Some(exact) = T::exact(value, zone) {
                 return Some(match bound {
                     None => lens.clone().eq(exact),
                     Some(Bound::From) => lens.clone().ge(exact),
@@ -154,12 +165,12 @@ where
                 });
             }
             let date = value.parse::<jiff::civil::Date>().ok()?;
-            let start = || T::start_of(date).map(|start| lens.clone().ge(start));
+            let start = || T::start_of(date, zone).map(|start| lens.clone().ge(start));
             // The day after the last day is past the type's range when there is none.
             let end = || {
                 date.tomorrow()
                     .ok()
-                    .and_then(T::start_of)
+                    .and_then(|after| T::start_of(after, zone))
                     .map(|end| lens.clone().lt(end))
             };
             match bound {
@@ -215,9 +226,10 @@ where
     /// One day for a single value, or the range its `from` and `to` parts bound; `None` for both,
     /// another part, a value beside the parts, a range ending before it starts, or a part where
     /// [`range`](Self::range) is off, whose one input does not render it.
-    fn to_expr(&self, value: &FilterValue) -> Option<Expr<bool>> {
+    fn to_expr(&self, cx: &Cx, value: &FilterValue) -> Option<Expr<bool>> {
+        let zone = crate::time_zone(cx);
         if value.parts.is_empty() {
-            return (self.matches)(value.single()?, None);
+            return (self.matches)(value.single()?, None, &zone);
         }
         if !self.range {
             return None;
@@ -231,12 +243,12 @@ where
         }
         let (from, to) = (value.part("from"), value.part("to"));
         if let (Some(from), Some(to)) = (from, to)
-            && (self.reversed)(from, to)
+            && (self.reversed)(from, to, &zone)
         {
             return None;
         }
-        let from = from.map(|from| (self.matches)(from, Some(Bound::From)));
-        let to = to.map(|to| (self.matches)(to, Some(Bound::To)));
+        let from = from.map(|from| (self.matches)(from, Some(Bound::From), &zone));
+        let to = to.map(|to| (self.matches)(to, Some(Bound::To), &zone));
         match (from, to) {
             (Some(from), Some(to)) => Some(from?.and(to?)),
             (Some(bound), None) | (None, Some(bound)) => bound,

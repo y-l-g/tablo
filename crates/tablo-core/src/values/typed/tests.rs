@@ -57,5 +57,50 @@ fn a_civil_value_parses_its_controls_submission() {
         Ok("2024-01-15T00:00:00".to_string()),
         "a bare date reads as midnight"
     );
-    assert_eq!(Time::input_value("not a time"), "");
+    assert_eq!(
+        Time::input_value("not a time", &jiff::tz::TimeZone::UTC),
+        ""
+    );
+}
+
+proptest::proptest! {
+    /// A timestamp's control shows its instant as a wall-clock time in the zone, and reads that
+    /// time back in the same zone as the instant truncated to the minute the control edits to.
+    #[test]
+    fn a_timestamp_reads_back_what_its_control_shows(
+        seconds in -8_000_000_000i64..8_000_000_000,
+        offset_minutes in -(14 * 60)..=(14 * 60),
+    ) {
+        use jiff::{Timestamp, tz::{Offset, TimeZone}};
+
+        let zone = TimeZone::fixed(Offset::from_seconds(offset_minutes * 60).unwrap());
+        let instant = Timestamp::from_second(seconds).unwrap();
+        let shown = Timestamp::input_value(&instant.to_string(), &zone);
+        let read = Timestamp::parse_form(&Timestamp::form_value(&shown, &zone));
+        let minute = Timestamp::from_second(seconds.div_euclid(60) * 60).unwrap();
+        proptest::prop_assert_eq!(read, Ok(minute));
+    }
+}
+
+/// A wall-clock time names no instant until a zone reads it: the parse alone refuses it, and the
+/// control's read places it in the zone. A value with an offset names its instant whatever the
+/// zone.
+#[test]
+fn a_timestamp_reads_a_wall_clock_time_in_the_zone_only() {
+    use jiff::{
+        Timestamp,
+        tz::{Offset, TimeZone},
+    };
+
+    let paris_summer = TimeZone::fixed(Offset::from_hours(2).unwrap());
+    assert!(Timestamp::parse_form("2026-10-20T14:00").is_err());
+    assert_eq!(
+        Timestamp::form_value("2026-10-20T14:00", &paris_summer),
+        "2026-10-20T12:00:00Z"
+    );
+    assert_eq!(
+        Timestamp::form_value("2026-10-20T14:00:00-05:00", &paris_summer),
+        "2026-10-20T14:00:00-05:00"
+    );
+    assert_eq!(Timestamp::form_value("soon", &paris_summer), "soon");
 }

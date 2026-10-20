@@ -207,7 +207,7 @@ impl<E: ProfileEditor> DynProfileEditor for E {
                     None => values.remove(key),
                 };
             }
-            schema.keep_unedited(&mut values, &stored);
+            schema.keep_unedited(&mut values, &stored, &crate::time_zone(cx));
             let input = match input::parse::<E::Input>(cx, &values, &stored, "profile").await? {
                 Ok(input) => input,
                 Err(errors) => return Ok(Outcome::Refused { values, errors }),
@@ -394,7 +394,8 @@ pub(super) fn profile_post(cx: &Cx, body: Body) -> BoxView<'_> {
         let (signed, editor) = editing(cx)?;
         let form = crate::panel::parse_form_body(cx, body).await?;
         crate::csrf::verify(cx, form.last(crate::csrf::FIELD_NAME))?;
-        let values = editor.schema().read_input(&form.pairs, &RESERVED_KEYS)?;
+        let input_schema = editor.schema();
+        let values = input_schema.read_input(cx, &form.pairs, &RESERVED_KEYS)?;
         // A stolen session must not try passwords against the current-password check at will.
         // Counted per user alone, from any address: a lockout only holds back profile saves,
         // never a sign-in.

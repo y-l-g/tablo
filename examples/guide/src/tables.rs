@@ -137,7 +137,7 @@ impl Filter<User> for Adults {
     fn label(&self) -> &str {
         "Adults"
     }
-    fn to_expr(&self, value: &FilterValue) -> Option<Expr<bool>> {
+    fn to_expr(&self, _cx: &Cx, value: &FilterValue) -> Option<Expr<bool>> {
         (value.single() == Some("yes")).then(|| User::fields().age().ge(18))
     }
     fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a> {

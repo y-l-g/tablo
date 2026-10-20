@@ -5,7 +5,7 @@ use super::*;
 use crate::{
     ComputedColumn, lens,
     table::{SelectFilter, Sort, TablePage, TableState, TernaryFilter, TextColumn},
-    test_support::{User, memory_db},
+    test_support::{User, cx, memory_db},
 };
 
 #[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
@@ -214,21 +214,21 @@ async fn table_page_round_trips_real_cursors() {
 #[test]
 fn unapplied_filters_flags_unknown_keys_and_rejected_values() {
     let tbl = status_table();
-    assert!(tbl.unapplied_filters(&filters_state(&[])).is_empty());
+    assert!(tbl.unapplied_filters(&cx(), &filters_state(&[])).is_empty());
     assert!(
-        tbl.unapplied_filters(&filters_state(&[("status", "published")]))
+        tbl.unapplied_filters(&cx(), &filters_state(&[("status", "published")]))
             .is_empty(),
         "valid filter must apply"
     );
     assert_eq!(
-        tbl.unapplied_filters(&filters_state(&[("stauts", "published")])),
+        tbl.unapplied_filters(&cx(), &filters_state(&[("stauts", "published")])),
         vec![(
             "f.stauts=published".to_string(),
             "unknown filter".to_string()
         )]
     );
     assert_eq!(
-        tbl.unapplied_filters(&filters_state(&[("status", "Published")])),
+        tbl.unapplied_filters(&cx(), &filters_state(&[("status", "Published")])),
         vec![(
             "f.status=Published".to_string(),
             "invalid value".to_string()
@@ -250,7 +250,7 @@ fn unapplied_filters_flags_dropped_filters() {
     for query in [too_many.as_str(), too_long.as_str(), "filters=status:draft"] {
         let state = TableState::from_query(query);
         assert!(
-            tbl.unapplied_filters(&state)
+            tbl.unapplied_filters(&cx(), &state)
                 .iter()
                 .any(|(pair, _)| pair == "dropped filters"),
             "the dropped filters of {query:.40} must be reported"
@@ -264,17 +264,17 @@ fn ternary_all_is_a_neutral_noop_not_an_invalid_value() {
         .filters(TernaryFilter::new(Task::fields().featured()));
     let state = filters_state(&[("featured", "all")]);
     assert!(
-        tbl.filter_expr(&state).is_none(),
+        tbl.filter_expr(&cx(), &state).is_none(),
         "all must select no predicate"
     );
     assert!(
-        tbl.unapplied_filters(&state).is_empty(),
+        tbl.unapplied_filters(&cx(), &state).is_empty(),
         "all must not be flagged, got {:?}",
-        tbl.unapplied_filters(&state)
+        tbl.unapplied_filters(&cx(), &state)
     );
     // Genuine garbage still flags.
     assert_eq!(
-        tbl.unapplied_filters(&filters_state(&[("featured", "maybe")])),
+        tbl.unapplied_filters(&cx(), &filters_state(&[("featured", "maybe")])),
         vec![("f.featured=maybe".to_string(), "invalid value".to_string())]
     );
 }
@@ -285,12 +285,15 @@ fn ternary_all_is_a_neutral_noop_not_an_invalid_value() {
 fn ignored_filters_alone_leave_the_table_unfiltered() {
     let tbl = status_table();
     assert!(
-        tbl.filter_expr(&filters_state(&[("status", "typo")]))
+        tbl.filter_expr(&cx(), &filters_state(&[("status", "typo")]))
             .is_none()
     );
     assert!(
-        tbl.filter_expr(&filters_state(&[("status", "published"), ("bogus", "x")]))
-            .is_some()
+        tbl.filter_expr(
+            &cx(),
+            &filters_state(&[("status", "published"), ("bogus", "x")])
+        )
+        .is_some()
     );
 }
 

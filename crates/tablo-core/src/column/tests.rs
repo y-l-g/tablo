@@ -104,10 +104,10 @@ fn a_date_column_texts_the_stored_value_and_names_its_day() {
     assert_eq!(text(&TextColumn::new(lens!(Event.day))), "2026-10-14");
 
     let day = Some(jiff::civil::date(2026, 10, 14));
-    assert_eq!(row.day.calendar_date(), day);
-    assert_eq!(row.at.calendar_date(), day);
-    assert_eq!(row.seen.calendar_date(), day);
-    assert_eq!(row.closed.calendar_date(), None);
+    assert_eq!(row.day.calendar_date(&jiff::tz::TimeZone::UTC), day);
+    assert_eq!(row.at.calendar_date(&jiff::tz::TimeZone::UTC), day);
+    assert_eq!(row.seen.calendar_date(&jiff::tz::TimeZone::UTC), day);
+    assert_eq!(row.closed.calendar_date(&jiff::tz::TimeZone::UTC), None);
     assert_eq!(
         Column::column_width(&DateColumn::new(lens!(Event.day))),
         ColumnWidth::Auto

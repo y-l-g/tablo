@@ -70,6 +70,8 @@ pub(crate) struct PanelState {
     /// Whether the topbar shows the bell, set by
     /// [`Panel::notifications`](super::Panel::notifications).
     pub(crate) notifications: bool,
+    /// The zone set by [`Panel::time_zone`](super::Panel::time_zone).
+    pub(crate) time_zone: jiff::tz::TimeZone,
 }
 
 impl PanelState {

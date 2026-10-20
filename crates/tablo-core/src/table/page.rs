@@ -130,7 +130,7 @@ where
         counted: bool,
     ) -> Result<Self> {
         let mut db = crate::db::db(cx);
-        let narrowed = table.narrow(&db, query, state);
+        let narrowed = table.narrow(cx, &db, query, state);
         let per_page = table.page_size_for(state);
         let total = if counted {
             Some(
@@ -204,7 +204,7 @@ where
         // seed. The cursor probes below reuse that filtered and ordered query
         // without the columns' includes: they only ask whether a row exists.
         let mut db = crate::db::db(cx);
-        let base_query = table.apply_declaration(&db, query, state);
+        let base_query = table.apply_declaration(cx, &db, query, state);
         let query = table.include_relations(base_query.clone());
         let per_page = table.page_size_for(state);
         let mut paginated = toasty::stmt::Paginate::new(query, per_page);

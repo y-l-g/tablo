@@ -414,13 +414,18 @@ impl<F> Schema<F> {
 
     /// Puts back the stored value of each text field whose control posted it as rendered: see
     /// [`Field::keep_unedited`].
-    pub(crate) fn keep_unedited(&self, values: &mut FormValues, stored: &FormValues) {
+    pub(crate) fn keep_unedited(
+        &self,
+        values: &mut FormValues,
+        stored: &FormValues,
+        zone: &jiff::tz::TimeZone,
+    ) {
         for field in &self.fields {
             let name = field.name();
             let (Some(value), Some(held)) = (values.get(name), stored.get(name)) else {
                 continue;
             };
-            if let Some(kept) = field.keep_unedited(value, held) {
+            if let Some(kept) = field.keep_unedited(value, held, zone) {
                 values.insert(name, kept);
             }
         }

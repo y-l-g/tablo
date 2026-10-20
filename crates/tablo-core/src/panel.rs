@@ -133,6 +133,8 @@ pub struct Panel {
     endpoints: Vec<String>,
     /// Whether the topbar shows the bell over the user's stored notifications.
     notifications: bool,
+    /// The zone a user without their own reads and enters wall-clock times in.
+    time_zone: jiff::tz::TimeZone,
 }
 
 impl Panel {
@@ -161,6 +163,7 @@ impl Panel {
             auth: crate::auth::Auth::default(),
             endpoints: Vec::new(),
             notifications: false,
+            time_zone: jiff::tz::TimeZone::UTC,
         }
     }
 
@@ -386,6 +389,20 @@ impl Panel {
     /// [`StoredNotification`]: crate::notification::StoredNotification
     pub fn notifications(mut self) -> Self {
         self.notifications = true;
+        self
+    }
+
+    /// Sets the time zone a user whose [`PanelUser::time_zone`](crate::PanelUser::time_zone) names
+    /// none reads and enters wall-clock times in, and that an unsigned request uses: UTC by
+    /// default. See [`time_zone`](crate::time_zone).
+    ///
+    /// ```rust
+    /// # use tablo_core::Panel;
+    /// let zone = jiff::tz::TimeZone::get("Europe/Paris").expect("the zone database names it");
+    /// Panel::new("admin").time_zone(zone);
+    /// ```
+    pub fn time_zone(mut self, zone: jiff::tz::TimeZone) -> Self {
+        self.time_zone = zone;
         self
     }
 

@@ -8,6 +8,7 @@ mod error;
 mod parse;
 mod scalar;
 mod typed;
+mod zone;
 
 use std::collections::BTreeMap;
 
@@ -17,6 +18,8 @@ pub use parse::{parse_list, parse_password, parse_scalar, write_list};
 pub use scalar::{FormScalar, NullableScalar, assert_form_scalar};
 pub use typed::TypedValue;
 pub(crate) use typed::is_email;
+pub(crate) use zone::ZoneSource;
+pub use zone::time_zone;
 
 /// What a form holds, one [`FormValue`] per key: a submission its schema
 /// [read](crate::Schema::read), or a stored record as its record form spells it.

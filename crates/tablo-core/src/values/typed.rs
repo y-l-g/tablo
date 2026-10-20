@@ -3,6 +3,7 @@
 use std::cmp::Ordering;
 
 use email_address::{EmailAddress, Options};
+use jiff::tz::TimeZone;
 
 /// Parses a typed column's text submission and names the type in the error it produces.
 pub trait TypedValue: std::fmt::Display + std::str::FromStr {
@@ -20,9 +21,19 @@ pub trait TypedValue: std::fmt::Display + std::str::FromStr {
         value.parse().ok()
     }
 
-    /// The control's `value` for a stored value's form spelling: the spelling itself by default.
-    fn input_value(stored: &str) -> String {
+    /// The control's `value` for a stored value's form spelling, shown in the request's time zone
+    /// `zone`: the spelling itself by default.
+    fn input_value(stored: &str, zone: &TimeZone) -> String {
+        let _ = zone;
         stored.to_string()
+    }
+
+    /// The form spelling of what the control posted, read in the request's time zone `zone`: the
+    /// posted text itself by default. A type whose control posts a wall-clock time, as a
+    /// timestamp's does, reads it here, so every later step parses one spelling.
+    fn form_value(posted: &str, zone: &TimeZone) -> String {
+        let _ = zone;
+        posted.to_string()
     }
 
     /// How `self` orders against `other`, which a text field's
@@ -104,21 +115,26 @@ impl TypedValue for crate::TenantId {
     const NOUN: &'static str = "identifier";
 }
 
-/// Binds a timestamp to a `datetime-local` control read back as UTC.
+/// Binds a timestamp to a `datetime-local` control, which shows and reads the wall-clock time in
+/// the request's [`time_zone`](crate::time_zone).
 impl TypedValue for jiff::Timestamp {
     const NOUN: &'static str = "timestamp";
     const INPUT_TYPE: &'static str = "datetime-local";
 
-    /// Parses RFC 3339 plus the `datetime-local` shapes a browser sends, read as UTC.
+    /// Parses RFC 3339 only: a wall-clock time names no instant until
+    /// [`form_value`](TypedValue::form_value) reads it in a zone.
     fn parse_input(value: &str) -> Option<Self> {
-        if let Ok(parsed) = value.parse::<jiff::Timestamp>() {
-            return Some(parsed);
-        }
-        normalize_datetime_local(value)?.parse().ok()
+        value.parse().ok()
     }
 
-    fn input_value(stored: &str) -> String {
-        format_timestamp_input(stored)
+    fn input_value(stored: &str, zone: &TimeZone) -> String {
+        format_timestamp_input(stored, zone)
+    }
+
+    fn form_value(posted: &str, zone: &TimeZone) -> String {
+        read_datetime_local(posted, zone)
+            .map(|instant| instant.to_string())
+            .unwrap_or_else(|| posted.to_string())
     }
 
     ordered_by_value!();
@@ -137,7 +153,7 @@ impl TypedValue for jiff::civil::Time {
     const NOUN: &'static str = "time";
     const INPUT_TYPE: &'static str = "time";
 
-    fn input_value(stored: &str) -> String {
+    fn input_value(stored: &str, _zone: &TimeZone) -> String {
         civil_input(stored, |time: jiff::civil::Time| {
             time.strftime("%H:%M").to_string()
         })
@@ -152,7 +168,7 @@ impl TypedValue for jiff::civil::DateTime {
     const NOUN: &'static str = "date and time";
     const INPUT_TYPE: &'static str = "datetime-local";
 
-    fn input_value(stored: &str) -> String {
+    fn input_value(stored: &str, _zone: &TimeZone) -> String {
         civil_input(stored, |datetime: jiff::civil::DateTime| {
             datetime.strftime("%Y-%m-%dT%H:%M").to_string()
         })
@@ -166,33 +182,27 @@ fn civil_input<T: std::str::FromStr>(stored: &str, format: impl Fn(T) -> String)
     stored.trim().parse().map(format).unwrap_or_default()
 }
 
-/// Converts a `datetime-local` value to the RFC 3339 string a timestamp parses, or `None` when the
-/// shape is not one the control sends.
-fn normalize_datetime_local(value: &str) -> Option<String> {
-    let t = value.find('T')?;
-    let after_t = &value[t + 1..];
-    if after_t.contains('+') || after_t.contains('-') {
+/// The instant a `datetime-local` value names as a wall-clock time in `zone`, or `None` when the
+/// value is not a date and time, or carries an offset: jiff's civil parse would drop it. A time the
+/// zone skips or repeats resolves as jiff's compatible disambiguation does: a skipped time moves
+/// forward by the gap, a repeated one takes its earlier instant.
+fn read_datetime_local(value: &str, zone: &TimeZone) -> Option<jiff::Timestamp> {
+    let value = value.trim();
+    if !value.contains(['T', 't']) || value.parse::<jiff::Timestamp>().is_ok() {
         return None;
     }
-    if value.ends_with(['Z', 'z']) {
-        return None;
-    }
-    if value.len() == 16 {
-        Some(format!("{value}:00Z"))
-    } else {
-        Some(format!("{value}Z"))
-    }
+    let wall = value.parse::<jiff::civil::DateTime>().ok()?;
+    zone.to_ambiguous_timestamp(wall).compatible().ok()
 }
 
-/// Formats a stored timestamp as the `datetime-local` value its control renders, rendering anything
-/// else empty.
-pub(crate) fn format_timestamp_input(storage: &str) -> String {
-    let trimmed = storage.trim();
-    if trimmed.is_empty() {
-        return String::new();
-    }
-    match trimmed.parse::<jiff::Timestamp>() {
-        Ok(parsed) => parsed.strftime("%Y-%m-%dT%H:%M").to_string(),
+/// Formats a stored timestamp as the `datetime-local` value its control renders in `zone`,
+/// rendering anything else empty.
+fn format_timestamp_input(storage: &str, zone: &TimeZone) -> String {
+    match storage.trim().parse::<jiff::Timestamp>() {
+        Ok(parsed) => parsed
+            .to_zoned(zone.clone())
+            .strftime("%Y-%m-%dT%H:%M")
+            .to_string(),
         Err(_) => String::new(),
     }
 }

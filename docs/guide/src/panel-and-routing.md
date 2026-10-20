@@ -78,6 +78,7 @@ The panel also serves:
 | `brand(Brand)` | sets the name and optional logo in the sidebar, the topbar, and above the sign-in and sign-up cards, and the optional favicon | [Branding](#branding-and-theme) |
 | `dark_mode(bool)` | sets the theme a first-time visitor sees | [Branding](#branding-and-theme) |
 | `login_hint(text)` | adds a line under the sign-in card | [Branding](#branding-and-theme) |
+| `time_zone(zone)` | sets the zone a user without their own reads and enters times in, UTC by default | [Forms](./forms.md#time-zones) |
 | `user_menu_item(NavigationItem)` | adds an entry to the user menu, above Sign out | [The shell layout](#the-shell-layout) |
 | `auth(Auth)` | replaces or disables the built-in password login | [Policy, auth, tenancy](./policy-auth-tenancy.md#authentication) |
 | `uploads(uploader)` | sets where file fields store their bytes | [Forms](./forms.md#file-uploads) |

@@ -58,6 +58,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Two-factor sign-in | Signing in with a code from an authenticator app or mailed to the account, or a recovery code, after the password, set by `Auth::two_factor`. | MFA, 2FA, TOTP |
 | Auth factor | A second factor an account holds on a panel: its sealed authenticator secret, its choice of codes by email, or one recovery code's hash, stored as an `AuthFactor` row. | Two-factor secret, Backup code |
 | Panel user | The app's own user type: id, display name, panel access, tenant memberships. | CurrentUser, AuthUser, Principal |
+| Time zone | The zone a request shows and reads wall-clock times in: the panel user's, else the panel's, else UTC. A timestamp's control, its date column and its date filter use it. | Timezone, TZ, Locale |
 | Uploader | The trait that decides where a file field's bytes go, installed once per panel. | FileStore, Blob store |
 | DirUploader | The stock `Uploader`: writes each file into one served directory and stores its URL. | DiskStore |
 

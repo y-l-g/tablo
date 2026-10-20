@@ -328,7 +328,8 @@ pub(super) fn register_tenant_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         let (signed, registrar) = registering(cx)?;
         let form = crate::panel::parse_form_body(cx, body).await?;
         crate::csrf::verify(cx, form.last(crate::csrf::FIELD_NAME))?;
-        let values = registrar.schema().read_input(&form.pairs, &RESERVED_KEYS)?;
+        let input_schema = registrar.schema();
+        let values = input_schema.read_input(cx, &form.pairs, &RESERVED_KEYS)?;
         let membership = match registrar.register(cx, signed, values).await? {
             Outcome::Registered(membership) => membership,
             Outcome::Refused { values, errors } => {

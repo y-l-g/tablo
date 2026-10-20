@@ -200,6 +200,13 @@ pub fn branded_panel() -> Panel {
 }
 // ANCHOR_END: panel-brand-body
 
+// ANCHOR: panel-time-zone
+pub fn paris_panel() -> Panel {
+    let paris = jiff::tz::TimeZone::get("Europe/Paris").expect("the zone database names it");
+    Panel::new("admin").time_zone(paris)
+}
+// ANCHOR_END: panel-time-zone
+
 // ANCHOR: panel-geist
 pub const GEIST: Font = fontsource_font!(GEIST, host: Asset);
 // ANCHOR_END: panel-geist

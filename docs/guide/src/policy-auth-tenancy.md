@@ -210,6 +210,9 @@ use tablo::{Membership, PanelUser, auth::{Authenticator, verify_password}};
   Tokio's blocking pool, so await them rather than hashing on the request's task.
 - **`find_by_id`** reloads the user on every request, so deactivating a user or removing a
   membership takes effect immediately.
+- **`time_zone`** names the zone the user reads and enters times in, such as one they pick on
+  their profile page and the app stores; it defaults to the panel's. See
+  [Time zones](./forms.md#time-zones).
 
 Sessions stay in `AuthSession`, which `tablo::models!` registers. It registers the shipped
 `AdminUser` too, which only `PasswordAuth` reads: with another authenticator its table stays

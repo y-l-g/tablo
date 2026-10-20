@@ -190,16 +190,40 @@ type refuses is an inline error naming it: `` `twelve` is not a valid whole numb
 | `jiff::civil::Date` | `type="date"` |
 | `jiff::civil::Time` | `type="time"`, to the minute |
 | `jiff::civil::DateTime` | `type="datetime-local"`, to the minute |
-| `jiff::Timestamp` | `type="datetime-local"`, to the minute, read and shown as UTC |
+| `jiff::Timestamp` | `type="datetime-local"`, to the minute, in the request's [time zone](#time-zones) |
 | `bool` (on a text control), `Uuid`, `TenantId` | `type="text"` |
 
-A `datetime-local` input carries no time zone, so a timestamp displays and parses as UTC. A
-`jiff::Zoned` column has no control: no browser input carries a zone.
+A `jiff::Zoned` column has no control: no browser input carries a zone.
 
 Implement `tablo::extend::TypedValue` to bind your own type: `NOUN` names it in errors,
 `INPUT_TYPE` and `STEP` set the input's `type` and `step`, `parse_input` reads a submission (by
-default through `FromStr`), `input_value` spells a stored value for the input, and `order` orders
-two values for `.min` and `.max` (by default it orders none, and the type takes no bound).
+default through `FromStr`), `input_value` spells a stored value for the input and `form_value`
+reads what the input posts, both in the request's time zone (by default each keeps the text as it
+is), and `order` orders two values for `.min` and `.max` (by default it orders none, and the type
+takes no bound).
+
+### Time zones
+
+A `datetime-local` input posts a wall-clock time without a zone, so the panel places it in the
+request's zone: `tablo::time_zone(cx)` answers the signed-in user's `PanelUser::time_zone`, else
+the panel's `Panel::time_zone`, else UTC.
+
+```rust
+{{#include ../../../examples/guide/src/panel_routing.rs:panel-time-zone}}
+```
+
+- **A timestamp's control** shows the stored instant as the wall-clock time in that zone, and the
+  time it posts back stores the instant it names there: `14:00` entered in Paris in October stores
+  `12:00:00Z`. A time the zone skips moves forward by the gap, and a time it repeats takes the
+  earlier instant. A value posted with an offset, such as `2026-10-20T14:00:00-05:00`, keeps it.
+- **A `DateColumn` and a `DateFilter`** read a timestamp's calendar day in the same zone, so a
+  user sees and filters by their own day. A civil date or date-time names its day whatever the
+  zone.
+- **The stored value is the instant.** An export, a `TextColumn` and the detail page spell it in
+  RFC 3339, in UTC.
+- **`Schema::read(cx, pairs)`**, which a page handling its own post calls, reads a timestamp's
+  wall-clock time in the request's zone too; `parse_input` alone refuses one, since it names no
+  instant.
 
 ### Length, bounds and patterns
 

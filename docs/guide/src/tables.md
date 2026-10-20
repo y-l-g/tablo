@@ -50,7 +50,7 @@ foreign key `Relation::has_many` takes.
 | Constructor | Cell | Search and sort |
 | --- | --- | --- |
 | `TextColumn::new(lens)` | the field's value as text (an `Options` enum's label), or `.format(\|value\| ..)` of it; see [Presenting values](#presenting-values) | `.searchable()` on a `String` field, `.sortable()` |
-| `DateColumn::new(lens)` | a `jiff::civil::Date`, `civil::DateTime` or `Timestamp` field's calendar day, `Oct 14, 2026` (a timestamp in UTC); a dash when the field holds none. The export writes the stored value, `2026-10-14T09:30:00Z`. | `.sortable()` |
+| `DateColumn::new(lens)` | a `jiff::civil::Date`, `civil::DateTime` or `Timestamp` field's calendar day, `Oct 14, 2026` (a timestamp's day in the request's [time zone](./forms.md#time-zones)); a dash when the field holds none. The export writes the stored value, `2026-10-14T09:30:00Z`. | `.sortable()` |
 | `ComputedColumn::new(label, project)` | `project(row)` | neither: the methods do not exist |
 | `RelationColumn::of::<R>(relation!(..))` | a `Deferred` `belongs_to` or `has_one` field's record, titled as `R` titles it: a resource's `record_title`; a dash for a nullable field holding none | neither |
 | `RelationColumn::new(relation!(..), project)` | `project` of the same record, for a related model no resource or option source labels | neither |
@@ -228,7 +228,7 @@ search and filters as a GET form.
 | `SelectFilter::new(lens, options)` | `String`, or any form scalar | one or more of `options`, matched exactly; the options are `Vec<(String, String)>` (an `Options` list), `Vec<String>`, or `[&str; N]` |
 | `SelectFilter::relationship::<R>(lens)` | a foreign key to the rows of `R`, a [relationship source](./forms.md#relationships) | one or more keys |
 | `TernaryFilter::new(lens)` | `bool` | `true`, `false`, or `all` (no filter) |
-| `DateFilter::new(lens)` | `jiff::Timestamp`, `jiff::civil::Date` or `jiff::civil::DateTime`, or an `Option` of one | a date `2024-01-15` matches that day (UTC for a timestamp); an RFC 3339 timestamp, or a civil date-time, matches that value; on a `DateFilter::range` filter the parts `from` and `to` bound a range |
+| `DateFilter::new(lens)` | `jiff::Timestamp`, `jiff::civil::Date` or `jiff::civil::DateTime`, or an `Option` of one | a date `2024-01-15` matches that day (in the request's [time zone](./forms.md#time-zones) for a timestamp); an RFC 3339 timestamp, or a civil date-time (read in that zone for a timestamp), matches that value; on a `DateFilter::range` filter the parts `from` and `to` bound a range |
 | `QueryFilter::new(name, label).option(label, predicate)` | any | one or more named options, each a Toasty predicate you build |
 
 An active filter's parameter is `?f.<name>=<value>`, named after the field (a `QueryFilter`
