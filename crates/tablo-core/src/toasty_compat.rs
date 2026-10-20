@@ -63,6 +63,11 @@ pub(crate) fn value_text(value: &Value) -> Option<String> {
     })
 }
 
+/// A filter no record matches.
+pub(crate) fn never() -> Expr<bool> {
+    Expr::from_untyped(toasty_core::stmt::Expr::from(false))
+}
+
 /// `predicate` with its `LIKE` matches run as `ILIKE` when `db`'s driver has the operator
 /// (PostgreSQL), so a search is case-insensitive there as SQLite's `LIKE` and MySQL's default
 /// collations already are.

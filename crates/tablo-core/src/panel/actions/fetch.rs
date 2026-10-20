@@ -10,7 +10,7 @@ use crate::{
     error::TabloError,
     form::RecordForm,
     policy::Ability,
-    resource::{Mounted, Resource},
+    resource::{Mounted, Resource, Trashed},
 };
 
 /// Fetch one record by its URL `id` through the tenancy-scoped query seam.
@@ -32,7 +32,18 @@ pub(crate) async fn find_by_key<R: Resource>(
     id: &str,
     ex: &mut dyn toasty::Executor,
 ) -> Result<R::Model> {
-    find_by_key_in(resource, id, ex, || resource.scoped_query(cx)).await
+    find_trashed_by_key(cx, resource, id, Trashed::Without, ex).await
+}
+
+/// [`find_by_key`] through [`scoped_query_in`](crate::scoped_query_in) with `trashed`.
+pub(crate) async fn find_trashed_by_key<R: Resource>(
+    cx: &Cx,
+    resource: &Mounted<R>,
+    id: &str,
+    trashed: Trashed,
+    ex: &mut dyn toasty::Executor,
+) -> Result<R::Model> {
+    find_by_key_in(resource, id, ex, || resource.scoped_query_in(cx, trashed)).await
 }
 
 /// The error a resource with a composite primary key reports when the URL or
@@ -124,7 +135,8 @@ pub(crate) async fn load_detail<R: Resource>(
 }
 
 /// [`find_by_key`] with the relations the detail page's columns declare, so
-/// they arrive loaded, and the related records their sources show checked.
+/// they arrive loaded, and the related records their sources show checked. A trashed record
+/// opens too, so the trash list's rows link somewhere.
 async fn find_detail<R: Resource>(
     cx: &Cx,
     resource: &Mounted<R>,
@@ -133,7 +145,7 @@ async fn find_detail<R: Resource>(
 ) -> Result<R::Model> {
     let record = find_by_key_in(resource, id, &mut *ex, || {
         resource
-            .scoped_query(cx)
+            .scoped_query_in(cx, Trashed::With)
             .map(|query| resource.detail.include_relations(query))
     })
     .await?;

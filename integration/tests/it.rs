@@ -41,6 +41,7 @@ mod registration;
 mod relations;
 mod relationship_options;
 mod shell;
+mod soft_delete;
 mod stream_pool;
 mod tenant_profile;
 mod tenant_registration;

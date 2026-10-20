@@ -18,6 +18,10 @@ pub enum Mutation {
     Attach,
     /// A many-to-many relation's table unlinked records from the one [`Committed`] holds.
     Detach,
+    /// Trashed records were restored.
+    Restore,
+    /// Trashed records were deleted for good.
+    ForceDelete,
 }
 
 /// What one committed mutation wrote.
@@ -48,6 +52,22 @@ impl<M> Committed<M> {
     pub fn deleted(records: Vec<M>) -> Self {
         Self {
             mutation: Mutation::Delete,
+            records,
+        }
+    }
+
+    /// The rows a restore brought back, as they stand after it.
+    pub fn restored(records: Vec<M>) -> Self {
+        Self {
+            mutation: Mutation::Restore,
+            records,
+        }
+    }
+
+    /// The rows a force delete removed, as they were before it.
+    pub fn force_deleted(records: Vec<M>) -> Self {
+        Self {
+            mutation: Mutation::ForceDelete,
             records,
         }
     }

@@ -191,7 +191,7 @@ fn export_base_query<R: Resource>(
     Ok(table.apply_declaration(
         cx,
         &crate::db::db(cx),
-        resource.scoped_query(cx)?,
+        resource.list_query(cx, state)?,
         state,
         refused,
     ))

@@ -49,6 +49,7 @@ pub(crate) struct Mounted<R: Resource> {
     /// Whether the resource serves a create page: it has a record form and is not
     /// [`edit_only`](ResourceDef::edit_only).
     pub(crate) creates: bool,
+    pub(crate) soft_delete: Option<super::SoftDelete<R::Model>>,
 }
 
 impl<R: Resource> Mounted<R> {
@@ -76,7 +77,12 @@ impl<R: Resource> Mounted<R> {
             navigation.group = Some(group);
         }
         let navigation = navigation.resolved(&url);
-        let table = def.table.unwrap_or_else(<R::Model as ModelColumns>::table);
+        let mut table = def.table.unwrap_or_else(<R::Model as ModelColumns>::table);
+        let mut actions = def.actions;
+        if def.soft_delete.is_some() {
+            table.push_filter(Arc::new(super::TrashFilter));
+            actions.add_trash_actions();
+        }
         let fields = <R::Form as RecordForm>::fields();
         let mut form: Schema = def.form.unwrap_or_default().retype();
         // A field the form does not place follows the ones it does, with its default control.
@@ -113,11 +119,12 @@ impl<R: Resource> Mounted<R> {
             record_title: def.record_title,
             public_link: def.public_link,
             relations: def.relations,
-            actions: def.actions,
+            actions,
             header_actions: def.header_actions,
             fields,
             create_columns: def.create_columns,
             creates: <R::Form as RecordForm>::HAS_FORM && !def.edit_only,
+            soft_delete: def.soft_delete,
         }
     }
 

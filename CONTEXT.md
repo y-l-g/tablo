@@ -12,7 +12,9 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Page definition | The `PageDef` a page declares: slug, label, navigation, access, header actions. Each panel mounts its own copy. | Config, Settings, Options |
 | Resource | A type implementing `Resource` for one Toasty model. Its `Form` is `NoForm` when list-only. | Model, Entity, Collection, CRUD |
 | Resource definition | The `ResourceDef` a resource declares: slug, labels, navigation, policy, tenancy, table, form, detail, relations, actions, header actions. Each panel mounts its own copy. | Config, Settings, Options |
-| Query | A resource's own row scoping, such as soft deletes. | Scope, Builder |
+| Query | A resource's own row scoping, such as row visibility. | Scope, Builder |
+| Soft delete | A delete that stamps the column `ResourceDef::soft_delete` names with the time and keeps the row; the stamped record is trashed until a restore empties the column or a force delete removes the row. | Archive, Recycle bin, Paranoid |
+| Trashed record | A record a soft delete stamped: every loader leaves it out unless a `Trashed` scope asks for it. | Deleted record, Archived record |
 | Table | The declaration of a list view: columns, filters, search, sort, grouping, page size. | Grid, Listing, DataTable |
 | Schema | The layout of a form: layout blocks, fields, embedded values. | Form, Infolist, Fieldset |
 | Detail | The declaration of a detail page: columns in layout blocks, set by `ResourceDef::detail`. | Infolist, Show page |

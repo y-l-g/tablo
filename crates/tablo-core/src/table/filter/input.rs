@@ -80,7 +80,18 @@ impl FilterInput {
     /// (`?f.status=draft&f.status=review`) marks the first; the rest keep applying until the form
     /// is submitted again.
     pub fn select<'a>(self, cx: &'a Cx, options: Vec<(String, String)>) -> BoxView<'a> {
-        let option_views: Vec<BoxView<'a>> = std::iter::once((String::new(), "All".to_string()))
+        self.select_led_by(cx, "All", options)
+    }
+
+    /// [`select`](Self::select) with its empty option labelled `lead`, for a filter whose empty
+    /// value selects something other than every row.
+    pub(crate) fn select_led_by<'a>(
+        self,
+        cx: &'a Cx,
+        lead: &str,
+        options: Vec<(String, String)>,
+    ) -> BoxView<'a> {
+        let option_views: Vec<BoxView<'a>> = std::iter::once((String::new(), lead.to_string()))
             .chain(options)
             .map(|(value, text)| {
                 let selected = if value.is_empty() {

@@ -14,6 +14,8 @@
 //! form's submission is, and its relationship choices are re-checked inside it. A page renders
 //! only after the records pass every check, and rolls the transaction back unwritten.
 
+mod targets;
+
 use topcoat::{
     context::Cx,
     router::{
@@ -24,13 +26,11 @@ use topcoat::{
     view::BoxView,
 };
 
-use super::{
-    super::{
-        forms::{FormChrome, parse_form_body, render_form_page, truthy},
-        gate::{gate, landing_url},
-        write::{commit_then, commit_write},
-    },
-    fetch::{composite_pk_error, find_by_key},
+use self::targets::{load_targets, refuse};
+use super::super::{
+    forms::{FormChrome, parse_form_body, render_form_page, truthy},
+    gate::{gate, landing_url},
+    write::{commit_then, commit_write},
 };
 use crate::{
     BoxFuture,
@@ -228,14 +228,14 @@ async fn mutate<'a, R: Resource>(
     // the transaction, and any error rolls it back.
     let mut db = db(cx);
     let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
-    let rows = load_targets(cx, resource, &ids, target, &mut tx).await?;
+    let rows = load_targets(cx, resource, &ids, target, action.trashed, &mut tx).await?;
     // A record that cannot be viewed cannot be written by guessing its key.
     if rows.iter().any(|row| !resource.can(cx, Ability::View(row))) {
         return Err(forbidden().into());
     }
     let (rows, refused): (Vec<R::Model>, Vec<R::Model>) = rows
         .into_iter()
-        .partition(|row| (action.can_run)(resource, cx, row));
+        .partition(|row| action.allows(resource, cx, row));
     if rows.is_empty() {
         return Err(refuse(cx, resource, &action, target, refused.len()));
     }
@@ -511,62 +511,6 @@ impl InputPage {
             &Default::default(),
         )
         .await
-    }
-}
-
-/// Loads the records `ids` names through the tenant-scoped query inside the transaction, 404ing
-/// unless every one is found.
-async fn load_targets<R: Resource>(
-    cx: &Cx,
-    resource: &Mounted<R>,
-    ids: &[String],
-    target: Target,
-    tx: &mut toasty::Transaction<'_>,
-) -> Result<Vec<R::Model>, topcoat::Error> {
-    if let Target::Record = target {
-        return Ok(vec![find_by_key(cx, resource, &ids[0], tx).await?]);
-    }
-    let keys: Vec<&str> = ids.iter().map(String::as_str).collect();
-    let Some(pk_filter) = crate::toasty_compat::pk::pk_in_expr::<R::Model>(&keys) else {
-        if let Some(error) = composite_pk_error(resource) {
-            return Err(error);
-        }
-        return Err(not_found().into());
-    };
-    let rows = resource
-        .scoped_query(cx)?
-        .filter(pk_filter)
-        .exec(tx)
-        .await
-        .map_err(crate::error::unavailable)?;
-    if rows.len() != ids.len() {
-        return Err(not_found().into());
-    }
-    Ok(rows)
-}
-
-/// Answers a target the mutation refuses on every record: a row with 403, a selection with an
-/// error notification naming `refused` records.
-fn refuse<R: Resource>(
-    cx: &Cx,
-    resource: &Mounted<R>,
-    action: &ActionEntry<R>,
-    target: Target,
-    refused: usize,
-) -> topcoat::Error {
-    match target {
-        Target::Record => forbidden().into(),
-        Target::Bulk => {
-            let noun = if refused == 1 { "record" } else { "records" };
-            set_notification(
-                cx,
-                Notification::error(format!(
-                    "{}: {refused} selected {noun} cannot take this action; nothing was changed",
-                    (action.label)(cx)
-                )),
-            );
-            see_other(landing_url(cx, &resource.url)).into()
-        }
     }
 }
 

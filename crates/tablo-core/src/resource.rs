@@ -15,6 +15,7 @@ mod def;
 mod header_action;
 mod mounted;
 mod relation;
+mod soft_delete;
 mod write;
 
 pub use action::{Action, Places};
@@ -30,6 +31,8 @@ pub use header_action::{HeaderAction, HeaderActions};
 pub(crate) use mounted::{MountScope, Mounted, Mounts, is_tenant_model, mounted, require_mounted};
 pub use relation::{ForeignKey, Relation};
 pub(crate) use relation::{Links, RelationKind};
+pub use soft_delete::Trashed;
+pub(crate) use soft_delete::{SoftDelete, TRASH_FILTER, TrashFilter};
 pub use write::{write_create, write_update};
 
 /// Maps one Toasty `Model` to its admin UI.
@@ -180,8 +183,9 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// receives the snapshot once the delete commits.
     ///
     /// The default deletes the row through [`scoped_query`], filtered to the
-    /// record's primary key. Override to delete another way, such as a soft
-    /// delete.
+    /// record's primary key, or stamps its
+    /// [`soft_delete`](ResourceDef::soft_delete) column with the time when the resource declares
+    /// one. Override to delete another way.
     fn delete_record(
         cx: &Cx,
         record: &Self::Model,
@@ -190,16 +194,40 @@ pub trait Resource: Sized + Send + Sync + 'static {
     where
         Self: Sized,
     {
-        let filter = crate::toasty_compat::pk::pk_filter(record);
-        let query = scoped_query::<Self>(cx).map(|query| query.filter(filter));
-        async move {
-            query?
-                .delete()
-                .exec(ex)
-                .await
-                .map_err(|error| -> topcoat::Error { error.into() })?;
-            Ok(())
-        }
+        write::delete::<Self>(cx, record, ex)
+    }
+
+    /// Restore the already-authorized trashed `record` of a resource that
+    /// [soft-deletes](ResourceDef::soft_delete), inside the handler's transaction.
+    ///
+    /// The handler loads `record` through [`scoped_query_in`] with [`Trashed::Only`] and checks
+    /// [`Ability::Restore`](crate::Ability::Restore) on it. The default empties the soft-delete
+    /// column.
+    fn restore_record(
+        cx: &Cx,
+        record: &Self::Model,
+        ex: &mut dyn toasty::Executor,
+    ) -> impl std::future::Future<Output = Result<()>> + Send
+    where
+        Self: Sized,
+    {
+        write::restore::<Self>(cx, record, ex)
+    }
+
+    /// Delete the already-authorized trashed `record` for good, inside the handler's
+    /// transaction.
+    ///
+    /// The handler loads `record` through [`scoped_query_in`] with [`Trashed::Only`] and checks
+    /// [`Ability::ForceDelete`](crate::Ability::ForceDelete) on it. The default removes the row.
+    fn force_delete_record(
+        cx: &Cx,
+        record: &Self::Model,
+        ex: &mut dyn toasty::Executor,
+    ) -> impl std::future::Future<Output = Result<()>> + Send
+    where
+        Self: Sized,
+    {
+        write::force_delete::<Self>(cx, record, ex)
     }
 
     /// Bulk-delete the already-authorized `records`: the handler
@@ -277,9 +305,10 @@ pub trait Resource: Sized + Send + Sync + 'static {
 /// The tenant-scoped base query.
 ///
 /// [`Resource::query`] with the [`tenancy`](ResourceDef::tenancy) filter ANDed onto it, so a
-/// resource that overrides `query` for soft deletes cannot drop the tenant
-/// scope by forgetting to re-state it. Every framework loader and app code
-/// start here.
+/// resource that overrides `query` cannot drop the tenant scope by forgetting to re-state it, and
+/// with the trashed records of a resource that [soft-deletes](ResourceDef::soft_delete) left out.
+/// Every framework loader and app code start here; [`scoped_query_in`] admits the trashed
+/// records too.
 ///
 /// # Errors
 ///
@@ -290,13 +319,68 @@ pub trait Resource: Sized + Send + Sync + 'static {
 /// App code that loads rows itself must call this: on a scoped resource
 /// [`Resource::query`] is the *tenant-unscoped* base by design.
 pub fn scoped_query<R: Resource>(cx: &Cx) -> Result<Query<List<R::Model>>> {
-    require_mounted::<R>(cx)?.scoped_query(cx)
+    scoped_query_in::<R>(cx, Trashed::Without)
+}
+
+/// [`scoped_query`] admitting the records `trashed` names, as a restore or a trash list loads
+/// them, under the same tenant filter.
+///
+/// On a resource that declares no [`soft_delete`](ResourceDef::soft_delete) column every record
+/// is live: [`Trashed::Only`] admits none, and the other scopes admit all.
+///
+/// # Errors
+///
+/// As [`scoped_query`].
+pub fn scoped_query_in<R: Resource>(cx: &Cx, trashed: Trashed) -> Result<Query<List<R::Model>>> {
+    require_mounted::<R>(cx)?.scoped_query_in(cx, trashed)
 }
 
 impl<R: Resource> Mounted<R> {
     /// [`scoped_query`] for this mount.
     pub(crate) fn scoped_query(&self, cx: &Cx) -> Result<Query<List<R::Model>>> {
-        self.tenant_scope(cx, R::query(cx))
+        self.scoped_query_in(cx, Trashed::Without)
+    }
+
+    /// [`scoped_query_in`] for this mount.
+    pub(crate) fn scoped_query_in(
+        &self,
+        cx: &Cx,
+        trashed: Trashed,
+    ) -> Result<Query<List<R::Model>>> {
+        let query = self.tenant_scope(cx, R::query(cx))?;
+        Ok(match &self.soft_delete {
+            Some(soft_delete) => match soft_delete.filter(trashed) {
+                Some(filter) => query.filter(filter),
+                None => query,
+            },
+            None if trashed == Trashed::Only => query.filter(crate::toasty_compat::never()),
+            None => query,
+        })
+    }
+
+    /// The records a list in `state` admits: the ones its trash control selects, else the live
+    /// ones.
+    pub(crate) fn list_trashed(&self, state: &crate::TableState) -> Trashed {
+        if self.soft_delete.is_none() {
+            return Trashed::Without;
+        }
+        Trashed::from_filter(state.filters.get(TRASH_FILTER)).unwrap_or_default()
+    }
+
+    /// [`scoped_query_in`] for the list in `state`.
+    pub(crate) fn list_query(
+        &self,
+        cx: &Cx,
+        state: &crate::TableState,
+    ) -> Result<Query<List<R::Model>>> {
+        self.scoped_query_in(cx, self.list_trashed(state))
+    }
+
+    /// Whether `record` is trashed: never on a resource that does not soft-delete.
+    pub(crate) fn is_trashed(&self, record: &R::Model) -> bool {
+        self.soft_delete
+            .as_ref()
+            .is_some_and(|soft_delete| soft_delete.is_trashed(record))
     }
 
     /// AND the resource's tenant filter onto `query`.

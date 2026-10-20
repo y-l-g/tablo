@@ -151,7 +151,8 @@ pub use panel::{
 pub use policy::{Ability, Allow, Deny, Policy, ReadOnly, when};
 pub use resource::{
     Action, Committed, ForeignKey, HeaderAction, HeaderActions, Mutation, Places, PublicLink,
-    Relation, Resource, ResourceDef, can, scoped_query, write_create, write_update,
+    Relation, Resource, ResourceDef, Trashed, can, scoped_query, scoped_query_in, write_create,
+    write_update,
 };
 pub use schema::{
     ChoiceField, CustomField, EmbeddedForm, Field, FileField, Grid, Group, IntoFormValue,

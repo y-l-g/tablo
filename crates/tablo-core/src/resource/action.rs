@@ -6,6 +6,8 @@ use std::{any::Any, future::Future};
 use derive_where::derive_where;
 use topcoat::{Result, context::Cx};
 
+mod builtin;
+
 use super::{Mounted, Resource};
 use crate::{
     BoxFuture,
@@ -371,8 +373,18 @@ impl<R: Resource> Actions<R> {
             acted: super::Committed::acted::<R, A>,
             failure: "run the action",
             confirm: A::CONFIRM,
+            trashed: super::Trashed::Without,
+            removes: false,
+            prompt: "Run this action?",
         });
         self
+    }
+
+    /// Appends the built-in restore and force delete a soft-deleting resource offers on its
+    /// trashed records.
+    pub(crate) fn add_trash_actions(&mut self) {
+        self.entries.push(ActionEntry::restore());
+        self.entries.push(ActionEntry::force_delete());
     }
 
     /// The declared actions, in order.
@@ -404,47 +416,20 @@ pub(crate) struct ActionEntry<R: Resource> {
     /// The failure toast's wording: "Couldn't {failure}".
     pub(crate) failure: &'static str,
     pub(crate) confirm: bool,
+    /// The records the mutation takes: the live ones, or the trashed ones.
+    pub(crate) trashed: super::Trashed,
+    /// Whether the mutation removes its records, so its button lands on the list rather than on
+    /// the page of a record that no longer exists.
+    pub(crate) removes: bool,
+    /// The title of the dialog confirming it on a record's page.
+    pub(crate) prompt: &'static str,
 }
 
 impl<R: Resource> ActionEntry<R> {
-    /// One record's Delete, from its row or its detail or edit page: [`Resource::delete_record`],
-    /// on a record [`Ability::Delete`] allows.
-    pub(crate) fn delete() -> Self {
-        Self::deleting(false)
-    }
-
-    /// The bulk bar's Delete: [`Resource::bulk_delete_records`], on the selected records
-    /// [`Ability::Delete`] allows.
-    pub(crate) fn bulk_delete() -> Self {
-        Self::deleting(true)
-    }
-
-    fn deleting(bulk: bool) -> Self {
-        Self {
-            name: "delete",
-            label: |_| "Delete".to_string(),
-            places: if bulk { Places::BULK } else { Places::RECORD },
-            resource_wide: Ability::DeleteAny,
-            can_run: |resource, cx, record| resource.can(cx, Ability::Delete(record)),
-            input: InputSpec::none(),
-            run: if bulk {
-                bulk_delete_erased::<R>
-            } else {
-                delete_erased::<R>
-            },
-            success: if bulk {
-                |_, _| "Bulk deleted".to_string()
-            } else {
-                |_, _| "Deleted".to_string()
-            },
-            acted: super::Committed::deleted,
-            failure: if bulk {
-                "delete the selected rows"
-            } else {
-                "delete the record"
-            },
-            confirm: true,
-        }
+    /// Whether the mutation may write `record`, which already passed `View`: the record is live
+    /// or trashed as the mutation takes it, and the mutation's own check allows it.
+    pub(crate) fn allows(&self, resource: &Mounted<R>, cx: &Cx, record: &R::Model) -> bool {
+        self.trashed.admits(resource.is_trashed(record)) && (self.can_run)(resource, cx, record)
     }
 }
 
@@ -498,32 +483,4 @@ fn run_erased<'a, R: Resource, A: Action<R>>(
         .downcast::<A::Input>()
         .expect("the pipeline parses the input `run` takes");
     Box::pin(A::run(cx, records, input, ex))
-}
-
-/// [`Resource::delete_record`] on each of `records`, behind a function pointer.
-fn delete_erased<'a, R: Resource>(
-    cx: &'a Cx,
-    records: &'a [R::Model],
-    _input: ErasedInput,
-    ex: &'a mut dyn toasty::Executor,
-) -> BoxFuture<'a, Result<crate::Outcome>> {
-    Box::pin(async move {
-        for record in records {
-            R::delete_record(cx, record, &mut *ex).await?;
-        }
-        Ok(crate::Outcome::done())
-    })
-}
-
-/// [`Resource::bulk_delete_records`] behind a function pointer.
-fn bulk_delete_erased<'a, R: Resource>(
-    cx: &'a Cx,
-    records: &'a [R::Model],
-    _input: ErasedInput,
-    ex: &'a mut dyn toasty::Executor,
-) -> BoxFuture<'a, Result<crate::Outcome>> {
-    Box::pin(async move {
-        R::bulk_delete_records(cx, records, ex).await?;
-        Ok(crate::Outcome::done())
-    })
 }

@@ -48,6 +48,11 @@ impl<M, T, P> Lens<M, T, P> {
     pub fn read<'a>(&self, record: &'a M) -> &'a T {
         (self.read)(record)
     }
+
+    /// The function reading the field.
+    pub(crate) fn reader(&self) -> fn(&M) -> &T {
+        self.read
+    }
 }
 
 impl<M, T, P> From<Lens<M, T, P>> for Path<M, P> {

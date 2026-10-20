@@ -65,6 +65,7 @@ impl fmt::Display for DeclarationError {
             match &self.site {
                 Site::Panel | Site::Registration => {}
                 Site::Tenancy => f.write_str(" tenancy")?,
+                Site::SoftDelete => f.write_str(" soft delete")?,
                 Site::Table => f.write_str(" table")?,
                 Site::Form => f.write_str(" form")?,
                 Site::Detail => f.write_str(" detail")?,
@@ -89,6 +90,8 @@ pub enum Site {
     Registration,
     /// `ResourceDef::tenancy`.
     Tenancy,
+    /// `ResourceDef::soft_delete`.
+    SoftDelete,
     /// `ResourceDef::table`.
     Table,
     /// `ResourceDef::form`, checked against the record form.
@@ -382,6 +385,14 @@ pub enum DeclarationErrorKind {
         /// The record-form field.
         field: String,
         /// The tenant column.
+        column: String,
+    },
+    /// A soft-deleting resource's record form claims the soft-delete column, which only a delete
+    /// and a restore write.
+    FormClaimsSoftDeleteColumn {
+        /// The record-form field.
+        field: String,
+        /// The soft-delete column.
         column: String,
     },
     /// A form field named after a key the form's POST carries itself, such as the CSRF token
