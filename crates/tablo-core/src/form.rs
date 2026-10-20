@@ -71,6 +71,11 @@ pub use crate::{
     },
 };
 
+/// The hidden control the edit form carries the record's [`ModelColumns::version`] in.
+///
+/// [`ModelColumns::version`]: crate::ModelColumns::version
+pub(crate) const VERSION_FIELD: &str = "record_version";
+
 /// The form key of the many-to-many field `path`, a `#[has_many(via = ..)]` list of `R`'s
 /// records, holding their keys of type `K`: the derive calls it, so a field whose type is not
 /// `Vec<K>` of the related model's key, or whose source is not that model's, fails to compile.

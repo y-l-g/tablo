@@ -246,13 +246,14 @@ A text field over a column with a unique index checks uniqueness before the writ
 taken value inline. `.unique()` states it explicitly; mounting the panel refuses `.unique()` on a
 column without a unique index, single-column or composite. The check is a query before the write,
 so two concurrent submissions can both pass it; the database index stays the final check. When a
-create or an edit fails on a database error, the form runs the query again once the write's
-transaction is rolled back: the submission that lost the race re-renders with the same inline
-error, and a failure the query does not explain still answers 500. That needs the database to
-refuse the losing write once the winning one has committed, as PostgreSQL and MySQL do; SQLite
-can refuse it as busy before then, and Turso's concurrent transactions conflict at commit, so
-either can still answer 500. A resource whose scoped query cannot see the row the index compares
-against, such as an index broader than its tenancy, still answers 500 too.
+create fails on a database error, or an edit fails on a database error rather than its version
+condition, the form runs the query again once the write's transaction is rolled back: the
+submission that lost the race re-renders with the same inline error, and a failure the query does
+not explain still answers 500. That needs the database to refuse the losing write once the
+winning one has committed, as PostgreSQL and MySQL do; SQLite can refuse it as busy before then,
+and Turso's concurrent transactions conflict at commit, so either can still answer 500. A
+resource whose scoped query cannot see the row the index compares against, such as an index
+broader than its tenancy, still answers 500 too.
 
 A unique field over a non-nullable column must be required: mounting refuses one whose record-form
 field has a blank answer, since every empty submission would store the same value and the index
@@ -416,12 +417,24 @@ takes it too, for every field it holds:
   record form's field enum (`errors.add(UserFormField::Age, "Age must be zero or more")`), so
   every error renders under its field's control, or an embedded value's first control.
 - **Unknown keys are refused.** A POST carrying a key the form does not declare answers 400, so a
-  client cannot write `role` or `tenant_id`. The CSRF token and the file fields' `clear_` and
-  `keep_` keys are the exceptions.
+  client cannot write `role` or `tenant_id`. The CSRF token, the edit form's `record_version` and
+  the file fields' `clear_` and `keep_` keys are the exceptions.
 - **An edit writes only what was posted.** On an edit, a declared key missing from the submission
   keeps its stored value, and the update assigns only the fields the submission named, plus the
   model's own `#[update(..)]` defaults and `#[version]` bump. An API client can post a single
   field. A control submitted empty is posted, and stores its field's blank value.
+- **A save another save overtook is refused.** When the model has a `#[version]` field and
+  derives `ModelColumns`, the edit form carries the version it opened on as `record_version`. A
+  save whose version no longer matches the stored record writes nothing and re-renders the form
+  with the submitted values, an alert above them, and the current version, so saving again
+  overwrites the other save. A save that lands between the edit's load and its write fails
+  Toasty's version condition and re-renders the same way where the database reports it so, as
+  PostgreSQL and MySQL do; SQLite can refuse the transaction as busy instead, and Turso's
+  concurrent transactions conflict at commit, which both answer 500. A POST without
+  `record_version` skips the first comparison, not the second; one whose `record_version` is no
+  number answers 400. Only the edit form carries the version: actions, relation managers and the
+  profile pages write without it, and the default Delete removes the record whatever its version. Mounting
+  refuses a form field named `record_version` or `csrf_token`.
 
 To write more than the form holds, override `create_record` or `update_record`
 ([Resources](./resources.md#writes)) and use the builders: `form.into_create()` is the model's

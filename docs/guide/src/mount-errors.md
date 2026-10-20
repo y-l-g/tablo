@@ -213,9 +213,17 @@ An action's `NAME` that is not one URL segment does not compile, so it never rea
 
 | Kind | Refused when | Fix |
 | --- | --- | --- |
-| `TenancyColumnNotAField` | the `Tenancy::column` lens is not one field of the model | name the model's `TenantId` field, or use `Tenancy::via` |
-| `TenancyViaOwnColumn` | the `Tenancy::via` lens names one field of the model | use `Tenancy::column` |
-| `TenancyViaWithoutBelongsTo` | the `Tenancy::via` lens does not start at a `belongs_to` | start at the relation whose parent holds the tenant |
+| `Tenancy` | the resource's tenancy cannot scope its rows; the `TenancyFault` says why | see below |
+
+`TenancyFault`:
+
+| Fault | Refused when | Fix |
+| --- | --- | --- |
+| `Undeclared` | the resource declares no tenancy and its model has a `TenantId` field | `Tenancy::column` over that field, or `Tenancy::none()` to serve every tenant |
+| `UndeclaredChild` | the resource declares no tenancy and its model has a `belongs_to` to a model the panel mounts a resource over, when that resource is tenant-scoped or the model has a `TenantId` field | `Tenancy::via` through that relation, or `Tenancy::none()` to serve every tenant |
+| `ColumnNotAField` | the `Tenancy::column` lens is not one field of the model | name the model's `TenantId` field, or use `Tenancy::via` |
+| `ViaOwnColumn` | the `Tenancy::via` lens names one field of the model | use `Tenancy::column` |
+| `ViaWithoutBelongsTo` | the `Tenancy::via` lens does not start at a `belongs_to` | start at the relation whose parent holds the tenant |
 | `UnguardedForeignKey` | a `Tenancy::via` resource's form writes the parent's foreign key other than through a relationship choice over a tenant-scoped resource | write the key through such a choice, so the write re-checks its tenant |
 
 ## Relations

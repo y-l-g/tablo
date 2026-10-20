@@ -5,9 +5,10 @@
 use topcoat::context::Cx;
 
 use crate::{
-    ActionInputFault, DeclarationError, DeclarationErrorKind, ManyToManyFault, Site,
+    ActionInputFault, DeclarationError, DeclarationErrorKind, ManyToManyFault, ModelColumns, Site,
+    TenancyFault,
     form::RecordForm,
-    resource::{InputSpec, Mounted, Resource, require_mounted},
+    resource::{InputSpec, Mounted, Resource, is_tenant_model, require_mounted},
     toasty_compat::{
         join::JoinTable,
         model::{self, AppSchema},
@@ -25,14 +26,14 @@ pub(crate) fn check_resource<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationE
         return;
     };
     let tenancy = &declared.tenancy;
+    if tenancy.is_undeclared() {
+        check_undeclared_tenancy::<R>(cx, errors);
+    }
     if let Some(Err(kind)) = tenancy.column_field() {
         errors.push(DeclarationError::of::<R>(Site::Tenancy, kind));
     }
     if tenancy.via_is_single() == Some(true) {
-        errors.push(DeclarationError::of::<R>(
-            Site::Tenancy,
-            DeclarationErrorKind::TenancyViaOwnColumn,
-        ));
+        errors.push(tenancy_error::<R>(TenancyFault::ViaOwnColumn));
     }
     let mut form_errors = declared.form.declaration_errors();
     form_errors.extend(declared.form.empty_choices());
@@ -60,6 +61,37 @@ pub(crate) fn check_resource<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationE
     }
     check_actions(cx, &declared, errors);
     check_form_declaration(cx, &declared, form_is_sound, errors);
+}
+
+/// A resource that declares no tenancy serves every tenant's rows, so its model must hold none:
+/// it has no tenant column, and belongs to no model a mounted resource scopes by tenant.
+fn check_undeclared_tenancy<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationError>) {
+    let columns = <R::Model as ModelColumns>::TENANT_COLUMNS;
+    if !columns.is_empty() {
+        errors.push(tenancy_error::<R>(TenancyFault::Undeclared {
+            model: model_name::<R>(),
+            columns: columns.to_vec(),
+        }));
+    }
+    for parent in model::belongs_tos::<R::Model>() {
+        if is_tenant_model(cx, parent.target) {
+            errors.push(tenancy_error::<R>(TenancyFault::UndeclaredChild {
+                model: model_name::<R>(),
+                relation: parent.name,
+            }));
+        }
+    }
+}
+
+/// `R`'s model's name, as a lens spells it.
+fn model_name<R: Resource>() -> &'static str {
+    let name = std::any::type_name::<R::Model>();
+    name.rsplit("::").next().unwrap_or(name)
+}
+
+/// A mistake in `R`'s tenancy declaration.
+fn tenancy_error<R: Resource>(fault: TenancyFault) -> DeclarationError {
+    DeclarationError::of::<R>(Site::Tenancy, DeclarationErrorKind::Tenancy { fault })
 }
 
 /// Every custom and header action's name is distinct among the resource's actions: the routes
@@ -183,6 +215,14 @@ fn check_form_inner<R: Resource>(
                 column,
             },
         ));
+    }
+    // The create and edit POSTs carry these keys beside the form's own.
+    for field in form.fields().filter(|field| {
+        [crate::csrf::FIELD_NAME, crate::form::VERSION_FIELD].contains(&field.name())
+    }) {
+        errors.push(form_error::<R>(DeclarationErrorKind::ReservedFormField {
+            field: field.name().to_string(),
+        }));
     }
     for field in form.fields().filter(|field| {
         field
@@ -338,10 +378,7 @@ fn check_via_foreign_keys<R: Resource>(
         .via_hop()
         .and_then(model::belongs_to::<R::Model>)
     else {
-        errors.push(DeclarationError::of::<R>(
-            Site::Tenancy,
-            DeclarationErrorKind::TenancyViaWithoutBelongsTo,
-        ));
+        errors.push(tenancy_error::<R>(TenancyFault::ViaWithoutBelongsTo));
         return;
     };
     let unguarded: Vec<String> = keys
@@ -357,9 +394,11 @@ fn check_via_foreign_keys<R: Resource>(
         })
         .collect();
     if !unguarded.is_empty() {
-        errors.push(form_error::<R>(DeclarationErrorKind::UnguardedForeignKey {
-            relation,
-            keys: unguarded,
+        errors.push(form_error::<R>(DeclarationErrorKind::Tenancy {
+            fault: TenancyFault::UnguardedForeignKey {
+                relation,
+                keys: unguarded,
+            },
         }));
     }
 }

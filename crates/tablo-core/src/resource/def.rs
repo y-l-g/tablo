@@ -85,7 +85,7 @@ impl<R: Resource> Default for ResourceDef<R> {
             navigation: None,
             navigation_badge: None,
             policy: Arc::new(Deny),
-            tenancy: Tenancy::none(),
+            tenancy: Tenancy::undeclared(),
             table: None,
             form: None,
             detail: None,
@@ -243,7 +243,8 @@ impl<R: Resource> ResourceDef<R> {
         self.policy(policy)
     }
 
-    /// How rows belong to a tenant; defaults to [`Tenancy::none`].
+    /// How rows belong to a tenant. A resource that declares none is served to every tenant, and
+    /// mounting the panel refuses it when its model has a [`TenantId`](crate::TenantId) column.
     #[must_use]
     pub fn tenancy(mut self, tenancy: Tenancy<R::Model>) -> Self {
         self.tenancy = tenancy;
