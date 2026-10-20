@@ -177,6 +177,7 @@ impl tablo_core::ModelColumns for tablo_core::auth::AdminUser
 pub const tablo_core::auth::AdminUser::TENANT_COLUMNS: &'static [&'static str]
 pub fn tablo_core::auth::AdminUser::detail() -> tablo_core::detail::Detail<tablo_core::auth::AdminUser>
 pub fn tablo_core::auth::AdminUser::table() -> tablo_core::table::Table<tablo_core::auth::AdminUser>
+pub fn tablo_core::auth::AdminUser::version(&self) -> core::option::Option<u64>
 impl tablo_core::auth::PanelUser for tablo_core::auth::AdminUser
 pub fn tablo_core::auth::AdminUser::can_access_panel(&self) -> bool
 pub fn tablo_core::auth::AdminUser::default_tenant(&self) -> core::option::Option<uuid::Uuid>
@@ -3992,10 +3993,12 @@ pub trait tablo_core::table::ModelColumns: toasty::schema::model::Model + toasty
 pub const tablo_core::table::ModelColumns::TENANT_COLUMNS: &'static [&'static str]
 pub fn tablo_core::table::ModelColumns::detail() -> tablo_core::detail::Detail<Self>
 pub fn tablo_core::table::ModelColumns::table() -> tablo_core::table::Table<Self>
+pub fn tablo_core::table::ModelColumns::version(&self) -> core::option::Option<u64>
 impl tablo_core::ModelColumns for tablo_core::auth::AdminUser
 pub const tablo_core::auth::AdminUser::TENANT_COLUMNS: &'static [&'static str]
 pub fn tablo_core::auth::AdminUser::detail() -> tablo_core::detail::Detail<tablo_core::auth::AdminUser>
 pub fn tablo_core::auth::AdminUser::table() -> tablo_core::table::Table<tablo_core::auth::AdminUser>
+pub fn tablo_core::auth::AdminUser::version(&self) -> core::option::Option<u64>
 pub trait tablo_core::table::Numeric
 pub fn tablo_core::table::Numeric::number(&self) -> core::option::Option<tablo_core::Number>
 impl tablo_core::Numeric for f32
@@ -4475,6 +4478,8 @@ pub tablo_core::DeclarationErrorKind::RepeaterPassword::field: alloc::string::St
 pub tablo_core::DeclarationErrorKind::RepeaterPassword::leaf: alloc::string::String
 pub tablo_core::DeclarationErrorKind::RequiredConditionalField
 pub tablo_core::DeclarationErrorKind::RequiredConditionalField::field: alloc::string::String
+pub tablo_core::DeclarationErrorKind::ReservedFormField
+pub tablo_core::DeclarationErrorKind::ReservedFormField::field: alloc::string::String
 pub tablo_core::DeclarationErrorKind::ReservedSlug
 pub tablo_core::DeclarationErrorKind::ReservedSlug::slug: alloc::string::String
 pub tablo_core::DeclarationErrorKind::SecondHome
@@ -7274,10 +7279,12 @@ pub trait tablo_core::ModelColumns: toasty::schema::model::Model + toasty::stmt:
 pub const tablo_core::ModelColumns::TENANT_COLUMNS: &'static [&'static str]
 pub fn tablo_core::ModelColumns::detail() -> tablo_core::detail::Detail<Self>
 pub fn tablo_core::ModelColumns::table() -> tablo_core::table::Table<Self>
+pub fn tablo_core::ModelColumns::version(&self) -> core::option::Option<u64>
 impl tablo_core::ModelColumns for tablo_core::auth::AdminUser
 pub const tablo_core::auth::AdminUser::TENANT_COLUMNS: &'static [&'static str]
 pub fn tablo_core::auth::AdminUser::detail() -> tablo_core::detail::Detail<tablo_core::auth::AdminUser>
 pub fn tablo_core::auth::AdminUser::table() -> tablo_core::table::Table<tablo_core::auth::AdminUser>
+pub fn tablo_core::auth::AdminUser::version(&self) -> core::option::Option<u64>
 pub trait tablo_core::Numeric
 pub fn tablo_core::Numeric::number(&self) -> core::option::Option<tablo_core::Number>
 impl tablo_core::Numeric for f32

@@ -57,6 +57,7 @@ extern crate self as tablo_core;
 pub mod __macro {
     pub use toasty::{
         Executor, Result as DbResult,
+        codegen_support::Version,
         schema::{Embed, Model},
         stmt,
         stmt::{List, Path},
@@ -377,7 +378,9 @@ pub use tablo_macros::FormInput;
 /// No column shows a key Toasty generates, a `#[version]` field, a relation or its foreign
 /// key, which only a declared [`RelationColumn`] shows, by the related record's title, or a
 /// `TenantId` or `Option<TenantId>` field, which belongs to the resource's [`Tenancy`]. An
-/// `#[auto]` `created_at` or `updated_at` shows like any timestamp.
+/// `#[auto]` `created_at` or `updated_at` shows like any timestamp. A `#[version]` field is
+/// what [`ModelColumns::version`](trait@ModelColumns) returns, so the edit form refuses a save
+/// another save overtook.
 ///
 /// Every other field shows, a secret such as a password hash or an API token included, to
 /// anyone the policy lets view the list: mark it `#[columns(skip)]`, which leaves it out of

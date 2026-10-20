@@ -49,7 +49,8 @@ impl FormParts {
 pub(crate) const MAX_FORM_BYTES: usize = 10 * 1024 * 1024;
 
 /// Rejects the posted keys no field claimed with 400, but the ones the form carries for itself:
-/// the CSRF token, and each file field's `keep_<field>` and `clear_<field>`.
+/// the CSRF token, the edit form's record version, and each file field's `keep_<field>` and
+/// `clear_<field>`.
 pub(super) fn reject_unknown_form_keys(
     schema: &crate::schema::Schema,
     unclaimed: Vec<String>,
@@ -61,6 +62,7 @@ pub(super) fn reject_unknown_form_keys(
                 .strip_prefix("clear_")
                 .or_else(|| key.strip_prefix("keep_"));
             key != crate::csrf::FIELD_NAME
+                && key != super::render::VERSION_FIELD
                 && !file
                     .is_some_and(|file| schema.fields().any(|f| f.is_file() && f.name() == file))
         })
