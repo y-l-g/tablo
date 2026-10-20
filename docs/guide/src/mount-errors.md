@@ -153,7 +153,7 @@ An action's `NAME` that is not one URL segment does not compile, so it never rea
 | `DuplicateFilter` | two filters share a name | rename one |
 | `DottedFilterName` | a filter's name holds a `.`, which its URL parameters reserve for a part | rename it without the `.` |
 | `UnparsedFilterOption` | a `SelectFilter` option's value does not parse as the field's type, so it filters nothing | spell it as the field's form value, or build the filter with `SelectFilter::of` |
-| `UnregisteredLabelSource` | `RelationColumn::of::<R>` names a resource the panel does not register | register `R`, or use `RelationColumn::new` with a projection |
+| `UnregisteredLabelSource` | `RelationColumn::{new, of, list}::<R>` or `CountColumn::of::<R>` names a resource the panel does not register | register `R`, or use `RelationColumn::unscoped` for a model no resource administers |
 
 ## Forms
 
@@ -189,6 +189,7 @@ An action's `NAME` that is not one URL segment does not compile, so it never rea
 | `InvalidPattern` | a `pattern` does not compile on the server | fix the pattern |
 | `EmptyRange` | a minimum is above its maximum, so the field refuses every value | lower the minimum or raise the maximum |
 | `RefusedDefault` | the field's default breaks one of its rules, so a create that keeps it is refused | change the default or the rule |
+| `UnparsedDefault` | the field's default is no value of its type, as a timestamp spelled without an offset, so a create that keeps it is refused | spell the default as the type does, or pass a value of the type |
 
 `ManyToManyFault`, for a form's field or a `Relation::belongs_to_many`:
 
@@ -213,9 +214,17 @@ An action's `NAME` that is not one URL segment does not compile, so it never rea
 
 | Kind | Refused when | Fix |
 | --- | --- | --- |
-| `TenancyColumnNotAField` | the `Tenancy::column` lens is not one field of the model | name the model's `TenantId` field, or use `Tenancy::via` |
-| `TenancyViaOwnColumn` | the `Tenancy::via` lens names one field of the model | use `Tenancy::column` |
-| `TenancyViaWithoutBelongsTo` | the `Tenancy::via` lens does not start at a `belongs_to` | start at the relation whose parent holds the tenant |
+| `Tenancy` | the resource's tenancy cannot scope its rows; the `TenancyFault` says why | see below |
+
+`TenancyFault`:
+
+| Fault | Refused when | Fix |
+| --- | --- | --- |
+| `Undeclared` | the resource declares no tenancy and its model has a `TenantId` field | `Tenancy::column` over that field, or `Tenancy::none()` to serve every tenant |
+| `UndeclaredChild` | the resource declares no tenancy and its model has a `belongs_to` to a model the panel mounts a resource over, when that resource is tenant-scoped or the model has a `TenantId` field | `Tenancy::via` through that relation, or `Tenancy::none()` to serve every tenant |
+| `ColumnNotAField` | the `Tenancy::column` lens is not one field of the model | name the model's `TenantId` field, or use `Tenancy::via` |
+| `ViaOwnColumn` | the `Tenancy::via` lens names one field of the model | use `Tenancy::column` |
+| `ViaWithoutBelongsTo` | the `Tenancy::via` lens does not start at a `belongs_to` | start at the relation whose parent holds the tenant |
 | `UnguardedForeignKey` | a `Tenancy::via` resource's form writes the parent's foreign key other than through a relationship choice over a tenant-scoped resource | write the key through such a choice, so the write re-checks its tenant |
 
 ## Relations

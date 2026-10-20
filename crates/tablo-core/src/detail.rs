@@ -10,7 +10,7 @@ use crate::{
     column::{
         BooleanColumn, BoxColumn, ColorColumn, Column, ComputedColumn, CountColumn, DateColumn,
         EmbeddedColumn, FileColumn, ImageColumn, RelationColumn, RepeaterColumn, TextColumn,
-        include_relations, unavailable_sources,
+        include_relations, restrict_relations, unavailable_sources,
     },
     schema::{Grid, Group, Section},
 };
@@ -35,7 +35,7 @@ use crate::{
 /// Detail::new(Section::new("Post").columns((
 ///     TextColumn::new(lens!(Post.title)),
 ///     BooleanColumn::new(lens!(Post.featured)),
-///     RelationColumn::new(relation!(Post.author), |a: &Author| a.name.clone()),
+///     RelationColumn::unscoped(relation!(Post.author), |a: &Author| a.name.clone()),
 /// )));
 /// ```
 ///
@@ -97,13 +97,45 @@ impl<M> Detail<M> {
         out
     }
 
-    /// Include in `query` every relation the columns declare, once each: what a page rendering
-    /// this declaration loads, as in `detail.include_relations(scoped_query::<R>(cx)?)`.
-    pub fn include_relations(&self, query: Query<List<M>>) -> Query<List<M>>
+    /// Load the records `query` names as a page rendering this declaration reads them: with every
+    /// relation the columns declare, once each, and the related records the columns' sources show
+    /// the user checked, so [`render`](Self::render) shows only those. Pass the resource's scope,
+    /// as in `detail.load(cx, scoped_query::<R>(cx)?)`.
+    ///
+    /// # Errors
+    ///
+    /// A source's scope refusing the request, or a database failure.
+    pub async fn load(&self, cx: &Cx, query: Query<List<M>>) -> topcoat::Result<Vec<M>>
+    where
+        M: toasty::schema::Model + Send + Sync + 'static,
+    {
+        let mut db = crate::db::db(cx);
+        let records = self
+            .include_relations(query)
+            .exec(&mut db)
+            .await
+            .map_err(crate::error::unavailable)?;
+        self.restrict_relations(cx, &records, &mut db).await?;
+        Ok(records)
+    }
+
+    /// Include in `query` every relation the columns declare, once each.
+    pub(crate) fn include_relations(&self, query: Query<List<M>>) -> Query<List<M>>
     where
         M: toasty::schema::Model,
     {
         include_relations(query, self.columns())
+    }
+
+    /// Check which related records `records`, loaded through [`Self::include_relations`], hold
+    /// that the columns' sources show the user.
+    pub(crate) async fn restrict_relations(
+        &self,
+        cx: &Cx,
+        records: &[M],
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<()> {
+        restrict_relations(cx, self.columns(), records, ex).await
     }
 
     /// The columns labelling their records by a source the context's panel cannot load from.
@@ -123,7 +155,8 @@ impl<M> Detail<M> {
     /// read-only.
     ///
     /// The panel's detail page renders its view this way. A page of the app's own renders one for
-    /// a record it loaded through [`include_relations`](Self::include_relations).
+    /// a record it loaded through [`load`](Self::load): a scoped relation column over a record
+    /// loaded otherwise shows no related record.
     pub fn render<'a>(&self, cx: &'a Cx, record: &M) -> BoxView<'a> {
         let views: Vec<BoxView<'a>> = self
             .nodes

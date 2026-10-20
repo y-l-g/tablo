@@ -206,7 +206,8 @@ async fn an_edit_keeping_a_stored_value_skips_its_rules() {
     );
 }
 
-/// A rule no value can keep, or one the field cannot check, refuses the mount.
+/// A rule no value can keep, one the field cannot check, or a default the type does not parse,
+/// refuses the mount.
 #[tokio::test]
 async fn a_misdeclared_rule_refuses_the_mount() {
     struct Misdeclared;
@@ -223,7 +224,10 @@ async fn a_misdeclared_rule_refuses_the_mount() {
                 .form(Schema::new((
                     c.code.min("a").default("abc").pattern("[a-z]{4}"),
                     c.seats.min("many").max(1).min_length(4).max_length(3),
-                    c.day.min(date(2026, 2, 1)).max(date(2026, 1, 1)),
+                    c.day
+                        .min(date(2026, 2, 1))
+                        .max(date(2026, 1, 1))
+                        .default("soon"),
                     c.note.pattern("("),
                 )))
         }
@@ -247,6 +251,7 @@ async fn a_misdeclared_rule_refuses_the_mount() {
         rule("seats", FieldRuleFault::UnorderedBound("many".to_string())),
         rule("seats", FieldRuleFault::EmptyRange),
         rule("day", FieldRuleFault::EmptyRange),
+        rule("day", FieldRuleFault::UnparsedDefault("soon".to_string())),
     ] {
         assert!(kinds.contains(&expected), "{expected:?} in {kinds:?}");
     }

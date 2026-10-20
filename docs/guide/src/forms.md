@@ -190,16 +190,45 @@ type refuses is an inline error naming it: `` `twelve` is not a valid whole numb
 | `jiff::civil::Date` | `type="date"` |
 | `jiff::civil::Time` | `type="time"`, to the minute |
 | `jiff::civil::DateTime` | `type="datetime-local"`, to the minute |
-| `jiff::Timestamp` | `type="datetime-local"`, to the minute, read and shown as UTC |
+| `jiff::Timestamp` | `type="datetime-local"`, to the minute, in the request's [time zone](#time-zones) |
 | `bool` (on a text control), `Uuid`, `TenantId` | `type="text"` |
 
-A `datetime-local` input carries no time zone, so a timestamp displays and parses as UTC. A
-`jiff::Zoned` column has no control: no browser input carries a zone.
+A `jiff::Zoned` column has no control: no browser input carries a zone.
 
 Implement `tablo::extend::TypedValue` to bind your own type: `NOUN` names it in errors,
 `INPUT_TYPE` and `STEP` set the input's `type` and `step`, `parse_input` reads a submission (by
-default through `FromStr`), `input_value` spells a stored value for the input, and `order` orders
-two values for `.min` and `.max` (by default it orders none, and the type takes no bound).
+default through `FromStr`), `input_value` spells a stored value for the input and `form_value`
+reads what the input posts, both in the request's time zone (by default each keeps the text as it
+is), and `order` orders two values for `.min` and `.max` (by default it orders none, and the type
+takes no bound).
+
+### Time zones
+
+A `datetime-local` input posts a wall-clock time without a zone, so the panel places it in the
+request's zone: `tablo::time_zone(cx)` answers the signed-in user's `PanelUser::time_zone`, else
+the panel's `Panel::time_zone`, else UTC.
+
+```rust
+{{#include ../../../examples/guide/src/panel_routing.rs:panel-time-zone}}
+```
+
+- **A timestamp's control** shows the stored instant as the wall-clock time in that zone, and the
+  time it posts back stores the instant it names there: `14:00` entered in Paris on 20 October
+  stores `12:00:00Z`. A time the zone skips moves forward by the gap, and a time it repeats takes
+  the earlier instant; a value posted back untouched keeps its stored instant, in a repeater's
+  rows too. A value posted with an offset, such as `2026-10-20T14:00:00-05:00`, names that
+  instant and stores it in UTC. A `min` or `max` refusal spells the bound as the control shows it.
+- **A `DateColumn` and a `DateFilter`** read a timestamp's calendar day in the same zone, so a
+  user sees and filters by their own day. A civil date or date-time names its day whatever the
+  zone. A filter's link therefore selects by the viewer's day: two users in different zones who
+  open the same `?f.starts_at=2026-10-20` see different rows.
+- **The stored value is the instant.** An export and a `TextColumn`, on the list or the detail
+  page, spell it in RFC 3339, in UTC; a `DateColumn` shows the zone's day there too.
+- **A custom control** receives the stored RFC 3339 value and posts a value the panel does not
+  convert: it posts an instant with an offset, since a wall-clock time is refused.
+- **`Schema::read(cx, pairs)`**, which a page handling its own post calls, reads a timestamp's
+  wall-clock time in the request's zone too; `parse_input` alone refuses one, since it names no
+  instant.
 
 ### Length, bounds and patterns
 
@@ -208,7 +237,7 @@ so the browser checks it before it submits, and the server checks it again on th
 after the field's type parses it; a refused value is an inline error, and nothing is written. A
 blank value is the field's blank answer, which no rule refuses, and a value the record already
 stores is not checked again, so a rule added over existing rows does not lock them. A default
-that breaks a rule fails the mount.
+that breaks a rule, or that its type does not parse, fails the mount.
 
 ```rust
 {{#include ../../../examples/guide/src/forms.rs:forms-rules}}
@@ -245,7 +274,15 @@ at 254 bytes.
 A text field over a column with a unique index checks uniqueness before the write, and reports a
 taken value inline. `.unique()` states it explicitly; mounting the panel refuses `.unique()` on a
 column without a unique index, single-column or composite. The check is a query before the write,
-so two concurrent submissions can both pass it; the database index stays the final check.
+so two concurrent submissions can both pass it; the database index stays the final check. When a
+create fails on a database error, or an edit fails on a database error rather than its version
+condition, the form runs the query again once the write's transaction is rolled back: the
+submission that lost the race re-renders with the same inline error, and a failure the query does
+not explain still answers 500. That needs the database to refuse the losing write once the
+winning one has committed, as PostgreSQL and MySQL do; SQLite can refuse it as busy before then,
+and Turso's concurrent transactions conflict at commit, so either can still answer 500. A
+resource whose scoped query cannot see the row the index compares against, such as an index
+broader than its tenancy, still answers 500 too.
 
 A unique field over a non-nullable column must be required: mounting refuses one whose record-form
 field has a blank answer, since every empty submission would store the same value and the index
@@ -409,12 +446,24 @@ takes it too, for every field it holds:
   record form's field enum (`errors.add(UserFormField::Age, "Age must be zero or more")`), so
   every error renders under its field's control, or an embedded value's first control.
 - **Unknown keys are refused.** A POST carrying a key the form does not declare answers 400, so a
-  client cannot write `role` or `tenant_id`. The CSRF token and the file fields' `clear_` and
-  `keep_` keys are the exceptions.
+  client cannot write `role` or `tenant_id`. The CSRF token, the edit form's `record_version` and
+  the file fields' `clear_` and `keep_` keys are the exceptions.
 - **An edit writes only what was posted.** On an edit, a declared key missing from the submission
   keeps its stored value, and the update assigns only the fields the submission named, plus the
   model's own `#[update(..)]` defaults and `#[version]` bump. An API client can post a single
   field. A control submitted empty is posted, and stores its field's blank value.
+- **A save another save overtook is refused.** When the model has a `#[version]` field and
+  derives `ModelColumns`, the edit form carries the version it opened on as `record_version`. A
+  save whose version no longer matches the stored record writes nothing and re-renders the form
+  with the submitted values, an alert above them, and the current version, so saving again
+  overwrites the other save. A save that lands between the edit's load and its write fails
+  Toasty's version condition and re-renders the same way where the database reports it so, as
+  PostgreSQL and MySQL do; SQLite can refuse the transaction as busy instead, and Turso's
+  concurrent transactions conflict at commit, which both answer 500. A POST without
+  `record_version` skips the first comparison, not the second; one whose `record_version` is no
+  number answers 400. Only the edit form carries the version: actions, relation managers and the
+  profile pages write without it, and the default Delete removes the record whatever its version. Mounting
+  refuses a form field named `record_version` or `csrf_token`.
 
 To write more than the form holds, override `create_record` or `update_record`
 ([Resources](./resources.md#writes)) and use the builders: `form.into_create()` is the model's

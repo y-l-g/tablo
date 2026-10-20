@@ -28,7 +28,7 @@ use crate::{
 ///     fn label(&self) -> &str {
 ///         "Adults"
 ///     }
-///     fn to_expr(&self, value: &FilterValue) -> Option<Expr<bool>> {
+///     fn to_expr(&self, _cx: &Cx, value: &FilterValue) -> Option<Expr<bool>> {
 ///         (value.single() == Some("yes")).then(|| User::fields().age().ge(18))
 ///     }
 ///     fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a> {
@@ -43,9 +43,10 @@ pub trait Filter<M>: Send + Sync {
     /// The label the control renders beside it.
     fn label(&self) -> &str;
 
-    /// The predicate `value` selects, or `None` when it selects none. The table warns about a
-    /// value that selects none unless [`is_noop_value`](Self::is_noop_value) accepts it.
-    fn to_expr(&self, value: &FilterValue) -> Option<Expr<bool>>;
+    /// The predicate `value` selects for the request `cx`, or `None` when it selects none. The
+    /// table warns about a value that selects none unless [`is_noop_value`](Self::is_noop_value)
+    /// accepts it.
+    fn to_expr(&self, cx: &Cx, value: &FilterValue) -> Option<Expr<bool>>;
 
     /// Whether `value` selects no predicate without being invalid.
     fn is_noop_value(&self, _value: &FilterValue) -> bool {

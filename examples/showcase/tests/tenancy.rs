@@ -1,6 +1,7 @@
 use http::header::COOKIE;
 use showcase::models::{
-    Author, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, DEMO_TENANT, SIDE_TENANT, TENANTLESS_ADMIN_EMAIL,
+    Author, DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, DEMO_TENANT, Post, SIDE_TENANT,
+    TENANTLESS_ADMIN_EMAIL,
 };
 use tablo::{
     TenantId,
@@ -563,5 +564,48 @@ async fn the_author_filter_refuses_another_tenants_author() {
             .get(&format!("/admin/posts/-/export?f.author_id={id}"))
             .await;
         assert_eq!(resp.status(), 400, "{id}");
+    }
+}
+
+/// A T1 post pointing at T2's author shows no author on T1's list, detail page or export: the
+/// author column shows only the authors `AuthorResource` shows in the request's tenant.
+#[tokio::test]
+async fn a_relation_column_hides_another_tenants_record() {
+    let (db, t1, t2) = tenanted_db().await;
+    let mut db_q = db.clone();
+    let bob = Author::all()
+        .exec(&mut db_q)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|a| a.tenant_id.get() == t2)
+        .expect("t2 seeds an author");
+    let mut post = Post::filter(Post::fields().title().eq("T1 Post"))
+        .first()
+        .exec(&mut db_q)
+        .await
+        .unwrap()
+        .expect("t1 seeds a post");
+    toasty::update!(post { author_id: bob.id })
+        .exec(&mut db_q)
+        .await
+        .unwrap();
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+
+    for url in [
+        "/admin/posts".to_string(),
+        format!("/admin/posts/{}", post.id),
+        "/admin/posts/-/export".to_string(),
+    ] {
+        let resp = client.tenant(t1).get(&url).await;
+        assert!(
+            resp.status().is_success(),
+            "{url} answers {}",
+            resp.status()
+        );
+        let body = body_string(resp).await;
+        assert!(body.contains("T1 Post"), "{url} shows the post: {body}");
+        assert!(!body.contains("Bob T2"), "{url} shows T2's author: {body}");
     }
 }

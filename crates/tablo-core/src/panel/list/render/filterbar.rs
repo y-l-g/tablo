@@ -39,8 +39,8 @@ impl<M> WiredTable<M> {
             }
         }
         let refused = self.refused_filters(cx, state).await?;
-        let unapplied = self.unapplied_filters(state, &refused);
-        let unfiltered = !unapplied.is_empty() && self.filter_expr(state, &refused).is_none();
+        let unapplied = self.unapplied_filters(cx, state, &refused);
+        let unfiltered = !unapplied.is_empty() && self.filter_expr(cx, state, &refused).is_none();
         Ok(FilterViews {
             controls,
             unapplied,

@@ -65,20 +65,22 @@ pub(crate) async fn commit_then<'a, T, F: Future<Output = ()>>(
                 Err(crate::error::unavailable(error))
             }
         },
-        // A record fn's error is not echoed raw: the driver's text goes to the
-        // log through the opaque mapping, and an app-authored error keeps its
-        // own. On a create or update this includes a unique violation that
-        // slipped past the app-side check (a concurrent write): Toasty exposes
-        // no unique-violation predicate (tablo#117), so it cannot be
-        // classified as an inline field error here.
-        Err(error) => {
-            notify_write_failure(cx, failure);
-            Err(crate::error::driver_failure(
-                error,
-                crate::error::DATABASE_UNAVAILABLE,
-            ))
-        }
+        Err(error) => Err(failed_write(cx, failure, error)),
     }
+}
+
+/// Flashes `failure` and maps a record fn's `error` to the response.
+///
+/// The error is not echoed raw: the driver's text goes to the log through the opaque mapping,
+/// and an app-authored error keeps its own. The create and edit forms first re-probe their unique
+/// fields, so a value a concurrent write took renders inline instead (tablo#117).
+pub(crate) fn failed_write(
+    cx: &Cx,
+    failure: &'static str,
+    error: topcoat::Error,
+) -> topcoat::Error {
+    notify_write_failure(cx, failure);
+    crate::error::driver_failure(error, crate::error::DATABASE_UNAVAILABLE)
 }
 
 /// Post/Redirect/Get with a flash notification, to `home` or the page the

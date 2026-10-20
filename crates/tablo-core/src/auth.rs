@@ -145,6 +145,13 @@ pub trait PanelUser: Any + Send + Sync {
     fn default_tenant(&self) -> Option<Uuid> {
         None
     }
+
+    /// The time zone the user reads and enters wall-clock times in: a timestamp's control, its
+    /// [`DateColumn`](crate::DateColumn) day and its [`DateFilter`](crate::DateFilter) days.
+    /// Defaults to none: the panel's [`time_zone`](crate::Panel::time_zone).
+    fn time_zone(&self) -> Option<jiff::tz::TimeZone> {
+        None
+    }
 }
 
 /// How a panel loads its users (ADR-0013).
@@ -336,6 +343,15 @@ pub(crate) fn session_tenant(cx: &Cx) -> Option<Uuid> {
         .or_else(|| signed.user.default_tenant().and_then(member))
         .or_else(|| tenants.first())
         .map(|membership| membership.tenant)
+}
+
+/// The signed-in user's [`time_zone`](PanelUser::time_zone), else the request panel's
+/// [`time_zone`](crate::Panel::time_zone): the [`ZoneSource`](crate::values::ZoneSource) the panel
+/// installs.
+pub(crate) fn session_time_zone(cx: &Cx) -> Option<jiff::tz::TimeZone> {
+    signed(cx)
+        .and_then(|signed| signed.user.time_zone())
+        .or_else(|| current(cx).map(|panel| panel.time_zone.clone()))
 }
 
 /// The signed-in user, as the app's own user type.

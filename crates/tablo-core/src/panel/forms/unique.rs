@@ -5,6 +5,7 @@ use std::collections::HashSet;
 use topcoat::{Result, context::Cx};
 
 use crate::{
+    db::db,
     form::{FieldErrors, FormValues},
     resource::{Mounted, Resource},
 };
@@ -67,6 +68,31 @@ pub(super) async fn check_unique<R: Resource>(
         }
     }
     Ok(errors)
+}
+
+/// The submitted unique values another record holds now that the database refused a write with
+/// `error`, read once the write's transaction is gone: empty when none is taken, when the probe
+/// fails too, or when `error` is the app's own rather than Toasty's.
+///
+/// [`check_unique`] probes inside the write's transaction, so it cannot see a concurrent write
+/// of the same value that has not committed; the unique index then refuses the write. Toasty
+/// names no unique violation (tablo#117), but on PostgreSQL and MySQL the index refuses this
+/// write only once the other has committed, so the probe sees its row. SQLite can refuse it as
+/// busy before the other commits, and the probe then finds nothing.
+pub(super) async fn taken_since<R: Resource>(
+    cx: &Cx,
+    resource: &Mounted<R>,
+    schema: &crate::schema::Schema,
+    values: &FormValues,
+    current: &FormValues,
+    error: &topcoat::Error,
+) -> FieldErrors {
+    if !error.is::<toasty::Error>() {
+        return FieldErrors::new();
+    }
+    check_unique(cx, resource, schema, values, current, &mut db(cx))
+        .await
+        .unwrap_or_default()
 }
 
 /// The filter matching another row that holds the submitted value of every field in `members`,

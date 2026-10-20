@@ -332,7 +332,7 @@ struct Reader {
 
 fn name_on_shelf() -> tablo::ComputedColumn<Volume> {
     tablo::ComputedColumn::new("Name", |volume: &Volume| volume.name.clone())
-        .include(Volume::fields().shelf())
+        .include_unscoped(Volume::fields().shelf())
 }
 
 /// A volume is viewable only while its shelf is unloaded.

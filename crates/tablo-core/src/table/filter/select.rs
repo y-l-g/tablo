@@ -178,7 +178,7 @@ where
 
     /// Any of the values, each listed and parsed by the field's type; `None` when one is not, or
     /// when the value names a part.
-    fn to_expr(&self, value: &FilterValue) -> Option<Expr<bool>> {
+    fn to_expr(&self, _cx: &Cx, value: &FilterValue) -> Option<Expr<bool>> {
         if !value.parts.is_empty() {
             return None;
         }

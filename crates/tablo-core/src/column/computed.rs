@@ -18,9 +18,10 @@ use crate::display::Alignment;
 /// });
 /// ```
 ///
-/// A closure that reads a relation declares it with [`include`](Self::include), so the page
-/// loads it; one relation's record or count is a [`RelationColumn`](super::RelationColumn) or a
-/// [`CountColumn`](super::CountColumn), which declare their own.
+/// A closure that reads a relation declares it with [`include_unscoped`](Self::include_unscoped),
+/// so the page loads it. One relation's record or count is a
+/// [`RelationColumn`](super::RelationColumn) or a [`CountColumn`](super::CountColumn), which
+/// declare their own and show only what the related resource shows the user.
 ///
 /// It maps to no column, so it neither searches nor sorts.
 #[derive_where(Clone, Debug)]
@@ -57,8 +58,11 @@ where
         }
     }
 
-    /// Declare a relation the projection reads, so the table loads it.
-    pub fn include<T>(mut self, relation: impl Into<toasty::stmt::Include<M, T>>) -> Self {
+    /// Declare a relation the projection reads, so the table loads it. The projection reads
+    /// whatever the include loads, under no resource's query or policy, as an
+    /// [`unscoped`](super::RelationColumn::unscoped) relation column does: another tenant's record,
+    /// or one the user may not view, reaches it.
+    pub fn include_unscoped<T>(mut self, relation: impl Into<toasty::stmt::Include<M, T>>) -> Self {
         self.includes = self.includes.with(relation);
         self
     }

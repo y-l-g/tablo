@@ -147,3 +147,12 @@ pub fn notification(response: &http::Response<Body>) -> Option<Notification> {
         .ok()?;
     serde_json::from_str(&json).ok()
 }
+
+/// Whether the edit form refuses the save because another save changed the record since the form
+/// opened: it renders an element carrying `data-stale`.
+pub fn stale_form(html: &str) -> bool {
+    !dom::tags_where(html, |_, attrs| {
+        attrs.iter().any(|(attr, _)| attr == "data-stale")
+    })
+    .is_empty()
+}

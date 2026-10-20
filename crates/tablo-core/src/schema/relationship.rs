@@ -100,7 +100,7 @@ pub(crate) type RelationshipChecker = std::sync::Arc<
 
 /// Refuses the option load closed when `ViewAny` is refused or a tenant-owned source gets a
 /// tenantless request.
-fn ensure_option_access<R>(cx: &Cx) -> Result<(), OptionLoadError>
+pub(crate) fn ensure_option_access<R>(cx: &Cx) -> Result<(), OptionLoadError>
 where
     R: OptionSource,
 {

@@ -5,130 +5,24 @@
 use std::sync::Arc;
 
 use derive_where::derive_where;
-use toasty::{Deferred, stmt::Path};
-use topcoat::context::Cx;
+use toasty::{Deferred, Executor};
+use topcoat::{Result, context::Cx};
 
 use super::{Column, ColumnToggle, ColumnWidth, Includes};
-use crate::{DeclarationErrorKind, policy::Ability, schema::OptionSource, toasty_compat::model};
+use crate::{BoxFuture, DeclarationErrorKind, schema::OptionSource};
 
-/// A relation field's include, which loads it, paired with the function that reads the loaded
-/// relation off a record.
-///
-/// [`relation!`](crate::relation!) builds one from a single field name, so the column that reads
-/// the relation always declares its include:
-///
-/// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
-/// # struct Author { #[key] #[auto] id: uuid::Uuid, name: String }
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
-/// # struct Post {
-/// #     #[key] #[auto] id: uuid::Uuid,
-/// #     author_id: uuid::Uuid,
-/// #     #[belongs_to(key = author_id, references = id)]
-/// #     author: toasty::Deferred<Author>,
-/// # }
-/// # use tablo_core::{RelationColumn, relation};
-/// RelationColumn::new(relation!(Post.author), |a: &Author| a.name.clone());
-/// ```
-#[derive_where(Clone, Debug)]
-pub struct RelationLens<M, R> {
-    includes: Includes<M>,
-    /// The relation field's name, or why the path names no single field.
-    field: Result<(String, String), DeclarationErrorKind>,
-    #[derive_where(skip(Debug))]
-    read: fn(&M) -> &R,
-}
+mod lens;
+mod restrict;
 
-impl<M, R> RelationLens<M, R>
-where
-    M: toasty::schema::Model,
-{
-    /// Pair the relation `path` with the function reading the same field;
-    /// [`relation!`](crate::relation!) writes both from one field name.
-    #[doc(hidden)]
-    pub fn new<T>(path: impl Into<Path<M, T>>, read: fn(&M) -> &R) -> Self {
-        let path = path.into();
-        let field = model::field::<M>(&model::ModelPath::of(&path)).map(|f| (f.name, f.label));
-        Self {
-            includes: Includes::new().with(path),
-            field,
-            read,
-        }
-    }
-}
+pub use lens::RelationLens;
+use restrict::{Restrict, restrict_many, restrict_one, shows};
 
-impl<M, R> RelationLens<M, R> {
-    /// The include that loads the relation.
-    pub fn includes(&self) -> &Includes<M> {
-        &self.includes
-    }
-
-    /// Read the relation field off `record`.
-    pub fn read<'a>(&self, record: &'a M) -> &'a R {
-        (self.read)(record)
-    }
-
-    /// The field's name and label, or why the path names no single field.
-    pub(crate) fn field(&self) -> Result<(&str, &str), DeclarationErrorKind> {
-        self.field
-            .as_ref()
-            .map(|(name, label)| (name.as_str(), label.as_str()))
-            .map_err(Clone::clone)
-    }
-}
-
-/// Build a [`RelationLens`] from a model and one of its relation fields.
-///
-/// `relation!(Post.author)` is the include `Post::fields().author()` paired with
-/// `|post| &post.author`.
-///
-/// ```rust
-/// # use tablo_core::{RelationLens, relation};
-/// # use toasty::Deferred;
-/// # mod blog {
-/// #     #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
-/// #     pub struct Author { #[key] #[auto] pub id: uuid::Uuid, pub name: String }
-/// #     #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
-/// #     pub struct Post {
-/// #         #[key] #[auto] pub id: uuid::Uuid,
-/// #         pub author_id: uuid::Uuid,
-/// #         #[belongs_to(key = author_id, references = id)]
-/// #         pub author: toasty::Deferred<Author>,
-/// #         #[has_many]
-/// #         pub comments: toasty::Deferred<Vec<Comment>>,
-/// #     }
-/// #     #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
-/// #     pub struct Comment {
-/// #         #[key] #[auto] pub id: uuid::Uuid,
-/// #         #[index]
-/// #         pub post_id: uuid::Uuid,
-/// #         #[belongs_to(key = post_id, references = id)]
-/// #         pub post: toasty::Deferred<Post>,
-/// #     }
-/// # }
-/// # use blog::{Author, Comment, Post};
-/// # fn main() {
-/// let author: RelationLens<Post, Deferred<Author>> = relation!(Post.author);
-/// let comments: RelationLens<Post, Deferred<Vec<Comment>>> = relation!(Post.comments);
-/// let qualified = relation!(blog::Post.author);
-/// # let _ = (author, comments, qualified);
-/// # }
-/// ```
-#[macro_export]
-macro_rules! relation {
-    ($($model:ident)::+ . $field:ident) => {
-        $crate::RelationLens::new(
-            <$($model)::+>::fields().$field(),
-            |record: &$($model)::+| &record.$field,
-        )
-    };
-}
-
-/// The text a relation column renders for a row whose relation was not loaded.
+/// The text an unscoped relation column renders for a row whose relation was not loaded.
 const UNLOADED: &str = "(unloaded)";
 
-/// What a relation column reads off a row, or `None` when the row's relation was not loaded.
-type Loaded<M, T> = Arc<dyn Fn(&M) -> Option<T> + Send + Sync>;
+/// What a relation column reads off a row in the request's context, or `None` when the row's
+/// relation was not loaded.
+type Loaded<M, T> = Arc<dyn Fn(&Cx, &M) -> Option<T> + Send + Sync>;
 
 /// A label source's type name, and whether a context's panel can load from it.
 type LabelSource = (&'static str, fn(&Cx) -> bool);
@@ -183,17 +77,33 @@ impl<T: toasty::schema::Model> ToOneRelation<T> for Deferred<Option<T>> {
 /// #     #[belongs_to(key = author_id, references = id)]
 /// #     author: toasty::Deferred<Author>,
 /// # }
+/// # struct AuthorResource;
+/// # impl tablo_core::extend::OptionSource for AuthorResource {
+/// #     type Model = Author;
+/// #     fn scoped_query(_cx: &topcoat::context::Cx)
+/// #         -> topcoat::Result<toasty::stmt::Query<toasty::stmt::List<Author>>>
+/// #     {
+/// #         Ok(toasty::stmt::Query::all())
+/// #     }
+/// #     fn label(_cx: &topcoat::context::Cx, author: &Author) -> String {
+/// #         author.name.clone()
+/// #     }
+/// # }
 /// use tablo_core::{RelationColumn, relation};
 ///
-/// RelationColumn::new(relation!(Post.author), |a: &Author| a.name.clone());
+/// RelationColumn::new::<AuthorResource>(relation!(Post.author), |a: &Author| a.name.clone());
 /// ```
 ///
 /// The header and the column's name are the field's name, capitalized, until
-/// [`label`](Self::label) replaces both. A nullable field holding no record renders empty. The
-/// column neither searches nor sorts.
+/// [`label`](Self::label) replaces both. The column neither searches nor sorts.
 ///
-/// The include loads the related row through Toasty alone: the related resource's `query` and
-/// policy do not apply, so a soft-deleted or hidden record shows.
+/// A column over a source `S` shows only the related records `S` shows the user: the ones its
+/// [`scoped_query`](OptionSource::scoped_query) returns and its policy lets the user view, as a
+/// relationship choice over `S` offers them. A related record it hides, soft-deleted or another
+/// tenant's, renders empty, and so does every record of a row loaded around the table's or the
+/// [`Detail`](crate::Detail)'s loader, which checks them. The row keeps what the include loaded,
+/// so a policy reading the relation sees it whole. [`unscoped`](Self::unscoped) shows whatever
+/// the include loads.
 #[derive_where(Clone, Debug)]
 pub struct RelationColumn<M> {
     relation: Declared<M>,
@@ -203,29 +113,33 @@ pub struct RelationColumn<M> {
 
 impl<M> RelationColumn<M>
 where
-    M: toasty::schema::Model,
+    M: toasty::schema::Model + Send + Sync + 'static,
 {
-    /// Declare a column rendering `project` of the record `relation` loads.
-    pub fn new<T>(
-        relation: RelationLens<M, impl ToOneRelation<T> + 'static>,
-        project: impl Fn(&T) -> String + Send + Sync + 'static,
+    /// Declare a column rendering `project` of the record `relation` loads, when `S` shows it.
+    pub fn new<S>(
+        relation: RelationLens<M, impl ToOneRelation<S::Model> + 'static>,
+        project: impl Fn(&S::Model) -> String + Send + Sync + 'static,
     ) -> Self
     where
-        M: 'static,
+        S: OptionSource,
     {
         let read = relation.read;
         Self {
-            relation: Declared::of(&relation, ColumnWidth::Grow),
-            project: Arc::new(move |_cx, row| {
-                read(row)
-                    .loaded()
-                    .map(|target| target.map(&project).unwrap_or_default())
+            relation: Declared::of(&relation, ColumnWidth::Grow)
+                .scoped::<S>(restrict_one::<M, S, _>(relation.read)),
+            project: Arc::new(move |cx, row| {
+                read(row).loaded().map(|target| {
+                    target
+                        .filter(|target| shows::<S>(cx, target))
+                        .map(&project)
+                        .unwrap_or_default()
+                })
             }),
         }
     }
 
     /// Declare a column showing the record `relation` loads by `S`'s
-    /// [`label`](OptionSource::label): for a resource, the
+    /// [`label`](OptionSource::label), when `S` shows it: for a resource, the
     /// [`record_title`](crate::ResourceDef::record_title) its detail page is titled with.
     ///
     /// ```rust
@@ -257,17 +171,15 @@ where
     pub fn of<S>(relation: RelationLens<M, impl ToOneRelation<S::Model> + 'static>) -> Self
     where
         S: OptionSource,
-        M: 'static,
     {
         let read = relation.read;
         Self {
-            relation: Declared {
-                source: Some((std::any::type_name::<S>(), S::available)),
-                ..Declared::of(&relation, ColumnWidth::Grow)
-            },
+            relation: Declared::of(&relation, ColumnWidth::Grow)
+                .scoped::<S>(restrict_one::<M, S, _>(relation.read)),
             project: Arc::new(move |cx, row| {
                 read(row).loaded().map(|target| {
                     target
+                        .filter(|target| shows::<S>(cx, target))
                         .map(|target| S::label(cx, target))
                         .unwrap_or_default()
                 })
@@ -275,9 +187,9 @@ where
         }
     }
 
-    /// Declare a column listing the records a `has_many` `relation` loads, a many-to-many
-    /// `#[has_many(via = ..)]` one included, each by `S`'s [`label`](OptionSource::label), joined
-    /// by commas, but the ones `S` does not let the user view.
+    /// Declare a column listing the records a `has_many` `relation` loads that `S` shows, a
+    /// many-to-many `#[has_many(via = ..)]` one included, each by `S`'s
+    /// [`label`](OptionSource::label), joined by commas.
     ///
     /// ```rust
     /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
@@ -322,25 +234,39 @@ where
     pub fn list<S>(relation: RelationLens<M, Deferred<Vec<S::Model>>>) -> Self
     where
         S: OptionSource,
-        M: 'static,
     {
         let read = relation.read;
         Self {
-            relation: Declared {
-                source: Some((std::any::type_name::<S>(), S::available)),
-                ..Declared::of(&relation, ColumnWidth::Grow)
-            },
+            relation: Declared::of(&relation, ColumnWidth::Grow)
+                .scoped::<S>(restrict_many::<M, S>(relation.read)),
             project: Arc::new(move |cx, row| {
                 let records = read(row);
                 (!records.is_unloaded()).then(|| {
                     records
                         .get()
                         .iter()
-                        .filter(|record| S::allows(cx, Ability::View(record)))
+                        .filter(|record| shows::<S>(cx, record))
                         .map(|record| S::label(cx, record))
                         .collect::<Vec<_>>()
                         .join(", ")
                 })
+            }),
+        }
+    }
+
+    /// Declare a column rendering `project` of whatever record `relation` loads, under no
+    /// resource's query or policy: for a related model no resource administers.
+    pub fn unscoped<T>(
+        relation: RelationLens<M, impl ToOneRelation<T> + 'static>,
+        project: impl Fn(&T) -> String + Send + Sync + 'static,
+    ) -> Self {
+        let read = relation.read;
+        Self {
+            relation: Declared::of(&relation, ColumnWidth::Grow),
+            project: Arc::new(move |_cx, row| {
+                read(row)
+                    .loaded()
+                    .map(|target| target.map(&project).unwrap_or_default())
             }),
         }
     }
@@ -353,8 +279,8 @@ impl<M> RelationColumn<M> {
     }
 }
 
-/// A column counting the records of a `Deferred` `has_many` field, which declares the field's
-/// include so every page that renders it loads the records.
+/// A column counting the records of a `Deferred` `has_many` field that a source `S` shows, which
+/// declares the field's include so every page that renders it loads the records.
 ///
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
@@ -371,17 +297,29 @@ impl<M> RelationColumn<M> {
 /// #     #[belongs_to(key = post_id, references = id)]
 /// #     post: toasty::Deferred<Post>,
 /// # }
+/// # struct CommentResource;
+/// # impl tablo_core::extend::OptionSource for CommentResource {
+/// #     type Model = Comment;
+/// #     fn scoped_query(_cx: &topcoat::context::Cx)
+/// #         -> topcoat::Result<toasty::stmt::Query<toasty::stmt::List<Comment>>>
+/// #     {
+/// #         Ok(toasty::stmt::Query::all())
+/// #     }
+/// #     fn label(_cx: &topcoat::context::Cx, comment: &Comment) -> String {
+/// #         comment.id.to_string()
+/// #     }
+/// # }
 /// use tablo_core::{CountColumn, relation};
 ///
-/// CountColumn::new(relation!(Post.comments));
+/// CountColumn::of::<CommentResource>(relation!(Post.comments));
 /// ```
 ///
 /// The header and the column's name are the field's name, capitalized, until
 /// [`label`](Self::label) replaces both.
 ///
-/// The count is the length of the loaded list: a page loads every related record of every row it
-/// counts, and the related resource's `query` and policy do not apply, so the count includes
-/// records its own list hides.
+/// The count is how many of the loaded records `S` shows the user, which [`RelationColumn`]
+/// decides the same way: a page loads every related record of every row it counts.
+/// [`unscoped`](Self::unscoped) counts every record the include loads.
 #[derive_where(Clone, Debug)]
 pub struct CountColumn<M> {
     relation: Declared<M>,
@@ -391,30 +329,50 @@ pub struct CountColumn<M> {
 
 impl<M> CountColumn<M>
 where
-    M: toasty::schema::Model,
+    M: toasty::schema::Model + Send + Sync + 'static,
 {
-    /// Declare a column counting the records `relation` loads.
-    pub fn new<T>(relation: RelationLens<M, Deferred<Vec<T>>>) -> Self
+    /// Declare a column counting the records `relation` loads that `S` shows.
+    pub fn of<S>(relation: RelationLens<M, Deferred<Vec<S::Model>>>) -> Self
+    where
+        S: OptionSource,
+    {
+        Self {
+            relation: Declared::of(&relation, ColumnWidth::Auto)
+                .scoped::<S>(restrict_many::<M, S>(relation.read)),
+            count: count(relation.read, shows::<S>),
+        }
+    }
+
+    /// Declare a column counting every record `relation` loads, under no resource's query or
+    /// policy: for a related model no resource administers.
+    pub fn unscoped<T>(relation: RelationLens<M, Deferred<Vec<T>>>) -> Self
     where
         T: toasty::schema::Model + 'static,
-        M: 'static,
     {
-        let read = relation.read;
         Self {
             relation: Declared::of(&relation, ColumnWidth::Auto),
-            count: Arc::new(move |row| {
-                let records = read(row);
-                (!records.is_unloaded()).then(|| records.get().len())
-            }),
+            count: count(relation.read, |_, _| true),
         }
     }
 }
 
 impl<M> CountColumn<M> {
     /// The row's count, or `None` when its relation was not loaded.
-    fn loaded_text(&self, _cx: &Cx, row: &M) -> Option<String> {
-        (self.count)(row).map(|count| count.to_string())
+    fn loaded_text(&self, cx: &Cx, row: &M) -> Option<String> {
+        (self.count)(cx, row).map(|count| count.to_string())
     }
+}
+
+/// How many records of the list `read` reads off a row `shown` accepts, or `None` when it was not
+/// loaded.
+fn count<M: 'static, T: 'static>(
+    read: fn(&M) -> &Deferred<Vec<T>>,
+    shown: fn(&Cx, &T) -> bool,
+) -> Loaded<M, usize> {
+    Arc::new(move |cx, row| {
+        let records = read(row);
+        (!records.is_unloaded()).then(|| records.get().iter().filter(|r| shown(cx, r)).count())
+    })
 }
 
 /// What both relation-field columns declare: the name and label, the include and the width.
@@ -428,9 +386,12 @@ struct Declared<M> {
     includes: Includes<M>,
     width: ColumnWidth,
     toggle: ColumnToggle,
-    /// The source a [`RelationColumn::of`] labels by, and whether a context's panel can load
-    /// from it.
+    /// The source that decides which related records show, and whether a context's panel can
+    /// load from it.
     source: Option<LabelSource>,
+    /// Drops the related records the source does not show; `None` for an unscoped column.
+    #[derive_where(skip(Debug))]
+    restrict: Option<Restrict<M>>,
 }
 
 impl<M> Declared<M> {
@@ -448,6 +409,16 @@ impl<M> Declared<M> {
             width,
             toggle: ColumnToggle::Fixed,
             source: None,
+            restrict: None,
+        }
+    }
+
+    /// Show only the related records `S` shows, which `restrict` keeps.
+    fn scoped<S: OptionSource>(self, restrict: Restrict<M>) -> Self {
+        Self {
+            source: Some((std::any::type_name::<S>(), S::available)),
+            restrict: Some(restrict),
+            ..self
         }
     }
 
@@ -460,9 +431,13 @@ impl<M> Declared<M> {
         self.label = Some(label);
     }
 
-    /// The text of a row's loaded relation, or the unloaded marker when a loader skipped the
-    /// include this column declares.
+    /// The text of a row's loaded relation. A scoped column renders empty when its row holds no
+    /// record, which is how a required related record the source hides reads. An unscoped one
+    /// renders the unloaded marker, since a loader skipped the include it declares.
     fn text(&self, loaded: Option<String>) -> String {
+        if self.restrict.is_some() {
+            return loaded.unwrap_or_default();
+        }
         debug_assert!(
             loaded.is_some(),
             "the `{}` column declares its include, but its row was loaded without it",
@@ -519,6 +494,18 @@ macro_rules! relation_column {
 
             fn includes(&self) -> Includes<M> {
                 self.relation.includes.clone()
+            }
+
+            fn restrict<'a>(
+                &'a self,
+                cx: &'a Cx,
+                rows: &'a [M],
+                ex: &'a mut dyn Executor,
+            ) -> BoxFuture<'a, Result<()>> {
+                match &self.relation.restrict {
+                    Some(restrict) => restrict(cx, rows, ex),
+                    None => Box::pin(async { Ok(()) }),
+                }
             }
 
             fn misdeclared(&self) -> Option<DeclarationErrorKind> {

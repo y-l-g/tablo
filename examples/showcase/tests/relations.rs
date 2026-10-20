@@ -1,7 +1,7 @@
 //! Records that point at other records: a belongs-to select and column, and a record page's table
 //! of its children.
 
-use showcase::models::{Author, Comment, Post, PostStatus};
+use showcase::models::{Author, Comment, Post, PostStatus, REMOVED_COMMENT_BODY};
 use tablo::TenantId;
 
 use crate::common::{
@@ -142,11 +142,17 @@ async fn posts_list_shows_comments_count_via_include() {
             .await
             .unwrap()
             .unwrap_or_else(|| panic!("the seed creates {title}"));
-        Comment::filter(Comment::fields().post_id().eq(post.id))
-            .exec(db)
-            .await
-            .unwrap()
-            .len()
+        // `CommentResource`'s policy hides a removed comment, so the count leaves it out.
+        Comment::filter(
+            Comment::fields()
+                .post_id()
+                .eq(post.id)
+                .and(Comment::fields().body().ne(REMOVED_COMMENT_BODY)),
+        )
+        .exec(db)
+        .await
+        .unwrap()
+        .len()
     };
     let hello = comments_of(&mut db_q, "Hello Toasty").await;
     let bare = comments_of(&mut db_q, "Second Post").await;

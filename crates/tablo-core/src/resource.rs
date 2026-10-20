@@ -27,7 +27,7 @@ pub use commit::{Committed, Mutation};
 pub use def::{PublicLink, ResourceDef};
 pub(crate) use header_action::HeaderEntry;
 pub use header_action::{HeaderAction, HeaderActions};
-pub(crate) use mounted::{MountScope, Mounted, Mounts, mounted, require_mounted};
+pub(crate) use mounted::{MountScope, Mounted, Mounts, is_tenant_model, mounted, require_mounted};
 pub use relation::{ForeignKey, Relation};
 pub(crate) use relation::{Links, RelationKind};
 pub use write::{write_create, write_update};

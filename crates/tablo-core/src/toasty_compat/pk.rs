@@ -84,6 +84,35 @@ where
     toasty::stmt::Expr::from_untyped(Expr::and_from_vec(operands))
 }
 
+/// The predicate selecting each of `records` by its primary key: one `IN` list over a single key,
+/// one equality per record over a composite one, and no row for no record.
+pub(crate) fn pk_set_filter<M>(records: &[&M]) -> toasty::stmt::Expr<bool>
+where
+    M: toasty::schema::Model + IntoExpr<M>,
+{
+    let cond = match pk_fields::<M>()[..] {
+        [field] => {
+            let values: Vec<Value> = records
+                .iter()
+                .filter_map(|record| pk_values(*record).pop())
+                .collect();
+            if values.is_empty() {
+                Expr::from(false)
+            } else {
+                Expr::in_list(Expr::ref_self_field(field), Expr::list(values))
+            }
+        }
+        _ if records.is_empty() => Expr::from(false),
+        _ => Expr::or_from_vec(
+            records
+                .iter()
+                .map(|record| Expr::from(pk_filter(*record)))
+                .collect(),
+        ),
+    };
+    toasty::stmt::Expr::from_untyped(cond)
+}
+
 /// `record`'s single primary key as an expression of the foreign-key type `T` referencing it.
 pub(crate) fn pk_expr<M, T>(record: &M) -> toasty::stmt::Expr<T>
 where

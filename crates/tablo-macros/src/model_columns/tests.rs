@@ -3,9 +3,10 @@ use super::*;
 /// The names of the fields a column shows for `source`, or the refusal.
 fn shown(source: &str) -> Result<Vec<String>, String> {
     let input: DeriveInput = syn::parse_str(source).expect("the derive input parses");
-    shown_fields(&input)
+    fields(&input)
         .map(|fields| {
             fields
+                .shown
                 .iter()
                 .map(|field| field.ident.as_ref().expect("named").to_string())
                 .collect()
@@ -45,6 +46,23 @@ fn the_columns_show_what_a_person_reads_whoever_writes_it() {
             "seo",
             "links"
         ]
+    );
+}
+
+#[test]
+fn the_tenant_columns_are_the_fields_typed_tenant_id() {
+    let input: DeriveInput = syn::parse_str(
+        "struct M {
+             #[key] #[auto] id: Uuid,
+             tenant_id: TenantId,
+             owner: Uuid,
+             #[index] previous_tenant: Option<tablo::TenantId>,
+         }",
+    )
+    .expect("the derive input parses");
+    assert_eq!(
+        fields(&input).unwrap().tenant_columns,
+        ["tenant_id", "previous_tenant"]
     );
 }
 

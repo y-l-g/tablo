@@ -33,7 +33,9 @@ pub(crate) use lenses::Binding;
 pub use lenses::form_key;
 pub use options::Options;
 pub use relationship::MAX_RELATIONSHIP_OPTIONS;
-pub(crate) use relationship::{OptionLoadError, OptionSource, clamp_query_term};
+pub(crate) use relationship::{
+    OptionLoadError, OptionSource, clamp_query_term, ensure_option_access,
+};
 pub use repeater::{MAX_ROWS, parse_items, write_items};
 use topcoat::{Result, context::Cx, view::*};
 pub use tree::{IntoSchema, Source};
@@ -388,7 +390,7 @@ impl<F> Schema<F> {
                 continue;
             }
             if stored.get(name) != Some(value)
-                && let Some(error) = field.check(value)
+                && let Some(error) = field.check(value, &crate::time_zone(cx))
             {
                 errors.push(error);
                 continue;
@@ -414,13 +416,18 @@ impl<F> Schema<F> {
 
     /// Puts back the stored value of each text field whose control posted it as rendered: see
     /// [`Field::keep_unedited`].
-    pub(crate) fn keep_unedited(&self, values: &mut FormValues, stored: &FormValues) {
+    pub(crate) fn keep_unedited(
+        &self,
+        values: &mut FormValues,
+        stored: &FormValues,
+        zone: &jiff::tz::TimeZone,
+    ) {
         for field in &self.fields {
             let name = field.name();
             let (Some(value), Some(held)) = (values.get(name), stored.get(name)) else {
                 continue;
             };
-            if let Some(kept) = field.keep_unedited(value, held) {
+            if let Some(kept) = field.keep_unedited(value, held, zone) {
                 values.insert(name, kept);
             }
         }

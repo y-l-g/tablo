@@ -9,10 +9,11 @@ use std::{marker::PhantomData, num::NonZeroUsize, sync::Arc};
 
 use derive_where::derive_where;
 use toasty::stmt::{Expr, List};
+use topcoat::context::Cx;
 
 pub(crate) use self::choice::ColumnChoice;
 use self::filter::BoxFilter;
-pub(crate) use crate::column::{BoxColumn, Column, include_relations};
+pub(crate) use crate::column::{BoxColumn, Column, include_relations, restrict_relations};
 use crate::{DeclarationErrorKind, Lens, dom::ignored, schema::Binding, values::FormScalar};
 
 mod choice;
@@ -213,6 +214,17 @@ impl<M> Table<M> {
         include_relations(query, &self.columns)
     }
 
+    /// Check which related records `rows`, loaded through [`Self::include_relations`], hold that
+    /// the columns' sources show the user.
+    pub(crate) async fn restrict_relations(
+        &self,
+        cx: &topcoat::context::Cx,
+        rows: &[M],
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<()> {
+        restrict_relations(cx, &self.columns, rows, ex).await
+    }
+
     /// The names of the requested filters whose value [`Filter::admits`] refuses: values naming
     /// records the user may not see, which [`Self::filter_expr`] and
     /// [`Self::unapplied_filters`] treat as invalid.
@@ -237,7 +249,12 @@ impl<M> Table<M> {
     }
 
     /// Filter predicate for the current `TableState`, without the `refused` filters.
-    pub(crate) fn filter_expr(&self, state: &TableState, refused: &[String]) -> Option<Expr<bool>>
+    pub(crate) fn filter_expr(
+        &self,
+        cx: &Cx,
+        state: &TableState,
+        refused: &[String],
+    ) -> Option<Expr<bool>>
     where
         M: toasty::schema::Model,
     {
@@ -245,7 +262,7 @@ impl<M> Table<M> {
         for f in &self.filters {
             if let Some(v) = state.filters.get(f.name())
                 && !refused.iter().any(|name| name == f.name())
-                && let Some(e) = f.to_expr(v)
+                && let Some(e) = f.to_expr(cx, v)
             {
                 exprs.push(e);
             }
@@ -266,6 +283,7 @@ impl<M> Table<M> {
     /// which [`ignored_reason`] words.
     pub(crate) fn unapplied_filters(
         &self,
+        cx: &Cx,
         state: &TableState,
         refused: &[String],
     ) -> Vec<(String, &'static str)>
@@ -278,7 +296,7 @@ impl<M> Table<M> {
                 None => out.push((state.spell_filter(key, value), ignored::UNKNOWN)),
                 Some(f)
                     if refused.iter().any(|name| name == key)
-                        || (f.to_expr(value).is_none() && !f.is_noop_value(value)) =>
+                        || (f.to_expr(cx, value).is_none() && !f.is_noop_value(value)) =>
                 {
                     out.push((state.spell_filter(key, value), ignored::INVALID))
                 }
@@ -494,6 +512,7 @@ impl<M> Table<M> {
     /// Apply this table's declaration to `query`: [`Self::narrow`], then the ordering.
     pub(crate) fn apply_declaration(
         &self,
+        cx: &Cx,
         db: &toasty::Db,
         query: toasty::stmt::Query<List<M>>,
         state: &TableState,
@@ -502,13 +521,14 @@ impl<M> Table<M> {
     where
         M: toasty::schema::Model,
     {
-        self.order(self.narrow(db, query, state, refused), state)
+        self.order(self.narrow(cx, db, query, state, refused), state)
     }
 
     /// Narrow `query` to the rows `state`'s search and filters select, but the `refused`
     /// filters, unordered: what a count reads.
     pub(crate) fn narrow(
         &self,
+        cx: &Cx,
         db: &toasty::Db,
         mut query: toasty::stmt::Query<List<M>>,
         state: &TableState,
@@ -522,7 +542,7 @@ impl<M> Table<M> {
         {
             query = query.filter(crate::toasty_compat::case_insensitive_search(db, expr));
         }
-        if let Some(expr) = self.filter_expr(state, refused) {
+        if let Some(expr) = self.filter_expr(cx, state, refused) {
             query = query.filter(expr);
         }
         query

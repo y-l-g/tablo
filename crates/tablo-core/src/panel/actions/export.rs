@@ -71,7 +71,7 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
         let table = resource.table.clone();
         // Fails closed on unapplied filters, a refused one included.
         let refused = table.refused_filters(cx, &state).await?;
-        let unapplied = table.unapplied_filters(&state, &refused);
+        let unapplied = table.unapplied_filters(cx, &state, &refused);
         if !unapplied.is_empty() {
             return Err(topcoat::router::error::bad_request(format!(
                 "invalid filters: {}",
@@ -132,6 +132,11 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
                         return;
                     }
                 };
+                if let Err(error) = table.restrict_relations(&cx2, &rows, &mut db_handle).await {
+                    tracing::error!(resource = resource.slug, error = %error, "export stream failed");
+                    tx.abort(std::io::Error::other("export unavailable"));
+                    return;
+                }
                 let mut fragment = String::new();
                 for row in &rows {
                     if resource.can(&cx2, Ability::View(row)) {
@@ -184,6 +189,7 @@ fn export_base_query<R: Resource>(
     refused: &[String],
 ) -> Result<toasty::stmt::Query<toasty::stmt::List<R::Model>>> {
     Ok(table.apply_declaration(
+        cx,
         &crate::db::db(cx),
         resource.scoped_query(cx)?,
         state,

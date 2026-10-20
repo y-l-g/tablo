@@ -75,7 +75,8 @@ detail's columns declare, each once, wherever its block sits: a relation column 
 `ComputedColumn` declares one with `include`. No other relation loads: a `ComputedColumn` reading
 one it does not declare finds it unloaded. A page of the app's
 own renders a `Detail` the same way: `detail.render(cx, &record)` on a record loaded through
-`detail.include_relations(scoped_query::<R>(cx)?)`.
+`detail.load(cx, scoped_query::<R>(cx)?)`, which includes the relations and drops the related
+records each relation column's resource does not show the user.
 
 An unknown id and an id outside the request's tenant are the same 404; a record the policy may not
 `View` is a 403.

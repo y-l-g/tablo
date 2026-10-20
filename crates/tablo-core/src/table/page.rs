@@ -91,8 +91,8 @@ where
 {
     /// Load the page of `table` that `state` names: `query` with the table's
     /// search, filters and ordering applied (but a filter naming records the user may not see),
-    /// the relations its columns declare
-    /// included, and the table's [`Pagination`] at the page size `state` reads at.
+    /// the relations its columns declare included and checked against what their sources show
+    /// the user, and the table's [`Pagination`] at the page size `state` reads at.
     ///
     /// `query` is the caller's scope. The panel's list passes the resource's
     /// [`scoped_query`](crate::resource::scoped_query); a page that owns its
@@ -112,13 +112,17 @@ where
         state: &TableState,
     ) -> Result<Self> {
         let refused = table.refused_filters(cx, state).await?;
-        match table.pagination_mode() {
+        let page = match table.pagination_mode() {
             Pagination::Pages => Self::load_numbered(cx, table, query, state, &refused, true).await,
             Pagination::Simple => {
                 Self::load_numbered(cx, table, query, state, &refused, false).await
             }
             Pagination::Cursor => Self::load_cursor(cx, table, query, state, &refused).await,
-        }
+        }?;
+        table
+            .restrict_relations(cx, &page.rows, &mut crate::db::db(cx))
+            .await?;
+        Ok(page)
     }
 
     /// Load the page `?page=` names by offset, counting the result set when `counted`.
@@ -135,7 +139,7 @@ where
         counted: bool,
     ) -> Result<Self> {
         let mut db = crate::db::db(cx);
-        let narrowed = table.narrow(&db, query, state, refused);
+        let narrowed = table.narrow(cx, &db, query, state, refused);
         let per_page = table.page_size_for(state);
         let total = if counted {
             Some(
@@ -210,7 +214,7 @@ where
         // seed. The cursor probes below reuse that filtered and ordered query
         // without the columns' includes: they only ask whether a row exists.
         let mut db = crate::db::db(cx);
-        let base_query = table.apply_declaration(&db, query, state, refused);
+        let base_query = table.apply_declaration(cx, &db, query, state, refused);
         let query = table.include_relations(base_query.clone());
         let per_page = table.page_size_for(state);
         let mut paginated = toasty::stmt::Paginate::new(query, per_page);

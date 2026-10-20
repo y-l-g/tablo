@@ -236,7 +236,7 @@ impl<E: TenantEditor> DynTenantEditor for E {
                     None => values.remove(key),
                 };
             }
-            schema.keep_unedited(&mut values, &stored);
+            schema.keep_unedited(&mut values, &stored, &crate::time_zone(cx));
             let input =
                 match input::parse::<E::Input>(cx, &values, &stored, "tenant settings").await? {
                     Ok(input) => input,
@@ -332,7 +332,8 @@ pub(super) fn tenant_profile_post(cx: &Cx, body: Body) -> BoxView<'_> {
             );
             return Err(see_other(tenant_profile_url(cx)).into());
         }
-        let values = editor.schema().read_input(&form.pairs, &RESERVED_KEYS)?;
+        let input_schema = editor.schema();
+        let values = input_schema.read_input(cx, &form.pairs, &RESERVED_KEYS)?;
         if let Outcome::Refused { values, errors } =
             editor.submit(cx, signed, tenant, values).await?
         {

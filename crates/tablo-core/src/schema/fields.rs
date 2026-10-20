@@ -30,7 +30,7 @@ use crate::{
     dom,
     naming::capitalize,
     schema::FormInput,
-    values::{FieldError, FieldErrorKind, FormScalar, FormValue, is_email},
+    values::{FieldError, FieldErrorKind, FormScalar, FormValue},
 };
 
 /// One form field binding a lens to the control editing it, offering only that control's modifiers
@@ -472,38 +472,20 @@ impl Field {
         self.binding.nullable()
     }
 
-    /// Refuses a non-empty submission the control's own rules refuse: an email field's address, and
-    /// a text field's declared length, bounds and pattern.
-    pub(crate) fn check(&self, value: &FormValue) -> Option<FieldError> {
-        let value = value.as_text()?.trim();
-        let ControlKind::Text(text) = &self.control else {
-            return None;
-        };
-        if value.is_empty() {
-            return None;
-        }
-        let label = self.label_str();
-        let message = if text.email && !is_email(value) {
-            format!("{label} must be a valid email")
-        } else {
-            text.refusal(label, value)?
-        };
-        Some(FieldError::invalid(self.name(), message))
-    }
-
     /// What is wrong with the rules the field's text control declares, reported under `field`:
-    /// one that cannot work, or a default that breaks one.
+    /// one that cannot work, or a default its type does not parse or that breaks one.
     pub(crate) fn rule_errors(&self, field: &str) -> Vec<crate::DeclarationErrorKind> {
         let ControlKind::Text(text) = &self.control else {
             return Vec::new();
         };
         let mut faults = text.rule_faults();
-        if let Some(value) = self.default_value()
-            && self.check(value).is_some()
-        {
-            faults.push(crate::FieldRuleFault::RefusedDefault(
-                value.as_text().unwrap_or_default().to_string(),
-            ));
+        if let Some(value) = self.default_value() {
+            let spelled = value.as_text().unwrap_or_default().trim();
+            if !spelled.is_empty() && !text.parses(spelled) {
+                faults.push(crate::FieldRuleFault::UnparsedDefault(spelled.to_string()));
+            } else if self.check(value, &jiff::tz::TimeZone::UTC).is_some() {
+                faults.push(crate::FieldRuleFault::RefusedDefault(spelled.to_string()));
+            }
         }
         faults
             .into_iter()
@@ -564,19 +546,6 @@ impl Field {
             }
             _ => Vec::new(),
         }
-    }
-
-    /// The stored value `stored` when a text control posts `value` as it rendered `stored`, or
-    /// `None` when the user changed it. A control coarser than its column, as a timestamp's is to
-    /// the minute, renders a rounded value: posting it back untouched must not round the column.
-    pub(crate) fn keep_unedited(&self, value: &FormValue, stored: &FormValue) -> Option<FormValue> {
-        let ControlKind::Text(text) = &self.control else {
-            return None;
-        };
-        let (Some(value), Some(held)) = (value.as_text(), stored.as_text()) else {
-            return None;
-        };
-        (value != held && value.trim() == text.rendering(held)).then(|| stored.clone())
     }
 
     /// A multiple choice's `value` with the stored keys it drops that the user cannot view put

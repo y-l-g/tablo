@@ -55,9 +55,9 @@ fn text_column_includes_accumulate_once_per_relation() {
     }
 
     let column = ComputedColumn::new("Owner", |p: &Pet| p.id.to_string())
-        .include(Pet::fields().owner())
-        .include(Pet::fields().vet())
-        .include(Pet::fields().owner());
+        .include_unscoped(Pet::fields().owner())
+        .include_unscoped(Pet::fields().vet())
+        .include_unscoped(Pet::fields().owner());
     assert_eq!(
         column.includes().len(),
         2,
@@ -104,10 +104,10 @@ fn a_date_column_texts_the_stored_value_and_names_its_day() {
     assert_eq!(text(&TextColumn::new(lens!(Event.day))), "2026-10-14");
 
     let day = Some(jiff::civil::date(2026, 10, 14));
-    assert_eq!(row.day.calendar_date(), day);
-    assert_eq!(row.at.calendar_date(), day);
-    assert_eq!(row.seen.calendar_date(), day);
-    assert_eq!(row.closed.calendar_date(), None);
+    assert_eq!(row.day.calendar_date(&jiff::tz::TimeZone::UTC), day);
+    assert_eq!(row.at.calendar_date(&jiff::tz::TimeZone::UTC), day);
+    assert_eq!(row.seen.calendar_date(&jiff::tz::TimeZone::UTC), day);
+    assert_eq!(row.closed.calendar_date(&jiff::tz::TimeZone::UTC), None);
     assert_eq!(
         Column::column_width(&DateColumn::new(lens!(Event.day))),
         ColumnWidth::Auto

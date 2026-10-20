@@ -50,12 +50,13 @@ foreign key `Relation::has_many` takes.
 | Constructor | Cell | Search and sort |
 | --- | --- | --- |
 | `TextColumn::new(lens)` | the field's value as text (an `Options` enum's label), or `.format(\|value\| ..)` of it; see [Presenting values](#presenting-values) | `.searchable()` on a `String` field, `.sortable()` |
-| `DateColumn::new(lens)` | a `jiff::civil::Date`, `civil::DateTime` or `Timestamp` field's calendar day, `Oct 14, 2026` (a timestamp in UTC); a dash when the field holds none. The export writes the stored value, `2026-10-14T09:30:00Z`. | `.sortable()` |
+| `DateColumn::new(lens)` | a `jiff::civil::Date`, `civil::DateTime` or `Timestamp` field's calendar day, `Oct 14, 2026` (a timestamp's day in the request's [time zone](./forms.md#time-zones)); a dash when the field holds none. The export writes the stored value, `2026-10-14T09:30:00Z`. | `.sortable()` |
 | `ComputedColumn::new(label, project)` | `project(row)` | neither: the methods do not exist |
 | `RelationColumn::of::<R>(relation!(..))` | a `Deferred` `belongs_to` or `has_one` field's record, titled as `R` titles it: a resource's `record_title`; a dash for a nullable field holding none | neither |
-| `RelationColumn::new(relation!(..), project)` | `project` of the same record, for a related model no resource or option source labels | neither |
+| `RelationColumn::new::<R>(relation!(..), project)` | `project` of the same record | neither |
 | `RelationColumn::list::<R>(relation!(..))` | a `Deferred` `has_many` field's records, a many-to-many `via` field's included, each titled as `R` titles it, joined by commas | neither |
-| `CountColumn::new(relation!(..))` | the number of a `Deferred` `has_many` field's records | neither |
+| `CountColumn::of::<R>(relation!(..))` | the number of a `Deferred` `has_many` field's records | neither |
+| `RelationColumn::unscoped(relation!(..), project)`, `CountColumn::unscoped(relation!(..))` | as above, for a related model no resource administers | neither |
 | `BooleanColumn::new(lens)` | a circled check or circled cross for a `bool` field; the export writes `Yes`/`No` (`.labels(..)`) | `.sortable()` |
 | `FileColumn::new(lens)` | a `String` field's stored upload path, as a link when it is a rooted path or an `http(s)` URL | neither |
 | `ImageColumn::new(lens)` | a rooted path as a 40px thumbnail (`.size(px)`, `.circular()`); an `http(s)` URL too once `.remote()` allows it, for a field only trusted users write, since every viewer's browser loads it from that host | neither |
@@ -75,16 +76,20 @@ foreign key `Relation::has_many` takes.
 - **Relations.** A relation column declares the include its `relation!` names, so the list, the
   export and the detail page load the related records with the page's rows. A relation no column
   includes is not loaded; a `ComputedColumn` whose closure reads one, say to combine two, declares
-  each with `.include(..)`.
+  each with `.include_unscoped(..)`, and reads it under no resource's query or policy.
 
 ```rust
 {{#include ../../../examples/guide/src/tables.rs:table-relation-column}}
 ```
 
-An include loads related rows through Toasty alone: the related resource's `query` and tenant
-scope do not apply. `RelationColumn::list` leaves out a record the related resource's policy does
-not let the user view, but `RelationColumn::of` shows it, and a `CountColumn` counts it.
-A `CountColumn` counts the loaded list, so it loads every related record of the page's rows.
+A relation column over `R` shows only the related records `R` shows the user, as a relationship
+choice over `R` offers them: the ones `R`'s tenant-scoped `query` returns and its policy lets the
+user `View`. Once the page's rows load, the columns ask `R` which of the loaded records it shows,
+one query per 500 records not yet asked about in the request, and render only those: a
+soft-deleted author renders empty, and a `CountColumn` leaves out the comments the user cannot
+view. The rows keep what the include loaded, so a policy reading the relation sees it whole.
+`unscoped` columns show whatever the include loads. A `CountColumn` counts the loaded list, so it
+loads every related record of the page's rows.
 
 - **Widths.** The table lays out automatically: a column is as wide as its content, on one line.
   A text, field or `RelationColumn` grows: it caps its value at 20rem, truncating past that, and
@@ -228,7 +233,7 @@ search and filters as a GET form.
 | `SelectFilter::new(lens, options)` | `String`, or any form scalar | one or more of `options`, matched exactly; the options are `Vec<(String, String)>` (an `Options` list), `Vec<String>`, or `[&str; N]` |
 | `SelectFilter::relationship::<R>(lens)` | a foreign key to the rows of `R`, a [relationship source](./forms.md#relationships) | one or more keys |
 | `TernaryFilter::new(lens)` | `bool` | `true`, `false`, or `all` (no filter) |
-| `DateFilter::new(lens)` | `jiff::Timestamp`, `jiff::civil::Date` or `jiff::civil::DateTime`, or an `Option` of one | a date `2024-01-15` matches that day (UTC for a timestamp); an RFC 3339 timestamp, or a civil date-time, matches that value; on a `DateFilter::range` filter the parts `from` and `to` bound a range |
+| `DateFilter::new(lens)` | `jiff::Timestamp`, `jiff::civil::Date` or `jiff::civil::DateTime`, or an `Option` of one | a date `2024-01-15` matches that day (in the request's [time zone](./forms.md#time-zones) for a timestamp); an RFC 3339 timestamp, or a civil date-time (read in that zone for a timestamp), matches that value; on a `DateFilter::range` filter the parts `from` and `to` bound a range |
 | `QueryFilter::new(name, label).option(label, predicate)` | any | one or more named options, each a Toasty predicate you build |
 
 An active filter's parameter is `?f.<name>=<value>`, named after the field (a `QueryFilter`

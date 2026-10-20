@@ -1,5 +1,5 @@
 use super::*;
-use crate::{schema::Field, values::FieldErrorKind};
+use crate::{schema::Field, test_support::cx, values::FieldErrorKind};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, crate::Options)]
 enum Kind {
@@ -54,12 +54,15 @@ fn repeater() -> Schema {
 #[test]
 fn a_read_takes_the_rows_in_the_order_the_key_lists_them() {
     let values = repeater()
-        .read(&posted(&[
-            ("links", "4, 1"),
-            ("links.1.label", "Docs"),
-            ("links.1.url", "https://docs.example"),
-            ("links.4.label", "Blog"),
-        ]))
+        .read(
+            &cx(),
+            &posted(&[
+                ("links", "4, 1"),
+                ("links.1.label", "Docs"),
+                ("links.1.url", "https://docs.example"),
+                ("links.4.label", "Blog"),
+            ]),
+        )
         .unwrap();
     assert_eq!(
         values.rows("links").unwrap(),
@@ -73,12 +76,15 @@ fn a_read_takes_the_rows_in_the_order_the_key_lists_them() {
 #[test]
 fn a_read_leaves_what_no_listed_row_of_the_item_posts_unclaimed() {
     let (values, unclaimed) = repeater()
-        .read_unclaimed(&posted(&[
-            ("links", "0"),
-            ("links.0.label", "Docs"),
-            ("links.0.secret", "x"),
-            ("links.1.label", "Unlisted"),
-        ]))
+        .read_unclaimed(
+            &cx(),
+            &posted(&[
+                ("links", "0"),
+                ("links.0.label", "Docs"),
+                ("links.0.secret", "x"),
+                ("links.1.label", "Unlisted"),
+            ]),
+        )
         .unwrap();
     assert_eq!(values.rows("links").unwrap(), [texts(&[("label", "Docs")])]);
     assert_eq!(unclaimed, ["links.0.secret", "links.1.label"]);
@@ -86,10 +92,12 @@ fn a_read_leaves_what_no_listed_row_of_the_item_posts_unclaimed() {
 
 #[test]
 fn a_submission_not_posting_the_repeater_reads_nothing_and_an_empty_list_reads_no_rows() {
-    let values = repeater().read(&posted(&[("title", "kept")])).unwrap();
+    let values = repeater()
+        .read(&cx(), &posted(&[("title", "kept")]))
+        .unwrap();
     assert!(values.is_empty(), "an edit keeps the stored rows");
 
-    let values = repeater().read(&posted(&[("links", "")])).unwrap();
+    let values = repeater().read(&cx(), &posted(&[("links", "")])).unwrap();
     assert_eq!(values.rows("links"), Some(&[][..]));
 }
 
@@ -102,15 +110,19 @@ fn a_read_refuses_an_order_that_lists_no_row_or_a_row_twice() {
     for row in &rows {
         too_many.push((format!("links.{row}.label"), "a".to_string()));
     }
-    let error = repeater().read(&too_many).unwrap_err();
+    let error = repeater().read(&cx(), &too_many).unwrap_err();
     assert!(error.contains("more than"), "{error}");
     too_many.pop();
     too_many[0].1 = rows[..MAX_ROWS].join(",");
-    repeater().read(&too_many).expect("the cap itself reads");
+    repeater()
+        .read(&cx(), &too_many)
+        .expect("the cap itself reads");
 
     for order in ["first", "-1", "0,0", "0"] {
         assert!(
-            repeater().read(&posted(&[("links", order)])).is_err(),
+            repeater()
+                .read(&cx(), &posted(&[("links", order)]))
+                .is_err(),
             "{order} is refused"
         );
     }
@@ -155,13 +167,16 @@ async fn each_row_answers_to_its_items_control_rules() {
     let cx = crate::test_support::cx();
     let schema = repeater();
     let values = schema
-        .read(&posted(&[
-            ("links", "0,1"),
-            ("links.0.label", "Docs"),
-            ("links.0.kind", "docs"),
-            ("links.1.label", "Blog"),
-            ("links.1.kind", "bogus"),
-        ]))
+        .read(
+            &cx,
+            &posted(&[
+                ("links", "0,1"),
+                ("links.0.label", "Docs"),
+                ("links.0.kind", "docs"),
+                ("links.1.label", "Blog"),
+                ("links.1.kind", "bogus"),
+            ]),
+        )
         .unwrap();
     let errors = schema.checked(&cx, &values).await;
     let keys: Vec<&str> = errors.iter().map(|error| error.key.as_str()).collect();
