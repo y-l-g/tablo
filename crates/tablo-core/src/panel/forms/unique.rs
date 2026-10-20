@@ -5,6 +5,7 @@ use std::collections::HashSet;
 use topcoat::{Result, context::Cx};
 
 use crate::{
+    db::db,
     form::{FieldErrors, FormValues},
     resource::{Mounted, Resource},
 };
@@ -67,6 +68,25 @@ pub(super) async fn check_unique<R: Resource>(
         }
     }
     Ok(errors)
+}
+
+/// The submitted unique values another record holds now that a write failed, read once the
+/// write's transaction is gone: empty when none is taken, or when the probe fails too.
+///
+/// [`check_unique`] probes inside the write's transaction, so it cannot see a concurrent create
+/// of the same value that has not committed; the unique index then refuses the write. Toasty
+/// names no unique violation (tablo#117), but the other write has committed by the time the
+/// index refuses this one, so the probe sees its row.
+pub(super) async fn taken_since<R: Resource>(
+    cx: &Cx,
+    resource: &Mounted<R>,
+    schema: &crate::schema::Schema,
+    values: &FormValues,
+    current: &FormValues,
+) -> FieldErrors {
+    check_unique(cx, resource, schema, values, current, &mut db(cx))
+        .await
+        .unwrap_or_default()
 }
 
 /// The filter matching another row that holds the submitted value of every field in `members`,

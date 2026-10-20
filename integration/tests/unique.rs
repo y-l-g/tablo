@@ -1,5 +1,6 @@
 //! A `unique()` field through the panel: a value another record holds re-renders the form and
-//! writes nothing, the record's own value saves, and the probe reads the declared type.
+//! writes nothing, even when it was taken after the probe, the record's own value saves, and the
+//! probe reads the declared type.
 
 use tablo::{
     Ability, Resource, ResourceDef, Schema, Table, TextColumn, lens,
@@ -33,12 +34,16 @@ impl Resource for SubscriberResource {
     type Form = SubscriberForm;
 
     fn declare() -> ResourceDef<Self> {
-        ResourceDef::new()
-            .slug("subscribers")
-            .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
-            .table(Table::new(TextColumn::new(lens!(Subscriber.email))))
-            .form(Schema::new(SubscriberForm::controls().email.unique()))
+        subscribers()
     }
+}
+
+fn subscribers<R: Resource<Model = Subscriber, Form = SubscriberForm>>() -> ResourceDef<R> {
+    ResourceDef::new()
+        .slug("subscribers")
+        .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
+        .table(Table::new(TextColumn::new(lens!(Subscriber.email))))
+        .form(Schema::new(SubscriberForm::controls().email.unique()))
 }
 
 /// An empty value is missing, not a duplicate of the empty value: each empty submit re-renders
@@ -189,4 +194,72 @@ async fn an_edit_keeps_its_own_unique_value() {
         "{html}"
     );
     assert_eq!(token(stored(&db).await), Uuid::parse_str(MINE).unwrap());
+}
+
+/// A create whose value another create took after the probe passed it: the unique index refuses
+/// the write, and the form re-renders with the field's error instead of failing the request.
+///
+/// The scoped query hides the other record until the write runs, as a probe running before the
+/// other create commits does.
+#[tokio::test]
+async fn a_value_taken_after_the_probe_renders_inline() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    use toasty::stmt::{List, Query};
+    use topcoat::context::Cx;
+
+    const RIVAL: &str = "rival@example.com";
+    static WRITING: AtomicBool = AtomicBool::new(false);
+
+    struct RacedResource;
+
+    impl Resource for RacedResource {
+        type Model = Subscriber;
+        type Form = SubscriberForm;
+
+        fn declare() -> ResourceDef<Self> {
+            subscribers()
+        }
+
+        fn query(_cx: &Cx) -> Query<List<Subscriber>> {
+            let all = Query::<List<Subscriber>>::all();
+            if WRITING.load(Ordering::SeqCst) {
+                all
+            } else {
+                all.filter(Subscriber::fields().email().ne(RIVAL))
+            }
+        }
+
+        async fn create_record(
+            cx: &Cx,
+            form: SubscriberForm,
+            ex: &mut dyn toasty::Executor,
+        ) -> topcoat::Result<Subscriber> {
+            WRITING.store(true, Ordering::SeqCst);
+            tablo::write_create::<Self>(cx, form, ex).await
+        }
+    }
+
+    let mut db = test_db(toasty::models!(Subscriber)).await;
+    toasty::create!(Subscriber {
+        email: RIVAL.to_string(),
+    })
+    .exec(&mut db)
+    .await
+    .unwrap();
+    let router = panel_router::<RacedResource>(db.clone());
+    let response = TestClient::new(&router)
+        .submit("/admin/subscribers/-/create", &format!("email={RIVAL}"))
+        .await;
+    assert_eq!(response.status(), 200);
+    let html = body_string(response).await;
+    assert_eq!(
+        field_error(&html, "email"),
+        Some(ErrorKind::Invalid),
+        "{html}"
+    );
+    assert_eq!(
+        Subscriber::all().exec(&mut db.clone()).await.unwrap().len(),
+        1
+    );
 }

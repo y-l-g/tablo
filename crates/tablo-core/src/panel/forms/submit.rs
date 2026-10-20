@@ -10,14 +10,18 @@ use topcoat::{
 };
 
 use super::{
-    super::{actions::load_editable, gate::gate, write::commit_write},
+    super::{
+        actions::load_editable,
+        gate::gate,
+        write::{commit_write, failed_write},
+    },
     common::{
         FormParts, blank, drop_client_typed_uploads, file_flags, reject_unknown_form_keys,
         rerender_invalid_form, restore_pending_uploads,
     },
     decode::parse_form_body,
-    render::FormChrome,
-    unique::check_unique,
+    render::{FormChrome, render_form_page},
+    unique::{check_unique, taken_since},
 };
 use crate::{
     db::db,
@@ -249,7 +253,8 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         // Opens the transaction after validation so loaders never block on the held connection.
         let mut db = db(cx);
         let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
-        // App-side unique check: Toasty exposes no unique-violation predicate (tablo#117).
+        // App-side unique check: Toasty exposes no unique-violation predicate (tablo#117). A
+        // write the index refuses all the same re-probes through `taken_since`.
         errors.extend(
             check_unique(cx, &resource, &schema, &values, &FormValues::new(), &mut tx).await?,
         );
@@ -275,12 +280,30 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             )
             .await;
         };
-        let written = R::create_record(cx, form, &mut tx).await;
+        let written = match R::create_record(cx, form, &mut tx).await {
+            Ok(written) => written,
+            Err(error) => {
+                drop(tx);
+                let taken = taken_since(cx, &resource, &schema, &values, &FormValues::new()).await;
+                if taken.is_empty() {
+                    return Err(failed_write(cx, WRITE_CREATE, error));
+                }
+                return render_form_page(
+                    cx,
+                    &resource.form,
+                    FormChrome::create(&resource),
+                    &values,
+                    &taken,
+                    &carried,
+                )
+                .await;
+            }
+        };
         commit_write(
             cx,
             &resource,
             tx,
-            written.map(|value| (value, crate::Outcome::done())),
+            Ok((written, crate::Outcome::done())),
             Committed::created,
             "Created",
             WRITE_CREATE,
@@ -337,12 +360,35 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
             .await;
         };
         let posted = Posted::new(form, named_fields(&resource, &named));
-        let written = R::update_record(cx, record, posted, &mut tx).await;
+        let written = match R::update_record(cx, record, posted, &mut tx).await {
+            Ok(written) => written,
+            Err(error) => {
+                drop(tx);
+                let taken = taken_since(cx, &resource, &schema, &values, &stored).await;
+                if taken.is_empty() {
+                    return Err(failed_write(cx, WRITE_UPDATE, error));
+                }
+                // The edit page renders on the record as it now stands.
+                let record = load_editable(cx, &resource, &mut crate::db::db(cx)).await?;
+                if !resource.can(cx, Ability::Update(&record)) {
+                    return Err(forbidden().into());
+                }
+                return render_form_page(
+                    cx,
+                    &resource.form,
+                    FormChrome::edit(cx, &resource, &record),
+                    &values,
+                    &taken,
+                    &carried,
+                )
+                .await;
+            }
+        };
         commit_write(
             cx,
             &resource,
             tx,
-            written.map(|value| (value, crate::Outcome::done())),
+            Ok((written, crate::Outcome::done())),
             Committed::updated,
             "Updated",
             WRITE_UPDATE,
