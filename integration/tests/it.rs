@@ -20,6 +20,7 @@ mod embedded_lens;
 mod embedded_value;
 mod export;
 mod extend;
+mod field_access;
 mod field_basics;
 mod field_rules;
 mod header_action;

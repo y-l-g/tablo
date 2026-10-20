@@ -132,6 +132,39 @@ The record form must not write the column: a `ModelForm` marks it `#[form(skip)]
 check on forms probes the trashed records too, since the database's unique index still covers
 them.
 
+## Field access
+
+A field only some users may see, or only some may change, declares who:
+
+```rust
+{{#include ../../../examples/guide/src/resources.rs:user-field-access}}
+```
+
+Each rule asks about the request, not the record. A user `view` refuses sees the field nowhere:
+not its column in the list, the column picker or the export, not the filters, the grouping or the
+search over it, not its entry on the detail page and not its control on the form. A sort or a
+filter naming it reads as one naming a column the table does not declare. The relationship choices
+of other resources search the same table, so they cannot find a record by it either. A user
+`view` allows and `edit` refuses sees the control disabled. Editing implies viewing.
+
+The form never posts a field the user may not change, so a submission that does answers 400. An
+edit keeps the stored value. A create takes the control's `default`, else the field's blank
+answer; when the field is required and has no default, the user cannot create, and the list
+offers no **Create** button.
+
+Hiding a `belongs_to` relation hides its foreign key, and hiding the key hides the relation. A
+`ComputedColumn` or a `QueryFilter` says which fields it reads, since the panel cannot see inside
+its closure:
+
+```rust,ignore
+ComputedColumn::new("Pay", |e: &Employee| e.salary.to_string())
+    .reading(Reads::of(lens!(Employee.salary)))
+```
+
+A custom `Column` or `Filter` answers `reads`. On a resource that restricts a field, the startup
+checks refuse one that does not, a record title over a restricted field, and a form condition or
+dependent choice that watches one.
+
 ## Writes
 
 Every create, update and delete runs in a transaction the framework opens. For an update or a
@@ -203,6 +236,9 @@ declaration names one. It refuses the resource when:
   of a `Tenancy::via` resource writes the parent's foreign key other than through a relationship
   field over a tenant-scoped resource;
 - a `soft_delete` lens is not one field of the model, or the record form writes its column;
+- a `field_access` lens is not one field of the model, or names a field twice; the record title,
+  a form condition or a dependent choice reads a restricted field; or, once any field is
+  restricted, a table column, filter or detail column does not declare the fields it reads;
 - two actions share a `NAME`, record or header;
 - a many-to-many field or relation goes through a join model a link cannot write, or a multiple
   choice in a resource's form names no many-to-many field;
@@ -211,7 +247,7 @@ declaration names one. It refuses the resource when:
 
 The refusal lists every mistake the panel found, not only the first. `.panel(..)` returns it as a
 `MountError`: each of its `DeclarationError`s names the resource, the `Site` of the declaration
-it is in (`Panel`, `Registration`, `Tenancy`, `SoftDelete`, `Table`, `Form`, `Detail`, a `Relation`) and a
+it is in (`Panel`, `Registration`, `Tenancy`, `SoftDelete`, a `FieldAccess`, `Table`, `Form`, `Detail`, a `Relation`) and a
 `DeclarationErrorKind`, whose `Display` is the message. [Mount errors](./mount-errors.md) lists
 every kind with its fix.
 [Testing](./testing-and-benchmarks.md#testing-a-panel) shows a test matching on the kind.

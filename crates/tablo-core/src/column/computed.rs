@@ -35,6 +35,8 @@ pub struct ComputedColumn<M> {
     toggle: ColumnToggle,
     /// Relations the projection reads.
     includes: Includes<M>,
+    /// The fields the projection reads, when declared.
+    reads: Option<crate::lens::Reads<M>>,
 }
 
 impl<M> ComputedColumn<M>
@@ -55,6 +57,7 @@ where
             alignment: Alignment::Start,
             toggle: ColumnToggle::Fixed,
             includes: Includes::new(),
+            reads: None,
         }
     }
 
@@ -64,6 +67,14 @@ where
     /// or one the user may not view, reaches it.
     pub fn include_unscoped<T>(mut self, relation: impl Into<toasty::stmt::Include<M, T>>) -> Self {
         self.includes = self.includes.with(relation);
+        self
+    }
+
+    /// Declare the fields the projection reads, which a resource restricting a field with
+    /// [`field_access`](crate::ResourceDef::field_access) needs: the column shows only to a user
+    /// who may view every one.
+    pub fn reading(mut self, reads: crate::lens::Reads<M>) -> Self {
+        self.reads = Some(reads);
         self
     }
 
@@ -112,5 +123,9 @@ where
 
     fn includes(&self) -> Includes<M> {
         self.includes.clone()
+    }
+
+    fn reads(&self) -> Option<crate::lens::Reads<M>> {
+        self.reads.clone()
     }
 }

@@ -53,6 +53,19 @@ async fn prepare_submission<R: Resource>(
     advisory: Option<&R::Model>,
 ) -> Result<Submission, topcoat::Error> {
     let schema = Arc::clone(&resource.form);
+    // A field the user may not see or change renders no enabled control, so a browser posts
+    // nothing for it: one posted anyway is refused rather than dropped.
+    let mask = resource.form_mask(cx);
+    let posted = parts.pairs.iter().map(|(name, _)| name.as_str());
+    if let Some(key) = posted
+        .chain(parts.file_part_names.iter().map(String::as_str))
+        .find_map(|name| mask.writes(name))
+    {
+        return Err(topcoat::router::error::bad_request(format!(
+            "`{key}` is not a field you may change"
+        ))
+        .into());
+    }
     // Each repeater's rows, and each multiple choice's values, become its one key, which every
     // step below reads like any other.
     let (mut values, unclaimed) = schema
@@ -77,6 +90,10 @@ async fn prepare_submission<R: Resource>(
         flags.remove(key);
     }
     schema.drop_disabled(&mut values, editing);
+    // An edit completes a masked field from the stored record; a create takes its default.
+    if !editing {
+        values.extend(schema.defaults_of(mask.keys()));
+    }
     // A hidden field's control is disabled, so the browser posts nothing for it: a key posted
     // anyway is dropped, with a file field's carried upload, so an edit keeps the stored value and
     // a create takes the blank answer. An edit that does not post the watched field reads its
@@ -239,7 +256,7 @@ fn named_fields<R: Resource>(
 pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
     async_page(async move {
         let resource = gate::<R>(cx)?;
-        if !resource.can(cx, Ability::Create) {
+        if !resource.can_create(cx) {
             return Err(forbidden().into());
         }
         let parts = parse_form_body(cx, body).await?;
@@ -274,7 +291,7 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
                 cx,
                 &resource,
                 tx,
-                FormChrome::create(&resource),
+                FormChrome::create(cx, &resource),
                 &values,
                 &errors,
                 &carried,
@@ -293,7 +310,7 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
                 return render_form_page(
                     cx,
                     &resource.form,
-                    FormChrome::create(&resource),
+                    FormChrome::create(cx, &resource),
                     &values,
                     &taken,
                     &carried,

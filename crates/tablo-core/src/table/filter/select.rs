@@ -241,6 +241,10 @@ where
             .and_then(|related| related.unavailable_source(cx))
     }
 
+    fn reads(&self) -> Option<crate::lens::Reads<M>> {
+        Some(self.binding.reads())
+    }
+
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
         let name = || self.binding.name().to_string();
         self.binding

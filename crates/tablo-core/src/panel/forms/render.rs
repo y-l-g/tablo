@@ -17,9 +17,8 @@ use super::super::{
 pub(super) use crate::form::VERSION_FIELD;
 use crate::{
     form::{FieldErrors, FormValues},
-    policy::Ability,
     resource::{Mounted, Places, PublicLink, Resource},
-    schema::Schema,
+    schema::{FormMask, Schema},
     topcoat_compat::async_page,
 };
 
@@ -47,10 +46,12 @@ pub(crate) struct FormChrome<'a> {
     relations: Vec<BoxView<'a>>,
     /// Whether the page refuses a save because another changed the record since the form opened.
     stale: bool,
+    /// The keys the request's field access hides or locks.
+    mask: FormMask,
 }
 
 impl<'a> FormChrome<'a> {
-    pub(super) fn create<R: Resource>(resource: &Mounted<R>) -> Self {
+    pub(super) fn create<R: Resource>(cx: &Cx, resource: &Mounted<R>) -> Self {
         Self {
             title: format!("Create {}", resource.label),
             submit_label: "Create".to_string(),
@@ -63,6 +64,7 @@ impl<'a> FormChrome<'a> {
             editing: false,
             relations: Vec::new(),
             stale: false,
+            mask: resource.form_mask(cx),
         }
     }
 
@@ -94,6 +96,7 @@ impl<'a> FormChrome<'a> {
             editing: true,
             relations: Vec::new(),
             stale: false,
+            mask: resource.form_mask(cx),
         }
     }
 
@@ -125,6 +128,7 @@ impl<'a> FormChrome<'a> {
             editing: true,
             relations: Vec::new(),
             stale: false,
+            mask: FormMask::default(),
         }
     }
 
@@ -157,6 +161,7 @@ impl<'a> FormChrome<'a> {
             editing: false,
             relations: Vec::new(),
             stale: false,
+            mask: FormMask::default(),
         }
     }
 }
@@ -183,8 +188,13 @@ pub(crate) async fn render_form_page<'a>(
         editing,
         relations,
         stale,
+        mask,
     } = chrome;
-    let mut source = crate::schema::Source::form(values, errors).editing(editing);
+    // A hidden field's value never reaches the page.
+    let values = &mask.shown(values);
+    let mut source = crate::schema::Source::form(values, errors)
+        .editing(editing)
+        .masked(mask);
     if let Some(url) = options {
         source = source.options_at(url);
     }
@@ -307,14 +317,14 @@ pub(crate) async fn render_form_page<'a>(
 pub(crate) fn resource_create<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
     async_page(async move {
         let resource = gate::<R>(cx)?;
-        if !resource.can(cx, Ability::Create) {
+        if !resource.can_create(cx) {
             return Err(forbidden().into());
         }
         crate::csrf::ensure_token(cx);
         let html = render_form_page(
             cx,
             &resource.form,
-            FormChrome::create(&resource),
+            FormChrome::create(cx, &resource),
             &seeded_values(cx, &resource),
             &FieldErrors::new(),
             &HashSet::new(),
@@ -329,11 +339,14 @@ pub(crate) fn resource_create<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> 
 /// one's last.
 fn seeded_values<R: Resource>(cx: &Cx, resource: &Mounted<R>) -> FormValues {
     let schema = &resource.form;
+    let mask = resource.form_mask(cx);
     let seedable: Vec<&str> = schema
         .fields()
         .filter(|field| {
-            // A disabled control stores its default, which the form must show.
+            // A disabled control stores its default, which the form must show, and a masked one
+            // takes what the user may not choose.
             !field.is_disabled(false)
+                && mask.writes(field.name()).is_none()
                 && field
                     .as_choice()
                     .is_some_and(|choice| choice.is_relationship())

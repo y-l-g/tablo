@@ -62,6 +62,7 @@ pub(crate) fn check_resource<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationE
                 .map(|kind| DeclarationError::of::<R>(site.clone(), kind)),
         );
     }
+    super::field_access::check(&declared, errors);
     check_actions(cx, &declared, errors);
     check_form_declaration(cx, &declared, form_is_sound, errors);
 }

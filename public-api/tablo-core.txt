@@ -1108,6 +1108,7 @@ pub fn tablo_core::extend::Column::is_sortable(&self) -> bool
 pub fn tablo_core::extend::Column::label(&self) -> &str
 pub fn tablo_core::extend::Column::name(&self) -> &str
 pub fn tablo_core::extend::Column::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::extend::Column::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::extend::Column::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::extend::Column::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::extend::Column::toggle(&self) -> tablo_core::ColumnToggle
@@ -1122,6 +1123,7 @@ pub fn tablo_core::ColorColumn<M, T>::is_sortable(&self) -> bool
 pub fn tablo_core::ColorColumn<M, T>::label(&self) -> &str
 pub fn tablo_core::ColorColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::ColorColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::ColorColumn<M, T>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::ColorColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::ColorColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::ColorColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
@@ -1136,6 +1138,7 @@ pub fn tablo_core::DateColumn<M, T>::is_sortable(&self) -> bool
 pub fn tablo_core::DateColumn<M, T>::label(&self) -> &str
 pub fn tablo_core::DateColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::DateColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::DateColumn<M, T>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::DateColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::DateColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::DateColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
@@ -1150,6 +1153,7 @@ pub fn tablo_core::EmbeddedColumn<M, T>::is_sortable(&self) -> bool
 pub fn tablo_core::EmbeddedColumn<M, T>::label(&self) -> &str
 pub fn tablo_core::EmbeddedColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::EmbeddedColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::EmbeddedColumn<M, T>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::EmbeddedColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::EmbeddedColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::EmbeddedColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
@@ -1164,6 +1168,7 @@ pub fn tablo_core::ImageColumn<M, T>::is_sortable(&self) -> bool
 pub fn tablo_core::ImageColumn<M, T>::label(&self) -> &str
 pub fn tablo_core::ImageColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::ImageColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::ImageColumn<M, T>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::ImageColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::ImageColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::ImageColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
@@ -1178,6 +1183,7 @@ pub fn tablo_core::RepeaterColumn<M, T>::is_sortable(&self) -> bool
 pub fn tablo_core::RepeaterColumn<M, T>::label(&self) -> &str
 pub fn tablo_core::RepeaterColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::RepeaterColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::RepeaterColumn<M, T>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::RepeaterColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::RepeaterColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::RepeaterColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
@@ -1192,6 +1198,7 @@ pub fn tablo_core::TextColumn<M, T>::is_sortable(&self) -> bool
 pub fn tablo_core::TextColumn<M, T>::label(&self) -> &str
 pub fn tablo_core::TextColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::TextColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::TextColumn<M, T>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::TextColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::TextColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::TextColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
@@ -1206,6 +1213,7 @@ pub fn tablo_core::BooleanColumn<M>::is_sortable(&self) -> bool
 pub fn tablo_core::BooleanColumn<M>::label(&self) -> &str
 pub fn tablo_core::BooleanColumn<M>::name(&self) -> &str
 pub fn tablo_core::BooleanColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::BooleanColumn<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::BooleanColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::BooleanColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::BooleanColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
@@ -1220,6 +1228,7 @@ pub fn tablo_core::ComputedColumn<M>::is_sortable(&self) -> bool
 pub fn tablo_core::ComputedColumn<M>::label(&self) -> &str
 pub fn tablo_core::ComputedColumn<M>::name(&self) -> &str
 pub fn tablo_core::ComputedColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::ComputedColumn<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::ComputedColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::ComputedColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::ComputedColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
@@ -1234,6 +1243,7 @@ pub fn tablo_core::CountColumn<M>::is_sortable(&self) -> bool
 pub fn tablo_core::CountColumn<M>::label(&self) -> &str
 pub fn tablo_core::CountColumn<M>::name(&self) -> &str
 pub fn tablo_core::CountColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::CountColumn<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::CountColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::CountColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::CountColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
@@ -1248,6 +1258,7 @@ pub fn tablo_core::FileColumn<M>::is_sortable(&self) -> bool
 pub fn tablo_core::FileColumn<M>::label(&self) -> &str
 pub fn tablo_core::FileColumn<M>::name(&self) -> &str
 pub fn tablo_core::FileColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::FileColumn<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::FileColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::FileColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::FileColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
@@ -1262,6 +1273,7 @@ pub fn tablo_core::RelationColumn<M>::is_sortable(&self) -> bool
 pub fn tablo_core::RelationColumn<M>::label(&self) -> &str
 pub fn tablo_core::RelationColumn<M>::name(&self) -> &str
 pub fn tablo_core::RelationColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::RelationColumn<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::RelationColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::RelationColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::RelationColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
@@ -1275,6 +1287,7 @@ pub fn tablo_core::extend::Filter::is_noop_value(&self, &tablo_core::FilterValue
 pub fn tablo_core::extend::Filter::label(&self) -> &str
 pub fn tablo_core::extend::Filter::load_control<'s, 'a: 's>(&'s self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> tablo_core::extend::ControlFuture<'s, 'a>
 pub fn tablo_core::extend::Filter::name(&self) -> &str
+pub fn tablo_core::extend::Filter::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::extend::Filter::to_expr(&self, &topcoat_core::context::Cx, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 impl<M> tablo_core::extend::Filter<M> for tablo_core::DateFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync
 pub fn tablo_core::DateFilter<M>::control<'a>(&self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> topcoat_view::view::BoxView<'a>
@@ -1282,6 +1295,7 @@ pub fn tablo_core::DateFilter<M>::is_noop_value(&self, &tablo_core::FilterValue)
 pub fn tablo_core::DateFilter<M>::label(&self) -> &str
 pub fn tablo_core::DateFilter<M>::load_control<'s, 'a: 's>(&'s self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> tablo_core::extend::ControlFuture<'s, 'a>
 pub fn tablo_core::DateFilter<M>::name(&self) -> &str
+pub fn tablo_core::DateFilter<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::DateFilter<M>::to_expr(&self, &topcoat_core::context::Cx, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 impl<M> tablo_core::extend::Filter<M> for tablo_core::QueryFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync
 pub fn tablo_core::QueryFilter<M>::control<'a>(&self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> topcoat_view::view::BoxView<'a>
@@ -1289,6 +1303,7 @@ pub fn tablo_core::QueryFilter<M>::is_noop_value(&self, &tablo_core::FilterValue
 pub fn tablo_core::QueryFilter<M>::label(&self) -> &str
 pub fn tablo_core::QueryFilter<M>::load_control<'s, 'a: 's>(&'s self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> tablo_core::extend::ControlFuture<'s, 'a>
 pub fn tablo_core::QueryFilter<M>::name(&self) -> &str
+pub fn tablo_core::QueryFilter<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::QueryFilter<M>::to_expr(&self, &topcoat_core::context::Cx, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 impl<M> tablo_core::extend::Filter<M> for tablo_core::SelectFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync
 pub fn tablo_core::SelectFilter<M>::control<'a>(&self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> topcoat_view::view::BoxView<'a>
@@ -1296,6 +1311,7 @@ pub fn tablo_core::SelectFilter<M>::is_noop_value(&self, &tablo_core::FilterValu
 pub fn tablo_core::SelectFilter<M>::label(&self) -> &str
 pub fn tablo_core::SelectFilter<M>::load_control<'s, 'a: 's>(&'s self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> tablo_core::extend::ControlFuture<'s, 'a>
 pub fn tablo_core::SelectFilter<M>::name(&self) -> &str
+pub fn tablo_core::SelectFilter<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::SelectFilter<M>::to_expr(&self, &topcoat_core::context::Cx, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 impl<M> tablo_core::extend::Filter<M> for tablo_core::TernaryFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync
 pub fn tablo_core::TernaryFilter<M>::control<'a>(&self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> topcoat_view::view::BoxView<'a>
@@ -1303,6 +1319,7 @@ pub fn tablo_core::TernaryFilter<M>::is_noop_value(&self, &tablo_core::FilterVal
 pub fn tablo_core::TernaryFilter<M>::label(&self) -> &str
 pub fn tablo_core::TernaryFilter<M>::load_control<'s, 'a: 's>(&'s self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> tablo_core::extend::ControlFuture<'s, 'a>
 pub fn tablo_core::TernaryFilter<M>::name(&self) -> &str
+pub fn tablo_core::TernaryFilter<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::TernaryFilter<M>::to_expr(&self, &topcoat_core::context::Cx, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub trait tablo_core::extend::FilterDate: core::marker::Sized + core::marker::Send + core::marker::Sync + 'static
 pub type tablo_core::extend::FilterDate::Value: toasty::stmt::into_expr::IntoExpr<Self> + core::cmp::PartialOrd
@@ -2570,6 +2587,24 @@ impl<M> core::marker::Unpin for tablo_core::Committed<M> where alloc::vec::Vec<M
 impl<M> core::marker::UnsafeUnpin for tablo_core::Committed<M> where alloc::vec::Vec<M>: core::marker::UnsafeUnpin
 impl<M> core::panic::unwind_safe::RefUnwindSafe for tablo_core::Committed<M> where alloc::vec::Vec<M>: core::panic::unwind_safe::RefUnwindSafe
 impl<M> core::panic::unwind_safe::UnwindSafe for tablo_core::Committed<M> where alloc::vec::Vec<M>: core::panic::unwind_safe::UnwindSafe
+pub struct tablo_core::resource::FieldAccess
+impl tablo_core::FieldAccess
+pub fn tablo_core::FieldAccess::edit(self, impl core::ops::function::Fn(&topcoat_core::context::Cx) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::FieldAccess::new() -> Self
+pub fn tablo_core::FieldAccess::view(self, impl core::ops::function::Fn(&topcoat_core::context::Cx) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
+impl core::clone::Clone for tablo_core::FieldAccess
+pub fn tablo_core::FieldAccess::clone(&self) -> tablo_core::FieldAccess
+impl core::default::Default for tablo_core::FieldAccess
+pub fn tablo_core::FieldAccess::default() -> tablo_core::FieldAccess
+impl core::fmt::Debug for tablo_core::FieldAccess
+pub fn tablo_core::FieldAccess::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tablo_core::FieldAccess
+impl core::marker::Send for tablo_core::FieldAccess
+impl core::marker::Sync for tablo_core::FieldAccess
+impl core::marker::Unpin for tablo_core::FieldAccess
+impl core::marker::UnsafeUnpin for tablo_core::FieldAccess
+impl !core::panic::unwind_safe::RefUnwindSafe for tablo_core::FieldAccess
+impl !core::panic::unwind_safe::UnwindSafe for tablo_core::FieldAccess
 pub struct tablo_core::resource::HeaderActions
 impl tablo_core::HeaderActions
 pub fn tablo_core::HeaderActions::add<A: tablo_core::HeaderAction>(self) -> Self
@@ -2648,6 +2683,7 @@ pub fn tablo_core::ResourceDef<R>::action<A: tablo_core::Action<R>>(self) -> Sel
 pub fn tablo_core::ResourceDef<R>::create_column<T>(self, impl core::convert::Into<toasty::stmt::path::Path<<R as tablo_core::resource::Resource>::Model, T>>) -> Self
 pub fn tablo_core::ResourceDef<R>::detail(self, tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>) -> Self
 pub fn tablo_core::ResourceDef<R>::edit_only(self) -> Self
+pub fn tablo_core::ResourceDef<R>::field_access<T>(self, impl core::convert::Into<toasty::stmt::path::Path<<R as tablo_core::resource::Resource>::Model, T>>, tablo_core::FieldAccess) -> Self
 pub fn tablo_core::ResourceDef<R>::form(self, tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>) -> Self
 pub fn tablo_core::ResourceDef<R>::header_action<A: tablo_core::HeaderAction>(self) -> Self
 pub fn tablo_core::ResourceDef<R>::icon(self, topcoat_icon::data::IconData) -> Self
@@ -3312,6 +3348,7 @@ pub fn tablo_core::BooleanColumn<M>::is_sortable(&self) -> bool
 pub fn tablo_core::BooleanColumn<M>::label(&self) -> &str
 pub fn tablo_core::BooleanColumn<M>::name(&self) -> &str
 pub fn tablo_core::BooleanColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::BooleanColumn<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::BooleanColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::BooleanColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::BooleanColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
@@ -3347,6 +3384,7 @@ pub fn tablo_core::ColorColumn<M, T>::is_sortable(&self) -> bool
 pub fn tablo_core::ColorColumn<M, T>::label(&self) -> &str
 pub fn tablo_core::ColorColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::ColorColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::ColorColumn<M, T>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::ColorColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::ColorColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::ColorColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
@@ -3363,6 +3401,7 @@ pub fn tablo_core::ComputedColumn<M>::align(self, tablo_core::Alignment) -> Self
 pub fn tablo_core::ComputedColumn<M>::hidden_by_default(self) -> Self
 pub fn tablo_core::ComputedColumn<M>::include_unscoped<T>(self, impl core::convert::Into<toasty::stmt::include::Include<M, T>>) -> Self
 pub fn tablo_core::ComputedColumn<M>::new(impl core::convert::Into<alloc::string::String>, impl core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::ComputedColumn<M>::reading(self, tablo_core::Reads<M>) -> Self
 pub fn tablo_core::ComputedColumn<M>::toggleable(self) -> Self
 pub fn tablo_core::ComputedColumn<M>::width(self, tablo_core::ColumnWidth) -> Self
 impl<M> core::clone::Clone for tablo_core::ComputedColumn<M>
@@ -3383,14 +3422,15 @@ pub fn tablo_core::ComputedColumn<M>::is_sortable(&self) -> bool
 pub fn tablo_core::ComputedColumn<M>::label(&self) -> &str
 pub fn tablo_core::ComputedColumn<M>::name(&self) -> &str
 pub fn tablo_core::ComputedColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::ComputedColumn<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::ComputedColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::ComputedColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::ComputedColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
-impl<M> core::marker::Freeze for tablo_core::ComputedColumn<M> where alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Freeze, tablo_core::extend::Includes<M>: core::marker::Freeze
-impl<M> core::marker::Send for tablo_core::ComputedColumn<M> where alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Send, tablo_core::extend::Includes<M>: core::marker::Send
-impl<M> core::marker::Sync for tablo_core::ComputedColumn<M> where alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Sync, tablo_core::extend::Includes<M>: core::marker::Sync
-impl<M> core::marker::Unpin for tablo_core::ComputedColumn<M> where alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Unpin, tablo_core::extend::Includes<M>: core::marker::Unpin
-impl<M> core::marker::UnsafeUnpin for tablo_core::ComputedColumn<M> where alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::UnsafeUnpin, tablo_core::extend::Includes<M>: core::marker::UnsafeUnpin
+impl<M> core::marker::Freeze for tablo_core::ComputedColumn<M> where alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Freeze, tablo_core::extend::Includes<M>: core::marker::Freeze, core::option::Option<tablo_core::Reads<M>>: core::marker::Freeze
+impl<M> core::marker::Send for tablo_core::ComputedColumn<M> where alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Send, tablo_core::extend::Includes<M>: core::marker::Send, core::option::Option<tablo_core::Reads<M>>: core::marker::Send
+impl<M> core::marker::Sync for tablo_core::ComputedColumn<M> where alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Sync, tablo_core::extend::Includes<M>: core::marker::Sync, core::option::Option<tablo_core::Reads<M>>: core::marker::Sync
+impl<M> core::marker::Unpin for tablo_core::ComputedColumn<M> where alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Unpin, tablo_core::extend::Includes<M>: core::marker::Unpin, core::option::Option<tablo_core::Reads<M>>: core::marker::Unpin
+impl<M> core::marker::UnsafeUnpin for tablo_core::ComputedColumn<M> where alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::UnsafeUnpin, tablo_core::extend::Includes<M>: core::marker::UnsafeUnpin, core::option::Option<tablo_core::Reads<M>>: core::marker::UnsafeUnpin
 impl<M> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::ComputedColumn<M>
 impl<M> !core::panic::unwind_safe::UnwindSafe for tablo_core::ComputedColumn<M>
 pub struct tablo_core::table::CountColumn<M>
@@ -3420,6 +3460,7 @@ pub fn tablo_core::CountColumn<M>::is_sortable(&self) -> bool
 pub fn tablo_core::CountColumn<M>::label(&self) -> &str
 pub fn tablo_core::CountColumn<M>::name(&self) -> &str
 pub fn tablo_core::CountColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::CountColumn<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::CountColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::CountColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::CountColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
@@ -3483,6 +3524,7 @@ pub fn tablo_core::DateColumn<M, T>::is_sortable(&self) -> bool
 pub fn tablo_core::DateColumn<M, T>::label(&self) -> &str
 pub fn tablo_core::DateColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::DateColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::DateColumn<M, T>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::DateColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::DateColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::DateColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
@@ -3509,6 +3551,7 @@ pub fn tablo_core::DateFilter<M>::is_noop_value(&self, &tablo_core::FilterValue)
 pub fn tablo_core::DateFilter<M>::label(&self) -> &str
 pub fn tablo_core::DateFilter<M>::load_control<'s, 'a: 's>(&'s self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> tablo_core::extend::ControlFuture<'s, 'a>
 pub fn tablo_core::DateFilter<M>::name(&self) -> &str
+pub fn tablo_core::DateFilter<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::DateFilter<M>::to_expr(&self, &topcoat_core::context::Cx, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 impl<M> core::marker::Freeze for tablo_core::DateFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::DateFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Send
@@ -3542,6 +3585,7 @@ pub fn tablo_core::EmbeddedColumn<M, T>::is_sortable(&self) -> bool
 pub fn tablo_core::EmbeddedColumn<M, T>::label(&self) -> &str
 pub fn tablo_core::EmbeddedColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::EmbeddedColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::EmbeddedColumn<M, T>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::EmbeddedColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::EmbeddedColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::EmbeddedColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
@@ -3577,6 +3621,7 @@ pub fn tablo_core::FileColumn<M>::is_sortable(&self) -> bool
 pub fn tablo_core::FileColumn<M>::label(&self) -> &str
 pub fn tablo_core::FileColumn<M>::name(&self) -> &str
 pub fn tablo_core::FileColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::FileColumn<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::FileColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::FileColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::FileColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
@@ -3646,6 +3691,7 @@ pub fn tablo_core::ImageColumn<M, T>::is_sortable(&self) -> bool
 pub fn tablo_core::ImageColumn<M, T>::label(&self) -> &str
 pub fn tablo_core::ImageColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::ImageColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::ImageColumn<M, T>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::ImageColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::ImageColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::ImageColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
@@ -3685,6 +3731,7 @@ pub fn tablo_core::QueryFilter<M>::multiple(self) -> Self
 pub fn tablo_core::QueryFilter<M>::new(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::QueryFilter<M>::option(self, impl core::convert::Into<alloc::string::String>, toasty::stmt::expr::Expr<bool>) -> Self
 pub fn tablo_core::QueryFilter<M>::option_keyed(self, impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>, toasty::stmt::expr::Expr<bool>) -> Self
+pub fn tablo_core::QueryFilter<M>::reading(self, tablo_core::Reads<M>) -> Self
 impl<M> core::clone::Clone for tablo_core::QueryFilter<M>
 pub fn tablo_core::QueryFilter<M>::clone(&self) -> Self
 impl<M> core::fmt::Debug for tablo_core::QueryFilter<M>
@@ -3696,14 +3743,15 @@ pub fn tablo_core::QueryFilter<M>::is_noop_value(&self, &tablo_core::FilterValue
 pub fn tablo_core::QueryFilter<M>::label(&self) -> &str
 pub fn tablo_core::QueryFilter<M>::load_control<'s, 'a: 's>(&'s self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> tablo_core::extend::ControlFuture<'s, 'a>
 pub fn tablo_core::QueryFilter<M>::name(&self) -> &str
+pub fn tablo_core::QueryFilter<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::QueryFilter<M>::to_expr(&self, &topcoat_core::context::Cx, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
-impl<M> core::marker::Freeze for tablo_core::QueryFilter<M> where core::marker::PhantomData<M>: core::marker::Freeze
-impl<M> core::marker::Send for tablo_core::QueryFilter<M> where core::marker::PhantomData<M>: core::marker::Send
-impl<M> core::marker::Sync for tablo_core::QueryFilter<M> where core::marker::PhantomData<M>: core::marker::Sync
-impl<M> core::marker::Unpin for tablo_core::QueryFilter<M> where core::marker::PhantomData<M>: core::marker::Unpin
-impl<M> core::marker::UnsafeUnpin for tablo_core::QueryFilter<M> where core::marker::PhantomData<M>: core::marker::UnsafeUnpin
-impl<M> core::panic::unwind_safe::RefUnwindSafe for tablo_core::QueryFilter<M> where core::marker::PhantomData<M>: core::panic::unwind_safe::RefUnwindSafe
-impl<M> core::panic::unwind_safe::UnwindSafe for tablo_core::QueryFilter<M> where core::marker::PhantomData<M>: core::panic::unwind_safe::UnwindSafe
+impl<M> core::marker::Freeze for tablo_core::QueryFilter<M> where core::option::Option<tablo_core::Reads<M>>: core::marker::Freeze, core::marker::PhantomData<M>: core::marker::Freeze
+impl<M> core::marker::Send for tablo_core::QueryFilter<M> where core::option::Option<tablo_core::Reads<M>>: core::marker::Send, core::marker::PhantomData<M>: core::marker::Send
+impl<M> core::marker::Sync for tablo_core::QueryFilter<M> where core::option::Option<tablo_core::Reads<M>>: core::marker::Sync, core::marker::PhantomData<M>: core::marker::Sync
+impl<M> core::marker::Unpin for tablo_core::QueryFilter<M> where core::option::Option<tablo_core::Reads<M>>: core::marker::Unpin, core::marker::PhantomData<M>: core::marker::Unpin
+impl<M> core::marker::UnsafeUnpin for tablo_core::QueryFilter<M> where core::option::Option<tablo_core::Reads<M>>: core::marker::UnsafeUnpin, core::marker::PhantomData<M>: core::marker::UnsafeUnpin
+impl<M> core::panic::unwind_safe::RefUnwindSafe for tablo_core::QueryFilter<M> where core::option::Option<tablo_core::Reads<M>>: core::panic::unwind_safe::RefUnwindSafe, core::marker::PhantomData<M>: core::panic::unwind_safe::RefUnwindSafe
+impl<M> core::panic::unwind_safe::UnwindSafe for tablo_core::QueryFilter<M> where core::option::Option<tablo_core::Reads<M>>: core::panic::unwind_safe::UnwindSafe, core::marker::PhantomData<M>: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::table::RelationColumn<M>
 impl<M> tablo_core::RelationColumn<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::RelationColumn<M>::list<S>(tablo_core::RelationLens<M, toasty::schema::deferred::Deferred<alloc::vec::Vec<<S as tablo_core::extend::OptionSource>::Model>>>) -> Self where S: tablo_core::extend::OptionSource
@@ -3733,6 +3781,7 @@ pub fn tablo_core::RelationColumn<M>::is_sortable(&self) -> bool
 pub fn tablo_core::RelationColumn<M>::label(&self) -> &str
 pub fn tablo_core::RelationColumn<M>::name(&self) -> &str
 pub fn tablo_core::RelationColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::RelationColumn<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::RelationColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::RelationColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::RelationColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
@@ -3783,6 +3832,7 @@ pub fn tablo_core::RepeaterColumn<M, T>::is_sortable(&self) -> bool
 pub fn tablo_core::RepeaterColumn<M, T>::label(&self) -> &str
 pub fn tablo_core::RepeaterColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::RepeaterColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::RepeaterColumn<M, T>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::RepeaterColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::RepeaterColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::RepeaterColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
@@ -3812,6 +3862,7 @@ pub fn tablo_core::SelectFilter<M>::is_noop_value(&self, &tablo_core::FilterValu
 pub fn tablo_core::SelectFilter<M>::label(&self) -> &str
 pub fn tablo_core::SelectFilter<M>::load_control<'s, 'a: 's>(&'s self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> tablo_core::extend::ControlFuture<'s, 'a>
 pub fn tablo_core::SelectFilter<M>::name(&self) -> &str
+pub fn tablo_core::SelectFilter<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::SelectFilter<M>::to_expr(&self, &topcoat_core::context::Cx, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 impl<M> core::marker::Freeze for tablo_core::SelectFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::SelectFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Send
@@ -3943,6 +3994,7 @@ pub fn tablo_core::TernaryFilter<M>::is_noop_value(&self, &tablo_core::FilterVal
 pub fn tablo_core::TernaryFilter<M>::label(&self) -> &str
 pub fn tablo_core::TernaryFilter<M>::load_control<'s, 'a: 's>(&'s self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> tablo_core::extend::ControlFuture<'s, 'a>
 pub fn tablo_core::TernaryFilter<M>::name(&self) -> &str
+pub fn tablo_core::TernaryFilter<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::TernaryFilter<M>::to_expr(&self, &topcoat_core::context::Cx, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 impl<M> core::marker::Freeze for tablo_core::TernaryFilter<M> where toasty::stmt::path::Path<M, bool>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::TernaryFilter<M> where toasty::stmt::path::Path<M, bool>: core::marker::Send
@@ -3987,6 +4039,7 @@ pub fn tablo_core::TextColumn<M, T>::is_sortable(&self) -> bool
 pub fn tablo_core::TextColumn<M, T>::label(&self) -> &str
 pub fn tablo_core::TextColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::TextColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::TextColumn<M, T>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::TextColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::TextColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::TextColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
@@ -4506,6 +4559,8 @@ pub tablo_core::DeclarationErrorKind::EmptyChoice
 pub tablo_core::DeclarationErrorKind::EmptyChoice::field: alloc::string::String
 pub tablo_core::DeclarationErrorKind::EndpointOutsideRuntime
 pub tablo_core::DeclarationErrorKind::EndpointOutsideRuntime::path: alloc::string::String
+pub tablo_core::DeclarationErrorKind::FieldAccess
+pub tablo_core::DeclarationErrorKind::FieldAccess::fault: tablo_core::FieldAccessFault
 pub tablo_core::DeclarationErrorKind::FieldRule
 pub tablo_core::DeclarationErrorKind::FieldRule::fault: tablo_core::FieldRuleFault
 pub tablo_core::DeclarationErrorKind::FieldRule::field: alloc::string::String
@@ -4627,6 +4682,30 @@ impl core::marker::Unpin for tablo_core::DeclarationErrorKind
 impl core::marker::UnsafeUnpin for tablo_core::DeclarationErrorKind
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::DeclarationErrorKind
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::DeclarationErrorKind
+#[non_exhaustive] pub enum tablo_core::FieldAccessFault
+pub tablo_core::FieldAccessFault::Duplicate
+pub tablo_core::FieldAccessFault::RecordTitle
+pub tablo_core::FieldAccessFault::UndeclaredReads
+pub tablo_core::FieldAccessFault::UndeclaredReads::name: alloc::string::String
+pub tablo_core::FieldAccessFault::UndeclaredReads::what: &'static str
+pub tablo_core::FieldAccessFault::Watched
+impl core::clone::Clone for tablo_core::FieldAccessFault
+pub fn tablo_core::FieldAccessFault::clone(&self) -> tablo_core::FieldAccessFault
+impl core::cmp::Eq for tablo_core::FieldAccessFault
+impl core::cmp::PartialEq for tablo_core::FieldAccessFault
+pub fn tablo_core::FieldAccessFault::eq(&self, &tablo_core::FieldAccessFault) -> bool
+impl core::fmt::Debug for tablo_core::FieldAccessFault
+pub fn tablo_core::FieldAccessFault::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tablo_core::FieldAccessFault
+pub fn tablo_core::FieldAccessFault::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_core::FieldAccessFault
+impl core::marker::Freeze for tablo_core::FieldAccessFault
+impl core::marker::Send for tablo_core::FieldAccessFault
+impl core::marker::Sync for tablo_core::FieldAccessFault
+impl core::marker::Unpin for tablo_core::FieldAccessFault
+impl core::marker::UnsafeUnpin for tablo_core::FieldAccessFault
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::FieldAccessFault
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::FieldAccessFault
 #[non_exhaustive] pub enum tablo_core::FieldErrorKind
 pub tablo_core::FieldErrorKind::Invalid(alloc::string::String)
 pub tablo_core::FieldErrorKind::Required
@@ -4948,6 +5027,7 @@ impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::SignUpFault
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::SignUpFault
 #[non_exhaustive] pub enum tablo_core::Site
 pub tablo_core::Site::Detail
+pub tablo_core::Site::FieldAccess(alloc::string::String)
 pub tablo_core::Site::Form
 pub tablo_core::Site::Panel
 pub tablo_core::Site::Registration
@@ -5200,6 +5280,7 @@ pub fn tablo_core::BooleanColumn<M>::is_sortable(&self) -> bool
 pub fn tablo_core::BooleanColumn<M>::label(&self) -> &str
 pub fn tablo_core::BooleanColumn<M>::name(&self) -> &str
 pub fn tablo_core::BooleanColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::BooleanColumn<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::BooleanColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::BooleanColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::BooleanColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
@@ -5285,6 +5366,7 @@ pub fn tablo_core::ColorColumn<M, T>::is_sortable(&self) -> bool
 pub fn tablo_core::ColorColumn<M, T>::label(&self) -> &str
 pub fn tablo_core::ColorColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::ColorColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::ColorColumn<M, T>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::ColorColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::ColorColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::ColorColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
@@ -5322,6 +5404,7 @@ pub fn tablo_core::ComputedColumn<M>::align(self, tablo_core::Alignment) -> Self
 pub fn tablo_core::ComputedColumn<M>::hidden_by_default(self) -> Self
 pub fn tablo_core::ComputedColumn<M>::include_unscoped<T>(self, impl core::convert::Into<toasty::stmt::include::Include<M, T>>) -> Self
 pub fn tablo_core::ComputedColumn<M>::new(impl core::convert::Into<alloc::string::String>, impl core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::ComputedColumn<M>::reading(self, tablo_core::Reads<M>) -> Self
 pub fn tablo_core::ComputedColumn<M>::toggleable(self) -> Self
 pub fn tablo_core::ComputedColumn<M>::width(self, tablo_core::ColumnWidth) -> Self
 impl<M> core::clone::Clone for tablo_core::ComputedColumn<M>
@@ -5342,14 +5425,15 @@ pub fn tablo_core::ComputedColumn<M>::is_sortable(&self) -> bool
 pub fn tablo_core::ComputedColumn<M>::label(&self) -> &str
 pub fn tablo_core::ComputedColumn<M>::name(&self) -> &str
 pub fn tablo_core::ComputedColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::ComputedColumn<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::ComputedColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::ComputedColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::ComputedColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
-impl<M> core::marker::Freeze for tablo_core::ComputedColumn<M> where alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Freeze, tablo_core::extend::Includes<M>: core::marker::Freeze
-impl<M> core::marker::Send for tablo_core::ComputedColumn<M> where alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Send, tablo_core::extend::Includes<M>: core::marker::Send
-impl<M> core::marker::Sync for tablo_core::ComputedColumn<M> where alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Sync, tablo_core::extend::Includes<M>: core::marker::Sync
-impl<M> core::marker::Unpin for tablo_core::ComputedColumn<M> where alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Unpin, tablo_core::extend::Includes<M>: core::marker::Unpin
-impl<M> core::marker::UnsafeUnpin for tablo_core::ComputedColumn<M> where alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::UnsafeUnpin, tablo_core::extend::Includes<M>: core::marker::UnsafeUnpin
+impl<M> core::marker::Freeze for tablo_core::ComputedColumn<M> where alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Freeze, tablo_core::extend::Includes<M>: core::marker::Freeze, core::option::Option<tablo_core::Reads<M>>: core::marker::Freeze
+impl<M> core::marker::Send for tablo_core::ComputedColumn<M> where alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Send, tablo_core::extend::Includes<M>: core::marker::Send, core::option::Option<tablo_core::Reads<M>>: core::marker::Send
+impl<M> core::marker::Sync for tablo_core::ComputedColumn<M> where alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Sync, tablo_core::extend::Includes<M>: core::marker::Sync, core::option::Option<tablo_core::Reads<M>>: core::marker::Sync
+impl<M> core::marker::Unpin for tablo_core::ComputedColumn<M> where alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::Unpin, tablo_core::extend::Includes<M>: core::marker::Unpin, core::option::Option<tablo_core::Reads<M>>: core::marker::Unpin
+impl<M> core::marker::UnsafeUnpin for tablo_core::ComputedColumn<M> where alloc::sync::Arc<(dyn core::ops::function::Fn(&M) -> alloc::string::String + core::marker::Send + core::marker::Sync)>: core::marker::UnsafeUnpin, tablo_core::extend::Includes<M>: core::marker::UnsafeUnpin, core::option::Option<tablo_core::Reads<M>>: core::marker::UnsafeUnpin
 impl<M> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::ComputedColumn<M>
 impl<M> !core::panic::unwind_safe::UnwindSafe for tablo_core::ComputedColumn<M>
 pub struct tablo_core::CountColumn<M>
@@ -5379,6 +5463,7 @@ pub fn tablo_core::CountColumn<M>::is_sortable(&self) -> bool
 pub fn tablo_core::CountColumn<M>::label(&self) -> &str
 pub fn tablo_core::CountColumn<M>::name(&self) -> &str
 pub fn tablo_core::CountColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::CountColumn<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::CountColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::CountColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::CountColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
@@ -5468,6 +5553,7 @@ pub fn tablo_core::DateColumn<M, T>::is_sortable(&self) -> bool
 pub fn tablo_core::DateColumn<M, T>::label(&self) -> &str
 pub fn tablo_core::DateColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::DateColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::DateColumn<M, T>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::DateColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::DateColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::DateColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
@@ -5494,6 +5580,7 @@ pub fn tablo_core::DateFilter<M>::is_noop_value(&self, &tablo_core::FilterValue)
 pub fn tablo_core::DateFilter<M>::label(&self) -> &str
 pub fn tablo_core::DateFilter<M>::load_control<'s, 'a: 's>(&'s self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> tablo_core::extend::ControlFuture<'s, 'a>
 pub fn tablo_core::DateFilter<M>::name(&self) -> &str
+pub fn tablo_core::DateFilter<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::DateFilter<M>::to_expr(&self, &topcoat_core::context::Cx, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 impl<M> core::marker::Freeze for tablo_core::DateFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::DateFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Send
@@ -5621,6 +5708,7 @@ pub fn tablo_core::EmbeddedColumn<M, T>::is_sortable(&self) -> bool
 pub fn tablo_core::EmbeddedColumn<M, T>::label(&self) -> &str
 pub fn tablo_core::EmbeddedColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::EmbeddedColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::EmbeddedColumn<M, T>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::EmbeddedColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::EmbeddedColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::EmbeddedColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
@@ -5664,6 +5752,24 @@ impl core::marker::Unpin for tablo_core::Field
 impl core::marker::UnsafeUnpin for tablo_core::Field
 impl !core::panic::unwind_safe::RefUnwindSafe for tablo_core::Field
 impl !core::panic::unwind_safe::UnwindSafe for tablo_core::Field
+pub struct tablo_core::FieldAccess
+impl tablo_core::FieldAccess
+pub fn tablo_core::FieldAccess::edit(self, impl core::ops::function::Fn(&topcoat_core::context::Cx) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::FieldAccess::new() -> Self
+pub fn tablo_core::FieldAccess::view(self, impl core::ops::function::Fn(&topcoat_core::context::Cx) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
+impl core::clone::Clone for tablo_core::FieldAccess
+pub fn tablo_core::FieldAccess::clone(&self) -> tablo_core::FieldAccess
+impl core::default::Default for tablo_core::FieldAccess
+pub fn tablo_core::FieldAccess::default() -> tablo_core::FieldAccess
+impl core::fmt::Debug for tablo_core::FieldAccess
+pub fn tablo_core::FieldAccess::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tablo_core::FieldAccess
+impl core::marker::Send for tablo_core::FieldAccess
+impl core::marker::Sync for tablo_core::FieldAccess
+impl core::marker::Unpin for tablo_core::FieldAccess
+impl core::marker::UnsafeUnpin for tablo_core::FieldAccess
+impl !core::panic::unwind_safe::RefUnwindSafe for tablo_core::FieldAccess
+impl !core::panic::unwind_safe::UnwindSafe for tablo_core::FieldAccess
 pub struct tablo_core::FieldError<K>
 pub tablo_core::FieldError::key: K
 pub tablo_core::FieldError::kind: tablo_core::FieldErrorKind
@@ -5737,6 +5843,7 @@ pub fn tablo_core::FileColumn<M>::is_sortable(&self) -> bool
 pub fn tablo_core::FileColumn<M>::label(&self) -> &str
 pub fn tablo_core::FileColumn<M>::name(&self) -> &str
 pub fn tablo_core::FileColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::FileColumn<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::FileColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::FileColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::FileColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
@@ -5952,6 +6059,7 @@ pub fn tablo_core::ImageColumn<M, T>::is_sortable(&self) -> bool
 pub fn tablo_core::ImageColumn<M, T>::label(&self) -> &str
 pub fn tablo_core::ImageColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::ImageColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::ImageColumn<M, T>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::ImageColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::ImageColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::ImageColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
@@ -6406,6 +6514,7 @@ pub fn tablo_core::QueryFilter<M>::multiple(self) -> Self
 pub fn tablo_core::QueryFilter<M>::new(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::QueryFilter<M>::option(self, impl core::convert::Into<alloc::string::String>, toasty::stmt::expr::Expr<bool>) -> Self
 pub fn tablo_core::QueryFilter<M>::option_keyed(self, impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>, toasty::stmt::expr::Expr<bool>) -> Self
+pub fn tablo_core::QueryFilter<M>::reading(self, tablo_core::Reads<M>) -> Self
 impl<M> core::clone::Clone for tablo_core::QueryFilter<M>
 pub fn tablo_core::QueryFilter<M>::clone(&self) -> Self
 impl<M> core::fmt::Debug for tablo_core::QueryFilter<M>
@@ -6417,14 +6526,15 @@ pub fn tablo_core::QueryFilter<M>::is_noop_value(&self, &tablo_core::FilterValue
 pub fn tablo_core::QueryFilter<M>::label(&self) -> &str
 pub fn tablo_core::QueryFilter<M>::load_control<'s, 'a: 's>(&'s self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> tablo_core::extend::ControlFuture<'s, 'a>
 pub fn tablo_core::QueryFilter<M>::name(&self) -> &str
+pub fn tablo_core::QueryFilter<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::QueryFilter<M>::to_expr(&self, &topcoat_core::context::Cx, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
-impl<M> core::marker::Freeze for tablo_core::QueryFilter<M> where core::marker::PhantomData<M>: core::marker::Freeze
-impl<M> core::marker::Send for tablo_core::QueryFilter<M> where core::marker::PhantomData<M>: core::marker::Send
-impl<M> core::marker::Sync for tablo_core::QueryFilter<M> where core::marker::PhantomData<M>: core::marker::Sync
-impl<M> core::marker::Unpin for tablo_core::QueryFilter<M> where core::marker::PhantomData<M>: core::marker::Unpin
-impl<M> core::marker::UnsafeUnpin for tablo_core::QueryFilter<M> where core::marker::PhantomData<M>: core::marker::UnsafeUnpin
-impl<M> core::panic::unwind_safe::RefUnwindSafe for tablo_core::QueryFilter<M> where core::marker::PhantomData<M>: core::panic::unwind_safe::RefUnwindSafe
-impl<M> core::panic::unwind_safe::UnwindSafe for tablo_core::QueryFilter<M> where core::marker::PhantomData<M>: core::panic::unwind_safe::UnwindSafe
+impl<M> core::marker::Freeze for tablo_core::QueryFilter<M> where core::option::Option<tablo_core::Reads<M>>: core::marker::Freeze, core::marker::PhantomData<M>: core::marker::Freeze
+impl<M> core::marker::Send for tablo_core::QueryFilter<M> where core::option::Option<tablo_core::Reads<M>>: core::marker::Send, core::marker::PhantomData<M>: core::marker::Send
+impl<M> core::marker::Sync for tablo_core::QueryFilter<M> where core::option::Option<tablo_core::Reads<M>>: core::marker::Sync, core::marker::PhantomData<M>: core::marker::Sync
+impl<M> core::marker::Unpin for tablo_core::QueryFilter<M> where core::option::Option<tablo_core::Reads<M>>: core::marker::Unpin, core::marker::PhantomData<M>: core::marker::Unpin
+impl<M> core::marker::UnsafeUnpin for tablo_core::QueryFilter<M> where core::option::Option<tablo_core::Reads<M>>: core::marker::UnsafeUnpin, core::marker::PhantomData<M>: core::marker::UnsafeUnpin
+impl<M> core::panic::unwind_safe::RefUnwindSafe for tablo_core::QueryFilter<M> where core::option::Option<tablo_core::Reads<M>>: core::panic::unwind_safe::RefUnwindSafe, core::marker::PhantomData<M>: core::panic::unwind_safe::RefUnwindSafe
+impl<M> core::panic::unwind_safe::UnwindSafe for tablo_core::QueryFilter<M> where core::option::Option<tablo_core::Reads<M>>: core::panic::unwind_safe::UnwindSafe, core::marker::PhantomData<M>: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::ReadOnly
 impl tablo_core::policy::ReadOnly
 pub fn tablo_core::policy::ReadOnly::and<P>(self, P) -> tablo_core::policy::And<Self, P>
@@ -6445,6 +6555,24 @@ impl core::marker::Unpin for tablo_core::policy::ReadOnly
 impl core::marker::UnsafeUnpin for tablo_core::policy::ReadOnly
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::policy::ReadOnly
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::policy::ReadOnly
+pub struct tablo_core::Reads<M>
+impl<M> tablo_core::Reads<M>
+pub fn tablo_core::Reads<M>::and<T>(self, impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> Self where M: toasty::schema::model::Model
+pub fn tablo_core::Reads<M>::nothing() -> Self
+pub fn tablo_core::Reads<M>::of<T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> Self where M: toasty::schema::model::Model
+impl<M> core::clone::Clone for tablo_core::Reads<M>
+pub fn tablo_core::Reads<M>::clone(&self) -> Self
+impl<M> core::default::Default for tablo_core::Reads<M>
+pub fn tablo_core::Reads<M>::default() -> Self
+impl<M> core::fmt::Debug for tablo_core::Reads<M>
+pub fn tablo_core::Reads<M>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<M> core::marker::Freeze for tablo_core::Reads<M> where core::marker::PhantomData<fn() -> M>: core::marker::Freeze
+impl<M> core::marker::Send for tablo_core::Reads<M> where core::marker::PhantomData<fn() -> M>: core::marker::Send
+impl<M> core::marker::Sync for tablo_core::Reads<M> where core::marker::PhantomData<fn() -> M>: core::marker::Sync
+impl<M> core::marker::Unpin for tablo_core::Reads<M> where core::marker::PhantomData<fn() -> M>: core::marker::Unpin
+impl<M> core::marker::UnsafeUnpin for tablo_core::Reads<M> where core::marker::PhantomData<fn() -> M>: core::marker::UnsafeUnpin
+impl<M> core::panic::unwind_safe::RefUnwindSafe for tablo_core::Reads<M> where core::marker::PhantomData<fn() -> M>: core::panic::unwind_safe::RefUnwindSafe
+impl<M> core::panic::unwind_safe::UnwindSafe for tablo_core::Reads<M> where core::marker::PhantomData<fn() -> M>: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::Relation<P>
 impl<P> tablo_core::Relation<P> where P: toasty::schema::model::Model + toasty::stmt::into_expr::IntoExpr<P> + 'static
 pub fn tablo_core::Relation<P>::belongs_to_many<C>(impl core::convert::Into<toasty::stmt::path::Path<P, toasty::stmt::list::List<<C as tablo_core::resource::Resource>::Model>>>) -> Self where C: tablo_core::resource::Resource, P: core::marker::Send + core::marker::Sync
@@ -6489,6 +6617,7 @@ pub fn tablo_core::RelationColumn<M>::is_sortable(&self) -> bool
 pub fn tablo_core::RelationColumn<M>::label(&self) -> &str
 pub fn tablo_core::RelationColumn<M>::name(&self) -> &str
 pub fn tablo_core::RelationColumn<M>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::RelationColumn<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::RelationColumn<M>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::RelationColumn<M>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::RelationColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
@@ -6539,6 +6668,7 @@ pub fn tablo_core::RepeaterColumn<M, T>::is_sortable(&self) -> bool
 pub fn tablo_core::RepeaterColumn<M, T>::label(&self) -> &str
 pub fn tablo_core::RepeaterColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::RepeaterColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::RepeaterColumn<M, T>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::RepeaterColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::RepeaterColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::RepeaterColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
@@ -6573,6 +6703,7 @@ pub fn tablo_core::ResourceDef<R>::action<A: tablo_core::Action<R>>(self) -> Sel
 pub fn tablo_core::ResourceDef<R>::create_column<T>(self, impl core::convert::Into<toasty::stmt::path::Path<<R as tablo_core::resource::Resource>::Model, T>>) -> Self
 pub fn tablo_core::ResourceDef<R>::detail(self, tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>) -> Self
 pub fn tablo_core::ResourceDef<R>::edit_only(self) -> Self
+pub fn tablo_core::ResourceDef<R>::field_access<T>(self, impl core::convert::Into<toasty::stmt::path::Path<<R as tablo_core::resource::Resource>::Model, T>>, tablo_core::FieldAccess) -> Self
 pub fn tablo_core::ResourceDef<R>::form(self, tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>) -> Self
 pub fn tablo_core::ResourceDef<R>::header_action<A: tablo_core::HeaderAction>(self) -> Self
 pub fn tablo_core::ResourceDef<R>::icon(self, topcoat_icon::data::IconData) -> Self
@@ -6674,6 +6805,7 @@ pub fn tablo_core::SelectFilter<M>::is_noop_value(&self, &tablo_core::FilterValu
 pub fn tablo_core::SelectFilter<M>::label(&self) -> &str
 pub fn tablo_core::SelectFilter<M>::load_control<'s, 'a: 's>(&'s self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> tablo_core::extend::ControlFuture<'s, 'a>
 pub fn tablo_core::SelectFilter<M>::name(&self) -> &str
+pub fn tablo_core::SelectFilter<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::SelectFilter<M>::to_expr(&self, &topcoat_core::context::Cx, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 impl<M> core::marker::Freeze for tablo_core::SelectFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::SelectFilter<M> where core::marker::PhantomData<fn() -> M>: core::marker::Send
@@ -6949,6 +7081,7 @@ pub fn tablo_core::TernaryFilter<M>::is_noop_value(&self, &tablo_core::FilterVal
 pub fn tablo_core::TernaryFilter<M>::label(&self) -> &str
 pub fn tablo_core::TernaryFilter<M>::load_control<'s, 'a: 's>(&'s self, &'a topcoat_core::context::Cx, tablo_core::extend::FilterInput) -> tablo_core::extend::ControlFuture<'s, 'a>
 pub fn tablo_core::TernaryFilter<M>::name(&self) -> &str
+pub fn tablo_core::TernaryFilter<M>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::TernaryFilter<M>::to_expr(&self, &topcoat_core::context::Cx, &tablo_core::FilterValue) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 impl<M> core::marker::Freeze for tablo_core::TernaryFilter<M> where toasty::stmt::path::Path<M, bool>: core::marker::Freeze
 impl<M> core::marker::Send for tablo_core::TernaryFilter<M> where toasty::stmt::path::Path<M, bool>: core::marker::Send
@@ -6993,6 +7126,7 @@ pub fn tablo_core::TextColumn<M, T>::is_sortable(&self) -> bool
 pub fn tablo_core::TextColumn<M, T>::label(&self) -> &str
 pub fn tablo_core::TextColumn<M, T>::name(&self) -> &str
 pub fn tablo_core::TextColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::TextColumn<M, T>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
 pub fn tablo_core::TextColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::TextColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::TextColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle

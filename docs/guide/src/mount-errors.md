@@ -20,6 +20,7 @@ A test matches on the kind rather than the message; see
 | `Registration` | the resource or page itself: its registration, slug, actions or create columns |
 | `Tenancy` | `ResourceDef::tenancy` |
 | `SoftDelete` | `ResourceDef::soft_delete` |
+| `FieldAccess(field)` | the `ResourceDef::field_access` over that field |
 | `Table` | `ResourceDef::table` |
 | `Form` | `ResourceDef::form`, checked against the record form |
 | `Detail` | `ResourceDef::detail` |
@@ -228,6 +229,24 @@ An action's `NAME` that is not one URL segment does not compile, so it never rea
 | `ViaOwnColumn` | the `Tenancy::via` lens names one field of the model | use `Tenancy::column` |
 | `ViaWithoutBelongsTo` | the `Tenancy::via` lens does not start at a `belongs_to` | start at the relation whose parent holds the tenant |
 | `UnguardedForeignKey` | a `Tenancy::via` resource's form writes the parent's foreign key other than through a relationship choice over a tenant-scoped resource | write the key through such a choice, so the write re-checks its tenant |
+
+## Field access
+
+| Kind | Refused when | Fix |
+| --- | --- | --- |
+| `FieldAccess` | a resource's field access cannot hide its field everywhere the resource shows it; the `FieldAccessFault` says why | see below |
+
+`FieldAccessFault`:
+
+| Fault | Refused when | Fix |
+| --- | --- | --- |
+| `Duplicate` | two `field_access` declarations name one field | declare it once, with both its `view` and its `edit` rule |
+| `RecordTitle` | the record title reads the field, and every page and relationship choice names a record by its title | title the record by a field every user may view |
+| `Watched` | a form condition or a dependent choice watches the field, so what the form shows tells what it holds | watch a field every user may view |
+| `UndeclaredReads` | a resource restricts a field, and one of its table columns, filters or detail columns does not declare the fields it reads | `.reading(Reads::of(..))` on a `ComputedColumn` or `QueryFilter`, or implement `reads` on a custom column or filter |
+
+A `field_access` lens that is not one field of the model is refused with a
+[lens kind](#lenses-and-bindings).
 
 ## Relations
 

@@ -5,6 +5,7 @@ mod builders;
 mod choice;
 pub(crate) mod custom;
 mod file;
+mod read_only;
 mod text;
 
 use std::sync::Arc;
@@ -16,10 +17,10 @@ pub(crate) use choice::{ChoiceControl, Relationship, option_view};
 pub use custom::Toggle;
 pub(crate) use custom::{Control, ControlInput};
 pub(crate) use file::{is_linkable, is_rooted, stored_upload};
+pub(crate) use read_only::{read_only, value_cell};
 use tablo_ui::{
-    field as ui_field, field_content as ui_field_content,
-    field_description as ui_field_description, field_error as ui_field_error,
-    field_label as ui_field_label, field_title as ui_field_title,
+    field as ui_field, field_description as ui_field_description, field_error as ui_field_error,
+    field_label as ui_field_label,
 };
 pub(crate) use text::{Pattern, TextControl, password_reveal};
 use toasty::stmt::{List, Path};
@@ -440,6 +441,11 @@ impl Field {
         }
     }
 
+    /// Whether the control renders disabled where `placement` puts it.
+    pub(crate) fn is_disabled_at(&self, placement: &Placement<'_>) -> bool {
+        placement.locked || self.is_disabled(placement.editing)
+    }
+
     /// Whether the control renders disabled on the create form as well as the edit form.
     pub(crate) fn is_always_disabled(&self) -> bool {
         self.disabled == Disabled::Always
@@ -572,7 +578,7 @@ impl Field {
         placement: Placement<'_>,
     ) -> Result<BoxView<'a>> {
         let id = placement.id(self.name());
-        let disabled = self.is_disabled(placement.editing);
+        let disabled = self.is_disabled_at(&placement);
         let text = value.and_then(FormValue::as_text);
         match &self.control {
             ControlKind::Text(control) => self.render_text(control, cx, text, error, id, disabled),
@@ -646,34 +652,6 @@ impl Field {
     }
 }
 
-/// A read-only value: `label` over `value`, which wraps as text. A detail page's entry, and an
-/// embedded leaf on one.
-pub(crate) fn read_only<'a>(cx: &'a Cx, label: &str, value: BoxView<'a>) -> BoxView<'a> {
-    let label = label.to_string();
-    view! {
-        cx =>
-        ui_field(
-            attrs: attributes! { class="ac-field" },
-            ui_field_content(
-                ui_field_title((label))
-                <div class="text-sm text-foreground wrap-anywhere whitespace-pre-wrap">
-                    (value)
-                </div>
-            )
-        )
-    }
-    .boxed()
-}
-
-/// A record's value as read-only text: a blank value reads as a muted dash.
-pub(crate) fn value_cell<'a>(cx: &'a Cx, text: &str) -> BoxView<'a> {
-    if text.trim().is_empty() {
-        return view! { cx => <span class="text-muted-foreground">"—"</span> }.boxed();
-    }
-    let text = text.to_string();
-    view! { cx => (text) }.boxed()
-}
-
 /// Where a field's control renders: under its parent's value, and in which form of its page.
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct Placement<'p> {
@@ -687,6 +665,8 @@ pub(crate) struct Placement<'p> {
     pub(crate) options: Option<&'p str>,
     /// Whether the form edits a stored record, where `disabled_on_edit` disables a control.
     pub(crate) editing: bool,
+    /// Whether the request's field access lets the user view the field but not change it.
+    pub(crate) locked: bool,
 }
 
 impl Placement<'_> {

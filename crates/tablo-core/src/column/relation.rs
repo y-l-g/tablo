@@ -384,6 +384,7 @@ struct Declared<M> {
     field_label: String,
     misdeclared: Option<DeclarationErrorKind>,
     includes: Includes<M>,
+    reads: crate::lens::Reads<M>,
     width: ColumnWidth,
     toggle: ColumnToggle,
     /// The source that decides which related records show, and whether a context's panel can
@@ -406,6 +407,7 @@ impl<M> Declared<M> {
             field_label,
             misdeclared,
             includes: relation.includes().clone(),
+            reads: relation.reads(),
             width,
             toggle: ColumnToggle::Fixed,
             source: None,
@@ -494,6 +496,10 @@ macro_rules! relation_column {
 
             fn includes(&self) -> Includes<M> {
                 self.relation.includes.clone()
+            }
+
+            fn reads(&self) -> Option<crate::lens::Reads<M>> {
+                Some(self.relation.reads.clone())
             }
 
             fn restrict<'a>(

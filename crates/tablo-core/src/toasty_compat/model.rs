@@ -128,6 +128,15 @@ impl ModelPath {
         self.steps().len() > 1 || matches!(self.0.root, PathRoot::Variant { .. })
     }
 
+    /// The index of the model's root field the path starts at: its first step, or, under an
+    /// embedded enum variant's root, the first step of the path to the enum's field.
+    pub(crate) fn root_step(&self) -> Option<usize> {
+        match &self.0.root {
+            PathRoot::Variant { parent, .. } => Self((**parent).clone()).root_step(),
+            _ => self.steps().first().copied(),
+        }
+    }
+
     /// `<path> = value`, with the value typed as the path's own field.
     pub(crate) fn eq<T: IntoExpr<T>>(&self, value: T) -> toasty::stmt::Expr<bool> {
         let rhs: toasty_core::stmt::Expr = value.into_expr().into();
@@ -185,6 +194,12 @@ pub(crate) fn is_via<M: toasty::schema::Model>(name: &str) -> bool {
             field.name.app.as_deref() == Some(name) && matches!(field.ty, app::FieldTy::Via(_))
         })
     })
+}
+
+/// The name of `M`'s root field `path` starts at.
+pub(crate) fn root_field<M: toasty::schema::Model>(path: &ModelPath) -> Option<String> {
+    let index = path.root_step()?;
+    M::schema().as_root()?.fields.get(index)?.name.app.clone()
 }
 
 /// The one field of `M` a single-step `path` names.
@@ -542,65 +557,10 @@ fn app_embedded<'a>(schema: &'a toasty_core::Schema, field: &app::Field) -> Opti
     schema.app.get_model(embedded.target)
 }
 
-/// The app-level field `steps` reaches, used by the variant root to find the enum's payload list
-/// before descending.
-///
-/// Recurses through embedded structs: the variant root's parent path can walk through them (an
-/// embedded struct holding the enum), not just one step.
-fn app_field_at<'a>(
-    schema: &'a toasty_core::Schema,
-    fields: &'a [app::Field],
-    steps: &[usize],
-) -> Option<&'a app::Field> {
-    let (first, rest) = steps.split_first()?;
-    let field = fields.get(*first)?;
-    if rest.is_empty() {
-        return Some(field);
-    }
-    match app_embedded(schema, field)? {
-        app::Model::EmbeddedStruct(e) => app_field_at(schema, &e.fields, rest),
-        // An enum nested in the parent path consumes two steps per level: the variant index, then
-        // a variant-local field index. `variant_fields` returns the variant's own slice of the
-        // enum's global field list, so the second step indexes it directly —
-        // the generated accessor's index is variant-local, which is the same field either way.
-        //
-        // The variant step is bounds-checked here first: `variant_fields` indexes `variants[i]`
-        // and panics out of range, and this walk answers `None` for a path it cannot resolve (a
-        // wrong lens must not abort a request).
-        app::Model::EmbeddedEnum(e) => {
-            let (variant, tail) = rest.split_first()?;
-            e.variants.get(*variant)?;
-            let field = e.variant_fields(*variant).get(*tail.first()?)?;
-            if tail.len() == 1 {
-                Some(field)
-            } else {
-                app_field_at(schema, std::slice::from_ref(field), &tail[1..])
-            }
-        }
-        app::Model::Root(_) => None,
-    }
-}
-
-/// The mapping field `steps` reaches, used by the variant root to find the enum's per-variant
-/// mappings before descending.
-fn mapping_field_at<'a>(fields: &'a [MappingField], steps: &[usize]) -> Option<&'a MappingField> {
-    let (first, rest) = steps.split_first()?;
-    let field = fields.get(*first)?;
-    if rest.is_empty() {
-        return Some(field);
-    }
-    match field {
-        MappingField::Struct(s) => mapping_field_at(&s.fields, rest),
-        MappingField::Enum(e) => {
-            let (variant, tail) = rest.split_first()?;
-            mapping_field_at(&e.variants.get(*variant)?.fields, tail)
-        }
-        _ => None,
-    }
-}
-
 mod belongs_to;
+mod lookup;
 pub(crate) use belongs_to::{BelongsTo, belongs_to, belongs_tos};
+use lookup::{app_field_at, mapping_field_at};
 
 #[cfg(test)]
 mod tests;

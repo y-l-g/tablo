@@ -50,6 +50,7 @@ pub(crate) struct Mounted<R: Resource> {
     /// [`edit_only`](ResourceDef::edit_only).
     pub(crate) creates: bool,
     pub(crate) soft_delete: Option<super::SoftDelete<R::Model>>,
+    pub(crate) field_rules: Vec<super::FieldRule>,
 }
 
 impl<R: Resource> Mounted<R> {
@@ -125,6 +126,7 @@ impl<R: Resource> Mounted<R> {
             create_columns: def.create_columns,
             creates: <R::Form as RecordForm>::HAS_FORM && !def.edit_only,
             soft_delete: def.soft_delete,
+            field_rules: def.field_rules,
         }
     }
 
@@ -172,17 +174,61 @@ impl<R: Resource> Mounted<R> {
             .unwrap_or_else(|| format!("{} {key}", self.label))
     }
 
-    /// What a relationship choice over the resource searches: the table's searchable columns and
-    /// the title column.
-    pub(crate) fn option_search_expr(&self, term: &str) -> Option<toasty::stmt::Expr<bool>> {
+    /// The root field the record title reads.
+    pub(crate) fn record_title_field(&self) -> Option<&str> {
+        self.record_title.as_ref()?.field.as_deref()
+    }
+
+    /// What a relationship choice over the resource searches for `cx`: the searchable columns of
+    /// its table and the title column.
+    pub(crate) fn option_search_expr(
+        &self,
+        cx: &Cx,
+        term: &str,
+    ) -> Option<toasty::stmt::Expr<bool>> {
         let title = self
             .record_title
             .as_ref()
             .and_then(|title| title.search_expr(term));
-        match (self.table.search_expr(term), title) {
+        match (self.table_for(cx).search_expr(term), title) {
             (Some(table), Some(title)) => Some(table.or(title)),
             (table, title) => table.or(title),
         }
+    }
+
+    /// The fields [`ResourceDef::field_access`] lets `cx` neither view nor change, and the ones it
+    /// lets `cx` view only.
+    pub(crate) fn field_mask(&self, cx: &Cx) -> super::FieldMask {
+        super::FieldMask::of(cx, &self.field_rules)
+    }
+
+    /// The table `cx` reads: without what reads a field it may not view.
+    pub(crate) fn table_for(&self, cx: &Cx) -> Arc<Table<R::Model>> {
+        let mask = self.field_mask(cx);
+        if mask.hidden().is_empty() {
+            Arc::clone(&self.table)
+        } else {
+            Arc::new(self.table.without(mask.hidden()))
+        }
+    }
+
+    /// The form keys `cx` may not see, and the ones it may see but not change.
+    pub(crate) fn form_mask(&self, cx: &Cx) -> crate::schema::FormMask {
+        self.field_mask(cx).form(&self.fields)
+    }
+
+    /// Whether `cx` may create a record: the policy allows it, and every field the form masks
+    /// for `cx` and the record form requires has a default to take.
+    pub(crate) fn can_create(&self, cx: &Cx) -> bool {
+        if !self.can(cx, Ability::Create) {
+            return false;
+        }
+        let mask = self.form_mask(cx);
+        !self.form.fields().any(|field| {
+            mask.keys().any(|key| key == field.name())
+                && field.is_required()
+                && field.default_value().is_none()
+        })
     }
 
     /// The record's public page, if the resource links one.

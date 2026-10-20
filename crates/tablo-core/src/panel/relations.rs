@@ -186,7 +186,7 @@ pub(crate) fn relation_table<C: Resource>(cx: &Cx, relation: BoundRelation) -> B
             .taking(resource.list_trashed(&state))
             .returning_to(back.clone());
         let create_url = seed
-            .filter(|_| creates && resource.creates && resource.can(cx, Ability::Create))
+            .filter(|_| creates && resource.creates && resource.can_create(cx))
             .map(|(column, value)| {
                 let query = form_urlencoded::Serializer::new(String::new())
                     .append_pair(&column, &value)

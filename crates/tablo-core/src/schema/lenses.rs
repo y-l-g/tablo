@@ -25,6 +25,8 @@ use crate::{
 pub(crate) struct Binding {
     placeholder: String,
     leaf: Result<LeafField, DeclarationErrorKind>,
+    /// The model's root field the path starts at; `None` for a key no path names.
+    root: Option<String>,
 }
 
 impl Binding {
@@ -37,6 +39,7 @@ impl Binding {
         Self {
             placeholder: format!("{:?}", path.steps()),
             leaf: resolve::<M>(&path),
+            root: model::root_field::<M>(&path),
         }
     }
 
@@ -45,6 +48,7 @@ impl Binding {
         Self {
             placeholder: format!("{:?}", ModelPath::of(path).steps()),
             leaf: Err(error),
+            root: None,
         }
     }
 
@@ -59,6 +63,7 @@ impl Binding {
                 unique: false,
                 unique_with: Vec::new(),
             }),
+            root: None,
         }
     }
 
@@ -87,6 +92,14 @@ impl Binding {
     /// Each unique index covering the column, as the names of its other fields.
     pub(crate) fn unique_with(&self) -> &[Vec<String>] {
         self.leaf().map_or(&[], |leaf| &leaf.unique_with)
+    }
+
+    /// The model's root field the path reads, as a [`Reads`](crate::lens::Reads).
+    pub(crate) fn reads<M>(&self) -> crate::lens::Reads<M> {
+        match &self.root {
+            Some(root) => crate::lens::Reads::nothing().named(root.clone()),
+            None => crate::lens::Reads::nothing(),
+        }
     }
 
     /// Why the path binds no column, when it does not.

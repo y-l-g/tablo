@@ -109,6 +109,12 @@ impl<M> Filter<M> for TrashFilter {
         "Trashed"
     }
 
+    /// Nothing a row shows: which records are trashed is what Restore and Delete permanently
+    /// offer anyway.
+    fn reads(&self) -> Option<crate::lens::Reads<M>> {
+        Some(crate::lens::Reads::nothing())
+    }
+
     fn to_expr(&self, _cx: &Cx, _value: &FilterValue) -> Option<Expr<bool>> {
         None
     }

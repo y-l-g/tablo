@@ -4,6 +4,7 @@ use std::fmt;
 
 mod action_input;
 mod auth;
+mod field_access;
 mod field_rule;
 mod many_to_many;
 mod mount_error;
@@ -17,6 +18,7 @@ pub use auth::{
     AuthMailFault, ProfileFault, ResetFault, SignUpFault, TenantProfileFault,
     TenantRegistrationFault, TwoFactorFault, VerificationFault,
 };
+pub use field_access::FieldAccessFault;
 pub use field_rule::FieldRuleFault;
 use field_rule::fmt_field_rule;
 pub use many_to_many::ManyToManyFault;
@@ -66,6 +68,7 @@ impl fmt::Display for DeclarationError {
                 Site::Panel | Site::Registration => {}
                 Site::Tenancy => f.write_str(" tenancy")?,
                 Site::SoftDelete => f.write_str(" soft delete")?,
+                Site::FieldAccess(field) => write!(f, " field access `{field}`")?,
                 Site::Table => f.write_str(" table")?,
                 Site::Form => f.write_str(" form")?,
                 Site::Detail => f.write_str(" detail")?,
@@ -92,6 +95,8 @@ pub enum Site {
     Tenancy,
     /// `ResourceDef::soft_delete`.
     SoftDelete,
+    /// The `ResourceDef::field_access` over this field.
+    FieldAccess(String),
     /// `ResourceDef::table`.
     Table,
     /// `ResourceDef::form`, checked against the record form.
@@ -252,6 +257,11 @@ pub enum DeclarationErrorKind {
     Tenancy {
         /// What is wrong.
         fault: TenancyFault,
+    },
+    /// A resource's field access that cannot hide its field everywhere the resource shows it.
+    FieldAccess {
+        /// What is wrong.
+        fault: FieldAccessFault,
     },
     /// A table with no column.
     NoColumns,

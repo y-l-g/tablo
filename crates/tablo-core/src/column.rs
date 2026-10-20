@@ -79,6 +79,10 @@ macro_rules! base_column_methods {
         fn toggle(&self) -> $crate::column::ColumnToggle {
             self.base.toggle
         }
+
+        fn reads(&self) -> Option<$crate::lens::Reads<M>> {
+            Some(self.base.reads())
+        }
     };
     (binding) => {
         base_column_methods!();
@@ -224,6 +228,18 @@ pub trait Column<M>: Send + Sync {
         Box::pin(async { Ok(()) })
     }
 
+    /// The fields of the row [`text`](Self::text), [`cell`](Self::cell),
+    /// [`entry`](Self::entry), [`search_expr`](Self::search_expr) and
+    /// [`order_by`](Self::order_by) read, or `None` when the column does not say.
+    ///
+    /// A panel drops a column reading a field
+    /// [`field_access`](crate::ResourceDef::field_access) hides from the user, and refuses to
+    /// mount a resource restricting a field whose columns answer `None`. The built-in columns
+    /// answer their own field.
+    fn reads(&self) -> Option<crate::lens::Reads<M>> {
+        None
+    }
+
     /// What is wrong with this column's declaration.
     #[doc(hidden)]
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
@@ -357,6 +373,11 @@ impl ColumnBase {
 
     fn label(&self) -> &str {
         self.label.as_deref().unwrap_or(self.binding.label())
+    }
+
+    /// The field the column reads.
+    fn reads<M>(&self) -> crate::lens::Reads<M> {
+        self.binding.reads()
     }
 }
 

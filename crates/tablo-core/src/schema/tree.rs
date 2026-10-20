@@ -36,6 +36,8 @@ pub struct Source<'a> {
     options: Option<String>,
     /// Whether the form edits a stored record.
     editing: bool,
+    /// The keys the request's field access hides or locks.
+    mask: super::FormMask,
 }
 
 impl<'a> Source<'a> {
@@ -48,12 +50,19 @@ impl<'a> Source<'a> {
             scope: String::new(),
             options: None,
             editing: false,
+            mask: super::FormMask::default(),
         }
     }
 
     /// Renders the edit form of a stored record, where `disabled_on_edit` disables a control.
     pub(crate) fn editing(mut self, editing: bool) -> Self {
         self.editing = editing;
+        self
+    }
+
+    /// Renders nothing for the keys `mask` hides, and disables the controls of the ones it locks.
+    pub(crate) fn masked(mut self, mask: super::FormMask) -> Self {
+        self.mask = mask;
         self
     }
 
@@ -120,16 +129,17 @@ impl<'a> Source<'a> {
 
     /// The DOM id of the control posting `name`.
     pub(crate) fn id(&self, name: &str) -> String {
-        self.placement(None).id(name)
+        self.placement(name, None).id(name)
     }
 
-    /// Where a field renders in this form, under its parent's value `parent`.
-    fn placement<'p>(&'p self, parent: Option<&'p str>) -> Placement<'p> {
+    /// Where the field posting `name` renders in this form, under its parent's value `parent`.
+    fn placement<'p>(&'p self, name: &str, parent: Option<&'p str>) -> Placement<'p> {
         Placement {
             parent,
             scope: &self.scope,
             options: self.options.as_deref(),
             editing: self.editing,
+            locked: self.mask.locks(name),
         }
     }
 
@@ -150,6 +160,12 @@ impl Node {
         match self {
             Node::Field(index) => {
                 let field = &fields[*index];
+                // A locked repeater renders nothing either: its rows' order posts its key.
+                if source.mask.hides(field.name())
+                    || (source.mask.locks(field.name()) && field.as_repeater().is_some())
+                {
+                    return Ok(().boxed());
+                }
                 // A repeater's rows render from the keys and errors of each of their controls.
                 if let Some(repeater) = field.as_repeater() {
                     let view = Box::pin(repeater.render(cx, field, source)).await?;
@@ -161,7 +177,7 @@ impl Node {
                     cx,
                     source.value(field.name()),
                     error,
-                    source.placement(parent),
+                    source.placement(field.name(), parent),
                 ))
                 .await?;
                 if let Some(conditions) = source.watched.get(field.name()) {

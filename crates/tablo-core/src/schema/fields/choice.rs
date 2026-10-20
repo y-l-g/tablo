@@ -404,7 +404,7 @@ impl Field {
         id: String,
         placement: Placement<'_>,
     ) -> Result<BoxView<'a>> {
-        let disabled = self.is_disabled(placement.editing);
+        let disabled = self.is_disabled_at(&placement);
         if choice.multiple {
             let chosen = value.and_then(FormValue::as_list).unwrap_or_default();
             return self

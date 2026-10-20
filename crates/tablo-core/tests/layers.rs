@@ -173,6 +173,7 @@ const RENDER_HOOKS: &[&str] = &[
     "schema/fields/choice/multiple.rs",
     "schema/fields/custom.rs",
     "schema/fields/file.rs",
+    "schema/fields/read_only.rs",
     "schema/fields/text.rs",
     "schema/layouts.rs",
     "schema/repeater.rs",

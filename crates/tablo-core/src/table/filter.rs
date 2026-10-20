@@ -75,6 +75,16 @@ pub trait Filter<M>: Send + Sync {
         Box::pin(async { Ok(true) })
     }
 
+    /// The fields of the record [`to_expr`](Self::to_expr) filters by, or `None` when the filter
+    /// does not say.
+    ///
+    /// A panel drops a filter reading a field [`field_access`](crate::ResourceDef::field_access)
+    /// hides from the user, and refuses to mount a resource restricting a field whose filters
+    /// answer `None`. The built-in filters answer their own field.
+    fn reads(&self) -> Option<crate::lens::Reads<M>> {
+        None
+    }
+
     /// What is wrong with this filter's declaration.
     #[doc(hidden)]
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {

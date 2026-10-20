@@ -30,6 +30,8 @@ pub struct RelationLens<M, R> {
     includes: Includes<M>,
     /// The relation field's name, or why the path names no single field.
     field: Result<(String, String), DeclarationErrorKind>,
+    /// The relation field, and the foreign keys of a `belongs_to`: what showing it reads.
+    reads: Vec<String>,
     #[derive_where(skip(Debug))]
     pub(super) read: fn(&M) -> &R,
 }
@@ -43,10 +45,21 @@ where
     #[doc(hidden)]
     pub fn new<T>(path: impl Into<Path<M, T>>, read: fn(&M) -> &R) -> Self {
         let path = path.into();
-        let field = model::field::<M>(&model::ModelPath::of(&path)).map(|f| (f.name, f.label));
+        let info = model::field::<M>(&model::ModelPath::of(&path));
+        let reads = match &info {
+            Ok(field) => std::iter::once(field.name.clone())
+                .chain(
+                    model::belongs_to::<M>(field.index)
+                        .map(|relation| relation.foreign_keys)
+                        .unwrap_or_default(),
+                )
+                .collect(),
+            Err(_) => Vec::new(),
+        };
         Self {
             includes: Includes::new().with(path),
-            field,
+            field: info.map(|f| (f.name, f.label)),
+            reads,
             read,
         }
     }
@@ -61,6 +74,15 @@ impl<M, R> RelationLens<M, R> {
     /// Read the relation field off `record`.
     pub fn read<'a>(&self, record: &'a M) -> &'a R {
         (self.read)(record)
+    }
+
+    /// The fields showing the relation reads.
+    pub(crate) fn reads(&self) -> crate::lens::Reads<M> {
+        self.reads
+            .iter()
+            .fold(crate::lens::Reads::nothing(), |reads, field| {
+                reads.named(field.clone())
+            })
     }
 
     /// The field's name and label, or why the path names no single field.

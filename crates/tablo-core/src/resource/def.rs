@@ -72,6 +72,7 @@ pub struct ResourceDef<R: Resource> {
     /// Whether [`Self::edit_only`] turned the create page off.
     pub(crate) edit_only: bool,
     pub(crate) soft_delete: Option<SoftDelete<R::Model>>,
+    pub(crate) field_rules: Vec<super::FieldRule>,
 }
 
 impl<R: Resource> Default for ResourceDef<R> {
@@ -98,6 +99,7 @@ impl<R: Resource> Default for ResourceDef<R> {
             create_columns: Vec::new(),
             edit_only: false,
             soft_delete: None,
+            field_rules: Vec::new(),
         }
     }
 }
@@ -263,6 +265,31 @@ impl<R: Resource> ResourceDef<R> {
     #[must_use]
     pub fn soft_delete(mut self, lens: Lens<R::Model, Option<jiff::Timestamp>>) -> Self {
         self.soft_delete = Some(SoftDelete::new(lens));
+        self
+    }
+
+    /// Restricts who views and who changes the field `path` names, as in
+    /// `.field_access(lens!(Employee.salary), FieldAccess::new().view(is_hr))`: see
+    /// [`FieldAccess`](super::FieldAccess).
+    ///
+    /// Each request drops what reads a field it may not view: the table's and the detail page's
+    /// columns, the filters and the grouping, the export's columns, and the searches of the list
+    /// and of the relationship choices over the resource. Its form renders nothing for the field,
+    /// or a disabled control for one it may view but not change, and refuses a submission posting
+    /// either with 400. A create the field needs a value for, with no default, is refused.
+    ///
+    /// Hiding a `belongs_to` relation hides its foreign keys, and hiding a key hides the relation.
+    /// Mounting the panel refuses a path that is not one field of the model, a second declaration
+    /// over one field, a record title or a form condition reading a restricted field, and a
+    /// column or a filter that does not say which fields it [`reads`](crate::Reads).
+    #[must_use]
+    pub fn field_access<T>(
+        mut self,
+        path: impl Into<toasty::stmt::Path<R::Model, T>>,
+        access: super::FieldAccess,
+    ) -> Self {
+        self.field_rules
+            .push(super::FieldRule::new(&path.into(), access));
         self
     }
 
@@ -450,6 +477,8 @@ impl<R: Resource> ResourceDef<R> {
 pub(crate) struct RecordTitle<M> {
     read: Box<dyn Fn(&M) -> String + Send + Sync>,
     search: TitleSearch,
+    /// The model's root field the title reads.
+    pub(crate) field: Option<String>,
 }
 
 /// The substring match on a title column for a search term.
@@ -461,9 +490,13 @@ impl<M: toasty::schema::Model + Send + Sync + 'static> RecordTitle<M> {
         T: FormScalar + toasty::schema::Field<Inner = String> + Send + Sync + 'static,
     {
         let path = lens.clone();
+        let field = crate::toasty_compat::model::root_field::<M>(
+            &crate::toasty_compat::model::ModelPath::of(lens.path()),
+        );
         Self {
             read: Box::new(move |record| lens.read(record).to_label()),
             search: Box::new(move |term| contains_expr(&path, term)),
+            field,
         }
     }
 
