@@ -3755,7 +3755,7 @@ impl<M> core::panic::unwind_safe::UnwindSafe for tablo_core::QueryFilter<M> wher
 pub struct tablo_core::table::RelationColumn<M>
 impl<M> tablo_core::RelationColumn<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::RelationColumn<M>::list<S>(tablo_core::RelationLens<M, toasty::schema::deferred::Deferred<alloc::vec::Vec<<S as tablo_core::extend::OptionSource>::Model>>>) -> Self where S: tablo_core::extend::OptionSource
-pub fn tablo_core::RelationColumn<M>::new<S>(tablo_core::RelationLens<M, impl tablo_core::ToOneRelation<<S as tablo_core::extend::OptionSource>::Model> + 'static>, impl core::ops::function::Fn(&<S as tablo_core::extend::OptionSource>::Model) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self where S: tablo_core::extend::OptionSource
+pub fn tablo_core::RelationColumn<M>::new<S>(tablo_core::RelationLens<M, impl tablo_core::ToOneRelation<<S as tablo_core::extend::OptionSource>::Model> + 'static>, impl core::convert::Into<tablo_core::Reads<<S as tablo_core::extend::OptionSource>::Model>>, impl core::ops::function::Fn(&<S as tablo_core::extend::OptionSource>::Model) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self where S: tablo_core::extend::OptionSource
 pub fn tablo_core::RelationColumn<M>::of<S>(tablo_core::RelationLens<M, impl tablo_core::ToOneRelation<<S as tablo_core::extend::OptionSource>::Model> + 'static>) -> Self where S: tablo_core::extend::OptionSource
 pub fn tablo_core::RelationColumn<M>::unscoped<T>(tablo_core::RelationLens<M, impl tablo_core::ToOneRelation<T> + 'static>, impl core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self
 impl<M> tablo_core::RelationColumn<M>
@@ -4691,6 +4691,9 @@ pub tablo_core::FieldAccessFault::SoftDelete
 pub tablo_core::FieldAccessFault::UndeclaredReads
 pub tablo_core::FieldAccessFault::UndeclaredReads::name: alloc::string::String
 pub tablo_core::FieldAccessFault::UndeclaredReads::what: &'static str
+pub tablo_core::FieldAccessFault::UnmaskedRelation
+pub tablo_core::FieldAccessFault::UnmaskedRelation::column: alloc::string::String
+pub tablo_core::FieldAccessFault::UnmaskedRelation::model: alloc::string::String
 pub tablo_core::FieldAccessFault::Watched
 impl core::clone::Clone for tablo_core::FieldAccessFault
 pub fn tablo_core::FieldAccessFault::clone(&self) -> tablo_core::FieldAccessFault
@@ -6083,6 +6086,8 @@ impl<M, T, P> core::convert::From<tablo_core::Lens<M, T, P>> for toasty::stmt::p
 pub fn toasty::stmt::path::Path<M, P>::from(tablo_core::Lens<M, T, P>) -> Self
 impl<M, T, P> core::fmt::Debug for tablo_core::Lens<M, T, P>
 pub fn tablo_core::Lens<M, T, P>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<M: toasty::schema::model::Model, T, P> core::convert::From<tablo_core::Lens<M, T, P>> for tablo_core::Reads<M>
+pub fn tablo_core::Reads<M>::from(tablo_core::Lens<M, T, P>) -> Self
 impl<M, T, P> core::marker::Freeze for tablo_core::Lens<M, T, P> where toasty::stmt::path::Path<M, P>: core::marker::Freeze, fn(&M) -> &T: core::marker::Freeze
 impl<M, T, P> core::marker::Send for tablo_core::Lens<M, T, P> where toasty::stmt::path::Path<M, P>: core::marker::Send, fn(&M) -> &T: core::marker::Send
 impl<M, T, P> core::marker::Sync for tablo_core::Lens<M, T, P> where toasty::stmt::path::Path<M, P>: core::marker::Sync, fn(&M) -> &T: core::marker::Sync
@@ -6563,6 +6568,10 @@ impl<M> tablo_core::Reads<M>
 pub fn tablo_core::Reads<M>::and<T>(self, impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> Self where M: toasty::schema::model::Model
 pub fn tablo_core::Reads<M>::nothing() -> Self
 pub fn tablo_core::Reads<M>::of<T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> Self where M: toasty::schema::model::Model
+impl<M: toasty::schema::model::Model, T, P> core::convert::From<tablo_core::Lens<M, T, P>> for tablo_core::Reads<M>
+pub fn tablo_core::Reads<M>::from(tablo_core::Lens<M, T, P>) -> Self
+impl<M: toasty::schema::model::Model, T> core::convert::From<toasty::stmt::path::Path<M, T>> for tablo_core::Reads<M>
+pub fn tablo_core::Reads<M>::from(toasty::stmt::path::Path<M, T>) -> Self
 impl<M> core::clone::Clone for tablo_core::Reads<M>
 pub fn tablo_core::Reads<M>::clone(&self) -> Self
 impl<M> core::default::Default for tablo_core::Reads<M>
@@ -6594,7 +6603,7 @@ impl<P> !core::panic::unwind_safe::UnwindSafe for tablo_core::Relation<P>
 pub struct tablo_core::RelationColumn<M>
 impl<M> tablo_core::RelationColumn<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::RelationColumn<M>::list<S>(tablo_core::RelationLens<M, toasty::schema::deferred::Deferred<alloc::vec::Vec<<S as tablo_core::extend::OptionSource>::Model>>>) -> Self where S: tablo_core::extend::OptionSource
-pub fn tablo_core::RelationColumn<M>::new<S>(tablo_core::RelationLens<M, impl tablo_core::ToOneRelation<<S as tablo_core::extend::OptionSource>::Model> + 'static>, impl core::ops::function::Fn(&<S as tablo_core::extend::OptionSource>::Model) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self where S: tablo_core::extend::OptionSource
+pub fn tablo_core::RelationColumn<M>::new<S>(tablo_core::RelationLens<M, impl tablo_core::ToOneRelation<<S as tablo_core::extend::OptionSource>::Model> + 'static>, impl core::convert::Into<tablo_core::Reads<<S as tablo_core::extend::OptionSource>::Model>>, impl core::ops::function::Fn(&<S as tablo_core::extend::OptionSource>::Model) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self where S: tablo_core::extend::OptionSource
 pub fn tablo_core::RelationColumn<M>::of<S>(tablo_core::RelationLens<M, impl tablo_core::ToOneRelation<<S as tablo_core::extend::OptionSource>::Model> + 'static>) -> Self where S: tablo_core::extend::OptionSource
 pub fn tablo_core::RelationColumn<M>::unscoped<T>(tablo_core::RelationLens<M, impl tablo_core::ToOneRelation<T> + 'static>, impl core::ops::function::Fn(&T) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self
 impl<M> tablo_core::RelationColumn<M>

@@ -53,10 +53,10 @@ foreign key `Relation::has_many` takes.
 | `DateColumn::new(lens)` | a `jiff::civil::Date`, `civil::DateTime` or `Timestamp` field's calendar day, `Oct 14, 2026` (a timestamp's day in the request's [time zone](./forms.md#time-zones)); a dash when the field holds none. The export writes the stored value, `2026-10-14T09:30:00Z`. | `.sortable()` |
 | `ComputedColumn::new(label, project)` | `project(row)` | neither: the methods do not exist |
 | `RelationColumn::of::<R>(relation!(..))` | a `Deferred` `belongs_to` or `has_one` field's record, titled as `R` titles it: a resource's `record_title`; a dash for a nullable field holding none | neither |
-| `RelationColumn::new::<R>(relation!(..), project)` | `project` of the same record | neither |
+| `RelationColumn::new::<R>(relation!(..), reads, project)` | `project` of the same record, which reads the fields `reads` names: a `lens!` or a `Reads` | neither |
 | `RelationColumn::list::<R>(relation!(..))` | a `Deferred` `has_many` field's records, a many-to-many `via` field's included, each titled as `R` titles it, joined by commas | neither |
 | `CountColumn::of::<R>(relation!(..))` | the number of a `Deferred` `has_many` field's records | neither |
-| `RelationColumn::unscoped(relation!(..), project)`, `CountColumn::unscoped(relation!(..))` | as above, for a related model no resource administers | neither |
+| `RelationColumn::unscoped(relation!(..), project)`, `CountColumn::unscoped(relation!(..))` | as above, for a related model no resource administers; a panel refuses `RelationColumn::unscoped` over a model a resource restricts a field of | neither |
 | `BooleanColumn::new(lens)` | a circled check or circled cross for a `bool` field; the export writes `Yes`/`No` (`.labels(..)`) | `.sortable()` |
 | `FileColumn::new(lens)` | a `String` field's stored upload path, as a link when it is a rooted path or an `http(s)` URL | neither |
 | `ImageColumn::new(lens)` | a rooted path as a 40px thumbnail (`.size(px)`, `.circular()`); an `http(s)` URL too once `.remote()` allows it, for a field only trusted users write, since every viewer's browser loads it from that host | neither |

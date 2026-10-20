@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use topcoat::context::Cx;
 
-use super::{Mounted, Resource};
+use super::{Mounted, Resource, is_restricted_model};
 use crate::{
     DeclarationError, DeclarationErrorKind, FieldAccessFault, Site, form::FormField,
     schema::FormMask, toasty_compat::model,
@@ -112,6 +112,11 @@ impl FieldRule {
             inverse,
             access,
         }
+    }
+
+    /// Whether the rule restricts who views the field, not only who changes it.
+    pub(crate) fn restricts_view(&self) -> bool {
+        self.access.view.is_some()
     }
 }
 
@@ -268,4 +273,44 @@ pub(crate) fn check<R: Resource>(declared: &Mounted<R>, errors: &mut Vec<Declara
             .into_iter()
             .map(|(site, kind)| DeclarationError::of::<R>(site, kind)),
     );
+}
+
+/// What shows the records of a model a mounted resource restricts a field of under no resource's
+/// field access: a column whose includes load one and that masks none of what it shows.
+pub(crate) fn check_related<R: Resource>(
+    cx: &Cx,
+    declared: &Mounted<R>,
+    errors: &mut Vec<DeclarationError>,
+) {
+    let columns = declared
+        .table
+        .declared_columns()
+        .iter()
+        .map(|column| (Site::Table, column))
+        .chain(
+            declared
+                .detail
+                .columns()
+                .into_iter()
+                .map(|column| (Site::Detail, column)),
+        );
+    for (site, column) in columns {
+        if column.masks_related() {
+            continue;
+        }
+        let includes = column.includes().into_vec();
+        let restricted = model::included_models::<R::Model>(&includes)
+            .into_iter()
+            .find(|(model, _)| is_restricted_model(cx, *model));
+        if let Some((_, model)) = restricted {
+            let fault = FieldAccessFault::UnmaskedRelation {
+                column: column.name().to_string(),
+                model,
+            };
+            errors.push(DeclarationError::of::<R>(
+                site,
+                DeclarationErrorKind::FieldAccess { fault },
+            ));
+        }
+    }
 }

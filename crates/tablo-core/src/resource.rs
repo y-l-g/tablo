@@ -31,7 +31,9 @@ pub use field_access::FieldAccess;
 pub(crate) use field_access::{FieldMask, FieldRule};
 pub(crate) use header_action::HeaderEntry;
 pub use header_action::{HeaderAction, HeaderActions};
-pub(crate) use mounted::{MountScope, Mounted, Mounts, is_tenant_model, mounted, require_mounted};
+pub(crate) use mounted::{
+    MountScope, Mounted, Mounts, is_restricted_model, is_tenant_model, mounted, require_mounted,
+};
 pub use relation::{ForeignKey, Relation};
 pub(crate) use relation::{Links, RelationKind};
 pub use soft_delete::Trashed;
@@ -453,6 +455,10 @@ impl<R: Resource> crate::schema::OptionSource for R {
 
     fn available(cx: &Cx) -> bool {
         mounted::<R>(cx).is_some()
+    }
+
+    fn hidden_fields(cx: &Cx) -> Vec<String> {
+        mounted::<R>(cx).map_or_else(Vec::new, |mounted| mounted.field_mask(cx).hidden().to_vec())
     }
 }
 

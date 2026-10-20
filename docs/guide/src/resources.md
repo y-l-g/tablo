@@ -141,7 +141,7 @@ A field only some users may see, or only some may change, declares who:
 ```
 
 Each rule asks about the request, not the record. A user `view` refuses sees the field nowhere
-on the resource's own pages: not its column in the list, the column picker or the export, not the filters, the grouping or the
+the resource shows its records: not its column in the list, the column picker or the export, not the filters, the grouping or the
 search over it, not its entry on the detail page and not its control on the form. A sort or a
 filter naming it reads as one naming a column the table does not declare. The relationship choices
 of other resources search the same table, so they cannot find a record by it either. A user
@@ -169,9 +169,23 @@ A custom `Column` or `Filter` answers `reads`. On a resource that restricts a fi
 checks refuse one that does not. With a `view` rule, they also refuse a record title over the
 field and a form condition or dependent choice that watches it from outside it.
 
-The rule belongs to the resource, not the model. Another resource's `RelationColumn` or
-`ComputedColumn` projects the related record through its own closure, so it shows what that
-closure reads: restrict the projection there too.
+Another resource's relation column shows the record through the resource it names, under that
+resource's rules. `RelationColumn::new::<R>` names the fields its closure reads, and a user `R`
+hides one from finds no such column on the list, the detail page or the export:
+
+```rust,ignore
+RelationColumn::new::<EmployeeResource>(relation!(Badge.owner), lens!(Employee.salary), |e| {
+    e.salary.to_string()
+})
+```
+
+`RelationColumn::of::<R>` and `list::<R>` show the record's title, which the startup checks keep
+clear of a hidden field, and `CountColumn` shows no field. A column showing the record under no
+resource, `RelationColumn::unscoped` or a `ComputedColumn` including the relation, is refused
+while a mounted resource restricts a field of its model. The rules are the resource's, not the
+model's: a column naming another resource over the same model shows what that one shows. A
+`QueryFilter`'s query through a relation runs under no resource's rules, so it may match on a
+field the related resource hides.
 
 ## Writes
 

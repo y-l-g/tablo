@@ -30,6 +30,15 @@ pub enum FieldAccessFault {
         /// The column's or the filter's name.
         name: String,
     },
+    /// A column shows records of a model a mounted resource restricts a field of under no
+    /// resource's field access: an unscoped relation column, a computed column's include, or a
+    /// custom column's.
+    UnmaskedRelation {
+        /// The column's name.
+        column: String,
+        /// The related model's name.
+        model: String,
+    },
 }
 
 impl fmt::Display for FieldAccessFault {
@@ -62,6 +71,10 @@ impl fmt::Display for FieldAccessFault {
                 "{what} `{name}` declares no fields it reads, so the panel cannot tell whether it \
                  shows a restricted one: declare them with `.reading(Reads::of(..))`, or \
                  implement `reads` on a custom {what}"
+            ),
+            Self::UnmaskedRelation { column, model } => write!(
+                f,
+                "column `{column}` shows `{model}` records under no resource's field access, and                  a mounted resource restricts a field of `{model}`: show them with                  `RelationColumn::new::<R>` naming the fields it reads, or by their title with                  `RelationColumn::of::<R>`"
             ),
         }
     }

@@ -202,13 +202,14 @@ impl<R: Resource> Mounted<R> {
         super::FieldMask::of(cx, &self.field_rules)
     }
 
-    /// The table `cx` reads: without what reads a field it may not view.
+    /// The table `cx` reads: without what reads a field it may not view, of the records or of
+    /// the related records a column shows.
     pub(crate) fn table_for(&self, cx: &Cx) -> Arc<Table<R::Model>> {
         let mask = self.field_mask(cx);
-        if mask.hidden().is_empty() {
+        if mask.hidden().is_empty() && !self.table.masks_related(cx) {
             Arc::clone(&self.table)
         } else {
-            Arc::new(self.table.without(mask.hidden()))
+            Arc::new(self.table.without(cx, mask.hidden()))
         }
     }
 
@@ -248,12 +249,14 @@ impl<R: Resource> Mounted<R> {
     }
 }
 
-/// The resources one panel mounted, by resource type, and the models whose rows belong to a
-/// tenant: a resource over one is tenant-scoped, or the model has a tenant column.
+/// The resources one panel mounted, by resource type, the models whose rows belong to a tenant:
+/// a resource over one is tenant-scoped, or the model has a tenant column, and the models a
+/// resource restricts the viewing of a field of.
 #[derive(Default)]
 pub(crate) struct Mounts {
     resources: HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
     tenant_models: std::collections::HashSet<crate::toasty_compat::model::ModelId>,
+    restricted_models: std::collections::HashSet<crate::toasty_compat::model::ModelId>,
 }
 
 impl Mounts {
@@ -264,12 +267,25 @@ impl Mounts {
             self.tenant_models
                 .insert(<R::Model as toasty::schema::Model>::id());
         }
+        if mounted
+            .field_rules
+            .iter()
+            .any(super::FieldRule::restricts_view)
+        {
+            self.restricted_models
+                .insert(<R::Model as toasty::schema::Model>::id());
+        }
         self.resources.insert(TypeId::of::<R>(), mounted);
     }
 
     /// Whether the rows of `model` belong to a tenant, as a mounted resource over it says.
     pub(crate) fn is_tenant_model(&self, model: crate::toasty_compat::model::ModelId) -> bool {
         self.tenant_models.contains(&model)
+    }
+
+    /// Whether a mounted resource restricts who views a field of `model`.
+    pub(crate) fn is_restricted_model(&self, model: crate::toasty_compat::model::ModelId) -> bool {
+        self.restricted_models.contains(&model)
     }
 
     pub(crate) fn get<R: Resource>(&self) -> Option<Arc<Mounted<R>>> {
@@ -298,6 +314,13 @@ pub(crate) fn is_tenant_model(cx: &Cx, model: crate::toasty_compat::model::Model
     try_app_context::<MountScope>(cx)
         .and_then(|MountScope(mounts)| mounts(cx))
         .is_some_and(|mounts| mounts.is_tenant_model(model))
+}
+
+/// Whether the context's panel mounts a resource restricting who views a field of `model`.
+pub(crate) fn is_restricted_model(cx: &Cx, model: crate::toasty_compat::model::ModelId) -> bool {
+    try_app_context::<MountScope>(cx)
+        .and_then(|MountScope(mounts)| mounts(cx))
+        .is_some_and(|mounts| mounts.is_restricted_model(model))
 }
 
 /// `R` as the request's panel mounted it.

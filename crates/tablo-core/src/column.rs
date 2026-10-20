@@ -250,6 +250,23 @@ pub trait Column<M>: Send + Sync {
         None
     }
 
+    /// Whether the column shows a field of a related record that the related resource's
+    /// [`field_access`](crate::ResourceDef::field_access) hides from `cx`: a panel drops it then,
+    /// as it drops one reading a hidden field of the row.
+    #[doc(hidden)]
+    fn masked(&self, _cx: &Cx) -> bool {
+        false
+    }
+
+    /// Whether the column shows the related records [`includes`](Self::includes) loads only
+    /// through their resource's field access, by [`masked`](Self::masked) or by showing no
+    /// field it restricts. A panel refuses to mount one that does not over a model a mounted
+    /// resource restricts a field of.
+    #[doc(hidden)]
+    fn masks_related(&self) -> bool {
+        false
+    }
+
     /// What is wrong with this column's declaration.
     #[doc(hidden)]
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
@@ -463,6 +480,12 @@ impl ColumnWidth {
 
 /// A table's columns, as the table stores them.
 pub(crate) type BoxColumn<M> = Arc<dyn Column<M>>;
+
+/// Whether `column` shows to `cx`, which may not view the row's `hidden` fields: it reads none of
+/// them, and no field of a related record its resource hides from `cx`.
+pub(crate) fn shows<M>(cx: &Cx, column: &dyn Column<M>, hidden: &[String]) -> bool {
+    crate::lens::shows(column.reads(), hidden) && !column.masked(cx)
+}
 
 /// Convert a single built-in column, a tuple of any [`Column`]s, a `Vec` or slice
 /// of boxed columns, or `()` for none yet, into a table's column list.

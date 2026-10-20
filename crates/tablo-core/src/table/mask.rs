@@ -1,15 +1,25 @@
 //! A table masked for one request: [`Table::without`].
 
+use topcoat::context::Cx;
+
 use super::Table;
 use crate::lens::shows;
 
 impl<M> Table<M> {
-    /// This table without what reads one of the `hidden` fields: its columns, filters and
-    /// grouping, and a default sort on a column it drops. A search, a sort or a filter naming
-    /// one then matches nothing the table declares, as one naming an unknown column does.
-    pub(crate) fn without(&self, hidden: &[String]) -> Self {
+    /// Whether a column shows a field of a related record its resource hides from `cx`.
+    pub(crate) fn masks_related(&self, cx: &Cx) -> bool {
+        self.columns.iter().any(|column| column.masked(cx))
+    }
+
+    /// This table as `cx` reads it, without what reads one of the `hidden` fields: its columns,
+    /// filters and grouping, and a default sort on a column it drops. A search, a sort or a filter
+    /// naming one then matches nothing the table declares, as one naming an unknown column does.
+    /// It drops a column showing a field of a related record its resource hides from `cx` too.
+    pub(crate) fn without(&self, cx: &Cx, hidden: &[String]) -> Self {
         let mut table = self.clone();
-        table.columns.retain(|column| shows(column.reads(), hidden));
+        table
+            .columns
+            .retain(|column| crate::column::shows(cx, &**column, hidden));
         table.filters.retain(|filter| shows(filter.reads(), hidden));
         if table
             .group_by

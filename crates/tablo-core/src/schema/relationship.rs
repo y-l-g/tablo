@@ -61,6 +61,13 @@ pub trait OptionSource: Sized + Send + Sync + 'static {
     fn available(_cx: &Cx) -> bool {
         true
     }
+
+    /// The root fields of the source's records the request may not view: for a resource, the
+    /// ones its [`field_access`](crate::ResourceDef::field_access) hides from the request.
+    #[doc(hidden)]
+    fn hidden_fields(_cx: &Cx) -> Vec<String> {
+        Vec::new()
+    }
 }
 
 /// Distinguishes a policy denial and an over-cap table from a retryable load failure so validation

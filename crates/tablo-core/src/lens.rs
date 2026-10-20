@@ -172,6 +172,18 @@ impl<M> Reads<M> {
     }
 }
 
+impl<M: toasty::schema::Model, T, P> From<Lens<M, T, P>> for Reads<M> {
+    fn from(lens: Lens<M, T, P>) -> Self {
+        Self::of(lens)
+    }
+}
+
+impl<M: toasty::schema::Model, T> From<Path<M, T>> for Reads<M> {
+    fn from(path: Path<M, T>) -> Self {
+        Self::of(path)
+    }
+}
+
 /// Whether a declaration answering `reads` shows to a request that may not view `hidden`. One that
 /// does not say shows: a mount refuses it on a resource restricting a field.
 pub(crate) fn shows<M>(reads: Option<Reads<M>>, hidden: &[String]) -> bool {

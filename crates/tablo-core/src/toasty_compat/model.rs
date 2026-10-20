@@ -570,8 +570,10 @@ fn app_embedded<'a>(schema: &'a toasty_core::Schema, field: &app::Field) -> Opti
 
 mod belongs_to;
 mod lookup;
+mod reach;
 pub(crate) use belongs_to::{BelongsTo, belongs_to, belongs_tos};
 use lookup::{app_field_at, mapping_field_at};
+pub(crate) use reach::included_models;
 
 #[cfg(test)]
 mod tests;

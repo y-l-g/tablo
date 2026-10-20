@@ -80,7 +80,11 @@ pub fn user_table() -> Table<User> {
 
 // ANCHOR: table-relation-column
 pub fn author_column() -> RelationColumn<Post> {
-    RelationColumn::new::<AuthorResource>(relation!(Post.author), |a: &Author| a.name.clone())
+    RelationColumn::new::<AuthorResource>(
+        relation!(Post.author),
+        lens!(Author.name),
+        |a: &Author| a.name.clone(),
+    )
 }
 
 pub fn comment_count_column() -> CountColumn<Post> {
