@@ -22,7 +22,6 @@ const VENDORED: &str = "crates/tablo-ui/src/components/primitives/";
 /// hold. The caps only fall: a listed file may not grow past its cap, one that shrinks lowers it,
 /// and one back under its limit leaves the list.
 pub const OVERSIZED: &[(&str, usize)] = &[
-    ("crates/tablo-core/src/declaration.rs", 707),
     ("crates/tablo-core/src/panel/shell.rs", 660),
     ("crates/tablo-core/src/schema/embedded.rs", 750),
     ("crates/tablo-core/src/schema/fields.rs", 871),

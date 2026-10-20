@@ -14,6 +14,7 @@ use super::super::{
     bar::{ActionBar, record_bar},
     gate::{gate, return_target},
 };
+pub(super) use crate::form::VERSION_FIELD;
 use crate::{
     form::{FieldErrors, FormValues},
     policy::Ability,
@@ -21,11 +22,6 @@ use crate::{
     schema::Schema,
     topcoat_compat::async_page,
 };
-
-/// The hidden control the edit form carries the record's [`ModelColumns::version`] in.
-///
-/// [`ModelColumns::version`]: crate::ModelColumns::version
-pub(super) const VERSION_FIELD: &str = "record_version";
 
 /// What a form page shows around its form: the create page and the edit page differ only here.
 pub(crate) struct FormChrome<'a> {

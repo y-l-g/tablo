@@ -350,8 +350,10 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
             .await;
         };
         let posted = Posted::new(form, named_fields(&resource, &named));
+        // A model without a version has no condition of its own for a write to fail on.
+        let versioned = record.version().is_some();
         let written = R::update_record(cx, record, posted, &mut tx).await;
-        if written.as_ref().is_err_and(overtaken) {
+        if versioned && written.as_ref().is_err_and(overtaken) {
             // Toasty's version condition refused the write: a save landed between the load
             // above and the write. Re-render on the record as it now stands.
             drop(tx);
@@ -382,8 +384,8 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
     })
 }
 
-/// Whether a write failed on Toasty's `#[version]` condition: another save changed the record
-/// between the load and the write.
+/// Whether a write failed on a Toasty condition, on a versioned model its `#[version]` one:
+/// another save changed the record between the load and the write.
 fn overtaken(error: &topcoat::Error) -> bool {
     error
         .downcast_ref::<toasty::Error>()

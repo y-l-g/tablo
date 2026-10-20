@@ -2,14 +2,14 @@
 //! and writes nothing, and saving that re-rendered form overwrites.
 
 use tablo::{
-    Ability, Resource, ResourceDef, Table, TextColumn, lens,
+    Ability, DeclarationErrorKind, Resource, ResourceDef, Table, TextColumn, lens,
     testing::{input_value, stale_form},
 };
 use toasty::Db;
 use topcoat::context::Cx;
 use uuid::Uuid;
 
-use crate::common::{TestClient, body_string, panel_router, test_db};
+use crate::common::{TestClient, body_string, mount, panel, panel_router, refusal, test_db};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Note {
@@ -90,6 +90,9 @@ async fn a_save_another_save_overtook_is_refused_until_saved_again() {
     assert!(stale_form(&html), "{html}");
     assert_eq!(title(&db, record.id).await, "theirs");
 
+    let response = client.submit(&url, "title=mine&record_version=v2").await;
+    assert_eq!(response.status(), 400);
+
     let now = input_value(&html, "record_version").expect("the form carries the version");
     assert_eq!(now, record.version.to_string());
     let response = client
@@ -140,4 +143,100 @@ async fn a_write_the_version_condition_refuses_re_renders_the_form() {
     let html = body_string(response).await;
     assert!(stale_form(&html), "{html}");
     assert_eq!(title(&db, record.id).await, "first");
+}
+
+/// A failed condition on a model without a version is no save overtaking this one: the edit
+/// fails as any write does, without the alert.
+#[tokio::test]
+async fn a_failed_condition_on_an_unversioned_model_is_no_stale_form() {
+    #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+    struct Plain {
+        #[key]
+        #[auto]
+        id: Uuid,
+        title: String,
+    }
+
+    #[derive(tablo::RecordForm)]
+    #[form(model = Plain)]
+    struct PlainForm {
+        title: String,
+    }
+
+    struct Conditional;
+
+    impl Resource for Conditional {
+        type Model = Plain;
+        type Form = PlainForm;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("plains")
+                .policy_fn(|_cx, _ability| true)
+                .table(Table::new(TextColumn::new(lens!(Plain.title))))
+        }
+
+        async fn update_record(
+            _cx: &Cx,
+            _record: Plain,
+            _posted: tablo::Posted<PlainForm>,
+            _ex: &mut dyn toasty::Executor,
+        ) -> topcoat::Result<Plain> {
+            Err(toasty::Error::condition_failed("an app's own condition").into())
+        }
+    }
+
+    let db = test_db(toasty::models!(Plain)).await;
+    let router = panel_router::<Conditional>(db.clone());
+    let record = toasty::create!(Plain {
+        title: "first".to_string(),
+    })
+    .exec(&mut db.clone())
+    .await
+    .unwrap();
+    let response = TestClient::new(&router)
+        .submit(&format!("/admin/plains/{}/edit", record.id), "title=mine")
+        .await;
+    assert!(response.status().is_server_error(), "{}", response.status());
+    assert!(!stale_form(&body_string(response).await));
+}
+
+/// The edit POST carries `record_version` beside the form's keys: a field of that name would
+/// read the token, so mounting refuses it.
+#[tokio::test]
+async fn mounting_refuses_a_form_field_named_record_version() {
+    #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+    struct Release {
+        #[key]
+        #[auto]
+        id: Uuid,
+        record_version: String,
+    }
+
+    #[derive(tablo::RecordForm)]
+    #[form(model = Release)]
+    struct ReleaseForm {
+        record_version: String,
+    }
+
+    struct Releases;
+
+    impl Resource for Releases {
+        type Model = Release;
+        type Form = ReleaseForm;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().table(Table::new(TextColumn::new(lens!(Release.record_version))))
+        }
+    }
+
+    let db = test_db(toasty::models!(Release)).await;
+    let errors = refusal(mount(db, panel().resource::<Releases>()));
+    assert!(
+        errors.iter().any(|error| error.kind
+            == DeclarationErrorKind::ReservedFormField {
+                field: "record_version".to_string(),
+            }),
+        "{errors:?}"
+    );
 }

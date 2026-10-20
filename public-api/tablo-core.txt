@@ -4477,6 +4477,8 @@ pub tablo_core::DeclarationErrorKind::RepeaterPassword::field: alloc::string::St
 pub tablo_core::DeclarationErrorKind::RepeaterPassword::leaf: alloc::string::String
 pub tablo_core::DeclarationErrorKind::RequiredConditionalField
 pub tablo_core::DeclarationErrorKind::RequiredConditionalField::field: alloc::string::String
+pub tablo_core::DeclarationErrorKind::ReservedFormField
+pub tablo_core::DeclarationErrorKind::ReservedFormField::field: alloc::string::String
 pub tablo_core::DeclarationErrorKind::ReservedSlug
 pub tablo_core::DeclarationErrorKind::ReservedSlug::slug: alloc::string::String
 pub tablo_core::DeclarationErrorKind::SecondHome

@@ -415,14 +415,18 @@ takes it too, for every field it holds:
   keeps its stored value, and the update assigns only the fields the submission named, plus the
   model's own `#[update(..)]` defaults and `#[version]` bump. An API client can post a single
   field. A control submitted empty is posted, and stores its field's blank value.
-
 - **A save another save overtook is refused.** When the model has a `#[version]` field and
   derives `ModelColumns`, the edit form carries the version it opened on as `record_version`. A
   save whose version no longer matches the stored record writes nothing and re-renders the form
   with the submitted values, an alert above them, and the current version, so saving again
   overwrites the other save. A save that lands between the edit's load and its write fails
-  Toasty's version condition and re-renders the same way. A POST without `record_version` skips
-  the first comparison, not the second.
+  Toasty's version condition and re-renders the same way where the database reports it so, as
+  PostgreSQL and MySQL do; SQLite can refuse the transaction as busy instead, and Turso's
+  concurrent transactions conflict at commit, which both answer 500. A POST without
+  `record_version` skips the first comparison, not the second; one whose `record_version` is no
+  number answers 400. Only the edit form carries the version: actions, relation managers and the
+  profile pages write without it, and the default Delete removes the record whatever its version. Mounting
+  refuses a form field named `record_version` or `csrf_token`.
 
 To write more than the form holds, override `create_record` or `update_record`
 ([Resources](./resources.md#writes)) and use the builders: `form.into_create()` is the model's
