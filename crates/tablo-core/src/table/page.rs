@@ -90,7 +90,8 @@ where
     M: toasty::schema::Model + Send + Sync + 'static,
 {
     /// Load the page of `table` that `state` names: `query` with the table's
-    /// search, filters and ordering applied, the relations its columns declare
+    /// search, filters and ordering applied (but a filter naming records the user may not see),
+    /// the relations its columns declare
     /// included, and the table's [`Pagination`] at the page size `state` reads at.
     ///
     /// `query` is the caller's scope. The panel's list passes the resource's
@@ -110,10 +111,13 @@ where
         query: Query<List<M>>,
         state: &TableState,
     ) -> Result<Self> {
+        let refused = table.refused_filters(cx, state).await;
         match table.pagination_mode() {
-            Pagination::Pages => Self::load_numbered(cx, table, query, state, true).await,
-            Pagination::Simple => Self::load_numbered(cx, table, query, state, false).await,
-            Pagination::Cursor => Self::load_cursor(cx, table, query, state).await,
+            Pagination::Pages => Self::load_numbered(cx, table, query, state, &refused, true).await,
+            Pagination::Simple => {
+                Self::load_numbered(cx, table, query, state, &refused, false).await
+            }
+            Pagination::Cursor => Self::load_cursor(cx, table, query, state, &refused).await,
         }
     }
 
@@ -127,10 +131,11 @@ where
         table: &Table<M>,
         query: Query<List<M>>,
         state: &TableState,
+        refused: &[String],
         counted: bool,
     ) -> Result<Self> {
         let mut db = crate::db::db(cx);
-        let narrowed = table.narrow(&db, query, state);
+        let narrowed = table.narrow(&db, query, state, refused);
         let per_page = table.page_size_for(state);
         let total = if counted {
             Some(
@@ -198,13 +203,14 @@ where
         table: &Table<M>,
         query: Query<List<M>>,
         state: &TableState,
+        refused: &[String],
     ) -> Result<Self> {
         // The declaration becomes predicates and an ordering through the one
         // shared routine — the export loader applies the same one to its own
         // seed. The cursor probes below reuse that filtered and ordered query
         // without the columns' includes: they only ask whether a row exists.
         let mut db = crate::db::db(cx);
-        let base_query = table.apply_declaration(&db, query, state);
+        let base_query = table.apply_declaration(&db, query, state, refused);
         let query = table.include_relations(base_query.clone());
         let per_page = table.page_size_for(state);
         let mut paginated = toasty::stmt::Paginate::new(query, per_page);

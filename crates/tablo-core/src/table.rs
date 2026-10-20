@@ -213,14 +213,34 @@ impl<M> Table<M> {
         include_relations(query, &self.columns)
     }
 
-    /// Filter predicate for the current `TableState`.
-    pub(crate) fn filter_expr(&self, state: &TableState) -> Option<Expr<bool>>
+    /// The names of the requested filters whose value [`Filter::admits`] refuses: values naming
+    /// records the user may not see, which [`Self::filter_expr`] and
+    /// [`Self::unapplied_filters`] treat as invalid.
+    pub(crate) async fn refused_filters(
+        &self,
+        cx: &topcoat::context::Cx,
+        state: &TableState,
+    ) -> Vec<String> {
+        let mut refused = Vec::new();
+        for f in &self.filters {
+            if let Some(value) = state.filters.get(f.name())
+                && !f.admits(cx, value).await
+            {
+                refused.push(f.name().to_string());
+            }
+        }
+        refused
+    }
+
+    /// Filter predicate for the current `TableState`, without the `refused` filters.
+    pub(crate) fn filter_expr(&self, state: &TableState, refused: &[String]) -> Option<Expr<bool>>
     where
         M: toasty::schema::Model,
     {
         let mut exprs = Vec::new();
         for f in &self.filters {
             if let Some(v) = state.filters.get(f.name())
+                && !refused.iter().any(|name| name == f.name())
                 && let Some(e) = f.to_expr(v)
             {
                 exprs.push(e);
@@ -236,8 +256,14 @@ impl<M> Table<M> {
     }
 
     /// Requested filters that produce no predicate, each spelled as its own parameters
-    /// (`f.status=draft&f.status=review`), beside one entry for dropped parameters.
-    pub(crate) fn unapplied_filters(&self, state: &TableState) -> Vec<(String, String)>
+    /// (`f.status=draft&f.status=review`), beside one entry for dropped parameters. A `refused`
+    /// filter reads as an invalid value, as one naming no record does, so the answer does not
+    /// tell a hidden record from a missing one.
+    pub(crate) fn unapplied_filters(
+        &self,
+        state: &TableState,
+        refused: &[String],
+    ) -> Vec<(String, String)>
     where
         M: toasty::schema::Model,
     {
@@ -245,7 +271,10 @@ impl<M> Table<M> {
         for (key, value) in &state.filters {
             match self.filters.iter().find(|f| f.name() == key) {
                 None => out.push((state.spell_filter(key, value), "unknown filter".to_string())),
-                Some(f) if f.to_expr(value).is_none() && !f.is_noop_value(value) => {
+                Some(f)
+                    if refused.iter().any(|name| name == key)
+                        || (f.to_expr(value).is_none() && !f.is_noop_value(value)) =>
+                {
                     out.push((state.spell_filter(key, value), "invalid value".to_string()))
                 }
                 Some(_) => {}
@@ -472,20 +501,22 @@ impl<M> Table<M> {
         db: &toasty::Db,
         query: toasty::stmt::Query<List<M>>,
         state: &TableState,
+        refused: &[String],
     ) -> toasty::stmt::Query<List<M>>
     where
         M: toasty::schema::Model,
     {
-        self.order(self.narrow(db, query, state), state)
+        self.order(self.narrow(db, query, state, refused), state)
     }
 
-    /// Narrow `query` to the rows `state`'s search and filters select, unordered: what a count
-    /// reads.
+    /// Narrow `query` to the rows `state`'s search and filters select, but the `refused`
+    /// filters, unordered: what a count reads.
     pub(crate) fn narrow(
         &self,
         db: &toasty::Db,
         mut query: toasty::stmt::Query<List<M>>,
         state: &TableState,
+        refused: &[String],
     ) -> toasty::stmt::Query<List<M>>
     where
         M: toasty::schema::Model,
@@ -495,7 +526,7 @@ impl<M> Table<M> {
         {
             query = query.filter(crate::toasty_compat::case_insensitive_search(db, expr));
         }
-        if let Some(expr) = self.filter_expr(state) {
+        if let Some(expr) = self.filter_expr(state, refused) {
             query = query.filter(expr);
         }
         query

@@ -545,3 +545,76 @@ fn a_built_in_filter_takes_a_label() {
     let date = DateFilter::new(Task::fields().created_at()).label("Created");
     assert_eq!(Filter::<Task>::label(&date), "Created");
 }
+
+#[derive(Debug, Clone, toasty::Model)]
+struct Writer {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    name: String,
+}
+
+#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+struct Article {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    writer_id: uuid::Uuid,
+}
+
+/// The writers, but for the one named "Hidden", which the user may not view.
+struct Writers;
+
+impl crate::schema::OptionSource for Writers {
+    type Model = Writer;
+    fn label(_cx: &topcoat::context::Cx, writer: &Writer) -> String {
+        writer.name.clone()
+    }
+    fn scoped_query(
+        _cx: &topcoat::context::Cx,
+    ) -> topcoat::Result<toasty::stmt::Query<toasty::stmt::List<Writer>>> {
+        Ok(toasty::stmt::Query::all())
+    }
+    fn allows(_cx: &topcoat::context::Cx, ability: crate::Ability<'_, Writer>) -> bool {
+        match ability {
+            crate::Ability::View(writer) => writer.name != "Hidden",
+            ability => ability.is_read(),
+        }
+    }
+}
+
+/// A relationship filter admits the keys of the writers the user may view, under the option cap
+/// and past it, and refuses a hidden writer's key as it refuses a key no writer holds.
+#[tokio::test]
+async fn a_relationship_filter_admits_only_the_keys_its_source_shows() {
+    for extra in [0, crate::schema::MAX_RELATIONSHIP_OPTIONS] {
+        let mut db = memory_db(toasty::models!(Writer, Article)).await;
+        let mut writer = async |name: String| {
+            toasty::create!(Writer { name })
+                .exec(&mut db)
+                .await
+                .unwrap()
+                .id
+                .to_string()
+        };
+        let (shown, hidden) = (writer("Shown".into()).await, writer("Hidden".into()).await);
+        for i in 0..extra {
+            writer(format!("Writer {i}")).await;
+        }
+        let cx = topcoat::context::CxTestBuilder::new()
+            .app_context(db)
+            .build();
+        let filter = SelectFilter::relationship::<Writers>(crate::lens!(Article.writer_id));
+        let admits = async |keys: &[&str]| {
+            let value = keys
+                .iter()
+                .fold(FilterValue::new(), |value, key| value.with(*key));
+            filter.admits(&cx, &value).await
+        };
+        let nobody = uuid::Uuid::new_v4().to_string();
+        assert!(admits(&[&shown]).await, "{extra} more writers");
+        assert!(!admits(&[&hidden]).await, "{extra} more writers");
+        assert!(!admits(&[&nobody]).await, "{extra} more writers");
+        assert!(!admits(&[&shown, &hidden]).await, "{extra} more writers");
+    }
+}

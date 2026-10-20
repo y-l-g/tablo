@@ -523,3 +523,51 @@ async fn duplicate_email_within_one_tenant_is_reported_inline() {
         "a refused duplicate must not be written"
     );
 }
+
+/// The author filter refuses another tenant's author as it refuses a key no author holds: the
+/// list warns the same way for both, and the export answers 400.
+#[tokio::test]
+async fn the_author_filter_refuses_another_tenants_author() {
+    let (db, t1, _) = tenanted_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let authors = Author::all().exec(&mut db.clone()).await.unwrap();
+    let id_of = |name: &str| authors.iter().find(|a| a.name == name).unwrap().id;
+    let (own, other, nobody) = (id_of("Alice T1"), id_of("Bob T2"), uuid::Uuid::new_v4());
+
+    let html = body_string(
+        client
+            .tenant(t1)
+            .get(&format!("/admin/posts?f.author_id={own}"))
+            .await,
+    )
+    .await;
+    assert!(
+        html.contains("T1 Post") && !html.contains("role=\"alert\""),
+        "the tenant's own author applies: {html}"
+    );
+    let banner = async |id: uuid::Uuid| {
+        let html = body_string(
+            client
+                .tenant(t1)
+                .get(&format!("/admin/posts?f.author_id={id}"))
+                .await,
+        )
+        .await;
+        let start = html.find("role=\"alert\"").expect("the filter warns");
+        let end = start + html[start..].find("<a").unwrap();
+        html[start..end].replace(&id.to_string(), "KEY")
+    };
+    assert_eq!(
+        banner(other).await,
+        banner(nobody).await,
+        "another tenant's author reads as a key no author holds"
+    );
+    for id in [other, nobody] {
+        let resp = client
+            .tenant(t1)
+            .get(&format!("/admin/posts/-/export?f.author_id={id}"))
+            .await;
+        assert_eq!(resp.status(), 400, "{id}");
+    }
+}

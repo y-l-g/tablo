@@ -69,12 +69,13 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
         }
         let state = TableState::from_cx(cx);
         let table = resource.table.clone();
-        // Fails closed on unapplied filters.
-        if !table.unapplied_filters(&state).is_empty() {
+        // Fails closed on unapplied filters, a refused one included.
+        let refused = table.refused_filters(cx, &state).await;
+        let unapplied = table.unapplied_filters(&state, &refused);
+        if !unapplied.is_empty() {
             return Err(topcoat::router::error::bad_request(format!(
                 "invalid filters: {}",
-                table
-                    .unapplied_filters(&state)
+                unapplied
                     .iter()
                     .map(|(pair, reason)| format!("{pair} ({reason})"))
                     .collect::<Vec<_>>()
@@ -82,7 +83,8 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
             ))
             .into());
         }
-        let mut chunker = ExportChunker::new(export_base_query(cx, &resource, &table, &state)?);
+        let mut chunker =
+            ExportChunker::new(export_base_query(cx, &resource, &table, &state, &refused)?);
         let mut db_handle = db(cx);
         let mut visible = 0usize;
         while let Some(rows) = chunker.next_chunk(&mut db_handle).await? {
@@ -103,7 +105,7 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
         // being compiled once per model.
         let stream: crate::BoxFuture<'static, ()> = Box::pin(async move {
             let mut tx = tx;
-            let mut chunker = match export_base_query(&cx2, &resource, &table, &state) {
+            let mut chunker = match export_base_query(&cx2, &resource, &table, &state, &refused) {
                 Ok(query) => ExportChunker::new(table.include_relations(query)),
                 Err(error) => {
                     tracing::error!(resource = resource.slug, error = %error, "export stream failed");
@@ -179,8 +181,14 @@ fn export_base_query<R: Resource>(
     resource: &Mounted<R>,
     table: &Table<R::Model>,
     state: &TableState,
+    refused: &[String],
 ) -> Result<toasty::stmt::Query<toasty::stmt::List<R::Model>>> {
-    Ok(table.apply_declaration(&crate::db::db(cx), resource.scoped_query(cx)?, state))
+    Ok(table.apply_declaration(
+        &crate::db::db(cx),
+        resource.scoped_query(cx)?,
+        state,
+        refused,
+    ))
 }
 
 /// Walks an export base query in cursor chunks.

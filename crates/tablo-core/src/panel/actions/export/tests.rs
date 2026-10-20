@@ -55,6 +55,7 @@ async fn export_chunker_stops_at_a_short_chunk() {
             &crate::resource::require_mounted::<ChunkerDummyResource>(&cx).unwrap(),
             &table,
             &state,
+            &[],
         )
         .expect("tenant scope"),
     );
@@ -91,6 +92,7 @@ async fn export_chunker_does_not_rescan_on_exact_multiple_of_chunk() {
             &crate::resource::require_mounted::<ChunkerDummyResource>(&cx).unwrap(),
             &table,
             &state,
+            &[],
         )
         .expect("tenant scope"),
     );
@@ -201,6 +203,7 @@ async fn export_and_list_agree_on_rows_and_order() {
             &crate::resource::require_mounted::<TaskResource>(&cx).unwrap(),
             &table,
             &state,
+            &[],
         )
         .expect("tenant scope"),
     );

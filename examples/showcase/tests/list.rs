@@ -414,10 +414,9 @@ async fn an_empty_state_clears_only_what_emptied_the_table() {
     }
     assert!(!clear.contains("q="), "{clear}");
 
-    let nobody = uuid::Uuid::from_u128(7);
     let html = body_string(
         client
-            .get(&format!("/admin/posts?f.author_id={nobody}&{query}"))
+            .get(&format!("/admin/posts?f.created_at.to=1900-01-01&{query}"))
             .await,
     )
     .await;

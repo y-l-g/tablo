@@ -61,6 +61,14 @@ pub trait Filter<M>: Send + Sync {
         Box::pin(async move { self.control(cx, input) })
     }
 
+    /// Whether the request may filter by `value`, asked before the table builds its predicate. A
+    /// filter whose value names another resource's records admits only the ones the user may
+    /// see; a refused value reads as invalid, as one that names no record does.
+    #[doc(hidden)]
+    fn admits<'s>(&'s self, _cx: &'s Cx, _value: &'s FilterValue) -> BoxFuture<'s, bool> {
+        Box::pin(async { true })
+    }
+
     /// What is wrong with this filter's declaration.
     #[doc(hidden)]
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
