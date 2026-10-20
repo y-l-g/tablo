@@ -111,6 +111,8 @@ macro_rules! lens {
 #[derive_where(Clone, Debug, Default)]
 pub struct Reads<M> {
     fields: Vec<String>,
+    /// Whether some path named no root field: such a read hides under any mask.
+    unresolved: bool,
     #[derive_where(skip(Debug))]
     _model: std::marker::PhantomData<fn() -> M>,
 }
@@ -137,7 +139,10 @@ impl<M> Reads<M> {
         let path = crate::toasty_compat::model::ModelPath::of(&path.into());
         match crate::toasty_compat::model::root_field::<M>(&path) {
             Some(field) => self.named(field),
-            None => self,
+            None => Self {
+                unresolved: true,
+                ..self
+            },
         }
     }
 
@@ -150,9 +155,20 @@ impl<M> Reads<M> {
         self
     }
 
-    /// Whether it reads any of `fields`.
+    /// These fields and the ones `other` reads.
+    pub(crate) fn union(&self, other: &Self) -> Self {
+        let mut union = other
+            .fields
+            .iter()
+            .fold(self.clone(), |reads, field| reads.named(field.clone()));
+        union.unresolved |= other.unresolved;
+        union
+    }
+
+    /// Whether it reads any of `fields`; a read naming no field may read them.
     pub(crate) fn reads_any(&self, fields: &[String]) -> bool {
-        self.fields.iter().any(|field| fields.contains(field))
+        (self.unresolved && !fields.is_empty())
+            || self.fields.iter().any(|field| fields.contains(field))
     }
 }
 

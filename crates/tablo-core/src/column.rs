@@ -64,6 +64,27 @@ macro_rules! toggle_builders {
 /// impl; `binding` adds the binding's `misdeclared`.
 macro_rules! base_column_methods {
     () => {
+        base_column_methods!(@shared);
+
+        fn reads(&self) -> Option<$crate::lens::Reads<M>> {
+            Some(self.base.reads())
+        }
+    };
+    (binding) => {
+        base_column_methods!();
+        base_column_methods!(@misdeclared);
+    };
+    // A column that answers `reads` itself.
+    (binding, reads) => {
+        base_column_methods!(@shared);
+        base_column_methods!(@misdeclared);
+    };
+    (@misdeclared) => {
+        fn misdeclared(&self) -> Option<$crate::DeclarationErrorKind> {
+            self.base.binding.misdeclared()
+        }
+    };
+    (@shared) => {
         fn name(&self) -> &str {
             self.base.name()
         }
@@ -78,17 +99,6 @@ macro_rules! base_column_methods {
 
         fn toggle(&self) -> $crate::column::ColumnToggle {
             self.base.toggle
-        }
-
-        fn reads(&self) -> Option<$crate::lens::Reads<M>> {
-            Some(self.base.reads())
-        }
-    };
-    (binding) => {
-        base_column_methods!();
-
-        fn misdeclared(&self) -> Option<$crate::DeclarationErrorKind> {
-            self.base.binding.misdeclared()
         }
     };
 }

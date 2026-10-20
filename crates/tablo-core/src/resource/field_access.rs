@@ -85,6 +85,8 @@ pub(crate) struct FieldRule {
     field: Result<String, (String, DeclarationErrorKind)>,
     /// The field and the fields a `belongs_to` pairs it with: its relation, or its foreign keys.
     covers: Vec<String>,
+    /// Whether the field is the inverse side of a relation, which no mask reaches.
+    inverse: bool,
     access: FieldAccess,
 }
 
@@ -101,9 +103,13 @@ impl FieldRule {
             Ok(field) => paired::<M>(field),
             Err(_) => Vec::new(),
         };
+        let inverse = field
+            .as_ref()
+            .is_ok_and(|field| model::is_inverse::<M>(&field.name));
         Self {
             field: field.map(|field| field.name),
             covers,
+            inverse,
             access,
         }
     }
@@ -187,6 +193,25 @@ pub(crate) fn check<R: Resource>(declared: &Mounted<R>, errors: &mut Vec<Declara
             ));
         }
         seen.push(field);
+        if rule.inverse {
+            errors.push(DeclarationError::of::<R>(
+                site(field),
+                fault(FieldAccessFault::Inverse),
+            ));
+            continue;
+        }
+        let trash = declared.soft_delete.as_ref();
+        if trash.is_some_and(|trash| trash.field().is_ok_and(|(_, name)| name == field)) {
+            errors.push(DeclarationError::of::<R>(
+                site(field),
+                fault(FieldAccessFault::SoftDelete),
+            ));
+        }
+        // A rule only over edits leaves the field shown to every user: a title or a watch over
+        // it tells no one what they may not see.
+        if rule.access.view.is_none() {
+            continue;
+        }
         let covered = |name: &str| rule.covers.iter().any(|covered| covered == name);
         if declared.record_title_field().is_some_and(covered) {
             errors.push(DeclarationError::of::<R>(
@@ -199,12 +224,16 @@ pub(crate) fn check<R: Resource>(declared: &Mounted<R>, errors: &mut Vec<Declara
             locked: Vec::new(),
         }
         .form(&declared.fields);
-        if declared
+        // The field's own controls may watch one another, as an embedded enum's watch its
+        // variant: only a watch driving a control the user still sees tells what it holds.
+        let tells = declared
             .form
-            .watched_keys()
-            .iter()
-            .any(|key| keys.hides(key))
-        {
+            .watchers()
+            .into_iter()
+            .any(|(watched, driven)| {
+                keys.hides(&watched) && driven.is_none_or(|driven| !keys.hides(&driven))
+            });
+        if tells {
             errors.push(DeclarationError::of::<R>(
                 site(field),
                 fault(FieldAccessFault::Watched),

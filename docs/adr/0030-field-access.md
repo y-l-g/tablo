@@ -13,13 +13,21 @@ one naming an unknown column, and the relationship choices over the resource sea
 table. The detail page drops the hidden columns and a block left with none. Hiding a `belongs_to`
 relation hides its foreign keys, and hiding a key hides the relation that shows its record.
 
+The mask is the resource's, not the model's. Another resource that projects the record, a
+`RelationColumn` or a `ComputedColumn` over a relation, shows what its closure reads; the panel
+cannot see which fields that is, and refusing every projection over a restricting resource would
+refuse the common one over its title. A `has_many` or a `has_one` is refused: its records are the
+related resource's, which its policy restricts, and the relation table and its links read none of
+the owner's mask. So is the soft-delete column, whose state the trash control shows.
+
 What a column or a filter reads is its own declaration, `Column::reads` and `Filter::reads`, by
 the root field each path starts at. A built-in answers its binding, a relation column its
-relation and foreign keys; a `ComputedColumn` or a `QueryFilter` answers what `.reading(..)`
-declares, and a custom one `None` until it says. Mounting a resource that restricts a field
-refuses a column or filter answering `None`, since the panel cannot tell what it shows, and a
-record title or a form watch reading a restricted field, since every page names the record by its
-title and a condition shows what it watches.
+relation and foreign keys; a `ComputedColumn`, a `QueryFilter` or a `TextColumn` with a
+`description` answers what `.reading(..)` declares, and a custom one `None` until it says.
+Mounting a resource that restricts a field refuses a column or filter answering `None`, since the panel cannot tell what it shows. For a
+field with a `view` rule, it refuses a record title reading it, since every page names the record
+by its title, and a form watch over it from a control outside it, since a condition shows what it
+watches.
 
 The record form is a typed struct (ADR-0022), so a field the user may not change still takes a
 value. Its control renders nothing when hidden and disabled when locked, a locked repeater

@@ -10,11 +10,17 @@ use std::fmt;
 pub enum FieldAccessFault {
     /// Two declarations over one field.
     Duplicate,
+    /// The field is the inverse side of a relation, a `#[has_many]` or a `#[has_one]`, whose
+    /// records the related resource's relation table and policy show and link.
+    Inverse,
+    /// The field is the [soft-delete](crate::ResourceDef::soft_delete) column, whose state the
+    /// trash control and the Restore buttons show every user.
+    SoftDelete,
     /// The record title reads the field, and every page and relationship choice names a record
-    /// by its title.
+    /// by its title. Asked of a rule with a `view` rule only.
     RecordTitle,
     /// A form condition or a dependent choice watches the field, so what the form shows would
-    /// tell what it holds.
+    /// tell what it holds. Asked of a rule with a `view` rule only.
     Watched,
     /// A column or a filter of a resource that restricts a field does not declare the fields it
     /// reads, so the panel cannot tell whether it shows the restricted one.
@@ -32,6 +38,16 @@ impl fmt::Display for FieldAccessFault {
             Self::Duplicate => f.write_str(
                 "the field has two `field_access` declarations: declare it once, with both its \
                  `view` and its `edit` rule",
+            ),
+            Self::Inverse => f.write_str(
+                "the field is a `has_many` or a `has_one`, whose records the relation table shows \
+                 and links: restrict them with the related resource's policy, or drop the \
+                 relation for the users who may not see it",
+            ),
+            Self::SoftDelete => f.write_str(
+                "the field is the soft-delete column, whose state the trash control and the \
+                 Restore and Delete permanently buttons show: restrict who restores and deletes \
+                 with the policy's `Restore` and `ForceDelete` instead",
             ),
             Self::RecordTitle => f.write_str(
                 "the record title reads the field, and every page and relationship choice names \

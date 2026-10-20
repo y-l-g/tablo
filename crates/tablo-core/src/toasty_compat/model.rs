@@ -196,6 +196,17 @@ pub(crate) fn is_via<M: toasty::schema::Model>(name: &str) -> bool {
     })
 }
 
+/// Whether `M`'s field `name` is the inverse side of a relation, `#[has_many]` or `#[has_one]`
+/// with or without `via`: it stores nothing on `M`'s rows.
+pub(crate) fn is_inverse<M: toasty::schema::Model>(name: &str) -> bool {
+    M::schema().as_root().is_some_and(|root| {
+        root.fields.iter().any(|field| {
+            field.name.app.as_deref() == Some(name)
+                && matches!(field.ty, app::FieldTy::Has(_) | app::FieldTy::Via(_))
+        })
+    })
+}
+
 /// The name of `M`'s root field `path` starts at.
 pub(crate) fn root_field<M: toasty::schema::Model>(path: &ModelPath) -> Option<String> {
     let index = path.root_step()?;

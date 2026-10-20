@@ -241,9 +241,11 @@ An action's `NAME` that is not one URL segment does not compile, so it never rea
 | Fault | Refused when | Fix |
 | --- | --- | --- |
 | `Duplicate` | two `field_access` declarations name one field | declare it once, with both its `view` and its `edit` rule |
-| `RecordTitle` | the record title reads the field, and every page and relationship choice names a record by its title | title the record by a field every user may view |
-| `Watched` | a form condition or a dependent choice watches the field, so what the form shows tells what it holds | watch a field every user may view |
-| `UndeclaredReads` | a resource restricts a field, and one of its table columns, filters or detail columns does not declare the fields it reads | `.reading(Reads::of(..))` on a `ComputedColumn` or `QueryFilter`, or implement `reads` on a custom column or filter |
+| `Inverse` | the field is a `has_many` or a `has_one`, whose records the relation table shows and links | restrict them with the related resource's policy |
+| `SoftDelete` | the field is the soft-delete column, whose state the trash control and the Restore buttons show | restrict restores and force deletes with the policy's `Restore` and `ForceDelete` |
+| `RecordTitle` | the field has a `view` rule, and the record title reads it: every page and relationship choice names a record by its title | title the record by a field every user may view |
+| `Watched` | the field has a `view` rule, and a form condition or a dependent choice outside it watches it, so what the form shows tells what it holds | watch a field every user may view |
+| `UndeclaredReads` | a resource restricts a field, and one of its table columns, filters or detail columns does not declare the fields it reads | `.reading(Reads::of(..))` on a `ComputedColumn`, a `QueryFilter` or a described `TextColumn`, or implement `reads` on a custom column or filter |
 
 A `field_access` lens that is not one field of the model is refused with a
 [lens kind](#lenses-and-bindings).

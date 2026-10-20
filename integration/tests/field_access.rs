@@ -4,8 +4,9 @@
 //! user could not change; and the mount refuses a declaration that would show the field anyway.
 
 use tablo::{
-    Ability, ComputedColumn, DeclarationErrorKind, FieldAccess, FieldAccessFault, QueryFilter,
-    Reads, Resource, ResourceDef, Schema, Site, Table, Tenancy, TenantId, TextColumn, lens,
+    Ability, ComputedColumn, DeclarationErrorKind, FieldAccess, FieldAccessFault, FieldErrors,
+    QueryFilter, Reads, Resource, ResourceDef, Schema, Site, Table, Tenancy, TenantId, TextColumn,
+    lens,
     testing::{columns, ignored_filters, row_keys},
 };
 use toasty::Db;
@@ -95,6 +96,14 @@ impl Resource for DefaultedResource {
                 c.salary.default("S-100"),
                 c.grade.default("junior"),
             )))
+    }
+
+    fn validate_record(_cx: &Cx, form: &EmployeeForm) -> FieldErrors<EmployeeFormField> {
+        let mut errors = FieldErrors::new();
+        if form.salary == "S-bad" {
+            errors.add(EmployeeFormField::Salary, "Salary S-bad is out of range");
+        }
+        errors
     }
 }
 
@@ -308,6 +317,24 @@ async fn a_create_the_user_cannot_complete_is_refused() {
     assert_eq!(hr.get("/admin/employees/-/create").await.status(), 200);
 }
 
+/// An error on a field the user may not view renders as an alert without its message, which could
+/// tell the value.
+#[tokio::test]
+async fn an_error_on_a_hidden_field_shows_an_alert_only() {
+    let db = db().await;
+    let router = router(&db);
+    let ada = employee(&db, SALES, "Ada", "S-bad").await;
+    let sales = TestClient::new(&router).tenant(SALES);
+    let response = sales
+        .submit(&format!("/admin/defaulted/{}/edit", ada.id), "name=Ada+L")
+        .await;
+    assert_eq!(response.status(), 200, "the form re-renders");
+    let html = body_string(response).await;
+    assert!(html.contains("data-unseen-error"), "{html}");
+    assert!(!html.contains("S-bad"), "{html}");
+    assert_eq!(stored(&db, ada.id).await.name, "Ada");
+}
+
 /// The mount refuses a record title over a restricted field, and a column that does not say which
 /// fields it reads.
 #[tokio::test]
@@ -326,6 +353,8 @@ async fn a_declaration_showing_a_restricted_field_is_refused() {
                 .table(Table::new((
                     TextColumn::new(lens!(Employee.name)),
                     ComputedColumn::new("Initial", |e: &Employee| e.name[..1].to_string()),
+                    TextColumn::new(lens!(Employee.grade))
+                        .description(|e: &Employee| e.salary.clone()),
                 )))
         }
     }
@@ -355,4 +384,40 @@ async fn a_declaration_showing_a_restricted_field_is_refused() {
         )),
         "{errors:?}"
     );
+    assert!(
+        faults.contains(&(
+            &Site::Table,
+            &FieldAccessFault::UndeclaredReads {
+                what: "column",
+                name: "grade".to_string()
+            }
+        )),
+        "a description may read any field: {errors:?}"
+    );
+}
+
+/// A rule over edits alone leaves the field shown to every user, so a title over it mounts, and a
+/// described column mounts once it declares what its description reads.
+#[tokio::test]
+async fn an_edit_rule_leaves_the_title_free() {
+    struct Graded;
+
+    impl Resource for Graded {
+        type Model = Employee;
+        type Form = EmployeeForm;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .tenancy(Tenancy::column(Employee::fields().tenant_id()))
+                .field_access(lens!(Employee.grade), FieldAccess::new().edit(hr))
+                .record_title(lens!(Employee.grade))
+                .table(Table::new(
+                    TextColumn::new(lens!(Employee.name))
+                        .description(|e: &Employee| e.grade.clone())
+                        .reading(Reads::of(lens!(Employee.grade))),
+                ))
+        }
+    }
+
+    mount(db().await, panel().resource::<Graded>()).expect("the panel mounts");
 }

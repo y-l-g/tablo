@@ -79,6 +79,8 @@ pub struct TextColumn<M, T> {
     alignment: Alignment,
     #[derive_where(skip(Debug))]
     description: Option<DescriptionFn<M>>,
+    /// The fields the description reads, when declared.
+    description_reads: Option<crate::lens::Reads<M>>,
 }
 
 /// A searchable column's predicate for an escaped `LIKE` pattern.
@@ -142,6 +144,7 @@ where
             tabular: false,
             alignment: Alignment::Start,
             description: None,
+            description_reads: None,
         }
     }
 
@@ -167,11 +170,21 @@ where
 
     /// Show `description(row)` as a muted line under the value, such as a customer's email under
     /// their name. Search, sort and export read the value alone.
+    ///
+    /// The description may read any field, so a resource that
+    /// [restricts a field](crate::ResourceDef::field_access) refuses the column until
+    /// [`reading`](Self::reading) declares the ones it reads.
     pub fn description(
         mut self,
         description: impl Fn(&M) -> String + Send + Sync + 'static,
     ) -> Self {
         self.description = Some(Arc::new(description));
+        self
+    }
+
+    /// Declare the fields the [`description`](Self::description) reads, beside the column's own.
+    pub fn reading(mut self, reads: crate::lens::Reads<M>) -> Self {
+        self.description_reads = Some(reads);
         self
     }
 
@@ -237,7 +250,16 @@ where
     M: toasty::schema::Model + Send + Sync + 'static,
     T: Send + Sync + 'static,
 {
-    base_column_methods!(binding);
+    base_column_methods!(binding, reads);
+
+    fn reads(&self) -> Option<crate::lens::Reads<M>> {
+        let own = self.base.reads();
+        match (&self.description, &self.description_reads) {
+            (None, _) => Some(own),
+            (Some(_), None) => None,
+            (Some(_), Some(declared)) => Some(own.union(declared)),
+        }
+    }
 
     fn text(&self, _cx: &Cx, row: &M) -> String {
         (self.format)(self.lens.read(row))

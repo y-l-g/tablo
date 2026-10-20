@@ -140,8 +140,8 @@ A field only some users may see, or only some may change, declares who:
 {{#include ../../../examples/guide/src/resources.rs:user-field-access}}
 ```
 
-Each rule asks about the request, not the record. A user `view` refuses sees the field nowhere:
-not its column in the list, the column picker or the export, not the filters, the grouping or the
+Each rule asks about the request, not the record. A user `view` refuses sees the field nowhere
+on the resource's own pages: not its column in the list, the column picker or the export, not the filters, the grouping or the
 search over it, not its entry on the detail page and not its control on the form. A sort or a
 filter naming it reads as one naming a column the table does not declare. The relationship choices
 of other resources search the same table, so they cannot find a record by it either. A user
@@ -152,9 +152,13 @@ edit keeps the stored value. A create takes the control's `default`, else the fi
 answer; when the field is required and has no default, the user cannot create, and the list
 offers no **Create** button.
 
+If a validation error lands on a hidden field, the form shows an alert that a field the user
+cannot see refuses the save, without its message.
+
 Hiding a `belongs_to` relation hides its foreign key, and hiding the key hides the relation. A
-`ComputedColumn` or a `QueryFilter` says which fields it reads, since the panel cannot see inside
-its closure:
+`has_many` or a `has_one` cannot be restricted: its records are the related resource's, which its
+policy restricts. A `ComputedColumn`, a `QueryFilter` and a `TextColumn` with a `description` say
+which fields they read, since the panel cannot see inside their closures:
 
 ```rust,ignore
 ComputedColumn::new("Pay", |e: &Employee| e.salary.to_string())
@@ -162,8 +166,12 @@ ComputedColumn::new("Pay", |e: &Employee| e.salary.to_string())
 ```
 
 A custom `Column` or `Filter` answers `reads`. On a resource that restricts a field, the startup
-checks refuse one that does not, a record title over a restricted field, and a form condition or
-dependent choice that watches one.
+checks refuse one that does not. With a `view` rule, they also refuse a record title over the
+field and a form condition or dependent choice that watches it from outside it.
+
+The rule belongs to the resource, not the model. Another resource's `RelationColumn` or
+`ComputedColumn` projects the related record through its own closure, so it shows what that
+closure reads: restrict the projection there too.
 
 ## Writes
 
@@ -236,7 +244,8 @@ declaration names one. It refuses the resource when:
   of a `Tenancy::via` resource writes the parent's foreign key other than through a relationship
   field over a tenant-scoped resource;
 - a `soft_delete` lens is not one field of the model, or the record form writes its column;
-- a `field_access` lens is not one field of the model, or names a field twice; the record title,
+- a `field_access` lens is not one field of the model, names a field twice, a `has_many`, a
+  `has_one` or the soft-delete column; the record title,
   a form condition or a dependent choice reads a restricted field; or, once any field is
   restricted, a table column, filter or detail column does not declare the fields it reads;
 - two actions share a `NAME`, record or header;

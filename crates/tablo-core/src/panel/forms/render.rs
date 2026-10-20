@@ -190,7 +190,9 @@ pub(crate) async fn render_form_page<'a>(
         stale,
         mask,
     } = chrome;
-    // A hidden field's value never reaches the page.
+    // A hidden field's value never reaches the page, nor its error, which could tell it: an
+    // alert says only that the save cannot pass.
+    let unseen = errors.iter().any(|error| mask.hides(&error.key));
     let values = &mask.shown(values);
     let mut source = crate::schema::Source::form(values, errors)
         .editing(editing)
@@ -280,6 +282,18 @@ pub(crate) async fn render_form_page<'a>(
                             tablo_ui::alert_description(
                                 "Saving again replaces those changes with yours. Reload the page \
                                  to see them first."
+                            )
+                        )
+                    }
+                    if unseen {
+                        tablo_ui::alert(
+                            variant: tablo_ui::AlertVariant::Destructive,
+                            attrs: attributes! { role="alert" data-unseen-error="" },
+                            tablo_ui::alert_title(
+                                "A field you cannot see refuses this save"
+                            )
+                            tablo_ui::alert_description(
+                                "Ask someone who may edit it to correct the record."
                             )
                         )
                     }

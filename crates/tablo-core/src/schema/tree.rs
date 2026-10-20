@@ -159,13 +159,10 @@ impl Node {
     ) -> Result<BoxView<'a>> {
         match self {
             Node::Field(index) => {
-                let field = &fields[*index];
-                // A locked repeater renders nothing either: its rows' order posts its key.
-                if source.mask.hides(field.name())
-                    || (source.mask.locks(field.name()) && field.as_repeater().is_some())
-                {
+                if !shows(&fields[*index], source) {
                     return Ok(().boxed());
                 }
+                let field = &fields[*index];
                 // A repeater's rows render from the keys and errors of each of their controls.
                 if let Some(repeater) = field.as_repeater() {
                     let view = Box::pin(repeater.render(cx, field, source)).await?;
@@ -185,6 +182,12 @@ impl Node {
                 }
                 Ok(source.guard(cx, field.condition(), view))
             }
+            // A block whose every field is masked renders no heading over nothing.
+            Node::Section(_) | Node::Group(_) | Node::Grid(_)
+                if !self.shows_any(fields, source) =>
+            {
+                Ok(().boxed())
+            }
             Node::Section(s) => {
                 let view = Box::pin(s.render(cx, fields, source)).await?;
                 Ok(source.guard(cx, s.condition.as_ref(), view))
@@ -198,6 +201,23 @@ impl Node {
                 Ok(source.guard(cx, g.condition.as_ref(), view))
             }
             Node::Embedded(e) => Box::pin(e.render(cx, fields, source)).await,
+        }
+    }
+
+    /// Whether some field under this node renders under `source`'s mask.
+    fn shows_any(&self, fields: &[Field], source: &Source<'_>) -> bool {
+        match self {
+            Node::Field(index) => shows(&fields[*index], source),
+            Node::Embedded(e) => {
+                let mut any = false;
+                e.visit_fields(&mut |index| any |= shows(&fields[index], source));
+                any
+            }
+            node => node
+                .children()
+                .unwrap_or_default()
+                .iter()
+                .any(|child| child.shows_any(fields, source)),
         }
     }
 
@@ -233,6 +253,13 @@ impl Node {
             }
         }
     }
+}
+
+/// Whether `field` renders under `source`'s mask: not when hidden, nor a locked repeater, whose
+/// rows' order posts its key.
+fn shows(field: &Field, source: &Source<'_>) -> bool {
+    !(source.mask.hides(field.name())
+        || (source.mask.locks(field.name()) && field.as_repeater().is_some()))
 }
 
 /// Renders `nodes` in order as one view.

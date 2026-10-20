@@ -334,6 +334,26 @@ impl<F> Schema<F> {
             .collect()
     }
 
+    /// Each key a condition watches, with the key of a field it guards, or `None` when it guards
+    /// none.
+    pub(crate) fn condition_watchers(&self) -> Vec<(String, Option<String>)> {
+        let scan = Scan::of(&self.nodes, &self.fields);
+        let mut watchers = Vec::new();
+        for (condition, _) in &scan.conditions {
+            let mut guards = scan
+                .fields
+                .iter()
+                .filter(|(_, chain)| chain.iter().any(|c| std::ptr::eq(*c, *condition)))
+                .map(|(index, _)| self.fields[*index].name().to_string())
+                .peekable();
+            if guards.peek().is_none() {
+                watchers.push((condition.watched.clone(), None));
+            }
+            watchers.extend(guards.map(|key| (condition.watched.clone(), Some(key))));
+        }
+        watchers
+    }
+
     /// The conditions each watched field's key drives, each once.
     pub(crate) fn watched(&self) -> HashMap<String, Vec<Condition>> {
         let mut out: HashMap<String, Vec<Condition>> = HashMap::new();

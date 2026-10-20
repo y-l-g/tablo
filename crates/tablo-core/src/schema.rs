@@ -274,16 +274,16 @@ impl<F> Schema<F> {
         errors
     }
 
-    /// The keys a condition or a dependent choice watches.
-    pub(crate) fn watched_keys(&self) -> Vec<String> {
-        let mut keys: Vec<String> = self.watched().into_keys().collect();
-        keys.extend(
-            self.fields
-                .iter()
-                .filter_map(Field::parent_key)
-                .map(str::to_string),
-        );
-        keys
+    /// Each key a condition or a dependent choice watches, with the key of a field it drives:
+    /// `None` for a condition guarding no field, such as one over an empty section.
+    pub(crate) fn watchers(&self) -> Vec<(String, Option<String>)> {
+        let mut watchers = self.condition_watchers();
+        watchers.extend(self.fields.iter().filter_map(|field| {
+            field
+                .parent_key()
+                .map(|parent| (parent.to_string(), Some(field.name().to_string())))
+        }));
+        watchers
     }
 
     /// Reports what is wrong with this declaration: a field whose lens binds no single column, and
