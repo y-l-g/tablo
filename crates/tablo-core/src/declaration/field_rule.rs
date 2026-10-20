@@ -15,6 +15,9 @@ pub enum FieldRuleFault {
     EmptyRange,
     /// A default that breaks a rule, so a create that keeps it is refused.
     RefusedDefault(String),
+    /// A default the field's type does not parse, as a timestamp spelled without an offset, so a
+    /// create that keeps it is refused.
+    UnparsedDefault(String),
 }
 
 /// [`DeclarationErrorKind::FieldRule`](super::DeclarationErrorKind::FieldRule)'s sentence.
@@ -41,6 +44,11 @@ pub(super) fn fmt_field_rule(
             f,
             "field '{field}' defaults to '{value}', which its own rules refuse: change the default \
              or the rule"
+        ),
+        FieldRuleFault::UnparsedDefault(value) => write!(
+            f,
+            "field '{field}' defaults to '{value}', which is no value of its type: spell the \
+             default as the type does, or pass a value of the type"
         ),
     }
 }

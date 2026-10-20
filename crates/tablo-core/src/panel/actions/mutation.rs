@@ -436,7 +436,7 @@ pub(super) async fn read_input(
         return Ok(Pending::Ready(input));
     }
     let schema = (spec.schema)();
-    let input = schema.read_input(posted, &RESERVED_KEYS)?;
+    let input = schema.read_input(cx, posted, &RESERVED_KEYS)?;
     let mut errors = FieldErrors::new();
     let parsed = match (spec.parse)(cx, &input) {
         Ok(parsed) => Some(parsed),

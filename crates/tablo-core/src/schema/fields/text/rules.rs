@@ -80,8 +80,15 @@ impl Rules {
 
     /// The sentence refusing `value`, a trimmed, non-empty submission its type parses, for the
     /// first rule it breaks; `None` when it keeps them all. A length counts characters, as a
-    /// database's `VARCHAR(n)` does, where a browser counts UTF-16 units of the untrimmed value.
-    pub(crate) fn refusal(&self, label: &str, value: &str, order: Order) -> Option<String> {
+    /// database's `VARCHAR(n)` does, where a browser counts UTF-16 units of the untrimmed value. A
+    /// bound reads as `shown` spells it, as the control shows it.
+    pub(crate) fn refusal(
+        &self,
+        label: &str,
+        value: &str,
+        order: Order,
+        shown: impl Fn(&str) -> String,
+    ) -> Option<String> {
         let length = value.chars().count();
         if let Some(min) = self.min_length
             && length < min
@@ -96,12 +103,12 @@ impl Rules {
         if let Some(min) = &self.min
             && order(value, min) == Some(Ordering::Less)
         {
-            return Some(format!("{label} must be at least {min}"));
+            return Some(format!("{label} must be at least {}", shown(min)));
         }
         if let Some(max) = &self.max
             && order(value, max) == Some(Ordering::Greater)
         {
-            return Some(format!("{label} must be at most {max}"));
+            return Some(format!("{label} must be at most {}", shown(max)));
         }
         if let Some(Pattern {
             regex: Ok(regex), ..

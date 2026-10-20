@@ -56,7 +56,7 @@ async fn prepare_submission<R: Resource>(
     // Each repeater's rows, and each multiple choice's values, become its one key, which every
     // step below reads like any other.
     let (mut values, unclaimed) = schema
-        .read_unclaimed(&parts.pairs)
+        .read_unclaimed(cx, &parts.pairs)
         .map_err(topcoat::router::error::bad_request)?;
     reject_unknown_form_keys(&schema, unclaimed)?;
     let mut flags = file_flags(&schema, &parts);
@@ -102,7 +102,7 @@ async fn prepare_submission<R: Resource>(
     }
     let named: HashSet<String> = values.keys().map(str::to_string).collect();
     complete(&schema, &mut values, &named, &stored);
-    schema.keep_unedited(&mut values, &stored);
+    schema.keep_unedited(&mut values, &stored, &crate::time_zone(cx));
     let mut errors = FieldErrors::new();
     schema
         .check_controls(cx, &values, &stored, &mut errors)

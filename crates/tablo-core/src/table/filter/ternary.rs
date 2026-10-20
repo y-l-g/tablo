@@ -68,7 +68,7 @@ where
         self.label.as_deref().unwrap_or(self.binding.label())
     }
 
-    fn to_expr(&self, value: &FilterValue) -> Option<Expr<bool>> {
+    fn to_expr(&self, _cx: &Cx, value: &FilterValue) -> Option<Expr<bool>> {
         match value.single()? {
             "true" => Some(self.lens.clone().eq(true)),
             "false" => Some(self.lens.clone().eq(false)),

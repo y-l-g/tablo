@@ -1,6 +1,8 @@
 //! [`FormScalar`]: a type one form key reads and writes, and the blanket impls over
 //! [`TypedValue`] and `Option`.
 
+use jiff::tz::TimeZone;
+
 use super::TypedValue;
 
 /// A type one form key reads and writes: `String`, every [`TypedValue`] type,
@@ -26,9 +28,20 @@ pub trait FormScalar: Sized {
     /// The control's `step` attribute, when its input type takes one.
     const STEP: Option<&'static str> = None;
 
-    /// The control's `value` for a stored value's form spelling.
-    fn input_value(stored: &str) -> String {
+    /// The control's `value` for a stored value's form spelling, shown in the request's time zone
+    /// `zone`: a [`TypedValue`]'s [`input_value`](TypedValue::input_value), and the spelling
+    /// itself for any other type.
+    fn input_value(stored: &str, zone: &TimeZone) -> String {
+        let _ = zone;
         stored.to_string()
+    }
+
+    /// The form spelling of what the control posted, read in the request's time zone `zone`: a
+    /// [`TypedValue`]'s [`form_value`](TypedValue::form_value), and the posted text itself for
+    /// any other type.
+    fn form_value(posted: &str, zone: &TimeZone) -> String {
+        let _ = zone;
+        posted.to_string()
     }
 
     /// Parse a trimmed, non-empty submission, or return the error message.
@@ -71,8 +84,12 @@ impl<T: TypedValue> FormScalar for T {
     const INPUT_TYPE: &'static str = T::INPUT_TYPE;
     const STEP: Option<&'static str> = T::STEP;
 
-    fn input_value(stored: &str) -> String {
-        T::input_value(stored)
+    fn input_value(stored: &str, zone: &TimeZone) -> String {
+        T::input_value(stored, zone)
+    }
+
+    fn form_value(posted: &str, zone: &TimeZone) -> String {
+        T::form_value(posted, zone)
     }
 
     fn parse_form(value: &str) -> std::result::Result<Self, String> {
@@ -99,8 +116,12 @@ impl<T: NullableScalar> FormScalar for Option<T> {
     const INPUT_TYPE: &'static str = T::INPUT_TYPE;
     const STEP: Option<&'static str> = T::STEP;
 
-    fn input_value(stored: &str) -> String {
-        T::input_value(stored)
+    fn input_value(stored: &str, zone: &TimeZone) -> String {
+        T::input_value(stored, zone)
+    }
+
+    fn form_value(posted: &str, zone: &TimeZone) -> String {
+        T::form_value(posted, zone)
     }
 
     fn parse_form(value: &str) -> std::result::Result<Self, String> {

@@ -1,12 +1,16 @@
 //! The text control: a one-line `<input>`, or a `<textarea>` with `rows`.
 
+use jiff::tz::TimeZone;
 use tablo_ui::{input as ui_input, textarea as ui_textarea};
 use topcoat::{Result, context::Cx, icon::icon, view::*};
 
 pub(crate) use self::rules::Pattern;
 use self::rules::{Order, Rules, order};
-use super::{Field, render_field};
-use crate::{FieldRuleFault, values::FormScalar};
+use super::{ControlKind, Field, render_field};
+use crate::{
+    FieldRuleFault,
+    values::{FieldError, FormScalar, FormValue, is_email},
+};
 
 /// The equality expression a text field's unique probe binds.
 type EqProbe = std::sync::Arc<dyn Fn(&str) -> Option<toasty::stmt::Expr<bool>> + Send + Sync>;
@@ -16,8 +20,10 @@ type EqProbe = std::sync::Arc<dyn Fn(&str) -> Option<toasty::stmt::Expr<bool>> +
 pub(crate) struct TextControl {
     input_type: &'static str,
     step: Option<&'static str>,
-    /// The control's `value` for a stored spelling.
-    input_value: fn(&str) -> String,
+    /// The control's `value` for a stored spelling, in the request's time zone.
+    input_value: fn(&str, &TimeZone) -> String,
+    /// The form spelling of a posted value, read in the request's time zone.
+    form_value: fn(&str, &TimeZone) -> String,
     pub(super) rows: Option<u32>,
     pub(super) placeholder: Option<String>,
     pub(super) email: bool,
@@ -63,6 +69,7 @@ impl TextControl {
             input_type: T::INPUT_TYPE,
             step: T::STEP,
             input_value: T::input_value,
+            form_value: T::form_value,
             rows: None,
             placeholder: None,
             email: false,
@@ -83,6 +90,7 @@ impl TextControl {
             input_type: T::INPUT_TYPE,
             step: T::STEP,
             input_value: T::input_value,
+            form_value: T::form_value,
             rows: None,
             placeholder: None,
             email: false,
@@ -97,9 +105,14 @@ impl TextControl {
         }
     }
 
-    /// The control's `value` for the stored spelling `stored`.
-    pub(crate) fn rendering(&self, stored: &str) -> String {
-        (self.input_value)(stored)
+    /// The control's `value` for the stored spelling `stored`, shown in `zone`.
+    pub(crate) fn rendering(&self, stored: &str, zone: &TimeZone) -> String {
+        (self.input_value)(stored, zone)
+    }
+
+    /// The form spelling of `posted`, what the control posted, read in `zone`.
+    pub(crate) fn reading(&self, posted: &str, zone: &TimeZone) -> String {
+        (self.form_value)(posted, zone)
     }
 
     /// The fields each unique index covering the column holds besides it: one empty list for a
@@ -123,12 +136,16 @@ impl TextControl {
 
     /// The sentence refusing `value`, a trimmed, non-empty submission, for the first declared
     /// rule it breaks. `None` for a value the field's type does not parse: its parse refuses it,
-    /// in the type's own words.
-    pub(crate) fn refusal(&self, label: &str, value: &str) -> Option<String> {
+    /// in the type's own words. A bound reads as the control shows it in `zone`.
+    pub(crate) fn refusal(&self, label: &str, value: &str, zone: &TimeZone) -> Option<String> {
         if !self.parses(value) {
             return None;
         }
-        self.rules.refusal(label, value, self.order)
+        self.rules.refusal(label, value, self.order, |bound| {
+            Some(self.rendering(bound, zone))
+                .filter(|shown| !shown.is_empty())
+                .unwrap_or_else(|| bound.to_string())
+        })
     }
 
     /// What is wrong with the declared rules.
@@ -143,6 +160,70 @@ impl TextControl {
 }
 
 impl Field {
+    /// The form spelling of `posted`, the last value the field's control posted, read in `zone`:
+    /// a text control reads it through its type, as a timestamp's reads a wall-clock time, and
+    /// any other control keeps it as posted.
+    pub(crate) fn read_posted(&self, posted: &str, zone: &TimeZone) -> String {
+        match &self.control {
+            ControlKind::Text(text) => text.reading(posted, zone),
+            _ => posted.to_string(),
+        }
+    }
+
+    /// The stored value `stored` when a text control posts `value` as it rendered `stored` in
+    /// `zone`, or `None` when the user changed it. A control coarser than its column, as a
+    /// timestamp's is to the minute, renders a rounded value: posting it back untouched must not
+    /// round the column. `value` is already read in `zone`, so the rendering is read back the same
+    /// way before the two compare. A repeater pairs its posted rows with its stored rows by
+    /// position and keeps each row's unedited values the same way.
+    pub(crate) fn keep_unedited(
+        &self,
+        value: &FormValue,
+        stored: &FormValue,
+        zone: &TimeZone,
+    ) -> Option<FormValue> {
+        let text = match &self.control {
+            ControlKind::Text(text) => text,
+            ControlKind::Repeater(repeater) => {
+                let (Some(rows), Some(held)) = (value.as_rows(), stored.as_rows()) else {
+                    return None;
+                };
+                let item = repeater.item_schema();
+                let mut rows = rows.to_vec();
+                for (row, held) in rows.iter_mut().zip(held) {
+                    item.keep_unedited(row, held, zone);
+                }
+                return Some(FormValue::Rows(rows));
+            }
+            _ => return None,
+        };
+        let (Some(value), Some(held)) = (value.as_text(), stored.as_text()) else {
+            return None;
+        };
+        let rendered = text.reading(&text.rendering(held, zone), zone);
+        (value != held && value.trim() == rendered).then(|| stored.clone())
+    }
+
+    /// Refuses a non-empty submission the control's own rules refuse: an email field's address, and
+    /// a text field's declared length, bounds and pattern, its bounds spelled as the control shows
+    /// them in `zone`.
+    pub(crate) fn check(&self, value: &FormValue, zone: &TimeZone) -> Option<FieldError> {
+        let value = value.as_text()?.trim();
+        let ControlKind::Text(text) = &self.control else {
+            return None;
+        };
+        if value.is_empty() {
+            return None;
+        }
+        let label = self.label_str();
+        let message = if text.email && !is_email(value) {
+            format!("{label} must be a valid email")
+        } else {
+            text.refusal(label, value, zone)?
+        };
+        Some(FieldError::invalid(self.name(), message))
+    }
+
     /// Renders a text field's control.
     pub(super) fn render_text<'a>(
         &self,
@@ -201,10 +282,11 @@ impl Field {
             } else {
                 "new-password"
             });
-            let value_owned = value.map(text.input_value);
+            let zone = crate::time_zone(cx);
+            let value_owned = value.map(|value| text.rendering(value, &zone));
             let step = text.step.filter(|_| input_type == text.input_type);
-            let min = rules.min.as_deref().map(text.input_value);
-            let max = rules.max.as_deref().map(text.input_value);
+            let min = rules.min.as_deref().map(|min| text.rendering(min, &zone));
+            let max = rules.max.as_deref().map(|max| text.rendering(max, &zone));
             let pattern = rules.pattern.as_ref().map(|pattern| pattern.source.clone());
             let controls = id.clone();
             let input = view! {

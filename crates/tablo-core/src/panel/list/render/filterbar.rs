@@ -33,8 +33,8 @@ impl<M> WiredTable<M> {
                 controls.push(f.load_control(cx, input).await);
             }
         }
-        let unapplied = self.unapplied_filters(state);
-        let unfiltered = !unapplied.is_empty() && self.filter_expr(state).is_none();
+        let unapplied = self.unapplied_filters(cx, state);
+        let unfiltered = !unapplied.is_empty() && self.filter_expr(cx, state).is_none();
         FilterViews {
             controls,
             unapplied,

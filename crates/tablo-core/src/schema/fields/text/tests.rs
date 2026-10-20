@@ -1,3 +1,5 @@
+use jiff::tz::TimeZone;
+
 use super::super::{Field, test_support::DummyUser};
 use crate::values::FormValue;
 
@@ -5,19 +7,27 @@ use crate::values::FormValue;
 fn text_input_email_validates() {
     let input: Field = Field::text(DummyUser::fields().email()).email().into();
     assert!(
-        input.check(&FormValue::from("not-an-email")).is_some(),
+        input
+            .check(&FormValue::from("not-an-email"), &TimeZone::UTC)
+            .is_some(),
         "email should reject invalid"
     );
     assert!(
-        input.check(&FormValue::from("a@")).is_some(),
+        input
+            .check(&FormValue::from("a@"), &TimeZone::UTC)
+            .is_some(),
         "email should reject partial"
     );
     assert!(
-        input.check(&FormValue::from("a@b.com")).is_none(),
+        input
+            .check(&FormValue::from("a@b.com"), &TimeZone::UTC)
+            .is_none(),
         "email should accept valid"
     );
     assert!(
-        input.check(&FormValue::from(" a@b.com ")).is_none(),
+        input
+            .check(&FormValue::from(" a@b.com "), &TimeZone::UTC)
+            .is_none(),
         "email should trim"
     );
 }
@@ -37,7 +47,7 @@ fn text_input_email_edges() {
         "a@b.c",
     ] {
         assert!(
-            input.check(&FormValue::from(ok)).is_none(),
+            input.check(&FormValue::from(ok), &TimeZone::UTC).is_none(),
             "{ok} should pass"
         );
     }
@@ -68,7 +78,9 @@ fn text_input_email_edges() {
         ),
     ] {
         assert!(
-            input.check(&FormValue::from(&bad)).is_some(),
+            input
+                .check(&FormValue::from(&bad), &TimeZone::UTC)
+                .is_some(),
             "{bad} should fail"
         );
     }

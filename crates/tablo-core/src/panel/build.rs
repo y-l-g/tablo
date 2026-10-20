@@ -165,6 +165,7 @@ impl Panel {
             auth,
             endpoints,
             notifications,
+            time_zone,
         } = self;
         let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
         errors.extend(mount_errors(
@@ -230,6 +231,7 @@ impl Panel {
             mounted_pages,
             endpoints,
             notifications,
+            time_zone,
         });
         let prefix_path = route_path(&prefix);
         builder =
@@ -392,6 +394,7 @@ fn install_shared(mut builder: RouterBuilder) -> RouterBuilder {
         .app_context(Panels::default())
         .app_context(MountScope(request_mounts))
         .app_context(TenantSource(crate::auth::session_tenant))
+        .app_context(crate::values::ZoneSource(crate::auth::session_time_zone))
         .app_context(NotificationBus::new());
     // The runtime layer has no path, so a page re-run reaches the panel's layers already rewritten
     // to a `GET`.

@@ -96,7 +96,7 @@ impl RepeaterControl {
             if posted.is_empty() {
                 return Err(format!("`{key}` lists row {row}, which posts nothing"));
             }
-            rows.push(item.read(&posted)?);
+            rows.push(item.read_in(&posted, pairs.zone.clone())?);
         }
         Ok(Some(FormValue::Rows(rows)))
     }

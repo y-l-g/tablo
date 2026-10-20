@@ -7,20 +7,23 @@
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 
-use topcoat::Result;
+use jiff::tz::TimeZone;
+use topcoat::{Result, context::Cx};
 
 use super::{Schema, fields::ChoiceControl};
 use crate::values::{FormValue, FormValues};
 
-/// A posted body's pairs, indexed by key, recording which ones a field claimed.
+/// A posted body's pairs, indexed by key, recording which ones a field claimed, and the time zone
+/// its wall-clock times are read in.
 pub(super) struct Pairs<'p> {
     pairs: &'p [(String, String)],
     at: HashMap<&'p str, Vec<usize>>,
     claimed: Vec<bool>,
+    pub(super) zone: TimeZone,
 }
 
 impl<'p> Pairs<'p> {
-    fn new(pairs: &'p [(String, String)]) -> Self {
+    fn new(pairs: &'p [(String, String)], zone: TimeZone) -> Self {
         let mut at: HashMap<&str, Vec<usize>> = HashMap::new();
         for (index, (key, _)) in pairs.iter().enumerate() {
             at.entry(key.as_str()).or_default().push(index);
@@ -29,6 +32,7 @@ impl<'p> Pairs<'p> {
             pairs,
             at,
             claimed: vec![false; pairs.len()],
+            zone,
         }
     }
 
@@ -66,6 +70,10 @@ impl<F> Schema<F> {
     /// posts nothing holds nothing, so an edit keeps its stored value. A key no field declares is
     /// left out: a page reads its own, such as the CSRF token, from the pairs.
     ///
+    /// A text control's value is read through its type in the request's
+    /// [`time_zone`](crate::time_zone): a timestamp's control posts a wall-clock time, which reads
+    /// as the instant it names there.
+    ///
     /// A resource's form and an action's input read their submissions; a page handling its own
     /// post reads it before parsing it.
     ///
@@ -74,16 +82,30 @@ impl<F> Schema<F> {
     /// A repeater's key lists something other than its rows, a row twice, a row posting nothing,
     /// or more than [`MAX_ROWS`](super::MAX_ROWS) rows: no browser posts these, so a handler
     /// answers 400.
-    pub fn read(&self, posted: &[(String, String)]) -> std::result::Result<FormValues, String> {
-        self.read_claiming(&mut Pairs::new(posted))
+    pub fn read(
+        &self,
+        cx: &Cx,
+        posted: &[(String, String)],
+    ) -> std::result::Result<FormValues, String> {
+        self.read_in(posted, crate::time_zone(cx))
+    }
+
+    /// [`read`](Self::read) in `zone`.
+    pub(super) fn read_in(
+        &self,
+        posted: &[(String, String)],
+        zone: TimeZone,
+    ) -> std::result::Result<FormValues, String> {
+        self.read_claiming(&mut Pairs::new(posted, zone))
     }
 
     /// [`read`](Self::read), with the keys no field claims, sorted and each once.
     pub(crate) fn read_unclaimed(
         &self,
+        cx: &Cx,
         posted: &[(String, String)],
     ) -> std::result::Result<(FormValues, Vec<String>), String> {
-        let mut pairs = Pairs::new(posted);
+        let mut pairs = Pairs::new(posted, crate::time_zone(cx));
         let values = self.read_claiming(&mut pairs)?;
         Ok((values, pairs.unclaimed()))
     }
@@ -104,7 +126,7 @@ impl<F> Schema<F> {
                     values.insert(name, distinct(&posted));
                 }
             } else if let Some(last) = posted.last() {
-                values.insert(name, *last);
+                values.insert(name, field.read_posted(last, &pairs.zone));
             }
         }
         Ok(values)
@@ -119,12 +141,13 @@ impl<F> Schema<F> {
     /// names: the keys the POST carries for itself.
     pub(crate) fn read_input(
         &self,
+        cx: &Cx,
         posted: &[(String, String)],
         reserved: &[&str],
     ) -> Result<FormValues> {
         use topcoat::router::error::bad_request;
 
-        let (mut input, unclaimed) = self.read_unclaimed(posted).map_err(bad_request)?;
+        let (mut input, unclaimed) = self.read_unclaimed(cx, posted).map_err(bad_request)?;
         let unknown: Vec<String> = unclaimed
             .into_iter()
             .filter(|key| !reserved.contains(&key.as_str()))

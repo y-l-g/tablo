@@ -76,7 +76,7 @@ impl Filter<Task> for Initial {
         "Initial"
     }
 
-    fn to_expr(&self, value: &FilterValue) -> Option<Expr<bool>> {
+    fn to_expr(&self, _cx: &Cx, value: &FilterValue) -> Option<Expr<bool>> {
         let letter = value.single()?;
         (letter.len() == 1).then(|| Task::fields().title().like(format!("{letter}%")))
     }

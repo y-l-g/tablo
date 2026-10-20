@@ -349,6 +349,6 @@ fn seeded_values<R: Resource>(cx: &Cx, resource: &Mounted<R>) -> FormValues {
         .collect();
     let mut values = schema.defaults();
     // Only relationship choices post here, and only a repeater's key refuses a read.
-    values.extend(schema.read(&posted).unwrap_or_default());
+    values.extend(schema.read(cx, &posted).unwrap_or_default());
     values
 }

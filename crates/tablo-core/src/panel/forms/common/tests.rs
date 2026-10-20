@@ -1,4 +1,5 @@
 use super::*;
+use crate::test_support::cx;
 
 /// One boolean vocabulary for framework form flags: `1` and `true` are truthy everywhere
 /// (`confirm`, `clear_<field>`), and nothing else is.
@@ -26,7 +27,7 @@ fn reject_unknown_form_keys_allows_declared_plus_csrf() {
             .iter()
             .map(|(key, value)| (key.to_string(), value.to_string()))
             .collect();
-        schema.read_unclaimed(&posted).unwrap().1
+        schema.read_unclaimed(&cx(), &posted).unwrap().1
     };
 
     // Declared keys + csrf_token pass.
