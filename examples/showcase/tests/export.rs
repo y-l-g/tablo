@@ -115,3 +115,25 @@ async fn posts_export_streams_csv_with_content_disposition() {
         csv
     );
 }
+
+/// "Hello Toasty" has four comments and `CommentResource`'s policy hides the removed one, so its
+/// export row counts three, as the list does.
+#[tokio::test]
+async fn an_exported_count_leaves_out_the_records_its_resource_hides() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let csv = body_string(client.get("/admin/posts/-/export?q=Hello%20Toasty").await).await;
+    let mut lines = csv.lines();
+    let header: Vec<&str> = lines.next().expect("a header row").split(',').collect();
+    let comments = header
+        .iter()
+        .position(|column| *column == "Comments")
+        .unwrap_or_else(|| panic!("the export counts comments: {csv}"));
+    let row: Vec<&str> = lines
+        .find(|line| line.starts_with("Hello Toasty,"))
+        .unwrap_or_else(|| panic!("the seeded post exports: {csv}"))
+        .split(',')
+        .collect();
+    assert_eq!(row[comments], "3");
+}

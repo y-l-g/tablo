@@ -242,7 +242,7 @@ fn post_table() -> Table<Post> {
         TextColumn::new(lens!(Post.status)).badge().toggleable(),
         BooleanColumn::new(lens!(Post.featured)),
         post_author_column(),
-        CountColumn::new(relation!(Post.comments)),
+        CountColumn::of::<CommentResource>(relation!(Post.comments)),
         DateColumn::new(lens!(Post.created_at)).hidden_by_default(),
     ))
     // Publish and Tag join View, Edit and Delete behind one button.

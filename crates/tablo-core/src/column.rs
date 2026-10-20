@@ -211,6 +211,19 @@ pub trait Column<M>: Send + Sync {
         Includes::new()
     }
 
+    /// Check which related records [`includes`](Self::includes) loaded into `rows` the related
+    /// resource shows the user, before any cell renders: a cell shows only those. Every loader
+    /// that applies the includes runs it through `ex`, the executor that loaded the rows.
+    #[doc(hidden)]
+    fn restrict<'a>(
+        &'a self,
+        _cx: &'a Cx,
+        _rows: &'a [M],
+        _ex: &'a mut dyn toasty::Executor,
+    ) -> crate::BoxFuture<'a, topcoat::Result<()>> {
+        Box::pin(async { Ok(()) })
+    }
+
     /// What is wrong with this column's declaration.
     #[doc(hidden)]
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
@@ -294,6 +307,23 @@ where
         }
     }
     query
+}
+
+/// Run each column's [`restrict`](Column::restrict) over `rows`, which a query through
+/// [`include_relations`] loaded.
+pub(crate) async fn restrict_relations<'c, M>(
+    cx: &Cx,
+    columns: impl IntoIterator<Item = &'c BoxColumn<M>>,
+    rows: &[M],
+    ex: &mut dyn toasty::Executor,
+) -> topcoat::Result<()>
+where
+    M: 'c,
+{
+    for column in columns {
+        column.restrict(cx, rows, &mut *ex).await?;
+    }
+    Ok(())
 }
 
 /// What a column over one field declares beside its lens: the field's binding, the declared label

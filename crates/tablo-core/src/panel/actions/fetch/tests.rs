@@ -107,7 +107,7 @@ async fn record_loads_skip_the_detail_pages_includes() {
                     crate::table::ComputedColumn::new("Parent", |c: &Child| {
                         c.parent.get().name.clone()
                     })
-                    .include(Child::fields().parent()),
+                    .include_unscoped(Child::fields().parent()),
                 ))
         }
     }

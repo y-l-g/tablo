@@ -12,7 +12,7 @@ use toasty::stmt::{Expr, List};
 
 pub(crate) use self::choice::ColumnChoice;
 use self::filter::BoxFilter;
-pub(crate) use crate::column::{BoxColumn, Column, include_relations};
+pub(crate) use crate::column::{BoxColumn, Column, include_relations, restrict_relations};
 use crate::{DeclarationErrorKind, Lens, schema::Binding, values::FormScalar};
 
 mod choice;
@@ -211,6 +211,17 @@ impl<M> Table<M> {
         M: toasty::schema::Model,
     {
         include_relations(query, &self.columns)
+    }
+
+    /// Check which related records `rows`, loaded through [`Self::include_relations`], hold that
+    /// the columns' sources show the user.
+    pub(crate) async fn restrict_relations(
+        &self,
+        cx: &topcoat::context::Cx,
+        rows: &[M],
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<()> {
+        restrict_relations(cx, &self.columns, rows, ex).await
     }
 
     /// Filter predicate for the current `TableState`.
