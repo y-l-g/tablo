@@ -1,4 +1,4 @@
-//! The vendored TipTap bundle (ADR-0031): `vendor-tiptap` builds `assets/tiptap/tiptap.js` from
+//! The vendored TipTap bundle (ADR-0032): `vendor-tiptap` builds `assets/tiptap/tiptap.js` from
 //! the lockfile beside it, and the guard checks the bundle names that lockfile's hash.
 
 use std::path::{Path, PathBuf};

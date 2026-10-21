@@ -1,4 +1,4 @@
-//! The rich text control (ADR-0031): a `<textarea>` holding the HTML, which
+//! The rich text control (ADR-0032): a `<textarea>` holding the HTML, which
 //! `assets/rich_text.js` replaces with an editor whose toolbar the field declares.
 
 use tablo_ui::{icons, textarea as ui_textarea};

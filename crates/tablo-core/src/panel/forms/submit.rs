@@ -37,20 +37,32 @@ use crate::{
 const WRITE_CREATE: &str = "create the record";
 const WRITE_UPDATE: &str = "save the changes";
 
-struct Submission {
-    schema: Arc<Schema>,
-    values: FormValues,
-    errors: FieldErrors,
+pub(super) struct Submission {
+    pub(super) schema: Arc<Schema>,
+    pub(super) values: FormValues,
+    pub(super) errors: FieldErrors,
     carried: HashSet<String>,
     named: HashSet<String>,
 }
 
+/// What a create submission's keys stand for when it does not post them.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum Unposted {
+    /// What a browser's form leaves out: a key it renders a control for is posted, so one
+    /// missing stays missing.
+    Missing,
+    /// An import row's: the header leaves the key out, so it takes the field's `default`, as the
+    /// create page's untouched control posts it.
+    Defaulted,
+}
+
 /// Stages a create/edit submission, completing unnamed keys from the edit advisory snapshot.
-async fn prepare_submission<R: Resource>(
+pub(super) async fn prepare_submission<R: Resource>(
     cx: &Cx,
     resource: &Mounted<R>,
     parts: FormParts,
     advisory: Option<&R::Model>,
+    unposted: Unposted,
 ) -> Result<Submission, topcoat::Error> {
     let schema = Arc::clone(&resource.form);
     // A field the user may not see or change renders no enabled control, so a browser posts
@@ -72,6 +84,13 @@ async fn prepare_submission<R: Resource>(
         .read_unclaimed(cx, &parts.pairs)
         .map_err(topcoat::router::error::bad_request)?;
     reject_unknown_form_keys(&schema, unclaimed)?;
+    if unposted == Unposted::Defaulted {
+        for (key, default) in schema.defaults().iter() {
+            if values.get(key).is_none() {
+                values.insert(key, default.clone());
+            }
+        }
+    }
     let mut flags = file_flags(&schema, &parts);
     let FormParts {
         mut files,
@@ -161,7 +180,7 @@ fn complete(
 ///
 /// A declaration error when a hand-written record form refuses a key its `fields` do not bind:
 /// no control would carry the message, and writing anyway would drop it.
-fn parse_form<R: Resource>(
+pub(super) fn parse_form<R: Resource>(
     cx: &Cx,
     resource: &Mounted<R>,
     values: &FormValues,
@@ -228,7 +247,7 @@ fn renders_under(form: &Schema, key: &str, failed: &str) -> bool {
 
 /// Re-checks relationship keys inside the write transaction before writing, but the links the
 /// record in `stored` holds already.
-async fn recheck_relationships(
+pub(super) async fn recheck_relationships(
     cx: &Cx,
     schema: &Schema,
     values: &FormValues,
@@ -267,7 +286,7 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             mut errors,
             carried,
             ..
-        } = prepare_submission(cx, &resource, parts, None).await?;
+        } = prepare_submission(cx, &resource, parts, None, Unposted::Missing).await?;
         // Opens the transaction after validation so loaders never block on the held connection.
         let mut db = db(cx);
         let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
@@ -356,7 +375,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
             mut errors,
             carried,
             named,
-        } = prepare_submission(cx, &resource, parts, Some(&advisory)).await?;
+        } = prepare_submission(cx, &resource, parts, Some(&advisory), Unposted::Missing).await?;
         // Authoritative load inside the transaction observes the write snapshot.
         let mut db = db(cx);
         let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;

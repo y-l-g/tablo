@@ -72,7 +72,7 @@ USAGE:
                                    (ADR-0007); --prune deletes files no longer vendored.
     cargo xtask verify-topcoat-ui  Fail when a vendored primitive drifted from the registry.
     cargo xtask vendor-tiptap      Build the rich text editor's TipTap bundle from its lockfile
-                                   (ADR-0031); needs npm.
+                                   (ADR-0032); needs npm.
 "#
     );
 }

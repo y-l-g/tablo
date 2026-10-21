@@ -28,7 +28,12 @@ pub(crate) async fn parse_form_body(cx: &Cx, body: Body) -> Result<FormParts, to
         .as_deref()
         .is_some_and(is_multipart_content_type)
     {
-        return parse_multipart_values(cx, body, uploader(cx).is_some()).await;
+        let capture = if uploader(cx).is_some() {
+            Capture::Persistable
+        } else {
+            Capture::None
+        };
+        return parse_multipart_values(cx, body, capture).await;
     }
     let bytes = Bytes::from_request(cx, body).await.map_err(|error| {
         // Maps over-limit reads to 413 and other read failures to 400.
@@ -45,6 +50,31 @@ pub(crate) async fn parse_form_body(cx: &Cx, body: Body) -> Result<FormParts, to
     })
 }
 
+/// Parses a multipart body, staging every chosen file's bytes whether or not the panel installs
+/// an uploader, and whatever its name: the body an import posts its file in, which nothing
+/// stores. Any other body answers 400.
+pub(crate) async fn parse_file_body(cx: &Cx, body: Body) -> Result<FormParts, topcoat::Error> {
+    let multipart = topcoat::context::try_request_context::<http::request::Parts>(cx)
+        .and_then(|parts| parts.headers.get(http::header::CONTENT_TYPE))
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(is_multipart_content_type);
+    if !multipart {
+        return Err(topcoat::router::error::bad_request("expected a multipart body").into());
+    }
+    parse_multipart_values(cx, body, Capture::Any).await
+}
+
+/// Which chosen files a multipart body stages the bytes of.
+#[derive(Clone, Copy)]
+enum Capture {
+    /// None: the panel has nowhere to store a file.
+    None,
+    /// Each whose sanitized name an uploader can store it under.
+    Persistable,
+    /// Every one, which nothing stores.
+    Any,
+}
+
 fn is_multipart_content_type(ct: &str) -> bool {
     ct.split(';')
         .next()
@@ -56,7 +86,7 @@ fn is_multipart_content_type(ct: &str) -> bool {
 async fn parse_multipart_values(
     cx: &Cx,
     body: Body,
-    capture: bool,
+    capture: Capture,
 ) -> Result<FormParts, topcoat::Error> {
     use topcoat::router::{content::multipart::Multipart, request::FromRequest};
 
@@ -85,8 +115,13 @@ async fn parse_multipart_values(
                 let sanitized = crate::upload::sanitize_filename(&f);
                 // Last part wins, replacing any earlier staged bytes.
                 out.files.remove(&name);
-                // Stages bytes only for persistable names when capturing, else drains.
-                if capture && !sanitized.is_empty() {
+                // Stages bytes as `capture` asks, else drains.
+                let staged = match capture {
+                    Capture::None => false,
+                    Capture::Persistable => !sanitized.is_empty(),
+                    Capture::Any => true,
+                };
+                if staged {
                     let mut bytes = Vec::new();
                     read_bounded(&mut field, &mut bytes_seen, Some(&mut bytes)).await?;
                     out.files.insert(

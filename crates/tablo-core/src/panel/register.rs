@@ -14,7 +14,10 @@ use super::{
     },
     build::{route_path, validate_route_segment},
     detail::resource_view,
-    forms::{resource_create, resource_create_post, resource_edit, resource_edit_post},
+    forms::{
+        resource_create, resource_create_post, resource_edit, resource_edit_post, resource_import,
+        resource_import_post, resource_import_template,
+    },
     list::{resource_columns, resource_list},
     pages::{page_action, page_action_options, page_handler},
     relations::{Child, relation_table},
@@ -28,7 +31,8 @@ use crate::{
         ACTION_ROUTE_PARAM, ACTIONS_ROUTE_SEGMENT, BULK_DELETE_ROUTE_SEGMENT,
         COLUMNS_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT, DASH_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT,
         EDIT_ROUTE_SEGMENT, EXPORT_ROUTE_SEGMENT, OPTIONS_ROUTE_SEGMENT, RECORD_ROUTE_PARAM,
-        RELATED_ROUTE_PARAM, RELATION_ROUTE_PARAM, RELATIONS_ROUTE_SEGMENT, list_route,
+        RELATED_ROUTE_PARAM, RELATION_ROUTE_PARAM, RELATIONS_ROUTE_SEGMENT, import_template_url,
+        import_url, list_route,
     },
     resource::{Mounted, Mounts, Places, Resource, ResourceCheck, ResourceDef, check_resource},
 };
@@ -259,6 +263,7 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
         let entries = mounted.actions.entries();
         let routes = OptionalRoutes {
             create: mounted.creates,
+            import: mounted.creates && mounted.imports,
             record: entries.iter().any(|a| a.places.intersects(Places::RECORD)),
             list: !mounted.header_actions.is_empty()
                 || entries.iter().any(|a| a.places.contains(Places::BULK)),
@@ -321,6 +326,8 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
 struct OptionalRoutes {
     /// The create page: a record form, and not [`edit_only`](crate::ResourceDef::edit_only).
     create: bool,
+    /// The CSV import beside the create page: [`importable`](crate::ResourceDef::importable).
+    import: bool,
     /// One record's: an action placed on a row or a detail or edit page.
     record: bool,
     /// The list's: a header action, or an action placed on the bulk bar.
@@ -420,6 +427,16 @@ fn register_routes<R: Resource>(registry: &mut Registry, url: &str, routes: Opti
         let create_url = list_route(url, CREATE_ROUTE_SEGMENT);
         registry.page(Method::GET, &create_url, resource_create::<R>);
         registry.page(Method::POST, &create_url, resource_create_post::<R>);
+    }
+    if routes.import {
+        let import_url = import_url(url);
+        registry.page(Method::GET, &import_url, resource_import::<R>);
+        registry.page(Method::POST, &import_url, resource_import_post::<R>);
+        registry.route(
+            Method::GET,
+            &import_template_url(url),
+            resource_import_template::<R>,
+        );
     }
     if <R::Form as RecordForm>::HAS_FORM {
         let edit_url = format!("{url}/{RECORD_ROUTE_PARAM}/{EDIT_ROUTE_SEGMENT}");

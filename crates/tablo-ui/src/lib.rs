@@ -81,7 +81,7 @@ pub const SELECTS_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/
 pub const REPEATERS_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/repeaters.js");
 pub const PASSWORD_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/password.js");
 pub const RICH_TEXT_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/rich_text.js");
-/// The TipTap bundle `rich_text.js` imports where a page holds a rich text control (ADR-0031):
+/// The TipTap bundle `rich_text.js` imports where a page holds a rich text control (ADR-0032):
 /// no page loads it otherwise.
 pub const TIPTAP_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/tiptap/tiptap.js");
 

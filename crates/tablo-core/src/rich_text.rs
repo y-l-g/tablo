@@ -1,4 +1,4 @@
-//! Rich text (ADR-0031): the [`Tool`]s a toolbar offers, the HTML each produces, and the cleaning
+//! Rich text (ADR-0032): the [`Tool`]s a toolbar offers, the HTML each produces, and the cleaning
 //! that keeps a value to the elements its tools produce. A rich text field cleans what it reads
 //! and [`RichTextColumn`](crate::RichTextColumn) what it renders; a page of the app's own renders
 //! a stored value through [`clean`].

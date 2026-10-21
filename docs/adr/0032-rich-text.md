@@ -1,4 +1,4 @@
-# 0031 Rich text is cleaned HTML, and its toolbar is its schema
+# 0032 Rich text is cleaned HTML, and its toolbar is its schema
 
 A rich text field binds a `String` column and stores HTML: `Field::rich_text(lens!(Post.body))`,
 `.rich_text()` on a record form's text control, or `Field::rich_text_input("note")` for a form

@@ -49,6 +49,9 @@ pub(crate) struct Mounted<R: Resource> {
     /// Whether the resource serves a create page: it has a record form and is not
     /// [`edit_only`](ResourceDef::edit_only).
     pub(crate) creates: bool,
+    /// Whether the resource is [`importable`](ResourceDef::importable): mounting refuses one
+    /// that serves no create page, so a mounted panel serves its import beside that page.
+    pub(crate) imports: bool,
     pub(crate) soft_delete: Option<super::SoftDelete<R::Model>>,
     pub(crate) field_rules: Vec<super::FieldRule>,
 }
@@ -125,6 +128,7 @@ impl<R: Resource> Mounted<R> {
             fields,
             create_columns: def.create_columns,
             creates: <R::Form as RecordForm>::HAS_FORM && !def.edit_only,
+            imports: def.importable,
             soft_delete: def.soft_delete,
             field_rules: def.field_rules,
         }

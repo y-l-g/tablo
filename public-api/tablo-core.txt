@@ -2354,6 +2354,7 @@ impl<M> core::marker::Unpin for tablo_core::WiredTable<M> where alloc::sync::Arc
 impl<M> core::marker::UnsafeUnpin for tablo_core::WiredTable<M> where alloc::sync::Arc<tablo_core::table::Table<M>>: core::marker::UnsafeUnpin, Wiring<M>: core::marker::UnsafeUnpin
 impl<M> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::WiredTable<M>
 impl<M> !core::panic::unwind_safe::UnwindSafe for tablo_core::WiredTable<M>
+pub const tablo_core::panel::MAX_IMPORT_ROWS: usize
 pub trait tablo_core::panel::RouterBuilderPanelExt: core::marker::Sized
 pub fn tablo_core::panel::RouterBuilderPanelExt::panel(self, tablo_core::panel::Panel) -> topcoat::Result<Self>
 pub fn tablo_core::panel::RouterBuilderPanelExt::panel_handle(&self, &str) -> core::option::Option<tablo_core::PanelHandle>
@@ -2696,6 +2697,7 @@ pub fn tablo_core::ResourceDef<R>::field_access<T>(self, impl core::convert::Int
 pub fn tablo_core::ResourceDef<R>::form(self, tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>) -> Self
 pub fn tablo_core::ResourceDef<R>::header_action<A: tablo_core::HeaderAction>(self) -> Self
 pub fn tablo_core::ResourceDef<R>::icon(self, topcoat_icon::data::IconData) -> Self
+pub fn tablo_core::ResourceDef<R>::importable(self) -> Self
 pub fn tablo_core::ResourceDef<R>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::ResourceDef<R>::navigation(self, tablo_core::navigation::NavigationItem) -> Self
 pub fn tablo_core::ResourceDef<R>::navigation_badge(self, toasty::stmt::expr::Expr<bool>) -> Self
@@ -4737,6 +4739,7 @@ pub tablo_core::DeclarationErrorKind::FormClaimsTenantColumn::column: alloc::str
 pub tablo_core::DeclarationErrorKind::FormClaimsTenantColumn::field: alloc::string::String
 pub tablo_core::DeclarationErrorKind::HiddenWatchedField
 pub tablo_core::DeclarationErrorKind::HiddenWatchedField::field: alloc::string::String
+pub tablo_core::DeclarationErrorKind::ImportWithoutCreate
 pub tablo_core::DeclarationErrorKind::InvalidSegment
 pub tablo_core::DeclarationErrorKind::InvalidSegment::fault: tablo_core::SegmentFault
 pub tablo_core::DeclarationErrorKind::InvalidSegment::item: &'static str
@@ -6883,6 +6886,7 @@ pub fn tablo_core::ResourceDef<R>::field_access<T>(self, impl core::convert::Int
 pub fn tablo_core::ResourceDef<R>::form(self, tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>) -> Self
 pub fn tablo_core::ResourceDef<R>::header_action<A: tablo_core::HeaderAction>(self) -> Self
 pub fn tablo_core::ResourceDef<R>::icon(self, topcoat_icon::data::IconData) -> Self
+pub fn tablo_core::ResourceDef<R>::importable(self) -> Self
 pub fn tablo_core::ResourceDef<R>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::ResourceDef<R>::navigation(self, tablo_core::navigation::NavigationItem) -> Self
 pub fn tablo_core::ResourceDef<R>::navigation_badge(self, toasty::stmt::expr::Expr<bool>) -> Self
@@ -7469,6 +7473,7 @@ impl<M> core::marker::Unpin for tablo_core::WiredTable<M> where alloc::sync::Arc
 impl<M> core::marker::UnsafeUnpin for tablo_core::WiredTable<M> where alloc::sync::Arc<tablo_core::table::Table<M>>: core::marker::UnsafeUnpin, Wiring<M>: core::marker::UnsafeUnpin
 impl<M> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::WiredTable<M>
 impl<M> !core::panic::unwind_safe::UnwindSafe for tablo_core::WiredTable<M>
+pub const tablo_core::MAX_IMPORT_ROWS: usize
 pub trait tablo_core::Action<R: tablo_core::resource::Resource>: 'static
 pub type tablo_core::Action::Input: tablo_core::FormInput
 pub const tablo_core::Action::CONFIRM: bool

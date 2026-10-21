@@ -22,4 +22,5 @@ record disagree, the code wins and the record is fixed. Missing numbers are reti
 | [0028](0028-stored-notifications.md) | Stored notifications ride the runtime connection |
 | [0029](0029-soft-deletes.md) | Soft deletes are a declared column the framework scopes |
 | [0030](0030-field-access.md) | Field access is declared per field and masks every page a request renders |
-| [0031](0031-rich-text.md) | Rich text is cleaned HTML, and its toolbar is its schema |
+| [0031](0031-csv-import.md) | A CSV import is the create form, once per row, in one transaction |
+| [0032](0032-rich-text.md) | Rich text is cleaned HTML, and its toolbar is its schema |

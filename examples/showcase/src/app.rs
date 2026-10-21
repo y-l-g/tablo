@@ -74,6 +74,8 @@ impl Resource for UserResource {
                 c.active,
                 c.age,
             ))))
+            // Creates users from a CSV file, each row checked as the create form checks it.
+            .importable()
             .detail(Detail::new(Section::new("Profile").columns(User::detail())))
             .record_title(lens!(User.name))
     }
@@ -137,6 +139,8 @@ impl Resource for PostResource {
             .soft_delete(lens!(Post.deleted_at))
             .table(post_table())
             .form(post_form())
+            // Creates posts from a CSV file: a category column repeats once per category.
+            .importable()
             .detail(post_detail())
             // Names the detail heading with the post title.
             .record_title(lens!(Post.title))

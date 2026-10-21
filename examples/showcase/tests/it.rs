@@ -23,6 +23,7 @@ mod edit;
 mod export;
 mod filter;
 mod gates;
+mod import;
 mod list;
 mod many_to_many;
 mod media;

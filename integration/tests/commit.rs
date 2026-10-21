@@ -3,7 +3,7 @@ use toasty::Db;
 use topcoat::context::Cx;
 use uuid::Uuid;
 
-use crate::common::{panel_router, post_fields, test_db};
+use crate::common::{import_csv, panel_router, post_fields, test_db};
 
 #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
 struct Note {
@@ -63,6 +63,7 @@ impl Resource for AuditedResource {
         ResourceDef::new()
             .slug("notes")
             .policy(Allow)
+            .importable()
             .table(Table::new(TextColumn::new(lens!(Note.title))).paginate(25))
     }
 
@@ -121,6 +122,7 @@ impl Resource for RefusingHookResource {
         ResourceDef::new()
             .slug("refusing-hooks")
             .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
+            .importable()
             .table(Table::new(TextColumn::new(lens!(Note.title))))
     }
 
@@ -149,6 +151,7 @@ impl Resource for FailingAfterResource {
         ResourceDef::new()
             .slug("failing-afters")
             .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
+            .importable()
             .table(Table::new(TextColumn::new(lens!(Note.title))))
     }
 
@@ -278,6 +281,103 @@ async fn a_bulk_delete_is_one_call_for_the_whole_batch() {
     );
     assert_eq!(audits[0].change, "delete");
     assert_eq!(audits[0].rows, 2, "both rows travel in the one call");
+}
+
+/// Each row of an import is a create, so each reaches the hook a create runs, in file order.
+#[tokio::test]
+async fn an_import_audits_each_row_as_a_create() {
+    let db = seeded_db().await;
+    let router = panel_router::<AuditedResource>(db.clone());
+
+    let response = import_csv(&router, "/admin/notes/-/import", "title\nAlpha\nBeta\n").await;
+    assert_eq!(response.status(), 303, "a valid import redirects");
+    assert_eq!(notes(&db).await.len(), 2);
+
+    let audits = audits(&db).await;
+    let audited: Vec<(&str, &str, i64)> = audits
+        .iter()
+        .map(|audit| (audit.change.as_str(), audit.title.as_str(), audit.rows))
+        .collect();
+    assert_eq!(audited, [("create", "Alpha", 1), ("create", "Beta", 1)]);
+
+    let response = import_csv(
+        &router,
+        "/admin/notes/-/import",
+        "title\nGamma\nDelta,stray\n",
+    )
+    .await;
+    assert_eq!(
+        response.status(),
+        200,
+        "a refused row renders the page again"
+    );
+    assert_eq!(
+        self::audits(&db).await.len(),
+        2,
+        "a refused import never reaches the hook"
+    );
+}
+
+/// After the rows commit together, `after_commit` receives each one's create, in file order, and
+/// a failing call neither undoes the import nor skips the rows after it.
+#[tokio::test]
+async fn an_import_runs_after_commit_once_per_row_in_file_order() {
+    let db = seeded_db().await;
+    let router = panel_router::<FailingAfterResource>(db.clone());
+
+    let response = import_csv(
+        &router,
+        "/admin/failing-afters/-/import",
+        "title\nAlpha\nBeta\nGamma\n",
+    )
+    .await;
+    assert_eq!(
+        response.status(),
+        303,
+        "a failing after_commit undoes nothing"
+    );
+    assert_eq!(notes(&db).await.len(), 3);
+    let audits = audits(&db).await;
+    let audited: Vec<(&str, &str, &str, i64)> = audits
+        .iter()
+        .map(|audit| {
+            (
+                audit.hook.as_str(),
+                audit.change.as_str(),
+                audit.title.as_str(),
+                audit.rows,
+            )
+        })
+        .collect();
+    assert_eq!(
+        audited,
+        [
+            ("after", "create", "Alpha", 1),
+            ("after", "create", "Beta", 1),
+            ("after", "create", "Gamma", 1),
+        ]
+    );
+}
+
+/// A hook refusing one row rolls back every row the import wrote before it.
+#[tokio::test]
+async fn a_failing_before_commit_rolls_back_the_whole_import() {
+    let db = seeded_db().await;
+    let router = panel_router::<RefusingHookResource>(db.clone());
+
+    let response = import_csv(
+        &router,
+        "/admin/refusing-hooks/-/import",
+        "title\nAlpha\nBeta\n",
+    )
+    .await;
+    assert!(
+        response.status().is_server_error(),
+        "a refusing hook fails the import as it fails a create, got {}",
+        response.status()
+    );
+    assert!(notes(&db).await.is_empty(), "the import rolled back");
+    assert!(audits(&db).await.is_empty(), "so did the hook's audit row");
 }
 
 #[tokio::test]

@@ -38,9 +38,13 @@ async fn a_repeated_key_keeps_every_value_in_body_order() {
     assert_eq!(tags, ["", "b", "a"]);
     let body = "--X\r\nContent-Disposition: form-data; name=\"tags\"\r\n\r\nb\r\n\
                 --X\r\nContent-Disposition: form-data; name=\"tags\"\r\n\r\na\r\n--X--\r\n";
-    let parts = multipart_parts(&multipart_type("X"), body.as_bytes().to_vec(), false)
-        .await
-        .unwrap();
+    let parts = multipart_parts(
+        &multipart_type("X"),
+        body.as_bytes().to_vec(),
+        Capture::None,
+    )
+    .await
+    .unwrap();
     let tags: Vec<&str> = parts
         .pairs
         .iter()
@@ -54,7 +58,7 @@ async fn a_repeated_key_keeps_every_value_in_body_order() {
 async fn multipart_parts(
     content_type: &str,
     body: Vec<u8>,
-    capture: bool,
+    capture: Capture,
 ) -> Result<FormParts, topcoat::Error> {
     let (parts, ()) = http::Request::builder()
         .uri("/admin/users/-/create")
@@ -73,7 +77,7 @@ async fn multipart_values(
     content_type: &str,
     body: Vec<u8>,
 ) -> Result<HashMap<String, String>, topcoat::Error> {
-    multipart_parts(content_type, body, false)
+    multipart_parts(content_type, body, Capture::None)
         .await
         .map(|parts| parts.pairs.into_iter().collect())
 }
@@ -144,9 +148,13 @@ async fn multipart_stages_file_bytes_only_when_capturing() {
         b = boundary
     );
 
-    let captured = multipart_parts(&multipart_type(boundary), body.clone().into_bytes(), true)
-        .await
-        .unwrap();
+    let captured = multipart_parts(
+        &multipart_type(boundary),
+        body.clone().into_bytes(),
+        Capture::Persistable,
+    )
+    .await
+    .unwrap();
     let staged = captured.files.get("image_path").expect("staged file part");
     assert_eq!(staged.filename, "photo.jpg");
     assert_eq!(staged.bytes, b"BINARYBYTES");
@@ -158,7 +166,7 @@ async fn multipart_stages_file_bytes_only_when_capturing() {
     );
 
     // Not capturing: same values, no bytes held.
-    let drained = multipart_parts(&multipart_type(boundary), body.into_bytes(), false)
+    let drained = multipart_parts(&multipart_type(boundary), body.into_bytes(), Capture::None)
         .await
         .unwrap();
     assert!(drained.files.is_empty(), "no uploader, no buffering");
@@ -169,11 +177,27 @@ async fn multipart_stages_file_bytes_only_when_capturing() {
 #[tokio::test]
 async fn multipart_stages_nothing_for_a_rejected_filename() {
     let body = "--B\r\nContent-Disposition: form-data; name=\"image_path\"; filename=\"..\"\r\nContent-Type: application/octet-stream\r\n\r\nBYTES\r\n--B--\r\n";
-    let parts = multipart_parts(&multipart_type("B"), body.as_bytes().to_vec(), true)
-        .await
-        .unwrap();
+    let parts = multipart_parts(
+        &multipart_type("B"),
+        body.as_bytes().to_vec(),
+        Capture::Persistable,
+    )
+    .await
+    .unwrap();
     assert!(parts.files.is_empty(), "a rejected name stages no bytes");
     assert_eq!(parts.last("image_path"), Some(""));
+
+    // An import's file is read, never stored, so its name does not decide whether it is staged.
+    let parts = multipart_parts(&multipart_type("B"), body.as_bytes().to_vec(), Capture::Any)
+        .await
+        .unwrap();
+    assert_eq!(
+        parts
+            .files
+            .get("image_path")
+            .map(|file| file.bytes.as_slice()),
+        Some(b"BYTES".as_slice())
+    );
 }
 
 #[tokio::test]

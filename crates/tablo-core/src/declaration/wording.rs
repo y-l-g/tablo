@@ -267,6 +267,11 @@ impl fmt::Display for DeclarationErrorKind {
                  names it, so every create would fail at the driver; a resource that creates \
                  nothing declares `edit_only`"
             ),
+            Self::ImportWithoutCreate => write!(
+                f,
+                "`importable` creates each row through the create form, which this resource does \
+                 not serve: it has no record form, or is `edit_only`"
+            ),
             Self::ManyToMany { field, fault } => fmt_many_to_many(f, field, fault),
         }
     }

@@ -1,4 +1,4 @@
-// Rich text editors for Tablo's rich text controls (ADR-0031).
+// Rich text editors for Tablo's rich text controls (ADR-0032).
 //
 // A rich text control renders `[data-rich-text]` holding:
 //

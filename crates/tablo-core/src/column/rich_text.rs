@@ -1,4 +1,4 @@
-//! [`RichTextColumn`]: a rich text field's HTML, cleaned again as it renders (ADR-0031).
+//! [`RichTextColumn`]: a rich text field's HTML, cleaned again as it renders (ADR-0032).
 
 use derive_where::derive_where;
 use topcoat::{context::Cx, view::*};

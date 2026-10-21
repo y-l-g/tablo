@@ -86,6 +86,13 @@ pub async fn post_fields(router: &Router, uri: &str, fields: &[(&str, &str)]) ->
         .await
 }
 
+/// Posts `csv` to the import page at `uri` as its file input does, with its CSRF pair.
+pub async fn import_csv(router: &Router, uri: &str, csv: &str) -> Response<Body> {
+    TestClient::new(router)
+        .submit_multipart(uri, &[("file", Some("import.csv"), csv)])
+        .await
+}
+
 /// The flash notification a response set for the page it redirects to.
 pub fn flash(response: &Response<Body>) -> Notification {
     tablo::testing::notification(response).expect("the response sets a flash notification")

@@ -132,6 +132,7 @@ A test matches on the kind rather than the message; see
 | `ActionInput` | an action's input cannot be served; the `ActionInputFault` says why | see below |
 | `UnwrittenColumn` | the resource serves a create page and nothing writes a non-nullable column: not the form, not a Toasty `#[default(..)]`, not the tenant stamp, not a `create_column` | add the field to the form, a default to the model, or a `create_column`; or make the resource `edit_only` |
 | `CreateColumnsNameTenant` | a `create_column` names the tenant column | drop it: the framework stamps the tenant |
+| `ImportWithoutCreate` | a resource declares `importable` but serves no create page: it has no record form, or is `edit_only` | drop `importable`, or serve the create page |
 
 `ActionInputFault`:
 

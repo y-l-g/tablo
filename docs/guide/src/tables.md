@@ -311,6 +311,51 @@ links it as **Export CSV**, carrying the state the reader sees.
 - Cells that a spreadsheet would read as a formula are escaped. Add `?bom=1` to prefix the file
   with a byte-order mark for Excel.
 
+## Import
+
+A resource that creates through a form can import a CSV file too:
+
+```rust,ignore
+ResourceDef::new().importable()
+```
+
+The list header then links **Import CSV** to `/admin/{slug}/-/import`, for a request the policy
+allows to `Create`. The page takes one file, and **Download template** at
+`/admin/{slug}/-/import/template` returns the header row it reads. Mounting the panel refuses
+`importable` on a resource that serves no create page (`ImportWithoutCreate`).
+
+```csv
+name,email,role
+Barbara Liskov,barbara@example.com,admin
+```
+
+- The first row names the columns, each by its form key or its field's label in any case. The
+  columns are the form's controls the request may change, but file fields, repeaters and controls
+  disabled on the create page. A header naming any other column, or a label two fields carry,
+  refuses the file.
+- Each cell posts what the create form's control would: an option's value, `true` or `false` for
+  a checkbox, a date and time in the request's [time zone](./forms.md#time-zones). A blank cell
+  posts a blank value. A column the header leaves out takes the field's `default`.
+- A multiple choice, such as a many-to-many field, takes one column per value: the header repeats
+  its key. No other column may repeat.
+- The file is UTF-8 text with commas or semicolons between cells. A row whose every cell is blank is
+  skipped.
+
+Each row is a create submission: the field access, the controls' rules, the record form's parse,
+`validate_record`, the unique check and the relationship check run as on the create page,
+`create_record` stamps the tenant, and `before_commit` receives each row's `Change::Create` inside
+the transaction. Every row writes in one transaction. When any row is refused, nothing is written,
+and the page lists each refusal of every row by row number, as a spreadsheet numbers it, and
+column. Correct the
+file and import it again. A `before_commit` error rolls back the whole file. When every row
+passes, the import lands on the list and `after_commit` receives each row's `Change::Create`, in
+file order.
+
+A file holds at most `MAX_IMPORT_ROWS` (1,000) rows, 500 cells a row and 10 MiB. The
+transaction lasts the whole file: on SQLite it holds the database's write lock that long. The import reads what the form
+posts, not what the export writes: an exported `$1,234.50`, `Yes` or option label does not import
+back.
+
 ## Row actions and deletes
 
 Each row shows the actions its record allows:
