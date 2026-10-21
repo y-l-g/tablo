@@ -250,9 +250,54 @@ pub fn query(_cx: &Cx) -> Query<List<Post>> {
 }
 // ANCHOR_END: published-query
 
+// ANCHOR: audit-before-commit
+pub async fn before_commit(
+    _cx: &Cx,
+    change: &Change<Post>,
+    ex: &mut dyn toasty::Executor,
+) -> Result<()> {
+    let action = match change {
+        Change::Create(post) => format!("created {}", post.title),
+        Change::Update { before, after } => {
+            format!("updated {} (was {})", after.title, before.title)
+        }
+        Change::Delete(posts) => format!("deleted {} posts", posts.len()),
+        Change::Restore(posts) => format!("restored {} posts", posts.len()),
+        Change::ForceDelete(posts) => format!("deleted {} posts for good", posts.len()),
+        Change::Action { name, records } => format!("ran {name} on {} posts", records.len()),
+        Change::HeaderAction { name } => format!("ran {name}"),
+        Change::Attach {
+            owner,
+            relation,
+            key,
+        } => {
+            format!("linked {} to {relation} {key}", owner.title)
+        }
+        Change::Detach {
+            owner,
+            relation,
+            keys,
+        } => {
+            format!(
+                "unlinked {} from {relation} {}",
+                owner.title,
+                keys.join(", ")
+            )
+        }
+    };
+    toasty::create!(Audit {
+        action,
+        created_at: jiff::Timestamp::now().to_string(),
+    })
+    .exec(ex)
+    .await?;
+    Ok(())
+}
+// ANCHOR_END: audit-before-commit
+
 // ANCHOR: notify-after-commit
-pub async fn after_commit(cx: &Cx, committed: Committed<Post>) -> Result<()> {
-    for post in committed.records() {
+pub async fn after_commit(cx: &Cx, change: Change<Post>) -> Result<()> {
+    if let Change::Create(post) = &change {
         notify_subscribers(cx, post).await?;
     }
     Ok(())

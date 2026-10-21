@@ -153,6 +153,16 @@ where
     Some((fid, parse_key(&prim.ty, id)?))
 }
 
+/// The URL id that `id` spells for `M`'s single primary key, as [`pk_text`] writes it, or `None`
+/// when it does not parse or the key is not a single primitive field: `0E2F..` in uppercase
+/// answers the lowercase hyphenated UUID, `+5` answers `5`.
+pub(crate) fn canonical_key<M>(id: &str) -> Option<String>
+where
+    M: toasty::schema::Model,
+{
+    value_text(&pk_field_value::<M>(id)?.1)
+}
+
 /// The value of type `ty` that `text` spells, as [`value_text`] writes it, or `None` when it does
 /// not parse or `ty` has no text form.
 pub(crate) fn parse_key(ty: &Type, text: &str) -> Option<Value> {

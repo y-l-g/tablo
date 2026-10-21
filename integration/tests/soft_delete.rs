@@ -3,8 +3,8 @@
 //! edit page, the unique probe and the mount treat it as the declaration says.
 
 use tablo::{
-    Ability, Committed, DeclarationErrorKind, Mutation, Resource, ResourceDef, Schema, Site, Table,
-    Tenancy, TenantId, TextColumn, Trashed, lens, scoped_query, scoped_query_in,
+    Ability, Change, DeclarationErrorKind, Resource, ResourceDef, Schema, Site, Table, Tenancy,
+    TenantId, TextColumn, Trashed, lens, scoped_query, scoped_query_in,
     testing::{ErrorKind, confirms_first, field_error, refusal, row_actions, row_keys},
 };
 use toasty::Db;
@@ -30,8 +30,8 @@ struct PostForm {
     title: String,
 }
 
-/// The committed mutations `after_commit` saw, in order.
-static COMMITTED: std::sync::Mutex<Vec<(Mutation, usize)>> = std::sync::Mutex::new(Vec::new());
+/// The committed changes `after_commit` saw, in order, as their kind and their row count.
+static COMMITTED: std::sync::Mutex<Vec<(&str, usize)>> = std::sync::Mutex::new(Vec::new());
 
 struct PostResource;
 
@@ -49,14 +49,16 @@ impl Resource for PostResource {
             .form(Schema::new(PostForm::controls().title.unique()))
     }
 
-    async fn after_commit(
-        _cx: &topcoat::context::Cx,
-        committed: Committed<Post>,
-    ) -> topcoat::Result<()> {
+    async fn after_commit(_cx: &topcoat::context::Cx, change: Change<Post>) -> topcoat::Result<()> {
+        let kind = match change {
+            Change::Restore(_) => "restore",
+            Change::ForceDelete(_) => "force delete",
+            _ => "other",
+        };
         COMMITTED
             .lock()
             .unwrap()
-            .push((committed.mutation(), committed.records().len()));
+            .push((kind, change.records().len()));
         Ok(())
     }
 }
@@ -242,7 +244,7 @@ async fn a_bulk_restore_skips_the_live_records() {
     assert!(response.status().is_redirection(), "{}", response.status());
     assert!(stored(&db, trashed.id).await.unwrap().deleted_at.is_none());
     assert!(stored(&db, live.id).await.unwrap().deleted_at.is_none());
-    assert!(COMMITTED.lock().unwrap().contains(&(Mutation::Restore, 1)));
+    assert!(COMMITTED.lock().unwrap().contains(&("restore", 1)));
 }
 
 /// The list's bulk bar offers what the rows it shows take: Delete over the live records, Restore

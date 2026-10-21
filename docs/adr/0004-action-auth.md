@@ -1,4 +1,4 @@
-# 0004 Mutations are transactional and per-record
+# 0004 Mutations are transactional and per-record, with a hook on each side of the commit
 
 Every mutation runs in a framework-owned transaction. The handler loads the target through
 `scoped_query` (ADR-0002) and checks the policy on the loaded record inside the transaction,
@@ -30,11 +30,15 @@ ability of its own, then its own `can_run(cx)`. On a page, which has no policy, 
 and the page's `PageDef::access` authorize it, as they do the page's `GET`, then `can_run(cx)`; an
 action that writes a resource's records asks that resource's policy there. It runs in a
 framework-owned transaction like any mutation, but nothing scopes it to the tenant: it reads a
-tenant's records through `scoped_query` itself. `after_commit` receives its `NAME` and no record.
+tenant's records through `scoped_query` itself. The hooks receive its `NAME` and no record.
 
-`Resource::after_commit` runs once per committed write, after the commit and before the
-response: the place for side effects that must not survive a rollback. A failing hook logs and
-does not roll back.
+Every write a resource's panel makes, through its record fns, actions, header actions and
+relation links, calls two hooks with the same `Change`: what was written, with the rows it names.
+`Resource::before_commit` runs inside the transaction with its executor, so a row it writes, such
+as an audit row, commits with the write or not at all; an error rolls everything back.
+`Resource::after_commit` runs after the commit and before the response: the place for effects
+outside the database that must not survive a rollback. A failing `after_commit` logs and does not
+roll back, and a crash after the commit skips it.
 
 `run` returns an `Outcome`: the notification the response flashes and the same-origin path it
 lands on, each defaulting to the action's `success` and to where it ran from. The response applies
@@ -55,6 +59,14 @@ and logs, since the write it follows has committed.
   dialog does not make, and the dialog needs JavaScript.
 - A place as authorization, a POST refused unless sent from a page the action is placed on: the
   place is where a button shows, and the policy already decides who may run the action.
+- Audit rows in `after_commit`: an error there is logged and dropped, and a crash between the
+  commit and the hook loses the row while the write stands.
+- Overriding each record fn and action `run` to write an audit row: every new write path needs its
+  own override, and the relation links have no record fn to override.
+- A built-in audit log: its table, retention, tenancy, redaction and viewer are the app's
+  decisions, and `before_commit` with an app-owned resource covers it.
+- A mutation kind beside a list of rows: an update could not carry the row it replaced, nor a
+  link the records it linked.
 - A header action authorized by `RunAny`: a policy that answers `RunAny { .. } => true` and
   checks `Run` per record would grant every header action added later. A separate `RunHeader`
   fails closed: an exhaustive policy stops compiling until it answers it.

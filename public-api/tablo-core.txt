@@ -2517,31 +2517,44 @@ impl<M> tablo_core::policy::Policy<M> for tablo_core::policy::ReadOnly
 pub fn tablo_core::policy::ReadOnly::allows(&self, &topcoat_core::context::Cx, tablo_core::policy::Ability<'_, M>) -> bool
 pub fn tablo_core::policy::when<F>(F) -> tablo_core::policy::When<F> where F: core::ops::function::Fn(&topcoat_core::context::Cx) -> bool + core::marker::Send + core::marker::Sync + 'static
 pub mod tablo_core::resource
-#[non_exhaustive] pub enum tablo_core::resource::Mutation
-pub tablo_core::resource::Mutation::Action(&'static str)
-pub tablo_core::resource::Mutation::Attach
-pub tablo_core::resource::Mutation::Create
-pub tablo_core::resource::Mutation::Delete
-pub tablo_core::resource::Mutation::Detach
-pub tablo_core::resource::Mutation::ForceDelete
-pub tablo_core::resource::Mutation::Restore
-pub tablo_core::resource::Mutation::Update
-impl core::clone::Clone for tablo_core::Mutation
-pub fn tablo_core::Mutation::clone(&self) -> tablo_core::Mutation
-impl core::cmp::Eq for tablo_core::Mutation
-impl core::cmp::PartialEq for tablo_core::Mutation
-pub fn tablo_core::Mutation::eq(&self, &tablo_core::Mutation) -> bool
-impl core::fmt::Debug for tablo_core::Mutation
-pub fn tablo_core::Mutation::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl core::marker::Copy for tablo_core::Mutation
-impl core::marker::StructuralPartialEq for tablo_core::Mutation
-impl core::marker::Freeze for tablo_core::Mutation
-impl core::marker::Send for tablo_core::Mutation
-impl core::marker::Sync for tablo_core::Mutation
-impl core::marker::Unpin for tablo_core::Mutation
-impl core::marker::UnsafeUnpin for tablo_core::Mutation
-impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Mutation
-impl core::panic::unwind_safe::UnwindSafe for tablo_core::Mutation
+pub enum tablo_core::resource::Change<M>
+pub tablo_core::resource::Change::Action
+pub tablo_core::resource::Change::Action::name: &'static str
+pub tablo_core::resource::Change::Action::records: alloc::vec::Vec<M>
+pub tablo_core::resource::Change::Attach
+pub tablo_core::resource::Change::Attach::key: alloc::string::String
+pub tablo_core::resource::Change::Attach::owner: M
+pub tablo_core::resource::Change::Attach::relation: alloc::string::String
+pub tablo_core::resource::Change::Create(M)
+pub tablo_core::resource::Change::Delete(alloc::vec::Vec<M>)
+pub tablo_core::resource::Change::Detach
+pub tablo_core::resource::Change::Detach::keys: alloc::vec::Vec<alloc::string::String>
+pub tablo_core::resource::Change::Detach::owner: M
+pub tablo_core::resource::Change::Detach::relation: alloc::string::String
+pub tablo_core::resource::Change::ForceDelete(alloc::vec::Vec<M>)
+pub tablo_core::resource::Change::HeaderAction
+pub tablo_core::resource::Change::HeaderAction::name: &'static str
+pub tablo_core::resource::Change::Restore(alloc::vec::Vec<M>)
+pub tablo_core::resource::Change::Update
+pub tablo_core::resource::Change::Update::after: M
+pub tablo_core::resource::Change::Update::before: M
+impl<M> tablo_core::Change<M>
+pub fn tablo_core::Change<M>::records(&self) -> &[M]
+impl<M: core::clone::Clone> core::clone::Clone for tablo_core::Change<M>
+pub fn tablo_core::Change<M>::clone(&self) -> tablo_core::Change<M>
+impl<M: core::cmp::Eq> core::cmp::Eq for tablo_core::Change<M>
+impl<M: core::cmp::PartialEq> core::cmp::PartialEq for tablo_core::Change<M>
+pub fn tablo_core::Change<M>::eq(&self, &tablo_core::Change<M>) -> bool
+impl<M: core::cmp::PartialEq> core::marker::StructuralPartialEq for tablo_core::Change<M>
+impl<M: core::fmt::Debug> core::fmt::Debug for tablo_core::Change<M>
+pub fn tablo_core::Change<M>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<M> core::marker::Freeze for tablo_core::Change<M> where M: core::marker::Freeze + core::marker::Freeze + core::marker::Freeze + core::marker::Freeze + core::marker::Freeze, alloc::vec::Vec<M>: core::marker::Freeze + core::marker::Freeze + core::marker::Freeze + core::marker::Freeze
+impl<M> core::marker::Send for tablo_core::Change<M> where M: core::marker::Send + core::marker::Send + core::marker::Send + core::marker::Send + core::marker::Send, alloc::vec::Vec<M>: core::marker::Send + core::marker::Send + core::marker::Send + core::marker::Send
+impl<M> core::marker::Sync for tablo_core::Change<M> where M: core::marker::Sync + core::marker::Sync + core::marker::Sync + core::marker::Sync + core::marker::Sync, alloc::vec::Vec<M>: core::marker::Sync + core::marker::Sync + core::marker::Sync + core::marker::Sync
+impl<M> core::marker::Unpin for tablo_core::Change<M> where M: core::marker::Unpin + core::marker::Unpin + core::marker::Unpin + core::marker::Unpin + core::marker::Unpin, alloc::vec::Vec<M>: core::marker::Unpin + core::marker::Unpin + core::marker::Unpin + core::marker::Unpin
+impl<M> core::marker::UnsafeUnpin for tablo_core::Change<M> where M: core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin, alloc::vec::Vec<M>: core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin
+impl<M> core::panic::unwind_safe::RefUnwindSafe for tablo_core::Change<M> where M: core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe, alloc::vec::Vec<M>: core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe
+impl<M> core::panic::unwind_safe::UnwindSafe for tablo_core::Change<M> where M: core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe, alloc::vec::Vec<M>: core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe
 pub enum tablo_core::resource::Trashed
 pub tablo_core::resource::Trashed::Only
 pub tablo_core::resource::Trashed::With
@@ -2566,27 +2579,6 @@ impl core::marker::Unpin for tablo_core::Trashed
 impl core::marker::UnsafeUnpin for tablo_core::Trashed
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Trashed
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::Trashed
-pub struct tablo_core::resource::Committed<M>
-impl<M> tablo_core::Committed<M>
-pub fn tablo_core::Committed<M>::acted<R: tablo_core::resource::Resource<Model = M>, A: tablo_core::Action<R>>(alloc::vec::Vec<M>) -> Self
-pub fn tablo_core::Committed<M>::created(M) -> Self
-pub fn tablo_core::Committed<M>::deleted(alloc::vec::Vec<M>) -> Self
-pub fn tablo_core::Committed<M>::force_deleted(alloc::vec::Vec<M>) -> Self
-pub fn tablo_core::Committed<M>::mutation(&self) -> tablo_core::Mutation
-pub fn tablo_core::Committed<M>::records(&self) -> &[M]
-pub fn tablo_core::Committed<M>::restored(alloc::vec::Vec<M>) -> Self
-pub fn tablo_core::Committed<M>::updated(M) -> Self
-impl<M: core::clone::Clone> core::clone::Clone for tablo_core::Committed<M>
-pub fn tablo_core::Committed<M>::clone(&self) -> tablo_core::Committed<M>
-impl<M: core::fmt::Debug> core::fmt::Debug for tablo_core::Committed<M>
-pub fn tablo_core::Committed<M>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl<M> core::marker::Freeze for tablo_core::Committed<M> where alloc::vec::Vec<M>: core::marker::Freeze
-impl<M> core::marker::Send for tablo_core::Committed<M> where alloc::vec::Vec<M>: core::marker::Send
-impl<M> core::marker::Sync for tablo_core::Committed<M> where alloc::vec::Vec<M>: core::marker::Sync
-impl<M> core::marker::Unpin for tablo_core::Committed<M> where alloc::vec::Vec<M>: core::marker::Unpin
-impl<M> core::marker::UnsafeUnpin for tablo_core::Committed<M> where alloc::vec::Vec<M>: core::marker::UnsafeUnpin
-impl<M> core::panic::unwind_safe::RefUnwindSafe for tablo_core::Committed<M> where alloc::vec::Vec<M>: core::panic::unwind_safe::RefUnwindSafe
-impl<M> core::panic::unwind_safe::UnwindSafe for tablo_core::Committed<M> where alloc::vec::Vec<M>: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::resource::FieldAccess
 impl tablo_core::FieldAccess
 pub fn tablo_core::FieldAccess::edit(self, impl core::ops::function::Fn(&topcoat_core::context::Cx) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
@@ -2739,7 +2731,8 @@ pub fn tablo_core::resource::HeaderAction::validate_input(&topcoat_core::context
 pub trait tablo_core::resource::Resource: core::marker::Sized + core::marker::Send + core::marker::Sync + 'static
 pub type tablo_core::resource::Resource::Form: tablo_core::form::RecordForm<Model = Self::Model>
 pub type tablo_core::resource::Resource::Model: tablo_core::ModelColumns + toasty::stmt::into_expr::IntoExpr<Self::Model> + core::marker::Send + core::marker::Sync + core::clone::Clone + 'static
-pub fn tablo_core::resource::Resource::after_commit(&topcoat_core::context::Cx, tablo_core::Committed<Self::Model>) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
+pub fn tablo_core::resource::Resource::after_commit(&topcoat_core::context::Cx, tablo_core::Change<Self::Model>) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
+pub fn tablo_core::resource::Resource::before_commit(&topcoat_core::context::Cx, &tablo_core::Change<Self::Model>, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
 pub fn tablo_core::resource::Resource::bulk_delete_records(&topcoat_core::context::Cx, &[Self::Model], &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
 pub fn tablo_core::resource::Resource::create_record(&topcoat_core::context::Cx, Self::Form, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<Self::Model>> + core::marker::Send
 pub fn tablo_core::resource::Resource::declare() -> tablo_core::ResourceDef<Self>
@@ -4439,6 +4432,44 @@ impl core::marker::Unpin for tablo_core::AuthMailFault
 impl core::marker::UnsafeUnpin for tablo_core::AuthMailFault
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::AuthMailFault
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::AuthMailFault
+pub enum tablo_core::Change<M>
+pub tablo_core::Change::Action
+pub tablo_core::Change::Action::name: &'static str
+pub tablo_core::Change::Action::records: alloc::vec::Vec<M>
+pub tablo_core::Change::Attach
+pub tablo_core::Change::Attach::key: alloc::string::String
+pub tablo_core::Change::Attach::owner: M
+pub tablo_core::Change::Attach::relation: alloc::string::String
+pub tablo_core::Change::Create(M)
+pub tablo_core::Change::Delete(alloc::vec::Vec<M>)
+pub tablo_core::Change::Detach
+pub tablo_core::Change::Detach::keys: alloc::vec::Vec<alloc::string::String>
+pub tablo_core::Change::Detach::owner: M
+pub tablo_core::Change::Detach::relation: alloc::string::String
+pub tablo_core::Change::ForceDelete(alloc::vec::Vec<M>)
+pub tablo_core::Change::HeaderAction
+pub tablo_core::Change::HeaderAction::name: &'static str
+pub tablo_core::Change::Restore(alloc::vec::Vec<M>)
+pub tablo_core::Change::Update
+pub tablo_core::Change::Update::after: M
+pub tablo_core::Change::Update::before: M
+impl<M> tablo_core::Change<M>
+pub fn tablo_core::Change<M>::records(&self) -> &[M]
+impl<M: core::clone::Clone> core::clone::Clone for tablo_core::Change<M>
+pub fn tablo_core::Change<M>::clone(&self) -> tablo_core::Change<M>
+impl<M: core::cmp::Eq> core::cmp::Eq for tablo_core::Change<M>
+impl<M: core::cmp::PartialEq> core::cmp::PartialEq for tablo_core::Change<M>
+pub fn tablo_core::Change<M>::eq(&self, &tablo_core::Change<M>) -> bool
+impl<M: core::cmp::PartialEq> core::marker::StructuralPartialEq for tablo_core::Change<M>
+impl<M: core::fmt::Debug> core::fmt::Debug for tablo_core::Change<M>
+pub fn tablo_core::Change<M>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<M> core::marker::Freeze for tablo_core::Change<M> where M: core::marker::Freeze + core::marker::Freeze + core::marker::Freeze + core::marker::Freeze + core::marker::Freeze, alloc::vec::Vec<M>: core::marker::Freeze + core::marker::Freeze + core::marker::Freeze + core::marker::Freeze
+impl<M> core::marker::Send for tablo_core::Change<M> where M: core::marker::Send + core::marker::Send + core::marker::Send + core::marker::Send + core::marker::Send, alloc::vec::Vec<M>: core::marker::Send + core::marker::Send + core::marker::Send + core::marker::Send
+impl<M> core::marker::Sync for tablo_core::Change<M> where M: core::marker::Sync + core::marker::Sync + core::marker::Sync + core::marker::Sync + core::marker::Sync, alloc::vec::Vec<M>: core::marker::Sync + core::marker::Sync + core::marker::Sync + core::marker::Sync
+impl<M> core::marker::Unpin for tablo_core::Change<M> where M: core::marker::Unpin + core::marker::Unpin + core::marker::Unpin + core::marker::Unpin + core::marker::Unpin, alloc::vec::Vec<M>: core::marker::Unpin + core::marker::Unpin + core::marker::Unpin + core::marker::Unpin
+impl<M> core::marker::UnsafeUnpin for tablo_core::Change<M> where M: core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin, alloc::vec::Vec<M>: core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin
+impl<M> core::panic::unwind_safe::RefUnwindSafe for tablo_core::Change<M> where M: core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe, alloc::vec::Vec<M>: core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe
+impl<M> core::panic::unwind_safe::UnwindSafe for tablo_core::Change<M> where M: core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe, alloc::vec::Vec<M>: core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe
 pub enum tablo_core::Color
 pub tablo_core::Color::Danger
 pub tablo_core::Color::Gray
@@ -4813,31 +4844,6 @@ impl core::marker::Unpin for tablo_core::ManyToManyFault
 impl core::marker::UnsafeUnpin for tablo_core::ManyToManyFault
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::ManyToManyFault
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::ManyToManyFault
-#[non_exhaustive] pub enum tablo_core::Mutation
-pub tablo_core::Mutation::Action(&'static str)
-pub tablo_core::Mutation::Attach
-pub tablo_core::Mutation::Create
-pub tablo_core::Mutation::Delete
-pub tablo_core::Mutation::Detach
-pub tablo_core::Mutation::ForceDelete
-pub tablo_core::Mutation::Restore
-pub tablo_core::Mutation::Update
-impl core::clone::Clone for tablo_core::Mutation
-pub fn tablo_core::Mutation::clone(&self) -> tablo_core::Mutation
-impl core::cmp::Eq for tablo_core::Mutation
-impl core::cmp::PartialEq for tablo_core::Mutation
-pub fn tablo_core::Mutation::eq(&self, &tablo_core::Mutation) -> bool
-impl core::fmt::Debug for tablo_core::Mutation
-pub fn tablo_core::Mutation::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl core::marker::Copy for tablo_core::Mutation
-impl core::marker::StructuralPartialEq for tablo_core::Mutation
-impl core::marker::Freeze for tablo_core::Mutation
-impl core::marker::Send for tablo_core::Mutation
-impl core::marker::Sync for tablo_core::Mutation
-impl core::marker::Unpin for tablo_core::Mutation
-impl core::marker::UnsafeUnpin for tablo_core::Mutation
-impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Mutation
-impl core::panic::unwind_safe::UnwindSafe for tablo_core::Mutation
 #[non_exhaustive] pub enum tablo_core::NavTarget
 pub tablo_core::NavTarget::Derived
 pub tablo_core::NavTarget::Url(alloc::string::String)
@@ -5389,27 +5395,6 @@ impl<M, T> core::marker::Unpin for tablo_core::ColorColumn<M, T> where tablo_cor
 impl<M, T> core::marker::UnsafeUnpin for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::marker::UnsafeUnpin
 impl<M, T> core::panic::unwind_safe::RefUnwindSafe for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::panic::unwind_safe::RefUnwindSafe
 impl<M, T> core::panic::unwind_safe::UnwindSafe for tablo_core::ColorColumn<M, T> where tablo_core::Lens<M, T>: core::panic::unwind_safe::UnwindSafe
-pub struct tablo_core::Committed<M>
-impl<M> tablo_core::Committed<M>
-pub fn tablo_core::Committed<M>::acted<R: tablo_core::resource::Resource<Model = M>, A: tablo_core::Action<R>>(alloc::vec::Vec<M>) -> Self
-pub fn tablo_core::Committed<M>::created(M) -> Self
-pub fn tablo_core::Committed<M>::deleted(alloc::vec::Vec<M>) -> Self
-pub fn tablo_core::Committed<M>::force_deleted(alloc::vec::Vec<M>) -> Self
-pub fn tablo_core::Committed<M>::mutation(&self) -> tablo_core::Mutation
-pub fn tablo_core::Committed<M>::records(&self) -> &[M]
-pub fn tablo_core::Committed<M>::restored(alloc::vec::Vec<M>) -> Self
-pub fn tablo_core::Committed<M>::updated(M) -> Self
-impl<M: core::clone::Clone> core::clone::Clone for tablo_core::Committed<M>
-pub fn tablo_core::Committed<M>::clone(&self) -> tablo_core::Committed<M>
-impl<M: core::fmt::Debug> core::fmt::Debug for tablo_core::Committed<M>
-pub fn tablo_core::Committed<M>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl<M> core::marker::Freeze for tablo_core::Committed<M> where alloc::vec::Vec<M>: core::marker::Freeze
-impl<M> core::marker::Send for tablo_core::Committed<M> where alloc::vec::Vec<M>: core::marker::Send
-impl<M> core::marker::Sync for tablo_core::Committed<M> where alloc::vec::Vec<M>: core::marker::Sync
-impl<M> core::marker::Unpin for tablo_core::Committed<M> where alloc::vec::Vec<M>: core::marker::Unpin
-impl<M> core::marker::UnsafeUnpin for tablo_core::Committed<M> where alloc::vec::Vec<M>: core::marker::UnsafeUnpin
-impl<M> core::panic::unwind_safe::RefUnwindSafe for tablo_core::Committed<M> where alloc::vec::Vec<M>: core::panic::unwind_safe::RefUnwindSafe
-impl<M> core::panic::unwind_safe::UnwindSafe for tablo_core::Committed<M> where alloc::vec::Vec<M>: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::ComputedColumn<M>
 impl<M> tablo_core::ComputedColumn<M> where M: toasty::schema::model::Model
 pub fn tablo_core::ComputedColumn<M>::align(self, tablo_core::Alignment) -> Self
@@ -7675,7 +7660,8 @@ pub async fn tablo_core::PasswordAuth::validate(&self, &topcoat_core::context::C
 pub trait tablo_core::Resource: core::marker::Sized + core::marker::Send + core::marker::Sync + 'static
 pub type tablo_core::Resource::Form: tablo_core::form::RecordForm<Model = Self::Model>
 pub type tablo_core::Resource::Model: tablo_core::ModelColumns + toasty::stmt::into_expr::IntoExpr<Self::Model> + core::marker::Send + core::marker::Sync + core::clone::Clone + 'static
-pub fn tablo_core::Resource::after_commit(&topcoat_core::context::Cx, tablo_core::Committed<Self::Model>) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
+pub fn tablo_core::Resource::after_commit(&topcoat_core::context::Cx, tablo_core::Change<Self::Model>) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
+pub fn tablo_core::Resource::before_commit(&topcoat_core::context::Cx, &tablo_core::Change<Self::Model>, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
 pub fn tablo_core::Resource::bulk_delete_records(&topcoat_core::context::Cx, &[Self::Model], &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
 pub fn tablo_core::Resource::create_record(&topcoat_core::context::Cx, Self::Form, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<Self::Model>> + core::marker::Send
 pub fn tablo_core::Resource::declare() -> tablo_core::ResourceDef<Self>

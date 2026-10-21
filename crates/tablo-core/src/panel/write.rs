@@ -1,5 +1,5 @@
-//! The write tail every mutation shares: create, update, the deletes and the
-//! custom actions end in [`commit_write`], and the header actions in [`commit_then`].
+//! The write tail every mutation shares: create, update, the deletes, the custom actions and
+//! the relation links end in [`commit_write`], and the header actions in [`commit_then`].
 
 use std::future::Future;
 
@@ -9,30 +9,39 @@ use super::gate::landing_url;
 use crate::{
     notification::{Notification, notify_write_failure, set_notification},
     outcome::{Outcome, same_origin_path},
-    resource::{Committed, Mounted, Resource},
+    resource::{Change, Mounted, Resource},
 };
 
-/// Commit the transaction, run the after-commit hook on what the record fn
-/// wrote, and redirect to the list with the success flash. A failed write or
+/// Run the before-commit hook on what the record fn wrote, commit the transaction, run the
+/// after-commit hook, and redirect to the list with the success flash. A failed write, hook or
 /// commit maps to the caller's failure toast and an opaque error.
 ///
-/// `written` is the record fn's result, carrying what the hook receives and the
-/// [`Outcome`] the response follows; `committed` names the mutation, `note` the default success
-/// flash, and `failure` the toast.
+/// `written` is the record fn's result, carrying what the hooks receive and the [`Outcome`] the
+/// response follows; `change` names what it changed, `note` the default success flash, and
+/// `failure` the toast.
 pub(crate) async fn commit_write<'a, R: Resource, T>(
     cx: &'a Cx,
     resource: &Mounted<R>,
-    tx: toasty::Transaction<'_>,
+    mut tx: toasty::Transaction<'_>,
     written: Result<(T, Outcome), topcoat::Error>,
-    committed: impl FnOnce(T) -> Committed<R::Model>,
+    change: impl FnOnce(T) -> Change<R::Model>,
     note: impl Into<String>,
     failure: &'static str,
 ) -> Result<BoxView<'a>, topcoat::Error> {
+    let written = match written {
+        Ok((value, outcome)) => {
+            let change = change(value);
+            R::before_commit(cx, &change, &mut tx)
+                .await
+                .map(|()| (change, outcome))
+        }
+        Err(error) => Err(error),
+    };
     commit_then(
         cx,
         tx,
         written,
-        |value| crate::resource::run_after_commit::<R>(cx, committed(value)),
+        |change| crate::resource::run_after_commit::<R>(cx, change),
         note,
         failure,
         &resource.url,

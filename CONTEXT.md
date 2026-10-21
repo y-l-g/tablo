@@ -41,6 +41,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Tenancy | How a resource's rows belong to a tenant, through a `TenantId` column. | Tenant scope, Multi-tenancy mode |
 | Relation | A related resource's rows that belong to a record, rendered as that resource's table: its rows holding the record's key, or the records a join model links the record to, which the table attaches and detaches. | Relation manager, Sub-table |
 | Action | A user-invoked mutation, on one record or a bulk selection. | Command, Operation, Modal |
+| Change | What one write of a resource wrote, as `before_commit` and `after_commit` receive it: the kind of write and the rows it names. | Event, Committed |
 | Outcome | What an action's run asks of the response once its write commits: the notification it flashes and where it lands. | Result, Response, Effect |
 | Notification | A message for a panel user: a status, a title, a description and links. A write flashes one as a toast; `Notifications` stores one. | Alert, Message, Flash (for the type) |
 | Stored notification | A notification kept for one panel user on one panel, for one tenant or none, as a `StoredNotification` row; the bell lists it. | Database notification, Inbox item |

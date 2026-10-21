@@ -1,10 +1,9 @@
-use http::header::LOCATION;
-use tablo::{Ability, Allow, Committed, Mutation, Resource, ResourceDef, Table, TextColumn, lens};
+use tablo::{Ability, Allow, Change, Resource, ResourceDef, Table, TextColumn, lens};
 use toasty::Db;
-use topcoat::{context::Cx, router::Body};
+use topcoat::context::Cx;
 use uuid::Uuid;
 
-use crate::common::{body_string, panel_router, post_fields, test_db};
+use crate::common::{panel_router, post_fields, test_db};
 
 #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
 struct Note {
@@ -14,47 +13,51 @@ struct Note {
     title: String,
 }
 
+/// One hook call: which hook, what changed, the first row it names, and how many it names.
 #[derive(Debug, toasty::Model, Clone)]
 struct Audit {
     #[key]
     #[auto]
     id: Uuid,
-    mutation: String,
+    hook: String,
+    change: String,
     row_key: String,
     title: String,
+    before: Option<String>,
     rows: i64,
 }
 
-fn mutation_name(mutation: Mutation) -> &'static str {
-    match mutation {
-        Mutation::Create => "create",
-        Mutation::Update => "update",
-        Mutation::Delete => "delete",
-        Mutation::Action(name) => name,
-        _ => "other",
-    }
-}
-
-async fn audit(cx: &Cx, committed: &Committed<Note>) -> topcoat::Result<()> {
-    let first = committed.records().first();
-    let mut db = tablo::db::db(cx);
+async fn audit(
+    hook: &str,
+    change: &Change<Note>,
+    ex: &mut dyn toasty::Executor,
+) -> topcoat::Result<()> {
+    let (kind, before) = match change {
+        Change::Create(_) => ("create", None),
+        Change::Update { before, .. } => ("update", Some(before.title.clone())),
+        Change::Delete(_) => ("delete", None),
+        _ => ("other", None),
+    };
+    let first = change.records().first();
     toasty::create!(Audit {
-        mutation: mutation_name(committed.mutation()).to_string(),
+        hook: hook.to_string(),
+        change: kind.to_string(),
         row_key: first.map(|note| note.id.to_string()).unwrap_or_default(),
         title: first.map(|note| note.title.clone()).unwrap_or_default(),
-        rows: committed.records().len() as i64,
+        before,
+        rows: change.records().len() as i64,
     })
-    .exec(&mut db)
-    .await
-    .map_err(|error| -> topcoat::Error { error.into() })?;
+    .exec(ex)
+    .await?;
     Ok(())
 }
 
+/// Audits every change inside its transaction.
 struct AuditedResource;
 
 impl Resource for AuditedResource {
     type Model = Note;
-    type Form = AuditedForm;
+    type Form = NoteForm;
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
@@ -63,38 +66,21 @@ impl Resource for AuditedResource {
             .table(Table::new(TextColumn::new(lens!(Note.title))).paginate(25))
     }
 
-    async fn after_commit(cx: &Cx, committed: Committed<Note>) -> topcoat::Result<()> {
-        audit(cx, &committed).await
+    async fn before_commit(
+        _cx: &Cx,
+        change: &Change<Note>,
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<()> {
+        audit("before", change, ex).await
     }
 }
-#[derive(tablo::RecordForm)]
-#[form(model = Note)]
-struct AuditedForm {
-    title: String,
-}
-struct PlainResource;
 
-impl Resource for PlainResource {
-    type Model = Note;
-    type Form = PlainForm;
-
-    fn declare() -> ResourceDef<Self> {
-        ResourceDef::new()
-            .slug("plain-notes")
-            .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
-            .table(Table::new(TextColumn::new(lens!(Note.title))))
-    }
-}
-#[derive(tablo::RecordForm)]
-#[form(model = Note)]
-struct PlainForm {
-    title: String,
-}
+/// A record fn that refuses every create, under hooks that would audit it.
 struct FailingWriteResource;
 
 impl Resource for FailingWriteResource {
     type Model = Note;
-    type Form = FailingWriteForm;
+    type Form = NoteForm;
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
@@ -105,44 +91,79 @@ impl Resource for FailingWriteResource {
 
     async fn create_record(
         _cx: &Cx,
-        _form: FailingWriteForm,
+        _form: NoteForm,
         _ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<Note> {
         Err(std::io::Error::other("the write refused itself").into())
     }
 
-    async fn after_commit(cx: &Cx, committed: Committed<Note>) -> topcoat::Result<()> {
-        audit(cx, &committed).await
+    async fn before_commit(
+        _cx: &Cx,
+        change: &Change<Note>,
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<()> {
+        audit("before", change, ex).await
+    }
+
+    async fn after_commit(cx: &Cx, change: Change<Note>) -> topcoat::Result<()> {
+        audit("after", &change, &mut tablo::db::db(cx)).await
     }
 }
-#[derive(tablo::RecordForm)]
-#[form(model = Note)]
-struct FailingWriteForm {
-    title: String,
-}
-struct FailingHookResource;
 
-impl Resource for FailingHookResource {
+/// A before-commit hook that writes its audit row, then refuses the write.
+struct RefusingHookResource;
+
+impl Resource for RefusingHookResource {
     type Model = Note;
-    type Form = FailingHookForm;
+    type Form = NoteForm;
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
-            .slug("failing-hooks")
+            .slug("refusing-hooks")
             .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
             .table(Table::new(TextColumn::new(lens!(Note.title))))
     }
 
-    async fn after_commit(cx: &Cx, committed: Committed<Note>) -> topcoat::Result<()> {
-        audit(cx, &committed).await?;
+    async fn before_commit(
+        _cx: &Cx,
+        change: &Change<Note>,
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<()> {
+        audit("before", change, ex).await?;
+        Err(std::io::Error::other("the audit refused the write").into())
+    }
+
+    async fn after_commit(cx: &Cx, change: Change<Note>) -> topcoat::Result<()> {
+        audit("after", &change, &mut tablo::db::db(cx)).await
+    }
+}
+
+/// An after-commit hook that records its call, then fails.
+struct FailingAfterResource;
+
+impl Resource for FailingAfterResource {
+    type Model = Note;
+    type Form = NoteForm;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("failing-afters")
+            .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
+            .table(Table::new(TextColumn::new(lens!(Note.title))))
+    }
+
+    async fn after_commit(cx: &Cx, change: Change<Note>) -> topcoat::Result<()> {
+        audit("after", &change, &mut tablo::db::db(cx)).await?;
         Err(std::io::Error::other("the webhook is down").into())
     }
 }
+
 #[derive(tablo::RecordForm)]
 #[form(model = Note)]
-struct FailingHookForm {
+struct NoteForm {
     title: String,
 }
+
 async fn seeded_db() -> Db {
     test_db(toasty::models!(Note, Audit)).await
 }
@@ -168,7 +189,7 @@ async fn audits(db: &Db) -> Vec<Audit> {
 }
 
 #[tokio::test]
-async fn a_create_audits_the_row_it_committed_exactly_once() {
+async fn a_create_audits_the_row_it_wrote_exactly_once() {
     let db = seeded_db().await;
     let router = panel_router::<AuditedResource>(db.clone());
 
@@ -180,14 +201,14 @@ async fn a_create_audits_the_row_it_committed_exactly_once() {
     assert_eq!(created[0].title, "Alpha");
 
     let audits = audits(&db).await;
-    assert_eq!(audits.len(), 1, "one commit is one hook call");
-    assert_eq!(audits[0].mutation, "create");
+    assert_eq!(audits.len(), 1, "one write is one hook call");
+    assert_eq!(audits[0].change, "create");
     assert_eq!(audits[0].row_key, created[0].id.to_string());
     assert_eq!(audits[0].rows, 1);
 }
 
 #[tokio::test]
-async fn an_edit_and_a_delete_each_audit_the_row_they_named() {
+async fn an_edit_audits_both_sides_and_a_delete_the_removed_row() {
     let db = seeded_db().await;
     let router = panel_router::<AuditedResource>(db.clone());
     let note = seed_note(&db, "Alpha").await;
@@ -203,11 +224,13 @@ async fn an_edit_and_a_delete_each_audit_the_row_they_named() {
 
     let after_edit = audits(&db).await;
     assert_eq!(after_edit.len(), 1);
-    assert_eq!(after_edit[0].mutation, "update");
+    assert_eq!(after_edit[0].change, "update");
     assert_eq!(after_edit[0].row_key, note.id.to_string());
+    assert_eq!(after_edit[0].title, "Beta", "the row as the update left it");
     assert_eq!(
-        after_edit[0].title, "Beta",
-        "an update hands over the committed row, not the loaded snapshot"
+        after_edit[0].before.as_deref(),
+        Some("Alpha"),
+        "and as the handler loaded it"
     );
 
     let response = post_fields(
@@ -219,10 +242,15 @@ async fn an_edit_and_a_delete_each_audit_the_row_they_named() {
     assert_eq!(response.status(), 303, "a confirmed delete redirects");
     assert!(notes(&db).await.is_empty());
 
-    let after_delete = audits(&db).await;
-    assert_eq!(after_delete.len(), 2, "two writes, two calls");
-    assert_eq!(after_delete[1].mutation, "delete");
-    assert_eq!(after_delete[1].row_key, note.id.to_string());
+    let audits = audits(&db).await;
+    let deleted: Vec<_> = audits.iter().filter(|a| a.change == "delete").collect();
+    assert_eq!(audits.len(), 2, "two writes, two calls");
+    assert_eq!(deleted.len(), 1);
+    assert_eq!(deleted[0].row_key, note.id.to_string());
+    assert_eq!(
+        deleted[0].title, "Beta",
+        "the row as it stood before the delete"
+    );
 }
 
 #[tokio::test]
@@ -248,12 +276,12 @@ async fn a_bulk_delete_is_one_call_for_the_whole_batch() {
         1,
         "one bulk write is one hook call, not one per row"
     );
-    assert_eq!(audits[0].mutation, "delete");
+    assert_eq!(audits[0].change, "delete");
     assert_eq!(audits[0].rows, 2, "both rows travel in the one call");
 }
 
 #[tokio::test]
-async fn a_refused_submit_never_reaches_the_hook() {
+async fn a_refused_submit_never_reaches_the_hooks() {
     let db = seeded_db().await;
     let router = panel_router::<AuditedResource>(db.clone());
 
@@ -261,14 +289,11 @@ async fn a_refused_submit_never_reaches_the_hook() {
     assert_eq!(response.status(), 200, "the form re-renders");
 
     assert!(notes(&db).await.is_empty());
-    assert!(
-        audits(&db).await.is_empty(),
-        "a rollback must not produce the side effect"
-    );
+    assert!(audits(&db).await.is_empty(), "nothing was written to audit");
 }
 
 #[tokio::test]
-async fn a_failed_write_never_reaches_the_hook() {
+async fn a_failed_write_never_reaches_the_hooks() {
     let db = seeded_db().await;
     let router = panel_router::<FailingWriteResource>(db.clone());
 
@@ -285,20 +310,41 @@ async fn a_failed_write_never_reaches_the_hook() {
     );
 
     assert!(notes(&db).await.is_empty());
+    assert!(audits(&db).await.is_empty(), "neither hook ran");
+}
+
+#[tokio::test]
+async fn a_failing_before_commit_rolls_back_the_write_and_its_own_rows() {
+    let db = seeded_db().await;
+    let router = panel_router::<RefusingHookResource>(db.clone());
+
+    let response = post_fields(
+        &router,
+        "/admin/refusing-hooks/-/create",
+        &[("title", "Alpha")],
+    )
+    .await;
+    assert!(
+        response.status().is_server_error(),
+        "a refusing hook fails the write as a record fn does, got {}",
+        response.status()
+    );
+
+    assert!(notes(&db).await.is_empty(), "the write rolled back");
     assert!(
         audits(&db).await.is_empty(),
-        "the transaction rolled back, so nothing committed"
+        "so did the hook's audit row, and after_commit never ran"
     );
 }
 
 #[tokio::test]
-async fn a_failing_hook_does_not_undo_the_write() {
+async fn a_failing_after_commit_does_not_undo_the_write() {
     let db = seeded_db().await;
-    let router = panel_router::<FailingHookResource>(db.clone());
+    let router = panel_router::<FailingAfterResource>(db.clone());
 
     let response = post_fields(
         &router,
-        "/admin/failing-hooks/-/create",
+        "/admin/failing-afters/-/create",
         &[("title", "Alpha")],
     )
     .await;
@@ -313,43 +359,11 @@ async fn a_failing_hook_does_not_undo_the_write() {
         1,
         "a failed side effect cannot roll back a committed write"
     );
+    let audits = audits(&db).await;
     assert_eq!(
-        audits(&db).await.len(),
+        audits.len(),
         1,
         "the hook ran; only its failure is swallowed"
     );
-}
-
-#[tokio::test]
-async fn a_resource_without_the_hook_writes_exactly_as_before() {
-    let db = seeded_db().await;
-    let router = panel_router::<PlainResource>(db.clone());
-
-    let response = post_fields(
-        &router,
-        "/admin/plain-notes/-/create",
-        &[("title", "Alpha")],
-    )
-    .await;
-    assert_eq!(response.status(), 303, "the default hook is a no-op");
-    let response = router
-        .handle(
-            http::Request::builder()
-                .uri("/admin/plain-notes")
-                .body(Body::empty())
-                .expect("request builds"),
-        )
-        .await;
-    assert!(response.status().is_success(), "the list still renders");
-    assert!(
-        response.headers().get(LOCATION).is_none(),
-        "a plain GET is not a redirect"
-    );
-    let html = body_string(response).await;
-    assert!(
-        html.contains("Alpha"),
-        "the list shows the created row: {html}"
-    );
-
-    assert_eq!(notes(&db).await.len(), 1);
+    assert_eq!(audits[0].hook, "after");
 }

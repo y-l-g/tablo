@@ -47,8 +47,9 @@ use crate::{
 ///   with the action's `NAME`; on a page, [`PageDef::access`](crate::PageDef::access); on either,
 ///   then [`can_run`](Self::can_run). A refusal answers 403 and renders no button;
 /// - the transaction: `run` writes through its executor, and an error rolls everything back;
-/// - on a resource, [`Resource::after_commit`](crate::Resource::after_commit) with
-///   [`Mutation::Action`](crate::Mutation::Action) and no records once the transaction commits;
+/// - on a resource, the hooks, with [`Change::HeaderAction`](crate::Change::HeaderAction):
+///   [`Resource::before_commit`](crate::Resource::before_commit) in the transaction after `run`,
+///   then [`Resource::after_commit`](crate::Resource::after_commit) once it commits;
 /// - the success notification, and the redirect back to the list or page.
 ///
 /// An action that asks for an [`Input`](Self::Input) renders it as a form page first, as a
