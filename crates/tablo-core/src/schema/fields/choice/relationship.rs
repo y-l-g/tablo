@@ -28,11 +28,14 @@ pub(crate) struct Relationship {
     /// Which of a relationship filter's keys the user may name, past the cap.
     pub(super) viewable: ViewableKeys,
     /// The source's type, named in declaration errors.
-    pub(crate) source: &'static str,
+    pub(super) source: &'static str,
+    /// The source's type, which a panel's field access masks the options of when it is a mounted
+    /// resource.
+    source_type: std::any::TypeId,
     /// The source's model, which a dependent choice's column must belong to.
     pub(super) model: std::any::TypeId,
     /// The source's model in the app schema, which a many-to-many field's target must be.
-    pub(crate) model_id: crate::toasty_compat::model::ModelId,
+    pub(super) model_id: crate::toasty_compat::model::ModelId,
     /// Whether the request's panel can load from the source.
     pub(super) available: fn(&Cx) -> bool,
     /// The source model when its rows are tenant-owned, so a key the write
@@ -42,9 +45,9 @@ pub(crate) struct Relationship {
     pub(super) composite: bool,
     /// Whether the options carry a custom label rather than the source's own, which a panel
     /// cannot see the fields of.
-    pub(crate) custom_label: bool,
+    custom_label: bool,
     /// The source model's name, which a declaration error names it by.
-    pub(crate) model_name: &'static str,
+    model_name: &'static str,
 }
 
 impl Relationship {
@@ -91,6 +94,7 @@ impl Relationship {
                 })
             },
             source: std::any::type_name::<R>(),
+            source_type: std::any::TypeId::of::<R>(),
             model: std::any::TypeId::of::<R::Model>(),
             model_id: <R::Model as toasty::schema::Model>::id(),
             available: R::available,
@@ -141,13 +145,13 @@ impl Relationship {
 
     /// The source model's name when the options show records under a label a panel cannot mask,
     /// over a model `restricted` says a mounted resource restricts a field of: a custom label, or a
-    /// source `is_resource` does not name as one of the panel's resources.
+    /// source `is_mounted` does not say is one of the panel's resources.
     pub(crate) fn unmasked_model(
         &self,
-        is_resource: impl Fn(&str) -> bool,
+        is_mounted: impl Fn(std::any::TypeId) -> bool,
         restricted: impl Fn(crate::toasty_compat::model::ModelId) -> bool,
     ) -> Option<&'static str> {
-        let unmasked = self.custom_label || !is_resource(self.source);
+        let unmasked = self.custom_label || !is_mounted(self.source_type);
         (unmasked && restricted(self.model_id)).then_some(self.model_name)
     }
 

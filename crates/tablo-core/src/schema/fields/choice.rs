@@ -107,12 +107,12 @@ impl ChoiceControl {
     /// cannot mask: see [`Relationship::unmasked_model`](super::choice::Relationship).
     pub(crate) fn unmasked_model(
         &self,
-        is_resource: impl Fn(&str) -> bool,
+        is_mounted: impl Fn(std::any::TypeId) -> bool,
         restricted: impl Fn(crate::toasty_compat::model::ModelId) -> bool,
     ) -> Option<&'static str> {
         self.relationship
             .as_ref()?
-            .unmasked_model(is_resource, restricted)
+            .unmasked_model(is_mounted, restricted)
     }
 
     /// The field a dependent choice narrows its options by, when `restricts` says a mounted

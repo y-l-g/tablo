@@ -231,8 +231,8 @@ async fn a_field_one_resource_hides_is_hidden_on_every_resource_over_its_model()
     assert!(!list.contains("S-900"), "{list}");
 }
 
-/// A relation column naming a resource that restricts nothing shows its member's salary to the
-/// user the restricting resource hides it from: the restriction follows the record.
+/// A relation column naming a resource that restricts nothing still hides its member's salary from
+/// the user the restricting resource hides it from: the restriction follows the record.
 #[tokio::test]
 async fn a_relation_column_naming_another_resource_masks_the_restricted_field() {
     let db = db().await;

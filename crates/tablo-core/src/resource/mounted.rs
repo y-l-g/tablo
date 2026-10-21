@@ -252,8 +252,8 @@ impl<R: Resource> Mounted<R> {
 }
 
 /// The resources one panel mounted, by resource type, the models whose rows belong to a tenant:
-/// a resource over one is tenant-scoped, or the model has a tenant column, and the models a
-/// resource restricts the viewing of a field of.
+/// a resource over one is tenant-scoped, or the model has a tenant column, and the field rules
+/// the resources declare, by model.
 #[derive(Default)]
 pub(crate) struct Mounts {
     resources: HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
@@ -261,8 +261,6 @@ pub(crate) struct Mounts {
     /// Every mounted resource's field rules, by the model they restrict: a rule restricts its
     /// field for every resource over that model.
     field_rules: HashMap<crate::toasty_compat::model::ModelId, Vec<super::FieldRule>>,
-    /// The resources' `type_name`s: a relation column names its label source the same way.
-    resource_names: std::collections::HashSet<&'static str>,
 }
 
 impl Mounts {
@@ -277,7 +275,6 @@ impl Mounts {
             .entry(<R::Model as toasty::schema::Model>::id())
             .or_default()
             .extend(mounted.field_rules.iter().cloned());
-        self.resource_names.insert(std::any::type_name::<R>());
         self.resources.insert(TypeId::of::<R>(), mounted);
     }
 
@@ -307,11 +304,6 @@ impl Mounts {
         self.model_rules(model)
             .iter()
             .any(super::FieldRule::restricts_view)
-    }
-
-    /// Whether one of the panel's resources `type_name`s to `name`.
-    pub(crate) fn is_resource_name(&self, name: &str) -> bool {
-        self.resource_names.contains(name)
     }
 
     pub(crate) fn get<R: Resource>(&self) -> Option<Arc<Mounted<R>>> {
@@ -369,11 +361,11 @@ pub(crate) fn is_restricted_model(cx: &Cx, model: crate::toasty_compat::model::M
         .is_some_and(|mounts| mounts.is_restricted_model(model))
 }
 
-/// Whether the context's panel mounts a resource whose `type_name` is `name`.
-pub(crate) fn is_resource_name(cx: &Cx, name: &str) -> bool {
+/// Whether the context's panel mounts the resource of type `resource`.
+pub(crate) fn is_mounted(cx: &Cx, resource: TypeId) -> bool {
     try_app_context::<MountScope>(cx)
         .and_then(|MountScope(mounts)| mounts(cx))
-        .is_some_and(|mounts| mounts.is_resource_name(name))
+        .is_some_and(|mounts| mounts.contains(resource))
 }
 
 /// `R` as the request's panel mounted it.

@@ -5,10 +5,10 @@ use std::sync::Arc;
 
 use topcoat::context::Cx;
 
-use super::{Mounted, Resource, is_resource_name, is_restricted_model, model_rules, restricts_any};
+use super::{Mounted, Resource, is_mounted, is_restricted_model, model_rules, restricts_any};
 use crate::{
     DeclarationError, DeclarationErrorKind, FieldAccessFault, Site,
-    column::{Column, Related},
+    column::{BoxColumn, Related},
     form::FormField,
     schema::{FormMask, Schema},
     toasty_compat::{model, pk},
@@ -300,20 +300,31 @@ pub(crate) fn check<R: Resource>(
     );
 }
 
-/// What `columns`, the columns of one page, show of the records of a model a mounted resource
-/// restricts a field of, under no field access a panel can mask. A column reading related records
-/// no mounted resource masks is refused over such a model its own includes load; a column reading
-/// its row is refused on a page whose columns load one, since its closure may read the related
-/// record through any of them.
-pub(crate) fn check_unmasked<R: Resource>(
+/// What `declared`'s table and detail page show of the records of a model a mounted resource
+/// restricts a field of, under no field access a panel can mask.
+pub(crate) fn check_columns<R: Resource>(
     cx: &Cx,
-    site: Site,
-    columns: &[&dyn Column<R::Model>],
+    declared: &Mounted<R>,
     errors: &mut Vec<DeclarationError>,
 ) {
     if !restricts_any(cx) {
         return;
     }
+    let table: Vec<_> = declared.table.declared_columns().iter().collect();
+    check_page::<R>(cx, Site::Table, &table, errors);
+    check_page::<R>(cx, Site::Detail, &declared.detail.columns(), errors);
+}
+
+/// What `columns`, the columns of one page, show under no field access a panel can mask. A column
+/// reading related records no mounted resource masks is refused over a restricted model its own
+/// includes load; a column reading its row is refused on a page whose columns load one, since its
+/// closure may read the related record through any of them.
+fn check_page<R: Resource>(
+    cx: &Cx,
+    site: Site,
+    columns: &[&BoxColumn<R::Model>],
+    errors: &mut Vec<DeclarationError>,
+) {
     let loads: Vec<Option<Vec<(model::ModelId, String)>>> = columns
         .iter()
         .map(|column| model::included_models::<R::Model>(&column.includes().into_vec()))
@@ -329,9 +340,7 @@ pub(crate) fn check_unmasked<R: Resource>(
         let name = column.name().to_string();
         let fault = match column.related() {
             Related::None => continue,
-            Related::Masked(source) | Related::Titled(source) if is_resource_name(cx, source) => {
-                continue;
-            }
+            Related::Source(source) if is_mounted(cx, source) => continue,
             Related::Row => match (unresolved, &page_restricted) {
                 (true, _) => FieldAccessFault::UnresolvedRelation { name },
                 (false, Some(model)) => FieldAccessFault::UnmaskedRelation {
@@ -340,7 +349,7 @@ pub(crate) fn check_unmasked<R: Resource>(
                 },
                 (false, None) => continue,
             },
-            Related::Masked(_) | Related::Titled(_) | Related::Unmasked => match own {
+            Related::Source(_) | Related::Unmasked => match own {
                 None => FieldAccessFault::UnresolvedRelation { name },
                 Some(models) => {
                     match models
@@ -378,14 +387,14 @@ pub(crate) fn check_choices<T: 'static, F>(
     site: Site,
     errors: &mut Vec<DeclarationError>,
 ) {
-    let is_resource = |name: &str| is_resource_name(cx, name);
+    let mounted = |source| is_mounted(cx, source);
     let restricted = |model: model::ModelId| is_restricted_model(cx, model);
     for field in schema.fields() {
         let Some(choice) = field.as_choice() else {
             continue;
         };
         let name = field.name();
-        if let Some(model) = choice.unmasked_model(is_resource, restricted) {
+        if let Some(model) = choice.unmasked_model(mounted, restricted) {
             errors.push(DeclarationError::of::<T>(
                 site.clone(),
                 DeclarationErrorKind::FieldAccess {
@@ -421,11 +430,11 @@ pub(crate) fn check_filters<R: Resource>(
     if !restricts_any(cx) {
         return;
     }
-    let is_resource = |name: &str| is_resource_name(cx, name);
+    let mounted = |source| is_mounted(cx, source);
     let restricted = |model: model::ModelId| is_restricted_model(cx, model);
     for filter in declared.table.declared_filters() {
         let name = filter.name().to_string();
-        let fault = if let Some(model) = filter.unmasked_model(&is_resource, &restricted) {
+        let fault = if let Some(model) = filter.unmasked_model(&mounted, &restricted) {
             Some(FieldAccessFault::UnmaskedRelation {
                 name,
                 model: model.to_string(),

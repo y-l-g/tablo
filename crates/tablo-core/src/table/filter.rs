@@ -100,11 +100,11 @@ pub trait Filter<M>: Send + Sync {
 
     /// The model's name when the filter's options show records under a label a panel cannot mask,
     /// over a model a mounted resource restricts a field of, which a mount refuses. The panel
-    /// answers `is_resource` for a source's name and `restricted` for a model.
+    /// answers `is_mounted` for a source's type and `restricted` for a model.
     #[doc(hidden)]
     fn unmasked_model(
         &self,
-        _is_resource: &dyn Fn(&str) -> bool,
+        _is_mounted: &dyn Fn(std::any::TypeId) -> bool,
         _restricted: &dyn Fn(crate::toasty_compat::model::ModelId) -> bool,
     ) -> Option<&'static str> {
         None

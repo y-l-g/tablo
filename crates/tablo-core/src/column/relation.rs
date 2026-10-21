@@ -444,28 +444,21 @@ impl<M> Declared<M> {
         }
     }
 
-    /// Show only the related records `S` shows, which `restrict` keeps, by their title until
-    /// [`masked`](Self::masked) says what else shows.
+    /// Show only the related records `S` shows, which `restrict` keeps, by their label or count
+    /// until [`masked`](Self::masked) says what else shows.
     fn scoped<S: OptionSource>(self, restrict: Restrict<M>) -> Self {
-        let source = std::any::type_name::<S>();
         Self {
-            source: Some((source, S::available)),
+            source: Some((std::any::type_name::<S>(), S::available)),
             restrict: Some(restrict),
-            related: Related::Titled(source),
+            related: Related::Source(std::any::TypeId::of::<S>()),
             ..self
         }
     }
 
-    /// Show the fields of the related records `masked` hides from a request it refuses, of the
-    /// source [`scoped`](Self::scoped) named.
+    /// Show the fields of the related records `masked` hides from a request it refuses.
     fn masked(self, masked: Masked) -> Self {
-        let related = match self.source {
-            Some((source, _)) => Related::Masked(source),
-            None => Related::Unmasked,
-        };
         Self {
             masked: Some(masked),
-            related,
             ..self
         }
     }

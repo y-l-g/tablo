@@ -63,20 +63,7 @@ pub(crate) fn check_resource<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationE
         );
     }
     super::field_access::check(cx, &declared, errors);
-    let table_columns: Vec<&dyn crate::column::Column<R::Model>> = declared
-        .table
-        .declared_columns()
-        .iter()
-        .map(|column| &**column)
-        .collect();
-    super::field_access::check_unmasked::<R>(cx, Site::Table, &table_columns, errors);
-    let detail_columns: Vec<&dyn crate::column::Column<R::Model>> = declared
-        .detail
-        .columns()
-        .into_iter()
-        .map(|column| &**column)
-        .collect();
-    super::field_access::check_unmasked::<R>(cx, Site::Detail, &detail_columns, errors);
+    super::field_access::check_columns(cx, &declared, errors);
     super::field_access::check_filters::<R>(cx, &declared, errors);
     super::field_access::check_choices::<R, _>(cx, &declared.form, Site::Form, errors);
     check_actions(cx, &declared, errors);
