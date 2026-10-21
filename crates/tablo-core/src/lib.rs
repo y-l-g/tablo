@@ -150,7 +150,7 @@ pub use panel::{
     Brand, MAX_IMPORT_ROWS, Panel, PanelHandle, RouterBuilderPanelExt, WiredTable, can_list,
     can_open, pages::header_action_buttons, url,
 };
-pub use policy::{Ability, Allow, Deny, Policy, ReadOnly, when};
+pub use policy::{Abilities, Ability, Allow, Deny, Policy, ReadOnly, when};
 pub use resource::{
     Action, Change, FieldAccess, ForeignKey, HeaderAction, HeaderActions, Places, PublicLink,
     Relation, Resource, ResourceDef, Trashed, can, scoped_query, scoped_query_in, write_create,

@@ -135,6 +135,20 @@ impl<M> Ability<'_, M> {
     }
 }
 
+impl<M> crate::policy::Abilities<M> {
+    /// Who may run the header action `A` from the list's header:
+    /// [`RunHeader`](Ability::RunHeader) with `A`'s [`NAME`](HeaderAction::NAME). A header
+    /// action no `run_header` declares is refused.
+    #[must_use]
+    pub fn run_header<A: HeaderAction>(
+        mut self,
+        check: impl Fn(&Cx) -> bool + Send + Sync + 'static,
+    ) -> Self {
+        self.set_header_action(A::NAME, Box::new(check));
+        self
+    }
+}
+
 /// The [`HeaderAction`]s a page or a resource declares, in button order.
 ///
 /// ```rust
