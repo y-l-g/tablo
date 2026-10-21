@@ -239,9 +239,33 @@ pub fn query(_cx: &Cx) -> Query<List<Post>> {
 }
 // ANCHOR_END: soft-deleted-query
 
+// ANCHOR: audit-before-commit
+pub async fn before_commit(
+    _cx: &Cx,
+    change: &Change<Post>,
+    ex: &mut dyn toasty::Executor,
+) -> Result<()> {
+    let action = match change {
+        Change::Create(post) => format!("created {}", post.title),
+        Change::Update { before, after } => {
+            format!("updated {} (was {})", after.title, before.title)
+        }
+        Change::Delete(posts) => format!("deleted {} posts", posts.len()),
+        _ => return Ok(()),
+    };
+    toasty::create!(Audit {
+        action,
+        created_at: jiff::Timestamp::now().to_string(),
+    })
+    .exec(ex)
+    .await?;
+    Ok(())
+}
+// ANCHOR_END: audit-before-commit
+
 // ANCHOR: notify-after-commit
-pub async fn after_commit(cx: &Cx, committed: Committed<Post>) -> Result<()> {
-    for post in committed.records() {
+pub async fn after_commit(cx: &Cx, change: Change<Post>) -> Result<()> {
+    if let Change::Create(post) = &change {
         notify_subscribers(cx, post).await?;
     }
     Ok(())

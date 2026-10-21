@@ -56,7 +56,8 @@ Panel::new("portal").resource_with::<PostResource>(|def| def.policy(ReadOnly))
 | `validate_record(cx, form)` | no errors | rules that need the whole parsed form |
 | `create_record`, `update_record` | the derived write | the create and update writes: [Writes](#writes) |
 | `delete_record`, `bulk_delete_records` | delete by primary key | the delete writes |
-| `after_commit(cx, committed)` | nothing | side effects after a write commits |
+| `before_commit(cx, change, ex)` | nothing | rows that commit with the write, such as an audit log: [Hooks](#hooks) |
+| `after_commit(cx, change)` | nothing | side effects once the write commits: [Hooks](#hooks) |
 
 ## Naming
 
@@ -131,23 +132,49 @@ the policy's `Delete` allows and reports the rest as skipped (`"Bulk deleted (2 
 A selected record the policy's `View` refuses refuses the whole request with 403, and nothing is
 deleted.
 
-### After the commit
+### Hooks
 
-`after_commit` runs once per committed write, after the transaction and before the response. Put
-side effects there — email, webhooks, audit rows, cache invalidation — so a rolled-back write never
-triggers them:
+Every write the panel makes for a resource reaches two hooks with a `Change` that says what it
+wrote: a create, an update, a delete or bulk delete, an [action](./actions.md), or an attach or
+detach on a [many-to-many relation](./detail-pages.md#many-to-many-relations). Neither runs when
+the write was refused or failed.
+
+`before_commit` runs inside the transaction, after the record function or the action wrote, with
+the transaction as `ex`. A row written through `ex` commits with the write or not at all, so an
+audit log belongs here:
+
+```rust
+{{#include ../../../examples/guide/src/resources.rs:audit-before-commit}}
+```
+
+An error rolls back the write and every row the hook wrote, and the response fails as a failed
+record function does.
+
+`after_commit` runs once the transaction commits, before the response. Put work outside the
+database there, such as email, webhooks and cache invalidation, so a rolled-back write never
+triggers it:
 
 ```rust
 {{#include ../../../examples/guide/src/resources.rs:notify-after-commit}}
 ```
 
-`Committed` names the mutation (`Mutation::Create`, `Update`, `Delete`, `Action(NAME)` for an
-[action](./actions.md), or `Attach` and `Detach` for a
-[many-to-many relation](./detail-pages.md#many-to-many-relations)) and the rows written: the
-created or updated row, every deleted row in one call for a bulk delete, the rows a record action
-ran on, none for a header action, or the owner whose links changed. `Mutation` is
-`#[non_exhaustive]`, so a `match` on it ends with a `_` arm. The hook is not called
-when nothing committed. An error it returns is logged; the write stays committed.
+An error it returns is logged and the write stays committed, and a crash between the commit and
+the hook skips it, so a row that must exist whenever the write does is written in
+`before_commit`.
+
+| `Change` | Carries |
+| --- | --- |
+| `Create(record)` | the created row |
+| `Update { before, after }` | the row as the handler loaded it and as the update left it |
+| `Delete(records)` | the deleted rows, every one in one call for a bulk delete |
+| `Action { name, records }` | the action's `NAME` and the rows it ran on |
+| `HeaderAction { name }` | the header action's `NAME` |
+| `Attach { owner, relation, key }` | the owner, its relation field and the linked record's key |
+| `Detach { owner, relation, keys }` | the owner, its relation field and the unlinked records' keys |
+
+`change.records()` lists the resource's rows a change names: the updated row as it now stands, and
+the owner of an attach or a detach. `Change` is `#[non_exhaustive]`, so a `match` on it ends with a
+`_` arm.
 
 ## Startup checks
 

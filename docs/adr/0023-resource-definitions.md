@@ -4,7 +4,7 @@
 what a page shows of a record: the table, the detail page, the record title as a lens of one of
 the model's columns, and the public link as a closure over the record. The `Resource` trait keeps
 the associated types and the methods that load and write: `query`, `validate_record`, the record
-fns and `after_commit`.
+fns, `before_commit` and `after_commit`.
 Mounting builds each def once and
 keeps it in the panel's state; every handler and cross-reference reads the request panel's copy,
 so one resource can mount read-only in one panel and writable in another. A background job gets a

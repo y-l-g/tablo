@@ -1,105 +1,74 @@
-//! What a mutation committed, and the one place the framework says so.
+//! What a write changed, and the one place the framework hands it to the app's hooks.
 
 use topcoat::context::Cx;
 
 use super::{Action, Resource};
 
-/// The kind of mutation a record fn performed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// What one write of a resource changed: the mutation and the rows it wrote.
+///
+/// [`Resource::before_commit`] receives it inside the write's transaction and
+/// [`Resource::after_commit`] once the transaction commits.
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
-pub enum Mutation {
-    Create,
-    Update,
-    Delete,
-    /// The custom [`Action`](super::Action) or [`HeaderAction`](crate::HeaderAction) of this
-    /// `NAME`. A header action's [`Committed`] holds no record.
-    Action(&'static str),
-    /// A many-to-many relation's table linked a record to the one [`Committed`] holds.
-    Attach,
-    /// A many-to-many relation's table unlinked records from the one [`Committed`] holds.
-    Detach,
+pub enum Change<M> {
+    /// A create wrote this row.
+    Create(M),
+    /// An update wrote `after` over `before`, the snapshot the handler loaded and authorized
+    /// inside the transaction.
+    Update { before: M, after: M },
+    /// A delete or a bulk delete removed these rows, as they stood before the delete.
+    Delete(Vec<M>),
+    /// The custom [`Action`] `name` ran on these rows, as the handler loaded them before it ran.
+    Action { name: &'static str, records: Vec<M> },
+    /// The [`HeaderAction`](crate::HeaderAction) `name` ran, on no record.
+    HeaderAction { name: &'static str },
+    /// A many-to-many relation's table linked `owner` to the related record `key` names.
+    ///
+    /// `relation` is the owner's `#[has_many(via = ..)]` field and `key` the related resource's
+    /// record key, as its URLs carry it. Attaching a linked record writes nothing and still
+    /// reports the attach.
+    Attach {
+        owner: M,
+        relation: String,
+        key: String,
+    },
+    /// A many-to-many relation's table unlinked `owner` from the related records `keys` name.
+    Detach {
+        owner: M,
+        relation: String,
+        keys: Vec<String>,
+    },
 }
 
-/// What one committed mutation wrote.
-#[derive(Debug, Clone)]
-pub struct Committed<M> {
-    mutation: Mutation,
-    records: Vec<M>,
-}
-
-impl<M> Committed<M> {
-    /// The row a create wrote.
-    pub fn created(record: M) -> Self {
-        Self {
-            mutation: Mutation::Create,
-            records: vec![record],
-        }
-    }
-
-    /// The row an update wrote, as it stands after the write.
-    pub fn updated(record: M) -> Self {
-        Self {
-            mutation: Mutation::Update,
-            records: vec![record],
-        }
-    }
-
-    /// The rows a delete removed, as they were before the delete.
-    pub fn deleted(records: Vec<M>) -> Self {
-        Self {
-            mutation: Mutation::Delete,
-            records,
-        }
-    }
-
-    /// The rows a custom [`Action`](super::Action) `A` ran on.
-    pub fn acted<R: Resource<Model = M>, A: Action<R>>(records: Vec<M>) -> Self {
-        Self {
-            mutation: Mutation::Action(A::NAME),
-            records,
-        }
-    }
-
-    /// A relation's table linked a record to `owner`.
-    pub(crate) fn attached(owner: M) -> Self {
-        Self {
-            mutation: Mutation::Attach,
-            records: vec![owner],
-        }
-    }
-
-    /// A relation's table unlinked records from `owner`.
-    pub(crate) fn detached(owner: M) -> Self {
-        Self {
-            mutation: Mutation::Detach,
-            records: vec![owner],
-        }
-    }
-
-    /// The header action named `name` ran: it acts on no record.
-    pub(crate) fn ran(name: &'static str) -> Self {
-        Self {
-            mutation: Mutation::Action(name),
-            records: Vec::new(),
-        }
-    }
-
-    /// Which record fn or custom action ran.
-    pub fn mutation(&self) -> Mutation {
-        self.mutation
-    }
-
-    /// The rows the mutation wrote, in the order the handler had them.
+impl<M> Change<M> {
+    /// The rows of this resource the change names: the created row, the updated row as it now
+    /// stands, the deleted rows, the rows an action ran on, the owner of an attach or a detach,
+    /// and none for a header action.
     pub fn records(&self) -> &[M] {
-        &self.records
+        match self {
+            Self::Create(record)
+            | Self::Update { after: record, .. }
+            | Self::Attach { owner: record, .. }
+            | Self::Detach { owner: record, .. } => std::slice::from_ref(record),
+            Self::Delete(records) | Self::Action { records, .. } => records,
+            Self::HeaderAction { .. } => &[],
+        }
     }
 }
 
-/// Deliver a committed mutation to the app.
+/// The change a run of the custom action `A` made to `records`.
+pub(crate) fn acted<R: Resource, A: Action<R>>(records: Vec<R::Model>) -> Change<R::Model> {
+    Change::Action {
+        name: A::NAME,
+        records,
+    }
+}
+
+/// Hand a committed change to the app.
 ///
 /// A hook returning `Err` is logged and ignored: the write stays committed.
-pub(crate) async fn run_after_commit<R: Resource>(cx: &Cx, committed: Committed<R::Model>) {
-    if let Err(error) = R::after_commit(cx, committed).await {
+pub(crate) async fn run_after_commit<R: Resource>(cx: &Cx, change: Change<R::Model>) {
+    if let Err(error) = R::after_commit(cx, change).await {
         tracing::error!(
             error = %error,
             resource = std::any::type_name::<R>(),

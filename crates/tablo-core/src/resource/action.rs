@@ -82,8 +82,9 @@ pub(crate) const RESERVED_KEYS: [&str; 3] = [crate::csrf::FIELD_NAME, "confirm",
 /// - the refusal: a row that `Run` or [`can_run`](Self::can_run) refuses answers 403, and a bulk
 ///   selection runs the records that pass both and reports the refused count as skipped. A
 ///   selection that passes on none writes nothing and answers with an error notification;
-/// - [`Resource::after_commit`] with [`Mutation::Action`](super::Mutation::Action) once the
-///   transaction commits, and the success notification.
+/// - the hooks, with [`Change::Action`](super::Change::Action): [`Resource::before_commit`] in the
+///   transaction after `run`, then [`Resource::after_commit`] once it commits; and the success
+///   notification.
 ///
 /// An action that asks for an [`Input`](Self::Input) asks for it first: its button opens the
 /// input's form in a dialog over the page, whose submit runs the action with the parsed value. The
@@ -368,7 +369,7 @@ impl<R: Resource> Actions<R> {
             input: InputSpec::of::<A::Input>(parse_input_erased::<R, A>),
             run: run_erased::<R, A>,
             success: A::success,
-            acted: super::Committed::acted::<R, A>,
+            change: super::acted::<R, A>,
             failure: "run the action",
             confirm: A::CONFIRM,
         });
@@ -400,7 +401,8 @@ pub(crate) struct ActionEntry<R: Resource> {
     pub(crate) input: InputSpec,
     pub(crate) run: RunAction<R>,
     pub(crate) success: fn(&Cx, usize) -> String,
-    pub(crate) acted: fn(Vec<R::Model>) -> super::Committed<R::Model>,
+    /// What a run on the records changed, for the hooks.
+    pub(crate) change: fn(Vec<R::Model>) -> super::Change<R::Model>,
     /// The failure toast's wording: "Couldn't {failure}".
     pub(crate) failure: &'static str,
     pub(crate) confirm: bool,
@@ -437,7 +439,7 @@ impl<R: Resource> ActionEntry<R> {
             } else {
                 |_, _| "Deleted".to_string()
             },
-            acted: super::Committed::deleted,
+            change: super::Change::Delete,
             failure: if bulk {
                 "delete the selected rows"
             } else {

@@ -4,8 +4,8 @@
 use std::sync::Mutex;
 
 use tablo::{
-    Ability, Committed, DeclarationErrorKind, ManyToManyFault, Mutation, Relation, Resource,
-    ResourceDef, Table, TextColumn, lens,
+    Ability, Change, DeclarationErrorKind, ManyToManyFault, Relation, Resource, ResourceDef, Table,
+    TextColumn, lens,
 };
 use toasty::{Db, Deferred};
 use topcoat::{context::Cx, router::Router};
@@ -50,8 +50,8 @@ struct Placement {
     note: Option<String>,
 }
 
-/// What the shelf's hook heard: each mutation, with the shelf it names.
-static HEARD: Mutex<Vec<(&'static str, Uuid)>> = Mutex::new(Vec::new());
+/// What the shelf's hook heard: each change, as the shelf, the relation and the related keys.
+static HEARD: Mutex<Vec<(Uuid, String, Vec<String>)>> = Mutex::new(Vec::new());
 
 /// Shelves named "Locked" open but refuse updates, so they refuse attaching and detaching too.
 struct ShelfResource;
@@ -74,17 +74,21 @@ impl Resource for ShelfResource {
             ))
     }
 
-    async fn after_commit(_cx: &Cx, committed: Committed<Shelf>) -> topcoat::Result<()> {
-        let mutation = match committed.mutation() {
-            Mutation::Attach => "attach",
-            Mutation::Detach => "detach",
-            _ => "other",
+    async fn after_commit(_cx: &Cx, change: Change<Shelf>) -> topcoat::Result<()> {
+        let heard = match change {
+            Change::Attach {
+                owner,
+                relation,
+                key,
+            } => (owner.id, format!("attach {relation}"), vec![key]),
+            Change::Detach {
+                owner,
+                relation,
+                keys,
+            } => (owner.id, format!("detach {relation}"), keys),
+            _ => return Ok(()),
         };
-        let shelves = committed.records().iter().map(|shelf| shelf.id);
-        HEARD
-            .lock()
-            .unwrap()
-            .extend(shelves.map(|id| (mutation, id)));
+        HEARD.lock().unwrap().push(heard);
         Ok(())
     }
 }
@@ -304,10 +308,17 @@ async fn the_owners_hook_hears_each_attach_and_detach() {
         .lock()
         .unwrap()
         .iter()
-        .filter(|(_, id)| *id == open.id)
-        .map(|(mutation, _)| *mutation)
+        .filter(|(id, ..)| *id == open.id)
+        .map(|(_, change, keys)| (change.clone(), keys.clone()))
         .collect();
-    assert_eq!(heard, ["attach", "detach"]);
+    assert_eq!(
+        heard,
+        [
+            ("attach books".to_string(), vec![fresh]),
+            ("detach books".to_string(), vec![seen]),
+        ],
+        "each change names the relation and the related records"
+    );
 }
 
 #[tokio::test]

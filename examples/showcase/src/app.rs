@@ -3,9 +3,9 @@
 use std::path::PathBuf;
 
 use tablo::{
-    Ability, ActionLayout, Auth, AuthMail, BooleanColumn, Brand, Committed, ComputedColumn,
+    Ability, ActionLayout, Auth, AuthMail, BooleanColumn, Brand, Change, ComputedColumn,
     CountColumn, DateColumn, DateFilter, Detail, DirUploader, EmailVerification, EmbeddedColumn,
-    FieldErrors, Grid, Group, HeaderAction, ModelColumns, Mutation, NavigationItem, Notification,
+    FieldErrors, Grid, Group, HeaderAction, ModelColumns, NavigationItem, Notification,
     Notifications, Pagination, Panel, PanelHandle, PanelUser, PasswordReset, PublicLink,
     QueryFilter, Relation, RelationColumn, RepeaterColumn, Resource, ResourceDef,
     RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy, TenantRegistration,
@@ -158,8 +158,11 @@ impl Resource for PostResource {
     }
 
     /// Tells whoever published every draft, in their bell, once the drafts are live.
-    async fn after_commit(cx: &Cx, committed: Committed<Post>) -> Result<()> {
-        let Mutation::Action(PublishAllDrafts::NAME) = committed.mutation() else {
+    async fn after_commit(cx: &Cx, change: Change<Post>) -> Result<()> {
+        let Change::HeaderAction {
+            name: PublishAllDrafts::NAME,
+        } = change
+        else {
             return Ok(());
         };
         let (Some(staff), Some(posts)) = (

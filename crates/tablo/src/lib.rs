@@ -83,8 +83,8 @@ pub use tablo_ui as ui;
 /// The items a resource module names most: `use tablo::prelude::*;`.
 pub mod prelude {
     pub use tablo_core::{
-        Ability, Action, ActionLayout, Alignment, Allow, Auth, BooleanColumn, Brand, ChoiceField,
-        Color, ColorColumn, ColumnWidth, Committed, ComputedColumn, CountColumn, Currency,
+        Ability, Action, ActionLayout, Alignment, Allow, Auth, BooleanColumn, Brand, Change,
+        ChoiceField, Color, ColorColumn, ColumnWidth, ComputedColumn, CountColumn, Currency,
         CustomField, DateColumn, DateFilter, DateValue, Deny, Detail, EmbeddedColumn, EmbeddedForm,
         Field, FieldErrors, FileColumn, FileField, FormInput, FormValues, Grid, Group,
         HeaderAction, HeaderActions, ImageColumn, IntoOptions, Lens, ModelColumns, ModelForm,

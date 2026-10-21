@@ -28,24 +28,27 @@ use super::{
     super::{
         forms::{FormChrome, parse_form_body, render_form_page, truthy},
         gate::{gate, landing_url},
-        write::{commit_then, commit_write},
+        write::commit_write,
     },
     fetch::{composite_pk_error, find_by_key},
 };
 use crate::{
-    BoxFuture,
     db::db,
     form::{FieldErrors, FormValues},
     notification::{Notification, set_notification},
     panel::url::action_options_url,
     policy::Ability,
     resource::{
-        ActionEntry, Committed, ErasedInput, HeaderEntry, InputSpec, Mounted, Places,
-        RESERVED_KEYS, Resource, run_after_commit,
+        ActionEntry, ErasedInput, HeaderEntry, InputSpec, Mounted, Places, RESERVED_KEYS, Resource,
     },
     table::bulk_key,
     topcoat_compat::async_page,
 };
+
+mod header;
+
+use header::HeaderHooks;
+pub(crate) use header::run_header;
 
 /// Which records a mutation POST names.
 #[derive(Clone, Copy)]
@@ -105,8 +108,8 @@ pub(crate) fn resource_list_action<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             if !header_allowed(cx, &resource, &header) {
                 return Err(forbidden().into());
             }
-            let after: AfterCommit = after_header_commit::<R>;
-            return run_header(cx, body, header, &resource.url, Some(after)).await;
+            let hooks = HeaderHooks::of::<R>();
+            return run_header(cx, body, header, &resource.url, Some(hooks)).await;
         }
         let action = custom_action(cx, &resource, Places::BULK);
         mutate(cx, &resource, body, Target::Bulk, action).await
@@ -142,14 +145,6 @@ fn custom_action<R: Resource>(
         .find(name)
         .filter(|a| a.places.intersects(places))
         .copied()
-}
-
-/// What a header action's POST runs once its write commits.
-pub(crate) type AfterCommit = for<'c> fn(&'c Cx, &'static str) -> BoxFuture<'c, ()>;
-
-/// `R`'s [`Resource::after_commit`] for its header action `name`.
-fn after_header_commit<'c, R: Resource>(cx: &'c Cx, name: &'static str) -> BoxFuture<'c, ()> {
-    Box::pin(run_after_commit::<R>(cx, Committed::ran(name)))
 }
 
 /// What the POST of an action asked for, read and checked before the transaction opens.
@@ -311,85 +306,9 @@ async fn mutate<'a, R: Resource>(
         resource,
         tx,
         written,
-        action.acted,
+        action.change,
         note,
         action.failure,
-    )
-    .await
-}
-
-/// Runs the header action `action`, whose resource-wide or page check already passed, landing on
-/// `home` or the POST's `?return=`, and runs `after` once its write commits.
-///
-/// Boxed for the reason the list's `Frame::render_page` is: only generic handlers poll it.
-pub(crate) fn run_header<'f, 'a: 'f>(
-    cx: &'a Cx,
-    body: Body,
-    action: HeaderEntry,
-    home: &'f str,
-    after: Option<AfterCommit>,
-) -> BoxFuture<'f, Result<BoxView<'a>, topcoat::Error>> {
-    Box::pin(header_run(cx, body, action, home, after))
-}
-
-async fn header_run<'a>(
-    cx: &'a Cx,
-    body: Body,
-    action: HeaderEntry,
-    home: &str,
-    after: Option<AfterCommit>,
-) -> Result<BoxView<'a>, topcoat::Error> {
-    let Posted { pending, .. } =
-        read_post(cx, body, action.name, action.confirm, &action.input).await?;
-    let render = |page: InputPage| {
-        let label = (action.label)(cx);
-        let chrome = page.chrome(
-            action.name,
-            label.clone(),
-            label,
-            action.confirm,
-            Vec::new(),
-            home,
-        );
-        (page, chrome)
-    };
-    let (input, submitted) = match pending {
-        Pending::Ready(input) => (input, None),
-        Pending::Submitted { input, values } => (input, Some(values)),
-        Pending::Page(page) => {
-            let (page, chrome) = render(page);
-            return page.render(cx, &action.input, chrome).await;
-        }
-    };
-    let mut db = db(cx);
-    let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
-    if let Some(values) = submitted {
-        let errors = (action.input.schema)()
-            .recheck_relationships(cx, &values, &FormValues::new(), &mut tx)
-            .await;
-        if !errors.is_empty() {
-            // The page's choices may query: release the connection first.
-            drop(tx);
-            let (page, chrome) = render(InputPage { values, errors });
-            return page.render(cx, &action.input, chrome).await;
-        }
-    }
-    let written = (action.run)(cx, input, &mut tx)
-        .await
-        .map(|outcome| ((), outcome));
-    let note = (action.success)(cx);
-    commit_then(
-        cx,
-        tx,
-        written,
-        |()| async move {
-            if let Some(after) = after {
-                after(cx, action.name).await;
-            }
-        },
-        note,
-        "run the action",
-        home,
     )
     .await
 }
