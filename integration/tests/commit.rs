@@ -151,6 +151,7 @@ impl Resource for FailingAfterResource {
         ResourceDef::new()
             .slug("failing-afters")
             .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
+            .importable()
             .table(Table::new(TextColumn::new(lens!(Note.title))))
     }
 
@@ -314,6 +315,47 @@ async fn an_import_audits_each_row_as_a_create() {
         self::audits(&db).await.len(),
         2,
         "a refused import never reaches the hook"
+    );
+}
+
+/// After the rows commit together, `after_commit` receives each one's create, in file order, and
+/// a failing call neither undoes the import nor skips the rows after it.
+#[tokio::test]
+async fn an_import_runs_after_commit_once_per_row_in_file_order() {
+    let db = seeded_db().await;
+    let router = panel_router::<FailingAfterResource>(db.clone());
+
+    let response = import_csv(
+        &router,
+        "/admin/failing-afters/-/import",
+        "title\nAlpha\nBeta\nGamma\n",
+    )
+    .await;
+    assert_eq!(
+        response.status(),
+        303,
+        "a failing after_commit undoes nothing"
+    );
+    assert_eq!(notes(&db).await.len(), 3);
+    let audits = audits(&db).await;
+    let audited: Vec<(&str, &str, &str, i64)> = audits
+        .iter()
+        .map(|audit| {
+            (
+                audit.hook.as_str(),
+                audit.change.as_str(),
+                audit.title.as_str(),
+                audit.rows,
+            )
+        })
+        .collect();
+    assert_eq!(
+        audited,
+        [
+            ("after", "create", "Alpha", 1),
+            ("after", "create", "Beta", 1),
+            ("after", "create", "Gamma", 1),
+        ]
     );
 }
 

@@ -23,8 +23,12 @@ pub enum ImportRefusal {
     NoRows,
     /// The file holds more rows than one import creates.
     TooManyRows,
+    /// A row of the file holds more cells than one import reads.
+    TooManyCells,
     /// The header names a column no field the request may change takes.
     UnknownColumn,
+    /// The header names a column by a label more than one field carries.
+    AmbiguousColumn,
     /// The header names a single-value column twice.
     RepeatedColumn,
 }
@@ -32,7 +36,7 @@ pub enum ImportRefusal {
 /// One value an import refused.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ImportError {
-    /// The row's number as a spreadsheet shows it, the header being row 1.
+    /// The row's number as a spreadsheet shows it, counting the header and blank rows.
     pub row: usize,
     /// The form key refused, `None` for the row as a whole or a field the user may not see.
     pub key: Option<String>,
@@ -57,7 +61,9 @@ pub fn import_refusal(html: &str) -> Option<ImportRefusal> {
         Some(import::NO_HEADER) => ImportRefusal::NoHeader,
         Some(import::NO_ROWS) => ImportRefusal::NoRows,
         Some(import::TOO_MANY_ROWS) => ImportRefusal::TooManyRows,
+        Some(import::TOO_MANY_CELLS) => ImportRefusal::TooManyCells,
         Some(import::UNKNOWN_COLUMN) => ImportRefusal::UnknownColumn,
+        Some(import::AMBIGUOUS_COLUMN) => ImportRefusal::AmbiguousColumn,
         Some(import::REPEATED_COLUMN) => ImportRefusal::RepeatedColumn,
         other => panic!("the import alert names no known refusal: {other:?}"),
     })

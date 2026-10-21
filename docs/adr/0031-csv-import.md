@@ -10,22 +10,27 @@ by field label, and each cell posts its key's value; a column the header leaves 
 field's `default`, as the create page's untouched control posts it. The row then runs the create
 form's own pipeline: the field-access mask, disabled and hidden controls, the controls' rules, the
 record form's parse, `validate_record`, the unique probe, the relationship re-check, and
-`create_record`, which stamps the tenant column. Nothing about a row is checked that a create
-form's submission is not, and nothing a create form's submission is checked for is skipped.
+`create_record`, which stamps the tenant column. Nothing a create form's submission is checked
+for is skipped; the file adds only its own shape's refusal, a cell under no column of the
+header.
 
 Every row first runs the steps a create runs before its transaction opens, so that no option
 loader waits on the connection the transaction holds. One transaction then runs each row's unique
 probe, relationship re-check and write in file order, so a row's unique value is checked against
-the rows before it. Once a row is refused nothing more is written and the transaction rolls back,
-but every later row is still checked: the page lists each refusal by row and column, and the file
-is corrected and posted again. Each written row is a `Change::Create`: `before_commit` receives it
-inside the transaction, where an error rolls back the whole file, and `after_commit` once the rows
-commit together, in file order. A file holds at most `MAX_IMPORT_ROWS` rows, so the transaction
-stays one request long.
+the rows before it. Once a row is refused the transaction will roll back, but every later row is
+still checked, and still written into it when it passes, so that the rows after it are checked
+against its unique values: the page lists each refusal by row and column, and the file is
+corrected and posted again. Each row written to commit is a `Change::Create`: `before_commit`
+receives it inside the transaction, where an error rolls back the whole file, and `after_commit`
+once the rows commit together, in file order. A file holds at most `MAX_IMPORT_ROWS` rows, so the
+transaction stays one request long; on SQLite it holds the database's write lock that long. The
+reader stops at the first row past that cap, and at a row of more than 500 cells, so a small file
+of line breaks or delimiters cannot hold memory past those bounds.
 
 A header that names a key the form does not take, a key the request may not change, a control
 disabled on the create page, a file field or a repeater refuses the whole file before any row is
-read: no cell can carry a file's bytes or a list of rows. A multiple choice's column repeats once
+checked: no cell can carry a file's bytes or a list of rows. So does a label two fields carry,
+which names neither: the header names such a column by its key. A multiple choice's column repeats once
 per value, as its control posts its key once per checked box; no other column repeats.
 
 ## Rejected

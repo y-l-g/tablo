@@ -56,8 +56,12 @@ pub mod import {
     pub const NO_ROWS: &str = "no-rows";
     /// The file holds more rows than one import creates.
     pub const TOO_MANY_ROWS: &str = "too-many-rows";
+    /// A row of the file holds more cells than one import reads.
+    pub const TOO_MANY_CELLS: &str = "too-many-cells";
     /// The header names a column no field the request may change takes.
     pub const UNKNOWN_COLUMN: &str = "unknown-column";
+    /// The header names a column by a label more than one field carries.
+    pub const AMBIGUOUS_COLUMN: &str = "ambiguous-column";
     /// The header names a single-value column twice.
     pub const REPEATED_COLUMN: &str = "repeated-column";
 }

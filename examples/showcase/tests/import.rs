@@ -55,7 +55,7 @@ async fn the_list_links_the_import_of_an_importable_resource_only() {
 }
 
 /// A header cell names a column by key or by label; a column the header leaves out takes the
-/// blank answer, as the create form's untouched control does.
+/// field's default, as the create form's untouched control posts it.
 #[tokio::test]
 async fn a_file_creates_one_record_per_row_and_lands_on_the_list() {
     let db = seeded_db().await;
@@ -175,6 +175,21 @@ async fn a_unique_value_is_refused_against_the_table_and_the_earlier_rows() {
     assert_eq!(
         import_errors(&html),
         vec![error(3, "email"), error(4, "email")]
+    );
+    assert_eq!(user_count(&db).await, before);
+    // A row written into the doomed transaction still holds its value against the rows after it.
+    let html = body_string(
+        import(
+            &client,
+            "/admin/users/-/import",
+            "name,email\nBad,not-an-email\nFirst,again@example.com\nSecond,again@example.com\n",
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(
+        import_errors(&html),
+        vec![error(2, "email"), error(4, "email")]
     );
     assert_eq!(user_count(&db).await, before);
 }

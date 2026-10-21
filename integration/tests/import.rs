@@ -3,9 +3,9 @@
 //! nothing.
 
 use tablo::{
-    Ability, DeclarationErrorKind, FieldAccess, NoForm, Resource, ResourceDef, Schema, Site,
-    Tenancy, TenantId,
-    testing::{ImportRefusal, import_columns, import_refusal},
+    Ability, DeclarationErrorKind, FieldAccess, FieldErrors, NoForm, Resource, ResourceDef, Schema,
+    Site, Tenancy, TenantId,
+    testing::{ImportError, ImportRefusal, import_columns, import_errors, import_refusal},
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
@@ -61,6 +61,16 @@ impl Resource for EmployeeResource {
                 c.grade.default("junior"),
             )))
             .importable()
+    }
+
+    /// Refuses a row named `Hidden` twice under the salary, which a sales request cannot see.
+    fn validate_record(_cx: &Cx, form: &EmployeeForm) -> FieldErrors<EmployeeFormField> {
+        let mut errors = FieldErrors::new();
+        if form.name == "Hidden" {
+            errors.add(EmployeeFormField::Salary, "Salary is out of range");
+            errors.add(EmployeeFormField::Salary, "Salary is not on the grid");
+        }
+        errors
     }
 }
 
@@ -175,4 +185,72 @@ async fn the_mount_refuses_an_import_on_a_resource_that_creates_nothing() {
             ),
         ]
     );
+}
+
+/// An error under a field the request cannot see names no key, once per row, as the create form
+/// says only that a hidden field refuses it.
+#[tokio::test]
+async fn an_error_under_a_hidden_field_names_no_key() {
+    let db = db().await;
+    let router = router(&db);
+    let hr = TestClient::new(&router).tenant(HR);
+    let sales = TestClient::new(&router).tenant(SALES);
+
+    let html = body_string(import(&sales, "name\nHidden\n").await).await;
+    assert_eq!(import_errors(&html), [ImportError { row: 2, key: None }]);
+    assert!(
+        !html.contains("salary") && !html.contains("Salary"),
+        "the hidden field's key and label stay off the page"
+    );
+
+    let html = body_string(import(&hr, "name\nHidden\n").await).await;
+    let salary = ImportError {
+        row: 2,
+        key: Some("salary".to_string()),
+    };
+    assert_eq!(import_errors(&html), [salary.clone(), salary]);
+    assert!(employees(&db).await.is_empty());
+}
+
+/// A control disabled on the create page posts nothing there, so no column takes it.
+#[tokio::test]
+async fn a_header_naming_a_disabled_control_refuses_the_file() {
+    struct Ledger;
+
+    impl Resource for Ledger {
+        type Model = Employee;
+        type Form = EmployeeForm;
+
+        fn declare() -> ResourceDef<Self> {
+            let c = EmployeeForm::controls();
+            ResourceDef::new()
+                .slug("ledger")
+                .policy_fn(|_cx, _ability: Ability<'_, Employee>| true)
+                .tenancy(Tenancy::column(Employee::fields().tenant_id()))
+                .form(Schema::new((
+                    c.name,
+                    c.salary.default("S-100"),
+                    c.grade.default("junior").disabled(),
+                )))
+                .importable()
+        }
+    }
+
+    let db = db().await;
+    let router = mount(db.clone(), panel().resource::<Ledger>()).expect("panel builds");
+    let client = TestClient::new(&router).tenant(HR);
+
+    let html = body_string(client.get("/admin/ledger/-/import").await).await;
+    assert_eq!(import_columns(&html), ["name", "salary"]);
+    let html = body_string(
+        client
+            .submit_multipart(
+                "/admin/ledger/-/import",
+                &[("file", Some("e.csv"), "name,grade\nAda,lead\n")],
+            )
+            .await,
+    )
+    .await;
+    assert_eq!(import_refusal(&html), Some(ImportRefusal::UnknownColumn));
+    assert!(employees(&db).await.is_empty());
 }

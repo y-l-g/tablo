@@ -47,7 +47,14 @@ pub(super) fn render_import_page<'a>(
         columns,
     } = page;
     let csrf = crate::csrf::current_token(cx);
-    let action = topcoat::router::request::uri(cx).path().to_string();
+    // Posts to the current path, preserving a validated `?return=` target, as a form page does.
+    let path = topcoat::router::request::uri(cx).path();
+    let return_to = crate::panel::gate::return_target(cx);
+    let action = match &return_to {
+        Some(target) => crate::panel::url::with_return(path, target),
+        None => path.to_string(),
+    };
+    let cancel = return_to.unwrap_or(list_url);
     let title = format!("Import {plural_label}");
     let description = format!(
         "Each row of the file creates one {}. The first row names the columns; a refused row \
@@ -148,7 +155,7 @@ pub(super) fn render_import_page<'a>(
                             "Import"
                         )
                         <a
-                            (crate::navigation::runtime_link(cx, &list_url))
+                            (crate::navigation::runtime_link(cx, &cancel))
                             class=(outline)
                         >
                             "Cancel"

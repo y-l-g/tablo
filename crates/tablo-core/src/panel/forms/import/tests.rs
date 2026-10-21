@@ -68,3 +68,29 @@ fn a_value_under_no_column_refuses_the_row() {
     assert!(row_pairs(2, &header(&["Ada", "", "y"]), &[Some(0), None], &columns()).is_err());
     assert!(row_pairs(2, &header(&["Ada", " "]), &[Some(0), None], &columns()).is_ok());
 }
+
+#[test]
+fn a_label_matches_in_any_case_of_any_script() {
+    let columns = vec![column("grade", "Évaluation", false)];
+    assert_eq!(
+        resolve_header(&header(&["ÉVALUATION"]), &columns),
+        Ok(vec![Some(0)])
+    );
+}
+
+/// A label two fields carry names neither: the header names the column by its key.
+#[test]
+fn a_label_two_fields_carry_refuses_the_file() {
+    let columns = vec![
+        column("billing_name", "Name", false),
+        column("shipping_name", "Name", false),
+    ];
+    assert_eq!(
+        resolve_header(&header(&["name"]), &columns),
+        Err(Refusal::AmbiguousColumns(header(&["name"])))
+    );
+    assert_eq!(
+        resolve_header(&header(&["billing_name", "shipping_name"]), &columns),
+        Ok(vec![Some(0), Some(1)])
+    );
+}

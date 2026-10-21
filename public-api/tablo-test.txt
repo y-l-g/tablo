@@ -60,11 +60,13 @@ impl core::marker::UnsafeUnpin for tablo_test::IgnoredReason
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::IgnoredReason
 impl core::panic::unwind_safe::UnwindSafe for tablo_test::IgnoredReason
 #[non_exhaustive] pub enum tablo_test::ImportRefusal
+pub tablo_test::ImportRefusal::AmbiguousColumn
 pub tablo_test::ImportRefusal::Encoding
 pub tablo_test::ImportRefusal::NoFile
 pub tablo_test::ImportRefusal::NoHeader
 pub tablo_test::ImportRefusal::NoRows
 pub tablo_test::ImportRefusal::RepeatedColumn
+pub tablo_test::ImportRefusal::TooManyCells
 pub tablo_test::ImportRefusal::TooManyRows
 pub tablo_test::ImportRefusal::UnknownColumn
 pub tablo_test::ImportRefusal::Unterminated

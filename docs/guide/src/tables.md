@@ -330,7 +330,8 @@ Barbara Liskov,barbara@example.com,admin
 
 - The first row names the columns, each by its form key or its field's label in any case. The
   columns are the form's controls the request may change, but file fields, repeaters and controls
-  disabled on the create page. A header naming any other column refuses the file.
+  disabled on the create page. A header naming any other column, or a label two fields carry,
+  refuses the file.
 - Each cell posts what the create form's control would: an option's value, `true` or `false` for
   a checkbox, a date and time in the request's [time zone](./forms.md#time-zones). A blank cell
   posts a blank value. A column the header leaves out takes the field's `default`.
@@ -343,12 +344,14 @@ Each row is a create submission: the field access, the controls' rules, the reco
 `validate_record`, the unique check and the relationship check run as on the create page,
 `create_record` stamps the tenant, and `before_commit` receives each row's `Change::Create` inside
 the transaction. Every row writes in one transaction. When any row is refused, nothing is written,
-and the page lists each refusal by row number, the header being row 1, and column. Correct the
+and the page lists each refusal of every row by row number, as a spreadsheet numbers it, and
+column. Correct the
 file and import it again. A `before_commit` error rolls back the whole file. When every row
 passes, the import lands on the list and `after_commit` receives each row's `Change::Create`, in
 file order.
 
-A file holds at most `MAX_IMPORT_ROWS` (1,000) rows and 10 MiB. The import reads what the form
+A file holds at most `MAX_IMPORT_ROWS` (1,000) rows, 500 cells a row and 10 MiB. The
+transaction lasts the whole file: on SQLite it holds the database's write lock that long. The import reads what the form
 posts, not what the export writes: an exported `$1,234.50`, `Yes` or option label does not import
 back.
 

@@ -37,6 +37,10 @@ pub const MAX_IMPORT_ROWS: usize = 1_000;
 /// The multipart part the file is posted under.
 const FILE_PART: &str = "file";
 
+/// The most cells one row of a file holds, so that a file of delimiters holds memory to a
+/// bound.
+const MAX_CELLS: usize = 500;
+
 const WRITE_IMPORT: &str = "import the file";
 
 /// One column a request's import takes: a form key the create form posts as text.
@@ -78,7 +82,9 @@ enum Refusal {
     NoHeader,
     NoRows,
     TooManyRows,
+    TooManyCells { row: usize },
     UnknownColumns(Vec<String>),
+    AmbiguousColumns(Vec<String>),
     RepeatedColumns(Vec<String>),
 }
 
@@ -93,7 +99,9 @@ impl Refusal {
             Self::NoHeader => import::NO_HEADER,
             Self::NoRows => import::NO_ROWS,
             Self::TooManyRows => import::TOO_MANY_ROWS,
+            Self::TooManyCells { .. } => import::TOO_MANY_CELLS,
             Self::UnknownColumns(_) => import::UNKNOWN_COLUMN,
+            Self::AmbiguousColumns(_) => import::AMBIGUOUS_COLUMN,
             Self::RepeatedColumns(_) => import::REPEATED_COLUMN,
         }
     }
@@ -108,9 +116,16 @@ impl Refusal {
             Self::NoHeader => "The file is empty: its first row names the columns".to_string(),
             Self::NoRows => "The file holds a header but no row".to_string(),
             Self::TooManyRows => format!("A file holds at most {MAX_IMPORT_ROWS} rows"),
+            Self::TooManyCells { row } => {
+                format!("Row {row} holds more than {MAX_CELLS} cells")
+            }
             Self::UnknownColumns(names) => format!(
                 "No field takes the column{} {}",
                 if names.len() == 1 { "" } else { "s" },
+                quoted(names)
+            ),
+            Self::AmbiguousColumns(names) => format!(
+                "More than one field is labelled {}: name the column by its key",
                 quoted(names)
             ),
             Self::RepeatedColumns(names) => {
@@ -129,10 +144,11 @@ fn quoted(names: &[String]) -> String {
 }
 
 /// The column each header cell names, `None` for a blank one: a cell matches a column's key, or
-/// its label ignoring case. Only a multiple choice's column may repeat, as its control posts its
-/// key once per value.
+/// the one column whose label it spells ignoring case. Only a multiple choice's column may
+/// repeat, as its control posts its key once per value.
 fn resolve_header(header: &[String], columns: &[Column]) -> Result<Vec<Option<usize>>, Refusal> {
     let mut unknown = Vec::new();
+    let mut ambiguous = Vec::new();
     let mut repeated = Vec::new();
     let mut seen = HashSet::new();
     let mut slots = Vec::with_capacity(header.len());
@@ -142,14 +158,24 @@ fn resolve_header(header: &[String], columns: &[Column]) -> Result<Vec<Option<us
             slots.push(None);
             continue;
         }
-        let found = columns
-            .iter()
-            .position(|column| column.key == name)
-            .or_else(|| {
-                columns
+        let found = match columns.iter().position(|column| column.key == name) {
+            Some(index) => Some(index),
+            None => {
+                let lowered = name.to_lowercase();
+                let mut labelled = columns
                     .iter()
-                    .position(|column| column.label.eq_ignore_ascii_case(name))
-            });
+                    .enumerate()
+                    .filter(|(_, column)| column.label.to_lowercase() == lowered)
+                    .map(|(index, _)| index);
+                let first = labelled.next();
+                if first.is_some() && labelled.next().is_some() {
+                    ambiguous.push(name.to_string());
+                    slots.push(None);
+                    continue;
+                }
+                first
+            }
+        };
         match found {
             Some(index) => {
                 if !seen.insert(index) && !columns[index].multiple {
@@ -166,42 +192,38 @@ fn resolve_header(header: &[String], columns: &[Column]) -> Result<Vec<Option<us
     if !unknown.is_empty() {
         return Err(Refusal::UnknownColumns(unknown));
     }
+    if !ambiguous.is_empty() {
+        return Err(Refusal::AmbiguousColumns(ambiguous));
+    }
     if !repeated.is_empty() {
         return Err(Refusal::RepeatedColumns(repeated));
     }
     Ok(slots)
 }
 
-/// A row of the file: its number as a spreadsheet shows it, and its cells.
-type Row = (usize, Vec<String>);
-
-/// The file's header and its rows, without the rows whose every cell is blank, which a
-/// spreadsheet writes after the last one it fills.
-fn read_file(parts: &FormParts) -> Result<(Vec<String>, Vec<Row>), Refusal> {
+/// The file's header and its rows, each numbered as a spreadsheet shows it, without the rows
+/// whose every cell is blank, which a spreadsheet writes after the last one it fills.
+fn read_file(parts: &FormParts) -> Result<(Vec<String>, Vec<csv::Record>), Refusal> {
     let file = parts.files.get(FILE_PART).ok_or(Refusal::NoFile)?;
     let text = std::str::from_utf8(&file.bytes).map_err(|_| Refusal::NotUtf8)?;
-    let mut records = csv::records(text)
-        .map_err(|csv::Unterminated { line }| Refusal::Unterminated { line })?
+    let mut records = csv::records(text, MAX_IMPORT_ROWS + 1, MAX_CELLS)
+        .map_err(|unread| match unread {
+            csv::Unread::Unterminated { line } => Refusal::Unterminated { line },
+            csv::Unread::TooManyRecords => Refusal::TooManyRows,
+            csv::Unread::TooManyCells { record } => Refusal::TooManyCells { row: record },
+        })?
         .into_iter();
-    let header = records.next().ok_or(Refusal::NoHeader)?;
-    // A spreadsheet numbers the header row 1.
-    let rows: Vec<Row> = records
-        .enumerate()
-        .map(|(index, cells)| (index + 2, cells))
-        .filter(|(_, cells)| cells.iter().any(|cell| !cell.trim().is_empty()))
-        .collect();
+    let (_, header) = records.next().ok_or(Refusal::NoHeader)?;
+    let rows: Vec<csv::Record> = records.collect();
     if rows.is_empty() {
         return Err(Refusal::NoRows);
-    }
-    if rows.len() > MAX_IMPORT_ROWS {
-        return Err(Refusal::TooManyRows);
     }
     Ok((header, rows))
 }
 
 /// One refusal of one row, under the column it names.
 struct RowError {
-    /// The row's number as a spreadsheet shows it, the header being row 1.
+    /// The row's number as a spreadsheet shows it, counting the header and blank rows.
     row: usize,
     /// The form key the error is under, `None` for the row as a whole or a key the request may
     /// not see.
@@ -241,8 +263,8 @@ fn row_pairs(
         .collect())
 }
 
-/// `errors` as `row`'s refusals, each under the header's spelling of its column. An error under a
-/// key `mask` hides says only that a hidden field refuses the row, as the create form does.
+/// `errors` as `row`'s refusals, each under the header's spelling of its column. The errors under
+/// keys `mask` hides say once only that a hidden field refuses the row, as the create form does.
 fn row_errors(
     row: usize,
     errors: &FieldErrors,
@@ -250,17 +272,11 @@ fn row_errors(
     mask: &FormMask,
     header: &[(String, String)],
 ) -> Vec<RowError> {
+    let hidden = errors.iter().any(|error| mask.hides(&error.key));
     errors
         .iter()
+        .filter(|error| !mask.hides(&error.key))
         .map(|error| {
-            if mask.hides(&error.key) {
-                return RowError {
-                    row,
-                    key: None,
-                    column: String::new(),
-                    message: "A field you cannot see refuses this row".to_string(),
-                };
-            }
             let label = schema
                 .fields()
                 .find(|field| field.name() == error.key)
@@ -276,6 +292,12 @@ fn row_errors(
                 message: error.message(label),
             }
         })
+        .chain(hidden.then(|| RowError {
+            row,
+            key: None,
+            column: String::new(),
+            message: "A field you cannot see refuses this row".to_string(),
+        }))
         .collect()
 }
 
@@ -383,8 +405,9 @@ pub(crate) fn resource_import_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
                 prepare_submission(cx, &resource, parts, None, Unposted::Defaulted).await?;
             staged.push((*row, submission));
         }
-        // Once a row is refused nothing is written, but every later row is still checked, so
-        // the page lists what the whole file needs.
+        // Once a row is refused the transaction rolls back, but every later row is still
+        // checked, and written when it passes, so that a later row's unique value is checked
+        // against it: the page lists what the whole file needs.
         let mut refused = !failures.is_empty()
             || staged
                 .iter()
@@ -419,10 +442,11 @@ pub(crate) fn resource_import_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
                 failures.extend(row_errors(row, &errors, &resource.form, &mask, &spelled));
                 continue;
             }
-            let Some(form) = form.filter(|_| !refused) else {
+            let Some(form) = form else {
                 continue;
             };
             match R::create_record(cx, form, &mut tx).await {
+                Ok(_) if refused => {}
                 Ok(record) => {
                     // Each row is a create, so the hook a create runs inside its transaction
                     // runs once per row; an `Err` rolls the whole file back.
