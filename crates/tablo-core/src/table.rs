@@ -39,7 +39,8 @@ pub use crate::{
     column::{
         BooleanColumn, ColorColumn, ColumnToggle, ColumnWidth, ComputedColumn, CountColumn,
         DateColumn, DateValue, EmbeddedColumn, FileColumn, ImageColumn, IntoColumns,
-        RelationColumn, RelationLens, RepeaterColumn, TextColumn, ToOneRelation, contains_expr,
+        RelationColumn, RelationLens, RepeaterColumn, RichTextColumn, TextColumn, ToOneRelation,
+        contains_expr,
     },
     display::{Alignment, Color, Currency, Number, Numeric},
 };

@@ -8,7 +8,7 @@ use super::{
         IntoSchema, OptionSource, Retype, Schema,
         condition::{Condition, Watched},
     },
-    ChoiceControl, Control, ControlKind, Field, Pattern, TextControl, choice,
+    ChoiceControl, Control, ControlKind, Field, Pattern, RichTextControl, TextControl, choice,
 };
 use crate::values::{FormScalar, FormValue};
 
@@ -171,7 +171,7 @@ macro_rules! default_modifier {
     )*};
 }
 
-default_modifier!(TextField, ChoiceField, CustomField);
+default_modifier!(TextField, ChoiceField, CustomField, RichTextField);
 
 /// A value a field's `default` takes: any [`FormScalar`] or a `&str` or `&String` in the form
 /// spelling, or an array or `Vec` of them for a multiple choice.
@@ -225,6 +225,10 @@ impl<const N: usize> IntoFormValue for [&str; N] {
 /// A text field: [`Field::text`], or a record form's text control (`F` is the form).
 pub struct TextField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
 
+/// A rich text field: [`Field::rich_text`], or a record form's text control made one with
+/// [`TextField::rich_text`] (`F` is the form).
+pub struct RichTextField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
+
 /// A choice field: [`Field::choice`], or a record form's choice control (`F` is the form).
 pub struct ChoiceField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
 
@@ -247,6 +251,7 @@ impl<F> CustomField<F> {
 }
 
 common_modifiers!(TextField);
+common_modifiers!(RichTextField);
 common_modifiers!(ChoiceField);
 common_modifiers!(FileField);
 common_modifiers!(CustomField);
@@ -271,6 +276,27 @@ macro_rules! to_choice {
 to_choice!(TextField, FileField, CustomField);
 
 impl<F> TextField<F> {
+    /// Renders the field as a [rich text](Field::rich_text) editor instead, storing HTML. The
+    /// field's type must be `String`, and the text control's own modifiers are dropped.
+    ///
+    /// ```rust
+    /// # #[derive(Debug, Clone, toasty::Model)]
+    /// # struct Post { #[key] #[auto] id: uuid::Uuid, body: String }
+    /// # #[derive(tablo_core::RecordForm)]
+    /// # #[form(model = Post)]
+    /// # struct PostForm { body: String }
+    /// use tablo_core::Tool;
+    ///
+    /// let c = PostForm::controls();
+    /// c.body
+    ///     .rich_text()
+    ///     .toolbar(&[&[Tool::Bold, Tool::Italic], &[Tool::BulletList]]);
+    /// ```
+    pub fn rich_text(mut self) -> RichTextField<F> {
+        self.0.control = ControlKind::RichText(RichTextControl::default());
+        RichTextField(self.0, PhantomData)
+    }
+
     fn text(&mut self) -> &mut TextControl {
         match &mut self.0.control {
             ControlKind::Text(text) => text,

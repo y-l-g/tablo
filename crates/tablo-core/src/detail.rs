@@ -9,8 +9,8 @@ use crate::{
     DeclarationErrorKind,
     column::{
         BooleanColumn, BoxColumn, ColorColumn, Column, ComputedColumn, CountColumn, DateColumn,
-        EmbeddedColumn, FileColumn, ImageColumn, RelationColumn, RepeaterColumn, TextColumn,
-        include_relations, restrict_relations, shows, unavailable_sources,
+        EmbeddedColumn, FileColumn, ImageColumn, RelationColumn, RepeaterColumn, RichTextColumn,
+        TextColumn, include_relations, restrict_relations, shows, unavailable_sources,
     },
     schema::{Grid, Group, Section},
 };
@@ -327,6 +327,7 @@ column_details!(
     ImageColumn<M, T>,
     EmbeddedColumn<M, T>,
     RepeaterColumn<M, T>,
+    RichTextColumn<M, T>,
 );
 
 /// The `columns` builders of the layout blocks: each holds a detail page's columns and blocks.

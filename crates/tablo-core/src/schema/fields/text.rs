@@ -161,11 +161,12 @@ impl TextControl {
 
 impl Field {
     /// The form spelling of `posted`, the last value the field's control posted, read in `zone`:
-    /// a text control reads it through its type, as a timestamp's reads a wall-clock time, and
-    /// any other control keeps it as posted.
+    /// a text control reads it through its type, as a timestamp's reads a wall-clock time, a rich
+    /// text control keeps what its toolbar produces, and any other control keeps it as posted.
     pub(crate) fn read_posted(&self, posted: &str, zone: &TimeZone) -> String {
         match &self.control {
             ControlKind::Text(text) => text.reading(posted, zone),
+            ControlKind::RichText(rich) => rich.clean(posted),
             _ => posted.to_string(),
         }
     }
@@ -204,22 +205,22 @@ impl Field {
         (value != held && value.trim() == rendered).then(|| stored.clone())
     }
 
-    /// Refuses a non-empty submission the control's own rules refuse: an email field's address, and
-    /// a text field's declared length, bounds and pattern, its bounds spelled as the control shows
-    /// them in `zone`.
+    /// Refuses a non-empty submission the control's own rules refuse: an email field's address, a
+    /// text field's declared length, bounds and pattern, its bounds spelled as the control shows
+    /// them in `zone`, and a rich text field's length.
     pub(crate) fn check(&self, value: &FormValue, zone: &TimeZone) -> Option<FieldError> {
         let value = value.as_text()?.trim();
-        let ControlKind::Text(text) = &self.control else {
-            return None;
-        };
         if value.is_empty() {
             return None;
         }
         let label = self.label_str();
-        let message = if text.email && !is_email(value) {
-            format!("{label} must be a valid email")
-        } else {
-            text.refusal(label, value, zone)?
+        let message = match &self.control {
+            ControlKind::Text(text) if text.email && !is_email(value) => {
+                format!("{label} must be a valid email")
+            }
+            ControlKind::Text(text) => text.refusal(label, value, zone)?,
+            ControlKind::RichText(rich) => rich.refusal(label, value)?,
+            _ => return None,
         };
         Some(FieldError::invalid(self.name(), message))
     }

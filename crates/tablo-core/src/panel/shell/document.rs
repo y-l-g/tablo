@@ -47,6 +47,9 @@ impl Panel {
                 for script in tablo_ui::SHELL_SCRIPTS {
                     <script src=(script) type="module"></script>
                 }
+                // Where `rich_text.js` imports the editor from, once a page holds a rich text
+                // control: no page loads it before.
+                <meta name="tablo-tiptap" content=(tablo_ui::TIPTAP_JS)>
             }
             .boxed(),
             None => view! { cx => topcoat::dev::script() }.boxed(),

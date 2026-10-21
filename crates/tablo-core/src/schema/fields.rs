@@ -5,19 +5,24 @@ mod builders;
 mod choice;
 pub(crate) mod custom;
 mod file;
+mod placement;
 mod read_only;
+mod rich_text;
 mod text;
 
 use std::sync::Arc;
 
 pub use builders::{
-    ChoiceField, CustomField, FileField, IntoFormValue, IntoOptions, RepeaterField, TextField,
+    ChoiceField, CustomField, FileField, IntoFormValue, IntoOptions, RepeaterField, RichTextField,
+    TextField,
 };
 pub(crate) use choice::{ChoiceControl, Relationship, option_view};
 pub use custom::Toggle;
 pub(crate) use custom::{Control, ControlInput};
 pub(crate) use file::{is_linkable, is_rooted, stored_upload};
+pub(crate) use placement::Placement;
 pub(crate) use read_only::{read_only, value_cell};
+use rich_text::RichTextControl;
 use tablo_ui::{
     field as ui_field, field_description as ui_field_description, field_error as ui_field_error,
     field_label as ui_field_label,
@@ -118,6 +123,8 @@ pub(crate) enum Disabled {
 pub(crate) enum ControlKind {
     /// A one-line `<input>`, or a `<textarea>` when `rows` is set.
     Text(TextControl),
+    /// A `<textarea>` of HTML, which the browser edits through a toolbar.
+    RichText(RichTextControl),
     /// A `<select>` over static options or a relationship's rows.
     Choice(ChoiceControl),
     /// A file input storing the uploaded file's path.
@@ -132,6 +139,7 @@ impl std::fmt::Debug for Field {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let control = match &self.control {
             ControlKind::Text(_) => "text",
+            ControlKind::RichText(_) => "rich text",
             ControlKind::Choice(_) => "choice",
             ControlKind::File => "file",
             ControlKind::Custom(_) => "custom",
@@ -293,21 +301,12 @@ impl Field {
     /// The variant control of an embedded enum, never required since an empty submit reads the
     /// variant from the payload.
     pub(crate) fn discriminant(binding: Binding, variants: Vec<(String, String)>) -> Self {
-        Self {
-            binding,
-            label: None,
-            required: false,
-            control: ControlKind::Choice(ChoiceControl {
-                discriminant: true,
-                options: variants,
-                ..ChoiceControl::default()
-            }),
-            condition: None,
-            checkbox: false,
-            help: None,
-            disabled: Disabled::Never,
-            default: None,
-        }
+        let choice = ChoiceControl {
+            discriminant: true,
+            options: variants,
+            ..ChoiceControl::default()
+        };
+        Self::bound(binding, ControlKind::Choice(choice))
     }
 
     pub(crate) fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
@@ -481,13 +480,14 @@ impl Field {
     /// What is wrong with the rules the field's text control declares, reported under `field`:
     /// one that cannot work, or a default its type does not parse or that breaks one.
     pub(crate) fn rule_errors(&self, field: &str) -> Vec<crate::DeclarationErrorKind> {
-        let ControlKind::Text(text) = &self.control else {
-            return Vec::new();
+        let (mut faults, text) = match &self.control {
+            ControlKind::Text(text) => (text.rule_faults(), Some(text)),
+            ControlKind::RichText(rich) => (rich.rule_faults(), None),
+            _ => return Vec::new(),
         };
-        let mut faults = text.rule_faults();
         if let Some(value) = self.default_value() {
             let spelled = value.as_text().unwrap_or_default().trim();
-            if !spelled.is_empty() && !text.parses(spelled) {
+            if !spelled.is_empty() && text.is_some_and(|text| !text.parses(spelled)) {
                 faults.push(crate::FieldRuleFault::UnparsedDefault(spelled.to_string()));
             } else if self.check(value, &jiff::tz::TimeZone::UTC).is_some() {
                 faults.push(crate::FieldRuleFault::RefusedDefault(spelled.to_string()));
@@ -582,6 +582,9 @@ impl Field {
         let text = value.and_then(FormValue::as_text);
         match &self.control {
             ControlKind::Text(control) => self.render_text(control, cx, text, error, id, disabled),
+            ControlKind::RichText(rich) => {
+                self.render_rich_text(rich, cx, text, error, id, disabled)
+            }
             ControlKind::Choice(choice) => {
                 Box::pin(self.render_choice(choice, cx, value, error, id, placement)).await
             }
@@ -649,34 +652,6 @@ impl Field {
             attributes! {},
             rendered,
         )
-    }
-}
-
-/// Where a field's control renders: under its parent's value, and in which form of its page.
-#[derive(Debug, Clone, Copy, Default)]
-pub(crate) struct Placement<'p> {
-    /// The value the field's parent posts: a dependent choice offers the rows it selects.
-    pub(crate) parent: Option<&'p str>,
-    /// The prefix of the form's DOM ids, so several forms on one page never share one; empty
-    /// for a form alone on its page.
-    pub(crate) scope: &'p str,
-    /// The URL a searchable choice fetches its options from; `None` for the resource's own
-    /// `{list}/-/options`, which the browser derives from the page's URL.
-    pub(crate) options: Option<&'p str>,
-    /// Whether the form edits a stored record, where `disabled_on_edit` disables a control.
-    pub(crate) editing: bool,
-    /// Whether the request's field access lets the user view the field but not change it.
-    pub(crate) locked: bool,
-}
-
-impl Placement<'_> {
-    /// The DOM id of the control posting `name`.
-    pub(crate) fn id(&self, name: &str) -> String {
-        if self.scope.is_empty() {
-            name.to_string()
-        } else {
-            format!("{}-{name}", self.scope)
-        }
     }
 }
 

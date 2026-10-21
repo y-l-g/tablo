@@ -108,6 +108,7 @@ mod page;
 pub mod panel;
 pub mod policy;
 pub mod resource;
+pub mod rich_text;
 pub mod schema;
 pub mod table;
 pub mod tenancy;
@@ -129,7 +130,7 @@ pub use auth::{
 pub use column::{
     BooleanColumn, ColorColumn, ColumnToggle, ColumnWidth, ComputedColumn, CountColumn, DateColumn,
     DateValue, EmbeddedColumn, FileColumn, ImageColumn, IntoColumns, RelationColumn, RelationLens,
-    RepeaterColumn, TextColumn, ToOneRelation, contains_expr,
+    RepeaterColumn, RichTextColumn, TextColumn, ToOneRelation, contains_expr,
 };
 pub use declaration::{
     ActionInputFault, AuthMailFault, DeclarationError, DeclarationErrorKind, FieldAccessFault,
@@ -155,10 +156,11 @@ pub use resource::{
     Relation, Resource, ResourceDef, Trashed, can, scoped_query, scoped_query_in, write_create,
     write_update,
 };
+pub use rich_text::Tool;
 pub use schema::{
     ChoiceField, CustomField, EmbeddedForm, Field, FileField, Grid, Group, IntoFormValue,
-    IntoOptions, IntoSchema, Options, RepeaterField, Schema, Section, Source, TextField, Toggle,
-    Watched, input::FormInput,
+    IntoOptions, IntoSchema, Options, RepeaterField, RichTextField, Schema, Section, Source,
+    TextField, Toggle, Watched, input::FormInput,
 };
 pub use table::{
     ActionLayout, Cursor, DateFilter, FilterValue, IntoFilters, ModelColumns, PagePosition,

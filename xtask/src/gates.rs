@@ -66,6 +66,7 @@ pub const PUBLISHED_CRATES: &[(&str, &[&str])] = &[
 pub const ASSET_SUITES: &[&str] = &[
     "crates/tablo-ui/assets/password.test.js",
     "crates/tablo-ui/assets/repeaters.test.js",
+    "crates/tablo-ui/assets/rich_text.test.js",
     "crates/tablo-ui/assets/selects.test.js",
     "crates/tablo-ui/assets/theme.test.js",
 ];

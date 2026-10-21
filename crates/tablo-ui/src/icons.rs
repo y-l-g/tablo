@@ -67,6 +67,38 @@ pub const MAIL: IconData = iconify_icon!("lucide:mail");
 /// The table's column picker.
 pub const COLUMNS_3: IconData = iconify_icon!("lucide:columns-3");
 
+// Rich text toolbar tools.
+/// Rich text: bold.
+pub const BOLD: IconData = iconify_icon!("lucide:bold");
+/// Rich text: italic.
+pub const ITALIC: IconData = iconify_icon!("lucide:italic");
+/// Rich text: underline.
+pub const UNDERLINE: IconData = iconify_icon!("lucide:underline");
+/// Rich text: strikethrough.
+pub const STRIKETHROUGH: IconData = iconify_icon!("lucide:strikethrough");
+/// Rich text: inline code.
+pub const CODE: IconData = iconify_icon!("lucide:code");
+/// Rich text: a level-1 heading.
+pub const HEADING_1: IconData = iconify_icon!("lucide:heading-1");
+/// Rich text: a level-2 heading.
+pub const HEADING_2: IconData = iconify_icon!("lucide:heading-2");
+/// Rich text: a level-3 heading.
+pub const HEADING_3: IconData = iconify_icon!("lucide:heading-3");
+/// Rich text: a bulleted list.
+pub const LIST: IconData = iconify_icon!("lucide:list");
+/// Rich text: a numbered list.
+pub const LIST_ORDERED: IconData = iconify_icon!("lucide:list-ordered");
+/// Rich text: a quotation.
+pub const TEXT_QUOTE: IconData = iconify_icon!("lucide:text-quote");
+/// Rich text: a code block.
+pub const SQUARE_CODE: IconData = iconify_icon!("lucide:square-code");
+/// Rich text: a horizontal rule.
+pub const MINUS: IconData = iconify_icon!("lucide:minus");
+/// Rich text: undo.
+pub const UNDO_2: IconData = iconify_icon!("lucide:undo-2");
+/// Rich text: redo.
+pub const REDO_2: IconData = iconify_icon!("lucide:redo-2");
+
 // Navigation icons for `NavigationItem::icon`.
 /// Navigation: a dashboard or home page.
 pub const LAYOUT_DASHBOARD: IconData = iconify_icon!("lucide:layout-dashboard");

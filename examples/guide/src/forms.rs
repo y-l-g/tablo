@@ -50,6 +50,24 @@ pub fn checked_account_form() -> Schema<UserForm> {
 }
 // ANCHOR_END: forms-rules
 
+// ANCHOR: forms-rich-text
+pub fn post_content_form() -> Schema<crate::resources::PostForm> {
+    let c = crate::resources::PostForm::controls();
+    Schema::new((
+        c.title,
+        c.body
+            .rich_text()
+            .toolbar(&[
+                &[Tool::Bold, Tool::Italic, Tool::Link],
+                &[Tool::Heading2, Tool::BulletList, Tool::OrderedList],
+            ])
+            .placeholder("The full story…")
+            .max_length(20_000),
+        c.status,
+    ))
+}
+// ANCHOR_END: forms-rich-text
+
 // ANCHOR: forms-conditions
 #[derive(tablo::RecordForm)]
 #[form(model = User)]

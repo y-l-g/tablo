@@ -8,8 +8,9 @@ use std::{
 mod asset_hooks;
 pub mod gates;
 pub mod sizes;
+pub mod tiptap;
 
-pub use asset_hooks::{ASSET_FILES, ASSET_HOOKS, AssetHook};
+pub use asset_hooks::{ASSET_FILES, ASSET_HOOKS, AssetHook, assets_dir};
 use topcoat_ui::{Component, Dependency, Registry};
 
 /// The registry components Tablo vendors into `primitives/`; add a name here and run `cargo xtask
@@ -480,15 +481,6 @@ pub fn verify_vendored_closure() -> anyhow::Result<()> {
         components.len()
     );
     Ok(())
-}
-
-/// The directory holding the hand-written shell JS assets.
-pub fn assets_dir() -> PathBuf {
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    manifest_dir
-        .parent()
-        .unwrap_or(Path::new("."))
-        .join("crates/tablo-ui/assets")
 }
 
 /// Counts `needle` only when neither neighbor continues the name.

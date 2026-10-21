@@ -974,6 +974,8 @@ impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::ImageColumn<M, T> w
 pub fn tablo_core::ImageColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::RepeaterColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::RepeaterColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
+impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::RichTextColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+pub fn tablo_core::RichTextColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::TextColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::TextColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M> tablo_core::detail::IntoDetail<M> for ()
@@ -1187,6 +1189,21 @@ pub fn tablo_core::RepeaterColumn<M, T>::reads(&self) -> core::option::Option<ta
 pub fn tablo_core::RepeaterColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
 pub fn tablo_core::RepeaterColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
 pub fn tablo_core::RepeaterColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
+impl<M, T> tablo_core::extend::Column<M> for tablo_core::RichTextColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormScalar + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::RichTextColumn<M, T>::alignment(&self) -> tablo_core::Alignment
+pub fn tablo_core::RichTextColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
+pub fn tablo_core::RichTextColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
+pub fn tablo_core::RichTextColumn<M, T>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
+pub fn tablo_core::RichTextColumn<M, T>::includes(&self) -> tablo_core::extend::Includes<M>
+pub fn tablo_core::RichTextColumn<M, T>::is_searchable(&self) -> bool
+pub fn tablo_core::RichTextColumn<M, T>::is_sortable(&self) -> bool
+pub fn tablo_core::RichTextColumn<M, T>::label(&self) -> &str
+pub fn tablo_core::RichTextColumn<M, T>::name(&self) -> &str
+pub fn tablo_core::RichTextColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::RichTextColumn<M, T>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
+pub fn tablo_core::RichTextColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
+pub fn tablo_core::RichTextColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::RichTextColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
 impl<M, T> tablo_core::extend::Column<M> for tablo_core::TextColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::TextColumn<M, T>::alignment(&self) -> tablo_core::Alignment
 pub fn tablo_core::TextColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
@@ -2747,6 +2764,46 @@ pub fn tablo_core::resource::scoped_query<R: tablo_core::resource::Resource>(&to
 pub fn tablo_core::resource::scoped_query_in<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx, tablo_core::Trashed) -> topcoat::Result<toasty::stmt::query::Query<toasty::stmt::list::List<<R as tablo_core::resource::Resource>::Model>>>
 pub async fn tablo_core::resource::write_create<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx, <R as tablo_core::resource::Resource>::Form, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<<R as tablo_core::resource::Resource>::Model>
 pub async fn tablo_core::resource::write_update<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx, <R as tablo_core::resource::Resource>::Model, tablo_core::form::Posted<<R as tablo_core::resource::Resource>::Form>, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<<R as tablo_core::resource::Resource>::Model>
+pub mod tablo_core::rich_text
+#[non_exhaustive] pub enum tablo_core::rich_text::Tool
+pub tablo_core::rich_text::Tool::Blockquote
+pub tablo_core::rich_text::Tool::Bold
+pub tablo_core::rich_text::Tool::BulletList
+pub tablo_core::rich_text::Tool::Code
+pub tablo_core::rich_text::Tool::CodeBlock
+pub tablo_core::rich_text::Tool::Heading1
+pub tablo_core::rich_text::Tool::Heading2
+pub tablo_core::rich_text::Tool::Heading3
+pub tablo_core::rich_text::Tool::HorizontalRule
+pub tablo_core::rich_text::Tool::Italic
+pub tablo_core::rich_text::Tool::Link
+pub tablo_core::rich_text::Tool::OrderedList
+pub tablo_core::rich_text::Tool::Redo
+pub tablo_core::rich_text::Tool::Strike
+pub tablo_core::rich_text::Tool::Underline
+pub tablo_core::rich_text::Tool::Undo
+impl tablo_core::rich_text::Tool
+pub const tablo_core::rich_text::Tool::DEFAULT: &[&[tablo_core::rich_text::Tool]]
+impl core::clone::Clone for tablo_core::rich_text::Tool
+pub fn tablo_core::rich_text::Tool::clone(&self) -> tablo_core::rich_text::Tool
+impl core::cmp::Eq for tablo_core::rich_text::Tool
+impl core::cmp::PartialEq for tablo_core::rich_text::Tool
+pub fn tablo_core::rich_text::Tool::eq(&self, &tablo_core::rich_text::Tool) -> bool
+impl core::fmt::Debug for tablo_core::rich_text::Tool
+pub fn tablo_core::rich_text::Tool::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for tablo_core::rich_text::Tool
+pub fn tablo_core::rich_text::Tool::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for tablo_core::rich_text::Tool
+impl core::marker::StructuralPartialEq for tablo_core::rich_text::Tool
+impl core::marker::Freeze for tablo_core::rich_text::Tool
+impl core::marker::Send for tablo_core::rich_text::Tool
+impl core::marker::Sync for tablo_core::rich_text::Tool
+impl core::marker::Unpin for tablo_core::rich_text::Tool
+impl core::marker::UnsafeUnpin for tablo_core::rich_text::Tool
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::rich_text::Tool
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::rich_text::Tool
+pub fn tablo_core::rich_text::clean(&str) -> alloc::string::String
+pub fn tablo_core::rich_text::text(&str) -> alloc::string::String
 pub mod tablo_core::schema
 pub struct tablo_core::schema::ChoiceField<F>(_, _)
 impl<F> tablo_core::ChoiceField<F>
@@ -2817,6 +2874,9 @@ pub fn tablo_core::Field::text<M, T>(impl core::convert::Into<toasty::stmt::path
 pub fn tablo_core::Field::text_input<T: tablo_core::FormScalar>(impl core::convert::Into<alloc::string::String>) -> tablo_core::TextField
 pub fn tablo_core::Field::toggle<M>(impl core::convert::Into<toasty::stmt::path::Path<M, bool>>) -> tablo_core::CustomField where M: toasty::schema::model::Model
 pub fn tablo_core::Field::toggle_input(impl core::convert::Into<alloc::string::String>) -> tablo_core::CustomField
+impl tablo_core::Field
+pub fn tablo_core::Field::rich_text<M>(impl core::convert::Into<toasty::stmt::path::Path<M, alloc::string::String>>) -> tablo_core::RichTextField where M: toasty::schema::model::Model
+pub fn tablo_core::Field::rich_text_input(impl core::convert::Into<alloc::string::String>) -> tablo_core::RichTextField
 impl core::fmt::Debug for tablo_core::Field
 pub fn tablo_core::Field::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl tablo_core::IntoSchema for tablo_core::Field
@@ -2829,6 +2889,8 @@ impl<F> core::convert::From<tablo_core::FileField<F>> for tablo_core::Field
 pub fn tablo_core::Field::from(tablo_core::FileField<F>) -> tablo_core::Field
 impl<F> core::convert::From<tablo_core::RepeaterField<F>> for tablo_core::Field
 pub fn tablo_core::Field::from(tablo_core::RepeaterField<F>) -> tablo_core::Field
+impl<F> core::convert::From<tablo_core::RichTextField<F>> for tablo_core::Field
+pub fn tablo_core::Field::from(tablo_core::RichTextField<F>) -> tablo_core::Field
 impl<F> core::convert::From<tablo_core::TextField<F>> for tablo_core::Field
 pub fn tablo_core::Field::from(tablo_core::TextField<F>) -> tablo_core::Field
 impl core::marker::Freeze for tablo_core::Field
@@ -2931,6 +2993,34 @@ impl<F> core::marker::Unpin for tablo_core::RepeaterField<F> where core::marker:
 impl<F> core::marker::UnsafeUnpin for tablo_core::RepeaterField<F> where core::marker::PhantomData<fn() -> F>: core::marker::UnsafeUnpin
 impl<F> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::RepeaterField<F>
 impl<F> !core::panic::unwind_safe::UnwindSafe for tablo_core::RepeaterField<F>
+pub struct tablo_core::schema::RichTextField<F>(_, _)
+impl<F> tablo_core::RichTextField<F>
+pub fn tablo_core::RichTextField<F>::custom(self, impl tablo_core::extend::Control + 'static) -> tablo_core::CustomField<F>
+pub fn tablo_core::RichTextField<F>::disabled(self) -> Self
+pub fn tablo_core::RichTextField<F>::disabled_on_edit(self) -> Self
+pub fn tablo_core::RichTextField<F>::help(self, impl core::convert::Into<alloc::string::String>) -> Self
+impl<F> tablo_core::RichTextField<F>
+pub fn tablo_core::RichTextField<F>::default(self, impl tablo_core::IntoFormValue) -> Self
+impl<F> tablo_core::RichTextField<F>
+pub fn tablo_core::RichTextField<F>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::RichTextField<F>::name(&self) -> &str
+pub fn tablo_core::RichTextField<F>::visible_when(self, &impl tablo_core::Watched<F>, impl core::iter::traits::collect::IntoIterator<Item = impl core::convert::Into<alloc::string::String>>) -> Self
+impl<F> tablo_core::RichTextField<F>
+pub fn tablo_core::RichTextField<F>::max_length(self, usize) -> Self
+pub fn tablo_core::RichTextField<F>::min_length(self, usize) -> Self
+pub fn tablo_core::RichTextField<F>::placeholder(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::RichTextField<F>::toolbar(self, &[&[tablo_core::rich_text::Tool]]) -> Self
+impl<F> core::convert::From<tablo_core::RichTextField<F>> for tablo_core::Field
+pub fn tablo_core::Field::from(tablo_core::RichTextField<F>) -> tablo_core::Field
+impl<F> tablo_core::IntoSchema<F> for tablo_core::RichTextField<F>
+pub fn tablo_core::RichTextField<F>::into_schema(self) -> tablo_core::schema::Schema<F>
+impl<F> core::marker::Freeze for tablo_core::RichTextField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Freeze
+impl<F> core::marker::Send for tablo_core::RichTextField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Send
+impl<F> core::marker::Sync for tablo_core::RichTextField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Sync
+impl<F> core::marker::Unpin for tablo_core::RichTextField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Unpin
+impl<F> core::marker::UnsafeUnpin for tablo_core::RichTextField<F> where core::marker::PhantomData<fn() -> F>: core::marker::UnsafeUnpin
+impl<F> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::RichTextField<F>
+impl<F> !core::panic::unwind_safe::UnwindSafe for tablo_core::RichTextField<F>
 pub struct tablo_core::schema::Schema<F>
 impl tablo_core::schema::Schema
 pub fn tablo_core::schema::Schema::empty() -> Self
@@ -3013,6 +3103,7 @@ pub fn tablo_core::TextField<F>::multiline(self, u32) -> Self
 pub fn tablo_core::TextField<F>::password(self) -> Self
 pub fn tablo_core::TextField<F>::pattern(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::TextField<F>::placeholder(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::TextField<F>::rich_text(self) -> tablo_core::RichTextField<F>
 pub fn tablo_core::TextField<F>::unique(self) -> Self
 impl<F> tablo_core::TextField<F>
 pub fn tablo_core::TextField<F>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
@@ -3096,6 +3187,8 @@ impl<F> tablo_core::IntoSchema<F> for tablo_core::Group<tablo_core::schema::Sche
 pub fn tablo_core::Group<tablo_core::schema::Schema<F>>::into_schema(self) -> tablo_core::schema::Schema<F>
 impl<F> tablo_core::IntoSchema<F> for tablo_core::RepeaterField<F>
 pub fn tablo_core::RepeaterField<F>::into_schema(self) -> tablo_core::schema::Schema<F>
+impl<F> tablo_core::IntoSchema<F> for tablo_core::RichTextField<F>
+pub fn tablo_core::RichTextField<F>::into_schema(self) -> tablo_core::schema::Schema<F>
 impl<F> tablo_core::IntoSchema<F> for tablo_core::Section<()>
 pub fn tablo_core::Section<()>::into_schema(self) -> tablo_core::schema::Schema<F>
 impl<F> tablo_core::IntoSchema<F> for tablo_core::Section<tablo_core::schema::Schema<F>>
@@ -3836,6 +3929,43 @@ impl<M, T> core::marker::Unpin for tablo_core::RepeaterColumn<M, T> where tablo_
 impl<M, T> core::marker::UnsafeUnpin for tablo_core::RepeaterColumn<M, T> where tablo_core::Lens<M, alloc::vec::Vec<T>, toasty::stmt::list::List<T>>: core::marker::UnsafeUnpin
 impl<M, T> core::panic::unwind_safe::RefUnwindSafe for tablo_core::RepeaterColumn<M, T> where tablo_core::Lens<M, alloc::vec::Vec<T>, toasty::stmt::list::List<T>>: core::panic::unwind_safe::RefUnwindSafe
 impl<M, T> core::panic::unwind_safe::UnwindSafe for tablo_core::RepeaterColumn<M, T> where tablo_core::Lens<M, alloc::vec::Vec<T>, toasty::stmt::list::List<T>>: core::panic::unwind_safe::UnwindSafe
+pub struct tablo_core::table::RichTextColumn<M, T>
+impl<M, T> tablo_core::RichTextColumn<M, T> where M: toasty::schema::model::Model
+pub fn tablo_core::RichTextColumn<M, T>::excerpt(self, usize) -> Self
+pub fn tablo_core::RichTextColumn<M, T>::hidden_by_default(self) -> Self
+pub fn tablo_core::RichTextColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::RichTextColumn<M, T>::new(tablo_core::Lens<M, T>) -> Self where T: toasty::schema::field::Field<Inner = alloc::string::String>
+pub fn tablo_core::RichTextColumn<M, T>::toggleable(self) -> Self
+pub fn tablo_core::RichTextColumn<M, T>::width(self, tablo_core::ColumnWidth) -> Self
+impl<M, T> core::clone::Clone for tablo_core::RichTextColumn<M, T>
+pub fn tablo_core::RichTextColumn<M, T>::clone(&self) -> Self
+impl<M, T> core::fmt::Debug for tablo_core::RichTextColumn<M, T>
+pub fn tablo_core::RichTextColumn<M, T>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<M, T> tablo_core::IntoColumns<M> for tablo_core::RichTextColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::RichTextColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+pub fn tablo_core::RichTextColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
+impl<M, T> tablo_core::extend::Column<M> for tablo_core::RichTextColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormScalar + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::RichTextColumn<M, T>::alignment(&self) -> tablo_core::Alignment
+pub fn tablo_core::RichTextColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
+pub fn tablo_core::RichTextColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
+pub fn tablo_core::RichTextColumn<M, T>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
+pub fn tablo_core::RichTextColumn<M, T>::includes(&self) -> tablo_core::extend::Includes<M>
+pub fn tablo_core::RichTextColumn<M, T>::is_searchable(&self) -> bool
+pub fn tablo_core::RichTextColumn<M, T>::is_sortable(&self) -> bool
+pub fn tablo_core::RichTextColumn<M, T>::label(&self) -> &str
+pub fn tablo_core::RichTextColumn<M, T>::name(&self) -> &str
+pub fn tablo_core::RichTextColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::RichTextColumn<M, T>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
+pub fn tablo_core::RichTextColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
+pub fn tablo_core::RichTextColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::RichTextColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
+impl<M, T> core::marker::Freeze for tablo_core::RichTextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Freeze
+impl<M, T> core::marker::Send for tablo_core::RichTextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send
+impl<M, T> core::marker::Sync for tablo_core::RichTextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync
+impl<M, T> core::marker::Unpin for tablo_core::RichTextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Unpin
+impl<M, T> core::marker::UnsafeUnpin for tablo_core::RichTextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::UnsafeUnpin
+impl<M, T> core::panic::unwind_safe::RefUnwindSafe for tablo_core::RichTextColumn<M, T> where tablo_core::Lens<M, T>: core::panic::unwind_safe::RefUnwindSafe
+impl<M, T> core::panic::unwind_safe::UnwindSafe for tablo_core::RichTextColumn<M, T> where tablo_core::Lens<M, T>: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::table::SelectFilter<M>
 impl<M> tablo_core::SelectFilter<M> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::SelectFilter<M>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
@@ -4079,6 +4209,7 @@ impl<M, T> tablo_core::IntoColumns<M> for tablo_core::DateColumn<M, T> where Sel
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::EmbeddedColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::ImageColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::RepeaterColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+impl<M, T> tablo_core::IntoColumns<M> for tablo_core::RichTextColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::TextColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M> tablo_core::IntoColumns<M> for &[alloc::sync::Arc<dyn tablo_core::extend::Column<M>>]
 impl<M> tablo_core::IntoColumns<M> for ()
@@ -5146,6 +5277,43 @@ impl core::marker::Unpin for tablo_core::TenantRegistrationFault
 impl core::marker::UnsafeUnpin for tablo_core::TenantRegistrationFault
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::TenantRegistrationFault
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::TenantRegistrationFault
+#[non_exhaustive] pub enum tablo_core::Tool
+pub tablo_core::Tool::Blockquote
+pub tablo_core::Tool::Bold
+pub tablo_core::Tool::BulletList
+pub tablo_core::Tool::Code
+pub tablo_core::Tool::CodeBlock
+pub tablo_core::Tool::Heading1
+pub tablo_core::Tool::Heading2
+pub tablo_core::Tool::Heading3
+pub tablo_core::Tool::HorizontalRule
+pub tablo_core::Tool::Italic
+pub tablo_core::Tool::Link
+pub tablo_core::Tool::OrderedList
+pub tablo_core::Tool::Redo
+pub tablo_core::Tool::Strike
+pub tablo_core::Tool::Underline
+pub tablo_core::Tool::Undo
+impl tablo_core::rich_text::Tool
+pub const tablo_core::rich_text::Tool::DEFAULT: &[&[tablo_core::rich_text::Tool]]
+impl core::clone::Clone for tablo_core::rich_text::Tool
+pub fn tablo_core::rich_text::Tool::clone(&self) -> tablo_core::rich_text::Tool
+impl core::cmp::Eq for tablo_core::rich_text::Tool
+impl core::cmp::PartialEq for tablo_core::rich_text::Tool
+pub fn tablo_core::rich_text::Tool::eq(&self, &tablo_core::rich_text::Tool) -> bool
+impl core::fmt::Debug for tablo_core::rich_text::Tool
+pub fn tablo_core::rich_text::Tool::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for tablo_core::rich_text::Tool
+pub fn tablo_core::rich_text::Tool::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for tablo_core::rich_text::Tool
+impl core::marker::StructuralPartialEq for tablo_core::rich_text::Tool
+impl core::marker::Freeze for tablo_core::rich_text::Tool
+impl core::marker::Send for tablo_core::rich_text::Tool
+impl core::marker::Sync for tablo_core::rich_text::Tool
+impl core::marker::Unpin for tablo_core::rich_text::Tool
+impl core::marker::UnsafeUnpin for tablo_core::rich_text::Tool
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::rich_text::Tool
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::rich_text::Tool
 pub enum tablo_core::Trashed
 pub tablo_core::Trashed::Only
 pub tablo_core::Trashed::With
@@ -5728,6 +5896,9 @@ pub fn tablo_core::Field::text<M, T>(impl core::convert::Into<toasty::stmt::path
 pub fn tablo_core::Field::text_input<T: tablo_core::FormScalar>(impl core::convert::Into<alloc::string::String>) -> tablo_core::TextField
 pub fn tablo_core::Field::toggle<M>(impl core::convert::Into<toasty::stmt::path::Path<M, bool>>) -> tablo_core::CustomField where M: toasty::schema::model::Model
 pub fn tablo_core::Field::toggle_input(impl core::convert::Into<alloc::string::String>) -> tablo_core::CustomField
+impl tablo_core::Field
+pub fn tablo_core::Field::rich_text<M>(impl core::convert::Into<toasty::stmt::path::Path<M, alloc::string::String>>) -> tablo_core::RichTextField where M: toasty::schema::model::Model
+pub fn tablo_core::Field::rich_text_input(impl core::convert::Into<alloc::string::String>) -> tablo_core::RichTextField
 impl core::fmt::Debug for tablo_core::Field
 pub fn tablo_core::Field::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl tablo_core::IntoSchema for tablo_core::Field
@@ -5740,6 +5911,8 @@ impl<F> core::convert::From<tablo_core::FileField<F>> for tablo_core::Field
 pub fn tablo_core::Field::from(tablo_core::FileField<F>) -> tablo_core::Field
 impl<F> core::convert::From<tablo_core::RepeaterField<F>> for tablo_core::Field
 pub fn tablo_core::Field::from(tablo_core::RepeaterField<F>) -> tablo_core::Field
+impl<F> core::convert::From<tablo_core::RichTextField<F>> for tablo_core::Field
+pub fn tablo_core::Field::from(tablo_core::RichTextField<F>) -> tablo_core::Field
 impl<F> core::convert::From<tablo_core::TextField<F>> for tablo_core::Field
 pub fn tablo_core::Field::from(tablo_core::TextField<F>) -> tablo_core::Field
 impl core::marker::Freeze for tablo_core::Field
@@ -6737,6 +6910,71 @@ impl<R> core::marker::Unpin for tablo_core::ResourceDef<R> where alloc::sync::Ar
 impl<R> core::marker::UnsafeUnpin for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::UnsafeUnpin, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::UnsafeUnpin, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::UnsafeUnpin, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin, Actions<R>: core::marker::UnsafeUnpin, core::option::Option<SoftDelete<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin
 impl<R> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::ResourceDef<R>
 impl<R> !core::panic::unwind_safe::UnwindSafe for tablo_core::ResourceDef<R>
+pub struct tablo_core::RichTextColumn<M, T>
+impl<M, T> tablo_core::RichTextColumn<M, T> where M: toasty::schema::model::Model
+pub fn tablo_core::RichTextColumn<M, T>::excerpt(self, usize) -> Self
+pub fn tablo_core::RichTextColumn<M, T>::hidden_by_default(self) -> Self
+pub fn tablo_core::RichTextColumn<M, T>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::RichTextColumn<M, T>::new(tablo_core::Lens<M, T>) -> Self where T: toasty::schema::field::Field<Inner = alloc::string::String>
+pub fn tablo_core::RichTextColumn<M, T>::toggleable(self) -> Self
+pub fn tablo_core::RichTextColumn<M, T>::width(self, tablo_core::ColumnWidth) -> Self
+impl<M, T> core::clone::Clone for tablo_core::RichTextColumn<M, T>
+pub fn tablo_core::RichTextColumn<M, T>::clone(&self) -> Self
+impl<M, T> core::fmt::Debug for tablo_core::RichTextColumn<M, T>
+pub fn tablo_core::RichTextColumn<M, T>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<M, T> tablo_core::IntoColumns<M> for tablo_core::RichTextColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::RichTextColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+pub fn tablo_core::RichTextColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
+impl<M, T> tablo_core::extend::Column<M> for tablo_core::RichTextColumn<M, T> where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormScalar + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::RichTextColumn<M, T>::alignment(&self) -> tablo_core::Alignment
+pub fn tablo_core::RichTextColumn<M, T>::cell<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
+pub fn tablo_core::RichTextColumn<M, T>::column_width(&self) -> tablo_core::ColumnWidth
+pub fn tablo_core::RichTextColumn<M, T>::entry<'a>(&self, &'a topcoat_core::context::Cx, &M) -> topcoat_view::view::BoxView<'a>
+pub fn tablo_core::RichTextColumn<M, T>::includes(&self) -> tablo_core::extend::Includes<M>
+pub fn tablo_core::RichTextColumn<M, T>::is_searchable(&self) -> bool
+pub fn tablo_core::RichTextColumn<M, T>::is_sortable(&self) -> bool
+pub fn tablo_core::RichTextColumn<M, T>::label(&self) -> &str
+pub fn tablo_core::RichTextColumn<M, T>::name(&self) -> &str
+pub fn tablo_core::RichTextColumn<M, T>::order_by(&self, bool) -> core::option::Option<toasty_core::stmt::order_by_expr::OrderByExpr>
+pub fn tablo_core::RichTextColumn<M, T>::reads(&self) -> core::option::Option<tablo_core::Reads<M>>
+pub fn tablo_core::RichTextColumn<M, T>::search_expr(&self, &str) -> core::option::Option<toasty::stmt::expr::Expr<bool>>
+pub fn tablo_core::RichTextColumn<M, T>::text(&self, &topcoat_core::context::Cx, &M) -> alloc::string::String
+pub fn tablo_core::RichTextColumn<M, T>::toggle(&self) -> tablo_core::ColumnToggle
+impl<M, T> core::marker::Freeze for tablo_core::RichTextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Freeze
+impl<M, T> core::marker::Send for tablo_core::RichTextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Send
+impl<M, T> core::marker::Sync for tablo_core::RichTextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Sync
+impl<M, T> core::marker::Unpin for tablo_core::RichTextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::Unpin
+impl<M, T> core::marker::UnsafeUnpin for tablo_core::RichTextColumn<M, T> where tablo_core::Lens<M, T>: core::marker::UnsafeUnpin
+impl<M, T> core::panic::unwind_safe::RefUnwindSafe for tablo_core::RichTextColumn<M, T> where tablo_core::Lens<M, T>: core::panic::unwind_safe::RefUnwindSafe
+impl<M, T> core::panic::unwind_safe::UnwindSafe for tablo_core::RichTextColumn<M, T> where tablo_core::Lens<M, T>: core::panic::unwind_safe::UnwindSafe
+pub struct tablo_core::RichTextField<F>(_, _)
+impl<F> tablo_core::RichTextField<F>
+pub fn tablo_core::RichTextField<F>::custom(self, impl tablo_core::extend::Control + 'static) -> tablo_core::CustomField<F>
+pub fn tablo_core::RichTextField<F>::disabled(self) -> Self
+pub fn tablo_core::RichTextField<F>::disabled_on_edit(self) -> Self
+pub fn tablo_core::RichTextField<F>::help(self, impl core::convert::Into<alloc::string::String>) -> Self
+impl<F> tablo_core::RichTextField<F>
+pub fn tablo_core::RichTextField<F>::default(self, impl tablo_core::IntoFormValue) -> Self
+impl<F> tablo_core::RichTextField<F>
+pub fn tablo_core::RichTextField<F>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::RichTextField<F>::name(&self) -> &str
+pub fn tablo_core::RichTextField<F>::visible_when(self, &impl tablo_core::Watched<F>, impl core::iter::traits::collect::IntoIterator<Item = impl core::convert::Into<alloc::string::String>>) -> Self
+impl<F> tablo_core::RichTextField<F>
+pub fn tablo_core::RichTextField<F>::max_length(self, usize) -> Self
+pub fn tablo_core::RichTextField<F>::min_length(self, usize) -> Self
+pub fn tablo_core::RichTextField<F>::placeholder(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::RichTextField<F>::toolbar(self, &[&[tablo_core::rich_text::Tool]]) -> Self
+impl<F> core::convert::From<tablo_core::RichTextField<F>> for tablo_core::Field
+pub fn tablo_core::Field::from(tablo_core::RichTextField<F>) -> tablo_core::Field
+impl<F> tablo_core::IntoSchema<F> for tablo_core::RichTextField<F>
+pub fn tablo_core::RichTextField<F>::into_schema(self) -> tablo_core::schema::Schema<F>
+impl<F> core::marker::Freeze for tablo_core::RichTextField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Freeze
+impl<F> core::marker::Send for tablo_core::RichTextField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Send
+impl<F> core::marker::Sync for tablo_core::RichTextField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Sync
+impl<F> core::marker::Unpin for tablo_core::RichTextField<F> where core::marker::PhantomData<fn() -> F>: core::marker::Unpin
+impl<F> core::marker::UnsafeUnpin for tablo_core::RichTextField<F> where core::marker::PhantomData<fn() -> F>: core::marker::UnsafeUnpin
+impl<F> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::RichTextField<F>
+impl<F> !core::panic::unwind_safe::UnwindSafe for tablo_core::RichTextField<F>
 pub struct tablo_core::Schema<F>
 impl tablo_core::schema::Schema
 pub fn tablo_core::schema::Schema::empty() -> Self
@@ -7161,6 +7399,7 @@ pub fn tablo_core::TextField<F>::multiline(self, u32) -> Self
 pub fn tablo_core::TextField<F>::password(self) -> Self
 pub fn tablo_core::TextField<F>::pattern(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::TextField<F>::placeholder(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::TextField<F>::rich_text(self) -> tablo_core::RichTextField<F>
 pub fn tablo_core::TextField<F>::unique(self) -> Self
 impl<F> tablo_core::TextField<F>
 pub fn tablo_core::TextField<F>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
@@ -7364,6 +7603,7 @@ impl<M, T> tablo_core::IntoColumns<M> for tablo_core::DateColumn<M, T> where Sel
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::EmbeddedColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::ImageColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::RepeaterColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+impl<M, T> tablo_core::IntoColumns<M> for tablo_core::RichTextColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M, T> tablo_core::IntoColumns<M> for tablo_core::TextColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 impl<M> tablo_core::IntoColumns<M> for &[alloc::sync::Arc<dyn tablo_core::extend::Column<M>>]
 impl<M> tablo_core::IntoColumns<M> for ()
@@ -7409,6 +7649,8 @@ impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::ImageColumn<M, T> w
 pub fn tablo_core::ImageColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::RepeaterColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::RepeaterColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
+impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::RichTextColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
+pub fn tablo_core::RichTextColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M, T> tablo_core::detail::IntoDetail<M> for tablo_core::TextColumn<M, T> where Self: tablo_core::extend::Column<M> + 'static
 pub fn tablo_core::TextColumn<M, T>::into_detail(self) -> tablo_core::detail::Detail<M>
 impl<M> tablo_core::detail::IntoDetail<M> for ()
@@ -7500,6 +7742,8 @@ impl<F> tablo_core::IntoSchema<F> for tablo_core::Group<tablo_core::schema::Sche
 pub fn tablo_core::Group<tablo_core::schema::Schema<F>>::into_schema(self) -> tablo_core::schema::Schema<F>
 impl<F> tablo_core::IntoSchema<F> for tablo_core::RepeaterField<F>
 pub fn tablo_core::RepeaterField<F>::into_schema(self) -> tablo_core::schema::Schema<F>
+impl<F> tablo_core::IntoSchema<F> for tablo_core::RichTextField<F>
+pub fn tablo_core::RichTextField<F>::into_schema(self) -> tablo_core::schema::Schema<F>
 impl<F> tablo_core::IntoSchema<F> for tablo_core::Section<()>
 pub fn tablo_core::Section<()>::into_schema(self) -> tablo_core::schema::Schema<F>
 impl<F> tablo_core::IntoSchema<F> for tablo_core::Section<tablo_core::schema::Schema<F>>
