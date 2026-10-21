@@ -533,3 +533,45 @@ async fn mounting_refuses_a_multiple_choice_over_a_column() {
         }]
     );
 }
+
+/// A shelf whose books only some users may see: the relation table and its links read none of the
+/// shelf's mask, so the mount refuses the rule.
+struct GuardedShelfResource;
+
+impl Resource for GuardedShelfResource {
+    type Model = Shelf;
+    type Form = tablo::NoForm<Shelf>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .policy(tablo::ReadOnly)
+            .field_access(
+                Shelf::fields().books(),
+                tablo::FieldAccess::new().view(|_| false),
+            )
+            .table(Table::new(TextColumn::new(lens!(Shelf.name))))
+            .relation(Relation::belongs_to_many::<BookResource>(
+                Shelf::fields().books(),
+            ))
+    }
+}
+
+#[tokio::test]
+async fn mounting_refuses_restricting_a_has_many() {
+    let db = test_db(toasty::models!(Shelf, Book, Placement)).await;
+    let kinds: Vec<DeclarationErrorKind> = refusal(mount(
+        db,
+        panel()
+            .resource::<GuardedShelfResource>()
+            .resource::<BookResource>(),
+    ))
+    .into_iter()
+    .map(|error| error.kind)
+    .collect();
+    assert_eq!(
+        kinds,
+        [DeclarationErrorKind::FieldAccess {
+            fault: tablo::FieldAccessFault::Inverse
+        }]
+    );
+}

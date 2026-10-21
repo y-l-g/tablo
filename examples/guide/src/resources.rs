@@ -59,6 +59,10 @@ impl Resource for UserResource {
                 c.age,
             ))))
             // ANCHOR_END: user-form
+            // ANCHOR: user-field-access
+            .field_access(lens!(User.age), FieldAccess::new().view(is_admin))
+            .field_access(lens!(User.role), FieldAccess::new().edit(is_admin))
+            // ANCHOR_END: user-field-access
             // ANCHOR: user-navigation
             .navigation_order(-1)
             .icon(tablo::ui::icons::USERS)

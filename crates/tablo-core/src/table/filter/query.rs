@@ -29,6 +29,8 @@ pub struct QueryFilter<M> {
     /// `(key, label, predicate)` triples.
     options: Vec<(String, String, Expr<bool>)>,
     multiple: bool,
+    /// The fields the predicates read, when declared.
+    reads: Option<crate::lens::Reads<M>>,
     _marker: std::marker::PhantomData<M>,
 }
 
@@ -44,6 +46,7 @@ where
             label: label.into(),
             options: Vec::new(),
             multiple: false,
+            reads: None,
             _marker: std::marker::PhantomData,
         }
     }
@@ -66,6 +69,14 @@ where
         self
     }
 
+    /// Declare the fields the predicates read, which a resource restricting a field with
+    /// [`field_access`](crate::ResourceDef::field_access) needs: the filter shows only to a user
+    /// who may view every one.
+    pub fn reading(mut self, reads: crate::lens::Reads<M>) -> Self {
+        self.reads = Some(reads);
+        self
+    }
+
     /// Choose several options: the control is a checklist, and the filter keeps the records any
     /// checked option's predicate selects.
     pub fn multiple(mut self) -> Self {
@@ -84,6 +95,10 @@ where
 
     fn label(&self) -> &str {
         &self.label
+    }
+
+    fn reads(&self) -> Option<crate::lens::Reads<M>> {
+        self.reads.clone()
     }
 
     /// Any of the values' predicates; `None` when one names no option, or when the value names a
@@ -129,5 +144,5 @@ filter_impls! {
         options: &this.options.iter().map(|(key, ..)| key).collect::<Vec<_>>(),
         multiple: &this.multiple,
     }
-    clone { name, label, options, multiple, _marker }
+    clone { name, label, options, multiple, reads, _marker }
 }

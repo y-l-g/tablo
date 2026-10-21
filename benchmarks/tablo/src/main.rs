@@ -93,9 +93,11 @@ impl Resource for PostResource {
             .table(
                 Table::new((
                     TextColumn::new(lens!(Post.title)).searchable().sortable(),
-                    RelationColumn::new::<AuthorResource>(relation!(Post.author), |a: &Author| {
-                        a.name.clone()
-                    }),
+                    RelationColumn::new::<AuthorResource>(
+                        relation!(Post.author),
+                        lens!(Author.name),
+                        |a: &Author| a.name.clone(),
+                    ),
                     // No resource administers comments.
                     CountColumn::unscoped(relation!(Post.comments)),
                 ))

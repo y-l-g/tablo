@@ -75,6 +75,16 @@ pub trait Filter<M>: Send + Sync {
         Box::pin(async { Ok(true) })
     }
 
+    /// The fields of the record [`to_expr`](Self::to_expr) filters by, or `None` when the filter
+    /// does not say.
+    ///
+    /// A panel drops a filter reading a field [`field_access`](crate::ResourceDef::field_access)
+    /// hides from the user, and refuses to mount a resource restricting a field whose filters
+    /// answer `None`. The built-in filters answer their own field.
+    fn reads(&self) -> Option<crate::lens::Reads<M>> {
+        None
+    }
+
     /// What is wrong with this filter's declaration.
     #[doc(hidden)]
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
@@ -85,6 +95,18 @@ pub trait Filter<M>: Send + Sync {
     /// refuses. A filter offering no options answers `None`.
     #[doc(hidden)]
     fn unavailable_source(&self, _cx: &Cx) -> Option<&'static str> {
+        None
+    }
+
+    /// The model's name when the filter's options show records under a label a panel cannot mask,
+    /// over a model a mounted resource restricts a field of, which a mount refuses. The panel
+    /// answers `is_mounted` for a source's type and `restricted` for a model.
+    #[doc(hidden)]
+    fn unmasked_model(
+        &self,
+        _is_mounted: &dyn Fn(std::any::TypeId) -> bool,
+        _restricted: &dyn Fn(crate::toasty_compat::model::ModelId) -> bool,
+    ) -> Option<&'static str> {
         None
     }
 }

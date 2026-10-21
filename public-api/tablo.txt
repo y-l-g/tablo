@@ -29,6 +29,7 @@ pub use tablo::prelude::EmbeddedColumn
 pub use tablo::prelude::EmbeddedForm
 pub use tablo::prelude::EmbeddedForm
 pub use tablo::prelude::Field
+pub use tablo::prelude::FieldAccess
 pub use tablo::prelude::FieldErrors
 pub use tablo::prelude::FileColumn
 pub use tablo::prelude::FileField
@@ -60,6 +61,7 @@ pub use tablo::prelude::Posted
 pub use tablo::prelude::PublicLink
 pub use tablo::prelude::QueryFilter
 pub use tablo::prelude::ReadOnly
+pub use tablo::prelude::Reads
 pub use tablo::prelude::RecordForm
 pub use tablo::prelude::RecordForm
 pub use tablo::prelude::Relation

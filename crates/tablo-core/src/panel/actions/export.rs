@@ -68,7 +68,7 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
             return Err(forbidden().into());
         }
         let state = TableState::from_cx(cx);
-        let table = resource.table.clone();
+        let table = resource.table_for(cx);
         // Fails closed on unapplied filters, a refused one included.
         let refused = table.refused_filters(cx, &state).await?;
         let unapplied = table.unapplied_filters(cx, &state, &refused);

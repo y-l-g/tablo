@@ -13,7 +13,7 @@ use toasty_core::stmt::Expr;
 use super::value_text;
 
 /// `M`'s primary-key fields, in declaration order.
-fn pk_fields<M>() -> Vec<FieldId>
+pub(crate) fn pk_fields<M>() -> Vec<FieldId>
 where
     M: toasty::schema::Model,
 {
@@ -21,6 +21,19 @@ where
         .as_root()
         .map(|root| root.primary_key.fields.clone())
         .unwrap_or_default()
+}
+
+/// The names of `M`'s primary-key fields, which a URL and a relation label spell.
+pub(crate) fn key_names<M>() -> Vec<String>
+where
+    M: toasty::schema::Model,
+{
+    let keys = pk_fields::<M>();
+    crate::toasty_compat::model::fields::<M>()
+        .into_iter()
+        .filter(|field| keys.iter().any(|key| key.index == field.index))
+        .map(|field| field.name)
+        .collect()
 }
 
 /// The primary-key values of `record`, one per key field, or none when the derived expression

@@ -9,6 +9,7 @@ pub(crate) mod fields;
 pub(crate) mod input;
 mod layouts;
 mod lenses;
+mod mask;
 mod options;
 mod read;
 pub(crate) mod relationship;
@@ -31,6 +32,7 @@ pub(crate) use input::FormInput;
 pub use layouts::{Grid, Group, Section};
 pub(crate) use lenses::Binding;
 pub use lenses::form_key;
+pub(crate) use mask::FormMask;
 pub use options::Options;
 pub use relationship::MAX_RELATIONSHIP_OPTIONS;
 pub(crate) use relationship::{
@@ -163,6 +165,16 @@ impl<F> Schema<F> {
             .collect()
     }
 
+    /// The `default` of each field `keys` names that declares one.
+    pub(crate) fn defaults_of<'k>(&self, keys: impl Iterator<Item = &'k str>) -> FormValues {
+        let keys: Vec<&str> = keys.collect();
+        self.fields
+            .iter()
+            .filter(|field| keys.contains(&field.name()))
+            .filter_map(|field| Some((field.name().to_string(), field.default_value()?.clone())))
+            .collect()
+    }
+
     /// Drops what a disabled control posted, which the browser never sends: on the edit form when
     /// `editing`, else on the create form, where the field takes its `default`. Run it before
     /// [`condition_hidden`](Self::condition_hidden), which drops a hidden field's default again.
@@ -260,6 +272,18 @@ impl<F> Schema<F> {
             }
         }
         errors
+    }
+
+    /// Each key a condition or a dependent choice watches, with the key of a field it drives:
+    /// `None` for a condition guarding no field, such as one over an empty section.
+    pub(crate) fn watchers(&self) -> Vec<(String, Option<String>)> {
+        let mut watchers = self.condition_watchers();
+        watchers.extend(self.fields.iter().filter_map(|field| {
+            field
+                .parent_key()
+                .map(|parent| (parent.to_string(), Some(field.name().to_string())))
+        }));
+        watchers
     }
 
     /// Reports what is wrong with this declaration: a field whose lens binds no single column, and

@@ -12,6 +12,7 @@ mod action;
 mod check;
 mod commit;
 mod def;
+mod field_access;
 mod header_action;
 mod mounted;
 mod relation;
@@ -26,9 +27,14 @@ pub(crate) use check::{ResourceCheck, check_inputs, check_resource};
 pub(crate) use commit::run_after_commit;
 pub use commit::{Committed, Mutation};
 pub use def::{PublicLink, ResourceDef};
+pub use field_access::FieldAccess;
+pub(crate) use field_access::{FieldMask, FieldRule};
 pub(crate) use header_action::HeaderEntry;
 pub use header_action::{HeaderAction, HeaderActions};
-pub(crate) use mounted::{MountScope, Mounted, Mounts, is_tenant_model, mounted, require_mounted};
+pub(crate) use mounted::{
+    MountScope, Mounted, Mounts, is_mounted, is_restricted_model, is_tenant_model, model_rules,
+    mounted, require_mounted, restricts_any,
+};
 pub use relation::{ForeignKey, Relation};
 pub(crate) use relation::{Links, RelationKind};
 pub use soft_delete::Trashed;
@@ -432,11 +438,11 @@ impl<R: Resource> crate::schema::OptionSource for R {
     }
 
     fn search_expr(cx: &Cx, term: &str) -> Option<toasty::stmt::Expr<bool>> {
-        mounted::<R>(cx)?.option_search_expr(term)
+        mounted::<R>(cx)?.option_search_expr(cx, term)
     }
 
     fn order_by(cx: &Cx) -> Option<toasty::stmt::OrderByExpr> {
-        mounted::<R>(cx)?.table.first_order_by()
+        mounted::<R>(cx)?.table_for(cx).first_order_by()
     }
 
     /// The record's title, as its detail page shows it.
@@ -450,6 +456,10 @@ impl<R: Resource> crate::schema::OptionSource for R {
 
     fn available(cx: &Cx) -> bool {
         mounted::<R>(cx).is_some()
+    }
+
+    fn hidden_fields(cx: &Cx) -> Vec<String> {
+        mounted::<R>(cx).map_or_else(Vec::new, |mounted| mounted.field_mask(cx).hidden().to_vec())
     }
 }
 

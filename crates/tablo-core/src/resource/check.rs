@@ -62,6 +62,10 @@ pub(crate) fn check_resource<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationE
                 .map(|kind| DeclarationError::of::<R>(site.clone(), kind)),
         );
     }
+    super::field_access::check(cx, &declared, errors);
+    super::field_access::check_columns(cx, &declared, errors);
+    super::field_access::check_filters::<R>(cx, &declared, errors);
+    super::field_access::check_choices::<R, _>(cx, &declared.form, Site::Form, errors);
     check_actions(cx, &declared, errors);
     check_form_declaration(cx, &declared, form_is_sound, errors);
 }
@@ -127,6 +131,12 @@ pub(crate) fn check_inputs<T: 'static>(
 ) {
     let mut seen = std::collections::HashSet::new();
     for (name, spec) in actions {
+        super::field_access::check_choices::<T, _>(
+            cx,
+            &(spec.schema)(),
+            Site::Registration,
+            errors,
+        );
         if !seen.insert(name) {
             errors.push(DeclarationError::of::<T>(
                 Site::Registration,

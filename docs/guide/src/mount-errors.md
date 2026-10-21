@@ -20,6 +20,7 @@ A test matches on the kind rather than the message; see
 | `Registration` | the resource or page itself: its registration, slug, actions or create columns |
 | `Tenancy` | `ResourceDef::tenancy` |
 | `SoftDelete` | `ResourceDef::soft_delete` |
+| `FieldAccess(field)` | the `ResourceDef::field_access` over that field |
 | `Table` | `ResourceDef::table` |
 | `Form` | `ResourceDef::form`, checked against the record form |
 | `Detail` | `ResourceDef::detail` |
@@ -228,6 +229,30 @@ An action's `NAME` that is not one URL segment does not compile, so it never rea
 | `ViaOwnColumn` | the `Tenancy::via` lens names one field of the model | use `Tenancy::column` |
 | `ViaWithoutBelongsTo` | the `Tenancy::via` lens does not start at a `belongs_to` | start at the relation whose parent holds the tenant |
 | `UnguardedForeignKey` | a `Tenancy::via` resource's form writes the parent's foreign key other than through a relationship choice over a tenant-scoped resource | write the key through such a choice, so the write re-checks its tenant |
+
+## Field access
+
+| Kind | Refused when | Fix |
+| --- | --- | --- |
+| `FieldAccess` | a field access cannot hide its field everywhere the panel shows it; the `FieldAccessFault` says why | see below |
+
+`FieldAccessFault`:
+
+| Fault | Refused when | Fix |
+| --- | --- | --- |
+| `Duplicate` | two `field_access` declarations name one field | declare it once, with both its `view` and its `edit` rule |
+| `Inverse` | the field is a `has_many` or a `has_one`, whose records the relation table shows and links | restrict them with the related resource's policy |
+| `SoftDelete` | the field is the soft-delete column, whose state the trash control and the Restore buttons show | restrict restores and force deletes with the policy's `Restore` and `ForceDelete` |
+| `RecordTitle` | the record title reads a field a mounted resource restricts with a `view` rule: every page and relationship choice names a record by its title | title the record by a field every user may view |
+| `RecordKey` | the field is a primary key, which every URL and relationship choice names a record by | restrict a field that is not the key |
+| `Watched` | a form condition or a dependent choice watches a field a mounted resource restricts with a `view` rule, so what the form shows tells what it holds | watch a field every user may view |
+| `UndeclaredReads` | a mounted resource restricts a field of the model, and one of the resource's table columns, filters or detail columns does not declare the fields it reads | `.reading(Reads::of(..))` on a `ComputedColumn`, a `QueryFilter` or a described `TextColumn`, or implement `reads` on a custom column or filter |
+| `UnmaskedRelation` | a column, a filter or a choice reads records of a model a mounted resource restricts a field of, under no mask the panel can apply: a `RelationColumn::unscoped`, a relation column or choice over a source the panel does not mount or with a custom label, a `ComputedColumn` or custom column on a page that loads such records, or a `QueryFilter` reaching such a model through a relation | show the records through a mounted resource: `RelationColumn::new::<R>` naming the fields it reads, `RelationColumn::of::<R>` for their title, or a relationship filter over the foreign key |
+| `NarrowedBy` | a dependent choice narrows its options by a field a mounted resource restricts, so the options show which records hold each value of it | narrow by a field every user may view |
+| `UnresolvedRelation` | a column or a filter reads a relation the mount cannot read off the model's schema, so it cannot tell whether the relation reaches a restricted record | declare the relation as a `Deferred` field of the model |
+
+A `field_access` lens that is not one field of the model is refused with a
+[lens kind](#lenses-and-bindings).
 
 ## Relations
 

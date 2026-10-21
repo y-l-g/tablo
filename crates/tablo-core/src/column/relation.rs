@@ -8,8 +8,8 @@ use derive_where::derive_where;
 use toasty::{Deferred, Executor};
 use topcoat::{Result, context::Cx};
 
-use super::{Column, ColumnToggle, ColumnWidth, Includes};
-use crate::{BoxFuture, DeclarationErrorKind, schema::OptionSource};
+use super::{Column, ColumnToggle, ColumnWidth, Includes, Related};
+use crate::{BoxFuture, DeclarationErrorKind, lens::Reads, schema::OptionSource};
 
 mod lens;
 mod restrict;
@@ -26,6 +26,9 @@ type Loaded<M, T> = Arc<dyn Fn(&Cx, &M) -> Option<T> + Send + Sync>;
 
 /// A label source's type name, and whether a context's panel can load from it.
 type LabelSource = (&'static str, fn(&Cx) -> bool);
+
+/// Whether a request may not view a field of the related records a column shows.
+type Masked = Arc<dyn Fn(&Cx) -> bool + Send + Sync>;
 
 /// The text a relation column shows for a row, which a source's label reads in the request's
 /// context, or `None` when the row's relation was not loaded.
@@ -89,9 +92,13 @@ impl<T: toasty::schema::Model> ToOneRelation<T> for Deferred<Option<T>> {
 /// #         author.name.clone()
 /// #     }
 /// # }
-/// use tablo_core::{RelationColumn, relation};
+/// use tablo_core::{RelationColumn, lens, relation};
 ///
-/// RelationColumn::new::<AuthorResource>(relation!(Post.author), |a: &Author| a.name.clone());
+/// RelationColumn::new::<AuthorResource>(
+///     relation!(Post.author),
+///     lens!(Author.name),
+///     |a: &Author| a.name.clone(),
+/// );
 /// ```
 ///
 /// The header and the column's name are the field's name, capitalized, until
@@ -104,6 +111,12 @@ impl<T: toasty::schema::Model> ToOneRelation<T> for Deferred<Option<T>> {
 /// [`Detail`](crate::Detail)'s loader, which checks them. The row keeps what the include loaded,
 /// so a policy reading the relation sees it whole. [`unscoped`](Self::unscoped) shows whatever
 /// the include loads.
+///
+/// A field [`field_access`](crate::ResourceDef::field_access) restricts shows to a user only
+/// where the user may view it, on every resource the panel mounts over its model: a request that
+/// may not view a field [`new`](Self::new) reads finds no such column. A record's
+/// [`label`](OptionSource::label) is its title, which the mount keeps clear of every restricted
+/// field, or its key, which no field access may hide.
 #[derive_where(Clone, Debug)]
 pub struct RelationColumn<M> {
     relation: Declared<M>,
@@ -116,17 +129,22 @@ where
     M: toasty::schema::Model + Send + Sync + 'static,
 {
     /// Declare a column rendering `project` of the record `relation` loads, when `S` shows it.
+    /// `reads` names the fields of the record `project` reads, a [`lens!`](crate::lens!) or a
+    /// [`Reads`]: a request `S` hides one of them from finds no such column.
     pub fn new<S>(
         relation: RelationLens<M, impl ToOneRelation<S::Model> + 'static>,
+        reads: impl Into<Reads<S::Model>>,
         project: impl Fn(&S::Model) -> String + Send + Sync + 'static,
     ) -> Self
     where
         S: OptionSource,
     {
         let read = relation.read;
+        let reads = reads.into();
         Self {
             relation: Declared::of(&relation, ColumnWidth::Grow)
-                .scoped::<S>(restrict_one::<M, S, _>(relation.read)),
+                .scoped::<S>(restrict_one::<M, S, _>(relation.read))
+                .masked(Arc::new(move |cx| reads.reads_any(&S::hidden_fields(cx)))),
             project: Arc::new(move |cx, row| {
                 read(row).loaded().map(|target| {
                     target
@@ -255,7 +273,8 @@ where
     }
 
     /// Declare a column rendering `project` of whatever record `relation` loads, under no
-    /// resource's query or policy: for a related model no resource administers.
+    /// resource's query, policy or field access: for a related model no resource administers. A
+    /// panel mounting a resource that restricts a field of the related model refuses it.
     pub fn unscoped<T>(
         relation: RelationLens<M, impl ToOneRelation<T> + 'static>,
         project: impl Fn(&T) -> String + Send + Sync + 'static,
@@ -338,19 +357,21 @@ where
     {
         Self {
             relation: Declared::of(&relation, ColumnWidth::Auto)
-                .scoped::<S>(restrict_many::<M, S>(relation.read)),
+                .scoped::<S>(restrict_many::<M, S>(relation.read))
+                .fieldless(),
             count: count(relation.read, shows::<S>),
         }
     }
 
     /// Declare a column counting every record `relation` loads, under no resource's query or
-    /// policy: for a related model no resource administers.
+    /// policy: for a related model no resource administers. A count shows no field of the
+    /// records.
     pub fn unscoped<T>(relation: RelationLens<M, Deferred<Vec<T>>>) -> Self
     where
         T: toasty::schema::Model + 'static,
     {
         Self {
-            relation: Declared::of(&relation, ColumnWidth::Auto),
+            relation: Declared::of(&relation, ColumnWidth::Auto).fieldless(),
             count: count(relation.read, |_, _| true),
         }
     }
@@ -384,6 +405,7 @@ struct Declared<M> {
     field_label: String,
     misdeclared: Option<DeclarationErrorKind>,
     includes: Includes<M>,
+    reads: crate::lens::Reads<M>,
     width: ColumnWidth,
     toggle: ColumnToggle,
     /// The source that decides which related records show, and whether a context's panel can
@@ -392,6 +414,12 @@ struct Declared<M> {
     /// Drops the related records the source does not show; `None` for an unscoped column.
     #[derive_where(skip(Debug))]
     restrict: Option<Restrict<M>>,
+    /// What the column shows of the related records, which a panel checks at mount.
+    related: Related,
+    /// Whether a request may not view a field the column shows; `None` for one showing only a
+    /// record's label or count.
+    #[derive_where(skip(Debug))]
+    masked: Option<Masked>,
 }
 
 impl<M> Declared<M> {
@@ -406,18 +434,39 @@ impl<M> Declared<M> {
             field_label,
             misdeclared,
             includes: relation.includes().clone(),
+            reads: relation.reads(),
             width,
             toggle: ColumnToggle::Fixed,
             source: None,
             restrict: None,
+            related: Related::Unmasked,
+            masked: None,
         }
     }
 
-    /// Show only the related records `S` shows, which `restrict` keeps.
+    /// Show only the related records `S` shows, which `restrict` keeps, by their label or count
+    /// until [`masked`](Self::masked) says what else shows.
     fn scoped<S: OptionSource>(self, restrict: Restrict<M>) -> Self {
         Self {
             source: Some((std::any::type_name::<S>(), S::available)),
             restrict: Some(restrict),
+            related: Related::Source(std::any::TypeId::of::<S>()),
+            ..self
+        }
+    }
+
+    /// Show the fields of the related records `masked` hides from a request it refuses.
+    fn masked(self, masked: Masked) -> Self {
+        Self {
+            masked: Some(masked),
+            ..self
+        }
+    }
+
+    /// Show no field of the related records.
+    fn fieldless(self) -> Self {
+        Self {
+            related: Related::None,
             ..self
         }
     }
@@ -496,6 +545,10 @@ macro_rules! relation_column {
                 self.relation.includes.clone()
             }
 
+            fn reads(&self) -> Option<crate::lens::Reads<M>> {
+                Some(self.relation.reads.clone())
+            }
+
             fn restrict<'a>(
                 &'a self,
                 cx: &'a Cx,
@@ -506,6 +559,17 @@ macro_rules! relation_column {
                     Some(restrict) => restrict(cx, rows, ex),
                     None => Box::pin(async { Ok(()) }),
                 }
+            }
+
+            fn masked(&self, cx: &Cx) -> bool {
+                self.relation
+                    .masked
+                    .as_ref()
+                    .is_some_and(|masked| masked(cx))
+            }
+
+            fn related(&self) -> Related {
+                self.relation.related
             }
 
             fn misdeclared(&self) -> Option<DeclarationErrorKind> {

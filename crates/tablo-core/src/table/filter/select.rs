@@ -234,11 +234,25 @@ where
         })
     }
 
+    fn unmasked_model(
+        &self,
+        is_mounted: &dyn Fn(std::any::TypeId) -> bool,
+        restricted: &dyn Fn(crate::toasty_compat::model::ModelId) -> bool,
+    ) -> Option<&'static str> {
+        self.related
+            .as_ref()
+            .and_then(|related| related.unmasked_model(is_mounted, restricted))
+    }
+
     /// The source's type when the request's panel cannot load from it.
     fn unavailable_source(&self, cx: &Cx) -> Option<&'static str> {
         self.related
             .as_ref()
             .and_then(|related| related.unavailable_source(cx))
+    }
+
+    fn reads(&self) -> Option<crate::lens::Reads<M>> {
+        Some(self.binding.reads())
     }
 
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {

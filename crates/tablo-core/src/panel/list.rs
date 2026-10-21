@@ -102,7 +102,7 @@ pub(crate) fn resource_columns<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> 
                 .filter(|(name, _)| name == COLUMN_FIELD)
                 .map(|(_, value)| value.as_str())
                 .collect();
-            ColumnChoice::checked(resource.table.declared_columns(), &checked)
+            ColumnChoice::checked(resource.table_for(cx).declared_columns(), &checked)
         };
         crate::auth::save_choice(cx, &resource.slug, &choice).await?;
         Err::<(), _>(see_other(landing_url(cx, &resource.url)).into())
@@ -123,7 +123,7 @@ pub(crate) fn wire_table<R: Resource>(
     resource: &Arc<Mounted<R>>,
     chrome: TableChrome,
 ) -> WiredTable<R::Model> {
-    let mut table = WiredTable::new(Arc::clone(&resource.table));
+    let mut table = WiredTable::new(resource.table_for(cx));
     let (policy_cx, policy) = (cx.clone(), Arc::clone(resource));
     table = table.row_actions(move |record| {
         // Every route pairs its predicate with `View`; a trashed record is restored before it is
@@ -299,8 +299,8 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
             table.returning_to(back)
         };
         let skeleton = table.render_skeleton(cx, &state).await?;
-        let create_url = (resource.creates && resource.can(cx, Ability::Create))
-            .then(|| create_page_url(&resource.url));
+        let create_url =
+            (resource.creates && resource.can_create(cx)).then(|| create_page_url(&resource.url));
         let export_url = state.first_page(&export_url(&resource.url));
         let header = list_header(
             cx,

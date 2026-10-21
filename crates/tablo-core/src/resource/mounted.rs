@@ -50,6 +50,7 @@ pub(crate) struct Mounted<R: Resource> {
     /// [`edit_only`](ResourceDef::edit_only).
     pub(crate) creates: bool,
     pub(crate) soft_delete: Option<super::SoftDelete<R::Model>>,
+    pub(crate) field_rules: Vec<super::FieldRule>,
 }
 
 impl<R: Resource> Mounted<R> {
@@ -125,6 +126,7 @@ impl<R: Resource> Mounted<R> {
             create_columns: def.create_columns,
             creates: <R::Form as RecordForm>::HAS_FORM && !def.edit_only,
             soft_delete: def.soft_delete,
+            field_rules: def.field_rules,
         }
     }
 
@@ -172,17 +174,64 @@ impl<R: Resource> Mounted<R> {
             .unwrap_or_else(|| format!("{} {key}", self.label))
     }
 
-    /// What a relationship choice over the resource searches: the table's searchable columns and
-    /// the title column.
-    pub(crate) fn option_search_expr(&self, term: &str) -> Option<toasty::stmt::Expr<bool>> {
+    /// The root field the record title reads.
+    pub(crate) fn record_title_field(&self) -> Option<&str> {
+        self.record_title.as_ref()?.field.as_deref()
+    }
+
+    /// What a relationship choice over the resource searches for `cx`: the searchable columns of
+    /// its table and the title column.
+    pub(crate) fn option_search_expr(
+        &self,
+        cx: &Cx,
+        term: &str,
+    ) -> Option<toasty::stmt::Expr<bool>> {
         let title = self
             .record_title
             .as_ref()
             .and_then(|title| title.search_expr(term));
-        match (self.table.search_expr(term), title) {
+        match (self.table_for(cx).search_expr(term), title) {
             (Some(table), Some(title)) => Some(table.or(title)),
             (table, title) => table.or(title),
         }
+    }
+
+    /// The fields the panel's [`ResourceDef::field_access`] rules let `cx` neither view nor change,
+    /// every rule over the model from every resource the panel mounts over it, and the ones they
+    /// let `cx` view only.
+    pub(crate) fn field_mask(&self, cx: &Cx) -> super::FieldMask {
+        let model = <R::Model as toasty::schema::Model>::id();
+        super::FieldMask::of(cx, model_rules(cx, model, &self.field_rules))
+    }
+
+    /// The table `cx` reads: without what reads a field it may not view, of the records or of
+    /// the related records a column shows.
+    pub(crate) fn table_for(&self, cx: &Cx) -> Arc<Table<R::Model>> {
+        let mask = self.field_mask(cx);
+        if mask.hidden().is_empty() && !self.table.has_masked(cx) {
+            Arc::clone(&self.table)
+        } else {
+            Arc::new(self.table.without(cx, mask.hidden()))
+        }
+    }
+
+    /// The form keys `cx` may not see, and the ones it may see but not change.
+    pub(crate) fn form_mask(&self, cx: &Cx) -> crate::schema::FormMask {
+        self.field_mask(cx).form(&self.fields)
+    }
+
+    /// Whether `cx` may create a record: the policy allows it, and every field the form masks
+    /// for `cx` and the record form requires has a default to take.
+    pub(crate) fn can_create(&self, cx: &Cx) -> bool {
+        if !self.can(cx, Ability::Create) {
+            return false;
+        }
+        let mask = self.form_mask(cx);
+        !self.form.fields().any(|field| {
+            mask.keys().any(|key| key == field.name())
+                && field.is_required()
+                && field.default_value().is_none()
+        })
     }
 
     /// The record's public page, if the resource links one.
@@ -202,12 +251,16 @@ impl<R: Resource> Mounted<R> {
     }
 }
 
-/// The resources one panel mounted, by resource type, and the models whose rows belong to a
-/// tenant: a resource over one is tenant-scoped, or the model has a tenant column.
+/// The resources one panel mounted, by resource type, the models whose rows belong to a tenant:
+/// a resource over one is tenant-scoped, or the model has a tenant column, and the field rules
+/// the resources declare, by model.
 #[derive(Default)]
 pub(crate) struct Mounts {
     resources: HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
     tenant_models: std::collections::HashSet<crate::toasty_compat::model::ModelId>,
+    /// Every mounted resource's field rules, by the model they restrict: a rule restricts its
+    /// field for every resource over that model.
+    field_rules: HashMap<crate::toasty_compat::model::ModelId, Vec<super::FieldRule>>,
 }
 
 impl Mounts {
@@ -218,12 +271,39 @@ impl Mounts {
             self.tenant_models
                 .insert(<R::Model as toasty::schema::Model>::id());
         }
+        self.field_rules
+            .entry(<R::Model as toasty::schema::Model>::id())
+            .or_default()
+            .extend(mounted.field_rules.iter().cloned());
         self.resources.insert(TypeId::of::<R>(), mounted);
     }
 
     /// Whether the rows of `model` belong to a tenant, as a mounted resource over it says.
     pub(crate) fn is_tenant_model(&self, model: crate::toasty_compat::model::ModelId) -> bool {
         self.tenant_models.contains(&model)
+    }
+
+    /// The field rules every mounted resource over `model` declares.
+    pub(crate) fn model_rules(
+        &self,
+        model: crate::toasty_compat::model::ModelId,
+    ) -> &[super::FieldRule] {
+        self.field_rules.get(&model).map_or(&[], Vec::as_slice)
+    }
+
+    /// Whether a mounted resource restricts who views a field of any model.
+    pub(crate) fn restricts_any(&self) -> bool {
+        self.field_rules
+            .values()
+            .flatten()
+            .any(super::FieldRule::restricts_view)
+    }
+
+    /// Whether a mounted resource restricts who views a field of `model`.
+    pub(crate) fn is_restricted_model(&self, model: crate::toasty_compat::model::ModelId) -> bool {
+        self.model_rules(model)
+            .iter()
+            .any(super::FieldRule::restricts_view)
     }
 
     pub(crate) fn get<R: Resource>(&self) -> Option<Arc<Mounted<R>>> {
@@ -252,6 +332,40 @@ pub(crate) fn is_tenant_model(cx: &Cx, model: crate::toasty_compat::model::Model
     try_app_context::<MountScope>(cx)
         .and_then(|MountScope(mounts)| mounts(cx))
         .is_some_and(|mounts| mounts.is_tenant_model(model))
+}
+
+/// The field rules `cx`'s panel mounts over `model`, every resource's: `own` when the context
+/// carries no panel, as a declaration check of one resource alone sees them.
+pub(crate) fn model_rules<'a>(
+    cx: &'a Cx,
+    model: crate::toasty_compat::model::ModelId,
+    own: &'a [super::FieldRule],
+) -> &'a [super::FieldRule] {
+    match try_app_context::<MountScope>(cx).and_then(|MountScope(mounts)| mounts(cx)) {
+        Some(mounts) => mounts.model_rules(model),
+        None => own,
+    }
+}
+
+/// Whether the context's panel mounts a resource restricting who views a field of any model.
+pub(crate) fn restricts_any(cx: &Cx) -> bool {
+    try_app_context::<MountScope>(cx)
+        .and_then(|MountScope(mounts)| mounts(cx))
+        .is_some_and(|mounts| mounts.restricts_any())
+}
+
+/// Whether the context's panel mounts a resource restricting who views a field of `model`.
+pub(crate) fn is_restricted_model(cx: &Cx, model: crate::toasty_compat::model::ModelId) -> bool {
+    try_app_context::<MountScope>(cx)
+        .and_then(|MountScope(mounts)| mounts(cx))
+        .is_some_and(|mounts| mounts.is_restricted_model(model))
+}
+
+/// Whether the context's panel mounts the resource of type `resource`.
+pub(crate) fn is_mounted(cx: &Cx, resource: TypeId) -> bool {
+    try_app_context::<MountScope>(cx)
+        .and_then(|MountScope(mounts)| mounts(cx))
+        .is_some_and(|mounts| mounts.contains(resource))
 }
 
 /// `R` as the request's panel mounted it.

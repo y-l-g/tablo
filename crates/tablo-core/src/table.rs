@@ -19,6 +19,7 @@ use crate::{DeclarationErrorKind, Lens, dom::ignored, schema::Binding, values::F
 mod choice;
 mod export;
 pub(crate) mod filter;
+mod mask;
 pub(crate) mod model;
 mod page;
 mod sort;

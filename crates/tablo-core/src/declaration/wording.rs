@@ -126,6 +126,7 @@ impl fmt::Display for DeclarationErrorKind {
                 "`{model}` compiles to no schema, so its embedded paths name no column: {error}"
             ),
             Self::Tenancy { fault } => fault.fmt(f),
+            Self::FieldAccess { fault } => fault.fmt(f),
             Self::NoColumns => f.write_str(
                 "no column: declare columns with `Table::new(columns)` or in `ResourceDef::table`",
             ),
