@@ -126,12 +126,14 @@ pub(crate) fn wire_table<R: Resource>(
     let mut table = WiredTable::new(Arc::clone(&resource.table));
     let (policy_cx, policy) = (cx.clone(), Arc::clone(resource));
     table = table.row_actions(move |record| {
-        // Every route pairs its predicate with `View`.
+        // Every route pairs its predicate with `View`; a trashed record is restored before it is
+        // edited or deleted again.
         let view = policy.can(&policy_cx, Ability::View(record));
+        let live = view && !policy.is_trashed(record);
         RowActions {
             view,
-            edit: view && policy.can(&policy_cx, Ability::Update(record)),
-            delete: view && policy.can(&policy_cx, Ability::Delete(record)),
+            edit: live && policy.can(&policy_cx, Ability::Update(record)),
+            delete: live && policy.can(&policy_cx, Ability::Delete(record)),
         }
     });
     if chrome.delete {
@@ -152,7 +154,8 @@ pub(crate) fn wire_table<R: Resource>(
 }
 
 /// Attaches the custom actions of `R` its policy allows `RunAny`, each gated per record by `View`
-/// and the entry's per-record check: `Run` and the action's `can_run`.
+/// and the entry's per-record check: `Run` and the action's `can_run`, on a live record; a
+/// soft-deleting resource's restore and force delete, on a trashed one.
 fn wire_custom_actions<R: Resource>(
     cx: &Cx,
     resource: &Arc<Mounted<R>>,
@@ -164,7 +167,7 @@ fn wire_custom_actions<R: Resource>(
         .iter()
         .filter(|action| resource.can(cx, action.resource_wide))
         .map(|action| {
-            let can_run = action.can_run;
+            let action = *action;
             let (policy_cx, policy) = (cx.clone(), Arc::clone(resource));
             TableAction {
                 name: action.name,
@@ -173,9 +176,10 @@ fn wire_custom_actions<R: Resource>(
                 bulk: action.places.contains(Places::BULK),
                 confirm: action.confirm,
                 input: action.input.takes_input.then_some(action.input.schema),
+                trashed: action.trashed,
                 allowed: Arc::new(move |record: &R::Model| {
                     policy.can(&policy_cx, Ability::View(record))
-                        && can_run(&policy, &policy_cx, record)
+                        && action.allows(&policy, &policy_cx, record)
                 }),
             }
         })
@@ -276,6 +280,8 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         // Normalizes once per request.
         let table = choose_columns(cx, &resource, wire_table_actions(cx, &resource)).await;
         let (signals, state) = table.browser_state(cx);
+        // The bulk bar offers what the rows the trash control shows can take.
+        let table = table.taking(resource.list_trashed(&state));
         // A write lands back on the list as the reader left it.
         let back = state.without_cursor(&resource.url);
         let mut actions = header_bar(cx, &resource.url, &resource.header_actions, |action| {
@@ -357,14 +363,15 @@ fn rerun_suspense_mode(cx: &Cx) -> SuspenseMode {
     }
 }
 
-/// Loads `R`'s list page for `state` from the tenant-scoped query.
+/// Loads `R`'s list page for `state` from the tenant-scoped query, admitting the records its
+/// trash control selects.
 pub(crate) async fn load_table_page<R: Resource>(
     cx: &Cx,
     resource: &Mounted<R>,
     table: &Table<R::Model>,
     state: &TableState,
 ) -> Result<TablePage<R::Model>> {
-    TablePage::load(cx, table, resource.scoped_query(cx)?, state).await
+    TablePage::load(cx, table, resource.list_query(cx, state)?, state).await
 }
 
 /// Loads [`load_table_page`] over the rows `scope` admits.
@@ -375,7 +382,7 @@ pub(crate) async fn load_scoped_page<R: Resource>(
     state: &TableState,
     scope: toasty::stmt::Expr<bool>,
 ) -> Result<TablePage<R::Model>> {
-    let query = resource.scoped_query(cx)?.filter(scope);
+    let query = resource.list_query(cx, state)?.filter(scope);
     TablePage::load(cx, table, query, state).await
 }
 

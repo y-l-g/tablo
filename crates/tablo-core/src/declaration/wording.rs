@@ -220,6 +220,12 @@ impl fmt::Display for DeclarationErrorKind {
                 "record-form field `{field}` claims the tenant column `{column}`, which the \
                  framework stamps on create: drop it from the form"
             ),
+            Self::FormClaimsSoftDeleteColumn { field, column } => write!(
+                f,
+                "record-form field `{field}` claims the soft-delete column `{column}`, which only \
+                 a delete and a restore write: drop it from the form, or mark it \
+                 `#[form(skip)]` on a `ModelForm`"
+            ),
             Self::ReservedFormField { field } => write!(
                 f,
                 "form field `{field}` takes a name the form's POST carries itself, so the two \

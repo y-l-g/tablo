@@ -42,6 +42,10 @@ impl Resource for UserResource {
                 Ability::Create
                 | Ability::DeleteAny
                 | Ability::Delete(_)
+                | Ability::RestoreAny
+                | Ability::Restore(_)
+                | Ability::ForceDeleteAny
+                | Ability::ForceDelete(_)
                 | Ability::RunAny { .. }
                 | Ability::Run { .. }
                 | Ability::RunHeader { .. } => is_admin(cx),
@@ -102,6 +106,9 @@ impl Resource for PostResource {
             // ANCHOR: post-tenancy
             .tenancy(Tenancy::column(lens!(Post.tenant_id)))
             // ANCHOR_END: post-tenancy
+            // ANCHOR: post-soft-delete
+            .soft_delete(lens!(Post.deleted_at))
+            // ANCHOR_END: post-soft-delete
             // ANCHOR: post-view
             .detail(Detail::new(Section::new("Post").columns((
                 TextColumn::new(lens!(Post.title)),
@@ -233,11 +240,11 @@ impl Resource for OrderResource {
     }
 }
 
-// ANCHOR: soft-deleted-query
+// ANCHOR: published-query
 pub fn query(_cx: &Cx) -> Query<List<Post>> {
-    Query::<List<Post>>::all().filter(Post::fields().deleted_at().is_none())
+    Query::<List<Post>>::all().filter(Post::fields().status().eq(PostStatus::Published))
 }
-// ANCHOR_END: soft-deleted-query
+// ANCHOR_END: published-query
 
 // ANCHOR: notify-after-commit
 pub async fn after_commit(cx: &Cx, committed: Committed<Post>) -> Result<()> {

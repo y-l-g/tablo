@@ -30,6 +30,10 @@ impl Resource for UserResource {
 | `Update(record)` | the edit page and POST, the row's Edit action |
 | `DeleteAny` | the delete and bulk-delete POSTs, the Delete action and the bulk column |
 | `Delete(record)` | each record a delete removes, the row's Delete action and checkbox |
+| `RestoreAny` | on a [soft-deleting](./resources.md#soft-deletes) resource, the restore POSTs and the Restore buttons |
+| `Restore(record)` | each trashed record a restore brings back, its Restore button and checkbox |
+| `ForceDeleteAny` | the force-delete POSTs and the Delete permanently buttons, with `DeleteAny` |
+| `ForceDelete(record)` | each trashed record a force delete removes, its button and checkbox, with `Delete(record)` |
 | `RunAny { action }` | the [record action](./actions.md#record-actions)'s POSTs and its buttons on rows, record pages and the bulk bar, and the bulk column for a bulk action |
 | `Run { action, record }` | each record a record action runs on, its button on the record's row and pages and, for a bulk action, the record's checkbox |
 | `RunHeader { action }` | the [header action](./actions.md#header-actions)'s POST and its button in the list header, with `ViewAny` |

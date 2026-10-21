@@ -5,7 +5,7 @@ use std::sync::Arc;
 use toasty::stmt::{Expr, Path};
 use topcoat::{context::Cx, icon::IconData};
 
-use super::{Action, Actions, HeaderAction, HeaderActions, Relation, Resource};
+use super::{Action, Actions, HeaderAction, HeaderActions, Relation, Resource, SoftDelete};
 use crate::{
     DeclarationErrorKind, Lens,
     detail::Detail,
@@ -71,6 +71,7 @@ pub struct ResourceDef<R: Resource> {
     pub(crate) create_columns: Vec<Result<String, DeclarationErrorKind>>,
     /// Whether [`Self::edit_only`] turned the create page off.
     pub(crate) edit_only: bool,
+    pub(crate) soft_delete: Option<SoftDelete<R::Model>>,
 }
 
 impl<R: Resource> Default for ResourceDef<R> {
@@ -96,6 +97,7 @@ impl<R: Resource> Default for ResourceDef<R> {
             header_actions: HeaderActions::new(),
             create_columns: Vec::new(),
             edit_only: false,
+            soft_delete: None,
         }
     }
 }
@@ -241,6 +243,27 @@ impl<R: Resource> ResourceDef<R> {
         policy: impl Fn(&Cx, Ability<'_, R::Model>) -> bool + Send + Sync + 'static,
     ) -> Self {
         self.policy(policy)
+    }
+
+    /// Deletes by stamping `lens`'s column with the time instead of removing the row, as in
+    /// `.soft_delete(lens!(Post.deleted_at))`, and keeps the stamped records out of every loader
+    /// unless it asks for them.
+    ///
+    /// The list hides the trashed records behind a trash control, and offers Restore, which
+    /// empties the column, and Force delete, which removes the row, on each one: the policy decides
+    /// who may through [`Ability::Restore`] and [`Ability::ForceDelete`]. The detail page opens a
+    /// trashed record; its edit page and every other action refuse one until it is restored.
+    /// [`scoped_query`](crate::scoped_query) admits the live records only, and
+    /// [`scoped_query_in`](crate::scoped_query_in) the ones a [`Trashed`](crate::Trashed) scope
+    /// names, each under the tenant filter.
+    ///
+    /// The unique pre-check probes the trashed records too, since a unique index covers them.
+    /// Mounting the panel refuses a lens that is not one field of the model, and a record form
+    /// that writes the column.
+    #[must_use]
+    pub fn soft_delete(mut self, lens: Lens<R::Model, Option<jiff::Timestamp>>) -> Self {
+        self.soft_delete = Some(SoftDelete::new(lens));
+        self
     }
 
     /// How rows belong to a tenant. A resource that declares none is served to every tenant, and

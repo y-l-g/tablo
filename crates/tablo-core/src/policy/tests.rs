@@ -7,7 +7,7 @@ struct Post {
     locked: bool,
 }
 
-const ABILITIES: usize = 8;
+const ABILITIES: usize = 12;
 
 /// Every ability over `post`, in declaration order.
 fn abilities(post: &Post) -> [Ability<'_, Post>; ABILITIES] {
@@ -18,6 +18,10 @@ fn abilities(post: &Post) -> [Ability<'_, Post>; ABILITIES] {
         Ability::Update(post),
         Ability::DeleteAny,
         Ability::Delete(post),
+        Ability::RestoreAny,
+        Ability::Restore(post),
+        Ability::ForceDeleteAny,
+        Ability::ForceDelete(post),
         Ability::RunAny { action: "lock" },
         Ability::Run {
             action: "lock",
@@ -38,7 +42,9 @@ fn the_building_blocks_answer_per_ability() {
     assert_eq!(answers(&Deny, &cx, &post), [false; ABILITIES]);
     assert_eq!(
         answers(&ReadOnly, &cx, &post),
-        [true, true, false, false, false, false, false, false]
+        [
+            true, true, false, false, false, false, false, false, false, false, false, false
+        ]
     );
 }
 
@@ -53,7 +59,9 @@ fn a_closure_matches_on_the_ability_and_reads_the_record() {
     };
     assert_eq!(
         answers(&unlocked, &cx, &Post { locked: true }),
-        [true, true, true, false, true, false, true, false]
+        [
+            true, true, true, false, true, false, true, true, true, true, true, false
+        ]
     );
     assert_eq!(
         answers(&unlocked, &cx, &Post { locked: false }),
@@ -74,7 +82,9 @@ fn combinators_compose_policies() {
     let create_only = |_cx: &Cx, ability: Ability<'_, Post>| matches!(ability, Ability::Create);
     assert_eq!(
         answers(&ReadOnly.or(create_only), &cx, &post),
-        [true, true, true, false, false, false, false, false]
+        [
+            true, true, true, false, false, false, false, false, false, false, false, false
+        ]
     );
 }
 
@@ -170,4 +180,38 @@ async fn can_list_checks_the_policy_and_the_tenant() {
         can::<TenantNotes>(&anonymous, Ability::ViewAny),
         "`can` asks the policy alone"
     );
+}
+
+struct KeptNotes;
+impl Resource for KeptNotes {
+    type Model = Note;
+    type Form = crate::NoForm<Note>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .policy(|_cx: &Cx, ability: Ability<'_, Note>| {
+                !matches!(ability, Ability::DeleteAny | Ability::Delete(_))
+            })
+            .tenancy(crate::Tenancy::none())
+            .table(note_table())
+    }
+}
+
+/// A policy refusing a delete refuses the force delete its catch-all arm would allow.
+#[tokio::test]
+async fn a_force_delete_needs_the_delete() {
+    let db = tableless_db(toasty::models!(Note)).await;
+    let cx = crate::Panel::new("admin")
+        .resource::<KeptNotes>()
+        .handle(&db)
+        .expect("panel builds")
+        .context();
+    let note = Note {
+        id: uuid::Uuid::new_v4(),
+        tenant_id: TenantId::from(uuid::Uuid::new_v4()),
+        title: "kept".into(),
+    };
+    assert!(!can::<KeptNotes>(&cx, Ability::ForceDeleteAny));
+    assert!(!can::<KeptNotes>(&cx, Ability::ForceDelete(&note)));
+    assert!(can::<KeptNotes>(&cx, Ability::Restore(&note)));
 }

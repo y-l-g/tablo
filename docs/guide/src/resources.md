@@ -76,30 +76,61 @@ to rename a record, and `plural_label` only when the rules guess wrong.
 
 `query(cx)` is the base query of every loader: the list, the export, the edit and delete
 handlers, relationship options and the detail page. Use it for the resource's own row scoping,
-such as hiding soft-deleted rows:
+such as a resource that serves the published posts only:
 
 ```rust
-{{#include ../../../examples/guide/src/resources.rs:soft-deleted-query}}
+{{#include ../../../examples/guide/src/resources.rs:published-query}}
 ```
 
-Two things do not belong in `query`:
+Three things do not belong in `query`:
 
 - **The tenant filter.** For a tenant-owned resource the framework adds it to `query` at every
   loader. See [Tenancy](./policy-auth-tenancy.md#tenancy).
+- **Soft deletes.** Declare the column instead; see [Soft deletes](#soft-deletes).
 - **Relations.** The list, the export and the detail page load the relations their columns
   declare: a `RelationColumn` or `CountColumn` declares its own, and a `ComputedColumn` declares
   one with `include`. Include a relation in `query` only when every loader
   reads it, for example because the policy does.
 
 In your own code, load a resource's rows with `scoped_query::<R>(cx)?`, not `R::query(cx)`:
-`scoped_query` is `query` with the tenant filter of the def the request's panel mounted, and
-returns an error rather than an unscoped query when the request has no tenant or the panel does
-not mount `R`. A background job builds its context from the mounted panel's `PanelHandle`; see
+`scoped_query` is `query` with the tenant filter of the def the request's panel mounted, without
+the trashed records, and returns an error rather than an unscoped query when the request has no
+tenant or the panel does not mount `R`. A background job builds its context from the mounted panel's `PanelHandle`; see
 [Outside a request](./data-access.md#outside-a-request).
 
 The unique-value check on forms probes through the same scoped query, so a `#[unique]` index
 wider than the scope is invisible to it: the check misses the collision and the database refuses
 the write with a 500. Scope such indexes to match, as in `#[unique(tenant_id, email)]`.
+
+## Soft deletes
+
+A resource that keeps deleted records names the column a delete stamps, a nullable timestamp:
+
+```rust
+{{#include ../../../examples/guide/src/resources.rs:post-soft-delete}}
+```
+
+A delete then sets the column to the current time instead of removing the row, and every loader
+leaves the stamped records out: the list and the export, the edit page, actions, relationship
+options and other resources' relation columns. The list's filter bar gains a **Trashed** control
+showing the live records, all of them, or only the trashed ones (`?f.trashed=with`,
+`?f.trashed=only`). A trashed record's row and detail page offer **Restore**, which empties the
+column, and **Delete permanently**, which removes the row, each also in the bulk bar while the
+list shows trashed records. Its edit page, its Delete and every other action refuse it until it is
+restored: a record's own route answers 404, and a bulk action skips it.
+
+The policy decides who may restore and delete permanently through `Ability::RestoreAny` and
+`Ability::Restore(record)`, and `Ability::ForceDeleteAny` and `Ability::ForceDelete(record)`;
+`ReadOnly` allows neither. `after_commit` receives them as `Mutation::Restore` and
+`Mutation::ForceDelete`, and a delete as `Mutation::Delete`. Override `restore_record` or
+`force_delete_record` to write another way, as `delete_record` can be.
+
+In your own code, `scoped_query_in::<R>(cx, Trashed::Only)` loads the trashed records, and
+`Trashed::With` loads both, under the same tenant filter as `scoped_query`.
+
+The record form must not write the column: a `ModelForm` marks it `#[form(skip)]`. The unique
+check on forms probes the trashed records too, since the database's unique index still covers
+them.
 
 ## Writes
 
@@ -124,9 +155,9 @@ Run every statement through `ex`, and use the `record` you are given rather than
 again: it is the row the policy check passed. Both functions return the written row. An error
 rolls the transaction back and nothing is written.
 
-`delete_record` deletes the row by its primary key, and `bulk_delete_records` calls
-`delete_record` once per record in one transaction, so overriding `delete_record` — for a soft
-delete, say — covers both. A bulk delete runs like a bulk action: it deletes the selected records
+`delete_record` deletes the row by its primary key, or stamps it on a resource that soft-deletes,
+and `bulk_delete_records` calls `delete_record` once per record in one transaction, so overriding
+`delete_record` covers both. A bulk delete runs like a bulk action: it deletes the selected records
 the policy's `Delete` allows and reports the rest as skipped (`"Bulk deleted (2 of 5 skipped)"`).
 A selected record the policy's `View` refuses refuses the whole request with 403, and nothing is
 deleted.
@@ -171,6 +202,7 @@ declaration names one. It refuses the resource when:
 - a `Tenancy::column` lens is not one field of the model, a `Tenancy::via` lens is, or the form
   of a `Tenancy::via` resource writes the parent's foreign key other than through a relationship
   field over a tenant-scoped resource;
+- a `soft_delete` lens is not one field of the model, or the record form writes its column;
 - two actions share a `NAME`, record or header;
 - a many-to-many field or relation goes through a join model a link cannot write, or a multiple
   choice in a resource's form names no many-to-many field;
@@ -179,7 +211,7 @@ declaration names one. It refuses the resource when:
 
 The refusal lists every mistake the panel found, not only the first. `.panel(..)` returns it as a
 `MountError`: each of its `DeclarationError`s names the resource, the `Site` of the declaration
-it is in (`Panel`, `Registration`, `Tenancy`, `Table`, `Form`, `Detail`, a `Relation`) and a
+it is in (`Panel`, `Registration`, `Tenancy`, `SoftDelete`, `Table`, `Form`, `Detail`, a `Relation`) and a
 `DeclarationErrorKind`, whose `Display` is the message. [Mount errors](./mount-errors.md) lists
 every kind with its fix.
 [Testing](./testing-and-benchmarks.md#testing-a-panel) shows a test matching on the kind.

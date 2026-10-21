@@ -2335,6 +2335,10 @@ pub enum tablo_core::policy::Ability<'a, M>
 pub tablo_core::policy::Ability::Create
 pub tablo_core::policy::Ability::Delete(&'a M)
 pub tablo_core::policy::Ability::DeleteAny
+pub tablo_core::policy::Ability::ForceDelete(&'a M)
+pub tablo_core::policy::Ability::ForceDeleteAny
+pub tablo_core::policy::Ability::Restore(&'a M)
+pub tablo_core::policy::Ability::RestoreAny
 pub tablo_core::policy::Ability::Run
 pub tablo_core::policy::Ability::Run::action: &'static str
 pub tablo_core::policy::Ability::Run::record: &'a M
@@ -2357,13 +2361,13 @@ pub fn tablo_core::policy::Ability<'a, M>::fmt(&self, &mut core::fmt::Formatter<
 impl<'a, M> core::clone::Clone for tablo_core::policy::Ability<'a, M>
 pub fn tablo_core::policy::Ability<'a, M>::clone(&self) -> Self
 impl<'a, M> core::marker::Copy for tablo_core::policy::Ability<'a, M>
-impl<'a, M> core::marker::Freeze for tablo_core::policy::Ability<'a, M> where &'a M: core::marker::Freeze + core::marker::Freeze + core::marker::Freeze + core::marker::Freeze
-impl<'a, M> core::marker::Send for tablo_core::policy::Ability<'a, M> where &'a M: core::marker::Send + core::marker::Send + core::marker::Send + core::marker::Send
-impl<'a, M> core::marker::Sync for tablo_core::policy::Ability<'a, M> where &'a M: core::marker::Sync + core::marker::Sync + core::marker::Sync + core::marker::Sync
-impl<'a, M> core::marker::Unpin for tablo_core::policy::Ability<'a, M> where &'a M: core::marker::Unpin + core::marker::Unpin + core::marker::Unpin + core::marker::Unpin
-impl<'a, M> core::marker::UnsafeUnpin for tablo_core::policy::Ability<'a, M> where &'a M: core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin
-impl<'a, M> core::panic::unwind_safe::RefUnwindSafe for tablo_core::policy::Ability<'a, M> where &'a M: core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe
-impl<'a, M> core::panic::unwind_safe::UnwindSafe for tablo_core::policy::Ability<'a, M> where &'a M: core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe
+impl<'a, M> core::marker::Freeze for tablo_core::policy::Ability<'a, M> where &'a M: core::marker::Freeze + core::marker::Freeze + core::marker::Freeze + core::marker::Freeze + core::marker::Freeze + core::marker::Freeze
+impl<'a, M> core::marker::Send for tablo_core::policy::Ability<'a, M> where &'a M: core::marker::Send + core::marker::Send + core::marker::Send + core::marker::Send + core::marker::Send + core::marker::Send
+impl<'a, M> core::marker::Sync for tablo_core::policy::Ability<'a, M> where &'a M: core::marker::Sync + core::marker::Sync + core::marker::Sync + core::marker::Sync + core::marker::Sync + core::marker::Sync
+impl<'a, M> core::marker::Unpin for tablo_core::policy::Ability<'a, M> where &'a M: core::marker::Unpin + core::marker::Unpin + core::marker::Unpin + core::marker::Unpin + core::marker::Unpin + core::marker::Unpin
+impl<'a, M> core::marker::UnsafeUnpin for tablo_core::policy::Ability<'a, M> where &'a M: core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin
+impl<'a, M> core::panic::unwind_safe::RefUnwindSafe for tablo_core::policy::Ability<'a, M> where &'a M: core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe
+impl<'a, M> core::panic::unwind_safe::UnwindSafe for tablo_core::policy::Ability<'a, M> where &'a M: core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::policy::Allow
 impl tablo_core::policy::Allow
 pub fn tablo_core::policy::Allow::and<P>(self, P) -> tablo_core::policy::And<Self, P>
@@ -2502,6 +2506,8 @@ pub tablo_core::resource::Mutation::Attach
 pub tablo_core::resource::Mutation::Create
 pub tablo_core::resource::Mutation::Delete
 pub tablo_core::resource::Mutation::Detach
+pub tablo_core::resource::Mutation::ForceDelete
+pub tablo_core::resource::Mutation::Restore
 pub tablo_core::resource::Mutation::Update
 impl core::clone::Clone for tablo_core::Mutation
 pub fn tablo_core::Mutation::clone(&self) -> tablo_core::Mutation
@@ -2519,13 +2525,39 @@ impl core::marker::Unpin for tablo_core::Mutation
 impl core::marker::UnsafeUnpin for tablo_core::Mutation
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Mutation
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::Mutation
+pub enum tablo_core::resource::Trashed
+pub tablo_core::resource::Trashed::Only
+pub tablo_core::resource::Trashed::With
+pub tablo_core::resource::Trashed::Without
+impl tablo_core::Trashed
+pub fn tablo_core::Trashed::admits(self, bool) -> bool
+impl core::clone::Clone for tablo_core::Trashed
+pub fn tablo_core::Trashed::clone(&self) -> tablo_core::Trashed
+impl core::cmp::Eq for tablo_core::Trashed
+impl core::cmp::PartialEq for tablo_core::Trashed
+pub fn tablo_core::Trashed::eq(&self, &tablo_core::Trashed) -> bool
+impl core::default::Default for tablo_core::Trashed
+pub fn tablo_core::Trashed::default() -> tablo_core::Trashed
+impl core::fmt::Debug for tablo_core::Trashed
+pub fn tablo_core::Trashed::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_core::Trashed
+impl core::marker::StructuralPartialEq for tablo_core::Trashed
+impl core::marker::Freeze for tablo_core::Trashed
+impl core::marker::Send for tablo_core::Trashed
+impl core::marker::Sync for tablo_core::Trashed
+impl core::marker::Unpin for tablo_core::Trashed
+impl core::marker::UnsafeUnpin for tablo_core::Trashed
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Trashed
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::Trashed
 pub struct tablo_core::resource::Committed<M>
 impl<M> tablo_core::Committed<M>
 pub fn tablo_core::Committed<M>::acted<R: tablo_core::resource::Resource<Model = M>, A: tablo_core::Action<R>>(alloc::vec::Vec<M>) -> Self
 pub fn tablo_core::Committed<M>::created(M) -> Self
 pub fn tablo_core::Committed<M>::deleted(alloc::vec::Vec<M>) -> Self
+pub fn tablo_core::Committed<M>::force_deleted(alloc::vec::Vec<M>) -> Self
 pub fn tablo_core::Committed<M>::mutation(&self) -> tablo_core::Mutation
 pub fn tablo_core::Committed<M>::records(&self) -> &[M]
+pub fn tablo_core::Committed<M>::restored(alloc::vec::Vec<M>) -> Self
 pub fn tablo_core::Committed<M>::updated(M) -> Self
 impl<M: core::clone::Clone> core::clone::Clone for tablo_core::Committed<M>
 pub fn tablo_core::Committed<M>::clone(&self) -> tablo_core::Committed<M>
@@ -2632,17 +2664,18 @@ pub fn tablo_core::ResourceDef<R>::public_link(self, impl core::ops::function::F
 pub fn tablo_core::ResourceDef<R>::record_title<T>(self, tablo_core::Lens<<R as tablo_core::resource::Resource>::Model, T>) -> Self where T: tablo_core::FormScalar + toasty::schema::field::Field<Inner = alloc::string::String> + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::ResourceDef<R>::relation(self, tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>) -> Self
 pub fn tablo_core::ResourceDef<R>::slug(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::ResourceDef<R>::soft_delete(self, tablo_core::Lens<<R as tablo_core::resource::Resource>::Model, core::option::Option<jiff::timestamp::Timestamp>>) -> Self
 pub fn tablo_core::ResourceDef<R>::table(self, tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>) -> Self
 pub fn tablo_core::ResourceDef<R>::tenancy(self, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>) -> Self
 impl<R: tablo_core::resource::Resource> core::default::Default for tablo_core::ResourceDef<R>
 pub fn tablo_core::ResourceDef<R>::default() -> Self
 impl<R: tablo_core::resource::Resource> core::fmt::Debug for tablo_core::ResourceDef<R>
 pub fn tablo_core::ResourceDef<R>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl<R> core::marker::Freeze for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::Freeze, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::Freeze, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::Freeze, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, Actions<R>: core::marker::Freeze
-impl<R> core::marker::Send for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::Send, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::Send, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::Send, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, Actions<R>: core::marker::Send
-impl<R> core::marker::Sync for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::Sync, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::Sync, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::Sync, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, Actions<R>: core::marker::Sync
-impl<R> core::marker::Unpin for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::Unpin, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::Unpin, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::Unpin, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, Actions<R>: core::marker::Unpin
-impl<R> core::marker::UnsafeUnpin for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::UnsafeUnpin, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::UnsafeUnpin, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::UnsafeUnpin, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin, Actions<R>: core::marker::UnsafeUnpin
+impl<R> core::marker::Freeze for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::Freeze, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::Freeze, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::Freeze, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, Actions<R>: core::marker::Freeze, core::option::Option<SoftDelete<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze
+impl<R> core::marker::Send for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::Send, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::Send, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::Send, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, Actions<R>: core::marker::Send, core::option::Option<SoftDelete<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send
+impl<R> core::marker::Sync for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::Sync, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::Sync, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::Sync, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, Actions<R>: core::marker::Sync, core::option::Option<SoftDelete<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync
+impl<R> core::marker::Unpin for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::Unpin, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::Unpin, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::Unpin, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, Actions<R>: core::marker::Unpin, core::option::Option<SoftDelete<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin
+impl<R> core::marker::UnsafeUnpin for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::UnsafeUnpin, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::UnsafeUnpin, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::UnsafeUnpin, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin, Actions<R>: core::marker::UnsafeUnpin, core::option::Option<SoftDelete<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin
 impl<R> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::ResourceDef<R>
 impl<R> !core::panic::unwind_safe::UnwindSafe for tablo_core::ResourceDef<R>
 pub trait tablo_core::resource::Action<R: tablo_core::resource::Resource>: 'static
@@ -2675,11 +2708,14 @@ pub fn tablo_core::resource::Resource::bulk_delete_records(&topcoat_core::contex
 pub fn tablo_core::resource::Resource::create_record(&topcoat_core::context::Cx, Self::Form, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<Self::Model>> + core::marker::Send
 pub fn tablo_core::resource::Resource::declare() -> tablo_core::ResourceDef<Self>
 pub fn tablo_core::resource::Resource::delete_record(&topcoat_core::context::Cx, &Self::Model, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
+pub fn tablo_core::resource::Resource::force_delete_record(&topcoat_core::context::Cx, &Self::Model, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
 pub fn tablo_core::resource::Resource::query(&topcoat_core::context::Cx) -> toasty::stmt::query::Query<toasty::stmt::list::List<Self::Model>>
+pub fn tablo_core::resource::Resource::restore_record(&topcoat_core::context::Cx, &Self::Model, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
 pub fn tablo_core::resource::Resource::update_record(&topcoat_core::context::Cx, Self::Model, tablo_core::form::Posted<Self::Form>, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<Self::Model>> + core::marker::Send
 pub fn tablo_core::resource::Resource::validate_record(&topcoat_core::context::Cx, &Self::Form) -> tablo_core::FieldErrors<<Self::Form as tablo_core::form::RecordForm>::Field>
 pub fn tablo_core::resource::can<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx, tablo_core::policy::Ability<'_, <R as tablo_core::resource::Resource>::Model>) -> bool
 pub fn tablo_core::resource::scoped_query<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx) -> topcoat::Result<toasty::stmt::query::Query<toasty::stmt::list::List<<R as tablo_core::resource::Resource>::Model>>>
+pub fn tablo_core::resource::scoped_query_in<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx, tablo_core::Trashed) -> topcoat::Result<toasty::stmt::query::Query<toasty::stmt::list::List<<R as tablo_core::resource::Resource>::Model>>>
 pub async fn tablo_core::resource::write_create<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx, <R as tablo_core::resource::Resource>::Form, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<<R as tablo_core::resource::Resource>::Model>
 pub async fn tablo_core::resource::write_update<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx, <R as tablo_core::resource::Resource>::Model, tablo_core::form::Posted<<R as tablo_core::resource::Resource>::Form>, &mut dyn toasty::db::executor::Executor) -> topcoat::Result<<R as tablo_core::resource::Resource>::Model>
 pub mod tablo_core::schema
@@ -4229,6 +4265,10 @@ pub enum tablo_core::Ability<'a, M>
 pub tablo_core::Ability::Create
 pub tablo_core::Ability::Delete(&'a M)
 pub tablo_core::Ability::DeleteAny
+pub tablo_core::Ability::ForceDelete(&'a M)
+pub tablo_core::Ability::ForceDeleteAny
+pub tablo_core::Ability::Restore(&'a M)
+pub tablo_core::Ability::RestoreAny
 pub tablo_core::Ability::Run
 pub tablo_core::Ability::Run::action: &'static str
 pub tablo_core::Ability::Run::record: &'a M
@@ -4251,13 +4291,13 @@ pub fn tablo_core::policy::Ability<'a, M>::fmt(&self, &mut core::fmt::Formatter<
 impl<'a, M> core::clone::Clone for tablo_core::policy::Ability<'a, M>
 pub fn tablo_core::policy::Ability<'a, M>::clone(&self) -> Self
 impl<'a, M> core::marker::Copy for tablo_core::policy::Ability<'a, M>
-impl<'a, M> core::marker::Freeze for tablo_core::policy::Ability<'a, M> where &'a M: core::marker::Freeze + core::marker::Freeze + core::marker::Freeze + core::marker::Freeze
-impl<'a, M> core::marker::Send for tablo_core::policy::Ability<'a, M> where &'a M: core::marker::Send + core::marker::Send + core::marker::Send + core::marker::Send
-impl<'a, M> core::marker::Sync for tablo_core::policy::Ability<'a, M> where &'a M: core::marker::Sync + core::marker::Sync + core::marker::Sync + core::marker::Sync
-impl<'a, M> core::marker::Unpin for tablo_core::policy::Ability<'a, M> where &'a M: core::marker::Unpin + core::marker::Unpin + core::marker::Unpin + core::marker::Unpin
-impl<'a, M> core::marker::UnsafeUnpin for tablo_core::policy::Ability<'a, M> where &'a M: core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin
-impl<'a, M> core::panic::unwind_safe::RefUnwindSafe for tablo_core::policy::Ability<'a, M> where &'a M: core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe
-impl<'a, M> core::panic::unwind_safe::UnwindSafe for tablo_core::policy::Ability<'a, M> where &'a M: core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe
+impl<'a, M> core::marker::Freeze for tablo_core::policy::Ability<'a, M> where &'a M: core::marker::Freeze + core::marker::Freeze + core::marker::Freeze + core::marker::Freeze + core::marker::Freeze + core::marker::Freeze
+impl<'a, M> core::marker::Send for tablo_core::policy::Ability<'a, M> where &'a M: core::marker::Send + core::marker::Send + core::marker::Send + core::marker::Send + core::marker::Send + core::marker::Send
+impl<'a, M> core::marker::Sync for tablo_core::policy::Ability<'a, M> where &'a M: core::marker::Sync + core::marker::Sync + core::marker::Sync + core::marker::Sync + core::marker::Sync + core::marker::Sync
+impl<'a, M> core::marker::Unpin for tablo_core::policy::Ability<'a, M> where &'a M: core::marker::Unpin + core::marker::Unpin + core::marker::Unpin + core::marker::Unpin + core::marker::Unpin + core::marker::Unpin
+impl<'a, M> core::marker::UnsafeUnpin for tablo_core::policy::Ability<'a, M> where &'a M: core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin
+impl<'a, M> core::panic::unwind_safe::RefUnwindSafe for tablo_core::policy::Ability<'a, M> where &'a M: core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe
+impl<'a, M> core::panic::unwind_safe::UnwindSafe for tablo_core::policy::Ability<'a, M> where &'a M: core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe
 #[non_exhaustive] pub enum tablo_core::ActionInputFault
 pub tablo_core::ActionInputFault::DependentChoice(alloc::string::String)
 pub tablo_core::ActionInputFault::FileField(alloc::string::String)
@@ -4471,6 +4511,9 @@ pub tablo_core::DeclarationErrorKind::FieldRule::fault: tablo_core::FieldRuleFau
 pub tablo_core::DeclarationErrorKind::FieldRule::field: alloc::string::String
 pub tablo_core::DeclarationErrorKind::FileFieldWithoutUploader
 pub tablo_core::DeclarationErrorKind::FileFieldWithoutUploader::field: alloc::string::String
+pub tablo_core::DeclarationErrorKind::FormClaimsSoftDeleteColumn
+pub tablo_core::DeclarationErrorKind::FormClaimsSoftDeleteColumn::column: alloc::string::String
+pub tablo_core::DeclarationErrorKind::FormClaimsSoftDeleteColumn::field: alloc::string::String
 pub tablo_core::DeclarationErrorKind::FormClaimsTenantColumn
 pub tablo_core::DeclarationErrorKind::FormClaimsTenantColumn::column: alloc::string::String
 pub tablo_core::DeclarationErrorKind::FormClaimsTenantColumn::field: alloc::string::String
@@ -4686,6 +4729,8 @@ pub tablo_core::Mutation::Attach
 pub tablo_core::Mutation::Create
 pub tablo_core::Mutation::Delete
 pub tablo_core::Mutation::Detach
+pub tablo_core::Mutation::ForceDelete
+pub tablo_core::Mutation::Restore
 pub tablo_core::Mutation::Update
 impl core::clone::Clone for tablo_core::Mutation
 pub fn tablo_core::Mutation::clone(&self) -> tablo_core::Mutation
@@ -4907,6 +4952,7 @@ pub tablo_core::Site::Form
 pub tablo_core::Site::Panel
 pub tablo_core::Site::Registration
 pub tablo_core::Site::Relation(alloc::string::String)
+pub tablo_core::Site::SoftDelete
 pub tablo_core::Site::Table
 pub tablo_core::Site::Tenancy
 impl core::clone::Clone for tablo_core::Site
@@ -5002,6 +5048,30 @@ impl core::marker::Unpin for tablo_core::TenantRegistrationFault
 impl core::marker::UnsafeUnpin for tablo_core::TenantRegistrationFault
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::TenantRegistrationFault
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::TenantRegistrationFault
+pub enum tablo_core::Trashed
+pub tablo_core::Trashed::Only
+pub tablo_core::Trashed::With
+pub tablo_core::Trashed::Without
+impl tablo_core::Trashed
+pub fn tablo_core::Trashed::admits(self, bool) -> bool
+impl core::clone::Clone for tablo_core::Trashed
+pub fn tablo_core::Trashed::clone(&self) -> tablo_core::Trashed
+impl core::cmp::Eq for tablo_core::Trashed
+impl core::cmp::PartialEq for tablo_core::Trashed
+pub fn tablo_core::Trashed::eq(&self, &tablo_core::Trashed) -> bool
+impl core::default::Default for tablo_core::Trashed
+pub fn tablo_core::Trashed::default() -> tablo_core::Trashed
+impl core::fmt::Debug for tablo_core::Trashed
+pub fn tablo_core::Trashed::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_core::Trashed
+impl core::marker::StructuralPartialEq for tablo_core::Trashed
+impl core::marker::Freeze for tablo_core::Trashed
+impl core::marker::Send for tablo_core::Trashed
+impl core::marker::Sync for tablo_core::Trashed
+impl core::marker::Unpin for tablo_core::Trashed
+impl core::marker::UnsafeUnpin for tablo_core::Trashed
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Trashed
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::Trashed
 #[non_exhaustive] pub enum tablo_core::TwoFactorFault
 pub tablo_core::TwoFactorFault::AuthDisabled
 pub tablo_core::TwoFactorFault::MissingKey
@@ -5230,8 +5300,10 @@ impl<M> tablo_core::Committed<M>
 pub fn tablo_core::Committed<M>::acted<R: tablo_core::resource::Resource<Model = M>, A: tablo_core::Action<R>>(alloc::vec::Vec<M>) -> Self
 pub fn tablo_core::Committed<M>::created(M) -> Self
 pub fn tablo_core::Committed<M>::deleted(alloc::vec::Vec<M>) -> Self
+pub fn tablo_core::Committed<M>::force_deleted(alloc::vec::Vec<M>) -> Self
 pub fn tablo_core::Committed<M>::mutation(&self) -> tablo_core::Mutation
 pub fn tablo_core::Committed<M>::records(&self) -> &[M]
+pub fn tablo_core::Committed<M>::restored(alloc::vec::Vec<M>) -> Self
 pub fn tablo_core::Committed<M>::updated(M) -> Self
 impl<M: core::clone::Clone> core::clone::Clone for tablo_core::Committed<M>
 pub fn tablo_core::Committed<M>::clone(&self) -> tablo_core::Committed<M>
@@ -6517,17 +6589,18 @@ pub fn tablo_core::ResourceDef<R>::public_link(self, impl core::ops::function::F
 pub fn tablo_core::ResourceDef<R>::record_title<T>(self, tablo_core::Lens<<R as tablo_core::resource::Resource>::Model, T>) -> Self where T: tablo_core::FormScalar + toasty::schema::field::Field<Inner = alloc::string::String> + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::ResourceDef<R>::relation(self, tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>) -> Self
 pub fn tablo_core::ResourceDef<R>::slug(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::ResourceDef<R>::soft_delete(self, tablo_core::Lens<<R as tablo_core::resource::Resource>::Model, core::option::Option<jiff::timestamp::Timestamp>>) -> Self
 pub fn tablo_core::ResourceDef<R>::table(self, tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>) -> Self
 pub fn tablo_core::ResourceDef<R>::tenancy(self, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>) -> Self
 impl<R: tablo_core::resource::Resource> core::default::Default for tablo_core::ResourceDef<R>
 pub fn tablo_core::ResourceDef<R>::default() -> Self
 impl<R: tablo_core::resource::Resource> core::fmt::Debug for tablo_core::ResourceDef<R>
 pub fn tablo_core::ResourceDef<R>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl<R> core::marker::Freeze for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::Freeze, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::Freeze, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::Freeze, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, Actions<R>: core::marker::Freeze
-impl<R> core::marker::Send for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::Send, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::Send, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::Send, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, Actions<R>: core::marker::Send
-impl<R> core::marker::Sync for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::Sync, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::Sync, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::Sync, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, Actions<R>: core::marker::Sync
-impl<R> core::marker::Unpin for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::Unpin, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::Unpin, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::Unpin, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, Actions<R>: core::marker::Unpin
-impl<R> core::marker::UnsafeUnpin for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::UnsafeUnpin, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::UnsafeUnpin, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::UnsafeUnpin, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin, Actions<R>: core::marker::UnsafeUnpin
+impl<R> core::marker::Freeze for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::Freeze, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::Freeze, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::Freeze, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze, Actions<R>: core::marker::Freeze, core::option::Option<SoftDelete<<R as tablo_core::resource::Resource>::Model>>: core::marker::Freeze
+impl<R> core::marker::Send for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::Send, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::Send, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::Send, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send, Actions<R>: core::marker::Send, core::option::Option<SoftDelete<<R as tablo_core::resource::Resource>::Model>>: core::marker::Send
+impl<R> core::marker::Sync for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::Sync, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::Sync, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::Sync, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync, Actions<R>: core::marker::Sync, core::option::Option<SoftDelete<<R as tablo_core::resource::Resource>::Model>>: core::marker::Sync
+impl<R> core::marker::Unpin for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::Unpin, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::Unpin, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::Unpin, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin, Actions<R>: core::marker::Unpin, core::option::Option<SoftDelete<<R as tablo_core::resource::Resource>::Model>>: core::marker::Unpin
+impl<R> core::marker::UnsafeUnpin for tablo_core::ResourceDef<R> where alloc::sync::Arc<dyn tablo_core::policy::Policy<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin, tablo_core::tenancy::Tenancy<<R as tablo_core::resource::Resource>::Model>: core::marker::UnsafeUnpin, core::option::Option<tablo_core::table::Table<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin, core::option::Option<tablo_core::schema::Schema<<R as tablo_core::resource::Resource>::Form>>: core::marker::UnsafeUnpin, core::option::Option<tablo_core::detail::Detail<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin, core::option::Option<RecordTitle<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin, core::option::Option<alloc::sync::Arc<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<tablo_core::PublicLink> + core::marker::Send + core::marker::Sync)>>: core::marker::UnsafeUnpin, alloc::vec::Vec<tablo_core::Relation<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin, Actions<R>: core::marker::UnsafeUnpin, core::option::Option<SoftDelete<<R as tablo_core::resource::Resource>::Model>>: core::marker::UnsafeUnpin
 impl<R> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::ResourceDef<R>
 impl<R> !core::panic::unwind_safe::UnwindSafe for tablo_core::ResourceDef<R>
 pub struct tablo_core::Schema<F>
@@ -7454,7 +7527,9 @@ pub fn tablo_core::Resource::bulk_delete_records(&topcoat_core::context::Cx, &[S
 pub fn tablo_core::Resource::create_record(&topcoat_core::context::Cx, Self::Form, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<Self::Model>> + core::marker::Send
 pub fn tablo_core::Resource::declare() -> tablo_core::ResourceDef<Self>
 pub fn tablo_core::Resource::delete_record(&topcoat_core::context::Cx, &Self::Model, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
+pub fn tablo_core::Resource::force_delete_record(&topcoat_core::context::Cx, &Self::Model, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
 pub fn tablo_core::Resource::query(&topcoat_core::context::Cx) -> toasty::stmt::query::Query<toasty::stmt::list::List<Self::Model>>
+pub fn tablo_core::Resource::restore_record(&topcoat_core::context::Cx, &Self::Model, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
 pub fn tablo_core::Resource::update_record(&topcoat_core::context::Cx, Self::Model, tablo_core::form::Posted<Self::Form>, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<Self::Model>> + core::marker::Send
 pub fn tablo_core::Resource::validate_record(&topcoat_core::context::Cx, &Self::Form) -> tablo_core::FieldErrors<<Self::Form as tablo_core::form::RecordForm>::Field>
 pub trait tablo_core::RouterBuilderPanelExt: core::marker::Sized
@@ -7490,6 +7565,7 @@ pub fn tablo_core::header_action_buttons<P: tablo_core::Page>(&topcoat_core::con
 pub fn tablo_core::membership(&topcoat_core::context::Cx) -> core::option::Option<&tablo_core::tenancy::Membership>
 pub fn tablo_core::require_tenant(&topcoat_core::context::Cx) -> core::result::Result<uuid::Uuid, topcoat_core::error::Error>
 pub fn tablo_core::scoped_query<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx) -> topcoat::Result<toasty::stmt::query::Query<toasty::stmt::list::List<<R as tablo_core::resource::Resource>::Model>>>
+pub fn tablo_core::scoped_query_in<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx, tablo_core::Trashed) -> topcoat::Result<toasty::stmt::query::Query<toasty::stmt::list::List<<R as tablo_core::resource::Resource>::Model>>>
 pub fn tablo_core::tenant_id(&topcoat_core::context::Cx) -> core::option::Option<uuid::Uuid>
 pub fn tablo_core::time_zone(&topcoat_core::context::Cx) -> jiff::tz::timezone::TimeZone
 pub fn tablo_core::when<F>(F) -> tablo_core::policy::When<F> where F: core::ops::function::Fn(&topcoat_core::context::Cx) -> bool + core::marker::Send + core::marker::Sync + 'static

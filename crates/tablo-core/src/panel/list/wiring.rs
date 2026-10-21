@@ -6,6 +6,7 @@ use topcoat::context::Cx;
 
 use super::TableSignals;
 use crate::{
+    resource::Trashed,
     schema::Schema,
     table::{BoxColumn, ColumnChoice, Table, TableState},
 };
@@ -58,6 +59,8 @@ pub(crate) struct TableAction<M> {
     pub(crate) confirm: bool,
     /// The action's input form, when it asks for one: its buttons open the input's dialog.
     pub(crate) input: Option<fn() -> Schema>,
+    /// The records it takes: the live ones, or a soft-deleting resource's trashed ones.
+    pub(crate) trashed: Trashed,
     pub(crate) allowed: Arc<dyn Fn(&M) -> bool + Send + Sync>,
 }
 
@@ -233,6 +236,24 @@ impl<M> WiredTable<M> {
     #[must_use]
     pub fn prefixed(mut self, prefix: impl Into<String>) -> Self {
         self.wiring.prefix = Some(prefix.into());
+        self
+    }
+
+    /// Keeps the delete and the custom actions that take some of the records `shown` admits, so
+    /// the bulk bar of a list showing only trashed records offers what a trashed record takes.
+    pub(crate) fn taking(mut self, shown: Trashed) -> Self {
+        // Some record, live or trashed, is both shown and taken.
+        let overlaps = |taken: Trashed| {
+            [false, true]
+                .into_iter()
+                .any(|trashed| shown.admits(trashed) && taken.admits(trashed))
+        };
+        self.wiring
+            .custom_actions
+            .retain(|action| overlaps(action.trashed));
+        if !overlaps(Trashed::Without) {
+            self.wiring.bulk_delete = false;
+        }
         self
     }
 

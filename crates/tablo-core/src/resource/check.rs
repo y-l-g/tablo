@@ -35,6 +35,9 @@ pub(crate) fn check_resource<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationE
     if tenancy.via_is_single() == Some(true) {
         errors.push(tenancy_error::<R>(TenancyFault::ViaOwnColumn));
     }
+    if let Some(Err(kind)) = declared.soft_delete.as_ref().map(|soft| soft.field()) {
+        errors.push(DeclarationError::of::<R>(Site::SoftDelete, kind.clone()));
+    }
     let mut form_errors = declared.form.declaration_errors();
     form_errors.extend(declared.form.empty_choices());
     let form_is_sound = form_errors.is_empty();
@@ -213,6 +216,17 @@ fn check_form_inner<R: Resource>(
             DeclarationErrorKind::FormClaimsTenantColumn {
                 field: field.name.to_string(),
                 column,
+            },
+        ));
+    }
+    // A delete and a restore write the soft-delete column.
+    if let Some(Ok((_, column))) = declared.soft_delete.as_ref().map(|soft| soft.field())
+        && let Some(field) = fields.iter().find(|field| field.keys.contains(column))
+    {
+        errors.push(form_error::<R>(
+            DeclarationErrorKind::FormClaimsSoftDeleteColumn {
+                field: field.name.to_string(),
+                column: column.clone(),
             },
         ));
     }

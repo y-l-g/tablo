@@ -5,7 +5,9 @@ use std::{any::TypeId, sync::Arc};
 use toasty::stmt::{Expr, IntoExpr, List, Path};
 use topcoat::{Result, context::Cx};
 
-use super::{ErasedInput, InputResult, InputSpec, Resource, can, scoped_query};
+use super::{
+    ErasedInput, InputResult, InputSpec, Resource, Trashed, can, scoped_query, scoped_query_in,
+};
 use crate::{
     BoxFuture,
     form::{FieldError, FormScalar, FormValues},
@@ -335,7 +337,8 @@ where
     let Some(records) = pk::pk_in_expr::<C::Model>(&ids) else {
         return Err(topcoat::router::error::not_found().into());
     };
-    let linked = scoped_query::<C>(cx)?
+    // A trashed record stays linked, and the relation table offers to unlink it.
+    let linked = scoped_query_in::<C>(cx, Trashed::With)?
         .filter(records)
         .filter(linked_to(owner, via))
         .exec(&mut *ex)

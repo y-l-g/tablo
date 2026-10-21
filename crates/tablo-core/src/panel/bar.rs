@@ -85,6 +85,8 @@ pub(crate) fn header_bar(
 
 /// The bar of `record`'s actions placed at `place`, each landing back on `here`, then its Delete,
 /// which lands on the list: each one the policy allows on the record, as its row would offer it.
+/// A trashed record offers its restore and force delete only, and the force delete lands on the
+/// list too.
 pub(crate) fn record_bar<R: Resource>(
     cx: &Cx,
     resource: &Mounted<R>,
@@ -104,17 +106,27 @@ pub(crate) fn record_bar<R: Resource>(
         .filter(|action| {
             action.places.contains(place)
                 && resource.can(cx, action.resource_wide)
-                && (action.can_run)(resource, cx, record)
+                && action.allows(resource, cx, record)
         })
-        .map(|action| ActionButton {
-            label: (action.label)(cx),
-            url: with_return(&row_action_url(&resource.url, &key, action.name), here),
-            confirm: (action.confirm && !action.input.takes_input).then_some("Run this action?"),
-            delete: false,
-            input: Input::of(action.input, action.confirm, &resource.url, action.name),
+        .map(|action| {
+            let url = row_action_url(&resource.url, &key, action.name);
+            ActionButton {
+                label: (action.label)(cx),
+                url: if action.removes {
+                    url
+                } else {
+                    with_return(&url, here)
+                },
+                confirm: (action.confirm && !action.input.takes_input).then_some(action.prompt),
+                delete: action.removes,
+                input: Input::of(action.input, action.confirm, &resource.url, action.name),
+            }
         })
         .collect();
-    if resource.can(cx, Ability::DeleteAny) && resource.can(cx, Ability::Delete(record)) {
+    if !resource.is_trashed(record)
+        && resource.can(cx, Ability::DeleteAny)
+        && resource.can(cx, Ability::Delete(record))
+    {
         buttons.push(ActionButton {
             label: "Delete".to_string(),
             url: delete_action_url(&resource.url, &key),

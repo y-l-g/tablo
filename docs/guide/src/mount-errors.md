@@ -19,6 +19,7 @@ A test matches on the kind rather than the message; see
 | `Panel` | the panel's own configuration: its prefix, served directories, assets and auth |
 | `Registration` | the resource or page itself: its registration, slug, actions or create columns |
 | `Tenancy` | `ResourceDef::tenancy` |
+| `SoftDelete` | `ResourceDef::soft_delete` |
 | `Table` | `ResourceDef::table` |
 | `Form` | `ResourceDef::form`, checked against the record form |
 | `Detail` | `ResourceDef::detail` |
@@ -162,6 +163,7 @@ An action's `NAME` that is not one URL segment does not compile, so it never rea
 | `DuplicateField` | two fields share a name | each input binds a distinct field |
 | `MissingControl` | a hand-written `RecordForm::control` renders no control for a record-form field | render the field's control |
 | `FormClaimsTenantColumn` | a tenant-owned resource's record form has a field for the tenant column | drop the field: the framework stamps the tenant |
+| `FormClaimsSoftDeleteColumn` | the record form has a field for the resource's soft-delete column | drop the field, or mark it `#[form(skip)]` on a `ModelForm`: only a delete and a restore write the column |
 | `EmptyChoice` | a choice has neither options nor a relationship | `.options(..)`, `.relationship::<R>()`, or `#[form(relationship = R)]` |
 | `CompositeKeyChoice` | a relationship choice or filter loads a model with a composite primary key | choose over a model with a single-column key |
 | `UnregisteredOptionSource` | a relationship choice or filter takes its options from a resource the panel does not register | register that resource |

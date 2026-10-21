@@ -198,6 +198,11 @@ impl<M> Table<M> {
         &self.columns
     }
 
+    /// Appends `filter` after the declared ones.
+    pub(crate) fn push_filter(&mut self, filter: BoxFilter<M>) {
+        self.filters.push(filter);
+    }
+
     /// The declared filters, in order.
     pub(crate) fn declared_filters(&self) -> &[BoxFilter<M>] {
         &self.filters

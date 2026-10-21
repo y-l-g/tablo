@@ -20,3 +20,4 @@ record disagree, the code wins and the record is fixed. Missing numbers are reti
 | [0026](0026-topcoat-runtime-only.md) | Topcoat's runtime is the browser layer |
 | [0027](0027-filter-values.md) | A filter's value is a list of values and a set of named parts |
 | [0028](0028-stored-notifications.md) | Stored notifications ride the runtime connection |
+| [0029](0029-soft-deletes.md) | Soft deletes are a declared column the framework scopes |
