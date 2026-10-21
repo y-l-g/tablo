@@ -77,30 +77,131 @@ to rename a record, and `plural_label` only when the rules guess wrong.
 
 `query(cx)` is the base query of every loader: the list, the export, the edit and delete
 handlers, relationship options and the detail page. Use it for the resource's own row scoping,
-such as hiding soft-deleted rows:
+such as a resource that serves the published posts only:
 
 ```rust
-{{#include ../../../examples/guide/src/resources.rs:soft-deleted-query}}
+{{#include ../../../examples/guide/src/resources.rs:published-query}}
 ```
 
-Two things do not belong in `query`:
+Three things do not belong in `query`:
 
 - **The tenant filter.** For a tenant-owned resource the framework adds it to `query` at every
   loader. See [Tenancy](./policy-auth-tenancy.md#tenancy).
+- **Soft deletes.** Declare the column instead; see [Soft deletes](#soft-deletes).
 - **Relations.** The list, the export and the detail page load the relations their columns
   declare: a `RelationColumn` or `CountColumn` declares its own, and a `ComputedColumn` declares
   one with `include`. Include a relation in `query` only when every loader
   reads it, for example because the policy does.
 
 In your own code, load a resource's rows with `scoped_query::<R>(cx)?`, not `R::query(cx)`:
-`scoped_query` is `query` with the tenant filter of the def the request's panel mounted, and
-returns an error rather than an unscoped query when the request has no tenant or the panel does
-not mount `R`. A background job builds its context from the mounted panel's `PanelHandle`; see
+`scoped_query` is `query` with the tenant filter of the def the request's panel mounted, without
+the trashed records, and returns an error rather than an unscoped query when the request has no
+tenant or the panel does not mount `R`. A background job builds its context from the mounted panel's `PanelHandle`; see
 [Outside a request](./data-access.md#outside-a-request).
 
 The unique-value check on forms probes through the same scoped query, so a `#[unique]` index
 wider than the scope is invisible to it: the check misses the collision and the database refuses
 the write with a 500. Scope such indexes to match, as in `#[unique(tenant_id, email)]`.
+
+## Soft deletes
+
+A resource that keeps deleted records names the column a delete stamps, a nullable timestamp:
+
+```rust
+{{#include ../../../examples/guide/src/resources.rs:post-soft-delete}}
+```
+
+A delete then sets the column to the current time instead of removing the row, and every loader
+leaves the stamped records out: the list and the export, the edit page, actions, relationship
+options and other resources' relation columns. The list's filter bar gains a **Trashed** control
+showing the live records, all of them, or only the trashed ones (`?f.trashed=with`,
+`?f.trashed=only`). A trashed record's row and detail page offer **Restore**, which empties the
+column, and **Delete permanently**, which removes the row, each also in the bulk bar while the
+list shows trashed records. Its edit page, its Delete and every other action refuse it until it is
+restored: a record's own route answers 404, and a bulk action skips it.
+
+The policy decides who may restore and delete permanently through `Ability::RestoreAny` and
+`Ability::Restore(record)`, and `Ability::ForceDeleteAny` and `Ability::ForceDelete(record)`;
+`ReadOnly` allows neither. The [hooks](#hooks) receive them as `Change::Restore` and
+`Change::ForceDelete`, and a delete as `Change::Delete`. Override `restore_record` or
+`force_delete_record` to write another way, as `delete_record` can be.
+
+In your own code, `scoped_query_in::<R>(cx, Trashed::Only)` loads the trashed records, and
+`Trashed::With` loads both, under the same tenant filter as `scoped_query`.
+
+The record form must not write the column: a `ModelForm` marks it `#[form(skip)]`. The unique
+check on forms probes the trashed records too, since the database's unique index still covers
+them.
+
+## Field access
+
+A field only some users may see, or only some may change, declares who:
+
+```rust
+{{#include ../../../examples/guide/src/resources.rs:user-field-access}}
+```
+
+Each rule asks about the request, not the record, and it binds the field of its model: every
+resource the panel mounts over that model obeys it. A user `view` refuses sees the field nowhere the
+panel shows its records: not its column in the list, the column picker or the export, not the
+filters, the grouping or the search over it, not its entry on the detail page, not its control on
+any form, and not another resource's relation column of it. A sort or a filter naming it reads as
+one naming a column the table does not declare. A user `view` allows and `edit` refuses sees the
+control disabled, on every form of the model. Editing implies viewing.
+
+The form never posts a field the user may not change, so a submission that does answers 400. An
+edit keeps the stored value. A create takes the control's `default`, else the field's blank
+answer; when the field is required and has no default, the user cannot create, and the list
+offers no **Create** button.
+
+If a validation error lands on a hidden field, the form shows an alert that a field the user
+cannot see refuses the save, without its message.
+
+Hiding a `belongs_to` relation hides its foreign key, and hiding the key hides the relation. A
+`has_many` or a `has_one` cannot be restricted: its records are the related resource's, which its
+policy restricts. A primary key cannot be restricted either: it is every record's URL id and its
+default label. A `ComputedColumn`, a `QueryFilter` and a `TextColumn` with a `description` say
+which fields they read, since the panel cannot see inside their closures:
+
+```rust,ignore
+ComputedColumn::new("Pay", |e: &Employee| e.salary.to_string())
+    .reading(Reads::of(lens!(Employee.salary)))
+```
+
+A custom `Column` or `Filter` answers `reads`. On a panel that restricts a field, the mount refuses
+one that does not. With a `view` rule, it also refuses a record title over the field and a form
+condition or dependent choice that watches it from outside it.
+
+A relation column shows the record through the resource it names. `RelationColumn::new::<R>` names
+the fields its closure reads, and a user the restriction hides one from finds no such column on the
+list, the detail page or the export:
+
+```rust,ignore
+RelationColumn::new::<EmployeeResource>(relation!(Badge.owner), lens!(Employee.salary), |e| {
+    e.salary.to_string()
+})
+```
+
+`RelationColumn::of::<R>` and `list::<R>` show the record's title, which the mount keeps clear of
+every hidden field, and a `CountColumn` shows no field, so it mounts over any source. The mount
+refuses a declaration that would show a restricted record the panel cannot mask:
+
+- a relation column over a source the panel does not mount, or `RelationColumn::unscoped`, that
+  loads a record of a model a resource restricts a field of;
+- a `ComputedColumn` or a custom column on a page whose columns load such a record;
+- a relationship choice or filter labelled by a custom label, or by a source the panel does not
+  mount, over such a model;
+- a dependent choice narrowed by a restricted field, which would show which records hold each value
+  of it;
+- a `QueryFilter` whose reads reach such a model through a relation, since its query can match on
+  the field.
+
+Show such records through a mounted resource instead: `RelationColumn::new::<R>` for their fields,
+`RelationColumn::of::<R>` for their title, and a relationship filter over the foreign key.
+
+A `ComputedColumn`'s closure may read a relation the resource's own `Resource::query` loads. The
+query is opaque to the mount, so that closure is the app's own, as the query of a `QueryFilter`
+through a relation is.
 
 ## Writes
 
@@ -125,9 +226,9 @@ Run every statement through `ex`, and use the `record` you are given rather than
 again: it is the row the policy check passed. Both functions return the written row. An error
 rolls the transaction back and nothing is written.
 
-`delete_record` deletes the row by its primary key, and `bulk_delete_records` calls
-`delete_record` once per record in one transaction, so overriding `delete_record` — for a soft
-delete, say — covers both. A bulk delete runs like a bulk action: it deletes the selected records
+`delete_record` deletes the row by its primary key, or stamps it on a resource that soft-deletes,
+and `bulk_delete_records` calls `delete_record` once per record in one transaction, so overriding
+`delete_record` covers both. A bulk delete runs like a bulk action: it deletes the selected records
 the policy's `Delete` allows and reports the rest as skipped (`"Bulk deleted (2 of 5 skipped)"`).
 A selected record the policy's `View` refuses refuses the whole request with 403, and nothing is
 deleted.
@@ -135,9 +236,10 @@ deleted.
 ### Hooks
 
 Every write the panel makes for a resource reaches two hooks with a `Change` that says what it
-wrote: a create, an update, a delete or bulk delete, an [action](./actions.md), or an attach or
-detach on a [many-to-many relation](./detail-pages.md#many-to-many-relations). Neither runs when
-the write was refused or failed.
+wrote: a create, an update, a delete or bulk delete, a restore or force delete, an
+[action](./actions.md), or an attach or detach on a
+[many-to-many relation](./detail-pages.md#many-to-many-relations). Neither runs when the write was
+refused or failed.
 
 `before_commit` runs inside the transaction, after the record function or the action wrote, with
 the transaction as `ex`. A row written through `ex` commits with the write or not at all, so an
@@ -167,6 +269,7 @@ the hook skips it, so a row that must exist whenever the write does is written i
 | `Create(record)` | the created row |
 | `Update { before, after }` | the row as the handler loaded it and as the update left it |
 | `Delete(records)` | the deleted rows, every one in one call for a bulk delete |
+| `Restore(records)`, `ForceDelete(records)` | the trashed rows a [soft-deleting](#soft-deletes) resource restored or deleted for good |
 | `Action { name, records }` | the action's `NAME` and the rows it ran on |
 | `HeaderAction { name }` | the header action's `NAME` |
 | `Attach { owner, relation, key }` | the owner, its relation field and the linked record's key |
@@ -198,6 +301,11 @@ declaration names one. It refuses the resource when:
 - a `Tenancy::column` lens is not one field of the model, a `Tenancy::via` lens is, or the form
   of a `Tenancy::via` resource writes the parent's foreign key other than through a relationship
   field over a tenant-scoped resource;
+- a `soft_delete` lens is not one field of the model, or the record form writes its column;
+- a `field_access` lens is not one field of the model, names a field twice, a `has_many`, a
+  `has_one` or the soft-delete column; the record title,
+  a form condition or a dependent choice reads a restricted field; or, once any field is
+  restricted, a table column, filter or detail column does not declare the fields it reads;
 - two actions share a `NAME`, record or header;
 - a many-to-many field or relation goes through a join model a link cannot write, or a multiple
   choice in a resource's form names no many-to-many field;
@@ -206,7 +314,7 @@ declaration names one. It refuses the resource when:
 
 The refusal lists every mistake the panel found, not only the first. `.panel(..)` returns it as a
 `MountError`: each of its `DeclarationError`s names the resource, the `Site` of the declaration
-it is in (`Panel`, `Registration`, `Tenancy`, `Table`, `Form`, `Detail`, a `Relation`) and a
+it is in (`Panel`, `Registration`, `Tenancy`, `SoftDelete`, a `FieldAccess`, `Table`, `Form`, `Detail`, a `Relation`) and a
 `DeclarationErrorKind`, whose `Display` is the message. [Mount errors](./mount-errors.md) lists
 every kind with its fix.
 [Testing](./testing-and-benchmarks.md#testing-a-panel) shows a test matching on the kind.

@@ -1,4 +1,5 @@
-//! [`Lens`]: a model field's typed path paired with the reader of its value, built by [`lens!`].
+//! [`Lens`]: a model field's typed path paired with the reader of its value, built by [`lens!`];
+//! [`Reads`]: the fields a declaration reads off a record.
 
 use derive_where::derive_where;
 use toasty::stmt::Path;
@@ -48,6 +49,11 @@ impl<M, T, P> Lens<M, T, P> {
     pub fn read<'a>(&self, record: &'a M) -> &'a T {
         (self.read)(record)
     }
+
+    /// The function reading the field.
+    pub(crate) fn reader(&self) -> fn(&M) -> &T {
+        self.read
+    }
 }
 
 impl<M, T, P> From<Lens<M, T, P>> for Path<M, P> {
@@ -88,4 +94,108 @@ macro_rules! lens {
             |record: &$($model)::+| &record$(.$field)+,
         )
     };
+}
+
+/// The fields of `M` a [`Column`](crate::extend::Column) or a [`Filter`](crate::extend::Filter)
+/// reads, by the root field each path starts at: what
+/// [`field_access`](crate::ResourceDef::field_access) hides it by.
+///
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # struct Employee { #[key] #[auto] id: uuid::Uuid, salary: i64, bonus: i64 }
+/// use tablo_core::{ComputedColumn, Reads, lens};
+///
+/// ComputedColumn::new("Pay", |e: &Employee| (e.salary + e.bonus).to_string())
+///     .reading(Reads::of(lens!(Employee.salary)).and(lens!(Employee.bonus)));
+/// ```
+#[derive_where(Clone, Debug, Default)]
+pub struct Reads<M> {
+    fields: Vec<String>,
+    /// Whether some path named no root field: such a read hides under any mask.
+    unresolved: bool,
+    #[derive_where(skip(Debug))]
+    _model: std::marker::PhantomData<fn() -> M>,
+}
+
+impl<M> Reads<M> {
+    /// The root fields the reads name.
+    pub(crate) fn fields(&self) -> &[String] {
+        &self.fields
+    }
+
+    /// Whether some path named no root field, which hides under any mask.
+    pub(crate) fn is_unresolved(&self) -> bool {
+        self.unresolved
+    }
+
+    /// No field: a column or a filter that reads nothing off the row.
+    pub fn nothing() -> Self {
+        Self::default()
+    }
+
+    /// The field `path` reads.
+    pub fn of<T>(path: impl Into<Path<M, T>>) -> Self
+    where
+        M: toasty::schema::Model,
+    {
+        Self::nothing().and(path)
+    }
+
+    /// These fields and the one `path` reads.
+    pub fn and<T>(self, path: impl Into<Path<M, T>>) -> Self
+    where
+        M: toasty::schema::Model,
+    {
+        let path = crate::toasty_compat::model::ModelPath::of(&path.into());
+        match crate::toasty_compat::model::root_field::<M>(&path) {
+            Some(field) => self.named(field),
+            None => Self {
+                unresolved: true,
+                ..self
+            },
+        }
+    }
+
+    /// These fields and the root field `name`.
+    pub(crate) fn named(mut self, name: impl Into<String>) -> Self {
+        let name = name.into();
+        if !self.fields.contains(&name) {
+            self.fields.push(name);
+        }
+        self
+    }
+
+    /// These fields and the ones `other` reads.
+    pub(crate) fn union(&self, other: &Self) -> Self {
+        let mut union = other
+            .fields
+            .iter()
+            .fold(self.clone(), |reads, field| reads.named(field.clone()));
+        union.unresolved |= other.unresolved;
+        union
+    }
+
+    /// Whether it reads any of `fields`; a read naming no field may read them.
+    pub(crate) fn reads_any(&self, fields: &[String]) -> bool {
+        (self.unresolved && !fields.is_empty())
+            || self.fields.iter().any(|field| fields.contains(field))
+    }
+}
+
+impl<M: toasty::schema::Model, T, P> From<Lens<M, T, P>> for Reads<M> {
+    fn from(lens: Lens<M, T, P>) -> Self {
+        Self::of(lens)
+    }
+}
+
+impl<M: toasty::schema::Model, T> From<Path<M, T>> for Reads<M> {
+    fn from(path: Path<M, T>) -> Self {
+        Self::of(path)
+    }
+}
+
+/// Whether a declaration answering `reads` shows to a request that may not view `hidden`. One that
+/// does not say shows: a mount refuses it on a resource restricting a field.
+pub(crate) fn shows<M>(reads: Option<Reads<M>>, hidden: &[String]) -> bool {
+    reads.is_none_or(|reads| !reads.reads_any(hidden))
 }

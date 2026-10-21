@@ -56,6 +56,10 @@ impl<M> Filter<M> for TernaryFilter<M>
 where
     M: toasty::schema::Model + Send + Sync,
 {
+    fn reads(&self) -> Option<crate::lens::Reads<M>> {
+        Some(self.binding.reads())
+    }
+
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
         self.binding.misdeclared()
     }

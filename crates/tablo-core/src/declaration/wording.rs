@@ -126,6 +126,7 @@ impl fmt::Display for DeclarationErrorKind {
                 "`{model}` compiles to no schema, so its embedded paths name no column: {error}"
             ),
             Self::Tenancy { fault } => fault.fmt(f),
+            Self::FieldAccess { fault } => fault.fmt(f),
             Self::NoColumns => f.write_str(
                 "no column: declare columns with `Table::new(columns)` or in `ResourceDef::table`",
             ),
@@ -219,6 +220,12 @@ impl fmt::Display for DeclarationErrorKind {
                 f,
                 "record-form field `{field}` claims the tenant column `{column}`, which the \
                  framework stamps on create: drop it from the form"
+            ),
+            Self::FormClaimsSoftDeleteColumn { field, column } => write!(
+                f,
+                "record-form field `{field}` claims the soft-delete column `{column}`, which only \
+                 a delete and a restore write: drop it from the form, or mark it \
+                 `#[form(skip)]` on a `ModelForm`"
             ),
             Self::ReservedFormField { field } => write!(
                 f,

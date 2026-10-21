@@ -18,6 +18,11 @@ pub enum Change<M> {
     Update { before: M, after: M },
     /// A delete or a bulk delete removed these rows, as they stood before the delete.
     Delete(Vec<M>),
+    /// A restore brought back these trashed rows, as they stood before it: their deleted-at
+    /// column still holds the time they were trashed.
+    Restore(Vec<M>),
+    /// A force delete removed these trashed rows for good, as they stood before it.
+    ForceDelete(Vec<M>),
     /// The custom [`Action`] `name` ran on these rows, as the handler loaded them before it ran.
     Action { name: &'static str, records: Vec<M> },
     /// The [`HeaderAction`](crate::HeaderAction) `name` ran, on no record.
@@ -42,15 +47,18 @@ pub enum Change<M> {
 
 impl<M> Change<M> {
     /// The rows of this resource the change names: the created row, the updated row as it now
-    /// stands, the deleted rows, the rows an action ran on, the owner of an attach or a detach,
-    /// and none for a header action.
+    /// stands, the deleted, restored or force-deleted rows, the rows an action ran on, the owner of
+    /// an attach or a detach, and none for a header action.
     pub fn records(&self) -> &[M] {
         match self {
             Self::Create(record)
             | Self::Update { after: record, .. }
             | Self::Attach { owner: record, .. }
             | Self::Detach { owner: record, .. } => std::slice::from_ref(record),
-            Self::Delete(records) | Self::Action { records, .. } => records,
+            Self::Delete(records)
+            | Self::Restore(records)
+            | Self::ForceDelete(records)
+            | Self::Action { records, .. } => records,
             Self::HeaderAction { .. } => &[],
         }
     }

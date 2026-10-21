@@ -43,6 +43,18 @@ pub enum Ability<'a, M> {
     DeleteAny,
     /// Delete one record.
     Delete(&'a M),
+    /// Restore trashed records at all, on a resource that
+    /// [soft-deletes](crate::ResourceDef::soft_delete).
+    RestoreAny,
+    /// Restore one trashed record.
+    Restore(&'a M),
+    /// Delete trashed records for good at all, on a resource that
+    /// [soft-deletes](crate::ResourceDef::soft_delete). Allowed only with
+    /// [`DeleteAny`](Self::DeleteAny).
+    ForceDeleteAny,
+    /// Delete one trashed record for good. Allowed only with [`Delete`](Self::Delete) of it, so a
+    /// policy refusing a record's delete refuses its force delete too.
+    ForceDelete(&'a M),
     /// Run the custom [`Action`](crate::Action) whose [`NAME`](crate::Action::NAME) is `action`
     /// at all, before [`Run`](Self::Run) is asked of each record.
     RunAny {
@@ -72,10 +84,14 @@ impl<'a, M> Ability<'a, M> {
             Self::View(record)
             | Self::Update(record)
             | Self::Delete(record)
+            | Self::Restore(record)
+            | Self::ForceDelete(record)
             | Self::Run { record, .. } => Some(record),
             Self::ViewAny
             | Self::Create
             | Self::DeleteAny
+            | Self::RestoreAny
+            | Self::ForceDeleteAny
             | Self::RunAny { .. }
             | Self::RunHeader { .. } => None,
         }

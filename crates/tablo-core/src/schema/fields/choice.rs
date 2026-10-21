@@ -38,6 +38,8 @@ pub(crate) struct Parent {
     pub(super) watched: String,
     /// The model the column belongs to, which must be the relationship's source model.
     pub(super) model: std::any::TypeId,
+    /// The name of the field the column is, when it names one.
+    pub(super) column: Option<String>,
     /// The predicate selecting the rows for a trimmed, non-empty parent value, or `None` when the
     /// column's type does not parse it.
     pub(super) scope: ParentScope,
@@ -99,6 +101,30 @@ impl ChoiceControl {
         self.relationship
             .as_ref()
             .map(|relationship| relationship.model_id)
+    }
+
+    /// The source model's name when the choice's options show records under a label a panel
+    /// cannot mask: see [`Relationship::unmasked_model`](super::choice::Relationship).
+    pub(crate) fn unmasked_model(
+        &self,
+        is_mounted: impl Fn(std::any::TypeId) -> bool,
+        restricted: impl Fn(crate::toasty_compat::model::ModelId) -> bool,
+    ) -> Option<&'static str> {
+        self.relationship
+            .as_ref()?
+            .unmasked_model(is_mounted, restricted)
+    }
+
+    /// The field a dependent choice narrows its options by, when `restricts` says a mounted
+    /// resource restricts it of the source model: the options would then show which records hold
+    /// each value of it.
+    pub(crate) fn narrowed_by(
+        &self,
+        restricts: impl Fn(crate::toasty_compat::model::ModelId, &str) -> bool,
+    ) -> Option<&str> {
+        let column = self.parent.as_ref()?.column.as_deref()?;
+        let model = self.relationship.as_ref()?.model_id;
+        restricts(model, column).then_some(column)
     }
 
     /// The key of the field whose value narrows a dependent choice's options.
@@ -404,7 +430,7 @@ impl Field {
         id: String,
         placement: Placement<'_>,
     ) -> Result<BoxView<'a>> {
-        let disabled = self.is_disabled(placement.editing);
+        let disabled = self.is_disabled_at(&placement);
         if choice.multiple {
             let chosen = value.and_then(FormValue::as_list).unwrap_or_default();
             return self

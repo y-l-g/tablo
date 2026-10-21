@@ -42,6 +42,10 @@ impl Resource for UserResource {
                 Ability::Create
                 | Ability::DeleteAny
                 | Ability::Delete(_)
+                | Ability::RestoreAny
+                | Ability::Restore(_)
+                | Ability::ForceDeleteAny
+                | Ability::ForceDelete(_)
                 | Ability::RunAny { .. }
                 | Ability::Run { .. }
                 | Ability::RunHeader { .. } => is_admin(cx),
@@ -55,6 +59,10 @@ impl Resource for UserResource {
                 c.age,
             ))))
             // ANCHOR_END: user-form
+            // ANCHOR: user-field-access
+            .field_access(lens!(User.age), FieldAccess::new().view(is_admin))
+            .field_access(lens!(User.role), FieldAccess::new().edit(is_admin))
+            // ANCHOR_END: user-field-access
             // ANCHOR: user-navigation
             .navigation_order(-1)
             .icon(tablo::ui::icons::USERS)
@@ -102,6 +110,9 @@ impl Resource for PostResource {
             // ANCHOR: post-tenancy
             .tenancy(Tenancy::column(lens!(Post.tenant_id)))
             // ANCHOR_END: post-tenancy
+            // ANCHOR: post-soft-delete
+            .soft_delete(lens!(Post.deleted_at))
+            // ANCHOR_END: post-soft-delete
             // ANCHOR: post-view
             .detail(Detail::new(Section::new("Post").columns((
                 TextColumn::new(lens!(Post.title)),
@@ -233,11 +244,11 @@ impl Resource for OrderResource {
     }
 }
 
-// ANCHOR: soft-deleted-query
+// ANCHOR: published-query
 pub fn query(_cx: &Cx) -> Query<List<Post>> {
-    Query::<List<Post>>::all().filter(Post::fields().deleted_at().is_none())
+    Query::<List<Post>>::all().filter(Post::fields().status().eq(PostStatus::Published))
 }
-// ANCHOR_END: soft-deleted-query
+// ANCHOR_END: published-query
 
 // ANCHOR: audit-before-commit
 pub async fn before_commit(

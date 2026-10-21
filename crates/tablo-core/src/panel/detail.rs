@@ -34,13 +34,16 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         let id = path_param_segment(cx, "id").to_string();
         let mut db = db(cx);
         let record = load_detail(cx, &resource, &mut db).await?;
-        let body = resource.detail.render(cx, &record);
+        let body = resource
+            .detail
+            .render_without(cx, &record, resource.field_mask(cx).hidden());
         let relations = render_relations(cx, &resource, &record);
         let title = resource.record_title(&record, &id);
         let back = resource.url.clone();
         let public_link = resource.public_link(cx, &record);
         let uri = topcoat::router::request::uri(cx);
         let edit = (<R::Form as RecordForm>::HAS_FORM
+            && !resource.is_trashed(&record)
             && resource.can(cx, Ability::Update(&record)))
         .then(|| format!("{}/{}", uri.path(), super::url::EDIT_ROUTE_SEGMENT));
         // An action lands back on the page as it was left: its related tables' state included.

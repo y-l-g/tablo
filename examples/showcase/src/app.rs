@@ -133,6 +133,8 @@ impl Resource for PostResource {
             .navigation_badge(Post::fields().status().eq(PostStatus::Draft))
             .policy(when(blog_open))
             .tenancy(Tenancy::column(lens!(Post.tenant_id)))
+            // A delete moves the post to the trash, which restores it or deletes it permanently.
+            .soft_delete(lens!(Post.deleted_at))
             .table(post_table())
             .form(post_form())
             .detail(post_detail())

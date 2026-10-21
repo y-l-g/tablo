@@ -64,6 +64,31 @@ macro_rules! toggle_builders {
 /// impl; `binding` adds the binding's `misdeclared`.
 macro_rules! base_column_methods {
     () => {
+        base_column_methods!(@shared);
+
+        fn reads(&self) -> Option<$crate::lens::Reads<M>> {
+            Some(self.base.reads())
+        }
+    };
+    (binding) => {
+        base_column_methods!();
+        base_column_methods!(@misdeclared);
+    };
+    // A column that answers `reads` itself.
+    (binding, reads) => {
+        base_column_methods!(@shared);
+        base_column_methods!(@misdeclared);
+    };
+    (@misdeclared) => {
+        fn misdeclared(&self) -> Option<$crate::DeclarationErrorKind> {
+            self.base.binding.misdeclared()
+        }
+    };
+    (@shared) => {
+        fn related(&self) -> $crate::column::Related {
+            $crate::column::Related::None
+        }
+
         fn name(&self) -> &str {
             self.base.name()
         }
@@ -80,13 +105,6 @@ macro_rules! base_column_methods {
             self.base.toggle
         }
     };
-    (binding) => {
-        base_column_methods!();
-
-        fn misdeclared(&self) -> Option<$crate::DeclarationErrorKind> {
-            self.base.binding.misdeclared()
-        }
-    };
 }
 
 fn sort_order<M, T>(path: &Path<M, T>, descending: bool) -> OrderByExpr {
@@ -97,6 +115,8 @@ fn sort_order<M, T>(path: &Path<M, T>, descending: bool) -> OrderByExpr {
     }
 }
 
+mod related;
+pub use related::Related;
 mod boolean;
 mod color;
 mod computed;
@@ -222,6 +242,34 @@ pub trait Column<M>: Send + Sync {
         _ex: &'a mut dyn toasty::Executor,
     ) -> crate::BoxFuture<'a, topcoat::Result<()>> {
         Box::pin(async { Ok(()) })
+    }
+
+    /// The fields of the row [`text`](Self::text), [`cell`](Self::cell),
+    /// [`entry`](Self::entry), [`search_expr`](Self::search_expr) and
+    /// [`order_by`](Self::order_by) read, or `None` when the column does not say.
+    ///
+    /// A panel drops a column reading a field
+    /// [`field_access`](crate::ResourceDef::field_access) hides from the user, and refuses to
+    /// mount a panel restricting a field whose columns answer `None`. The built-in columns
+    /// answer their own field.
+    fn reads(&self) -> Option<crate::lens::Reads<M>> {
+        None
+    }
+
+    /// Whether the column shows a field of a related record that the related resource's
+    /// [`field_access`](crate::ResourceDef::field_access) hides from `cx`: a panel drops it then,
+    /// as it drops one reading a hidden field of the row.
+    #[doc(hidden)]
+    fn masked(&self, _cx: &Cx) -> bool {
+        false
+    }
+
+    /// What the column reads of the related records it loads: see [`Related`]. A column answers
+    /// [`Related::Row`] unless it says otherwise, since a closure reading its row may reach any
+    /// relation the page loads.
+    #[doc(hidden)]
+    fn related(&self) -> Related {
+        Related::Row
     }
 
     /// What is wrong with this column's declaration.
@@ -358,6 +406,11 @@ impl ColumnBase {
     fn label(&self) -> &str {
         self.label.as_deref().unwrap_or(self.binding.label())
     }
+
+    /// The field the column reads.
+    fn reads<M>(&self) -> crate::lens::Reads<M> {
+        self.binding.reads()
+    }
 }
 
 /// How a [`Column`] takes the table's width.
@@ -432,6 +485,12 @@ impl ColumnWidth {
 
 /// A table's columns, as the table stores them.
 pub(crate) type BoxColumn<M> = Arc<dyn Column<M>>;
+
+/// Whether `column` shows to `cx`, which may not view the row's `hidden` fields: it reads none of
+/// them, and no field of a related record its resource hides from `cx`.
+pub(crate) fn shows<M>(cx: &Cx, column: &dyn Column<M>, hidden: &[String]) -> bool {
+    crate::lens::shows(column.reads(), hidden) && !column.masked(cx)
+}
 
 /// Convert a single built-in column, a tuple of any [`Column`]s, a `Vec` or slice
 /// of boxed columns, or `()` for none yet, into a table's column list.

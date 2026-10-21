@@ -7,7 +7,7 @@ use topcoat::{Result, context::Cx};
 use crate::{
     db::db,
     form::{FieldErrors, FormValues},
-    resource::{Mounted, Resource},
+    resource::{Mounted, Resource, Trashed},
 };
 
 /// Refuses duplicated `unique()` values with `<Label> has already been taken`, skipping empty
@@ -50,9 +50,10 @@ pub(super) async fn check_unique<R: Resource>(
                 continue;
             };
             probed.insert(members);
-            // Probes inside the write transaction through the tenant-scoped query.
+            // Probes inside the write transaction through the tenant-scoped query, trashed records
+            // included: the index covers them.
             let rows = resource
-                .scoped_query(cx)?
+                .scoped_query_in(cx, Trashed::With)?
                 .filter(filter)
                 .limit(1)
                 .exec(&mut *ex)

@@ -132,14 +132,15 @@ pub use column::{
     RepeaterColumn, TextColumn, ToOneRelation, contains_expr,
 };
 pub use declaration::{
-    ActionInputFault, AuthMailFault, DeclarationError, DeclarationErrorKind, FieldRuleFault,
-    ManyToManyFault, MountError, ProfileFault, ResetFault, SegmentFault, SignUpFault, Site,
-    TenancyFault, TenantProfileFault, TenantRegistrationFault, TwoFactorFault, VerificationFault,
+    ActionInputFault, AuthMailFault, DeclarationError, DeclarationErrorKind, FieldAccessFault,
+    FieldRuleFault, ManyToManyFault, MountError, ProfileFault, ResetFault, SegmentFault,
+    SignUpFault, Site, TenancyFault, TenantProfileFault, TenantRegistrationFault, TwoFactorFault,
+    VerificationFault,
 };
 pub use detail::{Detail, IntoDetail};
 pub use display::{Alignment, Color, Currency, Number, Numeric};
 pub use form::{NoForm, Posted, RecordForm};
-pub use lens::Lens;
+pub use lens::{Lens, Reads};
 pub use navigation::{NavTarget, NavigationItem};
 pub use notification::{Notification, NotificationAction, NotificationStatus, Notifications};
 pub use outcome::Outcome;
@@ -150,8 +151,9 @@ pub use panel::{
 };
 pub use policy::{Ability, Allow, Deny, Policy, ReadOnly, when};
 pub use resource::{
-    Action, Change, ForeignKey, HeaderAction, HeaderActions, Places, PublicLink, Relation,
-    Resource, ResourceDef, can, scoped_query, write_create, write_update,
+    Action, Change, FieldAccess, ForeignKey, HeaderAction, HeaderActions, Places, PublicLink,
+    Relation, Resource, ResourceDef, Trashed, can, scoped_query, scoped_query_in, write_create,
+    write_update,
 };
 pub use schema::{
     ChoiceField, CustomField, EmbeddedForm, Field, FileField, Grid, Group, IntoFormValue,

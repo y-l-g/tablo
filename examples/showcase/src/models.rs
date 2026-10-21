@@ -135,6 +135,8 @@ pub struct Post {
     pub post_categories: Deferred<Vec<PostCategory>>,
     #[has_many(via = post_categories.category)]
     pub categories: Deferred<Vec<Category>>,
+    /// When the post was deleted; a deleted post waits in the trash.
+    pub deleted_at: Option<Timestamp>,
 }
 
 /// A topic posts are filed under: a post takes several, and a category holds several posts.

@@ -3,7 +3,7 @@
 use toasty::{Executor, stmt::IntoInsert};
 use topcoat::{Result, context::Cx};
 
-use super::{Mounted, Resource, require_mounted};
+use super::{Mounted, Resource, Trashed, require_mounted};
 use crate::{
     form::{FormValues, Posted, RecordForm},
     tenancy::require_tenant,
@@ -112,6 +112,109 @@ pub async fn write_update<R: Resource>(
         }
     }
     Ok(record)
+}
+
+/// The default [`Resource::delete_record`]: stamps the soft-delete column of a resource that
+/// declares one, and removes the row of any other, through the tenant-scoped query.
+pub(super) async fn delete<R: Resource>(
+    cx: &Cx,
+    record: &R::Model,
+    ex: &mut dyn Executor,
+) -> Result<()> {
+    let resource = require_mounted::<R>(cx)?;
+    if resource.soft_delete.is_some() {
+        let now = toasty::stmt::Value::from(jiff::Timestamp::now());
+        return stamp(cx, &resource, record, Trashed::Without, now, ex).await;
+    }
+    remove(cx, &resource, record, Trashed::Without, ex).await
+}
+
+/// The default [`Resource::restore_record`]: empties the soft-delete column of a trashed record.
+pub(super) async fn restore<R: Resource>(
+    cx: &Cx,
+    record: &R::Model,
+    ex: &mut dyn Executor,
+) -> Result<()> {
+    let resource = require_mounted::<R>(cx)?;
+    stamp(
+        cx,
+        &resource,
+        record,
+        Trashed::Only,
+        toasty::stmt::Value::Null,
+        ex,
+    )
+    .await
+}
+
+/// The default [`Resource::force_delete_record`]: removes a trashed record's row.
+pub(super) async fn force_delete<R: Resource>(
+    cx: &Cx,
+    record: &R::Model,
+    ex: &mut dyn Executor,
+) -> Result<()> {
+    let resource = require_mounted::<R>(cx)?;
+    remove(cx, &resource, record, Trashed::Only, ex).await
+}
+
+/// Sets `record`'s soft-delete column to `value`, if `trashed` admits it.
+///
+/// # Errors
+///
+/// A declaration error on a resource that does not soft-delete, or one whose lens names no
+/// column (the mount refuses both first), or the driver's error.
+async fn stamp<R: Resource>(
+    cx: &Cx,
+    resource: &Mounted<R>,
+    record: &R::Model,
+    trashed: Trashed,
+    value: toasty::stmt::Value,
+    ex: &mut dyn Executor,
+) -> Result<()> {
+    let index = match resource.soft_delete.as_ref().map(super::SoftDelete::field) {
+        Some(Ok((index, _))) => *index,
+        Some(Err(kind)) => {
+            return Err(crate::error::declaration(
+                crate::DeclarationError::of::<R>(crate::Site::Registration, kind.clone())
+                    .to_string(),
+            ));
+        }
+        None => {
+            return Err(crate::error::declaration(format!(
+                "resource '{}' declares no soft-delete column to restore through",
+                resource.slug
+            )));
+        }
+    };
+    let query = resource
+        .scoped_query_in(cx, trashed)?
+        .filter(pk_filter(record));
+    let mut update = toasty::stmt::Update::<toasty::stmt::List<R::Model>>::new(query);
+    update.as_untyped_mut().returning = None;
+    update.set(index, value);
+    toasty::stmt::Statement::<()>::from_untyped_stmt(update.into_untyped())
+        .exec(ex)
+        .await
+        .map_err(|error| -> topcoat::Error { error.into() })?;
+    Ok(())
+}
+
+/// Removes `record`'s row, if `trashed` admits it.
+async fn remove<R: Resource>(
+    cx: &Cx,
+    resource: &Mounted<R>,
+    record: &R::Model,
+    trashed: Trashed,
+    ex: &mut dyn Executor,
+) -> Result<()> {
+    resource
+        .scoped_query_in(cx, trashed)?
+        .filter(pk_filter(record))
+        .delete()
+        .exec(ex)
+        .await
+        .map_err(|error| -> topcoat::Error { error.into() })?;
+    Ok(())
 }
 
 /// The form key the record form binds `field` to.

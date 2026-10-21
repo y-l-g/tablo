@@ -24,8 +24,7 @@ const VENDORED: &str = "crates/tablo-ui/src/components/primitives/";
 pub const OVERSIZED: &[(&str, usize)] = &[
     ("crates/tablo-core/src/panel/shell.rs", 660),
     ("crates/tablo-core/src/schema/embedded.rs", 750),
-    ("crates/tablo-core/src/schema/fields.rs", 840),
-    ("crates/tablo-core/src/toasty_compat/model.rs", 606),
+    ("crates/tablo-core/src/schema/fields.rs", 820),
     ("integration/tests/record_form.rs", 1202),
     ("xtask/src/lib.rs", 659),
 ];

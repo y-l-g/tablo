@@ -4,6 +4,7 @@ use std::fmt;
 
 mod action_input;
 mod auth;
+mod field_access;
 mod field_rule;
 mod many_to_many;
 mod mount_error;
@@ -17,6 +18,7 @@ pub use auth::{
     AuthMailFault, ProfileFault, ResetFault, SignUpFault, TenantProfileFault,
     TenantRegistrationFault, TwoFactorFault, VerificationFault,
 };
+pub use field_access::FieldAccessFault;
 pub use field_rule::FieldRuleFault;
 use field_rule::fmt_field_rule;
 pub use many_to_many::ManyToManyFault;
@@ -65,6 +67,9 @@ impl fmt::Display for DeclarationError {
             match &self.site {
                 Site::Panel | Site::Registration => {}
                 Site::Tenancy => f.write_str(" tenancy")?,
+                Site::SoftDelete => f.write_str(" soft delete")?,
+                Site::FieldAccess(field) => write!(f, " field access `{field}`")?,
+                Site::RecordTitle => f.write_str(" record title")?,
                 Site::Table => f.write_str(" table")?,
                 Site::Form => f.write_str(" form")?,
                 Site::Detail => f.write_str(" detail")?,
@@ -89,6 +94,12 @@ pub enum Site {
     Registration,
     /// `ResourceDef::tenancy`.
     Tenancy,
+    /// `ResourceDef::soft_delete`.
+    SoftDelete,
+    /// The `ResourceDef::field_access` over this field.
+    FieldAccess(String),
+    /// `ResourceDef::record_title`.
+    RecordTitle,
     /// `ResourceDef::table`.
     Table,
     /// `ResourceDef::form`, checked against the record form.
@@ -250,6 +261,11 @@ pub enum DeclarationErrorKind {
         /// What is wrong.
         fault: TenancyFault,
     },
+    /// A field access that cannot hide its field everywhere the panel shows it.
+    FieldAccess {
+        /// What is wrong.
+        fault: FieldAccessFault,
+    },
     /// A table with no column.
     NoColumns,
     /// `Table::paginate(0)`.
@@ -382,6 +398,14 @@ pub enum DeclarationErrorKind {
         /// The record-form field.
         field: String,
         /// The tenant column.
+        column: String,
+    },
+    /// A soft-deleting resource's record form claims the soft-delete column, which only a delete
+    /// and a restore write.
+    FormClaimsSoftDeleteColumn {
+        /// The record-form field.
+        field: String,
+        /// The soft-delete column.
         column: String,
     },
     /// A form field named after a key the form's POST carries itself, such as the CSRF token

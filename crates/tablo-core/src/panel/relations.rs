@@ -28,7 +28,7 @@ use crate::{
         },
     },
     policy::Ability,
-    resource::{InputSpec, Links, Mounted, RelationKind, Resource, mounted},
+    resource::{InputSpec, Links, Mounted, RelationKind, Resource, Trashed, mounted},
     topcoat_compat::async_page,
 };
 
@@ -57,6 +57,8 @@ pub(crate) struct BoundRelation {
     /// The child's form key for the owner, and the owner's value for it, which a create from the
     /// table seeds; `None` for a many-to-many relation, whose new child would link nothing.
     pub(crate) seed: Option<(String, String)>,
+    /// Whether the owner takes new children: not while it is trashed.
+    pub(crate) creates: bool,
     /// Where a many-to-many relation's table attaches and detaches, when the user may.
     pub(crate) linking: Option<Linking>,
     /// The path of the record's page that renders the table: its detail or its edit page.
@@ -81,9 +83,12 @@ pub(crate) fn render_relations<'a, R: Resource>(
         return Vec::new();
     };
     let page = topcoat::router::request::uri(cx).path().to_string();
+    // A trashed owner takes no writes: every write loads it among the live records.
+    let live = !resource.is_trashed(owner);
     // Linking writes the owner's relations, which its edit asks `Update` for; a composite key
     // has no URL to post under.
-    let links = resource.table.is_addressable()
+    let links = live
+        && resource.table.is_addressable()
         && resource.can(cx, Ability::View(owner))
         && resource.can(cx, Ability::Update(owner));
     resource
@@ -116,6 +121,7 @@ pub(crate) fn render_relations<'a, R: Resource>(
                         .unwrap_or_else(|| child.plural_label.clone()),
                     scope,
                     seed,
+                    creates: live,
                     linking,
                     page: page.clone(),
                 },
@@ -156,6 +162,7 @@ pub(crate) fn relation_table<C: Resource>(cx: &Cx, relation: BoundRelation) -> B
             label,
             scope,
             seed,
+            creates,
             linking,
             page,
         } = relation;
@@ -175,9 +182,11 @@ pub(crate) fn relation_table<C: Resource>(cx: &Cx, relation: BoundRelation) -> B
         }
         let (signals, state) = table.browser_state(cx);
         let back = state.list_url(&page);
-        let table = table.returning_to(back.clone());
+        let table = table
+            .taking(resource.list_trashed(&state))
+            .returning_to(back.clone());
         let create_url = seed
-            .filter(|_| resource.creates && resource.can(cx, Ability::Create))
+            .filter(|_| creates && resource.creates && resource.can_create(cx))
             .map(|(column, value)| {
                 let query = form_urlencoded::Serializer::new(String::new())
                     .append_pair(&column, &value)
@@ -227,6 +236,7 @@ fn detach_action<C: Resource>(cx: &Cx, resource: &Arc<Mounted<C>>) -> TableActio
         bulk: true,
         confirm: false,
         input: None,
+        trashed: Trashed::With,
         allowed: Arc::new(move |record: &C::Model| policy.can(&policy_cx, Ability::View(record))),
     }
 }

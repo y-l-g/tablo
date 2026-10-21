@@ -1,7 +1,9 @@
 # 0002 `Resource::query` scopes rows; the framework owns tenancy
 
-`Resource::query(cx)` is a resource's own row scoping (soft deletes, row visibility), and every
-list, form and record loader reads through it. Tenancy is declared on the `ResourceDef`
+`Resource::query(cx)` is a resource's own row scoping (row visibility), and every list, form and
+record loader reads through it. Soft deletes are declared on the `ResourceDef` instead
+(ADR-0029), and `scoped_query` leaves the trashed records out after `query` as it ANDs the tenant
+filter. Tenancy is declared on the `ResourceDef`
 (`Tenancy::column` or `Tenancy::via`), and `scoped_query` ANDs the tenant predicate after
 `query`, so no override can drop it. App code loading rows outside the framework's loaders calls
 `scoped_query`, not `query`. A resource serving several tenants declares `Tenancy::none()` and

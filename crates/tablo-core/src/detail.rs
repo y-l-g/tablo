@@ -10,7 +10,7 @@ use crate::{
     column::{
         BooleanColumn, BoxColumn, ColorColumn, Column, ComputedColumn, CountColumn, DateColumn,
         EmbeddedColumn, FileColumn, ImageColumn, RelationColumn, RepeaterColumn, TextColumn,
-        include_relations, restrict_relations, unavailable_sources,
+        include_relations, restrict_relations, shows, unavailable_sources,
     },
     schema::{Grid, Group, Section},
 };
@@ -81,7 +81,7 @@ impl<M> Detail<M> {
     }
 
     /// Every column, in the order the page renders them.
-    fn columns(&self) -> Vec<&BoxColumn<M>> {
+    pub(crate) fn columns(&self) -> Vec<&BoxColumn<M>> {
         fn walk<'d, M>(nodes: &'d [Node<M>], out: &mut Vec<&'d BoxColumn<M>>) {
             for node in nodes {
                 match node {
@@ -158,21 +158,60 @@ impl<M> Detail<M> {
     /// a record it loaded through [`load`](Self::load): a scoped relation column over a record
     /// loaded otherwise shows no related record.
     pub fn render<'a>(&self, cx: &'a Cx, record: &M) -> BoxView<'a> {
+        self.render_without(cx, record, &[])
+    }
+
+    /// Renders as [`render`](Self::render) does, without the columns reading one of the `hidden`
+    /// fields, and without a block left with no column.
+    pub(crate) fn render_without<'a>(
+        &self,
+        cx: &'a Cx,
+        record: &M,
+        hidden: &[String],
+    ) -> BoxView<'a> {
         let views: Vec<BoxView<'a>> = self
             .nodes
             .iter()
+            .filter(|node| match node {
+                Node::Column(column) => shows(cx, &**column, hidden),
+                Node::Section(section) => {
+                    section.children.is_empty() || section.children.shows_any(cx, hidden)
+                }
+                Node::Group(group) => group.children.shows_any(cx, hidden),
+                Node::Grid(grid) => grid.children.shows_any(cx, hidden),
+            })
             .map(|node| match node {
                 Node::Column(column) => column.entry(cx, record),
                 Node::Section(section) => {
-                    let body =
-                        (!section.children.is_empty()).then(|| section.children.render(cx, record));
+                    let body = (!section.children.is_empty())
+                        .then(|| section.children.render_without(cx, record, hidden));
                     section.chrome(cx, body)
                 }
-                Node::Group(group) => group.chrome(cx, group.children.render(cx, record)),
-                Node::Grid(grid) => grid.chrome(cx, grid.children.render(cx, record)),
+                Node::Group(group) => {
+                    group.chrome(cx, group.children.render_without(cx, record, hidden))
+                }
+                Node::Grid(grid) => {
+                    grid.chrome(cx, grid.children.render_without(cx, record, hidden))
+                }
             })
             .collect();
         stack(cx, views)
+    }
+
+    /// Whether any column shows to `cx`, which may not view the `hidden` fields.
+    fn shows_any(&self, cx: &Cx, hidden: &[String]) -> bool {
+        self.columns()
+            .into_iter()
+            .any(|column| shows(cx, &**column, hidden))
+    }
+
+    /// The names of the columns that do not say what they read.
+    pub(crate) fn undeclared_reads(&self) -> Vec<&str> {
+        self.columns()
+            .into_iter()
+            .filter(|column| column.reads().is_none())
+            .map(|column| column.name())
+            .collect()
     }
 }
 

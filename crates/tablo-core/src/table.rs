@@ -19,6 +19,7 @@ use crate::{DeclarationErrorKind, Lens, dom::ignored, schema::Binding, values::F
 mod choice;
 mod export;
 pub(crate) mod filter;
+mod mask;
 pub(crate) mod model;
 mod page;
 mod sort;
@@ -196,6 +197,11 @@ impl<M> Table<M> {
     /// The declared columns, in order.
     pub(crate) fn declared_columns(&self) -> &[BoxColumn<M>] {
         &self.columns
+    }
+
+    /// Appends `filter` after the declared ones.
+    pub(crate) fn push_filter(&mut self, filter: BoxFilter<M>) {
+        self.filters.push(filter);
     }
 
     /// The declared filters, in order.
