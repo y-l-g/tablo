@@ -7,7 +7,7 @@ use crate::lens::shows;
 
 impl<M> Table<M> {
     /// Whether a column shows a field of a related record its resource hides from `cx`.
-    pub(crate) fn masks_related(&self, cx: &Cx) -> bool {
+    pub(crate) fn has_masked(&self, cx: &Cx) -> bool {
         self.columns.iter().any(|column| column.masked(cx))
     }
 

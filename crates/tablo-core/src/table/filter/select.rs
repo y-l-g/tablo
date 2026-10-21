@@ -235,6 +235,16 @@ where
     }
 
     /// The source's type when the request's panel cannot load from it.
+    fn unmasked_model(
+        &self,
+        is_resource: &dyn Fn(&str) -> bool,
+        restricted: &dyn Fn(crate::toasty_compat::model::ModelId) -> bool,
+    ) -> Option<&'static str> {
+        self.related
+            .as_ref()
+            .and_then(|related| related.unmasked_model(is_resource, restricted))
+    }
+
     fn unavailable_source(&self, cx: &Cx) -> Option<&'static str> {
         self.related
             .as_ref()

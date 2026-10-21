@@ -368,10 +368,7 @@ async fn a_declaration_showing_a_restricted_field_is_refused() {
         })
         .collect();
     assert!(
-        faults.contains(&(
-            &Site::FieldAccess("salary".to_string()),
-            &FieldAccessFault::RecordTitle
-        )),
+        faults.contains(&(&Site::RecordTitle, &FieldAccessFault::RecordTitle)),
         "{errors:?}"
     );
     assert!(

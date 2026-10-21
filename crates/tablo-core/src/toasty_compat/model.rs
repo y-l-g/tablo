@@ -573,7 +573,7 @@ mod lookup;
 mod reach;
 pub(crate) use belongs_to::{BelongsTo, belongs_to, belongs_tos};
 use lookup::{app_field_at, mapping_field_at};
-pub(crate) use reach::included_models;
+pub(crate) use reach::{included_models, read_relations};
 
 #[cfg(test)]
 mod tests;

@@ -118,6 +118,16 @@ pub struct Reads<M> {
 }
 
 impl<M> Reads<M> {
+    /// The root fields the reads name.
+    pub(crate) fn fields(&self) -> &[String] {
+        &self.fields
+    }
+
+    /// Whether some path named no root field, which hides under any mask.
+    pub(crate) fn is_unresolved(&self) -> bool {
+        self.unresolved
+    }
+
     /// No field: a column or a filter that reads nothing off the row.
     pub fn nothing() -> Self {
         Self::default()

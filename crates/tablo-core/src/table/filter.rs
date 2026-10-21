@@ -97,6 +97,18 @@ pub trait Filter<M>: Send + Sync {
     fn unavailable_source(&self, _cx: &Cx) -> Option<&'static str> {
         None
     }
+
+    /// The model's name when the filter's options show records under a label a panel cannot mask,
+    /// over a model a mounted resource restricts a field of, which a mount refuses. The panel
+    /// answers `is_resource` for a source's name and `restricted` for a model.
+    #[doc(hidden)]
+    fn unmasked_model(
+        &self,
+        _is_resource: &dyn Fn(&str) -> bool,
+        _restricted: &dyn Fn(crate::toasty_compat::model::ModelId) -> bool,
+    ) -> Option<&'static str> {
+        None
+    }
 }
 
 /// What a request carries for one filter: the values its `f.<name>` parameter repeats, in the

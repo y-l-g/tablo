@@ -8,7 +8,7 @@ use derive_where::derive_where;
 use toasty::{Deferred, Executor};
 use topcoat::{Result, context::Cx};
 
-use super::{Column, ColumnToggle, ColumnWidth, Includes};
+use super::{Column, ColumnToggle, ColumnWidth, Includes, Related};
 use crate::{BoxFuture, DeclarationErrorKind, lens::Reads, schema::OptionSource};
 
 mod lens;
@@ -112,11 +112,11 @@ impl<T: toasty::schema::Model> ToOneRelation<T> for Deferred<Option<T>> {
 /// so a policy reading the relation sees it whole. [`unscoped`](Self::unscoped) shows whatever
 /// the include loads.
 ///
-/// A column over a resource that restricts a field with
-/// [`field_access`](crate::ResourceDef::field_access) shows to a user only what the resource
-/// lets them view: a request that may not view a field [`new`](Self::new) reads finds no such
-/// column, and a record's [`label`](OptionSource::label) is its title, which the resource keeps
-/// clear of a field it hides.
+/// A field [`field_access`](crate::ResourceDef::field_access) restricts shows to a user only
+/// where the user may view it, on every resource the panel mounts over its model: a request that
+/// may not view a field [`new`](Self::new) reads finds no such column. A record's
+/// [`label`](OptionSource::label) is its title, which the mount keeps clear of every restricted
+/// field, or its key, which no field access may hide.
 #[derive_where(Clone, Debug)]
 pub struct RelationColumn<M> {
     relation: Declared<M>,
@@ -357,7 +357,8 @@ where
     {
         Self {
             relation: Declared::of(&relation, ColumnWidth::Auto)
-                .scoped::<S>(restrict_many::<M, S>(relation.read)),
+                .scoped::<S>(restrict_many::<M, S>(relation.read))
+                .fieldless(),
             count: count(relation.read, shows::<S>),
         }
     }
@@ -413,9 +414,8 @@ struct Declared<M> {
     /// Drops the related records the source does not show; `None` for an unscoped column.
     #[derive_where(skip(Debug))]
     restrict: Option<Restrict<M>>,
-    /// Whether the column shows the related records only through their resource's field
-    /// access: a scoped column, or one showing no field.
-    masks_related: bool,
+    /// What the column shows of the related records, which a panel checks at mount.
+    related: Related,
     /// Whether a request may not view a field the column shows; `None` for one showing only a
     /// record's label or count.
     #[derive_where(skip(Debug))]
@@ -439,26 +439,33 @@ impl<M> Declared<M> {
             toggle: ColumnToggle::Fixed,
             source: None,
             restrict: None,
-            masks_related: false,
+            related: Related::Unmasked,
             masked: None,
         }
     }
 
-    /// Show only the related records `S` shows, which `restrict` keeps, by their label or count
-    /// until [`masked`](Self::masked) says what else shows.
+    /// Show only the related records `S` shows, which `restrict` keeps, by their title until
+    /// [`masked`](Self::masked) says what else shows.
     fn scoped<S: OptionSource>(self, restrict: Restrict<M>) -> Self {
+        let source = std::any::type_name::<S>();
         Self {
-            source: Some((std::any::type_name::<S>(), S::available)),
+            source: Some((source, S::available)),
             restrict: Some(restrict),
-            masks_related: true,
+            related: Related::Titled(source),
             ..self
         }
     }
 
-    /// Show the fields of the related records `masked` hides from a request it refuses.
+    /// Show the fields of the related records `masked` hides from a request it refuses, of the
+    /// source [`scoped`](Self::scoped) named.
     fn masked(self, masked: Masked) -> Self {
+        let related = match self.source {
+            Some((source, _)) => Related::Masked(source),
+            None => Related::Unmasked,
+        };
         Self {
             masked: Some(masked),
+            related,
             ..self
         }
     }
@@ -466,7 +473,7 @@ impl<M> Declared<M> {
     /// Show no field of the related records.
     fn fieldless(self) -> Self {
         Self {
-            masks_related: true,
+            related: Related::None,
             ..self
         }
     }
@@ -568,12 +575,8 @@ macro_rules! relation_column {
                     .is_some_and(|masked| masked(cx))
             }
 
-            fn masks_related(&self) -> bool {
-                self.relation.masks_related
-            }
-
-            fn source_name(&self) -> Option<&'static str> {
-                self.relation.source.as_ref().map(|(name, _)| *name)
+            fn related(&self) -> Related {
+                self.relation.related
             }
 
             fn misdeclared(&self) -> Option<DeclarationErrorKind> {

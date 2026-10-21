@@ -62,8 +62,23 @@ pub(crate) fn check_resource<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationE
                 .map(|kind| DeclarationError::of::<R>(site.clone(), kind)),
         );
     }
-    super::field_access::check(&declared, errors);
-    super::field_access::check_related(cx, &declared, errors);
+    super::field_access::check(cx, &declared, errors);
+    let table_columns: Vec<&dyn crate::column::Column<R::Model>> = declared
+        .table
+        .declared_columns()
+        .iter()
+        .map(|column| &**column)
+        .collect();
+    super::field_access::check_unmasked::<R>(cx, Site::Table, &table_columns, errors);
+    let detail_columns: Vec<&dyn crate::column::Column<R::Model>> = declared
+        .detail
+        .columns()
+        .into_iter()
+        .map(|column| &**column)
+        .collect();
+    super::field_access::check_unmasked::<R>(cx, Site::Detail, &detail_columns, errors);
+    super::field_access::check_filters::<R>(cx, &declared, errors);
+    super::field_access::check_choices::<R, _>(cx, &declared.form, Site::Form, errors);
     check_actions(cx, &declared, errors);
     check_form_declaration(cx, &declared, form_is_sound, errors);
 }
@@ -129,6 +144,12 @@ pub(crate) fn check_inputs<T: 'static>(
 ) {
     let mut seen = std::collections::HashSet::new();
     for (name, spec) in actions {
+        super::field_access::check_choices::<T, _>(
+            cx,
+            &(spec.schema)(),
+            Site::Registration,
+            errors,
+        );
         if !seen.insert(name) {
             errors.push(DeclarationError::of::<T>(
                 Site::Registration,

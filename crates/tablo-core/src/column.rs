@@ -85,6 +85,10 @@ macro_rules! base_column_methods {
         }
     };
     (@shared) => {
+        fn related(&self) -> $crate::column::Related {
+            $crate::column::Related::None
+        }
+
         fn name(&self) -> &str {
             self.base.name()
         }
@@ -111,6 +115,8 @@ fn sort_order<M, T>(path: &Path<M, T>, descending: bool) -> OrderByExpr {
     }
 }
 
+mod related;
+pub use related::Related;
 mod boolean;
 mod color;
 mod computed;
@@ -244,7 +250,7 @@ pub trait Column<M>: Send + Sync {
     ///
     /// A panel drops a column reading a field
     /// [`field_access`](crate::ResourceDef::field_access) hides from the user, and refuses to
-    /// mount a resource restricting a field whose columns answer `None`. The built-in columns
+    /// mount a panel restricting a field whose columns answer `None`. The built-in columns
     /// answer their own field.
     fn reads(&self) -> Option<crate::lens::Reads<M>> {
         None
@@ -258,22 +264,12 @@ pub trait Column<M>: Send + Sync {
         false
     }
 
-    /// Whether the column shows the related records [`includes`](Self::includes) loads only
-    /// through their resource's field access, by [`masked`](Self::masked) or by showing no
-    /// field it restricts. A panel refuses to mount one that does not over a model a mounted
-    /// resource restricts a field of.
+    /// What the column reads of the related records it loads: see [`Related`]. A column answers
+    /// [`Related::Row`] unless it says otherwise, since a closure reading its row may reach any
+    /// relation the page loads.
     #[doc(hidden)]
-    fn masks_related(&self) -> bool {
-        false
-    }
-
-    /// The `type_name` of the [`OptionSource`](crate::extend::OptionSource) the column scopes
-    /// its related records through. A source that is a resource the panel mounts masks the
-    /// column through its field access; the mount refuses one that is not over a model a
-    /// mounted resource restricts a field of.
-    #[doc(hidden)]
-    fn source_name(&self) -> Option<&'static str> {
-        None
+    fn related(&self) -> Related {
+        Related::Row
     }
 
     /// What is wrong with this column's declaration.

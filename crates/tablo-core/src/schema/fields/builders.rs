@@ -445,13 +445,19 @@ impl<F> ChoiceField<F> {
         column: impl Into<toasty::stmt::Path<M, T>>,
     ) -> Self
     where
-        M: Send + Sync + 'static,
+        M: toasty::schema::Model + Send + Sync + 'static,
         T: FormScalar + toasty::stmt::IntoExpr<T> + Send + Sync + 'static,
     {
         let column: toasty::stmt::Path<M, T> = column.into();
+        let field = crate::toasty_compat::model::field::<M>(
+            &crate::toasty_compat::model::ModelPath::of(&column),
+        )
+        .ok()
+        .map(|field| field.name);
         self.choice_mut().parent = Some(choice::Parent {
             watched: parent.key().to_string(),
             model: std::any::TypeId::of::<M>(),
+            column: field,
             scope: Arc::new(move |value: &str| {
                 T::parse_form(value)
                     .ok()
@@ -471,9 +477,12 @@ impl<F> ChoiceField<F> {
     where
         R: OptionSource + 'static,
     {
-        self.choice_mut().relationship = Some(choice::Relationship::new::<R>(
-            move |_cx: &topcoat::context::Cx, record: &R::Model| label(record),
-        ));
+        self.choice_mut().relationship = Some(
+            choice::Relationship::new::<R>(move |_cx: &topcoat::context::Cx, record: &R::Model| {
+                label(record)
+            })
+            .with_custom_label(),
+        );
         self
     }
 }

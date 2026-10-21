@@ -69,6 +69,7 @@ impl fmt::Display for DeclarationError {
                 Site::Tenancy => f.write_str(" tenancy")?,
                 Site::SoftDelete => f.write_str(" soft delete")?,
                 Site::FieldAccess(field) => write!(f, " field access `{field}`")?,
+                Site::RecordTitle => f.write_str(" record title")?,
                 Site::Table => f.write_str(" table")?,
                 Site::Form => f.write_str(" form")?,
                 Site::Detail => f.write_str(" detail")?,
@@ -97,6 +98,8 @@ pub enum Site {
     SoftDelete,
     /// The `ResourceDef::field_access` over this field.
     FieldAccess(String),
+    /// `ResourceDef::record_title`.
+    RecordTitle,
     /// `ResourceDef::table`.
     Table,
     /// `ResourceDef::form`, checked against the record form.
@@ -258,7 +261,7 @@ pub enum DeclarationErrorKind {
         /// What is wrong.
         fault: TenancyFault,
     },
-    /// A resource's field access that cannot hide its field everywhere the resource shows it.
+    /// A field access that cannot hide its field everywhere the panel shows it.
     FieldAccess {
         /// What is wrong.
         fault: FieldAccessFault,

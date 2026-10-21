@@ -28,11 +28,11 @@ pub(crate) struct Relationship {
     /// Which of a relationship filter's keys the user may name, past the cap.
     pub(super) viewable: ViewableKeys,
     /// The source's type, named in declaration errors.
-    pub(super) source: &'static str,
+    pub(crate) source: &'static str,
     /// The source's model, which a dependent choice's column must belong to.
     pub(super) model: std::any::TypeId,
     /// The source's model in the app schema, which a many-to-many field's target must be.
-    pub(super) model_id: crate::toasty_compat::model::ModelId,
+    pub(crate) model_id: crate::toasty_compat::model::ModelId,
     /// Whether the request's panel can load from the source.
     pub(super) available: fn(&Cx) -> bool,
     /// The source model when its rows are tenant-owned, so a key the write
@@ -40,6 +40,11 @@ pub(crate) struct Relationship {
     pub(super) tenant_scoped_model: fn(&Cx) -> Option<crate::toasty_compat::model::ModelId>,
     /// Whether the source's primary key is composite, which no option value can spell.
     pub(super) composite: bool,
+    /// Whether the options carry a custom label rather than the source's own, which a panel
+    /// cannot see the fields of.
+    pub(crate) custom_label: bool,
+    /// The source model's name, which a declaration error names it by.
+    pub(crate) model_name: &'static str,
 }
 
 impl Relationship {
@@ -93,6 +98,8 @@ impl Relationship {
                 R::requires_tenant(cx).then(<R::Model as toasty::schema::Model>::id)
             },
             composite: crate::toasty_compat::pk::pk_is_composite::<R::Model>(),
+            custom_label: false,
+            model_name: crate::naming::type_short_name::<R::Model>(),
         }
     }
 
@@ -124,6 +131,24 @@ impl Relationship {
     /// Whether the source's primary key is composite, which no option value can spell.
     pub(crate) fn has_composite_source(&self) -> bool {
         self.composite
+    }
+
+    /// Labels the options by a custom label rather than the source's own.
+    pub(crate) fn with_custom_label(mut self) -> Self {
+        self.custom_label = true;
+        self
+    }
+
+    /// The source model's name when the options show records under a label a panel cannot mask,
+    /// over a model `restricted` says a mounted resource restricts a field of: a custom label, or a
+    /// source `is_resource` does not name as one of the panel's resources.
+    pub(crate) fn unmasked_model(
+        &self,
+        is_resource: impl Fn(&str) -> bool,
+        restricted: impl Fn(crate::toasty_compat::model::ModelId) -> bool,
+    ) -> Option<&'static str> {
+        let unmasked = self.custom_label || !is_resource(self.source);
+        (unmasked && restricted(self.model_id)).then_some(self.model_name)
     }
 
     /// The source's type, when the request's panel cannot load from it.

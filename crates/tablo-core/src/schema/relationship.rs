@@ -63,7 +63,7 @@ pub trait OptionSource: Sized + Send + Sync + 'static {
     }
 
     /// The root fields of the source's records the request may not view: for a resource, the
-    /// ones its [`field_access`](crate::ResourceDef::field_access) hides from the request.
+    /// ones the panel's [`field_access`](crate::ResourceDef::field_access) hides from the request.
     #[doc(hidden)]
     fn hidden_fields(_cx: &Cx) -> Vec<String> {
         Vec::new()

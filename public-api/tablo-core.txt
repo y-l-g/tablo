@@ -2764,7 +2764,7 @@ pub fn tablo_core::ChoiceField<F>::help(self, impl core::convert::Into<alloc::st
 impl<F> tablo_core::ChoiceField<F>
 pub fn tablo_core::ChoiceField<F>::default(self, impl tablo_core::IntoFormValue) -> Self
 impl<F> tablo_core::ChoiceField<F>
-pub fn tablo_core::ChoiceField<F>::depends_on<M, T>(self, &impl tablo_core::Watched<F>, impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> Self where M: core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::ChoiceField<F>::depends_on<M, T>(self, &impl tablo_core::Watched<F>, impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> Self where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::ChoiceField<F>::multiple(self) -> Self
 pub fn tablo_core::ChoiceField<F>::options(self, impl tablo_core::IntoOptions) -> Self
 pub fn tablo_core::ChoiceField<F>::relationship<R>(self) -> Self where R: tablo_core::extend::OptionSource + 'static
@@ -4686,14 +4686,19 @@ impl core::panic::unwind_safe::UnwindSafe for tablo_core::DeclarationErrorKind
 #[non_exhaustive] pub enum tablo_core::FieldAccessFault
 pub tablo_core::FieldAccessFault::Duplicate
 pub tablo_core::FieldAccessFault::Inverse
+pub tablo_core::FieldAccessFault::NarrowedBy
+pub tablo_core::FieldAccessFault::NarrowedBy::field: alloc::string::String
+pub tablo_core::FieldAccessFault::RecordKey
 pub tablo_core::FieldAccessFault::RecordTitle
 pub tablo_core::FieldAccessFault::SoftDelete
 pub tablo_core::FieldAccessFault::UndeclaredReads
 pub tablo_core::FieldAccessFault::UndeclaredReads::name: alloc::string::String
 pub tablo_core::FieldAccessFault::UndeclaredReads::what: &'static str
 pub tablo_core::FieldAccessFault::UnmaskedRelation
-pub tablo_core::FieldAccessFault::UnmaskedRelation::column: alloc::string::String
 pub tablo_core::FieldAccessFault::UnmaskedRelation::model: alloc::string::String
+pub tablo_core::FieldAccessFault::UnmaskedRelation::name: alloc::string::String
+pub tablo_core::FieldAccessFault::UnresolvedRelation
+pub tablo_core::FieldAccessFault::UnresolvedRelation::name: alloc::string::String
 pub tablo_core::FieldAccessFault::Watched
 impl core::clone::Clone for tablo_core::FieldAccessFault
 pub fn tablo_core::FieldAccessFault::clone(&self) -> tablo_core::FieldAccessFault
@@ -5036,6 +5041,7 @@ pub tablo_core::Site::Detail
 pub tablo_core::Site::FieldAccess(alloc::string::String)
 pub tablo_core::Site::Form
 pub tablo_core::Site::Panel
+pub tablo_core::Site::RecordTitle
 pub tablo_core::Site::Registration
 pub tablo_core::Site::Relation(alloc::string::String)
 pub tablo_core::Site::SoftDelete
@@ -5325,7 +5331,7 @@ pub fn tablo_core::ChoiceField<F>::help(self, impl core::convert::Into<alloc::st
 impl<F> tablo_core::ChoiceField<F>
 pub fn tablo_core::ChoiceField<F>::default(self, impl tablo_core::IntoFormValue) -> Self
 impl<F> tablo_core::ChoiceField<F>
-pub fn tablo_core::ChoiceField<F>::depends_on<M, T>(self, &impl tablo_core::Watched<F>, impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> Self where M: core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::ChoiceField<F>::depends_on<M, T>(self, &impl tablo_core::Watched<F>, impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> Self where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::ChoiceField<F>::multiple(self) -> Self
 pub fn tablo_core::ChoiceField<F>::options(self, impl tablo_core::IntoOptions) -> Self
 pub fn tablo_core::ChoiceField<F>::relationship<R>(self) -> Self where R: tablo_core::extend::OptionSource + 'static
