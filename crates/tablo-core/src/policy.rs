@@ -10,7 +10,7 @@
 //! # use topcoat::context::Cx;
 //! # fn not_suspended(cx: &Cx) -> bool { true }
 //! fn post_policy() -> impl Policy<Post> {
-//!     // No write of any kind to a locked post: an update, a delete, a restore or an action.
+//!     // No write to a locked post: an update, a delete, a restore or a record action.
 //!     when(not_suspended).and(|_cx: &Cx, ability: Ability<'_, Post>| {
 //!         ability.written_record().is_none_or(|post| !post.locked)
 //!     })
@@ -109,11 +109,13 @@ impl<'a, M> Ability<'a, M> {
         matches!(self, Self::ViewAny | Self::View(_))
     }
 
-    /// The record the ability writes: an update, a delete, a restore, a force delete or an
-    /// action's run on it. `None` for a read and for an ability over no record.
+    /// The record the ability writes: an update, a delete, a restore, a force delete or a
+    /// record action's run on it. `None` for a read and for an ability over no existing record:
+    /// `Create`, the `_any` abilities and `RunHeader`.
     ///
-    /// A policy refusing every write to some records reads it, and so refuses the writes a
-    /// resource gains later too:
+    /// A policy refusing every write to some records reads it, and so also refuses the record
+    /// actions and soft-delete writes a resource gains later. A header action writes no record
+    /// it is handed, so such a policy allows it unless it matches `RunHeader` too:
     ///
     /// ```rust
     /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]

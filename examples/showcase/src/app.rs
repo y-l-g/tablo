@@ -62,7 +62,7 @@ impl Resource for UserResource {
         let c = UserForm::controls();
         ResourceDef::new()
             .icon(tablo::ui::icons::USERS)
-            // Refuses every write to Ken's account, an action's included.
+            // Refuses every write to Ken's account: an update, a delete or a record action.
             .policy_fn(|_cx, ability: Ability<'_, User>| {
                 ability
                     .written_record()

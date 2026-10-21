@@ -228,7 +228,7 @@ impl<R: Resource> ResourceDef<R> {
     /// use tablo_core::{Ability, Panel};
     ///
     /// Panel::new("portal").resource_with::<PostResource>(|def| {
-    ///     // No write of any kind to a locked post.
+    ///     // No update, delete, restore or record action on a locked post.
     ///     def.policy_fn(|_cx, ability| ability.written_record().is_none_or(|post| !post.locked))
     /// });
     /// ```

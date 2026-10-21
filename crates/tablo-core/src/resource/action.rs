@@ -309,6 +309,7 @@ impl<M> crate::policy::Abilities<M> {
     /// #     async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome> { Ok(tablo_core::Outcome::done()) }
     /// # }
     /// let policy = Abilities::<Post>::new()
+    ///     .view_any(|_cx| true)
     ///     .view(|_cx, _post| true)
     ///     .run::<Publish, _>(|_cx, post| !post.published);
     /// # let _ = policy;

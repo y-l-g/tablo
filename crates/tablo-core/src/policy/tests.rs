@@ -241,13 +241,14 @@ fn abilities_deny_what_they_do_not_declare() {
         answers(&Abilities::<Post>::new(), &cx, &post),
         [false; ABILITIES]
     );
+    // `view` alone allows no list: the list asks `ViewAny` and shows every row of the query.
     let read_and_create = Abilities::<Post>::new()
         .view(|_cx, _post| true)
         .create(|_cx| true);
     assert_eq!(
         answers(&read_and_create, &cx, &post),
         [
-            true, true, true, false, false, false, false, false, false, false, false, false
+            false, true, true, false, false, false, false, false, false, false, false, false
         ]
     );
 }

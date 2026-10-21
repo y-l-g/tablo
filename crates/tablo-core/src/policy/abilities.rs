@@ -56,6 +56,7 @@ impl<M> Pair<M> {
 /// # use topcoat::context::Cx;
 /// # fn is_editor(_cx: &Cx) -> bool { true }
 /// let policy = Abilities::<Post>::new()
+///     .view_any(is_editor)
 ///     .view(|_cx, _post| true)
 ///     .create(is_editor)
 ///     .update(|cx, post| is_editor(cx) && !post.locked);
@@ -63,16 +64,23 @@ impl<M> Pair<M> {
 /// # let _ = policy;
 /// ```
 ///
-/// A record's check also allows the ability at all: [`view`](Self::view) allows
-/// [`ViewAny`](Ability::ViewAny), [`delete`](Self::delete) allows
-/// [`DeleteAny`](Ability::DeleteAny), and [`run`](Self::run) allows
-/// [`RunAny`](Ability::RunAny) for its action. The `_any` methods narrow it; declared alone, they
-/// allow no record.
+/// A write's record check also allows the write at all: [`delete`](Self::delete) allows
+/// [`DeleteAny`](Ability::DeleteAny), [`restore`](Self::restore) allows
+/// [`RestoreAny`](Ability::RestoreAny), [`force_delete`](Self::force_delete) allows
+/// [`ForceDeleteAny`](Ability::ForceDeleteAny), and [`run`](Self::run) allows
+/// [`RunAny`](Ability::RunAny) for its action, since the panel asks the record's check before
+/// each of these writes. The `_any` methods narrow it; declared alone, they allow no record.
+/// [`view`](Self::view) does not allow [`ViewAny`](Ability::ViewAny): the list asks `ViewAny`
+/// alone and shows every row the resource's query returns, so [`view_any`](Self::view_any) is
+/// declared on its own.
+///
+/// Declaring an ability twice replaces its earlier check; combine the checks in one closure.
 ///
 /// The model's type is named on `new`, `Abilities::<Post>::new()`: a closure is checked before
 /// the chain learns the model from where the policy goes.
 pub struct Abilities<M> {
-    view: Pair<M>,
+    view_any: Option<RequestCheck>,
+    view: Option<RecordCheck<M>>,
     create: Option<RequestCheck>,
     update: Option<RecordCheck<M>>,
     delete: Pair<M>,
@@ -87,7 +95,8 @@ pub struct Abilities<M> {
 impl<M> Default for Abilities<M> {
     fn default() -> Self {
         Self {
-            view: Pair::default(),
+            view_any: None,
+            view: None,
             create: None,
             update: None,
             delete: Pair::default(),
@@ -105,18 +114,22 @@ impl<M> Abilities<M> {
         Self::default()
     }
 
-    /// Who may open the list, export it and pick its records as relationship options:
-    /// [`ViewAny`](Ability::ViewAny). Defaults to whether [`view`](Self::view) is declared.
+    /// Who may see the resource at all: [`ViewAny`](Ability::ViewAny), which opens the list
+    /// with every row of the resource's query, the sidebar entry, the export, related tables,
+    /// relationship options and header actions. Refused until declared, whether or not
+    /// [`view`](Self::view) is.
     #[must_use]
     pub fn view_any(mut self, check: impl Fn(&Cx) -> bool + Send + Sync + 'static) -> Self {
-        self.view.any = Some(Box::new(check));
+        self.view_any = Some(Box::new(check));
         self
     }
 
-    /// Who may see a record: [`View`](Ability::View).
+    /// Who may see a record: [`View`](Ability::View), asked by its detail page, its edit form,
+    /// each write to it, the export and relationship options. The list shows a row without it,
+    /// and asks it only to offer the row's actions.
     #[must_use]
     pub fn view(mut self, check: impl Fn(&Cx, &M) -> bool + Send + Sync + 'static) -> Self {
-        self.view.record = Some(Box::new(check));
+        self.view = Some(Box::new(check));
         self
     }
 
@@ -217,12 +230,55 @@ impl<M> Abilities<M> {
     }
 }
 
+impl<M> std::fmt::Debug for Abilities<M> {
+    /// Lists the declared abilities by method name; their checks are closures.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let declared = [
+            ("view_any", self.view_any.is_some()),
+            ("view", self.view.is_some()),
+            ("create", self.create.is_some()),
+            ("update", self.update.is_some()),
+            ("delete_any", self.delete.any.is_some()),
+            ("delete", self.delete.record.is_some()),
+            ("restore_any", self.restore.any.is_some()),
+            ("restore", self.restore.record.is_some()),
+            ("force_delete_any", self.force_delete.any.is_some()),
+            ("force_delete", self.force_delete.record.is_some()),
+        ];
+        f.debug_struct("Abilities")
+            .field(
+                "declared",
+                &declared
+                    .iter()
+                    .filter_map(|(name, set)| set.then_some(*name))
+                    .collect::<Vec<_>>(),
+            )
+            .field(
+                "actions",
+                &self
+                    .actions
+                    .iter()
+                    .map(|(name, _)| name)
+                    .collect::<Vec<_>>(),
+            )
+            .field(
+                "header_actions",
+                &self
+                    .header_actions
+                    .iter()
+                    .map(|(name, _)| name)
+                    .collect::<Vec<_>>(),
+            )
+            .finish()
+    }
+}
+
 impl<M: 'static> Policy<M> for Abilities<M> {
     fn allows(&self, cx: &Cx, ability: Ability<'_, M>) -> bool {
         // No catch-all arm: a new ability fails to compile here until it is given a check.
         match ability {
-            Ability::ViewAny => self.view.any_allows(cx),
-            Ability::View(record) => self.view.record_allows(cx, record),
+            Ability::ViewAny => self.view_any.as_ref().is_some_and(|check| check(cx)),
+            Ability::View(record) => self.view.as_ref().is_some_and(|check| check(cx, record)),
             Ability::Create => self.create.as_ref().is_some_and(|check| check(cx)),
             Ability::Update(record) => self.update.as_ref().is_some_and(|check| check(cx, record)),
             Ability::DeleteAny => self.delete.any_allows(cx),

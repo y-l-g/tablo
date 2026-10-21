@@ -42,6 +42,7 @@ pub fn post_policy(cx: &Cx, ability: Ability<'_, Post>) -> bool {
 // ANCHOR: policy-abilities
 pub fn post_abilities() -> Abilities<Post> {
     Abilities::<Post>::new()
+        .view_any(|_cx| true)
         .view(|_cx, _post| true)
         .create(editors_only)
         .update(|cx, post| editors_only(cx) && post.status != PostStatus::Published)
@@ -52,8 +53,9 @@ pub fn post_abilities() -> Abilities<Post> {
 
 // ANCHOR: policy-written-record
 pub fn unfeatured_only(_cx: &Cx, ability: Ability<'_, Post>) -> bool {
-    // Refuses an update, a delete, a restore, a force delete or an action's run on a featured
-    // post, and allows every other ability.
+    // Refuses an update, a delete, a restore, a force delete or a record action's run on a
+    // featured post, and allows every other ability: a create or a header action writes no
+    // existing record, so a policy that refuses those matches them by name.
     ability.written_record().is_none_or(|post| !post.featured)
 }
 // ANCHOR_END: policy-written-record

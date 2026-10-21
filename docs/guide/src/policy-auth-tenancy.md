@@ -107,15 +107,19 @@ the user policy above does, so that a new one fails to compile, or build the pol
 ```
 
 `new` names the model, `Abilities::<Post>::new()`, for the closures to read the record. A
-record's check also allows the ability at all: `view` allows `ViewAny`, `delete` allows
-`DeleteAny`, `run::<A, _>` allows `RunAny` for `A`. The `_any` methods (`view_any`, `delete_any`,
-`restore_any`, `force_delete_any`, `run_any`) narrow it; declared alone, they allow no record.
+write's record check also allows the write at all: `delete` allows `DeleteAny`, `restore`
+`RestoreAny`, `force_delete` `ForceDeleteAny`, `run::<A, _>` `RunAny` for `A`, since each of
+these writes asks the record's check too. The `_any` methods (`delete_any`, `restore_any`,
+`force_delete_any`, `run_any`) narrow it; declared alone, they allow no record. `view` does not
+allow `ViewAny`: the list asks `ViewAny` alone and shows every row of the query, so `view_any`
+is declared on its own. Declaring an ability twice replaces its earlier check.
 A header action is declared with `run_header::<A>`. `Abilities` combines with `and` and `or` like
 the other policies.
 
 A policy that allows everything but some writes reads `ability.written_record()`, the record an
-update, delete, restore, force delete or action's run writes, so a write the resource gains later
-is refused too:
+update, delete, restore, force delete or record action's run writes, so a record action the
+resource gains later is refused too. `Create` and `RunHeader` write no record they are handed and
+answer `None`; a policy that must refuse them matches them by name:
 
 ```rust
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-written-record}}
