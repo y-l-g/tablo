@@ -45,6 +45,19 @@ pub(crate) async fn parse_form_body(cx: &Cx, body: Body) -> Result<FormParts, to
     })
 }
 
+/// Parses a multipart body, staging every chosen file's bytes whether or not the panel installs
+/// an uploader: the body an import posts its file in. Any other body answers 400.
+pub(crate) async fn parse_file_body(cx: &Cx, body: Body) -> Result<FormParts, topcoat::Error> {
+    let multipart = topcoat::context::try_request_context::<http::request::Parts>(cx)
+        .and_then(|parts| parts.headers.get(http::header::CONTENT_TYPE))
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(is_multipart_content_type);
+    if !multipart {
+        return Err(topcoat::router::error::bad_request("expected a multipart body").into());
+    }
+    parse_multipart_values(cx, body, true).await
+}
+
 fn is_multipart_content_type(ct: &str) -> bool {
     ct.split(';')
         .next()

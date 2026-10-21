@@ -2266,6 +2266,7 @@ pub const tablo_ui::icons::SUN: topcoat_icon::data::IconData
 pub const tablo_ui::icons::TAG: topcoat_icon::data::IconData
 pub const tablo_ui::icons::TRASH: topcoat_icon::data::IconData
 pub const tablo_ui::icons::TRIANGLE_ALERT: topcoat_icon::data::IconData
+pub const tablo_ui::icons::UPLOAD: topcoat_icon::data::IconData
 pub const tablo_ui::icons::USER: topcoat_icon::data::IconData
 pub const tablo_ui::icons::USERS: topcoat_icon::data::IconData
 pub const tablo_ui::icons::X: topcoat_icon::data::IconData

@@ -270,8 +270,8 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// discipline forbids a second handle while the transaction is open.
     ///
     /// [`Committed`] names the mutation and the rows it wrote: the committed row
-    /// a create or update returned, the rows a delete or bulk delete removed
-    /// (one call with every row). It is never called when nothing committed: a
+    /// a create or update returned, the rows a CSV import created, the rows a delete or bulk
+    /// delete removed (one call with every row). It is never called when nothing committed: a
     /// validation error, a policy denial, a failed record fn, or a failed commit
     /// all leave the hook untouched, so a rollback cannot produce the effect. A
     /// hook that returns `Err` is logged and ignored — the write is committed,

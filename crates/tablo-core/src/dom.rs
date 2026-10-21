@@ -41,3 +41,23 @@ pub mod empty {
     /// The link back to the first page.
     pub const FIRST_PAGE_LINK: &str = "first-page";
 }
+
+/// Why a CSV import refuses a whole file, as its alert's `data-import-refusal` names it.
+pub mod import {
+    /// The submission carries no file.
+    pub const NO_FILE: &str = "no-file";
+    /// The file is not UTF-8 text.
+    pub const ENCODING: &str = "encoding";
+    /// A quoted cell is never closed.
+    pub const UNTERMINATED: &str = "unterminated";
+    /// The file holds no header row.
+    pub const NO_HEADER: &str = "no-header";
+    /// The file holds a header but no row.
+    pub const NO_ROWS: &str = "no-rows";
+    /// The file holds more rows than one import creates.
+    pub const TOO_MANY_ROWS: &str = "too-many-rows";
+    /// The header names a column no field the request may change takes.
+    pub const UNKNOWN_COLUMN: &str = "unknown-column";
+    /// The header names a single-value column twice.
+    pub const REPEATED_COLUMN: &str = "repeated-column";
+}

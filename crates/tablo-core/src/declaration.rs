@@ -444,6 +444,9 @@ pub enum DeclarationErrorKind {
         /// The column.
         column: String,
     },
+    /// [`importable`](crate::ResourceDef::importable) on a resource that serves no create page:
+    /// it has no record form, or is [`edit_only`](crate::ResourceDef::edit_only).
+    ImportWithoutCreate,
     /// A many-to-many field or relation whose join model cannot link records.
     ManyToMany {
         /// The field, or the relation's `via` field.

@@ -244,11 +244,32 @@ async fn forged_posts_answer_403_and_change_nothing() {
             "multipart edit {label}: a forged POST must 403, got {}",
             resp.status()
         );
+
+        let csv = format!("title,featured,author_id\nForged,false,{author_id}\n");
+        let mut parts: Vec<(&str, Option<&str>, &str)> =
+            vec![("file", Some("forged.csv"), csv.as_str())];
+        if let Some(csrf) = csrf {
+            parts.push(("csrf_token", None, csrf));
+        }
+        let resp = client
+            .csrf(&cookie)
+            .post_multipart(
+                "/admin/posts/-/import",
+                boundary,
+                multipart_body(boundary, &parts),
+            )
+            .await;
+        assert_eq!(
+            resp.status(),
+            403,
+            "import {label}: a forged POST must 403, got {}",
+            resp.status()
+        );
     }
     assert_eq!(
         post_count(&db).await,
         before,
-        "a forged multipart create must write nothing"
+        "a forged multipart create or import must write nothing"
     );
     let unchanged = Post::filter(Post::fields().id().eq(post.id))
         .first()
@@ -483,8 +504,8 @@ async fn cross_tenant_requests_404_and_touch_nothing() {
 
 /// The policy gate refuses `BLOCKED_TENANT` on every read route, not only the
 /// list: the list, the CSV export and the detail page each consult
-/// `ViewAny`/`View`, so a refactor that dropped the policy check from
-/// one of them fails here.
+/// `ViewAny`/`View`, and the import page and its template `Create`, so a refactor that dropped
+/// the policy check from one of them fails here.
 ///
 /// The detail page's check only runs against a loaded record, so the blocked
 /// tenant needs a row of its own; otherwise the scoped load 404s first and the
@@ -538,6 +559,8 @@ async fn blocked_tenant_is_refused_on_every_read_route() {
     for path in [
         "/admin/posts".to_string(),
         "/admin/posts/-/export".to_string(),
+        "/admin/posts/-/import".to_string(),
+        "/admin/posts/-/import/template".to_string(),
         format!("/admin/posts/{}", blocked_post.id),
         "/admin/posts/-/actions/tag/options?field=tags".to_string(),
         format!(
@@ -589,6 +612,8 @@ async fn anonymous_requests_are_gated_on_every_route() {
         format!("/admin/posts/{}", post.id),
         format!("/admin/posts/{}/edit", post.id),
         "/admin/posts/-/export".to_string(),
+        "/admin/posts/-/import".to_string(),
+        "/admin/posts/-/import/template".to_string(),
         "/admin/posts/-/options?q=a".to_string(),
         "/admin/posts/-/actions/tag/options?field=tags".to_string(),
         "/admin/-/actions/feature-tagged/options?field=tag".to_string(),
@@ -620,6 +645,7 @@ async fn anonymous_requests_are_gated_on_every_route() {
 
     for path in [
         "/admin/posts/-/create".to_string(),
+        "/admin/posts/-/import".to_string(),
         format!("/admin/posts/{}/edit", post.id),
         format!("/admin/posts/{}/delete", post.id),
         "/admin/posts/-/bulk-delete".to_string(),

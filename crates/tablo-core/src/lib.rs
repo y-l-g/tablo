@@ -146,8 +146,8 @@ pub use notification::{Notification, NotificationAction, NotificationStatus, Not
 pub use outcome::Outcome;
 pub use page::{Page, PageDef};
 pub use panel::{
-    Brand, Panel, PanelHandle, RouterBuilderPanelExt, WiredTable, can_list, can_open,
-    pages::header_action_buttons, url,
+    Brand, MAX_IMPORT_ROWS, Panel, PanelHandle, RouterBuilderPanelExt, WiredTable, can_list,
+    can_open, pages::header_action_buttons, url,
 };
 pub use policy::{Ability, Allow, Deny, Policy, ReadOnly, when};
 pub use resource::{

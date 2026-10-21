@@ -59,6 +59,31 @@ impl core::marker::Unpin for tablo_test::IgnoredReason
 impl core::marker::UnsafeUnpin for tablo_test::IgnoredReason
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::IgnoredReason
 impl core::panic::unwind_safe::UnwindSafe for tablo_test::IgnoredReason
+#[non_exhaustive] pub enum tablo_test::ImportRefusal
+pub tablo_test::ImportRefusal::Encoding
+pub tablo_test::ImportRefusal::NoFile
+pub tablo_test::ImportRefusal::NoHeader
+pub tablo_test::ImportRefusal::NoRows
+pub tablo_test::ImportRefusal::RepeatedColumn
+pub tablo_test::ImportRefusal::TooManyRows
+pub tablo_test::ImportRefusal::UnknownColumn
+pub tablo_test::ImportRefusal::Unterminated
+impl core::clone::Clone for tablo_test::ImportRefusal
+pub fn tablo_test::ImportRefusal::clone(&self) -> tablo_test::ImportRefusal
+impl core::cmp::Eq for tablo_test::ImportRefusal
+impl core::cmp::PartialEq for tablo_test::ImportRefusal
+pub fn tablo_test::ImportRefusal::eq(&self, &tablo_test::ImportRefusal) -> bool
+impl core::fmt::Debug for tablo_test::ImportRefusal
+pub fn tablo_test::ImportRefusal::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_test::ImportRefusal
+impl core::marker::StructuralPartialEq for tablo_test::ImportRefusal
+impl core::marker::Freeze for tablo_test::ImportRefusal
+impl core::marker::Send for tablo_test::ImportRefusal
+impl core::marker::Sync for tablo_test::ImportRefusal
+impl core::marker::Unpin for tablo_test::ImportRefusal
+impl core::marker::UnsafeUnpin for tablo_test::ImportRefusal
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::ImportRefusal
+impl core::panic::unwind_safe::UnwindSafe for tablo_test::ImportRefusal
 pub struct tablo_test::Bell
 pub tablo_test::Bell::notifications: alloc::vec::Vec<tablo_test::BellNotification>
 pub tablo_test::Bell::unread: u64
@@ -172,6 +197,24 @@ impl core::marker::Unpin for tablo_test::IgnoredFilter
 impl core::marker::UnsafeUnpin for tablo_test::IgnoredFilter
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::IgnoredFilter
 impl core::panic::unwind_safe::UnwindSafe for tablo_test::IgnoredFilter
+pub struct tablo_test::ImportError
+pub tablo_test::ImportError::key: core::option::Option<alloc::string::String>
+pub tablo_test::ImportError::row: usize
+impl core::clone::Clone for tablo_test::ImportError
+pub fn tablo_test::ImportError::clone(&self) -> tablo_test::ImportError
+impl core::cmp::Eq for tablo_test::ImportError
+impl core::cmp::PartialEq for tablo_test::ImportError
+pub fn tablo_test::ImportError::eq(&self, &tablo_test::ImportError) -> bool
+impl core::fmt::Debug for tablo_test::ImportError
+pub fn tablo_test::ImportError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_test::ImportError
+impl core::marker::Freeze for tablo_test::ImportError
+impl core::marker::Send for tablo_test::ImportError
+impl core::marker::Sync for tablo_test::ImportError
+impl core::marker::Unpin for tablo_test::ImportError
+impl core::marker::UnsafeUnpin for tablo_test::ImportError
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::ImportError
+impl core::panic::unwind_safe::UnwindSafe for tablo_test::ImportError
 pub struct tablo_test::PickerColumn
 pub tablo_test::PickerColumn::name: alloc::string::String
 pub tablo_test::PickerColumn::shown: bool
@@ -271,6 +314,9 @@ pub fn tablo_test::find_href_with(&str, &str) -> core::option::Option<alloc::str
 pub fn tablo_test::form_body(&[(&str, &str)]) -> alloc::string::String
 pub fn tablo_test::groups(&str) -> alloc::vec::Vec<tablo_test::Group>
 pub fn tablo_test::ignored_filters(&str) -> alloc::vec::Vec<tablo_test::IgnoredFilter>
+pub fn tablo_test::import_columns(&str) -> alloc::vec::Vec<alloc::string::String>
+pub fn tablo_test::import_errors(&str) -> alloc::vec::Vec<tablo_test::ImportError>
+pub fn tablo_test::import_refusal(&str) -> core::option::Option<tablo_test::ImportRefusal>
 pub fn tablo_test::input_value(&str, &str) -> core::option::Option<alloc::string::String>
 pub fn tablo_test::mount(toasty::db::Db, tablo_core::panel::Panel) -> topcoat::Result<topcoat_router::router::Router>
 pub fn tablo_test::multipart_body(&str, &[(&str, core::option::Option<&str>, &str)]) -> alloc::string::String

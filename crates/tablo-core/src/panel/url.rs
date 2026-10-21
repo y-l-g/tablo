@@ -136,6 +136,12 @@ pub(crate) const CREATE_ROUTE_SEGMENT: &str = "create";
 /// Path segment of the list's CSV export, under [`DASH_ROUTE_SEGMENT`].
 pub(crate) const EXPORT_ROUTE_SEGMENT: &str = "export";
 
+/// Path segment of the list's CSV import page, under [`DASH_ROUTE_SEGMENT`].
+pub(crate) const IMPORT_ROUTE_SEGMENT: &str = "import";
+
+/// Path segment of the import's template file, under the import page.
+pub(crate) const TEMPLATE_ROUTE_SEGMENT: &str = "template";
+
 /// Path segment of the record form's option search, under [`DASH_ROUTE_SEGMENT`].
 pub(crate) const OPTIONS_ROUTE_SEGMENT: &str = "options";
 
@@ -243,6 +249,16 @@ pub(crate) fn create_page_url(list_path: &str) -> String {
 /// The list page's export link: `{list_path}/-/export`.
 pub(crate) fn export_url(list_path: &str) -> String {
     list_route(list_path, EXPORT_ROUTE_SEGMENT)
+}
+
+/// The list page's import link: `{list_path}/-/import`.
+pub(crate) fn import_url(list_path: &str) -> String {
+    list_route(list_path, IMPORT_ROUTE_SEGMENT)
+}
+
+/// The import page's template link: `{list_path}/-/import/template`.
+pub(crate) fn import_template_url(list_path: &str) -> String {
+    format!("{}/{TEMPLATE_ROUTE_SEGMENT}", import_url(list_path))
 }
 
 /// The column picker's POST target: `{list_path}/-/columns`.

@@ -4,7 +4,7 @@ use toasty::Db;
 use topcoat::{context::Cx, router::Body};
 use uuid::Uuid;
 
-use crate::common::{body_string, panel_router, post_fields, test_db};
+use crate::common::{body_string, import_csv, panel_router, post_fields, test_db};
 
 #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
 struct Note {
@@ -60,6 +60,7 @@ impl Resource for AuditedResource {
         ResourceDef::new()
             .slug("notes")
             .policy(Allow)
+            .importable()
             .table(Table::new(TextColumn::new(lens!(Note.title))).paginate(25))
     }
 
@@ -250,6 +251,43 @@ async fn a_bulk_delete_is_one_call_for_the_whole_batch() {
     );
     assert_eq!(audits[0].mutation, "delete");
     assert_eq!(audits[0].rows, 2, "both rows travel in the one call");
+}
+
+#[tokio::test]
+async fn an_import_is_one_create_call_with_every_row() {
+    let db = seeded_db().await;
+    let router = panel_router::<AuditedResource>(db.clone());
+
+    let response = import_csv(&router, "/admin/notes/-/import", "title\nAlpha\nBeta\n").await;
+    assert_eq!(response.status(), 303);
+    assert_eq!(notes(&db).await.len(), 2);
+
+    let imported = audits(&db).await;
+    assert_eq!(
+        imported.len(),
+        1,
+        "one import is one hook call, not one per row"
+    );
+    assert_eq!(imported[0].mutation, "create");
+    assert_eq!(imported[0].rows, 2, "both rows travel in the one call");
+    assert_eq!(imported[0].title, "Alpha", "the rows travel in file order");
+
+    let response = import_csv(
+        &router,
+        "/admin/notes/-/import",
+        "title\nGamma\nDelta,stray\n",
+    )
+    .await;
+    assert_eq!(
+        response.status(),
+        200,
+        "a refused row renders the page again"
+    );
+    assert_eq!(
+        audits(&db).await.len(),
+        1,
+        "a refused import never reaches the hook"
+    );
 }
 
 #[tokio::test]

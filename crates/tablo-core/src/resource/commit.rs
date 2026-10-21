@@ -40,6 +40,14 @@ impl<M> Committed<M> {
         }
     }
 
+    /// The rows an import created, in file order: one commit, as a bulk delete is one.
+    pub(crate) fn created_all(records: Vec<M>) -> Self {
+        Self {
+            mutation: Mutation::Create,
+            records,
+        }
+    }
+
     /// The row an update wrote, as it stands after the write.
     pub fn updated(record: M) -> Self {
         Self {
