@@ -31,8 +31,8 @@ acts for. `send` takes the recipient's `PanelUser::user_id`:
 ```
 
 `send` writes the row on its own connection and commits it at once, so send from
-`Resource::after_commit` rather than from inside an action's `run`. A notification sent from
-`run` stays when the write rolls back, and on a pool of one connection, such as an in-memory
+`Resource::after_commit` rather than from inside an action's `run` or `Resource::before_commit`.
+A notification sent from either stays when the write rolls back, and on a pool of one connection, such as an in-memory
 SQLite database, it waits forever for the connection the write's transaction holds.
 
 A job sends through the panel's handle, for no tenant until `tenant` names one:

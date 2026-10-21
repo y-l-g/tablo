@@ -249,8 +249,9 @@ audit log belongs here:
 {{#include ../../../examples/guide/src/resources.rs:audit-before-commit}}
 ```
 
-An error rolls back the write and every row the hook wrote, and the response fails as a failed
-record function does.
+An error rolls back the write and every row the hook wrote, and the request fails with the
+write's failure toast. Run every statement through `ex`: `db(cx)` or `Notifications::send` opens a
+second connection, which writes outside the transaction and, on a pool of one, waits forever.
 
 `after_commit` runs once the transaction commits, before the response. Put work outside the
 database there, such as email, webhooks and cache invalidation, so a rolled-back write never
@@ -275,9 +276,25 @@ the hook skips it, so a row that must exist whenever the write does is written i
 | `Attach { owner, relation, key }` | the owner, its relation field and the linked record's key |
 | `Detach { owner, relation, keys }` | the owner, its relation field and the unlinked records' keys |
 
-`change.records()` lists the resource's rows a change names: the updated row as it now stands, and
-the owner of an attach or a detach. `Change` is `#[non_exhaustive]`, so a `match` on it ends with a
-`_` arm.
+`change.records()` lists the resource's rows a change names: the created or updated row as the
+write left it, the rows a delete, a restore or an action named as they stood before it, and the
+owner of an attach or a detach. Keys are spelled as the related resource's URLs spell them,
+whatever spelling the request posted.
+
+The audit example's match lists every variant without a `_` arm, so a kind of write a later
+Tablo adds breaks the build instead of going unaudited. Three things a `Change` does not say:
+
+- **Links written through a form.** A create or an edit that changes a many-to-many form field
+  reports the record only; read the links through `ex` when the audit needs them. The relation
+  table's own writes report as `Attach` and `Detach`.
+- **A header action's work.** It reports its name only; the hook knows who ran it through `cx`.
+- **Whether an edit changed anything.** A submission that names no field still reports an
+  `Update`, with `before` equal to `after`.
+
+A `Change` carries every column, including fields the user's [field access](#field-access) hides.
+An audit table that lower-privilege users can read should store only what they may see.
+
+The profile and tenant-settings pages save their own rows and reach neither hook.
 
 ## Startup checks
 

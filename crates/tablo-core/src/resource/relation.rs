@@ -78,16 +78,18 @@ pub(crate) struct Links<P> {
     /// The attach dialog's input: a choice of one child record.
     pub(crate) input: InputSpec,
     /// Links the record the key names, which the input's re-check proved a child record in
-    /// scope that the user may view; linking a linked record changes nothing.
+    /// scope that the user may view; linking a linked record changes nothing. Answers the key as
+    /// the child's URLs spell it.
     pub(crate) attach: LinkFn<P, String>,
     /// Unlinks the records the keys name: 404 unless each is linked and in scope, 403 unless the
-    /// user may view each.
+    /// user may view each. Answers the keys as the children's URLs spell them.
     pub(crate) detach: LinkFn<P, Vec<String>>,
 }
 
-/// A write of an owner's links, given what names the related records.
+/// A write of an owner's links, given what names the related records; answers those names as
+/// the related resource's URLs spell them.
 type LinkFn<P, K> = Arc<
-    dyn for<'a> Fn(&'a Cx, &'a P, K, &'a mut dyn toasty::Executor) -> BoxFuture<'a, Result<()>>
+    dyn for<'a> Fn(&'a Cx, &'a P, K, &'a mut dyn toasty::Executor) -> BoxFuture<'a, Result<K>>
         + Send
         + Sync,
 >;
@@ -295,13 +297,16 @@ async fn attach<P, C>(
     field: &str,
     key: String,
     ex: &mut dyn toasty::Executor,
-) -> Result<()>
+) -> Result<String>
 where
     P: toasty::schema::Model + IntoExpr<P>,
     C: Resource,
 {
     let join = join_table::<P>(cx, field)?;
-    let Some(record) = pk::pk_eq_expr::<C::Model>(&key) else {
+    let (Some(key), Some(record)) = (
+        pk::canonical_key::<C::Model>(&key),
+        pk::pk_eq_expr::<C::Model>(&key),
+    ) else {
         return Err(topcoat::router::error::not_found().into());
     };
     let linked = scoped_query::<C>(cx)?
@@ -312,11 +317,11 @@ where
         .await
         .map_err(crate::error::unavailable)?;
     if linked.is_none() {
-        join.link(owner, &[key], ex)
+        join.link(owner, std::slice::from_ref(&key), ex)
             .await
             .map_err(|error| -> topcoat::Error { error.into() })?;
     }
-    Ok(())
+    Ok(key)
 }
 
 /// Unlinks `owner` from the records `keys` names.
@@ -327,7 +332,7 @@ async fn detach<P, C>(
     field: &str,
     keys: Vec<String>,
     ex: &mut dyn toasty::Executor,
-) -> Result<()>
+) -> Result<Vec<String>>
 where
     P: toasty::schema::Model + IntoExpr<P>,
     C: Resource,
@@ -356,7 +361,8 @@ where
     }
     join.unlink(owner, &keys, ex)
         .await
-        .map_err(|error| -> topcoat::Error { error.into() })
+        .map_err(|error| -> topcoat::Error { error.into() })?;
+    Ok(linked.iter().map(pk::pk_text).collect())
 }
 
 impl<P> Relation<P> {

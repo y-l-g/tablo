@@ -8,15 +8,24 @@ use super::{Action, Resource};
 ///
 /// [`Resource::before_commit`] receives it inside the write's transaction and
 /// [`Resource::after_commit`] once the transaction commits.
+///
+/// The enum is exhaustive on purpose: an audit hook that matches every variant stops compiling
+/// when a new kind of write appears, instead of skipping it.
+///
+/// A create or an update that also links or unlinks records through a many-to-many form field
+/// reports the record only: the links are not in `M`. Read them through the hook's executor when
+/// an audit needs them; the relation table's own writes report as [`Change::Attach`] and
+/// [`Change::Detach`].
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum Change<M> {
     /// A create wrote this row.
     Create(M),
     /// An update wrote `after` over `before`, the snapshot the handler loaded and authorized
-    /// inside the transaction.
+    /// inside the transaction. A submission that names no field writes nothing and still
+    /// reports an update, with `before == after`.
     Update { before: M, after: M },
-    /// A delete or a bulk delete removed these rows, as they stood before the delete.
+    /// A delete or a bulk delete removed these rows, or trashed them on a soft-deleting resource,
+    /// as they stood before the delete.
     Delete(Vec<M>),
     /// A restore brought back these trashed rows, as they stood before it: their deleted-at
     /// column still holds the time they were trashed.
@@ -25,19 +34,21 @@ pub enum Change<M> {
     ForceDelete(Vec<M>),
     /// The custom [`Action`] `name` ran on these rows, as the handler loaded them before it ran.
     Action { name: &'static str, records: Vec<M> },
-    /// The [`HeaderAction`](crate::HeaderAction) `name` ran, on no record.
+    /// The [`HeaderAction`](crate::HeaderAction) `name` ran, on no record: its audit can record
+    /// who ran it, through the context, and which action.
     HeaderAction { name: &'static str },
     /// A many-to-many relation's table linked `owner` to the related record `key` names.
     ///
     /// `relation` is the owner's `#[has_many(via = ..)]` field and `key` the related resource's
-    /// record key, as its URLs carry it. Attaching a linked record writes nothing and still
-    /// reports the attach.
+    /// record key, as its URLs spell it whatever spelling the request posted. Attaching a linked
+    /// record writes nothing and still reports the attach.
     Attach {
         owner: M,
         relation: String,
         key: String,
     },
-    /// A many-to-many relation's table unlinked `owner` from the related records `keys` name.
+    /// A many-to-many relation's table unlinked `owner` from the related records `keys` name, as
+    /// their URLs spell them.
     Detach {
         owner: M,
         relation: String,
@@ -46,9 +57,9 @@ pub enum Change<M> {
 }
 
 impl<M> Change<M> {
-    /// The rows of this resource the change names: the created row, the updated row as it now
-    /// stands, the deleted, restored or force-deleted rows, the rows an action ran on, the owner of
-    /// an attach or a detach, and none for a header action.
+    /// The rows of this resource the change names: the created row and the updated row as the
+    /// write left them, the deleted, restored or force-deleted rows and the rows an action ran on
+    /// as they stood before it, the owner of an attach or a detach, and none for a header action.
     pub fn records(&self) -> &[M] {
         match self {
             Self::Create(record)

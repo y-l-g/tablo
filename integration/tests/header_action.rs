@@ -202,6 +202,52 @@ impl HeaderAction for Explode {
     }
 }
 
+/// Retitles every open ticket, under a `before_commit` that logs it, then refuses it.
+struct Vetoed;
+
+impl HeaderAction for Vetoed {
+    type Input = ();
+    const NAME: &'static str = "vetoed";
+
+    async fn run(
+        _cx: &Cx,
+        _: (),
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<tablo::Outcome> {
+        Ticket::filter(Ticket::fields().closed().eq(false))
+            .update()
+            .title("vetoed".to_string())
+            .exec(&mut *ex)
+            .await?;
+        Ok(tablo::Outcome::done())
+    }
+}
+
+/// Retitles a ticket from its row, under a `before_commit` that logs it, then refuses it.
+struct VetoedRow;
+
+impl Action<TicketResource> for VetoedRow {
+    type Input = ();
+    const NAME: &'static str = "vetoed-row";
+    const PLACES: Places = Places::ROW;
+
+    async fn run(
+        _cx: &Cx,
+        tickets: &[Ticket],
+        _: (),
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<tablo::Outcome> {
+        for ticket in tickets {
+            Ticket::filter(Ticket::fields().id().eq(ticket.id))
+                .update()
+                .title("vetoed".to_string())
+                .exec(&mut *ex)
+                .await?;
+        }
+        Ok(tablo::Outcome::done())
+    }
+}
+
 struct TicketResource;
 
 impl Resource for TicketResource {
@@ -217,10 +263,12 @@ impl Resource for TicketResource {
             .action::<Close>()
             .action::<Reopen>()
             .action::<Retitle>()
+            .action::<VetoedRow>()
             .header_action::<CloseAll>()
             .header_action::<OpenTicket>()
             .header_action::<Flagged>()
             .header_action::<Explode>()
+            .header_action::<Vetoed>()
     }
 
     async fn before_commit(
@@ -228,7 +276,22 @@ impl Resource for TicketResource {
         change: &Change<Ticket>,
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<()> {
-        log("before", change, ex).await
+        log("before", change, ex).await?;
+        match change {
+            Change::HeaderAction { name: "vetoed" } => {}
+            Change::Action {
+                name: "vetoed-row", ..
+            } => {
+                toasty::create!(Log {
+                    mutation: "before:vetoed-row".to_string(),
+                    records: 1,
+                })
+                .exec(ex)
+                .await?;
+            }
+            _ => return Ok(()),
+        }
+        Err(std::io::Error::other("the audit refused the write").into())
     }
 
     async fn after_commit(cx: &Cx, change: Change<Ticket>) -> topcoat::Result<()> {
@@ -583,6 +646,30 @@ async fn a_failing_header_action_rolls_its_writes_back() {
     assert!(response.status().is_server_error(), "{}", response.status());
     assert_eq!(tickets(&db).await[0].title, "Open", "the write rolled back");
     assert!(logs(&db).await.is_empty(), "neither hook ran");
+}
+
+#[tokio::test]
+async fn a_refusing_before_commit_rolls_back_an_action_and_its_own_rows() {
+    let db = db().await;
+    let ticket = seed(&db, "Open", false).await;
+    let router = router(&db, Allow);
+    for path in [
+        "/admin/tickets/-/actions/vetoed".to_string(),
+        format!("/admin/tickets/{}/-/actions/vetoed-row", ticket.id),
+    ] {
+        let response = post_fields(&router, &path, &[]).await;
+        assert!(
+            response.status().is_server_error(),
+            "{path}: {}",
+            response.status()
+        );
+    }
+    assert_eq!(
+        tickets(&db).await[0].title,
+        "Open",
+        "neither write committed"
+    );
+    assert!(logs(&db).await.is_empty(), "nor did the hook's log rows");
 }
 
 #[tokio::test]

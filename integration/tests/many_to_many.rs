@@ -77,6 +77,22 @@ impl Resource for ShelfResource {
             ))
     }
 
+    /// A shelf named "Refusing" writes a book through the transaction, then refuses the write.
+    async fn before_commit(
+        _cx: &Cx,
+        change: &Change<Shelf>,
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<()> {
+        let (Change::Attach { owner, .. } | Change::Detach { owner, .. }) = change else {
+            return Ok(());
+        };
+        if owner.name != "Refusing" {
+            return Ok(());
+        }
+        toasty::create!(Book { title: "Audit" }).exec(ex).await?;
+        Err(std::io::Error::other("the audit refused the write").into())
+    }
+
     async fn after_commit(_cx: &Cx, change: Change<Shelf>) -> topcoat::Result<()> {
         let heard = match change {
             Change::Attach {
@@ -347,10 +363,11 @@ async fn the_owners_hook_hears_each_attach_and_detach() {
     )
     .await;
     assert_eq!(resp.status(), 303);
+    // The key is posted in uppercase, and heard as the book's URLs spell it.
     let resp = post_fields(
         &router,
-        &format!("{}/{seen}/-/actions/detach", relation(&open)),
-        &[],
+        &format!("{}/-/actions/detach", relation(&open)),
+        &[("ids", &seen.to_uppercase())],
     )
     .await;
     assert_eq!(resp.status(), 303);
@@ -370,6 +387,53 @@ async fn the_owners_hook_hears_each_attach_and_detach() {
         ],
         "each change names the relation and the related records"
     );
+}
+
+#[tokio::test]
+async fn a_refusing_hook_rolls_back_the_attach_or_detach_and_its_own_rows() {
+    let Library {
+        router, db, seen, ..
+    } = library().await;
+    let mut db_q = db.clone();
+    let refusing = toasty::create!(Shelf { name: "Refusing" })
+        .exec(&mut db_q)
+        .await
+        .unwrap();
+    toasty::create!(Placement {
+        shelf_id: refusing.id,
+        book_id: seen.id,
+    })
+    .exec(&mut db_q)
+    .await
+    .unwrap();
+    let fresh = toasty::create!(Book { title: "Fresh" })
+        .exec(&mut db_q)
+        .await
+        .unwrap();
+    for (path, fields) in [
+        (
+            format!("{}/-/actions/attach", relation(&refusing)),
+            vec![("record", fresh.id.to_string())],
+        ),
+        (
+            format!("{}/{}/-/actions/detach", relation(&refusing), seen.id),
+            vec![],
+        ),
+    ] {
+        let fields: Vec<_> = fields.iter().map(|(k, v)| (*k, v.as_str())).collect();
+        let resp = post_fields(&router, &path, &fields).await;
+        assert!(resp.status().is_server_error(), "{path}: {}", resp.status());
+    }
+    assert_eq!(
+        held(&db, &refusing).await,
+        [seen.id],
+        "neither write committed"
+    );
+    let audits = Book::filter(Book::fields().title().eq("Audit"))
+        .exec(&mut db_q)
+        .await
+        .unwrap();
+    assert!(audits.is_empty(), "nor did the hook's own rows");
 }
 
 #[tokio::test]

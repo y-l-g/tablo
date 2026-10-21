@@ -2517,7 +2517,7 @@ impl<M> tablo_core::policy::Policy<M> for tablo_core::policy::ReadOnly
 pub fn tablo_core::policy::ReadOnly::allows(&self, &topcoat_core::context::Cx, tablo_core::policy::Ability<'_, M>) -> bool
 pub fn tablo_core::policy::when<F>(F) -> tablo_core::policy::When<F> where F: core::ops::function::Fn(&topcoat_core::context::Cx) -> bool + core::marker::Send + core::marker::Sync + 'static
 pub mod tablo_core::resource
-#[non_exhaustive] pub enum tablo_core::resource::Change<M>
+pub enum tablo_core::resource::Change<M>
 pub tablo_core::resource::Change::Action
 pub tablo_core::resource::Change::Action::name: &'static str
 pub tablo_core::resource::Change::Action::records: alloc::vec::Vec<M>
@@ -4432,7 +4432,7 @@ impl core::marker::Unpin for tablo_core::AuthMailFault
 impl core::marker::UnsafeUnpin for tablo_core::AuthMailFault
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::AuthMailFault
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::AuthMailFault
-#[non_exhaustive] pub enum tablo_core::Change<M>
+pub enum tablo_core::Change<M>
 pub tablo_core::Change::Action
 pub tablo_core::Change::Action::name: &'static str
 pub tablo_core::Change::Action::records: alloc::vec::Vec<M>

@@ -151,15 +151,15 @@ async fn attach<'a, R: Resource>(
     let key = *input
         .downcast::<String>()
         .expect("the attach input parses the key it posts");
-    let written = (links.attach)(cx, &owner, key.clone(), &mut tx)
+    let written = (links.attach)(cx, &owner, key, &mut tx)
         .await
-        .map(|()| owner);
+        .map(|key| (owner, key));
     commit_write(
         cx,
         resource,
         tx,
         written.map(|value| (value, crate::Outcome::done())),
-        |owner| Change::Attach {
+        |(owner, key)| Change::Attach {
             owner,
             relation: links.field.clone(),
             key,
@@ -198,16 +198,16 @@ async fn detach<'a, R: Resource>(
     let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
     let owner = owner(cx, resource, &mut tx).await?;
     let count = keys.len();
-    let written = (links.detach)(cx, &owner, keys.clone(), &mut tx)
+    let written = (links.detach)(cx, &owner, keys, &mut tx)
         .await
-        .map(|()| owner);
+        .map(|keys| (owner, keys));
     let noun = if count == 1 { "record" } else { "records" };
     commit_write(
         cx,
         resource,
         tx,
         written.map(|value| (value, crate::Outcome::done())),
-        |owner| Change::Detach {
+        |(owner, keys)| Change::Detach {
             owner,
             relation: links.field.clone(),
             keys,

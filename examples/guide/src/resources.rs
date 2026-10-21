@@ -262,7 +262,28 @@ pub async fn before_commit(
             format!("updated {} (was {})", after.title, before.title)
         }
         Change::Delete(posts) => format!("deleted {} posts", posts.len()),
-        _ => return Ok(()),
+        Change::Restore(posts) => format!("restored {} posts", posts.len()),
+        Change::ForceDelete(posts) => format!("deleted {} posts for good", posts.len()),
+        Change::Action { name, records } => format!("ran {name} on {} posts", records.len()),
+        Change::HeaderAction { name } => format!("ran {name}"),
+        Change::Attach {
+            owner,
+            relation,
+            key,
+        } => {
+            format!("linked {} to {relation} {key}", owner.title)
+        }
+        Change::Detach {
+            owner,
+            relation,
+            keys,
+        } => {
+            format!(
+                "unlinked {} from {relation} {}",
+                owner.title,
+                keys.join(", ")
+            )
+        }
     };
     toasty::create!(Audit {
         action,

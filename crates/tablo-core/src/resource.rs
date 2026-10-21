@@ -265,11 +265,16 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// a counter, a row in another table that must commit with the write or not at all.
     ///
     /// Called once per write, with the [`Change`] it made, through `ex`, the open transaction:
-    /// run every statement through it. Every write the panel makes for this resource comes
-    /// here: a create, an update, a delete or bulk delete, a restore or force delete, a custom or
-    /// header action, and a many-to-many attach or detach. A validation error, a policy denial or a
-    /// failed record fn returns before it. An `Err` rolls the whole write back and answers as a
-    /// failed record fn does.
+    /// run every statement through it. Do not open a second connection here, through `db(cx)` or
+    /// a `Notifications::send`: its writes would land outside the transaction, and on a pool of
+    /// one it waits forever for the connection the transaction holds.
+    ///
+    /// Every write this resource's panel routes make comes here: a create, an update, a delete or
+    /// bulk delete, a restore or force delete, a custom or header action, and a many-to-many
+    /// attach or detach. The profile and tenant-settings pages save their user and tenant rows
+    /// themselves and do not. A validation error, a policy denial or a failed record fn returns
+    /// before it. An `Err` rolls the whole write back and fails the request with the write's
+    /// failure toast.
     ///
     /// ```rust
     /// # use tablo_core::{Change, NoForm, Resource};
@@ -291,7 +296,11 @@ pub trait Resource: Sized + Send + Sync + 'static {
     ///         Change::Create(_) => "create",
     ///         Change::Update { .. } => "update",
     ///         Change::Delete(_) => "delete",
-    ///         _ => "other",
+    ///         Change::Restore(_) => "restore",
+    ///         Change::ForceDelete(_) => "force delete",
+    ///         Change::Action { name, .. } | Change::HeaderAction { name } => name,
+    ///         Change::Attach { .. } => "attach",
+    ///         Change::Detach { .. } => "detach",
     ///     };
     ///     for post in change.records() {
     ///         toasty::create!(Audit {
