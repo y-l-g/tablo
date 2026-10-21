@@ -23,7 +23,7 @@ pub use embedded::EmbeddedForm;
 use fields::ChoiceControl;
 pub use fields::{
     ChoiceField, CustomField, Field, FileField, IntoFormValue, IntoOptions, RepeaterField,
-    TextField, Toggle,
+    RichTextField, TextField, Toggle,
 };
 pub(crate) use fields::{
     is_linkable, is_rooted, option_view, read_only, stored_upload, value_cell,

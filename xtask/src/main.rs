@@ -16,6 +16,9 @@ fn main() -> anyhow::Result<()> {
         "verify-topcoat-ui" | "verify" => {
             xtask::verify_sync()?;
         }
+        "vendor-tiptap" => {
+            xtask::tiptap::vendor_tiptap(&RealRunner)?;
+        }
         "fmt" => {
             xtask::gates::fmt_check(&RealRunner)?;
         }
@@ -68,6 +71,8 @@ USAGE:
                                    Copy the vendored primitives verbatim from the registry
                                    (ADR-0007); --prune deletes files no longer vendored.
     cargo xtask verify-topcoat-ui  Fail when a vendored primitive drifted from the registry.
+    cargo xtask vendor-tiptap      Build the rich text editor's TipTap bundle from its lockfile
+                                   (ADR-0032); needs npm.
 "#
     );
 }

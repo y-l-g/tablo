@@ -90,8 +90,9 @@ pub mod prelude {
         HeaderAction, HeaderActions, ImageColumn, IntoOptions, Lens, ModelColumns, ModelForm,
         NavigationItem, NoForm, Options, Outcome, Page, PageDef, Pagination, Panel, Places, Policy,
         Posted, PublicLink, QueryFilter, ReadOnly, Reads, RecordForm, Relation, RelationColumn,
-        RepeaterColumn, Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section,
-        SelectFilter, Sort, Table, Tenancy, TenantId, TernaryFilter, TextColumn, TextField, Toggle,
-        can, can_list, can_open, lens, relation, scoped_query, tenant_id, when,
+        RepeaterColumn, Resource, ResourceDef, RichTextColumn, RichTextField,
+        RouterBuilderPanelExt, Schema, Section, SelectFilter, Sort, Table, Tenancy, TenantId,
+        TernaryFilter, TextColumn, TextField, Toggle, Tool, can, can_list, can_open, lens,
+        relation, scoped_query, tenant_id, when,
     };
 }

@@ -17,6 +17,8 @@ tablo-ui = { path = "../tablo-ui", version = "0.7.0" }
 # from the router's cookie `Key`. `default-features = false` keeps the lock's entry: the nonce
 # comes from `getrandom`.
 aes-gcm = { version = "0.11", default-features = false, features = ["aes", "alloc"] }
+# Cleans a rich text field's HTML to the elements its toolbar produces (ADR-0032).
+ammonia = "4"
 argon2 = "0.6"
 bytes = "1"
 # The base32 an authenticator app reads a two-factor secret in.

@@ -328,6 +328,7 @@ pub fn tablo_test::now() -> u64
 pub fn tablo_test::recovery_codes(&str) -> alloc::vec::Vec<alloc::string::String>
 pub fn tablo_test::refusal<T>(topcoat::Result<T>) -> alloc::vec::Vec<tablo_core::declaration::DeclarationError>
 pub fn tablo_test::response_cookies(&http::response::Response<topcoat_router::body::Body>) -> alloc::vec::Vec<(alloc::string::String, alloc::string::String)>
+pub fn tablo_test::rich_text_values(&str) -> alloc::vec::Vec<alloc::string::String>
 pub fn tablo_test::row_actions(&str, &str) -> core::option::Option<tablo_test::RowActions>
 pub fn tablo_test::row_keys(&str) -> alloc::vec::Vec<alloc::string::String>
 pub fn tablo_test::rows(&str) -> alloc::vec::Vec<tablo_test::Row>

@@ -1,5 +1,16 @@
 //! The hook contract between the shell's JS assets and the Rust that renders their markup.
 
+use std::path::{Path, PathBuf};
+
+/// The directory holding the hand-written shell JS assets.
+pub fn assets_dir() -> PathBuf {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    manifest_dir
+        .parent()
+        .unwrap_or(Path::new("."))
+        .join("crates/tablo-ui/assets")
+}
+
 /// Each shell JS asset's file under `assets/` and the `tablo-ui` constant wiring it into the
 /// document head.
 pub const ASSET_FILES: &[(&str, &str)] = &[
@@ -8,6 +19,7 @@ pub const ASSET_FILES: &[(&str, &str)] = &[
     ("selects.js", "SELECTS_JS"),
     ("repeaters.js", "REPEATERS_JS"),
     ("password.js", "PASSWORD_JS"),
+    ("rich_text.js", "RICH_TEXT_JS"),
 ];
 
 /// One hook-contract entry: `js` appears in the asset's source and `rust` appears in the Rust
@@ -142,5 +154,40 @@ pub const ASSET_HOOKS: &[AssetHook] = &[
         asset: "repeaters.js",
         js: "__row__",
         rust: "__row__",
+    },
+    AssetHook {
+        asset: "rich_text.js",
+        js: "data-rich-text",
+        rust: "data-rich-text",
+    },
+    AssetHook {
+        asset: "rich_text.js",
+        js: "tablo-tiptap",
+        rust: "tablo-tiptap",
+    },
+    AssetHook {
+        asset: "rich_text.js",
+        js: "data-rich-text-tools",
+        rust: "data-rich-text-tools",
+    },
+    AssetHook {
+        asset: "rich_text.js",
+        js: "data-rich-text-toolbar",
+        rust: "data-rich-text-toolbar",
+    },
+    AssetHook {
+        asset: "rich_text.js",
+        js: "data-rich-text-tool",
+        rust: "data-rich-text-tool",
+    },
+    AssetHook {
+        asset: "rich_text.js",
+        js: "data-rich-text-content",
+        rust: "data-rich-text-content",
+    },
+    AssetHook {
+        asset: "rich_text.js",
+        js: "data-rich-text-source",
+        rust: "data-rich-text-source",
     },
 ];

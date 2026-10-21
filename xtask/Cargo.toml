@@ -11,6 +11,8 @@ workspace = true
 [dependencies]
 anyhow = "1"
 serde_json = "1"
+# The lockfile hash the vendored TipTap bundle names.
+sha2 = "0.11"
 topcoat-ui = { workspace = true }
 topcoat-ui-registry = { workspace = true }
 

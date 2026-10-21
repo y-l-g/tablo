@@ -30,6 +30,7 @@ mod media;
 mod registration;
 mod relations;
 mod repeater;
+mod rich_text;
 mod shell;
 mod tenancy;
 mod toggleable_columns;

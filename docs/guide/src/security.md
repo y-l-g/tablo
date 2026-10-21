@@ -69,6 +69,10 @@ What Tablo does by default, and what your deployment must provide for those defa
   to show a fallback in its place instead.
 - **Notifications** are one-time flash cookies set on the redirect after a write and consumed by
   the next page, so a reload does not show them again.
+- **Rich text** is the one stored value Tablo renders as HTML. A rich text field keeps only the
+  elements its toolbar's tools produce, with no `style`, event handler or script URL, and
+  `RichTextColumn` cleans the value again as it renders. A page of your own renders one through
+  `tablo::rich_text::clean`, never unescaped as stored. See [Rich text](./forms.md#rich-text).
 
 ## Uploaded files
 

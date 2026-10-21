@@ -69,6 +69,8 @@ pub use tablo::prelude::RelationColumn
 pub use tablo::prelude::RepeaterColumn
 pub use tablo::prelude::Resource
 pub use tablo::prelude::ResourceDef
+pub use tablo::prelude::RichTextColumn
+pub use tablo::prelude::RichTextField
 pub use tablo::prelude::RouterBuilderPanelExt
 pub use tablo::prelude::Schema
 pub use tablo::prelude::Section
@@ -81,6 +83,7 @@ pub use tablo::prelude::TernaryFilter
 pub use tablo::prelude::TextColumn
 pub use tablo::prelude::TextField
 pub use tablo::prelude::Toggle
+pub use tablo::prelude::Tool
 pub use tablo::prelude::can
 pub use tablo::prelude::can_list
 pub use tablo::prelude::can_open

@@ -1,7 +1,8 @@
 //! Columns, which a [`Table`](crate::Table) lists and a [`Detail`](crate::Detail) shows: the
 //! [`Column`] trait, the built-in [`TextColumn`], [`DateColumn`], [`ComputedColumn`],
 //! [`RelationColumn`], [`CountColumn`], [`BooleanColumn`], [`FileColumn`], [`ColorColumn`],
-//! [`ImageColumn`], [`EmbeddedColumn`] and [`RepeaterColumn`], and the [`IntoColumns`] seam.
+//! [`ImageColumn`], [`EmbeddedColumn`], [`RepeaterColumn`] and [`RichTextColumn`], and the
+//! [`IntoColumns`] seam.
 //!
 //! The module sits below both: `table` re-exports it, and `detail` implements
 //! [`IntoDetail`](crate::IntoDetail) for each built-in column.
@@ -126,6 +127,7 @@ mod file;
 mod image;
 mod relation;
 mod repeater;
+mod rich_text;
 mod text;
 
 pub use boolean::BooleanColumn;
@@ -137,6 +139,7 @@ pub use file::FileColumn;
 pub use image::ImageColumn;
 pub use relation::{CountColumn, RelationColumn, RelationLens, ToOneRelation};
 pub use repeater::RepeaterColumn;
+pub use rich_text::RichTextColumn;
 pub use text::{TextColumn, contains_expr};
 #[cfg(test)]
 use {color::is_css_color, text::escape_like_pattern};
@@ -529,6 +532,7 @@ column_conversions!(
     ImageColumn<M, T>,
     EmbeddedColumn<M, T>,
     RepeaterColumn<M, T>,
+    RichTextColumn<M, T>,
 );
 
 impl<M> IntoColumns<M> for () {

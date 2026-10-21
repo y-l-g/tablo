@@ -10,7 +10,7 @@ use topcoat::{
         error::{RouterErrorExt, not_found},
         href, layout, page, path_param,
     },
-    view::{View, class, view},
+    view::{Unescaped, View, class, view},
 };
 
 use crate::{
@@ -183,7 +183,12 @@ async fn post_page(cx: &Cx) -> Result<impl View> {
                 >
             }
 
-            <div class="mt-8 leading-7">(&post.body)</div>
+            // `clean` keeps only the elements a rich text tool produces.
+            <div
+                class="mt-8 leading-7 [&_p]:my-4 [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_a]:underline [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3"
+            >
+                (Unescaped::new_unchecked(tablo::rich_text::clean(&post.body)))
+            </div>
         </article>
     })
 }

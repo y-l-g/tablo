@@ -37,6 +37,11 @@
       "description": "hkdf, hmac, sha1 + sha2 bump as one coupled set, never separately: they all build on digest, and a mix of digest versions does not compile",
       "matchPackageNames": ["hkdf", "hmac", "sha1", "sha2"],
       "groupName": "rustcrypto-digest"
+    },
+    {
+      "description": "The vendored TipTap bundle's packages bump as one set; the PR fails the tiptap.js guard until `cargo xtask vendor-tiptap` rebuilds the bundle on its branch",
+      "matchFileNames": ["crates/tablo-ui/assets/tiptap/package.json"],
+      "groupName": "tiptap"
     }
   ]
 }

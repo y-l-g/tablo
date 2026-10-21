@@ -2235,37 +2235,52 @@ pub const tablo_ui::icons::ARROW_LEFT: topcoat_icon::data::IconData
 pub const tablo_ui::icons::ARROW_UP: topcoat_icon::data::IconData
 pub const tablo_ui::icons::ARROW_UP_DOWN: topcoat_icon::data::IconData
 pub const tablo_ui::icons::BELL: topcoat_icon::data::IconData
+pub const tablo_ui::icons::BOLD: topcoat_icon::data::IconData
 pub const tablo_ui::icons::CHECK: topcoat_icon::data::IconData
 pub const tablo_ui::icons::CHECK_CHECK: topcoat_icon::data::IconData
 pub const tablo_ui::icons::CHEVRONS_UP_DOWN: topcoat_icon::data::IconData
 pub const tablo_ui::icons::CHEVRON_DOWN: topcoat_icon::data::IconData
 pub const tablo_ui::icons::CIRCLE_CHECK: topcoat_icon::data::IconData
 pub const tablo_ui::icons::CIRCLE_X: topcoat_icon::data::IconData
+pub const tablo_ui::icons::CODE: topcoat_icon::data::IconData
 pub const tablo_ui::icons::COLUMNS_3: topcoat_icon::data::IconData
 pub const tablo_ui::icons::DOWNLOAD: topcoat_icon::data::IconData
 pub const tablo_ui::icons::ELLIPSIS: topcoat_icon::data::IconData
 pub const tablo_ui::icons::EXTERNAL_LINK: topcoat_icon::data::IconData
 pub const tablo_ui::icons::EYE: topcoat_icon::data::IconData
 pub const tablo_ui::icons::FILE_TEXT: topcoat_icon::data::IconData
+pub const tablo_ui::icons::HEADING_1: topcoat_icon::data::IconData
+pub const tablo_ui::icons::HEADING_2: topcoat_icon::data::IconData
+pub const tablo_ui::icons::HEADING_3: topcoat_icon::data::IconData
 pub const tablo_ui::icons::IMAGE: topcoat_icon::data::IconData
 pub const tablo_ui::icons::INBOX: topcoat_icon::data::IconData
 pub const tablo_ui::icons::INFO: topcoat_icon::data::IconData
+pub const tablo_ui::icons::ITALIC: topcoat_icon::data::IconData
 pub const tablo_ui::icons::LAYOUT_DASHBOARD: topcoat_icon::data::IconData
 pub const tablo_ui::icons::LINK: topcoat_icon::data::IconData
+pub const tablo_ui::icons::LIST: topcoat_icon::data::IconData
+pub const tablo_ui::icons::LIST_ORDERED: topcoat_icon::data::IconData
 pub const tablo_ui::icons::LOG_OUT: topcoat_icon::data::IconData
 pub const tablo_ui::icons::MAIL: topcoat_icon::data::IconData
 pub const tablo_ui::icons::MESSAGE_SQUARE: topcoat_icon::data::IconData
+pub const tablo_ui::icons::MINUS: topcoat_icon::data::IconData
 pub const tablo_ui::icons::MONITOR: topcoat_icon::data::IconData
 pub const tablo_ui::icons::MOON: topcoat_icon::data::IconData
 pub const tablo_ui::icons::OCTAGON_X: topcoat_icon::data::IconData
 pub const tablo_ui::icons::PENCIL: topcoat_icon::data::IconData
 pub const tablo_ui::icons::PEN_LINE: topcoat_icon::data::IconData
 pub const tablo_ui::icons::PLUS: topcoat_icon::data::IconData
+pub const tablo_ui::icons::REDO_2: topcoat_icon::data::IconData
 pub const tablo_ui::icons::SEARCH: topcoat_icon::data::IconData
+pub const tablo_ui::icons::SQUARE_CODE: topcoat_icon::data::IconData
+pub const tablo_ui::icons::STRIKETHROUGH: topcoat_icon::data::IconData
 pub const tablo_ui::icons::SUN: topcoat_icon::data::IconData
 pub const tablo_ui::icons::TAG: topcoat_icon::data::IconData
+pub const tablo_ui::icons::TEXT_QUOTE: topcoat_icon::data::IconData
 pub const tablo_ui::icons::TRASH: topcoat_icon::data::IconData
 pub const tablo_ui::icons::TRIANGLE_ALERT: topcoat_icon::data::IconData
+pub const tablo_ui::icons::UNDERLINE: topcoat_icon::data::IconData
+pub const tablo_ui::icons::UNDO_2: topcoat_icon::data::IconData
 pub const tablo_ui::icons::UPLOAD: topcoat_icon::data::IconData
 pub const tablo_ui::icons::USER: topcoat_icon::data::IconData
 pub const tablo_ui::icons::USERS: topcoat_icon::data::IconData
@@ -3090,9 +3105,11 @@ impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::composite
 impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::composites::toast::toaster
 pub const tablo_ui::PASSWORD_JS: topcoat_asset::asset::Asset
 pub const tablo_ui::REPEATERS_JS: topcoat_asset::asset::Asset
+pub const tablo_ui::RICH_TEXT_JS: topcoat_asset::asset::Asset
 pub const tablo_ui::SELECTS_JS: topcoat_asset::asset::Asset
-pub const tablo_ui::SHELL_SCRIPTS: [topcoat_asset::asset::Asset; 5]
+pub const tablo_ui::SHELL_SCRIPTS: [topcoat_asset::asset::Asset; 6]
 pub const tablo_ui::SIDEBAR_JS: topcoat_asset::asset::Asset
 pub const tablo_ui::THEME_JS: topcoat_asset::asset::Asset
+pub const tablo_ui::TIPTAP_JS: topcoat_asset::asset::Asset
 pub fn tablo_ui::badge_variants(tablo_ui::components::primitives::badge::BadgeVariant) -> topcoat_view::html::class::Class<(topcoat_view::html::class::StaticClass, topcoat_view::html::class::StaticClass)>
 pub fn tablo_ui::button_variants(tablo_ui::components::primitives::button::ButtonVariant, tablo_ui::components::primitives::button::ButtonSize) -> topcoat_view::html::class::Class<(topcoat_view::html::class::StaticClass, topcoat_view::html::class::StaticClass, topcoat_view::html::class::StaticClass)>

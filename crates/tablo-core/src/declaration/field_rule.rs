@@ -18,6 +18,9 @@ pub enum FieldRuleFault {
     /// A default the field's type does not parse, as a timestamp spelled without an offset, so a
     /// create that keeps it is refused.
     UnparsedDefault(String),
+    /// A rich text editor over a field whose type is no text, as a number or a timestamp,
+    /// carrying the input type its text control had.
+    NotText(&'static str),
 }
 
 /// [`DeclarationErrorKind::FieldRule`](super::DeclarationErrorKind::FieldRule)'s sentence.
@@ -49,6 +52,11 @@ pub(super) fn fmt_field_rule(
             f,
             "field '{field}' defaults to '{value}', which is no value of its type: spell the \
              default as the type does, or pass a value of the type"
+        ),
+        FieldRuleFault::NotText(input) => write!(
+            f,
+            "field '{field}' is a rich text editor over a field its form edits as '{input}' \
+             input, but rich text stores HTML: make the field a `String` or `Option<String>`"
         ),
     }
 }

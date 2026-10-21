@@ -2,7 +2,7 @@
 //! staff who sign in to them, and the authors, posts and comments.
 
 use jiff::Timestamp;
-use tablo::{TenantId, auth::hash_password};
+use tablo::{TenantId, auth::hash_password, rich_text::from_text};
 use toasty::Db;
 
 use crate::{
@@ -290,7 +290,7 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
             id: seeded_post_id(0),
             tenant_id: TenantId::from(tenant),
             title: "Hello Toasty",
-            body: "How we render admin tables over Toasty queries without an N+1.",
+            body: from_text("How we render admin tables over Toasty queries without an N+1."),
             status: PostStatus::Published,
             featured: true,
             created_at: "2024-01-15T09:30:00Z".parse::<Timestamp>().unwrap(),
@@ -312,7 +312,7 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
             id: seeded_post_id(1),
             tenant_id: TenantId::from(tenant),
             title: "Second Post",
-            body: "Draft notes on cursor pagination edge cases.",
+            body: from_text("Draft notes on cursor pagination edge cases."),
             status: PostStatus::Draft,
             featured: false,
             created_at: "2024-06-01T12:00:00Z".parse::<Timestamp>().unwrap(),
@@ -368,7 +368,7 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
                 id: seeded_post_id(index + 2),
                 tenant_id: TenantId::from(tenant),
                 title: title,
-                body: body,
+                body: from_text(body),
                 status: PostStatus::Draft,
                 featured: false,
                 created_at: created_at.parse::<Timestamp>().unwrap(),
@@ -400,7 +400,7 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
                 id: uuid::Uuid::from_u128(FILLER_ID_BASE + index as u128),
                 tenant_id: TenantId::from(tenant),
                 title: *title,
-                body: "Backlog draft kept for pagination coverage.",
+                body: from_text("Backlog draft kept for pagination coverage."),
                 status: PostStatus::Draft,
                 featured: false,
                 created_at: created_at,

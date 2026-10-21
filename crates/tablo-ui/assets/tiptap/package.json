@@ -1,0 +1,14 @@
+{
+  "name": "tablo-tiptap",
+  "private": true,
+  "description": "The TipTap bundle rich_text.js imports; `cargo xtask vendor-tiptap` builds tiptap.js from this lockfile.",
+  "dependencies": {
+    "@tiptap/core": "3.32.0",
+    "@tiptap/extensions": "3.32.0",
+    "@tiptap/pm": "3.32.0",
+    "@tiptap/starter-kit": "3.32.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

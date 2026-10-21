@@ -7,7 +7,7 @@ use tablo::{
     CountColumn, DateColumn, DateFilter, Detail, DirUploader, EmailVerification, EmbeddedColumn,
     FieldErrors, Grid, Group, HeaderAction, ModelColumns, NavigationItem, Notification,
     Notifications, Pagination, Panel, PanelHandle, PanelUser, PasswordReset, PublicLink,
-    QueryFilter, Relation, RelationColumn, RepeaterColumn, Resource, ResourceDef,
+    QueryFilter, Relation, RelationColumn, RepeaterColumn, Resource, ResourceDef, RichTextColumn,
     RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy, TenantRegistration,
     TernaryFilter, TextColumn, TwoFactor, lens, relation, tenant_id, when,
 };
@@ -195,7 +195,7 @@ fn post_form() -> Schema<PostForm> {
     Schema::new((
         Section::new("Content").schema((
             c.title.placeholder("A title editors click"),
-            c.body.multiline(6).placeholder("The full story…"),
+            c.body.rich_text().placeholder("The full story…"),
         )),
         Section::new("Details").schema((
             Grid::new(2).schema((c.status, c.featured)),
@@ -217,9 +217,9 @@ fn post_detail() -> Detail<Post> {
     Detail::new((
         Section::new("Post").columns((
             TextColumn::new(lens!(Post.title)),
-            TextColumn::new(lens!(Post.body)),
+            RichTextColumn::new(lens!(Post.body)),
             ComputedColumn::new("Reading", |p: &Post| {
-                let words = word_count(&p.body);
+                let words = word_count(&tablo::rich_text::text(&p.body));
                 format!("{words} words · {} min read", read_minutes(words))
             }),
         )),

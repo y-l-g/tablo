@@ -40,3 +40,10 @@ fn file_sizes_hold_in_tree() {
     xtask::sizes::verify_file_sizes(&xtask::gates::repo_root())
         .expect("every source holds within its limit or its cap");
 }
+
+/// Guards that the vendored TipTap bundle was built from the lockfile beside it, so a bumped
+/// package cannot land without its rebuild.
+#[test]
+fn tiptap_bundle_matches_its_lockfile() {
+    xtask::tiptap::verify_tiptap().expect("tiptap.js names its lockfile's hash");
+}
