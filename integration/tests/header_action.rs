@@ -3,9 +3,9 @@
 
 use http::header::LOCATION;
 use tablo::{
-    Ability, Action, Allow, Committed, DeclarationErrorKind, Detail, FieldErrors, HeaderAction,
-    Mutation, NotificationStatus, Page, PageDef, Places, Policy, Resource, ResourceDef, Site,
-    Table, TextColumn, header_action_buttons, lens,
+    Ability, Action, Allow, Change, DeclarationErrorKind, Detail, FieldErrors, HeaderAction,
+    NotificationStatus, Page, PageDef, Places, Policy, Resource, ResourceDef, Site, Table,
+    TextColumn, header_action_buttons, lens,
 };
 use toasty::Db;
 use topcoat::{
@@ -26,7 +26,7 @@ struct Ticket {
     closed: bool,
 }
 
-/// What `after_commit` saw, one row per committed write.
+/// What a hook saw of a header action, one row per hook call.
 #[derive(Debug, toasty::Model, Clone)]
 struct Log {
     #[key]
@@ -202,6 +202,52 @@ impl HeaderAction for Explode {
     }
 }
 
+/// Retitles every open ticket, under a `before_commit` that logs it, then refuses it.
+struct Vetoed;
+
+impl HeaderAction for Vetoed {
+    type Input = ();
+    const NAME: &'static str = "vetoed";
+
+    async fn run(
+        _cx: &Cx,
+        _: (),
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<tablo::Outcome> {
+        Ticket::filter(Ticket::fields().closed().eq(false))
+            .update()
+            .title("vetoed".to_string())
+            .exec(&mut *ex)
+            .await?;
+        Ok(tablo::Outcome::done())
+    }
+}
+
+/// Retitles a ticket from its row, under a `before_commit` that logs it, then refuses it.
+struct VetoedRow;
+
+impl Action<TicketResource> for VetoedRow {
+    type Input = ();
+    const NAME: &'static str = "vetoed-row";
+    const PLACES: Places = Places::ROW;
+
+    async fn run(
+        _cx: &Cx,
+        tickets: &[Ticket],
+        _: (),
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<tablo::Outcome> {
+        for ticket in tickets {
+            Ticket::filter(Ticket::fields().id().eq(ticket.id))
+                .update()
+                .title("vetoed".to_string())
+                .exec(&mut *ex)
+                .await?;
+        }
+        Ok(tablo::Outcome::done())
+    }
+}
+
 struct TicketResource;
 
 impl Resource for TicketResource {
@@ -217,23 +263,39 @@ impl Resource for TicketResource {
             .action::<Close>()
             .action::<Reopen>()
             .action::<Retitle>()
+            .action::<VetoedRow>()
             .header_action::<CloseAll>()
             .header_action::<OpenTicket>()
             .header_action::<Flagged>()
             .header_action::<Explode>()
+            .header_action::<Vetoed>()
     }
 
-    async fn after_commit(cx: &Cx, committed: Committed<Ticket>) -> topcoat::Result<()> {
-        let Mutation::Action(name) = committed.mutation() else {
-            return Ok(());
-        };
-        toasty::create!(Log {
-            mutation: name.to_string(),
-            records: committed.records().len() as i64,
-        })
-        .exec(&mut tablo::db::db(cx))
-        .await?;
-        Ok(())
+    async fn before_commit(
+        _cx: &Cx,
+        change: &Change<Ticket>,
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<()> {
+        log("before", change, ex).await?;
+        match change {
+            Change::HeaderAction { name: "vetoed" } => {}
+            Change::Action {
+                name: "vetoed-row", ..
+            } => {
+                toasty::create!(Log {
+                    mutation: "before:vetoed-row".to_string(),
+                    records: 1,
+                })
+                .exec(ex)
+                .await?;
+            }
+            _ => return Ok(()),
+        }
+        Err(std::io::Error::other("the audit refused the write").into())
+    }
+
+    async fn after_commit(cx: &Cx, change: Change<Ticket>) -> topcoat::Result<()> {
+        log("after", &change, &mut tablo::db::db(cx)).await
     }
 }
 
@@ -324,6 +386,24 @@ async fn seed(db: &Db, title: &str, closed: bool) -> Ticket {
     .expect("seed ticket")
 }
 
+/// Logs a header action's `change` as `{hook}:{name}`, with the records it names.
+async fn log(
+    hook: &str,
+    change: &Change<Ticket>,
+    ex: &mut dyn toasty::Executor,
+) -> topcoat::Result<()> {
+    let Change::HeaderAction { name } = change else {
+        return Ok(());
+    };
+    toasty::create!(Log {
+        mutation: format!("{hook}:{name}"),
+        records: change.records().len() as i64,
+    })
+    .exec(ex)
+    .await?;
+    Ok(())
+}
+
 async fn tickets(db: &Db) -> Vec<Ticket> {
     Ticket::all()
         .exec(&mut db.clone())
@@ -332,13 +412,15 @@ async fn tickets(db: &Db) -> Vec<Ticket> {
 }
 
 async fn logs(db: &Db) -> Vec<(String, i64)> {
-    Log::all()
+    let mut logs: Vec<_> = Log::all()
         .exec(&mut db.clone())
         .await
         .expect("load logs")
         .into_iter()
         .map(|log| (log.mutation, log.records))
-        .collect()
+        .collect();
+    logs.sort();
+    logs
 }
 
 fn router(db: &Db, policy: impl Policy<Ticket>) -> Router {
@@ -427,8 +509,11 @@ async fn a_confirming_header_action_runs_only_confirmed_and_commits_with_no_reco
     assert!(ticket.id == open.id && ticket.closed, "the action wrote");
     assert_eq!(
         logs(&db).await,
-        vec![("close-all".to_string(), 0)],
-        "after_commit sees the action's name and no record"
+        vec![
+            ("after:close-all".to_string(), 0),
+            ("before:close-all".to_string(), 0),
+        ],
+        "both hooks see the action's name and no record"
     );
 }
 
@@ -560,7 +645,31 @@ async fn a_failing_header_action_rolls_its_writes_back() {
     let response = post_fields(&router(&db, Allow), "/admin/tickets/-/actions/explode", &[]).await;
     assert!(response.status().is_server_error(), "{}", response.status());
     assert_eq!(tickets(&db).await[0].title, "Open", "the write rolled back");
-    assert!(logs(&db).await.is_empty(), "after_commit never ran");
+    assert!(logs(&db).await.is_empty(), "neither hook ran");
+}
+
+#[tokio::test]
+async fn a_refusing_before_commit_rolls_back_an_action_and_its_own_rows() {
+    let db = db().await;
+    let ticket = seed(&db, "Open", false).await;
+    let router = router(&db, Allow);
+    for path in [
+        "/admin/tickets/-/actions/vetoed".to_string(),
+        format!("/admin/tickets/{}/-/actions/vetoed-row", ticket.id),
+    ] {
+        let response = post_fields(&router, &path, &[]).await;
+        assert!(
+            response.status().is_server_error(),
+            "{path}: {}",
+            response.status()
+        );
+    }
+    assert_eq!(
+        tickets(&db).await[0].title,
+        "Open",
+        "neither write committed"
+    );
+    assert!(logs(&db).await.is_empty(), "nor did the hook's log rows");
 }
 
 #[tokio::test]

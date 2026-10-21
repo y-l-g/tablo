@@ -56,7 +56,8 @@ Panel::new("portal").resource_with::<PostResource>(|def| def.policy(ReadOnly))
 | `validate_record(cx, form)` | no errors | rules that need the whole parsed form |
 | `create_record`, `update_record` | the derived write | the create and update writes: [Writes](#writes) |
 | `delete_record`, `bulk_delete_records` | delete by primary key | the delete writes |
-| `after_commit(cx, committed)` | nothing | side effects after a write commits |
+| `before_commit(cx, change, ex)` | nothing | rows that commit with the write, such as an audit log: [Hooks](#hooks) |
+| `after_commit(cx, change)` | nothing | side effects once the write commits: [Hooks](#hooks) |
 
 ## Naming
 
@@ -121,8 +122,8 @@ restored: a record's own route answers 404, and a bulk action skips it.
 
 The policy decides who may restore and delete permanently through `Ability::RestoreAny` and
 `Ability::Restore(record)`, and `Ability::ForceDeleteAny` and `Ability::ForceDelete(record)`;
-`ReadOnly` allows neither. `after_commit` receives them as `Mutation::Restore` and
-`Mutation::ForceDelete`, and a delete as `Mutation::Delete`. Override `restore_record` or
+`ReadOnly` allows neither. The [hooks](#hooks) receive them as `Change::Restore` and
+`Change::ForceDelete`, and a delete as `Change::Delete`. Override `restore_record` or
 `force_delete_record` to write another way, as `delete_record` can be.
 
 In your own code, `scoped_query_in::<R>(cx, Trashed::Only)` loads the trashed records, and
@@ -232,23 +233,68 @@ the policy's `Delete` allows and reports the rest as skipped (`"Bulk deleted (2 
 A selected record the policy's `View` refuses refuses the whole request with 403, and nothing is
 deleted.
 
-### After the commit
+### Hooks
 
-`after_commit` runs once per committed write, after the transaction and before the response. Put
-side effects there — email, webhooks, audit rows, cache invalidation — so a rolled-back write never
-triggers them:
+Every write the panel makes for a resource reaches two hooks with a `Change` that says what it
+wrote: a create, an update, a delete or bulk delete, a restore or force delete, an
+[action](./actions.md), or an attach or detach on a
+[many-to-many relation](./detail-pages.md#many-to-many-relations). Neither runs when the write was
+refused or failed.
+
+`before_commit` runs inside the transaction, after the record function or the action wrote, with
+the transaction as `ex`. A row written through `ex` commits with the write or not at all, so an
+audit log belongs here:
+
+```rust
+{{#include ../../../examples/guide/src/resources.rs:audit-before-commit}}
+```
+
+An error rolls back the write and every row the hook wrote, and the request fails with the
+write's failure toast. Run every statement through `ex`: `db(cx)` or `Notifications::send` opens a
+second connection, which writes outside the transaction and, on a pool of one, waits forever.
+
+`after_commit` runs once the transaction commits, before the response. Put work outside the
+database there, such as email, webhooks and cache invalidation, so a rolled-back write never
+triggers it:
 
 ```rust
 {{#include ../../../examples/guide/src/resources.rs:notify-after-commit}}
 ```
 
-`Committed` names the mutation (`Mutation::Create`, `Update`, `Delete`, `Action(NAME)` for an
-[action](./actions.md), or `Attach` and `Detach` for a
-[many-to-many relation](./detail-pages.md#many-to-many-relations)) and the rows written: the
-created or updated row, every deleted row in one call for a bulk delete, the rows a record action
-ran on, none for a header action, or the owner whose links changed. `Mutation` is
-`#[non_exhaustive]`, so a `match` on it ends with a `_` arm. The hook is not called
-when nothing committed. An error it returns is logged; the write stays committed.
+An error it returns is logged and the write stays committed, and a crash between the commit and
+the hook skips it, so a row that must exist whenever the write does is written in
+`before_commit`.
+
+| `Change` | Carries |
+| --- | --- |
+| `Create(record)` | the created row |
+| `Update { before, after }` | the row as the handler loaded it and as the update left it |
+| `Delete(records)` | the deleted rows, every one in one call for a bulk delete |
+| `Restore(records)`, `ForceDelete(records)` | the trashed rows a [soft-deleting](#soft-deletes) resource restored or deleted for good |
+| `Action { name, records }` | the action's `NAME` and the rows it ran on |
+| `HeaderAction { name }` | the header action's `NAME` |
+| `Attach { owner, relation, key }` | the owner, its relation field and the linked record's key |
+| `Detach { owner, relation, keys }` | the owner, its relation field and the unlinked records' keys |
+
+`change.records()` lists the resource's rows a change names: the created or updated row as the
+write left it, the rows a delete, a restore or an action named as they stood before it, and the
+owner of an attach or a detach. Keys are spelled as the related resource's URLs spell them,
+whatever spelling the request posted.
+
+The audit example's match lists every variant without a `_` arm, so a kind of write a later
+Tablo adds breaks the build instead of going unaudited. Three things a `Change` does not say:
+
+- **Links written through a form.** A create or an edit that changes a many-to-many form field
+  reports the record only; read the links through `ex` when the audit needs them. The relation
+  table's own writes report as `Attach` and `Detach`.
+- **A header action's work.** It reports its name only; the hook knows who ran it through `cx`.
+- **Whether an edit changed anything.** A submission that names no field still reports an
+  `Update`, with `before` equal to `after`.
+
+A `Change` carries every column, including fields the user's [field access](#field-access) hides.
+An audit table that lower-privilege users can read should store only what they may see.
+
+The profile and tenant-settings pages save their own rows and reach neither hook.
 
 ## Startup checks
 

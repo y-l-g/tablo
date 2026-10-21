@@ -76,8 +76,9 @@ The framework runs an action the way it runs a delete. The POST goes to
 carries the CSRF token. The handler answers 403 before reading the body when the policy refuses
 `RunAny`, then loads the records through the tenant-scoped query inside a transaction. Every record
 must pass the policy's `View`, and `run` writes through the same transaction, so an error rolls
-everything back. After the commit, `after_commit` receives `Mutation::Action(NAME)` with the
-records and the page shows `Action::success`, by default the label and the record count.
+everything back. The resource's [hooks](./resources.md#hooks) receive `Change::Action` with the
+`NAME` and the records, and after the commit the page shows `Action::success`, by default the
+label and the record count.
 
 A record the policy's `Run` or `can_run` refuses is not handed to `run`: a refused record answers
 403, and a selection drops the refused records, runs the rest and appends the skipped count out of
@@ -147,8 +148,9 @@ run, and its POST answers 403.
 The POST goes to `{url}/-/actions/{NAME}` under the list or the page and carries the CSRF token.
 `run` writes through a transaction the framework opens, so an error rolls everything back. **No
 record is loaded, so nothing scopes `run` to the request's tenant**: an action over a tenant's
-records reads them through `scoped_query`, as `PublishDrafts` does. After the commit, a resource's
-`after_commit` receives `Mutation::Action(NAME)` with no record, and the list or the page shows
+records reads them through `scoped_query`, as `PublishDrafts` does. A resource's
+[hooks](./resources.md#hooks) receive `Change::HeaderAction` with the `NAME`, and after the commit
+the list or the page shows
 `HeaderAction::success`, by default the label and "done". A run from the list lands back on it as
 it was left, its search, sort and filters kept; its `Outcome` changes either, as a record
 action's does. `CONFIRM` asks first, as for a record action.

@@ -7,8 +7,8 @@
 //! reaches a framework internal.
 
 use tablo::{
-    Ability, Action, BooleanColumn, Committed, DeclarationErrorKind, Detail, Mutation,
-    NotificationStatus, Places, Resource, ResourceDef, Schema, Site, Table, TextColumn,
+    Ability, Action, BooleanColumn, Change, DeclarationErrorKind, Detail, NotificationStatus,
+    Places, Resource, ResourceDef, Schema, Site, Table, TextColumn,
     extend::{Column, Control, ControlInput, Filter, FilterInput, FilterValue},
     lens,
 };
@@ -192,15 +192,15 @@ impl Resource for TaskResource {
             .action::<Explode>()
     }
 
-    async fn after_commit(cx: &Cx, committed: Committed<Task>) -> topcoat::Result<()> {
-        let mutation = match committed.mutation() {
-            Mutation::Action(name) => format!("action:{name}"),
-            other => format!("{other:?}"),
+    async fn after_commit(cx: &Cx, change: Change<Task>) -> topcoat::Result<()> {
+        let mutation = match &change {
+            Change::Action { name, .. } => format!("action:{name}"),
+            _ => "other".to_string(),
         };
         let mut db = tablo::db::db(cx);
         toasty::create!(Log {
             mutation,
-            rows: committed.records().len() as i64,
+            rows: change.records().len() as i64,
         })
         .exec(&mut db)
         .await

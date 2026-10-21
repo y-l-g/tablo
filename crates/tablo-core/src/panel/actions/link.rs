@@ -38,7 +38,7 @@ use crate::{
     notification::{Notification, set_notification},
     panel::url::{action_options_url, relation_url},
     policy::Ability,
-    resource::{Committed, Links, Mounted, Resource},
+    resource::{Change, Links, Mounted, Resource},
     topcoat_compat::async_page,
 };
 
@@ -153,13 +153,17 @@ async fn attach<'a, R: Resource>(
         .expect("the attach input parses the key it posts");
     let written = (links.attach)(cx, &owner, key, &mut tx)
         .await
-        .map(|()| owner);
+        .map(|key| (owner, key));
     commit_write(
         cx,
         resource,
         tx,
         written.map(|value| (value, crate::Outcome::done())),
-        Committed::attached,
+        |(owner, key)| Change::Attach {
+            owner,
+            relation: links.field.clone(),
+            key,
+        },
         "Attached",
         "attach the record",
     )
@@ -196,14 +200,18 @@ async fn detach<'a, R: Resource>(
     let count = keys.len();
     let written = (links.detach)(cx, &owner, keys, &mut tx)
         .await
-        .map(|()| owner);
+        .map(|keys| (owner, keys));
     let noun = if count == 1 { "record" } else { "records" };
     commit_write(
         cx,
         resource,
         tx,
         written.map(|value| (value, crate::Outcome::done())),
-        Committed::detached,
+        |(owner, keys)| Change::Detach {
+            owner,
+            relation: links.field.clone(),
+            keys,
+        },
         format!("Detached {count} {noun}"),
         "detach the records",
     )

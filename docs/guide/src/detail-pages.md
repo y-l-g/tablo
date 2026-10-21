@@ -176,7 +176,7 @@ impl Resource for TagResource {
 - **Routes.** Both post under the owner's record:
   `{list}/{id}/-/relations/{slug}/-/actions/attach`, `…/-/actions/detach` with the selection's
   `ids`, and `…/{related}/-/actions/detach` for one row, `{slug}` being the related resource's.
-- **Hooks.** The owner's `after_commit` receives `Mutation::Attach` or `Mutation::Detach` with
-  the owner.
+- **Hooks.** The owner's [hooks](./resources.md#hooks) receive `Change::Attach` or
+  `Change::Detach` with the owner, the relation's field and the related records' keys.
 
 Mounting refuses a join model a link cannot write, as for a many-to-many field.

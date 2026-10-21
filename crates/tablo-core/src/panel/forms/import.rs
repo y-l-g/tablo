@@ -25,7 +25,7 @@ use super::{
 use crate::{
     db::db,
     form::{FieldErrors, FormValues},
-    resource::{Committed, Resource},
+    resource::{Change, Resource},
     schema::{FormMask, Schema},
     topcoat_compat::async_page,
 };
@@ -423,7 +423,15 @@ pub(crate) fn resource_import_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
                 continue;
             };
             match R::create_record(cx, form, &mut tx).await {
-                Ok(record) => created.push(record),
+                Ok(record) => {
+                    // Each row is a create, so the hook a create runs inside its transaction
+                    // runs once per row; an `Err` rolls the whole file back.
+                    let change = Change::Create(record);
+                    if let Err(error) = R::before_commit(cx, &change, &mut tx).await {
+                        return Err(super::super::write::failed_write(cx, WRITE_IMPORT, error));
+                    }
+                    created.push(change);
+                }
                 Err(error) => {
                     drop(tx);
                     let taken =
@@ -462,7 +470,11 @@ pub(crate) fn resource_import_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             cx,
             tx,
             Ok((created, crate::Outcome::done())),
-            |records| crate::resource::run_after_commit::<R>(cx, Committed::created_all(records)),
+            |changes| async move {
+                for change in changes {
+                    crate::resource::run_after_commit::<R>(cx, change).await;
+                }
+            },
             note,
             WRITE_IMPORT,
             &resource.url,

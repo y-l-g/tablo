@@ -18,9 +18,10 @@ loader waits on the connection the transaction holds. One transaction then runs 
 probe, relationship re-check and write in file order, so a row's unique value is checked against
 the rows before it. Once a row is refused nothing more is written and the transaction rolls back,
 but every later row is still checked: the page lists each refusal by row and column, and the file
-is corrected and posted again. The rows commit together, and `after_commit` receives one `Create`
-with every record the import wrote, as a bulk delete's hook receives one `Delete`. A file holds at
-most `MAX_IMPORT_ROWS` rows, so the transaction stays one request long.
+is corrected and posted again. Each written row is a `Change::Create`: `before_commit` receives it
+inside the transaction, where an error rolls back the whole file, and `after_commit` once the rows
+commit together, in file order. A file holds at most `MAX_IMPORT_ROWS` rows, so the transaction
+stays one request long.
 
 A header that names a key the form does not take, a key the request may not change, a control
 disabled on the create page, a file field or a repeater refuses the whole file before any row is
@@ -43,3 +44,5 @@ per value, as its control posts its key once per checked box; no other column re
 - An import on every resource that creates: a bulk write path, and a button on every list, that
   the app never asked for.
 - A column-mapping step: the header already names the keys, and the template link writes them.
+- A `Change` of its own holding every imported row: a hook that audits creates would need a second
+  arm for the same write, and one that misses it would skip the rows an import creates.

@@ -6,7 +6,7 @@ use super::{ActionEntry, ErasedInput, InputSpec, Places};
 use crate::{
     BoxFuture,
     policy::Ability,
-    resource::{Committed, Resource, Trashed},
+    resource::{Change, Resource, Trashed},
 };
 
 impl<R: Resource> ActionEntry<R> {
@@ -27,7 +27,7 @@ impl<R: Resource> ActionEntry<R> {
                     format!("Restored {count} records")
                 }
             },
-            acted: Committed::restored,
+            change: Change::Restore,
             failure: "restore the records",
             confirm: false,
             trashed: Trashed::Only,
@@ -53,7 +53,7 @@ impl<R: Resource> ActionEntry<R> {
                     format!("Deleted {count} records permanently")
                 }
             },
-            acted: Committed::force_deleted,
+            change: Change::ForceDelete,
             failure: "delete the records permanently",
             confirm: true,
             trashed: Trashed::Only,
@@ -92,7 +92,7 @@ impl<R: Resource> ActionEntry<R> {
             } else {
                 |_, _| "Deleted".to_string()
             },
-            acted: Committed::deleted,
+            change: Change::Delete,
             failure: if bulk {
                 "delete the selected rows"
             } else {

@@ -11,11 +11,11 @@ pub use tablo::prelude::Allow
 pub use tablo::prelude::Auth
 pub use tablo::prelude::BooleanColumn
 pub use tablo::prelude::Brand
+pub use tablo::prelude::Change
 pub use tablo::prelude::ChoiceField
 pub use tablo::prelude::Color
 pub use tablo::prelude::ColorColumn
 pub use tablo::prelude::ColumnWidth
-pub use tablo::prelude::Committed
 pub use tablo::prelude::ComputedColumn
 pub use tablo::prelude::CountColumn
 pub use tablo::prelude::Currency

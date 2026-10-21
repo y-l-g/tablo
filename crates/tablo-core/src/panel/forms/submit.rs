@@ -29,7 +29,7 @@ use crate::{
     form::{FieldError, FieldErrors, FormValues, Posted, RecordForm},
     panel::state::uploader,
     policy::Ability,
-    resource::{Committed, Mounted, Resource},
+    resource::{Change, Mounted, Resource},
     schema::Schema,
     topcoat_compat::async_page,
 };
@@ -342,7 +342,7 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             &resource,
             tx,
             Ok((written, crate::Outcome::done())),
-            Committed::created,
+            Change::Create,
             "Created",
             WRITE_CREATE,
         )
@@ -412,6 +412,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         let posted = Posted::new(form, named_fields(&resource, &named));
         // The version the write starts from: a model without one has no condition to fail on.
         let version = record.version();
+        let before = record.clone();
         let written = match R::update_record(cx, record, posted, &mut tx).await {
             Ok(written) => written,
             Err(error) => {
@@ -450,7 +451,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
             &resource,
             tx,
             Ok((written, crate::Outcome::done())),
-            Committed::updated,
+            |after| Change::Update { before, after },
             "Updated",
             WRITE_UPDATE,
         )

@@ -24,8 +24,8 @@ pub(crate) use action::{
     ActionEntry, Actions, ErasedInput, InputResult, InputSpec, RESERVED_KEYS, parse_validated,
 };
 pub(crate) use check::{ResourceCheck, check_inputs, check_resource};
-pub(crate) use commit::run_after_commit;
-pub use commit::{Committed, Mutation};
+pub use commit::Change;
+pub(crate) use commit::{acted, run_after_commit};
 pub use def::{PublicLink, ResourceDef};
 pub use field_access::FieldAccess;
 pub(crate) use field_access::{FieldMask, FieldRule};
@@ -156,8 +156,8 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// something inside the transaction, then delegate. An override on a
     /// [`Tenancy::column`](crate::Tenancy::column) resource stamps the tenant
     /// only by delegating to [`write_create`]. `ex` is the open
-    /// transaction: run every statement through it. Return the created row; it
-    /// is what [`Self::after_commit`] receives.
+    /// transaction: run every statement through it. Return the created row; the
+    /// hooks receive it as [`Change::Create`].
     fn create_record(
         cx: &Cx,
         form: Self::Form,
@@ -185,8 +185,8 @@ pub trait Resource: Sized + Send + Sync + 'static {
     ///
     /// The handler loads `record` through the tenancy-scoped query inside the
     /// framework transaction and checks the policy on that snapshot, then
-    /// calls this with the same transaction as `ex`. The after-commit hook
-    /// receives the snapshot once the delete commits.
+    /// calls this with the same transaction as `ex`. The hooks receive the
+    /// snapshot as [`Change::Delete`].
     ///
     /// The default deletes the row through [`scoped_query`], filtered to the
     /// record's primary key, or stamps its
@@ -261,37 +261,94 @@ pub trait Resource: Sized + Send + Sync + 'static {
         }
     }
 
-    /// Post-commit work for a mutation this resource committed.
+    /// Work inside the write's transaction, after the record fn or action wrote: an audit row,
+    /// a counter, a row in another table that must commit with the write or not at all.
     ///
-    /// The place for a side effect that must not survive a rollback: an email, a
-    /// webhook, an audit row, cache invalidation. Called once per successful
-    /// write, after `tx.commit()` and before the response — running it inside a
-    /// record fn would leak the effect on rollback, and the write handlers' pool
-    /// discipline forbids a second handle while the transaction is open.
+    /// Called once per write, with the [`Change`] it made, through `ex`, the open transaction:
+    /// run every statement through it. Do not open a second connection here, through `db(cx)` or
+    /// a `Notifications::send`: its writes would land outside the transaction, and on a pool of
+    /// one it waits forever for the connection the transaction holds.
     ///
-    /// [`Committed`] names the mutation and the rows it wrote: the committed row
-    /// a create or update returned, the rows a CSV import created, the rows a delete or bulk
-    /// delete removed (one call with every row). It is never called when nothing committed: a
-    /// validation error, a policy denial, a failed record fn, or a failed commit
-    /// all leave the hook untouched, so a rollback cannot produce the effect. A
-    /// hook that returns `Err` is logged and ignored — the write is committed,
-    /// and retries are the app's to build; a panic surfaces as Topcoat's
-    /// panic-isolated 500.
+    /// Every write this resource's panel routes make comes here: a create, once per row of a CSV
+    /// import, an update, a delete or bulk delete, a restore or force delete, a custom or header
+    /// action, and a many-to-many attach or detach. The profile and tenant-settings pages save
+    /// their user and tenant rows themselves and do not. A validation error, a policy denial or
+    /// a failed record fn returns before it. An `Err` rolls the whole write back and fails the
+    /// request with the write's failure toast.
     ///
     /// ```rust
-    /// # use tablo_core::{Committed, NoForm, Resource, db::db};
+    /// # use tablo_core::{Change, NoForm, Resource};
     /// # use topcoat::{Result, context::Cx};
     /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
-    /// # async fn notify(_db: &mut toasty::Db, _post: &Post) -> Result<()> { Ok(()) }
+    /// # #[derive(Debug, toasty::Model)]
+    /// # struct Audit { #[key] #[auto] id: uuid::Uuid, post_id: uuid::Uuid, change: String }
     /// # struct PostResource;
     /// # impl Resource for PostResource {
     /// #     type Model = Post;
     /// #     type Form = NoForm<Post>;
-    /// async fn after_commit(cx: &Cx, committed: Committed<Post>) -> Result<()> {
-    ///     let mut db = db(cx); // a fresh handle is allowed here
-    ///     for post in committed.records() {
-    ///         notify(&mut db, post).await?;
+    /// async fn before_commit(
+    ///     _cx: &Cx,
+    ///     change: &Change<Post>,
+    ///     ex: &mut dyn toasty::Executor,
+    /// ) -> Result<()> {
+    ///     let kind = match change {
+    ///         Change::Create(_) => "create",
+    ///         Change::Update { .. } => "update",
+    ///         Change::Delete(_) => "delete",
+    ///         Change::Restore(_) => "restore",
+    ///         Change::ForceDelete(_) => "force delete",
+    ///         Change::Action { name, .. } | Change::HeaderAction { name } => name,
+    ///         Change::Attach { .. } => "attach",
+    ///         Change::Detach { .. } => "detach",
+    ///     };
+    ///     for post in change.records() {
+    ///         toasty::create!(Audit {
+    ///             post_id: post.id,
+    ///             change: kind.to_string()
+    ///         })
+    ///         .exec(&mut *ex)
+    ///         .await?;
+    ///     }
+    ///     Ok(())
+    /// }
+    /// # }
+    /// ```
+    fn before_commit(
+        _cx: &Cx,
+        _change: &Change<Self::Model>,
+        _ex: &mut dyn Executor,
+    ) -> impl Future<Output = Result<()>> + Send
+    where
+        Self: Sized,
+    {
+        async move { Ok(()) }
+    }
+
+    /// Work after the write commits, outside the database: an email, a webhook, cache
+    /// invalidation.
+    ///
+    /// Called once per committed write, after `tx.commit()` and before the response, with the
+    /// [`Change`] [`Self::before_commit`] received. It is never called when nothing committed, so
+    /// a rollback cannot produce the effect. Nothing guarantees it runs either: an error it
+    /// returns is logged and ignored, since the write is committed, and a crash between the
+    /// commit and the hook skips it. A row that must exist whenever the write does belongs in
+    /// [`Self::before_commit`]; retries are the app's to build. A panic surfaces as Topcoat's
+    /// panic-isolated 500.
+    ///
+    /// ```rust
+    /// # use tablo_core::{Change, NoForm, Resource};
+    /// # use topcoat::{Result, context::Cx};
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
+    /// # async fn notify(_cx: &Cx, _post: &Post) -> Result<()> { Ok(()) }
+    /// # struct PostResource;
+    /// # impl Resource for PostResource {
+    /// #     type Model = Post;
+    /// #     type Form = NoForm<Post>;
+    /// async fn after_commit(cx: &Cx, change: Change<Post>) -> Result<()> {
+    ///     if let Change::Create(post) = &change {
+    ///         notify(cx, post).await?;
     ///     }
     ///     Ok(())
     /// }
@@ -299,8 +356,8 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// ```
     fn after_commit(
         _cx: &Cx,
-        _committed: Committed<Self::Model>,
-    ) -> impl std::future::Future<Output = Result<()>> + Send
+        _change: Change<Self::Model>,
+    ) -> impl Future<Output = Result<()>> + Send
     where
         Self: Sized,
     {

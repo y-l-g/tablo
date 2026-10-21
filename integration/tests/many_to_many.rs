@@ -4,8 +4,8 @@
 use std::sync::Mutex;
 
 use tablo::{
-    Ability, Committed, DeclarationErrorKind, ManyToManyFault, Mutation, Relation, Resource,
-    ResourceDef, Table, TextColumn, lens,
+    Ability, Change, DeclarationErrorKind, ManyToManyFault, Relation, Resource, ResourceDef, Table,
+    TextColumn, lens,
 };
 use toasty::{Db, Deferred};
 use topcoat::{context::Cx, router::Router};
@@ -52,8 +52,8 @@ struct Placement {
     note: Option<String>,
 }
 
-/// What the shelf's hook heard: each mutation, with the shelf it names.
-static HEARD: Mutex<Vec<(&'static str, Uuid)>> = Mutex::new(Vec::new());
+/// What the shelf's hook heard: each change, as the shelf, the relation and the related keys.
+static HEARD: Mutex<Vec<(Uuid, String, Vec<String>)>> = Mutex::new(Vec::new());
 
 /// Shelves named "Locked" open but refuse updates, so they refuse attaching and detaching too.
 struct ShelfResource;
@@ -77,17 +77,37 @@ impl Resource for ShelfResource {
             ))
     }
 
-    async fn after_commit(_cx: &Cx, committed: Committed<Shelf>) -> topcoat::Result<()> {
-        let mutation = match committed.mutation() {
-            Mutation::Attach => "attach",
-            Mutation::Detach => "detach",
-            _ => "other",
+    /// A shelf named "Refusing" writes a book through the transaction, then refuses the write.
+    async fn before_commit(
+        _cx: &Cx,
+        change: &Change<Shelf>,
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<()> {
+        let (Change::Attach { owner, .. } | Change::Detach { owner, .. }) = change else {
+            return Ok(());
         };
-        let shelves = committed.records().iter().map(|shelf| shelf.id);
-        HEARD
-            .lock()
-            .unwrap()
-            .extend(shelves.map(|id| (mutation, id)));
+        if owner.name != "Refusing" {
+            return Ok(());
+        }
+        toasty::create!(Book { title: "Audit" }).exec(ex).await?;
+        Err(std::io::Error::other("the audit refused the write").into())
+    }
+
+    async fn after_commit(_cx: &Cx, change: Change<Shelf>) -> topcoat::Result<()> {
+        let heard = match change {
+            Change::Attach {
+                owner,
+                relation,
+                key,
+            } => (owner.id, format!("attach {relation}"), vec![key]),
+            Change::Detach {
+                owner,
+                relation,
+                keys,
+            } => (owner.id, format!("detach {relation}"), keys),
+            _ => return Ok(()),
+        };
+        HEARD.lock().unwrap().push(heard);
         Ok(())
     }
 }
@@ -343,10 +363,11 @@ async fn the_owners_hook_hears_each_attach_and_detach() {
     )
     .await;
     assert_eq!(resp.status(), 303);
+    // The key is posted in uppercase, and heard as the book's URLs spell it.
     let resp = post_fields(
         &router,
-        &format!("{}/{seen}/-/actions/detach", relation(&open)),
-        &[],
+        &format!("{}/-/actions/detach", relation(&open)),
+        &[("ids", &seen.to_uppercase())],
     )
     .await;
     assert_eq!(resp.status(), 303);
@@ -355,10 +376,64 @@ async fn the_owners_hook_hears_each_attach_and_detach() {
         .lock()
         .unwrap()
         .iter()
-        .filter(|(_, id)| *id == open.id)
-        .map(|(mutation, _)| *mutation)
+        .filter(|(id, ..)| *id == open.id)
+        .map(|(_, change, keys)| (change.clone(), keys.clone()))
         .collect();
-    assert_eq!(heard, ["attach", "detach"]);
+    assert_eq!(
+        heard,
+        [
+            ("attach books".to_string(), vec![fresh]),
+            ("detach books".to_string(), vec![seen]),
+        ],
+        "each change names the relation and the related records"
+    );
+}
+
+#[tokio::test]
+async fn a_refusing_hook_rolls_back_the_attach_or_detach_and_its_own_rows() {
+    let Library {
+        router, db, seen, ..
+    } = library().await;
+    let mut db_q = db.clone();
+    let refusing = toasty::create!(Shelf { name: "Refusing" })
+        .exec(&mut db_q)
+        .await
+        .unwrap();
+    toasty::create!(Placement {
+        shelf_id: refusing.id,
+        book_id: seen.id,
+    })
+    .exec(&mut db_q)
+    .await
+    .unwrap();
+    let fresh = toasty::create!(Book { title: "Fresh" })
+        .exec(&mut db_q)
+        .await
+        .unwrap();
+    for (path, fields) in [
+        (
+            format!("{}/-/actions/attach", relation(&refusing)),
+            vec![("record", fresh.id.to_string())],
+        ),
+        (
+            format!("{}/{}/-/actions/detach", relation(&refusing), seen.id),
+            vec![],
+        ),
+    ] {
+        let fields: Vec<_> = fields.iter().map(|(k, v)| (*k, v.as_str())).collect();
+        let resp = post_fields(&router, &path, &fields).await;
+        assert!(resp.status().is_server_error(), "{path}: {}", resp.status());
+    }
+    assert_eq!(
+        held(&db, &refusing).await,
+        [seen.id],
+        "neither write committed"
+    );
+    let audits = Book::filter(Book::fields().title().eq("Audit"))
+        .exec(&mut db_q)
+        .await
+        .unwrap();
+    assert!(audits.is_empty(), "nor did the hook's own rows");
 }
 
 #[tokio::test]

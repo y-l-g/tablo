@@ -340,11 +340,13 @@ Barbara Liskov,barbara@example.com,admin
   skipped.
 
 Each row is a create submission: the field access, the controls' rules, the record form's parse,
-`validate_record`, the unique check and the relationship check run as on the create page, and
-`create_record` stamps the tenant. Every row writes in one transaction. When any row is refused,
-nothing is written, and the page lists each refusal by row number, the header being row 1, and
-column. Correct the file and import it again. When every row passes, the import lands on the list
-and `after_commit` receives one `Mutation::Create` holding every record, in file order.
+`validate_record`, the unique check and the relationship check run as on the create page,
+`create_record` stamps the tenant, and `before_commit` receives each row's `Change::Create` inside
+the transaction. Every row writes in one transaction. When any row is refused, nothing is written,
+and the page lists each refusal by row number, the header being row 1, and column. Correct the
+file and import it again. A `before_commit` error rolls back the whole file. When every row
+passes, the import lands on the list and `after_commit` receives each row's `Change::Create`, in
+file order.
 
 A file holds at most `MAX_IMPORT_ROWS` (1,000) rows and 10 MiB. The import reads what the form
 posts, not what the export writes: an exported `$1,234.50`, `Yes` or option label does not import
