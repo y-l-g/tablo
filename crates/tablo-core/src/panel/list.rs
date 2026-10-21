@@ -27,7 +27,7 @@ use super::{
     bar::{ActionBar, header_bar},
     forms::{parse_form_body, truthy},
     gate::{gate, landing_url},
-    url::{columns_url, create_page_url, export_url},
+    url::{columns_url, create_page_url, export_url, import_url},
 };
 use crate::{
     form::RecordForm,
@@ -224,13 +224,14 @@ pub(crate) fn table_error_view<'a>(
 }
 
 /// Renders the list page header titled `plural_label`, with the header `actions`, the CSV export
-/// link to `export_url` and a Create link to `create_url`.
+/// link to `export_url`, an Import link to `import_url` and a Create link to `create_url`.
 fn list_header<'a>(
     cx: &'a Cx,
     plural_label: &str,
     label: &str,
     actions: ActionBar,
     create_url: Option<String>,
+    import_url: Option<String>,
     export_url: String,
 ) -> BoxView<'a> {
     let actions = actions.render(cx);
@@ -244,10 +245,16 @@ fn list_header<'a>(
             tablo_ui::page_title((title))
             tablo_ui::page_actions(
                 (actions)
-                <a href=(export_url) class=(outline)>
+                <a href=(export_url) class=(outline.clone())>
                     icon(data: tablo_ui::icons::DOWNLOAD)
                     "Export CSV"
                 </a>
+                if let Some(url) = import_url {
+                    <a (crate::navigation::runtime_link(cx, &url)) class=(outline)>
+                        icon(data: tablo_ui::icons::UPLOAD)
+                        "Import CSV"
+                    </a>
+                }
                 if let Some(url) = create_url {
                     <a
                         (crate::navigation::runtime_link(cx, &url))
@@ -299,8 +306,9 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
             table.returning_to(back)
         };
         let skeleton = table.render_skeleton(cx, &state).await?;
-        let create_url =
-            (resource.creates && resource.can_create(cx)).then(|| create_page_url(&resource.url));
+        let creates = resource.creates && resource.can_create(cx);
+        let create_url = creates.then(|| create_page_url(&resource.url));
+        let import_url = (creates && resource.imports).then(|| import_url(&resource.url));
         let export_url = state.first_page(&export_url(&resource.url));
         let header = list_header(
             cx,
@@ -308,6 +316,7 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
             &resource.label,
             actions,
             create_url,
+            import_url,
             export_url,
         );
         let mode = rerun_suspense_mode(cx);

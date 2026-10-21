@@ -71,6 +71,8 @@ pub struct ResourceDef<R: Resource> {
     pub(crate) create_columns: Vec<Result<String, DeclarationErrorKind>>,
     /// Whether [`Self::edit_only`] turned the create page off.
     pub(crate) edit_only: bool,
+    /// Whether [`Self::importable`] turned the CSV import on.
+    pub(crate) importable: bool,
     pub(crate) soft_delete: Option<SoftDelete<R::Model>>,
     pub(crate) field_rules: Vec<super::FieldRule>,
 }
@@ -98,6 +100,7 @@ impl<R: Resource> Default for ResourceDef<R> {
             header_actions: HeaderActions::new(),
             create_columns: Vec::new(),
             edit_only: false,
+            importable: false,
             soft_delete: None,
             field_rules: Vec::new(),
         }
@@ -472,6 +475,18 @@ impl<R: Resource> ResourceDef<R> {
     #[must_use]
     pub fn edit_only(mut self) -> Self {
         self.edit_only = true;
+        self
+    }
+
+    /// Serves a CSV import beside the create page: the list links **Import CSV** to a page that
+    /// takes a file whose header names the form's keys, and creates one record per row through
+    /// the create form, all in one transaction or none.
+    ///
+    /// Each row is checked as a create submission is, under the same policy, field access and
+    /// tenant. Mounting refuses an importable resource that serves no create page.
+    #[must_use]
+    pub fn importable(mut self) -> Self {
+        self.importable = true;
         self
     }
 }

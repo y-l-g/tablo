@@ -37,6 +37,7 @@ use self::{
 };
 pub use self::{
     build::{PanelHandle, RouterBuilderPanelExt},
+    forms::MAX_IMPORT_ROWS,
     gate::{can_list, can_open},
     list::WiredTable,
     shell::Brand,

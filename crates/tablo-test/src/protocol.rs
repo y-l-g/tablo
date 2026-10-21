@@ -1,10 +1,11 @@
 //! Reads values back out of rendered responses: bodies, cookies, form data,
-//! and the semantic HTML queries over tables, fields, filters, the ignored-filters banner, and the
-//! notification bell.
+//! and the semantic HTML queries over tables, fields, filters, the ignored-filters banner, the
+//! import page, and the notification bell.
 
 mod bell;
 pub mod dom;
 mod ignored;
+mod import;
 
 pub use bell::{Bell, BellNotification, bell};
 pub use dom::{
@@ -14,6 +15,7 @@ pub use dom::{
 };
 use http_body_util::BodyExt;
 pub use ignored::{IgnoredFilter, IgnoredReason, ignored_filters};
+pub use import::{ImportError, ImportRefusal, import_columns, import_errors, import_refusal};
 use tablo_core::Notification;
 use topcoat::router::Body;
 
