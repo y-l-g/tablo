@@ -22,6 +22,8 @@ pub(crate) struct RichTextControl {
     pub(super) placeholder: Option<String>,
     pub(super) min_length: Option<usize>,
     pub(super) max_length: Option<usize>,
+    /// The input type of the text control a field of a type other than text gave up, a mistake.
+    pub(super) non_text: Option<&'static str>,
 }
 
 impl Default for RichTextControl {
@@ -31,6 +33,7 @@ impl Default for RichTextControl {
             placeholder: None,
             min_length: None,
             max_length: None,
+            non_text: None,
         }
     }
 }
@@ -58,10 +61,17 @@ impl RichTextControl {
 
     /// What is wrong with the declared rules.
     pub(crate) fn rule_faults(&self) -> Vec<FieldRuleFault> {
-        match (self.min_length, self.max_length) {
-            (Some(min), Some(max)) if min > max => vec![FieldRuleFault::EmptyRange],
-            _ => Vec::new(),
+        let mut faults: Vec<_> = self
+            .non_text
+            .map(FieldRuleFault::NotText)
+            .into_iter()
+            .collect();
+        if let (Some(min), Some(max)) = (self.min_length, self.max_length)
+            && min > max
+        {
+            faults.push(FieldRuleFault::EmptyRange);
         }
+        faults
     }
 }
 
@@ -109,9 +119,10 @@ impl<F> RichTextField<F> {
 }
 
 impl Field {
-    /// A rich text field over a `String` column, storing HTML its toolbar's [`Tool`]s produce:
-    /// the server removes anything else from a submission before it parses it. A record form's
-    /// text control becomes one with [`TextField::rich_text`](super::TextField::rich_text).
+    /// A rich text field over a `String` or `Option<String>` column, storing HTML its toolbar's
+    /// [`Tool`]s produce: the server removes anything else from a submission before it parses it.
+    /// A record form's text control becomes one with
+    /// [`TextField::rich_text`](super::TextField::rich_text).
     ///
     /// ```rust
     /// # #[derive(Debug, Clone, toasty::Model)]
@@ -120,12 +131,13 @@ impl Field {
     ///
     /// Field::rich_text(Post::fields().body()).placeholder("The full story…");
     /// ```
-    pub fn rich_text<M>(lens: impl Into<Path<M, String>>) -> RichTextField
+    pub fn rich_text<M, T>(lens: impl Into<Path<M, T>>) -> RichTextField
     where
         M: toasty::schema::Model,
+        T: toasty::schema::Field<Inner = String>,
     {
         RichTextField::new(Self::bound(
-            super::Binding::of::<M, String>(&lens.into()),
+            super::Binding::of::<M, T>(&lens.into()),
             ControlKind::RichText(RichTextControl::default()),
         ))
     }

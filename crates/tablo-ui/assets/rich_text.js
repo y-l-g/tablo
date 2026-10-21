@@ -10,8 +10,11 @@
 // With it, the textarea hides and TipTap edits a document over the content element, copying the
 // HTML back into the textarea on every change, so the form posts as a plain form. TipTap loads
 // from the URL the head's `meta[name="tablo-tiptap"]` names the first time a page holds a
-// control, so a page without one loads none of it. The editor registers only the extensions the toolbar's tools
-// (`data-rich-text-tools`) need, so it cannot type or paste markup the server would drop.
+// control, so a page without one loads none of it. The editor registers only the extensions the
+// toolbar's tools (`data-rich-text-tools`) need, and takes a link only to a URL the server keeps.
+//
+// Runtime navigation morphs the page and may keep a control's element while emptying its editor:
+// a scan then finds the editor detached and mounts a new one from the page's value.
 //
 // Hooks: `tablo-tiptap`, `[data-rich-text]`, `[data-rich-text-tools]`,
 // `[data-rich-text-toolbar]`, `[data-rich-text-tool]`, `[data-rich-text-content]`,
@@ -44,6 +47,13 @@ function heading(level) {
   };
 }
 
+// Whether the server keeps a link to `url`: one to an `http`, `https` or `mailto` URL, or a
+// relative one.
+function allowedUri(url) {
+  const scheme = /^\s*([a-z][a-z0-9+.-]*):/i.exec(url);
+  return !scheme || ['http', 'https', 'mailto'].includes(scheme[1].toLowerCase());
+}
+
 // Asks for the link's URL: an empty answer removes the link, a cancel changes nothing.
 function link(chain, editor, win) {
   const current = editor.getAttributes('link').href || '';
@@ -68,6 +78,7 @@ function starterKit(tools) {
       openOnClick: false,
       defaultProtocol: 'https',
       HTMLAttributes: { target: null, rel: 'noopener noreferrer nofollow' },
+      isAllowedUri: allowedUri,
     }),
     heading: levels.length ? { levels } : false,
     bulletList: on('bullet-list'),
@@ -109,15 +120,40 @@ function syncToolbar(toolbar, editor) {
     if (tool.active) button.setAttribute('aria-pressed', String(tool.active(editor)));
     if (tool.enabled) button.disabled = !tool.enabled(editor);
   }
+  keepTabStop(toolbar);
 }
 
-// Mounts an editor from the TipTap module `tiptap` over the control `root`, once.
-function mount(root, tiptap) {
+// Keeps `toolbar`'s one tab stop on an enabled button: the one holding it, else the first.
+function keepTabStop(toolbar) {
+  const buttons = Array.from(toolbar.querySelectorAll('[data-rich-text-tool]'));
+  const enabled = buttons.filter((button) => !button.disabled);
+  const stop = enabled.find((button) => button.tabIndex === 0) || enabled[0];
+  for (const button of buttons) button.tabIndex = button === stop ? 0 : -1;
+}
+
+// Whether the editor mounted over `root` still shows in its content element, which a morph empties
+// and hides again when it keeps the element.
+function attached(root) {
+  const editor = root.richTextEditor;
+  const content = root.querySelector('[data-rich-text-content]');
+  return !!content && !content.hidden && !!editor.view && content.contains(editor.view.dom);
+}
+
+// Destroys the editor mounted over `root`.
+function unmount(root) {
+  root.richTextEditor.destroy();
+  delete root.richTextEditor;
+}
+
+// Mounts an editor from the TipTap module `tiptap` over the control `root`, once, editing
+// `value` (the textarea's own by default).
+function mount(root, tiptap, value) {
   if (root.richTextEditor) return root.richTextEditor;
   const source = root.querySelector('[data-rich-text-source]');
   const content = root.querySelector('[data-rich-text-content]');
   const toolbar = root.querySelector('[data-rich-text-toolbar]');
   if (!source || !content) return null;
+  if (value !== undefined) source.value = value;
   const extensions = [tiptap.StarterKit.configure(starterKit(toolsOf(root)))];
   const placeholder = source.getAttribute('placeholder');
   if (placeholder) extensions.push(tiptap.Placeholder.configure({ placeholder }));
@@ -140,8 +176,7 @@ function mount(root, tiptap) {
   content.hidden = false;
   if (toolbar) {
     toolbar.hidden = false;
-    const first = toolbar.querySelector('[data-rich-text-tool]');
-    if (first) first.tabIndex = 0;
+    keepTabStop(toolbar);
     syncToolbar(toolbar, editor);
   }
   root.richTextEditor = editor;
@@ -179,31 +214,63 @@ function rove(button, key) {
   return true;
 }
 
-// The TipTap module at `url`, imported once per page.
+// The TipTap module at `url`, imported once per page; a failed import is tried again on the next
+// scan, the textarea standing in meanwhile.
 const modules = new Map();
 function load(url) {
-  if (!modules.has(url)) modules.set(url, import(url));
+  if (!modules.has(url)) {
+    modules.set(
+      url,
+      import(url).catch((error) => {
+        modules.delete(url);
+        throw error;
+      }),
+    );
+  }
   return modules.get(url);
 }
 
-// Mounts an editor over each control in `doc` that has none, and destroys the editors of
-// controls no longer in the page.
+// Mounts an editor over each control in `doc` that has none, destroys the editors of controls no
+// longer in the page, and mounts again over a control a morph kept but emptied, from the value the
+// new page holds.
 const mounted = new Set();
-function scan(doc) {
+function scan(doc, loadModule = load) {
+  const remount = new Set();
   for (const root of mounted) {
-    if (root.isConnected) continue;
-    root.richTextEditor.destroy();
+    if (root.isConnected && attached(root)) continue;
+    unmount(root);
     mounted.delete(root);
+    if (root.isConnected) remount.add(root);
   }
   const meta = doc.querySelector('meta[name="tablo-tiptap"]');
   const url = meta && meta.getAttribute('content');
   if (!url) return;
   for (const root of doc.querySelectorAll('[data-rich-text]')) {
     if (root.richTextEditor) continue;
-    load(url).then((tiptap) => {
-      if (mount(root, tiptap)) mounted.add(root);
-    });
+    const source = root.querySelector('[data-rich-text-source]');
+    // The morph sets the new page's value as the textarea's default, and leaves its live value.
+    const value = remount.has(root) && source ? source.defaultValue : undefined;
+    loadModule(url).then(
+      (tiptap) => {
+        if (root.isConnected && mount(root, tiptap, value)) mounted.add(root);
+      },
+      (error) => console.error('tablo: the rich text editor did not load', error),
+    );
   }
+}
+
+// Whether `records` may have added, removed or emptied a control, so a scan has work to do: an
+// edit inside an editor's document changes neither.
+function touchesControl(records) {
+  const control = (node) =>
+    node.nodeType === 1 &&
+    (node.matches('[data-rich-text]') || !!node.querySelector('[data-rich-text]'));
+  return records.some(
+    (record) =>
+      (record.target.matches && record.target.matches('[data-rich-text-content]')) ||
+      Array.from(record.addedNodes).some(control) ||
+      Array.from(record.removedNodes).some(control),
+  );
 }
 
 // Document-level delegation: runtime navigation replaces the page without running this script
@@ -223,7 +290,9 @@ function install(doc, win) {
   });
   scan(doc);
   if (typeof MutationObserver !== 'undefined' && doc.documentElement) {
-    new MutationObserver(() => scan(doc)).observe(doc.documentElement, {
+    new MutationObserver((records) => {
+      if (touchesControl(records)) scan(doc);
+    }).observe(doc.documentElement, {
       childList: true,
       subtree: true,
     });
@@ -237,5 +306,5 @@ if (typeof document !== 'undefined') {
 // Exposed for the Node unit test (`rich_text.test.js`); the guard keeps the export out of the
 // browser.
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { install, mount, press, rove, starterKit };
+  module.exports = { allowedUri, install, mount, press, rove, scan, starterKit, touchesControl };
 }

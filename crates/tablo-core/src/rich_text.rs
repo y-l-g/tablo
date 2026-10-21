@@ -42,7 +42,7 @@ pub enum Tool {
     Heading3,
     /// `<ul>` of `<li>`.
     BulletList,
-    /// `<ol>` of `<li>`, which may set `start`.
+    /// `<ol>` of `<li>`, which may set `start` and `type`.
     OrderedList,
     /// `<blockquote>`.
     Blockquote,
@@ -153,7 +153,7 @@ impl Tool {
             Tool::Heading2 => &[("h2", &[])],
             Tool::Heading3 => &[("h3", &[])],
             Tool::BulletList => &[("ul", &[]), ("li", &[])],
-            Tool::OrderedList => &[("ol", &["start"]), ("li", &[])],
+            Tool::OrderedList => &[("ol", &["start", "type"]), ("li", &[])],
             Tool::Blockquote => &[("blockquote", &[])],
             Tool::CodeBlock => &[("pre", &[]), ("code", &[])],
             Tool::HorizontalRule => &[("hr", &[])],
@@ -204,7 +204,8 @@ pub fn text(html: &str) -> String {
 /// `html` keeping only what `tools` produce, or `""` when it holds no text, so a blank document
 /// reads as an empty submission. No allowlist keeps a `style` or an event handler, a link takes
 /// only an `http`, `https`, `mailto` or relative URL, and every link gets
-/// `rel="noopener noreferrer nofollow"`.
+/// `rel="noopener noreferrer nofollow"`. The empty paragraphs ending a document, which the
+/// editor keeps after a list, a heading or a code block, are dropped.
 pub(crate) fn clean_with(html: &str, tools: impl IntoIterator<Item = Tool>) -> String {
     let mut tags: HashSet<&str> = ALWAYS.iter().copied().collect();
     let mut attributes: HashMap<&str, HashSet<&str>> = HashMap::new();
@@ -219,7 +220,7 @@ pub(crate) fn clean_with(html: &str, tools: impl IntoIterator<Item = Tool>) -> S
             }
         }
     }
-    let cleaned = ammonia::Builder::empty()
+    let mut cleaned = ammonia::Builder::empty()
         .tags(tags)
         .tag_attributes(attributes)
         .generic_attributes(HashSet::new())
@@ -227,21 +228,75 @@ pub(crate) fn clean_with(html: &str, tools: impl IntoIterator<Item = Tool>) -> S
         .link_rel(Some("noopener noreferrer nofollow"))
         .clean(html)
         .to_string();
-    if plain_text(&cleaned).is_empty() {
+    while let Some(kept) = cleaned.strip_suffix("<p></p>") {
+        cleaned.truncate(kept.len());
+    }
+    if plain_text(&cleaned).chars().all(invisible) {
         String::new()
     } else {
         cleaned
     }
 }
 
+/// Whether `c` shows nothing: whitespace, or a zero-width character.
+fn invisible(c: char) -> bool {
+    c.is_whitespace() || matches!(c, '\u{200b}'..='\u{200d}' | '\u{2060}' | '\u{feff}')
+}
+
+/// A rich text document showing `text`: a paragraph for each run of lines between blank lines, a
+/// line break for each single newline, and `&`, `<` and `>` escaped. It moves a plain text column
+/// to rich text, whose fields read their stored value as HTML.
+///
+/// ```rust
+/// use tablo_core::rich_text::from_text;
+///
+/// assert_eq!(
+///     from_text("Use Vec<String>.\nOr not.\n\nThe end"),
+///     "<p>Use Vec&lt;String&gt;.<br>Or not.</p><p>The end</p>"
+/// );
+/// ```
+pub fn from_text(text: &str) -> String {
+    let text = text.replace("\r\n", "\n");
+    text.split("\n\n")
+        .map(str::trim)
+        .filter(|paragraph| !paragraph.is_empty())
+        .map(|paragraph| {
+            let escaped = paragraph
+                .replace('&', "&amp;")
+                .replace('<', "&lt;")
+                .replace('>', "&gt;")
+                .replace('\n', "<br>");
+            format!("<p>{escaped}</p>")
+        })
+        .collect()
+}
+
 /// The text a reader sees in `cleaned`, the output of [`clean`], with a line break after each
-/// block and the ends trimmed. It reads the serializer's output only: every tag closes its
-/// quoted attributes, and text escapes only `&`, `<`, `>` and the no-break space.
+/// block and the ends trimmed.
 pub(crate) fn plain_text(cleaned: &str) -> String {
+    read_text(cleaned).replace(BREAK, "\n")
+}
+
+/// How many characters a reader sees in `cleaned`: its text without the line breaks between
+/// blocks.
+pub(crate) fn text_length(cleaned: &str) -> usize {
+    read_text(cleaned).chars().filter(|c| *c != BREAK).count()
+}
+
+/// Where [`read_text`] ends a block: a character no cleaned document holds, since the parser
+/// drops every NUL.
+const BREAK: char = '\0';
+
+/// The text a reader sees in `cleaned`, a [`BREAK`] after each block and the ends trimmed.
+/// Outside a `<pre>`, a run of whitespace reads as one space, as a browser shows it. It reads
+/// the serializer's output only: every tag closes its quoted attributes, and text escapes only
+/// `&`, `<`, `>` and the no-break space.
+fn read_text(cleaned: &str) -> String {
     let mut text = String::with_capacity(cleaned.len());
+    let mut pre = 0_usize;
     let mut rest = cleaned;
     while let Some(open) = rest.find(['<', '&']) {
-        text.push_str(&rest[..open]);
+        push_text(&mut text, &rest[..open], pre > 0);
         rest = &rest[open..];
         if rest.starts_with('&') {
             let end = rest.find(';').map_or(rest.len(), |end| end + 1);
@@ -257,18 +312,44 @@ pub(crate) fn plain_text(cleaned: &str) -> String {
             continue;
         }
         let end = tag_end(rest);
+        let closing = rest[1..].starts_with('/');
         let name: String = rest[1..end]
             .trim_start_matches('/')
             .chars()
             .take_while(char::is_ascii_alphanumeric)
             .collect();
-        if BLOCKS.contains(&name.as_str()) && !text.ends_with('\n') && !text.is_empty() {
-            text.push('\n');
+        if name == "pre" {
+            pre = if closing {
+                pre.saturating_sub(1)
+            } else {
+                pre + 1
+            };
+        }
+        if BLOCKS.contains(&name.as_str()) && !text.is_empty() && !text.ends_with(['\n', BREAK]) {
+            text.truncate(text.trim_end_matches(' ').len());
+            text.push(BREAK);
         }
         rest = &rest[(end + 1).min(rest.len())..];
     }
-    text.push_str(rest);
-    text.trim().to_string()
+    push_text(&mut text, rest, pre > 0);
+    text.trim_matches(|c: char| c.is_whitespace() || c == BREAK)
+        .to_string()
+}
+
+/// Appends the text node `raw` to `text`: as written inside a `<pre>`, else with each run of
+/// whitespace read as one space and none at the start of a line.
+fn push_text(text: &mut String, raw: &str, pre: bool) {
+    if pre {
+        text.push_str(raw);
+        return;
+    }
+    for c in raw.chars() {
+        if !c.is_ascii_whitespace() {
+            text.push(c);
+        } else if !(text.is_empty() || text.ends_with([' ', '\n', BREAK])) {
+            text.push(' ');
+        }
+    }
 }
 
 /// The index of the `>` closing the tag `tag` starts with, past any quoted attribute value.
@@ -282,12 +363,6 @@ fn tag_end(tag: &str) -> usize {
         }
     }
     tag.len()
-}
-
-/// How many characters a reader sees in `cleaned`: its text without the line breaks between
-/// blocks.
-pub(crate) fn text_length(cleaned: &str) -> usize {
-    plain_text(cleaned).chars().filter(|c| *c != '\n').count()
 }
 
 /// The Tailwind classes a rich text value renders in, on a detail page and in its editor.

@@ -90,13 +90,9 @@ async fn the_detail_page_cleans_a_body_written_outside_the_form() {
 
     let resp = client.get(&format!("/admin/posts/{}", post.id)).await;
     assert_eq!(resp.status(), 200);
-    let html = body_string(resp).await;
-    assert!(
-        html.contains("<p>Kept</p>"),
-        "the body renders as HTML, got {html}"
-    );
-    assert!(
-        !html.contains("alert('inline')") && !html.contains("alert('img')"),
-        "the stored script never reaches the page, got {html}"
+    assert_eq!(
+        tablo::testing::rich_text_values(&body_string(resp).await),
+        ["<p>Kept</p>"],
+        "the body renders as HTML, without the stored script and image"
     );
 }

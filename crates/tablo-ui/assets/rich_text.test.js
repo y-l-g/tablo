@@ -6,12 +6,24 @@
 // * the editor registers only the marks and nodes the toolbar's tools produce;
 // * mounting hides the textarea and stops it requiring a value, shows the toolbar, and copies
 //   each change back into the textarea, an empty document as nothing;
-// * a press runs its tool on the editor, and the arrow keys move the toolbar's one tab stop.
+// * a press runs its tool on the editor, and the arrow keys move the toolbar's one tab stop,
+//   which never rests on a disabled button;
+// * a link goes only to a URL the server keeps;
+// * a control a morph kept but emptied mounts again from the new page's value, not the edits the
+//   old page left in the textarea, and only a mutation touching a control rescans.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { mount, press, rove, starterKit } = require('./rich_text');
+const {
+  allowedUri,
+  mount,
+  press,
+  rove,
+  scan,
+  starterKit,
+  touchesControl,
+} = require('./rich_text');
 
 // An element stand-in recording its attributes, found by `closest` through `parents`.
 function element(attrs = {}, parents = {}) {
@@ -41,12 +53,17 @@ function tiptap() {
   class Editor {
     constructor(options) {
       this.options = options;
+      this.view = { dom: { editorOf: options.element } };
+      options.element.children = [this.view.dom];
       this.isEditable = options.editable;
       this.isEmpty = false;
       this.html = '';
     }
     getHTML() {
       return this.html;
+    }
+    destroy() {
+      this.destroyed = true;
     }
     isActive(name) {
       return name === 'bold';
@@ -88,11 +105,14 @@ function control(value, tools) {
   toolbar.querySelectorAll = () => buttons;
   const content = element();
   content.hidden = true;
+  content.children = [];
+  content.contains = (node) => content.children.includes(node);
   const source = element({ placeholder: 'Write…', 'aria-required': 'true' });
   source.id = 'body';
   source.value = value;
   source.required = true;
   const root = element({ 'data-rich-text-tools': tools.join(' ') });
+  root.isConnected = true;
   root.querySelector = (selector) =>
     ({
       '[data-rich-text-source]': source,
@@ -185,4 +205,84 @@ test('the arrow keys move the one tab stop along the toolbar', () => {
   rove(buttons[1], 'ArrowRight');
   assert.equal(buttons[0].tabIndex, 0, 'it wraps past a disabled tool');
   assert.equal(rove(buttons[0], 'a'), false, 'other keys stay with the button');
+});
+
+test('the tab stop leaves a button as it disables', () => {
+  const { root, buttons } = control('', ['undo', 'redo', 'bold']);
+  const editor = mount(root, tiptap());
+  assert.equal(buttons[0].tabIndex, -1, 'nothing to undo, so the stop skips Undo');
+  assert.equal(buttons[1].tabIndex, 0);
+  editor.can = () => ({ undo: () => true, redo: () => false });
+  editor.options.onTransaction({ editor });
+  assert.deepEqual(
+    buttons.map((button) => button.tabIndex),
+    [0, -1, -1],
+    'Redo disabled, the stop moves to the first enabled button',
+  );
+});
+
+test('a link goes only to a URL the server keeps', () => {
+  for (const url of ['https://x.test', 'HTTP://x.test', 'mailto:a@x.test', '/a', 'page#b']) {
+    assert.equal(allowedUri(url), true, url);
+  }
+  for (const url of ['tel:123', 'ftp://x.test', 'javascript:alert(1)', ' xmpp:a@x.test']) {
+    assert.equal(allowedUri(url), false, url);
+  }
+  assert.equal(starterKit(new Set(['link'])).link.isAllowedUri, allowedUri);
+});
+
+// A page holding `controls`, whose head names the TipTap module.
+function page(controls) {
+  return {
+    querySelector: (selector) =>
+      selector === 'meta[name="tablo-tiptap"]' ? element({ content: '/tiptap.js' }) : null,
+    querySelectorAll: () => controls.map((c) => c.root),
+  };
+}
+
+test('a control a morph emptied mounts again from the new page', async () => {
+  const module = tiptap();
+  const first = control('<p>Post 3</p>', ['bold']);
+  first.source.defaultValue = '<p>Post 3</p>';
+  const doc = page([first]);
+  scan(doc, async () => module);
+  await new Promise(setImmediate);
+  const editor = first.root.richTextEditor;
+  assert.ok(editor, 'the scan mounts the control');
+  first.source.value = '<p>Post 3, edited</p>';
+
+  scan(doc, async () => module);
+  await new Promise(setImmediate);
+  assert.equal(first.root.richTextEditor, editor, 'an attached editor stays');
+
+  // The morph keeps the elements, empties the content and shows the textarea again.
+  first.content.children = [];
+  first.content.hidden = true;
+  first.source.hidden = false;
+  first.source.defaultValue = '<p>Post 4</p>';
+  scan(doc, async () => module);
+  await new Promise(setImmediate);
+  assert.equal(editor.destroyed, true);
+  const again = first.root.richTextEditor;
+  assert.notEqual(again, editor);
+  assert.equal(again.options.content, '<p>Post 4</p>');
+  assert.equal(first.source.value, '<p>Post 4</p>', 'the old edits never post');
+  assert.equal(first.source.hidden, true);
+});
+
+test('only a mutation touching a control rescans', () => {
+  const node = (matches, holds = false) => ({
+    nodeType: 1,
+    matches: (selector) => matches === selector,
+    querySelector: () => (holds ? {} : null),
+  });
+  const record = (target, added = [], removed = []) => ({
+    target,
+    addedNodes: added,
+    removedNodes: removed,
+  });
+  const typing = record(node('.ProseMirror'), [{ nodeType: 3 }]);
+  assert.equal(touchesControl([typing]), false, 'a keystroke in an editor');
+  assert.equal(touchesControl([record(node('main'), [node('div', true)])]), true);
+  assert.equal(touchesControl([record(node('[data-rich-text-content]'))]), true);
 });

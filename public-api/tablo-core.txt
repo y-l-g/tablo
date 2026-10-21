@@ -2805,6 +2805,7 @@ impl core::marker::UnsafeUnpin for tablo_core::rich_text::Tool
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::rich_text::Tool
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::rich_text::Tool
 pub fn tablo_core::rich_text::clean(&str) -> alloc::string::String
+pub fn tablo_core::rich_text::from_text(&str) -> alloc::string::String
 pub fn tablo_core::rich_text::text(&str) -> alloc::string::String
 pub mod tablo_core::schema
 pub struct tablo_core::schema::ChoiceField<F>(_, _)
@@ -2877,7 +2878,7 @@ pub fn tablo_core::Field::text_input<T: tablo_core::FormScalar>(impl core::conve
 pub fn tablo_core::Field::toggle<M>(impl core::convert::Into<toasty::stmt::path::Path<M, bool>>) -> tablo_core::CustomField where M: toasty::schema::model::Model
 pub fn tablo_core::Field::toggle_input(impl core::convert::Into<alloc::string::String>) -> tablo_core::CustomField
 impl tablo_core::Field
-pub fn tablo_core::Field::rich_text<M>(impl core::convert::Into<toasty::stmt::path::Path<M, alloc::string::String>>) -> tablo_core::RichTextField where M: toasty::schema::model::Model
+pub fn tablo_core::Field::rich_text<M, T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> tablo_core::RichTextField where M: toasty::schema::model::Model, T: toasty::schema::field::Field<Inner = alloc::string::String>
 pub fn tablo_core::Field::rich_text_input(impl core::convert::Into<alloc::string::String>) -> tablo_core::RichTextField
 impl core::fmt::Debug for tablo_core::Field
 pub fn tablo_core::Field::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
@@ -4903,6 +4904,7 @@ impl core::panic::unwind_safe::UnwindSafe for tablo_core::FieldErrorKind
 #[non_exhaustive] pub enum tablo_core::FieldRuleFault
 pub tablo_core::FieldRuleFault::EmptyRange
 pub tablo_core::FieldRuleFault::InvalidPattern(alloc::string::String)
+pub tablo_core::FieldRuleFault::NotText(&'static str)
 pub tablo_core::FieldRuleFault::RefusedDefault(alloc::string::String)
 pub tablo_core::FieldRuleFault::UnorderedBound(alloc::string::String)
 pub tablo_core::FieldRuleFault::UnparsedDefault(alloc::string::String)
@@ -5900,7 +5902,7 @@ pub fn tablo_core::Field::text_input<T: tablo_core::FormScalar>(impl core::conve
 pub fn tablo_core::Field::toggle<M>(impl core::convert::Into<toasty::stmt::path::Path<M, bool>>) -> tablo_core::CustomField where M: toasty::schema::model::Model
 pub fn tablo_core::Field::toggle_input(impl core::convert::Into<alloc::string::String>) -> tablo_core::CustomField
 impl tablo_core::Field
-pub fn tablo_core::Field::rich_text<M>(impl core::convert::Into<toasty::stmt::path::Path<M, alloc::string::String>>) -> tablo_core::RichTextField where M: toasty::schema::model::Model
+pub fn tablo_core::Field::rich_text<M, T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> tablo_core::RichTextField where M: toasty::schema::model::Model, T: toasty::schema::field::Field<Inner = alloc::string::String>
 pub fn tablo_core::Field::rich_text_input(impl core::convert::Into<alloc::string::String>) -> tablo_core::RichTextField
 impl core::fmt::Debug for tablo_core::Field
 pub fn tablo_core::Field::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result

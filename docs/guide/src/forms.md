@@ -475,8 +475,9 @@ builder with one assignment per posted field, or `None` when nothing was posted.
 
 ## Rich text
 
-A rich text field edits HTML through a toolbar and stores it in a `String` column. A record form's
-text control becomes one with `.rich_text()`; a page or an action input builds one with
+A rich text field edits HTML through a toolbar and stores it in a `String` or `Option<String>`
+column. A record form's text control becomes one with `.rich_text()`, and a panel whose field of
+another type does refuses to mount; a page or an action input builds one with
 `Field::rich_text(lens)` or `Field::rich_text_input(name)`:
 
 ```rust
@@ -486,16 +487,23 @@ text control becomes one with `.rich_text()`; a page or an action input builds o
 - **The toolbar is the schema.** `.toolbar(..)` takes groups of `Tool`s, `Tool::DEFAULT` unless
   declared. Each tool names the elements it produces: `Tool::Bold` a `<strong>`, `Tool::Link` an
   `<a href>`, `Tool::BulletList` a `<ul>` of `<li>`. The editor registers only those, so a tool
-  left off the toolbar cannot be typed and drops from a paste.
+  left off the toolbar cannot be typed and drops from a paste. The editor takes a link only to a
+  URL the server keeps, and a code block's language, which the editor records as a class, is not
+  stored.
 - **The server cleans what it reads.** A submission keeps only the elements and attributes its
   field's tools produce, before the record form parses it: a `<script>`, a `style`, an `on…`
   handler and a link to a scheme other than `http`, `https` or `mailto` never reach the column,
   and every link gets `rel="noopener noreferrer nofollow"`. A document with no text reads as an
-  empty submission, so the field's blank answer applies.
+  empty submission, so the field's blank answer applies, and the empty paragraphs the editor
+  leaves at a document's end are dropped.
 - **Length rules count the text.** `.min_length(n)` and `.max_length(n)` count the characters a
   reader sees, not the markup.
 - **Without JavaScript** the control is a `<textarea>` of the HTML, cleaned the same way on submit.
   The editor is TipTap, which the page loads only when it holds a rich text control.
+- **A text column moving to rich text needs its values moved too.** The field reads what the
+  column stores as HTML, so `a<b` loses its `<b`, and each edit stores what it read. Rewrite each
+  stored value through `tablo::rich_text::from_text`, which escapes it and wraps its paragraphs,
+  before the field edits it.
 
 `RichTextColumn::new(lens)` shows the value on a [detail page](./detail-pages.md) as formatted HTML,
 and in a table and an export as its text. It cleans the value again as it renders, keeping what any

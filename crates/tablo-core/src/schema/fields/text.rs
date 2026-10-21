@@ -124,6 +124,11 @@ impl TextControl {
         self.unique_with.iter().map(Vec::as_slice).collect()
     }
 
+    /// The `type` of the control's `<input>`: `text` for a `String`.
+    pub(super) fn input_type(&self) -> &'static str {
+        self.input_type
+    }
+
     /// Whether the field's type parses `value`.
     pub(crate) fn parses(&self, value: &str) -> bool {
         (self.spell)(value).is_some()

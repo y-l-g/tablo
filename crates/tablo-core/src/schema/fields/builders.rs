@@ -277,7 +277,8 @@ to_choice!(TextField, FileField, CustomField);
 
 impl<F> TextField<F> {
     /// Renders the field as a [rich text](Field::rich_text) editor instead, storing HTML. The
-    /// field's type must be `String`, and the text control's own modifiers are dropped.
+    /// field's type must be `String` or `Option<String>`, else mounting the panel fails, and the
+    /// text control's own modifiers are dropped.
     ///
     /// ```rust
     /// # #[derive(Debug, Clone, toasty::Model)]
@@ -293,7 +294,11 @@ impl<F> TextField<F> {
     ///     .toolbar(&[&[Tool::Bold, Tool::Italic], &[Tool::BulletList]]);
     /// ```
     pub fn rich_text(mut self) -> RichTextField<F> {
-        self.0.control = ControlKind::RichText(RichTextControl::default());
+        let input = self.text().input_type();
+        self.0.control = ControlKind::RichText(RichTextControl {
+            non_text: (input != "text").then_some(input),
+            ..RichTextControl::default()
+        });
         RichTextField(self.0, PhantomData)
     }
 
