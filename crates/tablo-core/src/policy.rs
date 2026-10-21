@@ -1,6 +1,6 @@
 //! Authorizes resource abilities, denying by default.
 //!
-//! Combines [`Allow`], [`Deny`], [`ReadOnly`], [`when`], and closures with
+//! Combines [`Allow`], [`Deny`], [`ReadOnly`], [`when`], [`Abilities`] and closures with
 //! `and`/`or`.
 //!
 //! ```rust
@@ -10,20 +10,27 @@
 //! # use topcoat::context::Cx;
 //! # fn not_suspended(cx: &Cx) -> bool { true }
 //! fn post_policy() -> impl Policy<Post> {
-//!     when(not_suspended).and(|_cx: &Cx, ability: Ability<'_, Post>| match ability {
-//!         Ability::Update(post) | Ability::Delete(post) | Ability::Run { record: post, .. } => {
-//!             !post.locked
-//!         }
-//!         _ => true,
+//!     // No write of any kind to a locked post: an update, a delete, a restore or an action.
+//!     when(not_suspended).and(|_cx: &Cx, ability: Ability<'_, Post>| {
+//!         ability.written_record().is_none_or(|post| !post.locked)
 //!     })
 //! }
 //! ```
+//!
+//! A closure ending in `_ => true` allows every ability it does not name, the ones a resource
+//! gains later included. Match every variant so that a new one fails to compile, read
+//! [`Ability::written_record`] to refuse writes by the record, or build with [`Abilities`], which
+//! denies what it does not declare.
 //!
 //! [`can`](crate::can) asks a resource's policy from app code, and [`can_list`](crate::can_list)
 //! answers whether the current request may open a resource's list at all.
 
 use derive_where::derive_where;
 use topcoat::context::Cx;
+
+mod abilities;
+
+pub use abilities::Abilities;
 
 /// One thing a policy is asked to allow; record abilities are asked once per
 /// loaded row, and a record that cannot be viewed cannot be written by guessing
@@ -101,6 +108,41 @@ impl<'a, M> Ability<'a, M> {
     pub fn is_read(self) -> bool {
         matches!(self, Self::ViewAny | Self::View(_))
     }
+
+    /// The record the ability writes: an update, a delete, a restore, a force delete or an
+    /// action's run on it. `None` for a read and for an ability over no record.
+    ///
+    /// A policy refusing every write to some records reads it, and so refuses the writes a
+    /// resource gains later too:
+    ///
+    /// ```rust
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
+    /// # use tablo_core::Ability;
+    /// # use topcoat::context::Cx;
+    /// fn keep_root(_cx: &Cx, ability: Ability<'_, User>) -> bool {
+    ///     ability
+    ///         .written_record()
+    ///         .is_none_or(|user| user.name != "root")
+    /// }
+    /// ```
+    pub fn written_record(self) -> Option<&'a M> {
+        match self {
+            Self::Update(record)
+            | Self::Delete(record)
+            | Self::Restore(record)
+            | Self::ForceDelete(record)
+            | Self::Run { record, .. } => Some(record),
+            Self::ViewAny
+            | Self::View(_)
+            | Self::Create
+            | Self::DeleteAny
+            | Self::RestoreAny
+            | Self::ForceDeleteAny
+            | Self::RunAny { .. }
+            | Self::RunHeader { .. } => None,
+        }
+    }
 }
 
 /// Decides which [`Ability`]s the current user has over a resource's records.
@@ -130,7 +172,7 @@ macro_rules! combinators {
     )+};
 }
 
-combinators!(Allow, Deny, ReadOnly, When<F>, And<A, B>, Or<A, B>);
+combinators!(Allow, Deny, ReadOnly, When<F>, And<A, B>, Or<A, B>, Abilities<M>);
 
 impl<M, F> Policy<M> for F
 where

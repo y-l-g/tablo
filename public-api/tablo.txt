@@ -3,6 +3,7 @@ pub use tablo::<<tablo_core::*>>
 pub use tablo::testing
 pub use tablo::ui
 pub mod tablo::prelude
+pub use tablo::prelude::Abilities
 pub use tablo::prelude::Ability
 pub use tablo::prelude::Action
 pub use tablo::prelude::ActionLayout

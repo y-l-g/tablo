@@ -19,7 +19,7 @@ use topcoat::{
 
 use crate::{
     actions::Publish,
-    models::{Post, Staff},
+    models::{Post, PostStatus, Staff},
 };
 
 // ANCHOR: policy-editors-only
@@ -38,6 +38,25 @@ pub fn post_policy(cx: &Cx, ability: Ability<'_, Post>) -> bool {
     }
 }
 // ANCHOR_END: policy-action
+
+// ANCHOR: policy-abilities
+pub fn post_abilities() -> Abilities<Post> {
+    Abilities::<Post>::new()
+        .view(|_cx, _post| true)
+        .create(editors_only)
+        .update(|cx, post| editors_only(cx) && post.status != PostStatus::Published)
+        .run::<Publish, _>(|cx, _post| editors_only(cx))
+    // No delete: `DeleteAny` and `Delete` are refused, and so is any action added later.
+}
+// ANCHOR_END: policy-abilities
+
+// ANCHOR: policy-written-record
+pub fn unfeatured_only(_cx: &Cx, ability: Ability<'_, Post>) -> bool {
+    // Refuses an update, a delete, a restore, a force delete or an action's run on a featured
+    // post, and allows every other ability.
+    ability.written_record().is_none_or(|post| !post.featured)
+}
+// ANCHOR_END: policy-written-record
 
 // ANCHOR: policy-models
 pub fn auth_models() {

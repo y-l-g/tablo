@@ -62,10 +62,11 @@ impl Resource for UserResource {
         let c = UserForm::controls();
         ResourceDef::new()
             .icon(tablo::ui::icons::USERS)
-            // Refuses writes to Ken's account.
-            .policy_fn(|_cx, ability: Ability<'_, User>| match ability {
-                Ability::Update(user) | Ability::Delete(user) => user.name != "Ken Thompson",
-                _ => true,
+            // Refuses every write to Ken's account, an action's included.
+            .policy_fn(|_cx, ability: Ability<'_, User>| {
+                ability
+                    .written_record()
+                    .is_none_or(|user| user.name != "Ken Thompson")
             })
             .form(Schema::new(Section::new("Profile").schema((
                 c.name.placeholder("Ada Lovelace"),
@@ -342,10 +343,11 @@ impl Resource for CommentResource {
             .plural_label("Comments")
             .icon(tablo::ui::icons::MESSAGE_SQUARE)
             .navigation_group("Blog")
-            // Hides removed comments.
-            .policy_fn(|_cx, ability: Ability<'_, Comment>| match ability {
-                Ability::View(comment) => comment.body != REMOVED_COMMENT_BODY,
-                _ => true,
+            // Hides removed comments, and allows nothing on one.
+            .policy_fn(|_cx, ability: Ability<'_, Comment>| {
+                ability
+                    .record()
+                    .is_none_or(|comment| comment.body != REMOVED_COMMENT_BODY)
             })
             .tenancy(Tenancy::via(Comment::fields().post().tenant_id()))
             // A cursor-paged table: Previous and Next by row, without a count.

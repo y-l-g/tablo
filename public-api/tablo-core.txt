@@ -2387,6 +2387,7 @@ pub tablo_core::policy::Ability::ViewAny
 impl<'a, M> tablo_core::policy::Ability<'a, M>
 pub fn tablo_core::policy::Ability<'a, M>::is_read(self) -> bool
 pub fn tablo_core::policy::Ability<'a, M>::record(self) -> core::option::Option<&'a M>
+pub fn tablo_core::policy::Ability<'a, M>::written_record(self) -> core::option::Option<&'a M>
 impl<M> tablo_core::policy::Ability<'_, M>
 pub fn tablo_core::policy::Ability<'_, M>::is_action<A, R>(self) -> bool where A: tablo_core::Action<R>, R: tablo_core::resource::Resource<Model = M>
 impl<M> tablo_core::policy::Ability<'_, M>
@@ -2403,6 +2404,38 @@ impl<'a, M> core::marker::Unpin for tablo_core::policy::Ability<'a, M> where &'a
 impl<'a, M> core::marker::UnsafeUnpin for tablo_core::policy::Ability<'a, M> where &'a M: core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin
 impl<'a, M> core::panic::unwind_safe::RefUnwindSafe for tablo_core::policy::Ability<'a, M> where &'a M: core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe + core::panic::unwind_safe::RefUnwindSafe
 impl<'a, M> core::panic::unwind_safe::UnwindSafe for tablo_core::policy::Ability<'a, M> where &'a M: core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe + core::panic::unwind_safe::UnwindSafe
+pub struct tablo_core::policy::Abilities<M>
+impl<M> tablo_core::Abilities<M>
+pub fn tablo_core::Abilities<M>::and<P>(self, P) -> tablo_core::policy::And<Self, P>
+pub fn tablo_core::Abilities<M>::or<P>(self, P) -> tablo_core::policy::Or<Self, P>
+impl<M> tablo_core::Abilities<M>
+pub fn tablo_core::Abilities<M>::create(self, impl core::ops::function::Fn(&topcoat_core::context::Cx) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::Abilities<M>::delete(self, impl core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::Abilities<M>::delete_any(self, impl core::ops::function::Fn(&topcoat_core::context::Cx) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::Abilities<M>::force_delete(self, impl core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::Abilities<M>::force_delete_any(self, impl core::ops::function::Fn(&topcoat_core::context::Cx) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::Abilities<M>::new() -> Self
+pub fn tablo_core::Abilities<M>::restore(self, impl core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::Abilities<M>::restore_any(self, impl core::ops::function::Fn(&topcoat_core::context::Cx) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::Abilities<M>::update(self, impl core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::Abilities<M>::view(self, impl core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::Abilities<M>::view_any(self, impl core::ops::function::Fn(&topcoat_core::context::Cx) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
+impl<M> tablo_core::Abilities<M>
+pub fn tablo_core::Abilities<M>::run<A, R>(self, impl core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self where A: tablo_core::Action<R>, R: tablo_core::resource::Resource<Model = M>
+pub fn tablo_core::Abilities<M>::run_any<A, R>(self, impl core::ops::function::Fn(&topcoat_core::context::Cx) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self where A: tablo_core::Action<R>, R: tablo_core::resource::Resource<Model = M>
+impl<M> tablo_core::Abilities<M>
+pub fn tablo_core::Abilities<M>::run_header<A: tablo_core::HeaderAction>(self, impl core::ops::function::Fn(&topcoat_core::context::Cx) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
+impl<M: 'static> tablo_core::policy::Policy<M> for tablo_core::Abilities<M>
+pub fn tablo_core::Abilities<M>::allows(&self, &topcoat_core::context::Cx, tablo_core::policy::Ability<'_, M>) -> bool
+impl<M> core::default::Default for tablo_core::Abilities<M>
+pub fn tablo_core::Abilities<M>::default() -> Self
+impl<M> core::marker::Freeze for tablo_core::Abilities<M> where Pair<M>: core::marker::Freeze + core::marker::Freeze + core::marker::Freeze + core::marker::Freeze, core::option::Option<alloc::boxed::Box<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> bool + core::marker::Send + core::marker::Sync)>>: core::marker::Freeze, alloc::vec::Vec<(&'static str, Pair<M>)>: core::marker::Freeze
+impl<M> core::marker::Send for tablo_core::Abilities<M> where Pair<M>: core::marker::Send + core::marker::Send + core::marker::Send + core::marker::Send, core::option::Option<alloc::boxed::Box<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> bool + core::marker::Send + core::marker::Sync)>>: core::marker::Send, alloc::vec::Vec<(&'static str, Pair<M>)>: core::marker::Send
+impl<M> core::marker::Sync for tablo_core::Abilities<M> where Pair<M>: core::marker::Sync + core::marker::Sync + core::marker::Sync + core::marker::Sync, core::option::Option<alloc::boxed::Box<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> bool + core::marker::Send + core::marker::Sync)>>: core::marker::Sync, alloc::vec::Vec<(&'static str, Pair<M>)>: core::marker::Sync
+impl<M> core::marker::Unpin for tablo_core::Abilities<M> where Pair<M>: core::marker::Unpin + core::marker::Unpin + core::marker::Unpin + core::marker::Unpin, core::option::Option<alloc::boxed::Box<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> bool + core::marker::Send + core::marker::Sync)>>: core::marker::Unpin, alloc::vec::Vec<(&'static str, Pair<M>)>: core::marker::Unpin
+impl<M> core::marker::UnsafeUnpin for tablo_core::Abilities<M> where Pair<M>: core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin, core::option::Option<alloc::boxed::Box<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> bool + core::marker::Send + core::marker::Sync)>>: core::marker::UnsafeUnpin, alloc::vec::Vec<(&'static str, Pair<M>)>: core::marker::UnsafeUnpin
+impl<M> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::Abilities<M>
+impl<M> !core::panic::unwind_safe::UnwindSafe for tablo_core::Abilities<M>
 pub struct tablo_core::policy::Allow
 impl tablo_core::policy::Allow
 pub fn tablo_core::policy::Allow::and<P>(self, P) -> tablo_core::policy::And<Self, P>
@@ -2527,6 +2560,8 @@ impl<M, F> tablo_core::policy::Policy<M> for F where F: core::ops::function::Fn(
 pub fn F::allows(&self, &topcoat_core::context::Cx, tablo_core::policy::Ability<'_, M>) -> bool
 impl<M, F> tablo_core::policy::Policy<M> for tablo_core::policy::When<F> where F: core::ops::function::Fn(&topcoat_core::context::Cx) -> bool + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::policy::When<F>::allows(&self, &topcoat_core::context::Cx, tablo_core::policy::Ability<'_, M>) -> bool
+impl<M: 'static> tablo_core::policy::Policy<M> for tablo_core::Abilities<M>
+pub fn tablo_core::Abilities<M>::allows(&self, &topcoat_core::context::Cx, tablo_core::policy::Ability<'_, M>) -> bool
 impl<M> tablo_core::policy::Policy<M> for tablo_core::policy::Allow
 pub fn tablo_core::policy::Allow::allows(&self, &topcoat_core::context::Cx, tablo_core::policy::Ability<'_, M>) -> bool
 impl<M> tablo_core::policy::Policy<M> for tablo_core::policy::Deny
@@ -4463,6 +4498,7 @@ pub tablo_core::Ability::ViewAny
 impl<'a, M> tablo_core::policy::Ability<'a, M>
 pub fn tablo_core::policy::Ability<'a, M>::is_read(self) -> bool
 pub fn tablo_core::policy::Ability<'a, M>::record(self) -> core::option::Option<&'a M>
+pub fn tablo_core::policy::Ability<'a, M>::written_record(self) -> core::option::Option<&'a M>
 impl<M> tablo_core::policy::Ability<'_, M>
 pub fn tablo_core::policy::Ability<'_, M>::is_action<A, R>(self) -> bool where A: tablo_core::Action<R>, R: tablo_core::resource::Resource<Model = M>
 impl<M> tablo_core::policy::Ability<'_, M>
@@ -5384,6 +5420,38 @@ impl core::marker::Unpin for tablo_core::VerificationFault
 impl core::marker::UnsafeUnpin for tablo_core::VerificationFault
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::VerificationFault
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::VerificationFault
+pub struct tablo_core::Abilities<M>
+impl<M> tablo_core::Abilities<M>
+pub fn tablo_core::Abilities<M>::and<P>(self, P) -> tablo_core::policy::And<Self, P>
+pub fn tablo_core::Abilities<M>::or<P>(self, P) -> tablo_core::policy::Or<Self, P>
+impl<M> tablo_core::Abilities<M>
+pub fn tablo_core::Abilities<M>::create(self, impl core::ops::function::Fn(&topcoat_core::context::Cx) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::Abilities<M>::delete(self, impl core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::Abilities<M>::delete_any(self, impl core::ops::function::Fn(&topcoat_core::context::Cx) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::Abilities<M>::force_delete(self, impl core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::Abilities<M>::force_delete_any(self, impl core::ops::function::Fn(&topcoat_core::context::Cx) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::Abilities<M>::new() -> Self
+pub fn tablo_core::Abilities<M>::restore(self, impl core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::Abilities<M>::restore_any(self, impl core::ops::function::Fn(&topcoat_core::context::Cx) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::Abilities<M>::update(self, impl core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::Abilities<M>::view(self, impl core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn tablo_core::Abilities<M>::view_any(self, impl core::ops::function::Fn(&topcoat_core::context::Cx) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
+impl<M> tablo_core::Abilities<M>
+pub fn tablo_core::Abilities<M>::run<A, R>(self, impl core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self where A: tablo_core::Action<R>, R: tablo_core::resource::Resource<Model = M>
+pub fn tablo_core::Abilities<M>::run_any<A, R>(self, impl core::ops::function::Fn(&topcoat_core::context::Cx) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self where A: tablo_core::Action<R>, R: tablo_core::resource::Resource<Model = M>
+impl<M> tablo_core::Abilities<M>
+pub fn tablo_core::Abilities<M>::run_header<A: tablo_core::HeaderAction>(self, impl core::ops::function::Fn(&topcoat_core::context::Cx) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
+impl<M: 'static> tablo_core::policy::Policy<M> for tablo_core::Abilities<M>
+pub fn tablo_core::Abilities<M>::allows(&self, &topcoat_core::context::Cx, tablo_core::policy::Ability<'_, M>) -> bool
+impl<M> core::default::Default for tablo_core::Abilities<M>
+pub fn tablo_core::Abilities<M>::default() -> Self
+impl<M> core::marker::Freeze for tablo_core::Abilities<M> where Pair<M>: core::marker::Freeze + core::marker::Freeze + core::marker::Freeze + core::marker::Freeze, core::option::Option<alloc::boxed::Box<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> bool + core::marker::Send + core::marker::Sync)>>: core::marker::Freeze, alloc::vec::Vec<(&'static str, Pair<M>)>: core::marker::Freeze
+impl<M> core::marker::Send for tablo_core::Abilities<M> where Pair<M>: core::marker::Send + core::marker::Send + core::marker::Send + core::marker::Send, core::option::Option<alloc::boxed::Box<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> bool + core::marker::Send + core::marker::Sync)>>: core::marker::Send, alloc::vec::Vec<(&'static str, Pair<M>)>: core::marker::Send
+impl<M> core::marker::Sync for tablo_core::Abilities<M> where Pair<M>: core::marker::Sync + core::marker::Sync + core::marker::Sync + core::marker::Sync, core::option::Option<alloc::boxed::Box<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> bool + core::marker::Send + core::marker::Sync)>>: core::marker::Sync, alloc::vec::Vec<(&'static str, Pair<M>)>: core::marker::Sync
+impl<M> core::marker::Unpin for tablo_core::Abilities<M> where Pair<M>: core::marker::Unpin + core::marker::Unpin + core::marker::Unpin + core::marker::Unpin, core::option::Option<alloc::boxed::Box<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> bool + core::marker::Send + core::marker::Sync)>>: core::marker::Unpin, alloc::vec::Vec<(&'static str, Pair<M>)>: core::marker::Unpin
+impl<M> core::marker::UnsafeUnpin for tablo_core::Abilities<M> where Pair<M>: core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin + core::marker::UnsafeUnpin, core::option::Option<alloc::boxed::Box<(dyn core::ops::function::Fn(&topcoat_core::context::Cx, &M) -> bool + core::marker::Send + core::marker::Sync)>>: core::marker::UnsafeUnpin, alloc::vec::Vec<(&'static str, Pair<M>)>: core::marker::UnsafeUnpin
+impl<M> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::Abilities<M>
+impl<M> !core::panic::unwind_safe::UnwindSafe for tablo_core::Abilities<M>
 pub struct tablo_core::Allow
 impl tablo_core::policy::Allow
 pub fn tablo_core::policy::Allow::and<P>(self, P) -> tablo_core::policy::And<Self, P>
@@ -7854,6 +7922,8 @@ impl<M, F> tablo_core::policy::Policy<M> for F where F: core::ops::function::Fn(
 pub fn F::allows(&self, &topcoat_core::context::Cx, tablo_core::policy::Ability<'_, M>) -> bool
 impl<M, F> tablo_core::policy::Policy<M> for tablo_core::policy::When<F> where F: core::ops::function::Fn(&topcoat_core::context::Cx) -> bool + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::policy::When<F>::allows(&self, &topcoat_core::context::Cx, tablo_core::policy::Ability<'_, M>) -> bool
+impl<M: 'static> tablo_core::policy::Policy<M> for tablo_core::Abilities<M>
+pub fn tablo_core::Abilities<M>::allows(&self, &topcoat_core::context::Cx, tablo_core::policy::Ability<'_, M>) -> bool
 impl<M> tablo_core::policy::Policy<M> for tablo_core::policy::Allow
 pub fn tablo_core::policy::Allow::allows(&self, &topcoat_core::context::Cx, tablo_core::policy::Ability<'_, M>) -> bool
 impl<M> tablo_core::policy::Policy<M> for tablo_core::policy::Deny

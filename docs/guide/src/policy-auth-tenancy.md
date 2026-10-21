@@ -97,6 +97,30 @@ impl Resource for AuthorResource {
 }
 ```
 
+A closure ending in `_ => true` allows every ability it does not name: the restore a soft delete
+adds, an action declared later, any ability a later Tablo release adds. Name every variant, as
+the user policy above does, so that a new one fails to compile, or build the policy with
+`Abilities`, which refuses every ability it does not declare:
+
+```rust
+{{#include ../../../examples/guide/src/policy_tenancy.rs:policy-abilities}}
+```
+
+`new` names the model, `Abilities::<Post>::new()`, for the closures to read the record. A
+record's check also allows the ability at all: `view` allows `ViewAny`, `delete` allows
+`DeleteAny`, `run::<A, _>` allows `RunAny` for `A`. The `_any` methods (`view_any`, `delete_any`,
+`restore_any`, `force_delete_any`, `run_any`) narrow it; declared alone, they allow no record.
+A header action is declared with `run_header::<A>`. `Abilities` combines with `and` and `or` like
+the other policies.
+
+A policy that allows everything but some writes reads `ability.written_record()`, the record an
+update, delete, restore, force delete or action's run writes, so a write the resource gains later
+is refused too:
+
+```rust
+{{#include ../../../examples/guide/src/policy_tenancy.rs:policy-written-record}}
+```
+
 `policy_fn` takes a closure `|cx, ability| -> bool`, as in the first example, and `policy` takes
 any type that implements `Policy<M>`. Within `declare`, the def learns its resource from the return
 type only after the closure is checked, so a closure that reads the record names the ability's

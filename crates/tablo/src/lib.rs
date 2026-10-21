@@ -83,16 +83,16 @@ pub use tablo_ui as ui;
 /// The items a resource module names most: `use tablo::prelude::*;`.
 pub mod prelude {
     pub use tablo_core::{
-        Ability, Action, ActionLayout, Alignment, Allow, Auth, BooleanColumn, Brand, Change,
-        ChoiceField, Color, ColorColumn, ColumnWidth, ComputedColumn, CountColumn, Currency,
-        CustomField, DateColumn, DateFilter, DateValue, Deny, Detail, EmbeddedColumn, EmbeddedForm,
-        Field, FieldAccess, FieldErrors, FileColumn, FileField, FormInput, FormValues, Grid, Group,
-        HeaderAction, HeaderActions, ImageColumn, IntoOptions, Lens, ModelColumns, ModelForm,
-        NavigationItem, NoForm, Options, Outcome, Page, PageDef, Pagination, Panel, Places, Policy,
-        Posted, PublicLink, QueryFilter, ReadOnly, Reads, RecordForm, Relation, RelationColumn,
-        RepeaterColumn, Resource, ResourceDef, RichTextColumn, RichTextField,
-        RouterBuilderPanelExt, Schema, Section, SelectFilter, Sort, Table, Tenancy, TenantId,
-        TernaryFilter, TextColumn, TextField, Toggle, Tool, can, can_list, can_open, lens,
-        relation, scoped_query, tenant_id, when,
+        Abilities, Ability, Action, ActionLayout, Alignment, Allow, Auth, BooleanColumn, Brand,
+        Change, ChoiceField, Color, ColorColumn, ColumnWidth, ComputedColumn, CountColumn,
+        Currency, CustomField, DateColumn, DateFilter, DateValue, Deny, Detail, EmbeddedColumn,
+        EmbeddedForm, Field, FieldAccess, FieldErrors, FileColumn, FileField, FormInput,
+        FormValues, Grid, Group, HeaderAction, HeaderActions, ImageColumn, IntoOptions, Lens,
+        ModelColumns, ModelForm, NavigationItem, NoForm, Options, Outcome, Page, PageDef,
+        Pagination, Panel, Places, Policy, Posted, PublicLink, QueryFilter, ReadOnly, Reads,
+        RecordForm, Relation, RelationColumn, RepeaterColumn, Resource, ResourceDef,
+        RichTextColumn, RichTextField, RouterBuilderPanelExt, Schema, Section, SelectFilter, Sort,
+        Table, Tenancy, TenantId, TernaryFilter, TextColumn, TextField, Toggle, Tool, can,
+        can_list, can_open, lens, relation, scoped_query, tenant_id, when,
     };
 }

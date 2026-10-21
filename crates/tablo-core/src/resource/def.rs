@@ -228,10 +228,8 @@ impl<R: Resource> ResourceDef<R> {
     /// use tablo_core::{Ability, Panel};
     ///
     /// Panel::new("portal").resource_with::<PostResource>(|def| {
-    ///     def.policy_fn(|_cx, ability| match ability {
-    ///         Ability::Update(post) | Ability::Delete(post) => !post.locked,
-    ///         _ => true,
-    ///     })
+    ///     // No write of any kind to a locked post.
+    ///     def.policy_fn(|_cx, ability| ability.written_record().is_none_or(|post| !post.locked))
     /// });
     /// ```
     ///

@@ -287,6 +287,55 @@ impl<M> Ability<'_, M> {
     }
 }
 
+impl<M> crate::policy::Abilities<M> {
+    /// Who may run the record action `A` on a record: [`Run`](Ability::Run) with `A`'s
+    /// [`NAME`](Action::NAME). It also allows [`RunAny`](Ability::RunAny) for `A`, which
+    /// [`run_any`](Self::run_any) narrows. An action no `run` declares is refused.
+    ///
+    /// ```rust
+    /// # use tablo_core::{Abilities, Action, NoForm, Resource};
+    /// # use topcoat::{Result, context::Cx};
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # struct Post { #[key] #[auto] id: uuid::Uuid, published: bool }
+    /// # struct PostResource;
+    /// # impl Resource for PostResource {
+    /// #     type Model = Post;
+    /// #     type Form = NoForm<Post>;
+    /// # }
+    /// # struct Publish;
+    /// # impl Action<PostResource> for Publish {
+    /// #     type Input = ();
+    /// #     const NAME: &'static str = "publish";
+    /// #     async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome> { Ok(tablo_core::Outcome::done()) }
+    /// # }
+    /// let policy = Abilities::<Post>::new()
+    ///     .view(|_cx, _post| true)
+    ///     .run::<Publish, _>(|_cx, post| !post.published);
+    /// # let _ = policy;
+    /// ```
+    #[must_use]
+    pub fn run<A, R>(mut self, check: impl Fn(&Cx, &M) -> bool + Send + Sync + 'static) -> Self
+    where
+        A: Action<R>,
+        R: Resource<Model = M>,
+    {
+        self.set_action_record(A::NAME, Box::new(check));
+        self
+    }
+
+    /// Who may run the record action `A` at all: [`RunAny`](Ability::RunAny) with `A`'s
+    /// [`NAME`](Action::NAME). Defaults to whether [`run`](Self::run) declares `A`.
+    #[must_use]
+    pub fn run_any<A, R>(mut self, check: impl Fn(&Cx) -> bool + Send + Sync + 'static) -> Self
+    where
+        A: Action<R>,
+        R: Resource<Model = M>,
+    {
+        self.set_action_any(A::NAME, Box::new(check));
+        self
+    }
+}
+
 /// An erased action's body: it acts on the records with the parsed input inside the transaction.
 pub(crate) type RunAction<R> = for<'a> fn(
     &'a Cx,
