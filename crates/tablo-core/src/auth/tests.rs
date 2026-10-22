@@ -489,6 +489,26 @@ impl PanelUser for Visitor {
     }
 }
 
+/// Loads no one, as a [`Visitor`].
+struct VisitorAuth;
+
+impl Authenticator for VisitorAuth {
+    type User = Visitor;
+
+    async fn verify(
+        &self,
+        _cx: &Cx,
+        _login: &str,
+        _password: &str,
+    ) -> topcoat::Result<Option<Visitor>> {
+        Ok(None)
+    }
+
+    async fn find_by_id(&self, _cx: &Cx, _id: &str) -> topcoat::Result<Option<Visitor>> {
+        Ok(None)
+    }
+}
+
 fn ada() -> AdminUser {
     AdminUser {
         id: Uuid::nil(),
@@ -503,12 +523,27 @@ fn ada() -> AdminUser {
 
 /// A request on `/admin` with `user` signed in to `panel`, served by `serving`.
 fn signed_cx(user: impl PanelUser, panel: &Arc<PanelState>, serving: &Arc<PanelState>) -> Cx {
+    mounted_cx(user, panel, serving, None)
+}
+
+/// [`signed_cx`] on a router that mounts `mounted`, when given.
+fn mounted_cx(
+    user: impl PanelUser,
+    panel: &Arc<PanelState>,
+    serving: &Arc<PanelState>,
+    mounted: Option<Vec<Arc<PanelState>>>,
+) -> Cx {
     let (parts, ()) = http::Request::builder()
         .uri("/admin/users")
         .body(())
         .unwrap()
         .into_parts();
-    topcoat::context::CxTestBuilder::new()
+    let builder = topcoat::context::CxTestBuilder::new();
+    let builder = match mounted {
+        Some(mounted) => builder.app_context(crate::panel::state::Panels(mounted)),
+        None => builder,
+    };
+    builder
         .request_context(parts)
         .request_context(crate::panel::state::CurrentPanel(Arc::clone(serving)))
         .request_context(SignedIn {
@@ -521,11 +556,20 @@ fn signed_cx(user: impl PanelUser, panel: &Arc<PanelState>, serving: &Arc<PanelS
 
 #[test]
 fn the_user_reads_back_as_the_apps_own_type_only() {
-    let panel = Arc::new(crate::panel::test_support::panel_state(
+    let admin = Arc::new(crate::panel::test_support::panel_state(
         "/admin",
         Auth::password(),
     ));
-    let cx = signed_cx(ada(), &panel, &panel);
+    let visitors = Arc::new(crate::panel::test_support::panel_state(
+        "/visit",
+        Auth::custom(VisitorAuth),
+    ));
+    let cx = mounted_cx(
+        ada(),
+        &admin,
+        &admin,
+        Some(vec![Arc::clone(&admin), visitors]),
+    );
     assert_eq!(
         user::<AdminUser>(&cx).map(|u| u.email.as_str()),
         Some("ada@example.com")
@@ -533,12 +577,36 @@ fn the_user_reads_back_as_the_apps_own_type_only() {
     assert!(signed_in(&cx));
     assert!(
         user::<Visitor>(&cx).is_none(),
-        "another type reads as nobody"
+        "another panel's type reads as nobody"
     );
     let refused = require_user::<Visitor>(&cx)
         .err()
         .expect("wrong type refused");
     assert_eq!(refused.into_response(&cx).unwrap().status(), 403);
+}
+
+/// A type no mounted panel loads can only read as nobody, so a debug build refuses it and names
+/// both types.
+#[cfg(debug_assertions)]
+#[test]
+fn a_type_no_panel_loads_panics_in_debug() {
+    let admin = Arc::new(crate::panel::test_support::panel_state(
+        "/admin",
+        Auth::password(),
+    ));
+    for mounted in [None, Some(vec![Arc::clone(&admin)])] {
+        let cx = mounted_cx(ada(), &admin, &admin, mounted);
+        let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            user::<Visitor>(&cx).is_none()
+        }))
+        .expect_err("a type no panel loads panics");
+        let message = panic.downcast_ref::<String>().expect("a formatted message");
+        assert!(
+            message.contains(std::any::type_name::<Visitor>())
+                && message.contains(std::any::type_name::<AdminUser>()),
+            "the message names both types, got {message:?}"
+        );
+    }
 }
 
 #[test]

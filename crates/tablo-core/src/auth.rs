@@ -242,6 +242,8 @@ pub(crate) trait DynAuthenticator: Send + Sync {
     /// The [`TypeId`] of [`Authenticator::User`], so mounting knows when the
     /// shipped [`AdminUser`] must be registered.
     fn user_type(&self) -> TypeId;
+    /// The name of [`Authenticator::User`], for a message that names it.
+    fn user_type_name(&self) -> &'static str;
 }
 
 impl<A: Authenticator> DynAuthenticator for A {
@@ -285,6 +287,10 @@ impl<A: Authenticator> DynAuthenticator for A {
 
     fn user_type(&self) -> TypeId {
         TypeId::of::<A::User>()
+    }
+
+    fn user_type_name(&self) -> &'static str {
+        std::any::type_name::<A::User>()
     }
 }
 
@@ -360,6 +366,12 @@ pub(crate) fn session_time_zone(cx: &Cx) -> Option<jiff::tz::TimeZone> {
 /// panel's [`Authenticator`] loads another type than `U` — a helper shared by
 /// two panels with different user types answers `None` on the other one.
 ///
+/// # Panics
+///
+/// In a debug build, when no mounted panel's authenticator loads `U`: that `U` can only answer
+/// `None`, so every check through it would deny. The message names `U` and the types the panels
+/// load.
+///
 /// ```rust
 /// # struct Staff { admin: bool }
 /// # use tablo_core::{PanelUser, auth};
@@ -373,8 +385,40 @@ pub(crate) fn session_time_zone(cx: &Cx) -> Option<jiff::tz::TimeZone> {
 /// }
 /// ```
 pub fn user<U: PanelUser>(cx: &Cx) -> Option<&U> {
+    if cfg!(debug_assertions) {
+        assert_some_panel_loads::<U>(cx);
+    }
     let user: &dyn Any = &*signed(cx)?.user;
     user.downcast_ref()
+}
+
+/// Panics when panels sign users in and none of them loads a `U`.
+fn assert_some_panel_loads<U: PanelUser>(cx: &Cx) {
+    let loaded: Vec<&dyn DynAuthenticator> = match panels(cx) {
+        Some(panels) => panels
+            .0
+            .iter()
+            .filter_map(|panel| panel.auth.authenticator())
+            .collect(),
+        None => current(cx)
+            .and_then(|panel| panel.auth.authenticator())
+            .into_iter()
+            .collect(),
+    };
+    if loaded.is_empty()
+        || loaded
+            .iter()
+            .any(|auth| auth.user_type() == TypeId::of::<U>())
+    {
+        return;
+    }
+    let names: std::collections::BTreeSet<_> =
+        loaded.iter().map(|auth| auth.user_type_name()).collect();
+    panic!(
+        "auth::user::<{}> can never find a user: the mounted panels sign in {}",
+        std::any::type_name::<U>(),
+        names.into_iter().collect::<Vec<_>>().join(", "),
+    );
 }
 
 /// Require the signed-in user, as the app's own user type.
@@ -385,6 +429,10 @@ pub fn user<U: PanelUser>(cx: &Cx) -> Option<&U> {
 /// a same-origin-relative `next`; runtime endpoints, non-GET requests, and
 /// page re-runs (marked POSTs the runtime layer rewrites into GETs) answer
 /// 401. A signed-in user of another type than `U` answers 403.
+///
+/// # Panics
+///
+/// As [`user`] does, in a debug build, when no mounted panel loads `U`.
 pub fn require_user<U: PanelUser>(cx: &Cx) -> topcoat::Result<&U> {
     match signed(cx) {
         Some(_) => user(cx).ok_or_else(|| forbidden().into()),
