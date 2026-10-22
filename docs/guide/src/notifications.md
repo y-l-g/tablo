@@ -32,16 +32,13 @@ acts for. `send` takes the recipient's `PanelUser::user_id`:
 
 `send` writes the row on its own connection and commits it at once. Inside a write's
 transaction, in a record fn, an action's `run` or `Resource::before_commit`, send through the
-transaction with `send_in`: the row commits with the write or rolls back with it, and the
-recipient's bells wake once it commits.
+transaction instead, so the notification commits with the write or not at all;
+[`Notifications::send_in`](https://y-l.fr/tablo/nightly/api/tablo/struct.Notifications.html#method.send_in)
+has the rules:
 
 ```rust
 {{#include ../../../examples/guide/src/notifications.rs:send_in}}
 ```
-
-`send`, or `db(cx)`, inside the transaction would take a second connection: its row would stay
-when the write rolls back, and on a pool of one connection, such as an in-memory SQLite database,
-it waits forever for the connection the transaction holds. A debug build panics on either there.
 
 A job sends through the panel's handle, for no tenant until `tenant` names one:
 
