@@ -167,7 +167,7 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
             record: Dummy,
             _posted: crate::form::Posted<EditingForm>,
             ex: &mut dyn toasty::Executor,
-        ) -> Result<Dummy> {
+        ) -> Result<Dummy, crate::WriteError<EditingFormField>> {
             toasty::create!(Ghost {
                 name: "taken".to_string(),
             })

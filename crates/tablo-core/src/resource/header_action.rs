@@ -32,7 +32,11 @@ use crate::{
 ///     type Input = ();
 ///     const NAME: &'static str = "recount-tags";
 ///
-///     async fn run(_cx: &Cx, _: (), _ex: &mut dyn Executor) -> Result<tablo_core::Outcome> {
+///     async fn run(
+///         _cx: &Cx,
+///         _: (),
+///         _ex: &mut dyn Executor,
+///     ) -> Result<tablo_core::Outcome, tablo_core::WriteError> {
 ///         // Recount through `ex`, the framework's transaction.
 ///         Ok(tablo_core::Outcome::done())
 ///     }
@@ -94,11 +98,14 @@ pub trait HeaderAction: 'static {
     /// Perform the action with the parsed `input`, through the framework's transaction `ex`,
     /// and say what the response does once it commits: [`Outcome::done`](crate::Outcome::done)
     /// for the [`success`](Self::success) notification, landing back on the list or page.
+    ///
+    /// Refuses the input with [`WriteError::Refused`](crate::WriteError::Refused), as
+    /// [`Action::run`](crate::Action::run) does.
     fn run(
         cx: &Cx,
         input: Self::Input,
         ex: &mut dyn toasty::Executor,
-    ) -> impl Future<Output = Result<crate::Outcome>> + Send;
+    ) -> impl Future<Output = Result<crate::Outcome, crate::WriteError>> + Send;
 
     /// The success notification after a commit. Defaults to the label: `"Recount tags: done"`.
     fn success(cx: &Cx) -> String {
@@ -119,7 +126,7 @@ impl<M> Ability<'_, M> {
     /// # impl HeaderAction for RecountTags {
     /// #     type Input = ();
     /// #     const NAME: &'static str = "recount-tags";
-    /// #     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome> { Ok(tablo_core::Outcome::done()) }
+    /// #     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError> { Ok(tablo_core::Outcome::done()) }
     /// # }
     /// # fn is_admin(_cx: &Cx) -> bool { true }
     /// fn post_policy(cx: &Cx, ability: Ability<'_, Post>) -> bool {
@@ -158,7 +165,7 @@ impl<M> crate::policy::Abilities<M> {
 /// # impl HeaderAction for ClearCache {
 /// #     type Input = ();
 /// #     const NAME: &'static str = "clear-cache";
-/// #     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome> { Ok(tablo_core::Outcome::done()) }
+/// #     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError> { Ok(tablo_core::Outcome::done()) }
 /// # }
 /// let actions = HeaderActions::new().add::<ClearCache>();
 /// # let _ = actions;
@@ -198,7 +205,7 @@ impl HeaderActions {
     ///     type Input = ();
     ///     const NAME: &'static str = "clear cache";
     ///
-    ///     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome> {
+    ///     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError> {
     ///         Ok(tablo_core::Outcome::done())
     ///     }
     /// }
@@ -242,6 +249,13 @@ impl HeaderActions {
     }
 }
 
+/// An erased header action's body: it acts with the parsed input inside the transaction.
+pub(crate) type RunHeader = for<'a> fn(
+    &'a Cx,
+    ErasedInput,
+    &'a mut dyn toasty::Executor,
+) -> BoxFuture<'a, Result<crate::Outcome, crate::WriteError>>;
+
 /// A [`HeaderAction`] with its type erased.
 #[derive(Clone, Copy)]
 pub(crate) struct HeaderEntry {
@@ -249,11 +263,7 @@ pub(crate) struct HeaderEntry {
     pub(crate) label: fn(&Cx) -> String,
     pub(crate) can_run: fn(&Cx) -> bool,
     pub(crate) input: InputSpec,
-    pub(crate) run: for<'a> fn(
-        &'a Cx,
-        ErasedInput,
-        &'a mut dyn toasty::Executor,
-    ) -> BoxFuture<'a, Result<crate::Outcome>>,
+    pub(crate) run: RunHeader,
     pub(crate) success: fn(&Cx) -> String,
     pub(crate) confirm: bool,
 }
@@ -268,7 +278,7 @@ fn run_header_erased<'a, A: HeaderAction>(
     cx: &'a Cx,
     input: ErasedInput,
     ex: &'a mut dyn toasty::Executor,
-) -> BoxFuture<'a, Result<crate::Outcome>> {
+) -> BoxFuture<'a, Result<crate::Outcome, crate::WriteError>> {
     let input = *input
         .downcast::<A::Input>()
         .expect("the pipeline parses the input `run` takes");

@@ -40,6 +40,7 @@ use crate::{
     policy::Ability,
     resource::{
         ActionEntry, ErasedInput, HeaderEntry, InputSpec, Mounted, Places, RESERVED_KEYS, Resource,
+        WriteError,
     },
     table::bulk_key,
     topcoat_compat::async_page,
@@ -266,8 +267,8 @@ async fn mutate<'a, R: Resource>(
         );
         (page, chrome)
     };
-    let input = match pending {
-        Pending::Ready(input) => input,
+    let (input, posted) = match pending {
+        Pending::Ready(input) => (input, FormValues::new()),
         Pending::Submitted {
             input,
             values: posted,
@@ -287,7 +288,7 @@ async fn mutate<'a, R: Resource>(
                 drop(tx);
                 return page.render(cx, &action.input, chrome).await;
             }
-            input
+            (input, posted)
         }
         Pending::Page(input_page) => {
             let (input_page, chrome) = page(input_page, label);
@@ -295,12 +296,26 @@ async fn mutate<'a, R: Resource>(
             return input_page.render(cx, &action.input, chrome).await;
         }
     };
-    let skipped = skipped.unwrap_or_default();
-    let note = (action.success)(cx, rows.len()) + &skipped;
+    let skipped_note = skipped.clone().unwrap_or_default();
+    let note = (action.success)(cx, rows.len()) + &skipped_note;
+    let written = match (action.run)(cx, &rows, input, &mut tx).await {
+        Ok(outcome) => Ok(outcome.skipping(&skipped_note)),
+        Err(WriteError::Refused(errors)) => {
+            drop(tx);
+            let errors = refusal(action.name, &action.input, errors)?;
+            let (page, chrome) = page(
+                InputPage {
+                    values: posted,
+                    errors,
+                },
+                label,
+            );
+            return page.render(cx, &action.input, chrome).await;
+        }
+        Err(WriteError::Failed(error)) => Err(error),
+    };
     // A delete's hook names what was removed: the pre-delete snapshot.
-    let written = (action.run)(cx, &rows, input, &mut tx)
-        .await
-        .map(|outcome| (rows, outcome.skipping(&skipped)));
+    let written = written.map(|outcome| (rows, outcome));
     commit_write(
         cx,
         resource,
@@ -311,6 +326,30 @@ async fn mutate<'a, R: Resource>(
         action.failure,
     )
     .await
+}
+
+/// The refusal the run of the action `name` answered with.
+///
+/// # Errors
+///
+/// A declaration error for a refusal that names no key, or one no control of the input `spec`
+/// renders: the page would show no message.
+pub(super) fn refusal(
+    name: &str,
+    spec: &InputSpec,
+    errors: FieldErrors,
+) -> Result<FieldErrors, topcoat::Error> {
+    if errors.is_empty() {
+        return Err(crate::error::declaration(format!(
+            "action '{name}' refused its input with no field error"
+        )));
+    }
+    if let Some(key) = (spec.schema)().unplaced_error(&errors) {
+        return Err(crate::error::declaration(format!(
+            "action '{name}' refused key `{key}`, which no input control renders"
+        )));
+    }
+    Ok(errors)
 }
 
 /// The input page an action renders instead of running: a refused submission and its errors.

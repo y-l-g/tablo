@@ -24,7 +24,7 @@ impl Action<PostResource> for Publish {
         posts: &[Post],
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> Result<tablo::Outcome> {
+    ) -> Result<tablo::Outcome, tablo::WriteError> {
         for post in posts {
             Post::filter(Post::fields().id().eq(post.id))
                 .update()
@@ -66,7 +66,7 @@ impl Action<PostResource> for ChangeStatus {
         posts: &[Post],
         change: StatusChange,
         ex: &mut dyn toasty::Executor,
-    ) -> Result<tablo::Outcome> {
+    ) -> Result<tablo::Outcome, tablo::WriteError> {
         for post in posts {
             Post::filter(Post::fields().id().eq(post.id))
                 .update()
@@ -94,7 +94,11 @@ impl HeaderAction for PublishDrafts {
         can::<PostResource>(cx, Ability::RunHeader { action: Self::NAME })
     }
 
-    async fn run(cx: &Cx, _: (), ex: &mut dyn toasty::Executor) -> Result<tablo::Outcome> {
+    async fn run(
+        cx: &Cx,
+        _: (),
+        ex: &mut dyn toasty::Executor,
+    ) -> Result<tablo::Outcome, tablo::WriteError> {
         // No record is loaded: the action scopes its own query to the request's tenant.
         let drafts = scoped_query::<PostResource>(cx)?
             .filter(Post::fields().status().eq(PostStatus::Draft))

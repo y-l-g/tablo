@@ -60,3 +60,4 @@ mod variants;
 mod verification;
 mod version;
 mod write;
+mod write_error;
