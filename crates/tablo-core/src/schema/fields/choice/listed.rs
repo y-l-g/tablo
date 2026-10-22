@@ -1,21 +1,48 @@
-//! A choice taking several options: a checkbox per option, each posting the choice's key.
+//! A choice listing an input per option, each posting the choice's key: a checkbox when it takes
+//! several options, else a radio, either drawn as a button under [`Layout::Buttons`].
 
 use tablo_ui::{
     FieldLegendVariant, checkbox as ui_checkbox, field_description as ui_field_description,
-    field_error as ui_field_error, field_legend, field_set,
+    field_error as ui_field_error, field_legend, field_set, radio_group_item,
 };
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{ChoiceControl, OptionLoadError};
 use crate::schema::fields::Field;
 
+/// How a choice renders its options.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum Layout {
+    /// A `<select>`, or a checkbox list when the choice takes several.
+    #[default]
+    Select,
+    /// A radio per option, or a checkbox list when the choice takes several.
+    Radio,
+    /// A button per option, pressed while its option is chosen.
+    Buttons,
+}
+
+/// The classes of an option drawn as a button: its input is visually hidden, and the label
+/// takes the input's checked, focused and disabled states.
+const BUTTON: &str = "inline-flex h-9 cursor-pointer select-none items-center rounded-md border \
+     border-border bg-background px-3 text-sm font-medium transition-colors hover:bg-foreground/5 \
+     has-[:checked]:border-primary has-[:checked]:bg-primary \
+     has-[:checked]:text-primary-foreground has-[:focus-visible]:ring-2 \
+     has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-2 \
+     has-[:focus-visible]:ring-offset-background has-[:disabled]:pointer-events-none \
+     has-[:disabled]:opacity-50";
+
+/// The classes of an option row in a list.
+const ROW: &str = "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-foreground/5";
+
 impl Field {
-    /// Renders a multiple choice with the DOM id prefix `id`: a checkbox per option, checked when
+    /// Renders a listed choice with the DOM id prefix `id`: an input per option, checked when
     /// `chosen` holds it.
     ///
-    /// A hidden empty value comes first, so a submission with no box checked still posts the key
-    /// and clears the choice; reading the submission drops it. A failed or overflowed load keeps
-    /// the chosen keys as boxes, so saving the form keeps them.
+    /// A hidden empty value comes first, so a submission with no option checked still posts the
+    /// key and clears the choice: a multiple choice's read drops it, and a single choice's checked
+    /// radio, posted after it, replaces it. A failed or overflowed load keeps the chosen keys as
+    /// options, so saving the form keeps them.
     pub(super) async fn render_choices<'a>(
         &self,
         choice: &ChoiceControl,
@@ -27,6 +54,12 @@ impl Field {
     ) -> Result<BoxView<'a>> {
         let name = self.name().to_string();
         let label = self.label_str().to_string();
+        let multiple = choice.multiple;
+        let buttons = choice.layout == Layout::Buttons;
+        // A radio group's `required` makes the browser ask for one; a checkbox's would ask for
+        // every box.
+        let required = self.required && !disabled;
+        let radio_required = required && !multiple;
         let loaded = choice.load_options(cx, None).await;
         let denied = matches!(loaded, Err(OptionLoadError::Denied));
         let failed = matches!(
@@ -70,30 +103,65 @@ impl Field {
         .into_iter()
         .flatten()
         .reduce(|ids, id| format!("{ids} {id}"));
-        let boxes: Vec<BoxView<'a>> = options
+        let inputs: Vec<BoxView<'a>> = options
             .into_iter()
             .enumerate()
             .map(|(index, (value, text))| {
                 let checked = chosen.contains(&value);
                 let (id, name) = (format!("{id}-{index}"), name.clone());
+                if buttons {
+                    let kind = if multiple { "checkbox" } else { "radio" };
+                    return view! {
+                        cx =>
+                        <label class=(BUTTON) data-choice="">
+                            <input
+                                type=(kind)
+                                class="sr-only"
+                                id=(id)
+                                name=(name)
+                                value=(value)
+                                checked=(checked)
+                                required=(radio_required)
+                            >
+                            <span>(text)</span>
+                        </label>
+                    }
+                    .boxed();
+                }
+                let attrs = attributes! {
+                    cx =>
+                    id=(id)
+                    name=(name)
+                    value=(value)
+                    checked=(checked)
+                    required=(radio_required)
+                };
                 view! {
                     cx =>
-                    <label
-                        class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-foreground/5"
-                        data-choice=""
-                    >
-                        ui_checkbox(
-                            attrs: attributes! { id=(id) name=(name) value=(value) checked=(checked) }
-                        )
+                    <label class=(ROW) data-choice="">
+                        if multiple {
+                            ui_checkbox(attrs: attrs)
+                        } else {
+                            radio_group_item(attrs: attrs)
+                        }
                         <span>(text)</span>
                     </label>
                 }
                 .boxed()
             })
             .collect();
-        let empty = boxes.is_empty();
+        let empty = inputs.is_empty();
         let searchable = choice.searchable;
         let filter_label = format!("Filter {label} options");
+        let role = if multiple { "group" } else { "radiogroup" };
+        // A checkbox list may run long, so it scrolls in a box; a radio list is a few options.
+        let list_class = if buttons {
+            "flex flex-wrap gap-2"
+        } else if multiple {
+            "flex max-h-60 flex-col overflow-y-auto rounded-lg border border-border p-1"
+        } else {
+            "flex flex-col"
+        };
         Ok(view! {
             cx =>
             field_set(
@@ -111,6 +179,9 @@ impl Field {
                     variant: FieldLegendVariant::Label,
                     attrs: attributes! { id=(legend_id.clone()) class="mb-0" },
                     (label)
+                    if required {
+                        <span class="text-destructive" aria-hidden="true">"*"</span>
+                    }
                 )
                 <input type="hidden" name=(name) value="">
                 if searchable {
@@ -124,13 +195,14 @@ impl Field {
                     >
                 }
                 <div
-                    role="group"
+                    role=(role)
                     aria-labelledby=(legend_id)
                     aria-describedby=(described_by)
-                    class="flex max-h-60 flex-col overflow-y-auto rounded-lg border border-border p-1"
+                    aria-required=(radio_required.then_some("true"))
+                    class=(list_class)
                 >
-                    for checkbox in boxes {
-                        (checkbox)
+                    for input in inputs {
+                        (input)
                     }
                     if empty {
                         <p class="px-2 py-1.5 text-sm text-muted-foreground">

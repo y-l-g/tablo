@@ -372,6 +372,13 @@ pub enum DeclarationErrorKind {
         /// The dependent choice.
         field: String,
     },
+    /// A dependent choice rendered as [radios](crate::ChoiceField::radio) or
+    /// [buttons](crate::ChoiceField::buttons): the browser lists its options once, so it cannot
+    /// narrow them when the parent changes.
+    ListedDependentChoice {
+        /// The dependent choice.
+        field: String,
+    },
     /// A dependent choice depends on a field the schema does not place.
     UnplacedParentField {
         /// The dependent choice.

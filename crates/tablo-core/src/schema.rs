@@ -268,6 +268,11 @@ impl<F> Schema<F> {
                         field: field.name().to_string(),
                     });
                 }
+                Some(_) if choice.is_listed() => {
+                    errors.push(crate::DeclarationErrorKind::ListedDependentChoice {
+                        field: field.name().to_string(),
+                    });
+                }
                 Some(_) => {}
             }
         }

@@ -71,7 +71,7 @@ impl Resource for UserResource {
             .form(Schema::new(Section::new("Profile").schema((
                 c.name.placeholder("Ada Lovelace"),
                 c.email.email().unique().placeholder("ada@example.com"),
-                c.role,
+                c.role.radio(),
                 c.active,
                 c.age,
             ))))
@@ -199,7 +199,7 @@ fn post_form() -> Schema<PostForm> {
             c.body.rich_text().placeholder("The full story…"),
         )),
         Section::new("Details").schema((
-            Grid::new(2).schema((c.status, c.featured)),
+            Grid::new(2).schema((c.status.buttons(), c.featured)),
             c.author_id.searchable().label("Author"),
             c.cover_id.searchable().label("Cover"),
             c.categories.searchable(),

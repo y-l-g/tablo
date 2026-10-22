@@ -8,9 +8,11 @@ use super::{
         IntoSchema, OptionSource, Retype, Schema,
         condition::{Condition, Watched},
     },
-    ChoiceControl, Control, ControlKind, Field, Pattern, RichTextControl, TextControl, choice,
+    ChoiceControl, Control, ControlKind, Field, Pattern, RichTextControl, TextControl,
 };
 use crate::values::{FormScalar, FormValue};
+
+mod choices;
 
 /// `label`, `name` and `visible_when`, shared by every builder.
 macro_rules! base_modifiers {
@@ -407,113 +409,6 @@ impl<F> TextField<F> {
     /// ```
     pub fn pattern(mut self, pattern: impl Into<String>) -> Self {
         self.text().rules.pattern = Some(Pattern::new(pattern.into()));
-        self
-    }
-}
-
-impl<F> ChoiceField<F> {
-    fn choice_mut(&mut self) -> &mut ChoiceControl {
-        match &mut self.0.control {
-            ControlKind::Choice(choice) => choice,
-            _ => unreachable!("a ChoiceField holds a choice control"),
-        }
-    }
-
-    /// Static options: values that are their own label
-    /// (`["draft", "published"]`), `(value, label)` pairs, or a
-    /// [`#[derive(Options)]`](crate::Options) enum's
-    /// [`options()`](crate::schema::Options::options).
-    pub fn options(mut self, options: impl IntoOptions) -> Self {
-        self.choice_mut().options = options.into_options();
-        self
-    }
-
-    /// Takes several options: a checkbox per option, posting the field's key once per checked
-    /// box. A record form's many-to-many field (`Vec<K>` with `#[form(relationship = R)]`) is one;
-    /// [`parse_list`](crate::values::parse_list) reads one in an action's input.
-    ///
-    /// It offers at most [`MAX_RELATIONSHIP_OPTIONS`](crate::schema::MAX_RELATIONSHIP_OPTIONS)
-    /// records: past them it lists none but the chosen ones, and refuses a submission choosing
-    /// another. A record form's edit re-checks only the keys the record does not link yet.
-    /// `searchable` filters the listed options as the user types. A condition cannot watch it,
-    /// it cannot depend on another field, and its `default` is a list.
-    pub fn multiple(mut self) -> Self {
-        self.choice_mut().multiple = true;
-        self
-    }
-
-    /// Filters options as the user types, fetching from the relationship past the option cap.
-    pub fn searchable(mut self) -> Self {
-        self.choice_mut().searchable = true;
-        self
-    }
-
-    /// Loads options from a related source's tenant-scoped query, each valued by its primary key
-    /// and labelled by the source's [`label`](OptionSource::label), degrading to type-to-search
-    /// past the option cap.
-    ///
-    /// A resource's options carry its [`record_title`](crate::ResourceDef::record_title), the
-    /// title its detail page shows. [`relationship_labelled`](Self::relationship_labelled)
-    /// labels one field's options otherwise.
-    pub fn relationship<R>(mut self) -> Self
-    where
-        R: OptionSource + 'static,
-    {
-        self.choice_mut().relationship = Some(choice::Relationship::new::<R>(R::label));
-        self
-    }
-
-    /// Offers only the related rows whose column `column` equals the value `parent` posts: the
-    /// cities of the chosen country. The browser fetches the options again when `parent` changes,
-    /// and a submission must name a row of the posted parent value. A blank parent offers none.
-    ///
-    /// `column` belongs to the [`relationship`](Self::relationship)'s source model; mounting
-    /// refuses another model, a choice without a relationship, and a `parent` the schema does not
-    /// place.
-    pub fn depends_on<M, T>(
-        mut self,
-        parent: &impl Watched<F>,
-        column: impl Into<toasty::stmt::Path<M, T>>,
-    ) -> Self
-    where
-        M: toasty::schema::Model + Send + Sync + 'static,
-        T: FormScalar + toasty::stmt::IntoExpr<T> + Send + Sync + 'static,
-    {
-        let column: toasty::stmt::Path<M, T> = column.into();
-        let field = crate::toasty_compat::model::field::<M>(
-            &crate::toasty_compat::model::ModelPath::of(&column),
-        )
-        .ok()
-        .map(|field| field.name);
-        self.choice_mut().parent = Some(choice::Parent {
-            watched: parent.key().to_string(),
-            model: std::any::TypeId::of::<M>(),
-            column: field,
-            scope: Arc::new(move |value: &str| {
-                T::parse_form(value)
-                    .ok()
-                    .map(|value| column.clone().eq(value))
-            }),
-        });
-        self
-    }
-
-    /// Loads options as [`relationship`](Self::relationship) does, labelling each by `label`
-    /// instead of the source's label: to tell apart records that share a title. The option's
-    /// record loads without its relations.
-    pub fn relationship_labelled<R>(
-        mut self,
-        label: impl Fn(&R::Model) -> String + Send + Sync + 'static,
-    ) -> Self
-    where
-        R: OptionSource + 'static,
-    {
-        self.choice_mut().relationship = Some(
-            choice::Relationship::new::<R>(move |_cx: &topcoat::context::Cx, record: &R::Model| {
-                label(record)
-            })
-            .with_custom_label(),
-        );
         self
     }
 }
