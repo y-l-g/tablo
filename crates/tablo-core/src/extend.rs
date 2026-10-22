@@ -4,7 +4,8 @@
 //! choice loads its options from, a [`TypedValue`] a text field parses, a [`FilterDate`] a
 //! [`DateFilter`](crate::DateFilter) matches by day, and a [`FilterKey`] a
 //! [`SelectFilter`](crate::SelectFilter) matches. [`Includes`], [`FilterInput`],
-//! [`FilterValue`], [`ControlFuture`] and [`ControlInput`] are what their methods take and return.
+//! [`FilterValue`](crate::FilterValue), [`ControlFuture`] and [`ControlInput`] are what their
+//! methods take and return.
 //!
 //! The built-in columns and filters and the [`Toggle`](crate::Toggle) control implement these
 //! traits too, every [`Resource`](crate::Resource) is an [`OptionSource`], and the integer and
@@ -17,6 +18,6 @@ pub use crate::{
         fields::custom::{Control, ControlInput},
         relationship::OptionSource,
     },
-    table::filter::{ControlFuture, Filter, FilterDate, FilterInput, FilterKey, FilterValue},
+    table::filter::{ControlFuture, Filter, FilterDate, FilterInput, FilterKey},
     values::TypedValue,
 };

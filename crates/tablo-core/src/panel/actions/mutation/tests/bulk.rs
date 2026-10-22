@@ -36,9 +36,9 @@ async fn bulk_delete_caps_ids_and_checks_the_token() {
                         Ability::View(_) | Ability::DeleteAny | Ability::Delete(_)
                     )
                 })
-                .table(crate::table::Table::new(crate::table::TextColumn::new(
-                    lens!(Dummy.name),
-                )))
+                .table(crate::table::Table::new(crate::TextColumn::new(lens!(
+                    Dummy.name
+                ))))
         }
 
         async fn bulk_delete_records(
@@ -249,9 +249,9 @@ async fn bulk_delete_keeps_a_key_holding_the_separator_whole() {
                         Ability::View(_) | Ability::DeleteAny | Ability::Delete(_)
                     )
                 })
-                .table(crate::table::Table::new(crate::table::TextColumn::new(
-                    lens!(Tag.label),
-                )))
+                .table(crate::table::Table::new(crate::TextColumn::new(lens!(
+                    Tag.label
+                ))))
         }
     }
 

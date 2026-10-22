@@ -156,8 +156,7 @@ impl FormInput for Merging {
     }
 
     fn parse(_cx: &Cx, values: &FormValues) -> Result<Self, Vec<FieldError>> {
-        let into =
-            tablo::form::parse_scalar::<String>("into", values, None).map_err(|e| vec![e])?;
+        let into = tablo::parse_scalar::<String>("into", values, None).map_err(|e| vec![e])?;
         Ok(Self { into })
     }
 

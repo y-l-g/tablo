@@ -9,7 +9,7 @@
 use std::{any::type_name, convert::Infallible, marker::PhantomData};
 
 use http::{StatusCode, header::LOCATION};
-use tablo_core::{Action, Notification, PanelHandle, RecordForm, Resource, form::FormField, url};
+use tablo_core::{Action, FormField, Notification, PanelHandle, RecordForm, Resource, url};
 use topcoat::context::Cx;
 
 use crate::{

@@ -265,6 +265,6 @@ A `field_access` lens that is not one field of the model is refused with a
 ## At request time
 
 `NotMounted` answers a request with a 500 instead of refusing a mount: app code asked for a
-resource that the context's panel does not register, through `panel::wired_table`, `scoped_query`,
+resource that the context's panel does not register, through `tablo::wired_table`, `scoped_query`,
 `write_create` or `write_update`. Register the resource on that panel, or reach it through a
 context of a panel that does.

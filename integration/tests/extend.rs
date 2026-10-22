@@ -7,9 +7,9 @@
 //! reaches a framework internal.
 
 use tablo::{
-    Ability, Action, BooleanColumn, Change, DeclarationErrorKind, Detail, NotificationStatus,
-    Places, Resource, ResourceDef, Schema, Site, Table, TextColumn,
-    extend::{Column, Control, ControlInput, Filter, FilterInput, FilterValue},
+    Ability, Action, BooleanColumn, Change, DeclarationErrorKind, Detail, FilterValue,
+    NotificationStatus, Places, Resource, ResourceDef, Schema, Site, Table, TextColumn,
+    extend::{Column, Control, ControlInput, Filter, FilterInput},
     lens,
 };
 use toasty::{Db, stmt::Expr};

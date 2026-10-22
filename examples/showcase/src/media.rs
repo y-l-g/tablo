@@ -2,7 +2,7 @@
 
 use tablo::{
     Ability, Notification, Page, PageDef, TenantId, Uploader, csrf, db::db, extend::OptionSource,
-    notification::set_notification, require_tenant, upload::sanitize_filename,
+    notification::set_notification, require_tenant, sanitize_filename,
 };
 use topcoat::{
     Result,

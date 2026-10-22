@@ -29,7 +29,7 @@ impl NotificationStatus {
 }
 
 /// A message for a panel user: flashed as a toast after a write, or stored for the bell with
-/// [`Notifications::send`](crate::notification::Notifications::send).
+/// [`Notifications::send`](crate::Notifications::send).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Notification {
     pub status: NotificationStatus,

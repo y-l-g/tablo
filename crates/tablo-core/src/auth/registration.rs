@@ -40,7 +40,7 @@ use crate::{
 /// it beside its [`Authenticator`](super::Authenticator), for the same user type:
 ///
 /// ```rust
-/// # use tablo_core::{FieldErrors, PanelUser, auth::{Registrar, SignUp, hash_password}};
+/// # use tablo_core::{FieldErrors, PanelUser, Registrar, SignUp, auth::hash_password};
 /// # use topcoat::context::Cx;
 /// # #[derive(Debug, Clone, toasty::Model)]
 /// # struct Staff {

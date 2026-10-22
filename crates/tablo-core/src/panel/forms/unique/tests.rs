@@ -25,9 +25,9 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
         type Form = crate::NoForm<Self::Model>;
 
         fn declare() -> ResourceDef<Self> {
-            ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
-                lens!(Subscriber.email),
-            )))
+            ResourceDef::new().table(crate::table::Table::new(crate::TextColumn::new(lens!(
+                Subscriber.email
+            ))))
         }
     }
 
@@ -145,9 +145,9 @@ async fn unique_check_propagates_probe_errors() {
         type Form = crate::NoForm<Self::Model>;
 
         fn declare() -> ResourceDef<Self> {
-            ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
-                lens!(Probe.email),
-            )))
+            ResourceDef::new().table(crate::table::Table::new(crate::TextColumn::new(lens!(
+                Probe.email
+            ))))
         }
     }
 
@@ -196,9 +196,9 @@ async fn a_composite_index_is_probed_on_all_its_fields() {
         type Form = crate::NoForm<Self::Model>;
 
         fn declare() -> ResourceDef<Self> {
-            ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
-                lens!(Page.slug),
-            )))
+            ResourceDef::new().table(crate::table::Table::new(crate::TextColumn::new(lens!(
+                Page.slug
+            ))))
         }
     }
 
@@ -277,9 +277,9 @@ async fn an_index_member_the_form_does_not_post_is_left_to_the_scope() {
         type Form = crate::NoForm<Self::Model>;
 
         fn declare() -> ResourceDef<Self> {
-            ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
-                lens!(Post.slug),
-            )))
+            ResourceDef::new().table(crate::table::Table::new(crate::TextColumn::new(lens!(
+                Post.slug
+            ))))
         }
 
         fn query(_cx: &topcoat::context::Cx) -> toasty::stmt::Query<toasty::stmt::List<Post>> {

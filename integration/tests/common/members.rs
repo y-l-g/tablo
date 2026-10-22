@@ -2,10 +2,8 @@
 //! the tenant registration and settings suites sign in and scope.
 
 use tablo::{
-    Auth, Membership, Panel, PanelUser, ReadOnly, Resource, ResourceDef, RouterBuilderPanelExt,
-    Table, Tenancy, TenantId, TextColumn,
-    auth::{AuthSession, Authenticator},
-    lens,
+    Auth, Authenticator, Membership, Panel, PanelUser, ReadOnly, Resource, ResourceDef,
+    RouterBuilderPanelExt, Table, Tenancy, TenantId, TextColumn, auth::AuthSession, lens,
 };
 use toasty::Db;
 use topcoat::{

@@ -134,7 +134,7 @@ pub trait TenantRegistrar: Send + Sync + 'static {
 /// creates tenants, and whether a user who acts for none must create one first.
 ///
 /// ```rust
-/// # use tablo_core::{Auth, Membership, PanelUser, auth::{Authenticator, TenantRegistrar, TenantRegistration}};
+/// # use tablo_core::{Auth, Authenticator, Membership, PanelUser, TenantRegistration, auth::TenantRegistrar};
 /// # use topcoat::context::Cx;
 /// # struct Staff;
 /// # impl PanelUser for Staff {

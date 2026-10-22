@@ -343,7 +343,7 @@ pub fn tablo_test::TestClient<'a>::panel(&self, &tablo_core::panel::build::handl
 pub async fn tablo_test::TestClient<'a>::post_form(&self, &str, alloc::string::String) -> http::response::Response<topcoat_router::body::Body>
 pub async fn tablo_test::TestClient<'a>::post_multipart(&self, &str, &str, alloc::string::String) -> http::response::Response<topcoat_router::body::Body>
 pub fn tablo_test::TestClient<'a>::resource<R: tablo_core::resource::Resource>(&self) -> tablo_test::ResourceClient<'_, 'a, R>
-pub async fn tablo_test::TestClient<'a>::sign_in(&self, &toasty::db::Db, &str, &impl tablo_core::auth::PanelUser) -> Self
+pub async fn tablo_test::TestClient<'a>::sign_in(&self, &toasty::db::Db, &str, &impl tablo_core::auth::panel_user::PanelUser) -> Self
 pub async fn tablo_test::TestClient<'a>::submit(&self, &str, &str) -> http::response::Response<topcoat_router::body::Body>
 pub async fn tablo_test::TestClient<'a>::submit_multipart(&self, &str, &[(&str, core::option::Option<&str>, &str)]) -> http::response::Response<topcoat_router::body::Body>
 pub fn tablo_test::TestClient<'a>::tenant(&self, uuid::Uuid) -> Self

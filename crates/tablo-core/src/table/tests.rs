@@ -3,8 +3,8 @@ use topcoat::context::CxTestBuilder;
 
 use super::*;
 use crate::{
-    ComputedColumn, lens,
-    table::{SelectFilter, Sort, TablePage, TableState, TernaryFilter, TextColumn},
+    ComputedColumn, TextColumn, lens,
+    table::{SelectFilter, Sort, TablePage, TableState, TernaryFilter},
     test_support::{User, cx, memory_db},
 };
 

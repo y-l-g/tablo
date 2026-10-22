@@ -5,7 +5,7 @@
 
 mod bell;
 mod bus;
-mod stored;
+pub(crate) mod stored;
 
 use tablo_ui::{
     icons, toast, toast_close, toast_content, toast_description, toast_icon, toast_title,
@@ -23,14 +23,14 @@ pub use self::{
         clear_notifications, mark_all_notifications_read, mark_notification, notification_bell,
         remove_notification,
     },
-    stored::{Notifications, StoredNotification},
+    stored::StoredNotification,
 };
 pub(crate) use self::{
     bell::{prefetch as prefetch_bell, topbar_bell},
     bus::NotificationBus,
-    stored::bus,
+    stored::{Notifications, bus},
 };
-pub use crate::outcome::{Notification, NotificationAction, NotificationStatus};
+pub(crate) use crate::outcome::{Notification, NotificationStatus};
 
 pub(crate) const COOKIE_NAME: &str = "__Host-tablo_notification";
 

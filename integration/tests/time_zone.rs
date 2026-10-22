@@ -7,10 +7,8 @@ use jiff::{
     tz::{Offset, TimeZone},
 };
 use tablo::{
-    Allow, Auth, DateColumn, DateFilter, Panel, PanelUser, Resource, ResourceDef, Table,
-    TextColumn,
-    auth::{AuthSession, Authenticator},
-    lens,
+    Allow, Auth, Authenticator, DateColumn, DateFilter, Panel, PanelUser, Resource, ResourceDef,
+    Table, TextColumn, auth::AuthSession, lens,
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};

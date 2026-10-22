@@ -69,7 +69,7 @@ pub(crate) fn after_write_commits<F: FnOnce() + Send + 'static>(
 }
 
 /// The transaction a panel write runs in. While it is open, [`db`] panics for the same request
-/// in a debug build, and [`Notifications::send_in`](crate::notification::Notifications::send_in)
+/// in a debug build, and [`Notifications::send_in`](crate::Notifications::send_in)
 /// wakes bells only once it commits.
 pub(crate) struct WriteTx<'a> {
     /// `None` only inside [`Self::commit`], once the transaction is consumed.

@@ -72,7 +72,7 @@ error[E0277]: `Vec<std::string::String>` is not a form scalar
              i64
            and $N others
    = note: required for `Vec<std::string::String>` to implement `FormScalar`
-note: required by a bound in `tablo_core::form::assert_form_scalar`
+note: required by a bound in `tablo_core::__macro::assert_form_scalar`
   --> src/values/scalar.rs
    |
    | pub fn assert_form_scalar<T: FormScalar>() {}
@@ -92,7 +92,7 @@ help: the trait `From<toasty::stmt::Path<Tagged, toasty::stmt::List<std::string:
   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   = help: for that trait implementation, expected `Lens<Tagged, _, Vec<std::string::String>>`, found `toasty::stmt::Path<Tagged, toasty::stmt::List<std::string::String>>`
   = note: required for `toasty::stmt::Path<Tagged, toasty::stmt::List<std::string::String>>` to implement `Into<toasty::stmt::Path<Tagged, Vec<std::string::String>>>`
-note: required by a bound in `tablo_core::schema::form_key`
+note: required by a bound in `tablo_core::__macro::form_key`
  --> src/schema/lenses.rs
   |
   | pub fn form_key<M, T>(path: impl Into<Path<M, T>>) -> String

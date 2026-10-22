@@ -88,7 +88,7 @@ async fn pagination_walks_page_links() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let seeded = user_count(&db).await;
-    let page_size = tablo::table::DEFAULT_PAGE_SIZE.get();
+    let page_size = tablo::DEFAULT_PAGE_SIZE.get();
     let extra = page_size - seeded + 1;
     let last = format!("User {:02}", extra - 1);
     {
@@ -185,7 +185,7 @@ async fn pagination_walks_descending_page_links() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let seeded = user_count(&db).await;
-    let page_size = tablo::table::DEFAULT_PAGE_SIZE.get();
+    let page_size = tablo::DEFAULT_PAGE_SIZE.get();
     let extra = page_size - seeded + 1;
     {
         let mut db_q = db.clone();
@@ -248,7 +248,7 @@ async fn pagination_keeps_tied_sort_values() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let seeded = user_count(&db).await;
-    let page_size = tablo::table::DEFAULT_PAGE_SIZE.get();
+    let page_size = tablo::DEFAULT_PAGE_SIZE.get();
     let tied = 30usize;
     {
         let mut db_q = db.clone();
@@ -502,7 +502,7 @@ async fn stale_cursor_after_concurrent_delete_offers_first_page() {
     let client = demo_client(&router, &db).await;
     let mut db_q = db.clone();
     let post = Post::all().exec(&mut db_q).await.unwrap().remove(0);
-    for i in 0..tablo::table::DEFAULT_PAGE_SIZE.get() + 1 {
+    for i in 0..tablo::DEFAULT_PAGE_SIZE.get() + 1 {
         toasty::create!(Comment {
             // Sorts after every fixture comment, so the void rows end the list.
             body: format!("zz void {:02}", i),

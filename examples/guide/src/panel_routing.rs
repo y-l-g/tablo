@@ -1,6 +1,6 @@
 //! The Panel and routing chapter's snippets.
 
-use tablo::{Page, auth::Authenticator, prelude::*};
+use tablo::{Authenticator, Page, prelude::*};
 use toasty::Db;
 use topcoat::{
     Result,

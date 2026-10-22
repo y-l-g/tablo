@@ -7,11 +7,11 @@ through a function the serving layer installs in the app context (`MountScope`, 
 
 Within a layer the modules are ordered too: `LAYERS` lists each layer's modules lowest first, and a
 module names only the modules listed before it, so the list reads as the order to learn them in. A
-concept two modules share lives in a module below both, and the public module a user names
-re-exports it: `column`, what a table lists and a detail page shows, under `table`; `values`, the
-form values, scalars and field errors a schema reads and renders and a record form hydrates and
-parses, under `form`; `display`, the colors and number spellings a cell and an option share, under
-`table`.
+concept two modules share lives in a module below both: `column`, what a table lists and a
+detail page shows; `values`, the form values, scalars and field errors a schema reads and renders
+and a record form hydrates and parses; `display`, the colors and number spellings a cell and an
+option share. A user never names a module by its layer: the crate root re-exports every public
+type, from whichever module defines it, so a type moves between layers without changing its path.
 
 Two cycles remain, both in the serving layer: `notification` and `auth`, and `auth` and `panel`.
 `BACK_EDGES` lists each with its reason and the files that take it, so the modules form no other

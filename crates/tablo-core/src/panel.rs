@@ -63,7 +63,7 @@ pub fn wired_table<R: Resource>(
 
 /// `R`'s sidebar entry in the context's panel, with its label, URL and icon; `None` when the
 /// panel does not register `R`.
-pub fn navigation<R: Resource>(cx: &topcoat::context::Cx) -> Option<crate::NavigationItem> {
+pub fn navigation_item<R: Resource>(cx: &topcoat::context::Cx) -> Option<crate::NavigationItem> {
     crate::resource::mounted::<R>(cx).map(|resource| resource.navigation.clone())
 }
 
@@ -373,7 +373,7 @@ impl Panel {
     }
 
     /// Shows a bell in the topbar over the signed-in user's
-    /// [stored notifications](crate::notification::Notifications): an unread count, and a sheet
+    /// [stored notifications](crate::Notifications): an unread count, and a sheet
     /// that lists them newest first, to mark read or unread and remove. Once the page loads, the
     /// bell keeps updating over Topcoat's runtime connection, and a notification sent while the
     /// page is open also shows as a toast.

@@ -2,9 +2,9 @@
 
 use http::header::{COOKIE, LOCATION, SET_COOKIE};
 use tablo::{
-    Ability, Auth, Membership, PanelUser, Resource, ResourceDef, Table, Tenancy, TenantId,
-    TextColumn,
-    auth::{self, Authenticator, verify_password},
+    Ability, Auth, Authenticator, Membership, PanelUser, Resource, ResourceDef, Table, Tenancy,
+    TenantId, TextColumn,
+    auth::{self, verify_password},
     lens, when,
 };
 use toasty::Db;

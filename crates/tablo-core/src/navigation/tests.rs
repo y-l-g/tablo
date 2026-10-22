@@ -11,9 +11,9 @@ impl Resource for UserResource {
     type Form = crate::NoForm<Self::Model>;
 
     fn declare() -> ResourceDef<Self> {
-        ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
-            lens!(User.name),
-        )))
+        ResourceDef::new().table(crate::table::Table::new(crate::TextColumn::new(lens!(
+            User.name
+        ))))
     }
 
     fn query(_cx: &Cx) -> toasty::stmt::Query<List<User>> {

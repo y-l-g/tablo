@@ -80,8 +80,8 @@ impl<F> Schema<F> {
     /// # Errors
     ///
     /// A repeater's key lists something other than its rows, a row twice, a row posting nothing,
-    /// or more than [`MAX_ROWS`](super::MAX_ROWS) rows: no browser posts these, so a handler
-    /// answers 400.
+    /// or more than [`MAX_REPEATER_ROWS`](super::MAX_REPEATER_ROWS) rows: no browser posts these,
+    /// so a handler answers 400.
     pub fn read(
         &self,
         cx: &Cx,

@@ -118,8 +118,9 @@ async fn export_and_list_agree_on_rows_and_order() {
     use std::collections::BTreeMap;
 
     use crate::{
+        TextColumn,
         resource::{Resource, ResourceDef},
-        table::{SelectFilter, Sort, TableState, TextColumn},
+        table::{SelectFilter, Sort, TableState},
     };
 
     #[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]

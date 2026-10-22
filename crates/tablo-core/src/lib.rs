@@ -85,47 +85,55 @@ pub mod __macro {
         toasty_compat::VariantId,
     };
 }
-// The toolkit surface: Panel, Resource, Table, Schema, Notification,
-// Tenancy, CSRF, and the `Db` glue.
+// Each public item has one path. Types live at the root; a public module is a namespace for
+// the functions and constants that read best qualified (`auth::user`, `csrf::verify`).
 pub mod auth;
 mod column;
 pub mod csrf;
 pub mod db;
 mod declaration;
-pub mod detail;
+mod detail;
 mod display;
 #[doc(hidden)]
 pub mod dom;
 mod error;
 pub mod extend;
-pub mod form;
+mod form;
 mod lens;
 mod naming;
-pub mod navigation;
+mod navigation;
 pub mod notification;
 mod outcome;
 mod page;
-pub mod panel;
-pub mod policy;
-pub mod resource;
+mod panel;
+mod policy;
+mod resource;
 pub mod rich_text;
-pub mod schema;
-pub mod table;
-pub mod tenancy;
+mod schema;
+mod table;
+mod tenancy;
 #[cfg(test)]
 mod test_support;
 mod toasty_compat;
 mod topcoat_compat;
-pub mod upload;
+mod upload;
 mod values;
 
 /// The future a type-erased, dyn-compatible method returns.
 pub(crate) type BoxFuture<'a, T> = std::pin::Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
 pub use auth::{
-    Auth, AuthMail, Authenticator, EmailVerification, LoginThrottle, PanelUser, PasswordAuth,
-    PasswordReset, Profile, ProfileEditor, ProfileUpdate, Registrar, SignUp, TenantRegistration,
-    TwoFactor, membership,
+    config::Auth,
+    mail::AuthMail,
+    panel_user::{Authenticator, PanelUser},
+    password::PasswordAuth,
+    password_reset::PasswordReset,
+    profile::{Profile, ProfileEditor, ProfileUpdate},
+    registration::{Registrar, SignUp},
+    tenant_registration::TenantRegistration,
+    throttle::LoginThrottle,
+    two_factor::TwoFactor,
+    verification::EmailVerification,
 };
 pub use column::{
     BooleanColumn, ColorColumn, ColumnToggle, ColumnWidth, ComputedColumn, CountColumn, DateColumn,
@@ -143,28 +151,30 @@ pub use display::{Alignment, Color, Currency, Number, Numeric};
 pub use form::{NoForm, Posted, RecordForm};
 pub use lens::{Lens, Reads};
 pub use navigation::{NavTarget, NavigationItem};
-pub use notification::{Notification, NotificationAction, NotificationStatus, Notifications};
-pub use outcome::Outcome;
+pub use notification::stored::Notifications;
+pub use outcome::{Notification, NotificationAction, NotificationStatus, Outcome};
 pub use page::{Page, PageDef};
 pub use panel::{
     Brand, MAX_IMPORT_ROWS, Panel, PanelHandle, RouterBuilderPanelExt, WiredTable, can_list,
-    can_open, pages::header_action_buttons, url,
+    can_open, navigation_item, pages::header_action_buttons, url, wired_table,
 };
-pub use policy::{Abilities, Ability, Allow, Deny, Policy, ReadOnly, when};
+pub use policy::{Abilities, Ability, Allow, And, Deny, Or, Policy, ReadOnly, When, when};
 pub use resource::{
     Action, Change, FieldAccess, ForeignKey, HeaderAction, HeaderActions, Places, PublicLink,
     Relation, Resource, ResourceDef, Trashed, WriteError, can, scoped_query, scoped_query_in,
     write_create, write_update,
 };
-pub use rich_text::Tool;
+pub use rich_text::tool::Tool;
 pub use schema::{
     ChoiceField, CustomField, EmbeddedForm, Field, FileField, Grid, Group, IntoFormValue,
-    IntoOptions, IntoSchema, Options, RepeaterField, RichTextField, Schema, Section, Source,
-    TextField, Toggle, Watched, input::FormInput,
+    IntoOptions, IntoSchema, MAX_RELATIONSHIP_OPTIONS, MAX_REPEATER_ROWS, Options, RepeaterField,
+    RichTextField, Schema, Section, Source, TextField, Toggle, Watched, input::FormInput,
+    parse_items, write_items,
 };
 pub use table::{
-    ActionLayout, Cursor, DateFilter, FilterValue, IntoFilters, ModelColumns, PagePosition,
-    Pagination, QueryFilter, SelectFilter, Sort, Table, TablePage, TableState, TernaryFilter,
+    ActionLayout, Cursor, DEFAULT_PAGE_SIZE, DEFAULT_PER_PAGE_OPTIONS, DateFilter, FilterValue,
+    IntoFilters, ModelColumns, PagePosition, Pagination, QueryFilter, SelectFilter, Sort, Table,
+    TablePage, TableState, TernaryFilter,
 };
 /// Derives `EmbeddedForm` for an embedded struct or enum.
 ///
@@ -309,7 +319,7 @@ pub use tablo_macros::EmbeddedForm;
 ///
 /// Each row posts the item's keys under its own prefix (`links.0.url`) and answers to its
 /// controls' own rules, such as a choice offering only its options. A repeater takes at most
-/// [`MAX_ROWS`](schema::MAX_ROWS) rows.
+/// [`MAX_REPEATER_ROWS`] rows.
 ///
 /// A field's **blank answer** is its `#[form(blank = ..)]`, `""` for an `#[form(optional)]`
 /// `String`, `None` for an `Option`, or `false` for a `bool`. A field with none is required:
@@ -540,8 +550,8 @@ pub use tablo_macros::Options;
 /// and a many-to-many field whose keys are not its source's primary key.
 pub use tablo_macros::RecordForm;
 pub use tenancy::{Membership, Tenancy, Tenant, TenantColumn, TenantId, require_tenant, tenant_id};
-pub use upload::{DirUploader, Uploader};
+pub use upload::{DirUploader, Uploader, sanitize_filename};
 pub use values::{
     FieldError, FieldErrorKind, FieldErrors, FormField, FormScalar, FormValue, FormValues,
-    time_zone,
+    parse_list, parse_password, parse_scalar, time_zone, write_list,
 };

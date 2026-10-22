@@ -9,9 +9,9 @@ async fn find_by_key_loads_one_row_scoped_and_404s_malformed() {
         type Form = crate::NoForm<Self::Model>;
 
         fn declare() -> ResourceDef<Self> {
-            ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
-                lens!(Subscriber.email),
-            )))
+            ResourceDef::new().table(crate::table::Table::new(crate::TextColumn::new(lens!(
+                Subscriber.email
+            ))))
         }
     }
 
@@ -99,15 +99,13 @@ async fn record_loads_skip_the_detail_pages_includes() {
 
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
-                .table(crate::table::Table::new(crate::table::ComputedColumn::new(
+                .table(crate::table::Table::new(crate::ComputedColumn::new(
                     "Id",
                     |c: &Child| c.id.to_string(),
                 )))
                 .detail(crate::Detail::new(
-                    crate::table::ComputedColumn::new("Parent", |c: &Child| {
-                        c.parent.get().name.clone()
-                    })
-                    .include_unscoped(Child::fields().parent()),
+                    crate::ComputedColumn::new("Parent", |c: &Child| c.parent.get().name.clone())
+                        .include_unscoped(Child::fields().parent()),
                 ))
         }
     }

@@ -140,15 +140,12 @@ impl Uploader for DirUploader {
 /// parses its own multipart body.
 ///
 /// ```
+/// assert_eq!(tablo_core::sanitize_filename("../../etc/passwd"), "passwd");
 /// assert_eq!(
-///     tablo_core::upload::sanitize_filename("../../etc/passwd"),
-///     "passwd"
-/// );
-/// assert_eq!(
-///     tablo_core::upload::sanitize_filename("C:\\fakepath\\cover.png"),
+///     tablo_core::sanitize_filename("C:\\fakepath\\cover.png"),
 ///     "cover.png"
 /// );
-/// assert_eq!(tablo_core::upload::sanitize_filename(".."), "");
+/// assert_eq!(tablo_core::sanitize_filename(".."), "");
 /// ```
 pub fn sanitize_filename(raw: &str) -> String {
     let base = raw.rsplit(['/', '\\']).next().unwrap_or(raw).trim();

@@ -112,7 +112,7 @@ struct Note {
 }
 
 fn note_table() -> crate::table::Table<Note> {
-    crate::table::Table::new(crate::table::TextColumn::new(lens!(Note.title)))
+    crate::table::Table::new(crate::TextColumn::new(lens!(Note.title)))
 }
 
 struct OpenNotes;

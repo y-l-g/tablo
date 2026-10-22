@@ -192,8 +192,7 @@ async fn bench_list_path(db: &Db, tenant: uuid::Uuid, iterations: usize) -> Vec<
             "the bench request must be allowed to open the list"
         );
         let start = Instant::now();
-        let table =
-            tablo_core::panel::wired_table::<PostResource>(&cx).expect("PostResource is mounted");
+        let table = tablo_core::wired_table::<PostResource>(&cx).expect("PostResource is mounted");
         assert_eq!(
             table.page_size(),
             50,

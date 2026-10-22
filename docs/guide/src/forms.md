@@ -348,7 +348,7 @@ with the related resource:
 - Making the two keys the join model's primary key, `#[key(article_id, tag_id)]` as above, has
   the database store each pair once, whatever two concurrent writes do. It also
   refuses a multiple choice in a resource's form that names no many-to-many field. In an
-  action's input, `form::parse_list` reads a multiple choice.
+  action's input, `tablo::parse_list` reads a multiple choice.
 
 ### Dependent choices
 
@@ -599,13 +599,13 @@ item's controls per item, which the user adds, removes and moves.
 - Each row posts its item's fields under its own prefix (`steps.0.minutes`), and the repeater's
   own key lists the rows in the order they show. A refused row renders its error under its own
   control, and the rows come back in the order the user left them.
-- A repeater takes at most `MAX_ROWS` (100) rows; a submission listing more is refused.
+- A repeater takes at most `MAX_REPEATER_ROWS` (100) rows; a submission listing more is refused.
 - No rows is the repeater's blank answer, so a repeater is never required. An edit that does not
   post the repeater, such as one hidden by a [condition](#conditional-fields), keeps the stored
   rows; one that posts no rows stores an empty list.
 - Adding, removing and moving rows needs JavaScript. Without it the stored rows still edit.
 - An action's input can place a repeater too, with a hand-written `FormInput` whose `parse`
-  reads the rows with `schema::parse_items`. A page handling its own post reads it into
+  reads the rows with `tablo::parse_items`. A page handling its own post reads it into
   `FormValues` first, with `Schema::read`.
 - On the detail page, `RepeaterColumn` shows each item's fields under their labels. The model's
   default detail page includes one; its table does not.

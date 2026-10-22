@@ -472,7 +472,7 @@ async fn an_edit_keeps_its_links_past_the_option_cap() {
         ..
     } = library().await;
     let mut db_q = db.clone();
-    for n in 0..=tablo::schema::MAX_RELATIONSHIP_OPTIONS {
+    for n in 0..=tablo::MAX_RELATIONSHIP_OPTIONS {
         let title = format!("Filler {n}");
         toasty::create!(Book { title })
             .exec(&mut db_q)

@@ -280,9 +280,9 @@ pub trait Resource: Sized + Send + Sync + 'static {
     ///
     /// Called once per write, with the [`Change`] it made, through `ex`, the open transaction:
     /// run every statement through it, and notify through
-    /// [`Notifications::send_in`](crate::notification::Notifications::send_in), which stores the
+    /// [`Notifications::send_in`](crate::Notifications::send_in), which stores the
     /// notification only if the write commits. A second connection, through
-    /// [`db`](crate::db::db) or [`Notifications::send`](crate::notification::Notifications::send),
+    /// [`db`](crate::db::db) or [`Notifications::send`](crate::Notifications::send),
     /// would write outside the transaction, and on a pool of one wait forever for the connection
     /// the transaction holds; a debug build panics on either instead.
     ///

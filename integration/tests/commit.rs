@@ -1,6 +1,6 @@
 use tablo::{
-    Ability, Allow, Change, Notification, Resource, ResourceDef, Table, TextColumn, lens,
-    notification::{Notifications, StoredNotification},
+    Ability, Allow, Change, Notification, Notifications, Resource, ResourceDef, Table, TextColumn,
+    lens, notification::StoredNotification,
 };
 use toasty::Db;
 use topcoat::context::Cx;

@@ -2,11 +2,11 @@
 
 use jiff::Timestamp;
 use tablo::{
-    FieldErrors, FormInput, Membership, PanelUser,
+    Authenticator, FieldErrors, FormInput, Membership, PanelUser, Profile, ProfileEditor,
+    ProfileUpdate, Registrar,
     auth::{
-        self, Authenticator, EmailChange, EmailVerifier, PasswordResetter, Profile, ProfileEditor,
-        ProfileUpdate, Registrar, TenantEditor, TenantRegistrar, hash_password,
-        new_password_errors, verify_password,
+        self, EmailChange, EmailVerifier, PasswordResetter, TenantEditor, TenantRegistrar,
+        hash_password, new_password_errors, verify_password,
     },
 };
 use toasty::Db;

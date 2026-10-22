@@ -12,7 +12,7 @@ help: the trait `From<toasty::stmt::Path<User, i64>>` is not implemented for `to
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: for that trait implementation, expected `Lens<User, _, i32>`, found `toasty::stmt::Path<User, i64>`
    = note: required for `toasty::stmt::Path<User, i64>` to implement `Into<toasty::stmt::Path<User, i32>>`
-note: required by a bound in `tablo_core::schema::form_key`
+note: required by a bound in `tablo_core::__macro::form_key`
   --> src/schema/lenses.rs
    |
    | pub fn form_key<M, T>(path: impl Into<Path<M, T>>) -> String

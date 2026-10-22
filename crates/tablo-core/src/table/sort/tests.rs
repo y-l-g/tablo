@@ -1,7 +1,7 @@
 use crate::{
-    DeclarationErrorKind, lens,
+    DeclarationErrorKind, TextColumn, lens,
     table::{
-        Sort, Table, TableState, TextColumn,
+        Sort, Table, TableState,
         tests::{Task, titles_in_order},
     },
     test_support::memory_db,

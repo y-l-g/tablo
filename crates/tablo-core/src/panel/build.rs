@@ -43,7 +43,7 @@ use self::handle::request_mounts;
 /// Mounts a [`Panel`] on a router the app owns.
 ///
 /// ```rust,no_run
-/// # use tablo_core::{Auth, NoForm, Panel, PanelUser, Resource, RouterBuilderPanelExt, auth::Authenticator};
+/// # use tablo_core::{Auth, Authenticator, NoForm, Panel, PanelUser, Resource, RouterBuilderPanelExt};
 /// # use topcoat::{context::Cx, router::{Router, RouterBuilderDiscoverExt}};
 /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }

@@ -46,7 +46,7 @@ pub struct StoredNotification {
 /// job takes the handle from [`PanelHandle::notifications`](crate::PanelHandle::notifications).
 ///
 /// ```rust,no_run
-/// # use tablo_core::{Notification, PanelUser, auth, notification::Notifications};
+/// # use tablo_core::{Notification, Notifications, PanelUser, auth};
 /// # use topcoat::context::Cx;
 /// # async fn exported(cx: &Cx, owner: &dyn PanelUser) -> topcoat::Result<()> {
 /// Notifications::of(cx)?
@@ -150,7 +150,7 @@ impl Notifications {
     /// they next refresh.
     ///
     /// ```rust
-    /// # use tablo_core::{Change, NoForm, Notification, Resource, notification::Notifications};
+    /// # use tablo_core::{Change, NoForm, Notification, Notifications, Resource};
     /// # use topcoat::{Result, context::Cx};
     /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, author: String }
