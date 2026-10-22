@@ -381,7 +381,7 @@ impl FormInput for Choosing {
     }
 
     fn parse(_cx: &Cx, values: &FormValues) -> Result<Self, Vec<FieldError>> {
-        tablo::form::parse_scalar::<String>("member", values, None).map_err(|e| vec![e])?;
+        tablo::parse_scalar::<String>("member", values, None).map_err(|e| vec![e])?;
         Ok(Self)
     }
 

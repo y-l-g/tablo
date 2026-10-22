@@ -20,9 +20,9 @@ fn panel_navigation_item_honours_override_order_with_prefix_adjusted_url() {
             // the URL.
             ResourceDef::new()
                 .navigation_order(-1)
-                .table(crate::table::Table::new(crate::table::TextColumn::new(
-                    lens!(Dummy.name),
-                )))
+                .table(crate::table::Table::new(crate::TextColumn::new(lens!(
+                    Dummy.name
+                ))))
         }
     }
     struct PlainResource;
@@ -33,9 +33,9 @@ fn panel_navigation_item_honours_override_order_with_prefix_adjusted_url() {
         fn declare() -> ResourceDef<Self> {
             ResourceDef::new()
                 .slug("plain")
-                .table(crate::table::Table::new(crate::table::TextColumn::new(
-                    lens!(Dummy.name),
-                )))
+                .table(crate::table::Table::new(crate::TextColumn::new(lens!(
+                    Dummy.name
+                ))))
         }
     }
 
@@ -65,9 +65,9 @@ fn replaced_navigation_item_takes_the_def_icon_order_and_group() {
                 .navigation_order(3)
                 .navigation_group("Content")
                 .navigation(NavigationItem::at("Drafts", "/admin/dummies?f.draft=1"))
-                .table(crate::table::Table::new(crate::table::TextColumn::new(
-                    lens!(Dummy.name),
-                )))
+                .table(crate::table::Table::new(crate::TextColumn::new(lens!(
+                    Dummy.name
+                ))))
         }
     }
 

@@ -1,7 +1,6 @@
 use super::*;
 use crate::{
-    Ability, ResourceDef, lens,
-    table::TextColumn,
+    Ability, ResourceDef, TextColumn, lens,
     test_support::{User, tableless_db},
 };
 

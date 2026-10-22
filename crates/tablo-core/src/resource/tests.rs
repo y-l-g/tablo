@@ -21,9 +21,9 @@ impl Resource for OwnedResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .tenancy(Tenancy::column(Owned::fields().tenant_id()))
-            .table(crate::table::Table::new(crate::table::TextColumn::new(
-                lens!(Owned.name),
-            )))
+            .table(crate::table::Table::new(crate::TextColumn::new(lens!(
+                Owned.name
+            ))))
     }
 
     fn query(_cx: &Cx) -> toasty::stmt::Query<List<Owned>> {
@@ -82,9 +82,9 @@ impl Resource for AssignableResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .tenancy(Tenancy::column(Assignable::fields().tenant_id()))
-            .table(crate::table::Table::new(crate::table::TextColumn::new(
-                lens!(Assignable.name),
-            )))
+            .table(crate::table::Table::new(crate::TextColumn::new(lens!(
+                Assignable.name
+            ))))
     }
 }
 
@@ -145,9 +145,9 @@ impl Resource for Unlabelled {
     type Form = crate::NoForm<Self::Model>;
 
     fn declare() -> ResourceDef<Self> {
-        ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
-            lens!(Note.title),
-        )))
+        ResourceDef::new().table(crate::table::Table::new(crate::TextColumn::new(lens!(
+            Note.title
+        ))))
     }
 }
 
@@ -160,9 +160,9 @@ impl Resource for Titled {
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
-            .table(crate::table::Table::new(crate::table::TextColumn::new(
-                lens!(Note.title),
-            )))
+            .table(crate::table::Table::new(crate::TextColumn::new(lens!(
+                Note.title
+            ))))
             .record_title(lens!(Note.title))
     }
 }
@@ -212,9 +212,9 @@ impl Resource for ContactPersonResource {
     type Form = crate::NoForm<Self::Model>;
 
     fn declare() -> ResourceDef<Self> {
-        ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
-            lens!(ContactPerson.name),
-        )))
+        ResourceDef::new().table(crate::table::Table::new(crate::TextColumn::new(lens!(
+            ContactPerson.name
+        ))))
     }
 }
 
@@ -244,9 +244,9 @@ impl Resource for URLResource {
     type Form = crate::NoForm<Self::Model>;
 
     fn declare() -> ResourceDef<Self> {
-        ResourceDef::new().table(crate::table::Table::new(crate::table::TextColumn::new(
-            lens!(URL.href),
-        )))
+        ResourceDef::new().table(crate::table::Table::new(crate::TextColumn::new(lens!(
+            URL.href
+        ))))
     }
 }
 

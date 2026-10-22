@@ -9,7 +9,7 @@ note: expected this to be `i64`
    |
 16 |     id: uuid::Uuid,
    |         ^^^^^^^^^^
-note: required by a bound in `tablo_core::form::links_key`
+note: required by a bound in `tablo_core::__macro::links_key`
   --> src/form.rs
    |
    | pub fn links_key<M, R, K>(

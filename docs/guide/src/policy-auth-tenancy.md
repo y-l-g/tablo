@@ -224,7 +224,7 @@ above when nobody is signed in. `auth::signed_in(cx)` answers whether anyone is.
 Implement `PanelUser` for the type the panel signs in, and `Authenticator` to load it:
 
 ```rust
-use tablo::{Membership, PanelUser, auth::{Authenticator, verify_password}};
+use tablo::{Authenticator, Membership, PanelUser, auth::verify_password};
 
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-staff-auth}}
 ```

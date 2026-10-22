@@ -50,7 +50,7 @@ pub struct Tenant(pub uuid::Uuid);
 /// Checks a `Tenant` request extension first (a server-set override — the
 /// deliberate seam app middleware and `Router::handle` tests use), then a
 /// `Tenant` scoped value app code put on the `Cx`, then the signed-in user's
-/// [`membership`](crate::membership). No request header is consulted.
+/// [`membership`](crate::auth::membership). No request header is consulted.
 pub fn tenant_id(cx: &Cx) -> Option<uuid::Uuid> {
     if let Some(parts) = try_request_context::<http::request::Parts>(cx)
         && let Some(t) = parts.extensions.get::<Tenant>()

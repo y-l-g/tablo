@@ -38,7 +38,7 @@ pub use relationship::MAX_RELATIONSHIP_OPTIONS;
 pub(crate) use relationship::{
     OptionLoadError, OptionSource, clamp_query_term, ensure_option_access,
 };
-pub use repeater::{MAX_ROWS, parse_items, write_items};
+pub use repeater::{MAX_REPEATER_ROWS, parse_items, write_items};
 use topcoat::{Result, context::Cx, view::*};
 pub use tree::{IntoSchema, Source};
 pub(crate) use tree::{Node, Retype, render_nodes};

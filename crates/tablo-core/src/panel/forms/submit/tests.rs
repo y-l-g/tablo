@@ -71,9 +71,9 @@ async fn a_driver_create_failure_does_not_echo_driver_text() {
             ResourceDef::new()
                 .slug("dummies")
                 .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
-                .table(crate::table::Table::new(crate::table::TextColumn::new(
-                    lens!(Dummy.name),
-                )))
+                .table(crate::table::Table::new(crate::TextColumn::new(lens!(
+                    Dummy.name
+                ))))
         }
     }
     #[derive(crate::RecordForm)]
@@ -157,9 +157,9 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
                         Ability::ViewAny | Ability::View(_) | Ability::Update(_)
                     )
                 })
-                .table(crate::table::Table::new(crate::table::TextColumn::new(
-                    lens!(Dummy.name),
-                )))
+                .table(crate::table::Table::new(crate::TextColumn::new(lens!(
+                    Dummy.name
+                ))))
         }
 
         async fn update_record(

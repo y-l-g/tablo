@@ -170,9 +170,9 @@ async fn delete_resolves_the_primary_key_only() {
                         Ability::View(_) | Ability::DeleteAny | Ability::Delete(_)
                     )
                 })
-                .table(crate::table::Table::new(crate::table::TextColumn::new(
-                    lens!(Dummy.name),
-                )))
+                .table(crate::table::Table::new(crate::TextColumn::new(lens!(
+                    Dummy.name
+                ))))
         }
 
         async fn delete_record(

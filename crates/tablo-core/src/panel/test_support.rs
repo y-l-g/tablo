@@ -6,11 +6,7 @@
 use toasty::Db;
 use topcoat::router::{Router, RouterBuilderDiscoverExt};
 
-use crate::{
-    Panel, RouterBuilderPanelExt, lens,
-    resource::Resource,
-    table::{Table, TextColumn},
-};
+use crate::{Panel, RouterBuilderPanelExt, Table, TextColumn, lens, resource::Resource};
 
 /// The two-column model a panel test's resource renders.
 #[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]

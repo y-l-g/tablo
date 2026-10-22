@@ -139,7 +139,7 @@ The `tablo::url` helpers answer for the request's panel, so app code never spell
 The request's panel is the one whose prefix the request is under. A request outside every prefix,
 such as a public page, has no panel until it enters one with `PanelHandle::enter`; see
 [Data access](./data-access.md#outside-a-panel). A resource or page that panel does not register has no URL
-there, and the helper returns `None`. `tablo::panel::navigation::<R>(cx)` answers the same way
+there, and the helper returns `None`. `tablo::navigation_item::<R>(cx)` answers the same way
 with `R`'s whole sidebar entry, its label, URL and icon, which suits a dashboard linking to lists.
 
 A record's routes have helpers too, typed by the resource and spelled with the key encoding its

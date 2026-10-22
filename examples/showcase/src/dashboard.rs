@@ -2,7 +2,7 @@
 
 use tablo::{
     Ability, FieldErrors, HeaderAction, Page, PageDef, Resource, can_list, db::db,
-    header_action_buttons, panel, scoped_query,
+    header_action_buttons, scoped_query,
 };
 use topcoat::{
     Result,
@@ -37,8 +37,8 @@ async fn stat<R: Resource>(cx: &Cx) -> Option<Stat> {
     if !can_list::<R>(cx) {
         return None;
     }
-    let item = panel::navigation::<R>(cx)?;
-    let url = panel::url::resource::<R>(cx)?;
+    let item = tablo::navigation_item::<R>(cx)?;
+    let url = tablo::url::resource::<R>(cx)?;
     let count = match scoped_query::<R>(cx) {
         Ok(query) => query.count().exec(&mut db(cx)).await.ok(),
         Err(_) => None,

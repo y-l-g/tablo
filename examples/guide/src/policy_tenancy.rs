@@ -1,12 +1,10 @@
 //! The Policy, auth, tenancy chapter's snippets.
 
 use tablo::{
-    AuthMail, EmailVerification, Membership, PanelUser, PasswordAuth, PasswordReset,
-    RouterBuilderPanelExt, TenantRegistration, TwoFactor,
-    auth::{
-        Authenticator, Profile, ProfileEditor, ProfileUpdate, Registrar, TenantEditor,
-        TenantRegistrar, hash_password, new_password_errors, verify_password,
-    },
+    AuthMail, Authenticator, EmailVerification, Membership, PanelUser, PasswordAuth, PasswordReset,
+    Profile, ProfileEditor, ProfileUpdate, Registrar, RouterBuilderPanelExt, TenantRegistration,
+    TwoFactor,
+    auth::{TenantEditor, TenantRegistrar, hash_password, new_password_errors, verify_password},
     prelude::*,
 };
 use topcoat::{

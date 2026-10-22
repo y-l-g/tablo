@@ -1,7 +1,7 @@
 use proptest::prelude::*;
 
 use super::*;
-use crate::{lens, table::TextColumn, test_support::User};
+use crate::{TextColumn, lens, test_support::User};
 
 /// What a spreadsheet reads back from one RFC 4180 cell.
 fn unquote(cell: &str) -> String {

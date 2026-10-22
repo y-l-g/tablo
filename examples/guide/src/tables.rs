@@ -1,7 +1,8 @@
 //! The Tables chapter's snippets.
 
 use tablo::{
-    extend::{Column, Filter, FilterInput, FilterValue},
+    FilterValue,
+    extend::{Column, Filter, FilterInput},
     prelude::*,
 };
 use toasty::stmt::Expr;

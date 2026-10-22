@@ -4,8 +4,8 @@
 //! over the same source applies only the rows the reader may view.
 
 use tablo::{
-    Ability, Allow, NoForm, Resource, ResourceDef, Schema, SelectFilter, Table, TextColumn, lens,
-    schema::MAX_RELATIONSHIP_OPTIONS,
+    Ability, Allow, MAX_RELATIONSHIP_OPTIONS, NoForm, Resource, ResourceDef, Schema, SelectFilter,
+    Table, TextColumn, lens,
     testing::{ErrorKind, IgnoredFilter, IgnoredReason, field_error, ignored_filters},
 };
 use toasty::Db;

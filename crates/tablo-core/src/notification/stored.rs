@@ -46,7 +46,7 @@ pub struct StoredNotification {
 /// job takes the handle from [`PanelHandle::notifications`](crate::PanelHandle::notifications).
 ///
 /// ```rust,no_run
-/// # use tablo_core::{Notification, PanelUser, auth, notification::Notifications};
+/// # use tablo_core::{Notification, Notifications, PanelUser, auth};
 /// # use topcoat::context::Cx;
 /// # async fn exported(cx: &Cx, owner: &dyn PanelUser) -> topcoat::Result<()> {
 /// Notifications::of(cx)?

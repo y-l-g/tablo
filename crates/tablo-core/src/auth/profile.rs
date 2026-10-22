@@ -44,7 +44,7 @@ use crate::{
 /// [`Authenticator`](super::Authenticator), for the same user type:
 ///
 /// ```rust
-/// # use tablo_core::{PanelUser, auth::{ProfileEditor, ProfileUpdate}};
+/// # use tablo_core::{PanelUser, ProfileEditor, ProfileUpdate};
 /// # use topcoat::context::Cx;
 /// # #[derive(Debug, Clone, toasty::Model)]
 /// # struct Staff {

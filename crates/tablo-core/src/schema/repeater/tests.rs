@@ -103,7 +103,7 @@ fn a_submission_not_posting_the_repeater_reads_nothing_and_an_empty_list_reads_n
 
 #[test]
 fn a_read_refuses_an_order_that_lists_no_row_or_a_row_twice() {
-    let rows = (0..=MAX_ROWS)
+    let rows = (0..=MAX_REPEATER_ROWS)
         .map(|row| row.to_string())
         .collect::<Vec<_>>();
     let mut too_many = posted(&[("links", &rows.join(","))]);
@@ -113,7 +113,7 @@ fn a_read_refuses_an_order_that_lists_no_row_or_a_row_twice() {
     let error = repeater().read(&cx(), &too_many).unwrap_err();
     assert!(error.contains("more than"), "{error}");
     too_many.pop();
-    too_many[0].1 = rows[..MAX_ROWS].join(",");
+    too_many[0].1 = rows[..MAX_REPEATER_ROWS].join(",");
     repeater()
         .read(&cx(), &too_many)
         .expect("the cap itself reads");

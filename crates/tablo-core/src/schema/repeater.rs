@@ -25,7 +25,7 @@ pub(crate) const ROW: &str = "__row__";
 
 /// The most rows one repeater takes: each renders in full when the form comes back refused, so
 /// an unbounded list would let a small submission render a page of any size.
-pub const MAX_ROWS: usize = 100;
+pub const MAX_REPEATER_ROWS: usize = 100;
 
 /// A repeater's control: its item's controls, one row each.
 pub(crate) struct RepeaterControl {
@@ -64,8 +64,8 @@ impl RepeaterControl {
     /// # Errors
     ///
     /// `key` lists something other than row numbers, a row twice, a row posting none of its
-    /// item's keys, or more than [`MAX_ROWS`] rows. A browser posts every control of each row it
-    /// shows, so none of these comes from the form.
+    /// item's keys, or more than [`MAX_REPEATER_ROWS`] rows. A browser posts every control of each
+    /// row it shows, so none of these comes from the form.
     pub(super) fn read(
         &self,
         key: &str,
@@ -78,8 +78,8 @@ impl RepeaterControl {
         let mut seen = HashSet::new();
         let mut rows = Vec::new();
         for token in order.split(',').map(str::trim).filter(|t| !t.is_empty()) {
-            if rows.len() == MAX_ROWS {
-                return Err(format!("`{key}` lists more than {MAX_ROWS} rows"));
+            if rows.len() == MAX_REPEATER_ROWS {
+                return Err(format!("`{key}` lists more than {MAX_REPEATER_ROWS} rows"));
             }
             let row: usize = token
                 .parse()
@@ -164,7 +164,7 @@ impl RepeaterControl {
             .collect::<Vec<_>>()
             .join(",");
         let next = items.len().to_string();
-        let full = items.len() >= MAX_ROWS;
+        let full = items.len() >= MAX_REPEATER_ROWS;
         let label = field.label_str().to_string();
         let add = self
             .add_label
@@ -181,7 +181,7 @@ impl RepeaterControl {
                     class="ac-field gap-3"
                     data-repeater=(key.clone())
                     data-repeater-next=(next)
-                    data-repeater-max=(MAX_ROWS)
+                    data-repeater-max=(MAX_REPEATER_ROWS)
                 },
                 field_legend(
                     variant: FieldLegendVariant::Label,

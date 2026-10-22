@@ -3,8 +3,8 @@
 
 use jiff::Timestamp;
 use tablo::{
-    Auth, Panel, RouterBuilderPanelExt,
-    auth::{AdminUser, AuthSession, PanelUser, create_admin, guard, require_user},
+    Auth, Panel, PanelUser, RouterBuilderPanelExt,
+    auth::{AdminUser, AuthSession, create_admin, guard, require_user},
 };
 use toasty::Db;
 use topcoat::{

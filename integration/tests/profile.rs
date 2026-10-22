@@ -6,13 +6,12 @@ use std::time::Duration;
 
 use http::header::LOCATION;
 use tablo::{
-    Auth, DeclarationErrorKind, FieldError, FormInput, FormValues, LoginThrottle, NoForm,
-    NotificationStatus, PanelUser, PasswordAuth, ProfileFault, ReadOnly, Resource, ResourceDef,
-    RouterBuilderPanelExt, Table, TextColumn,
-    auth::{AdminUser, AuthSession, Profile, ProfileEditor, ProfileUpdate, create_admin},
-    form::parse_scalar,
-    lens,
-    schema::{Field, Schema},
+    Auth, DeclarationErrorKind, Field, FieldError, FormInput, FormValues, LoginThrottle, NoForm,
+    NotificationStatus, PanelUser, PasswordAuth, Profile, ProfileEditor, ProfileFault,
+    ProfileUpdate, ReadOnly, Resource, ResourceDef, RouterBuilderPanelExt, Schema, Table,
+    TextColumn,
+    auth::{AdminUser, AuthSession, create_admin},
+    lens, parse_scalar,
     testing::{find_href_with, form_body, session_cookie_value},
 };
 use toasty::Db;

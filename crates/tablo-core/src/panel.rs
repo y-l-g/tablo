@@ -63,7 +63,7 @@ pub fn wired_table<R: Resource>(
 
 /// `R`'s sidebar entry in the context's panel, with its label, URL and icon; `None` when the
 /// panel does not register `R`.
-pub fn navigation<R: Resource>(cx: &topcoat::context::Cx) -> Option<crate::NavigationItem> {
+pub fn navigation_item<R: Resource>(cx: &topcoat::context::Cx) -> Option<crate::NavigationItem> {
     crate::resource::mounted::<R>(cx).map(|resource| resource.navigation.clone())
 }
 

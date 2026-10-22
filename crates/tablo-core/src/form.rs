@@ -66,8 +66,8 @@ use crate::{
 pub use crate::{
     schema::input::FormInput,
     values::{
-        FieldError, FieldErrorKind, FieldErrors, FormField, FormScalar, FormValue, FormValues,
-        NullableScalar, assert_form_scalar, parse_list, parse_password, parse_scalar, write_list,
+        FieldError, FieldErrors, FormField, FormScalar, FormValue, FormValues, NullableScalar,
+        assert_form_scalar, parse_list, parse_password, parse_scalar,
     },
 };
 

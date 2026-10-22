@@ -7,8 +7,9 @@ use std::time::Duration;
 use http::header::LOCATION;
 use tablo::{
     Auth, DeclarationErrorKind, FieldErrors, FormInput, LoginThrottle, NoForm, NotificationStatus,
-    PanelUser, PasswordAuth, ReadOnly, Resource, ResourceDef, SignUpFault, Table, TextColumn,
-    auth::{AdminUser, AuthSession, Registrar, SignUp, create_admin},
+    PanelUser, PasswordAuth, ReadOnly, Registrar, Resource, ResourceDef, SignUp, SignUpFault,
+    Table, TextColumn,
+    auth::{AdminUser, AuthSession, create_admin},
     lens,
     testing::form_body,
 };

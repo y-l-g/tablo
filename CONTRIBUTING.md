@@ -72,6 +72,10 @@ toolchains. Run `check --all` before merging.
   Keep what does not read the type out of it: a view built from strings goes in a free function,
   not a method of `impl<M>`, and a future only a generic caller awaits is returned boxed, as
   `BoxFuture`, so tablo-core compiles it once.
+- A public item has one path. Types sit at the `tablo-core` root, re-exported from private
+  modules. A public module is a namespace for functions and constants that read best qualified
+  (`auth::user`, `csrf::verify`, `url::edit`), plus the types only that namespace uses, and it
+  never re-exports a root item.
 - Shared dependency versions live in the root `[workspace.dependencies]`.
 - `topcoat` and `toasty` are crates.io dependencies of the workspace and of
   `examples/quickstart`. Bump them in both manifests and the lockfile together with

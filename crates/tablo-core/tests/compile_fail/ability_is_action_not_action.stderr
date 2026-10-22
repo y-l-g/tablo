@@ -13,11 +13,11 @@ help: the trait `Action<CommentResource>` is not implemented for `Publish`
 28 | impl Action<PostResource> for Publish {
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: for that trait implementation, expected `PostResource`, found `CommentResource`
-note: required by a bound in `resource::action::<impl Ability<'_, M>>::is_action`
+note: required by a bound in `tablo_core::resource::action::<impl Ability<'_, M>>::is_action`
   --> src/resource/action.rs
    |
    |     pub fn is_action<A, R>(self) -> bool
    |            --------- required by a bound in this associated function
    |     where
    |         A: Action<R>,
-   |            ^^^^^^^^^ required by this bound in `resource::action::<impl Ability<'_, M>>::is_action`
+   |            ^^^^^^^^^ required by this bound in `tablo_core::resource::action::<impl Ability<'_, M>>::is_action`
