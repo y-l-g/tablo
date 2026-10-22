@@ -14,7 +14,7 @@ use super::{
     render::{FormChrome, render_form_page},
 };
 use crate::{
-    db::db,
+    db::{WriteTx, db},
     form::{FieldErrors, FormValues, RecordForm},
     panel::state::uploader,
     policy::Ability,
@@ -158,7 +158,7 @@ pub(super) async fn restore_pending_uploads(
 pub(super) async fn rerender_invalid_form<'a, R: Resource>(
     cx: &'a Cx,
     resource: &Mounted<R>,
-    tx: toasty::Transaction<'_>,
+    tx: WriteTx<'_>,
     chrome: FormChrome<'a>,
     values: &FormValues,
     errors: &FieldErrors,

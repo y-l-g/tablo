@@ -7,6 +7,7 @@ use topcoat::{context::Cx, router::error::see_other, view::BoxView};
 
 use super::gate::landing_url;
 use crate::{
+    db::WriteTx,
     notification::{Notification, notify_write_failure, set_notification},
     outcome::{Outcome, same_origin_path},
     resource::{Change, Mounted, Resource},
@@ -22,7 +23,7 @@ use crate::{
 pub(crate) async fn commit_write<'a, R: Resource, T>(
     cx: &'a Cx,
     resource: &Mounted<R>,
-    mut tx: toasty::Transaction<'_>,
+    mut tx: WriteTx<'_>,
     written: Result<(T, Outcome), topcoat::Error>,
     change: impl FnOnce(T) -> Change<R::Model>,
     note: impl Into<String>,
@@ -31,7 +32,7 @@ pub(crate) async fn commit_write<'a, R: Resource, T>(
     let written = match written {
         Ok((value, outcome)) => {
             let change = change(value);
-            R::before_commit(cx, &change, &mut tx)
+            R::before_commit(cx, &change, &mut *tx)
                 .await
                 .map(|()| (change, outcome))
         }
@@ -54,7 +55,7 @@ pub(crate) async fn commit_write<'a, R: Resource, T>(
 /// success flash.
 pub(crate) async fn commit_then<'a, T, F: Future<Output = ()>>(
     cx: &'a Cx,
-    tx: toasty::Transaction<'_>,
+    tx: WriteTx<'_>,
     written: Result<(T, Outcome), topcoat::Error>,
     after: impl FnOnce(T) -> F,
     note: impl Into<String>,

@@ -6,7 +6,7 @@ use topcoat::{context::Cx, router::Body, view::BoxView};
 use super::{InputPage, Pending, Posted, read_post};
 use crate::{
     BoxFuture,
-    db::db,
+    db::{WriteTx, db},
     form::FormValues,
     panel::write::commit_then,
     resource::{Change, HeaderEntry, Resource, run_after_commit},
@@ -81,10 +81,12 @@ async fn header_run<'a>(
         }
     };
     let mut db = db(cx);
-    let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
+    let mut tx = WriteTx::begin(cx, &mut db)
+        .await
+        .map_err(crate::error::unavailable)?;
     if let Some(values) = submitted {
         let errors = (action.input.schema)()
-            .recheck_relationships(cx, &values, &FormValues::new(), &mut tx)
+            .recheck_relationships(cx, &values, &FormValues::new(), &mut *tx)
             .await;
         if !errors.is_empty() {
             // The page's choices may query: release the connection first.
@@ -93,8 +95,8 @@ async fn header_run<'a>(
             return page.render(cx, &action.input, chrome).await;
         }
     }
-    let written = match ((action.run)(cx, input, &mut tx).await, hooks) {
-        (Ok(outcome), Some(hooks)) => (hooks.before)(cx, action.name, &mut tx)
+    let written = match ((action.run)(cx, input, &mut *tx).await, hooks) {
+        (Ok(outcome), Some(hooks)) => (hooks.before)(cx, action.name, &mut *tx)
             .await
             .map(|()| outcome),
         (written, _) => written,

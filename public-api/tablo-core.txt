@@ -2020,6 +2020,7 @@ impl tablo_core::Notifications
 pub fn tablo_core::Notifications::of(&topcoat_core::context::Cx) -> topcoat::Result<Self>
 pub async fn tablo_core::Notifications::prune(&self, core::time::Duration) -> topcoat::Result<()>
 pub async fn tablo_core::Notifications::send(&self, &str, tablo_core::Notification) -> topcoat::Result<tablo_core::notification::StoredNotification>
+pub async fn tablo_core::Notifications::send_in(&self, &mut dyn toasty::db::executor::Executor, &str, tablo_core::Notification) -> topcoat::Result<tablo_core::notification::StoredNotification>
 pub fn tablo_core::Notifications::tenant(self, impl core::convert::Into<core::option::Option<uuid::Uuid>>) -> Self
 impl core::clone::Clone for tablo_core::Notifications
 pub fn tablo_core::Notifications::clone(&self) -> tablo_core::Notifications
@@ -6495,6 +6496,7 @@ impl tablo_core::Notifications
 pub fn tablo_core::Notifications::of(&topcoat_core::context::Cx) -> topcoat::Result<Self>
 pub async fn tablo_core::Notifications::prune(&self, core::time::Duration) -> topcoat::Result<()>
 pub async fn tablo_core::Notifications::send(&self, &str, tablo_core::Notification) -> topcoat::Result<tablo_core::notification::StoredNotification>
+pub async fn tablo_core::Notifications::send_in(&self, &mut dyn toasty::db::executor::Executor, &str, tablo_core::Notification) -> topcoat::Result<tablo_core::notification::StoredNotification>
 pub fn tablo_core::Notifications::tenant(self, impl core::convert::Into<core::option::Option<uuid::Uuid>>) -> Self
 impl core::clone::Clone for tablo_core::Notifications
 pub fn tablo_core::Notifications::clone(&self) -> tablo_core::Notifications

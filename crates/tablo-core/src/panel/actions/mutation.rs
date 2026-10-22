@@ -33,7 +33,7 @@ use super::super::{
     write::commit_write,
 };
 use crate::{
-    db::db,
+    db::{WriteTx, db},
     form::{FieldErrors, FormValues},
     notification::{Notification, set_notification},
     panel::url::action_options_url,
@@ -222,7 +222,9 @@ async fn mutate<'a, R: Resource>(
     // The fetched snapshot is the checked snapshot: the load, the checks and the write share
     // the transaction, and any error rolls it back.
     let mut db = db(cx);
-    let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
+    let mut tx = WriteTx::begin(cx, &mut db)
+        .await
+        .map_err(crate::error::unavailable)?;
     let rows = load_targets(cx, resource, &ids, target, action.trashed, &mut tx).await?;
     // A record that cannot be viewed cannot be written by guessing its key.
     if rows.iter().any(|row| !resource.can(cx, Ability::View(row))) {
@@ -273,7 +275,7 @@ async fn mutate<'a, R: Resource>(
             values: posted,
         } => {
             let errors = (action.input.schema)()
-                .recheck_relationships(cx, &posted, &FormValues::new(), &mut tx)
+                .recheck_relationships(cx, &posted, &FormValues::new(), &mut *tx)
                 .await;
             if !errors.is_empty() {
                 let (page, chrome) = page(
@@ -298,7 +300,7 @@ async fn mutate<'a, R: Resource>(
     let skipped = skipped.unwrap_or_default();
     let note = (action.success)(cx, rows.len()) + &skipped;
     // A delete's hook names what was removed: the pre-delete snapshot.
-    let written = (action.run)(cx, &rows, input, &mut tx)
+    let written = (action.run)(cx, &rows, input, &mut *tx)
         .await
         .map(|outcome| (rows, outcome.skipping(&skipped)));
     commit_write(

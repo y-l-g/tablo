@@ -23,7 +23,7 @@ use super::{
     unique::{check_unique, taken_since},
 };
 use crate::{
-    db::db,
+    db::{WriteTx, db},
     form::{FieldErrors, FormValues},
     resource::{Change, Resource},
     schema::{FormMask, Schema},
@@ -413,7 +413,9 @@ pub(crate) fn resource_import_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
                 .iter()
                 .any(|(_, submission)| !submission.errors.is_empty());
         let mut db = db(cx);
-        let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
+        let mut tx = WriteTx::begin(cx, &mut db)
+            .await
+            .map_err(crate::error::unavailable)?;
         let mut created = Vec::with_capacity(staged.len());
         for (row, submission) in staged {
             let Submission {
@@ -425,7 +427,15 @@ pub(crate) fn resource_import_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             // Inside the transaction, so a row's unique value is checked against the rows
             // before it.
             errors.extend(
-                check_unique(cx, &resource, &schema, &values, &FormValues::new(), &mut tx).await?,
+                check_unique(
+                    cx,
+                    &resource,
+                    &schema,
+                    &values,
+                    &FormValues::new(),
+                    &mut *tx,
+                )
+                .await?,
             );
             let form = parse_form(cx, &resource, &values, &mut errors)?;
             recheck_relationships(
@@ -434,7 +444,7 @@ pub(crate) fn resource_import_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
                 &values,
                 &FormValues::new(),
                 &mut errors,
-                &mut tx,
+                &mut *tx,
             )
             .await;
             if !errors.is_empty() {
@@ -445,13 +455,13 @@ pub(crate) fn resource_import_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             let Some(form) = form else {
                 continue;
             };
-            match R::create_record(cx, form, &mut tx).await {
+            match R::create_record(cx, form, &mut *tx).await {
                 Ok(_) if refused => {}
                 Ok(record) => {
                     // Each row is a create, so the hook a create runs inside its transaction
                     // runs once per row; an `Err` rolls the whole file back.
                     let change = Change::Create(record);
-                    if let Err(error) = R::before_commit(cx, &change, &mut tx).await {
+                    if let Err(error) = R::before_commit(cx, &change, &mut *tx).await {
                         return Err(super::super::write::failed_write(cx, WRITE_IMPORT, error));
                     }
                     created.push(change);
