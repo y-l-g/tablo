@@ -280,10 +280,11 @@ impl<F> Schema<F> {
         errors
     }
 
-    /// Each key a condition or a dependent choice watches, with the key of a field it drives:
-    /// `None` for a condition guarding no field, such as one over an empty section.
+    /// Each key a condition, a dependent choice or a comparison watches, with the key of a field
+    /// it drives: `None` for a condition guarding no field, such as one over an empty section.
     pub(crate) fn watchers(&self) -> Vec<(String, Option<String>)> {
         let mut watchers = self.condition_watchers();
+        watchers.extend(self.comparison_watchers());
         watchers.extend(self.fields.iter().filter_map(|field| {
             field
                 .parent_key()
@@ -431,7 +432,10 @@ impl<F> Schema<F> {
                     errors.push(error);
                 }
                 let rows = value.as_rows().unwrap_or_default();
-                repeater.check(cx, name, rows, errors).await;
+                let held = stored.get(name).and_then(FormValue::as_rows);
+                repeater
+                    .check(cx, name, rows, held.unwrap_or_default(), errors)
+                    .await;
                 continue;
             }
             if let Some(error) =

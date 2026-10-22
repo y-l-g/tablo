@@ -130,6 +130,8 @@ struct Trip {
 #[derive(Debug, Clone, toasty::Embed, tablo::FormInput)]
 struct Stop {
     place: String,
+    #[form(url, optional)]
+    site: String,
 }
 
 #[derive(tablo::RecordForm)]
@@ -470,6 +472,45 @@ async fn the_server_refuses_a_repeater_outside_its_bounds() {
     let trips = Trip::all().exec(&mut db.clone()).await.unwrap();
     assert_eq!(trips.len(), 1);
     assert_eq!(trips[0].stops.len(), 2);
+}
+
+/// A repeater row keeping the values the record stores at its position skips their rules, as a
+/// field does, and a row changing one checks it.
+#[tokio::test]
+async fn an_edit_keeping_a_stored_row_skips_its_rules() {
+    let (db, router) = tickets().await;
+    let trip = toasty::create!(Trip {
+        name: "Old".to_string(),
+        stops: vec![Stop {
+            place: "Oslo".to_string(),
+            site: "ftp://oslo.example".to_string(),
+        }],
+    })
+    .exec(&mut db.clone())
+    .await
+    .unwrap();
+    let client = TestClient::new(&router);
+    let edit = format!("/admin/trips/{}/edit", trip.id);
+    let response = client
+        .submit(
+            &edit,
+            "name=New&stops=0&stops.0.place=Oslo&stops.0.site=ftp%3A%2F%2Foslo.example",
+        )
+        .await;
+    assert_eq!(response.status(), 303, "an untouched row saves");
+    let response = client
+        .submit(
+            &edit,
+            "name=New&stops=0&stops.0.place=Oslo&stops.0.site=ftp%3A%2F%2Fbergen.example",
+        )
+        .await;
+    assert_eq!(response.status(), 200);
+    let html = body_string(response).await;
+    assert_eq!(
+        field_error(&html, "stops.0.site"),
+        Some(ErrorKind::Invalid),
+        "{html}"
+    );
 }
 
 /// A list or checkbox rule no submission can keep, or one its control cannot take, refuses the

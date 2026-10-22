@@ -216,7 +216,7 @@ pub(crate) async fn render_form_page<'a>(
         .any(|field| field.is_file())
         .then(|| "multipart/form-data".to_string());
     let csrf = crate::csrf::current_token(cx);
-    // Carried paths are re-verified against the store before use.
+    // Carried paths are signed for their field, and re-verified against the store before use.
     let mut carried_fields: Vec<BoxView<'a>> = Vec::new();
     let mut carried_names: Vec<&String> = carried.iter().collect();
     carried_names.sort();
@@ -225,7 +225,7 @@ pub(crate) async fn render_form_page<'a>(
             continue;
         };
         let control = format!("keep_{name}");
-        let path = path.to_string();
+        let path = crate::upload::carry::seal(cx, name, path);
         carried_fields
             .push(view! { cx => <input type="hidden" name=(control) value=(path)> }.boxed());
     }

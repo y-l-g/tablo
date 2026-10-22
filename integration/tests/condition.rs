@@ -9,7 +9,7 @@ use toasty::Db;
 use topcoat::router::Router;
 use uuid::Uuid;
 
-use crate::common::{TestClient, body_string, mount, test_db};
+use crate::common::{TestClient, body_string, form_body, input_value, mount, test_db};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Customer {
@@ -183,13 +183,22 @@ async fn an_edit_keeps_the_stored_value_of_a_hidden_field() {
 async fn a_hidden_file_field_drops_its_carried_upload() {
     for (kind, logo) in [("company", "/uploads/logo.png"), ("person", "")] {
         let (db, router) = customers().await;
-        let client = TestClient::new(&router);
-        let response = client
-            .submit(
+        let client = TestClient::new(&router).csrf(&Uuid::new_v4().to_string());
+        // A refused submission carries the upload it stored.
+        let refused = client
+            .submit_multipart(
                 "/admin/customers/-/create",
-                &format!("name=Acme&kind={kind}&keep_logo=%2Fuploads%2Flogo.png"),
+                &[
+                    ("name", None, ""),
+                    ("kind", None, "company"),
+                    ("logo", Some("logo.png"), "PNG"),
+                ],
             )
             .await;
+        let carried =
+            input_value(&body_string(refused).await, "keep_logo").expect("the upload is carried");
+        let body = form_body(&[("name", "Acme"), ("kind", kind), ("keep_logo", &carried)]);
+        let response = client.submit("/admin/customers/-/create", &body).await;
         assert!(
             response.status().is_redirection(),
             "kind={kind}: the create succeeds, got {} {}",

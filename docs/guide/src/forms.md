@@ -383,8 +383,9 @@ served file's type comes from its extension, so the extension decides how a brow
 [`FileField::extensions`](https://y-l.fr/tablo/nightly/api/tablo/struct.FileField.html#method.extensions)
 has the rules.
 
-Any other store implements `Uploader`. This one checks that the bytes really are an image, which no
-field rule does, then stores in a directory:
+Any other store implements `Uploader`. This one refuses a file whose first bytes are not a PNG's
+or a JPEG's signature, which no field rule checks, then stores in a directory. A signature is no
+proof the rest is an image: decode the file when that matters.
 
 ```rust
 {{#include ../../../examples/guide/src/forms.rs:forms-uploader}}
@@ -392,7 +393,8 @@ field rule does, then stores in a directory:
 
 `store` returns the value to save, and its error is shown to the user, so keep it free of paths.
 The edit form keeps a stored file until the user removes it, and a form that re-renders with errors
-reuses an upload only where `Uploader::holds` vouches for the path.
+reuses an upload only under the tag the panel signed for its field, where `Uploader::holds` vouches
+for the path.
 [`Uploader`](https://y-l.fr/tablo/nightly/api/tablo/trait.Uploader.html) has the rules, and [Security](./security.md) the headers
 served files carry.
 

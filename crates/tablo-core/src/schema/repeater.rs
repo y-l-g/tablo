@@ -112,17 +112,23 @@ impl RepeaterControl {
 
     /// Adds to `errors` what the item's controls' own rules refuse in each of `rows`, under the
     /// key the row's control posts: a choice that is not one of its options, an email field's
-    /// address, a text field's declared length, bounds and pattern.
+    /// address, a text field's declared length, bounds and pattern. Each row checks against the
+    /// row `stored` holds at its position, so a value the record stores there is not checked
+    /// again.
     pub(crate) async fn check(
         &self,
         cx: &Cx,
         key: &str,
         rows: &[FormValues],
+        stored: &[FormValues],
         errors: &mut FieldErrors,
     ) {
         for (row, item) in rows.iter().enumerate() {
             let (schema, values) = self.row(key, &row.to_string(), item);
-            Box::pin(schema.check_controls(cx, &values, &FormValues::new(), errors)).await;
+            let held = stored.get(row).map_or_else(FormValues::new, |held| {
+                self.row(key, &row.to_string(), held).1
+            });
+            Box::pin(schema.check_controls(cx, &values, &held, errors)).await;
         }
     }
 

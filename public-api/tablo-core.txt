@@ -1922,6 +1922,7 @@ pub tablo_core::FieldRuleFault::NotCheckbox
 pub tablo_core::FieldRuleFault::NotText(&'static str)
 pub tablo_core::FieldRuleFault::RefusedBlank
 pub tablo_core::FieldRuleFault::RefusedDefault(alloc::string::String)
+pub tablo_core::FieldRuleFault::SelfComparison
 pub tablo_core::FieldRuleFault::SingleValue
 pub tablo_core::FieldRuleFault::UnorderedBound(alloc::string::String)
 pub tablo_core::FieldRuleFault::UnorderedComparison(alloc::string::String)

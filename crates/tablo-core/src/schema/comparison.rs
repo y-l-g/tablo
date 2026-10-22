@@ -115,9 +115,25 @@ impl<F> Schema<F> {
         None
     }
 
+    /// Each compared field's key, with the key of the field comparing with it: a refusal tells
+    /// what the compared field holds, as a condition's watch does.
+    pub(crate) fn comparison_watchers(&self) -> Vec<(String, Option<String>)> {
+        let mut watchers = Vec::new();
+        for field in &self.fields {
+            let Some(text) = field.as_text() else {
+                continue;
+            };
+            for comparison in text.comparisons() {
+                watchers.push((comparison.other.clone(), Some(field.name().to_string())));
+            }
+        }
+        watchers
+    }
+
     /// What is wrong with each field's comparisons, reported under `prefix` and the field's key:
-    /// a compared field the schema does not place, one that is no text field of the same type,
-    /// and an ordering comparison over a type without an order.
+    /// a comparison with the field itself, a compared field the schema does not place, one that
+    /// is no text field of the same type, and an ordering comparison over a type without an
+    /// order.
     pub(crate) fn comparison_errors(&self, prefix: &str) -> Vec<DeclarationErrorKind> {
         let mut errors = Vec::new();
         for field in &self.fields {
@@ -127,6 +143,7 @@ impl<F> Schema<F> {
             for comparison in text.comparisons() {
                 let other = comparison.other.clone();
                 let fault = match self.fields.iter().find(|f| f.name() == other) {
+                    _ if other == field.name() => FieldRuleFault::SelfComparison,
                     None => FieldRuleFault::UnplacedComparedField(other),
                     Some(compared)
                         if compared.as_text().is_none_or(|compared| {

@@ -225,16 +225,18 @@ impl<R: Resource> Mounted<R> {
     }
 
     /// Whether `cx` may create a record: the policy allows it, and every field the form masks
-    /// for `cx` and the record form requires has a default to take.
+    /// for `cx` that the record form requires, or whose rules refuse a blank answer, as an
+    /// `accepted` checkbox or a `min_items`, has a default to take.
     pub(crate) fn can_create(&self, cx: &Cx) -> bool {
         if !self.can(cx, Ability::Create) {
             return false;
         }
         let mask = self.form_mask(cx);
+        let zone = crate::time_zone(cx);
         !self.form.fields().any(|field| {
             mask.keys().any(|key| key == field.name())
-                && field.is_required()
                 && field.default_value().is_none()
+                && (field.is_required() || field.check_unposted(&zone).is_some())
         })
     }
 
