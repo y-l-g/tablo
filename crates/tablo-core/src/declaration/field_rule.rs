@@ -1,8 +1,8 @@
-//! The declaration mistakes of a text field's rules, and their wording.
+//! The declaration mistakes of a field's rules, and their wording.
 
 use std::fmt;
 
-/// Why a text field's declared rules cannot work:
+/// Why a field's declared rules cannot work:
 /// [`DeclarationErrorKind::FieldRule`](super::DeclarationErrorKind::FieldRule).
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
@@ -21,6 +21,18 @@ pub enum FieldRuleFault {
     /// A rich text editor over a field whose type is no text, as a number or a timestamp,
     /// carrying the input type its text control had.
     NotText(&'static str),
+    /// `accepted` on a control other than the built-in checkbox or switch.
+    NotCheckbox,
+    /// `min_items` or `max_items` on a choice that is not `multiple`.
+    SingleValue,
+    /// A multiple choice's `min_items` above the count of static options it offers, carried.
+    FewerOptions(usize),
+    /// A repeater's `max_items` above [`MAX_REPEATER_ROWS`](crate::MAX_REPEATER_ROWS),
+    /// carried.
+    AboveRowCap(usize),
+    /// A field always disabled, with no default, whose blank answer breaks its own rules: an
+    /// `accepted` checkbox or a `min_items`, so every create is refused.
+    RefusedBlank,
 }
 
 /// [`DeclarationErrorKind::FieldRule`](super::DeclarationErrorKind::FieldRule)'s sentence.
@@ -57,6 +69,31 @@ pub(super) fn fmt_field_rule(
             f,
             "field '{field}' is a rich text editor over a field its form edits as '{input}' \
              input, but rich text stores HTML: make the field a `String` or `Option<String>`"
+        ),
+        FieldRuleFault::NotCheckbox => write!(
+            f,
+            "field '{field}' is `accepted` but is not the built-in checkbox or switch: declare \
+             it with `Field::toggle` or `Field::toggle_input`"
+        ),
+        FieldRuleFault::SingleValue => write!(
+            f,
+            "field '{field}' bounds how many options it takes, but takes one: make it `multiple` \
+             or drop `min_items` and `max_items`"
+        ),
+        FieldRuleFault::FewerOptions(options) => write!(
+            f,
+            "field '{field}' needs more options chosen than the {options} it offers, so it \
+             refuses every value"
+        ),
+        FieldRuleFault::AboveRowCap(max) => write!(
+            f,
+            "field '{field}' takes up to {max} rows, more than any repeater takes \
+             (`MAX_REPEATER_ROWS`): lower `max_items`"
+        ),
+        FieldRuleFault::RefusedBlank => write!(
+            f,
+            "field '{field}' is disabled and has no default, but its own rules refuse its blank \
+             answer, so every create is refused: give it a default or drop the rule"
         ),
     }
 }

@@ -145,9 +145,15 @@ does not compile:
   and the [rules](#length-bounds-and-patterns) `.min_length(n)`, `.max_length(n)`, `.min(..)`,
   `.max(..)`, `.pattern(..)`;
 - choice (`ChoiceField`): `.options(..)`, `.relationship::<R>()`, `.searchable()`, `.depends_on(..)`,
-  `.multiple()`, and `.radio()` or `.buttons()` to list the options rather than a `<select>`;
-- toggle (`CustomField` over a `bool`): `.switch()` draws it as an on/off switch;
-- rich text (`RichTextField`): `.toolbar(..)`, `.placeholder(..)`, `.min_length(n)`, `.max_length(n)`.
+  `.multiple()`, and `.radio()` or `.buttons()` to list the options rather than a `<select>`; a
+  multiple choice also takes `.min_items(n)` and `.max_items(n)`;
+- toggle (`CustomField` over a `bool`): `.switch()` draws it as an on/off switch, and `.accepted()`
+  refuses it unchecked, as an action's terms box needs;
+- rich text (`RichTextField`): `.toolbar(..)`, `.placeholder(..)`, `.min_length(n)`, `.max_length(n)`;
+- repeater (`RepeaterField`): `.add_label(..)`, `.min_items(n)`, `.max_items(n)`.
+
+[`ChoiceField::min_items`](https://y-l.fr/tablo/nightly/api/tablo/struct.ChoiceField.html#method.min_items)
+is how a multiple choice is required, since its blank answer is the empty list.
 
 A choice needs something to offer: mounting refuses a resource form's or an action input's choice
 with neither options nor a relationship, whose `<select>` would be empty and whose validation

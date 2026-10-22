@@ -81,6 +81,22 @@ impl<F> ChoiceField<F> {
         self
     }
 
+    /// Refuse a submission choosing fewer than `count` options. A [`multiple`](Self::multiple)
+    /// choice's blank answer is the empty list, which no other rule refuses, so `min_items(1)` is
+    /// how one requires a choice. Only the server checks it. A choice that is not `multiple` fails
+    /// the mount, as does a minimum above `max_items` or above the count of static options.
+    pub fn min_items(mut self, count: usize) -> Self {
+        self.choice_mut().bounds.min = Some(count);
+        self
+    }
+
+    /// Refuse a submission choosing more than `count` options; [`min_items`](Self::min_items)
+    /// says which choices take it.
+    pub fn max_items(mut self, count: usize) -> Self {
+        self.choice_mut().bounds.max = Some(count);
+        self
+    }
+
     /// Filters options as the user types, fetching from the relationship past the option cap.
     pub fn searchable(mut self) -> Self {
         self.choice_mut().searchable = true;

@@ -124,3 +124,18 @@ fn a_timestamp_reads_a_skipped_or_repeated_time_compatibly() {
         "2026-10-25T00:30:00Z"
     );
 }
+
+proptest::proptest! {
+    /// Whatever the URL rule takes opens with an `http` or `https` scheme and holds no
+    /// whitespace or control character, so a link rendering it can only navigate.
+    #[test]
+    fn a_url_the_rule_takes_is_an_http_link(
+        value in "(http|HTTPS|https|ftp|javascript|data):(//)?[ -~\t\n\u{0}]{0,16}",
+    ) {
+        if super::is_web_url(&value) {
+            let lower = value.to_ascii_lowercase();
+            proptest::prop_assert!(lower.starts_with("http://") || lower.starts_with("https://"));
+            proptest::prop_assert!(!value.chars().any(|c| c.is_whitespace() || c.is_control()));
+        }
+    }
+}

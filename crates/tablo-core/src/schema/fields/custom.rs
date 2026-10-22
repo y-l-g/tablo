@@ -146,12 +146,16 @@ fn boolean<'a>(cx: &'a Cx, input: ControlInput, switch: bool) -> BoxView<'a> {
     let invalid = if input.invalid() { "true" } else { "false" };
     let described_by = input.described_by().map(str::to_string);
     let disabled = input.is_disabled();
+    // Only an accepted box is required: the browser then refuses it unchecked.
+    let required = input.required();
     let attrs = attributes! {
         cx =>
         id=(id)
         name=(name.clone())
         value="true"
         checked=(checked)
+        required=(required)
+        aria-required=(required.then_some("true"))
         disabled=(disabled)
         aria-invalid=(invalid)
         aria-describedby=(described_by)
