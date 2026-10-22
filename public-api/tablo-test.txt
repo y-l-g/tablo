@@ -316,6 +316,43 @@ impl core::marker::Unpin for tablo_test::RowActions
 impl core::marker::UnsafeUnpin for tablo_test::RowActions
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::RowActions
 impl core::panic::unwind_safe::UnwindSafe for tablo_test::RowActions
+pub struct tablo_test::SearchGroup
+pub tablo_test::SearchGroup::label: alloc::string::String
+pub tablo_test::SearchGroup::results: alloc::vec::Vec<tablo_test::SearchResult>
+impl core::clone::Clone for tablo_test::SearchGroup
+pub fn tablo_test::SearchGroup::clone(&self) -> tablo_test::SearchGroup
+impl core::cmp::Eq for tablo_test::SearchGroup
+impl core::cmp::PartialEq for tablo_test::SearchGroup
+pub fn tablo_test::SearchGroup::eq(&self, &tablo_test::SearchGroup) -> bool
+impl core::fmt::Debug for tablo_test::SearchGroup
+pub fn tablo_test::SearchGroup::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_test::SearchGroup
+impl core::marker::Freeze for tablo_test::SearchGroup
+impl core::marker::Send for tablo_test::SearchGroup
+impl core::marker::Sync for tablo_test::SearchGroup
+impl core::marker::Unpin for tablo_test::SearchGroup
+impl core::marker::UnsafeUnpin for tablo_test::SearchGroup
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::SearchGroup
+impl core::panic::unwind_safe::UnwindSafe for tablo_test::SearchGroup
+pub struct tablo_test::SearchResult
+pub tablo_test::SearchResult::details: alloc::vec::Vec<(alloc::string::String, alloc::string::String)>
+pub tablo_test::SearchResult::href: alloc::string::String
+pub tablo_test::SearchResult::title: alloc::string::String
+impl core::clone::Clone for tablo_test::SearchResult
+pub fn tablo_test::SearchResult::clone(&self) -> tablo_test::SearchResult
+impl core::cmp::Eq for tablo_test::SearchResult
+impl core::cmp::PartialEq for tablo_test::SearchResult
+pub fn tablo_test::SearchResult::eq(&self, &tablo_test::SearchResult) -> bool
+impl core::fmt::Debug for tablo_test::SearchResult
+pub fn tablo_test::SearchResult::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_test::SearchResult
+impl core::marker::Freeze for tablo_test::SearchResult
+impl core::marker::Send for tablo_test::SearchResult
+impl core::marker::Sync for tablo_test::SearchResult
+impl core::marker::Unpin for tablo_test::SearchResult
+impl core::marker::UnsafeUnpin for tablo_test::SearchResult
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::SearchResult
+impl core::panic::unwind_safe::UnwindSafe for tablo_test::SearchResult
 pub struct tablo_test::Submission<'c, 'a, K>
 impl<'c, 'a, K: core::cmp::PartialEq> tablo_test::Submission<'c, 'a, K>
 pub fn tablo_test::Submission<'c, 'a, K>::add(self, K, &str) -> Self
@@ -392,6 +429,8 @@ pub fn tablo_test::rich_text_values(&str) -> alloc::vec::Vec<alloc::string::Stri
 pub fn tablo_test::row_actions(&str, &str) -> core::option::Option<tablo_test::RowActions>
 pub fn tablo_test::row_keys(&str) -> alloc::vec::Vec<alloc::string::String>
 pub fn tablo_test::rows(&str) -> alloc::vec::Vec<tablo_test::Row>
+pub fn tablo_test::search_box(&str) -> core::option::Option<alloc::string::String>
+pub fn tablo_test::search_results(&str) -> alloc::vec::Vec<tablo_test::SearchGroup>
 pub fn tablo_test::session_cookie_value(&http::response::Response<topcoat_router::body::Body>) -> core::option::Option<alloc::string::String>
 pub fn tablo_test::set_cookie_header(&http::response::Response<topcoat_router::body::Body>, &str) -> core::option::Option<alloc::string::String>
 pub fn tablo_test::stale_form(&str) -> bool

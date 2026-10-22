@@ -136,7 +136,7 @@ pub(crate) fn topbar_bell(cx: &Cx) -> BoxView<'_> {
     if bell_inbox(cx).is_none() {
         return ().boxed();
     }
-    view! { cx => <div class="ml-auto">notification_bell()</div> }.boxed()
+    view! { cx => notification_bell() }.boxed()
 }
 
 /// The signed-in user's inbox when the request's panel shows a bell.

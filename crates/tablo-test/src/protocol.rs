@@ -1,12 +1,13 @@
 //! Reads values back out of rendered responses: bodies, cookies, form data,
 //! and the semantic HTML queries over tables, fields, filters, the ignored-filters banner, the
-//! import page, rich text values, and the notification bell.
+//! import page, rich text values, the notification bell, and the global search.
 
 mod bell;
 pub mod dom;
 mod ignored;
 mod import;
 mod rich_text;
+mod search;
 
 pub use bell::{Bell, BellNotification, bell};
 pub use dom::{
@@ -18,6 +19,7 @@ use http_body_util::BodyExt;
 pub use ignored::{IgnoredFilter, IgnoredReason, ignored_filters};
 pub use import::{ImportError, ImportRefusal, import_columns, import_errors, import_refusal};
 pub use rich_text::rich_text_values;
+pub use search::{SearchGroup, SearchResult, search_box, search_results};
 use tablo_core::Notification;
 use topcoat::router::Body;
 

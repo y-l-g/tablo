@@ -13,6 +13,7 @@ mod list;
 pub(crate) mod pages;
 mod register;
 mod relations;
+mod search;
 mod shell;
 pub(crate) mod state;
 #[cfg(test)]
@@ -29,6 +30,7 @@ pub(crate) use self::{
     build::route_path,
     forms::{FormChrome, parse_form_body, render_form_page},
     gate::panel_prefix,
+    search::render_results as render_search_results,
 };
 use self::{
     build::is_directory_pattern,
@@ -119,6 +121,8 @@ pub(crate) fn normalize_prefix(raw: &str) -> String {
 ///   [`Auth`](crate::auth::Auth) installs the feature each serves;
 /// - `POST /admin/{page}/-/actions/{action}` for a page's header actions, and
 ///   `/admin/-/actions/{action}` for the home page's;
+/// - `GET /admin/-/search?q=`, the [global search](Self::without_global_search)'s results page,
+///   when the panel searches a resource;
 /// - every other path under `/admin`, with any method, as a 404 behind the auth gate, so a visitor
 ///   signs in before learning a path serves nothing. The app's own routes under the prefix still
 ///   take precedence.
@@ -150,6 +154,8 @@ pub struct Panel {
     notifications: bool,
     /// The zone a user without their own reads and enters wall-clock times in.
     time_zone: jiff::tz::TimeZone,
+    /// Whether the topbar shows the global search box.
+    global_search: bool,
 }
 
 impl Panel {
@@ -179,6 +185,7 @@ impl Panel {
             endpoints: Vec::new(),
             notifications: false,
             time_zone: jiff::tz::TimeZone::UTC,
+            global_search: true,
         }
     }
 
@@ -477,6 +484,35 @@ impl Panel {
     /// ```
     pub fn time_zone(mut self, zone: jiff::tz::TimeZone) -> Self {
         self.time_zone = zone;
+        self
+    }
+
+    /// Leaves out the global search the panel otherwise shows: the box in its topbar and its
+    /// results page.
+    ///
+    /// By default the topbar holds a search box over every resource the panel mounts, unless a
+    /// resource opts out with
+    /// [`ResourceDef::without_global_search`](crate::ResourceDef::without_global_search). As the
+    /// user types, it lists up to 5 results of each resource, headed by the resource's plural
+    /// label in the sidebar's order, and links the page at `{prefix}/-/search?q=`, which lists up
+    /// to 25 of each. That page also answers the box's form without JavaScript. The term matches
+    /// a record when each of its first 8 words does;
+    /// [`ResourceDef::global_search`](crate::ResourceDef::global_search) says what a word matches,
+    /// which records show and what each opens.
+    ///
+    /// A resource with no searchable column and no title column is not searched. The box shows
+    /// to a request that may list one of the searched resources, and a panel that searches none
+    /// serves no results page. The results' shard,
+    /// [`search::search_results`](crate::search::search_results), registers through the router's
+    /// `.discover()`; the panel declares it as an [endpoint](Self::endpoint), so it answers for a
+    /// panel without sign-in too.
+    ///
+    /// ```rust
+    /// # use tablo_core::Panel;
+    /// Panel::new("admin").without_global_search();
+    /// ```
+    pub fn without_global_search(mut self) -> Self {
+        self.global_search = false;
         self
     }
 

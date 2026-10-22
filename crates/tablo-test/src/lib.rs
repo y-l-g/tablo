@@ -10,11 +10,12 @@ pub use db::{TEST_DATABASE_URL, test_db};
 use http::header::{CONTENT_TYPE, COOKIE};
 pub use protocol::{
     Bell, BellNotification, EmptyReason, EmptyTable, ErrorKind, FilterOption, Group, IgnoredFilter,
-    IgnoredReason, ImportError, ImportRefusal, PickerColumn, Row, RowActions, SESSION_COOKIE, bell,
-    body_bytes, body_string, column_picker, columns, confirms_first, cookie_header, empty_table,
-    field_error, field_error_message, filter_options, find_href_with, form_body, groups,
-    ignored_filters, import_columns, import_errors, import_refusal, input_value, multipart_body,
-    nav_badge, notification, response_cookies, rich_text_values, row_actions, row_keys, rows,
+    IgnoredReason, ImportError, ImportRefusal, PickerColumn, Row, RowActions, SESSION_COOKIE,
+    SearchGroup, SearchResult, bell, body_bytes, body_string, column_picker, columns,
+    confirms_first, cookie_header, empty_table, field_error, field_error_message, filter_options,
+    find_href_with, form_body, groups, ignored_filters, import_columns, import_errors,
+    import_refusal, input_value, multipart_body, nav_badge, notification, response_cookies,
+    rich_text_values, row_actions, row_keys, rows, search_box, search_results,
     session_cookie_value, set_cookie_header, stale_form,
 };
 pub use resource::{FieldOf, Reply, ResourceClient, Submission};

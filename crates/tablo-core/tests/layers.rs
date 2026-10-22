@@ -50,7 +50,10 @@ const LAYERS: &[(&str, &[&str])] = &[
         ],
     ),
     ("resources", &["resource", "page"]),
-    ("serving", &["upload", "notification", "auth", "panel"]),
+    (
+        "serving",
+        &["upload", "notification", "auth", "search", "panel"],
+    ),
 ];
 
 /// The edges that reach a module listed later in the same layer, each a cycle, with the files that
@@ -91,10 +94,12 @@ const BACK_EDGES: &[(&str, &[&str], &str)] = &[
             "auth/verification.rs",
             "notification/bell.rs",
             "notification/stored.rs",
+            "search.rs",
         ],
         "the auth pages render in the panel's shell, parse its form bodies and read the request's \
          panel, whose state holds the auth; the bell and stored notifications read the request's \
-         panel too, and the shell renders the bell",
+         panel too, and the shell renders the bell; the search results shard renders what the \
+         request's panel searches, and the shell renders the shard",
     ),
 ];
 

@@ -66,7 +66,11 @@ impl Resource for UserResource {
             // ANCHOR: user-navigation
             .navigation_order(-1)
             .icon(tablo::ui::icons::USERS)
-        // ANCHOR_END: user-navigation
+            // ANCHOR_END: user-navigation
+            // ANCHOR: user-global-search
+            .record_title(lens!(User.name))
+            .global_search(GlobalSearch::new().detail("Email", lens!(User.email)))
+        // ANCHOR_END: user-global-search
     }
 
     // ANCHOR: user-validate

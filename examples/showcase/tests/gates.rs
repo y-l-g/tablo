@@ -615,6 +615,7 @@ async fn anonymous_requests_are_gated_on_every_route() {
         "/admin/posts/-/import".to_string(),
         "/admin/posts/-/import/template".to_string(),
         "/admin/posts/-/options?q=a".to_string(),
+        "/admin/-/search?q=a".to_string(),
         "/admin/posts/-/actions/tag/options?field=tags".to_string(),
         "/admin/-/actions/feature-tagged/options?field=tag".to_string(),
         format!("{relation}/-/actions/attach/options?field=record"),

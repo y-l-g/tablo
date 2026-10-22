@@ -4,7 +4,7 @@ use crate::navigation::NavigationItem;
 
 /// `nav_items` by `order`, declaration order breaking ties: a resource's `navigation()` override
 /// interleaves by setting it.
-pub(super) fn in_sidebar_order(nav_items: &[NavigationItem]) -> Vec<NavigationItem> {
+pub(in crate::panel) fn in_sidebar_order(nav_items: &[NavigationItem]) -> Vec<NavigationItem> {
     let mut nav_items = nav_items.to_vec();
     nav_items.sort_by_key(|item| item.order);
     nav_items
@@ -13,7 +13,7 @@ pub(super) fn in_sidebar_order(nav_items: &[NavigationItem]) -> Vec<NavigationIt
 /// The sidebar's sections of `nav_items`: the ungrouped entries first, under the default label,
 /// then one labelled group per `group`, in the order of its first entry. Each entry keeps its
 /// index in `nav_items`.
-pub(super) fn sidebar_sections(
+pub(in crate::panel) fn sidebar_sections(
     nav_items: Vec<NavigationItem>,
 ) -> Vec<(String, Vec<(usize, NavigationItem)>)> {
     let mut sections: Vec<(String, Vec<(usize, NavigationItem)>)> =

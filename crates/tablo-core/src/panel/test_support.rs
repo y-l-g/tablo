@@ -60,6 +60,7 @@ pub(crate) fn panel_state(prefix: &str, auth: crate::Auth) -> super::state::Pane
         urls: std::collections::HashMap::new(),
         endpoints: Vec::new(),
         notifications: false,
+        searches: Vec::new(),
         time_zone: jiff::tz::TimeZone::UTC,
     }
 }
