@@ -377,6 +377,36 @@ impl<F> TextField<F> {
         self
     }
 
+    /// Text shown before the one-line input, joined to it, such as a currency: `.prefix("$")`. It
+    /// is not part of the value, and a [`multiline`](Self::multiline) textarea renders none.
+    pub fn prefix(mut self, text: impl Into<String>) -> Self {
+        self.text().prefix = Some(text.into());
+        self
+    }
+
+    /// Text shown after the one-line input, joined to it, such as a unit: `.suffix("kg")`. Like a
+    /// [`prefix`](Self::prefix), it is not part of the value.
+    pub fn suffix(mut self, text: impl Into<String>) -> Self {
+        self.text().suffix = Some(text.into());
+        self
+    }
+
+    /// Values the one-line input suggests as the user types, through a `<datalist>`. The user may
+    /// still enter any other value: use a [choice](Self::choice) to restrict them. A
+    /// [`password`](Self::password) suggests none.
+    ///
+    /// ```rust
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # struct Product { #[key] #[auto] id: uuid::Uuid, weight: i64, brand: String }
+    /// # use tablo_core::{Field, lens};
+    /// Field::text(lens!(Product.weight)).suffix("kg");
+    /// Field::text(lens!(Product.brand)).suggestions(["Acme", "Globex", "Initech"]);
+    /// ```
+    pub fn suggestions(mut self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.text().suggestions = values.into_iter().map(Into::into).collect();
+        self
+    }
+
     /// Render a `<textarea>` of `rows` lines rather than a one-line input,
     /// for a column holding prose.
     pub fn multiline(mut self, rows: u32) -> Self {

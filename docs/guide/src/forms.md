@@ -141,7 +141,7 @@ control's builder, which offers only that control's modifiers, so a modifier on 
 does not compile:
 
 - text (`TextField`): `.email()`, `.url()`, `.tel()`, `.password()`, `.unique()`, `.placeholder(..)`,
-  `.multiline(rows)`,
+  `.prefix(..)` and `.suffix(..)` for text around the input, `.suggestions(..)`, `.multiline(rows)`,
   and the [rules](#length-bounds-and-patterns) `.min_length(n)`, `.max_length(n)`, `.min(..)`,
   `.max(..)`, `.pattern(..)`;
 - choice (`ChoiceField`): `.options(..)`, `.relationship::<R>()`, `.searchable()`, `.depends_on(..)`,
