@@ -603,3 +603,31 @@ async fn mounting_refuses_a_reset_the_panel_cannot_serve() {
         }]
     );
 }
+
+/// A job that enters a router's panel handle acts as that panel: its context stays gated, and a
+/// revocation through it ends the account's reset link besides its sessions.
+#[tokio::test]
+async fn a_revocation_through_a_panel_handle_ends_the_reset_link() {
+    let db = db().await;
+    let admin = ada(&db).await;
+    let mail = MemoryTransport::new();
+    let builder = Router::builder()
+        .discover()
+        .app_context(db.clone())
+        .mail(MailConfig::builder().transport(mail.clone()).build())
+        .panel(panel(mailing().password_reset(reset())))
+        .expect("panel builds");
+    let handle = builder.panel_handle("admin").expect("mounted above");
+    let router = builder.build();
+    request_link(&router, "ada@example.com").await;
+    let token = token(&link(&mails(&mail, 1).await[0]));
+
+    let cx = handle.enter(&handle.context());
+    assert!(tablo::auth::enforced(&cx));
+    tablo::auth::revoke_sessions_for_user(&cx, &admin.user_id())
+        .await
+        .unwrap();
+
+    assert!(tokens(&db).await.is_empty());
+    assert_eq!(choose(&router, &token, "new password").await.status(), 404);
+}

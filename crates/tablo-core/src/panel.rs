@@ -8,6 +8,7 @@ pub(crate) mod error_page;
 mod forms;
 pub(crate) mod gate;
 mod headers;
+mod host;
 mod input;
 mod list;
 pub(crate) mod pages;
@@ -25,12 +26,7 @@ use std::path::PathBuf;
 
 use topcoat::{asset::Asset, font::Font, router::LayoutRenderFn};
 
-pub(crate) use self::{
-    bar::header_bar,
-    build::route_path,
-    forms::{FormChrome, parse_form_body, render_form_page},
-    gate::panel_prefix,
-};
+pub(crate) use self::bar::header_bar;
 use self::{
     build::is_directory_pattern,
     register::{PageRegistration, Registration, ResourceRegistration},
@@ -66,17 +62,6 @@ pub fn wired_table<R: Resource>(
 /// panel does not register `R`.
 pub fn navigation_item<R: Resource>(cx: &topcoat::context::Cx) -> Option<crate::NavigationItem> {
     crate::resource::mounted::<R>(cx).map(|resource| resource.navigation.clone())
-}
-
-/// The prefix [`Panel::new`] mounts `raw` at: trimmed, one leading slash, no trailing slash, and
-/// `/admin` when nothing is left.
-pub(crate) fn normalize_prefix(raw: &str) -> String {
-    let trimmed = raw.trim().trim_matches('/');
-    if trimmed.is_empty() {
-        "/admin".to_string()
-    } else {
-        format!("/{trimmed}")
-    }
 }
 
 /// An admin panel: resources and pages under one prefix, framed by one shell
@@ -160,7 +145,7 @@ pub struct Panel {
 impl Panel {
     /// Creates a `Panel` mounted at `prefix`, defaulting an empty prefix to `"/admin"`.
     pub fn new(prefix: impl Into<String>) -> Self {
-        let prefix = normalize_prefix(&prefix.into());
+        let prefix = crate::naming::normalize_prefix(&prefix.into());
         let configuration_errors = prefix
             .trim_matches('/')
             .split('/')

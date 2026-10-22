@@ -25,12 +25,14 @@ async fn a_page_redirects_to_login_without_a_resolved_user() {
         .body(())
         .unwrap()
         .into_parts();
-    let cx = CxTestBuilder::new()
-        .request_context(parts)
-        .request_context(crate::panel::test_support::current_panel(
-            crate::panel::test_support::panel_state("/admin", crate::Auth::password()),
-        ))
-        .build();
+    let cx = crate::panel::test_support::serving(
+        CxTestBuilder::new().request_context(parts),
+        &std::sync::Arc::new(crate::panel::test_support::panel_state(
+            "/admin",
+            crate::Auth::password(),
+        )),
+    )
+    .build();
     let Err(error) = super::page_handler::<ReportsPage>(&cx, Body::empty())
         .single()
         .await

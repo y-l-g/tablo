@@ -3,7 +3,6 @@
 
 use std::{
     any::{Any, TypeId},
-    collections::HashSet,
     future::Future,
 };
 
@@ -16,12 +15,13 @@ use topcoat::{
     view::BoxView,
 };
 
-use super::{PanelUser, SignedIn, input, membership, panel_root, signed, unauthenticated_error};
+use super::{PanelUser, SignedIn, input, membership, signed, unauthenticated_error};
 use crate::{
     BoxFuture,
+    auth::realm::{SettingsPage, current_realm, hosted, panel_prefix},
+    flash::set_notification,
     form::{FieldErrors, FormInput, FormValues},
-    notification::{Notification, set_notification},
-    panel::{FormChrome, panel_prefix, render_form_page, state::current},
+    outcome::Notification,
     schema::Schema,
     tenancy::Membership,
     topcoat_compat::async_page,
@@ -294,7 +294,7 @@ pub(crate) fn offered(cx: &Cx) -> bool {
 /// edit.
 fn editing(cx: &Cx) -> topcoat::Result<(&SignedIn, &dyn DynTenantEditor, &Membership)> {
     let signed = signed(cx).ok_or_else(|| unauthenticated_error(cx))?;
-    let editor = current(cx)
+    let editor = current_realm(cx)
         .and_then(|panel| panel.auth.tenant_editor())
         .ok_or_else(not_found)?;
     let tenant = membership(cx)
@@ -320,7 +320,7 @@ pub(super) fn tenant_profile_page(cx: &Cx, _body: Body) -> BoxView<'_> {
 pub(super) fn tenant_profile_post(cx: &Cx, body: Body) -> BoxView<'_> {
     async_page(async move {
         let (signed, editor, tenant) = editing(cx)?;
-        let form = crate::panel::parse_form_body(cx, body).await?;
+        let form = crate::auth::input::read_form(cx, body).await?;
         crate::csrf::verify(cx, form.last(crate::csrf::FIELD_NAME))?;
         if form.last(TENANT_FIELD) != Some(tenant.tenant.to_string().as_str()) {
             set_notification(
@@ -353,16 +353,15 @@ async fn render<'a>(
     values: &FormValues,
     errors: &FieldErrors,
 ) -> topcoat::Result<BoxView<'a>> {
-    render_form_page(
-        cx,
-        &editor.schema(),
-        FormChrome::settings("Tenant settings", panel_root(cx))
-            .with_hidden(TENANT_FIELD, tenant.tenant.to_string()),
+    let schema = editor.schema();
+    let page = SettingsPage {
+        title: "Tenant settings",
+        schema: &schema,
+        hidden: Some((TENANT_FIELD, tenant.tenant.to_string())),
         values,
         errors,
-        &HashSet::new(),
-    )
-    .await
+    };
+    hosted(cx)?.settings_page(cx, page).await
 }
 
 /// The mistakes in a panel's [`Auth::tenant_profile`](super::Auth::tenant_profile): a settings

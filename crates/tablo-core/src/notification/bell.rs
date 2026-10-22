@@ -7,7 +7,7 @@
 //! session again, and reads back through the [`Inbox`]. A tab with no socket shows what the page
 //! loaded with.
 //!
-//! [`NotificationBus`]: super::bus::NotificationBus
+//! [`NotificationBus`]: crate::bus::NotificationBus
 
 use jiff::Timestamp;
 use tablo_ui::{
@@ -24,12 +24,11 @@ use topcoat::{
 };
 use uuid::Uuid;
 
-use super::{
-    StoredNotification,
-    bus::Subscription,
-    stored::{Inbox, bus},
+use super::{StoredNotification, stored::Inbox};
+use crate::{
+    auth::current_realm,
+    bus::{Subscription, bus},
 };
-use crate::panel::state::current;
 
 /// How many notifications the sheet lists at first, and how many more each "Show more" adds.
 const PAGE: usize = 20;
@@ -141,7 +140,7 @@ pub(crate) fn topbar_bell(cx: &Cx) -> BoxView<'_> {
 
 /// The signed-in user's inbox when the request's panel shows a bell.
 fn bell_inbox(cx: &Cx) -> Option<Inbox> {
-    current(cx).filter(|panel| panel.notifications)?;
+    current_realm(cx).filter(|realm| realm.notifications)?;
     Inbox::of(cx)
 }
 
@@ -484,8 +483,8 @@ pub(crate) fn ago(then: Timestamp, now: Timestamp, zone: &jiff::tz::TimeZone) ->
 fn procedure_inbox(cx: &Cx) -> Result<Inbox> {
     crate::auth::guard(cx)?;
     let inbox = Inbox::of(cx).ok_or_else(unauthorized)?;
-    current(cx)
-        .filter(|panel| panel.notifications)
+    current_realm(cx)
+        .filter(|realm| realm.notifications)
         .ok_or_else(not_found)?;
     Ok(inbox)
 }

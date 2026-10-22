@@ -41,7 +41,7 @@ use crate::{
 
 /// The request's panel prefix, e.g. `/admin`.
 pub fn panel(cx: &Cx) -> Option<String> {
-    current(cx).map(|panel| panel.prefix.clone())
+    current(cx).map(|panel| panel.realm.prefix.clone())
 }
 
 /// `R`'s list URL in the request's panel, e.g. `/admin/posts`.

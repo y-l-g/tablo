@@ -1,4 +1,5 @@
-//! Urlencoded and streamed-multipart body decoding.
+//! Urlencoded and streamed-multipart body decoding: the text a form posts, and the bytes of the
+//! files it chooses, staged as the caller asks.
 
 use std::collections::{HashMap, HashSet};
 
@@ -12,11 +13,39 @@ use topcoat::{
     },
 };
 
-use super::common::{FormParts, MAX_FORM_BYTES};
-use crate::panel::state::uploader;
+use super::StagedUpload;
+use crate::schema::MAX_FORM_BYTES;
 
-/// Parses urlencoded and multipart bodies into `FormParts`, streaming file parts.
-pub(crate) async fn parse_form_body(cx: &Cx, body: Body) -> Result<FormParts, topcoat::Error> {
+/// A decoded form body: its text pairs plus any file parts.
+pub(crate) struct FormParts {
+    /// Every text value, and each file part's sanitized filename, in the order the body posts
+    /// them.
+    pub(crate) pairs: Vec<(String, String)>,
+    /// The bytes of each file part the parse staged, by name.
+    pub(crate) files: HashMap<String, StagedUpload>,
+    /// Names arriving as multipart parts carrying a `filename`; only these may set a file field's
+    /// value.
+    pub(crate) file_part_names: HashSet<String>,
+}
+
+impl FormParts {
+    /// The last value the body posts under `key`.
+    pub(crate) fn last(&self, key: &str) -> Option<&str> {
+        self.pairs
+            .iter()
+            .rev()
+            .find(|(posted, _)| posted == key)
+            .map(|(_, value)| value.as_str())
+    }
+}
+
+/// Parses an urlencoded or multipart body into `FormParts`, streaming file parts and staging
+/// those `capture` asks for.
+pub(crate) async fn parse_body(
+    cx: &Cx,
+    body: Body,
+    capture: Capture,
+) -> Result<FormParts, topcoat::Error> {
     let content_type =
         topcoat::context::try_request_context::<http::request::Parts>(cx).and_then(|parts| {
             parts
@@ -28,11 +57,6 @@ pub(crate) async fn parse_form_body(cx: &Cx, body: Body) -> Result<FormParts, to
         .as_deref()
         .is_some_and(is_multipart_content_type)
     {
-        let capture = if uploader(cx).is_some() {
-            Capture::Persistable
-        } else {
-            Capture::None
-        };
         return parse_multipart_values(cx, body, capture).await;
     }
     let bytes = Bytes::from_request(cx, body).await.map_err(|error| {
@@ -66,8 +90,9 @@ pub(crate) async fn parse_file_body(cx: &Cx, body: Body) -> Result<FormParts, to
 
 /// Which chosen files a multipart body stages the bytes of.
 #[derive(Clone, Copy)]
-enum Capture {
-    /// None: the panel has nowhere to store a file.
+pub(crate) enum Capture {
+    /// None: nothing stores the request's files, such as an auth form's or a panel's without an
+    /// uploader.
     None,
     /// Each whose sanitized name an uploader can store it under.
     Persistable,
@@ -112,7 +137,7 @@ async fn parse_multipart_values(
             filename_star_from_headers(&field).or_else(|| field.file_name().map(str::to_string));
         match filename {
             Some(f) if !f.is_empty() => {
-                let sanitized = crate::upload::sanitize_filename(&f);
+                let sanitized = super::sanitize_filename(&f);
                 // Last part wins, replacing any earlier staged bytes.
                 out.files.remove(&name);
                 // Stages bytes as `capture` asks, else drains.
@@ -126,7 +151,7 @@ async fn parse_multipart_values(
                     read_bounded(&mut field, &mut bytes_seen, Some(&mut bytes)).await?;
                     out.files.insert(
                         name.clone(),
-                        crate::upload::StagedUpload {
+                        StagedUpload {
                             filename: sanitized.clone(),
                             bytes,
                         },

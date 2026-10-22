@@ -21,11 +21,15 @@ use super::{
 };
 use crate::{
     auth::{
-        SignedIn, infrastructure_failure, session::replace_sessions, signed, token::serializable,
+        SignedIn, infrastructure_failure,
+        realm::{hosted, panel_prefix},
+        session::replace_sessions,
+        signed,
+        token::serializable,
         unauthenticated_error,
     },
-    notification::{Notification, set_notification},
-    panel::{Panel, panel_prefix},
+    flash::set_notification,
+    outcome::Notification,
     topcoat_compat::async_page,
 };
 
@@ -86,7 +90,7 @@ pub(crate) fn settings_url(cx: &Cx) -> String {
 fn configuring(cx: &Cx) -> topcoat::Result<(&SignedIn, &TwoFactor)> {
     let signed = signed(cx).ok_or_else(|| unauthenticated_error(cx))?;
     let two_factor = signed
-        .panel
+        .realm
         .auth
         .two_factor_config()
         .ok_or_else(not_found)?;
@@ -116,7 +120,7 @@ async fn standing<'a>(
             refused,
         },
         (None, Some(factor)) => match secret(cx, factor)? {
-            Some(secret) => setup(cx, signed, &secret, refused),
+            Some(secret) => setup(cx, signed, &secret, refused)?,
             None => off(signed, two_factor, false),
         },
         (None, None) => off(signed, two_factor, false),
@@ -134,17 +138,17 @@ fn off(signed: &SignedIn, two_factor: &TwoFactor, refused: bool) -> Settings {
 }
 
 /// The set-up step for `secret`: its QR code and its base32 text.
-fn setup(cx: &Cx, signed: &SignedIn, secret: &[u8], refused: bool) -> Settings {
+fn setup(cx: &Cx, signed: &SignedIn, secret: &[u8], refused: bool) -> topcoat::Result<Settings> {
     let account = signed
         .user
         .email()
         .unwrap_or_else(|| signed.user.display_name())
         .to_string();
-    Settings::App {
-        uri: totp::uri(secret, &Panel::brand_name(cx), &account),
+    Ok(Settings::App {
+        uri: totp::uri(secret, &hosted(cx)?.brand_name(cx), &account),
         secret: totp::encode(secret),
         refused,
-    }
+    })
 }
 
 /// Keeps the response out of every cache: a set-up shows the secret, and a confirmation the
@@ -173,7 +177,7 @@ pub(in crate::auth) fn settings_post(cx: &Cx, body: Body) -> BoxView<'_> {
     async_page(async move {
         let (signed, two_factor) = configuring(cx)?;
         no_store(cx);
-        let form = crate::panel::parse_form_body(cx, body).await?;
+        let form = crate::auth::input::read_form(cx, body).await?;
         crate::csrf::verify(cx, form.last(crate::csrf::FIELD_NAME))?;
         let intent = form
             .last(INTENT_FIELD)
@@ -185,13 +189,13 @@ pub(in crate::auth) fn settings_post(cx: &Cx, body: Body) -> BoxView<'_> {
         // passwords to turn it on.
         if intent.checks_secret() && !two_factor.throttle.attempt(&user_id, None) {
             tracing::warn!(
-                panel = %signed.panel.prefix,
+                panel = %signed.realm.prefix,
                 client = ?client_ip(cx),
                 "two-factor settings attempt throttled"
             );
             return Err(too_many_requests(two_factor.throttle.window_secs()).into());
         }
-        let authenticator = signed.panel.auth.authenticator().ok_or_else(not_found)?;
+        let authenticator = signed.realm.auth.authenticator().ok_or_else(not_found)?;
         // A stolen session must not set up a factor its thief holds and lock the owner out. The
         // authenticator reads through a connection of its own, so this runs before the
         // transaction opens.
@@ -213,7 +217,7 @@ pub(in crate::auth) fn settings_post(cx: &Cx, body: Body) -> BoxView<'_> {
             (Intent::Start, None, _) => {
                 let secret = start_authenticator(cx, &mut tx, &user_id).await?;
                 tx.commit().await.map_err(infrastructure_failure)?;
-                pages::settings(cx, setup(cx, signed, &secret, false)).await
+                pages::settings(cx, setup(cx, signed, &secret, false)?).await
             }
             (Intent::StartEmail, None, _)
                 if matches!(

@@ -1,7 +1,10 @@
-//! The models auth ships, and [`models!`](crate::models!), which registers them beside the app's.
+//! The models Tablo ships, for auth and the bell, and [`models!`](crate::models!), which registers
+//! them beside the app's.
 
-use super::{AdminUser, AuthFactor, AuthSession, AuthToken, ColumnPreference};
-use crate::notification::StoredNotification;
+use crate::{
+    auth::{AdminUser, AuthFactor, AuthSession, AuthToken, ColumnPreference},
+    notification::StoredNotification,
+};
 
 /// Register every model Tablo ships in `models`: [`AdminUser`], [`AuthSession`],
 /// [`ColumnPreference`], [`AuthToken`], [`AuthFactor`] and [`StoredNotification`].
@@ -28,7 +31,7 @@ pub fn register_models(models: &mut toasty::schema::ModelSet) {
 /// It takes what `toasty::models!` takes: the app's models, and `crate::*` or `some_crate::*` for
 /// every model a crate declares. A `Db` built from it never fails the mount with
 /// `MissingAuthModels`. An app with a model named as one of Tablo's lists them in
-/// `toasty::models!` instead: see [`register_models`](crate::auth::register_models).
+/// `toasty::models!` instead: see [`register_models`](crate::register_models).
 ///
 /// ```rust,no_run
 /// # #[derive(Debug, Clone, toasty::Model)]
@@ -48,7 +51,7 @@ pub fn register_models(models: &mut toasty::schema::ModelSet) {
 macro_rules! models {
     ($($models:tt)*) => {{
         let mut models = ::toasty::models!($($models)*);
-        $crate::auth::register_models(&mut models);
+        $crate::register_models(&mut models);
         models
     }};
 }

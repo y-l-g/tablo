@@ -21,9 +21,10 @@ use super::{
 };
 use crate::{
     BoxFuture,
+    auth::realm::{current_realm, hosted, panel_prefix},
+    flash::set_notification,
     form::{FieldError, FieldErrors, FormInput, FormValues, parse_password, parse_scalar},
-    notification::{Notification, set_notification},
-    panel::{Panel, panel_prefix, state::current},
+    outcome::Notification,
     schema::{Field, Schema, Source},
 };
 
@@ -325,7 +326,7 @@ pub(crate) fn with_next(url: String, next: &str) -> String {
 
 /// Whether the request's panel installs a [`Registrar`].
 pub(crate) fn offered(cx: &Cx) -> bool {
-    current(cx).is_some_and(|panel| panel.auth.registrar().is_some())
+    current_realm(cx).is_some_and(|panel| panel.auth.registrar().is_some())
 }
 
 /// `GET {prefix}/register` — the standalone sign-up page.
@@ -339,12 +340,12 @@ pub(super) fn register_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
 /// `POST {prefix}/register` — create the account, then sign it in or send it to the login page.
 pub(super) fn register_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
-        let panel = current(cx).ok_or_else(topcoat::router::error::not_found)?;
+        let panel = current_realm(cx).ok_or_else(topcoat::router::error::not_found)?;
         let registrar = panel
             .auth
             .registrar()
             .ok_or_else(topcoat::router::error::not_found)?;
-        let form = crate::panel::parse_form_body(cx, body).await?;
+        let form = crate::auth::input::read_form(cx, body).await?;
         crate::csrf::verify(cx, form.last(crate::csrf::FIELD_NAME))?;
         let next = form
             .last(NEXT_FIELD)
@@ -475,7 +476,7 @@ async fn render_page<'a>(
     alert: Option<Alert>,
     status: Option<http::StatusCode>,
 ) -> topcoat::Result<BoxView<'a>> {
-    let schema = current(cx)
+    let schema = current_realm(cx)
         .and_then(|panel| panel.auth.registrar())
         .map_or_else(Schema::empty, DynRegistrar::schema);
     let csrf = crate::csrf::ensure_token(cx);
@@ -507,7 +508,7 @@ async fn render_page<'a>(
         cx,
         super::page::AuthPage {
             title: "Create an account",
-            description: format!("Sign up for {}.", Panel::brand_name(cx)),
+            description: format!("Sign up for {}.", hosted(cx)?.brand_name(cx)),
             status,
             form,
             switch: Some(super::page::switch_link(

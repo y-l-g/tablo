@@ -13,10 +13,11 @@ and a record form hydrates and parses; `display`, the colors and number spelling
 option share. A user never names a module by its layer: the crate root re-exports every public
 type, from whichever module defines it, so a type moves between layers without changing its path.
 
-Two cycles remain, both in the serving layer: `notification` and `auth`, and `auth` and `panel`.
-`BACK_EDGES` lists each with its reason and the files that take it, so the modules form no other
-cycle; the check fails on a file outside the list, and on a listed file that no longer takes its
-edge.
+The modules form no cycle. What a module needs of one listed after it lives in a module below
+both, or the later module installs it behind a type the earlier one owns. `auth` sits below
+`panel` this way: it reads the request's panel as its own `Realm`, which entering a panel puts in
+the request context, and renders through the `Host` trait the panel installs, so it names no panel
+type.
 
 A module's layer follows what it does, not what it is about. The panel's URL scheme, the list
 page's chrome and dialogs, and a table's request wiring serve requests, so they live under `panel`,
@@ -31,5 +32,8 @@ a condition's wrapper, is not checked.
   `#[doc(hidden)] pub`, and the derives' paths would move.
 - Ordering layers but not the modules inside them: `table`, `schema`, `form` and `detail` then
   named each other freely, and a change to one rippled through the other three.
+- Cycles the test allows file by file: `auth` named the panel in 19 files, so a change to the
+  panel's state rippled through auth, and what auth needs of the panel had no single place to
+  read it.
 - Layering by module name alone: a module named after a declaration, such as `table`, could then
   hold the routes and page UI that serve it, and the check would still pass.

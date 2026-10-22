@@ -6,12 +6,10 @@ use std::time::Duration;
 use topcoat::{context::Cx, router::error::too_many_requests};
 
 use super::{TwoFactor, binding, cipher, key};
-use crate::{
-    auth::{
-        PanelUser,
-        token::{self, TokenPurpose},
-    },
-    panel::{Panel, panel_prefix},
+use crate::auth::{
+    PanelUser,
+    realm::{current_realm, hosted, panel_prefix},
+    token::{self, TokenPurpose},
 };
 
 /// How long a mailed code works.
@@ -72,7 +70,7 @@ pub(super) async fn send(
     two_factor: &TwoFactor,
     user: &dyn PanelUser,
 ) -> topcoat::Result<Sent> {
-    let mail = crate::panel::state::current(cx).and_then(|panel| panel.auth.auth_mail());
+    let mail = current_realm(cx).and_then(|panel| panel.auth.auth_mail());
     let (Some(address), Some(mail), true) = (user.email(), mail, two_factor.mails()) else {
         return Ok(Sent::Unavailable);
     };
@@ -92,7 +90,7 @@ pub(super) async fn send(
         stored(cx, &user_id, &code)?,
     )
     .await?;
-    let brand = Panel::brand_name(cx);
+    let brand = hosted(cx)?.brand_name(cx);
     let message = mail.compose(
         address,
         format!("Your {brand} sign-in code"),

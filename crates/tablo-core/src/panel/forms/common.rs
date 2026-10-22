@@ -20,32 +20,19 @@ use crate::{
     policy::Ability,
     resource::{Mounted, Resource},
     topcoat_compat::async_page,
+    upload::Capture,
 };
+pub(crate) use crate::{schema::MAX_FORM_BYTES, upload::FormParts};
 
-/// A decoded form body: its text pairs plus any file parts.
-pub(crate) struct FormParts {
-    /// Every text value, and each file part's sanitized filename, in the order the body posts
-    /// them.
-    pub(crate) pairs: Vec<(String, String)>,
-    /// Holds staged bytes only when an uploader is installed.
-    pub(crate) files: HashMap<String, crate::upload::StagedUpload>,
-    /// Names arriving as multipart parts carrying a `filename`; only these may set a file field's
-    /// value.
-    pub(crate) file_part_names: HashSet<String>,
+/// Parses a panel form's body, staging each chosen file the panel's uploader can store.
+pub(crate) async fn parse_form_body(cx: &Cx, body: Body) -> Result<FormParts, topcoat::Error> {
+    let capture = if uploader(cx).is_some() {
+        Capture::Persistable
+    } else {
+        Capture::None
+    };
+    crate::upload::parse_body(cx, body, capture).await
 }
-
-impl FormParts {
-    /// The last value the body posts under `key`.
-    pub(crate) fn last(&self, key: &str) -> Option<&str> {
-        self.pairs
-            .iter()
-            .rev()
-            .find(|(posted, _)| posted == key)
-            .map(|(_, value)| value.as_str())
-    }
-}
-
-pub(crate) use crate::schema::MAX_FORM_BYTES;
 
 /// Rejects the posted keys no field claimed with 400, but the ones the form carries for itself:
 /// the CSRF token, the edit form's record version, and each file field's `keep_<field>` and

@@ -17,7 +17,7 @@ use super::{
     session::{delete_session, fresh_session, record, select_tenant, sweep_expired_sessions},
     signed, unauthenticated_error,
 };
-use crate::panel::{Panel, panel_prefix, state::current};
+use crate::auth::realm::{current_realm, hosted, panel_prefix};
 
 /// Caps the login body at 64 KiB; the panel's 10 MiB form cap covers multipart
 /// uploads the login route never carries.
@@ -125,7 +125,7 @@ pub(super) fn login_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
 /// `POST {prefix}/login` — verify, rotate the session, redirect to `next`.
 pub(super) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
-        let parts = crate::panel::parse_form_body(cx, body).await?;
+        let parts = crate::auth::input::read_form(cx, body).await?;
         crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
         let next = parts
             .last(NEXT_FIELD)
@@ -135,7 +135,7 @@ pub(super) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             .unwrap_or_default();
         let login = parts.last(LOGIN_FIELD).map(str::trim);
         let password = parts.last(PASSWORD_FIELD);
-        let panel = current(cx).ok_or_else(topcoat::router::error::not_found)?;
+        let panel = current_realm(cx).ok_or_else(topcoat::router::error::not_found)?;
         let client = client_ip(cx);
         let verified = match (panel.auth.authenticator(), login, password) {
             (Some(authenticator), Some(login), Some(password))
@@ -220,13 +220,13 @@ pub(super) fn logout_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         let Some(signed) = resolved(cx) else {
             return Err(unauthenticated_error(cx));
         };
-        let parts = crate::panel::parse_form_body(cx, body).await?;
+        let parts = crate::auth::input::read_form(cx, body).await?;
         crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
         if let Some(hash) = session::stop(cx).await? {
             delete_session(cx, &hash).await?;
         }
         // The session's open bells check it again, and stop.
-        crate::notification::bus(cx).wake(&signed.panel.prefix, &signed.user.user_id());
+        crate::bus::bus(cx).wake(&signed.realm.prefix, &signed.user.user_id());
         let target = login_url(cx);
         topcoat::router::error::see_other(target).into_response(cx)
     })
@@ -239,7 +239,7 @@ pub(super) fn tenant_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         let Some(signed) = signed(cx) else {
             return Err(unauthenticated_error(cx));
         };
-        let parts = crate::panel::parse_form_body(cx, body).await?;
+        let parts = crate::auth::input::read_form(cx, body).await?;
         crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
         let tenant = parts
             .last(TENANT_FIELD)
@@ -255,7 +255,7 @@ pub(super) fn tenant_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         select_tenant(cx, tenant).await?;
         // The session's open bells list the old tenant's notifications: they check it again,
         // and stop.
-        crate::notification::bus(cx).wake(&signed.panel.prefix, &signed.user.user_id());
+        crate::bus::bus(cx).wake(&signed.realm.prefix, &signed.user.user_id());
         topcoat::router::error::see_other(panel_root(cx)).into_response(cx)
     })
 }
@@ -274,14 +274,14 @@ async fn render_login_page<'a>(
 ) -> topcoat::Result<BoxView<'a>> {
     let csrf = crate::csrf::ensure_token(cx);
     let action = login_url(cx);
-    let hint = current(cx).and_then(|panel| panel.login_hint.clone());
+    let hint = current_realm(cx).and_then(|panel| panel.login_hint.clone());
     let forgot = super::password_reset::offered(cx).then(|| super::password_reset::forgot_url(cx));
     let sign_up = super::registration::offered(cx)
         .then(|| super::registration::with_next(super::registration::register_url(cx), &next));
     // A sign-up or a password reset lands here with a notification. Only a GET takes it: a HEAD
     // renders nothing, and a failed attempt's page shows the failure.
     let notice = (error.is_none() && *topcoat::router::request::method(cx) == http::Method::GET)
-        .then(|| crate::notification::take_notification(cx))
+        .then(|| crate::flash::take_notification(cx))
         .flatten();
     let password = crate::schema::fields::password_reveal(
         cx,
@@ -368,7 +368,7 @@ async fn render_login_page<'a>(
         cx,
         super::page::AuthPage {
             title: "Sign in",
-            description: format!("Welcome back. Sign in to {}.", Panel::brand_name(cx)),
+            description: format!("Welcome back. Sign in to {}.", hosted(cx)?.brand_name(cx)),
             status: error.map(|error| error.status()),
             form,
             switch: sign_up.map(|href| {

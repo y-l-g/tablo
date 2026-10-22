@@ -626,7 +626,6 @@ pub fn tablo_core::auth::guard(&topcoat_core::context::Cx) -> topcoat::Result<()
 pub async fn tablo_core::auth::hash_password(&str) -> topcoat::Result<alloc::string::String>
 pub fn tablo_core::auth::membership(&topcoat_core::context::Cx) -> core::option::Option<&tablo_core::Membership>
 pub fn tablo_core::auth::new_password_errors(&str, &str) -> tablo_core::FieldErrors
-pub fn tablo_core::auth::register_models(&mut toasty_core::schema::app::model::ModelSet)
 pub async fn tablo_core::auth::request_email_change(&topcoat_core::context::Cx, &mut dyn toasty::db::executor::Executor, &dyn tablo_core::PanelUser, &str) -> topcoat::Result<tablo_core::auth::EmailChange>
 pub fn tablo_core::auth::require_user<U: tablo_core::PanelUser>(&topcoat_core::context::Cx) -> topcoat::Result<&U>
 pub async fn tablo_core::auth::revoke_sessions_for_user(&topcoat_core::context::Cx, &str) -> topcoat::Result<()>
@@ -5153,6 +5152,7 @@ pub fn tablo_core::parse_items<T: tablo_core::FormInput>(&topcoat_core::context:
 pub fn tablo_core::parse_list<T: tablo_core::FormScalar>(&str, &tablo_core::FormValues) -> core::result::Result<alloc::vec::Vec<T>, tablo_core::FieldError>
 pub fn tablo_core::parse_password(&str, &tablo_core::FormValues, core::option::Option<alloc::string::String>) -> core::result::Result<alloc::string::String, tablo_core::FieldError>
 pub fn tablo_core::parse_scalar<T: tablo_core::FormScalar>(&str, &tablo_core::FormValues, core::option::Option<T>) -> core::result::Result<T, tablo_core::FieldError>
+pub fn tablo_core::register_models(&mut toasty_core::schema::app::model::ModelSet)
 pub fn tablo_core::require_tenant(&topcoat_core::context::Cx) -> core::result::Result<uuid::Uuid, topcoat_core::error::Error>
 pub fn tablo_core::sanitize_filename(&str) -> alloc::string::String
 pub fn tablo_core::scoped_query<R: tablo_core::Resource>(&topcoat_core::context::Cx) -> topcoat::Result<toasty::stmt::query::Query<toasty::stmt::list::List<<R as tablo_core::Resource>::Model>>>

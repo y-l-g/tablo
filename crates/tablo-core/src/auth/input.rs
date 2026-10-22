@@ -1,12 +1,19 @@
-//! What the auth pages that take an app's [`FormInput`] share: reading a submission into it, and
-//! refusing a form field those pages cannot serve.
+//! What the auth pages share in reading a submission: the posted body, an app's [`FormInput`]
+//! read from it, and the refusal of a form field those pages cannot serve.
 
-use topcoat::context::Cx;
+use topcoat::{context::Cx, router::Body};
 
 use crate::{
     form::{FieldErrors, FormInput, FormValues},
     schema::Schema,
+    upload::{Capture, FormParts, parse_body},
 };
+
+/// Parses an auth form's body. Auth stores no file, so a chosen file's bytes are drained, never
+/// staged.
+pub(crate) async fn read_form(cx: &Cx, body: Body) -> topcoat::Result<FormParts> {
+    parse_body(cx, body, Capture::None).await
+}
 
 /// Parses `values` into `I` and checks its controls' own rules against `stored`, the values the
 /// form started from: the input, or every error to render. `form` names the page in the

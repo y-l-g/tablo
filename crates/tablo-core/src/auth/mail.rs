@@ -9,7 +9,7 @@ use topcoat::{
     router::{request::uri, response::Response},
 };
 
-use crate::panel::state::{PanelState, current};
+use crate::auth::realm::{Realm, current_realm};
 
 /// Where a panel's auth mail comes from and where its links point, installed with
 /// [`Auth::mail`](super::Auth::mail): the sender, and the absolute URL every link starts with.
@@ -118,10 +118,10 @@ pub(super) fn token_from_query(cx: &Cx) -> String {
 /// would tell the visitor whether an account exists.
 pub(super) fn after_response<F, Fut>(cx: &Cx, what: &'static str, send: F)
 where
-    F: FnOnce(Cx, Arc<PanelState>) -> Fut + Send + 'static,
+    F: FnOnce(Cx, Arc<Realm>) -> Fut + Send + 'static,
     Fut: Future<Output = topcoat::Result<()>> + Send + 'static,
 {
-    let Some(panel) = current(cx).map(Arc::clone) else {
+    let Some(panel) = current_realm(cx).map(Arc::clone) else {
         return;
     };
     let cx = cx.clone();

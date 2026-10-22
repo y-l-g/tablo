@@ -6,11 +6,14 @@ use std::time::Duration;
 
 use jiff::Timestamp;
 use toasty::{Db, stmt::Expr};
-use topcoat::context::{Cx, CxId, app_context, try_app_context};
+use topcoat::context::{Cx, CxId, app_context};
 use uuid::Uuid;
 
-use super::{Notification, bus::NotificationBus};
-use crate::panel::state::current;
+use super::Notification;
+use crate::{
+    auth::current_realm,
+    bus::{NotificationBus, bus},
+};
 
 /// Shipped record of a [`Notification`] kept for one panel user: what it says, whose it is, on
 /// which panel and for which tenant, and whether they read it.
@@ -78,7 +81,7 @@ impl Notifications {
     /// A declaration error outside every panel, such as on a public page that did not
     /// [`enter`](crate::PanelHandle::enter) one.
     pub fn of(cx: &Cx) -> topcoat::Result<Self> {
-        let Some(panel) = current(cx) else {
+        let Some(realm) = current_realm(cx) else {
             return Err(crate::error::declaration(
                 "Notifications::of needs a request under a panel".to_owned(),
             ));
@@ -88,7 +91,7 @@ impl Notifications {
         let mut notifications = Self::new(
             app_context::<Db>(cx).clone(),
             bus(cx),
-            panel.prefix.clone(),
+            realm.prefix.clone(),
             crate::tenant_id(cx),
         );
         notifications.request = Some(cx.id());
@@ -248,13 +251,6 @@ fn failure(error: toasty::Error) -> topcoat::Error {
     crate::error::driver_failure(error, "Notifications are unavailable right now.")
 }
 
-/// The router's bus, or one no bell listens on outside a router.
-pub(crate) fn bus(cx: &Cx) -> NotificationBus {
-    try_app_context::<NotificationBus>(cx)
-        .cloned()
-        .unwrap_or_else(NotificationBus::new)
-}
-
 /// The stored notifications the signed-in user's bell answers for: theirs, on the request's
 /// panel, for the tenant the request acts for or for none. Every read and write the bell makes
 /// filters through it, never through an id alone.
@@ -270,7 +266,7 @@ impl Inbox {
     pub(crate) fn of(cx: &Cx) -> Option<Self> {
         let signed = crate::auth::signed(cx)?;
         Some(Self {
-            panel: signed.panel.prefix.clone(),
+            panel: signed.realm.prefix.clone(),
             user_id: signed.user.user_id(),
             tenant: crate::tenant_id(cx),
         })

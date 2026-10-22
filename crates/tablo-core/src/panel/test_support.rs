@@ -43,7 +43,13 @@ pub(crate) fn panel_for<R: Resource>() -> Panel {
 /// settings: the request's panel a handler test puts on its `Cx`.
 pub(crate) fn panel_state(prefix: &str, auth: crate::Auth) -> super::state::PanelState {
     super::state::PanelState {
-        prefix: prefix.to_string(),
+        realm: std::sync::Arc::new(crate::auth::Realm {
+            prefix: prefix.to_string(),
+            auth,
+            login_hint: None,
+            time_zone: jiff::tz::TimeZone::UTC,
+            notifications: false,
+        }),
         nav_items: Vec::new(),
         brand: None,
         dark_mode: false,
@@ -51,23 +57,28 @@ pub(crate) fn panel_state(prefix: &str, auth: crate::Auth) -> super::state::Pane
         children: std::collections::HashMap::new(),
         mounts: std::sync::Arc::default(),
         root_redirect: None,
-        auth,
-        login_hint: None,
         user_menu: Vec::new(),
         mounted_pages: std::collections::HashMap::new(),
         uploads: None,
         served_paths: Vec::new(),
         urls: std::collections::HashMap::new(),
         endpoints: Vec::new(),
-        notifications: false,
         searches: Vec::new(),
-        time_zone: jiff::tz::TimeZone::UTC,
     }
 }
 
-/// `state` as the request's panel, for a `CxTestBuilder::request_context`.
-pub(crate) fn current_panel(state: super::state::PanelState) -> super::state::CurrentPanel {
-    super::state::CurrentPanel(std::sync::Arc::new(state))
+/// `builder` as a request to `panel` on a router that mounts it: the panel and its realm, and the
+/// host auth renders through.
+pub(crate) fn serving(
+    builder: topcoat::context::CxTestBuilder,
+    panel: &std::sync::Arc<super::state::PanelState>,
+) -> topcoat::context::CxTestBuilder {
+    builder
+        .app_context(crate::auth::AuthHost(&super::host::PanelHost))
+        .request_context(super::state::CurrentPanel(std::sync::Arc::clone(panel)))
+        .request_context(crate::auth::CurrentRealm(std::sync::Arc::clone(
+            &panel.realm,
+        )))
 }
 
 /// `panel` mounted on a router holding `db`, the way an app mounts one.

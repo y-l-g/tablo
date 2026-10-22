@@ -22,12 +22,10 @@ use super::{
 };
 use crate::{
     BoxFuture,
+    auth::realm::{Realm, current_realm, hosted, panel_prefix},
+    flash::set_notification,
     form::FieldErrors,
-    notification::{Notification, set_notification},
-    panel::{
-        Panel, panel_prefix,
-        state::{PanelState, current},
-    },
+    outcome::Notification,
 };
 
 /// How long a reset link works: one hour, fixed.
@@ -249,7 +247,7 @@ pub(crate) fn reset_url(cx: &Cx) -> String {
 
 /// Whether the request's panel installs a [`PasswordReset`].
 pub(crate) fn offered(cx: &Cx) -> bool {
-    current(cx).is_some_and(|panel| panel.auth.reset().is_some())
+    current_realm(cx).is_some_and(|panel| panel.auth.reset().is_some())
 }
 
 /// `GET {prefix}/forgot-password` — the form asking for an email address.
@@ -261,12 +259,12 @@ pub(super) fn forgot_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
 /// answer the same whether one does or not.
 pub(super) fn forgot_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
-        let panel = current(cx).ok_or_else(topcoat::router::error::not_found)?;
+        let panel = current_realm(cx).ok_or_else(topcoat::router::error::not_found)?;
         let reset = panel
             .auth
             .reset()
             .ok_or_else(topcoat::router::error::not_found)?;
-        let form = crate::panel::parse_form_body(cx, body).await?;
+        let form = crate::auth::input::read_form(cx, body).await?;
         crate::csrf::verify(cx, form.last(crate::csrf::FIELD_NAME))?;
         let email = form.last(EMAIL_FIELD).map_or("", str::trim);
         if email.is_empty() {
@@ -312,12 +310,7 @@ pub(super) fn forgot_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
 
 /// Records a new reset token for `user_id` on `panel`, replacing the account's earlier ones
 /// there, and mails its link to `address`.
-async fn mail_link(
-    cx: &Cx,
-    panel: &PanelState,
-    address: &str,
-    user_id: &str,
-) -> topcoat::Result<()> {
+async fn mail_link(cx: &Cx, panel: &Realm, address: &str, user_id: &str) -> topcoat::Result<()> {
     let mail = panel
         .auth
         .auth_mail()
@@ -335,7 +328,7 @@ async fn mail_link(
     .await?;
     tx.commit().await.map_err(infrastructure_failure)?;
     let link = mail.link(&reset_url(cx), &token);
-    let brand = Panel::brand_name(cx);
+    let brand = hosted(cx)?.brand_name(cx);
     let minutes = RESET_LIFETIME.as_secs() / 60;
     let message = mail.compose(
         address,
@@ -378,12 +371,12 @@ pub(super) fn reset_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
 /// account holds, and send it to sign in.
 pub(super) fn reset_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
-        let panel = current(cx).ok_or_else(topcoat::router::error::not_found)?;
+        let panel = current_realm(cx).ok_or_else(topcoat::router::error::not_found)?;
         let reset = panel
             .auth
             .reset()
             .ok_or_else(topcoat::router::error::not_found)?;
-        let form = crate::panel::parse_form_body(cx, body).await?;
+        let form = crate::auth::input::read_form(cx, body).await?;
         crate::csrf::verify(cx, form.last(crate::csrf::FIELD_NAME))?;
         let token = form.last(TOKEN_FIELD).unwrap_or_default().to_string();
         let password = form.last(PASSWORD_FIELD).unwrap_or_default();
@@ -425,7 +418,7 @@ pub(super) fn reset_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
 
 /// Whether the account `user_id` names still signs in to `panel` and may enter it: a link mailed
 /// before the account was deactivated or deleted resets nothing.
-async fn may_enter(cx: &Cx, panel: &PanelState, user_id: &str) -> topcoat::Result<bool> {
+async fn may_enter(cx: &Cx, panel: &Realm, user_id: &str) -> topcoat::Result<bool> {
     let Some(authenticator) = panel.auth.authenticator() else {
         return Ok(false);
     };

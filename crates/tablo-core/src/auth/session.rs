@@ -14,7 +14,7 @@ use super::{
     DynAuthenticator, PanelUser, SignedIn, infrastructure_failure,
     token::{CREDENTIALS, REVOCATION, TokenPurpose},
 };
-use crate::panel::state::{PanelState, current};
+use crate::auth::realm::{Realm, current_realm, realms};
 
 /// How long a session stays valid: seven days, fixed.
 pub const SESSION_LIFETIME: Duration = Duration::from_hours(24 * 7);
@@ -69,7 +69,7 @@ pub(super) async fn record(
     cx: &Cx,
     session: &session::Session,
     user: &dyn PanelUser,
-    panel: &PanelState,
+    panel: &Realm,
 ) -> topcoat::Result<()> {
     let expires_at = Timestamp::try_from(session.expires_at).map_err(topcoat::Error::from)?;
     insert(
@@ -84,30 +84,27 @@ pub(super) async fn record(
     .map_err(infrastructure_failure)
 }
 
-/// The panels whose authenticator loads `user_type`, or `own` outside a router: the panels that
+/// The realms whose authenticator loads `user_type`, or `own` outside a router: the panels that
 /// share a user's credentials, so a credential change ends the user's sessions and reset links on
 /// each.
 pub(super) fn credential_panels(
     cx: &Cx,
     user_type: std::any::TypeId,
-    own: &Arc<PanelState>,
-) -> Vec<Arc<PanelState>> {
-    crate::panel::state::panels(cx).map_or_else(
-        || vec![Arc::clone(own)],
-        |panels| {
-            panels
-                .0
-                .iter()
-                .filter(|panel| {
-                    panel
-                        .auth
-                        .authenticator()
-                        .is_some_and(|auth| auth.user_type() == user_type)
-                })
-                .cloned()
-                .collect()
-        },
-    )
+    own: &Arc<Realm>,
+) -> Vec<Arc<Realm>> {
+    let realms = realms(cx);
+    if realms.is_empty() {
+        return vec![Arc::clone(own)];
+    }
+    realms
+        .into_iter()
+        .filter(|realm| {
+            realm
+                .auth
+                .authenticator()
+                .is_some_and(|auth| auth.user_type() == user_type)
+        })
+        .collect()
 }
 
 /// Deletes every session `user_id` holds on `panels`, and every [`AuthToken`](super::AuthToken)
@@ -116,7 +113,7 @@ pub(super) fn credential_panels(
 pub(super) async fn end_credentials(
     ex: &mut dyn toasty::Executor,
     user_id: &str,
-    panels: &[Arc<PanelState>],
+    panels: &[Arc<Realm>],
     purposes: &[TokenPurpose],
 ) -> topcoat::Result<()> {
     let prefixes: Vec<String> = panels.iter().map(|panel| panel.prefix.clone()).collect();
@@ -153,7 +150,7 @@ pub(super) async fn replace_sessions(
     user_type: std::any::TypeId,
     session: &session::Session,
 ) -> topcoat::Result<()> {
-    let panels = credential_panels(cx, user_type, &signed.panel);
+    let panels = credential_panels(cx, user_type, &signed.realm);
     let user_id = signed.user.user_id();
     end_credentials(&mut *ex, &user_id, &panels, CREDENTIALS).await?;
     let expires_at = Timestamp::try_from(session.expires_at).map_err(topcoat::Error::from)?;
@@ -161,7 +158,7 @@ pub(super) async fn replace_sessions(
         ex,
         &session.token_hash,
         user_id,
-        signed.panel.prefix.clone(),
+        signed.realm.prefix.clone(),
         signed.tenant,
         expires_at,
     )
@@ -187,7 +184,7 @@ pub async fn mint_session(
         ex,
         &token.hash(),
         user.user_id(),
-        crate::panel::normalize_prefix(panel),
+        crate::naming::normalize_prefix(panel),
         None,
         expires_at,
     )
@@ -270,7 +267,7 @@ async fn delete_session_row(cx: &Cx, key: &str) -> topcoat::Result<()> {
 /// The opaque sign-in outage when the database cannot answer.
 pub async fn revoke_sessions_for_user(cx: &Cx, user_id: &str) -> topcoat::Result<()> {
     let mut db = crate::db::db(cx);
-    if let Some(panel) = current(cx) {
+    if let Some(panel) = current_realm(cx) {
         let panels = match panel.auth.authenticator() {
             Some(auth) => credential_panels(cx, auth.user_type(), panel),
             None => vec![Arc::clone(panel)],
@@ -288,26 +285,21 @@ pub async fn revoke_sessions_for_user(cx: &Cx, user_id: &str) -> topcoat::Result
         .exec(&mut db)
         .await
         .map_err(infrastructure_failure)?;
-    let issuing = crate::panel::state::panels(cx)
-        .is_some_and(|panels| panels.0.iter().any(|panel| panel.auth.issues_tokens()));
-    if issuing {
+    let realms = realms(cx);
+    if realms.iter().any(|realm| realm.auth.issues_tokens()) {
         super::token::end_all(&mut db, user_id, None, REVOCATION).await?;
     }
-    let panels = crate::panel::state::panels(cx).map(|panels| &panels.0[..]);
     wake_bells(
         cx,
         user_id,
-        panels
-            .unwrap_or_default()
-            .iter()
-            .map(|panel| panel.prefix.as_str()),
+        realms.iter().map(|realm| realm.prefix.as_str()),
     );
     Ok(())
 }
 
 /// Wakes the bells `user_id` has open on `panels`, so each checks its session again and stops.
 fn wake_bells<'a>(cx: &Cx, user_id: &str, panels: impl Iterator<Item = &'a str>) {
-    let bus = crate::notification::bus(cx);
+    let bus = crate::bus::bus(cx);
     for panel in panels {
         bus.wake(panel, user_id);
     }
@@ -374,7 +366,7 @@ pub(super) async fn session_row(cx: &Cx) -> topcoat::Result<Option<AuthSession>>
 pub(super) async fn session_user(
     cx: &Cx,
     row: AuthSession,
-    panel: &Arc<PanelState>,
+    panel: &Arc<Realm>,
     authenticator: &dyn DynAuthenticator,
 ) -> topcoat::Result<Option<SignedIn>> {
     match authenticator
@@ -384,7 +376,7 @@ pub(super) async fn session_user(
     {
         Some(user) => Ok(Some(SignedIn {
             user,
-            panel: Arc::clone(panel),
+            realm: Arc::clone(panel),
             tenant: row.tenant,
         })),
         None => {
@@ -398,7 +390,7 @@ pub(super) async fn session_user(
 /// issued resolves to no one here and stays valid there.
 pub(super) async fn resolve(
     cx: &Cx,
-    panel: &Arc<PanelState>,
+    panel: &Arc<Realm>,
     authenticator: &dyn DynAuthenticator,
 ) -> topcoat::Result<Option<SignedIn>> {
     match session_row(cx).await? {

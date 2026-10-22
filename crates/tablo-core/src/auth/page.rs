@@ -7,7 +7,7 @@ use topcoat::{
     view::{BoxView, ViewExt, view},
 };
 
-use crate::Panel;
+use super::realm::hosted;
 
 /// One auth page's parts.
 pub(super) struct AuthPage<'a> {
@@ -35,7 +35,8 @@ pub(super) async fn render<'a>(cx: &'a Cx, page: AuthPage<'a>) -> topcoat::Resul
         switch,
         note,
     } = page;
-    let brand = Panel::render_page_brand(cx);
+    let host = hosted(cx)?;
+    let brand = host.page_brand(cx);
     let body = view! {
         cx =>
         <main
@@ -69,7 +70,7 @@ pub(super) async fn render<'a>(cx: &'a Cx, page: AuthPage<'a>) -> topcoat::Resul
         </main>
     }
     .boxed();
-    Panel::document(cx, title.to_string(), body).await
+    host.document(cx, title.to_string(), body).await
 }
 
 /// `prompt` and a link to `href` reading `label`: the line under the card.

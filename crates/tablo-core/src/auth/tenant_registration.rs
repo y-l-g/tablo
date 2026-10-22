@@ -28,12 +28,10 @@ use super::{
 };
 use crate::{
     BoxFuture,
+    auth::realm::{Realm, current_realm, hosted, panel_prefix},
+    flash::set_notification,
     form::{FieldErrors, FormInput, FormValues},
-    notification::{Notification, set_notification},
-    panel::{
-        Panel, panel_prefix,
-        state::{PanelState, current},
-    },
+    outcome::Notification,
     schema::{Schema, Source},
     tenancy::Membership,
 };
@@ -283,12 +281,12 @@ pub(crate) fn register_tenant_url(cx: &Cx) -> String {
 
 /// Whether the request's panel installs a [`TenantRegistration`].
 pub(crate) fn offered(cx: &Cx) -> bool {
-    current(cx).is_some_and(|panel| panel.auth.tenant_registration_page().is_some())
+    current_realm(cx).is_some_and(|panel| panel.auth.tenant_registration_page().is_some())
 }
 
 /// Whether `user` must register a tenant before `panel` serves them anything else: the panel
 /// requires one, and the user acts for none.
-pub(super) fn pending(panel: &PanelState, user: &dyn PanelUser) -> bool {
+pub(super) fn pending(panel: &Realm, user: &dyn PanelUser) -> bool {
     panel
         .auth
         .tenant_registration_page()
@@ -300,7 +298,7 @@ pub(super) fn pending(panel: &PanelState, user: &dyn PanelUser) -> bool {
 fn registering(cx: &Cx) -> topcoat::Result<(&SignedIn, &dyn DynTenantRegistrar)> {
     let signed = signed(cx).ok_or_else(|| unauthenticated_error(cx))?;
     let registration = signed
-        .panel
+        .realm
         .auth
         .tenant_registration_page()
         .ok_or_else(not_found)?;
@@ -326,7 +324,7 @@ pub(super) fn register_tenant_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
 pub(super) fn register_tenant_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         let (signed, registrar) = registering(cx)?;
-        let form = crate::panel::parse_form_body(cx, body).await?;
+        let form = crate::auth::input::read_form(cx, body).await?;
         crate::csrf::verify(cx, form.last(crate::csrf::FIELD_NAME))?;
         let input_schema = registrar.schema();
         let values = input_schema.read_input(cx, &form.pairs, &RESERVED_KEYS)?;
@@ -388,7 +386,7 @@ async fn page_response(
     }
     .boxed();
     let root = panel_root(cx);
-    let brand = Panel::brand_name(cx);
+    let brand = hosted(cx)?.brand_name(cx);
     let page = render(
         cx,
         AuthPage {

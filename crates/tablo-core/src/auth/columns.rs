@@ -47,7 +47,7 @@ pub(crate) async fn load_choice(cx: &Cx, slug: &str) -> ColumnChoice {
     let Some(signed) = signed(cx) else {
         return ColumnChoice::default();
     };
-    let key = preference_key(&signed.panel.prefix, &signed.user.user_id(), slug);
+    let key = preference_key(&signed.realm.prefix, &signed.user.user_id(), slug);
     let mut db = crate::db::db(cx);
     match ColumnPreference::filter(ColumnPreference::fields().key().eq(key))
         .first()
@@ -76,7 +76,7 @@ pub(crate) async fn save_choice(cx: &Cx, slug: &str, choice: &ColumnChoice) -> t
         return Err(topcoat::router::error::forbidden().into());
     };
     let user_id = signed.user.user_id();
-    let panel = signed.panel.prefix.clone();
+    let panel = signed.realm.prefix.clone();
     let key = preference_key(&panel, &user_id, slug);
     let mut db = crate::db::db(cx);
     let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;

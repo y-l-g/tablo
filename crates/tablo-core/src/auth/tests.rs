@@ -161,14 +161,13 @@ fn login_cx_with(db: Db, token: &str, auth: Auth) -> Cx {
         .unwrap()
         .into_parts()
         .0;
-    CxTestBuilder::new()
-        .app_context(db)
-        .request_context(crate::panel::test_support::current_panel(
-            crate::panel::test_support::panel_state("/admin", auth),
-        ))
-        .request_context(parts)
-        .request_context(CookieJarCell::new())
-        .build()
+    crate::panel::test_support::serving(
+        CxTestBuilder::new().app_context(db),
+        &Arc::new(crate::panel::test_support::panel_state("/admin", auth)),
+    )
+    .request_context(parts)
+    .request_context(CookieJarCell::new())
+    .build()
 }
 
 /// Runs the login handler and renders the status and body a browser receives.
@@ -538,17 +537,17 @@ fn mounted_cx(
         .body(())
         .unwrap()
         .into_parts();
-    let builder = topcoat::context::CxTestBuilder::new();
+    let builder =
+        crate::panel::test_support::serving(topcoat::context::CxTestBuilder::new(), serving);
     let builder = match mounted {
         Some(mounted) => builder.app_context(crate::panel::state::Panels(mounted)),
         None => builder,
     };
     builder
         .request_context(parts)
-        .request_context(crate::panel::state::CurrentPanel(Arc::clone(serving)))
         .request_context(SignedIn {
             user: Arc::new(user),
-            panel: Arc::clone(panel),
+            realm: Arc::clone(&panel.realm),
             tenant: None,
         })
         .build()
@@ -692,16 +691,14 @@ fn defaulting_cx(
         .enumerate()
         .map(|(index, tenant)| Membership::new(*tenant, format!("Tenant {index}")))
         .collect();
-    let mut builder = topcoat::context::CxTestBuilder::new()
-        .request_context(crate::panel::state::CurrentPanel(std::sync::Arc::clone(
-            &panel,
-        )))
-        .request_context(SignedIn {
-            user: std::sync::Arc::new(Member(memberships, default)),
-            panel,
-            tenant: selected,
-        })
-        .app_context(crate::tenancy::TenantSource(session_tenant));
+    let mut builder =
+        crate::panel::test_support::serving(topcoat::context::CxTestBuilder::new(), &panel)
+            .request_context(SignedIn {
+                user: std::sync::Arc::new(Member(memberships, default)),
+                realm: std::sync::Arc::clone(&panel.realm),
+                tenant: selected,
+            })
+            .app_context(crate::tenancy::TenantSource(session_tenant));
     if let Some(tenant) = overridden {
         builder = builder.request_context(crate::Tenant(tenant));
     }
@@ -751,7 +748,7 @@ fn verification_holds_only_a_user_with_an_address() {
     }
     let auth = Auth::password().email_verification(EmailVerification::new(PasswordAuth));
     let panel = crate::panel::test_support::panel_state("/admin", auth);
-    assert!(!verification::pending(&panel, &Nameless));
+    assert!(!verification::pending(&panel.realm, &Nameless));
 }
 
 /// Before the session selects one, the request acts for the user's default tenant while they are

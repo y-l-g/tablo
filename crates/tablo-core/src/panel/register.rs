@@ -12,7 +12,7 @@ use super::{
         resource_action_options, resource_bulk_delete, resource_delete, resource_export,
         resource_list_action, resource_options, resource_record_action,
     },
-    build::{route_path, validate_route_segment},
+    build::validate_route_segment,
     detail::resource_view,
     forms::{
         resource_create, resource_create_post, resource_edit, resource_edit_post, resource_import,
@@ -26,6 +26,7 @@ use super::{
 use crate::{
     Ability, DeclarationError, DeclarationErrorKind, Page, PageDef, Site,
     form::RecordForm,
+    naming::route_path,
     page::{MountedPage, PageCheck, check_page},
     panel::url::{
         ACTION_ROUTE_PARAM, ACTIONS_ROUTE_SEGMENT, BULK_DELETE_ROUTE_SEGMENT,

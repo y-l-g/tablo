@@ -1,5 +1,6 @@
 //! Naming helpers behind the default slugs and sidebar labels of a
-//! [`Resource`](crate::resource::Resource), a [`Page`](crate::Page) and a field label.
+//! [`Resource`](crate::resource::Resource), a [`Page`](crate::Page) and a field label, and the
+//! prefix and route paths a panel mounts under.
 
 /// The last segment of a type's full path, e.g.
 /// `tablo_core::resource::tests::UserResource` → `UserResource`.
@@ -100,6 +101,33 @@ pub(crate) fn capitalize(s: &str) -> String {
         None => String::new(),
         Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
     }
+}
+
+/// The prefix [`Panel::new`](crate::Panel::new) mounts `raw` at: trimmed, one leading slash, no
+/// trailing slash, and `/admin` when nothing is left.
+pub(crate) fn normalize_prefix(raw: &str) -> String {
+    let trimmed = raw.trim().trim_matches('/');
+    if trimmed.is_empty() {
+        "/admin".to_string()
+    } else {
+        format!("/{trimmed}")
+    }
+}
+
+/// The prefix `path`'s first segment names, else `/admin`: a request's panel prefix outside every
+/// panel.
+pub(crate) fn path_prefix(path: &str) -> String {
+    path.split('/')
+        .nth(1)
+        .filter(|segment| !segment.is_empty())
+        .map_or_else(|| "/admin".to_string(), |segment| format!("/{segment}"))
+}
+
+/// Parses a panel route path, panicking on malformed input.
+pub(crate) fn route_path(path: &str) -> topcoat::router::PathBuf {
+    topcoat::router::Path::from_str(path)
+        .expect("panel route paths are well-formed")
+        .to_owned()
 }
 
 #[cfg(test)]
