@@ -139,8 +139,12 @@ toolchains. Run `check --all` before merging.
 
 ## Writing
 
-Behavior is documented in rustdoc and the guide (`docs/guide/`), vocabulary in `CONTEXT.md`,
-and decisions in `docs/adr/`. `README.md` is the entry point.
+Behavior is documented once, in rustdoc: what an item does, its rules, limits and errors. The
+guide (`docs/guide/`) teaches: it builds a panel step by step, says why each part exists and how
+the parts combine, and links to the rustdoc for the full rules rather than restating them. A
+chapter passage that restates rustdoc becomes a link; a rule only the guide states moves into
+rustdoc when its chapter is next edited. Vocabulary is in `CONTEXT.md`, and decisions in
+`docs/adr/`. `README.md` is the entry point.
 
 - Verify every claim against the code before writing it.
 - Document current behavior only: no history, no plans. History belongs in a commit message.
@@ -149,8 +153,8 @@ and decisions in `docs/adr/`. `README.md` is the entry point.
   code does, not "under the hood" or "magic".
 - A comment explains why: an invariant, an upstream workaround, a safety argument. It never
   restates the next line.
-- An ADR records one decision and the alternatives it rejected, and is amended in place. A retired
-  number is never reused.
+- An ADR records one decision and the alternatives it rejected, not the behavior that follows
+  from it, and is amended in place. A retired number is never reused.
 
 ## Pull requests and commits
 
