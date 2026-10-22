@@ -99,8 +99,8 @@ pub trait HeaderAction: 'static {
     /// and say what the response does once it commits: [`Outcome::done`](crate::Outcome::done)
     /// for the [`success`](Self::success) notification, landing back on the list or page.
     ///
-    /// Refuses the input with [`WriteError::Refused`], as [`Action::run`](crate::Action::run)
-    /// does.
+    /// Refuses the input with [`WriteError::Refused`](crate::WriteError::Refused), as
+    /// [`Action::run`](crate::Action::run) does.
     fn run(
         cx: &Cx,
         input: Self::Input,
