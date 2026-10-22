@@ -17,10 +17,31 @@ tablo = { version = "0.7.0", features = ["sqlite", "testing"] }
 ```
 
 ```rust
-use tablo::{auth::create_admin, testing::{TestClient, form_body}};
+use tablo::{auth::create_admin, testing::{TestClient, mount_with_handle}};
 
 {{#include ../../../examples/guide/tests/it.rs:testing-no-delete}}
 ```
+
+`client.resource::<R>()` sends typed requests to one resource. It reads each URL from the
+panel the client's `panel` names, as `tablo::url` does, and each form key from the form's
+derived field enum: a test follows a renamed slug or form key, fails to compile on a renamed
+field or action, and panics naming the resource when the panel serves no such page, instead of
+asserting on a 404:
+
+- `list`, `list_with(query)`, `create_page`, `view(&record)` and `edit_page(&record)` load a
+  page.
+- `create()` and `edit(&record)` build a form post: `.set(BookFormField::Title, "Emma")` sets a
+  field, `.add` adds one more value to a multiple choice, and `.set_key` posts a key no field
+  enum names, such as one key of an embedded field. An edit posts only the fields it sets.
+- `delete(&record)`, `action::<A>(&record)` and `bulk_action::<A>(keys)` post a confirmed run;
+  `.set_key` fills an action's input.
+- `submit()` answers with a `Reply`: its `status`, `location`, flash `notification` and `html`,
+  the same queries over its body (`rows`, `row_keys`, `groups`, `empty_table`), and
+  `field_error(BookFormField::Title)` keyed by the field enum. `follow()` loads the page a
+  redirect names, carrying the cookies the response set.
+
+The free functions remain for what the typed client does not cover: a raw body, a request to a
+route the panel does not mount, a header to assert.
 
 - **Cover every ability your policy decides** with a request it allows and one it refuses, and
   assert on the database as well as the status code.

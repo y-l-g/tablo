@@ -143,10 +143,15 @@ pub fn session_cookie_value(response: &http::Response<Body>) -> Option<String> {
 
 /// The flash notification a response set for the next page, decoded.
 pub fn notification(response: &http::Response<Body>) -> Option<Notification> {
-    let (_, value) = response_cookies(response)
-        .into_iter()
+    notification_in(&response_cookies(response))
+}
+
+/// The flash notification among a response's `(name, value)` cookie pairs, decoded.
+pub(crate) fn notification_in(cookies: &[(String, String)]) -> Option<Notification> {
+    let (_, value) = cookies
+        .iter()
         .find(|(name, _)| name.ends_with("tablo_notification"))?;
-    let json = percent_encoding::percent_decode_str(&value)
+    let json = percent_encoding::percent_decode_str(value)
         .decode_utf8()
         .ok()?;
     serde_json::from_str(&json).ok()

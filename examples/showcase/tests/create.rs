@@ -1,11 +1,16 @@
 //! Creating a record: the create page, validation, the write and its flash.
 
 use http::header::{LOCATION, SET_COOKIE};
-use showcase::models::{Author, Post, Role, User};
+use showcase::{
+    app::UserResource,
+    models::{Author, Post, Role, User, UserFormField},
+};
+use tablo::testing::ErrorKind;
 
 use crate::common::{
     body_string, demo_client, full_db, post_count, response_cookies,
-    routers::router_for_tests as router, seeded_db, set_cookie_header, user_count,
+    routers::{app_for_tests, router_for_tests as router},
+    seeded_db, set_cookie_header, user_count,
 };
 
 #[tokio::test]
@@ -36,28 +41,33 @@ async fn create_page_serves_the_declared_fields() {
 #[tokio::test]
 async fn create_invalid_submission_rerenders_with_inline_errors() {
     let db = seeded_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
+    let (router, admin) = app_for_tests(db.clone());
+    let client = demo_client(&router, &db).await.panel(&admin);
 
     let before = user_count(&db).await;
-    let resp = client
-        .submit("/admin/users/-/create", "name=&email=not-an-email")
+    let reply = client
+        .resource::<UserResource>()
+        .create()
+        .set(UserFormField::Name, "")
+        .set(UserFormField::Email, "not-an-email")
+        .submit()
         .await;
-    let status = resp.status();
-    let html = body_string(resp).await;
     assert!(
-        status.is_success(),
-        "invalid POST should re-render 200, not redirect, got {status}"
+        reply.status().is_success(),
+        "invalid POST should re-render 200, not redirect, got {}",
+        reply.status()
     );
     assert_eq!(
-        tablo::testing::field_error(&html, "name"),
-        Some(tablo::testing::ErrorKind::Required),
-        "the name slot names its refusal, got {html}"
+        reply.field_error(UserFormField::Name),
+        Some(ErrorKind::Required),
+        "the name slot names its refusal, got {}",
+        reply.html()
     );
     assert_eq!(
-        tablo::testing::field_error(&html, "email"),
-        Some(tablo::testing::ErrorKind::Invalid),
-        "the email slot names its refusal, got {html}"
+        reply.field_error(UserFormField::Email),
+        Some(ErrorKind::Invalid),
+        "the email slot names its refusal, got {}",
+        reply.html()
     );
     assert_eq!(
         user_count(&db).await,
@@ -128,24 +138,18 @@ async fn create_valid_redirects_with_a_one_time_flash() {
 #[tokio::test]
 async fn create_valid_persists_the_new_user_and_toasts_it() {
     let db = seeded_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
+    let (router, admin) = app_for_tests(db.clone());
+    let client = demo_client(&router, &db).await.panel(&admin);
 
     let before = user_count(&db).await;
-    let resp = client
-        .submit(
-            "/admin/users/-/create",
-            "name=New%20User&email=new%40example.com",
-        )
+    let reply = client
+        .resource::<UserResource>()
+        .create()
+        .set(UserFormField::Name, "New User")
+        .set(UserFormField::Email, "new@example.com")
+        .submit()
         .await;
-    assert_eq!(resp.status(), 303, "a completed create is a 303");
-    let loc = resp
-        .headers()
-        .get(LOCATION)
-        .expect("missing Location")
-        .to_str()
-        .expect("a text Location")
-        .to_string();
+    assert_eq!(reply.status(), 303, "a completed create is a 303");
 
     let mut db_check = db.clone();
     assert_eq!(
@@ -160,8 +164,7 @@ async fn create_valid_persists_the_new_user_and_toasts_it() {
         .unwrap();
     assert!(new_user.is_some(), "new user should exist");
 
-    let resp2 = client.cookies(&response_cookies(&resp)).get(&loc).await;
-    let html2 = body_string(resp2).await;
+    let html2 = reply.follow().await.html().to_string();
     assert!(
         html2.contains("data-sonner-toaster"),
         "missing the toast stack in {}",
