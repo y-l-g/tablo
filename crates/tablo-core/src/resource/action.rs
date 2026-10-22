@@ -8,7 +8,7 @@ use topcoat::{Result, context::Cx};
 
 mod builtin;
 
-use super::{Mounted, Resource};
+use super::{Mounted, Resource, WriteError};
 use crate::{
     BoxFuture,
     form::{FieldError, FieldErrors, FormInput, FormValues},
@@ -58,7 +58,7 @@ pub(crate) const RESERVED_KEYS: [&str; 3] = [crate::csrf::FIELD_NAME, "confirm",
 ///         posts: &[Post],
 ///         _: (),
 ///         ex: &mut dyn Executor,
-///     ) -> Result<tablo_core::Outcome> {
+///     ) -> Result<tablo_core::Outcome, tablo_core::WriteError> {
 ///         for post in posts {
 ///             Post::filter(Post::fields().id().eq(post.id))
 ///                 .update()
@@ -129,7 +129,7 @@ pub trait Action<R: Resource>: 'static {
     ///     type Input = ();
     ///     const NAME: &'static str = "archive/all";
     /// #   fn can_run(_: &Cx, _: &Post) -> bool { true }
-    /// #   async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome> { Ok(tablo_core::Outcome::done()) }
+    /// #   async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError> { Ok(tablo_core::Outcome::done()) }
     /// }
     ///
     /// let def = ResourceDef::<PostResource>::new().action::<Archive>();
@@ -172,7 +172,8 @@ pub trait Action<R: Resource>: 'static {
     /// act on: each error names an input field's key and renders under its control. Defaults to
     /// none. A key no control renders is a declaration error: the page would show no message.
     ///
-    /// It runs after the input parses and before the transaction opens, so it sees no record.
+    /// It runs after the input parses and before the transaction opens, so it sees no record; a
+    /// rule that reads the database refuses from [`run`](Self::run).
     fn validate_input(_cx: &Cx, _input: &Self::Input) -> FieldErrors {
         FieldErrors::new()
     }
@@ -182,12 +183,17 @@ pub trait Action<R: Resource>: 'static {
     /// the framework's transaction `ex`, and say what the response does once it commits:
     /// [`Outcome::done`](crate::Outcome::done) for the [`success`](Self::success) notification,
     /// landing back where the action ran from.
+    ///
+    /// A rule that reads the database refuses the input with [`WriteError::Refused`], keyed by
+    /// its form keys: the transaction rolls back and the input page renders with the errors. An
+    /// action that asks for nothing has no control to render them under, so its refusal is a
+    /// declaration error.
     fn run(
         cx: &Cx,
         records: &[R::Model],
         input: Self::Input,
         ex: &mut dyn toasty::Executor,
-    ) -> impl Future<Output = Result<crate::Outcome>> + Send;
+    ) -> impl Future<Output = Result<crate::Outcome, WriteError>> + Send;
 
     /// The success notification after a commit. Defaults to the label and
     /// the record count: `"Publish: 3 records"`. A bulk run the action refused
@@ -267,7 +273,7 @@ impl<M> Ability<'_, M> {
     /// # impl Action<PostResource> for Publish {
     /// #     type Input = ();
     /// #     const NAME: &'static str = "publish";
-    /// #     async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome> { Ok(tablo_core::Outcome::done()) }
+    /// #     async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError> { Ok(tablo_core::Outcome::done()) }
     /// # }
     /// # fn is_editor(_cx: &Cx) -> bool { true }
     /// fn post_policy(cx: &Cx, ability: Ability<'_, Post>) -> bool {
@@ -306,7 +312,7 @@ impl<M> crate::policy::Abilities<M> {
     /// # impl Action<PostResource> for Publish {
     /// #     type Input = ();
     /// #     const NAME: &'static str = "publish";
-    /// #     async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome> { Ok(tablo_core::Outcome::done()) }
+    /// #     async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError> { Ok(tablo_core::Outcome::done()) }
     /// # }
     /// let policy = Abilities::<Post>::new()
     ///     .view_any(|_cx| true)
@@ -343,7 +349,7 @@ pub(crate) type RunAction<R> = for<'a> fn(
     &'a [<R as Resource>::Model],
     ErasedInput,
     &'a mut dyn toasty::Executor,
-) -> BoxFuture<'a, Result<crate::Outcome>>;
+) -> BoxFuture<'a, Result<crate::Outcome, WriteError>>;
 
 /// A parsed [`Action::Input`] with its type erased; `run` downcasts it back.
 pub(crate) type ErasedInput = Box<dyn Any + Send>;
@@ -530,7 +536,7 @@ fn run_erased<'a, R: Resource, A: Action<R>>(
     records: &'a [R::Model],
     input: ErasedInput,
     ex: &'a mut dyn toasty::Executor,
-) -> BoxFuture<'a, Result<crate::Outcome>> {
+) -> BoxFuture<'a, Result<crate::Outcome, WriteError>> {
     let input = *input
         .downcast::<A::Input>()
         .expect("the pipeline parses the input `run` takes");

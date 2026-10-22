@@ -20,12 +20,15 @@ probe, relationship re-check and write in file order, so a row's unique value is
 the rows before it. Once a row is refused the transaction will roll back, but every later row is
 still checked, and still written into it when it passes, so that the rows after it are checked
 against its unique values: the page lists each refusal by row and column, and the file is
-corrected and posted again. Each row written to commit is a `Change::Create`: `before_commit`
-receives it inside the transaction, where an error rolls back the whole file, and `after_commit`
-once the rows commit together, in file order. A file holds at most `MAX_IMPORT_ROWS` rows, so the
-transaction stays one request long; on SQLite it holds the database's write lock that long. The
-reader stops at the first row past that cap, and at a row of more than 500 cells, so a small file
-of line breaks or delimiters cannot hold memory past those bounds.
+corrected and posted again. Each row's `create_record` runs in a savepoint: a row it refuses with
+`WriteError::Refused` rolls back to it, so a later row is checked against the rows that passed and
+not against the partial writes of one refused. Each row written to commit is a `Change::Create`:
+`before_commit` receives it inside the transaction, where an error rolls back the whole file, and
+`after_commit` once the rows commit together, in file order. A file holds at most
+`MAX_IMPORT_ROWS` rows, so the transaction stays one request long; on SQLite it holds the
+database's write lock that long. The reader stops at the first row past that cap, and at a row of
+more than 500 cells, so a small file of line breaks or delimiters cannot hold memory past those
+bounds.
 
 A header that names a key the form does not take, a key the request may not change, a control
 disabled on the create page, a file field or a repeater refuses the whole file before any row is

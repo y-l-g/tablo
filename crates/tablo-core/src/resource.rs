@@ -18,6 +18,7 @@ mod mounted;
 mod relation;
 mod soft_delete;
 mod write;
+mod write_error;
 
 pub use action::{Action, Places};
 pub(crate) use action::{
@@ -40,6 +41,7 @@ pub(crate) use relation::{Links, RelationKind};
 pub use soft_delete::Trashed;
 pub(crate) use soft_delete::{SoftDelete, TRASH_FILTER, TrashFilter};
 pub use write::{write_create, write_update};
+pub use write_error::WriteError;
 
 /// Maps one Toasty `Model` to its admin UI.
 ///
@@ -131,15 +133,19 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// query, so a `#[unique]` index *broader* than the scope is invisible: the
     /// probe misses the colliding row and the user gets a 500 instead of the
     /// inline "has already been taken". Scope the constraint to match —
-    /// `#[unique(tenant_id, email)]`. Not checkable at declaration time, since
-    /// a query's filters are not introspectable; tablo#117 tracks the fix.
+    /// `#[unique(tenant_id, email)]` — or, when the index must stay broader, probe it in
+    /// [`create_record`](Self::create_record) and [`update_record`](Self::update_record) and refuse
+    /// with [`WriteError::Refused`]. Not checkable at declaration time, since a query's filters
+    /// are not introspectable; tablo#117 tracks the fix.
     fn query(_cx: &Cx) -> toasty::stmt::Query<List<Self::Model>> {
         toasty::stmt::Query::<List<Self::Model>>::all()
     }
 
     /// App-level rules on the parsed form. The errors render inline with a
-    /// 200 and nothing is written; a record fn error keeps its own mapping, so
-    /// a range or cross-field rule belongs here.
+    /// 200 and nothing is written, so a range or cross-field rule belongs here. A rule that
+    /// reads the database belongs in [`create_record`](Self::create_record) or
+    /// [`update_record`](Self::update_record), which refuse through the transaction they write
+    /// in.
     ///
     /// Each error names a field of the record form (`UserFormField::Age`) and renders under its
     /// control, or under an embedded value's first control.
@@ -158,12 +164,16 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// only by delegating to [`write_create`]. `ex` is the open
     /// transaction: run every statement through it. Return the created row; the
     /// hooks receive it as [`Change::Create`].
+    ///
+    /// A rule that reads the database refuses the submission with [`WriteError::Refused`]: the
+    /// transaction rolls back and the form renders again with the errors under their fields.
     fn create_record(
         cx: &Cx,
         form: Self::Form,
         ex: &mut dyn Executor,
-    ) -> impl Future<Output = Result<Self::Model>> + Send {
-        write_create::<Self>(cx, form, ex)
+    ) -> impl Future<Output = Result<Self::Model, WriteError<<Self::Form as RecordForm>::Field>>> + Send
+    {
+        async move { Ok(write_create::<Self>(cx, form, ex).await?) }
     }
 
     /// Update the already-authorized `record` from the posted form, inside the
@@ -172,13 +182,17 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// Defaults to the derived write, [`write_update`]. `record` is the
     /// snapshot the handler loaded and policy-checked inside the transaction:
     /// use it, never re-query. Return the row as it now stands.
+    ///
+    /// Refuses the submission with [`WriteError::Refused`], as
+    /// [`create_record`](Self::create_record) does.
     fn update_record(
         cx: &Cx,
         record: Self::Model,
         posted: Posted<Self::Form>,
         ex: &mut dyn Executor,
-    ) -> impl Future<Output = Result<Self::Model>> + Send {
-        write_update::<Self>(cx, record, posted, ex)
+    ) -> impl Future<Output = Result<Self::Model, WriteError<<Self::Form as RecordForm>::Field>>> + Send
+    {
+        async move { Ok(write_update::<Self>(cx, record, posted, ex).await?) }
     }
 
     /// Delete the already-authorized `record`.
@@ -265,16 +279,19 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// a counter, a row in another table that must commit with the write or not at all.
     ///
     /// Called once per write, with the [`Change`] it made, through `ex`, the open transaction:
-    /// run every statement through it. Do not open a second connection here, through `db(cx)` or
-    /// a `Notifications::send`: its writes would land outside the transaction, and on a pool of
-    /// one it waits forever for the connection the transaction holds.
+    /// run every statement through it, and notify through
+    /// [`Notifications::send_in`](crate::Notifications::send_in), which stores the
+    /// notification only if the write commits. A second connection, through
+    /// [`db`](crate::db::db) or [`Notifications::send`](crate::Notifications::send),
+    /// would write outside the transaction, and on a pool of one wait forever for the connection
+    /// the transaction holds; a debug build panics on either instead.
     ///
     /// Every write this resource's panel routes make comes here: a create, once per row of a CSV
     /// import, an update, a delete or bulk delete, a restore or force delete, a custom or header
     /// action, and a many-to-many attach or detach. The profile and tenant-settings pages save
     /// their user and tenant rows themselves and do not. A validation error, a policy denial or
-    /// a failed record fn returns before it. An `Err` rolls the whole write back and fails the
-    /// request with the write's failure toast.
+    /// a failed or refused record fn returns before it. An `Err` rolls the whole write back and
+    /// fails the request with the write's failure toast.
     ///
     /// ```rust
     /// # use tablo_core::{Change, NoForm, Resource};

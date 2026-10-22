@@ -22,11 +22,10 @@ Leave out the columns the form does not write: the tenant column of a tenant-own
 the framework sets on create, and columns with a Toasty `#[default(..)]` or `#[auto]`.
 
 **Required and blank values.** The record form alone decides which fields are required. A field's
-**blank answer** is what it stores when its control is submitted empty: `#[form(blank = <expr>)]`,
-`None` for an `Option<T>`, `false` for a `bool` (an unchecked toggle posts `false`), and `""` for
-a `String` marked `#[form(optional)]`. A field with no blank answer is required: the panel renders
-its control required, and an empty submission is refused inline. `optional` applies to a `String`
-only; another type declares `blank` or becomes an `Option`.
+**blank answer** is what it stores when its control is submitted empty, such as `None` for an
+`Option`. A field with no blank answer is required: the panel renders its control required, and an
+empty submission is refused inline. [`RecordForm`](https://y-l.fr/tablo/nightly/api/tablo/derive.RecordForm.html) lists each
+type's blank answer and every `#[form(..)]` key.
 
 The resource names the struct as its `Form` and, to arrange the controls, places them from the
 derive's `controls()` in a `Schema<UserForm>`:
@@ -71,15 +70,11 @@ and it writes the struct, named after the model:
 ```
 
 `NoteForm` holds `title`, `body` and `author_id`, with `NoteFormField` and `NoteFormControls`
-beside it, and each field keeps the model field's visibility. A field's `#[form(..)]` keys are the
-record form's. The derive leaves out what no person fills: a key, an `#[auto]`, `#[update]` or
-`#[version]` field, a relation, and a `TenantId` field, which belongs to the resource's tenancy.
-A form key on one is a compile error naming the fix. A `#[default(..)]` field and a foreign key
-are left out unless a form key opts them in, as `#[form(relationship = AuthorResource)]` does for
-`author_id`; without it, a create would leave the column unset, which mounting refuses when the
-policy allows `Create`.
-`#[form(skip)]` leaves out any other field, and `#[form(name = NoteEditor)]` on the model renames
-the struct.
+beside it. The derive leaves out what no person fills, such as the key and the tenant column, and
+`author_id` is in only because `#[form(relationship = AuthorResource)]` opts the foreign key in:
+without it, a create would leave the column unset, which mounting refuses.
+[`ModelForm`](https://y-l.fr/tablo/nightly/api/tablo/derive.ModelForm.html) lists what it leaves out and how to opt a field in or
+out.
 
 Declare a `#[derive(RecordForm)]` struct instead when a form field is not a model column, such as
 a [many-to-many field](#many-to-many-fields)'s list of keys, or when the model should not name a
@@ -88,12 +83,10 @@ another name: both are `NoteForm` by default.
 
 ## Controls
 
-The derive picks each field's control from the field: a `bool` is a toggle, `#[form(options)]` a
-choice over the field type's options, `#[form(options = T)]` a choice over `T`'s options,
-`#[form(relationship = R)]` a choice over `R`'s records (a multiple choice on a
-[many-to-many field](#many-to-many-fields)), `#[form(file)]` a file field, `#[form(embed)]` the embedded
-value's schema, `#[form(repeat)]` a repeater, and any other field a text field. `controls()`
-hands each one over ready for its modifiers, so an override arranges rather than rebinds:
+The derive picks each field's control from its type and its `#[form(..)]` key, as
+[`RecordForm`](https://y-l.fr/tablo/nightly/api/tablo/derive.RecordForm.html) lists: a `bool` is a toggle, `#[form(options)]` a
+choice, and a field with no key a text field. `controls()` hands each one over ready for its
+modifiers, so an override arranges rather than rebinds:
 
 ```rust
 {{#include ../../../examples/guide/src/forms.rs:forms-controls-layout}}
@@ -109,9 +102,8 @@ one list of options:
 ```
 
 Each variant posts its `snake_case` name and reads as that name in sentence case;
-`#[option(value = "..", label = "..")]` overrides either, and two variants sharing a value or a
-label fail to compile. A column, the detail page and a group header read a variant's label, and a
-query compares the variant itself: `User::fields().role().eq(Role::Admin)`. An `Option<Role>`
+[`Options`](https://y-l.fr/tablo/nightly/api/tablo/derive.Options.html) has the attributes that override either. A column, the
+detail page and a group header read a variant's label, and a query compares the variant itself: `User::fields().role().eq(Role::Admin)`. An `Option<Role>`
 field works the same way, reading an empty submission as `None`. An enum field without
 `#[form(options)]` gets a text field, which accepts only an option's value. An enum leaf of an
 [embedded value](#embedded-values) is such a text field, and its column shows the value.
@@ -121,9 +113,9 @@ renames it; the option's value only spells it in forms and URLs. Moving a `Strin
 enum is therefore a schema change: rows whose text is not Toasty's name for a variant no longer
 load.
 
-The derive also gives the enum `value()`, `label()`, `from_value()` and, through the `Options`
-trait, `label_of()`. A `String` field takes the same list with `#[form(options = T)]`. `.options` takes `Vec<(String, String)>` (an `Options` enum's list),
-`Vec<String>`, or `[&str; N]` (`["admin", "member"]`).
+A `String` field takes the same list with `#[form(options = T)]`. `.options` takes
+`Vec<(String, String)>` (an `Options` enum's list), `Vec<String>`, or `[&str; N]`
+(`["admin", "member"]`).
 
 **Layout blocks** arrange fields: `Section::new(title)` is a titled card, `Group::new()` an untitled
 container, and `Grid::new(cols)` a grid of 1 to 12 columns. A schema or block takes a tuple of at
@@ -198,12 +190,9 @@ type refuses is an inline error naming it: `` `twelve` is not a valid whole numb
 
 A `jiff::Zoned` column has no control: no browser input carries a zone.
 
-Implement `tablo::extend::TypedValue` to bind your own type: `NOUN` names it in errors,
-`INPUT_TYPE` and `STEP` set the input's `type` and `step`, `parse_input` reads a submission (by
-default through `FromStr`), `input_value` spells a stored value for the input and `form_value`
-reads what the input posts, both in the request's time zone (by default each keeps the text as it
-is), and `order` orders two values for `.min` and `.max` (by default it orders none, and the type
-takes no bound).
+Implement [`tablo::extend::TypedValue`](https://y-l.fr/tablo/nightly/api/tablo/extend/trait.TypedValue.html) to bind your own
+type: it names the type in errors, picks the input, and parses and spells the value, with a default
+for each item but the name.
 
 ### Time zones
 
@@ -447,7 +436,9 @@ takes it too, for every field it holds:
   error inline, with status 200 and nothing written. `validate_record` needs the parsed form, so
   it runs only when every field parses. It returns `FieldErrors<UserFormField>`, keyed by the
   record form's field enum (`errors.add(UserFormField::Age, "Age must be zero or more")`), so
-  every error renders under its field's control, or an embedded value's first control.
+  every error renders under its field's control, or an embedded value's first control. A rule
+  that reads the database refuses from `create_record` or `update_record` instead, which render
+  their `WriteError::Refused` errors the same way ([Resources](./resources.md#writes)).
 - **Unknown keys are refused.** A POST carrying a key the form does not declare answers 400, so a
   client cannot write `role` or `tenant_id`. The CSRF token, the edit form's `record_version` and
   the file fields' `clear_` and `keep_` keys are the exceptions.
@@ -571,8 +562,7 @@ A Toasty `#[derive(Embed)]` struct or enum is stored in its parent's row as flat
 ```
 
 - Every field of the value is a scalar, or a nested value marked `#[form(embed)]`.
-  `#[form(label = "…")]`, `#[form(multiline = N)]`, `#[form(blank = ..)]` and
-  `#[form(optional)]` customize a field; an unknown attribute is a compile error.
+  [`EmbeddedForm`](https://y-l.fr/tablo/nightly/api/tablo/derive.EmbeddedForm.html) lists the attributes that customize a field.
 - An embedded field is required, like a record-form field, unless it has a blank answer. An
   emptied field stores its blank answer, and a field with none refuses an empty submission
   inline.
@@ -603,10 +593,9 @@ item's controls per item, which the user adds, removes and moves.
 {{#include ../../../examples/guide/src/forms.rs:forms-repeater-layout}}
 ```
 
-- An item's fields are scalars, declared like an [action input](./actions.md)'s: `label`,
-  `multiline`, `placeholder`, `email`, `blank`, `optional` and `options` customize a field, and a
-  field with no blank answer is required in every row. Mounting refuses a `password` in an item:
-  an edit cannot render a stored secret back, so each save would overwrite it.
+- An item's fields are scalars, declared like an [action input](./actions.md)'s with the
+  [`FormInput`](https://y-l.fr/tablo/nightly/api/tablo/derive.FormInput.html) attributes, and a field with no blank answer is
+  required in every row.
 - Each row posts its item's fields under its own prefix (`steps.0.minutes`), and the repeater's
   own key lists the rows in the order they show. A refused row renders its error under its own
   control, and the rows come back in the order the user left them.

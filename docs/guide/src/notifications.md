@@ -30,10 +30,15 @@ acts for. `send` takes the recipient's `PanelUser::user_id`:
 {{#include ../../../examples/guide/src/notifications.rs:send}}
 ```
 
-`send` writes the row on its own connection and commits it at once, so send from
-`Resource::after_commit` rather than from inside an action's `run` or `Resource::before_commit`.
-A notification sent from either stays when the write rolls back, and on a pool of one connection, such as an in-memory
-SQLite database, it waits forever for the connection the write's transaction holds.
+`send` writes the row on its own connection and commits it at once. Inside a write's
+transaction, in a record fn, an action's `run` or `Resource::before_commit`, send through the
+transaction instead, so the notification commits with the write or not at all;
+[`Notifications::send_in`](https://y-l.fr/tablo/nightly/api/tablo/struct.Notifications.html#method.send_in)
+has the rules:
+
+```rust
+{{#include ../../../examples/guide/src/notifications.rs:send_in}}
+```
 
 A job sends through the panel's handle, for no tenant until `tenant` names one:
 

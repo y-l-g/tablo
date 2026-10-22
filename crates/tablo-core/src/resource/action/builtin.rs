@@ -1,12 +1,12 @@
 //! The built-in entries: delete, and the restore and force delete of a soft-deleting resource.
 
-use topcoat::{Result, context::Cx};
+use topcoat::context::Cx;
 
 use super::{ActionEntry, ErasedInput, InputSpec, Places};
 use crate::{
     BoxFuture,
     policy::Ability,
-    resource::{Change, Resource, Trashed},
+    resource::{Change, Resource, Trashed, WriteError},
 };
 
 impl<R: Resource> ActionEntry<R> {
@@ -112,7 +112,7 @@ fn delete_erased<'a, R: Resource>(
     records: &'a [R::Model],
     _input: ErasedInput,
     ex: &'a mut dyn toasty::Executor,
-) -> BoxFuture<'a, Result<crate::Outcome>> {
+) -> BoxFuture<'a, Result<crate::Outcome, WriteError>> {
     Box::pin(async move {
         for record in records {
             R::delete_record(cx, record, &mut *ex).await?;
@@ -127,7 +127,7 @@ fn restore_erased<'a, R: Resource>(
     records: &'a [R::Model],
     _input: ErasedInput,
     ex: &'a mut dyn toasty::Executor,
-) -> BoxFuture<'a, Result<crate::Outcome>> {
+) -> BoxFuture<'a, Result<crate::Outcome, WriteError>> {
     Box::pin(async move {
         for record in records {
             R::restore_record(cx, record, &mut *ex).await?;
@@ -142,7 +142,7 @@ fn force_delete_erased<'a, R: Resource>(
     records: &'a [R::Model],
     _input: ErasedInput,
     ex: &'a mut dyn toasty::Executor,
-) -> BoxFuture<'a, Result<crate::Outcome>> {
+) -> BoxFuture<'a, Result<crate::Outcome, WriteError>> {
     Box::pin(async move {
         for record in records {
             R::force_delete_record(cx, record, &mut *ex).await?;
@@ -157,7 +157,7 @@ fn bulk_delete_erased<'a, R: Resource>(
     records: &'a [R::Model],
     _input: ErasedInput,
     ex: &'a mut dyn toasty::Executor,
-) -> BoxFuture<'a, Result<crate::Outcome>> {
+) -> BoxFuture<'a, Result<crate::Outcome, WriteError>> {
     Box::pin(async move {
         R::bulk_delete_records(cx, records, ex).await?;
         Ok(crate::Outcome::done())

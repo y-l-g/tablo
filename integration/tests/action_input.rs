@@ -72,7 +72,7 @@ impl Action<TicketResource> for Close {
         tickets: &[Ticket],
         closing: Closing,
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
         let suffix = if closing.reopenable { "" } else { " (final)" };
         for ticket in tickets {
             Ticket::filter(Ticket::fields().id().eq(ticket.id))
@@ -125,7 +125,7 @@ impl Action<TicketResource> for Purge {
         tickets: &[Ticket],
         purging: Purging,
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
         for ticket in tickets {
             Ticket::filter(Ticket::fields().id().eq(ticket.id))
                 .update()
@@ -176,7 +176,7 @@ impl Action<TicketResource> for Merge {
         tickets: &[Ticket],
         merging: Merging,
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
         for ticket in tickets {
             Ticket::filter(Ticket::fields().id().eq(ticket.id))
                 .update()
@@ -564,7 +564,7 @@ impl Action<SelectResource> for Attach {
         _: &[Ticket],
         _: Attaching,
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
         Ok(tablo::Outcome::done())
     }
 }
@@ -584,7 +584,7 @@ impl Action<SelectResource> for Refuse {
         _: &[Ticket],
         _: Strict,
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
         Ok(tablo::Outcome::done())
     }
 }
@@ -604,7 +604,7 @@ impl Action<SelectResource> for Select {
         _: &[Ticket],
         _: Selecting,
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
         Ok(tablo::Outcome::done())
     }
 }

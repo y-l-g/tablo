@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use jiff::Timestamp;
 use toasty::{Db, stmt::Expr};
-use topcoat::context::{Cx, try_app_context};
+use topcoat::context::{Cx, CxId, app_context, try_app_context};
 use uuid::Uuid;
 
 use super::{Notification, bus::NotificationBus};
@@ -64,6 +64,8 @@ pub struct Notifications {
     bus: NotificationBus,
     panel: String,
     tenant: Option<Uuid>,
+    /// The request [`Self::of`] took it from; `None` for a job's handle.
+    request: Option<CxId>,
 }
 
 impl Notifications {
@@ -81,12 +83,16 @@ impl Notifications {
                 "Notifications::of needs a request under a panel".to_owned(),
             ));
         };
-        Ok(Self::new(
-            crate::db::db(cx),
+        // The pool itself, not `db(cx)`: a hook inside the write's transaction may take the
+        // handle to `send_in` through it.
+        let mut notifications = Self::new(
+            app_context::<Db>(cx).clone(),
             bus(cx),
             panel.prefix.clone(),
             crate::tenant_id(cx),
-        ))
+        );
+        notifications.request = Some(cx.id());
+        Ok(notifications)
     }
 
     pub(crate) fn new(db: Db, bus: NotificationBus, panel: String, tenant: Option<Uuid>) -> Self {
@@ -95,6 +101,7 @@ impl Notifications {
             bus,
             panel,
             tenant,
+            request: None,
         }
     }
 
@@ -108,19 +115,97 @@ impl Notifications {
 
     /// Stores `notification` for the panel user `user_id`, their
     /// [`PanelUser::user_id`](crate::PanelUser::user_id), unread, and wakes the bells they have
-    /// open on the panel. It commits on its own, so a write that sends one sends it once that
-    /// write commits.
+    /// open on the panel. It commits on its own connection: inside a write's transaction, such as
+    /// in [`Resource::before_commit`](crate::Resource::before_commit), use [`Self::send_in`].
     ///
     /// # Errors
     ///
     /// An opaque infrastructure failure when the row cannot be written, e.g. the database does
     /// not register [`StoredNotification`]; the driver's text goes to the log.
+    ///
+    /// # Panics
+    ///
+    /// In a debug build, on a handle from [`Self::of`] while the request's panel write has its
+    /// transaction open, as [`db`](crate::db::db) does.
     pub async fn send(
         &self,
         user_id: &str,
         notification: Notification,
     ) -> topcoat::Result<StoredNotification> {
-        let stored = toasty::create!(StoredNotification {
+        if let Some(request) = self.request {
+            crate::db::assert_no_write_open(request, "Notifications::send");
+        }
+        let stored = self
+            .store(&mut self.db.clone(), user_id, notification)
+            .await?;
+        self.bus.wake(&self.panel, user_id);
+        Ok(stored)
+    }
+
+    /// Stores `notification` as [`Self::send`] does, through `ex`, so it exists only if the
+    /// transaction `ex` runs commits. Within a panel write, such as in
+    /// [`Resource::before_commit`](crate::Resource::before_commit) on a handle from
+    /// [`Self::of`], the recipient's open bells wake once the write commits, and not at all if it
+    /// rolls back; anywhere else they wake at once, and pick the row up after the commit when
+    /// they next refresh.
+    ///
+    /// ```rust
+    /// # use tablo_core::{Change, NoForm, Notification, Notifications, Resource};
+    /// # use topcoat::{Result, context::Cx};
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # struct Post { #[key] #[auto] id: uuid::Uuid, author: String }
+    /// # struct PostResource;
+    /// # impl Resource for PostResource {
+    /// #     type Model = Post;
+    /// #     type Form = NoForm<Post>;
+    /// async fn before_commit(
+    ///     cx: &Cx,
+    ///     change: &Change<Post>,
+    ///     ex: &mut dyn toasty::Executor,
+    /// ) -> Result<()> {
+    ///     if let Change::Update { after, .. } = change {
+    ///         Notifications::of(cx)?
+    ///             .send_in(
+    ///                 &mut *ex,
+    ///                 &after.author,
+    ///                 Notification::info("Your post was edited"),
+    ///             )
+    ///             .await?;
+    ///     }
+    ///     Ok(())
+    /// }
+    /// # }
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::send`]. A failure inside a transaction leaves it to roll back.
+    pub async fn send_in(
+        &self,
+        ex: &mut dyn toasty::Executor,
+        user_id: &str,
+        notification: Notification,
+    ) -> topcoat::Result<StoredNotification> {
+        let stored = self.store(ex, user_id, notification).await?;
+        let (bus, panel, user_id) = (self.bus.clone(), self.panel.clone(), user_id.to_owned());
+        let wake = move || bus.wake(&panel, &user_id);
+        let unqueued = match self.request {
+            Some(request) => crate::db::after_write_commits(request, wake),
+            None => Err(wake),
+        };
+        if let Err(wake) = unqueued {
+            wake();
+        }
+        Ok(stored)
+    }
+
+    async fn store(
+        &self,
+        ex: &mut dyn toasty::Executor,
+        user_id: &str,
+        notification: Notification,
+    ) -> topcoat::Result<StoredNotification> {
+        toasty::create!(StoredNotification {
             user_id: user_id.to_owned(),
             panel: self.panel.clone(),
             tenant: self.tenant,
@@ -128,11 +213,9 @@ impl Notifications {
             read_at: None,
             created_at: Timestamp::now(),
         })
-        .exec(&mut self.db.clone())
+        .exec(ex)
         .await
-        .map_err(failure)?;
-        self.bus.wake(&self.panel, user_id);
-        Ok(stored)
+        .map_err(failure)
     }
 
     /// Deletes the panel's stored notifications, read or not, sent more than `age` ago. Nothing

@@ -161,8 +161,8 @@ pub use panel::{
 pub use policy::{Abilities, Ability, Allow, And, Deny, Or, Policy, ReadOnly, When, when};
 pub use resource::{
     Action, Change, FieldAccess, ForeignKey, HeaderAction, HeaderActions, Places, PublicLink,
-    Relation, Resource, ResourceDef, Trashed, can, scoped_query, scoped_query_in, write_create,
-    write_update,
+    Relation, Resource, ResourceDef, Trashed, WriteError, can, scoped_query, scoped_query_in,
+    write_create, write_update,
 };
 pub use rich_text::tool::Tool;
 pub use schema::{
@@ -275,7 +275,7 @@ pub use tablo_macros::EmbeddedForm;
 ///         posts: &[Post],
 ///         rejection: Rejection,
 ///         ex: &mut dyn toasty::Executor,
-///     ) -> Result<tablo_core::Outcome> {
+///     ) -> Result<tablo_core::Outcome, tablo_core::WriteError> {
 ///         // Store `rejection.reason`, notify when `rejection.notify_author` holds…
 ///         # let _ = (posts, rejection.reason, rejection.notify_author, ex);
 ///         Ok(tablo_core::Outcome::done())

@@ -25,6 +25,15 @@ pub async fn export_finished(cx: &Cx, owner_id: &str, export: u64) -> Result<()>
     Ok(())
 }
 
+pub async fn order_shipped(cx: &Cx, owner_id: &str, ex: &mut dyn toasty::Executor) -> Result<()> {
+    // ANCHOR: send_in
+    Notifications::of(cx)?
+        .send_in(ex, owner_id, Notification::success("Your order shipped"))
+        .await?;
+    // ANCHOR_END: send_in
+    Ok(())
+}
+
 pub async fn nightly_import(admin: &PanelHandle, owner_id: &str, tenant: uuid::Uuid) -> Result<()> {
     // ANCHOR: job
     admin

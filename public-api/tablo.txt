@@ -85,6 +85,7 @@ pub use tablo::prelude::TextColumn
 pub use tablo::prelude::TextField
 pub use tablo::prelude::Toggle
 pub use tablo::prelude::Tool
+pub use tablo::prelude::WriteError
 pub use tablo::prelude::can
 pub use tablo::prelude::can_list
 pub use tablo::prelude::can_open

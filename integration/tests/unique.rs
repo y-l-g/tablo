@@ -234,9 +234,9 @@ async fn a_value_taken_after_the_probe_renders_inline() {
             cx: &Cx,
             form: SubscriberForm,
             ex: &mut dyn toasty::Executor,
-        ) -> topcoat::Result<Subscriber> {
+        ) -> Result<Subscriber, tablo::WriteError<SubscriberFormField>> {
             WRITING.store(true, Ordering::SeqCst);
-            tablo::write_create::<Self>(cx, form, ex).await
+            Ok(tablo::write_create::<Self>(cx, form, ex).await?)
         }
     }
 
@@ -300,9 +300,9 @@ async fn an_edit_to_a_value_taken_after_the_probe_renders_inline() {
             record: Subscriber,
             posted: tablo::Posted<SubscriberForm>,
             ex: &mut dyn toasty::Executor,
-        ) -> topcoat::Result<Subscriber> {
+        ) -> Result<Subscriber, tablo::WriteError<SubscriberFormField>> {
             WRITING.store(true, Ordering::SeqCst);
-            tablo::write_update::<Self>(cx, record, posted, ex).await
+            Ok(tablo::write_update::<Self>(cx, record, posted, ex).await?)
         }
     }
 
@@ -372,7 +372,7 @@ async fn an_app_error_is_not_read_as_a_taken_value() {
             _cx: &Cx,
             _form: SubscriberForm,
             _ex: &mut dyn toasty::Executor,
-        ) -> topcoat::Result<Subscriber> {
+        ) -> Result<Subscriber, tablo::WriteError<SubscriberFormField>> {
             WRITING.store(true, Ordering::SeqCst);
             Err(topcoat::router::error::forbidden().into())
         }

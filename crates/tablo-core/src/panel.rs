@@ -373,7 +373,7 @@ impl Panel {
     }
 
     /// Shows a bell in the topbar over the signed-in user's
-    /// [stored notifications](crate::notification::Notifications): an unread count, and a sheet
+    /// [stored notifications](crate::Notifications): an unread count, and a sheet
     /// that lists them newest first, to mark read or unread and remove. Once the page loads, the
     /// bell keeps updating over Topcoat's runtime connection, and a notification sent while the
     /// page is open also shows as a toast.
