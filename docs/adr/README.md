@@ -1,7 +1,7 @@
 # Architecture Decision Records
 
 One record per decision: the decision, the constraint code must respect, and the alternatives it
-rejected. Behavior lives in rustdoc and the guide. Records are amended in place; when code and a
+rejected. Behavior lives in rustdoc. Records are amended in place; when code and a
 record disagree, the code wins and the record is fixed. Missing numbers are retired, never reused.
 
 | ADR | Decision |
