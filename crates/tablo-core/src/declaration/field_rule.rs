@@ -55,6 +55,20 @@ pub enum FieldRuleFault {
     ///
     /// Order a number, date, time or timestamp field, or compare with `different`.
     UnorderedComparison(String),
+    /// A file field's `extensions` listing none, so it refuses every file.
+    ///
+    /// List the extensions it takes, or drop `extensions` to take any.
+    NoExtension,
+    /// A file field's extension that is not letters and digits, carried: `tar.gz` or `*`, which
+    /// no file's last extension matches.
+    ///
+    /// List the last extension alone: `gz`.
+    InvalidExtension(String),
+    /// A file field's `max_bytes` at or above the 10 MiB form-body cap, carried: the body cap
+    /// refuses a larger file first, so the rule never refuses one.
+    ///
+    /// Lower `max_bytes` below 10 MiB.
+    AboveFormCap(usize),
 }
 
 /// [`DeclarationErrorKind::FieldRule`](super::DeclarationErrorKind::FieldRule)'s sentence.
@@ -131,6 +145,21 @@ pub(super) fn fmt_field_rule(
             f,
             "field '{field}' orders against field '{other}', but its type has no order: compare \
              a number, date, time or timestamp field, or use `different`"
+        ),
+        FieldRuleFault::NoExtension => write!(
+            f,
+            "field '{field}' lists no extension it takes, so it refuses every file: list one, or \
+             drop `extensions`"
+        ),
+        FieldRuleFault::InvalidExtension(extension) => write!(
+            f,
+            "field '{field}' takes the extension '{extension}', which no file name ends in: list \
+             the last extension alone, in letters and digits"
+        ),
+        FieldRuleFault::AboveFormCap(max) => write!(
+            f,
+            "field '{field}' takes files up to {max} bytes, but a form body holds at most 10 MiB: \
+             lower `max_bytes` below it"
         ),
     }
 }

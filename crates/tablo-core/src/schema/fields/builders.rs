@@ -16,6 +16,7 @@ use super::{
 
 mod choices;
 mod comparisons;
+mod files;
 
 /// `label`, `name` and `visible_when`, shared by every builder.
 macro_rules! base_modifiers {

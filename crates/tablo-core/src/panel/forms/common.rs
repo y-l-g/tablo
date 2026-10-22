@@ -45,8 +45,7 @@ impl FormParts {
     }
 }
 
-/// Caps the whole multipart stream at 10 MiB, file bytes included.
-pub(crate) const MAX_FORM_BYTES: usize = 10 * 1024 * 1024;
+pub(crate) use crate::schema::MAX_FORM_BYTES;
 
 /// Rejects the posted keys no field claimed with 400, but the ones the form carries for itself:
 /// the CSRF token, the edit form's record version, and each file field's `keep_<field>` and
@@ -129,10 +128,11 @@ pub(super) fn blank(values: &FormValues, key: &str) -> bool {
     values.text(key).is_none_or(|value| value.trim().is_empty())
 }
 
-/// Restores `keep_<field>` paths only when the installed uploader still holds them, returning
-/// restored field names.
+/// Restores `keep_<field>` paths only when the field's extensions take them and the installed
+/// uploader still holds them, returning restored field names.
 pub(super) async fn restore_pending_uploads(
     cx: &Cx,
+    schema: &crate::schema::Schema,
     flags: &HashMap<String, FileFlags>,
     values: &mut FormValues,
 ) -> HashSet<String> {
@@ -144,7 +144,12 @@ pub(super) async fn restore_pending_uploads(
         let Some(candidate) = flags.keep.as_deref().map(str::trim) else {
             continue;
         };
-        if candidate.is_empty() || !crate::upload::holds(uploader(cx), candidate).await {
+        let taken = schema
+            .fields()
+            .find(|field| field.name() == name)
+            .and_then(|field| field.as_file())
+            .is_some_and(|file| file.takes_path(candidate));
+        if !taken || candidate.is_empty() || !crate::upload::holds(uploader(cx), candidate).await {
             continue;
         }
         values.insert(name.clone(), candidate);

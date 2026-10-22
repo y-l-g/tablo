@@ -128,7 +128,7 @@ pub(super) async fn prepare_submission<R: Resource>(
     drop_client_typed_uploads(&schema, &file_part_names, &mut values);
     let (upload_errors, mut carried) =
         crate::upload::store_uploads(uploader(cx), &schema, &files, &mut values).await;
-    carried.extend(restore_pending_uploads(cx, &flags, &mut values).await);
+    carried.extend(restore_pending_uploads(cx, &schema, &flags, &mut values).await);
     // An empty file input keeps the stored value; `clear_<field>` clears it unless a file was
     // chosen.
     for (name, flags) in &flags {

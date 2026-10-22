@@ -213,16 +213,15 @@ pub fn uploads_panel(dir: PathBuf) -> Panel {
 // ANCHOR_END: forms-uploads-dir
 
 // ANCHOR: forms-uploader
-/// Refuses anything but an image, then stores like `uploads_dir` does.
+/// Refuses bytes that do not start as a PNG or JPEG image, then stores like `uploads_dir` does.
 struct ImagesOnly(DirUploader);
 
 impl Uploader for ImagesOnly {
     async fn store(&self, filename: &str, bytes: &[u8]) -> Result<String, String> {
-        let extension = filename
-            .rsplit_once('.')
-            .map(|(_, ext)| ext.to_ascii_lowercase());
-        if !matches!(extension.as_deref(), Some("png" | "jpg" | "jpeg" | "webp")) {
-            return Err("only PNG, JPEG and WebP images are accepted".to_string());
+        let png = bytes.starts_with(b"\x89PNG\r\n\x1a\n");
+        let jpeg = bytes.starts_with(&[0xff, 0xd8, 0xff]);
+        if !png && !jpeg {
+            return Err("the file is not a PNG or JPEG image".to_string());
         }
         self.0.store(filename, bytes).await
     }

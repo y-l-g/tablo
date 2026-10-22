@@ -20,7 +20,7 @@ pub(crate) use check::Items;
 pub(crate) use choice::{ChoiceControl, Relationship, option_view};
 pub(crate) use custom::{Control, ControlInput};
 pub use custom::{Switch, Toggle};
-pub(crate) use file::{is_linkable, is_rooted, stored_upload};
+pub(crate) use file::{FileControl, MAX_FORM_BYTES, is_linkable, is_rooted, stored_upload};
 pub(crate) use placement::Placement;
 pub(crate) use read_only::{read_only, value_cell};
 use rich_text::RichTextControl;
@@ -132,7 +132,7 @@ pub(crate) enum ControlKind {
     /// A `<select>` over static options or a relationship's rows.
     Choice(ChoiceControl),
     /// A file input storing the uploaded file's path.
-    File,
+    File(FileControl),
     /// An app's control, or the built-in [`Toggle`].
     Custom(Arc<dyn Control>),
     /// A row of an item's controls per value of a `#[document]` list.
@@ -145,7 +145,7 @@ impl std::fmt::Debug for Field {
             ControlKind::Text(_) => "text",
             ControlKind::RichText(_) => "rich text",
             ControlKind::Choice(_) => "choice",
-            ControlKind::File => "file",
+            ControlKind::File(_) => "file",
             ControlKind::Custom(_) => "custom",
             ControlKind::Repeater(_) => "repeater",
         };
@@ -225,7 +225,7 @@ impl Field {
     {
         FileField::new(Self::bound(
             Binding::of::<M, String>(&lens.into()),
-            ControlKind::File,
+            ControlKind::File(FileControl::default()),
         ))
     }
 
@@ -359,7 +359,7 @@ impl Field {
     }
 
     pub(crate) fn is_file(&self) -> bool {
-        matches!(self.control, ControlKind::File)
+        matches!(self.control, ControlKind::File(_))
     }
 
     pub(crate) fn is_unique(&self) -> bool {
@@ -561,7 +561,7 @@ impl Field {
             ControlKind::Choice(choice) => {
                 Box::pin(self.render_choice(choice, cx, value, error, id, placement)).await
             }
-            ControlKind::File => self.render_file(cx, text, error, id, disabled),
+            ControlKind::File(file) => self.render_file(file, cx, text, error, id, disabled),
             ControlKind::Custom(control) => {
                 self.render_custom(control.as_ref(), cx, text, error, id, disabled)
             }

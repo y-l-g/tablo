@@ -374,8 +374,17 @@ refuses to mount without an `Uploader`. `Panel::uploads_dir` installs the stock 
 ```
 
 It writes each file into the directory as `{uuid}-{basename}`, within the filesystem's 255-byte
-name limit, and stores its URL: `/uploads/` and the name as one percent-encoded path segment. Any
-other store implements `Uploader`; this one refuses all but images, then stores in a directory:
+name limit, and stores its URL: `/uploads/` and the name as one percent-encoded path segment.
+
+A file field takes any file until it declares `.extensions(["png", "jpg"])` or `.max_bytes(n)`.
+The server refuses a file either rule refuses before the uploader sees it, and the extensions also
+reach the browser's file picker as `accept`. The extension is what is checked, not the content: a
+served file's type comes from its extension, so the extension decides how a browser treats it.
+[`FileField::extensions`](https://y-l.fr/tablo/nightly/api/tablo/struct.FileField.html#method.extensions)
+has the rules.
+
+Any other store implements `Uploader`. This one checks that the bytes really are an image, which no
+field rule does, then stores in a directory:
 
 ```rust
 {{#include ../../../examples/guide/src/forms.rs:forms-uploader}}
