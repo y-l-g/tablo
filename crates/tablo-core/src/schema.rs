@@ -3,6 +3,7 @@
 //! `Schema` holds layout blocks, embedded values, and [`Field`] slots and resolves every field once
 //! into one list for rendering and validation.
 
+mod comparison;
 mod condition;
 pub(crate) mod embedded;
 pub(crate) mod fields;
@@ -296,13 +297,16 @@ impl<F> Schema<F> {
     pub fn declaration_errors(&self) -> Vec<crate::DeclarationErrorKind> {
         let mut errors = self.condition_errors();
         errors.extend(self.dependent_errors());
+        errors.extend(self.comparison_errors(""));
         // A control disabled on create posts nothing there, so the create needs a value.
         for field in &self.fields {
             errors.extend(field.rule_errors(field.name()));
             if let Some(repeater) = field.as_repeater() {
-                for leaf in repeater.item_schema().fields() {
+                let item = repeater.item_schema();
+                for leaf in item.fields() {
                     errors.extend(leaf.rule_errors(&format!("{}.{}", field.name(), leaf.name())));
                 }
+                errors.extend(item.comparison_errors(&format!("{}.", field.name())));
             }
             let blank = field.default_value().is_none_or(|value| match value {
                 FormValue::Text(text) => text.trim().is_empty(),
@@ -430,7 +434,9 @@ impl<F> Schema<F> {
                 repeater.check(cx, name, rows, errors).await;
                 continue;
             }
-            if let Some(error) = refusal {
+            if let Some(error) =
+                refusal.or_else(|| self.comparison_refusal(field, values, stored, &hidden))
+            {
                 errors.push(error);
                 continue;
             }

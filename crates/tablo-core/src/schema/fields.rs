@@ -348,19 +348,12 @@ impl Field {
     pub(crate) fn prefix(&mut self, prefix: &str) {
         let label = self.label_str().to_string();
         self.binding = Binding::named(format!("{prefix}{}", self.name()), label);
+        self.prefix_comparisons(prefix);
     }
 
     pub(crate) fn as_choice(&self) -> Option<&ChoiceControl> {
         match &self.control {
             ControlKind::Choice(choice) => Some(choice),
-            _ => None,
-        }
-    }
-
-    /// Probes uniqueness with the submission parsed through the lens.
-    pub(crate) fn eq_filter(&self, value: &str) -> Option<toasty::stmt::Expr<bool>> {
-        match &self.control {
-            ControlKind::Text(text) => text.eq_filter(value),
             _ => None,
         }
     }

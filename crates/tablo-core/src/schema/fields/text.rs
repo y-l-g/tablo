@@ -9,6 +9,7 @@ use self::rules::{Order, Rules, order};
 use super::{ControlKind, Field, render_field};
 use crate::{
     FieldRuleFault,
+    schema::comparison::Comparison,
     values::{FormScalar, FormValue},
 };
 
@@ -60,6 +61,9 @@ pub(crate) struct TextControl {
     spell: fn(&str) -> Option<String>,
     /// How the field's type orders two submissions, for its bounds.
     order: Order,
+    /// The type its comparisons order by: [`FormScalar::compared_as`].
+    compared_as: &'static str,
+    pub(super) comparisons: Vec<Comparison>,
 }
 
 /// The stored spelling of a `T` submission.
@@ -104,6 +108,8 @@ impl TextControl {
             probe: Some(probe),
             spell: spell::<T>,
             order: order::<T>,
+            compared_as: T::compared_as(),
+            comparisons: Vec::new(),
         }
     }
 
@@ -128,6 +134,8 @@ impl TextControl {
             probe: None,
             spell: spell::<T>,
             order: order::<T>,
+            compared_as: T::compared_as(),
+            comparisons: Vec::new(),
         }
     }
 
@@ -151,7 +159,7 @@ impl TextControl {
     }
 
     /// The `type` of the control's `<input>`: `text` for a `String`.
-    pub(super) fn input_type(&self) -> &'static str {
+    pub(crate) fn input_type(&self) -> &'static str {
         self.input_type
     }
 
@@ -179,6 +187,21 @@ impl TextControl {
         })
     }
 
+    /// How the field's type orders two submissions, `None` when it parses neither or has no order.
+    pub(crate) fn order(&self, a: &str, b: &str) -> Option<std::cmp::Ordering> {
+        (self.order)(a, b)
+    }
+
+    /// The type the field's comparisons order by, which a compared field shares.
+    pub(crate) fn compared_as(&self) -> &'static str {
+        self.compared_as
+    }
+
+    /// The field's comparisons with other fields of its form.
+    pub(crate) fn comparisons(&self) -> &[Comparison] {
+        &self.comparisons
+    }
+
     /// What is wrong with the declared rules.
     pub(crate) fn rule_faults(&self) -> Vec<FieldRuleFault> {
         self.rules.faults(self.order)
@@ -191,6 +214,27 @@ impl TextControl {
 }
 
 impl Field {
+    pub(crate) fn as_text(&self) -> Option<&TextControl> {
+        match &self.control {
+            ControlKind::Text(text) => Some(text),
+            _ => None,
+        }
+    }
+
+    /// Probes uniqueness with the submission parsed through the lens.
+    pub(crate) fn eq_filter(&self, value: &str) -> Option<toasty::stmt::Expr<bool>> {
+        self.as_text().and_then(|text| text.eq_filter(value))
+    }
+
+    /// Compares under `prefix`, as a repeater row posts its sibling fields.
+    pub(super) fn prefix_comparisons(&mut self, prefix: &str) {
+        if let ControlKind::Text(text) = &mut self.control {
+            for comparison in &mut text.comparisons {
+                comparison.other.insert_str(0, prefix);
+            }
+        }
+    }
+
     /// The form spelling of `posted`, the last value the field's control posted, read in `zone`:
     /// a text control reads it through its type, as a timestamp's reads a wall-clock time, a rich
     /// text control keeps what its toolbar produces, and any other control keeps it as posted.

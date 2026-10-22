@@ -1913,6 +1913,7 @@ impl core::panic::unwind_safe::UnwindSafe for tablo_core::FieldErrorKind
 pub tablo_core::FieldRuleFault::AboveRowCap(usize)
 pub tablo_core::FieldRuleFault::EmptyRange
 pub tablo_core::FieldRuleFault::FewerOptions(usize)
+pub tablo_core::FieldRuleFault::IncomparableField(alloc::string::String)
 pub tablo_core::FieldRuleFault::InvalidPattern(alloc::string::String)
 pub tablo_core::FieldRuleFault::NotCheckbox
 pub tablo_core::FieldRuleFault::NotText(&'static str)
@@ -1920,7 +1921,9 @@ pub tablo_core::FieldRuleFault::RefusedBlank
 pub tablo_core::FieldRuleFault::RefusedDefault(alloc::string::String)
 pub tablo_core::FieldRuleFault::SingleValue
 pub tablo_core::FieldRuleFault::UnorderedBound(alloc::string::String)
+pub tablo_core::FieldRuleFault::UnorderedComparison(alloc::string::String)
 pub tablo_core::FieldRuleFault::UnparsedDefault(alloc::string::String)
+pub tablo_core::FieldRuleFault::UnplacedComparedField(alloc::string::String)
 impl core::clone::Clone for tablo_core::FieldRuleFault
 pub fn tablo_core::FieldRuleFault::clone(&self) -> tablo_core::FieldRuleFault
 impl core::cmp::Eq for tablo_core::FieldRuleFault
@@ -4525,6 +4528,12 @@ pub fn tablo_core::TextField<F>::disabled_on_edit(self) -> Self
 pub fn tablo_core::TextField<F>::help(self, impl core::convert::Into<alloc::string::String>) -> Self
 impl<F> tablo_core::TextField<F>
 pub fn tablo_core::TextField<F>::default(self, impl tablo_core::IntoFormValue) -> Self
+impl<F> tablo_core::TextField<F>
+pub fn tablo_core::TextField<F>::different(self, &tablo_core::TextField<F>) -> Self
+pub fn tablo_core::TextField<F>::gt(self, &tablo_core::TextField<F>) -> Self
+pub fn tablo_core::TextField<F>::gte(self, &tablo_core::TextField<F>) -> Self
+pub fn tablo_core::TextField<F>::lt(self, &tablo_core::TextField<F>) -> Self
+pub fn tablo_core::TextField<F>::lte(self, &tablo_core::TextField<F>) -> Self
 impl<F> tablo_core::TextField<F>
 pub fn tablo_core::TextField<F>::email(self) -> Self
 pub fn tablo_core::TextField<F>::max(self, impl core::fmt::Display) -> Self

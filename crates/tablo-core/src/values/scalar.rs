@@ -68,6 +68,13 @@ pub trait FormScalar: Sized {
     fn order(&self, _other: &Self) -> Option<std::cmp::Ordering> {
         None
     }
+
+    /// The type a text field's comparison with another field orders by: `Self`, and `T` for an
+    /// `Option<T>`, so an optional end date compares with a required start date.
+    #[doc(hidden)]
+    fn compared_as() -> &'static str {
+        std::any::type_name::<Self>()
+    }
 }
 
 impl FormScalar for String {
@@ -143,11 +150,19 @@ impl<T: NullableScalar> FormScalar for Option<T> {
     fn order(&self, other: &Self) -> Option<std::cmp::Ordering> {
         T::order(self.as_ref()?, other.as_ref()?)
     }
+
+    fn compared_as() -> &'static str {
+        T::compared_as()
+    }
 }
 
 impl FormScalar for Option<String> {
     fn parse_form(value: &str) -> std::result::Result<Self, String> {
         Ok(Some(value.to_string()))
+    }
+
+    fn compared_as() -> &'static str {
+        String::compared_as()
     }
 
     fn to_form(&self) -> String {

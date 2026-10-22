@@ -43,6 +43,18 @@ pub enum FieldRuleFault {
     /// A field always disabled, with no default, whose blank answer breaks its own rules: an
     /// `accepted` checkbox or a `min_items`, so every create is refused.
     RefusedBlank,
+    /// A comparison with a field the schema does not place, carried.
+    ///
+    /// Place the compared field in the same schema, or in the same repeater row.
+    UnplacedComparedField(String),
+    /// A comparison with a field that is no text field of the same type, carried.
+    ///
+    /// Compare two fields of one type: an `Option<T>` field compares with a `T` one.
+    IncomparableField(String),
+    /// An ordering comparison over a type without an order, carrying the compared field.
+    ///
+    /// Order a number, date, time or timestamp field, or compare with `different`.
+    UnorderedComparison(String),
 }
 
 /// [`DeclarationErrorKind::FieldRule`](super::DeclarationErrorKind::FieldRule)'s sentence.
@@ -104,6 +116,21 @@ pub(super) fn fmt_field_rule(
             f,
             "field '{field}' is disabled and has no default, but its own rules refuse its blank \
              answer, so every create is refused: give it a default or drop the rule"
+        ),
+        FieldRuleFault::UnplacedComparedField(other) => write!(
+            f,
+            "field '{field}' compares with field '{other}', which the schema does not place: \
+             place it in the same schema, or in the same repeater row"
+        ),
+        FieldRuleFault::IncomparableField(other) => write!(
+            f,
+            "field '{field}' compares with field '{other}', which is not a text field of the same \
+             type: compare two fields of one type"
+        ),
+        FieldRuleFault::UnorderedComparison(other) => write!(
+            f,
+            "field '{field}' orders against field '{other}', but its type has no order: compare \
+             a number, date, time or timestamp field, or use `different`"
         ),
     }
 }
