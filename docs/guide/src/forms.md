@@ -212,7 +212,11 @@ a rule added over existing rows does not lock them.
 types take a bound, and the regular-expression syntax a `pattern` shares between the server and
 the browser. A rule that cannot work, such as a minimum above its maximum, fails the mount.
 
-A rule across fields, or one these do not express, belongs in `Resource::validate_record`.
+A text field also compares with another field of its form: `.gt(&other)`, `.gte`, `.lt` and `.lte`
+order two numbers, dates or times, and `.different(&other)` refuses an equal value, as
+`ends_on.gte(&starts_on)` keeps a stay from ending before it starts. Only the server checks them,
+in the same round as the other rules; [`TextField::gt`](https://y-l.fr/tablo/nightly/api/tablo/struct.TextField.html#method.gt)
+has the rules. A rule these do not express belongs in `Resource::validate_record`.
 
 ### Email, URL and uniqueness
 

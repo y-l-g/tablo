@@ -1,7 +1,12 @@
 use jiff::tz::TimeZone;
 
 use super::{test_support::DummyUser, *};
-use crate::{schema::Schema, test_support::cx, values::FormValue};
+use crate::{
+    DeclarationErrorKind,
+    schema::Schema,
+    test_support::cx,
+    values::{FormValue, FormValues},
+};
 
 /// A control renders optional until a panel stamps its record form's presence on it.
 #[test]
@@ -195,4 +200,33 @@ fn a_condition_reads_a_disabled_fields_default() {
     assert_eq!(input.text("plan"), Some("free"));
     assert_eq!(input.text("coupon"), Some("SAVE"));
     assert_eq!(input.get("referral"), None, "hidden by the default");
+}
+
+/// A row's field compares with a field of the same row, under that row's keys, and the mount
+/// reports a row's comparison under the repeater's key.
+#[tokio::test]
+async fn a_repeater_row_compares_its_own_fields() {
+    fn leg() -> Schema {
+        let low = Field::text_input::<i64>("low");
+        let high = Field::text_input::<i64>("high").gt(&low);
+        let ghost = Field::text_input::<i64>("ghost");
+        Schema::new((low, high, Field::text_input::<i64>("far").lt(&ghost)))
+    }
+    let schema = Schema::new(Field::bound(
+        Field::named("legs".to_string()),
+        ControlKind::Repeater(super::super::repeater::RepeaterControl::of(leg)),
+    ));
+    assert_eq!(
+        schema.declaration_errors(),
+        [DeclarationErrorKind::FieldRule {
+            field: "legs.far".to_string(),
+            fault: crate::FieldRuleFault::UnplacedComparedField("ghost".to_string()),
+        }]
+    );
+    let row = |low: &str, high: &str| FormValues::from_iter([("low", low), ("high", high)]);
+    let values =
+        FormValues::from_iter([("legs", FormValue::Rows(vec![row("1", "2"), row("3", "3")]))]);
+    let errors = schema.checked(&cx(), &values).await;
+    let keys: Vec<&str> = errors.iter().map(|error| error.key.as_str()).collect();
+    assert_eq!(keys, ["legs.1.high"]);
 }
