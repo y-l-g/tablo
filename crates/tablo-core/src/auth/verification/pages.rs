@@ -23,7 +23,7 @@ pub(super) async fn notice(cx: &Cx, email: &str) -> topcoat::Result<Response> {
     // A link request lands back here with a notification. Only a GET takes it: a HEAD renders
     // nothing.
     let sent = (*topcoat::router::request::method(cx) == http::Method::GET)
-        .then(|| crate::notification::take_notification(cx))
+        .then(|| crate::flash::take_notification(cx))
         .flatten();
     let form = view! {
         cx =>

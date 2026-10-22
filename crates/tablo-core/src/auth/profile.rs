@@ -3,7 +3,6 @@
 
 use std::{
     any::{Any, TypeId},
-    collections::HashSet,
     future::Future,
 };
 
@@ -19,14 +18,15 @@ use topcoat::{
 };
 
 use super::{
-    PanelUser, SignedIn, email_change::Requested, input, panel_root,
-    registration::new_password_errors, session::replace_sessions, signed, unauthenticated_error,
+    PanelUser, SignedIn, email_change::Requested, input, registration::new_password_errors,
+    session::replace_sessions, signed, unauthenticated_error,
 };
 use crate::{
     BoxFuture,
+    auth::realm::{SettingsPage, hosted, panel_prefix, realm},
+    flash::set_notification,
     form::{FieldError, FieldErrors, FormInput, FormValues, parse_password, parse_scalar},
-    notification::{Notification, set_notification},
-    panel::{FormChrome, panel_prefix, render_form_page, state::current},
+    outcome::Notification,
     schema::{Field, Schema},
     topcoat_compat::async_page,
 };
@@ -366,7 +366,7 @@ pub(crate) fn profile_url(cx: &Cx) -> String {
 
 /// Whether the request's panel installs a [`ProfileEditor`].
 pub(crate) fn offered(cx: &Cx) -> bool {
-    current(cx).is_some_and(|panel| panel.auth.profile_editor().is_some())
+    realm(cx).is_some_and(|panel| panel.auth.profile_editor().is_some())
 }
 
 /// The signed-in user and the panel's editor, or the answer to a request without them.
@@ -392,7 +392,7 @@ pub(super) fn profile_page(cx: &Cx, _body: Body) -> BoxView<'_> {
 pub(super) fn profile_post(cx: &Cx, body: Body) -> BoxView<'_> {
     async_page(async move {
         let (signed, editor) = editing(cx)?;
-        let form = crate::panel::parse_form_body(cx, body).await?;
+        let form = crate::auth::input::read_form(cx, body).await?;
         crate::csrf::verify(cx, form.last(crate::csrf::FIELD_NAME))?;
         let input_schema = editor.schema();
         let values = input_schema.read_input(cx, &form.pairs, &RESERVED_KEYS)?;
@@ -437,15 +437,15 @@ async fn render<'a>(
     values: &FormValues,
     errors: &FieldErrors,
 ) -> topcoat::Result<BoxView<'a>> {
-    render_form_page(
-        cx,
-        &editor.schema(),
-        FormChrome::settings("Profile", panel_root(cx)),
+    let schema = editor.schema();
+    let page = SettingsPage {
+        title: "Profile",
+        schema: &schema,
+        hidden: None,
         values,
         errors,
-        &HashSet::new(),
-    )
-    .await
+    };
+    hosted(cx)?.settings_page(cx, page).await
 }
 
 /// The mistakes in a panel's [`Auth::profile`](super::Auth::profile): a profile without auth, an

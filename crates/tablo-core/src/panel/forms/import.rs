@@ -18,7 +18,6 @@ use topcoat::{
 use super::{
     super::{gate::gate, write::commit_then},
     common::FormParts,
-    decode::parse_file_body,
     submit::{
         Submission, Unposted, parse_form, prepare_submission, recheck_relationships, refusal,
     },
@@ -359,7 +358,7 @@ pub(crate) fn resource_import_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         if !resource.can_create(cx) {
             return Err(forbidden().into());
         }
-        let parts = parse_file_body(cx, body).await?;
+        let parts = crate::upload::parse_file_body(cx, body).await?;
         crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
         let mask = resource.form_mask(cx);
         let columns = columns(&resource.form, &mask);

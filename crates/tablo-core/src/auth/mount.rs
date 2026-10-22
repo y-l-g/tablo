@@ -16,7 +16,7 @@ use super::{
     two_factor::{challenge_page, challenge_post, settings_page, settings_post},
     verification::{confirm_page, notice_page, notice_post},
 };
-use crate::{DeclarationErrorKind, panel::route_path, toasty_compat::model::AppSchema};
+use crate::{DeclarationErrorKind, naming::route_path, toasty_compat::model::AppSchema};
 
 /// What the router installs that auth features need.
 #[derive(Debug, Clone, Copy)]

@@ -21,14 +21,16 @@ use super::{
     Panel, Root, error_page,
     forms::MAX_FORM_BYTES,
     headers,
+    host::PanelHost,
     register::Registry,
     state::{PanelState, Panels, current, under_prefix},
 };
 use crate::{
     DeclarationError, DeclarationErrorKind, MountError, Site,
-    auth::{PanelGate, RuntimeGate, SESSION_LIFETIME},
+    auth::{AuthHost, PanelGate, Realm, RuntimeGate, SESSION_LIFETIME},
+    bus::NotificationBus,
     declaration::segment_fault,
-    notification::NotificationBus,
+    naming::route_path,
     resource::{MountScope, Mounts},
     tenancy::TenantSource,
     toasty_compat::model::AppSchema,
@@ -106,12 +108,12 @@ impl RouterBuilderPanelExt for RouterBuilder {
     fn panel_handle(&self, prefix: &str) -> Option<PanelHandle> {
         let panel = self
             .get_app_context::<Panels>()?
-            .by_prefix(&super::normalize_prefix(prefix))?;
+            .by_prefix(&crate::naming::normalize_prefix(prefix))?;
         Some(PanelHandle {
             db: self.get_app_context::<Db>()?.clone(),
             mounts: Arc::clone(&panel.mounts),
             panel: Some(Arc::clone(panel)),
-            prefix: panel.prefix.clone(),
+            prefix: panel.realm.prefix.clone(),
             bus: self
                 .get_app_context::<NotificationBus>()
                 .cloned()
@@ -241,7 +243,13 @@ impl Panel {
         };
         let served_paths = served_dirs.iter().map(|(path, _)| path.clone()).collect();
         let state = Arc::new(PanelState {
-            prefix: prefix.clone(),
+            realm: Arc::new(Realm {
+                prefix: prefix.clone(),
+                auth,
+                login_hint,
+                time_zone,
+                notifications,
+            }),
             nav_items,
             brand,
             dark_mode: dark_mode.unwrap_or(false),
@@ -249,16 +257,12 @@ impl Panel {
             children,
             mounts,
             root_redirect: root_redirect.clone(),
-            auth,
-            login_hint,
             user_menu,
             uploads,
             served_paths,
             urls,
             mounted_pages,
             endpoints,
-            notifications,
-            time_zone,
             searches,
         });
         let prefix_path = route_path(&prefix);
@@ -268,9 +272,9 @@ impl Panel {
             builder = builder.layer(headers::FrameAncestors::new(directive, prefix.clone()));
         }
         // Registered last of the prefix's layers, so it runs first.
-        builder = builder.layer(PanelGate::new(Arc::clone(&state)));
+        builder = builder.layer(PanelGate::new(Arc::clone(&state.realm), &PanelHost));
         // The auth form routes carry their own cap scoped by path.
-        builder = crate::auth::mount::routes(builder, &prefix, &state.auth);
+        builder = crate::auth::mount::routes(builder, &prefix, &state.realm.auth);
         builder = builder.layout(LayoutFn::new(
             prefix_path.clone(),
             layout.unwrap_or(Panel::layout_shell),
@@ -397,13 +401,14 @@ fn mount_errors(
                 {
                     refuse(DeclarationErrorKind::ServeDirTaken {
                         path: path.clone(),
-                        panel: other.prefix.clone(),
+                        panel: other.realm.prefix.clone(),
                     });
                 }
             }
-            if under_prefix(&other.prefix, prefix) || under_prefix(prefix, &other.prefix) {
+            let other = &other.realm.prefix;
+            if under_prefix(other, prefix) || under_prefix(prefix, other) {
                 refuse(DeclarationErrorKind::PrefixOverlapsPanel {
-                    other: other.prefix.clone(),
+                    other: other.clone(),
                 });
             }
         }
@@ -418,8 +423,9 @@ fn install_shared(mut builder: RouterBuilder) -> RouterBuilder {
         builder = builder.sessions(SessionConfig::builder().lifetime(SESSION_LIFETIME).build());
     }
     builder = builder
-        .layer(RuntimeGate::new())
+        .layer(RuntimeGate::new(&PanelHost))
         .app_context(Panels::default())
+        .app_context(AuthHost(&PanelHost))
         .app_context(MountScope(request_mounts))
         .app_context(TenantSource(crate::auth::session_tenant))
         .app_context(crate::values::ZoneSource(crate::auth::session_time_zone))
@@ -489,13 +495,6 @@ fn validation_cx(db: &Db, mounts: &Arc<Mounts>) -> Cx {
 /// `/uploads/{*file}` and `/uploads/{*path}` as one route.
 fn served_root(path: &str) -> &str {
     path.rsplit_once("{*").map_or(path, |(root, _)| root)
-}
-
-/// Parses a panel route path, panicking on malformed input.
-pub(crate) fn route_path(path: &str) -> topcoat::router::PathBuf {
-    Path::from_str(path)
-        .expect("panel route paths are well-formed")
-        .to_owned()
 }
 
 #[cfg(test)]

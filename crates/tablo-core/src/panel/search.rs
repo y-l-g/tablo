@@ -168,7 +168,7 @@ fn topbar_search(cx: &Cx) -> BoxView<'_> {
     let Some(panel) = current(cx).filter(|_| searches_any(cx)) else {
         return ().boxed();
     };
-    let prefix = panel.prefix.clone();
+    let prefix = panel.realm.prefix.clone();
     let action = format!("{prefix}/{SEARCH_SEGMENT}");
     let term = signal(&cx.keyed("tablo-search"), String::new);
     // Each handler captures its own copy of the form's id.
@@ -263,7 +263,7 @@ async fn render_results(cx: &Cx, prefix: String, term: String) -> Result<BoxView
     if words(&term).is_empty() {
         return Ok(().boxed());
     }
-    let here = current(cx).is_some_and(|panel| panel.prefix == prefix) && searches_any(cx);
+    let here = current(cx).is_some_and(|panel| panel.realm.prefix == prefix) && searches_any(cx);
     let groups = if here {
         Some(run(cx, &term, BOX_LIMIT).await?)
     } else {

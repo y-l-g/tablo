@@ -11,7 +11,8 @@ use topcoat::{
 
 use super::validation_cx;
 use crate::{
-    notification::{NotificationBus, Notifications},
+    bus::NotificationBus,
+    notification::Notifications,
     panel::{
         Panel,
         state::{CurrentPanel, PanelState, current},
@@ -106,7 +107,7 @@ impl PanelHandle {
     /// The panel's prefix, e.g. `/admin`, for a public page's link to it; `None` for
     /// [`Panel::handle`]'s, which no router mounts.
     pub fn url(&self) -> Option<String> {
-        self.panel.as_ref().map(|panel| panel.prefix.clone())
+        self.panel.as_ref().map(|panel| panel.realm.prefix.clone())
     }
 
     /// Sends stored notifications to this panel's users from outside a request, such as from a

@@ -43,7 +43,13 @@ pub(crate) fn panel_for<R: Resource>() -> Panel {
 /// settings: the request's panel a handler test puts on its `Cx`.
 pub(crate) fn panel_state(prefix: &str, auth: crate::Auth) -> super::state::PanelState {
     super::state::PanelState {
-        prefix: prefix.to_string(),
+        realm: std::sync::Arc::new(crate::auth::Realm {
+            prefix: prefix.to_string(),
+            auth,
+            login_hint: None,
+            time_zone: jiff::tz::TimeZone::UTC,
+            notifications: false,
+        }),
         nav_items: Vec::new(),
         brand: None,
         dark_mode: false,
@@ -51,18 +57,20 @@ pub(crate) fn panel_state(prefix: &str, auth: crate::Auth) -> super::state::Pane
         children: std::collections::HashMap::new(),
         mounts: std::sync::Arc::default(),
         root_redirect: None,
-        auth,
-        login_hint: None,
         user_menu: Vec::new(),
         mounted_pages: std::collections::HashMap::new(),
         uploads: None,
         served_paths: Vec::new(),
         urls: std::collections::HashMap::new(),
         endpoints: Vec::new(),
-        notifications: false,
         searches: Vec::new(),
-        time_zone: jiff::tz::TimeZone::UTC,
     }
+}
+
+/// The host a router that mounts a panel installs, for a `CxTestBuilder::app_context` beside
+/// [`current_panel`]: auth reads the request's panel through it.
+pub(crate) fn host() -> crate::auth::AuthHost {
+    crate::auth::AuthHost(&super::host::PanelHost)
 }
 
 /// `state` as the request's panel, for a `CxTestBuilder::request_context`.

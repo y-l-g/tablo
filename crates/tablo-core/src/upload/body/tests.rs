@@ -1,7 +1,4 @@
-use super::{
-    super::common::{FormParts, MAX_FORM_BYTES},
-    *,
-};
+use super::*;
 
 /// The urlencoded `bytes`' last value per key.
 fn form_values_from_bytes(bytes: &[u8]) -> HashMap<String, String> {

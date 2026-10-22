@@ -8,7 +8,7 @@ use topcoat::{
     icon::icon,
     router::{
         Body, Layer, LayerFuture, Next, Path, PathBuf,
-        error::{forbidden, redirect, unauthorized},
+        error::{forbidden, not_found, redirect, unauthorized},
         request::{method, uri},
         response::{IntoResponse, Response},
     },
@@ -21,29 +21,28 @@ use super::{
     page::{AuthPage, render},
     page_load,
     password_reset::{forgot_url, offered as reset_offered, reset_url},
+    realm::{Host, Realm, hosted},
     registration::{offered, register_url},
     session::{resolve, session_row, session_user},
     tenant_registration, two_factor, unauthenticated_error, verification,
 };
-use crate::panel::{
-    Panel,
-    error_page::answer,
-    route_path,
-    state::{CurrentPanel, PanelState, Panels, panels},
-};
+use crate::naming::route_path;
 
 /// Resolves the panel prefix's session into request `Cx` and answers fail-closed
 /// without a permitted user.
 pub(crate) struct PanelGate {
     path: PathBuf,
-    panel: Arc<PanelState>,
+    realm: Arc<Realm>,
+    host: &'static dyn Host,
 }
 
 impl PanelGate {
-    pub(crate) fn new(panel: Arc<PanelState>) -> Self {
+    /// The gate of `realm`'s panel, which `host` enters.
+    pub(crate) fn new(realm: Arc<Realm>, host: &'static dyn Host) -> Self {
         Self {
-            path: route_path(&panel.prefix),
-            panel,
+            path: route_path(&realm.prefix),
+            realm,
+            host,
         }
     }
 }
@@ -55,8 +54,11 @@ impl Layer for PanelGate {
 
     fn handle<'a>(&'a self, cx: &'a Cx, body: Body, next: Next<'a>) -> LayerFuture<'a> {
         Box::pin(async move {
-            let cx = cx.with(CurrentPanel(Arc::clone(&self.panel)));
-            let Some(authenticator) = self.panel.auth.authenticator() else {
+            let Some(cx) = self.host.enter(cx, &self.realm) else {
+                return Err(not_found().into());
+            };
+            let answer = |cx: &Cx, error| self.host.answer(cx, error);
+            let Some(authenticator) = self.realm.auth.authenticator() else {
                 return next
                     .run(&cx, body)
                     .await
@@ -69,7 +71,7 @@ impl Layer for PanelGate {
             let path = uri(&cx).path();
             let sign_up = offered(&cx) && path == register_url(&cx);
             let reset = reset_offered(&cx) && (path == forgot_url(&cx) || path == reset_url(&cx));
-            let verifies = self.panel.auth.verification().is_some();
+            let verifies = self.realm.auth.verification().is_some();
             // A verification link acts on GET; an email-change link shows a button that posts.
             let confirm = verifies
                 && path == verification::confirm_url(&cx)
@@ -77,7 +79,7 @@ impl Layer for PanelGate {
             let email_change = verifies
                 && (path == email_change::confirm_url(&cx)
                     || path == email_change::cancel_url(&cx));
-            let challenge = self.panel.auth.two_factor_config().is_some()
+            let challenge = self.realm.auth.two_factor_config().is_some()
                 && path == two_factor::challenge_url(&cx);
             let public =
                 path == login_url(&cx) || sign_up || reset || confirm || email_change || challenge;
@@ -91,10 +93,10 @@ impl Layer for PanelGate {
                 // panel instead of offering to replace their session with a new one.
                 if sign_up
                     && matches!(*method(&cx), http::Method::GET | http::Method::HEAD)
-                    && let Some(signed) = resolve(&cx, &self.panel, authenticator).await?
+                    && let Some(signed) = resolve(&cx, &self.realm, authenticator).await?
                     && signed.user.can_access_panel()
                 {
-                    return Err(redirect(self.panel.prefix.clone()).into());
+                    return Err(redirect(self.realm.prefix.clone()).into());
                 }
                 return next.run(&cx, body).await;
             }
@@ -107,13 +109,13 @@ impl Layer for PanelGate {
             // identity to any handler an app might mount at the same path.
             let logout_route =
                 uri(&cx).path() == logout_url(&cx) && matches!(*method(&cx), http::Method::POST);
-            let signed = resolve(&cx, &self.panel, authenticator).await?;
+            let signed = resolve(&cx, &self.realm, authenticator).await?;
             // A user who owes a step, such as verifying their address, reaches only the step's
             // page and the logout route.
             if let Some(signed) = &signed
                 && signed.user.can_access_panel()
                 && !logout_route
-                && let Some(step) = owed_step(&cx, &self.panel, signed).await?
+                && let Some(step) = owed_step(&cx, &self.realm, signed).await?
                 && !step.serves(&cx)
             {
                 return if page_load(&cx) {
@@ -176,11 +178,7 @@ impl Step {
 
 /// The step `signed` owes `panel`, if any: an unverified address first, then a required
 /// authenticator, since registering a tenant is reaching the panel.
-async fn owed_step(
-    cx: &Cx,
-    panel: &PanelState,
-    signed: &SignedIn,
-) -> topcoat::Result<Option<Step>> {
+async fn owed_step(cx: &Cx, panel: &Realm, signed: &SignedIn) -> topcoat::Result<Option<Step>> {
     let user = signed.user.as_ref();
     Ok(if verification::pending(panel, user) {
         Some(Step::VerifyEmail)
@@ -238,7 +236,7 @@ async fn no_access(cx: &Cx) -> topcoat::Result<Response> {
         cx,
         AuthPage {
             title: "Access denied",
-            description: format!("Your account cannot open {}.", Panel::brand_name(cx)),
+            description: format!("Your account cannot open {}.", hosted(cx)?.brand_name(cx)),
             status: Some(http::StatusCode::FORBIDDEN),
             form,
             switch: None,
@@ -257,12 +255,15 @@ async fn no_access(cx: &Cx) -> topcoat::Result<Response> {
 /// gated, otherwise passes on for each panel's shard to re-check.
 pub(crate) struct RuntimeGate {
     path: PathBuf,
+    host: &'static dyn Host,
 }
 
 impl RuntimeGate {
-    pub(crate) fn new() -> Self {
+    /// The gate over every panel `host` mounts.
+    pub(crate) fn new(host: &'static dyn Host) -> Self {
         Self {
             path: route_path(crate::topcoat_compat::RUNTIME_PREFIX),
+            host,
         }
     }
 }
@@ -274,15 +275,19 @@ impl Layer for RuntimeGate {
 
     fn handle<'a>(&'a self, cx: &'a Cx, body: Body, next: Next<'a>) -> LayerFuture<'a> {
         Box::pin(async move {
-            let Some(panels) = panels(cx) else {
+            let realms = self.host.realms(cx);
+            if realms.is_empty() {
                 return next.run(cx, body).await;
-            };
-            let declaring: Vec<_> = panels.declaring(uri(cx).path()).collect();
-            let signed = if panels.any_gates() {
-                signed_in(cx, panels).await?
+            }
+            let declaring = self.host.declaring(cx, uri(cx).path());
+            let signed = if realms.iter().any(|realm| realm.gates()) {
+                signed_in(cx, &realms).await?
             } else {
                 None
             };
+            // The request runs as the panel `realm` serves; a realm no panel serves answers 404.
+            let enter =
+                |cx: &Cx, realm: &Arc<Realm>| self.host.enter(cx, realm).ok_or_else(not_found);
             let admitted = match &signed {
                 Some(signed) => admitted(cx, signed).await?,
                 None => false,
@@ -290,26 +295,23 @@ impl Layer for RuntimeGate {
             if declaring.is_empty() {
                 return match signed {
                     Some(signed) if admitted => {
-                        let panel = CurrentPanel(Arc::clone(&signed.panel));
-                        next.run(&cx.with_many((signed, panel)), body).await
+                        let cx = enter(cx, &signed.panel)?.with(signed);
+                        next.run(&cx, body).await
                     }
                     Some(_) => Err(forbidden().into()),
-                    None if panels.all_gate() => Err(unauthorized().into()),
+                    None if realms.iter().all(|realm| realm.gates()) => Err(unauthorized().into()),
                     None => next.run(cx, body).await,
                 };
             }
             // A session another panel signed in is no session for the declaring panels.
             match signed.filter(|signed| declaring.iter().any(|p| Arc::ptr_eq(p, &signed.panel))) {
                 Some(signed) if admitted => {
-                    let panel = CurrentPanel(Arc::clone(&signed.panel));
-                    next.run(&cx.with_many((signed, panel)), body).await
+                    let cx = enter(cx, &signed.panel)?.with(signed);
+                    next.run(&cx, body).await
                 }
                 Some(_) => Err(forbidden().into()),
-                None => match declaring.iter().find(|panel| !panel.gates()) {
-                    Some(open) => {
-                        next.run(&cx.with(CurrentPanel(Arc::clone(open))), body)
-                            .await
-                    }
+                None => match declaring.iter().find(|realm| !realm.gates()) {
+                    Some(open) => next.run(&enter(cx, open)?, body).await,
                     None => Err(unauthorized().into()),
                 },
             }
@@ -317,16 +319,17 @@ impl Layer for RuntimeGate {
     }
 }
 
-/// The user the request's session signed in, through the auth of the panel that issued it.
-async fn signed_in(cx: &Cx, panels: &Panels) -> topcoat::Result<Option<SignedIn>> {
+/// The user the request's session signed in, through the auth of the realm that issued it.
+async fn signed_in(cx: &Cx, realms: &[Arc<Realm>]) -> topcoat::Result<Option<SignedIn>> {
     let Some(row) = session_row(cx).await? else {
         return Ok(None);
     };
-    match panels
-        .by_prefix(&row.panel)
-        .and_then(|panel| Some((panel, panel.auth.authenticator()?)))
+    match realms
+        .iter()
+        .find(|realm| realm.prefix == row.panel)
+        .and_then(|realm| Some((realm, realm.auth.authenticator()?)))
     {
-        Some((panel, authenticator)) => session_user(cx, row, panel, authenticator).await,
+        Some((realm, authenticator)) => session_user(cx, row, realm, authenticator).await,
         None => Ok(None),
     }
 }

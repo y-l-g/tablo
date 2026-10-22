@@ -10,7 +10,8 @@ use topcoat::{
     },
 };
 
-use super::{build::route_path, state::under_prefix};
+use super::state::under_prefix;
+use crate::naming::route_path;
 
 const CSP: header::HeaderName = header::CONTENT_SECURITY_POLICY;
 

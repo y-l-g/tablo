@@ -11,13 +11,13 @@ mod gate;
 mod input;
 mod login;
 pub(crate) mod mail;
-mod models;
 pub(crate) mod mount;
 mod page;
 pub(crate) mod panel_user;
 pub(crate) mod password;
 pub(crate) mod password_reset;
 pub(crate) mod profile;
+mod realm;
 pub(crate) mod registration;
 mod session;
 mod tenant_profile;
@@ -41,11 +41,11 @@ use topcoat::{
 };
 use uuid::Uuid;
 
+use self::realm::{panel_prefix, realms};
 pub use self::{
     columns::ColumnPreference,
     email_change::{EmailChange, request_email_change},
     login::{LOGIN_FIELD, NEXT_FIELD, PASSWORD_FIELD, TENANT_FIELD},
-    models::register_models,
     password::{AdminUser, create_admin, hash_password, verify_password},
     password_reset::{PasswordResetter, RESET_LIFETIME},
     registration::{MIN_PASSWORD_CHARS, new_password_errors},
@@ -59,34 +59,25 @@ pub use self::{
 // What the crate root exports, under the paths this module's own code names.
 pub(crate) use self::{
     columns::{load_choice, save_choice},
+    config::Auth,
     gate::{PanelGate, RuntimeGate, still_signed_in},
     login::{logout_url, safe_next, tenant_url},
-    profile::{offered as profile_offered, profile_url},
-    tenant_profile::{offered as tenant_profile_offered, tenant_profile_url},
-    tenant_registration::{offered as tenant_registration_offered, register_tenant_url},
-    two_factor::{offered as two_factor_offered, settings_url as two_factor_url},
-};
-pub(crate) use self::{
-    config::Auth,
     mail::AuthMail,
     panel_user::{Authenticator, PanelUser},
     password::PasswordAuth,
     password_reset::PasswordReset,
-    profile::{Profile, ProfileEditor, ProfileUpdate},
+    profile::{Profile, ProfileEditor, ProfileUpdate, offered as profile_offered, profile_url},
+    realm::{AuthHost, Host, Realm, SettingsPage, realm},
     registration::{Registrar, SignUp},
-    tenant_registration::TenantRegistration,
+    tenant_profile::{offered as tenant_profile_offered, tenant_profile_url},
+    tenant_registration::{
+        TenantRegistration, offered as tenant_registration_offered, register_tenant_url,
+    },
     throttle::LoginThrottle,
-    two_factor::TwoFactor,
+    two_factor::{TwoFactor, offered as two_factor_offered, settings_url as two_factor_url},
     verification::EmailVerification,
 };
-use crate::{
-    BoxFuture,
-    panel::{
-        panel_prefix,
-        state::{PanelState, Panels, current, panels},
-    },
-    tenancy::Membership,
-};
+use crate::{BoxFuture, tenancy::Membership};
 
 /// [`Authenticator`] with its user type erased, as the panel keeps it.
 pub(crate) trait DynAuthenticator: Send + Sync {
@@ -167,9 +158,9 @@ impl<A: Authenticator> DynAuthenticator for A {
 #[derive(Clone)]
 pub(crate) struct SignedIn {
     pub(crate) user: Arc<dyn PanelUser>,
-    /// The panel whose session signed the user in: the only panel the user
+    /// The realm whose session signed the user in: the only panel the user
     /// is the user of.
-    pub(crate) panel: Arc<PanelState>,
+    pub(crate) panel: Arc<Realm>,
     /// The tenant the session selected, if any. [`tenant_id`](crate::tenant_id)
     /// honors it only while it is one of the user's memberships.
     pub(crate) tenant: Option<Uuid>,
@@ -179,8 +170,8 @@ pub(crate) struct SignedIn {
 /// access. Only the logout route reads a user without access.
 pub(crate) fn resolved(cx: &Cx) -> Option<&SignedIn> {
     let signed = try_request_context::<SignedIn>(cx)?;
-    match current(cx) {
-        Some(panel) if !Arc::ptr_eq(&signed.panel, panel) => None,
+    match realm(cx) {
+        Some(realm) if !Arc::ptr_eq(&signed.panel, realm) => None,
         _ => Some(signed),
     }
 }
@@ -226,7 +217,7 @@ pub(crate) fn session_tenant(cx: &Cx) -> Option<Uuid> {
 pub(crate) fn session_time_zone(cx: &Cx) -> Option<jiff::tz::TimeZone> {
     signed(cx)
         .and_then(|signed| signed.user.time_zone())
-        .or_else(|| current(cx).map(|panel| panel.time_zone.clone()))
+        .or_else(|| realm(cx).map(|realm| realm.time_zone.clone()))
 }
 
 /// The signed-in user, as the app's own user type.
@@ -263,17 +254,14 @@ pub fn user<U: PanelUser>(cx: &Cx) -> Option<&U> {
 
 /// Panics when panels sign users in and none of them loads a `U`.
 fn assert_some_panel_loads<U: PanelUser>(cx: &Cx) {
-    let loaded: Vec<&dyn DynAuthenticator> = match panels(cx) {
-        Some(panels) => panels
-            .0
-            .iter()
-            .filter_map(|panel| panel.auth.authenticator())
-            .collect(),
-        None => current(cx)
-            .and_then(|panel| panel.auth.authenticator())
-            .into_iter()
-            .collect(),
-    };
+    let mut mounted = realms(cx);
+    if mounted.is_empty() {
+        mounted.extend(realm(cx).cloned());
+    }
+    let loaded: Vec<&dyn DynAuthenticator> = mounted
+        .iter()
+        .filter_map(|realm| realm.auth.authenticator())
+        .collect();
     if loaded.is_empty()
         || loaded
             .iter()
@@ -319,9 +307,9 @@ pub fn signed_in(cx: &Cx) -> bool {
 /// Outside any panel — an app's own page, or a shard no panel declared — it
 /// answers whether some mounted panel does, so a check there fails closed.
 pub fn enforced(cx: &Cx) -> bool {
-    match current(cx) {
-        Some(panel) => panel.gates(),
-        None => panels(cx).is_some_and(Panels::any_gates),
+    match realm(cx) {
+        Some(realm) => realm.gates(),
+        None => realms(cx).iter().any(|realm| realm.gates()),
     }
 }
 

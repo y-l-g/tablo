@@ -13,6 +13,7 @@ fn panel_prefix_prefers_the_panel_over_the_request_path() {
         .unwrap()
         .into_parts();
     let cx = CxTestBuilder::new()
+        .app_context(crate::panel::test_support::host())
         .request_context(parts)
         .request_context(current_panel(panel_state(
             "/admin",
@@ -27,6 +28,7 @@ fn panel_prefix_prefers_the_panel_over_the_request_path() {
         .unwrap()
         .into_parts();
     let cx = CxTestBuilder::new()
+        .app_context(crate::panel::test_support::host())
         .request_context(parts)
         .request_context(current_panel(panel_state(
             "/backoffice",
@@ -63,6 +65,7 @@ fn return_target_accepts_only_paths_under_the_prefix() {
             .unwrap()
             .into_parts();
         let cx = CxTestBuilder::new()
+            .app_context(crate::panel::test_support::host())
             .request_context(parts)
             .request_context(current_panel(panel_state(
                 "/admin",

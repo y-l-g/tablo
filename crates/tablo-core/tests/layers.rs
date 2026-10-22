@@ -13,8 +13,7 @@ use std::{
 };
 
 /// The top-level modules of each layer, lowest first. A module names only the modules listed
-/// before it, so outside [`BACK_EDGES`] the modules form no cycle and the list reads as the order
-/// to learn them in.
+/// before it, so the modules form no cycle and the list reads as the order to learn them in.
 const LAYERS: &[(&str, &[&str])] = &[
     (
         "foundations",
@@ -29,6 +28,8 @@ const LAYERS: &[(&str, &[&str])] = &[
             "db",
             "csrf",
             "outcome",
+            "flash",
+            "bus",
         ],
     ),
     (
@@ -50,51 +51,9 @@ const LAYERS: &[(&str, &[&str])] = &[
         ],
     ),
     ("resources", &["resource", "page"]),
-    ("serving", &["upload", "notification", "auth", "panel"]),
-];
-
-/// The edges that reach a module listed later in the same layer, each a cycle, with the files that
-/// take it and the reason it stands. The check fails on any other file, and on a listed file that
-/// no longer takes its edge.
-const BACK_EDGES: &[(&str, &[&str], &str)] = &[
     (
-        "auth",
-        &[
-            "notification.rs",
-            "notification/bell.rs",
-            "notification/stored.rs",
-        ],
-        "the live toaster and the bell restate the auth gate, the bell reads its signed-in user, \
-         and `auth` flashes notifications, registers stored ones and wakes the bells it revokes",
-    ),
-    (
-        "panel",
-        &[
-            "auth.rs",
-            "auth/email_change.rs",
-            "auth/gate.rs",
-            "auth/login.rs",
-            "auth/mail.rs",
-            "auth/mount.rs",
-            "auth/page.rs",
-            "auth/password_reset.rs",
-            "auth/profile.rs",
-            "auth/registration.rs",
-            "auth/session.rs",
-            "auth/tenant_profile.rs",
-            "auth/tenant_registration.rs",
-            "auth/token.rs",
-            "auth/two_factor.rs",
-            "auth/two_factor/challenge.rs",
-            "auth/two_factor/email.rs",
-            "auth/two_factor/settings.rs",
-            "auth/verification.rs",
-            "notification/bell.rs",
-            "notification/stored.rs",
-        ],
-        "the auth pages render in the panel's shell, parse its form bodies and read the request's \
-         panel, whose state holds the auth; the bell and stored notifications read the request's \
-         panel too, and the shell renders the bell",
+        "serving",
+        &["upload", "auth", "notification", "models", "panel"],
     ),
 ];
 
@@ -110,13 +69,11 @@ fn every_module_reaches_only_the_modules_listed_before_it() {
     }
     let exports = root_exports(&lib);
     let mut reached_up = Vec::new();
-    let mut back_edges = Vec::new();
     for file in sources(&src) {
         let relative = file.strip_prefix(&src).expect("under src");
         let segments = module_path(relative);
         let from = &segments[0];
         let (from_layer, from_rank) = rank(from).expect("every module is in a layer");
-        let path = slashed(relative);
         let text = strip(&fs::read_to_string(&file).expect("read a source"));
         for target in reached_modules(&text, &segments) {
             let target = exports.get(&target).cloned().unwrap_or(target);
@@ -130,13 +87,6 @@ fn every_module_reaches_only_the_modules_listed_before_it() {
                     LAYERS[to_layer].0
                 ));
             } else if to_layer == from_layer && to_rank > from_rank {
-                if BACK_EDGES
-                    .iter()
-                    .any(|(to, files, _)| *to == target && files.contains(&path.as_str()))
-                {
-                    back_edges.push((path.clone(), target));
-                    continue;
-                }
                 reached_up.push(format!(
                     "{} reaches `{target}`, listed after `{from}`",
                     relative.display()
@@ -151,15 +101,6 @@ fn every_module_reaches_only_the_modules_listed_before_it() {
         "a module reaches one listed after it in `LAYERS`; move what it needs down, or the caller \
          up:\n{}",
         reached_up.join("\n")
-    );
-    let stale: Vec<_> = BACK_EDGES
-        .iter()
-        .flat_map(|(to, files, _)| files.iter().map(move |file| (*file, *to)))
-        .filter(|(file, to)| !back_edges.iter().any(|(f, t)| f == file && t == to))
-        .collect();
-    assert!(
-        stale.is_empty(),
-        "these `BACK_EDGES` are no longer taken; remove them: {stale:?}"
     );
 }
 
@@ -341,7 +282,7 @@ fn sources(dir: &Path) -> Vec<PathBuf> {
     files
 }
 
-/// `relative` with `/` between its segments, as [`BACK_EDGES`] and [`RENDER_HOOKS`] spell it.
+/// `relative` with `/` between its segments, as [`RENDER_HOOKS`] spells it.
 fn slashed(relative: &Path) -> String {
     relative
         .iter()

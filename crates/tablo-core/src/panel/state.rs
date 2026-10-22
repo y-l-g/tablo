@@ -2,10 +2,11 @@
 //!
 //! [`RouterBuilderPanelExt::panel`](super::RouterBuilderPanelExt::panel) turns
 //! each [`Panel`](super::Panel) into a [`PanelState`] and records it in the
-//! router's [`Panels`]. The panel's layer puts its state on every request under
-//! its prefix as [`CurrentPanel`], and every handler, the shell and the auth
-//! gate read the panel through [`current`]: a router holds any number of
-//! panels, and each request sees exactly one.
+//! router's [`Panels`]. The auth gate puts the state on every request under its
+//! prefix as [`CurrentPanel`], and every handler and the shell read the panel
+//! through [`current`]: a router holds any number of panels, and each request
+//! sees exactly one. Auth reads the same panel's [`Realm`] through the panel's
+//! [`Host`](crate::auth::Host).
 
 use std::{any::TypeId, collections::HashMap, sync::Arc};
 
@@ -16,7 +17,7 @@ use super::{
     shell::{Brand, ShellAssets},
 };
 use crate::{
-    auth::Auth, navigation::NavigationItem, page::MountedPage, resource::Mounts,
+    auth::Realm, navigation::NavigationItem, page::MountedPage, resource::Mounts,
     upload::InstalledUploader,
 };
 
@@ -57,12 +58,12 @@ pub(crate) type SearchFn =
 pub(crate) type BadgeFn =
     Arc<dyn for<'a> Fn(&'a Cx) -> crate::BoxFuture<'a, Option<String>> + Send + Sync>;
 
-/// One mounted panel: its prefix, its shell, its auth, and the registries its
-/// generic handlers dispatch through.
+/// One mounted panel: its realm, its shell, and the registries its generic handlers dispatch
+/// through.
 pub(crate) struct PanelState {
-    /// The mount prefix, e.g. `/admin`: every URL the panel serves starts
-    /// with it, and no other panel's prefix overlaps it.
-    pub(crate) prefix: String,
+    /// What auth serves of the panel, its prefix among it: every URL the panel serves starts with
+    /// the prefix, and no other panel's prefix overlaps it.
+    pub(crate) realm: Arc<Realm>,
     pub(crate) nav_items: Vec<NavEntry>,
     pub(crate) brand: Option<Brand>,
     pub(crate) dark_mode: bool,
@@ -73,8 +74,6 @@ pub(crate) struct PanelState {
     pub(crate) mounts: Arc<Mounts>,
     /// Where the prefix redirects when the panel has no home page.
     pub(crate) root_redirect: Option<String>,
-    pub(crate) auth: Auth,
-    pub(crate) login_hint: Option<String>,
     /// The app's entries in the user menu.
     pub(crate) user_menu: Vec<NavigationItem>,
     pub(crate) uploads: Option<InstalledUploader>,
@@ -87,21 +86,9 @@ pub(crate) struct PanelState {
     /// The paths of the runtime endpoints the panel declared with
     /// [`Panel::endpoint`](super::Panel::endpoint).
     pub(crate) endpoints: Vec<String>,
-    /// Whether the topbar shows the bell, set by
-    /// [`Panel::notifications`](super::Panel::notifications).
-    pub(crate) notifications: bool,
-    /// The zone set by [`Panel::time_zone`](super::Panel::time_zone).
-    pub(crate) time_zone: jiff::tz::TimeZone,
     /// The resources the global search searches, in the sidebar's order; empty when the panel
     /// shows no global search.
     pub(crate) searches: Vec<Searchable>,
-}
-
-impl PanelState {
-    /// Whether the panel requires a signed-in user.
-    pub(crate) fn gates(&self) -> bool {
-        !self.auth.is_disabled()
-    }
 }
 
 /// Whether `path` is `prefix` or sits below it, segment by segment: `/admin`
@@ -111,15 +98,15 @@ pub(crate) fn under_prefix(prefix: &str, path: &str) -> bool {
         .is_some_and(|rest| rest.is_empty() || rest.starts_with(['/', '?']))
 }
 
-/// Every panel mounted on the router, in mount order: the app-context value
-/// the auth gates read.
+/// Every panel mounted on the router, in mount order: the app-context value the panel's
+/// [`Host`](crate::auth::Host) answers from.
 #[derive(Default)]
 pub(crate) struct Panels(pub(crate) Vec<Arc<PanelState>>);
 
 impl Panels {
     /// The panel mounted at exactly `prefix`.
     pub(crate) fn by_prefix(&self, prefix: &str) -> Option<&Arc<PanelState>> {
-        self.0.iter().find(|panel| panel.prefix == prefix)
+        self.0.iter().find(|panel| panel.realm.prefix == prefix)
     }
 
     /// The panels that declared the runtime endpoint at `path`, in mount order. A trailing slash
@@ -136,16 +123,6 @@ impl Panels {
                 .iter()
                 .any(|endpoint| bare(endpoint) == bare(path))
         })
-    }
-
-    /// Whether every mounted panel requires a signed-in user.
-    pub(crate) fn all_gate(&self) -> bool {
-        self.0.iter().all(|panel| panel.gates())
-    }
-
-    /// Whether some mounted panel requires a signed-in user.
-    pub(crate) fn any_gates(&self) -> bool {
-        self.0.iter().any(|panel| panel.gates())
     }
 }
 

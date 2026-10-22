@@ -16,7 +16,10 @@ use crate::{
     topcoat_compat::href::encode_path_segment,
 };
 
+mod body;
 pub(crate) mod carry;
+
+pub(crate) use self::body::{Capture, FormParts, parse_body, parse_file_body};
 
 /// Stores one uploaded file and names the value a record stores; installed once
 /// per panel with [`Panel::uploads`](crate::Panel::uploads).

@@ -87,6 +87,7 @@ async fn panel_root_redirect_rechecks_auth_before_the_root_target() {
     gated.root_redirect = Some("/admin/users".to_string());
     let gated = current_panel(gated);
     let cx = CxTestBuilder::new()
+        .app_context(crate::panel::test_support::host())
         .request_context(parts)
         .request_context(gated.clone())
         .build();
@@ -119,7 +120,7 @@ async fn panel_root_redirect_rechecks_auth_before_the_root_target() {
             email_verified_at: None,
             created_at: jiff::Timestamp::UNIX_EPOCH,
         }),
-        panel: Arc::clone(&gated.0),
+        panel: Arc::clone(&gated.0.realm),
         tenant: None,
     };
     let (parts, ()) = http::Request::builder()
@@ -128,6 +129,7 @@ async fn panel_root_redirect_rechecks_auth_before_the_root_target() {
         .unwrap()
         .into_parts();
     let cx = CxTestBuilder::new()
+        .app_context(crate::panel::test_support::host())
         .request_context(parts)
         .request_context(gated)
         .request_context(user)

@@ -8,7 +8,8 @@ use topcoat::{context::Cx, router::error::see_other, view::BoxView};
 use super::gate::landing_url;
 use crate::{
     db::WriteTx,
-    notification::{Notification, notify_write_failure, set_notification},
+    flash::{notify_write_failure, set_notification},
+    notification::Notification,
     outcome::{Outcome, same_origin_path},
     resource::{Change, Mounted, Resource},
 };

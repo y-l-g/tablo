@@ -16,10 +16,9 @@ use super::{
         write::{commit_write, failed_write},
     },
     common::{
-        FormParts, blank, drop_client_typed_uploads, file_flags, reject_unknown_form_keys,
-        rerender_invalid_form, restore_pending_uploads,
+        FormParts, blank, drop_client_typed_uploads, file_flags, parse_form_body,
+        reject_unknown_form_keys, rerender_invalid_form, restore_pending_uploads,
     },
-    decode::parse_form_body,
     render::{FormChrome, VERSION_FIELD, render_form_page},
     unique::{check_unique, taken_since},
 };

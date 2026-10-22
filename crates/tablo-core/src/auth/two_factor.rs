@@ -24,7 +24,7 @@ pub(super) use self::{
     settings::{settings_page, settings_post},
 };
 use super::{LoginThrottle, PanelUser, infrastructure_failure};
-use crate::panel::{panel_prefix, state::PanelState};
+use crate::auth::realm::{Realm, panel_prefix};
 
 /// A panel's two-factor sign-in, installed with [`Auth::two_factor`](super::Auth::two_factor):
 /// each signed-in user may add an authenticator app, or codes by email when the panel mails them,
@@ -230,7 +230,7 @@ pub(crate) fn offered(cx: &Cx) -> bool {
 /// and the user holds none.
 pub(super) async fn setup_pending(
     cx: &Cx,
-    panel: &PanelState,
+    panel: &Realm,
     user: &dyn PanelUser,
 ) -> topcoat::Result<bool> {
     match panel.auth.two_factor_config() {

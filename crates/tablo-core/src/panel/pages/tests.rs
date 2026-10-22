@@ -26,6 +26,7 @@ async fn a_page_redirects_to_login_without_a_resolved_user() {
         .unwrap()
         .into_parts();
     let cx = CxTestBuilder::new()
+        .app_context(crate::panel::test_support::host())
         .request_context(parts)
         .request_context(crate::panel::test_support::current_panel(
             crate::panel::test_support::panel_state("/admin", crate::Auth::password()),

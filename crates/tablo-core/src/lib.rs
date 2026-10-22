@@ -88,6 +88,7 @@ pub mod __macro {
 // Each public item has one path. Types live at the root; a public module is a namespace for
 // the functions and constants that read best qualified (`auth::user`, `csrf::verify`).
 pub mod auth;
+mod bus;
 mod column;
 pub mod csrf;
 pub mod db;
@@ -99,8 +100,10 @@ mod display;
 pub mod dom;
 mod error;
 pub mod extend;
+mod flash;
 mod form;
 mod lens;
+mod models;
 mod naming;
 mod navigation;
 pub mod notification;
@@ -152,6 +155,7 @@ pub use detail::{Detail, IntoDetail};
 pub use display::{Alignment, Color, Currency, Number, Numeric};
 pub use form::{NoForm, Posted, RecordForm};
 pub use lens::{Lens, Reads};
+pub use models::register_models;
 pub use navigation::{NavTarget, NavigationItem};
 pub use notification::stored::Notifications;
 pub use outcome::{Notification, NotificationAction, NotificationStatus, Outcome};

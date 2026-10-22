@@ -29,11 +29,9 @@ use super::{
     verification::VERIFICATION_LIFETIME,
 };
 use crate::{
-    notification::{Notification, set_notification},
-    panel::{
-        Panel, panel_prefix,
-        state::{PanelState, current},
-    },
+    auth::realm::{Realm, hosted, panel_prefix, realm},
+    flash::set_notification,
+    outcome::Notification,
 };
 
 /// How long the old address may undo a change: long enough to notice a mail while away.
@@ -102,7 +100,7 @@ pub async fn request_email_change(
     user: &dyn PanelUser,
     email: &str,
 ) -> topcoat::Result<EmailChange> {
-    if !current(cx).is_some_and(|panel| panel.auth.verification().is_some()) {
+    if !realm(cx).is_some_and(|panel| panel.auth.verification().is_some()) {
         return Ok(EmailChange::Immediate);
     }
     let user_id = user.user_id();
@@ -184,7 +182,7 @@ fn mail(cx: &Cx, request: Request) {
             .auth
             .auth_mail()
             .ok_or_else(topcoat::router::error::not_found)?;
-        let brand = Panel::brand_name(&cx);
+        let brand = hosted(&cx)?.brand_name(&cx);
         let confirm = mail.link(&confirm_url(&cx), &request.confirm);
         let new = &request.new;
         let message = mail.compose(
@@ -237,7 +235,7 @@ struct Opened {
 /// panel, or `None`.
 async fn opened(
     cx: &Cx,
-    panel: &Arc<PanelState>,
+    panel: &Arc<Realm>,
     purpose: TokenPurpose,
     encoded: &str,
 ) -> topcoat::Result<Option<Opened>> {
@@ -312,8 +310,8 @@ async fn link(
     cx: &Cx,
     purpose: TokenPurpose,
     encoded: &str,
-) -> topcoat::Result<Result<(Arc<PanelState>, Opened), Response>> {
-    let panel = current(cx).ok_or_else(topcoat::router::error::not_found)?;
+) -> topcoat::Result<Result<(Arc<Realm>, Opened), Response>> {
+    let panel = realm(cx).ok_or_else(topcoat::router::error::not_found)?;
     if panel.auth.verification().is_none() {
         return Err(topcoat::router::error::not_found().into());
     }
@@ -325,7 +323,7 @@ async fn link(
 
 /// The token a link's form posts.
 async fn posted_token(cx: &Cx, body: Body) -> topcoat::Result<String> {
-    let form = crate::panel::parse_form_body(cx, body).await?;
+    let form = crate::auth::input::read_form(cx, body).await?;
     crate::csrf::verify(cx, form.last(crate::csrf::FIELD_NAME))?;
     Ok(form.last(TOKEN_FIELD).unwrap_or_default().to_string())
 }
