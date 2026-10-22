@@ -21,7 +21,7 @@ pub(crate) enum Derive {
     /// control keys `options`, `options = <Type>`, `relationship = <Source>`, `file`.
     Record,
     /// `#[derive(FormInput)]`: `label = ".."`, `multiline = N`, `placeholder = ".."`, `email`,
-    /// `password`, `blank = <expr>`, `optional`, `options`, `options = <Type>`.
+    /// `url`, `tel`, `password`, `blank = <expr>`, `optional`, `options`, `options = <Type>`.
     Input,
 }
 
@@ -84,6 +84,10 @@ pub(crate) struct FormAttrs {
     pub(crate) file: bool,
     /// `#[form(email)]`: a text control validating an email address.
     pub(crate) email: bool,
+    /// `#[form(url)]`: a text control validating an `http` or `https` URL.
+    pub(crate) url: bool,
+    /// `#[form(tel)]`: a text control for a telephone number.
+    pub(crate) tel: bool,
     /// `#[form(password)]`: a masked text control that never renders its value back.
     pub(crate) password: bool,
 }
@@ -112,6 +116,10 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
                 out.placeholder = Some(text.value());
             } else if meta.path.is_ident("email") && derive.named() {
                 out.email = true;
+            } else if meta.path.is_ident("url") && derive.named() {
+                out.url = true;
+            } else if meta.path.is_ident("tel") && derive.named() {
+                out.tel = true;
             } else if meta.path.is_ident("password") && derive == Derive::Input {
                 out.password = true;
             } else if meta.path.is_ident("blank") {
@@ -145,7 +153,7 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
                     }
                     Derive::Input => {
                         "`label = \"…\"`, `multiline = N`, `placeholder = \"…\"`, `email`, \
-                         `password`, `blank = <expr>`, `optional`, `options`, or \
+                         `url`, `tel`, `password`, `blank = <expr>`, `optional`, `options`, or \
                          `options = <Type>`"
                     }
                 };
@@ -159,6 +167,8 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
             (out.multiline.is_some(), "`multiline`"),
             (out.placeholder.is_some(), "`placeholder`"),
             (out.email, "`email`"),
+            (out.url, "`url`"),
+            (out.tel, "`tel`"),
             (out.password, "`password`"),
         ];
         if let Some((_, key)) = text_only.iter().find(|(set, _)| *set) {

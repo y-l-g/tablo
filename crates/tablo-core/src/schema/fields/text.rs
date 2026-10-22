@@ -9,13 +9,28 @@ use self::rules::{Order, Rules, order};
 use super::{ControlKind, Field, render_field};
 use crate::{
     FieldRuleFault,
-    values::{FieldError, FormScalar, FormValue, is_email},
+    values::{FieldError, FormScalar, FormValue, is_email, is_web_url},
 };
 
 /// The equality expression a text field's unique probe binds.
 type EqProbe = std::sync::Arc<dyn Fn(&str) -> Option<toasty::stmt::Expr<bool>> + Send + Sync>;
 
-/// The text control's input type, placeholder, rows, email and password rules, declared rules,
+/// What a text control's value is beyond its type: it picks the `type` attribute, and the server
+/// checks an email or a URL.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum Kind {
+    /// Whatever the field's type parses, in the type's own input.
+    #[default]
+    Typed,
+    /// An email address: `type="email"`.
+    Email,
+    /// An absolute `http` or `https` URL: `type="url"`.
+    Url,
+    /// A telephone number, in no checked format: `type="tel"`.
+    Tel,
+}
+
+/// The text control's input type, placeholder, rows, kind and password rules, declared rules,
 /// and unique probe.
 pub(crate) struct TextControl {
     input_type: &'static str,
@@ -26,7 +41,7 @@ pub(crate) struct TextControl {
     form_value: fn(&str, &TimeZone) -> String,
     pub(super) rows: Option<u32>,
     pub(super) placeholder: Option<String>,
-    pub(super) email: bool,
+    pub(super) kind: Kind,
     pub(super) password: bool,
     /// The password the user signs in with today, which a password manager fills, rather than
     /// a new one it would offer to generate.
@@ -72,7 +87,7 @@ impl TextControl {
             form_value: T::form_value,
             rows: None,
             placeholder: None,
-            email: false,
+            kind: Kind::Typed,
             password: false,
             current_password: false,
             unique,
@@ -93,7 +108,7 @@ impl TextControl {
             form_value: T::form_value,
             rows: None,
             placeholder: None,
-            email: false,
+            kind: Kind::Typed,
             password: false,
             current_password: false,
             unique: false,
@@ -211,6 +226,7 @@ impl Field {
     }
 
     /// Refuses a non-empty submission the control's own rules refuse: an email field's address, a
+    /// URL field's URL, a
     /// text field's declared length, bounds and pattern, its bounds spelled as the control shows
     /// them in `zone`, and a rich text field's length.
     pub(crate) fn check(&self, value: &FormValue, zone: &TimeZone) -> Option<FieldError> {
@@ -220,8 +236,11 @@ impl Field {
         }
         let label = self.label_str();
         let message = match &self.control {
-            ControlKind::Text(text) if text.email && !is_email(value) => {
+            ControlKind::Text(text) if text.kind == Kind::Email && !is_email(value) => {
                 format!("{label} must be a valid email")
+            }
+            ControlKind::Text(text) if text.kind == Kind::Url && !is_web_url(value) => {
+                format!("{label} must be a valid URL starting with http:// or https://")
             }
             ControlKind::Text(text) => text.refusal(label, value, zone)?,
             ControlKind::RichText(rich) => rich.refusal(label, value)?,
@@ -274,12 +293,12 @@ impl Field {
             }
             .boxed()
         } else {
-            let input_type = if text.password {
-                "password"
-            } else if text.email {
-                "email"
-            } else {
-                text.input_type
+            let input_type = match text.kind {
+                _ if text.password => "password",
+                Kind::Email => "email",
+                Kind::Url => "url",
+                Kind::Tel => "tel",
+                Kind::Typed => text.input_type,
             };
             // A password never travels back to the browser: a refused form renders it empty.
             let value = value.filter(|_| !text.password);

@@ -8,7 +8,7 @@ use super::{
         IntoSchema, OptionSource, Retype, Schema,
         condition::{Condition, Watched},
     },
-    ChoiceControl, Control, ControlKind, Field, Pattern, RichTextControl, TextControl,
+    ChoiceControl, Control, ControlKind, Field, Kind, Pattern, RichTextControl, TextControl,
 };
 use crate::values::{FormScalar, FormValue};
 
@@ -328,7 +328,22 @@ impl<F> TextField<F> {
 
     /// Validate the value as an email address, and render `type="email"`.
     pub fn email(mut self) -> Self {
-        self.text().email = true;
+        self.text().kind = Kind::Email;
+        self
+    }
+
+    /// Validate the value as an absolute `http` or `https` URL naming a host, and render
+    /// `type="url"`. The browser's own check takes any scheme, so the server refuses the others,
+    /// such as `javascript:`, which a link to the value would run.
+    pub fn url(mut self) -> Self {
+        self.text().kind = Kind::Url;
+        self
+    }
+
+    /// Render `type="tel"`, which brings up a phone keypad. No format is checked, since numbers
+    /// vary by country: add a [`pattern`](Self::pattern) to require one.
+    pub fn tel(mut self) -> Self {
+        self.text().kind = Kind::Tel;
         self
     }
 

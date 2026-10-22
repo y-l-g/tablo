@@ -332,6 +332,9 @@ pub use tablo_macros::EmbeddedForm;
 /// - `#[form(multiline = 4)]` — a `<textarea>` of 4 rows.
 /// - `#[form(placeholder = "rust, async")]` — a text input's placeholder.
 /// - `#[form(email)]` — a text input that refuses a malformed email address.
+/// - `#[form(url)]` — a text input that refuses what is not an `http` or `https` URL:
+///   [`TextField::url`].
+/// - `#[form(tel)]` — a telephone text input, in no checked format: [`TextField::tel`].
 /// - `#[form(password)]` — a masked text input on a `String`, read untrimmed, that a refused
 ///   form renders empty. A repeater refuses one in its item at mount: an edit could not render
 ///   the stored secret back, so each save would overwrite it.
@@ -340,7 +343,8 @@ pub use tablo_macros::EmbeddedForm;
 ///   options type: `#[form(options = T)]`.
 ///
 /// A generic struct, a tuple struct, an empty struct (name `()` instead), an unknown key, a
-/// text input's key with `options` or on a `bool`, `password` with `multiline`, and a field
+/// text input's key with `options` or on a `bool`, `password` with `multiline`, two of
+/// `email`, `url`, `tel` and `password`, and a field
 /// that is not a `FormScalar` are compile errors.
 /// [`RouterBuilderPanelExt::panel`] refuses an action's input with a field named `csrf_token`,
 /// `confirm` or `ids`, and a sign-up's with one named `csrf_token` or `next`: the keys each

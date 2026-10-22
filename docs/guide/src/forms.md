@@ -140,11 +140,13 @@ stored). Outside a panel no record form applies, and every control renders optio
 control's builder, which offers only that control's modifiers, so a modifier on the wrong control
 does not compile:
 
-- text (`TextField`): `.email()`, `.password()`, `.unique()`, `.placeholder(..)`, `.multiline(rows)`,
+- text (`TextField`): `.email()`, `.url()`, `.tel()`, `.password()`, `.unique()`, `.placeholder(..)`,
+  `.multiline(rows)`,
   and the [rules](#length-bounds-and-patterns) `.min_length(n)`, `.max_length(n)`, `.min(..)`,
   `.max(..)`, `.pattern(..)`;
 - choice (`ChoiceField`): `.options(..)`, `.relationship::<R>()`, `.searchable()`, `.depends_on(..)`,
-  `.multiple()`;
+  `.multiple()`, and `.radio()` or `.buttons()` to list the options rather than a `<select>`;
+- toggle (`CustomField` over a `bool`): `.switch()` draws it as an on/off switch;
 - rich text (`RichTextField`): `.toolbar(..)`, `.placeholder(..)`, `.min_length(n)`, `.max_length(n)`.
 
 A choice needs something to offer: mounting refuses a resource form's or an action input's choice
@@ -257,11 +259,12 @@ that breaks a rule, or that its type does not parse, fails the mount.
 
 A rule across fields, or one these do not express, belongs in `Resource::validate_record`.
 
-### Email and uniqueness
+### Email, URL and uniqueness
 
 `.email()` renders `type="email"` and refuses what is not an address: a domain needs two labels
 (`a@b` is refused), a display name (`Ada <ada@example.com>`) is refused, and the address is capped
-at 254 bytes.
+at 254 bytes. `.url()` renders `type="url"` and refuses what [`TextField::url`](https://y-l.fr/tablo/nightly/api/tablo/struct.TextField.html#method.url) does not take: the
+browser's own check accepts a `javascript:` URL, which a link to the stored value would run.
 
 A text field over a column with a unique index checks uniqueness before the write, and reports a
 taken value inline. `.unique()` states it explicitly; mounting the panel refuses `.unique()` on a

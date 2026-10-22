@@ -1,4 +1,4 @@
-//! The typed values a text field parses, and the email rule.
+//! The typed values a text field parses, and the email and URL rules.
 
 use std::cmp::Ordering;
 
@@ -230,6 +230,14 @@ pub(crate) fn is_email(value: &str) -> bool {
                 .without_display_text(),
         )
         .is_ok()
+}
+
+/// Reports whether `value` is an absolute `http` or `https` URL naming a host, as the URL rule
+/// accepts. A browser's `type="url"` takes any scheme, `javascript:` included, which a link to the
+/// stored value would run.
+pub(crate) fn is_web_url(value: &str) -> bool {
+    url::Url::parse(value)
+        .is_ok_and(|url| matches!(url.scheme(), "http" | "https") && url.host().is_some())
 }
 
 #[cfg(test)]

@@ -73,7 +73,7 @@ pub struct Seo {
 #[derive(Debug, Clone, PartialEq, toasty::Embed, tablo::FormInput)]
 pub struct Link {
     pub label: String,
-    #[form(label = "URL", placeholder = "https://")]
+    #[form(label = "URL", placeholder = "https://", url)]
     pub url: String,
 }
 
