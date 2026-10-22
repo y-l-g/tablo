@@ -1724,6 +1724,85 @@ impl core::marker::Unpin for tablo_ui::components::primitives::label::label
 impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::label::label
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::label::label
 impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::label::label
+pub mod tablo_ui::components::primitives::radio_group
+pub struct tablo_ui::components::primitives::radio_group::RadioGroupItemProps
+pub tablo_ui::components::primitives::radio_group::RadioGroupItemProps::attrs: topcoat_view::html::attribute::attributes::Attributes
+impl tablo_ui::components::primitives::radio_group::RadioGroupItemProps
+pub fn tablo_ui::components::primitives::radio_group::RadioGroupItemProps::builder() -> tablo_ui::components::primitives::radio_group::RadioGroupItemPropsBuilder
+impl topcoat_view::props::Props for tablo_ui::components::primitives::radio_group::RadioGroupItemProps
+pub type tablo_ui::components::primitives::radio_group::RadioGroupItemProps::Builder = tablo_ui::components::primitives::radio_group::RadioGroupItemPropsBuilder
+pub fn tablo_ui::components::primitives::radio_group::RadioGroupItemProps::builder() -> Self::Builder
+impl core::marker::Freeze for tablo_ui::components::primitives::radio_group::RadioGroupItemProps
+impl core::marker::Send for tablo_ui::components::primitives::radio_group::RadioGroupItemProps
+impl core::marker::Sync for tablo_ui::components::primitives::radio_group::RadioGroupItemProps
+impl core::marker::Unpin for tablo_ui::components::primitives::radio_group::RadioGroupItemProps
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::radio_group::RadioGroupItemProps
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::radio_group::RadioGroupItemProps
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::radio_group::RadioGroupItemProps
+pub struct tablo_ui::components::primitives::radio_group::RadioGroupItemPropsBuilder
+impl tablo_ui::components::primitives::radio_group::RadioGroupItemPropsBuilder
+pub fn tablo_ui::components::primitives::radio_group::RadioGroupItemPropsBuilder::attrs(self, topcoat_view::html::attribute::attributes::Attributes) -> Self
+pub fn tablo_ui::components::primitives::radio_group::RadioGroupItemPropsBuilder::build(self) -> tablo_ui::components::primitives::radio_group::RadioGroupItemProps
+impl core::marker::Freeze for tablo_ui::components::primitives::radio_group::RadioGroupItemPropsBuilder
+impl core::marker::Send for tablo_ui::components::primitives::radio_group::RadioGroupItemPropsBuilder
+impl core::marker::Sync for tablo_ui::components::primitives::radio_group::RadioGroupItemPropsBuilder
+impl core::marker::Unpin for tablo_ui::components::primitives::radio_group::RadioGroupItemPropsBuilder
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::radio_group::RadioGroupItemPropsBuilder
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::radio_group::RadioGroupItemPropsBuilder
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::radio_group::RadioGroupItemPropsBuilder
+pub struct tablo_ui::components::primitives::radio_group::RadioGroupProps<'__a>
+pub tablo_ui::components::primitives::radio_group::RadioGroupProps::attrs: topcoat_view::html::attribute::attributes::Attributes
+pub tablo_ui::components::primitives::radio_group::RadioGroupProps::child: topcoat_view::child::Child<'__a>
+impl<'__a> tablo_ui::components::primitives::radio_group::RadioGroupProps<'__a>
+pub fn tablo_ui::components::primitives::radio_group::RadioGroupProps<'__a>::builder() -> tablo_ui::components::primitives::radio_group::RadioGroupPropsBuilder<'__a>
+impl<'__a> topcoat_view::props::Props for tablo_ui::components::primitives::radio_group::RadioGroupProps<'__a>
+pub type tablo_ui::components::primitives::radio_group::RadioGroupProps<'__a>::Builder = tablo_ui::components::primitives::radio_group::RadioGroupPropsBuilder<'__a>
+pub fn tablo_ui::components::primitives::radio_group::RadioGroupProps<'__a>::builder() -> Self::Builder
+impl<'__a> core::marker::Freeze for tablo_ui::components::primitives::radio_group::RadioGroupProps<'__a>
+impl<'__a> core::marker::Send for tablo_ui::components::primitives::radio_group::RadioGroupProps<'__a>
+impl<'__a> !core::marker::Sync for tablo_ui::components::primitives::radio_group::RadioGroupProps<'__a>
+impl<'__a> core::marker::Unpin for tablo_ui::components::primitives::radio_group::RadioGroupProps<'__a>
+impl<'__a> core::marker::UnsafeUnpin for tablo_ui::components::primitives::radio_group::RadioGroupProps<'__a>
+impl<'__a> !core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::radio_group::RadioGroupProps<'__a>
+impl<'__a> !core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::radio_group::RadioGroupProps<'__a>
+pub struct tablo_ui::components::primitives::radio_group::RadioGroupPropsBuilder<'__a>
+impl<'__a> tablo_ui::components::primitives::radio_group::RadioGroupPropsBuilder<'__a>
+pub fn tablo_ui::components::primitives::radio_group::RadioGroupPropsBuilder<'__a>::attrs(self, topcoat_view::html::attribute::attributes::Attributes) -> Self
+pub fn tablo_ui::components::primitives::radio_group::RadioGroupPropsBuilder<'__a>::build(self) -> tablo_ui::components::primitives::radio_group::RadioGroupProps<'__a>
+pub fn tablo_ui::components::primitives::radio_group::RadioGroupPropsBuilder<'__a>::child(self, topcoat_view::child::Child<'__a>) -> Self
+impl<'__a> core::marker::Freeze for tablo_ui::components::primitives::radio_group::RadioGroupPropsBuilder<'__a>
+impl<'__a> core::marker::Send for tablo_ui::components::primitives::radio_group::RadioGroupPropsBuilder<'__a>
+impl<'__a> !core::marker::Sync for tablo_ui::components::primitives::radio_group::RadioGroupPropsBuilder<'__a>
+impl<'__a> core::marker::Unpin for tablo_ui::components::primitives::radio_group::RadioGroupPropsBuilder<'__a>
+impl<'__a> core::marker::UnsafeUnpin for tablo_ui::components::primitives::radio_group::RadioGroupPropsBuilder<'__a>
+impl<'__a> !core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::radio_group::RadioGroupPropsBuilder<'__a>
+impl<'__a> !core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::radio_group::RadioGroupPropsBuilder<'__a>
+pub struct tablo_ui::components::primitives::radio_group::radio_group
+impl core::default::Default for tablo_ui::components::primitives::radio_group::radio_group
+pub fn tablo_ui::components::primitives::radio_group::radio_group::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::radio_group::radio_group
+pub type tablo_ui::components::primitives::radio_group::radio_group::Props<'__props> = tablo_ui::components::primitives::radio_group::RadioGroupProps<'__props>
+pub fn tablo_ui::components::primitives::radio_group::radio_group::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::radio_group::radio_group
+impl core::marker::Send for tablo_ui::components::primitives::radio_group::radio_group
+impl core::marker::Sync for tablo_ui::components::primitives::radio_group::radio_group
+impl core::marker::Unpin for tablo_ui::components::primitives::radio_group::radio_group
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::radio_group::radio_group
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::radio_group::radio_group
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::radio_group::radio_group
+pub struct tablo_ui::components::primitives::radio_group::radio_group_item
+impl core::default::Default for tablo_ui::components::primitives::radio_group::radio_group_item
+pub fn tablo_ui::components::primitives::radio_group::radio_group_item::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::radio_group::radio_group_item
+pub type tablo_ui::components::primitives::radio_group::radio_group_item::Props<'__props> = tablo_ui::components::primitives::radio_group::RadioGroupItemProps
+pub fn tablo_ui::components::primitives::radio_group::radio_group_item::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::radio_group::radio_group_item
+impl core::marker::Send for tablo_ui::components::primitives::radio_group::radio_group_item
+impl core::marker::Sync for tablo_ui::components::primitives::radio_group::radio_group_item
+impl core::marker::Unpin for tablo_ui::components::primitives::radio_group::radio_group_item
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::radio_group::radio_group_item
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::radio_group::radio_group_item
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::radio_group::radio_group_item
 pub mod tablo_ui::components::primitives::select
 pub struct tablo_ui::components::primitives::select::SelectProps<'__a>
 pub tablo_ui::components::primitives::select::SelectProps::attrs: topcoat_view::html::attribute::attributes::Attributes
@@ -1866,6 +1945,45 @@ impl core::marker::Unpin for tablo_ui::components::primitives::skeleton::skeleto
 impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::skeleton::skeleton
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::skeleton::skeleton
 impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::skeleton::skeleton
+pub mod tablo_ui::components::primitives::switch
+pub struct tablo_ui::components::primitives::switch::SwitchProps
+pub tablo_ui::components::primitives::switch::SwitchProps::attrs: topcoat_view::html::attribute::attributes::Attributes
+impl tablo_ui::components::primitives::switch::SwitchProps
+pub fn tablo_ui::components::primitives::switch::SwitchProps::builder() -> tablo_ui::components::primitives::switch::SwitchPropsBuilder
+impl topcoat_view::props::Props for tablo_ui::components::primitives::switch::SwitchProps
+pub type tablo_ui::components::primitives::switch::SwitchProps::Builder = tablo_ui::components::primitives::switch::SwitchPropsBuilder
+pub fn tablo_ui::components::primitives::switch::SwitchProps::builder() -> Self::Builder
+impl core::marker::Freeze for tablo_ui::components::primitives::switch::SwitchProps
+impl core::marker::Send for tablo_ui::components::primitives::switch::SwitchProps
+impl core::marker::Sync for tablo_ui::components::primitives::switch::SwitchProps
+impl core::marker::Unpin for tablo_ui::components::primitives::switch::SwitchProps
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::switch::SwitchProps
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::switch::SwitchProps
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::switch::SwitchProps
+pub struct tablo_ui::components::primitives::switch::SwitchPropsBuilder
+impl tablo_ui::components::primitives::switch::SwitchPropsBuilder
+pub fn tablo_ui::components::primitives::switch::SwitchPropsBuilder::attrs(self, topcoat_view::html::attribute::attributes::Attributes) -> Self
+pub fn tablo_ui::components::primitives::switch::SwitchPropsBuilder::build(self) -> tablo_ui::components::primitives::switch::SwitchProps
+impl core::marker::Freeze for tablo_ui::components::primitives::switch::SwitchPropsBuilder
+impl core::marker::Send for tablo_ui::components::primitives::switch::SwitchPropsBuilder
+impl core::marker::Sync for tablo_ui::components::primitives::switch::SwitchPropsBuilder
+impl core::marker::Unpin for tablo_ui::components::primitives::switch::SwitchPropsBuilder
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::switch::SwitchPropsBuilder
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::switch::SwitchPropsBuilder
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::switch::SwitchPropsBuilder
+pub struct tablo_ui::components::primitives::switch::switch
+impl core::default::Default for tablo_ui::components::primitives::switch::switch
+pub fn tablo_ui::components::primitives::switch::switch::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::switch::switch
+pub type tablo_ui::components::primitives::switch::switch::Props<'__props> = tablo_ui::components::primitives::switch::SwitchProps
+pub fn tablo_ui::components::primitives::switch::switch::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::switch::switch
+impl core::marker::Send for tablo_ui::components::primitives::switch::switch
+impl core::marker::Sync for tablo_ui::components::primitives::switch::switch
+impl core::marker::Unpin for tablo_ui::components::primitives::switch::switch
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::switch::switch
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::switch::switch
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::switch::switch
 pub mod tablo_ui::components::primitives::table
 pub struct tablo_ui::components::primitives::table::TableBodyProps<'__a>
 pub tablo_ui::components::primitives::table::TableBodyProps::attrs: topcoat_view::html::attribute::attributes::Attributes
@@ -2856,6 +2974,32 @@ impl core::marker::Unpin for tablo_ui::components::composites::page::page_title
 impl core::marker::UnsafeUnpin for tablo_ui::components::composites::page::page_title
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::composites::page::page_title
 impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::composites::page::page_title
+pub struct tablo_ui::radio_group
+impl core::default::Default for tablo_ui::components::primitives::radio_group::radio_group
+pub fn tablo_ui::components::primitives::radio_group::radio_group::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::radio_group::radio_group
+pub type tablo_ui::components::primitives::radio_group::radio_group::Props<'__props> = tablo_ui::components::primitives::radio_group::RadioGroupProps<'__props>
+pub fn tablo_ui::components::primitives::radio_group::radio_group::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::radio_group::radio_group
+impl core::marker::Send for tablo_ui::components::primitives::radio_group::radio_group
+impl core::marker::Sync for tablo_ui::components::primitives::radio_group::radio_group
+impl core::marker::Unpin for tablo_ui::components::primitives::radio_group::radio_group
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::radio_group::radio_group
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::radio_group::radio_group
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::radio_group::radio_group
+pub struct tablo_ui::radio_group_item
+impl core::default::Default for tablo_ui::components::primitives::radio_group::radio_group_item
+pub fn tablo_ui::components::primitives::radio_group::radio_group_item::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::radio_group::radio_group_item
+pub type tablo_ui::components::primitives::radio_group::radio_group_item::Props<'__props> = tablo_ui::components::primitives::radio_group::RadioGroupItemProps
+pub fn tablo_ui::components::primitives::radio_group::radio_group_item::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::radio_group::radio_group_item
+impl core::marker::Send for tablo_ui::components::primitives::radio_group::radio_group_item
+impl core::marker::Sync for tablo_ui::components::primitives::radio_group::radio_group_item
+impl core::marker::Unpin for tablo_ui::components::primitives::radio_group::radio_group_item
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::radio_group::radio_group_item
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::radio_group::radio_group_item
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::radio_group::radio_group_item
 pub struct tablo_ui::select
 impl core::default::Default for tablo_ui::components::primitives::select::select
 pub fn tablo_ui::components::primitives::select::select::default() -> Self
@@ -2895,6 +3039,19 @@ impl core::marker::Unpin for tablo_ui::components::primitives::skeleton::skeleto
 impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::skeleton::skeleton
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::skeleton::skeleton
 impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::skeleton::skeleton
+pub struct tablo_ui::switch
+impl core::default::Default for tablo_ui::components::primitives::switch::switch
+pub fn tablo_ui::components::primitives::switch::switch::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::primitives::switch::switch
+pub type tablo_ui::components::primitives::switch::switch::Props<'__props> = tablo_ui::components::primitives::switch::SwitchProps
+pub fn tablo_ui::components::primitives::switch::switch::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::primitives::switch::switch
+impl core::marker::Send for tablo_ui::components::primitives::switch::switch
+impl core::marker::Sync for tablo_ui::components::primitives::switch::switch
+impl core::marker::Unpin for tablo_ui::components::primitives::switch::switch
+impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::switch::switch
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::switch::switch
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::switch::switch
 pub struct tablo_ui::table
 impl core::default::Default for tablo_ui::components::primitives::table::table
 pub fn tablo_ui::components::primitives::table::table::default() -> Self
