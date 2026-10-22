@@ -33,6 +33,26 @@ pub(crate) struct NavEntry {
     pub(crate) badge: Option<BadgeFn>,
 }
 
+/// A resource the panel's global search searches, its type erased.
+#[derive(Clone)]
+pub(crate) struct Searchable {
+    /// The resource's plural label, which heads its results.
+    pub(crate) label: String,
+    /// The resource's list URL, which places its results in the sidebar's order.
+    pub(crate) list: String,
+    /// Whether the request may list the resource.
+    pub(crate) visible: fn(&Cx) -> bool,
+    pub(crate) search: SearchFn,
+}
+
+/// Up to the given number of a resource's records matching every word, as results.
+pub(crate) type SearchFn =
+    for<'a> fn(
+        &'a Cx,
+        &'a [String],
+        usize,
+    ) -> crate::BoxFuture<'a, topcoat::Result<Vec<crate::resource::SearchHit>>>;
+
 /// The badge text a sidebar entry counts for a request; `None` shows no badge.
 pub(crate) type BadgeFn =
     Arc<dyn for<'a> Fn(&'a Cx) -> crate::BoxFuture<'a, Option<String>> + Send + Sync>;
@@ -72,6 +92,9 @@ pub(crate) struct PanelState {
     pub(crate) notifications: bool,
     /// The zone set by [`Panel::time_zone`](super::Panel::time_zone).
     pub(crate) time_zone: jiff::tz::TimeZone,
+    /// The resources the global search searches, in the sidebar's order; empty when the panel
+    /// shows no global search.
+    pub(crate) searches: Vec<Searchable>,
 }
 
 impl PanelState {

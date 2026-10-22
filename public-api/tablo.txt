@@ -37,6 +37,7 @@ pub use tablo::prelude::FileField
 pub use tablo::prelude::FormInput
 pub use tablo::prelude::FormInput
 pub use tablo::prelude::FormValues
+pub use tablo::prelude::GlobalSearch
 pub use tablo::prelude::Grid
 pub use tablo::prelude::Group
 pub use tablo::prelude::HeaderAction

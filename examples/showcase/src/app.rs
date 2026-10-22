@@ -5,11 +5,11 @@ use std::path::PathBuf;
 use tablo::{
     Ability, ActionLayout, Auth, AuthMail, BooleanColumn, Brand, Change, ComputedColumn,
     CountColumn, DateColumn, DateFilter, Detail, DirUploader, EmailVerification, EmbeddedColumn,
-    FieldErrors, Grid, Group, HeaderAction, ModelColumns, NavigationItem, Notification,
-    Notifications, Pagination, Panel, PanelHandle, PanelUser, PasswordReset, PublicLink,
-    QueryFilter, Relation, RelationColumn, RepeaterColumn, Resource, ResourceDef, RichTextColumn,
-    RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy, TenantRegistration,
-    TernaryFilter, TextColumn, TwoFactor, lens, relation, tenant_id, when,
+    FieldErrors, GlobalSearch, Grid, Group, HeaderAction, ModelColumns, NavigationItem,
+    Notification, Notifications, Pagination, Panel, PanelHandle, PanelUser, PasswordReset,
+    PublicLink, QueryFilter, Relation, RelationColumn, RepeaterColumn, Resource, ResourceDef,
+    RichTextColumn, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy,
+    TenantRegistration, TernaryFilter, TextColumn, TwoFactor, lens, relation, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -79,6 +79,12 @@ impl Resource for UserResource {
             .importable()
             .detail(Detail::new(Section::new("Profile").columns(User::detail())))
             .record_title(lens!(User.name))
+            // Lists each user's email and role under their name in the topbar's search.
+            .global_search(
+                GlobalSearch::new()
+                    .detail("Email", lens!(User.email))
+                    .detail("Role", lens!(User.role)),
+            )
     }
 
     /// Refuses a negative age.
@@ -145,6 +151,8 @@ impl Resource for PostResource {
             .detail(post_detail())
             // Names the detail heading with the post title.
             .record_title(lens!(Post.title))
+            // Lists each post's status under its title in the topbar's search.
+            .global_search(GlobalSearch::new().detail("Status", lens!(Post.status)))
             // Links a published post's public page.
             .public_link(|_cx: &Cx, post: &Post| {
                 (post.status == PostStatus::Published).then(|| PublicLink {

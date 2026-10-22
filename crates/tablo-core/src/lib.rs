@@ -162,9 +162,9 @@ pub use panel::{
 };
 pub use policy::{Abilities, Ability, Allow, And, Deny, Or, Policy, ReadOnly, When, when};
 pub use resource::{
-    Action, Change, FieldAccess, ForeignKey, HeaderAction, HeaderActions, Places, PublicLink,
-    Relation, Resource, ResourceDef, Trashed, WriteError, can, scoped_query, scoped_query_in,
-    write_create, write_update,
+    Action, Change, FieldAccess, ForeignKey, GlobalSearch, HeaderAction, HeaderActions, Places,
+    PublicLink, Relation, Resource, ResourceDef, Trashed, WriteError, can, scoped_query,
+    scoped_query_in, write_create, write_update,
 };
 pub use rich_text::tool::Tool;
 pub use schema::{

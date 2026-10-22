@@ -21,7 +21,7 @@ use super::{
     list::{resource_columns, resource_list},
     pages::{page_action, page_action_options, page_handler},
     relations::{Child, relation_table},
-    state::{BadgeFn, NavEntry},
+    state::{BadgeFn, NavEntry, Searchable},
 };
 use crate::{
     Ability, DeclarationError, DeclarationErrorKind, Page, PageDef, Site,
@@ -70,6 +70,8 @@ pub(super) struct Registry {
     /// The registered pages as the panel mounted them, by type.
     pub(super) mounted_pages: HashMap<TypeId, Arc<MountedPage>>,
     pub(super) nav_items: Vec<NavEntry>,
+    /// The resources the global search searches, in registration order.
+    pub(super) searches: Vec<Searchable>,
     pub(super) pages: Vec<PageFn>,
     pub(super) routes: Vec<RouteFn>,
     pub(super) root: Option<Root>,
@@ -141,6 +143,7 @@ impl Registry {
             urls: HashMap::new(),
             mounted_pages: HashMap::new(),
             nav_items: Vec::new(),
+            searches: Vec::new(),
             pages: Vec::new(),
             routes: Vec::new(),
             root: None,
@@ -292,6 +295,14 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
                 })
             }),
         });
+        if mounted.globally_searched() {
+            registry.searches.push(Searchable {
+                label: mounted.plural_label.clone(),
+                list: mounted.url.clone(),
+                visible: crate::resource::searchable::<R>,
+                search: crate::resource::search::<R>,
+            });
+        }
         registry.children.insert(
             TypeId::of::<R>(),
             Child {

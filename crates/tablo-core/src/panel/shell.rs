@@ -15,7 +15,7 @@ use topcoat::{
 use super::{Panel, state::current};
 use crate::{
     navigation::NavigationItem,
-    notification::{LiveToast, live_toast, live_toaster, take_notification, topbar_bell},
+    notification::{LiveToast, live_toast, live_toaster, take_notification},
     topcoat_compat::async_page,
 };
 
@@ -567,7 +567,7 @@ impl Panel {
                             attrs: attributes! { class="max-sm:hidden" }
                         )
                         (crumbs)
-                        (topbar_bell(cx))
+                        (super::search::topbar_end(cx))
                     )
                     // `sidebar_inset` is the document's one `<main>`; a second
                     // nested landmark is invalid and confuses landmark
@@ -656,5 +656,5 @@ impl Panel {
 
 mod breadcrumbs;
 mod document;
-mod sidebar;
+pub(super) mod sidebar;
 mod user_menu;

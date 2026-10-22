@@ -13,6 +13,7 @@ mod check;
 mod commit;
 mod def;
 mod field_access;
+mod global_search;
 mod header_action;
 mod mounted;
 mod relation;
@@ -30,6 +31,8 @@ pub(crate) use commit::{acted, run_after_commit};
 pub use def::{PublicLink, ResourceDef};
 pub use field_access::FieldAccess;
 pub(crate) use field_access::{FieldMask, FieldRule};
+pub use global_search::GlobalSearch;
+pub(crate) use global_search::{Opens, SearchHit, search, searchable};
 pub(crate) use header_action::HeaderEntry;
 pub use header_action::{HeaderAction, HeaderActions};
 pub(crate) use mounted::{

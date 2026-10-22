@@ -63,6 +63,8 @@ pub struct ResourceDef<R: Resource> {
     pub(crate) form: Option<Schema<R::Form>>,
     pub(crate) detail: Option<Detail<R::Model>>,
     pub(crate) record_title: Option<RecordTitle<R::Model>>,
+    /// `None` once [`Self::without_global_search`] leaves the resource out.
+    pub(crate) global_search: Option<super::GlobalSearch<R::Model>>,
     pub(crate) public_link: Option<PublicLinkFn<R::Model>>,
     pub(crate) relations: Vec<Relation<R::Model>>,
     pub(crate) actions: Actions<R>,
@@ -94,6 +96,7 @@ impl<R: Resource> Default for ResourceDef<R> {
             form: None,
             detail: None,
             record_title: None,
+            global_search: Some(super::GlobalSearch::default()),
             public_link: None,
             relations: Vec::new(),
             actions: Actions::default(),

@@ -27,7 +27,8 @@ the model, or a `#[derive(RecordForm)]` struct, with one form control per field.
 | `table(..)` | the model's `ModelColumns::table()` | the list's columns, filters and options: [Tables](./tables.md) |
 | `form(..)` | every control, in declaration order | how the create and edit forms arrange the record form's controls: [Forms](./forms.md) |
 | `detail(..)` | the model's `ModelColumns::detail()` | the detail page's columns; `Detail::empty()` turns the page off: [Detail pages](./detail-pages.md) |
-| `record_title(lens!(..))` | the label and the record's key | the detail page's heading, each relationship option over the resource, which also searches the column, and a `RelationColumn::of` cell |
+| `record_title(lens!(..))` | the label and the record's key | the detail page's heading, each relationship option over the resource, which also searches the column, each [global search](./panel-and-routing.md#global-search) result, and a `RelationColumn::of` cell |
+| `global_search(..)`, `without_global_search()` | searched, each result titled alone | the details under each result in the panel's [global search](./panel-and-routing.md#global-search), or the resource left out of it |
 | `public_link(..)` | none | the record's public page, linked from its detail and edit pages |
 | `relation(..)` | none | a related resource shown as a table on the detail and edit pages |
 | `action::<A>()` | none | a record action, on rows, the detail and edit pages and the bulk bar: [Actions](./actions.md#record-actions) |

@@ -175,9 +175,10 @@ impl Panel {
             login_hint,
             user_menu,
             auth,
-            endpoints,
+            mut endpoints,
             notifications,
             time_zone,
+            global_search,
         } = self;
         let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
         errors.extend(mount_errors(
@@ -214,12 +215,26 @@ impl Panel {
             urls,
             mounted_pages,
             nav_items,
-            pages,
+            searches,
+            mut pages,
             routes,
             root,
             children,
             ..
         } = registry;
+        let searches = if global_search {
+            super::search::in_sidebar_order(searches, &nav_items)
+        } else {
+            Vec::new()
+        };
+        if !searches.is_empty() {
+            pages.push(PageFn::new(
+                http::Method::GET,
+                route_path(&format!("{prefix}/{}", super::search::SEARCH_SEGMENT)),
+                super::search::search_page,
+            ));
+            endpoints.push(super::search::shard_path());
+        }
         let root_redirect = match root {
             Some(Root::Redirect(target)) => Some(target),
             Some(Root::Home) | None => None,
@@ -244,6 +259,7 @@ impl Panel {
             endpoints,
             notifications,
             time_zone,
+            searches,
         });
         let prefix_path = route_path(&prefix);
         builder =

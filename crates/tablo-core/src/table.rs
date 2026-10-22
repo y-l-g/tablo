@@ -22,6 +22,7 @@ pub(crate) mod filter;
 mod mask;
 pub(crate) mod model;
 mod page;
+mod search;
 mod sort;
 mod state;
 
@@ -507,20 +508,6 @@ impl<M> Table<M> {
         self
     }
 
-    /// Global search predicate across searchable columns.
-    pub(crate) fn search_expr(&self, term: &str) -> Option<Expr<bool>>
-    where
-        M: toasty::schema::Model,
-    {
-        let t = term.trim();
-        if t.is_empty() {
-            return None;
-        }
-        let mut exprs = self.columns.iter().filter_map(|c| c.search_expr(t));
-        let first = exprs.next()?;
-        Some(exprs.fold(first, |acc, e| acc.or(e)))
-    }
-
     /// Apply this table's declaration to `query`: [`Self::narrow`], then the ordering.
     pub(crate) fn apply_declaration(
         &self,
@@ -558,14 +545,6 @@ impl<M> Table<M> {
             query = query.filter(expr);
         }
         query
-    }
-
-    /// Whether the declaration enables a search toolbar.
-    pub(crate) fn search_enabled(&self) -> bool
-    where
-        M: toasty::schema::Model,
-    {
-        !self.hide_search && self.columns.iter().any(|c| c.is_searchable())
     }
 
     /// Whether the declaration enables a filter bar.

@@ -40,6 +40,7 @@ pub(crate) struct Mounted<R: Resource> {
     pub(crate) form: Arc<Schema>,
     pub(crate) detail: Detail<R::Model>,
     record_title: Option<RecordTitle<R::Model>>,
+    pub(crate) global_search: Option<super::GlobalSearch<R::Model>>,
     public_link: Option<PublicLinkFn<R::Model>>,
     pub(crate) relations: Vec<Relation<R::Model>>,
     pub(crate) actions: Actions<R>,
@@ -121,6 +122,7 @@ impl<R: Resource> Mounted<R> {
             form: Arc::new(form),
             detail,
             record_title: def.record_title,
+            global_search: def.global_search,
             public_link: def.public_link,
             relations: def.relations,
             actions,
@@ -190,14 +192,47 @@ impl<R: Resource> Mounted<R> {
         cx: &Cx,
         term: &str,
     ) -> Option<toasty::stmt::Expr<bool>> {
+        self.term_search_expr(&self.table_for(cx), term)
+    }
+
+    /// What the global search matches for `cx`: each of `words` in a column
+    /// [`option_search_expr`](Self::option_search_expr) searches; `None` for no words, or when the
+    /// resource searches no column.
+    pub(crate) fn words_search_expr(
+        &self,
+        cx: &Cx,
+        words: &[String],
+    ) -> Option<toasty::stmt::Expr<bool>> {
+        let table = self.table_for(cx);
+        let mut words = words.iter().map(|word| self.term_search_expr(&table, word));
+        let first = words.next()??;
+        words.try_fold(first, |all, word| Some(all.and(word?)))
+    }
+
+    /// `term` in one of `table`'s searchable columns or in the title column.
+    fn term_search_expr(
+        &self,
+        table: &Table<R::Model>,
+        term: &str,
+    ) -> Option<toasty::stmt::Expr<bool>> {
         let title = self
             .record_title
             .as_ref()
             .and_then(|title| title.search_expr(term));
-        match (self.table_for(cx).search_expr(term), title) {
+        match (table.search_expr(term), title) {
             (Some(table), Some(title)) => Some(table.or(title)),
             (table, title) => table.or(title),
         }
+    }
+
+    /// Whether the global search searches the resource: it did not opt out, it has a searchable
+    /// column or a title column to match, and a result can open a page: its records have URLs, and
+    /// it has a detail page or a form.
+    pub(crate) fn globally_searched(&self) -> bool {
+        self.global_search.is_some()
+            && (self.record_title.is_some() || self.table.has_searchable_column())
+            && self.table.is_addressable()
+            && (self.viewed() || <R::Form as RecordForm>::HAS_FORM)
     }
 
     /// The fields the panel's [`ResourceDef::field_access`] rules let `cx` neither view nor change,

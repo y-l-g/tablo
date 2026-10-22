@@ -31,6 +31,7 @@ mod registration;
 mod relations;
 mod repeater;
 mod rich_text;
+mod search;
 mod shell;
 mod tenancy;
 mod toggleable_columns;

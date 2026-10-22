@@ -185,6 +185,36 @@ the resource's [`scoped_query`](./data-access.md) that the filter matches, so ea
 own count. Each counted badge is a query on every sidebar render:
 [`navigation_badge`](https://y-l.fr/tablo/nightly/api/tablo/struct.ResourceDef.html#method.navigation_badge) says when it runs.
 
+## Global search
+
+The topbar holds a search box over every resource the panel mounts. As the user types, it lists
+the first matches of each resource under its plural label, in the sidebar's order, and links a
+results page at `{prefix}/-/search?q=` that lists more, which Enter opens.
+
+A resource's search reads what the resource already declares. A record matches when each word of
+the term is in one of its table's searchable columns or in its `record_title` column, which also
+titles the result. The results are the records the resource's list shows the same user: its
+policy, its tenancy, its trash and its [field access](./resources.md#field-access) apply as they do
+there, and each result opens the record's detail page. `global_search` lists details under each
+title:
+
+```rust
+impl Resource for UserResource {
+    // …
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            // …
+{{#include ../../../examples/guide/src/resources.rs:user-global-search}}
+    }
+}
+```
+
+`ResourceDef::without_global_search()` leaves one resource out, and
+`Panel::without_global_search()` removes the box and the results page.
+[`Panel::without_global_search`](https://y-l.fr/tablo/nightly/api/tablo/struct.Panel.html#method.without_global_search)
+and [`ResourceDef::global_search`](https://y-l.fr/tablo/nightly/api/tablo/struct.ResourceDef.html#method.global_search)
+have the full rules.
+
 ## Pages
 
 A page that is not a record list — a dashboard, a report, a settings screen — implements `Page`:

@@ -44,6 +44,7 @@ mod record_form;
 mod registration;
 mod relations;
 mod relationship_options;
+mod search;
 mod shell;
 mod soft_delete;
 mod stream_pool;
