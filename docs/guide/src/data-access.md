@@ -56,12 +56,11 @@ the same columns, filters and row actions as the resource's list:
 {{#include ../../../examples/guide/src/data_access.rs:data-access-wired-table}}
 ```
 
-`wired_table` is the table the request's panel mounted for the resource, with the row actions
-its policy allows; it returns an error when that panel does not mount the resource. `render`
-loads the page of rows the table's state selects and renders it live, as the resource's list is:
-the table keeps its state in signals the page reads, so a change reruns your page in place. Its
-links point at your page's own URL. A page that renders two tables gives each a prefix with
-`.prefixed("posts")`, which spells its parameters `posts.q`, `posts.sort`, and so on.
+[`wired_table`](https://y-l.fr/tablo/nightly/api/tablo/fn.wired_table.html) is the table the request's panel mounted for the
+resource, with the row actions its policy allows, so the page and the list cannot drift apart.
+[`WiredTable::render`](https://y-l.fr/tablo/nightly/api/tablo/struct.WiredTable.html#method.render) renders it live, as the resource's
+list is: a sort or search reruns your page in place. A page that renders two tables gives each a
+prefix with `.prefixed("posts")`.
 
 ## Outside a panel
 
@@ -74,8 +73,8 @@ let cx = admin.enter(cx);
 let posts = scoped_query::<PostResource>(&cx)?;
 ```
 
-The entered context answers as the panel mounted its resources, and the `tablo::url` helpers
-answer with its URLs. It runs no auth gate, so it knows no signed-in user.
+The entered context answers as the panel mounted its resources, and runs no auth gate:
+[`PanelHandle::enter`](https://y-l.fr/tablo/nightly/api/tablo/struct.PanelHandle.html#method.enter) has the details.
 
 ## Outside a request
 
@@ -89,22 +88,17 @@ is cheap to clone into a job:
 {{#include ../../../examples/guide/src/data_access.rs:data-access-panel}}
 ```
 
-`admin.context()` returns a context holding the database and those resources, with no request,
-session or tenant, without declaring the panel again. Add a tenant with `.with(Tenant(id))`:
+`admin.context()` returns a context holding the database and those resources, without declaring
+the panel again. Add a tenant with `.with(Tenant(id))`:
 
 ```rust
 {{#include ../../../examples/guide/src/data_access.rs:data-access-job}}
 ```
 
-A context is one unit of work, as a request is: the loads it memoizes stay cached while it lives,
-so build one per job run. It carries no signed-in user, so a policy that reads one answers for a
-signed-out request. A context with no panel at all knows no resource: every entry point that reads
-a mounted def answers as for a resource the panel does not mount, and `write_update` writes without
-consulting the context.
-
-`Panel::handle(&db)` builds the same handle from a panel no router mounts, such as a test's. It
-declares and checks the panel's resources, refusing the declaration errors `.panel(..)` refuses, so
-build it once and call `context()` on it per run.
+A context is one unit of work, as a request is, so build one per job run; it carries no
+signed-in user. [`PanelHandle::context`](https://y-l.fr/tablo/nightly/api/tablo/struct.PanelHandle.html#method.context) says what it
+holds and what a policy sees. `Panel::handle(&db)` builds the same handle from a panel no router
+mounts, such as a test's.
 
 ## Schema setup
 
@@ -129,7 +123,6 @@ Share a query between components of one request with Topcoat's `#[memoize]`, and
 A table updates through a rerun of its page, which runs the page's layers and checks like any
 request. Topcoat serves a shard at its own runtime path, where the page's checks do not run: a
 shard you write starts with `auth::guard(cx)?`, and checks `can_list::<R>(cx)` before it lists
-`R`'s rows. Declare it on its panel with `Panel::endpoint`: a shard no panel declares runs as the
-panel whose session sent the request, so on a panel without sign-in it runs as no panel, and
-`scoped_query` and the `url` helpers find no resource. On a router with several panels, the
-declaration also keeps other panels' sessions out.
+`R`'s rows. Declare it on its panel with
+[`Panel::endpoint`](https://y-l.fr/tablo/nightly/api/tablo/struct.Panel.html#method.endpoint), which says which panel a shard runs as
+otherwise.

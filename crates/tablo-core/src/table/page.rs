@@ -4,10 +4,41 @@
 //! ([`Table::apply_declaration`](super::Table)); this module runs it against
 //! the database.
 
+use std::num::NonZeroUsize;
+
 use toasty::stmt::{List, Query, Value};
 use topcoat::{Result, context::Cx};
 
-use super::{Cursor, Pagination, Table, TableState};
+use super::{Cursor, Table, TableState};
+
+/// The page size of a table that declares none with [`Table::paginate`].
+pub const DEFAULT_PAGE_SIZE: NonZeroUsize = NonZeroUsize::new(25).unwrap();
+
+/// The page sizes a table offers a reader by default, beside its own [`Table::paginate`] size.
+pub const DEFAULT_PER_PAGE_OPTIONS: [usize; 4] = [10, 25, 50, 100];
+
+/// How a table pages through its rows.
+///
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # struct Event { #[key] #[auto] id: uuid::Uuid, name: String }
+/// use tablo_core::{Pagination, Table, TextColumn, lens};
+///
+/// // A log too large to count on every page.
+/// Table::new(TextColumn::new(lens!(Event.name))).pagination(Pagination::Cursor);
+/// ```
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Pagination {
+    /// Numbered pages, `?page=3`: "Showing 51–75 of 312", the page links, and Previous and
+    /// Next. Each page counts the result set, one more query.
+    #[default]
+    Pages,
+    /// Previous and Next by page number, without a count: "Page 3".
+    Simple,
+    /// Previous and Next by row cursor, `?after=…`: neither counts nor skips rows, so it pages
+    /// a large or fast-changing table without drifting.
+    Cursor,
+}
 
 /// One executed page of rows for `WiredTable::render`.
 ///

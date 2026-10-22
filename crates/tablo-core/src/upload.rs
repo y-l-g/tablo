@@ -22,6 +22,29 @@ use crate::{
 /// `filename` arrives sanitized to a non-empty basename without directories or
 /// control characters; `bytes` are bounded by the 10 MiB form-body cap. The
 /// framework stores the returned path verbatim.
+///
+/// - `store` returns the value to save. An `Err(reason)` is shown to the user inline as `<Label>
+///   could not be uploaded: <reason>`, so keep the reason free of paths and driver messages.
+/// - What a file field stores comes from a file part only: `store`'s answer, the stored value on an
+///   untouched edit, or nothing when cleared. A path typed into the form is never stored.
+/// - Keeping a file across a failed submit. When a form re-renders with errors, the file input is
+///   empty again. The form carries the path `store` just returned, and the panel reuses it on the
+///   next submit only when `Uploader::holds(path)` answers `true`. The default answers `false`, so
+///   the user uploads again. Answer `true` only for a path your store could have written and still
+///   holds inside its own root; checking whether an arbitrary path exists would let a client pick
+///   any file. A `DirUploader` answers `true` for a URL spelled as its `store` spells one, naming a
+///   file in its directory.
+/// - Editing. The edit form shows the stored file as a link and an empty file input. Leaving it
+///   empty keeps the file; the "Remove the current file" checkbox (`clear_<field>`) empties the
+///   field. The input is required only while nothing is stored, and clearing a required field fails
+///   validation, so declare the record-form field `#[form(optional)]` when a record may lose its
+///   file.
+/// - Links. The stored value renders as a link, on the edit form and in a `FileColumn` on the
+///   detail page, only when it is a root-relative path (`/uploads/a.png`, not `//host`) or an
+///   `http(s)` URL; anything else renders as text.
+/// - Serving. `Panel::serve_dir(path, dir)` serves a directory (`uploads_dir` calls it), and the
+///   served files are public unless the path sits under the panel prefix, which the auth gate
+///   covers.
 pub trait Uploader: Send + Sync + 'static {
     /// Stores `bytes` and returns the value to store; the `Err` string renders
     /// inside the field's inline error, so it must be user-actionable.

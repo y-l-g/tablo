@@ -12,6 +12,10 @@ use crate::{BoxFuture, policy::Ability};
 ///
 /// Every [`Resource`](crate::Resource) is one, answering from its def as the context's panel
 /// mounted it.
+///
+/// Every relationship choice over one source shares a single load per request and tenant,
+/// bounded to [`MAX_RELATIONSHIP_OPTIONS`] rows. A load the policy refuses fails closed: the
+/// choice offers nothing rather than leak a label.
 pub trait OptionSource: Sized + Send + Sync + 'static {
     /// The model whose rows become options.
     type Model: toasty::schema::Model + toasty::stmt::IntoExpr<Self::Model> + Send + Sync + 'static;

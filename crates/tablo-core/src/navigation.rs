@@ -61,7 +61,11 @@ pub struct NavigationItem {
 }
 
 impl NavigationItem {
-    /// A sidebar entry at an explicit `url`.
+    /// A sidebar entry at an explicit `url`, kept as written.
+    ///
+    /// The entry whose URL is the longest match for the current path is marked active. Of the
+    /// entries sharing that path, the one whose query the request carries wins, then the one
+    /// naming more of that query, then the first declared.
     pub fn at(label: impl Into<String>, url: impl Into<String>) -> Self {
         Self {
             label: label.into(),

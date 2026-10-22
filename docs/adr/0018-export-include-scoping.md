@@ -20,9 +20,7 @@ sees it whole, and a required relation never reads as unloaded. The include itse
 unfiltered: Toasty 0.11 panics (`todo!`) on a filtered include over a `via` relation, and a
 required `belongs_to` has no shape for a filtered-out record. `unscoped` columns, for a model no resource
 administers, show what the include loads. `Resource::query` stays row scoping only; a relation
-belongs there only when every loader reads it, such as one the policy checks. An unscoped relation
-column whose row was loaded without its include renders `"(unloaded)"` and fails a debug
-assertion.
+belongs there only when every loader reads it, such as one the policy checks.
 
 A related table on a detail page is the related resource's own table, run through its own loader.
 

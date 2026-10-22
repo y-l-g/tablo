@@ -45,6 +45,7 @@ const LAYERS: &[(&str, &[&str])] = &[
             "detail",
             "table",
             "form",
+            "derive",
             "extend",
         ],
     ),

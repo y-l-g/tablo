@@ -13,13 +13,10 @@ is stored for one panel user and listed in the bell of a panel that shows one.
 ```
 
 The bell counts the signed-in user's unread notifications and opens a sheet that lists them,
-newest first, with their links. Each can be marked read or unread and removed, and the sheet marks
-them all read or clears them. Once the page loads, the bell keeps updating over Topcoat's runtime
-connection: a notification sent while the page is open joins the list, raises the count and shows
-as a toast, and a change made in one tab shows in the user's others.
-
-The panel needs auth, and its `Db` the `StoredNotification` model, which `tablo::models!`
-registers; the mount refuses it otherwise.
+newest first, with their links. Once the page loads, it keeps updating over Topcoat's runtime
+connection, so a notification sent while the page is open shows at once, as a toast. The panel
+needs auth and the `StoredNotification` model, which `tablo::models!` registers.
+[`Panel::notifications`](https://y-l.fr/tablo/nightly/api/tablo/struct.Panel.html#method.notifications) has the rules.
 
 ## Sending
 
@@ -49,14 +46,8 @@ A job sends through the panel's handle, for no tenant until `tenant` names one:
 ## Who sees what
 
 The bell lists a user's notifications on its own panel: those sent for the tenant they act for,
-and those sent for no tenant. Its procedures mark and remove only those: an id the user's bell
-does not list changes nothing.
-
-A link renders only when its URL is a same-origin path such as `/admin/orders/42` or an `http` or
-`https` URL.
-
-A bell that is open over the runtime connection checks the session again before it shows
-anything new, and `auth::revoke_sessions_for_user` stops the user's open bells at once.
+and those sent for no tenant. A notification for one tenant therefore never shows to a member of
+another, and one sent for no tenant, such as a job's, shows whichever tenant the user acts for.
 
 ## Keeping them
 
@@ -68,5 +59,5 @@ Nothing deletes stored notifications on its own. A job prunes the ones older tha
 
 ## One process
 
-A send wakes the bells open on the process that sent it. Behind a load balancer, a bell on
+A send wakes only the bells open on the process that sent it: behind a load balancer, a bell on
 another process shows the notification on its next page load.

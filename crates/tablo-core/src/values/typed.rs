@@ -6,6 +6,22 @@ use email_address::{EmailAddress, Options};
 use jiff::tz::TimeZone;
 
 /// Parses a typed column's text submission and names the type in the error it produces.
+///
+/// A text control over a typed column renders the stored value in the input its type names, and
+/// a value the type refuses is an inline error naming it: `` `twelve` is not a valid whole
+/// number ``. The built-in types:
+///
+/// | Column type | Input |
+/// | --- | --- |
+/// | an integer | `type="number"` |
+/// | `f32`, `f64` | `type="number" step="any"` |
+/// | `jiff::civil::Date` | `type="date"` |
+/// | `jiff::civil::Time` | `type="time"`, to the minute |
+/// | `jiff::civil::DateTime` | `type="datetime-local"`, to the minute |
+/// | `jiff::Timestamp` | `type="datetime-local"`, to the minute, in the request's time zone |
+/// | `bool`, `Uuid`, `TenantId` | `type="text"` |
+///
+/// A `jiff::Zoned` column has no control: no browser input carries a zone.
 pub trait TypedValue: std::fmt::Display + std::str::FromStr {
     /// What this type is called in a validation error.
     const NOUN: &'static str;

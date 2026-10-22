@@ -1,40 +1,18 @@
 # 0031 A CSV import is the create form, once per row, in one transaction
 
-A resource opts in with `ResourceDef::importable`, and only one that serves a create page may:
-mounting refuses an importable resource that is `edit_only` or has no record form. Its list then
-links **Import CSV** to `{list}/-/import`, offered to a request that may create, and the page takes
-one CSV file.
+A resource that serves a create page opts in with `ResourceDef::importable`. Each row of the file
+is a create submission: the header names the form keys, and the row runs the create form's own
+pipeline, so nothing a create is checked for is skipped and the import adds only refusals of the
+file's own shape. A header that names a column no create-form control can take, such as a file
+field or a repeater, refuses the whole file before any row is checked.
 
-Each row is a create submission. The header names the form keys the row posts, matched by key or
-by field label, and each cell posts its key's value; a column the header leaves out takes the
-field's `default`, as the create page's untouched control posts it. The row then runs the create
-form's own pipeline: the field-access mask, disabled and hidden controls, the controls' rules, the
-record form's parse, `validate_record`, the unique probe, the relationship re-check, and
-`create_record`, which stamps the tenant column. Nothing a create form's submission is checked
-for is skipped; the file adds only its own shape's refusal, a cell under no column of the
-header.
-
-Every row first runs the steps a create runs before its transaction opens, so that no option
-loader waits on the connection the transaction holds. One transaction then runs each row's unique
-probe, relationship re-check and write in file order, so a row's unique value is checked against
-the rows before it. Once a row is refused the transaction will roll back, but every later row is
-still checked, and still written into it when it passes, so that the rows after it are checked
-against its unique values: the page lists each refusal by row and column, and the file is
-corrected and posted again. Each row's `create_record` runs in a savepoint: a row it refuses with
-`WriteError::Refused` rolls back to it, so a later row is checked against the rows that passed and
-not against the partial writes of one refused. Each row written to commit is a `Change::Create`:
-`before_commit` receives it inside the transaction, where an error rolls back the whole file, and
-`after_commit` once the rows commit together, in file order. A file holds at most
-`MAX_IMPORT_ROWS` rows, so the transaction stays one request long; on SQLite it holds the
-database's write lock that long. The reader stops at the first row past that cap, and at a row of
-more than 500 cells, so a small file of line breaks or delimiters cannot hold memory past those
-bounds.
-
-A header that names a key the form does not take, a key the request may not change, a control
-disabled on the create page, a file field or a repeater refuses the whole file before any row is
-checked: no cell can carry a file's bytes or a list of rows. So does a label two fields carry,
-which names neither: the header names such a column by its key. A multiple choice's column repeats once
-per value, as its control posts its key once per checked box; no other column repeats.
+Every row first runs the steps a create runs before its transaction opens, so no option loader
+waits on the connection the transaction holds. One transaction then writes the rows in file
+order, so a row's unique value is checked against the rows before it, and the whole file commits
+or none of it. A refused row does not stop the check: every later row is still checked and
+written into the doomed transaction, so the page lists every refusal at once. Each row's
+`create_record` runs in a savepoint, so a row it refuses leaves no partial write for the rows
+after it. A file holds at most `MAX_IMPORT_ROWS` rows, so the transaction stays one request long.
 
 ## Rejected
 

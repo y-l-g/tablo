@@ -10,7 +10,8 @@ use super::{
         condition::{Condition, Watched},
         repeater::RepeaterControl,
     },
-    ChoiceControl, Control, ControlKind, Field, Kind, Pattern, RichTextControl, TextControl,
+    ChoiceControl, Control, ControlKind, Field, Kind, Pattern, RichTextControl, RichTextField,
+    TextControl,
 };
 
 mod choices;
@@ -53,6 +54,25 @@ macro_rules! base_modifiers {
             /// let vat = Field::text(Customer::fields().vat_number()).visible_when(&kind, ["company"]);
             /// Schema::new((kind, vat));
             /// ```
+            ///
+            /// - The browser shows and hides the field as the watched one changes, with no request.
+            ///   A hidden field's control is disabled, so the browser neither validates nor posts
+            ///   it. Without JavaScript, the fields start as the stored values show them and stay
+            ///   that way.
+            /// - The panel reads a submission the same way and drops a hidden field's posted key,
+            ///   and a file field's carried upload: an edit keeps the stored value, and a create
+            ///   stores the blank answer. A conditional field therefore needs a blank answer, and
+            ///   mounting refuses one without.
+            /// - Mounting also refuses a value the watched field never posts (a choice's option or
+            ///   a toggle's `true` and `false` are checked), and a condition watching a field that
+            ///   another condition hides while the guarded field still shows: place the guarded
+            ///   field inside the block that hides the watched one. A schema also refuses a
+            ///   condition watching a field it does not place, which only a page's or an action's
+            ///   schema can do: a resource's form places every record-form field.
+            /// - A toggle is followed through its checkbox. An app's own checkbox `Control` posts
+            ///   the same `value` checked or not, so a condition cannot follow it.
+            /// - A multiple choice's key holds a list, which no condition value spells: mounting
+            ///   refuses a condition watching one.
             pub fn visible_when(
                 mut self,
                 watched: &impl Watched<F>,
@@ -166,6 +186,23 @@ macro_rules! default_modifier {
             ///     .multiple()
             ///     .default(["email"]);
             /// ```
+            ///
+            /// - The control names its help text in `aria-describedby`, beside its error.
+            /// - A disabled control renders `disabled`, so the browser posts nothing for it, and
+            ///   the panel drops a key posted anyway, with a file field's carried upload. An edit
+            ///   keeps the stored value. A create stores the field's default, else its blank
+            ///   answer: `.disabled()` on a field with neither refuses to mount, since no create
+            ///   could fill it.
+            /// - `.disabled_on_edit()` leaves the create form's control enabled: the create sets
+            ///   the value, and no edit changes it.
+            /// - A condition watching a disabled field reads what the browser shows: its default on
+            ///   a create, its stored value on an edit, never what the submission posts.
+            /// - A default seeds the create form and an action's input form; an edit form shows the
+            ///   stored value. The blank answer is different: it is what an empty submission
+            ///   stores. Mounting refuses a default the control never posts: one a typed field does
+            ///   not parse, or not one of a choice's options.
+            /// - A repeater's row controls take neither `disabled` nor `default`: mounting refuses
+            ///   both.
             pub fn default(mut self, value: impl IntoFormValue) -> Self {
                 self.0.default = Some(value.into_form_value());
                 self
@@ -179,10 +216,6 @@ default_modifier!(TextField, ChoiceField, CustomField, RichTextField);
 /// A text field: [`Field::text`], or a record form's text control (`F` is the form).
 pub struct TextField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
 
-/// A rich text field: [`Field::rich_text`], or a record form's text control made one with
-/// [`TextField::rich_text`] (`F` is the form).
-pub struct RichTextField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
-
 /// A choice field: [`Field::choice`], or a record form's choice control (`F` is the form).
 pub struct ChoiceField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
 
@@ -191,6 +224,21 @@ pub struct FileField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
 
 /// A repeater: [`Field::repeater`], or a record form's `#[form(repeat)]` control (`F` is the
 /// form).
+///
+/// - Each row posts its item's fields under its own prefix (`steps.0.minutes`), and the repeater's
+///   own key lists the rows in the order they show. A refused row renders its error under its own
+///   control, and the rows come back in the order the user left them.
+/// - A repeater takes at most `MAX_REPEATER_ROWS` (100) rows; a submission listing more is refused.
+/// - No rows is the repeater's blank answer, so a repeater is never required. An edit that does not
+///   post the repeater, such as one hidden by a condition, keeps the stored rows; one that posts no
+///   rows stores an empty list.
+/// - Adding, removing and moving rows needs JavaScript. Without it the stored rows still edit.
+/// - An action's input can place a repeater too, with a hand-written `FormInput` whose `parse`
+///   reads the rows with `parse_items`.
+/// - On the detail page, `RepeaterColumn` shows each item's fields under their labels. The model's
+///   default detail page includes one; its table does not.
+/// - Not supported inside an item: an embedded value, another repeater, a relationship, a file
+///   field and a condition.
 pub struct RepeaterField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
 
 /// A field an app's [`Control`] renders: [`Field::custom`] and [`Field::toggle`], or a record
@@ -296,7 +344,9 @@ impl<F> TextField<F> {
         }
     }
 
-    /// Validate the value as an email address, and render `type="email"`.
+    /// Validate the value as an email address, and render `type="email"`: the domain needs two
+    /// labels (`a@b` is refused), a display name (`Ada <ada@example.com>`) is refused, and the
+    /// address is capped at 254 bytes.
     pub fn email(mut self) -> Self {
         self.text().kind = Kind::Email;
         self
@@ -335,7 +385,19 @@ impl<F> TextField<F> {
         self
     }
 
-    /// Probes a unique index before the write.
+    /// Probes a unique index before the write, and reports a taken value inline. A text field over
+    /// a column with a unique index probes without it; mounting refuses it on a column no unique
+    /// index covers, and on a non-nullable column whose record-form field has a blank answer,
+    /// since every empty submission would store one value.
+    ///
+    /// The probe runs before the write, so two concurrent submissions can both pass it; the index
+    /// stays the final check. When a write fails on a database error, the form probes again once
+    /// the transaction is rolled back, so the losing submission re-renders with the same inline
+    /// error, and a failure the probe does not explain answers 500. That needs the database to
+    /// refuse the losing write once the winning one commits, as PostgreSQL and MySQL do; SQLite
+    /// can refuse it as busy before then, and Turso's concurrent transactions conflict at commit,
+    /// so either can still answer 500. The probe reads through the resource's scoped query, so an
+    /// index broader than the scope, such as one wider than the tenancy, also answers 500.
     pub fn unique(mut self) -> Self {
         self.text().unique = true;
         self

@@ -6,60 +6,27 @@ type parameter; the user travels erased and `auth::user::<U>` reads it back. `Au
 is the explicit opt-out.
 
 - Sessions are server-side rows keyed by token hash, rotated on login, revocable per user, and
-  bound to the panel that issued them.
-  A shard or procedure serves outside every prefix, so a panel declares the ones its pages use;
-  a request to a declared endpoint runs as that panel and ignores other panels' sessions.
-- The gate fails closed: pages redirect to login, runtime endpoints answer 401, and a user without
-  access is refused like a bad password.
-- Passwords use Argon2id, and login verifies even for an unknown user.
-- A user has tenant memberships; the session selects one. Core auth never requires a tenant.
-- Sign-up is opt-in through a second seam, a `Registrar` beside the `Authenticator` and for the
-  same user type: it takes an action input, validates and writes in one transaction, and signs
-  the new account in only when it has panel access.
-- The profile page is opt-in through a third seam, a `ProfileEditor` for the same user type: it
-  fills a form input from the signed-in user, validates and writes in one transaction, and says
-  whether a credential changed. A credential change ends the user's sessions and reset links on
-  every panel that loads the same user type, in the transaction that saves, and starts a new
-  session for the browser that saved.
-- Password reset is opt-in through a fourth seam, a `PasswordResetter` for the same user type:
-  it finds an account by email and sets its password. Tablo mails a single-use link through
-  Topcoat mail to the address `PanelUser::email` answers. The link is written and mailed after
-  the response, so the answer takes as long for an unknown address. A reset ends the account's
-  sessions and links like a credential change.
-- Email verification is opt-in through a fifth seam, an `EmailVerifier` for the same user type:
-  it says whether a user proved their address and records an address a link proved. The gate
-  sends an unverified user to the page that mails the link, and answers 403 elsewhere. The link
-  verifies on `GET`, signed in or not, and only the address the account still stores.
-- With verification on, a new email waits for its link: the profile editor calls
-  `auth::request_email_change` in place of writing it, the panel mails the new address a link
-  that stores it as a credential change, and the old address a link that keeps it, for a week,
-  restoring it if the change went through, and signs every browser out. Unlike the verification
-  link, both links act only on the `POST` of the page they open: a scanner on the old mailbox
-  would otherwise sign the user out at delivery.
-- Tenant registration is opt-in through a sixth seam, a `TenantRegistrar` for the same user
-  type: it takes a form input, validates and writes the tenant and the user's membership in one
-  transaction, and answers the membership the session then selects. A panel with it sends a user
-  with no membership to its page, as it sends an unverified user to theirs: core auth still never
-  requires a tenant, a panel that registers them does.
-- The tenant settings page is opt-in through a seventh seam, a `TenantEditor` for the same user
-  type: it says which members may edit the tenant the request acts for, loads the form from it,
-  and validates and writes in one transaction.
-- Two-factor sign-in is opt-in through `Auth::two_factor` and needs no seam: Tablo stores each
-  account's authenticator secret and recovery-code hashes as `AuthFactor` rows, per panel. The
-  secret is sealed with AES-256-GCM under a key derived from the router's cookie `Key`, bound to
-  its row. A correct password then issues a short-lived `AuthToken` in its own cookie instead of
-  a session, and the challenge page trades it and an RFC 6238 code, or a recovery code, for one.
-  An app code works once. Turning it on or off is a credential change, and a panel that requires
-  it sends a user without one to its page, like an unverified user.
-- Codes by email are a second kind of factor an account may hold in place of an app: each
-  sign-in mails six digits, held as an `AuthToken` whose hash is an HMAC under a key derived
-  from the cookie `Key`, so a database read cannot try the million codes. An account holds one
-  factor at a time.
-- Every mailed link and pending sign-in is one `AuthToken` row: the token's hash, its purpose,
-  the account, the issuing panel and the expiry. A credential change ends the account's sign-in
-  tokens; a reset, a cancelled email change and a revocation also end a pending change. A link
-  that proves an address or keeps the old one outlives both. One `AuthMail` names the sender
-  and the configured base URL every link starts with.
+  bound to the panel that issued them. A shard or procedure serves outside every prefix, so a
+  panel declares the ones its pages use, and a request to one runs as that panel.
+- The gate fails closed, and a user without access is refused like a bad password. Passwords use
+  Argon2id, and login verifies even for an unknown user.
+- A user has tenant memberships; the session selects one. Core auth never requires a tenant; a
+  panel that registers tenants does.
+- Every other feature is opt-in, through a seam for the same user type when it writes the app's
+  own rows: sign-up (`Registrar`), the profile page (`ProfileEditor`), password reset
+  (`PasswordResetter`), email verification (`EmailVerifier`), tenant registration
+  (`TenantRegistrar`) and tenant settings (`TenantEditor`). Each validates and writes in one
+  transaction. A credential change ends the user's sessions and links on every panel that loads
+  the same user type, in the transaction that saves it.
+- A mailed link never acts on a `GET` a mail scanner would follow when acting signs someone out;
+  one that only proves an address does, since a click less is worth more.
+- Two-factor sign-in needs no seam: Tablo stores each account's factor as `AuthFactor` rows, per
+  panel, with the authenticator secret sealed under a key derived from the router's cookie `Key`
+  and mailed codes hashed under another, so a database read alone yields neither. A correct
+  password issues a short-lived `AuthToken` instead of a session until the second factor passes.
+- Every mailed link and pending sign-in is one `AuthToken` row: the token's hash, its purpose, the
+  account, the issuing panel and the expiry. One `AuthMail` names the sender and the configured
+  base URL every link starts with.
 
 ## Rejected
 

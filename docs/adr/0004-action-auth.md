@@ -1,49 +1,25 @@
 # 0004 Mutations are transactional and per-record, with a hook on each side of the commit
 
 Every mutation runs in a framework-owned transaction. The handler loads the target through
-`scoped_query` (ADR-0002) and checks the policy on the loaded record inside the transaction,
-never on the passed id alone; a bulk write checks every record. Relationship keys are re-checked
-against the related resource inside the same transaction.
+`scoped_query` (ADR-0002) and checks the policy on the loaded record inside the transaction, never
+on the passed id alone; a bulk write checks every record, and relationship keys are re-checked
+inside the same transaction.
 
-A custom `Action` runs the same way, authorized by the policy the panel mounted: `RunAny` with the
-action's `NAME` before the body is read, then `View` and `Run` on each loaded record. `can_run` is
-a state predicate on the record, asked after `Run`. A record refused `View` fails the whole POST;
-a record refused `Run` or `can_run` is skipped from a selection, as a record refused `Delete` is
-skipped from a bulk delete.
+A custom `Action` is authorized by the policy the panel mounted, through abilities of its own:
+`RunAny` with its `NAME` before the body is read, then `View` and `Run` on each loaded record.
+`can_run` is a state predicate on the record, asked after the policy. An action's input is parsed
+and validated before the transaction opens, as a record form is, so no option query waits on the
+connection the transaction holds. A record action's `Places` are presentation only: the routes
+serve an action through the same checks wherever it shows.
 
-An action that asks for input (`Action::Input`) asks for it in a dialog, which carries no record
-data, as the confirmation dialog does. Its submit POSTs the input to the action's route, which runs
-every check before `run` receives the parsed value. A refused value renders the input as a form
-page from that route, after the same checks and before any write, and rolls the transaction back;
-the page posts back to the same route. As for a record
-form, the input is parsed, validated and checked before the transaction opens, so a choice's
-option query never waits on the connection the transaction holds, and a relationship choice is
-re-checked inside it.
+A header action runs on no record. On a resource the policy authorizes it through `RunHeader`, an
+ability apart from `RunAny`; on a page, which has no policy, the page's access does. Nothing scopes
+it to a tenant: it reads through `scoped_query` itself.
 
-A record action renders wherever its `Places` say, a row, the detail or edit page's header or the
-bulk bar, but the place is presentation only: the record route serves any action placed on a
-record, and the bulk route any action placed on the bulk bar, through the same checks.
-
-A header action runs on no record, so it has no `View` or `Run` to ask. On a resource it is
-authorized by `ViewAny`, since its button is on the list, and `RunHeader` with its `NAME`, an
-ability of its own, then its own `can_run(cx)`. On a page, which has no policy, the panel's sign-in
-and the page's `PageDef::access` authorize it, as they do the page's `GET`, then `can_run(cx)`; an
-action that writes a resource's records asks that resource's policy there. It runs in a
-framework-owned transaction like any mutation, but nothing scopes it to the tenant: it reads a
-tenant's records through `scoped_query` itself. The hooks receive its `NAME` and no record.
-
-Every write a resource's panel makes, through its record fns, actions, header actions and
-relation links, calls two hooks with the same `Change`: what was written, with the rows it names.
-`Resource::before_commit` runs inside the transaction with its executor, so a row it writes, such
-as an audit row, commits with the write or not at all; an error rolls everything back.
-`Resource::after_commit` runs after the commit and before the response: the place for effects
-outside the database that must not survive a rollback. A failing `after_commit` logs and does not
-roll back, and a crash after the commit skips it.
-
-`run` returns an `Outcome`: the notification the response flashes and the same-origin path it
-lands on, each defaulting to the action's `success` and to where it ran from. The response applies
-it only after the commit and the hook. A redirect off the site falls back to the default landing
-and logs, since the write it follows has committed.
+Every write a resource's panel makes, through record fns, actions, header actions and relation
+links, reaches two hooks with one `Change`: `Resource::before_commit` inside the transaction, so a
+row it writes commits with the write or not at all, and `Resource::after_commit` after the commit,
+for effects outside the database. An action's `Outcome` applies only after both.
 
 ## Rejected
 

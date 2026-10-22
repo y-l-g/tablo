@@ -28,7 +28,7 @@ mod state;
 pub use self::{
     filter::{DateFilter, FilterValue, IntoFilters, QueryFilter, SelectFilter, TernaryFilter},
     model::ModelColumns,
-    page::{PagePosition, TablePage},
+    page::{DEFAULT_PAGE_SIZE, DEFAULT_PER_PAGE_OPTIONS, PagePosition, Pagination, TablePage},
     state::{Cursor, Sort, TableState},
 };
 pub(crate) use self::{
@@ -48,35 +48,6 @@ pub(crate) type GroupKey<M> = Arc<dyn Fn(&M) -> String + Send + Sync>;
 pub(crate) struct GroupDef<M> {
     binding: Binding,
     key: GroupKey<M>,
-}
-
-/// The page size of a table that declares none with [`Table::paginate`].
-pub const DEFAULT_PAGE_SIZE: NonZeroUsize = NonZeroUsize::new(25).unwrap();
-
-/// The page sizes a table offers a reader by default, beside its own [`Table::paginate`] size.
-pub const DEFAULT_PER_PAGE_OPTIONS: [usize; 4] = [10, 25, 50, 100];
-
-/// How a table pages through its rows.
-///
-/// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
-/// # struct Event { #[key] #[auto] id: uuid::Uuid, name: String }
-/// use tablo_core::{Pagination, Table, TextColumn, lens};
-///
-/// // A log too large to count on every page.
-/// Table::new(TextColumn::new(lens!(Event.name))).pagination(Pagination::Cursor);
-/// ```
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum Pagination {
-    /// Numbered pages, `?page=3`: "Showing 51–75 of 312", the page links, and Previous and
-    /// Next. Each page counts the result set, one more query.
-    #[default]
-    Pages,
-    /// Previous and Next by page number, without a count: "Page 3".
-    Simple,
-    /// Previous and Next by row cursor, `?after=…`: neither counts nor skips rows, so it pages
-    /// a large or fast-changing table without drifting.
-    Cursor,
 }
 
 /// Where a table puts a row's actions: its custom actions, View, Edit and Delete.
@@ -101,6 +72,45 @@ pub enum ActionLayout {
 /// Table description of a `Resource`'s list view declaring columns and how they map to queries.
 ///
 /// A clone shares every column, filter and projection.
+///
+/// The list keeps its whole state in the URL: `?q=` searches, `?sort=` and `?dir=` sort,
+/// `?page=`, `?per_page=`, `?after=` and `?before=` page, `?f.<name>=` filters and `?group_by=`
+/// groups. Each row is keyed by its record's primary key, which the action URLs and bulk
+/// checkboxes carry; a composite key has no URL form, so its rows render without row actions or
+/// bulk selection.
+///
+/// - Search matches a row any searchable column contains the term in. It escapes `%` and `_`, trims
+///   the term and caps it at 128 characters, and matches case-insensitively: PostgreSQL runs it as
+///   `ILIKE`, SQLite (for ASCII) and MySQL (under its default collations) as `LIKE`.
+/// - Without a `?sort=` naming a sortable column, the rows sort by the
+///   [`default_sort`](Self::default_sort), else by the first sortable column, ascending. The
+///   primary key breaks ties, so a sort over duplicate values pages deterministically, and a page
+///   number past the last page reads as the last.
+/// - A filter that cannot apply, an unknown name, a value the filter rejects or one past the
+///   limits, is never dropped silently: the list shows a warning banner naming it, and the export
+///   answers 400. At most 32 filters apply, each with at most 64 values and parts, each name, part
+///   and value at most 256 bytes. Active filters combine with AND.
+/// - Grouping runs on the loaded page, so its counts cover that page; a `?group_by=` the table does
+///   not declare is ignored.
+/// - The list updates in place: a search, filter, sort or page reruns the page through the runtime,
+///   keeping focus and scroll, and without JavaScript its links and its search form load the page.
+///   A table that fails to load shows an error state with a retry link in place of the rows.
+///
+/// When the policy allows `DeleteAny`, or `RunAny` for an action placed on the bulk bar, the list
+/// adds a checkbox column and a bulk bar; a row that no delete or bulk action allows gets no
+/// checkbox. A bulk delete takes at most 400 records, runs in one transaction and skips the
+/// records the policy refuses `Delete`. Both deletes ask first through a confirmation dialog,
+/// which needs JavaScript; a POST not confirmed through it answers 400. Each lands back on the
+/// list as it was left.
+///
+/// # Export
+///
+/// `GET {list}/-/export` returns the list as a CSV file named `{slug}.csv`, with the current
+/// search, filters and sort applied and the relations the columns include loaded. It leaves out
+/// the rows the policy refuses `View`, delivers at most 10,000 rows and answers 413 rather than a
+/// truncated file when more match. It writes each column's formatted value, a date column's
+/// stored value, and escapes a cell a spreadsheet would read as a formula; `?bom=1` prefixes the
+/// file with a byte-order mark for Excel.
 #[derive_where(Clone)]
 pub struct Table<M> {
     columns: Vec<BoxColumn<M>>,

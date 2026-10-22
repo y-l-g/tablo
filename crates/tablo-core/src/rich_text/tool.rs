@@ -41,7 +41,9 @@ pub enum Tool {
     OrderedList,
     /// `<blockquote>`.
     Blockquote,
-    /// `<pre><code>`.
+    /// `<pre><code>`. The editor records a block's language as a class, which cleaning drops,
+    /// and the allowlist names elements, not where they nest, so a forged post keeps inline
+    /// `<code>` too.
     CodeBlock,
     /// `<hr>`.
     HorizontalRule,

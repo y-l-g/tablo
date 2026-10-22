@@ -437,8 +437,13 @@ pub enum ColumnWidth {
 
 /// Whether each reader may hide a [`Column`] from their list, and whether it starts shown.
 ///
-/// A panel keeps each signed-in user's choice per resource, so the relation tables over a resource
-/// show what its list shows. Search, sort and export still read every column.
+/// A list with a toggleable column renders a Columns menu in its toolbar, whose Apply keeps the
+/// checked columns and Reset restores the defaults. A panel keeps each signed-in user's choice per
+/// resource, in the [`ColumnPreference`](crate::auth::ColumnPreference) model, so the relation
+/// tables over a resource show what its list shows; a column added later, or whose default changes,
+/// takes its default until the reader picks otherwise. Search, sort and export still read every
+/// column. A panel without auth, and a table a page renders with
+/// [`wired_table`](crate::wired_table), render no menu and show the defaults.
 ///
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]

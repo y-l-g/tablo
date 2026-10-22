@@ -100,6 +100,10 @@ pub trait Resource: Sized + Send + Sync + 'static {
     ///     }
     /// }
     /// ```
+    ///
+    /// The panel builds the def once when it mounts and serves that copy to every request, so
+    /// `declare` takes no user, tenant or query string: a request-dependent decision belongs to
+    /// the policy or to a trait method, which receives `cx`.
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
     }

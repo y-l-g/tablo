@@ -285,7 +285,11 @@ impl<R: Resource> ResourceDef<R> {
     /// Mounting the panel refuses a path that is not one field of the model, a second declaration
     /// over one field, a primary key with a `view` rule, a record title or a form condition reading
     /// a restricted field, and a column or a filter that does not say which fields it
-    /// [`reads`](crate::Reads).
+    /// [`reads`](crate::Reads), and the declarations [`FieldAccessFault`](crate::FieldAccessFault)
+    /// lists that would show a restricted record no panel can mask.
+    ///
+    /// A validation error on a field the request may not view shows as an alert that a hidden
+    /// field refuses the save, without its message.
     #[must_use]
     pub fn field_access<T>(
         mut self,
@@ -347,9 +351,19 @@ impl<R: Resource> ResourceDef<R> {
     }
 
     /// The detail page: columns in layout blocks; defaults to the model's
-    /// ([`ModelColumns::detail`]), and [`Detail::empty`] turns the page off.
+    /// ([`ModelColumns::detail`]), and [`Detail::empty`] turns the page off: its route answers
+    /// 404 and no row links to it. A non-empty detail adds a View action to each row.
     ///
-    /// The page loads the relations its columns declare.
+    /// The page, at `{list}/{key}`, carries in its header the record's title, a link back to the
+    /// list, the actions placed on [`Places::DETAIL`](crate::Places::DETAIL) and Delete as the
+    /// policy allows them on the record, and Edit when the resource has a form and the policy
+    /// allows `Update`. The [related tables](Self::relation) follow its columns.
+    ///
+    /// The record loads through the resource's tenant-scoped [`query`](Resource::query) with every
+    /// relation the columns declare, once each, wherever its block sits; no other relation
+    /// loads. An unknown key and a key outside the request's tenant are the same 404, and a
+    /// record the policy refuses `View` is a 403. The [`form`](Self::form) does not shape the
+    /// page: a resource that arranges its form declares a detail to show the same arrangement.
     ///
     /// [`ModelColumns::detail`]: crate::ModelColumns::detail
     #[must_use]
@@ -482,6 +496,28 @@ impl<R: Resource> ResourceDef<R> {
     ///
     /// Each row is checked as a create submission is, under the same policy, field access and
     /// tenant. Mounting refuses an importable resource that serves no create page.
+    ///
+    /// - The first row names the columns, each by its form key or its field's label in any case:
+    ///   the controls the request may change, but file fields, repeaters and controls disabled on
+    ///   the create page. A header naming any other column, or a label two fields carry, refuses
+    ///   the file. **Download template** at `{list}/-/import/template` returns the header row.
+    /// - Each cell posts what the create form's control would: an option's value, `true` or `false`
+    ///   for a checkbox, a date and time in the request's time zone. A blank cell posts a blank
+    ///   value, and a column the header leaves out takes the field's `default`. A multiple choice
+    ///   takes one column per value, its key repeated; no other column may repeat.
+    /// - The file is UTF-8 text with commas or semicolons between cells, of at most
+    ///   [`MAX_IMPORT_ROWS`](crate::MAX_IMPORT_ROWS) rows, 500 cells a row and 10 MiB. A row whose
+    ///   every cell is blank is skipped.
+    /// - [`Resource::before_commit`] receives each row's [`Change::Create`](crate::Change::Create)
+    ///   inside the transaction. A row [`Resource::create_record`] refuses rolls back to a
+    ///   savepoint taken before it, so the rows after it are checked without its writes. When any
+    ///   row is refused nothing is written, and the page lists each refusal by row number, as a
+    ///   spreadsheet numbers it, and column. Once every row passes, the import lands on the list
+    ///   and [`Resource::after_commit`] receives each row's change, in file order.
+    ///
+    /// The transaction lasts the whole file: on SQLite it holds the write lock that long. The
+    /// import reads what the form posts, not what the export writes: an exported `$1,234.50`,
+    /// `Yes` or option label does not import back.
     #[must_use]
     pub fn importable(mut self) -> Self {
         self.importable = true;
