@@ -4,12 +4,12 @@
 use showcase::models::{Author, BLOCKED_TENANT, Post, User};
 use tablo::{
     TenantId,
-    testing::{SearchGroup, search_box, search_results},
+    testing::{SearchGroup, search_results},
 };
 
 use crate::common::{
     TestClient, body_string, demo_client, form_body, full_db, routers::router_for_tests as router,
-    tenanted_db,
+    tenanted_db, tenantless_client,
 };
 
 const RESULTS_SHARD: &str = "/_topcoat/runtime/shards/tablo-search";
@@ -34,15 +34,6 @@ fn titles(groups: &[SearchGroup], label: &str) -> Vec<String> {
         .filter(|group| group.label == label)
         .flat_map(|group| group.results.iter().map(|result| result.title.clone()))
         .collect()
-}
-
-#[tokio::test]
-async fn the_topbar_holds_a_search_box_over_the_results_page() {
-    let db = full_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
-    let html = body_string(client.get("/admin/posts").await).await;
-    assert_eq!(search_box(&html).as_deref(), Some("/admin/-/search"));
 }
 
 /// Each resource's matches sit under its plural label, the groups in the sidebar's order, and a
@@ -99,6 +90,19 @@ async fn a_search_lists_only_the_tenants_records() {
         search(&client, "t1").await.is_empty(),
         "the other tenant's author, post and comment stay out"
     );
+}
+
+/// A request without a tenant lists the resources outside tenancy, and none of the scoped ones.
+#[tokio::test]
+async fn a_request_without_a_tenant_searches_only_unscoped_resources() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = tenantless_client(&router, &db).await;
+
+    let groups = search(&client, "ada").await;
+    assert_eq!(titles(&groups, "Users"), ["Ada Lovelace"]);
+    assert!(titles(&groups, "Writers").is_empty());
+    assert!(titles(&search(&client, "post").await, "Blog Posts").is_empty());
 }
 
 #[tokio::test]

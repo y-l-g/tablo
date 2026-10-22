@@ -30,7 +30,6 @@ pub(crate) use self::{
     build::route_path,
     forms::{FormChrome, parse_form_body, render_form_page},
     gate::panel_prefix,
-    search::render_results as render_search_results,
 };
 use self::{
     build::is_directory_pattern,
@@ -495,17 +494,21 @@ impl Panel {
     /// [`ResourceDef::without_global_search`](crate::ResourceDef::without_global_search). As the
     /// user types, it lists up to 5 results of each resource, headed by the resource's plural
     /// label in the sidebar's order, and links the page at `{prefix}/-/search?q=`, which lists up
-    /// to 25 of each. That page also answers the box's form without JavaScript. The term matches
-    /// a record when each of its first 8 words does;
+    /// to 25 of each and which Enter opens, with or without JavaScript. The term matches a record
+    /// when each of its first 8 distinct words does;
     /// [`ResourceDef::global_search`](crate::ResourceDef::global_search) says what a word matches,
     /// which records show and what each opens.
     ///
-    /// A resource with no searchable column and no title column is not searched. The box shows
-    /// to a request that may list one of the searched resources, and a panel that searches none
-    /// serves no results page. The results' shard,
-    /// [`search::search_results`](crate::search::search_results), registers through the router's
-    /// `.discover()`; the panel declares it as an [endpoint](Self::endpoint), so it answers for a
-    /// panel without sign-in too.
+    /// A resource is not searched when it has no searchable column and no title column, or when no
+    /// result could open a page: its records have no URL, or it has neither a detail page nor a
+    /// form. The box shows to a request that may list one of the searched resources, and a panel
+    /// that searches none serves no results page.
+    ///
+    /// The box's results are a shard the panel declares as its [endpoint](Self::endpoint), so they
+    /// answer for a panel without sign-in too. Topcoat serves it at one path for every panel, and
+    /// runs it as the panel that signed the session in, else as the first such panel without
+    /// sign-in. On any other panel, such as the second of two without sign-in, the box lists no
+    /// results as the user types and links the results page alone.
     ///
     /// ```rust
     /// # use tablo_core::Panel;

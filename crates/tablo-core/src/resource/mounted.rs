@@ -225,11 +225,14 @@ impl<R: Resource> Mounted<R> {
         }
     }
 
-    /// Whether the global search searches the resource: it did not opt out, and it has a
-    /// searchable column or a title column to match.
+    /// Whether the global search searches the resource: it did not opt out, it has a searchable
+    /// column or a title column to match, and a result can open a page: its records have URLs, and
+    /// it has a detail page or a form.
     pub(crate) fn globally_searched(&self) -> bool {
         self.global_search.is_some()
             && (self.record_title.is_some() || self.table.has_searchable_column())
+            && self.table.is_addressable()
+            && (self.viewed() || <R::Form as RecordForm>::HAS_FORM)
     }
 
     /// The fields the panel's [`ResourceDef::field_access`] rules let `cx` neither view nor change,

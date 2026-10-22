@@ -1,13 +1,18 @@
 //! The global search over resources the showcase does not build: a record the policy keeps from
 //! its pages, a field the request may not view, a resource without a detail page, a resource and
-//! a panel left out of the search, and the results shard on a panel without sign-in.
+//! a panel left out of the search, records the policy refuses ahead of the ones it allows, and the
+//! results shard on one or two panels without sign-in.
 
 use tablo::{
-    Ability, Detail, FieldAccess, GlobalSearch, NoForm, Panel, Resource, ResourceDef, lens,
+    Ability, Auth, Detail, FieldAccess, GlobalSearch, NoForm, Panel, Resource, ResourceDef,
+    RouterBuilderPanelExt, lens,
     testing::{SearchGroup, search_box, search_results},
 };
 use toasty::Db;
-use topcoat::{context::Cx, router::Router};
+use topcoat::{
+    context::Cx,
+    router::{Router, RouterBuilderDiscoverExt},
+};
 use uuid::Uuid;
 
 use crate::common::{TestClient, body_string, form_body, mount, panel, test_db};
@@ -99,7 +104,12 @@ impl Resource for ArchiveResource {
 }
 
 fn books_panel() -> Panel {
-    panel()
+    books_panel_at("admin")
+}
+
+fn books_panel_at(prefix: &str) -> Panel {
+    Panel::new(prefix)
+        .auth(Auth::disabled())
         .resource::<BookResource>()
         .resource::<ShelfResource>()
         .resource::<ArchiveResource>()
@@ -206,6 +216,54 @@ async fn the_results_shard_answers_for_a_panel_without_sign_in() {
     assert_eq!(
         results(&groups, "Books"),
         [("Dune".to_string(), format!("/admin/books/{}", dune.id))]
+    );
+}
+
+/// Records the policy refuses fill more than the box's limit ahead of the one it allows, which
+/// still shows.
+#[tokio::test]
+async fn records_the_policy_refuses_hide_no_record_it_allows() {
+    let db = db().await;
+    for n in 0..30 {
+        book(&db, &format!("Hidden Dune {n:02}"), "1", "").await;
+    }
+    let zed = book(&db, "Zed Dune", "2", "").await;
+    let router = mount(db.clone(), books_panel()).expect("the panel mounts");
+
+    let response = TestClient::new(&router)
+        .call_procedure(RESULTS_SHARD, r#"{"args":["/admin","dune"],"signals":{}}"#)
+        .await;
+    let groups = search_results(&body_string(response).await);
+    assert_eq!(
+        results(&groups, "Books"),
+        [("Zed Dune".to_string(), format!("/admin/books/{}", zed.id))]
+    );
+}
+
+/// The shard runs as the first panel that declares it, so on the second it lists no results, and
+/// links that panel's results page, which does.
+#[tokio::test]
+async fn on_a_second_panel_without_sign_in_the_box_links_its_results_page() {
+    let db = db().await;
+    book(&db, "Dune", "1", "").await;
+    let router = Router::builder()
+        .discover()
+        .app_context(db.clone())
+        .panel(books_panel())
+        .and_then(|router| router.panel(books_panel_at("staff")))
+        .expect("the panels mount")
+        .build();
+
+    let response = TestClient::new(&router)
+        .call_procedure(RESULTS_SHARD, r#"{"args":["/staff","dune"],"signals":{}}"#)
+        .await;
+    let html = body_string(response).await;
+    assert!(search_results(&html).is_empty());
+    assert!(html.contains(r#"href="/staff/-/search?q=dune""#), "{html}");
+    let page = TestClient::new(&router).get("/staff/-/search?q=dune").await;
+    assert_eq!(
+        results(&search_results(&body_string(page).await), "Books").len(),
+        1
     );
 }
 

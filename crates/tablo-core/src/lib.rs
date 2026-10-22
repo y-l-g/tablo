@@ -111,7 +111,6 @@ mod policy;
 mod resource;
 pub mod rich_text;
 mod schema;
-pub mod search;
 mod table;
 mod tenancy;
 #[cfg(test)]

@@ -1,6 +1,9 @@
 //! The panel's global search: the box in the topbar, which lists the first results of every
 //! searched resource as the user types, and the page at `{prefix}/-/search?q=` that lists more,
-//! which the box's form opens without JavaScript.
+//! which Enter in the box opens.
+//!
+//! The box's results are a shard: once the page loads, each pause in typing renders them again for
+//! the new term.
 
 use futures_util::future::try_join_all;
 use tablo_ui::{empty_state, input as ui_input, page, page_header, page_title};
@@ -8,9 +11,9 @@ use topcoat::{
     Result,
     context::Cx,
     icon::icon,
-    router::Body,
-    runtime::{Event, signal},
-    view::{BoxView, ViewExt, attributes, view},
+    router::{Body, Route},
+    runtime::{Event, shard, signal},
+    view::{BoxView, View, ViewExt, attributes, view},
 };
 
 use super::state::{NavEntry, Searchable, current};
@@ -25,9 +28,11 @@ use crate::{
 /// The path of the results page under a panel's prefix.
 pub(crate) const SEARCH_SEGMENT: &str = "-/search";
 
-/// The results' shard path, which every panel with a global search declares as its
+/// The path of the results' shard, which every panel with a global search declares as its
 /// [endpoint](super::Panel::endpoint), so the results answer for a panel without sign-in too.
-pub(crate) const SHARD_PATH: &str = "/_topcoat/runtime/shards/tablo-search";
+pub(super) fn shard_path() -> String {
+    search_results.path().as_str().to_owned()
+}
 
 /// How many results of each resource the box lists.
 const BOX_LIMIT: usize = 5;
@@ -157,7 +162,8 @@ pub(super) fn topbar_end(cx: &Cx) -> BoxView<'_> {
 
 /// The box at the end of the topbar, when the request's panel shows one: a GET form to the
 /// results page, whose field writes the term to a signal once the user pauses, and the
-/// [`search_results`](crate::search::search_results) shard over that term.
+/// [`search_results`] shard over that term. Enter opens the results page, with or without
+/// JavaScript.
 fn topbar_search(cx: &Cx) -> BoxView<'_> {
     let Some(panel) = current(cx).filter(|_| searches_any(cx)) else {
         return ().boxed();
@@ -166,10 +172,16 @@ fn topbar_search(cx: &Cx) -> BoxView<'_> {
     let action = format!("{prefix}/{SEARCH_SEGMENT}");
     let term = signal(&cx.keyed("tablo-search"), String::new);
     // Each handler captures its own copy of the form's id.
-    let (form, field_form) = (FORM_ID.to_string(), FORM_ID.to_string());
+    let (form, field_form, enter_form) = (
+        FORM_ID.to_string(),
+        FORM_ID.to_string(),
+        FORM_ID.to_string(),
+    );
     view! {
         cx =>
         <div class="group/search relative w-40 sm:w-64" data-global-search="">
+            // A pause in typing submits the form, which writes the term to the signal; Enter
+            // submits it natively instead, which skips the handler and opens the results page.
             <form
                 id=(FORM_ID)
                 method="get"
@@ -204,7 +216,16 @@ fn topbar_search(cx: &Cx) -> BoxView<'_> {
                                     (),
                                 ))
                             @keydown=$(|e: Event| {
-                                if e.key == "Escape" {
+                                if e.key == "Enter" {
+                                    e.prevent_default();
+                                    raw!(
+                                        "document.getElementById(String(${enter_form})).submit()",
+                                        (),
+                                    )
+                                } else if e.key == "Escape" {
+                                    // Escape in a search field also clears it, which would
+                                    // drop the term the box shows again on focus.
+                                    e.prevent_default();
                                     raw!("document.activeElement?.blur()", ())
                                 }
                             })
@@ -212,10 +233,20 @@ fn topbar_search(cx: &Cx) -> BoxView<'_> {
                     )
                 </div>
             </form>
-            crate::search::search_results(prefix: prefix, term: $(term.get()))
+            search_results(prefix: prefix, term: $(term.get()))
         </div>
     }
     .boxed()
+}
+
+/// The first results of every resource the panel at `prefix` searches for `term`, and a link to
+/// the results page; nothing for a blank term.
+///
+/// A named path stays stable across builds (topcoat#441), and staying under `/_topcoat/runtime`
+/// keeps the panel's auth gate covering it.
+#[shard("/_topcoat/runtime/shards/tablo-search")]
+pub(crate) async fn search_results(cx: &Cx, prefix: String, term: String) -> Result<impl View> {
+    render_results(cx, prefix, term).await
 }
 
 /// The results under the box: up to [`BOX_LIMIT`] of each resource for `term`, shown while focus
@@ -223,22 +254,28 @@ fn topbar_search(cx: &Cx) -> BoxView<'_> {
 ///
 /// Topcoat serves the shard at its runtime path, where the request runs as the panel that signed
 /// its session in, or as the first declaring panel without sign-in. The shard lists results only
-/// when that is the panel at `prefix`, whose page rendered it, and renders nothing otherwise: the
-/// form still opens the results page.
-pub(crate) async fn render_results(cx: &Cx, prefix: String, term: String) -> Result<BoxView<'_>> {
+/// when that is the panel at `prefix`, whose page rendered it. Otherwise, as on the second of two
+/// panels without sign-in, it lists none and links the results page alone, which the panel at
+/// `prefix` serves.
+async fn render_results(cx: &Cx, prefix: String, term: String) -> Result<BoxView<'_>> {
     crate::auth::guard(cx)?;
     let term = clamp_query_term(&term);
-    let here = current(cx).is_some_and(|panel| panel.prefix == prefix) && searches_any(cx);
-    if !here || words(&term).is_empty() {
+    if words(&term).is_empty() {
         return Ok(().boxed());
     }
-    let groups = run(cx, &term, BOX_LIMIT).await?;
+    let here = current(cx).is_some_and(|panel| panel.prefix == prefix) && searches_any(cx);
+    let groups = if here {
+        Some(run(cx, &term, BOX_LIMIT).await?)
+    } else {
+        None
+    };
     let all = runtime_link(
         cx,
         &format!("{prefix}/{SEARCH_SEGMENT}?q={}", encode_query_value(&term)),
     );
-    let found = !groups.is_empty();
-    let results = groups_view(cx, groups);
+    let found = groups.as_ref().is_some_and(|groups| !groups.is_empty());
+    let listed = groups.is_some();
+    let results = groups_view(cx, groups.unwrap_or_default());
     Ok(view! {
         cx =>
         // Shown while focus is in the box: a click inside it focuses the panel, which keeps it
@@ -250,7 +287,7 @@ pub(crate) async fn render_results(cx: &Cx, prefix: String, term: String) -> Res
         >
             if found {
                 (results)
-            } else {
+            } else if listed {
                 <p class="px-2 py-6 text-center text-sm text-muted-foreground">
                     "No results"
                 </p>

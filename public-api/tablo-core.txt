@@ -1434,52 +1434,6 @@ pub mod tablo_core::rich_text
 pub fn tablo_core::rich_text::clean(&str) -> alloc::string::String
 pub fn tablo_core::rich_text::from_text(&str) -> alloc::string::String
 pub fn tablo_core::rich_text::text(&str) -> alloc::string::String
-pub mod tablo_core::search
-pub struct tablo_core::search::SearchResultsProps
-pub tablo_core::search::SearchResultsProps::prefix: topcoat_runtime::expr::Expr<alloc::string::String>
-pub tablo_core::search::SearchResultsProps::term: topcoat_runtime::expr::Expr<alloc::string::String>
-impl tablo_core::search::SearchResultsProps
-pub fn tablo_core::search::SearchResultsProps::builder() -> tablo_core::search::SearchResultsPropsBuilder<__search_results_props::prefix, __search_results_props::term>
-impl topcoat_view::props::Props for tablo_core::search::SearchResultsProps
-pub type tablo_core::search::SearchResultsProps::Builder = tablo_core::search::SearchResultsPropsBuilder
-pub fn tablo_core::search::SearchResultsProps::builder() -> Self::Builder
-impl core::marker::Freeze for tablo_core::search::SearchResultsProps
-impl core::marker::Send for tablo_core::search::SearchResultsProps
-impl core::marker::Sync for tablo_core::search::SearchResultsProps
-impl core::marker::Unpin for tablo_core::search::SearchResultsProps
-impl core::marker::UnsafeUnpin for tablo_core::search::SearchResultsProps
-impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::search::SearchResultsProps
-impl core::panic::unwind_safe::UnwindSafe for tablo_core::search::SearchResultsProps
-pub struct tablo_core::search::SearchResultsPropsBuilder<__prefix, __term>
-impl<__prefix, __term> tablo_core::search::SearchResultsPropsBuilder<__prefix, __term>
-pub fn tablo_core::search::SearchResultsPropsBuilder<__prefix, __term>::build(self) -> tablo_core::search::SearchResultsProps where __prefix: topcoat_view::props::IsSet, __term: topcoat_view::props::IsSet
-pub fn tablo_core::search::SearchResultsPropsBuilder<__prefix, __term>::prefix(self, impl core::convert::Into<topcoat_runtime::expr::Expr<alloc::string::String>>) -> tablo_core::search::SearchResultsPropsBuilder<topcoat_view::props::Set, __term>
-pub fn tablo_core::search::SearchResultsPropsBuilder<__prefix, __term>::term(self, impl core::convert::Into<topcoat_runtime::expr::Expr<alloc::string::String>>) -> tablo_core::search::SearchResultsPropsBuilder<__prefix, topcoat_view::props::Set>
-impl<__prefix, __term> core::marker::Freeze for tablo_core::search::SearchResultsPropsBuilder<__prefix, __term> where core::marker::PhantomData<(__prefix, __term)>: core::marker::Freeze
-impl<__prefix, __term> core::marker::Send for tablo_core::search::SearchResultsPropsBuilder<__prefix, __term> where core::marker::PhantomData<(__prefix, __term)>: core::marker::Send
-impl<__prefix, __term> core::marker::Sync for tablo_core::search::SearchResultsPropsBuilder<__prefix, __term> where core::marker::PhantomData<(__prefix, __term)>: core::marker::Sync
-impl<__prefix, __term> core::marker::Unpin for tablo_core::search::SearchResultsPropsBuilder<__prefix, __term> where core::marker::PhantomData<(__prefix, __term)>: core::marker::Unpin
-impl<__prefix, __term> core::marker::UnsafeUnpin for tablo_core::search::SearchResultsPropsBuilder<__prefix, __term> where core::marker::PhantomData<(__prefix, __term)>: core::marker::UnsafeUnpin
-impl<__prefix, __term> core::panic::unwind_safe::RefUnwindSafe for tablo_core::search::SearchResultsPropsBuilder<__prefix, __term> where core::marker::PhantomData<(__prefix, __term)>: core::panic::unwind_safe::RefUnwindSafe
-impl<__prefix, __term> core::panic::unwind_safe::UnwindSafe for tablo_core::search::SearchResultsPropsBuilder<__prefix, __term> where core::marker::PhantomData<(__prefix, __term)>: core::panic::unwind_safe::UnwindSafe
-pub struct tablo_core::search::search_results
-impl core::default::Default for tablo_core::search::search_results
-pub fn tablo_core::search::search_results::default() -> Self
-impl topcoat_router::route::Route for tablo_core::search::search_results
-pub fn tablo_core::search::search_results::handle<'cx>(&'cx self, &'cx topcoat_core::context::Cx, topcoat_router::body::Body) -> topcoat_router::route::RouteFuture<'cx>
-pub fn tablo_core::search::search_results::id(&self) -> topcoat_router::route::RouteId
-pub fn tablo_core::search::search_results::methods(&self) -> topcoat_router::methods::Methods<'_>
-pub fn tablo_core::search::search_results::path(&self) -> &topcoat_router::path::Path
-impl topcoat_view::component::Component for tablo_core::search::search_results
-pub type tablo_core::search::search_results::Props<'__props> = tablo_core::search::SearchResultsProps
-pub fn tablo_core::search::search_results::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
-impl core::marker::Freeze for tablo_core::search::search_results
-impl core::marker::Send for tablo_core::search::search_results
-impl core::marker::Sync for tablo_core::search::search_results
-impl core::marker::Unpin for tablo_core::search::search_results
-impl core::marker::UnsafeUnpin for tablo_core::search::search_results
-impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::search::search_results
-impl core::panic::unwind_safe::UnwindSafe for tablo_core::search::search_results
 pub mod tablo_core::url
 pub fn tablo_core::url::action<R: tablo_core::Resource, A: tablo_core::Action<R>>(&topcoat_core::context::Cx, &<R as tablo_core::Resource>::Model) -> core::option::Option<alloc::string::String>
 pub fn tablo_core::url::bulk_action<R: tablo_core::Resource, A: tablo_core::Action<R>>(&topcoat_core::context::Cx) -> core::option::Option<alloc::string::String>
@@ -3280,6 +3234,8 @@ pub struct tablo_core::GlobalSearch<M>
 impl<M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static> tablo_core::GlobalSearch<M>
 pub fn tablo_core::GlobalSearch<M>::detail<T>(self, impl core::convert::Into<alloc::string::String>, tablo_core::Lens<M, T>) -> Self where T: tablo_core::FormScalar + core::marker::Send + core::marker::Sync + 'static
 pub fn tablo_core::GlobalSearch<M>::new() -> Self
+impl<M> core::clone::Clone for tablo_core::GlobalSearch<M>
+pub fn tablo_core::GlobalSearch<M>::clone(&self) -> Self
 impl<M> core::default::Default for tablo_core::GlobalSearch<M>
 pub fn tablo_core::GlobalSearch<M>::default() -> Self
 impl<M> core::fmt::Debug for tablo_core::GlobalSearch<M>

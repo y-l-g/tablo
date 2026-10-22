@@ -189,8 +189,7 @@ own count. Each counted badge is a query on every sidebar render:
 
 The topbar holds a search box over every resource the panel mounts. As the user types, it lists
 the first matches of each resource under its plural label, in the sidebar's order, and links a
-results page at `{prefix}/-/search?q=` that lists more. Without JavaScript the box's form opens that
-page.
+results page at `{prefix}/-/search?q=` that lists more, which Enter opens.
 
 A resource's search reads what the resource already declares. A record matches when each word of
 the term is in one of its table's searchable columns or in its `record_title` column, which also

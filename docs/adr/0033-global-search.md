@@ -8,18 +8,19 @@ under each title; `ResourceDef::without_global_search` and `Panel::without_globa
 - Search is on by default and declares no columns of its own: the table's searchable columns and
   the title already say what a user searches a resource by, and a relationship option over the
   resource searches the same ones.
-- A resource searches through its list's loader: `scoped_query`, so the tenant and the trash
-  apply, the policy's `ViewAny`, and the table as the request's field access masks it. Each record
-  opens only a page the policy lets the request open, so the search shows no record the list and
-  its pages would not.
-- The groups follow the sidebar's order, and the limits are fixed: 5 of each resource in the box,
-  25 on the results page. The sidebar already orders the resources for the user.
+- A resource searches with the checks its list makes: `scoped_query`, so the tenant and the trash
+  apply, the tenant requirement and the policy's `ViewAny`, and the table as the request's field
+  access masks it. A resource the request may not list is skipped, not an error for the whole
+  search. Each record opens only a page the policy lets the request open, so the search shows no
+  record the list and its pages would not.
+- The groups follow the sidebar's order, and the limits are fixed. The sidebar already orders the
+  resources for the user.
 - The input lives in the shell; the results under it are a shard taking the panel's prefix and the
   term as arguments, re-rendered as the user pauses. Each panel with a global search declares the
-  shard as its endpoint, so a panel without sign-in answers it too, and the shard lists results
-  only for the panel whose page rendered it.
-- `{prefix}/-/search?q=` lists more of each resource, and answers the box's form without
-  JavaScript.
+  shard as its endpoint, so a panel without sign-in answers it too. Topcoat serves one shard path
+  for every panel and runs it as one of them, so the shard lists results only when that is the
+  panel at the prefix, and otherwise links that panel's results page alone.
+- Enter in the box opens the results page, which serves the box without JavaScript too.
 
 ## Rejected
 

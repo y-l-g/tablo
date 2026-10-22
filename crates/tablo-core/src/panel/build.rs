@@ -233,7 +233,7 @@ impl Panel {
                 route_path(&format!("{prefix}/{}", super::search::SEARCH_SEGMENT)),
                 super::search::search_page,
             ));
-            endpoints.push(super::search::SHARD_PATH.to_string());
+            endpoints.push(super::search::shard_path());
         }
         let root_redirect = match root {
             Some(Root::Redirect(target)) => Some(target),
