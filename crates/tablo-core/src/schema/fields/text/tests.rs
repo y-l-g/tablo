@@ -85,3 +85,41 @@ fn text_input_email_edges() {
         );
     }
 }
+
+/// The URL rule takes an absolute `http` or `https` URL naming a host, and refuses any other
+/// scheme, `javascript:` first: a link to the stored value would run it.
+#[test]
+fn text_input_url_takes_only_web_urls() {
+    let input: Field = Field::text(DummyUser::fields().name()).url().into();
+    for ok in [
+        "https://example.com",
+        "http://example.com/a?b=c#d",
+        " https://example.com/path ",
+        "https://例え.jp/パス",
+        "https://127.0.0.1:8080",
+        "HTTPS://EXAMPLE.COM",
+    ] {
+        assert!(
+            input.check(&FormValue::from(ok), &TimeZone::UTC).is_none(),
+            "{ok} should pass"
+        );
+    }
+    for bad in [
+        "javascript:alert(1)",
+        "JavaScript://example.com/%0Aalert(1)",
+        "data:text/html,<script>alert(1)</script>",
+        "mailto:a@example.com",
+        "ftp://example.com",
+        "example.com",
+        "/relative/path",
+        "https://",
+        "https://exa mple.com",
+        "http:example.com",
+        "https://exa\tmple.com",
+    ] {
+        assert!(
+            input.check(&FormValue::from(bad), &TimeZone::UTC).is_some(),
+            "{bad} should fail"
+        );
+    }
+}

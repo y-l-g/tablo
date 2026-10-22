@@ -181,6 +181,7 @@ An action's `NAME` that is not one URL segment does not compile, so it never rea
 | `RequiredConditionalField` | a field a condition hides has no blank answer | make it an `Option`, or give it `#[form(blank = ..)]` |
 | `MisdeclaredDependentChoice` | a dependent choice has no relationship, or its column is not on the relationship's model | `relationship::<R>()`, and a column of `R`'s model in `depends_on` |
 | `MultipleDependentChoice` | a dependent choice is multiple, or depends on a multiple one | drop `depends_on` or `multiple` |
+| `ListedDependentChoice` | a dependent choice renders as `radio` or `buttons` | drop `depends_on`, or `radio` or `buttons` |
 | `UnplacedParentField` | a dependent choice depends on a field the schema does not place | place that field in the same schema |
 | `FieldRule` | a text field's length, bounds or pattern cannot work; the `FieldRuleFault` says why | see below |
 | `ManyToMany` | a many-to-many field cannot link records; the `ManyToManyFault` says why | see below |

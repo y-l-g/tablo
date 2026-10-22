@@ -36,6 +36,16 @@ async fn edit_page_hydrates_and_updates() {
         Some(user.email.as_str()),
         "the edit form hydrates the stored email"
     );
+    assert_eq!(
+        page.input_value(UserFormField::Role).as_deref(),
+        Some(user.role.value()),
+        "the role's radios check the stored option"
+    );
+    assert_eq!(
+        page.input_value(UserFormField::Active).as_deref(),
+        Some(if user.active { "true" } else { "false" }),
+        "the active switch posts the stored flag"
+    );
 
     let reply = users
         .edit(&user)

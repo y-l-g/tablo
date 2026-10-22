@@ -82,28 +82,75 @@ pub fn multipart_body(boundary: &str, parts: &[(&str, Option<&str>, &str)]) -> S
     body
 }
 
-/// Reads the `value` of the named `<input>` in rendered HTML, in either
-/// attribute order or quote style.
+/// Reads the value the named `<input>`s post when the form submits untouched, in either attribute
+/// order or quote style: the last one's `value`, skipping a radio or checkbox left unchecked. A
+/// toggle reads `true` or its hidden `false`, and a radio choice its checked option, or the hidden
+/// blank before them when none is checked.
 pub fn input_value(html: &str, name: &str) -> Option<String> {
     let double = format!("name=\"{name}\"");
     let single = format!("name='{name}'");
+    let mut posted = None;
     for tag in html.split('<').skip(1) {
-        if !tag.contains(&double) && !tag.contains(&single) {
+        if !tag.starts_with("input") || (!tag.contains(&double) && !tag.contains(&single)) {
             continue;
         }
-        let attrs = &tag[..tag.find('>')?];
+        let Some(end) = tag.find('>') else {
+            continue;
+        };
+        let attrs = &tag[..end];
+        let checkable = [
+            "type=\"radio\"",
+            "type=\"checkbox\"",
+            "type='radio'",
+            "type='checkbox'",
+        ]
+        .iter()
+        .any(|kind| attrs.contains(kind));
+        if checkable && !has_attribute(attrs, "checked") {
+            continue;
+        }
         for (prefix, term) in [("value=\"", '"'), ("value='", '\'')] {
             if let Some(start) = attrs.find(prefix) {
                 let rest = &attrs[start + prefix.len()..];
                 if let Some(end) = rest.find(term) {
                     // Unescape the matching quote entity the encoder may emit.
                     let raw = &rest[..end];
-                    return Some(raw.replace("&quot;", "\"").replace("&#x27;", "'"));
+                    posted = Some(raw.replace("&quot;", "\"").replace("&#x27;", "'"));
+                    break;
                 }
             }
         }
     }
-    None
+    posted
+}
+
+/// Whether the opening tag `attrs` carries the attribute `name`, valued or bare, skipping quoted
+/// values so a class naming `checked:` does not count.
+fn has_attribute(attrs: &str, name: &str) -> bool {
+    let mut rest = attrs;
+    while let Some(at) = rest.find(|c: char| !c.is_whitespace()) {
+        rest = &rest[at..];
+        let end = rest
+            .find(|c: char| c.is_whitespace() || c == '=' || c == '/')
+            .unwrap_or(rest.len());
+        if &rest[..end] == name {
+            return true;
+        }
+        rest = &rest[end..];
+        if let Some(value) = rest.strip_prefix('=') {
+            rest = match value.chars().next() {
+                Some(quote @ ('"' | '\'')) => value[1..]
+                    .find(quote)
+                    .map_or("", |close| &value[close + 2..]),
+                _ => value
+                    .find(char::is_whitespace)
+                    .map_or("", |space| &value[space..]),
+            };
+        } else if let Some(after) = rest.strip_prefix('/') {
+            rest = after;
+        }
+    }
+    false
 }
 
 /// Names the session cookie Topcoat's default token store writes.

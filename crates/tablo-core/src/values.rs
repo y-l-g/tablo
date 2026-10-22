@@ -17,7 +17,7 @@ pub use error::{FieldError, FieldErrorKind, FieldErrors};
 pub use parse::{parse_list, parse_password, parse_scalar, write_list};
 pub use scalar::{FormScalar, NullableScalar, assert_form_scalar};
 pub use typed::TypedValue;
-pub(crate) use typed::{is_email, is_http_url, read_datetime_local};
+pub(crate) use typed::{is_email, is_web_url, read_datetime_local};
 pub(crate) use zone::ZoneSource;
 pub use zone::time_zone;
 

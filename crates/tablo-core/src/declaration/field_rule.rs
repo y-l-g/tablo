@@ -21,7 +21,7 @@ pub enum FieldRuleFault {
     /// A rich text editor over a field whose type is no text, as a number or a timestamp,
     /// carrying the input type its text control had.
     NotText(&'static str),
-    /// `accepted` on a control other than the built-in checkbox.
+    /// `accepted` on a control other than the built-in checkbox or switch.
     NotCheckbox,
     /// `min_items` or `max_items` on a choice that is not `multiple`.
     SingleValue,
@@ -72,8 +72,8 @@ pub(super) fn fmt_field_rule(
         ),
         FieldRuleFault::NotCheckbox => write!(
             f,
-            "field '{field}' is `accepted` but is not the built-in checkbox: declare it with \
-             `Field::toggle` or `Field::toggle_input`"
+            "field '{field}' is `accepted` but is not the built-in checkbox or switch: declare \
+             it with `Field::toggle` or `Field::toggle_input`"
         ),
         FieldRuleFault::SingleValue => write!(
             f,

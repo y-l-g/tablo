@@ -23,7 +23,7 @@ pub use embedded::EmbeddedForm;
 use fields::ChoiceControl;
 pub use fields::{
     ChoiceField, CustomField, Field, FileField, IntoFormValue, IntoOptions, RepeaterField,
-    RichTextField, TextField, Toggle,
+    RichTextField, Switch, TextField, Toggle,
 };
 pub(crate) use fields::{
     is_linkable, is_rooted, option_view, read_only, stored_upload, value_cell,
@@ -265,6 +265,11 @@ impl<F> Schema<F> {
                         || parent.as_choice().is_some_and(ChoiceControl::is_multiple) =>
                 {
                     errors.push(crate::DeclarationErrorKind::MultipleDependentChoice {
+                        field: field.name().to_string(),
+                    });
+                }
+                Some(_) if choice.is_listed() => {
+                    errors.push(crate::DeclarationErrorKind::ListedDependentChoice {
                         field: field.name().to_string(),
                     });
                 }

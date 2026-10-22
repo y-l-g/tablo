@@ -2,11 +2,11 @@
 
 use jiff::tz::TimeZone;
 
-use super::{ControlKind, Field};
+use super::{ControlKind, Field, text::Kind};
 use crate::{
     DeclarationErrorKind, FieldRuleFault,
     schema::MAX_REPEATER_ROWS,
-    values::{FieldError, FormValue, is_email, is_http_url},
+    values::{FieldError, FormValue, is_email, is_web_url},
 };
 
 /// The fewest and most items a list control takes: a multiple choice's chosen options, or a
@@ -84,11 +84,11 @@ impl Field {
                     return None;
                 }
                 match control {
-                    ControlKind::Text(text) if text.email && !is_email(value) => {
+                    ControlKind::Text(text) if text.kind == Kind::Email && !is_email(value) => {
                         format!("{label} must be a valid email")
                     }
-                    ControlKind::Text(text) if text.url && !is_http_url(value) => {
-                        format!("{label} must be a valid http or https URL")
+                    ControlKind::Text(text) if text.kind == Kind::Url && !is_web_url(value) => {
+                        format!("{label} must be a valid URL starting with http:// or https://")
                     }
                     ControlKind::Text(text) => text.refusal(label, value, zone)?,
                     ControlKind::RichText(rich) => rich.refusal(label, value)?,

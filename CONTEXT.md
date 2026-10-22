@@ -24,7 +24,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Column choice | The toggleable columns one signed-in user shows or hides in one resource's list, against their defaults; a `ColumnPreference` row keeps it. | Column manager, Column visibility, Layout |
 | Filter | A predicate a table adds to its query from a UI control. | Scope, Constraint, Where |
 | Field | One entry of a schema, bound to a model column or to a name in an action input, and rendered as a control. | Input, Widget |
-| Control | What a field renders and posts: a text input, a select, a toggle, a file input, a rich text editor, or a type implementing `Control`. | Widget, Input (for the field) |
+| Control | What a field renders and posts: a text input, a select, radios or buttons, a toggle or switch, a file input, a rich text editor, or a type implementing `Control`. | Widget, Input (for the field) |
 | Rich text | HTML a field edits through a toolbar and stores in a `String` column, holding only the elements its toolbar's tools produce. | WYSIWYG, Rich editor, Markdown, Content |
 | Tool | One button of a rich text field's toolbar, and the elements it lets the field keep. | Toolbar button, Extension, Format |
 | Lens | A model field named once, pairing its query path with its value reader. | Accessor, Getter, statePath |

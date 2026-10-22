@@ -64,9 +64,11 @@ pub use components::{
         },
         input::input,
         label::label,
+        radio_group::{radio_group, radio_group_item},
         select::select,
         separator::{SeparatorOrientation, separator},
         skeleton::skeleton,
+        switch::switch,
         table::{
             table, table_body, table_caption, table_cell, table_footer, table_head, table_header,
             table_row,

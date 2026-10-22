@@ -21,6 +21,7 @@ pub mod input;
 pub mod label;
 #[doc(hidden)]
 pub mod pagination;
+pub mod radio_group;
 pub mod select;
 pub mod separator;
 #[doc(hidden)]
@@ -28,5 +29,6 @@ pub mod sheet;
 #[doc(hidden)]
 pub mod sidebar;
 pub mod skeleton;
+pub mod switch;
 pub mod table;
 pub mod textarea;

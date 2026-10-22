@@ -15,7 +15,22 @@ use crate::{
 /// The equality expression a text field's unique probe binds.
 type EqProbe = std::sync::Arc<dyn Fn(&str) -> Option<toasty::stmt::Expr<bool>> + Send + Sync>;
 
-/// The text control's input type, placeholder, rows, email, URL and password rules, declared rules,
+/// What a text control's value is beyond its type: it picks the `type` attribute, and the server
+/// checks an email or a URL.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum Kind {
+    /// Whatever the field's type parses, in the type's own input.
+    #[default]
+    Typed,
+    /// An email address: `type="email"`.
+    Email,
+    /// An absolute `http` or `https` URL: `type="url"`.
+    Url,
+    /// A telephone number, in no checked format: `type="tel"`.
+    Tel,
+}
+
+/// The text control's input type, placeholder, rows, kind and password rules, declared rules,
 /// and unique probe.
 pub(crate) struct TextControl {
     input_type: &'static str,
@@ -26,9 +41,12 @@ pub(crate) struct TextControl {
     form_value: fn(&str, &TimeZone) -> String,
     pub(super) rows: Option<u32>,
     pub(super) placeholder: Option<String>,
-    pub(super) email: bool,
-    /// Whether the value must be an `http` or `https` URL, set by `url`.
-    pub(super) url: bool,
+    /// The text before and after a one-line input, such as a currency or a unit.
+    pub(super) prefix: Option<String>,
+    pub(super) suffix: Option<String>,
+    /// The values a one-line input suggests through a `<datalist>`, offering no other.
+    pub(super) suggestions: Vec<String>,
+    pub(super) kind: Kind,
     pub(super) password: bool,
     /// The password the user signs in with today, which a password manager fills, rather than
     /// a new one it would offer to generate.
@@ -74,8 +92,10 @@ impl TextControl {
             form_value: T::form_value,
             rows: None,
             placeholder: None,
-            email: false,
-            url: false,
+            prefix: None,
+            suffix: None,
+            suggestions: Vec::new(),
+            kind: Kind::Typed,
             password: false,
             current_password: false,
             unique,
@@ -96,8 +116,10 @@ impl TextControl {
             form_value: T::form_value,
             rows: None,
             placeholder: None,
-            email: false,
-            url: false,
+            prefix: None,
+            suffix: None,
+            suggestions: Vec::new(),
+            kind: Kind::Typed,
             password: false,
             current_password: false,
             unique: false,
@@ -258,14 +280,12 @@ impl Field {
             }
             .boxed()
         } else {
-            let input_type = if text.password {
-                "password"
-            } else if text.email {
-                "email"
-            } else if text.url {
-                "url"
-            } else {
-                text.input_type
+            let input_type = match text.kind {
+                _ if text.password => "password",
+                Kind::Email => "email",
+                Kind::Url => "url",
+                Kind::Tel => "tel",
+                Kind::Typed => text.input_type,
             };
             // A password never travels back to the browser: a refused form renders it empty.
             let value = value.filter(|_| !text.password);
@@ -281,6 +301,26 @@ impl Field {
             let max = rules.max.as_deref().map(|max| text.rendering(max, &zone));
             let pattern = rules.pattern.as_ref().map(|pattern| pattern.source.clone());
             let controls = id.clone();
+            // A password suggests nothing: a datalist would put the values in the page.
+            let list_id = (!text.suggestions.is_empty() && !text.password)
+                .then(|| format!("{id}-suggestions"));
+            let (prefix, suffix) = (text.prefix.clone(), text.suffix.clone());
+            let prefix_id = prefix.as_ref().map(|_| format!("{id}-prefix"));
+            let suffix_id = suffix.as_ref().map(|_| format!("{id}-suffix"));
+            // A screen reader reads an affix with the control, as a sighted user sees it.
+            let described_by = [prefix_id.clone(), suffix_id.clone(), described_by]
+                .into_iter()
+                .flatten()
+                .reduce(|ids, id| format!("{ids} {id}"));
+            // The input's own class sets its rounding, which `class!` cannot drop: the side an
+            // affix joins overrides it.
+            let joined = match (prefix.is_some(), suffix.is_some()) {
+                (true, true) => Some("rounded-none!"),
+                (true, false) => Some("rounded-l-none!"),
+                (false, true) => Some("rounded-r-none!"),
+                (false, false) => None,
+            };
+            let list = list_id.clone();
             let input = view! {
                 cx =>
                 ui_input(
@@ -296,6 +336,8 @@ impl Field {
                         min=(min)
                         max=(max)
                         pattern=(pattern)
+                        list=(list)
+                        class=(joined)
                         autocomplete=(autocomplete)
                         required=(required)
                         disabled=(disabled)
@@ -306,11 +348,19 @@ impl Field {
                 )
             }
             .boxed();
-            if text.password {
+            let input = if text.password {
                 password_reveal(cx, controls, input)
             } else {
                 input
-            }
+            };
+            let suggestions = list_id.map(|list_id| (list_id, text.suggestions.clone()));
+            affixed(
+                cx,
+                input,
+                prefix.zip(prefix_id),
+                suffix.zip(suffix_id),
+                suggestions,
+            )
         };
         render_field(
             cx,
@@ -321,6 +371,53 @@ impl Field {
             control,
         )
     }
+}
+
+/// `input` between its `prefix` and `suffix`, each a text and its id, followed by the datalist
+/// `suggestions` names, its id and values; `input` alone when it has none of them.
+fn affixed<'a>(
+    cx: &'a Cx,
+    input: BoxView<'a>,
+    prefix: Option<(String, String)>,
+    suffix: Option<(String, String)>,
+    suggestions: Option<(String, Vec<String>)>,
+) -> BoxView<'a> {
+    const AFFIX: &str = "inline-flex shrink-0 items-center border border-border bg-muted px-3 \
+         text-sm text-muted-foreground";
+    let input = if prefix.is_none() && suffix.is_none() {
+        input
+    } else {
+        view! {
+            cx =>
+            <div class="flex items-stretch">
+                if let Some((text, id)) = prefix {
+                    <span id=(id) class=(format!("{AFFIX} rounded-l-lg border-r-0"))>
+                        (text)
+                    </span>
+                }
+                <div class="min-w-0 flex-1">(input)</div>
+                if let Some((text, id)) = suffix {
+                    <span id=(id) class=(format!("{AFFIX} rounded-r-lg border-l-0"))>
+                        (text)
+                    </span>
+                }
+            </div>
+        }
+        .boxed()
+    };
+    let Some((id, values)) = suggestions else {
+        return input;
+    };
+    view! {
+        cx =>
+        (input)
+        <datalist id=(id)>
+            for value in values {
+                <option value=(value)></option>
+            }
+        </datalist>
+    }
+    .boxed()
 }
 
 /// `input`, the password input `id` names, with the button beside it that shows or masks the

@@ -125,39 +125,14 @@ fn a_timestamp_reads_a_skipped_or_repeated_time_compatibly() {
     );
 }
 
-/// The url rule takes an absolute `http` or `https` URL naming a host, and refuses the other
-/// schemes and what the parser itself would forgive.
-#[test]
-fn the_url_rule_takes_only_an_http_url_naming_a_host() {
-    for accepted in [
-        "http://example.com",
-        "HTTPS://example.com/a?b=c#d",
-        "https://[::1]:8080/",
-    ] {
-        assert!(super::is_http_url(accepted), "{accepted}");
-    }
-    for refused in [
-        "javascript:alert(1)",
-        "data:text/html,hi",
-        "ftp://example.com",
-        "http:example.com",
-        "https://",
-        "example.com",
-        "https://exa mple.com",
-        "https://exa\tmple.com",
-    ] {
-        assert!(!super::is_http_url(refused), "{refused}");
-    }
-}
-
 proptest::proptest! {
-    /// Whatever the url rule takes opens with an `http` or `https` scheme and holds no
+    /// Whatever the URL rule takes opens with an `http` or `https` scheme and holds no
     /// whitespace or control character, so a link rendering it can only navigate.
     #[test]
     fn a_url_the_rule_takes_is_an_http_link(
         value in "(http|HTTPS|https|ftp|javascript|data):(//)?[ -~\t\n\u{0}]{0,16}",
     ) {
-        if super::is_http_url(&value) {
+        if super::is_web_url(&value) {
             let lower = value.to_ascii_lowercase();
             proptest::prop_assert!(lower.starts_with("http://") || lower.starts_with("https://"));
             proptest::prop_assert!(!value.chars().any(|c| c.is_whitespace() || c.is_control()));

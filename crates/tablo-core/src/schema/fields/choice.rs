@@ -1,5 +1,6 @@
-//! The choice control: a `<select>` over static options or a relationship's
-//! rows, with an optional filter input, or a checkbox per option when the choice takes several.
+//! The choice control: a `<select>` over static options or a relationship's rows, with an optional
+//! filter input, or a listed input per option: a radio, a checkbox when the choice takes several,
+//! or either drawn as a button.
 
 use tablo_ui::{input as ui_input, select as ui_select};
 use toasty::stmt::Expr;
@@ -11,9 +12,10 @@ use super::{
 };
 use crate::values::FormValue;
 
-mod multiple;
+mod listed;
 mod relationship;
 
+pub(crate) use listed::Layout;
 pub(crate) use relationship::Relationship;
 
 /// What a choice field declares beyond presence.
@@ -31,6 +33,8 @@ pub(crate) struct ChoiceControl {
     pub(super) multiple: bool,
     /// How many options a multiple choice takes, set by `min_items` and `max_items`.
     pub(super) bounds: super::Items,
+    /// How the options render, set by `radio` and `buttons`.
+    pub(super) layout: Layout,
 }
 
 /// What narrows a dependent choice's options: the related rows whose column equals the value the
@@ -96,6 +100,12 @@ impl ChoiceControl {
     /// Whether the choice takes several options.
     pub(crate) fn is_multiple(&self) -> bool {
         self.multiple
+    }
+
+    /// Whether the choice renders an input per option rather than a `<select>`: the browser
+    /// cannot fetch its options again, so it cannot depend on another field.
+    pub(crate) fn is_listed(&self) -> bool {
+        self.multiple || self.layout != Layout::Select
     }
 
     /// The relationship's source model in the app schema.
@@ -437,6 +447,18 @@ impl Field {
             let chosen = value.and_then(FormValue::as_list).unwrap_or_default();
             return self
                 .render_choices(choice, cx, chosen, error, id, disabled)
+                .await;
+        }
+        if choice.is_listed() {
+            let chosen: Vec<String> = value
+                .and_then(FormValue::as_text)
+                .map(str::trim)
+                .filter(|chosen| !chosen.is_empty())
+                .map(str::to_string)
+                .into_iter()
+                .collect();
+            return self
+                .render_choices(choice, cx, &chosen, error, id, disabled)
                 .await;
         }
         let value = value.and_then(FormValue::as_text);

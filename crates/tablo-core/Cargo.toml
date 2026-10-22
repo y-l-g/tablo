@@ -60,8 +60,8 @@ toasty-core.workspace = true
 # panel-level route, and upstream the directory route lives behind that feature.
 topcoat = { workspace = true, features = ["view", "router", "discover", "asset", "font", "runtime", "cookie", "multipart", "icon", "fs", "session", "mail"] }
 tracing = "0.1"
-# The url rule.
-url = "2.5"
+# The URL rule, which parses as a browser does; `ammonia` already pulls the crate in.
+url = "2"
 uuid.workspace = true
 
 [dev-dependencies]

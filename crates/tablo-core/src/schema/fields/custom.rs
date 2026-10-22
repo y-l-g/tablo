@@ -1,7 +1,7 @@
 //! App-defined field controls: the [`Control`] trait, what it renders from
-//! ([`ControlInput`]), and the built-in [`Toggle`] written against it.
+//! ([`ControlInput`]), and the built-in [`Toggle`] and [`Switch`] written against it.
 
-use tablo_ui::checkbox as ui_checkbox;
+use tablo_ui::{checkbox as ui_checkbox, switch as ui_switch};
 use topcoat::{context::Cx, view::*};
 
 /// Renders a field's input from a [`ControlInput`], using a hidden field for a state that submits
@@ -121,31 +121,53 @@ pub struct Toggle;
 
 impl Control for Toggle {
     fn render<'a>(&self, cx: &'a Cx, input: ControlInput) -> BoxView<'a> {
-        let name = input.name().to_string();
-        let id = input.id().to_string();
-        let checked = input.value().is_some_and(|v| v.trim() == "true");
-        let invalid = if input.invalid() { "true" } else { "false" };
-        let described_by = input.described_by().map(str::to_string);
-        let disabled = input.is_disabled();
-        // Only an accepted checkbox is required: the browser then refuses it unchecked.
-        let required = input.required();
-        view! {
-            cx =>
-            <input type="hidden" name=(name.clone()) value="false" disabled=(disabled)>
-            ui_checkbox(
-                attrs: attributes! {
-                    id=(id)
-                    name=(name)
-                    value="true"
-                    checked=(checked)
-                    required=(required)
-                    aria-required=(required.then_some("true"))
-                    disabled=(disabled)
-                    aria-invalid=(invalid)
-                    aria-describedby=(described_by)
-                }
-            )
-        }
-        .boxed()
+        boolean(cx, input, false)
     }
+}
+
+/// Renders a `bool` field as a switch, a checkbox with the `switch` role drawn as an on/off
+/// track, preceded by a hidden `false`: what [`CustomField::switch`](crate::CustomField::switch)
+/// renders.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Switch;
+
+impl Control for Switch {
+    fn render<'a>(&self, cx: &'a Cx, input: ControlInput) -> BoxView<'a> {
+        boolean(cx, input, true)
+    }
+}
+
+/// A `bool` field's checkbox, or its switch when `switch`, after the hidden `false` it posts
+/// unchecked.
+fn boolean<'a>(cx: &'a Cx, input: ControlInput, switch: bool) -> BoxView<'a> {
+    let name = input.name().to_string();
+    let id = input.id().to_string();
+    let checked = input.value().is_some_and(|v| v.trim() == "true");
+    let invalid = if input.invalid() { "true" } else { "false" };
+    let described_by = input.described_by().map(str::to_string);
+    let disabled = input.is_disabled();
+    // Only an accepted box is required: the browser then refuses it unchecked.
+    let required = input.required();
+    let attrs = attributes! {
+        cx =>
+        id=(id)
+        name=(name.clone())
+        value="true"
+        checked=(checked)
+        required=(required)
+        aria-required=(required.then_some("true"))
+        disabled=(disabled)
+        aria-invalid=(invalid)
+        aria-describedby=(described_by)
+    };
+    view! {
+        cx =>
+        <input type="hidden" name=(name) value="false" disabled=(disabled)>
+        if switch {
+            ui_switch(attrs: attrs)
+        } else {
+            ui_checkbox(attrs: attrs)
+        }
+    }
+    .boxed()
 }
