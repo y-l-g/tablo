@@ -25,7 +25,7 @@ use super::{
 };
 use crate::{
     ModelColumns as _,
-    db::db,
+    db::{WriteTx, db},
     form::{FieldError, FieldErrors, FormValues, Posted, RecordForm},
     panel::state::uploader,
     policy::Ability,
@@ -331,11 +331,21 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         } = prepare_submission(cx, &resource, parts, None, Unposted::Missing).await?;
         // Opens the transaction after validation so loaders never block on the held connection.
         let mut db = db(cx);
-        let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
+        let mut tx = WriteTx::begin(cx, &mut db)
+            .await
+            .map_err(crate::error::unavailable)?;
         // App-side unique check: Toasty exposes no unique-violation predicate (tablo#117). A
         // write the index refuses all the same re-probes through `taken_since`.
         errors.extend(
-            check_unique(cx, &resource, &schema, &values, &FormValues::new(), &mut tx).await?,
+            check_unique(
+                cx,
+                &resource,
+                &schema,
+                &values,
+                &FormValues::new(),
+                &mut *tx,
+            )
+            .await?,
         );
         let form = parse_form(cx, &resource, &values, &mut errors)?;
         recheck_relationships(
@@ -344,7 +354,7 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             &values,
             &FormValues::new(),
             &mut errors,
-            &mut tx,
+            &mut *tx,
         )
         .await;
         let Some(form) = form.filter(|_| errors.is_empty()) else {
@@ -359,7 +369,7 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             )
             .await;
         };
-        let written = match R::create_record(cx, form, &mut tx).await {
+        let written = match R::create_record(cx, form, &mut *tx).await {
             Ok(written) => written,
             Err(WriteError::Refused(errors)) => {
                 drop(tx);
@@ -433,8 +443,10 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         } = prepare_submission(cx, &resource, parts, Some(&advisory), Unposted::Missing).await?;
         // Authoritative load inside the transaction observes the write snapshot.
         let mut db = db(cx);
-        let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
-        let record = load_editable(cx, &resource, &mut tx).await?;
+        let mut tx = WriteTx::begin(cx, &mut db)
+            .await
+            .map_err(crate::error::unavailable)?;
+        let record = load_editable(cx, &resource, &mut *tx).await?;
         if !resource.can(cx, Ability::Update(&record)) {
             return Err(forbidden().into());
         }
@@ -442,11 +454,11 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         let stored = <R::Form as RecordForm>::hydrate(cx, &record);
         complete(&schema, &mut values, &named, &stored);
         schema
-            .keep_unseen_links(cx, &mut values, &stored, &mut tx)
+            .keep_unseen_links(cx, &mut values, &stored, &mut *tx)
             .await;
-        errors.extend(check_unique(cx, &resource, &schema, &values, &stored, &mut tx).await?);
+        errors.extend(check_unique(cx, &resource, &schema, &values, &stored, &mut *tx).await?);
         let form = parse_form(cx, &resource, &values, &mut errors)?;
-        recheck_relationships(cx, &schema, &values, &stored, &mut errors, &mut tx).await;
+        recheck_relationships(cx, &schema, &values, &stored, &mut errors, &mut *tx).await;
         // Another save landed since the form opened: refuse this one rather than overwrite it.
         let stale = record
             .version()
@@ -468,7 +480,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         // The version the write starts from: a model without one has no condition to fail on.
         let version = record.version();
         let before = record.clone();
-        let written = match R::update_record(cx, record, posted, &mut tx).await {
+        let written = match R::update_record(cx, record, posted, &mut *tx).await {
             Ok(written) => written,
             Err(WriteError::Refused(errors)) => {
                 drop(tx);

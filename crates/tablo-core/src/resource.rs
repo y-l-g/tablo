@@ -279,9 +279,12 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// a counter, a row in another table that must commit with the write or not at all.
     ///
     /// Called once per write, with the [`Change`] it made, through `ex`, the open transaction:
-    /// run every statement through it. Do not open a second connection here, through `db(cx)` or
-    /// a `Notifications::send`: its writes would land outside the transaction, and on a pool of
-    /// one it waits forever for the connection the transaction holds.
+    /// run every statement through it, and notify through
+    /// [`Notifications::send_in`](crate::notification::Notifications::send_in), which stores the
+    /// notification only if the write commits. A second connection, through
+    /// [`db`](crate::db::db) or [`Notifications::send`](crate::notification::Notifications::send),
+    /// would write outside the transaction, and on a pool of one wait forever for the connection
+    /// the transaction holds; a debug build panics on either instead.
     ///
     /// Every write this resource's panel routes make comes here: a create, once per row of a CSV
     /// import, an update, a delete or bulk delete, a restore or force delete, a custom or header

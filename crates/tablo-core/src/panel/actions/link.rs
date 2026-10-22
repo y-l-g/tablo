@@ -34,7 +34,7 @@ use super::{
     options::input_options,
 };
 use crate::{
-    db::db,
+    db::{WriteTx, db},
     notification::{Notification, set_notification},
     panel::url::{action_options_url, relation_url},
     policy::Ability,
@@ -134,12 +134,14 @@ async fn attach<'a, R: Resource>(
         Pending::Ready(_) => return Err(bad_request("attach takes a record").into()),
     };
     let mut db = db(cx);
-    let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
+    let mut tx = WriteTx::begin(cx, &mut db)
+        .await
+        .map_err(crate::error::unavailable)?;
     // The authoritative load observes the write's snapshot.
-    let owner = owner(cx, resource, &mut tx).await?;
+    let owner = owner(cx, resource, &mut *tx).await?;
     // A record deleted, moved to another tenant or hidden since the input validated is refused.
     let errors = (links.input.schema)()
-        .recheck_relationships(cx, &values, &crate::form::FormValues::new(), &mut tx)
+        .recheck_relationships(cx, &values, &crate::form::FormValues::new(), &mut *tx)
         .await;
     if !errors.is_empty() {
         // The page's choices may query: release the connection first.
@@ -151,7 +153,7 @@ async fn attach<'a, R: Resource>(
     let key = *input
         .downcast::<String>()
         .expect("the attach input parses the key it posts");
-    let written = (links.attach)(cx, &owner, key, &mut tx)
+    let written = (links.attach)(cx, &owner, key, &mut *tx)
         .await
         .map(|key| (owner, key));
     commit_write(
@@ -195,10 +197,12 @@ async fn detach<'a, R: Resource>(
         }
     };
     let mut db = db(cx);
-    let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
-    let owner = owner(cx, resource, &mut tx).await?;
+    let mut tx = WriteTx::begin(cx, &mut db)
+        .await
+        .map_err(crate::error::unavailable)?;
+    let owner = owner(cx, resource, &mut *tx).await?;
     let count = keys.len();
-    let written = (links.detach)(cx, &owner, keys, &mut tx)
+    let written = (links.detach)(cx, &owner, keys, &mut *tx)
         .await
         .map(|keys| (owner, keys));
     let noun = if count == 1 { "record" } else { "records" };

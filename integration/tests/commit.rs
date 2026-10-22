@@ -1,4 +1,7 @@
-use tablo::{Ability, Allow, Change, Resource, ResourceDef, Table, TextColumn, lens};
+use tablo::{
+    Ability, Allow, Change, Notification, Resource, ResourceDef, Table, TextColumn, lens,
+    notification::{Notifications, StoredNotification},
+};
 use toasty::Db;
 use topcoat::context::Cx;
 use uuid::Uuid;
@@ -161,6 +164,60 @@ impl Resource for FailingAfterResource {
     }
 }
 
+/// A before-commit hook that notifies user `1` of each create through the write's transaction,
+/// then refuses a note titled `refuse`.
+struct NotifyingResource;
+
+impl Resource for NotifyingResource {
+    type Model = Note;
+    type Form = NoteForm;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("notifying")
+            .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
+            .table(Table::new(TextColumn::new(lens!(Note.title))))
+    }
+
+    async fn before_commit(
+        cx: &Cx,
+        change: &Change<Note>,
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<()> {
+        let title = &change.records()[0].title;
+        Notifications::of(cx)?
+            .send_in(&mut *ex, "1", Notification::info(title.clone()))
+            .await?;
+        if title == "refuse" {
+            return Err(std::io::Error::other("the hook refused the write").into());
+        }
+        Ok(())
+    }
+}
+
+/// A before-commit hook that takes a second connection, as the guard refuses.
+struct SecondConnectionResource;
+
+impl Resource for SecondConnectionResource {
+    type Model = Note;
+    type Form = NoteForm;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("second-connections")
+            .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
+            .table(Table::new(TextColumn::new(lens!(Note.title))))
+    }
+
+    async fn before_commit(
+        cx: &Cx,
+        change: &Change<Note>,
+        _ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<()> {
+        audit("before", change, &mut tablo::db::db(cx)).await
+    }
+}
+
 #[derive(tablo::RecordForm)]
 #[form(model = Note)]
 struct NoteForm {
@@ -168,7 +225,7 @@ struct NoteForm {
 }
 
 async fn seeded_db() -> Db {
-    test_db(toasty::models!(Note, Audit)).await
+    test_db(toasty::models!(Note, Audit, StoredNotification)).await
 }
 
 async fn seed_note(db: &Db, title: &str) -> Note {
@@ -466,4 +523,58 @@ async fn a_failing_after_commit_does_not_undo_the_write() {
         "the hook ran; only its failure is swallowed"
     );
     assert_eq!(audits[0].hook, "after");
+}
+
+/// A notification `send_in` stores in the hook commits with the write, and rolls back with it.
+#[tokio::test]
+async fn a_notification_sent_in_the_transaction_lands_only_with_the_write() {
+    let db = seeded_db().await;
+    let router = panel_router::<NotifyingResource>(db.clone());
+
+    let response = post_fields(&router, "/admin/notifying/-/create", &[("title", "Alpha")]).await;
+    assert_eq!(response.status(), 303, "a valid create redirects");
+    let response = post_fields(&router, "/admin/notifying/-/create", &[("title", "refuse")]).await;
+    assert!(
+        response.status().is_server_error(),
+        "the hook refuses this one"
+    );
+
+    let mut handle = db.clone();
+    let stored = StoredNotification::all().exec(&mut handle).await.unwrap();
+    let titles: Vec<&str> = stored
+        .iter()
+        .map(|row| row.notification.0.title.as_str())
+        .collect();
+    assert_eq!(
+        titles,
+        ["Alpha"],
+        "the refused write took its notification with it"
+    );
+    assert_eq!(notes(&db).await.len(), 1);
+}
+
+/// `db(cx)` inside the write's transaction panics in a debug build before it takes the
+/// connection, so the write fails and rolls back instead of waiting forever on a pool of one.
+#[cfg(debug_assertions)]
+#[tokio::test]
+async fn a_second_connection_inside_the_transaction_fails_the_write_in_debug() {
+    let db = seeded_db().await;
+    let router = panel_router::<SecondConnectionResource>(db.clone());
+
+    let response = post_fields(
+        &router,
+        "/admin/second-connections/-/create",
+        &[("title", "Alpha")],
+    )
+    .await;
+    assert!(
+        response.status().is_server_error(),
+        "the guard fails the write, got {}",
+        response.status()
+    );
+    assert!(notes(&db).await.is_empty(), "the write rolled back");
+    assert!(
+        audits(&db).await.is_empty(),
+        "the second connection never wrote"
+    );
 }
