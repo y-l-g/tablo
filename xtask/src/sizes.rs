@@ -26,7 +26,7 @@ pub const OVERSIZED: &[(&str, usize)] = &[
     ("crates/tablo-core/src/schema/embedded.rs", 750),
     ("crates/tablo-core/src/schema/fields.rs", 795),
     ("integration/tests/record_form.rs", 1202),
-    ("xtask/src/lib.rs", 651),
+    ("xtask/src/lib.rs", 607),
 ];
 
 /// Whether `path`, relative to the root with `/` separators, is a test source.

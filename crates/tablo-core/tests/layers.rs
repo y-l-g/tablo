@@ -171,7 +171,7 @@ const RENDER_HOOKS: &[&str] = &[
     "schema/embedded.rs",
     "schema/fields.rs",
     "schema/fields/choice.rs",
-    "schema/fields/choice/multiple.rs",
+    "schema/fields/choice/listed.rs",
     "schema/fields/custom.rs",
     "schema/fields/file.rs",
     "schema/fields/read_only.rs",

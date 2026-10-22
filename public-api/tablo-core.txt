@@ -901,6 +901,8 @@ pub fn tablo_core::RelationColumn<M>::text(&self, &topcoat_core::context::Cx, &M
 pub fn tablo_core::RelationColumn<M>::toggle(&self) -> tablo_core::ColumnToggle
 pub trait tablo_core::extend::Control: core::marker::Send + core::marker::Sync
 pub fn tablo_core::extend::Control::render<'a>(&self, &'a topcoat_core::context::Cx, tablo_core::extend::ControlInput) -> topcoat_view::view::BoxView<'a>
+impl tablo_core::extend::Control for tablo_core::Switch
+pub fn tablo_core::Switch::render<'a>(&self, &'a topcoat_core::context::Cx, tablo_core::extend::ControlInput) -> topcoat_view::view::BoxView<'a>
 impl tablo_core::extend::Control for tablo_core::Toggle
 pub fn tablo_core::Toggle::render<'a>(&self, &'a topcoat_core::context::Cx, tablo_core::extend::ControlInput) -> topcoat_view::view::BoxView<'a>
 pub trait tablo_core::extend::Filter<M>: core::marker::Send + core::marker::Sync
@@ -1749,6 +1751,8 @@ pub tablo_core::DeclarationErrorKind::InvalidSegment
 pub tablo_core::DeclarationErrorKind::InvalidSegment::fault: tablo_core::SegmentFault
 pub tablo_core::DeclarationErrorKind::InvalidSegment::item: &'static str
 pub tablo_core::DeclarationErrorKind::InvalidSegment::segment: alloc::string::String
+pub tablo_core::DeclarationErrorKind::ListedDependentChoice
+pub tablo_core::DeclarationErrorKind::ListedDependentChoice::field: alloc::string::String
 pub tablo_core::DeclarationErrorKind::ManyToMany
 pub tablo_core::DeclarationErrorKind::ManyToMany::fault: tablo_core::ManyToManyFault
 pub tablo_core::DeclarationErrorKind::ManyToMany::field: alloc::string::String
@@ -2577,19 +2581,21 @@ impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Brand
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::Brand
 pub struct tablo_core::ChoiceField<F>(_, _)
 impl<F> tablo_core::ChoiceField<F>
+pub fn tablo_core::ChoiceField<F>::buttons(self) -> Self
+pub fn tablo_core::ChoiceField<F>::depends_on<M, T>(self, &impl tablo_core::Watched<F>, impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> Self where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::ChoiceField<F>::multiple(self) -> Self
+pub fn tablo_core::ChoiceField<F>::options(self, impl tablo_core::IntoOptions) -> Self
+pub fn tablo_core::ChoiceField<F>::radio(self) -> Self
+pub fn tablo_core::ChoiceField<F>::relationship<R>(self) -> Self where R: tablo_core::extend::OptionSource + 'static
+pub fn tablo_core::ChoiceField<F>::relationship_labelled<R>(self, impl core::ops::function::Fn(&<R as tablo_core::extend::OptionSource>::Model) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self where R: tablo_core::extend::OptionSource + 'static
+pub fn tablo_core::ChoiceField<F>::searchable(self) -> Self
+impl<F> tablo_core::ChoiceField<F>
 pub fn tablo_core::ChoiceField<F>::custom(self, impl tablo_core::extend::Control + 'static) -> tablo_core::CustomField<F>
 pub fn tablo_core::ChoiceField<F>::disabled(self) -> Self
 pub fn tablo_core::ChoiceField<F>::disabled_on_edit(self) -> Self
 pub fn tablo_core::ChoiceField<F>::help(self, impl core::convert::Into<alloc::string::String>) -> Self
 impl<F> tablo_core::ChoiceField<F>
 pub fn tablo_core::ChoiceField<F>::default(self, impl tablo_core::IntoFormValue) -> Self
-impl<F> tablo_core::ChoiceField<F>
-pub fn tablo_core::ChoiceField<F>::depends_on<M, T>(self, &impl tablo_core::Watched<F>, impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> Self where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + core::marker::Send + core::marker::Sync + 'static
-pub fn tablo_core::ChoiceField<F>::multiple(self) -> Self
-pub fn tablo_core::ChoiceField<F>::options(self, impl tablo_core::IntoOptions) -> Self
-pub fn tablo_core::ChoiceField<F>::relationship<R>(self) -> Self where R: tablo_core::extend::OptionSource + 'static
-pub fn tablo_core::ChoiceField<F>::relationship_labelled<R>(self, impl core::ops::function::Fn(&<R as tablo_core::extend::OptionSource>::Model) -> alloc::string::String + core::marker::Send + core::marker::Sync + 'static) -> Self where R: tablo_core::extend::OptionSource + 'static
-pub fn tablo_core::ChoiceField<F>::searchable(self) -> Self
 impl<F> tablo_core::ChoiceField<F>
 pub fn tablo_core::ChoiceField<F>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::ChoiceField<F>::name(&self) -> &str
@@ -2759,6 +2765,8 @@ impl<F> tablo_core::CustomField<F>
 pub fn tablo_core::CustomField<F>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::CustomField<F>::name(&self) -> &str
 pub fn tablo_core::CustomField<F>::visible_when(self, &impl tablo_core::Watched<F>, impl core::iter::traits::collect::IntoIterator<Item = impl core::convert::Into<alloc::string::String>>) -> Self
+impl<F> tablo_core::CustomField<F>
+pub fn tablo_core::CustomField<F>::switch(self) -> Self
 impl<F> core::convert::From<tablo_core::CustomField<F>> for tablo_core::Field
 pub fn tablo_core::Field::from(tablo_core::CustomField<F>) -> tablo_core::Field
 impl<F> tablo_core::IntoSchema<F> for tablo_core::CustomField<F>
@@ -4215,6 +4223,23 @@ impl<'a> core::marker::Unpin for tablo_core::Source<'a>
 impl<'a> core::marker::UnsafeUnpin for tablo_core::Source<'a>
 impl<'a> core::panic::unwind_safe::RefUnwindSafe for tablo_core::Source<'a>
 impl<'a> core::panic::unwind_safe::UnwindSafe for tablo_core::Source<'a>
+pub struct tablo_core::Switch
+impl core::clone::Clone for tablo_core::Switch
+pub fn tablo_core::Switch::clone(&self) -> tablo_core::Switch
+impl core::default::Default for tablo_core::Switch
+pub fn tablo_core::Switch::default() -> tablo_core::Switch
+impl core::fmt::Debug for tablo_core::Switch
+pub fn tablo_core::Switch::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tablo_core::Switch
+impl tablo_core::extend::Control for tablo_core::Switch
+pub fn tablo_core::Switch::render<'a>(&self, &'a topcoat_core::context::Cx, tablo_core::extend::ControlInput) -> topcoat_view::view::BoxView<'a>
+impl core::marker::Freeze for tablo_core::Switch
+impl core::marker::Send for tablo_core::Switch
+impl core::marker::Sync for tablo_core::Switch
+impl core::marker::Unpin for tablo_core::Switch
+impl core::marker::UnsafeUnpin for tablo_core::Switch
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Switch
+impl core::panic::unwind_safe::UnwindSafe for tablo_core::Switch
 pub struct tablo_core::Table<M>
 impl<M> tablo_core::Table<M>
 pub fn tablo_core::Table<M>::action_layout(self, tablo_core::ActionLayout) -> Self
@@ -4500,8 +4525,13 @@ pub fn tablo_core::TextField<F>::multiline(self, u32) -> Self
 pub fn tablo_core::TextField<F>::password(self) -> Self
 pub fn tablo_core::TextField<F>::pattern(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::TextField<F>::placeholder(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::TextField<F>::prefix(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::TextField<F>::rich_text(self) -> tablo_core::RichTextField<F>
+pub fn tablo_core::TextField<F>::suffix(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::TextField<F>::suggestions(self, impl core::iter::traits::collect::IntoIterator<Item = impl core::convert::Into<alloc::string::String>>) -> Self
+pub fn tablo_core::TextField<F>::tel(self) -> Self
 pub fn tablo_core::TextField<F>::unique(self) -> Self
+pub fn tablo_core::TextField<F>::url(self) -> Self
 impl<F> tablo_core::TextField<F>
 pub fn tablo_core::TextField<F>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::TextField<F>::name(&self) -> &str

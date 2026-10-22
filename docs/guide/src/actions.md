@@ -196,7 +196,8 @@ Each field posts its own name and renders the control its type picks: a `bool` i
 record form: an `Option` field has one, `#[form(optional)]` gives a `String` the empty string, and
 `#[form(blank = ..)]` gives any other type a value. `#[form(label = "..")]` labels the control, `#[form(placeholder = "..")]` sets a text
 input's placeholder, and `#[form(multiline = N)]` makes it a `<textarea>`. `#[form(email)]`
-refuses a malformed email address, and `#[form(password)]` masks a `String` input, reads it
+refuses a malformed email address, `#[form(url)]` what is not an `http` or `https` URL,
+`#[form(tel)]` renders a telephone input, and `#[form(password)]` masks a `String` input, reads it
 untrimmed, and renders it empty when the form comes back refused. An `Option` choice names its
 options type, `#[form(options = PostStatus)]`. Mounting the panel refuses an input field
 named `csrf_token`, `confirm` or `ids`, which the action's POST carries itself, and a

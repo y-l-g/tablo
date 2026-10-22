@@ -8,9 +8,11 @@ use super::{
         IntoSchema, OptionSource, Retype, Schema,
         condition::{Condition, Watched},
     },
-    ChoiceControl, Control, ControlKind, Field, Pattern, RichTextControl, TextControl, choice,
+    ChoiceControl, Control, ControlKind, Field, Kind, Pattern, RichTextControl, TextControl,
 };
 use crate::values::{FormScalar, FormValue};
+
+mod choices;
 
 /// `label`, `name` and `visible_when`, shared by every builder.
 macro_rules! base_modifiers {
@@ -244,6 +246,21 @@ pub struct RepeaterField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
 pub struct CustomField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
 
 impl<F> CustomField<F> {
+    /// Renders a `bool` field as a switch rather than a checkbox: the same toggle, posting `true`
+    /// or `false`, drawn as an on/off track. A condition follows it as it follows a toggle.
+    ///
+    /// ```rust
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # struct Post { #[key] #[auto] id: uuid::Uuid, featured: bool }
+    /// # use tablo_core::{Field, lens};
+    /// Field::toggle(lens!(Post.featured)).switch();
+    /// ```
+    pub fn switch(mut self) -> Self {
+        self.0.control = ControlKind::Custom(Arc::new(super::Switch));
+        self.0.checkbox = true;
+        self
+    }
+
     /// Whether the control is the built-in checkbox, which a condition follows through `checked`.
     pub(crate) fn is_checkbox(&self) -> bool {
         self.0.is_checkbox()
@@ -311,7 +328,22 @@ impl<F> TextField<F> {
 
     /// Validate the value as an email address, and render `type="email"`.
     pub fn email(mut self) -> Self {
-        self.text().email = true;
+        self.text().kind = Kind::Email;
+        self
+    }
+
+    /// Validate the value as an absolute `http` or `https` URL naming a host, and render
+    /// `type="url"`. The browser's own check takes any scheme, so the server refuses the others,
+    /// such as `javascript:`, which a link to the value would run.
+    pub fn url(mut self) -> Self {
+        self.text().kind = Kind::Url;
+        self
+    }
+
+    /// Render `type="tel"`, which brings up a phone keypad. No format is checked, since numbers
+    /// vary by country: add a [`pattern`](Self::pattern) to require one.
+    pub fn tel(mut self) -> Self {
+        self.text().kind = Kind::Tel;
         self
     }
 
@@ -342,6 +374,36 @@ impl<F> TextField<F> {
     /// The control's placeholder text.
     pub fn placeholder(mut self, placeholder: impl Into<String>) -> Self {
         self.text().placeholder = Some(placeholder.into());
+        self
+    }
+
+    /// Text shown before the one-line input, joined to it, such as a currency: `.prefix("$")`. It
+    /// is not part of the value, and a [`multiline`](Self::multiline) textarea renders none.
+    pub fn prefix(mut self, text: impl Into<String>) -> Self {
+        self.text().prefix = Some(text.into());
+        self
+    }
+
+    /// Text shown after the one-line input, joined to it, such as a unit: `.suffix("kg")`. Like a
+    /// [`prefix`](Self::prefix), it is not part of the value.
+    pub fn suffix(mut self, text: impl Into<String>) -> Self {
+        self.text().suffix = Some(text.into());
+        self
+    }
+
+    /// Values the one-line input suggests as the user types, through a `<datalist>`. The user may
+    /// still enter any other value: use a [choice](Self::choice) to restrict them. A
+    /// [`password`](Self::password) suggests none.
+    ///
+    /// ```rust
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # struct Product { #[key] #[auto] id: uuid::Uuid, weight: i64, brand: String }
+    /// # use tablo_core::{Field, lens};
+    /// Field::text(lens!(Product.weight)).suffix("kg");
+    /// Field::text(lens!(Product.brand)).suggestions(["Acme", "Globex", "Initech"]);
+    /// ```
+    pub fn suggestions(mut self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.text().suggestions = values.into_iter().map(Into::into).collect();
         self
     }
 
@@ -407,113 +469,6 @@ impl<F> TextField<F> {
     /// ```
     pub fn pattern(mut self, pattern: impl Into<String>) -> Self {
         self.text().rules.pattern = Some(Pattern::new(pattern.into()));
-        self
-    }
-}
-
-impl<F> ChoiceField<F> {
-    fn choice_mut(&mut self) -> &mut ChoiceControl {
-        match &mut self.0.control {
-            ControlKind::Choice(choice) => choice,
-            _ => unreachable!("a ChoiceField holds a choice control"),
-        }
-    }
-
-    /// Static options: values that are their own label
-    /// (`["draft", "published"]`), `(value, label)` pairs, or a
-    /// [`#[derive(Options)]`](crate::Options) enum's
-    /// [`options()`](crate::schema::Options::options).
-    pub fn options(mut self, options: impl IntoOptions) -> Self {
-        self.choice_mut().options = options.into_options();
-        self
-    }
-
-    /// Takes several options: a checkbox per option, posting the field's key once per checked
-    /// box. A record form's many-to-many field (`Vec<K>` with `#[form(relationship = R)]`) is one;
-    /// [`parse_list`](crate::values::parse_list) reads one in an action's input.
-    ///
-    /// It offers at most [`MAX_RELATIONSHIP_OPTIONS`](crate::schema::MAX_RELATIONSHIP_OPTIONS)
-    /// records: past them it lists none but the chosen ones, and refuses a submission choosing
-    /// another. A record form's edit re-checks only the keys the record does not link yet.
-    /// `searchable` filters the listed options as the user types. A condition cannot watch it,
-    /// it cannot depend on another field, and its `default` is a list.
-    pub fn multiple(mut self) -> Self {
-        self.choice_mut().multiple = true;
-        self
-    }
-
-    /// Filters options as the user types, fetching from the relationship past the option cap.
-    pub fn searchable(mut self) -> Self {
-        self.choice_mut().searchable = true;
-        self
-    }
-
-    /// Loads options from a related source's tenant-scoped query, each valued by its primary key
-    /// and labelled by the source's [`label`](OptionSource::label), degrading to type-to-search
-    /// past the option cap.
-    ///
-    /// A resource's options carry its [`record_title`](crate::ResourceDef::record_title), the
-    /// title its detail page shows. [`relationship_labelled`](Self::relationship_labelled)
-    /// labels one field's options otherwise.
-    pub fn relationship<R>(mut self) -> Self
-    where
-        R: OptionSource + 'static,
-    {
-        self.choice_mut().relationship = Some(choice::Relationship::new::<R>(R::label));
-        self
-    }
-
-    /// Offers only the related rows whose column `column` equals the value `parent` posts: the
-    /// cities of the chosen country. The browser fetches the options again when `parent` changes,
-    /// and a submission must name a row of the posted parent value. A blank parent offers none.
-    ///
-    /// `column` belongs to the [`relationship`](Self::relationship)'s source model; mounting
-    /// refuses another model, a choice without a relationship, and a `parent` the schema does not
-    /// place.
-    pub fn depends_on<M, T>(
-        mut self,
-        parent: &impl Watched<F>,
-        column: impl Into<toasty::stmt::Path<M, T>>,
-    ) -> Self
-    where
-        M: toasty::schema::Model + Send + Sync + 'static,
-        T: FormScalar + toasty::stmt::IntoExpr<T> + Send + Sync + 'static,
-    {
-        let column: toasty::stmt::Path<M, T> = column.into();
-        let field = crate::toasty_compat::model::field::<M>(
-            &crate::toasty_compat::model::ModelPath::of(&column),
-        )
-        .ok()
-        .map(|field| field.name);
-        self.choice_mut().parent = Some(choice::Parent {
-            watched: parent.key().to_string(),
-            model: std::any::TypeId::of::<M>(),
-            column: field,
-            scope: Arc::new(move |value: &str| {
-                T::parse_form(value)
-                    .ok()
-                    .map(|value| column.clone().eq(value))
-            }),
-        });
-        self
-    }
-
-    /// Loads options as [`relationship`](Self::relationship) does, labelling each by `label`
-    /// instead of the source's label: to tell apart records that share a title. The option's
-    /// record loads without its relations.
-    pub fn relationship_labelled<R>(
-        mut self,
-        label: impl Fn(&R::Model) -> String + Send + Sync + 'static,
-    ) -> Self
-    where
-        R: OptionSource + 'static,
-    {
-        self.choice_mut().relationship = Some(
-            choice::Relationship::new::<R>(move |_cx: &topcoat::context::Cx, record: &R::Model| {
-                label(record)
-            })
-            .with_custom_label(),
-        );
         self
     }
 }

@@ -201,6 +201,12 @@ impl fmt::Display for DeclarationErrorKind {
                 "choice '{field}' depends on another field through a multiple choice, which \
                  neither narrows another choice nor is narrowed: drop `depends_on` or `multiple`"
             ),
+            Self::ListedDependentChoice { field } => write!(
+                f,
+                "choice '{field}' depends on another field but renders its options as radios or \
+                 buttons, which the browser cannot narrow: drop `depends_on`, or `radio` or \
+                 `buttons`"
+            ),
             Self::UnplacedParentField { field, parent } => write!(
                 f,
                 "choice '{field}' depends on field '{parent}', which the schema does not place: \

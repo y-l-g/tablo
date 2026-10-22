@@ -17,8 +17,8 @@ pub use builders::{
     TextField,
 };
 pub(crate) use choice::{ChoiceControl, Relationship, option_view};
-pub use custom::Toggle;
 pub(crate) use custom::{Control, ControlInput};
+pub use custom::{Switch, Toggle};
 pub(crate) use file::{is_linkable, is_rooted, stored_upload};
 pub(crate) use placement::Placement;
 pub(crate) use read_only::{read_only, value_cell};
@@ -27,7 +27,7 @@ use tablo_ui::{
     field as ui_field, field_description as ui_field_description, field_error as ui_field_error,
     field_label as ui_field_label,
 };
-pub(crate) use text::{Pattern, TextControl, password_reveal};
+pub(crate) use text::{Kind, Pattern, TextControl, password_reveal};
 use toasty::stmt::{List, Path};
 use topcoat::{Result, context::Cx, view::*};
 

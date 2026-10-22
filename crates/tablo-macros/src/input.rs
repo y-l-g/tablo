@@ -57,6 +57,8 @@ fn input_attrs(field: &syn::Field) -> syn::Result<FormAttrs> {
             (attrs.multiline.is_some(), "`multiline`"),
             (attrs.placeholder.is_some(), "`placeholder`"),
             (attrs.email, "`email`"),
+            (attrs.url, "`url`"),
+            (attrs.tel, "`tel`"),
             (attrs.password, "`password`"),
         ];
         if let Some((_, key)) = text_only.iter().find(|(set, _)| *set) {
@@ -65,6 +67,23 @@ fn input_attrs(field: &syn::Field) -> syn::Result<FormAttrs> {
                 format!("{key} applies to a text input, and a `bool` renders a checkbox"),
             ));
         }
+    }
+    let kinds = [
+        (attrs.email, "`email`"),
+        (attrs.url, "`url`"),
+        (attrs.tel, "`tel`"),
+        (attrs.password, "`password`"),
+    ];
+    let declared: Vec<&str> = kinds
+        .iter()
+        .filter(|(set, _)| *set)
+        .map(|(_, key)| *key)
+        .collect();
+    if let [first, second, ..] = declared.as_slice() {
+        return Err(syn::Error::new_spanned(
+            &field.ty,
+            format!("{first} and {second} each pick the input's type: declare one"),
+        ));
     }
     if attrs.password && last_segment(&field.ty).as_deref() != Some("String") {
         return Err(syn::Error::new_spanned(
@@ -114,6 +133,12 @@ fn expand_struct(krate: &TokenStream2, ident: &syn::Ident, fields: &[FieldSpec])
         }
         if attrs.email {
             control = quote! { #control.email() };
+        }
+        if attrs.url {
+            control = quote! { #control.url() };
+        }
+        if attrs.tel {
+            control = quote! { #control.tel() };
         }
         if attrs.password {
             control = quote! { #control.password() };

@@ -51,7 +51,14 @@ fn a_record_form_key_is_refused() {
 
 #[test]
 fn a_text_key_with_options_is_refused() {
-    for key in ["multiline = 3", "placeholder = \"x\"", "email", "password"] {
+    for key in [
+        "multiline = 3",
+        "placeholder = \"x\"",
+        "email",
+        "url",
+        "tel",
+        "password",
+    ] {
         let message = refusal(&format!("struct F {{ #[form({key}, options)] a: Status }}"));
         assert!(message.contains("declare one"), "{key}: {message}");
     }
@@ -59,7 +66,14 @@ fn a_text_key_with_options_is_refused() {
 
 #[test]
 fn a_text_key_on_a_bool_is_refused() {
-    for key in ["multiline = 3", "placeholder = \"x\"", "email", "password"] {
+    for key in [
+        "multiline = 3",
+        "placeholder = \"x\"",
+        "email",
+        "url",
+        "tel",
+        "password",
+    ] {
         let message = refusal(&format!("struct F {{ #[form({key})] a: bool }}"));
         assert!(message.contains("checkbox"), "{key}: {message}");
     }
@@ -86,12 +100,19 @@ fn each_field_but_a_password_writes_back_under_its_name() {
 
 #[test]
 fn email_and_password_modify_the_text_control() {
-    let out = expansion("struct F { #[form(email)] a: String, #[form(password)] b: String }");
+    let out = expansion(
+        "struct F { #[form(email)] a: String, #[form(password)] b: String, \
+         #[form(url)] c: String, #[form(tel)] d: String }",
+    );
     assert!(out.contains(". email ()"), "{out}");
+    assert!(out.contains(". url ()"), "{out}");
+    assert!(out.contains(". tel ()"), "{out}");
     assert!(out.contains(". password ()"), "{out}");
     assert!(out.contains("parse_password"), "{out}");
     let message = refusal("struct F { #[form(password)] a: u32 }");
     assert!(message.contains("String"), "{message}");
     let message = refusal("struct F { #[form(password, multiline = 2)] a: String }");
+    assert!(message.contains("declare one"), "{message}");
+    let message = refusal("struct F { #[form(email, url)] a: String }");
     assert!(message.contains("declare one"), "{message}");
 }

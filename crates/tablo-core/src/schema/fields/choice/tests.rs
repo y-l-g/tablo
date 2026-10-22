@@ -181,6 +181,24 @@ fn a_dependent_choice_names_a_column_of_its_source_and_a_placed_parent() {
             parent: "country_id".to_string(),
         }]
     );
+
+    // The browser lists a radio or button choice's options once, so it cannot narrow them; a
+    // choice can still depend on a radio parent, whose checked radio posts the value.
+    for listed in [city(&country()).radio(), city(&country()).buttons()] {
+        assert_eq!(
+            Schema::new((country(), listed)).declaration_errors(),
+            [DeclarationErrorKind::ListedDependentChoice {
+                field: "city_id".to_string(),
+            }]
+        );
+    }
+    let radio = country().radio();
+    let dependent = city(&radio);
+    assert!(
+        Schema::new((radio, dependent))
+            .declaration_errors()
+            .is_empty()
+    );
     let country = country();
     let city = city(&country);
     assert!(Schema::new((country, city)).declaration_errors().is_empty());

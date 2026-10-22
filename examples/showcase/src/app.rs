@@ -71,9 +71,9 @@ impl Resource for UserResource {
             .form(Schema::new(Section::new("Profile").schema((
                 c.name.placeholder("Ada Lovelace"),
                 c.email.email().unique().placeholder("ada@example.com"),
-                c.role,
-                c.active,
-                c.age,
+                c.role.radio(),
+                c.active.switch(),
+                c.age.suffix("years"),
             ))))
             // Creates users from a CSV file, each row checked as the create form checks it.
             .importable()
@@ -199,7 +199,7 @@ fn post_form() -> Schema<PostForm> {
             c.body.rich_text().placeholder("The full story…"),
         )),
         Section::new("Details").schema((
-            Grid::new(2).schema((c.status, c.featured)),
+            Grid::new(2).schema((c.status.buttons(), c.featured)),
             c.author_id.searchable().label("Author"),
             c.cover_id.searchable().label("Cover"),
             c.categories.searchable(),

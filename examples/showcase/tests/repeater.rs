@@ -199,3 +199,28 @@ async fn the_detail_page_shows_each_link() {
     assert!(docs < blog, "the links show in their stored order");
     assert!(html.contains("URL"), "each field shows under its label");
 }
+
+/// A link's URL is checked in each row: a `javascript:` URL, which a link to it would run, is
+/// refused under its row's key, and nothing is written.
+#[tokio::test]
+async fn a_row_refuses_a_link_that_is_not_a_web_url() {
+    let db = full_db().await;
+    let router = router_for_tests(db.clone());
+    let client = demo_client(&router, &db).await;
+    let before = post_count(&db).await;
+    let body = create_body(
+        &db,
+        "Scripted",
+        "links=0&links.0.label=Docs&links.0.url=javascript%3Aalert(1)",
+    )
+    .await;
+    let resp = client.submit("/admin/posts/-/create", &body).await;
+    assert_eq!(resp.status(), 200, "the refused create renders the form");
+    let html = body_string(resp).await;
+    assert_eq!(
+        tablo::testing::field_error(&html, "links.0.url"),
+        Some(tablo::testing::ErrorKind::Invalid),
+        "{html}"
+    );
+    assert_eq!(post_count(&db).await, before);
+}
