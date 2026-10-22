@@ -5,7 +5,7 @@
 use tablo::{
     Ability, Action, FieldErrors, FormInput, HeaderAction, Resource, ResourceDef, Table,
     TextColumn, WriteError, lens,
-    testing::{ImportError, field_error, import_errors},
+    testing::{ImportError, field_error, import_errors, input_value},
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
@@ -82,6 +82,7 @@ impl Resource for BookingResource {
             .importable()
             .action::<Extend>()
             .action::<Lock>()
+            .action::<Misfile>()
             .header_action::<Block>()
     }
 
@@ -90,6 +91,9 @@ impl Resource for BookingResource {
         form: BookingForm,
         ex: &mut dyn toasty::Executor,
     ) -> Result<Booking, WriteError<BookingFormField>> {
+        if form.room == "boom" {
+            return Err(toasty::Error::condition_failed("no such room").into());
+        }
         hold(&form.room, form.nights, &mut *ex).await?;
         Ok(tablo::write_create::<Self>(cx, form, ex).await?)
     }
@@ -156,6 +160,23 @@ impl Action<BookingResource> for Lock {
         _: &mut dyn toasty::Executor,
     ) -> Result<tablo::Outcome, WriteError> {
         Err(WriteError::field("nights", "Locked"))
+    }
+}
+
+/// Refuses under a key its input does not declare.
+struct Misfile;
+
+impl Action<BookingResource> for Misfile {
+    type Input = Extension;
+    const NAME: &'static str = "misfile";
+
+    async fn run(
+        _cx: &Cx,
+        _: &[Booking],
+        _: Extension,
+        _: &mut dyn toasty::Executor,
+    ) -> Result<tablo::Outcome, WriteError> {
+        Err(WriteError::field("night", "Misspelled"))
     }
 }
 
@@ -230,6 +251,7 @@ async fn a_refused_create_renders_the_form_and_writes_nothing() {
     let html = body_string(response).await;
     assert!(field_error(&html, "room").is_some(), "{html}");
     assert!(field_error(&html, "nights").is_none(), "{html}");
+    assert_eq!(input_value(&html, "nights").as_deref(), Some("3"));
     assert_eq!(bookings(&db).await.len(), 1);
     assert_eq!(holds(&db).await, 1, "the refused write's hold rolls back");
 
@@ -253,6 +275,8 @@ async fn a_refused_update_renders_the_form_and_keeps_the_record() {
     assert_eq!(response.status(), 200);
     let html = body_string(response).await;
     assert!(field_error(&html, "nights").is_some(), "{html}");
+    assert_eq!(input_value(&html, "room").as_deref(), Some("102"));
+    assert_eq!(input_value(&html, "nights").as_deref(), Some("11"));
     let [kept] = bookings(&db).await.try_into().unwrap();
     assert_eq!((kept.room.as_str(), kept.nights), ("101", 2));
     assert_eq!(holds(&db).await, 1, "the refused write's hold rolls back");
@@ -279,6 +303,7 @@ async fn a_refused_action_renders_its_input_and_writes_nothing() {
     assert_eq!(response.status(), 200);
     let html = body_string(response).await;
     assert!(field_error(&html, "nights").is_some(), "{html}");
+    assert_eq!(input_value(&html, "nights").as_deref(), Some("3"));
     assert_eq!(
         bookings(&db).await[0].nights,
         8,
@@ -288,6 +313,41 @@ async fn a_refused_action_renders_its_input_and_writes_nothing() {
     let response = post_fields(&router, &extend, &[("nights", "2")]).await;
     assert_eq!(response.status(), 303);
     assert_eq!(bookings(&db).await[0].nights, 10);
+}
+
+/// The refused page posts the selection again, so resubmitting runs on the same records.
+#[tokio::test]
+async fn a_refused_bulk_action_keeps_its_selection() {
+    let (db, router) = router().await;
+    let short = book(&db, "101", 2).await;
+    let long = book(&db, "102", 8).await;
+    let ids = format!("{},{}", short.id, long.id);
+    let extend = "/admin/bookings/-/actions/extend";
+
+    let response = post_fields(&router, extend, &[("ids", &ids), ("nights", "3")]).await;
+    assert_eq!(response.status(), 200);
+    let html = body_string(response).await;
+    assert!(field_error(&html, "nights").is_some(), "{html}");
+    assert_eq!(input_value(&html, "ids").as_deref(), Some(ids.as_str()));
+    let mut nights: Vec<_> = bookings(&db).await.iter().map(|b| b.nights).collect();
+    nights.sort();
+    assert_eq!(nights, [2, 8], "the first record's update rolls back too");
+
+    let response = post_fields(&router, extend, &[("ids", &ids), ("nights", "2")]).await;
+    assert_eq!(response.status(), 303);
+    let mut nights: Vec<_> = bookings(&db).await.iter().map(|b| b.nights).collect();
+    nights.sort();
+    assert_eq!(nights, [4, 10]);
+}
+
+#[tokio::test]
+async fn a_refusal_under_a_key_the_input_does_not_render_is_a_declaration_error() {
+    let (db, router) = router().await;
+    let booking = book(&db, "101", 2).await;
+
+    let misfile = format!("/admin/bookings/{}/-/actions/misfile", booking.id);
+    let response = post_fields(&router, &misfile, &[("nights", "1")]).await;
+    assert_eq!(response.status(), 500);
 }
 
 #[tokio::test]
@@ -335,6 +395,19 @@ async fn an_import_lists_the_rows_a_record_fn_refuses() {
         import_errors(&html),
         [refused(2, "nights"), refused(5, "room")]
     );
+    assert!(bookings(&db).await.is_empty());
+    assert_eq!(holds(&db).await, 0);
+}
+
+/// A row whose record fn fails, rather than refuses, fails the whole file: nothing is written,
+/// not even the rows before it.
+#[tokio::test]
+async fn an_import_row_that_fails_writes_nothing() {
+    let (db, router) = router().await;
+
+    let csv = "room,nights\n101,2\nboom,2\n";
+    let response = import_csv(&router, "/admin/bookings/-/import", csv).await;
+    assert!(response.status().is_server_error(), "{}", response.status());
     assert!(bookings(&db).await.is_empty());
     assert_eq!(holds(&db).await, 0);
 }

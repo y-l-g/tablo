@@ -180,8 +180,9 @@ key fails loudly instead of leaving a page with no message. `validate_input` run
 transaction opens and sees no record; a rule that reads the database refuses from `run`, which
 returns `Err(WriteError::field("reason", ".."))`: the transaction rolls back what `run` wrote,
 and the input page renders with the error. An action that asks for nothing has no control to
-render one under, so its refusal is a declaration error. A record action's page is titled with the label and the record's title, or the
-record count for a selection; a header action's is titled with its label. Cancel returns to the
+render one under, so its refusal is a declaration error. A record action's page is titled with
+the label and the record's title, or the record count for a selection; a header action's is
+titled with its label. Cancel returns to the
 page the button was on. An action with input and `CONFIRM` confirms in its input dialog and on its
 page, which say the action cannot be undone and whose submit renders destructive, instead of in
 the confirmation dialog. Like the confirmation dialog, the input dialog needs JavaScript.

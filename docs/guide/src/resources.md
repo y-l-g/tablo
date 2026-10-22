@@ -231,15 +231,17 @@ again: it is the row the policy check passed. Both functions return the written 
   control of the field it names, keyed by the record form's field enum as in `validate_record`.
   `WriteError::field(key, message)` builds one with a single error, and `?` turns a `FieldErrors`
   into one. A refusal that names no field is a declaration error.
-- `WriteError::Failed(error)` answers as a failed write does: the failure toast and an error
-  response. `?` turns any error a `topcoat::Error` takes, such as a `toasty::Error`, into one.
+- `WriteError::Failed(error)` answers as a failed write does: a collision on a unique index
+  renders under the field's control, a save another save overtook renders the stale form, and any
+  other error answers with the failure toast and an error response. `?` turns any error a
+  `topcoat::Error` takes, such as a `toasty::Error`, into one.
 
 A rule that reads the database refuses here rather than in `validate_record`, which runs before
 the transaction opens and gets no executor: a stock level, a quota, or a uniqueness no index
 models. A rule the write itself enforces, such as an update filtered on the stock it needs that
-matches no row, holds against a concurrent write. The [CSV import](./tables.md#import) lists a row its
-record fn refuses with the other refused rows, and rolls that row back to a savepoint, so the
-rows after it are checked without its writes.
+matches no row, holds against a concurrent write. The [CSV import](./tables.md#import) lists a
+row its record fn refuses with the other refused rows, and rolls that row back to a savepoint, so
+the rows after it are checked without its writes.
 
 `delete_record` deletes the row by its primary key, or stamps it on a resource that soft-deletes,
 and `bulk_delete_records` calls `delete_record` once per record in one transaction, so overriding

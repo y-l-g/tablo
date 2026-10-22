@@ -145,6 +145,61 @@ async fn a_write_the_version_condition_refuses_re_renders_the_form() {
     assert_eq!(title(&db, record.id).await, "first");
 }
 
+/// A refused save renders the version it opened on, not the one its rolled-back write took, so
+/// saving the refused form again lands.
+#[tokio::test]
+async fn a_refused_save_carries_the_version_it_opened_on() {
+    struct RefusingResource;
+
+    impl Resource for RefusingResource {
+        type Model = Note;
+        type Form = NoteForm;
+
+        fn declare() -> ResourceDef<Self> {
+            declare()
+        }
+
+        async fn update_record(
+            cx: &Cx,
+            record: Note,
+            posted: tablo::Posted<NoteForm>,
+            ex: &mut dyn toasty::Executor,
+        ) -> Result<Note, tablo::WriteError<NoteFormField>> {
+            let refused = posted.title == "refused";
+            let written = tablo::write_update::<Self>(cx, record, posted, ex).await?;
+            if refused {
+                return Err(tablo::WriteError::field(
+                    NoteFormField::Title,
+                    "Not that one",
+                ));
+            }
+            Ok(written)
+        }
+    }
+
+    let db = test_db(toasty::models!(Note)).await;
+    let router = panel_router::<RefusingResource>(db.clone());
+    let client = TestClient::new(&router);
+    let record = note(&db).await;
+    let url = format!("/admin/notes/{}/edit", record.id);
+    let opened = record.version.to_string();
+
+    let response = client
+        .submit(&url, &format!("title=refused&record_version={opened}"))
+        .await;
+    assert_eq!(response.status(), 200);
+    let html = body_string(response).await;
+    assert!(!stale_form(&html), "{html}");
+    assert_eq!(input_value(&html, "record_version"), Some(opened.clone()));
+    assert_eq!(title(&db, record.id).await, "first");
+
+    let response = client
+        .submit(&url, &format!("title=mine&record_version={opened}"))
+        .await;
+    assert!(response.status().is_redirection(), "{}", response.status());
+    assert_eq!(title(&db, record.id).await, "mine");
+}
+
 /// A failed condition on a model without a version is no save overtaking this one: the edit
 /// fails as any write does, without the alert.
 #[tokio::test]

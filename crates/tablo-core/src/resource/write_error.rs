@@ -11,7 +11,9 @@ use crate::form::FieldErrors;
 ///   control of the field it names, as a [`validate_record`](crate::Resource::validate_record)
 ///   error does. A record fn keys its errors by the record form's field enum, an action's run by
 ///   its input's form keys.
-/// - [`Failed`](Self::Failed) flashes the write's failure toast and answers with the error.
+/// - [`Failed`](Self::Failed) answers as a failed write does: a record fn's collision on a unique
+///   index renders under the field's control, a save another save overtook renders the stale form,
+///   and any other error flashes the failure toast and answers with the error.
 ///
 /// A refusal is the answer to a rule that reads the database: a stock level, a quota, a
 /// uniqueness no index models. A rule the write itself enforces holds against concurrent writes:
