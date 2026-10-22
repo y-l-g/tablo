@@ -235,6 +235,49 @@ impl core::marker::Unpin for tablo_test::PickerColumn
 impl core::marker::UnsafeUnpin for tablo_test::PickerColumn
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::PickerColumn
 impl core::panic::unwind_safe::UnwindSafe for tablo_test::PickerColumn
+pub struct tablo_test::Reply<'c, 'a, K>
+impl<'c, 'a, K: core::cmp::PartialEq> tablo_test::Reply<'c, 'a, K>
+pub fn tablo_test::Reply<'c, 'a, K>::cookies(&self) -> &[(alloc::string::String, alloc::string::String)]
+pub fn tablo_test::Reply<'c, 'a, K>::empty_table(&self) -> core::option::Option<tablo_test::EmptyTable>
+pub fn tablo_test::Reply<'c, 'a, K>::field_error(&self, K) -> core::option::Option<tablo_test::ErrorKind>
+pub fn tablo_test::Reply<'c, 'a, K>::field_error_message(&self, K) -> core::option::Option<alloc::string::String>
+pub async fn tablo_test::Reply<'c, 'a, K>::follow(&self) -> tablo_test::Reply<'c, 'a, K> where K: core::clone::Clone
+pub fn tablo_test::Reply<'c, 'a, K>::groups(&self) -> alloc::vec::Vec<tablo_test::Group>
+pub fn tablo_test::Reply<'c, 'a, K>::html(&self) -> &str
+pub fn tablo_test::Reply<'c, 'a, K>::input_value(&self, K) -> core::option::Option<alloc::string::String>
+pub fn tablo_test::Reply<'c, 'a, K>::location(&self) -> core::option::Option<&str>
+pub fn tablo_test::Reply<'c, 'a, K>::notification(&self) -> core::option::Option<tablo_core::outcome::Notification>
+pub fn tablo_test::Reply<'c, 'a, K>::row_keys(&self) -> alloc::vec::Vec<alloc::string::String>
+pub fn tablo_test::Reply<'c, 'a, K>::rows(&self) -> alloc::vec::Vec<tablo_test::Row>
+pub fn tablo_test::Reply<'c, 'a, K>::stale(&self) -> bool
+pub fn tablo_test::Reply<'c, 'a, K>::status(&self) -> http::status::StatusCode
+impl<'c, 'a, K> core::marker::Freeze for tablo_test::Reply<'c, 'a, K> where alloc::vec::Vec<tablo_core::values::FormField<K>>: core::marker::Freeze
+impl<'c, 'a, K> core::marker::Send for tablo_test::Reply<'c, 'a, K> where alloc::vec::Vec<tablo_core::values::FormField<K>>: core::marker::Send
+impl<'c, 'a, K> core::marker::Sync for tablo_test::Reply<'c, 'a, K> where alloc::vec::Vec<tablo_core::values::FormField<K>>: core::marker::Sync
+impl<'c, 'a, K> core::marker::Unpin for tablo_test::Reply<'c, 'a, K> where alloc::vec::Vec<tablo_core::values::FormField<K>>: core::marker::Unpin
+impl<'c, 'a, K> core::marker::UnsafeUnpin for tablo_test::Reply<'c, 'a, K> where alloc::vec::Vec<tablo_core::values::FormField<K>>: core::marker::UnsafeUnpin
+impl<'c, 'a, K> !core::panic::unwind_safe::RefUnwindSafe for tablo_test::Reply<'c, 'a, K>
+impl<'c, 'a, K> !core::panic::unwind_safe::UnwindSafe for tablo_test::Reply<'c, 'a, K>
+pub struct tablo_test::ResourceClient<'c, 'a, R>
+impl<'c, 'a, R: tablo_core::resource::Resource> tablo_test::ResourceClient<'c, 'a, R>
+pub fn tablo_test::ResourceClient<'c, 'a, R>::action<A: tablo_core::resource::action::Action<R>>(&self, &<R as tablo_core::resource::Resource>::Model) -> tablo_test::Submission<'c, 'a, core::convert::Infallible>
+pub fn tablo_test::ResourceClient<'c, 'a, R>::bulk_action<A: tablo_core::resource::action::Action<R>>(&self, impl core::iter::traits::collect::IntoIterator<Item = impl core::convert::AsRef<str>>) -> tablo_test::Submission<'c, 'a, core::convert::Infallible>
+pub fn tablo_test::ResourceClient<'c, 'a, R>::create(&self) -> tablo_test::Submission<'c, 'a, tablo_test::FieldOf<R>>
+pub async fn tablo_test::ResourceClient<'c, 'a, R>::create_page(&self) -> tablo_test::Reply<'c, 'a, tablo_test::FieldOf<R>>
+pub fn tablo_test::ResourceClient<'c, 'a, R>::delete(&self, &<R as tablo_core::resource::Resource>::Model) -> tablo_test::Submission<'c, 'a, core::convert::Infallible>
+pub fn tablo_test::ResourceClient<'c, 'a, R>::edit(&self, &<R as tablo_core::resource::Resource>::Model) -> tablo_test::Submission<'c, 'a, tablo_test::FieldOf<R>>
+pub async fn tablo_test::ResourceClient<'c, 'a, R>::edit_page(&self, &<R as tablo_core::resource::Resource>::Model) -> tablo_test::Reply<'c, 'a, tablo_test::FieldOf<R>>
+pub async fn tablo_test::ResourceClient<'c, 'a, R>::list(&self) -> tablo_test::Reply<'c, 'a, tablo_test::FieldOf<R>>
+pub async fn tablo_test::ResourceClient<'c, 'a, R>::list_with(&self, &str) -> tablo_test::Reply<'c, 'a, tablo_test::FieldOf<R>>
+pub fn tablo_test::ResourceClient<'c, 'a, R>::url(&self) -> alloc::string::String
+pub async fn tablo_test::ResourceClient<'c, 'a, R>::view(&self, &<R as tablo_core::resource::Resource>::Model) -> tablo_test::Reply<'c, 'a, tablo_test::FieldOf<R>>
+impl<'c, 'a, R> core::marker::Freeze for tablo_test::ResourceClient<'c, 'a, R> where core::marker::PhantomData<fn() -> R>: core::marker::Freeze
+impl<'c, 'a, R> core::marker::Send for tablo_test::ResourceClient<'c, 'a, R> where core::marker::PhantomData<fn() -> R>: core::marker::Send
+impl<'c, 'a, R> core::marker::Sync for tablo_test::ResourceClient<'c, 'a, R> where core::marker::PhantomData<fn() -> R>: core::marker::Sync
+impl<'c, 'a, R> core::marker::Unpin for tablo_test::ResourceClient<'c, 'a, R> where core::marker::PhantomData<fn() -> R>: core::marker::Unpin
+impl<'c, 'a, R> core::marker::UnsafeUnpin for tablo_test::ResourceClient<'c, 'a, R> where core::marker::PhantomData<fn() -> R>: core::marker::UnsafeUnpin
+impl<'c, 'a, R> !core::panic::unwind_safe::RefUnwindSafe for tablo_test::ResourceClient<'c, 'a, R>
+impl<'c, 'a, R> !core::panic::unwind_safe::UnwindSafe for tablo_test::ResourceClient<'c, 'a, R>
 pub struct tablo_test::Row
 pub tablo_test::Row::actions: tablo_test::RowActions
 pub tablo_test::Row::cells: alloc::vec::Vec<alloc::string::String>
@@ -273,6 +316,20 @@ impl core::marker::Unpin for tablo_test::RowActions
 impl core::marker::UnsafeUnpin for tablo_test::RowActions
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::RowActions
 impl core::panic::unwind_safe::UnwindSafe for tablo_test::RowActions
+pub struct tablo_test::Submission<'c, 'a, K>
+impl<'c, 'a, K: core::cmp::PartialEq> tablo_test::Submission<'c, 'a, K>
+pub fn tablo_test::Submission<'c, 'a, K>::add(self, K, &str) -> Self
+pub fn tablo_test::Submission<'c, 'a, K>::set(self, K, &str) -> Self
+pub fn tablo_test::Submission<'c, 'a, K>::set_key(self, &str, &str) -> Self
+pub async fn tablo_test::Submission<'c, 'a, K>::submit(self) -> tablo_test::Reply<'c, 'a, K>
+pub fn tablo_test::Submission<'c, 'a, K>::url(&self) -> &str
+impl<'c, 'a, K> core::marker::Freeze for tablo_test::Submission<'c, 'a, K> where alloc::vec::Vec<tablo_core::values::FormField<K>>: core::marker::Freeze
+impl<'c, 'a, K> core::marker::Send for tablo_test::Submission<'c, 'a, K> where alloc::vec::Vec<tablo_core::values::FormField<K>>: core::marker::Send
+impl<'c, 'a, K> core::marker::Sync for tablo_test::Submission<'c, 'a, K> where alloc::vec::Vec<tablo_core::values::FormField<K>>: core::marker::Sync
+impl<'c, 'a, K> core::marker::Unpin for tablo_test::Submission<'c, 'a, K> where alloc::vec::Vec<tablo_core::values::FormField<K>>: core::marker::Unpin
+impl<'c, 'a, K> core::marker::UnsafeUnpin for tablo_test::Submission<'c, 'a, K> where alloc::vec::Vec<tablo_core::values::FormField<K>>: core::marker::UnsafeUnpin
+impl<'c, 'a, K> !core::panic::unwind_safe::RefUnwindSafe for tablo_test::Submission<'c, 'a, K>
+impl<'c, 'a, K> !core::panic::unwind_safe::UnwindSafe for tablo_test::Submission<'c, 'a, K>
 pub struct tablo_test::TestClient<'a>
 impl<'a> tablo_test::TestClient<'a>
 pub async fn tablo_test::TestClient<'a>::call_procedure(&self, &str, &str) -> http::response::Response<topcoat_router::body::Body>
@@ -282,9 +339,11 @@ pub fn tablo_test::TestClient<'a>::csrf(&self, &str) -> Self
 pub async fn tablo_test::TestClient<'a>::get(&self, &str) -> http::response::Response<topcoat_router::body::Body>
 pub async fn tablo_test::TestClient<'a>::log_in(&self, &str, &str, &str, &str) -> (Self, http::response::Response<topcoat_router::body::Body>)
 pub fn tablo_test::TestClient<'a>::new(&'a topcoat_router::router::Router) -> Self
+pub fn tablo_test::TestClient<'a>::panel(&self, &tablo_core::panel::build::handle::PanelHandle) -> Self
 pub async fn tablo_test::TestClient<'a>::post_form(&self, &str, alloc::string::String) -> http::response::Response<topcoat_router::body::Body>
 pub async fn tablo_test::TestClient<'a>::post_multipart(&self, &str, &str, alloc::string::String) -> http::response::Response<topcoat_router::body::Body>
-pub async fn tablo_test::TestClient<'a>::sign_in(&self, &toasty::db::Db, &str, &impl tablo_core::auth::panel_user::PanelUser) -> Self
+pub fn tablo_test::TestClient<'a>::resource<R: tablo_core::resource::Resource>(&self) -> tablo_test::ResourceClient<'_, 'a, R>
+pub async fn tablo_test::TestClient<'a>::sign_in(&self, &toasty::db::Db, &str, &impl tablo_core::auth::PanelUser) -> Self
 pub async fn tablo_test::TestClient<'a>::submit(&self, &str, &str) -> http::response::Response<topcoat_router::body::Body>
 pub async fn tablo_test::TestClient<'a>::submit_multipart(&self, &str, &[(&str, core::option::Option<&str>, &str)]) -> http::response::Response<topcoat_router::body::Body>
 pub fn tablo_test::TestClient<'a>::tenant(&self, uuid::Uuid) -> Self
@@ -321,6 +380,7 @@ pub fn tablo_test::import_errors(&str) -> alloc::vec::Vec<tablo_test::ImportErro
 pub fn tablo_test::import_refusal(&str) -> core::option::Option<tablo_test::ImportRefusal>
 pub fn tablo_test::input_value(&str, &str) -> core::option::Option<alloc::string::String>
 pub fn tablo_test::mount(toasty::db::Db, tablo_core::panel::Panel) -> topcoat::Result<topcoat_router::router::Router>
+pub fn tablo_test::mount_with_handle(toasty::db::Db, tablo_core::panel::Panel) -> topcoat::Result<(topcoat_router::router::Router, tablo_core::panel::build::handle::PanelHandle)>
 pub fn tablo_test::multipart_body(&str, &[(&str, core::option::Option<&str>, &str)]) -> alloc::string::String
 pub fn tablo_test::nav_badge(&str, &str) -> core::option::Option<alloc::string::String>
 pub fn tablo_test::notification(&http::response::Response<topcoat_router::body::Body>) -> core::option::Option<tablo_core::outcome::Notification>
@@ -338,3 +398,4 @@ pub fn tablo_test::stale_form(&str) -> bool
 pub async fn tablo_test::test_db(toasty_core::schema::app::model::ModelSet) -> toasty::db::Db
 pub fn tablo_test::two_factor_secret(&str) -> core::option::Option<alloc::string::String>
 pub fn tablo_test::two_factor_state(&str) -> core::option::Option<alloc::string::String>
+pub type tablo_test::FieldOf<R> = <<R as tablo_core::resource::Resource>::Form as tablo_core::form::RecordForm>::Field

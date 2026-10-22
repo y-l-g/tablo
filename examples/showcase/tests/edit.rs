@@ -1,87 +1,83 @@
-use http::header::LOCATION;
-use showcase::models::{PostStatus, Role, User};
+use showcase::{
+    app::UserResource,
+    models::{PostStatus, Role, User, UserFormField},
+};
+use tablo::testing::ErrorKind;
 
 use crate::common::{
-    body_string, demo_client, response_cookies, routers::router_for_tests as router, seeded_db,
-    set_cookie_header,
+    body_string, demo_client,
+    routers::{app_for_tests, router_for_tests as router},
+    seeded_db,
 };
 
 #[tokio::test]
 async fn edit_page_hydrates_and_updates() {
     let db = seeded_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
+    let (router, admin) = app_for_tests(db.clone());
+    let client = demo_client(&router, &db).await.panel(&admin);
+    let users = client.resource::<UserResource>();
 
     let mut db_q = db.clone();
-    let users = User::all().exec(&mut db_q).await.unwrap();
-    let user = users.first().unwrap();
-    let id = user.id.to_string();
-    let edit_url = format!("/admin/users/{}/edit", id);
+    let user = User::all().first().exec(&mut db_q).await.unwrap().unwrap();
 
-    let resp = client.get(&edit_url).await;
+    let page = users.edit_page(&user).await;
     assert!(
-        resp.status().is_success(),
+        page.status().is_success(),
         "GET edit should be 200, got {}",
-        resp.status()
+        page.status()
     );
-    let html = body_string(resp).await;
-    assert!(
-        html.contains(&user.name),
-        "edit should contain hydrated name {}, got {}",
-        user.name,
-        html
+    assert_eq!(
+        page.input_value(UserFormField::Name).as_deref(),
+        Some(user.name.as_str()),
+        "the edit form hydrates the stored name"
     );
-    assert!(
-        html.contains(&user.email),
-        "edit should contain hydrated email"
+    assert_eq!(
+        page.input_value(UserFormField::Email).as_deref(),
+        Some(user.email.as_str()),
+        "the edit form hydrates the stored email"
     );
 
-    let resp = client.submit(&edit_url, "name=&email=bad").await;
+    let reply = users
+        .edit(&user)
+        .set(UserFormField::Name, "")
+        .set(UserFormField::Email, "bad")
+        .submit()
+        .await;
     assert!(
-        resp.status().is_success(),
+        reply.status().is_success(),
         "invalid POST should re-render 200, got {}",
-        resp.status()
-    );
-    let html = body_string(resp).await;
-    assert_eq!(
-        tablo::testing::field_error(&html, "name"),
-        Some(tablo::testing::ErrorKind::Required),
-        "the name slot names its refusal, got {html}"
+        reply.status()
     );
     assert_eq!(
-        tablo::testing::field_error(&html, "email"),
-        Some(tablo::testing::ErrorKind::Invalid),
-        "the email slot names its refusal, got {html}"
+        reply.field_error(UserFormField::Name),
+        Some(ErrorKind::Required),
+        "the name slot names its refusal, got {}",
+        reply.html()
+    );
+    assert_eq!(
+        reply.field_error(UserFormField::Email),
+        Some(ErrorKind::Invalid),
+        "the email slot names its refusal, got {}",
+        reply.html()
     );
     let mut db_check = db.clone();
     let fresh = User::get_by_id(&mut db_check, &user.id).await.unwrap();
     assert_eq!(fresh.name, user.name, "should not mutate on invalid");
 
-    let resp = client
-        .submit(&edit_url, "name=Updated%20Name&email=updated%40example.com")
+    let reply = users
+        .edit(&user)
+        .set(UserFormField::Name, "Updated Name")
+        .set(UserFormField::Email, "updated@example.com")
+        .submit()
         .await;
+    assert_eq!(reply.status(), 303, "a completed update is a 303 PRG");
+    let loc = reply.location().expect("a redirect names its target");
+    assert!(loc.starts_with(&users.url()), "redirect to list, got {loc}");
     assert!(
-        resp.status().is_redirection(),
-        "valid POST should redirect, got {}",
-        resp.status()
-    );
-    let loc = resp.headers().get(LOCATION).unwrap().to_str().unwrap();
-    assert!(
-        loc.contains("/admin/users"),
-        "redirect to list, got {}",
-        loc
-    );
-    assert_eq!(resp.status(), 303, "a completed update is a 303 PRG");
-    assert!(
-        !loc.contains("notification"),
-        "the toast must not ride the query, got {loc}"
-    );
-    assert!(
-        set_cookie_header(&resp, "__Host-tablo_notification").is_some(),
+        reply.notification().is_some(),
         "the flash cookie is set on the redirect"
     );
-    let resp2 = client.cookies(&response_cookies(&resp)).get(loc).await;
-    let html2 = body_string(resp2).await;
+    let html2 = reply.follow().await.html().to_string();
     assert!(
         html2.contains("data-sonner-toast"),
         "notification should survive, got {}",
