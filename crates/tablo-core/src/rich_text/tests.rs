@@ -70,6 +70,12 @@ fn plain_text_breaks_lines_between_blocks_and_reads_entities() {
 }
 
 #[test]
+fn plain_text_reads_an_entity_written_without_its_semicolon() {
+    let cleaned = clean("a &gt b", Tool::ALL.iter().copied());
+    assert_eq!(plain_text(&cleaned), "a > b");
+}
+
+#[test]
 fn plain_text_reads_whitespace_as_a_browser_shows_it() {
     let cleaned = clean(
         "<p>a\n  b</p>\n<p> c </p><pre><code>x\n  y</code></pre>",
@@ -104,10 +110,15 @@ proptest::proptest! {
         proptest::prop_assert_eq!(clean(&once, Tool::ALL.iter().copied()), once);
     }
 
-    /// The text of a cleaned value holds no markup the value's text did not spell.
+    /// The text of a cleaned value holds no markup the value's text did not spell: its only `<`
+    /// and `>` are the `&lt` and `&gt` it wrote, which parse with or without the `;`.
     #[test]
     fn plain_text_holds_no_tag(html in "(<(p|strong|em|h2|li|pre|code|br|a href=\"/x\")>|</(p|strong|em|h2|li|pre|code|a)>|[a-z \n&;]{0,6}){0,12}") {
         let text = plain_text(&clean(&html, Tool::ALL.iter().copied()));
-        proptest::prop_assert!(!text.contains('<') && !text.contains('>'), "{text:?}");
+        proptest::prop_assert!(
+            text.matches('<').count() <= html.matches("&lt").count()
+                && text.matches('>').count() <= html.matches("&gt").count(),
+            "{text:?}"
+        );
     }
 }
