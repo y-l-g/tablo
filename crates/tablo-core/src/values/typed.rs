@@ -232,5 +232,19 @@ pub(crate) fn is_email(value: &str) -> bool {
         .is_ok()
 }
 
+/// Reports whether `value` is a URL the url rule accepts: an absolute `http` or `https` URL that
+/// names a host and holds no whitespace or control character. Any other scheme is refused, since a
+/// `javascript:` or `data:` URL rendered as a link runs or shows what the submitter chose, and the
+/// parser's own leniency, such as `http:host` or a stripped tab, is refused with it.
+pub(crate) fn is_http_url(value: &str) -> bool {
+    let Some((scheme, rest)) = value.split_once("://") else {
+        return false;
+    };
+    (scheme.eq_ignore_ascii_case("http") || scheme.eq_ignore_ascii_case("https"))
+        && !rest.is_empty()
+        && !value.chars().any(|c| c.is_whitespace() || c.is_control())
+        && url::Url::parse(value).is_ok_and(|url| url.host().is_some())
+}
+
 #[cfg(test)]
 mod tests;

@@ -127,6 +127,8 @@ impl Control for Toggle {
         let invalid = if input.invalid() { "true" } else { "false" };
         let described_by = input.described_by().map(str::to_string);
         let disabled = input.is_disabled();
+        // Only an accepted checkbox is required: the browser then refuses it unchecked.
+        let required = input.required();
         view! {
             cx =>
             <input type="hidden" name=(name.clone()) value="false" disabled=(disabled)>
@@ -136,6 +138,8 @@ impl Control for Toggle {
                     name=(name)
                     value="true"
                     checked=(checked)
+                    required=(required)
+                    aria-required=(required.then_some("true"))
                     disabled=(disabled)
                     aria-invalid=(invalid)
                     aria-describedby=(described_by)

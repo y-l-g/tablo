@@ -387,11 +387,12 @@ impl<F> Schema<F> {
             .collect()
     }
 
-    /// Adds to `errors` what the controls' own rules refuse in a submission: an email field's
-    /// address, a text field's declared length, bounds and pattern, and a choice that is not one
-    /// of its options. Skips hidden fields and keys `errors` already refuses. A value the record
-    /// already stores keeps its rules unchecked: a disabled control posts it back, and a rule
-    /// declared since must not lock the record.
+    /// Adds to `errors` what the controls' own rules refuse in a submission: an unchecked
+    /// accepted checkbox, a multiple choice's or a repeater's count of items, an email or URL
+    /// field's value, a text field's declared length, bounds and pattern, and a choice that is not
+    /// one of its options. Skips hidden fields and keys `errors` already refuses. A value the
+    /// record already stores keeps its rules unchecked: a disabled control posts it back, and a
+    /// rule declared since must not lock the record.
     pub(crate) async fn check_controls(
         &self,
         cx: &Cx,
@@ -400,22 +401,31 @@ impl<F> Schema<F> {
         errors: &mut FieldErrors,
     ) {
         let hidden = self.hidden_fields(values);
+        let zone = crate::time_zone(cx);
         for field in &self.fields {
             let name = field.name();
             if errors.contains_key(name) || hidden.contains(name) {
                 continue;
             }
             let Some(value) = values.get(name) else {
+                if let Some(error) = field.check_unposted(&zone) {
+                    errors.push(error);
+                }
                 continue;
             };
+            let refusal = (stored.get(name) != Some(value))
+                .then(|| field.check(value, &zone))
+                .flatten();
             if let Some(repeater) = field.as_repeater() {
+                // The count's refusal owns the repeater's key; each row's own keys still check.
+                if let Some(error) = refusal {
+                    errors.push(error);
+                }
                 let rows = value.as_rows().unwrap_or_default();
                 repeater.check(cx, name, rows, errors).await;
                 continue;
             }
-            if stored.get(name) != Some(value)
-                && let Some(error) = field.check(value, &crate::time_zone(cx))
-            {
+            if let Some(error) = refusal {
                 errors.push(error);
                 continue;
             }

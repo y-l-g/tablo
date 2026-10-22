@@ -17,7 +17,12 @@ use tablo_ui::{
 };
 use topcoat::{Result, context::Cx, view::*};
 
-use super::{FormInput, Schema, fields::Field, read::Pairs, tree::Source};
+use super::{
+    FormInput, Schema,
+    fields::{Field, Items},
+    read::Pairs,
+    tree::Source,
+};
 use crate::values::{FieldError, FieldErrors, FormValue, FormValues};
 
 /// What the blank row's keys carry for the number the browser gives a row it adds.
@@ -32,6 +37,8 @@ pub(crate) struct RepeaterControl {
     item: fn() -> Schema,
     /// The add button's label, over "Add item".
     pub(crate) add_label: Option<String>,
+    /// How many rows it takes, set by `min_items` and `max_items`.
+    pub(crate) bounds: Items,
 }
 
 impl RepeaterControl {
@@ -46,6 +53,7 @@ impl RepeaterControl {
         Self {
             item,
             add_label: None,
+            bounds: Items::default(),
         }
     }
 
@@ -53,6 +61,7 @@ impl RepeaterControl {
         Self {
             item: T::schema,
             add_label: None,
+            bounds: Items::default(),
         }
     }
 
@@ -143,9 +152,13 @@ impl RepeaterControl {
         let key = field.name().to_string();
         let items = source.rows(&key);
         let mut rows = Vec::with_capacity(items.len());
+        // A row's Remove button is disabled while the list holds no more rows than it needs;
+        // `assets/repeaters.js` keeps it so as rows come and go.
+        let removable = self.bounds.min.is_none_or(|min| items.len() > min);
         for (row, item) in items.iter().enumerate() {
+            let errors = source.errors();
             rows.push(
-                self.render_row(cx, &key, &row.to_string(), item, source.errors(), source)
+                self.render_row(cx, &key, &row.to_string(), item, errors, removable, source)
                     .await?,
             );
         }
@@ -156,6 +169,7 @@ impl RepeaterControl {
                 ROW,
                 &FormValues::new(),
                 &FieldErrors::new(),
+                true,
                 source,
             )
             .await?;
@@ -164,7 +178,12 @@ impl RepeaterControl {
             .collect::<Vec<_>>()
             .join(",");
         let next = items.len().to_string();
-        let full = items.len() >= MAX_REPEATER_ROWS;
+        let most = self
+            .bounds
+            .max
+            .map_or(MAX_REPEATER_ROWS, |max| max.min(MAX_REPEATER_ROWS));
+        let full = items.len() >= most;
+        let min = self.bounds.min;
         let label = field.label_str().to_string();
         let add = self
             .add_label
@@ -174,6 +193,9 @@ impl RepeaterControl {
             .error_for(field)
             .map(|error| (error.message(&label), super::fields::error_kind(error)));
         let legend_id = format!("{}-legend", source.id(&key));
+        // Named as every control's error slot is, so the fieldset describes itself by it.
+        let error_id = format!("{}-error", source.id(&key));
+        let described_by = error.is_some().then(|| error_id.clone());
         Ok(view! {
             cx =>
             field_set(
@@ -181,7 +203,9 @@ impl RepeaterControl {
                     class="ac-field gap-3"
                     data-repeater=(key.clone())
                     data-repeater-next=(next)
-                    data-repeater-max=(MAX_REPEATER_ROWS)
+                    data-repeater-max=(most)
+                    data-repeater-min=(min)
+                    aria-describedby=(described_by)
                 },
                 field_legend(
                     variant: FieldLegendVariant::Label,
@@ -191,7 +215,7 @@ impl RepeaterControl {
                 <input type="hidden" name=(key) value=(order) data-repeater-order="">
                 if let Some((message, kind)) = error {
                     ui_field_error(
-                        attrs: attributes! { class="ac-error" data-error=(kind) },
+                        attrs: attributes! { id=(error_id) class="ac-error" data-error=(kind) },
                         (message)
                     )
                 }
@@ -219,7 +243,12 @@ impl RepeaterControl {
     }
 
     /// Renders the row `row` of the repeater `key` holding `item`, its controls posting under the
-    /// row's prefix, with the buttons that move and remove it.
+    /// row's prefix, with the buttons that move and remove it, Remove disabled unless
+    /// `removable`.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one call site renders a stored row, the other the blank one"
+    )]
     async fn render_row<'a>(
         &self,
         cx: &'a Cx,
@@ -227,6 +256,7 @@ impl RepeaterControl {
         row: &str,
         item: &FormValues,
         errors: &FieldErrors,
+        removable: bool,
         source: &Source<'_>,
     ) -> Result<BoxView<'a>> {
         let (schema, values) = self.row(key, row, item);
@@ -236,13 +266,13 @@ impl RepeaterControl {
         }
         let controls = schema.render(cx, rendered).await?;
         let row = row.to_string();
-        let action = |label: &'static str, data: Attributes| {
+        let action = |label: &'static str, data: Attributes, disabled: bool| {
             view! {
                 cx =>
                 button(
                     variant: ButtonVariant::Ghost,
                     size: ButtonSize::Sm,
-                    attrs: attributes! { type="button" (data) },
+                    attrs: attributes! { type="button" disabled=(disabled) (data) },
                     (label)
                 )
             }
@@ -255,9 +285,17 @@ impl RepeaterControl {
             >
                 (controls)
                 <div class="flex flex-wrap justify-end gap-2">
-                    (action("Move up", attributes! { cx => data-repeater-up="" }))
-                    (action("Move down", attributes! { cx => data-repeater-down="" }))
-                    (action("Remove", attributes! { cx => data-repeater-remove="" }))
+                    (action("Move up", attributes! { cx => data-repeater-up="" }, false))
+                    (action(
+                        "Move down",
+                        attributes! { cx => data-repeater-down="" },
+                        false,
+                    ))
+                    (action(
+                        "Remove",
+                        attributes! { cx => data-repeater-remove="" },
+                        !removable,
+                    ))
                 </div>
             </li>
         }

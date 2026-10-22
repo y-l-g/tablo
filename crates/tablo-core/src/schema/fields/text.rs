@@ -9,13 +9,13 @@ use self::rules::{Order, Rules, order};
 use super::{ControlKind, Field, render_field};
 use crate::{
     FieldRuleFault,
-    values::{FieldError, FormScalar, FormValue, is_email},
+    values::{FormScalar, FormValue},
 };
 
 /// The equality expression a text field's unique probe binds.
 type EqProbe = std::sync::Arc<dyn Fn(&str) -> Option<toasty::stmt::Expr<bool>> + Send + Sync>;
 
-/// The text control's input type, placeholder, rows, email and password rules, declared rules,
+/// The text control's input type, placeholder, rows, email, URL and password rules, declared rules,
 /// and unique probe.
 pub(crate) struct TextControl {
     input_type: &'static str,
@@ -27,6 +27,8 @@ pub(crate) struct TextControl {
     pub(super) rows: Option<u32>,
     pub(super) placeholder: Option<String>,
     pub(super) email: bool,
+    /// Whether the value must be an `http` or `https` URL, set by `url`.
+    pub(super) url: bool,
     pub(super) password: bool,
     /// The password the user signs in with today, which a password manager fills, rather than
     /// a new one it would offer to generate.
@@ -73,6 +75,7 @@ impl TextControl {
             rows: None,
             placeholder: None,
             email: false,
+            url: false,
             password: false,
             current_password: false,
             unique,
@@ -94,6 +97,7 @@ impl TextControl {
             rows: None,
             placeholder: None,
             email: false,
+            url: false,
             password: false,
             current_password: false,
             unique: false,
@@ -210,26 +214,6 @@ impl Field {
         (value != held && value.trim() == rendered).then(|| stored.clone())
     }
 
-    /// Refuses a non-empty submission the control's own rules refuse: an email field's address, a
-    /// text field's declared length, bounds and pattern, its bounds spelled as the control shows
-    /// them in `zone`, and a rich text field's length.
-    pub(crate) fn check(&self, value: &FormValue, zone: &TimeZone) -> Option<FieldError> {
-        let value = value.as_text()?.trim();
-        if value.is_empty() {
-            return None;
-        }
-        let label = self.label_str();
-        let message = match &self.control {
-            ControlKind::Text(text) if text.email && !is_email(value) => {
-                format!("{label} must be a valid email")
-            }
-            ControlKind::Text(text) => text.refusal(label, value, zone)?,
-            ControlKind::RichText(rich) => rich.refusal(label, value)?,
-            _ => return None,
-        };
-        Some(FieldError::invalid(self.name(), message))
-    }
-
     /// Renders a text field's control.
     pub(super) fn render_text<'a>(
         &self,
@@ -278,6 +262,8 @@ impl Field {
                 "password"
             } else if text.email {
                 "email"
+            } else if text.url {
+                "url"
             } else {
                 text.input_type
             };

@@ -3,14 +3,16 @@
 
 use std::{marker::PhantomData, sync::Arc};
 
+pub use self::into::{IntoFormValue, IntoOptions};
 use super::{
     super::{
         IntoSchema, OptionSource, Retype, Schema,
         condition::{Condition, Watched},
+        repeater::RepeaterControl,
     },
     ChoiceControl, Control, ControlKind, Field, Pattern, RichTextControl, TextControl, choice,
 };
-use crate::values::{FormScalar, FormValue};
+use crate::values::FormScalar;
 
 /// `label`, `name` and `visible_when`, shared by every builder.
 macro_rules! base_modifiers {
@@ -173,55 +175,6 @@ macro_rules! default_modifier {
 
 default_modifier!(TextField, ChoiceField, CustomField, RichTextField);
 
-/// A value a field's `default` takes: any [`FormScalar`] or a `&str` or `&String` in the form
-/// spelling, or an array or `Vec` of them for a multiple choice.
-pub trait IntoFormValue {
-    /// The value as its control posts it.
-    fn into_form_value(self) -> FormValue;
-}
-
-impl<T: FormScalar> IntoFormValue for T {
-    fn into_form_value(self) -> FormValue {
-        FormValue::Text(self.to_form())
-    }
-}
-
-impl IntoFormValue for &str {
-    fn into_form_value(self) -> FormValue {
-        FormValue::Text(self.to_string())
-    }
-}
-
-impl IntoFormValue for &String {
-    fn into_form_value(self) -> FormValue {
-        FormValue::Text(self.clone())
-    }
-}
-
-impl<T: FormScalar> IntoFormValue for Vec<T> {
-    fn into_form_value(self) -> FormValue {
-        FormValue::List(self.iter().map(FormScalar::to_form).collect())
-    }
-}
-
-impl IntoFormValue for Vec<&str> {
-    fn into_form_value(self) -> FormValue {
-        FormValue::List(self.into_iter().map(str::to_string).collect())
-    }
-}
-
-impl<T: FormScalar, const N: usize> IntoFormValue for [T; N] {
-    fn into_form_value(self) -> FormValue {
-        Vec::from(self).into_form_value()
-    }
-}
-
-impl<const N: usize> IntoFormValue for [&str; N] {
-    fn into_form_value(self) -> FormValue {
-        Vec::from(self).into_form_value()
-    }
-}
-
 /// A text field: [`Field::text`], or a record form's text control (`F` is the form).
 pub struct TextField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
 
@@ -247,6 +200,23 @@ impl<F> CustomField<F> {
     /// Whether the control is the built-in checkbox, which a condition follows through `checked`.
     pub(crate) fn is_checkbox(&self) -> bool {
         self.0.is_checkbox()
+    }
+
+    /// Refuse a submission that leaves the checkbox unchecked, and render it `required`: the box
+    /// accepting the terms an action's input asks for. Only the built-in checkbox of
+    /// [`Field::toggle`] and [`Field::toggle_input`] takes it; another control fails the mount, as
+    /// does a [`disabled`](Self::disabled) one with no `true` default. A hidden field is not
+    /// checked, nor a value the record already stores.
+    ///
+    /// ```rust
+    /// # use tablo_core::Field;
+    /// Field::toggle_input("terms")
+    ///     .label("I accept the terms")
+    ///     .accepted();
+    /// ```
+    pub fn accepted(mut self) -> Self {
+        self.0.accepted = true;
+        self
     }
 }
 
@@ -312,6 +282,14 @@ impl<F> TextField<F> {
     /// Validate the value as an email address, and render `type="email"`.
     pub fn email(mut self) -> Self {
         self.text().email = true;
+        self
+    }
+
+    /// Validate the value as an absolute `http` or `https` URL naming a host, and render
+    /// `type="url"`. The browser's check takes any scheme; the server refuses every other, so a
+    /// stored value rendered as a link never runs a `javascript:` URL.
+    pub fn url(mut self) -> Self {
+        self.text().url = true;
         self
     }
 
@@ -442,6 +420,22 @@ impl<F> ChoiceField<F> {
         self
     }
 
+    /// Refuse a submission choosing fewer than `count` options. A [`multiple`](Self::multiple)
+    /// choice's blank answer is the empty list, which no other rule refuses, so `min_items(1)` is
+    /// how one requires a choice. Only the server checks it. A choice that is not `multiple` fails
+    /// the mount, as does a minimum above `max_items` or above the count of static options.
+    pub fn min_items(mut self, count: usize) -> Self {
+        self.choice_mut().bounds.min = Some(count);
+        self
+    }
+
+    /// Refuse a submission choosing more than `count` options; [`min_items`](Self::min_items)
+    /// says which choices take it.
+    pub fn max_items(mut self, count: usize) -> Self {
+        self.choice_mut().bounds.max = Some(count);
+        self
+    }
+
     /// Filters options as the user types, fetching from the relationship past the option cap.
     pub fn searchable(mut self) -> Self {
         self.choice_mut().searchable = true;
@@ -519,42 +513,36 @@ impl<F> ChoiceField<F> {
 }
 
 impl<F> RepeaterField<F> {
-    /// The add button's label, over "Add item".
-    pub fn add_label(mut self, label: impl Into<String>) -> Self {
+    fn repeater(&mut self) -> &mut RepeaterControl {
         match &mut self.0.control {
-            ControlKind::Repeater(repeater) => repeater.add_label = Some(label.into()),
+            ControlKind::Repeater(repeater) => repeater,
             _ => unreachable!("a RepeaterField holds a repeater control"),
         }
+    }
+
+    /// The add button's label, over "Add item".
+    pub fn add_label(mut self, label: impl Into<String>) -> Self {
+        self.repeater().add_label = Some(label.into());
+        self
+    }
+
+    /// Refuse a submission of fewer than `count` rows, and disable each row's Remove button while
+    /// the list holds no more. A minimum above `max_items` fails the mount.
+    pub fn min_items(mut self, count: usize) -> Self {
+        self.repeater().bounds.min = Some(count);
+        self
+    }
+
+    /// Refuse a submission of more than `count` rows, and disable the add button while the list
+    /// holds that many. A count above [`MAX_REPEATER_ROWS`](crate::MAX_REPEATER_ROWS), which
+    /// every repeater keeps to, fails the mount.
+    pub fn max_items(mut self, count: usize) -> Self {
+        self.repeater().bounds.max = Some(count);
         self
     }
 }
 
-/// A choice's static options as `(value, label)` pairs, in display order.
-pub trait IntoOptions {
-    fn into_options(self) -> Vec<(String, String)>;
-}
-
-impl IntoOptions for Vec<String> {
-    fn into_options(self) -> Vec<(String, String)> {
-        self.into_iter()
-            .map(|value| (value.clone(), value))
-            .collect()
-    }
-}
-
-impl IntoOptions for Vec<(String, String)> {
-    fn into_options(self) -> Vec<(String, String)> {
-        self
-    }
-}
-
-impl<const N: usize> IntoOptions for [&str; N] {
-    fn into_options(self) -> Vec<(String, String)> {
-        self.into_iter()
-            .map(|value| (value.to_string(), value.to_string()))
-            .collect()
-    }
-}
+mod into;
 
 /// The crate's tests read a builder's field as the schema will hold it.
 #[cfg(test)]

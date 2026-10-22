@@ -140,12 +140,17 @@ stored). Outside a panel no record form applies, and every control renders optio
 control's builder, which offers only that control's modifiers, so a modifier on the wrong control
 does not compile:
 
-- text (`TextField`): `.email()`, `.password()`, `.unique()`, `.placeholder(..)`, `.multiline(rows)`,
-  and the [rules](#length-bounds-and-patterns) `.min_length(n)`, `.max_length(n)`, `.min(..)`,
-  `.max(..)`, `.pattern(..)`;
+- text (`TextField`): `.email()`, `.url()`, `.password()`, `.unique()`, `.placeholder(..)`,
+  `.multiline(rows)`, and the [rules](#length-bounds-and-patterns) `.min_length(n)`,
+  `.max_length(n)`, `.min(..)`, `.max(..)`, `.pattern(..)`;
 - choice (`ChoiceField`): `.options(..)`, `.relationship::<R>()`, `.searchable()`, `.depends_on(..)`,
-  `.multiple()`;
-- rich text (`RichTextField`): `.toolbar(..)`, `.placeholder(..)`, `.min_length(n)`, `.max_length(n)`.
+  `.multiple()`, and on a multiple choice `.min_items(n)`, `.max_items(n)`;
+- rich text (`RichTextField`): `.toolbar(..)`, `.placeholder(..)`, `.min_length(n)`, `.max_length(n)`;
+- toggle (`CustomField`): `.accepted()`, which an action's terms box takes;
+- repeater (`RepeaterField`): `.add_label(..)`, `.min_items(n)`, `.max_items(n)`.
+
+[`ChoiceField::min_items`](https://y-l.fr/tablo/nightly/api/tablo/struct.ChoiceField.html#method.min_items)
+is how a multiple choice is required, since its blank answer is the empty list.
 
 A choice needs something to offer: mounting refuses a resource form's or an action input's choice
 with neither options nor a relationship, whose `<select>` would be empty and whose validation
@@ -262,6 +267,10 @@ A rule across fields, or one these do not express, belongs in `Resource::validat
 `.email()` renders `type="email"` and refuses what is not an address: a domain needs two labels
 (`a@b` is refused), a display name (`Ada <ada@example.com>`) is refused, and the address is capped
 at 254 bytes.
+
+[`.url()`](https://y-l.fr/tablo/nightly/api/tablo/struct.TextField.html#method.url) renders
+`type="url"` and takes only an `http` or `https` URL, so a stored value rendered as a link never
+runs a script.
 
 A text field over a column with a unique index checks uniqueness before the write, and reports a
 taken value inline. `.unique()` states it explicitly; mounting the panel refuses `.unique()` on a
