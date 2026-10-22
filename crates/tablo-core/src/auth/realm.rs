@@ -1,6 +1,6 @@
-//! What auth knows of the panels it serves: each one's [`Realm`], and the [`Host`] the panel
-//! layer installs to answer the rest — which panel a request is to, and the shell auth's pages
-//! render in.
+//! What auth knows of the panels it serves: each one's [`Realm`], the [`CurrentRealm`] a request
+//! to a panel carries, and the [`Host`] the panel layer installs to answer the rest — the realms
+//! beside it, and the shell auth's pages render in.
 //!
 //! Auth names no panel type. It reads a panel through its realm and renders through `Host`, so
 //! `auth` sits below `panel` with no edge back (ADR-0024).
@@ -17,7 +17,8 @@ use crate::{
 };
 
 /// One panel as auth serves it: the prefix its sessions, links and factors are bound to, and the
-/// settings its sign-in reads.
+/// settings its sign-in reads. The bell's flag rides along so that `notification`, which sits
+/// below `panel` too, reads it here.
 pub(crate) struct Realm {
     /// The panel's prefix, e.g. `/admin`. A session, a mailed link or a factor auth stores names
     /// it, and serves only this realm.
@@ -40,12 +41,15 @@ impl Realm {
     }
 }
 
-/// What auth asks of the panel layer that mounts it: the request's realm, the realms beside it,
-/// and the shell its pages render in. The panel installs its implementation as an [`AuthHost`].
-pub(crate) trait Host: Send + Sync {
-    /// The realm of the request's panel; `None` outside every panel.
-    fn realm<'a>(&self, cx: &'a Cx) -> Option<&'a Arc<Realm>>;
+/// The request's realm, as the request context carries it. Whatever enters a panel installs it
+/// beside the panel's own context, so a request to the panel and a job that enters its handle
+/// read the same realm, whether or not the context holds a [`Host`].
+#[derive(Clone)]
+pub(crate) struct CurrentRealm(pub(crate) Arc<Realm>);
 
+/// What auth asks of the panel layer that mounts it: the realms beside the request's, and the
+/// shell its pages render in. The panel installs its implementation as an [`AuthHost`].
+pub(crate) trait Host: Send + Sync {
     /// Every mounted panel's realm, in mount order.
     fn realms(&self, cx: &Cx) -> Vec<Arc<Realm>>;
 
@@ -100,7 +104,8 @@ pub(crate) fn host(cx: &Cx) -> Option<&'static dyn Host> {
     topcoat::context::try_app_context::<AuthHost>(cx).map(|AuthHost(host)| *host)
 }
 
-/// The installed host, or the declaration error a page auth renders outside every panel answers.
+/// The installed host, or the declaration error an auth page answers on a context without one,
+/// such as a panel handle's.
 pub(crate) fn hosted(cx: &Cx) -> topcoat::Result<&'static dyn Host> {
     host(cx).ok_or_else(|| {
         crate::error::declaration("auth renders only on a router that mounts a panel".to_owned())
@@ -108,8 +113,8 @@ pub(crate) fn hosted(cx: &Cx) -> topcoat::Result<&'static dyn Host> {
 }
 
 /// The realm of the request's panel; `None` outside every panel.
-pub(crate) fn realm(cx: &Cx) -> Option<&Arc<Realm>> {
-    host(cx)?.realm(cx)
+pub(crate) fn current_realm(cx: &Cx) -> Option<&Arc<Realm>> {
+    topcoat::context::try_request_context::<CurrentRealm>(cx).map(|CurrentRealm(realm)| realm)
 }
 
 /// Every mounted panel's realm, in mount order; none outside a router.
@@ -119,8 +124,11 @@ pub(crate) fn realms(cx: &Cx) -> Vec<Arc<Realm>> {
 
 /// The request's panel prefix, else the one the request path names.
 pub(crate) fn panel_prefix(cx: &Cx) -> String {
-    realm(cx).map_or_else(
+    current_realm(cx).map_or_else(
         || crate::naming::path_prefix(topcoat::router::request::uri(cx).path()),
         |realm| realm.prefix.clone(),
     )
 }
+
+#[cfg(test)]
+mod tests;

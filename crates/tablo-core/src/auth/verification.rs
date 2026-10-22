@@ -32,7 +32,7 @@ use super::{
 };
 use crate::{
     BoxFuture,
-    auth::realm::{Realm, hosted, panel_prefix, realm},
+    auth::realm::{Realm, current_realm, hosted, panel_prefix},
     flash::set_notification,
     outcome::Notification,
 };
@@ -234,7 +234,7 @@ pub(crate) fn pending(panel: &Realm, user: &dyn PanelUser) -> bool {
 /// Mails a verification link to `user` after the response, when the request's panel verifies
 /// addresses and `user` stores one it has not verified: what a sign-up does.
 pub(super) fn mail_after_sign_up(cx: &Cx, user: &dyn PanelUser) {
-    let Some(panel) = realm(cx) else {
+    let Some(panel) = current_realm(cx) else {
         return;
     };
     let Some(email) = user.email().filter(|_| pending(panel, user)) else {
@@ -285,7 +285,7 @@ async fn mail_link(cx: &Cx, panel: &Realm, user_id: &str, email: &str) -> topcoa
 pub(super) fn notice_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         let signed = resolved(cx).ok_or_else(|| unauthenticated_error(cx))?;
-        if !pending(&signed.panel, signed.user.as_ref()) {
+        if !pending(&signed.realm, signed.user.as_ref()) {
             return see_other(panel_root(cx)).into_response(cx);
         }
         notice(cx, signed.user.email().unwrap_or_default()).await
@@ -298,18 +298,18 @@ pub(super) fn notice_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         let signed = resolved(cx).ok_or_else(|| unauthenticated_error(cx))?;
         let verification = signed
-            .panel
+            .realm
             .auth
             .verification()
             .ok_or_else(topcoat::router::error::not_found)?;
         let form = crate::auth::input::read_form(cx, body).await?;
         crate::csrf::verify(cx, form.last(crate::csrf::FIELD_NAME))?;
-        if !pending(&signed.panel, signed.user.as_ref()) {
+        if !pending(&signed.realm, signed.user.as_ref()) {
             return see_other(panel_root(cx)).into_response(cx);
         }
         let user_id = signed.user.user_id();
         if !verification.throttle.attempt(&user_id, None) {
-            tracing::warn!(panel = %signed.panel.prefix, "verification link request throttled");
+            tracing::warn!(panel = %signed.realm.prefix, "verification link request throttled");
             return Err(too_many_requests(verification.throttle.window_secs()).into());
         }
         if let Some(email) = signed.user.email() {
@@ -334,7 +334,7 @@ pub(super) fn notice_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
 /// scanner fetched it from the mailbox the link proves.
 pub(super) fn confirm_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
-        let panel = realm(cx).ok_or_else(topcoat::router::error::not_found)?;
+        let panel = current_realm(cx).ok_or_else(topcoat::router::error::not_found)?;
         let verification = panel
             .auth
             .verification()

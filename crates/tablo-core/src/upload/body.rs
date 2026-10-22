@@ -91,7 +91,8 @@ pub(crate) async fn parse_file_body(cx: &Cx, body: Body) -> Result<FormParts, to
 /// Which chosen files a multipart body stages the bytes of.
 #[derive(Clone, Copy)]
 pub(crate) enum Capture {
-    /// None: the panel has nowhere to store a file.
+    /// None: nothing stores the request's files, such as an auth form's or a panel's without an
+    /// uploader.
     None,
     /// Each whose sanitized name an uploader can store it under.
     Persistable,

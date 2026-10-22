@@ -29,7 +29,7 @@ use super::{
     verification::VERIFICATION_LIFETIME,
 };
 use crate::{
-    auth::realm::{Realm, hosted, panel_prefix, realm},
+    auth::realm::{Realm, current_realm, hosted, panel_prefix},
     flash::set_notification,
     outcome::Notification,
 };
@@ -100,7 +100,7 @@ pub async fn request_email_change(
     user: &dyn PanelUser,
     email: &str,
 ) -> topcoat::Result<EmailChange> {
-    if !realm(cx).is_some_and(|panel| panel.auth.verification().is_some()) {
+    if !current_realm(cx).is_some_and(|panel| panel.auth.verification().is_some()) {
         return Ok(EmailChange::Immediate);
     }
     let user_id = user.user_id();
@@ -311,7 +311,7 @@ async fn link(
     purpose: TokenPurpose,
     encoded: &str,
 ) -> topcoat::Result<Result<(Arc<Realm>, Opened), Response>> {
-    let panel = realm(cx).ok_or_else(topcoat::router::error::not_found)?;
+    let panel = current_realm(cx).ok_or_else(topcoat::router::error::not_found)?;
     if panel.auth.verification().is_none() {
         return Err(topcoat::router::error::not_found().into());
     }

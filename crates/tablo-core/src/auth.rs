@@ -41,7 +41,7 @@ use topcoat::{
 };
 use uuid::Uuid;
 
-use self::realm::{panel_prefix, realms};
+use self::realm::realms;
 pub use self::{
     columns::ColumnPreference,
     email_change::{EmailChange, request_email_change},
@@ -67,7 +67,7 @@ pub(crate) use self::{
     password::PasswordAuth,
     password_reset::PasswordReset,
     profile::{Profile, ProfileEditor, ProfileUpdate, offered as profile_offered, profile_url},
-    realm::{AuthHost, Host, Realm, SettingsPage, realm},
+    realm::{AuthHost, CurrentRealm, Host, Realm, SettingsPage, current_realm, panel_prefix},
     registration::{Registrar, SignUp},
     tenant_profile::{offered as tenant_profile_offered, tenant_profile_url},
     tenant_registration::{
@@ -160,7 +160,7 @@ pub(crate) struct SignedIn {
     pub(crate) user: Arc<dyn PanelUser>,
     /// The realm whose session signed the user in: the only panel the user
     /// is the user of.
-    pub(crate) panel: Arc<Realm>,
+    pub(crate) realm: Arc<Realm>,
     /// The tenant the session selected, if any. [`tenant_id`](crate::tenant_id)
     /// honors it only while it is one of the user's memberships.
     pub(crate) tenant: Option<Uuid>,
@@ -170,8 +170,8 @@ pub(crate) struct SignedIn {
 /// access. Only the logout route reads a user without access.
 pub(crate) fn resolved(cx: &Cx) -> Option<&SignedIn> {
     let signed = try_request_context::<SignedIn>(cx)?;
-    match realm(cx) {
-        Some(realm) if !Arc::ptr_eq(&signed.panel, realm) => None,
+    match current_realm(cx) {
+        Some(realm) if !Arc::ptr_eq(&signed.realm, realm) => None,
         _ => Some(signed),
     }
 }
@@ -217,7 +217,7 @@ pub(crate) fn session_tenant(cx: &Cx) -> Option<Uuid> {
 pub(crate) fn session_time_zone(cx: &Cx) -> Option<jiff::tz::TimeZone> {
     signed(cx)
         .and_then(|signed| signed.user.time_zone())
-        .or_else(|| realm(cx).map(|realm| realm.time_zone.clone()))
+        .or_else(|| current_realm(cx).map(|realm| realm.time_zone.clone()))
 }
 
 /// The signed-in user, as the app's own user type.
@@ -256,7 +256,7 @@ pub fn user<U: PanelUser>(cx: &Cx) -> Option<&U> {
 fn assert_some_panel_loads<U: PanelUser>(cx: &Cx) {
     let mut mounted = realms(cx);
     if mounted.is_empty() {
-        mounted.extend(realm(cx).cloned());
+        mounted.extend(current_realm(cx).cloned());
     }
     let loaded: Vec<&dyn DynAuthenticator> = mounted
         .iter()
@@ -307,7 +307,7 @@ pub fn signed_in(cx: &Cx) -> bool {
 /// Outside any panel — an app's own page, or a shard no panel declared — it
 /// answers whether some mounted panel does, so a check there fails closed.
 pub fn enforced(cx: &Cx) -> bool {
-    match realm(cx) {
+    match current_realm(cx) {
         Some(realm) => realm.gates(),
         None => realms(cx).iter().any(|realm| realm.gates()),
     }

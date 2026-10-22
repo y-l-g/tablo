@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use topcoat::{Result, context::Cx};
 
-use super::state::current;
+pub(crate) use crate::auth::panel_prefix;
 use crate::{
     panel::url::RETURN_PARAM,
     resource::{Mounted, Resource, mounted, require_mounted},
@@ -44,14 +44,6 @@ pub fn can_list<R: Resource>(cx: &Cx) -> bool {
 pub fn can_open<P: crate::Page>(cx: &Cx) -> bool {
     crate::auth::guard(cx).is_ok()
         && super::pages::mounted_page::<P>(cx).is_some_and(|page| page.admits(cx))
-}
-
-/// The request's panel prefix, else the request path's first segment, else `/admin`.
-pub(crate) fn panel_prefix(cx: &Cx) -> String {
-    current(cx).map_or_else(
-        || crate::naming::path_prefix(topcoat::router::request::uri(cx).path()),
-        |panel| panel.realm.prefix.clone(),
-    )
 }
 
 /// Returns the validated `?return=` target under the panel prefix, else `None`.

@@ -26,7 +26,7 @@ use uuid::Uuid;
 
 use super::{StoredNotification, stored::Inbox};
 use crate::{
-    auth::realm,
+    auth::current_realm,
     bus::{Subscription, bus},
 };
 
@@ -140,7 +140,7 @@ pub(crate) fn topbar_bell(cx: &Cx) -> BoxView<'_> {
 
 /// The signed-in user's inbox when the request's panel shows a bell.
 fn bell_inbox(cx: &Cx) -> Option<Inbox> {
-    realm(cx).filter(|realm| realm.notifications)?;
+    current_realm(cx).filter(|realm| realm.notifications)?;
     Inbox::of(cx)
 }
 
@@ -483,7 +483,7 @@ pub(crate) fn ago(then: Timestamp, now: Timestamp, zone: &jiff::tz::TimeZone) ->
 fn procedure_inbox(cx: &Cx) -> Result<Inbox> {
     crate::auth::guard(cx)?;
     let inbox = Inbox::of(cx).ok_or_else(unauthorized)?;
-    realm(cx)
+    current_realm(cx)
         .filter(|realm| realm.notifications)
         .ok_or_else(not_found)?;
     Ok(inbox)

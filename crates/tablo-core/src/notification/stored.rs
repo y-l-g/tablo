@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use super::Notification;
 use crate::{
-    auth::realm,
+    auth::current_realm,
     bus::{NotificationBus, bus},
 };
 
@@ -81,7 +81,7 @@ impl Notifications {
     /// A declaration error outside every panel, such as on a public page that did not
     /// [`enter`](crate::PanelHandle::enter) one.
     pub fn of(cx: &Cx) -> topcoat::Result<Self> {
-        let Some(realm) = realm(cx) else {
+        let Some(realm) = current_realm(cx) else {
             return Err(crate::error::declaration(
                 "Notifications::of needs a request under a panel".to_owned(),
             ));
@@ -266,7 +266,7 @@ impl Inbox {
     pub(crate) fn of(cx: &Cx) -> Option<Self> {
         let signed = crate::auth::signed(cx)?;
         Some(Self {
-            panel: signed.panel.prefix.clone(),
+            panel: signed.realm.prefix.clone(),
             user_id: signed.user.user_id(),
             tenant: crate::tenant_id(cx),
         })

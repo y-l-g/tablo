@@ -28,7 +28,7 @@ use super::{
 };
 use crate::{
     BoxFuture,
-    auth::realm::{Realm, hosted, panel_prefix, realm},
+    auth::realm::{Realm, current_realm, hosted, panel_prefix},
     flash::set_notification,
     form::{FieldErrors, FormInput, FormValues},
     outcome::Notification,
@@ -281,7 +281,7 @@ pub(crate) fn register_tenant_url(cx: &Cx) -> String {
 
 /// Whether the request's panel installs a [`TenantRegistration`].
 pub(crate) fn offered(cx: &Cx) -> bool {
-    realm(cx).is_some_and(|panel| panel.auth.tenant_registration_page().is_some())
+    current_realm(cx).is_some_and(|panel| panel.auth.tenant_registration_page().is_some())
 }
 
 /// Whether `user` must register a tenant before `panel` serves them anything else: the panel
@@ -298,7 +298,7 @@ pub(super) fn pending(panel: &Realm, user: &dyn PanelUser) -> bool {
 fn registering(cx: &Cx) -> topcoat::Result<(&SignedIn, &dyn DynTenantRegistrar)> {
     let signed = signed(cx).ok_or_else(|| unauthenticated_error(cx))?;
     let registration = signed
-        .panel
+        .realm
         .auth
         .tenant_registration_page()
         .ok_or_else(not_found)?;

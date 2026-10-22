@@ -21,7 +21,7 @@ use super::{
     page::{AuthPage, render},
     page_load,
     password_reset::{forgot_url, offered as reset_offered, reset_url},
-    realm::{Host, Realm, hosted},
+    realm::{Realm, host, hosted, realms},
     registration::{offered, register_url},
     session::{resolve, session_row, session_user},
     tenant_registration, two_factor, unauthenticated_error, verification,
@@ -33,16 +33,14 @@ use crate::naming::route_path;
 pub(crate) struct PanelGate {
     path: PathBuf,
     realm: Arc<Realm>,
-    host: &'static dyn Host,
 }
 
 impl PanelGate {
-    /// The gate of `realm`'s panel, which `host` enters.
-    pub(crate) fn new(realm: Arc<Realm>, host: &'static dyn Host) -> Self {
+    /// The gate of `realm`'s panel, which the installed [`Host`](super::Host) enters.
+    pub(crate) fn new(realm: Arc<Realm>) -> Self {
         Self {
             path: route_path(&realm.prefix),
             realm,
-            host,
         }
     }
 }
@@ -54,10 +52,12 @@ impl Layer for PanelGate {
 
     fn handle<'a>(&'a self, cx: &'a Cx, body: Body, next: Next<'a>) -> LayerFuture<'a> {
         Box::pin(async move {
-            let Some(cx) = self.host.enter(cx, &self.realm) else {
+            let Some((host, cx)) =
+                host(cx).and_then(|host| Some((host, host.enter(cx, &self.realm)?)))
+            else {
                 return Err(not_found().into());
             };
-            let answer = |cx: &Cx, error| self.host.answer(cx, error);
+            let answer = |cx: &Cx, error| host.answer(cx, error);
             let Some(authenticator) = self.realm.auth.authenticator() else {
                 return next
                     .run(&cx, body)
@@ -191,7 +191,7 @@ async fn owed_step(cx: &Cx, panel: &Realm, signed: &SignedIn) -> topcoat::Result
 
 /// Whether `signed` may reach any endpoint: they have panel access and owe no step.
 async fn admitted(cx: &Cx, signed: &SignedIn) -> topcoat::Result<bool> {
-    Ok(signed.user.can_access_panel() && owed_step(cx, &signed.panel, signed).await?.is_none())
+    Ok(signed.user.can_access_panel() && owed_step(cx, &signed.realm, signed).await?.is_none())
 }
 
 /// Whether the session that signed the request in still signs in the same user, admitted, acting
@@ -201,10 +201,10 @@ pub(crate) async fn still_signed_in(cx: &Cx) -> topcoat::Result<bool> {
     let Some(signed) = super::signed(cx) else {
         return Ok(false);
     };
-    let Some(authenticator) = signed.panel.auth.authenticator() else {
+    let Some(authenticator) = signed.realm.auth.authenticator() else {
         return Ok(true);
     };
-    let Some(now) = resolve(cx, &signed.panel, authenticator).await? else {
+    let Some(now) = resolve(cx, &signed.realm, authenticator).await? else {
         return Ok(false);
     };
     let tenant = crate::tenant_id(cx);
@@ -255,15 +255,13 @@ async fn no_access(cx: &Cx) -> topcoat::Result<Response> {
 /// gated, otherwise passes on for each panel's shard to re-check.
 pub(crate) struct RuntimeGate {
     path: PathBuf,
-    host: &'static dyn Host,
 }
 
 impl RuntimeGate {
-    /// The gate over every panel `host` mounts.
-    pub(crate) fn new(host: &'static dyn Host) -> Self {
+    /// The gate over every panel the installed [`Host`](super::Host) mounts.
+    pub(crate) fn new() -> Self {
         Self {
             path: route_path(crate::topcoat_compat::RUNTIME_PREFIX),
-            host,
         }
     }
 }
@@ -275,19 +273,18 @@ impl Layer for RuntimeGate {
 
     fn handle<'a>(&'a self, cx: &'a Cx, body: Body, next: Next<'a>) -> LayerFuture<'a> {
         Box::pin(async move {
-            let realms = self.host.realms(cx);
-            if realms.is_empty() {
+            let realms = realms(cx);
+            let Some(host) = host(cx).filter(|_| !realms.is_empty()) else {
                 return next.run(cx, body).await;
-            }
-            let declaring = self.host.declaring(cx, uri(cx).path());
+            };
+            let declaring = host.declaring(cx, uri(cx).path());
             let signed = if realms.iter().any(|realm| realm.gates()) {
                 signed_in(cx, &realms).await?
             } else {
                 None
             };
             // The request runs as the panel `realm` serves; a realm no panel serves answers 404.
-            let enter =
-                |cx: &Cx, realm: &Arc<Realm>| self.host.enter(cx, realm).ok_or_else(not_found);
+            let enter = |cx: &Cx, realm: &Arc<Realm>| host.enter(cx, realm).ok_or_else(not_found);
             let admitted = match &signed {
                 Some(signed) => admitted(cx, signed).await?,
                 None => false,
@@ -295,7 +292,7 @@ impl Layer for RuntimeGate {
             if declaring.is_empty() {
                 return match signed {
                     Some(signed) if admitted => {
-                        let cx = enter(cx, &signed.panel)?.with(signed);
+                        let cx = enter(cx, &signed.realm)?.with(signed);
                         next.run(&cx, body).await
                     }
                     Some(_) => Err(forbidden().into()),
@@ -304,9 +301,9 @@ impl Layer for RuntimeGate {
                 };
             }
             // A session another panel signed in is no session for the declaring panels.
-            match signed.filter(|signed| declaring.iter().any(|p| Arc::ptr_eq(p, &signed.panel))) {
+            match signed.filter(|signed| declaring.iter().any(|p| Arc::ptr_eq(p, &signed.realm))) {
                 Some(signed) if admitted => {
-                    let cx = enter(cx, &signed.panel)?.with(signed);
+                    let cx = enter(cx, &signed.realm)?.with(signed);
                     next.run(&cx, body).await
                 }
                 Some(_) => Err(forbidden().into()),

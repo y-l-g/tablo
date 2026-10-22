@@ -67,15 +67,18 @@ pub(crate) fn panel_state(prefix: &str, auth: crate::Auth) -> super::state::Pane
     }
 }
 
-/// The host a router that mounts a panel installs, for a `CxTestBuilder::app_context` beside
-/// [`current_panel`]: auth reads the request's panel through it.
-pub(crate) fn host() -> crate::auth::AuthHost {
-    crate::auth::AuthHost(&super::host::PanelHost)
-}
-
-/// `state` as the request's panel, for a `CxTestBuilder::request_context`.
-pub(crate) fn current_panel(state: super::state::PanelState) -> super::state::CurrentPanel {
-    super::state::CurrentPanel(std::sync::Arc::new(state))
+/// `builder` as a request to `panel` on a router that mounts it: the panel and its realm, and the
+/// host auth renders through.
+pub(crate) fn serving(
+    builder: topcoat::context::CxTestBuilder,
+    panel: &std::sync::Arc<super::state::PanelState>,
+) -> topcoat::context::CxTestBuilder {
+    builder
+        .app_context(crate::auth::AuthHost(&super::host::PanelHost))
+        .request_context(super::state::CurrentPanel(std::sync::Arc::clone(panel)))
+        .request_context(crate::auth::CurrentRealm(std::sync::Arc::clone(
+            &panel.realm,
+        )))
 }
 
 /// `panel` mounted on a router holding `db`, the way an app mounts one.

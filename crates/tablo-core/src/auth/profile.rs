@@ -23,7 +23,7 @@ use super::{
 };
 use crate::{
     BoxFuture,
-    auth::realm::{SettingsPage, hosted, panel_prefix, realm},
+    auth::realm::{SettingsPage, current_realm, hosted, panel_prefix},
     flash::set_notification,
     form::{FieldError, FieldErrors, FormInput, FormValues, parse_password, parse_scalar},
     outcome::Notification,
@@ -366,13 +366,13 @@ pub(crate) fn profile_url(cx: &Cx) -> String {
 
 /// Whether the request's panel installs a [`ProfileEditor`].
 pub(crate) fn offered(cx: &Cx) -> bool {
-    realm(cx).is_some_and(|panel| panel.auth.profile_editor().is_some())
+    current_realm(cx).is_some_and(|panel| panel.auth.profile_editor().is_some())
 }
 
 /// The signed-in user and the panel's editor, or the answer to a request without them.
 fn editing(cx: &Cx) -> topcoat::Result<(&SignedIn, &dyn DynProfileEditor)> {
     let signed = signed(cx).ok_or_else(|| unauthenticated_error(cx))?;
-    let editor = signed.panel.auth.profile_editor().ok_or_else(not_found)?;
+    let editor = signed.realm.auth.profile_editor().ok_or_else(not_found)?;
     Ok((signed, editor))
 }
 
@@ -399,10 +399,10 @@ pub(super) fn profile_post(cx: &Cx, body: Body) -> BoxView<'_> {
         // A stolen session must not try passwords against the current-password check at will.
         // Counted per user alone, from any address: a lockout only holds back profile saves,
         // never a sign-in.
-        let throttle = signed.panel.auth.throttle_profile();
+        let throttle = signed.realm.auth.throttle_profile();
         if !throttle.attempt(&signed.user.user_id(), None) {
             tracing::warn!(
-                panel = %signed.panel.prefix,
+                panel = %signed.realm.prefix,
                 client = ?client_ip(cx),
                 "profile save throttled"
             );

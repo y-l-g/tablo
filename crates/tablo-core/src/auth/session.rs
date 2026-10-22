@@ -14,7 +14,7 @@ use super::{
     DynAuthenticator, PanelUser, SignedIn, infrastructure_failure,
     token::{CREDENTIALS, REVOCATION, TokenPurpose},
 };
-use crate::auth::realm::{Realm, realm, realms};
+use crate::auth::realm::{Realm, current_realm, realms};
 
 /// How long a session stays valid: seven days, fixed.
 pub const SESSION_LIFETIME: Duration = Duration::from_hours(24 * 7);
@@ -150,7 +150,7 @@ pub(super) async fn replace_sessions(
     user_type: std::any::TypeId,
     session: &session::Session,
 ) -> topcoat::Result<()> {
-    let panels = credential_panels(cx, user_type, &signed.panel);
+    let panels = credential_panels(cx, user_type, &signed.realm);
     let user_id = signed.user.user_id();
     end_credentials(&mut *ex, &user_id, &panels, CREDENTIALS).await?;
     let expires_at = Timestamp::try_from(session.expires_at).map_err(topcoat::Error::from)?;
@@ -158,7 +158,7 @@ pub(super) async fn replace_sessions(
         ex,
         &session.token_hash,
         user_id,
-        signed.panel.prefix.clone(),
+        signed.realm.prefix.clone(),
         signed.tenant,
         expires_at,
     )
@@ -267,7 +267,7 @@ async fn delete_session_row(cx: &Cx, key: &str) -> topcoat::Result<()> {
 /// The opaque sign-in outage when the database cannot answer.
 pub async fn revoke_sessions_for_user(cx: &Cx, user_id: &str) -> topcoat::Result<()> {
     let mut db = crate::db::db(cx);
-    if let Some(panel) = realm(cx) {
+    if let Some(panel) = current_realm(cx) {
         let panels = match panel.auth.authenticator() {
             Some(auth) => credential_panels(cx, auth.user_type(), panel),
             None => vec![Arc::clone(panel)],
@@ -376,7 +376,7 @@ pub(super) async fn session_user(
     {
         Some(user) => Ok(Some(SignedIn {
             user,
-            panel: Arc::clone(panel),
+            realm: Arc::clone(panel),
             tenant: row.tenant,
         })),
         None => {

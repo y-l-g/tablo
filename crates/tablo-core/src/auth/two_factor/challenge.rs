@@ -25,7 +25,7 @@ use crate::{
         login::{NEXT_FIELD, login_url, next_from_query, safe_next},
         mail::private,
         panel_root,
-        realm::{panel_prefix, realm},
+        realm::{current_realm, panel_prefix},
         registration::with_next,
         session::{fresh_session, record},
         token::{self, TokenPurpose, serializable},
@@ -80,7 +80,7 @@ pub(in crate::auth) async fn begin(
             .build(),
     );
     if kind == FactorKind::EmailCode
-        && let Some(two_factor) = realm(cx).and_then(|panel| panel.auth.two_factor_config())
+        && let Some(two_factor) = current_realm(cx).and_then(|panel| panel.auth.two_factor_config())
     {
         // A throttled sign-in mails nothing: the code mailed last still works.
         email::send(cx, two_factor, user).await?;
@@ -143,7 +143,7 @@ pub(in crate::auth) fn challenge_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
 /// `POST {prefix}/two-factor-challenge` — check the code, then sign in and land on `next`.
 pub(in crate::auth) fn challenge_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
-        let panel = realm(cx).ok_or_else(topcoat::router::error::not_found)?;
+        let panel = current_realm(cx).ok_or_else(topcoat::router::error::not_found)?;
         let (Some(authenticator), Some(two_factor)) =
             (panel.auth.authenticator(), panel.auth.two_factor_config())
         else {

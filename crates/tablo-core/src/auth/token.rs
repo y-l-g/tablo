@@ -8,7 +8,7 @@ use topcoat::{context::Cx, session::Token};
 
 use super::{infrastructure_failure, session::token_key};
 use crate::{
-    auth::realm::{panel_prefix, realm},
+    auth::realm::{current_realm, panel_prefix},
     toasty_compat::IsolationLevel,
 };
 
@@ -210,7 +210,7 @@ pub(super) const TOKEN_SWEEP_BATCH: usize = 500;
 /// issues tokens, outside any transaction: inside one, every issue would contend on the same rows.
 pub(super) async fn sweep_expired(cx: &Cx) -> topcoat::Result<()> {
     // A panel that issues no token may leave the model unregistered.
-    if realm(cx).is_some_and(|panel| panel.auth.issues_tokens()) {
+    if current_realm(cx).is_some_and(|panel| panel.auth.issues_tokens()) {
         sweep(&mut crate::db::db(cx)).await?;
     }
     Ok(())

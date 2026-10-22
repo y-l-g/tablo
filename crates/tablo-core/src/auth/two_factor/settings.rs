@@ -90,7 +90,7 @@ pub(crate) fn settings_url(cx: &Cx) -> String {
 fn configuring(cx: &Cx) -> topcoat::Result<(&SignedIn, &TwoFactor)> {
     let signed = signed(cx).ok_or_else(|| unauthenticated_error(cx))?;
     let two_factor = signed
-        .panel
+        .realm
         .auth
         .two_factor_config()
         .ok_or_else(not_found)?;
@@ -189,13 +189,13 @@ pub(in crate::auth) fn settings_post(cx: &Cx, body: Body) -> BoxView<'_> {
         // passwords to turn it on.
         if intent.checks_secret() && !two_factor.throttle.attempt(&user_id, None) {
             tracing::warn!(
-                panel = %signed.panel.prefix,
+                panel = %signed.realm.prefix,
                 client = ?client_ip(cx),
                 "two-factor settings attempt throttled"
             );
             return Err(too_many_requests(two_factor.throttle.window_secs()).into());
         }
-        let authenticator = signed.panel.auth.authenticator().ok_or_else(not_found)?;
+        let authenticator = signed.realm.auth.authenticator().ok_or_else(not_found)?;
         // A stolen session must not set up a factor its thief holds and lock the owner out. The
         // authenticator reads through a connection of its own, so this runs before the
         // transaction opens.

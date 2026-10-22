@@ -15,7 +15,7 @@ use crate::{
     notification::Notifications,
     panel::{
         Panel,
-        state::{CurrentPanel, PanelState, current},
+        state::{PanelState, current, enter},
     },
     resource::Mounts,
 };
@@ -99,7 +99,7 @@ impl PanelHandle {
     /// ```
     pub fn enter(&self, cx: &Cx) -> Cx {
         match &self.panel {
-            Some(panel) => cx.with(CurrentPanel(Arc::clone(panel))),
+            Some(panel) => enter(cx, panel),
             None => cx.with(EnteredPanel(Arc::clone(&self.mounts))),
         }
     }

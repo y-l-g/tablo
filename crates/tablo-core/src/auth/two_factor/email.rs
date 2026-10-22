@@ -8,7 +8,7 @@ use topcoat::{context::Cx, router::error::too_many_requests};
 use super::{TwoFactor, binding, cipher, key};
 use crate::auth::{
     PanelUser,
-    realm::{hosted, panel_prefix, realm},
+    realm::{current_realm, hosted, panel_prefix},
     token::{self, TokenPurpose},
 };
 
@@ -70,7 +70,7 @@ pub(super) async fn send(
     two_factor: &TwoFactor,
     user: &dyn PanelUser,
 ) -> topcoat::Result<Sent> {
-    let mail = realm(cx).and_then(|panel| panel.auth.auth_mail());
+    let mail = current_realm(cx).and_then(|panel| panel.auth.auth_mail());
     let (Some(address), Some(mail), true) = (user.email(), mail, two_factor.mails()) else {
         return Ok(Sent::Unavailable);
     };

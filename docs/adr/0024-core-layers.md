@@ -13,11 +13,11 @@ and a record form hydrates and parses; `display`, the colors and number spelling
 option share. A user never names a module by its layer: the crate root re-exports every public
 type, from whichever module defines it, so a type moves between layers without changing its path.
 
-The modules form no cycle. What a module needs of one listed after it moves down, as the flash
-cookie and the bell's wake bus did, or the later module installs it behind a trait the earlier one
-owns: the serving layer orders `auth`, `notification`, then `panel`, and `auth` reads the request's
-panel as its own `Realm` and renders through the `Host` trait the panel implements, so it names no
-panel type.
+The modules form no cycle. What a module needs of one listed after it lives in a module below
+both, or the later module installs it behind a type the earlier one owns. `auth` sits below
+`panel` this way: it reads the request's panel as its own `Realm`, which entering a panel puts in
+the request context, and renders through the `Host` trait the panel installs, so it names no panel
+type.
 
 A module's layer follows what it does, not what it is about. The panel's URL scheme, the list
 page's chrome and dialogs, and a table's request wiring serve requests, so they live under `panel`,

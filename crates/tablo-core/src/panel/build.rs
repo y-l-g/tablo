@@ -272,7 +272,7 @@ impl Panel {
             builder = builder.layer(headers::FrameAncestors::new(directive, prefix.clone()));
         }
         // Registered last of the prefix's layers, so it runs first.
-        builder = builder.layer(PanelGate::new(Arc::clone(&state.realm), &PanelHost));
+        builder = builder.layer(PanelGate::new(Arc::clone(&state.realm)));
         // The auth form routes carry their own cap scoped by path.
         builder = crate::auth::mount::routes(builder, &prefix, &state.realm.auth);
         builder = builder.layout(LayoutFn::new(
@@ -423,7 +423,7 @@ fn install_shared(mut builder: RouterBuilder) -> RouterBuilder {
         builder = builder.sessions(SessionConfig::builder().lifetime(SESSION_LIFETIME).build());
     }
     builder = builder
-        .layer(RuntimeGate::new(&PanelHost))
+        .layer(RuntimeGate::new())
         .app_context(Panels::default())
         .app_context(AuthHost(&PanelHost))
         .app_context(MountScope(request_mounts))
@@ -485,6 +485,7 @@ fn validation_cx(db: &Db, mounts: &Arc<Mounts>) -> Cx {
     let mut app_context = topcoat::context::AppContext::new();
     app_context.insert(db.clone());
     app_context.insert(Arc::clone(mounts));
+    app_context.insert(AuthHost(&PanelHost));
     app_context.insert(MountScope(|cx| {
         topcoat::context::try_app_context::<Arc<Mounts>>(cx).map(|mounts| &**mounts)
     }));

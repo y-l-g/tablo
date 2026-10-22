@@ -22,7 +22,7 @@ use super::{
 };
 use crate::{
     BoxFuture,
-    auth::realm::{Realm, hosted, panel_prefix, realm},
+    auth::realm::{Realm, current_realm, hosted, panel_prefix},
     flash::set_notification,
     form::FieldErrors,
     outcome::Notification,
@@ -247,7 +247,7 @@ pub(crate) fn reset_url(cx: &Cx) -> String {
 
 /// Whether the request's panel installs a [`PasswordReset`].
 pub(crate) fn offered(cx: &Cx) -> bool {
-    realm(cx).is_some_and(|panel| panel.auth.reset().is_some())
+    current_realm(cx).is_some_and(|panel| panel.auth.reset().is_some())
 }
 
 /// `GET {prefix}/forgot-password` — the form asking for an email address.
@@ -259,7 +259,7 @@ pub(super) fn forgot_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
 /// answer the same whether one does or not.
 pub(super) fn forgot_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
-        let panel = realm(cx).ok_or_else(topcoat::router::error::not_found)?;
+        let panel = current_realm(cx).ok_or_else(topcoat::router::error::not_found)?;
         let reset = panel
             .auth
             .reset()
@@ -371,7 +371,7 @@ pub(super) fn reset_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
 /// account holds, and send it to sign in.
 pub(super) fn reset_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
-        let panel = realm(cx).ok_or_else(topcoat::router::error::not_found)?;
+        let panel = current_realm(cx).ok_or_else(topcoat::router::error::not_found)?;
         let reset = panel
             .auth
             .reset()

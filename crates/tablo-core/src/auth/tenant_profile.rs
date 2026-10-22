@@ -18,7 +18,7 @@ use topcoat::{
 use super::{PanelUser, SignedIn, input, membership, signed, unauthenticated_error};
 use crate::{
     BoxFuture,
-    auth::realm::{SettingsPage, hosted, panel_prefix, realm},
+    auth::realm::{SettingsPage, current_realm, hosted, panel_prefix},
     flash::set_notification,
     form::{FieldErrors, FormInput, FormValues},
     outcome::Notification,
@@ -294,7 +294,7 @@ pub(crate) fn offered(cx: &Cx) -> bool {
 /// edit.
 fn editing(cx: &Cx) -> topcoat::Result<(&SignedIn, &dyn DynTenantEditor, &Membership)> {
     let signed = signed(cx).ok_or_else(|| unauthenticated_error(cx))?;
-    let editor = realm(cx)
+    let editor = current_realm(cx)
         .and_then(|panel| panel.auth.tenant_editor())
         .ok_or_else(not_found)?;
     let tenant = membership(cx)

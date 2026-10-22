@@ -2,11 +2,11 @@
 //!
 //! [`RouterBuilderPanelExt::panel`](super::RouterBuilderPanelExt::panel) turns
 //! each [`Panel`](super::Panel) into a [`PanelState`] and records it in the
-//! router's [`Panels`]. The auth gate puts the state on every request under its
-//! prefix as [`CurrentPanel`], and every handler and the shell read the panel
-//! through [`current`]: a router holds any number of panels, and each request
-//! sees exactly one. Auth reads the same panel's [`Realm`] through the panel's
-//! [`Host`](crate::auth::Host).
+//! router's [`Panels`]. The auth gate [`enter`]s the panel on every request
+//! under its prefix, and every handler and the shell read the panel through
+//! [`current`]: a router holds any number of panels, and each request sees
+//! exactly one. Auth reads the same panel's [`Realm`], which `enter` installs
+//! beside it.
 
 use std::{any::TypeId, collections::HashMap, sync::Arc};
 
@@ -17,7 +17,10 @@ use super::{
     shell::{Brand, ShellAssets},
 };
 use crate::{
-    auth::Realm, navigation::NavigationItem, page::MountedPage, resource::Mounts,
+    auth::{CurrentRealm, Realm},
+    navigation::NavigationItem,
+    page::MountedPage,
+    resource::Mounts,
     upload::InstalledUploader,
 };
 
@@ -135,6 +138,14 @@ pub(crate) struct CurrentPanel(pub(crate) Arc<PanelState>);
 /// outside every panel has none, however many panels the router mounts.
 pub(crate) fn current(cx: &Cx) -> Option<&Arc<PanelState>> {
     try_request_context::<CurrentPanel>(cx).map(|CurrentPanel(panel)| panel)
+}
+
+/// `cx` as a request to `panel`: its state, and its realm for auth.
+pub(crate) fn enter(cx: &Cx, panel: &Arc<PanelState>) -> Cx {
+    cx.with_many((
+        CurrentPanel(Arc::clone(panel)),
+        CurrentRealm(Arc::clone(&panel.realm)),
+    ))
 }
 
 /// The uploader the request's panel was mounted with, if it has one.

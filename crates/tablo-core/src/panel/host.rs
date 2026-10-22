@@ -8,22 +8,17 @@ use topcoat::{context::Cx, view::BoxView};
 use super::{
     Panel,
     forms::{FormChrome, render_form_page},
-    gate::panel_prefix,
-    state::{CurrentPanel, current, panels},
+    state::{enter, panels},
 };
 use crate::{
     BoxFuture,
-    auth::{Host, Realm, SettingsPage},
+    auth::{Host, Realm, SettingsPage, panel_prefix},
 };
 
 /// The [`Host`] every router that mounts a panel installs.
 pub(crate) struct PanelHost;
 
 impl Host for PanelHost {
-    fn realm<'a>(&self, cx: &'a Cx) -> Option<&'a Arc<Realm>> {
-        current(cx).map(|panel| &panel.realm)
-    }
-
     fn realms(&self, cx: &Cx) -> Vec<Arc<Realm>> {
         panels(cx).map_or_else(Vec::new, |panels| {
             panels
@@ -48,7 +43,7 @@ impl Host for PanelHost {
             .0
             .iter()
             .find(|panel| Arc::ptr_eq(&panel.realm, realm))?;
-        Some(cx.with(CurrentPanel(Arc::clone(panel))))
+        Some(enter(cx, panel))
     }
 
     fn answer(&self, cx: &Cx, error: topcoat::Error) -> topcoat::Error {

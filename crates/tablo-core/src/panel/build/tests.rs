@@ -1,9 +1,7 @@
 use super::*;
 use crate::{
     Ability, ResourceDef, Site,
-    panel::test_support::{
-        Dummy, current_panel, dummy_table, mount, panel_for, panel_state, refusal,
-    },
+    panel::test_support::{Dummy, dummy_table, mount, panel_for, panel_state, refusal, serving},
     test_support::tableless_db,
 };
 
@@ -85,12 +83,8 @@ async fn panel_root_redirect_rechecks_auth_before_the_root_target() {
         .into_parts();
     let mut gated = panel_state("/admin", crate::Auth::password());
     gated.root_redirect = Some("/admin/users".to_string());
-    let gated = current_panel(gated);
-    let cx = CxTestBuilder::new()
-        .app_context(crate::panel::test_support::host())
-        .request_context(parts)
-        .request_context(gated.clone())
-        .build();
+    let gated = Arc::new(gated);
+    let cx = serving(CxTestBuilder::new().request_context(parts), &gated).build();
     let err = match panel_root_redirect(&cx, Body::empty()).await {
         Ok(_) => panic!("unauthenticated root must not read the root target"),
         Err(err) => err,
@@ -120,7 +114,7 @@ async fn panel_root_redirect_rechecks_auth_before_the_root_target() {
             email_verified_at: None,
             created_at: jiff::Timestamp::UNIX_EPOCH,
         }),
-        panel: Arc::clone(&gated.0.realm),
+        realm: Arc::clone(&gated.realm),
         tenant: None,
     };
     let (parts, ()) = http::Request::builder()
@@ -128,10 +122,7 @@ async fn panel_root_redirect_rechecks_auth_before_the_root_target() {
         .body(())
         .unwrap()
         .into_parts();
-    let cx = CxTestBuilder::new()
-        .app_context(crate::panel::test_support::host())
-        .request_context(parts)
-        .request_context(gated)
+    let cx = serving(CxTestBuilder::new().request_context(parts), &gated)
         .request_context(user)
         .build();
     let err = match panel_root_redirect(&cx, Body::empty()).await {

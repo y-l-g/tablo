@@ -1,52 +1,5 @@
 use super::*;
-use crate::panel::test_support::{current_panel, panel_state};
-
-#[test]
-fn panel_prefix_prefers_the_panel_over_the_request_path() {
-    use topcoat::context::CxTestBuilder;
-
-    // On a panel's request, the resource URL is derived from the panel — even on a path that is not
-    // the list route.
-    let (parts, ()) = http::Request::builder()
-        .uri("/admin/users/42/edit")
-        .body(())
-        .unwrap()
-        .into_parts();
-    let cx = CxTestBuilder::new()
-        .app_context(crate::panel::test_support::host())
-        .request_context(parts)
-        .request_context(current_panel(panel_state(
-            "/admin",
-            crate::Auth::disabled(),
-        )))
-        .build();
-    assert_eq!(panel_prefix(&cx), "/admin");
-
-    let (parts, ()) = http::Request::builder()
-        .uri("/backoffice/users")
-        .body(())
-        .unwrap()
-        .into_parts();
-    let cx = CxTestBuilder::new()
-        .app_context(crate::panel::test_support::host())
-        .request_context(parts)
-        .request_context(current_panel(panel_state(
-            "/backoffice",
-            crate::Auth::disabled(),
-        )))
-        .build();
-    assert_eq!(panel_prefix(&cx), "/backoffice");
-
-    // Without a panel (bare test builder), fall back to the
-    // request path's first segment.
-    let (parts, ()) = http::Request::builder()
-        .uri("/admin/users/42/edit")
-        .body(())
-        .unwrap()
-        .into_parts();
-    let cx = CxTestBuilder::new().request_context(parts).build();
-    assert_eq!(panel_prefix(&cx), "/admin");
-}
+use crate::panel::test_support::{panel_state, serving};
 
 /// `?return=` is followed only to a path under the panel prefix: never off
 /// the origin, never to a sibling mount, and never through a dot segment the
@@ -64,14 +17,8 @@ fn return_target_accepts_only_paths_under_the_prefix() {
             .body(())
             .unwrap()
             .into_parts();
-        let cx = CxTestBuilder::new()
-            .app_context(crate::panel::test_support::host())
-            .request_context(parts)
-            .request_context(current_panel(panel_state(
-                "/admin",
-                crate::Auth::disabled(),
-            )))
-            .build();
+        let panel = Arc::new(panel_state("/admin", crate::Auth::disabled()));
+        let cx = serving(CxTestBuilder::new().request_context(parts), &panel).build();
         return_target(&cx)
     };
     for accepted in ["/admin", "/admin/posts/1", "/admin/posts/1?comments.q=a"] {

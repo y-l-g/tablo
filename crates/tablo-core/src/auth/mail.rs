@@ -9,7 +9,7 @@ use topcoat::{
     router::{request::uri, response::Response},
 };
 
-use crate::auth::realm::{Realm, realm};
+use crate::auth::realm::{Realm, current_realm};
 
 /// Where a panel's auth mail comes from and where its links point, installed with
 /// [`Auth::mail`](super::Auth::mail): the sender, and the absolute URL every link starts with.
@@ -121,7 +121,7 @@ where
     F: FnOnce(Cx, Arc<Realm>) -> Fut + Send + 'static,
     Fut: Future<Output = topcoat::Result<()>> + Send + 'static,
 {
-    let Some(panel) = realm(cx).map(Arc::clone) else {
+    let Some(panel) = current_realm(cx).map(Arc::clone) else {
         return;
     };
     let cx = cx.clone();
