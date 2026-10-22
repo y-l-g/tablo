@@ -274,7 +274,8 @@ where
 
     /// Declare a column rendering `project` of whatever record `relation` loads, under no
     /// resource's query, policy or field access: for a related model no resource administers. A
-    /// panel mounting a resource that restricts a field of the related model refuses it.
+    /// panel mounting a resource that restricts a field of the related model refuses it. A row
+    /// loaded without the column's include renders `"(unloaded)"` and fails a debug assertion.
     pub fn unscoped<T>(
         relation: RelationLens<M, impl ToOneRelation<T> + 'static>,
         project: impl Fn(&T) -> String + Send + Sync + 'static,

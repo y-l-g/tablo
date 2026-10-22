@@ -9,12 +9,18 @@ use std::fmt;
 pub enum ManyToManyFault {
     /// The field is no `#[has_many(via = joins.target)]` stepping through a `has_many` to a join
     /// model, then the join model's `belongs_to` to the target.
+    ///
+    /// Declare it through a `has_many` to the join model and the join model's `belongs_to`.
     NotJoinModel,
     /// A foreign key of the join model spans several columns, or references no single-column
     /// primary key.
+    ///
+    /// Key each side by one column.
     CompositeKey,
     /// The join model has a column a new link cannot fill: not nullable, not `#[auto]`, and not
     /// one of its two foreign keys.
+    ///
+    /// Make it nullable or `#[auto]`, or link the records in your own record fn.
     UnwritableColumn {
         /// The join model.
         model: String,
@@ -22,10 +28,16 @@ pub enum ManyToManyFault {
         column: String,
     },
     /// The form's control for the field is not a multiple choice over a relationship.
+    ///
+    /// Declare `.choice().relationship::<R>().multiple()`.
     NotMultipleChoice,
     /// The relationship's records are not the target's.
+    ///
+    /// Point the relationship at the target's resource.
     OtherSource,
     /// A multiple choice in a resource's form over no many-to-many field, which no column stores.
+    ///
+    /// Bind it to a `#[has_many(via = ..)]` field.
     NoJoin,
 }
 

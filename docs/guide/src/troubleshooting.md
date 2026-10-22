@@ -22,7 +22,7 @@ lists each one. This chapter covers what goes wrong once the panel mounts.
 | a record's detail page answers 404 | the resource's detail lists no column: `Detail::empty()`, or a hand-written `ModelColumns` impl | declare one with `ResourceDef::detail`, or derive `ModelColumns` |
 | `` `Post` declares no default columns `` | the resource's model does not implement `ModelColumns` | add `#[derive(tablo::ModelColumns)]` to the model |
 | a tenant-owned resource answers 403 everywhere | the request has no tenant: the user has no membership, and the shipped `AdminUser` has none | sign in [your own user table](./policy-auth-tenancy.md#tenancy), whose `PanelUser::tenants` lists memberships |
-| the export answers 413 | the search and filters match more than 10,000 rows | narrow the list before exporting |
+| the export answers 413 | the search and filters match more rows than the [export](https://y-l.fr/tablo/nightly/api/tablo/struct.Table.html#export) writes | narrow the list before exporting |
 
 ## Signing in and forms
 

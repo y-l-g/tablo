@@ -1,6 +1,8 @@
 //! The rich text control (ADR-0032): a `<textarea>` holding the HTML, which
 //! `assets/rich_text.js` replaces with an editor whose toolbar the field declares.
 
+use std::marker::PhantomData;
+
 use tablo_ui::{icons, textarea as ui_textarea};
 use toasty::stmt::Path;
 use topcoat::{
@@ -10,11 +12,36 @@ use topcoat::{
     view::*,
 };
 
-use super::{ControlKind, Field, RichTextField, render_field};
+use super::{ControlKind, Field, render_field};
 use crate::{
     FieldRuleFault,
     rich_text::{PROSE, Tool, clean_with, text_length},
 };
+
+/// A rich text field: [`Field::rich_text`], or a record form's text control made one with
+/// [`TextField::rich_text`](crate::TextField::rich_text) (`F` is the form).
+///
+/// - The toolbar is the schema. `.toolbar(..)` takes groups of `Tool`s, `Tool::DEFAULT` unless
+///   declared. Each tool names the elements it produces: `Tool::Bold` a `<strong>`, `Tool::Link` an
+///   `<a href>`, `Tool::BulletList` a `<ul>` of `<li>`. The editor registers only those, so a tool
+///   left off the toolbar cannot be typed and drops from a paste. The editor takes a link only to a
+///   URL the server keeps, and a code block's language, which the editor records as a class, is not
+///   stored.
+/// - The server cleans what it reads. A submission keeps only the elements and attributes its
+///   field's tools produce, before the record form parses it: a `<script>`, a `style`, an `on…`
+///   handler and a link to a scheme other than `http`, `https` or `mailto` never reach the column,
+///   and every link gets `rel="noopener noreferrer nofollow"`. A document with no text reads as an
+///   empty submission, so the field's blank answer applies, and the empty paragraphs the editor
+///   leaves at a document's end are dropped.
+/// - Length rules count the text. `.min_length(n)` and `.max_length(n)` count the characters a
+///   reader sees, not the markup.
+/// - Without JavaScript the control is a `<textarea>` of the HTML, cleaned the same way on submit.
+///   The editor is TipTap, which the page loads only when it holds a rich text control.
+/// - A text column moving to rich text needs its values moved too. The field reads what the column
+///   stores as HTML, so `a<b` loses its `<b`, and each edit stores what it read. Rewrite each
+///   stored value through `tablo::rich_text::from_text`, which escapes it and wraps its paragraphs,
+///   before the field edits it.
+pub struct RichTextField<F = ()>(pub(super) Field, pub(super) PhantomData<fn() -> F>);
 
 /// The rich text control's toolbar, placeholder and length rules.
 pub(crate) struct RichTextControl {

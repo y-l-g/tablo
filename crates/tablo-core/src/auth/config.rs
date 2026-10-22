@@ -99,8 +99,30 @@ impl Auth {
     /// [`PasswordAuth`] registers an active [`AdminUser`](super::AdminUser) from a
     /// [`SignUp`](super::SignUp), who signs in to the panel at once: only open it where any
     /// visitor may hold an account. A custom [`Registrar`] decides what a new account may do.
-    /// Mounting refuses a registrar whose [`User`](Registrar::User) is not the type the
-    /// authenticator loads, and a registration on [`Auth::disabled`].
+    ///
+    /// - The form is any `FormInput`, or the shipped `SignUp`. `#[form(password)]` renders a masked
+    ///   control, with a button that shows what was typed, that a refused form renders empty, and
+    ///   reads the password as typed, outer spaces included, as the login compares it.
+    ///   `#[form(email)]` refuses a malformed address before `validate` runs. A missing field and a
+    ///   malformed value answer 422 with the error under the field, as `validate`'s refusals do;
+    ///   nothing is written.
+    /// - `new_password_errors` refuses a password under eight characters and a confirmation that
+    ///   differs, under the `password` and `password_confirmation` keys.
+    /// - After the commit, an account that may open the panel is signed in, its session rotated as
+    ///   a login rotates it, and lands on `next` or the panel's home page. One that may not, such
+    ///   as an account awaiting approval, lands on the login page with a notification instead. A
+    ///   signed-in user who opens the sign-up page lands on the panel's home page.
+    /// - Mounting refuses a registrar whose `User` is not the type the authenticator loads, a
+    ///   registration on `Auth::disabled()`, a form field named `csrf_token` or `next`, a file
+    ///   field and a relationship choice, whose options would list records to a visitor nobody
+    ///   signed in.
+    /// - Throttling. Each client address may submit five sign-ups a minute, counted whether or not
+    ///   they create an account; `Auth::sign_up_throttle` changes the limit. Past it the page
+    ///   answers 429.
+    ///
+    /// The sign-up page tells a visitor whether an email is taken, which the login page never does:
+    /// an app that must keep its accounts private verifies the address by email before saying so,
+    /// which Tablo does not ship.
     #[must_use]
     pub fn registration(mut self, registrar: impl Registrar) -> Self {
         self.registrar = Some(Box::new(registrar));
@@ -128,8 +150,27 @@ impl Auth {
     ///
     /// [`PasswordAuth`] edits an [`AdminUser`](super::AdminUser)'s name, email and password through
     /// a [`Profile`](super::Profile), asking for the current password before the email or the
-    /// password changes. Mounting refuses an editor whose [`User`](ProfileEditor::User) is not
-    /// the type the authenticator loads, and a profile on [`Auth::disabled`].
+    /// password changes.
+    ///
+    /// - The form is any `FormInput`, rendered in the panel's shell. The page shows what the
+    ///   input's `write` writes, so `Profile` never shows a password. A disabled control keeps what
+    ///   `fill` wrote, whatever the POST carries. A refused save renders the form again with each
+    ///   error under its field; nothing is written.
+    /// - `save` answers `ProfileUpdate::Details`, which keeps every session, or
+    ///   `ProfileUpdate::Credentials` for a change to what the user signs in with. The user's
+    ///   sessions then end on every panel whose authenticator loads the same user type, in the
+    ///   transaction that saves, and the browser that saved gets a new session under the tenant it
+    ///   acted for. `PasswordAuth` answers `Credentials` for a new email or password.
+    /// - An email another account holds is reported only once the current password verifies, so a
+    ///   stolen session cannot probe which addresses have accounts.
+    /// - After the commit the page reloads with a notification.
+    /// - Mounting refuses an editor whose `User` is not the type the authenticator loads, a profile
+    ///   on `Auth::disabled()`, a form field named `csrf_token`, a file field and a relationship
+    ///   choice, whose options no route serves the page.
+    /// - Throttling. Each user may submit five saves a minute, from any address, counted whether or
+    ///   not they save; `Auth::profile_throttle` changes the limit. Past it the page answers 429,
+    ///   which keeps a stolen session from guessing the current password. A user past the limit can
+    ///   still sign in.
     #[must_use]
     pub fn profile(mut self, editor: impl ProfileEditor) -> Self {
         self.profile_editor = Some(Box::new(editor));
@@ -149,11 +190,28 @@ impl Auth {
     /// `{prefix}/forgot-password`, mailed through [`Auth::mail`], and choose a new password at
     /// `{prefix}/reset-password`; the login page links to it.
     ///
-    /// The request page answers the same whether an account uses the address or not. A link
-    /// works once, for [`RESET_LIFETIME`](super::RESET_LIFETIME), on this panel. Using it ends
-    /// every session and link the account holds on each panel signing in its user type.
-    /// Mounting refuses a reset whose [`User`](super::PasswordResetter::User) is not the type
-    /// the authenticator loads, a reset on [`Auth::disabled`], and one without [`Auth::mail`].
+    /// - The request page answers the same whether an account uses the address or not: it redirects
+    ///   to the login page with a notification, and writes and mails the link after answering, so
+    ///   the database and the mail server add no time when an account exists. An account that may
+    ///   not enter the panel gets no link, and a failed send is logged, not shown.
+    /// - The link goes to the stored address, never the typed one. A lookup that matches loosely,
+    ///   such as a collation that folds accents, would otherwise mail one account's link to another
+    ///   address.
+    /// - A link works once, for one hour, on the panel that mailed it, and only while the account
+    ///   may still enter the panel. A new request replaces the account's earlier link, and a
+    ///   password change on the profile page ends it, as it ends every link the account holds. The
+    ///   token is stored only as a hash, and the reset page sends no referrer and may not be
+    ///   cached.
+    /// - A reset checks the new password with `new_password_errors`, then sets it, ends the
+    ///   account's sessions and reset links on every panel whose authenticator loads the same user
+    ///   type, and redirects to the login page. All of this commits in one transaction.
+    /// - Throttling. Each address may request three links in fifteen minutes, from any client,
+    ///   counted whether or not an account uses it; `PasswordReset::throttle` changes the limit.
+    ///   Past it the page answers 429. A limit per client belongs at the proxy.
+    /// - Mounting refuses a resetter whose `User` is not the type the authenticator loads, a reset
+    ///   on `Auth::disabled()`, a reset without `Auth::mail`, a base URL that is not an absolute
+    ///   `http` or `https` URL or that carries a query or fragment, and a router without a
+    ///   `MailConfig`.
     #[must_use]
     pub fn password_reset(mut self, reset: PasswordReset) -> Self {
         self.reset = Some(reset);
@@ -162,15 +220,40 @@ impl Auth {
 
     /// Makes each signed-in user prove they read the address [`PanelUser::email`] answers before
     /// they reach anything but `{prefix}/verify-email`, which mails them a link through
-    /// [`Auth::mail`]. A sign-up mails the link at once.
+    /// [`Auth::mail`]. A sign-up mails the link at once, after the response.
     ///
-    /// Until the user verifies, a page answers with a redirect to that page and any other
-    /// request with 403. A link works once, for
-    /// [`VERIFICATION_LIFETIME`](super::VERIFICATION_LIFETIME), on this panel, and only while
-    /// the account stores the address it was mailed to; it works in a browser signed in as
-    /// someone else, or as nobody. Mounting refuses a verification whose
-    /// [`User`](super::EmailVerifier::User) is not the type the authenticator loads, a
-    /// verification on [`Auth::disabled`], and one without [`Auth::mail`].
+    /// - Until the user verifies, a page redirects to `{prefix}/verify-email` and any other request
+    ///   answers 403. The page offers to mail a link, and to sign out. A user whose
+    ///   `PanelUser::email` is `None` has no address to prove and is not held.
+    /// - Accounts that predate verification are unverified: turning it on sends each of them,
+    ///   seeded admins included, to `{prefix}/verify-email` at their next request. Backfill
+    ///   `email_verified_at` (from `created_at`, say) for the addresses you already trust.
+    /// - A link works once, for one day, on the panel that mailed it, and only while the account
+    ///   may enter the panel and still stores the address it was mailed to. It verifies on `GET` in
+    ///   any browser, signed in or not, then lands on the panel or on the login page. A mail
+    ///   scanner that opens the link verifies the address too: it fetched the link from the mailbox
+    ///   the link proves.
+    /// - A new email waits for its own link. A profile editor calls `auth::request_email_change`
+    ///   from `save` in place of writing the address: on a panel with email verification it records
+    ///   the change and answers `EmailChange::Pending`, and once the save commits the panel mails
+    ///   the new address a link that stores it and the old address a link that keeps it. Elsewhere
+    ///   it answers `EmailChange::Immediate` and the editor stores the address itself.
+    ///   `PasswordAuth` does this. The link proves only that whoever asked reads the new mailbox,
+    ///   so ask for the current password before calling it, as `PasswordAuth` does: a stolen
+    ///   session could name its thief's mailbox.
+    /// - Either link opens a page whose button does the work, so a mail scanner that fetches it
+    ///   changes nothing.
+    /// - The new address's link stores it, verified, once, for one day. It is a credential change:
+    ///   the account's sessions and sign-in links end on every panel signing in its user type, and
+    ///   the browser that confirmed keeps a new session when it was signed in as the account.
+    /// - The old address's link works for a week, before or after the change goes through: it keeps
+    ///   the old address, restoring it if the change went through, and ends every session, sign-in
+    ///   link and pending change the account holds, the cancelling browser's included: whoever
+    ///   asked for the change may hold one.
+    /// - Throttling. Each account may ask for three links in fifteen minutes;
+    ///   `EmailVerification::throttle` changes the limit. Past it the page answers 429.
+    /// - Mounting refuses a verifier whose `User` is not the type the authenticator loads, a
+    ///   verification on `Auth::disabled()`, and one without `Auth::mail`.
     ///
     /// [`PanelUser::email`]: super::PanelUser::email
     #[must_use]
@@ -181,11 +264,17 @@ impl Auth {
 
     /// Lets the signed-in user create a tenant to act for at `{prefix}/register-tenant`, through
     /// `registration`'s [`TenantRegistrar`](super::TenantRegistrar); the tenant menu links to
-    /// it. The session acts for the new tenant at once. [`TenantRegistration::required`] sends a
-    /// user who acts for no tenant there first.
+    /// it from one membership on. [`TenantRegistration::required`] sends a user who acts for no
+    /// tenant there first.
+    ///
+    /// The registrar's `Input` is the page's form; `validate` and `register` run in one
+    /// transaction, and `register` writes the tenant and the user's membership of it, answering
+    /// that [`Membership`](crate::Membership). The session then acts for the new tenant, and the
+    /// next request's [`find_by_id`](crate::Authenticator::find_by_id) must list it.
     ///
     /// Mounting refuses a registrar whose [`User`](super::TenantRegistrar::User) is not the type
-    /// the authenticator loads, and a registration on [`Auth::disabled`].
+    /// the authenticator loads, a registration on [`Auth::disabled`], a form field named
+    /// `csrf_token`, a file field and a relationship choice.
     #[must_use]
     pub fn tenant_registration(mut self, registration: TenantRegistration) -> Self {
         self.tenant_registration = Some(registration);
@@ -193,10 +282,14 @@ impl Auth {
     }
 
     /// Lets the signed-in user edit the tenant they act for at `{prefix}/tenant/profile`, through
-    /// `editor`; the tenant menu links to it for a user [`TenantEditor::may_edit`] admits.
+    /// `editor`; the tenant menu links to it for a user [`TenantEditor::may_edit`] admits, and the
+    /// page answers 403 to anyone else. `fill` loads the form from the tenant, and `validate` and
+    /// `save` run in one transaction. The form names the tenant it was filled from, so one posted
+    /// after another tab switched tenants saves nothing.
     ///
     /// Mounting refuses an editor whose [`User`](TenantEditor::User) is not the type the
-    /// authenticator loads, and a settings page on [`Auth::disabled`].
+    /// authenticator loads, a settings page on [`Auth::disabled`], a form field named
+    /// `csrf_token` or `editing_tenant`, a file field and a relationship choice.
     #[must_use]
     pub fn tenant_profile(mut self, editor: impl TenantEditor) -> Self {
         self.tenant_editor = Some(Box::new(editor));
@@ -207,9 +300,41 @@ impl Auth {
     /// links to it. An account with one signs in with a code from it, or a recovery code, at
     /// `{prefix}/two-factor-challenge` after its password.
     ///
-    /// Turning it on or off is a credential change. The secrets are sealed under the router's
-    /// cookie [`Key`](topcoat::cookie::Key): mounting refuses a router without one, and two-factor
-    /// sign-in on [`Auth::disabled`].
+    /// - Setting up happens at `{prefix}/two-factor`, which the user menu links to. It asks for the
+    ///   current password first, through `Authenticator::confirm_password`, so a stolen session
+    ///   cannot add a factor its thief holds. That method verifies with the user's
+    ///   `PanelUser::email` as the login; override it when users sign in with something else. The
+    ///   page then shows a QR code and the key, and turns two-factor sign-in on once a code from
+    ///   the app matches. It then shows eight recovery codes, once: the panel stores only their
+    ///   hashes, keyed like the secrets. The pages answer `Cache-Control: no-store`.
+    /// - Each panel enrols apart. A factor signs in to the panel that set it up only, even when
+    ///   other panels load the same user type: enrol on each.
+    /// - Signing in, a correct password leads to `{prefix}/two-factor-challenge` instead of a
+    ///   session. The challenge lasts five minutes in its own cookie and takes a code from the app
+    ///   or a recovery code. Each code works once: an app code does not sign in twice, and a
+    ///   recovery code is used up.
+    /// - Turning it on or off is a credential change: the account's other sessions and links end.
+    ///   Turning it off, and showing new recovery codes, take a code.
+    /// - Codes by email. `TwoFactor::new().email_codes()` lets a user with an address choose codes
+    ///   mailed to it in place of an app, through `Auth::mail`. Each sign-in mails a six-digit code
+    ///   that works once, for ten minutes; the challenge page mails a new one on request, in place
+    ///   of the last. Each account may have three mailed in fifteen minutes;
+    ///   `TwoFactor::mail_throttle` changes the limit. An account holds one factor at a time: it
+    ///   turns one off before setting up the other. A panel that drops `email_codes()` mails no
+    ///   more codes: an account set up for them signs in with a recovery code. A mail server that
+    ///   fails leaves the challenge up, with its button to send another code.
+    /// - Throttling. Each account may try five codes or passwords a minute, at sign-in and on the
+    ///   settings page together; `TwoFactor::throttle` changes the limit. Past it the page answers
+    ///   429. The count lives in each process: behind several, the limit holds per process. Someone
+    ///   who knows the password can use up the owner's attempts, and each new sign-in replaces the
+    ///   last challenge.
+    /// - The cookie `Key` seals the secrets. Rotating it makes every app code fail until its owner
+    ///   signs in with a recovery code and sets the app up again; a leaked key opens every secret.
+    /// - Requiring it. `TwoFactor::new().required()` sends a signed-in user without a second factor
+    ///   to `{prefix}/two-factor` before anything else, as an unverified address does: a page
+    ///   redirects there and any other request answers 403.
+    /// - Mounting refuses two-factor sign-in on `Auth::disabled()`, a router without a cookie
+    ///   `Key`, and codes by email without `Auth::mail`.
     #[must_use]
     pub fn two_factor(mut self, two_factor: TwoFactor) -> Self {
         self.two_factor = Some(two_factor);

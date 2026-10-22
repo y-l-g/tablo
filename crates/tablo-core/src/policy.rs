@@ -38,38 +38,51 @@ pub use abilities::Abilities;
 #[derive(Debug)]
 #[derive_where(Clone, Copy)]
 pub enum Ability<'a, M> {
-    /// Open the list, export it, and offer the records as relationship options.
+    /// Open the list, export it, and offer the records as relationship options: asked by the list
+    /// and its live refresh, the sidebar entry, the export, related tables and relationship
+    /// options. It is the only ability the list asks: a policy cannot run in the database, so the
+    /// rows a user must not see belong out of [`Resource::query`](crate::Resource::query).
     ViewAny,
-    /// See one record.
+    /// See one record: asked by the detail page, the edit page and POST, deletes, each exported
+    /// row, each relationship option, and each row's actions.
     View(&'a M),
-    /// Open the create form and submit it.
+    /// Open the create form and submit it: asked by the create page and POST, and the Create
+    /// button.
     Create,
-    /// Edit one record.
+    /// Edit one record: asked by the edit page and POST, and the row's Edit action.
     Update(&'a M),
-    /// Delete at all.
+    /// Delete at all: asked by the delete and bulk-delete POSTs before any record loads, the
+    /// Delete action and the bulk column.
     DeleteAny,
-    /// Delete one record.
+    /// Delete one record: asked of each record a delete removes, and by the row's Delete action
+    /// and checkbox.
     Delete(&'a M),
     /// Restore trashed records at all, on a resource that
-    /// [soft-deletes](crate::ResourceDef::soft_delete).
+    /// [soft-deletes](crate::ResourceDef::soft_delete): asked by the restore POSTs and the
+    /// Restore buttons.
     RestoreAny,
-    /// Restore one trashed record.
+    /// Restore one trashed record: asked of each record a restore brings back, and by its Restore
+    /// button and checkbox.
     Restore(&'a M),
     /// Delete trashed records for good at all, on a resource that
     /// [soft-deletes](crate::ResourceDef::soft_delete). Allowed only with
-    /// [`DeleteAny`](Self::DeleteAny).
+    /// [`DeleteAny`](Self::DeleteAny). Asked by the force-delete POSTs and the Delete
+    /// permanently buttons.
     ForceDeleteAny,
     /// Delete one trashed record for good. Allowed only with [`Delete`](Self::Delete) of it, so a
-    /// policy refusing a record's delete refuses its force delete too.
+    /// policy refusing a record's delete refuses its force delete too. Asked of each trashed
+    /// record a force delete removes, and by its button and checkbox.
     ForceDelete(&'a M),
     /// Run the custom [`Action`](crate::Action) whose [`NAME`](crate::Action::NAME) is `action`
-    /// at all, before [`Run`](Self::Run) is asked of each record.
+    /// at all, before [`Run`](Self::Run) is asked of each record: asked by the action's POSTs,
+    /// before any record loads, its buttons, and the bulk column for a bulk action.
     RunAny {
         /// The action's [`NAME`](crate::Action::NAME).
         action: &'static str,
     },
     /// Run the custom [`Action`](crate::Action) whose [`NAME`](crate::Action::NAME) is `action`
-    /// on one record.
+    /// on one record: asked of each record the action runs on, and by its button on the record's
+    /// row and pages and, for a bulk action, the record's checkbox.
     Run {
         /// The action's [`NAME`](crate::Action::NAME).
         action: &'static str,
@@ -78,6 +91,9 @@ pub enum Ability<'a, M> {
     },
     /// Run the [`HeaderAction`](crate::HeaderAction) whose `NAME` is `action` from the list's
     /// header. It acts on no record, so nothing else of the policy is asked but `ViewAny`.
+    ///
+    /// It is not [`RunAny`](Self::RunAny): a policy that grants every record action with
+    /// `RunAny { .. } => true` grants no header action by it.
     RunHeader {
         /// The action's [`NAME`](crate::HeaderAction::NAME).
         action: &'static str,
@@ -148,6 +164,19 @@ impl<'a, M> Ability<'a, M> {
 }
 
 /// Decides which [`Ability`]s the current user has over a resource's records.
+///
+/// Every handler asks the same abilities that decide which buttons render, so a hidden button is
+/// also a refused request, answered 403:
+///
+/// - a record is viewed before it is written: the edit, delete and action handlers ask
+///   [`View`](Ability::View) together with `Update`, `Delete` or `Run`;
+/// - a write is checked against the stored row: the update, delete and action handlers load the
+///   record inside the write's transaction and ask about that row, not the submitted key. A bulk
+///   delete or bulk action fails as a whole when any selected record is refused `View`, and skips
+///   the records refused `Delete` or `Run`;
+/// - an action's [`can_run`](crate::Action::can_run) reads the record's state and sees no policy,
+///   so a panel that mounts the resource with [`ReadOnly`] offers and runs none of its actions;
+/// - a relationship choice asks the related resource's policy for `ViewAny` and `View`.
 ///
 /// A closure `|cx: &Cx, ability: Ability<'_, M>| -> bool` is a policy, and the
 /// building blocks combine with `and` and `or`.

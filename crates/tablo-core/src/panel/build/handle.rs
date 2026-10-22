@@ -62,10 +62,13 @@ impl PanelHandle {
     /// them: what a job or a test passes to [`scoped_query`](crate::scoped_query),
     /// [`can`](crate::can), [`write_create`](crate::write_create) and the other entry points that
     /// answer from a mounted def. It holds the database and the resources, and no request,
-    /// session or tenant. Add a tenant with `cx.with(Tenant(id))`.
+    /// session or tenant. Add a tenant with `cx.with(Tenant(id))`. It carries no signed-in user,
+    /// so a policy that reads one answers as for a signed-out request.
     ///
     /// The context is one unit of work, as a request is: loads it memoizes stay cached for its
-    /// lifetime, so a job builds one per run.
+    /// lifetime, so a job builds one per run. A context built with no panel at all knows no
+    /// resource: every entry point that reads a mounted def answers as for a resource the panel
+    /// does not mount.
     pub fn context(&self) -> Cx {
         validation_cx(&self.db, &self.mounts)
     }

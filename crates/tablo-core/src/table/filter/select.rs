@@ -125,7 +125,16 @@ where
     ///
     /// SelectFilter::relationship::<AuthorResource>(lens!(Post.author_id)).label("Author");
     /// ```
-    /// A form's relationship choice loads the same rows the same way, so its loader is reused.
+    /// A form's relationship choice loads the same rows the same way, so its loader is reused:
+    /// the source's tenant-scoped rows the user may view, at most
+    /// [`MAX_RELATIONSHIP_OPTIONS`](crate::MAX_RELATIONSHIP_OPTIONS) of them. Past that cap, or
+    /// when the source refuses the load, the control lists only the chosen keys.
+    ///
+    /// It applies only the keys of rows the user may view: within the cap, the keys its options
+    /// list; past it, the keys one query through the source's scope and `View` policy returns.
+    /// Another key is ignored as one no row holds: the list warns and the export answers 400.
+    /// [`new`](Self::new) or [`of`](Self::of) over a foreign key checks no source, so it does not
+    /// hide that a key links to a row the user cannot view.
     pub fn relationship<R>(lens: crate::Lens<M, impl Sized, impl FilterKey>) -> Self
     where
         R: OptionSource,

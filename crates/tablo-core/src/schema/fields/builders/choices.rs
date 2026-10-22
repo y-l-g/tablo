@@ -94,6 +94,18 @@ impl<F> ChoiceField<F> {
     /// A resource's options carry its [`record_title`](crate::ResourceDef::record_title), the
     /// title its detail page shows. [`relationship_labelled`](Self::relationship_labelled)
     /// labels one field's options otherwise.
+    ///
+    /// - Options come from the related resource's tenant-scoped query and follow its policy: the
+    ///   list is empty and the field shows "not available" unless the related resource's policy
+    ///   allows `ViewAny`, and each record must pass its `View`.
+    /// - A submitted key must be one of those records, so a hand-crafted POST cannot point at
+    ///   another tenant's row. The write checks the key again inside its transaction, so a record
+    ///   deleted, moved to another tenant or hidden since the form validated refuses the write with
+    ///   the same field error.
+    /// - At most 200 options load. Past that, a `.searchable()` choice turns into type-to-search
+    ///   against `GET {list_url}/-/options`, which searches the related table's `searchable()`
+    ///   columns; a non-searchable choice shows an error instead. `.searchable()` also filters a
+    ///   short list as you type. Without JavaScript the plain select remains.
     pub fn relationship<R>(mut self) -> Self
     where
         R: OptionSource + 'static,
@@ -109,6 +121,23 @@ impl<F> ChoiceField<F> {
     /// `column` belongs to the [`relationship`](Self::relationship)'s source model; mounting
     /// refuses another model, a choice without a relationship, and a `parent` the schema does not
     /// place.
+    ///
+    /// - The form renders the options of the parent's current value, and none while it is blank.
+    ///   When the parent changes, the browser fetches the new options from `GET
+    ///   {list_url}/-/options` and keeps the current choice only if they still offer it. A choice
+    ///   they drop changes too, so a choice depending on it, or a condition watching it, follows.
+    /// - A submission must name a record of the parent value it posts, or, on an edit that does not
+    ///   post the parent, of its stored value. The write checks the key again inside its
+    ///   transaction, as for any relationship.
+    /// - The 200-option cap counts the parent's records. Past it, a `.searchable()` dependent
+    ///   choice searches among them, and any other offers no option. A failed fetch offers none
+    ///   either.
+    /// - Without JavaScript the options stay those of the value the page rendered with, and a
+    ///   submission naming another value's record is refused.
+    /// - `column` must belong to the relationship's model, and the parent must be placed in the
+    ///   same schema: mounting refuses either mistake. Only a resource's form serves the options,
+    ///   so mounting also refuses a dependent choice in an action's input.
+    /// - A multiple choice neither depends on another field nor narrows one: mounting refuses both.
     pub fn depends_on<M, T>(
         mut self,
         parent: &impl Watched<F>,

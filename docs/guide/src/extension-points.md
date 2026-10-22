@@ -14,20 +14,18 @@ the `Toggle` control implement the same traits.
 ## Relationship option sources
 
 A relationship choice field loads its options through
-`tablo::extend::OptionSource`. Every resource is one, answering from its def
-as the request's panel mounted it: `scoped_query` states the tenant-scoped
-seed query, `allows` asks the policy about each row (default deny), and
-`requires_tenant`, `search_expr`, and `order_by` shape scoping, search, and
-ordering. Loads are bounded to 200 options, memoized per request, and fail
-closed on denial.
+[`tablo::extend::OptionSource`](https://y-l.fr/tablo/nightly/api/tablo/extend/trait.OptionSource.html). Every resource is one,
+answering from its def as the request's panel mounted it, so a choice over a resource offers what
+its list would show the same user. Implement it for a source that is not a resource, such as a
+lookup table no panel lists; the trait's page says what each method states and how a load is
+bounded.
 
 ## Table state values
 
 `tablo::Sort` (`?sort=<column>&dir=asc|desc`), `TableState::page` and
 `per_page` (`?page=`, `?per_page=`), and `tablo::Cursor` (`?after=` / `?before=`)
 are the parsed sort and pagination of a list URL; see [Tables](./tables.md).
-`tablo::TablePage::position` says where a numbered page sits. Cursors are
-opaque: conflicting cursors parse as none and render the first page.
+`tablo::TablePage::position` says where a numbered page sits.
 
 ## Notifications
 

@@ -61,17 +61,11 @@ Panel::new("portal").resource_with::<PostResource>(|def| def.policy(ReadOnly))
 
 ## Naming
 
-The names default from the type names, following Filament's conventions:
-
-| `ResourceDef` method | Default | `BlogPostResource` over `BlogPost` |
-| --- | --- | --- |
-| `slug(..)` | resource name without `Resource`, in sentence case, pluralized, lowercased with hyphens | `blog-posts` |
-| `label(..)` | the model's type name in sentence case; used in "Create …" and "Edit …" | `Blog post` |
-| `plural_label(..)` | the label pluralized; the sidebar entry and list title | `Blog posts` |
-
-The plural rules are the `pluralizer` crate's, which Toasty names its tables with: `Person` reads
-`People`, `ContactPerson` serves `contact-people` and `URLResource` serves `urls`. Set `label`
-to rename a record, and `plural_label` only when the rules guess wrong.
+The names default from the type names, following Filament's conventions: `BlogPostResource`
+over `BlogPost` serves `blog-posts`, titles a record "Blog post" and its list "Blog posts". The
+plural rules are the `pluralizer` crate's, which Toasty names its tables with. Set `label` to
+rename a record, and `plural_label` only when the rules guess wrong;
+[`ResourceDef::slug`](https://y-l.fr/tablo/nightly/api/tablo/struct.ResourceDef.html#method.slug) and its siblings have the defaults.
 
 ## Scoping the query
 
@@ -93,10 +87,9 @@ Three things do not belong in `query`:
   one with `include`. Include a relation in `query` only when every loader
   reads it, for example because the policy does.
 
-In your own code, load a resource's rows with `scoped_query::<R>(cx)?`, not `R::query(cx)`:
-`scoped_query` is `query` with the tenant filter of the def the request's panel mounted, without
-the trashed records, and returns an error rather than an unscoped query when the request has no
-tenant or the panel does not mount `R`. A background job builds its context from the mounted panel's `PanelHandle`; see
+In your own code, load a resource's rows with
+[`scoped_query::<R>(cx)?`](https://y-l.fr/tablo/nightly/api/tablo/fn.scoped_query.html), not `R::query(cx)`: it adds the tenant
+filter and leaves out the trashed records, and returns an error rather than an unscoped query. A background job builds its context from the mounted panel's `PanelHandle`; see
 [Outside a request](./data-access.md#outside-a-request).
 
 The unique-value check on forms probes through the same scoped query, so a `#[unique]` index
@@ -112,26 +105,12 @@ A resource that keeps deleted records names the column a delete stamps, a nullab
 ```
 
 A delete then sets the column to the current time instead of removing the row, and every loader
-leaves the stamped records out: the list and the export, the edit page, actions, relationship
-options and other resources' relation columns. The list's filter bar gains a **Trashed** control
-showing the live records, all of them, or only the trashed ones (`?f.trashed=with`,
-`?f.trashed=only`). A trashed record's row and detail page offer **Restore**, which empties the
-column, and **Delete permanently**, which removes the row, each also in the bulk bar while the
-list shows trashed records. Its edit page, its Delete and every other action refuse it until it is
-restored: a record's own route answers 404, and a bulk action skips it.
-
-The policy decides who may restore and delete permanently through `Ability::RestoreAny` and
-`Ability::Restore(record)`, and `Ability::ForceDeleteAny` and `Ability::ForceDelete(record)`;
-`ReadOnly` allows neither. The [hooks](#hooks) receive them as `Change::Restore` and
-`Change::ForceDelete`, and a delete as `Change::Delete`. Override `restore_record` or
-`force_delete_record` to write another way, as `delete_record` can be.
-
-In your own code, `scoped_query_in::<R>(cx, Trashed::Only)` loads the trashed records, and
-`Trashed::With` loads both, under the same tenant filter as `scoped_query`.
-
-The record form must not write the column: a `ModelForm` marks it `#[form(skip)]`. The unique
-check on forms probes the trashed records too, since the database's unique index still covers
-them.
+leaves the stamped records out. The list's filter bar gains a **Trashed** control, and a trashed
+record offers **Restore** and **Delete permanently**, which the policy allows through
+`Ability::Restore` and `Ability::ForceDelete`. In your own code, `scoped_query_in::<R>(cx,
+Trashed::Only)` loads the trashed records.
+[`ResourceDef::soft_delete`](https://y-l.fr/tablo/nightly/api/tablo/struct.ResourceDef.html#method.soft_delete) has the rules, and
+the hooks receive the writes as `Change::Restore` and `Change::ForceDelete`.
 
 ## Field access
 
@@ -142,66 +121,25 @@ A field only some users may see, or only some may change, declares who:
 ```
 
 Each rule asks about the request, not the record, and it binds the field of its model: every
-resource the panel mounts over that model obeys it. A user `view` refuses sees the field nowhere the
-panel shows its records: not its column in the list, the column picker or the export, not the
-filters, the grouping or the search over it, not its entry on the detail page, not its control on
-any form, and not another resource's relation column of it. A sort or a filter naming it reads as
-one naming a column the table does not declare. A user `view` allows and `edit` refuses sees the
-control disabled, on every form of the model. Editing implies viewing.
+resource the panel mounts over that model obeys it. A user `view` refuses sees the field nowhere
+the panel shows its records, and one `edit` refuses sees its control disabled.
+[`ResourceDef::field_access`](https://y-l.fr/tablo/nightly/api/tablo/struct.ResourceDef.html#method.field_access) lists every place
+the rule reaches.
 
-The form never posts a field the user may not change, so a submission that does answers 400. An
-edit keeps the stored value. A create takes the control's `default`, else the field's blank
-answer; when the field is required and has no default, the user cannot create, and the list
-offers no **Create** button.
-
-If a validation error lands on a hidden field, the form shows an alert that a field the user
-cannot see refuses the save, without its message.
-
-Hiding a `belongs_to` relation hides its foreign key, and hiding the key hides the relation. A
-`has_many` or a `has_one` cannot be restricted: its records are the related resource's, which its
-policy restricts. A primary key cannot be restricted either: it is every record's URL id and its
-default label. A `ComputedColumn`, a `QueryFilter` and a `TextColumn` with a `description` say
-which fields they read, since the panel cannot see inside their closures:
+The panel cannot see inside a closure, so a `ComputedColumn`, a `QueryFilter` and a `TextColumn`
+with a `description` say which fields they read, and on a panel that restricts a field the mount
+refuses one that does not:
 
 ```rust,ignore
 ComputedColumn::new("Pay", |e: &Employee| e.salary.to_string())
     .reading(Reads::of(lens!(Employee.salary)))
 ```
 
-A custom `Column` or `Filter` answers `reads`. On a panel that restricts a field, the mount refuses
-one that does not. With a `view` rule, it also refuses a record title over the field and a form
-condition or dependent choice that watches it from outside it.
-
-A relation column shows the record through the resource it names. `RelationColumn::new::<R>` names
-the fields its closure reads, and a user the restriction hides one from finds no such column on the
-list, the detail page or the export:
-
-```rust,ignore
-RelationColumn::new::<EmployeeResource>(relation!(Badge.owner), lens!(Employee.salary), |e| {
-    e.salary.to_string()
-})
-```
-
-`RelationColumn::of::<R>` and `list::<R>` show the record's title, which the mount keeps clear of
-every hidden field, and a `CountColumn` shows no field, so it mounts over any source. The mount
-refuses a declaration that would show a restricted record the panel cannot mask:
-
-- a relation column over a source the panel does not mount, or `RelationColumn::unscoped`, that
-  loads a record of a model a resource restricts a field of;
-- a `ComputedColumn` or a custom column on a page whose columns load such a record;
-- a relationship choice or filter labelled by a custom label, or by a source the panel does not
-  mount, over such a model;
-- a dependent choice narrowed by a restricted field, which would show which records hold each value
-  of it;
-- a `QueryFilter` whose reads reach such a model through a relation, since its query can match on
-  the field.
-
-Show such records through a mounted resource instead: `RelationColumn::new::<R>` for their fields,
-`RelationColumn::of::<R>` for their title, and a relationship filter over the foreign key.
-
-A `ComputedColumn`'s closure may read a relation the resource's own `Resource::query` loads. The
-query is opaque to the mount, so that closure is the app's own, as the query of a `QueryFilter`
-through a relation is.
+A related record shows through the resource it names, which applies the restriction:
+`RelationColumn::new::<R>` names the fields its closure reads, and `RelationColumn::of::<R>`
+shows the record's title. A declaration that would show a restricted record the panel cannot mask,
+such as `RelationColumn::unscoped`, fails to mount;
+[`FieldAccessFault`](https://y-l.fr/tablo/nightly/api/tablo/enum.FieldAccessFault.html) lists each case.
 
 ## Writes
 
@@ -225,16 +163,8 @@ impl Resource for CommentResource {
 
 Run every statement through `ex`, and use the `record` you are given rather than loading it
 again: it is the row the policy check passed. Both functions return the written row, or a
-`WriteError`, which rolls the transaction back, so nothing they wrote before returning stays:
-
-- `WriteError::Refused(errors)` renders the form again with status 200, each error under the
-  control of the field it names, keyed by the record form's field enum as in `validate_record`.
-  `WriteError::field(key, message)` builds one with a single error, and `?` turns a `FieldErrors`
-  into one. A refusal that names no field is a declaration error.
-- `WriteError::Failed(error)` answers as a failed write does: a collision on a unique index
-  renders under the field's control, a save another save overtook renders the stale form, and any
-  other error answers with the failure toast and an error response. `?` turns any error a
-  `topcoat::Error` takes, such as a `toasty::Error`, into one.
+[`WriteError`](https://y-l.fr/tablo/nightly/api/tablo/enum.WriteError.html), which rolls the transaction back: `Refused` renders the
+form again with each error under its field, and `Failed` answers as a failed write does.
 
 A rule that reads the database refuses here rather than in `validate_record`, which runs before
 the transaction opens and gets no executor: a stock level, a quota, or a uniqueness no index
@@ -244,11 +174,8 @@ row its record fn refuses with the other refused rows, and rolls that row back t
 the rows after it are checked without its writes.
 
 `delete_record` deletes the row by its primary key, or stamps it on a resource that soft-deletes,
-and `bulk_delete_records` calls `delete_record` once per record in one transaction, so overriding
-`delete_record` covers both. A bulk delete runs like a bulk action: it deletes the selected records
-the policy's `Delete` allows and reports the rest as skipped (`"Bulk deleted (2 of 5 skipped)"`).
-A selected record the policy's `View` refuses refuses the whole request with 403, and nothing is
-deleted.
+and `bulk_delete_records` calls it once per record, so overriding `delete_record` covers both. A
+bulk delete skips the records the policy refuses, as a bulk action does.
 
 ### Hooks
 
@@ -282,31 +209,9 @@ An error it returns is logged and the write stays committed, and a crash between
 the hook skips it, so a row that must exist whenever the write does is written in
 `before_commit`.
 
-| `Change` | Carries |
-| --- | --- |
-| `Create(record)` | the created row |
-| `Update { before, after }` | the row as the handler loaded it and as the update left it |
-| `Delete(records)` | the deleted rows, every one in one call for a bulk delete |
-| `Restore(records)`, `ForceDelete(records)` | the trashed rows a [soft-deleting](#soft-deletes) resource restored or deleted for good |
-| `Action { name, records }` | the action's `NAME` and the rows it ran on |
-| `HeaderAction { name }` | the header action's `NAME` |
-| `Attach { owner, relation, key }` | the owner, its relation field and the linked record's key |
-| `Detach { owner, relation, keys }` | the owner, its relation field and the unlinked records' keys |
-
-`change.records()` lists the resource's rows a change names: the created or updated row as the
-write left it, the rows a delete, a restore or an action named as they stood before it, and the
-owner of an attach or a detach. Keys are spelled as the related resource's URLs spell them,
-whatever spelling the request posted.
-
-The audit example's match lists every variant without a `_` arm, so a kind of write a later
-Tablo adds breaks the build instead of going unaudited. Three things a `Change` does not say:
-
-- **Links written through a form.** A create or an edit that changes a many-to-many form field
-  reports the record only; read the links through `ex` when the audit needs them. The relation
-  table's own writes report as `Attach` and `Detach`.
-- **A header action's work.** It reports its name only; the hook knows who ran it through `cx`.
-- **Whether an edit changed anything.** A submission that names no field still reports an
-  `Update`, with `before` equal to `after`.
+[`Change`](https://y-l.fr/tablo/nightly/api/tablo/enum.Change.html) lists what each variant carries, and what a change does not
+say, such as the links a form wrote. The audit example's match lists every variant without a `_`
+arm, so a kind of write a later Tablo adds breaks the build instead of going unaudited.
 
 A `Change` carries every column, including fields the user's [field access](#field-access) hides.
 An audit table that lower-privilege users can read should store only what they may see.
@@ -315,43 +220,11 @@ The profile and tenant-settings pages save their own rows and reach neither hook
 
 ## Startup checks
 
-Mounting the panel builds each resource's def once and binds its table, form and detail page to the
-database schema, so a path through an embedded value binds its flattened column wherever a
-declaration names one. It refuses the resource when:
-
-- its table, form or detail page is malformed: a duplicate column, filter or field name, a zero page
-  size, an empty column set (a resource whose model's table lists nothing declares its own
-  `table`), or a lens that binds no column. Rendering such a table through `WiredTable::render`
-  or such a schema through `Schema::render` fails with the same errors;
-- the form asks for what the database or the framework will not honor: a `unique()` field with
-  no unique index or whose non-nullable column an empty submission would fill, or a tenant-owned
-  resource's record form claiming its tenant column;
-- a relationship field takes its options from a resource the panel does not register, or a
-  `RelationColumn::of` labels its records by one;
-- a choice field declares neither options nor a relationship, so its `<select>` offers nothing;
-- the policy allows `Create` and a non-nullable column is set by nothing: not the form, not a
-  Toasty default, not the tenant stamp, and not named by `create_column`;
-- a `NoForm` resource's policy allows `Create`;
-- a `Tenancy::column` lens is not one field of the model, a `Tenancy::via` lens is, or the form
-  of a `Tenancy::via` resource writes the parent's foreign key other than through a relationship
-  field over a tenant-scoped resource;
-- a `soft_delete` lens is not one field of the model, or the record form writes its column;
-- a `field_access` lens is not one field of the model, names a field twice, a `has_many`, a
-  `has_one` or the soft-delete column; the record title,
-  a form condition or a dependent choice reads a restricted field; or, once any field is
-  restricted, a table column, filter or detail column does not declare the fields it reads;
-- two actions share a `NAME`, record or header;
-- a many-to-many field or relation goes through a join model a link cannot write, or a multiple
-  choice in a resource's form names no many-to-many field;
-- a relation names a resource the panel does not register, or names one twice;
-- the panel registers the resource twice.
-
-The refusal lists every mistake the panel found, not only the first. `.panel(..)` returns it as a
-`MountError`: each of its `DeclarationError`s names the resource, the `Site` of the declaration
-it is in (`Panel`, `Registration`, `Tenancy`, `SoftDelete`, a `FieldAccess`, `Table`, `Form`, `Detail`, a `Relation`) and a
-`DeclarationErrorKind`, whose `Display` is the message. [Mount errors](./mount-errors.md) lists
-every kind with its fix.
-[Testing](./testing-and-benchmarks.md#testing-a-panel) shows a test matching on the kind.
+Mounting the panel builds each resource's def once and binds its table, form and detail page to
+the database schema. It refuses a resource whose declaration cannot work, such as a `unique()`
+field with no unique index, a column nothing writes on create, or a relation to a resource the
+panel does not register, and lists every mistake it found in one `MountError`:
+see [Mount errors](./mount-errors.md).
 
 An action's `NAME` is checked when the app compiles: `ResourceDef::action` and
 `ResourceDef::header_action` do not compile an action whose name is not one URL segment.
@@ -364,6 +237,5 @@ A form control from elsewhere does not compile either: `ResourceDef::form` takes
 `Schema<R::Form>`, which places only the record form's own `controls()`, so a control of another
 form, or a field built with `Field::text`, is a type error rather than a refused mount.
 
-The panel serves the checked def to every request, so `declare()` must not depend on the request:
-it takes no user, tenant or query string. Request-dependent decisions belong to the policy and to
-the trait methods, which receive `cx`.
+The panel serves the checked def to every request, so `declare()` never reads the request:
+decisions about the user or the tenant belong to the policy and to the trait methods.

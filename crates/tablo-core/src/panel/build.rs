@@ -78,6 +78,18 @@ use self::handle::request_mounts;
 /// ```
 pub trait RouterBuilderPanelExt: Sized {
     /// Mounts `panel` at its prefix with its routes, shell layout, and gating layers.
+    ///
+    /// The panel reads the router's `Db` and asset bundle, so `.app_context(db)` and
+    /// `.assets(..)` come first. The first panel mounted also installs what every panel shares:
+    /// cookies, sessions unless the router already configures them, the gate over Topcoat's
+    /// runtime endpoints, and Topcoat's runtime layer with link prefetching off unless the router
+    /// already set those up. The runtime layer has no path, so mount panels after the app's own
+    /// pathless layers: a page re-run must reach those layers already rewritten to a `GET`.
+    ///
+    /// # Errors
+    ///
+    /// A [`MountError`](crate::MountError) listing every declaration mistake, each a
+    /// [`DeclarationErrorKind`](crate::DeclarationErrorKind).
     fn panel(self, panel: Panel) -> Result<Self>;
 
     /// The panel mounted at `prefix`, for code that runs outside a request; `None` when no panel

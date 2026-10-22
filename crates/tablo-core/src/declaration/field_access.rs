@@ -9,24 +9,39 @@ use std::fmt;
 #[non_exhaustive]
 pub enum FieldAccessFault {
     /// Two declarations over one field.
+    ///
+    /// Declare it once, with both its `view` and its `edit` rule.
     Duplicate,
     /// The field is the inverse side of a relation, a `#[has_many]` or a `#[has_one]`, whose
     /// records the related resource's relation table and policy show and link.
+    ///
+    /// Restrict them with the related resource's policy.
     Inverse,
     /// The field is the [soft-delete](crate::ResourceDef::soft_delete) column, whose state the
     /// trash control and the Restore buttons show every user.
+    ///
+    /// Restrict restores and force deletes with the policy's `Restore` and `ForceDelete`.
     SoftDelete,
     /// The record title reads the field, and every page and relationship choice names a record
     /// by its title. Asked of a rule with a `view` rule only.
+    ///
+    /// Title the record by a field every user may view.
     RecordTitle,
     /// A rule hides a primary key. The key is every record's URL id and its default label, which
     /// every page and relationship choice shows, so no user may be kept from seeing it.
+    ///
+    /// Restrict a field that is not the key.
     RecordKey,
     /// A form condition or a dependent choice watches the field, so what the form shows would
     /// tell what it holds. Asked of a rule with a `view` rule only.
+    ///
+    /// Watch a field every user may view.
     Watched,
     /// A column or a filter of a resource over a model a panel restricts a field of does not
     /// declare the fields it reads, so the panel cannot tell whether it shows the restricted one.
+    ///
+    /// Declare `.reading(Reads::of(..))` on a `ComputedColumn`, a `QueryFilter` or a described
+    /// `TextColumn`, or implement `reads` on a custom column or filter.
     UndeclaredReads {
         /// `"column"` or `"filter"`.
         what: &'static str,
@@ -35,6 +50,10 @@ pub enum FieldAccessFault {
     },
     /// A column or a filter reads records of a model a mounted resource restricts a field of,
     /// under no field access a panel can mask.
+    ///
+    /// Show the records through a mounted resource: `RelationColumn::new::<R>` naming the fields it
+    /// reads, `RelationColumn::of::<R>` for their title, or a relationship filter over the foreign
+    /// key.
     UnmaskedRelation {
         /// The column's or the filter's name.
         name: String,
@@ -43,12 +62,16 @@ pub enum FieldAccessFault {
     },
     /// A column or a filter reads a relation the mount cannot read off the model's schema, so it
     /// cannot tell whether the relation reaches records a mounted resource restricts.
+    ///
+    /// Declare the relation as a `Deferred` field of the model.
     UnresolvedRelation {
         /// The column's or the filter's name.
         name: String,
     },
     /// A dependent choice narrows its options by a field a mounted resource restricts, so the
     /// options would show which records hold each value of it.
+    ///
+    /// Narrow by a field every user may view.
     NarrowedBy {
         /// The field the choice narrows by.
         field: String,

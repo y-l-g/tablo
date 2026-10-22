@@ -8,15 +8,25 @@ use std::fmt;
 #[non_exhaustive]
 pub enum FieldRuleFault {
     /// A `min` or `max` that is no value the field's type parses, or a type without an order.
+    ///
+    /// Bound a number, date, time or timestamp field by a value of its type.
     UnorderedBound(String),
     /// A `pattern` the server does not compile, with the compiler's reason.
+    ///
+    /// Fix the pattern.
     InvalidPattern(String),
     /// A `min_length` above the `max_length`, or a `min` above the `max`: no value passes.
+    ///
+    /// Lower the minimum or raise the maximum.
     EmptyRange,
     /// A default that breaks a rule, so a create that keeps it is refused.
+    ///
+    /// Change the default or the rule.
     RefusedDefault(String),
     /// A default the field's type does not parse, as a timestamp spelled without an offset, so a
     /// create that keeps it is refused.
+    ///
+    /// Spell the default as the type does, or pass a value of the type.
     UnparsedDefault(String),
     /// A rich text editor over a field whose type is no text, as a number or a timestamp,
     /// carrying the input type its text control had.

@@ -14,58 +14,20 @@ use topcoat::{asset::RouterBuilderAssetExt, router::{Router, RouterBuilderDiscov
 
 ## Routes
 
-A resource with the slug `users`, on a panel mounted at `/admin`, serves:
+A resource with the slug `users`, on a panel mounted at `/admin`, serves its list at
+`/admin/users`, each record's pages under `/admin/users/{id}`, and its list-wide routes, such
+as the create form and the CSV export, under `/admin/users/-/`. The `-` segment keeps those apart
+from a record's, so a record whose key is `create` still has its detail page. A resource without a
+record form serves no form routes, and an action or a relation adds routes of its own.
+[`Panel::resource`](https://y-l.fr/tablo/nightly/api/tablo/struct.Panel.html#method.resource) lists every route and when it is served.
 
-| Method | Path | Serves |
-| --- | --- | --- |
-| `GET` | `/admin/users` | the list |
-| `GET` | `/admin/users/{id}` | the [detail page](./detail-pages.md); 404 when the resource's view is empty |
-| `POST` | `/admin/users/{id}/delete` | delete one record |
-| `POST` | `/admin/users/-/bulk-delete` | delete the selected records |
-| `GET` | `/admin/users/-/export` | the list as CSV |
-| `GET`, `POST` | `/admin/users/-/create` | the create form ¹ |
-| `GET`, `POST` | `/admin/users/{id}/edit` | the edit form ¹ |
-| `GET` | `/admin/users/-/options` | option search for a searchable relationship select, and a dependent choice's options ¹ |
-| `POST` | `/admin/users/{id}/-/actions/{action}` | run a record action on one record ² |
-| `POST` | `/admin/users/-/actions/{action}` | run a header action, or a bulk action on the selection ³ |
-| `GET` | `/admin/users/-/actions/{action}/options` | option search for an action input's relationship select ² ³ |
-| `POST` | `/admin/users/{id}/-/relations/{relation}/-/actions/{action}` | attach a record to a many-to-many relation, or detach the selection ⁴ |
-| `POST` | `/admin/users/{id}/-/relations/{relation}/{related}/-/actions/{action}` | detach one related record ⁴ |
-| `GET` | `/admin/users/{id}/-/relations/{relation}/-/actions/{action}/options` | option search for the attach dialog ⁴ |
+A registered route is not an open one: each checks the resource's policy
+([Policy, auth, tenancy](./policy-auth-tenancy.md)).
 
-¹ Only for a resource whose `Form` is a record form; a list-only resource names `NoForm` and gets
-none of these. See [Forms](./forms.md).
-² Only when an action is placed on a row, the detail page or the edit page. See
-[Actions](./actions.md).
-³ Only when the resource has a header action, or an action placed on the bulk bar.
-⁴ Only when the resource has a [many-to-many relation](./detail-pages.md#many-to-many-relations).
-
-The `-` segment keeps the list's own routes, and the action and relation routes, apart from a
-record's: a record whose key is `create` still has its detail page at `/admin/users/create`, and
-one whose key is `actions` its `/admin/users/actions/edit`.
-
-`{id}` is the record's primary key. Each route checks the resource's policy, so a registered
-route is not an open one: see [Policy, auth, tenancy](./policy-auth-tenancy.md).
-
-The panel also serves:
-
-- `GET /admin`: the [home page](#pages), or a redirect to the first registered resource's list
-  when there is none.
-- `GET`, `POST /admin/login` and `POST /admin/logout`, unless authentication is disabled.
-- `POST /admin/tenant`, the [tenant switcher](./policy-auth-tenancy.md#tenancy), unless
-  authentication is disabled.
-- `GET`, `POST /admin/register`, the [sign-up page](./policy-auth-tenancy.md#sign-up), when
-  `Auth::registration` installs a registrar.
-- `GET`, `POST /admin/profile`, the [profile page](./policy-auth-tenancy.md#profile), when
-  `Auth::profile` installs a profile editor.
-- `GET`, `POST /admin/forgot-password` and `GET`, `POST /admin/reset-password`, the
-  [password reset](./policy-auth-tenancy.md#password-reset), when `Auth::password_reset` installs
-  one.
-- `POST /admin/{page}/-/actions/{action}` for a page's [header actions](./actions.md#header-actions),
-  and `/admin/-/actions/{action}` for the home page's.
-- Every other path under `/admin`, with any method, as a 404 behind the
-  [gate](./policy-auth-tenancy.md#what-a-request-gets): a visitor signs in before learning a path
-  serves nothing. Your app's own routes under the prefix still take precedence.
+The panel also serves its home page at `/admin`, its sign-in, and the auth pages
+[`Auth`](./policy-auth-tenancy.md#authentication) turns on. Every other path under `/admin`
+answers 404 behind the [gate](./policy-auth-tenancy.md#what-a-request-gets), so a visitor signs
+in before learning a path serves nothing. [`Panel`](https://y-l.fr/tablo/nightly/api/tablo/struct.Panel.html) lists those routes.
 
 ## Builder reference
 
@@ -93,23 +55,11 @@ The panel also serves:
 `Router::builder().panel(panel)` mounts a panel; the `RouterBuilderPanelExt` trait, in the
 prelude, provides it. The router is yours: discover your own pages and routes, install the `Db`
 with `.app_context(db)` and the asset bundle with `.assets(..)`, then mount. The panel reads both
-from the router, so they come first.
-
-The first panel mounted also installs what every panel shares: cookies, sessions unless the
-router already configures them, the gate over Topcoat's runtime endpoints, and Topcoat's
-runtime layer with link prefetching off unless the router already set
-those up. The runtime layer has no
-path, so mount panels after your own pathless layers: a page re-run must reach those layers
-already rewritten to a `GET`.
+from the router, so they come first, and it installs a layer with no path, so it comes after your
+own pathless layers; [`panel`](https://y-l.fr/tablo/nightly/api/tablo/trait.RouterBuilderPanelExt.html#tymethod.panel) says why.
 
 The builder calls never fail; `.panel(..)` returns a `MountError` listing every mistake
-instead. It refuses a router with no `Db`, a `Db` missing the shipped auth models, two resources or pages
-with one slug, a slug the panel routes itself
-(`login`, `logout`, `register`, `profile`, `forgot-password`, `reset-password`, and `-`, which
-leads the home page's action routes), a slug that is not a single URL segment, a second home page, one page type registered twice, `shell_assets`
-on a router with no asset bundle, a prefix that overlaps another panel's or Topcoat's
-`/_topcoat/runtime`, and every resource declaration check described in
-[Resources](./resources.md#startup-checks).
+instead: see [Mount errors](./mount-errors.md).
 
 ## Several panels
 
@@ -136,29 +86,19 @@ The `tablo::url` helpers answer for the request's panel, so app code never spell
 {{#include ../../../examples/guide/src/panel_routing.rs:panel-urls-body}}
 ```
 
-The request's panel is the one whose prefix the request is under. A request outside every prefix,
+A helper returns `None` where the panel serves no such page, such as for a resource it does not
+register, so a link to a page that does not exist never renders. A request outside every prefix,
 such as a public page, has no panel until it enters one with `PanelHandle::enter`; see
-[Data access](./data-access.md#outside-a-panel). A resource or page that panel does not register has no URL
-there, and the helper returns `None`. `tablo::navigation_item::<R>(cx)` answers the same way
-with `R`'s whole sidebar entry, its label, URL and icon, which suits a dashboard linking to lists.
+[Data access](./data-access.md#outside-a-panel). `tablo::navigation_item::<R>(cx)` answers the
+same way with `R`'s whole sidebar entry, which suits a dashboard linking to lists.
 
-A record's routes have helpers too, typed by the resource and spelled with the key encoding its
-list uses:
-
-- `url::record::<R>(cx, &record)` is its detail page, `None` when `R`'s detail is empty, and
-  `url::edit::<R>(cx, &record)` its edit page, `None` when `R` has no record form.
-- `url::create::<R>(cx)` is the create page, `None` when `R` serves none.
-- `url::action::<R, A>(cx, &record)` runs the action `A` on the record, and
-  `url::bulk_action::<R, A>(cx)` on a selection; each is `None` when `R` does not declare `A`
-  there: on a row, detail or edit page for the first, in the bulk bar for the second.
-
-They answer in a `PanelHandle::context()` as well, so a job or a test spells no record path either.
+A record's pages and actions have helpers too, typed by the resource, so a job or a test spells
+no record path either. [`tablo::url`](https://y-l.fr/tablo/nightly/api/tablo/url/index.html) lists them and when each answers `None`.
 
 ## The shell layout
 
 The panel frames every page under its prefix in the shell — sidebar, topbar and notification
-toasts — with a layout it registers itself. Declare no `#[layout]` of your own at the prefix: a
-second layout there would nest a second document inside the first.
+toasts — with a layout it registers itself, so declare no `#[layout]` of your own at the prefix.
 
 - **The sidebar** collapses to a rail of icons, each naming its entry on hover; below `md` it opens
   as a sheet instead.
@@ -190,9 +130,7 @@ call it replaces the shell entirely:
 Every resource and page gets one sidebar entry, labelled with its plural label (a page's
 `label`) and linked to its list or page URL. The sidebar lists an entry only when the
 request's user may open it: a resource's when its policy allows `ViewAny`, a page's when
-its `PageDef::access` answers `true`. Entries sort by `order` (lower first,
-default `0`); entries with the same `order` keep registration order, and the home page leads its
-`order`.
+its `PageDef::access` answers `true`. So a user never sees a link that would answer 403.
 
 A resource sets the order and an icon on its def, and the panel resolves the URL:
 
@@ -208,11 +146,8 @@ impl Resource for UserResource {
 ```
 
 A page sets the same `icon`, `navigation_order` and `navigation_group` on its `PageDef`.
-`NavigationItem::at(label, url)` links elsewhere, from `ResourceDef::navigation` or
-`PageDef::navigation`; the panel keeps that URL as written, and the def's `icon`,
-`navigation_order` and `navigation_group` still apply to it. The entry whose URL is the longest
-match for the current path is marked active. Of the entries sharing that path, the one whose
-query the request carries wins, then the one naming more of that query, then the first declared.
+[`NavigationItem::at(label, url)`](https://y-l.fr/tablo/nightly/api/tablo/struct.NavigationItem.html#method.at) links elsewhere, such
+as to a list with a filter applied, from `ResourceDef::navigation` or `PageDef::navigation`.
 
 `tablo::ui::icons` names the Lucide icons the panel draws, its navigation entries included. An
 entry that wants another one stages the set its app's own `iconify_icon!` resolves against: in the
@@ -241,15 +176,14 @@ first build downloads the set through the shared cache. `.cache_dir("assets/icon
 `.icon_set_version("lucide", "1.2.137")` stages a committed `lucide.json` and its `lucide.version`
 sidecar offline instead, since a pinned set is reused only while the two agree.
 
-`navigation_group("Content")` on either def renders the entry in a labelled sidebar group. The ungrouped entries render first, under "Navigation";
-each group follows in the order of its first entry, and `order` sorts the entries within it.
+`navigation_group("Content")` on either def renders the entry in a labelled sidebar group, after
+the ungrouped entries.
 
 An entry may carry a badge after its label. `NavigationItem::badge("New")` sets a fixed one;
 `ResourceDef::navigation_badge(Post::fields().status().eq(PostStatus::Draft))` counts the rows of
 the resource's [`scoped_query`](./data-access.md) that the filter matches, so each tenant sees its
-own count. The panel counts each time the sidebar renders, on a page load and on each rerun such
-as a sort or a page step, one query per counted badge, run together; a count of zero shows no
-badge. A badge is the sidebar's: a `Panel::user_menu_item` shows none.
+own count. Each counted badge is a query on every sidebar render:
+[`navigation_badge`](https://y-l.fr/tablo/nightly/api/tablo/struct.ResourceDef.html#method.navigation_badge) says when it runs.
 
 ## Pages
 
@@ -271,20 +205,17 @@ use topcoat::{Result, context::Cx, view::{View, view}};
   ```
 
 - **Slug and label** default to the type name without its `Page` suffix: `ReportsPage` mounts at
-  `reports` and is labelled "Reports"; `MediaLibraryPage` mounts at `media-library` and is
-  labelled "Media library". `PageDef::slug` and `PageDef::label` change them. Pages and
+  `reports` and is labelled "Reports". `PageDef::slug` and `PageDef::label` change them. Pages and
   resources share one slug namespace.
 - **The home page.** `Panel::home::<P>()` mounts a page at the prefix itself instead of the
-  redirect to the first resource, with its def as `declare` returns it. A panel has at most one;
-  a second fails `.panel(..)`, as does registering one page type twice.
+  redirect to the first resource. A panel has at most one.
 - **Access.** With authentication on, the page renders only for a signed-in user with panel access,
   inside the shell layout. `PageDef::access(|cx| …)` narrows that: when it answers `false`
   the page answers 403 and leaves the sidebar. It is synchronous, like a policy, and reads the
   signed-in user with `auth::user::<U>(cx)`.
 - **Actions.** `PageDef::header_action::<A>()` declares a [header action](./actions.md#header-actions),
-  served at `{page}/-/actions/{NAME}` behind the same sign-in and `access` as the page, in a
-  transaction the framework opens. `header_action_buttons::<Self>(cx)` renders their buttons where the
-  page places it, usually in `page_actions`.
+  behind the same sign-in and `access` as the page. `header_action_buttons::<Self>(cx)` renders
+  their buttons where the page places it, usually in `page_actions`.
 - **Forms.** Any other form a page renders posts to an app `#[route]`; put that route under the
   panel prefix so the auth gate covers it. `access` does not cover that route, so the route
   asks `can_open::<P>(cx)` itself: the panel's sign-in and the page's `access`, as the page's
@@ -373,8 +304,7 @@ panel the Tailwind stylesheet and the font the shell links:
 
 `shell_assets` also makes the shell load Topcoat's runtime, which drives the live tables, the
 confirmation dialogs and the variant choice, and `tablo-ui`'s scripts: searchable selects, repeater rows, and the
-sidebar toggle and the theme choice. Mounting refuses `shell_assets` on a
-router with no asset bundle. The stylesheet comes from `tablo_build::tailwind()` in the app's `build.rs`
+sidebar toggle and the theme choice. The stylesheet comes from `tablo_build::tailwind()` in the app's `build.rs`
 ([Your first panel](./first-panel.md#the-stylesheet)).
 
 `AssetBundle::load()` reads the bundle from the `assets` directory beside the executable, which

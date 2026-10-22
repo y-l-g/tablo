@@ -54,10 +54,14 @@ use crate::{
 /// - on a resource, the hooks, with [`Change::HeaderAction`](crate::Change::HeaderAction):
 ///   [`Resource::before_commit`](crate::Resource::before_commit) in the transaction after `run`,
 ///   then [`Resource::after_commit`](crate::Resource::after_commit) once it commits;
-/// - the success notification, and the redirect back to the list or page.
+/// - the success notification, and the redirect back to the list as it was left, its search, sort
+///   and filters kept, or to the page.
 ///
-/// An action that asks for an [`Input`](Self::Input) renders it as a form page first, as a
-/// record's action does, and runs on its submit.
+/// No record is loaded, so nothing scopes [`run`](Self::run) to the request's tenant: an action
+/// over a tenant's records reads them through [`scoped_query`](crate::scoped_query).
+///
+/// An action that asks for an [`Input`](Self::Input) asks for it as a record's action does, in a
+/// dialog or a page titled with its label, and runs on its submit.
 pub trait HeaderAction: 'static {
     /// What the action asks for before it runs: `()` for nothing, or an
     /// [`FormInput`](derive@crate::FormInput) struct.

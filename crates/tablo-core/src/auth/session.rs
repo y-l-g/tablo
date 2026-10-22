@@ -22,6 +22,20 @@ pub const SESSION_LIFETIME: Duration = Duration::from_hours(24 * 7);
 /// Shipped server-side session record: the SHA-256 hash of the client token,
 /// the user it authenticates, the panel that signed the user in, and its
 /// expiry. The raw token is never stored.
+///
+/// A session lasts [`SESSION_LIFETIME`] from login, is replaced on each login and deleted on
+/// logout; each successful login also deletes up to 500 expired sessions. It belongs to the panel
+/// that signed the user in: another panel's gate treats the request as anonymous, and
+/// [`auth::user`](crate::auth::user) answers `None` there. One browser holds one session, so
+/// signing in to a second panel ends the first, and renaming a panel's prefix ends the sessions
+/// it issued. Sessions stay valid until they expire unless
+/// [`revoke_sessions_for_user`](crate::auth::revoke_sessions_for_user) ends them.
+///
+/// The row records the panel's prefix in a non-null `panel` column and the selected tenant in a
+/// nullable `tenant` column, typed as Toasty stores a `Uuid` on the database. A table created
+/// without them gains them by migration: add `panel` with the panel's prefix as its default
+/// (`ALTER TABLE auth_sessions ADD COLUMN panel TEXT NOT NULL DEFAULT '/admin'`), then drop the
+/// default once every row names its panel.
 #[derive(Debug, Clone, toasty::Model)]
 pub struct AuthSession {
     /// Hex-encoded SHA-256 of the session token.

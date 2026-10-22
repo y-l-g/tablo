@@ -9,12 +9,20 @@ use std::fmt;
 pub enum ActionInputFault {
     /// A field named like a key the action's POST carries itself: `csrf_token`, `confirm` or
     /// `ids`.
+    ///
+    /// Rename the field.
     ReservedField(String),
     /// A file field, whose upload an action's POST does not read.
+    ///
+    /// Take the file in a record form.
     FileField(String),
     /// No field, but a parse that refuses an empty submission, so the action could never run.
+    ///
+    /// Declare the fields it parses, or use `()`.
     RefusesEmpty,
     /// A dependent choice, whose options no route serves an action's input.
+    ///
+    /// Drop `depends_on`.
     DependentChoice(String),
 }
 

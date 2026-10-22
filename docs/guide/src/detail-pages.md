@@ -16,30 +16,21 @@ impl Resource for PostResource {
 }
 ```
 
-A non-empty detail adds a View action to each row. An empty one, `Detail::empty()`, turns the detail
-page off: the route answers 404 and no row links to it.
+A non-empty detail adds a View action to each row, and `Detail::empty()` turns the page off.
+[`ResourceDef::detail`](https://y-l.fr/tablo/nightly/api/tablo/struct.ResourceDef.html#method.detail) says what the page's header
+carries, what it loads and what it answers for a record the request may not see.
 
 ## The default detail page
 
-Without `detail`, the model's `ModelColumns` give the detail page, as they give the table: one
-column per field the table lists, plus its embedded values and lists, in declaration order and
-labelled from the field's name. It reads the model, not the record form, so a field Toasty writes,
+Without `detail`, the model's [`ModelColumns`](https://y-l.fr/tablo/nightly/api/tablo_core/derive.ModelColumns.html) give the detail
+page, as they give the table: one column per field the table lists, plus its embedded values and
+lists, in declaration order. It reads the model, not the record form, so a field Toasty writes,
 such as a `#[default]` timestamp, shows too, and a `NoForm` resource has a detail page as well.
-The def's `form(..)` does not shape it: a resource that arranges its form declares a `detail` to
-show the same arrangement.
+The derive's page lists the column each type gets and the fields it leaves out.
 
-- a scalar shows its value, typed values included, in the type's own spelling (a timestamp as
-  `2026-09-22T00:00:00Z`);
-- an `Options` enum shows its option's label;
-- a `bool` shows as yes or no;
-- an `EmbeddedForm` value shows each leaf under its own label, and an embedded enum shows its
-  variant's name and that variant's leaves only;
-- a `#[document]` list of `FormInput` items shows each item's fields.
-
-A key Toasty generates, a relation and its foreign key, and a `TenantId` show nowhere; the related
-record's title shows through a column that includes the relation, as `Author` does above. A file
-path shows as text: a `FileColumn` in a declared detail links it. A resource declares its own
-detail page to pick or arrange the columns:
+A relation shows only through a column that includes it, as `Author` does above, and a file path
+shows as text until a `FileColumn` links it. A resource declares its own detail page to pick or
+arrange the columns:
 
 ```rust
 {{#include ../../../examples/guide/src/detail_pages.rs:detail-no-form}}
@@ -47,19 +38,12 @@ detail page to pick or arrange the columns:
 
 ## What the page shows
 
-The header carries the record's title, a link back to the list, the record's
-[actions placed on the detail page](./actions.md#on-a-records-pages) and its Delete, each as the
-policy allows them on this record, and an Edit link when the resource has a form and the policy
-allows `Update` of this record. Below it come the detail's columns, then
-the [related tables](#related-tables).
+The header carries the record's title, its [actions](./actions.md#where-it-shows), Delete and
+Edit, each as the policy allows them on this record. Below it come the detail's columns, then the
+[related tables](#related-tables).
 
-Each column renders its label over its cell, never a control. The built-in columns render as in a
-table: `TextColumn` the value, or what its `format` returns, `BooleanColumn` an icon labelled yes
-or no, `FileColumn` a link, `RelationColumn` the related record's text, `CountColumn` the related
-records' count, and `ComputedColumn` the text its closure returns. Layout blocks keep their
-structure.
-
-A `ComputedColumn` shows anything the record determines, such as a reading time:
+Each column renders its label over its cell, as it renders in a table, never a control. A
+`ComputedColumn` shows anything the record determines, such as a reading time:
 
 ```rust
 {{#include ../../../examples/guide/src/detail_pages.rs:detail-computed}}
@@ -70,31 +54,23 @@ appends one, and an `IntoDetail` impl for its type places it in a block. A colum
 than one value under one label overrides `entry`, which renders the label over the cell by
 default; `EmbeddedColumn` overrides it to give each leaf its own label.
 
-**Loading.** The record loads through the resource's tenant-scoped `query`, plus every relation the
-detail's columns declare, each once, wherever its block sits: a relation column declares its own, a
-`ComputedColumn` declares one with `include`. No other relation loads: a `ComputedColumn` reading
-one it does not declare finds it unloaded. A page of the app's
-own renders a `Detail` the same way: `detail.render(cx, &record)` on a record loaded through
-`detail.load(cx, scoped_query::<R>(cx)?)`, which includes the relations and drops the related
-records each relation column's resource does not show the user.
+**Loading.** The page loads only the relations its columns declare: a relation column declares its
+own, and a `ComputedColumn` declares one with `include`. A `ComputedColumn` reading one it does
+not declare finds it unloaded. A page of the app's own renders a `Detail` the same way, with
+[`Detail::load`](https://y-l.fr/tablo/nightly/api/tablo/struct.Detail.html#method.load) and `render`.
 
-An unknown id and an id outside the request's tenant are the same 404; a record the policy may not
-`View` is a 403.
-
-**Title.** `record_title` names the text column that titles each record; a record whose column is
-empty, and every record by default, is titled with the resource's `label()` and its key, such as
-"Post 3f2a…". The same title labels the record wherever another resource points at it: each
-option of a relationship choice over the resource, and each cell of a `RelationColumn::of` it. A
-lens names one of the model's own columns, never a relation, so a title built from several
-columns is a column the model stores:
+**Title.** `record_title` names the text column that titles each record, here and wherever another
+resource points at it: each option of a relationship choice over the resource, and each cell of a
+`RelationColumn::of` it. A title built from several columns is a column the model stores;
+[`ResourceDef::record_title`](https://y-l.fr/tablo/nightly/api/tablo/struct.ResourceDef.html#method.record_title) has the fallback
+and the rules:
 
 ```rust
 {{#include ../../../examples/guide/src/resources.rs:post-record-title}}
 ```
 
 **Public link.** `public_link` adds a link to the record's public page to the header of its detail
-and edit pages, for each record it returns one for: the URL to link and the text to show. The edit
-page loads no relation, so a link reads only the record's own columns.
+and edit pages, for each record it returns one for: the URL to link and the text to show.
 
 ```rust
 {{#include ../../../examples/guide/src/resources.rs:post-public-link}}
@@ -116,35 +92,11 @@ impl Resource for PostResource {
 }
 ```
 
-The foreign key's type is the owner's primary key type, or its `Option` for a nullable foreign
-key; any other type does not compile. The table is
-`CommentResource`'s — its columns, search, sort, filters and pager — over its tenant-scoped query
-plus `post_id = <this post>`. It is titled with the related resource's plural label, or
-`.label(..)`. The panel must register the related resource too: mounting refuses a relation to
-one it does not.
-
-- **Policy.** The related resource's policies apply as on its own list: no section renders when
-  its policy refuses `ViewAny`, or when it is tenant-scoped and the request has no tenant, and each row keeps
-  only the actions its record allows.
-- **Actions.** Rows carry the related resource's View, Edit, Delete and custom actions, the table
-  has its bulk bar, and a create button appears when the related resource has a form and its
-  policy allows `Create`.
-- **Creating from the parent.** The create button opens the related resource's create page with
-  the owner preselected, as in `/admin/comments/-/create?post_id=…`. The create page accepts such a
-  parameter only for a relationship choice; the value is a default, and the submitted form is
-  validated like any other create.
-- **Returning.** Writes started from a related table carry `?return=` and redirect back to the
-  page they started on. The panel follows `return` only to a path under its own prefix.
-- **URL parameters.** Each related table's parameters are prefixed with the related resource's
-  slug — `?comments.q=`, `?comments.sort=`, `?comments.after=` — so several tables share one page.
-- **Live updates.** Sorting, searching, filtering and paging update the table in place, like a
-  list's. Without JavaScript its links and its search form load the page. On the edit page, the
-  form keeps the fields the user edited, but loses repeater rows added and options fetched since
-  the page loaded ([#515](https://github.com/y-l-g/tablo/issues/515)). A refused save renders no
-  related table.
-
-Mounting the panel refuses a relation to a resource the panel does not register, and two relations of
-one resource to the same related resource.
+The table is `CommentResource`'s own list table, its columns, search, sort, filters and pager
+included, narrowed to the post: the related resource keeps its policy, its actions and its create
+button, which opens with the post preselected. The panel must register the related resource too.
+[`Relation`](https://y-l.fr/tablo/nightly/api/tablo/struct.Relation.html) lists what the table carries, where its writes land, and
+how several tables share one page.
 
 ### Many-to-many relations
 
@@ -163,20 +115,9 @@ impl Resource for TagResource {
 }
 ```
 
-- **Attach.** The section's header carries an Attach button, whose dialog asks for one record
-  with a searchable choice, offered as a relationship's options are. Attaching a record the owner
-  links already changes nothing.
-- **Detach.** Each row and the bulk bar carry Detach, which deletes the join rows and leaves the
-  records.
-- **Policy.** Attaching and detaching ask the owner's policy for `Update`, as editing it does: no
-  button renders without it, and the routes answer 403. A record the related resource's policy
-  refuses `View` is neither offered nor detached.
-- **Actions.** The rows keep the related resource's View, Edit and Delete, and the table offers
-  none of its custom actions and no create button: a record created there would link nothing.
-- **Routes.** Both post under the owner's record:
-  `{list}/{id}/-/relations/{slug}/-/actions/attach`, `…/-/actions/detach` with the selection's
-  `ids`, and `…/{related}/-/actions/detach` for one row, `{slug}` being the related resource's.
-- **Hooks.** The owner's [hooks](./resources.md#hooks) receive `Change::Attach` or
-  `Change::Detach` with the owner, the relation's field and the related records' keys.
-
-Mounting refuses a join model a link cannot write, as for a many-to-many field.
+The section's header carries Attach, and each row and the bulk bar carry Detach, which deletes
+the join rows and leaves the records. Both ask the owner's policy for `Update`, since linking a
+record edits the owner. The rows keep the related resource's View, Edit and Delete, but no custom
+action and no create button: a record created there would link nothing.
+[`Relation::belongs_to_many`](https://y-l.fr/tablo/nightly/api/tablo/struct.Relation.html#method.belongs_to_many) has the routes, the
+hooks and the mount checks.

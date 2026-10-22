@@ -108,6 +108,20 @@ pub(crate) fn normalize_prefix(raw: &str) -> String {
 ///
 /// Registering is declarative: mounting builds each resource's [`ResourceDef`] and checks every
 /// slug, route and declaration before the panel serves anything.
+///
+/// Besides its resources' and pages' routes, a panel at `/admin` serves:
+///
+/// - `GET /admin`: the [home page](Self::home), or a redirect to the first registered resource's
+///   list when there is none;
+/// - `GET`, `POST /admin/login`, `POST /admin/logout` and `POST /admin/tenant`, the tenant
+///   switcher, unless authentication is disabled;
+/// - `/admin/register`, `/admin/profile`, `/admin/forgot-password` and `/admin/reset-password` when
+///   [`Auth`](crate::auth::Auth) installs the feature each serves;
+/// - `POST /admin/{page}/-/actions/{action}` for a page's header actions, and
+///   `/admin/-/actions/{action}` for the home page's;
+/// - every other path under `/admin`, with any method, as a 404 behind the auth gate, so a visitor
+///   signs in before learning a path serves nothing. The app's own routes under the prefix still
+///   take precedence.
 pub struct Panel {
     prefix: String,
     shell_assets: Option<ShellAssets>,
@@ -195,9 +209,17 @@ impl Panel {
             .uploads(crate::upload::DirUploader::new(url_prefix, dir))
     }
 
-    /// Serves the directory `dir` at route pattern `path`, which must end in a catch-all and
-    /// carries hardening headers. The auth gate does not cover it, unless `path` sits under the
-    /// panel prefix, which the gate covers.
+    /// Serves the directory `dir` at route pattern `path`, which must end in a catch-all.
+    ///
+    /// The files share the panel's origin, so every file response carries hardening headers:
+    ///
+    /// - `X-Content-Type-Options: nosniff`;
+    /// - a sandboxing `Content-Security-Policy`, which is fixed;
+    /// - `Content-Disposition: attachment`, unless the file is a common image, audio or video type
+    ///   or plain text, so an uploaded HTML or SVG file downloads instead of running script.
+    ///
+    /// Serve active documents from another origin. The directory is **public**: the auth gate does
+    /// not cover it, unless `path` sits under the panel prefix, which the gate covers.
     pub fn serve_dir(mut self, path: impl Into<String>, dir: impl Into<PathBuf>) -> Self {
         let path = path.into();
         if !is_directory_pattern(&path) {
@@ -218,6 +240,34 @@ impl Panel {
 
     /// Registers the [`Resource`] `R` at `{prefix}/{slug}` with its routes and sidebar entry, as
     /// [`Resource::declare`] declares it.
+    ///
+    /// A resource with the slug `users`, on a panel at `/admin`, serves:
+    ///
+    /// | Method | Path | Serves |
+    /// | --- | --- | --- |
+    /// | `GET` | `/admin/users` | the list |
+    /// | `GET` | `/admin/users/{id}` | the detail page; 404 when the resource's view is empty |
+    /// | `POST` | `/admin/users/{id}/delete` | delete one record |
+    /// | `POST` | `/admin/users/-/bulk-delete` | delete the selected records |
+    /// | `GET` | `/admin/users/-/export` | the list as CSV |
+    /// | `GET`, `POST` | `/admin/users/-/create` | the create form ¹ |
+    /// | `GET`, `POST` | `/admin/users/{id}/edit` | the edit form ¹ |
+    /// | `GET` | `/admin/users/-/options` | a searchable or dependent choice's options ¹ |
+    /// | `POST` | `/admin/users/{id}/-/actions/{action}` | a record action on one record ² |
+    /// | `POST` | `/admin/users/-/actions/{action}` | a header action, or a bulk action ³ |
+    /// | `GET` | `/admin/users/-/actions/{action}/options` | an action input's options ² ³ |
+    /// | `POST` | `/admin/users/{id}/-/relations/{relation}/-/actions/{action}` | attach, or detach the selection ⁴ |
+    /// | `POST` | `/admin/users/{id}/-/relations/{relation}/{related}/-/actions/{action}` | detach one record ⁴ |
+    /// | `GET` | `/admin/users/{id}/-/relations/{relation}/-/actions/{action}/options` | the attach dialog's options ⁴ |
+    ///
+    /// ¹ Only for a resource whose `Form` is a record form, not [`NoForm`](crate::NoForm).
+    /// ² Only when an action is placed on a row, the detail page or the edit page.
+    /// ³ Only when the resource has a header action, or an action placed on the bulk bar.
+    /// ⁴ Only when the resource has a [many-to-many relation](crate::Relation::belongs_to_many).
+    ///
+    /// `{id}` is the record's primary key. The `-` segment keeps the list's own routes apart from
+    /// a record's: a record whose key is `create` still has its detail page at
+    /// `/admin/users/create`. Each route checks the resource's policy.
     pub fn resource<R: Resource>(self) -> Self {
         self.resource_with::<R>(|def| def)
     }
@@ -289,6 +339,9 @@ impl Panel {
 
     /// Frames the panel's pages with `render` instead of the shipped shell; `render` usually wraps
     /// [`Panel::layout_shell`].
+    ///
+    /// The panel registers its layout at its prefix itself, with or without this call: a
+    /// `#[layout]` of the app's own there would nest a second document inside the first.
     pub fn layout(mut self, render: LayoutRenderFn) -> Self {
         self.layout = Some(render);
         self
@@ -302,7 +355,19 @@ impl Panel {
     }
 
     /// Sets the `frame-ancestors` directive the panel sends on every response under its prefix,
-    /// defaulting to `'self'`.
+    /// defaulting to `'self'`, so another site cannot frame the panel.
+    ///
+    /// - It covers the prefix's 404 and 405 pages too; the app's own routes outside the prefix
+    ///   carry whatever policy the app sets.
+    /// - A `Content-Security-Policy` a handler sets itself is kept.
+    /// - The router answers three errors before any layer runs, so they carry no directive: the 403
+    ///   for a cross-site request, the 400 for a malformed `x-topcoat-identity` header, and the 500
+    ///   for a panic.
+    ///
+    /// ```no_run
+    /// # use tablo_core::Panel;
+    /// Panel::new("admin").frame_ancestors("'self' https://intranet.example");
+    /// ```
     pub fn frame_ancestors(mut self, ancestors: impl Into<String>) -> Self {
         self.frame_ancestors = Some(ancestors.into());
         self
@@ -332,7 +397,9 @@ impl Panel {
     ///
     /// Topcoat serves shards and procedures under its runtime path, outside every panel's
     /// prefix. A request to an endpoint no panel declares runs as the panel whose session sent
-    /// it, whichever panel that is. A declared one runs as this panel: a session another panel
+    /// it, whichever panel that is; a panel without sign-in has no session, so its request runs as
+    /// no panel, and [`scoped_query`](crate::scoped_query) and the [`url`](crate::url) helpers
+    /// find no resource. A declared one runs as this panel: a session another panel
     /// signed in is no session here, so it answers 401 when the panel requires sign-in, and
     /// [`auth::guard`](crate::auth::guard), [`auth::user`](crate::auth::user), the tenant and
     /// [`can_list`] answer for this panel. Several panels may declare the same
@@ -379,8 +446,14 @@ impl Panel {
     /// page is open also shows as a toast.
     ///
     /// The bell lists what was sent on this panel for the tenant the user acts for, and what was
-    /// sent for no tenant. The panel needs auth and the [`StoredNotification`] model, which
-    /// [`models!`](crate::models!) registers.
+    /// sent for no tenant; its procedures mark and remove only those, so an id it does not list
+    /// changes nothing. An open bell checks the session again before it shows anything new, and
+    /// [`auth::revoke_sessions_for_user`](crate::auth::revoke_sessions_for_user) stops the user's
+    /// open bells at once. A send wakes the bells open on the process that sent it: behind a load
+    /// balancer, a bell on another process shows the notification on its next page load.
+    ///
+    /// The panel needs auth and the [`StoredNotification`] model, which
+    /// [`models!`](crate::models!) registers. Nothing deletes stored notifications on its own.
     ///
     /// ```rust
     /// # use tablo_core::Panel;

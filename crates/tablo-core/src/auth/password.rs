@@ -65,6 +65,15 @@ impl PanelUser for AdminUser {
 }
 
 /// Shipped default authenticator: Argon2id verification against [`AdminUser`].
+///
+/// An unknown email costs the same work as a wrong password, and every failure shows the same
+/// message. It stores an email trimmed and lowercased and looks it up the same way, so
+/// `Ada@Example.com` and `ada@example.com` are one account; a resource that edits an admin's
+/// email stores it the same way. A row stored with capitals cannot sign in or reset its password:
+/// list the accounts that differ only in case with `SELECT LOWER(TRIM(email)) FROM admin_users
+/// GROUP BY 1 HAVING COUNT(*) > 1`, merge or delete them, then run
+/// `UPDATE admin_users SET email = LOWER(TRIM(email))`. SQLite's `LOWER` folds ASCII letters
+/// only, so lowercase any other capital by hand.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct PasswordAuth;
 

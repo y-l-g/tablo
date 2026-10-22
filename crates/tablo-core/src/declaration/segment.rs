@@ -10,7 +10,8 @@ pub enum SegmentFault {
     Empty,
     /// The segment is `.` or `..`.
     Dot,
-    /// The segment holds a character a route segment cannot.
+    /// The segment holds a character a route segment cannot: whitespace, a control character, a
+    /// double quote, a backslash or one of `/ ? # % & = { } ( )`.
     Char(char),
 }
 

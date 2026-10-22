@@ -13,8 +13,7 @@ mod text;
 use std::sync::Arc;
 
 pub use builders::{
-    ChoiceField, CustomField, FileField, IntoFormValue, IntoOptions, RepeaterField, RichTextField,
-    TextField,
+    ChoiceField, CustomField, FileField, IntoFormValue, IntoOptions, RepeaterField, TextField,
 };
 pub(crate) use choice::{ChoiceControl, Relationship, option_view};
 pub(crate) use custom::{Control, ControlInput};
@@ -23,6 +22,7 @@ pub(crate) use file::{is_linkable, is_rooted, stored_upload};
 pub(crate) use placement::Placement;
 pub(crate) use read_only::{read_only, value_cell};
 use rich_text::RichTextControl;
+pub use rich_text::RichTextField;
 use tablo_ui::{
     field as ui_field, field_description as ui_field_description, field_error as ui_field_error,
     field_label as ui_field_label,
@@ -252,7 +252,7 @@ impl Field {
     /// Each row posts its item's keys under `{key}.{row}.`. A resource's form and an action's
     /// input read them into `key`'s rows, and a page handling its own post reads it with
     /// [`Schema::read`](crate::Schema::read); the items then parse with
-    /// [`parse_items`](crate::schema::parse_items).
+    /// [`parse_items`](crate::schema::parse_items). [`RepeaterField`] has the rules.
     pub fn repeater<M, T>(lens: impl Into<Path<M, List<T>>>) -> RepeaterField
     where
         M: toasty::schema::Model,

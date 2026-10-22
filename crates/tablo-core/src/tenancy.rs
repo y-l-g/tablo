@@ -41,7 +41,7 @@ impl Membership {
 ///
 /// App code may put it on the `Cx` with `cx.with(Tenant(id))`, and server code
 /// and tests may carry it as a request extension; either wins over the signed-in
-/// user's tenant.
+/// user's tenant. No request header sets it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Tenant(pub uuid::Uuid);
 

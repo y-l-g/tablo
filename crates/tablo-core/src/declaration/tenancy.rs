@@ -9,6 +9,8 @@ use std::fmt;
 pub enum TenancyFault {
     /// No tenancy declared over a model with a `TenantId` column, which would serve every
     /// tenant's rows.
+    ///
+    /// Declare `Tenancy::column` over that field, or `Tenancy::none()` to serve every tenant.
     Undeclared {
         /// The model's name.
         model: &'static str,
@@ -17,6 +19,8 @@ pub enum TenancyFault {
     },
     /// No tenancy declared over a model that belongs to one a mounted resource scopes by tenant,
     /// which would serve every tenant's children.
+    ///
+    /// Declare `Tenancy::via` through that relation, or `Tenancy::none()` to serve every tenant.
     UndeclaredChild {
         /// The model's name.
         model: &'static str,
@@ -24,13 +28,21 @@ pub enum TenancyFault {
         relation: String,
     },
     /// A `Tenancy::column` lens that names no field of the model.
+    ///
+    /// Name the model's `TenantId` field, or use `Tenancy::via`.
     ColumnNotAField,
     /// A `Tenancy::via` lens that names one field of the model.
+    ///
+    /// Use `Tenancy::column`.
     ViaOwnColumn,
     /// A `Tenancy::via` lens whose first step is no `belongs_to` relation.
+    ///
+    /// Start at the relation whose parent holds the tenant.
     ViaWithoutBelongsTo,
     /// A `Tenancy::via` resource whose form writes the parent's foreign key other than through a
     /// relationship field over a tenant-scoped resource of the parent's model.
+    ///
+    /// Write the key through such a choice, so the write re-checks its tenant.
     UnguardedForeignKey {
         /// The `belongs_to` relation the lens steps through.
         relation: String,

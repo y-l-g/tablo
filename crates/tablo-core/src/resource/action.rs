@@ -92,10 +92,17 @@ pub(crate) const RESERVED_KEYS: [&str; 3] = [crate::csrf::FIELD_NAME, "confirm",
 /// input's form in a dialog over the page, whose submit runs the action with the parsed value. The
 /// submit parses the input, asks [`validate_input`](Self::validate_input) and checks its choices
 /// before the transaction opens, then re-checks a relationship choice inside it. A refused value
-/// renders the input as a page with its errors and writes nothing.
+/// renders the input as a page with its errors and writes nothing; a key the input does not
+/// declare answers 400. The page is titled with the label and the record's title, or the record
+/// count for a selection, and its Cancel returns to the page the button was on. Cancel and Escape
+/// close the dialog, and opening it again starts from a blank form. A searchable relationship
+/// choice searches `{list}/-/actions/{NAME}/options`, behind the checks the POST makes before it
+/// loads a record. The dialog needs JavaScript.
 ///
-/// A run from a detail or edit page lands back on that page; one from a row or the bulk bar lands
-/// on the list.
+/// A run from a detail or edit page lands back on that page, its query kept; one from a row or
+/// the bulk bar lands on the list. An action that takes the record out of the resource's
+/// [`query`](super::Resource::query) or its `View`, such as an archive the list hides, lands on
+/// that page's 404: place it on rows and the bulk bar instead.
 ///
 /// No place renders a button for an action the policy refuses `RunAny`, and no row or page renders
 /// one for a record that fails `View`, `Run` or `can_run`. A row that no bulk action and no delete
@@ -141,7 +148,9 @@ pub trait Action<R: Resource>: 'static {
     ///
     /// It decides where the button shows, not who may run it: the record route serves an action
     /// placed on any of [`Places::RECORD`], and the bulk route one placed on
-    /// [`Places::BULK`].
+    /// [`Places::BULK`]; any other POST answers 404. A place no page renders shows the button
+    /// nowhere: [`Places::EDIT`] on a resource without a form, or [`Places::DETAIL`] on one whose
+    /// view is [`Detail::empty`](crate::Detail::empty).
     const PLACES: Places = Places::ALL;
 
     /// Whether the action asks first through a confirmation dialog sharing the
@@ -149,7 +158,8 @@ pub trait Action<R: Resource>: 'static {
     ///
     /// An action with input confirms in its input dialog, or on its input page, instead, which
     /// say the action cannot be undone and whose submit renders destructive. An unconfirmed POST
-    /// that would write answers 400.
+    /// that would write answers 400. Both dialogs need JavaScript: without it their buttons do
+    /// nothing.
     const CONFIRM: bool = false;
 
     /// The button text. Defaults to [`NAME`](Self::NAME) in sentence case: `"publish"` reads
@@ -222,7 +232,8 @@ impl Places {
     pub const ROW: Self = Self(1);
     /// A button in the detail page's header.
     pub const DETAIL: Self = Self(1 << 1);
-    /// A button in the edit page's header.
+    /// A button in the edit page's header. It posts a form of its own, so it runs on the record
+    /// as stored, and a change typed into the edit form and not saved is lost.
     pub const EDIT: Self = Self(1 << 2);
     /// An entry in the bulk bar, run on the selection.
     pub const BULK: Self = Self(1 << 3);

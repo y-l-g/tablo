@@ -22,23 +22,14 @@ use tablo::{auth::create_admin, testing::{TestClient, mount_with_handle}};
 {{#include ../../../examples/guide/tests/it.rs:testing-no-delete}}
 ```
 
-`client.resource::<R>()` sends typed requests to one resource. It reads each URL from the
-panel the client's `panel` names, as `tablo::url` does, and each form key from the form's
-derived field enum: a test follows a renamed slug or form key, fails to compile on a renamed
-field or action, and panics naming the resource when the panel serves no such page, instead of
-asserting on a 404:
-
-- `list`, `list_with(query)`, `create_page`, `view(&record)` and `edit_page(&record)` load a
-  page.
-- `create()` and `edit(&record)` build a form post: `.set(BookFormField::Title, "Emma")` sets a
-  field, `.add` adds one more value to a multiple choice, and `.set_key` posts a key no field
-  enum names, such as one key of an embedded field. An edit posts only the fields it sets.
-- `delete(&record)`, `action::<A>(&record)` and `bulk_action::<A>(keys)` post a confirmed run;
-  `.set_key` fills an action's input.
-- `submit()` answers with a `Reply`: its `status`, `location`, flash `notification` and `html`,
-  the same queries over its body (`rows`, `row_keys`, `groups`, `empty_table`), and
-  `field_error(BookFormField::Title)` keyed by the field enum. `follow()` loads the page a
-  redirect names, carrying the cookies the response set.
+`client.resource::<R>()` sends typed requests to one resource: it loads its pages, builds its
+form posts from the form's derived field enum (`.set(BookFormField::Title, "Emma")`), and posts
+its deletes and actions. Each URL comes from the panel, so a test follows a renamed slug, fails to
+compile on a renamed field or action, and panics naming the resource when the panel serves no
+such page instead of asserting on a 404. A submission answers with a `Reply` that reads its
+status, redirect, notification, rows and field errors, and `follow()` loads the page a redirect
+names. [`ResourceClient`](https://y-l.fr/tablo/nightly/api/tablo_test/struct.ResourceClient.html),
+[`Submission`](https://y-l.fr/tablo/nightly/api/tablo_test/struct.Submission.html) and [`Reply`](https://y-l.fr/tablo/nightly/api/tablo_test/struct.Reply.html) list the methods.
 
 The free functions remain for what the typed client does not cover: a raw body, a request to a
 route the panel does not mount, a header to assert.
@@ -49,9 +40,9 @@ route the panel does not mount, a header to assert.
   the detail page and a delete all miss it.
 - **Tenancy.** `client.tenant(id)` scopes a request to a tenant, the way a signed-in user's tenant
   would.
-- **Signed-in requests.** `client.sign_in(&db, "admin", &user)` records a session for `user`, as
-  a successful login does, and the client carries its cookie: no login form, no password hash.
-  It works with a custom `Authenticator` too, which loads the user back from `user_id()`.
+- **Signed-in requests.** `client.sign_in(&db, "admin", &user)` signs the client in as `user`
+  with no login form and no password hash
+  ([`TestClient::sign_in`](https://y-l.fr/tablo/nightly/api/tablo_test/struct.TestClient.html#method.sign_in)).
 - **Declaration mistakes.** A panel that refuses to mount returns a `MountError` inside the
   router builder's error. `refusal` lists its mistakes; match on each one's
   `DeclarationErrorKind` rather than on its message:

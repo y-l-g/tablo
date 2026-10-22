@@ -9,17 +9,27 @@ use std::fmt;
 #[non_exhaustive]
 pub enum SignUpFault {
     /// `Auth::registration` on `Auth::disabled`, which serves no sign-in to land on.
+    ///
+    /// Turn authentication on.
     AuthDisabled,
     /// The registrar creates another user type than the authenticator loads.
+    ///
+    /// Register the type the panel signs in.
     UserType {
         /// The registrar's `User` type.
         registrar: &'static str,
     },
     /// A field named like a key the sign-up POST carries itself: `csrf_token` or `next`.
+    ///
+    /// Rename the field.
     ReservedField(String),
     /// A file field, whose upload the sign-up POST does not read.
+    ///
+    /// Ask for the file once the account signs in.
     FileField(String),
     /// A relationship choice, whose options would list records to a visitor nobody signed in.
+    ///
+    /// Offer static options.
     RelationshipField(String),
 }
 
@@ -29,17 +39,27 @@ pub enum SignUpFault {
 #[non_exhaustive]
 pub enum ProfileFault {
     /// `Auth::profile` on `Auth::disabled`, which signs nobody in to edit.
+    ///
+    /// Turn authentication on.
     AuthDisabled,
     /// The editor edits another user type than the authenticator loads.
+    ///
+    /// Edit the type the panel signs in.
     UserType {
         /// The editor's `User` type.
         editor: &'static str,
     },
     /// A field named like a key the profile POST carries itself: `csrf_token`.
+    ///
+    /// Rename the field.
     ReservedField(String),
     /// A file field, whose upload the profile POST does not read.
+    ///
+    /// Edit the file on a resource's form.
     FileField(String),
     /// A relationship choice, whose options no route serves the profile page.
+    ///
+    /// Offer static options.
     RelationshipField(String),
 }
 
@@ -49,8 +69,12 @@ pub enum ProfileFault {
 #[non_exhaustive]
 pub enum ResetFault {
     /// `Auth::password_reset` on `Auth::disabled`, which signs nobody in after a reset.
+    ///
+    /// Turn authentication on.
     AuthDisabled,
     /// The resetter resets another user type than the authenticator loads.
+    ///
+    /// Reset the type the panel signs in.
     UserType {
         /// The resetter's `User` type.
         resetter: &'static str,
@@ -140,13 +164,19 @@ impl fmt::Display for SignUpFault {
 pub enum AuthMailFault {
     /// A feature that mails links or codes, named as its `Auth` method, on an `Auth` without
     /// `Auth::mail`.
+    ///
+    /// Install a sender with `Auth::mail(AuthMail::new(..))`.
     Unset {
         /// The `Auth` method that installs the feature, such as `password_reset`.
         feature: &'static str,
     },
     /// The base URL links start with is not an absolute `http` or `https` URL.
+    ///
+    /// Pass the scheme and host, such as `https://admin.example.com`.
     BaseUrl(String),
     /// The router registers no `MailConfig` to send the mail through.
+    ///
+    /// Call `.mail(..)` before `.panel(..)`.
     MissingMail,
 }
 
@@ -177,8 +207,12 @@ impl fmt::Display for AuthMailFault {
 #[non_exhaustive]
 pub enum VerificationFault {
     /// `Auth::email_verification` on `Auth::disabled`, which signs nobody in to verify.
+    ///
+    /// Turn authentication on.
     AuthDisabled,
     /// The verifier verifies another user type than the authenticator loads.
+    ///
+    /// Verify the type the panel signs in.
     UserType {
         /// The verifier's `User` type.
         verifier: &'static str,
@@ -206,17 +240,27 @@ impl fmt::Display for VerificationFault {
 #[non_exhaustive]
 pub enum TenantRegistrationFault {
     /// `Auth::tenant_registration` on `Auth::disabled`, which signs nobody in to register one.
+    ///
+    /// Turn authentication on.
     AuthDisabled,
     /// The registrar registers tenants for another user type than the authenticator loads.
+    ///
+    /// Register for the type the panel signs in.
     UserType {
         /// The registrar's `User` type.
         registrar: &'static str,
     },
     /// A field named like a key the registration POST carries itself: `csrf_token`.
+    ///
+    /// Rename the field.
     ReservedField(String),
     /// A file field, whose upload the registration POST does not read.
+    ///
+    /// Ask for the file on a resource's form.
     FileField(String),
     /// A relationship choice, whose options no route serves the registration page.
+    ///
+    /// Offer static options.
     RelationshipField(String),
 }
 
@@ -257,17 +301,27 @@ impl fmt::Display for TenantRegistrationFault {
 #[non_exhaustive]
 pub enum TenantProfileFault {
     /// `Auth::tenant_profile` on `Auth::disabled`, which signs nobody in to edit a tenant.
+    ///
+    /// Turn authentication on.
     AuthDisabled,
     /// The editor edits tenants for another user type than the authenticator loads.
+    ///
+    /// Edit for the type the panel signs in.
     UserType {
         /// The editor's `User` type.
         editor: &'static str,
     },
     /// A field named like a key the settings POST carries itself: `csrf_token`.
+    ///
+    /// Rename the field.
     ReservedField(String),
     /// A file field, whose upload the settings POST does not read.
+    ///
+    /// Edit the file on a resource's form.
     FileField(String),
     /// A relationship choice, whose options no route serves the settings page.
+    ///
+    /// Offer static options.
     RelationshipField(String),
 }
 
@@ -308,9 +362,13 @@ impl fmt::Display for TenantProfileFault {
 #[non_exhaustive]
 pub enum TwoFactorFault {
     /// `Auth::two_factor` on `Auth::disabled`, which signs nobody in.
+    ///
+    /// Turn authentication on.
     AuthDisabled,
     /// The router registers no cookie `Key` as app context, which seals the authenticator
     /// secrets.
+    ///
+    /// Call `.app_context(Key::from(..))` before `.panel(..)`.
     MissingKey,
 }
 

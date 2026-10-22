@@ -49,6 +49,30 @@ use crate::{
 /// let def: ResourceDef<PostResource> =
 ///     ResourceDef::new().relation(Relation::has_many::<CommentResource>(Comment::fields().post_id()));
 /// ```
+///
+/// The table is the related resource's own list table, its columns, search, sort, filters and
+/// pager, over its tenant-scoped query narrowed to the record, titled with its plural label or
+/// [`label`](Self::label):
+///
+/// - its policy applies as on its own list: no section renders when it refuses `ViewAny`, or when
+///   the resource is tenant-scoped and the request has no tenant, and each row keeps only the
+///   actions its record allows;
+/// - a [`has_many`](Self::has_many) table carries the related resource's View, Edit, Delete and
+///   custom actions and its bulk bar, and a create button when the related resource has a form and
+///   its policy allows `Create`. The button opens the create page with the owner preselected, as in
+///   `/admin/comments/-/create?post_id=…`: a default for a relationship choice only, validated like
+///   any other create;
+/// - a [`belongs_to_many`](Self::belongs_to_many) table keeps View, Edit and Delete, and offers no
+///   custom action and no create button, since a record created there would link nothing;
+/// - writes started from the table carry `?return=` and land back on the page, which the panel
+///   follows only to a path under its own prefix;
+/// - its URL parameters take the related resource's slug as a prefix, as in `?comments.q=`, so
+///   several tables share one page, and sorting, searching, filtering and paging update it in
+///   place. On the edit page that keeps the fields the user edited, but loses repeater rows added
+///   and options fetched since the page loaded. A refused save renders no related table.
+///
+/// Mounting refuses a relation to a resource the panel does not register, and two relations of
+/// one resource to the same related resource.
 pub struct Relation<P> {
     pub(crate) child: TypeId,
     pub(crate) child_name: &'static str,
@@ -211,9 +235,19 @@ where
     /// let tags: Relation<Post> = Relation::belongs_to_many::<TagResource>(Post::fields().tags());
     /// ```
     ///
-    /// Attaching and detaching ask the owner's policy for `Update`, as editing it does, and the
-    /// related resource's for `View` on each record; mounting refuses a join model a link cannot
-    /// write.
+    /// The section's header carries Attach, whose dialog asks for one record through a
+    /// searchable choice offered as a relationship's options are; attaching a linked record
+    /// changes nothing. Each row and the bulk bar carry Detach, which deletes the join rows and
+    /// leaves the records. Both post under the owner's record:
+    /// `{list}/{key}/-/relations/{slug}/-/actions/attach`, `…/-/actions/detach` with the
+    /// selection's `ids`, and `…/{related}/-/actions/detach` for one row. The owner's hooks
+    /// receive [`Change::Attach`](crate::Change::Attach) or
+    /// [`Change::Detach`](crate::Change::Detach).
+    ///
+    /// Attaching and detaching ask the owner's policy for `Update`, as editing it does: no button
+    /// renders without it, and the routes answer 403. A record the related resource's policy
+    /// refuses `View` is neither offered nor detached. Mounting refuses a join model a link
+    /// cannot write.
     pub fn belongs_to_many<C>(via: impl Into<Path<P, List<C::Model>>>) -> Self
     where
         C: Resource,

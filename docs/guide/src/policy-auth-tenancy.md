@@ -22,21 +22,8 @@ impl Resource for UserResource {
 }
 ```
 
-| Ability | Asked by |
-| --- | --- |
-| `ViewAny` | the list and its live refresh, the sidebar entry, the export, related tables, relationship options |
-| `View(record)` | the detail page, the edit page and POST, deletes, each exported row, each relationship option, each row's actions |
-| `Create` | the create page and POST, the Create button |
-| `Update(record)` | the edit page and POST, the row's Edit action |
-| `DeleteAny` | the delete and bulk-delete POSTs, the Delete action and the bulk column |
-| `Delete(record)` | each record a delete removes, the row's Delete action and checkbox |
-| `RestoreAny` | on a [soft-deleting](./resources.md#soft-deletes) resource, the restore POSTs and the Restore buttons |
-| `Restore(record)` | each trashed record a restore brings back, its Restore button and checkbox |
-| `ForceDeleteAny` | the force-delete POSTs and the Delete permanently buttons, with `DeleteAny` |
-| `ForceDelete(record)` | each trashed record a force delete removes, its button and checkbox, with `Delete(record)` |
-| `RunAny { action }` | the [record action](./actions.md#record-actions)'s POSTs and its buttons on rows, record pages and the bulk bar, and the bulk column for a bulk action |
-| `Run { action, record }` | each record a record action runs on, its button on the record's row and pages and, for a bulk action, the record's checkbox |
-| `RunHeader { action }` | the [header action](./actions.md#header-actions)'s POST and its button in the list header, with `ViewAny` |
+Each [`Ability`](https://y-l.fr/tablo/nightly/api/tablo/enum.Ability.html) variant names one thing a user may do: list, view,
+create, update, delete, restore, run an action. Its page says which pages and POSTs ask it.
 
 `action` is the action's `NAME`, so one policy tells a resource's actions apart.
 `ability.is_action::<Publish, _>()` asks whether the ability is `RunAny` or `Run` for the action
@@ -47,26 +34,16 @@ type `Publish`, so renaming the action's `NAME` cannot leave a policy matching t
 ```
 
 The `_` is the resource, inferred when the action belongs to one. A header action, which runs on
-no record, is asked `RunHeader`, which `ability.is_header_action::<A>()` matches. Handlers ask the
-same abilities that decide which buttons render, so a hidden action is also a refused request. A
-denied request answers 403.
+no record, is asked `RunHeader`, which `ability.is_header_action::<A>()` matches.
 
+Three rules shape every policy; [`Policy`](https://y-l.fr/tablo/nightly/api/tablo/trait.Policy.html) lists the rest:
+
+- **Handlers ask what buttons ask.** A hidden button is also a refused request, answered 403.
 - **The list asks `ViewAny` only.** A policy is Rust code that cannot run in the database, and
   filtering rows after pagination would leave pages short. Rows a user must not see on the list
   belong out of `query()`; see [Resources](./resources.md#scoping-the-query).
-- **A record is viewed before it is written.** The edit, delete and action handlers ask `View`
-  together with `Update`, `Delete` or `Run`. A delete asks `DeleteAny`, and an action `RunAny`,
-  before any record loads.
-- **Writes are checked against the stored row.** The update, delete and action handlers load the
-  record inside the write's transaction and ask the policy about that row, not the submitted id. A
-  bulk delete or bulk action fails as a whole if any selected record is refused `View`, and skips
-  the records refused `Delete` or `Run`.
-- **A record action's `can_run` is not authorization.** It reads the record's state and sees no
-  policy; the policy's `RunAny` and `Run` decide who runs the action. A header action's
-  `can_run(cx)` is a check of its own, beside the policy on a resource; on a page, which has no
-  policy, it is where the action asks one. A panel that mounts the resource
-  with `ReadOnly` through `Panel::resource_with` therefore offers and runs none of its actions.
-- **Relationship options** require `ViewAny` and `View` from the related resource's policy.
+- **Writes are checked against the stored row**, loaded inside the write's transaction, never
+  against the submitted key.
 
 ### Building a policy
 
@@ -106,15 +83,9 @@ the user policy above does, so that a new one fails to compile, or build the pol
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-abilities}}
 ```
 
-`new` names the model, `Abilities::<Post>::new()`, for the closures to read the record. A
-write's record check also allows the write at all: `delete` allows `DeleteAny`, `restore`
-`RestoreAny`, `force_delete` `ForceDeleteAny`, `run::<A, _>` `RunAny` for `A`, since each of
-these writes asks the record's check too. The `_any` methods (`delete_any`, `restore_any`,
-`force_delete_any`, `run_any`) narrow it; declared alone, they allow no record. `view` does not
-allow `ViewAny`: the list asks `ViewAny` alone and shows every row of the query, so `view_any`
-is declared on its own. Declaring an ability twice replaces its earlier check.
-A header action is declared with `run_header::<A>`. `Abilities` combines with `and` and `or` like
-the other policies.
+A write's record check also allows the write at all, and `view` does not allow `ViewAny`:
+[`Abilities`](https://y-l.fr/tablo/nightly/api/tablo/struct.Abilities.html) has the rules for each method. A header action is
+declared with `run_header::<A>`.
 
 A policy that allows everything but some writes reads `ability.written_record()`, the record an
 update, delete, restore, force delete or record action's run writes, so a record action the
@@ -139,11 +110,9 @@ to lists checks it before rendering each link.
 
 A page, route or shard the app serves under a panel calls `auth::guard(cx)?` to require the
 panel's signed-in user exactly as the panel's own pages do. A shard needs it: Topcoat serves
-shards at its runtime path, where the page's checks do not run. On a router with several panels,
-the panel declares the shards and procedures its pages use with `Panel::endpoint(shard)`: a
-request to one then runs as that panel, and a session another panel signed in answers 401. A
-shard no panel declares runs as the panel whose session sent the request, whichever it is, and
-as no panel when no session did, as on a panel with `Auth::disabled()`.
+shards at its runtime path, where the page's checks do not run. The panel declares the shards and
+procedures its pages use with [`Panel::endpoint`](https://y-l.fr/tablo/nightly/api/tablo/struct.Panel.html#method.endpoint), so they
+run as that panel.
 
 A form route verifies the CSRF token it posted under `csrf::FIELD_NAME` with
 `csrf::verify(cx, token)`.
@@ -187,33 +156,15 @@ when their `AdminUser.active` is `true`. The gate covers only the panel prefix a
 the gate covers the prefix. On a router with several panels, `/_topcoat/runtime` answers 401
 without a session only when every panel is gated.
 
-- **Login** verifies Argon2id hashes. An unknown email costs the same work as a wrong password,
-  and every failure shows the same message. `PasswordAuth` stores an email trimmed and
-  lowercased, and looks it up the same way, so `Ada@Example.com` and `ada@example.com` are one
-  account. A resource that edits an admin's email must store it the same way. A row an earlier
-  version stored with capitals cannot sign in or reset its password: list the accounts that
-  differ only in case with `SELECT LOWER(TRIM(email)) FROM admin_users GROUP BY 1 HAVING
-  COUNT(*) > 1`, merge or delete them, then run `UPDATE admin_users SET email =
-  LOWER(TRIM(email))`. SQLite's `LOWER` folds ASCII letters only, so lowercase any other capital
-  by hand. Each login may make five attempts a minute from
-  one address; set another limit with `Auth::throttle`, as
-  [Security](./security.md#authentication) shows.
-- **Sessions** are rows in `AuthSession`, identified by a hash of the cookie's token. A session
-  lasts seven days from login, is replaced on each login and deleted on logout. Each successful
-  login also deletes up to 500 expired sessions. The row records the prefix of the panel that
-  signed the user in, so an existing `auth_sessions` table needs a migration: add a non-null
-  `panel` column and backfill it to the panel's prefix (for example `ALTER TABLE auth_sessions
-  ADD COLUMN panel TEXT NOT NULL DEFAULT '/admin'`), then drop the default when every row names
-  its panel. Renaming a panel's prefix invalidates the sessions it issued.
+- **Login** verifies Argon2id hashes and treats an email's case as insignificant; each login may
+  make five attempts a minute from one address, which `Auth::throttle` changes
+  ([Security](./security.md#authentication)). [`PasswordAuth`](https://y-l.fr/tablo/nightly/api/tablo/struct.PasswordAuth.html) has
+  the details, and what to do about rows stored with capitals.
+- **Sessions** are rows in `AuthSession`, valid for seven days, and each belongs to the panel that
+  signed the user in: a user signed in to `/admin` is anonymous on `/portal`.
+  [`AuthSession`](https://y-l.fr/tablo/nightly/api/tablo/auth/struct.AuthSession.html) has the rules and the columns it needs.
 - **Revoking.** Call `auth::revoke_sessions_for_user(cx, user_id)` when a user's password changes
-  or their account is deactivated; otherwise existing sessions stay valid until they expire. On a
-  panel's request it revokes the sessions and reset links of every panel whose authenticator loads
-  the same user type, as the profile's own password change does; outside any panel, the user's
-  sessions and links on every panel.
-- **Several panels.** Each panel has its own `Auth` and its own login page, and a session belongs
-  to the panel that signed the user in: the session row records the panel's prefix. Another
-  panel's gate treats the request as anonymous, and `auth::user` answers `None` there. One
-  browser holds one session, so signing in to a second panel ends the first.
+  or their account is deactivated; otherwise existing sessions stay valid until they expire.
 
 Read the signed-in user in your own code as your user type: `auth::user::<AdminUser>(cx)` returns
 `Option<&AdminUser>`, and `auth::require_user::<AdminUser>(cx)?` answers the request as the table
@@ -276,27 +227,9 @@ transaction the framework opens:
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-staff-sign-up-panel}}
 ```
 
-- **The form** is any `FormInput`, or the shipped `SignUp`. `#[form(password)]` renders a
-  masked control, with a button that shows what was typed, that a refused form renders empty, and reads the password as typed, outer
-  spaces included, as the login compares it. `#[form(email)]` refuses a malformed address before
-  `validate` runs. A missing field and a malformed value answer 422 with the error
-  under the field, as `validate`'s refusals do; nothing is written.
-- **`new_password_errors`** refuses a password under eight characters and a confirmation that
-  differs, under the `password` and `password_confirmation` keys.
-- **After the commit**, an account that may open the panel is signed in, its session rotated as a
-  login rotates it, and lands on `next` or the panel's home page. One that may not, such as an
-  account awaiting approval, lands on the login page with a notification instead. A signed-in
-  user who opens the sign-up page lands on the panel's home page.
-- **Mounting refuses** a registrar whose `User` is not the type the authenticator loads, a
-  registration on `Auth::disabled()`, a form field named `csrf_token` or `next`, a file field and
-  a relationship choice, whose options would list records to a visitor nobody signed in.
-- **Throttling.** Each client address may submit five sign-ups a minute, counted whether or not
-  they create an account; `Auth::sign_up_throttle` changes the limit. Past it the page answers
-  429.
-
-The sign-up page tells a visitor whether an email is taken, which the login page never does: an
-app that must keep its accounts private verifies the address by email before saying so, which
-Tablo does not ship.
+[`Auth::registration`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.registration) lists how the form posts, where the
+visitor lands after the commit, what the mount refuses and how sign-ups are throttled. The
+sign-up page tells a visitor whether an email is taken, which the login page never does.
 
 ### Profile
 
@@ -321,25 +254,8 @@ shipped `Profile` input fits any table with a name, an email and a password:
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-staff-profile}}
 ```
 
-- **The form** is any `FormInput`, rendered in the panel's shell. The page shows what the input's
-  `write` writes, so `Profile` never shows a password. A disabled control keeps what `fill` wrote,
-  whatever the POST carries. A refused save renders the form again with each error under its
-  field; nothing is written.
-- **`save` answers** `ProfileUpdate::Details`, which keeps every session, or
-  `ProfileUpdate::Credentials` for a change to what the user signs in with. The user's sessions then
-  end on every panel whose authenticator loads the same user type, in the transaction that saves,
-  and the browser that saved gets a new session under the tenant it acted for. `PasswordAuth`
-  answers `Credentials` for a new email or password.
-- **An email another account holds** is reported only once the current password verifies, so a
-  stolen session cannot probe which addresses have accounts.
-- **After the commit** the page reloads with a notification.
-- **Mounting refuses** an editor whose `User` is not the type the authenticator loads, a profile on
-  `Auth::disabled()`, a form field named `csrf_token`, a file field and a relationship choice,
-  whose options no route serves the page.
-- **Throttling.** Each user may submit five saves a minute, from any address, counted whether or
-  not they save; `Auth::profile_throttle` changes the limit. Past it the page answers 429, which
-  keeps a stolen session from guessing the current password. A user past the limit can still sign
-  in.
+[`Auth::profile`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.profile) lists what the form renders, which saves end
+the user's sessions, what the mount refuses and how saves are throttled.
 
 ### Password reset
 
@@ -361,26 +277,9 @@ Your own user table resets through a `PasswordResetter` beside its `Authenticato
 password inside the reset's transaction. The link goes to the address `PanelUser::email` answers;
 an account that answers none gets no link.
 
-- **The request page** answers the same whether an account uses the address or not: it redirects
-  to the login page with a notification, and writes and mails the link after answering, so the
-  database and the mail server add no time when an account exists. An account that may not enter
-  the panel gets no link, and a failed send is logged, not shown.
-- **The link goes to the stored address**, never the typed one. A lookup that matches loosely,
-  such as a collation that folds accents, would otherwise mail one account's link to another
-  address.
-- **A link** works once, for one hour, on the panel that mailed it, and only while the account may
-  still enter the panel. A new request replaces the account's earlier link, and a password change
-  on the profile page ends it, as it ends every link the account holds. The token is stored only
-  as a hash, and the reset page sends no referrer and may not be cached.
-- **A reset** checks the new password with `new_password_errors`, then sets it, ends the account's
-  sessions and reset links on every panel whose authenticator loads the same user type, and
-  redirects to the login page. All of this commits in one transaction.
-- **Throttling.** Each address may request three links in fifteen minutes, from any client,
-  counted whether or not an account uses it; `PasswordReset::throttle` changes the limit. Past it
-  the page answers 429. A limit per client belongs at the proxy.
-- **Mounting refuses** a resetter whose `User` is not the type the authenticator loads, a reset on
-  `Auth::disabled()`, a reset without `Auth::mail`, a base URL that is not an absolute `http` or
-  `https` URL or that carries a query or fragment, and a router without a `MailConfig`.
+[`Auth::password_reset`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.password_reset) lists how long a link works,
+what a reset ends, what the mount refuses and how requests are throttled. The request page
+answers the same whether an account uses the address or not, so it never reveals one.
 
 ### Email verification
 
@@ -397,37 +296,12 @@ says whether the user has proved their address, and `store_verified_email` store
 link proved and marks it verified, inside the link's transaction. `PasswordAuth` keeps the proof in
 `AdminUser::email_verified_at`; `create_admin` seeds a verified account.
 
-- **Until the user verifies**, a page redirects to `{prefix}/verify-email` and any other request
-  answers 403. The page offers to mail a link, and to sign out. A user whose `PanelUser::email` is
-  `None` has no address to prove and is not held.
-- **Accounts that predate verification** are unverified: turning it on sends each of them,
-  seeded admins included, to `{prefix}/verify-email` at their next request. Backfill
-  `email_verified_at` (from `created_at`, say) for the addresses you already trust.
-- **A sign-up** mails the link at once, after the response.
-- **A link** works once, for one day, on the panel that mailed it, and only while the account may
-  enter the panel and still stores the address it was mailed to. It verifies on `GET` in any
-  browser, signed in or not, then lands on the panel or on the login page. A mail scanner that
-  opens the link verifies the address too: it fetched the link from the mailbox the link proves.
-- **A new email** waits for its own link. A profile editor calls `auth::request_email_change`
-  from `save` in place of writing the address: on a panel with email verification it records the
-  change and answers `EmailChange::Pending`, and once the save commits the panel mails the new
-  address a link that stores it and the old address a link that keeps it. Elsewhere it answers
-  `EmailChange::Immediate` and the editor stores the address itself. `PasswordAuth` does this.
-  The link proves only that whoever asked reads the new mailbox, so ask for the current password
-  before calling it, as `PasswordAuth` does: a stolen session could name its thief's mailbox.
-- **Either link** opens a page whose button does the work, so a mail scanner that fetches it
-  changes nothing.
-- **The new address's link** stores it, verified, once, for one day. It is a credential change:
-  the account's sessions and sign-in links end on every panel signing in its user type, and the
-  browser that confirmed keeps a new session when it was signed in as the account.
-- **The old address's link** works for a week, before or after the change goes through: it keeps
-  the old address, restoring it if the change went through, and ends every session, sign-in link
-  and pending change the account holds, the cancelling browser's included: whoever asked for the
-  change may hold one.
-- **Throttling.** Each account may ask for three links in fifteen minutes;
-  `EmailVerification::throttle` changes the limit. Past it the page answers 429.
-- **Mounting refuses** a verifier whose `User` is not the type the authenticator loads, a
-  verification on `Auth::disabled()`, and one without `Auth::mail`.
+Accounts that predate verification are unverified, seeded admins included: backfill
+`email_verified_at` for the addresses you already trust before turning it on. A new email waits
+for its own link: a profile editor calls `auth::request_email_change` from `save` instead of
+writing the address, as `PasswordAuth` does.
+[`Auth::email_verification`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.email_verification) lists what each link
+does and for how long, what the mount refuses and how links are throttled.
 
 ### Two-factor sign-in
 
@@ -442,40 +316,10 @@ the router's cookie `Key`, which the router must hold:
 
 Add `AuthFactor` and `AuthToken` to the `Db`'s models.
 
-- **Setting up** happens at `{prefix}/two-factor`, which the user menu links to. It asks for the
-  current password first, through `Authenticator::confirm_password`, so a stolen session cannot
-  add a factor its thief holds. That method verifies with the user's `PanelUser::email` as the
-  login; override it when users sign in with something else. The page then shows a QR code and
-  the key, and turns two-factor sign-in on once a code from the app matches. It then shows eight
-  recovery codes, once: the panel stores only their hashes, keyed like the secrets. The pages
-  answer `Cache-Control: no-store`.
-- **Each panel enrols apart.** A factor signs in to the panel that set it up only, even when other
-  panels load the same user type: enrol on each.
-- **Signing in**, a correct password leads to `{prefix}/two-factor-challenge` instead of a
-  session. The challenge lasts five minutes in its own cookie and takes a code from the app or a
-  recovery code. Each code works once: an app code does not sign in twice, and a recovery code is
-  used up.
-- **Turning it on or off** is a credential change: the account's other sessions and links end.
-  Turning it off, and showing new recovery codes, take a code.
-- **Codes by email.** `TwoFactor::new().email_codes()` lets a user with an address choose codes
-  mailed to it in place of an app, through `Auth::mail`. Each sign-in mails a six-digit code that
-  works once, for ten minutes; the challenge page mails a new one on request, in place of the
-  last. Each account may have three mailed in fifteen minutes; `TwoFactor::mail_throttle` changes
-  the limit. An account holds one factor at a time: it turns one off before setting up the other.
-  A panel that drops `email_codes()` mails no more codes: an account set up for them signs in
-  with a recovery code. A mail server that fails leaves the challenge up, with its button to send
-  another code.
-- **Throttling.** Each account may try five codes or passwords a minute, at sign-in and on the
-  settings page together; `TwoFactor::throttle` changes the limit. Past it the page answers 429.
-  The count lives in each process: behind several, the limit holds per process. Someone who knows
-  the password can use up the owner's attempts, and each new sign-in replaces the last challenge.
-- **The cookie `Key` seals the secrets.** Rotating it makes every app code fail until its owner
-  signs in with a recovery code and sets the app up again; a leaked key opens every secret.
-- **Requiring it.** `TwoFactor::new().required()` sends a signed-in user without a second factor
-  to `{prefix}/two-factor` before anything else, as an unverified address does: a page redirects
-  there and any other request answers 403.
-- **Mounting refuses** two-factor sign-in on `Auth::disabled()`, a router without a cookie
-  `Key`, and codes by email without `Auth::mail`.
+Each panel enrols apart, and the cookie `Key` seals the secrets, so rotating it makes every app
+code fail until its owner signs in with a recovery code.
+[`Auth::two_factor`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.two_factor) lists the setup, the challenge, codes
+by email, throttling and what the mount refuses.
 
 ### Turning it off
 
@@ -493,46 +337,31 @@ A tenant-owned resource shows each user only the rows of the tenant they act for
 for each tenant `PanelUser::tenants` lists, as a `Membership { tenant, name }`; the provided
 `AdminUser` belongs to none, so a tenanted app signs in [its own user table](#your-own-user-table).
 
-- **The request's tenant** is the membership the user selected, else the one
-  `PanelUser::default_tenant` names while the user holds it, such as a default the user picks on
-  their profile, else their first. Read it with `tenant_id(cx)`; `membership(cx)` returns the
-  whole `Membership`. A user with no membership has no tenant.
-- **Switching.** With two or more memberships, a tenant menu sits atop the sidebar. It posts to
-  `{prefix}/tenant`, which stores the choice on the session and returns to the panel's home
-  page.
-  A tenant the user is not a member of answers 403, and a stored choice applies only while the
-  membership lasts. The session table records the choice, so an existing `auth_sessions` table
-  needs a nullable `tenant` column, typed as Toasty stores a `Uuid` on your database. One
-  browser acts for one tenant at a time, in every tab.
-- **Registering a tenant.** `Auth::tenant_registration` adds a page at `{prefix}/register-tenant`
-  where the signed-in user creates a tenant, through a `TenantRegistrar` for the type the
-  authenticator loads. Its `Input` is the page's form; `validate` and `register` run in one
-  transaction, and `register` writes the tenant and the user's membership of it, answering that
-  `Membership`. The session then acts for the new tenant, and the next request's `find_by_id`
-  must list it. The tenant menu links to the page, so it shows from one membership on.
-- **A user with no membership** on a panel with tenant registration reaches nothing else: a page
-  redirects to the registration page and any other request answers 403, as with an unverified
-  address, which comes first. A sign-up that creates no tenant lands there.
-- **Overrides.** No request header sets the tenant. Server code such as a middleware or a test
-  can, by inserting a `Tenant` request extension or putting `Tenant(id)` on the `Cx`.
+The request's tenant is the membership the user selected, else the one
+`PanelUser::default_tenant` names, else their first; read it with `tenant_id(cx)`, and the whole
+`Membership` with `auth::membership(cx)`. A user with two or more memberships switches between
+them from a menu atop the sidebar ([`PanelUser::tenants`](https://y-l.fr/tablo/nightly/api/tablo/trait.PanelUser.html#method.tenants)).
+No request header sets the tenant; server code such as a middleware or a test can, through a
+`Tenant` request extension or `Tenant(id)` on the `Cx`.
+
+`Auth::tenant_registration` lets a signed-in user create a tenant, through a `TenantRegistrar`
+whose `register` writes the tenant and the user's membership of it; `required()` sends a user with
+no membership there before anything else:
 
 ```rust
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-tenant-registration}}
 ```
 
-`Auth::tenant_profile` adds a settings page at `{prefix}/tenant/profile` for the tenant the
-request acts for, through a `TenantEditor`. `may_edit` says which members may open it, by default
-all of them; the tenant menu links to it for them, and the page answers 403 to anyone else. `fill`
-loads the form from the tenant, and `validate` and `save` run in one transaction. The form names
-the tenant it was filled from, so one posted after another tab switched tenants saves nothing:
+`Auth::tenant_profile` adds a settings page for the tenant the request acts for, through a
+`TenantEditor` whose `may_edit` says which members may open it:
 
 ```rust
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-tenant-profile}}
 ```
 
-Mounting refuses a registrar or an editor whose `User` is not the type the authenticator loads,
-either page on `Auth::disabled()`, a form field named `csrf_token` (or `editing_tenant` on the
-settings page), a file field and a relationship choice.
+[`Auth::tenant_registration`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.tenant_registration) and
+[`Auth::tenant_profile`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.tenant_profile) list what each page does and
+what the mount refuses.
 
 Declare the resource's tenancy with the column its rows carry their tenant in:
 
@@ -557,11 +386,9 @@ That one declaration does two things:
   create sets the tenant column itself, so the record form leaves it out.
 
 The column is a `TenantId` field of the model, or `Option<TenantId>` for a nullable one, named by
-its lens; the name itself is the app's choice. Do not repeat the filter in `query`. Mounting the
-panel refuses a `Tenancy::column` lens that is not one field of the model, and a resource that
-declares no tenancy over tenant-owned rows, which would serve every tenant's rows: a model with a
-`TenantId` field, or one with a `belongs_to` to a model the panel mounts a resource over, when
-that resource is tenant-scoped or the model has a `TenantId` field.
+its lens. Do not repeat the filter in `query`. A resource over tenant-owned rows that declares no
+tenancy at all fails to mount, since it would serve every tenant's rows; the
+[mount errors](./mount-errors.md) say which declaration it needs.
 
 **A row that inherits its tenant.** A comment has no tenant column of its own; it belongs to a post
 that does. `Tenancy::via` names the tenant through the relation, and the framework checks and
