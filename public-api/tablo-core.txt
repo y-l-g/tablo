@@ -1910,10 +1910,15 @@ impl core::marker::UnsafeUnpin for tablo_core::FieldErrorKind
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::FieldErrorKind
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::FieldErrorKind
 #[non_exhaustive] pub enum tablo_core::FieldRuleFault
+pub tablo_core::FieldRuleFault::AboveRowCap(usize)
 pub tablo_core::FieldRuleFault::EmptyRange
+pub tablo_core::FieldRuleFault::FewerOptions(usize)
 pub tablo_core::FieldRuleFault::InvalidPattern(alloc::string::String)
+pub tablo_core::FieldRuleFault::NotCheckbox
 pub tablo_core::FieldRuleFault::NotText(&'static str)
+pub tablo_core::FieldRuleFault::RefusedBlank
 pub tablo_core::FieldRuleFault::RefusedDefault(alloc::string::String)
+pub tablo_core::FieldRuleFault::SingleValue
 pub tablo_core::FieldRuleFault::UnorderedBound(alloc::string::String)
 pub tablo_core::FieldRuleFault::UnparsedDefault(alloc::string::String)
 impl core::clone::Clone for tablo_core::FieldRuleFault
@@ -2583,6 +2588,8 @@ pub struct tablo_core::ChoiceField<F>(_, _)
 impl<F> tablo_core::ChoiceField<F>
 pub fn tablo_core::ChoiceField<F>::buttons(self) -> Self
 pub fn tablo_core::ChoiceField<F>::depends_on<M, T>(self, &impl tablo_core::Watched<F>, impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> Self where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormScalar + toasty::stmt::into_expr::IntoExpr<T> + core::marker::Send + core::marker::Sync + 'static
+pub fn tablo_core::ChoiceField<F>::max_items(self, usize) -> Self
+pub fn tablo_core::ChoiceField<F>::min_items(self, usize) -> Self
 pub fn tablo_core::ChoiceField<F>::multiple(self) -> Self
 pub fn tablo_core::ChoiceField<F>::options(self, impl tablo_core::IntoOptions) -> Self
 pub fn tablo_core::ChoiceField<F>::radio(self) -> Self
@@ -2753,6 +2760,9 @@ impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Currency
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::Currency
 pub struct tablo_core::CustomField<F>(_, _)
 impl<F> tablo_core::CustomField<F>
+pub fn tablo_core::CustomField<F>::accepted(self) -> Self
+pub fn tablo_core::CustomField<F>::switch(self) -> Self
+impl<F> tablo_core::CustomField<F>
 pub fn tablo_core::CustomField<F>::choice(self) -> tablo_core::ChoiceField<F>
 impl<F> tablo_core::CustomField<F>
 pub fn tablo_core::CustomField<F>::custom(self, impl tablo_core::extend::Control + 'static) -> tablo_core::CustomField<F>
@@ -2765,8 +2775,6 @@ impl<F> tablo_core::CustomField<F>
 pub fn tablo_core::CustomField<F>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::CustomField<F>::name(&self) -> &str
 pub fn tablo_core::CustomField<F>::visible_when(self, &impl tablo_core::Watched<F>, impl core::iter::traits::collect::IntoIterator<Item = impl core::convert::Into<alloc::string::String>>) -> Self
-impl<F> tablo_core::CustomField<F>
-pub fn tablo_core::CustomField<F>::switch(self) -> Self
 impl<F> core::convert::From<tablo_core::CustomField<F>> for tablo_core::Field
 pub fn tablo_core::Field::from(tablo_core::CustomField<F>) -> tablo_core::Field
 impl<F> tablo_core::IntoSchema<F> for tablo_core::CustomField<F>
@@ -3966,6 +3974,8 @@ impl<M, T> core::panic::unwind_safe::UnwindSafe for tablo_core::RepeaterColumn<M
 pub struct tablo_core::RepeaterField<F>(_, _)
 impl<F> tablo_core::RepeaterField<F>
 pub fn tablo_core::RepeaterField<F>::add_label(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::RepeaterField<F>::max_items(self, usize) -> Self
+pub fn tablo_core::RepeaterField<F>::min_items(self, usize) -> Self
 impl<F> tablo_core::RepeaterField<F>
 pub fn tablo_core::RepeaterField<F>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::RepeaterField<F>::name(&self) -> &str
