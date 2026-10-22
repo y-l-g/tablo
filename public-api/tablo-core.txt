@@ -2259,6 +2259,7 @@ pub mod tablo_core::panel::url
 pub fn tablo_core::panel::url::action<R: tablo_core::resource::Resource, A: tablo_core::Action<R>>(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<alloc::string::String>
 pub fn tablo_core::panel::url::bulk_action<R: tablo_core::resource::Resource, A: tablo_core::Action<R>>(&topcoat_core::context::Cx) -> core::option::Option<alloc::string::String>
 pub fn tablo_core::panel::url::create<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx) -> core::option::Option<alloc::string::String>
+pub fn tablo_core::panel::url::delete<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<alloc::string::String>
 pub fn tablo_core::panel::url::edit<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<alloc::string::String>
 pub fn tablo_core::panel::url::page<P: tablo_core::Page>(&topcoat_core::context::Cx) -> core::option::Option<alloc::string::String>
 pub fn tablo_core::panel::url::panel(&topcoat_core::context::Cx) -> core::option::Option<alloc::string::String>
@@ -4471,6 +4472,7 @@ pub mod tablo_core::url
 pub fn tablo_core::url::action<R: tablo_core::resource::Resource, A: tablo_core::Action<R>>(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<alloc::string::String>
 pub fn tablo_core::url::bulk_action<R: tablo_core::resource::Resource, A: tablo_core::Action<R>>(&topcoat_core::context::Cx) -> core::option::Option<alloc::string::String>
 pub fn tablo_core::url::create<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx) -> core::option::Option<alloc::string::String>
+pub fn tablo_core::url::delete<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<alloc::string::String>
 pub fn tablo_core::url::edit<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> core::option::Option<alloc::string::String>
 pub fn tablo_core::url::page<P: tablo_core::Page>(&topcoat_core::context::Cx) -> core::option::Option<alloc::string::String>
 pub fn tablo_core::url::panel(&topcoat_core::context::Cx) -> core::option::Option<alloc::string::String>

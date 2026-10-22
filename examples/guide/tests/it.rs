@@ -9,7 +9,7 @@ use guide::{
 use tablo::{
     auth::create_admin,
     prelude::*,
-    testing::{TestClient, form_body, mount, refusal},
+    testing::{TestClient, mount, mount_with_handle, refusal},
 };
 use toasty::Db;
 
@@ -33,36 +33,39 @@ async fn seeded_db() -> Db {
     db
 }
 
-async fn first_book_id(db: &Db) -> uuid::Uuid {
+async fn first_book(db: &Db) -> Book {
     let mut db = db.clone();
     let books = Book::all().exec(&mut db).await.expect("list books");
-    books.into_iter().next().expect("one book").id
+    books.into_iter().next().expect("one book")
 }
 
 // ANCHOR: testing-no-delete
 #[tokio::test]
 async fn books_cannot_be_deleted() {
     let mut db = seeded_db().await; // your fixture: an in-memory database with rows
-    let id = first_book_id(&db).await;
-    // `mount` builds the router an app does, beside its own pages and routes.
-    let router =
-        mount(db.clone(), Panel::new("admin").resource::<BookResource>()).expect("mount the panel");
+    let book = first_book(&db).await;
+    // `mount_with_handle` builds the router an app does, beside its own pages and routes, and
+    // keeps the mounted panel, which the client reads its URLs from.
+    let (router, panel) =
+        mount_with_handle(db.clone(), Panel::new("admin").resource::<BookResource>())
+            .expect("mount the panel");
     let admin = create_admin(&mut db, "admin@example.com", "secret", "Admin")
         .await
         .expect("seed the admin");
     // `sign_in` records a session for `admin`, as a successful login does.
-    let client = TestClient::new(&router).sign_in(&db, "admin", &admin).await;
+    let client = TestClient::new(&router)
+        .sign_in(&db, "admin", &admin)
+        .await
+        .panel(&panel);
+    let books = client.resource::<BookResource>();
 
-    assert_eq!(client.get("/admin/books").await.status(), 200);
+    let list = books.list().await;
+    assert_eq!(list.status(), 200);
+    assert_eq!(list.rows().len(), 1);
 
-    // `submit` posts the form with the CSRF cookie and its matching `csrf_token` field.
-    let response = client
-        .submit(
-            &format!("/admin/books/{id}/delete"),
-            &form_body(&[("confirm", "1")]),
-        )
-        .await;
-    assert_eq!(response.status(), 403); // the policy does not allow `DeleteAny`
+    // `delete` posts the confirmed delete to the record's route, with the CSRF pair.
+    let reply = books.delete(&book).submit().await;
+    assert_eq!(reply.status(), 403); // the policy does not allow `DeleteAny`
 
     let books = Book::all().exec(&mut db).await.expect("list books");
     assert_eq!(books.len(), 1); // nothing was deleted

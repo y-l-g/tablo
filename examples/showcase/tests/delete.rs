@@ -1,12 +1,13 @@
 //! Deleting records, one row or a selection.
 
 use http::header::LOCATION;
-use showcase::models::User;
+use showcase::{app::UserResource, models::User};
 use tablo::NotificationStatus;
 
 use crate::common::{
-    body_string, demo_client, response_cookies, routers::router_for_tests as router, row_keys,
-    seeded_db, set_cookie_header, user_count,
+    body_string, demo_client, response_cookies,
+    routers::{app_for_tests, router_for_tests as router},
+    row_keys, seeded_db, set_cookie_header, user_count,
 };
 
 #[tokio::test]
@@ -127,8 +128,8 @@ async fn delete_404_for_an_unknown_id() {
 #[tokio::test]
 async fn delete_sso_managed_user_is_forbidden() {
     let db = seeded_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
+    let (router, admin) = app_for_tests(db.clone());
+    let client = demo_client(&router, &db).await.panel(&admin);
     let mut db_q = db.clone();
     let ken = User::filter(User::fields().name().eq("Ken Thompson".to_string()))
         .first()
@@ -137,14 +138,16 @@ async fn delete_sso_managed_user_is_forbidden() {
         .unwrap()
         .expect("Ken seed");
     let before = user_count(&db).await;
-    let resp = client
-        .submit(&format!("/admin/users/{}/delete", ken.id), "confirm=1")
+    let reply = client
+        .resource::<UserResource>()
+        .delete(&ken)
+        .submit()
         .await;
     assert_eq!(
-        resp.status(),
+        reply.status(),
         403,
         "protected row delete must be forbidden, got {}",
-        resp.status()
+        reply.status()
     );
     assert_eq!(
         user_count(&db).await,
