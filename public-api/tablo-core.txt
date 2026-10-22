@@ -1910,11 +1910,14 @@ impl core::marker::UnsafeUnpin for tablo_core::FieldErrorKind
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::FieldErrorKind
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::FieldErrorKind
 #[non_exhaustive] pub enum tablo_core::FieldRuleFault
+pub tablo_core::FieldRuleFault::AboveFormCap(usize)
 pub tablo_core::FieldRuleFault::AboveRowCap(usize)
 pub tablo_core::FieldRuleFault::EmptyRange
 pub tablo_core::FieldRuleFault::FewerOptions(usize)
 pub tablo_core::FieldRuleFault::IncomparableField(alloc::string::String)
+pub tablo_core::FieldRuleFault::InvalidExtension(alloc::string::String)
 pub tablo_core::FieldRuleFault::InvalidPattern(alloc::string::String)
+pub tablo_core::FieldRuleFault::NoExtension
 pub tablo_core::FieldRuleFault::NotCheckbox
 pub tablo_core::FieldRuleFault::NotText(&'static str)
 pub tablo_core::FieldRuleFault::RefusedBlank
@@ -3132,6 +3135,9 @@ pub fn tablo_core::FileField<F>::custom(self, impl tablo_core::extend::Control +
 pub fn tablo_core::FileField<F>::disabled(self) -> Self
 pub fn tablo_core::FileField<F>::disabled_on_edit(self) -> Self
 pub fn tablo_core::FileField<F>::help(self, impl core::convert::Into<alloc::string::String>) -> Self
+impl<F> tablo_core::FileField<F>
+pub fn tablo_core::FileField<F>::extensions<I>(self, I) -> Self where I: core::iter::traits::collect::IntoIterator, <I as core::iter::traits::collect::IntoIterator>::Item: core::convert::AsRef<str>
+pub fn tablo_core::FileField<F>::max_bytes(self, usize) -> Self
 impl<F> tablo_core::FileField<F>
 pub fn tablo_core::FileField<F>::label(self, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn tablo_core::FileField<F>::name(&self) -> &str

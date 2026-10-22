@@ -27,6 +27,7 @@ which the list, form and detail pages follow. This table maps their names to Tab
 | `->url()`, `->accepted()` | `.url()` on a text field, `.accepted()` on a toggle |
 | `->minItems()`, `->maxItems()` | `.min_items(n)`, `.max_items(n)` on a multiple choice or a repeater |
 | `->gt()`, `->gte()`, `->lt()`, `->lte()`, `->after()`, `->afterOrEqual()`, `->before()`, `->beforeOrEqual()` naming a field, `->different()` | `.gt(&other)`, `.gte(..)`, `.lt(..)`, `.lte(..)`, `.different(..)` on a text field |
+| `FileUpload::acceptedFileTypes()`, `->maxSize()` | `.extensions([..])` and `.max_bytes(n)` on a file field, checking the extension rather than the MIME type |
 | `rules()`, `->unique()` | `Resource::validate_record`, `.unique()` |
 | `mutateFormDataBeforeCreate`, `handleRecordCreation` | `Resource::create_record`, `update_record`, delegating to `write_create`, `write_update` |
 | `infolist()` | `ResourceDef::detail`: a [`Detail`](./detail-pages.md) of columns |

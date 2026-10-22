@@ -28,3 +28,26 @@ fn only_a_rooted_or_http_value_links() {
     assert!(is_linkable(remote), "an http(s) URL links");
     assert!(!is_rooted(remote), "an http(s) URL is another host");
 }
+
+/// A size spells in the largest binary unit that divides it, and the extensions list as a reader
+/// says them.
+#[test]
+fn a_file_refusal_spells_its_size_and_extensions() {
+    for (bytes, spelled) in [
+        (2 * 1024 * 1024, "2 MiB"),
+        (1536 * 1024, "1536 KiB"),
+        (1500, "1500 bytes"),
+        (1, "1 byte"),
+    ] {
+        assert_eq!(spelled_size(bytes), spelled);
+    }
+    let file = FileControl {
+        extensions: Some(vec!["png".into(), "jpg".into(), "pdf".into()]),
+        max_bytes: None,
+    };
+    assert_eq!(
+        file.refusal("Scan", "a.gif", 0).as_deref(),
+        Some("Scan must be a file ending in .png, .jpg or .pdf")
+    );
+    assert!(file.takes_path("/uploads/a.PDF#page=2"));
+}

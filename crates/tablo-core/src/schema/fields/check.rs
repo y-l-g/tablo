@@ -113,6 +113,7 @@ impl Field {
         let mut faults = match &self.control {
             ControlKind::Text(text) => text.rule_faults(),
             ControlKind::RichText(rich) => rich.rule_faults(),
+            ControlKind::File(file) => file.rule_faults(),
             ControlKind::Choice(choice) if !choice.is_multiple() => choice
                 .bounds
                 .is_set()

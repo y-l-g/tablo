@@ -1,14 +1,119 @@
-//! The file control: a file input storing the uploaded file's path.
+//! The file control: a file input storing the uploaded file's path, and the extensions and size
+//! it takes.
 
 use tablo_ui::{checkbox as ui_checkbox, input as ui_input, label as ui_label};
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{Field, render_field};
+use crate::FieldRuleFault;
+
+/// Caps the whole multipart stream at 10 MiB, file bytes included.
+pub(crate) const MAX_FORM_BYTES: usize = 10 * 1024 * 1024;
+
+/// What a file control takes: the extensions, lowercase and without the dot, and the most bytes.
+/// Both unset by default, taking any file the form body carries.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct FileControl {
+    pub(crate) extensions: Option<Vec<String>>,
+    pub(crate) max_bytes: Option<usize>,
+}
+
+impl FileControl {
+    /// The sentence refusing a file named `filename`, a sanitized basename, of `size` bytes, as
+    /// the field `label`.
+    pub(crate) fn refusal(&self, label: &str, filename: &str, size: usize) -> Option<String> {
+        if !self.takes_name(filename) {
+            let listed = self.extensions.as_deref().unwrap_or_default();
+            let listed: Vec<String> = listed.iter().map(|ext| format!(".{ext}")).collect();
+            return Some(format!(
+                "{label} must be a file ending in {}",
+                or_list(&listed)
+            ));
+        }
+        let max = self.max_bytes?;
+        (size > max).then(|| format!("{label} must be at most {}", spelled_size(max)))
+    }
+
+    /// Whether the control takes a file whose basename is `name`, by its extension.
+    pub(crate) fn takes_name(&self, name: &str) -> bool {
+        let Some(extensions) = &self.extensions else {
+            return true;
+        };
+        name.rsplit_once('.').is_some_and(|(_, ext)| {
+            extensions
+                .iter()
+                .any(|taken| taken.eq_ignore_ascii_case(ext))
+        })
+    }
+
+    /// Whether the control takes the file a stored `path` names: its last segment, without a
+    /// query or fragment, read as a basename.
+    pub(crate) fn takes_path(&self, path: &str) -> bool {
+        let path = path.split(['?', '#']).next().unwrap_or_default();
+        self.takes_name(path.rsplit('/').next().unwrap_or_default())
+    }
+
+    /// The `accept` attribute hinting the extensions to the browser's file picker.
+    fn accept(&self) -> Option<String> {
+        let extensions = self.extensions.as_ref()?;
+        let listed: Vec<String> = extensions.iter().map(|ext| format!(".{ext}")).collect();
+        Some(listed.join(","))
+    }
+
+    /// What is wrong with the extensions and size the control declares.
+    pub(crate) fn rule_faults(&self) -> Vec<FieldRuleFault> {
+        let mut faults = Vec::new();
+        match self.extensions.as_deref() {
+            Some([]) => faults.push(FieldRuleFault::NoExtension),
+            Some(extensions) => faults.extend(
+                extensions
+                    .iter()
+                    .filter(|ext| ext.is_empty() || !ext.chars().all(|c| c.is_ascii_alphanumeric()))
+                    .map(|ext| FieldRuleFault::InvalidExtension(ext.clone())),
+            ),
+            None => {}
+        }
+        if let Some(max) = self.max_bytes.filter(|max| *max >= MAX_FORM_BYTES) {
+            faults.push(FieldRuleFault::AboveFormCap(max));
+        }
+        faults
+    }
+}
+
+/// `items` joined as `a, b or c`.
+fn or_list(items: &[String]) -> String {
+    match items {
+        [] => String::new(),
+        [one] => one.clone(),
+        [rest @ .., last] => format!("{} or {last}", rest.join(", ")),
+    }
+}
+
+/// `bytes` in the largest binary unit that spells it whole: `2 MiB`, `500 KiB`, `1500 bytes`.
+fn spelled_size(bytes: usize) -> String {
+    const KIB: usize = 1024;
+    match bytes {
+        0 => "0 bytes".to_string(),
+        _ if bytes.is_multiple_of(KIB * KIB) => format!("{} MiB", bytes / (KIB * KIB)),
+        _ if bytes.is_multiple_of(KIB) => format!("{} KiB", bytes / KIB),
+        1 => "1 byte".to_string(),
+        _ => format!("{bytes} bytes"),
+    }
+}
 
 impl Field {
+    /// The file control's rules, for a file field.
+    pub(crate) fn as_file(&self) -> Option<&FileControl> {
+        match &self.control {
+            super::ControlKind::File(file) => Some(file),
+            _ => None,
+        }
+    }
+
     /// Renders a file field's input and its stored path.
     pub(super) fn render_file<'a>(
         &self,
+        file: &FileControl,
         cx: &'a Cx,
         value: Option<&str>,
         error: Option<&crate::values::FieldError>,
@@ -29,6 +134,7 @@ impl Field {
         let stored_display: Option<BoxView<'a>> =
             stored.map(|current| stored_upload_row(cx, current));
         let aria_invalid = chrome.aria_invalid();
+        let accept = file.accept();
         let described_by = [
             chrome.described_by(),
             (is_edit && !disabled).then(|| hint_id.clone()),
@@ -46,6 +152,7 @@ impl Field {
                     id=(id)
                     type="file"
                     name=(name.clone())
+                    accept=(accept)
                     required=(control_required)
                     disabled=(disabled)
                     aria-required=(control_required.then_some("true"))

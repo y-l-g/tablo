@@ -21,7 +21,9 @@ use crate::{
 ///
 /// `filename` arrives sanitized to a non-empty basename without directories or
 /// control characters; `bytes` are bounded by the 10 MiB form-body cap. The
-/// framework stores the returned path verbatim.
+/// framework stores the returned path verbatim. A file a file field's
+/// [`extensions`](crate::FileField::extensions) or [`max_bytes`](crate::FileField::max_bytes)
+/// refuse never reaches `store`.
 ///
 /// - `store` returns the value to save. An `Err(reason)` is shown to the user inline as `<Label>
 ///   could not be uploaded: <reason>`, so keep the reason free of paths and driver messages.
@@ -260,9 +262,9 @@ pub(crate) async fn holds(uploader: Option<&InstalledUploader>, path: &str) -> b
 }
 
 /// Runs `uploader`, a panel's installed one, over this form's file parts, returning inline
-/// errors and the fields whose value is now the stored path. A failed store
-/// becomes an inline field error and drops the submitted value; call outside
-/// the write transaction.
+/// errors and the fields whose value is now the stored path. A file the field's extensions or
+/// size refuse is not stored; it, or a failed store, becomes an inline field error and drops the
+/// submitted value. Call outside the write transaction.
 pub(crate) async fn store_uploads(
     uploader: Option<&InstalledUploader>,
     schema: &Schema,
@@ -276,22 +278,32 @@ pub(crate) async fn store_uploads(
     let mut stored = HashSet::new();
     // Declared uploads only: a file part the schema does not declare is not a
     // field this form may write (the unknown-key allow-list answers for it).
-    for field in schema.fields().filter(|field| field.is_file()) {
+    for field in schema.fields() {
+        let Some(file) = field.as_file() else {
+            continue;
+        };
         let name = field.name().to_string();
         let Some(staged) = files.get(&name) else {
             continue;
         };
-        match uploader.store(&staged.filename, &staged.bytes).await {
+        // A file the field's rules refuse is never stored.
+        let label = field.label_str();
+        let filename = sanitize_filename(&staged.filename);
+        let stored_path = match file.refusal(label, &filename, staged.bytes.len()) {
+            Some(refusal) => Err(refusal),
+            None => uploader
+                .store(&staged.filename, &staged.bytes)
+                .await
+                .map_err(|reason| format!("{label} could not be uploaded: {reason}")),
+        };
+        match stored_path {
             Ok(path) => {
                 values.insert(name.clone(), path);
                 stored.insert(name);
             }
-            Err(reason) => {
+            Err(message) => {
                 values.remove(&name);
-                errors.add(
-                    name,
-                    format!("{} could not be uploaded: {reason}", field.label_str()),
-                );
+                errors.add(name, message);
             }
         }
     }
