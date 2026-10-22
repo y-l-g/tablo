@@ -24,6 +24,8 @@ which the list, form and detail pages follow. This table maps their names to Tab
 | a dependent `Select` | `.depends_on(..)`, a [dependent choice](./forms.md#dependent-choices) |
 | `Repeater` | `Field::repeater` over a `#[document]` list |
 | `->minLength()`, `->maxLength()`, `->minValue()`, `->maxValue()`, `->regex()` | `.min_length(n)`, `.max_length(n)`, `.min(..)`, `.max(..)`, `.pattern(..)` on a text field |
+| `->url()`, `->accepted()` | `.url()` on a text field, `.accepted()` on a toggle |
+| `->minItems()`, `->maxItems()` | `.min_items(n)`, `.max_items(n)` on a multiple choice or a repeater |
 | `rules()`, `->unique()` | `Resource::validate_record`, `.unique()` |
 | `mutateFormDataBeforeCreate`, `handleRecordCreation` | `Resource::create_record`, `update_record`, delegating to `write_create`, `write_update` |
 | `infolist()` | `ResourceDef::detail`: a [`Detail`](./detail-pages.md) of columns |

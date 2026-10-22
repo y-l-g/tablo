@@ -142,9 +142,11 @@ does not compile:
 
 [`TextField`](https://y-l.fr/tablo/nightly/api/tablo/struct.TextField.html), [`ChoiceField`](https://y-l.fr/tablo/nightly/api/tablo/struct.ChoiceField.html),
 [`RichTextField`](https://y-l.fr/tablo/nightly/api/tablo/struct.RichTextField.html) and [`CustomField`](https://y-l.fr/tablo/nightly/api/tablo/struct.CustomField.html)
-list each builder's modifiers, such as `.email()`, `.relationship::<R>()` or `.switch()`. A
-choice needs something to offer, so mounting refuses a resource form's or an action input's choice
-with neither options nor a relationship.
+list each builder's modifiers, such as `.url()`, `.relationship::<R>()`, `.switch()` or
+`.accepted()`. A multiple choice is required through
+[`ChoiceField::min_items`](https://y-l.fr/tablo/nightly/api/tablo/struct.ChoiceField.html#method.min_items),
+since its blank answer is the empty list. A choice needs something to offer, so mounting refuses a
+resource form's or an action input's choice with neither options nor a relationship.
 
 ### Custom controls
 

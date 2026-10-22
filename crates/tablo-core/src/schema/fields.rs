@@ -2,6 +2,7 @@
 //! a path binding a column or an embedded leaf.
 
 mod builders;
+mod check;
 mod choice;
 pub(crate) mod custom;
 mod file;
@@ -15,6 +16,7 @@ use std::sync::Arc;
 pub use builders::{
     ChoiceField, CustomField, FileField, IntoFormValue, IntoOptions, RepeaterField, TextField,
 };
+pub(crate) use check::Items;
 pub(crate) use choice::{ChoiceControl, Relationship, option_view};
 pub(crate) use custom::{Control, ControlInput};
 pub use custom::{Switch, Toggle};
@@ -100,6 +102,8 @@ pub struct Field {
     condition: Option<Condition>,
     /// Whether the control is a checkbox, which a condition follows through `checked`.
     checkbox: bool,
+    /// Whether the checkbox must be checked, set by `accepted`.
+    accepted: bool,
     /// The help text under the control, set by `help`.
     help: Option<String>,
     /// When the control renders disabled and the server ignores what it posts.
@@ -167,6 +171,7 @@ impl Field {
             control,
             condition: None,
             checkbox: false,
+            accepted: false,
             help: None,
             disabled: Disabled::Never,
             default: None,
@@ -477,31 +482,6 @@ impl Field {
         self.binding.nullable()
     }
 
-    /// What is wrong with the rules the field's text control declares, reported under `field`:
-    /// one that cannot work, or a default its type does not parse or that breaks one.
-    pub(crate) fn rule_errors(&self, field: &str) -> Vec<crate::DeclarationErrorKind> {
-        let (mut faults, text) = match &self.control {
-            ControlKind::Text(text) => (text.rule_faults(), Some(text)),
-            ControlKind::RichText(rich) => (rich.rule_faults(), None),
-            _ => return Vec::new(),
-        };
-        if let Some(value) = self.default_value() {
-            let spelled = value.as_text().unwrap_or_default().trim();
-            if !spelled.is_empty() && text.is_some_and(|text| !text.parses(spelled)) {
-                faults.push(crate::FieldRuleFault::UnparsedDefault(spelled.to_string()));
-            } else if self.check(value, &jiff::tz::TimeZone::UTC).is_some() {
-                faults.push(crate::FieldRuleFault::RefusedDefault(spelled.to_string()));
-            }
-        }
-        faults
-            .into_iter()
-            .map(|fault| crate::DeclarationErrorKind::FieldRule {
-                field: field.to_string(),
-                fault,
-            })
-            .collect()
-    }
-
     /// Whether two submissions spell the same stored value, as the unique check compares them.
     pub(crate) fn same_value(&self, a: &str, b: &str) -> bool {
         match &self.control {
@@ -632,7 +612,7 @@ impl Field {
         id: String,
         disabled: bool,
     ) -> Result<BoxView<'a>> {
-        let required = self.is_required() && !disabled;
+        let required = (self.is_required() || self.accepted) && !disabled;
         let chrome = self.chrome(id, error, None);
         let input = ControlInput::new(
             self.name(),

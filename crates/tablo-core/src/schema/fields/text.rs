@@ -9,7 +9,7 @@ use self::rules::{Order, Rules, order};
 use super::{ControlKind, Field, render_field};
 use crate::{
     FieldRuleFault,
-    values::{FieldError, FormScalar, FormValue, is_email, is_web_url},
+    values::{FormScalar, FormValue},
 };
 
 /// The equality expression a text field's unique probe binds.
@@ -234,30 +234,6 @@ impl Field {
         };
         let rendered = text.reading(&text.rendering(held, zone), zone);
         (value != held && value.trim() == rendered).then(|| stored.clone())
-    }
-
-    /// Refuses a non-empty submission the control's own rules refuse: an email field's address, a
-    /// URL field's URL, a
-    /// text field's declared length, bounds and pattern, its bounds spelled as the control shows
-    /// them in `zone`, and a rich text field's length.
-    pub(crate) fn check(&self, value: &FormValue, zone: &TimeZone) -> Option<FieldError> {
-        let value = value.as_text()?.trim();
-        if value.is_empty() {
-            return None;
-        }
-        let label = self.label_str();
-        let message = match &self.control {
-            ControlKind::Text(text) if text.kind == Kind::Email && !is_email(value) => {
-                format!("{label} must be a valid email")
-            }
-            ControlKind::Text(text) if text.kind == Kind::Url && !is_web_url(value) => {
-                format!("{label} must be a valid URL starting with http:// or https://")
-            }
-            ControlKind::Text(text) => text.refusal(label, value, zone)?,
-            ControlKind::RichText(rich) => rich.refusal(label, value)?,
-            _ => return None,
-        };
-        Some(FieldError::invalid(self.name(), message))
     }
 
     /// Renders a text field's control.

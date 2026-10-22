@@ -250,10 +250,17 @@ pub(crate) fn is_email(value: &str) -> bool {
 
 /// Reports whether `value` is an absolute `http` or `https` URL naming a host, as the URL rule
 /// accepts. A browser's `type="url"` takes any scheme, `javascript:` included, which a link to the
-/// stored value would run.
+/// stored value would run. The value must spell its `://` and hold no whitespace or control
+/// character: the parser forgives `http:host` and strips a tab, which would store a value other
+/// than the one it checked.
 pub(crate) fn is_web_url(value: &str) -> bool {
-    url::Url::parse(value)
-        .is_ok_and(|url| matches!(url.scheme(), "http" | "https") && url.host().is_some())
+    let Some((scheme, rest)) = value.split_once("://") else {
+        return false;
+    };
+    (scheme.eq_ignore_ascii_case("http") || scheme.eq_ignore_ascii_case("https"))
+        && !rest.is_empty()
+        && !value.chars().any(|c| c.is_whitespace() || c.is_control())
+        && url::Url::parse(value).is_ok_and(|url| url.host().is_some())
 }
 
 #[cfg(test)]

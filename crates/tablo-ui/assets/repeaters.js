@@ -10,7 +10,9 @@
 //   and `data-repeater-row` carry `__row__` for the row's number;
 // * `data-repeater-next`, the next number no row has used;
 // * `data-repeater-max`, the most rows the server takes: the add button is
-//   disabled while the list holds that many.
+//   disabled while the list holds that many;
+// * `data-repeater-min`, when set, the fewest rows the server takes: each
+//   remove button is disabled while the list holds no more than that.
 //
 // The server reads the rows in the order the hidden input lists them, so
 // adding, removing and moving a row touch only the list and that input: a row
@@ -57,10 +59,20 @@ function maxRows(parts) {
   return max > 0 ? max : Infinity;
 }
 
+// The fewest rows the repeater takes, or none when it names none.
+function minRows(parts) {
+  return Number(parts.repeater.getAttribute('data-repeater-min')) || 0;
+}
+
 // Disable the add button while the list holds as many rows as the repeater
-// takes: the server refuses a submission listing more.
-function syncAdd(parts) {
-  parts.add.disabled = parts.list.children.length >= maxRows(parts);
+// takes, and each remove button while it holds no more than it needs: the
+// server refuses a submission listing more or fewer.
+function syncButtons(parts) {
+  const count = parts.list.children.length;
+  parts.add.disabled = count >= maxRows(parts);
+  for (const remove of parts.list.querySelectorAll('[data-repeater-remove]')) {
+    remove.disabled = count <= minRows(parts);
+  }
 }
 
 // Append a copy of the blank row, numbered with the next unused number, and
@@ -88,7 +100,7 @@ function act(button) {
     if (!row) return false;
     if (button.hasAttribute('data-repeater-remove')) {
       row.remove();
-      syncAdd(parts);
+      syncButtons(parts);
       parts.add.focus();
     } else if (button.hasAttribute('data-repeater-up')) {
       const previous = row.previousElementSibling;
@@ -101,7 +113,7 @@ function act(button) {
     }
   }
   parts.order.value = rowOrder(Array.from(parts.list.children));
-  syncAdd(parts);
+  syncButtons(parts);
   return true;
 }
 

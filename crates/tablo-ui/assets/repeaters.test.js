@@ -7,6 +7,8 @@
 //   takes the next number;
 // * the hidden order follows every add, remove and move, which is all the
 //   server reads the rows' order from;
+// * the add and remove buttons stop the list at the most and fewest rows the
+//   server takes;
 // * the single wiring pass: one click listener, so a click acts once.
 
 const test = require('node:test');
@@ -98,6 +100,13 @@ class Element {
     return null;
   }
 
+  querySelectorAll(selector) {
+    return this.children.flatMap((child) => [
+      ...(child.matches(selector) ? [child] : []),
+      ...child.querySelectorAll(selector),
+    ]);
+  }
+
   focus() {
     this.focused = true;
   }
@@ -137,8 +146,8 @@ function matchesOne(element, selector) {
 }
 
 // A repeater of `links` with the rows `numbers`, each holding one text input,
-// taking at most `max` rows when given.
-function repeater(numbers, max) {
+// taking at most `max` and at least `min` rows when given.
+function repeater(numbers, max, min) {
   const row = (n) =>
     new Element('li', { 'data-repeater-row': String(n) }, [
       new Element('input', { type: 'hidden', name: `links.${n}.id` }),
@@ -159,6 +168,7 @@ function repeater(numbers, max) {
   const add = new Element('button', { 'data-repeater-add': '' });
   const attrs = { 'data-repeater': 'links', 'data-repeater-next': String(Math.max(-1, ...numbers) + 1) };
   if (max !== undefined) attrs['data-repeater-max'] = String(max);
+  if (min !== undefined) attrs['data-repeater-min'] = String(min);
   const root = new Element('fieldset', attrs, [order, list, blank, add]);
   return { root, order, list, add };
 }
@@ -236,6 +246,18 @@ test('a full repeater disables its add button, and a removal enables it', () => 
   act(button(list.children[0], 'remove'));
   assert.equal(add.disabled, false);
   assert.equal(add.focused, true);
+});
+
+test('a repeater at its minimum disables removing, and an addition enables it', () => {
+  const { order, list, add } = repeater([0, 1], undefined, 1);
+  act(button(list.children[0], 'remove'));
+  assert.equal(order.value, '1');
+  assert.equal(button(list.children[0], 'remove').disabled, true);
+  act(add);
+  assert.deepEqual(
+    list.children.map((row) => button(row, 'remove').disabled),
+    [false, false],
+  );
 });
 
 test('a button outside any repeater does nothing', () => {

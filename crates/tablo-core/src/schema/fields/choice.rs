@@ -31,6 +31,8 @@ pub(crate) struct ChoiceControl {
     pub(super) parent: Option<Parent>,
     /// Whether the choice takes several options, set by `multiple`: its key then holds a list.
     pub(super) multiple: bool,
+    /// How many options a multiple choice takes, set by `min_items` and `max_items`.
+    pub(super) bounds: super::Items,
     /// How the options render, set by `radio` and `buttons`.
     pub(super) layout: Layout,
 }

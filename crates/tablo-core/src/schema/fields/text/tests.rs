@@ -114,6 +114,8 @@ fn text_input_url_takes_only_web_urls() {
         "/relative/path",
         "https://",
         "https://exa mple.com",
+        "http:example.com",
+        "https://exa\tmple.com",
     ] {
         assert!(
             input.check(&FormValue::from(bad), &TimeZone::UTC).is_some(),
