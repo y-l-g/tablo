@@ -17,8 +17,8 @@ pub use builders::{
     TextField,
 };
 pub(crate) use choice::{ChoiceControl, Relationship, option_view};
-pub use custom::Toggle;
 pub(crate) use custom::{Control, ControlInput};
+pub use custom::{Switch, Toggle};
 pub(crate) use file::{is_linkable, is_rooted, stored_upload};
 pub(crate) use placement::Placement;
 pub(crate) use read_only::{read_only, value_cell};

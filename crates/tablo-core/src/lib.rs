@@ -168,7 +168,7 @@ pub use rich_text::tool::Tool;
 pub use schema::{
     ChoiceField, CustomField, EmbeddedForm, Field, FileField, Grid, Group, IntoFormValue,
     IntoOptions, IntoSchema, MAX_RELATIONSHIP_OPTIONS, MAX_REPEATER_ROWS, Options, RepeaterField,
-    RichTextField, Schema, Section, Source, TextField, Toggle, Watched, input::FormInput,
+    RichTextField, Schema, Section, Source, Switch, TextField, Toggle, Watched, input::FormInput,
     parse_items, write_items,
 };
 pub use table::{

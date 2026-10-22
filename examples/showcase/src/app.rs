@@ -72,7 +72,7 @@ impl Resource for UserResource {
                 c.name.placeholder("Ada Lovelace"),
                 c.email.email().unique().placeholder("ada@example.com"),
                 c.role.radio(),
-                c.active,
+                c.active.switch(),
                 c.age,
             ))))
             // Creates users from a CSV file, each row checked as the create form checks it.

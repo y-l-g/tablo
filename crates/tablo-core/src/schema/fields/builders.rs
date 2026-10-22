@@ -246,6 +246,21 @@ pub struct RepeaterField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
 pub struct CustomField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
 
 impl<F> CustomField<F> {
+    /// Renders a `bool` field as a switch rather than a checkbox: the same toggle, posting `true`
+    /// or `false`, drawn as an on/off track. A condition follows it as it follows a toggle.
+    ///
+    /// ```rust
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # struct Post { #[key] #[auto] id: uuid::Uuid, featured: bool }
+    /// # use tablo_core::{Field, lens};
+    /// Field::toggle(lens!(Post.featured)).switch();
+    /// ```
+    pub fn switch(mut self) -> Self {
+        self.0.control = ControlKind::Custom(Arc::new(super::Switch));
+        self.0.checkbox = true;
+        self
+    }
+
     /// Whether the control is the built-in checkbox, which a condition follows through `checked`.
     pub(crate) fn is_checkbox(&self) -> bool {
         self.0.is_checkbox()
