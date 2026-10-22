@@ -19,7 +19,9 @@ when a form key asks for it. A form whose fields differ from the model's stays i
 
 The struct owns presence: a posted-empty field stores its blank answer, and a field with none is
 required, whatever the layout says. Its parse is the only presence and type check; control
-rules, the unique probe and `validate_record` add to one list of errors rendered inline. Mounting
+rules, the unique probe and `validate_record` add to one list of errors rendered inline. A rule
+that reads the database refuses from the record fn, as `WriteError::Refused` keyed by the same
+field enum: the write's transaction rolls back and the errors render as `validate_record`'s do. Mounting
 checks that a create sets every non-nullable column.
 
 The struct also owns the controls. The derive gives each field one, typed by the form, and a

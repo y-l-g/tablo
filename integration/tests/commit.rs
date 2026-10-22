@@ -94,7 +94,7 @@ impl Resource for FailingWriteResource {
         _cx: &Cx,
         _form: NoteForm,
         _ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<Note> {
+    ) -> Result<Note, tablo::WriteError<NoteFormField>> {
         Err(std::io::Error::other("the write refused itself").into())
     }
 

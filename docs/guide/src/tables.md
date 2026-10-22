@@ -344,7 +344,8 @@ Barbara Liskov,barbara@example.com,admin
 Each row is a create submission: the field access, the controls' rules, the record form's parse,
 `validate_record`, the unique check and the relationship check run as on the create page,
 `create_record` stamps the tenant, and `before_commit` receives each row's `Change::Create` inside
-the transaction. Every row writes in one transaction. When any row is refused, nothing is written,
+the transaction. A row `create_record` refuses with `WriteError::Refused` rolls back to a savepoint
+taken before it, so the rows after it are checked without its writes. Every row writes in one transaction. When any row is refused, nothing is written,
 and the page lists each refusal of every row by row number, as a spreadsheet numbers it, and
 column. Correct the
 file and import it again. A `before_commit` error rolls back the whole file. When every row

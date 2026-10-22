@@ -125,7 +125,7 @@ impl HeaderAction for FeatureTagged {
         cx: &Cx,
         input: FeatureTag,
         ex: &mut dyn toasty::Executor,
-    ) -> Result<tablo::Outcome> {
+    ) -> Result<tablo::Outcome, tablo::WriteError> {
         let tag = input.tag.trim();
         let posts = scoped_query::<PostResource>(cx)?.exec(&mut *ex).await?;
         for post in posts {

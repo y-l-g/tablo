@@ -121,7 +121,7 @@ async fn a_write_the_version_condition_refuses_re_renders_the_form() {
             record: Note,
             posted: tablo::Posted<NoteForm>,
             ex: &mut dyn toasty::Executor,
-        ) -> topcoat::Result<Note> {
+        ) -> Result<Note, tablo::WriteError<NoteFormField>> {
             // Another save, after the load: `record` now holds the version it replaced.
             record
                 .clone()
@@ -129,7 +129,7 @@ async fn a_write_the_version_condition_refuses_re_renders_the_form() {
                 .title("theirs")
                 .exec(&mut *ex)
                 .await?;
-            tablo::write_update::<Self>(cx, record, posted, ex).await
+            Ok(tablo::write_update::<Self>(cx, record, posted, ex).await?)
         }
     }
 
@@ -181,7 +181,7 @@ async fn a_failed_condition_on_an_unversioned_model_is_no_stale_form() {
             _record: Plain,
             _posted: tablo::Posted<PlainForm>,
             _ex: &mut dyn toasty::Executor,
-        ) -> topcoat::Result<Plain> {
+        ) -> Result<Plain, tablo::WriteError<PlainFormField>> {
             Err(toasty::Error::condition_failed("an app's own condition").into())
         }
     }

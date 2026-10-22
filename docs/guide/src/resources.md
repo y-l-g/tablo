@@ -212,7 +212,8 @@ and checks policy on it. It then calls the resource's record function with the o
 
 `create_record` and `update_record` default to writing the record form's fields
 (`write_create` and `write_update`), so most resources declare neither. To check something inside
-the transaction, override the function and delegate:
+the transaction, override the function and delegate. This one refuses to move a comment onto a
+post that is not published:
 
 ```rust
 impl Resource for CommentResource {
@@ -223,8 +224,22 @@ impl Resource for CommentResource {
 ```
 
 Run every statement through `ex`, and use the `record` you are given rather than loading it
-again: it is the row the policy check passed. Both functions return the written row. An error
-rolls the transaction back and nothing is written.
+again: it is the row the policy check passed. Both functions return the written row, or a
+`WriteError`, which rolls the transaction back, so nothing they wrote before returning stays:
+
+- `WriteError::Refused(errors)` renders the form again with status 200, each error under the
+  control of the field it names, keyed by the record form's field enum as in `validate_record`.
+  `WriteError::field(key, message)` builds one with a single error, and `?` turns a `FieldErrors`
+  into one. A refusal that names no field is a declaration error.
+- `WriteError::Failed(error)` answers as a failed write does: the failure toast and an error
+  response. `?` turns any error a `topcoat::Error` takes, such as a `toasty::Error`, into one.
+
+A rule that reads the database refuses here rather than in `validate_record`, which runs before
+the transaction opens and gets no executor: a stock level, a quota, or a uniqueness no index
+models. A rule the write itself enforces, such as an update filtered on the stock it needs that
+matches no row, holds against a concurrent write. The [CSV import](./tables.md#import) lists a row its
+record fn refuses with the other refused rows, and rolls that row back to a savepoint, so the
+rows after it are checked without its writes.
 
 `delete_record` deletes the row by its primary key, or stamps it on a resource that soft-deletes,
 and `bulk_delete_records` calls `delete_record` once per record in one transaction, so overriding

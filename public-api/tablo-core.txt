@@ -1640,6 +1640,8 @@ pub fn tablo_core::FieldErrors<K>::new() -> Self
 pub fn tablo_core::FieldErrors<K>::push(&mut self, tablo_core::FieldError<K>)
 impl<K: core::fmt::Debug> core::fmt::Debug for tablo_core::FieldErrors<K>
 pub fn tablo_core::FieldErrors<K>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<K> core::convert::From<tablo_core::FieldErrors<K>> for tablo_core::WriteError<K>
+pub fn tablo_core::WriteError<K>::from(tablo_core::FieldErrors<K>) -> Self
 impl<K> core::default::Default for tablo_core::FieldErrors<K>
 pub fn tablo_core::FieldErrors<K>::default() -> Self
 impl<K> core::iter::traits::collect::IntoIterator for tablo_core::FieldErrors<K>
@@ -2634,6 +2636,24 @@ impl core::marker::Unpin for tablo_core::Trashed
 impl core::marker::UnsafeUnpin for tablo_core::Trashed
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Trashed
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::Trashed
+pub enum tablo_core::resource::WriteError<K>
+pub tablo_core::resource::WriteError::Failed(topcoat_core::error::Error)
+pub tablo_core::resource::WriteError::Refused(tablo_core::FieldErrors<K>)
+impl<K> tablo_core::WriteError<K>
+pub fn tablo_core::WriteError<K>::field(impl core::convert::Into<K>, impl core::convert::Into<alloc::string::String>) -> Self
+impl<K, E: core::convert::Into<topcoat_core::error::Error>> core::convert::From<E> for tablo_core::WriteError<K>
+pub fn tablo_core::WriteError<K>::from(E) -> Self
+impl<K: core::fmt::Debug> core::fmt::Debug for tablo_core::WriteError<K>
+pub fn tablo_core::WriteError<K>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<K> core::convert::From<tablo_core::FieldErrors<K>> for tablo_core::WriteError<K>
+pub fn tablo_core::WriteError<K>::from(tablo_core::FieldErrors<K>) -> Self
+impl<K> core::marker::Freeze for tablo_core::WriteError<K> where tablo_core::FieldErrors<K>: core::marker::Freeze
+impl<K> core::marker::Send for tablo_core::WriteError<K> where tablo_core::FieldErrors<K>: core::marker::Send
+impl<K> core::marker::Sync for tablo_core::WriteError<K> where tablo_core::FieldErrors<K>: core::marker::Sync
+impl<K> core::marker::Unpin for tablo_core::WriteError<K> where tablo_core::FieldErrors<K>: core::marker::Unpin
+impl<K> core::marker::UnsafeUnpin for tablo_core::WriteError<K> where tablo_core::FieldErrors<K>: core::marker::UnsafeUnpin
+impl<K> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::WriteError<K>
+impl<K> !core::panic::unwind_safe::UnwindSafe for tablo_core::WriteError<K>
 pub struct tablo_core::resource::FieldAccess
 impl tablo_core::FieldAccess
 pub fn tablo_core::FieldAccess::edit(self, impl core::ops::function::Fn(&topcoat_core::context::Cx) -> bool + core::marker::Send + core::marker::Sync + 'static) -> Self
@@ -2769,7 +2789,7 @@ pub const tablo_core::resource::Action::NAME: &'static str
 pub const tablo_core::resource::Action::PLACES: tablo_core::Places
 pub fn tablo_core::resource::Action::can_run(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> bool
 pub fn tablo_core::resource::Action::label(&topcoat_core::context::Cx) -> alloc::string::String
-pub fn tablo_core::resource::Action::run(&topcoat_core::context::Cx, &[<R as tablo_core::resource::Resource>::Model], Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::Outcome>> + core::marker::Send
+pub fn tablo_core::resource::Action::run(&topcoat_core::context::Cx, &[<R as tablo_core::resource::Resource>::Model], Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::Outcome, tablo_core::WriteError>> + core::marker::Send
 pub fn tablo_core::resource::Action::success(&topcoat_core::context::Cx, usize) -> alloc::string::String
 pub fn tablo_core::resource::Action::validate_input(&topcoat_core::context::Cx, &Self::Input) -> tablo_core::FieldErrors
 pub trait tablo_core::resource::ForeignKey<K>: tablo_core::resource::relation::sealed::Sealed<K> + toasty::stmt::into_expr::IntoExpr<Self> + tablo_core::FormScalar + core::marker::Send + core::marker::Sync + 'static
@@ -2781,7 +2801,7 @@ pub const tablo_core::resource::HeaderAction::CONFIRM: bool
 pub const tablo_core::resource::HeaderAction::NAME: &'static str
 pub fn tablo_core::resource::HeaderAction::can_run(&topcoat_core::context::Cx) -> bool
 pub fn tablo_core::resource::HeaderAction::label(&topcoat_core::context::Cx) -> alloc::string::String
-pub fn tablo_core::resource::HeaderAction::run(&topcoat_core::context::Cx, Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::Outcome>> + core::marker::Send
+pub fn tablo_core::resource::HeaderAction::run(&topcoat_core::context::Cx, Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::Outcome, tablo_core::WriteError>> + core::marker::Send
 pub fn tablo_core::resource::HeaderAction::success(&topcoat_core::context::Cx) -> alloc::string::String
 pub fn tablo_core::resource::HeaderAction::validate_input(&topcoat_core::context::Cx, &Self::Input) -> tablo_core::FieldErrors
 pub trait tablo_core::resource::Resource: core::marker::Sized + core::marker::Send + core::marker::Sync + 'static
@@ -2790,13 +2810,13 @@ pub type tablo_core::resource::Resource::Model: tablo_core::ModelColumns + toast
 pub fn tablo_core::resource::Resource::after_commit(&topcoat_core::context::Cx, tablo_core::Change<Self::Model>) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
 pub fn tablo_core::resource::Resource::before_commit(&topcoat_core::context::Cx, &tablo_core::Change<Self::Model>, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
 pub fn tablo_core::resource::Resource::bulk_delete_records(&topcoat_core::context::Cx, &[Self::Model], &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
-pub fn tablo_core::resource::Resource::create_record(&topcoat_core::context::Cx, Self::Form, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<Self::Model>> + core::marker::Send
+pub fn tablo_core::resource::Resource::create_record(&topcoat_core::context::Cx, Self::Form, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<Self::Model, tablo_core::WriteError<<Self::Form as tablo_core::form::RecordForm>::Field>>> + core::marker::Send
 pub fn tablo_core::resource::Resource::declare() -> tablo_core::ResourceDef<Self>
 pub fn tablo_core::resource::Resource::delete_record(&topcoat_core::context::Cx, &Self::Model, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
 pub fn tablo_core::resource::Resource::force_delete_record(&topcoat_core::context::Cx, &Self::Model, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
 pub fn tablo_core::resource::Resource::query(&topcoat_core::context::Cx) -> toasty::stmt::query::Query<toasty::stmt::list::List<Self::Model>>
 pub fn tablo_core::resource::Resource::restore_record(&topcoat_core::context::Cx, &Self::Model, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
-pub fn tablo_core::resource::Resource::update_record(&topcoat_core::context::Cx, Self::Model, tablo_core::form::Posted<Self::Form>, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<Self::Model>> + core::marker::Send
+pub fn tablo_core::resource::Resource::update_record(&topcoat_core::context::Cx, Self::Model, tablo_core::form::Posted<Self::Form>, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<Self::Model, tablo_core::WriteError<<Self::Form as tablo_core::form::RecordForm>::Field>>> + core::marker::Send
 pub fn tablo_core::resource::Resource::validate_record(&topcoat_core::context::Cx, &Self::Form) -> tablo_core::FieldErrors<<Self::Form as tablo_core::form::RecordForm>::Field>
 pub fn tablo_core::resource::can<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx, tablo_core::policy::Ability<'_, <R as tablo_core::resource::Resource>::Model>) -> bool
 pub fn tablo_core::resource::scoped_query<R: tablo_core::resource::Resource>(&topcoat_core::context::Cx) -> topcoat::Result<toasty::stmt::query::Query<toasty::stmt::list::List<<R as tablo_core::resource::Resource>::Model>>>
@@ -5422,6 +5442,24 @@ impl core::marker::Unpin for tablo_core::VerificationFault
 impl core::marker::UnsafeUnpin for tablo_core::VerificationFault
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::VerificationFault
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::VerificationFault
+pub enum tablo_core::WriteError<K>
+pub tablo_core::WriteError::Failed(topcoat_core::error::Error)
+pub tablo_core::WriteError::Refused(tablo_core::FieldErrors<K>)
+impl<K> tablo_core::WriteError<K>
+pub fn tablo_core::WriteError<K>::field(impl core::convert::Into<K>, impl core::convert::Into<alloc::string::String>) -> Self
+impl<K, E: core::convert::Into<topcoat_core::error::Error>> core::convert::From<E> for tablo_core::WriteError<K>
+pub fn tablo_core::WriteError<K>::from(E) -> Self
+impl<K: core::fmt::Debug> core::fmt::Debug for tablo_core::WriteError<K>
+pub fn tablo_core::WriteError<K>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<K> core::convert::From<tablo_core::FieldErrors<K>> for tablo_core::WriteError<K>
+pub fn tablo_core::WriteError<K>::from(tablo_core::FieldErrors<K>) -> Self
+impl<K> core::marker::Freeze for tablo_core::WriteError<K> where tablo_core::FieldErrors<K>: core::marker::Freeze
+impl<K> core::marker::Send for tablo_core::WriteError<K> where tablo_core::FieldErrors<K>: core::marker::Send
+impl<K> core::marker::Sync for tablo_core::WriteError<K> where tablo_core::FieldErrors<K>: core::marker::Sync
+impl<K> core::marker::Unpin for tablo_core::WriteError<K> where tablo_core::FieldErrors<K>: core::marker::Unpin
+impl<K> core::marker::UnsafeUnpin for tablo_core::WriteError<K> where tablo_core::FieldErrors<K>: core::marker::UnsafeUnpin
+impl<K> !core::panic::unwind_safe::RefUnwindSafe for tablo_core::WriteError<K>
+impl<K> !core::panic::unwind_safe::UnwindSafe for tablo_core::WriteError<K>
 pub struct tablo_core::Abilities<M>
 impl<M> tablo_core::Abilities<M>
 pub fn tablo_core::Abilities<M>::and<P>(self, P) -> tablo_core::policy::And<Self, P>
@@ -6052,6 +6090,8 @@ pub fn tablo_core::FieldErrors<K>::new() -> Self
 pub fn tablo_core::FieldErrors<K>::push(&mut self, tablo_core::FieldError<K>)
 impl<K: core::fmt::Debug> core::fmt::Debug for tablo_core::FieldErrors<K>
 pub fn tablo_core::FieldErrors<K>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<K> core::convert::From<tablo_core::FieldErrors<K>> for tablo_core::WriteError<K>
+pub fn tablo_core::WriteError<K>::from(tablo_core::FieldErrors<K>) -> Self
 impl<K> core::default::Default for tablo_core::FieldErrors<K>
 pub fn tablo_core::FieldErrors<K>::default() -> Self
 impl<K> core::iter::traits::collect::IntoIterator for tablo_core::FieldErrors<K>
@@ -7555,7 +7595,7 @@ pub const tablo_core::Action::NAME: &'static str
 pub const tablo_core::Action::PLACES: tablo_core::Places
 pub fn tablo_core::Action::can_run(&topcoat_core::context::Cx, &<R as tablo_core::resource::Resource>::Model) -> bool
 pub fn tablo_core::Action::label(&topcoat_core::context::Cx) -> alloc::string::String
-pub fn tablo_core::Action::run(&topcoat_core::context::Cx, &[<R as tablo_core::resource::Resource>::Model], Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::Outcome>> + core::marker::Send
+pub fn tablo_core::Action::run(&topcoat_core::context::Cx, &[<R as tablo_core::resource::Resource>::Model], Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::Outcome, tablo_core::WriteError>> + core::marker::Send
 pub fn tablo_core::Action::success(&topcoat_core::context::Cx, usize) -> alloc::string::String
 pub fn tablo_core::Action::validate_input(&topcoat_core::context::Cx, &Self::Input) -> tablo_core::FieldErrors
 pub trait tablo_core::Authenticator: core::marker::Send + core::marker::Sync + 'static
@@ -7661,7 +7701,7 @@ pub const tablo_core::HeaderAction::CONFIRM: bool
 pub const tablo_core::HeaderAction::NAME: &'static str
 pub fn tablo_core::HeaderAction::can_run(&topcoat_core::context::Cx) -> bool
 pub fn tablo_core::HeaderAction::label(&topcoat_core::context::Cx) -> alloc::string::String
-pub fn tablo_core::HeaderAction::run(&topcoat_core::context::Cx, Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::Outcome>> + core::marker::Send
+pub fn tablo_core::HeaderAction::run(&topcoat_core::context::Cx, Self::Input, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<tablo_core::Outcome, tablo_core::WriteError>> + core::marker::Send
 pub fn tablo_core::HeaderAction::success(&topcoat_core::context::Cx) -> alloc::string::String
 pub fn tablo_core::HeaderAction::validate_input(&topcoat_core::context::Cx, &Self::Input) -> tablo_core::FieldErrors
 pub trait tablo_core::IntoColumns<M>
@@ -7988,13 +8028,13 @@ pub type tablo_core::Resource::Model: tablo_core::ModelColumns + toasty::stmt::i
 pub fn tablo_core::Resource::after_commit(&topcoat_core::context::Cx, tablo_core::Change<Self::Model>) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
 pub fn tablo_core::Resource::before_commit(&topcoat_core::context::Cx, &tablo_core::Change<Self::Model>, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
 pub fn tablo_core::Resource::bulk_delete_records(&topcoat_core::context::Cx, &[Self::Model], &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
-pub fn tablo_core::Resource::create_record(&topcoat_core::context::Cx, Self::Form, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<Self::Model>> + core::marker::Send
+pub fn tablo_core::Resource::create_record(&topcoat_core::context::Cx, Self::Form, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<Self::Model, tablo_core::WriteError<<Self::Form as tablo_core::form::RecordForm>::Field>>> + core::marker::Send
 pub fn tablo_core::Resource::declare() -> tablo_core::ResourceDef<Self>
 pub fn tablo_core::Resource::delete_record(&topcoat_core::context::Cx, &Self::Model, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
 pub fn tablo_core::Resource::force_delete_record(&topcoat_core::context::Cx, &Self::Model, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
 pub fn tablo_core::Resource::query(&topcoat_core::context::Cx) -> toasty::stmt::query::Query<toasty::stmt::list::List<Self::Model>>
 pub fn tablo_core::Resource::restore_record(&topcoat_core::context::Cx, &Self::Model, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<()>> + core::marker::Send where Self: core::marker::Sized
-pub fn tablo_core::Resource::update_record(&topcoat_core::context::Cx, Self::Model, tablo_core::form::Posted<Self::Form>, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<Self::Model>> + core::marker::Send
+pub fn tablo_core::Resource::update_record(&topcoat_core::context::Cx, Self::Model, tablo_core::form::Posted<Self::Form>, &mut dyn toasty::db::executor::Executor) -> impl core::future::future::Future<Output = topcoat::Result<Self::Model, tablo_core::WriteError<<Self::Form as tablo_core::form::RecordForm>::Field>>> + core::marker::Send
 pub fn tablo_core::Resource::validate_record(&topcoat_core::context::Cx, &Self::Form) -> tablo_core::FieldErrors<<Self::Form as tablo_core::form::RecordForm>::Field>
 pub trait tablo_core::RouterBuilderPanelExt: core::marker::Sized
 pub fn tablo_core::RouterBuilderPanelExt::panel(self, tablo_core::panel::Panel) -> topcoat::Result<Self>

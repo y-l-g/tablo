@@ -288,7 +288,7 @@ impl crate::Action<OpenNotes> for Lock {
         _notes: &[Note],
         _input: (),
         _ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<crate::Outcome> {
+    ) -> topcoat::Result<crate::Outcome, crate::WriteError> {
         Ok(crate::Outcome::done())
     }
 }
@@ -303,7 +303,7 @@ impl crate::Action<OpenNotes> for Archive {
         _notes: &[Note],
         _input: (),
         _ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<crate::Outcome> {
+    ) -> topcoat::Result<crate::Outcome, crate::WriteError> {
         Ok(crate::Outcome::done())
     }
 }
@@ -317,7 +317,7 @@ impl crate::HeaderAction for Recount {
         _cx: &Cx,
         _input: (),
         _ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<crate::Outcome> {
+    ) -> topcoat::Result<crate::Outcome, crate::WriteError> {
         Ok(crate::Outcome::done())
     }
 }

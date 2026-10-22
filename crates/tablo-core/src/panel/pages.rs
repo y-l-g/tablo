@@ -33,7 +33,7 @@ pub(crate) fn mounted_page<P: Page>(cx: &Cx) -> Option<&Arc<MountedPage>> {
 /// # impl HeaderAction for ClearCache {
 /// #     type Input = ();
 /// #     const NAME: &'static str = "clear-cache";
-/// #     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome> { Ok(tablo_core::Outcome::done()) }
+/// #     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError> { Ok(tablo_core::Outcome::done()) }
 /// # }
 /// struct MaintenancePage;
 ///

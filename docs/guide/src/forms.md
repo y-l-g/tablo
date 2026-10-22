@@ -447,7 +447,9 @@ takes it too, for every field it holds:
   error inline, with status 200 and nothing written. `validate_record` needs the parsed form, so
   it runs only when every field parses. It returns `FieldErrors<UserFormField>`, keyed by the
   record form's field enum (`errors.add(UserFormField::Age, "Age must be zero or more")`), so
-  every error renders under its field's control, or an embedded value's first control.
+  every error renders under its field's control, or an embedded value's first control. A rule
+  that reads the database refuses from `create_record` or `update_record` instead, which render
+  their `WriteError::Refused` errors the same way ([Resources](./resources.md#writes)).
 - **Unknown keys are refused.** A POST carrying a key the form does not declare answers 400, so a
   client cannot write `role` or `tenant_id`. The CSRF token, the edit form's `record_version` and
   the file fields' `clear_` and `keep_` keys are the exceptions.
