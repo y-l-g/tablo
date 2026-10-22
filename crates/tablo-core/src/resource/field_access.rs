@@ -23,7 +23,9 @@ type Rule = Arc<dyn Fn(&Cx) -> bool + Send + Sync>;
 ///
 /// A request the [`view`](Self::view) rule refuses sees no column, filter, grouping, detail entry
 /// or relation column reading the field, no export column, and no control for it: an edit keeps
-/// the stored value, and a create takes the control's default, else the blank answer. One the
+/// the stored value, and a create takes the control's default, else the blank answer. When the
+/// field has no default and the record form requires it, or its rules refuse a blank answer, as
+/// an `accepted` checkbox does, that request may not create. One the
 /// [`edit`](Self::edit) rule refuses sees the control disabled. Either answers 400 to a submission
 /// posting the field.
 ///

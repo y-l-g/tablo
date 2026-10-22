@@ -171,9 +171,10 @@ macro_rules! default_modifier {
             /// Fills the create form's control with `value`: any
             /// [`FormScalar`](crate::FormScalar) or a `&str` in the form spelling, or, for a
             /// [`multiple`](ChoiceField::multiple) choice, an array or `Vec` of them. On a
-            /// [`disabled`](Self::disabled) field it is the value a create stores. A schema refuses a default the control never posts: one a typed field
-            /// does not parse, one not among a choice's options, a list on a control posting one
-            /// value, and one value on a multiple choice.
+            /// [`disabled`](Self::disabled) field it is the value a create stores. A schema
+            /// refuses a default the control never posts: one a typed field does not parse, one
+            /// not among a choice's options, a list on a control posting one value, and one value
+            /// on a multiple choice.
             ///
             /// ```rust
             /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
@@ -273,7 +274,9 @@ impl<F> CustomField<F> {
     /// [`Field::toggle`] and [`Field::toggle_input`] takes it, drawn as a box or a
     /// [`switch`](Self::switch); another control fails the mount, as
     /// does a [`disabled`](Self::disabled) one with no `true` default. A hidden field is not
-    /// checked, nor a value the record already stores.
+    /// checked, nor a value the record already stores. A request a
+    /// [`FieldAccess`](crate::FieldAccess) `view` rule hides the field from may not create unless
+    /// it has a `true` default.
     ///
     /// ```rust
     /// # use tablo_core::Field;

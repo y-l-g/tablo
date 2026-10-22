@@ -55,12 +55,17 @@ pub enum FieldRuleFault {
     ///
     /// Order a number, date, time or timestamp field, or compare with `different`.
     UnorderedComparison(String),
+    /// A comparison with the declaring field itself, so `gt` and `lt` refuse every value and the
+    /// others none.
+    ///
+    /// Compare with another field.
+    SelfComparison,
     /// A file field's `extensions` listing none, so it refuses every file.
     ///
     /// List the extensions it takes, or drop `extensions` to take any.
     NoExtension,
     /// A file field's extension that is not letters and digits, carried: `tar.gz` or `*`, which
-    /// no file's last extension matches.
+    /// no file's last extension is, as the rule reads only the last.
     ///
     /// List the last extension alone: `gz`.
     InvalidExtension(String),
@@ -146,6 +151,10 @@ pub(super) fn fmt_field_rule(
             "field '{field}' orders against field '{other}', but its type has no order: compare \
              a number, date, time or timestamp field, or use `different`"
         ),
+        FieldRuleFault::SelfComparison => write!(
+            f,
+            "field '{field}' compares with itself: compare it with another field"
+        ),
         FieldRuleFault::NoExtension => write!(
             f,
             "field '{field}' lists no extension it takes, so it refuses every file: list one, or \
@@ -153,8 +162,8 @@ pub(super) fn fmt_field_rule(
         ),
         FieldRuleFault::InvalidExtension(extension) => write!(
             f,
-            "field '{field}' takes the extension '{extension}', which no file name ends in: list \
-             the last extension alone, in letters and digits"
+            "field '{field}' takes the extension '{extension}', but a file's extension is the \
+             last one alone, in letters and digits: list that one"
         ),
         FieldRuleFault::AboveFormCap(max) => write!(
             f,

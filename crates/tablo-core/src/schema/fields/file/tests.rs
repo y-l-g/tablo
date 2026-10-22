@@ -29,25 +29,20 @@ fn only_a_rooted_or_http_value_links() {
     assert!(!is_rooted(remote), "an http(s) URL is another host");
 }
 
-/// A size spells in the largest binary unit that divides it, and the extensions list as a reader
-/// says them.
+/// A name or a carried path is taken by its last extension, without case, and a path's query
+/// or fragment is no part of it.
 #[test]
-fn a_file_refusal_spells_its_size_and_extensions() {
-    for (bytes, spelled) in [
-        (2 * 1024 * 1024, "2 MiB"),
-        (1536 * 1024, "1536 KiB"),
-        (1500, "1500 bytes"),
-        (1, "1 byte"),
-    ] {
-        assert_eq!(spelled_size(bytes), spelled);
-    }
+fn a_file_is_taken_by_its_last_extension() {
     let file = FileControl {
-        extensions: Some(vec!["png".into(), "jpg".into(), "pdf".into()]),
+        extensions: Some(vec!["png".into(), "pdf".into()]),
         max_bytes: None,
     };
-    assert_eq!(
-        file.refusal("Scan", "a.gif", 0).as_deref(),
-        Some("Scan must be a file ending in .png, .jpg or .pdf")
-    );
+    for taken in ["a.PNG", "scan.tar.pdf"] {
+        assert!(file.takes_name(taken), "{taken}");
+    }
+    for refused in ["png", "a.png.html", "a.png.", "a.gif"] {
+        assert!(!file.takes_name(refused), "{refused}");
+    }
     assert!(file.takes_path("/uploads/a.PDF#page=2"));
+    assert!(!file.takes_path("/uploads/page.html?x.png"));
 }

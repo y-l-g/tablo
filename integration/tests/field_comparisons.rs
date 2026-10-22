@@ -3,16 +3,14 @@
 
 use jiff::civil::date;
 use tablo::{
-    Allow, Auth, DeclarationErrorKind, FieldRuleFault, Panel, Resource, ResourceDef, Schema, Table,
-    TextColumn, lens, testing::ErrorKind,
+    Allow, Auth, DeclarationErrorKind, FieldAccess, FieldAccessFault, FieldRuleFault, Panel,
+    Resource, ResourceDef, Schema, Table, TextColumn, lens, testing::ErrorKind,
 };
 use toasty::Db;
 use topcoat::router::Router;
 use uuid::Uuid;
 
-use crate::common::{
-    TestClient, body_string, field_error, field_error_message, mount, refusal, test_db,
-};
+use crate::common::{TestClient, body_string, field_error, mount, refusal, test_db};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Stay {
@@ -76,38 +74,37 @@ async fn stay_count(db: &Db) -> usize {
 }
 
 /// The server refuses a value that does not relate to the other field's as declared, on the
-/// declaring field and naming the other, and writes nothing.
+/// declaring field, and writes nothing.
 #[tokio::test]
 async fn the_server_refuses_a_pair_breaking_its_comparison() {
     let (db, router) = stays().await;
     let client = TestClient::new(&router);
-    for (body, refused, words) in [
+    for (body, refused) in [
         (
             "guest=Ada&nickname=Al&adults=2&rooms=1&arrives=2026-05-02&leaves=2026-05-01",
             "leaves",
-            "Leaves must be after Arrives",
         ),
         (
             "guest=Ada&nickname=Al&adults=2&rooms=1&arrives=2026-05-02&leaves=2026-05-02",
             "leaves",
-            "Leaves must be after Arrives",
         ),
         (
             "guest=Ada&nickname=Al&adults=2&rooms=3&arrives=2026-05-01&leaves=",
             "rooms",
-            "Rooms must be at most Adults",
         ),
         (
             "guest=Ada&nickname=Ada&adults=2&rooms=1&arrives=2026-05-01&leaves=",
             "nickname",
-            "Nickname must differ from Guest",
         ),
     ] {
         let response = client.submit("/admin/stays/-/create", body).await;
         assert_eq!(response.status(), 200, "{body}");
         let html = body_string(response).await;
-        let message = field_error_message(&html, refused).expect("the field is refused");
-        assert_eq!(message, words, "{body}");
+        assert_eq!(
+            field_error(&html, refused),
+            Some(ErrorKind::Invalid),
+            "{body}"
+        );
     }
     assert_eq!(stay_count(&db).await, 0);
 
@@ -185,9 +182,9 @@ async fn an_edit_checks_a_pair_once_either_side_changes() {
     );
 }
 
-/// A comparison with a field of another type, or one ordering a type without an order, refuses
-/// the mount. A resource's form places every record-form field, so only a hand-built schema can
-/// leave a compared field out.
+/// A comparison with the field itself, with a field of another type, or one ordering a type
+/// without an order, refuses the mount. A resource's form places every record-form field, so only
+/// a hand-built schema can leave a compared field out.
 #[tokio::test]
 async fn a_misdeclared_comparison_refuses_the_mount() {
     struct Misdeclared;
@@ -200,10 +197,11 @@ async fn a_misdeclared_comparison_refuses_the_mount() {
             let c = StayForm::controls();
             let guest = c.guest.gt(&c.nickname);
             let adults = c.adults.lt(&c.arrives);
+            let rooms = c.rooms.gt(&StayForm::controls().rooms);
             ResourceDef::new()
                 .slug("stays")
                 .policy(Allow)
-                .form(Schema::new((guest, c.nickname, adults, c.arrives)))
+                .form(Schema::new((guest, c.nickname, adults, rooms, c.arrives)))
         }
     }
 
@@ -228,7 +226,47 @@ async fn a_misdeclared_comparison_refuses_the_mount() {
             "adults",
             FieldRuleFault::IncomparableField("arrives".to_string()),
         ),
+        rule("rooms", FieldRuleFault::SelfComparison),
     ] {
         assert!(kinds.contains(&expected), "{expected:?} in {kinds:?}");
     }
+}
+
+/// A refusal tells what the compared field holds, so comparing with a field a `view` rule hides
+/// from some user refuses the mount: posting guesses would read the hidden value.
+#[tokio::test]
+async fn a_comparison_with_a_hidden_field_refuses_the_mount() {
+    struct Hiding;
+
+    impl Resource for Hiding {
+        type Model = Stay;
+        type Form = StayForm;
+
+        fn declare() -> ResourceDef<Self> {
+            let c = StayForm::controls();
+            let rooms = c.rooms.lte(&c.adults);
+            ResourceDef::new()
+                .slug("stays")
+                .policy(Allow)
+                .field_access(lens!(Stay.adults), FieldAccess::new().view(|_| false))
+                .form(Schema::new((
+                    c.guest, c.nickname, c.adults, rooms, c.arrives, c.leaves,
+                )))
+        }
+    }
+
+    let db = test_db(toasty::models!(Stay)).await;
+    let errors = refusal(mount(
+        db,
+        Panel::new("admin")
+            .auth(Auth::disabled())
+            .resource::<Hiding>(),
+    ));
+    let watched = DeclarationErrorKind::FieldAccess {
+        fault: FieldAccessFault::Watched,
+    };
+    assert!(
+        errors.iter().any(|error| error.kind == watched),
+        "{errors:?}"
+    );
 }

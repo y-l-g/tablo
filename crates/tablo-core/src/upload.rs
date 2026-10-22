@@ -16,6 +16,8 @@ use crate::{
     topcoat_compat::href::encode_path_segment,
 };
 
+pub(crate) mod carry;
+
 /// Stores one uploaded file and names the value a record stores; installed once
 /// per panel with [`Panel::uploads`](crate::Panel::uploads).
 ///
@@ -30,12 +32,15 @@ use crate::{
 /// - What a file field stores comes from a file part only: `store`'s answer, the stored value on an
 ///   untouched edit, or nothing when cleared. A path typed into the form is never stored.
 /// - Keeping a file across a failed submit. When a form re-renders with errors, the file input is
-///   empty again. The form carries the path `store` just returned, and the panel reuses it on the
-///   next submit only when `Uploader::holds(path)` answers `true`. The default answers `false`, so
-///   the user uploads again. Answer `true` only for a path your store could have written and still
-///   holds inside its own root; checking whether an arbitrary path exists would let a client pick
-///   any file. A `DirUploader` answers `true` for a URL spelled as its `store` spells one, naming a
-///   file in its directory.
+///   empty again. The form carries the path `store` just returned, under a tag the panel signs for
+///   that field and that browser's CSRF cookie, so a client cannot carry a path the field's rules
+///   never passed. The panel reuses it on the next submit only when the tag holds and
+///   `Uploader::holds(path)` answers `true`. The default answers `false`, so the user uploads
+///   again. The tag's key derives from the router's cookie `Key`, else from one drawn per process,
+///   so without a shared `Key` a carry reaches only the instance that minted it. Answer `true` only
+///   for a path your store could have written and still holds inside its own root; checking whether
+///   an arbitrary path exists would let a client pick any file. A `DirUploader` answers `true` for
+///   a URL spelled as its `store` spells one, naming a file in its directory.
 /// - Editing. The edit form shows the stored file as a link and an empty file input. Leaving it
 ///   empty keeps the file; the "Remove the current file" checkbox (`clear_<field>`) empties the
 ///   field. The input is required only while nothing is stored, and clearing a required field fails
@@ -160,9 +165,9 @@ impl Uploader for DirUploader {
     }
 }
 
-/// Strips a client filename to a safe basename capped at 255 bytes, rejecting `.`, `..`, and
-/// Windows reserved names to empty: what a file field's [`Uploader`] receives, for a page that
-/// parses its own multipart body.
+/// Strips a client filename to a safe basename capped at 255 bytes, without control or
+/// bidirectional-override characters, rejecting `.`, `..`, and Windows reserved names to empty:
+/// what a file field's [`Uploader`] receives, for a page that parses its own multipart body.
 ///
 /// ```
 /// assert_eq!(tablo_core::sanitize_filename("../../etc/passwd"), "passwd");
@@ -174,7 +179,10 @@ impl Uploader for DirUploader {
 /// ```
 pub fn sanitize_filename(raw: &str) -> String {
     let base = raw.rsplit(['/', '\\']).next().unwrap_or(raw).trim();
-    let clean: String = base.chars().filter(|c| !c.is_control()).collect();
+    let clean: String = base
+        .chars()
+        .filter(|&c| !c.is_control() && !is_bidi_control(c))
+        .collect();
     let trimmed = clean.trim();
     if trimmed.is_empty() {
         return String::new();
@@ -192,6 +200,11 @@ pub fn sanitize_filename(raw: &str) -> String {
     } else {
         trimmed.to_string()
     }
+}
+
+/// Whether `c` reorders the text around it, so `a\u{202e}gnp.exe` would read as `aexe.png`.
+fn is_bidi_control(c: char) -> bool {
+    matches!(c, '\u{061c}' | '\u{200e}' | '\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
 }
 
 /// Reports whether a basename is a Windows reserved device name.

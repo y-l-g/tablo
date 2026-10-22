@@ -32,10 +32,11 @@ pub enum FieldAccessFault {
     ///
     /// Restrict a field that is not the key.
     RecordKey,
-    /// A form condition or a dependent choice watches the field, so what the form shows would
-    /// tell what it holds. Asked of a rule with a `view` rule only.
+    /// A form condition, a dependent choice or another field's comparison watches the field, so
+    /// what the form shows or refuses would tell what it holds. Asked of a rule with a `view`
+    /// rule only.
     ///
-    /// Watch a field every user may view.
+    /// Watch or compare with a field every user may view.
     Watched,
     /// A column or a filter of a resource over a model a panel restricts a field of does not
     /// declare the fields it reads, so the panel cannot tell whether it shows the restricted one.
@@ -104,8 +105,9 @@ impl fmt::Display for FieldAccessFault {
                  restrict a field that is not the key"
             ),
             Self::Watched => f.write_str(
-                "a form condition or a dependent choice watches the field, so what the form shows \
-                 would tell what the field holds: watch a field every user may view",
+                "a form condition, a dependent choice or a comparison watches the field, so what \
+                 the form shows or refuses would tell what the field holds: watch or compare with \
+                 a field every user may view",
             ),
             Self::UndeclaredReads { what, name } => write!(
                 f,

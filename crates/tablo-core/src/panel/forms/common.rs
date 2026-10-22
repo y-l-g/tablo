@@ -128,8 +128,9 @@ pub(super) fn blank(values: &FormValues, key: &str) -> bool {
     values.text(key).is_none_or(|value| value.trim().is_empty())
 }
 
-/// Restores `keep_<field>` paths only when the field's extensions take them and the installed
-/// uploader still holds them, returning restored field names.
+/// Restores `keep_<field>` paths only when the panel signed them for the field and this browser,
+/// the field's extensions take them and the installed uploader still holds them, returning
+/// restored field names.
 pub(super) async fn restore_pending_uploads(
     cx: &Cx,
     schema: &crate::schema::Schema,
@@ -141,7 +142,11 @@ pub(super) async fn restore_pending_uploads(
         if !blank(values, name) || flags.clear {
             continue;
         }
-        let Some(candidate) = flags.keep.as_deref().map(str::trim) else {
+        let Some(candidate) = flags
+            .keep
+            .as_deref()
+            .and_then(|carried| crate::upload::carry::open(cx, name, carried.trim()))
+        else {
             continue;
         };
         let taken = schema

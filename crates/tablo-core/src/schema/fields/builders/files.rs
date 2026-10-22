@@ -24,9 +24,10 @@ impl<F> FileField<F> {
     ///   uploader that names the stored file otherwise should keep its extension.
     /// - Only the server's check refuses: `accept` is a hint the browser's picker may ignore. A
     ///   refused file is not stored, and the error renders on the field.
-    /// - A refused submission carries a stored upload back through `keep_<field>`; a carried path
-    ///   whose extension the field does not take is dropped, as one the uploader does not hold is.
-    ///   A value the record already stores is not checked again.
+    /// - A refused submission carries a stored upload back through `keep_<field>`, signed for the
+    ///   field, so a carry names only a file this field's rules passed; a carried path whose
+    ///   extension the field does not take is dropped too, as one the uploader does not hold is. A
+    ///   value the record already stores is not checked again.
     /// - Mounting refuses an empty list, and an extension that is not letters and digits.
     pub fn extensions<I>(mut self, extensions: I) -> Self
     where
@@ -48,8 +49,8 @@ impl<F> FileField<F> {
 
     /// Refuse a file larger than `max_bytes`; the error spells the size in KiB or MiB when it
     /// divides evenly. Only the server checks it, before the [`Uploader`](crate::Uploader) stores
-    /// the file. Mounting refuses a size at or above the 10 MiB form-body cap, which refuses a
-    /// larger body first.
+    /// the file; a carried upload passed it when it was stored. Mounting refuses a size at or
+    /// above the 10 MiB form-body cap, which refuses a larger body first.
     pub fn max_bytes(mut self, max_bytes: usize) -> Self {
         if let ControlKind::File(file) = &mut self.0.control {
             file.max_bytes = Some(max_bytes);

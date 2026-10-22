@@ -35,9 +35,14 @@ impl<F> TextField<F> {
     ///   skips the comparison: whether a value is required is the field's type to say.
     /// - An edit that changes neither field does not check them again, as a value the record
     ///   already stores is not; changing either one does.
-    /// - A field of `Option<T>` compares with one of `T`. Mounting refuses another field the schema
-    ///   does not place, one of another type or control, and a type without an order. A repeater's
-    ///   row field compares with another field of the same row.
+    /// - An edit checks a repeater row's comparisons again unless the row's two fields keep the
+    ///   values the record stores at the same row position.
+    /// - A field of `Option<T>` compares with one of `T`. Mounting refuses the field itself,
+    ///   another field the schema does not place, one of another type or control, and a type
+    ///   without an order. A repeater's row field compares with another field of the same row.
+    /// - The refusal tells what the other field holds, so mounting also refuses one that a
+    ///   [`FieldAccess`](crate::FieldAccess) `view` rule hides from some user:
+    ///   [`FieldAccessFault::Watched`](crate::FieldAccessFault::Watched).
     pub fn gt(self, other: &TextField<F>) -> Self {
         self.compare(Relation::Gt, other)
     }
@@ -58,7 +63,8 @@ impl<F> TextField<F> {
     }
 
     /// Refuse a value equal to `other`'s, as the field's type reads both: `01` equals `1` for an
-    /// integer. [`gt`](Self::gt) has the rules, but any type compares.
+    /// integer, but text compares as typed, so `Ada` differs from `ada`. [`gt`](Self::gt) has the
+    /// rules, but any type compares.
     pub fn different(self, other: &TextField<F>) -> Self {
         self.compare(Relation::Different, other)
     }

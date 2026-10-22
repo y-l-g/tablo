@@ -252,10 +252,10 @@ impl<'a> TestClient<'a> {
         .await
     }
 
-    /// Posts the urlencoded `body` as a panel form does: with a fresh CSRF token in both the
-    /// cookie and the `csrf_token` field.
+    /// Posts the urlencoded `body` as a panel form does: with the CSRF token in both the cookie
+    /// and the `csrf_token` field, the one [`csrf`](Self::csrf) attached, else a fresh one.
     pub async fn submit(&self, uri: &str, body: &str) -> http::Response<Body> {
-        let token = Self::fresh_csrf_token();
+        let token = self.csrf_token();
         let field = form_body(&[("csrf_token", &token)]);
         let body = if body.is_empty() {
             field
@@ -265,15 +265,15 @@ impl<'a> TestClient<'a> {
         self.csrf(&token).post_form(uri, body).await
     }
 
-    /// Posts [`multipart_body`]'s `parts` as a panel form with a file input does: with a fresh
-    /// CSRF token in both the cookie and a `csrf_token` part.
+    /// Posts [`multipart_body`]'s `parts` as a panel form with a file input does: with the CSRF
+    /// token in both the cookie and a `csrf_token` part, as [`submit`](Self::submit) picks it.
     pub async fn submit_multipart(
         &self,
         uri: &str,
         parts: &[(&str, Option<&str>, &str)],
     ) -> http::Response<Body> {
         const BOUNDARY: &str = "tablo-test-boundary";
-        let token = Self::fresh_csrf_token();
+        let token = self.csrf_token();
         let mut parts = parts.to_vec();
         parts.push(("csrf_token", None, &token));
         let body = multipart_body(BOUNDARY, &parts);
@@ -332,8 +332,15 @@ impl<'a> TestClient<'a> {
         self.router.handle(request).await
     }
 
-    fn fresh_csrf_token() -> String {
-        uuid::Uuid::new_v4().to_string()
+    /// The CSRF cookie the client carries, as a browser keeps it across posts, else a fresh one.
+    fn csrf_token(&self) -> String {
+        self.cookies
+            .iter()
+            .find(|(name, _)| name == tablo_core::csrf::COOKIE_NAME)
+            .map_or_else(
+                || uuid::Uuid::new_v4().to_string(),
+                |(_, token)| token.clone(),
+            )
     }
 
     fn request(&self, method: http::Method, uri: &str) -> http::Request<Body> {

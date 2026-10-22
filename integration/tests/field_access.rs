@@ -317,6 +317,59 @@ async fn a_create_the_user_cannot_complete_is_refused() {
     assert_eq!(hr.get("/admin/employees/-/create").await.status(), 200);
 }
 
+/// A box accepting the terms, which a create must check.
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+struct Pledge {
+    #[key]
+    #[auto]
+    id: Uuid,
+    tenant_id: TenantId,
+    name: String,
+    agreed: bool,
+}
+
+#[derive(tablo::RecordForm)]
+#[form(model = Pledge)]
+struct PledgeForm {
+    name: String,
+    agreed: bool,
+}
+
+struct PledgeResource;
+
+impl Resource for PledgeResource {
+    type Model = Pledge;
+    type Form = PledgeForm;
+
+    fn declare() -> ResourceDef<Self> {
+        let c = PledgeForm::controls();
+        ResourceDef::new()
+            .slug("pledges")
+            .policy_fn(|_cx, _ability: Ability<'_, Pledge>| true)
+            .tenancy(Tenancy::column(Pledge::fields().tenant_id()))
+            .field_access(lens!(Pledge.agreed), FieldAccess::new().view(hr))
+            .form(Schema::new((c.name, c.agreed.accepted())))
+    }
+}
+
+/// A field whose rules refuse a blank answer, as an `accepted` box, keeps a user it is hidden
+/// from from creating, as a required one does, rather than refusing every create they submit.
+#[tokio::test]
+async fn a_hidden_field_refusing_a_blank_answer_keeps_the_user_from_creating() {
+    let db = test_db(toasty::models!(Pledge)).await;
+    let router = mount(db.clone(), panel().resource::<PledgeResource>()).expect("panel builds");
+    let sales = TestClient::new(&router).tenant(SALES);
+    assert_eq!(sales.get("/admin/pledges/-/create").await.status(), 403);
+    let response = sales.submit("/admin/pledges/-/create", "name=Bob").await;
+    assert_eq!(response.status(), 403);
+
+    let hr = TestClient::new(&router).tenant(HR);
+    let response = hr
+        .submit("/admin/pledges/-/create", "name=Ada&agreed=true")
+        .await;
+    assert_eq!(response.status(), 303);
+}
+
 /// An error on a field the user may not view renders as an alert without its message, which could
 /// tell the value.
 #[tokio::test]

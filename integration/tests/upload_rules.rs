@@ -1,18 +1,19 @@
-//! A file field's extensions and size over HTTP: the refusals before storing, the carried path
-//! a field's extensions drop, and the declarations that refuse the mount.
+//! A file field's extensions and size over HTTP: the refusals before storing, the carry that
+//! names only an upload its own field passed, and the declarations that refuse the mount.
 
 use std::sync::{Arc, Mutex};
 
 use tablo::{
     Allow, DeclarationErrorKind, FieldRuleFault, Resource, ResourceDef, Schema, Table, TextColumn,
-    Uploader, lens,
+    Uploader, lens, testing::ErrorKind,
 };
 use toasty::Db;
 use topcoat::router::Router;
 use uuid::Uuid;
 
 use crate::common::{
-    TestClient, body_string, control, field_error_message, get, mount, panel, refusal, test_db,
+    TestClient, body_string, control, field_error, form_body, get, input_value, mount, panel,
+    refusal, test_db,
 };
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
@@ -22,6 +23,7 @@ struct Photo {
     id: Uuid,
     title: String,
     image: String,
+    attachment: String,
 }
 
 #[derive(tablo::RecordForm)]
@@ -30,6 +32,8 @@ struct PhotoForm {
     title: String,
     #[form(file)]
     image: String,
+    #[form(file, optional)]
+    attachment: String,
 }
 
 struct PhotoResource;
@@ -45,7 +49,7 @@ impl Resource for PhotoResource {
             .slug("photos")
             .policy(Allow)
             .table(Table::new(TextColumn::new(lens!(Photo.title))))
-            .form(Schema::new((c.title, image)))
+            .form(Schema::new((c.title, image, c.attachment)))
     }
 }
 
@@ -94,19 +98,11 @@ async fn a_refused_file_is_never_stored() {
         control(&html, "image").contains("accept=\".png,.jpg\""),
         "the picker is hinted the extensions: {html}"
     );
-    for (filename, bytes, words) in [
-        (
-            "page.html",
-            "PNG",
-            "Image must be a file ending in .png or .jpg",
-        ),
-        ("png", "PNG", "Image must be a file ending in .png or .jpg"),
-        (
-            "shot.png.html",
-            "PNG",
-            "Image must be a file ending in .png or .jpg",
-        ),
-        ("shot.png", "123456789", "Image must be at most 8 bytes"),
+    for (filename, bytes) in [
+        ("page.html", "PNG"),
+        ("png", "PNG"),
+        ("shot.png.html", "PNG"),
+        ("shot.png", "123456789"),
     ] {
         let response = client
             .submit_multipart(
@@ -117,8 +113,8 @@ async fn a_refused_file_is_never_stored() {
         assert_eq!(response.status(), 200, "{filename}");
         let html = body_string(response).await;
         assert_eq!(
-            field_error_message(&html, "image").as_deref(),
-            Some(words),
+            field_error(&html, "image"),
+            Some(ErrorKind::Invalid),
             "{filename}"
         );
     }
@@ -138,24 +134,54 @@ async fn a_refused_file_is_never_stored() {
     assert_eq!(*uploader.stored.lock().unwrap(), ["Shot.JPG"]);
 }
 
-/// A carried path whose extension the field does not take is dropped, though the uploader holds
-/// it, so a forged carry cannot point the record at another field's file; a taken one is kept.
+/// A refused submission carries its upload to the next one, but a carry names only a file its
+/// own field passed: a bare path, or one another field's rules passed, is dropped though the
+/// uploader holds it, so a forged carry cannot dodge the field's extensions or size.
 #[tokio::test]
-async fn a_carried_path_the_extensions_refuse_is_dropped() {
-    let (db, router, _) = photos().await;
-    let client = TestClient::new(&router);
-    for forged in ["/uploads/page.html", "/uploads/page.html?x.png"] {
-        let body = format!("title=Sea&keep_image={}", forged.replace('?', "%3F"));
+async fn a_carry_names_only_an_upload_its_own_field_passed() {
+    let (db, router, uploader) = photos().await;
+    // A browser keeps its CSRF cookie across posts, and a carry is minted for it.
+    let client = TestClient::new(&router).csrf(&Uuid::new_v4().to_string());
+    let refused = |parts: Vec<(&'static str, Option<&'static str>, &'static str)>| {
+        let client = &client;
+        async move {
+            let response = client
+                .submit_multipart("/admin/photos/-/create", &parts)
+                .await;
+            assert_eq!(response.status(), 200);
+            body_string(response).await
+        }
+    };
+    // The attachment takes any file, so its carry names a file the image's rules refuse.
+    let html = refused(vec![
+        ("title", None, ""),
+        ("image", Some("a.png"), "1234"),
+        ("attachment", Some("big.png"), "123456789"),
+    ])
+    .await;
+    let image = input_value(&html, "keep_image").expect("the image is carried");
+    let attachment = input_value(&html, "keep_attachment").expect("the attachment is carried");
+    assert_eq!(*uploader.stored.lock().unwrap(), ["a.png", "big.png"]);
+
+    for forged in [
+        "/uploads/big.png".to_string(),
+        attachment.clone(),
+        image.replace("a.png", "big.png"),
+    ] {
+        let body = form_body(&[("title", "Sea"), ("keep_image", &forged)]);
         let response = client.submit("/admin/photos/-/create", &body).await;
         assert_eq!(response.status(), 200, "{forged}");
+        let html = body_string(response).await;
+        assert_eq!(
+            field_error(&html, "image"),
+            Some(ErrorKind::Required),
+            "{forged}"
+        );
     }
     assert_eq!(photo_count(&db).await, 0);
-    let response = client
-        .submit(
-            "/admin/photos/-/create",
-            "title=Sea&keep_image=/uploads/a.png",
-        )
-        .await;
+
+    let body = form_body(&[("title", "Sea"), ("keep_image", &image)]);
+    let response = client.submit("/admin/photos/-/create", &body).await;
     assert_eq!(response.status(), 303);
     let stored = Photo::all().exec(&mut db.clone()).await.unwrap();
     assert_eq!(stored[0].image, "/uploads/a.png");

@@ -34,13 +34,14 @@ fn a_filename_reduces_to_its_basename_and_drops_reserved_names() {
 
 proptest::proptest! {
     /// Whatever the client sends, the stored name is one path segment that cannot climb, name a
-    /// device or carry a control character, within the 255-byte cap.
+    /// device or carry a control or bidirectional-override character, within the 255-byte cap.
     #[test]
-    fn a_sanitized_filename_is_one_safe_segment(raw in "\\PC{0,400}|[./\\\\a-zA-Z\\x00-\\x1f]{0,40}") {
+    fn a_sanitized_filename_is_one_safe_segment(raw in "\\PC{0,400}|[./\\\\a-zA-Z\\x00-\\x1f\\u{202a}-\\u{202e}\\u{2066}-\\u{2069}]{0,40}") {
         let out = sanitize_filename(&raw);
         proptest::prop_assert!(!out.contains(['/', '\\']), "{out:?}");
         proptest::prop_assert!(out.len() <= 255, "{} bytes", out.len());
         proptest::prop_assert!(!out.chars().any(char::is_control), "{out:?}");
+        proptest::prop_assert!(!out.chars().any(super::is_bidi_control), "{out:?}");
         proptest::prop_assert!(out != "." && out != "..", "{out:?}");
         proptest::prop_assert!(out.is_empty() || !is_windows_reserved_name(&out), "{out:?}");
     }
