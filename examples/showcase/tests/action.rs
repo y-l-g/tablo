@@ -1,5 +1,11 @@
+use showcase::{
+    app::PostResource,
+    post_actions::{PublishPosts, TagPosts},
+};
+
 use crate::common::{
-    body_string, demo_client, full_db, mount, routers::router_for_tests as router,
+    body_string, demo_client, full_db, mount,
+    routers::{app_for_tests, router_for_tests as router},
 };
 
 // Every list exposes its create/edit entry points as real links.
@@ -65,8 +71,9 @@ async fn a_draft_post_is_published_from_its_row() {
     use showcase::models::{Post, PostStatus};
 
     let db = full_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
+    let (router, admin) = app_for_tests(db.clone());
+    let client = demo_client(&router, &db).await.panel(&admin);
+    let posts = client.resource::<PostResource>();
     let html = body_string(client.get("/admin/posts").await).await;
 
     // The posts on this page, as their rows' edit links name them.
@@ -104,16 +111,31 @@ async fn a_draft_post_is_published_from_its_row() {
         tablo::testing::confirms_first(&html, "/admin/posts/-/actions/publish").is_some(),
         "the bulk bar offers Publish for the selection: {html}"
     );
-    let resp = client.submit(&publish, "").await;
-    assert!(
-        resp.status().is_redirection(),
-        "a committed action redirects, got {}",
-        resp.status()
-    );
+    let reply = posts.action::<PublishPosts>(draft).submit().await;
+    assert_eq!(reply.status(), 303, "a committed action redirects");
     let after = Post::get_by_id(&mut db_q, &draft.id)
         .await
         .expect("the post still exists");
     assert_eq!(after.status, PostStatus::Published);
+
+    let drafts: Vec<&Post> = on_page
+        .iter()
+        .filter(|post| post.status == PostStatus::Draft && post.id != draft.id)
+        .collect();
+    assert!(!drafts.is_empty(), "the first page holds another draft");
+    let keys: Vec<String> = drafts.iter().map(|post| post.id.to_string()).collect();
+    let reply = posts.bulk_action::<PublishPosts>(&keys).submit().await;
+    assert_eq!(reply.status(), 303, "a committed bulk action redirects");
+    for post in drafts {
+        let after = Post::get_by_id(&mut db_q, &post.id)
+            .await
+            .expect("the post still exists");
+        assert_eq!(
+            after.status,
+            PostStatus::Published,
+            "the selection is published"
+        );
+    }
 }
 
 /// The Tag action asks for tags first: its POST renders the input page, a submit without tags is
@@ -123,8 +145,9 @@ async fn tagging_a_post_asks_for_the_tags_then_merges_them() {
     use showcase::models::Post;
 
     let db = full_db().await;
-    let router = router(db.clone());
-    let client = demo_client(&router, &db).await;
+    let (router, admin) = app_for_tests(db.clone());
+    let client = demo_client(&router, &db).await.panel(&admin);
+    let posts = client.resource::<PostResource>();
     let mut db_q = db.clone();
     let post = Post::all()
         .exec(&mut db_q)
@@ -133,8 +156,8 @@ async fn tagging_a_post_asks_for_the_tags_then_merges_them() {
         .into_iter()
         .find(|post| post.tags == "rust,async")
         .expect("the seed tags a post rust,async");
-    let tag = format!("/admin/posts/{}/-/actions/tag", post.id);
-    let page = body_string(client.submit(&tag, "").await).await;
+    let page = posts.action::<TagPosts>(&post).submit().await;
+    let page = page.html();
     assert!(
         page.contains("name=\"tags\"")
             && page.contains("placeholder=\"rust, async\"")
@@ -142,22 +165,35 @@ async fn tagging_a_post_asks_for_the_tags_then_merges_them() {
         "an empty submission renders the input page: {page}"
     );
 
-    let refused = body_string(client.submit(&tag, "tags=+").await).await;
+    let refused = posts
+        .action::<TagPosts>(&post)
+        .set_key("tags", " ")
+        .submit()
+        .await;
     assert!(
-        tablo::testing::field_error(&refused, "tags").is_some(),
-        "{refused}"
+        tablo::testing::field_error(refused.html(), "tags").is_some(),
+        "{}",
+        refused.html()
     );
 
-    let resp = client
-        .submit(&tag, "tags=async%2C+tokio&replace=false")
+    let reply = posts
+        .action::<TagPosts>(&post)
+        .set_key("tags", "async, tokio")
+        .set_key("replace", "false")
+        .submit()
         .await;
-    assert!(resp.status().is_redirection(), "got {}", resp.status());
+    assert_eq!(reply.status(), 303);
     let after = Post::get_by_id(&mut db_q, &post.id)
         .await
         .expect("the post still exists");
     assert_eq!(after.tags, "rust,async,tokio");
 
-    client.submit(&tag, "tags=news&replace=true").await;
+    posts
+        .action::<TagPosts>(&post)
+        .set_key("tags", "news")
+        .set_key("replace", "true")
+        .submit()
+        .await;
     let after = Post::get_by_id(&mut db_q, &post.id)
         .await
         .expect("the post still exists");

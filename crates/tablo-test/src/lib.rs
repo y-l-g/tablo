@@ -3,6 +3,7 @@
 
 mod db;
 mod protocol;
+mod resource;
 mod two_factor;
 
 pub use db::{TEST_DATABASE_URL, test_db};
@@ -16,7 +17,10 @@ pub use protocol::{
     nav_badge, notification, response_cookies, rich_text_values, row_actions, row_keys, rows,
     session_cookie_value, set_cookie_header, stale_form,
 };
-use tablo_core::{DeclarationError, MountError, Panel, PanelUser, RouterBuilderPanelExt};
+pub use resource::{FieldOf, Reply, ResourceClient, Submission};
+use tablo_core::{
+    DeclarationError, MountError, Panel, PanelHandle, PanelUser, Resource, RouterBuilderPanelExt,
+};
 use topcoat::router::{Body, Router, RouterBuilderDiscoverExt};
 pub use two_factor::{
     authenticator_code, authenticator_code_at, now, recovery_codes, two_factor_secret,
@@ -30,11 +34,22 @@ pub use two_factor::{
 ///
 /// The [`MountError`] the panel refuses to mount with, which [`refusal`] lists.
 pub fn mount(db: toasty::Db, panel: Panel) -> topcoat::Result<Router> {
-    Ok(Router::builder()
-        .discover()
-        .app_context(db)
-        .panel(panel)?
-        .build())
+    mount_with_handle(db, panel).map(|(router, _)| router)
+}
+
+/// [`mount`]'s router and the mounted panel's handle, which [`TestClient::panel`] resolves
+/// [`TestClient::resource`]'s URLs in.
+///
+/// # Errors
+///
+/// The [`MountError`] the panel refuses to mount with.
+pub fn mount_with_handle(db: toasty::Db, panel: Panel) -> topcoat::Result<(Router, PanelHandle)> {
+    let prefix = panel.prefix().to_string();
+    let builder = Router::builder().discover().app_context(db).panel(panel)?;
+    let handle = builder
+        .panel_handle(&prefix)
+        .expect("the builder mounts the panel at its prefix");
+    Ok((builder.build(), handle))
 }
 
 /// The declaration mistakes a panel refused to mount with, for a test to match on their
@@ -72,6 +87,7 @@ pub struct TestClient<'a> {
     router: &'a Router,
     cookies: Vec<(String, String)>,
     tenant: Option<uuid::Uuid>,
+    panel: Option<PanelHandle>,
 }
 
 impl<'a> TestClient<'a> {
@@ -80,7 +96,42 @@ impl<'a> TestClient<'a> {
             router,
             cookies: Vec::new(),
             tenant: None,
+            panel: None,
         }
+    }
+
+    /// Resolves [`resource`](Self::resource)'s URLs in `panel`, the handle the router's builder
+    /// gives through [`panel_handle`](RouterBuilderPanelExt::panel_handle).
+    ///
+    /// ```rust,no_run
+    /// # use tablo_core::{Panel, RouterBuilderPanelExt};
+    /// # use topcoat::router::{Router, RouterBuilderDiscoverExt};
+    /// # fn build(db: toasty::Db, panel: Panel) -> topcoat::Result<()> {
+    /// let builder = Router::builder().discover().app_context(db).panel(panel)?;
+    /// let admin = builder.panel_handle("admin").expect("mounted above");
+    /// let router = builder.build();
+    /// let client = tablo_test::TestClient::new(&router).panel(&admin);
+    /// # let _ = client;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn panel(&self, panel: &PanelHandle) -> Self {
+        let mut client = self.clone();
+        client.panel = Some(panel.clone());
+        client
+    }
+
+    /// Typed requests to `R`, whose URLs and form keys come from the panel's own declaration.
+    ///
+    /// # Panics
+    ///
+    /// When no [`panel`](Self::panel) is set.
+    pub fn resource<R: Resource>(&self) -> ResourceClient<'_, 'a, R> {
+        let panel = self
+            .panel
+            .as_ref()
+            .expect("set the panel with `TestClient::panel` before `resource`");
+        ResourceClient::new(self, panel)
     }
 
     /// Attaches a cookie to every request; a later value for the same name

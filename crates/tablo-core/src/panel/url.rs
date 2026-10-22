@@ -4,8 +4,9 @@
 //! prefix the request is under, or the one it entered with
 //! [`PanelHandle::enter`](crate::PanelHandle::enter).
 //! A resource or page that panel does not register has no URL there, and the
-//! helper returns `None`. The record helpers, [`record`], [`edit`], [`create`], [`action`] and
-//! [`bulk_action`], also answer in a [`PanelHandle::context`](crate::PanelHandle::context).
+//! helper returns `None`. The record helpers, [`record`], [`edit`], [`delete`], [`create`],
+//! [`action`] and [`bulk_action`], also answer in a
+//! [`PanelHandle::context`](crate::PanelHandle::context).
 //!
 //! ```rust,no_run
 //! # use tablo_core::{NoForm, Page, Resource};
@@ -73,6 +74,11 @@ pub fn record<R: Resource>(cx: &Cx, record: &R::Model) -> Option<String> {
 pub fn edit<R: Resource>(cx: &Cx, record: &R::Model) -> Option<String> {
     keyed::<R>(cx, record, |_| <R::Form as RecordForm>::HAS_FORM)
         .map(|(list, key)| row_edit_url(&list, &key))
+}
+
+/// The route that deletes `record`, e.g. `/admin/posts/42/delete`, which takes `confirm=1`.
+pub fn delete<R: Resource>(cx: &Cx, record: &R::Model) -> Option<String> {
+    keyed::<R>(cx, record, |_| true).map(|(list, key)| delete_action_url(&list, &key))
 }
 
 /// `R`'s create page, e.g. `/admin/posts/-/create`, or `None` when `R` serves none.

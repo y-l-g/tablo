@@ -29,7 +29,7 @@ use crate::{
     form::{FieldError, FieldErrors, FormValues, Posted, RecordForm},
     panel::state::uploader,
     policy::Ability,
-    resource::{Change, Mounted, Resource},
+    resource::{Change, Mounted, Resource, WriteError},
     schema::Schema,
     topcoat_compat::async_page,
 };
@@ -186,28 +186,13 @@ pub(super) fn parse_form<R: Resource>(
     values: &FormValues,
     errors: &mut FieldErrors,
 ) -> Result<Option<R::Form>, topcoat::Error> {
-    let unbound = |source: &str, key: &dyn std::fmt::Debug| {
-        crate::error::declaration(format!(
-            "{source} refused {key:?}, which `{}` binds to no form key",
-            std::any::type_name::<R::Form>()
-        ))
-    };
     match <R::Form as RecordForm>::parse(cx, values) {
         Ok(form) => {
-            for FieldError { key, kind } in R::validate_record(cx, &form) {
-                let Some(first) = resource
-                    .fields
-                    .iter()
-                    .find(|field| field.field == key)
-                    .and_then(|field| field.keys.first())
-                else {
-                    return Err(unbound("validate_record", &key));
-                };
-                errors.push(FieldError {
-                    key: first.clone(),
-                    kind,
-                });
-            }
+            errors.extend(form_keyed(
+                resource,
+                "validate_record",
+                R::validate_record(cx, &form),
+            )?);
             Ok(Some(form))
         }
         Err(failures) => {
@@ -218,7 +203,7 @@ pub(super) fn parse_form<R: Resource>(
                         .iter()
                         .any(|key| renders_under(&resource.form, key, &failure.key))
                 }) {
-                    return Err(unbound("the parse", &failure.key));
+                    return Err(unbound::<R>("the parse", &failure.key));
                 }
                 // The controls' own rules answered first for the key.
                 if !errors.contains_key(&failure.key) {
@@ -228,6 +213,63 @@ pub(super) fn parse_form<R: Resource>(
             Ok(None)
         }
     }
+}
+
+/// `errors`, which `source` keyed by the record form's field enum, keyed by the form key each
+/// renders under: a field's first.
+///
+/// # Errors
+///
+/// A declaration error when a field binds no form key: no control would carry the message.
+fn form_keyed<R: Resource>(
+    resource: &Mounted<R>,
+    source: &str,
+    errors: FieldErrors<<R::Form as RecordForm>::Field>,
+) -> Result<FieldErrors, topcoat::Error> {
+    let mut keyed = FieldErrors::new();
+    for FieldError { key, kind } in errors {
+        let Some(first) = resource
+            .fields
+            .iter()
+            .find(|field| field.field == key)
+            .and_then(|field| field.keys.first())
+        else {
+            return Err(unbound::<R>(source, &key));
+        };
+        keyed.push(FieldError {
+            key: first.clone(),
+            kind,
+        });
+    }
+    Ok(keyed)
+}
+
+/// The refusal a record fn answered with, keyed as [`form_keyed`] keys it.
+///
+/// # Errors
+///
+/// A declaration error for a refusal that names no field, which would render the form unchanged,
+/// or one [`form_keyed`] refuses.
+pub(super) fn refusal<R: Resource>(
+    resource: &Mounted<R>,
+    source: &str,
+    errors: FieldErrors<<R::Form as RecordForm>::Field>,
+) -> Result<FieldErrors, topcoat::Error> {
+    if errors.is_empty() {
+        return Err(crate::error::declaration(format!(
+            "{source} of `{}` refused the submission with no field error",
+            std::any::type_name::<R>()
+        )));
+    }
+    form_keyed(resource, source, errors)
+}
+
+/// The declaration error of `source` refusing `key`, which `R`'s record form binds to no form key.
+fn unbound<R: Resource>(source: &str, key: &dyn std::fmt::Debug) -> topcoat::Error {
+    crate::error::declaration(format!(
+        "{source} refused {key:?}, which `{}` binds to no form key",
+        std::any::type_name::<R::Form>()
+    ))
 }
 
 /// Whether an error on `failed` renders under the field posting `key`: its own, or, for a
@@ -329,7 +371,20 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         };
         let written = match R::create_record(cx, form, &mut *tx).await {
             Ok(written) => written,
-            Err(error) => {
+            Err(WriteError::Refused(errors)) => {
+                drop(tx);
+                let errors = refusal(&resource, "create_record", errors)?;
+                return render_form_page(
+                    cx,
+                    &resource.form,
+                    FormChrome::create(cx, &resource),
+                    &values,
+                    &errors,
+                    &carried,
+                )
+                .await;
+            }
+            Err(WriteError::Failed(error)) => {
                 drop(tx);
                 let taken =
                     taken_since(cx, &resource, &schema, &values, &FormValues::new(), &error).await;
@@ -427,7 +482,21 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         let before = record.clone();
         let written = match R::update_record(cx, record, posted, &mut *tx).await {
             Ok(written) => written,
-            Err(error) => {
+            Err(WriteError::Refused(errors)) => {
+                drop(tx);
+                let errors = refusal(&resource, "update_record", errors)?;
+                // The rollback leaves the record as the transaction loaded it.
+                return render_form_page(
+                    cx,
+                    &resource.form,
+                    FormChrome::edit(cx, &resource, &before),
+                    &values,
+                    &errors,
+                    &carried,
+                )
+                .await;
+            }
+            Err(WriteError::Failed(error)) => {
                 drop(tx);
                 // A version condition means another save overtook this one; any other database
                 // error may be a unique index refusing a value another write took.

@@ -19,13 +19,15 @@ use super::{
     super::{gate::gate, write::commit_then},
     common::FormParts,
     decode::parse_file_body,
-    submit::{Submission, Unposted, parse_form, prepare_submission, recheck_relationships},
+    submit::{
+        Submission, Unposted, parse_form, prepare_submission, recheck_relationships, refusal,
+    },
     unique::{check_unique, taken_since},
 };
 use crate::{
     db::{WriteTx, db},
     form::{FieldErrors, FormValues},
-    resource::{Change, Resource},
+    resource::{Change, Resource, WriteError},
     schema::{FormMask, Schema},
     topcoat_compat::async_page,
 };
@@ -455,18 +457,29 @@ pub(crate) fn resource_import_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             let Some(form) = form else {
                 continue;
             };
-            match R::create_record(cx, form, &mut *tx).await {
-                Ok(_) if refused => {}
+            // A savepoint per row, so a row its record fn refuses leaves nothing for the later
+            // rows' checks to read.
+            let mut savepoint = tx.transaction().await.map_err(crate::error::unavailable)?;
+            let record = match R::create_record(cx, form, &mut savepoint).await {
                 Ok(record) => {
-                    // Each row is a create, so the hook a create runs inside its transaction
-                    // runs once per row; an `Err` rolls the whole file back.
-                    let change = Change::Create(record);
-                    if let Err(error) = R::before_commit(cx, &change, &mut *tx).await {
-                        return Err(super::super::write::failed_write(cx, WRITE_IMPORT, error));
-                    }
-                    created.push(change);
+                    savepoint
+                        .commit()
+                        .await
+                        .map_err(crate::error::unavailable)?;
+                    record
                 }
-                Err(error) => {
+                Err(WriteError::Refused(errors)) => {
+                    savepoint
+                        .rollback()
+                        .await
+                        .map_err(crate::error::unavailable)?;
+                    refused = true;
+                    let errors = refusal(&resource, "create_record", errors)?;
+                    failures.extend(row_errors(row, &errors, &resource.form, &mask, &spelled));
+                    continue;
+                }
+                Err(WriteError::Failed(error)) => {
+                    drop(savepoint);
                     drop(tx);
                     let taken =
                         taken_since(cx, &resource, &schema, &values, &FormValues::new(), &error)
@@ -483,7 +496,17 @@ pub(crate) fn resource_import_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
                         failures,
                     ));
                 }
+            };
+            if refused {
+                continue;
             }
+            // Each row is a create, so the hook a create runs inside its transaction runs once
+            // per row; an `Err` rolls the whole file back.
+            let change = Change::Create(record);
+            if let Err(error) = R::before_commit(cx, &change, &mut *tx).await {
+                return Err(super::super::write::failed_write(cx, WRITE_IMPORT, error));
+            }
+            created.push(change);
         }
         if refused {
             drop(tx);

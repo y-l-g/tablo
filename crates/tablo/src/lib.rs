@@ -92,7 +92,7 @@ pub mod prelude {
         Pagination, Panel, Places, Policy, Posted, PublicLink, QueryFilter, ReadOnly, Reads,
         RecordForm, Relation, RelationColumn, RepeaterColumn, Resource, ResourceDef,
         RichTextColumn, RichTextField, RouterBuilderPanelExt, Schema, Section, SelectFilter, Sort,
-        Table, Tenancy, TenantId, TernaryFilter, TextColumn, TextField, Toggle, Tool, can,
-        can_list, can_open, lens, relation, scoped_query, tenant_id, when,
+        Table, Tenancy, TenantId, TernaryFilter, TextColumn, TextField, Toggle, Tool, WriteError,
+        can, can_list, can_open, lens, relation, scoped_query, tenant_id, when,
     };
 }

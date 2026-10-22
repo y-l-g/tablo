@@ -441,6 +441,16 @@ pub fn admin_panel() -> Panel {
 }
 
 pub fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf>) -> Router {
+    build_app(db, bundle, uploads).0
+}
+
+/// [`build_router`]'s router and the admin panel it mounts, which a test resolves its resources'
+/// URLs through.
+pub fn build_app(
+    db: Db,
+    bundle: Option<AssetBundle>,
+    uploads: Option<PathBuf>,
+) -> (Router, PanelHandle) {
     let mut panel = admin_panel();
     if let Ok(hint) = std::env::var("SHOWCASE_LOGIN_HINT")
         && !hint.trim().is_empty()
@@ -465,7 +475,8 @@ pub fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf
     }
     let builder = builder.panel(panel).expect("showcase panel mounts");
     let admin = builder.panel_handle("admin").expect("mounted above");
-    builder.app_context(AdminPanel(admin)).build()
+    let router = builder.app_context(AdminPanel(admin.clone())).build();
+    (router, admin)
 }
 
 /// The mounted admin panel, which the public blog renders its document with and links to.

@@ -1,7 +1,8 @@
 //! The routers the integration tests mount: the showcase panel without
 //! filesystem assets, with and without the demo uploader.
 
-use showcase::app::build_router;
+use showcase::app::{build_app, build_router};
+use tablo::PanelHandle;
 use toasty::Db;
 use topcoat::router::Router;
 
@@ -16,6 +17,12 @@ use topcoat::router::Router;
 /// `router_with_app_uploads`.
 pub fn router_for_tests(db: Db) -> Router {
     build_router(db, None, None)
+}
+
+/// [`router_for_tests`] with the admin panel's handle, for a test that sends its requests through
+/// `TestClient::resource`.
+pub fn app_for_tests(db: Db) -> (Router, PanelHandle) {
+    build_app(db, None, None)
 }
 
 /// Build the showcase router with uploads stored as the application stores them, in a fresh
