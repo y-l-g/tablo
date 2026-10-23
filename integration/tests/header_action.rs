@@ -283,9 +283,7 @@ impl Resource for TicketResource {
         log("before", change, ex).await?;
         match change {
             Change::HeaderAction { name: "vetoed" } => {}
-            Change::Action {
-                name: "vetoed-row", ..
-            } => {
+            _ if change.is_action::<VetoedRow, _>() => {
                 toasty::create!(Log {
                     mutation: "before:vetoed-row".to_string(),
                     records: 1,

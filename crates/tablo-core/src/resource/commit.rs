@@ -73,6 +73,44 @@ impl<M> Change<M> {
             Self::HeaderAction { .. } => &[],
         }
     }
+
+    /// Whether the change is a run of the custom action `A`.
+    ///
+    /// It compares against `A::NAME`, as [`Ability::is_action`](crate::Ability::is_action) does,
+    /// and a type that is not an action of a resource over `M` does not compile. `R` is inferred
+    /// when `A` is an action of one resource.
+    ///
+    /// ```rust
+    /// # use tablo_core::{Action, Change, NoForm, Resource};
+    /// # use topcoat::{Result, context::Cx};
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # struct Post { #[key] #[auto] id: uuid::Uuid, published: bool }
+    /// # struct PostResource;
+    /// # impl Resource for PostResource {
+    /// #     type Model = Post;
+    /// #     type Form = NoForm<Post>;
+    /// # }
+    /// # struct Publish;
+    /// # impl Action<PostResource> for Publish {
+    /// #     type Input = ();
+    /// #     const NAME: &'static str = "publish";
+    /// #     async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError> { Ok(tablo_core::Outcome::done()) }
+    /// # }
+    /// fn published(change: &Change<Post>) -> usize {
+    ///     if change.is_action::<Publish, _>() {
+    ///         change.records().len()
+    ///     } else {
+    ///         0
+    ///     }
+    /// }
+    /// ```
+    pub fn is_action<A, R>(&self) -> bool
+    where
+        A: Action<R>,
+        R: Resource<Model = M>,
+    {
+        matches!(self, Self::Action { name, .. } if *name == A::NAME)
+    }
 }
 
 /// The change a run of the custom action `A` made to `records`.
