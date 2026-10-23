@@ -3264,8 +3264,9 @@ pub const tablo_ui::PASSWORD_JS: topcoat_asset::asset::Asset
 pub const tablo_ui::REPEATERS_JS: topcoat_asset::asset::Asset
 pub const tablo_ui::RICH_TEXT_JS: topcoat_asset::asset::Asset
 pub const tablo_ui::SELECTS_JS: topcoat_asset::asset::Asset
-pub const tablo_ui::SHELL_SCRIPTS: [topcoat_asset::asset::Asset; 6]
+pub const tablo_ui::SHELL_SCRIPTS: [topcoat_asset::asset::Asset; 7]
 pub const tablo_ui::SIDEBAR_JS: topcoat_asset::asset::Asset
+pub const tablo_ui::TABS_JS: topcoat_asset::asset::Asset
 pub const tablo_ui::THEME_JS: topcoat_asset::asset::Asset
 pub const tablo_ui::TIPTAP_JS: topcoat_asset::asset::Asset
 pub fn tablo_ui::badge_variants(tablo_ui::components::primitives::badge::BadgeVariant) -> topcoat_view::html::class::Class<(topcoat_view::html::class::StaticClass, topcoat_view::html::class::StaticClass)>

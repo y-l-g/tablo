@@ -8,8 +8,9 @@ use tablo::{
     FieldErrors, GlobalSearch, Grid, Group, HeaderAction, ModelColumns, NavigationItem,
     Notification, Notifications, Pagination, Panel, PanelHandle, PanelUser, PasswordReset,
     PublicLink, QueryFilter, Relation, RelationColumn, RepeaterColumn, Resource, ResourceDef,
-    RichTextColumn, RouterBuilderPanelExt, Schema, Section, SelectFilter, Table, Tenancy,
-    TenantRegistration, TernaryFilter, TextColumn, TwoFactor, lens, relation, tenant_id, when,
+    RichTextColumn, RouterBuilderPanelExt, Schema, Section, SelectFilter, Tab, Table, Tabs,
+    Tenancy, TenantRegistration, TernaryFilter, TextColumn, TwoFactor, lens, relation, tenant_id,
+    when,
 };
 use toasty::Db;
 use topcoat::{
@@ -198,7 +199,7 @@ impl Resource for PostResource {
     }
 }
 
-/// The post form: content, details, SEO and publication.
+/// The post form: content, then details, SEO, publication and further reading in tabs.
 fn post_form() -> Schema<PostForm> {
     let c = PostForm::controls();
     Schema::new((
@@ -206,18 +207,18 @@ fn post_form() -> Schema<PostForm> {
             c.title.placeholder("A title editors click"),
             c.body.rich_text().placeholder("The full story…"),
         )),
-        Section::new("Details").schema((
-            Grid::new(2).schema((c.status.buttons(), c.featured)),
-            c.author_id.searchable().label("Author"),
-            c.cover_id.searchable().label("Cover"),
-            c.categories.searchable(),
-            c.tags,
-        )),
-        Group::new().schema((
-            Section::new("SEO").schema(c.seo),
-            Section::new("Publication").schema(c.publication),
-        )),
-        Section::new("Further reading").schema(c.links.add_label("Add link")),
+        Tabs::new([
+            Tab::new("Details").schema((
+                Grid::new(2).schema((c.status.buttons(), c.featured)),
+                c.author_id.searchable().label("Author"),
+                c.cover_id.searchable().label("Cover"),
+                c.categories.searchable(),
+                c.tags,
+            )),
+            Tab::new("SEO").schema(c.seo),
+            Tab::new("Publication").schema(c.publication),
+            Tab::new("Further reading").schema(c.links.add_label("Add link")),
+        ]),
     ))
 }
 
@@ -241,9 +242,11 @@ fn post_detail() -> Detail<Post> {
             RelationColumn::list::<CategoryResource>(relation!(Post.categories)),
             TextColumn::new(lens!(Post.tags)),
         ))),
-        Section::new("SEO").columns(EmbeddedColumn::new(lens!(Post.seo))),
-        Section::new("Publication").columns(EmbeddedColumn::new(lens!(Post.publication))),
-        Section::new("Further reading").columns(RepeaterColumn::new(lens!(Post.links))),
+        Tabs::new([
+            Tab::new("SEO").columns(EmbeddedColumn::new(lens!(Post.seo))),
+            Tab::new("Publication").columns(EmbeddedColumn::new(lens!(Post.publication))),
+            Tab::new("Further reading").columns(RepeaterColumn::new(lens!(Post.links))),
+        ]),
     ))
 }
 

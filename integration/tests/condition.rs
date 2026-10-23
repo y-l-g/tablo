@@ -4,7 +4,9 @@
 //! The panel reads a crafted submission the same way: a hidden key is dropped before the parse, so
 //! a create takes the field's blank answer and an edit keeps its stored value.
 
-use tablo::{Allow, Auth, Panel, Resource, ResourceDef, Schema, Table, TextColumn, Uploader, lens};
+use tablo::{
+    Allow, Auth, Panel, Resource, ResourceDef, Schema, Tab, Table, Tabs, TextColumn, Uploader, lens,
+};
 use toasty::Db;
 use topcoat::router::Router;
 use uuid::Uuid;
@@ -53,6 +55,29 @@ impl Resource for CustomerResource {
     }
 }
 
+/// The same customers, the company's fields in a tab a condition shows.
+struct TabbedCustomerResource;
+
+impl Resource for TabbedCustomerResource {
+    type Model = Customer;
+    type Form = CustomerForm;
+
+    fn declare() -> ResourceDef<Self> {
+        let c = CustomerForm::controls();
+        let company = Tab::new("Company")
+            .schema((c.vat, c.logo))
+            .visible_when(&c.kind, ["company"]);
+        ResourceDef::new()
+            .slug("tabbed-customers")
+            .policy(Allow)
+            .table(Table::new(TextColumn::new(lens!(Customer.name))))
+            .form(Schema::new(Tabs::new([
+                Tab::new("Profile").schema((c.name, c.kind)),
+                company,
+            ])))
+    }
+}
+
 #[derive(tablo::RecordForm)]
 #[form(model = Customer)]
 struct CustomerForm {
@@ -70,7 +95,8 @@ async fn customers() -> (Db, Router) {
         Panel::new("admin")
             .auth(Auth::disabled())
             .uploads(KeepAll)
-            .resource::<CustomerResource>(),
+            .resource::<CustomerResource>()
+            .resource::<TabbedCustomerResource>(),
     )
     .expect("panel builds");
     (db, router)
@@ -233,4 +259,26 @@ async fn an_edit_without_the_watched_field_reads_its_stored_value() {
         body_string(response).await
     );
     assert_eq!(only_customer(&db).await.vat.as_deref(), Some("FR2"));
+}
+
+/// A tab's condition hides every field the tab holds: their fieldset is disabled while it fails,
+/// and a create that hides them drops their keys.
+#[tokio::test]
+async fn a_tab_a_condition_hides_drops_its_fields() {
+    let (db, router) = customers().await;
+    let client = TestClient::new(&router);
+    let create = body_string(client.get("/admin/tabbed-customers/-/create").await).await;
+    let input = create.find("name=\"vat\"").expect("the vat input");
+    let start = create[..input].rfind("<fieldset").expect("its fieldset");
+    let fieldset = &create[start..start + create[start..].find('>').unwrap()];
+    assert!(fieldset.contains(" disabled"), "{create}");
+
+    let response = client
+        .submit(
+            "/admin/tabbed-customers/-/create",
+            "name=Ada&kind=person&vat=FR123",
+        )
+        .await;
+    assert!(response.status().is_redirection());
+    assert_eq!(only_customer(&db).await.vat, None);
 }

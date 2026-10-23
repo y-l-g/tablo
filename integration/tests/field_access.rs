@@ -4,10 +4,10 @@
 //! user could not change; and the mount refuses a declaration that would show the field anyway.
 
 use tablo::{
-    Ability, ComputedColumn, DeclarationErrorKind, FieldAccess, FieldAccessFault, FieldErrors,
-    QueryFilter, Reads, Resource, ResourceDef, Schema, Site, Table, Tenancy, TenantId, TextColumn,
-    lens,
-    testing::{columns, ignored_filters, row_keys},
+    Ability, ComputedColumn, DeclarationErrorKind, Detail, FieldAccess, FieldAccessFault,
+    FieldErrors, QueryFilter, Reads, Resource, ResourceDef, Schema, Site, Tab, Table, Tabs,
+    Tenancy, TenantId, TextColumn, lens,
+    testing::{columns, ignored_filters, row_keys, tabs},
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
@@ -107,6 +107,34 @@ impl Resource for DefaultedResource {
     }
 }
 
+/// The same records, the salary alone in a tab of the form and of the detail page.
+struct TabbedResource;
+
+impl Resource for TabbedResource {
+    type Model = Employee;
+    type Form = EmployeeForm;
+
+    fn declare() -> ResourceDef<Self> {
+        let c = EmployeeForm::controls();
+        ResourceDef::new()
+            .slug("tabbed")
+            .policy_fn(|_cx, _ability: Ability<'_, Employee>| true)
+            .tenancy(Tenancy::column(Employee::fields().tenant_id()))
+            .field_access(lens!(Employee.salary), FieldAccess::new().view(hr))
+            .form(Schema::new(Tabs::new([
+                Tab::new("Profile").schema((c.name, c.grade)),
+                Tab::new("Pay").schema(c.salary),
+            ])))
+            .detail(Detail::new(Tabs::new([
+                Tab::new("Profile").columns((
+                    TextColumn::new(lens!(Employee.name)),
+                    TextColumn::new(lens!(Employee.grade)),
+                )),
+                Tab::new("Pay").columns(TextColumn::new(lens!(Employee.salary))),
+            ])))
+    }
+}
+
 async fn db() -> Db {
     test_db(toasty::models!(Employee)).await
 }
@@ -116,7 +144,8 @@ fn router(db: &Db) -> Router {
         db.clone(),
         panel()
             .resource::<EmployeeResource>()
-            .resource::<DefaultedResource>(),
+            .resource::<DefaultedResource>()
+            .resource::<TabbedResource>(),
     )
     .expect("panel builds")
 }
@@ -185,6 +214,37 @@ async fn a_hidden_field_leaves_every_page_and_the_export() {
     let edit = page(&sales, &format!("/admin/employees/{}/edit", sales_ada.id)).await;
     assert_eq!(input_value(&edit, "salary"), None);
     assert!(!edit.contains("S-900"), "{edit}");
+}
+
+/// A tab holding only a field the user may not view renders no trigger and no panel, on the form
+/// and on the detail page.
+#[tokio::test]
+async fn a_tab_of_hidden_fields_leaves_the_page() {
+    let db = db().await;
+    let router = router(&db);
+    let hr_ada = employee(&db, HR, "Ada", "S-900").await;
+    let sales_ada = employee(&db, SALES, "Ada", "S-900").await;
+
+    let hr = TestClient::new(&router).tenant(HR);
+    let edit = tabs(&page(&hr, &format!("/admin/tabbed/{}/edit", hr_ada.id)).await);
+    assert_eq!(
+        edit.iter().map(|tab| tab.keys.clone()).collect::<Vec<_>>(),
+        [vec!["name", "grade"], vec!["salary"]]
+    );
+    assert_eq!(
+        tabs(&page(&hr, &format!("/admin/tabbed/{}", hr_ada.id)).await).len(),
+        2
+    );
+
+    let sales = TestClient::new(&router).tenant(SALES);
+    let edit = tabs(&page(&sales, &format!("/admin/tabbed/{}/edit", sales_ada.id)).await);
+    assert_eq!(
+        edit.iter().map(|tab| tab.keys.clone()).collect::<Vec<_>>(),
+        [vec!["name", "grade"]]
+    );
+    let detail = page(&sales, &format!("/admin/tabbed/{}", sales_ada.id)).await;
+    assert_eq!(tabs(&detail).len(), 1);
+    assert!(!detail.contains("S-900"), "{detail}");
 }
 
 /// A search, a sort or a filter over the hidden field tells the user nothing: the search does not

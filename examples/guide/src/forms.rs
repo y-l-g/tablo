@@ -24,6 +24,16 @@ pub fn account_layout() -> Schema<UserForm> {
 }
 // ANCHOR_END: forms-controls-layout
 
+// ANCHOR: forms-tabs
+pub fn account_tabs() -> Schema<UserForm> {
+    let c = UserForm::controls();
+    Schema::new(Tabs::new([
+        Tab::new("Account").schema((c.email.email(), c.role)),
+        Tab::new("Profile").schema(Grid::new(2).schema((c.name, c.age))),
+    ]))
+}
+// ANCHOR_END: forms-tabs
+
 // ANCHOR: forms-field-basics
 pub fn account_form() -> Schema<UserForm> {
     let c = UserForm::controls();

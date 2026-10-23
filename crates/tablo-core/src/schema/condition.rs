@@ -101,7 +101,7 @@ impl Condition {
 
     /// Whether the submission `values` shows what the condition guards. A checkbox with no value
     /// reads as `false`, as it renders and posts.
-    fn holds(&self, values: &FormValues) -> bool {
+    pub(crate) fn holds(&self, values: &FormValues) -> bool {
         let posted = match values.text(&self.watched) {
             Some(value) => value.trim(),
             None if self.checkbox => "false",
@@ -261,6 +261,8 @@ impl Node {
             Node::Section(s) => s.condition.as_ref(),
             Node::Group(g) => g.condition.as_ref(),
             Node::Grid(g) => g.condition.as_ref(),
+            Node::Tabs(t) => t.condition.as_ref(),
+            Node::Tab(t) => t.condition.as_ref(),
             Node::Embedded(_) => None,
         }
     }

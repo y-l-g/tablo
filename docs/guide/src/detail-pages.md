@@ -2,7 +2,7 @@
 
 A detail page shows one record, read-only, at `GET /admin/{slug}/{id}`. A resource declares it
 with `ResourceDef::detail`: a `Detail` of the same columns a [table](./tables.md) lists, arranged in
-`Section`, `Group` and `Grid` blocks, which the panel builds once when it mounts. Each column reads
+`Section`, `Group`, `Grid` and `Tabs` blocks, which the panel builds once when it mounts. Each column reads
 its value off the typed record, and declares the relations it reads:
 
 ```rust

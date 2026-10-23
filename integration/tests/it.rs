@@ -28,6 +28,7 @@ mod field_rules;
 mod header_action;
 mod import;
 mod key_collisions;
+mod layouts;
 mod list;
 mod login;
 mod mail;

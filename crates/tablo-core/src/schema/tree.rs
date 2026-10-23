@@ -1,6 +1,9 @@
 //! Composes field slots, layout containers, and embedded values into one tree.
 
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
 use topcoat::{Result, context::Cx, view::*};
 
@@ -9,7 +12,7 @@ use super::{
     condition::{Condition, watch},
     embedded::Embedded,
     fields::{Field, Placement},
-    layouts::{Grid, Group, Section},
+    layouts::{Grid, Group, Section, Tab, Tabs},
 };
 use crate::values::{FieldError, FieldErrors, FormValue, FormValues};
 
@@ -20,6 +23,10 @@ pub(crate) enum Node {
     Section(Box<Section>),
     Group(Box<Group>),
     Grid(Box<Grid>),
+    /// A `Tabs` block, whose children are its `Tab` nodes.
+    Tabs(Box<Tabs>),
+    /// One tab, placed only in a `Tabs` block's children.
+    Tab(Box<Tab>),
     Embedded(Box<Embedded>),
 }
 
@@ -38,6 +45,9 @@ pub struct Source<'a> {
     editing: bool,
     /// The keys the request's field access hides or locks.
     mask: super::FormMask,
+    /// How many tabs hold the node rendering now, which tells a nested block's DOM ids from its
+    /// outer tab's.
+    tab_depth: AtomicUsize,
 }
 
 impl<'a> Source<'a> {
@@ -51,6 +61,7 @@ impl<'a> Source<'a> {
             options: None,
             editing: false,
             mask: super::FormMask::default(),
+            tab_depth: AtomicUsize::new(0),
         }
     }
 
@@ -91,7 +102,7 @@ impl<'a> Source<'a> {
     }
 
     /// Renders `view` guarded by `condition`, or as it is without one.
-    fn guard<'v>(
+    pub(crate) fn guard<'v>(
         &self,
         cx: &'v Cx,
         condition: Option<&Condition>,
@@ -101,6 +112,22 @@ impl<'a> Source<'a> {
             Some(condition) => condition.guard(cx, &self.scope, self.values, view),
             None => view,
         }
+    }
+
+    /// How many tabs hold the node rendering now.
+    pub(crate) fn tab_depth(&self) -> usize {
+        self.tab_depth.load(Ordering::Relaxed)
+    }
+
+    /// Renders what follows inside `depth` tabs.
+    pub(crate) fn set_tab_depth(&self, depth: usize) {
+        self.tab_depth.store(depth, Ordering::Relaxed);
+    }
+
+    /// Whether `condition` holds in the submission, as the page first renders it: always without
+    /// one.
+    pub(crate) fn holds(&self, condition: Option<&Condition>) -> bool {
+        condition.is_none_or(|condition| condition.holds(self.values))
     }
 
     pub(crate) fn value(&self, name: &str) -> Option<&FormValue> {
@@ -183,7 +210,7 @@ impl Node {
                 Ok(source.guard(cx, field.condition(), view))
             }
             // A block whose every field is masked renders no heading over nothing.
-            Node::Section(_) | Node::Group(_) | Node::Grid(_)
+            Node::Section(_) | Node::Group(_) | Node::Grid(_) | Node::Tabs(_)
                 if !self.shows_any(fields, source) =>
             {
                 Ok(().boxed())
@@ -200,12 +227,57 @@ impl Node {
                 let view = Box::pin(g.render(cx, fields, source)).await?;
                 Ok(source.guard(cx, g.condition.as_ref(), view))
             }
+            Node::Tabs(t) => {
+                let view = Box::pin(t.render(cx, fields, source)).await?;
+                Ok(source.guard(cx, t.condition.as_ref(), view))
+            }
+            // A tab renders through its block, which lays out its trigger and its panel.
+            Node::Tab(t) => Box::pin(render_nodes(cx, &t.children.nodes, fields, source)).await,
             Node::Embedded(e) => Box::pin(e.render(cx, fields, source)).await,
         }
     }
 
+    /// Whether a field under this node renders an error from `source`: under its own key, or a
+    /// repeater's under one of its rows' keys.
+    pub(crate) fn has_error(&self, fields: &[Field], source: &Source<'_>) -> bool {
+        let mut any = false;
+        self.visit_fields(&mut |index| {
+            let name = fields[index].name();
+            any |= source.errors.iter().any(|error| {
+                error.key == name
+                    || error
+                        .key
+                        .strip_prefix(name)
+                        .is_some_and(|rest| rest.starts_with('.'))
+            });
+        });
+        any
+    }
+
+    /// The first field slot under this node, in declaration order.
+    pub(crate) fn first_field(&self) -> Option<usize> {
+        let mut first = None;
+        self.visit_fields(&mut |index| {
+            first.get_or_insert(index);
+        });
+        first
+    }
+
+    /// Calls `f` with every field slot under this node, in declaration order.
+    fn visit_fields(&self, f: &mut impl FnMut(usize)) {
+        match self {
+            Node::Field(index) => f(*index),
+            Node::Embedded(e) => e.visit_fields(f),
+            node => {
+                for child in node.children().unwrap_or_default() {
+                    child.visit_fields(f);
+                }
+            }
+        }
+    }
+
     /// Whether some field under this node renders under `source`'s mask.
-    fn shows_any(&self, fields: &[Field], source: &Source<'_>) -> bool {
+    pub(crate) fn shows_any(&self, fields: &[Field], source: &Source<'_>) -> bool {
         match self {
             Node::Field(index) => shows(&fields[*index], source),
             Node::Embedded(e) => {
@@ -228,6 +300,8 @@ impl Node {
             Node::Section(s) => Some(&s.children.nodes),
             Node::Group(g) => Some(&g.children.nodes),
             Node::Grid(g) => Some(&g.children.nodes),
+            Node::Tabs(t) => Some(&t.children.nodes),
+            Node::Tab(t) => Some(&t.children.nodes),
             Node::Field(_) | Node::Embedded(_) => None,
         }
     }
@@ -237,6 +311,8 @@ impl Node {
             Node::Section(s) => Some(&mut s.children.nodes),
             Node::Group(g) => Some(&mut g.children.nodes),
             Node::Grid(g) => Some(&mut g.children.nodes),
+            Node::Tabs(t) => Some(&mut t.children.nodes),
+            Node::Tab(t) => Some(&mut t.children.nodes),
             Node::Field(_) | Node::Embedded(_) => None,
         }
     }
@@ -343,6 +419,17 @@ macro_rules! container_nodes {
 }
 
 container_nodes!(Section, Group, Grid);
+
+impl<F> IntoSchema<F> for Tabs<Schema<F>> {
+    fn into_schema(self) -> Schema<F> {
+        let mut fields = Vec::new();
+        let block = self.map(|mut children| {
+            fields = std::mem::take(&mut children.fields);
+            children.retype()
+        });
+        Schema::from_parts(vec![Node::Tabs(Box::new(block))], fields)
+    }
+}
 
 /// Generates the tuple impls of [`IntoSchema`] from one list per arity.
 macro_rules! into_schema_tuples {

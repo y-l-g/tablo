@@ -121,6 +121,18 @@ A `String` field takes the same list with `#[form(options = T)]`. `.options` tak
 container, and `Grid::new(cols)` a grid of 1 to 12 columns. A schema or block takes a tuple of at
 most twelve children; nest a `Group` for more.
 
+`Tabs::new` shows one `Tab` at a time. Each tab's fields still render and post while another
+tab shows, so splitting a long form into tabs changes what the user sees, not what the form
+submits:
+
+```rust
+{{#include ../../../examples/guide/src/forms.rs:forms-tabs}}
+```
+
+A refused submission reopens on the first tab holding an error, and the browser opens the tab of a
+control it refuses itself. [`Tabs`](https://y-l.fr/tablo/nightly/api/tablo/struct.Tabs.html) has the
+full rules.
+
 **Fields** are what `controls()` hands over, and what a page's or an action's schema builds from
 a Toasty field lens:
 
