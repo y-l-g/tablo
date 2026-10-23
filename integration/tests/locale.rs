@@ -303,11 +303,17 @@ async fn a_reset_mail_reads_its_recipients_locale() {
         .build();
     reader(&db, "Ada", Some("en")).await;
     reader(&db, "Grace", None).await;
-    for email in ["ada@example.com", "grace@example.com"] {
+    // One request at a time: two reset mails racing their serializable token writes can abort
+    // one of them on PostgreSQL and MySQL.
+    for (sent, email) in ["ada@example.com", "grace@example.com"]
+        .into_iter()
+        .enumerate()
+    {
         TestClient::new(&router)
             .language("fr")
             .submit("/admin/forgot-password", &form_body(&[("email", email)]))
             .await;
+        mails(&mail, sent + 1).await;
     }
     let sent = mails(&mail, 2).await;
     let subject = |to: &str| {
