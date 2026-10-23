@@ -368,6 +368,6 @@ async fn main() {
     db.push_schema().await.expect("push_schema");
     seed_50(&mut db, SERVER_TENANT).await;
     let router = router(db);
-    println!("storefront-tablo listening on http://localhost:3000/ (try /admin/posts)");
+    println!("tablo-bench listening on http://localhost:3000/ (try /admin/posts)");
     topcoat::start(router).await.unwrap();
 }
