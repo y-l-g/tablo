@@ -530,7 +530,7 @@ impl<R: Resource> crate::schema::OptionSource for R {
     fn label(cx: &Cx, record: &R::Model) -> String {
         let key = crate::toasty_compat::pk::pk_text(record);
         match mounted::<R>(cx) {
-            Some(mounted) => mounted.record_title(record, &key),
+            Some(mounted) => mounted.record_title(cx, record, &key),
             None => key,
         }
     }

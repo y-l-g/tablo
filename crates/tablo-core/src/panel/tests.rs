@@ -76,7 +76,7 @@ fn replaced_navigation_item_takes_the_def_icon_order_and_group() {
     assert_eq!(item.url(), Some("/admin/dummies?f.draft=1"));
     assert_eq!(item.order, 3);
     assert!(item.icon.is_some());
-    assert_eq!(item.group.as_deref(), Some("Content"));
+    assert_eq!(item.group, Some("Content".into()));
 }
 
 #[test]

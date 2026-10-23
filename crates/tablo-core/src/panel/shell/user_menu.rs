@@ -13,17 +13,21 @@ use topcoat::{
 };
 
 use super::Theme;
-use crate::{Panel, auth::PanelUser, navigation::NavigationItem, tenancy::Membership};
+use crate::{Panel, auth::PanelUser, navigation::NavigationItem, t, tenancy::Membership};
 
 /// The auth pages that lead the app's own links in the user menu: the profile, then two-factor
 /// sign-in.
 pub(super) fn account_items(cx: &Cx) -> Vec<NavigationItem> {
     let profile = crate::auth::profile_offered(cx).then(|| {
-        NavigationItem::at("Profile", crate::auth::profile_url(cx)).icon(tablo_ui::icons::USER)
+        NavigationItem::at(t!(cx, "tablo-shell-profile"), crate::auth::profile_url(cx))
+            .icon(tablo_ui::icons::USER)
     });
     let two_factor = crate::auth::two_factor_offered(cx).then(|| {
-        NavigationItem::at("Two-factor sign-in", crate::auth::two_factor_url(cx))
-            .icon(tablo_ui::icons::CIRCLE_CHECK)
+        NavigationItem::at(
+            t!(cx, "tablo-shell-two-factor"),
+            crate::auth::two_factor_url(cx),
+        )
+        .icon(tablo_ui::icons::CIRCLE_CHECK)
     });
     profile.into_iter().chain(two_factor).collect()
 }
@@ -96,7 +100,7 @@ impl Panel {
                             attrs: attributes! {
                                 class=(trigger_class)
                                 data-user-menu=""
-                                aria-label="Account"
+                                aria-label=(t!(cx, "tablo-shell-account"))
                             },
                             avatar(
                                 size: AvatarSize::Sm,
@@ -154,7 +158,7 @@ impl Panel {
                                 dropdown_menu_item(
                                     attrs: attributes! { type="submit" },
                                     icon(data: tablo_ui::icons::LOG_OUT)
-                                    "Sign out"
+                                    (t!(cx, "tablo-shell-sign-out"))
                                 )
                             </form>
                         )
@@ -183,13 +187,13 @@ impl Panel {
                             attrs: attributes! {
                                 class=(trigger_class)
                                 data-theme-menu=""
-                                aria-label="Theme"
+                                aria-label=(t!(cx, "tablo-shell-theme"))
                             },
                             icon(data: tablo_ui::icons::SUN)
                             <span
                                 class="truncate md:group-data-[collapsible=icon]/sidebar:hidden"
                             >
-                                "Theme"
+                                (t!(cx, "tablo-shell-theme"))
                             </span>
                         )
                         dropdown_menu_content(
@@ -211,7 +215,7 @@ impl Panel {
     /// settings page and the tenant registration page, where the panel offers them. A user with
     /// fewer than two tenants and neither page has nothing to choose, and gets nothing.
     pub(super) fn tenant_menu<'a>(cx: &'a Cx, tenants: &[Membership], csrf: &str) -> BoxView<'a> {
-        let link = |offered: bool, url: fn(&Cx) -> String, label: &'static str, data, page| {
+        let link = |offered: bool, url: fn(&Cx) -> String, label: String, data, page| {
             offered.then(|| {
                 let link = crate::navigation::runtime_link(cx, &url(cx));
                 view! {
@@ -232,14 +236,14 @@ impl Panel {
             link(
                 crate::auth::tenant_profile_offered(cx),
                 crate::auth::tenant_profile_url,
-                "Tenant settings",
+                t!(cx, "tablo-shell-tenant-settings"),
                 tablo_ui::icons::PENCIL,
                 "profile",
             ),
             link(
                 crate::auth::tenant_registration_offered(cx),
                 crate::auth::register_tenant_url,
-                "Create tenant",
+                t!(cx, "tablo-shell-create-tenant"),
                 tablo_ui::icons::PLUS,
                 "registration",
             ),
@@ -251,7 +255,7 @@ impl Panel {
             return ().boxed();
         }
         let current = crate::auth::membership(cx);
-        let label = current.map_or_else(|| "Select a tenant".to_string(), |m| m.name.clone());
+        let label = current.map_or_else(|| t!(cx, "tablo-shell-select-tenant"), |m| m.name.clone());
         let current = current.map(|membership| membership.tenant);
         let action = crate::auth::tenant_url(cx);
         let choices: Vec<BoxView<'a>> = tenants
@@ -296,7 +300,10 @@ impl Panel {
                 dropdown_menu(
                     dropdown_menu_trigger(
                         target: TENANT_MENU,
-                        attrs: attributes! { class=(trigger_class) aria-label="Switch tenant" },
+                        attrs: attributes! {
+                            class=(trigger_class)
+                            aria-label=(t!(cx, "tablo-shell-switch-tenant"))
+                        },
                         <span class="flex-1 truncate">(label)</span>
                         icon(
                             data: tablo_ui::icons::CHEVRONS_UP_DOWN,
@@ -307,7 +314,7 @@ impl Panel {
                         id: TENANT_MENU,
                         align: FloatingAlign::Start,
                         attrs: attributes! { class="min-w-56" },
-                        dropdown_menu_label("Tenants")
+                        dropdown_menu_label((t!(cx, "tablo-shell-tenants")))
                         for choice in choices {
                             (choice)
                         }
@@ -329,16 +336,28 @@ impl Panel {
 fn theme_choices(cx: &Cx) -> BoxView<'_> {
     let theme = Theme::current(cx);
     let items: Vec<BoxView<'_>> = [
-        (Theme::Light, "Light", tablo_ui::icons::SUN),
-        (Theme::Dark, "Dark", tablo_ui::icons::MOON),
-        (Theme::System, "System", tablo_ui::icons::MONITOR),
+        (
+            Theme::Light,
+            t!(cx, "tablo-shell-theme-light"),
+            tablo_ui::icons::SUN,
+        ),
+        (
+            Theme::Dark,
+            t!(cx, "tablo-shell-theme-dark"),
+            tablo_ui::icons::MOON,
+        ),
+        (
+            Theme::System,
+            t!(cx, "tablo-shell-theme-system"),
+            tablo_ui::icons::MONITOR,
+        ),
     ]
     .into_iter()
     .map(|(choice, label, data)| theme_item(cx, choice, theme == choice, label, data))
     .collect();
     view! {
         cx =>
-        <div role="radiogroup" aria-label="Theme">
+        <div role="radiogroup" aria-label=(t!(cx, "tablo-shell-theme"))>
             for item in items {
                 (item)
             }
@@ -352,7 +371,7 @@ fn theme_item<'a>(
     cx: &'a Cx,
     choice: Theme,
     checked: bool,
-    label: &'static str,
+    label: String,
     data: IconData,
 ) -> BoxView<'a> {
     view! {

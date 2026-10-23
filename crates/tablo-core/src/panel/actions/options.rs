@@ -149,8 +149,11 @@ async fn search_options(cx: &Cx, form: &Schema) -> topcoat::Result<http::Respons
         .into()),
         // The header tells a dependent choice's script to search the server from now on.
         Err(OptionLoadError::Overflow) => {
-            let html =
-                "<option value=\"\" disabled>Too many results — keep typing</option>".to_string();
+            let hint = crate::t!(cx, "tablo-field-too-many-results");
+            let html = view! { cx => <option value="" disabled="">(hint)</option> }
+                .single()
+                .await?
+                .render(cx);
             let res = http::Response::builder()
                 .status(200)
                 .header(http::header::CONTENT_TYPE, "text/html; charset=utf-8")

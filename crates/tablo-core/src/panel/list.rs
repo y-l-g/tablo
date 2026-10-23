@@ -196,23 +196,25 @@ fn wire_custom_actions<R: Resource>(
 pub(crate) fn table_error_view<'a>(
     cx: &'a Cx,
     slug: &str,
-    plural_label: &str,
+    plural_label: &crate::Text,
     state: &TableState,
     error: &topcoat::Error,
     path: &str,
 ) -> BoxView<'a> {
     tracing::error!(resource = slug, error = %error, "table load failed");
-    let title = format!("Couldn't load {plural_label}");
+    let title = crate::t!(cx, "tablo-list-failed", label = plural_label);
     let retry_url = retry_url_for_error(state, error, path);
     view! {
         cx =>
         tablo_ui::error_state(
             title: title,
-            detail: "Something went wrong while loading the records.",
+            detail: crate::t!(cx, "tablo-list-failed-description"),
             action: Some(
                 view! {
                     cx =>
-                    <a (crate::navigation::runtime_link(cx, &retry_url))>"Retry"</a>
+                    <a (crate::navigation::runtime_link(cx, &retry_url))>
+                        (crate::t!(cx, "tablo-list-retry"))
+                    </a>
                 }
                     .boxed()
                     .into(),
@@ -227,16 +229,16 @@ pub(crate) fn table_error_view<'a>(
 /// link to `export_url`, an Import link to `import_url` and a Create link to `create_url`.
 fn list_header<'a>(
     cx: &'a Cx,
-    plural_label: &str,
-    label: &str,
+    plural_label: &crate::Text,
+    label: &crate::Text,
     actions: ActionBar,
     create_url: Option<String>,
     import_url: Option<String>,
     export_url: String,
 ) -> BoxView<'a> {
     let actions = actions.render(cx);
-    let title = plural_label.to_string();
-    let create_label = format!("Create {label}");
+    let title = plural_label.clone();
+    let create_label = crate::t!(cx, "tablo-form-create-title", label = label);
     let outline =
         tablo_ui::button_variants(tablo_ui::ButtonVariant::Outline, tablo_ui::ButtonSize::Md);
     view! {
@@ -247,12 +249,12 @@ fn list_header<'a>(
                 (actions)
                 <a href=(export_url) class=(outline.clone())>
                     icon(data: tablo_ui::icons::DOWNLOAD)
-                    "Export CSV"
+                    (crate::t!(cx, "tablo-list-export"))
                 </a>
                 if let Some(url) = import_url {
                     <a (crate::navigation::runtime_link(cx, &url)) class=(outline)>
                         icon(data: tablo_ui::icons::UPLOAD)
-                        "Import CSV"
+                        (crate::t!(cx, "tablo-list-import"))
                     </a>
                 }
                 if let Some(url) = create_url {

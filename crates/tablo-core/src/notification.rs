@@ -80,7 +80,7 @@ pub async fn render_notification<'a>(
                     </div>
                 }
             )
-            toast_close()
+            toast_close(label: crate::t!(cx, "tablo-toast-close"))
         )
     }
     .boxed())

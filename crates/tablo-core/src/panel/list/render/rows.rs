@@ -1,21 +1,19 @@
 //! Row projection: the page's rows as the owned views the template renders.
 
-use tablo_ui::{
-    ButtonSize, ButtonVariant, FloatingAlign, button, button_variants, dropdown_menu,
-    dropdown_menu_content, dropdown_menu_item, dropdown_menu_separator, dropdown_menu_trigger,
-    table_cell, table_row,
-};
-use topcoat::{context::Cx, icon::icon, runtime::Event, view::*};
+use tablo_ui::{table_cell, table_row};
+use topcoat::{context::Cx, runtime::Event, view::*};
 
 use super::{
     super::{RowActions, TableSignals, WiredTable},
-    CHROME_CELL_CLASS, Frame, ROW_DELETE_CLASS, ROW_ICON_CLASS,
-    dialog::{input_trigger, write_trigger},
+    CHROME_CELL_CLASS, Frame,
 };
 use crate::{
     panel::url::{delete_action_url, row_action_url, row_edit_url, row_view_url},
+    t,
     table::{GroupKey, TablePage, bulk_token, group_header_dom_id, row_dom_id},
 };
+
+mod actions;
 
 /// What every row of one render shares: the chrome columns, each column's cell layout, and the
 /// table's signals and write form.
@@ -121,7 +119,8 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
                     <input
                         type="checkbox"
                         value=(value)
-                        aria-label="Select row"
+                        aria-label=(t!(cx, "tablo-list-select-row"))
+                        data-row-select=""
                         aria-describedby=(described)
                         :checked=$({
                             let wire = bulk.get();
@@ -166,7 +165,7 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
         .collect();
     let actions = chrome
         .with_actions
-        .then(|| render_actions(cx, &row, chrome));
+        .then(|| actions::render_actions(cx, &row, chrome));
     view! {
         cx =>
         if let Some(header) = header {
@@ -215,220 +214,6 @@ fn with_record_link<'a>(cx: &'a Cx, url: &str, cell: BoxView<'a>) -> BoxView<'a>
             data-record-link=""
         ></a>
         (cell)
-    }
-    .boxed()
-}
-
-/// The row's actions cell: its custom actions, then View, Edit and Delete, each only when the
-/// row's policy allows it.
-fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxView<'a> {
-    if chrome.action_menu {
-        return render_action_menu(cx, row, chrome);
-    }
-    let view_url = row.view_url.clone();
-    let edit_url = row.edit_url.clone();
-    let described = chrome.row_id(&row.key);
-    let custom: Vec<BoxView<'a>> = row
-        .custom
-        .iter()
-        .map(|action| {
-            let RowButton {
-                label,
-                url,
-                confirm,
-                input,
-            } = action;
-            let mut attrs = match input {
-                Some(name) => {
-                    input_trigger(cx, &chrome.form, &chrome.signals, name, url.clone(), false)
-                }
-                None => write_trigger(
-                    cx,
-                    &chrome.form,
-                    &chrome.signals,
-                    url.clone(),
-                    confirm.then_some(("Run this action?", "Confirm")),
-                    false,
-                ),
-            };
-            attrs.extend(attributes! { cx => aria-describedby=(described.clone()) });
-            let label = label.clone();
-            view! {
-                cx =>
-                button(
-                    variant: ButtonVariant::Ghost,
-                    size: ButtonSize::Sm,
-                    attrs: attrs,
-                    (label)
-                )
-            }
-            .boxed()
-        })
-        .collect();
-    let delete = row.delete_action.clone().map(|action| {
-        let confirm = Some(("Delete this record?", "Delete"));
-        let mut attrs = write_trigger(cx, &chrome.form, &chrome.signals, action, confirm, false);
-        attrs.extend(attributes! {
-            cx =>
-            class=(ROW_DELETE_CLASS)
-            aria-label="Delete"
-            aria-describedby=(described.clone())
-            title="Delete"
-        });
-        attrs
-    });
-    view! {
-        cx =>
-        table_cell(
-            attrs: attributes! { class=(CHROME_CELL_CLASS) },
-            <div class="relative z-10 flex items-center justify-end gap-1">
-                for control in custom {
-                    (control)
-                }
-                if let Some(url) = view_url {
-                    <a
-                        (crate::navigation::runtime_link(cx, &url))
-                        class=(ROW_ICON_CLASS)
-                        aria-label="View"
-                        aria-describedby=(described.clone())
-                        title="View"
-                    >
-                        icon(data: tablo_ui::icons::EYE)
-                    </a>
-                }
-                if let Some(url) = edit_url {
-                    <a
-                        (crate::navigation::runtime_link(cx, &url))
-                        class=(ROW_ICON_CLASS)
-                        aria-label="Edit"
-                        aria-describedby=(described.clone())
-                        title="Edit"
-                    >
-                        icon(data: tablo_ui::icons::PENCIL)
-                    </a>
-                }
-                if let Some(attrs) = delete {
-                    <button (attrs)>icon(data: tablo_ui::icons::TRASH)</button>
-                }
-            </div>
-        )
-    }
-    .boxed()
-}
-
-/// The row's actions behind one button: its custom actions, View and Edit, then Delete after a
-/// separator, each only when the row's policy allows it. A row allowing none keeps an empty cell.
-fn render_action_menu<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxView<'a> {
-    let described = chrome.row_id(&row.key);
-    let menu = format!("{described}-actions");
-    // Closes the menu as the item runs; a submitting item navigates instead.
-    let closes = |attrs: &mut Attributes| {
-        attrs.extend(attributes! {
-            cx =>
-            popovertarget=(menu.clone())
-            popovertargetaction="hide"
-            aria-describedby=(described.clone())
-        });
-    };
-    let mut items: Vec<BoxView<'a>> = row
-        .custom
-        .iter()
-        .map(|action| {
-            let mut attrs = match action.input {
-                Some(name) => input_trigger(
-                    cx,
-                    &chrome.form,
-                    &chrome.signals,
-                    name,
-                    action.url.clone(),
-                    false,
-                ),
-                None => write_trigger(
-                    cx,
-                    &chrome.form,
-                    &chrome.signals,
-                    action.url.clone(),
-                    action.confirm.then_some(("Run this action?", "Confirm")),
-                    false,
-                ),
-            };
-            closes(&mut attrs);
-            let label = action.label.clone();
-            view! { cx => dropdown_menu_item(attrs: attrs, (label)) }.boxed()
-        })
-        .collect();
-    for (url, label, data) in [
-        (row.view_url.clone(), "View", tablo_ui::icons::EYE),
-        (row.edit_url.clone(), "Edit", tablo_ui::icons::PENCIL),
-    ] {
-        if let Some(url) = url {
-            let link = crate::navigation::runtime_link(cx, &url);
-            let described = described.clone();
-            items.push(
-                view! {
-                    cx =>
-                    <a
-                        (link)
-                        class=(crate::navigation::MENU_LINK_CLASS)
-                        aria-label=(label)
-                        aria-describedby=(described)
-                    >
-                        icon(data: data)
-                        (label)
-                    </a>
-                }
-                .boxed(),
-            );
-        }
-    }
-    let delete = row.delete_action.clone().map(|action| {
-        let confirm = Some(("Delete this record?", "Delete"));
-        let mut attrs = write_trigger(cx, &chrome.form, &chrome.signals, action, confirm, false);
-        closes(&mut attrs);
-        attrs.extend(attributes! { cx => class="text-destructive" aria-label="Delete" });
-        attrs
-    });
-    if items.is_empty() && delete.is_none() {
-        let empty = attributes! { cx => class=(CHROME_CELL_CLASS) };
-        return view! { cx => table_cell(attrs: empty) }.boxed();
-    }
-    let separate = !items.is_empty() && delete.is_some();
-    let trigger_class = button_variants(ButtonVariant::Ghost, ButtonSize::Icon);
-    view! {
-        cx =>
-        table_cell(
-            attrs: attributes! { class=(CHROME_CELL_CLASS) },
-            <div class="relative z-10 flex justify-end">
-                dropdown_menu(
-                    dropdown_menu_trigger(
-                        target: menu.as_str(),
-                        attrs: attributes! {
-                            class=(trigger_class)
-                            aria-label="Actions"
-                            aria-describedby=(described.clone())
-                        },
-                        icon(data: tablo_ui::icons::ELLIPSIS)
-                    )
-                    dropdown_menu_content(
-                        id: menu.as_str(),
-                        align: FloatingAlign::End,
-                        for item in items {
-                            (item)
-                        }
-                        if separate {
-                            dropdown_menu_separator()
-                        }
-                        if let Some(attrs) = delete {
-                            dropdown_menu_item(
-                                attrs: attrs,
-                                icon(data: tablo_ui::icons::TRASH)
-                                "Delete"
-                            )
-                        }
-                    )
-                )
-            </div>
-        )
     }
     .boxed()
 }

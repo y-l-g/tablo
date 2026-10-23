@@ -33,8 +33,8 @@ use crate::{
     topcoat_compat::async_page,
 };
 
-const WRITE_CREATE: &str = "create the record";
-const WRITE_UPDATE: &str = "save the changes";
+const WRITE_CREATE: &str = "tablo-failed-create";
+const WRITE_UPDATE: &str = "tablo-failed-update";
 
 pub(super) struct Submission {
     pub(super) schema: Arc<Schema>,
@@ -407,7 +407,7 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             tx,
             Ok((written, crate::Outcome::done())),
             Change::Create,
-            "Created",
+            crate::t!(cx, "tablo-form-created"),
             WRITE_CREATE,
         )
         .await
@@ -532,7 +532,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
             tx,
             Ok((written, crate::Outcome::done())),
             |after| Change::Update { before, after },
-            "Updated",
+            crate::t!(cx, "tablo-form-updated"),
             WRITE_UPDATE,
         )
         .await

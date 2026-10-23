@@ -10,7 +10,10 @@ use super::{
     super::{TableSignals, WiredTable},
     Frame, QUIET_LINK_CLASS, live_link, table_dom_id,
 };
-use crate::table::{TableState, filter::FilterInput, ignored_reason};
+use crate::{
+    t,
+    table::{TableState, filter::FilterInput, ignored_reason},
+};
 
 /// What a render shows of the table's filters.
 pub(super) struct FilterViews<'a> {
@@ -41,8 +44,12 @@ impl<M> WiredTable<M> {
             for f in self.declared_filters() {
                 let current = state.filters.get(f.name()).cloned().unwrap_or_default();
                 active += usize::from(!current.is_empty());
-                let input =
-                    FilterInput::new(f.name(), state.filter_param(f.name()), f.label(), current);
+                let input = FilterInput::new(
+                    f.name(),
+                    state.filter_param(f.name()),
+                    f.label().localize(cx),
+                    current,
+                );
                 controls.push(f.load_control(cx, input).await);
             }
         }
@@ -77,16 +84,20 @@ impl Frame<'_> {
             .enumerate()
             .map(|(i, (pair, kind))| {
                 let separator = if i == 0 { "" } else { ", " };
-                let text = format!("{pair} ({})", ignored_reason(kind));
+                let text = t!(
+                    cx,
+                    "tablo-filter-ignored-entry",
+                    filter = pair.clone(),
+                    reason = ignored_reason(kind),
+                );
                 (separator, pair.clone(), *kind, text)
             })
             .collect();
-        let consequence = if filters.unfiltered {
-            "showing unfiltered results"
-        } else {
-            "other filter(s) still apply"
-        };
-        let consequence = format!(" — {consequence}.");
+        let consequence = t!(
+            cx,
+            "tablo-filter-ignored-consequence",
+            unfiltered = if filters.unfiltered { "true" } else { "false" },
+        );
         let clear = live_link(cx, state.without_filters(path), signals);
         Some(
             view! {
@@ -95,7 +106,8 @@ impl Frame<'_> {
                     class="border-b border-border bg-destructive/10 px-4 py-2 text-sm text-destructive"
                     role="alert"
                 >
-                    "Ignored filter(s): "
+                    (t!(cx, "tablo-filter-ignored"))
+                    " "
                     for (separator, pair, kind, text) in entries {
                         (separator)
                         <span data-ignored=(kind) data-ignored-filter=(pair)>
@@ -105,7 +117,7 @@ impl Frame<'_> {
                     (consequence)
                     " "
                     <a class="font-medium underline underline-offset-4" (clear)>
-                        "Clear filters"
+                        (t!(cx, "tablo-list-clear-filters"))
                     </a>
                 </div>
             }
@@ -130,6 +142,8 @@ impl Frame<'_> {
             .then(|| live_link(cx, state.without_filters(path), signals));
         let count = (active > 0).then(|| active.to_string());
         let target = menu.clone();
+        let label = t!(cx, "tablo-list-filters");
+        let trigger_label = label.clone();
         let trigger = view! {
             cx =>
             dropdown_menu_trigger(
@@ -138,7 +152,7 @@ impl Frame<'_> {
                     class=(button_variants(ButtonVariant::Outline, ButtonSize::Md))
                 },
                 icon(data: tablo_ui::icons::LIST_FILTER)
-                "Filters"
+                (trigger_label)
                 if let Some(count) = count {
                     <span class=(FILTER_COUNT_CLASS)>(count)</span>
                 }
@@ -150,7 +164,7 @@ impl Frame<'_> {
             <div
                 id=(menu)
                 popover="auto"
-                aria-label="Filters"
+                aria-label=(label.clone())
                 class=(class!(
                     floating_variants(
                         FloatingAnchor::Invoker,
@@ -163,9 +177,11 @@ impl Frame<'_> {
                 <div
                     class="flex h-11 items-center justify-between border-b border-border px-4"
                 >
-                    <p class="text-sm font-semibold">"Filters"</p>
+                    <p class="text-sm font-semibold">(label)</p>
                     if let Some(reset) = reset {
-                        <a class=(QUIET_LINK_CLASS) (reset)>"Reset"</a>
+                        <a class=(QUIET_LINK_CLASS) (reset)>
+                            (t!(cx, "tablo-list-reset-filters"))
+                        </a>
                     }
                 </div>
                 <div class="grid grid-cols-1 gap-4 p-4">

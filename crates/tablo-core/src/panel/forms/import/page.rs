@@ -14,8 +14,8 @@ use crate::{
 
 /// What the import page shows of the resource and the request.
 pub(super) struct ImportPage {
-    label: String,
-    plural_label: String,
+    label: crate::Text,
+    plural_label: crate::Text,
     list_url: String,
     template_url: String,
     columns: Vec<Column>,
@@ -27,7 +27,7 @@ pub(super) fn page_of<R: Resource>(cx: &Cx, resource: &Mounted<R>) -> ImportPage
         plural_label: resource.plural_label.clone(),
         list_url: resource.url.clone(),
         template_url: import_template_url(&resource.url),
-        columns: columns(&resource.form, &resource.form_mask(cx)),
+        columns: columns(cx, &resource.form, &resource.form_mask(cx)),
     }
 }
 
@@ -55,26 +55,18 @@ pub(super) fn render_import_page<'a>(
         None => path.to_string(),
     };
     let cancel = return_to.unwrap_or(list_url);
-    let title = format!("Import {plural_label}");
-    let description = format!(
-        "Each row of the file creates one {}. The first row names the columns; a refused row \
-         imports nothing, so correct the file and import it again.",
-        label.to_lowercase()
+    let title = crate::t!(cx, "tablo-import-title", label = plural_label);
+    let description = crate::t!(
+        cx,
+        "tablo-import-description",
+        label = label.localize(cx).to_lowercase()
     );
     let outline =
         tablo_ui::button_variants(tablo_ui::ButtonVariant::Outline, tablo_ui::ButtonSize::Md);
     let template_class = outline.clone();
-    let refusal = refusal.map(|refusal| (refusal.kind(), refusal.message()));
-    let failed = (!failures.is_empty()).then(|| {
-        format!(
-            "{} refused: nothing was imported",
-            if failures.len() == 1 {
-                "1 value was".to_string()
-            } else {
-                format!("{} values were", failures.len())
-            }
-        )
-    });
+    let refusal = refusal.map(|refusal| (refusal.kind(), refusal.message().localize(cx)));
+    let failed = (!failures.is_empty())
+        .then(|| crate::t!(cx, "tablo-import-refused", count = failures.len()));
     view! {
         cx =>
         tablo_ui::page(
@@ -84,7 +76,7 @@ pub(super) fn render_import_page<'a>(
                 tablo_ui::page_actions(
                     <a href=(template_url) class=(template_class)>
                         icon(data: tablo_ui::icons::DOWNLOAD)
-                        "Download template"
+                        (crate::t!(cx, "tablo-import-template"))
                     </a>
                 )
             )
@@ -112,9 +104,13 @@ pub(super) fn render_import_page<'a>(
                         tablo_ui::table(
                             tablo_ui::table_header(
                                 tablo_ui::table_row(
-                                    tablo_ui::table_head("Row")
-                                    tablo_ui::table_head("Column")
-                                    tablo_ui::table_head("Problem")
+                                    tablo_ui::table_head((crate::t!(cx, "tablo-import-row")))
+                                    tablo_ui::table_head(
+                                        (crate::t!(cx, "tablo-import-column"))
+                                    )
+                                    tablo_ui::table_head(
+                                        (crate::t!(cx, "tablo-import-problem"))
+                                    )
                                 )
                             )
                             tablo_ui::table_body(
@@ -126,7 +122,7 @@ pub(super) fn render_import_page<'a>(
                                         },
                                         tablo_ui::table_cell((failure.row.to_string()))
                                         tablo_ui::table_cell((failure.column))
-                                        tablo_ui::table_cell((failure.message))
+                                        tablo_ui::table_cell((failure.message.localize(cx)))
                                     )
                                 }
                             )
@@ -135,7 +131,7 @@ pub(super) fn render_import_page<'a>(
                     tablo_ui::field(
                         tablo_ui::field_label(
                             attrs: attributes! { for="import-file" },
-                            "CSV file"
+                            (crate::t!(cx, "tablo-import-file"))
                         )
                         tablo_ui::input(
                             attrs: attributes! {
@@ -152,21 +148,21 @@ pub(super) fn render_import_page<'a>(
                             variant: tablo_ui::ButtonVariant::Primary,
                             attrs: attributes! { type="submit" },
                             icon(data: tablo_ui::icons::UPLOAD)
-                            "Import"
+                            (crate::t!(cx, "tablo-import-submit"))
                         )
                         <a
                             (crate::navigation::runtime_link(cx, &cancel))
                             class=(outline)
                         >
-                            "Cancel"
+                            (crate::t!(cx, "tablo-cancel"))
                         </a>
                     </div>
                 </form>
                 tablo_ui::table(
                     tablo_ui::table_header(
                         tablo_ui::table_row(
-                            tablo_ui::table_head("Column")
-                            tablo_ui::table_head("Field")
+                            tablo_ui::table_head((crate::t!(cx, "tablo-import-column")))
+                            tablo_ui::table_head((crate::t!(cx, "tablo-import-field")))
                             tablo_ui::table_head("")
                         )
                     )
@@ -178,9 +174,9 @@ pub(super) fn render_import_page<'a>(
                                 tablo_ui::table_cell((column.label))
                                 tablo_ui::table_cell(
                                     if column.required {
-                                        "Required"
+                                        (crate::t!(cx, "tablo-import-required"))
                                     } else if column.multiple {
-                                        "Repeat the column for each value"
+                                        (crate::t!(cx, "tablo-import-repeat"))
                                     }
                                 )
                             )

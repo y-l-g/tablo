@@ -6,6 +6,7 @@ use topcoat::{Result, context::Cx, icon::icon, runtime::Event, view::*};
 use super::{CHROME_CELL_CLASS, Frame, live_link};
 use crate::{
     panel::list::TableSignals,
+    t,
     table::{Sort, TableState, bulk_token},
 };
 
@@ -28,7 +29,7 @@ impl Frame<'_> {
             let width = col.width.style();
             let fit = if slack == Some(index) { "w-full" } else { "" };
             let align = col.alignment.class();
-            let label = col.label.to_string();
+            let label = col.label.clone();
             // The skeleton's placeholder header names no column: only a loaded table's does.
             let name = links.is_some().then(|| col.name.to_string());
             let sortable = col.sortable;
@@ -51,10 +52,11 @@ impl Frame<'_> {
                         _ => ("none", icons::ARROW_UP_DOWN, false),
                     };
                     let href = state.sorted_by(path, col.name, next_desc);
-                    let aria_label = format!(
-                        "Sort by {} {}",
-                        label,
-                        if next_desc { "descending" } else { "ascending" }
+                    let aria_label = t!(
+                        cx,
+                        "tablo-list-sort",
+                        column = label.clone(),
+                        direction = if next_desc { "descending" } else { "ascending" },
                     );
                     let link_attrs = live_link(cx, href, signals);
                     (
@@ -109,7 +111,7 @@ impl Frame<'_> {
                     cx =>
                     table_head(
                         attrs: attributes! { class=(CHROME_CELL_CLASS) },
-                        <span class="sr-only">"Actions"</span>
+                        <span class="sr-only">(t!(cx, "tablo-list-actions"))</span>
                     )
                 }
                 .boxed(),
@@ -122,7 +124,7 @@ impl Frame<'_> {
                     if let Some(attrs) = select_all {
                         table_head(
                             attrs: attributes! { class=(CHROME_CELL_CLASS) },
-                            <input aria-label="Select all rows" (attrs)>
+                            <input aria-label=(t!(cx, "tablo-list-select-all")) (attrs)>
                         )
                     }
                     for h in heads {

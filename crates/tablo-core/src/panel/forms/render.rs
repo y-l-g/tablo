@@ -19,6 +19,7 @@ use crate::{
     form::{FieldErrors, FormValues},
     resource::{Mounted, Places, PublicLink, Resource},
     schema::{FormMask, Schema},
+    t,
     topcoat_compat::async_page,
 };
 
@@ -53,8 +54,12 @@ pub(crate) struct FormChrome<'a> {
 impl<'a> FormChrome<'a> {
     pub(super) fn create<R: Resource>(cx: &Cx, resource: &Mounted<R>) -> Self {
         Self {
-            title: format!("Create {}", resource.label),
-            submit_label: "Create".to_string(),
+            title: t!(
+                cx,
+                "tablo-form-create-title",
+                label = resource.label.clone()
+            ),
+            submit_label: t!(cx, "tablo-form-create"),
             destructive: false,
             public_link: None,
             actions: ActionBar::default(),
@@ -78,8 +83,8 @@ impl<'a> FormChrome<'a> {
             .into_iter()
             .collect();
         Self {
-            title: format!("Edit {}", resource.label),
-            submit_label: "Save".to_string(),
+            title: t!(cx, "tablo-form-edit-title", label = resource.label.clone()),
+            submit_label: t!(cx, "tablo-form-save"),
             destructive: false,
             public_link: resource.public_link(cx, record),
             // An action lands back on the page as it was left, its own `?return=` included.
@@ -115,10 +120,10 @@ impl<'a> FormChrome<'a> {
 
     /// A settings page's, such as the profile: titled `title`, saved by `Save`, cancelled to
     /// `home`.
-    pub(crate) fn settings(title: &str, home: String) -> Self {
+    pub(crate) fn settings(cx: &Cx, title: String, home: String) -> Self {
         Self {
-            title: title.to_string(),
-            submit_label: "Save".to_string(),
+            title,
+            submit_label: t!(cx, "tablo-form-save"),
             destructive: false,
             public_link: None,
             actions: ActionBar::default(),
@@ -244,7 +249,7 @@ pub(crate) async fn render_form_page<'a>(
             tablo_ui::page_header(
                 tablo_ui::page_title((title.clone()))
                 if destructive {
-                    tablo_ui::page_description("This action cannot be undone.")
+                    tablo_ui::page_description((t!(cx, "tablo-confirm-irreversible")))
                 }
                 if has_actions {
                     tablo_ui::page_actions(
@@ -276,12 +281,9 @@ pub(crate) async fn render_form_page<'a>(
                         tablo_ui::alert(
                             variant: tablo_ui::AlertVariant::Destructive,
                             attrs: attributes! { role="alert" data-stale="" },
-                            tablo_ui::alert_title(
-                                "This record changed since you opened it"
-                            )
+                            tablo_ui::alert_title((t!(cx, "tablo-form-stale")))
                             tablo_ui::alert_description(
-                                "Saving again replaces those changes with yours. Reload the page \
-                                 to see them first."
+                                (t!(cx, "tablo-form-stale-description"))
                             )
                         )
                     }
@@ -289,11 +291,9 @@ pub(crate) async fn render_form_page<'a>(
                         tablo_ui::alert(
                             variant: tablo_ui::AlertVariant::Destructive,
                             attrs: attributes! { role="alert" data-unseen-error="" },
-                            tablo_ui::alert_title(
-                                "A field you cannot see refuses this save"
-                            )
+                            tablo_ui::alert_title((t!(cx, "tablo-form-unseen")))
                             tablo_ui::alert_description(
-                                "Ask someone who may edit it to correct the record."
+                                (t!(cx, "tablo-form-unseen-description"))
                             )
                         )
                     }
@@ -314,7 +314,7 @@ pub(crate) async fn render_form_page<'a>(
                                 tablo_ui::ButtonSize::Md,
                             ))
                         >
-                            "Cancel"
+                            (t!(cx, "tablo-cancel"))
                         </a>
                     </div>
                 </form>

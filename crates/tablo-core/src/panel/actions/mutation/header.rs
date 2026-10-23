@@ -117,7 +117,7 @@ async fn header_run<'a>(
             }
         },
         note,
-        "run the action",
+        "tablo-failed-run",
         home,
     )
     .await

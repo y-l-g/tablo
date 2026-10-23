@@ -32,14 +32,14 @@ pub fn set_notification(cx: &Cx, notification: Notification) {
     }
 }
 
-/// Flashes the failure of a write that passed validation but did not land; the
-/// title names the operation, never the driver's text, and the message appears
-/// on the next panel page.
-pub(crate) fn notify_write_failure(cx: &Cx, action: &str) {
+/// Flashes the failure of a write that passed validation but did not land, titled by the message
+/// `failure`, which names the operation, never the driver's text; the toast appears on the next
+/// panel page.
+pub(crate) fn notify_write_failure(cx: &Cx, failure: &'static str) {
     set_notification(
         cx,
-        Notification::error(format!("Couldn't {action}"))
-            .description("Nothing was changed — try again."),
+        Notification::error(crate::t!(cx, failure))
+            .description(crate::t!(cx, "tablo-failed-description")),
     );
 }
 

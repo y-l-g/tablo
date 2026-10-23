@@ -6,7 +6,7 @@ use crate::{outcome::NotificationStatus, test_support::cx_with_cookie};
 #[test]
 fn write_failure_notification_names_the_operation() {
     let cx = cx_with_cookie(COOKIE_NAME, None);
-    notify_write_failure(&cx, "create the record");
+    notify_write_failure(&cx, "tablo-failed-create");
     let notification = take_notification(&cx).expect("a failed write must flash");
     assert_eq!(notification.status, NotificationStatus::Error);
     assert!(

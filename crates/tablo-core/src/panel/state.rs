@@ -41,7 +41,7 @@ pub(crate) struct NavEntry {
 #[derive(Clone)]
 pub(crate) struct Searchable {
     /// The resource's plural label, which heads its results.
-    pub(crate) label: String,
+    pub(crate) label: crate::Text,
     /// The resource's list URL, which places its results in the sidebar's order.
     pub(crate) list: String,
     /// Whether the request may list the resource.

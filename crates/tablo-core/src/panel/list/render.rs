@@ -65,7 +65,7 @@ pub(super) struct Frame<'t> {
 /// One column's header, width and alignment.
 struct ColumnHead<'t> {
     name: &'t str,
-    label: &'t str,
+    label: crate::Text,
     sortable: bool,
     width: ColumnWidth,
     alignment: Alignment,
@@ -81,7 +81,7 @@ struct ColumnPicker<'t> {
 /// One toggleable column in the [`ColumnPicker`].
 struct PickerColumn<'t> {
     name: &'t str,
-    label: &'t str,
+    label: crate::Text,
     /// Whether the reader's choice shows it.
     shown: bool,
 }

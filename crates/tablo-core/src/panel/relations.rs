@@ -41,7 +41,7 @@ pub(crate) const DETACH: &str = "detach";
 /// A registered resource as the child of other resources' relations.
 pub(crate) struct Child {
     pub(crate) slug: String,
-    pub(crate) plural_label: String,
+    pub(crate) plural_label: crate::Text,
     /// Renders the child's table narrowed to one owner.
     pub(crate) render: for<'a> fn(&'a Cx, BoundRelation) -> BoxView<'a>,
 }
@@ -51,7 +51,7 @@ pub(crate) struct BoundRelation {
     /// The child's slug: the prefix of the table's URL parameters.
     pub(crate) key: String,
     /// The section title.
-    pub(crate) label: String,
+    pub(crate) label: crate::Text,
     /// The child's rows that belong to the owner.
     pub(crate) scope: Expr<bool>,
     /// The child's form key for the owner, and the owner's value for it, which a create from the
@@ -196,7 +196,11 @@ pub(crate) fn relation_table<C: Resource>(cx: &Cx, relation: BoundRelation) -> B
             });
         let attach = linking.map(|linking| {
             ActionBar::input(
-                format!("Attach {}", resource.label),
+                crate::t!(
+                    cx,
+                    "tablo-relation-attach-title",
+                    label = resource.label.clone()
+                ),
                 with_return(&bulk_action_url(&linking.url, ATTACH), &back),
                 linking.input,
                 action_options_url(&linking.url, ATTACH),
@@ -231,7 +235,7 @@ fn detach_action<C: Resource>(cx: &Cx, resource: &Arc<Mounted<C>>) -> TableActio
     let (policy_cx, policy) = (cx.clone(), Arc::clone(resource));
     TableAction {
         name: DETACH,
-        label: "Detach".to_string(),
+        label: crate::t!(cx, "tablo-relation-detach"),
         row: true,
         bulk: true,
         confirm: false,
@@ -246,13 +250,13 @@ fn detach_action<C: Resource>(cx: &Cx, resource: &Arc<Mounted<C>>) -> TableActio
 fn relation_section<'a>(
     cx: &'a Cx,
     key: String,
-    label: String,
-    child_label: &str,
+    label: crate::Text,
+    child_label: &crate::Text,
     create_url: Option<String>,
     attach: Option<BoxView<'a>>,
     body: BoxView<'a>,
 ) -> BoxView<'a> {
-    let create_label = format!("New {child_label}");
+    let create_label = crate::t!(cx, "tablo-relation-new", label = child_label);
     view! {
         cx =>
         <section class="flex flex-col gap-3" data-relation=(key)>

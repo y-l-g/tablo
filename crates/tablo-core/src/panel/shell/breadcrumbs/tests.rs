@@ -11,10 +11,14 @@ fn nav() -> Vec<NavigationItem> {
 /// The resources' lists among [`nav`]'s entries.
 const LISTS: [&str; 2] = ["/admin/posts", "/admin/users"];
 
-fn labels(crumbs: &[Crumb]) -> Vec<(&str, Option<&str>)> {
+/// Each crumb's English label, leaked to compare against literals, and its link.
+fn labels(crumbs: &[Crumb]) -> Vec<(&'static str, Option<&str>)> {
     crumbs
         .iter()
-        .map(|crumb| (crumb.label.as_str(), crumb.href.as_deref()))
+        .map(|crumb| {
+            let label: &'static str = Box::leak(crumb.label.english().into_boxed_str());
+            (label, crumb.href.as_deref())
+        })
         .collect()
 }
 

@@ -72,12 +72,15 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
         // Fails closed on unapplied filters, a refused one included.
         let refused = table.refused_filters(cx, &state).await?;
         let unapplied = table.unapplied_filters(cx, &state, &refused);
+        // A refused request's body is for whoever built the URL, so it reads in English.
         if !unapplied.is_empty() {
             return Err(topcoat::router::error::bad_request(format!(
                 "invalid filters: {}",
                 unapplied
                     .iter()
-                    .map(|(pair, kind)| format!("{pair} ({})", crate::table::ignored_reason(kind)))
+                    .map(|(pair, kind)| {
+                        format!("{pair} ({})", crate::table::ignored_reason(kind).english())
+                    })
                     .collect::<Vec<_>>()
                     .join(", ")
             ))
@@ -114,7 +117,7 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
                 }
             };
             let mut db_handle = crate::db::db(&cx2);
-            let mut head = table.csv_header();
+            let mut head = table.csv_header(&cx2);
             if want_bom {
                 head.insert(0, '\u{FEFF}');
             }

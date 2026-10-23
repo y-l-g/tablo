@@ -38,7 +38,7 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
             .detail
             .render_without(cx, &record, resource.field_mask(cx).hidden());
         let relations = render_relations(cx, &resource, &record);
-        let title = resource.record_title(&record, &id);
+        let title = resource.record_title(cx, &record, &id);
         let back = resource.url.clone();
         let public_link = resource.public_link(cx, &record);
         let uri = topcoat::router::request::uri(cx);
@@ -102,7 +102,7 @@ fn detail_page<'a>(cx: &'a Cx, page: DetailPage<'a>) -> BoxView<'a> {
                         class=(outline.clone())
                     >
                         icon(data: tablo_ui::icons::ARROW_LEFT)
-                        "Back to list"
+                        (crate::t!(cx, "tablo-detail-back"))
                     </a>
                     if let Some(link) = public_link {
                         <a href=(link.url) class=(outline.clone())>
@@ -120,7 +120,7 @@ fn detail_page<'a>(cx: &'a Cx, page: DetailPage<'a>) -> BoxView<'a> {
                             ))
                         >
                             icon(data: tablo_ui::icons::PENCIL)
-                            "Edit"
+                            (crate::t!(cx, "tablo-action-edit"))
                         </a>
                     }
                 )
