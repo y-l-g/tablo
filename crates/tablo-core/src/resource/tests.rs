@@ -177,7 +177,11 @@ fn note() -> Note {
 #[test]
 fn a_resource_without_a_record_title_titles_the_record_with_its_key() {
     assert_eq!(
-        crate::test_support::mounted::<Unlabelled>().record_title(&note(), "8f14e45f"),
+        crate::test_support::mounted::<Unlabelled>().record_title(
+            &crate::test_support::cx(),
+            &note(),
+            "8f14e45f"
+        ),
         "Note 8f14e45f"
     );
 }
@@ -185,13 +189,16 @@ fn a_resource_without_a_record_title_titles_the_record_with_its_key() {
 #[test]
 fn a_declared_record_title_titles_the_record_with_its_column() {
     let mounted = crate::test_support::mounted::<Titled>();
-    assert_eq!(mounted.record_title(&note(), "8f14e45f"), "A Title");
+    assert_eq!(
+        mounted.record_title(&crate::test_support::cx(), &note(), "8f14e45f"),
+        "A Title"
+    );
     let untitled = Note {
         title: " ".to_string(),
         ..note()
     };
     assert_eq!(
-        mounted.record_title(&untitled, "8f14e45f"),
+        mounted.record_title(&crate::test_support::cx(), &untitled, "8f14e45f"),
         "Note 8f14e45f",
         "a record whose column is blank falls back to the key"
     );

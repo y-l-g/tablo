@@ -555,17 +555,16 @@ impl<M> Table<M> {
 
 /// The wording of a [`crate::dom::ignored`] kind, which the list's banner and the export's
 /// refusal show.
-pub(crate) fn ignored_reason(kind: &str) -> String {
+pub(crate) fn ignored_reason(kind: &str) -> crate::Text {
     match kind {
-        ignored::UNKNOWN => "unknown filter".to_string(),
-        ignored::DROPPED => format!(
-            "more than {} filters, more than {} values of one, over {} bytes, or the retired \
-             filters= form",
-            state::MAX_FILTERS,
-            state::MAX_FILTER_VALUES,
-            state::MAX_FILTER_LEN
+        ignored::UNKNOWN => crate::text!("tablo-filter-ignored-unknown"),
+        ignored::DROPPED => crate::text!(
+            "tablo-filter-ignored-dropped",
+            filters = state::MAX_FILTERS,
+            values = state::MAX_FILTER_VALUES,
+            bytes = state::MAX_FILTER_LEN,
         ),
-        _ => "invalid value".to_string(),
+        _ => crate::text!("tablo-filter-ignored-invalid"),
     }
 }
 

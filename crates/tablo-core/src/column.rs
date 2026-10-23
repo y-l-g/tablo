@@ -19,7 +19,7 @@ use crate::{display::Alignment, schema::Binding};
 macro_rules! base_builders {
     () => {
         /// Replace the label the field's name gives it.
-        pub fn label(mut self, label: impl Into<String>) -> Self {
+        pub fn label(mut self, label: impl Into<$crate::Text>) -> Self {
             self.base.label = Some(label.into());
             self
         }
@@ -94,7 +94,7 @@ macro_rules! base_column_methods {
             self.base.name()
         }
 
-        fn label(&self) -> &str {
+        fn label(&self) -> $crate::Text {
             self.base.label()
         }
 
@@ -150,7 +150,7 @@ use {color::is_css_color, text::escape_like_pattern};
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
-/// # use tablo_core::extend::Column;
+/// # use tablo_core::{Text, extend::Column};
 /// # use topcoat::context::Cx;
 /// struct Initials;
 ///
@@ -158,8 +158,8 @@ use {color::is_css_color, text::escape_like_pattern};
 ///     fn name(&self) -> &str {
 ///         "initials"
 ///     }
-///     fn label(&self) -> &str {
-///         "Initials"
+///     fn label(&self) -> Text {
+///         "Initials".into()
 ///     }
 ///     fn text(&self, _cx: &Cx, row: &User) -> String {
 ///         row.name
@@ -177,7 +177,7 @@ pub trait Column<M>: Send + Sync {
     fn name(&self) -> &str;
 
     /// The header text.
-    fn label(&self) -> &str;
+    fn label(&self) -> crate::Text;
 
     /// The row's value as plain text.
     fn text(&self, cx: &Cx, row: &M) -> String;
@@ -190,7 +190,7 @@ pub trait Column<M>: Send + Sync {
     /// The record's entry on a detail page: the [`label`](Self::label) over the
     /// [`cell`](Self::cell).
     fn entry<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
-        crate::schema::read_only(cx, self.label(), self.cell(cx, row))
+        crate::schema::read_only(cx, &self.label(), self.cell(cx, row))
     }
 
     /// The width the column claims.
@@ -383,7 +383,7 @@ where
 struct ColumnBase {
     binding: Binding,
     /// The declared label, over the binding's.
-    label: Option<String>,
+    label: Option<crate::Text>,
     width: ColumnWidth,
     toggle: ColumnToggle,
 }
@@ -406,8 +406,8 @@ impl ColumnBase {
         self.binding.name()
     }
 
-    fn label(&self) -> &str {
-        self.label.as_deref().unwrap_or(self.binding.label())
+    fn label(&self) -> crate::Text {
+        self.label.clone().unwrap_or_else(|| self.binding.label())
     }
 
     /// The field the column reads.

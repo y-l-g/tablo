@@ -28,7 +28,7 @@ impl Resource for UserResource {
 #[test]
 fn derived_targets_resolve_against_the_owning_panel() {
     let derived = NavigationItem {
-        label: "Users".to_string(),
+        label: "Users".into(),
         ..NavigationItem::default()
     };
 

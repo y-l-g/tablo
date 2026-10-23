@@ -19,7 +19,7 @@ pub struct BooleanColumn<M> {
     lens: Lens<M, bool>,
     base: ColumnBase,
     sortable: bool,
-    labels: (String, String),
+    labels: (crate::Text, crate::Text),
 }
 
 impl<M> BooleanColumn<M>
@@ -32,14 +32,17 @@ where
             base: ColumnBase::new(lens.path(), ColumnWidth::Auto),
             lens,
             sortable: false,
-            labels: ("Yes".to_string(), "No".to_string()),
+            labels: (
+                crate::Text::message("tablo-yes"),
+                crate::Text::message("tablo-no"),
+            ),
         }
     }
 
     base_builders!(sortable);
 
     /// The words for `true` and `false`.
-    pub fn labels(mut self, yes: impl Into<String>, no: impl Into<String>) -> Self {
+    pub fn labels(mut self, yes: impl Into<crate::Text>, no: impl Into<crate::Text>) -> Self {
         self.labels = (yes.into(), no.into());
         self
     }
@@ -51,11 +54,11 @@ where
 {
     base_column_methods!(binding);
 
-    fn text(&self, _cx: &Cx, row: &M) -> String {
+    fn text(&self, cx: &Cx, row: &M) -> String {
         if *self.lens.read(row) {
-            self.labels.0.clone()
+            self.labels.0.localize(cx)
         } else {
-            self.labels.1.clone()
+            self.labels.1.localize(cx)
         }
     }
 

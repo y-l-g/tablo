@@ -40,11 +40,11 @@ pub struct FilterInput {
 }
 
 impl FilterInput {
-    pub(crate) fn new(name: &str, param: String, label: &str, value: FilterValue) -> Self {
+    pub(crate) fn new(name: &str, param: String, label: String, value: FilterValue) -> Self {
         Self {
             name: name.to_string(),
             param,
-            label: label.to_string(),
+            label,
             value,
         }
     }
@@ -80,7 +80,8 @@ impl FilterInput {
     /// (`?f.status=draft&f.status=review`) marks the first; the rest keep applying until the form
     /// is submitted again.
     pub fn select<'a>(self, cx: &'a Cx, options: Vec<(String, String)>) -> BoxView<'a> {
-        self.select_led_by(cx, "All", options)
+        let all = crate::t!(cx, "tablo-filter-all");
+        self.select_led_by(cx, &all, options)
     }
 
     /// [`select`](Self::select) with its empty option labelled `lead`, for a filter whose empty
@@ -131,7 +132,7 @@ impl FilterInput {
             .map(|(_, label)| label.as_str())
             .collect();
         let summary = if checked.is_empty() {
-            "All".to_string()
+            crate::t!(cx, "tablo-filter-all")
         } else {
             checked.join(", ")
         };
@@ -195,7 +196,7 @@ impl FilterInput {
                     }
                     if empty {
                         <p class="px-2 py-1.5 text-sm text-muted-foreground">
-                            "No options"
+                            (crate::t!(cx, "tablo-field-no-options"))
                         </p>
                     }
                 </div>

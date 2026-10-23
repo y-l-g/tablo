@@ -13,10 +13,10 @@ use super::{
     def::{PublicLinkFn, RecordTitle},
 };
 use crate::{
-    DeclarationError, DeclarationErrorKind, Site,
+    DeclarationError, DeclarationErrorKind, Site, Text,
     detail::Detail,
     form::{FormField, RecordForm},
-    naming::{pluralize, sentence_case, slug_case, type_short_name, type_stem},
+    naming::{pluralize, sentence_case, slug_case, type_stem},
     navigation::NavigationItem,
     policy::{Ability, Policy},
     schema::{Retype, Schema},
@@ -29,8 +29,8 @@ pub(crate) struct Mounted<R: Resource> {
     pub(crate) slug: String,
     /// The list URL, `{prefix}/{slug}`.
     pub(crate) url: String,
-    pub(crate) label: String,
-    pub(crate) plural_label: String,
+    pub(crate) label: Text,
+    pub(crate) plural_label: Text,
     pub(crate) navigation: NavigationItem,
     /// The rows [`ResourceDef::navigation_badge`] counts.
     navigation_badge: Option<toasty::stmt::Expr<bool>>,
@@ -64,10 +64,12 @@ impl<R: Resource> Mounted<R> {
             .slug
             .unwrap_or_else(|| slug_case(&pluralize(&sentence_case(type_stem::<R>("Resource")))));
         let url = format!("{prefix}/{slug}");
-        let label = def
-            .label
-            .unwrap_or_else(|| sentence_case(type_short_name::<R::Model>()));
-        let plural_label = def.plural_label.unwrap_or_else(|| pluralize(&label));
+        let derived = Text::model::<R::Model>();
+        let plural_id = format!("{}.plural", derived.key());
+        let label = def.label.unwrap_or(derived);
+        let plural_label = def
+            .plural_label
+            .unwrap_or_else(|| Text::derived(plural_id, pluralize(&label.english())));
         let mut navigation = def.navigation.unwrap_or_else(|| NavigationItem {
             label: plural_label.clone(),
             ..NavigationItem::default()
@@ -173,11 +175,11 @@ impl<R: Resource> Mounted<R> {
     }
 
     /// The title of `record`: its title column, else the resource's label and `key`.
-    pub(crate) fn record_title(&self, record: &R::Model, key: &str) -> String {
+    pub(crate) fn record_title(&self, cx: &Cx, record: &R::Model, key: &str) -> String {
         self.record_title
             .as_ref()
             .and_then(|title| title.read(record))
-            .unwrap_or_else(|| format!("{} {key}", self.label))
+            .unwrap_or_else(|| format!("{} {key}", self.label.localize(cx)))
     }
 
     /// The root field the record title reads.

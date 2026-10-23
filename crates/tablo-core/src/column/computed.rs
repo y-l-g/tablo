@@ -27,7 +27,7 @@ use crate::display::Alignment;
 #[derive_where(Clone, Debug)]
 pub struct ComputedColumn<M> {
     name: String,
-    label: String,
+    label: crate::Text,
     #[derive_where(skip(Debug))]
     project: Arc<dyn Fn(&M) -> String + Send + Sync>,
     width: ColumnWidth,
@@ -43,14 +43,15 @@ impl<M> ComputedColumn<M>
 where
     M: toasty::schema::Model,
 {
-    /// Declare a column headed `label` rendering `project(row)`.
+    /// Declare a column headed `label` rendering `project(row)`, named after the label: its
+    /// plain text in lowercase, or its message's id.
     pub fn new(
-        label: impl Into<String>,
+        label: impl Into<crate::Text>,
         project: impl Fn(&M) -> String + Send + Sync + 'static,
     ) -> Self {
         let label = label.into();
         Self {
-            name: label.to_lowercase(),
+            name: label.key(),
             label,
             project: Arc::new(project),
             width: ColumnWidth::Auto,
@@ -101,8 +102,8 @@ where
         &self.name
     }
 
-    fn label(&self) -> &str {
-        &self.label
+    fn label(&self) -> crate::Text {
+        self.label.clone()
     }
 
     fn text(&self, _cx: &Cx, row: &M) -> String {

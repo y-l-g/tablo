@@ -16,7 +16,7 @@ use crate::{
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, age: i64 }
-/// # use tablo_core::{FilterValue, extend::{Filter, FilterInput}};
+/// # use tablo_core::{FilterValue, Text, extend::{Filter, FilterInput}};
 /// # use toasty::stmt::Expr;
 /// # use topcoat::{context::Cx, view::BoxView};
 /// struct Adults;
@@ -25,8 +25,8 @@ use crate::{
 ///     fn name(&self) -> &str {
 ///         "adults"
 ///     }
-///     fn label(&self) -> &str {
-///         "Adults"
+///     fn label(&self) -> Text {
+///         "Adults".into()
 ///     }
 ///     fn to_expr(&self, _cx: &Cx, value: &FilterValue) -> Option<Expr<bool>> {
 ///         (value.single() == Some("yes")).then(|| User::fields().age().ge(18))
@@ -41,7 +41,7 @@ pub trait Filter<M>: Send + Sync {
     fn name(&self) -> &str;
 
     /// The label the control renders beside it.
-    fn label(&self) -> &str;
+    fn label(&self) -> crate::Text;
 
     /// The predicate `value` selects for the request `cx`, or `None` when it selects none. The
     /// table warns about a value that selects none unless [`is_noop_value`](Self::is_noop_value)

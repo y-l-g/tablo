@@ -49,8 +49,8 @@ impl Column<Task> for Highlighted {
         "highlighted"
     }
 
-    fn label(&self) -> &str {
-        "Highlighted"
+    fn label(&self) -> tablo::Text {
+        "Highlighted".into()
     }
 
     fn text(&self, _cx: &Cx, row: &Task) -> String {
@@ -72,8 +72,8 @@ impl Filter<Task> for Initial {
         "initial"
     }
 
-    fn label(&self) -> &str {
-        "Initial"
+    fn label(&self) -> tablo::Text {
+        "Initial".into()
     }
 
     fn to_expr(&self, _cx: &Cx, value: &FilterValue) -> Option<Expr<bool>> {

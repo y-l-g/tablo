@@ -31,5 +31,5 @@ fn navigation_settings_apply_over_a_replaced_entry() {
     assert_eq!(page.navigation.label, "Uploads");
     assert_eq!(page.navigation.url(), Some("/elsewhere"));
     assert_eq!(page.navigation.order, 3);
-    assert_eq!(page.navigation.group.as_deref(), Some("Content"));
+    assert_eq!(page.navigation.group, Some("Content".into()));
 }

@@ -46,7 +46,7 @@ impl std::fmt::Debug for NavTarget {
 #[derive(Clone, Debug, Default)]
 pub struct NavigationItem {
     /// The entry's text.
-    pub label: String,
+    pub label: crate::Text,
     /// Where this entry points.
     pub target: NavTarget,
     /// Sort key for the sidebar.
@@ -55,7 +55,7 @@ pub struct NavigationItem {
     pub icon: Option<IconData>,
     /// The labelled sidebar group the entry renders in; `None` renders it with the ungrouped
     /// entries, above every group.
-    pub group: Option<String>,
+    pub group: Option<crate::Text>,
     /// The text of the badge after the label, if any.
     pub badge: Option<String>,
 }
@@ -66,7 +66,7 @@ impl NavigationItem {
     /// The entry whose URL is the longest match for the current path is marked active. Of the
     /// entries sharing that path, the one whose query the request carries wins, then the one
     /// naming more of that query, then the first declared.
-    pub fn at(label: impl Into<String>, url: impl Into<String>) -> Self {
+    pub fn at(label: impl Into<crate::Text>, url: impl Into<String>) -> Self {
         Self {
             label: label.into(),
             target: NavTarget::Url(url.into()),
@@ -87,7 +87,7 @@ impl NavigationItem {
     /// This entry in the sidebar group labelled `group`. Groups render in the order of their
     /// first entry, after the ungrouped entries.
     #[must_use]
-    pub fn group(mut self, group: impl Into<String>) -> Self {
+    pub fn group(mut self, group: impl Into<crate::Text>) -> Self {
         self.group = Some(group.into());
         self
     }

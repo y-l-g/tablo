@@ -25,9 +25,9 @@ use super::{Filter, FilterInput, FilterValue};
 /// ```
 pub struct QueryFilter<M> {
     name: String,
-    label: String,
+    label: crate::Text,
     /// `(key, label, predicate)` triples.
-    options: Vec<(String, String, Expr<bool>)>,
+    options: Vec<(String, crate::Text, Expr<bool>)>,
     multiple: bool,
     /// The fields the predicates read, when declared.
     reads: Option<crate::lens::Reads<M>>,
@@ -40,7 +40,7 @@ where
 {
     /// A filter whose URL parameter is `name` and whose control reads `label`, with no option
     /// yet.
-    pub fn new(name: impl Into<String>, label: impl Into<String>) -> Self {
+    pub fn new(name: impl Into<String>, label: impl Into<crate::Text>) -> Self {
         Self {
             name: name.into(),
             label: label.into(),
@@ -62,7 +62,7 @@ where
     pub fn option_keyed(
         mut self,
         key: impl Into<String>,
-        label: impl Into<String>,
+        label: impl Into<crate::Text>,
         predicate: Expr<bool>,
     ) -> Self {
         self.options.push((key.into(), label.into(), predicate));
@@ -93,8 +93,8 @@ where
         &self.name
     }
 
-    fn label(&self) -> &str {
-        &self.label
+    fn label(&self) -> crate::Text {
+        self.label.clone()
     }
 
     fn reads(&self) -> Option<crate::lens::Reads<M>> {
@@ -127,7 +127,7 @@ where
         let options = self
             .options
             .iter()
-            .map(|(key, label, _)| (key.clone(), label.clone()))
+            .map(|(key, label, _)| (key.clone(), label.localize(cx)))
             .collect();
         if self.multiple {
             input.checklist(cx, options)

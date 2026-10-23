@@ -315,7 +315,7 @@ impl<M> std::fmt::Debug for Detail<M> {
 /// # use topcoat::context::Cx;
 /// # impl tablo_core::extend::Column<User> for Initials {
 /// #     fn name(&self) -> &str { "initials" }
-/// #     fn label(&self) -> &str { "Initials" }
+/// #     fn label(&self) -> tablo_core::Text { "Initials".into() }
 /// #     fn text(&self, _cx: &Cx, row: &User) -> String { row.name.clone() }
 /// # }
 /// use tablo_core::{Detail, IntoDetail, Section};

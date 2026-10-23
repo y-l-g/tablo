@@ -7,12 +7,16 @@ use super::Table;
 impl<M> Table<M> {
     /// CSV header line for this table (labels, RFC4180 escaped, trailing
     /// newline included) — the first fragment of a streamed export.
-    pub(crate) fn csv_header(&self) -> String
+    pub(crate) fn csv_header(&self, cx: &Cx) -> String
     where
         M: toasty::schema::Model,
     {
         let mut out = String::new();
-        let headers: Vec<String> = self.columns.iter().map(|c| escape_csv(c.label())).collect();
+        let headers: Vec<String> = self
+            .columns
+            .iter()
+            .map(|c| escape_csv(&c.label().localize(cx)))
+            .collect();
         out.push_str(&headers.join(","));
         out.push('\n');
         out

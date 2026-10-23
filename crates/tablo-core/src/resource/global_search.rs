@@ -38,7 +38,7 @@ pub struct GlobalSearch<M> {
 
 /// One labelled value under a result's title.
 struct Detail<M> {
-    label: String,
+    label: crate::Text,
     read: Arc<dyn Fn(&M) -> String + Send + Sync>,
     /// The model's root field the value reads, which field access may hide.
     field: Option<String>,
@@ -56,7 +56,7 @@ impl<M: toasty::schema::Model + Send + Sync + 'static> GlobalSearch<M> {
     /// A result leaves out an empty value, and every value of a field
     /// [field access](ResourceDef::field_access) hides from the request.
     #[must_use]
-    pub fn detail<T>(mut self, label: impl Into<String>, lens: Lens<M, T>) -> Self
+    pub fn detail<T>(mut self, label: impl Into<crate::Text>, lens: Lens<M, T>) -> Self
     where
         T: FormScalar + Send + Sync + 'static,
     {
@@ -70,7 +70,7 @@ impl<M: toasty::schema::Model + Send + Sync + 'static> GlobalSearch<M> {
     }
 
     /// The `(label, value)` of each detail of `record` the request may see.
-    fn details_of(&self, record: &M, hidden: &[String]) -> Vec<(String, String)> {
+    fn details_of(&self, record: &M, hidden: &[String]) -> Vec<(crate::Text, String)> {
         self.details
             .iter()
             .filter(|detail| {
@@ -163,7 +163,7 @@ pub(crate) struct SearchHit {
     /// The record's key as its URLs spell it.
     pub(crate) key: String,
     pub(crate) opens: Opens,
-    pub(crate) details: Vec<(String, String)>,
+    pub(crate) details: Vec<(crate::Text, String)>,
 }
 
 /// The record page a result opens.
@@ -237,7 +237,11 @@ pub(crate) fn search<'a, R: Resource>(
                 Some(SearchHit {
                     opens: opens::<R>(cx, &mounted, record)?,
                     key: mounted.table.key_of(record),
-                    title: mounted.record_title(record, &crate::toasty_compat::pk::pk_text(record)),
+                    title: mounted.record_title(
+                        cx,
+                        record,
+                        &crate::toasty_compat::pk::pk_text(record),
+                    ),
                     details: search.details_of(record, mask.hidden()),
                 })
             }));

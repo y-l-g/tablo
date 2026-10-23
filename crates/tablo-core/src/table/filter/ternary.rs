@@ -16,10 +16,10 @@ use crate::schema::Binding;
 /// ```
 pub struct TernaryFilter<M> {
     binding: Binding,
-    label: Option<String>,
+    label: Option<crate::Text>,
     lens: Path<M, bool>,
     /// The options' labels for `true` and `false`.
-    labels: (String, String),
+    labels: (crate::Text, crate::Text),
 }
 
 impl<M> TernaryFilter<M>
@@ -34,19 +34,26 @@ where
             binding,
             label: None,
             lens,
-            labels: ("True".to_string(), "False".to_string()),
+            labels: (
+                crate::Text::message("tablo-filter-true"),
+                crate::Text::message("tablo-filter-false"),
+            ),
         }
     }
 
     /// The label the control renders, over the field's.
-    pub fn label(mut self, label: impl Into<String>) -> Self {
+    pub fn label(mut self, label: impl Into<crate::Text>) -> Self {
         self.label = Some(label.into());
         self
     }
 
     /// The options' labels for `true` and `false`, over "True" and "False". The URL values stay
     /// `true` and `false`.
-    pub fn labels(mut self, true_label: impl Into<String>, false_label: impl Into<String>) -> Self {
+    pub fn labels(
+        mut self,
+        true_label: impl Into<crate::Text>,
+        false_label: impl Into<crate::Text>,
+    ) -> Self {
         self.labels = (true_label.into(), false_label.into());
         self
     }
@@ -68,8 +75,8 @@ where
         self.binding.name()
     }
 
-    fn label(&self) -> &str {
-        self.label.as_deref().unwrap_or(self.binding.label())
+    fn label(&self) -> crate::Text {
+        self.label.clone().unwrap_or_else(|| self.binding.label())
     }
 
     fn to_expr(&self, _cx: &Cx, value: &FilterValue) -> Option<Expr<bool>> {
@@ -89,7 +96,10 @@ where
         let (yes, no) = self.labels.clone();
         input.select(
             cx,
-            vec![("true".to_string(), yes), ("false".to_string(), no)],
+            vec![
+                ("true".to_string(), yes.localize(cx)),
+                ("false".to_string(), no.localize(cx)),
+            ],
         )
     }
 }
@@ -97,7 +107,7 @@ where
 filter_impls! {
     TernaryFilter, this {
         name: &this.binding.name(),
-        label: &this.label.as_deref().unwrap_or(this.binding.label()),
+        label: &this.label.clone().unwrap_or_else(|| this.binding.label()),
         labels: &this.labels,
     }
     clone { binding, label, lens, labels }

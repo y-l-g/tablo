@@ -38,7 +38,7 @@ async fn stat<R: Resource>(cx: &Cx, detail: String) -> Option<BoxView<'_>> {
         view! {
             cx =>
             tablo::ui::stat(
-                label: item.label,
+                label: item.label.localize(cx),
                 value: value,
                 detail: detail,
                 icon: item.icon,
