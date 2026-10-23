@@ -212,3 +212,170 @@ pub const ASSET_HOOKS: &[AssetHook] = &[
         rust: "data-rich-text-source",
     },
 ];
+
+/// Counts `needle` only when neither neighbor continues the name.
+fn contains_hook(haystack: &str, needle: &str) -> bool {
+    if needle.is_empty() {
+        return true;
+    }
+    haystack.match_indices(needle).any(|(i, _)| {
+        let before = haystack[..i].chars().next_back();
+        let after = haystack[i + needle.len()..].chars().next();
+        !before.is_some_and(is_hook_char) && !after.is_some_and(is_hook_char)
+    })
+}
+
+/// Strips test modules and comment-only lines from source text.
+fn production_sources(src: &str) -> String {
+    let mut out = String::with_capacity(src.len());
+    let mut rest = src;
+    while let Some(at) = rest.find("#[cfg(test)]") {
+        out.push_str(&rest[..at]);
+        let after = &rest[at + "#[cfg(test)]".len()..];
+        let mut depth = 0usize;
+        let mut chars = after.char_indices();
+        let mut end = after.len();
+        let mut seen_open = false;
+        for (i, c) in chars.by_ref() {
+            match c {
+                ';' if !seen_open => {
+                    end = i + 1;
+                    break;
+                }
+                '{' => {
+                    depth += 1;
+                    seen_open = true;
+                }
+                '}' => {
+                    depth -= 1;
+                    if seen_open && depth == 0 {
+                        end = i + 1;
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        rest = &after[end..];
+    }
+    out.push_str(rest);
+    out.lines()
+        .filter(|line| {
+            let t = line.trim_start();
+            !(t.starts_with("//") || t.starts_with("/*") || t.starts_with('*'))
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn rust_sources(root: &Path) -> anyhow::Result<String> {
+    let mut out = String::new();
+    for dir in ["crates/tablo-ui/src", "crates/tablo-core/src"] {
+        let mut files = Vec::new();
+        collect_rs(&root.join(dir), &mut files)?;
+        for path in files {
+            if path.file_name().is_some_and(|name| name == "tests.rs") {
+                continue;
+            }
+            let src = std::fs::read_to_string(&path)?;
+            out.push_str(&production_sources(&src));
+            out.push('\n');
+        }
+    }
+    Ok(out)
+}
+
+fn is_hook_char(c: char) -> bool {
+    c.is_ascii_alphanumeric() || c == '-' || c == '_'
+}
+
+const HOOK_HINT: &str = "update the hook list and both sides together";
+
+fn collect_rs(dir: &Path, out: &mut Vec<PathBuf>) -> anyhow::Result<()> {
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            collect_rs(&path, out)?;
+        } else if path.extension().is_some_and(|ext| ext == "rs") {
+            out.push(path);
+        }
+    }
+    Ok(())
+}
+
+/// Fails when any shell JS asset or hook has drifted from the hook contract.
+pub fn verify_asset_hooks() -> anyhow::Result<()> {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let root = manifest_dir.parent().unwrap_or(Path::new("."));
+    let assets = assets_dir();
+    let mut failures = Vec::new();
+
+    let lib_rs = std::fs::read_to_string(root.join("crates/tablo-ui/src/lib.rs"))
+        .map_err(|error| anyhow::anyhow!("cannot read tablo-ui/src/lib.rs: {error}"))?;
+
+    let mut sources: std::collections::HashMap<&str, String> = std::collections::HashMap::new();
+    for (file, constant) in ASSET_FILES {
+        let path = assets.join(file);
+        match std::fs::read_to_string(&path) {
+            Ok(src) if !src.trim().is_empty() => {
+                sources.insert(file, src);
+            }
+            Ok(_) => failures.push(format!("{file} is empty; {HOOK_HINT}")),
+            Err(error) => failures.push(format!(
+                "{} cannot be read: {error}; {HOOK_HINT}",
+                path.display()
+            )),
+        }
+        if !contains_hook(&lib_rs, constant) {
+            failures.push(format!(
+                "{constant} is gone from tablo-ui/src/lib.rs, so {file} is no longer wired into the document; {HOOK_HINT}"
+            ));
+        }
+    }
+
+    // The Rust half reads the stripped sources, so an assertion or doc comment cannot stand in for
+    // the markup.
+    let rust_src = match rust_sources(root) {
+        Ok(sources) => sources,
+        Err(error) => {
+            failures.push(format!(
+                "cannot read the Rust sources: {error}; {HOOK_HINT}"
+            ));
+            String::new()
+        }
+    };
+    for hook in ASSET_HOOKS {
+        match sources.get(hook.asset) {
+            Some(src) if contains_hook(src, hook.js) => {}
+            Some(_) => failures.push(format!(
+                "{} no longer contains `{}`; {HOOK_HINT}",
+                hook.asset, hook.js
+            )),
+            None => failures.push(format!(
+                "{} is missing, so its `{}` hook cannot be checked; {HOOK_HINT}",
+                hook.asset, hook.js
+            )),
+        }
+        if !contains_hook(&rust_src, hook.rust) {
+            failures.push(format!(
+                "`{}` (consumed by {}) is gone from the Rust sources; {HOOK_HINT}",
+                hook.rust, hook.asset
+            ));
+        }
+    }
+
+    if failures.is_empty() {
+        println!(
+            "verified: {} assets and {} hooks match the hook contract",
+            ASSET_FILES.len(),
+            ASSET_HOOKS.len()
+        );
+        Ok(())
+    } else {
+        anyhow::bail!("asset hook drift detected:\n{}", failures.join("\n"));
+    }
+}
+
+#[cfg(test)]
+mod tests;

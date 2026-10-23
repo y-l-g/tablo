@@ -1,0 +1,76 @@
+use super::*;
+
+/// The strip that makes the Rust half mean something: a hook kept alive only
+/// by an assertion, a doc comment or a trailing annotation must not count.
+#[test]
+fn production_sources_drops_test_modules_and_comment_lines() {
+    let src = r#"
+attrs: attributes! { data-real-hook="" },
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn marks_the_hook() {
+        assert!(html.contains("data-test-only-hook"));
+        // data-comment-only-hook
+    }
+}
+
+// A trailing note about data-line-comment-hook.
+fn after() { render("data-after-hook") }
+"#;
+    let stripped = production_sources(src);
+    assert!(
+        contains_hook(&stripped, "data-real-hook"),
+        "a render-site hook must survive the strip: {stripped}"
+    );
+    assert!(
+        contains_hook(&stripped, "data-after-hook"),
+        "code after a test module must survive it: {stripped}"
+    );
+    assert!(
+        !contains_hook(&stripped, "data-test-only-hook"),
+        "a hook named only in an assertion must not count: {stripped}"
+    );
+    assert!(
+        !contains_hook(&stripped, "data-comment-only-hook"),
+        "a hook named only in an indented comment must not count: {stripped}"
+    );
+    assert!(
+        !contains_hook(&stripped, "data-line-comment-hook"),
+        "a hook named only in a whole-line comment must not count: {stripped}"
+    );
+}
+
+/// A test module is cut by brace nesting, not by "everything after the
+/// attribute" — otherwise one `#[cfg(test)]` would hide the rest of the
+/// file and every hook below it would read as retired.
+#[test]
+fn production_sources_keeps_code_after_a_nested_test_module() {
+    let src = "fn a() {}\n#[cfg(test)]\nmod tests {\n    fn b() { let x = \"}\"; }\n}\nfn tail() { \"data-tail\" }\n";
+    let stripped = production_sources(src);
+    assert!(
+        contains_hook(&stripped, "data-tail"),
+        "the module must close at its own brace: {stripped}"
+    );
+    assert!(
+        !stripped.contains("mod tests"),
+        "module must be gone: {stripped}"
+    );
+}
+
+/// A bodiless `#[cfg(test)]` item ends at its `;`, not at the next item's
+/// closing brace: `mod tests;` must not take the function below it along.
+#[test]
+fn production_sources_cuts_a_bodiless_test_item_at_its_semicolon() {
+    let src = "#[cfg(test)]\nmod test_support;\nfn render() { \"data-kept\" }\n#[cfg(test)]\nconst P: &str = \"data-test-only\";\n";
+    let stripped = production_sources(src);
+    assert!(
+        contains_hook(&stripped, "data-kept"),
+        "code after a bodiless test item must survive it: {stripped}"
+    );
+    assert!(
+        !contains_hook(&stripped, "data-test-only"),
+        "the bodiless test item itself must be gone: {stripped}"
+    );
+}
