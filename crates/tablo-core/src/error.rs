@@ -14,6 +14,9 @@ pub(crate) enum TabloError {
     Declaration(String),
     /// Database or dependency failure; the message is the response's only text.
     Infrastructure(&'static str),
+    /// A serializable transaction the database aborted for a concurrent one; answered like
+    /// [`Self::Infrastructure`], and worth trying again.
+    Conflict(&'static str),
 }
 
 impl TabloError {
@@ -31,7 +34,15 @@ impl TabloError {
     }
 
     pub(crate) fn is_infrastructure(error: &topcoat::Error) -> bool {
-        matches!(Self::of(error), Some(Self::Infrastructure(_)))
+        matches!(
+            Self::of(error),
+            Some(Self::Infrastructure(_) | Self::Conflict(_))
+        )
+    }
+
+    /// Whether `error` is a transaction aborted for a concurrent one.
+    pub(crate) fn is_conflict(error: &topcoat::Error) -> bool {
+        matches!(Self::of(error), Some(Self::Conflict(_)))
     }
 }
 
@@ -41,7 +52,7 @@ impl fmt::Display for TabloError {
             Self::Cursor(message) | Self::CursorRejected(message) | Self::Declaration(message) => {
                 message.as_str()
             }
-            Self::Infrastructure(message) => message,
+            Self::Infrastructure(message) | Self::Conflict(message) => message,
         };
         f.write_str(message)
     }
@@ -75,14 +86,20 @@ pub(crate) fn unavailable(source: impl fmt::Display) -> topcoat::Error {
     TabloError::Infrastructure(DATABASE_UNAVAILABLE).into()
 }
 
-/// Maps a [`toasty::Error`] to an infrastructure failure and passes anything else
-/// through with its mapping intact.
+/// Maps a [`toasty::Error`] to an infrastructure failure, or a conflict for a serialization
+/// failure, and passes anything else through with its mapping intact.
 pub(crate) fn driver_failure(
     error: impl Into<topcoat::Error>,
     message: &'static str,
 ) -> topcoat::Error {
     let error = error.into();
-    if error.is::<toasty::Error>() {
+    if error
+        .downcast_ref::<toasty::Error>()
+        .is_some_and(toasty::Error::is_serialization_failure)
+    {
+        tracing::warn!(error = %error, answer = message, "serialization conflict");
+        TabloError::Conflict(message).into()
+    } else if error.is::<toasty::Error>() {
         tracing::error!(error = %error, answer = message, "infrastructure failure");
         TabloError::Infrastructure(message).into()
     } else {

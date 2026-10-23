@@ -300,6 +300,32 @@ async fn a_new_request_replaces_the_earlier_link() {
     );
 }
 
+/// Requests from several accounts at once each get their link: their token writes, racing after
+/// the responses, run again when the database aborts one for another.
+#[tokio::test]
+async fn requests_racing_from_several_accounts_each_get_their_link() {
+    let db = db().await;
+    let emails = [
+        "a@example.com",
+        "b@example.com",
+        "c@example.com",
+        "d@example.com",
+    ];
+    for email in emails {
+        create_admin(&mut db.clone(), email, "old password", "Admin")
+            .await
+            .unwrap();
+    }
+    let mail = MemoryTransport::new();
+    let router = router(db.clone(), &mail);
+    for email in emails {
+        assert_eq!(request_link(&router, email).await.status(), 303);
+    }
+
+    assert_eq!(mails(&mail, emails.len()).await.len(), emails.len());
+    assert_eq!(tokens(&db).await.len(), emails.len());
+}
+
 /// An account that may not enter the panel gets no link.
 #[tokio::test]
 async fn an_inactive_account_gets_no_link() {

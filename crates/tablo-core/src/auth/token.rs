@@ -9,6 +9,7 @@ use topcoat::{context::Cx, session::Token};
 use super::{infrastructure_failure, session::token_key};
 use crate::{
     auth::realm::{current_realm, panel_prefix},
+    error::TabloError,
     toasty_compat::IsolationLevel,
 };
 
@@ -251,4 +252,44 @@ pub(super) async fn serializable(db: &mut toasty::Db) -> topcoat::Result<toasty:
         .begin()
         .await
         .map_err(infrastructure_failure)
+}
+
+/// How many times [`issue_alone`] runs its transaction before it gives up on a conflict.
+const ISSUE_ATTEMPTS: u32 = 5;
+
+/// [`issue`] in a serializable transaction of its own, run again when the database aborts it for
+/// a concurrent one: a link mailed after the response has no visitor left to try again.
+pub(super) async fn issue_alone(
+    cx: &Cx,
+    purpose: TokenPurpose,
+    user_id: &str,
+    email: Option<String>,
+    lifetime: Duration,
+) -> topcoat::Result<Token> {
+    let mut db = crate::db::db(cx);
+    let mut attempt = 1;
+    loop {
+        let issued = async {
+            let mut tx = serializable(&mut db).await?;
+            let token = issue(cx, &mut tx, purpose, user_id, email.clone(), lifetime).await?;
+            tx.commit().await.map_err(infrastructure_failure)?;
+            Ok(token)
+        }
+        .await;
+        match issued {
+            Err(error) if attempt < ISSUE_ATTEMPTS && TabloError::is_conflict(&error) => {
+                tokio::time::sleep(backoff(attempt)).await;
+                attempt += 1;
+            }
+            issued => return issued,
+        }
+    }
+}
+
+/// A random wait under 20ms doubled per failed `attempt`: transactions that aborted each other
+/// would meet again if they waited alike.
+fn backoff(attempt: u32) -> Duration {
+    let ceiling = 20u64 << attempt.min(6);
+    let jitter = getrandom::u64().map_or(ceiling / 2, |random| random % ceiling);
+    Duration::from_millis(jitter)
 }
