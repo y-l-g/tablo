@@ -67,7 +67,8 @@ MSRV. Bump both in one PR.
 ## Code
 
 - A struct is followed by its inherent `impl`, then its trait impls. A module is `foo.rs`
-  beside `foo/`, never `foo/mod.rs`.
+  beside `foo/`, never `foo/mod.rs`. The one exception is `tests/common/mod.rs`, which Cargo would
+  otherwise build as a test binary of its own.
 - A source holds at most 600 lines, a test source 1000. `xtask/src/sizes.rs` lists the files
   past that, each capped at its current size; split one rather than raise its cap, lower the cap
   when the file shrinks, and drop it from the list once it fits.
@@ -79,6 +80,8 @@ MSRV. Bump both in one PR.
   modules. A public module is a namespace for functions and constants that read best qualified
   (`auth::user`, `csrf::verify`, `url::edit`), plus the types only that namespace uses, and it
   never re-exports a root item.
+- An `expect` names the invariant that makes its failure unreachable. Anything a request,
+  a database row or an app's declaration can cause is an error, never a panic.
 - Shared dependency versions live in the root `[workspace.dependencies]`.
 - `topcoat` and `toasty` are crates.io dependencies of the workspace and of
   `examples/quickstart`. Bump them in both manifests and the lockfile together with
@@ -101,7 +104,9 @@ MSRV. Bump both in one PR.
   needs, add one over a `data-` hook rather than grep Tablo's markup or copy. Post a form with
   `TestClient::submit`, which carries the CSRF pair.
 - A behavior is pinned once, in the one tier whose row below names it. Delete a test that proves
-  nothing.
+  nothing, including one that checks only how markup looks: classes, widths, layout order,
+  decorative attributes, copy. A whole-body check stays for what must never appear, such as a
+  leaked value or unescaped input.
 
   | Tier | Pins | Lives in |
   | --- | --- | --- |
@@ -163,18 +168,35 @@ rustdoc when its chapter is next edited. Vocabulary is in `CONTEXT.md`, and deci
 - An ADR records one decision and the alternatives it rejected, not the behavior that follows
   from it, and is amended in place. A retired number is never reused.
 
+## Review
+
+These are what review sends back most often.
+
+- Fix the class, not the instance. A guard on one page covers every page with the same effect:
+  list, detail, export, global search, relation table, import. A change to a shared helper is
+  checked at every caller.
+- Security checks fail closed: a missing tenant, policy, session or CSRF token refuses the
+  request, never falls back to a laxer default.
+- Delete code in the PR that makes it dead: the old path, the helper with no caller left, the
+  field nothing reads. Tablo is experimental, so there is no compatibility shim to keep.
+- A workaround that needs a paragraph of comment to justify it means the code is wrong. Fix the
+  code.
+
 ## Pull requests and commits
 
 Every branch is squash-merged into `master`, so the PR title becomes the commit: a Conventional
-Commit under 100 characters, ending with the issue it closes, if any.
+Commit under 100 characters, ending with the issue it closes, if any. A PR carries one concern; a
+title that joins two changes with "and" is two PRs.
 
 ```
 fix(table): bound the filters signal (#205)
 ```
 
 - Types: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `ci`, `build`, `chore`, `revert`.
-- Scopes: `core`, `table`, `schema`, `panel`, `auth`, `ui`, `macros`, `test`, `build`, `guide`,
-  `showcase`, `bench`, `xtask`, `deps`, `release`, `repo`.
+- The scope is the module or crate the change lives in: a top-level `tablo-core` module (`table`,
+  `schema`, `panel`, `auth`, `resource`, …) or `ui`, `macros`, `test`, `build`, `guide`,
+  `showcase`, `bench`, `xtask`, plus `deps`, `release` and `repo`. A change across several
+  modules takes the one it is about, or none; `core` names no module.
 - A breaking change adds `!` after the scope and a `BREAKING CHANGE:` footer.
 - The body says what changed and why. The PR description adds which checks ran.
 

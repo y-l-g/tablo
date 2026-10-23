@@ -16,9 +16,6 @@
 - name: needs-triage
   description: "Maintainer needs to evaluate this issue."
   color: "fbca04"
-- name: needs-info
-  description: "Waiting on the reporter for more information."
-  color: "d4c5f9"
 - name: ready-for-agent
   description: "Fully specified, ready for an AFK agent."
   color: "0e8a16"
@@ -32,27 +29,12 @@
   color: "5319e7"
 
 # Applied by a maintainer.
-- name: accessibility
-  description: "Barrier affecting people with disabilities."
-  color: "f143ab"
 - name: documentation
   description: "Improvements or additions to documentation."
   color: "0075ca"
 - name: duplicate
   description: "This issue or pull request already exists."
   color: "cfd3d7"
-- name: good first issue
-  description: "Good for newcomers."
-  color: "7057ff"
-- name: help wanted
-  description: "Extra attention is needed."
-  color: "008672"
-- name: invalid
-  description: "This does not seem right."
-  color: "e4e669"
-- name: question
-  description: "Further information is requested."
-  color: "d876e3"
 - name: wontfix
   description: "This will not be worked on."
   color: "ffffff"
