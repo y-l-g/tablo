@@ -56,14 +56,14 @@ const CLOSE: StaticClass = class!(
 /// # use topcoat::{context::Cx, icon::icon, view::{BoxView, ViewExt, attributes, view}};
 /// # fn created(cx: &Cx) -> BoxView<'_> {
 /// # view! { cx =>
-/// toaster(
+/// toaster(label: "Notifications",
 ///     toast(attrs: attributes! { data-type="success" },
 ///         toast_icon(icon(data: icons::CIRCLE_CHECK))
 ///         toast_content(
 ///             toast_title("Created")
 ///             toast_description("The record is live.")
 ///         )
-///         toast_close()
+///         toast_close(label: "Close")
 ///     )
 /// )
 /// # }
@@ -72,12 +72,15 @@ const CLOSE: StaticClass = class!(
 /// ```
 #[component]
 pub async fn toaster(
+    /// The region's accessible name, such as `"Notifications"`.
+    #[into]
+    label: String,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
     Ok(view! {
         <section
-            aria-label="Notifications"
+            aria-label=(label)
             tabindex="-1"
             aria-live="polite"
             aria-relevant="additions text"
@@ -182,7 +185,12 @@ pub async fn toast_description(
 
 /// Renders the close control: a checkbox whose checked state hides its toast.
 #[component]
-pub async fn toast_close(#[default] mut attrs: Attributes) -> Result<impl View> {
+pub async fn toast_close(
+    /// The checkbox's accessible name, such as `"Close"`.
+    #[into]
+    label: String,
+    #[default] mut attrs: Attributes,
+) -> Result<impl View> {
     Ok(view! {
         <label
             class=(class!(
@@ -193,12 +201,7 @@ pub async fn toast_close(#[default] mut attrs: Attributes) -> Result<impl View> 
             data-close-button=""
             (attrs)
         >
-            <input
-                type="checkbox"
-                class="sr-only"
-                aria-label="Close toast"
-                data-dismiss=""
-            >
+            <input type="checkbox" class="sr-only" aria-label=(label) data-dismiss="">
             icon(data: icons::X, attrs: attributes! { class="size-3" })
         </label>
     })
