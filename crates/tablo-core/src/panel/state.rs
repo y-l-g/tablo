@@ -145,6 +145,7 @@ pub(crate) fn enter(cx: &Cx, panel: &Arc<PanelState>) -> Cx {
     cx.with_many((
         CurrentPanel(Arc::clone(panel)),
         CurrentRealm(Arc::clone(&panel.realm)),
+        crate::i18n::AcceptedLocale::default(),
     ))
 }
 

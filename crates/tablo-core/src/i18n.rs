@@ -13,8 +13,8 @@ mod locale;
 mod text;
 
 pub(crate) use catalog::Catalog;
+pub(crate) use locale::{AcceptedLocale, LocaleSource, addressed_to, catalog_and_index};
 pub use locale::{Locale, locale};
-pub(crate) use locale::{LocaleSource, catalog_and_index};
 pub use text::Text;
 
 #[cfg(test)]

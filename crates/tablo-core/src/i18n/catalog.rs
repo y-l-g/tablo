@@ -15,6 +15,10 @@ use crate::declaration::LocaleFault;
 
 type Bundle = FluentBundle<Arc<FluentResource>>;
 
+/// A locale's bundles, the whole stack first, then without its top layer, and so on: a message
+/// an upper layer redefines without one of its attributes reads that attribute from below.
+struct Layered(Vec<Bundle>);
+
 /// The catalogs Tablo ships, by locale. `en` holds every message Tablo renders; a test holds
 /// each other catalog to the same messages and variables.
 const SHIPPED: &[(&str, &str)] = &[
@@ -47,8 +51,8 @@ static ENGLISH: LazyLock<Catalog> =
 pub(crate) struct Catalog {
     /// The offered locales, the default first.
     locales: Vec<Locale>,
-    /// Each offered locale's bundle, in `locales` order.
-    bundles: Vec<Bundle>,
+    /// Each offered locale's bundles, in `locales` order.
+    bundles: Vec<Layered>,
 }
 
 impl Catalog {
@@ -156,17 +160,10 @@ impl Catalog {
     }
 }
 
-/// The bundle of `locale`: each layer of `below`, then `locale`, adds Tablo's catalogs serving it,
-/// then the app's, so the later one overrides a message both hold. A catalog serving several
+/// The bundles of `locale`: each layer of `below`, then `locale`, adds Tablo's catalogs serving
+/// it, then the app's, so the later one overrides a message both hold. A catalog serving several
 /// layers sits at the last: `en` stays over a default `fr` for a request reading `en-GB`.
-fn bundle(locale: &Locale, below: &[Locale], added: &[(Locale, Arc<FluentResource>)]) -> Bundle {
-    let mut bundle = Bundle::new_concurrent(vec![locale.0.clone()]);
-    // Placeables render into HTML attributes and plain text, where the isolation marks Fluent
-    // wraps them in by default show as stray characters.
-    bundle.set_use_isolating(false);
-    if locale.to_string() == PSEUDO {
-        bundle.set_transform(Some(pseudo));
-    }
+fn bundle(locale: &Locale, below: &[Locale], added: &[(Locale, Arc<FluentResource>)]) -> Layered {
     // From the top layer down, so a catalog lands in the last layer it serves.
     let mut placed: Vec<&Arc<FluentResource>> = Vec::new();
     let mut layers: Vec<Vec<&Arc<FluentResource>>> = Vec::new();
@@ -186,32 +183,57 @@ fn bundle(locale: &Locale, below: &[Locale], added: &[(Locale, Arc<FluentResourc
                 }
             }
         }
-        layers.push(resources);
+        if !resources.is_empty() {
+            layers.push(resources);
+        }
     }
-    for resource in layers.into_iter().rev().flatten() {
-        bundle.add_resource_overriding(Arc::clone(resource));
-    }
-    bundle
+    layers.reverse();
+    Layered(
+        (1..=layers.len())
+            .rev()
+            .map(|height| {
+                let mut bundle = Bundle::new_concurrent(vec![locale.0.clone()]);
+                // Placeables render into HTML attributes and plain text, where the isolation
+                // marks Fluent wraps them in by default show as stray characters.
+                bundle.set_use_isolating(false);
+                if locale.to_string() == PSEUDO {
+                    bundle.set_transform(Some(pseudo));
+                }
+                bundle
+                    .add_builtins()
+                    .expect("a new bundle holds no function");
+                for resource in layers[..height].iter().flatten() {
+                    bundle.add_resource_overriding(Arc::clone(resource));
+                }
+                bundle
+            })
+            .collect(),
+    )
 }
 
-/// `text` as `bundle` spells it.
-fn format(bundle: &Bundle, text: &Text) -> String {
+/// `text` as `layered` spells it.
+fn format(layered: &Layered, text: &Text) -> String {
     match &text.0 {
         Repr::Plain(plain) => plain.to_string(),
         Repr::Integer(n) => n.to_string(),
-        Repr::Message(message) => format_message(bundle, message).unwrap_or_else(|| {
-            tracing::debug!(id = %message.id, "no catalog holds the message");
-            message
-                .fallback
-                .as_deref()
-                .unwrap_or(&message.id)
-                .to_owned()
-        }),
+        Repr::Message(message) => layered
+            .0
+            .iter()
+            .find_map(|bundle| format_message(layered, bundle, message))
+            .unwrap_or_else(|| {
+                tracing::debug!(id = %message.id, "no catalog holds the message");
+                message
+                    .fallback
+                    .as_deref()
+                    .unwrap_or(&message.id)
+                    .to_owned()
+            }),
     }
 }
 
-/// `message` as `bundle` spells it; `None` when the bundle holds neither it nor its attribute.
-fn format_message(bundle: &Bundle, message: &Message) -> Option<String> {
+/// `message` as `bundle` spells it, its `Text` arguments as `layered` does; `None` when the
+/// bundle holds neither it nor its attribute.
+fn format_message(layered: &Layered, bundle: &Bundle, message: &Message) -> Option<String> {
     let (id, attribute) = match message.id.split_once('.') {
         Some((id, attribute)) => (id, Some(attribute)),
         None => (&*message.id, None),
@@ -225,7 +247,7 @@ fn format_message(bundle: &Bundle, message: &Message) -> Option<String> {
     for (name, value) in &message.args {
         let value = match &value.0 {
             Repr::Integer(n) => FluentValue::from(*n),
-            _ => FluentValue::from(format(bundle, value)),
+            _ => FluentValue::from(format(layered, value)),
         };
         args.set(Cow::clone(name), value);
     }

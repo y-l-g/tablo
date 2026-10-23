@@ -7,7 +7,7 @@ use topcoat::{
     view::{AttributeValueViewParts, NodeViewParts, PartsWriter},
 };
 
-use crate::naming::{capitalize, derived_id, sentence_case, slug_case, type_short_name};
+use crate::naming::{capitalize, derived_id, pluralize, sentence_case, slug_case, type_short_name};
 
 /// A word a panel renders: plain text, or a message the request's [`locale`](crate::locale)
 /// spells.
@@ -70,11 +70,21 @@ impl Text {
         })))
     }
 
-    /// Fills the message's placeable `name` with `value`; on plain text it does nothing.
+    /// Fills the message's placeable `name` with `value`.
+    ///
+    /// # Panics
+    ///
+    /// In a debug build, on plain text, which has no placeable to fill. A release build ignores
+    /// the argument.
     #[must_use]
     pub fn arg(mut self, name: impl Into<Cow<'static, str>>, value: impl Into<Self>) -> Self {
-        if let Repr::Message(message) = &mut self.0 {
-            message.args.push((name.into(), value.into()));
+        let name = name.into();
+        match &mut self.0 {
+            Repr::Message(message) => message.args.push((name, value.into())),
+            _ => debug_assert!(
+                false,
+                "`Text::arg({name:?})` on plain text, which reads none"
+            ),
         }
         self
     }
@@ -117,6 +127,24 @@ impl Text {
     pub(crate) fn model<M: ?Sized>() -> Self {
         let noun = sentence_case(type_short_name::<M>());
         Self::derived(derived_id("resource", &slug_case(&noun)), noun)
+    }
+
+    /// The plural of a resource's label: plain text pluralized in English, and a message's
+    /// attribute `plural`, with its arguments, which renders its fallback pluralized when no
+    /// catalog holds it.
+    pub(crate) fn plural(&self) -> Self {
+        match &self.0 {
+            Repr::Plain(text) => Self::from(pluralize(text)),
+            Repr::Integer(_) => self.clone(),
+            Repr::Message(message) => Self(Repr::Message(Box::new(Message {
+                id: format!("{}.plural", message.id).into(),
+                args: message.args.clone(),
+                fallback: message
+                    .fallback
+                    .as_deref()
+                    .map(|fallback| pluralize(fallback).into()),
+            }))),
+        }
     }
 
     /// The English spelling, as Tablo's own catalog writes it, for what has no request: a

@@ -31,9 +31,9 @@ derive-where = "1.7"
 email_address = { version = "0.2", default-features = false }
 # The catalogs a panel spells its words from (ADR-0034), and the `Accept-Language` negotiation
 # that picks one of a panel's locales; `fluent-bundle` pulls in this `fluent-langneg` and
-# `unic-langid` already.
+# `unic-langid` already. `cldr` adds the likely subtags that tell `zh-HK` reads `zh-Hant`.
 fluent-bundle = "0.16"
-fluent-langneg = "0.13"
+fluent-langneg = { version = "0.13", features = ["cldr"] }
 form_urlencoded = "1.2"
 futures-util = { version = "0.3", default-features = false, features = ["alloc"] }
 getrandom = "0.4"

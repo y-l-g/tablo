@@ -1,15 +1,26 @@
 //! The locale a request reads the panel in, from the signed-in user, else the browser's
-//! `Accept-Language`, else the panel's default, and the app's catalog over Tablo's in it.
+//! `Accept-Language`, else the panel's default, and the app's catalog over Tablo's in it; and the
+//! locale a mail reads, its recipient's.
 
+use http::header::VARY;
 use tablo::{
-    Allow, Auth, Authenticator, DeclarationErrorKind, LocaleFault, Panel, PanelUser, Resource,
-    ResourceDef, Table, TextColumn, auth::AuthSession, lens, testing::page_language,
+    Allow, Auth, AuthMail, Authenticator, DeclarationErrorKind, LocaleFault, Panel, PanelUser,
+    PasswordReset, Resource, ResourceDef, RouterBuilderPanelExt, Table, TextColumn,
+    auth::{AuthSession, AuthToken, PasswordResetter},
+    lens,
+    testing::{form_body, page_language},
 };
 use toasty::Db;
-use topcoat::{context::Cx, router::Router};
+use topcoat::{
+    context::Cx,
+    mail::{MailConfig, Mailbox, MemoryTransport, RouterBuilderMailExt},
+    router::{Router, RouterBuilderDiscoverExt},
+};
 use uuid::Uuid;
 
-use crate::common::{TestClient, body_string, field_error_message, mount, refusal, test_db};
+use crate::common::{
+    TestClient, body_string, field_error_message, mail::mails, mount, refusal, test_db,
+};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Book {
@@ -46,6 +57,7 @@ struct Reader {
     #[auto]
     id: Uuid,
     name: String,
+    email: String,
     locale: Option<String>,
 }
 
@@ -56,6 +68,10 @@ impl PanelUser for Reader {
 
     fn display_name(&self) -> &str {
         &self.name
+    }
+
+    fn email(&self) -> Option<&str> {
+        Some(&self.email)
     }
 
     fn locale(&self) -> Option<&str> {
@@ -88,8 +104,41 @@ impl Authenticator for ReaderAuth {
     }
 }
 
+impl PasswordResetter for ReaderAuth {
+    type User = Reader;
+
+    async fn find_by_email(&self, cx: &Cx, email: &str) -> topcoat::Result<Option<Reader>> {
+        Ok(Reader::filter(Reader::fields().email().eq(email))
+            .first()
+            .exec(&mut tablo::db::db(cx))
+            .await?)
+    }
+
+    async fn reset_password(
+        &self,
+        _cx: &Cx,
+        _user_id: &str,
+        _password: &str,
+        _ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<()> {
+        Ok(())
+    }
+}
+
 async fn db() -> Db {
-    test_db(toasty::models!(Book, Reader, AuthSession)).await
+    test_db(toasty::models!(Book, Reader, AuthSession, AuthToken)).await
+}
+
+/// A reader named `name`, reading in `locale`.
+async fn reader(db: &Db, name: &str, locale: Option<&str>) -> Reader {
+    toasty::create!(Reader {
+        name: name.to_string(),
+        email: format!("{}@example.com", name.to_lowercase()),
+        locale: locale.map(str::to_string),
+    })
+    .exec(&mut db.clone())
+    .await
+    .unwrap()
 }
 
 /// A panel offering French, then English, with the app's own French for the derived label of
@@ -137,6 +186,9 @@ async fn accept_language_picks_the_offered_locale() {
         (Some("en-GB, fr;q=0.5"), &english),
         (Some("fr-CA, en;q=0.5"), &french),
         (Some("de"), &french),
+        // A language the browser refuses reads none, and weight wins over order.
+        (Some("fr;q=0, en"), &english),
+        (Some("fr;q=0.1, en;q=0.9"), &english),
     ] {
         let client = TestClient::new(&router);
         let client = match languages {
@@ -158,13 +210,7 @@ async fn a_users_locale_wins_over_the_browsers() {
         ("Grace", None, "fr"),
         ("Hedy", Some("de"), "fr"),
     ] {
-        let reader = toasty::create!(Reader {
-            name: name.to_string(),
-            locale: locale.map(str::to_string),
-        })
-        .exec(&mut db.clone())
-        .await
-        .unwrap();
+        let reader = reader(&db, name, locale).await;
         let client = TestClient::new(&router)
             .language("fr")
             .sign_in(&db, "admin", &reader)
@@ -200,5 +246,74 @@ async fn mount_refuses_a_locale_no_request_could_read() {
                 locale: "tlh".to_string()
             }),
         ]
+    );
+}
+
+/// A page of a panel offering several locales tells caches it varies with the browser's
+/// languages.
+#[tokio::test]
+async fn a_page_varies_with_accept_language() {
+    let db = db().await;
+    let router = router(&db, Auth::disabled());
+    let response = TestClient::new(&router).get("/admin/books").await;
+    let varies: Vec<_> = response
+        .headers()
+        .get_all(VARY)
+        .iter()
+        .map(|value| value.to_str().unwrap().to_ascii_lowercase())
+        .collect();
+    assert!(
+        varies.iter().any(|value| value == "accept-language"),
+        "{varies:?}"
+    );
+}
+
+/// A reset link is mailed in its recipient's locale, whatever browser asked for it.
+#[tokio::test]
+async fn a_reset_mail_reads_its_recipients_locale() {
+    let db = db().await;
+    let mail = MemoryTransport::new();
+    let auth = Auth::custom(ReaderAuth)
+        .mail(AuthMail::new(
+            Mailbox::new("no-reply@example.com").unwrap(),
+            "https://admin.example.com/",
+        ))
+        .password_reset(PasswordReset::new(ReaderAuth));
+    let router = Router::builder()
+        .discover()
+        .app_context(db.clone())
+        .mail(MailConfig::builder().transport(mail.clone()).build())
+        .panel(panel(auth))
+        .expect("panel builds")
+        .build();
+    reader(&db, "Ada", Some("en")).await;
+    reader(&db, "Grace", None).await;
+    for email in ["ada@example.com", "grace@example.com"] {
+        TestClient::new(&router)
+            .language("fr")
+            .submit("/admin/forgot-password", &form_body(&[("email", email)]))
+            .await;
+    }
+    let sent = mails(&mail, 2).await;
+    let subject = |to: &str| {
+        sent.iter()
+            .find(|mail| {
+                mail.to()
+                    .iter()
+                    .any(|mailbox| mailbox.to_string().contains(to))
+            })
+            .expect("a mail went to the reader")
+            .subject()
+            .to_string()
+    };
+    assert!(
+        subject("ada@").starts_with("Reset your"),
+        "{}",
+        subject("ada@")
+    );
+    assert!(
+        subject("grace@").starts_with("Réinitialisez"),
+        "{}",
+        subject("grace@")
     );
 }

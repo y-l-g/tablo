@@ -141,10 +141,10 @@ impl<R: Resource> ResourceDef<R> {
 
     /// The list title and sidebar label.
     ///
-    /// Defaults to the attribute `plural` of the default label's message,
-    /// `resource-{model}.plural`, else the pluralized English [`label`](Self::label):
-    /// `Category` → `Categories`, `Person` → `People`. A label the app translates wants its
-    /// plural declared too.
+    /// Defaults to the plural of the [`label`](Self::label): a plain label pluralized in English,
+    /// `Category` reading `Categories` and `Person` `People`, and a message's attribute `plural`.
+    /// The default label's message is `resource-{model}`, so its plural is
+    /// `resource-{model}.plural`, else the derived English noun pluralized.
     ///
     /// ```ftl
     /// resource-blog-post = Article

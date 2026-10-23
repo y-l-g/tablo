@@ -92,6 +92,21 @@ tablo-list-retry = Réessayer
 tablo-list-export = Exporter en CSV
 tablo-list-import = Importer un CSV
 
+tablo-column-date = { $day } { $month ->
+        [1] janv.
+        [2] févr.
+        [3] mars
+        [4] avr.
+        [5] mai
+        [6] juin
+        [7] juil.
+        [8] août
+        [9] sept.
+        [10] oct.
+        [11] nov.
+       *[12] déc.
+    } { $year }
+
 ## Filters
 
 tablo-filter-ignored = Filtre(s) ignoré(s) :
@@ -183,7 +198,7 @@ tablo-import-imported = { $count ->
    *[other] { $count } lignes importées
 }
 tablo-import-title = Importer { $label }
-tablo-import-description = Chaque ligne du fichier crée un enregistrement « { $label } ». La première ligne nomme les colonnes ; une ligne refusée n'importe rien, corrigez donc le fichier et importez-le à nouveau.
+tablo-import-description = Chaque ligne du fichier crée un enregistrement dans « { $label } ». La première ligne nomme les colonnes ; une ligne refusée n'importe rien, corrigez donc le fichier et importez-le à nouveau.
 tablo-import-template = Télécharger le modèle
 tablo-import-file = Fichier CSV
 tablo-import-submit = Importer
@@ -216,6 +231,7 @@ tablo-import-unseen = Un champ que vous ne voyez pas refuse cette ligne
 ## Detail pages
 
 tablo-detail-back = Retour à la liste
+tablo-record-title = { $label } { $key }
 
 ## Fields
 

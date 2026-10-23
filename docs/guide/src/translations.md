@@ -18,11 +18,13 @@ adds the app's catalog for one:
 A panel that lists none offers English alone. A request reads, in order:
 
 1. the signed-in user's `PanelUser::locale`, when the panel offers it;
-2. the best match of the browser's `Accept-Language`;
+2. the best match of the browser's `Accept-Language`, by weight, without a language it weighs
+   `q=0`;
 3. the panel's default, the first it lists.
 
-A region reads its language's locale: `fr-CA` reads a panel's `fr`. The page's `<html lang>`
-names the locale it was read in.
+A region reads its language's locale: `fr-CA` reads a panel's `fr`, and `zh-HK` reads `zh-Hant`
+over `zh-Hans`. The page's `<html lang>` names the locale it was read in, and a panel offering
+several locales answers `Vary: Accept-Language`, so a shared cache keeps one copy per language.
 
 The panel refuses to mount an empty list, a tag that is not BCP 47, a locale listed twice, a
 locale no catalog translates, a catalog for a locale the panel does not offer (`en` aside), and a
@@ -39,9 +41,13 @@ A catalog holds the app's messages, and any of Tablo's it spells otherwise:
 ```
 
 A message the request's locale leaves out reads from the default locale's catalogs, then from
-English, so a partial translation renders. An English locale reads English alone. Tablo's
-message ids start with `tablo-`, so an app's never collide with them; its `locales/en.ftl` lists
-every one.
+English, so a partial translation renders, and so does an attribute a message redefines without.
+An English locale reads English alone. Tablo's message ids start with `tablo-`, so an app's
+other ids never collide with them; its `locales/en.ftl` lists every one, and an app overrides one
+by defining its id.
+
+A catalog calls Fluent's `NUMBER` function, such as `{ NUMBER($total, minimumFractionDigits: 2) }`.
+Numbers render without grouping in every locale.
 
 ## Labels
 
@@ -60,11 +66,13 @@ translates it in its catalog without declaring it:
 | a field, column or filter on `word_count` | `field-word_count` | Word count |
 | a resource over the model `BlogPost` | `resource-blog-post` | Blog post |
 | its plural | `resource-blog-post.plural` | Blog posts |
+| the plural of a label `text!("post")` | `post.plural` | the id |
 | a page `ReportsPage` | `page-reports` | Reports |
 | an action named `publish-drafts` | `action-publish-drafts` | Publish drafts |
 
 A field, its column and its filter share the message of their name, so one translation spells
-all three.
+all three. A plain label's plural is the label pluralized in English: one written in another
+language wants its `plural_label` declared.
 
 ## Words outside a label
 
@@ -75,8 +83,9 @@ notification's title, which is stored as sent:
 {{#include ../../../examples/guide/src/translations.rs:t}}
 ```
 
-A `Text` also renders in a `view!` as it is, read in the view's locale. Mails are written in the
-locale of the request that sends them.
+A `Text` also renders in a `view!` as it is, read in the view's locale. The auth mails, a reset
+link, a verification link and a sign-in code, are written in their recipient's
+`PanelUser::locale`, else in the locale of the request that sends them.
 
 ## The user's locale
 
@@ -93,4 +102,5 @@ Offer the pseudo-locale `en-XA` to see which words no catalog spells: it renders
 message with accented letters, so a word that reads plain is one written as a plain string.
 
 What an operator reads, a mount error or a log line, stays English. So do the few words of the UI
-primitives Tablo copies from upstream ("More", "Toggle sidebar").
+primitives Tablo copies from upstream ("More", "More pages", "Sidebar", "Toggle sidebar"), and
+the labels of a choice's options.

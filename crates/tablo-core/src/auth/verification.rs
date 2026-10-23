@@ -241,7 +241,9 @@ pub(super) fn mail_after_sign_up(cx: &Cx, user: &dyn PanelUser) {
         return;
     };
     let (email, user_id) = (email.to_string(), user.user_id());
+    let locale = user.locale().map(str::to_owned);
     after_response(cx, "verification link", move |cx, panel| async move {
+        let cx = crate::i18n::addressed_to(&cx, locale.as_deref());
         mail_link(&cx, &panel, &user_id, &email).await
     });
 }
@@ -316,7 +318,9 @@ pub(super) fn notice_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         }
         if let Some(email) = signed.user.email() {
             let email = email.to_string();
+            let locale = signed.user.locale().map(str::to_owned);
             after_response(cx, "verification link", move |cx, panel| async move {
+                let cx = crate::i18n::addressed_to(&cx, locale.as_deref());
                 mail_link(&cx, &panel, &user_id, &email).await
             });
         }

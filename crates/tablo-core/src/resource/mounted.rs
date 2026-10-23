@@ -64,12 +64,8 @@ impl<R: Resource> Mounted<R> {
             .slug
             .unwrap_or_else(|| slug_case(&pluralize(&sentence_case(type_stem::<R>("Resource")))));
         let url = format!("{prefix}/{slug}");
-        let derived = Text::model::<R::Model>();
-        let plural_id = format!("{}.plural", derived.key());
-        let label = def.label.unwrap_or(derived);
-        let plural_label = def
-            .plural_label
-            .unwrap_or_else(|| Text::derived(plural_id, pluralize(&label.english())));
+        let label = def.label.unwrap_or_else(Text::model::<R::Model>);
+        let plural_label = def.plural_label.unwrap_or_else(|| label.plural());
         let mut navigation = def.navigation.unwrap_or_else(|| NavigationItem {
             label: plural_label.clone(),
             ..NavigationItem::default()
@@ -179,7 +175,14 @@ impl<R: Resource> Mounted<R> {
         self.record_title
             .as_ref()
             .and_then(|title| title.read(record))
-            .unwrap_or_else(|| format!("{} {key}", self.label.localize(cx)))
+            .unwrap_or_else(|| {
+                crate::t!(
+                    cx,
+                    "tablo-record-title",
+                    label = self.label.clone(),
+                    key = key.to_owned()
+                )
+            })
     }
 
     /// The root field the record title reads.

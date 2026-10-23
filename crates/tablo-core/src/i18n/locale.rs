@@ -1,8 +1,9 @@
 //! The request's [`Locale`]: which of its panel's locales it reads.
 
-use std::fmt;
+use std::{fmt, sync::OnceLock};
 
-use topcoat::context::{Cx, try_app_context};
+use fluent_langneg::{NegotiationStrategy, negotiate::filter_matches};
+use topcoat::context::{Cx, try_app_context, try_request_context};
 use unic_langid::LanguageIdentifier;
 
 use super::Catalog;
@@ -35,7 +36,7 @@ impl fmt::Display for Locale {
     }
 }
 
-/// The locale the request reads its words in: the signed-in user's
+/// The locale the request reads its words in: a mail's recipient's, else the signed-in user's
 /// [`locale`](crate::PanelUser::locale), else the best match of the request's `Accept-Language`,
 /// else the first of the request panel's [`locales`](crate::Panel::locales), each only when the
 /// panel offers it. Outside a panel, `en`.
@@ -59,42 +60,95 @@ pub(crate) fn catalog_and_index(cx: &Cx) -> (&Catalog, usize) {
     if locales.len() == 1 {
         return (catalog, 0);
     }
-    let preferred = (source.preferred)(cx)
-        .and_then(|tag| Locale::parse(&tag))
+    let preferred = try_request_context::<Addressee>(cx)
+        .and_then(|addressee| addressee.0.as_deref())
+        .or_else(|| (source.preferred)(cx))
+        .and_then(Locale::parse)
         .and_then(|tag| best_match(locales, &[tag.0]));
     let index = preferred
-        .or_else(|| best_match(locales, &accepted(cx)))
+        .or_else(|| match try_request_context::<AcceptedLocale>(cx) {
+            // The header is the request's own, so its match is read once.
+            Some(memo) => *memo.0.get_or_init(|| best_match(locales, &accepted(cx))),
+            None => best_match(locales, &accepted(cx)),
+        })
         .unwrap_or(0);
     (catalog, index)
 }
 
-/// The languages the request's `Accept-Language` asks for, most wanted first.
+/// `cx` writing to an account whose [`locale`](crate::PanelUser::locale) is `locale`, such as a
+/// mail's recipient: its words read that locale when the panel offers it, else the request's.
+pub(crate) fn addressed_to(cx: &Cx, locale: Option<&str>) -> Cx {
+    cx.with(Addressee(locale.map(str::to_owned)))
+}
+
+/// The locale of the account the request writes to, which [`addressed_to`] installs.
+struct Addressee(Option<String>);
+
+/// The offered locale the request's `Accept-Language` reads, once read: entering a panel installs
+/// it empty in the request context.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct AcceptedLocale(OnceLock<Option<usize>>);
+
+/// The most languages of an `Accept-Language` read, so a long header costs no more than a
+/// browser's.
+const MAX_ACCEPTED: usize = 16;
+
+/// The languages the request's `Accept-Language` asks for, the most wanted first: by weight, then
+/// in the header's order, without those weighing `q=0`, which the browser refuses.
 fn accepted(cx: &Cx) -> Vec<LanguageIdentifier> {
-    topcoat::context::try_request_context::<http::request::Parts>(cx)
+    try_request_context::<http::request::Parts>(cx)
         .and_then(|parts| parts.headers.get(http::header::ACCEPT_LANGUAGE))
         .and_then(|value| value.to_str().ok())
-        .map(fluent_langneg::accepted_languages::parse)
+        .map(parse_accepted)
         .unwrap_or_default()
 }
 
+/// The languages of the `Accept-Language` value `header`, as [`accepted`] orders them.
+pub(super) fn parse_accepted(header: &str) -> Vec<LanguageIdentifier> {
+    let mut weighted: Vec<(u16, LanguageIdentifier)> = header
+        .split(',')
+        .take(MAX_ACCEPTED)
+        .filter_map(|range| {
+            let mut params = range.split(';');
+            let tag = params.next()?.trim().parse().ok()?;
+            let weight = match params.find_map(|param| param.trim().strip_prefix("q=")) {
+                Some(q) => weight(q)?,
+                None => 1000,
+            };
+            (weight > 0).then_some((weight, tag))
+        })
+        .collect();
+    // Stable, so languages of one weight keep the header's order.
+    weighted.sort_by_key(|(weight, _)| std::cmp::Reverse(*weight));
+    weighted.into_iter().map(|(_, tag)| tag).collect()
+}
+
+/// The weight `q` in thousandths: `0` to `1` with at most three decimals; `None` when malformed.
+fn weight(q: &str) -> Option<u16> {
+    let (whole, fraction) = q.split_once('.').unwrap_or((q, ""));
+    if fraction.len() > 3 || !fraction.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    let thousandths: u16 = format!("{fraction:0<3}").parse().ok()?;
+    match whole {
+        "0" => Some(thousandths),
+        "1" if thousandths == 0 => Some(1000),
+        _ => None,
+    }
+}
+
 /// The index of the offered locale the first answerable of `requested` reads: the same tag, else
-/// the same language.
-fn best_match(offered: &[Locale], requested: &[LanguageIdentifier]) -> Option<usize> {
-    requested.iter().find_map(|wanted| {
-        offered
-            .iter()
-            .position(|locale| locale.0 == *wanted)
-            .or_else(|| {
-                offered
-                    .iter()
-                    .position(|locale| locale.0.language == wanted.language)
-            })
-    })
+/// the closest of the same language, its script told by likely subtags, so `zh-HK` reads
+/// `zh-Hant` and `fr-CA` reads `fr`.
+pub(super) fn best_match(offered: &[Locale], requested: &[LanguageIdentifier]) -> Option<usize> {
+    let tags: Vec<&LanguageIdentifier> = offered.iter().map(|locale| &locale.0).collect();
+    let found = *filter_matches(requested, &tags, NegotiationStrategy::Lookup).first()?;
+    tags.iter().position(|tag| std::ptr::eq(*tag, *found))
 }
 
 /// Finds the request panel's catalog and its user's locale; the first panel mounted on a router
 /// installs it in the app context.
 pub(crate) struct LocaleSource {
     pub(crate) catalog: for<'a> fn(&'a Cx) -> Option<&'a Catalog>,
-    pub(crate) preferred: fn(&Cx) -> Option<String>,
+    pub(crate) preferred: for<'a> fn(&'a Cx) -> Option<&'a str>,
 }

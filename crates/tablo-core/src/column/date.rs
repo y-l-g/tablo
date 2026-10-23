@@ -16,8 +16,8 @@ use crate::{Lens, values::FormScalar};
 /// tablo_core::DateColumn::new(tablo_core::lens!(Post.published_at)).sortable();
 /// ```
 ///
-/// The cell spells the day `Oct 14, 2026`, a timestamp's in the request's
-/// [`time_zone`](crate::time_zone), and a `None` renders the table's dash. The export
+/// The cell spells the day in the request's locale, `Oct 14, 2026` in English, a timestamp's in
+/// the request's [`time_zone`](crate::time_zone), and a `None` renders the table's dash. The export
 /// writes the stored spelling, `2026-10-14T09:30:00Z` or `2026-10-14`, as a
 /// [`TextColumn`](super::TextColumn) does; a group header follows the field, not the column.
 #[derive_where(Clone, Debug)]
@@ -122,7 +122,15 @@ where
             .lens
             .read(row)
             .calendar_date(&crate::time_zone(cx))
-            .map(|day| day.strftime("%b %-d, %Y").to_string())
+            .map(|day| {
+                crate::t!(
+                    cx,
+                    "tablo-column-date",
+                    year = day.year(),
+                    month = day.month(),
+                    day = day.day()
+                )
+            })
             .unwrap_or_default();
         crate::schema::value_cell(cx, &day)
     }

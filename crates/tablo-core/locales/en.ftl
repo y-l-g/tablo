@@ -93,6 +93,22 @@ tablo-list-retry = Retry
 tablo-list-export = Export CSV
 tablo-list-import = Import CSV
 
+# A date column's day, `month` from 1 to 12.
+tablo-column-date = { $month ->
+        [1] Jan
+        [2] Feb
+        [3] Mar
+        [4] Apr
+        [5] May
+        [6] Jun
+        [7] Jul
+        [8] Aug
+        [9] Sep
+        [10] Oct
+        [11] Nov
+       *[12] Dec
+    } { $day }, { $year }
+
 ## Filters
 
 tablo-filter-ignored = Ignored filter(s):
@@ -188,7 +204,7 @@ tablo-import-imported = { $count ->
    *[other] Imported { $count } rows
 }
 tablo-import-title = Import { $label }
-tablo-import-description = Each row of the file creates one { $label }. The first row names the columns; a refused row imports nothing, so correct the file and import it again.
+tablo-import-description = Each row of the file creates one record in { $label }. The first row names the columns; a refused row imports nothing, so correct the file and import it again.
 tablo-import-template = Download template
 tablo-import-file = CSV file
 tablo-import-submit = Import
@@ -221,6 +237,8 @@ tablo-import-unseen = A field you cannot see refuses this row
 ## Detail pages
 
 tablo-detail-back = Back to list
+# The title of a record whose resource names no title column: its label and its key.
+tablo-record-title = { $label } { $key }
 
 ## Fields
 

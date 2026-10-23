@@ -111,15 +111,23 @@ pub trait PasswordResetter: Send + Sync + 'static {
     ) -> impl Future<Output = topcoat::Result<()>> + Send;
 }
 
+/// The account a reset link is mailed to.
+pub(crate) struct Recipient {
+    address: String,
+    user_id: String,
+    /// The account's [`locale`](PanelUser::locale), which the mail is written in.
+    locale: Option<String>,
+}
+
 /// [`PasswordResetter`] with its user type erased, as the panel keeps it.
 pub(crate) trait DynPasswordResetter: Send + Sync {
-    /// The address to mail a reset link to for `email`, and the account's id, when an account
-    /// that may enter the panel and stores an address signs in as `email`.
+    /// Whom to mail a reset link to for `email`, when an account that may enter the panel and
+    /// stores an address signs in as `email`.
     fn recipient<'a>(
         &'a self,
         cx: &'a Cx,
         email: &'a str,
-    ) -> BoxFuture<'a, topcoat::Result<Option<(String, String)>>>;
+    ) -> BoxFuture<'a, topcoat::Result<Option<Recipient>>>;
     fn reset_password<'a>(
         &'a self,
         cx: &'a Cx,
@@ -136,7 +144,7 @@ impl<R: PasswordResetter> DynPasswordResetter for R {
         &'a self,
         cx: &'a Cx,
         email: &'a str,
-    ) -> BoxFuture<'a, topcoat::Result<Option<(String, String)>>> {
+    ) -> BoxFuture<'a, topcoat::Result<Option<Recipient>>> {
         Box::pin(async move {
             let user = self.find_by_email(cx, email).await?;
             let Some(user) = user.filter(PanelUser::can_access_panel) else {
@@ -150,7 +158,11 @@ impl<R: PasswordResetter> DynPasswordResetter for R {
                 );
                 return Ok(None);
             };
-            Ok(Some((email.to_string(), user.user_id())))
+            Ok(Some(Recipient {
+                address: email.to_string(),
+                user_id: user.user_id(),
+                locale: user.locale().map(str::to_owned),
+            }))
         })
     }
 
@@ -293,9 +305,9 @@ pub(super) fn forgot_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
                 return Err(error);
             }
         };
-        if let Some((address, user_id)) = recipient {
+        if let Some(recipient) = recipient {
             after_response(cx, "password reset link", move |cx, panel| async move {
-                mail_link(&cx, &panel, &address, &user_id).await
+                mail_link(&cx, &panel, &recipient).await
             });
         }
         set_notification(
@@ -307,9 +319,15 @@ pub(super) fn forgot_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
     })
 }
 
-/// Records a new reset token for `user_id` on `panel`, replacing the account's earlier ones
-/// there, and mails its link to `address`.
-async fn mail_link(cx: &Cx, panel: &Realm, address: &str, user_id: &str) -> topcoat::Result<()> {
+/// Records a new reset token for `recipient` on `panel`, replacing the account's earlier ones
+/// there, and mails its link to the account's address, in its locale.
+async fn mail_link(cx: &Cx, panel: &Realm, recipient: &Recipient) -> topcoat::Result<()> {
+    let Recipient {
+        address,
+        user_id,
+        locale,
+    } = recipient;
+    let cx = &crate::i18n::addressed_to(cx, locale.as_deref());
     let mail = panel
         .auth
         .auth_mail()

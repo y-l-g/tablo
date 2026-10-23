@@ -228,8 +228,8 @@ pub(crate) fn session_catalog(cx: &Cx) -> Option<&crate::i18n::Catalog> {
 
 /// The signed-in user's [`locale`](PanelUser::locale), which the
 /// [`LocaleSource`](crate::i18n::LocaleSource) the panel installs reads.
-pub(crate) fn session_locale(cx: &Cx) -> Option<String> {
-    signed(cx).and_then(|signed| signed.user.locale().map(str::to_owned))
+pub(crate) fn session_locale(cx: &Cx) -> Option<&str> {
+    signed(cx).and_then(|signed| signed.user.locale())
 }
 
 /// The signed-in user, as the app's own user type.

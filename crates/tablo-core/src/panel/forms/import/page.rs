@@ -14,7 +14,6 @@ use crate::{
 
 /// What the import page shows of the resource and the request.
 pub(super) struct ImportPage {
-    label: crate::Text,
     plural_label: crate::Text,
     list_url: String,
     template_url: String,
@@ -23,7 +22,6 @@ pub(super) struct ImportPage {
 
 pub(super) fn page_of<R: Resource>(cx: &Cx, resource: &Mounted<R>) -> ImportPage {
     ImportPage {
-        label: resource.label.clone(),
         plural_label: resource.plural_label.clone(),
         list_url: resource.url.clone(),
         template_url: import_template_url(&resource.url),
@@ -40,7 +38,6 @@ pub(super) fn render_import_page<'a>(
     failures: Vec<RowError>,
 ) -> BoxView<'a> {
     let ImportPage {
-        label,
         plural_label,
         list_url,
         template_url,
@@ -55,12 +52,8 @@ pub(super) fn render_import_page<'a>(
         None => path.to_string(),
     };
     let cancel = return_to.unwrap_or(list_url);
-    let title = crate::t!(cx, "tablo-import-title", label = plural_label);
-    let description = crate::t!(
-        cx,
-        "tablo-import-description",
-        label = label.localize(cx).to_lowercase()
-    );
+    let title = crate::t!(cx, "tablo-import-title", label = &plural_label);
+    let description = crate::t!(cx, "tablo-import-description", label = plural_label);
     let outline =
         tablo_ui::button_variants(tablo_ui::ButtonVariant::Outline, tablo_ui::ButtonSize::Md);
     let template_class = outline.clone();

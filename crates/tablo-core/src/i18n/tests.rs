@@ -179,3 +179,87 @@ fn mount_refuses_what_no_request_could_read() {
         [LocaleFault::Syntax { errors, .. }] if errors[0].starts_with("line 2:")
     ));
 }
+
+/// The locale of `offered` the `Accept-Language` value `header` reads.
+fn negotiated(offered: &[&str], header: &str) -> Option<String> {
+    let offered: Vec<Locale> = offered
+        .iter()
+        .map(|tag| Locale::parse(tag).expect("an offered tag parses"))
+        .collect();
+    locale::best_match(&offered, &locale::parse_accepted(header))
+        .map(|index| offered[index].to_string())
+}
+
+#[test]
+fn accept_language_reads_by_weight_and_skips_refused_languages() {
+    let read = |header| negotiated(&["en", "fr"], header);
+    assert_eq!(read("fr;q=0, en").as_deref(), Some("en"));
+    assert_eq!(read("en;q=0.1, fr;q=0.9").as_deref(), Some("fr"));
+    assert_eq!(read("de, fr;q=0.5, en;q=0.5").as_deref(), Some("fr"));
+    assert_eq!(read("fr;q=2, en;q=0.x, en;q=0.5").as_deref(), Some("en"));
+    assert_eq!(read("*, de").as_deref(), None);
+    // A header past its first languages reads as those.
+    let long = format!("{}fr", "de,".repeat(64));
+    assert_eq!(read(&long), None);
+}
+
+#[test]
+fn a_language_reads_the_offered_locale_of_its_script() {
+    let read = |header| negotiated(&["zh-Hans", "zh-Hant", "fr"], header);
+    assert_eq!(read("zh-HK").as_deref(), Some("zh-Hant"));
+    assert_eq!(read("zh-TW").as_deref(), Some("zh-Hant"));
+    assert_eq!(read("zh-CN").as_deref(), Some("zh-Hans"));
+    assert_eq!(read("fr-CA").as_deref(), Some("fr"));
+    assert_eq!(negotiated(&["en-GB", "fr"], "en").as_deref(), Some("en-GB"));
+}
+
+/// A message an upper layer redefines without an attribute reads the attribute from below.
+#[test]
+fn an_attribute_a_locale_leaves_out_reads_from_below() {
+    let catalog = catalog(
+        &["fr"],
+        &[
+            ("en", "resource-person = Person\n    .plural = People"),
+            ("fr", "resource-person = Personne"),
+        ],
+    )
+    .expect("the catalog builds");
+    let person = Text::model::<Person>();
+    assert_eq!(spell(&catalog, "fr", &person), "Personne");
+    assert_eq!(spell(&catalog, "fr", &person.plural()), "People");
+}
+
+struct Person;
+
+/// A resource's plural follows its label: a plain label pluralized, a message's attribute
+/// `plural`, else its id.
+#[test]
+fn a_labels_plural_follows_the_label() {
+    let catalog = catalog(
+        &["en"],
+        &[(
+            "en",
+            "book-label = Volume\n    .plural = Volumes\nbare = Bare",
+        )],
+    )
+    .expect("the catalog builds");
+    let plural = |text: Text| spell(&catalog, "en", &text.plural());
+    assert_eq!(plural(Text::from("Category")), "Categories");
+    assert_eq!(plural(Text::message("book-label")), "Volumes");
+    assert_eq!(plural(Text::message("bare")), "bare.plural");
+    assert_eq!(plural(Text::model::<Person>()), "People");
+}
+
+#[test]
+fn a_catalog_calls_fluents_functions() {
+    let catalog = catalog(
+        &["en"],
+        &[(
+            "en",
+            "price = { NUMBER($amount, minimumFractionDigits: 2) }",
+        )],
+    )
+    .expect("the catalog builds");
+    let price = Text::message("price").arg("amount", 3);
+    assert_eq!(spell(&catalog, "en", &price), "3.00");
+}
