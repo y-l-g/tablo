@@ -227,7 +227,7 @@ async fn no_access(cx: &Cx) -> topcoat::Result<Response> {
                 variant: tablo_ui::ButtonVariant::Outline,
                 attrs: attributes! { type="submit" class="w-full" },
                 icon(data: tablo_ui::icons::LOG_OUT)
-                "Sign out"
+                (crate::t!(cx, "tablo-shell-sign-out"))
             )
         </form>
     }
@@ -235,8 +235,12 @@ async fn no_access(cx: &Cx) -> topcoat::Result<Response> {
     let page = render(
         cx,
         AuthPage {
-            title: "Access denied",
-            description: format!("Your account cannot open {}.", hosted(cx)?.brand_name(cx)),
+            title: crate::t!(cx, "tablo-error-forbidden"),
+            description: crate::t!(
+                cx,
+                "tablo-gate-description",
+                brand = hosted(cx)?.brand_name(cx)
+            ),
             status: Some(http::StatusCode::FORBIDDEN),
             form,
             switch: None,

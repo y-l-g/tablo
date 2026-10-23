@@ -231,17 +231,21 @@ impl FormInput for SignUp {
     fn schema() -> Schema {
         let field = crate::form::required_input;
         Schema::new((
-            field(Field::text_input::<String>("name").label("Name")),
-            field(Field::text_input::<String>("email").email().label("Email")),
+            field(Field::text_input::<String>("name").label(crate::text!("tablo-auth-name"))),
+            field(
+                Field::text_input::<String>("email")
+                    .email()
+                    .label(crate::text!("tablo-auth-email")),
+            ),
             field(
                 Field::text_input::<String>(PASSWORD_FIELD)
                     .password()
-                    .label("Password"),
+                    .label(crate::text!("tablo-auth-password")),
             ),
             field(
                 Field::text_input::<String>(CONFIRMATION_FIELD)
                     .password()
-                    .label("Confirm password"),
+                    .label(crate::text!("tablo-auth-confirm-password")),
             ),
         ))
     }
@@ -297,11 +301,11 @@ pub fn new_password_errors(password: &str, confirmation: &str) -> FieldErrors {
     if password.chars().count() < MIN_PASSWORD_CHARS {
         errors.add(
             PASSWORD_FIELD,
-            format!("Password must be at least {MIN_PASSWORD_CHARS} characters"),
+            crate::text!("tablo-password-too-short", min = MIN_PASSWORD_CHARS),
         );
     }
     if password != confirmation {
-        errors.add(CONFIRMATION_FIELD, "Passwords do not match");
+        errors.add(CONFIRMATION_FIELD, crate::text!("tablo-password-mismatch"));
     }
     errors
 }
@@ -382,8 +386,8 @@ pub(super) fn register_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         if !user.can_access_panel() {
             set_notification(
                 cx,
-                Notification::success("Account created")
-                    .description("You can sign in once it is approved."),
+                Notification::success(crate::t!(cx, "tablo-sign-up-created"))
+                    .description(crate::t!(cx, "tablo-sign-up-pending")),
             );
             return topcoat::router::error::see_other(login_url(cx)).into_response(cx);
         }
@@ -398,7 +402,8 @@ pub(super) fn register_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             tracing::error!(error = %infrastructure_failure(error), "sign-up session not recorded");
             set_notification(
                 cx,
-                Notification::success("Account created").description("Sign in to continue."),
+                Notification::success(crate::t!(cx, "tablo-sign-up-created"))
+                    .description(crate::t!(cx, "tablo-sign-up-sign-in")),
             );
             return topcoat::router::error::see_other(login_url(cx)).into_response(cx);
         }
@@ -435,10 +440,11 @@ enum Alert {
 }
 
 impl Alert {
+    /// The message the page renders.
     fn message(self) -> &'static str {
         match self {
-            Self::Throttled => "Too many sign-up attempts. Try again shortly.",
-            Self::Unavailable => "Sign-up is unavailable right now. Try again shortly.",
+            Self::Throttled => "tablo-sign-up-throttled",
+            Self::Unavailable => "tablo-sign-up-unavailable",
         }
     }
 
@@ -492,14 +498,14 @@ async fn render_page<'a>(
                 tablo_ui::alert(
                     variant: tablo_ui::AlertVariant::Destructive,
                     attrs: topcoat::view::attributes! { role="alert" },
-                    tablo_ui::alert_title((alert.message()))
+                    tablo_ui::alert_title((crate::t!(cx, alert.message())))
                 )
             }
             (fields)
             tablo_ui::button(
                 variant: tablo_ui::ButtonVariant::Primary,
                 attrs: topcoat::view::attributes! { type="submit" class="w-full" },
-                "Sign up"
+                (crate::t!(cx, "tablo-sign-up-submit"))
             )
         </form>
     }
@@ -507,15 +513,19 @@ async fn render_page<'a>(
     super::page::render(
         cx,
         super::page::AuthPage {
-            title: "Create an account",
-            description: format!("Sign up for {}.", hosted(cx)?.brand_name(cx)),
+            title: crate::t!(cx, "tablo-sign-up-title"),
+            description: crate::t!(
+                cx,
+                "tablo-sign-up-description",
+                brand = hosted(cx)?.brand_name(cx)
+            ),
             status,
             form,
             switch: Some(super::page::switch_link(
                 cx,
-                "Already have an account?",
+                "tablo-sign-up-have-account",
                 &login,
-                "Sign in",
+                "tablo-sign-up-sign-in-link",
             )),
             note: None,
         },

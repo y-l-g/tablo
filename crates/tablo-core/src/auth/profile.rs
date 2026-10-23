@@ -301,19 +301,23 @@ impl FormInput for Profile {
     fn schema() -> Schema {
         let required = crate::form::required_input;
         Schema::new((
-            required(Field::text_input::<String>("name").label("Name")),
-            required(Field::text_input::<String>("email").email().label("Email")),
+            required(Field::text_input::<String>("name").label(crate::text!("tablo-auth-name"))),
+            required(
+                Field::text_input::<String>("email")
+                    .email()
+                    .label(crate::text!("tablo-auth-email")),
+            ),
             Field::text_input::<String>(PASSWORD_FIELD)
                 .password()
-                .label("New password")
-                .help("Leave blank to keep the current password."),
+                .label(crate::text!("tablo-auth-new-password"))
+                .help(crate::text!("tablo-profile-password-help")),
             Field::text_input::<String>(CONFIRMATION_FIELD)
                 .password()
-                .label("Confirm new password"),
+                .label(crate::text!("tablo-auth-confirm-new-password")),
             Field::text_input::<String>(CURRENT_PASSWORD_FIELD)
                 .current_password()
-                .label("Current password")
-                .help("Required to change your email or password."),
+                .label(crate::text!("tablo-auth-current-password"))
+                .help(crate::text!("tablo-profile-current-password-help")),
         ))
     }
 
@@ -416,11 +420,11 @@ pub(super) fn profile_post(cx: &Cx, body: Body) -> BoxView<'_> {
             }
             Outcome::Saved { email_pending } => email_pending,
         };
-        let saved = Notification::success("Profile saved");
+        let saved = Notification::success(crate::t!(cx, "tablo-profile-saved"));
         set_notification(
             cx,
             if email_pending {
-                saved.description("Open the link we mailed to your new address to start using it.")
+                saved.description(crate::t!(cx, "tablo-profile-email-pending"))
             } else {
                 saved
             },
@@ -439,7 +443,7 @@ async fn render<'a>(
 ) -> topcoat::Result<BoxView<'a>> {
     let schema = editor.schema();
     let page = SettingsPage {
-        title: "Profile",
+        title: crate::t!(cx, "tablo-shell-profile"),
         schema: &schema,
         hidden: None,
         values,

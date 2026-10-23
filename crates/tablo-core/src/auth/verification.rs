@@ -269,11 +269,13 @@ async fn mail_link(cx: &Cx, panel: &Realm, user_id: &str, email: &str) -> topcoa
     let brand = hosted(cx)?.brand_name(cx);
     let message = mail.compose(
         email,
-        format!("Verify your {brand} email address"),
-        format!(
-            "Open this link to confirm that {email} is the address of your {brand} account. It \
-             works once, for the next 24 hours:\n\n{link}\n\n\
-             If you did not create the account, ignore this email.\n"
+        crate::t!(cx, "tablo-verify-mail-subject", brand = brand.clone()),
+        crate::t!(
+            cx,
+            "tablo-verify-mail-body",
+            email = email,
+            brand = brand,
+            link = link
         ),
     )?;
     topcoat::mail::send(cx, message).await?;
@@ -320,8 +322,8 @@ pub(super) fn notice_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         }
         set_notification(
             cx,
-            Notification::success("Check your email")
-                .description("A new verification link is on its way."),
+            Notification::success(crate::t!(cx, "tablo-reset-sent"))
+                .description(crate::t!(cx, "tablo-verify-sent-description")),
         );
         see_other(notice_url(cx)).into_response(cx)
     })
@@ -366,7 +368,10 @@ pub(super) fn confirm_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
             .map_err(infrastructure_failure)?;
         token::spend(&mut tx, &row).await?;
         tx.commit().await.map_err(infrastructure_failure)?;
-        set_notification(cx, Notification::success("Email verified"));
+        set_notification(
+            cx,
+            Notification::success(crate::t!(cx, "tablo-verify-done")),
+        );
         // The route answers signed out, so the gate resolved no session for it.
         let signed_in_here = match panel.auth.authenticator() {
             Some(authenticator) => resolve(cx, panel, authenticator)

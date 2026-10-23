@@ -269,7 +269,7 @@ pub(super) fn forgot_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         let email = form.last(EMAIL_FIELD).map_or("", str::trim);
         if email.is_empty() {
             let mut errors = FieldErrors::new();
-            errors.add(EMAIL_FIELD, "Enter your email address");
+            errors.add(EMAIL_FIELD, crate::text!("tablo-reset-enter-email"));
             return forgot_response(cx, email, &errors, None).await;
         }
         if !reset.throttle.attempt(email, None) {
@@ -300,9 +300,8 @@ pub(super) fn forgot_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         }
         set_notification(
             cx,
-            Notification::success("Check your email").description(
-                "If an account uses that address, it has a link to reset its password.",
-            ),
+            Notification::success(crate::t!(cx, "tablo-reset-sent"))
+                .description(crate::t!(cx, "tablo-reset-sent-description")),
         );
         see_other(login_url(cx)).into_response(cx)
     })
@@ -332,12 +331,13 @@ async fn mail_link(cx: &Cx, panel: &Realm, address: &str, user_id: &str) -> topc
     let minutes = RESET_LIFETIME.as_secs() / 60;
     let message = mail.compose(
         address,
-        format!("Reset your {brand} password"),
-        format!(
-            "Someone asked to reset the password of your {brand} account.\n\n\
-             Open this link to choose a new one. It works once, for the next {minutes} \
-             minutes:\n\n{link}\n\n\
-             If you did not ask, ignore this email: your password stays the same.\n"
+        crate::t!(cx, "tablo-reset-mail-subject", brand = brand.clone()),
+        crate::t!(
+            cx,
+            "tablo-reset-mail-body",
+            brand = brand,
+            minutes = minutes,
+            link = link
         ),
     )?;
     topcoat::mail::send(cx, message).await?;
@@ -410,7 +410,8 @@ pub(super) fn reset_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         tx.commit().await.map_err(infrastructure_failure)?;
         set_notification(
             cx,
-            Notification::success("Password reset").description("Sign in with your new password."),
+            Notification::success(crate::t!(cx, "tablo-reset-done"))
+                .description(crate::t!(cx, "tablo-reset-done-description")),
         );
         see_other(login_url(cx)).into_response(cx)
     })

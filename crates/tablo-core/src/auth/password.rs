@@ -138,7 +138,7 @@ impl Registrar for PasswordAuth {
         .await
         .map_err(infrastructure_failure)?;
         if taken.is_some() {
-            errors.add("email", "Email has already been taken");
+            errors.add("email", email_taken());
         }
         Ok(errors)
     }
@@ -188,10 +188,13 @@ impl ProfileEditor for PasswordAuth {
             match &profile.current_password {
                 None => errors.add(
                     CURRENT_PASSWORD_FIELD,
-                    "Enter your current password to change your email or password",
+                    crate::text!("tablo-profile-current-password-needed"),
                 ),
                 Some(current) if !verify_password(current, Some(&admin.password_hash)).await => {
-                    errors.add(CURRENT_PASSWORD_FIELD, "The current password is incorrect");
+                    errors.add(
+                        CURRENT_PASSWORD_FIELD,
+                        crate::text!("tablo-profile-current-password-wrong"),
+                    );
                 }
                 Some(_) => {}
             }
@@ -209,7 +212,7 @@ impl ProfileEditor for PasswordAuth {
             .await
             .map_err(infrastructure_failure)?;
             if taken.is_some_and(|other| other.id != admin.id) {
-                errors.add("email", "Email has already been taken");
+                errors.add("email", email_taken());
             }
         }
         Ok(errors)
@@ -454,4 +457,12 @@ pub(super) async fn permitted<T: Send + 'static>(
         Ok(value) => value,
         Err(error) => std::panic::resume_unwind(error.into_panic()),
     }
+}
+
+/// The refusal of an email another account holds.
+fn email_taken() -> crate::Text {
+    crate::text!(
+        "tablo-field-taken",
+        label = crate::text!("tablo-auth-email")
+    )
 }

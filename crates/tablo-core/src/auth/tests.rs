@@ -99,6 +99,11 @@ fn token_keys_are_hex_encoded_sha256() {
     assert!(key.chars().all(|c| c.is_ascii_hexdigit()));
 }
 
+/// What every failed login renders, in English.
+fn generic_error() -> String {
+    crate::Text::message(GENERIC_ERROR).english()
+}
+
 /// Declares the shipped auth models without pushing their schema, so the first
 /// statement fails at the driver.
 async fn schema_less_db() -> Db {
@@ -122,7 +127,7 @@ fn infrastructure_failure_maps_driver_errors_to_the_opaque_sign_in_copy() {
         "driver text must not leak, got {rendered}"
     );
     assert!(
-        !rendered.contains(GENERIC_ERROR),
+        !rendered.contains(&generic_error()),
         "an outage must not read as a rejected password, got {rendered}"
     );
 }
@@ -233,7 +238,7 @@ async fn a_driver_login_failure_does_not_echo_driver_text() {
         "driver text must not reach the response: the driver said {driver:?}, the response said {rendered:?}"
     );
     assert!(
-        !rendered.contains(GENERIC_ERROR),
+        !rendered.contains(&generic_error()),
         "an outage must not read as a rejected password, got {rendered:?}"
     );
 }
@@ -268,7 +273,7 @@ async fn a_rejected_password_still_renders_the_generic_error() {
         "a rejection is not an outage"
     );
     assert!(
-        rendered.contains(GENERIC_ERROR),
+        rendered.contains(&generic_error()),
         "the credential copy must survive, got {rendered:?}"
     );
     assert!(

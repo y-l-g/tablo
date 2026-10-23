@@ -187,11 +187,17 @@ fn mail(cx: &Cx, request: Request) {
         let new = &request.new;
         let message = mail.compose(
             new,
-            format!("Confirm your new {brand} email address"),
-            format!(
-                "Open this link to make {new} the address of your {brand} account. It works \
-                 once, for the next 24 hours:\n\n{confirm}\n\n\
-                 If you did not ask for the change, ignore this email.\n"
+            crate::t!(
+                &cx,
+                "tablo-email-change-mail-subject",
+                brand = brand.clone()
+            ),
+            crate::t!(
+                &cx,
+                "tablo-email-change-mail-body",
+                new = new,
+                brand = brand.clone(),
+                link = confirm
             ),
         )?;
         topcoat::mail::send(&cx, message).await?;
@@ -199,12 +205,18 @@ fn mail(cx: &Cx, request: Request) {
             let cancel = mail.link(&cancel_url(&cx), cancel);
             let message = mail.compose(
                 old,
-                format!("Your {brand} email address is changing"),
-                format!(
-                    "Someone asked to change the address of your {brand} account to {new}.\n\n\
-                     If it was not you, open this link within 7 days to keep {old}, even if the \
-                     change went through, and sign every browser out, then reset your \
-                     password:\n\n{cancel}\n"
+                crate::t!(
+                    &cx,
+                    "tablo-email-change-notice-subject",
+                    brand = brand.clone()
+                ),
+                crate::t!(
+                    &cx,
+                    "tablo-email-change-notice-body",
+                    brand = brand.clone(),
+                    new = new,
+                    old = old,
+                    link = cancel
                 ),
             )?;
             topcoat::mail::send(&cx, message).await?;
@@ -269,9 +281,9 @@ async fn opened(
 /// changes nothing, so a mail scanner that fetches it changes nothing either.
 async fn link_page(
     cx: &Cx,
-    title: &'static str,
+    title: String,
     description: String,
-    button: &'static str,
+    button: String,
 ) -> topcoat::Result<Response> {
     let csrf = crate::csrf::ensure_token(cx);
     let action = topcoat::router::request::uri(cx).path().to_string();
@@ -338,9 +350,9 @@ pub(super) fn confirm_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
         let email = opened.row.email.unwrap_or_default();
         link_page(
             cx,
-            "Confirm your new email",
-            format!("Make {email} the address you sign in with."),
-            "Confirm",
+            crate::t!(cx, "tablo-email-change-confirm-title"),
+            crate::t!(cx, "tablo-email-change-confirm-description", email = email),
+            crate::t!(cx, "tablo-confirm"),
         )
         .await
     })
@@ -393,8 +405,11 @@ pub(super) fn confirm_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         tx.commit().await.map_err(infrastructure_failure)?;
         set_notification(
             cx,
-            Notification::success("Email changed")
-                .description(format!("You now sign in as {email}.")),
+            Notification::success(crate::t!(cx, "tablo-email-change-done")).description(crate::t!(
+                cx,
+                "tablo-email-change-done-description",
+                email = email
+            )),
         );
         private(see_other(landing).into_response(cx)?)
     })
@@ -411,12 +426,9 @@ pub(super) fn cancel_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
         let email = opened.row.email.unwrap_or_default();
         link_page(
             cx,
-            "Keep your email",
-            format!(
-                "Keep {email} as the address you sign in with, even if the change went \
-                 through, and sign every browser out."
-            ),
-            "Keep my address",
+            crate::t!(cx, "tablo-email-change-keep-title"),
+            crate::t!(cx, "tablo-email-change-keep-description", email = email),
+            crate::t!(cx, "tablo-email-change-keep"),
         )
         .await
     })
@@ -462,9 +474,10 @@ pub(super) fn cancel_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         topcoat::session::stop(cx).await?;
         set_notification(
             cx,
-            Notification::success("Email kept").description(format!(
-                "You sign in as {old}, and every browser is signed out. Reset your password if \
-                 someone else knows it."
+            Notification::success(crate::t!(cx, "tablo-email-change-kept")).description(crate::t!(
+                cx,
+                "tablo-email-change-kept-description",
+                email = old
             )),
         );
         private(see_other(login_url(cx)).into_response(cx)?)

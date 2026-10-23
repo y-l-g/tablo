@@ -12,7 +12,7 @@ use super::realm::hosted;
 /// One auth page's parts.
 pub(super) struct AuthPage<'a> {
     /// The document title and the card's heading.
-    pub(super) title: &'static str,
+    pub(super) title: String,
     /// The line under the heading.
     pub(super) description: String,
     /// The response status a failed attempt sets.
@@ -37,6 +37,7 @@ pub(super) async fn render<'a>(cx: &'a Cx, page: AuthPage<'a>) -> topcoat::Resul
     } = page;
     let host = hosted(cx)?;
     let brand = host.page_brand(cx);
+    let heading = title.clone();
     let body = view! {
         cx =>
         <main
@@ -50,7 +51,7 @@ pub(super) async fn render<'a>(cx: &'a Cx, page: AuthPage<'a>) -> topcoat::Resul
                 attrs: topcoat::view::attributes! { class="w-full max-w-sm" },
                 card_header(
                     <h1 class="text-xl leading-none font-semibold tracking-tight">
-                        (title)
+                        (heading)
                     </h1>
                     card_description((description))
                 )
@@ -70,10 +71,11 @@ pub(super) async fn render<'a>(cx: &'a Cx, page: AuthPage<'a>) -> topcoat::Resul
         </main>
     }
     .boxed();
-    host.document(cx, title.to_string(), body).await
+    host.document(cx, title, body).await
 }
 
-/// `prompt` and a link to `href` reading `label`: the line under the card.
+/// The messages `prompt` and a link to `href` reading the message `label`: the line under the
+/// card.
 pub(super) fn switch_link<'a>(
     cx: &'a Cx,
     prompt: &'static str,
@@ -81,6 +83,7 @@ pub(super) fn switch_link<'a>(
     label: &'static str,
 ) -> BoxView<'a> {
     let link = crate::navigation::runtime_link(cx, href);
+    let (prompt, label) = (crate::t!(cx, prompt), crate::t!(cx, label));
     view! {
         cx =>
         (prompt)
