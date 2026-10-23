@@ -340,7 +340,6 @@ pub(crate) fn resource_import_template<R: Resource>(cx: &Cx, _body: Body) -> Rou
         let response = http::Response::builder()
             .status(200)
             .header(http::header::CONTENT_TYPE, "text/csv; charset=utf-8")
-            .header("x-content-type-options", "nosniff")
             .header(
                 http::header::CONTENT_DISPOSITION,
                 format!("attachment; filename=\"{}-template.csv\"", resource.slug),

@@ -10,32 +10,131 @@ use topcoat::{
     },
 };
 
-use super::state::under_prefix;
+use super::{Panel, state::under_prefix};
 use crate::naming::route_path;
 
 const CSP: header::HeaderName = header::CONTENT_SECURITY_POLICY;
 
-/// The panel's default directive: only the panel may frame itself.
-pub(crate) const DEFAULT_FRAME_ANCESTORS: &str = "'self'";
+/// The panel's default `Content-Security-Policy`, which
+/// [`Panel::DEFAULT_CONTENT_SECURITY_POLICY`] documents.
+pub(crate) const DEFAULT_CSP: &str = "default-src 'self'; \
+     script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; \
+     img-src 'self' data: blob: https:; font-src 'self' data: https:; \
+     media-src 'self' data: blob: https:; object-src 'none'; base-uri 'self'; \
+     form-action 'self'; frame-ancestors 'self'";
 
-/// Emits `Content-Security-Policy: frame-ancestors <directive>` on responses under the panel
-/// prefix.
+/// The `Content-Security-Policy` a panel sends.
 #[derive(Debug, Clone)]
-pub(crate) struct FrameAncestors {
-    directive: String,
-    prefix: String,
+pub(crate) enum Policy {
+    /// [`DEFAULT_CSP`], with the `topcoat dev` server allowed while it runs the app.
+    Default,
+    /// The app's own policy.
+    Custom(String),
+    /// No policy: the deployment's proxy owns it.
+    Off,
 }
 
-impl FrameAncestors {
-    pub(crate) fn new(directive: impl Into<String>, prefix: impl Into<String>) -> Self {
-        Self {
-            directive: directive.into(),
-            prefix: prefix.into(),
+impl Policy {
+    /// The header value the panel sends, if any.
+    pub(crate) fn resolve(self) -> Option<String> {
+        match self {
+            Self::Default => Some(default_csp(
+                std::env::var("TOPCOAT_DEV_URL").ok().as_deref(),
+            )),
+            Self::Custom(policy) => Some(policy),
+            Self::Off => None,
         }
     }
 }
 
-impl Layer for FrameAncestors {
+/// The default policy, with the `topcoat dev` server's origin `dev` allowed to load its live
+/// reload script and connect its socket.
+pub(crate) fn default_csp(dev: Option<&str>) -> String {
+    let Some(dev) = dev.and_then(origin) else {
+        return DEFAULT_CSP.to_owned();
+    };
+    // Chrome matches no `ws:` URL against an `http:` source, so the socket is named too.
+    let socket = dev.replacen("http", "ws", 1);
+    DEFAULT_CSP.replacen(
+        "'unsafe-eval';",
+        &format!("'unsafe-eval' {dev}; connect-src 'self' {dev} {socket};"),
+        1,
+    )
+}
+
+/// The `scheme://host[:port]` of `url`, else `None`.
+fn origin(url: &str) -> Option<&str> {
+    let (scheme, rest) = url.split_once("://")?;
+    if !matches!(scheme, "http" | "https") {
+        return None;
+    }
+    let end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
+    let host = &rest[..end];
+    let valid = !host.is_empty()
+        && host
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b".-:[]".contains(&byte));
+    valid.then(|| &url[..scheme.len() + 3 + end])
+}
+
+/// The headers every response under a panel's prefix carries, unless its handler set them:
+///
+/// - the panel's `Content-Security-Policy`, when it has one;
+/// - `X-Content-Type-Options: nosniff`, so a plain-text error that echoes input never renders as
+///   HTML;
+/// - `Referrer-Policy: same-origin`, so a record's URL never leaves for another site;
+/// - `Cache-Control: no-store`, so a page a signed-out user saw stays out of the browser's cache
+///   and its back button;
+/// - `Strict-Transport-Security`, when the panel opts in.
+#[derive(Debug, Clone)]
+pub(crate) struct PanelHeaders {
+    prefix: String,
+    headers: Vec<(header::HeaderName, header::HeaderValue)>,
+}
+
+impl PanelHeaders {
+    /// The headers for the panel at `prefix`; a `csp` the header codec rejects is a declaration
+    /// error.
+    pub(crate) fn new(
+        prefix: impl Into<String>,
+        csp: Option<&str>,
+        hsts: Option<std::time::Duration>,
+    ) -> Result<Self, crate::DeclarationErrorKind> {
+        let mut headers = vec![
+            (
+                header::X_CONTENT_TYPE_OPTIONS,
+                header::HeaderValue::from_static("nosniff"),
+            ),
+            (
+                header::REFERRER_POLICY,
+                header::HeaderValue::from_static("same-origin"),
+            ),
+            (
+                header::CACHE_CONTROL,
+                header::HeaderValue::from_static("no-store"),
+            ),
+        ];
+        if let Some(policy) = csp {
+            let value = header::HeaderValue::from_str(policy).map_err(|_| {
+                crate::DeclarationErrorKind::InvalidContentSecurityPolicy {
+                    policy: policy.to_owned(),
+                }
+            })?;
+            headers.push((CSP, value));
+        }
+        if let Some(max_age) = hsts {
+            let value = header::HeaderValue::from_str(&format!("max-age={}", max_age.as_secs()))
+                .expect("a decimal number is a valid header value");
+            headers.push((header::STRICT_TRANSPORT_SECURITY, value));
+        }
+        Ok(Self {
+            prefix: prefix.into(),
+            headers,
+        })
+    }
+}
+
+impl Layer for PanelHeaders {
     fn path(&self) -> Option<&Path> {
         None
     }
@@ -47,11 +146,15 @@ impl Layer for FrameAncestors {
             }
             match next.run(cx, body).await {
                 Ok(mut response) => {
-                    insert_frame_ancestors(&mut response, &self.directive);
+                    insert_missing(&mut response, &self.headers);
                     Ok(response)
                 }
                 Err(error) => {
-                    queue_frame_ancestors(cx, &self.directive);
+                    // The router builds the error response after the layers return.
+                    let queued = response_headers(cx);
+                    for (name, value) in &self.headers {
+                        queued.append(name.clone(), value.clone());
+                    }
                     Err(error)
                 }
             }
@@ -59,21 +162,87 @@ impl Layer for FrameAncestors {
     }
 }
 
-/// Queues the directive for the error response the router builds after the layers return.
-fn queue_frame_ancestors(cx: &Cx, directive: &str) {
-    if let Ok(value) = header::HeaderValue::from_str(&format!("frame-ancestors {directive}")) {
-        response_headers(cx).append(CSP, value);
+/// Adds each of `headers` that `response` does not carry yet.
+fn insert_missing(response: &mut Response, headers: &[(header::HeaderName, header::HeaderValue)]) {
+    let target = response.headers_mut();
+    for (name, value) in headers {
+        if !target.contains_key(name) {
+            target.insert(name.clone(), value.clone());
+        }
     }
 }
 
-/// Adds the directive unless the response already carries a policy.
-fn insert_frame_ancestors(response: &mut Response, directive: &str) {
-    if response.headers().contains_key(&CSP) {
-        return;
+impl Panel {
+    /// The `Content-Security-Policy` a panel sends unless
+    /// [`content_security_policy`](Self::content_security_policy) replaces it:
+    ///
+    /// ```text
+    /// default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval';
+    /// style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:;
+    /// font-src 'self' data: https:; media-src 'self' data: blob: https:; object-src 'none';
+    /// base-uri 'self'; form-action 'self'; frame-ancestors 'self'
+    /// ```
+    ///
+    /// - Scripts load from the panel's origin only, and a script can connect to it alone. Inline
+    ///   scripts run: Topcoat streams a page's live regions, such as a list's rows, with inline
+    ///   scripts that carry no nonce, so a policy without `'unsafe-inline'` leaves the list
+    ///   loading. `'unsafe-eval'` lets Topcoat's runtime compile its client expressions.
+    /// - Images, fonts and media may come from any `https:` host, so an uploader or a font on a
+    ///   CDN keeps working.
+    /// - Plugins are off, `<base>` and form targets stay on the origin, and only the panel may
+    ///   frame itself.
+    ///
+    /// While `topcoat dev` runs the app, the policy also lets the dev server's origin load its
+    /// reload script and connect.
+    pub const DEFAULT_CONTENT_SECURITY_POLICY: &str = DEFAULT_CSP;
+
+    /// Replaces the panel's `Content-Security-Policy`,
+    /// [`DEFAULT_CONTENT_SECURITY_POLICY`](Self::DEFAULT_CONTENT_SECURITY_POLICY) by default.
+    ///
+    /// Every response under the prefix carries the policy, and with it `X-Content-Type-Options:
+    /// nosniff`, `Referrer-Policy: same-origin` and `Cache-Control: no-store`, so a page a
+    /// signed-out user saw does not come back from the browser's cache. A header a handler sets
+    /// itself is kept.
+    ///
+    /// - The headers cover the prefix's 404 and 405 pages too; the app's own routes outside the
+    ///   prefix carry whatever the app sets.
+    /// - The router answers three errors before any layer runs, so they carry none of them: the
+    ///   403 for a cross-site request, the 400 for a malformed `x-topcoat-identity` header, and
+    ///   the 500 for a panic.
+    ///
+    /// A policy with a line break refuses to mount.
+    ///
+    /// ```no_run
+    /// # use tablo_core::Panel;
+    /// Panel::new("admin").content_security_policy(
+    ///     Panel::DEFAULT_CONTENT_SECURITY_POLICY
+    ///         .replace("frame-ancestors 'self'", "frame-ancestors 'self' https://intranet.example"),
+    /// );
+    /// ```
+    pub fn content_security_policy(mut self, policy: impl Into<String>) -> Self {
+        self.content_security_policy = Policy::Custom(policy.into());
+        self
     }
-    // Drops a directive value the header codec rejects.
-    if let Ok(value) = header::HeaderValue::from_str(&format!("frame-ancestors {directive}")) {
-        response.headers_mut().insert(CSP, value);
+
+    /// Sends no `Content-Security-Policy`, for deployments whose proxy owns it. The panel's other
+    /// headers stay.
+    pub fn without_content_security_policy(mut self) -> Self {
+        self.content_security_policy = Policy::Off;
+        self
+    }
+
+    /// Sends `Strict-Transport-Security: max-age=<seconds>` on every response under the prefix,
+    /// so a browser that reached the panel over HTTPS never tries plain HTTP for the host again
+    /// until `max_age` passes. Off by default, since TLS usually ends at a proxy, which may own
+    /// the header; turn it on only for a host that serves HTTPS alone.
+    ///
+    /// ```no_run
+    /// # use tablo_core::Panel;
+    /// Panel::new("admin").strict_transport_security(std::time::Duration::from_secs(31_536_000));
+    /// ```
+    pub fn strict_transport_security(mut self, max_age: std::time::Duration) -> Self {
+        self.strict_transport_security = Some(max_age);
+        self
     }
 }
 

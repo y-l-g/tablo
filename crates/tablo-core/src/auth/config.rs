@@ -306,7 +306,7 @@ impl Auth {
     ///   `PanelUser::email` as the login; override it when users sign in with something else. The
     ///   page then shows a QR code and the key, and turns two-factor sign-in on once a code from
     ///   the app matches. It then shows eight recovery codes, once: the panel stores only their
-    ///   hashes, keyed like the secrets. The pages answer `Cache-Control: no-store`.
+    ///   hashes, keyed like the secrets.
     /// - Each panel enrols apart. A factor signs in to the panel that set it up only, even when
     ///   other panels load the same user type: enrol on each.
     /// - Signing in, a correct password leads to `{prefix}/two-factor-challenge` instead of a

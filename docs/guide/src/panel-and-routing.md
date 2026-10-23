@@ -50,7 +50,8 @@ in before learning a path serves nothing. [`Panel`](https://y-l.fr/tablo/nightly
 | `uploads_dir(url_prefix, dir)` | stores file fields' uploads in a directory and serves it | [Forms](./forms.md#file-uploads) |
 | `shell_assets(css, font)` | adds the stylesheet, font and scripts | [Assets](#assets) |
 | `layout(render)` | frames the panel's pages with your layout instead of the shell | [The shell layout](#the-shell-layout) |
-| `frame_ancestors(..)`, `without_frame_ancestors()` | changes the anti-framing header | [Security](./security.md) |
+| `content_security_policy(..)`, `without_content_security_policy()` | replaces or drops the panel's `Content-Security-Policy` | [Security](./security.md#responses) |
+| `strict_transport_security(max_age)` | sends HSTS on the panel's responses | [Security](./security.md#responses) |
 
 ## Mounting
 

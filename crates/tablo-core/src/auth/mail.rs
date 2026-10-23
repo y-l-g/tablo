@@ -133,17 +133,12 @@ where
     });
 }
 
-/// `response` with `Referrer-Policy: no-referrer` and `Cache-Control: no-store`: a page whose
-/// URL or form carries a token.
+/// `response` with `Referrer-Policy: no-referrer`: a page whose URL or form carries a token
+/// sends no referrer at all, not even to the panel's own origin.
 pub(super) fn private(mut response: Response) -> topcoat::Result<Response> {
-    let headers = response.headers_mut();
-    headers.insert(
+    response.headers_mut().insert(
         http::header::REFERRER_POLICY,
         http::HeaderValue::from_static("no-referrer"),
-    );
-    headers.insert(
-        http::header::CACHE_CONTROL,
-        http::HeaderValue::from_static("no-store"),
     );
     Ok(response)
 }

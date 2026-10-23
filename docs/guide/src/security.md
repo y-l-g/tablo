@@ -45,10 +45,15 @@ What Tablo does by default, and what your deployment must provide for those defa
 
 ## Responses
 
-- **Framing.** Every response under the panel prefix carries
-  `Content-Security-Policy: frame-ancestors 'self'`, so another site cannot frame the panel;
-  [`Panel::frame_ancestors`](https://y-l.fr/tablo/nightly/api/tablo/struct.Panel.html#method.frame_ancestors) changes it and lists
-  the responses it misses.
+- **Headers.** Every response under the panel prefix carries a `Content-Security-Policy` that loads
+  scripts from the panel's origin only, lets them connect to it alone, and lets no other site frame
+  the panel, along with
+  `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin` and `Cache-Control: no-store`,
+  so the back button after sign-out shows no record.
+  [`Panel::content_security_policy`](https://y-l.fr/tablo/nightly/api/tablo/struct.Panel.html#method.content_security_policy)
+  replaces the policy, for assets on another origin or a panel framed by an intranet, and lists
+  the responses the headers miss. Behind a proxy that serves HTTPS only, turn on HSTS with
+  [`Panel::strict_transport_security`](https://y-l.fr/tablo/nightly/api/tablo/struct.Panel.html#method.strict_transport_security).
 - **Redirects.** Return `Err(redirect(..))` (307) from a `GET` and `Err(see_other(..))` (303) after
   a write, so a reload does not repeat it. A redirect raised after streaming started becomes a
   `window.location.replace`. A failed page load shows the panel's
