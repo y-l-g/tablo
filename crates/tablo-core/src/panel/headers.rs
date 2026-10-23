@@ -187,8 +187,8 @@ impl Panel {
     ///   scripts run: Topcoat streams a page's live regions, such as a list's rows, with inline
     ///   scripts that carry no nonce, so a policy without `'unsafe-inline'` leaves the list
     ///   loading. `'unsafe-eval'` lets Topcoat's runtime compile its client expressions.
-    /// - Images, fonts and media may come from any `https:` host, so an uploader or a font on a
-    ///   CDN keeps working.
+    /// - Images, fonts and media may come from any `https:` host, so an uploader or a font on a CDN
+    ///   keeps working.
     /// - Plugins are off, `<base>` and form targets stay on the origin, and only the panel may
     ///   frame itself.
     ///
@@ -206,18 +206,18 @@ impl Panel {
     ///
     /// - The headers cover the prefix's 404 and 405 pages too; the app's own routes outside the
     ///   prefix carry whatever the app sets.
-    /// - The router answers three errors before any layer runs, so they carry none of them: the
-    ///   403 for a cross-site request, the 400 for a malformed `x-topcoat-identity` header, and
-    ///   the 500 for a panic.
+    /// - The router answers three errors before any layer runs, so they carry none of them: the 403
+    ///   for a cross-site request, the 400 for a malformed `x-topcoat-identity` header, and the 500
+    ///   for a panic.
     ///
     /// A policy with a line break refuses to mount.
     ///
     /// ```no_run
     /// # use tablo_core::Panel;
-    /// Panel::new("admin").content_security_policy(
-    ///     Panel::DEFAULT_CONTENT_SECURITY_POLICY
-    ///         .replace("frame-ancestors 'self'", "frame-ancestors 'self' https://intranet.example"),
-    /// );
+    /// Panel::new("admin").content_security_policy(Panel::DEFAULT_CONTENT_SECURITY_POLICY.replace(
+    ///     "frame-ancestors 'self'",
+    ///     "frame-ancestors 'self' https://intranet.example",
+    /// ));
     /// ```
     pub fn content_security_policy(mut self, policy: impl Into<String>) -> Self {
         self.content_security_policy = Policy::Custom(policy.into());
