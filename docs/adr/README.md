@@ -25,3 +25,4 @@ record disagree, the code wins and the record is fixed. Missing numbers are reti
 | [0031](0031-csv-import.md) | A CSV import is the create form, once per row, in one transaction |
 | [0032](0032-rich-text.md) | Rich text is cleaned HTML, and its toolbar is its schema |
 | [0033](0033-global-search.md) | Global search reads what each resource already declares |
+| [0034](0034-translations.md) | A panel's words are Fluent messages its request's locale spells |

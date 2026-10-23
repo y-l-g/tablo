@@ -166,3 +166,24 @@ async fn the_many_to_many_snippets_mount() {
     )
     .expect("the panel mounts");
 }
+
+/// The Translations chapter's catalogs parse and serve the locales its panel offers.
+#[tokio::test]
+async fn the_translations_snippets_mount_and_negotiate() {
+    let router = mount(
+        seeded_db().await,
+        guide::translations::panel()
+            .auth(Auth::disabled())
+            .resource::<BookResource>(),
+    )
+    .expect("the panel mounts");
+    for (languages, expected) in [("fr-CA", "fr"), ("en-US", "en"), ("de", "fr")] {
+        let client = TestClient::new(&router).language(languages);
+        let html = tablo::testing::body_string(client.get("/admin/books").await).await;
+        assert_eq!(
+            tablo::testing::page_language(&html).as_deref(),
+            Some(expected),
+            "{languages}"
+        );
+    }
+}

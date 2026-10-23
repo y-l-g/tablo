@@ -16,5 +16,6 @@ pub mod panel_routing;
 pub mod policy_tenancy;
 pub mod resources;
 pub mod tables;
+pub mod translations;
 
 pub use first_panel::Book;

@@ -40,6 +40,8 @@ in before learning a path serves nothing. [`Panel`](https://y-l.fr/tablo/nightly
 | `brand(Brand)` | sets the name and optional logo in the sidebar, the topbar, and above the sign-in and sign-up cards, and the optional favicon | [Branding](#branding-and-theme) |
 | `dark_mode(bool)` | sets the theme a first-time visitor sees | [Branding](#branding-and-theme) |
 | `login_hint(text)` | adds a line under the sign-in card | [Branding](#branding-and-theme) |
+| `locales(tags)` | lists the locales the panel offers, the default first, English by default | [Translations](./translations.md) |
+| `translations(locale, ftl)` | adds the app's Fluent catalog for a locale | [Translations](./translations.md#catalogs) |
 | `time_zone(zone)` | sets the zone a user without their own reads and enters times in, UTC by default | [Forms](./forms.md#time-zones) |
 | `user_menu_item(NavigationItem)` | adds an entry to the user menu, above Sign out | [The shell layout](#the-shell-layout) |
 | `auth(Auth)` | replaces or disables the built-in password login | [Policy, auth, tenancy](./policy-auth-tenancy.md#authentication) |

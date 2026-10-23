@@ -10,6 +10,7 @@
 - [Detail pages](./detail-pages.md)
 - [Actions](./actions.md)
 - [Notifications](./notifications.md)
+- [Translations](./translations.md)
 - [Policy, auth, tenancy](./policy-auth-tenancy.md)
 - [Data access](./data-access.md)
 - [Extension points](./extension-points.md)
