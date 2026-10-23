@@ -8,7 +8,6 @@ use topcoat::{
         Body,
         error::{forbidden, not_found, see_other, too_many_requests},
         request::client_ip,
-        response::response_headers,
     },
     view::BoxView,
 };
@@ -151,20 +150,10 @@ fn setup(cx: &Cx, signed: &SignedIn, secret: &[u8], refused: bool) -> topcoat::R
     })
 }
 
-/// Keeps the response out of every cache: a set-up shows the secret, and a confirmation the
-/// recovery codes.
-fn no_store(cx: &Cx) {
-    response_headers(cx).append(
-        http::header::CACHE_CONTROL,
-        http::HeaderValue::from_static("no-store"),
-    );
-}
-
 /// `GET {prefix}/two-factor` — the settings, as the account's factors stand.
 pub(in crate::auth) fn settings_page(cx: &Cx, _body: Body) -> BoxView<'_> {
     async_page(async move {
         let (signed, two_factor) = configuring(cx)?;
-        no_store(cx);
         crate::csrf::ensure_token(cx);
         let mut db = crate::db::db(cx);
         let enrolment = enrolment(cx, &mut db, &signed.user.user_id()).await?;
@@ -176,7 +165,6 @@ pub(in crate::auth) fn settings_page(cx: &Cx, _body: Body) -> BoxView<'_> {
 pub(in crate::auth) fn settings_post(cx: &Cx, body: Body) -> BoxView<'_> {
     async_page(async move {
         let (signed, two_factor) = configuring(cx)?;
-        no_store(cx);
         let form = crate::auth::input::read_form(cx, body).await?;
         crate::csrf::verify(cx, form.last(crate::csrf::FIELD_NAME))?;
         let intent = form

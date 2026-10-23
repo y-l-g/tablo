@@ -170,7 +170,8 @@ impl Panel {
             dark_mode,
             layout,
             registrations,
-            frame_ancestors,
+            content_security_policy,
+            strict_transport_security,
             configuration_errors,
             uploads,
             served_dirs,
@@ -217,6 +218,17 @@ impl Panel {
                         .into_iter()
                         .map(|fault| DeclarationError::panel(DeclarationErrorKind::Locale(fault))),
                 );
+                None
+            }
+        };
+        let panel_headers = match headers::PanelHeaders::new(
+            prefix.clone(),
+            content_security_policy.resolve().as_deref(),
+            strict_transport_security,
+        ) {
+            Ok(layer) => Some(layer),
+            Err(kind) => {
+                errors.push(DeclarationError::panel(kind));
                 None
             }
         };
@@ -283,9 +295,8 @@ impl Panel {
         let prefix_path = route_path(&prefix);
         builder =
             builder.layer(topcoat::router::BodyLimit::max(MAX_FORM_BYTES).at(prefix_path.clone()));
-        if let Some(directive) = frame_ancestors {
-            builder = builder.layer(headers::FrameAncestors::new(directive, prefix.clone()));
-        }
+        builder = builder
+            .layer(panel_headers.expect("a policy the header codec rejects fails the mount"));
         // Registered last of the prefix's layers, so it runs first.
         builder = builder.layer(PanelGate::new(Arc::clone(&state.realm)));
         // The auth form routes carry their own cap scoped by path.

@@ -119,9 +119,10 @@ pub struct Panel {
     layout: Option<LayoutRenderFn>,
     /// The resources and pages, in registration order.
     registrations: Vec<Box<dyn Registration>>,
-    /// `Content-Security-Policy: frame-ancestors …` for every response under the prefix; `None`
-    /// opts out, the default is `'self'`.
-    frame_ancestors: Option<String>,
+    /// The `Content-Security-Policy` of every response under the prefix.
+    content_security_policy: headers::Policy,
+    /// `Strict-Transport-Security`'s `max-age`, when the panel sends it.
+    strict_transport_security: Option<std::time::Duration>,
     /// Mistakes in the panel's own configuration, for mount to report.
     configuration_errors: Vec<DeclarationError>,
     /// Where file field bytes go; `None` refuses to mount a form with a file field.
@@ -163,7 +164,8 @@ impl Panel {
             dark_mode: None,
             layout: None,
             registrations: Vec::new(),
-            frame_ancestors: Some(headers::DEFAULT_FRAME_ANCESTORS.to_string()),
+            content_security_policy: headers::Policy::Default,
+            strict_transport_security: None,
             configuration_errors,
             uploads: None,
             served_dirs: Vec::new(),
@@ -348,31 +350,6 @@ impl Panel {
     /// and sign-up pages, above their card.
     pub fn brand(mut self, brand: Brand) -> Self {
         self.brand = Some(brand);
-        self
-    }
-
-    /// Sets the `frame-ancestors` directive the panel sends on every response under its prefix,
-    /// defaulting to `'self'`, so another site cannot frame the panel.
-    ///
-    /// - It covers the prefix's 404 and 405 pages too; the app's own routes outside the prefix
-    ///   carry whatever policy the app sets.
-    /// - A `Content-Security-Policy` a handler sets itself is kept.
-    /// - The router answers three errors before any layer runs, so they carry no directive: the 403
-    ///   for a cross-site request, the 400 for a malformed `x-topcoat-identity` header, and the 500
-    ///   for a panic.
-    ///
-    /// ```no_run
-    /// # use tablo_core::Panel;
-    /// Panel::new("admin").frame_ancestors("'self' https://intranet.example");
-    /// ```
-    pub fn frame_ancestors(mut self, ancestors: impl Into<String>) -> Self {
-        self.frame_ancestors = Some(ancestors.into());
-        self
-    }
-
-    /// Sends no `frame-ancestors` directive for deployments whose proxy owns the whole CSP.
-    pub fn without_frame_ancestors(mut self) -> Self {
-        self.frame_ancestors = None;
         self
     }
 

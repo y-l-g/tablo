@@ -874,7 +874,7 @@ async fn served_active_content_is_inert() {
     assert_eq!(page.status(), 200);
     assert_eq!(
         csp(&page),
-        "frame-ancestors 'self'",
+        tablo::Panel::DEFAULT_CONTENT_SECURITY_POLICY,
         "a panel page keeps its own policy"
     );
 }

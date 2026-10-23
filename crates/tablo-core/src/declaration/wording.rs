@@ -60,6 +60,10 @@ impl fmt::Display for DeclarationErrorKind {
                 f,
                 "serve_dir path '{path}' is already served by the panel mounted at '{panel}'"
             ),
+            Self::InvalidContentSecurityPolicy { policy } => write!(
+                f,
+                "content_security_policy {policy:?} is not a valid header value"
+            ),
             Self::SecondHome => {
                 f.write_str("a home page is already registered: `Panel::home` takes one")
             }

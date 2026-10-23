@@ -200,6 +200,11 @@ pub enum DeclarationErrorKind {
         /// The serving panel's prefix.
         panel: String,
     },
+    /// A `Panel::content_security_policy` that is no valid header value: drop its line breaks.
+    InvalidContentSecurityPolicy {
+        /// The policy.
+        policy: String,
+    },
     /// A second `Panel::home` page.
     ///
     /// Keep one home page; register the other with `page`.

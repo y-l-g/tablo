@@ -4,40 +4,79 @@ fn response() -> Response {
     Response::builder().body(Body::empty()).unwrap()
 }
 
-#[test]
-fn default_directive_is_self() {
-    // The exact literal the browser receives. Comparing against a
-    // `#[cfg(test)]` re-implementation of the same `format!` cannot fail
-    // both sides would change together.
-    let mut response = response();
-    insert_frame_ancestors(&mut response, DEFAULT_FRAME_ANCESTORS);
-    assert_eq!(
-        response.headers().get(&CSP).unwrap(),
-        "frame-ancestors 'self'"
-    );
+fn layer(csp: Option<&str>) -> PanelHeaders {
+    PanelHeaders::new("/admin", csp, None).unwrap()
 }
 
 #[test]
-fn an_existing_policy_wins() {
+fn a_header_the_handler_set_wins() {
     let mut response = response();
     response
         .headers_mut()
         .insert(CSP, header::HeaderValue::from_static("default-src 'none'"));
-    insert_frame_ancestors(&mut response, "'self'");
+    response.headers_mut().insert(
+        header::REFERRER_POLICY,
+        header::HeaderValue::from_static("no-referrer"),
+    );
+    insert_missing(&mut response, &layer(Some(DEFAULT_CSP)).headers);
+    let headers = response.headers();
+    assert_eq!(headers.get(&CSP).unwrap(), "default-src 'none'");
+    assert_eq!(headers.get(header::REFERRER_POLICY).unwrap(), "no-referrer");
+    assert_eq!(headers.get_all(&CSP).iter().count(), 1, "never duplicated");
+    assert_eq!(headers.get(header::CACHE_CONTROL).unwrap(), "no-store");
+}
+
+#[test]
+fn a_policy_with_a_line_break_is_a_declaration_error() {
+    let error = PanelHeaders::new("/admin", Some("'self'\r\nX-Evil: 1"), None).unwrap_err();
+    assert!(matches!(
+        error,
+        crate::DeclarationErrorKind::InvalidContentSecurityPolicy { .. }
+    ));
+}
+
+#[test]
+fn hsts_is_sent_only_when_asked() {
+    let hsts = |max_age| {
+        PanelHeaders::new("/admin", None, max_age)
+            .unwrap()
+            .headers
+            .into_iter()
+            .find(|(name, _)| name == header::STRICT_TRANSPORT_SECURITY)
+            .map(|(_, value)| value)
+    };
+    assert_eq!(hsts(None), None);
     assert_eq!(
-        response.headers().get(&CSP).unwrap(),
-        "default-src 'none'",
-        "an app policy must not be overwritten (or duplicated)"
+        hsts(Some(std::time::Duration::from_secs(31_536_000))).unwrap(),
+        "max-age=31536000"
     );
 }
 
 #[test]
-fn an_invalid_directive_is_dropped_not_panicked() {
-    // A newline would split the header; the layer must not panic or emit a
-    // truncated value.
-    let mut response = response();
-    insert_frame_ancestors(&mut response, "'self'\r\nX-Evil: 1");
-    assert!(response.headers().get(&CSP).is_none());
+fn the_dev_server_origin_may_load_scripts_and_connect() {
+    let policy = default_csp(Some("http://127.0.0.1:3001/base"));
+    assert!(
+        policy.contains("script-src 'self' 'unsafe-inline' 'unsafe-eval' http://127.0.0.1:3001;"),
+        "{policy}"
+    );
+    assert!(
+        policy.contains("connect-src 'self' http://127.0.0.1:3001 ws://127.0.0.1:3001;"),
+        "{policy}"
+    );
+    assert_eq!(default_csp(None), DEFAULT_CSP);
+}
+
+#[test]
+fn a_dev_url_that_is_no_http_origin_adds_nothing() {
+    for url in [
+        "javascript:alert(1)",
+        "http://",
+        "http://host; script-src *",
+        "ftp://host",
+        "localhost:3001",
+    ] {
+        assert_eq!(default_csp(Some(url)), DEFAULT_CSP, "{url}");
+    }
 }
 
 /// A served file's response with `content_type`, or none at all.
@@ -180,9 +219,9 @@ fn a_not_modified_response_carries_the_policy_and_no_disposition() {
 #[test]
 fn an_existing_policy_is_overwritten() {
     // A served file never needs a scriptable policy, so unlike
-    // `FrameAncestors` this layer does not defer to what is there. The
+    // `PanelHeaders` this layer does not defer to what is there. The
     // literal is the directive the browser must receive: `frame-ancestors`
-    // is here because `FrameAncestors` skips a response that already has a
+    // is here because `PanelHeaders` skips a response that already has a
     // policy (comparing against the implementation constant would
     // change both sides together).
     let mut response = file_response(Some("text/html"));

@@ -130,7 +130,6 @@ async fn search_options(cx: &Cx, form: &Schema) -> topcoat::Result<http::Respons
             let res = http::Response::builder()
                 .status(200)
                 .header(http::header::CONTENT_TYPE, "text/html; charset=utf-8")
-                .header("x-content-type-options", "nosniff")
                 .body(Body::from(html))?;
             Ok(res)
         }
@@ -157,7 +156,6 @@ async fn search_options(cx: &Cx, form: &Schema) -> topcoat::Result<http::Respons
             let res = http::Response::builder()
                 .status(200)
                 .header(http::header::CONTENT_TYPE, "text/html; charset=utf-8")
-                .header("x-content-type-options", "nosniff")
                 .header("x-options-overflow", "true")
                 .body(Body::from(html))?;
             Ok(res)

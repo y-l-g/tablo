@@ -485,11 +485,11 @@ async fn a_slug_of_segment_characters_resolves() {
     }
 }
 
-/// A panel page is not frameable by default; a deployment framing it names who may, or opts out
-/// and sends no policy of its own.
+/// A panel page carries the panel's policy and hardening headers; a deployment replaces the
+/// policy, or opts out of it and keeps the rest, and HSTS is sent only when asked.
 #[tokio::test]
-async fn a_panel_page_sends_frame_ancestors_unless_opted_out() {
-    async fn policy(panel: Panel) -> Option<String> {
+async fn a_panel_page_sends_the_security_headers() {
+    async fn headers(panel: Panel) -> http::HeaderMap {
         let router = mount(
             test_db(toasty::models!(Book)).await,
             panel.auth(Auth::disabled()).resource::<BookResource>(),
@@ -497,24 +497,83 @@ async fn a_panel_page_sends_frame_ancestors_unless_opted_out() {
         .expect("panel builds");
         let response = get(&router, "/admin/books").await;
         assert_eq!(response.status(), http::StatusCode::OK);
-        response
-            .headers()
-            .get(http::header::CONTENT_SECURITY_POLICY)
-            .map(|value| value.to_str().unwrap().to_string())
+        response.headers().clone()
+    }
+    let header = |headers: &http::HeaderMap, name| {
+        headers
+            .get(name)
+            .map(|value: &http::HeaderValue| value.to_str().unwrap().to_owned())
+    };
+
+    let default = headers(Panel::new("admin")).await;
+    let policy = header(&default, http::header::CONTENT_SECURITY_POLICY).unwrap();
+    for directive in [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval';",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'self'",
+    ] {
+        assert!(policy.contains(directive), "{directive} in {policy}");
     }
     assert_eq!(
-        policy(Panel::new("admin")).await.as_deref(),
-        Some("frame-ancestors 'self'")
+        header(&default, http::header::X_CONTENT_TYPE_OPTIONS).as_deref(),
+        Some("nosniff")
     );
     assert_eq!(
-        policy(Panel::new("admin").frame_ancestors("'self' https://intranet.example"))
-            .await
-            .as_deref(),
-        Some("frame-ancestors 'self' https://intranet.example")
+        header(&default, http::header::REFERRER_POLICY).as_deref(),
+        Some("same-origin")
     );
     assert_eq!(
-        policy(Panel::new("admin").without_frame_ancestors()).await,
+        header(&default, http::header::CACHE_CONTROL).as_deref(),
+        Some("no-store")
+    );
+    assert_eq!(
+        header(&default, http::header::STRICT_TRANSPORT_SECURITY),
         None
+    );
+
+    let custom =
+        headers(Panel::new("admin").content_security_policy("frame-ancestors https://a.example"))
+            .await;
+    assert_eq!(
+        header(&custom, http::header::CONTENT_SECURITY_POLICY).as_deref(),
+        Some("frame-ancestors https://a.example")
+    );
+
+    let off = headers(Panel::new("admin").without_content_security_policy()).await;
+    assert_eq!(header(&off, http::header::CONTENT_SECURITY_POLICY), None);
+    assert_eq!(
+        header(&off, http::header::CACHE_CONTROL).as_deref(),
+        Some("no-store"),
+        "opting out of the policy keeps the other headers"
+    );
+
+    let hsts =
+        headers(Panel::new("admin").strict_transport_security(std::time::Duration::from_secs(600)))
+            .await;
+    assert_eq!(
+        header(&hsts, http::header::STRICT_TRANSPORT_SECURITY).as_deref(),
+        Some("max-age=600")
+    );
+}
+
+/// A policy that is no valid header value refuses to mount.
+#[tokio::test]
+async fn a_policy_with_a_line_break_refuses_to_mount() {
+    let error = mount(
+        test_db(toasty::models!(Book)).await,
+        Panel::new("admin")
+            .auth(Auth::disabled())
+            .content_security_policy("default-src 'self'\r\nSet-Cookie: x=1")
+            .resource::<BookResource>(),
+    )
+    .err()
+    .expect("the mount fails");
+    assert!(
+        error.to_string().contains("content_security_policy"),
+        "{error}"
     );
 }
 
