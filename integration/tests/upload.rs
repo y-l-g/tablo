@@ -50,6 +50,10 @@ impl RecordingUploader {
 }
 
 impl Uploader for RecordingUploader {
+    async fn keep(&self, _path: &str) -> Result<(), String> {
+        Ok(())
+    }
+
     async fn store(&self, filename: &str, bytes: &[u8]) -> Result<String, String> {
         self.seen
             .lock()
@@ -63,6 +67,10 @@ impl Uploader for RecordingUploader {
 struct FailingUploader;
 
 impl Uploader for FailingUploader {
+    async fn keep(&self, _path: &str) -> Result<(), String> {
+        Ok(())
+    }
+
     async fn store(&self, _filename: &str, _bytes: &[u8]) -> Result<String, String> {
         Err("this deployment has no room left".to_string())
     }

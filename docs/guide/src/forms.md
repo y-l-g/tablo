@@ -403,8 +403,10 @@ served file's type comes from its extension, so the extension decides how a brow
 has the rules.
 
 Any other store implements `Uploader`. This one refuses a file whose first bytes are not a PNG's
-or a JPEG's signature, which no field rule checks, then stores in a directory. A signature is no
-proof the rest is an image: decode the file when that matters.
+or a JPEG's signature, which no field rule checks, then stores through the `DirUploader` that
+`Panel::uploads_dir_with` hands it, so its files still answer only at signed URLs. It forwards
+`keep` and `delete` too: the inner uploader deletes a file nothing kept after a day. A signature
+is no proof the rest is an image: decode the file when that matters.
 
 ```rust
 {{#include ../../../examples/guide/src/forms.rs:forms-uploader}}

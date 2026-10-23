@@ -239,12 +239,18 @@ impl Uploader for ImagesOnly {
     async fn holds(&self, path: &str) -> bool {
         self.0.holds(path).await
     }
+
+    async fn keep(&self, path: &str) -> Result<(), String> {
+        self.0.keep(path).await
+    }
+
+    async fn delete(&self, path: &str) -> Result<(), String> {
+        self.0.delete(path).await
+    }
 }
 
 pub fn images_panel(dir: PathBuf) -> Panel {
-    Panel::new("admin")
-        .uploads(ImagesOnly(DirUploader::new("/uploads", dir.clone())))
-        .serve_dir("/uploads/{*file}", dir)
+    Panel::new("admin").uploads_dir_with("/uploads", dir, ImagesOnly)
 }
 // ANCHOR_END: forms-uploader
 

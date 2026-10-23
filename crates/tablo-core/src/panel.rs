@@ -213,13 +213,27 @@ impl Panel {
     /// A file a record form stored for a submission that never saved is deleted after 24 hours:
     /// [`DirUploader::expire_pending`](crate::upload::DirUploader::expire_pending).
     pub fn uploads_dir(self, url_prefix: &str, dir: impl Into<PathBuf>) -> Self {
+        self.uploads_dir_with(url_prefix, dir, |uploader| uploader)
+    }
+
+    /// [`uploads_dir`](Self::uploads_dir), with the [`DirUploader`](crate::upload::DirUploader)
+    /// wrapped in an app's own [`Uploader`](crate::Uploader), such as one that checks the bytes
+    /// before it stores them: the files still answer only at signed URLs, and pending ones still
+    /// expire. The wrapper forwards [`keep`](crate::Uploader::keep), and
+    /// [`delete`](crate::Uploader::delete) to delete what a write lets go.
+    pub fn uploads_dir_with<U: crate::Uploader>(
+        self,
+        url_prefix: &str,
+        dir: impl Into<PathBuf>,
+        wrap: impl FnOnce(crate::upload::DirUploader) -> U,
+    ) -> Self {
         let url_prefix = url_prefix.trim_end_matches('/');
         let dir = dir.into();
         self.serve(format!("{url_prefix}/{{*file}}"), dir.clone(), true)
-            .uploads(
+            .uploads(wrap(
                 crate::upload::DirUploader::new(url_prefix, dir)
                     .expire_pending(std::time::Duration::from_secs(24 * 3600)),
-            )
+            ))
     }
 
     /// Serves the directory `dir` at route pattern `path`, which must end in a catch-all.

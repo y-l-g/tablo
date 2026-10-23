@@ -86,12 +86,10 @@ pub trait Uploader: Send + Sync + 'static {
     /// file field's create or edit stores and [`holds`](Self::holds) answers `true` for. A store
     /// that deletes what nothing kept, as [`DirUploader::expire_pending`] does, keeps `path` here.
     /// An `Err(reason)` fails the write, so a file is never deleted under a committed record.
-    fn keep(&self, path: &str) -> impl Future<Output = Result<(), String>> + Send {
-        async move {
-            let _ = path;
-            Ok(())
-        }
-    }
+    ///
+    /// It has no default: an uploader wrapping another forwards it, or the inner one deletes the
+    /// files of saved records. A store that deletes nothing answers `Ok(())`.
+    fn keep(&self, path: &str) -> impl Future<Output = Result<(), String>> + Send;
 
     /// Deletes the file at `path`, which a committed write no longer stores; the default keeps
     /// every file.
@@ -192,7 +190,7 @@ impl Uploader for DirUploader {
             .await
             .map_err(|_| "the upload could not be written".to_string())?;
         if let Some(pending) = &self.pending {
-            pending.sweep_if_due(&self.dir).await;
+            pending.sweep_if_due(&self.dir);
             pending
                 .mark(&self.dir, &name)
                 .await
@@ -242,7 +240,7 @@ impl Uploader for DirUploader {
             }
             _ => {}
         }
-        pending::keep(&self.dir, &name)
+        pending::unmark(&self.dir, &name)
             .await
             .map_err(|error| error.to_string())
     }
