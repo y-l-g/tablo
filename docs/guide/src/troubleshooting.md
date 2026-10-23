@@ -30,6 +30,6 @@ lists each one. This chapter covers what goes wrong once the panel mounts.
 | --- | --- | --- |
 | every form POST answers 403 off `localhost` | the session and CSRF cookies are `Secure`, so the browser drops them over plain HTTP | serve the app over HTTPS |
 | a user signs in and gets 403 | the user has no panel access: `AdminUser.active` is `false`, or your `PanelUser` denies it | activate the user |
-| sign-ins answer the wrong-password message for a correct password | the throttle allows five attempts a minute per login and address; behind a proxy every client shares the proxy's address | wait a minute; install `TrustedProxies` on the router |
+| sign-ins answer the wrong-password message for a correct password | the throttle allows five attempts a minute per login and address, and fifty an hour per login; behind a proxy every client shares the proxy's address | wait out the window; install `TrustedProxies` on the router |
 | a form POST answers 400 | it carries a key the form does not declare: a custom control posting an extra input, or a hand-built request | post only the record form's keys |
 | a route you added under the prefix redirects to the login page or answers 401 | the auth gate covers every path under the panel prefix | sign in, or move a public route outside the prefix |

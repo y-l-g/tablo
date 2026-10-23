@@ -9,7 +9,8 @@ What Tablo does by default, and what your deployment must provide for those defa
   browser drops them and every form POST fails its CSRF check with 403.
 - **The client's address behind a proxy.** Tablo throttles sign-ins per login and client address.
   Behind a reverse proxy, trust it with the router's `TrustedProxies` so the address is the
-  client's; otherwise a guesser who knows a login can lock its owner out.
+  client's; otherwise a guesser who knows a login can lock its owner out. The first sign-in that
+  carries a forwarding header the router ignored logs a warning.
 - **Per-IP and multi-replica rate limiting** at your proxy or firewall, for what the panel's
   throttle does not count: [`LoginThrottle`](https://y-l.fr/tablo/nightly/api/tablo/struct.LoginThrottle.html) lists it.
 - **Session revocation.** Call
@@ -37,7 +38,9 @@ What Tablo does by default, and what your deployment must provide for those defa
 - Passwords are hashed with Argon2id, and a login for an unknown email takes as long as a wrong
   password: [`PasswordAuth`](https://y-l.fr/tablo/nightly/api/tablo/struct.PasswordAuth.html).
 - Sign-ins are throttled per login and client address, five a minute unless
-  [`Auth::throttle`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.throttle) says otherwise, and sign-ups per
+  [`Auth::throttle`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.throttle) says otherwise, and per login across
+  addresses, fifty an hour unless
+  [`Auth::account_throttle`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.account_throttle) says otherwise; sign-ups per
   address ([`Auth::sign_up_throttle`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.sign_up_throttle)).
 - Sessions are stored server-side as a hash of the cookie's token, and replaced on login and on
   sign-up: [`AuthSession`](https://y-l.fr/tablo/nightly/api/tablo/auth/struct.AuthSession.html).

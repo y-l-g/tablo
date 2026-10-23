@@ -3,7 +3,7 @@
 
 use jiff::Timestamp;
 use tablo::{
-    Auth, Panel, PanelUser, RouterBuilderPanelExt,
+    Auth, LoginThrottle, Panel, PanelUser, RouterBuilderPanelExt,
     auth::{AdminUser, AuthSession, create_admin, guard, require_user},
 };
 use toasty::Db;
@@ -88,6 +88,26 @@ async fn a_sign_in_clears_its_own_count_and_no_other() {
         sign_in_from(&router, GUESSER, "opensesame").await,
         http::StatusCode::FORBIDDEN,
         "the guesser's count stays"
+    );
+}
+
+/// The account throttle counts one login across addresses: a guesser who rotates addresses runs
+/// out, and the owner waits with them.
+#[tokio::test]
+async fn the_account_throttle_counts_a_login_across_addresses() {
+    let auth = Auth::password()
+        .account_throttle(LoginThrottle::new(6, std::time::Duration::from_hours(1)));
+    let router = mount(db_with_ada().await, Panel::new("admin").auth(auth)).expect("panel builds");
+    for host in 1..=6 {
+        assert_eq!(
+            sign_in_from(&router, [198, 51, 100, host], "wrong").await,
+            http::StatusCode::FORBIDDEN
+        );
+    }
+    assert_eq!(
+        sign_in_from(&router, [192, 0, 2, 1], "opensesame").await,
+        http::StatusCode::FORBIDDEN,
+        "the seventh attempt is refused from a fresh address"
     );
 }
 
