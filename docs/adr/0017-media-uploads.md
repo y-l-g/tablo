@@ -16,6 +16,8 @@ prefix and the runtime (ADR-0013).
 The `uploads_dir` directory answers only at a URL the panel signed, with an expiry one to two hours
 out: wherever the panel links or shows a stored path it checked the user may see, it signs it,
 and an app page signs with `url::file`. A leaked link opens the file until it expires, to anyone.
+The signature authorizes a path, not a record: a column over a value users type signs any path they
+name, and the random file names are what keep paths unguessable.
 Rejected: a route under the prefix per record and field that loads the record through its scoped
 query and checks `View` on each request. A stored path renders in columns, relation tables and app
 pages that know no owning record, and every `Uploader` would have to stream its bytes back; a

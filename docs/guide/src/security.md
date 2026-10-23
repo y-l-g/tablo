@@ -73,7 +73,8 @@ What Tablo does by default, and what your deployment must provide for those defa
   [`Uploader`](https://y-l.fr/tablo/nightly/api/tablo/trait.Uploader.html).
 - `Panel::uploads_dir` serves a file only at a signed URL that expires within two hours, which a
   page renders after checking the user may see the record, so a link copied into a chat or a log
-  stops working:
+  stops working. The signature covers a path, not a record: a column showing a value users type
+  signs whatever path they type, so show stored uploads only from file fields:
   [`Panel::uploads_dir`](https://y-l.fr/tablo/nightly/api/tablo/struct.Panel.html#method.uploads_dir).
 - Files served with `Panel::serve_dir` or `uploads_dir` share the panel's origin, so they carry
   headers that make an uploaded HTML or SVG file download instead of running script. A
