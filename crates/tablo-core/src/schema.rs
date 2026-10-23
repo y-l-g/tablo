@@ -22,13 +22,14 @@ use std::{collections::HashSet, marker::PhantomData};
 pub use condition::Watched;
 pub use embedded::EmbeddedForm;
 use fields::ChoiceControl;
-pub(crate) use fields::file::{FileHref, file_href};
 pub use fields::{
     ChoiceField, CustomField, Field, FileField, IntoFormValue, IntoOptions, RepeaterField,
     RichTextField, Switch, TextField, Toggle,
 };
 pub(crate) use fields::{
-    MAX_FORM_BYTES, is_linkable, is_rooted, option_view, read_only, stored_upload, value_cell,
+    MAX_FORM_BYTES,
+    file::{FileHref, file_href},
+    is_linkable, is_rooted, option_view, read_only, stored_upload, value_cell,
 };
 pub(crate) use input::FormInput;
 pub use layouts::{Grid, Group, HoldsTabs, Section, Tab, Tabs};

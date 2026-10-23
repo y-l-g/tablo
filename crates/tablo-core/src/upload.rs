@@ -54,9 +54,9 @@ pub(crate) use self::body::{Capture, FormParts, parse_body, parse_file_body};
 /// - Links. The stored value renders as a link, on the edit form and in a `FileColumn` on the
 ///   detail page, only when it is a root-relative path (`/uploads/a.png`, not `//host`) or an
 ///   `http(s)` URL; anything else renders as text.
-/// - Serving. `Panel::uploads_dir` serves its directory only at signed URLs that expire, which
-///   the panel's pages render; `Panel::serve_dir(path, dir)` serves a directory publicly unless
-///   the path sits under the panel prefix, which the auth gate covers.
+/// - Serving. `Panel::uploads_dir` serves its directory only at signed URLs that expire, which the
+///   panel's pages render; `Panel::serve_dir(path, dir)` serves a directory publicly unless the
+///   path sits under the panel prefix, which the auth gate covers.
 pub trait Uploader: Send + Sync + 'static {
     /// Stores `bytes` and returns the value to store; the `Err` string renders
     /// inside the field's inline error, so it must be user-actionable.
