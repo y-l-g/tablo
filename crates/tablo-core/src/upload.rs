@@ -78,6 +78,21 @@ pub trait Uploader: Send + Sync + 'static {
             false
         }
     }
+
+    /// Deletes the file at `path`, which a committed write no longer stores; the default keeps
+    /// every file.
+    ///
+    /// The panel calls it after the write commits, once per path, and only for a path
+    /// [`holds`](Self::holds) answers `true` for: a record's files when a delete removes its row
+    /// (a soft delete keeps them until the force delete), and a file field's previous file when
+    /// an edit clears or replaces it. An `Err(reason)` is logged; the write stands. A path two
+    /// records share goes with the first that lets it go.
+    fn delete(&self, path: &str) -> impl Future<Output = Result<(), String>> + Send {
+        async move {
+            let _ = path;
+            Ok(())
+        }
+    }
 }
 
 /// Writes each upload into one directory as `{uuid}-{basename}` and stores its URL under
@@ -168,6 +183,17 @@ impl Uploader for DirUploader {
             .await
             .is_ok_and(|metadata| metadata.is_file())
     }
+
+    /// Removes the file a URL `store` returned names; a file already gone is no error.
+    async fn delete(&self, path: &str) -> Result<(), String> {
+        let Some(name) = self.file_name(path).filter(|name| is_stored_name(name)) else {
+            return Ok(());
+        };
+        match tokio::fs::remove_file(self.dir.join(name)).await {
+            Err(error) if error.kind() != std::io::ErrorKind::NotFound => Err(error.to_string()),
+            _ => Ok(()),
+        }
+    }
 }
 
 /// Strips a client filename to a safe basename capped at 255 bytes, without control or
@@ -255,6 +281,7 @@ pub(crate) trait DynUploader: Send + Sync {
         bytes: &'a [u8],
     ) -> BoxFuture<'a, Result<String, String>>;
     fn holds<'a>(&'a self, path: &'a str) -> BoxFuture<'a, bool>;
+    fn delete<'a>(&'a self, path: &'a str) -> BoxFuture<'a, Result<(), String>>;
 }
 
 impl<U: Uploader> DynUploader for U {
@@ -269,6 +296,10 @@ impl<U: Uploader> DynUploader for U {
     fn holds<'a>(&'a self, path: &'a str) -> BoxFuture<'a, bool> {
         Box::pin(Uploader::holds(self, path))
     }
+
+    fn delete<'a>(&'a self, path: &'a str) -> BoxFuture<'a, Result<(), String>> {
+        Box::pin(Uploader::delete(self, path))
+    }
 }
 
 /// Whether `uploader`, a panel's installed one, still holds `path`; `false` without one.
@@ -276,6 +307,41 @@ pub(crate) async fn holds(uploader: Option<&InstalledUploader>, path: &str) -> b
     match uploader {
         Some(uploader) => uploader.0.holds(path).await,
         None => false,
+    }
+}
+
+/// Deletes, through `uploader`, the file each of `schema`'s file fields stored in `before` and no
+/// longer stores in `after`, or every one when `after` is `None`; only a path the uploader holds,
+/// and each path once.
+pub(crate) async fn discard(
+    uploader: Option<&InstalledUploader>,
+    schema: &Schema,
+    before: &[FormValues],
+    after: Option<&FormValues>,
+) {
+    let Some(InstalledUploader(uploader)) = uploader else {
+        return;
+    };
+    let mut gone = HashSet::new();
+    for field in schema.fields().filter(|field| field.is_file()) {
+        for values in before {
+            let Some(path) = values.text(field.name()).map(str::trim) else {
+                continue;
+            };
+            let kept =
+                after.is_some_and(|after| after.text(field.name()).map(str::trim) == Some(path));
+            if !path.is_empty() && !kept {
+                gone.insert(path.to_owned());
+            }
+        }
+    }
+    for path in gone {
+        if !uploader.holds(&path).await {
+            continue;
+        }
+        if let Err(reason) = uploader.delete(&path).await {
+            tracing::error!(path, reason, "an upload the write let go was not deleted");
+        }
     }
 }
 

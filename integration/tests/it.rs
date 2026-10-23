@@ -59,6 +59,7 @@ mod two_factor_email;
 mod typed_leaves;
 mod unique;
 mod upload;
+mod upload_discard;
 mod upload_rules;
 mod upstream;
 mod variants;

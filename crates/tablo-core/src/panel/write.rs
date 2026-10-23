@@ -5,10 +5,11 @@ use std::future::Future;
 
 use topcoat::{context::Cx, router::error::see_other, view::BoxView};
 
-use super::gate::landing_url;
+use super::{gate::landing_url, state::uploader};
 use crate::{
     db::WriteTx,
     flash::{notify_write_failure, set_notification},
+    form::RecordForm,
     notification::Notification,
     outcome::{Outcome, same_origin_path},
     resource::{Change, Mounted, Resource},
@@ -43,12 +44,30 @@ pub(crate) async fn commit_write<'a, R: Resource, T>(
         cx,
         tx,
         written,
-        |change| crate::resource::run_after_commit::<R>(cx, change),
+        |change| async move {
+            discard_uploads(cx, resource, &change).await;
+            crate::resource::run_after_commit::<R>(cx, change).await;
+        },
         note,
         failure,
         &resource.url,
     )
     .await
+}
+
+/// Deletes the uploads a committed `change` let go: every file of a removed record, and a file
+/// an update cleared or replaced. A soft delete keeps them for the restore.
+async fn discard_uploads<R: Resource>(cx: &Cx, resource: &Mounted<R>, change: &Change<R::Model>) {
+    let hydrate = |record| <R::Form as RecordForm>::hydrate(cx, record);
+    let (before, after) = match change {
+        Change::Update { before, after } => (vec![hydrate(before)], Some(hydrate(after))),
+        Change::Delete(records) if resource.soft_delete.is_none() => {
+            (records.iter().map(hydrate).collect(), None)
+        }
+        Change::ForceDelete(records) => (records.iter().map(hydrate).collect(), None),
+        _ => return,
+    };
+    crate::upload::discard(uploader(cx), &resource.form, &before, after.as_ref()).await;
 }
 
 /// [`commit_write`]'s tail for any write: commit, run `after` on what was written, and land as

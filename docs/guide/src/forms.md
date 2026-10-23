@@ -389,7 +389,9 @@ refuses to mount without an `Uploader`. `Panel::uploads_dir` installs the stock 
 It writes each file into the directory as `{uuid}-{basename}`, within the filesystem's 255-byte
 name limit, and stores its URL: `/uploads/` and the name as one percent-encoded path segment. The
 directory answers that URL only with a signature that expires, which the panel adds wherever it
-links or shows a stored file; a page of your own adds it with `url::file(cx, &path)`.
+links or shows a stored file; a page of your own adds it with `url::file(cx, &path)`. Once a write
+commits, it deletes the files the write let go: those of a deleted record, and the one an edit
+replaced or cleared; a soft delete keeps them until the force delete.
 
 A file field takes any file until it declares `.extensions(["png", "jpg"])` or `.max_bytes(n)`.
 The server refuses a file either rule refuses before the uploader sees it, and the extensions also
