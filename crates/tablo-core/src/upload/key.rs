@@ -11,12 +11,18 @@ use topcoat::{
 
 /// The key for `purpose`: derived from the router's cookie key, so any instance sharing it
 /// verifies what another signed, else from a secret drawn once per process, so a signature
-/// verifies only where it was made.
+/// verifies only where it was made. Drawing that secret logs a warning: behind a load balancer,
+/// links break on every other replica.
 pub(crate) fn derived(cx: &Cx, purpose: &[u8]) -> [u8; 32] {
     static PROCESS: OnceLock<[u8; 32]> = OnceLock::new();
     let master: &[u8] = match try_app_context::<Key>(cx) {
         Some(cookie) => cookie.master(),
         None => PROCESS.get_or_init(|| {
+            tracing::warn!(
+                "no cookie `Key` in the router's app context: upload links and carried uploads \
+                 are signed with a key drawn for this process, so another replica or a restart \
+                 refuses them"
+            );
             let mut key = [0; 32];
             getrandom::fill(&mut key).expect("the upload key randomness source failed");
             key
