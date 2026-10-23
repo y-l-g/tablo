@@ -6,6 +6,7 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 description = "Admin toolkit for Rust, server-rendered on Topcoat and persisted with Toasty."
+readme = "../../README.md"
 # Metadata only, no native library: `build.rs` forwards the Tablo source
 # directories an app's Tailwind build scans (`DEP_TABLO_CORE`, `DEP_TABLO_UI`).
 links = "tablo"
