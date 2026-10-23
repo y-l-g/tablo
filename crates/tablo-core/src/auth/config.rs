@@ -316,8 +316,10 @@ impl Auth {
     /// - Wrong codes. Every fifth wrong code in a row ends the challenge, so the next try takes the
     ///   password again. Past the fifth, each code of the app or the mail waits for the one before
     ///   it: 30 seconds, doubling up to an hour, across challenges, until a right code; a recovery
-    ///   code never waits. The fifth mails the account, through `Auth::mail`, that its password
-    ///   signed in and codes failed.
+    ///   code never waits. Each fifth mails the account, through `Auth::mail`, that its password
+    ///   signed in and codes failed. Someone holding the password can so keep the app's codes
+    ///   waiting and make the owner spend recovery codes; the mail tells the owner, and a new
+    ///   password ends it.
     /// - Turning it on or off is a credential change: the account's other sessions and links end.
     ///   Turning it off, and showing new recovery codes, take a code.
     /// - Codes by email. `TwoFactor::new().email_codes()` lets a user with an address choose codes

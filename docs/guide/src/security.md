@@ -43,7 +43,8 @@ What Tablo does by default, and what your deployment must provide for those defa
   sign-up: [`AuthSession`](https://y-l.fr/tablo/nightly/api/tablo/auth/struct.AuthSession.html).
 - A redirect after login follows `next` only to a same-origin path.
 - A two-factor challenge ends after five wrong codes in a row, later codes wait longer each time,
-  up to an hour, and the account is mailed that its password was used:
+  up to an hour, and the account is mailed that its password was used. Whoever holds the password
+  can keep the owner's app codes waiting until the owner changes it:
   [`Auth::two_factor`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.two_factor).
 
 ## Responses

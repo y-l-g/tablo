@@ -300,7 +300,7 @@ async fn mounting_refuses_mailed_codes_without_a_sender() {
     );
 }
 
-/// The fifth wrong code in a row mails Ada, once, that her password signed in and codes failed.
+/// The fifth wrong code in a row mails Ada that her password signed in and codes failed.
 #[tokio::test]
 async fn wrong_codes_after_the_password_mail_the_account() {
     let (db, ada) = db().await;

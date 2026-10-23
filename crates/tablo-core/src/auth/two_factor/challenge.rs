@@ -256,10 +256,8 @@ pub(in crate::auth) fn challenge_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
                 failures,
                 "wrong two-factor code"
             );
-            if failures == FREE_FAILURES {
-                alert(cx, &*user).await;
-            }
             if ends {
+                alert(cx, &*user).await;
                 return ended(cx, &next);
             }
             return pages::challenge(cx, &next, mailed, Notice::Refused).await;
