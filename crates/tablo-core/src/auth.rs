@@ -64,7 +64,7 @@ pub(crate) use self::{
     login::{logout_url, safe_next, tenant_url},
     mail::AuthMail,
     panel_user::{Authenticator, PanelUser},
-    password::PasswordAuth,
+    password::{PasswordAuth, end_changed_credentials},
     password_reset::PasswordReset,
     profile::{Profile, ProfileEditor, ProfileUpdate, offered as profile_offered, profile_url},
     realm::{AuthHost, CurrentRealm, Host, Realm, SettingsPage, current_realm, panel_prefix},

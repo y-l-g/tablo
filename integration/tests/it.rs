@@ -9,6 +9,7 @@ mod common;
 
 mod action_input;
 mod action_policy;
+mod admin_credentials;
 mod auth_override;
 mod column;
 mod commit;

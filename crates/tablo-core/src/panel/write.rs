@@ -35,9 +35,12 @@ pub(crate) async fn commit_write<'a, R: Resource, T>(
         Ok((value, outcome)) => {
             let change = change(value);
             match R::before_commit(cx, &change, &mut *tx).await {
-                Ok(()) => keep_uploads(cx, resource, &change)
-                    .await
-                    .map(|()| (change, outcome)),
+                Ok(()) => match end_changed_credentials(cx, &mut *tx, &change).await {
+                    Ok(()) => keep_uploads(cx, resource, &change)
+                        .await
+                        .map(|()| (change, outcome)),
+                    Err(error) => Err(error),
+                },
                 Err(error) => Err(error),
             }
         }
@@ -56,6 +59,21 @@ pub(crate) async fn commit_write<'a, R: Resource, T>(
         &resource.url,
     )
     .await
+}
+
+/// Ends the sessions of the admin `change` gave a new email or password, inside the write's
+/// transaction, so a committed credential change leaves no session alive.
+async fn end_changed_credentials<M: Send + Sync + 'static>(
+    cx: &Cx,
+    tx: &mut dyn toasty::Executor,
+    change: &Change<M>,
+) -> topcoat::Result<()> {
+    match change {
+        Change::Update { before, after } => {
+            crate::auth::end_changed_credentials(cx, tx, before, after).await
+        }
+        _ => Ok(()),
+    }
 }
 
 /// Keeps the new uploads `change` stores, before it commits.
