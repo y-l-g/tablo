@@ -2,6 +2,7 @@
 //! account's authenticator secret and recovery codes, and the checks the challenge and settings
 //! pages run against them.
 
+mod backoff;
 mod challenge;
 mod cipher;
 mod email;
@@ -126,6 +127,11 @@ pub struct AuthFactor {
     pub confirmed_at: Option<Timestamp>,
     /// The last 30-second step an authenticator code signed in with: a code works once.
     pub last_step: Option<i64>,
+    /// The wrong codes in a row signing in since the last right one, on the confirmed factor.
+    pub failures: i64,
+    /// Until when signing in refuses the confirmed factor's codes after
+    /// [`failures`](Self::failures) wrong ones; a recovery code still works.
+    pub retry_at: Option<Timestamp>,
     pub created_at: Timestamp,
 }
 
@@ -272,6 +278,8 @@ async fn start(
         secret,
         confirmed_at: None,
         last_step: None,
+        failures: 0,
+        retry_at: None,
         created_at: Timestamp::now(),
     })
     .exec(ex)
@@ -388,6 +396,13 @@ async fn accept_factor(
     }
 }
 
+/// Whether `code` reads as a code of the factor rather than a recovery code: apps show a code as
+/// "123 456"; a recovery code is ten characters, so six digits are a code.
+fn factor_code(code: &str) -> Option<String> {
+    let code: String = code.chars().filter(|c| !c.is_whitespace()).collect();
+    (code.len() == 6 && code.bytes().all(|b| b.is_ascii_digit())).then_some(code)
+}
+
 /// Whether `code` proves `user_id` holds their second factor on the request's panel: a code of
 /// their confirmed factor, or one of their recovery codes, which it uses up.
 pub(super) async fn accept(
@@ -400,12 +415,12 @@ pub(super) async fn accept(
     let Some(factor) = enrolment.confirmed else {
         return Ok(false);
     };
-    // Apps show a code as "123 456"; a recovery code is ten characters, so six digits are a code.
-    let code: String = code.chars().filter(|c| !c.is_whitespace()).collect();
-    if code.len() == 6 && code.bytes().all(|b| b.is_ascii_digit()) {
-        accept_factor(cx, ex, &factor, &code).await
-    } else {
-        spend_recovery_code(cx, ex, user_id, &code).await
+    match factor_code(code) {
+        Some(code) => accept_factor(cx, ex, &factor, &code).await,
+        None => {
+            let code: String = code.chars().filter(|c| !c.is_whitespace()).collect();
+            spend_recovery_code(cx, ex, user_id, &code).await
+        }
     }
 }
 
@@ -439,6 +454,8 @@ async fn issue_recovery_codes(
             secret: recovery_hash(cx, user_id, &panel, &code)?,
             confirmed_at: Some(now),
             last_step: None,
+            failures: 0,
+            retry_at: None,
             created_at: now,
         })
         .exec(&mut *ex)
