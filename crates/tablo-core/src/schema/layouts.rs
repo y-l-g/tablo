@@ -15,9 +15,10 @@ use super::{
     tree::{IntoSchema, Source, render_nodes},
 };
 
-/// Renders a `Section`'s titled panel.
+/// Renders a `Section`'s titled panel: a title row, ruled off from the body under it.
 const PANEL: StaticClass = class!(
-    "flex flex-col gap-5 rounded-xl border border-border bg-card py-6 text-card-foreground shadow-sm"
+    "flex flex-col rounded-xl border border-border bg-card text-card-foreground shadow-xs",
+    "[&>[data-section-title]:not(:last-child)]:border-b [&>[data-section-title]]:border-border",
 );
 
 /// A titled block holding a form's fields ([`schema`](Self::schema)) or a detail page's columns
@@ -87,15 +88,24 @@ fn section_chrome<'a>(
         Some(body) => view! {
             cx =>
             <div class=(class!(PANEL, extra.clone()))>
-                card_header(card_title((title)))
-                card_content(attrs: attributes! { class="flex flex-col gap-6" }, (body))
+                card_header(
+                    attrs: attributes! { class="py-4" data-section-title="" },
+                    card_title((title))
+                )
+                card_content(
+                    attrs: attributes! { class="flex flex-col gap-6 py-6" },
+                    (body)
+                )
             </div>
         }
         .boxed(),
         None => view! {
             cx =>
             <div class=(class!(PANEL, extra.clone()))>
-                card_header(card_title((title)))
+                card_header(
+                    attrs: attributes! { class="py-4" data-section-title="" },
+                    card_title((title))
+                )
             </div>
         }
         .boxed(),

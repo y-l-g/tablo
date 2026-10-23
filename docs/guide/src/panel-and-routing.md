@@ -253,10 +253,10 @@ use topcoat::{Result, context::Cx, view::{View, view}};
 
 The `tablo::ui` composites give a page the same frame as the panel's own pages: `page` sets the
 width and padding; `page_header` holds a `page_title`, an optional `page_description` and optional
-`page_actions`; `page_content` holds the body. Inside it, use `card` for a panel of content and
-`empty_state` for a region with nothing to show. They are styled by the design tokens (`--card`,
-`--border`, `--primary`, …) that your `styles.css` overrides, so one theme restyles the panel's
-pages and yours.
+`page_actions`; `page_content` holds the body. Inside it, use `card` for a panel of content, `stat`
+for a dashboard figure, and `empty_state` for a region with nothing to show. They are styled by the
+design tokens (`--card`, `--border`, `--primary`, …) that your `styles.css` overrides, so one theme
+restyles the panel's pages and yours.
 
 ## Public pages
 
@@ -295,7 +295,7 @@ tenant predicate. See [Data access](./data-access.md).
 
 ### Theme tokens
 
-The shell's colors and shadows are CSS custom properties, declared under `:root` for the light
+The shell's colors, shadows and corner radius are CSS custom properties, declared under `:root` for the light
 theme and again under `.dark`. Your `styles.css` redeclares the ones it changes
 ([The stylesheet](./first-panel.md#the-stylesheet)); Tailwind reads each as a color of the same
 name, such as `bg-primary` or `text-muted-foreground`, in the panel's markup and yours.
@@ -312,6 +312,7 @@ name, such as `bg-primary` or `text-muted-foreground`, in the panel's markup and
 | `--border` | borders and dividers |
 | `--ring` | focus rings |
 | `--shadow-xs`, `--shadow-sm` | the `shadow-xs` and `shadow-sm` shadows |
+| `--radius` | the corners: `rounded-lg`, with `rounded-md` and `rounded-sm` 2px and 4px smaller and `rounded-xl` 4px larger |
 | `--sidebar`, `--sidebar-foreground` | the sidebar and its text |
 | `--sidebar-primary`, `--sidebar-primary-foreground` | the sidebar's primary elements, `--primary` by default |
 | `--sidebar-accent`, `--sidebar-accent-foreground` | the hovered and active sidebar entry |

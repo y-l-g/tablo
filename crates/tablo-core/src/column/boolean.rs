@@ -62,10 +62,11 @@ where
     fn cell<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
         let value = *self.lens.read(row);
         let text = self.text(cx, row);
+        // A no is the common case in most columns, so it stays quiet and the yeses stand out.
         let (data, class) = if value {
-            (tablo_ui::icons::CIRCLE_CHECK, "size-4 text-primary")
+            (tablo_ui::icons::CIRCLE_CHECK, "size-4 text-success")
         } else {
-            (tablo_ui::icons::CIRCLE_X, "size-4 text-destructive")
+            (tablo_ui::icons::MINUS, "size-4 text-muted-foreground/60")
         };
         view! {
             cx =>

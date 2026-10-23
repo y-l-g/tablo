@@ -4,36 +4,26 @@ use tablo::{
     Ability, FieldErrors, HeaderAction, Page, PageDef, Resource, can_list, db::db,
     header_action_buttons, scoped_query,
 };
+use toasty::stmt::Include;
 use topcoat::{
     Result,
     context::Cx,
-    icon::{IconData, icon},
     view::{BoxView, View, ViewExt, view},
 };
 
 use crate::{
     app::{AuthorResource, CommentResource, PostResource, UserResource},
-    models::Post,
+    models::{Author, Post, PostStatus},
 };
 
 /// The page the panel serves at its prefix.
 pub struct Dashboard;
 
-/// One resource's tile: its sidebar label, list and icon, and how many records the caller can
-/// see there.
-struct Stat {
-    label: String,
-    url: String,
-    icon: Option<IconData>,
-    /// `None` when the count could not be read: the tile shows a dash rather
-    /// than a wrong zero.
-    count: Option<u64>,
-}
-
-/// `R`'s tile, or `None` when the caller may not open `R`'s list, so the
-/// dashboard links to no list that would answer 403, or when the panel does
-/// not register `R`.
-async fn stat<R: Resource>(cx: &Cx) -> Option<Stat> {
+/// `R`'s tile: its sidebar label, icon and list, and how many records the caller can see there,
+/// or `None` when the caller may not open `R`'s list, so the dashboard links to no list that
+/// would answer 403, or when the panel does not register `R`. A count the database fails to read
+/// shows as a dash rather than a wrong zero.
+async fn stat<R: Resource>(cx: &Cx, detail: String) -> Option<BoxView<'_>> {
     if !can_list::<R>(cx) {
         return None;
     }
@@ -43,54 +33,102 @@ async fn stat<R: Resource>(cx: &Cx) -> Option<Stat> {
         Ok(query) => query.count().exec(&mut db(cx)).await.ok(),
         Err(_) => None,
     };
-    Some(Stat {
-        url,
-        label: item.label,
-        icon: item.icon,
-        count,
-    })
+    let value = count.map_or_else(|| "—".to_string(), |count| count.to_string());
+    Some(
+        view! {
+            cx =>
+            tablo::ui::stat(
+                label: item.label,
+                value: value,
+                detail: detail,
+                icon: item.icon,
+                href: url
+            )
+        }
+        .boxed(),
+    )
 }
 
-fn stat_card(cx: &Cx, stat: Stat) -> BoxView<'_> {
-    let count = stat
-        .count
-        .map_or_else(|| "—".to_string(), |count| count.to_string());
-    view! {
-        cx =>
-        <a
-            (topcoat::runtime::link_attrs(
-                cx,
-                stat.url,
-                topcoat::runtime::prefetch_mode(cx),
-            ))
-            class="group rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-            tablo::ui::card(
-                attrs: topcoat::view::attributes! { class="transition-colors group-hover:bg-muted/40" },
-                tablo::ui::card_content(
-                    <div class="flex items-center justify-between gap-2">
-                        <p class="text-sm font-medium text-muted-foreground">
-                            (stat.label)
-                        </p>
-                        <span
-                            class="text-muted-foreground [&>svg]:size-4"
-                            aria-hidden="true"
-                        >
-                            if let Some(glyph) = stat.icon {
-                                icon(data: glyph)
-                            }
-                        </span>
-                    </div>
-                    <p
-                        class="mt-2 text-3xl font-semibold tracking-tight text-foreground"
-                    >
-                        (count)
-                    </p>
-                )
-            )
-        </a>
+/// The newest posts the caller can see, each linking to its page, with a link to the full list.
+async fn latest_posts(cx: &Cx) -> Option<BoxView<'_>> {
+    if !can_list::<PostResource>(cx) {
+        return None;
     }
-    .boxed()
+    let all = tablo::url::resource::<PostResource>(cx)?;
+    let author: Include<Post, Author> = Post::fields().author().into();
+    let posts = scoped_query::<PostResource>(cx)
+        .ok()?
+        .order_by(Post::fields().created_at().desc())
+        .limit(5)
+        .include(author)
+        .exec(&mut db(cx))
+        .await
+        .ok()?;
+    let rows: Vec<BoxView<'_>> = posts
+        .iter()
+        .map(|post| {
+            let url = tablo::url::record::<PostResource>(cx, post);
+            let byline = format!(
+                "{} · {}",
+                post.author.get().name,
+                post.created_at.strftime("%b %-d, %Y")
+            );
+            let status = match post.status {
+                PostStatus::Draft => "Draft",
+                PostStatus::Published => "Published",
+            };
+            let title = post.title.clone();
+            view! {
+                cx =>
+                <li class="flex items-center gap-4 px-6 py-3">
+                    <div class="min-w-0 flex-1">
+                        if let Some(url) = url {
+                            <a
+                                href=(url)
+                                class="block truncate text-sm font-medium hover:underline"
+                            >
+                                (title)
+                            </a>
+                        } else {
+                            <p class="truncate text-sm font-medium">(title)</p>
+                        }
+                        <p class="truncate text-sm text-muted-foreground">(byline)</p>
+                    </div>
+                    tablo::ui::badge(
+                        variant: tablo::ui::BadgeVariant::Outline,
+                        (status)
+                    )
+                </li>
+            }
+            .boxed()
+        })
+        .collect();
+    Some(
+        view! {
+            cx =>
+            <section
+                class="rounded-xl border border-border bg-card text-card-foreground shadow-xs"
+            >
+                <div
+                    class="flex items-center justify-between border-b border-border px-6 py-4"
+                >
+                    <h2 class="text-base font-semibold">"Latest posts"</h2>
+                    <a
+                        href=(all)
+                        class="text-sm text-muted-foreground hover:text-foreground"
+                    >
+                        "View all"
+                    </a>
+                </div>
+                <ul class="divide-y divide-border">
+                    for row in rows {
+                        (row)
+                    }
+                </ul>
+            </section>
+        }
+        .boxed(),
+    )
 }
 
 /// What featuring by tag asks for: the tag.
@@ -149,17 +187,22 @@ impl Page for Dashboard {
     }
 
     async fn render(cx: &Cx) -> Result<impl View> {
-        let stats = [
-            stat::<UserResource>(cx).await,
-            stat::<AuthorResource>(cx).await,
-            stat::<PostResource>(cx).await,
-            stat::<CommentResource>(cx).await,
-        ];
-        let cards: Vec<BoxView<'_>> = stats
-            .into_iter()
-            .flatten()
-            .map(|stat| stat_card(cx, stat))
-            .collect();
+        let drafts = scoped_query::<PostResource>(cx)?
+            .filter(Post::fields().status().eq(PostStatus::Draft))
+            .count()
+            .exec(&mut db(cx))
+            .await
+            .map_or_else(|_| String::new(), |drafts| format!("{drafts} in draft"));
+        let stats: Vec<BoxView<'_>> = [
+            stat::<UserResource>(cx, String::new()).await,
+            stat::<AuthorResource>(cx, String::new()).await,
+            stat::<PostResource>(cx, drafts).await,
+            stat::<CommentResource>(cx, String::new()).await,
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+        let latest = latest_posts(cx).await;
         Ok(view! {
             cx =>
             tablo::ui::page(
@@ -171,11 +214,14 @@ impl Page for Dashboard {
                     tablo::ui::page_actions((header_action_buttons::<Self>(cx)))
                 )
                 tablo::ui::page_content(
-                    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        for card in cards {
-                            (card)
+                    <div class="grid grid-cols-2 gap-4 xl:grid-cols-4">
+                        for tile in stats {
+                            (tile)
                         }
                     </div>
+                    if let Some(latest) = latest {
+                        (latest)
+                    }
                 )
             )
         })

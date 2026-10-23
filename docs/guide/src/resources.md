@@ -106,7 +106,7 @@ A resource that keeps deleted records names the column a delete stamps, a nullab
 ```
 
 A delete then sets the column to the current time instead of removing the row, and every loader
-leaves the stamped records out. The list's filter bar gains a **Trashed** control, and a trashed
+leaves the stamped records out. The list's filter menu gains a **Trashed** control, and a trashed
 record offers **Restore** and **Delete permanently**, which the policy allows through
 `Ability::Restore` and `Ability::ForceDelete`. In your own code, `scoped_query_in::<R>(cx,
 Trashed::Only)` loads the trashed records.

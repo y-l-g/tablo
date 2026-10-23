@@ -1,4 +1,5 @@
-//! The toolbar above the table: the search field, the filter controls, and the bulk actions.
+//! The toolbar above the table: the search field, the bulk actions, the column picker and the
+//! filter menu.
 
 use tablo_ui::{
     ButtonSize, ButtonVariant, FloatingAlign, button, button_variants, checkbox, dropdown_menu,
@@ -20,6 +21,7 @@ use super::{
 };
 use crate::{
     panel::{
+        input::selected_count,
         list::{COLUMN_FIELD, RESET_FIELD, TableSignals},
         url::{bulk_action_url, bulk_delete_url},
     },
@@ -70,19 +72,20 @@ pub(super) fn rerun_with(signals: &TableSignals, form: &str) -> Expr<impl EventH
 }
 
 impl Frame<'_> {
-    /// Render the toolbar: a GET form holding the search field and the filter `controls`, which
-    /// rewrites the table's query as they change, and the bulk actions beside the search. Typing
-    /// submits the form once the reader pauses; Enter submits it, with or without JavaScript.
+    /// Render the toolbar: a GET form holding the search field and the filter menu over the
+    /// `filters` controls and their active count, which rewrites the table's query as they change,
+    /// and the bulk actions, shown while rows are selected. Typing submits the form once the
+    /// reader pauses; Enter submits it, with or without JavaScript.
     pub(super) async fn render_toolbar<'a>(
         &self,
         cx: &'a Cx,
         state: &TableState,
         path: &str,
         signals: &TableSignals,
-        controls: Vec<BoxView<'a>>,
+        filters: (Vec<BoxView<'a>>, usize),
     ) -> Result<BoxView<'a>> {
         let show_search = self.search;
-        let show_filters = self.filter_bar;
+        let show_filters = self.filter_menu;
         let with_bulk = self.bulk_enabled();
         let (picker, picker_form) = self
             .picker
@@ -140,11 +143,9 @@ impl Frame<'_> {
             .boxed()
         });
         let bulk = with_bulk.then(|| self.render_bulk_bar(cx, state, signals));
-        let filters = if show_filters {
-            Some(self.render_filter_controls(cx, state, path, signals, controls))
-        } else {
-            None
-        };
+        let (filter_trigger, filter_panel) = show_filters
+            .then(|| self.render_filter_menu(cx, state, path, signals, filters))
+            .unzip();
         let (on_change, on_submit) = (rerun_with(signals, &form), rerun_with(signals, &form));
         let action = path.to_string();
         Ok(view! {
@@ -158,23 +159,26 @@ impl Frame<'_> {
             >
                 (hidden)
                 <button type="submit" class="sr-only" tabindex="-1">"Search"</button>
-                if search.is_some() || bulk.is_some() || picker.is_some() {
-                    <div class=(BAR_CLASS)>
-                        if let Some(search) = search {
-                            (search)
+                <div class=(BAR_CLASS)>
+                    if let Some(search) = search {
+                        (search)
+                    }
+                    <div class="ml-auto flex flex-wrap items-center gap-2">
+                        if let Some(bulk) = bulk {
+                            (bulk)
                         }
-                        <div class="ml-auto flex items-center gap-2">
-                            if let Some(bulk) = bulk {
-                                (bulk)
-                            }
-                            if let Some(picker) = picker {
-                                (picker)
-                            }
-                        </div>
+                        if let Some(picker) = picker {
+                            (picker)
+                        }
+                        // Last, so the menu, aligned to its end, opens inside a narrow screen.
+                        if let Some(trigger) = filter_trigger {
+                            (trigger)
+                        }
                     </div>
-                }
-                if let Some(filters) = filters {
-                    (filters)
+                </div>
+                // The popover leaves the bar's layout, but stays in the form its controls submit.
+                if let Some(panel) = filter_panel {
+                    (panel)
                 }
             </form>
             // Forms do not nest: the picker's controls name this form from inside the toolbar's.
@@ -283,8 +287,8 @@ impl Frame<'_> {
         (menu_view, form_view)
     }
 
-    /// Render the bulk actions: each submits the table's write form with the selection, and is
-    /// disabled while nothing is selected.
+    /// Render the bulk actions after the count of selected rows: each submits the table's write
+    /// form with the selection. The group hides while nothing is selected.
     fn render_bulk_bar<'a>(
         &self,
         cx: &'a Cx,
@@ -343,15 +347,21 @@ impl Frame<'_> {
                             data: tablo_ui::icons::TRASH,
                             attrs: attributes! { class="text-destructive" }
                         )
-                        "Delete selected"
+                        "Delete"
                     )
                 }
                 .boxed(),
             );
         }
+        let selection = signals.bulk.clone();
+        let count = selected_count(cx, selection.clone());
         view! {
             cx =>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2" :hidden=$(selection.get().is_empty())>
+                <span class="px-1 text-sm text-muted-foreground tabular-nums">
+                    (count)
+                    " selected"
+                </span>
                 for control in buttons {
                     (control)
                 }

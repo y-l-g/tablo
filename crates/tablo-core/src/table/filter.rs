@@ -53,11 +53,11 @@ pub trait Filter<M>: Send + Sync {
         false
     }
 
-    /// The control in the filter bar.
+    /// The control in the table's filter menu.
     fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a>;
 
-    /// The control in the filter bar once what it offers has loaded, such as rows a query
-    /// returns. The filter bar renders this one; it defaults to [`control`](Self::control).
+    /// The control in the filter menu once what it offers has loaded, such as rows a query
+    /// returns. The filter menu renders this one; it defaults to [`control`](Self::control).
     fn load_control<'s, 'a: 's>(&'s self, cx: &'a Cx, input: FilterInput) -> ControlFuture<'s, 'a> {
         Box::pin(async move { self.control(cx, input) })
     }

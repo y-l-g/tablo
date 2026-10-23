@@ -281,7 +281,7 @@ where
                             name=(name)
                             value=(value)
                             aria-label=(aria)
-                            class="w-auto!"
+                            class="min-w-0 flex-1"
                             data-filter-name=(filter)
                         }
                     )
@@ -304,7 +304,7 @@ where
             let (from_param, to_param) = (input.part_param("from"), input.part_param("to"));
             view! {
                 cx =>
-                <span class="flex items-center gap-1" data-filter-name=(name)>
+                <span class="flex items-center gap-2" data-filter-name=(name)>
                     (bound(from, from_param, format!("{aria} from"), None))
                     <span aria-hidden="true">"–"</span>
                     (bound(to, to_param, format!("{aria} to"), None))

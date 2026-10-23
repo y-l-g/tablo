@@ -386,8 +386,9 @@ impl Panel {
         extra_class: Option<String>,
     ) -> Result<BoxView<'a>> {
         use tablo_ui::{
-            SeparatorOrientation, SidebarCollapsible, separator, sidebar, sidebar_content,
-            sidebar_footer, sidebar_header, sidebar_inset, sidebar_provider, sidebar_trigger,
+            SeparatorOrientation, SidebarCollapsible, SidebarVariant, separator, sidebar,
+            sidebar_content, sidebar_footer, sidebar_header, sidebar_inset, sidebar_provider,
+            sidebar_trigger,
         };
 
         let sidebar_open = signal(cx, || Self::sidebar_starts_open(cx));
@@ -476,15 +477,12 @@ impl Panel {
             cx =>
             sidebar_provider(
                 attrs: attributes! { class=(outer_class) },
-                // `sidebar_rail` is intentionally not rendered: the header
-                // `sidebar_trigger` is the explicit toggle, and the rail's
-                // edge hit-area reads as stray chrome as a primary toggle.
-                // Keep the component available (`tablo_ui::sidebar_rail`)
-                // for opt-in `variant=inset`/`floating` layouts.
+                // No `sidebar_rail`: the header's `sidebar_trigger` is the one toggle.
                 sidebar(
                     open: $(sidebar_open.get()),
                     mobile_open: $(mobile_open.get()),
                     collapsible: SidebarCollapsible::Icon,
+                    variant: SidebarVariant::Inset,
                     sheet_attrs: attributes! {
                         id="mobile-sidebar-sheet"
                         aria-label="Navigation"
@@ -557,7 +555,9 @@ impl Panel {
                         )
                         // The sidebar carries the brand on desktop; below md it hides in
                         // the sheet, so the topbar names the panel there.
-                        <div class="md:hidden font-semibold text-foreground">
+                        <div
+                            class="min-w-0 truncate font-semibold text-foreground md:hidden"
+                        >
                             (header_title)
                         </div>
                         // The separator stays a direct child of the topbar,

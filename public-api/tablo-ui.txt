@@ -332,6 +332,55 @@ impl core::marker::Unpin for tablo_ui::components::composites::page::page_title
 impl core::marker::UnsafeUnpin for tablo_ui::components::composites::page::page_title
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::composites::page::page_title
 impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::composites::page::page_title
+pub mod tablo_ui::components::composites::stat
+pub struct tablo_ui::components::composites::stat::StatProps
+pub tablo_ui::components::composites::stat::StatProps::attrs: topcoat_view::html::attribute::attributes::Attributes
+pub tablo_ui::components::composites::stat::StatProps::detail: alloc::string::String
+pub tablo_ui::components::composites::stat::StatProps::href: core::option::Option<alloc::string::String>
+pub tablo_ui::components::composites::stat::StatProps::icon: core::option::Option<topcoat_icon::data::IconData>
+pub tablo_ui::components::composites::stat::StatProps::label: alloc::string::String
+pub tablo_ui::components::composites::stat::StatProps::value: alloc::string::String
+impl tablo_ui::components::composites::stat::StatProps
+pub fn tablo_ui::components::composites::stat::StatProps::builder() -> tablo_ui::components::composites::stat::StatPropsBuilder<__stat_props::label, __stat_props::value>
+impl topcoat_view::props::Props for tablo_ui::components::composites::stat::StatProps
+pub type tablo_ui::components::composites::stat::StatProps::Builder = tablo_ui::components::composites::stat::StatPropsBuilder
+pub fn tablo_ui::components::composites::stat::StatProps::builder() -> Self::Builder
+impl core::marker::Freeze for tablo_ui::components::composites::stat::StatProps
+impl core::marker::Send for tablo_ui::components::composites::stat::StatProps
+impl core::marker::Sync for tablo_ui::components::composites::stat::StatProps
+impl core::marker::Unpin for tablo_ui::components::composites::stat::StatProps
+impl core::marker::UnsafeUnpin for tablo_ui::components::composites::stat::StatProps
+impl !core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::composites::stat::StatProps
+impl !core::panic::unwind_safe::UnwindSafe for tablo_ui::components::composites::stat::StatProps
+pub struct tablo_ui::components::composites::stat::StatPropsBuilder<__label, __value>
+impl<__label, __value> tablo_ui::components::composites::stat::StatPropsBuilder<__label, __value>
+pub fn tablo_ui::components::composites::stat::StatPropsBuilder<__label, __value>::attrs(self, topcoat_view::html::attribute::attributes::Attributes) -> Self
+pub fn tablo_ui::components::composites::stat::StatPropsBuilder<__label, __value>::build(self) -> tablo_ui::components::composites::stat::StatProps where __label: topcoat_view::props::IsSet, __value: topcoat_view::props::IsSet
+pub fn tablo_ui::components::composites::stat::StatPropsBuilder<__label, __value>::detail(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_ui::components::composites::stat::StatPropsBuilder<__label, __value>::href(self, impl core::convert::Into<core::option::Option<alloc::string::String>>) -> Self
+pub fn tablo_ui::components::composites::stat::StatPropsBuilder<__label, __value>::icon(self, impl core::convert::Into<core::option::Option<topcoat_icon::data::IconData>>) -> Self
+pub fn tablo_ui::components::composites::stat::StatPropsBuilder<__label, __value>::label(self, impl core::convert::Into<alloc::string::String>) -> tablo_ui::components::composites::stat::StatPropsBuilder<topcoat_view::props::Set, __value>
+pub fn tablo_ui::components::composites::stat::StatPropsBuilder<__label, __value>::value(self, impl core::convert::Into<alloc::string::String>) -> tablo_ui::components::composites::stat::StatPropsBuilder<__label, topcoat_view::props::Set>
+impl<__label, __value> core::marker::Freeze for tablo_ui::components::composites::stat::StatPropsBuilder<__label, __value> where core::marker::PhantomData<(__label, __value)>: core::marker::Freeze
+impl<__label, __value> core::marker::Send for tablo_ui::components::composites::stat::StatPropsBuilder<__label, __value> where core::marker::PhantomData<(__label, __value)>: core::marker::Send
+impl<__label, __value> core::marker::Sync for tablo_ui::components::composites::stat::StatPropsBuilder<__label, __value> where core::marker::PhantomData<(__label, __value)>: core::marker::Sync
+impl<__label, __value> core::marker::Unpin for tablo_ui::components::composites::stat::StatPropsBuilder<__label, __value> where core::marker::PhantomData<(__label, __value)>: core::marker::Unpin
+impl<__label, __value> core::marker::UnsafeUnpin for tablo_ui::components::composites::stat::StatPropsBuilder<__label, __value> where core::marker::PhantomData<(__label, __value)>: core::marker::UnsafeUnpin
+impl<__label, __value> !core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::composites::stat::StatPropsBuilder<__label, __value>
+impl<__label, __value> !core::panic::unwind_safe::UnwindSafe for tablo_ui::components::composites::stat::StatPropsBuilder<__label, __value>
+pub struct tablo_ui::components::composites::stat::stat
+impl core::default::Default for tablo_ui::components::composites::stat::stat
+pub fn tablo_ui::components::composites::stat::stat::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::composites::stat::stat
+pub type tablo_ui::components::composites::stat::stat::Props<'__props> = tablo_ui::components::composites::stat::StatProps
+pub fn tablo_ui::components::composites::stat::stat::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::composites::stat::stat
+impl core::marker::Send for tablo_ui::components::composites::stat::stat
+impl core::marker::Sync for tablo_ui::components::composites::stat::stat
+impl core::marker::Unpin for tablo_ui::components::composites::stat::stat
+impl core::marker::UnsafeUnpin for tablo_ui::components::composites::stat::stat
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::composites::stat::stat
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::composites::stat::stat
 pub mod tablo_ui::components::composites::toast
 pub struct tablo_ui::components::composites::toast::ToastCloseProps
 pub tablo_ui::components::composites::toast::ToastCloseProps::attrs: topcoat_view::html::attribute::attributes::Attributes
@@ -2377,6 +2426,7 @@ pub const tablo_ui::icons::ITALIC: topcoat_icon::data::IconData
 pub const tablo_ui::icons::LAYOUT_DASHBOARD: topcoat_icon::data::IconData
 pub const tablo_ui::icons::LINK: topcoat_icon::data::IconData
 pub const tablo_ui::icons::LIST: topcoat_icon::data::IconData
+pub const tablo_ui::icons::LIST_FILTER: topcoat_icon::data::IconData
 pub const tablo_ui::icons::LIST_ORDERED: topcoat_icon::data::IconData
 pub const tablo_ui::icons::LOG_OUT: topcoat_icon::data::IconData
 pub const tablo_ui::icons::MAIL: topcoat_icon::data::IconData
@@ -3039,6 +3089,19 @@ impl core::marker::Unpin for tablo_ui::components::primitives::skeleton::skeleto
 impl core::marker::UnsafeUnpin for tablo_ui::components::primitives::skeleton::skeleton
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::primitives::skeleton::skeleton
 impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::primitives::skeleton::skeleton
+pub struct tablo_ui::stat
+impl core::default::Default for tablo_ui::components::composites::stat::stat
+pub fn tablo_ui::components::composites::stat::stat::default() -> Self
+impl topcoat_view::component::Component for tablo_ui::components::composites::stat::stat
+pub type tablo_ui::components::composites::stat::stat::Props<'__props> = tablo_ui::components::composites::stat::StatProps
+pub fn tablo_ui::components::composites::stat::stat::render<'__a, '__props>(self, &'__a topcoat_core::context::Cx, Self::Props) -> impl core::future::future::Future<Output = topcoat::Result<impl topcoat_view::view::View>> + core::marker::Send + '__a where Self: '__a, Self::Props: '__a, '__props: '__a
+impl core::marker::Freeze for tablo_ui::components::composites::stat::stat
+impl core::marker::Send for tablo_ui::components::composites::stat::stat
+impl core::marker::Sync for tablo_ui::components::composites::stat::stat
+impl core::marker::Unpin for tablo_ui::components::composites::stat::stat
+impl core::marker::UnsafeUnpin for tablo_ui::components::composites::stat::stat
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_ui::components::composites::stat::stat
+impl core::panic::unwind_safe::UnwindSafe for tablo_ui::components::composites::stat::stat
 pub struct tablo_ui::switch
 impl core::default::Default for tablo_ui::components::primitives::switch::switch
 pub fn tablo_ui::components::primitives::switch::switch::default() -> Self

@@ -409,8 +409,8 @@ pub struct MediaStore(pub DirUploader);
 /// The URL prefix uploads are served under.
 pub const UPLOAD_URL_PREFIX: &str = "/uploads";
 
-/// The brand's mark, an inline SVG: the sidebar logo and the favicon.
-const LOGO: &str = "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Ccircle%20cx='12'%20cy='12'%20r='10'%20fill='%236366f1'/%3E%3Ctext%20x='12'%20y='16'%20text-anchor='middle'%20font-size='12'%20fill='white'%20font-family='sans-serif'%3EA%3C/text%3E%3C/svg%3E";
+/// The brand's mark, an inline SVG in the theme's primary: the sidebar logo and the favicon.
+pub(crate) const LOGO: &str = "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Crect%20width='24'%20height='24'%20rx='6'%20fill='%2300755d'/%3E%3Cpath%20d='M7%208.5h10M7%2012h10M7%2015.5h6'%20stroke='white'%20stroke-width='2'%20stroke-linecap='round'/%3E%3C/svg%3E";
 
 /// The admin panel's resources and pages: what the router mounts, and what a test builds its
 /// handle from with [`Panel::handle`].

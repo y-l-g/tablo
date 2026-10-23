@@ -3,7 +3,7 @@
 use tablo_ui::{table, table_body, table_cell, table_row};
 use topcoat::{Result, context::Cx, view::*};
 
-use super::{super::WiredTable, Frame, core::table_frame};
+use super::{super::WiredTable, BAR_CLASS, Frame, core::table_frame};
 use crate::{BoxFuture, table::TableState};
 
 impl<M> WiredTable<M> {
@@ -38,27 +38,22 @@ impl Frame<'_> {
             .await?;
         let column_count = self.columns.len();
         let search_pulse = self.search;
-        let filter_pulse = self.filter_bar;
+        let filter_pulse = self.filter_menu;
         let content = view! {
             cx =>
-            if search_pulse || with_bulk {
-                <div
-                    class="flex items-center gap-2 border-b border-border p-3"
-                    aria-hidden="true"
-                >
+            // The toolbar's one row: the bulk actions stay hidden until a row is selected.
+            if search_pulse || filter_pulse {
+                <div class=(BAR_CLASS) aria-hidden="true">
                     if search_pulse {
-                        <div class="animate-pulse rounded-md bg-foreground/10 h-9 w-72"></div>
-                    }
-                    if with_bulk {
                         <div
-                            class="ml-auto animate-pulse rounded-md bg-foreground/10 h-9 w-36"
+                            class="animate-pulse rounded-md bg-foreground/10 h-9 w-full sm:w-72"
                         ></div>
                     }
-                </div>
-            }
-            if filter_pulse {
-                <div class="border-b border-border p-3" aria-hidden="true">
-                    <div class="animate-pulse rounded-md bg-foreground/10 h-9 w-96"></div>
+                    if filter_pulse {
+                        <div
+                            class="ml-auto animate-pulse rounded-md bg-foreground/10 h-9 w-24"
+                        ></div>
+                    }
                 </div>
             }
             // Alone in a box, the registry table draws no border: the bars beside it draw theirs.
