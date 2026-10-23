@@ -60,6 +60,10 @@ and the other subcommands. A new database has no user to sign in with: seed the 
   `HOST=0.0.0.0`.
 - Terminate HTTPS in front of the binary: the panel's cookies are `Secure`, so without it every
   form POST fails its CSRF check.
+- Load the router's cookie `Key` from a secret, at least 64 random bytes, never from
+  `Key::generate()` and never committed: it seals two-factor secrets, so a key that changes on
+  restart, or differs between replicas, leaves every enrolled account unable to sign in, and a
+  key that leaks lets its holder read them.
 - Behind a reverse proxy, install `TrustedProxies` on the router, so the sign-in throttle counts
   the client's address and not the proxy's.
 - Keep uploads on storage that outlives the binary: the directory `Panel::uploads_dir` writes to
