@@ -15,7 +15,9 @@ const PAGE_TITLE: StaticClass = class!(
     "min-w-0 flex-1 basis-64 truncate text-2xl font-semibold tracking-tight text-foreground"
 );
 const PAGE_DESCRIPTION: StaticClass = class!("text-sm text-muted-foreground");
-const PAGE_ACTIONS: StaticClass = class!("flex shrink-0 flex-wrap items-center gap-2");
+// Capped at the header's width, so on a narrow screen the buttons wrap among themselves rather
+// than run off the page.
+const PAGE_ACTIONS: StaticClass = class!("flex max-w-full shrink-0 flex-wrap items-center gap-2");
 const PAGE_CONTENT: StaticClass = class!("flex flex-col gap-6");
 
 /// Standard container for a panel page, owning its max width, padding, and vertical rhythm.

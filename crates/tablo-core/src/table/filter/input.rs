@@ -5,22 +5,22 @@ use topcoat::{context::Cx, icon::icon, view::*};
 
 use super::FilterValue;
 
-/// A filter control's label, beside its control.
+/// A filter control's label, over its control in the filter menu.
 const FILTER_LABEL_CLASS: StaticClass =
-    class!("flex items-center gap-2 text-sm font-medium whitespace-nowrap text-muted-foreground");
+    class!("flex flex-col gap-1.5 text-sm font-medium text-foreground");
 
-/// A checklist's button, sized like the filter bar's selects.
+/// A checklist's button, as wide as the filter menu like its selects.
 const CHECKLIST_BUTTON_CLASS: StaticClass = class!(
-    "flex h-9 max-w-56 min-w-32 items-center justify-between gap-2 rounded-lg border \
+    "flex h-9 w-full items-center justify-between gap-2 rounded-lg border \
      border-border bg-transparent px-3 text-sm font-normal text-foreground outline-none \
      focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 \
      focus-visible:ring-offset-background"
 );
 
-/// A checklist's popover, below its button.
+/// A checklist's popover, below its button and as wide as it.
 const CHECKLIST_POPOVER_CLASS: StaticClass = class!(
-    "inset-auto m-0 mt-1 max-h-72 min-w-48 flex-col overflow-y-auto rounded-lg border \
-     border-border bg-popover p-1 text-popover-foreground shadow-sm open:flex \
+    "inset-auto m-0 mt-1 max-h-72 w-[anchor-size(width)] min-w-48 flex-col overflow-y-auto \
+     rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-sm open:flex \
      [position-area:bottom_span-right] [position-try-fallbacks:flip-block]"
 );
 
@@ -109,12 +109,7 @@ impl FilterInput {
         let control = view! {
             cx =>
             tablo_ui::select(
-                attrs: attributes! {
-                    class="min-w-32"
-                    name=(param)
-                    data-filter-name=(name)
-                    aria-label=(aria)
-                },
+                attrs: attributes! { name=(param) data-filter-name=(name) aria-label=(aria) },
                 for option in option_views {
                     (option)
                 }
@@ -209,13 +204,13 @@ impl FilterInput {
         .boxed()
     }
 
-    /// `control` beside the filter's label.
+    /// `control` under the filter's label.
     pub fn labelled<'a>(self, cx: &'a Cx, control: BoxView<'a>) -> BoxView<'a> {
         labelled(cx, self.label, control)
     }
 }
 
-/// `control` inside the label element the filter bar lays out.
+/// `control` inside the label element the filter menu lays out.
 fn labelled<'a>(cx: &'a Cx, label: String, control: BoxView<'a>) -> BoxView<'a> {
     view! {
         cx =>

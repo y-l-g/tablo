@@ -217,11 +217,10 @@ impl ActionButton {
             delete,
             input,
         } = self;
-        let variant = if delete {
-            ButtonVariant::Destructive
-        } else {
-            ButtonVariant::Outline
-        };
+        // Delete is outlined like its neighbors and tinted, so the one irreversible button reads
+        // as a warning without outweighing the page's primary action.
+        let variant = ButtonVariant::Outline;
+        let tone = delete.then_some(DELETE_TONE);
         let confirm_label = label.clone();
         let face = view! {
             cx =>
@@ -251,7 +250,11 @@ impl ActionButton {
                 button(
                     variant: variant,
                     size: ButtonSize::Md,
-                    attrs: open_dialog(cx, &id, None),
+                    attrs: {
+                        let mut attrs = open_dialog(cx, &id, None);
+                        attrs.extend(attributes! { cx => class=(tone) });
+                        attrs
+                    },
                     (face)
                 )
                 (dialog)
@@ -266,7 +269,7 @@ impl ActionButton {
                     button(
                         variant: variant,
                         size: ButtonSize::Md,
-                        attrs: attributes! { type="submit" },
+                        attrs: attributes! { type="submit" class=(tone) },
                         (face)
                     )
                 </form>
@@ -283,6 +286,7 @@ impl ActionButton {
                 size: ButtonSize::Md,
                 attrs: attributes! {
                     type="button"
+                    class=(tone)
                     aria-haspopup="dialog"
                     @click=$(|_e: Event| {
                         raw!(
@@ -332,3 +336,6 @@ impl ActionButton {
         .boxed()
     }
 }
+
+/// Delete's tint over the outline button, marked important to win over the outline's own colors.
+const DELETE_TONE: &str = "text-destructive! hover:bg-destructive/5! active:bg-destructive/10!";

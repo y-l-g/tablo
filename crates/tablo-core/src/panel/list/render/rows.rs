@@ -9,7 +9,7 @@ use topcoat::{context::Cx, icon::icon, runtime::Event, view::*};
 
 use super::{
     super::{RowActions, TableSignals, WiredTable},
-    CHROME_CELL_CLASS, Frame,
+    CHROME_CELL_CLASS, Frame, ROW_DELETE_CLASS, ROW_ICON_CLASS,
     dialog::{input_trigger, write_trigger},
 };
 use crate::{
@@ -227,9 +227,6 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxV
     }
     let view_url = row.view_url.clone();
     let edit_url = row.edit_url.clone();
-    let link_class = button_variants(ButtonVariant::Ghost, ButtonSize::Icon);
-    let edit_class = link_class.clone();
-    let delete_class = link_class.clone();
     let described = chrome.row_id(&row.key);
     let custom: Vec<BoxView<'a>> = row
         .custom
@@ -273,7 +270,7 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxV
         let mut attrs = write_trigger(cx, &chrome.form, &chrome.signals, action, confirm, false);
         attrs.extend(attributes! {
             cx =>
-            class=(delete_class)
+            class=(ROW_DELETE_CLASS)
             aria-label="Delete"
             aria-describedby=(described.clone())
             title="Delete"
@@ -291,7 +288,7 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxV
                 if let Some(url) = view_url {
                     <a
                         (crate::navigation::runtime_link(cx, &url))
-                        class=(link_class)
+                        class=(ROW_ICON_CLASS)
                         aria-label="View"
                         aria-describedby=(described.clone())
                         title="View"
@@ -302,7 +299,7 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxV
                 if let Some(url) = edit_url {
                     <a
                         (crate::navigation::runtime_link(cx, &url))
-                        class=(edit_class)
+                        class=(ROW_ICON_CLASS)
                         aria-label="Edit"
                         aria-describedby=(described.clone())
                         title="Edit"
@@ -311,12 +308,7 @@ fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxV
                     </a>
                 }
                 if let Some(attrs) = delete {
-                    <button (attrs)>
-                        icon(
-                            data: tablo_ui::icons::TRASH,
-                            attrs: attributes! { class="text-destructive" }
-                        )
-                    </button>
+                    <button (attrs)>icon(data: tablo_ui::icons::TRASH)</button>
                 }
             </div>
         )

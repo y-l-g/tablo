@@ -7,7 +7,7 @@ use topcoat::{Result, context::Cx, view::*};
 use super::{
     super::{TableSignals, WiredTable},
     Frame, TABLE_CARD_CLASS,
-    filterbar::FilterViews,
+    filter_menu::FilterViews,
     pager::PagerInput,
     rows::{CellLayout, RowChrome, RowView, render_rows, selectable_keys},
     table_dom_id,
@@ -134,7 +134,7 @@ impl Frame<'_> {
             )
             .await?;
         let filter_warning = self.render_filter_warning(cx, state, path, signals, &filters);
-        let controls = std::mem::take(&mut filters.controls);
+        let controls = (std::mem::take(&mut filters.controls), filters.active);
         let toolbar = self
             .render_toolbar(cx, state, path, signals, controls)
             .await?;

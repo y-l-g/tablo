@@ -14,7 +14,7 @@ use topcoat::{
 };
 
 use crate::{
-    app::AdminPanel,
+    app::{AdminPanel, LOGO},
     models::{Author, MediaAsset, Post, PostStatus},
 };
 
@@ -25,52 +25,58 @@ path_param!(pub id: uuid::Uuid);
 async fn blog_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
     // Outside the admin prefix the request belongs to no panel, so the blog names it.
     let AdminPanel(admin) = app_context::<AdminPanel>(cx);
-    admin.document(
-        cx,
-        "Tablo Blog",
-        view! {
-            <div class="flex min-h-screen flex-col bg-background text-foreground">
-                <header class="border-b border-border">
-                    <nav
-                        class="mx-auto flex w-full max-w-3xl items-center gap-6 px-6 py-4"
-                    >
-                        <a
-                            let href = href!(page);
-                            let current = href.is_current(cx);
-                            href=(href)
-                            aria-current=(current.then_some("page"))
-                            class=(class!(
-                                "font-semibold",
-                                "text-foreground" if current,
-                                "text-muted-foreground hover:text-foreground" if !current,
-                            ))
+    admin
+        .document(
+            cx,
+            "Tablo Blog",
+            view! {
+                <div class="flex min-h-screen flex-col bg-background text-foreground">
+                    <header class="border-b border-border">
+                        <nav
+                            class="mx-auto flex w-full max-w-3xl items-center gap-3 px-6 py-4"
                         >
-                            "Tablo Blog"
-                        </a>
-                        if let Some(admin) = admin.url() {
                             <a
-                                href=(admin)
-                                class="ml-auto text-sm text-muted-foreground hover:text-foreground"
+                                let href = href!(page);
+                                let current = href.is_current(cx);
+                                href=(href)
+                                aria-current=(current.then_some("page"))
+                                class="flex items-center gap-2.5 font-semibold tracking-tight"
                             >
-                                "Admin"
+                                <img src=(LOGO) alt="" class="size-7">
+                                "Tablo Blog"
                             </a>
-                        }
-                    </nav>
-                </header>
+                            if let Some(admin) = admin.url() {
+                                <a
+                                    href=(admin)
+                                    class=(class!(
+                                        "ml-auto",
+                                        tablo::ui::button_variants(
+                                            tablo::ui::ButtonVariant::Outline,
+                                            tablo::ui::ButtonSize::Sm,
+                                        ),
+                                    ))
+                                >
+                                    "Admin"
+                                </a>
+                            }
+                        </nav>
+                    </header>
 
-                <main class="mx-auto w-full max-w-3xl flex-1 px-6 py-10">(slot)</main>
+                    <main class="mx-auto w-full max-w-3xl flex-1 px-6 py-12 sm:py-16">
+                        (slot)
+                    </main>
 
-                <footer class="border-t border-border">
-                    <p
-                        class="mx-auto w-full max-w-3xl px-6 py-4 text-sm text-muted-foreground"
-                    >
-                        "Published with Tablo."
-                    </p>
-                </footer>
-            </div>
-        },
-    )
-    .await
+                    <footer class="border-t border-border">
+                        <p
+                            class="mx-auto w-full max-w-3xl px-6 py-6 text-sm text-muted-foreground"
+                        >
+                            "Published with Tablo."
+                        </p>
+                    </footer>
+                </div>
+            },
+        )
+        .await
 }
 
 /// The list: published posts only, newest first, each linking to its page.
@@ -86,35 +92,43 @@ async fn page(cx: &Cx) -> Result<impl View> {
         .await?;
 
     Ok(view! {
-        <h1 class="text-3xl font-bold tracking-tight">"Blog"</h1>
+        <h1 class="text-4xl font-semibold tracking-tight">"Blog"</h1>
+        <p class="mt-3 text-lg text-muted-foreground">
+            "Notes on building admin panels in Rust."
+        </p>
 
         if posts.is_empty() {
-            <p class="mt-6 text-muted-foreground">
+            <p class="mt-12 text-muted-foreground">
                 "No posts have been published yet."
             </p>
         } else {
-            <ul class="mt-8 flex flex-col gap-8">
+            <ul class="mt-12 divide-y divide-border border-y border-border">
                 for post in &posts {
                     <li>
-                        <article>
-                            <h2 class="text-xl font-semibold tracking-tight">
-                                <a
-                                    href=(href!(post_page, Id(post.id)))
-                                    class="hover:underline"
-                                >
-                                    (&post.title)
-                                </a>
-                            </h2>
-                            <p class="mt-1 text-sm text-muted-foreground">
-                                (author_name(post))
-                                " · "
-                                (post.created_at.strftime("%Y-%m-%d").to_string())
+                        <article
+                            class="grid gap-1 py-8 sm:grid-cols-[9rem_1fr] sm:gap-6"
+                        >
+                            <p
+                                class="text-sm text-muted-foreground tabular-nums sm:pt-1"
+                            >
+                                (date(post))
                             </p>
-                            if !post.seo.description.is_empty() {
-                                <p class="mt-3 text-muted-foreground">
-                                    (&post.seo.description)
-                                </p>
-                            }
+                            <div>
+                                <h2 class="text-xl font-semibold tracking-tight">
+                                    <a
+                                        href=(href!(post_page, Id(post.id)))
+                                        class="hover:text-primary"
+                                    >
+                                        (&post.title)
+                                    </a>
+                                </h2>
+                                if !post.seo.description.is_empty() {
+                                    <p class="mt-2 text-muted-foreground">
+                                        (&post.seo.description)
+                                    </p>
+                                }
+                                <p class="mt-3 text-sm font-medium">(author_name(post))</p>
+                            </div>
                         </article>
                     </li>
                 }
@@ -161,16 +175,18 @@ async fn post_page(cx: &Cx) -> Result<impl View> {
             "← All posts"
         </a>
 
-        <article class="mt-4">
-            <h1 class="text-3xl font-bold tracking-tight">(&post.title)</h1>
-            <p class="mt-2 text-sm text-muted-foreground">
-                (author_name(&post))
+        <article class="mt-8">
+            <p class="text-sm text-muted-foreground tabular-nums">
+                (date(&post))
                 " · "
-                (post.created_at.strftime("%Y-%m-%d").to_string())
+                (author_name(&post))
             </p>
+            <h1 class="mt-3 text-4xl font-semibold tracking-tight text-balance">
+                (&post.title)
+            </h1>
 
             if !post.seo.description.is_empty() {
-                <p class="mt-6 text-lg text-muted-foreground">
+                <p class="mt-4 text-xl leading-8 text-muted-foreground">
                     (&post.seo.description)
                 </p>
             }
@@ -179,18 +195,23 @@ async fn post_page(cx: &Cx) -> Result<impl View> {
                 <img
                     src=(asset.to_string())
                     alt=(post.title.clone())
-                    class="mt-8 w-full rounded-lg border border-border"
+                    class="mt-10 w-full rounded-xl border border-border"
                 >
             }
 
             // `clean` keeps only the elements a rich text tool produces.
             <div
-                class="mt-8 leading-7 [&_p]:my-4 [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_a]:underline [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3"
+                class="mt-10 text-lg leading-8 [&_p]:my-5 [&_h2]:mt-10 [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:tracking-tight [&_h3]:mt-8 [&_h3]:text-xl [&_h3]:font-semibold [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_blockquote]:border-l-2 [&_blockquote]:border-primary [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-4 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-4 [&_pre]:text-sm"
             >
                 (Unescaped::new_unchecked(tablo::rich_text::clean(&post.body)))
             </div>
         </article>
     })
+}
+
+/// The post's date, as a reader writes it.
+fn date(post: &Post) -> String {
+    post.created_at.strftime("%b %-d, %Y").to_string()
 }
 
 /// Reads the author's display name.

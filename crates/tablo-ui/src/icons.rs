@@ -68,6 +68,8 @@ pub const CHECK_CHECK: IconData = iconify_icon!("lucide:check-check");
 pub const MAIL: IconData = iconify_icon!("lucide:mail");
 /// The table's column picker.
 pub const COLUMNS_3: IconData = iconify_icon!("lucide:columns-3");
+/// The table's filter menu.
+pub const LIST_FILTER: IconData = iconify_icon!("lucide:list-filter");
 
 // Rich text toolbar tools.
 /// Rich text: bold.

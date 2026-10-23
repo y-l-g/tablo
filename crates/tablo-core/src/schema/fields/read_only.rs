@@ -14,7 +14,10 @@ pub(crate) fn read_only<'a>(cx: &'a Cx, label: &str, value: BoxView<'a>) -> BoxV
         ui_field(
             attrs: attributes! { class="ac-field" },
             ui_field_content(
-                ui_field_title((label))
+                ui_field_title(
+                    attrs: attributes! { class="text-muted-foreground" },
+                    (label)
+                )
                 <div class="text-sm text-foreground wrap-anywhere whitespace-pre-wrap">
                     (value)
                 </div>

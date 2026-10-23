@@ -4287,7 +4287,7 @@ pub fn tablo_core::Table<M>::column(self, impl tablo_core::extend::Column<M> + '
 pub fn tablo_core::Table<M>::declaration_errors(&self) -> alloc::vec::Vec<tablo_core::DeclarationErrorKind>
 pub fn tablo_core::Table<M>::filters(self, impl tablo_core::IntoFilters<M>) -> Self where M: toasty::schema::model::Model
 pub fn tablo_core::Table<M>::group_by<T>(self, tablo_core::Lens<M, T>) -> Self where M: toasty::schema::model::Model + core::marker::Send + core::marker::Sync + 'static, T: tablo_core::FormScalar + core::marker::Send + core::marker::Sync + 'static
-pub fn tablo_core::Table<M>::hide_filter_bar(self) -> Self
+pub fn tablo_core::Table<M>::hide_filter_menu(self) -> Self
 pub fn tablo_core::Table<M>::hide_search(self) -> Self
 pub fn tablo_core::Table<M>::new(impl tablo_core::IntoColumns<M>) -> Self where M: toasty::schema::model::Model + toasty::stmt::into_expr::IntoExpr<M>
 pub fn tablo_core::Table<M>::page_size(&self) -> usize

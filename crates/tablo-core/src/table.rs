@@ -132,7 +132,7 @@ pub struct Table<M> {
     /// The sort a request naming no sortable column reads.
     default_sort: Option<Sort>,
     hide_search: bool,
-    hide_filter_bar: bool,
+    hide_filter_menu: bool,
     _marker: PhantomData<M>,
 }
 
@@ -149,7 +149,7 @@ impl<M> std::fmt::Debug for Table<M> {
             .field("pagination", &self.pagination)
             .field("default_sort", &self.default_sort)
             .field("hide_search", &self.hide_search)
-            .field("hide_filter_bar", &self.hide_filter_bar)
+            .field("hide_filter_menu", &self.hide_filter_menu)
             .finish()
     }
 }
@@ -175,7 +175,7 @@ impl<M> Table<M> {
             per_page_options: DEFAULT_PER_PAGE_OPTIONS.to_vec(),
             default_sort: None,
             hide_search: false,
-            hide_filter_bar: false,
+            hide_filter_menu: false,
             _marker: PhantomData,
         }
     }
@@ -502,9 +502,9 @@ impl<M> Table<M> {
         self
     }
 
-    /// Render no filter bar in the table.
-    pub fn hide_filter_bar(mut self) -> Self {
-        self.hide_filter_bar = true;
+    /// Render no filter menu in the table's toolbar.
+    pub fn hide_filter_menu(mut self) -> Self {
+        self.hide_filter_menu = true;
         self
     }
 
@@ -547,9 +547,9 @@ impl<M> Table<M> {
         query
     }
 
-    /// Whether the declaration enables a filter bar.
-    pub(crate) fn filter_bar_enabled(&self) -> bool {
-        !self.hide_filter_bar && !self.filters.is_empty()
+    /// Whether the declaration enables a filter menu.
+    pub(crate) fn filter_menu_enabled(&self) -> bool {
+        !self.hide_filter_menu && !self.filters.is_empty()
     }
 }
 

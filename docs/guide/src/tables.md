@@ -150,7 +150,7 @@ one more query, so a table too large to count, or one rows are written to while 
 another [`Pagination`](https://y-l.fr/tablo/nightly/api/tablo/enum.Pagination.html): `Simple` drops the count, and `Cursor` pages by
 row, so no row is skipped or repeated when rows change between two pages.
 
-`.hide_search()` removes the search box, and `.hide_filter_bar()` the filter controls.
+`.hide_search()` removes the search box, and `.hide_filter_menu()` the filter menu.
 
 ### Live updates
 
@@ -176,7 +176,7 @@ applies only the related rows the user may view, as a relationship choice does, 
 `SelectFilter` over the key would reveal which keys exist.
 
 A filter is anything that implements `Filter<M>`, from `tablo::extend`: a name, a label, the
-predicate a value selects, and the control the filter bar renders. The four filters above implement it and nothing more.
+predicate a value selects, and the control the filter menu renders. The four filters above implement it and nothing more.
 
 ```rust
 {{#include ../../../examples/guide/src/tables.rs:table-promoted-filter}}
@@ -185,7 +185,7 @@ predicate a value selects, and the control the filter bar renders. The four filt
 `FilterInput` carries the parameter the control submits and the current `FilterValue`, and
 `input.select(cx, options)` renders the built-in select, `input.checklist(cx, options)` the
 built-in checklist. A control offering what a query loads overrides `load_control`, the async
-method the filter bar calls, which defaults to `control`. `value.single()` is the one value a
+method the filter menu calls, which defaults to `control`. `value.single()` is the one value a
 single-choice control submits, `value.values()` every repeated value, and `value.part("from")` a
 part a control submits as `?f.<name>.from=`, under `input.part_param("from")`:
 
@@ -241,8 +241,9 @@ writes, so an exported file does not import back.
 
 Each row shows View, Edit, Delete and the [custom actions](./actions.md) placed on rows, each as
 the policy allows it on that record. When the policy allows `DeleteAny`, or a custom action on the
-bulk bar, the list adds a checkbox column and a bulk bar, and a row nothing can be done to gets no
-checkbox, so select-all only selects rows something can be done to.
+bulk bar, the list adds a checkbox column and a bulk bar, which shows in the toolbar once a row is
+selected. A row nothing can be done to gets no checkbox, so select-all only selects rows something
+can be done to.
 
 A bulk delete skips the records the policy refuses and reports them in its notification. Both
 deletes ask first through a confirmation dialog, as in the header of the record's

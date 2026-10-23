@@ -299,7 +299,7 @@ where
 
 /// The keys among `keys` naming a row `R`'s tenant-scoped query holds and its policy lets the
 /// user view, read in one query: what a relationship filter admits past the cap. Memoized per
-/// request, so the list and its filter bar ask once.
+/// request, so the list and its filter menu ask once.
 #[topcoat::context::memoize(as_ref)]
 pub(crate) async fn viewable_keys<R>(
     cx: &Cx,

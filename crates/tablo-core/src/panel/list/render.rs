@@ -10,13 +10,13 @@
 //! The entry points and the table chrome live in `core`, the header row in
 //! `head`, row projection and rendering in `rows`, the zero-rows cell in
 //! `empty`, the search and bulk bars in `toolbar`,
-//! the filter bar in `filterbar`, pagination in `pager`, the confirmation
+//! the filter menu in `filter_menu`, pagination in `pager`, the confirmation
 //! dialogs in `dialog`, and the streamed placeholder in `skeleton`.
 
 mod core;
 mod dialog;
 mod empty;
-mod filterbar;
+mod filter_menu;
 mod head;
 mod pager;
 mod rows;
@@ -44,7 +44,7 @@ pub(super) struct Frame<'t> {
     /// The column picker, for a reader who may keep a choice.
     picker: Option<ColumnPicker<'t>>,
     search: bool,
-    filter_bar: bool,
+    filter_menu: bool,
     /// The page sizes the reader may pick; empty offers no choice.
     page_sizes: Vec<usize>,
     delete_prefix: Option<&'t str>,
@@ -136,7 +136,7 @@ impl<M> WiredTable<M> {
                     .collect(),
             }),
             search: self.search_enabled(),
-            filter_bar: self.filter_bar_enabled(),
+            filter_menu: self.filter_menu_enabled(),
             page_sizes: self.page_sizes(),
             delete_prefix: self.delete_prefix(),
             edit_prefix: self.edit_prefix(),
@@ -209,9 +209,24 @@ impl Frame<'_> {
 /// wrap.
 const CHROME_CELL_CLASS: &str = "w-px whitespace-nowrap";
 
-/// A toolbar row above the table: the search-and-bulk row and the filter bar.
+/// The toolbar row above the table: the search field, the bulk actions, the column picker and the
+/// filter menu. Its padding lines the search field up with the first column.
 const BAR_CLASS: StaticClass =
-    class!("flex flex-wrap items-center gap-2 border-b border-border p-3");
+    class!("flex flex-wrap items-center gap-2 border-b border-border px-4 py-3 sm:px-6");
+
+/// A row's View or Edit link: muted until the reader reaches for it.
+const ROW_ICON_CLASS: StaticClass = class!(
+    "inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none",
+    "transition-colors hover:bg-foreground/5 hover:text-foreground focus-visible:ring-2",
+    "focus-visible:ring-ring [&_svg]:size-4",
+);
+
+/// A row's Delete: the danger color only under the pointer, so a column of them stays quiet.
+const ROW_DELETE_CLASS: StaticClass = class!(
+    "inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none",
+    "transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2",
+    "focus-visible:ring-ring [&_svg]:size-4",
+);
 
 /// The search input's box: its width, and the anchor for the icon inside it.
 const SEARCH_FIELD_CLASS: StaticClass = class!("relative w-full sm:w-72");

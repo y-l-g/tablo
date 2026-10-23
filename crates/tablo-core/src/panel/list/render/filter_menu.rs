@@ -1,17 +1,23 @@
-//! The filter controls and the unknown-filter warning.
+//! The filter menu and the unknown-filter warning.
 
-use topcoat::{context::Cx, view::*};
+use tablo_ui::{
+    ButtonSize, ButtonVariant, FloatingAlign, FloatingAnchor, FloatingSide, button_variants,
+    dropdown_menu_trigger, floating_variants,
+};
+use topcoat::{context::Cx, icon::icon, view::*};
 
 use super::{
     super::{TableSignals, WiredTable},
-    BAR_CLASS, Frame, QUIET_LINK_CLASS, live_link,
+    Frame, QUIET_LINK_CLASS, live_link, table_dom_id,
 };
 use crate::table::{TableState, filter::FilterInput, ignored_reason};
 
 /// What a render shows of the table's filters.
 pub(super) struct FilterViews<'a> {
-    /// One control per filter, empty when the filter bar is hidden.
+    /// One control per filter, empty when the filter menu is hidden.
     pub(super) controls: Vec<BoxView<'a>>,
+    /// How many declared filters the request sets, which the filter menu's trigger counts.
+    pub(super) active: usize,
     /// Requested filters that produce no predicate, each with why, as `dom::ignored` names it.
     unapplied: Vec<(String, &'static str)>,
     /// Whether no requested filter produces a predicate.
@@ -30,9 +36,11 @@ impl<M> WiredTable<M> {
         M: toasty::schema::Model,
     {
         let mut controls = Vec::new();
-        if self.filter_bar_enabled() {
+        let mut active = 0;
+        if self.filter_menu_enabled() {
             for f in self.declared_filters() {
                 let current = state.filters.get(f.name()).cloned().unwrap_or_default();
+                active += usize::from(!current.is_empty());
                 let input =
                     FilterInput::new(f.name(), state.filter_param(f.name()), f.label(), current);
                 controls.push(f.load_control(cx, input).await);
@@ -43,6 +51,7 @@ impl<M> WiredTable<M> {
         let unfiltered = !unapplied.is_empty() && self.filter_expr(cx, state, &refused).is_none();
         Ok(FilterViews {
             controls,
+            active,
             unapplied,
             unfiltered,
         })
@@ -104,29 +113,81 @@ impl Frame<'_> {
         )
     }
 
-    /// Render the filter bar: the `controls`, one `f.<name>` control per filter, which the
-    /// toolbar form reads.
-    pub(super) fn render_filter_controls<'a>(
+    /// Render the filter menu: a trigger counting the `active` filters, and the popover holding
+    /// the `controls`, one `f.<name>` control per filter. The popover renders inside the toolbar
+    /// form, which reads the controls, so a change in it reruns the table; a popover keeps its
+    /// open state across the rerun.
+    pub(super) fn render_filter_menu<'a>(
         &self,
         cx: &'a Cx,
         state: &TableState,
         path: &str,
         signals: &TableSignals,
-        controls: Vec<BoxView<'a>>,
-    ) -> BoxView<'a> {
-        let clear = (!state.filters.is_empty())
+        (controls, active): (Vec<BoxView<'a>>, usize),
+    ) -> (BoxView<'a>, BoxView<'a>) {
+        let menu = table_dom_id(state, "filters");
+        let reset = (!state.filters.is_empty())
             .then(|| live_link(cx, state.without_filters(path), signals));
-        view! {
+        let count = (active > 0).then(|| active.to_string());
+        let target = menu.clone();
+        let trigger = view! {
             cx =>
-            <div class=(BAR_CLASS)>
-                for control in controls {
-                    (control)
+            dropdown_menu_trigger(
+                target: &target,
+                attrs: attributes! {
+                    class=(button_variants(ButtonVariant::Outline, ButtonSize::Md))
+                },
+                icon(data: tablo_ui::icons::LIST_FILTER)
+                "Filters"
+                if let Some(count) = count {
+                    <span class=(FILTER_COUNT_CLASS)>(count)</span>
                 }
-                if let Some(clear) = clear {
-                    <a class=(QUIET_LINK_CLASS) (clear)>"Clear filters"</a>
-                }
+            )
+        }
+        .boxed();
+        let panel = view! {
+            cx =>
+            <div
+                id=(menu)
+                popover="auto"
+                aria-label="Filters"
+                class=(class!(
+                    floating_variants(
+                        FloatingAnchor::Invoker,
+                        FloatingSide::Bottom,
+                        FloatingAlign::End,
+                    ),
+                    FILTER_PANEL_CLASS,
+                ))
+            >
+                <div
+                    class="flex h-11 items-center justify-between border-b border-border px-4"
+                >
+                    <p class="text-sm font-semibold">"Filters"</p>
+                    if let Some(reset) = reset {
+                        <a class=(QUIET_LINK_CLASS) (reset)>"Reset"</a>
+                    }
+                </div>
+                <div class="grid grid-cols-1 gap-4 p-4">
+                    for control in controls {
+                        (control)
+                    }
+                </div>
             </div>
         }
-        .boxed()
+        .boxed();
+        (trigger, panel)
     }
 }
+
+/// The filter menu's popover, under its trigger.
+const FILTER_PANEL_CLASS: StaticClass = class!(
+    "w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-popover",
+    "text-popover-foreground shadow-sm outline-none",
+);
+
+/// The trigger's count of set filters.
+const FILTER_COUNT_CLASS: StaticClass = class!(
+    "-mr-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5",
+    "text-xs font-medium tabular-nums text-primary-foreground",
+);

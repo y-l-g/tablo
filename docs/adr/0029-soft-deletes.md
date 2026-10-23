@@ -23,7 +23,7 @@ offers the entries that take the records the trash control shows. The policy dec
 and `force_delete_record` write, as `delete_record` does.
 
 The trash control is not a `Filter` predicate: a filter ANDs onto the base query, and the control
-replaces the live-only default the base query holds. It renders in the filter bar and posts
+replaces the live-only default the base query holds. It renders in the filter menu and posts
 `f.trashed`, which the list and the export read to pick the base query.
 
 ## Rejected

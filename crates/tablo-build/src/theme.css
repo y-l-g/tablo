@@ -7,6 +7,12 @@
 /* Indirection through `:root`/`.dark` lets the values swap when the color scheme changes. */
 @theme inline {
   --font-sans: "Geist", sans-serif;
+  /* Every corner derives from `--radius`: `rounded-lg` is the token, the other steps two and
+     four pixels either side of it. */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -38,73 +44,91 @@
 
 :root {
   color-scheme: light;
-  --background: oklch(0.9875 0.003 260);
-  --foreground: oklch(0.24 0.012 260);
-  --card: oklch(0.995 0.003 260);
-  --card-foreground: oklch(0.24 0.012 260);
-  --popover: oklch(0.995 0.003 260);
-  --popover-foreground: oklch(0.24 0.012 260);
-  --muted: oklch(0.96 0.005 260);
-  --muted-foreground: oklch(0.51 0.014 260);
-  --primary: oklch(0.31 0.02 260);
-  --primary-foreground: oklch(0.985 0.003 260);
-  --destructive: oklch(0.55 0.2 27);
-  --destructive-foreground: oklch(0.99 0.012 27);
-  /* Status colors: a badge's dot and a tinted cell's text. */
-  --success: oklch(0.6 0.15 155);
-  --warning: oklch(0.7 0.15 70);
-  --info: oklch(0.6 0.15 240);
-  --border: oklch(0.9 0.008 260);
-  --ring: oklch(0.62 0.06 260);
-  --shadow-xs: 0 1px 2px oklch(0.24 0.02 260 / 12%);
+  --radius: 0.5rem;
+  /* Near-neutral grays with a trace of the primary's green, so the chrome and the accent read as
+     one palette. */
+  --background: oklch(0.993 0.002 170);
+  --foreground: oklch(0.21 0.008 200);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.008 200);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.008 200);
+  --muted: oklch(0.965 0.004 170);
+  --muted-foreground: oklch(0.5 0.012 200);
+  /* Jade: deep enough to carry white text at 4.5:1. */
+  --primary: oklch(0.5 0.1 172);
+  --primary-foreground: oklch(0.99 0.01 172);
+  --destructive: oklch(0.55 0.2 25);
+  --destructive-foreground: oklch(0.99 0.01 25);
+  /* Status colors: a badge's dot and a tinted cell's text, dark enough to read on a card. */
+  --success: oklch(0.56 0.13 150);
+  --warning: oklch(0.62 0.14 65);
+  --info: oklch(0.55 0.15 250);
+  --border: oklch(0.915 0.005 190);
+  --ring: oklch(0.62 0.1 172);
+  --shadow-xs: 0 1px 2px oklch(0.21 0.008 200 / 6%);
   --shadow-sm:
-    0 1px 2px oklch(0.24 0.02 260 / 10%),
-    0 2px 8px -2px oklch(0.24 0.02 260 / 9%);
-  /* Sidebar aliases the page palette: this theme re-tunes `--primary`/`--ring`. */
-  --sidebar: oklch(0.995 0.003 260);
-  --sidebar-foreground: oklch(0.24 0.012 260);
+    0 1px 2px oklch(0.21 0.008 200 / 6%),
+    0 2px 6px -2px oklch(0.21 0.008 200 / 8%);
+  /* The sidebar is the frame the page surface sits inset in, a shade under `--background`. */
+  --sidebar: oklch(0.967 0.004 170);
+  --sidebar-foreground: oklch(0.3 0.01 200);
   --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: color-mix(in oklab, var(--sidebar-foreground) 10%, var(--sidebar));
-  --sidebar-accent-foreground: oklch(0.24 0.012 260);
-  --sidebar-border: var(--border);
+  --sidebar-accent: oklch(0.925 0.008 172);
+  --sidebar-accent-foreground: oklch(0.21 0.008 200);
+  --sidebar-border: oklch(0.905 0.006 190);
   --sidebar-ring: var(--ring);
 }
 
 .dark {
   color-scheme: dark;
-  --background: oklch(0.17 0.012 260);
-  --foreground: oklch(0.93 0.006 260);
-  --card: oklch(0.22 0.012 260);
-  --card-foreground: oklch(0.93 0.006 260);
-  --popover: oklch(0.22 0.012 260);
-  --popover-foreground: oklch(0.93 0.006 260);
-  --muted: oklch(0.22 0.01 260);
-  --muted-foreground: oklch(0.68 0.012 260);
-  --primary: oklch(0.92 0.008 260);
-  --primary-foreground: oklch(0.21 0.015 260);
-  --destructive: oklch(0.66 0.18 25);
-  --destructive-foreground: oklch(0.14 0.02 25);
-  --success: oklch(0.7 0.15 155);
-  --warning: oklch(0.78 0.14 75);
-  --info: oklch(0.7 0.13 240);
-  --border: oklch(0.3 0.012 260);
-  --ring: oklch(0.6 0.05 260);
+  --background: oklch(0.19 0.006 200);
+  --foreground: oklch(0.95 0.004 170);
+  --card: oklch(0.215 0.007 200);
+  --card-foreground: oklch(0.95 0.004 170);
+  --popover: oklch(0.235 0.008 200);
+  --popover-foreground: oklch(0.95 0.004 170);
+  --muted: oklch(0.255 0.008 200);
+  --muted-foreground: oklch(0.7 0.01 190);
+  /* Lighter in the dark, with dark text, to keep the same contrast. */
+  --primary: oklch(0.76 0.12 170);
+  --primary-foreground: oklch(0.2 0.03 175);
+  --destructive: oklch(0.66 0.19 25);
+  --destructive-foreground: oklch(0.99 0.01 25);
+  --success: oklch(0.75 0.14 150);
+  --warning: oklch(0.8 0.13 75);
+  --info: oklch(0.74 0.12 250);
+  --border: oklch(0.29 0.008 200);
+  --ring: oklch(0.66 0.11 172);
   /* Light-mode shadows disappear on a dark background, so these are deeper. */
   --shadow-xs: 0 1px 2px oklch(0 0 0 / 35%);
-  --shadow-sm: 0 1px 2px oklch(0 0 0 / 35%), 0 2px 8px -2px oklch(0 0 0 / 30%);
-  --sidebar: oklch(0.22 0.012 260);
-  --sidebar-foreground: oklch(0.93 0.006 260);
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 35%), 0 2px 6px -2px oklch(0 0 0 / 30%);
+  --sidebar: oklch(0.155 0.005 200);
+  --sidebar-foreground: oklch(0.86 0.006 180);
   --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: color-mix(in oklab, var(--sidebar-foreground) 10%, var(--sidebar));
-  --sidebar-accent-foreground: oklch(0.93 0.006 260);
-  --sidebar-border: var(--border);
+  --sidebar-accent: oklch(0.24 0.012 185);
+  --sidebar-accent-foreground: oklch(0.97 0.004 170);
+  --sidebar-border: oklch(0.26 0.007 200);
   --sidebar-ring: var(--ring);
 }
 
 @layer base {
   body {
     @apply bg-background font-sans text-foreground;
+  }
+
+  /* Native controls, such as a table's row checkboxes, take the primary color too. */
+  :root {
+    accent-color: var(--primary);
+  }
+
+  /* A sidebar entry's icon is muted, and takes the primary color on the page the reader is on. */
+  [data-sidebar="menu-button"] > svg {
+    color: var(--muted-foreground);
+  }
+  [data-sidebar="menu-button"][data-active="true"] > svg {
+    color: var(--primary);
   }
 }
