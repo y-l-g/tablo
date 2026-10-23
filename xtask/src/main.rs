@@ -22,9 +22,6 @@ fn main() -> anyhow::Result<()> {
         "fmt" => {
             xtask::gates::fmt_check(&RealRunner)?;
         }
-        "public-api" => {
-            xtask::gates::public_api(&RealRunner, &xtask::gates::repo_root())?;
-        }
         "external-check" => {
             let root = xtask::gates::repo_root();
             let manifest = xtask::gates::stage_quickstart(&root)?;
@@ -58,14 +55,11 @@ fn print_help() {
         r#"xtask — repo tasks
 
 USAGE:
-    cargo xtask check [--all]      The CI checks, fail-fast and cheapest first. The public-API
-                                   snapshots run when a crate, manifest or pin changed,
-                                   udeps when a manifest changed; --all adds them plus rustdoc,
-                                   the guide and the external build.
+    cargo xtask check [--all]      The CI checks, fail-fast and cheapest first. udeps runs
+                                   when a manifest changed; --all adds it plus rustdoc, the
+                                   guide and the external build.
     cargo xtask fmt                Nightly `cargo fmt`, the quickstart's `cargo fmt`, and the
                                    pinned `topcoat fmt` with a diff guard.
-    cargo xtask public-api         Rewrite the public-API snapshots in public-api/ and fail on
-                                   a diff; commit the rewrite to accept it.
     cargo xtask external-check     Build and test examples/quickstart from outside the repo.
     cargo xtask sync-topcoat-ui [--dry-run] [--prune]
                                    Copy the vendored primitives verbatim from the registry
