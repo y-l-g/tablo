@@ -55,6 +55,35 @@ pub fn page<P: Page>(cx: &Cx) -> Option<String> {
     registered::<P>(cx)
 }
 
+/// The URL to link or show a stored file at: `path` with a signature that expires, when it
+/// names a file under a [`Panel::uploads_dir`](super::Panel::uploads_dir) of any panel on the
+/// router, and `path` itself otherwise.
+///
+/// Call it only on a page that has checked the user may see the record storing `path`: the URL
+/// opens the file for whoever holds it, for up to two hours.
+///
+/// ```rust,no_run
+/// # let cx: &topcoat::context::Cx = todo!();
+/// let src = tablo_core::url::file(cx, "/uploads/0b9c…-cover.png");
+/// // "/uploads/0b9c…-cover.png?expires=…&signature=…"
+/// ```
+pub fn file(cx: &Cx, path: &str) -> String {
+    let signed = !path.contains(['?', '#'])
+        && topcoat::context::try_app_context::<super::state::Panels>(cx).is_some_and(|panels| {
+            panels.0.iter().any(|panel| {
+                panel
+                    .signed_roots
+                    .iter()
+                    .any(|root| path.starts_with(root.as_str()))
+            })
+        });
+    if signed {
+        crate::upload::signed::sign(cx, path, crate::upload::signed::now())
+    } else {
+        path.to_owned()
+    }
+}
+
 fn registered<T: 'static>(cx: &Cx) -> Option<String> {
     current(cx).and_then(|panel| panel.urls.get(&TypeId::of::<T>()).cloned())
 }

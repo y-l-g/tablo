@@ -20,7 +20,7 @@ use topcoat::{
 use super::{
     Panel, Root, error_page,
     forms::MAX_FORM_BYTES,
-    headers,
+    headers::{self, ServedDir},
     host::PanelHost,
     register::Registry,
     state::{PanelState, Panels, current, under_prefix},
@@ -267,7 +267,15 @@ impl Panel {
             Some(Root::Redirect(target)) => Some(target),
             Some(Root::Home) | None => None,
         };
-        let served_paths = served_dirs.iter().map(|(path, _)| path.clone()).collect();
+        let served_paths = served_dirs
+            .iter()
+            .map(|served| served.path.clone())
+            .collect();
+        let signed_roots = served_dirs
+            .iter()
+            .filter(|served| served.signed)
+            .map(|served| served_root(&served.path).to_owned())
+            .collect();
         let state = Arc::new(PanelState {
             realm: Arc::new(Realm {
                 prefix: prefix.clone(),
@@ -287,6 +295,7 @@ impl Panel {
             user_menu,
             uploads,
             served_paths,
+            signed_roots,
             urls,
             mounted_pages,
             endpoints,
@@ -318,10 +327,10 @@ impl Panel {
                 route_path(&format!("{prefix}/{{*rest}}")),
                 error_page::unmatched,
             ));
-        for (path, dir) in served_dirs {
+        for served in served_dirs {
             builder = builder
-                .layer(headers::ServedFileHeaders::new(&path))
-                .serve_dir(route_path(&path), dir);
+                .layer(headers::ServedFileHeaders::new(&served.path, served.signed))
+                .serve_dir(route_path(&served.path), served.dir);
         }
         for page in pages {
             builder = builder.page(page);
@@ -396,7 +405,7 @@ fn mount_errors(
     builder: &RouterBuilder,
     prefix: &str,
     shell_assets: bool,
-    served_dirs: &[(String, std::path::PathBuf)],
+    served_dirs: &[headers::ServedDir],
 ) -> Vec<DeclarationError> {
     let mut errors = Vec::new();
     let mut refuse = |kind| errors.push(DeclarationError::panel(kind));
@@ -408,18 +417,20 @@ fn mount_errors(
             prefix: prefix.to_string(),
         });
     }
-    for (index, (path, _)) in served_dirs.iter().enumerate() {
-        let root = served_root(path);
+    for (index, served) in served_dirs.iter().enumerate() {
+        let root = served_root(&served.path);
         if served_dirs[..index]
             .iter()
-            .any(|(seen, _)| served_root(seen) == root)
+            .any(|seen| served_root(&seen.path) == root)
         {
-            refuse(DeclarationErrorKind::ServeDirTwice { path: path.clone() });
+            refuse(DeclarationErrorKind::ServeDirTwice {
+                path: served.path.clone(),
+            });
         }
     }
     if let Some(panels) = builder.get_app_context::<Panels>() {
         for other in &panels.0 {
-            for (path, _) in served_dirs {
+            for ServedDir { path, .. } in served_dirs {
                 if other
                     .served_paths
                     .iter()
@@ -455,6 +466,7 @@ fn install_shared(mut builder: RouterBuilder) -> RouterBuilder {
         .app_context(MountScope(request_mounts))
         .app_context(TenantSource(crate::auth::session_tenant))
         .app_context(crate::values::ZoneSource(crate::auth::session_time_zone))
+        .app_context(crate::schema::FileHref(super::url::file))
         .app_context(crate::i18n::LocaleSource {
             catalog: crate::auth::session_catalog,
             preferred: crate::auth::session_locale,
@@ -524,7 +536,7 @@ fn validation_cx(db: &Db, mounts: &Arc<Mounts>) -> Cx {
 
 /// A served directory's pattern without its catch-all's name: the router treats
 /// `/uploads/{*file}` and `/uploads/{*path}` as one route.
-fn served_root(path: &str) -> &str {
+pub(super) fn served_root(path: &str) -> &str {
     path.rsplit_once("{*").map_or(path, |(root, _)| root)
 }
 

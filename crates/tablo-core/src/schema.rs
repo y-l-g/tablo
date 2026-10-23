@@ -27,7 +27,9 @@ pub use fields::{
     RichTextField, Switch, TextField, Toggle,
 };
 pub(crate) use fields::{
-    MAX_FORM_BYTES, is_linkable, is_rooted, option_view, read_only, stored_upload, value_cell,
+    MAX_FORM_BYTES,
+    file::{FileHref, file_href},
+    is_linkable, is_rooted, option_view, read_only, stored_upload, value_cell,
 };
 pub(crate) use input::FormInput;
 pub use layouts::{Grid, Group, HoldsTabs, Section, Tab, Tabs};

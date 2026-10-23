@@ -153,7 +153,8 @@ After login, the user returns to `next`, which must be a same-origin path. A use
 when their `AdminUser.active` is `true`. The gate covers only the panel prefix and
 `/_topcoat/runtime`; routes elsewhere, including your app's own routes and directories served with
 `Panel::serve_dir`, are public — a directory served under the panel prefix is the exception, since
-the gate covers the prefix. On a router with several panels, `/_topcoat/runtime` answers 401
+the gate covers the prefix. `Panel::uploads_dir` answers only at the signed URLs the panel's pages
+render. On a router with several panels, `/_topcoat/runtime` answers 401
 without a session only when every panel is gated.
 
 - **Login** verifies Argon2id hashes and treats an email's case as insignificant; each login may

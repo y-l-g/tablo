@@ -62,6 +62,7 @@ pub(crate) fn panel_state(prefix: &str, auth: crate::Auth) -> super::state::Pane
         mounted_pages: std::collections::HashMap::new(),
         uploads: None,
         served_paths: Vec::new(),
+        signed_roots: Vec::new(),
         urls: std::collections::HashMap::new(),
         endpoints: Vec::new(),
         searches: Vec::new(),

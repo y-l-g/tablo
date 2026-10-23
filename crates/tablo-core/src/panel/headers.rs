@@ -269,17 +269,29 @@ const INLINE_TYPES: &[&str] = &[
     "text/plain",
 ];
 
-/// Hardens every file response the directory route serves.
+/// A directory a panel serves: at `path`, a route pattern ending in a catch-all, from `dir`.
+#[derive(Debug, Clone)]
+pub(crate) struct ServedDir {
+    pub(crate) path: String,
+    pub(crate) dir: std::path::PathBuf,
+    /// Whether a request needs a URL [`signed`](crate::upload::signed) by a page of the panel.
+    pub(crate) signed: bool,
+}
+
+/// Hardens every file response the directory route serves, and refuses a request to a signed
+/// directory without a valid signature.
 #[derive(Debug, Clone)]
 pub(crate) struct ServedFileHeaders {
     path: PathBuf,
+    signed: bool,
 }
 
 impl ServedFileHeaders {
     /// Wraps the directory route mounted at `pattern`.
-    pub(crate) fn new(pattern: &str) -> Self {
+    pub(crate) fn new(pattern: &str, signed: bool) -> Self {
         Self {
             path: route_path(pattern),
+            signed,
         }
     }
 }
@@ -292,8 +304,22 @@ impl Layer for ServedFileHeaders {
 
     fn handle<'a>(&'a self, cx: &'a Cx, body: Body, next: Next<'a>) -> LayerFuture<'a> {
         Box::pin(async move {
+            if self.signed {
+                let uri = uri(cx);
+                let now = crate::upload::signed::now();
+                if !crate::upload::signed::verify(cx, uri.path(), uri.query(), now) {
+                    return Err(topcoat::router::error::not_found().into());
+                }
+            }
             let mut response = next.run(cx, body).await?;
             harden_served_file(&mut response);
+            if self.signed {
+                // A shared cache keeps no copy a signature opened.
+                response.headers_mut().insert(
+                    header::CACHE_CONTROL,
+                    header::HeaderValue::from_static("private"),
+                );
+            }
             Ok(response)
         })
     }

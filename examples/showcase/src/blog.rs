@@ -193,7 +193,7 @@ async fn post_page(cx: &Cx) -> Result<impl View> {
 
             if let Some(asset) = cover.as_ref().and_then(|asset| cover_url(asset)) {
                 <img
-                    src=(asset.to_string())
+                    src=(tablo::url::file(cx, asset))
                     alt=(post.title.clone())
                     class="mt-10 w-full rounded-xl border border-border"
                 >

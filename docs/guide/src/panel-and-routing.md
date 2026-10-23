@@ -47,7 +47,7 @@ in before learning a path serves nothing. [`Panel`](https://y-l.fr/tablo/nightly
 | `auth(Auth)` | replaces or disables the built-in password login | [Policy, auth, tenancy](./policy-auth-tenancy.md#authentication) |
 | `uploads(uploader)` | sets where file fields store their bytes | [Forms](./forms.md#file-uploads) |
 | `serve_dir(path, dir)` | serves a directory of files, publicly unless the path sits under the panel prefix | [Forms](./forms.md#file-uploads) |
-| `uploads_dir(url_prefix, dir)` | stores file fields' uploads in a directory and serves it | [Forms](./forms.md#file-uploads) |
+| `uploads_dir(url_prefix, dir)` | stores file fields' uploads in a directory and serves it at signed URLs that expire | [Forms](./forms.md#file-uploads) |
 | `shell_assets(css, font)` | adds the stylesheet, font and scripts | [Assets](#assets) |
 | `layout(render)` | frames the panel's pages with your layout instead of the shell | [The shell layout](#the-shell-layout) |
 | `content_security_policy(..)`, `without_content_security_policy()` | replaces or drops the panel's `Content-Security-Policy` | [Security](./security.md#responses) |

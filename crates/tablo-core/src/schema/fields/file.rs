@@ -221,11 +221,24 @@ fn is_plain(url: &str) -> bool {
     !url.chars().any(|c| c == '\\' || c.is_control())
 }
 
+/// Signs a stored file's path for the request's router; the first panel mounted on a router
+/// installs it in the app context, as [`url::file`](crate::url::file).
+pub(crate) struct FileHref(pub(crate) fn(&Cx, &str) -> String);
+
+/// The URL a stored file links at: `path` signed when a panel serves it at signed URLs, else
+/// `path` itself.
+pub(crate) fn file_href(cx: &Cx, path: &str) -> String {
+    match topcoat::context::try_app_context::<FileHref>(cx) {
+        Some(FileHref(sign)) => sign(cx, path),
+        None => path.to_owned(),
+    }
+}
+
 /// The `Current: …` row a file field shows for a stored value.
 fn stored_upload_row<'a>(cx: &'a Cx, path: String) -> BoxView<'a> {
     let text = path.clone();
     let inner: BoxView<'a> = if is_linkable(&path) {
-        let href = path.clone();
+        let href = file_href(cx, &path);
         view! {
             cx =>
             <a class="font-medium text-foreground underline" href=(href)>(text)</a>
@@ -261,7 +274,7 @@ pub(crate) fn stored_upload<'a>(cx: &'a Cx, value: &str) -> BoxView<'a> {
         }
         .boxed();
     }
-    let href = path.clone();
+    let href = file_href(cx, &path);
     view! {
         cx =>
         <a

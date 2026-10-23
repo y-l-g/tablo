@@ -63,6 +63,7 @@ and the other subcommands. A new database has no user to sign in with: seed the 
 - Behind a reverse proxy, install `TrustedProxies` on the router, so the sign-in throttle counts
   the client's address and not the proxy's.
 - Keep uploads on storage that outlives the binary: the directory `Panel::uploads_dir` writes to
-  is a volume, or the `Uploader` writes elsewhere.
+  is a volume, or the `Uploader` writes elsewhere. Its links are signed with a key derived from
+  the router's cookie `Key`, so replicas that should open each other's links share that `Key`.
 - Several replicas share the database, and sessions with it. The sign-in throttle counts per
   process, so limit attempts across replicas at the proxy.

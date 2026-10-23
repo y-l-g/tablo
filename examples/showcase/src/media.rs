@@ -72,7 +72,7 @@ impl OptionSource for MediaLibrary {
 /// Renders one media row's file.
 pub fn media_file_view<'a>(cx: &'a Cx, asset: &MediaAsset) -> BoxView<'a> {
     if asset.kind == KIND_IMAGE {
-        let src = asset.path.clone();
+        let src = tablo::url::file(cx, &asset.path);
         let alt = asset.filename.clone();
         view! {
             cx =>
@@ -85,7 +85,7 @@ pub fn media_file_view<'a>(cx: &'a Cx, asset: &MediaAsset) -> BoxView<'a> {
         }
         .boxed()
     } else {
-        let href = asset.path.clone();
+        let href = tablo::url::file(cx, &asset.path);
         let name = asset.filename.clone();
         view! {
             cx =>
