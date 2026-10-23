@@ -18,6 +18,23 @@ pub(crate) fn type_stem<T: ?Sized>(suffix: &str) -> &'static str {
         .unwrap_or(name)
 }
 
+/// The id of the message an app defines to translate the label Tablo derives from `name`: `kind`,
+/// a dash, then `name` with each character a Fluent id cannot hold read as a dash.
+/// `("action", "send/invite")` is `action-send-invite`.
+pub(crate) fn derived_id(kind: &str, name: &str) -> String {
+    let name: String = name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' || c == '-' {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    format!("{kind}-{name}")
+}
+
 /// A CamelCase identifier as a sentence-case phrase: `MediaLibrary` →
 /// `Media library`. A word the identifier spells in capitals keeps them:
 /// `APIKey` → `API key`.

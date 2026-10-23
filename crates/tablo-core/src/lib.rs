@@ -65,7 +65,7 @@ pub mod __macro {
     pub use topcoat::context::Cx;
 
     pub use crate::{
-        Color, Lens,
+        Color, Lens, Text,
         detail::Detail,
         extend::{Includes, OptionSource},
         form::{
@@ -102,6 +102,7 @@ mod error;
 pub mod extend;
 mod flash;
 mod form;
+mod i18n;
 mod lens;
 mod models;
 mod naming;
@@ -146,14 +147,15 @@ pub use column::{
 };
 pub use declaration::{
     ActionInputFault, AuthMailFault, DeclarationError, DeclarationErrorKind, FieldAccessFault,
-    FieldRuleFault, ManyToManyFault, MountError, ProfileFault, ResetFault, SegmentFault,
-    SignUpFault, Site, TenancyFault, TenantProfileFault, TenantRegistrationFault, TwoFactorFault,
-    VerificationFault,
+    FieldRuleFault, LocaleFault, ManyToManyFault, MountError, ProfileFault, ResetFault,
+    SegmentFault, SignUpFault, Site, TenancyFault, TenantProfileFault, TenantRegistrationFault,
+    TwoFactorFault, VerificationFault,
 };
 pub use derive::{EmbeddedForm, FormInput, ModelColumns, ModelForm, Options, RecordForm};
 pub use detail::{Detail, IntoDetail};
 pub use display::{Alignment, Color, Currency, Number, Numeric};
 pub use form::{NoForm, Posted, RecordForm};
+pub use i18n::{Locale, Text, locale};
 pub use lens::{Lens, Reads};
 pub use models::register_models;
 pub use navigation::{NavTarget, NavigationItem};

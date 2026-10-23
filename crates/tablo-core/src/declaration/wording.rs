@@ -94,6 +94,7 @@ impl fmt::Display for DeclarationErrorKind {
             Self::TenantProfile(fault) => fault.fmt(f),
             Self::TwoFactor(fault) => fault.fmt(f),
             Self::AuthMail(fault) => fault.fmt(f),
+            Self::Locale(fault) => fault.fmt(f),
             Self::DuplicateRelation => {
                 f.write_str("declared twice: each related resource is one relation")
             }
