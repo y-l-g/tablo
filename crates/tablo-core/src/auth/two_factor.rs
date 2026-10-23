@@ -129,8 +129,8 @@ pub struct AuthFactor {
     pub last_step: Option<i64>,
     /// The wrong codes in a row signing in since the last right one, on the confirmed factor.
     pub failures: i64,
-    /// Until when signing in refuses the confirmed factor's codes after [`failures`](Self::failures)
-    /// wrong ones; a recovery code still works.
+    /// Until when signing in refuses the confirmed factor's codes after
+    /// [`failures`](Self::failures) wrong ones; a recovery code still works.
     pub retry_at: Option<Timestamp>,
     pub created_at: Timestamp,
 }
