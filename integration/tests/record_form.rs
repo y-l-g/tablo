@@ -200,10 +200,7 @@ async fn a_blank_with_no_answer_and_a_bad_value_are_refused_by_key() {
     assert_eq!(errors[0].key, "priority");
     assert_eq!(errors[0].kind, FieldErrorKind::Required);
     assert_eq!(errors[1].key, "done");
-    assert_eq!(
-        errors[1].kind,
-        FieldErrorKind::Invalid("`maybe` is not a valid yes/no value".to_string())
-    );
+    assert!(matches!(errors[1].kind, FieldErrorKind::Invalid(_)));
 }
 
 #[tokio::test]

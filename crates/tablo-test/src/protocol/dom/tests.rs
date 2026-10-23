@@ -1,12 +1,12 @@
 use super::*;
 
 const TABLE: &str = r#"<table><thead><tr><th>Name</th></tr></thead><tbody>
-<tr id="row-Ada-12345678"><td><input type="checkbox" value="Ada" aria-label="Select row"></td><td>Ada</td><td><div class="flex"><a href="/admin/dummies/Ada" aria-label="View">V</a><a href="/admin/dummies/Ada/edit" aria-label="Edit">E</a><button type="button" formaction="/admin/dummies/Ada/delete" aria-label="Delete">D</button></div></td></tr>
+<tr id="row-Ada-12345678"><td><input type="checkbox" value="Ada" data-row-select=""></td><td>Ada</td><td><div class="flex"><a href="/admin/dummies/Ada" data-row-action="view">V</a><a href="/admin/dummies/Ada/edit" data-row-action="edit">E</a><button type="button" formaction="/admin/dummies/Ada/delete" data-row-action="delete">D</button></div></td></tr>
 <tr id="group-Active-87654321" data-group="Active"><td colspan="3">Active (1 on this page)</td></tr>
 <tr id="row-Ken-abcdef12"><td></td><td>Ken</td><td></td></tr>
 <tr><td colspan="3">No records yet</td></tr>
-<tr id="row-NoBox-99999999"><td></td><td>NoBox</td><td><div class="flex"><a href="/admin/dummies/NoBox" aria-label="View">V</a></div></td></tr>
-<tr id="row-Prefixed-aaaaaaaa"><td></td><td>Prefixed</td><td><div class="flex"><button type="button" formaction="/admin/rel/Prefixed/delete?return=%2Fadmin%2Fposts" aria-label="Delete">D</button></div></td></tr>
+<tr id="row-NoBox-99999999"><td></td><td>NoBox</td><td><div class="flex"><a href="/admin/dummies/NoBox" data-row-action="view">V</a></div></td></tr>
+<tr id="row-Prefixed-aaaaaaaa"><td></td><td>Prefixed</td><td><div class="flex"><button type="button" formaction="/admin/rel/Prefixed/delete?return=%2Fadmin%2Fposts" data-row-action="delete">D</button></div></td></tr>
 </tbody></table>"#;
 
 #[test]

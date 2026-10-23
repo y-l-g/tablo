@@ -11,7 +11,7 @@
 //! The queries assume one table per document: rows never nest, and cells carry text rather than
 //! nested tables.
 
-use tablo_core::dom::{empty, error};
+use tablo_core::dom::{empty, error, row};
 
 pub(crate) type Attrs = Vec<(String, Option<String>)>;
 pub(crate) type Element = (String, Attrs, String);
@@ -339,7 +339,7 @@ pub fn nav_badge(html: &str, href: &str) -> Option<String> {
 fn row(row_html: &str) -> Row {
     let mut select_value = None;
     for (tag, attrs, _) in open_tags(row_html) {
-        if tag == "input" && attr_value(&attrs, "aria-label").as_deref() == Some("Select row") {
+        if tag == "input" && attr_value(&attrs, "data-row-select").is_some() {
             select_value = attr_value(&attrs, "value");
             break;
         }
@@ -351,11 +351,11 @@ fn row(row_html: &str) -> Row {
     let mut view_href = None;
     let mut edit_href = None;
     let mut delete_action = None;
-    for (tag, attrs, _) in open_tags(row_html) {
-        match (tag.as_str(), attr_value(&attrs, "aria-label").as_deref()) {
-            ("a", Some("View")) => view_href = attr_value(&attrs, "href"),
-            ("a", Some("Edit")) => edit_href = attr_value(&attrs, "href"),
-            ("button", Some("Delete")) => delete_action = attr_value(&attrs, "formaction"),
+    for (_, attrs, _) in open_tags(row_html) {
+        match attr_value(&attrs, "data-row-action").as_deref() {
+            Some(row::VIEW) => view_href = attr_value(&attrs, "href"),
+            Some(row::EDIT) => edit_href = attr_value(&attrs, "href"),
+            Some(row::DELETE) => delete_action = attr_value(&attrs, "formaction"),
             _ => {}
         }
     }

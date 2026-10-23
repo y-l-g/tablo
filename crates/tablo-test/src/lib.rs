@@ -7,15 +7,15 @@ mod resource;
 mod two_factor;
 
 pub use db::{TEST_DATABASE_URL, test_db};
-use http::header::{CONTENT_TYPE, COOKIE};
+use http::header::{ACCEPT_LANGUAGE, CONTENT_TYPE, COOKIE};
 pub use protocol::{
     Bell, BellNotification, EmptyReason, EmptyTable, ErrorKind, FilterOption, Group, IgnoredFilter,
     IgnoredReason, ImportError, ImportRefusal, PickerColumn, Row, RowActions, SESSION_COOKIE,
     SearchGroup, SearchResult, Tab, bell, body_bytes, body_string, column_picker, columns,
     confirms_first, cookie_header, empty_table, field_error, field_error_message, filter_options,
     find_href_with, form_body, groups, ignored_filters, import_columns, import_errors,
-    import_refusal, input_value, multipart_body, nav_badge, notification, response_cookies,
-    rich_text_values, row_actions, row_keys, rows, search_box, search_results,
+    import_refusal, input_value, multipart_body, nav_badge, notification, page_language,
+    response_cookies, rich_text_values, row_actions, row_keys, rows, search_box, search_results,
     session_cookie_value, set_cookie_header, stale_form, tabs,
 };
 pub use resource::{FieldOf, Reply, ResourceClient, Submission};
@@ -89,6 +89,7 @@ pub struct TestClient<'a> {
     cookies: Vec<(String, String)>,
     tenant: Option<uuid::Uuid>,
     panel: Option<PanelHandle>,
+    language: Option<String>,
 }
 
 impl<'a> TestClient<'a> {
@@ -98,6 +99,7 @@ impl<'a> TestClient<'a> {
             cookies: Vec::new(),
             tenant: None,
             panel: None,
+            language: None,
         }
     }
 
@@ -155,6 +157,14 @@ impl<'a> TestClient<'a> {
                 None => client.cookies.push((name.clone(), value.clone())),
             }
         }
+        client
+    }
+
+    /// Sends `Accept-Language: {languages}` with every request, as a browser preferring them does:
+    /// `"fr-CA, en;q=0.5"`.
+    pub fn language(&self, languages: &str) -> Self {
+        let mut client = self.clone();
+        client.language = Some(languages.to_string());
         client
     }
 
@@ -352,6 +362,9 @@ impl<'a> TestClient<'a> {
                 .map(|(name, value)| (name.as_str(), value.as_str())),
         ) {
             builder = builder.header(COOKIE, jar);
+        }
+        if let Some(languages) = &self.language {
+            builder = builder.header(ACCEPT_LANGUAGE, languages);
         }
         let (mut parts, body) = builder.body(Body::empty()).unwrap().into_parts();
         if let Some(tenant) = self.tenant {

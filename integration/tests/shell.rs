@@ -77,33 +77,49 @@ async fn the_theme_cookie_overrides_the_dark_mode_default() {
     let light = books(panel()).await;
     let dark = books(panel().dark_mode(true)).await;
     for (router, cookie, tag) in [
-        (&light, "tablo_theme=dark", "<html class=\"dark\">"),
+        (
+            &light,
+            "tablo_theme=dark",
+            "<html lang=\"en\" class=\"dark\">",
+        ),
         (
             &dark,
             "tablo_sidebar=collapsed; tablo_theme=light",
-            "<html>",
+            "<html lang=\"en\">",
         ),
-        (&dark, "tablo_theme=sepia", "<html class=\"dark\">"),
+        (
+            &dark,
+            "tablo_theme=sepia",
+            "<html lang=\"en\" class=\"dark\">",
+        ),
         // Another app's cookie on the same host decides nothing, even listed first.
         (
             &dark,
             "theme=light; xtablo_theme=light",
-            "<html class=\"dark\">",
+            "<html lang=\"en\" class=\"dark\">",
         ),
         (
             &light,
             "theme=light; tablo_theme=dark",
-            "<html class=\"dark\">",
+            "<html lang=\"en\" class=\"dark\">",
         ),
         // Under `system`, the scheme the theme script mirrors decides, and the default stands in
         // until it has.
         (
             &light,
             "tablo_theme=system; tablo_scheme=dark",
-            "<html class=\"dark\">",
+            "<html lang=\"en\" class=\"dark\">",
         ),
-        (&dark, "tablo_theme=system; tablo_scheme=light", "<html>"),
-        (&dark, "tablo_theme=system", "<html class=\"dark\">"),
+        (
+            &dark,
+            "tablo_theme=system; tablo_scheme=light",
+            "<html lang=\"en\">",
+        ),
+        (
+            &dark,
+            "tablo_theme=system",
+            "<html lang=\"en\" class=\"dark\">",
+        ),
     ] {
         assert_eq!(html_tag(&list_page(router, cookie).await), tag, "{cookie}");
     }
@@ -142,6 +158,6 @@ async fn the_sign_in_page_follows_the_dark_mode_default() {
     assert_eq!(response.status(), http::StatusCode::OK);
     assert_eq!(
         html_tag(&body_string(response).await),
-        "<html class=\"dark\">"
+        "<html lang=\"en\" class=\"dark\">"
     );
 }

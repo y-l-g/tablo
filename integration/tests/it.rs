@@ -30,6 +30,7 @@ mod import;
 mod key_collisions;
 mod layouts;
 mod list;
+mod locale;
 mod login;
 mod mail;
 mod many_to_many;
