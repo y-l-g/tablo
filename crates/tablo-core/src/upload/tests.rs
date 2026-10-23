@@ -123,3 +123,92 @@ async fn a_dir_uploader_keeps_a_long_name_within_the_filesystem_limit() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// A fresh directory of this test's own.
+fn temp_dir() -> std::path::PathBuf {
+    std::env::temp_dir().join(format!("tablo-pending-{}", uuid::Uuid::new_v4()))
+}
+
+/// The file a `DirUploader` URL names in `dir`.
+fn file(dir: &std::path::Path, url: &str) -> std::path::PathBuf {
+    dir.join(url.strip_prefix("/uploads/").unwrap())
+}
+
+#[tokio::test]
+async fn a_sweep_deletes_the_pending_files_and_keeps_the_kept_ones() {
+    let dir = temp_dir();
+    let uploader =
+        DirUploader::new("/uploads", &dir).expire_pending(std::time::Duration::from_secs(3600));
+    let kept = uploader.store("kept.png", b"KEPT").await.unwrap();
+    let left = uploader.store("left.png", b"LEFT").await.unwrap();
+    uploader.keep(&kept).await.unwrap();
+
+    super::pending::sweep(&dir, std::time::Duration::ZERO)
+        .await
+        .unwrap();
+    assert!(file(&dir, &kept).is_file(), "a kept file stays");
+    assert!(!file(&dir, &left).exists(), "a pending file is swept");
+}
+
+#[tokio::test]
+async fn a_sweep_keeps_a_pending_file_younger_than_its_age() {
+    let dir = temp_dir();
+    let uploader =
+        DirUploader::new("/uploads", &dir).expire_pending(std::time::Duration::from_secs(3600));
+    let fresh = uploader.store("fresh.png", b"FRESH").await.unwrap();
+    super::pending::sweep(&dir, std::time::Duration::from_secs(3600))
+        .await
+        .unwrap();
+    assert!(file(&dir, &fresh).is_file());
+}
+
+#[tokio::test]
+async fn without_expiry_nothing_is_pending() {
+    let dir = temp_dir();
+    let uploader = DirUploader::new("/uploads", &dir);
+    let stored = uploader.store("a.png", b"A").await.unwrap();
+    super::pending::sweep(&dir, std::time::Duration::ZERO)
+        .await
+        .unwrap();
+    assert!(file(&dir, &stored).is_file());
+}
+
+#[tokio::test]
+async fn a_keep_after_the_sweep_took_the_file_fails() {
+    let dir = temp_dir();
+    let uploader =
+        DirUploader::new("/uploads", &dir).expire_pending(std::time::Duration::from_secs(3600));
+    let swept = uploader.store("swept.png", b"SWEPT").await.unwrap();
+    super::pending::sweep(&dir, std::time::Duration::ZERO)
+        .await
+        .unwrap();
+    assert!(
+        uploader.keep(&swept).await.is_err(),
+        "a write must not commit a path the sweep deleted"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[tokio::test]
+async fn a_sweep_finishes_a_claim_a_stopped_sweep_left() {
+    let dir = temp_dir();
+    let uploader =
+        DirUploader::new("/uploads", &dir).expire_pending(std::time::Duration::from_secs(3600));
+    let stored = uploader.store("half.png", b"HALF").await.unwrap();
+    let name = stored.strip_prefix("/uploads/").unwrap();
+    std::fs::rename(
+        dir.join(".pending").join(name),
+        dir.join(".pending").join(format!(".claimed-{name}")),
+    )
+    .unwrap();
+    assert!(
+        uploader.keep(&stored).await.is_err(),
+        "a claimed file is not kept"
+    );
+    super::pending::sweep(&dir, std::time::Duration::from_secs(3600))
+        .await
+        .unwrap();
+    assert!(!file(&dir, &stored).exists());
+    assert_eq!(std::fs::read_dir(dir.join(".pending")).unwrap().count(), 0);
+    std::fs::remove_dir_all(&dir).unwrap();
+}

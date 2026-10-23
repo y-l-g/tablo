@@ -391,7 +391,9 @@ name limit, and stores its URL: `/uploads/` and the name as one percent-encoded 
 directory answers that URL only with a signature that expires, which the panel adds wherever it
 links or shows a stored file; a page of your own adds it with `url::file(cx, &path)`. Once a write
 commits, it deletes the files the write let go: those of a deleted record, and the one an edit
-replaced or cleared; a soft delete keeps them until the force delete.
+replaced or cleared; a soft delete keeps them until the force delete. The upload of a form that
+never saved, such as one refused for another field that the user then left, is deleted after
+24 hours.
 
 A file field takes any file until it declares `.extensions(["png", "jpg"])` or `.max_bytes(n)`.
 The server refuses a file either rule refuses before the uploader sees it, and the extensions also
@@ -401,8 +403,10 @@ served file's type comes from its extension, so the extension decides how a brow
 has the rules.
 
 Any other store implements `Uploader`. This one refuses a file whose first bytes are not a PNG's
-or a JPEG's signature, which no field rule checks, then stores in a directory. A signature is no
-proof the rest is an image: decode the file when that matters.
+or a JPEG's signature, which no field rule checks, then stores through the `DirUploader` that
+`Panel::uploads_dir_with` hands it, so its files still answer only at signed URLs. It forwards
+`keep` and `delete` too: the inner uploader deletes a file nothing kept after a day. A signature
+is no proof the rest is an image: decode the file when that matters.
 
 ```rust
 {{#include ../../../examples/guide/src/forms.rs:forms-uploader}}

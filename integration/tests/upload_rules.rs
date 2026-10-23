@@ -60,6 +60,10 @@ struct HoldingUploader {
 }
 
 impl Uploader for HoldingUploader {
+    async fn keep(&self, _path: &str) -> Result<(), String> {
+        Ok(())
+    }
+
     async fn store(&self, filename: &str, _bytes: &[u8]) -> Result<String, String> {
         self.stored.lock().expect("lock").push(filename.to_string());
         Ok(format!("/uploads/{filename}"))

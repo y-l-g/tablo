@@ -28,6 +28,10 @@ struct Customer {
 struct KeepAll;
 
 impl Uploader for KeepAll {
+    async fn keep(&self, _path: &str) -> Result<(), String> {
+        Ok(())
+    }
+
     async fn store(&self, filename: &str, _bytes: &[u8]) -> Result<String, String> {
         Ok(format!("/uploads/{filename}"))
     }
