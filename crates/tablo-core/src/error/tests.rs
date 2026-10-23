@@ -51,3 +51,16 @@ fn driver_failure_keeps_an_app_error_intact() {
     );
     assert!(!TabloError::is_infrastructure(&err));
 }
+
+/// A serialization failure answers like any outage, and is told apart so its transaction can
+/// run again.
+#[test]
+fn driver_failure_marks_a_serialization_failure_as_a_conflict() {
+    let err = driver_failure(
+        toasty::Error::serialization_failure("could not serialize access"),
+        DATABASE_UNAVAILABLE,
+    );
+    assert!(TabloError::is_conflict(&err));
+    assert!(TabloError::is_infrastructure(&err));
+    assert!(!err.to_string().contains("serialize"));
+}

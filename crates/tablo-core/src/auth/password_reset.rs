@@ -332,18 +332,14 @@ async fn mail_link(cx: &Cx, panel: &Realm, recipient: &Recipient) -> topcoat::Re
         .auth
         .auth_mail()
         .ok_or_else(topcoat::router::error::not_found)?;
-    let mut db = crate::db::db(cx);
-    let mut tx = serializable(&mut db).await?;
-    let token = token::issue(
+    let token = token::issue_alone(
         cx,
-        &mut tx,
         TokenPurpose::PasswordReset,
         user_id,
         None,
         RESET_LIFETIME,
     )
     .await?;
-    tx.commit().await.map_err(infrastructure_failure)?;
     let link = mail.link(&reset_url(cx), &token);
     let brand = hosted(cx)?.brand_name(cx);
     let minutes = RESET_LIFETIME.as_secs() / 60;

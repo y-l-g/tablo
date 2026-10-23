@@ -255,18 +255,14 @@ async fn mail_link(cx: &Cx, panel: &Realm, user_id: &str, email: &str) -> topcoa
         .auth
         .auth_mail()
         .ok_or_else(topcoat::router::error::not_found)?;
-    let mut db = crate::db::db(cx);
-    let mut tx = serializable(&mut db).await?;
-    let token = token::issue(
+    let token = token::issue_alone(
         cx,
-        &mut tx,
         TokenPurpose::EmailVerification,
         user_id,
         Some(email.to_string()),
         VERIFICATION_LIFETIME,
     )
     .await?;
-    tx.commit().await.map_err(infrastructure_failure)?;
     let link = mail.link(&confirm_url(cx), &token);
     let brand = hosted(cx)?.brand_name(cx);
     let message = mail.compose(
