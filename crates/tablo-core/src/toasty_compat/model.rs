@@ -309,7 +309,8 @@ pub(crate) struct LeafField {
     /// The flattened storage column (`application_seo_title`), or the field's own name for a
     /// single-segment path.
     pub(crate) name: String,
-    pub(crate) label: String,
+    /// The label a declaration defaults to.
+    pub(crate) label: crate::Text,
     /// Whether the leaf is nullable. Every leaf the embedded walk resolves reports `true`,
     /// because only the matching enum variant writes a variant payload's column. That is this
     /// walk's policy rather than the compiled column's own nullability — the flattened column of
@@ -326,8 +327,8 @@ pub(crate) struct LeafField {
 impl From<FieldInfo> for LeafField {
     fn from(field: FieldInfo) -> Self {
         Self {
+            label: crate::Text::field(&field.name),
             name: field.name,
-            label: field.label,
             nullable: field.nullable,
             unique: field.unique,
             unique_with: field.unique_with,
@@ -541,7 +542,7 @@ fn column_of(schema: &toasty_core::Schema, field: &MappingField) -> Option<LeafF
     let column = &schema.db.tables[p.column.table.0].columns[p.column.index];
     Some(LeafField {
         name: column.name.clone(),
-        label: capitalize(&column.name.replace('_', " ")),
+        label: crate::Text::field(&column.name),
         // Reported nullable by policy, not read off the column: only the matching enum variant
         // writes a variant payload's column. The compiled column can be `NOT NULL` — an embedded
         // struct's flattened column is.

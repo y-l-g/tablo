@@ -37,21 +37,39 @@ fn posted(key: &str, value: &str) -> FormValues {
     FormValues::from_iter([(key.to_string(), value.to_string())])
 }
 
+/// `parsed` with its error's key and English message.
+fn spelled<T>(parsed: Result<T, FieldError>) -> Result<T, (String, String)> {
+    parsed.map_err(|error| {
+        (
+            error.key.clone(),
+            error.message(error.key.as_str()).english(),
+        )
+    })
+}
+
 #[test]
 fn a_bad_submission_is_refused_naming_the_input() {
     assert_eq!(
-        parse_scalar::<i64>("word_count", &posted("word_count", "lots"), None),
-        Err(FieldError::invalid(
+        spelled(parse_scalar::<i64>(
             "word_count",
-            "`lots` is not a valid whole number"
+            &posted("word_count", "lots"),
+            None
+        )),
+        Err((
+            "word_count".to_owned(),
+            "`lots` is not a valid whole number".to_owned()
         )),
         "an unparseable integer names the offending input"
     );
     assert_eq!(
-        parse_scalar::<jiff::Timestamp>("recorded_at", &posted("recorded_at", "2024-13-01"), None),
-        Err(FieldError::invalid(
+        spelled(parse_scalar::<jiff::Timestamp>(
             "recorded_at",
-            "`2024-13-01` is not a valid timestamp"
+            &posted("recorded_at", "2024-13-01"),
+            None
+        )),
+        Err((
+            "recorded_at".to_owned(),
+            "`2024-13-01` is not a valid timestamp".to_owned()
         )),
         "an unparseable date names the offending input"
     );

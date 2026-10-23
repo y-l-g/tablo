@@ -46,7 +46,7 @@ pub struct RichTextField<F = ()>(pub(super) Field, pub(super) PhantomData<fn() -
 /// The rich text control's toolbar, placeholder and length rules.
 pub(crate) struct RichTextControl {
     pub(super) toolbar: Vec<Vec<Tool>>,
-    pub(super) placeholder: Option<String>,
+    pub(super) placeholder: Option<crate::Text>,
     pub(super) min_length: Option<usize>,
     pub(super) max_length: Option<usize>,
     /// The input type of the text control a field of a type other than text gave up, a mistake.
@@ -77,13 +77,21 @@ impl RichTextControl {
 
     /// The sentence refusing `value`, a cleaned, non-empty submission, for the length rule it
     /// breaks. A length counts the characters a reader sees, not the markup.
-    pub(crate) fn refusal(&self, label: &str, value: &str) -> Option<String> {
+    pub(crate) fn refusal(&self, label: &crate::Text, value: &str) -> Option<crate::Text> {
         let length = text_length(value);
         if let Some(min) = self.min_length.filter(|min| length < *min) {
-            return Some(format!("{label} must be at least {min} characters"));
+            return Some(crate::text!(
+                "tablo-field-min-length",
+                label = label,
+                min = min
+            ));
         }
         let max = self.max_length.filter(|max| length > *max)?;
-        Some(format!("{label} must be at most {max} characters"))
+        Some(crate::text!(
+            "tablo-field-max-length",
+            label = label,
+            max = max
+        ))
     }
 
     /// What is wrong with the declared rules.
@@ -126,7 +134,7 @@ impl<F> RichTextField<F> {
     }
 
     /// The text the empty editor shows.
-    pub fn placeholder(mut self, placeholder: impl Into<String>) -> Self {
+    pub fn placeholder(mut self, placeholder: impl Into<crate::Text>) -> Self {
         self.rich().placeholder = Some(placeholder.into());
         self
     }
@@ -190,7 +198,7 @@ impl Field {
         disabled: bool,
     ) -> Result<BoxView<'a>> {
         let required = self.is_required() && !disabled;
-        let chrome = self.chrome(id.clone(), error, None);
+        let chrome = self.chrome(cx, id.clone(), error, None);
         let aria_invalid = chrome.aria_invalid();
         let described_by = chrome.described_by();
         let name = self.name().to_string();
@@ -209,7 +217,7 @@ impl Field {
                 <div
                     class="flex flex-wrap gap-1 border-b border-border bg-muted/40 p-1"
                     role="toolbar"
-                    aria-label="Formatting"
+                    aria-label=(crate::t!(cx, "tablo-rich-toolbar"))
                     aria-controls=(id.clone())
                     data-rich-text-toolbar=""
                     hidden=(true)
@@ -221,11 +229,14 @@ impl Field {
                                     type="button"
                                     class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-pressed:bg-accent aria-pressed:text-foreground [&>svg]:size-4"
                                     tabindex="-1"
-                                    title=(tool.label())
-                                    aria-label=(tool.label())
+                                    title=(crate::t!(cx, tool.label()))
+                                    aria-label=(crate::t!(cx, tool.label()))
                                     aria-pressed=(toggles(tool).then_some("false"))
                                     disabled=(disabled)
                                     data-rich-text-tool=(tool.key())
+                                    data-rich-text-prompt=((tool == Tool::Link).then(
+                                        || crate::t!(cx, "tablo-rich-link-url"),
+                                    ))
                                 >
                                     icon(data: tool_icon(tool))
                                 </button>
@@ -256,7 +267,7 @@ impl Field {
         render_field(
             cx,
             &chrome,
-            self.label_str(),
+            &self.label(),
             required,
             attributes! {},
             control,

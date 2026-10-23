@@ -2,6 +2,8 @@
 
 use std::collections::HashSet;
 
+use crate::Text;
+
 /// Why a key was refused.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
@@ -10,7 +12,7 @@ pub enum FieldErrorKind {
     /// "{label} is required" under the control.
     Required,
     /// Posted a value the field refuses, with the sentence the form renders.
-    Invalid(String),
+    Invalid(Text),
 }
 
 /// One key a submission was refused under: a form key, or a record form's
@@ -33,7 +35,7 @@ impl<K> FieldError<K> {
     }
 
     /// `key` carried a value it refuses; `message` says why.
-    pub fn invalid(key: impl Into<K>, message: impl Into<String>) -> Self {
+    pub fn invalid(key: impl Into<K>, message: impl Into<Text>) -> Self {
         Self {
             key: key.into(),
             kind: FieldErrorKind::Invalid(message.into()),
@@ -41,9 +43,9 @@ impl<K> FieldError<K> {
     }
 
     /// The sentence the form renders under the control labelled `label`.
-    pub fn message(&self, label: &str) -> String {
+    pub fn message(&self, label: impl Into<Text>) -> Text {
         match &self.kind {
-            FieldErrorKind::Required => format!("{label} is required"),
+            FieldErrorKind::Required => crate::text!("tablo-field-required", label = label),
             FieldErrorKind::Invalid(message) => message.clone(),
         }
     }
@@ -53,7 +55,7 @@ impl<K> FieldError<K> {
 /// text, or text where it reads a list. Only a schema whose controls disagree with its parse
 /// holds one.
 pub(crate) fn unreadable(key: &str) -> FieldError {
-    FieldError::invalid(key, "The value could not be read")
+    FieldError::invalid(key, Text::message("tablo-field-unreadable"))
 }
 
 /// A refused submission.
@@ -83,7 +85,7 @@ impl<K> FieldErrors<K> {
     }
 
     /// Refuse `key` with `message`.
-    pub fn add(&mut self, key: impl Into<K>, message: impl Into<String>) {
+    pub fn add(&mut self, key: impl Into<K>, message: impl Into<Text>) {
         self.errors.push(FieldError::invalid(key, message));
     }
 

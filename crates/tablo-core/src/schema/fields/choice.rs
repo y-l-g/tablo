@@ -7,11 +7,12 @@ use toasty::stmt::Expr;
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{
-    super::relationship::{MAX_RELATIONSHIP_OPTIONS, OptionLoadError, RelatedCheck},
+    super::relationship::{OptionLoadError, RelatedCheck},
     Field, Placement, render_field,
 };
 use crate::values::FormValue;
 
+mod check;
 mod listed;
 mod relationship;
 
@@ -228,145 +229,6 @@ impl ChoiceControl {
         }
     }
 
-    /// Checks whether a non-empty `value` matches an option the parent value `parent` offers, or
-    /// for a multiple choice, whether each value its list holds does, but the stored value
-    /// `stored` holds already: keeping a link changes nothing, so it holds past the option cap.
-    pub(super) async fn validate_exists(
-        &self,
-        cx: &Cx,
-        label: &str,
-        value: &FormValue,
-        parent: Option<&str>,
-        stored: Option<&FormValue>,
-    ) -> Vec<String> {
-        if !self.multiple {
-            let Some(value) = value.as_text() else {
-                return Vec::new();
-            };
-            let kept = stored
-                .and_then(FormValue::as_text)
-                .is_some_and(|held| held.trim() == value.trim());
-            if kept {
-                return Vec::new();
-            }
-            return self.validate_one(cx, label, value, parent).await;
-        }
-        let held = stored.and_then(FormValue::as_list).unwrap_or_default();
-        let keys = match chosen(label, value, held) {
-            Ok(keys) => keys,
-            Err(message) => return vec![message],
-        };
-        for key in keys.iter().filter(|key| !held.contains(key)) {
-            let errors = self.validate_one(cx, label, key, parent).await;
-            if !errors.is_empty() {
-                return errors;
-            }
-        }
-        Vec::new()
-    }
-
-    /// Checks whether a non-empty `value` matches an option the parent value `parent` offers.
-    async fn validate_one(
-        &self,
-        cx: &Cx,
-        label: &str,
-        value: &str,
-        parent: Option<&str>,
-    ) -> Vec<String> {
-        let trimmed = value.trim();
-        if trimmed.is_empty() {
-            return Vec::new();
-        }
-        let Some(relationship) = &self.relationship else {
-            if !self.options.is_empty() && !self.options.iter().any(|(v, _)| v == trimmed) {
-                return vec![format!("{label} is invalid")];
-            }
-            return Vec::new();
-        };
-        let scope = match self.scope(parent) {
-            Scope::All => None,
-            Scope::Within(scope) => Some(scope),
-            Scope::Nothing => return vec![format!("{label} is invalid")],
-        };
-        let failure = match self.load_options(cx, parent).await {
-            Ok(opts) if opts.iter().any(|(v, _)| v == trimmed) => return Vec::new(),
-            Ok(_) => "is invalid",
-            Err(OptionLoadError::Denied) => "is not available",
-            Err(OptionLoadError::Overflow) if self.searchable => {
-                let mut db = crate::db::db(cx);
-                match (relationship.check)(cx, trimmed.to_string(), scope, &mut db).await {
-                    Ok(RelatedCheck::FoundViewable) => return Vec::new(),
-                    Ok(RelatedCheck::FoundHidden | RelatedCheck::NotFound) => "is invalid",
-                    Err(error) => load_failure(&error),
-                }
-            }
-            Err(error) => load_failure(&error),
-        };
-        vec![format!("{label} {failure}")]
-    }
-
-    /// Re-checks a submitted relationship key in the write's transaction, among the rows the
-    /// parent value `parent` selects, or for a multiple choice, each key its list holds but the
-    /// stored list `stored` does not.
-    pub(super) async fn recheck(
-        &self,
-        cx: &Cx,
-        label: &str,
-        value: &FormValue,
-        parent: Option<&str>,
-        stored: Option<&FormValue>,
-        ex: &mut dyn toasty::Executor,
-    ) -> Vec<String> {
-        if !self.multiple {
-            let Some(value) = value.as_text() else {
-                return Vec::new();
-            };
-            return self.recheck_one(cx, label, value, parent, ex).await;
-        }
-        let held = stored.and_then(FormValue::as_list).unwrap_or_default();
-        let keys = match chosen(label, value, held) {
-            Ok(keys) => keys,
-            Err(message) => return vec![message],
-        };
-        for key in keys.iter().filter(|key| !held.contains(key)) {
-            let errors = self.recheck_one(cx, label, key, parent, &mut *ex).await;
-            if !errors.is_empty() {
-                return errors;
-            }
-        }
-        Vec::new()
-    }
-
-    /// Re-checks one submitted relationship key in the write's transaction, among the rows the
-    /// parent value `parent` selects.
-    async fn recheck_one(
-        &self,
-        cx: &Cx,
-        label: &str,
-        value: &str,
-        parent: Option<&str>,
-        ex: &mut dyn toasty::Executor,
-    ) -> Vec<String> {
-        let trimmed = value.trim();
-        let Some(relationship) = &self.relationship else {
-            return Vec::new();
-        };
-        if trimmed.is_empty() {
-            return Vec::new();
-        }
-        let scope = match self.scope(parent) {
-            Scope::All => None,
-            Scope::Within(scope) => Some(scope),
-            Scope::Nothing => return vec![format!("{label} is invalid")],
-        };
-        let failure = match (relationship.check)(cx, trimmed.to_string(), scope, ex).await {
-            Ok(RelatedCheck::FoundViewable) => return Vec::new(),
-            Ok(RelatedCheck::FoundHidden | RelatedCheck::NotFound) => "is invalid",
-            Err(error) => load_failure(&error),
-        };
-        vec![format!("{label} {failure}")]
-    }
-
     /// `value`, a multiple choice's list, with each key of the stored list `stored` it drops that
     /// the user cannot view in the request's tenant put back: a submission unlinks only the
     /// records its form could offer.
@@ -397,36 +259,6 @@ impl ChoiceControl {
             }
         }
         (keys.len() != before).then_some(FormValue::List(keys))
-    }
-}
-
-/// The keys a multiple choice's `value` holds, or the error refusing it: one adding more options
-/// than a choice loads. A value holding no list chooses none here: the parse refuses it.
-///
-/// The keys `held` holds already are not choices this submission adds, and are not loaded again
-/// either: counting them would leave a record holding more of them than a choice loads unable to
-/// save at all.
-fn chosen<'v>(
-    label: &str,
-    value: &'v FormValue,
-    held: &[String],
-) -> std::result::Result<&'v [String], String> {
-    let keys = value.as_list().unwrap_or_default();
-    let added = keys.iter().filter(|key| !held.contains(key)).count();
-    if added > MAX_RELATIONSHIP_OPTIONS {
-        return Err(format!(
-            "{label} takes at most {MAX_RELATIONSHIP_OPTIONS} new choices"
-        ));
-    }
-    Ok(keys)
-}
-
-/// The wording of a failed option load.
-fn load_failure(error: &OptionLoadError) -> &'static str {
-    match error {
-        OptionLoadError::Denied => "is not available",
-        OptionLoadError::LoadFailed | OptionLoadError::Overflow => "could not load options, retry",
-        OptionLoadError::Misdeclared => "could not load options",
     }
 }
 
@@ -485,21 +317,32 @@ impl Field {
             options.push((current.clone(), current.clone()));
         }
         let chrome = self.chrome(
+            cx,
             id.clone(),
             error,
-            denied.then(|| format!("{} is not available", self.label_str())),
+            denied.then(|| {
+                crate::t!(
+                    cx,
+                    "tablo-field-unavailable",
+                    label = self.label().to_owned()
+                )
+            }),
         );
         let mut option_views: Vec<BoxView<'a>> = vec![option_view(
             cx,
             String::new(),
-            "-- Select --".to_string(),
+            crate::t!(cx, "tablo-field-select"),
             current.is_empty(),
         )];
         for (val, lab) in &options {
             option_views.push(option_view(cx, val.clone(), lab.clone(), current == *val));
         }
         let list_id = format!("{id}-options-list");
-        let filter_label = format!("Filter {} options", self.label_str());
+        let filter_label = crate::t!(
+            cx,
+            "tablo-field-filter-options",
+            label = self.label().to_owned()
+        );
         // A dependent choice fetches its options again when its parent changes, and a searchable
         // one fetches as the user types past the cap.
         let dependent = choice.parent_key().map(str::to_string);
@@ -512,7 +355,7 @@ impl Field {
             .as_ref()
             .and(placement.options)
             .map(str::to_string);
-        let overflow_hint = "Too many options — type to search".to_string();
+        let overflow_hint = crate::t!(cx, "tablo-field-too-many-options");
         // A searchable dependent choice may overflow after its parent changes, so it always
         // renders the hint, hidden until then.
         let hint = overflow_searchable || (searchable && choice.parent_key().is_some());
@@ -531,7 +374,7 @@ impl Field {
                             aria-controls=(list_id.clone())
                             aria-autocomplete="list"
                             aria-label=(filter_label.clone())
-                            placeholder="Filter…"
+                            placeholder=(crate::t!(cx, "tablo-field-filter"))
                             data-options-filter=""
                             class="h-9"
                             autocomplete="off"
@@ -576,7 +419,7 @@ impl Field {
         render_field(
             cx,
             &chrome,
-            self.label_str(),
+            &self.label(),
             required,
             attributes! {
                 cx =>
@@ -586,6 +429,12 @@ impl Field {
                 data-options-server=(options_server)
                 data-options-parent=(dependent)
                 data-options-parent-value=(parent_value)
+                data-options-empty-text=(crate::t!(cx, "tablo-field-no-options"))
+                data-options-unmatched-text=(crate::t!(
+                    cx,
+                    "tablo-field-no-matching-options",
+                ))
+                data-options-searching-text=(crate::t!(cx, "tablo-field-searching"))
             },
             control,
         )

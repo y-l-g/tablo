@@ -54,10 +54,11 @@ function allowedUri(url) {
   return !scheme || ['http', 'https', 'mailto'].includes(scheme[1].toLowerCase());
 }
 
-// Asks for the link's URL: an empty answer removes the link, a cancel changes nothing.
-function link(chain, editor, win) {
+// Asks for the link's URL with the prompt the tool's `button` carries: an empty answer removes
+// the link, a cancel changes nothing.
+function link(chain, editor, win, button) {
   const current = editor.getAttributes('link').href || '';
-  const href = win.prompt('Link URL', current);
+  const href = win.prompt(button.getAttribute('data-rich-text-prompt') || '', current);
   if (href === null) return chain;
   const range = chain.extendMarkRange('link');
   return href.trim() ? range.setLink({ href: href.trim() }) : range.unsetLink();
@@ -189,7 +190,7 @@ function press(button, win) {
   const editor = root && root.richTextEditor;
   const tool = TOOLS[button.getAttribute('data-rich-text-tool')];
   if (!editor || !tool) return false;
-  return tool.run(editor.chain().focus(), editor, win).run();
+  return tool.run(editor.chain().focus(), editor, win, button).run();
 }
 
 // Moves the focus along the toolbar holding `button` for an arrow, Home or End key, keeping one

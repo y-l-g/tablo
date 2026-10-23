@@ -115,25 +115,25 @@ impl Tool {
         }
     }
 
-    /// The button's accessible name.
+    /// The message naming the button.
     pub(crate) fn label(self) -> &'static str {
         match self {
-            Tool::Bold => "Bold",
-            Tool::Italic => "Italic",
-            Tool::Underline => "Underline",
-            Tool::Strike => "Strikethrough",
-            Tool::Code => "Code",
-            Tool::Link => "Link",
-            Tool::Heading1 => "Heading 1",
-            Tool::Heading2 => "Heading 2",
-            Tool::Heading3 => "Heading 3",
-            Tool::BulletList => "Bulleted list",
-            Tool::OrderedList => "Numbered list",
-            Tool::Blockquote => "Quote",
-            Tool::CodeBlock => "Code block",
-            Tool::HorizontalRule => "Horizontal rule",
-            Tool::Undo => "Undo",
-            Tool::Redo => "Redo",
+            Tool::Bold => "tablo-rich-bold",
+            Tool::Italic => "tablo-rich-italic",
+            Tool::Underline => "tablo-rich-underline",
+            Tool::Strike => "tablo-rich-strike",
+            Tool::Code => "tablo-rich-code",
+            Tool::Link => "tablo-rich-link",
+            Tool::Heading1 => "tablo-rich-heading-1",
+            Tool::Heading2 => "tablo-rich-heading-2",
+            Tool::Heading3 => "tablo-rich-heading-3",
+            Tool::BulletList => "tablo-rich-bullet-list",
+            Tool::OrderedList => "tablo-rich-ordered-list",
+            Tool::Blockquote => "tablo-rich-blockquote",
+            Tool::CodeBlock => "tablo-rich-code-block",
+            Tool::HorizontalRule => "tablo-rich-horizontal-rule",
+            Tool::Undo => "tablo-rich-undo",
+            Tool::Redo => "tablo-rich-redo",
         }
     }
 

@@ -77,7 +77,7 @@ fn the_email_rule_checks_only_a_submitted_value() {
     assert_eq!(
         field
             .check(&FormValue::from("nope"), &TimeZone::UTC)
-            .map(|error| error.message("Email")),
+            .map(|error| error.message("Email").english()),
         Some("Email must be a valid email".to_string())
     );
 }

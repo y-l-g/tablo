@@ -303,14 +303,16 @@ pub(crate) async fn store_uploads(
             continue;
         };
         // A file the field's rules refuse is never stored.
-        let label = field.label_str();
+        let label = field.label();
         let filename = sanitize_filename(&staged.filename);
-        let stored_path = match file.refusal(label, &filename, staged.bytes.len()) {
+        let stored_path = match file.refusal(&label, &filename, staged.bytes.len()) {
             Some(refusal) => Err(refusal),
             None => uploader
                 .store(&staged.filename, &staged.bytes)
                 .await
-                .map_err(|reason| format!("{label} could not be uploaded: {reason}")),
+                .map_err(|reason| {
+                    crate::text!("tablo-field-upload-failed", label = label, reason = reason)
+                }),
         };
         match stored_path {
             Ok(path) => {

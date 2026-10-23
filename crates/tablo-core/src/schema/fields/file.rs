@@ -5,7 +5,7 @@ use tablo_ui::{checkbox as ui_checkbox, input as ui_input, label as ui_label};
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{Field, render_field};
-use crate::FieldRuleFault;
+use crate::{FieldRuleFault, Text, text};
 
 /// Caps the whole multipart stream at 10 MiB, file bytes included.
 pub(crate) const MAX_FORM_BYTES: usize = 10 * 1024 * 1024;
@@ -21,17 +21,25 @@ pub(crate) struct FileControl {
 impl FileControl {
     /// The sentence refusing a file named `filename`, a sanitized basename, of `size` bytes, as
     /// the field `label`.
-    pub(crate) fn refusal(&self, label: &str, filename: &str, size: usize) -> Option<String> {
+    pub(crate) fn refusal(&self, label: &crate::Text, filename: &str, size: usize) -> Option<Text> {
         if !self.takes_name(filename) {
             let listed = self.extensions.as_deref().unwrap_or_default();
             let listed: Vec<String> = listed.iter().map(|ext| format!(".{ext}")).collect();
-            return Some(format!(
-                "{label} must be a file ending in {}",
-                or_list(&listed)
+            return Some(text!(
+                "tablo-field-extension",
+                label = label,
+                count = listed.len(),
+                extensions = listed.join(", ")
             ));
         }
         let max = self.max_bytes?;
-        (size > max).then(|| format!("{label} must be at most {}", spelled_size(max)))
+        (size > max).then(|| {
+            text!(
+                "tablo-field-max-size",
+                label = label,
+                max = spelled_size(max)
+            )
+        })
     }
 
     /// Whether the control takes a file whose basename is `name`, by its extension.
@@ -80,24 +88,16 @@ impl FileControl {
     }
 }
 
-/// `items` joined as `a, b or c`.
-fn or_list(items: &[String]) -> String {
-    match items {
-        [] => String::new(),
-        [one] => one.clone(),
-        [rest @ .., last] => format!("{} or {last}", rest.join(", ")),
-    }
-}
-
 /// `bytes` in the largest binary unit that spells it whole: `2 MiB`, `500 KiB`, `1500 bytes`.
-fn spelled_size(bytes: usize) -> String {
+fn spelled_size(bytes: usize) -> Text {
     const KIB: usize = 1024;
     match bytes {
-        0 => "0 bytes".to_string(),
-        _ if bytes.is_multiple_of(KIB * KIB) => format!("{} MiB", bytes / (KIB * KIB)),
-        _ if bytes.is_multiple_of(KIB) => format!("{} KiB", bytes / KIB),
-        1 => "1 byte".to_string(),
-        _ => format!("{bytes} bytes"),
+        0 => text!("tablo-size-bytes", count = 0),
+        _ if bytes.is_multiple_of(KIB * KIB) => {
+            text!("tablo-size-mib", count = bytes / (KIB * KIB))
+        }
+        _ if bytes.is_multiple_of(KIB) => text!("tablo-size-kib", count = bytes / KIB),
+        _ => text!("tablo-size-bytes", count = bytes),
     }
 }
 
@@ -125,7 +125,7 @@ impl Field {
         let stored = stored_path(value);
         let is_edit = stored.is_some();
         let control_required = self.required && !is_edit && !disabled;
-        let chrome = self.chrome(id.clone(), error, None);
+        let chrome = self.chrome(cx, id.clone(), error, None);
         let hint_id = format!("{id}-hint");
         // The clear flag is a transport key stripped before any record fn.
         let clear_name = format!("clear_{name}");
@@ -163,7 +163,7 @@ impl Field {
             // A disabled control keeps the stored file, so it offers neither the hint nor clearing.
             if is_edit && !disabled {
                 <div class="text-xs text-muted-foreground" id=(hint_id.clone())>
-                    "Leave empty to keep the current file."
+                    (crate::t!(cx, "tablo-file-keep"))
                 </div>
                 <div class="mt-2 flex items-center gap-2">
                     ui_checkbox(
@@ -176,7 +176,7 @@ impl Field {
                     )
                     ui_label(
                         attrs: attributes! { for=(clear_id) class="text-xs text-muted-foreground" },
-                        "Remove the current file"
+                        (crate::t!(cx, "tablo-file-remove"))
                     )
                 </div>
             }
@@ -185,7 +185,7 @@ impl Field {
         render_field(
             cx,
             &chrome,
-            self.label_str(),
+            &self.label(),
             control_required,
             attributes! {},
             control,
@@ -237,7 +237,8 @@ fn stored_upload_row<'a>(cx: &'a Cx, path: String) -> BoxView<'a> {
     view! {
         cx =>
         <div class="text-xs text-muted-foreground" data-file-current=(path)>
-            "Current: "
+            (crate::t!(cx, "tablo-file-current"))
+            " "
             (inner)
         </div>
     }

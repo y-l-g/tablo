@@ -41,10 +41,10 @@ pub(crate) struct TextControl {
     /// The form spelling of a posted value, read in the request's time zone.
     form_value: fn(&str, &TimeZone) -> String,
     pub(super) rows: Option<u32>,
-    pub(super) placeholder: Option<String>,
+    pub(super) placeholder: Option<crate::Text>,
     /// The text before and after a one-line input, such as a currency or a unit.
-    pub(super) prefix: Option<String>,
-    pub(super) suffix: Option<String>,
+    pub(super) prefix: Option<crate::Text>,
+    pub(super) suffix: Option<crate::Text>,
     /// The values a one-line input suggests through a `<datalist>`, offering no other.
     pub(super) suggestions: Vec<String>,
     pub(super) kind: Kind,
@@ -176,7 +176,12 @@ impl TextControl {
     /// The sentence refusing `value`, a trimmed, non-empty submission, for the first declared
     /// rule it breaks. `None` for a value the field's type does not parse: its parse refuses it,
     /// in the type's own words. A bound reads as the control shows it in `zone`.
-    pub(crate) fn refusal(&self, label: &str, value: &str, zone: &TimeZone) -> Option<String> {
+    pub(crate) fn refusal(
+        &self,
+        label: &crate::Text,
+        value: &str,
+        zone: &TimeZone,
+    ) -> Option<crate::Text> {
         if !self.parses(value) {
             return None;
         }
@@ -293,7 +298,7 @@ impl Field {
         let name = self.name().to_string();
         let required = self.is_required() && !disabled;
         let placeholder = text.placeholder.clone();
-        let chrome = self.chrome(id.clone(), error, None);
+        let chrome = self.chrome(cx, id.clone(), error, None);
         let aria_invalid = chrome.aria_invalid();
         let described_by = chrome.described_by();
         let rules = &text.rules;
@@ -409,7 +414,7 @@ impl Field {
         render_field(
             cx,
             &chrome,
-            self.label_str(),
+            &self.label(),
             required,
             attributes! {},
             control,
@@ -422,8 +427,8 @@ impl Field {
 fn affixed<'a>(
     cx: &'a Cx,
     input: BoxView<'a>,
-    prefix: Option<(String, String)>,
-    suffix: Option<(String, String)>,
+    prefix: Option<(crate::Text, String)>,
+    suffix: Option<(crate::Text, String)>,
     suggestions: Option<(String, Vec<String>)>,
 ) -> BoxView<'a> {
     const AFFIX: &str = "inline-flex shrink-0 items-center border border-border bg-muted px-3 \
@@ -475,9 +480,11 @@ pub(crate) fn password_reveal<'a>(cx: &'a Cx, id: String, input: BoxView<'a>) ->
                 type="button"
                 class="absolute inset-y-0 right-0 flex w-9 items-center justify-center rounded-r-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&>svg]:size-4"
                 aria-controls=(id)
-                aria-label="Show password"
+                aria-label=(crate::t!(cx, "tablo-password-show"))
                 aria-pressed="false"
                 data-password-toggle=""
+                data-show-label=(crate::t!(cx, "tablo-password-show"))
+                data-hide-label=(crate::t!(cx, "tablo-password-hide"))
             >
                 icon(data: tablo_ui::icons::EYE)
             </button>

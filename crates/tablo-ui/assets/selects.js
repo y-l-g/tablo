@@ -318,6 +318,12 @@ function closeList(combo) {
   setActiveDescendant(filter, null);
 }
 
+// The status line `name` (`empty`, `unmatched` or `searching`), as the wrapper's
+// `data-options-{name}-text` spells it in the page's language.
+function wording(wrap, name) {
+  return (wrap && wrap.getAttribute(`data-options-${name}-text`)) || '';
+}
+
 function messageRow(parts, text) {
   const { list, filter } = parts;
   const item = document.createElement('li');
@@ -369,7 +375,7 @@ function renderList({ combo, filter, list, select, wrap }) {
     messageRow(
       { combo, filter, list, select },
       (server && statusOption(select))
-        || (needle === '' ? 'No options' : 'No matching options'),
+        || wording(wrap, needle === '' ? 'empty' : 'unmatched'),
     );
     return;
   }
@@ -524,7 +530,7 @@ function install() {
     const field = parts.wrap.getAttribute('data-options-field');
     const server = parts.wrap.getAttribute('data-options-server') === 'true';
     if (server && field) {
-      messageRow(parts, 'Searching…');
+      messageRow(parts, wording(parts.wrap, 'searching'));
       parts.wrap.dataset.optionsSearching = 'true';
       const prevTimer = serverTimers.get(parts.filter);
       if (prevTimer) clearTimeout(prevTimer);

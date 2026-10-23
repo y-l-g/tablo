@@ -53,7 +53,7 @@ impl Binding {
     }
 
     /// A key no path names, bound as given.
-    pub(crate) fn named(name: String, label: String) -> Self {
+    pub(crate) fn named(name: String, label: crate::Text) -> Self {
         Self {
             placeholder: String::new(),
             leaf: Ok(LeafField {
@@ -77,8 +77,9 @@ impl Binding {
     }
 
     /// The label a declaration defaults to.
-    pub(crate) fn label(&self) -> &str {
-        self.leaf().map_or("", |leaf| &leaf.label)
+    pub(crate) fn label(&self) -> crate::Text {
+        self.leaf()
+            .map_or_else(|| crate::Text::from(""), |leaf| leaf.label.clone())
     }
 
     pub(crate) fn nullable(&self) -> bool {

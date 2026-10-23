@@ -168,9 +168,9 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
         impl #krate::__macro::FormScalar for #ident {
             fn parse_form(
                 value: &str,
-            ) -> ::std::result::Result<Self, ::std::string::String> {
+            ) -> ::std::result::Result<Self, #krate::__macro::Text> {
                 Self::from_value(value).ok_or_else(|| {
-                    ::std::format!("`{value}` is not a valid option")
+                    #krate::__macro::Text::message("tablo-field-not-an-option").arg("value", value)
                 })
             }
 

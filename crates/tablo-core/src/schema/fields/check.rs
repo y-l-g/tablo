@@ -4,8 +4,9 @@ use jiff::tz::TimeZone;
 
 use super::{ControlKind, Field, text::Kind};
 use crate::{
-    DeclarationErrorKind, FieldRuleFault,
+    DeclarationErrorKind, FieldRuleFault, Text,
     schema::MAX_REPEATER_ROWS,
+    text,
     values::{FieldError, FormValue, is_email, is_web_url},
 };
 
@@ -22,18 +23,23 @@ impl Items {
         self.min.is_some() || self.max.is_some()
     }
 
-    /// The sentence refusing `count` items of the field `label`, each one `noun`.
-    fn refusal(self, label: &str, count: usize, noun: &str) -> Option<String> {
-        let counted = |n: usize| format!("{n} {noun}{}", if n == 1 { "" } else { "s" });
+    /// The sentence refusing `count` items of the field `label`: options of a choice, or items
+    /// of a repeater when `items`.
+    fn refusal(self, label: &Text, count: usize, items: bool) -> Option<Text> {
+        let (fewest, most) = if items {
+            ("tablo-field-min-items", "tablo-field-max-items")
+        } else {
+            ("tablo-field-min-options", "tablo-field-max-options")
+        };
         if let Some(min) = self.min
             && count < min
         {
-            return Some(format!("{label} needs at least {}", counted(min)));
+            return Some(text!(fewest, label = label, count = min));
         }
         if let Some(max) = self.max
             && count > max
         {
-            return Some(format!("{label} takes at most {}", counted(max)));
+            return Some(text!(most, label = label, count = max));
         }
         None
     }
@@ -67,16 +73,16 @@ impl Field {
     /// declared length, bounds and pattern, its bounds spelled as the control shows them in
     /// `zone`, and a rich text field's length.
     pub(crate) fn check(&self, value: &FormValue, zone: &TimeZone) -> Option<FieldError> {
-        let label = self.label_str();
+        let label = self.label();
         let message = match (&self.control, value) {
             (_, FormValue::Text(posted)) if self.accepted && posted.trim() != "true" => {
-                format!("{label} must be accepted")
+                text!("tablo-field-accepted", label = &label)
             }
             (ControlKind::Choice(choice), FormValue::List(chosen)) => {
-                choice.bounds.refusal(label, chosen.len(), "option")?
+                choice.bounds.refusal(&label, chosen.len(), false)?
             }
             (ControlKind::Repeater(repeater), FormValue::Rows(rows)) => {
-                repeater.bounds.refusal(label, rows.len(), "item")?
+                repeater.bounds.refusal(&label, rows.len(), true)?
             }
             (control, FormValue::Text(posted)) => {
                 let value = posted.trim();
@@ -85,13 +91,13 @@ impl Field {
                 }
                 match control {
                     ControlKind::Text(text) if text.kind == Kind::Email && !is_email(value) => {
-                        format!("{label} must be a valid email")
+                        text!("tablo-field-email", label = &label)
                     }
                     ControlKind::Text(text) if text.kind == Kind::Url && !is_web_url(value) => {
-                        format!("{label} must be a valid URL starting with http:// or https://")
+                        text!("tablo-field-url", label = &label)
                     }
-                    ControlKind::Text(text) => text.refusal(label, value, zone)?,
-                    ControlKind::RichText(rich) => rich.refusal(label, value)?,
+                    ControlKind::Text(text) => text.refusal(&label, value, zone)?,
+                    ControlKind::RichText(rich) => rich.refusal(&label, value)?,
                     _ => return None,
                 }
             }

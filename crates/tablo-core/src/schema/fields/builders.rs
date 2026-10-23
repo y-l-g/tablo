@@ -28,7 +28,7 @@ macro_rules! base_modifiers {
         }
 
         impl<F> $builder<F> {
-            pub fn label(mut self, label: impl Into<String>) -> Self {
+            pub fn label(mut self, label: impl Into<crate::Text>) -> Self {
                 self.0.label = Some(label.into());
                 self
             }
@@ -114,7 +114,7 @@ macro_rules! common_modifiers {
 
         impl<F> $builder<F> {
             /// Renders `text` under the control, which the control names as its description.
-            pub fn help(mut self, text: impl Into<String>) -> Self {
+            pub fn help(mut self, text: impl Into<crate::Text>) -> Self {
                 self.0.help = Some(text.into());
                 self
             }
@@ -409,21 +409,21 @@ impl<F> TextField<F> {
     }
 
     /// The control's placeholder text.
-    pub fn placeholder(mut self, placeholder: impl Into<String>) -> Self {
+    pub fn placeholder(mut self, placeholder: impl Into<crate::Text>) -> Self {
         self.text().placeholder = Some(placeholder.into());
         self
     }
 
     /// Text shown before the one-line input, joined to it, such as a currency: `.prefix("$")`. It
     /// is not part of the value, and a [`multiline`](Self::multiline) textarea renders none.
-    pub fn prefix(mut self, text: impl Into<String>) -> Self {
+    pub fn prefix(mut self, text: impl Into<crate::Text>) -> Self {
         self.text().prefix = Some(text.into());
         self
     }
 
     /// Text shown after the one-line input, joined to it, such as a unit: `.suffix("kg")`. Like a
     /// [`prefix`](Self::prefix), it is not part of the value.
-    pub fn suffix(mut self, text: impl Into<String>) -> Self {
+    pub fn suffix(mut self, text: impl Into<crate::Text>) -> Self {
         self.text().suffix = Some(text.into());
         self
     }
@@ -519,7 +519,7 @@ impl<F> RepeaterField<F> {
     }
 
     /// The add button's label, over "Add item".
-    pub fn add_label(mut self, label: impl Into<String>) -> Self {
+    pub fn add_label(mut self, label: impl Into<crate::Text>) -> Self {
         self.repeater().add_label = Some(label.into());
         self
     }

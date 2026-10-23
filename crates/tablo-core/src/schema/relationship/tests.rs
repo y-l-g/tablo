@@ -6,7 +6,12 @@ use crate::{Ability, schema::Field, test_support::memory_db, values::FormValues}
 
 /// Reports what a submit's option check says for one choice.
 async fn check(field: &Field, cx: &Cx, value: &str) -> Vec<String> {
-    field.validate_exists(cx, &value.into(), None, None).await
+    field
+        .validate_exists(cx, &value.into(), None, None)
+        .await
+        .iter()
+        .map(crate::Text::english)
+        .collect()
 }
 /// Provides the related-source fixtures the option-policy tests share.
 #[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
@@ -662,7 +667,10 @@ async fn recheck_resolves_the_key_through_the_write_transaction() {
     );
     let values = |id: uuid::Uuid| FormValues::from_iter([("id".to_string(), id.to_string())]);
     let messages = |errors: crate::values::FieldErrors| -> Vec<String> {
-        errors.iter().map(|error| error.message("Id")).collect()
+        errors
+            .iter()
+            .map(|error| error.message("Id").english())
+            .collect()
     };
 
     let mut handle = crate::db::db(&cx);

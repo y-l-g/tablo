@@ -15,7 +15,11 @@ const { install, reveal } = require('./password');
 
 // A toggle controlling the input `id`, recording its attributes.
 function toggle(id) {
-  const attrs = { 'aria-controls': id };
+  const attrs = {
+    'aria-controls': id,
+    'data-show-label': 'Show password',
+    'data-hide-label': 'Hide password',
+  };
   return {
     attrs,
     getAttribute: (name) => attrs[name],

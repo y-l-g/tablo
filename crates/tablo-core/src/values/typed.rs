@@ -23,7 +23,8 @@ use jiff::tz::TimeZone;
 ///
 /// A `jiff::Zoned` column has no control: no browser input carries a zone.
 pub trait TypedValue: std::fmt::Display + std::str::FromStr {
-    /// What this type is called in a validation error.
+    /// The message naming this type in a validation error, such as `tablo-type-date`. An id no
+    /// catalog holds reads as written, so `"color"` names the type in every locale.
     const NOUN: &'static str;
 
     /// The `type` attribute of the text control that edits it.
@@ -74,7 +75,7 @@ macro_rules! typed_whole_number {
     ($($ty:ty),* $(,)?) => {
         $(
             impl TypedValue for $ty {
-                const NOUN: &'static str = "whole number";
+                const NOUN: &'static str = "tablo-type-integer";
                 const INPUT_TYPE: &'static str = "number";
                 ordered_by_value!();
             }
@@ -87,12 +88,12 @@ typed_whole_number!(
 );
 
 impl TypedValue for bool {
-    const NOUN: &'static str = "yes/no value";
+    const NOUN: &'static str = "tablo-type-boolean";
 }
 
 /// Accepts finite values only.
 impl TypedValue for f32 {
-    const NOUN: &'static str = "number";
+    const NOUN: &'static str = "tablo-type-number";
     const INPUT_TYPE: &'static str = "number";
     // The default step of 1 makes a browser refuse a fraction.
     const STEP: Option<&'static str> = Some("any");
@@ -108,7 +109,7 @@ impl TypedValue for f32 {
 }
 
 impl TypedValue for f64 {
-    const NOUN: &'static str = "number";
+    const NOUN: &'static str = "tablo-type-number";
     const INPUT_TYPE: &'static str = "number";
     // The default step of 1 makes a browser refuse a fraction.
     const STEP: Option<&'static str> = Some("any");
@@ -124,17 +125,17 @@ impl TypedValue for f64 {
 }
 
 impl TypedValue for uuid::Uuid {
-    const NOUN: &'static str = "identifier";
+    const NOUN: &'static str = "tablo-type-identifier";
 }
 
 impl TypedValue for crate::TenantId {
-    const NOUN: &'static str = "identifier";
+    const NOUN: &'static str = "tablo-type-identifier";
 }
 
 /// Binds a timestamp to a `datetime-local` control, which shows and reads the wall-clock time in
 /// the request's [`time_zone`](crate::time_zone).
 impl TypedValue for jiff::Timestamp {
-    const NOUN: &'static str = "timestamp";
+    const NOUN: &'static str = "tablo-type-timestamp";
     const INPUT_TYPE: &'static str = "datetime-local";
 
     /// Parses RFC 3339 only: a wall-clock time names no instant until
@@ -163,7 +164,7 @@ impl TypedValue for jiff::Timestamp {
 
 /// Binds a calendar date to a `date` control.
 impl TypedValue for jiff::civil::Date {
-    const NOUN: &'static str = "date";
+    const NOUN: &'static str = "tablo-type-date";
     const INPUT_TYPE: &'static str = "date";
 
     ordered_by_value!();
@@ -171,7 +172,7 @@ impl TypedValue for jiff::civil::Date {
 
 /// Binds a wall-clock time to a `time` control, which edits it to the minute.
 impl TypedValue for jiff::civil::Time {
-    const NOUN: &'static str = "time";
+    const NOUN: &'static str = "tablo-type-time";
     const INPUT_TYPE: &'static str = "time";
 
     fn input_value(stored: &str, _zone: &TimeZone) -> String {
@@ -186,7 +187,7 @@ impl TypedValue for jiff::civil::Time {
 /// Binds a date and wall-clock time without a zone to a `datetime-local` control, which edits it to
 /// the minute.
 impl TypedValue for jiff::civil::DateTime {
-    const NOUN: &'static str = "date and time";
+    const NOUN: &'static str = "tablo-type-date-time";
     const INPUT_TYPE: &'static str = "datetime-local";
 
     fn input_value(stored: &str, _zone: &TimeZone) -> String {
