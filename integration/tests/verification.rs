@@ -7,8 +7,8 @@ use http::header::{CACHE_CONTROL, LOCATION};
 use jiff::Timestamp;
 use tablo::{
     Auth, AuthMail, AuthMailFault, DeclarationErrorKind, EmailVerification, LoginThrottle, NoForm,
-    NotificationStatus, Panel, PanelUser, PasswordAuth, ReadOnly, Resource, ResourceDef,
-    RouterBuilderPanelExt, Table, TextColumn, VerificationFault,
+    NotificationStatus, Panel, PanelUser, PasswordAuth, PasswordSignUp, ReadOnly, Resource,
+    ResourceDef, RouterBuilderPanelExt, Table, TextColumn, VerificationFault,
     auth::{AdminUser, AuthSession, AuthToken, EmailVerifier, create_admin},
     lens,
     testing::{SESSION_COOKIE, form_body, session_cookie_value},
@@ -63,7 +63,7 @@ fn mailing() -> Auth {
 /// A panel with sign-up and email verification, mounting `verification`.
 fn verifying(verification: EmailVerification) -> Auth {
     mailing()
-        .registration(PasswordAuth)
+        .registration(PasswordSignUp::open())
         .email_verification(verification)
 }
 

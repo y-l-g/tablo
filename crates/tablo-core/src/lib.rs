@@ -132,7 +132,7 @@ pub use auth::{
     config::Auth,
     mail::AuthMail,
     panel_user::{Authenticator, PanelUser},
-    password::PasswordAuth,
+    password::{PasswordAuth, PasswordSignUp},
     password_reset::PasswordReset,
     profile::{Profile, ProfileEditor, ProfileUpdate},
     registration::{Registrar, SignUp},
