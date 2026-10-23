@@ -43,7 +43,7 @@ pub(super) async fn notice(cx: &Cx, email: &str) -> topcoat::Result<Response> {
                 tablo_ui::button(
                     variant: tablo_ui::ButtonVariant::Primary,
                     attrs: attributes! { type="submit" class="w-full" },
-                    "Email me a verification link"
+                    (crate::t!(cx, "tablo-verify-request"))
                 )
             </form>
             <form method="post" action=(logout)>
@@ -52,7 +52,7 @@ pub(super) async fn notice(cx: &Cx, email: &str) -> topcoat::Result<Response> {
                     variant: tablo_ui::ButtonVariant::Outline,
                     attrs: attributes! { type="submit" class="w-full" },
                     icon(data: tablo_ui::icons::LOG_OUT)
-                    "Sign out"
+                    (crate::t!(cx, "tablo-shell-sign-out"))
                 )
             </form>
         </div>
@@ -61,10 +61,8 @@ pub(super) async fn notice(cx: &Cx, email: &str) -> topcoat::Result<Response> {
     let page = render(
         cx,
         AuthPage {
-            title: "Verify your email",
-            description: format!(
-                "Open the link we mail to {email} to confirm it is yours, then come back."
-            ),
+            title: crate::t!(cx, "tablo-verify-title"),
+            description: crate::t!(cx, "tablo-verify-description", email = email),
             status: None,
             form,
             switch: None,
@@ -86,15 +84,13 @@ pub(in crate::auth) async fn invalid_link(cx: &Cx) -> topcoat::Result<Response> 
             tablo_ui::alert(
                 variant: tablo_ui::AlertVariant::Destructive,
                 attrs: attributes! { role="alert" },
-                tablo_ui::alert_title(
-                    "This verification link is invalid or has expired."
-                )
+                tablo_ui::alert_title((crate::t!(cx, "tablo-verify-invalid")))
             )
             <a
                 (link)
                 class="text-center text-sm font-medium text-foreground underline underline-offset-4 hover:text-primary"
             >
-                "Sign in to get a new link"
+                (crate::t!(cx, "tablo-verify-new-link"))
             </a>
         </div>
     }
@@ -102,9 +98,8 @@ pub(in crate::auth) async fn invalid_link(cx: &Cx) -> topcoat::Result<Response> 
     let page = render(
         cx,
         AuthPage {
-            title: "Verification link expired",
-            description: "Each link works once, for one day, for the address it was mailed to."
-                .to_string(),
+            title: crate::t!(cx, "tablo-verify-expired-title"),
+            description: crate::t!(cx, "tablo-verify-expired-description"),
             status: Some(http::StatusCode::NOT_FOUND),
             form,
             switch: None,

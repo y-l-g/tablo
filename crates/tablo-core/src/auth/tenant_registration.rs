@@ -337,8 +337,11 @@ pub(super) fn register_tenant_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         select_tenant(cx, membership.tenant).await?;
         set_notification(
             cx,
-            Notification::success("Tenant created")
-                .description(format!("You now act for {}.", membership.name)),
+            Notification::success(crate::t!(cx, "tablo-tenant-created")).description(crate::t!(
+                cx,
+                "tablo-tenant-acting",
+                tenant = membership.name.clone()
+            )),
         );
         see_other(panel_root(cx)).into_response(cx)
     })
@@ -368,7 +371,7 @@ async fn page_response(
                 tablo_ui::button(
                     variant: tablo_ui::ButtonVariant::Primary,
                     attrs: attributes! { type="submit" class="w-full" },
-                    "Create tenant"
+                    (crate::t!(cx, "tablo-shell-create-tenant"))
                 )
             </form>
             if first {
@@ -378,7 +381,7 @@ async fn page_response(
                         variant: tablo_ui::ButtonVariant::Outline,
                         attrs: attributes! { type="submit" class="w-full" },
                         icon(data: tablo_ui::icons::LOG_OUT)
-                        "Sign out"
+                        (crate::t!(cx, "tablo-shell-sign-out"))
                     )
                 </form>
             }
@@ -390,15 +393,22 @@ async fn page_response(
     let page = render(
         cx,
         AuthPage {
-            title: "Create a tenant",
+            title: crate::t!(cx, "tablo-tenant-create-title"),
             description: if first {
-                format!("Create the tenant you work in on {brand}.")
+                crate::t!(cx, "tablo-tenant-create-first", brand = brand)
             } else {
-                format!("Create another tenant to work in on {brand}.")
+                crate::t!(cx, "tablo-tenant-create-another", brand = brand)
             },
             status: (!errors.is_empty()).then_some(http::StatusCode::UNPROCESSABLE_ENTITY),
             form,
-            switch: (!first).then(|| switch_link(cx, "Changed your mind?", &root, "Go back")),
+            switch: (!first).then(|| {
+                switch_link(
+                    cx,
+                    "tablo-tenant-changed-mind",
+                    &root,
+                    "tablo-tenant-go-back",
+                )
+            }),
             note: None,
         },
     )

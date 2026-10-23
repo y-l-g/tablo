@@ -7,6 +7,7 @@ use crate::{
     BoxFuture,
     policy::Ability,
     resource::{Change, Resource, Trashed, WriteError},
+    t,
 };
 
 impl<R: Resource> ActionEntry<R> {
@@ -14,25 +15,19 @@ impl<R: Resource> ActionEntry<R> {
     pub(super) fn restore() -> Self {
         Self {
             name: "restore",
-            label: |_| "Restore".to_string(),
+            label: |cx| t!(cx, "tablo-action-restore"),
             places: Places::ALL,
             resource_wide: Ability::RestoreAny,
             can_run: |resource, cx, record| resource.can(cx, Ability::Restore(record)),
             input: InputSpec::none(),
             run: restore_erased::<R>,
-            success: |_, count| {
-                if count == 1 {
-                    "Restored".to_string()
-                } else {
-                    format!("Restored {count} records")
-                }
-            },
+            success: |cx, count| t!(cx, "tablo-action-restored", count = count),
             change: Change::Restore,
-            failure: "restore the records",
+            failure: "tablo-failed-restore",
             confirm: false,
             trashed: Trashed::Only,
             removes: false,
-            prompt: "Restore this record?",
+            prompt: "tablo-confirm-restore",
         }
     }
 
@@ -40,25 +35,19 @@ impl<R: Resource> ActionEntry<R> {
     pub(super) fn force_delete() -> Self {
         Self {
             name: "force-delete",
-            label: |_| "Delete permanently".to_string(),
+            label: |cx| t!(cx, "tablo-action-force-delete"),
             places: Places::ALL,
             resource_wide: Ability::ForceDeleteAny,
             can_run: |resource, cx, record| resource.can(cx, Ability::ForceDelete(record)),
             input: InputSpec::none(),
             run: force_delete_erased::<R>,
-            success: |_, count| {
-                if count == 1 {
-                    "Deleted permanently".to_string()
-                } else {
-                    format!("Deleted {count} records permanently")
-                }
-            },
+            success: |cx, count| t!(cx, "tablo-action-force-deleted", count = count),
             change: Change::ForceDelete,
-            failure: "delete the records permanently",
+            failure: "tablo-failed-force-delete",
             confirm: true,
             trashed: Trashed::Only,
             removes: true,
-            prompt: "Delete this record permanently?",
+            prompt: "tablo-confirm-force-delete",
         }
     }
 
@@ -77,7 +66,7 @@ impl<R: Resource> ActionEntry<R> {
     fn deleting(bulk: bool) -> Self {
         Self {
             name: "delete",
-            label: |_| "Delete".to_string(),
+            label: |cx| t!(cx, "tablo-action-delete"),
             places: if bulk { Places::BULK } else { Places::RECORD },
             resource_wide: Ability::DeleteAny,
             can_run: |resource, cx, record| resource.can(cx, Ability::Delete(record)),
@@ -87,21 +76,17 @@ impl<R: Resource> ActionEntry<R> {
             } else {
                 delete_erased::<R>
             },
-            success: if bulk {
-                |_, _| "Bulk deleted".to_string()
-            } else {
-                |_, _| "Deleted".to_string()
-            },
+            success: |cx, count| t!(cx, "tablo-action-deleted", count = count),
             change: Change::Delete,
             failure: if bulk {
-                "delete the selected rows"
+                "tablo-failed-bulk-delete"
             } else {
-                "delete the record"
+                "tablo-failed-delete"
             },
             confirm: true,
             trashed: Trashed::Without,
             removes: true,
-            prompt: "Delete this record?",
+            prompt: "tablo-confirm-delete-record",
         }
     }
 }

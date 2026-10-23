@@ -65,7 +65,7 @@ where
 {
     base_column_methods!();
 
-    fn text(&self, _cx: &Cx, row: &M) -> String {
+    fn text(&self, cx: &Cx, row: &M) -> String {
         let (schema, values) = self.spelled(row);
         schema
             .embedded_root()
@@ -75,7 +75,7 @@ where
                 let field = &schema.fields[index];
                 let value = values.text(field.name()).unwrap_or_default();
                 let read = field.read(value)?;
-                Some(format!("{}: {read}", field.label_str()))
+                Some(format!("{}: {read}", field.label().localize(cx)))
             })
             .collect::<Vec<_>>()
             .join(", ")

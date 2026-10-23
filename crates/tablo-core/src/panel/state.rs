@@ -41,7 +41,7 @@ pub(crate) struct NavEntry {
 #[derive(Clone)]
 pub(crate) struct Searchable {
     /// The resource's plural label, which heads its results.
-    pub(crate) label: String,
+    pub(crate) label: crate::Text,
     /// The resource's list URL, which places its results in the sidebar's order.
     pub(crate) list: String,
     /// Whether the request may list the resource.
@@ -145,6 +145,7 @@ pub(crate) fn enter(cx: &Cx, panel: &Arc<PanelState>) -> Cx {
     cx.with_many((
         CurrentPanel(Arc::clone(panel)),
         CurrentRealm(Arc::clone(&panel.realm)),
+        crate::i18n::AcceptedLocale::default(),
     ))
 }
 

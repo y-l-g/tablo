@@ -11,7 +11,6 @@ use super::{
 use crate::{
     BoxFuture,
     form::{FieldError, FormScalar, FormValues},
-    naming::{sentence_case, type_short_name},
     policy::Ability,
     schema::{Field, Schema},
     toasty_compat::{
@@ -76,7 +75,7 @@ use crate::{
 pub struct Relation<P> {
     pub(crate) child: TypeId,
     pub(crate) child_name: &'static str,
-    pub(crate) label: Option<String>,
+    pub(crate) label: Option<crate::Text>,
     pub(crate) kind: RelationKind<P>,
     bind: BindFn<P>,
     /// Why the relation's field binds nothing, when it does not.
@@ -292,7 +291,7 @@ where
 fn attach_schema<C: Resource>() -> Schema {
     Schema::new(
         Field::choice_input(ATTACH_KEY)
-            .label(sentence_case(type_short_name::<C::Model>()))
+            .label(crate::Text::model::<C::Model>())
             .relationship::<C>()
             .searchable(),
     )
@@ -402,7 +401,7 @@ where
 impl<P> Relation<P> {
     /// Titles the section `label` instead of the related resource's plural label.
     #[must_use]
-    pub fn label(mut self, label: impl Into<String>) -> Self {
+    pub fn label(mut self, label: impl Into<crate::Text>) -> Self {
         self.label = Some(label.into());
         self
     }

@@ -10,7 +10,7 @@ fn enumeration(values: &[&str]) -> EmbeddedBuilder {
         .collect();
     EmbeddedBuilder {
         fields: vec![Field::discriminant(
-            Binding::named("kind".to_string(), "Kind".to_string()),
+            Binding::named("kind".to_string(), "Kind".into()),
             variants.clone(),
         )],
         shape: Shape::Enum(EnumNode {

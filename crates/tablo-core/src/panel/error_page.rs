@@ -71,20 +71,20 @@ impl PanelError {
     }
 
     /// The page's heading, and the trail's last step.
-    pub(crate) fn title(self) -> &'static str {
-        match self {
-            Self::NotFound => "Page not found",
-            Self::Forbidden => "Access denied",
-            Self::Failed => "Something went wrong",
-        }
+    pub(crate) fn title(self) -> crate::Text {
+        crate::Text::message(match self {
+            Self::NotFound => "tablo-error-not-found",
+            Self::Forbidden => "tablo-error-forbidden",
+            Self::Failed => "tablo-error-failed",
+        })
     }
 
-    fn description(self) -> &'static str {
-        match self {
-            Self::NotFound => "The page you asked for does not exist, or it has moved.",
-            Self::Forbidden => "You do not have permission to open this page.",
-            Self::Failed => "The page could not be shown. Try again in a moment.",
-        }
+    fn description(self) -> crate::Text {
+        crate::Text::message(match self {
+            Self::NotFound => "tablo-error-not-found-description",
+            Self::Forbidden => "tablo-error-forbidden-description",
+            Self::Failed => "tablo-error-failed-description",
+        })
     }
 }
 
@@ -135,14 +135,14 @@ pub(crate) fn error_page(cx: &Cx, _body: Body) -> BoxView<'_> {
             >
                 <p class="text-sm font-semibold text-muted-foreground">(code)</p>
                 <h1 class="text-2xl font-semibold tracking-tight text-foreground">
-                    (error.title())
+                    (error.title().localize(cx))
                 </h1>
                 <p class="max-w-md text-sm text-muted-foreground">
-                    (error.description())
+                    (error.description().localize(cx))
                 </p>
                 <a (home) class=(button) data-panel-error-home="">
                     icon(data: tablo_ui::icons::ARROW_LEFT)
-                    "Go home"
+                    (crate::t!(cx, "tablo-error-home"))
                 </a>
             </div>
         )

@@ -36,7 +36,7 @@ impl<T: FormScalar + IntoExpr<T> + Send + Sync + 'static> FilterKey for T {}
 /// ```
 pub struct SelectFilter<M> {
     binding: Binding,
-    label: Option<String>,
+    label: Option<crate::Text>,
     /// The predicate for a trimmed, listed value, or `None` when the field's type refuses it.
     matches: MatchFn,
     /// `(value, label)` pairs.
@@ -160,7 +160,7 @@ where
     }
 
     /// The label the control renders, over the field's.
-    pub fn label(mut self, label: impl Into<String>) -> Self {
+    pub fn label(mut self, label: impl Into<crate::Text>) -> Self {
         self.label = Some(label.into());
         self
     }
@@ -181,8 +181,8 @@ where
         self.binding.name()
     }
 
-    fn label(&self) -> &str {
-        self.label.as_deref().unwrap_or(self.binding.label())
+    fn label(&self) -> crate::Text {
+        self.label.clone().unwrap_or_else(|| self.binding.label())
     }
 
     /// Any of the values, each listed and parsed by the field's type; `None` when one is not, or
@@ -311,7 +311,7 @@ impl<M> SelectFilter<M> {
 filter_impls! {
     SelectFilter, this {
         name: &this.binding.name(),
-        label: &this.label.as_deref().unwrap_or(this.binding.label()),
+        label: &this.label.clone().unwrap_or_else(|| this.binding.label()),
         options: &this.options,
         relationship: &this.related.is_some(),
         multiple: &this.multiple,

@@ -10,7 +10,7 @@ use topcoat::{
         Body, Layer, LayerFuture, Next, Path, PathBuf,
         error::{forbidden, not_found, redirect, unauthorized},
         request::{method, uri},
-        response::{IntoResponse, Response},
+        response::{IntoResponse, Response, response_headers},
     },
     view::{ViewExt, attributes, view},
 };
@@ -58,6 +58,14 @@ impl Layer for PanelGate {
                 return Err(not_found().into());
             };
             let answer = |cx: &Cx, error| host.answer(cx, error);
+            // A page of a panel offering several locales reads the browser's languages, so a
+            // shared cache must not serve one browser's page to another.
+            if self.realm.catalog.locales().len() > 1 {
+                response_headers(&cx).append(
+                    http::header::VARY,
+                    http::HeaderValue::from_static("accept-language"),
+                );
+            }
             let Some(authenticator) = self.realm.auth.authenticator() else {
                 return next
                     .run(&cx, body)
@@ -227,7 +235,7 @@ async fn no_access(cx: &Cx) -> topcoat::Result<Response> {
                 variant: tablo_ui::ButtonVariant::Outline,
                 attrs: attributes! { type="submit" class="w-full" },
                 icon(data: tablo_ui::icons::LOG_OUT)
-                "Sign out"
+                (crate::t!(cx, "tablo-shell-sign-out"))
             )
         </form>
     }
@@ -235,8 +243,12 @@ async fn no_access(cx: &Cx) -> topcoat::Result<Response> {
     let page = render(
         cx,
         AuthPage {
-            title: "Access denied",
-            description: format!("Your account cannot open {}.", hosted(cx)?.brand_name(cx)),
+            title: crate::t!(cx, "tablo-error-forbidden"),
+            description: crate::t!(
+                cx,
+                "tablo-gate-description",
+                brand = hosted(cx)?.brand_name(cx)
+            ),
             status: Some(http::StatusCode::FORBIDDEN),
             form,
             switch: None,

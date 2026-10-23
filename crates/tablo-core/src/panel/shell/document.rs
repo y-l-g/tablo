@@ -61,10 +61,12 @@ impl Panel {
         let favicon = panel
             .and_then(|panel| panel.brand.as_ref())
             .and_then(|brand| brand.favicon.clone());
+        // Runtime navigation copies `lang` with the class, so a page reads in its own locale.
+        let lang = crate::locale(cx).to_string();
         Ok(view! {
             cx =>
             <!DOCTYPE html>
-            <html class=(html_class)>
+            <html lang=(lang) class=(html_class)>
                 <head>
                     <meta charset="utf-8">
                     // Without it a phone lays the page out 980px wide and zooms it out.

@@ -100,8 +100,8 @@ impl Column<User> for Initials {
     fn name(&self) -> &str {
         "initials"
     }
-    fn label(&self) -> &str {
-        "Initials"
+    fn label(&self) -> tablo::Text {
+        "Initials".into()
     }
 
     // The export's cell, and the table's unless `cell` renders a view.
@@ -139,8 +139,8 @@ impl Filter<User> for Adults {
     fn name(&self) -> &str {
         "adults"
     }
-    fn label(&self) -> &str {
-        "Adults"
+    fn label(&self) -> tablo::Text {
+        "Adults".into()
     }
     fn to_expr(&self, _cx: &Cx, value: &FilterValue) -> Option<Expr<bool>> {
         (value.single() == Some("yes")).then(|| User::fields().age().ge(18))

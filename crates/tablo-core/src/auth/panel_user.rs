@@ -87,6 +87,13 @@ pub trait PanelUser: Any + Send + Sync {
     fn time_zone(&self) -> Option<jiff::tz::TimeZone> {
         None
     }
+
+    /// The locale the user reads the panel in, as a BCP 47 tag such as `fr`. Defaults to none:
+    /// the browser's best match among the panel's [`locales`](crate::Panel::locales), else its
+    /// default. A locale the panel does not offer, or a tag that does not parse, counts as none.
+    fn locale(&self) -> Option<&str> {
+        None
+    }
 }
 
 /// How a panel loads its users (ADR-0013).

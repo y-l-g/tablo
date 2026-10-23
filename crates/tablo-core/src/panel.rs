@@ -128,7 +128,7 @@ pub struct Panel {
     uploads: Option<crate::upload::InstalledUploader>,
     /// App-owned filesystem directories served with hardening headers.
     served_dirs: Vec<(String, PathBuf)>,
-    login_hint: Option<String>,
+    login_hint: Option<crate::Text>,
     /// The app's entries in the user menu, above Sign out.
     user_menu: Vec<crate::NavigationItem>,
     auth: crate::auth::Auth,
@@ -138,6 +138,10 @@ pub struct Panel {
     notifications: bool,
     /// The zone a user without their own reads and enters wall-clock times in.
     time_zone: jiff::tz::TimeZone,
+    /// The locales the panel offers, the default first.
+    locales: Vec<String>,
+    /// The app's catalogs, by locale, over Tablo's.
+    translations: Vec<(String, String)>,
     /// Whether the topbar shows the global search box.
     global_search: bool,
 }
@@ -169,6 +173,8 @@ impl Panel {
             endpoints: Vec::new(),
             notifications: false,
             time_zone: jiff::tz::TimeZone::UTC,
+            locales: vec!["en".to_owned()],
+            translations: Vec::new(),
             global_search: true,
         }
     }
@@ -471,6 +477,53 @@ impl Panel {
         self
     }
 
+    /// Sets the locales the panel offers, the default first: `["en"]` by default. Each request
+    /// reads one, its [`locale`](crate::locale): the signed-in user's
+    /// [`PanelUser::locale`](crate::PanelUser::locale), else the browser's best match, else the
+    /// default.
+    ///
+    /// Tablo translates its own words into `en` and `fr`; a locale it does not translate needs the
+    /// app's catalog, from [`translations`](Self::translations). The pseudo-locale `en-XA` spells
+    /// every catalog's English with accented letters, so a word that reads plain on its page is one
+    /// no catalog spells.
+    ///
+    /// ```rust
+    /// # use tablo_core::Panel;
+    /// Panel::new("admin").locales(["fr", "en"]);
+    /// ```
+    ///
+    /// The panel refuses to mount an empty list, a tag that is not BCP 47, a repeated locale, and
+    /// a locale no catalog translates.
+    pub fn locales<I, S>(mut self, locales: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.locales = locales.into_iter().map(Into::into).collect();
+        self
+    }
+
+    /// Adds the app's Fluent catalog for `locale`: the messages its [`Text`](crate::Text)s name,
+    /// and any of Tablo's it spells otherwise.
+    ///
+    /// A message the request's locale leaves out reads from the default locale's catalogs, then
+    /// from English; an English locale reads English alone. A catalog for a language, such as `fr`,
+    /// serves its regions too: `fr-CA` reads it under its own.
+    ///
+    /// ```rust,ignore
+    /// Panel::new("admin")
+    ///     .locales(["fr", "en"])
+    ///     .translations("fr", include_str!("../locales/fr.ftl"))
+    ///     .translations("en", include_str!("../locales/en.ftl"));
+    /// ```
+    ///
+    /// The panel refuses to mount a catalog that is not valid Fluent, and one for a locale it does
+    /// not offer, `en` aside.
+    pub fn translations(mut self, locale: impl Into<String>, catalog: impl Into<String>) -> Self {
+        self.translations.push((locale.into(), catalog.into()));
+        self
+    }
+
     /// Leaves out the global search the panel otherwise shows: the box in its topbar and its
     /// results page.
     ///
@@ -505,7 +558,7 @@ impl Panel {
     }
 
     /// Renders a line under the sign-in card for demo credentials or deployment hints.
-    pub fn login_hint(mut self, hint: impl Into<String>) -> Self {
+    pub fn login_hint(mut self, hint: impl Into<crate::Text>) -> Self {
         self.login_hint = Some(hint.into());
         self
     }

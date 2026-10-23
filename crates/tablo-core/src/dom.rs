@@ -65,3 +65,14 @@ pub mod import {
     /// The header names a single-value column twice.
     pub const REPEATED_COLUMN: &str = "repeated-column";
 }
+
+/// What a list row's own control does, as its `data-row-action` names it; the row's selection
+/// checkbox carries `data-row-select`.
+pub mod row {
+    /// The link to the record's detail page.
+    pub const VIEW: &str = "view";
+    /// The link to the record's edit form.
+    pub const EDIT: &str = "edit";
+    /// The button deleting the record.
+    pub const DELETE: &str = "delete";
+}

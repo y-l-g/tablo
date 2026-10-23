@@ -136,7 +136,7 @@ type ReversedFn = Arc<dyn Fn(&str, &str, &TimeZone) -> bool + Send + Sync>;
 /// ```
 pub struct DateFilter<M> {
     binding: Binding,
-    label: Option<String>,
+    label: Option<crate::Text>,
     /// The predicate for a value.
     matches: BoundFn,
     /// Whether a range's `from` and `to` parts bound nothing.
@@ -192,7 +192,7 @@ where
     }
 
     /// The label the control renders, over the field's.
-    pub fn label(mut self, label: impl Into<String>) -> Self {
+    pub fn label(mut self, label: impl Into<crate::Text>) -> Self {
         self.label = Some(label.into());
         self
     }
@@ -220,8 +220,8 @@ where
         self.binding.name()
     }
 
-    fn label(&self) -> &str {
-        self.label.as_deref().unwrap_or(self.binding.label())
+    fn label(&self) -> crate::Text {
+        self.label.clone().unwrap_or_else(|| self.binding.label())
     }
 
     /// One day for a single value, or the range its `from` and `to` parts bound; `None` for both,
@@ -323,7 +323,7 @@ where
 filter_impls! {
     DateFilter, this {
         name: &this.binding.name(),
-        label: &this.label.as_deref().unwrap_or(this.binding.label()),
+        label: &this.label.clone().unwrap_or_else(|| this.binding.label()),
         range: &this.range,
     }
     clone { binding, label, matches, reversed, range, model }

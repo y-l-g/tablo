@@ -2,10 +2,11 @@
 //
 // The toggle names its input by id in `aria-controls`. Pressing it flips the input between
 // `type="password"` and `type="text"`, and the toggle's `aria-pressed` and `aria-label` follow, so
-// a screen reader hears what the next press does. The value never leaves the input: a form posts
+// a screen reader hears what the next press does: the label is `data-show-label` or
+// `data-hide-label`, which the server writes in the page's language. The value never leaves the input: a form posts
 // it the same either way.
 //
-// Hook: `[data-password-toggle]` (click).
+// Hooks: `[data-password-toggle]` (click), `[data-show-label]`, `[data-hide-label]`.
 
 // Flip the input `toggle` controls in `doc`; answers whether the password now shows.
 function reveal(doc, toggle) {
@@ -14,7 +15,8 @@ function reveal(doc, toggle) {
   const shown = input.type === 'password';
   input.type = shown ? 'text' : 'password';
   toggle.setAttribute('aria-pressed', String(shown));
-  toggle.setAttribute('aria-label', shown ? 'Hide password' : 'Show password');
+  const label = toggle.getAttribute(shown ? 'data-hide-label' : 'data-show-label');
+  if (label) toggle.setAttribute('aria-label', label);
   return shown;
 }
 

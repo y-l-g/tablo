@@ -220,6 +220,18 @@ pub(crate) fn session_time_zone(cx: &Cx) -> Option<jiff::tz::TimeZone> {
         .or_else(|| current_realm(cx).map(|realm| realm.time_zone.clone()))
 }
 
+/// The request panel's catalog: the [`LocaleSource`](crate::i18n::LocaleSource) the panel
+/// installs reads it.
+pub(crate) fn session_catalog(cx: &Cx) -> Option<&crate::i18n::Catalog> {
+    current_realm(cx).map(|realm| &realm.catalog)
+}
+
+/// The signed-in user's [`locale`](PanelUser::locale), which the
+/// [`LocaleSource`](crate::i18n::LocaleSource) the panel installs reads.
+pub(crate) fn session_locale(cx: &Cx) -> Option<&str> {
+    signed(cx).and_then(|signed| signed.user.locale())
+}
+
 /// The signed-in user, as the app's own user type.
 ///
 /// `None` when nobody is signed in to the request's panel, and when the

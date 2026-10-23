@@ -30,8 +30,8 @@ impl crate::table::Column<Dummy> for Unbindable {
         "unbindable"
     }
 
-    fn label(&self) -> &str {
-        "Unbindable"
+    fn label(&self) -> crate::Text {
+        "Unbindable".into()
     }
 
     fn text(&self, _cx: &Cx, _row: &Dummy) -> String {

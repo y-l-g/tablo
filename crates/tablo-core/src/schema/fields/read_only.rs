@@ -5,10 +5,12 @@ use tablo_ui::{
 };
 use topcoat::{context::Cx, view::*};
 
+use crate::Text;
+
 /// A read-only value: `label` over `value`, which wraps as text. A detail page's entry, and an
 /// embedded leaf on one.
-pub(crate) fn read_only<'a>(cx: &'a Cx, label: &str, value: BoxView<'a>) -> BoxView<'a> {
-    let label = label.to_string();
+pub(crate) fn read_only<'a>(cx: &'a Cx, label: &Text, value: BoxView<'a>) -> BoxView<'a> {
+    let label = label.clone();
     view! {
         cx =>
         ui_field(

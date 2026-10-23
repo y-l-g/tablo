@@ -68,7 +68,7 @@ where
 {
     base_column_methods!(binding);
 
-    fn text(&self, _cx: &Cx, row: &M) -> String {
+    fn text(&self, cx: &Cx, row: &M) -> String {
         let schema = T::schema();
         self.spelled(row)
             .iter()
@@ -78,7 +78,7 @@ where
                     .filter_map(|field| {
                         let value = values.text(field.name()).unwrap_or_default();
                         let read = field.read(value)?;
-                        Some(format!("{}: {read}", field.label_str()))
+                        Some(format!("{}: {read}", field.label().localize(cx)))
                     })
                     .collect::<Vec<_>>()
                     .join(", ")
@@ -91,7 +91,7 @@ where
         let label = Column::label(self);
         let items = self.spelled(row);
         if items.is_empty() {
-            return read_only(cx, label, value_cell(cx, ""));
+            return read_only(cx, &label, value_cell(cx, ""));
         }
         let schema = T::schema();
         let items: Vec<BoxView<'a>> = items
@@ -114,7 +114,7 @@ where
             .collect();
         read_only(
             cx,
-            label,
+            &label,
             view! {
                 cx =>
                 <ol class="flex flex-col gap-3 whitespace-normal">

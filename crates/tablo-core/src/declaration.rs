@@ -6,6 +6,7 @@ mod action_input;
 mod auth;
 mod field_access;
 mod field_rule;
+mod locale;
 mod many_to_many;
 mod mount_error;
 mod segment;
@@ -21,6 +22,7 @@ pub use auth::{
 pub use field_access::FieldAccessFault;
 pub use field_rule::FieldRuleFault;
 use field_rule::fmt_field_rule;
+pub use locale::LocaleFault;
 pub use many_to_many::ManyToManyFault;
 use many_to_many::fmt_many_to_many;
 pub use mount_error::MountError;
@@ -263,6 +265,8 @@ pub enum DeclarationErrorKind {
     TwoFactor(TwoFactorFault),
     /// The panel's auth mail cannot be sent.
     AuthMail(AuthMailFault),
+    /// The panel's locales or translations cannot be served.
+    Locale(LocaleFault),
     /// Two relations to the same resource.
     ///
     /// Keep one.

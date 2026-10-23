@@ -11,7 +11,7 @@ use super::{
     fields::{Field, TextControl},
 };
 use crate::{
-    DeclarationErrorKind, FieldRuleFault,
+    DeclarationErrorKind, FieldRuleFault, Text, text,
     values::{FieldError, FormValues},
 };
 
@@ -41,28 +41,31 @@ impl Comparison {
     fn refusal(
         &self,
         text: &TextControl,
-        label: &str,
+        label: &Text,
         value: &str,
-        other_label: &str,
+        other_label: &Text,
         other: &str,
-    ) -> Option<String> {
+    ) -> Option<Text> {
+        let refused = |id: &'static str| text!(id, label = label, other = other_label);
         if self.relation == Relation::Different {
             let same = text.same_value(value, other);
-            return same.then(|| format!("{label} must differ from {other_label}"));
+            return same.then(|| refused("tablo-field-different"));
         }
         let order = text.order(value, other)?;
         let (holds, number, temporal) = match self.relation {
-            Relation::Gt => (order.is_gt(), "greater than", "after"),
-            Relation::Gte => (order.is_ge(), "at least", "no earlier than"),
-            Relation::Lt => (order.is_lt(), "less than", "before"),
-            Relation::Lte | Relation::Different => (order.is_le(), "at most", "no later than"),
+            Relation::Gt => (order.is_gt(), "tablo-field-gt", "tablo-field-after"),
+            Relation::Gte => (order.is_ge(), "tablo-field-gte", "tablo-field-not-before"),
+            Relation::Lt => (order.is_lt(), "tablo-field-lt", "tablo-field-before"),
+            Relation::Lte | Relation::Different => {
+                (order.is_le(), "tablo-field-lte", "tablo-field-not-after")
+            }
         };
-        let words = if text.input_type() == "number" {
+        let id = if text.input_type() == "number" {
             number
         } else {
             temporal
         };
-        (!holds).then(|| format!("{label} must be {words} {other_label}"))
+        (!holds).then(|| refused(id))
     }
 }
 
@@ -105,9 +108,9 @@ impl<F> Schema<F> {
                 .fields
                 .iter()
                 .find(|field| field.name() == key)
-                .map_or(key, Field::label_str);
+                .map_or_else(|| Text::from(key), Field::label);
             if let Some(message) =
-                comparison.refusal(text, field.label_str(), value, other_label, other)
+                comparison.refusal(text, &field.label(), value, &other_label, other)
             {
                 return Some(FieldError::invalid(name, message));
             }

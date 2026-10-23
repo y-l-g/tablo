@@ -459,10 +459,7 @@ fn an_unparseable_typed_leaf_is_refused() {
         .expect_err("an unparseable leaf is refused");
     assert_eq!(errors.len(), 1);
     assert_eq!(errors[0].key, "post_stats_word_count");
-    assert_eq!(
-        errors[0].kind,
-        FieldErrorKind::Invalid("`many` is not a valid whole number".to_string())
-    );
+    assert!(matches!(errors[0].kind, FieldErrorKind::Invalid(_)));
 }
 
 /// Value keys name every key of a value.

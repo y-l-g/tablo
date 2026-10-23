@@ -9,24 +9,27 @@ use topcoat::{
     view::{BoxView, ViewExt, view},
 };
 
-use crate::navigation::{NavigationItem, current_index};
+use crate::{
+    Text,
+    navigation::{NavigationItem, current_index},
+};
 
 /// One step of a trail: its label, and its link unless it is the page the request is on.
 #[derive(Debug, PartialEq, Eq)]
 pub(super) struct Crumb {
-    pub(super) label: String,
+    pub(super) label: Text,
     pub(super) href: Option<String>,
 }
 
 impl Crumb {
-    fn link(label: impl Into<String>, href: impl Into<String>) -> Self {
+    fn link(label: impl Into<Text>, href: impl Into<String>) -> Self {
         Self {
             label: label.into(),
             href: Some(href.into()),
         }
     }
 
-    fn here(label: impl Into<String>) -> Self {
+    fn here(label: impl Into<Text>) -> Self {
         Self {
             label: label.into(),
             href: None,
@@ -64,13 +67,16 @@ pub(super) fn trail(
     }
     match rest.as_slice() {
         [] => vec![Crumb::here(item.label.clone())],
-        ["-", "create"] => vec![entry(), Crumb::here("Create")],
+        ["-", "create"] => vec![entry(), Crumb::here(Text::message("tablo-crumb-create"))],
         ["-", action] => vec![entry(), Crumb::here(humanize(action))],
-        [_record] => vec![entry(), Crumb::here("View")],
-        [_record, "edit"] => vec![entry(), Crumb::here("Edit")],
+        [_record] => vec![entry(), Crumb::here(Text::message("tablo-crumb-view"))],
+        [_record, "edit"] => vec![entry(), Crumb::here(Text::message("tablo-crumb-edit"))],
         [record, .., last] => vec![
             entry(),
-            Crumb::link("View", format!("{path}/{record}")),
+            Crumb::link(
+                Text::message("tablo-crumb-view"),
+                format!("{path}/{record}"),
+            ),
             Crumb::here(humanize(last)),
         ],
     }
@@ -82,7 +88,7 @@ pub(super) fn failed(
     nav_items: &[NavigationItem],
     current_path: &str,
     current_query: &str,
-    label: &str,
+    label: impl Into<Text>,
 ) -> Vec<Crumb> {
     let mut crumbs: Vec<Crumb> = entry(nav_items, current_path, current_query)
         .map(|(item, path)| Crumb::link(item.label.clone(), path))
@@ -129,10 +135,10 @@ pub(super) fn render(cx: &Cx, crumbs: Vec<Crumb>) -> BoxView<'_> {
                         if let Some(href) = crumb.href {
                             breadcrumb_link(
                                 attrs: crate::navigation::runtime_link(cx, &href),
-                                (crumb.label)
+                                (crumb.label.localize(cx))
                             )
                         } else {
-                            breadcrumb_page((crumb.label))
+                            breadcrumb_page((crumb.label.localize(cx)))
                         }
                     )
                     if index < last {

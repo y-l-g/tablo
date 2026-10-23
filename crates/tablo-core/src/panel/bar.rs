@@ -17,6 +17,7 @@ use crate::{
     },
     policy::Ability,
     resource::{HeaderEntry, InputSpec, Mounted, Places, Resource},
+    t,
 };
 
 /// The buttons of one page header, each a POST of its own form.
@@ -32,7 +33,7 @@ struct ActionButton {
     /// The POST target, with its `?return=` when the write lands back on this page.
     url: String,
     /// The dialog's title, when the button confirms first.
-    confirm: Option<&'static str>,
+    confirm: Option<String>,
     delete: bool,
     /// The action's input, when it asks for one.
     input: Option<Input>,
@@ -75,7 +76,8 @@ pub(crate) fn header_bar(
             label: (action.label)(cx),
             url: bulk_action_url(url.trim_end_matches('/'), action.name),
             // An action with input confirms in its input dialog, which its button opens.
-            confirm: (action.confirm && !action.input.takes_input).then_some("Run this action?"),
+            confirm: (action.confirm && !action.input.takes_input)
+                .then(|| t!(cx, "tablo-confirm-run")),
             delete: false,
             input: Input::of(action.input, action.confirm, url, action.name),
         })
@@ -117,7 +119,8 @@ pub(crate) fn record_bar<R: Resource>(
                 } else {
                     with_return(&url, here)
                 },
-                confirm: (action.confirm && !action.input.takes_input).then_some(action.prompt),
+                confirm: (action.confirm && !action.input.takes_input)
+                    .then(|| t!(cx, action.prompt)),
                 delete: action.removes,
                 input: Input::of(action.input, action.confirm, &resource.url, action.name),
             }
@@ -128,9 +131,9 @@ pub(crate) fn record_bar<R: Resource>(
         && resource.can(cx, Ability::Delete(record))
     {
         buttons.push(ActionButton {
-            label: "Delete".to_string(),
+            label: t!(cx, "tablo-action-delete"),
             url: delete_action_url(&resource.url, &key),
-            confirm: Some("Delete this record?"),
+            confirm: Some(t!(cx, "tablo-confirm-delete-record")),
             delete: true,
             input: None,
         });
@@ -312,7 +315,7 @@ impl ActionButton {
                             dialog_title(attrs: attributes! { id=(title_id) }, (title))
                             dialog_description(
                                 attrs: attributes! { id=(description_id) },
-                                "This action cannot be undone."
+                                (t!(cx, "tablo-confirm-irreversible"))
                             )
                         )
                         dialog_footer(
@@ -320,7 +323,7 @@ impl ActionButton {
                                 variant: ButtonVariant::Outline,
                                 size: ButtonSize::Md,
                                 attrs: attributes! { type="submit" formmethod="dialog" },
-                                "Cancel"
+                                (t!(cx, "tablo-cancel"))
                             )
                             button(
                                 variant: ButtonVariant::Destructive,

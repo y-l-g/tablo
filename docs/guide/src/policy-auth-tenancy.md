@@ -196,6 +196,8 @@ use tablo::{Authenticator, Membership, PanelUser, auth::verify_password};
 - **`time_zone`** names the zone the user reads and enters times in, such as one they pick on
   their profile page and the app stores; it defaults to the panel's. See
   [Time zones](./forms.md#time-zones).
+- **`locale`** names the locale the user reads the panel in; it defaults to the browser's best
+  match. See [Translations](./translations.md#the-users-locale).
 
 Sessions stay in `AuthSession`, which `tablo::models!` registers. It registers the shipped
 `AdminUser` too, which only `PasswordAuth` reads: with another authenticator its table stays

@@ -1,10 +1,9 @@
 //! Renders the shell framing every admin page.
 
-use http::header::COOKIE;
 use topcoat::{
     Result,
     asset::Asset,
-    context::{Cx, try_request_context},
+    context::Cx,
     font::Font,
     icon::icon,
     router::Slot,
@@ -26,97 +25,6 @@ fn sidebar_link(cx: &Cx, mut extra: Attributes) -> Attributes {
     attrs.remove("href");
     extra.extend(attrs);
     extra
-}
-
-/// The cookie holding the visitor's theme, `light`, `dark` or `system`, which `assets/theme.js`
-/// writes.
-///
-/// Prefixed because a cookie is shared by every app on a host whatever its port: another app's
-/// `theme` on `localhost`, possibly HttpOnly and so beyond the toggle's reach, would otherwise
-/// decide this panel's theme.
-const THEME_COOKIE: &str = "tablo_theme";
-
-/// The cookie holding the system's scheme, `light` or `dark`, which `assets/theme.js` mirrors
-/// while the visitor's theme is `system`: the server cannot see the system's preference.
-const SCHEME_COOKIE: &str = "tablo_scheme";
-
-/// A visitor's theme choice, as [`THEME_COOKIE`] stores it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Theme {
-    Light,
-    Dark,
-    /// The system's scheme, which [`SCHEME_COOKIE`] mirrors.
-    System,
-}
-
-impl Theme {
-    /// The choice the request's cookie stores, if any.
-    fn stored(cx: &Cx) -> Option<Self> {
-        match request_cookie(cx, THEME_COOKIE).as_deref() {
-            Some("light") => Some(Self::Light),
-            Some("dark") => Some(Self::Dark),
-            Some("system") => Some(Self::System),
-            _ => None,
-        }
-    }
-
-    /// The choice the user menu shows as checked: the stored one, else the panel's default.
-    fn current(cx: &Cx) -> Self {
-        Self::stored(cx).unwrap_or(if Self::panel_default_dark(cx) {
-            Self::Dark
-        } else {
-            Self::Light
-        })
-    }
-
-    /// Whether the panel shows dark to a visitor who has not chosen.
-    fn panel_default_dark(cx: &Cx) -> bool {
-        current(cx).is_some_and(|panel| panel.dark_mode)
-    }
-
-    /// Whether the request's page renders dark: the stored choice, the mirrored system scheme
-    /// under `system`, else `default_dark`, the panel's default.
-    fn renders_dark(cx: &Cx, default_dark: bool) -> bool {
-        match Self::stored(cx) {
-            Some(Self::Dark) => true,
-            Some(Self::Light) => false,
-            Some(Self::System) => match request_cookie(cx, SCHEME_COOKIE).as_deref() {
-                Some("dark") => true,
-                Some("light") => false,
-                _ => default_dark,
-            },
-            None => default_dark,
-        }
-    }
-
-    /// The name the cookie and the theme script use.
-    fn name(self) -> &'static str {
-        match self {
-            Self::Light => "light",
-            Self::Dark => "dark",
-            Self::System => "system",
-        }
-    }
-}
-
-/// The cookie holding the desktop sidebar's state, which `assets/sidebar.js` writes.
-const SIDEBAR_COOKIE: &str = "tablo_sidebar";
-
-/// The value of the request's `name` cookie.
-///
-/// Parsed from the raw `Cookie` header on purpose: `topcoat::cookie::cookies`
-/// panics when the cookie router layer is absent (tests, minimal routers), and
-/// the shell must render everywhere.
-fn request_cookie(cx: &Cx, name: &str) -> Option<String> {
-    let header = try_request_context::<http::request::Parts>(cx)?
-        .headers
-        .get(COOKIE)?
-        .to_str()
-        .ok()?;
-    header.split(';').find_map(|part| {
-        let (key, value) = part.trim().split_once('=')?;
-        (key == name).then(|| value.to_string())
-    })
 }
 
 /// Branding for the panel's shell: the sidebar header, the login card, and the
@@ -318,6 +226,7 @@ impl Panel {
                         sidebar_menu(
                             for (index, item) in entries {
                                 let is_active = active == Some(index);
+                                let label = item.label.localize(cx);
                                 let attrs = sidebar_link(
                                     cx,
                                     attributes! {
@@ -330,12 +239,12 @@ impl Panel {
                                     sidebar_menu_button(
                                         active: is_active,
                                         href: item.url(),
-                                        tooltip: Some(item.label.as_str()),
+                                        tooltip: Some(label.as_str()),
                                         attrs: attrs,
                                         if let Some(data) = item.icon.clone() {
                                             icon(data: data)
                                         }
-                                        <span>(item.label.clone())</span>
+                                        <span>(label.clone())</span>
                                     )
                                     if let Some(badge) = item.badge.clone() {
                                         sidebar_menu_badge((badge))
@@ -485,7 +394,7 @@ impl Panel {
                     variant: SidebarVariant::Inset,
                     sheet_attrs: attributes! {
                         id="mobile-sidebar-sheet"
-                        aria-label="Navigation"
+                        aria-label=(crate::t!(cx, "tablo-shell-navigation"))
                         @keydown=$(|e: Event| {
                             if e.key == "Escape" {
                                 mobile_open.set(false);
@@ -514,7 +423,7 @@ impl Panel {
                                 attrs: attributes! {
                                     type="button"
                                     class="md:hidden ml-auto"
-                                    aria-label="Close sidebar"
+                                    aria-label=(crate::t!(cx, "tablo-shell-close-sidebar"))
                                     @click=$(|_e: Event| mobile_open.set(false))
                                 },
                                 icon(data: tablo_ui::icons::X)
@@ -582,6 +491,7 @@ impl Panel {
                 // in-place transport; the flash cookie's toast
                 // rides beside it.
                 tablo_ui::toaster(
+                    label: crate::t!(cx, "tablo-notifications"),
                     (notification_view)
                     live_toaster(
                         status: $(toast_status),
@@ -641,7 +551,10 @@ impl Panel {
             })
             .collect();
         if nav_items.is_empty() {
-            nav_items.push(NavigationItem::at("Home", super::gate::panel_prefix(cx)));
+            nav_items.push(NavigationItem::at(
+                crate::t!(cx, "tablo-shell-home"),
+                super::gate::panel_prefix(cx),
+            ));
         }
         let shell = Self::render_shell(cx, &nav_items, &path, slot, None).await?;
         Self::render_document(
@@ -657,4 +570,7 @@ impl Panel {
 mod breadcrumbs;
 mod document;
 pub(super) mod sidebar;
+mod theme;
 mod user_menu;
+
+use theme::{SIDEBAR_COOKIE, Theme, request_cookie};

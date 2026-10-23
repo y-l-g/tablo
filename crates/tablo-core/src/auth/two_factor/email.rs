@@ -74,6 +74,7 @@ pub(super) async fn send(
     let (Some(address), Some(mail), true) = (user.email(), mail, two_factor.mails()) else {
         return Ok(Sent::Unavailable);
     };
+    let cx = &crate::i18n::addressed_to(cx, user.locale());
     let user_id = user.user_id();
     if !two_factor.mail_throttle.attempt(&user_id, None) {
         return Ok(Sent::Throttled);
@@ -93,11 +94,12 @@ pub(super) async fn send(
     let brand = hosted(cx)?.brand_name(cx);
     let message = mail.compose(
         address,
-        format!("Your {brand} sign-in code"),
-        format!(
-            "Your code to sign in to {brand} is {code}. It works once, for the next 10 \
-             minutes.\n\nIf you did not try to sign in, change your password: someone else \
-             knows it.\n"
+        crate::t!(cx, "tablo-two-factor-mail-subject", brand = brand.clone()),
+        crate::t!(
+            cx,
+            "tablo-two-factor-mail-body",
+            brand = brand,
+            code = code.clone()
         ),
     )?;
     // The code is recorded: a mail server that fails leaves the page up, and its button to send

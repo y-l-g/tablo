@@ -27,10 +27,11 @@ pub(super) enum ForgotAlert {
 }
 
 impl ForgotAlert {
+    /// The message the page renders.
     pub(super) fn message(self) -> &'static str {
         match self {
-            Self::Throttled => "Too many reset requests. Try again shortly.",
-            Self::Unavailable => "Password reset is unavailable right now. Try again shortly.",
+            Self::Throttled => "tablo-reset-throttled",
+            Self::Unavailable => "tablo-reset-unavailable",
         }
     }
 
@@ -56,7 +57,7 @@ pub(super) async fn forgot_response(
     let schema = Schema::new(crate::form::required_input(
         Field::text_input::<String>(EMAIL_FIELD)
             .email()
-            .label("Email"),
+            .label(crate::text!("tablo-auth-email")),
     ));
     let mut values = FormValues::new();
     values.insert(EMAIL_FIELD.to_string(), email.to_string());
@@ -71,22 +72,22 @@ pub(super) async fn forgot_response(
                 tablo_ui::alert(
                     variant: tablo_ui::AlertVariant::Destructive,
                     attrs: topcoat::view::attributes! { role="alert" },
-                    tablo_ui::alert_title((alert.message()))
+                    tablo_ui::alert_title((crate::t!(cx, alert.message())))
                 )
             }
             (fields)
             tablo_ui::button(
                 variant: tablo_ui::ButtonVariant::Primary,
                 attrs: topcoat::view::attributes! { type="submit" class="w-full" },
-                "Email me a reset link"
+                (crate::t!(cx, "tablo-reset-request"))
             )
         </form>
     }
     .boxed();
     let page = render(
         cx,
-        "Forgot your password?",
-        "Enter your email and we will send you a link to choose a new password.".to_string(),
+        crate::t!(cx, "tablo-reset-forgot-title"),
+        crate::t!(cx, "tablo-reset-forgot-description"),
         status,
         form,
     )
@@ -107,12 +108,12 @@ pub(super) async fn reset_response(
         field(
             Field::text_input::<String>(PASSWORD_FIELD)
                 .password()
-                .label("New password"),
+                .label(crate::text!("tablo-auth-new-password")),
         ),
         field(
             Field::text_input::<String>(CONFIRMATION_FIELD)
                 .password()
-                .label("Confirm new password"),
+                .label(crate::text!("tablo-auth-confirm-new-password")),
         ),
     ));
     let values = FormValues::new();
@@ -129,17 +130,18 @@ pub(super) async fn reset_response(
             tablo_ui::button(
                 variant: tablo_ui::ButtonVariant::Primary,
                 attrs: topcoat::view::attributes! { type="submit" class="w-full" },
-                "Reset password"
+                (crate::t!(cx, "tablo-reset-submit"))
             )
         </form>
     }
     .boxed();
     let page = render(
         cx,
-        "Choose a new password",
-        format!(
-            "Use at least {} characters.",
-            crate::auth::MIN_PASSWORD_CHARS
+        crate::t!(cx, "tablo-reset-title"),
+        crate::t!(
+            cx,
+            "tablo-reset-description",
+            min = crate::auth::MIN_PASSWORD_CHARS
         ),
         status,
         form,
@@ -158,21 +160,21 @@ pub(super) async fn invalid_link(cx: &Cx) -> topcoat::Result<Response> {
             tablo_ui::alert(
                 variant: tablo_ui::AlertVariant::Destructive,
                 attrs: topcoat::view::attributes! { role="alert" },
-                tablo_ui::alert_title("This reset link is invalid or has expired.")
+                tablo_ui::alert_title((crate::t!(cx, "tablo-reset-invalid")))
             )
             <a
                 (link)
                 class="text-center text-sm font-medium text-foreground underline underline-offset-4 hover:text-primary"
             >
-                "Request a new link"
+                (crate::t!(cx, "tablo-reset-new-link"))
             </a>
         </div>
     }
     .boxed();
     let page = render(
         cx,
-        "Reset link expired",
-        "Each link works once, for one hour.".to_string(),
+        crate::t!(cx, "tablo-reset-expired-title"),
+        crate::t!(cx, "tablo-reset-expired-description"),
         Some(http::StatusCode::NOT_FOUND),
         form,
     )
@@ -183,7 +185,7 @@ pub(super) async fn invalid_link(cx: &Cx) -> topcoat::Result<Response> {
 /// A reset page: the shared auth layout, with a link back to the login page.
 async fn render<'a>(
     cx: &'a Cx,
-    title: &'static str,
+    title: String,
     description: String,
     status: Option<http::StatusCode>,
     form: BoxView<'a>,
@@ -198,9 +200,9 @@ async fn render<'a>(
             form,
             switch: Some(crate::auth::page::switch_link(
                 cx,
-                "Remember your password?",
+                "tablo-reset-remember",
                 &login,
-                "Sign in",
+                "tablo-sign-up-sign-in-link",
             )),
             note: None,
         },

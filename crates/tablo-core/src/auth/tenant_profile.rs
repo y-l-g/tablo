@@ -325,10 +325,9 @@ pub(super) fn tenant_profile_post(cx: &Cx, body: Body) -> BoxView<'_> {
         if form.last(TENANT_FIELD) != Some(tenant.tenant.to_string().as_str()) {
             set_notification(
                 cx,
-                Notification::warning("Nothing saved").description(format!(
-                    "You now act for {}. Check its settings before saving.",
-                    tenant.name
-                )),
+                Notification::warning(crate::t!(cx, "tablo-tenant-not-saved")).description(
+                    crate::t!(cx, "tablo-tenant-switched", tenant = tenant.name.clone()),
+                ),
             );
             return Err(see_other(tenant_profile_url(cx)).into());
         }
@@ -339,7 +338,10 @@ pub(super) fn tenant_profile_post(cx: &Cx, body: Body) -> BoxView<'_> {
         {
             return render(cx, editor, tenant, &values, &errors).await;
         }
-        set_notification(cx, Notification::success("Tenant saved"));
+        set_notification(
+            cx,
+            Notification::success(crate::t!(cx, "tablo-tenant-saved")),
+        );
         Err(see_other(tenant_profile_url(cx)).into())
     })
 }
@@ -355,7 +357,7 @@ async fn render<'a>(
 ) -> topcoat::Result<BoxView<'a>> {
     let schema = editor.schema();
     let page = SettingsPage {
-        title: "Tenant settings",
+        title: crate::t!(cx, "tablo-shell-tenant-settings"),
         schema: &schema,
         hidden: Some((TENANT_FIELD, tenant.tenant.to_string())),
         values,

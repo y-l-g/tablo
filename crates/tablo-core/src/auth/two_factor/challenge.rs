@@ -114,8 +114,8 @@ fn expired(cx: &Cx, next: &str) -> topcoat::Result<Response> {
     forget(cx);
     set_notification(
         cx,
-        Notification::warning("Sign in again")
-            .description("The sign-in waited too long for its code."),
+        Notification::warning(crate::t!(cx, "tablo-two-factor-expired"))
+            .description(crate::t!(cx, "tablo-two-factor-expired-description")),
     );
     private(see_other(with_next(login_url(cx), next)).into_response(cx)?)
 }

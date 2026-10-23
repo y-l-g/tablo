@@ -25,10 +25,14 @@ pub(crate) struct Realm {
     pub(crate) prefix: String,
     pub(crate) auth: Auth,
     /// The note under the login card, set by [`Panel::login_hint`](crate::Panel::login_hint).
-    pub(crate) login_hint: Option<String>,
+    pub(crate) login_hint: Option<crate::Text>,
     /// The zone a signed-in user without one of their own reads dates in, set by
     /// [`Panel::time_zone`](crate::Panel::time_zone).
     pub(crate) time_zone: jiff::tz::TimeZone,
+    /// The messages the panel renders in each locale it offers, set by
+    /// [`Panel::locales`](crate::Panel::locales) and
+    /// [`Panel::translations`](crate::Panel::translations).
+    pub(crate) catalog: crate::i18n::Catalog,
     /// Whether the topbar shows the bell, set by
     /// [`Panel::notifications`](crate::Panel::notifications).
     pub(crate) notifications: bool,
@@ -87,7 +91,7 @@ pub(crate) trait Host: Send + Sync {
 
 /// A settings form auth renders in the panel's shell: the profile and the tenant settings.
 pub(crate) struct SettingsPage<'f> {
-    pub(crate) title: &'static str,
+    pub(crate) title: String,
     pub(crate) schema: &'f Schema,
     /// A hidden `(name, value)` control the save carries besides the schema's.
     pub(crate) hidden: Option<(&'static str, String)>,

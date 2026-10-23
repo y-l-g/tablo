@@ -4,6 +4,7 @@
 mod builders;
 mod check;
 mod choice;
+mod chrome;
 pub(crate) mod custom;
 mod file;
 mod placement;
@@ -18,6 +19,7 @@ pub use builders::{
 };
 pub(crate) use check::Items;
 pub(crate) use choice::{ChoiceControl, Relationship, option_view};
+pub(crate) use chrome::{FieldChrome, error_kind, render_field};
 pub(crate) use custom::{Control, ControlInput};
 pub use custom::{Switch, Toggle};
 pub(crate) use file::{FileControl, MAX_FORM_BYTES, is_linkable, is_rooted, stored_upload};
@@ -25,20 +27,15 @@ pub(crate) use placement::Placement;
 pub(crate) use read_only::{read_only, value_cell};
 use rich_text::RichTextControl;
 pub use rich_text::RichTextField;
-use tablo_ui::{
-    field as ui_field, field_description as ui_field_description, field_error as ui_field_error,
-    field_label as ui_field_label,
-};
 pub(crate) use text::{Kind, Pattern, TextControl, password_reveal};
 use toasty::stmt::{List, Path};
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{condition::Condition, lenses::Binding, repeater::RepeaterControl};
 use crate::{
-    dom,
-    naming::capitalize,
+    Text,
     schema::FormInput,
-    values::{FieldError, FieldErrorKind, FormScalar, FormValue},
+    values::{FieldError, FormScalar, FormValue},
 };
 
 /// One form field binding a lens to the control editing it, offering only that control's modifiers
@@ -93,7 +90,7 @@ use crate::{
 pub struct Field {
     binding: Binding,
     /// The declared label, over the binding's.
-    label: Option<String>,
+    label: Option<Text>,
     /// Whether the control renders as required: the panel sets it from the record form, and an
     /// embedded value's derive from its own fields.
     required: bool,
@@ -105,7 +102,7 @@ pub struct Field {
     /// Whether the checkbox must be checked, set by `accepted`.
     accepted: bool,
     /// The help text under the control, set by `help`.
-    help: Option<String>,
+    help: Option<Text>,
     /// When the control renders disabled and the server ignores what it posts.
     disabled: Disabled,
     /// The create form's initial value, as the control posts it, set by `default`.
@@ -151,7 +148,7 @@ impl std::fmt::Debug for Field {
         };
         f.debug_struct("Field")
             .field("name", &self.name())
-            .field("label", &self.label_str())
+            .field("label", &self.label())
             .field("required", &self.required)
             .field("control", &control)
             .field("condition", &self.condition)
@@ -299,7 +296,7 @@ impl Field {
 
     /// A binding for `name`, labelled as a column of that name would be.
     fn named(name: String) -> Binding {
-        let label = capitalize(&name);
+        let label = Text::field(&name);
         Binding::named(name, label)
     }
 
@@ -323,8 +320,9 @@ impl Field {
         self.binding.name()
     }
 
-    pub(crate) fn label_str(&self) -> &str {
-        self.label.as_deref().unwrap_or(self.binding.label())
+    /// The declared label, else the binding's.
+    pub(crate) fn label(&self) -> Text {
+        self.label.clone().unwrap_or_else(|| self.binding.label())
     }
 
     /// Whether the field is a choice declaring neither options nor a relationship.
@@ -346,7 +344,7 @@ impl Field {
 
     /// Posts under `prefix`: a repeater row's control, keeping its label.
     pub(crate) fn prefix(&mut self, prefix: &str) {
-        let label = self.label_str().to_string();
+        let label = self.label();
         self.binding = Binding::named(format!("{prefix}{}", self.name()), label);
         self.prefix_comparisons(prefix);
     }
@@ -456,11 +454,12 @@ impl Field {
     /// The validation state and help text the control renders with.
     fn chrome(
         &self,
+        cx: &Cx,
         id: String,
         error: Option<&FieldError>,
         fallback: Option<String>,
     ) -> FieldChrome {
-        let mut chrome = FieldChrome::new(id, error, self.label_str(), fallback);
+        let mut chrome = FieldChrome::new(cx, id, error, &self.label(), fallback);
         chrome.help = self.help.clone();
         chrome
     }
@@ -496,11 +495,11 @@ impl Field {
         value: &FormValue,
         parent: Option<&str>,
         stored: Option<&FormValue>,
-    ) -> Vec<String> {
+    ) -> Vec<crate::Text> {
         match &self.control {
             ControlKind::Choice(choice) => {
                 choice
-                    .validate_exists(cx, self.label_str(), value, parent, stored)
+                    .validate_exists(cx, &self.label(), value, parent, stored)
                     .await
             }
             _ => Vec::new(),
@@ -516,11 +515,11 @@ impl Field {
         parent: Option<&str>,
         stored: Option<&FormValue>,
         ex: &mut dyn toasty::Executor,
-    ) -> Vec<String> {
+    ) -> Vec<crate::Text> {
         match &self.control {
             ControlKind::Choice(choice) => {
                 choice
-                    .recheck(cx, self.label_str(), value, parent, stored, ex)
+                    .recheck(cx, &self.label(), value, parent, stored, ex)
                     .await
             }
             _ => Vec::new(),
@@ -590,7 +589,7 @@ impl Field {
     /// embedded value's leaf or variant on a detail page.
     pub(crate) fn display<'a>(&self, cx: &'a Cx, value: &str) -> BoxView<'a> {
         match self.read(value) {
-            Some(text) => read_only(cx, self.label_str(), value_cell(cx, &text)),
+            Some(text) => read_only(cx, &self.label(), value_cell(cx, &text)),
             None => ().boxed(),
         }
     }
@@ -606,7 +605,7 @@ impl Field {
         disabled: bool,
     ) -> Result<BoxView<'a>> {
         let required = (self.is_required() || self.accepted) && !disabled;
-        let chrome = self.chrome(id, error, None);
+        let chrome = self.chrome(cx, id, error, None);
         let input = ControlInput::new(
             self.name(),
             &chrome.id,
@@ -620,143 +619,12 @@ impl Field {
         render_field(
             cx,
             &chrome,
-            self.label_str(),
+            &self.label(),
             required,
             attributes! {},
             rendered,
         )
     }
-}
-
-/// The validation state a form control renders.
-pub(crate) struct FieldChrome {
-    /// The control's DOM id, which the label names.
-    pub(crate) id: String,
-    error_id: String,
-    error_text: String,
-    /// Why the control renders an error, `None` when it renders none.
-    error_kind: Option<&'static str>,
-    /// The help text under the control.
-    help: Option<String>,
-}
-
-/// The `data-error` an error slot carries, naming why the control was refused: a test reads it
-/// instead of the sentence.
-pub(crate) fn error_kind(error: &FieldError) -> &'static str {
-    match error.kind {
-        FieldErrorKind::Required => dom::error::REQUIRED,
-        FieldErrorKind::Invalid(_) => dom::error::INVALID,
-    }
-}
-
-impl FieldChrome {
-    /// The chrome of the control labelled `label`, refused with `error`. `fallback` is the
-    /// message of a choice whose options the user may not read: its slot reads unavailable
-    /// whatever refused the submission, and shows `fallback` when nothing did.
-    pub(crate) fn new(
-        id: String,
-        error: Option<&FieldError>,
-        label: &str,
-        fallback: Option<String>,
-    ) -> Self {
-        let message = error.map(|error| error.message(label));
-        let (error_text, error_kind) = match (message, fallback) {
-            (Some(message), Some(_)) if !message.is_empty() => {
-                (message, Some(dom::error::UNAVAILABLE))
-            }
-            (Some(message), None) => (message, error.map(error_kind)),
-            (_, Some(fallback)) => (fallback, Some(dom::error::UNAVAILABLE)),
-            (None, None) => (String::new(), None),
-        };
-        Self {
-            error_id: format!("{id}-error"),
-            id,
-            error_text,
-            error_kind,
-            help: None,
-        }
-    }
-
-    fn has_error(&self) -> bool {
-        self.error_kind.is_some()
-    }
-
-    fn help_id(&self) -> String {
-        format!("{}-description", self.id)
-    }
-
-    pub(crate) fn aria_invalid(&self) -> &'static str {
-        if self.has_error() { "true" } else { "false" }
-    }
-
-    /// The ids of the help text and the error, whichever render.
-    pub(crate) fn described_by(&self) -> Option<String> {
-        let ids: Vec<String> = [
-            self.help.is_some().then(|| self.help_id()),
-            self.has_error().then(|| self.error_id.clone()),
-        ]
-        .into_iter()
-        .flatten()
-        .collect();
-        (!ids.is_empty()).then(|| ids.join(" "))
-    }
-}
-
-/// The chrome every form control renders: wrapper, label, control, and error slot.
-pub(crate) fn render_field<'a>(
-    cx: &'a Cx,
-    chrome: &FieldChrome,
-    label: &str,
-    required: bool,
-    attributes: Attributes,
-    control: BoxView<'a>,
-) -> Result<BoxView<'a>> {
-    let id = chrome.id.clone();
-    let label_text = label.to_string();
-    let has_error = chrome.has_error();
-    let error_kind = chrome.error_kind;
-    let error_id = chrome.error_id.clone();
-    let error_text = chrome.error_text.clone();
-    let help = chrome.help.clone();
-    let help_id = chrome.help_id();
-    let field_class = if has_error {
-        "ac-field ac-field--error"
-    } else {
-        "ac-field"
-    };
-    Ok(view! {
-        cx =>
-        ui_field(
-            attrs: attributes! {
-                class=(field_class)
-                data-invalid=(has_error.then_some("true"))
-                (attributes)
-            },
-            ui_field_label(
-                attrs: attributes! { for=(id) },
-                (label_text)
-                if required {
-                    <span class="text-destructive" aria-hidden="true">"*"</span>
-                }
-            )
-            (control)
-            if let Some(help) = help {
-                ui_field_description(attrs: attributes! { id=(help_id) }, (help))
-            }
-            if has_error {
-                ui_field_error(
-                    attrs: attributes! {
-                        id=(error_id)
-                        class="ac-error"
-                        aria-live="polite"
-                        data-error=(error_kind)
-                    },
-                    (error_text)
-                )
-            }
-        )
-    }
-    .boxed())
 }
 
 #[cfg(test)]

@@ -62,7 +62,7 @@ pub(super) async fn check_unique<R: Resource>(
             if !rows.is_empty() {
                 errors.add(
                     name,
-                    format!("{} has already been taken", field.label_str()),
+                    crate::text!("tablo-field-taken", label = field.label()),
                 );
                 break;
             }

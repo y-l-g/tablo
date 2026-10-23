@@ -1,4 +1,4 @@
-//! Reads values back out of rendered responses: bodies, cookies, form data,
+//! Reads values back out of rendered responses: bodies, cookies, form data, the page's language,
 //! and the semantic HTML queries over tables, fields, filters, the ignored-filters banner, the
 //! import page, rich text values, the notification bell, the global search, and tabs.
 
@@ -37,6 +37,14 @@ pub fn cookie_header<'a>(cookies: impl IntoIterator<Item = (&'a str, &'a str)>) 
         jar.push_str(value);
     }
     (!jar.is_empty()).then_some(jar)
+}
+
+/// The language the page reads in, as its `<html lang>` names it.
+pub fn page_language(html: &str) -> Option<String> {
+    let (_, attrs, _) = dom::tags_where(html, |tag, _| tag == "html")
+        .into_iter()
+        .next()?;
+    dom::attr_value(&attrs, "lang")
 }
 
 /// Collect a response body as bytes.

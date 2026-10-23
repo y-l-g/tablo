@@ -22,6 +22,7 @@ use crate::{
     panel::url::{row_edit_url, row_view_url},
     resource::{Opens, SearchHit},
     schema::clamp_query_term,
+    t,
     topcoat_compat::{async_page, href::encode_query_value},
 };
 
@@ -52,7 +53,7 @@ const ICON_CLASS: &str =
 
 /// One resource's results, headed by its plural label.
 struct Group {
-    label: String,
+    label: crate::Text,
     hits: Vec<Hit>,
 }
 
@@ -60,7 +61,7 @@ struct Group {
 struct Hit {
     title: String,
     url: String,
-    details: Vec<(String, String)>,
+    details: Vec<(crate::Text, String)>,
 }
 
 impl Hit {
@@ -207,8 +208,8 @@ fn topbar_search(cx: &Cx) -> BoxView<'_> {
                             type="search"
                             name="q"
                             :value=$(term.get())
-                            placeholder="Search…"
-                            aria-label="Search"
+                            placeholder=(t!(cx, "tablo-search-placeholder"))
+                            aria-label=(t!(cx, "tablo-search"))
                             autocomplete="off"
                             class="pl-8"
                             @input=$(|_e: Event| raw!(
@@ -289,12 +290,12 @@ async fn render_results(cx: &Cx, prefix: String, term: String) -> Result<BoxView
                 (results)
             } else if listed {
                 <p class="px-2 py-6 text-center text-sm text-muted-foreground">
-                    "No results"
+                    (t!(cx, "tablo-search-no-results"))
                 </p>
             }
             <a (all) class=(MENU_LINK_CLASS) data-search-all="">
                 icon(data: tablo_ui::icons::SEARCH)
-                "See all results"
+                (t!(cx, "tablo-search-all"))
             </a>
         </div>
     }
@@ -312,13 +313,13 @@ pub(crate) fn search_page(cx: &Cx, _body: Body) -> BoxView<'_> {
         let groups = run(cx, &raw, PAGE_LIMIT).await?;
         let searched = !words(&raw).is_empty();
         let found = !groups.is_empty();
-        let detail = format!("Nothing matches “{raw}”.");
+        let detail = t!(cx, "tablo-search-nothing-matches", term = raw.clone());
         let results = groups_view(cx, groups);
         let path = topcoat::router::request::uri(cx).path().to_string();
         Ok(view! {
             cx =>
             page(
-                page_header(page_title("Search"))
+                page_header(page_title((t!(cx, "tablo-search"))))
                 <form
                     method="get"
                     action=(path)
@@ -334,8 +335,8 @@ pub(crate) fn search_page(cx: &Cx, _body: Body) -> BoxView<'_> {
                             type="search"
                             name="q"
                             value=(raw)
-                            placeholder="Search…"
-                            aria-label="Search"
+                            placeholder=(t!(cx, "tablo-search-placeholder"))
+                            aria-label=(t!(cx, "tablo-search"))
                             class="pl-8"
                         }
                     )
@@ -345,7 +346,10 @@ pub(crate) fn search_page(cx: &Cx, _body: Body) -> BoxView<'_> {
                         (results)
                     </div>
                 } else if searched {
-                    empty_state(title: "No results", detail: detail)
+                    empty_state(
+                        title: t!(cx, "tablo-search-no-results"),
+                        detail: detail
+                    )
                 }
             )
         })
@@ -400,10 +404,7 @@ fn hit_view(cx: &Cx, hit: Hit) -> BoxView<'_> {
                 <dl class="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
                     for (label, value) in hit.details {
                         <div class="flex min-w-0 gap-1">
-                            <dt>
-                                (label)
-                                ":"
-                            </dt>
+                            <dt>(t!(cx, "tablo-search-detail", label = label))</dt>
                             <dd class="truncate">(value)</dd>
                         </div>
                     }

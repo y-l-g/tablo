@@ -4,7 +4,7 @@ use tablo_ui::{table_body, table_cell, table_row};
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{EMPTY_LINK_CLASS, Frame, live_link};
-use crate::{dom, panel::list::TableSignals, table::TableState};
+use crate::{dom, panel::list::TableSignals, t, table::TableState};
 
 impl Frame<'_> {
     /// Render the zero-rows cell spanning the table, with clear and back-to-first-page links when
@@ -37,19 +37,18 @@ impl Frame<'_> {
         let (reason, message) = match &state.search {
             Some(term) => (
                 dom::empty::SEARCH,
-                format!("No matches for \u{201c}{term}\u{201d}"),
+                t!(cx, "tablo-list-empty-search", term = term.clone()),
             ),
-            None if !state.filters.is_empty() => (
-                dom::empty::FILTERS,
-                "No results for these filters".to_string(),
-            ),
-            None => (dom::empty::NONE, "No records yet".to_string()),
+            None if !state.filters.is_empty() => {
+                (dom::empty::FILTERS, t!(cx, "tablo-list-empty-filters"))
+            }
+            None => (dom::empty::NONE, t!(cx, "tablo-list-empty")),
         };
         let clears_search = state.search.is_some();
         let clear_label = if clears_search {
-            "Clear search"
+            t!(cx, "tablo-list-clear-search")
         } else {
-            "Clear filters"
+            t!(cx, "tablo-list-clear-filters")
         };
         let first_page_url =
             (state.cursor.is_some() || state.page.is_some()).then(|| state.first_page(path));
@@ -76,7 +75,7 @@ impl Frame<'_> {
                     data-empty-link=(dom::empty::FIRST_PAGE_LINK)
                     (attrs)
                 >
-                    "Back to first page"
+                    (t!(cx, "tablo-list-first-page"))
                 </a>
             }
             .boxed()

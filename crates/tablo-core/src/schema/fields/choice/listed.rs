@@ -53,7 +53,7 @@ impl Field {
         disabled: bool,
     ) -> Result<BoxView<'a>> {
         let name = self.name().to_string();
-        let label = self.label_str().to_string();
+        let label = self.label();
         let multiple = choice.multiple;
         let buttons = choice.layout == Layout::Buttons;
         // A radio group's `required` makes the browser ask for one; a checkbox's would ask for
@@ -79,15 +79,19 @@ impl Field {
         // A denied choice reads unavailable whatever refused the submission.
         let (error, error_kind) = match error {
             Some(error) if denied => (
-                Some(error.message(&label)),
+                Some(error.message(&label).localize(cx)),
                 Some(crate::dom::error::UNAVAILABLE),
             ),
             Some(error) => (
-                Some(error.message(&label)),
+                Some(error.message(&label).localize(cx)),
                 Some(super::super::error_kind(error)),
             ),
             None if denied => (
-                Some(format!("{label} is not available")),
+                Some(crate::t!(
+                    cx,
+                    "tablo-field-unavailable",
+                    label = label.clone()
+                )),
                 Some(crate::dom::error::UNAVAILABLE),
             ),
             None => (None, None),
@@ -152,7 +156,7 @@ impl Field {
             .collect();
         let empty = inputs.is_empty();
         let searchable = choice.searchable;
-        let filter_label = format!("Filter {label} options");
+        let filter_label = crate::t!(cx, "tablo-field-filter-options", label = label.clone());
         let role = if multiple { "group" } else { "radiogroup" };
         // A checkbox list may run long, so it scrolls in a box; a radio list is a few options.
         let list_class = if buttons {
@@ -188,7 +192,7 @@ impl Field {
                     <input
                         type="search"
                         class="h-9 w-full rounded-lg border border-border bg-transparent px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        placeholder="Filter…"
+                        placeholder=(crate::t!(cx, "tablo-field-filter"))
                         aria-label=(filter_label)
                         autocomplete="off"
                         data-choices-filter=""
@@ -206,7 +210,7 @@ impl Field {
                     }
                     if empty {
                         <p class="px-2 py-1.5 text-sm text-muted-foreground">
-                            "No options"
+                            (crate::t!(cx, "tablo-field-no-options"))
                         </p>
                     }
                 </div>

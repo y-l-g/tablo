@@ -28,6 +28,7 @@ use super::{StoredNotification, stored::Inbox};
 use crate::{
     auth::current_realm,
     bus::{Subscription, bus},
+    t,
 };
 
 /// How many notifications the sheet lists at first, and how many more each "Show more" adds.
@@ -81,7 +82,7 @@ async fn render_bell(cx: &Cx) -> Result<BoxView<'_>> {
                 size: ButtonSize::Icon,
                 attrs: attributes! {
                     type="button"
-                    aria-label="Notifications"
+                    aria-label=(t!(cx, "tablo-notifications"))
                     aria-haspopup="dialog"
                     aria-controls=(SHEET_ID)
                     @click=$(|_e: Event| open.set(true))
@@ -94,7 +95,7 @@ async fn render_bell(cx: &Cx) -> Result<BoxView<'_>> {
             open: $(open.get()),
             attrs: attributes! {
                 id=(SHEET_ID)
-                aria-label="Notifications"
+                aria-label=(t!(cx, "tablo-notifications"))
                 @keydown=$(|e: Event| {
                     if e.key == "Escape" {
                         open.set(false);
@@ -111,13 +112,13 @@ async fn render_bell(cx: &Cx) -> Result<BoxView<'_>> {
                 attrs: attributes! { class="gap-3" },
                 dialog_header(
                     attrs: attributes! { class="flex-row items-center justify-between gap-2" },
-                    dialog_title("Notifications")
+                    dialog_title((t!(cx, "tablo-notifications")))
                     button(
                         variant: ButtonVariant::Ghost,
                         size: ButtonSize::Icon,
                         attrs: attributes! {
                             type="button"
-                            aria-label="Close notifications"
+                            aria-label=(t!(cx, "tablo-notifications-close"))
                             @click=$(|_e: Event| open.set(false))
                         },
                         icon(data: icons::X)
@@ -245,11 +246,13 @@ async fn badge_view(
                 class="pointer-events-none absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium leading-none text-primary-foreground tabular-nums"
                 data-unread=(unread.to_string())
             >
-                (label)
-                <span class="sr-only">" unread"</span>
+                <span aria-hidden="true">(label)</span>
+                <span class="sr-only">
+                    (t!(cx, "tablo-notifications-unread", count = unread))
+                </span>
             </span>
         }
-        tablo_ui::toaster((toast))
+        tablo_ui::toaster(label: t!(cx, "tablo-notifications"), (toast))
     }
     .boxed())
 }
@@ -289,7 +292,10 @@ async fn list_view(
     if rows.is_empty() {
         return Ok(view! {
             cx =>
-            empty_state(title: "No notifications", detail: "You're all caught up.")
+            empty_state(
+                title: t!(cx, "tablo-notifications-none"),
+                detail: t!(cx, "tablo-notifications-caught-up")
+            )
         }
         .boxed());
     }
@@ -302,12 +308,7 @@ async fn list_view(
         cx =>
         <div class="flex items-center justify-between gap-2 text-sm">
             <span class="text-muted-foreground" data-unread-count=(unread.to_string())>
-                if unread == 0 {
-                    "All read"
-                } else {
-                    (unread.to_string())
-                    " unread"
-                }
+                (t!(cx, "tablo-notifications-unread", count = unread))
             </span>
             <div class="flex gap-1">
                 if unread > 0 {
@@ -322,7 +323,7 @@ async fn list_view(
                             })
                         },
                         icon(data: icons::CHECK_CHECK)
-                        "Mark all as read"
+                        (t!(cx, "tablo-notifications-read-all"))
                     )
                 }
                 button(
@@ -336,7 +337,7 @@ async fn list_view(
                         })
                     },
                     icon(data: icons::TRASH)
-                    "Clear"
+                    (t!(cx, "tablo-notifications-clear"))
                 )
             </div>
         </div>
@@ -354,7 +355,7 @@ async fn list_view(
                     class="self-center"
                     @click=$(|_e: Event| shown.set(shown.get() + PAGE))
                 },
-                "Show more"
+                (t!(cx, "tablo-notifications-more"))
             )
         }
     }
@@ -364,7 +365,7 @@ async fn list_view(
 async fn item_view(cx: &Cx, row: StoredNotification, now: Timestamp) -> Result<BoxView<'_>> {
     let id = row.id.to_string();
     let read = row.read_at.is_some();
-    let when = ago(row.created_at, now, &crate::time_zone(cx));
+    let when = ago(cx, row.created_at, now);
     let stamp = row.created_at.to_string();
     let super::Notification {
         status,
@@ -383,10 +384,11 @@ async fn item_view(cx: &Cx, row: StoredNotification, now: Timestamp) -> Result<B
         "border-primary/30 bg-muted/50"
     };
     let toggle_label = if read {
-        "Mark as unread"
+        t!(cx, "tablo-notification-unread")
     } else {
-        "Mark as read"
+        t!(cx, "tablo-notification-read")
     };
+    let remove_label = t!(cx, "tablo-notification-remove");
     let toggle_icon = if read { icons::MAIL } else { icons::CHECK };
     let toggle_id = id.clone();
     let remove_id = id.clone();
@@ -434,7 +436,7 @@ async fn item_view(cx: &Cx, row: StoredNotification, now: Timestamp) -> Result<B
                     attrs: attributes! {
                         type="button"
                         class="size-7"
-                        aria-label=(toggle_label)
+                        aria-label=(toggle_label.clone())
                         title=(toggle_label)
                         @click=$(async |_e: Event| {
                             mark_notification(toggle_id, !read).await;
@@ -448,8 +450,8 @@ async fn item_view(cx: &Cx, row: StoredNotification, now: Timestamp) -> Result<B
                     attrs: attributes! {
                         type="button"
                         class="size-7"
-                        aria-label="Remove"
-                        title="Remove"
+                        aria-label=(remove_label.clone())
+                        title=(remove_label)
                         @click=$(async |_e: Event| {
                             remove_notification(remove_id).await;
                         })
@@ -463,17 +465,17 @@ async fn item_view(cx: &Cx, row: StoredNotification, now: Timestamp) -> Result<B
 }
 
 /// How long ago `then` was, as the sheet prints it: "just now", "5 min ago", "3 h ago", then the
-/// date in `zone`.
-pub(crate) fn ago(then: Timestamp, now: Timestamp, zone: &jiff::tz::TimeZone) -> String {
+/// date in the request's time zone, as `2026-10-23` reads in every locale.
+pub(crate) fn ago(cx: &Cx, then: Timestamp, now: Timestamp) -> String {
     let seconds = now.duration_since(then).as_secs();
     match seconds {
-        ..60 => "just now".to_owned(),
-        60..3_600 => format!("{} min ago", seconds / 60),
-        3_600..86_400 => format!("{} h ago", seconds / 3_600),
-        86_400..604_800 => format!("{} d ago", seconds / 86_400),
+        ..60 => t!(cx, "tablo-ago-now"),
+        60..3_600 => t!(cx, "tablo-ago-minutes", count = seconds / 60),
+        3_600..86_400 => t!(cx, "tablo-ago-hours", count = seconds / 3_600),
+        86_400..604_800 => t!(cx, "tablo-ago-days", count = seconds / 86_400),
         _ => then
-            .to_zoned(zone.clone())
-            .strftime("%b %-d, %Y")
+            .to_zoned(crate::time_zone(cx))
+            .strftime("%Y-%m-%d")
             .to_string(),
     }
 }

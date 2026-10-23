@@ -68,6 +68,10 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Auth factor | A second factor an account holds on a panel: its sealed authenticator secret, its choice of codes by email, or one recovery code's hash, stored as an `AuthFactor` row. | Two-factor secret, Backup code |
 | Panel user | The app's own user type: id, display name, panel access, tenant memberships. | CurrentUser, AuthUser, Principal |
 | Time zone | The zone a request shows and reads wall-clock times in: the panel user's, else the panel's, else UTC. A timestamp's control, its date column and its date filter use it. | Timezone, TZ, Locale |
+| Locale | The language a request reads its panel in: the panel user's, else the browser's best match among the panel's locales, else the panel's default. | Language (for the setting), Culture, Lang |
+| Catalog | One locale's Fluent messages: Tablo's, under the app's from `Panel::translations`. | Dictionary, Translation file, Lang file |
+| Message | One entry of a catalog, named by its id, with the variables its placeables read. | Key, String, Translation key |
+| Text | A word a panel renders: plain, as written, or a message the request's locale spells. | Label (for the type), LocalizedString, Translatable |
 | Uploader | The trait that decides where a file field's bytes go, installed once per panel. | FileStore, Blob store |
 | DirUploader | The stock `Uploader`: writes each file into one served directory and stores its URL. | DiskStore |
 

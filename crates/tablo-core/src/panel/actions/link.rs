@@ -120,8 +120,8 @@ async fn attach<'a, R: Resource>(
     let chrome = || {
         let url = relation_url(&resource.url, &id, path_param_segment(cx, "relation"));
         FormChrome::action(
-            "Attach".to_string(),
-            "Attach".to_string(),
+            crate::t!(cx, "tablo-relation-attach"),
+            crate::t!(cx, "tablo-relation-attach"),
             false,
             Vec::new(),
             landing_url(cx, &home),
@@ -166,8 +166,8 @@ async fn attach<'a, R: Resource>(
             relation: links.field.clone(),
             key,
         },
-        "Attached",
-        "attach the record",
+        crate::t!(cx, "tablo-relation-attached"),
+        "tablo-failed-attach",
     )
     .await
 }
@@ -187,7 +187,10 @@ async fn detach<'a, R: Resource>(
         None => {
             let ids = parse_bulk_ids(parts.last("ids").unwrap_or_default(), MAX_BULK_IDS);
             if ids.is_empty() {
-                set_notification(cx, Notification::error("Select at least one row first"));
+                set_notification(
+                    cx,
+                    Notification::error(crate::t!(cx, "tablo-list-select-first")),
+                );
                 return Err(see_other(landing_url(cx, &resource.url)).into());
             }
             if ids.len() > MAX_BULK_IDS {
@@ -205,7 +208,6 @@ async fn detach<'a, R: Resource>(
     let written = (links.detach)(cx, &owner, keys, &mut *tx)
         .await
         .map(|keys| (owner, keys));
-    let noun = if count == 1 { "record" } else { "records" };
     commit_write(
         cx,
         resource,
@@ -216,8 +218,8 @@ async fn detach<'a, R: Resource>(
             relation: links.field.clone(),
             keys,
         },
-        format!("Detached {count} {noun}"),
-        "detach the records",
+        crate::t!(cx, "tablo-relation-detached", count = count),
+        "tablo-failed-detach",
     )
     .await
 }

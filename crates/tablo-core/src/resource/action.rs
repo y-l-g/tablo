@@ -12,7 +12,7 @@ use super::{Mounted, Resource, WriteError};
 use crate::{
     BoxFuture,
     form::{FieldError, FieldErrors, FormInput, FormValues},
-    naming::sentence_case,
+    naming::{derived_id, sentence_case},
     policy::Ability,
     schema::Schema,
 };
@@ -162,10 +162,12 @@ pub trait Action<R: Resource>: 'static {
     /// nothing.
     const CONFIRM: bool = false;
 
-    /// The button text. Defaults to [`NAME`](Self::NAME) in sentence case: `"publish"` reads
-    /// "Publish", and `"send-invite"` reads "Send invite".
-    fn label(_cx: &Cx) -> String {
-        sentence_case(Self::NAME)
+    /// The button text. Defaults to the message `action-{NAME}` of the panel's catalogs, else
+    /// [`NAME`](Self::NAME) in sentence case: `"publish"` reads "Publish", and `"send-invite"`
+    /// reads "Send invite".
+    fn label(cx: &Cx) -> String {
+        crate::Text::derived(derived_id("action", Self::NAME), sentence_case(Self::NAME))
+            .localize(cx)
     }
 
     /// Whether `record`'s state lets the action run on it: a published post refuses "publish".
@@ -210,8 +212,12 @@ pub trait Action<R: Resource>: 'static {
     /// on some records appends their count out of the selection:
     /// `"Publish: 3 records (2 of 5 skipped)"`.
     fn success(cx: &Cx, count: usize) -> String {
-        let noun = if count == 1 { "record" } else { "records" };
-        format!("{}: {count} {noun}", Self::label(cx))
+        crate::t!(
+            cx,
+            "tablo-action-on-records",
+            action = Self::label(cx),
+            count = count
+        )
     }
 }
 
@@ -439,11 +445,11 @@ impl<R: Resource> Actions<R> {
             run: run_erased::<R, A>,
             success: A::success,
             change: super::acted::<R, A>,
-            failure: "run the action",
+            failure: "tablo-failed-run",
             confirm: A::CONFIRM,
             trashed: super::Trashed::Without,
             removes: false,
-            prompt: "Run this action?",
+            prompt: "tablo-confirm-run",
         });
         self
     }
@@ -482,7 +488,7 @@ pub(crate) struct ActionEntry<R: Resource> {
     pub(crate) success: fn(&Cx, usize) -> String,
     /// What a run on the records changed, for the hooks.
     pub(crate) change: fn(Vec<R::Model>) -> super::Change<R::Model>,
-    /// The failure toast's wording: "Couldn't {failure}".
+    /// The message the failure toast's title reads.
     pub(crate) failure: &'static str,
     pub(crate) confirm: bool,
     /// The records the mutation takes: the live ones, or the trashed ones.
@@ -490,7 +496,7 @@ pub(crate) struct ActionEntry<R: Resource> {
     /// Whether the mutation removes its records, so its button lands on the list rather than on
     /// the page of a record that no longer exists.
     pub(crate) removes: bool,
-    /// The title of the dialog confirming it on a record's page.
+    /// The message the title of the dialog confirming it on a record's page reads.
     pub(crate) prompt: &'static str,
 }
 

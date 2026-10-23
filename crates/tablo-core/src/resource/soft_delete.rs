@@ -105,8 +105,8 @@ impl<M> Filter<M> for TrashFilter {
         TRASH_FILTER
     }
 
-    fn label(&self) -> &str {
-        "Trashed"
+    fn label(&self) -> crate::Text {
+        crate::Text::message("tablo-trash")
     }
 
     /// Nothing a row shows: which records are trashed is what Restore and Delete permanently
@@ -126,10 +126,10 @@ impl<M> Filter<M> for TrashFilter {
     fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a> {
         input.select_led_by(
             cx,
-            "Without trashed",
+            &crate::t!(cx, "tablo-trash-without"),
             vec![
-                (WITH.to_string(), "With trashed".to_string()),
-                (ONLY.to_string(), "Only trashed".to_string()),
+                (WITH.to_string(), crate::t!(cx, "tablo-trash-with")),
+                (ONLY.to_string(), crate::t!(cx, "tablo-trash-only")),
             ],
         )
     }

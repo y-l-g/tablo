@@ -16,7 +16,7 @@ use topcoat::{
 
 use super::{
     BAR_CLASS, ColumnPicker, Frame, SEARCH_FIELD_CLASS, SEARCH_ICON_CLASS,
-    dialog::{input_trigger, write_trigger},
+    dialog::{delete_confirmation, input_trigger, run_confirmation, write_trigger},
     table_dom_id,
 };
 use crate::{
@@ -25,6 +25,7 @@ use crate::{
         list::{COLUMN_FIELD, RESET_FIELD, TableSignals},
         url::{bulk_action_url, bulk_delete_url},
     },
+    t,
     table::TableState,
 };
 
@@ -129,8 +130,8 @@ impl Frame<'_> {
                             type="search"
                             name=(name)
                             value=(value)
-                            placeholder="Search…"
-                            aria-label="Search table"
+                            placeholder=(t!(cx, "tablo-search-placeholder"))
+                            aria-label=(t!(cx, "tablo-list-search"))
                             class="pl-8"
                             @input=$(|_e: Event| raw!(
                                     "((f) => { clearTimeout(f.tabloSearch); f.tabloSearch = setTimeout(() => f.requestSubmit(), 200) })(document.getElementById(String(${form})))",
@@ -158,7 +159,9 @@ impl Frame<'_> {
                 @submit=(on_submit)
             >
                 (hidden)
-                <button type="submit" class="sr-only" tabindex="-1">"Search"</button>
+                <button type="submit" class="sr-only" tabindex="-1">
+                    (t!(cx, "tablo-search"))
+                </button>
                 <div class=(BAR_CLASS)>
                     if let Some(search) = search {
                         (search)
@@ -205,7 +208,7 @@ impl Frame<'_> {
             .iter()
             .map(|column| {
                 let name = column.name.to_string();
-                let label = column.label.to_string();
+                let label = column.label.clone();
                 let checked = column.shown.then_some("");
                 let form = form.clone();
                 view! {
@@ -236,7 +239,7 @@ impl Frame<'_> {
                     target: &menu,
                     attrs: attributes! { class=(trigger) },
                     icon(data: tablo_ui::icons::COLUMNS_3)
-                    "Columns"
+                    (t!(cx, "tablo-list-columns"))
                 )
                 dropdown_menu_content(
                     id: &menu,
@@ -247,7 +250,7 @@ impl Frame<'_> {
                         class="min-w-56"
                         @change=$(|e: Event| e.stop_propagation())
                     },
-                    dropdown_menu_label("Columns")
+                    dropdown_menu_label((t!(cx, "tablo-list-columns")))
                     for item in boxes {
                         (item)
                     }
@@ -262,13 +265,13 @@ impl Frame<'_> {
                                 name=(RESET_FIELD)
                                 value="1"
                             },
-                            "Reset"
+                            (t!(cx, "tablo-list-columns-reset"))
                         )
                         button(
                             variant: ButtonVariant::Primary,
                             size: ButtonSize::Sm,
                             attrs: attributes! { type="submit" form=(apply_form) },
-                            "Apply"
+                            (t!(cx, "tablo-list-columns-apply"))
                         )
                     </div>
                 )
@@ -312,7 +315,7 @@ impl Frame<'_> {
                 let mut attrs = if action.input {
                     input_trigger(cx, &form, signals, action.name, url, true)
                 } else {
-                    let confirm = action.confirm.then_some(("Run this action?", "Confirm"));
+                    let confirm = action.confirm.then(|| run_confirmation(cx));
                     write_trigger(cx, &form, signals, url, confirm, true)
                 };
                 let bulk = signals.bulk.clone();
@@ -332,7 +335,7 @@ impl Frame<'_> {
             .collect();
         if self.bulk_delete {
             let url = self.action_url(bulk_delete_url(&list));
-            let confirm = Some(("Delete the selected records?", "Delete"));
+            let confirm = Some(delete_confirmation(cx, true));
             let mut attrs = write_trigger(cx, &form, signals, url, confirm, true);
             let bulk = signals.bulk.clone();
             attrs.extend(attributes! { cx => :disabled=$(bulk.get().is_empty()) });
@@ -347,7 +350,7 @@ impl Frame<'_> {
                             data: tablo_ui::icons::TRASH,
                             attrs: attributes! { class="text-destructive" }
                         )
-                        "Delete"
+                        (t!(cx, "tablo-list-delete-selected"))
                     )
                 }
                 .boxed(),

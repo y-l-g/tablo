@@ -211,7 +211,10 @@ async fn mutate<'a, R: Resource>(
         Target::Bulk => {
             let ids = parse_bulk_ids(posted_ids.as_deref().unwrap_or_default(), MAX_BULK_IDS);
             if ids.is_empty() {
-                set_notification(cx, Notification::error("Select at least one row first"));
+                set_notification(
+                    cx,
+                    Notification::error(crate::t!(cx, "tablo-list-select-first")),
+                );
                 return Err(see_other(landing_url(cx, &resource.url)).into());
             }
             if ids.len() > MAX_BULK_IDS {
@@ -240,19 +243,32 @@ async fn mutate<'a, R: Resource>(
     let skipped = (!refused.is_empty()).then(|| {
         let skipped = refused.len();
         let selected = rows.len() + skipped;
-        format!(" ({skipped} of {selected} skipped)")
+        format!(
+            " {}",
+            crate::t!(
+                cx,
+                "tablo-action-skipped",
+                skipped = skipped,
+                selected = selected
+            )
+        )
     });
     let label = (action.label)(cx);
     let page = |page: InputPage, label: String| {
         let title = match target {
-            Target::Record => format!("{label}: {}", resource.record_title(&rows[0], &ids[0])),
+            Target::Record => crate::t!(
+                cx,
+                "tablo-action-on-record",
+                action = label.clone(),
+                record = resource.record_title(cx, &rows[0], &ids[0]),
+            ),
             Target::Bulk => {
-                let count = rows.len();
-                let noun = if count == 1 { "record" } else { "records" };
-                format!(
-                    "{label}: {count} {noun}{}",
-                    skipped.as_deref().unwrap_or_default()
-                )
+                crate::t!(
+                    cx,
+                    "tablo-action-on-records",
+                    action = label.clone(),
+                    count = rows.len(),
+                ) + skipped.as_deref().unwrap_or_default()
             }
         };
         let mut hidden = Vec::new();

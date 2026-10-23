@@ -73,10 +73,10 @@ type AccessFn = dyn Fn(&Cx) -> bool + Send + Sync;
 /// The panel builds the def once when it mounts and serves the result to every request.
 pub struct PageDef {
     slug: Option<String>,
-    label: Option<String>,
+    label: Option<crate::Text>,
     icon: Option<IconData>,
     navigation_order: Option<i32>,
-    navigation_group: Option<String>,
+    navigation_group: Option<crate::Text>,
     navigation: Option<NavigationItem>,
     access: Arc<AccessFn>,
     header_actions: HeaderActions,
@@ -103,10 +103,11 @@ impl PageDef {
 
     /// The sidebar label.
     ///
-    /// Defaults to the page type's name without a trailing `Page`, in sentence case:
-    /// `MediaLibraryPage` → `Media library`.
+    /// Defaults to the message `page-{name}` of the panel's catalogs, else the page type's name
+    /// without a trailing `Page`, in sentence case: `MediaLibraryPage` reads `page-media-library`,
+    /// else `Media library`.
     #[must_use]
-    pub fn label(mut self, label: impl Into<String>) -> Self {
+    pub fn label(mut self, label: impl Into<crate::Text>) -> Self {
         self.label = Some(label.into());
         self
     }
@@ -131,7 +132,7 @@ impl PageDef {
     /// The labelled sidebar group the entry renders in, such as `"Reports"`; defaults to none,
     /// above every group. It replaces the group of a [`navigation`](Self::navigation) item.
     #[must_use]
-    pub fn navigation_group(mut self, group: impl Into<String>) -> Self {
+    pub fn navigation_group(mut self, group: impl Into<crate::Text>) -> Self {
         self.navigation_group = Some(group.into());
         self
     }
@@ -232,7 +233,13 @@ impl MountedPage {
     pub(crate) fn new<P: Page>(def: PageDef) -> Self {
         let stem = type_stem::<P>("Page");
         let mut navigation = def.navigation.unwrap_or_else(|| NavigationItem {
-            label: def.label.unwrap_or_else(|| sentence_case(stem)),
+            label: def.label.unwrap_or_else(|| {
+                let noun = sentence_case(stem);
+                crate::Text::derived(
+                    crate::naming::derived_id("page", &crate::naming::slug_case(&noun)),
+                    noun,
+                )
+            }),
             ..NavigationItem::default()
         });
         if let Some(order) = def.navigation_order {

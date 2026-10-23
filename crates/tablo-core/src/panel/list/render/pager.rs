@@ -10,6 +10,7 @@ use topcoat::{Result, context::Cx, view::*};
 use super::{Frame, live_link, table_dom_id, toolbar::rerun_with};
 use crate::{
     panel::list::TableSignals,
+    t,
     table::{Cursor, PagePosition, TableState},
 };
 
@@ -94,23 +95,15 @@ impl Frame<'_> {
         } = position;
         let first = u64::from(page - 1) * u64::try_from(per_page).unwrap_or(u64::MAX) + 1;
         let last_row = first + u64::try_from(rows).unwrap_or(0).saturating_sub(1);
-        let summary: BoxView<'a> = match total {
-            Some(total) => view! {
-                cx =>
-                "Showing "
-                <span class="font-medium text-foreground">
-                    (format!("{first}–{last_row}"))
-                </span>
-                " of "
-                <span class="font-medium text-foreground">(total.to_string())</span>
-            }
-            .boxed(),
-            None => view! {
-                cx =>
-                "Page "
-                <span class="font-medium text-foreground">(page.to_string())</span>
-            }
-            .boxed(),
+        let summary = match total {
+            Some(total) => t!(
+                cx,
+                "tablo-pager-showing",
+                first = first,
+                last = last_row,
+                total = total,
+            ),
+            None => t!(cx, "tablo-pager-page", page = page),
         };
         let smallest = self.page_sizes.first().copied().unwrap_or(usize::MAX);
         let more_than_a_page = page > 1 || has_next;
@@ -170,11 +163,21 @@ impl Frame<'_> {
                 pagination(
                     attrs: attributes! { class="sm:flex-1 sm:justify-end" },
                     pagination_content(
-                        pagination_item(pagination_previous(attrs: previous))
+                        pagination_item(
+                            pagination_previous(
+                                label: t!(cx, "tablo-pager-previous"),
+                                attrs: previous
+                            )
+                        )
                         for number in numbers {
                             (number)
                         }
-                        pagination_item(pagination_next(attrs: next))
+                        pagination_item(
+                            pagination_next(
+                                label: t!(cx, "tablo-pager-next"),
+                                attrs: next
+                            )
+                        )
                     )
                 )
             }
@@ -233,7 +236,9 @@ impl Frame<'_> {
                 for (key, value) in hidden {
                     <input type="hidden" name=(key) value=(value)>
                 }
-                <label for=(select_id.clone()) class="shrink-0">"Per page"</label>
+                <label for=(select_id.clone()) class="shrink-0">
+                    (t!(cx, "tablo-pager-per-page"))
+                </label>
                 tablo_ui::select(
                     attrs: attributes! { id=(select_id) name=(name) class="w-20" },
                     for (value, selected) in options {
@@ -242,7 +247,9 @@ impl Frame<'_> {
                         </option>
                     }
                 )
-                <button type="submit" class="sr-only">"Apply"</button>
+                <button type="submit" class="sr-only">
+                    (t!(cx, "tablo-pager-apply"))
+                </button>
             </form>
         }
         .boxed()
@@ -280,8 +287,18 @@ fn render_cursored<'a>(
                 pagination(
                     attrs: attributes! { class="sm:justify-end" },
                     pagination_content(
-                        pagination_item(pagination_previous(attrs: previous))
-                        pagination_item(pagination_next(attrs: next))
+                        pagination_item(
+                            pagination_previous(
+                                label: t!(cx, "tablo-pager-previous"),
+                                attrs: previous
+                            )
+                        )
+                        pagination_item(
+                            pagination_next(
+                                label: t!(cx, "tablo-pager-next"),
+                                attrs: next
+                            )
+                        )
                     )
                 )
             </div>

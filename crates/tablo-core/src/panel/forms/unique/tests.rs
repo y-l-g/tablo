@@ -11,7 +11,7 @@ fn messages(errors: &FieldErrors, key: &str) -> Vec<String> {
     errors
         .iter()
         .filter(|error| error.key == key)
-        .map(|error| error.message(key))
+        .map(|error| error.message(key).english())
         .collect()
 }
 

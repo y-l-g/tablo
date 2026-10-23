@@ -239,7 +239,10 @@ pub(in crate::auth) fn settings_post(cx: &Cx, body: Body) -> BoxView<'_> {
                 email::send(cx, two_factor, signed.user.as_ref())
                     .await?
                     .or_too_many(two_factor)?;
-                set_notification(cx, Notification::success("Code sent"));
+                set_notification(
+                    cx,
+                    Notification::success(crate::t!(cx, "tablo-two-factor-sent-toast")),
+                );
                 Err(see_other(settings_url(cx)).into())
             }
             (Intent::Confirm, None, Some(factor)) => {
@@ -293,7 +296,10 @@ pub(in crate::auth) fn settings_post(cx: &Cx, body: Body) -> BoxView<'_> {
                 replace_sessions(cx, &mut tx, signed, user_type, &session).await?;
                 tx.commit().await.map_err(infrastructure_failure)?;
                 two_factor.throttle.clear(&user_id, None);
-                set_notification(cx, Notification::success("Two-factor sign-in turned off"));
+                set_notification(
+                    cx,
+                    Notification::success(crate::t!(cx, "tablo-two-factor-off-toast")),
+                );
                 Err(see_other(settings_url(cx)).into())
             }
             // An intent the factors as they stand do not allow, such as a second set-up racing a

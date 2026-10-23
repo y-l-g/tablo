@@ -84,6 +84,11 @@ MSRV. Bump both in one PR.
 - Read an upstream API from the version `Cargo.lock` pins, in the cargo registry cache, not from
   memory or the upstream branch tip.
 - Use the words `CONTEXT.md` defines, in code, issues and commits.
+- A word a page or a mail shows is a message of `crates/tablo-core/locales/en.ftl`, its id
+  starting `tablo-`, and each other catalog there translates it with the same variables; a label
+  a builder takes is a `Text`. A browser script reads its words from a `data-` attribute the
+  server writes. What only an operator reads, a declaration error or a log line, stays English
+  in the code.
 
 ## Tests
 
@@ -106,7 +111,7 @@ MSRV. Bump both in one PR.
   | showcase | what a request does to the showcase's resources | `examples/showcase/tests/` |
   | integration | what a request does to a panel the showcase does not build, what a mount refuses, what a derived impl does in an app's crate, the upstream behavior Tablo rests on | `integration/tests/` |
   | example | an example's own code: the guide's snippets, the quickstart's stylesheet | `examples/*/` |
-  | guard | the repo's rules: the core's layers, file sizes, the primitives copy | `crates/tablo-core/tests/layers.rs`, `xtask/tests/` |
+  | guard | the repo's rules: the core's layers, the shipped catalogs, file sizes, the primitives copy | `crates/tablo-core/tests/layers.rs`, `crates/tablo-core/tests/catalogs.rs`, `xtask/tests/` |
 
   What a panel built from the public API does is pinned through a request, in the showcase or
   integration suite. A unit test may serve a request only to cause what no app can, such as a

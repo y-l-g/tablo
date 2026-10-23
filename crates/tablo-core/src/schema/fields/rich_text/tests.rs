@@ -12,10 +12,18 @@ fn lengths(min: Option<usize>, max: Option<usize>) -> RichTextControl {
 #[test]
 fn a_length_counts_the_text_not_the_markup() {
     let value = "<p><strong>abc</strong></p><p>de</p>";
-    assert_eq!(lengths(None, Some(5)).refusal("Body", value), None);
-    assert!(lengths(None, Some(4)).refusal("Body", value).is_some());
-    assert_eq!(lengths(Some(5), None).refusal("Body", value), None);
-    assert!(lengths(Some(6), None).refusal("Body", value).is_some());
+    assert_eq!(lengths(None, Some(5)).refusal(&"Body".into(), value), None);
+    assert!(
+        lengths(None, Some(4))
+            .refusal(&"Body".into(), value)
+            .is_some()
+    );
+    assert_eq!(lengths(Some(5), None).refusal(&"Body".into(), value), None);
+    assert!(
+        lengths(Some(6), None)
+            .refusal(&"Body".into(), value)
+            .is_some()
+    );
 }
 
 #[test]

@@ -50,11 +50,11 @@ use crate::{
 /// schema, and serves the result to every request.
 pub struct ResourceDef<R: Resource> {
     pub(crate) slug: Option<String>,
-    pub(crate) label: Option<String>,
-    pub(crate) plural_label: Option<String>,
+    pub(crate) label: Option<crate::Text>,
+    pub(crate) plural_label: Option<crate::Text>,
     pub(crate) icon: Option<IconData>,
     pub(crate) navigation_order: Option<i32>,
-    pub(crate) navigation_group: Option<String>,
+    pub(crate) navigation_group: Option<crate::Text>,
     pub(crate) navigation: Option<NavigationItem>,
     pub(crate) navigation_badge: Option<Expr<bool>>,
     pub(crate) policy: Arc<dyn Policy<R::Model>>,
@@ -130,20 +130,28 @@ impl<R: Resource> ResourceDef<R> {
 
     /// One record's name, the noun in the "Create {label}" and "Edit {label}" titles.
     ///
-    /// Defaults to the model's type name in sentence case: `BlogPost` → `Blog post`, `APIKey` →
-    /// `API key`.
+    /// Defaults to the message `resource-{model}` of the panel's catalogs, else the model's type
+    /// name in sentence case: `BlogPost` reads `resource-blog-post`, else `Blog post`, and
+    /// `APIKey` reads `resource-api-key`, else `API key`.
     #[must_use]
-    pub fn label(mut self, label: impl Into<String>) -> Self {
+    pub fn label(mut self, label: impl Into<crate::Text>) -> Self {
         self.label = Some(label.into());
         self
     }
 
     /// The list title and sidebar label.
     ///
-    /// Defaults to the pluralized [`label`](Self::label): `Category` → `Categories`, `Person` →
-    /// `People`.
+    /// Defaults to the plural of the [`label`](Self::label): a plain label pluralized in English,
+    /// `Category` reading `Categories` and `Person` `People`, and a message's attribute `plural`.
+    /// The default label's message is `resource-{model}`, so its plural is
+    /// `resource-{model}.plural`, else the derived English noun pluralized.
+    ///
+    /// ```ftl
+    /// resource-blog-post = Article
+    ///     .plural = Articles
+    /// ```
     #[must_use]
-    pub fn plural_label(mut self, label: impl Into<String>) -> Self {
+    pub fn plural_label(mut self, label: impl Into<crate::Text>) -> Self {
         self.plural_label = Some(label.into());
         self
     }
@@ -168,7 +176,7 @@ impl<R: Resource> ResourceDef<R> {
     /// The labelled sidebar group the entry renders in, such as `"Content"`; defaults to none,
     /// above every group. It replaces the group of a [`navigation`](Self::navigation) item.
     #[must_use]
-    pub fn navigation_group(mut self, group: impl Into<String>) -> Self {
+    pub fn navigation_group(mut self, group: impl Into<crate::Text>) -> Self {
         self.navigation_group = Some(group.into());
         self
     }

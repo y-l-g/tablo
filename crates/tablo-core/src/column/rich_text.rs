@@ -80,7 +80,7 @@ where
     }
 
     fn entry<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
-        entry(cx, self.label(), self.html(row))
+        entry(cx, &self.label(), self.html(row))
     }
 }
 
@@ -95,7 +95,7 @@ fn excerpt_cell<'a>(cx: &'a Cx, text: &str, chars: usize) -> BoxView<'a> {
 }
 
 /// A detail page's entry: `label` over `html`, the output of [`clean`].
-fn entry<'a>(cx: &'a Cx, label: &str, html: String) -> BoxView<'a> {
+fn entry<'a>(cx: &'a Cx, label: &crate::Text, html: String) -> BoxView<'a> {
     let value = if html.is_empty() {
         crate::schema::value_cell(cx, "")
     } else {

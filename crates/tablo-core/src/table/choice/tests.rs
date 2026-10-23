@@ -14,8 +14,8 @@ impl Column<()> for Named {
         &self.0
     }
 
-    fn label(&self) -> &str {
-        &self.0
+    fn label(&self) -> crate::Text {
+        (&self.0).into()
     }
 
     fn text(&self, _cx: &Cx, _row: &()) -> String {

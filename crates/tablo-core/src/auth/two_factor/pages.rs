@@ -12,10 +12,13 @@ use super::{
     challenge::{CODE_FIELD, challenge_url},
     settings::{INTENT_FIELD, PASSWORD_FIELD},
 };
-use crate::auth::{
-    login::{NEXT_FIELD, login_url},
-    mail::private,
-    page::{AuthPage, render, switch_link},
+use crate::{
+    auth::{
+        login::{NEXT_FIELD, login_url},
+        mail::private,
+        page::{AuthPage, render, switch_link},
+    },
+    t,
 };
 
 /// What the challenge page says above its form.
@@ -54,23 +57,21 @@ pub(super) async fn challenge(
                 tablo_ui::alert(
                     variant: tablo_ui::AlertVariant::Destructive,
                     attrs: attributes! { role="alert" data-error="invalid" },
-                    tablo_ui::alert_title(
-                        "That code is not valid. Try the current one."
-                    )
+                    tablo_ui::alert_title((t!(cx, "tablo-two-factor-invalid")))
                 )
             }
             if notice == Notice::Sent {
                 tablo_ui::alert(
                     variant: tablo_ui::AlertVariant::Neutral,
                     attrs: attributes! { role="status" data-two-factor-sent="" },
-                    tablo_ui::alert_title("A new code is on its way.")
+                    tablo_ui::alert_title((t!(cx, "tablo-two-factor-sent")))
                 )
             }
-            (code_field(cx, "Authentication code", "Or one of your recovery codes."))
+            (code_field(cx, "tablo-two-factor-code-label", "tablo-two-factor-code-help"))
             tablo_ui::button(
                 variant: tablo_ui::ButtonVariant::Primary,
                 attrs: attributes! { type="submit" class="w-full" },
-                "Verify"
+                (t!(cx, "tablo-two-factor-verify"))
             )
             if mailed {
                 tablo_ui::button(
@@ -82,29 +83,29 @@ pub(super) async fn challenge(
                         formnovalidate=""
                         class="w-full"
                     },
-                    "Send a new code"
+                    (t!(cx, "tablo-two-factor-resend"))
                 )
             }
         </form>
     }
     .boxed();
     let description = if mailed {
-        "Enter the code we mailed you."
+        t!(cx, "tablo-two-factor-mailed-description")
     } else {
-        "Enter the code your authenticator app shows."
+        t!(cx, "tablo-two-factor-app-description")
     };
     let page = render(
         cx,
         AuthPage {
-            title: "Two-factor sign-in",
-            description: description.to_string(),
+            title: t!(cx, "tablo-shell-two-factor"),
+            description,
             status: (notice == Notice::Refused).then_some(http::StatusCode::UNPROCESSABLE_ENTITY),
             form,
             switch: Some(switch_link(
                 cx,
-                "Not you?",
+                "tablo-two-factor-not-you",
                 &login,
-                "Sign in as someone else",
+                "tablo-two-factor-switch",
             )),
             note: None,
         },
@@ -113,8 +114,9 @@ pub(super) async fn challenge(
     private(page.single().await?.into_response(cx)?)
 }
 
-/// The labelled code input, with `help` under it.
+/// The code input labelled by the message `label`, with the message `help` under it.
 fn code_field<'a>(cx: &'a Cx, label: &'static str, help: &'static str) -> BoxView<'a> {
+    let (label, help) = (t!(cx, label), t!(cx, help));
     view! {
         cx =>
         tablo_ui::field(
@@ -143,7 +145,7 @@ fn password_field(cx: &Cx) -> BoxView<'_> {
         tablo_ui::field(
             tablo_ui::field_label(
                 attrs: attributes! { for="two-factor-password" },
-                "Current password"
+                (t!(cx, "tablo-auth-current-password"))
             )
             tablo_ui::input(
                 attrs: attributes! {
@@ -154,9 +156,7 @@ fn password_field(cx: &Cx) -> BoxView<'_> {
                     autocomplete="current-password"
                 }
             )
-            tablo_ui::field_description(
-                "Confirm it is you before adding a second factor."
-            )
+            tablo_ui::field_description((t!(cx, "tablo-two-factor-password-help")))
         )
     }
     .boxed()
@@ -197,7 +197,8 @@ pub(super) enum Method {
 pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<BoxView<'_>> {
     let csrf = crate::csrf::current_token(cx);
     let action = super::settings::settings_url(cx);
-    let intent = |value: &'static str, label: &'static str, variant| {
+    let intent = move |value: &'static str, label: &'static str, variant| {
+        let label = t!(cx, label);
         view! {
             cx =>
             tablo_ui::button(
@@ -208,23 +209,22 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
         }
         .boxed()
     };
-    let refusal = |refused: bool| {
+    let refusal = move |refused: bool| {
+        let invalid = t!(cx, "tablo-two-factor-invalid");
         view! {
             cx =>
             if refused {
                 tablo_ui::alert(
                     variant: tablo_ui::AlertVariant::Destructive,
                     attrs: attributes! { role="alert" data-error="invalid" },
-                    tablo_ui::alert_title(
-                        "That code is not valid. Try the current one."
-                    )
+                    tablo_ui::alert_title((invalid))
                 )
             }
         }
         .boxed()
     };
     // Mails a code; it skips the code field's `required`, which it does not read.
-    let send = || {
+    let send = move || {
         view! {
             cx =>
             tablo_ui::button(
@@ -235,7 +235,7 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
                     value="send"
                     formnovalidate=""
                 },
-                "Send a new code"
+                (t!(cx, "tablo-two-factor-resend"))
             )
         }
         .boxed()
@@ -244,7 +244,7 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
         Settings::Off { email, refused } => view! {
             cx =>
             <p class="text-sm text-muted-foreground">
-                "Two-factor sign-in is off. Turn it on to ask for a code each time you sign in."
+                (t!(cx, "tablo-two-factor-off"))
             </p>
             <form
                 method="post"
@@ -257,20 +257,22 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
                     tablo_ui::alert(
                         variant: tablo_ui::AlertVariant::Destructive,
                         attrs: attributes! { role="alert" data-error="password" },
-                        tablo_ui::alert_title("That password is not right.")
+                        tablo_ui::alert_title(
+                            (t!(cx, "tablo-two-factor-wrong-password"))
+                        )
                     )
                 }
                 (password_field(cx))
                 <div class="flex flex-wrap items-center gap-2">
                     (intent(
                         "start",
-                        "Set up an authenticator app",
+                        "tablo-two-factor-start-app",
                         tablo_ui::ButtonVariant::Primary,
                     ))
                     if email {
                         (intent(
                             "start-email",
-                            "Get codes by email",
+                            "tablo-two-factor-start-email",
                             tablo_ui::ButtonVariant::Outline,
                         ))
                     }
@@ -281,7 +283,7 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
         Settings::Email { address, refused } => view! {
             cx =>
             <p class="text-sm text-muted-foreground">
-                (format!("Enter the code mailed to {address} to turn on codes by email."))
+                (t!(cx, "tablo-two-factor-email-setup", address = address))
             </p>
             <form
                 method="post"
@@ -291,11 +293,15 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
             >
                 (crate::csrf::field(cx, &csrf))
                 (refusal(refused))
-                (code_field(cx, "Code", "The six digits in the email."))
+                (code_field(cx, "tablo-two-factor-code", "tablo-two-factor-email-help"))
                 <div class="flex flex-wrap items-center gap-2">
-                    (intent("confirm", "Turn on", tablo_ui::ButtonVariant::Primary))
+                    (intent(
+                        "confirm",
+                        "tablo-two-factor-turn-on",
+                        tablo_ui::ButtonVariant::Primary,
+                    ))
                     (send())
-                    (intent("cancel", "Cancel", tablo_ui::ButtonVariant::Outline))
+                    (intent("cancel", "tablo-cancel", tablo_ui::ButtonVariant::Outline))
                 </div>
             </form>
         }
@@ -307,8 +313,7 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
         } => view! {
             cx =>
             <p class="text-sm text-muted-foreground">
-                "Scan the code with an authenticator app, or enter the key by hand, then enter \
-                 the code it shows."
+                (t!(cx, "tablo-two-factor-scan"))
             </p>
             (qr_code(cx, &uri))
             <code class="block break-all font-mono text-sm" data-two-factor-secret="">
@@ -322,10 +327,14 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
             >
                 (crate::csrf::field(cx, &csrf))
                 (refusal(refused))
-                (code_field(cx, "Code", "The six digits the app shows."))
+                (code_field(cx, "tablo-two-factor-code", "tablo-two-factor-app-help"))
                 <div class="flex items-center gap-2">
-                    (intent("confirm", "Turn on", tablo_ui::ButtonVariant::Primary))
-                    (intent("cancel", "Cancel", tablo_ui::ButtonVariant::Outline))
+                    (intent(
+                        "confirm",
+                        "tablo-two-factor-turn-on",
+                        tablo_ui::ButtonVariant::Primary,
+                    ))
+                    (intent("cancel", "tablo-cancel", tablo_ui::ButtonVariant::Outline))
                 </div>
             </form>
         }
@@ -335,24 +344,25 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
             recovery_codes,
             refused,
         } => {
-            let (how, help) = match &method {
+            let (status, help) = match &method {
                 Method::App => (
-                    "with an authenticator app".to_string(),
-                    "A code from the app, or a recovery code.",
+                    t!(cx, "tablo-two-factor-on-app", left = recovery_codes),
+                    "tablo-two-factor-on-app-help",
                 ),
                 Method::Email(address) => (
-                    format!("with codes mailed to {address}"),
-                    "A mailed code, or a recovery code.",
+                    t!(
+                        cx,
+                        "tablo-two-factor-on-email",
+                        address = address,
+                        left = recovery_codes
+                    ),
+                    "tablo-two-factor-on-email-help",
                 ),
             };
             let mailed = matches!(method, Method::Email(_));
             view! {
                 cx =>
-                <p class="text-sm text-muted-foreground">
-                    (format!(
-                        "Two-factor sign-in is on, {how}. {recovery_codes} recovery codes are left.",
-                    ))
-                </p>
+                <p class="text-sm text-muted-foreground">(status)</p>
                 <form
                     method="post"
                     action=(action)
@@ -361,19 +371,19 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
                 >
                     (crate::csrf::field(cx, &csrf))
                     (refusal(refused))
-                    (code_field(cx, "Code", help))
+                    (code_field(cx, "tablo-two-factor-code", help))
                     <div class="flex flex-wrap items-center gap-2">
                         if mailed {
                             (send())
                         }
                         (intent(
                             "recovery-codes",
-                            "Show new recovery codes",
+                            "tablo-two-factor-new-codes",
                             tablo_ui::ButtonVariant::Outline,
                         ))
                         (intent(
                             "disable",
-                            "Turn off",
+                            "tablo-two-factor-turn-off",
                             tablo_ui::ButtonVariant::Destructive,
                         ))
                     </div>
@@ -387,12 +397,11 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
                 tablo_ui::alert(
                     variant: tablo_ui::AlertVariant::Neutral,
                     attrs: attributes! { role="status" },
-                    tablo_ui::alert_title("Two-factor sign-in is on")
+                    tablo_ui::alert_title((t!(cx, "tablo-two-factor-on")))
                 )
             }
             <p class="text-sm text-muted-foreground">
-                "Keep these recovery codes somewhere safe. Each signs you in once without the \
-                 app, and they are not shown again."
+                (t!(cx, "tablo-two-factor-keep-codes"))
             </p>
             <ul
                 class="grid max-w-sm grid-cols-2 gap-2 font-mono text-sm"
@@ -409,7 +418,7 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
                     tablo_ui::ButtonSize::Md,
                 ))
             >
-                "Done"
+                (t!(cx, "tablo-two-factor-done"))
             </a>
         }
         .boxed(),
@@ -417,7 +426,9 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
     Ok(view! {
         cx =>
         tablo_ui::page(
-            tablo_ui::page_header(tablo_ui::page_title("Two-factor sign-in"))
+            tablo_ui::page_header(
+                tablo_ui::page_title((t!(cx, "tablo-shell-two-factor")))
+            )
             tablo_ui::page_content(<div class="flex flex-col gap-4">(body)</div>)
         )
     }
@@ -449,7 +460,7 @@ fn qr_code<'a>(cx: &'a Cx, uri: &str) -> BoxView<'a> {
             class="size-48 rounded-md bg-white"
             shape-rendering="crispEdges"
             role="img"
-            aria-label="QR code for an authenticator app"
+            aria-label=(t!(cx, "tablo-two-factor-qr"))
             data-two-factor-qr=""
         >
             <path d=(path) fill="#000"></path>

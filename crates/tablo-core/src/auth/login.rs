@@ -13,7 +13,7 @@ use topcoat::{
 };
 
 use super::{
-    UNAVAILABLE_ERROR, infrastructure_failure, panel_root, resolved,
+    infrastructure_failure, panel_root, resolved,
     session::{delete_session, fresh_session, record, select_tenant, sweep_expired_sessions},
     signed, unauthenticated_error,
 };
@@ -31,9 +31,9 @@ pub const PASSWORD_FIELD: &str = "password";
 /// Hidden form field carrying the validated post-login destination.
 pub const NEXT_FIELD: &str = "next";
 
-/// Renders for every failed login so accounts cannot be enumerated and panel
+/// The message every failed login renders, so accounts cannot be enumerated and panel
 /// membership stays private.
-pub(super) const GENERIC_ERROR: &str = "Invalid email or password.";
+pub(super) const GENERIC_ERROR: &str = "tablo-login-failed";
 
 /// Form field carrying the tenant the tenant switch selects.
 pub const TENANT_FIELD: &str = "tenant";
@@ -92,10 +92,11 @@ enum LoginError {
 }
 
 impl LoginError {
+    /// The message the page renders.
     fn message(self) -> &'static str {
         match self {
             Self::Credentials => GENERIC_ERROR,
-            Self::Unavailable => UNAVAILABLE_ERROR,
+            Self::Unavailable => "tablo-login-unavailable",
         }
     }
 
@@ -274,7 +275,8 @@ async fn render_login_page<'a>(
 ) -> topcoat::Result<BoxView<'a>> {
     let csrf = crate::csrf::ensure_token(cx);
     let action = login_url(cx);
-    let hint = current_realm(cx).and_then(|panel| panel.login_hint.clone());
+    let hint =
+        current_realm(cx).and_then(|panel| panel.login_hint.as_ref().map(|hint| hint.localize(cx)));
     let forgot = super::password_reset::offered(cx).then(|| super::password_reset::forgot_url(cx));
     let sign_up = super::registration::offered(cx)
         .then(|| super::registration::with_next(super::registration::register_url(cx), &next));
@@ -309,7 +311,7 @@ async fn render_login_page<'a>(
                 tablo_ui::alert(
                     variant: tablo_ui::AlertVariant::Destructive,
                     attrs: topcoat::view::attributes! { role="alert" },
-                    tablo_ui::alert_title((error.message()))
+                    tablo_ui::alert_title((crate::t!(cx, error.message())))
                 )
             }
             if let Some(notice) = notice {
@@ -328,7 +330,7 @@ async fn render_login_page<'a>(
             tablo_ui::field(
                 tablo_ui::field_label(
                     attrs: topcoat::view::attributes! { for="email" },
-                    "Email or username"
+                    (crate::t!(cx, "tablo-login-identifier"))
                 )
                 tablo_ui::input(
                     attrs: topcoat::view::attributes! {
@@ -344,7 +346,7 @@ async fn render_login_page<'a>(
             tablo_ui::field(
                 tablo_ui::field_label(
                     attrs: topcoat::view::attributes! { for="password" },
-                    "Password"
+                    (crate::t!(cx, "tablo-auth-password"))
                 )
                 (password)
             )
@@ -353,13 +355,13 @@ async fn render_login_page<'a>(
                     (crate::navigation::runtime_link(cx, &forgot))
                     class="-mt-2 self-end text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                 >
-                    "Forgot your password?"
+                    (crate::t!(cx, "tablo-login-forgot"))
                 </a>
             }
             tablo_ui::button(
                 variant: tablo_ui::ButtonVariant::Primary,
                 attrs: topcoat::view::attributes! { type="submit" class="w-full" },
-                "Sign in"
+                (crate::t!(cx, "tablo-login-submit"))
             )
         </form>
     }
@@ -367,12 +369,16 @@ async fn render_login_page<'a>(
     super::page::render(
         cx,
         super::page::AuthPage {
-            title: "Sign in",
-            description: format!("Welcome back. Sign in to {}.", hosted(cx)?.brand_name(cx)),
+            title: crate::t!(cx, "tablo-login-title"),
+            description: crate::t!(
+                cx,
+                "tablo-login-description",
+                brand = hosted(cx)?.brand_name(cx)
+            ),
             status: error.map(|error| error.status()),
             form,
             switch: sign_up.map(|href| {
-                super::page::switch_link(cx, "Don't have an account?", &href, "Sign up")
+                super::page::switch_link(cx, "tablo-login-no-account", &href, "tablo-login-sign-up")
             }),
             note: hint,
         },

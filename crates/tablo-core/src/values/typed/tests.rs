@@ -12,12 +12,12 @@ fn rejected(input: &str) -> String {
 fn a_float_refuses_a_non_finite_parse() {
     for input in ["NaN", "nan", "inf", "-inf", "infinity", "1e400"] {
         assert_eq!(
-            f64::parse_form(input),
+            f64::parse_form(input).map_err(|error| error.english()),
             Err(rejected(input)),
             "f64 accepted {input}"
         );
         assert_eq!(
-            f32::parse_form(input),
+            f32::parse_form(input).map_err(|error| error.english()),
             Err(rejected(input)),
             "f32 accepted {input}"
         );
@@ -49,7 +49,7 @@ fn a_civil_value_parses_its_controls_submission() {
         Ok(date(2024, 1, 15).at(9, 30, 0, 0))
     );
     assert_eq!(
-        Date::parse_form("2024-02-30"),
+        Date::parse_form("2024-02-30").map_err(|error| error.english()),
         Err("`2024-02-30` is not a valid date".to_string())
     );
     assert_eq!(

@@ -180,6 +180,8 @@ impl Panel {
             mut endpoints,
             notifications,
             time_zone,
+            locales,
+            translations,
             global_search,
         } = self;
         let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
@@ -207,9 +209,21 @@ impl Panel {
             }
             None => errors.push(DeclarationError::panel(DeclarationErrorKind::MissingDb)),
         }
+        let catalog = match crate::i18n::Catalog::new(&locales, &translations) {
+            Ok(catalog) => Some(catalog),
+            Err(faults) => {
+                errors.extend(
+                    faults
+                        .into_iter()
+                        .map(|fault| DeclarationError::panel(DeclarationErrorKind::Locale(fault))),
+                );
+                None
+            }
+        };
         if !errors.is_empty() {
             return Err(MountError::new(&prefix, errors).into());
         }
+        let catalog = catalog.expect("a catalog that failed to build fails the mount");
         if builder.get_app_context::<Panels>().is_none() {
             builder = install_shared(builder);
         }
@@ -248,6 +262,7 @@ impl Panel {
                 auth,
                 login_hint,
                 time_zone,
+                catalog,
                 notifications,
             }),
             nav_items,
@@ -429,6 +444,10 @@ fn install_shared(mut builder: RouterBuilder) -> RouterBuilder {
         .app_context(MountScope(request_mounts))
         .app_context(TenantSource(crate::auth::session_tenant))
         .app_context(crate::values::ZoneSource(crate::auth::session_time_zone))
+        .app_context(crate::i18n::LocaleSource {
+            catalog: crate::auth::session_catalog,
+            preferred: crate::auth::session_locale,
+        })
         .app_context(NotificationBus::new());
     // The runtime layer has no path, so a page re-run reaches the panel's layers already rewritten
     // to a `GET`.

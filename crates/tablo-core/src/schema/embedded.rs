@@ -51,7 +51,7 @@ use super::{
     tree::{Node, Source},
 };
 use crate::{
-    naming::capitalize,
+    Text,
     topcoat_compat::async_page,
     values::{FieldError, FormField, FormValues},
 };
@@ -556,7 +556,7 @@ impl EmbeddedBuilder {
     {
         let (binding, variants, refused) = match lenses::resolve_enum(parent) {
             Ok(Some(shape)) => {
-                let label = capitalize(&shape.discriminant);
+                let label = Text::field(&shape.discriminant);
                 (
                     Binding::named(shape.discriminant, label),
                     shape.variants,

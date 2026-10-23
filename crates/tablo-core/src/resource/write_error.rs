@@ -67,7 +67,7 @@ pub enum WriteError<K = String> {
 
 impl<K> WriteError<K> {
     /// Refuse the submission with `message` under `key`.
-    pub fn field(key: impl Into<K>, message: impl Into<String>) -> Self {
+    pub fn field(key: impl Into<K>, message: impl Into<crate::Text>) -> Self {
         let mut errors = FieldErrors::new();
         errors.add(key, message);
         Self::Refused(errors)

@@ -402,8 +402,8 @@ fn count<M: 'static, T: 'static>(
 struct Declared<M> {
     name: String,
     /// The declared label, over the field's.
-    label: Option<String>,
-    field_label: String,
+    label: Option<crate::Text>,
+    field_label: crate::Text,
     misdeclared: Option<DeclarationErrorKind>,
     includes: Includes<M>,
     reads: crate::lens::Reads<M>,
@@ -426,8 +426,8 @@ struct Declared<M> {
 impl<M> Declared<M> {
     fn of<R>(relation: &RelationLens<M, R>, width: ColumnWidth) -> Self {
         let (name, field_label, misdeclared) = match relation.field() {
-            Ok((name, label)) => (name.to_string(), label.to_string(), None),
-            Err(error) => (String::new(), String::new(), Some(error)),
+            Ok((name, _)) => (name.to_string(), crate::Text::field(name), None),
+            Err(error) => (String::new(), crate::Text::from(""), Some(error)),
         };
         Self {
             name,
@@ -472,12 +472,14 @@ impl<M> Declared<M> {
         }
     }
 
-    fn label(&self) -> &str {
-        self.label.as_deref().unwrap_or(&self.field_label)
+    fn label(&self) -> crate::Text {
+        self.label
+            .clone()
+            .unwrap_or_else(|| self.field_label.clone())
     }
 
-    fn relabel(&mut self, label: String) {
-        self.name = label.to_lowercase();
+    fn relabel(&mut self, label: crate::Text) {
+        self.name = label.key();
         self.label = Some(label);
     }
 
@@ -504,7 +506,7 @@ macro_rules! relation_column {
             /// Replace the label the field's name gives it, and name the column after the label,
             /// as a [`ComputedColumn`](super::ComputedColumn) is: two columns over one relation
             /// need two labels.
-            pub fn label(mut self, label: impl Into<String>) -> Self {
+            pub fn label(mut self, label: impl Into<crate::Text>) -> Self {
                 self.relation.relabel(label.into());
                 self
             }
@@ -526,7 +528,7 @@ macro_rules! relation_column {
                 &self.relation.name
             }
 
-            fn label(&self) -> &str {
+            fn label(&self) -> crate::Text {
                 self.relation.label()
             }
 

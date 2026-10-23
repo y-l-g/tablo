@@ -25,14 +25,14 @@ const PANEL: StaticClass = class!(
 /// ([`columns`](Self::columns), which `detail` declares).
 #[derive(Debug)]
 pub struct Section<C = Schema> {
-    title: String,
+    title: crate::Text,
     pub(crate) children: C,
     extra_class: Option<String>,
     pub(crate) condition: Option<Condition>,
 }
 
 impl Section<()> {
-    pub fn new(title: impl Into<String>) -> Self {
+    pub fn new(title: impl Into<crate::Text>) -> Self {
         Self {
             title: title.into(),
             children: (),
@@ -78,11 +78,11 @@ impl<C> Section<C> {
 
 fn section_chrome<'a>(
     cx: &'a Cx,
-    title: &str,
+    title: &crate::Text,
     extra: Option<&str>,
     body: Option<BoxView<'a>>,
 ) -> BoxView<'a> {
-    let title = title.to_string();
+    let title = title.clone();
     let extra = extra.map(str::to_string);
     match body {
         Some(body) => view! {
@@ -355,13 +355,13 @@ impl<C> Tabs<C> {
 /// One tab of a [`Tabs`] block: a titled trigger and the fields or columns it shows.
 #[derive(Debug)]
 pub struct Tab<C = Schema> {
-    label: String,
+    label: crate::Text,
     pub(crate) children: C,
     pub(crate) condition: Option<Condition>,
 }
 
 impl Tab<()> {
-    pub fn new(label: impl Into<String>) -> Self {
+    pub fn new(label: impl Into<crate::Text>) -> Self {
         Self {
             label: label.into(),
             children: (),
@@ -389,7 +389,7 @@ impl<C> Tab<C> {
     }
 
     /// The trigger's text.
-    pub(crate) fn label(&self) -> &str {
+    pub(crate) fn label(&self) -> &crate::Text {
         &self.label
     }
 }
@@ -431,7 +431,7 @@ pub(crate) struct TabView<'a> {
 pub(crate) fn tab_view<'a>(
     cx: &'a Cx,
     id: &str,
-    label: &str,
+    label: &crate::Text,
     active: bool,
     errored: bool,
     body: BoxView<'a>,
@@ -439,7 +439,7 @@ pub(crate) fn tab_view<'a>(
     let tab = format!("{id}-tab");
     let panel = format!("{id}-tabpanel");
     let (labelled_by, panel_id) = (tab.clone(), panel.clone());
-    let label = label.to_string();
+    let label = label.localize(cx);
     let selected = if active { "true" } else { "false" };
     let tabindex = if active { "0" } else { "-1" };
     let trigger = view! {

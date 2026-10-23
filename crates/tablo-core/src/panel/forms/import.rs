@@ -24,10 +24,12 @@ use super::{
     unique::{check_unique, taken_since},
 };
 use crate::{
+    Text,
     db::{WriteTx, db},
     form::{FieldErrors, FormValues},
     resource::{Change, Resource, WriteError},
     schema::{FormMask, Schema},
+    text,
     topcoat_compat::async_page,
 };
 
@@ -42,7 +44,7 @@ const FILE_PART: &str = "file";
 /// bound.
 const MAX_CELLS: usize = 500;
 
-const WRITE_IMPORT: &str = "import the file";
+const WRITE_IMPORT: &str = "tablo-failed-import";
 
 /// One column a request's import takes: a form key the create form posts as text.
 struct Column {
@@ -56,7 +58,7 @@ struct Column {
 
 /// The columns `mask` leaves the create form: every control but a file's, a repeater's and a
 /// disabled one, none of which a cell can post.
-fn columns(schema: &Schema, mask: &FormMask) -> Vec<Column> {
+fn columns(cx: &Cx, schema: &Schema, mask: &FormMask) -> Vec<Column> {
     schema
         .fields()
         .filter(|field| {
@@ -67,7 +69,7 @@ fn columns(schema: &Schema, mask: &FormMask) -> Vec<Column> {
         })
         .map(|field| Column {
             key: field.name().to_string(),
-            label: field.label_str().to_string(),
+            label: field.label().localize(cx),
             multiple: field.as_choice().is_some_and(|choice| choice.is_multiple()),
             required: field.is_required() && field.default_value().is_none(),
         })
@@ -107,30 +109,27 @@ impl Refusal {
         }
     }
 
-    fn message(&self) -> String {
+    fn message(&self) -> Text {
         match self {
-            Self::NoFile => "Choose a CSV file to import".to_string(),
-            Self::NotUtf8 => "The file is not UTF-8 text: save it as CSV UTF-8".to_string(),
-            Self::Unterminated { line } => {
-                format!("A quoted cell opening on line {line} is never closed")
-            }
-            Self::NoHeader => "The file is empty: its first row names the columns".to_string(),
-            Self::NoRows => "The file holds a header but no row".to_string(),
-            Self::TooManyRows => format!("A file holds at most {MAX_IMPORT_ROWS} rows"),
+            Self::NoFile => text!("tablo-import-no-file"),
+            Self::NotUtf8 => text!("tablo-import-not-utf8"),
+            Self::Unterminated { line } => text!("tablo-import-unterminated", line = *line),
+            Self::NoHeader => text!("tablo-import-no-header"),
+            Self::NoRows => text!("tablo-import-no-rows"),
+            Self::TooManyRows => text!("tablo-import-too-many-rows", max = MAX_IMPORT_ROWS),
             Self::TooManyCells { row } => {
-                format!("Row {row} holds more than {MAX_CELLS} cells")
+                text!("tablo-import-too-many-cells", row = *row, max = MAX_CELLS)
             }
-            Self::UnknownColumns(names) => format!(
-                "No field takes the column{} {}",
-                if names.len() == 1 { "" } else { "s" },
-                quoted(names)
+            Self::UnknownColumns(names) => text!(
+                "tablo-import-unknown-columns",
+                count = names.len(),
+                columns = quoted(names)
             ),
-            Self::AmbiguousColumns(names) => format!(
-                "More than one field is labelled {}: name the column by its key",
-                quoted(names)
-            ),
+            Self::AmbiguousColumns(names) => {
+                text!("tablo-import-ambiguous-columns", columns = quoted(names))
+            }
             Self::RepeatedColumns(names) => {
-                format!("The header names {} more than once", quoted(names))
+                text!("tablo-import-repeated-columns", columns = quoted(names))
             }
         }
     }
@@ -231,7 +230,7 @@ struct RowError {
     key: Option<String>,
     /// The header's spelling of the column, or the field's label when the header leaves it out.
     column: String,
-    message: String,
+    message: Text,
 }
 
 /// What a row posts: each cell under its column's key, a missing trailing cell as a blank one.
@@ -250,7 +249,7 @@ fn row_pairs(
             row,
             key: None,
             column: String::new(),
-            message: "The row holds a value under no column of the header".to_string(),
+            message: text!("tablo-import-stray-value"),
         });
     }
     Ok(slots
@@ -267,6 +266,7 @@ fn row_pairs(
 /// `errors` as `row`'s refusals, each under the header's spelling of its column. The errors under
 /// keys `mask` hides say once only that a hidden field refuses the row, as the create form does.
 fn row_errors(
+    cx: &Cx,
     row: usize,
     errors: &FieldErrors,
     schema: &Schema,
@@ -281,23 +281,23 @@ fn row_errors(
             let label = schema
                 .fields()
                 .find(|field| field.name() == error.key)
-                .map_or(error.key.as_str(), |field| field.label_str());
+                .map_or_else(|| Text::from(error.key.as_str()), crate::Field::label);
             let column = header
                 .iter()
                 .find(|(key, _)| *key == error.key)
-                .map_or(label, |(_, spelled)| spelled.as_str());
+                .map_or_else(|| label.localize(cx), |(_, spelled)| spelled.clone());
             RowError {
                 row,
                 key: Some(error.key.clone()),
-                column: column.to_string(),
-                message: error.message(label),
+                column,
+                message: error.message(&label),
             }
         })
         .chain(hidden.then(|| RowError {
             row,
             key: None,
             column: String::new(),
-            message: "A field you cannot see refuses this row".to_string(),
+            message: text!("tablo-import-unseen"),
         }))
         .collect()
 }
@@ -326,7 +326,7 @@ pub(crate) fn resource_import_template<R: Resource>(cx: &Cx, _body: Body) -> Rou
         if !resource.can_create(cx) {
             return Err(forbidden().into());
         }
-        let columns = columns(&resource.form, &resource.form_mask(cx));
+        let columns = columns(cx, &resource.form, &resource.form_mask(cx));
         let header: Vec<String> = columns
             .iter()
             .map(|column| {
@@ -361,7 +361,7 @@ pub(crate) fn resource_import_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         let parts = crate::upload::parse_file_body(cx, body).await?;
         crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
         let mask = resource.form_mask(cx);
-        let columns = columns(&resource.form, &mask);
+        let columns = columns(cx, &resource.form, &mask);
         let refuse_file = |refusal: Refusal| {
             Ok(render_import_page(
                 cx,
@@ -450,7 +450,14 @@ pub(crate) fn resource_import_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             .await;
             if !errors.is_empty() {
                 refused = true;
-                failures.extend(row_errors(row, &errors, &resource.form, &mask, &spelled));
+                failures.extend(row_errors(
+                    cx,
+                    row,
+                    &errors,
+                    &resource.form,
+                    &mask,
+                    &spelled,
+                ));
                 continue;
             }
             let Some(form) = form else {
@@ -474,7 +481,14 @@ pub(crate) fn resource_import_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
                         .map_err(crate::error::unavailable)?;
                     refused = true;
                     let errors = refusal(&resource, "create_record", errors)?;
-                    failures.extend(row_errors(row, &errors, &resource.form, &mask, &spelled));
+                    failures.extend(row_errors(
+                        cx,
+                        row,
+                        &errors,
+                        &resource.form,
+                        &mask,
+                        &spelled,
+                    ));
                     continue;
                 }
                 Err(WriteError::Failed(error)) => {
@@ -486,7 +500,7 @@ pub(crate) fn resource_import_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
                     if taken.is_empty() {
                         return Err(super::super::write::failed_write(cx, WRITE_IMPORT, error));
                     }
-                    failures.extend(row_errors(row, &taken, &resource.form, &mask, &spelled));
+                    failures.extend(row_errors(cx, row, &taken, &resource.form, &mask, &spelled));
                     failures.sort_by_key(|failure| failure.row);
                     return Ok(render_import_page(
                         cx,
@@ -518,10 +532,7 @@ pub(crate) fn resource_import_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             ));
         }
         let count = created.len();
-        let note = format!(
-            "Imported {count} {}",
-            if count == 1 { "row" } else { "rows" }
-        );
+        let note = crate::t!(cx, "tablo-import-imported", count = count);
         commit_then(
             cx,
             tx,

@@ -6,7 +6,7 @@ use std::cmp::Ordering;
 
 use regex::Regex;
 
-use crate::{FieldRuleFault, values::FormScalar};
+use crate::{FieldRuleFault, Text, text, values::FormScalar};
 
 /// How a field's type orders two submissions, `None` when it parses neither or has no order.
 pub(super) type Order = fn(&str, &str) -> Option<Ordering>;
@@ -84,38 +84,38 @@ impl Rules {
     /// bound reads as `shown` spells it, as the control shows it.
     pub(crate) fn refusal(
         &self,
-        label: &str,
+        label: &Text,
         value: &str,
         order: Order,
         shown: impl Fn(&str) -> String,
-    ) -> Option<String> {
+    ) -> Option<Text> {
         let length = value.chars().count();
         if let Some(min) = self.min_length
             && length < min
         {
-            return Some(format!("{label} must be at least {min} characters"));
+            return Some(text!("tablo-field-min-length", label = label, min = min));
         }
         if let Some(max) = self.max_length
             && length > max
         {
-            return Some(format!("{label} must be at most {max} characters"));
+            return Some(text!("tablo-field-max-length", label = label, max = max));
         }
         if let Some(min) = &self.min
             && order(value, min) == Some(Ordering::Less)
         {
-            return Some(format!("{label} must be at least {}", shown(min)));
+            return Some(text!("tablo-field-min", label = label, min = shown(min)));
         }
         if let Some(max) = &self.max
             && order(value, max) == Some(Ordering::Greater)
         {
-            return Some(format!("{label} must be at most {}", shown(max)));
+            return Some(text!("tablo-field-max", label = label, max = shown(max)));
         }
         if let Some(Pattern {
             regex: Ok(regex), ..
         }) = &self.pattern
             && !regex.is_match(value)
         {
-            return Some(format!("{label} is not in the expected format"));
+            return Some(text!("tablo-field-pattern", label = label));
         }
         None
     }

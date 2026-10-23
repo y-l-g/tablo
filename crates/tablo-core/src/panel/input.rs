@@ -160,11 +160,13 @@ impl InputDialog {
                                     dialog_description(
                                         attrs: description,
                                         if confirm {
-                                            "This action cannot be undone."
+                                            (crate::t!(cx, "tablo-confirm-irreversible"))
                                         }
                                         if let Some((bulk, count)) = count {
                                             <span :hidden=$(!bulk.get())>
-                                                " Selected records: "
+                                                " "
+                                                (crate::t!(cx, "tablo-confirm-selected"))
+                                                " "
                                                 (count)
                                             </span>
                                         }
@@ -187,7 +189,7 @@ impl InputDialog {
                                             );
                                         })
                                     },
-                                    "Cancel"
+                                    (crate::t!(cx, "tablo-cancel"))
                                 )
                                 button(
                                     variant: submit,

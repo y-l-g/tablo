@@ -45,7 +45,7 @@ pub trait FormScalar: Sized {
     }
 
     /// Parse a trimmed, non-empty submission, or return the error message.
-    fn parse_form(value: &str) -> std::result::Result<Self, String>;
+    fn parse_form(value: &str) -> std::result::Result<Self, crate::Text>;
 
     /// The form spelling of a stored value.
     fn to_form(&self) -> String;
@@ -78,7 +78,7 @@ pub trait FormScalar: Sized {
 }
 
 impl FormScalar for String {
-    fn parse_form(value: &str) -> std::result::Result<Self, String> {
+    fn parse_form(value: &str) -> std::result::Result<Self, crate::Text> {
         Ok(value.to_string())
     }
 
@@ -99,8 +99,14 @@ impl<T: TypedValue> FormScalar for T {
         T::form_value(posted, zone)
     }
 
-    fn parse_form(value: &str) -> std::result::Result<Self, String> {
-        T::parse_input(value).ok_or_else(|| format!("`{value}` is not a valid {}", T::NOUN))
+    fn parse_form(value: &str) -> std::result::Result<Self, crate::Text> {
+        T::parse_input(value).ok_or_else(|| {
+            crate::text!(
+                "tablo-field-not-a",
+                value = value,
+                kind = crate::Text::message(T::NOUN)
+            )
+        })
     }
 
     fn to_form(&self) -> String {
@@ -131,7 +137,7 @@ impl<T: NullableScalar> FormScalar for Option<T> {
         T::form_value(posted, zone)
     }
 
-    fn parse_form(value: &str) -> std::result::Result<Self, String> {
+    fn parse_form(value: &str) -> std::result::Result<Self, crate::Text> {
         T::parse_form(value).map(Some)
     }
 
@@ -157,7 +163,7 @@ impl<T: NullableScalar> FormScalar for Option<T> {
 }
 
 impl FormScalar for Option<String> {
-    fn parse_form(value: &str) -> std::result::Result<Self, String> {
+    fn parse_form(value: &str) -> std::result::Result<Self, crate::Text> {
         Ok(Some(value.to_string()))
     }
 

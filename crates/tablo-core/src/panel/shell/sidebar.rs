@@ -1,6 +1,6 @@
 //! The sidebar's entries: their order, and the labelled sections they group under.
 
-use crate::navigation::NavigationItem;
+use crate::{Text, navigation::NavigationItem};
 
 /// `nav_items` by `order`, declaration order breaking ties: a resource's `navigation()` override
 /// interleaves by setting it.
@@ -15,9 +15,9 @@ pub(in crate::panel) fn in_sidebar_order(nav_items: &[NavigationItem]) -> Vec<Na
 /// index in `nav_items`.
 pub(in crate::panel) fn sidebar_sections(
     nav_items: Vec<NavigationItem>,
-) -> Vec<(String, Vec<(usize, NavigationItem)>)> {
-    let mut sections: Vec<(String, Vec<(usize, NavigationItem)>)> =
-        vec![("Navigation".to_string(), Vec::new())];
+) -> Vec<(Text, Vec<(usize, NavigationItem)>)> {
+    let mut sections: Vec<(Text, Vec<(usize, NavigationItem)>)> =
+        vec![(Text::message("tablo-shell-navigation"), Vec::new())];
     for (index, item) in nav_items.into_iter().enumerate() {
         let at = match &item.group {
             None => Some(0),

@@ -22,9 +22,9 @@ fn the_sidebar_orders_entries_and_groups_them_under_their_labels() {
             .map(|(label, entries)| {
                 let entries = entries
                     .into_iter()
-                    .map(|(index, item)| (index, item.label))
+                    .map(|(index, item)| (index, item.label.english()))
                     .collect();
-                (label, entries)
+                (label.english(), entries)
             })
             .collect()
     };

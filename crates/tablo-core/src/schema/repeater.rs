@@ -36,7 +36,7 @@ pub const MAX_REPEATER_ROWS: usize = 100;
 pub(crate) struct RepeaterControl {
     item: fn() -> Schema,
     /// The add button's label, over "Add item".
-    pub(crate) add_label: Option<String>,
+    pub(crate) add_label: Option<crate::Text>,
     /// How many rows it takes, set by `min_items` and `max_items`.
     pub(crate) bounds: Items,
 }
@@ -190,14 +190,17 @@ impl RepeaterControl {
             .map_or(MAX_REPEATER_ROWS, |max| max.min(MAX_REPEATER_ROWS));
         let full = items.len() >= most;
         let min = self.bounds.min;
-        let label = field.label_str().to_string();
+        let label = field.label();
         let add = self
             .add_label
             .clone()
-            .unwrap_or_else(|| "Add item".to_string());
-        let error = source
-            .error_for(field)
-            .map(|error| (error.message(&label), super::fields::error_kind(error)));
+            .unwrap_or_else(|| crate::Text::message("tablo-repeater-add"));
+        let error = source.error_for(field).map(|error| {
+            (
+                error.message(&label).localize(cx),
+                super::fields::error_kind(error),
+            )
+        });
         let legend_id = format!("{}-legend", source.id(&key));
         // Named as every control's error slot is, so the fieldset describes itself by it.
         let error_id = format!("{}-error", source.id(&key));
@@ -272,7 +275,8 @@ impl RepeaterControl {
         }
         let controls = schema.render(cx, rendered).await?;
         let row = row.to_string();
-        let action = |label: &'static str, data: Attributes, disabled: bool| {
+        let action = |id: &'static str, data: Attributes, disabled: bool| {
+            let label = crate::t!(cx, id);
             view! {
                 cx =>
                 button(
@@ -291,14 +295,18 @@ impl RepeaterControl {
             >
                 (controls)
                 <div class="flex flex-wrap justify-end gap-2">
-                    (action("Move up", attributes! { cx => data-repeater-up="" }, false))
                     (action(
-                        "Move down",
+                        "tablo-repeater-up",
+                        attributes! { cx => data-repeater-up="" },
+                        false,
+                    ))
+                    (action(
+                        "tablo-repeater-down",
                         attributes! { cx => data-repeater-down="" },
                         false,
                     ))
                     (action(
-                        "Remove",
+                        "tablo-repeater-remove",
                         attributes! { cx => data-repeater-remove="" },
                         !removable,
                     ))

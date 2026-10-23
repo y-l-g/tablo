@@ -14,8 +14,24 @@ use crate::{
         list::signals::{ConfirmSignals, TableSignals},
         url::action_options_url,
     },
+    t,
     table::TableState,
 };
+
+/// The confirmation a custom action asks before it runs: the dialog's title and its button.
+pub(super) fn run_confirmation(cx: &Cx) -> (String, String) {
+    (t!(cx, "tablo-confirm-run"), t!(cx, "tablo-confirm"))
+}
+
+/// The confirmation a delete asks first, of the selection when `bulk`, else of one record.
+pub(super) fn delete_confirmation(cx: &Cx, bulk: bool) -> (String, String) {
+    let title = if bulk {
+        t!(cx, "tablo-confirm-delete-selected")
+    } else {
+        t!(cx, "tablo-confirm-delete-record")
+    };
+    (title, t!(cx, "tablo-action-delete"))
+}
 
 impl Frame<'_> {
     /// Whether the table posts any write: a delete or a custom action.
@@ -79,9 +95,11 @@ impl Frame<'_> {
                                 )
                                 dialog_description(
                                     attrs: attributes! { id=(description_id) },
-                                    "This action cannot be undone."
+                                    (t!(cx, "tablo-confirm-irreversible"))
                                     <span :hidden=$(!counts.get())>
-                                        " Selected records: "
+                                        " "
+                                        (t!(cx, "tablo-confirm-selected"))
+                                        " "
                                         (count)
                                     </span>
                                 )
@@ -91,7 +109,7 @@ impl Frame<'_> {
                                     variant: ButtonVariant::Outline,
                                     size: ButtonSize::Md,
                                     attrs: attributes! { type="submit" formmethod="dialog" },
-                                    "Cancel"
+                                    (t!(cx, "tablo-cancel"))
                                 )
                                 button(
                                     variant: ButtonVariant::Destructive,
@@ -179,7 +197,7 @@ pub(super) fn write_trigger(
     form: &str,
     signals: &TableSignals,
     action: String,
-    confirm: Option<(&'static str, &'static str)>,
+    confirm: Option<(String, String)>,
     bulk: bool,
 ) -> Attributes {
     let Some((title, label)) = confirm else {
@@ -196,7 +214,7 @@ pub(super) fn write_trigger(
         label: shown_label,
         bulk: counts,
     } = signals.confirm.clone();
-    let (title, label, form) = (title.to_owned(), label.to_owned(), form.to_owned());
+    let form = form.to_owned();
     attributes! {
         cx =>
         type="button"

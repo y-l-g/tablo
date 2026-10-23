@@ -9,7 +9,7 @@ use super::{ErasedInput, InputResult, InputSpec, parse_validated};
 use crate::{
     BoxFuture, FormInput,
     form::{FieldErrors, FormValues},
-    naming::sentence_case,
+    naming::{derived_id, sentence_case},
     policy::Ability,
 };
 
@@ -80,10 +80,11 @@ pub trait HeaderAction: 'static {
     /// unconfirmed POST that would write answers 400.
     const CONFIRM: bool = false;
 
-    /// The button text. Defaults to [`NAME`](Self::NAME) in sentence case: `"recount-tags"`
-    /// reads "Recount tags".
-    fn label(_cx: &Cx) -> String {
-        sentence_case(Self::NAME)
+    /// The button text. Defaults to the message `action-{NAME}` of the panel's catalogs, else
+    /// [`NAME`](Self::NAME) in sentence case: `"recount-tags"` reads "Recount tags".
+    fn label(cx: &Cx) -> String {
+        crate::Text::derived(derived_id("action", Self::NAME), sentence_case(Self::NAME))
+            .localize(cx)
     }
 
     /// Whether the request may run the action, beyond the policy or the page's access: a
@@ -113,7 +114,7 @@ pub trait HeaderAction: 'static {
 
     /// The success notification after a commit. Defaults to the label: `"Recount tags: done"`.
     fn success(cx: &Cx) -> String {
-        format!("{}: done", Self::label(cx))
+        crate::t!(cx, "tablo-action-done", action = Self::label(cx))
     }
 }
 
