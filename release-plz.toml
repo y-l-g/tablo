@@ -43,9 +43,10 @@ git_tag_enable = true
 git_tag_name = "v{{ version }}"
 git_release_enable = true
 git_release_name = "v{{ version }}"
-# The facade's changelog (and thus the release body) covers the whole
-# workspace, not just commits touching `crates/tablo`. Keep in sync with the
-# other publishable members below.
+# The facade's changelog, and thus the release body, covers the whole workspace,
+# not just commits touching `crates/tablo`: it is the only changelog, since every
+# crate shares its version. Keep in sync with the other publishable members below,
+# which each set `changelog_update = false`.
 changelog_include = [
     "tablo-build",
     "tablo-core",
@@ -58,23 +59,28 @@ changelog_include = [
 name = "tablo-build"
 release = true
 version_group = "tablo"
+changelog_update = false
 
 [[package]]
 name = "tablo-core"
 release = true
 version_group = "tablo"
+changelog_update = false
 
 [[package]]
 name = "tablo-macros"
 release = true
 version_group = "tablo"
+changelog_update = false
 
 [[package]]
 name = "tablo-test"
 release = true
 version_group = "tablo"
+changelog_update = false
 
 [[package]]
 name = "tablo-ui"
 release = true
 version_group = "tablo"
+changelog_update = false
