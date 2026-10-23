@@ -25,7 +25,9 @@ const DUMMY_PASSWORD_HASH: &str = "$argon2id$v=19$m=19456,t=2,p=1$h3oXdPBVwhcgZ1
 /// trimmed and lowercased, so one address holds one account whatever case it is typed in; a
 /// resource that edits the email must store it the same way.
 /// Its [`ModelColumns`](crate::ModelColumns) leave out the hash, so a resource over the panel's
-/// admins lists them.
+/// admins lists them. A resource write that changes an admin's email or password hash ends that
+/// admin's sessions, pending sign-ins, reset links and pending email change in the same
+/// transaction; one that changes `active` to `false` ends them at the admin's next request.
 #[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
 pub struct AdminUser {
     #[key]
@@ -62,6 +64,38 @@ impl PanelUser for AdminUser {
     fn can_access_panel(&self) -> bool {
         self.active
     }
+}
+
+/// Ends the sessions, pending sign-ins, reset links and pending email change of the
+/// [`AdminUser`] a panel write changed, through `ex`, when the write changed its email or its
+/// password hash, on every panel whose authenticator loads `AdminUser`s. Any other model, and an
+/// edit that leaves both alone, passes through.
+pub(crate) async fn end_changed_credentials(
+    cx: &Cx,
+    ex: &mut dyn toasty::Executor,
+    before: &(dyn std::any::Any + Send + Sync),
+    after: &(dyn std::any::Any + Send + Sync),
+) -> topcoat::Result<()> {
+    let (Some(before), Some(after)) = (
+        before.downcast_ref::<AdminUser>(),
+        after.downcast_ref::<AdminUser>(),
+    ) else {
+        return Ok(());
+    };
+    if before.email == after.email && before.password_hash == after.password_hash {
+        return Ok(());
+    }
+    let Some(panel) = super::realm::current_realm(cx) else {
+        return Ok(());
+    };
+    let panels = super::session::credential_panels(cx, std::any::TypeId::of::<AdminUser>(), panel);
+    super::session::end_credentials(
+        ex,
+        &before.id.to_string(),
+        &panels,
+        super::token::REVOCATION,
+    )
+    .await
 }
 
 /// Shipped default authenticator: Argon2id verification against [`AdminUser`].
