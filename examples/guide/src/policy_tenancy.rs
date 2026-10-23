@@ -58,6 +58,25 @@ pub fn unfeatured_only(_cx: &Cx, ability: Ability<'_, Post>) -> bool {
 }
 // ANCHOR_END: policy-written-record
 
+// ANCHOR: policy-stored-value
+/// Refuses a write that publishes a post unless an editor makes it. Called from
+/// `PostResource::before_commit`, it sees what the write stores, which the policy does not.
+pub async fn only_editors_publish(cx: &Cx, change: &tablo::Change<Post>) -> Result<()> {
+    let publishes = match change {
+        tablo::Change::Create(post) => matches!(post.status, PostStatus::Published),
+        tablo::Change::Update { before, after } => {
+            !matches!(before.status, PostStatus::Published)
+                && matches!(after.status, PostStatus::Published)
+        }
+        _ => false,
+    };
+    if publishes && !editors_only(cx) {
+        return Err(topcoat::router::error::forbidden().into());
+    }
+    Ok(())
+}
+// ANCHOR_END: policy-stored-value
+
 // ANCHOR: policy-models
 pub fn auth_models() {
     // `Book`, beside `AdminUser`, `AuthSession`, `ColumnPreference`, `AuthToken` and `AuthFactor`.

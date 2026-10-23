@@ -45,6 +45,16 @@ Three rules shape every policy; [`Policy`](https://y-l.fr/tablo/nightly/api/tabl
 - **Writes are checked against the stored row**, loaded inside the write's transaction, never
   against the submitted key.
 
+The policy sees the row as stored, never what the submission writes over it, so an update that
+an editor may make to one field and not another passes it either way. A rule about the values a
+write stores, such as who may publish, belongs in `Resource::before_commit`, which receives the
+`Change` inside the write's transaction: a `Change::Create` with the new row, a `Change::Update`
+with `before` and `after`. Its `Err` rolls the write back:
+
+```rust
+{{#include ../../../examples/guide/src/policy_tenancy.rs:policy-stored-value}}
+```
+
 ### Building a policy
 
 `Allow`, `Deny`, `ReadOnly` (`ViewAny` and `View`) and `when(predicate)` are policies, and each

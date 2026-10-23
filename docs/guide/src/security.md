@@ -21,6 +21,11 @@ What Tablo does by default, and what your deployment must provide for those defa
 - Every panel POST, login and logout included, verifies a double-submit
   [CSRF](https://y-l.fr/tablo/nightly/api/tablo/csrf/index.html) token before any write it asks for; a missing or wrong token answers
   403.
+- Topcoat's runtime calls carry no CSRF token: the notification bell's procedures, the search
+  and notification shards, and any shard or procedure the app adds. The router's
+  `OriginPolicy`, on by default, refuses them from another site. Keep it: a router built with
+  `OriginPolicy::dangerous_disable`, or exempting `/_topcoat/runtime`, leaves them open to
+  cross-site requests, and Tablo cannot tell.
 - Delete and bulk-delete POSTs also require the `confirm=1` marker the confirmation dialog sends.
   It prevents accidental deletes; it is not a security boundary.
 - A form POST with a key the form does not declare answers 400, so a client cannot write a
