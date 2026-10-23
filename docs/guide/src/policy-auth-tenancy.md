@@ -157,8 +157,8 @@ the gate covers the prefix. On a router with several panels, `/_topcoat/runtime`
 without a session only when every panel is gated.
 
 - **Login** verifies Argon2id hashes and treats an email's case as insignificant; each login may
-  make five attempts a minute from one address, which `Auth::throttle` changes, and fifty an hour
-  from all addresses, which `Auth::account_throttle` changes
+  make five attempts a minute from one address, which `Auth::throttle` changes; `Auth::account_throttle`
+  adds an opt-in limit per login across addresses
   ([Security](./security.md#authentication)). [`PasswordAuth`](https://y-l.fr/tablo/nightly/api/tablo/struct.PasswordAuth.html) has
   the details, and what to do about rows stored with capitals.
 - **Sessions** are rows in `AuthSession`, valid for seven days, and each belongs to the panel that

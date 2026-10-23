@@ -11,8 +11,8 @@ use super::{
 ///
 /// The default is [`Auth::password`]; [`Auth::custom`] installs an app-owned
 /// [`Authenticator`]; [`Auth::disabled`] is the explicit fail-open opt-out.
-/// Sign-in attempts are throttled per login by default; see [`Auth::throttle`] and
-/// [`Auth::account_throttle`].
+/// Sign-in attempts are throttled per login and address by default; see [`Auth::throttle`].
+/// [`Auth::account_throttle`] adds an opt-in count per login across addresses.
 /// [`Auth::registration`] adds a sign-up page, [`Auth::profile`] a profile page, and
 /// [`Auth::password_reset`] a forgot-password page that mails reset links through
 /// [`Auth::mail`], [`Auth::tenant_registration`] a page creating a tenant, and
@@ -46,7 +46,7 @@ impl Auth {
         Self {
             authenticator: Some(Box::new(authenticator)),
             throttle: LoginThrottle::default(),
-            account_throttle: LoginThrottle::new(50, std::time::Duration::from_hours(1)),
+            account_throttle: LoginThrottle::off(),
             registrar: None,
             sign_up_throttle: LoginThrottle::default(),
             profile_editor: None,
@@ -91,9 +91,11 @@ impl Auth {
     }
 
     /// How many sign-in attempts one login may make from all addresses together in a window;
-    /// defaults to fifty an hour. It stops a guesser who rotates addresses, at the cost of
-    /// refusing the account's owner too until the window ends; a successful sign-in clears it.
-    /// [`LoginThrottle::off`] counts nothing.
+    /// off by default. It stops a guesser who rotates addresses, at the cost of letting anyone
+    /// who knows a login refuse its owner until the window ends, again each window; a successful
+    /// sign-in clears it. Turn it on where a guessed password costs more than a locked-out
+    /// owner, with a limit high enough that only a distributed guesser reaches it, such as
+    /// `LoginThrottle::new(50, Duration::from_hours(1))`.
     #[must_use]
     pub fn account_throttle(mut self, throttle: LoginThrottle) -> Self {
         self.account_throttle = throttle;

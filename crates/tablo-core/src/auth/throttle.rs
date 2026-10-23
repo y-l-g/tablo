@@ -31,10 +31,10 @@ const MAX_TRACKED: usize = 10_000;
 /// through [`TrustedProxies`](topcoat::router::TrustedProxies); until then the count is per login
 /// alone, and a guesser can lock the owner out.
 ///
-/// [`Auth::account_throttle`](crate::Auth::account_throttle) adds a looser count per login across
-/// addresses. The first sign-in that carries `X-Forwarded-For` or `Forwarded` and whose client
-/// address is still the connection's logs a warning: either the router trusts no proxy, or the
-/// request bypassed the trusted ones.
+/// [`Auth::account_throttle`](crate::Auth::account_throttle) adds an opt-in, looser count per login
+/// across addresses. The first sign-in that carries `X-Forwarded-For` or `Forwarded` and whose
+/// client address is still the connection's logs a warning: either the router trusts no proxy, or
+/// the request bypassed the trusted ones.
 ///
 /// It does not limit one client across logins, nor a login
 /// spelled several ways that the authenticator's lookup treats as one, as MySQL's default
