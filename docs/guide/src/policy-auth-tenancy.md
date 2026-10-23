@@ -207,15 +207,17 @@ empty.
 ### Sign-up
 
 `Auth::registration` lets visitors create their own account at `{prefix}/register`, which the
-login page links to. `PasswordAuth` registers an `AdminUser` from a name, an email address and a
+login page links to. `PasswordSignUp` registers an `AdminUser` from a name, an email address and a
 password typed twice:
 
 ```rust
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-sign-up-password}}
 ```
 
-Every account `PasswordAuth` registers is active, and an active `AdminUser` may open the whole
-panel, so open it only where any visitor may hold an account.
+`PasswordSignUp::pending` stores each account inactive: the sign-up lands on the login page, and
+the account signs in once an administrator sets `active`. `PasswordSignUp::open` stores it active
+and signs it in at once, and an active `AdminUser` may open the whole panel, so choose it only
+where any visitor may hold an account.
 
 Your own user table registers through a `Registrar` beside its `Authenticator`, which works like
 an [action with input](./actions.md#asking-for-input): `Input` is the form the page asks for,

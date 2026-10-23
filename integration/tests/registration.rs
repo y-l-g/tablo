@@ -1,4 +1,4 @@
-//! Registration beyond the showcase's own: the shipped `PasswordAuth` over `AdminUser`, an
+//! Registration beyond the showcase's own: the shipped `PasswordSignUp` over `AdminUser`, an
 //! account that may not enter the panel yet, the sign-up throttle, and the mistakes mounting
 //! refuses.
 
@@ -7,7 +7,7 @@ use std::time::Duration;
 use http::header::LOCATION;
 use tablo::{
     Auth, DeclarationErrorKind, FieldErrors, FormInput, LoginThrottle, NoForm, NotificationStatus,
-    PanelUser, PasswordAuth, ReadOnly, Registrar, Resource, ResourceDef, SignUp, SignUpFault,
+    PanelUser, PasswordSignUp, ReadOnly, Registrar, Resource, ResourceDef, SignUp, SignUpFault,
     Table, TextColumn,
     auth::{AdminUser, AuthSession, create_admin},
     lens,
@@ -73,11 +73,14 @@ async fn admins(db: &Db) -> Vec<AdminUser> {
     AdminUser::all().exec(&mut db.clone()).await.unwrap()
 }
 
-/// `PasswordAuth` registers an active `AdminUser` from a `SignUp` and signs it in.
+/// An open `PasswordSignUp` registers an active `AdminUser` from a `SignUp` and signs it in.
 #[tokio::test]
 async fn password_auth_registers_an_admin_user_and_signs_it_in() {
     let db = db().await;
-    let router = router(db.clone(), Auth::password().registration(PasswordAuth));
+    let router = router(
+        db.clone(),
+        Auth::password().registration(PasswordSignUp::open()),
+    );
 
     let response = submit(&router, &sign_up("ada@example.com")).await;
 
@@ -92,14 +95,17 @@ async fn password_auth_registers_an_admin_user_and_signs_it_in() {
     assert!(tablo::auth::verify_password("correct horse", Some(&admins[0].password_hash)).await);
 }
 
-/// `PasswordAuth` refuses an email another account holds, in any case, and nothing is written.
+/// `PasswordSignUp` refuses an email another account holds, in any case, and nothing is written.
 #[tokio::test]
 async fn password_auth_refuses_a_taken_email() {
     let mut db = db().await;
     create_admin(&mut db, "Ada@Example.com", "secret", "Ada")
         .await
         .unwrap();
-    let router = router(db.clone(), Auth::password().registration(PasswordAuth));
+    let router = router(
+        db.clone(),
+        Auth::password().registration(PasswordSignUp::open()),
+    );
 
     for email in ["ada@example.com", " ADA@example.COM"] {
         let response = submit(&router, &sign_up(email)).await;
@@ -158,7 +164,7 @@ async fn a_panel_without_registration_serves_no_sign_up() {
 async fn the_sign_up_throttle_refuses_a_client_past_its_limit() {
     let db = db().await;
     let auth = Auth::password()
-        .registration(PasswordAuth)
+        .registration(PasswordSignUp::open())
         .sign_up_throttle(LoginThrottle::new(1, Duration::from_secs(60)));
     let router = router(db.clone(), auth);
 
@@ -172,31 +178,15 @@ async fn the_sign_up_throttle_refuses_a_client_past_its_limit() {
     assert_eq!(admins(&db).await.len(), 1);
 }
 
-/// Registers inactive accounts, which an administrator approves.
-struct Pending;
-
-impl Registrar for Pending {
-    type Input = SignUp;
-    type User = AdminUser;
-
-    async fn register(
-        &self,
-        _cx: &Cx,
-        sign_up: SignUp,
-        ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<AdminUser> {
-        let mut admin = create_admin(ex, &sign_up.email, &sign_up.password, &sign_up.name).await?;
-        admin.update().active(false).exec(ex).await?;
-        Ok(admin)
-    }
-}
-
 /// An account that may not enter the panel is created but not signed in: the sign-up lands on
 /// the login page with a notification, which the login page shows.
 #[tokio::test]
 async fn an_account_without_panel_access_lands_on_the_login_page() {
     let db = db().await;
-    let router = router(db.clone(), Auth::password().registration(Pending));
+    let router = router(
+        db.clone(),
+        Auth::password().registration(PasswordSignUp::pending()),
+    );
 
     let response = submit(&router, &sign_up("ada@example.com")).await;
 
@@ -291,7 +281,7 @@ async fn mounting_refuses_a_registration_the_panel_cannot_serve() {
             },
         ),
         (
-            Auth::disabled().registration(PasswordAuth),
+            Auth::disabled().registration(PasswordSignUp::open()),
             SignUpFault::AuthDisabled,
         ),
         (

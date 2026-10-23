@@ -36,7 +36,7 @@ use crate::{
 /// [`register`](Self::register) writes the account. Both run in one transaction the framework
 /// opens, so a uniqueness probe in `validate` sees what `register` writes against.
 ///
-/// The shipped [`PasswordAuth`](super::PasswordAuth) registers an
+/// The shipped [`PasswordSignUp`](crate::PasswordSignUp) registers an
 /// [`AdminUser`](super::AdminUser) from a [`SignUp`]; an app with its own user table implements
 /// it beside its [`Authenticator`](super::Authenticator), for the same user type:
 ///
@@ -193,7 +193,7 @@ impl<R: Registrar> DynRegistrar for R {
     }
 }
 
-/// The sign-up form [`PasswordAuth`](super::PasswordAuth) registers from, and a custom
+/// The sign-up form [`PasswordSignUp`](crate::PasswordSignUp) registers from, and a custom
 /// [`Registrar`] can take as its input: a name, an email address, and a new password typed
 /// twice.
 #[derive(Clone, PartialEq, Eq)]

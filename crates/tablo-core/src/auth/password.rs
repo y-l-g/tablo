@@ -156,10 +156,42 @@ impl Authenticator for PasswordAuth {
     }
 }
 
-/// Registers an active [`AdminUser`] from a [`SignUp`], refusing a password
+/// Registers an [`AdminUser`] from a [`SignUp`], refusing a password
 /// [`new_password_errors`](super::new_password_errors) refuses and an email another account
 /// holds. Install it with [`Auth::registration`](super::Auth::registration).
-impl Registrar for PasswordAuth {
+///
+/// Whether a new account may open the panel is a choice the constructor makes:
+/// [`pending`](Self::pending) stores it inactive, for an administrator to approve by setting
+/// `active`, and the sign-up lands on the login page; [`open`](Self::open) stores it active and
+/// signs it in at once, so any visitor gets the panel's access.
+///
+/// ```rust
+/// use tablo_core::{Auth, PasswordSignUp};
+///
+/// let auth = Auth::password().registration(PasswordSignUp::pending());
+/// # let _ = auth;
+/// ```
+#[derive(Debug, Clone, Copy)]
+pub struct PasswordSignUp {
+    active: bool,
+}
+
+impl PasswordSignUp {
+    /// Stores each new account inactive: it signs in once an administrator approves it.
+    #[must_use]
+    pub fn pending() -> Self {
+        Self { active: false }
+    }
+
+    /// Stores each new account active: any visitor who signs up enters the panel. Open it only
+    /// where any visitor may hold an account.
+    #[must_use]
+    pub fn open() -> Self {
+        Self { active: true }
+    }
+}
+
+impl Registrar for PasswordSignUp {
     type Input = SignUp;
     type User = AdminUser;
 
@@ -191,7 +223,15 @@ impl Registrar for PasswordAuth {
         sign_up: SignUp,
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<AdminUser> {
-        insert_admin(ex, &sign_up.email, &sign_up.password, &sign_up.name, None).await
+        insert_admin(
+            ex,
+            &sign_up.email,
+            &sign_up.password,
+            &sign_up.name,
+            self.active,
+            None,
+        )
+        .await
     }
 }
 
@@ -369,22 +409,31 @@ pub async fn create_admin(
     password: &str,
     display_name: &str,
 ) -> topcoat::Result<AdminUser> {
-    insert_admin(ex, email, password, display_name, Some(Timestamp::now())).await
+    insert_admin(
+        ex,
+        email,
+        password,
+        display_name,
+        true,
+        Some(Timestamp::now()),
+    )
+    .await
 }
 
-/// Inserts an active [`AdminUser`], verified at `verified_at`.
+/// Inserts an [`AdminUser`], `active` or not, verified at `verified_at`.
 async fn insert_admin(
     ex: &mut dyn toasty::Executor,
     email: &str,
     password: &str,
     display_name: &str,
+    active: bool,
     verified_at: Option<Timestamp>,
 ) -> topcoat::Result<AdminUser> {
     let admin = toasty::create!(AdminUser {
         email: normalize_email(email),
         password_hash: hash_password(password).await?,
         display_name: display_name.to_string(),
-        active: true,
+        active,
         email_verified_at: verified_at,
         created_at: Timestamp::now(),
     })

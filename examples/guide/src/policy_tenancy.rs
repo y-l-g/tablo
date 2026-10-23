@@ -2,8 +2,8 @@
 
 use tablo::{
     AuthMail, Authenticator, EmailVerification, Membership, PanelUser, PasswordAuth, PasswordReset,
-    Profile, ProfileEditor, ProfileUpdate, Registrar, RouterBuilderPanelExt, TenantRegistration,
-    TwoFactor,
+    PasswordSignUp, Profile, ProfileEditor, ProfileUpdate, Registrar, RouterBuilderPanelExt,
+    TenantRegistration, TwoFactor,
     auth::{TenantEditor, TenantRegistrar, hash_password, new_password_errors, verify_password},
     prelude::*,
 };
@@ -132,7 +132,7 @@ pub fn staff_auth_panel() -> Panel {
 
 // ANCHOR: policy-sign-up-password
 pub fn open_sign_up_panel() -> Panel {
-    Panel::new("admin").auth(Auth::password().registration(PasswordAuth))
+    Panel::new("admin").auth(Auth::password().registration(PasswordSignUp::pending()))
 }
 // ANCHOR_END: policy-sign-up-password
 
@@ -301,7 +301,7 @@ pub fn verified_auth() -> Result<Auth> {
             Mailbox::named("Example", "no-reply@example.com")?,
             "https://admin.example.com",
         ))
-        .registration(PasswordAuth)
+        .registration(PasswordSignUp::open())
         .email_verification(EmailVerification::new(PasswordAuth)))
 }
 // ANCHOR_END: policy-email-verification

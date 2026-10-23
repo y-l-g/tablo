@@ -160,7 +160,7 @@ impl<V: EmailVerifier> DynEmailVerifier for V {
 /// [`AuthMail`](super::AuthMail).
 ///
 /// ```rust
-/// use tablo_core::{Auth, AuthMail, EmailVerification, PasswordAuth};
+/// use tablo_core::{Auth, AuthMail, EmailVerification, PasswordAuth, PasswordSignUp};
 /// use topcoat::mail::Mailbox;
 ///
 /// # fn main() -> Result<(), topcoat::mail::AddressError> {
@@ -169,7 +169,7 @@ impl<V: EmailVerifier> DynEmailVerifier for V {
 ///         Mailbox::new("no-reply@example.com")?,
 ///         "https://admin.example.com",
 ///     ))
-///     .registration(PasswordAuth)
+///     .registration(PasswordSignUp::open())
 ///     .email_verification(EmailVerification::new(PasswordAuth));
 /// # let _ = auth;
 /// # Ok(())

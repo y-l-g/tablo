@@ -90,15 +90,16 @@ impl Auth {
     /// login page links to it.
     ///
     /// ```rust
-    /// use tablo_core::{Auth, PasswordAuth};
+    /// use tablo_core::{Auth, PasswordSignUp};
     ///
-    /// let auth = Auth::password().registration(PasswordAuth);
+    /// let auth = Auth::password().registration(PasswordSignUp::pending());
     /// # let _ = auth;
     /// ```
     ///
-    /// [`PasswordAuth`] registers an active [`AdminUser`](super::AdminUser) from a
-    /// [`SignUp`](super::SignUp), who signs in to the panel at once: only open it where any
-    /// visitor may hold an account. A custom [`Registrar`] decides what a new account may do.
+    /// [`PasswordSignUp`](crate::PasswordSignUp) registers an [`AdminUser`](super::AdminUser) from
+    /// a [`SignUp`](super::SignUp), inactive until an administrator approves it or, when built
+    /// with `open`, active and signed in at once. A custom [`Registrar`] decides what a new
+    /// account may do; one whose user may not access the panel lands on the login page.
     ///
     /// - The form is any `FormInput`, or the shipped `SignUp`. `#[form(password)]` renders a masked
     ///   control, with a button that shows what was typed, that a refused form renders empty, and
