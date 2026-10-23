@@ -3,9 +3,9 @@
 benchmarks/results/
 # mdBook build output (`mdbook build docs/guide`).
 docs/guide/book/
-# Agent/dev worktrees (`git worktree add .worktrees/<name>`) are scratch checkouts
+# Agent worktrees (`.claude/worktrees/<name>`) are scratch checkouts
 # of this same repo; never part of a commit.
-/.worktrees/
+/.claude/worktrees/
 # Local build and tool logs.
 *.log
 # The quickstart commits no lockfile: `cargo xtask external-check` seeds a copy
