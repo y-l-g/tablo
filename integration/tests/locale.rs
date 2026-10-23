@@ -1,14 +1,15 @@
 //! The locale a request reads the panel in, from the signed-in user, else the browser's
 //! `Accept-Language`, else the panel's default, and the app's catalog over Tablo's in it; and the
-//! locale a mail reads, its recipient's.
+//! locale a mail reads, its recipient's; and an option's derived label, translated wherever it
+//! renders.
 
 use http::header::VARY;
 use tablo::{
     Allow, Auth, AuthMail, Authenticator, DeclarationErrorKind, LocaleFault, Panel, PanelUser,
-    PasswordReset, Resource, ResourceDef, RouterBuilderPanelExt, Table, TextColumn,
+    PasswordReset, Resource, ResourceDef, RouterBuilderPanelExt, SelectFilter, Table, TextColumn,
     auth::{AuthSession, AuthToken, PasswordResetter},
     lens,
-    testing::{form_body, page_language},
+    testing::{filter_options, form_body, page_language, rows},
 };
 use toasty::Db;
 use topcoat::{
@@ -22,18 +23,27 @@ use crate::common::{
     TestClient, body_string, field_error_message, mail::mails, mount, refusal, test_db,
 };
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo::Options)]
+enum Genre {
+    Novel,
+    Essay,
+}
+
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Book {
     #[key]
     #[auto]
     id: Uuid,
     page_count: String,
+    genre: Genre,
 }
 
 #[derive(tablo::RecordForm)]
 #[form(model = Book)]
 struct BookForm {
     page_count: String,
+    #[form(options)]
+    genre: Genre,
 }
 
 struct BookResource;
@@ -43,10 +53,13 @@ impl Resource for BookResource {
     type Form = BookForm;
 
     fn declare() -> ResourceDef<Self> {
-        ResourceDef::new()
-            .slug("books")
-            .policy(Allow)
-            .table(Table::new(TextColumn::new(lens!(Book.page_count))))
+        ResourceDef::new().slug("books").policy(Allow).table(
+            Table::new((
+                TextColumn::new(lens!(Book.page_count)),
+                TextColumn::new(lens!(Book.genre)),
+            ))
+            .filters(SelectFilter::of(lens!(Book.genre))),
+        )
     }
 }
 
@@ -141,15 +154,17 @@ async fn reader(db: &Db, name: &str, locale: Option<&str>) -> Reader {
     .unwrap()
 }
 
-/// A panel offering French, then English, with the app's own French for the derived label of
-/// `page_count` and for one of Tablo's messages.
+/// A panel offering French, then English, with the app's own French for the derived labels of
+/// `page_count` and of the genre `Novel`, and for one of Tablo's messages.
 fn panel(auth: Auth) -> Panel {
     Panel::new("admin")
         .auth(auth)
         .locales(["fr", "en"])
         .translations(
             "fr",
-            "field-page_count = Nombre de pages\ntablo-field-required = Il faut { $label }",
+            "field-page_count = Nombre de pages\n\
+             option-genre =\n    .novel = Roman\n\
+             tablo-field-required = Il faut { $label }",
         )
         .resource::<BookResource>()
 }
@@ -316,4 +331,39 @@ async fn a_reset_mail_reads_its_recipients_locale() {
         "{}",
         subject("grace@")
     );
+}
+
+/// A derived option label reads the request's locale in the form's select, the column's cell and
+/// the filter's options, and its English fallback where no catalog translates it.
+#[tokio::test]
+async fn an_options_label_reads_the_requests_locale() {
+    let db = db().await;
+    toasty::create!(Book {
+        page_count: "320".to_string(),
+        genre: Genre::Novel,
+    })
+    .exec(&mut db.clone())
+    .await
+    .unwrap();
+    let router = router(&db, Auth::disabled());
+    for (language, novel) in [("fr", "Roman"), ("en", "Novel")] {
+        let client = TestClient::new(&router).language(language);
+        let list = body_string(client.get("/admin/books").await).await;
+        let cells: Vec<String> = rows(&list).into_iter().flat_map(|row| row.cells).collect();
+        assert!(
+            cells.iter().any(|cell| cell == novel),
+            "{language}: {cells:?}"
+        );
+        let labels: Vec<String> = filter_options(&list, "genre")
+            .expect("the genre filter renders")
+            .into_iter()
+            .map(|option| option.label)
+            .collect();
+        assert_eq!(labels[1..], [novel, "Essay"], "{language}");
+        let form = body_string(client.get("/admin/books/-/create").await).await;
+        assert!(
+            form.contains(&format!(">{novel}</option>")),
+            "{language}: the select reads {novel}: {form}"
+        );
+    }
 }

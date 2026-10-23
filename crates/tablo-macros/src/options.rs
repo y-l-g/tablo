@@ -1,7 +1,9 @@
 //! `#[derive(Options)]` — a unit-variant enum as a choice's options.
 //!
-//! Each variant's value is its `snake_case` name and its label that name in
-//! sentence case; `#[option(value = "..", label = "..")]` overrides either, and
+//! Each variant's value is its `snake_case` name and its label the message
+//! `option-{enum}.{variant}`, which reads that name in sentence case when no catalog
+//! holds it; `#[option(value = "..", label = "..")]` overrides either, the label as
+//! plain text, and
 //! `#[option(color = "..")]` gives it the color a badge shows it in.
 //! The derive implements `Options` and `FormScalar`, spelling a variant as
 //! its value and reading it as its label, and gives the enum `value()`,
@@ -23,7 +25,12 @@ pub fn expand_tokens(input: DeriveInput) -> TokenStream2 {
 struct Choice {
     ident: syn::Ident,
     value: String,
+    /// The `snake_case` name the derived label's message names.
+    name: String,
+    /// The label as English reads it: the declared one, or the name in sentence case.
     label: String,
+    /// Whether `#[option(label = "..")]` declared the label.
+    declared: bool,
     /// The `Color` variant `color = ".."` names.
     color: Option<syn::Ident>,
 }
@@ -65,7 +72,9 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
         }
         let name = variant.ident.to_string();
         let mut value = snake_case(&name);
-        let mut label = sentence_case(&value);
+        let name = value.clone();
+        let mut label = sentence_case(&name);
+        let mut declared = false;
         let mut color = None;
         for attr in &variant.attrs {
             if !attr.path().is_ident("option") {
@@ -76,6 +85,7 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
                     value = meta.value()?.parse::<syn::LitStr>()?.value();
                 } else if meta.path.is_ident("label") {
                     label = meta.value()?.parse::<syn::LitStr>()?.value();
+                    declared = true;
                 } else if meta.path.is_ident("color") {
                     let name = meta.value()?.parse::<syn::LitStr>()?;
                     let Some((_, variant)) = COLORS.iter().find(|(n, _)| *n == name.value()) else {
@@ -128,7 +138,9 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
         choices.push(Choice {
             ident: variant.ident.clone(),
             value,
+            name,
             label,
+            declared,
             color,
         });
     }
@@ -136,7 +148,17 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
     let ident = &input.ident;
     let idents: Vec<&syn::Ident> = choices.iter().map(|c| &c.ident).collect();
     let values: Vec<&str> = choices.iter().map(|c| c.value.as_str()).collect();
-    let labels: Vec<&str> = choices.iter().map(|c| c.label.as_str()).collect();
+    let enum_name = snake_case(&ident.to_string());
+    let labels = choices.iter().map(|c| {
+        if c.declared {
+            let label = &c.label;
+            quote! { #krate::__macro::Text::from(#label) }
+        } else {
+            let name = &c.name;
+            quote! { #krate::__macro::option_label(#enum_name, #name) }
+        }
+    });
+    let labels: Vec<TokenStream2> = labels.collect();
     // Only an enum that names a color overrides the trait's `None`.
     let color = choices.iter().any(|c| c.color.is_some()).then(|| {
         let colors = choices.iter().map(|c| match &c.color {
@@ -155,12 +177,9 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
     });
     Ok(quote! {
         impl #krate::__macro::Options for #ident {
-            fn options() -> ::std::vec::Vec<(::std::string::String, ::std::string::String)> {
+            fn options() -> ::std::vec::Vec<(::std::string::String, #krate::__macro::Text)> {
                 ::std::vec![
-                    #((
-                        ::std::string::String::from(#values),
-                        ::std::string::String::from(#labels),
-                    )),*
+                    #((::std::string::String::from(#values), #labels)),*
                 ]
             }
         }
@@ -178,8 +197,8 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
                 ::std::string::String::from(self.value())
             }
 
-            fn to_label(&self) -> ::std::string::String {
-                ::std::string::String::from(self.label())
+            fn to_label(&self) -> #krate::__macro::Text {
+                self.label()
             }
 
             #color
@@ -195,8 +214,8 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
                 }
             }
 
-            /// The label this option reads as.
-            pub const fn label(&self) -> &'static str {
+            /// The label this option reads as, in the request's locale where it renders.
+            pub fn label(&self) -> #krate::__macro::Text {
                 match self {
                     #(Self::#idents => #labels,)*
                 }

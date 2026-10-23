@@ -309,14 +309,17 @@ pub use tablo_macros::ModelForm;
 /// }
 ///
 /// assert_eq!(Status::Published.value(), "published");
-/// assert_eq!(Status::Published.label(), "Live");
+/// assert_eq!(Status::Published.label(), tablo_core::Text::from("Live"));
 /// assert_eq!(Status::from_value("draft"), Some(Status::Draft));
 /// ```
 ///
-/// Each variant's value is its `snake_case` name and its label that name in
-/// sentence case. `#[option(value = "..")]` and `#[option(label = "..")]`
-/// override either. A generic enum, a variant with fields, two variants
-/// sharing one value or one label, and an unknown key are compile errors.
+/// Each variant's value is its `snake_case` name, and its label the
+/// [`Text`](crate::Text) message `option-{enum}.{variant}`, the enum in kebab
+/// case and the variant in snake case, which reads the variant in sentence
+/// case when no catalog holds it: `Status::Draft` reads `option-status.draft`,
+/// else `Draft`. `#[option(value = "..")]` and `#[option(label = "..")]`
+/// override either, the label as plain text. A generic enum, a variant with fields, two
+/// variants sharing one value or one label, and an unknown key are compile errors.
 ///
 /// The enum, and an `Option` of it, is a form scalar through this derive, so
 /// it cannot also implement `TypedValue` or `FormScalar` itself.

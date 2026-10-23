@@ -39,7 +39,7 @@ pub struct GlobalSearch<M> {
 /// One labelled value under a result's title.
 struct Detail<M> {
     label: crate::Text,
-    read: Arc<dyn Fn(&M) -> String + Send + Sync>,
+    read: Arc<dyn Fn(&M) -> crate::Text + Send + Sync>,
     /// The model's root field the value reads, which field access may hide.
     field: Option<String>,
 }
@@ -70,7 +70,7 @@ impl<M: toasty::schema::Model + Send + Sync + 'static> GlobalSearch<M> {
     }
 
     /// The `(label, value)` of each detail of `record` the request may see.
-    fn details_of(&self, record: &M, hidden: &[String]) -> Vec<(crate::Text, String)> {
+    fn details_of(&self, cx: &Cx, record: &M, hidden: &[String]) -> Vec<(crate::Text, String)> {
         self.details
             .iter()
             .filter(|detail| {
@@ -79,7 +79,7 @@ impl<M: toasty::schema::Model + Send + Sync + 'static> GlobalSearch<M> {
                     .as_ref()
                     .is_none_or(|field| !hidden.contains(field))
             })
-            .map(|detail| (detail.label.clone(), (detail.read)(record)))
+            .map(|detail| (detail.label.clone(), (detail.read)(record).localize(cx)))
             .filter(|(_, value)| !value.trim().is_empty())
             .collect()
     }
@@ -242,7 +242,7 @@ pub(crate) fn search<'a, R: Resource>(
                         record,
                         &crate::toasty_compat::pk::pk_text(record),
                     ),
-                    details: search.details_of(record, mask.hidden()),
+                    details: search.details_of(cx, record, mask.hidden()),
                 })
             }));
             if hits.len() >= limit || records.len() < batch {

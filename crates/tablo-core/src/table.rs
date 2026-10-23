@@ -42,7 +42,7 @@ pub(crate) use crate::{
 };
 
 /// Group-label projection reads a row's group off one model instance.
-pub(crate) type GroupKey<M> = Arc<dyn Fn(&M) -> String + Send + Sync>;
+pub(crate) type GroupKey<M> = Arc<dyn Fn(&M) -> crate::Text + Send + Sync>;
 
 /// A named grouping a `Table` renders.
 #[derive_where(Clone)]

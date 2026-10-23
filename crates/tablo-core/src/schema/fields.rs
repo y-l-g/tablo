@@ -302,7 +302,7 @@ impl Field {
 
     /// The variant control of an embedded enum, never required since an empty submit reads the
     /// variant from the payload.
-    pub(crate) fn discriminant(binding: Binding, variants: Vec<(String, String)>) -> Self {
+    pub(crate) fn discriminant(binding: Binding, variants: Vec<(String, Text)>) -> Self {
         let choice = ChoiceControl {
             discriminant: true,
             options: variants,
@@ -571,12 +571,12 @@ impl Field {
 
     /// The stored `value` as a reader sees it: a choice's option label, else the value itself.
     /// `None` for a variant control whose value names no variant.
-    pub(crate) fn read(&self, value: &str) -> Option<String> {
+    pub(crate) fn read(&self, cx: &Cx, value: &str) -> Option<String> {
         match &self.control {
             ControlKind::Choice(choice) => {
                 let stored = value.trim();
                 match choice.label_of(stored) {
-                    Some(label) => Some(label.to_string()),
+                    Some(label) => Some(label.localize(cx)),
                     None if choice.discriminant => None,
                     None => Some(stored.to_string()),
                 }
@@ -588,7 +588,7 @@ impl Field {
     /// Renders the label over the stored `value`, [read](Self::read) rather than edited: an
     /// embedded value's leaf or variant on a detail page.
     pub(crate) fn display<'a>(&self, cx: &'a Cx, value: &str) -> BoxView<'a> {
-        match self.read(value) {
+        match self.read(cx, value) {
             Some(text) => read_only(cx, &self.label(), value_cell(cx, &text)),
             None => ().boxed(),
         }

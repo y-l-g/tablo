@@ -17,7 +17,8 @@ impl<F> ChoiceField<F> {
     }
 
     /// Static options: values that are their own label
-    /// (`["draft", "published"]`), `(value, label)` pairs, or a
+    /// (`["draft", "published"]`), `(value, label)` pairs whose label is a string or a
+    /// [`Text`](crate::Text) (`[("draft", text!("status-draft"))]`), or a
     /// [`#[derive(Options)]`](crate::Options) enum's
     /// [`options()`](crate::schema::Options::options).
     pub fn options(mut self, options: impl IntoOptions) -> Self {

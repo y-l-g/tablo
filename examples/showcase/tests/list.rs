@@ -5,7 +5,7 @@ use tablo::testing::{EmptyReason, EmptyTable, empty_table, groups};
 
 use crate::common::{
     body_string, demo_client, empty_users_db, find_href_with, full_db, pager_link,
-    routers::router_for_tests as router, row_keys, row_titles, seeded_db, user_count,
+    routers::router_for_tests as router, row_keys, row_titles, seeded_db, status_label, user_count,
 };
 
 #[tokio::test]
@@ -677,13 +677,13 @@ async fn posts_group_by_status_shows_counts() {
             .filter_map(|row| row.cells.iter().find(|cell| !cell.is_empty()))
         {
             assert_eq!(
-                status_of(title).label(),
+                status_label(status_of(title)),
                 group.label,
                 "{title} sits under its header"
             );
         }
     }
-    let label = PostStatus::Published.label();
+    let label = status_label(PostStatus::Published);
     let published_group = groups
         .iter()
         .find(|group| group.label == label)

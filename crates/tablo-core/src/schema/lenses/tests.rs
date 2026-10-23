@@ -214,12 +214,22 @@ fn a_document_leaf_resolves_to_the_document_column() {
 fn an_embedded_enum_resolves_its_discriminant_and_variants() {
     let shape = enum_at(LensPost::fields().publication()).expect("an embedded enum resolves");
     assert_eq!(shape.discriminant, "publication");
+    let variants: Vec<_> = shape
+        .variants
+        .iter()
+        .map(|(value, label)| (value.as_str(), label.english()))
+        .collect();
     assert_eq!(
-        shape.variants,
+        variants,
         [
-            ("1".to_string(), "Scheduled".to_string()),
-            ("2".to_string(), "Published".to_string()),
+            ("1", "Scheduled".to_string()),
+            ("2", "Published".to_string()),
         ]
+    );
+    assert_eq!(
+        shape.variants[0].1,
+        crate::Text::option("publication", "scheduled"),
+        "a variant reads the message `option-{{enum}}.{{variant}}`"
     );
 }
 

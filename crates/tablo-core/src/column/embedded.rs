@@ -74,7 +74,7 @@ where
             .filter_map(|index| {
                 let field = &schema.fields[index];
                 let value = values.text(field.name()).unwrap_or_default();
-                let read = field.read(value)?;
+                let read = field.read(cx, value)?;
                 Some(format!("{}: {read}", field.label().localize(cx)))
             })
             .collect::<Vec<_>>()

@@ -26,7 +26,7 @@ pub(crate) struct ChoiceControl {
     /// Whether this is an embedded enum's variant control.
     pub(super) discriminant: bool,
     /// Static `(value, label)` options.
-    pub(super) options: Vec<(String, String)>,
+    pub(super) options: Vec<(String, crate::Text)>,
     pub(super) relationship: Option<Relationship>,
     /// The field whose value narrows the relationship's rows, set by `depends_on`.
     pub(super) parent: Option<Parent>,
@@ -81,11 +81,19 @@ impl ChoiceControl {
     }
 
     /// The label of the static option storing `value`.
-    pub(crate) fn label_of(&self, value: &str) -> Option<&str> {
+    pub(crate) fn label_of(&self, value: &str) -> Option<&crate::Text> {
         self.options
             .iter()
             .find(|(stored, _)| stored == value)
-            .map(|(_, label)| label.as_str())
+            .map(|(_, label)| label)
+    }
+
+    /// The static options with their labels in the request's locale.
+    fn spelled(&self, cx: &Cx) -> Vec<(String, String)> {
+        self.options
+            .iter()
+            .map(|(value, label)| (value.clone(), label.localize(cx)))
+            .collect()
     }
 
     /// Whether the choice declares neither options nor a relationship: its `<select>` offers
@@ -203,7 +211,7 @@ impl ChoiceControl {
         parent: Option<&str>,
     ) -> Result<Vec<(String, String)>, OptionLoadError> {
         let Some(relationship) = &self.relationship else {
-            return Ok(self.options.clone());
+            return Ok(self.spelled(cx));
         };
         match self.scope(parent) {
             Scope::All => (relationship.search)(cx, q.to_string(), None).await,
@@ -225,7 +233,7 @@ impl ChoiceControl {
                 (relationship.search)(cx, String::new(), Some(scope)).await
             }
             (Some(_), Scope::Nothing) => Ok(Vec::new()),
-            (None, _) => Ok(self.options.clone()),
+            (None, _) => Ok(self.spelled(cx)),
         }
     }
 

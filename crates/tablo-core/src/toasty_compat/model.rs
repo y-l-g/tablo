@@ -17,7 +17,7 @@ use toasty::{
 use toasty_core::{driver::Capability, stmt::PathRoot};
 use topcoat::context::Cx;
 
-use crate::{DeclarationErrorKind, naming::capitalize};
+use crate::{DeclarationErrorKind, Text, naming::capitalize};
 
 /// A model's id in the app schema.
 pub(crate) type ModelId = app::ModelId;
@@ -431,16 +431,17 @@ fn walk_embedded(
 ///
 /// A variant carries two things, and they are not interchangeable: the **value** its discriminant
 /// column stores (`2`, or a string discriminant's own text), which is the form's transport, and
-/// the **name** a person reads (`Published`), which is the variant control's label. The name is
-/// humanized into sentence case (`In progress`), as a derived field label is; it is a label, never
-/// a handle, since the normalization is lossy (`OK` reads `Ok`). Code addresses variants by
-/// **declaration index**, the handle the schema itself uses (`VariantId { index }`).
+/// the **name** a person reads (`Published`), which is the variant control's label: the message
+/// `option-{enum}.{variant}`, else the name in sentence case (`In progress`), as a derived field
+/// label is. It is a label, never a handle, since the normalization is lossy (`OK` reads `Ok`).
+/// Code addresses variants by **declaration index**, the handle the schema itself uses (`VariantId
+/// { index }`).
 #[derive(Debug, Clone)]
 pub(crate) struct EnumShape {
     /// The discriminant column the form carries (`publication`).
     pub(crate) discriminant: String,
-    /// Each variant's stored value and name, in declaration order.
-    pub(crate) variants: Vec<(String, String)>,
+    /// Each variant's stored value and label, in declaration order.
+    pub(crate) variants: Vec<(String, Text)>,
 }
 
 /// The discriminant column and variants of the embedded **enum** at `path`, or `None` when `path`
@@ -472,8 +473,12 @@ pub(crate) fn embedded_enum(schema: &AppSchema, path: &ModelPath) -> Option<Enum
         .variants
         .iter()
         .map(|v| {
-            super::value_text(&v.discriminant)
-                .map(|value| (value, capitalize(&v.name.snake_case())))
+            super::value_text(&v.discriminant).map(|value| {
+                (
+                    value,
+                    Text::option(&e.name.snake_case(), &v.name.snake_case()),
+                )
+            })
         })
         .collect::<Option<Vec<_>>>()?;
     Some(EnumShape {

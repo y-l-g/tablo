@@ -557,7 +557,7 @@ impl<M: toasty::schema::Model + Send + Sync + 'static> RecordTitle<M> {
             &crate::toasty_compat::model::ModelPath::of(lens.path()),
         );
         Self {
-            read: Box::new(move |record| lens.read(record).to_label()),
+            read: Box::new(move |record| lens.read(record).to_form()),
             search: Box::new(move |term| contains_expr(&path, term)),
             field,
         }

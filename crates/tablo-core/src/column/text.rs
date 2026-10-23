@@ -9,7 +9,7 @@ use topcoat::{context::Cx, view::*};
 
 use super::{Column, ColumnBase, ColumnWidth, sort_order};
 use crate::{
-    Lens,
+    Lens, Text,
     display::{Alignment, Color, Currency, Numeric},
     values::FormScalar,
 };
@@ -62,7 +62,7 @@ pub struct TextColumn<M, T> {
     lens: Lens<M, T>,
     base: ColumnBase,
     #[derive_where(skip(Debug))]
-    format: Arc<dyn Fn(&T) -> String + Send + Sync>,
+    format: Arc<dyn Fn(&T) -> Text + Send + Sync>,
     /// The `LIKE` predicate for a search pattern, when [`searchable`](Self::searchable).
     #[derive_where(skip(Debug))]
     search: Option<SearchFn>,
@@ -148,9 +148,13 @@ where
         }
     }
 
-    /// Render the field's value through `format`.
-    pub fn format(mut self, format: impl Fn(&T) -> String + Send + Sync + 'static) -> Self {
-        self.format = Arc::new(format);
+    /// Render the field's value through `format`: a `String`, or a [`Text`] the request's locale
+    /// spells.
+    pub fn format<L: Into<Text>>(
+        mut self,
+        format: impl Fn(&T) -> L + Send + Sync + 'static,
+    ) -> Self {
+        self.format = Arc::new(move |value| format(value).into());
         self
     }
 
@@ -210,6 +214,7 @@ where
                 .number()
                 .map(|number| crate::display::format_number(number, decimals))
                 .unwrap_or_default()
+                .into()
         });
         self.amount()
     }
@@ -217,7 +222,7 @@ where
     /// Spell the value as an amount of `currency`, `$1,234.50`, aligned to the end with
     /// equal-width digits.
     pub fn money(mut self, currency: Currency) -> Self {
-        self.format = Arc::new(move |value: &T| currency.format(value));
+        self.format = Arc::new(move |value: &T| currency.format(value).into());
         self.amount()
     }
 
@@ -261,13 +266,13 @@ where
         }
     }
 
-    fn text(&self, _cx: &Cx, row: &M) -> String {
-        (self.format)(self.lens.read(row))
+    fn text(&self, cx: &Cx, row: &M) -> String {
+        (self.format)(self.lens.read(row)).localize(cx)
     }
 
     fn cell<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
         let value = self.lens.read(row);
-        let text = (self.format)(value);
+        let text = (self.format)(value).localize(cx);
         let color = (!text.trim().is_empty() && (self.badge || self.tinted))
             .then(|| (self.color)(value))
             .flatten();
