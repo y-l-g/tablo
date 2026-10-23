@@ -46,10 +46,11 @@ What Tablo does by default, and what your deployment must provide for those defa
 ## Responses
 
 - **Headers.** Every response under the panel prefix carries a `Content-Security-Policy` that loads
-  scripts from the panel's origin only, lets them connect to it alone, and lets no other site frame
-  the panel, along with
+  script files from the panel's origin only and lets no other site frame the panel or receive its
+  forms, along with
   `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin` and `Cache-Control: no-store`,
-  so the back button after sign-out shows no record.
+  so the back button after sign-out shows no record. Topcoat's live regions need inline scripts,
+  so the policy does not stop an injected script; escaping does.
   [`Panel::content_security_policy`](https://y-l.fr/tablo/nightly/api/tablo/struct.Panel.html#method.content_security_policy)
   replaces the policy, for assets on another origin or a panel framed by an intranet, and lists
   the responses the headers miss. Behind a proxy that serves HTTPS only, turn on HSTS with

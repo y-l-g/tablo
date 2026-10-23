@@ -183,10 +183,13 @@ impl Panel {
     /// base-uri 'self'; form-action 'self'; frame-ancestors 'self'
     /// ```
     ///
-    /// - Scripts load from the panel's origin only, and a script can connect to it alone. Inline
-    ///   scripts run: Topcoat streams a page's live regions, such as a list's rows, with inline
-    ///   scripts that carry no nonce, so a policy without `'unsafe-inline'` leaves the list
-    ///   loading. `'unsafe-eval'` lets Topcoat's runtime compile its client expressions.
+    /// - Script files load from the panel's origin only, and `fetch` and sockets reach it alone.
+    ///   Inline scripts run, so the policy does not stop a script an XSS injects, nor its sending
+    ///   data away through an image or a navigation; it stops framing, `<base>` hijacking, forms
+    ///   posting off-site and plugins. Inline scripts run: Topcoat streams a page's live regions,
+    ///   such as a list's rows, with inline scripts that carry no nonce, so a policy without
+    ///   `'unsafe-inline'` leaves the list loading. `'unsafe-eval'` lets Topcoat's runtime compile
+    ///   its client expressions.
     /// - Images, fonts and media may come from any `https:` host, so an uploader or a font on a CDN
     ///   keeps working.
     /// - Plugins are off, `<base>` and form targets stay on the origin, and only the panel may
@@ -201,8 +204,9 @@ impl Panel {
     ///
     /// Every response under the prefix carries the policy, and with it `X-Content-Type-Options:
     /// nosniff`, `Referrer-Policy: same-origin` and `Cache-Control: no-store`, so a page a
-    /// signed-out user saw does not come back from the browser's cache. A header a handler sets
-    /// itself is kept.
+    /// signed-out user saw does not come back from the browser's cache. A header on the `Response`
+    /// a handler returns is kept; one it queues through Topcoat's `response_headers` is added
+    /// after the panel's, so both reach the browser, which enforces both policies.
     ///
     /// - The headers cover the prefix's 404 and 405 pages too; the app's own routes outside the
     ///   prefix carry whatever the app sets.
