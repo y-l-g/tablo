@@ -164,7 +164,7 @@ fn check_runs_fast_gates_by_default_and_defers_docs_and_external_to_all() {
                 "cargo", "git", "topcoat", "git", "node", "cargo", "cargo", "cargo"
             ][..],
             &PUBLIC_API_PROGS,
-            &["cargo", "cargo", "cargo"],
+            &["cargo", "cargo"],
         ]
         .concat()
     );
@@ -177,11 +177,11 @@ fn check_runs_skipped_gates_only_with_matching_changes_or_all() {
         [
             "cargo", "git", "topcoat", "git", "node", "cargo", "cargo", "cargo"
         ],
-        "the public-API snapshots, msrv and udeps install+run are skipped"
+        "the public-API snapshots and udeps install+run are skipped"
     );
     assert_eq!(
         run_check(Scope::All, false).len(),
-        21,
+        20,
         "`--all` forces every gate"
     );
 }
@@ -220,7 +220,6 @@ fn pins_match_ci() {
     };
     let ci = read(".github/workflows/ci.yml");
     let docs = read(".github/workflows/docs.yml");
-    let msrv = read(".github/workflows/msrv-udeps.yml");
     assert!(
         ci.contains(&format!(
             "rustup toolchain install {NIGHTLY} --profile minimal --component rustfmt\n"
@@ -250,10 +249,6 @@ fn pins_match_ci() {
             "{name} installs the pinned mdBook {mdbook}"
         );
     }
-    assert!(
-        msrv.contains(&format!("+{MSRV} check")),
-        "msrv-udeps.yml checks the MSRV floor {MSRV}"
-    );
     assert!(ci.contains(QUICKSTART), "ci.yml covers {QUICKSTART}");
     for suite in ASSET_SUITES {
         assert!(ci.contains(suite), "ci.yml names {suite}");
@@ -280,14 +275,14 @@ fn workflow_paths(workflow: &str) -> Vec<String> {
 #[test]
 fn skip_filters_match_ci_workflows() {
     let root = repo_root();
-    let msrv = std::fs::read_to_string(root.join(".github/workflows/msrv-udeps.yml"))
-        .expect("read msrv-udeps.yml");
-    let mut msrv_paths: Vec<String> = MSRV_PATHS.iter().map(ToString::to_string).collect();
-    msrv_paths.sort();
+    let udeps =
+        std::fs::read_to_string(root.join(".github/workflows/udeps.yml")).expect("read udeps.yml");
+    let mut udeps_paths: Vec<String> = UDEPS_PATHS.iter().map(ToString::to_string).collect();
+    udeps_paths.sort();
     assert_eq!(
-        workflow_paths(&msrv),
-        msrv_paths,
-        "MSRV_PATHS mirrors msrv-udeps.yml"
+        workflow_paths(&udeps),
+        udeps_paths,
+        "UDEPS_PATHS mirrors udeps.yml"
     );
 }
 
@@ -336,7 +331,7 @@ fn scratch_repo(name: &str) -> PathBuf {
 fn changes_touch_reads_committed_and_uncommitted_state() {
     let outside = std::env::temp_dir().join(format!("tablo-gates-no-repo-{}", std::process::id()));
     assert!(
-        changes_touch(&outside, MSRV_PATHS),
+        changes_touch(&outside, UDEPS_PATHS),
         "a gate that cannot prove irrelevance runs"
     );
     let dir = scratch_repo("tablo-gates-touch");
@@ -344,12 +339,12 @@ fn changes_touch_reads_committed_and_uncommitted_state() {
     git_in(&dir, &["add", "."]);
     git_in(&dir, &["commit", "-qm", "seed"]);
     assert!(
-        !changes_touch(&dir, MSRV_PATHS),
+        !changes_touch(&dir, UDEPS_PATHS),
         "a clean tree at master touches nothing"
     );
     std::fs::write(dir.join("notes.md"), "edit\n").expect("edit a tracked file");
     assert!(
-        !changes_touch(&dir, MSRV_PATHS),
+        !changes_touch(&dir, UDEPS_PATHS),
         "an edit outside the filter still skips"
     );
     git_in(&dir, &["checkout", "-qb", "work"]);
@@ -357,7 +352,7 @@ fn changes_touch_reads_committed_and_uncommitted_state() {
     git_in(&dir, &["add", "."]);
     git_in(&dir, &["commit", "-qm", "manifest"]);
     assert!(
-        changes_touch(&dir, MSRV_PATHS),
+        changes_touch(&dir, UDEPS_PATHS),
         "a committed manifest on the branch runs the gate"
     );
     git_in(&dir, &["checkout", "-q", "master"]);
@@ -366,8 +361,8 @@ fn changes_touch_reads_committed_and_uncommitted_state() {
     git_in(&dir, &["add", "."]);
     git_in(&dir, &["commit", "-qm", "docs"]);
     assert!(
-        !changes_touch(&dir, MSRV_PATHS),
-        "a committed change outside the filter still skips MSRV/udeps"
+        !changes_touch(&dir, UDEPS_PATHS),
+        "a committed change outside the filter still skips udeps"
     );
     std::fs::remove_dir_all(&dir).expect("remove the scratch repo");
 }

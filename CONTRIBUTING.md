@@ -34,17 +34,20 @@ without one. The README has the install command.
 ## Checks
 
 ```sh
-cargo xtask check         # fmt, JS suites, test, clippy; public API, MSRV, udeps if relevant
-cargo xtask check --all   # also public API, MSRV, udeps, rustdoc, the guide and the external build
+cargo xtask check         # fmt, JS suites, test, clippy; public API, udeps if relevant
+cargo xtask check --all   # also public API, udeps, rustdoc, the guide and the external build
 cargo xtask fmt           # the formatting checks alone
 cargo xtask public-api    # the public-API snapshots alone
 ```
 
-`check` stops at the first failure, cheapest first. MSRV and udeps run when any `Cargo.toml`,
-`Cargo.lock`, `rust-toolchain.toml` or `msrv-udeps.yml` differs from `master`; the public-API
+`check` stops at the first failure, cheapest first. udeps runs when any `Cargo.toml`,
+`Cargo.lock`, `rust-toolchain.toml` or `udeps.yml` differs from `master`; the public-API
 snapshots when `crates/`, a root manifest, `public-api/` or `xtask/src/gates.rs` does. CI runs
-the same commands in `.github/workflows/ci.yml` and `msrv-udeps.yml`, which hold the pinned
+the same commands in `.github/workflows/ci.yml` and `udeps.yml`, which hold the pinned
 toolchains. Run `check --all` before merging.
+
+`rust-toolchain.toml` pins the toolchain to the workspace `rust-version`, so every build runs the
+MSRV. Bump both in one PR.
 
 - `topcoat fmt` reflows `view!` markup differently across CLI releases, so only the pinned
   `topcoat-cli` agrees with CI. When it is missing or another version, `cargo xtask fmt` fails

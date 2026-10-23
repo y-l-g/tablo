@@ -1,6 +1,7 @@
 [toolchain]
-# Track stable, matching topcoat; the MSRV floor stays in `Cargo.toml`.
-channel = "stable"
+# The workspace `rust-version`: CI and local builds use the MSRV, so a Rust release changes
+# nothing until this pin and `rust-version` bump together.
+channel = "1.99"
 # Explicit so CI images without the default profile have the fmt/clippy tools.
 components = ["rustfmt", "clippy"]
 # The `fmt` and `public-api` jobs use the dated nightly `xtask/src/gates.rs` names: rustfmt.toml

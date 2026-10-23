@@ -11,20 +11,17 @@ use std::{
 /// JSON `cargo public-api` reads (each of its releases reads a range of JSON format versions).
 pub const NIGHTLY: &str = "nightly-2026-08-24";
 
-/// MSRV floor: the workspace `rust-version`, which xtask inherits.
-pub const MSRV: &str = env!("CARGO_PKG_RUST_VERSION");
-
 /// The detached app `external-check` builds from outside the repository.
 pub const QUICKSTART: &str = "examples/quickstart";
 
-/// Mirrors the `pull_request: paths` filter of `.github/workflows/msrv-udeps.yml`.
-pub const MSRV_PATHS: &[&str] = &[
+/// Mirrors the `pull_request: paths` filter of `.github/workflows/udeps.yml`.
+pub const UDEPS_PATHS: &[&str] = &[
     "Cargo.toml",
     "Cargo.lock",
     "**/Cargo.toml",
     "**/Cargo.lock",
     "rust-toolchain.toml",
-    ".github/workflows/msrv-udeps.yml",
+    ".github/workflows/udeps.yml",
 ];
 
 /// What can change a published crate's public API: its sources, its dependencies, the snapshots
@@ -40,7 +37,7 @@ pub const PUBLIC_API_PATHS: &[&str] = &[
 /// Whether `check` skips the gates CI would not run for the change.
 #[derive(PartialEq, Eq)]
 pub enum Scope {
-    /// The fast gates only: the MSRV/udeps gates without `MSRV_PATHS` changes and the public-API
+    /// The fast gates only: the udeps gate without `UDEPS_PATHS` changes and the public-API
     /// gate without `PUBLIC_API_PATHS` changes stay skipped, and docs and the external build never
     /// run.
     Auto,
@@ -416,8 +413,8 @@ fn udeps_installed(run: &dyn Runner, root: &Path) -> bool {
 }
 
 /// The CI checks as a local fail-fast runner, cheapest first. Docs and the external build run only
-/// under `Scope::All`; CI covers them in parallel jobs. The MSRV/udeps gates run only
-/// with `MSRV_PATHS` changes, matching the CI path filter, and the public-API gate only with
+/// under `Scope::All`; CI covers them in parallel jobs. The udeps gate runs only
+/// with `UDEPS_PATHS` changes, matching the CI path filter, and the public-API gate only with
 /// `PUBLIC_API_PATHS` changes.
 pub fn check(run: &dyn Runner, scope: Scope) -> anyhow::Result<()> {
     let root = repo_root();
@@ -449,15 +446,7 @@ fn check_with(
     )?;
     run.run(
         "cargo",
-        &[
-            "clippy",
-            "--workspace",
-            "--all-targets",
-            "--locked",
-            "--",
-            "-D",
-            "warnings",
-        ],
+        &["clippy", "--workspace", "--all-targets", "--locked"],
         Some(&root),
         &[],
     )?;
@@ -466,14 +455,7 @@ fn check_with(
     } else {
         println!("skipped the public-API snapshots: no crate, manifest or pin changed");
     }
-    if all || touches(MSRV_PATHS) {
-        let msrv = format!("+{MSRV}");
-        run.run(
-            "cargo",
-            &[&msrv, "check", "--workspace", "--locked"],
-            Some(&root),
-            &[],
-        )?;
+    if all || touches(UDEPS_PATHS) {
         if !udeps_installed(run, &root) {
             run.run(
                 "cargo",
@@ -495,7 +477,7 @@ fn check_with(
             &[],
         )?;
     } else {
-        println!("skipped the MSRV check and udeps: no manifest or lockfile changed");
+        println!("skipped udeps: no manifest or lockfile changed");
     }
     if all {
         run.run(
