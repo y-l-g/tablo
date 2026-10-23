@@ -53,6 +53,17 @@ async fn post_upload(
     client.post_multipart(MEDIA_PATH, boundary, body).await
 }
 
+/// The URL the media library links `path` at, as the client's page renders it.
+async fn served_url(client: &TestClient<'_>, path: &str) -> String {
+    let html = body_string(client.get(MEDIA_PATH).await).await;
+    let start = html
+        .find(&format!("\"{path}?"))
+        .unwrap_or_else(|| panic!("the library links {path}: {html}"))
+        + 1;
+    let end = start + html[start..].find('"').expect("the attribute closes");
+    html[start..end].replace("&amp;", "&")
+}
+
 /// One upload with a freshly minted CSRF pair, as the demo admin.
 async fn upload(
     router: &Router,
@@ -123,8 +134,9 @@ async fn a_client_filename_is_stored_as_a_basename_inside_the_served_directory()
     // Serving it back is what proves it landed inside the directory the panel
     // serves: a file written anywhere else is not reachable at this path.
     let client = demo_client(&router, &db).await;
+    let url = served_url(&client, &row.path).await;
     assert_eq!(
-        client.get(&row.path).await.status(),
+        client.get(&url).await.status(),
         200,
         "{} must be inside the served directory",
         row.path
@@ -170,7 +182,7 @@ async fn a_filename_that_would_break_the_url_still_fetches_back() {
             row.path
         );
 
-        let response = client.get(&row.path).await;
+        let response = client.get(&served_url(&client, &row.path).await).await;
         assert_eq!(
             response.status(),
             200,
@@ -219,4 +231,43 @@ async fn the_library_lists_one_tenants_rows() {
         !html.contains("data-media-row"),
         "another tenant's media must not be listed: {html}"
     );
+}
+
+/// An upload opens only at the signed URL the library renders: its bare path, a signature for
+/// another file and a forged expiry answer 404, to a signed-in client as to anyone.
+#[tokio::test]
+async fn an_upload_opens_only_at_the_url_a_page_signed() {
+    let db = full_db().await;
+    let router = router_with_app_uploads(db.clone());
+    upload(&router, &db, "a.png", "image/png", PAYLOAD).await;
+    upload(&router, &db, "b.png", "image/png", PAYLOAD).await;
+    let mut db_q = db.clone();
+    let rows = MediaAsset::all().exec(&mut db_q).await.unwrap();
+    let path = |name: &str| {
+        rows.iter()
+            .find(|row| row.filename == name)
+            .map(|row| row.path.clone())
+            .unwrap()
+    };
+    let client = demo_client(&router, &db).await;
+    let signed = served_url(&client, &path("a.png")).await;
+    assert_eq!(client.get(&signed).await.status(), 200);
+    assert_eq!(
+        TestClient::new(&router).get(&signed).await.status(),
+        200,
+        "the signature is the access, not the session"
+    );
+
+    let (_, query) = signed.split_once('?').unwrap();
+    let expires = query
+        .split('&')
+        .find_map(|pair| pair.strip_prefix("expires="))
+        .unwrap();
+    for refused in [
+        path("a.png"),
+        format!("{}?{query}", path("b.png")),
+        signed.replace(expires, "99999999999"),
+    ] {
+        assert_eq!(client.get(&refused).await.status(), 404, "{refused}");
+    }
 }

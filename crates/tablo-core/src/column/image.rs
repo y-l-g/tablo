@@ -88,6 +88,7 @@ where
         if !shown {
             return crate::schema::value_cell(cx, &src);
         }
+        let src = crate::schema::file_href(cx, &src);
         let class = if self.circular {
             "shrink-0 rounded-full object-cover ring-1 ring-foreground/10"
         } else {

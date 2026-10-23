@@ -71,7 +71,11 @@ What Tablo does by default, and what your deployment must provide for those defa
 - A file field stores only a value that came from a file part, never a path typed into the form,
   and renders a stored value as a link only when it is a root-relative path or an `http(s)` URL:
   [`Uploader`](https://y-l.fr/tablo/nightly/api/tablo/trait.Uploader.html).
-- Files served with `Panel::serve_dir` share the panel's origin, so they carry headers that make
-  an uploaded HTML or SVG file download instead of running script. Served directories are
-  **public** unless they sit under the panel prefix:
+- `Panel::uploads_dir` serves a file only at a signed URL that expires within two hours, which a
+  page renders after checking the user may see the record, so a link copied into a chat or a log
+  stops working:
+  [`Panel::uploads_dir`](https://y-l.fr/tablo/nightly/api/tablo/struct.Panel.html#method.uploads_dir).
+- Files served with `Panel::serve_dir` or `uploads_dir` share the panel's origin, so they carry
+  headers that make an uploaded HTML or SVG file download instead of running script. A
+  `serve_dir` directory is **public** unless it sits under the panel prefix:
   [`Panel::serve_dir`](https://y-l.fr/tablo/nightly/api/tablo/struct.Panel.html#method.serve_dir).

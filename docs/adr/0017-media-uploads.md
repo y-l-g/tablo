@@ -12,3 +12,12 @@ library. Uploads run before the write transaction, so a rolled-back write does n
 implements `Uploader`. `Panel::serve_dir` serves an app directory with headers that keep files inert on the panel's
 origin. A served directory outside the panel prefix is public: the auth gate covers only that
 prefix and the runtime (ADR-0013).
+
+The `uploads_dir` directory answers only at a URL the panel signed, with an expiry one to two hours
+out: wherever the panel links or shows a stored path it checked the user may see, it signs it,
+and an app page signs with `url::file`. A leaked link opens the file until it expires, to anyone.
+Rejected: a route under the prefix per record and field that loads the record through its scoped
+query and checks `View` on each request. A stored path renders in columns, relation tables and app
+pages that know no owning record, and every `Uploader` would have to stream its bytes back; a
+signature needs neither. Rejected too: binding the signature to the browser's CSRF cookie, which a
+page streamed before the cookie is set cannot read.

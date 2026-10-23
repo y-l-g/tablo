@@ -82,6 +82,8 @@ pub(crate) struct PanelState {
     pub(crate) uploads: Option<InstalledUploader>,
     /// The route patterns of the directories the panel serves.
     pub(crate) served_paths: Vec<String>,
+    /// The URL prefixes, such as `/uploads/`, of the directories served at signed URLs only.
+    pub(crate) signed_roots: Vec<String>,
     /// The URL each registered resource and page is served at, by type.
     pub(crate) urls: HashMap<TypeId, String>,
     /// The registered pages as the panel mounted them, by type.

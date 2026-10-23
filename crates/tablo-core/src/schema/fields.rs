@@ -6,7 +6,7 @@ mod check;
 mod choice;
 mod chrome;
 pub(crate) mod custom;
-mod file;
+pub(crate) mod file;
 mod placement;
 mod read_only;
 mod rich_text;

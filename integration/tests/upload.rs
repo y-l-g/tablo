@@ -895,3 +895,44 @@ async fn a_serve_dir_path_without_a_catch_all_fails_the_build() {
         }
     );
 }
+
+/// `uploads_dir` serves a stored file only at the signed URL the edit form links; the bare path
+/// answers 404.
+#[tokio::test]
+async fn uploads_dir_serves_a_file_at_the_signed_link_only() {
+    let db = seeded_db().await;
+    let dir = temp_dir("signed");
+    std::fs::write(dir.join("cat.png"), b"PNG-FILE").expect("write upload");
+    let router = mount(
+        db.clone(),
+        Panel::new("admin")
+            .auth(Auth::disabled())
+            .uploads_dir("/uploads", dir)
+            .resource::<DocResource>(),
+    )
+    .expect("panel builds");
+    let doc = seed_doc(
+        &db,
+        "Notes",
+        "/uploads/cat.png",
+        "https://cdn.example/spec.pdf",
+    )
+    .await;
+
+    let html = body_string(get(&router, &format!("/admin/docs/{}/edit", doc.id)).await).await;
+    let start = html
+        .find("href=\"/uploads/cat.png?")
+        .expect("the cover links")
+        + 6;
+    let end = start + html[start..].find('"').unwrap();
+    let signed = html[start..end].replace("&amp;", "&");
+    assert!(
+        html.contains("href=\"https://cdn.example/spec.pdf\""),
+        "a URL outside the directory links as stored: {html}"
+    );
+
+    let response = get(&router, &signed).await;
+    assert_eq!(response.status(), 200);
+    assert_eq!(body_bytes(response).await, b"PNG-FILE");
+    assert_eq!(get(&router, "/uploads/cat.png").await.status(), 404);
+}

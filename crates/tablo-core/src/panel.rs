@@ -128,7 +128,7 @@ pub struct Panel {
     /// Where file field bytes go; `None` refuses to mount a form with a file field.
     uploads: Option<crate::upload::InstalledUploader>,
     /// App-owned filesystem directories served with hardening headers.
-    served_dirs: Vec<(String, PathBuf)>,
+    served_dirs: Vec<headers::ServedDir>,
     login_hint: Option<crate::Text>,
     /// The app's entries in the user menu, above Sign out.
     user_menu: Vec<crate::NavigationItem>,
@@ -193,18 +193,26 @@ impl Panel {
         self
     }
 
-    /// Stores file fields' uploads in `dir` and serves them at `url_prefix` (`"/uploads"`): a
-    /// [`DirUploader`](crate::upload::DirUploader) and [`serve_dir`](Self::serve_dir) over the
-    /// same directory.
+    /// Stores file fields' uploads in `dir` and serves them at `url_prefix` (`"/uploads"`), through
+    /// a [`DirUploader`](crate::upload::DirUploader).
     ///
     /// ```no_run
     /// # use tablo_core::Panel;
     /// Panel::new("admin").uploads_dir("/uploads", "var/uploads");
     /// ```
+    ///
+    /// The directory answers only at a signed URL that expires, so a file's bare URL opens
+    /// nothing and a leaked link stops working within two hours. The panel signs a file field's
+    /// link, a [`FileColumn`](crate::FileColumn)'s and an [`ImageColumn`](crate::ImageColumn)'s
+    /// thumbnail when it renders them, on a page whose tenant and policy let the user see the
+    /// record; a page of the app's own signs a stored path with [`url::file`](crate::url::file).
+    /// The key derives from the router's cookie `Key`, else from one drawn per process, so
+    /// without a shared `Key` a link opens only on the instance that rendered it. Any other
+    /// request answers 404. The files carry [`serve_dir`](Self::serve_dir)'s hardening headers.
     pub fn uploads_dir(self, url_prefix: &str, dir: impl Into<PathBuf>) -> Self {
         let url_prefix = url_prefix.trim_end_matches('/');
         let dir = dir.into();
-        self.serve_dir(format!("{url_prefix}/{{*file}}"), dir.clone())
+        self.serve(format!("{url_prefix}/{{*file}}"), dir.clone(), true)
             .uploads(crate::upload::DirUploader::new(url_prefix, dir))
     }
 
@@ -218,15 +226,21 @@ impl Panel {
     ///   or plain text, so an uploaded HTML or SVG file downloads instead of running script.
     ///
     /// Serve active documents from another origin. The directory is **public**: the auth gate does
-    /// not cover it, unless `path` sits under the panel prefix, which the gate covers.
-    pub fn serve_dir(mut self, path: impl Into<String>, dir: impl Into<PathBuf>) -> Self {
-        let path = path.into();
+    /// not cover it, unless `path` sits under the panel prefix, which the gate covers. Serve
+    /// uploads with [`uploads_dir`](Self::uploads_dir) instead, whose URLs expire.
+    pub fn serve_dir(self, path: impl Into<String>, dir: impl Into<PathBuf>) -> Self {
+        self.serve(path.into(), dir.into(), false)
+    }
+
+    /// Serves `dir` at `path`, at signed URLs only when `signed`.
+    fn serve(mut self, path: String, dir: PathBuf, signed: bool) -> Self {
         if !is_directory_pattern(&path) {
             self.configuration_errors.push(DeclarationError::panel(
                 DeclarationErrorKind::ServeDirWithoutCatchAll { path: path.clone() },
             ));
         }
-        self.served_dirs.push((path, dir.into()));
+        self.served_dirs
+            .push(headers::ServedDir { path, dir, signed });
         self
     }
 

@@ -22,6 +22,7 @@ use std::{collections::HashSet, marker::PhantomData};
 pub use condition::Watched;
 pub use embedded::EmbeddedForm;
 use fields::ChoiceControl;
+pub(crate) use fields::file::{FileHref, file_href};
 pub use fields::{
     ChoiceField, CustomField, Field, FileField, IntoFormValue, IntoOptions, RepeaterField,
     RichTextField, Switch, TextField, Toggle,
