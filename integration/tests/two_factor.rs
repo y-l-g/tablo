@@ -6,7 +6,7 @@ use http::header::LOCATION;
 use tablo::{
     Auth, DeclarationErrorKind, LoginThrottle, NoForm, Panel, ReadOnly, Resource, ResourceDef,
     RouterBuilderPanelExt, Table, TextColumn, TwoFactor, TwoFactorFault,
-    auth::{AdminUser, AuthFactor, AuthSession, AuthToken, create_admin},
+    auth::{AdminUser, AuthFactor, AuthSession, AuthToken, FactorKind, create_admin},
     lens,
     testing::{
         SESSION_COOKIE, TestClient, authenticator_code_at, body_string, form_body, now,
@@ -392,6 +392,52 @@ async fn new_recovery_codes_replace_the_earlier_ones() {
     let challenged = password(&router).await;
     assert_eq!(answer(&challenged, &first[1]).await.status(), 422);
     assert_eq!(answer(&challenged, &fresh[0]).await.status(), 303);
+}
+
+/// Accounts renewing their recovery codes at once each get theirs: a transaction the database
+/// aborts for another account's runs again rather than answering an outage.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn recovery_codes_renewed_by_several_accounts_at_once_each_arrive() {
+    const ACCOUNTS: usize = 8;
+    let (db, _) = db().await;
+    // Leaked so that each renewal's client outlives the test's stack in its own task.
+    let router: &'static Router = Box::leak(Box::new(router(db.clone(), TwoFactor::new())));
+    let mut enrolled = Vec::new();
+    for n in 0..ACCOUNTS {
+        let email = format!("admin{n}@example.com");
+        let admin = create_admin(&mut db.clone(), &email, PASSWORD, "Admin")
+            .await
+            .unwrap();
+        let (_, _, codes, client) = enrol(router, &db, &admin).await;
+        enrolled.push((codes.into_iter().next().unwrap(), client));
+    }
+
+    let renewals: Vec<_> = enrolled
+        .into_iter()
+        .map(|(code, client)| {
+            tokio::spawn(async move {
+                let issued = client
+                    .submit(
+                        SETTINGS,
+                        &form_body(&[("intent", "recovery-codes"), ("code", &code)]),
+                    )
+                    .await;
+                assert_eq!(issued.status(), 200);
+                recovery_codes(&body_string(issued).await)
+            })
+        })
+        .collect();
+    for renewal in renewals {
+        assert_eq!(renewal.await.unwrap().len(), 8);
+    }
+    let stored = AuthFactor::all().exec(&mut db.clone()).await.unwrap();
+    assert_eq!(
+        stored
+            .iter()
+            .filter(|factor| factor.kind == FactorKind::RecoveryCode)
+            .count(),
+        ACCOUNTS * 8
+    );
 }
 
 /// A panel that requires it sends a signed-in account without an authenticator to set one up

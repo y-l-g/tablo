@@ -254,11 +254,65 @@ pub(super) async fn serializable(db: &mut toasty::Db) -> topcoat::Result<toasty:
         .map_err(infrastructure_failure)
 }
 
-/// How many times [`issue_alone`] runs its transaction before it gives up on a conflict.
-const ISSUE_ATTEMPTS: u32 = 5;
+/// How many times [`run_serializable!`] runs its transaction before it gives up on a conflict.
+const ATTEMPTS: u32 = 5;
 
-/// [`issue`] in a serializable transaction of its own, run again when the database aborts it for
-/// a concurrent one: a link mailed after the response has no visitor left to try again.
+/// Runs `$body`, an async block answering a `topcoat::Result`, in a serializable transaction it
+/// reaches as `$tx` (a `&mut toasty::Transaction`), and commits when `$body` answers `Ok`. When the
+/// database aborts the transaction for a concurrent one, both run again: PostgreSQL and MySQL abort
+/// one of two overlapping transactions even when they act on different accounts.
+///
+/// `$body` may run several times, so it does nothing the transaction does not undo: a mail, a
+/// notification or a page waits for the answer, and a session goes through
+/// [`super::session::start_once`]. A macro rather than a function taking a closure: a closure
+/// borrowing the transaction and the request's locals has no lifetime to name.
+macro_rules! run_serializable {
+    ($cx:expr, |$tx:ident| $body:expr) => {{
+        let mut db = crate::db::db($cx);
+        let mut attempt = 1;
+        loop {
+            let run = async {
+                let mut tx = crate::auth::token::serializable(&mut db).await?;
+                let answer = {
+                    let $tx = &mut tx;
+                    crate::auth::token::answering($body).await?
+                };
+                tx.commit()
+                    .await
+                    .map_err(crate::auth::infrastructure_failure)?;
+                topcoat::Result::Ok(answer)
+            }
+            .await;
+            let Err(error) = run else { break run };
+            if !crate::auth::token::waited_to_retry(&mut attempt, &error).await {
+                break Err(error);
+            }
+        }
+    }};
+}
+pub(super) use run_serializable;
+
+/// `body` as it is: names the error type a [`run_serializable!`] body answers, which its `?`
+/// cannot infer.
+pub(super) fn answering<T>(
+    body: impl Future<Output = topcoat::Result<T>>,
+) -> impl Future<Output = topcoat::Result<T>> {
+    body
+}
+
+/// Whether a transaction that failed with `error` on its `attempt`th run runs again: after a
+/// conflict, up to [`ATTEMPTS`] runs, once a [`backoff`] has passed.
+pub(super) async fn waited_to_retry(attempt: &mut u32, error: &topcoat::Error) -> bool {
+    if *attempt >= ATTEMPTS || !TabloError::is_conflict(error) {
+        return false;
+    }
+    tokio::time::sleep(backoff(*attempt)).await;
+    *attempt += 1;
+    true
+}
+
+/// [`issue`] in a transaction of its own, which [`run_serializable!`] runs again on a conflict: a
+/// link mailed after the response has no visitor left to try again.
 pub(super) async fn issue_alone(
     cx: &Cx,
     purpose: TokenPurpose,
@@ -266,24 +320,9 @@ pub(super) async fn issue_alone(
     email: Option<String>,
     lifetime: Duration,
 ) -> topcoat::Result<Token> {
-    let mut db = crate::db::db(cx);
-    let mut attempt = 1;
-    loop {
-        let issued = async {
-            let mut tx = serializable(&mut db).await?;
-            let token = issue(cx, &mut tx, purpose, user_id, email.clone(), lifetime).await?;
-            tx.commit().await.map_err(infrastructure_failure)?;
-            Ok(token)
-        }
-        .await;
-        match issued {
-            Err(error) if attempt < ISSUE_ATTEMPTS && TabloError::is_conflict(&error) => {
-                tokio::time::sleep(backoff(attempt)).await;
-                attempt += 1;
-            }
-            issued => return issued,
-        }
-    }
+    run_serializable!(cx, |tx| async {
+        issue(cx, tx, purpose, user_id, email.clone(), lifetime).await
+    })
 }
 
 /// A random wait under 20ms doubled per failed `attempt`: transactions that aborted each other

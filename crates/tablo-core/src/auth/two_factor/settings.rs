@@ -22,9 +22,9 @@ use crate::{
     auth::{
         SignedIn, infrastructure_failure,
         realm::{hosted, panel_prefix},
-        session::replace_sessions,
+        session::{replace_sessions, start_once},
         signed,
-        token::serializable,
+        token::run_serializable,
         unauthenticated_error,
     },
     flash::set_notification,
@@ -197,92 +197,94 @@ pub(in crate::auth) fn settings_post(cx: &Cx, body: Body) -> BoxView<'_> {
                 return pages::settings(cx, off(signed, two_factor, true)).await;
             }
         }
-        let mut db = crate::db::db(cx);
-        let mut tx = serializable(&mut db).await?;
-        let enrolment = enrolment(cx, &mut tx, &user_id).await?;
         let user_type = authenticator.user_type();
-        match (intent, &enrolment.confirmed, &enrolment.unconfirmed) {
-            (Intent::Start, None, _) => {
-                let secret = start_authenticator(cx, &mut tx, &user_id).await?;
-                tx.commit().await.map_err(infrastructure_failure)?;
-                pages::settings(cx, setup(cx, signed, &secret, false)?).await
-            }
-            (Intent::StartEmail, None, _)
-                if matches!(
-                    off(signed, two_factor, false),
-                    Settings::Off { email: true, .. }
-                ) =>
-            {
-                start(cx, &mut tx, &user_id, FactorKind::EmailCode, String::new()).await?;
-                tx.commit().await.map_err(infrastructure_failure)?;
-                email::send(cx, two_factor, signed.user.as_ref())
-                    .await?
-                    .or_too_many(two_factor)?;
-                Err(see_other(settings_url(cx)).into())
-            }
-            (Intent::Send, Some(factor), _) | (Intent::Send, None, Some(factor))
-                if factor.kind == FactorKind::EmailCode =>
-            {
-                drop(tx);
-                email::send(cx, two_factor, signed.user.as_ref())
-                    .await?
-                    .or_too_many(two_factor)?;
-                set_notification(
-                    cx,
-                    Notification::success(crate::t!(cx, "tablo-two-factor-sent-toast")),
-                );
-                Err(see_other(settings_url(cx)).into())
-            }
-            (Intent::Confirm, None, Some(factor)) => {
-                if !accept_factor(cx, &mut tx, factor, code).await? {
-                    drop(tx);
-                    return standing(cx, signed, two_factor, &enrolment, true).await;
+        let mut started = None;
+        let settled = run_serializable!(cx, |tx| async {
+            let enrolment = enrolment(cx, tx, &user_id).await?;
+            let settled = match (intent, &enrolment.confirmed, &enrolment.unconfirmed) {
+                (Intent::Start, None, _) => {
+                    Settled::Setup(start_authenticator(cx, tx, &user_id).await?)
                 }
-                super::AuthFactor::filter(super::AuthFactor::fields().id().eq(factor.id))
-                    .update()
-                    .confirmed_at(Some(jiff::Timestamp::now()))
-                    .exec(&mut tx)
-                    .await
-                    .map_err(infrastructure_failure)?;
-                let codes = issue_recovery_codes(cx, &mut tx, &user_id).await?;
-                // A second factor is a credential: the sessions the password alone opened end.
-                let session = topcoat::session::start(cx).await?;
-                replace_sessions(cx, &mut tx, signed, user_type, &session).await?;
-                tx.commit().await.map_err(infrastructure_failure)?;
-                two_factor.throttle.clear(&user_id, None);
-                pages::settings(cx, Settings::Codes { codes, first: true }).await
-            }
-            (Intent::Cancel, None, Some(_)) => {
-                remove_all(cx, &mut tx, &user_id).await?;
-                tx.commit().await.map_err(infrastructure_failure)?;
-                Err(see_other(settings_url(cx)).into())
-            }
-            (Intent::RecoveryCodes, Some(_), _) => {
-                if !accept(cx, &mut tx, &user_id, code).await? {
-                    drop(tx);
-                    return standing(cx, signed, two_factor, &enrolment, true).await;
+                (Intent::StartEmail, None, _)
+                    if matches!(
+                        off(signed, two_factor, false),
+                        Settings::Off { email: true, .. }
+                    ) =>
+                {
+                    start(cx, tx, &user_id, FactorKind::EmailCode, String::new()).await?;
+                    Settled::Mail { notice: false }
                 }
-                let codes = issue_recovery_codes(cx, &mut tx, &user_id).await?;
-                tx.commit().await.map_err(infrastructure_failure)?;
-                two_factor.throttle.clear(&user_id, None);
-                pages::settings(
-                    cx,
-                    Settings::Codes {
+                (Intent::Send, Some(factor), _) | (Intent::Send, None, Some(factor))
+                    if factor.kind == FactorKind::EmailCode =>
+                {
+                    Settled::Mail { notice: true }
+                }
+                (Intent::Confirm, None, Some(factor)) => {
+                    if !accept_factor(cx, tx, factor, code).await? {
+                        return Ok(Settled::Refused(Box::new(enrolment)));
+                    }
+                    super::AuthFactor::filter(super::AuthFactor::fields().id().eq(factor.id))
+                        .update()
+                        .confirmed_at(Some(jiff::Timestamp::now()))
+                        .exec(&mut *tx)
+                        .await
+                        .map_err(infrastructure_failure)?;
+                    let codes = issue_recovery_codes(cx, tx, &user_id).await?;
+                    // A second factor is a credential: the sessions the password alone opened
+                    // end.
+                    let session = start_once(cx, &mut started).await?;
+                    replace_sessions(cx, tx, signed, user_type, &session).await?;
+                    Settled::Codes { codes, first: true }
+                }
+                (Intent::Cancel, None, Some(_)) => {
+                    remove_all(cx, tx, &user_id).await?;
+                    Settled::Unchanged
+                }
+                (Intent::RecoveryCodes, Some(_), _) => {
+                    if !accept(cx, tx, &user_id, code).await? {
+                        return Ok(Settled::Refused(Box::new(enrolment)));
+                    }
+                    let codes = issue_recovery_codes(cx, tx, &user_id).await?;
+                    Settled::Codes {
                         codes,
                         first: false,
-                    },
-                )
-                .await
-            }
-            (Intent::Disable, Some(_), _) => {
-                if !accept(cx, &mut tx, &user_id, code).await? {
-                    drop(tx);
-                    return standing(cx, signed, two_factor, &enrolment, true).await;
+                    }
                 }
-                remove_all(cx, &mut tx, &user_id).await?;
-                let session = topcoat::session::start(cx).await?;
-                replace_sessions(cx, &mut tx, signed, user_type, &session).await?;
-                tx.commit().await.map_err(infrastructure_failure)?;
+                (Intent::Disable, Some(_), _) => {
+                    if !accept(cx, tx, &user_id, code).await? {
+                        return Ok(Settled::Refused(Box::new(enrolment)));
+                    }
+                    remove_all(cx, tx, &user_id).await?;
+                    let session = start_once(cx, &mut started).await?;
+                    replace_sessions(cx, tx, signed, user_type, &session).await?;
+                    Settled::Off
+                }
+                // An intent the factors as they stand do not allow, such as a second set-up
+                // racing a first: the page shows them as they are.
+                _ => Settled::Unchanged,
+            };
+            Ok(settled)
+        })?;
+        match settled {
+            Settled::Setup(secret) => pages::settings(cx, setup(cx, signed, &secret, false)?).await,
+            Settled::Mail { notice } => {
+                email::send(cx, two_factor, signed.user.as_ref())
+                    .await?
+                    .or_too_many(two_factor)?;
+                if notice {
+                    set_notification(
+                        cx,
+                        Notification::success(crate::t!(cx, "tablo-two-factor-sent-toast")),
+                    );
+                }
+                Err(see_other(settings_url(cx)).into())
+            }
+            Settled::Refused(enrolment) => standing(cx, signed, two_factor, &enrolment, true).await,
+            Settled::Codes { codes, first } => {
+                two_factor.throttle.clear(&user_id, None);
+                pages::settings(cx, Settings::Codes { codes, first }).await
+            }
+            Settled::Off => {
                 two_factor.throttle.clear(&user_id, None);
                 set_notification(
                     cx,
@@ -290,12 +292,24 @@ pub(in crate::auth) fn settings_post(cx: &Cx, body: Body) -> BoxView<'_> {
                 );
                 Err(see_other(settings_url(cx)).into())
             }
-            // An intent the factors as they stand do not allow, such as a second set-up racing a
-            // first: the page shows them as they are.
-            _ => {
-                drop(tx);
-                Err(see_other(settings_url(cx)).into())
-            }
+            Settled::Unchanged => Err(see_other(settings_url(cx)).into()),
         }
     })
+}
+
+/// What a settings POST's transaction settled, answered once it commits: a run the database
+/// aborted for a concurrent one answers nothing.
+enum Settled {
+    /// An authenticator is being set up with this secret.
+    Setup(Vec<u8>),
+    /// A code goes to the account's address, with a notice when the form asked for nothing else.
+    Mail { notice: bool },
+    /// The code proved nothing: the factors as they stand.
+    Refused(Box<Enrolment>),
+    /// Fresh recovery codes to show once.
+    Codes { codes: Vec<String>, first: bool },
+    /// Two-factor sign-in is off.
+    Off,
+    /// Nothing more to show than the factors as they stand.
+    Unchanged,
 }

@@ -27,7 +27,7 @@ use super::{
     mail::{after_response, private, token_from_query},
     panel_root, resolved,
     session::resolve,
-    token::{self, TokenPurpose, serializable},
+    token::{self, TokenPurpose, run_serializable},
     unauthenticated_error,
 };
 use crate::{
@@ -105,7 +105,9 @@ pub trait EmailVerifier: Send + Sync + 'static {
     /// Record, through the transaction `ex`, which commits when it returns `Ok`, that the account
     /// [`PanelUser::user_id`] `user_id` names proved it reads `email`: store `email` as the
     /// address it signs in with, which an email change makes new, and mark it verified. An id
-    /// that names no account is an error, not a success: the link is spent either way.
+    /// that names no account is an error, not a success: the link is spent either way. It may run
+    /// again for one link when the database aborts the transaction for a concurrent one, so it
+    /// writes only through `ex`.
     fn store_verified_email(
         &self,
         cx: &Cx,
@@ -353,21 +355,25 @@ pub(super) fn confirm_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
             return invalid_link(cx).await;
         }
         let email = row.email.clone().unwrap_or_default();
-        let mut tx = serializable(&mut db).await?;
-        // Read again inside the transaction: of two requests racing on one link, one commits.
-        if token::live(cx, &mut tx, TokenPurpose::EmailVerification, &encoded)
-            .await?
-            .is_none()
-        {
+        let verified = run_serializable!(cx, |tx| async {
+            // Read again inside the transaction: of two requests racing on one link, one commits.
+            if token::live(cx, tx, TokenPurpose::EmailVerification, &encoded)
+                .await?
+                .is_none()
+            {
+                return Ok(false);
+            }
+            verification
+                .verifier()
+                .store_verified_email(cx, &row.user_id, &email, tx)
+                .await
+                .map_err(infrastructure_failure)?;
+            token::spend(tx, &row).await?;
+            Ok(true)
+        })?;
+        if !verified {
             return invalid_link(cx).await;
         }
-        verification
-            .verifier()
-            .store_verified_email(cx, &row.user_id, &email, &mut tx)
-            .await
-            .map_err(infrastructure_failure)?;
-        token::spend(&mut tx, &row).await?;
-        tx.commit().await.map_err(infrastructure_failure)?;
         set_notification(
             cx,
             Notification::success(crate::t!(cx, "tablo-verify-done")),

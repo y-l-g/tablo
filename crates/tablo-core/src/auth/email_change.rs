@@ -24,8 +24,8 @@ use super::{
     mail::{TOKEN_FIELD, after_response, private, token_from_query},
     page::{AuthPage, render},
     panel_root,
-    session::{credential_panels, end_credentials, resolve},
-    token::{self, AuthToken, CREDENTIALS, REVOCATION, TokenPurpose, serializable},
+    session::{credential_panels, end_credentials, resolve, start_once},
+    token::{self, AuthToken, CREDENTIALS, REVOCATION, TokenPurpose, run_serializable},
     verification::VERIFICATION_LIFETIME,
 };
 use crate::{
@@ -375,34 +375,37 @@ pub(super) fn confirm_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             .ok_or_else(topcoat::router::error::not_found)?
             .verifier();
         let email = row.email.clone().unwrap_or_default();
-        let mut db = crate::db::db(cx);
-        let mut tx = serializable(&mut db).await?;
-        // Read again inside the transaction: of two requests racing on one link, one commits.
-        if token::live(cx, &mut tx, TokenPurpose::EmailChange, &encoded)
-            .await?
-            .is_none()
-        {
-            return super::verification::invalid_link(cx).await;
-        }
-        token::spend(&mut tx, &row).await?;
-        verifier
-            .store_verified_email(cx, &row.user_id, &email, &mut tx)
-            .await
-            .map_err(infrastructure_failure)?;
         let user_type = verifier.user_type().0;
-        let landing = match &signed {
-            Some(signed) => {
-                let session = topcoat::session::start(cx).await?;
-                super::session::replace_sessions(cx, &mut tx, signed, user_type, &session).await?;
-                panel_root(cx)
+        let mut started = None;
+        let landing = run_serializable!(cx, |tx| async {
+            // Read again inside the transaction: of two requests racing on one link, one commits.
+            if token::live(cx, tx, TokenPurpose::EmailChange, &encoded)
+                .await?
+                .is_none()
+            {
+                return Ok(None);
             }
-            None => {
-                let panels = credential_panels(cx, user_type, &panel);
-                end_credentials(&mut tx, &row.user_id, &panels, CREDENTIALS).await?;
-                login_url(cx)
-            }
+            token::spend(tx, &row).await?;
+            verifier
+                .store_verified_email(cx, &row.user_id, &email, tx)
+                .await
+                .map_err(infrastructure_failure)?;
+            Ok(Some(match &signed {
+                Some(signed) => {
+                    let session = start_once(cx, &mut started).await?;
+                    super::session::replace_sessions(cx, tx, signed, user_type, &session).await?;
+                    panel_root(cx)
+                }
+                None => {
+                    let panels = credential_panels(cx, user_type, &panel);
+                    end_credentials(tx, &row.user_id, &panels, CREDENTIALS).await?;
+                    login_url(cx)
+                }
+            }))
+        })?;
+        let Some(landing) = landing else {
+            return super::verification::invalid_link(cx).await;
         };
-        tx.commit().await.map_err(infrastructure_failure)?;
         set_notification(
             cx,
             Notification::success(crate::t!(cx, "tablo-email-change-done")).description(crate::t!(
@@ -451,25 +454,28 @@ pub(super) fn cancel_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             .ok_or_else(topcoat::router::error::not_found)?
             .verifier();
         let old = row.email.clone().unwrap_or_default();
-        let mut db = crate::db::db(cx);
-        let mut tx = serializable(&mut db).await?;
-        if token::live(cx, &mut tx, TokenPurpose::EmailChangeCancel, &encoded)
-            .await?
-            .is_none()
-        {
+        let cancelled = run_serializable!(cx, |tx| async {
+            if token::live(cx, tx, TokenPurpose::EmailChangeCancel, &encoded)
+                .await?
+                .is_none()
+            {
+                return Ok(false);
+            }
+            token::spend(tx, &row).await?;
+            if account.email() != Some(old.as_str()) {
+                // The change went through: the old address, which this link proved, comes back.
+                verifier
+                    .store_verified_email(cx, &row.user_id, &old, tx)
+                    .await
+                    .map_err(infrastructure_failure)?;
+            }
+            let panels = credential_panels(cx, verifier.user_type().0, &panel);
+            end_credentials(tx, &row.user_id, &panels, REVOCATION).await?;
+            Ok(true)
+        })?;
+        if !cancelled {
             return super::verification::invalid_link(cx).await;
         }
-        token::spend(&mut tx, &row).await?;
-        if account.email() != Some(old.as_str()) {
-            // The change went through: the old address, which this link proved, comes back.
-            verifier
-                .store_verified_email(cx, &row.user_id, &old, &mut tx)
-                .await
-                .map_err(infrastructure_failure)?;
-        }
-        let panels = credential_panels(cx, verifier.user_type().0, &panel);
-        end_credentials(&mut tx, &row.user_id, &panels, REVOCATION).await?;
-        tx.commit().await.map_err(infrastructure_failure)?;
         // The cancelling browser may hold one of the ended sessions; its cookie goes too.
         topcoat::session::stop(cx).await?;
         set_notification(
