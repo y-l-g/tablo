@@ -5,7 +5,10 @@ use std::{
     collections::HashMap,
     hash::{BuildHasher, RandomState},
     net::IpAddr,
-    sync::Mutex,
+    sync::{
+        Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
     time::{Duration, Instant},
 };
 
@@ -28,7 +31,12 @@ const MAX_TRACKED: usize = 10_000;
 /// through [`TrustedProxies`](topcoat::router::TrustedProxies); until then the count is per login
 /// alone, and a guesser can lock the owner out.
 ///
-/// It does not limit one client across logins, nor one login across many addresses, nor a login
+/// [`Auth::account_throttle`](crate::Auth::account_throttle) adds an opt-in, looser count per login
+/// across addresses. The first sign-in that carries `X-Forwarded-For` or `Forwarded` and whose
+/// client address is still the connection's logs a warning: either the router trusts no proxy, or
+/// the request bypassed the trusted ones.
+///
+/// It does not limit one client across logins, nor a login
 /// spelled several ways that the authenticator's lookup treats as one, as MySQL's default
 /// collation does with accents: a per-IP limit at the proxy covers those. Counts live in the
 /// process and per panel, so each replica and each panel counts its own attempts, and a restart
@@ -153,6 +161,29 @@ impl LoginThrottle {
     /// clear.
     fn key(&self, login: &str, client: Option<IpAddr>) -> u64 {
         self.hasher.hash_one((login.trim().to_lowercase(), client))
+    }
+}
+
+/// Logs one warning per process when a sign-in carries a forwarding header the router did not
+/// read: the throttle then keys on the proxy's address, which every client shares.
+pub(crate) fn warn_unforwarded(cx: &topcoat::context::Cx) {
+    static WARNED: AtomicBool = AtomicBool::new(false);
+    if WARNED.load(Ordering::Relaxed) {
+        return;
+    }
+    let headers = topcoat::router::request::headers(cx);
+    let forwarded = headers.contains_key("x-forwarded-for") || headers.contains_key("forwarded");
+    let peer = topcoat::router::request::remote_addr(cx).map(|addr| addr.ip());
+    if forwarded
+        && peer.is_some()
+        && topcoat::router::request::client_ip(cx) == peer
+        && !WARNED.swap(true, Ordering::Relaxed)
+    {
+        tracing::warn!(
+            peer = ?peer,
+            "a sign-in carries a forwarding header the router ignores; register \
+             `TrustedProxies` so sign-in throttles count per client, not per proxy"
+        );
     }
 }
 

@@ -144,7 +144,10 @@ pub(super) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             {
                 // A login past its limit reads as a wrong password, never reaching the
                 // authenticator.
-                if !panel.auth.login_throttle().attempt(login, client) {
+                super::throttle::warn_unforwarded(cx);
+                if !panel.auth.login_throttle().attempt(login, client)
+                    || !panel.auth.account_throttle_of().attempt(login, None)
+                {
                     tracing::warn!(
                         panel = %panel.prefix,
                         client = ?client,
@@ -166,6 +169,7 @@ pub(super) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         };
         if let Some(login) = login {
             panel.auth.login_throttle().clear(login, client);
+            panel.auth.account_throttle_of().clear(login, None);
         }
         if let Err(error) = sweep_expired_sessions(cx).await {
             tracing::error!(error = %error, "expired-session sweep failed");

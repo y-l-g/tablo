@@ -11,7 +11,8 @@ use super::{
 ///
 /// The default is [`Auth::password`]; [`Auth::custom`] installs an app-owned
 /// [`Authenticator`]; [`Auth::disabled`] is the explicit fail-open opt-out.
-/// Sign-in attempts are throttled per login by default; see [`Auth::throttle`].
+/// Sign-in attempts are throttled per login and address by default; see [`Auth::throttle`].
+/// [`Auth::account_throttle`] adds an opt-in count per login across addresses.
 /// [`Auth::registration`] adds a sign-up page, [`Auth::profile`] a profile page, and
 /// [`Auth::password_reset`] a forgot-password page that mails reset links through
 /// [`Auth::mail`], [`Auth::tenant_registration`] a page creating a tenant, and
@@ -19,6 +20,7 @@ use super::{
 pub struct Auth {
     authenticator: Option<Box<dyn DynAuthenticator>>,
     throttle: LoginThrottle,
+    account_throttle: LoginThrottle,
     pub(super) registrar: Option<Box<dyn DynRegistrar>>,
     sign_up_throttle: LoginThrottle,
     pub(super) profile_editor: Option<Box<dyn DynProfileEditor>>,
@@ -44,6 +46,7 @@ impl Auth {
         Self {
             authenticator: Some(Box::new(authenticator)),
             throttle: LoginThrottle::default(),
+            account_throttle: LoginThrottle::off(),
             registrar: None,
             sign_up_throttle: LoginThrottle::default(),
             profile_editor: None,
@@ -64,6 +67,7 @@ impl Auth {
         Self {
             authenticator: None,
             throttle: LoginThrottle::off(),
+            account_throttle: LoginThrottle::off(),
             registrar: None,
             sign_up_throttle: LoginThrottle::off(),
             profile_editor: None,
@@ -83,6 +87,18 @@ impl Auth {
     #[must_use]
     pub fn throttle(mut self, throttle: LoginThrottle) -> Self {
         self.throttle = throttle;
+        self
+    }
+
+    /// How many sign-in attempts one login may make from all addresses together in a window;
+    /// off by default. It stops a guesser who rotates addresses, at the cost of letting anyone
+    /// who knows a login refuse its owner until the window ends, again each window; a successful
+    /// sign-in clears it. Turn it on where a guessed password costs more than a locked-out
+    /// owner, with a limit high enough that only a distributed guesser reaches it, such as
+    /// `LoginThrottle::new(50, Duration::from_hours(1))`.
+    #[must_use]
+    pub fn account_throttle(mut self, throttle: LoginThrottle) -> Self {
+        self.account_throttle = throttle;
         self
     }
 
@@ -374,6 +390,11 @@ impl Auth {
         &self.throttle
     }
 
+    /// The sign-in throttle counted per login across addresses.
+    pub(crate) fn account_throttle_of(&self) -> &LoginThrottle {
+        &self.account_throttle
+    }
+
     /// The registrar, or `None` without a sign-up page.
     pub(crate) fn registrar(&self) -> Option<&dyn DynRegistrar> {
         self.authenticator.as_ref().and(self.registrar.as_deref())
@@ -465,6 +486,7 @@ impl std::fmt::Debug for Auth {
         } else {
             f.debug_struct("Auth")
                 .field("throttle", &self.throttle)
+                .field("account_throttle", &self.account_throttle)
                 .field("registration", &self.registrar.is_some())
                 .field("profile", &self.profile_editor.is_some())
                 .field("password_reset", &self.reset)
