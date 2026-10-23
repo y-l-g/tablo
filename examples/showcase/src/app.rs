@@ -455,20 +455,29 @@ pub fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf
     build_app(db, bundle, uploads).0
 }
 
-/// [`build_router`]'s router and the admin panel it mounts, which a test resolves its resources'
-/// URLs through.
-/// The key that seals two-factor secrets: `SHOWCASE_COOKIE_KEY`, at least 64 random bytes, kept
-/// secret and the same across restarts and replicas, as an app loads it. Without it a fresh key
-/// each start, which the in-memory database, forgetting every sealed secret too, gets away with.
+/// The key that seals two-factor secrets: `SHOWCASE_COOKIE_KEY`, 64 random bytes as 128 hex
+/// characters (`openssl rand -hex 64`), kept secret and the same across restarts and replicas,
+/// as an app loads it. Without it a fresh key each start, which the in-memory database,
+/// forgetting every sealed secret too, gets away with.
 fn cookie_key() -> Key {
-    match std::env::var("SHOWCASE_COOKIE_KEY") {
-        Ok(secret) => {
-            Key::try_from(secret.as_bytes()).expect("SHOWCASE_COOKIE_KEY holds at least 64 bytes")
-        }
-        Err(_) => Key::generate(),
-    }
+    let Ok(secret) = std::env::var("SHOWCASE_COOKIE_KEY") else {
+        return Key::generate();
+    };
+    let bytes: Option<Vec<u8>> = (0..secret.len())
+        .step_by(2)
+        .map(|at| {
+            secret
+                .get(at..at + 2)
+                .and_then(|pair| u8::from_str_radix(pair, 16).ok())
+        })
+        .collect();
+    bytes
+        .and_then(|bytes| Key::try_from(bytes.as_slice()).ok())
+        .expect("SHOWCASE_COOKIE_KEY holds at least 128 hex characters")
 }
 
+/// [`build_router`]'s router and the admin panel it mounts, which a test resolves its resources'
+/// URLs through.
 pub fn build_app(
     db: Db,
     bundle: Option<AssetBundle>,
