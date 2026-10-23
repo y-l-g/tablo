@@ -51,7 +51,7 @@ impl DateValue for jiff::civil::Date {
     }
 
     fn stored_text(&self) -> String {
-        FormScalar::to_label(self)
+        FormScalar::to_form(self)
     }
 }
 
@@ -61,7 +61,7 @@ impl DateValue for jiff::civil::DateTime {
     }
 
     fn stored_text(&self) -> String {
-        FormScalar::to_label(self)
+        FormScalar::to_form(self)
     }
 }
 
@@ -71,7 +71,7 @@ impl DateValue for jiff::Timestamp {
     }
 
     fn stored_text(&self) -> String {
-        FormScalar::to_label(self)
+        FormScalar::to_form(self)
     }
 }
 

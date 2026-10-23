@@ -18,13 +18,27 @@ enum Status {
 
 #[test]
 fn an_options_enum_shares_one_value_label_list() {
+    let options: Vec<_> = Status::options()
+        .into_iter()
+        .map(|(value, label)| (value, label.english()))
+        .collect();
     assert_eq!(
-        Status::options(),
-        vec![
+        options,
+        [
             ("draft".to_string(), "Draft".to_string()),
             ("published".to_string(), "Live".to_string()),
             ("arch".to_string(), "Archive".to_string()),
         ]
+    );
+    assert_eq!(
+        Status::Draft.label(),
+        crate::Text::option("status", "draft"),
+        "an undeclared label is the message `option-{{enum}}.{{variant}}`"
+    );
+    assert_eq!(
+        Status::Published.label(),
+        crate::Text::from("Live"),
+        "a declared label is plain"
     );
     assert_eq!(Status::Draft.value(), "draft");
     assert_eq!(Status::Published.label(), "Live");

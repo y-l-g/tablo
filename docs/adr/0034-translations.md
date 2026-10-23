@@ -21,6 +21,11 @@ offered locale of its language, by likely subtags: `zh-HK` reads `zh-Hant`.
   reads the message `field-word_count`, else "Word count". An app translates its derived labels
   in its catalog without declaring them. Fields, columns and filters share the id of their name,
   so one message translates all three.
+- An enum's options are the attributes of one message, `option-{enum}.{variant}`: the variant's
+  snake-case name is always a valid Fluent identifier, where an option's value, which a form
+  posts, need not be, and a translator finds an enum's words together. An option's label is a
+  `Text`, spelled where the request is known: a form's select, a column's cell, a group's header,
+  a filter's control.
 - `Text` implements `From<&str>` and `From<String>`, so a declaration written in one language
   keeps compiling, and `text!` builds a message with its arguments. A label is rendered where the
   request is known, never at mount.
@@ -33,8 +38,6 @@ offered locale of its language, by likely subtags: `zh-HK` reads `zh-Hant`.
 - The pseudo-locale `en-XA` accents every catalog letter, so a page shows at a glance which words
   no catalog spells.
 - What an operator reads, a declaration error or a log line, stays English.
-- A choice's option labels are strings yet, the one exception to "every label is a `Text`": the
-  options reach their controls already spelled. Making them `Text` is the next step.
 
 ## Rejected
 

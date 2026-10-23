@@ -101,7 +101,8 @@ one list of options:
 {{#include ../../../examples/guide/src/forms.rs:forms-role-options}}
 ```
 
-Each variant posts its `snake_case` name and reads as that name in sentence case;
+Each variant posts its `snake_case` name and reads as that name in sentence case, unless a
+catalog [translates](./translations.md#labels) it;
 [`Options`](https://y-l.fr/tablo/nightly/api/tablo_core/derive.Options.html) has the attributes that override either. A column, the
 detail page and a group header read a variant's label, and a query compares the variant itself: `User::fields().role().eq(Role::Admin)`. An `Option<Role>`
 field works the same way, reading an empty submission as `None`. An enum field without

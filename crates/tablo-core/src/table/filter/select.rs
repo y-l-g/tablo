@@ -8,6 +8,7 @@ use topcoat::{context::Cx, view::*};
 
 use super::{ControlFuture, Filter, FilterInput, FilterValue};
 use crate::{
+    Text,
     schema::{Binding, IntoOptions, OptionSource, Options, fields::Relationship},
     values::FormScalar,
 };
@@ -40,7 +41,7 @@ pub struct SelectFilter<M> {
     /// The predicate for a trimmed, listed value, or `None` when the field's type refuses it.
     matches: MatchFn,
     /// `(value, label)` pairs.
-    options: Vec<(String, String)>,
+    options: Vec<(String, Text)>,
     /// The first listed value the field's type does not parse.
     unparsed: Option<String>,
     related: Option<Relationship>,
@@ -71,7 +72,7 @@ where
         // The control offers each value as written, but the parse trims what a request submits,
         // so the option the predicate lists must be the trimmed spelling: an option declared
         // with padding is otherwise declared clean and never matches.
-        let options: Vec<(String, String)> = options
+        let options: Vec<(String, Text)> = options
             .into_iter()
             .map(|(value, label)| (value.trim().to_string(), label))
             .collect();
@@ -155,7 +156,7 @@ where
 
     /// The `(value, label)` options in declaration order; a relationship filter's load per
     /// request.
-    pub fn options(&self) -> &[(String, String)] {
+    pub fn options(&self) -> &[(String, Text)] {
         &self.options
     }
 
@@ -207,7 +208,12 @@ where
     /// A select over the options, or a checklist when the filter is
     /// [`multiple`](SelectFilter::multiple).
     fn control<'a>(&self, cx: &'a Cx, input: FilterInput) -> BoxView<'a> {
-        self.control_over(cx, input, &self.options)
+        let options: Vec<(String, String)> = self
+            .options
+            .iter()
+            .map(|(value, label)| (value.clone(), label.localize(cx)))
+            .collect();
+        self.control_over(cx, input, &options)
     }
 
     /// The control over the relationship's rows, once they have loaded.

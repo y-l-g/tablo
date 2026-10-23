@@ -2,7 +2,7 @@
 
 pub mod routers;
 
-use showcase::models::{DEMO_ADMIN_EMAIL, seed, seed_content, seed_staff};
+use showcase::models::{DEMO_ADMIN_EMAIL, PostStatus, seed, seed_content, seed_staff};
 pub use tablo::testing::{
     SESSION_COOKIE, TestClient, body_string, filter_options, find_href_with, form_body,
     input_value, mount, multipart_body, response_cookies, row_keys, session_cookie_value,
@@ -260,4 +260,12 @@ pub async fn runtime_post(
         request = request.header(http::header::COOKIE, format!("{SESSION_COOKIE}={session}"));
     }
     router.handle(request.body(Body::from("{}")).unwrap()).await
+}
+
+/// How an English page reads `status`: its derived label's fallback.
+pub fn status_label(status: PostStatus) -> &'static str {
+    match status {
+        PostStatus::Draft => "Draft",
+        PostStatus::Published => "Published",
+    }
 }

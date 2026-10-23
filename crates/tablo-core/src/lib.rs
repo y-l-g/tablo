@@ -73,6 +73,7 @@ pub mod __macro {
             assert_form_scalar, links_include, links_key, parse_list, parse_password, parse_scalar,
             required_input, write_links,
         },
+        i18n::option_label,
         schema::{
             ChoiceField, CustomField, EmbeddedForm, Field, FileField, HoldsTabs, IntoSchema,
             Options, RepeaterField, Schema, TextField,

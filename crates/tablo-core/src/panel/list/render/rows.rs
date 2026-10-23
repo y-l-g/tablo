@@ -338,7 +338,7 @@ impl<M> WiredTable<M> {
                     delete_action,
                     custom,
                     selectable,
-                    group: group_key.map(|group| group(row)),
+                    group: group_key.map(|group| group(row).localize(cx)),
                     group_header: None,
                 }
             })

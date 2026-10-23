@@ -15,7 +15,7 @@ mod text;
 pub(crate) use catalog::Catalog;
 pub(crate) use locale::{AcceptedLocale, LocaleSource, addressed_to, catalog_and_index};
 pub use locale::{Locale, locale};
-pub use text::Text;
+pub use text::{Text, option_label};
 
 #[cfg(test)]
 mod tests;

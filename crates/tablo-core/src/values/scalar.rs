@@ -52,8 +52,8 @@ pub trait FormScalar: Sized {
 
     /// What a column cell and a group header read: the form spelling, or an
     /// `Options` enum's label.
-    fn to_label(&self) -> String {
-        self.to_form()
+    fn to_label(&self) -> crate::Text {
+        self.to_form().into()
     }
 
     /// The color a badge shows the value in: an `Options` enum's `#[option(color = "…")]`, and
@@ -145,7 +145,7 @@ impl<T: NullableScalar> FormScalar for Option<T> {
         self.as_ref().map(T::to_form).unwrap_or_default()
     }
 
-    fn to_label(&self) -> String {
+    fn to_label(&self) -> crate::Text {
         self.as_ref().map(T::to_label).unwrap_or_default()
     }
 

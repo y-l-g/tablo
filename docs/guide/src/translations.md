@@ -69,9 +69,21 @@ translates it in its catalog without declaring it:
 | the plural of a label `text!("post")` | `post.plural` | the id |
 | a page `ReportsPage` | `page-reports` | Reports |
 | an action named `publish-drafts` | `action-publish-drafts` | Publish drafts |
+| the variant `PublishedLate` of an `Options` enum `PostStatus` | `option-post-status.published_late` | Published late |
 
 A field, its column and its filter share the message of their name, so one translation spells
-all three. A plain label's plural is the label pluralized in English: one written in another
+all three. An enum's options are the attributes of one message, which spells the enum's select, its
+column's cells, its group headers and its filter's options:
+
+```ftl
+option-post-status =
+    .draft = Brouillon
+    .published_late = Publié en retard
+```
+
+An embedded enum's variant reads the same message. `#[option(label = "..")]` declares a plain
+label, and a choice's `options` takes `(value, label)` pairs whose label is a `Text`, so
+`[("draft", text!("status-draft"))]` translates too. A plain label's plural is the label pluralized in English: one written in another
 language wants its `plural_label` declared.
 
 ## Words outside a label
@@ -102,5 +114,4 @@ Offer the pseudo-locale `en-XA` to see which words no catalog spells: it renders
 message with accented letters, so a word that reads plain is one written as a plain string.
 
 What an operator reads, a mount error or a log line, stays English. So do the few words of the UI
-primitives Tablo copies from upstream ("More", "More pages", "Sidebar", "Toggle sidebar"), and
-the labels of a choice's options.
+primitives Tablo copies from upstream ("More", "More pages", "Sidebar", "Toggle sidebar").

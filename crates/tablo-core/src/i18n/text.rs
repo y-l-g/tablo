@@ -121,6 +121,15 @@ impl Text {
         Self::derived(derived_id("field", name), capitalize(name))
     }
 
+    /// The label Tablo derives for the variant `variant` of the enum `enum_name`, both in snake
+    /// case: the message attribute `option-{enum}.{variant}`, the enum in kebab case, else the
+    /// variant capitalized. `PostStatus::PublishedLate` reads `option-post-status.published_late`,
+    /// else `Published late`.
+    pub(crate) fn option(enum_name: &str, variant: &str) -> Self {
+        let id = format!("option-{}.{variant}", enum_name.replace('_', "-"));
+        Self::derived(id, capitalize(variant))
+    }
+
     /// The label Tablo derives for the model `M`'s records: the message `resource-{model}`, else
     /// the model's type name in sentence case. `BlogPost` reads `resource-blog-post`, else
     /// `Blog post`.
@@ -152,6 +161,12 @@ impl Text {
     pub(crate) fn english(&self) -> String {
         super::Catalog::english().format(0, self)
     }
+}
+
+/// The label `#[derive(Options)]` gives a variant it declares no label for: the message
+/// `option-{enum}.{variant}`, else the variant capitalized.
+pub fn option_label(enum_name: &str, variant: &str) -> Text {
+    Text::option(enum_name, variant)
 }
 
 /// A text renders in the request's locale, in a `view!`'s content or an attribute's value.

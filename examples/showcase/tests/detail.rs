@@ -2,7 +2,7 @@ use showcase::models::{Author, Post, PostStatus, User};
 
 use crate::common::{
     body_string, demo_client, find_href_with, full_db, routers::router_for_tests as router,
-    tenantless_client,
+    status_label, tenantless_client,
 };
 
 async fn a_post_id(db: &mut toasty::Db) -> String {
@@ -106,7 +106,7 @@ async fn post_detail_renders_the_record_read_only() {
         "detail page must show the title: {html}"
     );
     assert!(
-        html.contains(post.status.label()),
+        html.contains(status_label(post.status)),
         "detail page must show the status: {html}"
     );
     assert!(

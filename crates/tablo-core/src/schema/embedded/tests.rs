@@ -4,9 +4,9 @@ use crate::{test_support::DummyUser, values::FormValues};
 /// An enum node over the discriminant column `kind`, one variant per value,
 /// built as `EmbeddedBuilder::enumeration` builds it from the app schema.
 fn enumeration(values: &[&str]) -> EmbeddedBuilder {
-    let variants: Vec<(String, String)> = values
+    let variants: Vec<(String, crate::Text)> = values
         .iter()
-        .map(|value| (value.to_string(), format!("Variant {value}")))
+        .map(|value| (value.to_string(), format!("Variant {value}").into()))
         .collect();
     EmbeddedBuilder {
         fields: vec![Field::discriminant(
