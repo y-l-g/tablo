@@ -34,9 +34,12 @@ pub(crate) async fn commit_write<'a, R: Resource, T>(
     let written = match written {
         Ok((value, outcome)) => {
             let change = change(value);
-            R::before_commit(cx, &change, &mut *tx)
-                .await
-                .map(|()| (change, outcome))
+            match R::before_commit(cx, &change, &mut *tx).await {
+                Ok(()) => keep_uploads(cx, resource, &change)
+                    .await
+                    .map(|()| (change, outcome)),
+                Err(error) => Err(error),
+            }
         }
         Err(error) => Err(error),
     };
@@ -53,6 +56,23 @@ pub(crate) async fn commit_write<'a, R: Resource, T>(
         &resource.url,
     )
     .await
+}
+
+/// Keeps the new uploads `change` stores, before it commits.
+async fn keep_uploads<R: Resource>(
+    cx: &Cx,
+    resource: &Mounted<R>,
+    change: &Change<R::Model>,
+) -> Result<(), topcoat::Error> {
+    let hydrate = |record| <R::Form as RecordForm>::hydrate(cx, record);
+    let (before, after) = match change {
+        Change::Create(record) => (None, hydrate(record)),
+        Change::Update { before, after } => (Some(hydrate(before)), hydrate(after)),
+        _ => return Ok(()),
+    };
+    crate::upload::keep(uploader(cx), &resource.form, before.as_ref(), &after)
+        .await
+        .map_err(crate::error::unavailable)
 }
 
 /// Deletes the uploads a committed `change` let go: every file of a removed record, and a file

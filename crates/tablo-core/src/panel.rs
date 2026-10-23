@@ -209,11 +209,17 @@ impl Panel {
     /// The key derives from the router's cookie `Key`, else from one drawn per process, so
     /// without a shared `Key` a link opens only on the instance that rendered it. Any other
     /// request answers 404. The files carry [`serve_dir`](Self::serve_dir)'s hardening headers.
+    ///
+    /// A file a record form stored for a submission that never saved is deleted after 24 hours:
+    /// [`DirUploader::expire_pending`](crate::upload::DirUploader::expire_pending).
     pub fn uploads_dir(self, url_prefix: &str, dir: impl Into<PathBuf>) -> Self {
         let url_prefix = url_prefix.trim_end_matches('/');
         let dir = dir.into();
         self.serve(format!("{url_prefix}/{{*file}}"), dir.clone(), true)
-            .uploads(crate::upload::DirUploader::new(url_prefix, dir))
+            .uploads(
+                crate::upload::DirUploader::new(url_prefix, dir)
+                    .expire_pending(std::time::Duration::from_secs(24 * 3600)),
+            )
     }
 
     /// Serves the directory `dir` at route pattern `path`, which must end in a catch-all.

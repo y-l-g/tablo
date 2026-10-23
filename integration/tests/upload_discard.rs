@@ -165,3 +165,42 @@ async fn a_delete_deletes_the_records_files_and_leaves_others() {
         "a file the uploader does not hold is never deleted"
     );
 }
+
+/// Whether the file a stored path names still waits for a write to keep it.
+fn pending(dir: &Path, path: &str) -> bool {
+    dir.join(".pending")
+        .join(path.strip_prefix("/uploads/").unwrap())
+        .exists()
+}
+
+/// A committed create keeps the files it stores; a refused one leaves its upload pending, for
+/// the sweep to delete.
+#[tokio::test]
+async fn only_a_committed_write_keeps_its_uploads() {
+    let (router, db, dir) = setup().await;
+    let sheet = create(&router, &db).await;
+    assert!(!pending(&dir, &sheet.cover) && !pending(&dir, &sheet.attachment));
+
+    let response = TestClient::new(&router)
+        .submit_multipart(
+            "/admin/sheets/-/create",
+            &[
+                ("title", None, ""),
+                ("cover", Some("refused.png"), "REFUSED"),
+                ("attachment", Some(""), ""),
+            ],
+        )
+        .await;
+    assert_eq!(response.status(), 200, "a blank title re-renders the form");
+    let stored: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .filter(|name| name.ends_with("-refused.png"))
+        .collect();
+    assert_eq!(
+        stored.len(),
+        1,
+        "the refused upload is stored for the carry"
+    );
+    assert!(pending(&dir, &format!("/uploads/{}", stored[0])));
+}

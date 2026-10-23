@@ -19,6 +19,7 @@ use crate::{
 mod body;
 pub(crate) mod carry;
 mod key;
+mod pending;
 pub(crate) mod signed;
 
 pub(crate) use self::body::{Capture, FormParts, parse_body, parse_file_body};
@@ -79,6 +80,19 @@ pub trait Uploader: Send + Sync + 'static {
         }
     }
 
+    /// Confirms that the write about to commit stores `path`; the default does nothing.
+    ///
+    /// The panel calls it inside the write's transaction, before the commit, for each new path a
+    /// file field's create or edit stores and [`holds`](Self::holds) answers `true` for. A store
+    /// that deletes what nothing kept, as [`DirUploader::expire_pending`] does, keeps `path` here.
+    /// An `Err(reason)` fails the write, so a file is never deleted under a committed record.
+    fn keep(&self, path: &str) -> impl Future<Output = Result<(), String>> + Send {
+        async move {
+            let _ = path;
+            Ok(())
+        }
+    }
+
     /// Deletes the file at `path`, which a committed write no longer stores; the default keeps
     /// every file.
     ///
@@ -109,6 +123,7 @@ pub trait Uploader: Send + Sync + 'static {
 pub struct DirUploader {
     url_prefix: String,
     dir: PathBuf,
+    pending: Option<std::sync::Arc<pending::Pending>>,
 }
 
 /// The longest basename [`DirUploader`] keeps: 255 bytes, less the 36-byte UUID and its dash.
@@ -131,7 +146,21 @@ impl DirUploader {
         Self {
             url_prefix,
             dir: dir.into(),
+            pending: None,
         }
+    }
+
+    /// Marks each file it stores pending until the panel's write that stores it commits, and
+    /// deletes a pending file once it is `age` old: the upload of a submission that never saved,
+    /// such as a refused form the user left. [`Panel::uploads_dir`](crate::Panel::uploads_dir)
+    /// sets 24 hours.
+    ///
+    /// A store sweeps at most once an hour. Only the panel's record forms keep what they store:
+    /// an app page that stores through this uploader and saves the path itself keeps it with
+    /// [`Uploader::keep`], or uses an uploader without this setting.
+    pub fn expire_pending(mut self, age: std::time::Duration) -> Self {
+        self.pending = Some(std::sync::Arc::new(pending::Pending::new(age)));
+        self
     }
 
     /// The file a stored URL names: one segment under the prefix, spelled as `store` spells it.
@@ -162,6 +191,13 @@ impl Uploader for DirUploader {
         tokio::fs::write(self.dir.join(&name), bytes)
             .await
             .map_err(|_| "the upload could not be written".to_string())?;
+        if let Some(pending) = &self.pending {
+            pending.sweep_if_due(&self.dir).await;
+            pending
+                .mark(&self.dir, &name)
+                .await
+                .map_err(|_| "the upload could not be written".to_string())?;
+        }
         Ok(format!(
             "{}/{}",
             self.url_prefix,
@@ -184,15 +220,31 @@ impl Uploader for DirUploader {
             .is_ok_and(|metadata| metadata.is_file())
     }
 
-    /// Removes the file a URL `store` returned names; a file already gone is no error.
+    /// Drops the pending mark of the file a URL `store` returned names.
+    async fn keep(&self, path: &str) -> Result<(), String> {
+        match self.file_name(path).filter(|name| is_stored_name(name)) {
+            Some(name) => pending::keep(&self.dir, &name)
+                .await
+                .map_err(|error| error.to_string()),
+            None => Ok(()),
+        }
+    }
+
+    /// Removes the file a URL `store` returned names, and its pending mark; a file already gone
+    /// is no error.
     async fn delete(&self, path: &str) -> Result<(), String> {
         let Some(name) = self.file_name(path).filter(|name| is_stored_name(name)) else {
             return Ok(());
         };
-        match tokio::fs::remove_file(self.dir.join(name)).await {
-            Err(error) if error.kind() != std::io::ErrorKind::NotFound => Err(error.to_string()),
-            _ => Ok(()),
+        match tokio::fs::remove_file(self.dir.join(&name)).await {
+            Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
+                return Err(error.to_string());
+            }
+            _ => {}
         }
+        pending::keep(&self.dir, &name)
+            .await
+            .map_err(|error| error.to_string())
     }
 }
 
@@ -281,6 +333,7 @@ pub(crate) trait DynUploader: Send + Sync {
         bytes: &'a [u8],
     ) -> BoxFuture<'a, Result<String, String>>;
     fn holds<'a>(&'a self, path: &'a str) -> BoxFuture<'a, bool>;
+    fn keep<'a>(&'a self, path: &'a str) -> BoxFuture<'a, Result<(), String>>;
     fn delete<'a>(&'a self, path: &'a str) -> BoxFuture<'a, Result<(), String>>;
 }
 
@@ -297,6 +350,10 @@ impl<U: Uploader> DynUploader for U {
         Box::pin(Uploader::holds(self, path))
     }
 
+    fn keep<'a>(&'a self, path: &'a str) -> BoxFuture<'a, Result<(), String>> {
+        Box::pin(Uploader::keep(self, path))
+    }
+
     fn delete<'a>(&'a self, path: &'a str) -> BoxFuture<'a, Result<(), String>> {
         Box::pin(Uploader::delete(self, path))
     }
@@ -308,6 +365,34 @@ pub(crate) async fn holds(uploader: Option<&InstalledUploader>, path: &str) -> b
         Some(uploader) => uploader.0.holds(path).await,
         None => false,
     }
+}
+
+/// Keeps, through `uploader`, each new path `schema`'s file fields store in `after` and did not in
+/// `before`, which a create has none of; only a path the uploader holds.
+///
+/// # Errors
+///
+/// The reason the uploader could not keep a path, for the write to fail on.
+pub(crate) async fn keep(
+    uploader: Option<&InstalledUploader>,
+    schema: &Schema,
+    before: Option<&FormValues>,
+    after: &FormValues,
+) -> Result<(), String> {
+    let Some(InstalledUploader(uploader)) = uploader else {
+        return Ok(());
+    };
+    for field in schema.fields().filter(|field| field.is_file()) {
+        let Some(path) = after.text(field.name()).map(str::trim) else {
+            continue;
+        };
+        let stored = before.and_then(|before| before.text(field.name()).map(str::trim));
+        if path.is_empty() || stored == Some(path) || !uploader.holds(path).await {
+            continue;
+        }
+        uploader.keep(path).await?;
+    }
+    Ok(())
 }
 
 /// Deletes, through `uploader`, the file each of `schema`'s file fields stored in `before` and no
