@@ -7,19 +7,16 @@ and never gated. CI builds and lints the harness but does not run it.
 
 ```sh
 # In-process bench, no server:
-cargo run -p storefront-tablo -- --bench --iterations 100
+cargo run -p tablo-bench -- --bench --iterations 100
 
 # Add the Postgres leg; the URL must name a disposable database, with `bench` or `test` as a
 # word of its name, which each run resets:
 TABLO_BENCH_POSTGRES_URL=postgresql://toasty:toasty@localhost:5432/tablo_bench \
-  cargo run -p storefront-tablo -- --bench
+  cargo run -p tablo-bench -- --bench
 
 # Full run with the HTTP leg (needs `oha`), written to benchmarks/results/<timestamp>/:
 ./benchmarks/scripts/bench.sh
 
-# Check that the list renders the 50 rows with their includes:
-./benchmarks/scripts/verify_parity.sh
-
 # Serve the panel at http://localhost:3000/ for manual inspection:
-cargo run -p storefront-tablo
+cargo run -p tablo-bench
 ```

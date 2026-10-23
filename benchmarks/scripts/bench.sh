@@ -89,8 +89,8 @@ run_oha() {
 
 for fw in "${FRAMEWORKS[@]}"; do
   case "$fw" in
-    tablo|storefront-tablo)
-      echo "==> building tablo (storefront-tablo)"
+    tablo|tablo-bench)
+      echo "==> building tablo (tablo-bench)"
       cargo build --manifest-path "$BENCH/tablo/Cargo.toml" --release 2>&1 | tail -n 5
       if [ "$HAS_OHA" -eq 1 ]; then
         echo "==> starting tablo on http://localhost:3000"
