@@ -16,7 +16,7 @@ use topcoat::{
     view::{BoxView, View, ViewExt, attributes, view},
 };
 
-use super::state::{NavEntry, Searchable, current};
+use super::state::{NavEntry, Searchable, current, panels};
 use crate::{
     navigation::{MENU_LINK_CLASS, runtime_link},
     panel::url::{row_edit_url, row_view_url},
@@ -251,7 +251,8 @@ pub(crate) async fn search_results(cx: &Cx, prefix: String, term: String) -> Res
 }
 
 /// The results under the box: up to [`BOX_LIMIT`] of each resource for `term`, shown while focus
-/// is in the box, and a link to the results page; nothing for a blank term.
+/// is in the box, and a link to the results page; nothing for a blank term or a `prefix` no
+/// mounted panel has.
 ///
 /// Topcoat serves the shard at its runtime path, where the request runs as the panel that signed
 /// its session in, or as the first declaring panel without sign-in. The shard lists results only
@@ -261,7 +262,10 @@ pub(crate) async fn search_results(cx: &Cx, prefix: String, term: String) -> Res
 async fn render_results(cx: &Cx, prefix: String, term: String) -> Result<BoxView<'_>> {
     crate::auth::guard(cx)?;
     let term = clamp_query_term(&term);
-    if words(&term).is_empty() {
+    // The client posts the prefix: a link goes only to a mounted panel's results page.
+    let mounted =
+        panels(cx).is_some_and(|panels| panels.0.iter().any(|panel| panel.realm.prefix == prefix));
+    if words(&term).is_empty() || !mounted {
         return Ok(().boxed());
     }
     let here = current(cx).is_some_and(|panel| panel.realm.prefix == prefix) && searches_any(cx);

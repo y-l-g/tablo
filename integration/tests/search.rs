@@ -267,6 +267,22 @@ async fn on_a_second_panel_without_sign_in_the_box_links_its_results_page() {
     );
 }
 
+/// The shard takes its prefix from the client, so a prefix no panel mounts renders no link.
+#[tokio::test]
+async fn the_box_links_no_prefix_the_router_does_not_mount() {
+    let db = db().await;
+    let router = mount(db.clone(), books_panel()).expect("the panel mounts");
+
+    for prefix in ["//evil.example", "https://evil.example", "/staff"] {
+        let args = format!(r#"{{"args":["{prefix}","dune"],"signals":{{}}}}"#);
+        let response = TestClient::new(&router)
+            .call_procedure(RESULTS_SHARD, &args)
+            .await;
+        let html = body_string(response).await;
+        assert!(!html.contains("data-search-all"), "{prefix}: {html}");
+    }
+}
+
 /// A panel opted out, and one whose every resource is, show no box and serve no results page.
 #[tokio::test]
 async fn a_panel_without_global_search_shows_no_box_and_serves_no_results_page() {
