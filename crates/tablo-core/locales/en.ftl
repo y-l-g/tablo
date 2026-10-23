@@ -512,6 +512,12 @@ tablo-two-factor-not-you = Not you?
 tablo-two-factor-switch = Sign in as someone else
 tablo-two-factor-expired = Sign in again
 tablo-two-factor-expired-description = The sign-in waited too long for its code.
+tablo-two-factor-ended-description = Too many wrong codes. Enter your password to try again.
+tablo-two-factor-alert-subject = Wrong sign-in codes on your { $brand } account
+tablo-two-factor-alert-body =
+    Your password signed in to { $brand }, then several wrong two-factor codes followed it.
+
+    If this was not you, change your password: someone else knows it.
 tablo-two-factor-off = Two-factor sign-in is off. Turn it on to ask for a code each time you sign in.
 tablo-two-factor-password-help = Confirm it is you before adding a second factor.
 tablo-two-factor-wrong-password = That password is not right.

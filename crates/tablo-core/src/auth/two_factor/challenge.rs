@@ -16,7 +16,9 @@ use topcoat::{
 };
 
 use super::{
-    FactorKind, accept, email, enrolment,
+    FactorKind, accept,
+    backoff::{FREE_FAILURES, admitted, refused, wait},
+    email, enrolment,
     pages::{self, Notice},
 };
 use crate::{
@@ -25,7 +27,7 @@ use crate::{
         login::{NEXT_FIELD, login_url, next_from_query, safe_next},
         mail::private,
         panel_root,
-        realm::{current_realm, panel_prefix},
+        realm::{current_realm, hosted, panel_prefix},
         registration::with_next,
         session::{fresh_session, record},
         token::{self, TokenPurpose, serializable},
@@ -120,6 +122,39 @@ fn expired(cx: &Cx, next: &str) -> topcoat::Result<Response> {
     private(see_other(with_next(login_url(cx), next)).into_response(cx)?)
 }
 
+/// Back to the login page, carrying `next`, saying too many wrong codes ended the challenge.
+fn ended(cx: &Cx, next: &str) -> topcoat::Result<Response> {
+    forget(cx);
+    set_notification(
+        cx,
+        Notification::warning(crate::t!(cx, "tablo-two-factor-expired"))
+            .description(crate::t!(cx, "tablo-two-factor-ended-description")),
+    );
+    private(see_other(with_next(login_url(cx), next)).into_response(cx)?)
+}
+
+/// Mails `user` that their password signed in and codes failed after it: someone else may hold
+/// the password. Mails nothing when the panel mails nothing or the user has no address.
+async fn alert(cx: &Cx, user: &dyn PanelUser) {
+    let mail = current_realm(cx).and_then(|panel| panel.auth.auth_mail());
+    let (Some(address), Some(mail)) = (user.email(), mail) else {
+        return;
+    };
+    let cx = &crate::i18n::addressed_to(cx, user.locale());
+    let sent = async {
+        let brand = hosted(cx)?.brand_name(cx);
+        let message = mail.compose(
+            address,
+            crate::t!(cx, "tablo-two-factor-alert-subject", brand = brand.clone()),
+            crate::t!(cx, "tablo-two-factor-alert-body", brand = brand),
+        )?;
+        topcoat::mail::send(cx, message).await
+    };
+    if let Err(error) = sent.await {
+        tracing::error!(error = %error, "two-factor alert not sent");
+    }
+}
+
 /// `GET {prefix}/two-factor-challenge` — the code form, while a challenge lasts.
 pub(in crate::auth) fn challenge_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
@@ -197,9 +232,40 @@ pub(in crate::auth) fn challenge_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         {
             return expired(cx, &next);
         }
-        if !accept(cx, &mut tx, &row.user_id, code).await? {
+        let factor = enrolment(cx, &mut tx, &row.user_id).await?.confirmed;
+        let now = jiff::Timestamp::now();
+        if let Some(left) = factor.as_ref().and_then(|factor| wait(factor, code, now)) {
             drop(tx);
+            return Err(too_many_requests(left.as_secs().max(1)).into());
+        }
+        if !accept(cx, &mut tx, &row.user_id, code).await? {
+            let Some(factor) = factor else {
+                drop(tx);
+                return pages::challenge(cx, &next, mailed, Notice::Refused).await;
+            };
+            let failures = refused(&mut tx, &factor, now).await?;
+            // Every few wrong codes the challenge ends, so each round needs the password again.
+            let ends = failures % FREE_FAILURES == 0;
+            if ends {
+                token::spend(&mut tx, &row).await?;
+            }
+            tx.commit().await.map_err(infrastructure_failure)?;
+            tracing::warn!(
+                panel = %panel.prefix,
+                client = ?client_ip(cx),
+                failures,
+                "wrong two-factor code"
+            );
+            if failures == FREE_FAILURES {
+                alert(cx, &*user).await;
+            }
+            if ends {
+                return ended(cx, &next);
+            }
             return pages::challenge(cx, &next, mailed, Notice::Refused).await;
+        }
+        if let Some(factor) = &factor {
+            admitted(&mut tx, factor).await?;
         }
         token::spend(&mut tx, &row).await?;
         tx.commit().await.map_err(infrastructure_failure)?;

@@ -477,3 +477,51 @@ async fn mounting_refuses_two_factor_sign_in_the_panel_cannot_serve() {
         }]
     );
 }
+
+/// Every fifth wrong code in a row ends the challenge, so the next round needs the password; past
+/// the fifth each code waits, longer each time, while a recovery code still signs in and clears
+/// the count.
+#[tokio::test]
+async fn wrong_codes_end_the_challenge_and_make_the_next_ones_wait() {
+    let (db, ada) = db().await;
+    let throttle = LoginThrottle::new(100, std::time::Duration::from_mins(1));
+    let router = router(db.clone(), TwoFactor::new().throttle(throttle));
+    let (secret, _, codes, _) = enrol(&router, &db, &ada).await;
+
+    let challenged = password(&router).await;
+    for _ in 0..4 {
+        assert_eq!(answer(&challenged, &wrong(&secret)).await.status(), 422);
+    }
+    let ended = answer(&challenged, &wrong(&secret)).await;
+    assert_eq!(ended.status(), 303);
+    let location = ended.headers().get(LOCATION).unwrap().to_str().unwrap();
+    assert!(location.starts_with("/admin/login"), "{location}");
+    assert!(
+        answer(&challenged, &code(&secret, 0))
+            .await
+            .headers()
+            .get(LOCATION)
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .starts_with("/admin/login"),
+        "the ended challenge takes no code"
+    );
+
+    let again = password(&router).await;
+    assert_eq!(
+        answer(&again, &code(&secret, 0)).await.status(),
+        429,
+        "even the right code waits"
+    );
+    assert_eq!(answer(&again, &codes[0]).await.status(), 303);
+    assert!(
+        AuthFactor::all()
+            .exec(&mut db.clone())
+            .await
+            .unwrap()
+            .iter()
+            .all(|factor| factor.failures == 0 && factor.retry_at.is_none()),
+        "signing in clears the count"
+    );
+}

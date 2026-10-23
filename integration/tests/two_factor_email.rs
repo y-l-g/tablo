@@ -299,3 +299,34 @@ async fn mounting_refuses_mailed_codes_without_a_sender() {
         })]
     );
 }
+
+/// The fifth wrong code in a row mails Ada, once, that her password signed in and codes failed.
+#[tokio::test]
+async fn wrong_codes_after_the_password_mail_the_account() {
+    let (db, ada) = db().await;
+    let mail = MemoryTransport::new();
+    let router = router(db.clone(), &mail, TwoFactor::new().email_codes());
+    enrol(&router, &db, &ada, &mail).await;
+
+    let (challenged, _) = TestClient::new(&router)
+        .log_in("admin", "ada@example.com", PASSWORD, "/admin")
+        .await;
+    let mailed = mail.sent().len();
+    let wrong = if last_code(&mail) == "000000" {
+        "111111"
+    } else {
+        "000000"
+    };
+    for _ in 0..4 {
+        challenged
+            .submit(CHALLENGE, &form_body(&[("code", wrong)]))
+            .await;
+    }
+    assert_eq!(mail.sent().len(), mailed, "four wrong codes mail nothing");
+    challenged
+        .submit(CHALLENGE, &form_body(&[("code", wrong)]))
+        .await;
+    let sent = mail.sent();
+    assert_eq!(sent.len(), mailed + 1, "the fifth mails the account");
+    assert_eq!(sent.last().unwrap().to()[0].address(), "ada@example.com");
+}

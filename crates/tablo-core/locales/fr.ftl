@@ -504,6 +504,12 @@ tablo-two-factor-not-you = Ce n'est pas vous ?
 tablo-two-factor-switch = Se connecter avec un autre compte
 tablo-two-factor-expired = Reconnectez-vous
 tablo-two-factor-expired-description = La connexion a attendu son code trop longtemps.
+tablo-two-factor-ended-description = Trop de codes erronés. Saisissez votre mot de passe pour réessayer.
+tablo-two-factor-alert-subject = Codes de connexion erronés sur votre compte { $brand }
+tablo-two-factor-alert-body =
+    Votre mot de passe a servi à vous connecter à { $brand }, puis plusieurs codes à deux facteurs erronés l'ont suivi.
+
+    Si ce n'était pas vous, changez votre mot de passe : quelqu'un d'autre le connaît.
 tablo-two-factor-off = La connexion à deux facteurs est désactivée. Activez-la pour qu'un code vous soit demandé à chaque connexion.
 tablo-two-factor-password-help = Confirmez votre identité avant d'ajouter un second facteur.
 tablo-two-factor-wrong-password = Ce mot de passe n'est pas le bon.

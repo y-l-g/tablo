@@ -313,6 +313,11 @@ impl Auth {
     ///   session. The challenge lasts five minutes in its own cookie and takes a code from the app
     ///   or a recovery code. Each code works once: an app code does not sign in twice, and a
     ///   recovery code is used up.
+    /// - Wrong codes. Every fifth wrong code in a row ends the challenge, so the next try takes the
+    ///   password again. Past the fifth, each code of the app or the mail waits for the one before
+    ///   it: 30 seconds, doubling up to an hour, across challenges, until a right code; a recovery
+    ///   code never waits. The fifth mails the account, through `Auth::mail`, that its password
+    ///   signed in and codes failed.
     /// - Turning it on or off is a credential change: the account's other sessions and links end.
     ///   Turning it off, and showing new recovery codes, take a code.
     /// - Codes by email. `TwoFactor::new().email_codes()` lets a user with an address choose codes
