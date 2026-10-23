@@ -1593,6 +1593,7 @@ pub tablo_core::Change::Update
 pub tablo_core::Change::Update::after: M
 pub tablo_core::Change::Update::before: M
 impl<M> tablo_core::Change<M>
+pub fn tablo_core::Change<M>::is_action<A, R>(&self) -> bool where A: tablo_core::Action<R>, R: tablo_core::Resource<Model = M>
 pub fn tablo_core::Change<M>::records(&self) -> &[M]
 impl<M: core::clone::Clone> core::clone::Clone for tablo_core::Change<M>
 pub fn tablo_core::Change<M>::clone(&self) -> tablo_core::Change<M>
