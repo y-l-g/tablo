@@ -4,5 +4,5 @@
 channel = "1.99"
 # Explicit so CI images without the default profile have the fmt/clippy tools.
 components = ["rustfmt", "clippy"]
-# The `fmt` and `public-api` jobs use the dated nightly `xtask/src/gates.rs` names: rustfmt.toml
-# keys and rustdoc JSON are nightly-only.
+# The `fmt` job uses the dated nightly `xtask/src/gates.rs` names: rustfmt.toml keys are
+# nightly-only.

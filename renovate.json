@@ -19,11 +19,6 @@
   ],
   "packageRules": [
     {
-      "description": "Each cargo-public-api release reads a range of rustdoc JSON formats, so it bumps by hand with the nightly in xtask/src/gates.rs",
-      "matchPackageNames": ["cargo-public-api"],
-      "enabled": false
-    },
-    {
       "description": "Topcoat and Toasty bump as one grouped set, the topcoat CLI with them",
       "matchPackageNames": ["topcoat", "topcoat-*", "toasty", "toasty-*"],
       "groupName": "topcoat-toasty"

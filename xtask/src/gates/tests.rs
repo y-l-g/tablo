@@ -48,16 +48,6 @@ impl Runner for FakeRunner {
         }
         Ok(())
     }
-
-    fn run_to(
-        &self,
-        prog: &str,
-        args: &[&str],
-        dir: Option<&Path>,
-        _stdout: &Path,
-    ) -> anyhow::Result<()> {
-        self.run(prog, args, dir, &[])
-    }
 }
 
 #[test]
@@ -109,52 +99,6 @@ fn progs_of(commands: &[RecordedCommand]) -> Vec<String> {
     commands.iter().map(|(prog, _, _)| prog.clone()).collect()
 }
 
-/// One `cargo public-api` per published crate, then the snapshot diff guard.
-const PUBLIC_API_PROGS: [&str; 7] = ["cargo", "cargo", "cargo", "cargo", "cargo", "cargo", "git"];
-
-#[test]
-fn public_api_snapshots_every_published_crate_then_guards_the_diff() {
-    let run = FakeRunner::ok();
-    let root = repo_root();
-    public_api(&run, &root).expect("fake commands succeed");
-    let commands = run.commands();
-    assert_eq!(commands.len(), PUBLISHED_CRATES.len() + 1);
-    let nightly = format!("+{NIGHTLY}");
-    for ((name, _), (prog, args, _)) in PUBLISHED_CRATES.iter().zip(&commands) {
-        assert_eq!(prog, "cargo");
-        assert_eq!(args[..4], [&nightly, "public-api", "--package", name]);
-    }
-    let tablo = &commands[0].1;
-    assert_eq!(tablo[tablo.len() - 2..], ["--features", "testing"]);
-    let (prog, args, _) = commands.last().expect("the guard runs last");
-    assert_eq!(prog, "git");
-    assert_eq!(args, &["diff", "--exit-code", "--", PUBLIC_API_DIR]);
-}
-
-/// The snapshot set must cover exactly the crates release-plz publishes.
-#[test]
-fn published_crates_match_release_plz() {
-    let config = std::fs::read_to_string(repo_root().join("release-plz.toml"))
-        .expect("read release-plz.toml");
-    let mut released: Vec<&str> = config
-        .split("[[package]]")
-        .skip(1)
-        .filter(|package| package.lines().any(|line| line.trim() == "release = true"))
-        .filter_map(|package| {
-            package
-                .lines()
-                .find_map(|line| line.trim().strip_prefix("name = "))
-                .map(|name| name.trim_matches('"'))
-        })
-        .collect();
-    released.sort_unstable();
-    let snapshotted: Vec<&str> = PUBLISHED_CRATES.iter().map(|(name, _)| *name).collect();
-    assert_eq!(
-        snapshotted, released,
-        "PUBLISHED_CRATES is sorted and mirrors release-plz.toml"
-    );
-}
-
 #[test]
 fn check_runs_fast_gates_by_default_and_defers_docs_and_external_to_all() {
     assert_eq!(
@@ -163,7 +107,6 @@ fn check_runs_fast_gates_by_default_and_defers_docs_and_external_to_all() {
             &[
                 "cargo", "git", "topcoat", "git", "node", "cargo", "cargo", "cargo"
             ][..],
-            &PUBLIC_API_PROGS,
             &["cargo", "cargo"],
         ]
         .concat()
@@ -177,11 +120,11 @@ fn check_runs_skipped_gates_only_with_matching_changes_or_all() {
         [
             "cargo", "git", "topcoat", "git", "node", "cargo", "cargo", "cargo"
         ],
-        "the public-API snapshots and udeps install+run are skipped"
+        "udeps install+run are skipped"
     );
     assert_eq!(
         run_check(Scope::All, false).len(),
-        20,
+        13,
         "`--all` forces every gate"
     );
 }
@@ -225,17 +168,6 @@ fn pins_match_ci() {
             "rustup toolchain install {NIGHTLY} --profile minimal --component rustfmt\n"
         )),
         "ci.yml's fmt job installs the pinned nightly"
-    );
-    assert!(
-        ci.contains(&format!(
-            "rustup toolchain install {NIGHTLY} --profile minimal\n"
-        )),
-        "ci.yml's public-api job installs the pinned nightly"
-    );
-    let public_api = installed_version(PUBLIC_API_INSTALL);
-    assert!(
-        ci.contains(&format!("cargo-public-api@{public_api}")),
-        "ci.yml installs the pinned cargo-public-api {public_api}"
     );
     let topcoat = installed_version(TOPCOAT_INSTALL);
     assert!(

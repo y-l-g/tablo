@@ -34,15 +34,13 @@ without one. The README has the install command.
 ## Checks
 
 ```sh
-cargo xtask check         # fmt, JS suites, test, clippy; public API, udeps if relevant
-cargo xtask check --all   # also public API, udeps, rustdoc, the guide and the external build
+cargo xtask check         # fmt, JS suites, test, clippy; udeps if relevant
+cargo xtask check --all   # also udeps, rustdoc, the guide and the external build
 cargo xtask fmt           # the formatting checks alone
-cargo xtask public-api    # the public-API snapshots alone
 ```
 
 `check` stops at the first failure, cheapest first. udeps runs when any `Cargo.toml`,
-`Cargo.lock`, `rust-toolchain.toml` or `udeps.yml` differs from `master`; the public-API
-snapshots when `crates/`, a root manifest, `public-api/` or `xtask/src/gates.rs` does. CI runs
+`Cargo.lock`, `rust-toolchain.toml` or `udeps.yml` differs from `master`. CI runs
 the same commands in `.github/workflows/ci.yml` and `udeps.yml`, which hold the pinned
 toolchains. Run `check --all` before merging.
 
@@ -52,13 +50,6 @@ MSRV. Bump both in one PR.
 - `topcoat fmt` reflows `view!` markup differently across CLI releases, so only the pinned
   `topcoat-cli` agrees with CI. When it is missing or another version, `cargo xtask fmt` fails
   with the install command. Never hand-fix its diff.
-- `public-api/` holds one `cargo public-api` listing per published crate. `cargo xtask public-api`
-  rewrites the listings and fails on a diff, so an API change lands in review as a snapshot
-  diff: commit the rewrite. The commit takes `!` when the diff breaks callers: a removed or
-  changed item, or an added enum variant, required trait method or public field. The listings
-  include topcoat and toasty derive output, so an upstream bump can rewrite lines without
-  breaking anything; regenerate them on its PR. The check needs the pinned nightly and CLI, and
-  names the install command when either is missing.
 - `examples/quickstart` is outside the workspace: `cargo fmt` at the root skips it, and
   `cargo xtask fmt` checks it.
 - `crates/tablo-ui/src/components/primitives/` is a verbatim copy of the registry. Never edit it:
@@ -197,7 +188,9 @@ fix(table): bound the filters signal (#205)
   `schema`, `panel`, `auth`, `resource`, …) or `ui`, `macros`, `test`, `build`, `guide`,
   `showcase`, `bench`, `xtask`, plus `deps`, `release` and `repo`. A change across several
   modules takes the one it is about, or none; `core` names no module.
-- A breaking change adds `!` after the scope and a `BREAKING CHANGE:` footer.
+- A breaking change adds `!` after the scope and a `BREAKING CHANGE:` footer. It breaks callers
+  when it removes or changes a public item, or adds an enum variant, a required trait method or a
+  public field.
 - The body says what changed and why. The PR description adds which checks ran.
 
 ## Issues

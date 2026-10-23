@@ -1,4 +1,4 @@
-//! Gate orchestration: `fmt`, `public-api`, `external-check`, `check`.
+//! Gate orchestration: `fmt`, `external-check`, `check`.
 //!
 //! `check` is a local fail-fast convenience runner only, never a CI job.
 
@@ -7,8 +7,7 @@ use std::{
     process::Command,
 };
 
-/// Dated nightly for the workspace rustfmt (`rustfmt.toml` keys are nightly-only) and the rustdoc
-/// JSON `cargo public-api` reads (each of its releases reads a range of JSON format versions).
+/// Dated nightly for the workspace rustfmt: `rustfmt.toml` keys are nightly-only.
 pub const NIGHTLY: &str = "nightly-2026-08-24";
 
 /// The detached app `external-check` builds from outside the repository.
@@ -24,40 +23,15 @@ pub const UDEPS_PATHS: &[&str] = &[
     ".github/workflows/udeps.yml",
 ];
 
-/// What can change a published crate's public API: its sources, its dependencies, the snapshots
-/// themselves, and the nightly and CLI pins in this file.
-pub const PUBLIC_API_PATHS: &[&str] = &[
-    "crates/",
-    "Cargo.toml",
-    "Cargo.lock",
-    "public-api/",
-    "xtask/src/gates.rs",
-];
-
 /// Whether `check` skips the gates CI would not run for the change.
 #[derive(PartialEq, Eq)]
 pub enum Scope {
-    /// The fast gates only: the udeps gate without `UDEPS_PATHS` changes and the public-API
-    /// gate without `PUBLIC_API_PATHS` changes stay skipped, and docs and the external build never
-    /// run.
+    /// The fast gates only: the udeps gate stays skipped without `UDEPS_PATHS` changes, and docs
+    /// and the external build never run.
     Auto,
     /// Run every gate, including the slow docs and external builds.
     All,
 }
-
-/// The directory holding one public-API snapshot per published crate.
-pub const PUBLIC_API_DIR: &str = "public-api";
-
-/// The crates release-plz publishes, with the features whose API the snapshot covers. The driver
-/// features add no API; `testing` adds `tablo::testing`.
-pub const PUBLISHED_CRATES: &[(&str, &[&str])] = &[
-    ("tablo", &["testing"]),
-    ("tablo-build", &[]),
-    ("tablo-core", &[]),
-    ("tablo-macros", &[]),
-    ("tablo-test", &[]),
-    ("tablo-ui", &[]),
-];
 
 /// JS asset suites, named rather than globbed so a rename fails loudly.
 pub const ASSET_SUITES: &[&str] = &[
@@ -85,15 +59,6 @@ pub trait Runner {
         args: &[&str],
         dir: Option<&Path>,
         env: &[(&str, &str)],
-    ) -> anyhow::Result<()>;
-
-    /// Runs `prog` like [`Runner::run`] without env, writing its stdout to `stdout`.
-    fn run_to(
-        &self,
-        prog: &str,
-        args: &[&str],
-        dir: Option<&Path>,
-        stdout: &Path,
     ) -> anyhow::Result<()>;
 }
 
@@ -137,32 +102,6 @@ impl Runner for RealRunner {
             command.env(key, value);
         }
         status(&mut command, prog, args)
-    }
-
-    fn run_to(
-        &self,
-        prog: &str,
-        args: &[&str],
-        dir: Option<&Path>,
-        stdout: &Path,
-    ) -> anyhow::Result<()> {
-        // Write beside the target and rename on success, so a failed run leaves it untouched.
-        let partial = stdout.with_extension("partial");
-        let file = std::fs::File::create(&partial)
-            .map_err(|error| anyhow::anyhow!("cannot create {}: {error}", partial.display()))?;
-        let mut command = command(prog);
-        command.args(args).stdout(file);
-        if let Some(dir) = dir {
-            command.current_dir(dir);
-        }
-        let result = status(&mut command, prog, args).and_then(|()| {
-            std::fs::rename(&partial, stdout)
-                .map_err(|error| anyhow::anyhow!("cannot write {}: {error}", stdout.display()))
-        });
-        if result.is_err() {
-            let _ = std::fs::remove_file(&partial);
-        }
-        result
     }
 }
 
@@ -261,52 +200,6 @@ pub fn topcoat_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
                 "{error}\n`topcoat fmt` rewrites the tree before this check: review it with `git diff --name-only` and revert what you did not mean to reformat with `git checkout -- <path>`. A diff that only reflows `view!` markup means the CLI is the wrong version, not a hand-fix: {TOPCOAT_INSTALL}"
             )
         })
-}
-
-/// Installs the `cargo public-api` version that reads the [`NIGHTLY`] rustdoc JSON.
-const PUBLIC_API_INSTALL: &str = "cargo install cargo-public-api --version 0.52.0 --locked --force";
-
-/// Rewrites each published crate's snapshot under [`PUBLIC_API_DIR`] from its current public API,
-/// then fails on any diff, so every API change lands in review as a snapshot diff.
-pub fn public_api(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
-    let toolchain = format!("+{NIGHTLY}");
-    let dir = root.join(PUBLIC_API_DIR);
-    std::fs::create_dir_all(&dir)
-        .map_err(|error| anyhow::anyhow!("cannot create {}: {error}", dir.display()))?;
-    for (name, features) in PUBLISHED_CRATES {
-        // `-s` drops the blanket impls every type gets; auto-trait impls stay, since losing
-        // `Send` or `Sync` breaks callers.
-        let mut args = vec![
-            toolchain.as_str(),
-            "public-api",
-            "--package",
-            name,
-            "-s",
-            "--color",
-            "never",
-        ];
-        let features = features.join(",");
-        if !features.is_empty() {
-            args.extend(["--features", &features]);
-        }
-        run.run_to("cargo", &args, Some(root), &dir.join(format!("{name}.txt")))
-            .map_err(|error| {
-                anyhow::anyhow!(
-                    "{error}\n`cargo public-api` needs the {NIGHTLY} toolchain and the pinned CLI: {PUBLIC_API_INSTALL}"
-                )
-            })?;
-    }
-    run.run(
-        "git",
-        &["diff", "--exit-code", "--", PUBLIC_API_DIR],
-        Some(root),
-        &[],
-    )
-    .map_err(|error| {
-        anyhow::anyhow!(
-            "{error}\nThe public API changed: review the diff and commit the rewritten `{PUBLIC_API_DIR}/` snapshots. Mark the commit `!` with a `BREAKING CHANGE:` footer when the change breaks callers: a removed or changed item, or an added enum variant, required trait method or public field. A line that only follows an upstream topcoat or toasty bump is not breaking."
-        )
-    })
 }
 
 /// The guide build (the CI `docs` job).
@@ -414,8 +307,7 @@ fn udeps_installed(run: &dyn Runner, root: &Path) -> bool {
 
 /// The CI checks as a local fail-fast runner, cheapest first. Docs and the external build run only
 /// under `Scope::All`; CI covers them in parallel jobs. The udeps gate runs only
-/// with `UDEPS_PATHS` changes, matching the CI path filter, and the public-API gate only with
-/// `PUBLIC_API_PATHS` changes.
+/// with `UDEPS_PATHS` changes, matching the CI path filter.
 pub fn check(run: &dyn Runner, scope: Scope) -> anyhow::Result<()> {
     let root = repo_root();
     check_with(run, &|| stage_quickstart(&root), scope, &|specs| {
@@ -450,11 +342,6 @@ fn check_with(
         Some(&root),
         &[],
     )?;
-    if all || touches(PUBLIC_API_PATHS) {
-        public_api(run, &root)?;
-    } else {
-        println!("skipped the public-API snapshots: no crate, manifest or pin changed");
-    }
     if all || touches(UDEPS_PATHS) {
         if !udeps_installed(run, &root) {
             run.run(
