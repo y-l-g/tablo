@@ -74,8 +74,8 @@ pub mod __macro {
             required_input, write_links,
         },
         schema::{
-            ChoiceField, CustomField, EmbeddedForm, Field, FileField, IntoSchema, Options,
-            RepeaterField, Schema, TextField,
+            ChoiceField, CustomField, EmbeddedForm, Field, FileField, HoldsTabs, IntoSchema,
+            Options, RepeaterField, Schema, TextField,
             embedded::{Embedded, EmbeddedBuilder, embedded_field, take_leaf, take_value},
             form_key, parse_items,
             tree::Retype,
@@ -174,8 +174,8 @@ pub use rich_text::tool::Tool;
 pub use schema::{
     ChoiceField, CustomField, EmbeddedForm, Field, FileField, Grid, Group, IntoFormValue,
     IntoOptions, IntoSchema, MAX_RELATIONSHIP_OPTIONS, MAX_REPEATER_ROWS, Options, RepeaterField,
-    RichTextField, Schema, Section, Source, Switch, TextField, Toggle, Watched, input::FormInput,
-    parse_items, write_items,
+    RichTextField, Schema, Section, Source, Switch, Tab, Tabs, TextField, Toggle, Watched,
+    input::FormInput, parse_items, write_items,
 };
 pub use table::{
     ActionLayout, Cursor, DEFAULT_PAGE_SIZE, DEFAULT_PER_PAGE_OPTIONS, DateFilter, FilterValue,

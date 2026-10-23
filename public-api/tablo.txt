@@ -78,7 +78,9 @@ pub use tablo::prelude::Schema
 pub use tablo::prelude::Section
 pub use tablo::prelude::SelectFilter
 pub use tablo::prelude::Sort
+pub use tablo::prelude::Tab
 pub use tablo::prelude::Table
+pub use tablo::prelude::Tabs
 pub use tablo::prelude::Tenancy
 pub use tablo::prelude::TenantId
 pub use tablo::prelude::TernaryFilter

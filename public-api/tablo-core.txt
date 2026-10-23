@@ -4257,7 +4257,7 @@ impl core::panic::unwind_safe::UnwindSafe for tablo_core::Sort
 pub struct tablo_core::Source<'a>
 impl<'a> tablo_core::Source<'a>
 pub fn tablo_core::Source<'a>::form(&'a tablo_core::FormValues, &'a tablo_core::FieldErrors) -> Self
-impl<'a> core::marker::Freeze for tablo_core::Source<'a>
+impl<'a> !core::marker::Freeze for tablo_core::Source<'a>
 impl<'a> core::marker::Send for tablo_core::Source<'a>
 impl<'a> core::marker::Sync for tablo_core::Source<'a>
 impl<'a> core::marker::Unpin for tablo_core::Source<'a>
@@ -4281,6 +4281,23 @@ impl core::marker::Unpin for tablo_core::Switch
 impl core::marker::UnsafeUnpin for tablo_core::Switch
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::Switch
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::Switch
+pub struct tablo_core::Tab<C>
+impl tablo_core::Tab<()>
+pub fn tablo_core::Tab<()>::columns<M>(self, impl tablo_core::IntoDetail<M>) -> tablo_core::Tab<tablo_core::Detail<M>>
+impl tablo_core::Tab<()>
+pub fn tablo_core::Tab<()>::new(impl core::convert::Into<alloc::string::String>) -> Self
+pub fn tablo_core::Tab<()>::schema<F>(self, impl tablo_core::IntoSchema<F>) -> tablo_core::Tab<tablo_core::Schema<F>>
+impl<F> tablo_core::Tab<tablo_core::Schema<F>>
+pub fn tablo_core::Tab<tablo_core::Schema<F>>::visible_when(self, &impl tablo_core::Watched<F>, impl core::iter::traits::collect::IntoIterator<Item = impl core::convert::Into<alloc::string::String>>) -> Self
+impl<C: core::fmt::Debug> core::fmt::Debug for tablo_core::Tab<C>
+pub fn tablo_core::Tab<C>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<C> core::marker::Freeze for tablo_core::Tab<C> where C: core::marker::Freeze
+impl<C> core::marker::Send for tablo_core::Tab<C> where C: core::marker::Send
+impl<C> core::marker::Sync for tablo_core::Tab<C> where C: core::marker::Sync
+impl<C> core::marker::Unpin for tablo_core::Tab<C> where C: core::marker::Unpin
+impl<C> core::marker::UnsafeUnpin for tablo_core::Tab<C> where C: core::marker::UnsafeUnpin
+impl<C> core::panic::unwind_safe::RefUnwindSafe for tablo_core::Tab<C> where C: core::panic::unwind_safe::RefUnwindSafe
+impl<C> core::panic::unwind_safe::UnwindSafe for tablo_core::Tab<C> where C: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::Table<M>
 impl<M> tablo_core::Table<M>
 pub fn tablo_core::Table<M>::action_layout(self, tablo_core::ActionLayout) -> Self
@@ -4365,6 +4382,24 @@ impl core::marker::Unpin for tablo_core::TableState
 impl core::marker::UnsafeUnpin for tablo_core::TableState
 impl core::panic::unwind_safe::RefUnwindSafe for tablo_core::TableState
 impl core::panic::unwind_safe::UnwindSafe for tablo_core::TableState
+pub struct tablo_core::Tabs<C>
+impl<C: HoldsTabs> tablo_core::Tabs<C>
+pub fn tablo_core::Tabs<C>::new(impl core::iter::traits::collect::IntoIterator<Item = tablo_core::Tab<C>>) -> Self
+impl<F> tablo_core::Tabs<tablo_core::Schema<F>>
+pub fn tablo_core::Tabs<tablo_core::Schema<F>>::visible_when(self, &impl tablo_core::Watched<F>, impl core::iter::traits::collect::IntoIterator<Item = impl core::convert::Into<alloc::string::String>>) -> Self
+impl<C: core::fmt::Debug> core::fmt::Debug for tablo_core::Tabs<C>
+pub fn tablo_core::Tabs<C>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<F> tablo_core::IntoSchema<F> for tablo_core::Tabs<tablo_core::Schema<F>>
+pub fn tablo_core::Tabs<tablo_core::Schema<F>>::into_schema(self) -> tablo_core::Schema<F>
+impl<M> tablo_core::IntoDetail<M> for tablo_core::Tabs<tablo_core::Detail<M>>
+pub fn tablo_core::Tabs<tablo_core::Detail<M>>::into_detail(self) -> tablo_core::Detail<M>
+impl<C> core::marker::Freeze for tablo_core::Tabs<C> where C: core::marker::Freeze
+impl<C> core::marker::Send for tablo_core::Tabs<C> where C: core::marker::Send
+impl<C> core::marker::Sync for tablo_core::Tabs<C> where C: core::marker::Sync
+impl<C> core::marker::Unpin for tablo_core::Tabs<C> where C: core::marker::Unpin
+impl<C> core::marker::UnsafeUnpin for tablo_core::Tabs<C> where C: core::marker::UnsafeUnpin
+impl<C> core::panic::unwind_safe::RefUnwindSafe for tablo_core::Tabs<C> where C: core::panic::unwind_safe::RefUnwindSafe
+impl<C> core::panic::unwind_safe::UnwindSafe for tablo_core::Tabs<C> where C: core::panic::unwind_safe::UnwindSafe
 pub struct tablo_core::Tenancy<M>
 impl<M: toasty::schema::model::Model + 'static> tablo_core::Tenancy<M>
 pub fn tablo_core::Tenancy<M>::column<T>(impl core::convert::Into<toasty::stmt::path::Path<M, T>>) -> Self where T: tablo_core::TenantColumn, M: core::marker::Send + core::marker::Sync
@@ -4882,6 +4917,8 @@ impl<M> tablo_core::IntoDetail<M> for tablo_core::Section<()>
 pub fn tablo_core::Section<()>::into_detail(self) -> tablo_core::Detail<M>
 impl<M> tablo_core::IntoDetail<M> for tablo_core::Section<tablo_core::Detail<M>>
 pub fn tablo_core::Section<tablo_core::Detail<M>>::into_detail(self) -> tablo_core::Detail<M>
+impl<M> tablo_core::IntoDetail<M> for tablo_core::Tabs<tablo_core::Detail<M>>
+pub fn tablo_core::Tabs<tablo_core::Detail<M>>::into_detail(self) -> tablo_core::Detail<M>
 pub trait tablo_core::IntoFilters<M>
 impl<M, A, B, C, D, E, F, G, H, I, J, K, L> tablo_core::IntoFilters<M> for (A, B, C, D, E, F, G, H, I, J, K, L) where A: tablo_core::extend::Filter<M> + 'static, B: tablo_core::extend::Filter<M> + 'static, C: tablo_core::extend::Filter<M> + 'static, D: tablo_core::extend::Filter<M> + 'static, E: tablo_core::extend::Filter<M> + 'static, F: tablo_core::extend::Filter<M> + 'static, G: tablo_core::extend::Filter<M> + 'static, H: tablo_core::extend::Filter<M> + 'static, I: tablo_core::extend::Filter<M> + 'static, J: tablo_core::extend::Filter<M> + 'static, K: tablo_core::extend::Filter<M> + 'static, L: tablo_core::extend::Filter<M> + 'static
 impl<M, A, B, C, D, E, F, G, H, I, J, K> tablo_core::IntoFilters<M> for (A, B, C, D, E, F, G, H, I, J, K) where A: tablo_core::extend::Filter<M> + 'static, B: tablo_core::extend::Filter<M> + 'static, C: tablo_core::extend::Filter<M> + 'static, D: tablo_core::extend::Filter<M> + 'static, E: tablo_core::extend::Filter<M> + 'static, F: tablo_core::extend::Filter<M> + 'static, G: tablo_core::extend::Filter<M> + 'static, H: tablo_core::extend::Filter<M> + 'static, I: tablo_core::extend::Filter<M> + 'static, J: tablo_core::extend::Filter<M> + 'static, K: tablo_core::extend::Filter<M> + 'static
@@ -4951,6 +4988,8 @@ impl<F> tablo_core::IntoSchema<F> for tablo_core::Section<()>
 pub fn tablo_core::Section<()>::into_schema(self) -> tablo_core::Schema<F>
 impl<F> tablo_core::IntoSchema<F> for tablo_core::Section<tablo_core::Schema<F>>
 pub fn tablo_core::Section<tablo_core::Schema<F>>::into_schema(self) -> tablo_core::Schema<F>
+impl<F> tablo_core::IntoSchema<F> for tablo_core::Tabs<tablo_core::Schema<F>>
+pub fn tablo_core::Tabs<tablo_core::Schema<F>>::into_schema(self) -> tablo_core::Schema<F>
 impl<F> tablo_core::IntoSchema<F> for tablo_core::TextField<F>
 pub fn tablo_core::TextField<F>::into_schema(self) -> tablo_core::Schema<F>
 impl<Form, A, B, C, D, E, F, G, H, I, J, K, L> tablo_core::IntoSchema<Form> for (A, B, C, D, E, F, G, H, I, J, K, L) where A: tablo_core::IntoSchema<Form>, B: tablo_core::IntoSchema<Form>, C: tablo_core::IntoSchema<Form>, D: tablo_core::IntoSchema<Form>, E: tablo_core::IntoSchema<Form>, F: tablo_core::IntoSchema<Form>, G: tablo_core::IntoSchema<Form>, H: tablo_core::IntoSchema<Form>, I: tablo_core::IntoSchema<Form>, J: tablo_core::IntoSchema<Form>, K: tablo_core::IntoSchema<Form>, L: tablo_core::IntoSchema<Form>

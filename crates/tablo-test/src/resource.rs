@@ -384,6 +384,11 @@ impl<'c, 'a, K: PartialEq> Reply<'c, 'a, K> {
         empty_table(&self.html)
     }
 
+    /// See [`tabs`](crate::tabs).
+    pub fn tabs(&self) -> Vec<crate::Tab> {
+        crate::tabs(&self.html)
+    }
+
     /// Whether the edit form refused the save as stale; see [`stale_form`](crate::stale_form).
     pub fn stale(&self) -> bool {
         stale_form(&self.html)

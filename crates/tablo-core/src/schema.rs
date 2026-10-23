@@ -30,7 +30,8 @@ pub(crate) use fields::{
     MAX_FORM_BYTES, is_linkable, is_rooted, option_view, read_only, stored_upload, value_cell,
 };
 pub(crate) use input::FormInput;
-pub use layouts::{Grid, Group, Section};
+pub use layouts::{Grid, Group, HoldsTabs, Section, Tab, Tabs};
+pub(crate) use layouts::{tab_id, tab_view, tabs_chrome};
 pub(crate) use lenses::Binding;
 pub use lenses::form_key;
 pub(crate) use mask::FormMask;

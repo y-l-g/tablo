@@ -251,6 +251,7 @@ pub fn tablo_test::Reply<'c, 'a, K>::row_keys(&self) -> alloc::vec::Vec<alloc::s
 pub fn tablo_test::Reply<'c, 'a, K>::rows(&self) -> alloc::vec::Vec<tablo_test::Row>
 pub fn tablo_test::Reply<'c, 'a, K>::stale(&self) -> bool
 pub fn tablo_test::Reply<'c, 'a, K>::status(&self) -> http::status::StatusCode
+pub fn tablo_test::Reply<'c, 'a, K>::tabs(&self) -> alloc::vec::Vec<tablo_test::Tab>
 impl<'c, 'a, K> core::marker::Freeze for tablo_test::Reply<'c, 'a, K> where alloc::vec::Vec<tablo_core::values::FormField<K>>: core::marker::Freeze
 impl<'c, 'a, K> core::marker::Send for tablo_test::Reply<'c, 'a, K> where alloc::vec::Vec<tablo_core::values::FormField<K>>: core::marker::Send
 impl<'c, 'a, K> core::marker::Sync for tablo_test::Reply<'c, 'a, K> where alloc::vec::Vec<tablo_core::values::FormField<K>>: core::marker::Sync
@@ -367,6 +368,26 @@ impl<'c, 'a, K> core::marker::Unpin for tablo_test::Submission<'c, 'a, K> where 
 impl<'c, 'a, K> core::marker::UnsafeUnpin for tablo_test::Submission<'c, 'a, K> where alloc::vec::Vec<tablo_core::values::FormField<K>>: core::marker::UnsafeUnpin
 impl<'c, 'a, K> !core::panic::unwind_safe::RefUnwindSafe for tablo_test::Submission<'c, 'a, K>
 impl<'c, 'a, K> !core::panic::unwind_safe::UnwindSafe for tablo_test::Submission<'c, 'a, K>
+pub struct tablo_test::Tab
+pub tablo_test::Tab::active: bool
+pub tablo_test::Tab::errored: bool
+pub tablo_test::Tab::keys: alloc::vec::Vec<alloc::string::String>
+pub tablo_test::Tab::label: alloc::string::String
+impl core::clone::Clone for tablo_test::Tab
+pub fn tablo_test::Tab::clone(&self) -> tablo_test::Tab
+impl core::cmp::Eq for tablo_test::Tab
+impl core::cmp::PartialEq for tablo_test::Tab
+pub fn tablo_test::Tab::eq(&self, &tablo_test::Tab) -> bool
+impl core::fmt::Debug for tablo_test::Tab
+pub fn tablo_test::Tab::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tablo_test::Tab
+impl core::marker::Freeze for tablo_test::Tab
+impl core::marker::Send for tablo_test::Tab
+impl core::marker::Sync for tablo_test::Tab
+impl core::marker::Unpin for tablo_test::Tab
+impl core::marker::UnsafeUnpin for tablo_test::Tab
+impl core::panic::unwind_safe::RefUnwindSafe for tablo_test::Tab
+impl core::panic::unwind_safe::UnwindSafe for tablo_test::Tab
 pub struct tablo_test::TestClient<'a>
 impl<'a> tablo_test::TestClient<'a>
 pub async fn tablo_test::TestClient<'a>::call_procedure(&self, &str, &str) -> http::response::Response<topcoat_router::body::Body>
@@ -434,6 +455,7 @@ pub fn tablo_test::search_results(&str) -> alloc::vec::Vec<tablo_test::SearchGro
 pub fn tablo_test::session_cookie_value(&http::response::Response<topcoat_router::body::Body>) -> core::option::Option<alloc::string::String>
 pub fn tablo_test::set_cookie_header(&http::response::Response<topcoat_router::body::Body>, &str) -> core::option::Option<alloc::string::String>
 pub fn tablo_test::stale_form(&str) -> bool
+pub fn tablo_test::tabs(&str) -> alloc::vec::Vec<tablo_test::Tab>
 pub async fn tablo_test::test_db(toasty_core::schema::app::model::ModelSet) -> toasty::db::Db
 pub fn tablo_test::two_factor_secret(&str) -> core::option::Option<alloc::string::String>
 pub fn tablo_test::two_factor_state(&str) -> core::option::Option<alloc::string::String>

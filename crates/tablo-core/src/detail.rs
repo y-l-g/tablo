@@ -12,11 +12,11 @@ use crate::{
         EmbeddedColumn, FileColumn, ImageColumn, RelationColumn, RepeaterColumn, RichTextColumn,
         TextColumn, include_relations, restrict_relations, shows, unavailable_sources,
     },
-    schema::{Grid, Group, Section},
+    schema::{Grid, Group, HoldsTabs, Section, Tab, Tabs, tab_id, tab_view, tabs_chrome},
 };
 
 /// The declaration of a detail page: [`Column`]s, the same ones a [`Table`](crate::Table) lists,
-/// arranged in [`Section`], [`Group`] and [`Grid`] blocks.
+/// arranged in [`Section`], [`Group`], [`Grid`] and [`Tabs`] blocks.
 ///
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
@@ -51,6 +51,10 @@ enum Node<M> {
     Section(Box<Section<Detail<M>>>),
     Group(Box<Group<Detail<M>>>),
     Grid(Box<Grid<Detail<M>>>),
+    /// A `Tabs` block, whose children are its `Tab` nodes.
+    Tabs(Box<Tabs<Detail<M>>>),
+    /// One tab, placed only in a `Tabs` block's children.
+    Tab(Box<Tab<Detail<M>>>),
 }
 
 impl<M> Detail<M> {
@@ -89,6 +93,8 @@ impl<M> Detail<M> {
                     Node::Section(section) => walk(&section.children.nodes, out),
                     Node::Group(group) => walk(&group.children.nodes, out),
                     Node::Grid(grid) => walk(&grid.children.nodes, out),
+                    Node::Tabs(tabs) => walk(&tabs.children.nodes, out),
+                    Node::Tab(tab) => walk(&tab.children.nodes, out),
                 }
             }
         }
@@ -169,6 +175,17 @@ impl<M> Detail<M> {
         record: &M,
         hidden: &[String],
     ) -> BoxView<'a> {
+        self.render_in(cx, record, hidden, 0)
+    }
+
+    /// Renders as [`render_without`](Self::render_without) does, inside `depth` tabs.
+    fn render_in<'a>(
+        &self,
+        cx: &'a Cx,
+        record: &M,
+        hidden: &[String],
+        depth: usize,
+    ) -> BoxView<'a> {
         let views: Vec<BoxView<'a>> = self
             .nodes
             .iter()
@@ -179,23 +196,59 @@ impl<M> Detail<M> {
                 }
                 Node::Group(group) => group.children.shows_any(cx, hidden),
                 Node::Grid(grid) => grid.children.shows_any(cx, hidden),
+                Node::Tabs(tabs) => tabs.children.shows_any(cx, hidden),
+                Node::Tab(tab) => tab.children.shows_any(cx, hidden),
             })
             .map(|node| match node {
                 Node::Column(column) => column.entry(cx, record),
                 Node::Section(section) => {
                     let body = (!section.children.is_empty())
-                        .then(|| section.children.render_without(cx, record, hidden));
+                        .then(|| section.children.render_in(cx, record, hidden, depth));
                     section.chrome(cx, body)
                 }
                 Node::Group(group) => {
-                    group.chrome(cx, group.children.render_without(cx, record, hidden))
+                    group.chrome(cx, group.children.render_in(cx, record, hidden, depth))
                 }
                 Node::Grid(grid) => {
-                    grid.chrome(cx, grid.children.render_without(cx, record, hidden))
+                    grid.chrome(cx, grid.children.render_in(cx, record, hidden, depth))
                 }
+                Node::Tabs(tabs) => tabs.children.render_tabs(cx, record, hidden, depth),
+                // A tab renders through its block, which lays out its trigger and its panel.
+                Node::Tab(tab) => tab.children.render_in(cx, record, hidden, depth),
             })
             .collect();
         stack(cx, views)
+    }
+
+    /// Renders the tabs this `Tabs` block's children hold, inside `depth` tabs, the first shown
+    /// one active, without those whose every column reads a `hidden` field.
+    fn render_tabs<'a>(
+        &self,
+        cx: &'a Cx,
+        record: &M,
+        hidden: &[String],
+        depth: usize,
+    ) -> BoxView<'a> {
+        let views = self
+            .nodes
+            .iter()
+            .filter_map(|node| match node {
+                Node::Tab(tab) if tab.children.shows_any(cx, hidden) => Some(tab),
+                _ => None,
+            })
+            .enumerate()
+            .map(|(index, tab)| {
+                let id = tab
+                    .children
+                    .columns()
+                    .first()
+                    .map(|column| tab_id(&format!("detail-{}", column.name()), depth))
+                    .unwrap_or_default();
+                let body = tab.children.render_in(cx, record, hidden, depth + 1);
+                tab_view(cx, &id, tab.label(), index == 0, false, body)
+            })
+            .collect();
+        tabs_chrome(cx, views)
     }
 
     /// Whether any column shows to `cx`, which may not view the `hidden` fields.
@@ -344,7 +397,21 @@ macro_rules! block_columns {
     };
 }
 
-block_columns!(Section, Group, Grid);
+block_columns!(Section, Group, Grid, Tab);
+
+impl<M> HoldsTabs for Detail<M> {
+    fn push_tab(&mut self, tab: Tab<Self>) {
+        self.nodes.push(Node::Tab(Box::new(tab)));
+    }
+}
+
+impl<M> IntoDetail<M> for Tabs<Detail<M>> {
+    fn into_detail(self) -> Detail<M> {
+        Detail {
+            nodes: vec![Node::Tabs(Box::new(self))],
+        }
+    }
+}
 
 /// The single-node [`IntoDetail`] impls of every layout block, holding columns or nothing.
 macro_rules! block_details {
