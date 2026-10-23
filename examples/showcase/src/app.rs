@@ -455,6 +455,27 @@ pub fn build_router(db: Db, bundle: Option<AssetBundle>, uploads: Option<PathBuf
     build_app(db, bundle, uploads).0
 }
 
+/// The key that seals two-factor secrets: `SHOWCASE_COOKIE_KEY`, 64 random bytes as 128 hex
+/// characters (`openssl rand -hex 64`), kept secret and the same across restarts and replicas,
+/// as an app loads it. Without it a fresh key each start, which the in-memory database,
+/// forgetting every sealed secret too, gets away with.
+fn cookie_key() -> Key {
+    let Ok(secret) = std::env::var("SHOWCASE_COOKIE_KEY") else {
+        return Key::generate();
+    };
+    let bytes: Option<Vec<u8>> = (0..secret.len())
+        .step_by(2)
+        .map(|at| {
+            secret
+                .get(at..at + 2)
+                .and_then(|pair| u8::from_str_radix(pair, 16).ok())
+        })
+        .collect();
+    bytes
+        .and_then(|bytes| Key::try_from(bytes.as_slice()).ok())
+        .expect("SHOWCASE_COOKIE_KEY holds at least 128 hex characters")
+}
+
 /// [`build_router`]'s router and the admin panel it mounts, which a test resolves its resources'
 /// URLs through.
 pub fn build_app(
@@ -472,9 +493,7 @@ pub fn build_app(
     let mut builder = Router::builder()
         .discover()
         .app_context(db)
-        // Seals two-factor secrets. An app loads a fixed key from a secret; the showcase's
-        // in-memory database forgets every sealed secret with the key at each start.
-        .app_context(Key::generate())
+        .app_context(cookie_key())
         .mail(MailConfig::builder().transport(mail_transport()).build());
     if let Some(dir) = uploads {
         builder = builder.app_context(MediaStore(DirUploader::new(UPLOAD_URL_PREFIX, dir.clone())));
