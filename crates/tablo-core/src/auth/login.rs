@@ -254,7 +254,7 @@ pub(super) fn tenant_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
                     .user
                     .tenants()
                     .iter()
-                    .any(|membership| membership.tenant == *tenant)
+                    .any(|membership| membership.tenant.get() == *tenant)
             })
             .ok_or_else(topcoat::router::error::forbidden)?;
         select_tenant(cx, tenant).await?;

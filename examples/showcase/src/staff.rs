@@ -101,7 +101,7 @@ impl StaffAuth {
                 .exec(&mut db)
                 .await?
                 .into_iter()
-                .map(|workspace| Membership::new(workspace.id, workspace.name))
+                .map(|workspace| Membership::new(workspace.id.into(), workspace.name))
                 .collect();
         workspaces.sort_by(|a, b| a.name.cmp(&b.name));
         Ok(SignedStaff { staff, workspaces })
@@ -217,7 +217,7 @@ impl Registrar for StaffAuth {
         // through `signed` would wait for.
         Ok(SignedStaff {
             staff,
-            workspaces: vec![Membership::new(workspace.id, workspace.name)],
+            workspaces: vec![Membership::new(workspace.id.into(), workspace.name)],
         })
     }
 }
@@ -253,7 +253,7 @@ impl TenantRegistrar for StaffAuth {
         })
         .exec(ex)
         .await?;
-        Ok(Membership::new(workspace.id, workspace.name))
+        Ok(Membership::new(workspace.id.into(), workspace.name))
     }
 }
 
@@ -281,7 +281,7 @@ impl TenantEditor for StaffAuth {
         renamed: BlogName,
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<()> {
-        Workspace::filter(Workspace::fields().id().eq(blog.tenant))
+        Workspace::filter(Workspace::fields().id().eq(blog.tenant.get()))
             .update()
             .name(renamed.name)
             .exec(ex)

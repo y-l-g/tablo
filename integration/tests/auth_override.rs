@@ -83,7 +83,7 @@ impl MemberAuth {
             .exec(&mut db)
             .await?
             .into_iter()
-            .map(|seat| Membership::new(seat.tenant, seat.tenant_name))
+            .map(|seat| Membership::new(seat.tenant.into(), seat.tenant_name))
             .collect();
         Ok(SignedMember { member, tenants })
     }

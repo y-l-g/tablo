@@ -112,7 +112,7 @@ async fn a_bell_lists_its_tenants_notifications_and_the_tenantless() {
     let db = db().await;
     let (router, admin) = mount(db.clone(), panel().notifications());
     let ada = member(&db, "Ada", &["Acme", "Globex"]).await;
-    let (acme, globex) = (ada.tenants[0].tenant, ada.tenants[1].tenant);
+    let (acme, globex) = (ada.tenants[0].tenant.get(), ada.tenants[1].tenant.get());
     let notifications = admin.notifications();
     let mut ids = Vec::new();
     for (tenant, title) in [

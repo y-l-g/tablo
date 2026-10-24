@@ -61,7 +61,7 @@ impl TenantRegistrar for Teams {
         })
         .exec(ex)
         .await?;
-        Ok(Membership::new(tenant, team.name))
+        Ok(Membership::new(tenant.into(), team.name))
     }
 }
 

@@ -194,7 +194,7 @@ pub fn membership(cx: &Cx) -> Option<&Membership> {
         .user
         .tenants()
         .iter()
-        .find(|m| m.tenant == tenant)
+        .find(|m| m.tenant.get() == tenant)
 }
 
 /// The tenant of the session's selected membership, else of the user's default, else of their
@@ -202,13 +202,18 @@ pub fn membership(cx: &Cx) -> Option<&Membership> {
 pub(crate) fn session_tenant(cx: &Cx) -> Option<Uuid> {
     let signed = signed(cx)?;
     let tenants = signed.user.tenants();
-    let member = |tenant: Uuid| tenants.iter().find(|m| m.tenant == tenant);
+    let member = |tenant: Uuid| tenants.iter().find(|m| m.tenant.get() == tenant);
     signed
         .tenant
         .and_then(member)
-        .or_else(|| signed.user.default_tenant().and_then(member))
+        .or_else(|| {
+            signed
+                .user
+                .default_tenant()
+                .and_then(|tenant| member(tenant.get()))
+        })
         .or_else(|| tenants.first())
-        .map(|membership| membership.tenant)
+        .map(|membership| membership.tenant.get())
 }
 
 /// The signed-in user's [`time_zone`](PanelUser::time_zone), else the request panel's

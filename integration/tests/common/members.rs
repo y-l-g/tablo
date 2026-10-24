@@ -96,7 +96,7 @@ impl Authenticator for MemberAuth {
                 .collect(),
             tenants: seats
                 .into_iter()
-                .map(|seat| Membership::new(seat.tenant, seat.tenant_name))
+                .map(|seat| Membership::new(seat.tenant.into(), seat.tenant_name))
                 .collect(),
         }))
     }
@@ -162,7 +162,9 @@ pub async fn member(db: &Db, name: &str, tenants: &[&str]) -> SignedMember {
     for tenant_name in tenants {
         let tenant = Uuid::new_v4();
         seat(db, &signed.member, tenant, tenant_name, true).await;
-        signed.tenants.push(Membership::new(tenant, *tenant_name));
+        signed
+            .tenants
+            .push(Membership::new(tenant.into(), *tenant_name));
         signed.owned.push(tenant);
     }
     signed

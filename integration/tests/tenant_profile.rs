@@ -31,7 +31,7 @@ impl TenantEditor for Teams {
     type User = SignedMember;
 
     fn may_edit(&self, _cx: &Cx, signed: &SignedMember, team: &Membership) -> bool {
-        signed.owned.contains(&team.tenant)
+        signed.owned.contains(&team.tenant.get())
     }
 
     async fn fill(
@@ -68,7 +68,7 @@ impl TenantEditor for Teams {
         renamed: TeamName,
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<()> {
-        Seat::filter(Seat::fields().tenant().eq(team.tenant))
+        Seat::filter(Seat::fields().tenant().eq(team.tenant.get()))
             .update()
             .tenant_name(renamed.name)
             .exec(ex)
@@ -149,7 +149,14 @@ async fn only_an_admitted_member_of_the_tenant_reaches_its_settings() {
     let db = db().await;
     let ada = member(&db, "Ada", &["Acme"]).await;
     let grace = member(&db, "Grace", &[]).await;
-    seat(&db, &grace.member, ada.tenants[0].tenant, "Acme", false).await;
+    seat(
+        &db,
+        &grace.member,
+        ada.tenants[0].tenant.get(),
+        "Acme",
+        false,
+    )
+    .await;
     let router = router(db.clone());
 
     let client = TestClient::new(&router).sign_in(&db, "admin", &grace).await;

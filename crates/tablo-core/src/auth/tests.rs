@@ -650,7 +650,7 @@ fn an_inactive_user_is_not_signed_in() {
 }
 
 /// A user holding the memberships it carries, and the default tenant it names.
-struct Member(Vec<Membership>, Option<uuid::Uuid>);
+struct Member(Vec<Membership>, Option<crate::TenantId>);
 
 impl PanelUser for Member {
     fn user_id(&self) -> String {
@@ -665,7 +665,7 @@ impl PanelUser for Member {
         &self.0
     }
 
-    fn default_tenant(&self) -> Option<uuid::Uuid> {
+    fn default_tenant(&self) -> Option<crate::TenantId> {
         self.1
     }
 }
@@ -694,12 +694,12 @@ fn defaulting_cx(
     let memberships = tenants
         .iter()
         .enumerate()
-        .map(|(index, tenant)| Membership::new(*tenant, format!("Tenant {index}")))
+        .map(|(index, tenant)| Membership::new((*tenant).into(), format!("Tenant {index}")))
         .collect();
     let mut builder =
         crate::panel::test_support::serving(topcoat::context::CxTestBuilder::new(), &panel)
             .request_context(SignedIn {
-                user: std::sync::Arc::new(Member(memberships, default)),
+                user: std::sync::Arc::new(Member(memberships, default.map(crate::TenantId::from))),
                 realm: std::sync::Arc::clone(&panel.realm),
                 tenant: selected,
             })
@@ -736,7 +736,7 @@ fn the_request_acts_for_the_selected_membership_else_the_first() {
     assert_eq!(crate::tenant_id(&cx), Some(stranger));
     assert_eq!(membership(&cx), None);
     let cx = member_cx(&[a, b], None, Some(b));
-    assert_eq!(membership(&cx).map(|m| m.tenant), Some(b));
+    assert_eq!(membership(&cx).map(|m| m.tenant.get()), Some(b));
 }
 
 /// A user without an address has nothing to verify: verification never holds them.
