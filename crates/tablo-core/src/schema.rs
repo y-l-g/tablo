@@ -22,9 +22,11 @@ use std::{collections::HashSet, marker::PhantomData};
 pub use condition::Watched;
 pub use embedded::EmbeddedForm;
 use fields::ChoiceControl;
+#[cfg(feature = "rich-text")]
+pub use fields::RichTextField;
 pub use fields::{
-    ChoiceField, CustomField, Field, FileField, IntoFormValue, IntoOptions, RepeaterField,
-    RichTextField, Switch, TextField, Toggle,
+    ChoiceField, CustomField, Field, FileField, IntoFormValue, IntoOptions, RepeaterField, Switch,
+    TextField, Toggle,
 };
 pub(crate) use fields::{
     MAX_FORM_BYTES,

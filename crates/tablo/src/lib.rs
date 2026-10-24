@@ -91,9 +91,10 @@ pub mod prelude {
         IntoOptions, Lens, ModelColumns, ModelForm, NavigationItem, NoForm, Options, Outcome, Page,
         PageDef, Pagination, Panel, Places, Policy, Posted, PublicLink, QueryFilter, ReadOnly,
         Reads, RecordForm, Relation, RelationColumn, RepeaterColumn, Resource, ResourceDef,
-        RichTextColumn, RichTextField, RouterBuilderPanelExt, Schema, Section, SelectFilter, Sort,
-        Tab, Table, Tabs, Tenancy, TenantId, TernaryFilter, Text, TextColumn, TextField, Toggle,
-        Tool, WriteError, can, can_list, can_open, lens, relation, scoped_query, t, tenant_id,
-        text, when,
+        RouterBuilderPanelExt, Schema, Section, SelectFilter, Sort, Tab, Table, Tabs, Tenancy,
+        TenantId, TernaryFilter, Text, TextColumn, TextField, Toggle, WriteError, can, can_list,
+        can_open, lens, relation, scoped_query, t, tenant_id, text, when,
     };
+    #[cfg(feature = "rich-text")]
+    pub use tablo_core::{RichTextColumn, RichTextField, Tool};
 }

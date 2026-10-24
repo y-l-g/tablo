@@ -10,9 +10,10 @@ use super::{
         condition::{Condition, Watched},
         repeater::RepeaterControl,
     },
-    ChoiceControl, Control, ControlKind, Field, Kind, Pattern, RichTextControl, RichTextField,
-    TextControl,
+    ChoiceControl, Control, ControlKind, Field, Kind, Pattern, TextControl,
 };
+#[cfg(feature = "rich-text")]
+use super::{RichTextControl, RichTextField};
 
 mod choices;
 mod comparisons;
@@ -214,7 +215,9 @@ macro_rules! default_modifier {
     )*};
 }
 
-default_modifier!(TextField, ChoiceField, CustomField, RichTextField);
+default_modifier!(TextField, ChoiceField, CustomField);
+#[cfg(feature = "rich-text")]
+default_modifier!(RichTextField);
 
 /// A text field: [`Field::text`], or a record form's text control (`F` is the form).
 pub struct TextField<F = ()>(pub(super) Field, PhantomData<fn() -> F>);
@@ -291,6 +294,7 @@ impl<F> CustomField<F> {
 }
 
 common_modifiers!(TextField);
+#[cfg(feature = "rich-text")]
 common_modifiers!(RichTextField);
 common_modifiers!(ChoiceField);
 common_modifiers!(FileField);
@@ -333,6 +337,7 @@ impl<F> TextField<F> {
     ///     .rich_text()
     ///     .toolbar(&[&[Tool::Bold, Tool::Italic], &[Tool::BulletList]]);
     /// ```
+    #[cfg(feature = "rich-text")]
     pub fn rich_text(mut self) -> RichTextField<F> {
         let input = self.text().input_type();
         self.0.control = ControlKind::RichText(RichTextControl {

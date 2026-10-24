@@ -246,6 +246,7 @@ impl Field {
     pub(crate) fn read_posted(&self, posted: &str, zone: &TimeZone) -> String {
         match &self.control {
             ControlKind::Text(text) => text.reading(posted, zone),
+            #[cfg(feature = "rich-text")]
             ControlKind::RichText(rich) => rich.clean(posted),
             _ => posted.to_string(),
         }

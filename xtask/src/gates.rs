@@ -338,7 +338,34 @@ fn check_with(
     )?;
     run.run(
         "cargo",
+        &[
+            "test",
+            "-p",
+            "tablo-core",
+            "--no-default-features",
+            "--locked",
+        ],
+        Some(&root),
+        &[],
+    )?;
+    run.run(
+        "cargo",
         &["clippy", "--workspace", "--all-targets", "--locked"],
+        Some(&root),
+        &[],
+    )?;
+    run.run(
+        "cargo",
+        &[
+            "clippy",
+            "-p",
+            "tablo-core",
+            "-p",
+            "tablo",
+            "--no-default-features",
+            "--all-targets",
+            "--locked",
+        ],
         Some(&root),
         &[],
     )?;

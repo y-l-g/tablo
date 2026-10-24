@@ -114,6 +114,7 @@ mod page;
 mod panel;
 mod policy;
 mod resource;
+#[cfg(feature = "rich-text")]
 pub mod rich_text;
 mod schema;
 mod table;
@@ -141,10 +142,12 @@ pub use auth::{
     two_factor::TwoFactor,
     verification::EmailVerification,
 };
+#[cfg(feature = "rich-text")]
+pub use column::RichTextColumn;
 pub use column::{
     BooleanColumn, ColorColumn, ColumnToggle, ColumnWidth, ComputedColumn, CountColumn, DateColumn,
     DateValue, EmbeddedColumn, FileColumn, ImageColumn, IntoColumns, RelationColumn, RelationLens,
-    RepeaterColumn, RichTextColumn, TextColumn, ToOneRelation, contains_expr,
+    RepeaterColumn, TextColumn, ToOneRelation, contains_expr,
 };
 pub use declaration::{
     ActionInputFault, AuthMailFault, DeclarationError, DeclarationErrorKind, FieldAccessFault,
@@ -173,12 +176,15 @@ pub use resource::{
     PublicLink, Relation, Resource, ResourceDef, Trashed, WriteError, can, scoped_query,
     scoped_query_in, write_create, write_update,
 };
+#[cfg(feature = "rich-text")]
 pub use rich_text::tool::Tool;
+#[cfg(feature = "rich-text")]
+pub use schema::RichTextField;
 pub use schema::{
     ChoiceField, CustomField, EmbeddedForm, Field, FileField, Grid, Group, IntoFormValue,
     IntoOptions, IntoSchema, MAX_RELATIONSHIP_OPTIONS, MAX_REPEATER_ROWS, Options, RepeaterField,
-    RichTextField, Schema, Section, Source, Switch, Tab, Tabs, TextField, Toggle, Watched,
-    input::FormInput, parse_items, write_items,
+    Schema, Section, Source, Switch, Tab, Tabs, TextField, Toggle, Watched, input::FormInput,
+    parse_items, write_items,
 };
 pub use table::{
     ActionLayout, Cursor, DEFAULT_PAGE_SIZE, DEFAULT_PER_PAGE_OPTIONS, DateFilter, FilterValue,
