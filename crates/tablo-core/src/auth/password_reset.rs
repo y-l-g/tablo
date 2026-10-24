@@ -18,7 +18,7 @@ use super::{
     mail::{TOKEN_FIELD, after_response, token_from_query},
     registration::new_password_errors,
     session::{credential_panels, end_credentials},
-    token::{self, REVOCATION, TokenPurpose, serializable},
+    token::{self, REVOCATION, TokenPurpose, run_serializable},
 };
 use crate::{
     BoxFuture,
@@ -101,7 +101,9 @@ pub trait PasswordResetter: Send + Sync + 'static {
     /// Set the password of the account [`PanelUser::user_id`] `user_id` names to `password`,
     /// through the reset's transaction `ex`, which commits when it returns `Ok`. The panel's
     /// authenticator still loads the account and it may enter the panel; the password is at
-    /// least [`MIN_PASSWORD_CHARS`](super::MIN_PASSWORD_CHARS) long and was typed twice.
+    /// least [`MIN_PASSWORD_CHARS`](super::MIN_PASSWORD_CHARS) long and was typed twice. It may
+    /// run again for one reset when the database aborts the transaction for a concurrent one, so
+    /// it writes only through `ex`.
     fn reset_password(
         &self,
         cx: &Cx,
@@ -408,20 +410,24 @@ pub(super) fn reset_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         if !errors.is_empty() {
             return reset_response(cx, &token, &errors).await;
         }
-        let mut tx = serializable(&mut db).await?;
-        // Read again inside the transaction: of two requests racing on one link, one commits.
-        if live_token(cx, &mut tx, &token).await?.is_none() {
+        let reset_done = run_serializable!(cx, |tx| async {
+            // Read again inside the transaction: of two requests racing on one link, one commits.
+            if live_token(cx, tx, &token).await?.is_none() {
+                return Ok(false);
+            }
+            reset
+                .resetter()
+                .reset_password(cx, &row.user_id, password, tx)
+                .await
+                .map_err(infrastructure_failure)?;
+            let (user_type, _) = reset.resetter().user_type();
+            let panels = credential_panels(cx, user_type, panel);
+            end_credentials(tx, &row.user_id, &panels, REVOCATION).await?;
+            Ok(true)
+        })?;
+        if !reset_done {
             return invalid_link(cx).await;
         }
-        reset
-            .resetter()
-            .reset_password(cx, &row.user_id, password, &mut tx)
-            .await
-            .map_err(infrastructure_failure)?;
-        let (user_type, _) = reset.resetter().user_type();
-        let panels = credential_panels(cx, user_type, panel);
-        end_credentials(&mut tx, &row.user_id, &panels, REVOCATION).await?;
-        tx.commit().await.map_err(infrastructure_failure)?;
         set_notification(
             cx,
             Notification::success(crate::t!(cx, "tablo-reset-done"))

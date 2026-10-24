@@ -231,6 +231,21 @@ pub(super) async fn delete_session(cx: &Cx, hash: &TokenHash) -> topcoat::Result
     delete_session_row(cx, &token_key(hash)).await
 }
 
+/// The session `started` holds, or a new one it then holds: a transaction
+/// [`run_serializable`](super::token::run_serializable) runs again records the session the first
+/// run gave the browser, rather than one more cookie.
+pub(super) async fn start_once(
+    cx: &Cx,
+    started: &mut Option<session::Session>,
+) -> topcoat::Result<session::Session> {
+    if let Some(session) = started {
+        return Ok(session.clone());
+    }
+    let session = session::start(cx).await?;
+    *started = Some(session.clone());
+    Ok(session)
+}
+
 /// Ends the session the request presents and starts a new one, so a token presented before a
 /// sign-in cannot be replayed after it.
 ///
