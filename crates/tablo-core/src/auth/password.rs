@@ -128,7 +128,7 @@ impl Authenticator for PasswordAuth {
         login: &str,
         password: &str,
     ) -> topcoat::Result<Option<AdminUser>> {
-        let mut db = crate::db::db(cx);
+        let mut db = crate::db::db(cx)?;
         let user = AdminUser::filter(AdminUser::fields().email().eq(normalize_email(login)))
             .first()
             .exec(&mut db)
@@ -145,7 +145,7 @@ impl Authenticator for PasswordAuth {
         let Ok(id) = Uuid::parse_str(id) else {
             return Ok(None);
         };
-        let mut db = crate::db::db(cx);
+        let mut db = crate::db::db(cx)?;
         let user = AdminUser::filter(AdminUser::fields().id().eq(id))
             .first()
             .exec(&mut db)
@@ -336,7 +336,7 @@ impl PasswordResetter for PasswordAuth {
     type User = AdminUser;
 
     async fn find_by_email(&self, cx: &Cx, email: &str) -> topcoat::Result<Option<AdminUser>> {
-        let mut db = crate::db::db(cx);
+        let mut db = crate::db::db(cx)?;
         AdminUser::filter(AdminUser::fields().email().eq(normalize_email(email)))
             .first()
             .exec(&mut db)

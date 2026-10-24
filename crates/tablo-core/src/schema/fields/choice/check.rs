@@ -77,7 +77,12 @@ impl ChoiceControl {
             Ok(_) => "tablo-field-invalid",
             Err(OptionLoadError::Denied) => "tablo-field-unavailable",
             Err(OptionLoadError::Overflow) if self.searchable => {
-                let mut db = crate::db::db(cx);
+                let Ok(mut db) = crate::db::db(cx) else {
+                    return vec![text!(
+                        load_failure(&OptionLoadError::Misdeclared),
+                        label = label
+                    )];
+                };
                 match (relationship.check)(cx, trimmed.to_string(), scope, &mut db).await {
                     Ok(RelatedCheck::FoundViewable) => return Vec::new(),
                     Ok(RelatedCheck::FoundHidden | RelatedCheck::NotFound) => "tablo-field-invalid",

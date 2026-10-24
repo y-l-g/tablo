@@ -329,7 +329,7 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             ..
         } = prepare_submission(cx, &resource, parts, None, Unposted::Missing).await?;
         // Opens the transaction after validation so loaders never block on the held connection.
-        let mut db = db(cx);
+        let mut db = db(cx)?;
         let mut tx = WriteTx::begin(cx, &mut db)
             .await
             .map_err(crate::error::unavailable)?;
@@ -428,7 +428,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
             .transpose()
             .map_err(|error| topcoat::router::error::bad_request(error.to_string()))?;
         // Advisory load feeds validation; the authoritative load runs inside the transaction.
-        let mut db0 = db(cx);
+        let mut db0 = db(cx)?;
         let advisory = load_editable(cx, &resource, &mut db0).await?;
         if !resource.can(cx, Ability::Update(&advisory)) {
             return Err(forbidden().into());
@@ -441,7 +441,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
             named,
         } = prepare_submission(cx, &resource, parts, Some(&advisory), Unposted::Missing).await?;
         // Authoritative load inside the transaction observes the write snapshot.
-        let mut db = db(cx);
+        let mut db = db(cx)?;
         let mut tx = WriteTx::begin(cx, &mut db)
             .await
             .map_err(crate::error::unavailable)?;
@@ -509,7 +509,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
                     return Err(failed_write(cx, WRITE_UPDATE, error));
                 }
                 // The edit page renders on the record as it now stands.
-                let record = load_editable(cx, &resource, &mut crate::db::db(cx)).await?;
+                let record = load_editable(cx, &resource, &mut crate::db::db(cx)?).await?;
                 if !resource.can(cx, Ability::Update(&record)) {
                     return Err(forbidden().into());
                 }

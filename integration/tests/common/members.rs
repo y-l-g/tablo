@@ -78,7 +78,7 @@ impl Authenticator for MemberAuth {
         let Ok(id) = Uuid::parse_str(id) else {
             return Ok(None);
         };
-        let mut db = tablo::db::db(cx);
+        let mut db = tablo::db::db(cx)?;
         let Some(member) = Member::filter(Member::fields().id().eq(id))
             .first()
             .exec(&mut db)

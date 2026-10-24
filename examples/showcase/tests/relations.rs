@@ -746,7 +746,7 @@ async fn post_options_do_not_load_every_posts_comments() {
         .app_context(db.clone())
         .request_context(Tenant(t1))
         .build();
-    let mut handle = db_handle(&cx);
+    let mut handle = db_handle(&cx).unwrap();
 
     let option_row = <PostResource as Resource>::query(&cx)
         .first()

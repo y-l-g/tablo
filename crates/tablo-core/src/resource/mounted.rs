@@ -155,7 +155,7 @@ impl<R: Resource> Mounted<R> {
                 return None;
             }
         };
-        match query.count().exec(&mut crate::db::db(cx)).await {
+        match query.count().exec(&mut crate::db::db(cx).ok()?).await {
             Ok(0) => None,
             Ok(count) => Some(count.to_string()),
             Err(error) => {

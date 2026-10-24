@@ -254,7 +254,7 @@ async fn opened(
     let Some(authenticator) = panel.auth.authenticator() else {
         return Ok(None);
     };
-    let mut db = crate::db::db(cx);
+    let mut db = crate::db::db(cx)?;
     let Some(row) = token::live(cx, &mut db, purpose, encoded).await? else {
         return Ok(None);
     };

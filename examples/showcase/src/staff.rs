@@ -89,7 +89,7 @@ pub struct StaffAuth;
 
 impl StaffAuth {
     async fn signed(cx: &Cx, staff: Staff) -> topcoat::Result<SignedStaff> {
-        let mut db = tablo::db::db(cx);
+        let mut db = tablo::db::db(cx)?;
         let seats: Vec<Uuid> = Seat::filter(Seat::fields().staff_id().eq(staff.id))
             .exec(&mut db)
             .await?
@@ -117,7 +117,7 @@ impl Authenticator for StaffAuth {
         login: &str,
         password: &str,
     ) -> topcoat::Result<Option<SignedStaff>> {
-        let mut db = tablo::db::db(cx);
+        let mut db = tablo::db::db(cx)?;
         let staff = Staff::filter(Staff::fields().email().eq(login.to_string()))
             .first()
             .exec(&mut db)
@@ -135,7 +135,7 @@ impl Authenticator for StaffAuth {
         let Ok(id) = Uuid::parse_str(id) else {
             return Ok(None);
         };
-        let mut db = tablo::db::db(cx);
+        let mut db = tablo::db::db(cx)?;
         let staff = Staff::filter(Staff::fields().id().eq(id))
             .first()
             .exec(&mut db)
@@ -370,7 +370,7 @@ impl PasswordResetter for StaffAuth {
     type User = SignedStaff;
 
     async fn find_by_email(&self, cx: &Cx, email: &str) -> topcoat::Result<Option<SignedStaff>> {
-        let mut db = tablo::db::db(cx);
+        let mut db = tablo::db::db(cx)?;
         let staff = Staff::filter(Staff::fields().email().eq(email.to_string()))
             .first()
             .exec(&mut db)

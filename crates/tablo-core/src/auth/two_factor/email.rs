@@ -80,7 +80,7 @@ pub(super) async fn send(
         return Ok(Sent::Throttled);
     }
     let code = code();
-    let mut db = crate::db::db(cx);
+    let mut db = crate::db::db(cx)?;
     token::record(
         cx,
         &mut db,

@@ -243,7 +243,7 @@ impl<R: TenantRegistrar> DynTenantRegistrar for R {
                     Ok(input) => input,
                     Err(errors) => return Ok(Outcome::Refused { values, errors }),
                 };
-            let mut db = crate::db::db(cx);
+            let mut db = crate::db::db(cx)?;
             let mut tx = db.transaction().await.map_err(infrastructure_failure)?;
             let errors = self
                 .validate(cx, user, &input, &mut tx)

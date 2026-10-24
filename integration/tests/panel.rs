@@ -644,7 +644,7 @@ fn book_count(cx: &Cx, _body: Body) -> RouteFuture<'_> {
         };
         let count = tablo::scoped_query::<BookResource>(&cx)?
             .count()
-            .exec(&mut tablo::db::db(&cx))
+            .exec(&mut tablo::db::db(&cx)?)
             .await?;
         let url = tablo::url::resource::<BookResource>(&cx).unwrap_or_default();
         format!("{count} {url}").into_response(&cx)

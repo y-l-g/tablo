@@ -112,7 +112,7 @@ impl Authenticator for ReaderAuth {
         };
         Ok(Reader::filter(Reader::fields().id().eq(id))
             .first()
-            .exec(&mut tablo::db::db(cx))
+            .exec(&mut tablo::db::db(cx)?)
             .await?)
     }
 }
@@ -123,7 +123,7 @@ impl PasswordResetter for ReaderAuth {
     async fn find_by_email(&self, cx: &Cx, email: &str) -> topcoat::Result<Option<Reader>> {
         Ok(Reader::filter(Reader::fields().email().eq(email))
             .first()
-            .exec(&mut tablo::db::db(cx))
+            .exec(&mut tablo::db::db(cx)?)
             .await?)
     }
 

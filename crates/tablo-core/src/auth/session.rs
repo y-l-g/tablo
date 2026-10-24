@@ -73,7 +73,7 @@ pub(super) async fn record(
 ) -> topcoat::Result<()> {
     let expires_at = Timestamp::try_from(session.expires_at).map_err(topcoat::Error::from)?;
     insert(
-        &mut crate::db::db(cx),
+        &mut crate::db::db(cx)?,
         &session.token_hash,
         user.user_id(),
         panel.prefix.clone(),
@@ -217,7 +217,7 @@ pub(super) async fn select_tenant(cx: &Cx, tenant: Uuid) -> topcoat::Result<()> 
     let Some(hash) = session::token_hash(cx).await? else {
         return Err(topcoat::router::error::forbidden().into());
     };
-    let mut db = crate::db::db(cx);
+    let mut db = crate::db::db(cx)?;
     AuthSession::filter(AuthSession::fields().token_hash().eq(token_key(&hash)))
         .update()
         .tenant(Some(tenant))
@@ -263,7 +263,7 @@ pub(super) async fn fresh_session(cx: &Cx) -> topcoat::Result<session::Session> 
 }
 
 async fn delete_session_row(cx: &Cx, key: &str) -> topcoat::Result<()> {
-    let mut db = crate::db::db(cx);
+    let mut db = crate::db::db(cx)?;
     AuthSession::filter(AuthSession::fields().token_hash().eq(key.to_string()))
         .delete()
         .exec(&mut db)
@@ -281,7 +281,7 @@ async fn delete_session_row(cx: &Cx, key: &str) -> topcoat::Result<()> {
 ///
 /// The opaque sign-in outage when the database cannot answer.
 pub async fn revoke_sessions_for_user(cx: &Cx, user_id: &str) -> topcoat::Result<()> {
-    let mut db = crate::db::db(cx);
+    let mut db = crate::db::db(cx)?;
     if let Some(panel) = current_realm(cx) {
         let panels = match panel.auth.authenticator() {
             Some(auth) => credential_panels(cx, auth.user_type(), panel),
@@ -327,7 +327,7 @@ pub(super) const SESSION_SWEEP_BATCH: usize = 500;
 /// Drops up to [`SESSION_SWEEP_BATCH`] expired session rows on successful login.
 pub(super) async fn sweep_expired_sessions(cx: &Cx) -> topcoat::Result<()> {
     let now = Timestamp::now();
-    let mut db = crate::db::db(cx);
+    let mut db = crate::db::db(cx)?;
     let expired: Vec<String> = AuthSession::filter(AuthSession::fields().expires_at().le(now))
         .limit(SESSION_SWEEP_BATCH)
         .exec(&mut db)
@@ -360,7 +360,7 @@ pub(super) async fn session_row(cx: &Cx) -> topcoat::Result<Option<AuthSession>>
         return Ok(None);
     };
     let key = token_key(&hash);
-    let mut db = crate::db::db(cx);
+    let mut db = crate::db::db(cx)?;
     let row = AuthSession::filter(AuthSession::fields().token_hash().eq(key))
         .first()
         .exec(&mut db)

@@ -169,7 +169,7 @@ pub(super) async fn rerender_invalid_form<'a, R: Resource>(
 pub(crate) fn resource_edit<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
     async_page(async move {
         let resource = gate::<R>(cx)?;
-        let mut db = db(cx);
+        let mut db = db(cx)?;
         let record = load_editable(cx, &resource, &mut db).await?;
         if !resource.can(cx, Ability::Update(&record)) {
             return Err(forbidden().into());

@@ -50,7 +50,8 @@ async fn the_guard_holds_only_for_the_request_that_opened_the_write() {
     let (writing, other) = (Cx::default(), Cx::default());
     let _tx = WriteTx::begin(&writing, &mut db).await.unwrap();
 
-    assert_no_write_open(other.id(), "db(cx)");
+    assert!(no_write_open(other.id(), "db(cx)").is_ok());
+    assert!(no_write_open(writing.id(), "db(cx)").is_err());
     let (_, bump) = counter();
     assert!(after_write_commits(other.id(), bump).is_err());
 }

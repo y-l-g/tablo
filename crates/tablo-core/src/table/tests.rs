@@ -183,7 +183,7 @@ async fn table_page_round_trips_real_cursors() {
     }
     let cx = CxTestBuilder::new().app_context(db).build();
     let users_table = Table::<User>::new(TextColumn::new(lens!(User.name)).sortable());
-    let mut db = crate::db::db(&cx);
+    let mut db = crate::db::db(&cx).unwrap();
 
     // Page 1 of 1-per-page.
     let page1 = users_table
@@ -603,7 +603,7 @@ async fn full_page_costs_main_plus_single_direction_probe() {
         budget.count.load(Ordering::SeqCst)
     };
     let ordered = || User::all().order_by(User::fields().name().asc());
-    let mut db = crate::db::db(&cx);
+    let mut db = crate::db::db(&cx).unwrap();
     count_around(true);
     let bare_main = ordered().paginate(2).exec(&mut db).await.unwrap();
     let bare_main_cost = count_around(false);

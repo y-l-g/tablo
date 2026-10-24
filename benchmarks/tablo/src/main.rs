@@ -219,7 +219,7 @@ async fn bench_query_only(db: &Db, tenant: uuid::Uuid, iterations: usize) -> Vec
     for _ in 0..iterations {
         let cx = bench_cx(db, tenant);
         let start = Instant::now();
-        let mut db2 = tablo_core::db::db(&cx);
+        let mut db2 = tablo_core::db::db(&cx).expect("no write is open while the benchmark reads");
         let inc_author: toasty::stmt::Include<Post, Author> = Post::fields().author().into();
         let inc_comments: toasty::stmt::Include<Post, toasty::stmt::List<Comment>> =
             Post::fields().comments().into();

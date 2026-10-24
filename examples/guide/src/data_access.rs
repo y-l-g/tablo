@@ -14,7 +14,7 @@ use crate::{
 
 pub async fn load_users(cx: &Cx) -> topcoat::Result<Vec<User>> {
     // ANCHOR: data-access-db
-    let mut db = tablo::db::db(cx);
+    let mut db = tablo::db::db(cx)?;
     let users = User::all().exec(&mut db).await?;
     // ANCHOR_END: data-access-db
     Ok(users)
@@ -76,7 +76,7 @@ pub fn admin_router(db: Db) -> topcoat::Result<(Router, PanelHandle)> {
 pub async fn count_drafts(admin: &PanelHandle, tenant: uuid::Uuid) -> topcoat::Result<usize> {
     // ANCHOR: data-access-job
     let cx = admin.context().with(tablo::Tenant(tenant));
-    let mut ex = tablo::db::db(&cx);
+    let mut ex = tablo::db::db(&cx)?;
     let drafts = scoped_query::<PostResource>(&cx)?
         .filter(Post::fields().status().eq(PostStatus::Draft))
         .exec(&mut ex)

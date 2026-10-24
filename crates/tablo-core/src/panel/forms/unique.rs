@@ -91,7 +91,10 @@ pub(super) async fn taken_since<R: Resource>(
     if !error.is::<toasty::Error>() {
         return FieldErrors::new();
     }
-    check_unique(cx, resource, schema, values, current, &mut db(cx))
+    let Ok(mut db) = db(cx) else {
+        return FieldErrors::new();
+    };
+    check_unique(cx, resource, schema, values, current, &mut db)
         .await
         .unwrap_or_default()
 }

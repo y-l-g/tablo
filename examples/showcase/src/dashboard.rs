@@ -30,7 +30,7 @@ async fn stat<R: Resource>(cx: &Cx, detail: String) -> Option<BoxView<'_>> {
     let item = tablo::navigation_item::<R>(cx)?;
     let url = tablo::url::resource::<R>(cx)?;
     let count = match scoped_query::<R>(cx) {
-        Ok(query) => query.count().exec(&mut db(cx)).await.ok(),
+        Ok(query) => query.count().exec(&mut db(cx).ok()?).await.ok(),
         Err(_) => None,
     };
     let value = count.map_or_else(|| "—".to_string(), |count| count.to_string());
@@ -61,7 +61,7 @@ async fn latest_posts(cx: &Cx) -> Option<BoxView<'_>> {
         .order_by(Post::fields().created_at().desc())
         .limit(5)
         .include(author)
-        .exec(&mut db(cx))
+        .exec(&mut db(cx).ok()?)
         .await
         .ok()?;
     let rows: Vec<BoxView<'_>> = posts
@@ -190,7 +190,7 @@ impl Page for Dashboard {
         let drafts = scoped_query::<PostResource>(cx)?
             .filter(Post::fields().status().eq(PostStatus::Draft))
             .count()
-            .exec(&mut db(cx))
+            .exec(&mut db(cx)?)
             .await
             .map_or_else(|_| String::new(), |drafts| format!("{drafts} in draft"));
         let stats: Vec<BoxView<'_>> = [

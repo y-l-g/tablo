@@ -297,7 +297,7 @@ impl Resource for TicketResource {
     }
 
     async fn after_commit(cx: &Cx, change: Change<Ticket>) -> topcoat::Result<()> {
-        log("after", &change, &mut tablo::db::db(cx)).await
+        log("after", &change, &mut tablo::db::db(cx)?).await
     }
 }
 

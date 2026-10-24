@@ -178,7 +178,7 @@ async fn bounded_options<R>(
 where
     R: OptionSource,
 {
-    let mut db = crate::db::db(cx);
+    let mut db = crate::db::db(cx).map_err(|_| OptionLoadError::Misdeclared)?;
     let mut records = query
         .limit(MAX_RELATIONSHIP_OPTIONS + 1)
         .exec(&mut db)
@@ -233,7 +233,7 @@ where
         && let Some(expr) = R::search_expr(cx, &term)
     {
         query = query.filter(crate::toasty_compat::case_insensitive_search(
-            &crate::db::db(cx),
+            &crate::db::db(cx).map_err(|_| OptionLoadError::Misdeclared)?,
             expr,
         ));
     }
@@ -319,7 +319,7 @@ where
     };
     let rows = option_query::<R>(cx)?
         .filter(any)
-        .exec(&mut crate::db::db(cx))
+        .exec(&mut crate::db::db(cx).map_err(|_| OptionLoadError::Misdeclared)?)
         .await
         .map_err(|e| {
             tracing::warn!(

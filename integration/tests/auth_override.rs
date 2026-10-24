@@ -78,7 +78,7 @@ struct MemberAuth;
 
 impl MemberAuth {
     async fn signed(cx: &Cx, member: Member) -> topcoat::Result<SignedMember> {
-        let mut db = tablo::db::db(cx);
+        let mut db = tablo::db::db(cx)?;
         let tenants = Seat::filter(Seat::fields().member_id().eq(member.id))
             .exec(&mut db)
             .await?
@@ -98,7 +98,7 @@ impl Authenticator for MemberAuth {
         login: &str,
         password: &str,
     ) -> topcoat::Result<Option<SignedMember>> {
-        let mut db = tablo::db::db(cx);
+        let mut db = tablo::db::db(cx)?;
         let member = Member::filter(Member::fields().handle().eq(login.to_string()))
             .first()
             .exec(&mut db)
@@ -116,7 +116,7 @@ impl Authenticator for MemberAuth {
         let Ok(id) = Uuid::parse_str(id) else {
             return Ok(None);
         };
-        let mut db = tablo::db::db(cx);
+        let mut db = tablo::db::db(cx)?;
         let member = Member::filter(Member::fields().id().eq(id))
             .first()
             .exec(&mut db)

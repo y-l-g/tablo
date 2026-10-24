@@ -80,7 +80,7 @@ async fn header_run<'a>(
             return page.render(cx, &action.input, chrome).await;
         }
     };
-    let mut db = db(cx);
+    let mut db = db(cx)?;
     let mut tx = WriteTx::begin(cx, &mut db)
         .await
         .map_err(crate::error::unavailable)?;

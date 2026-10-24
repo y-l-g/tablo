@@ -220,7 +220,7 @@ async fn enrolment_on(
 
 /// The kind of second factor `user` signs in to the request's panel with, if any.
 pub(super) async fn enrolled(cx: &Cx, user: &dyn PanelUser) -> topcoat::Result<Option<FactorKind>> {
-    let mut db = crate::db::db(cx);
+    let mut db = crate::db::db(cx)?;
     Ok(enrolment(cx, &mut db, &user.user_id())
         .await?
         .confirmed
@@ -241,7 +241,7 @@ pub(super) async fn setup_pending(
 ) -> topcoat::Result<bool> {
     match panel.auth.two_factor_config() {
         Some(two_factor) if two_factor.required => {
-            let mut db = crate::db::db(cx);
+            let mut db = crate::db::db(cx)?;
             let enrolment = enrolment_on(&mut db, &panel.prefix, &user.user_id()).await?;
             Ok(enrolment.confirmed.is_none())
         }

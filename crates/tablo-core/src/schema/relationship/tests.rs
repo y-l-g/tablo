@@ -673,7 +673,7 @@ async fn recheck_resolves_the_key_through_the_write_transaction() {
             .collect()
     };
 
-    let mut handle = crate::db::db(&cx);
+    let mut handle = crate::db::db(&cx).unwrap();
     let mut tx = handle.transaction().await.unwrap();
     assert!(
         scoped

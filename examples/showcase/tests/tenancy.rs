@@ -167,7 +167,7 @@ async fn tenancy_via_cx_with_tenant_scopes_query_directly() {
         .unwrap()
         .context()
         .with(Tenant(t1));
-    let mut db_cx = tablo::db::db(&cx_t1);
+    let mut db_cx = tablo::db::db(&cx_t1).unwrap();
     let rows = scoped_query::<PostResource>(&cx_t1)
         .unwrap()
         .exec(&mut db_cx)
@@ -177,7 +177,7 @@ async fn tenancy_via_cx_with_tenant_scopes_query_directly() {
     assert_eq!(rows[0].title, "T1 Post");
 
     let cx_t2 = cx_t1.with(Tenant(uuid::Uuid::from_u128(2)));
-    let mut db_cx2 = tablo::db::db(&cx_t2);
+    let mut db_cx2 = tablo::db::db(&cx_t2).unwrap();
     let rows2 = scoped_query::<PostResource>(&cx_t2)
         .unwrap()
         .exec(&mut db_cx2)
@@ -407,7 +407,7 @@ async fn comments_query_scopes_directly_through_parent_post() {
         .unwrap()
         .context()
         .with(Tenant(t1));
-    let mut db_cx = tablo::db::db(&cx_t1);
+    let mut db_cx = tablo::db::db(&cx_t1).unwrap();
     let rows = scoped_query::<CommentResource>(&cx_t1)
         .unwrap()
         .exec(&mut db_cx)
@@ -417,7 +417,7 @@ async fn comments_query_scopes_directly_through_parent_post() {
     assert_eq!(rows[0].body, "T1 comment");
 
     let cx_t2 = cx_t1.with(Tenant(t2));
-    let mut db_cx2 = tablo::db::db(&cx_t2);
+    let mut db_cx2 = tablo::db::db(&cx_t2).unwrap();
     let rows2 = scoped_query::<CommentResource>(&cx_t2)
         .unwrap()
         .exec(&mut db_cx2)

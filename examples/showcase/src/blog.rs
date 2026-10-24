@@ -82,7 +82,7 @@ async fn blog_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
 /// The list: published posts only, newest first, each linking to its page.
 #[page("/blog")]
 async fn page(cx: &Cx) -> Result<impl View> {
-    let mut db = db(cx);
+    let mut db = db(cx)?;
     // N+1 touch: the author is included.
     let include_author: Include<Post, Author> = Post::fields().author().into();
     let posts = Post::filter(Post::fields().status().eq(PostStatus::Published))
@@ -143,7 +143,7 @@ async fn post_page(cx: &Cx) -> Result<impl View> {
     // A malformed id answers not-found.
     let id = path_param::<Id>(cx).map_err(|_| not_found())?.to_owned();
 
-    let mut db = db(cx);
+    let mut db = db(cx)?;
     let include_author: Include<Post, Author> = Post::fields().author().into();
     let post = Post::filter(
         Post::fields()

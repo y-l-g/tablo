@@ -412,7 +412,7 @@ pub(crate) fn resource_import_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             || staged
                 .iter()
                 .any(|(_, submission)| !submission.errors.is_empty());
-        let mut db = db(cx);
+        let mut db = db(cx)?;
         let mut tx = WriteTx::begin(cx, &mut db)
             .await
             .map_err(crate::error::unavailable)?;
