@@ -2,8 +2,9 @@
 
 use std::{any::Any, future::Future};
 
-use crate::tenancy::{Membership, TenantId};
 use topcoat::context::Cx;
+
+use crate::tenancy::{Membership, TenantId};
 
 /// A signed-in user, as the panel knows it (ADR-0013).
 ///
