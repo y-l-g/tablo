@@ -41,11 +41,14 @@ pub(crate) fn panel_for<R: Resource>() -> Panel {
 
 /// A panel at `prefix` guarded by `auth`, with no resources, pages or shell
 /// settings: the request's panel a handler test puts on its `Cx`.
-pub(crate) fn panel_state(prefix: &str, auth: crate::Auth) -> super::state::PanelState {
+pub(crate) fn panel_state<U: crate::PanelUser>(
+    prefix: &str,
+    auth: crate::Auth<U>,
+) -> super::state::PanelState {
     super::state::PanelState {
         realm: std::sync::Arc::new(crate::auth::Realm {
             prefix: prefix.to_string(),
-            auth,
+            auth: auth.into_config(),
             login_hint: None,
             time_zone: jiff::tz::TimeZone::UTC,
             catalog: crate::i18n::Catalog::new(&["en".to_owned()], &[]).expect("`en` builds"),

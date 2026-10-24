@@ -2,10 +2,7 @@
 //! the signed-in user, the [`TenantRegistration`] a panel installs it with, and the
 //! `{prefix}/register-tenant` routes.
 
-use std::{
-    any::{Any, TypeId},
-    future::Future,
-};
+use std::{any::Any, future::Future, marker::PhantomData};
 
 use topcoat::{
     context::Cx,
@@ -156,19 +153,24 @@ pub trait TenantRegistrar: Send + Sync + 'static {
 /// let auth = Auth::custom(StaffAuth).tenant_registration(TenantRegistration::new(StaffAuth).required());
 /// # let _ = auth;
 /// ```
-pub struct TenantRegistration {
+///
+/// `U` is the user type the registrar loads; [`Auth`](crate::Auth) takes only one over the type its
+/// authenticator loads.
+pub struct TenantRegistration<U> {
     registrar: Box<dyn DynTenantRegistrar>,
     required: bool,
+    user: PhantomData<fn() -> U>,
 }
 
-impl TenantRegistration {
+impl<U: PanelUser> TenantRegistration<U> {
     /// Registers tenants through `registrar`. A user who acts for no tenant still reaches the
     /// panel, and its resources that need a tenant answer 403; see [`required`](Self::required).
     #[must_use]
-    pub fn new(registrar: impl TenantRegistrar) -> Self {
+    pub fn new(registrar: impl TenantRegistrar<User = U>) -> Self {
         Self {
             registrar: Box::new(registrar),
             required: false,
+            user: PhantomData,
         }
     }
 
@@ -182,12 +184,23 @@ impl TenantRegistration {
         self
     }
 
+    /// The same declaration, its user type checked by [`Auth`](crate::Auth).
+    pub(crate) fn erase(self) -> TenantRegistration<()> {
+        TenantRegistration {
+            registrar: self.registrar,
+            required: self.required,
+            user: PhantomData,
+        }
+    }
+}
+
+impl TenantRegistration<()> {
     pub(crate) fn registrar(&self) -> &dyn DynTenantRegistrar {
         &*self.registrar
     }
 }
 
-impl std::fmt::Debug for TenantRegistration {
+impl<U> std::fmt::Debug for TenantRegistration<U> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TenantRegistration")
             .field("required", &self.required)
@@ -217,9 +230,6 @@ pub(crate) trait DynTenantRegistrar: Send + Sync {
         signed: &'a SignedIn,
         values: FormValues,
     ) -> BoxFuture<'a, topcoat::Result<Outcome>>;
-    /// The [`TypeId`] and name of [`TenantRegistrar::User`], which mounting compares with the
-    /// authenticator's.
-    fn user_type(&self) -> (TypeId, &'static str);
 }
 
 impl<R: TenantRegistrar> DynTenantRegistrar for R {
@@ -264,10 +274,6 @@ impl<R: TenantRegistrar> DynTenantRegistrar for R {
             tx.commit().await.map_err(infrastructure_failure)?;
             Ok(Outcome::Registered(membership))
         })
-    }
-
-    fn user_type(&self) -> (TypeId, &'static str) {
-        (TypeId::of::<R::User>(), std::any::type_name::<R::User>())
     }
 }
 
@@ -419,7 +425,7 @@ async fn page_response(
 /// The mistakes in a panel's [`Auth::tenant_registration`](super::Auth::tenant_registration): a
 /// registration without auth, a registrar whose user is not the authenticator's, and a form field
 /// the page cannot serve.
-pub(super) fn declaration_errors(auth: &super::Auth) -> Vec<crate::DeclarationErrorKind> {
+pub(super) fn declaration_errors(auth: &super::AuthConfig) -> Vec<crate::DeclarationErrorKind> {
     use super::input::FieldFault;
     use crate::{DeclarationErrorKind, declaration::TenantRegistrationFault as Fault};
 
@@ -430,18 +436,12 @@ pub(super) fn declaration_errors(auth: &super::Auth) -> Vec<crate::DeclarationEr
     else {
         return Vec::new();
     };
-    let Some(authenticator) = auth.authenticator() else {
+    if auth.authenticator().is_none() {
         return vec![DeclarationErrorKind::TenantRegistration(
             Fault::AuthDisabled,
         )];
-    };
-    let mut kinds = Vec::new();
-    let (user, user_name) = registrar.user_type();
-    if user != authenticator.user_type() {
-        kinds.push(DeclarationErrorKind::TenantRegistration(Fault::UserType {
-            registrar: user_name,
-        }));
     }
+    let mut kinds = Vec::new();
     let schema = registrar.schema();
     kinds.extend(schema.declaration_errors());
     kinds.extend(schema.empty_choices());

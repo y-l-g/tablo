@@ -1,10 +1,7 @@
 //! The panel's tenant settings page: the [`TenantEditor`] trait that edits the tenant the request
 //! acts for, and the `{prefix}/tenant/profile` routes.
 
-use std::{
-    any::{Any, TypeId},
-    future::Future,
-};
+use std::{any::Any, future::Future};
 
 use topcoat::{
     context::Cx,
@@ -174,9 +171,6 @@ pub(crate) trait DynTenantEditor: Send + Sync {
         tenant: &'a Membership,
         values: FormValues,
     ) -> BoxFuture<'a, topcoat::Result<Outcome>>;
-    /// The [`TypeId`] and name of [`TenantEditor::User`], which mounting compares with the
-    /// authenticator's.
-    fn user_type(&self) -> (TypeId, &'static str);
 }
 
 impl<E: TenantEditor> DynTenantEditor for E {
@@ -258,10 +252,6 @@ impl<E: TenantEditor> DynTenantEditor for E {
             tx.commit().await.map_err(crate::error::unavailable)?;
             Ok(Outcome::Saved)
         })
-    }
-
-    fn user_type(&self) -> (TypeId, &'static str) {
-        (TypeId::of::<E::User>(), std::any::type_name::<E::User>())
     }
 }
 
@@ -369,23 +359,17 @@ async fn render<'a>(
 /// The mistakes in a panel's [`Auth::tenant_profile`](super::Auth::tenant_profile): a settings
 /// page without auth, an editor whose user is not the authenticator's, and a form field the page
 /// cannot serve.
-pub(super) fn declaration_errors(auth: &super::Auth) -> Vec<crate::DeclarationErrorKind> {
+pub(super) fn declaration_errors(auth: &super::AuthConfig) -> Vec<crate::DeclarationErrorKind> {
     use super::input::FieldFault;
     use crate::{DeclarationErrorKind, declaration::TenantProfileFault as Fault};
 
     let Some(editor) = auth.tenant_editor.as_deref() else {
         return Vec::new();
     };
-    let Some(authenticator) = auth.authenticator() else {
+    if auth.authenticator().is_none() {
         return vec![DeclarationErrorKind::TenantProfile(Fault::AuthDisabled)];
-    };
-    let mut kinds = Vec::new();
-    let (user, user_name) = editor.user_type();
-    if user != authenticator.user_type() {
-        kinds.push(DeclarationErrorKind::TenantProfile(Fault::UserType {
-            editor: user_name,
-        }));
     }
+    let mut kinds = Vec::new();
     let schema = editor.schema();
     kinds.extend(schema.declaration_errors());
     kinds.extend(schema.empty_choices());

@@ -138,7 +138,7 @@ pub async fn db() -> Db {
 }
 
 /// The `admin` panel signing members in with `auth`, listing notes.
-pub fn mount(db: Db, auth: Auth) -> topcoat::Result<Router> {
+pub fn mount(db: Db, auth: Auth<impl PanelUser>) -> topcoat::Result<Router> {
     Ok(Router::builder()
         .discover()
         .app_context(db)

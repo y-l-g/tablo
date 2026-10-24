@@ -1,7 +1,7 @@
 //! The panel's sign-up page: the [`Registrar`] trait that creates accounts, the shipped
 //! [`SignUp`] form, and the `{prefix}/register` routes.
 
-use std::{any::TypeId, future::Future, sync::Arc};
+use std::{future::Future, sync::Arc};
 
 use topcoat::{
     context::Cx,
@@ -154,9 +154,6 @@ pub(crate) trait DynRegistrar: Send + Sync {
         cx: &'a Cx,
         values: FormValues,
     ) -> BoxFuture<'a, topcoat::Result<Outcome>>;
-    /// The [`TypeId`] and name of [`Registrar::User`], which mounting compares with the
-    /// authenticator's.
-    fn user_type(&self) -> (TypeId, &'static str);
 }
 
 impl<R: Registrar> DynRegistrar for R {
@@ -186,10 +183,6 @@ impl<R: Registrar> DynRegistrar for R {
             tx.commit().await.map_err(infrastructure_failure)?;
             Ok(Outcome::Registered(Arc::new(user)))
         })
-    }
-
-    fn user_type(&self) -> (TypeId, &'static str) {
-        (TypeId::of::<R::User>(), std::any::type_name::<R::User>())
     }
 }
 
@@ -536,23 +529,17 @@ async fn render_page<'a>(
 /// The mistakes in a panel's [`Auth::registration`](super::Auth::registration): a registration
 /// without auth, a registrar whose user is not the authenticator's, and a sign-up form field the
 /// page cannot serve.
-pub(super) fn declaration_errors(auth: &super::Auth) -> Vec<crate::DeclarationErrorKind> {
+pub(super) fn declaration_errors(auth: &super::AuthConfig) -> Vec<crate::DeclarationErrorKind> {
     use super::input::FieldFault;
     use crate::{DeclarationErrorKind, declaration::SignUpFault};
 
     let Some(registrar) = auth.registrar.as_deref() else {
         return Vec::new();
     };
-    let Some(authenticator) = auth.authenticator() else {
+    if auth.authenticator().is_none() {
         return vec![DeclarationErrorKind::SignUp(SignUpFault::AuthDisabled)];
-    };
-    let mut kinds = Vec::new();
-    let (user, user_name) = registrar.user_type();
-    if user != authenticator.user_type() {
-        kinds.push(DeclarationErrorKind::SignUp(SignUpFault::UserType {
-            registrar: user_name,
-        }));
     }
+    let mut kinds = Vec::new();
     let schema = registrar.schema();
     kinds.extend(schema.declaration_errors());
     kinds.extend(schema.empty_choices());

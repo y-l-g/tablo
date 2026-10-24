@@ -167,9 +167,6 @@ pub(crate) trait DynProfileEditor: Send + Sync {
         signed: &'a SignedIn,
         values: FormValues,
     ) -> BoxFuture<'a, topcoat::Result<Outcome>>;
-    /// The [`TypeId`] and name of [`ProfileEditor::User`], which mounting compares with the
-    /// authenticator's.
-    fn user_type(&self) -> (TypeId, &'static str);
 }
 
 impl<E: ProfileEditor> DynProfileEditor for E {
@@ -237,10 +234,6 @@ impl<E: ProfileEditor> DynProfileEditor for E {
                 try_request_context::<Requested>(cx).is_some_and(|requested| requested.mail(cx));
             Ok(Outcome::Saved { email_pending })
         })
-    }
-
-    fn user_type(&self) -> (TypeId, &'static str) {
-        (TypeId::of::<E::User>(), std::any::type_name::<E::User>())
     }
 }
 
@@ -454,23 +447,17 @@ async fn render<'a>(
 
 /// The mistakes in a panel's [`Auth::profile`](super::Auth::profile): a profile without auth, an
 /// editor whose user is not the authenticator's, and a profile form field the page cannot serve.
-pub(super) fn declaration_errors(auth: &super::Auth) -> Vec<crate::DeclarationErrorKind> {
+pub(super) fn declaration_errors(auth: &super::AuthConfig) -> Vec<crate::DeclarationErrorKind> {
     use super::input::FieldFault;
     use crate::{DeclarationErrorKind, declaration::ProfileFault};
 
     let Some(editor) = auth.profile_editor.as_deref() else {
         return Vec::new();
     };
-    let Some(authenticator) = auth.authenticator() else {
+    if auth.authenticator().is_none() {
         return vec![DeclarationErrorKind::Profile(ProfileFault::AuthDisabled)];
-    };
-    let mut kinds = Vec::new();
-    let (user, user_name) = editor.user_type();
-    if user != authenticator.user_type() {
-        kinds.push(DeclarationErrorKind::Profile(ProfileFault::UserType {
-            editor: user_name,
-        }));
     }
+    let mut kinds = Vec::new();
     let schema = editor.schema();
     kinds.extend(schema.declaration_errors());
     kinds.extend(schema.empty_choices());

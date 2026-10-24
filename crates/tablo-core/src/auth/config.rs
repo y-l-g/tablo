@@ -1,10 +1,13 @@
 //! [`Auth`]: the panel's authentication configuration, from the authenticator to the pages and
 //! mail it adds.
 
+use std::marker::PhantomData;
+
 use super::{
-    AuthMail, Authenticator, DynAuthenticator, EmailVerification, LoginThrottle, PasswordAuth,
-    PasswordReset, ProfileEditor, Registrar, TenantEditor, TenantRegistration, TwoFactor,
-    profile::DynProfileEditor, registration::DynRegistrar, tenant_profile::DynTenantEditor,
+    AdminUser, AuthMail, Authenticator, DynAuthenticator, EmailVerification, LoginThrottle,
+    PanelUser, PasswordAuth, PasswordReset, ProfileEditor, Registrar, TenantEditor,
+    TenantRegistration, TwoFactor, profile::DynProfileEditor, registration::DynRegistrar,
+    tenant_profile::DynTenantEditor,
 };
 
 /// The panel's authentication configuration (ADR-0013).
@@ -17,54 +20,27 @@ use super::{
 /// [`Auth::password_reset`] a forgot-password page that mails reset links through
 /// [`Auth::mail`], [`Auth::tenant_registration`] a page creating a tenant, and
 /// [`Auth::tenant_profile`] a page editing one.
-pub struct Auth {
-    authenticator: Option<Box<dyn DynAuthenticator>>,
-    throttle: LoginThrottle,
-    account_throttle: LoginThrottle,
-    pub(super) registrar: Option<Box<dyn DynRegistrar>>,
-    sign_up_throttle: LoginThrottle,
-    pub(super) profile_editor: Option<Box<dyn DynProfileEditor>>,
-    profile_throttle: LoginThrottle,
-    pub(super) reset: Option<PasswordReset>,
-    pub(super) mail: Option<AuthMail>,
-    pub(super) verification: Option<EmailVerification>,
-    pub(super) tenant_registration: Option<TenantRegistration>,
-    pub(super) tenant_editor: Option<Box<dyn DynTenantEditor>>,
-    pub(super) two_factor: Option<TwoFactor>,
+///
+/// `U` is the user type the authenticator loads. Every seam that reads or writes a user, from the
+/// registrar to the tenant editor, names the same type, so a seam over another user type does not
+/// compile.
+pub struct Auth<U = AdminUser> {
+    config: AuthConfig,
+    user: PhantomData<fn() -> U>,
 }
 
 impl Auth {
-    /// The shipped Argon2id + [`AdminUser`](super::AdminUser) authenticator.
+    /// The shipped Argon2id + [`AdminUser`] authenticator.
     #[must_use]
     pub fn password() -> Self {
         Self::custom(PasswordAuth)
-    }
-
-    /// An app-owned authenticator over its own user table.
-    #[must_use]
-    pub fn custom(authenticator: impl Authenticator) -> Self {
-        Self {
-            authenticator: Some(Box::new(authenticator)),
-            throttle: LoginThrottle::default(),
-            account_throttle: LoginThrottle::off(),
-            registrar: None,
-            sign_up_throttle: LoginThrottle::default(),
-            profile_editor: None,
-            profile_throttle: LoginThrottle::default(),
-            reset: None,
-            mail: None,
-            verification: None,
-            tenant_registration: None,
-            tenant_editor: None,
-            two_factor: None,
-        }
     }
 
     /// Explicit fail-open opt-out for public demos (ADR-0013): no gate, no
     /// login routes, sessions unused.
     #[must_use]
     pub fn disabled() -> Self {
-        Self {
+        Self::new(AuthConfig {
             authenticator: None,
             throttle: LoginThrottle::off(),
             account_throttle: LoginThrottle::off(),
@@ -78,6 +54,35 @@ impl Auth {
             tenant_registration: None,
             tenant_editor: None,
             two_factor: None,
+        })
+    }
+}
+
+impl<U: PanelUser> Auth<U> {
+    /// An app-owned authenticator over its own user table.
+    #[must_use]
+    pub fn custom<A: Authenticator<User = U>>(authenticator: A) -> Self {
+        Self::new(AuthConfig {
+            authenticator: Some(Box::new(authenticator)),
+            throttle: LoginThrottle::default(),
+            account_throttle: LoginThrottle::off(),
+            registrar: None,
+            sign_up_throttle: LoginThrottle::default(),
+            profile_editor: None,
+            profile_throttle: LoginThrottle::default(),
+            reset: None,
+            mail: None,
+            verification: None,
+            tenant_registration: None,
+            tenant_editor: None,
+            two_factor: None,
+        })
+    }
+
+    fn new(config: AuthConfig) -> Self {
+        Self {
+            config,
+            user: PhantomData,
         }
     }
 
@@ -86,7 +91,7 @@ impl Auth {
     /// that limits sign-ins itself.
     #[must_use]
     pub fn throttle(mut self, throttle: LoginThrottle) -> Self {
-        self.throttle = throttle;
+        self.config.throttle = throttle;
         self
     }
 
@@ -98,7 +103,7 @@ impl Auth {
     /// `LoginThrottle::new(50, Duration::from_hours(1))`.
     #[must_use]
     pub fn account_throttle(mut self, throttle: LoginThrottle) -> Self {
-        self.account_throttle = throttle;
+        self.config.account_throttle = throttle;
         self
     }
 
@@ -129,10 +134,9 @@ impl Auth {
     ///   a login rotates it, and lands on `next` or the panel's home page. One that may not, such
     ///   as an account awaiting approval, lands on the login page with a notification instead. A
     ///   signed-in user who opens the sign-up page lands on the panel's home page.
-    /// - Mounting refuses a registrar whose `User` is not the type the authenticator loads, a
-    ///   registration on `Auth::disabled()`, a form field named `csrf_token` or `next`, a file
-    ///   field and a relationship choice, whose options would list records to a visitor nobody
-    ///   signed in.
+    /// - The registrar's `User` is `U`. Mounting refuses a registration on `Auth::disabled()`, a
+    ///   form field named `csrf_token` or `next`, a file field and a relationship choice, whose
+    ///   options would list records to a visitor nobody signed in.
     /// - Throttling. Each client address may submit five sign-ups a minute, counted whether or not
     ///   they create an account; `Auth::sign_up_throttle` changes the limit. Past it the page
     ///   answers 429.
@@ -141,8 +145,8 @@ impl Auth {
     /// an app that must keep its accounts private verifies the address by email before saying so,
     /// which Tablo does not ship.
     #[must_use]
-    pub fn registration(mut self, registrar: impl Registrar) -> Self {
-        self.registrar = Some(Box::new(registrar));
+    pub fn registration(mut self, registrar: impl Registrar<User = U>) -> Self {
+        self.config.registrar = Some(Box::new(registrar));
         self
     }
 
@@ -151,7 +155,7 @@ impl Auth {
     /// an account.
     #[must_use]
     pub fn sign_up_throttle(mut self, throttle: LoginThrottle) -> Self {
-        self.sign_up_throttle = throttle;
+        self.config.sign_up_throttle = throttle;
         self
     }
 
@@ -181,16 +185,16 @@ impl Auth {
     /// - An email another account holds is reported only once the current password verifies, so a
     ///   stolen session cannot probe which addresses have accounts.
     /// - After the commit the page reloads with a notification.
-    /// - Mounting refuses an editor whose `User` is not the type the authenticator loads, a profile
-    ///   on `Auth::disabled()`, a form field named `csrf_token`, a file field and a relationship
-    ///   choice, whose options no route serves the page.
+    /// - The editor's `User` is `U`. Mounting refuses a profile on `Auth::disabled()`, a form field
+    ///   named `csrf_token`, a file field and a relationship choice, whose options no route serves
+    ///   the page.
     /// - Throttling. Each user may submit five saves a minute, from any address, counted whether or
     ///   not they save; `Auth::profile_throttle` changes the limit. Past it the page answers 429,
     ///   which keeps a stolen session from guessing the current password. A user past the limit can
     ///   still sign in.
     #[must_use]
-    pub fn profile(mut self, editor: impl ProfileEditor) -> Self {
-        self.profile_editor = Some(Box::new(editor));
+    pub fn profile(mut self, editor: impl ProfileEditor<User = U>) -> Self {
+        self.config.profile_editor = Some(Box::new(editor));
         self
     }
 
@@ -199,7 +203,7 @@ impl Auth {
     /// it saves.
     #[must_use]
     pub fn profile_throttle(mut self, throttle: LoginThrottle) -> Self {
-        self.profile_throttle = throttle;
+        self.config.profile_throttle = throttle;
         self
     }
 
@@ -225,13 +229,12 @@ impl Auth {
     /// - Throttling. Each address may request three links in fifteen minutes, from any client,
     ///   counted whether or not an account uses it; `PasswordReset::throttle` changes the limit.
     ///   Past it the page answers 429. A limit per client belongs at the proxy.
-    /// - Mounting refuses a resetter whose `User` is not the type the authenticator loads, a reset
-    ///   on `Auth::disabled()`, a reset without `Auth::mail`, a base URL that is not an absolute
-    ///   `http` or `https` URL or that carries a query or fragment, and a router without a
-    ///   `MailConfig`.
+    /// - The resetter's `User` is `U`. Mounting refuses a reset on `Auth::disabled()`, a reset
+    ///   without `Auth::mail`, a base URL that is not an absolute `http` or `https` URL or that
+    ///   carries a query or fragment, and a router without a `MailConfig`.
     #[must_use]
-    pub fn password_reset(mut self, reset: PasswordReset) -> Self {
-        self.reset = Some(reset);
+    pub fn password_reset(mut self, reset: PasswordReset<U>) -> Self {
+        self.config.reset = Some(reset.erase());
         self
     }
 
@@ -269,13 +272,13 @@ impl Auth {
     ///   asked for the change may hold one.
     /// - Throttling. Each account may ask for three links in fifteen minutes;
     ///   `EmailVerification::throttle` changes the limit. Past it the page answers 429.
-    /// - Mounting refuses a verifier whose `User` is not the type the authenticator loads, a
-    ///   verification on `Auth::disabled()`, and one without `Auth::mail`.
+    /// - The verifier's `User` is `U`. Mounting refuses a verification on `Auth::disabled()`, and
+    ///   one without `Auth::mail`.
     ///
     /// [`PanelUser::email`]: super::PanelUser::email
     #[must_use]
-    pub fn email_verification(mut self, verification: EmailVerification) -> Self {
-        self.verification = Some(verification);
+    pub fn email_verification(mut self, verification: EmailVerification<U>) -> Self {
+        self.config.verification = Some(verification.erase());
         self
     }
 
@@ -289,12 +292,12 @@ impl Auth {
     /// that [`Membership`](crate::Membership). The session then acts for the new tenant, and the
     /// next request's [`find_by_id`](crate::Authenticator::find_by_id) must list it.
     ///
-    /// Mounting refuses a registrar whose [`User`](super::TenantRegistrar::User) is not the type
-    /// the authenticator loads, a registration on [`Auth::disabled`], a form field named
-    /// `csrf_token`, a file field and a relationship choice.
+    /// The registrar's [`User`](super::TenantRegistrar::User) is `U`. Mounting refuses a
+    /// registration on [`Auth::disabled`], a form field named `csrf_token`, a file field and a
+    /// relationship choice.
     #[must_use]
-    pub fn tenant_registration(mut self, registration: TenantRegistration) -> Self {
-        self.tenant_registration = Some(registration);
+    pub fn tenant_registration(mut self, registration: TenantRegistration<U>) -> Self {
+        self.config.tenant_registration = Some(registration.erase());
         self
     }
 
@@ -304,12 +307,12 @@ impl Auth {
     /// `save` run in one transaction. The form names the tenant it was filled from, so one posted
     /// after another tab switched tenants saves nothing.
     ///
-    /// Mounting refuses an editor whose [`User`](TenantEditor::User) is not the type the
-    /// authenticator loads, a settings page on [`Auth::disabled`], a form field named
-    /// `csrf_token` or `editing_tenant`, a file field and a relationship choice.
+    /// The editor's [`User`](TenantEditor::User) is `U`. Mounting refuses a settings page on
+    /// [`Auth::disabled`], a form field named `csrf_token` or `editing_tenant`, a file field and a
+    /// relationship choice.
     #[must_use]
-    pub fn tenant_profile(mut self, editor: impl TenantEditor) -> Self {
-        self.tenant_editor = Some(Box::new(editor));
+    pub fn tenant_profile(mut self, editor: impl TenantEditor<User = U>) -> Self {
+        self.config.tenant_editor = Some(Box::new(editor));
         self
     }
 
@@ -361,7 +364,7 @@ impl Auth {
     ///   `Key`, and codes by email without `Auth::mail`.
     #[must_use]
     pub fn two_factor(mut self, two_factor: TwoFactor) -> Self {
-        self.two_factor = Some(two_factor);
+        self.config.two_factor = Some(two_factor);
         self
     }
 
@@ -370,13 +373,54 @@ impl Auth {
     /// without a [`MailConfig`](topcoat::mail::MailConfig).
     #[must_use]
     pub fn mail(mut self, mail: AuthMail) -> Self {
-        self.mail = Some(mail);
+        self.config.mail = Some(mail);
         self
     }
 
     /// Whether the explicit opt-out is set.
     #[must_use]
     pub fn is_disabled(&self) -> bool {
+        self.config.is_disabled()
+    }
+
+    /// The declaration, its user type checked.
+    pub(crate) fn into_config(self) -> AuthConfig {
+        self.config
+    }
+}
+
+impl Default for Auth {
+    fn default() -> Self {
+        Self::password()
+    }
+}
+
+impl<U> std::fmt::Debug for Auth<U> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.config.fmt(f)
+    }
+}
+
+/// What an [`Auth`] declares, with the user type erased once the builder has checked it.
+pub(crate) struct AuthConfig {
+    authenticator: Option<Box<dyn DynAuthenticator>>,
+    throttle: LoginThrottle,
+    account_throttle: LoginThrottle,
+    pub(super) registrar: Option<Box<dyn DynRegistrar>>,
+    sign_up_throttle: LoginThrottle,
+    pub(super) profile_editor: Option<Box<dyn DynProfileEditor>>,
+    profile_throttle: LoginThrottle,
+    pub(super) reset: Option<PasswordReset<()>>,
+    pub(super) mail: Option<AuthMail>,
+    pub(super) verification: Option<EmailVerification<()>>,
+    pub(super) tenant_registration: Option<TenantRegistration<()>>,
+    pub(super) tenant_editor: Option<Box<dyn DynTenantEditor>>,
+    pub(super) two_factor: Option<TwoFactor>,
+}
+
+impl AuthConfig {
+    /// Whether the explicit opt-out is set.
+    pub(crate) fn is_disabled(&self) -> bool {
         self.authenticator.is_none()
     }
 
@@ -418,17 +462,17 @@ impl Auth {
     }
 
     /// The password reset, or `None` without a forgot-password page.
-    pub(crate) fn reset(&self) -> Option<&PasswordReset> {
+    pub(crate) fn reset(&self) -> Option<&PasswordReset<()>> {
         self.authenticator.as_ref().and(self.reset.as_ref())
     }
 
     /// The email verification, or `None` when the panel asks for none.
-    pub(crate) fn verification(&self) -> Option<&EmailVerification> {
+    pub(crate) fn verification(&self) -> Option<&EmailVerification<()>> {
         self.authenticator.as_ref().and(self.verification.as_ref())
     }
 
     /// The tenant registration, or `None` without a tenant registration page.
-    pub(crate) fn tenant_registration_page(&self) -> Option<&TenantRegistration> {
+    pub(crate) fn tenant_registration_page(&self) -> Option<&TenantRegistration<()>> {
         self.authenticator
             .as_ref()
             .and(self.tenant_registration.as_ref())
@@ -473,13 +517,7 @@ impl Auth {
     }
 }
 
-impl Default for Auth {
-    fn default() -> Self {
-        Self::password()
-    }
-}
-
-impl std::fmt::Debug for Auth {
+impl std::fmt::Debug for AuthConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.is_disabled() {
             f.write_str("Auth::disabled")

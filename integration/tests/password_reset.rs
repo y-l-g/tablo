@@ -9,13 +9,12 @@ use tablo::{
     Auth, AuthMail, DeclarationErrorKind, LoginThrottle, NoForm, NotificationStatus, Panel,
     PanelUser, PasswordAuth, PasswordReset, ReadOnly, ResetFault, Resource, ResourceDef,
     RouterBuilderPanelExt, Table, TextColumn,
-    auth::{AdminUser, AuthSession, AuthToken, PasswordResetter, create_admin, verify_password},
+    auth::{AdminUser, AuthSession, AuthToken, create_admin, verify_password},
     lens,
     testing::{find_href_with, form_body},
 };
 use toasty::Db;
 use topcoat::{
-    context::Cx,
     mail::{MailConfig, Mailbox, MemoryTransport, RouterBuilderMailExt},
     router::{Router, RouterBuilderDiscoverExt},
 };
@@ -52,7 +51,7 @@ async fn db() -> Db {
     test_db(toasty::models!(Note, AdminUser, AuthSession, AuthToken)).await
 }
 
-fn reset() -> PasswordReset {
+fn reset() -> PasswordReset<AdminUser> {
     PasswordReset::new(PasswordAuth)
 }
 
@@ -551,40 +550,6 @@ async fn a_link_belongs_to_its_panel_and_a_reset_ends_the_others() {
     assert!(tokens(&db).await.is_empty());
 }
 
-/// A user type the panel's authenticator does not load.
-struct Visitor;
-
-impl PanelUser for Visitor {
-    fn user_id(&self) -> String {
-        String::new()
-    }
-
-    fn display_name(&self) -> &str {
-        ""
-    }
-}
-
-/// Resets visitors, whom the shipped authenticator never loads.
-struct VisitorReset;
-
-impl PasswordResetter for VisitorReset {
-    type User = Visitor;
-
-    async fn find_by_email(&self, _cx: &Cx, _email: &str) -> topcoat::Result<Option<Visitor>> {
-        unreachable!("mounting refuses the resetter")
-    }
-
-    async fn reset_password(
-        &self,
-        _cx: &Cx,
-        _user_id: &str,
-        _password: &str,
-        _ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<()> {
-        unreachable!("mounting refuses the resetter")
-    }
-}
-
 /// Mounting refuses a reset it cannot serve.
 #[tokio::test]
 async fn mounting_refuses_a_reset_the_panel_cannot_serve() {
@@ -600,19 +565,6 @@ async fn mounting_refuses_a_reset_the_panel_cannot_serve() {
         vec![DeclarationErrorKind::PasswordReset(
             ResetFault::AuthDisabled
         )]
-    );
-
-    let errors = refusal(mount_with_mail(
-        db().await,
-        panel(mailing().password_reset(PasswordReset::new(VisitorReset))),
-        &mail,
-    ));
-    let kinds: Vec<_> = errors.iter().map(|error| error.kind.clone()).collect();
-    assert_eq!(
-        kinds,
-        vec![DeclarationErrorKind::PasswordReset(ResetFault::UserType {
-            resetter: std::any::type_name::<Visitor>(),
-        })]
     );
 
     let without_tokens = test_db(toasty::models!(Note, AdminUser, AuthSession)).await;

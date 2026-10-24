@@ -375,7 +375,7 @@ pub(super) fn confirm_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             .ok_or_else(topcoat::router::error::not_found)?
             .verifier();
         let email = row.email.clone().unwrap_or_default();
-        let user_type = verifier.user_type().0;
+        let user_type = verifier.user_type();
         let mut started = None;
         let landing = run_serializable!(cx, |tx| async {
             // Read again inside the transaction: of two requests racing on one link, one commits.
@@ -469,7 +469,7 @@ pub(super) fn cancel_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
                     .await
                     .map_err(infrastructure_failure)?;
             }
-            let panels = credential_panels(cx, verifier.user_type().0, &panel);
+            let panels = credential_panels(cx, verifier.user_type(), &panel);
             end_credentials(tx, &row.user_id, &panels, REVOCATION).await?;
             Ok(true)
         })?;

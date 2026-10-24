@@ -169,7 +169,7 @@ async fn only_a_required_registration_holds_back_a_member_without_a_tenant() {
     assert_eq!(client.get("/admin/register-tenant").await.status(), 404);
 }
 
-/// Registers tenants for the shipped admin, whom `MemberAuth` never loads.
+/// Registers tenants for the shipped admin, on a panel whose auth is off.
 struct AdminTeams;
 
 impl TenantRegistrar for AdminTeams {
@@ -225,18 +225,9 @@ async fn mounting_refuses_a_tenant_registration_the_panel_cannot_serve() {
     assert_eq!(
         kinds(mount(
             db().await,
-            Auth::disabled().tenant_registration(TenantRegistration::new(Teams))
+            Auth::disabled().tenant_registration(TenantRegistration::new(AdminTeams))
         )),
         vec![fault(TenantRegistrationFault::AuthDisabled)]
-    );
-    assert_eq!(
-        kinds(mount(
-            db().await,
-            Auth::custom(MemberAuth).tenant_registration(TenantRegistration::new(AdminTeams))
-        )),
-        vec![fault(TenantRegistrationFault::UserType {
-            registrar: std::any::type_name::<AdminUser>(),
-        })]
     );
     assert_eq!(
         kinds(mount(

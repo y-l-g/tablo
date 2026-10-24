@@ -59,7 +59,7 @@ pub use self::{
 // What the crate root exports, under the paths this module's own code names.
 pub(crate) use self::{
     columns::{load_choice, save_choice},
-    config::Auth,
+    config::{Auth, AuthConfig},
     gate::{PanelGate, RuntimeGate, still_signed_in},
     login::{logout_url, safe_next, tenant_url},
     mail::AuthMail,

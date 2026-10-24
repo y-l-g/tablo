@@ -147,7 +147,7 @@ pub(super) fn private(mut response: Response) -> topcoat::Result<Response> {
 /// [`Auth::mail`](super::Auth::mail), a base URL that is not absolute, and a router that cannot
 /// send mail. `has_mail` says whether the router can.
 pub(super) fn declaration_errors(
-    auth: &super::Auth,
+    auth: &super::AuthConfig,
     has_mail: bool,
 ) -> Vec<crate::DeclarationErrorKind> {
     use crate::{AuthMailFault, DeclarationErrorKind};

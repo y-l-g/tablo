@@ -132,7 +132,7 @@ pub struct Panel {
     login_hint: Option<crate::Text>,
     /// The app's entries in the user menu, above Sign out.
     user_menu: Vec<crate::NavigationItem>,
-    auth: crate::auth::Auth,
+    auth: crate::auth::AuthConfig,
     /// The paths of the runtime endpoints that answer only this panel's sessions.
     endpoints: Vec<String>,
     /// Whether the topbar shows the bell over the user's stored notifications.
@@ -171,7 +171,7 @@ impl Panel {
             served_dirs: Vec::new(),
             login_hint: None,
             user_menu: Vec::new(),
-            auth: crate::auth::Auth::default(),
+            auth: crate::auth::Auth::default().into_config(),
             endpoints: Vec::new(),
             notifications: false,
             time_zone: jiff::tz::TimeZone::UTC,
@@ -395,8 +395,8 @@ impl Panel {
 
     /// Configures this panel's authentication, defaulting to password auth; sessions belong to the
     /// panel that signed them in.
-    pub fn auth(mut self, auth: crate::auth::Auth) -> Self {
-        self.auth = auth;
+    pub fn auth<U: crate::PanelUser>(mut self, auth: crate::auth::Auth<U>) -> Self {
+        self.auth = auth.into_config();
         self
     }
 

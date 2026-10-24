@@ -7,15 +7,14 @@ use http::header::{CACHE_CONTROL, LOCATION};
 use jiff::Timestamp;
 use tablo::{
     Auth, AuthMail, AuthMailFault, DeclarationErrorKind, EmailVerification, LoginThrottle, NoForm,
-    NotificationStatus, Panel, PanelUser, PasswordAuth, PasswordSignUp, ReadOnly, Resource,
-    ResourceDef, RouterBuilderPanelExt, Table, TextColumn, VerificationFault,
-    auth::{AdminUser, AuthSession, AuthToken, EmailVerifier, create_admin},
+    NotificationStatus, Panel, PasswordAuth, PasswordSignUp, ReadOnly, Resource, ResourceDef,
+    RouterBuilderPanelExt, Table, TextColumn, VerificationFault,
+    auth::{AdminUser, AuthSession, AuthToken, create_admin},
     lens,
     testing::{SESSION_COOKIE, form_body, session_cookie_value},
 };
 use toasty::Db;
 use topcoat::{
-    context::Cx,
     mail::{MailConfig, Mailbox, MemoryTransport, RouterBuilderMailExt},
     router::{Router, RouterBuilderDiscoverExt},
 };
@@ -61,7 +60,7 @@ fn mailing() -> Auth {
 }
 
 /// A panel with sign-up and email verification, mounting `verification`.
-fn verifying(verification: EmailVerification) -> Auth {
+fn verifying(verification: EmailVerification<AdminUser>) -> Auth {
     mailing()
         .registration(PasswordSignUp::open())
         .email_verification(verification)
@@ -271,40 +270,6 @@ async fn link_requests_past_the_throttle_answer_429() {
     assert_eq!(mails(&mail, 1).await.len(), 1);
 }
 
-/// A user type the panel's authenticator does not load.
-struct Visitor;
-
-impl PanelUser for Visitor {
-    fn user_id(&self) -> String {
-        String::new()
-    }
-
-    fn display_name(&self) -> &str {
-        ""
-    }
-}
-
-/// Verifies visitors, whom the shipped authenticator never loads.
-struct VisitorVerifier;
-
-impl EmailVerifier for VisitorVerifier {
-    type User = Visitor;
-
-    fn is_verified(&self, _user: &Visitor) -> bool {
-        unreachable!("mounting refuses the verifier")
-    }
-
-    async fn store_verified_email(
-        &self,
-        _cx: &Cx,
-        _user_id: &str,
-        _email: &str,
-        _ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<()> {
-        unreachable!("mounting refuses the verifier")
-    }
-}
-
 fn kinds(mounted: topcoat::Result<Router>) -> Vec<DeclarationErrorKind> {
     refusal(mounted)
         .into_iter()
@@ -326,18 +291,6 @@ async fn mounting_refuses_a_verification_the_panel_cannot_serve() {
         )),
         vec![DeclarationErrorKind::EmailVerification(
             VerificationFault::AuthDisabled
-        )]
-    );
-    assert_eq!(
-        kinds(mount(
-            db().await,
-            mailing().email_verification(EmailVerification::new(VisitorVerifier)),
-            &mail
-        )),
-        vec![DeclarationErrorKind::EmailVerification(
-            VerificationFault::UserType {
-                verifier: std::any::type_name::<Visitor>(),
-            }
         )]
     );
     assert_eq!(

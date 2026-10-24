@@ -7,9 +7,8 @@ use std::time::Duration;
 use http::header::LOCATION;
 use tablo::{
     Auth, DeclarationErrorKind, Field, FieldError, FormInput, FormValues, LoginThrottle, NoForm,
-    NotificationStatus, PanelUser, PasswordAuth, Profile, ProfileEditor, ProfileFault,
-    ProfileUpdate, ReadOnly, Resource, ResourceDef, RouterBuilderPanelExt, Schema, Table,
-    TextColumn,
+    NotificationStatus, PasswordAuth, ProfileEditor, ProfileFault, ProfileUpdate, ReadOnly,
+    Resource, ResourceDef, RouterBuilderPanelExt, Schema, Table, TextColumn,
     auth::{AdminUser, AuthSession, create_admin},
     lens, parse_scalar,
     testing::{find_href_with, form_body, session_cookie_value},
@@ -284,66 +283,20 @@ async fn a_panel_without_a_profile_serves_none() {
     assert_eq!(client.get("/admin/profile").await.status(), 404);
 }
 
-/// A user type the panel's authenticator does not load.
-struct Visitor;
-
-impl PanelUser for Visitor {
-    fn user_id(&self) -> String {
-        String::new()
-    }
-
-    fn display_name(&self) -> &str {
-        ""
-    }
-}
-
-/// Edits visitors, whom the shipped authenticator never loads.
-struct VisitorProfile;
-
-impl ProfileEditor for VisitorProfile {
-    type Input = Profile;
-    type User = Visitor;
-
-    fn fill(&self, _cx: &Cx, _user: &Visitor) -> Profile {
-        unreachable!("mounting refuses the editor")
-    }
-
-    async fn save(
-        &self,
-        _cx: &Cx,
-        _user: &Visitor,
-        _input: Profile,
-        _ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<ProfileUpdate> {
-        unreachable!("mounting refuses the editor")
-    }
-}
-
-/// Mounting refuses an editor of another user type, and a profile without auth.
+/// Mounting refuses a profile without auth.
 #[tokio::test]
 async fn mounting_refuses_a_profile_the_panel_cannot_serve() {
-    let cases: [(Auth, ProfileFault); 2] = [
-        (
-            Auth::password().profile(VisitorProfile),
-            ProfileFault::UserType {
-                editor: std::any::type_name::<Visitor>(),
-            },
-        ),
-        (
-            Auth::disabled().profile(PasswordAuth),
-            ProfileFault::AuthDisabled,
-        ),
-    ];
-    for (auth, fault) in cases {
-        let errors = refusal(mount(
-            db().await,
-            tablo::Panel::new("admin")
-                .auth(auth)
-                .resource::<NoteResource>(),
-        ));
-        let kinds: Vec<_> = errors.iter().map(|error| error.kind.clone()).collect();
-        assert_eq!(kinds, vec![DeclarationErrorKind::Profile(fault)]);
-    }
+    let errors = refusal(mount(
+        db().await,
+        tablo::Panel::new("admin")
+            .auth(Auth::disabled().profile(PasswordAuth))
+            .resource::<NoteResource>(),
+    ));
+    let kinds: Vec<_> = errors.iter().map(|error| error.kind.clone()).collect();
+    assert_eq!(
+        kinds,
+        vec![DeclarationErrorKind::Profile(ProfileFault::AuthDisabled)]
+    );
 }
 
 /// One back office and one reader portal, both signing in `AdminUser`s.

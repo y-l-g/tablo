@@ -4,7 +4,7 @@ use super::*;
 fn realm(prefix: &str) -> Arc<Realm> {
     Arc::new(Realm {
         prefix: prefix.to_owned(),
-        auth: crate::Auth::disabled(),
+        auth: crate::Auth::disabled().into_config(),
         login_hint: None,
         time_zone: jiff::tz::TimeZone::UTC,
         catalog: crate::i18n::Catalog::new(&["en".to_owned()], &[]).expect("`en` builds"),

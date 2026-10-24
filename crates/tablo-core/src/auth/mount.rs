@@ -6,7 +6,7 @@ use std::any::TypeId;
 use topcoat::router::{BodyLimit, PageFn, RouteFn, RouteHandlerFn, RouterBuilder};
 
 use super::{
-    AdminUser, Auth, email_change,
+    AdminUser, AuthConfig, email_change,
     login::{MAX_LOGIN_BYTES, login_page, login_post, logout_post, tenant_post},
     password_reset::{forgot_page, forgot_post, reset_page, reset_post},
     profile::{profile_page, profile_post},
@@ -33,7 +33,7 @@ pub(crate) struct Services {
 /// whether the panel shows the bell, and `services` what the router installs.
 pub(crate) fn declaration_errors(
     db: &toasty::Db,
-    auth: &Auth,
+    auth: &AuthConfig,
     toggles: bool,
     notifications: bool,
     services: Services,
@@ -66,7 +66,7 @@ pub(crate) fn declaration_errors(
 /// bell (`notifications`).
 fn missing_models(
     db: &toasty::Db,
-    auth: &Auth,
+    auth: &AuthConfig,
     toggles: bool,
     notifications: bool,
 ) -> Result<(), DeclarationErrorKind> {
@@ -98,7 +98,7 @@ fn missing_models(
 /// gates, then the sign-up, tenant registration, profile, tenant settings, two-factor,
 /// password-reset and email-verification pages `auth` declares.
 /// Each form route carries [`MAX_LOGIN_BYTES`] in place of the panel's form cap.
-pub(crate) fn routes(mut builder: RouterBuilder, prefix: &str, auth: &Auth) -> RouterBuilder {
+pub(crate) fn routes(mut builder: RouterBuilder, prefix: &str, auth: &AuthConfig) -> RouterBuilder {
     if !auth.is_disabled() {
         let login_path = route_path(&format!("{prefix}/login"));
         builder = builder

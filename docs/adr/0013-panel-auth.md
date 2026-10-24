@@ -15,8 +15,9 @@ is the explicit opt-out.
 - Every other feature is opt-in, through a seam for the same user type when it writes the app's
   own rows: sign-up (`Registrar`), the profile page (`ProfileEditor`), password reset
   (`PasswordResetter`), email verification (`EmailVerifier`), tenant registration
-  (`TenantRegistrar`) and tenant settings (`TenantEditor`). Each validates and writes in one
-  transaction. A credential change ends the user's sessions and links on every panel that loads
+  (`TenantRegistrar`) and tenant settings (`TenantEditor`). `Auth<U>` carries the
+  authenticator's user type until `Panel::auth` erases it, so a seam over another type does not
+  compile. Each validates and writes in one transaction. A credential change ends the user's sessions and links on every panel that loads
   the same user type, in the transaction that saves it.
 - A mailed link never acts on a `GET` a mail scanner would follow when acting signs someone out;
   one that only proves an address does, since a click less is worth more.
