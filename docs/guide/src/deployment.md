@@ -72,3 +72,9 @@ and the other subcommands. A new database has no user to sign in with: seed the 
   the router's cookie `Key`, so replicas that should open each other's links share that `Key`.
 - Several replicas share the database, and sessions with it. The sign-in throttle counts per
   process, so limit attempts across replicas at the proxy.
+- The notification bell wakes over an in-process channel, as
+  [ADR-0028](https://github.com/y-l-g/tablo/blob/master/docs/adr/0028-stored-notifications.md)
+  records: a send, a read or a sign-out on one replica re-renders only the bells connected to that
+  replica. A bell connected to another one shows the new state when its page reloads or its own
+  replica next wakes it; a session revoked elsewhere stops at that wake, before it shows anything
+  new.
