@@ -7,7 +7,8 @@ fn realm(prefix: &str) -> Arc<Realm> {
         auth: crate::Auth::disabled().into_config(),
         login_hint: None,
         time_zone: jiff::tz::TimeZone::UTC,
-        catalog: crate::i18n::Catalog::new(&["en".to_owned()], &[]).expect("`en` builds"),
+        catalog: crate::i18n::Catalog::new(std::slice::from_ref(&crate::i18n::ENGLISH), &[])
+            .expect("`en` builds"),
         notifications: false,
     })
 }

@@ -118,7 +118,7 @@ pub(crate) struct Recipient {
     address: String,
     user_id: String,
     /// The account's [`locale`](PanelUser::locale), which the mail is written in.
-    locale: Option<String>,
+    locale: Option<topcoat::l10n::Locale>,
 }
 
 /// [`PasswordResetter`] with its user type erased, as the panel keeps it.
@@ -164,7 +164,7 @@ impl<R: PasswordResetter> DynPasswordResetter for R {
             Ok(Some(Recipient {
                 address: email.to_string(),
                 user_id: user.user_id(),
-                locale: user.locale().map(str::to_owned),
+                locale: user.locale(),
             }))
         })
     }
@@ -346,7 +346,7 @@ async fn mail_link(cx: &Cx, panel: &Realm, recipient: &Recipient) -> topcoat::Re
         user_id,
         locale,
     } = recipient;
-    let cx = &crate::i18n::addressed_to(cx, locale.as_deref());
+    let cx = &crate::i18n::addressed_to(cx, locale.as_ref());
     let mail = panel
         .auth
         .auth_mail()

@@ -33,17 +33,18 @@ warnings = "deny"
 
 # Temporary: the same Topcoat `main` patch as the workspace; drop both together.
 [patch.crates-io]
-topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
-topcoat-asset = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
-topcoat-cookie = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
-topcoat-core = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
-topcoat-font = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
-topcoat-icon = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
-topcoat-mail = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
-topcoat-router = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
-topcoat-runtime = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
-topcoat-session = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
-topcoat-tailwind = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
-topcoat-ui = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
-topcoat-ui-registry = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
-topcoat-view = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
+topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "671757e849e4c37a88e3380f3ae3d65b12a45a84" }
+topcoat-asset = { git = "https://github.com/tokio-rs/topcoat", rev = "671757e849e4c37a88e3380f3ae3d65b12a45a84" }
+topcoat-cookie = { git = "https://github.com/tokio-rs/topcoat", rev = "671757e849e4c37a88e3380f3ae3d65b12a45a84" }
+topcoat-core = { git = "https://github.com/tokio-rs/topcoat", rev = "671757e849e4c37a88e3380f3ae3d65b12a45a84" }
+topcoat-font = { git = "https://github.com/tokio-rs/topcoat", rev = "671757e849e4c37a88e3380f3ae3d65b12a45a84" }
+topcoat-l10n = { git = "https://github.com/tokio-rs/topcoat", rev = "671757e849e4c37a88e3380f3ae3d65b12a45a84" }
+topcoat-icon = { git = "https://github.com/tokio-rs/topcoat", rev = "671757e849e4c37a88e3380f3ae3d65b12a45a84" }
+topcoat-mail = { git = "https://github.com/tokio-rs/topcoat", rev = "671757e849e4c37a88e3380f3ae3d65b12a45a84" }
+topcoat-router = { git = "https://github.com/tokio-rs/topcoat", rev = "671757e849e4c37a88e3380f3ae3d65b12a45a84" }
+topcoat-runtime = { git = "https://github.com/tokio-rs/topcoat", rev = "671757e849e4c37a88e3380f3ae3d65b12a45a84" }
+topcoat-session = { git = "https://github.com/tokio-rs/topcoat", rev = "671757e849e4c37a88e3380f3ae3d65b12a45a84" }
+topcoat-tailwind = { git = "https://github.com/tokio-rs/topcoat", rev = "671757e849e4c37a88e3380f3ae3d65b12a45a84" }
+topcoat-ui = { git = "https://github.com/tokio-rs/topcoat", rev = "671757e849e4c37a88e3380f3ae3d65b12a45a84" }
+topcoat-ui-registry = { git = "https://github.com/tokio-rs/topcoat", rev = "671757e849e4c37a88e3380f3ae3d65b12a45a84" }
+topcoat-view = { git = "https://github.com/tokio-rs/topcoat", rev = "671757e849e4c37a88e3380f3ae3d65b12a45a84" }

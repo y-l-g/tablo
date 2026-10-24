@@ -159,7 +159,7 @@ pub use derive::{EmbeddedForm, FormInput, ModelColumns, ModelForm, Options, Reco
 pub use detail::{Detail, IntoDetail};
 pub use display::{Alignment, Color, Currency, Number, Numeric};
 pub use form::{NoForm, Posted, RecordForm};
-pub use i18n::{Locale, Text, locale};
+pub use i18n::Text;
 pub use lens::{Lens, Reads};
 pub use models::register_models;
 pub use navigation::{NavTarget, NavigationItem};

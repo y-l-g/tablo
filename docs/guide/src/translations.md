@@ -9,7 +9,10 @@ and gender forms in.
 [`Panel::locales`](https://y-l.fr/tablo/nightly/api/tablo/struct.Panel.html#method.locales) lists
 the locales a panel offers, the default first, and
 [`Panel::translations`](https://y-l.fr/tablo/nightly/api/tablo/struct.Panel.html#method.translations)
-adds the app's catalog for one:
+adds the app's catalog for one. A locale is a
+[`topcoat::l10n::Locale`](https://docs.rs/topcoat/latest/topcoat/l10n/struct.Locale.html), which
+`locale!` checks at compile time; enable the `l10n` feature of the app's `topcoat` dependency to
+name it:
 
 ```rust,ignore
 {{#include ../../../examples/guide/src/translations.rs:locales}}
@@ -17,16 +20,18 @@ adds the app's catalog for one:
 
 A panel that lists none offers English alone. A request reads, in order:
 
-1. the signed-in user's `PanelUser::locale`, when the panel offers it;
+1. the signed-in user's `PanelUser::locale`, when the panel offers a match;
 2. the best match of the browser's `Accept-Language`, by weight, without a language it weighs
    `q=0`;
 3. the panel's default, the first it lists.
 
 A region reads its language's locale: `fr-CA` reads a panel's `fr`, and `zh-HK` reads `zh-Hant`
-over `zh-Hans`. The page's `<html lang>` names the locale it was read in, and a panel offering
-several locales answers `Vary: Accept-Language`, so a shared cache keeps one copy per language.
+over `zh-Hans`. The page's `<html lang>` names the locale it was read in, its `<html dir>` the
+direction the locale's script runs in, `rtl` for Arabic or Hebrew, and a panel offering several
+locales answers `Vary: Accept-Language`, so a shared cache keeps one copy per language. A page,
+a handler or a view of the panel reads the request's locale with `topcoat::l10n::locale(cx)`.
 
-The panel refuses to mount an empty list, a tag that is not BCP 47, a locale listed twice, a
+The panel refuses to mount an empty list, a locale listed twice (`iw` and `he` name one), a
 locale no catalog translates, a catalog for a locale the panel does not offer (`en` aside), and a
 catalog that is not valid Fluent, each as a
 [`LocaleFault`](https://y-l.fr/tablo/nightly/api/tablo/enum.LocaleFault.html) under
@@ -102,7 +107,7 @@ link, a verification link and a sign-in code, are written in their recipient's
 ## The user's locale
 
 `PanelUser::locale` names the locale a user reads the panel in, such as one they pick on their
-profile and the app stores. A locale the panel does not offer counts as none:
+profile and the app stores as text. A locale with no match among the panel's counts as none:
 
 ```rust,ignore
 {{#include ../../../examples/guide/src/translations.rs:user-locale}}

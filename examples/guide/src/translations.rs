@@ -1,16 +1,19 @@
 //! The Translations chapter's snippets.
 
 use tablo::{Notification, Panel, prelude::*};
-use topcoat::context::Cx;
+use topcoat::{
+    context::Cx,
+    l10n::{Locale, locale},
+};
 
 use crate::models::Post;
 
 pub fn panel() -> Panel {
     // ANCHOR: locales
     Panel::new("admin")
-        .locales(["fr", "en"])
-        .translations("fr", include_str!("../locales/fr.ftl"))
-        .translations("en", include_str!("../locales/en.ftl"))
+        .locales([locale!("fr"), locale!("en")])
+        .translations(locale!("fr"), include_str!("../locales/fr.ftl"))
+        .translations(locale!("en"), include_str!("../locales/en.ftl"))
     // ANCHOR_END: locales
 }
 
@@ -41,8 +44,8 @@ impl tablo::PanelUser for Editor {
         &self.id
     }
 
-    fn locale(&self) -> Option<&str> {
-        self.locale.as_deref()
+    fn locale(&self) -> Option<Locale> {
+        self.locale.as_deref()?.parse().ok()
     }
 }
 // ANCHOR_END: user-locale
