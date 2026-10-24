@@ -85,7 +85,7 @@ use crate::{
 ///         })
 ///         .exec(ex)
 ///         .await?;
-///         Ok(Membership::new(team.id, team.name))
+///         Ok(Membership::new(team.id.into(), team.name))
 ///     }
 /// }
 /// ```
@@ -334,7 +334,7 @@ pub(super) fn register_tenant_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
                 return page_response(cx, signed, registrar, &values, &errors).await;
             }
         };
-        select_tenant(cx, membership.tenant).await?;
+        select_tenant(cx, membership.tenant.get()).await?;
         set_notification(
             cx,
             Notification::success(crate::t!(cx, "tablo-tenant-created")).description(crate::t!(

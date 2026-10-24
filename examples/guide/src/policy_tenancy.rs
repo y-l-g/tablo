@@ -357,7 +357,7 @@ impl TenantRegistrar for StaffAuth {
     ) -> Result<Membership> {
         let id = create_workspace(ex, &workspace.name).await?;
         seat_staff(ex, signed.staff.id, id).await?;
-        Ok(Membership::new(id, workspace.name))
+        Ok(Membership::new(id.into(), workspace.name))
     }
 }
 
@@ -399,7 +399,7 @@ impl TenantEditor for StaffAuth {
         renamed: NewWorkspace,
         ex: &mut dyn toasty::Executor,
     ) -> Result<()> {
-        rename_workspace(ex, workspace.tenant, &renamed.name).await
+        rename_workspace(ex, workspace.tenant.get(), &renamed.name).await
     }
 }
 // ANCHOR_END: policy-tenant-profile

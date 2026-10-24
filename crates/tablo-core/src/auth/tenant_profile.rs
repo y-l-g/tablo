@@ -80,7 +80,7 @@ use crate::{
 ///         settings: TeamSettings,
 ///         ex: &mut dyn toasty::Executor,
 ///     ) -> topcoat::Result<()> {
-///         Team::filter_by_id(team.tenant)
+///         Team::filter_by_id(team.tenant.get())
 ///             .update()
 ///             .name(settings.name)
 ///             .exec(ex)

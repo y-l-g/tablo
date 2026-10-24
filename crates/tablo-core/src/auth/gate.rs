@@ -216,7 +216,8 @@ pub(crate) async fn still_signed_in(cx: &Cx) -> topcoat::Result<bool> {
         return Ok(false);
     };
     let tenant = crate::tenant_id(cx);
-    let member = tenant.is_none_or(|tenant| now.user.tenants().iter().any(|m| m.tenant == tenant));
+    let member =
+        tenant.is_none_or(|tenant| now.user.tenants().iter().any(|m| m.tenant.get() == tenant));
     Ok(now.user.user_id() == signed.user.user_id()
         && now.tenant == signed.tenant
         && member

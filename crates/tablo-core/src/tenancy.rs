@@ -23,13 +23,13 @@ pub use tenant_id::{TenantColumn, TenantId};
 /// [`tenants`](crate::auth::PanelUser::tenants).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Membership {
-    pub tenant: uuid::Uuid,
+    pub tenant: TenantId,
     pub name: String,
 }
 
 impl Membership {
     /// The membership of `tenant`, shown as `name`.
-    pub fn new(tenant: uuid::Uuid, name: impl Into<String>) -> Self {
+    pub fn new(tenant: TenantId, name: impl Into<String>) -> Self {
         Self {
             tenant,
             name: name.into(),

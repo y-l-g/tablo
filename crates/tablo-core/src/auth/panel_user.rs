@@ -3,9 +3,8 @@
 use std::{any::Any, future::Future};
 
 use topcoat::context::Cx;
-use uuid::Uuid;
 
-use crate::tenancy::Membership;
+use crate::tenancy::{Membership, TenantId};
 
 /// A signed-in user, as the panel knows it (ADR-0013).
 ///
@@ -77,7 +76,7 @@ pub trait PanelUser: Any + Send + Sync {
     /// The tenant a session acts for until the user selects another, while it is one of
     /// [`tenants`](Self::tenants), such as one the user picks on their profile page and the app
     /// stores. Defaults to none: the first of `tenants`.
-    fn default_tenant(&self) -> Option<Uuid> {
+    fn default_tenant(&self) -> Option<TenantId> {
         None
     }
 
