@@ -217,7 +217,7 @@ pub(crate) fn search<'a, R: Resource>(
         let Some(matched) = mounted.words_search_expr(cx, words) else {
             return Ok(Vec::new());
         };
-        let mut db = crate::db::db(cx);
+        let mut db = crate::db::db(cx)?;
         let matched = crate::toasty_compat::case_insensitive_search(&db, matched);
         let order = mounted.table_for(cx).first_order_by();
         let mask = mounted.field_mask(cx);

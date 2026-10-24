@@ -62,7 +62,7 @@ pub const RESET_LIFETIME: Duration = Duration::from_hours(1);
 ///     type User = Staff;
 ///
 ///     async fn find_by_email(&self, cx: &Cx, email: &str) -> topcoat::Result<Option<Staff>> {
-///         let mut db = tablo_core::db::db(cx);
+///         let mut db = tablo_core::db::db(cx)?;
 ///         Ok(Staff::filter_by_email(email).first().exec(&mut db).await?)
 ///     }
 ///
@@ -374,7 +374,7 @@ async fn live_token(
 pub(super) fn reset_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         let token = token_from_query(cx);
-        let mut db = crate::db::db(cx);
+        let mut db = crate::db::db(cx)?;
         let live = live_token(cx, &mut db, &token).await?;
         if live.is_none() {
             return invalid_link(cx).await;
@@ -397,7 +397,7 @@ pub(super) fn reset_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         let token = form.last(TOKEN_FIELD).unwrap_or_default().to_string();
         let password = form.last(PASSWORD_FIELD).unwrap_or_default();
         let confirmation = form.last(CONFIRMATION_FIELD).unwrap_or_default();
-        let mut db = crate::db::db(cx);
+        let mut db = crate::db::db(cx)?;
         let Some(row) = live_token(cx, &mut db, &token).await? else {
             return invalid_link(cx).await;
         };

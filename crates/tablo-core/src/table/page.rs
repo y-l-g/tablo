@@ -151,7 +151,7 @@ where
             Pagination::Cursor => Self::load_cursor(cx, table, query, state, &refused).await,
         }?;
         table
-            .restrict_relations(cx, &page.rows, &mut crate::db::db(cx))
+            .restrict_relations(cx, &page.rows, &mut crate::db::db(cx)?)
             .await?;
         Ok(page)
     }
@@ -169,7 +169,7 @@ where
         refused: &[String],
         counted: bool,
     ) -> Result<Self> {
-        let mut db = crate::db::db(cx);
+        let mut db = crate::db::db(cx)?;
         let narrowed = table.narrow(cx, &db, query, state, refused);
         let per_page = table.page_size_for(state);
         let total = if counted {
@@ -244,7 +244,7 @@ where
         // shared routine — the export loader applies the same one to its own
         // seed. The cursor probes below reuse that filtered and ordered query
         // without the columns' includes: they only ask whether a row exists.
-        let mut db = crate::db::db(cx);
+        let mut db = crate::db::db(cx)?;
         let base_query = table.apply_declaration(cx, &db, query, state, refused);
         let query = table.include_relations(base_query.clone());
         let per_page = table.page_size_for(state);

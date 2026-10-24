@@ -14,15 +14,15 @@ use topcoat::context::{Cx, CxId, app_context};
 /// Never runs statements on another handle while a transaction holds its connection; drains or
 /// drops streaming list bodies before the next query.
 ///
-/// # Panics
+/// # Errors
 ///
-/// In a debug build, when called while a panel write's transaction is open for the same request,
-/// such as from [`Resource::before_commit`](crate::Resource::before_commit) or a record fn: run
-/// the statement through the `ex` the hook received instead.
+/// A declaration failure when called while a panel write's transaction is open for the same
+/// request, such as from [`Resource::before_commit`](crate::Resource::before_commit) or a record
+/// fn: run the statement through the `ex` the hook received instead.
 #[inline]
-pub fn db(cx: &Cx) -> Db {
-    assert_no_write_open(cx.id(), "db(cx)");
-    app_context::<Db>(cx).clone()
+pub fn db(cx: &Cx) -> topcoat::Result<Db> {
+    no_write_open(cx.id(), "db(cx)")?;
+    Ok(app_context::<Db>(cx).clone())
 }
 
 /// The requests with a panel write's transaction open now, each with the work to run once it
@@ -39,18 +39,18 @@ fn open() -> std::sync::MutexGuard<'static, Vec<Open>> {
     OPEN.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
-/// Panics in a debug build when `request` has a panel write's transaction open: a second
-/// connection taken now writes outside it, and on a pool of one waits forever for the
-/// connection the transaction holds.
-#[inline]
-pub(crate) fn assert_no_write_open(request: CxId, what: &str) {
-    if cfg!(debug_assertions) && open().iter().any(|open| open.request == request) {
-        panic!(
+/// Refuses when `request` has a panel write's transaction open: a second connection taken now
+/// writes outside it, and on a pool of one waits forever for the connection the transaction
+/// holds.
+pub(crate) fn no_write_open(request: CxId, what: &str) -> topcoat::Result<()> {
+    if open().iter().any(|open| open.request == request) {
+        return Err(crate::error::declaration(format!(
             "{what} opens a second connection while this request's write transaction is open: \
              its statements would run outside the transaction, and on a pool of one it waits \
              forever. Run them through the `ex` the record fn or hook received."
-        );
+        )));
     }
+    Ok(())
 }
 
 /// Queues `work` to run once `request`'s open panel write commits, and drops it if the write
@@ -68,8 +68,8 @@ pub(crate) fn after_write_commits<F: FnOnce() + Send + 'static>(
     }
 }
 
-/// The transaction a panel write runs in. While it is open, [`db`] panics for the same request
-/// in a debug build, and [`Notifications::send_in`](crate::Notifications::send_in)
+/// The transaction a panel write runs in. While it is open, [`db`] refuses the same request,
+/// and [`Notifications::send_in`](crate::Notifications::send_in)
 /// wakes bells only once it commits.
 pub(crate) struct WriteTx<'a> {
     /// `None` only inside [`Self::commit`], once the transaction is consumed.

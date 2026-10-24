@@ -197,7 +197,7 @@ impl Resource for TaskResource {
             Change::Action { name, .. } => format!("action:{name}"),
             _ => "other".to_string(),
         };
-        let mut db = tablo::db::db(cx);
+        let mut db = tablo::db::db(cx)?;
         toasty::create!(Log {
             mutation,
             rows: change.records().len() as i64,

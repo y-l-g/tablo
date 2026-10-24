@@ -155,7 +155,7 @@ pub(in crate::auth) fn settings_page(cx: &Cx, _body: Body) -> BoxView<'_> {
     async_page(async move {
         let (signed, two_factor) = configuring(cx)?;
         crate::csrf::ensure_token(cx);
-        let mut db = crate::db::db(cx);
+        let mut db = crate::db::db(cx)?;
         let enrolment = enrolment(cx, &mut db, &signed.user.user_id()).await?;
         standing(cx, signed, two_factor, &enrolment, false).await
     })

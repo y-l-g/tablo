@@ -60,7 +60,7 @@ pub(in crate::auth) async fn begin(
     kind: FactorKind,
     next: &str,
 ) -> topcoat::Result<Response> {
-    let mut db = crate::db::db(cx);
+    let mut db = crate::db::db(cx)?;
     let challenge = token::issue(
         cx,
         &mut db,
@@ -159,7 +159,7 @@ async fn alert(cx: &Cx, user: &dyn PanelUser) {
 pub(in crate::auth) fn challenge_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         let next = next_from_query(cx).unwrap_or_default();
-        let mut db = crate::db::db(cx);
+        let mut db = crate::db::db(cx)?;
         let Some(row) = token::live(
             cx,
             &mut db,
@@ -194,7 +194,7 @@ pub(in crate::auth) fn challenge_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         let code = form.last(CODE_FIELD).unwrap_or_default();
         let resend = form.last(super::settings::INTENT_FIELD) == Some("send");
         let encoded = presented(cx);
-        let mut db = crate::db::db(cx);
+        let mut db = crate::db::db(cx)?;
         let Some(row) =
             token::live(cx, &mut db, TokenPurpose::TwoFactorChallenge, &encoded).await?
         else {

@@ -344,7 +344,7 @@ pub(super) fn confirm_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
             .verification()
             .ok_or_else(topcoat::router::error::not_found)?;
         let encoded = token_from_query(cx);
-        let mut db = crate::db::db(cx);
+        let mut db = crate::db::db(cx)?;
         let Some(row) = token::live(cx, &mut db, TokenPurpose::EmailVerification, &encoded).await?
         else {
             return invalid_link(cx).await;

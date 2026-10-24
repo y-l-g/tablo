@@ -333,11 +333,7 @@ async fn search_matches_substrings_and_escapes_wildcards() {
             .parse::<jiff::Timestamp>()
             .expect("timestamp"),
     })
-    .exec(&mut tablo::db::db(
-        &topcoat::context::CxTestBuilder::new()
-            .app_context(db.clone())
-            .build(),
-    ))
+    .exec(&mut db.clone())
     .await
     .expect("seed the percent user");
 

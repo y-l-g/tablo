@@ -242,7 +242,7 @@ impl<E: TenantEditor> DynTenantEditor for E {
                     Ok(input) => input,
                     Err(errors) => return Ok(Outcome::Refused { values, errors }),
                 };
-            let mut db = crate::db::db(cx);
+            let mut db = crate::db::db(cx)?;
             let mut tx = db.transaction().await.map_err(crate::error::unavailable)?;
             let errors = self
                 .validate(cx, user, tenant, &input, &mut tx)

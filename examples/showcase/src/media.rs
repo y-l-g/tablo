@@ -112,7 +112,7 @@ impl Page for MediaLibraryPage {
     async fn render(cx: &Cx) -> Result<impl View> {
         // Refuses tenantless requests.
         let tenant = require_tenant(cx)?;
-        let mut db = db(cx);
+        let mut db = db(cx)?;
         let media = MediaAsset::filter(MediaAsset::fields().tenant_id().eq(TenantId::from(tenant)))
             .order_by(MediaAsset::fields().created_at().desc())
             .exec(&mut db)
@@ -238,7 +238,7 @@ async fn upload(cx: &Cx, mut multipart: Multipart) -> Result<SeeOther> {
     if filename.is_empty() || part.bytes.is_empty() {
         return Err(bad_request("Choose a file before uploading.").into());
     }
-    let mut db = db(cx);
+    let mut db = db(cx)?;
     let MediaStore(store) = try_app_context::<MediaStore>(cx)
         .ok_or_else(|| bad_request("This deployment stores no uploads."))?;
     let path = store

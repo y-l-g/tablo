@@ -88,7 +88,7 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
         }
         let mut chunker =
             ExportChunker::new(export_base_query(cx, &resource, &table, &state, &refused)?);
-        let mut db_handle = db(cx);
+        let mut db_handle = db(cx)?;
         let mut visible = 0usize;
         while let Some(rows) = chunker.next_chunk(&mut db_handle).await? {
             visible += rows
@@ -116,7 +116,10 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
                     return;
                 }
             };
-            let mut db_handle = crate::db::db(&cx2);
+            let Ok(mut db_handle) = crate::db::db(&cx2) else {
+                tx.abort(std::io::Error::other("export unavailable"));
+                return;
+            };
             let mut head = table.csv_header(&cx2);
             if want_bom {
                 head.insert(0, '\u{FEFF}');
@@ -192,7 +195,7 @@ fn export_base_query<R: Resource>(
 ) -> Result<toasty::stmt::Query<toasty::stmt::List<R::Model>>> {
     Ok(table.apply_declaration(
         cx,
-        &crate::db::db(cx),
+        &crate::db::db(cx)?,
         resource.list_query(cx, state)?,
         state,
         refused,

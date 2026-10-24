@@ -115,7 +115,7 @@ impl<M> Detail<M> {
     where
         M: toasty::schema::Model + Send + Sync + 'static,
     {
-        let mut db = crate::db::db(cx);
+        let mut db = crate::db::db(cx)?;
         let records = self
             .include_relations(query)
             .exec(&mut db)

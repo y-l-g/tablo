@@ -212,7 +212,7 @@ pub(super) const TOKEN_SWEEP_BATCH: usize = 500;
 pub(super) async fn sweep_expired(cx: &Cx) -> topcoat::Result<()> {
     // A panel that issues no token may leave the model unregistered.
     if current_realm(cx).is_some_and(|panel| panel.auth.issues_tokens()) {
-        sweep(&mut crate::db::db(cx)).await?;
+        sweep(&mut crate::db::db(cx)?).await?;
     }
     Ok(())
 }
@@ -268,7 +268,7 @@ const ATTEMPTS: u32 = 5;
 /// borrowing the transaction and the request's locals has no lifetime to name.
 macro_rules! run_serializable {
     ($cx:expr, |$tx:ident| $body:expr) => {{
-        let mut db = crate::db::db($cx);
+        let mut db = crate::db::db($cx)?;
         let mut attempt = 1;
         loop {
             let run = async {

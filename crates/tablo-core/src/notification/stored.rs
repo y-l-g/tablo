@@ -124,19 +124,16 @@ impl Notifications {
     /// # Errors
     ///
     /// An opaque infrastructure failure when the row cannot be written, e.g. the database does
-    /// not register [`StoredNotification`]; the driver's text goes to the log.
-    ///
-    /// # Panics
-    ///
-    /// In a debug build, on a handle from [`Self::of`] while the request's panel write has its
-    /// transaction open, as [`db`](crate::db::db) does.
+    /// not register [`StoredNotification`]; the driver's text goes to the log. A declaration
+    /// failure on a handle from [`Self::of`] while the request's panel write has its transaction
+    /// open, as [`db`](crate::db::db) refuses.
     pub async fn send(
         &self,
         user_id: &str,
         notification: Notification,
     ) -> topcoat::Result<StoredNotification> {
         if let Some(request) = self.request {
-            crate::db::assert_no_write_open(request, "Notifications::send");
+            crate::db::no_write_open(request, "Notifications::send")?;
         }
         let stored = self
             .store(&mut self.db.clone(), user_id, notification)

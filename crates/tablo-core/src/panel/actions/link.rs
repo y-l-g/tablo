@@ -78,7 +78,7 @@ pub(crate) fn relation_action_options<R: Resource>(cx: &Cx, _body: Body) -> Rout
         if path_param_segment(cx, "action") != ATTACH {
             return Err(not_found().into());
         }
-        owner(cx, &resource, &mut db(cx)).await?;
+        owner(cx, &resource, &mut db(cx)?).await?;
         input_options(cx, links.input).await
     })
 }
@@ -109,7 +109,7 @@ async fn attach<'a, R: Resource>(
     let parts = parse_form_body(cx, body).await?;
     crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
     // An owner out of scope or closed to the user answers before the input is checked.
-    owner(cx, resource, &mut db(cx)).await?;
+    owner(cx, resource, &mut db(cx)?).await?;
     let pending = read_input(cx, ATTACH, &links.input, &parts.pairs).await?;
     let id = path_param_segment(cx, "id").to_string();
     let home = format!(
@@ -133,7 +133,7 @@ async fn attach<'a, R: Resource>(
         Pending::Page(page) => return page.render(cx, &links.input, chrome()).await,
         Pending::Ready(_) => return Err(bad_request("attach takes a record").into()),
     };
-    let mut db = db(cx);
+    let mut db = db(cx)?;
     let mut tx = WriteTx::begin(cx, &mut db)
         .await
         .map_err(crate::error::unavailable)?;
@@ -199,7 +199,7 @@ async fn detach<'a, R: Resource>(
             ids
         }
     };
-    let mut db = db(cx);
+    let mut db = db(cx)?;
     let mut tx = WriteTx::begin(cx, &mut db)
         .await
         .map_err(crate::error::unavailable)?;

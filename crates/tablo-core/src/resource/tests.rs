@@ -50,7 +50,7 @@ async fn tenancy_is_anded_onto_the_base_query() {
     }
     let tenantless = crate::test_support::panel_cx::<OwnedResource>(&db);
     let cx = tenantless.with(crate::Tenant(mine));
-    let mut db = crate::db::db(&cx);
+    let mut db = crate::db::db(&cx).unwrap();
     let rows = scoped_query::<OwnedResource>(&cx)
         .expect("the request has a tenant")
         .exec(&mut db)
@@ -108,7 +108,7 @@ async fn a_nullable_tenant_column_is_stamped_and_scoped() {
             .unwrap();
     }
     let cx = crate::test_support::panel_cx::<AssignableResource>(&db).with(crate::Tenant(mine));
-    let mut db = crate::db::db(&cx);
+    let mut db = crate::db::db(&cx).unwrap();
     let created = write_create::<AssignableResource>(
         &cx,
         OptionTenantForm {

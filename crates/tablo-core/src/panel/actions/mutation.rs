@@ -225,7 +225,7 @@ async fn mutate<'a, R: Resource>(
     };
     // The fetched snapshot is the checked snapshot: the load, the checks and the write share
     // the transaction, and any error rolls it back.
-    let mut db = db(cx);
+    let mut db = db(cx)?;
     let mut tx = WriteTx::begin(cx, &mut db)
         .await
         .map_err(crate::error::unavailable)?;

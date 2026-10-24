@@ -157,7 +157,7 @@ struct Snapshot {
 
 impl Snapshot {
     async fn read(cx: &Cx, inbox: &Inbox, limit: usize) -> Result<Self> {
-        let db = crate::db::db(cx);
+        let db = crate::db::db(cx)?;
         // One row past the limit says whether "Show more" has more to show.
         let mut rows = inbox.latest(&db, limit + 1).await?;
         let more = rows.len() > limit && limit < MAX_SHOWN;
@@ -195,7 +195,7 @@ async fn next_change(cx: &Cx, wakes: &mut Subscription) -> Result<bool> {
 fn unread_badge(cx: &Cx, inbox: Inbox, mut wakes: Subscription, initial: Snapshot) -> BoxView<'_> {
     live! {
         cx =>
-        let db = crate::db::db(cx);
+        let db = crate::db::db(cx)?;
         // When the newest row the page already showed was sent: only a later one toasts, so
         // marking an older one unread does not.
         let mut seen = initial.rows.first().map(|row| row.created_at);
@@ -507,7 +507,7 @@ fn parse_id(id: &str) -> Result<Uuid> {
 pub async fn mark_notification(cx: &Cx, id: String, read: bool) -> Result<()> {
     let inbox = procedure_inbox(cx)?;
     let id = parse_id(&id)?;
-    inbox.mark(&crate::db::db(cx), id, read).await?;
+    inbox.mark(&crate::db::db(cx)?, id, read).await?;
     changed(cx, &inbox);
     Ok(())
 }
@@ -518,7 +518,7 @@ pub async fn mark_notification(cx: &Cx, id: String, read: bool) -> Result<()> {
 pub async fn remove_notification(cx: &Cx, id: String) -> Result<()> {
     let inbox = procedure_inbox(cx)?;
     let id = parse_id(&id)?;
-    inbox.remove(&crate::db::db(cx), id).await?;
+    inbox.remove(&crate::db::db(cx)?, id).await?;
     changed(cx, &inbox);
     Ok(())
 }
@@ -527,7 +527,7 @@ pub async fn remove_notification(cx: &Cx, id: String) -> Result<()> {
 #[procedure("/_topcoat/runtime/procedures/tablo-notifications/read-all")]
 pub async fn mark_all_notifications_read(cx: &Cx) -> Result<()> {
     let inbox = procedure_inbox(cx)?;
-    inbox.mark_all_read(&crate::db::db(cx)).await?;
+    inbox.mark_all_read(&crate::db::db(cx)?).await?;
     changed(cx, &inbox);
     Ok(())
 }
@@ -536,7 +536,7 @@ pub async fn mark_all_notifications_read(cx: &Cx) -> Result<()> {
 #[procedure("/_topcoat/runtime/procedures/tablo-notifications/clear")]
 pub async fn clear_notifications(cx: &Cx) -> Result<()> {
     let inbox = procedure_inbox(cx)?;
-    inbox.clear(&crate::db::db(cx)).await?;
+    inbox.clear(&crate::db::db(cx)?).await?;
     changed(cx, &inbox);
     Ok(())
 }

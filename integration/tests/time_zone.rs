@@ -104,7 +104,7 @@ impl Authenticator for PlannerAuth {
         };
         Ok(Planner::filter(Planner::fields().id().eq(id))
             .first()
-            .exec(&mut tablo::db::db(cx))
+            .exec(&mut tablo::db::db(cx)?)
             .await?)
     }
 }

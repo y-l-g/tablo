@@ -25,7 +25,7 @@ async fn find_by_key_loads_one_row_scoped_and_404s_malformed() {
         .await
         .unwrap();
     let cx = crate::test_support::panel_cx::<SubscriberResource>(&db);
-    let mut ex = crate::db::db(&cx);
+    let mut ex = crate::db::db(&cx).unwrap();
 
     // Existing id → exactly that row (typed PK filter, not a full scan).
     let got = find_by_key(
@@ -124,7 +124,7 @@ async fn record_loads_skip_the_detail_pages_includes() {
     .await
     .unwrap();
     let cx = crate::test_support::panel_cx::<ChildResource>(&db);
-    let mut ex = crate::db::db(&cx);
+    let mut ex = crate::db::db(&cx).unwrap();
     let id = child.id.to_string();
 
     let resource = crate::resource::require_mounted::<ChildResource>(&cx).unwrap();

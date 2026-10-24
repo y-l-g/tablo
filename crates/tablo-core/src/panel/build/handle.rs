@@ -93,7 +93,7 @@ impl PanelHandle {
     /// async fn public_posts(cx: &Cx, admin: &PanelHandle) -> Result<Vec<Post>> {
     ///     let cx = admin.enter(cx);
     ///     Ok(scoped_query::<PostResource>(&cx)?
-    ///         .exec(&mut tablo_core::db::db(&cx))
+    ///         .exec(&mut tablo_core::db::db(&cx)?)
     ///         .await?)
     /// }
     /// ```

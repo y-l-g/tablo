@@ -37,7 +37,7 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
         .await
         .unwrap();
     let cx = crate::test_support::panel_cx::<SubscriberResource>(&db);
-    let mut ex = crate::db::db(&cx);
+    let mut ex = crate::db::db(&cx).unwrap();
 
     let schema = Schema::new(Field::text(Subscriber::fields().email()).unique());
     let mut values = FormValues::new();
@@ -154,7 +154,7 @@ async fn unique_check_propagates_probe_errors() {
     // Schema never pushed, so the probe cannot run.
     let db = tableless_db(toasty::models!(Probe)).await;
     let cx = crate::test_support::panel_cx::<ProbeResource>(&db);
-    let mut ex = crate::db::db(&cx);
+    let mut ex = crate::db::db(&cx).unwrap();
 
     let schema = Schema::new(Field::text(Probe::fields().email()).unique());
     let mut values = FormValues::new();
@@ -211,7 +211,7 @@ async fn a_composite_index_is_probed_on_all_its_fields() {
     .await
     .unwrap();
     let cx = crate::test_support::panel_cx::<PageResource>(&db);
-    let mut ex = crate::db::db(&cx);
+    let mut ex = crate::db::db(&cx).unwrap();
     let schema = Schema::new((
         Field::text(Page::fields().slug()),
         Field::text(Page::fields().locale()),
@@ -296,7 +296,7 @@ async fn an_index_member_the_form_does_not_post_is_left_to_the_scope() {
             .unwrap();
     }
     let cx = crate::test_support::panel_cx::<MyPosts>(&db);
-    let mut ex = crate::db::db(&cx);
+    let mut ex = crate::db::db(&cx).unwrap();
     let schema = Schema::new(Field::text(Post::fields().slug()));
     let resource = crate::resource::require_mounted::<MyPosts>(&cx).unwrap();
     let mut check = async |slug: &str| {

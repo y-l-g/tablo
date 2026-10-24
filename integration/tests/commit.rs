@@ -110,7 +110,7 @@ impl Resource for FailingWriteResource {
     }
 
     async fn after_commit(cx: &Cx, change: Change<Note>) -> topcoat::Result<()> {
-        audit("after", &change, &mut tablo::db::db(cx)).await
+        audit("after", &change, &mut tablo::db::db(cx)?).await
     }
 }
 
@@ -139,7 +139,7 @@ impl Resource for RefusingHookResource {
     }
 
     async fn after_commit(cx: &Cx, change: Change<Note>) -> topcoat::Result<()> {
-        audit("after", &change, &mut tablo::db::db(cx)).await
+        audit("after", &change, &mut tablo::db::db(cx)?).await
     }
 }
 
@@ -159,7 +159,7 @@ impl Resource for FailingAfterResource {
     }
 
     async fn after_commit(cx: &Cx, change: Change<Note>) -> topcoat::Result<()> {
-        audit("after", &change, &mut tablo::db::db(cx)).await?;
+        audit("after", &change, &mut tablo::db::db(cx)?).await?;
         Err(std::io::Error::other("the webhook is down").into())
     }
 }
@@ -214,7 +214,7 @@ impl Resource for SecondConnectionResource {
         change: &Change<Note>,
         _ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<()> {
-        audit("before", change, &mut tablo::db::db(cx)).await
+        audit("before", change, &mut tablo::db::db(cx)?).await
     }
 }
 
@@ -553,11 +553,10 @@ async fn a_notification_sent_in_the_transaction_lands_only_with_the_write() {
     assert_eq!(notes(&db).await.len(), 1);
 }
 
-/// `db(cx)` inside the write's transaction panics in a debug build before it takes the
-/// connection, so the write fails and rolls back instead of waiting forever on a pool of one.
-#[cfg(debug_assertions)]
+/// `db(cx)` inside the write's transaction refuses before it takes the connection, so the write
+/// fails and rolls back instead of waiting forever on a pool of one.
 #[tokio::test]
-async fn a_second_connection_inside_the_transaction_fails_the_write_in_debug() {
+async fn a_second_connection_inside_the_transaction_fails_the_write() {
     let db = seeded_db().await;
     let router = panel_router::<SecondConnectionResource>(db.clone());
 

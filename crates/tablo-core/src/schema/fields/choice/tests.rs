@@ -127,7 +127,7 @@ async fn a_dependent_choice_refuses_a_row_of_another_parent_value() {
         );
     }
 
-    let mut handle = crate::db::db(&world.cx);
+    let mut handle = crate::db::db(&world.cx).unwrap();
     let mut tx = handle.transaction().await.unwrap();
     assert!(
         city.recheck(
@@ -210,7 +210,7 @@ fn a_dependent_choice_names_a_column_of_its_source_and_a_placed_parent() {
 async fn a_choice_past_the_cap_keeps_its_stored_key() {
     let world = world().await;
     let france: uuid::Uuid = world.france.parse().unwrap();
-    let mut db = crate::db::db(&world.cx);
+    let mut db = crate::db::db(&world.cx).unwrap();
     for i in 0..crate::schema::MAX_RELATIONSHIP_OPTIONS {
         toasty::create!(City {
             country_id: france,
@@ -240,7 +240,7 @@ async fn a_choice_past_the_cap_keeps_its_stored_key() {
 async fn a_searchable_dependent_choice_past_the_cap_checks_among_its_parent_rows() {
     let world = world().await;
     let france: uuid::Uuid = world.france.parse().unwrap();
-    let mut db = crate::db::db(&world.cx);
+    let mut db = crate::db::db(&world.cx).unwrap();
     for i in 0..crate::schema::MAX_RELATIONSHIP_OPTIONS {
         toasty::create!(City {
             country_id: france,
