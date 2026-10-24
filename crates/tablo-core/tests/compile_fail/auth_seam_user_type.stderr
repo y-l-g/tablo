@@ -1,0 +1,43 @@
+error[E0271]: type mismatch resolving `<PasswordSignUp as Registrar>::User == Staff`
+  --> tests/compile_fail/auth_seam_user_type.rs:32:50
+   |
+32 |     let _ = Auth::custom(StaffAuth).registration(PasswordSignUp::open());
+   |                                     ------------ ^^^^^^^^^^^^^^^^^^^^^^ expected `Staff`, found `AdminUser`
+   |                                     |
+   |                                     required by a bound introduced by this call
+   |
+note: required by a bound in `Auth::<U>::registration`
+  --> src/auth/config.rs
+   |
+   |     pub fn registration(mut self, registrar: impl Registrar<User = U>) -> Self {
+   |                                                             ^^^^^^^^ required by this bound in `Auth::<U>::registration`
+
+error[E0271]: type mismatch resolving `<PasswordAuth as ProfileEditor>::User == Staff`
+  --> tests/compile_fail/auth_seam_user_type.rs:33:45
+   |
+33 |     let _ = Auth::custom(StaffAuth).profile(PasswordAuth);
+   |                                     ------- ^^^^^^^^^^^^ expected `Staff`, found `AdminUser`
+   |                                     |
+   |                                     required by a bound introduced by this call
+   |
+note: required by a bound in `Auth::<U>::profile`
+  --> src/auth/config.rs
+   |
+   |     pub fn profile(mut self, editor: impl ProfileEditor<User = U>) -> Self {
+   |                                                         ^^^^^^^^ required by this bound in `Auth::<U>::profile`
+
+error[E0308]: mismatched types
+  --> tests/compile_fail/auth_seam_user_type.rs:34:52
+   |
+34 |     let _ = Auth::custom(StaffAuth).password_reset(PasswordReset::new(PasswordAuth));
+   |                                     -------------- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `PasswordReset<Staff>`, found `PasswordReset<AdminUser>`
+   |                                     |
+   |                                     arguments to this method are incorrect
+   |
+   = note: expected struct `PasswordReset<Staff>`
+              found struct `PasswordReset<AdminUser>`
+note: method defined here
+  --> src/auth/config.rs
+   |
+   |     pub fn password_reset(mut self, reset: PasswordReset<U>) -> Self {
+   |            ^^^^^^^^^^^^^^

@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use topcoat::{context::Cx, view::BoxView};
 
-use super::Auth;
+use super::AuthConfig;
 use crate::{
     BoxFuture,
     form::{FieldErrors, FormValues},
@@ -23,7 +23,7 @@ pub(crate) struct Realm {
     /// The panel's prefix, e.g. `/admin`. A session, a mailed link or a factor auth stores names
     /// it, and serves only this realm.
     pub(crate) prefix: String,
-    pub(crate) auth: Auth,
+    pub(crate) auth: AuthConfig,
     /// The note under the login card, set by [`Panel::login_hint`](crate::Panel::login_hint).
     pub(crate) login_hint: Option<crate::Text>,
     /// The zone a signed-in user without one of their own reads dates in, set by

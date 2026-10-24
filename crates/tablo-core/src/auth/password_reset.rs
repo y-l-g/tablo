@@ -4,7 +4,7 @@
 
 mod pages;
 
-use std::{any::TypeId, future::Future, time::Duration};
+use std::{any::TypeId, future::Future, marker::PhantomData, time::Duration};
 
 use topcoat::{
     context::Cx,
@@ -137,8 +137,8 @@ pub(crate) trait DynPasswordResetter: Send + Sync {
         password: &'a str,
         ex: &'a mut dyn toasty::Executor,
     ) -> BoxFuture<'a, topcoat::Result<()>>;
-    /// The [`TypeId`] and name of [`PasswordResetter::User`].
-    fn user_type(&self) -> (TypeId, &'static str);
+    /// The [`TypeId`] of [`PasswordResetter::User`], the authenticator's: whose sessions a link ends.
+    fn user_type(&self) -> TypeId;
 }
 
 impl<R: PasswordResetter> DynPasswordResetter for R {
@@ -180,8 +180,8 @@ impl<R: PasswordResetter> DynPasswordResetter for R {
         ))
     }
 
-    fn user_type(&self) -> (TypeId, &'static str) {
-        (TypeId::of::<R::User>(), std::any::type_name::<R::User>())
+    fn user_type(&self) -> TypeId {
+        TypeId::of::<R::User>()
     }
 }
 
@@ -205,18 +205,23 @@ impl<R: PasswordResetter> DynPasswordResetter for R {
 /// # Ok(())
 /// # }
 /// ```
-pub struct PasswordReset {
+///
+/// `U` is the user type the resetter loads; [`Auth`](crate::Auth) takes only one over the type its
+/// authenticator loads.
+pub struct PasswordReset<U> {
     resetter: Box<dyn DynPasswordResetter>,
     throttle: LoginThrottle,
+    user: PhantomData<fn() -> U>,
 }
 
-impl PasswordReset {
+impl<U: PanelUser> PasswordReset<U> {
     /// Resets passwords through `resetter`.
     #[must_use]
-    pub fn new(resetter: impl PasswordResetter) -> Self {
+    pub fn new(resetter: impl PasswordResetter<User = U>) -> Self {
         Self {
             resetter: Box::new(resetter),
             throttle: LoginThrottle::new(3, Duration::from_mins(15)),
+            user: PhantomData,
         }
     }
 
@@ -229,12 +234,23 @@ impl PasswordReset {
         self
     }
 
+    /// The same declaration, its user type checked by [`Auth`](crate::Auth).
+    pub(crate) fn erase(self) -> PasswordReset<()> {
+        PasswordReset {
+            resetter: self.resetter,
+            throttle: self.throttle,
+            user: PhantomData,
+        }
+    }
+}
+
+impl PasswordReset<()> {
     pub(crate) fn resetter(&self) -> &dyn DynPasswordResetter {
         &*self.resetter
     }
 }
 
-impl std::fmt::Debug for PasswordReset {
+impl<U> std::fmt::Debug for PasswordReset<U> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PasswordReset")
             .field("throttle", &self.throttle)
@@ -420,7 +436,7 @@ pub(super) fn reset_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
                 .reset_password(cx, &row.user_id, password, tx)
                 .await
                 .map_err(infrastructure_failure)?;
-            let (user_type, _) = reset.resetter().user_type();
+            let user_type = reset.resetter().user_type();
             let panels = credential_panels(cx, user_type, panel);
             end_credentials(tx, &row.user_id, &panels, REVOCATION).await?;
             Ok(true)
@@ -453,22 +469,13 @@ async fn may_enter(cx: &Cx, panel: &Realm, user_id: &str) -> topcoat::Result<boo
 /// The mistakes in a panel's [`Auth::password_reset`](super::Auth::password_reset): a reset without
 /// auth, and a resetter whose user is not the authenticator's. What its mail needs,
 /// [`super::mail_declaration_errors`] checks.
-pub(super) fn declaration_errors(auth: &super::Auth) -> Vec<crate::DeclarationErrorKind> {
+pub(super) fn declaration_errors(auth: &super::AuthConfig) -> Vec<crate::DeclarationErrorKind> {
     use crate::{DeclarationErrorKind, declaration::ResetFault};
 
-    let Some(reset) = auth.reset.as_ref() else {
-        return Vec::new();
-    };
-    let Some(authenticator) = auth.authenticator() else {
+    if auth.reset.is_some() && auth.authenticator().is_none() {
         return vec![DeclarationErrorKind::PasswordReset(
             ResetFault::AuthDisabled,
         )];
-    };
-    let (user, user_name) = reset.resetter().user_type();
-    if user == authenticator.user_type() {
-        return Vec::new();
     }
-    vec![DeclarationErrorKind::PasswordReset(ResetFault::UserType {
-        resetter: user_name,
-    })]
+    Vec::new()
 }

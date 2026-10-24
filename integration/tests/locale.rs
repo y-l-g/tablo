@@ -156,7 +156,7 @@ async fn reader(db: &Db, name: &str, locale: Option<&str>) -> Reader {
 
 /// A panel offering French, then English, with the app's own French for the derived labels of
 /// `page_count` and of the genre `Novel`, and for one of Tablo's messages.
-fn panel(auth: Auth) -> Panel {
+fn panel(auth: Auth<impl tablo::PanelUser>) -> Panel {
     Panel::new("admin")
         .auth(auth)
         .locales(["fr", "en"])
@@ -169,7 +169,7 @@ fn panel(auth: Auth) -> Panel {
         .resource::<BookResource>()
 }
 
-fn router(db: &Db, auth: Auth) -> Router {
+fn router(db: &Db, auth: Auth<impl tablo::PanelUser>) -> Router {
     mount(db.clone(), panel(auth)).expect("panel builds")
 }
 

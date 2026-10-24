@@ -225,7 +225,7 @@ async fn a_form_for_another_tenant_saves_nothing() {
     assert_eq!(names, ["Acme", "Globex"]);
 }
 
-/// Edits tenants for the shipped admin, whom `MemberAuth` never loads.
+/// Edits tenants for the shipped admin, on a panel whose auth is off.
 struct AdminTeams;
 
 impl TenantEditor for AdminTeams {
@@ -265,16 +265,10 @@ fn kinds(mounted: topcoat::Result<Router>) -> Vec<DeclarationErrorKind> {
 async fn mounting_refuses_a_tenant_settings_page_the_panel_cannot_serve() {
     let fault = DeclarationErrorKind::TenantProfile;
     assert_eq!(
-        kinds(mount(db().await, Auth::disabled().tenant_profile(Teams))),
-        vec![fault(TenantProfileFault::AuthDisabled)]
-    );
-    assert_eq!(
         kinds(mount(
             db().await,
-            Auth::custom(MemberAuth).tenant_profile(AdminTeams)
+            Auth::disabled().tenant_profile(AdminTeams)
         )),
-        vec![fault(TenantProfileFault::UserType {
-            editor: std::any::type_name::<AdminUser>(),
-        })]
+        vec![fault(TenantProfileFault::AuthDisabled)]
     );
 }

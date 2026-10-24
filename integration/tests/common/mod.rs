@@ -26,7 +26,7 @@ pub fn panel() -> Panel {
     Panel::new("admin").auth(Auth::disabled())
 }
 
-pub fn router_with<R: Resource>(db: Db, auth: Auth) -> Router {
+pub fn router_with<R: Resource>(db: Db, auth: Auth<impl tablo::PanelUser>) -> Router {
     mount(db, Panel::new("admin").auth(auth).resource::<R>()).expect("panel builds")
 }
 

@@ -7,6 +7,7 @@ mod pages;
 use std::{
     any::{Any, TypeId},
     future::Future,
+    marker::PhantomData,
     time::Duration,
 };
 
@@ -128,8 +129,8 @@ pub(crate) trait DynEmailVerifier: Send + Sync {
         email: &'a str,
         ex: &'a mut dyn toasty::Executor,
     ) -> BoxFuture<'a, topcoat::Result<()>>;
-    /// The [`TypeId`] and name of [`EmailVerifier::User`].
-    fn user_type(&self) -> (TypeId, &'static str);
+    /// The [`TypeId`] of [`EmailVerifier::User`], the authenticator's: whose sessions a link ends.
+    fn user_type(&self) -> TypeId;
 }
 
 impl<V: EmailVerifier> DynEmailVerifier for V {
@@ -151,8 +152,8 @@ impl<V: EmailVerifier> DynEmailVerifier for V {
         ))
     }
 
-    fn user_type(&self) -> (TypeId, &'static str) {
-        (TypeId::of::<V::User>(), std::any::type_name::<V::User>())
+    fn user_type(&self) -> TypeId {
+        TypeId::of::<V::User>()
     }
 }
 
@@ -177,18 +178,23 @@ impl<V: EmailVerifier> DynEmailVerifier for V {
 /// # Ok(())
 /// # }
 /// ```
-pub struct EmailVerification {
+///
+/// `U` is the user type the verifier loads; [`Auth`](crate::Auth) takes only one over the type its
+/// authenticator loads.
+pub struct EmailVerification<U> {
     verifier: Box<dyn DynEmailVerifier>,
     throttle: LoginThrottle,
+    user: PhantomData<fn() -> U>,
 }
 
-impl EmailVerification {
+impl<U: PanelUser> EmailVerification<U> {
     /// Verifies addresses through `verifier`.
     #[must_use]
-    pub fn new(verifier: impl EmailVerifier) -> Self {
+    pub fn new(verifier: impl EmailVerifier<User = U>) -> Self {
         Self {
             verifier: Box::new(verifier),
             throttle: LoginThrottle::new(3, Duration::from_mins(15)),
+            user: PhantomData,
         }
     }
 
@@ -200,12 +206,23 @@ impl EmailVerification {
         self
     }
 
+    /// The same declaration, its user type checked by [`Auth`](crate::Auth).
+    pub(crate) fn erase(self) -> EmailVerification<()> {
+        EmailVerification {
+            verifier: self.verifier,
+            throttle: self.throttle,
+            user: PhantomData,
+        }
+    }
+}
+
+impl EmailVerification<()> {
     pub(crate) fn verifier(&self) -> &dyn DynEmailVerifier {
         &*self.verifier
     }
 }
 
-impl std::fmt::Debug for EmailVerification {
+impl<U> std::fmt::Debug for EmailVerification<U> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("EmailVerification")
             .field("throttle", &self.throttle)
@@ -411,24 +428,13 @@ async fn stores(cx: &Cx, panel: &Realm, row: &token::AuthToken) -> topcoat::Resu
 
 /// The mistakes in a panel's [`Auth::email_verification`](super::Auth::email_verification): a
 /// verification without auth, and a verifier whose user is not the authenticator's.
-pub(super) fn declaration_errors(auth: &super::Auth) -> Vec<crate::DeclarationErrorKind> {
+pub(super) fn declaration_errors(auth: &super::AuthConfig) -> Vec<crate::DeclarationErrorKind> {
     use crate::{DeclarationErrorKind, declaration::VerificationFault};
 
-    let Some(verification) = auth.verification.as_ref() else {
-        return Vec::new();
-    };
-    let Some(authenticator) = auth.authenticator() else {
+    if auth.verification.is_some() && auth.authenticator().is_none() {
         return vec![DeclarationErrorKind::EmailVerification(
             VerificationFault::AuthDisabled,
         )];
-    };
-    let (user, user_name) = verification.verifier().user_type();
-    if user == authenticator.user_type() {
-        return Vec::new();
     }
-    vec![DeclarationErrorKind::EmailVerification(
-        VerificationFault::UserType {
-            verifier: user_name,
-        },
-    )]
+    Vec::new()
 }

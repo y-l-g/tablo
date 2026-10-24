@@ -12,13 +12,6 @@ pub enum SignUpFault {
     ///
     /// Turn authentication on.
     AuthDisabled,
-    /// The registrar creates another user type than the authenticator loads.
-    ///
-    /// Register the type the panel signs in.
-    UserType {
-        /// The registrar's `User` type.
-        registrar: &'static str,
-    },
     /// A field named like a key the sign-up POST carries itself: `csrf_token` or `next`.
     ///
     /// Rename the field.
@@ -42,13 +35,6 @@ pub enum ProfileFault {
     ///
     /// Turn authentication on.
     AuthDisabled,
-    /// The editor edits another user type than the authenticator loads.
-    ///
-    /// Edit the type the panel signs in.
-    UserType {
-        /// The editor's `User` type.
-        editor: &'static str,
-    },
     /// A field named like a key the profile POST carries itself: `csrf_token`.
     ///
     /// Rename the field.
@@ -72,13 +58,6 @@ pub enum ResetFault {
     ///
     /// Turn authentication on.
     AuthDisabled,
-    /// The resetter resets another user type than the authenticator loads.
-    ///
-    /// Reset the type the panel signs in.
-    UserType {
-        /// The resetter's `User` type.
-        resetter: &'static str,
-    },
 }
 
 impl fmt::Display for ResetFault {
@@ -86,11 +65,6 @@ impl fmt::Display for ResetFault {
         match self {
             Self::AuthDisabled => f.write_str(
                 "a password reset needs auth: `Auth::disabled()` serves no sign-in to reset",
-            ),
-            Self::UserType { resetter } => write!(
-                f,
-                "the password resetter resets `{resetter}`, but the authenticator loads another \
-             type: reset the type the panel signs in"
             ),
         }
     }
@@ -102,11 +76,6 @@ impl fmt::Display for ProfileFault {
             Self::AuthDisabled => {
                 f.write_str("a profile page needs auth: `Auth::disabled()` signs nobody in to edit")
             }
-            Self::UserType { editor } => write!(
-                f,
-                "the profile editor edits `{editor}`, but the authenticator loads another \
-             type: edit the type the panel signs in"
-            ),
             Self::ReservedField(field) => write!(
                 f,
                 "the profile form declares a field named '{field}', which its POST carries \
@@ -132,11 +101,6 @@ impl fmt::Display for SignUpFault {
             Self::AuthDisabled => f.write_str(
                 "registration needs auth: `Auth::disabled()` serves no sign-in for a new \
              account to land on",
-            ),
-            Self::UserType { registrar } => write!(
-                f,
-                "the registrar creates `{registrar}`, but the authenticator loads another \
-             type: register the type the panel signs in"
             ),
             Self::ReservedField(field) => write!(
                 f,
@@ -210,13 +174,6 @@ pub enum VerificationFault {
     ///
     /// Turn authentication on.
     AuthDisabled,
-    /// The verifier verifies another user type than the authenticator loads.
-    ///
-    /// Verify the type the panel signs in.
-    UserType {
-        /// The verifier's `User` type.
-        verifier: &'static str,
-    },
 }
 
 impl fmt::Display for VerificationFault {
@@ -224,11 +181,6 @@ impl fmt::Display for VerificationFault {
         match self {
             Self::AuthDisabled => f.write_str(
                 "email verification needs auth: `Auth::disabled()` signs nobody in to verify",
-            ),
-            Self::UserType { verifier } => write!(
-                f,
-                "the email verifier verifies `{verifier}`, but the authenticator loads another \
-             type: verify the type the panel signs in"
             ),
         }
     }
@@ -243,13 +195,6 @@ pub enum TenantRegistrationFault {
     ///
     /// Turn authentication on.
     AuthDisabled,
-    /// The registrar registers tenants for another user type than the authenticator loads.
-    ///
-    /// Register for the type the panel signs in.
-    UserType {
-        /// The registrar's `User` type.
-        registrar: &'static str,
-    },
     /// A field named like a key the registration POST carries itself: `csrf_token`.
     ///
     /// Rename the field.
@@ -270,11 +215,6 @@ impl fmt::Display for TenantRegistrationFault {
             Self::AuthDisabled => f.write_str(
                 "tenant registration needs auth: `Auth::disabled()` signs nobody in to register \
              a tenant",
-            ),
-            Self::UserType { registrar } => write!(
-                f,
-                "the tenant registrar registers tenants for `{registrar}`, but the authenticator \
-             loads another type: register for the type the panel signs in"
             ),
             Self::ReservedField(field) => write!(
                 f,
@@ -304,13 +244,6 @@ pub enum TenantProfileFault {
     ///
     /// Turn authentication on.
     AuthDisabled,
-    /// The editor edits tenants for another user type than the authenticator loads.
-    ///
-    /// Edit for the type the panel signs in.
-    UserType {
-        /// The editor's `User` type.
-        editor: &'static str,
-    },
     /// A field named like a key the settings POST carries itself: `csrf_token`.
     ///
     /// Rename the field.
@@ -331,11 +264,6 @@ impl fmt::Display for TenantProfileFault {
             Self::AuthDisabled => f.write_str(
                 "a tenant settings page needs auth: `Auth::disabled()` signs nobody in to edit a \
              tenant",
-            ),
-            Self::UserType { editor } => write!(
-                f,
-                "the tenant editor edits tenants for `{editor}`, but the authenticator loads \
-             another type: edit for the type the panel signs in"
             ),
             Self::ReservedField(field) => write!(
                 f,

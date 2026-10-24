@@ -119,11 +119,11 @@ async fn db() -> Db {
 }
 
 /// The panel two hours ahead of UTC, signing planners in when `auth` says so.
-fn router(db: &Db, auth: Auth) -> Router {
+fn router(db: &Db, auth: Auth<impl tablo::PanelUser>) -> Router {
     router_in(db, auth, hours(2))
 }
 
-fn router_in(db: &Db, auth: Auth, zone: TimeZone) -> Router {
+fn router_in(db: &Db, auth: Auth<impl tablo::PanelUser>, zone: TimeZone) -> Router {
     mount(
         db.clone(),
         Panel::new("admin")

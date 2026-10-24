@@ -7,8 +7,8 @@ use std::time::Duration;
 use http::header::LOCATION;
 use tablo::{
     Auth, DeclarationErrorKind, FieldErrors, FormInput, LoginThrottle, NoForm, NotificationStatus,
-    PanelUser, PasswordSignUp, ReadOnly, Registrar, Resource, ResourceDef, SignUp, SignUpFault,
-    Table, TextColumn,
+    PasswordSignUp, ReadOnly, Registrar, Resource, ResourceDef, SignUp, SignUpFault, Table,
+    TextColumn,
     auth::{AdminUser, AuthSession, create_admin},
     lens,
     testing::form_body,
@@ -207,35 +207,6 @@ async fn an_account_without_panel_access_lands_on_the_login_page() {
     assert!(body_string(login).await.contains("role=\"status\""));
 }
 
-/// A user type the panel's authenticator does not load.
-struct Visitor;
-
-impl PanelUser for Visitor {
-    fn user_id(&self) -> String {
-        String::new()
-    }
-
-    fn display_name(&self) -> &str {
-        ""
-    }
-}
-
-struct VisitorRegistrar;
-
-impl Registrar for VisitorRegistrar {
-    type Input = SignUp;
-    type User = Visitor;
-
-    async fn register(
-        &self,
-        _cx: &Cx,
-        _input: SignUp,
-        _ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<Visitor> {
-        Ok(Visitor)
-    }
-}
-
 /// A sign-up form posting the keys the page carries itself.
 #[derive(FormInput)]
 struct Clashing {
@@ -269,17 +240,11 @@ impl Registrar for ClashingRegistrar {
     }
 }
 
-/// Mounting refuses a registrar of another user type, a registration without auth, and a
-/// sign-up field named like a key the page posts itself.
+/// Mounting refuses a registration without auth, and a sign-up field named like a key the page
+/// posts itself.
 #[tokio::test]
 async fn mounting_refuses_a_registration_the_panel_cannot_serve() {
-    let cases: [(Auth, SignUpFault); 3] = [
-        (
-            Auth::password().registration(VisitorRegistrar),
-            SignUpFault::UserType {
-                registrar: std::any::type_name::<Visitor>(),
-            },
-        ),
+    let cases: [(Auth, SignUpFault); 2] = [
         (
             Auth::disabled().registration(PasswordSignUp::open()),
             SignUpFault::AuthDisabled,

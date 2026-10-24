@@ -495,7 +495,7 @@ async fn remove_all(cx: &Cx, ex: &mut dyn toasty::Executor, user_id: &str) -> to
 /// The mistakes in a panel's [`Auth::two_factor`](super::Auth::two_factor): two-factor sign-in
 /// without auth, and a router without the cookie key that seals the secrets.
 pub(super) fn declaration_errors(
-    auth: &super::Auth,
+    auth: &super::AuthConfig,
     has_key: bool,
 ) -> Vec<crate::DeclarationErrorKind> {
     use crate::{DeclarationErrorKind, declaration::TwoFactorFault};
