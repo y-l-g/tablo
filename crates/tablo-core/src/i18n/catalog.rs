@@ -6,9 +6,10 @@ use std::{
 };
 
 use fluent_bundle::{FluentArgs, FluentResource, FluentValue, concurrent::FluentBundle};
+use topcoat::l10n::{Locale, locale, lookup};
 
 use super::{
-    Locale,
+    ENGLISH,
     text::{Message, Repr, Text},
 };
 use crate::declaration::LocaleFault;
@@ -21,31 +22,31 @@ struct Layered(Vec<Bundle>);
 
 /// The catalogs Tablo ships, by locale. `en` holds every message Tablo renders; a test holds
 /// each other catalog to the same messages and variables.
-const SHIPPED: &[(&str, &str)] = &[
-    ("en", include_str!("../../locales/en.ftl")),
-    ("fr", include_str!("../../locales/fr.ftl")),
+const SHIPPED: &[(Locale, &str)] = &[
+    (locale!("en"), include_str!("../../locales/en.ftl")),
+    (locale!("fr"), include_str!("../../locales/fr.ftl")),
 ];
 
 /// The pseudo-locale: English with every catalog letter swapped for an accented one, so a word
 /// that reads plain on its page is one no catalog spells.
-const PSEUDO: &str = "en-XA";
+const PSEUDO: Locale = locale!("en-XA");
 
 /// [`SHIPPED`], parsed.
 static PARSED: LazyLock<Vec<(Locale, Arc<FluentResource>)>> = LazyLock::new(|| {
     SHIPPED
         .iter()
-        .map(|(tag, source)| {
-            let locale = Locale::parse(tag).expect("a shipped catalog's tag parses");
+        .map(|(locale, source)| {
             let resource = FluentResource::try_new((*source).to_owned())
-                .unwrap_or_else(|(_, errors)| panic!("the {tag} catalog parses: {errors:?}"));
-            (locale, Arc::new(resource))
+                .unwrap_or_else(|(_, errors)| panic!("the {locale} catalog parses: {errors:?}"));
+            (locale.clone(), Arc::new(resource))
         })
         .collect()
 });
 
 /// The catalog of what renders outside every panel: Tablo's English.
-static ENGLISH: LazyLock<Catalog> =
-    LazyLock::new(|| Catalog::new(&["en".to_owned()], &[]).expect("Tablo's catalog builds"));
+static TABLO_ENGLISH: LazyLock<Catalog> = LazyLock::new(|| {
+    Catalog::new(std::slice::from_ref(&ENGLISH), &[]).expect("Tablo's catalog builds")
+});
 
 /// The messages a panel renders in each locale it offers.
 pub(crate) struct Catalog {
@@ -64,39 +65,39 @@ impl Catalog {
     /// An English locale skips the default: English, which a derived label's fallback spells too,
     /// is its own.
     pub(crate) fn new(
-        locales: &[String],
-        translations: &[(String, String)],
+        locales: &[Locale],
+        translations: &[(Locale, String)],
     ) -> Result<Self, Vec<LocaleFault>> {
         let mut faults = Vec::new();
         let mut offered: Vec<Locale> = Vec::new();
-        for tag in locales {
-            match Locale::parse(tag) {
-                None => faults.push(LocaleFault::Unparsed { tag: tag.clone() }),
-                Some(locale) if offered.contains(&locale) => {
-                    faults.push(LocaleFault::Duplicate { tag: tag.clone() });
-                }
-                Some(locale) => offered.push(locale),
+        for locale in locales {
+            // `iw` and `he` name one language, so a panel offering both offers it twice.
+            let canonical = locale.clone().canonicalize();
+            if offered
+                .iter()
+                .any(|o| o.clone().canonicalize() == canonical)
+            {
+                faults.push(LocaleFault::Duplicate {
+                    tag: locale.to_string(),
+                });
+            } else {
+                offered.push(locale.clone());
             }
         }
         if locales.is_empty() {
             faults.push(LocaleFault::NoLocale);
         }
-        let english = Locale::parse("en").expect("`en` parses");
         let mut added: Vec<(Locale, Arc<FluentResource>)> = Vec::new();
-        for (tag, source) in translations {
-            let Some(locale) = Locale::parse(tag) else {
-                faults.push(LocaleFault::Unparsed { tag: tag.clone() });
-                continue;
-            };
-            if !locale.serves(&english) && !offered.iter().any(|o| locale.serves(o)) {
+        for (locale, source) in translations {
+            if !serves(locale, &ENGLISH) && !offered.iter().any(|o| serves(locale, o)) {
                 faults.push(LocaleFault::Unoffered {
-                    locale: tag.clone(),
+                    locale: locale.to_string(),
                 });
             }
             match FluentResource::try_new(source.clone()) {
-                Ok(resource) => added.push((locale, Arc::new(resource))),
+                Ok(resource) => added.push((locale.clone(), Arc::new(resource))),
                 Err((_, errors)) => faults.push(LocaleFault::Syntax {
-                    locale: tag.clone(),
+                    locale: locale.to_string(),
                     errors: errors
                         .iter()
                         .map(|error| {
@@ -111,12 +112,11 @@ impl Catalog {
             }
         }
         for locale in &offered {
-            let pseudo = locale.to_string() == PSEUDO;
-            let translated = pseudo
+            let translated = *locale == PSEUDO
                 || PARSED
                     .iter()
                     .chain(&added)
-                    .any(|(catalog, _)| catalog.serves(locale));
+                    .any(|(catalog, _)| serves(catalog, locale));
             if !translated {
                 faults.push(LocaleFault::Untranslated {
                     locale: locale.to_string(),
@@ -130,10 +130,10 @@ impl Catalog {
         let bundles = offered
             .iter()
             .map(|locale| {
-                let below = if locale.language() == english.language() {
-                    vec![english.clone()]
+                let below = if locale.id().language() == ENGLISH.id().language() {
+                    vec![ENGLISH.clone()]
                 } else {
-                    vec![english.clone(), default.clone()]
+                    vec![ENGLISH.clone(), default.clone()]
                 };
                 bundle(locale, &below, &added)
             })
@@ -146,7 +146,7 @@ impl Catalog {
 
     /// The catalog of what renders outside every panel: Tablo's English.
     pub(crate) fn english() -> &'static Self {
-        &ENGLISH
+        &TABLO_ENGLISH
     }
 
     /// The offered locales, the default first.
@@ -154,10 +154,26 @@ impl Catalog {
         &self.locales
     }
 
-    /// `text` as the offered locale at `index` spells it.
-    pub(crate) fn format(&self, index: usize, text: &Text) -> String {
+    /// `text` as `locale` spells it: the offered locale itself, else the offered locale that
+    /// serves it, as `fr` serves `fr-CA`, else the default.
+    pub(crate) fn format(&self, locale: &Locale, text: &Text) -> String {
+        let index = self
+            .locales
+            .iter()
+            .position(|offered| offered == locale)
+            .or_else(|| {
+                let served = lookup(locale, &self.locales)?;
+                self.locales.iter().position(|offered| offered == served)
+            })
+            .unwrap_or(0);
         format(&self.bundles[index], text)
     }
+}
+
+/// Whether a catalog for `catalog` serves `target`: `target` itself, or a locale `target` falls
+/// back to, as `fr` serves `fr-CA` and `es-419` serves `es-MX`.
+fn serves(catalog: &Locale, target: &Locale) -> bool {
+    lookup(target, std::slice::from_ref(catalog)).is_some()
 }
 
 /// The bundles of `locale`: each layer of `below`, then `locale`, adds Tablo's catalogs serving
@@ -171,12 +187,7 @@ fn bundle(locale: &Locale, below: &[Locale], added: &[(Locale, Arc<FluentResourc
         let mut resources = Vec::new();
         // A language-wide catalog goes under the region's, so `fr-CA` overrides `fr`.
         for catalogs in [PARSED.as_slice(), added] {
-            let mut serving: Vec<&(Locale, Arc<FluentResource>)> = catalogs
-                .iter()
-                .filter(|(catalog, _)| catalog.serves(layer))
-                .collect();
-            serving.sort_by_key(|(catalog, _)| *catalog == *layer);
-            for (_, resource) in serving {
+            for (_, resource) in least_specific_first(layer, catalogs) {
                 if !placed.iter().any(|done| Arc::ptr_eq(done, resource)) {
                     placed.push(resource);
                     resources.push(resource);
@@ -193,13 +204,15 @@ fn bundle(locale: &Locale, below: &[Locale], added: &[(Locale, Arc<FluentResourc
             .rev()
             .map(|height| {
                 let tag = locale
-                    .bundle_tag()
-                    .expect("`Locale::parse` admits only readable tags");
+                    .id()
+                    .to_string()
+                    .parse()
+                    .expect("`unic-langid` reads every BCP 47 language identifier");
                 let mut bundle = Bundle::new_concurrent(vec![tag]);
                 // Placeables render into HTML attributes and plain text, where the isolation
                 // marks Fluent wraps them in by default show as stray characters.
                 bundle.set_use_isolating(false);
-                if locale.to_string() == PSEUDO {
+                if *locale == PSEUDO {
                     bundle.set_transform(Some(pseudo));
                 }
                 bundle
@@ -212,6 +225,34 @@ fn bundle(locale: &Locale, below: &[Locale], added: &[(Locale, Arc<FluentResourc
             })
             .collect(),
     )
+}
+
+/// The catalogs of `catalogs` serving `layer`, the one furthest along its fallback chain first,
+/// so `fr` comes before `fr-CA`; catalogs of one locale keep their order.
+fn least_specific_first<'a>(
+    layer: &Locale,
+    catalogs: &'a [(Locale, Arc<FluentResource>)],
+) -> Vec<&'a (Locale, Arc<FluentResource>)> {
+    let mut remaining: Vec<Locale> = Vec::new();
+    for (catalog, _) in catalogs {
+        if serves(catalog, layer) && !remaining.contains(catalog) {
+            remaining.push(catalog.clone());
+        }
+    }
+    let mut chain: Vec<Locale> = Vec::new();
+    while let Some(next) = lookup(layer, &remaining).cloned() {
+        remaining.retain(|locale| *locale != next);
+        chain.push(next);
+    }
+    chain
+        .iter()
+        .rev()
+        .flat_map(|locale| {
+            catalogs
+                .iter()
+                .filter(move |(catalog, _)| catalog == locale)
+        })
+        .collect()
 }
 
 /// `text` as `layered` spells it.

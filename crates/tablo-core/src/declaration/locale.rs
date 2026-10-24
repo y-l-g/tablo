@@ -11,16 +11,9 @@ pub enum LocaleFault {
     ///
     /// List one at least: the first is the panel's default.
     NoLocale,
-    /// A locale is not a BCP 47 language tag.
-    ///
-    /// Spell it as `fr` or `pt-BR`.
-    Unparsed {
-        /// The refused tag.
-        tag: String,
-    },
-    /// `Panel::locales` lists a locale twice.
+    /// `Panel::locales` lists a locale twice, or two names of one locale, as `iw` and `he`.
     Duplicate {
-        /// The repeated tag.
+        /// The repeated locale.
         tag: String,
     },
     /// `Panel::locales` lists a locale neither Tablo nor the app translates, so the panel would
@@ -53,15 +46,11 @@ impl fmt::Display for LocaleFault {
             Self::NoLocale => f.write_str(
                 "`Panel::locales` lists no locale: list one at least, the first being the default",
             ),
-            Self::Unparsed { tag } => write!(
-                f,
-                "locale '{tag}' is not a BCP 47 language tag: spell it as `fr` or `pt-BR`"
-            ),
             Self::Duplicate { tag } => write!(f, "`Panel::locales` lists '{tag}' twice"),
             Self::Untranslated { locale } => write!(
                 f,
                 "locale '{locale}' has no catalog, so the panel would render it in English: add \
-                 one with `Panel::translations(\"{locale}\", ..)`, or drop it from \
+                 one with `Panel::translations(locale!(\"{locale}\"), ..)`, or drop it from \
                  `Panel::locales`"
             ),
             Self::Unoffered { locale } => write!(

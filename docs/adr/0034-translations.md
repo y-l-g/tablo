@@ -7,6 +7,13 @@ catalog for one. A request reads the signed-in user's `PanelUser::locale`, else 
 its `Accept-Language` by weight, else the panel's default. A region or script reads the closest
 offered locale of its language, by likely subtags: `zh-HK` reads `zh-Hant`.
 
+- A locale is Topcoat's `l10n::Locale`, and its negotiation, fallback chain and `Accept-Language`
+  parse are Topcoat's `negotiate`, `lookup` and `accept_language`: an app names a locale with
+  `locale!`, checked at compile time, and Tablo keeps no language-tag code of its own. Entering a
+  panel installs the request's locale in its context, and signing in replaces it with the user's,
+  so it is negotiated once per request and `topcoat::l10n::locale` reads it in an app's own views
+  too. The page's `<html dir>` follows the locale's script.
+
 - Fluent rather than gettext or key-value files: a message selects its own plural and gender
   variants, so a sentence such as "3 posts deleted" translates without code knowing the
   language's plural rules.
@@ -31,8 +38,6 @@ offered locale of its language, by likely subtags: `zh-HK` reads `zh-Hant`.
   request is known, never at mount.
 - Mails are written in their recipient's `PanelUser::locale`, else the sending request's: a
   password reset is asked for by someone signed out, maybe in another browser.
-- The request's match of its `Accept-Language` is read once per request, and only its first 16
-  languages, so a page of many labels, or a long header, costs one negotiation.
 - A shipped catalog is held by a test to the messages Tablo's code names and to English's
   variables, so a missing or misspelled id fails CI rather than rendering its id.
 - The pseudo-locale `en-XA` accents every catalog letter, so a page shows at a glance which words
@@ -48,5 +53,11 @@ offered locale of its language, by likely subtags: `zh-HK` reads `zh-Hant`.
 - Resolving labels to strings at mount: one panel serves many locales.
 - A locale segment in the URL: links and redirects would all carry it, and the user's setting and
   the browser already say which locale to read.
+- Topcoat's `messages!` and `t!` for the catalogs: each `messages!` is a namespace of its own, so
+  an app could not redefine one of Tablo's messages; `t!` takes an id fixed at compile time,
+  where a derived label's id is built from a name; and a message a locale lacks renders its id
+  rather than the default locale's or English's words. The upstream gaps are tracked as
+  [#807](https://github.com/y-l-g/tablo/issues/807) to
+  [#812](https://github.com/y-l-g/tablo/issues/812).
 - Translating the synced UI primitives: they are a copy of upstream components, and their few
   words ("More", "More pages", "Sidebar", "Toggle sidebar") are left in English.

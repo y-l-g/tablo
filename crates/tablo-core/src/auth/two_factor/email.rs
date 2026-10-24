@@ -74,7 +74,7 @@ pub(super) async fn send(
     let (Some(address), Some(mail), true) = (user.email(), mail, two_factor.mails()) else {
         return Ok(Sent::Unavailable);
     };
-    let cx = &crate::i18n::addressed_to(cx, user.locale());
+    let cx = &crate::i18n::addressed_to(cx, user.locale().as_ref());
     let user_id = user.user_id();
     if !two_factor.mail_throttle.attempt(&user_id, None) {
         return Ok(Sent::Throttled);

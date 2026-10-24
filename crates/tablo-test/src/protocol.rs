@@ -47,6 +47,14 @@ pub fn page_language(html: &str) -> Option<String> {
     dom::attr_value(&attrs, "lang")
 }
 
+/// The direction the page's text runs in, `ltr` or `rtl`, as its `<html dir>` names it.
+pub fn page_direction(html: &str) -> Option<String> {
+    let (_, attrs, _) = dom::tags_where(html, |tag, _| tag == "html")
+        .into_iter()
+        .next()?;
+    dom::attr_value(&attrs, "dir")
+}
+
 /// Collect a response body as bytes.
 pub async fn body_bytes(response: http::Response<Body>) -> Vec<u8> {
     response
