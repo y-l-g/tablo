@@ -8,7 +8,7 @@ rust-version.workspace = true
 description = "In-memory HTTP test client for Tablo panels, re-exported as `tablo::testing`."
 
 [dependencies]
-tablo-core = { path = "../tablo-core", version = "0.7.0", default-features = false }
+tablo-core = { path = "../tablo-core", version = "0.8.0", default-features = false }
 # The authenticator code a test signs in with, computed apart from the panel's own check.
 data-encoding = "2"
 form_urlencoded = "1.2"
