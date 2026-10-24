@@ -192,7 +192,10 @@ fn bundle(locale: &Locale, below: &[Locale], added: &[(Locale, Arc<FluentResourc
         (1..=layers.len())
             .rev()
             .map(|height| {
-                let mut bundle = Bundle::new_concurrent(vec![locale.0.clone()]);
+                let tag = locale
+                    .bundle_tag()
+                    .expect("`Locale::parse` admits only readable tags");
+                let mut bundle = Bundle::new_concurrent(vec![tag]);
                 // Placeables render into HTML attributes and plain text, where the isolation
                 // marks Fluent wraps them in by default show as stray characters.
                 bundle.set_use_isolating(false);
