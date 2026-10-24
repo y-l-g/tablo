@@ -2,7 +2,7 @@
 
 use topcoat::context::Cx;
 
-use super::{Action, Resource};
+use super::{Action, HeaderAction, Resource};
 
 /// What one write of a resource changed: the mutation and the rows it wrote.
 ///
@@ -110,6 +110,30 @@ impl<M> Change<M> {
         R: Resource<Model = M>,
     {
         matches!(self, Self::Action { name, .. } if *name == A::NAME)
+    }
+
+    /// Whether the change is a run of the header action `A`.
+    ///
+    /// It compares against `A::NAME`, as
+    /// [`Ability::is_header_action`](crate::Ability::is_header_action) does.
+    ///
+    /// ```rust
+    /// # use tablo_core::{Change, HeaderAction};
+    /// # use topcoat::{Result, context::Cx};
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # struct Post { #[key] #[auto] id: uuid::Uuid }
+    /// # struct RecountTags;
+    /// # impl HeaderAction for RecountTags {
+    /// #     type Input = ();
+    /// #     const NAME: &'static str = "recount-tags";
+    /// #     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError> { Ok(tablo_core::Outcome::done()) }
+    /// # }
+    /// fn audited(change: &Change<Post>) -> bool {
+    ///     !change.is_header_action::<RecountTags>()
+    /// }
+    /// ```
+    pub fn is_header_action<A: HeaderAction>(&self) -> bool {
+        matches!(self, Self::HeaderAction { name } if *name == A::NAME)
     }
 }
 
