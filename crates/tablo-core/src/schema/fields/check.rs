@@ -97,6 +97,7 @@ impl Field {
                         text!("tablo-field-url", label = &label)
                     }
                     ControlKind::Text(text) => text.refusal(&label, value, zone)?,
+                    #[cfg(feature = "rich-text")]
                     ControlKind::RichText(rich) => rich.refusal(&label, value)?,
                     _ => return None,
                 }
@@ -118,6 +119,7 @@ impl Field {
     pub(crate) fn rule_errors(&self, field: &str) -> Vec<DeclarationErrorKind> {
         let mut faults = match &self.control {
             ControlKind::Text(text) => text.rule_faults(),
+            #[cfg(feature = "rich-text")]
             ControlKind::RichText(rich) => rich.rule_faults(),
             ControlKind::File(file) => file.rule_faults(),
             ControlKind::Choice(choice) if !choice.is_multiple() => choice

@@ -23,7 +23,6 @@ const VENDORED: &str = "crates/tablo-ui/src/components/primitives/";
 /// and one back under its limit leaves the list.
 pub const OVERSIZED: &[(&str, usize)] = &[
     ("crates/tablo-core/src/schema/embedded.rs", 750),
-    ("crates/tablo-core/src/schema/fields.rs", 636),
     ("integration/tests/record_form.rs", 1199),
 ];
 

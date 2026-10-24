@@ -21,9 +21,13 @@ mysql = ["toasty/mysql"]
 turso = ["toasty/turso"]
 # `tablo::testing`: the in-memory HTTP client the Tablo suites drive a panel with.
 testing = ["dep:tablo-test"]
+default = ["rich-text"]
+# The rich text field and column, and `tablo::rich_text`; off, `ammonia` and its HTML parser leave
+# the build.
+rich-text = ["tablo-core/rich-text"]
 
 [dependencies]
-tablo-core = { path = "../tablo-core", version = "0.7.0" }
+tablo-core = { path = "../tablo-core", version = "0.7.0", default-features = false }
 tablo-test = { path = "../tablo-test", version = "0.7.0", optional = true }
 tablo-ui = { path = "../tablo-ui", version = "0.7.0" }
 toasty.workspace = true

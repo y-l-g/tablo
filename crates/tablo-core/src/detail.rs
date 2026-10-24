@@ -5,12 +5,14 @@ use std::sync::Arc;
 use toasty::stmt::{List, Query};
 use topcoat::{context::Cx, view::*};
 
+#[cfg(feature = "rich-text")]
+use crate::column::RichTextColumn;
 use crate::{
     DeclarationErrorKind,
     column::{
         BooleanColumn, BoxColumn, ColorColumn, Column, ComputedColumn, CountColumn, DateColumn,
-        EmbeddedColumn, FileColumn, ImageColumn, RelationColumn, RepeaterColumn, RichTextColumn,
-        TextColumn, include_relations, restrict_relations, shows, unavailable_sources,
+        EmbeddedColumn, FileColumn, ImageColumn, RelationColumn, RepeaterColumn, TextColumn,
+        include_relations, restrict_relations, shows, unavailable_sources,
     },
     schema::{Grid, Group, HoldsTabs, Section, Tab, Tabs, tab_id, tab_view, tabs_chrome},
 };
@@ -380,8 +382,9 @@ column_details!(
     ImageColumn<M, T>,
     EmbeddedColumn<M, T>,
     RepeaterColumn<M, T>,
-    RichTextColumn<M, T>,
 );
+#[cfg(feature = "rich-text")]
+column_details!(RichTextColumn<M, T>);
 
 /// The `columns` builders of the layout blocks: each holds a detail page's columns and blocks.
 macro_rules! block_columns {

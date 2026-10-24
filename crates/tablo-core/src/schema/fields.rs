@@ -9,6 +9,8 @@ pub(crate) mod custom;
 pub(crate) mod file;
 mod placement;
 mod read_only;
+mod render;
+#[cfg(feature = "rich-text")]
 mod rich_text;
 mod text;
 
@@ -25,11 +27,13 @@ pub use custom::{Switch, Toggle};
 pub(crate) use file::{FileControl, MAX_FORM_BYTES, is_linkable, is_rooted, stored_upload};
 pub(crate) use placement::Placement;
 pub(crate) use read_only::{read_only, value_cell};
+#[cfg(feature = "rich-text")]
 use rich_text::RichTextControl;
+#[cfg(feature = "rich-text")]
 pub use rich_text::RichTextField;
 pub(crate) use text::{Kind, Pattern, TextControl, password_reveal};
 use toasty::stmt::{List, Path};
-use topcoat::{Result, context::Cx, view::*};
+use topcoat::context::Cx;
 
 use super::{condition::Condition, lenses::Binding, repeater::RepeaterControl};
 use crate::{
@@ -125,6 +129,7 @@ pub(crate) enum ControlKind {
     /// A one-line `<input>`, or a `<textarea>` when `rows` is set.
     Text(TextControl),
     /// A `<textarea>` of HTML, which the browser edits through a toolbar.
+    #[cfg(feature = "rich-text")]
     RichText(RichTextControl),
     /// A `<select>` over static options or a relationship's rows.
     Choice(ChoiceControl),
@@ -140,6 +145,7 @@ impl std::fmt::Debug for Field {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let control = match &self.control {
             ControlKind::Text(_) => "text",
+            #[cfg(feature = "rich-text")]
             ControlKind::RichText(_) => "rich text",
             ControlKind::Choice(_) => "choice",
             ControlKind::File(_) => "file",
@@ -539,91 +545,6 @@ impl Field {
             ControlKind::Choice(choice) => choice.keep_unseen(cx, value, stored, ex).await,
             _ => None,
         }
-    }
-
-    /// Renders the field's control where `placement` puts it.
-    pub(crate) async fn render_under<'a>(
-        &self,
-        cx: &'a Cx,
-        value: Option<&FormValue>,
-        error: Option<&FieldError>,
-        placement: Placement<'_>,
-    ) -> Result<BoxView<'a>> {
-        let id = placement.id(self.name());
-        let disabled = self.is_disabled_at(&placement);
-        let text = value.and_then(FormValue::as_text);
-        match &self.control {
-            ControlKind::Text(control) => self.render_text(control, cx, text, error, id, disabled),
-            ControlKind::RichText(rich) => {
-                self.render_rich_text(rich, cx, text, error, id, disabled)
-            }
-            ControlKind::Choice(choice) => {
-                Box::pin(self.render_choice(choice, cx, value, error, id, placement)).await
-            }
-            ControlKind::File(file) => self.render_file(file, cx, text, error, id, disabled),
-            ControlKind::Custom(control) => {
-                self.render_custom(control.as_ref(), cx, text, error, id, disabled)
-            }
-            // Its node renders it, from the keys and errors of each row's controls.
-            ControlKind::Repeater(_) => Ok(().boxed()),
-        }
-    }
-
-    /// The stored `value` as a reader sees it: a choice's option label, else the value itself.
-    /// `None` for a variant control whose value names no variant.
-    pub(crate) fn read(&self, cx: &Cx, value: &str) -> Option<String> {
-        match &self.control {
-            ControlKind::Choice(choice) => {
-                let stored = value.trim();
-                match choice.label_of(stored) {
-                    Some(label) => Some(label.localize(cx)),
-                    None if choice.discriminant => None,
-                    None => Some(stored.to_string()),
-                }
-            }
-            _ => Some(value.to_string()),
-        }
-    }
-
-    /// Renders the label over the stored `value`, [read](Self::read) rather than edited: an
-    /// embedded value's leaf or variant on a detail page.
-    pub(crate) fn display<'a>(&self, cx: &'a Cx, value: &str) -> BoxView<'a> {
-        match self.read(cx, value) {
-            Some(text) => read_only(cx, &self.label(), value_cell(cx, &text)),
-            None => ().boxed(),
-        }
-    }
-
-    /// Renders an app [`Control`] in its shared chrome.
-    fn render_custom<'a>(
-        &self,
-        control: &dyn Control,
-        cx: &'a Cx,
-        value: Option<&str>,
-        error: Option<&FieldError>,
-        id: String,
-        disabled: bool,
-    ) -> Result<BoxView<'a>> {
-        let required = (self.is_required() || self.accepted) && !disabled;
-        let chrome = self.chrome(cx, id, error, None);
-        let input = ControlInput::new(
-            self.name(),
-            &chrome.id,
-            value,
-            required,
-            chrome.aria_invalid() == "true",
-            chrome.described_by(),
-        )
-        .disabled(disabled);
-        let rendered = control.render(cx, input);
-        render_field(
-            cx,
-            &chrome,
-            &self.label(),
-            required,
-            attributes! {},
-            rendered,
-        )
     }
 }
 

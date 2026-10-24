@@ -2,6 +2,10 @@
 //! the cleaning that keeps a value to the elements its tools produce. A rich text field cleans what
 //! it reads and [`RichTextColumn`](crate::RichTextColumn) what it renders; a page of the app's own
 //! renders a stored value through [`clean`].
+//!
+//! Rich text sits behind the `rich-text` feature, on by default. An app that turns the default
+//! features off and leaves it out has no rich text field, column or module, and builds without
+//! `ammonia` and its HTML parser.
 
 pub(crate) mod tool;
 
