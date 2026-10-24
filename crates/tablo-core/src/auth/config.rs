@@ -185,9 +185,9 @@ impl<U: PanelUser> Auth<U> {
     /// - An email another account holds is reported only once the current password verifies, so a
     ///   stolen session cannot probe which addresses have accounts.
     /// - After the commit the page reloads with a notification.
-    /// - The editor's `User` is `U`. Mounting refuses a profile on `Auth::disabled()`, a form
-    ///   field named `csrf_token`, a file field and a relationship choice, whose options no route
-    ///   serves the page.
+    /// - The editor's `User` is `U`. Mounting refuses a profile on `Auth::disabled()`, a form field
+    ///   named `csrf_token`, a file field and a relationship choice, whose options no route serves
+    ///   the page.
     /// - Throttling. Each user may submit five saves a minute, from any address, counted whether or
     ///   not they save; `Auth::profile_throttle` changes the limit. Past it the page answers 429,
     ///   which keeps a stolen session from guessing the current password. A user past the limit can

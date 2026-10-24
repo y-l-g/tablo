@@ -137,7 +137,8 @@ pub(crate) trait DynPasswordResetter: Send + Sync {
         password: &'a str,
         ex: &'a mut dyn toasty::Executor,
     ) -> BoxFuture<'a, topcoat::Result<()>>;
-    /// The [`TypeId`] of [`PasswordResetter::User`], the authenticator's: whose sessions a link ends.
+    /// The [`TypeId`] of [`PasswordResetter::User`], the authenticator's: whose sessions a link
+    /// ends.
     fn user_type(&self) -> TypeId;
 }
 
