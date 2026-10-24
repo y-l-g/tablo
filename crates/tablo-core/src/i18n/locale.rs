@@ -141,9 +141,25 @@ fn weight(q: &str) -> Option<u16> {
 /// the closest of the same language, its script told by likely subtags, so `zh-HK` reads
 /// `zh-Hant` and `fr-CA` reads `fr`.
 pub(super) fn best_match(offered: &[Locale], requested: &[LanguageIdentifier]) -> Option<usize> {
-    let tags: Vec<&LanguageIdentifier> = offered.iter().map(|locale| &locale.0).collect();
-    let found = *filter_matches(requested, &tags, NegotiationStrategy::Lookup).first()?;
-    tags.iter().position(|tag| std::ptr::eq(*tag, *found))
+    let requested: Vec<_> = requested.iter().filter_map(negotiable).collect();
+    let tags: Vec<(usize, NegotiableTag)> = offered
+        .iter()
+        .enumerate()
+        .filter_map(|(index, locale)| Some((index, negotiable(&locale.0)?)))
+        .collect();
+    let available: Vec<&NegotiableTag> = tags.iter().map(|(_, tag)| tag).collect();
+    let found = *filter_matches(&requested, &available, NegotiationStrategy::Lookup).first()?;
+    tags.iter()
+        .find(|(_, tag)| std::ptr::eq(tag, *found))
+        .map(|(index, _)| *index)
+}
+
+/// The tag type `fluent-langneg` negotiates in, which its 0.14 release moved off `unic-langid`.
+type NegotiableTag = fluent_langneg::LanguageIdentifier;
+
+/// `tag` in the type `fluent-langneg` negotiates in; `None` when that type will not read it.
+fn negotiable(tag: &LanguageIdentifier) -> Option<NegotiableTag> {
+    tag.to_string().parse().ok()
 }
 
 /// Finds the request panel's catalog and its user's locale; the first panel mounted on a router
