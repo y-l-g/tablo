@@ -2,9 +2,8 @@
 
 use std::{fmt, sync::OnceLock};
 
-use fluent_langneg::{NegotiationStrategy, negotiate::filter_matches};
+use fluent_langneg::{LanguageIdentifier, NegotiationStrategy, negotiate::filter_matches};
 use topcoat::context::{Cx, try_app_context, try_request_context};
-use unic_langid::LanguageIdentifier;
 
 use super::Catalog;
 
@@ -18,21 +17,31 @@ impl Locale {
         self.0.language.as_str()
     }
 
-    /// Parses `tag`; `None` when it is no language tag.
+    /// Parses `tag`; `None` when it is no language tag, or one `fluent-bundle` cannot read.
     pub(crate) fn parse(tag: &str) -> Option<Self> {
-        tag.parse().ok().map(Self)
+        let locale = Self(tag.parse().ok()?);
+        locale.bundle_tag().is_some().then_some(locale)
     }
 
-    /// Whether a catalog for `self` serves `target`: the same tag, or `self` names the language
-    /// alone, as `fr` serves `fr-CA`.
+    /// Whether a catalog for `self` serves `target`: the same tag, or `self` leaves out a subtag
+    /// `target` has, as `fr` serves `fr-CA`.
     pub(super) fn serves(&self, target: &Self) -> bool {
-        self.0.matches(&target.0, true, false)
+        let (own, theirs) = (&self.0, &target.0);
+        own.language == theirs.language
+            && (own.script.is_none() || own.script == theirs.script)
+            && (own.region.is_none() || own.region == theirs.region)
+            && (own.variants.is_empty() || own.variants == theirs.variants)
+    }
+
+    /// The tag `fluent-bundle` builds a bundle for, which reads tags as `unic-langid` does.
+    pub(super) fn bundle_tag(&self) -> Option<unic_langid::LanguageIdentifier> {
+        self.0.to_string().parse().ok()
     }
 }
 
 impl fmt::Display for Locale {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
+        fmt::Display::fmt(&self.0, f)
     }
 }
 
