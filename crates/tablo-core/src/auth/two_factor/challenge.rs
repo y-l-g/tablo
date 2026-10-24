@@ -140,7 +140,7 @@ async fn alert(cx: &Cx, user: &dyn PanelUser) {
     let (Some(address), Some(mail)) = (user.email(), mail) else {
         return;
     };
-    let cx = &crate::i18n::addressed_to(cx, user.locale());
+    let cx = &crate::i18n::addressed_to(cx, user.locale().as_ref());
     let sent = async {
         let brand = hosted(cx)?.brand_name(cx);
         let message = mail.compose(

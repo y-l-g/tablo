@@ -1,27 +1,25 @@
+use topcoat::l10n::Locale;
+
 use super::*;
 use crate::declaration::LocaleFault;
 
+fn parse(tag: &str) -> Locale {
+    tag.parse().expect("a test's tag parses")
+}
+
 fn catalog(locales: &[&str], translations: &[(&str, &str)]) -> Result<Catalog, Vec<LocaleFault>> {
     Catalog::new(
-        &locales
-            .iter()
-            .map(|tag| (*tag).to_owned())
-            .collect::<Vec<_>>(),
+        &locales.iter().map(|tag| parse(tag)).collect::<Vec<_>>(),
         &translations
             .iter()
-            .map(|(tag, source)| ((*tag).to_owned(), (*source).to_owned()))
+            .map(|(tag, source)| (parse(tag), (*source).to_owned()))
             .collect::<Vec<_>>(),
     )
 }
 
-/// The offered locale at `tag`'s index spells `text`.
+/// `tag` spells `text`.
 fn spell(catalog: &Catalog, tag: &str, text: &Text) -> String {
-    let index = catalog
-        .locales()
-        .iter()
-        .position(|locale| locale.to_string() == tag)
-        .expect("the catalog offers the locale");
-    catalog.format(index, text)
+    catalog.format(&parse(tag), text)
 }
 
 #[test]
@@ -156,10 +154,8 @@ fn mount_refuses_what_no_request_could_read() {
         [LocaleFault::Duplicate { tag: "en".into() }]
     );
     assert_eq!(
-        faults(&["en", "not a tag"], &[]),
-        [LocaleFault::Unparsed {
-            tag: "not a tag".into()
-        }]
+        faults(&["he", "fr", "iw"], &[("he", "x = y")]),
+        [LocaleFault::Duplicate { tag: "iw".into() }]
     );
     assert_eq!(
         faults(&["de"], &[]),
@@ -173,6 +169,18 @@ fn mount_refuses_what_no_request_could_read() {
             locale: "de".into()
         }]
     );
+    // A catalog for a script's language serves none of that language's other scripts.
+    assert_eq!(
+        faults(&["zh-Hant"], &[("zh", "x = y")]),
+        [
+            LocaleFault::Unoffered {
+                locale: "zh".into()
+            },
+            LocaleFault::Untranslated {
+                locale: "zh-Hant".into()
+            }
+        ]
+    );
     assert!(faults(&["fr"], &[("en", "x = y")]).is_empty());
     assert!(matches!(
         faults(&["en"], &[("en", "ok = fine\n= broken")]).as_slice(),
@@ -180,37 +188,26 @@ fn mount_refuses_what_no_request_could_read() {
     ));
 }
 
-/// The locale of `offered` the `Accept-Language` value `header` reads.
-fn negotiated(offered: &[&str], header: &str) -> Option<String> {
-    let offered: Vec<Locale> = offered
-        .iter()
-        .map(|tag| Locale::parse(tag).expect("an offered tag parses"))
-        .collect();
-    locale::best_match(&offered, &locale::parse_accepted(header))
-        .map(|index| offered[index].to_string())
-}
-
+/// A locale no offered one is reads the offered locale it falls back to, else the default.
 #[test]
-fn accept_language_reads_by_weight_and_skips_refused_languages() {
-    let read = |header| negotiated(&["en", "fr"], header);
-    assert_eq!(read("fr;q=0, en").as_deref(), Some("en"));
-    assert_eq!(read("en;q=0.1, fr;q=0.9").as_deref(), Some("fr"));
-    assert_eq!(read("de, fr;q=0.5, en;q=0.5").as_deref(), Some("fr"));
-    assert_eq!(read("fr;q=2, en;q=0.x, en;q=0.5").as_deref(), Some("en"));
-    assert_eq!(read("*, de").as_deref(), None);
-    // A header past its first languages reads as those.
-    let long = format!("{}fr", "de,".repeat(64));
-    assert_eq!(read(&long), None);
-}
-
-#[test]
-fn a_language_reads_the_offered_locale_of_its_script() {
-    let read = |header| negotiated(&["zh-Hans", "zh-Hant", "fr"], header);
-    assert_eq!(read("zh-HK").as_deref(), Some("zh-Hant"));
-    assert_eq!(read("zh-TW").as_deref(), Some("zh-Hant"));
-    assert_eq!(read("zh-CN").as_deref(), Some("zh-Hans"));
-    assert_eq!(read("fr-CA").as_deref(), Some("fr"));
-    assert_eq!(negotiated(&["en-GB", "fr"], "en").as_deref(), Some("en-GB"));
+fn a_locale_reads_the_offered_locale_it_falls_back_to() {
+    let catalog = catalog(
+        &["fr", "es", "es-419"],
+        &[
+            ("fr", "greeting = Bonjour"),
+            ("es", "greeting = Hola\nfarewell = Adiós"),
+            ("es-419", "greeting = Qué tal"),
+        ],
+    )
+    .expect("the catalog builds");
+    let greeting = Text::message("greeting");
+    assert_eq!(spell(&catalog, "es-MX", &greeting), "Qué tal");
+    assert_eq!(
+        spell(&catalog, "es-MX", &Text::message("farewell")),
+        "Adiós"
+    );
+    assert_eq!(spell(&catalog, "es-ES", &greeting), "Hola");
+    assert_eq!(spell(&catalog, "ja", &greeting), "Bonjour");
 }
 
 /// A message an upper layer redefines without an attribute reads the attribute from below.

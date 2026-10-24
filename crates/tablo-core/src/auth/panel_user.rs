@@ -87,10 +87,19 @@ pub trait PanelUser: Any + Send + Sync {
         None
     }
 
-    /// The locale the user reads the panel in, as a BCP 47 tag such as `fr`. Defaults to none:
-    /// the browser's best match among the panel's [`locales`](crate::Panel::locales), else its
-    /// default. A locale the panel does not offer, or a tag that does not parse, counts as none.
-    fn locale(&self) -> Option<&str> {
+    /// The locale the user reads the panel and their mails in, such as `fr`. Defaults to none: the
+    /// browser's best match among the panel's [`locales`](crate::Panel::locales), else its
+    /// default. A locale matches the closest the panel offers, as `fr-CA` reads `fr`; one with no
+    /// match counts as none.
+    ///
+    /// A user who stores their locale as text parses it:
+    ///
+    /// ```rust,ignore
+    /// fn locale(&self) -> Option<Locale> {
+    ///     self.locale.as_deref()?.parse().ok()
+    /// }
+    /// ```
+    fn locale(&self) -> Option<topcoat::l10n::Locale> {
         None
     }
 }

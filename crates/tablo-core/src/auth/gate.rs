@@ -134,7 +134,7 @@ impl Layer for PanelGate {
             }
             match signed {
                 Some(signed) if signed.user.can_access_panel() || logout_route => {
-                    let cx = cx.with(signed);
+                    let cx = signed.sign_into(&cx);
                     next.run(&cx, body)
                         .await
                         .map_err(|error| answer(&cx, error))
@@ -305,7 +305,8 @@ impl Layer for RuntimeGate {
             if declaring.is_empty() {
                 return match signed {
                     Some(signed) if admitted => {
-                        let cx = enter(cx, &signed.realm)?.with(signed);
+                        let entered = enter(cx, &signed.realm)?;
+                        let cx = signed.sign_into(&entered);
                         next.run(&cx, body).await
                     }
                     Some(_) => Err(forbidden().into()),
@@ -316,7 +317,8 @@ impl Layer for RuntimeGate {
             // A session another panel signed in is no session for the declaring panels.
             match signed.filter(|signed| declaring.iter().any(|p| Arc::ptr_eq(p, &signed.realm))) {
                 Some(signed) if admitted => {
-                    let cx = enter(cx, &signed.realm)?.with(signed);
+                    let entered = enter(cx, &signed.realm)?;
+                    let cx = signed.sign_into(&entered);
                     next.run(&cx, body).await
                 }
                 Some(_) => Err(forbidden().into()),

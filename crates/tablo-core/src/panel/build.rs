@@ -467,10 +467,7 @@ fn install_shared(mut builder: RouterBuilder) -> RouterBuilder {
         .app_context(TenantSource(crate::auth::session_tenant))
         .app_context(crate::values::ZoneSource(crate::auth::session_time_zone))
         .app_context(crate::schema::FileHref(super::url::file))
-        .app_context(crate::i18n::LocaleSource {
-            catalog: crate::auth::session_catalog,
-            preferred: crate::auth::session_locale,
-        })
+        .app_context(crate::i18n::CatalogSource(crate::auth::session_catalog))
         .app_context(NotificationBus::new());
     // The runtime layer has no path, so a page re-run reaches the panel's layers already rewritten
     // to a `GET`.
