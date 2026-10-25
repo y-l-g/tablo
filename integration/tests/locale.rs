@@ -215,14 +215,15 @@ async fn accept_language_picks_the_offered_locale() {
     }
 }
 
-/// A signed-in user's own locale wins over the browser's; one the panel does not offer counts as
-/// none.
+/// A signed-in user's own locale wins over the browser's, a region reading its language; one the
+/// panel does not offer counts as none.
 #[tokio::test]
 async fn a_users_locale_wins_over_the_browsers() {
     let db = db().await;
     let router = router(&db, Auth::custom(ReaderAuth));
     for (name, locale, expected) in [
         ("Ada", Some("en"), "en"),
+        ("Lin", Some("en-GB"), "en"),
         ("Grace", None, "fr"),
         ("Hedy", Some("de"), "fr"),
     ] {

@@ -38,6 +38,8 @@ offered locale of its language, by likely subtags: `zh-HK` reads `zh-Hant`.
   request is known, never at mount.
 - Mails are written in their recipient's `PanelUser::locale`, else the sending request's: a
   password reset is asked for by someone signed out, maybe in another browser.
+- The request's `Accept-Language` is matched against the panel's locales once per request, and
+  only its first 16 languages, so a long header costs one short negotiation.
 - A shipped catalog is held by a test to the messages Tablo's code names and to English's
   variables, so a missing or misspelled id fails CI rather than rendering its id.
 - The pseudo-locale `en-XA` accents every catalog letter, so a page shows at a glance which words

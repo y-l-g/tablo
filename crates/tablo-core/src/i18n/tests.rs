@@ -188,6 +188,44 @@ fn mount_refuses_what_no_request_could_read() {
     ));
 }
 
+/// The locale entering a panel of `offered` installs for the `Accept-Language` value `header`.
+fn negotiated(offered: &[&str], header: &str) -> String {
+    let catalog = catalog(
+        offered,
+        &offered
+            .iter()
+            .map(|tag| (*tag, "greeting = Hi"))
+            .collect::<Vec<_>>(),
+    )
+    .expect("the catalog builds");
+    let (parts, ()) = http::Request::builder()
+        .header(http::header::ACCEPT_LANGUAGE, header)
+        .body(())
+        .expect("the request builds")
+        .into_parts();
+    let cx = entered(&topcoat::context::Cx::default().with(parts), &catalog);
+    topcoat::l10n::try_locale(&cx)
+        .expect("entering installs a locale")
+        .to_string()
+}
+
+#[test]
+fn a_region_reads_the_offered_locale_of_its_script() {
+    let read = |header| negotiated(&["fr", "zh-Hans", "zh-Hant"], header);
+    assert_eq!(read("zh-HK"), "zh-Hant");
+    assert_eq!(read("zh-TW"), "zh-Hant");
+    assert_eq!(read("zh-CN"), "zh-Hans");
+    assert_eq!(read("fr-CA"), "fr");
+    assert_eq!(negotiated(&["fr", "en-GB"], "en"), "en-GB");
+}
+
+/// A header past its first languages reads as those, so a long one costs no more to match.
+#[test]
+fn a_long_accept_language_matches_its_first_languages() {
+    let long = format!("{}en", "de,".repeat(64));
+    assert_eq!(negotiated(&["fr", "en"], &long), "fr");
+}
+
 /// A locale no offered one is reads the offered locale it falls back to, else the default.
 #[test]
 fn a_locale_reads_the_offered_locale_it_falls_back_to() {

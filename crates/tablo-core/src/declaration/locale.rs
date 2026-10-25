@@ -46,7 +46,10 @@ impl fmt::Display for LocaleFault {
             Self::NoLocale => f.write_str(
                 "`Panel::locales` lists no locale: list one at least, the first being the default",
             ),
-            Self::Duplicate { tag } => write!(f, "`Panel::locales` lists '{tag}' twice"),
+            Self::Duplicate { tag } => write!(
+                f,
+                "`Panel::locales` lists '{tag}' twice, maybe under another of its names, as `iw` for `he`"
+            ),
             Self::Untranslated { locale } => write!(
                 f,
                 "locale '{locale}' has no catalog, so the panel would render it in English: add \

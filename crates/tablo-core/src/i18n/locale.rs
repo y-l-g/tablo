@@ -10,14 +10,20 @@ use super::Catalog;
 /// The locale of what renders outside every panel, and of a panel's English layer.
 pub(crate) static ENGLISH: Locale = locale!("en");
 
-/// `cx` as a request to the panel of `catalog`: it reads the best match of its `Accept-Language`
-/// among the panel's locales, else the panel's default. Entering a panel installs it, so the
-/// header is negotiated once per request.
+/// The most languages of an `Accept-Language` matched, so a long header costs no more than a
+/// browser's. Topcoat still parses all of them (#806).
+const MAX_ACCEPTED: usize = 16;
+
+/// `cx` as a request to the panel of `catalog`: it reads the best match of the first
+/// [`MAX_ACCEPTED`] languages of its `Accept-Language` among the panel's locales, else the
+/// panel's default. Entering a panel installs it, so the header is negotiated once per request.
 pub(crate) fn entered(cx: &Cx, catalog: &Catalog) -> Cx {
     let offered = catalog.locales();
     let locale = match offered {
         [only] => only,
-        _ => negotiate(accept_language(cx), offered).unwrap_or(&offered[0]),
+        _ => {
+            negotiate(accept_language(cx).iter().take(MAX_ACCEPTED), offered).unwrap_or(&offered[0])
+        }
     };
     cx.with(locale.clone())
 }
