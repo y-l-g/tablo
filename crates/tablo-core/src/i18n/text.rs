@@ -9,8 +9,8 @@ use topcoat::{
 
 use crate::naming::{capitalize, derived_id, pluralize, sentence_case, slug_case, type_short_name};
 
-/// A word a panel renders: plain text, or a message the request's [`locale`](crate::locale)
-/// spells.
+/// A word a panel renders: plain text, or a message the request's
+/// [`Locale`](topcoat::l10n::Locale) spells.
 ///
 /// Every builder that takes a label, a description or a placeholder takes `impl Into<Text>`, so a
 /// string literal stays plain and a message translates:
@@ -89,10 +89,11 @@ impl Text {
         self
     }
 
-    /// The text as the request's [`locale`](crate::locale) spells it.
+    /// The text as the request's [`Locale`](topcoat::l10n::Locale) spells it: in a panel, the one
+    /// it negotiated; outside every panel, English.
     pub fn localize(&self, cx: &Cx) -> String {
-        let (catalog, index) = super::catalog_and_index(cx);
-        catalog.format(index, self)
+        let (catalog, locale) = super::catalog_and_locale(cx);
+        catalog.format(locale, self)
     }
 
     /// The message `id`, which renders `fallback` when no catalog holds it: the label a
@@ -159,7 +160,7 @@ impl Text {
     /// The English spelling, as Tablo's own catalog writes it, for what has no request: a
     /// declaration error, a log line.
     pub(crate) fn english(&self) -> String {
-        super::Catalog::english().format(0, self)
+        super::Catalog::english().format(&super::ENGLISH, self)
     }
 }
 

@@ -140,9 +140,9 @@ pub struct Panel {
     /// The zone a user without their own reads and enters wall-clock times in.
     time_zone: jiff::tz::TimeZone,
     /// The locales the panel offers, the default first.
-    locales: Vec<String>,
+    locales: Vec<topcoat::l10n::Locale>,
     /// The app's catalogs, by locale, over Tablo's.
-    translations: Vec<(String, String)>,
+    translations: Vec<(topcoat::l10n::Locale, String)>,
     /// Whether the topbar shows the global search box.
     global_search: bool,
 }
@@ -175,7 +175,7 @@ impl Panel {
             endpoints: Vec::new(),
             notifications: false,
             time_zone: jiff::tz::TimeZone::UTC,
-            locales: vec!["en".to_owned()],
+            locales: vec![crate::i18n::ENGLISH.clone()],
             translations: Vec::new(),
             global_search: true,
         }
@@ -488,10 +488,11 @@ impl Panel {
         self
     }
 
-    /// Sets the locales the panel offers, the default first: `["en"]` by default. Each request
-    /// reads one, its [`locale`](crate::locale): the signed-in user's
+    /// Sets the locales the panel offers, the default first: `en` by default. Each request reads
+    /// one, which [`topcoat::l10n::locale()`] returns: the signed-in user's
     /// [`PanelUser::locale`](crate::PanelUser::locale), else the browser's best match, else the
-    /// default.
+    /// default. A locale matches the closest offered one of its language and script, as `fr-CA`
+    /// reads `fr` and `zh-HK` reads `zh-Hant`.
     ///
     /// Tablo translates its own words into `en` and `fr`; a locale it does not translate needs the
     /// app's catalog, from [`translations`](Self::translations). The pseudo-locale `en-XA` spells
@@ -500,17 +501,15 @@ impl Panel {
     ///
     /// ```rust
     /// # use tablo_core::Panel;
-    /// Panel::new("admin").locales(["fr", "en"]);
+    /// use topcoat::l10n::locale;
+    ///
+    /// Panel::new("admin").locales([locale!("fr"), locale!("en")]);
     /// ```
     ///
-    /// The panel refuses to mount an empty list, a tag that is not BCP 47, a repeated locale, and
-    /// a locale no catalog translates.
-    pub fn locales<I, S>(mut self, locales: I) -> Self
-    where
-        I: IntoIterator<Item = S>,
-        S: Into<String>,
-    {
-        self.locales = locales.into_iter().map(Into::into).collect();
+    /// The panel refuses to mount an empty list, a repeated locale, and a locale no catalog
+    /// translates.
+    pub fn locales(mut self, locales: impl IntoIterator<Item = topcoat::l10n::Locale>) -> Self {
+        self.locales = locales.into_iter().collect();
         self
     }
 
@@ -523,15 +522,19 @@ impl Panel {
     ///
     /// ```rust,ignore
     /// Panel::new("admin")
-    ///     .locales(["fr", "en"])
-    ///     .translations("fr", include_str!("../locales/fr.ftl"))
-    ///     .translations("en", include_str!("../locales/en.ftl"));
+    ///     .locales([locale!("fr"), locale!("en")])
+    ///     .translations(locale!("fr"), include_str!("../locales/fr.ftl"))
+    ///     .translations(locale!("en"), include_str!("../locales/en.ftl"));
     /// ```
     ///
     /// The panel refuses to mount a catalog that is not valid Fluent, and one for a locale it does
     /// not offer, `en` aside.
-    pub fn translations(mut self, locale: impl Into<String>, catalog: impl Into<String>) -> Self {
-        self.translations.push((locale.into(), catalog.into()));
+    pub fn translations(
+        mut self,
+        locale: topcoat::l10n::Locale,
+        catalog: impl Into<String>,
+    ) -> Self {
+        self.translations.push((locale, catalog.into()));
         self
     }
 

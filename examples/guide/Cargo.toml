@@ -20,7 +20,7 @@ tablo-build = { path = "../../crates/tablo-build" }
 jiff.workspace = true
 toasty = { workspace = true, features = ["sqlite"] }
 tokio = { workspace = true, features = ["fs"] }
-topcoat = { workspace = true, features = ["serve", "tailwind", "font", "font-fontsource", "asset", "mail"] }
+topcoat = { workspace = true, features = ["serve", "tailwind", "font", "font-fontsource", "asset", "mail", "l10n"] }
 uuid.workspace = true
 
 [dev-dependencies]

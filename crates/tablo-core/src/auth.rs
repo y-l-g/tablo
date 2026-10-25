@@ -166,6 +166,14 @@ pub(crate) struct SignedIn {
     pub(crate) tenant: Option<Uuid>,
 }
 
+impl SignedIn {
+    /// `cx` with the user signed in, its words in the user's [`locale`](PanelUser::locale) when
+    /// the panel offers a match.
+    pub(crate) fn sign_into(self, cx: &Cx) -> Cx {
+        crate::i18n::addressed_to(cx, self.user.locale().as_ref()).with(self)
+    }
+}
+
 /// The request's signed-in user on the request's panel, whatever their panel
 /// access. Only the logout route reads a user without access.
 pub(crate) fn resolved(cx: &Cx) -> Option<&SignedIn> {
@@ -225,16 +233,10 @@ pub(crate) fn session_time_zone(cx: &Cx) -> Option<jiff::tz::TimeZone> {
         .or_else(|| current_realm(cx).map(|realm| realm.time_zone.clone()))
 }
 
-/// The request panel's catalog: the [`LocaleSource`](crate::i18n::LocaleSource) the panel
-/// installs reads it.
+/// The request panel's catalog: the [`CatalogSource`](crate::i18n::CatalogSource) the panel
+/// installs.
 pub(crate) fn session_catalog(cx: &Cx) -> Option<&crate::i18n::Catalog> {
     current_realm(cx).map(|realm| &realm.catalog)
-}
-
-/// The signed-in user's [`locale`](PanelUser::locale), which the
-/// [`LocaleSource`](crate::i18n::LocaleSource) the panel installs reads.
-pub(crate) fn session_locale(cx: &Cx) -> Option<&str> {
-    signed(cx).and_then(|signed| signed.user.locale())
 }
 
 /// The signed-in user, as the app's own user type.

@@ -32,7 +32,7 @@ serde_json = "1"
 toasty = { workspace = true, features = ["sqlite"] }
 tokio = { workspace = true, features = ["net", "sync", "time"] }
 tokio-tungstenite = { version = "0.30", default-features = false, features = ["connect"] }
-topcoat = { workspace = true, features = ["mail", "serve"] }
+topcoat = { workspace = true, features = ["mail", "serve", "l10n"] }
 uuid.workspace = true
 
 [lints]

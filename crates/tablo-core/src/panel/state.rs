@@ -144,10 +144,10 @@ pub(crate) fn current(cx: &Cx) -> Option<&Arc<PanelState>> {
 
 /// `cx` as a request to `panel`: its state, and its realm for auth.
 pub(crate) fn enter(cx: &Cx, panel: &Arc<PanelState>) -> Cx {
+    let cx = crate::i18n::entered(cx, &panel.realm.catalog);
     cx.with_many((
         CurrentPanel(Arc::clone(panel)),
         CurrentRealm(Arc::clone(&panel.realm)),
-        crate::i18n::AcceptedLocale::default(),
     ))
 }
 

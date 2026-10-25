@@ -9,11 +9,12 @@ use tablo::{
     PasswordReset, Resource, ResourceDef, RouterBuilderPanelExt, SelectFilter, Table, TextColumn,
     auth::{AuthSession, AuthToken, PasswordResetter},
     lens,
-    testing::{filter_options, form_body, page_language, rows},
+    testing::{filter_options, form_body, page_direction, page_language, rows},
 };
 use toasty::Db;
 use topcoat::{
     context::Cx,
+    l10n::{Locale, locale},
     mail::{MailConfig, Mailbox, MemoryTransport, RouterBuilderMailExt},
     router::{Router, RouterBuilderDiscoverExt},
 };
@@ -87,8 +88,8 @@ impl PanelUser for Reader {
         Some(&self.email)
     }
 
-    fn locale(&self) -> Option<&str> {
-        self.locale.as_deref()
+    fn locale(&self) -> Option<Locale> {
+        self.locale.as_deref()?.parse().ok()
     }
 }
 
@@ -159,9 +160,9 @@ async fn reader(db: &Db, name: &str, locale: Option<&str>) -> Reader {
 fn panel(auth: Auth<impl tablo::PanelUser>) -> Panel {
     Panel::new("admin")
         .auth(auth)
-        .locales(["fr", "en"])
+        .locales([locale!("fr"), locale!("en")])
         .translations(
-            "fr",
+            locale!("fr"),
             "field-page_count = Nombre de pages\n\
              option-genre =\n    .novel = Roman\n\
              tablo-field-required = Il faut { $label }",
@@ -214,14 +215,15 @@ async fn accept_language_picks_the_offered_locale() {
     }
 }
 
-/// A signed-in user's own locale wins over the browser's; one the panel does not offer counts as
-/// none.
+/// A signed-in user's own locale wins over the browser's, a region reading its language; one the
+/// panel does not offer counts as none.
 #[tokio::test]
 async fn a_users_locale_wins_over_the_browsers() {
     let db = db().await;
     let router = router(&db, Auth::custom(ReaderAuth));
     for (name, locale, expected) in [
         ("Ada", Some("en"), "en"),
+        ("Lin", Some("en-GB"), "en"),
         ("Grace", None, "fr"),
         ("Hedy", Some("de"), "fr"),
     ] {
@@ -235,6 +237,27 @@ async fn a_users_locale_wins_over_the_browsers() {
     }
 }
 
+/// A page in a right-to-left locale tells the browser its text runs right to left.
+#[tokio::test]
+async fn a_right_to_left_locale_reads_right_to_left() {
+    let db = db().await;
+    let router = mount(
+        db,
+        Panel::new("admin")
+            .auth(Auth::disabled())
+            .locales([locale!("en"), locale!("ar")])
+            .translations(locale!("ar"), "field-page_count = عدد الصفحات")
+            .resource::<BookResource>(),
+    )
+    .expect("panel builds");
+    for (language, expected) in [("ar", "rtl"), ("en", "ltr")] {
+        let client = TestClient::new(&router).language(language);
+        let html = body_string(client.get("/admin/books").await).await;
+        assert_eq!(page_language(&html).as_deref(), Some(language));
+        assert_eq!(page_direction(&html).as_deref(), Some(expected));
+    }
+}
+
 /// A panel refuses to mount a locale no catalog translates and a catalog for a locale it does
 /// not offer.
 #[tokio::test]
@@ -244,8 +267,8 @@ async fn mount_refuses_a_locale_no_request_could_read() {
         db,
         Panel::new("admin")
             .auth(Auth::disabled())
-            .locales(["en", "tlh"])
-            .translations("de", "hello = Hallo")
+            .locales([locale!("en"), locale!("tlh")])
+            .translations(locale!("de"), "hello = Hallo")
             .resource::<BookResource>(),
     ))
     .into_iter()
