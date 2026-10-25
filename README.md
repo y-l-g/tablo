@@ -13,7 +13,7 @@ Tablo is experimental: until 1.0, a minor version may break the API.
 Run the showcase, a blog's admin panel that exercises every feature, through the Topcoat CLI:
 
 ```sh
-cargo install topcoat-cli --version 0.10 --locked
+cargo install topcoat-cli --version 0.11 --locked
 topcoat dev -p showcase
 # open http://localhost:3000/admin/users
 ```

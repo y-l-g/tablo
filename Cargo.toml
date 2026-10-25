@@ -32,32 +32,13 @@ too_many_lines = "deny"
 
 # `topcoat`/`toasty` track crates.io releases; Renovate groups their bumps.
 [workspace.dependencies]
-topcoat = { version = "0.10", default-features = false, features = ["view", "router", "discover"] }
+topcoat = { version = "0.11", default-features = false, features = ["view", "router", "discover"] }
 toasty = { version = "0.11", default-features = false, features = ["jiff"] }
 toasty-core = { version = "0.11" }
-topcoat-ui = { version = "0.10" }
-topcoat-ui-registry = { version = "0.10" }
+topcoat-ui = { version = "0.11" }
+topcoat-ui-registry = { version = "0.11" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 uuid = "1.23"
 jiff = "0.2"
 percent-encoding = "2"
 serde = { version = "1", features = ["derive"] }
-
-# Temporary: Topcoat `main` ahead of its next release, for the registry's dropdown menu,
-# breadcrumb, popover and restyled table. Tablo does not release while this patch stands;
-# drop it and bump `topcoat` once that release is out.
-[patch.crates-io]
-topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
-topcoat-asset = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
-topcoat-cookie = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
-topcoat-core = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
-topcoat-font = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
-topcoat-icon = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
-topcoat-mail = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
-topcoat-router = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
-topcoat-runtime = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
-topcoat-session = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
-topcoat-tailwind = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
-topcoat-ui = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
-topcoat-ui-registry = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
-topcoat-view = { git = "https://github.com/tokio-rs/topcoat", rev = "b7a85c349100e99a18cd4f03c0e90dfe61a23180" }
