@@ -489,7 +489,7 @@ impl Panel {
     }
 
     /// Sets the locales the panel offers, the default first: `en` by default. Each request reads
-    /// one, which [`topcoat::l10n::locale`] returns: the signed-in user's
+    /// one, which [`topcoat::l10n::locale()`] returns: the signed-in user's
     /// [`PanelUser::locale`](crate::PanelUser::locale), else the browser's best match, else the
     /// default. A locale matches the closest offered one of its language and script, as `fr-CA`
     /// reads `fr` and `zh-HK` reads `zh-Hant`.
