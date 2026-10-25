@@ -1,4 +1,4 @@
-// SYNC: topcoat-ui-registry@0.10.0 sha256:66636f7861a3eb370ee736de1a40aff889ec15e491d7aae57b64ad05e25d5cdd — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
+// SYNC: topcoat-ui-registry@0.11.0 sha256:66636f7861a3eb370ee736de1a40aff889ec15e491d7aae57b64ad05e25d5cdd — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
 use topcoat::view::{Class, StaticClass, class};
 
 /// Where a floating panel appears relative to the element it follows.

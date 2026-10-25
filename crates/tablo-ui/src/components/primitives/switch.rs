@@ -1,4 +1,4 @@
-// SYNC: topcoat-ui-registry@0.10.0 sha256:ce9a0c7be3ac7187f0935c193bec82f8587953c8a85fdbaf29c08d9593365c36 — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
+// SYNC: topcoat-ui-registry@0.11.0 sha256:ce9a0c7be3ac7187f0935c193bec82f8587953c8a85fdbaf29c08d9593365c36 — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
 use topcoat::{
     Result,
     view::{Attributes, StaticClass, View, class, component, view},

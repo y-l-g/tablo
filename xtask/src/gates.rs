@@ -173,7 +173,7 @@ pub fn detached_fmt(run: &dyn Runner, root: &Path) -> anyhow::Result<()> {
 }
 
 /// Installs the topcoat CLI version the `topcoat fmt` check needs.
-const TOPCOAT_INSTALL: &str = "cargo install topcoat-cli --version 0.10.0 --locked --force";
+const TOPCOAT_INSTALL: &str = "cargo install topcoat-cli --version 0.11.0 --locked --force";
 
 /// Installs the mdBook version the guide build needs.
 const MDBOOK_INSTALL: &str = "cargo install mdbook --version 0.5.2 --locked --force";
