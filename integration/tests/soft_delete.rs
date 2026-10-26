@@ -63,8 +63,8 @@ impl Resource for PostResource {
     }
 }
 
-const ACME: Uuid = Uuid::from_u128(1);
-const GLOBEX: Uuid = Uuid::from_u128(2);
+const ACME: TenantId = TenantId::new(Uuid::from_u128(1));
+const GLOBEX: TenantId = TenantId::new(Uuid::from_u128(2));
 
 async fn db() -> Db {
     test_db(toasty::models!(Post)).await
@@ -74,9 +74,9 @@ fn router(db: &Db) -> Router {
     mount(db.clone(), panel().resource::<PostResource>()).expect("panel builds")
 }
 
-async fn post(db: &Db, tenant: Uuid, title: &str) -> Post {
+async fn post(db: &Db, tenant: TenantId, title: &str) -> Post {
     toasty::create!(Post {
-        tenant_id: TenantId::from(tenant),
+        tenant_id: tenant,
         title: title.to_string(),
         deleted_at: None,
     })

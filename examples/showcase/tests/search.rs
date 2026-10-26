@@ -2,10 +2,7 @@
 //! the results page its form opens.
 
 use showcase::models::{Author, BLOCKED_TENANT, Post, User};
-use tablo::{
-    TenantId,
-    testing::{SearchGroup, search_results},
-};
+use tablo::testing::{SearchGroup, search_results};
 
 use crate::common::{
     TestClient, body_string, demo_client, form_body, full_db, routers::router_for_tests as router,
@@ -135,7 +132,7 @@ async fn a_trashed_record_leaves_the_results() {
 async fn a_resource_the_policy_refuses_to_list_stays_out() {
     let db = full_db().await;
     toasty::create!(Author {
-        tenant_id: TenantId::from(BLOCKED_TENANT),
+        tenant_id: BLOCKED_TENANT,
         name: "Ada Blocked",
         email: "ada.blocked@example.com",
     })

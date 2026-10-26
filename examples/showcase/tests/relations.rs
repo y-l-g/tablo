@@ -311,7 +311,7 @@ async fn post_author_options_are_tenant_scoped() {
     );
 
     let foreign = client
-        .tenant(uuid::Uuid::from_u128(4242))
+        .tenant(TenantId::new(uuid::Uuid::from_u128(4242)))
         .get("/admin/posts/-/options?field=author_id")
         .await;
     assert!(foreign.status().is_success());
@@ -822,7 +822,7 @@ async fn comments_refuse_another_tenants_post() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let mut db_q = db.clone();
-    let foreign = Post::filter(Post::fields().tenant_id().eq(TenantId::from(t2)))
+    let foreign = Post::filter(Post::fields().tenant_id().eq(t2))
         .first()
         .exec(&mut db_q)
         .await

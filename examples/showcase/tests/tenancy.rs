@@ -176,7 +176,7 @@ async fn tenancy_via_cx_with_tenant_scopes_query_directly() {
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].title, "T1 Post");
 
-    let cx_t2 = cx_t1.with(Tenant(uuid::Uuid::from_u128(2)));
+    let cx_t2 = cx_t1.with(Tenant(TenantId::new(uuid::Uuid::from_u128(2))));
     let mut db_cx2 = tablo::db::db(&cx_t2).unwrap();
     let rows2 = scoped_query::<PostResource>(&cx_t2)
         .unwrap()
@@ -289,7 +289,7 @@ async fn create_assigns_the_logged_in_tenant() {
     .await
     .unwrap()
     .expect("created post");
-    assert_eq!(created.tenant_id.get(), tenant);
+    assert_eq!(created.tenant_id, tenant);
 }
 
 #[tokio::test]
@@ -461,7 +461,7 @@ async fn two_tenants_may_share_an_author_email() {
     let taken = Author::all().exec(&mut db_q).await.unwrap();
     let existing = taken
         .iter()
-        .find(|a| a.tenant_id.get() == t1)
+        .find(|a| a.tenant_id == t1)
         .expect("t1 seeds an author");
     let email = existing.email.clone();
 
@@ -495,7 +495,7 @@ async fn duplicate_email_within_one_tenant_is_reported_inline() {
     let taken = Author::all().exec(&mut db_q).await.unwrap();
     let existing = taken
         .iter()
-        .find(|a| a.tenant_id.get() == t1)
+        .find(|a| a.tenant_id == t1)
         .expect("t1 seeds an author");
     let email = existing.email.clone();
     let before = Author::all().exec(&mut db_q).await.unwrap().len();
@@ -578,7 +578,7 @@ async fn a_relation_column_hides_another_tenants_record() {
         .await
         .unwrap()
         .into_iter()
-        .find(|a| a.tenant_id.get() == t2)
+        .find(|a| a.tenant_id == t2)
         .expect("t2 seeds an author");
     let mut post = Post::filter(Post::fields().title().eq("T1 Post"))
         .first()

@@ -73,7 +73,7 @@ pub fn admin_router(db: Db) -> topcoat::Result<(Router, PanelHandle)> {
 }
 // ANCHOR_END: data-access-panel
 
-pub async fn count_drafts(admin: &PanelHandle, tenant: uuid::Uuid) -> topcoat::Result<usize> {
+pub async fn count_drafts(admin: &PanelHandle, tenant: tablo::TenantId) -> topcoat::Result<usize> {
     // ANCHOR: data-access-job
     let cx = admin.context().with(tablo::Tenant(tenant));
     let mut ex = tablo::db::db(&cx)?;

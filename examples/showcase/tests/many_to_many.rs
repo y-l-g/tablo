@@ -2,10 +2,7 @@
 //! category's posts, attached and detached from the category's page.
 
 use showcase::models::{Category, DEMO_TENANT, Post, PostCategory, SIDE_TENANT};
-use tablo::{
-    TenantId,
-    testing::{field_error, rows},
-};
+use tablo::testing::{field_error, rows};
 use toasty::Db;
 use uuid::Uuid;
 
@@ -197,7 +194,7 @@ async fn another_tenants_category_is_refused_and_nothing_is_written() {
     let client = demo_client(&router, &db).await;
     let mut db_q = db.clone();
     let foreign = toasty::create!(Category {
-        tenant_id: TenantId::from(SIDE_TENANT),
+        tenant_id: SIDE_TENANT,
         name: "Foreign",
     })
     .exec(&mut db_q)
@@ -278,7 +275,7 @@ async fn attaching_another_tenants_post_is_refused() {
         .unwrap()
         .unwrap();
     foreign = toasty::create!(Post {
-        tenant_id: TenantId::from(SIDE_TENANT),
+        tenant_id: SIDE_TENANT,
         title: "Foreign",
         body: "",
         status: foreign.status,
@@ -363,21 +360,17 @@ async fn the_post_form_offers_the_tenants_categories() {
     let client = demo_client(&router, &db).await;
     let mut db_q = db.clone();
     let side = toasty::create!(Category {
-        tenant_id: TenantId::from(SIDE_TENANT),
+        tenant_id: SIDE_TENANT,
         name: "Foreign",
     })
     .exec(&mut db_q)
     .await
     .unwrap();
     let html = body_string(client.get("/admin/posts/-/create").await).await;
-    let demo: Vec<Category> = Category::filter(
-        Category::fields()
-            .tenant_id()
-            .eq(TenantId::from(DEMO_TENANT)),
-    )
-    .exec(&mut db_q)
-    .await
-    .unwrap();
+    let demo: Vec<Category> = Category::filter(Category::fields().tenant_id().eq(DEMO_TENANT))
+        .exec(&mut db_q)
+        .await
+        .unwrap();
     for category in demo {
         assert_eq!(
             checked(&html, category.id),

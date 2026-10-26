@@ -37,9 +37,9 @@ struct EmployeeForm {
 }
 
 /// The tenant whose requests view the salary and change the grade.
-const HR: Uuid = Uuid::from_u128(1);
+const HR: TenantId = TenantId::new(Uuid::from_u128(1));
 /// A tenant whose requests see no salary and a read-only grade.
-const SALES: Uuid = Uuid::from_u128(2);
+const SALES: TenantId = TenantId::new(Uuid::from_u128(2));
 
 fn hr(cx: &Cx) -> bool {
     tablo::tenant_id(cx) == Some(HR)
@@ -150,9 +150,9 @@ fn router(db: &Db) -> Router {
     .expect("panel builds")
 }
 
-async fn employee(db: &Db, tenant: Uuid, name: &str, salary: &str) -> Employee {
+async fn employee(db: &Db, tenant: TenantId, name: &str, salary: &str) -> Employee {
     toasty::create!(Employee {
-        tenant_id: TenantId::from(tenant),
+        tenant_id: tenant,
         name: name.to_string(),
         salary: salary.to_string(),
         grade: "senior".to_string(),

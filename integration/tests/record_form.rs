@@ -372,7 +372,7 @@ impl Resource for OwnedResource {
 async fn the_derived_create_stamps_the_request_tenant() {
     let db = test_db(toasty::models!(Owned)).await;
     let tenant = Uuid::new_v4();
-    let cx = panel_cx::<OwnedResource>(&db).with(Tenant(tenant));
+    let cx = panel_cx::<OwnedResource>(&db).with(Tenant(tenant.into()));
     let mut handle = db.clone();
     let created = write_create::<OwnedResource>(
         &cx,
@@ -1018,7 +1018,7 @@ async fn a_list_only_resource_never_links_to_create() {
         .expect("create is denied without a request");
     let request = http::Request::builder()
         .uri("/admin/items")
-        .extension(Tenant(Uuid::new_v4()))
+        .extension(Tenant(Uuid::new_v4().into()))
         .body(topcoat::router::Body::empty())
         .unwrap();
     let response = router.handle(request).await;

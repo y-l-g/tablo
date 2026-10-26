@@ -34,7 +34,12 @@ use crate::toasty_compat::Assignments;
 pub struct TenantId(uuid::Uuid);
 
 impl TenantId {
-    /// The id, as [`tenant_id`](crate::tenant_id) answers it and a session carries it.
+    /// The tenant `id` names, in a `const` such as an app's fixed tenant.
+    pub const fn new(id: uuid::Uuid) -> Self {
+        Self(id)
+    }
+
+    /// The id, as the database stores it.
     pub fn get(self) -> uuid::Uuid {
         self.0
     }
@@ -141,17 +146,17 @@ fn tenant_expr(id: uuid::Uuid) -> Expr<TenantId> {
 )]
 pub trait TenantColumn: Sized + Field + IntoExpr<Self> + Send + Sync + 'static {
     /// The column's value for the request tenant `id`.
-    fn from_tenant(id: uuid::Uuid) -> Self;
+    fn from_tenant(id: TenantId) -> Self;
 }
 
 impl TenantColumn for TenantId {
-    fn from_tenant(id: uuid::Uuid) -> Self {
-        Self(id)
+    fn from_tenant(id: TenantId) -> Self {
+        id
     }
 }
 
 impl TenantColumn for Option<TenantId> {
-    fn from_tenant(id: uuid::Uuid) -> Self {
-        Some(TenantId(id))
+    fn from_tenant(id: TenantId) -> Self {
+        Some(id)
     }
 }
