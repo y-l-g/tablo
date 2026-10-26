@@ -259,6 +259,7 @@ fn list_header<'a>(
                 }
                 if let Some(url) = create_url {
                     <a
+                        id="tablo-header-create"
                         (crate::navigation::runtime_link(cx, &url))
                         class=(tablo_ui::button_variants(
                             tablo_ui::ButtonVariant::Primary,
