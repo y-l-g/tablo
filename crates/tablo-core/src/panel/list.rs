@@ -258,7 +258,6 @@ fn list_header<'a>(
                     </a>
                 }
                 if let Some(url) = create_url {
-                    // Pins this link across list pages, so the morph never reuses it as Import CSV.
                     <a
                         id="tablo-header-create"
                         (crate::navigation::runtime_link(cx, &url))
