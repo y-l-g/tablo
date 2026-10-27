@@ -113,7 +113,8 @@ pub trait PanelUser: Any + Send + Sync {
     /// The locale the user reads the panel and their mails in, such as `fr`. Defaults to none: the
     /// browser's best match among the panel's [`locales`](crate::Panel::locales), else its
     /// default. A locale matches the closest the panel offers, as `fr-CA` reads `fr`; one with no
-    /// match counts as none.
+    /// match counts as none. A locale the user picks from the shell's language menu outranks this
+    /// one for their pages, while their mails still read this one.
     ///
     /// A user who stores their locale as text parses it:
     ///

@@ -23,6 +23,7 @@ use super::{
     headers::{self, ServedDir},
     host::PanelHost,
     register::Registry,
+    shell::{LANGUAGE_SEGMENT, language_post},
     state::{PanelState, Panels, current, under_prefix},
 };
 use crate::{
@@ -313,6 +314,14 @@ impl Panel {
         builder = builder.layer(PanelGate::new(Arc::clone(&state.realm)));
         // The auth form routes carry their own cap scoped by path.
         builder = crate::auth::mount::routes(builder, &state.realm);
+        // Only a panel with a language to switch to answers the language menu's post.
+        if state.realm.catalog.locales().len() > 1 {
+            builder = builder.route(RouteFn::new(
+                http::Method::POST,
+                route_path(&format!("{prefix}/{LANGUAGE_SEGMENT}")),
+                language_post,
+            ));
+        }
         builder = builder.layout(LayoutFn::new(
             prefix_path.clone(),
             layout.unwrap_or(Panel::layout_shell),

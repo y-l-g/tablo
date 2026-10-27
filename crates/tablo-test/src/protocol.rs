@@ -49,6 +49,32 @@ pub fn page_language(html: &str) -> Option<String> {
     dom::attr_value(&attrs, "lang")
 }
 
+/// One locale the shell's language menu offers.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LanguageChoice {
+    /// The locale the choice posts, as its tag spells it.
+    pub locale: String,
+    /// What the choice renders, in the locale the page reads.
+    pub label: String,
+    /// Whether the page reads in this locale.
+    pub current: bool,
+}
+
+/// The locales the shell's language menu offers, in the order the panel lists them; empty when
+/// the page shows no menu.
+pub fn language_choices(html: &str) -> Vec<LanguageChoice> {
+    dom::tags_where(html, |_, attrs| {
+        dom::attr_value(attrs, "data-locale").is_some()
+    })
+    .into_iter()
+    .map(|(_, attrs, inner)| LanguageChoice {
+        locale: dom::attr_value(&attrs, "data-locale").unwrap_or_default(),
+        label: dom::strip_text(&inner),
+        current: dom::attr_value(&attrs, "aria-current").as_deref() == Some("true"),
+    })
+    .collect()
+}
+
 /// The direction the page's text runs in, `ltr` or `rtl`, as its `<html dir>` names it.
 pub fn page_direction(html: &str) -> Option<String> {
     let (_, attrs, _) = dom::tags_where(html, |tag, _| tag == "html")

@@ -337,7 +337,8 @@ impl Panel {
         };
         let crumbs = breadcrumbs::render(cx, trail);
         // The user and tenant menus, present only with a session (ADR-0013). `ensure_token` runs
-        // before any streaming starts so their forms always carry a matching CSRF pair.
+        // before any streaming starts so their forms, and the language menu's, always carry a
+        // matching CSRF pair.
         let (user_menu, tenant_menu): (BoxView<'_>, BoxView<'_>) = match crate::auth::signed(cx) {
             Some(signed) => {
                 let csrf = crate::csrf::ensure_token(cx);
@@ -360,8 +361,16 @@ impl Panel {
                     Self::tenant_menu(cx, signed.user.tenants(), &csrf),
                 )
             }
-            // Without a session the footer still offers the theme.
-            None => (Self::theme_menu(cx), ().boxed()),
+            // Without a session the footer still offers the theme, and the language where the
+            // panel has one to pick: only that menu's forms need a token here.
+            None => {
+                let csrf = if crate::i18n::offered(cx).len() > 1 {
+                    crate::csrf::ensure_token(cx)
+                } else {
+                    String::new()
+                };
+                (Self::theme_menu(cx, &csrf), ().boxed())
+            }
         };
         let notification_view: BoxView<'_> = match take_notification(cx) {
             Some(notification) => {
@@ -569,8 +578,12 @@ impl Panel {
 
 mod breadcrumbs;
 mod document;
+mod language;
 pub(super) mod sidebar;
 mod theme;
 mod user_menu;
 
-use theme::{SIDEBAR_COOKIE, Theme, request_cookie};
+pub(crate) use language::{LANGUAGE_SEGMENT, language_post};
+use theme::{SIDEBAR_COOKIE, Theme};
+
+use crate::cookie::request_cookie;

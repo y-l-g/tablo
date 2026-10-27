@@ -492,10 +492,14 @@ impl Panel {
     }
 
     /// Sets the locales the panel offers, the default first: `en` by default. Each request reads
-    /// one, which [`topcoat::l10n::locale()`] returns: the signed-in user's
-    /// [`PanelUser::locale`](crate::PanelUser::locale), else the browser's best match, else the
-    /// default. A locale matches the closest offered one of its language and script, as `fr-CA`
-    /// reads `fr` and `zh-HK` reads `zh-Hant`.
+    /// one, which [`topcoat::l10n::locale()`] returns: the one the visitor picked from the shell's
+    /// language menu, else the signed-in user's [`PanelUser::locale`](crate::PanelUser::locale),
+    /// else the browser's best match, else the default. A locale matches the closest offered one
+    /// of its language and script, as `fr-CA` reads `fr` and `zh-HK` reads `zh-Hant`.
+    ///
+    /// Offering several shows the language menu in the sidebar footer, each locale named by an
+    /// attribute of the message `tablo-shell-language` and falling back to its tag; picking one
+    /// remembers it in a cookie under the panel's prefix.
     ///
     /// Tablo translates its own words into `en` and `fr`; a locale it does not translate needs the
     /// app's catalog, from [`translations`](Self::translations). The pseudo-locale `en-XA` spells

@@ -20,15 +20,33 @@ name it:
 
 A panel that lists none offers English alone. A request reads, in order:
 
-1. the signed-in user's `PanelUser::locale`, when the panel offers a match;
-2. the best match of the browser's `Accept-Language`, by weight, without a language it weighs
+1. the locale the visitor picked from the shell's language menu;
+2. the signed-in user's `PanelUser::locale`, when the panel offers a match;
+3. the best match of the browser's `Accept-Language`, by weight, without a language it weighs
    `q=0`;
-3. the panel's default, the first it lists.
+4. the panel's default, the first it lists.
+
+## The language menu
+
+A panel offering several locales shows them in the sidebar footer, beside the theme: picking one
+posts to `{prefix}/locale` and lands back on the page it was picked from, and a cookie under the
+panel's prefix remembers it for a year, so two panels on one host read in two languages. A panel
+offering one locale shows no menu and serves no post, and a locale dropped from `Panel::locales`
+since a visitor picked it reads as none.
+
+Each locale is named by an attribute of the message `tablo-shell-language`, which Tablo's catalogs
+spell for English and French; a panel offering another locale names it in its own catalog, and one
+no catalog names reads as its tag:
+
+```ftl
+tablo-shell-language =
+    .de = Deutsch
+```
 
 A region reads its language's locale: `fr-CA` reads a panel's `fr`, and `zh-HK` reads `zh-Hant`
 over `zh-Hans`. The page's `<html lang>` names the locale it was read in, its `<html dir>` the
 direction the locale's script runs in, `rtl` for Arabic or Hebrew, and a panel offering several
-locales answers `Vary: Accept-Language`, so a shared cache keeps one copy per language. A page,
+locales answers `Vary: Accept-Language, Cookie`, so a shared cache keeps one copy per language. A page,
 a handler or a view of the panel reads the request's locale with `topcoat::l10n::locale(cx)`.
 
 The panel refuses to mount an empty list, a locale listed twice (`iw` and `he` name one), a
@@ -107,7 +125,9 @@ link, a verification link and a sign-in code, are written in their recipient's
 ## The user's locale
 
 `PanelUser::locale` names the locale a user reads the panel in, such as one they pick on their
-profile and the app stores as text. A locale with no match among the panel's counts as none:
+profile and the app stores as text. A locale with no match among the panel's counts as none, and
+one the user picks from the language menu outranks it for the rest of their visits, though their
+mails still read the stored one:
 
 ```rust,ignore
 {{#include ../../../examples/guide/src/translations.rs:user-locale}}

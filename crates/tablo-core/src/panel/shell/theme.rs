@@ -1,9 +1,9 @@
 //! The visitor's theme and sidebar state, as the request's cookies store them.
 
-use http::header::COOKIE;
-use topcoat::context::{Cx, try_context};
+use topcoat::context::Cx;
 
 use super::current;
+use crate::cookie::request_cookie;
 
 /// The cookie holding the visitor's theme, `light`, `dark` or `system`, which `assets/theme.js`
 /// writes.
@@ -78,20 +78,3 @@ impl Theme {
 
 /// The cookie holding the desktop sidebar's state, which `assets/sidebar.js` writes.
 pub(super) const SIDEBAR_COOKIE: &str = "tablo_sidebar";
-
-/// The value of the request's `name` cookie.
-///
-/// Parsed from the raw `Cookie` header on purpose: `topcoat::cookie::cookies`
-/// panics when the cookie router layer is absent (tests, minimal routers), and
-/// the shell must render everywhere.
-pub(super) fn request_cookie(cx: &Cx, name: &str) -> Option<String> {
-    let header = try_context::<http::request::Parts>(cx)?
-        .headers
-        .get(COOKIE)?
-        .to_str()
-        .ok()?;
-    header.split(';').find_map(|part| {
-        let (key, value) = part.trim().split_once('=')?;
-        (key == name).then(|| value.to_string())
-    })
-}

@@ -8,7 +8,7 @@ mod columns;
 pub(crate) mod config;
 mod email_change;
 mod gate;
-mod input;
+pub(crate) mod input;
 mod login;
 pub(crate) mod mail;
 pub(crate) mod mount;
@@ -175,8 +175,11 @@ impl SignedIn {
     }
 
     /// `cx` with the user signed in, its words in the user's [`locale`](PanelUser::locale) when
-    /// the panel offers a match.
+    /// the panel offers a match and the visitor picked none from the shell's language menu.
     pub(crate) fn sign_into(self, cx: &Cx) -> Cx {
+        if crate::i18n::chose_locale(cx) {
+            return cx.with(self);
+        }
         crate::i18n::addressed_to(cx, self.user.locale().as_ref()).with(self)
     }
 }

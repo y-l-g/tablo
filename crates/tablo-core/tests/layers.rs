@@ -22,6 +22,7 @@ const LAYERS: &[(&str, &[&str])] = &[
             "naming",
             "topcoat_compat",
             "declaration",
+            "cookie",
             "i18n",
             "error",
             "toasty_compat",
