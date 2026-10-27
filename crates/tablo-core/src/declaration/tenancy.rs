@@ -27,6 +27,14 @@ pub enum TenancyFault {
         /// The `belongs_to` relation to the tenant-owned parent.
         relation: String,
     },
+    /// No tenancy declared on a panel that acts for tenants: it offers a tenant registration or
+    /// settings page, or mounts a resource over tenant-owned rows.
+    ///
+    /// Declare `Tenancy::column` or `Tenancy::via`, or `Tenancy::none()` to serve every tenant.
+    UndeclaredOnTenantPanel {
+        /// The model's name.
+        model: &'static str,
+    },
     /// A `Tenancy::column` lens that names no field of the model.
     ///
     /// Name the model's `TenantId` field, or use `Tenancy::via`.
@@ -68,6 +76,12 @@ impl fmt::Display for TenancyFault {
                 "`{model}` belongs to `{relation}`, whose rows a tenant-scoped resource serves, \
                  and the resource declares no tenancy, so it would serve every tenant's rows: \
                  declare `Tenancy::via({model}::fields().{relation}().<tenant column>())`, or \
+                 `Tenancy::none()` to serve every tenant on purpose"
+            ),
+            Self::UndeclaredOnTenantPanel { model } => write!(
+                f,
+                "the panel acts for tenants and the resource over `{model}` declares no tenancy: \
+                 declare `Tenancy::column` or `Tenancy::via` when its rows belong to a tenant, or \
                  `Tenancy::none()` to serve every tenant on purpose"
             ),
             Self::ColumnNotAField => f.write_str(

@@ -63,6 +63,8 @@ impl Resource for UserResource {
         let c = UserForm::controls();
         ResourceDef::new()
             .icon(tablo::ui::icons::USERS)
+            // The panel's staff, across every tenant.
+            .tenancy(Tenancy::none())
             // Refuses every write to Ken's account: an update, a delete or a record action.
             .policy_fn(|_cx, ability: Ability<'_, User>| {
                 ability

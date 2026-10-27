@@ -312,8 +312,8 @@ impl<R: Resource> ResourceDef<R> {
         self
     }
 
-    /// How rows belong to a tenant. A resource that declares none is served to every tenant, and
-    /// mounting the panel refuses it when its model has a [`TenantId`](crate::TenantId) column.
+    /// How rows belong to a tenant. A resource that declares none is served to every tenant;
+    /// [`Tenancy::none`] says when mounting the panel refuses it instead.
     #[must_use]
     pub fn tenancy(mut self, tenancy: Tenancy<R::Model>) -> Self {
         self.tenancy = tenancy;

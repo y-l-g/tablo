@@ -137,11 +137,13 @@ impl Panel {
             registrations,
             configuration_errors,
             uploads,
+            auth,
             ..
         } = self;
         let mut registry = Registry::new(prefix.clone(), Some(AppSchema::of_db(db)));
         let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
-        registry.check_all(db, &mounts, uploads.is_some(), &mut errors);
+        let serves_tenants = serves_tenants(&auth, &mounts);
+        registry.check_all(db, &mounts, serves_tenants, uploads.is_some(), &mut errors);
         if !errors.is_empty() {
             return Err(MountError::new(&prefix, errors).into());
         }
@@ -184,6 +186,7 @@ impl Panel {
             global_search,
         } = self;
         let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
+        let serves_tenants = serves_tenants(&auth, &mounts);
         errors.extend(mount_errors(
             &builder,
             &prefix,
@@ -192,7 +195,7 @@ impl Panel {
         ));
         match &db {
             Some(db) => {
-                registry.check_all(db, &mounts, uploads.is_some(), &mut errors);
+                registry.check_all(db, &mounts, serves_tenants, uploads.is_some(), &mut errors);
                 let toggles = registry.resources.iter().any(|resource| resource.toggles);
                 errors.extend(
                     crate::auth::mount::declaration_errors(
@@ -274,9 +277,6 @@ impl Panel {
             .filter(|served| served.signed)
             .map(|served| served_root(&served.path).to_owned())
             .collect();
-        let serves_tenants = auth.tenant_registration_page().is_some()
-            || auth.tenant_editor().is_some()
-            || mounts.has_tenant_models();
         let state = Arc::new(PanelState {
             realm: Arc::new(Realm {
                 prefix: prefix.clone(),
@@ -371,16 +371,20 @@ impl Registry {
         (Arc::new(std::mem::take(&mut self.mounts)), errors)
     }
 
-    /// Checks every registered resource against `db` and whether the panel installs an
-    /// uploader.
+    /// Checks every registered resource against `db`, whether the panel acts for tenants and
+    /// whether it installs an uploader.
     fn check_all(
         &self,
         db: &Db,
         mounts: &Arc<Mounts>,
+        serves_tenants: bool,
         has_uploader: bool,
         errors: &mut Vec<DeclarationError>,
     ) {
-        let cx = validation_cx(db, mounts);
+        let mut cx = validation_cx(db, mounts);
+        if serves_tenants {
+            cx = cx.with(crate::resource::ServesTenants);
+        }
         for check in &self.page_checks {
             check(&cx, errors);
         }
@@ -398,6 +402,14 @@ impl Registry {
             }
         }
     }
+}
+
+/// Whether a panel with `auth` and `mounts` acts for tenants: it offers a tenant registration or
+/// settings page, or mounts a resource over tenant-owned rows.
+fn serves_tenants(auth: &crate::auth::AuthConfig, mounts: &Mounts) -> bool {
+    auth.tenant_registration_page().is_some()
+        || auth.tenant_editor().is_some()
+        || mounts.has_tenant_models()
 }
 
 /// What refuses a panel at `prefix` before its resources are checked.
