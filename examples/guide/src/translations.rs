@@ -44,6 +44,10 @@ impl tablo::PanelUser for Editor {
         &self.id
     }
 
+    fn can_access_panel(&self, _panel: &str) -> bool {
+        true
+    }
+
     fn locale(&self) -> Option<Locale> {
         self.locale.as_deref()?.parse().ok()
     }

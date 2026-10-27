@@ -125,7 +125,7 @@ impl tablo::PanelUser for Staff {
         &self.name
     }
 
-    fn can_access_panel(&self) -> bool {
+    fn can_access_panel(&self, _panel: &str) -> bool {
         self.active
     }
 }

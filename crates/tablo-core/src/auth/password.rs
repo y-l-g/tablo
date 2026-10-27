@@ -63,7 +63,7 @@ impl PanelUser for AdminUser {
         Some(&self.email)
     }
 
-    fn can_access_panel(&self) -> bool {
+    fn can_access_panel(&self, _panel: &str) -> bool {
         self.active
     }
 }

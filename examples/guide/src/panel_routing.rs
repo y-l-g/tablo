@@ -41,6 +41,10 @@ impl tablo::PanelUser for Customer {
     fn display_name(&self) -> &str {
         &self.id
     }
+
+    fn can_access_panel(&self, _panel: &str) -> bool {
+        true
+    }
 }
 // ANCHOR_END: panel-portal-auth
 

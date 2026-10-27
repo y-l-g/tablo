@@ -84,6 +84,10 @@ impl PanelUser for Reader {
         &self.name
     }
 
+    fn can_access_panel(&self, _panel: &str) -> bool {
+        true
+    }
+
     fn email(&self) -> Option<&str> {
         Some(&self.email)
     }

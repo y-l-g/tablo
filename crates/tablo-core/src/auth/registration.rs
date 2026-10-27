@@ -53,6 +53,7 @@ use crate::{
 /// # impl PanelUser for Staff {
 /// #     fn user_id(&self) -> String { self.id.to_string() }
 /// #     fn display_name(&self) -> &str { &self.name }
+/// #     fn can_access_panel(&self, _panel: &str) -> bool { true }
 /// # }
 /// struct StaffAuth;
 ///
@@ -376,7 +377,7 @@ pub(super) fn register_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
                 return Err(error);
             }
         };
-        if !user.can_access_panel() {
+        if !user.can_access_panel(&panel.prefix) {
             set_notification(
                 cx,
                 Notification::success(crate::t!(cx, "tablo-sign-up-created"))

@@ -72,6 +72,7 @@ pub enum EmailChange {
 /// # impl PanelUser for Staff {
 /// #     fn user_id(&self) -> String { self.id.to_string() }
 /// #     fn display_name(&self) -> &str { &self.name }
+/// #     fn can_access_panel(&self, _panel: &str) -> bool { true }
 /// #     fn email(&self) -> Option<&str> { Some(&self.email) }
 /// # }
 /// async fn save_email(
@@ -244,7 +245,7 @@ struct Opened {
 }
 
 /// The live token for `purpose` that `encoded` names, on an account that may still enter the
-/// panel, or `None`.
+/// panel, or on any account for a cancel link, or `None`.
 async fn opened(
     cx: &Cx,
     panel: &Arc<Realm>,
@@ -262,7 +263,11 @@ async fn opened(
         .find_by_id(cx, &row.user_id)
         .await
         .map_err(infrastructure_failure)?
-        .filter(|account| account.can_access_panel());
+        // A cancel link only restores the old address and ends sessions: a rule that reads the
+        // address must not refuse it to the account the change shut out.
+        .filter(|account| {
+            purpose == TokenPurpose::EmailChangeCancel || account.can_access_panel(&panel.prefix)
+        });
     let Some(account) = account else {
         return Ok(None);
     };

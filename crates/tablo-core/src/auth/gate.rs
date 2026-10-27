@@ -102,7 +102,7 @@ impl Layer for PanelGate {
                 if sign_up
                     && matches!(*method(&cx), http::Method::GET | http::Method::HEAD)
                     && let Some(signed) = resolve(&cx, &self.realm, authenticator).await?
-                    && signed.user.can_access_panel()
+                    && signed.may_enter()
                 {
                     return Err(redirect(self.realm.prefix.clone()).into());
                 }
@@ -121,7 +121,7 @@ impl Layer for PanelGate {
             // A user who owes a step, such as verifying their address, reaches only the step's
             // page and the logout route.
             if let Some(signed) = &signed
-                && signed.user.can_access_panel()
+                && signed.may_enter()
                 && !logout_route
                 && let Some(step) = owed_step(&cx, &self.realm, signed).await?
                 && !step.serves(&cx)
@@ -133,7 +133,7 @@ impl Layer for PanelGate {
                 };
             }
             match signed {
-                Some(signed) if signed.user.can_access_panel() || logout_route => {
+                Some(signed) if signed.may_enter() || logout_route => {
                     let cx = signed.sign_into(&cx);
                     next.run(&cx, body)
                         .await
@@ -199,7 +199,7 @@ async fn owed_step(cx: &Cx, panel: &Realm, signed: &SignedIn) -> topcoat::Result
 
 /// Whether `signed` may reach any endpoint: they have panel access and owe no step.
 async fn admitted(cx: &Cx, signed: &SignedIn) -> topcoat::Result<bool> {
-    Ok(signed.user.can_access_panel() && owed_step(cx, &signed.realm, signed).await?.is_none())
+    Ok(signed.may_enter() && owed_step(cx, &signed.realm, signed).await?.is_none())
 }
 
 /// Whether the session that signed the request in still signs in the same user, admitted, acting

@@ -54,6 +54,7 @@ use crate::{
 /// # impl PanelUser for Staff {
 /// #     fn user_id(&self) -> String { self.id.to_string() }
 /// #     fn display_name(&self) -> &str { &self.name }
+/// #     fn can_access_panel(&self, _panel: &str) -> bool { true }
 /// # }
 /// #[derive(tablo_core::FormInput)]
 /// struct Rename {

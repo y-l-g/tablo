@@ -492,6 +492,10 @@ impl PanelUser for Visitor {
     fn display_name(&self) -> &str {
         "Visitor"
     }
+
+    fn can_access_panel(&self, _panel: &str) -> bool {
+        true
+    }
 }
 
 /// Loads no one, as a [`Visitor`].
@@ -658,6 +662,10 @@ impl PanelUser for Member {
         "Member"
     }
 
+    fn can_access_panel(&self, _panel: &str) -> bool {
+        true
+    }
+
     fn tenants(&self) -> &[Membership] {
         &self.0
     }
@@ -741,6 +749,10 @@ fn verification_holds_only_a_user_with_an_address() {
         }
         fn display_name(&self) -> &str {
             "Nameless"
+        }
+
+        fn can_access_panel(&self, _panel: &str) -> bool {
+            true
         }
     }
     let auth = Auth::password().email_verification(EmailVerification::new(PasswordAuth));

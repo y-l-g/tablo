@@ -27,7 +27,7 @@ use crate::tenancy::{Membership, TenantId};
 ///     fn display_name(&self) -> &str {
 ///         &self.name
 ///     }
-///     fn can_access_panel(&self) -> bool {
+///     fn can_access_panel(&self, _panel: &str) -> bool {
 ///         self.active
 ///     }
 ///     fn tenants(&self) -> &[Membership] {
@@ -55,11 +55,28 @@ pub trait PanelUser: Any + Send + Sync {
         None
     }
 
-    /// Whether the user may enter the panel. A user who may not answers 403,
-    /// indistinguishable from bad credentials at login. Defaults to `true`.
-    fn can_access_panel(&self) -> bool {
-        true
-    }
+    /// Whether the user may enter the panel at `panel`, its prefix with one leading slash and
+    /// none trailing: `/admin` for `Panel::new("admin")`. A user who may not answers 403,
+    /// indistinguishable from bad credentials at login. Every user type answers it: a sign-up on
+    /// one panel writes an account every panel over the same user type looks up.
+    ///
+    /// One user type can serve several panels, each with its own rule. Name each panel and refuse
+    /// the rest, so that a panel added or renamed later admits nobody until it has a rule:
+    ///
+    /// ```rust,ignore
+    /// fn can_access_panel(&self, panel: &str) -> bool {
+    ///     match panel {
+    ///         "/admin" => self.active && self.is_staff,
+    ///         "/portal" => self.active,
+    ///         _ => false,
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// Every check of a panel asks it with that panel's prefix: the gate on each request, the
+    /// login, the sign-up, a mailed link and a two-factor challenge. The link that cancels an
+    /// email change does not ask: it only restores the old address and ends sessions.
+    fn can_access_panel(&self, panel: &str) -> bool;
 
     /// The tenants the user may act for, in the order the tenant switcher
     /// lists them. A session acts for the [`default_tenant`](Self::default_tenant)

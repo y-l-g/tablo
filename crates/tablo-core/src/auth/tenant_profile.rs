@@ -42,6 +42,7 @@ use crate::{
 /// # impl PanelUser for Staff {
 /// #     fn user_id(&self) -> String { String::new() }
 /// #     fn display_name(&self) -> &str { "" }
+/// #     fn can_access_panel(&self, _panel: &str) -> bool { true }
 /// # }
 /// #[derive(tablo_core::FormInput)]
 /// struct TeamSettings {

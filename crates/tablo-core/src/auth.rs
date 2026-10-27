@@ -169,6 +169,11 @@ pub(crate) struct SignedIn {
 }
 
 impl SignedIn {
+    /// Whether the user may enter the panel whose session signed them in.
+    pub(crate) fn may_enter(&self) -> bool {
+        self.user.can_access_panel(&self.realm.prefix)
+    }
+
     /// `cx` with the user signed in, its words in the user's [`locale`](PanelUser::locale) when
     /// the panel offers a match.
     pub(crate) fn sign_into(self, cx: &Cx) -> Cx {
@@ -189,7 +194,7 @@ pub(crate) fn resolved(cx: &Cx) -> Option<&SignedIn> {
 /// The request's signed-in user, erased: on the request's panel, with panel
 /// access.
 pub(crate) fn signed(cx: &Cx) -> Option<&SignedIn> {
-    resolved(cx).filter(|signed| signed.user.can_access_panel())
+    resolved(cx).filter(|signed| signed.may_enter())
 }
 
 /// The signed-in user's membership the request acts under: the tenant the
@@ -255,6 +260,7 @@ pub(crate) fn session_catalog(cx: &Cx) -> Option<&crate::i18n::Catalog> {
 /// # impl PanelUser for Staff {
 /// #     fn user_id(&self) -> String { String::new() }
 /// #     fn display_name(&self) -> &str { "" }
+/// #     fn can_access_panel(&self, _panel: &str) -> bool { true }
 /// # }
 /// fn admins_only(cx: &Cx) -> bool {
 ///     auth::user::<Staff>(cx).is_some_and(|staff| staff.admin)
