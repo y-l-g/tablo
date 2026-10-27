@@ -274,6 +274,9 @@ impl Panel {
             .filter(|served| served.signed)
             .map(|served| served_root(&served.path).to_owned())
             .collect();
+        let serves_tenants = auth.tenant_registration_page().is_some()
+            || auth.tenant_editor().is_some()
+            || mounts.has_tenant_models();
         let state = Arc::new(PanelState {
             realm: Arc::new(Realm {
                 prefix: prefix.clone(),
@@ -282,6 +285,7 @@ impl Panel {
                 time_zone,
                 catalog,
                 notifications,
+                serves_tenants,
             }),
             nav_items,
             brand,
@@ -307,7 +311,7 @@ impl Panel {
         // Registered last of the prefix's layers, so it runs first.
         builder = builder.layer(PanelGate::new(Arc::clone(&state.realm)));
         // The auth form routes carry their own cap scoped by path.
-        builder = crate::auth::mount::routes(builder, &prefix, &state.realm.auth);
+        builder = crate::auth::mount::routes(builder, &state.realm);
         builder = builder.layout(LayoutFn::new(
             prefix_path.clone(),
             layout.unwrap_or(Panel::layout_shell),

@@ -101,8 +101,9 @@ pub fn navigation_item<R: Resource>(cx: &topcoat::context::Cx) -> Option<crate::
 ///
 /// - `GET /admin`: the [home page](Self::home), or a redirect to the first registered resource's
 ///   list when there is none;
-/// - `GET`, `POST /admin/login`, `POST /admin/logout` and `POST /admin/tenant`, the tenant
-///   switcher, unless authentication is disabled;
+/// - `GET`, `POST /admin/login` and `POST /admin/logout`, unless authentication is disabled, and
+///   `POST /admin/tenant`, the tenant switcher, when the panel also acts for tenants: it offers a
+///   tenant registration or settings page, or mounts a resource over tenant-owned rows;
 /// - `/admin/register`, `/admin/profile`, `/admin/forgot-password` and `/admin/reset-password` when
 ///   [`Auth`](crate::auth::Auth) installs the feature each serves;
 /// - `POST /admin/{page}/-/actions/{action}` for a page's header actions, and

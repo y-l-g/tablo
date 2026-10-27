@@ -10,6 +10,7 @@ fn realm(prefix: &str) -> Arc<Realm> {
         catalog: crate::i18n::Catalog::new(std::slice::from_ref(&crate::i18n::ENGLISH), &[])
             .expect("`en` builds"),
         notifications: false,
+        serves_tenants: false,
     })
 }
 

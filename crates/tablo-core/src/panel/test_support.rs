@@ -54,6 +54,7 @@ pub(crate) fn panel_state<U: crate::PanelUser>(
             catalog: crate::i18n::Catalog::new(std::slice::from_ref(&crate::i18n::ENGLISH), &[])
                 .expect("`en` builds"),
             notifications: false,
+            serves_tenants: false,
         }),
         nav_items: Vec::new(),
         brand: None,

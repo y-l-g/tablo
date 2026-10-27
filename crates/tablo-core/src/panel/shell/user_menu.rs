@@ -213,8 +213,12 @@ impl Panel {
     /// The tenant menu atop the navigation: the tenant the request acts for, opening the user's
     /// `tenants`, each a form posting to the tenant-switch route, then the current tenant's
     /// settings page and the tenant registration page, where the panel offers them. A user with
-    /// fewer than two tenants and neither page has nothing to choose, and gets nothing.
+    /// fewer than two tenants and neither page has nothing to choose, and gets nothing; nor does
+    /// any user of a panel that acts for no tenant, whatever their memberships.
     pub(super) fn tenant_menu<'a>(cx: &'a Cx, tenants: &[Membership], csrf: &str) -> BoxView<'a> {
+        if !crate::auth::current_realm(cx).is_some_and(|realm| realm.serves_tenants) {
+            return ().boxed();
+        }
         let link = |offered: bool, url: fn(&Cx) -> String, label: String, data, page| {
             offered.then(|| {
                 let link = crate::navigation::runtime_link(cx, &url(cx));

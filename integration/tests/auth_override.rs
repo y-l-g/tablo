@@ -480,6 +480,27 @@ async fn a_member_acts_for_their_first_tenant_until_they_switch() {
     assert!(!html.contains("acme note"));
 }
 
+/// A panel that acts for no tenant offers no tenant menu and no switch, though Ada holds two
+/// memberships.
+#[tokio::test]
+async fn a_panel_without_tenancy_offers_no_tenant_switch() {
+    let router = router_with::<MemberResource>(seeded_db().await, Auth::custom(MemberAuth));
+    let session = login_session(&router).await;
+
+    let members = get_with_cookies(
+        &router,
+        "/admin/members",
+        &[("__Host-session", session.clone())],
+    )
+    .await;
+    assert_eq!(members.status(), 200);
+    let html = body_string(members).await;
+    assert!(!html.contains("data-tenant-switcher"), "{html}");
+
+    let switched = switch_tenant(&router, &session, GLOBEX).await;
+    assert_eq!(switched.status(), 404, "no switch route");
+}
+
 #[tokio::test]
 async fn a_member_cannot_switch_to_a_tenant_they_do_not_belong_to() {
     let router = notes_router(seeded_db().await);
