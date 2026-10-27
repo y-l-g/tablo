@@ -59,30 +59,34 @@ What Tablo does by default, and what your deployment must provide for those defa
   can keep the owner's app codes waiting until the owner changes it:
   [`Auth::two_factor`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.two_factor).
 
-## Several panels, one user table
+## Several panels, one user type
 
-Two panels whose authenticators load the same user type share that type's credentials. What each
+Two panels whose authenticators load the same user type share that type's accounts. What each
 panel keeps to itself, and what it does not:
 
 - **Sessions are per panel.** A session belongs to the panel that signed the user in; another
   panel's gate treats the request as anonymous
   ([`AuthSession`](https://y-l.fr/tablo/nightly/api/tablo/auth/struct.AuthSession.html)).
-- **Credentials are not.** The same password signs in to every panel that loads the user type,
-  and a password change or reset on one ends the user's sessions and reset links on each.
-- **The weakest panel is the floor.** Email verification, a required second factor and tenant
-  registration are each declared per panel, and a factor signs in only to the panel that set it
-  up ([`Auth::two_factor`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.two_factor)).
-  A password stolen from a user of a panel that requires two factors still signs in, alone, to a
-  sibling panel that admits the user and requires one.
+- **Accounts and credentials are not.** A sign-up on one panel writes an account every sibling
+  panel looks up. The same password signs in to each panel that admits the user, and a password
+  change or reset on one ends the user's sessions and reset links on each.
 - **Access is the user type's to decide, per panel.**
   [`PanelUser::can_access_panel`](https://y-l.fr/tablo/nightly/api/tablo/trait.PanelUser.html#method.can_access_panel)
   receives the panel's prefix, so one type can admit staff to `/admin` and every customer to
-  `/portal`.
+  `/portal`. Name each panel and answer `false` for the rest: a panel added or renamed later then
+  admits nobody until it has a rule.
+- **The weakest panel is the floor.** Email verification, a required second factor and tenant
+  registration are each declared per panel, and a factor belongs to the panel it was set up on
+  ([`Auth::two_factor`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.two_factor)).
+  A password alone takes a sibling panel that admits the user and holds no factor of theirs: one
+  that requires none signs the holder in, and one that requires a factor lets the holder set up
+  their own.
 
-To give two panels separate credentials, give each its own user type, over its own table, with its
-own [`Authenticator`](https://y-l.fr/tablo/nightly/api/tablo/trait.Authenticator.html): a staff
-password then signs in to no customer panel, and a customer panel's weaker sign-in reaches no staff
-account.
+The sharing follows the user type, not the table. Two user types over one table share passwords,
+yet a password change on one type's panel ends no session on the other's. To give two panels
+separate credentials, give each its own user type, over its own table, with its own
+[`Authenticator`](https://y-l.fr/tablo/nightly/api/tablo/trait.Authenticator.html): a staff password
+then signs in to no customer panel, and a customer panel's weaker sign-in reaches no staff account.
 
 ## Responses
 
