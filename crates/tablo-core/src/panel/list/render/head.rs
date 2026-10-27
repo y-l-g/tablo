@@ -10,10 +10,21 @@ use crate::{
     table::{Sort, TableState, bulk_token},
 };
 
+/// How a header row renders its column headers.
+pub(super) enum Heads<'s> {
+    /// Sort links writing `signals`, the column the rows are sorted by marked, and the select-all
+    /// box over the page's selectable keys.
+    Linked(&'s TableSignals, Option<&'s Sort>, Vec<String>),
+    /// Plain labels naming their columns, for a table without its chrome.
+    Named,
+    /// Plain labels naming no column, for the skeleton.
+    Placeholder,
+}
+
 impl Frame<'_> {
     /// Render the column-header row: sort links that write the table's query, the column the
     /// rows are `sorted` by marked, and the select-all box over the page's selectable `keys`.
-    /// Without `links` (the skeleton) the headers are plain labels.
+    /// [`Heads`] says which.
     pub(super) async fn render_thead<'a>(
         &self,
         cx: &'a Cx,
@@ -21,8 +32,13 @@ impl Frame<'_> {
         path: &str,
         with_actions: bool,
         with_bulk: bool,
-        links: Option<(&TableSignals, Option<&Sort>, Vec<String>)>,
+        heads_as: Heads<'_>,
     ) -> Result<BoxView<'a>> {
+        let (links, named) = match heads_as {
+            Heads::Linked(signals, sorted, keys) => (Some((signals, sorted, keys)), true),
+            Heads::Named => (None, true),
+            Heads::Placeholder => (None, false),
+        };
         let mut heads: Vec<BoxView<'_>> = Vec::with_capacity(self.columns.len());
         let slack = self.slack_column();
         for (index, col) in self.columns.iter().enumerate() {
@@ -30,8 +46,7 @@ impl Frame<'_> {
             let fit = if slack == Some(index) { "w-full" } else { "" };
             let align = col.alignment.class();
             let label = col.label.clone();
-            // The skeleton's placeholder header names no column: only a loaded table's does.
-            let name = links.is_some().then(|| col.name.to_string());
+            let name = named.then(|| col.name.to_string());
             let sortable = col.sortable;
             let (head_class, aria_sort, header) =
                 if let (true, Some((signals, sorted, _))) = (sortable, links.as_ref()) {

@@ -2,19 +2,18 @@
 
 use jiff::tz::TimeZone;
 use tablo::{
-    Ability, Chart, Color, FieldErrors, HeaderAction, Page, PageDef, Series, Stat, Widget,
-    WidgetDef, can_list, db::db, header_action_buttons, scoped_query,
+    Ability, Chart, Color, FieldErrors, HeaderAction, Page, PageDef, RecordTable, Series, Stat,
+    Widget, WidgetDef, can_list, db::db, header_action_buttons, scoped_query,
 };
-use toasty::stmt::Include;
 use topcoat::{
     Result,
     context::Cx,
-    view::{BoxView, View, ViewExt, view},
+    view::{View, view},
 };
 
 use crate::{
     app::{AuthorResource, CommentResource, PostResource, UserResource},
-    models::{Author, Post, PostStatus},
+    models::{Post, PostStatus},
 };
 
 /// The page the panel serves at its prefix.
@@ -106,8 +105,8 @@ impl Widget for PostsPerMonth {
     }
 }
 
-/// The newest posts the caller can see, each linking to its page, with a link to the full list.
-/// Only a caller who may open the post list sees it.
+/// The newest posts the caller can see, under the post list's own columns, each linking to its
+/// page, with a link to the full list. Only a caller who may open the post list sees it.
 pub struct LatestPosts;
 
 impl Widget for LatestPosts {
@@ -116,87 +115,12 @@ impl Widget for LatestPosts {
     }
 
     async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(latest_posts(cx).await?.unwrap_or_else(|| ().boxed()))
+        let table = RecordTable::new()
+            .heading("Latest posts")
+            .columns(["title", "author", "status"])
+            .order_by(Post::fields().created_at().desc());
+        tablo::record_table::<PostResource>(cx, table).await
     }
-}
-
-/// [`LatestPosts`]' body, `None` when the panel does not mount the post resource.
-async fn latest_posts(cx: &Cx) -> Result<Option<BoxView<'_>>> {
-    let Some(all) = tablo::url::resource::<PostResource>(cx) else {
-        return Ok(None);
-    };
-    let author: Include<Post, Author> = Post::fields().author().into();
-    let posts = scoped_query::<PostResource>(cx)?
-        .order_by(Post::fields().created_at().desc())
-        .limit(5)
-        .include(author)
-        .exec(&mut db(cx)?)
-        .await?;
-    let rows: Vec<BoxView<'_>> = posts
-        .iter()
-        .map(|post| {
-            let url = tablo::url::record::<PostResource>(cx, post);
-            let byline = format!(
-                "{} · {}",
-                post.author.get().name,
-                post.created_at.strftime("%b %-d, %Y")
-            );
-            let status = match post.status {
-                PostStatus::Draft => "Draft",
-                PostStatus::Published => "Published",
-            };
-            let title = post.title.clone();
-            view! {
-                cx =>
-                <li class="flex items-center gap-4 px-6 py-3">
-                    <div class="min-w-0 flex-1">
-                        if let Some(url) = url {
-                            <a
-                                href=(url)
-                                class="block truncate text-sm font-medium hover:underline"
-                            >
-                                (title)
-                            </a>
-                        } else {
-                            <p class="truncate text-sm font-medium">(title)</p>
-                        }
-                        <p class="truncate text-sm text-muted-foreground">(byline)</p>
-                    </div>
-                    tablo::ui::badge(
-                        variant: tablo::ui::BadgeVariant::Outline,
-                        (status)
-                    )
-                </li>
-            }
-            .boxed()
-        })
-        .collect();
-    Ok(Some(
-        view! {
-            cx =>
-            <section
-                class="rounded-xl border border-border bg-card text-card-foreground shadow-xs"
-            >
-                <div
-                    class="flex items-center justify-between border-b border-border px-6 py-4"
-                >
-                    <h2 class="text-base font-semibold">"Latest posts"</h2>
-                    <a
-                        href=(all)
-                        class="text-sm text-muted-foreground hover:text-foreground"
-                    >
-                        "View all"
-                    </a>
-                </div>
-                <ul class="divide-y divide-border">
-                    for row in rows {
-                        (row)
-                    }
-                </ul>
-            </section>
-        }
-        .boxed(),
-    ))
 }
 
 /// What featuring by tag asks for: the tag.

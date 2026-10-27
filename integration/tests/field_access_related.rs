@@ -1,6 +1,7 @@
 //! A restricted field of a record stays hidden wherever the panel shows the record: on every
 //! resource over its model, through another resource's relation column, in a record title, in a
-//! key, in a count, in a computed column and in a relation an embedded value holds. The mount
+//! key, in a count, in a computed column, in a widget's record table and in a relation an embedded
+//! value holds. The mount
 //! refuses a declaration that would show it anyway.
 
 mod resources;
@@ -8,12 +9,17 @@ mod sources;
 
 use resources::*;
 use tablo::{
-    ComputedColumn, DeclarationErrorKind, Detail, FieldAccessFault, NoForm, ReadOnly,
-    RelationColumn, Resource, ResourceDef, Site, Table, Tenancy, TenantId, lens, relation,
-    testing::columns,
+    ComputedColumn, DeclarationErrorKind, Detail, FieldAccessFault, NoForm, Page, PageDef,
+    ReadOnly, RecordTable, RelationColumn, Resource, ResourceDef, Site, Table, Tenancy, TenantId,
+    Widget, lens, relation,
+    testing::{columns, record_tables},
 };
 use toasty::Db;
-use topcoat::{context::Cx, router::Router};
+use topcoat::{
+    context::Cx,
+    router::Router,
+    view::{View, view},
+};
 use uuid::Uuid;
 
 use crate::common::{TestClient, body_bytes, body_string, mount, panel, refusal, test_db};
@@ -114,6 +120,28 @@ pub(super) fn hr(cx: &Cx) -> bool {
     tablo::tenant_id(cx) == Some(HR)
 }
 
+/// The cards under their code, their holder's salary and their holder.
+struct Cards;
+
+impl Widget for Cards {
+    async fn render(cx: &Cx) -> topcoat::Result<impl View> {
+        let table = RecordTable::new().columns(["code", "pay", "member"]);
+        tablo::record_table::<CardResource>(cx, table).await
+    }
+}
+
+struct Dashboard;
+
+impl Page for Dashboard {
+    fn declare() -> PageDef {
+        PageDef::new().widget::<Cards>()
+    }
+
+    async fn render(cx: &Cx) -> topcoat::Result<impl View> {
+        Ok(view! { cx => <main>(tablo::widgets::<Self>(cx))</main> })
+    }
+}
+
 async fn db() -> Db {
     test_db(toasty::models!(
         Member, Card, Dossier, Warehouse, Picker, Ticket
@@ -126,7 +154,8 @@ fn router(db: &Db) -> Router {
         db.clone(),
         panel()
             .resource::<MemberResource>()
-            .resource::<CardResource>(),
+            .resource::<CardResource>()
+            .page::<Dashboard>(),
     )
     .expect("panel builds")
 }
@@ -203,6 +232,28 @@ async fn a_related_hidden_field_leaves_another_resources_pages() {
     let csv =
         String::from_utf8(body_bytes(sales.get("/admin/cards/-/export").await).await).unwrap();
     assert!(!csv.contains("S-900") && !csv.contains("Pay"), "{csv}");
+}
+
+/// A widget's record table drops the column showing a related member's salary for a user the
+/// member resource hides it from, as the list does, and keeps it for the user who may view it.
+#[tokio::test]
+async fn a_related_hidden_field_leaves_a_record_table() {
+    let db = db().await;
+    let router = router(&db);
+    card(&db, HR).await;
+    card(&db, SALES).await;
+
+    for (tenant, shown) in [
+        (HR, vec!["code", "pay", "member"]),
+        (SALES, vec!["code", "member"]),
+    ] {
+        let html = page(&TestClient::new(&router).tenant(tenant), "/admin/dashboard").await;
+        let tables = record_tables(&html);
+        assert_eq!(tables.len(), 1, "{html}");
+        assert_eq!(tables[0].columns, shown);
+        assert_eq!(tables[0].rows.len(), 1);
+        assert_eq!(html.contains("S-900"), tenant == HR, "{html}");
+    }
 }
 
 /// A resource over the same model as the restricting one hides the salary too: the restriction is

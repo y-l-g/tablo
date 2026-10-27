@@ -287,5 +287,105 @@ impl Stat {
     }
 }
 
+/// How many records a [`RecordTable`] lists unless it says otherwise.
+pub const DEFAULT_RECORD_ROWS: usize = 5;
+
+/// The most records a [`RecordTable`] lists: it never pages, so its full list is a link away.
+pub const MAX_RECORD_ROWS: usize = 50;
+
+/// A few of a resource's records as a table for a [`Widget`]'s body, under the resource's own
+/// columns: the newest posts, the orders awaiting review. [`record_table`](crate::record_table)
+/// loads and renders it.
+///
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String, created_at: jiff::Timestamp }
+/// use tablo_core::RecordTable;
+///
+/// RecordTable::new()
+///     .heading("Latest posts")
+///     .columns(["title", "created_at"])
+///     .order_by(Post::fields().created_at().desc())
+///     .limit(5);
+/// ```
+#[derive(Clone, Debug)]
+pub struct RecordTable {
+    pub(crate) heading: Option<crate::Text>,
+    pub(crate) description: Option<crate::Text>,
+    pub(crate) columns: Option<Vec<String>>,
+    pub(crate) filter: Option<toasty::stmt::Expr<bool>>,
+    pub(crate) order_by: Vec<toasty::stmt::OrderBy>,
+    pub(crate) limit: usize,
+}
+
+impl RecordTable {
+    /// A table of the resource's first [`DEFAULT_RECORD_ROWS`] records in the database's order,
+    /// under the columns its list shows by default and its plural label.
+    pub fn new() -> Self {
+        Self {
+            heading: None,
+            description: None,
+            columns: None,
+            filter: None,
+            order_by: Vec::new(),
+            limit: DEFAULT_RECORD_ROWS,
+        }
+    }
+
+    /// The heading over the table, in place of the resource's plural label.
+    #[must_use]
+    pub fn heading(mut self, heading: impl Into<crate::Text>) -> Self {
+        self.heading = Some(heading.into());
+        self
+    }
+
+    /// The line under the heading.
+    #[must_use]
+    pub fn description(mut self, description: impl Into<crate::Text>) -> Self {
+        self.description = Some(description.into());
+        self
+    }
+
+    /// Show only the list's columns these [names](crate::extend::Column::name) name, in this
+    /// order, a hidden-by-default one included. A name the list declares no column for fails the
+    /// render; one whose field the request may not see is left out.
+    #[must_use]
+    pub fn columns<S: Into<String>>(mut self, names: impl IntoIterator<Item = S>) -> Self {
+        self.columns = Some(names.into_iter().map(Into::into).collect());
+        self
+    }
+
+    /// Only the records `filter` admits, among those the request may see.
+    #[must_use]
+    pub fn filter(mut self, filter: toasty::stmt::Expr<bool>) -> Self {
+        self.filter = Some(match self.filter.take() {
+            Some(previous) => previous.and(filter),
+            None => filter,
+        });
+        self
+    }
+
+    /// Order the records by `order`, after any order given before: `Post::fields().created_at()
+    /// .desc()` lists the newest first.
+    #[must_use]
+    pub fn order_by(mut self, order: impl Into<toasty::stmt::OrderBy>) -> Self {
+        self.order_by.push(order.into());
+        self
+    }
+
+    /// List at most `rows` records, at least one and at most [`MAX_RECORD_ROWS`].
+    #[must_use]
+    pub fn limit(mut self, rows: usize) -> Self {
+        self.limit = rows.clamp(1, MAX_RECORD_ROWS);
+        self
+    }
+}
+
+impl Default for RecordTable {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests;

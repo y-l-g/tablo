@@ -349,6 +349,7 @@ tablo-stat-trend-up = Up
 tablo-stat-trend-down = Down
 tablo-stat-trend-flat = Unchanged
 tablo-chart-empty = No data
+tablo-record-table-view-all = View all
 
 ## Notifications
 

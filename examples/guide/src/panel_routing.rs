@@ -12,7 +12,10 @@ use topcoat::{
     view::*,
 };
 
-use crate::resources::{OrderResource, PostResource, UserResource};
+use crate::{
+    models::Post,
+    resources::{OrderResource, PostResource, UserResource},
+};
 
 // ANCHOR: panel-portal-auth
 pub struct Customers;
@@ -189,6 +192,23 @@ impl Widget for RevenueChart {
     }
 }
 
+/// The newest posts the caller can see, under the post list's columns.
+pub struct LatestPosts;
+
+impl Widget for LatestPosts {
+    fn declare() -> WidgetDef {
+        WidgetDef::new().access(can_list::<PostResource>)
+    }
+
+    async fn render(cx: &Cx) -> Result<impl View> {
+        let table = RecordTable::new()
+            .heading("Latest posts")
+            .order_by(Post::fields().created_at().desc())
+            .limit(5);
+        tablo::record_table::<PostResource>(cx, table).await
+    }
+}
+
 pub struct OverviewPage;
 
 impl Page for OverviewPage {
@@ -196,6 +216,7 @@ impl Page for OverviewPage {
         PageDef::new()
             .widget::<SalesOverview>()
             .widget::<RevenueChart>()
+            .widget::<LatestPosts>()
     }
 
     async fn render(cx: &Cx) -> Result<impl View> {

@@ -1,8 +1,8 @@
-//! The dashboard's widget grid: which widgets a request sees, and what its stat tiles and chart
-//! count.
+//! The dashboard's widget grid: which widgets a request sees, what its stat tiles and chart
+//! count, and which posts its table lists.
 
 use showcase::models::BLOCKED_TENANT;
-use tablo::testing::{ChartSeries, StatTile, charts, stats, widgets};
+use tablo::testing::{ChartSeries, StatTile, charts, record_tables, stats, widgets};
 
 use crate::common::{body_string, demo_client, routers::router_for_tests as router, tenanted_db};
 
@@ -44,6 +44,7 @@ async fn a_refused_request_sees_no_widget_or_tile_over_the_refused_resource() {
     assert_eq!(response.status(), http::StatusCode::OK);
     let html = body_string(response).await;
     assert_eq!(widgets(&html), ["overview"]);
+    assert_eq!(record_tables(&html), []);
     let tiles = stats(&html);
     for href in ["/admin/posts", "/admin/authors"] {
         assert!(
@@ -94,5 +95,27 @@ async fn the_posts_chart_counts_the_tenants_own_posts() {
             .map(|value| value.parse::<u32>().expect("a count"))
             .sum();
         assert_eq!(total, 1, "only the tenant's own post: {chart:?}");
+    }
+}
+
+/// Each tenant's latest posts list only its own post, under the columns the widget names, and
+/// link to the post list.
+#[tokio::test]
+async fn the_latest_posts_list_the_tenants_own_posts() {
+    let (db, t1, t2) = tenanted_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+
+    for (tenant, title) in [(t1, "T1 Post"), (t2, "T2 Post")] {
+        let html = body_string(client.tenant(tenant).get("/admin").await).await;
+        let tables = record_tables(&html);
+        assert_eq!(tables.len(), 1, "{tables:?}");
+        let table = &tables[0];
+        assert_eq!(table.resource, "posts");
+        assert_eq!(table.heading, "Latest posts");
+        assert_eq!(table.columns, ["title", "author", "status"]);
+        assert_eq!(table.list.as_deref(), Some("/admin/posts"));
+        let titles: Vec<&str> = table.rows.iter().map(|row| row.cells[0].as_str()).collect();
+        assert_eq!(titles, [title], "{table:?}");
     }
 }

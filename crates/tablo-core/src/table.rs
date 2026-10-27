@@ -206,6 +206,25 @@ impl<M> Table<M> {
         &self.columns
     }
 
+    /// This table with only the columns `names` names, in that order, and no default sort on a
+    /// column it drops. A name it declares no column for picks none.
+    pub(crate) fn only(&self, names: &[String]) -> Self {
+        let mut table = self.clone();
+        table.columns = names
+            .iter()
+            .filter_map(|name| self.columns.iter().find(|column| column.name() == name))
+            .cloned()
+            .collect();
+        if table
+            .default_sort
+            .as_ref()
+            .is_some_and(|sort| table.sortable_column(&sort.column).is_none())
+        {
+            table.default_sort = None;
+        }
+        table
+    }
+
     /// Appends `filter` after the declared ones.
     pub(crate) fn push_filter(&mut self, filter: BoxFilter<M>) {
         self.filters.push(filter);

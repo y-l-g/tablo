@@ -39,7 +39,7 @@ pub use self::{
     gate::{can_list, can_open},
     list::WiredTable,
     shell::Brand,
-    widgets::{stats, widgets},
+    widgets::{record_table, stats, widgets},
 };
 use crate::{
     DeclarationError, DeclarationErrorKind, Page, PageDef,

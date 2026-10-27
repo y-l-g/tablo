@@ -2,15 +2,20 @@
 //! page, the export, the search, the sort, the filters and the form; one the user may view but
 //! not change renders disabled; a submission posting either is refused; an edit keeps what the
 //! user could not change; and the mount refuses a declaration that would show the field anyway.
+//! A widget's record table hides it as the list does.
 
 use tablo::{
     Ability, ComputedColumn, DeclarationErrorKind, Detail, FieldAccess, FieldAccessFault,
-    FieldErrors, QueryFilter, Reads, Resource, ResourceDef, Schema, Site, Tab, Table, Tabs,
-    Tenancy, TenantId, TextColumn, lens,
-    testing::{columns, ignored_filters, row_keys, tabs},
+    FieldErrors, Page, PageDef, QueryFilter, Reads, RecordTable, Resource, ResourceDef, Schema,
+    Site, Tab, Table, Tabs, Tenancy, TenantId, TextColumn, Widget, lens,
+    testing::{columns, ignored_filters, record_tables, row_keys, tabs},
 };
 use toasty::Db;
-use topcoat::{context::Cx, router::Router};
+use topcoat::{
+    context::Cx,
+    router::Router,
+    view::{View, view},
+};
 use uuid::Uuid;
 
 use crate::common::{
@@ -135,6 +140,62 @@ impl Resource for TabbedResource {
     }
 }
 
+/// The employees under the list's columns.
+struct Staff;
+
+impl Widget for Staff {
+    async fn render(cx: &Cx) -> topcoat::Result<impl View> {
+        tablo::record_table::<EmployeeResource>(cx, RecordTable::new()).await
+    }
+}
+
+/// The employees under their name and salary alone.
+struct Pay;
+
+impl Widget for Pay {
+    async fn render(cx: &Cx) -> topcoat::Result<impl View> {
+        let table = RecordTable::new()
+            .heading("Pay")
+            .columns(["name", "salary"]);
+        tablo::record_table::<EmployeeResource>(cx, table).await
+    }
+}
+
+/// A dashboard of [`Staff`] and [`Pay`].
+struct Dashboard;
+
+impl Page for Dashboard {
+    fn declare() -> PageDef {
+        PageDef::new().widget::<Staff>().widget::<Pay>()
+    }
+
+    async fn render(cx: &Cx) -> topcoat::Result<impl View> {
+        Ok(view! { cx => <main>(tablo::widgets::<Self>(cx))</main> })
+    }
+}
+
+/// A widget naming a column the list does not declare.
+struct Misnamed;
+
+impl Widget for Misnamed {
+    async fn render(cx: &Cx) -> topcoat::Result<impl View> {
+        let table = RecordTable::new().columns(["wage"]);
+        tablo::record_table::<EmployeeResource>(cx, table).await
+    }
+}
+
+struct Broken;
+
+impl Page for Broken {
+    fn declare() -> PageDef {
+        PageDef::new().widget::<Misnamed>()
+    }
+
+    async fn render(cx: &Cx) -> topcoat::Result<impl View> {
+        Ok(view! { cx => <main>(tablo::widgets::<Self>(cx))</main> })
+    }
+}
+
 async fn db() -> Db {
     test_db(toasty::models!(Employee)).await
 }
@@ -145,7 +206,9 @@ fn router(db: &Db) -> Router {
         panel()
             .resource::<EmployeeResource>()
             .resource::<DefaultedResource>()
-            .resource::<TabbedResource>(),
+            .resource::<TabbedResource>()
+            .page::<Dashboard>()
+            .page::<Broken>(),
     )
     .expect("panel builds")
 }
@@ -214,6 +277,64 @@ async fn a_hidden_field_leaves_every_page_and_the_export() {
     let edit = page(&sales, &format!("/admin/employees/{}/edit", sales_ada.id)).await;
     assert_eq!(input_value(&edit, "salary"), None);
     assert!(!edit.contains("S-900"), "{edit}");
+}
+
+/// A widget's record table leaves out the salary for a user who may not view it, a column it
+/// names included, and lists only the tenant's own employees; the user who may sees the salary.
+#[tokio::test]
+async fn a_record_table_leaves_out_a_hidden_field() {
+    let db = db().await;
+    let router = router(&db);
+    let hr_ada = employee(&db, HR, "Ada", "S-900").await;
+    let sales_ada = employee(&db, SALES, "Ada", "S-900").await;
+
+    for (tenant, own, shown) in [
+        (
+            HR,
+            &hr_ada,
+            [vec!["name", "salary", "grade"], vec!["name", "salary"]],
+        ),
+        (SALES, &sales_ada, [vec!["name", "grade"], vec!["name"]]),
+    ] {
+        let client = TestClient::new(&router).tenant(tenant);
+        let html = page(&client, "/admin/dashboard").await;
+        let tables = record_tables(&html);
+        assert_eq!(
+            tables
+                .iter()
+                .map(|table| table.columns.clone())
+                .collect::<Vec<_>>(),
+            shown,
+            "{tables:?}"
+        );
+        assert_eq!(html.contains("S-900"), tenant == HR, "{html}");
+        for table in &tables {
+            assert_eq!(table.list.as_deref(), Some("/admin/employees"));
+            let views: Vec<_> = table
+                .rows
+                .iter()
+                .map(|row| row.actions.view.clone())
+                .collect();
+            assert_eq!(
+                views,
+                [Some(format!("/admin/employees/{}", own.id))],
+                "only the tenant's own employee: {table:?}"
+            );
+        }
+    }
+}
+
+/// A record table naming a column the list does not declare fails its page rather than render
+/// without it.
+#[tokio::test]
+async fn a_record_table_naming_an_undeclared_column_fails_its_page() {
+    let db = db().await;
+    let router = router(&db);
+    let response = TestClient::new(&router)
+        .tenant(HR)
+        .get("/admin/broken")
+        .await;
+    assert_eq!(response.status(), 500);
 }
 
 /// A tab holding only a field the user may not view renders no trigger and no panel, on the form

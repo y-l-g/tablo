@@ -270,6 +270,12 @@ adds it to the page's grid, which `widgets::<Self>(cx)` renders where the page p
   `Series` of values per thing it measures, as SVG the server writes: it reads without
   JavaScript, and a table of its values stands in for it to a screen reader. A chart over a
   resource's records reads them as any widget does, below.
+- **Record tables.** `record_table::<R>(cx, …)` lists a few of `R`'s records under its list's
+  own columns, or the ones `RecordTable::columns` names, with a link to the full list. It shows
+  the records the list would, which `RecordTable::filter` narrows, in the
+  `RecordTable::order_by` order, at most `RecordTable::limit` of them. Each row links its View
+  and Edit pages as `R`'s policy allows, and the columns hide what `R`'s field access hides from
+  the caller, as the list does. It never sorts, pages, searches or writes: the list does.
 - **Who sees a widget.** `WidgetDef::access(|cx| …)` leaves a widget out of the grid for the
   requests it refuses, and the grid renders nothing for a request the page refuses. A widget that
   reads a resource's records asks `can_list` before it reads them, then reads them through
