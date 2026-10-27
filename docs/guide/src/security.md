@@ -59,6 +59,31 @@ What Tablo does by default, and what your deployment must provide for those defa
   can keep the owner's app codes waiting until the owner changes it:
   [`Auth::two_factor`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.two_factor).
 
+## Several panels, one user table
+
+Two panels whose authenticators load the same user type share that type's credentials. What each
+panel keeps to itself, and what it does not:
+
+- **Sessions are per panel.** A session belongs to the panel that signed the user in; another
+  panel's gate treats the request as anonymous
+  ([`AuthSession`](https://y-l.fr/tablo/nightly/api/tablo/auth/struct.AuthSession.html)).
+- **Credentials are not.** The same password signs in to every panel that loads the user type,
+  and a password change or reset on one ends the user's sessions and reset links on each.
+- **The weakest panel is the floor.** Email verification, a required second factor and tenant
+  registration are each declared per panel, and a factor signs in only to the panel that set it
+  up ([`Auth::two_factor`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.two_factor)).
+  A password stolen from a user of a panel that requires two factors still signs in, alone, to a
+  sibling panel that admits the user and requires one.
+- **Access is the user type's to decide, per panel.**
+  [`PanelUser::can_access_panel`](https://y-l.fr/tablo/nightly/api/tablo/trait.PanelUser.html#method.can_access_panel)
+  receives the panel's prefix, so one type can admit staff to `/admin` and every customer to
+  `/portal`.
+
+To give two panels separate credentials, give each its own user type, over its own table, with its
+own [`Authenticator`](https://y-l.fr/tablo/nightly/api/tablo/trait.Authenticator.html): a staff
+password then signs in to no customer panel, and a customer panel's weaker sign-in reaches no staff
+account.
+
 ## Responses
 
 - **Headers.** Every response under the panel prefix carries a `Content-Security-Policy` that loads
