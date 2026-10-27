@@ -148,6 +148,45 @@ pub fn sales_portal() -> Panel {
 }
 // ANCHOR_END: panel-page-def
 
+// ANCHOR: panel-widgets
+/// The orders the caller can see, and this week's revenue.
+pub struct SalesOverview;
+
+impl Widget for SalesOverview {
+    fn declare() -> WidgetDef {
+        WidgetDef::new().full_width()
+    }
+
+    async fn render(cx: &Cx) -> Result<impl View> {
+        let orders = Stat::records::<OrderResource>(cx).await?;
+        let revenue = Stat::new("Revenue", "$12,400")
+            .detail("8% more than last week")
+            .trend(Trend::Up)
+            .color(Color::Success)
+            .chart([9.1, 10.2, 11.0, 12.4]);
+        Ok(tablo::stats(cx, orders.into_iter().chain([revenue])))
+    }
+}
+
+pub struct OverviewPage;
+
+impl Page for OverviewPage {
+    fn declare() -> PageDef {
+        PageDef::new().widget::<SalesOverview>()
+    }
+
+    async fn render(cx: &Cx) -> Result<impl View> {
+        Ok(view! {
+            cx =>
+            tablo::ui::page(
+                tablo::ui::page_header(tablo::ui::page_title("Overview"))
+                tablo::ui::page_content((tablo::widgets::<Self>(cx)))
+            )
+        })
+    }
+}
+// ANCHOR_END: panel-widgets
+
 // ANCHOR: panel-public-page
 pub struct Dashboard;
 

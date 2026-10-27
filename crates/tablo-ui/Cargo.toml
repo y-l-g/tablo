@@ -16,5 +16,8 @@ topcoat = { workspace = true, features = ["asset", "icon", "icon-iconify", "runt
 [build-dependencies]
 topcoat = { workspace = true, features = ["icon-iconify"] }
 
+[dev-dependencies]
+proptest = { version = "1.11", default-features = false, features = ["std"] }
+
 [lints]
 workspace = true

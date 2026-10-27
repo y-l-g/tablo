@@ -1,6 +1,6 @@
 //! Reads values back out of rendered responses: bodies, cookies, form data, the page's language,
 //! and the semantic HTML queries over tables, fields, filters, the ignored-filters banner, the
-//! import page, rich text values, the notification bell, the global search, and tabs.
+//! import page, rich text values, the notification bell, the global search, tabs, and widgets.
 
 mod bell;
 pub mod dom;
@@ -9,6 +9,7 @@ mod import;
 mod rich_text;
 mod search;
 mod tabs;
+mod widgets;
 
 pub use bell::{Bell, BellNotification, bell};
 pub use dom::{
@@ -24,6 +25,7 @@ pub use search::{SearchGroup, SearchResult, search_box, search_results};
 use tablo_core::Notification;
 pub use tabs::{Tab, tabs};
 use topcoat::router::Body;
+pub use widgets::{StatTile, stats, widgets};
 
 /// One `Cookie` header value from `(name, value)` pairs, or `None` when empty.
 pub fn cookie_header<'a>(cookies: impl IntoIterator<Item = (&'a str, &'a str)>) -> Option<String> {

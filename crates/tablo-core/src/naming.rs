@@ -2,10 +2,12 @@
 //! [`Resource`](crate::resource::Resource), a [`Page`](crate::Page) and a field label, and the
 //! prefix and route paths a panel mounts under.
 
-/// The last segment of a type's full path, e.g.
-/// `tablo_core::resource::tests::UserResource` → `UserResource`.
+/// The last segment of a type's full path, without its generic arguments, e.g.
+/// `tablo_core::resource::tests::UserResource` → `UserResource`, `app::Count<app::Book>` →
+/// `Count`.
 pub(crate) fn type_short_name<T: ?Sized>() -> &'static str {
     let name = std::any::type_name::<T>();
+    let name = name.split_once('<').map_or(name, |(path, _)| path);
     name.rsplit("::").next().unwrap_or(name)
 }
 

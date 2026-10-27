@@ -1,7 +1,7 @@
 //! The panel's home page, served at the panel prefix by `Panel::home`.
 
 use tablo::{
-    Ability, FieldErrors, HeaderAction, Page, PageDef, Resource, can_list, db::db,
+    Ability, FieldErrors, HeaderAction, Page, PageDef, Stat, Widget, WidgetDef, can_list, db::db,
     header_action_buttons, scoped_query,
 };
 use toasty::stmt::Include;
@@ -19,51 +19,64 @@ use crate::{
 /// The page the panel serves at its prefix.
 pub struct Dashboard;
 
-/// `R`'s tile: its sidebar label, icon and list, and how many records the caller can see there,
-/// or `None` when the caller may not open `R`'s list, so the dashboard links to no list that
-/// would answer 403, or when the panel does not register `R`. A count the database fails to read
-/// shows as a dash rather than a wrong zero.
-async fn stat<R: Resource>(cx: &Cx, detail: String) -> Option<BoxView<'_>> {
-    if !can_list::<R>(cx) {
-        return None;
+/// The record counts the caller can see, one tile per resource whose list they may open.
+pub struct Overview;
+
+impl Widget for Overview {
+    fn declare() -> WidgetDef {
+        WidgetDef::new().full_width()
     }
-    let item = tablo::navigation_item::<R>(cx)?;
-    let url = tablo::url::resource::<R>(cx)?;
-    let count = match scoped_query::<R>(cx) {
-        Ok(query) => query.count().exec(&mut db(cx).ok()?).await.ok(),
-        Err(_) => None,
-    };
-    let value = count.map_or_else(|| "—".to_string(), |count| count.to_string());
-    Some(
-        view! {
-            cx =>
-            tablo::ui::stat(
-                label: item.label.localize(cx),
-                value: value,
-                detail: detail,
-                icon: item.icon,
-                href: url
-            )
-        }
-        .boxed(),
-    )
+
+    async fn render(cx: &Cx) -> Result<impl View> {
+        let posts = match Stat::records::<PostResource>(cx).await? {
+            Some(posts) => {
+                let drafts = scoped_query::<PostResource>(cx)?
+                    .filter(Post::fields().status().eq(PostStatus::Draft))
+                    .count()
+                    .exec(&mut db(cx)?)
+                    .await?;
+                Some(posts.detail(format!("{drafts} in draft")))
+            }
+            None => None,
+        };
+        let tiles = [
+            Stat::records::<UserResource>(cx).await?,
+            Stat::records::<AuthorResource>(cx).await?,
+            posts,
+            Stat::records::<CommentResource>(cx).await?,
+        ];
+        Ok(tablo::stats(cx, tiles.into_iter().flatten()))
+    }
 }
 
 /// The newest posts the caller can see, each linking to its page, with a link to the full list.
-async fn latest_posts(cx: &Cx) -> Option<BoxView<'_>> {
-    if !can_list::<PostResource>(cx) {
-        return None;
+/// Only a caller who may open the post list sees it.
+pub struct LatestPosts;
+
+impl Widget for LatestPosts {
+    fn declare() -> WidgetDef {
+        WidgetDef::new()
+            .full_width()
+            .access(can_list::<PostResource>)
     }
-    let all = tablo::url::resource::<PostResource>(cx)?;
+
+    async fn render(cx: &Cx) -> Result<impl View> {
+        Ok(latest_posts(cx).await?.unwrap_or_else(|| ().boxed()))
+    }
+}
+
+/// [`LatestPosts`]' body, `None` when the panel does not mount the post resource.
+async fn latest_posts(cx: &Cx) -> Result<Option<BoxView<'_>>> {
+    let Some(all) = tablo::url::resource::<PostResource>(cx) else {
+        return Ok(None);
+    };
     let author: Include<Post, Author> = Post::fields().author().into();
-    let posts = scoped_query::<PostResource>(cx)
-        .ok()?
+    let posts = scoped_query::<PostResource>(cx)?
         .order_by(Post::fields().created_at().desc())
         .limit(5)
         .include(author)
-        .exec(&mut db(cx).ok()?)
-        .await
-        .ok()?;
+        .exec(&mut db(cx)?)
+        .await?;
     let rows: Vec<BoxView<'_>> = posts
         .iter()
         .map(|post| {
@@ -103,7 +116,7 @@ async fn latest_posts(cx: &Cx) -> Option<BoxView<'_>> {
             .boxed()
         })
         .collect();
-    Some(
+    Ok(Some(
         view! {
             cx =>
             <section
@@ -128,7 +141,7 @@ async fn latest_posts(cx: &Cx) -> Option<BoxView<'_>> {
             </section>
         }
         .boxed(),
-    )
+    ))
 }
 
 /// What featuring by tag asks for: the tag.
@@ -184,25 +197,11 @@ impl Page for Dashboard {
         PageDef::new()
             .icon(tablo::ui::icons::LAYOUT_DASHBOARD)
             .header_action::<FeatureTagged>()
+            .widget::<Overview>()
+            .widget::<LatestPosts>()
     }
 
     async fn render(cx: &Cx) -> Result<impl View> {
-        let drafts = scoped_query::<PostResource>(cx)?
-            .filter(Post::fields().status().eq(PostStatus::Draft))
-            .count()
-            .exec(&mut db(cx)?)
-            .await
-            .map_or_else(|_| String::new(), |drafts| format!("{drafts} in draft"));
-        let stats: Vec<BoxView<'_>> = [
-            stat::<UserResource>(cx, String::new()).await,
-            stat::<AuthorResource>(cx, String::new()).await,
-            stat::<PostResource>(cx, drafts).await,
-            stat::<CommentResource>(cx, String::new()).await,
-        ]
-        .into_iter()
-        .flatten()
-        .collect();
-        let latest = latest_posts(cx).await;
         Ok(view! {
             cx =>
             tablo::ui::page(
@@ -213,16 +212,7 @@ impl Page for Dashboard {
                     )
                     tablo::ui::page_actions((header_action_buttons::<Self>(cx)))
                 )
-                tablo::ui::page_content(
-                    <div class="grid grid-cols-2 gap-4 xl:grid-cols-4">
-                        for tile in stats {
-                            (tile)
-                        }
-                    </div>
-                    if let Some(latest) = latest {
-                        (latest)
-                    }
-                )
+                tablo::ui::page_content((tablo::widgets::<Self>(cx)))
             )
         })
     }

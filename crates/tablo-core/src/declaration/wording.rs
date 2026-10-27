@@ -89,6 +89,10 @@ impl fmt::Display for DeclarationErrorKind {
                 f,
                 "two actions are named '{name}': each needs a distinct `NAME`"
             ),
+            Self::DuplicateWidget { name } => write!(
+                f,
+                "two widgets are named '{name}': each needs a distinct `WidgetDef::name`"
+            ),
             Self::ActionInput { action, fault } => fmt_action_input(f, action, fault),
             Self::SignUp(fault) => fault.fmt(f),
             Self::Profile(fault) => fault.fmt(f),

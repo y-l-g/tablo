@@ -125,6 +125,7 @@ mod toasty_compat;
 mod topcoat_compat;
 mod upload;
 mod values;
+mod widget;
 
 /// The future a type-erased, dyn-compatible method returns.
 pub(crate) type BoxFuture<'a, T> = std::pin::Pin<Box<dyn Future<Output = T> + Send + 'a>>;
@@ -168,7 +169,7 @@ pub use outcome::{Notification, NotificationAction, NotificationStatus, Outcome}
 pub use page::{Page, PageDef};
 pub use panel::{
     Brand, MAX_IMPORT_ROWS, Panel, PanelHandle, RouterBuilderPanelExt, WiredTable, can_list,
-    can_open, navigation_item, pages::header_action_buttons, url, wired_table,
+    can_open, navigation_item, pages::header_action_buttons, stats, url, widgets, wired_table,
 };
 pub use policy::{Abilities, Ability, Allow, And, Deny, Or, Policy, ReadOnly, When, when};
 pub use resource::{
@@ -197,3 +198,4 @@ pub use values::{
     FieldError, FieldErrorKind, FieldErrors, FormField, FormScalar, FormValue, FormValues,
     parse_list, parse_password, parse_scalar, time_zone, write_list,
 };
+pub use widget::{Stat, Trend, Widget, WidgetDef};
