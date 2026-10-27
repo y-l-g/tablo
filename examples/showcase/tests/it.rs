@@ -36,3 +36,4 @@ mod search;
 mod shell;
 mod tenancy;
 mod toggleable_columns;
+mod widgets;

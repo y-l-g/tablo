@@ -433,7 +433,7 @@ fn inner_html(html: &str, tag: &str, open_end: usize) -> String {
     String::new()
 }
 
-fn elements(html: &str, tag: &str) -> Vec<Element> {
+pub(crate) fn elements(html: &str, tag: &str) -> Vec<Element> {
     tags_where(html, |name, _| name == tag)
 }
 

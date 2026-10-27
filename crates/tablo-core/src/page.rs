@@ -6,9 +6,10 @@ use std::{future::Future, sync::Arc};
 use topcoat::{Result, context::Cx, icon::IconData, view::View};
 
 use crate::{
-    HeaderAction, HeaderActions,
+    HeaderAction, HeaderActions, Widget,
     naming::{kebab_case, sentence_case, type_stem},
     navigation::NavigationItem,
+    widget::MountedWidget,
 };
 
 /// A panel page that is not a resource, mounted at `{prefix}/{slug}` with a
@@ -49,7 +50,7 @@ pub trait Page: Sized + Send + Sync + 'static {
 /// Whether the request's user may open a page.
 type AccessFn = dyn Fn(&Cx) -> bool + Send + Sync;
 
-/// What a [`Page`] declares: its slug, sidebar entry, access and header actions.
+/// What a [`Page`] declares: its slug, sidebar entry, access, header actions and widgets.
 ///
 /// [`Page::declare`] returns one, and [`Panel::page_with`](crate::Panel::page_with) adjusts it for
 /// one panel. Every setting has a default, so a page sets only what differs:
@@ -80,6 +81,8 @@ pub struct PageDef {
     navigation: Option<NavigationItem>,
     access: Arc<AccessFn>,
     header_actions: HeaderActions,
+    widgets: Vec<MountedWidget>,
+    widget_columns: u8,
 }
 
 impl PageDef {
@@ -190,6 +193,22 @@ impl PageDef {
         self.header_actions = self.header_actions.add::<A>();
         self
     }
+
+    /// Adds the [`Widget`] `W` after the ones already declared, to the grid
+    /// [`widgets`](crate::widgets) renders where [`render`](Page::render) places it.
+    #[must_use]
+    pub fn widget<W: Widget>(mut self) -> Self {
+        self.widgets.push(MountedWidget::new::<W>());
+        self
+    }
+
+    /// How many columns the widget grid has on a wide screen, from 1 to 4; defaults to 2. A
+    /// medium screen shows at most two, a narrow one one.
+    #[must_use]
+    pub fn widget_columns(mut self, columns: u8) -> Self {
+        self.widget_columns = columns.clamp(1, 4);
+        self
+    }
 }
 
 impl Default for PageDef {
@@ -203,6 +222,8 @@ impl Default for PageDef {
             navigation: None,
             access: Arc::new(|_| true),
             header_actions: HeaderActions::new(),
+            widgets: Vec::new(),
+            widget_columns: 2,
         }
     }
 }
@@ -216,6 +237,8 @@ impl std::fmt::Debug for PageDef {
             .field("navigation_group", &self.navigation_group)
             .field("navigation", &self.navigation)
             .field("header_actions", &self.header_actions)
+            .field("widgets", &self.widgets)
+            .field("widget_columns", &self.widget_columns)
             .finish_non_exhaustive()
     }
 }
@@ -227,6 +250,8 @@ pub(crate) struct MountedPage {
     pub(crate) navigation: NavigationItem,
     access: Arc<AccessFn>,
     pub(crate) header_actions: HeaderActions,
+    pub(crate) widgets: Vec<MountedWidget>,
+    pub(crate) widget_columns: u8,
 }
 
 impl MountedPage {
@@ -256,6 +281,8 @@ impl MountedPage {
             navigation,
             access: def.access,
             header_actions: def.header_actions,
+            widgets: def.widgets,
+            widget_columns: def.widget_columns,
         }
     }
 

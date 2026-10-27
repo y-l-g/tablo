@@ -1,0 +1,273 @@
+//! [`Widget`] — one block of a page's widget grid, such as a row of [`Stat`]s — and the
+//! [`WidgetDef`] it declares.
+
+use std::{future::Future, sync::Arc};
+
+use topcoat::{
+    Result,
+    context::Cx,
+    icon::IconData,
+    view::{BoxView, View},
+};
+
+use crate::{Color, naming::type_stem, topcoat_compat::async_page};
+
+/// One block of a page's widget grid: a row of stats, a chart, a list of recent records.
+///
+/// A page adds widgets with [`PageDef::widget`](crate::PageDef::widget), and
+/// [`widgets`](crate::widgets) renders them where the page's [`render`](crate::Page::render)
+/// places it:
+///
+/// ```rust
+/// # use tablo_core::{Page, PageDef, Stat, Widget, WidgetDef};
+/// # use topcoat::{Result, context::Cx, view::{View, view}};
+/// struct Overview;
+///
+/// impl Widget for Overview {
+///     fn declare() -> WidgetDef {
+///         WidgetDef::new().full_width()
+///     }
+///
+///     async fn render(cx: &Cx) -> Result<impl View> {
+///         Ok(tablo_core::stats(
+///             cx,
+///             [Stat::new("Orders", "1,204").detail("12 today")],
+///         ))
+///     }
+/// }
+///
+/// struct Dashboard;
+///
+/// impl Page for Dashboard {
+///     fn declare() -> PageDef {
+///         PageDef::new().widget::<Overview>()
+///     }
+///
+///     async fn render(cx: &Cx) -> Result<impl View> {
+///         Ok(view! {
+///             cx =>
+///             tablo_ui::page(
+///                 tablo_ui::page_title("Dashboard")
+///                 tablo_ui::page_content((tablo_core::widgets::<Self>(cx)))
+///             )
+///         })
+///     }
+/// }
+/// ```
+///
+/// A widget reads what it shows itself. One that reads a resource's records reads them through
+/// [`scoped_query`](crate::scoped_query), which keeps the caller's tenant and the resource's
+/// [`Query`](crate::Resource), and asks [`can_list`](crate::can_list) before it links to the list.
+pub trait Widget: Sized + Send + Sync + 'static {
+    /// The widget's span and access. Defaults to [`WidgetDef::new`]: one column, for every user
+    /// who may open the page.
+    fn declare() -> WidgetDef {
+        WidgetDef::new()
+    }
+
+    /// Render the widget's body. The grid checks [`WidgetDef::access`] before calling it; an
+    /// error fails the page's response, as a page's own error does.
+    fn render(cx: &Cx) -> impl Future<Output = Result<impl View>> + Send;
+}
+
+/// Whether the request's user may see a widget.
+type AccessFn = dyn Fn(&Cx) -> bool + Send + Sync;
+
+/// How many columns of the page's widget grid a widget spans.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Span {
+    /// That many columns, at most the grid's.
+    Columns(u8),
+    /// Every column.
+    Full,
+}
+
+/// What a [`Widget`] declares: how many columns of the grid it spans, and who sees it.
+pub struct WidgetDef {
+    span: Span,
+    access: Arc<AccessFn>,
+}
+
+impl WidgetDef {
+    /// A def with every default: one column, for every user who may open the page.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Spans `columns` columns of the grid, at most as many as it has, and at least one. On a
+    /// narrow screen the grid stacks every widget in one column.
+    #[must_use]
+    pub fn columns(mut self, columns: u8) -> Self {
+        self.span = Span::Columns(columns.max(1));
+        self
+    }
+
+    /// Spans every column of the grid.
+    #[must_use]
+    pub fn full_width(mut self) -> Self {
+        self.span = Span::Full;
+        self
+    }
+
+    /// Whether the request's user may see the widget. The grid leaves out a widget it refuses
+    /// and never renders it. Defaults to every user who may open the page.
+    #[must_use]
+    pub fn access(mut self, access: impl Fn(&Cx) -> bool + Send + Sync + 'static) -> Self {
+        self.access = Arc::new(access);
+        self
+    }
+}
+
+impl Default for WidgetDef {
+    fn default() -> Self {
+        Self {
+            span: Span::Columns(1),
+            access: Arc::new(|_| true),
+        }
+    }
+}
+
+impl std::fmt::Debug for WidgetDef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WidgetDef")
+            .field("span", &self.span)
+            .finish_non_exhaustive()
+    }
+}
+
+/// A [`WidgetDef`] for the widget `W`, as a page holds it.
+pub(crate) struct MountedWidget {
+    /// The widget's name, from its type: `RecentOrdersWidget` → `recent-orders`.
+    pub(crate) name: String,
+    pub(crate) span: Span,
+    access: Arc<AccessFn>,
+    pub(crate) render: for<'a> fn(&'a Cx) -> BoxView<'a>,
+}
+
+impl MountedWidget {
+    pub(crate) fn new<W: Widget>() -> Self {
+        let def = W::declare();
+        Self {
+            name: crate::naming::kebab_case(type_stem::<W>("Widget")),
+            span: def.span,
+            access: def.access,
+            render: render::<W>,
+        }
+    }
+
+    /// Whether the request's user may see the widget.
+    pub(crate) fn admits(&self, cx: &Cx) -> bool {
+        (self.access)(cx)
+    }
+}
+
+impl std::fmt::Debug for MountedWidget {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MountedWidget")
+            .field("name", &self.name)
+            .field("span", &self.span)
+            .finish_non_exhaustive()
+    }
+}
+
+fn render<W: Widget>(cx: &Cx) -> BoxView<'_> {
+    async_page(W::render(cx))
+}
+
+/// Which way a [`Stat`]'s figure moved, shown as an arrow before its detail line.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Trend {
+    /// The figure grew.
+    Up,
+    /// The figure shrank.
+    Down,
+    /// The figure held.
+    Flat,
+}
+
+/// One figure of a [`stats`](crate::stats) row: what it counts, the value, and optionally a line
+/// under it, an icon, a link, a trend and a sparkline.
+///
+/// ```rust
+/// # use tablo_core::{Color, Stat, Trend};
+/// Stat::new("Revenue", "$12,400")
+///     .detail("8% more than last month")
+///     .trend(Trend::Up)
+///     .color(Color::Success)
+///     .chart([9.1, 10.2, 11.0, 12.4]);
+/// ```
+#[derive(Clone, Debug)]
+pub struct Stat {
+    pub(crate) label: crate::Text,
+    pub(crate) value: String,
+    pub(crate) detail: Option<crate::Text>,
+    pub(crate) icon: Option<IconData>,
+    pub(crate) href: Option<String>,
+    pub(crate) trend: Option<Trend>,
+    pub(crate) color: Color,
+    pub(crate) chart: Vec<f64>,
+}
+
+impl Stat {
+    /// A figure labelled `label`, with `value` already formatted: `"1,204"`, `"98%"`.
+    pub fn new(label: impl Into<crate::Text>, value: impl Into<String>) -> Self {
+        Self {
+            label: label.into(),
+            value: value.into(),
+            detail: None,
+            icon: None,
+            href: None,
+            trend: None,
+            color: Color::Gray,
+            chart: Vec::new(),
+        }
+    }
+
+    /// The line under the value, such as `"12 this week"`.
+    #[must_use]
+    pub fn detail(mut self, detail: impl Into<crate::Text>) -> Self {
+        self.detail = Some(detail.into());
+        self
+    }
+
+    /// The icon before the label.
+    #[must_use]
+    pub fn icon(mut self, icon: IconData) -> Self {
+        self.icon = Some(icon);
+        self
+    }
+
+    /// The URL the whole tile links to, such as the list the figure counts.
+    #[must_use]
+    pub fn href(mut self, href: impl Into<String>) -> Self {
+        self.href = Some(href.into());
+        self
+    }
+
+    /// Which way the figure moved, as an arrow before the detail line; a stat with no detail line
+    /// shows none.
+    #[must_use]
+    pub fn trend(mut self, trend: Trend) -> Self {
+        self.trend = Some(trend);
+        self
+    }
+
+    /// The color of the detail line and the sparkline; defaults to [`Color::Gray`], muted. A
+    /// trend is good or bad only for the figure it moves, so the color is the caller's to pick.
+    #[must_use]
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+
+    /// The values the tile draws as a sparkline under the value, oldest first. Fewer than two
+    /// finite values draw none.
+    #[must_use]
+    pub fn chart(mut self, values: impl IntoIterator<Item = f64>) -> Self {
+        self.chart = values.into_iter().collect();
+        self
+    }
+}
+
+#[cfg(test)]
+mod tests;

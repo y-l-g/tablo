@@ -20,6 +20,7 @@ pub(crate) mod state;
 #[cfg(test)]
 pub(crate) mod test_support;
 pub mod url;
+mod widgets;
 mod write;
 
 use std::path::PathBuf;
@@ -38,6 +39,7 @@ pub use self::{
     gate::{can_list, can_open},
     list::WiredTable,
     shell::Brand,
+    widgets::{stats, widgets},
 };
 use crate::{
     DeclarationError, DeclarationErrorKind, Page, PageDef,

@@ -254,6 +254,25 @@ use topcoat::{Result, context::Cx, view::{View, view}};
   asks `can_open::<P>(cx)` itself: the panel's sign-in and the page's `access`, as the page's
   `GET` checks them.
 
+### Widgets
+
+A dashboard is a grid of widgets. A `Widget` renders one block of it, and `PageDef::widget::<W>()`
+adds it to the page's grid, which `widgets::<Self>(cx)` renders where the page places it:
+
+```rust
+{{#include ../../../examples/guide/src/panel_routing.rs:panel-widgets}}
+```
+
+- **Stats.** `stats(cx, …)` lays out a row of `Stat` tiles. `Stat::records::<R>(cx)` counts what
+  `R`'s list would show the caller, through `scoped_query`, and links to it; it is `None` when the
+  caller may not open that list, so the row has no tile for it.
+- **Who sees a widget.** `WidgetDef::access(|cx| …)` leaves a widget out of the grid for the
+  requests it refuses, and the grid renders nothing for a request the page refuses. A widget that
+  reads a resource's records reads them through `scoped_query`, as its list does.
+- **Layout.** `PageDef::widget_columns` sets how many columns the grid has on a wide screen, and
+  `WidgetDef::columns` and `WidgetDef::full_width` how many a widget spans. A narrow screen
+  stacks every widget.
+
 The `tablo::ui` composites give a page the same frame as the panel's own pages: `page` sets the
 width and padding; `page_header` holds a `page_title`, an optional `page_description` and optional
 `page_actions`; `page_content` holds the body. Inside it, use `card` for a panel of content, `stat`
