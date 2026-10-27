@@ -300,7 +300,7 @@ pub fn reset_router(db: toasty::Db) -> Result<Router> {
         ))
         .password_reset(PasswordReset::new(PasswordAuth));
     Ok(Router::builder()
-        .app_context(db)
+        .with(db)
         // Before the panel, which checks for it. `SmtpTransport`, behind Topcoat's `mail-smtp`
         // feature, delivers in production; `FileTransport` writes `.eml` files instead.
         .mail(
@@ -329,10 +329,10 @@ pub fn verified_auth() -> Result<Auth> {
 pub fn two_factor_router(db: toasty::Db, cookie_key: &[u8]) -> Result<Router> {
     let auth = Auth::password().two_factor(TwoFactor::new());
     Ok(Router::builder()
-        .app_context(db)
+        .with(db)
         // Seals each authenticator secret. Load the same 64 random bytes or more at every start,
         // kept with the app's other secrets: a new key opens no secret sealed under the old one.
-        .app_context(Key::from(cookie_key))
+        .with(Key::from(cookie_key))
         .panel(Panel::new("admin").auth(auth))?
         .build())
 }

@@ -18,7 +18,7 @@ impl Page for ReportsPage {
 /// and no user, it answers the login redirect and never renders.
 #[tokio::test]
 async fn a_page_redirects_to_login_without_a_resolved_user() {
-    use topcoat::{context::CxTestBuilder, router::response::IntoResponse, view::ViewExt};
+    use topcoat::{context::Cx, router::response::IntoResponse, view::ViewExt};
 
     let (parts, ()) = http::Request::builder()
         .uri("/admin/reports")
@@ -26,13 +26,12 @@ async fn a_page_redirects_to_login_without_a_resolved_user() {
         .unwrap()
         .into_parts();
     let cx = crate::panel::test_support::serving(
-        CxTestBuilder::new().request_context(parts),
+        Cx::default().with(parts),
         &std::sync::Arc::new(crate::panel::test_support::panel_state(
             "/admin",
             crate::Auth::password(),
         )),
-    )
-    .build();
+    );
     let Err(error) = super::page_handler::<ReportsPage>(&cx, Body::empty())
         .single()
         .await

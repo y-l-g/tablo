@@ -1,7 +1,7 @@
 //! Which of its panel's locales a request reads.
 
 use topcoat::{
-    context::{Cx, try_app_context},
+    context::{Cx, try_context},
     l10n::{Locale, accept_language, locale, negotiate, try_locale},
 };
 
@@ -52,7 +52,7 @@ pub(crate) fn catalog_and_locale(cx: &Cx) -> (&Catalog, &Locale) {
 
 /// The request panel's catalog, through the [`CatalogSource`] the panel installs.
 fn catalog(cx: &Cx) -> Option<&Catalog> {
-    (try_app_context::<CatalogSource>(cx)?.0)(cx)
+    (try_context::<CatalogSource>(cx)?.0)(cx)
 }
 
 /// Finds the request panel's catalog; the first panel mounted on a router installs it in the app

@@ -5,7 +5,7 @@ use std::sync::OnceLock;
 use hkdf::Hkdf;
 use sha2::Sha256;
 use topcoat::{
-    context::{Cx, try_app_context},
+    context::{Cx, try_context},
     cookie::Key,
 };
 
@@ -15,11 +15,11 @@ use topcoat::{
 /// links break on every other replica.
 pub(crate) fn derived(cx: &Cx, purpose: &[u8]) -> [u8; 32] {
     static PROCESS: OnceLock<[u8; 32]> = OnceLock::new();
-    let master: &[u8] = match try_app_context::<Key>(cx) {
+    let master: &[u8] = match try_context::<Key>(cx) {
         Some(cookie) => cookie.master(),
         None => PROCESS.get_or_init(|| {
             tracing::warn!(
-                "no cookie `Key` in the router's app context: upload links and carried uploads \
+                "no cookie `Key` on the router: upload links and carried uploads \
                  are signed with a key drawn for this process, so another replica or a restart \
                  refuses them"
             );

@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use tokio::sync::broadcast;
-use topcoat::context::{Cx, try_app_context};
+use topcoat::context::{Cx, try_context};
 
 /// How many wakes a slow bell may fall behind by before it skips to the latest; a bell that
 /// lags re-reads once, which is all a wake asks of it.
@@ -72,7 +72,7 @@ impl Subscription {
 
 /// The router's bus, or one no bell listens on outside a router.
 pub(crate) fn bus(cx: &Cx) -> NotificationBus {
-    try_app_context::<NotificationBus>(cx)
+    try_context::<NotificationBus>(cx)
         .cloned()
         .unwrap_or_else(NotificationBus::new)
 }

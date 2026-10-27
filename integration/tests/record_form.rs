@@ -9,7 +9,7 @@ use tablo::{
     TextColumn, lens, write_create,
 };
 use toasty::Db;
-use topcoat::context::{Cx, CxTestBuilder};
+use topcoat::context::Cx;
 use uuid::Uuid;
 
 use crate::common::{
@@ -109,7 +109,7 @@ async fn reload(db: &Db, id: Uuid) -> Item {
 }
 
 fn cx_for(db: &Db) -> Cx {
-    CxTestBuilder::new().app_context(db.clone()).build()
+    Cx::default().with(db.clone())
 }
 
 fn map(pairs: &[(&str, &str)]) -> FormValues {

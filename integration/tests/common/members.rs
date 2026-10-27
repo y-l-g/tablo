@@ -141,7 +141,7 @@ pub async fn db() -> Db {
 pub fn mount(db: Db, auth: Auth<impl PanelUser>) -> topcoat::Result<Router> {
     Ok(Router::builder()
         .discover()
-        .app_context(db)
+        .with(db)
         .panel(Panel::new("admin").auth(auth).resource::<NoteResource>())?
         .build())
 }

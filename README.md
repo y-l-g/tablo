@@ -72,7 +72,7 @@ router, beside its other routes:
 fn router(db: toasty::Db) -> topcoat::Result<Router> {
     Ok(Router::builder()
         .discover()
-        .app_context(db)
+        .with(db)
         .panel(
             Panel::new("admin")
                 .resource::<UserResource>()

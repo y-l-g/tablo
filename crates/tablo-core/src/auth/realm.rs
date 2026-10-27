@@ -45,7 +45,7 @@ impl Realm {
     }
 }
 
-/// The request's realm, as the request context carries it. Whatever enters a panel installs it
+/// The request's realm, as the request's context carries it. Whatever enters a panel installs it
 /// beside the panel's own context, so a request to the panel and a job that enters its handle
 /// read the same realm, whether or not the context holds a [`Host`].
 #[derive(Clone)]
@@ -99,13 +99,13 @@ pub(crate) struct SettingsPage<'f> {
     pub(crate) errors: &'f FieldErrors,
 }
 
-/// The [`Host`] the panel layer installs in the app context.
+/// The [`Host`] the panel layer installs on the router.
 #[derive(Clone, Copy)]
 pub(crate) struct AuthHost(pub(crate) &'static dyn Host);
 
 /// The installed host; `None` outside a router that mounts a panel.
 pub(crate) fn host(cx: &Cx) -> Option<&'static dyn Host> {
-    topcoat::context::try_app_context::<AuthHost>(cx).map(|AuthHost(host)| *host)
+    topcoat::context::try_context::<AuthHost>(cx).map(|AuthHost(host)| *host)
 }
 
 /// The installed host, or the declaration error an auth page answers on a context without one,
@@ -118,7 +118,7 @@ pub(crate) fn hosted(cx: &Cx) -> topcoat::Result<&'static dyn Host> {
 
 /// The realm of the request's panel; `None` outside every panel.
 pub(crate) fn current_realm(cx: &Cx) -> Option<&Arc<Realm>> {
-    topcoat::context::try_request_context::<CurrentRealm>(cx).map(|CurrentRealm(realm)| realm)
+    topcoat::context::try_context::<CurrentRealm>(cx).map(|CurrentRealm(realm)| realm)
 }
 
 /// Every mounted panel's realm, in mount order; none outside a router.

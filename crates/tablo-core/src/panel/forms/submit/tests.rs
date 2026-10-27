@@ -220,7 +220,7 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
     // The route sits under the panel's prefix, so the request answers as the panel.
     let router = Router::builder()
         .discover()
-        .app_context(db)
+        .with(db)
         .panel(
             Panel::new("admin")
                 .auth(crate::Auth::disabled())

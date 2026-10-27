@@ -2,7 +2,7 @@
 //! hardened attributes, which Topcoat flushes on error responses too (topcoat#408).
 
 use topcoat::{
-    context::{Cx, try_request_context},
+    context::{Cx, try_context},
     cookie::{CookieJar, CookieJarCell, Cookies, cookie_store, cookies},
 };
 
@@ -21,7 +21,7 @@ fn hardened(jar: &CookieJar) -> impl Cookies + '_ {
 
 /// Store a notification for the next request (flash).
 pub fn set_notification(cx: &Cx, notification: Notification) {
-    if try_request_context::<CookieJarCell>(cx).is_none() {
+    if try_context::<CookieJarCell>(cx).is_none() {
         return;
     }
     if let Err(error) = cookie_store::<Notification, _>(hardened(cookies(cx)), COOKIE_NAME)
@@ -45,7 +45,7 @@ pub(crate) fn notify_write_failure(cx: &Cx, failure: &'static str) {
 
 /// Take the notification from the request (if present) and clear it.
 pub fn take_notification(cx: &Cx) -> Option<Notification> {
-    try_request_context::<CookieJarCell>(cx)?;
+    try_context::<CookieJarCell>(cx)?;
     let unparsed = cookie_store::<Notification, _>(hardened(cookies(cx)), COOKIE_NAME);
     match unparsed.parse() {
         Ok(Some(store)) => {

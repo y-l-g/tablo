@@ -46,7 +46,7 @@ fn sender() -> Mailbox {
 
 /// Mounts `auth` on a router that can send mail when `with_mail`.
 async fn mount(auth: Auth, with_mail: bool) -> topcoat::Result<Router> {
-    let mut builder = Router::builder().discover().app_context(db().await);
+    let mut builder = Router::builder().discover().with(db().await);
     if with_mail {
         builder = builder.mail(
             MailConfig::builder()

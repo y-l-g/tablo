@@ -70,7 +70,7 @@ use self::handle::request_mounts;
 /// # let db: toasty::Db = todo!();
 /// let router = Router::builder()
 ///     .discover()
-///     .app_context(db)
+///     .with(db)
 ///     .panel(Panel::new("admin").resource::<UserResource>())?
 ///     .panel(Panel::new("portal").auth(Auth::custom(Members)).resource::<OrderResource>())?
 ///     .build();
@@ -81,7 +81,7 @@ use self::handle::request_mounts;
 pub trait RouterBuilderPanelExt: Sized {
     /// Mounts `panel` at its prefix with its routes, shell layout, and gating layers.
     ///
-    /// The panel reads the router's `Db` and asset bundle, so `.app_context(db)` and
+    /// The panel reads the router's `Db` and asset bundle, so `.with(db)` and
     /// `.assets(..)` come first. The first panel mounted also installs what every panel shares:
     /// cookies, sessions unless the router already configures them, the gate over Topcoat's
     /// runtime endpoints, and Topcoat's runtime layer with link prefetching off unless the router
@@ -107,15 +107,15 @@ impl RouterBuilderPanelExt for RouterBuilder {
 
     fn panel_handle(&self, prefix: &str) -> Option<PanelHandle> {
         let panel = self
-            .get_app_context::<Panels>()?
+            .try_context::<Panels>()?
             .by_prefix(&crate::naming::normalize_prefix(prefix))?;
         Some(PanelHandle {
-            db: self.get_app_context::<Db>()?.clone(),
+            db: self.try_context::<Db>()?.clone(),
             mounts: Arc::clone(&panel.mounts),
             panel: Some(Arc::clone(panel)),
             prefix: panel.realm.prefix.clone(),
             bus: self
-                .get_app_context::<NotificationBus>()
+                .try_context::<NotificationBus>()
                 .cloned()
                 .unwrap_or_else(NotificationBus::new),
         })
@@ -155,12 +155,10 @@ impl Panel {
     }
 
     fn mount(self, mut builder: RouterBuilder) -> Result<RouterBuilder> {
-        let db = builder.get_app_context::<Db>().cloned();
+        let db = builder.try_context::<Db>().cloned();
         let services = crate::auth::mount::Services {
-            mail: builder
-                .get_app_context::<topcoat::mail::MailConfig>()
-                .is_some(),
-            cookie_key: builder.get_app_context::<topcoat::cookie::Key>().is_some(),
+            mail: builder.try_context::<topcoat::mail::MailConfig>().is_some(),
+            cookie_key: builder.try_context::<topcoat::cookie::Key>().is_some(),
         };
         let mut registry = Registry::new(self.prefix.clone(), db.as_ref().map(AppSchema::of_db));
         let Panel {
@@ -236,7 +234,7 @@ impl Panel {
             return Err(MountError::new(&prefix, errors).into());
         }
         let catalog = catalog.expect("a catalog that failed to build fails the mount");
-        if builder.get_app_context::<Panels>().is_none() {
+        if builder.try_context::<Panels>().is_none() {
             builder = install_shared(builder);
         }
         let Registry {
@@ -345,12 +343,10 @@ impl Panel {
                 panel_root_redirect,
             ));
         }
-        builder
-            .get_app_context_mut::<Panels>()
-            .expect("the shared panel state is installed above")
-            .0
-            .push(state);
-        Ok(builder)
+        // The builder lends no mutable access: copy the list of handles and register it again.
+        let mut panels = builder.context::<Panels>().clone();
+        panels.0.push(state);
+        Ok(builder.with(panels))
     }
 }
 
@@ -409,7 +405,7 @@ fn mount_errors(
 ) -> Vec<DeclarationError> {
     let mut errors = Vec::new();
     let mut refuse = |kind| errors.push(DeclarationError::panel(kind));
-    if shell_assets && builder.get_app_context::<AssetConfig>().is_none() {
+    if shell_assets && builder.try_context::<AssetConfig>().is_none() {
         refuse(DeclarationErrorKind::ShellAssetsWithoutBundle);
     }
     if under_prefix(RUNTIME_PREFIX, prefix) || under_prefix(prefix, RUNTIME_PREFIX) {
@@ -428,7 +424,7 @@ fn mount_errors(
             });
         }
     }
-    if let Some(panels) = builder.get_app_context::<Panels>() {
+    if let Some(panels) = builder.try_context::<Panels>() {
         for other in &panels.0 {
             for ServedDir { path, .. } in served_dirs {
                 if other
@@ -456,25 +452,25 @@ fn mount_errors(
 /// Installs what every panel on a router shares.
 fn install_shared(mut builder: RouterBuilder) -> RouterBuilder {
     builder = builder.cookies();
-    if builder.get_app_context::<SessionConfig>().is_none() {
+    if builder.try_context::<SessionConfig>().is_none() {
         builder = builder.sessions(SessionConfig::builder().lifetime(SESSION_LIFETIME).build());
     }
     builder = builder
         .layer(RuntimeGate::new())
-        .app_context(Panels::default())
-        .app_context(AuthHost(&PanelHost))
-        .app_context(MountScope(request_mounts))
-        .app_context(TenantSource(crate::auth::session_tenant))
-        .app_context(crate::values::ZoneSource(crate::auth::session_time_zone))
-        .app_context(crate::schema::FileHref(super::url::file))
-        .app_context(crate::i18n::CatalogSource(crate::auth::session_catalog))
-        .app_context(NotificationBus::new());
+        .with(Panels::default())
+        .with(AuthHost(&PanelHost))
+        .with(MountScope(request_mounts))
+        .with(TenantSource(crate::auth::session_tenant))
+        .with(crate::values::ZoneSource(crate::auth::session_time_zone))
+        .with(crate::schema::FileHref(super::url::file))
+        .with(crate::i18n::CatalogSource(crate::auth::session_catalog))
+        .with(NotificationBus::new());
     // The runtime layer has no path, so a page re-run reaches the panel's layers already rewritten
     // to a `GET`.
-    if builder.get_app_context::<RuntimeSetup>().is_none() {
+    if builder.try_context::<RuntimeSetup>().is_none() {
         builder = builder.runtime();
     }
-    if builder.get_app_context::<PrefetchMode>().is_none() {
+    if builder.try_context::<PrefetchMode>().is_none() {
         builder = builder.prefetch(PrefetchMode::Never);
     }
     builder
@@ -521,14 +517,14 @@ pub(super) fn validate_route_segment(
 /// and
 /// the panel's `mounts`, with no request.
 fn validation_cx(db: &Db, mounts: &Arc<Mounts>) -> Cx {
-    let mut app_context = topcoat::context::AppContext::new();
-    app_context.insert(db.clone());
-    app_context.insert(Arc::clone(mounts));
-    app_context.insert(AuthHost(&PanelHost));
-    app_context.insert(MountScope(|cx| {
-        topcoat::context::try_app_context::<Arc<Mounts>>(cx).map(|mounts| &**mounts)
+    let mut values = topcoat::context::ContextMap::new();
+    values.insert(db.clone());
+    values.insert(Arc::clone(mounts));
+    values.insert(AuthHost(&PanelHost));
+    values.insert(MountScope(|cx| {
+        topcoat::context::try_context::<Arc<Mounts>>(cx).map(|mounts| &**mounts)
     }));
-    Cx::new(Arc::new(app_context))
+    Cx::new(Arc::new(values))
 }
 
 /// A served directory's pattern without its catch-all's name: the router treats

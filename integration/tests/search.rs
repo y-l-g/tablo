@@ -248,7 +248,7 @@ async fn on_a_second_panel_without_sign_in_the_box_links_its_results_page() {
     book(&db, "Dune", "1", "").await;
     let router = Router::builder()
         .discover()
-        .app_context(db.clone())
+        .with(db.clone())
         .panel(books_panel())
         .and_then(|router| router.panel(books_panel_at("staff")))
         .expect("the panels mount")

@@ -7,7 +7,7 @@ use std::{
 };
 
 use topcoat::{
-    context::{Cx, try_request_context},
+    context::{Cx, try_context},
     router::{
         Body,
         error::{forbidden, not_found, see_other, too_many_requests},
@@ -231,7 +231,7 @@ impl<E: ProfileEditor> DynProfileEditor for E {
             }
             tx.commit().await.map_err(crate::error::unavailable)?;
             let email_pending =
-                try_request_context::<Requested>(cx).is_some_and(|requested| requested.mail(cx));
+                try_context::<Requested>(cx).is_some_and(|requested| requested.mail(cx));
             Ok(Outcome::Saved { email_pending })
         })
     }

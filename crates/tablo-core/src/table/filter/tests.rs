@@ -634,9 +634,7 @@ async fn a_relationship_filter_admits_only_the_keys_its_source_shows() {
         for i in 0..extra {
             writer(format!("Writer {i}")).await;
         }
-        let cx = topcoat::context::CxTestBuilder::new()
-            .app_context(db)
-            .build();
+        let cx = topcoat::context::Cx::default().with(db);
         let filter = SelectFilter::relationship::<Writers>(crate::lens!(Article.writer_id));
         let admits = async |keys: &[&str]| {
             let value = keys

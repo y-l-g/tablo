@@ -1,7 +1,7 @@
 //! The time zone a request shows and reads wall-clock times in.
 
 use jiff::tz::TimeZone;
-use topcoat::context::{Cx, try_app_context};
+use topcoat::context::{Cx, try_context};
 
 /// The time zone the request reads and shows wall-clock times in: the signed-in user's
 /// [`time_zone`](crate::PanelUser::time_zone), else the request panel's
@@ -27,11 +27,11 @@ use topcoat::context::{Cx, try_app_context};
 ///   [`TypedValue::parse_input`](crate::extend::TypedValue::parse_input) alone refuses one, since
 ///   it names no instant.
 pub fn time_zone(cx: &Cx) -> TimeZone {
-    try_app_context::<ZoneSource>(cx)
+    try_context::<ZoneSource>(cx)
         .and_then(|ZoneSource(session)| session(cx))
         .unwrap_or(TimeZone::UTC)
 }
 
-/// Finds the zone of the request's user or panel; the first panel mounted on a router installs it
-/// in the app context.
+/// Finds the zone of the request's user or panel; the first panel mounted on a
+/// router installs it.
 pub(crate) struct ZoneSource(pub(crate) fn(&Cx) -> Option<TimeZone>);

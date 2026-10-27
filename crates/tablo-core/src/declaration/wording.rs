@@ -8,7 +8,7 @@ impl fmt::Display for DeclarationErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::MissingDb => f.write_str(
-                "the router holds no Db: install it with `.app_context(db)` before mounting the \
+                "the router holds no Db: install it with `.with(db)` before mounting the \
                  panel",
             ),
             Self::MissingAuthModels { models } => write!(

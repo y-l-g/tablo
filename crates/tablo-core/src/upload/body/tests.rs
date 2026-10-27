@@ -63,9 +63,7 @@ async fn multipart_parts(
         .body(())
         .unwrap()
         .into_parts();
-    let cx = topcoat::context::CxTestBuilder::new()
-        .request_context(parts)
-        .build();
+    let cx = topcoat::context::Cx::default().with(parts);
     parse_multipart_values(&cx, Body::from(body), capture).await
 }
 

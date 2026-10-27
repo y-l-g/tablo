@@ -35,7 +35,7 @@ fn panel() -> Panel {
 }
 
 fn router(db: Db) -> RouterBuilder {
-    Router::builder().discover().app_context(db)
+    Router::builder().discover().with(db)
 }
 
 async fn connect() -> Result<Db> {

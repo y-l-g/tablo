@@ -27,7 +27,7 @@ impl<M> WiredTable<M> {
     ///
     /// # Panics
     ///
-    /// Without a request context in `cx`.
+    /// Without a request in `cx`.
     ///
     /// # Errors
     ///

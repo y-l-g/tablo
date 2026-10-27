@@ -1,4 +1,4 @@
-use topcoat::context::CxTestBuilder;
+use topcoat::context::Cx;
 
 use super::*;
 
@@ -8,12 +8,12 @@ fn tenant_extension_wins_over_scoped_value_and_defaults_to_none() {
     let other = TenantId::from(uuid::Uuid::new_v4());
 
     // A scoped value app code put on the `Cx`.
-    let cx = CxTestBuilder::new().request_context(Tenant(id)).build();
+    let cx = Cx::default().with(Tenant(id));
     assert_eq!(tenant_id(&cx), Some(id));
 
     // A server-set request extension overrides it deliberately.
-    let cx = CxTestBuilder::new()
-        .request_context({
+    let cx = Cx::default()
+        .with({
             let mut parts = http::Request::builder()
                 .uri("/")
                 .body(())
@@ -23,12 +23,11 @@ fn tenant_extension_wins_over_scoped_value_and_defaults_to_none() {
             parts.extensions.insert(Tenant(id));
             parts
         })
-        .request_context(Tenant(other))
-        .build();
+        .with(Tenant(other));
     assert_eq!(tenant_id(&cx), Some(id));
 
     // Nothing set → None (callers must reject tenantless access).
-    let cx = CxTestBuilder::new().build();
+    let cx = Cx::default();
     assert_eq!(tenant_id(&cx), None);
 }
 

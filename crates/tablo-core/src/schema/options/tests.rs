@@ -71,7 +71,7 @@ async fn a_typed_field_takes_its_options_and_labels_from_its_type() {
     );
     let mut valid = FormValues::new();
     valid.insert("status".to_string(), "arch".to_string());
-    let cx = topcoat::context::CxTestBuilder::new().build();
+    let cx = topcoat::context::Cx::default();
     let errors = schema.checked(&cx, &valid).await;
     assert!(errors.is_empty(), "a listed option validates: {errors:?}");
     let mut bogus = FormValues::new();

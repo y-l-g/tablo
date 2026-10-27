@@ -35,7 +35,7 @@ use crate::{
 /// # async fn run(db: toasty::Db, tenant: tablo_core::TenantId) -> topcoat::Result<()> {
 /// let builder = Router::builder()
 ///     .discover()
-///     .app_context(db)
+///     .with(db)
 ///     .panel(Panel::new("admin").resource::<PostResource>())?;
 /// let admin = builder.panel_handle("admin").expect("mounted above");
 /// let router = builder.build();
@@ -135,13 +135,13 @@ impl PanelHandle {
     ///
     /// ```rust,no_run
     /// # use tablo_core::PanelHandle;
-    /// # use topcoat::{Result, context::{Cx, app_context}, router::{Slot, layout}, view::{View, view}};
-    /// /// The handle `panel_handle("admin")` returned, kept in the app context.
+    /// # use topcoat::{Result, context::{Cx, context}, router::{Slot, layout}, view::{View, view}};
+    /// /// The handle `panel_handle("admin")` returned, kept on the router.
     /// struct Admin(PanelHandle);
     ///
     /// #[layout("/blog")]
     /// async fn blog_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
-    ///     let Admin(admin) = app_context::<Admin>(cx);
+    ///     let Admin(admin) = context::<Admin>(cx);
     ///     admin.document(cx, "Blog", view! { <main>(slot)</main> }).await
     /// }
     /// ```
@@ -163,7 +163,8 @@ pub(super) struct EnteredPanel(Arc<Mounts>);
 pub(super) fn request_mounts(cx: &Cx) -> Option<&Mounts> {
     match current(cx) {
         Some(panel) => Some(&*panel.mounts),
-        None => topcoat::context::try_request_context::<EnteredPanel>(cx)
-            .map(|EnteredPanel(mounts)| &**mounts),
+        None => {
+            topcoat::context::try_context::<EnteredPanel>(cx).map(|EnteredPanel(mounts)| &**mounts)
+        }
     }
 }

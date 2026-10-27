@@ -127,7 +127,7 @@ const FILTER_PREFIX: &str = "f.";
 
 impl TableState {
     /// Parse the state from the request in `cx`: [`Self::from_query`] over
-    /// the request URI's query. Renders without a request context (e.g. unit
+    /// the request URI's query. Renders without a request in `cx` (e.g. unit
     /// tests) get neutral state.
     pub fn from_cx(cx: &Cx) -> Self {
         Self::from_query(&request_query(cx))
@@ -524,9 +524,9 @@ fn dom_id(prefix: &str, key: &str) -> String {
 }
 
 /// The request's URL query, without the leading `?`; empty without a
-/// request context.
+/// request in `cx`.
 pub(crate) fn request_query(cx: &Cx) -> String {
-    topcoat::context::try_request_context::<http::request::Parts>(cx)
+    topcoat::context::try_context::<http::request::Parts>(cx)
         .and_then(|parts| parts.uri.query().map(str::to_string))
         .unwrap_or_default()
 }

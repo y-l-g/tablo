@@ -7,7 +7,7 @@
 //! gate too, so it signs in first and then shows the 404 page.
 
 use topcoat::{
-    context::{Cx, try_request_context},
+    context::{Cx, try_context},
     icon::icon,
     router::{
         Body, RouteFuture,
@@ -92,7 +92,7 @@ impl PanelError {
 /// rewrite to the panel's error page; else `error` itself. The error page's own failure passes
 /// through, so it answers the router's bare text instead of rewriting again.
 pub(crate) fn answer(cx: &Cx, error: topcoat::Error) -> topcoat::Error {
-    if try_request_context::<PanelError>(cx).is_some() || !crate::auth::page_load(cx) {
+    if try_context::<PanelError>(cx).is_some() || !crate::auth::page_load(cx) {
         return error;
     }
     let Some(page) = PanelError::of(&error) else {
@@ -113,7 +113,7 @@ pub(crate) fn answer(cx: &Cx, error: topcoat::Error) -> topcoat::Error {
 
 /// The request's failure, while the error page renders it.
 pub(crate) fn current_error(cx: &Cx) -> Option<PanelError> {
-    try_request_context::<PanelError>(cx).copied()
+    try_context::<PanelError>(cx).copied()
 }
 
 /// `GET {prefix}/-/error`: the failure the rewrite carries, else a 404 for a visit to the path

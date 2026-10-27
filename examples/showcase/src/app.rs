@@ -492,11 +492,11 @@ pub fn build_app(
     // Reset links land in `target/mail` as `.eml` files instead of an inbox.
     let mut builder = Router::builder()
         .discover()
-        .app_context(db)
-        .app_context(cookie_key())
+        .with(db)
+        .with(cookie_key())
         .mail(MailConfig::builder().transport(mail_transport()).build());
     if let Some(dir) = uploads {
-        builder = builder.app_context(MediaStore(DirUploader::new(UPLOAD_URL_PREFIX, dir.clone())));
+        builder = builder.with(MediaStore(DirUploader::new(UPLOAD_URL_PREFIX, dir.clone())));
         panel = panel.uploads_dir(UPLOAD_URL_PREFIX, dir);
     }
     if let Some(bundle) = bundle {
@@ -505,7 +505,7 @@ pub fn build_app(
     }
     let builder = builder.panel(panel).expect("showcase panel mounts");
     let admin = builder.panel_handle("admin").expect("mounted above");
-    let router = builder.app_context(AdminPanel(admin.clone())).build();
+    let router = builder.with(AdminPanel(admin.clone())).build();
     (router, admin)
 }
 

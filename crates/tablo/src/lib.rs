@@ -65,7 +65,7 @@
 //! # let db: toasty::Db = todo!();
 //! let router = Router::builder()
 //!     .discover()
-//!     .app_context(db)
+//!     .with(db)
 //!     .panel(Panel::new("admin").resource::<BookResource>())?
 //!     .build();
 //! # let _ = router;

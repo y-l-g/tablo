@@ -1,9 +1,9 @@
 //! Shares the fixtures the crate's unit tests build on.
 
-use topcoat::context::{Cx, CxTestBuilder};
+use topcoat::context::Cx;
 
 pub(crate) fn cx() -> Cx {
-    CxTestBuilder::new().build()
+    Cx::default()
 }
 
 /// Builds a `Cx` carrying `name=value` when `value` is `Some`.
@@ -20,10 +20,9 @@ pub(crate) fn cx_with_cookie(name: &str, value: Option<&str>) -> Cx {
             format!("{name}={value}").parse().unwrap(),
         );
     }
-    CxTestBuilder::new()
-        .request_context(parts)
-        .request_context(topcoat::cookie::CookieJarCell::new())
-        .build()
+    Cx::default()
+        .with(parts)
+        .with(topcoat::cookie::CookieJarCell::new())
 }
 
 /// Names a row for tests that only need one.

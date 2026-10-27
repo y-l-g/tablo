@@ -319,7 +319,7 @@ async fn a_reset_mail_reads_its_recipients_locale() {
         .password_reset(PasswordReset::new(ReaderAuth));
     let router = Router::builder()
         .discover()
-        .app_context(db.clone())
+        .with(db.clone())
         .mail(MailConfig::builder().transport(mail.clone()).build())
         .panel(panel(auth))
         .expect("panel builds")

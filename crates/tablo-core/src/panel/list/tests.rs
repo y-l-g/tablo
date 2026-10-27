@@ -79,7 +79,7 @@ async fn a_misdeclared_table_fails_to_render() {
         TextColumn::new(lens!(User.name)),
     ))
     .wired();
-    let cx = topcoat::context::CxTestBuilder::new().build();
+    let cx = topcoat::context::Cx::default();
     let view = crate::topcoat_compat::async_page(async {
         let signals = TableSignals::new(&cx, None);
         let page = crate::table::TablePage::<User>::from(vec![]);

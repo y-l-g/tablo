@@ -185,7 +185,7 @@ async fn only_the_login_methods_pass_the_gate_at_the_login_path() {
     }
     let router = Router::builder()
         .discover()
-        .app_context(db_with_ada().await)
+        .with(db_with_ada().await)
         .panel(Panel::new("admin").auth(Auth::password()))
         .expect("panel builds")
         .route(topcoat::router::RouteFn::new(
@@ -234,7 +234,7 @@ async fn two_panels(trailing_slash: TrailingSlash) -> Router {
     Router::builder()
         .trailing_slash(trailing_slash)
         .discover()
-        .app_context(db_with_ada().await)
+        .with(db_with_ada().await)
         .panel(Panel::new("admin"))
         .expect("admin builds")
         .panel(Panel::new("portal").endpoint(portal_report))

@@ -48,7 +48,7 @@ impl tablo::PanelUser for Customer {
 pub fn admin_router(db: Db) -> topcoat::Result<Router> {
     let router = Router::builder()
         .discover() // the app's own pages and routes, and Tablo's
-        .app_context(db) // the toasty::Db every handler uses
+        .with(db) // the toasty::Db every handler uses
         .panel(
             Panel::new("admin") // mounted at /admin
                 .brand(Brand::new("Acme"))
@@ -65,7 +65,7 @@ pub fn admin_router(db: Db) -> topcoat::Result<Router> {
 pub fn two_panels(db: Db) -> topcoat::Result<Router> {
     let router = Router::builder()
         .discover()
-        .app_context(db)
+        .with(db)
         .panel(
             Panel::new("admin")
                 .resource::<UserResource>()
@@ -207,14 +207,14 @@ impl Page for MediaLibraryPage {
 
 // ANCHOR: panel-blog
 /// The handle `builder.panel_handle("admin")` returned, which the router builder adds with
-/// `.app_context(Admin(admin))` after mounting the panel.
+/// `.with(Admin(admin))` after mounting the panel.
 pub struct Admin(pub tablo::PanelHandle);
 
 // A layout wraps every route under its path: this one wraps /blog and /blog/{id}.
 // A layout at "/" would wrap /admin too.
 #[layout("/blog")]
 pub async fn blog_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
-    let Admin(admin) = topcoat::context::app_context::<Admin>(cx);
+    let Admin(admin) = topcoat::context::context::<Admin>(cx);
     admin
         .document(
             cx,
@@ -252,7 +252,7 @@ pub const GEIST: Font = fontsource_font!(GEIST, host: Asset);
 
 // ANCHOR: panel-assets-body
 pub fn asset_panel(db: Db, bundle: AssetBundle) -> Panel {
-    let _router = Router::builder().discover().app_context(db).assets(bundle);
+    let _router = Router::builder().discover().with(db).assets(bundle);
     Panel::new("admin").shell_assets(tailwind::stylesheet!(), GEIST)
 }
 // ANCHOR_END: panel-assets-body

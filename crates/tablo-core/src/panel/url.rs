@@ -69,7 +69,7 @@ pub fn page<P: Page>(cx: &Cx) -> Option<String> {
 /// ```
 pub fn file(cx: &Cx, path: &str) -> String {
     let signed = !path.contains(['?', '#'])
-        && topcoat::context::try_app_context::<super::state::Panels>(cx).is_some_and(|panels| {
+        && topcoat::context::try_context::<super::state::Panels>(cx).is_some_and(|panels| {
             panels.0.iter().any(|panel| {
                 panel
                     .signed_roots

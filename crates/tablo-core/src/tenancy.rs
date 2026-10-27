@@ -7,7 +7,7 @@
 //! anyone that tenant.
 
 use toasty::stmt::{Expr, Path};
-use topcoat::context::{Cx, try_app_context, try_request_context};
+use topcoat::context::{Cx, try_context};
 
 use crate::{
     DeclarationErrorKind, TenancyFault,
@@ -41,7 +41,9 @@ impl Membership {
 ///
 /// App code may put it on the `Cx` with `cx.with(Tenant(id))`, and server code
 /// and tests may carry it as a request extension; either wins over the signed-in
-/// user's tenant. No request header sets it.
+/// user's tenant. No request header sets it. A `Tenant` registered on the router
+/// with `.with(Tenant(id))` reaches every request, so every user acts for that
+/// tenant whatever their memberships.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Tenant(pub TenantId);
 
@@ -52,20 +54,20 @@ pub struct Tenant(pub TenantId);
 /// `Tenant` scoped value app code put on the `Cx`, then the signed-in user's
 /// [`membership`](crate::auth::membership). No request header is consulted.
 pub fn tenant_id(cx: &Cx) -> Option<TenantId> {
-    if let Some(parts) = try_request_context::<http::request::Parts>(cx)
+    if let Some(parts) = try_context::<http::request::Parts>(cx)
         && let Some(t) = parts.extensions.get::<Tenant>()
     {
         return Some(t.0);
     }
-    if let Some(t) = try_request_context::<Tenant>(cx) {
+    if let Some(t) = try_context::<Tenant>(cx) {
         return Some(t.0);
     }
-    let TenantSource(session) = try_app_context::<TenantSource>(cx)?;
+    let TenantSource(session) = try_context::<TenantSource>(cx)?;
     session(cx)
 }
 
-/// Finds the tenant the request's session acts for; the first panel mounted on a router installs
-/// it in the app context.
+/// Finds the tenant the request's session acts for; the first panel mounted on a
+/// router installs it.
 pub(crate) struct TenantSource(pub(crate) fn(&Cx) -> Option<TenantId>);
 
 /// Requires a tenant, returning an error if missing (for tenant-owned resources).

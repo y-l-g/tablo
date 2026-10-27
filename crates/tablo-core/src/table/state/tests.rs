@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use topcoat::context::{Cx, CxTestBuilder};
+use topcoat::context::Cx;
 
 use super::*;
 use crate::{schema::relationship::MAX_QUERY_TERM, topcoat_compat::href::encode_path_segment};
@@ -16,7 +16,7 @@ fn cx_with_query(query: &str) -> Cx {
         .body(())
         .unwrap()
         .into_parts();
-    CxTestBuilder::new().request_context(parts).build()
+    Cx::default().with(parts)
 }
 
 #[test]

@@ -69,7 +69,7 @@ fn verifying(verification: EmailVerification<AdminUser>) -> Auth {
 fn mount(db: Db, auth: Auth, mail: &MemoryTransport) -> topcoat::Result<Router> {
     Ok(Router::builder()
         .discover()
-        .app_context(db)
+        .with(db)
         .mail(MailConfig::builder().transport(mail.clone()).build())
         .panel(Panel::new("admin").auth(auth).resource::<TicketResource>())?
         .build())
@@ -196,7 +196,7 @@ async fn a_link_verifies_only_the_address_it_was_mailed_to_while_it_lasts() {
     let mail = MemoryTransport::new();
     let router = Router::builder()
         .discover()
-        .app_context(db.clone())
+        .with(db.clone())
         .mail(MailConfig::builder().transport(mail.clone()).build())
         .panel(
             Panel::new("admin")

@@ -7,9 +7,9 @@ use std::{
 };
 
 use toasty::{Db, Transaction};
-use topcoat::context::{Cx, CxId, app_context};
+use topcoat::context::{Cx, CxId, context};
 
-/// Returns the pooled [`Db`] registered on the app context.
+/// Returns the pooled [`Db`] registered on the router.
 ///
 /// Never runs statements on another handle while a transaction holds its connection; drains or
 /// drops streaming list bodies before the next query.
@@ -22,7 +22,7 @@ use topcoat::context::{Cx, CxId, app_context};
 #[inline]
 pub fn db(cx: &Cx) -> topcoat::Result<Db> {
     no_write_open(cx.id(), "db(cx)")?;
-    Ok(app_context::<Db>(cx).clone())
+    Ok(context::<Db>(cx).clone())
 }
 
 /// The requests with a panel write's transaction open now, each with the work to run once it

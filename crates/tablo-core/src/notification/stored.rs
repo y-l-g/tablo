@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use jiff::Timestamp;
 use toasty::{Db, stmt::Expr};
-use topcoat::context::{Cx, CxId, app_context};
+use topcoat::context::{Cx, CxId, context};
 use uuid::Uuid;
 
 use super::Notification;
@@ -90,7 +90,7 @@ impl Notifications {
         // The pool itself, not `db(cx)`: a hook inside the write's transaction may take the
         // handle to `send_in` through it.
         let mut notifications = Self::new(
-            app_context::<Db>(cx).clone(),
+            context::<Db>(cx).clone(),
             bus(cx),
             realm.prefix.clone(),
             crate::tenant_id(cx),

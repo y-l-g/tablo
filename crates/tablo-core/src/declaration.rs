@@ -93,7 +93,7 @@ impl std::error::Error for DeclarationError {}
 pub enum DeclarationErrorKind {
     /// The router holds no `toasty::Db`.
     ///
-    /// Call `.app_context(db)` before `.panel(..)`.
+    /// Call `.with(db)` before `.panel(..)`.
     MissingDb,
     /// Auth is on, but the `Db` does not register the shipped models it needs: `AuthSession`,
     /// `AdminUser` for the shipped authenticator, `ColumnPreference` while a list has a

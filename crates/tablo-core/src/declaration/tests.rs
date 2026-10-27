@@ -36,7 +36,7 @@ fn a_mount_error_lists_each_mistake_under_its_declaration() {
         error.to_string(),
         format!(
             "panel '/admin' cannot mount:\n  - the router holds no Db: install it with \
-             `.app_context(db)` before mounting the panel\n  - `{users}` relation `posts`: \
+             `.with(db)` before mounting the panel\n  - `{users}` relation `posts`: \
              the related resource is not registered on this panel: declare it with \
              `Panel::resource`"
         )

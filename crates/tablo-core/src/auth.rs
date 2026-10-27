@@ -33,7 +33,7 @@ use std::{
 };
 
 use topcoat::{
-    context::{Cx, try_request_context},
+    context::{Cx, try_context},
     router::{
         error::{forbidden, redirect, unauthorized},
         request::{method, original_headers, original_method, uri},
@@ -179,7 +179,7 @@ impl SignedIn {
 /// The request's signed-in user on the request's panel, whatever their panel
 /// access. Only the logout route reads a user without access.
 pub(crate) fn resolved(cx: &Cx) -> Option<&SignedIn> {
-    let signed = try_request_context::<SignedIn>(cx)?;
+    let signed = try_context::<SignedIn>(cx)?;
     match current_realm(cx) {
         Some(realm) if !Arc::ptr_eq(&signed.realm, realm) => None,
         _ => Some(signed),

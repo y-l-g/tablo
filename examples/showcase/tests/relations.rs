@@ -739,13 +739,10 @@ async fn comments_create_form_shows_post_select() {
 async fn post_options_do_not_load_every_posts_comments() {
     use showcase::app::PostResource;
     use tablo::{Resource, Tenant, db::db as db_handle};
-    use topcoat::context::CxTestBuilder;
+    use topcoat::context::Cx;
 
     let (db, t1, _t2) = tenanted_db().await;
-    let cx = CxTestBuilder::new()
-        .app_context(db.clone())
-        .request_context(Tenant(t1))
-        .build();
+    let cx = Cx::default().with(db.clone()).with(Tenant(t1));
     let mut handle = db_handle(&cx).unwrap();
 
     let option_row = <PostResource as Resource>::query(&cx)
