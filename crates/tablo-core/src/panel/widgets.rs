@@ -1,4 +1,7 @@
-//! The widget grid of a [`Page`], and the row of [`Stat`] tiles a widget renders.
+//! The widget grid of a [`Page`], and the row of [`Stat`] tiles and the [`RecordTable`] a widget
+//! renders.
+
+use std::sync::Arc;
 
 use topcoat::{
     Result,
@@ -7,7 +10,10 @@ use topcoat::{
 };
 
 use crate::{
-    Page, Resource, Stat, Trend,
+    Page, RecordTable, Resource, Stat, Trend,
+    panel::list::{TableChrome, declared_chrome, wire_table_over},
+    resource::mounted,
+    table::include_relations,
     widget::{MountedWidget, Span},
 };
 
@@ -198,4 +204,149 @@ impl Stat {
         stat.icon = item.icon;
         Ok(Some(stat))
     }
+}
+
+/// `table` over `R`'s records, for a [`Widget`](crate::Widget)'s body: the rows under `R`'s list
+/// columns, each linking its View and Edit pages as `R`'s policy allows, with a link to the full
+/// list. Two record tables of one resource on a page take distinct headings, which keep their
+/// rows' DOM ids apart. It renders nothing when the request may not open that list, the check
+/// [`can_list`](super::can_list) makes, or may see none of its columns' fields.
+///
+/// The rows are the ones the list would show: [`scoped_query`](crate::scoped_query)'s, the
+/// caller's tenant, `R`'s [`Query`](Resource::query) and no trashed record, which `table`'s
+/// [`filter`](RecordTable::filter) narrows. Its columns hide what
+/// [`field_access`](crate::ResourceDef::field_access) hides from the request, on `R` and on the
+/// related records they show, as the list does. It never pages, sorts, searches or writes, so it
+/// adds no route: a record's own page and the list do.
+///
+/// ```rust,ignore
+/// impl Widget for LatestPosts {
+///     fn declare() -> WidgetDef {
+///         WidgetDef::new().access(can_list::<PostResource>)
+///     }
+///
+///     async fn render(cx: &Cx) -> Result<impl View> {
+///         let table = RecordTable::new()
+///             .heading("Latest posts")
+///             .order_by(Post::fields().created_at().desc());
+///         tablo::record_table::<PostResource>(cx, table).await
+///     }
+/// }
+/// ```
+///
+/// # Errors
+///
+/// A [column](RecordTable::columns) name `R`'s list declares no column for, and the database's,
+/// when the load fails.
+pub async fn record_table<R: Resource>(cx: &Cx, table: RecordTable) -> Result<BoxView<'_>> {
+    let Some(resource) = mounted::<R>(cx).filter(|_| super::can_list::<R>(cx)) else {
+        return Ok(().boxed());
+    };
+    let RecordTable {
+        heading,
+        description,
+        columns,
+        filter,
+        order_by,
+        limit,
+    } = table;
+    let shown = resource.table_for(cx);
+    let shown = match &columns {
+        Some(names) => {
+            let declared = resource.table.declared_columns();
+            if let Some(name) = names
+                .iter()
+                .find(|name| !declared.iter().any(|column| column.name() == name.as_str()))
+            {
+                return Err(crate::error::declaration(format!(
+                    "a record table of `{}` names `{name}`, a column its list does not declare",
+                    resource.slug
+                )));
+            }
+            Arc::new(shown.only(names))
+        }
+        None => shown,
+    };
+    if shown.declared_columns().is_empty() {
+        return Ok(().boxed());
+    }
+    let mut query = resource.scoped_query(cx)?;
+    if let Some(filter) = filter {
+        query = query.filter(filter);
+    }
+    for order in order_by {
+        query = query.order_by(order);
+    }
+    let query = include_relations(query.limit(limit), shown.declared_columns());
+    let mut db = crate::db::db(cx)?;
+    let rows = query
+        .exec(&mut db)
+        .await
+        .map_err(crate::error::unavailable)?;
+    shown.restrict_relations(cx, &rows, &mut db).await?;
+    let declared = declared_chrome(cx, &resource);
+    let chrome = TableChrome {
+        delete: false,
+        actions: false,
+        ..declared
+    };
+    let back = topcoat::router::request::uri(cx)
+        .path_and_query()
+        .map_or_else(String::new, ToString::to_string);
+    let heading = heading.map_or_else(
+        || resource.plural_label.localize(cx),
+        |heading| heading.localize(cx),
+    );
+    let mut wired =
+        wire_table_over(cx, &resource, shown, chrome).prefixed(dom_scope(&resource.slug, &heading));
+    // An edit begun here lands back here.
+    if !back.is_empty() {
+        wired = wired.returning_to(back);
+    }
+    let rows = wired.render_records(cx, rows).await?;
+    let description = description.map(|description| description.localize(cx));
+    let list = crate::navigation::runtime_link(cx, &resource.url);
+    let view_all = crate::t!(cx, "tablo-record-table-view-all");
+    let slug = resource.slug.clone();
+    Ok(view! {
+        cx =>
+        <section
+            data-record-table=(slug)
+            class="overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-xs"
+        >
+            <div class="flex items-start justify-between gap-4 px-5 pt-5 pb-3">
+                <div class="flex min-w-0 flex-col gap-1">
+                    <h2 class="text-base font-semibold">(heading)</h2>
+                    if let Some(description) = description {
+                        <p class="text-sm text-muted-foreground">(description)</p>
+                    }
+                </div>
+                <a
+                    (list)
+                    data-record-table-list=""
+                    class="shrink-0 text-sm text-muted-foreground hover:text-foreground"
+                >
+                    (view_all)
+                </a>
+            </div>
+            (rows)
+        </section>
+    }
+    .boxed())
+}
+
+/// The scope of a record table's DOM ids: its resource's slug and its heading, spelled in the
+/// characters an id takes.
+fn dom_scope(slug: &str, heading: &str) -> String {
+    let heading: String = heading
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    format!("{slug}-{heading}")
 }

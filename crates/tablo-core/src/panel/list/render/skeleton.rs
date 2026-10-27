@@ -3,7 +3,7 @@
 use tablo_ui::{table, table_body, table_cell, table_row};
 use topcoat::{Result, context::Cx, view::*};
 
-use super::{super::WiredTable, BAR_CLASS, Frame, core::table_frame};
+use super::{super::WiredTable, BAR_CLASS, Frame, core::table_frame, head::Heads};
 use crate::{BoxFuture, table::TableState};
 
 impl<M> WiredTable<M> {
@@ -34,7 +34,7 @@ impl Frame<'_> {
         let with_actions = self.with_actions();
         let with_bulk = self.bulk_enabled();
         let head = self
-            .render_thead(cx, state, "", with_actions, with_bulk, None)
+            .render_thead(cx, state, "", with_actions, with_bulk, Heads::Placeholder)
             .await?;
         let column_count = self.columns.len();
         let search_pulse = self.search;

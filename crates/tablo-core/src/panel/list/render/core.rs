@@ -8,6 +8,7 @@ use super::{
     super::{TableSignals, WiredTable},
     Frame, TABLE_CARD_CLASS,
     filter_menu::FilterViews,
+    head::Heads,
     pager::PagerInput,
     rows::{CellLayout, RowChrome, RowView, render_rows, selectable_keys},
     table_dom_id,
@@ -75,6 +76,33 @@ impl<M> WiredTable<M> {
     }
 }
 
+impl<M> WiredTable<M> {
+    /// Render `rows` without the list's chrome: no toolbar, sort link, pager or column picker,
+    /// and no write. Each row links its View and Edit as the table's wiring allows, and the
+    /// zero-rows message stands in for none.
+    ///
+    /// # Errors
+    ///
+    /// A misdeclared table fails with its errors rather than render.
+    pub(crate) async fn render_records<'a>(&self, cx: &'a Cx, rows: Vec<M>) -> Result<BoxView<'a>>
+    where
+        M: toasty::schema::Model + Send + Sync + 'static,
+    {
+        let errors = self.declaration_errors();
+        if !errors.is_empty() {
+            return Err(crate::error::misdeclared(&errors));
+        }
+        let frame = self.frame();
+        let state = TableState {
+            prefix: self.prefix().map(str::to_string),
+            ..TableState::default()
+        };
+        let signals = TableSignals::new(cx, state.prefix.as_deref());
+        let rows = self.row_views(cx, &frame, &TablePage::from(rows), None);
+        frame.render_plain(cx, rows, state, signals).await
+    }
+}
+
 /// One loaded page, projected for rendering.
 struct Loaded<'a> {
     rows: Vec<RowView<'a>>,
@@ -100,6 +128,72 @@ impl Frame<'_> {
         signals: &'f TableSignals,
     ) -> BoxFuture<'f, Result<BoxView<'a>>> {
         Box::pin(self.render_loaded(cx, loaded, state, path, signals))
+    }
+
+    /// Render `rows` as [`WiredTable::render_records`] says, boxed as [`Self::render_page`] is.
+    fn render_plain<'f, 'a: 'f>(
+        &'f self,
+        cx: &'a Cx,
+        rows: Vec<RowView<'a>>,
+        state: TableState,
+        signals: TableSignals,
+    ) -> BoxFuture<'f, Result<BoxView<'a>>> {
+        Box::pin(async move {
+            let with_actions = self.with_actions();
+            let head = self
+                .render_thead(cx, &state, "", with_actions, false, Heads::Named)
+                .await?;
+            if rows.is_empty() {
+                let empty = self
+                    .render_empty_cell(cx, &state, "", with_actions, false, &signals)
+                    .await?;
+                return Ok(view! {
+                    cx =>
+                    table(
+                        (head)
+                        (empty)
+                    )
+                }
+                .boxed());
+            }
+            let rows = render_rows(cx, rows, &self.row_chrome(&state, &signals, false));
+            Ok(view! {
+                cx =>
+                table(
+                    (head)
+                    table_body(
+                        #[key(row.key.as_str())]
+                        for row in rows {
+                            (row.view)
+                        }
+                    )
+                )
+            }
+            .boxed())
+        })
+    }
+
+    /// What each row of a render for `state` shares, wired to `signals`.
+    fn row_chrome(&self, state: &TableState, signals: &TableSignals, with_bulk: bool) -> RowChrome {
+        let with_actions = self.with_actions();
+        RowChrome {
+            with_bulk,
+            with_actions,
+            header_colspan: self.columns.len() + usize::from(with_bulk) + usize::from(with_actions),
+            cells: self
+                .columns
+                .iter()
+                .map(|col| CellLayout {
+                    class: Some(col.alignment.class()).filter(|class| !class.is_empty()),
+                    style: col.width.style(),
+                    content: col.width.content_class(),
+                })
+                .collect(),
+            signals: signals.clone(),
+            form: table_dom_id(state, "writes"),
+            action_menu: self.action_menu,
+            id_scope: state.prefix.clone().unwrap_or_else(|| "table".to_string()),
+        }
     }
 
     async fn render_loaded<'a>(
@@ -130,7 +224,7 @@ impl Frame<'_> {
                 path,
                 with_actions,
                 with_bulk,
-                Some((signals, sort.as_ref(), selectable_keys(&row_data))),
+                Heads::Linked(signals, sort.as_ref(), selectable_keys(&row_data)),
             )
             .await?;
         let filter_warning = self.render_filter_warning(cx, state, path, signals, &filters);
@@ -173,27 +267,7 @@ impl Frame<'_> {
             .boxed()
         } else {
             pager_views = pager;
-            let chrome = RowChrome {
-                with_bulk,
-                with_actions,
-                header_colspan: self.columns.len()
-                    + usize::from(with_bulk)
-                    + usize::from(with_actions),
-                cells: self
-                    .columns
-                    .iter()
-                    .map(|col| CellLayout {
-                        class: Some(col.alignment.class()).filter(|class| !class.is_empty()),
-                        style: col.width.style(),
-                        content: col.width.content_class(),
-                    })
-                    .collect(),
-                signals: signals.clone(),
-                form: table_dom_id(state, "writes"),
-                action_menu: self.action_menu,
-                id_scope: state.prefix.clone().unwrap_or_else(|| "table".to_string()),
-            };
-            let rows = render_rows(cx, row_data, &chrome);
+            let rows = render_rows(cx, row_data, &self.row_chrome(state, signals, with_bulk));
             view! {
                 cx =>
                 <div>

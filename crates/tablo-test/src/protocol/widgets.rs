@@ -1,8 +1,9 @@
-//! Reads a page's widget grid, its stat tiles and its charts: `[data-widget]` names each widget
-//! the grid renders, `[data-stat]` marks each tile, whose first two paragraphs hold its label and
-//! value, and `[data-chart]` marks each chart, whose `[data-chart-data]` table holds its values.
+//! Reads a page's widget grid, its stat tiles, its charts and its record tables: `[data-widget]`
+//! names each widget the grid renders, `[data-stat]` marks each tile, whose first two paragraphs
+//! hold its label and value, `[data-chart]` marks each chart, whose `[data-chart-data]` table
+//! holds its values, and `[data-record-table]` marks each record table by its resource's slug.
 
-use super::dom::{attr_value, elements, strip_text, tags_where};
+use super::dom::{Row, attr_value, columns, elements, rows, strip_text, tags_where};
 
 /// The names of the widgets a page's grid renders, in order: `RecentOrdersWidget` is
 /// `recent-orders`.
@@ -117,4 +118,47 @@ pub fn charts(html: &str) -> Vec<ChartData> {
             }
         })
         .collect()
+}
+
+/// One record table, as its markup reads.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RecordTableData {
+    /// The slug of the resource it lists.
+    pub resource: String,
+    /// Its heading.
+    pub heading: String,
+    /// The names of the columns it shows, in order.
+    pub columns: Vec<String>,
+    /// Its rows, in order, as [`rows`](super::rows) reads a list's.
+    pub rows: Vec<Row>,
+    /// Where its link to the full list points.
+    pub list: Option<String>,
+}
+
+/// The record tables `html` renders, in document order.
+pub fn record_tables(html: &str) -> Vec<RecordTableData> {
+    tags_where(html, |_, attrs| {
+        attr_value(attrs, "data-record-table").is_some()
+    })
+    .into_iter()
+    .map(|(_, attrs, inner)| RecordTableData {
+        resource: attr_value(&attrs, "data-record-table").unwrap_or_default(),
+        heading: elements(&inner, "h2")
+            .into_iter()
+            .next()
+            .map(|(_, _, h2)| strip_text(&h2))
+            .unwrap_or_default(),
+        columns: columns(&inner),
+        rows: rows(&inner),
+        list: tags_where(&inner, |tag, attrs| {
+            tag == "a"
+                && attrs
+                    .iter()
+                    .any(|(name, _)| name == "data-record-table-list")
+        })
+        .into_iter()
+        .next()
+        .and_then(|(_, attrs, _)| attr_value(&attrs, "href")),
+    })
+    .collect()
 }

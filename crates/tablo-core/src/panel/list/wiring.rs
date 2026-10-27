@@ -284,6 +284,11 @@ impl<M> WiredTable<M> {
         self.declared_columns().iter().filter(|col| self.shows(col))
     }
 
+    /// The prefix the table's URL parameters and DOM ids carry, if any.
+    pub(super) fn prefix(&self) -> Option<&str> {
+        self.wiring.prefix.as_deref()
+    }
+
     /// Where the column picker posts, when the table renders one.
     pub(super) fn columns_url(&self) -> Option<&str> {
         self.wiring.columns_url.as_deref()

@@ -13,6 +13,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Widget | One block of a page's widget grid, a type implementing `Widget`: a row of stats, a chart, a list of recent records. | Card, Tile (for the block), Panel (alone) |
 | Stat | One figure in a row of stats: a label, a value, and optionally a detail line, a trend and a sparkline. | KPI, Metric, Card |
 | Chart | A line or bar chart a widget draws: labels along the bottom and a series of values per thing it measures. | Graph, Plot |
+| Record table | A few of a resource's records a widget lists under the resource's list columns, linking each record and the full list. | Table widget, Recent records |
 | Resource | A type implementing `Resource` for one Toasty model. Its `Form` is `NoForm` when list-only. | Model, Entity, Collection, CRUD |
 | Resource definition | The `ResourceDef` a resource declares: slug, labels, navigation, policy, tenancy, table, form, detail, relations, actions, header actions. Each panel mounts its own copy. | Config, Settings, Options |
 | Query | A resource's own row scoping, such as row visibility. | Scope, Builder |

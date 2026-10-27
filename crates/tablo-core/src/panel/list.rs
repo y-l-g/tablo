@@ -123,7 +123,17 @@ pub(crate) fn wire_table<R: Resource>(
     resource: &Arc<Mounted<R>>,
     chrome: TableChrome,
 ) -> WiredTable<R::Model> {
-    let mut table = WiredTable::new(resource.table_for(cx));
+    wire_table_over(cx, resource, resource.table_for(cx), chrome)
+}
+
+/// Wires `chrome`'s affordances onto `table`, a narrowing of `R`'s table for the request.
+pub(crate) fn wire_table_over<R: Resource>(
+    cx: &Cx,
+    resource: &Arc<Mounted<R>>,
+    table: Arc<Table<R::Model>>,
+    chrome: TableChrome,
+) -> WiredTable<R::Model> {
+    let mut table = WiredTable::new(table);
     let (policy_cx, policy) = (cx.clone(), Arc::clone(resource));
     table = table.row_actions(move |record| {
         // Every route pairs its predicate with `View`; a trashed record is restored before it is
