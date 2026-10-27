@@ -213,9 +213,10 @@ pub fn membership(cx: &Cx) -> Option<&Membership> {
 }
 
 /// The tenant of the session's selected membership, else of the user's default, else of their
-/// first: the [`TenantSource`](crate::tenancy::TenantSource) the panel installs.
+/// first: the [`TenantSource`](crate::tenancy::TenantSource) the panel installs. `None` on a panel
+/// that does not act for tenants, which offers no way to see or switch the tenant.
 pub(crate) fn session_tenant(cx: &Cx) -> Option<TenantId> {
-    let signed = signed(cx)?;
+    let signed = signed(cx).filter(|signed| signed.realm.serves_tenants)?;
     let tenants = signed.user.tenants();
     let member = |tenant: TenantId| tenants.iter().find(|m| m.tenant == tenant);
     signed

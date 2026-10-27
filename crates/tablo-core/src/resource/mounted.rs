@@ -329,6 +329,11 @@ impl Mounts {
         self.tenant_models.contains(&model)
     }
 
+    /// Whether a mounted resource serves tenant-owned rows.
+    pub(crate) fn has_tenant_models(&self) -> bool {
+        !self.tenant_models.is_empty()
+    }
+
     /// The field rules every mounted resource over `model` declares.
     pub(crate) fn model_rules(
         &self,

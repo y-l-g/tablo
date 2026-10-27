@@ -359,7 +359,9 @@ The request's tenant is the membership the user selected, else the one
 `PanelUser::default_tenant` names, else their first; read it with `tenant_id(cx)`, a `TenantId`,
 and the whole `Membership` with `auth::membership(cx)`. A user with two or more memberships switches between
 them from a menu atop the sidebar ([`PanelUser::tenants`](https://y-l.fr/tablo/nightly/api/tablo/trait.PanelUser.html#method.tenants)).
-No request header sets the tenant; server code such as a middleware or a test can, through a
+A panel acts for tenants when it offers a tenant registration or settings page, or mounts a
+resource over tenant-owned rows; any other acts for none, so `tenant_id(cx)` answers `None` there,
+in its custom pages and widgets too. No request header sets the tenant; server code such as a middleware or a test can, through a
 `Tenant` request extension or `Tenant(id)` on the `Cx`, where `id` is a `TenantId`: a bare `Uuid`
 does not compile there.
 

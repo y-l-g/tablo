@@ -6,7 +6,7 @@ use std::any::TypeId;
 use topcoat::router::{BodyLimit, PageFn, RouteFn, RouteHandlerFn, RouterBuilder};
 
 use super::{
-    AdminUser, AuthConfig, email_change,
+    AdminUser, AuthConfig, Realm, email_change,
     login::{MAX_LOGIN_BYTES, login_page, login_post, logout_post, tenant_post},
     password_reset::{forgot_page, forgot_post, reset_page, reset_post},
     profile::{profile_page, profile_post},
@@ -94,11 +94,12 @@ fn missing_models(
     }
 }
 
-/// Mount `auth`'s routes under `prefix`: sign-in, sign-out and the tenant switch while the panel
-/// gates, then the sign-up, tenant registration, profile, tenant settings, two-factor,
-/// password-reset and email-verification pages `auth` declares.
-/// Each form route carries [`MAX_LOGIN_BYTES`] in place of the panel's form cap.
-pub(crate) fn routes(mut builder: RouterBuilder, prefix: &str, auth: &AuthConfig) -> RouterBuilder {
+/// Mount `realm`'s auth routes under its prefix: sign-in and sign-out while the panel gates, and
+/// the tenant switch when it also [serves tenants](Realm::serves_tenants), then the sign-up, tenant
+/// registration, profile, tenant settings, two-factor, password-reset and email-verification pages
+/// its auth declares. Each form route carries [`MAX_LOGIN_BYTES`] in place of the panel's form cap.
+pub(crate) fn routes(mut builder: RouterBuilder, realm: &Realm) -> RouterBuilder {
+    let (prefix, auth) = (&realm.prefix, &realm.auth);
     if !auth.is_disabled() {
         let login_path = route_path(&format!("{prefix}/login"));
         builder = builder
@@ -113,12 +114,14 @@ pub(crate) fn routes(mut builder: RouterBuilder, prefix: &str, auth: &AuthConfig
                 http::Method::POST,
                 route_path(&format!("{prefix}/logout")),
                 logout_post,
-            ))
-            .route(RouteFn::new(
+            ));
+        if realm.serves_tenants {
+            builder = builder.route(RouteFn::new(
                 http::Method::POST,
                 route_path(&format!("{prefix}/tenant")),
                 tenant_post,
             ));
+        }
     }
     if auth.registrar().is_some() {
         let register_path = route_path(&format!("{prefix}/register"));

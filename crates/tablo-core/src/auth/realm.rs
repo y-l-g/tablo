@@ -36,6 +36,10 @@ pub(crate) struct Realm {
     /// Whether the topbar shows the bell, set by
     /// [`Panel::notifications`](crate::Panel::notifications).
     pub(crate) notifications: bool,
+    /// Whether the panel acts for tenants: it offers a tenant registration or settings page, or
+    /// mounts a resource over tenant-owned rows. A panel that does not acts for no tenant, and
+    /// offers no tenant menu and no tenant switch.
+    pub(crate) serves_tenants: bool,
 }
 
 impl Realm {
