@@ -79,6 +79,10 @@ impl PanelUser for Planner {
         &self.name
     }
 
+    fn can_access_panel(&self, _panel: &str) -> bool {
+        true
+    }
+
     fn time_zone(&self) -> Option<TimeZone> {
         self.offset_hours.map(hours)
     }

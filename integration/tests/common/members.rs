@@ -54,6 +54,10 @@ impl PanelUser for SignedMember {
         &self.member.name
     }
 
+    fn can_access_panel(&self, _panel: &str) -> bool {
+        true
+    }
+
     fn tenants(&self) -> &[Membership] {
         &self.tenants
     }

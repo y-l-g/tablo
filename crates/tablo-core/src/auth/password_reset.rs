@@ -54,6 +54,7 @@ pub const RESET_LIFETIME: Duration = Duration::from_hours(1);
 /// # impl PanelUser for Staff {
 /// #     fn user_id(&self) -> String { self.id.to_string() }
 /// #     fn display_name(&self) -> &str { &self.name }
+/// #     fn can_access_panel(&self, _panel: &str) -> bool { true }
 /// #     fn email(&self) -> Option<&str> { Some(&self.email) }
 /// # }
 /// struct StaffAuth;

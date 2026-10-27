@@ -260,6 +260,7 @@ pub(crate) fn session_catalog(cx: &Cx) -> Option<&crate::i18n::Catalog> {
 /// # impl PanelUser for Staff {
 /// #     fn user_id(&self) -> String { String::new() }
 /// #     fn display_name(&self) -> &str { "" }
+/// #     fn can_access_panel(&self, _panel: &str) -> bool { true }
 /// # }
 /// fn admins_only(cx: &Cx) -> bool {
 ///     auth::user::<Staff>(cx).is_some_and(|staff| staff.admin)

@@ -63,6 +63,7 @@ pub const VERIFICATION_LIFETIME: Duration = Duration::from_hours(24);
 /// # impl PanelUser for Staff {
 /// #     fn user_id(&self) -> String { self.id.to_string() }
 /// #     fn display_name(&self) -> &str { &self.name }
+/// #     fn can_access_panel(&self, _panel: &str) -> bool { true }
 /// #     fn email(&self) -> Option<&str> { Some(&self.email) }
 /// # }
 /// struct StaffAuth;

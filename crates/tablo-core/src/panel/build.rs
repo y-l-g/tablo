@@ -59,6 +59,7 @@ use self::handle::request_mounts;
 /// # impl PanelUser for Member {
 /// #     fn user_id(&self) -> String { String::new() }
 /// #     fn display_name(&self) -> &str { "" }
+/// #     fn can_access_panel(&self, _panel: &str) -> bool { true }
 /// # }
 /// # struct Members;
 /// # impl Authenticator for Members {

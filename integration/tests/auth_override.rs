@@ -289,12 +289,13 @@ async fn login_to(router: &Router, prefix: &str, handle: &str) -> Response<Body>
 }
 
 /// One user type serves two panels, and each panel asks it about itself: Grace enters the
-/// admin panel and is refused the portal at login.
+/// admin panel and is refused the portal, at login and on each request.
 #[tokio::test]
 async fn one_user_type_gates_each_panel_by_its_prefix() {
+    let db = seeded_db().await;
     let router = Router::builder()
         .discover()
-        .with(seeded_db().await)
+        .with(db.clone())
         .panel(
             tablo::Panel::new("admin")
                 .auth(Auth::custom(MemberAuth))
@@ -318,8 +319,27 @@ async fn one_user_type_gates_each_panel_by_its_prefix() {
     body_string(members).await;
 
     let portal = login_to(&router, "/portal", "grace").await;
-    assert_ne!(portal.status(), 303, "the portal refuses Grace at login");
+    assert_eq!(portal.status(), 403, "the portal refuses Grace at login");
     assert!(cookie_value(&portal, "__Host-session").is_none());
+
+    // A portal session Grace already holds is refused on its next request.
+    let grace = Member::filter(Member::fields().handle().eq("grace".to_string()))
+        .first()
+        .exec(&mut db.clone())
+        .await
+        .unwrap()
+        .expect("seeded member");
+    let grace = SignedMember {
+        member: grace,
+        tenants: Vec::new(),
+    };
+    let session = auth::mint_session(&mut db.clone(), "portal", &grace)
+        .await
+        .unwrap();
+    let members =
+        get_with_cookies(&router, "/portal/members", &[("__Host-session", session)]).await;
+    assert_eq!(members.status(), 403, "the portal's gate refuses Grace");
+    body_string(members).await;
 
     let portal = login_to(&router, "/portal", "ada").await;
     assert_eq!(portal.status(), 303, "the portal admits Ada");
