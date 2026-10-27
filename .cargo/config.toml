@@ -14,6 +14,13 @@ debug = 1
 [profile.dev.package."*"]
 opt-level = 1
 
+# Build scripts and proc-macros otherwise build their dependencies at build-override's defaults
+# (no debuginfo, 256 codegen units), so a crate both they and the app use, such as rustls or regex,
+# builds twice. Matching the dev profile lets Cargo build it once.
+[profile.dev.build-override]
+codegen-units = 16
+debug = 1
+
 [profile.test]
 codegen-units = 16
 debug = 1

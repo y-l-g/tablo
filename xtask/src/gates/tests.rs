@@ -105,8 +105,7 @@ fn check_runs_fast_gates_by_default_and_defers_docs_and_external_to_all() {
         progs_of(&run_check(Scope::Auto, true)),
         [
             &[
-                "cargo", "git", "topcoat", "git", "node", "cargo", "cargo", "cargo", "cargo",
-                "cargo"
+                "cargo", "git", "topcoat", "git", "node", "cargo", "cargo", "cargo", "cargo"
             ][..],
             &["cargo", "cargo"],
         ]
@@ -119,13 +118,13 @@ fn check_runs_skipped_gates_only_with_matching_changes_or_all() {
     assert_eq!(
         progs_of(&run_check(Scope::Auto, false)),
         [
-            "cargo", "git", "topcoat", "git", "node", "cargo", "cargo", "cargo", "cargo", "cargo"
+            "cargo", "git", "topcoat", "git", "node", "cargo", "cargo", "cargo", "cargo"
         ],
         "udeps install+run are skipped"
     );
     assert_eq!(
         run_check(Scope::All, false).len(),
-        15,
+        16,
         "`--all` forces every gate"
     );
 }
