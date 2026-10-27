@@ -53,7 +53,7 @@ const LAYERS: &[(&str, &[&str])] = &[
             "extend",
         ],
     ),
-    ("resources", &["resource", "widget", "page"]),
+    ("resources", &["widget", "resource", "page"]),
     (
         "serving",
         &["upload", "auth", "notification", "models", "panel"],

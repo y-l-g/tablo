@@ -221,7 +221,7 @@ pub enum DeclarationErrorKind {
         /// The shared name.
         name: &'static str,
     },
-    /// Two widgets of a page share a name.
+    /// Two widgets of a page, or of a resource's list, share a name.
     ///
     /// Give one a distinct [`WidgetDef::name`](crate::WidgetDef::name).
     DuplicateWidget {

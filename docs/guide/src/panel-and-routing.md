@@ -283,6 +283,10 @@ adds it to the page's grid, which `widgets::<Self>(cx)` renders where the page p
 - **Layout.** `PageDef::widget_columns` sets how many columns the grid has on a wide screen, and
   `WidgetDef::span` and `WidgetDef::full_width` how many a widget spans. A narrow screen
   stacks every widget.
+- **Above a resource's list.** `ResourceDef::list_widget::<W>()` adds a widget to a grid the
+  list page renders above its table, for a banner or the figures behind the rows, without
+  rewriting the page; `ResourceDef::list_widget_columns` sets its columns. The list's sign-in and
+  policy guard it, and it reruns with the list.
 
 The `tablo::ui` composites give a page the same frame as the panel's own pages: `page` sets the
 width and padding; `page_header` holds a `page_title`, an optional `page_description` and optional

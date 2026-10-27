@@ -14,7 +14,8 @@ use crate::{
     panel::list::{TableChrome, declared_chrome, wire_table_over},
     resource::mounted,
     table::include_relations,
-    widget::{MountedWidget, Span},
+    topcoat_compat::async_page,
+    widget::{MountedWidget, Span, WidgetGrid},
 };
 
 /// The widget grid of the page `P`: each [`Widget`](crate::Widget) its
@@ -32,24 +33,33 @@ pub fn widgets<P: Page>(cx: &Cx) -> BoxView<'_> {
     else {
         return ().boxed();
     };
-    grid(cx, &page.widgets, page.widget_columns)
+    let cells = page
+        .widgets
+        .admitted(cx)
+        .map(|widget| (widget, async_page((widget.render)(cx))))
+        .collect();
+    grid(cx, page.widgets.columns, cells)
 }
 
-/// The grid of `widgets` the request may see, `columns` wide on a wide screen.
-fn grid<'a>(cx: &'a Cx, widgets: &'a [MountedWidget], columns: u8) -> BoxView<'a> {
-    let cells: Vec<BoxView<'a>> = widgets
-        .iter()
-        .filter(|widget| widget.admits(cx))
-        .map(|widget| {
+/// The grid of `widgets` the request may see, each rendered before the grid returns: a list
+/// streams its rows behind a suspense, and a widget rendered lazily beside them would wait for
+/// the connection they hold on a pool of one.
+pub(crate) async fn rendered_grid<'a>(cx: &'a Cx, widgets: &WidgetGrid) -> Result<BoxView<'a>> {
+    let mut cells = Vec::new();
+    for widget in widgets.admitted(cx) {
+        cells.push((widget, (widget.render)(cx).await?));
+    }
+    Ok(grid(cx, widgets.columns, cells))
+}
+
+/// A grid `columns` wide of each widget with its body.
+fn grid<'a>(cx: &'a Cx, columns: u8, cells: Vec<(&MountedWidget, BoxView<'a>)>) -> BoxView<'a> {
+    let cells: Vec<BoxView<'a>> = cells
+        .into_iter()
+        .map(|(widget, body)| {
             let name = widget.name.clone();
-            let body = (widget.render)(cx);
-            view! {
-                cx =>
-                <div data-widget=(name) class=(span_class(widget.span, columns))>
-                    (body)
-                </div>
-            }
-            .boxed()
+            let class = span_class(widget.span, columns);
+            view! { cx => <div data-widget=(name) class=(class)>(body)</div> }.boxed()
         })
         .collect();
     if cells.is_empty() {

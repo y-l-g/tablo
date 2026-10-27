@@ -119,3 +119,28 @@ async fn the_latest_posts_list_the_tenants_own_posts() {
         assert_eq!(titles, [title], "{table:?}");
     }
 }
+
+/// The post list's widget counts each tenant's own posts by status: tenant 1's one published
+/// post, tenant 2's one draft.
+#[tokio::test]
+async fn the_post_list_counts_the_tenants_own_posts_by_status() {
+    let (db, t1, t2) = tenanted_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+
+    for (tenant, drafts, published) in [(t1, "0", "1"), (t2, "1", "0")] {
+        let html = body_string(client.tenant(tenant).get("/admin/posts").await).await;
+        assert_eq!(widgets(&html), ["posts-by-status"]);
+        let counts: Vec<(String, String)> = stats(&html)
+            .into_iter()
+            .map(|tile| (tile.label, tile.value))
+            .collect();
+        assert_eq!(
+            counts,
+            [
+                ("Drafts".to_string(), drafts.to_string()),
+                ("Published".to_string(), published.to_string()),
+            ]
+        );
+    }
+}

@@ -9,7 +9,7 @@ use crate::{
     HeaderAction, HeaderActions, Widget,
     naming::{kebab_case, sentence_case, type_stem},
     navigation::NavigationItem,
-    widget::MountedWidget,
+    widget::WidgetGrid,
 };
 
 /// A panel page that is not a resource, mounted at `{prefix}/{slug}` with a
@@ -81,8 +81,7 @@ pub struct PageDef {
     navigation: Option<NavigationItem>,
     access: Arc<AccessFn>,
     header_actions: HeaderActions,
-    widgets: Vec<MountedWidget>,
-    widget_columns: u8,
+    widgets: WidgetGrid,
 }
 
 impl PageDef {
@@ -199,7 +198,7 @@ impl PageDef {
     /// [`widgets`](crate::widgets) renders where [`render`](Page::render) places it.
     #[must_use]
     pub fn widget<W: Widget>(mut self) -> Self {
-        self.widgets.push(MountedWidget::new::<W>());
+        self.widgets.push::<W>();
         self
     }
 
@@ -207,7 +206,7 @@ impl PageDef {
     /// medium screen shows at most two, a narrow one one.
     #[must_use]
     pub fn widget_columns(mut self, columns: u8) -> Self {
-        self.widget_columns = columns.clamp(1, 4);
+        self.widgets.set_columns(columns);
         self
     }
 }
@@ -223,8 +222,7 @@ impl Default for PageDef {
             navigation: None,
             access: Arc::new(|_| true),
             header_actions: HeaderActions::new(),
-            widgets: Vec::new(),
-            widget_columns: 2,
+            widgets: WidgetGrid::default(),
         }
     }
 }
@@ -239,7 +237,6 @@ impl std::fmt::Debug for PageDef {
             .field("navigation", &self.navigation)
             .field("header_actions", &self.header_actions)
             .field("widgets", &self.widgets)
-            .field("widget_columns", &self.widget_columns)
             .finish_non_exhaustive()
     }
 }
@@ -251,8 +248,7 @@ pub(crate) struct MountedPage {
     pub(crate) navigation: NavigationItem,
     access: Arc<AccessFn>,
     pub(crate) header_actions: HeaderActions,
-    pub(crate) widgets: Vec<MountedWidget>,
-    pub(crate) widget_columns: u8,
+    pub(crate) widgets: WidgetGrid,
 }
 
 impl MountedPage {
@@ -283,7 +279,6 @@ impl MountedPage {
             access: def.access,
             header_actions: def.header_actions,
             widgets: def.widgets,
-            widget_columns: def.widget_columns,
         }
     }
 
@@ -306,17 +301,7 @@ pub(crate) type PageCheck = Box<dyn Fn(&Cx, &mut Vec<crate::DeclarationError>) +
 /// and that no two of its widgets share a name.
 pub(crate) fn check_page<P: Page>(page: Arc<MountedPage>) -> PageCheck {
     Box::new(move |cx, errors| {
-        let mut seen = std::collections::HashSet::new();
-        for widget in &page.widgets {
-            if !seen.insert(widget.name.as_str()) {
-                errors.push(crate::DeclarationError::of::<P>(
-                    crate::declaration::Site::Registration,
-                    crate::DeclarationErrorKind::DuplicateWidget {
-                        name: widget.name.clone(),
-                    },
-                ));
-            }
-        }
+        page.widgets.check::<P>(errors);
         crate::resource::check_inputs::<P>(
             cx,
             page.header_actions
