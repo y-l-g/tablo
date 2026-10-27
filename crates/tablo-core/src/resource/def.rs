@@ -13,13 +13,13 @@ use crate::{
     navigation::NavigationItem,
     policy::{Ability, Deny, Policy},
     schema::Schema,
-    table::{Table, contains_expr},
+    table::Table,
     tenancy::Tenancy,
     toasty_compat::model::{self, ModelPath},
 };
 
-/// What a [`Resource`] declares: its names, navigation, policy, tenancy, table, form, detail page,
-/// relations and actions.
+/// What a [`Resource`] declares: its names, navigation, policy, tenancy, table, list widgets, form,
+/// detail page, relations and actions.
 ///
 /// [`Resource::declare`] returns one, and [`Panel::resource_with`](crate::Panel::resource_with)
 /// adjusts it for one panel. Every setting has a default, so a resource sets only what differs:
@@ -62,13 +62,14 @@ pub struct ResourceDef<R: Resource> {
     pub(crate) table: Option<Table<R::Model>>,
     pub(crate) form: Option<Schema<R::Form>>,
     pub(crate) detail: Option<Detail<R::Model>>,
-    pub(crate) record_title: Option<RecordTitle<R::Model>>,
+    pub(crate) record_title: Option<super::RecordTitle<R::Model>>,
     /// `None` once [`Self::without_global_search`] leaves the resource out.
     pub(crate) global_search: Option<super::GlobalSearch<R::Model>>,
     pub(crate) public_link: Option<PublicLinkFn<R::Model>>,
     pub(crate) relations: Vec<Relation<R::Model>>,
     pub(crate) actions: Actions<R>,
     pub(crate) header_actions: HeaderActions,
+    pub(crate) list_widgets: crate::widget::WidgetGrid,
     /// The columns [`Self::create_column`] names, or why a path names no column.
     pub(crate) create_columns: Vec<Result<String, DeclarationErrorKind>>,
     /// Whether [`Self::edit_only`] turned the create page off.
@@ -101,6 +102,7 @@ impl<R: Resource> Default for ResourceDef<R> {
             relations: Vec::new(),
             actions: Actions::default(),
             header_actions: HeaderActions::new(),
+            list_widgets: crate::widget::WidgetGrid::default(),
             create_columns: Vec::new(),
             edit_only: false,
             importable: false,
@@ -401,7 +403,7 @@ impl<R: Resource> ResourceDef<R> {
     where
         T: FormScalar + toasty::schema::Field<Inner = String> + Send + Sync + 'static,
     {
-        self.record_title = Some(RecordTitle::new(lens));
+        self.record_title = Some(super::RecordTitle::new(lens));
         self
     }
 
@@ -475,6 +477,29 @@ impl<R: Resource> ResourceDef<R> {
         self
     }
 
+    /// Adds the [`Widget`](crate::Widget) `W` to the grid above the list page's table, after the
+    /// ones already declared: a banner, a row of [`Stat`](crate::Stat)s, a chart.
+    ///
+    /// The grid renders with the list, behind its sign-in and
+    /// [`Ability::ViewAny`](crate::Ability::ViewAny), and leaves out each widget whose
+    /// [`WidgetDef::access`](crate::WidgetDef::access) refuses the request. Its widgets render
+    /// before the rows load, and an error from one fails the list's response. A sort, filter or
+    /// page change reruns the list and its widgets with it. Mounting refuses two widgets sharing a
+    /// name.
+    #[must_use]
+    pub fn list_widget<W: crate::Widget>(mut self) -> Self {
+        self.list_widgets.push::<W>();
+        self
+    }
+
+    /// How many columns the list page's widget grid has on a wide screen, from 1 to 4; defaults
+    /// to 2, as a page's does.
+    #[must_use]
+    pub fn list_widget_columns(mut self, columns: u8) -> Self {
+        self.list_widgets.set_columns(columns);
+        self
+    }
+
     /// Declares a column an overriding [`Resource::create_record`] sets itself, beyond the form's
     /// fields: `.create_column(lens!(Post.slug))`. Call it once per column.
     ///
@@ -533,44 +558,6 @@ impl<R: Resource> ResourceDef<R> {
     pub fn importable(mut self) -> Self {
         self.importable = true;
         self
-    }
-}
-
-/// A record's title column, as [`ResourceDef::record_title`] declares it.
-pub(crate) struct RecordTitle<M> {
-    read: Box<dyn Fn(&M) -> String + Send + Sync>,
-    search: TitleSearch,
-    /// The model's root field the title reads.
-    pub(crate) field: Option<String>,
-}
-
-/// The substring match on a title column for a search term.
-type TitleSearch = Box<dyn Fn(&str) -> Option<Expr<bool>> + Send + Sync>;
-
-impl<M: toasty::schema::Model + Send + Sync + 'static> RecordTitle<M> {
-    fn new<T>(lens: Lens<M, T>) -> Self
-    where
-        T: FormScalar + toasty::schema::Field<Inner = String> + Send + Sync + 'static,
-    {
-        let path = lens.clone();
-        let field = crate::toasty_compat::model::root_field::<M>(
-            &crate::toasty_compat::model::ModelPath::of(lens.path()),
-        );
-        Self {
-            read: Box::new(move |record| lens.read(record).to_form()),
-            search: Box::new(move |term| contains_expr(&path, term)),
-            field,
-        }
-    }
-
-    /// The column's value on `record`, or `None` when it is empty.
-    pub(crate) fn read(&self, record: &M) -> Option<String> {
-        Some((self.read)(record)).filter(|title| !title.trim().is_empty())
-    }
-
-    /// The substring match on the column for `term`, or `None` for a blank term.
-    pub(crate) fn search_expr(&self, term: &str) -> Option<Expr<bool>> {
-        (self.search)(term)
     }
 }
 

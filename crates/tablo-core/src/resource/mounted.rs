@@ -9,8 +9,8 @@ use std::{
 use topcoat::context::{Cx, try_context};
 
 use super::{
-    Actions, HeaderActions, PublicLink, Relation, Resource, ResourceDef,
-    def::{PublicLinkFn, RecordTitle},
+    Actions, HeaderActions, PublicLink, RecordTitle, Relation, Resource, ResourceDef,
+    def::PublicLinkFn,
 };
 use crate::{
     DeclarationError, DeclarationErrorKind, Site, Text,
@@ -45,6 +45,8 @@ pub(crate) struct Mounted<R: Resource> {
     pub(crate) relations: Vec<Relation<R::Model>>,
     pub(crate) actions: Actions<R>,
     pub(crate) header_actions: HeaderActions,
+    /// The grid [`ResourceDef::list_widget`] fills above the list's table.
+    pub(crate) list_widgets: crate::widget::WidgetGrid,
     pub(crate) fields: Vec<FormField<<R::Form as RecordForm>::Field>>,
     pub(crate) create_columns: Vec<Result<String, DeclarationErrorKind>>,
     /// Whether the resource serves a create page: it has a record form and is not
@@ -125,6 +127,7 @@ impl<R: Resource> Mounted<R> {
             relations: def.relations,
             actions,
             header_actions: def.header_actions,
+            list_widgets: def.list_widgets,
             fields,
             create_columns: def.create_columns,
             creates: <R::Form as RecordForm>::HAS_FORM && !def.edit_only,

@@ -7,16 +7,17 @@ use topcoat::{
     Result,
     context::Cx,
     icon::IconData,
-    view::{BoxView, View},
+    view::{BoxView, View, ViewExt},
 };
 
-use crate::{Color, naming::type_stem, topcoat_compat::async_page};
+use crate::{Color, naming::type_stem};
 
 /// One block of a page's widget grid: a row of stats, a chart, a list of recent records.
 ///
-/// A page adds widgets with [`PageDef::widget`](crate::PageDef::widget), and
-/// [`widgets`](crate::widgets) renders them where the page's [`render`](crate::Page::render)
-/// places it:
+/// A resource adds widgets above its list with
+/// [`ResourceDef::list_widget`](crate::ResourceDef::list_widget). A page adds them with
+/// [`PageDef::widget`](crate::PageDef::widget), and [`widgets`](crate::widgets) renders them where
+/// the page's [`render`](crate::Page::render) places it:
 ///
 /// ```rust
 /// # use tablo_core::{Page, PageDef, Stat, Widget, WidgetDef};
@@ -156,7 +157,7 @@ pub(crate) struct MountedWidget {
     pub(crate) name: String,
     pub(crate) span: Span,
     access: Arc<AccessFn>,
-    pub(crate) render: for<'a> fn(&'a Cx) -> BoxView<'a>,
+    pub(crate) render: for<'a> fn(&'a Cx) -> crate::BoxFuture<'a, Result<BoxView<'a>>>,
 }
 
 impl MountedWidget {
@@ -188,8 +189,57 @@ impl std::fmt::Debug for MountedWidget {
     }
 }
 
-fn render<W: Widget>(cx: &Cx) -> BoxView<'_> {
-    async_page(W::render(cx))
+/// The widgets a page or a resource's list declares, in order, and how many columns their grid
+/// has on a wide screen.
+#[derive(Debug)]
+pub(crate) struct WidgetGrid {
+    pub(crate) widgets: Vec<MountedWidget>,
+    pub(crate) columns: u8,
+}
+
+impl WidgetGrid {
+    /// Adds `W` after the widgets already declared.
+    pub(crate) fn push<W: Widget>(&mut self) {
+        self.widgets.push(MountedWidget::new::<W>());
+    }
+
+    /// Sets the grid's columns, from 1 to 4.
+    pub(crate) fn set_columns(&mut self, columns: u8) {
+        self.columns = columns.clamp(1, 4);
+    }
+
+    /// The widgets the request may see, in order.
+    pub(crate) fn admitted<'a>(&'a self, cx: &'a Cx) -> impl Iterator<Item = &'a MountedWidget> {
+        self.widgets.iter().filter(|widget| widget.admits(cx))
+    }
+
+    /// Refuses two widgets of `T`'s grid sharing a name: each keys its cell.
+    pub(crate) fn check<T>(&self, errors: &mut Vec<crate::DeclarationError>) {
+        let mut seen = std::collections::HashSet::new();
+        for widget in &self.widgets {
+            if !seen.insert(widget.name.as_str()) {
+                errors.push(crate::DeclarationError::of::<T>(
+                    crate::declaration::Site::Registration,
+                    crate::DeclarationErrorKind::DuplicateWidget {
+                        name: widget.name.clone(),
+                    },
+                ));
+            }
+        }
+    }
+}
+
+impl Default for WidgetGrid {
+    fn default() -> Self {
+        Self {
+            widgets: Vec::new(),
+            columns: 2,
+        }
+    }
+}
+
+fn render<W: Widget>(cx: &Cx) -> crate::BoxFuture<'_, Result<BoxView<'_>>> {
+    Box::pin(async move { Ok(W::render(cx).await?.boxed()) })
 }
 
 /// Which way a [`Stat`]'s figure moved, shown as an arrow before its detail line.

@@ -1,8 +1,10 @@
-//! A page's widget grid: who sees it, and how its widgets are named.
+//! A page's and a resource list's widget grid: who sees it, and how its widgets are named.
 
 use tablo::{
-    Auth, DeclarationErrorKind, Page, PageDef, Panel, RouterBuilderPanelExt, Widget, WidgetDef,
+    Auth, DeclarationErrorKind, NoForm, Page, PageDef, Panel, Resource, ResourceDef,
+    RouterBuilderPanelExt, Table, TextColumn, Widget, WidgetDef,
     auth::{AdminUser, AuthSession},
+    lens,
     testing::widgets,
 };
 use topcoat::{
@@ -144,4 +146,57 @@ async fn a_widget_is_named_after_its_type_without_generic_arguments() {
     .expect("the panel mounts");
     let page = body_string(get(&router, "/admin/counts").await).await;
     assert_eq!(widgets(&page), ["count", "authors"]);
+}
+
+/// Lists the admins, with [`Count`] above the list, twice when `TWICE`.
+struct Admins<const TWICE: bool>;
+
+impl<const TWICE: bool> Resource for Admins<TWICE> {
+    type Model = AdminUser;
+    type Form = NoForm<AdminUser>;
+
+    fn declare() -> ResourceDef<Self> {
+        let def = ResourceDef::new()
+            .slug("admins")
+            .policy_fn(|_cx, _ability| true)
+            .table(Table::new(TextColumn::new(lens!(AdminUser.email))))
+            .list_widget::<Count<Books>>();
+        if TWICE {
+            def.list_widget::<Count<Authors>>()
+        } else {
+            def
+        }
+    }
+}
+
+#[tokio::test]
+async fn a_resource_list_renders_its_widgets() {
+    let db = test_db(toasty::models!(AdminUser, AuthSession)).await;
+    let router = mount(
+        db,
+        Panel::new("admin")
+            .auth(Auth::disabled())
+            .resource::<Admins<false>>(),
+    )
+    .expect("the panel mounts");
+    let list = body_string(get(&router, "/admin/admins").await).await;
+    assert_eq!(widgets(&list), ["count"]);
+}
+
+#[tokio::test]
+async fn two_list_widgets_sharing_a_name_fail_the_mount() {
+    let db = test_db(toasty::models!(AdminUser, AuthSession)).await;
+    let errors = refusal(mount(
+        db,
+        Panel::new("admin")
+            .auth(Auth::disabled())
+            .resource::<Admins<true>>(),
+    ));
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert_eq!(
+        errors[0].kind,
+        DeclarationErrorKind::DuplicateWidget {
+            name: "count".to_string(),
+        }
+    );
 }

@@ -123,6 +123,32 @@ impl Widget for LatestPosts {
     }
 }
 
+/// The caller's posts in draft and published, above the post list, through
+/// `ResourceDef::list_widget`. The list's own sign-in and policy guard it.
+pub struct PostsByStatus;
+
+impl Widget for PostsByStatus {
+    fn declare() -> WidgetDef {
+        WidgetDef::new().full_width()
+    }
+
+    async fn render(cx: &Cx) -> Result<impl View> {
+        let mut tiles = Vec::new();
+        for (label, status) in [
+            ("Drafts", PostStatus::Draft),
+            ("Published", PostStatus::Published),
+        ] {
+            let count = scoped_query::<PostResource>(cx)?
+                .filter(Post::fields().status().eq(status))
+                .count()
+                .exec(&mut db(cx)?)
+                .await?;
+            tiles.push(Stat::new(label, count.to_string()));
+        }
+        Ok(tablo::stats(cx, tiles))
+    }
+}
+
 /// What featuring by tag asks for: the tag.
 #[derive(tablo::FormInput)]
 pub struct FeatureTag {

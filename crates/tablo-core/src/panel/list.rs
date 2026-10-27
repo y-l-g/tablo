@@ -332,6 +332,7 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
             import_url,
             export_url,
         );
+        let widgets = super::widgets::rendered_grid(cx, &resource.list_widgets).await?;
         let mode = rerun_suspense_mode(cx);
         let lazy_rows = ThenView::new(async move {
             let list_path = &resource.url;
@@ -353,23 +354,50 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
                 )),
             }
         });
-        Ok(list_page(cx, header, skeleton, mode, lazy_rows.boxed()))
+        Ok(list_page(
+            cx,
+            ListPage {
+                header,
+                widgets,
+                skeleton,
+                mode,
+                rows: lazy_rows.boxed(),
+            },
+        ))
     })
 }
 
-/// Renders the list page: `header` over the `rows`, behind `skeleton` while they load.
-fn list_page<'a>(
-    cx: &'a Cx,
+/// What the list page shows, resolved from the resource.
+struct ListPage<'a> {
     header: BoxView<'a>,
+    /// The [`ResourceDef::list_widget`](crate::ResourceDef::list_widget) grid.
+    widgets: BoxView<'a>,
+    /// What shows while the rows load.
     skeleton: BoxView<'a>,
     mode: SuspenseMode,
     rows: BoxView<'a>,
-) -> BoxView<'a> {
+}
+
+/// Renders the list page: `header` over the widgets and the `rows`, behind `skeleton` while they
+/// load.
+fn list_page<'a>(cx: &'a Cx, page: ListPage<'a>) -> BoxView<'a> {
+    let ListPage {
+        header,
+        widgets,
+        skeleton,
+        mode,
+        rows,
+    } = page;
     view! {
         cx =>
         tablo_ui::page(
             (header)
-            tablo_ui::page_content(suspense(fallback: skeleton, mode: mode, (rows)))
+            tablo_ui::page_content(
+                <div class="flex flex-col gap-4">
+                    (widgets)
+                    suspense(fallback: skeleton, mode: mode, (rows))
+                </div>
+            )
         )
     }
     .boxed()

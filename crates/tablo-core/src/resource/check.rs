@@ -38,6 +38,7 @@ pub(crate) fn check_resource<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationE
     if let Some(Err(kind)) = declared.soft_delete.as_ref().map(|soft| soft.field()) {
         errors.push(DeclarationError::of::<R>(Site::SoftDelete, kind.clone()));
     }
+    declared.list_widgets.check::<R>(errors);
     let mut form_errors = declared.form.declaration_errors();
     form_errors.extend(declared.form.empty_choices());
     let form_is_sound = form_errors.is_empty();

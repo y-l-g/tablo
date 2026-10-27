@@ -25,7 +25,7 @@ use topcoat::{
 };
 
 use crate::{
-    dashboard::Dashboard,
+    dashboard::{Dashboard, PostsByStatus},
     media::{MediaLibrary, MediaLibraryPage},
     models::{
         Author, AuthorForm, BLOCKED_TENANT, Category, CategoryForm, Comment, Link, Post,
@@ -173,6 +173,8 @@ impl Resource for PostResource {
             .action::<TagPosts>()
             // Publishes every draft from the list's header, confirming first.
             .header_action::<PublishAllDrafts>()
+            // Counts the drafts and published posts above the list.
+            .list_widget::<PostsByStatus>()
     }
 
     /// Tells whoever published every draft, in their bell, once the drafts are live.
