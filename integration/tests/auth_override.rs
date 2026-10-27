@@ -138,6 +138,7 @@ impl Resource for MemberResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny))
+            .tenancy(Tenancy::none())
             .table(Table::new(TextColumn::new(lens!(Member.handle))).paginate(25))
     }
 }

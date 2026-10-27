@@ -19,6 +19,12 @@ by hand states it too; the check needs no declaration of its own, and `Tenancy::
 intent. The derive recognizes the field by its type's name, `TenantId`, so an alias of it goes
 unseen, as it does for `ModelForm`.
 
+On a panel that acts for tenants (it offers a tenant registration or settings page, or mounts a
+resource over tenant-owned rows) every resource declares its tenancy, or the panel does not mount.
+There the column check misses what matters most: a table whose tenant key is a plain `Uuid`, or
+the panel's own users, which serve every tenant's rows to each tenant's members. A resource that
+means it says `Tenancy::none()`; on a panel without tenants none has to.
+
 The tenant column is typed `TenantId` (or `Option<TenantId>`), and a tenancy lens must name a
 field implementing `TenantColumn`. The type is the only thing that tells a tenant column apart
 from any other UUID column, so a lens to an unmarked column does not compile.
@@ -31,5 +37,6 @@ from any other UUID column, so a lens to an unmarked column does not compile.
 - An opt-in `TenantOwned` marker trait on the model to trigger the undeclared-tenancy refusal: an
   app that forgets `.tenancy(..)` forgets the marker as easily, while the derive already sees the
   field's type.
-- Refusing every resource that declares no tenancy: most models have no tenant column, and each
-  of their resources would restate `Tenancy::none()`.
+- Refusing every resource that declares no tenancy, on every panel: most panels act for no
+  tenant, and each of their resources would restate `Tenancy::none()`. A panel that acts for
+  tenants refuses them, as above.

@@ -160,9 +160,10 @@ impl<M: toasty::schema::Model + 'static> Tenancy<M> {
     /// request.
     ///
     /// A resource that declares no tenancy is served the same way, unless its model has a
-    /// [`TenantId`] column: mounting the panel refuses that resource until it declares one, so a
-    /// resource over tenant-owned rows declares `Tenancy::none()` to serve every tenant on
-    /// purpose.
+    /// [`TenantId`] column or the panel acts for tenants, offering a tenant registration or
+    /// settings page or mounting a resource over tenant-owned rows: mounting the panel refuses
+    /// that resource until it declares one, so it declares `Tenancy::none()` to serve every tenant
+    /// on purpose.
     pub fn none() -> Self {
         Self::scoped(Scope::None { declared: true })
     }

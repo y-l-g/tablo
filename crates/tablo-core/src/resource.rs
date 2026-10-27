@@ -25,7 +25,7 @@ pub use action::{Action, Places};
 pub(crate) use action::{
     ActionEntry, Actions, ErasedInput, InputResult, InputSpec, RESERVED_KEYS, parse_validated,
 };
-pub(crate) use check::{ResourceCheck, check_inputs, check_resource};
+pub(crate) use check::{ResourceCheck, ServesTenants, check_inputs, check_resource};
 pub use commit::Change;
 pub(crate) use commit::{acted, run_after_commit};
 pub use def::{PublicLink, ResourceDef};

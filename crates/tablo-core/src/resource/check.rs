@@ -2,7 +2,7 @@
 //! other resources, before it serves any: tenancy, the form against its record form, many-to-many
 //! fields, the columns a create writes, and the actions' inputs.
 
-use topcoat::context::Cx;
+use topcoat::context::{Cx, try_context};
 
 use crate::{
     ActionInputFault, DeclarationError, DeclarationErrorKind, ManyToManyFault, ModelColumns, Site,
@@ -76,9 +76,17 @@ pub(crate) fn check_resource<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationE
     check_form_declaration(cx, &declared, form_is_sound, errors);
 }
 
+/// Marks the declaration check of a panel that acts for tenants: it offers a tenant registration
+/// or settings page, or mounts a resource over tenant-owned rows.
+#[derive(Clone, Copy)]
+pub(crate) struct ServesTenants;
+
 /// A resource that declares no tenancy serves every tenant's rows, so its model must hold none:
-/// it has no tenant column, and belongs to no model a mounted resource scopes by tenant.
+/// it has no tenant column, and belongs to no model a mounted resource scopes by tenant. On a panel
+/// that acts for tenants it declares its tenancy whatever its model holds: a tenant the model
+/// keeps in a column of another type escapes both checks.
 fn check_undeclared_tenancy<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationError>) {
+    let before = errors.len();
     let columns = <R::Model as ModelColumns>::TENANT_COLUMNS;
     if !columns.is_empty() {
         errors.push(tenancy_error::<R>(TenancyFault::Undeclared {
@@ -93,6 +101,11 @@ fn check_undeclared_tenancy<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationEr
                 relation: parent.name,
             }));
         }
+    }
+    if errors.len() == before && try_context::<ServesTenants>(cx).is_some() {
+        errors.push(tenancy_error::<R>(TenancyFault::UndeclaredOnTenantPanel {
+            model: model_name::<R>(),
+        }));
     }
 }
 

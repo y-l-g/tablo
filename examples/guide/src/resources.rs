@@ -220,6 +220,8 @@ impl Resource for AuthorResource {
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
+            // Authors write for every tenant.
+            .tenancy(Tenancy::none())
             .table(Table::new(TextColumn::new(lens!(Author.name))))
             // Titles the detail page, the post form's author options and the post's author column.
             .record_title(lens!(Author.name))

@@ -24,7 +24,7 @@ pub struct Member {
 }
 
 /// A member's seat in one tenant, the tenant's name with it.
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 pub struct Seat {
     #[key]
     #[auto]

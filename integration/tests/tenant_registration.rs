@@ -3,13 +3,18 @@
 
 use http::header::LOCATION;
 use tablo::{
-    Auth, DeclarationErrorKind, FieldErrors, FormInput, Membership, NotificationStatus,
-    TenantRegistration, TenantRegistrationFault,
+    Auth, DeclarationErrorKind, FieldErrors, FormInput, Membership, NotificationStatus, Panel,
+    ReadOnly, Resource, ResourceDef, RouterBuilderPanelExt, Table, TenancyFault,
+    TenantRegistration, TenantRegistrationFault, TextColumn,
     auth::{AdminUser, TenantRegistrar},
+    lens,
     testing::{ErrorKind, field_error, form_body},
 };
 use toasty::Db;
-use topcoat::{context::Cx, router::Router};
+use topcoat::{
+    context::Cx,
+    router::{Router, RouterBuilderDiscoverExt},
+};
 use uuid::Uuid;
 
 use crate::common::{
@@ -237,5 +242,40 @@ async fn mounting_refuses_a_tenant_registration_the_panel_cannot_serve() {
         vec![fault(TenantRegistrationFault::ReservedField(
             "csrf_token".to_string()
         ))]
+    );
+}
+
+/// Seats, whose tenant sits in a plain `Uuid` the tenant-column check cannot see.
+struct SeatResource;
+
+impl Resource for SeatResource {
+    type Model = Seat;
+    type Form = tablo::NoForm<Self::Model>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .policy(ReadOnly)
+            .table(Table::new(TextColumn::new(lens!(Seat.tenant_name))))
+    }
+}
+
+/// A panel that acts for tenants through its registration page alone refuses a resource that
+/// declares no tenancy, though its model holds no `TenantId`.
+#[tokio::test]
+async fn a_registration_panel_refuses_a_resource_without_tenancy() {
+    let mounted = Router::builder()
+        .discover()
+        .with(db().await)
+        .panel(
+            Panel::new("admin")
+                .auth(Auth::custom(MemberAuth).tenant_registration(TenantRegistration::new(Teams)))
+                .resource::<SeatResource>(),
+        )
+        .map(|builder| builder.build());
+    assert_eq!(
+        kinds(mounted),
+        vec![DeclarationErrorKind::Tenancy {
+            fault: TenancyFault::UndeclaredOnTenantPanel { model: "Seat" },
+        }]
     );
 }

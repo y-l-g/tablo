@@ -409,7 +409,10 @@ That one declaration does two things:
 The column is a `TenantId` field of the model, or `Option<TenantId>` for a nullable one, named by
 its lens. Do not repeat the filter in `query`. A resource over tenant-owned rows that declares no
 tenancy at all fails to mount, since it would serve every tenant's rows; the
-[mount errors](./mount-errors.md) say which declaration it needs.
+[mount errors](./mount-errors.md) say which declaration it needs. On a panel that acts for tenants,
+one that offers a tenant registration or settings page or mounts a tenant-scoped resource, every
+resource declares its tenancy: the mount cannot tell a tenant kept in a plain `Uuid` column from
+none.
 
 **A row that inherits its tenant.** A comment has no tenant column of its own; it belongs to a post
 that does. `Tenancy::via` names the tenant through the relation, and the framework checks and
@@ -432,8 +435,9 @@ relation, and the form declares that relation's foreign key (`post_id`) as a
 must be one of the request tenant's posts. Mounting the panel refuses a form that writes the key any
 other way, or a lens that does not start at a `belongs_to`.
 
-**A deliberately cross-tenant resource** — a super-admin view — declares `Tenancy::none()` and
-filters in `query()`. That gives up both the tenant check and the scope.
+**A deliberately cross-tenant resource** — a super-admin view, or the panel's own users —
+declares `Tenancy::none()` and filters in `query()`. That gives up both the tenant check and the
+scope.
 
 **In your own code**, load rows with `scoped_query::<PostResource>(cx)?`. It applies the tenant
 scope and answers 403 when the request has no tenant. `PostResource::query(cx)` does not apply the

@@ -518,6 +518,15 @@ resource!(OverScopedParent, Child, KeyedForm => ResourceDef::new()
     Schema::new((c.name, c.parent_id.choice().relationship::<ScopedParents>()))
 }));
 resource!(Seats, Seat => ResourceDef::new().table(Table::new(TextColumn::new(lens!(Seat.label)))));
+// Declares no tenancy over a model with no tenant column, which a panel serving tenants refuses.
+resource!(UndeclaredDocs, Doc => ResourceDef::new()
+    .slug("docs")
+    .table(Table::new(TextColumn::new(lens!(Doc.title)))));
+// Serves every tenant's docs on purpose.
+resource!(OpenDocs, Doc => ResourceDef::new()
+    .slug("docs")
+    .tenancy(Tenancy::none())
+    .table(Table::new(TextColumn::new(lens!(Doc.title)))));
 resource!(Seated, Child, SeatedForm => {
     let c = SeatedForm::controls();
     ResourceDef::new()
@@ -684,6 +693,20 @@ async fn a_mount_refuses_each_misdeclaration() {
                 },
             )],
         ),
+        (
+            "no tenancy beside a tenant-scoped resource",
+            refused(mounted(
+                panel()
+                    .resource::<ScopedParents>()
+                    .resource::<UndeclaredDocs>(),
+            )),
+            vec![of::<UndeclaredDocs>(
+                Site::Tenancy,
+                DeclarationErrorKind::Tenancy {
+                    fault: TenancyFault::UndeclaredOnTenantPanel { model: "Doc" },
+                },
+            )],
+        ),
         // A tenancy `via` needs the form to write the relation's key through a relationship
         // field over a tenant-scoped resource.
         (
@@ -785,6 +808,10 @@ async fn a_mount_refuses_each_misdeclaration() {
         (
             "a relation column of a registered resource",
             mounted(panel().resource::<Children>().resource::<Parents>()),
+        ),
+        (
+            "`Tenancy::none` beside a tenant-scoped resource",
+            mounted(panel().resource::<ScopedParents>().resource::<OpenDocs>()),
         ),
         (
             "`Tenancy::via` through a relation",
