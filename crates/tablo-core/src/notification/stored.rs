@@ -11,6 +11,7 @@ use uuid::Uuid;
 
 use super::Notification;
 use crate::{
+    TenantId,
     auth::current_realm,
     bus::{NotificationBus, bus},
 };
@@ -32,7 +33,7 @@ pub struct StoredNotification {
     pub panel: String,
     /// The tenant it belongs to: the bell lists it only while the user acts for that tenant.
     /// `None` lists it whichever tenant they act for.
-    pub tenant: Option<Uuid>,
+    pub tenant: Option<TenantId>,
     /// What it says, as JSON, so a field a later release adds to [`Notification`] needs no
     /// migration.
     #[column(type = text)]
@@ -66,7 +67,7 @@ pub struct Notifications {
     db: Db,
     bus: NotificationBus,
     panel: String,
-    tenant: Option<Uuid>,
+    tenant: Option<TenantId>,
     /// The request [`Self::of`] took it from; `None` for a job's handle.
     request: Option<CxId>,
 }
@@ -98,7 +99,12 @@ impl Notifications {
         Ok(notifications)
     }
 
-    pub(crate) fn new(db: Db, bus: NotificationBus, panel: String, tenant: Option<Uuid>) -> Self {
+    pub(crate) fn new(
+        db: Db,
+        bus: NotificationBus,
+        panel: String,
+        tenant: Option<TenantId>,
+    ) -> Self {
         Self {
             db,
             bus,
@@ -111,7 +117,7 @@ impl Notifications {
     /// Sends for `tenant` instead: the bell lists what this handle sends only while the
     /// recipient acts for it, or whichever tenant they act for with `None`.
     #[must_use]
-    pub fn tenant(mut self, tenant: impl Into<Option<Uuid>>) -> Self {
+    pub fn tenant(mut self, tenant: impl Into<Option<TenantId>>) -> Self {
         self.tenant = tenant.into();
         self
     }
@@ -255,7 +261,7 @@ fn failure(error: toasty::Error) -> topcoat::Error {
 pub(crate) struct Inbox {
     pub(crate) panel: String,
     pub(crate) user_id: String,
-    tenant: Option<Uuid>,
+    tenant: Option<TenantId>,
 }
 
 impl Inbox {

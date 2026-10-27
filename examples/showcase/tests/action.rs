@@ -254,7 +254,7 @@ async fn a_read_only_portal_lists_drafts_and_refuses_publish() {
         app::{AuthorResource, CategoryResource, CommentResource, PostResource},
         models::{DEMO_TENANT, Post, PostStatus},
     };
-    use tablo::{Auth, Panel, ReadOnly, TenantId, testing::TestClient};
+    use tablo::{Auth, Panel, ReadOnly, testing::TestClient};
 
     let db = full_db().await;
     let router = mount(
@@ -279,7 +279,7 @@ async fn a_read_only_portal_lists_drafts_and_refuses_publish() {
         .expect("query posts")
         .into_iter()
         .find(|post| {
-            post.tenant_id == TenantId::from(DEMO_TENANT)
+            post.tenant_id == DEMO_TENANT
                 && post.status == PostStatus::Draft
                 && tablo::testing::row_actions(&html, &post.id.to_string()).is_some()
         })

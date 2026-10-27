@@ -251,8 +251,8 @@ async fn a_file_past_the_row_cap_imports_nothing() {
     assert_eq!(user_count(&db).await, before);
 }
 
-async fn author(db: &toasty::Db, tenant: uuid::Uuid) -> Author {
-    Author::filter(Author::fields().tenant_id().eq(TenantId::from(tenant)))
+async fn author(db: &toasty::Db, tenant: TenantId) -> Author {
+    Author::filter(Author::fields().tenant_id().eq(tenant))
         .first()
         .exec(&mut db.clone())
         .await
@@ -298,7 +298,7 @@ async fn an_import_writes_in_the_requests_tenant_only() {
         .await
         .unwrap()
         .expect("the post is imported");
-    assert_eq!(imported.tenant_id, TenantId::from(t1));
+    assert_eq!(imported.tenant_id, t1);
 }
 
 /// A multiple choice's control posts its key once per value, so its column repeats.
@@ -312,7 +312,7 @@ async fn a_repeated_many_to_many_column_links_each_value() {
     let categories = showcase::models::Category::filter(
         showcase::models::Category::fields()
             .tenant_id()
-            .eq(TenantId::from(DEMO_TENANT)),
+            .eq(DEMO_TENANT),
     )
     .exec(&mut db_q)
     .await

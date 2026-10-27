@@ -17,7 +17,10 @@ use super::{
     session::{delete_session, fresh_session, record, select_tenant, sweep_expired_sessions},
     signed, unauthenticated_error,
 };
-use crate::auth::realm::{current_realm, hosted, panel_prefix};
+use crate::{
+    TenantId,
+    auth::realm::{current_realm, hosted, panel_prefix},
+};
 
 /// Caps the login body at 64 KiB; the panel's 10 MiB form cap covers multipart
 /// uploads the login route never carries.
@@ -248,13 +251,13 @@ pub(super) fn tenant_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
         let tenant = parts
             .last(TENANT_FIELD)
-            .and_then(|value| uuid::Uuid::parse_str(value).ok())
+            .and_then(|value| value.parse::<TenantId>().ok())
             .filter(|tenant| {
                 signed
                     .user
                     .tenants()
                     .iter()
-                    .any(|membership| membership.tenant.get() == *tenant)
+                    .any(|membership| membership.tenant == *tenant)
             })
             .ok_or_else(topcoat::router::error::forbidden)?;
         select_tenant(cx, tenant).await?;

@@ -1,0 +1,17 @@
+error[E0308]: mismatched types
+ --> tests/compile_fail/request_tenant_uuid.rs:4:32
+  |
+4 |     let _ = tablo_core::Tenant(author_id);
+  |             ------------------ ^^^^^^^^^ expected `TenantId`, found `Uuid`
+  |             |
+  |             arguments to this struct are incorrect
+  |
+note: tuple struct defined here
+ --> src/tenancy.rs
+  |
+  | pub struct Tenant(pub TenantId);
+  |            ^^^^^^
+help: call `Into::into` on this expression to convert `Uuid` into `TenantId`
+  |
+4 |     let _ = tablo_core::Tenant(author_id.into());
+  |                                         +++++++

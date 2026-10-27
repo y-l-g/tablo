@@ -6,6 +6,7 @@ use topcoat::{
     context::Cx,
     router::{Body, response::IntoResponse},
 };
+use uuid::Uuid;
 
 use super::{
     login::{GENERIC_ERROR, login_post},
@@ -13,6 +14,7 @@ use super::{
     *,
 };
 use crate::{
+    TenantId,
     panel::state::PanelState,
     test_support::{memory_db, tableless_db},
 };
@@ -672,20 +674,16 @@ impl PanelUser for Member {
 
 /// A request on `/admin` signed in as a member of `tenants`, whose session
 /// selected `selected`, with an optional `Tenant` override on the `Cx`.
-fn member_cx(
-    tenants: &[uuid::Uuid],
-    selected: Option<uuid::Uuid>,
-    overridden: Option<uuid::Uuid>,
-) -> Cx {
+fn member_cx(tenants: &[TenantId], selected: Option<TenantId>, overridden: Option<TenantId>) -> Cx {
     defaulting_cx(tenants, None, selected, overridden)
 }
 
 /// [`member_cx`] for a member naming `default` as their default tenant.
 fn defaulting_cx(
-    tenants: &[uuid::Uuid],
-    default: Option<uuid::Uuid>,
-    selected: Option<uuid::Uuid>,
-    overridden: Option<uuid::Uuid>,
+    tenants: &[TenantId],
+    default: Option<TenantId>,
+    selected: Option<TenantId>,
+    overridden: Option<TenantId>,
 ) -> Cx {
     let panel = std::sync::Arc::new(crate::panel::test_support::panel_state(
         "/admin",
@@ -694,12 +692,12 @@ fn defaulting_cx(
     let memberships = tenants
         .iter()
         .enumerate()
-        .map(|(index, tenant)| Membership::new((*tenant).into(), format!("Tenant {index}")))
+        .map(|(index, tenant)| Membership::new(*tenant, format!("Tenant {index}")))
         .collect();
     let mut builder =
         crate::panel::test_support::serving(topcoat::context::CxTestBuilder::new(), &panel)
             .request_context(SignedIn {
-                user: std::sync::Arc::new(Member(memberships, default.map(crate::TenantId::from))),
+                user: std::sync::Arc::new(Member(memberships, default)),
                 realm: std::sync::Arc::clone(&panel.realm),
                 tenant: selected,
             })
@@ -713,9 +711,9 @@ fn defaulting_cx(
 #[test]
 fn the_request_acts_for_the_selected_membership_else_the_first() {
     let (a, b, stranger) = (
-        uuid::Uuid::from_u128(1),
-        uuid::Uuid::from_u128(2),
-        uuid::Uuid::from_u128(3),
+        TenantId::from(Uuid::from_u128(1)),
+        TenantId::from(Uuid::from_u128(2)),
+        TenantId::from(Uuid::from_u128(3)),
     );
     assert_eq!(crate::tenant_id(&member_cx(&[a, b], None, None)), Some(a));
     assert_eq!(
@@ -736,7 +734,7 @@ fn the_request_acts_for_the_selected_membership_else_the_first() {
     assert_eq!(crate::tenant_id(&cx), Some(stranger));
     assert_eq!(membership(&cx), None);
     let cx = member_cx(&[a, b], None, Some(b));
-    assert_eq!(membership(&cx).map(|m| m.tenant.get()), Some(b));
+    assert_eq!(membership(&cx).map(|m| m.tenant), Some(b));
 }
 
 /// A user without an address has nothing to verify: verification never holds them.
@@ -761,9 +759,9 @@ fn verification_holds_only_a_user_with_an_address() {
 #[test]
 fn the_default_tenant_comes_before_the_first() {
     let (a, b, stranger) = (
-        uuid::Uuid::from_u128(1),
-        uuid::Uuid::from_u128(2),
-        uuid::Uuid::from_u128(3),
+        TenantId::from(Uuid::from_u128(1)),
+        TenantId::from(Uuid::from_u128(2)),
+        TenantId::from(Uuid::from_u128(3)),
     );
     let tenant =
         |default, selected| crate::tenant_id(&defaulting_cx(&[a, b], default, selected, None));

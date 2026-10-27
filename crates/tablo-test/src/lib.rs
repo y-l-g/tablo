@@ -87,7 +87,7 @@ pub fn refusal<T>(mounted: topcoat::Result<T>) -> Vec<DeclarationError> {
 pub struct TestClient<'a> {
     router: &'a Router,
     cookies: Vec<(String, String)>,
-    tenant: Option<uuid::Uuid>,
+    tenant: Option<tablo_core::TenantId>,
     panel: Option<PanelHandle>,
     language: Option<String>,
 }
@@ -242,7 +242,7 @@ impl<'a> TestClient<'a> {
 
     /// Scopes the request to another tenant, taking precedence over the
     /// logged-in user's tenant.
-    pub fn tenant(&self, tenant: uuid::Uuid) -> Self {
+    pub fn tenant(&self, tenant: tablo_core::TenantId) -> Self {
         let mut client = self.clone();
         client.tenant = Some(tenant);
         client

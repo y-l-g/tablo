@@ -85,7 +85,7 @@ pub(super) struct Checked(Mutex<HashMap<String, bool>>);
 
 /// The request's [`Checked`] records of `S` in `tenant`.
 #[topcoat::context::memoize]
-fn checked<S: OptionSource>(cx: &Cx, _tenant: Option<uuid::Uuid>) -> Arc<Checked> {
+fn checked<S: OptionSource>(cx: &Cx, _tenant: Option<crate::TenantId>) -> Arc<Checked> {
     let _ = cx;
     Arc::default()
 }

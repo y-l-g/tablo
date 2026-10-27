@@ -165,7 +165,7 @@ async fn can_list_checks_the_policy_and_the_tenant() {
         .handle(&db)
         .expect("panel builds")
         .context();
-    let tenanted = anonymous.with(crate::Tenant(uuid::Uuid::new_v4()));
+    let tenanted = anonymous.with(crate::Tenant(uuid::Uuid::new_v4().into()));
     assert!(can_list::<OpenNotes>(&anonymous));
     assert!(
         !can_list::<ClosedNotes>(&tenanted),

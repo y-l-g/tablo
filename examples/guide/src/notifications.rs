@@ -34,7 +34,11 @@ pub async fn order_shipped(cx: &Cx, owner_id: &str, ex: &mut dyn toasty::Executo
     Ok(())
 }
 
-pub async fn nightly_import(admin: &PanelHandle, owner_id: &str, tenant: uuid::Uuid) -> Result<()> {
+pub async fn nightly_import(
+    admin: &PanelHandle,
+    owner_id: &str,
+    tenant: tablo::TenantId,
+) -> Result<()> {
     // ANCHOR: job
     admin
         .notifications()

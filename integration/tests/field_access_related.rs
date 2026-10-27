@@ -106,9 +106,9 @@ pub(super) struct Ticket {
 }
 
 /// The tenant whose requests view the salary.
-pub(super) const HR: Uuid = Uuid::from_u128(1);
+pub(super) const HR: TenantId = TenantId::new(Uuid::from_u128(1));
 /// A tenant whose requests see no salary.
-pub(super) const SALES: Uuid = Uuid::from_u128(2);
+pub(super) const SALES: TenantId = TenantId::new(Uuid::from_u128(2));
 
 pub(super) fn hr(cx: &Cx) -> bool {
     tablo::tenant_id(cx) == Some(HR)
@@ -131,9 +131,9 @@ fn router(db: &Db) -> Router {
     .expect("panel builds")
 }
 
-pub(super) async fn member(db: &Db, tenant: Uuid, salary: &str) -> Member {
+pub(super) async fn member(db: &Db, tenant: TenantId, salary: &str) -> Member {
     toasty::create!(Member {
-        tenant_id: TenantId::from(tenant),
+        tenant_id: tenant,
         name: "Ada".to_string(),
         salary: salary.to_string(),
     })
@@ -142,10 +142,10 @@ pub(super) async fn member(db: &Db, tenant: Uuid, salary: &str) -> Member {
     .unwrap()
 }
 
-async fn card(db: &Db, tenant: Uuid) -> Card {
+async fn card(db: &Db, tenant: TenantId) -> Card {
     let member = member(db, tenant, "S-900").await;
     toasty::create!(Card {
-        tenant_id: TenantId::from(tenant),
+        tenant_id: tenant,
         code: "C-1".to_string(),
         member_id: member.id,
     })

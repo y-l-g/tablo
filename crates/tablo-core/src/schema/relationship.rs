@@ -148,7 +148,7 @@ pub const MAX_RELATIONSHIP_OPTIONS: usize = 200;
 #[topcoat::context::memoize(as_ref)]
 pub(crate) async fn related_records<R>(
     cx: &Cx,
-    _tenant: Option<uuid::Uuid>,
+    _tenant: Option<crate::TenantId>,
 ) -> Result<Vec<R::Model>, OptionLoadError>
 where
     R: OptionSource,
@@ -303,7 +303,7 @@ where
 #[topcoat::context::memoize(as_ref)]
 pub(crate) async fn viewable_keys<R>(
     cx: &Cx,
-    _tenant: Option<uuid::Uuid>,
+    _tenant: Option<crate::TenantId>,
     keys: &[String],
 ) -> Result<std::collections::HashSet<String>, OptionLoadError>
 where
