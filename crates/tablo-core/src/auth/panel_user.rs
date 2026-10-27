@@ -27,7 +27,7 @@ use crate::tenancy::{Membership, TenantId};
 ///     fn display_name(&self) -> &str {
 ///         &self.name
 ///     }
-///     fn can_access_panel(&self) -> bool {
+///     fn can_access_panel(&self, _panel: &str) -> bool {
 ///         self.active
 ///     }
 ///     fn tenants(&self) -> &[Membership] {
@@ -55,9 +55,24 @@ pub trait PanelUser: Any + Send + Sync {
         None
     }
 
-    /// Whether the user may enter the panel. A user who may not answers 403,
+    /// Whether the user may enter the panel at `panel`, its prefix with one leading slash and
+    /// none trailing: `/admin` for `Panel::new("admin")`. A user who may not answers 403,
     /// indistinguishable from bad credentials at login. Defaults to `true`.
-    fn can_access_panel(&self) -> bool {
+    ///
+    /// One user type can serve several panels, each with its own rule:
+    ///
+    /// ```rust,ignore
+    /// fn can_access_panel(&self, panel: &str) -> bool {
+    ///     match panel {
+    ///         "/admin" => self.active && self.is_staff,
+    ///         _ => self.active,
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// Every check of a panel asks it with that panel's prefix: the gate on each request, the
+    /// login, the sign-up, a mailed link and a two-factor challenge.
+    fn can_access_panel(&self, _panel: &str) -> bool {
         true
     }
 

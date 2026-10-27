@@ -422,7 +422,9 @@ async fn stores(cx: &Cx, panel: &Realm, row: &token::AuthToken) -> topcoat::Resu
         .await
         .map_err(infrastructure_failure)?;
     Ok(user.is_some_and(|user| {
-        user.can_access_panel() && user.email().is_some() && user.email() == row.email.as_deref()
+        user.can_access_panel(&panel.prefix)
+            && user.email().is_some()
+            && user.email() == row.email.as_deref()
     }))
 }
 

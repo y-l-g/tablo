@@ -110,7 +110,7 @@ impl PanelUser for SignedStaff {
     fn display_name(&self) -> &str {
         &self.staff.name
     }
-    fn can_access_panel(&self) -> bool {
+    fn can_access_panel(&self, _panel: &str) -> bool {
         self.staff.active
     }
     fn tenants(&self) -> &[Membership] {

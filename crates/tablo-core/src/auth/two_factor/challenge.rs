@@ -204,7 +204,7 @@ pub(in crate::auth) fn challenge_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             .find_by_id(cx, &row.user_id)
             .await
             .map_err(infrastructure_failure)?
-            .filter(|user| user.can_access_panel());
+            .filter(|user| user.can_access_panel(&panel.prefix));
         let Some(user) = user else {
             return expired(cx, &next);
         };

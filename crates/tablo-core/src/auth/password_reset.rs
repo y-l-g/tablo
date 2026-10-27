@@ -128,6 +128,7 @@ pub(crate) trait DynPasswordResetter: Send + Sync {
     fn recipient<'a>(
         &'a self,
         cx: &'a Cx,
+        panel: &'a str,
         email: &'a str,
     ) -> BoxFuture<'a, topcoat::Result<Option<Recipient>>>;
     fn reset_password<'a>(
@@ -146,11 +147,12 @@ impl<R: PasswordResetter> DynPasswordResetter for R {
     fn recipient<'a>(
         &'a self,
         cx: &'a Cx,
+        panel: &'a str,
         email: &'a str,
     ) -> BoxFuture<'a, topcoat::Result<Option<Recipient>>> {
         Box::pin(async move {
             let user = self.find_by_email(cx, email).await?;
-            let Some(user) = user.filter(PanelUser::can_access_panel) else {
+            let Some(user) = user.filter(|user| user.can_access_panel(panel)) else {
                 return Ok(None);
             };
             let Some(email) = user.email() else {
@@ -308,7 +310,7 @@ pub(super) fn forgot_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             return forgot_response(cx, email, &FieldErrors::new(), Some(ForgotAlert::Throttled))
                 .await;
         }
-        let recipient = match reset.resetter().recipient(cx, email).await {
+        let recipient = match reset.resetter().recipient(cx, &panel.prefix, email).await {
             Ok(recipient) => recipient,
             Err(error) => {
                 let error = infrastructure_failure(error);
@@ -464,7 +466,7 @@ async fn may_enter(cx: &Cx, panel: &Realm, user_id: &str) -> topcoat::Result<boo
         .find_by_id(cx, user_id)
         .await
         .map_err(infrastructure_failure)?;
-    Ok(user.is_some_and(|user| user.can_access_panel()))
+    Ok(user.is_some_and(|user| user.can_access_panel(&panel.prefix)))
 }
 
 /// The mistakes in a panel's [`Auth::password_reset`](super::Auth::password_reset): a reset without

@@ -2,15 +2,15 @@
 
 use http::header::{COOKIE, LOCATION, SET_COOKIE};
 use tablo::{
-    Ability, Auth, Authenticator, Membership, PanelUser, Resource, ResourceDef, Table, Tenancy,
-    TenantId, TextColumn,
+    Ability, Auth, Authenticator, Membership, PanelUser, Resource, ResourceDef,
+    RouterBuilderPanelExt, Table, Tenancy, TenantId, TextColumn,
     auth::{self, verify_password},
     lens, when,
 };
 use toasty::Db;
 use topcoat::{
     context::Cx,
-    router::{Body, Router, response::Response},
+    router::{Body, Router, RouterBuilderDiscoverExt, response::Response},
 };
 use uuid::Uuid;
 
@@ -64,8 +64,9 @@ impl PanelUser for SignedMember {
         &self.member.display_name
     }
 
-    fn can_access_panel(&self) -> bool {
-        self.member.active
+    /// Every active member enters `/admin`; only Ada enters `/portal` too.
+    fn can_access_panel(&self, panel: &str) -> bool {
+        self.member.active && (panel != "/portal" || self.member.handle == "ada")
     }
 
     fn tenants(&self) -> &[Membership] {
@@ -271,6 +272,57 @@ async fn login_as(router: &Router, handle: &str) -> String {
     .await;
     assert_eq!(login.status(), 303, "login succeeds for an active member");
     cookie_value(&login, "__Host-session").expect("session cookie")
+}
+
+/// Log in to the panel at `prefix` as `handle`, returning the response.
+async fn login_to(router: &Router, prefix: &str, handle: &str) -> Response<Body> {
+    let page = get_with_cookies(router, &format!("{prefix}/login"), &[]).await;
+    let csrf_cookie = cookie_value(&page, tablo::csrf::COOKIE_NAME).expect("CSRF cookie");
+    let csrf = input_value(&body_string(page).await, "csrf_token").expect("CSRF field");
+    post_form(
+        router,
+        &format!("{prefix}/login"),
+        &[(tablo::csrf::COOKIE_NAME, csrf_cookie)],
+        format!("email={handle}&password=opensesame&csrf_token={csrf}"),
+    )
+    .await
+}
+
+/// One user type serves two panels, and each panel asks it about itself: Grace enters the
+/// admin panel and is refused the portal at login.
+#[tokio::test]
+async fn one_user_type_gates_each_panel_by_its_prefix() {
+    let router = Router::builder()
+        .discover()
+        .with(seeded_db().await)
+        .panel(
+            tablo::Panel::new("admin")
+                .auth(Auth::custom(MemberAuth))
+                .resource::<MemberResource>(),
+        )
+        .expect("admin panel builds")
+        .panel(
+            tablo::Panel::new("portal")
+                .auth(Auth::custom(MemberAuth))
+                .resource::<MemberResource>(),
+        )
+        .expect("portal panel builds")
+        .build();
+
+    let admin = login_to(&router, "/admin", "grace").await;
+    assert_eq!(admin.status(), 303, "the admin panel admits Grace");
+    let session = cookie_value(&admin, "__Host-session").expect("session cookie");
+    let members = get_with_cookies(&router, "/admin/members", &[("__Host-session", session)]).await;
+    assert_eq!(members.status(), 200, "the admin panel serves Grace");
+    // Read the streamed page to its end: the next request otherwise waits on it.
+    body_string(members).await;
+
+    let portal = login_to(&router, "/portal", "grace").await;
+    assert_ne!(portal.status(), 303, "the portal refuses Grace at login");
+    assert!(cookie_value(&portal, "__Host-session").is_none());
+
+    let portal = login_to(&router, "/portal", "ada").await;
+    assert_eq!(portal.status(), 303, "the portal admits Ada");
 }
 
 /// A member whose panel access is revoked mid-session can still log out.

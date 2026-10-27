@@ -262,7 +262,7 @@ async fn opened(
         .find_by_id(cx, &row.user_id)
         .await
         .map_err(infrastructure_failure)?
-        .filter(|account| account.can_access_panel());
+        .filter(|account| account.can_access_panel(&panel.prefix));
     let Some(account) = account else {
         return Ok(None);
     };

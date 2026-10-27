@@ -376,7 +376,7 @@ pub(super) fn register_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
                 return Err(error);
             }
         };
-        if !user.can_access_panel() {
+        if !user.can_access_panel(&panel.prefix) {
             set_notification(
                 cx,
                 Notification::success(crate::t!(cx, "tablo-sign-up-created"))

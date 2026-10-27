@@ -167,7 +167,7 @@ pub(super) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         };
         // One 403 for every failure: wrong password, unknown account, empty
         // fields, or valid credentials without panel access.
-        let Some(user) = verified.filter(|user| user.can_access_panel()) else {
+        let Some(user) = verified.filter(|user| user.can_access_panel(&panel.prefix)) else {
             return login_response(cx, Some(LoginError::Credentials), next).await;
         };
         if let Some(login) = login {
