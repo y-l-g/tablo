@@ -348,6 +348,7 @@ tablo-field-too-many-results = Too many results — keep typing
 tablo-stat-trend-up = Up
 tablo-stat-trend-down = Down
 tablo-stat-trend-flat = Unchanged
+tablo-chart-empty = No data
 
 ## Notifications
 

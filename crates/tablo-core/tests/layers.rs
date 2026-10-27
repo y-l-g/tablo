@@ -41,6 +41,7 @@ const LAYERS: &[(&str, &[&str])] = &[
             "tenancy",
             "navigation",
             "display",
+            "chart",
             "values",
             "rich_text",
             "schema",

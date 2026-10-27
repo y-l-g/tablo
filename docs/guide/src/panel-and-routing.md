@@ -266,6 +266,10 @@ adds it to the page's grid, which `widgets::<Self>(cx)` renders where the page p
 - **Stats.** `stats(cx, …)` lays out a row of `Stat` tiles. `Stat::records::<R>(cx)` counts what
   `R`'s list would show the caller, through `scoped_query`, and links to it; it is `None` when the
   caller may not open that list, so the row has no tile for it.
+- **Charts.** `chart(cx, …)` draws a `Chart`, a line or bar chart over shared labels with a
+  `Series` of values per thing it measures, as SVG the server writes: it reads without
+  JavaScript, and a table of its values stands in for it to a screen reader. A chart over a
+  resource's records reads them as any widget does, below.
 - **Who sees a widget.** `WidgetDef::access(|cx| …)` leaves a widget out of the grid for the
   requests it refuses, and the grid renders nothing for a request the page refuses. A widget that
   reads a resource's records asks `can_list` before it reads them, then reads them through
