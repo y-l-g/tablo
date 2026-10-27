@@ -65,13 +65,16 @@ pub trait PanelUser: Any + Send + Sync {
     /// lists them. A session acts for the [`default_tenant`](Self::default_tenant)
     /// until the user selects another. Defaults to none: the user has no tenant.
     ///
-    /// With two or more, on a panel that acts for tenants, a tenant menu sits atop the sidebar: a
-    /// panel acts for tenants when it offers a tenant registration or settings page, or mounts a
-    /// resource over tenant-owned rows, and any other offers neither the menu nor its route. The
-    /// menu posts to `{prefix}/tenant`, which
-    /// stores the choice on the session and returns to the panel's home page. A tenant the user
-    /// is not a member of answers 403, and a stored choice applies only while the membership
-    /// lasts. One browser acts for one tenant at a time, in every tab.
+    /// A panel acts for tenants when it offers a tenant registration or settings page, or mounts
+    /// a resource over tenant-owned rows. Any other acts for no tenant:
+    /// [`tenant_id`](crate::tenant_id) answers `None` there, and the panel offers no tenant
+    /// menu and no route to switch.
+    ///
+    /// With two or more, on a panel that acts for tenants, a tenant menu sits atop the sidebar. It
+    /// posts to `{prefix}/tenant`, which stores the choice on the session and returns to the
+    /// panel's home page. A tenant the user is not a member of answers 403, and a stored choice
+    /// applies only while the membership lasts. One browser acts for one tenant at a time, in
+    /// every tab.
     fn tenants(&self) -> &[Membership] {
         &[]
     }

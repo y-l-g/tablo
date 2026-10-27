@@ -680,10 +680,22 @@ fn defaulting_cx(
     selected: Option<TenantId>,
     overridden: Option<TenantId>,
 ) -> Cx {
-    let panel = std::sync::Arc::new(crate::panel::test_support::panel_state(
-        "/admin",
-        crate::Auth::password(),
-    ));
+    serving_cx(true, tenants, default, selected, overridden)
+}
+
+/// [`defaulting_cx`] on a panel that acts for tenants or not, as `serves_tenants` says.
+fn serving_cx(
+    serves_tenants: bool,
+    tenants: &[TenantId],
+    default: Option<TenantId>,
+    selected: Option<TenantId>,
+    overridden: Option<TenantId>,
+) -> Cx {
+    let mut state = crate::panel::test_support::panel_state("/admin", crate::Auth::password());
+    std::sync::Arc::get_mut(&mut state.realm)
+        .expect("the realm is not shared yet")
+        .serves_tenants = serves_tenants;
+    let panel = std::sync::Arc::new(state);
     let memberships = tenants
         .iter()
         .enumerate()
@@ -762,4 +774,14 @@ fn the_default_tenant_comes_before_the_first() {
     assert_eq!(tenant(Some(b), None), Some(b));
     assert_eq!(tenant(Some(b), Some(a)), Some(a), "a selection wins");
     assert_eq!(tenant(Some(stranger), None), Some(a));
+}
+
+/// A panel that does not act for tenants acts for none, whatever the user's memberships: it
+/// offers no tenant menu to show or switch one.
+#[test]
+fn a_panel_without_tenancy_acts_for_no_tenant() {
+    let a = TenantId::from(Uuid::from_u128(1));
+    let cx = serving_cx(false, &[a], Some(a), Some(a), None);
+    assert_eq!(crate::tenant_id(&cx), None);
+    assert_eq!(membership(&cx), None);
 }
