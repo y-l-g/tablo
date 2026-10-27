@@ -18,7 +18,7 @@ struct Revenue;
 
 impl Widget for Revenue {
     fn declare() -> WidgetDef {
-        WidgetDef::new().columns(0)
+        WidgetDef::new().span(0)
     }
 
     async fn render(cx: &Cx) -> Result<impl View> {

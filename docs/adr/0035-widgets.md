@@ -6,12 +6,13 @@ widget renders a view; a row of stats is a widget that renders `stats(cx, …)` 
 
 - A widget is a view rendered with the page, not a component with its own route or state. It
   renders through the page's `GET`, behind the page's sign-in and `access`, so it adds no route
-  for the auth gate, the CSRF check or the tenant matrices to cover.
+  for the auth gate, the CSRF check or the tenant matrices to cover. A widget that reruns on its
+  own, as a table's sort and page do through their route, needs a later ADR.
 - A widget reads its own data, as a page does. What counts a resource's records goes through
   `scoped_query` and asks `can_list` before it shows or links anything, which
   `Stat::records::<R>` does for the common tile.
-- `WidgetDef::access` leaves a widget out for the requests it refuses, so a page shows each user
-  only the widgets they may see without a page per audience.
+- Access is per widget, so a page shows each user only the widgets they may see without a page
+  per audience.
 - Stats are a function over values, not a trait. A trait per kind, each with a blanket
   `impl Widget`, would overlap once there are two kinds, and a type could not be both.
 - Charts, a stat's sparkline included, are SVG the server writes. The browser layer stays

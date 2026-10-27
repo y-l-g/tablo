@@ -25,3 +25,4 @@ mod upload_discard;
 mod upload_rules;
 mod upstream;
 mod version;
+mod widgets;

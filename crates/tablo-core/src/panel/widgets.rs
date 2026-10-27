@@ -15,12 +15,15 @@ use crate::{
 /// [`PageDef::widget`](crate::PageDef::widget) calls added, in their order, that the request may
 /// see.
 ///
-/// It renders nothing outside a request to `P`'s panel or for a request
-/// [`PageDef::access`](crate::PageDef::access) refuses, and leaves out each widget whose
+/// It renders nothing outside a request to `P`'s panel, for a request the panel's sign-in or
+/// [`PageDef::access`](crate::PageDef::access) refuses — the check
+/// [`can_open`](crate::can_open) makes — and leaves out each widget whose
 /// [`WidgetDef::access`](crate::WidgetDef::access) refuses the request. The
 /// [`Widget`](crate::Widget) docs show a page placing it.
 pub fn widgets<P: Page>(cx: &Cx) -> BoxView<'_> {
-    let Some(page) = super::pages::mounted_page::<P>(cx).filter(|page| page.admits(cx)) else {
+    let Some(page) = super::pages::mounted_page::<P>(cx)
+        .filter(|page| crate::auth::guard(cx).is_ok() && page.admits(cx))
+    else {
         return ().boxed();
     };
     grid(cx, &page.widgets, page.widget_columns)
@@ -71,7 +74,7 @@ const fn grid_class(columns: u8) -> &'static str {
 /// A cell's classes for `span` in a grid `columns` wide; Tailwind needs each class spelled whole.
 const fn span_class(span: Span, columns: u8) -> &'static str {
     let span = match span {
-        Span::Full => return "col-span-full",
+        Span::Full => return "min-w-0 col-span-full",
         Span::Columns(span) if span < columns => span,
         Span::Columns(_) => columns,
     };
@@ -83,8 +86,9 @@ const fn span_class(span: Span, columns: u8) -> &'static str {
     }
 }
 
-/// A row of [`Stat`] tiles, for a [`Widget`](crate::Widget)'s body: three to a row on a wide
-/// screen, or four when three would leave one tile alone on the last row.
+/// A row of [`Stat`] tiles, for a [`Widget`](crate::Widget)'s body: as many to a row as the
+/// widget's width holds, up to three, or four when three would leave one tile alone on the last
+/// row; nothing when there is no tile.
 ///
 /// ```rust
 /// # use tablo_core::Stat;
@@ -97,18 +101,23 @@ const fn span_class(span: Span, columns: u8) -> &'static str {
 /// ```
 pub fn stats(cx: &Cx, stats: impl IntoIterator<Item = Stat>) -> BoxView<'_> {
     let stats: Vec<Stat> = stats.into_iter().collect();
+    if stats.is_empty() {
+        return ().boxed();
+    }
     let class = if stats.len() > 3 && stats.len() % 3 == 1 {
-        "grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+        "grid gap-4 @lg:grid-cols-2 @4xl:grid-cols-4"
     } else {
-        "grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+        "grid gap-4 @lg:grid-cols-2 @3xl:grid-cols-3"
     };
     let tiles: Vec<BoxView<'_>> = stats.into_iter().map(|stat| tile(cx, stat)).collect();
     view! {
         cx =>
-        <div data-stats="" class=(class)>
-            for tile in tiles {
-                (tile)
-            }
+        <div data-stats="" class="@container">
+            <div class=(class)>
+                for tile in tiles {
+                    (tile)
+                }
+            </div>
         </div>
     }
     .boxed()
@@ -126,11 +135,21 @@ fn tile(cx: &Cx, stat: Stat) -> BoxView<'_> {
         chart,
     } = stat;
     let detail = detail.map(|detail| detail.localize(cx)).unwrap_or_default();
-    let detail_icon = trend.map(|trend| match trend {
-        Trend::Up => tablo_ui::icons::ARROW_UP,
-        Trend::Down => tablo_ui::icons::ARROW_DOWN,
-        Trend::Flat => tablo_ui::icons::MINUS,
-    });
+    let (detail_icon, detail_icon_label) = match trend {
+        Some(Trend::Up) => (
+            Some(tablo_ui::icons::ARROW_UP),
+            crate::t!(cx, "tablo-stat-trend-up"),
+        ),
+        Some(Trend::Down) => (
+            Some(tablo_ui::icons::ARROW_DOWN),
+            crate::t!(cx, "tablo-stat-trend-down"),
+        ),
+        Some(Trend::Flat) => (
+            Some(tablo_ui::icons::MINUS),
+            crate::t!(cx, "tablo-stat-trend-flat"),
+        ),
+        None => (None, String::new()),
+    };
     view! {
         cx =>
         tablo_ui::stat(
@@ -138,6 +157,7 @@ fn tile(cx: &Cx, stat: Stat) -> BoxView<'_> {
             value: value,
             detail: detail,
             detail_icon: detail_icon,
+            detail_icon_label: detail_icon_label,
             accent: color.text_class(),
             chart: chart,
             icon: icon,
@@ -173,7 +193,8 @@ impl Stat {
             .count()
             .exec(&mut crate::db::db(cx)?)
             .await?;
-        let mut stat = Self::new(item.label, count.to_string()).href(url);
+        let count = crate::display::format_number(crate::display::Number::Int(count.into()), 0);
+        let mut stat = Self::new(item.label, count).href(url);
         stat.icon = item.icon;
         Ok(Some(stat))
     }

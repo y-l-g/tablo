@@ -301,9 +301,21 @@ impl MountedPage {
 /// [`RouterBuilderPanelExt::panel`](crate::RouterBuilderPanelExt::panel) as a resource's is.
 pub(crate) type PageCheck = Box<dyn Fn(&Cx, &mut Vec<crate::DeclarationError>) + Send>;
 
-/// Checks the header actions of `page`, the page `P` as the panel mounted it, as a resource's are.
+/// Checks the header actions of `page`, the page `P` as the panel mounted it, as a resource's are,
+/// and that no two of its widgets share a name.
 pub(crate) fn check_page<P: Page>(page: Arc<MountedPage>) -> PageCheck {
     Box::new(move |cx, errors| {
+        let mut seen = std::collections::HashSet::new();
+        for widget in &page.widgets {
+            if !seen.insert(widget.name.as_str()) {
+                errors.push(crate::DeclarationError::of::<P>(
+                    crate::declaration::Site::Registration,
+                    crate::DeclarationErrorKind::DuplicateWidget {
+                        name: widget.name.clone(),
+                    },
+                ));
+            }
+        }
         crate::resource::check_inputs::<P>(
             cx,
             page.header_actions

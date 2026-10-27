@@ -10,6 +10,7 @@ mod locale;
 mod many_to_many;
 mod mount_error;
 mod segment;
+mod site;
 mod tenancy;
 mod wording;
 
@@ -28,6 +29,7 @@ use many_to_many::fmt_many_to_many;
 pub use mount_error::MountError;
 pub use segment::SegmentFault;
 pub(crate) use segment::segment_fault;
+pub use site::Site;
 pub use tenancy::TenancyFault;
 
 /// One declaration mistake: who declares it, where, and what is wrong.
@@ -84,34 +86,6 @@ impl fmt::Display for DeclarationError {
 }
 
 impl std::error::Error for DeclarationError {}
-
-/// The part of a declaration a [`DeclarationError`] is in.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum Site {
-    /// The panel's own configuration: its prefix, served directories, assets and auth.
-    Panel,
-    /// The resource or page itself: its registration, slug, actions or create columns, or a
-    /// second home page.
-    Registration,
-    /// `ResourceDef::tenancy`.
-    Tenancy,
-    /// `ResourceDef::soft_delete`.
-    SoftDelete,
-    /// The `ResourceDef::field_access` over this field.
-    FieldAccess(String),
-    /// `ResourceDef::record_title`.
-    RecordTitle,
-    /// `ResourceDef::table`.
-    Table,
-    /// `ResourceDef::form`, checked against the record form.
-    Form,
-    /// `ResourceDef::detail`.
-    Detail,
-    /// The `ResourceDef::relation` to the resource with this slug, or this type when the panel
-    /// does not register it.
-    Relation(String),
-}
 
 /// What is wrong with a declaration.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -246,6 +220,13 @@ pub enum DeclarationErrorKind {
     DuplicateAction {
         /// The shared name.
         name: &'static str,
+    },
+    /// Two widgets of a page share a name.
+    ///
+    /// Give one a distinct [`WidgetDef::name`](crate::WidgetDef::name).
+    DuplicateWidget {
+        /// The shared name.
+        name: String,
     },
     /// An action's input cannot be served.
     ActionInput {

@@ -75,6 +75,11 @@ pub async fn stat(
     #[into]
     #[default]
     detail_icon: Option<IconData>,
+    /// What the detail icon says to a screen reader, e.g. `"Up"`; the icon alone is hidden from
+    /// it.
+    #[into]
+    #[default]
+    detail_icon_label: String,
     /// The text-color class of the detail line and the chart, e.g. `"text-success"`; muted when
     /// empty.
     #[into]
@@ -124,6 +129,12 @@ pub async fn stat(
                         data: glyph,
                         attrs: topcoat::view::attributes! { aria-hidden="true" }
                     )
+                }
+                if !detail_icon_label.is_empty() {
+                    <span class="sr-only">
+                        (detail_icon_label)
+                        " "
+                    </span>
                 }
                 (detail)
             </p>

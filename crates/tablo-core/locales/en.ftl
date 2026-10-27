@@ -340,6 +340,12 @@ tablo-repeater-remove = Remove
 tablo-field-taken = { $label } has already been taken
 tablo-field-too-many-results = Too many results — keep typing
 
+## Widgets
+
+tablo-stat-trend-up = Up
+tablo-stat-trend-down = Down
+tablo-stat-trend-flat = Unchanged
+
 ## Notifications
 
 tablo-notifications = Notifications

@@ -56,11 +56,13 @@ pub(crate) fn mounted_page<P: Page>(cx: &Cx) -> Option<&Arc<MountedPage>> {
 /// }
 /// ```
 ///
-/// It renders nothing outside a request to `P`'s panel or for a request
+/// It renders nothing outside a request to `P`'s panel, for a request the panel's sign-in or
 /// [`PageDef::access`](crate::PageDef::access) refuses, and no button for an action whose
 /// [`can_run`](crate::HeaderAction::can_run) refuses the request.
 pub fn header_action_buttons<P: Page>(cx: &Cx) -> BoxView<'_> {
-    let Some(page) = mounted_page::<P>(cx).filter(|page| page.admits(cx)) else {
+    let Some(page) =
+        mounted_page::<P>(cx).filter(|page| crate::auth::guard(cx).is_ok() && page.admits(cx))
+    else {
         return ().boxed();
     };
     let Some(url) = super::url::page::<P>(cx) else {

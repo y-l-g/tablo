@@ -28,17 +28,21 @@ impl Widget for Overview {
     }
 
     async fn render(cx: &Cx) -> Result<impl View> {
-        let drafts = scoped_query::<PostResource>(cx)?
-            .filter(Post::fields().status().eq(PostStatus::Draft))
-            .count()
-            .exec(&mut db(cx)?)
-            .await?;
+        let posts = match Stat::records::<PostResource>(cx).await? {
+            Some(posts) => {
+                let drafts = scoped_query::<PostResource>(cx)?
+                    .filter(Post::fields().status().eq(PostStatus::Draft))
+                    .count()
+                    .exec(&mut db(cx)?)
+                    .await?;
+                Some(posts.detail(format!("{drafts} in draft")))
+            }
+            None => None,
+        };
         let tiles = [
             Stat::records::<UserResource>(cx).await?,
             Stat::records::<AuthorResource>(cx).await?,
-            Stat::records::<PostResource>(cx)
-                .await?
-                .map(|posts| posts.detail(format!("{drafts} in draft"))),
+            posts,
             Stat::records::<CommentResource>(cx).await?,
         ];
         Ok(tablo::stats(cx, tiles.into_iter().flatten()))

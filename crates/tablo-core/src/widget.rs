@@ -55,9 +55,10 @@ use crate::{Color, naming::type_stem, topcoat_compat::async_page};
 /// }
 /// ```
 ///
-/// A widget reads what it shows itself. One that reads a resource's records reads them through
+/// A widget reads what it shows itself. One that reads a resource's records asks
+/// [`can_list`](crate::can_list) before it reads, shows or links anything, and reads them through
 /// [`scoped_query`](crate::scoped_query), which keeps the caller's tenant and the resource's
-/// [`Query`](crate::Resource), and asks [`can_list`](crate::can_list) before it links to the list.
+/// [`Query`](crate::Resource) but not its policy.
 pub trait Widget: Sized + Send + Sync + 'static {
     /// The widget's span and access. Defaults to [`WidgetDef::new`]: one column, for every user
     /// who may open the page.
@@ -65,8 +66,9 @@ pub trait Widget: Sized + Send + Sync + 'static {
         WidgetDef::new()
     }
 
-    /// Render the widget's body. The grid checks [`WidgetDef::access`] before calling it; an
-    /// error fails the page's response, as a page's own error does.
+    /// Render the widget's body. The grid checks [`WidgetDef::access`] before calling it. An
+    /// error fails the whole page's response, as a page's own error does: the page answers with
+    /// the error's status, and none of its other widgets render.
     fn render(cx: &Cx) -> impl Future<Output = Result<impl View>> + Send;
 }
 
@@ -84,6 +86,7 @@ pub(crate) enum Span {
 
 /// What a [`Widget`] declares: how many columns of the grid it spans, and who sees it.
 pub struct WidgetDef {
+    name: Option<&'static str>,
     span: Span,
     access: Arc<AccessFn>,
 }
@@ -94,10 +97,20 @@ impl WidgetDef {
         Self::default()
     }
 
+    /// The widget's name, its `data-widget` hook and its key on the page; defaults to its type's
+    /// name in kebab case, without `Widget` and generic arguments: `RecentOrdersWidget` →
+    /// `recent-orders`, `Count<Book>` → `count`. Each widget of a page needs a distinct name, so a
+    /// generic widget mounted twice names each mount.
+    #[must_use]
+    pub fn name(mut self, name: &'static str) -> Self {
+        self.name = Some(name);
+        self
+    }
+
     /// Spans `columns` columns of the grid, at most as many as it has, and at least one. On a
     /// narrow screen the grid stacks every widget in one column.
     #[must_use]
-    pub fn columns(mut self, columns: u8) -> Self {
+    pub fn span(mut self, columns: u8) -> Self {
         self.span = Span::Columns(columns.max(1));
         self
     }
@@ -121,6 +134,7 @@ impl WidgetDef {
 impl Default for WidgetDef {
     fn default() -> Self {
         Self {
+            name: None,
             span: Span::Columns(1),
             access: Arc::new(|_| true),
         }
@@ -130,6 +144,7 @@ impl Default for WidgetDef {
 impl std::fmt::Debug for WidgetDef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("WidgetDef")
+            .field("name", &self.name)
             .field("span", &self.span)
             .finish_non_exhaustive()
     }
@@ -137,7 +152,7 @@ impl std::fmt::Debug for WidgetDef {
 
 /// A [`WidgetDef`] for the widget `W`, as a page holds it.
 pub(crate) struct MountedWidget {
-    /// The widget's name, from its type: `RecentOrdersWidget` → `recent-orders`.
+    /// The widget's [`WidgetDef::name`].
     pub(crate) name: String,
     pub(crate) span: Span,
     access: Arc<AccessFn>,
@@ -148,7 +163,10 @@ impl MountedWidget {
     pub(crate) fn new<W: Widget>() -> Self {
         let def = W::declare();
         Self {
-            name: crate::naming::kebab_case(type_stem::<W>("Widget")),
+            name: def.name.map_or_else(
+                || crate::naming::kebab_case(type_stem::<W>("Widget")),
+                str::to_string,
+            ),
             span: def.span,
             access: def.access,
             render: render::<W>,

@@ -268,9 +268,10 @@ adds it to the page's grid, which `widgets::<Self>(cx)` renders where the page p
   caller may not open that list, so the row has no tile for it.
 - **Who sees a widget.** `WidgetDef::access(|cx| …)` leaves a widget out of the grid for the
   requests it refuses, and the grid renders nothing for a request the page refuses. A widget that
-  reads a resource's records reads them through `scoped_query`, as its list does.
+  reads a resource's records asks `can_list` before it reads them, then reads them through
+  `scoped_query`, which keeps the tenant and the resource's query but not its policy.
 - **Layout.** `PageDef::widget_columns` sets how many columns the grid has on a wide screen, and
-  `WidgetDef::columns` and `WidgetDef::full_width` how many a widget spans. A narrow screen
+  `WidgetDef::span` and `WidgetDef::full_width` how many a widget spans. A narrow screen
   stacks every widget.
 
 The `tablo::ui` composites give a page the same frame as the panel's own pages: `page` sets the
