@@ -7,12 +7,29 @@ rust-version.workspace = true
 publish = false
 description = "Tablo's integration suite: panels built from test-local models, served over HTTP."
 
-# One test binary: autodiscovery would link every file under `tests/` separately.
+# Five test binaries, one per area: one binary compiles on one core for minutes, and
+# autodiscovery would link every file under `tests/` separately.
 autotests = false
 
 [[test]]
-name = "it"
-path = "tests/it.rs"
+name = "accounts"
+path = "tests/suite_accounts.rs"
+
+[[test]]
+name = "fields"
+path = "tests/suite_fields.rs"
+
+[[test]]
+name = "records"
+path = "tests/suite_records.rs"
+
+[[test]]
+name = "tables"
+path = "tests/suite_tables.rs"
+
+[[test]]
+name = "panel"
+path = "tests/suite_panel.rs"
 
 # The other drivers the suite runs on: `TABLO_TEST_DATABASE_URL` names the database.
 [features]

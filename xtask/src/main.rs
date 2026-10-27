@@ -56,8 +56,9 @@ fn print_help() {
 
 USAGE:
     cargo xtask check [--all]      The CI checks, fail-fast and cheapest first. udeps runs
-                                   when a manifest changed; --all adds it plus rustdoc, the
-                                   guide and the external build.
+                                   when a manifest changed; --all adds it plus the
+                                   doctests, the compile-fail suite, rustdoc, the guide and
+                                   the external build.
     cargo xtask fmt                Nightly `cargo fmt`, the quickstart's `cargo fmt`, and the
                                    pinned `topcoat fmt` with a diff guard.
     cargo xtask external-check     Build and test examples/quickstart from outside the repo.

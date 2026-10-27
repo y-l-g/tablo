@@ -26,10 +26,10 @@ pub const UDEPS_PATHS: &[&str] = &[
 /// Whether `check` skips the gates CI would not run for the change.
 #[derive(PartialEq, Eq)]
 pub enum Scope {
-    /// The fast gates only: the udeps gate stays skipped without `UDEPS_PATHS` changes, and docs
-    /// and the external build never run.
+    /// The fast gates only: the udeps gate stays skipped without `UDEPS_PATHS` changes, and the
+    /// doctests, the compile-fail suite, docs and the external build never run.
     Auto,
-    /// Run every gate, including the slow docs and external builds.
+    /// Run every gate, including the slow doctests, compile-fail suite, docs and external builds.
     All,
 }
 
@@ -305,9 +305,9 @@ fn udeps_installed(run: &dyn Runner, root: &Path) -> bool {
     .is_ok()
 }
 
-/// The CI checks as a local fail-fast runner, cheapest first. Docs and the external build run only
-/// under `Scope::All`; CI covers them in parallel jobs. The udeps gate runs only
-/// with `UDEPS_PATHS` changes, matching the CI path filter.
+/// The CI checks as a local fail-fast runner, cheapest first. The doctests, the compile-fail suite,
+/// docs and the external build run only under `Scope::All`; CI covers them in parallel jobs. The
+/// udeps gate runs only with `UDEPS_PATHS` changes, matching the CI path filter.
 pub fn check(run: &dyn Runner, scope: Scope) -> anyhow::Result<()> {
     let root = repo_root();
     check_with(run, &|| stage_quickstart(&root), scope, &|specs| {
@@ -330,30 +330,14 @@ fn check_with(
     assets.extend_from_slice(ASSET_SUITES);
     run.run("node", &assets, Some(&root), &[])?;
     detached_fmt(run, &root)?;
-    run.run(
-        "cargo",
-        &["test", "--workspace", "--locked"],
-        Some(&root),
-        &[],
-    )?;
-    run.run(
-        "cargo",
-        &[
-            "test",
-            "-p",
-            "tablo-core",
-            "--no-default-features",
-            "--locked",
-        ],
-        Some(&root),
-        &[],
-    )?;
+    // Clippy before the tests: a check build fails sooner than a test build and its run.
     run.run(
         "cargo",
         &["clippy", "--workspace", "--all-targets", "--locked"],
         Some(&root),
         &[],
     )?;
+    // The build without the default features, its tests included: an app may drop `rich-text`.
     run.run(
         "cargo",
         &[
@@ -366,6 +350,13 @@ fn check_with(
             "--all-targets",
             "--locked",
         ],
+        Some(&root),
+        &[],
+    )?;
+    // Every target but the doctests: rustdoc compiles those again on every run, unchanged or not.
+    run.run(
+        "cargo",
+        &["test", "--workspace", "--all-targets", "--locked"],
         Some(&root),
         &[],
     )?;
@@ -396,6 +387,27 @@ fn check_with(
     if all {
         run.run(
             "cargo",
+            &["test", "--workspace", "--doc", "--locked"],
+            Some(&root),
+            &[],
+        )?;
+        run.run(
+            "cargo",
+            &[
+                "test",
+                "-p",
+                "tablo-core",
+                "--test",
+                "compile_fail",
+                "--locked",
+                "--",
+                "--ignored",
+            ],
+            Some(&root),
+            &[],
+        )?;
+        run.run(
+            "cargo",
             &["doc", "--workspace", "--no-deps", "--locked"],
             Some(&root),
             &[("RUSTDOCFLAGS", "-D warnings")],
@@ -403,7 +415,10 @@ fn check_with(
         guide_build(run, &root)?;
         external_check(run, &root, &stage()?)?;
     } else {
-        println!("skipped docs and the external build: pass --all to run them");
+        println!(
+            "skipped the doctests, the compile-fail suite, docs and the external build: pass --all \
+             to run them"
+        );
     }
     Ok(())
 }

@@ -9,14 +9,17 @@ publish = false
 # release-plz only releases the crates `release-plz.toml` opts in.
 [dependencies]
 tablo-core = { path = "../../crates/tablo-core" }
-# `postgresql` is enabled here only: the workspace's suites run on sqlite alone, while
-# the bench also measures the Postgres list path.
 topcoat = { workspace = true, features = ["serve", "runtime", "asset"] }
-toasty = { workspace = true, features = ["sqlite", "postgresql"] }
+toasty = { workspace = true, features = ["sqlite"] }
 http = "1"
 jiff.workspace = true
 uuid = { workspace = true, features = ["v4"] }
 tokio.workspace = true
+
+# The Postgres leg. Off by default: the workspace's builds would otherwise compile the Postgres
+# driver for the bench alone.
+[features]
+postgresql = ["toasty/postgresql"]
 
 [lints]
 workspace = true

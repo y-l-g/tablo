@@ -298,25 +298,34 @@ async fn run_bench(iterations: usize) {
         Ok(url) => {
             // Refuses anything that does not look disposable.
             assert_bench_database(&url);
-            // The bench database is disposable by contract: drop it first so
-            // reruns start empty.
-            let pg = Db::builder()
-                .models(toasty::models!(Author, Post, Comment))
-                .connect(&url)
-                .await
-                .expect("connect postgres");
-            pg.reset_db().await.expect("reset_db postgres");
-            drop(pg);
-            let pg = Db::builder()
-                .models(toasty::models!(Author, Post, Comment))
-                .connect(&url)
-                .await
-                .expect("reconnect postgres");
-            pg.push_schema().await.expect("push_schema postgres");
-            run_leg(pg, "postgres (TABLO_BENCH_POSTGRES_URL)", iterations).await;
+            postgres_leg(&url, iterations).await;
         }
     }
     println!("done (ungated: no PASS/FAIL)");
+}
+
+#[cfg(feature = "postgresql")]
+async fn postgres_leg(url: &str, iterations: usize) {
+    // The bench database is disposable by contract: drop it first so reruns start empty.
+    let pg = Db::builder()
+        .models(toasty::models!(Author, Post, Comment))
+        .connect(url)
+        .await
+        .expect("connect postgres");
+    pg.reset_db().await.expect("reset_db postgres");
+    drop(pg);
+    let pg = Db::builder()
+        .models(toasty::models!(Author, Post, Comment))
+        .connect(url)
+        .await
+        .expect("reconnect postgres");
+    pg.push_schema().await.expect("push_schema postgres");
+    run_leg(pg, "postgres (TABLO_BENCH_POSTGRES_URL)", iterations).await;
+}
+
+#[cfg(not(feature = "postgresql"))]
+async fn postgres_leg(_url: &str, _iterations: usize) {
+    println!("--- postgres --- skipped (rebuild with `--features postgresql` to run)");
 }
 
 const SERVER_TENANT: uuid::Uuid = uuid::Uuid::nil();

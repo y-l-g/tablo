@@ -91,10 +91,10 @@ for fw in "${FRAMEWORKS[@]}"; do
   case "$fw" in
     tablo|tablo-bench)
       echo "==> building tablo (tablo-bench)"
-      cargo build --manifest-path "$BENCH/tablo/Cargo.toml" --release 2>&1 | tail -n 5
+      cargo build --manifest-path "$BENCH/tablo/Cargo.toml" --release --features postgresql 2>&1 | tail -n 5
       if [ "$HAS_OHA" -eq 1 ]; then
         echo "==> starting tablo on http://localhost:3000"
-        PORT=3000 cargo run --manifest-path "$BENCH/tablo/Cargo.toml" --release >/tmp/tablo-bench.log 2>&1 &
+        PORT=3000 cargo run --manifest-path "$BENCH/tablo/Cargo.toml" --release --features postgresql >/tmp/tablo-bench.log 2>&1 &
         SERVER_PID=$!
         trap 'kill_tree "$SERVER_PID"' EXIT INT TERM
         if ! wait_ready "http://localhost:3000/admin/posts"; then
@@ -114,13 +114,13 @@ for fw in "${FRAMEWORKS[@]}"; do
         done
         # Also run in-process bench as ground truth
         echo "==> in-process bench (cargo run -- --bench)"
-        cargo run --manifest-path "$BENCH/tablo/Cargo.toml" --release -- --bench --iterations 100 | tee "$RESULTS_DIR/tablo_bench.txt"
+        cargo run --manifest-path "$BENCH/tablo/Cargo.toml" --release --features postgresql -- --bench --iterations 100 | tee "$RESULTS_DIR/tablo_bench.txt"
         kill_tree "$SERVER_PID"
         trap - EXIT INT TERM
         sleep 1
       else
         echo "==> oha not found, running in-process bench only"
-        cargo run --manifest-path "$BENCH/tablo/Cargo.toml" -- --bench --iterations 100 | tee "$RESULTS_DIR/tablo_bench.txt"
+        cargo run --manifest-path "$BENCH/tablo/Cargo.toml" --features postgresql -- --bench --iterations 100 | tee "$RESULTS_DIR/tablo_bench.txt"
       fi
       ;;
     *)

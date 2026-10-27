@@ -34,8 +34,9 @@ without one. The README has the install command.
 ## Checks
 
 ```sh
-cargo xtask check         # fmt, JS suites, test, clippy; udeps if relevant
-cargo xtask check --all   # also udeps, rustdoc, the guide and the external build
+cargo xtask check         # fmt, JS suites, clippy, tests but the doctests; udeps if relevant
+cargo xtask check --all   # also udeps, the doctests, the compile-fail suite, rustdoc, the guide
+                          # and the external build
 cargo xtask fmt           # the formatting checks alone
 ```
 
@@ -107,7 +108,7 @@ MSRV. Bump both in one PR.
   | Tier | Pins | Lives in |
   | --- | --- | --- |
   | unit | a function's result, a derive's expansion, a failure the public API cannot cause | `tests.rs` beside its source |
-  | compile-fail | a misuse the type system refuses | `crates/tablo-core/tests/compile_fail/` |
+  | compile-fail | a misuse the type system refuses | `crates/tablo-core/tests/compile_fail/`, run with `--ignored` |
   | showcase | what a request does to the showcase's resources | `examples/showcase/tests/` |
   | integration | what a request does to a panel the showcase does not build, what a mount refuses, what a derived impl does in an app's crate, the upstream behavior Tablo rests on | `integration/tests/` |
   | example | an example's own code: the guide's snippets, the quickstart's stylesheet | `examples/*/` |
@@ -126,7 +127,7 @@ MSRV. Bump both in one PR.
   ```sh
   TABLO_TEST_DATABASE_URL=postgresql://postgres:postgres@localhost/tablo \
     cargo test -p showcase --features postgresql --test it
-  TABLO_TEST_DATABASE_URL=turso::memory: cargo test -p tablo-integration --features turso --test it
+  TABLO_TEST_DATABASE_URL=turso::memory: cargo test -p tablo-integration --features turso --tests
   ```
 
   A test connects to `sqlite::memory:` itself only when it touches no table: a database that lends
@@ -137,9 +138,11 @@ MSRV. Bump both in one PR.
 - `examples/showcase/tests/it.rs` is one test binary whose modules are the suite files, one
   framework feature each: `cargo test -p showcase --test it list::` runs one file. `gates` holds the
   anonymous, CSRF and cross-tenant matrices, so a new route joins them there.
-- `integration/tests/it.rs` covers what the showcase's resources do not reach, with test-local
-  models on their own databases: `cargo test -p tablo-integration --test it upload::` runs one
-  file. It is its own crate so that no published crate dev-depends on `tablo-test`.
+- `integration/tests/` covers what the showcase's resources do not reach, with test-local models
+  on their own databases: `cargo test -p tablo-integration upload::` runs one file. Its suite files
+  are modules of five test binaries, `suite_*.rs`, one per area: the test-local models make one
+  binary take minutes to compile on one core. A new file joins the binary of its area. The suite
+  is its own crate so that no published crate dev-depends on `tablo-test`.
 - A suite file that pins one feature takes the name of the feature's source module in every tier:
   `panel/shell.rs` is pinned by `shell` in both suites, `auth/login.rs` by `login`. A feature split
   over several files shares a prefix (`action_input`, `action_policy`), and a file that crosses
