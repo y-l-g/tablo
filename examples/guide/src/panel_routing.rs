@@ -172,11 +172,30 @@ impl Widget for SalesOverview {
     }
 }
 
+/// Revenue per week, as a line.
+pub struct RevenueChart;
+
+impl Widget for RevenueChart {
+    async fn render(cx: &Cx) -> Result<impl View> {
+        Ok(tablo::chart(
+            cx,
+            Chart::line(["W1", "W2", "W3", "W4"])
+                .heading("Revenue")
+                .series(Series::new(
+                    "Revenue",
+                    [9_100.0, 10_200.0, 11_000.0, 12_400.0],
+                )),
+        ))
+    }
+}
+
 pub struct OverviewPage;
 
 impl Page for OverviewPage {
     fn declare() -> PageDef {
-        PageDef::new().widget::<SalesOverview>()
+        PageDef::new()
+            .widget::<SalesOverview>()
+            .widget::<RevenueChart>()
     }
 
     async fn render(cx: &Cx) -> Result<impl View> {

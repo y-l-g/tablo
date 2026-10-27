@@ -1,8 +1,9 @@
 //! The panel's home page, served at the panel prefix by `Panel::home`.
 
+use jiff::tz::TimeZone;
 use tablo::{
-    Ability, FieldErrors, HeaderAction, Page, PageDef, Stat, Widget, WidgetDef, can_list, db::db,
-    header_action_buttons, scoped_query,
+    Ability, Chart, Color, FieldErrors, HeaderAction, Page, PageDef, Series, Stat, Widget,
+    WidgetDef, can_list, db::db, header_action_buttons, scoped_query,
 };
 use toasty::stmt::Include;
 use topcoat::{
@@ -49,15 +50,69 @@ impl Widget for Overview {
     }
 }
 
+/// How many months [`PostsPerMonth`] spans.
+const CHART_MONTHS: i64 = 6;
+
+/// The posts the caller can see, published and in draft, per month over the six months up to the
+/// newest one's. Only a caller who may open the post list sees it.
+pub struct PostsPerMonth;
+
+impl Widget for PostsPerMonth {
+    fn declare() -> WidgetDef {
+        WidgetDef::new().access(can_list::<PostResource>)
+    }
+
+    async fn render(cx: &Cx) -> Result<impl View> {
+        let posts = scoped_query::<PostResource>(cx)?.exec(&mut db(cx)?).await?;
+        let month = |post: &Post| {
+            post.created_at
+                .to_zoned(TimeZone::UTC)
+                .date()
+                .first_of_month()
+        };
+        let months: Vec<jiff::civil::Date> =
+            posts.iter().map(month).max().map_or_else(Vec::new, |last| {
+                (0..CHART_MONTHS)
+                    .rev()
+                    .map(|back| last.saturating_sub(jiff::Span::new().months(back)))
+                    .collect()
+            });
+        let count = |status: PostStatus| -> Vec<f64> {
+            months
+                .iter()
+                .map(|&first| {
+                    posts
+                        .iter()
+                        .filter(|post| post.status == status && month(post) == first)
+                        .count() as f64
+                })
+                .collect()
+        };
+        let period = months.last().map_or_else(
+            || "By the month each was written".to_string(),
+            |last| {
+                format!(
+                    "By the month each was written, up to {}",
+                    last.strftime("%B %Y")
+                )
+            },
+        );
+        let chart = Chart::bar(months.iter().map(|month| month.strftime("%b").to_string()))
+            .heading("Posts per month")
+            .description(period)
+            .series(Series::new("Published", count(PostStatus::Published)).color(Color::Primary))
+            .series(Series::new("Draft", count(PostStatus::Draft)).color(Color::Gray));
+        Ok(tablo::chart(cx, chart))
+    }
+}
+
 /// The newest posts the caller can see, each linking to its page, with a link to the full list.
 /// Only a caller who may open the post list sees it.
 pub struct LatestPosts;
 
 impl Widget for LatestPosts {
     fn declare() -> WidgetDef {
-        WidgetDef::new()
-            .full_width()
-            .access(can_list::<PostResource>)
+        WidgetDef::new().access(can_list::<PostResource>)
     }
 
     async fn render(cx: &Cx) -> Result<impl View> {
@@ -198,6 +253,7 @@ impl Page for Dashboard {
             .icon(tablo::ui::icons::LAYOUT_DASHBOARD)
             .header_action::<FeatureTagged>()
             .widget::<Overview>()
+            .widget::<PostsPerMonth>()
             .widget::<LatestPosts>()
     }
 

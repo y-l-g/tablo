@@ -90,6 +90,7 @@ pub mod __macro {
 // the functions and constants that read best qualified (`auth::user`, `csrf::verify`).
 pub mod auth;
 mod bus;
+mod chart;
 mod column;
 mod cookie;
 pub mod csrf;
@@ -144,6 +145,7 @@ pub use auth::{
     two_factor::TwoFactor,
     verification::EmailVerification,
 };
+pub use chart::{Chart, Series, chart};
 #[cfg(feature = "rich-text")]
 pub use column::RichTextColumn;
 pub use column::{

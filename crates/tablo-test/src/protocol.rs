@@ -25,7 +25,7 @@ pub use search::{SearchGroup, SearchResult, search_box, search_results};
 use tablo_core::Notification;
 pub use tabs::{Tab, tabs};
 use topcoat::router::Body;
-pub use widgets::{StatTile, stats, widgets};
+pub use widgets::{ChartData, ChartSeries, StatTile, charts, stats, widgets};
 
 /// One `Cookie` header value from `(name, value)` pairs, or `None` when empty.
 pub fn cookie_header<'a>(cookies: impl IntoIterator<Item = (&'a str, &'a str)>) -> Option<String> {

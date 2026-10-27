@@ -341,6 +341,7 @@ tablo-field-too-many-results = Trop de résultats — continuez à taper
 tablo-stat-trend-up = En hausse
 tablo-stat-trend-down = En baisse
 tablo-stat-trend-flat = Stable
+tablo-chart-empty = Aucune donnée
 
 ## Notifications
 
