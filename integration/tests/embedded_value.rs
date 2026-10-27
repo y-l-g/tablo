@@ -4,10 +4,7 @@ use tablo::{
     Detail, EmbeddedColumn, EmbeddedForm, Field, FieldErrorKind, FieldErrors, FormValues, NoForm,
     Resource, ResourceDef, Schema, Section, Source, Table, TextColumn, lens,
 };
-use topcoat::{
-    context::{Cx, CxTestBuilder},
-    view::ViewExt,
-};
+use topcoat::{context::Cx, view::ViewExt};
 
 use crate::common::test_db;
 
@@ -153,7 +150,7 @@ async fn post_cx() -> Cx {
         .connect("sqlite::memory:")
         .await
         .expect("connect");
-    CxTestBuilder::new().app_context(db).build()
+    Cx::default().with(db)
 }
 
 fn first_name(schema: &Schema) -> &str {

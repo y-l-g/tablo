@@ -72,7 +72,7 @@ async fn a_detail_column_binding_no_field_refuses_the_mount() {
 /// Re-checks auth before reading the root target.
 #[tokio::test]
 async fn panel_root_redirect_rechecks_auth_before_the_root_target() {
-    use topcoat::{context::CxTestBuilder, router::response::IntoResponse};
+    use topcoat::{context::Cx, router::response::IntoResponse};
 
     // Enforced auth, no resolved user: the handler itself redirects to
     // login — and never reaches the root target read.
@@ -84,7 +84,7 @@ async fn panel_root_redirect_rechecks_auth_before_the_root_target() {
     let mut gated = panel_state("/admin", crate::Auth::password());
     gated.root_redirect = Some("/admin/users".to_string());
     let gated = Arc::new(gated);
-    let cx = serving(CxTestBuilder::new().request_context(parts), &gated).build();
+    let cx = serving(Cx::default().with(parts), &gated);
     let err = match panel_root_redirect(&cx, Body::empty()).await {
         Ok(_) => panic!("unauthenticated root must not read the root target"),
         Err(err) => err,
@@ -122,9 +122,7 @@ async fn panel_root_redirect_rechecks_auth_before_the_root_target() {
         .body(())
         .unwrap()
         .into_parts();
-    let cx = serving(CxTestBuilder::new().request_context(parts), &gated)
-        .request_context(user)
-        .build();
+    let cx = serving(Cx::default().with(parts), &gated).with(user);
     let err = match panel_root_redirect(&cx, Body::empty()).await {
         Ok(_) => panic!("the redirect is an Err response"),
         Err(err) => err,
@@ -158,9 +156,7 @@ async fn an_unmounted_resource_is_refused_not_rebuilt() {
     }
 
     let db = tableless_db(toasty::models!(Dummy)).await;
-    let bare = topcoat::context::CxTestBuilder::new()
-        .app_context(db.clone())
-        .build();
+    let bare = topcoat::context::Cx::default().with(db.clone());
     let panel = Panel::new("admin")
         .handle(&db)
         .expect("panel builds")
@@ -197,7 +193,7 @@ async fn a_panel_handle_answers_from_the_mounted_def() {
 
     let db = tableless_db(toasty::models!(Dummy)).await;
     let builder = topcoat::router::Router::builder()
-        .app_context(db)
+        .with(db)
         .panel(panel_for::<HandledResource>())
         .expect("panel builds");
     assert!(builder.panel_handle("portal").is_none(), "no panel there");

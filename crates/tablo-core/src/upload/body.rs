@@ -47,7 +47,7 @@ pub(crate) async fn parse_body(
     capture: Capture,
 ) -> Result<FormParts, topcoat::Error> {
     let content_type =
-        topcoat::context::try_request_context::<http::request::Parts>(cx).and_then(|parts| {
+        topcoat::context::try_context::<http::request::Parts>(cx).and_then(|parts| {
             parts
                 .headers
                 .get(http::header::CONTENT_TYPE)
@@ -78,7 +78,7 @@ pub(crate) async fn parse_body(
 /// an uploader, and whatever its name: the body an import posts its file in, which nothing
 /// stores. Any other body answers 400.
 pub(crate) async fn parse_file_body(cx: &Cx, body: Body) -> Result<FormParts, topcoat::Error> {
-    let multipart = topcoat::context::try_request_context::<http::request::Parts>(cx)
+    let multipart = topcoat::context::try_context::<http::request::Parts>(cx)
         .and_then(|parts| parts.headers.get(http::header::CONTENT_TYPE))
         .and_then(|value| value.to_str().ok())
         .is_some_and(is_multipart_content_type);

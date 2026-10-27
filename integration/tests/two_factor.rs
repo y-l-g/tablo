@@ -68,8 +68,8 @@ async fn db() -> (Db, AdminUser) {
 fn mount(db: Db, auth: Auth) -> topcoat::Result<Router> {
     Ok(Router::builder()
         .discover()
-        .app_context(db)
-        .app_context(Key::generate())
+        .with(db)
+        .with(Key::generate())
         .panel(Panel::new("admin").auth(auth).resource::<InvoiceResource>())?
         .build())
 }
@@ -505,7 +505,7 @@ async fn mounting_refuses_two_factor_sign_in_the_panel_cannot_serve() {
     );
     let keyless = Router::builder()
         .discover()
-        .app_context(db)
+        .with(db)
         .panel(Panel::new("admin").auth(Auth::password().two_factor(TwoFactor::new())))
         .map(|builder| builder.build());
     assert_eq!(

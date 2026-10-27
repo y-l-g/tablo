@@ -4,7 +4,7 @@
 
 use subtle::ConstantTimeEq;
 use topcoat::{
-    context::{Cx, try_request_context},
+    context::{Cx, try_context},
     cookie::{Cookie, CookieJarCell, Cookies, cookies},
 };
 
@@ -14,7 +14,7 @@ pub const FIELD_NAME: &str = "csrf_token";
 
 /// Ensures a request token before headers send, returning `""` without a cookie layer.
 pub fn ensure_token(cx: &Cx) -> String {
-    if try_request_context::<CookieJarCell>(cx).is_none() {
+    if try_context::<CookieJarCell>(cx).is_none() {
         return String::new();
     }
     let jar = cookies(cx);
@@ -37,7 +37,7 @@ pub fn ensure_token(cx: &Cx) -> String {
 
 /// Reads the current token without setting one, safe inside streamed children.
 pub fn current_token(cx: &Cx) -> String {
-    if try_request_context::<CookieJarCell>(cx).is_none() {
+    if try_context::<CookieJarCell>(cx).is_none() {
         return String::new();
     }
     cookies(cx)
@@ -58,7 +58,7 @@ pub fn field<'a>(cx: &'a Cx, token: &str) -> topcoat::view::BoxView<'a> {
 /// Verifies the token a POST `submitted` under [`FIELD_NAME`] matches the cookie with a
 /// constant-time compare, failing closed with 403.
 pub fn verify(cx: &Cx, submitted: Option<&str>) -> Result<(), topcoat::Error> {
-    let cookie_ok = try_request_context::<CookieJarCell>(cx)
+    let cookie_ok = try_context::<CookieJarCell>(cx)
         .map(|_| cookies(cx).get(COOKIE_NAME).map(|c| c.value().to_string()))
         .unwrap_or(None);
     let Some(expected) = cookie_ok else {

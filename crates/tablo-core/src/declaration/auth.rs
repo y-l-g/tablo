@@ -293,10 +293,10 @@ pub enum TwoFactorFault {
     ///
     /// Turn authentication on.
     AuthDisabled,
-    /// The router registers no cookie `Key` as app context, which seals the authenticator
+    /// The router registers no cookie `Key`, which seals the authenticator
     /// secrets.
     ///
-    /// Call `.app_context(Key::from(..))` before `.panel(..)`.
+    /// Call `.with(Key::from(..))` before `.panel(..)`.
     MissingKey,
 }
 
@@ -309,7 +309,7 @@ impl fmt::Display for TwoFactorFault {
             ),
             Self::MissingKey => f.write_str(
                 "two-factor sign-in seals each authenticator secret under the router's cookie \
-             key, and the router has none: register a `topcoat::cookie::Key` as app context",
+             key, and the router has none: register a `topcoat::cookie::Key` with `.with(..)`",
             ),
         }
     }

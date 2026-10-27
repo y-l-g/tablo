@@ -57,7 +57,7 @@ in before learning a path serves nothing. [`Panel`](https://y-l.fr/tablo/nightly
 
 `Router::builder().panel(panel)` mounts a panel; the `RouterBuilderPanelExt` trait, in the
 prelude, provides it. The router is yours: discover your own pages and routes, install the `Db`
-with `.app_context(db)` and the asset bundle with `.assets(..)`, then mount. The panel reads both
+with `.with(db)` and the asset bundle with `.assets(..)`, then mount. The panel reads both
 from the router, so they come first, and it installs a layer with no path, so it comes after your
 own pathless layers; [`panel`](https://y-l.fr/tablo/nightly/api/tablo/trait.RouterBuilderPanelExt.html#tymethod.panel) says why.
 
@@ -289,7 +289,7 @@ covers only the panel prefix and `/_topcoat/runtime`, so such a page is public.
 A panel handle's `document` renders the same HTML document as that panel's shell — head, assets,
 favicon, theme — around your own markup, and its `url` gives the panel's prefix for a link to it.
 A public page belongs to no panel, so it names the one whose shell it takes: keep the handle
-`panel_handle("admin")` returns in the app context. Under a prefix, `Panel::document` takes the
+`panel_handle("admin")` returns on the router. Under a prefix, `Panel::document` takes the
 request's own panel.
 
 ```rust

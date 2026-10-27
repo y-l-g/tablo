@@ -222,13 +222,13 @@ fn is_plain(url: &str) -> bool {
 }
 
 /// Signs a stored file's path for the request's router; the first panel mounted on a router
-/// installs it in the app context, as [`url::file`](crate::url::file).
+/// installs it, as [`url::file`](crate::url::file).
 pub(crate) struct FileHref(pub(crate) fn(&Cx, &str) -> String);
 
 /// The URL a stored file links at: `path` signed when a panel serves it at signed URLs, else
 /// `path` itself.
 pub(crate) fn file_href(cx: &Cx, path: &str) -> String {
-    match topcoat::context::try_app_context::<FileHref>(cx) {
+    match topcoat::context::try_context::<FileHref>(cx) {
         Some(FileHref(sign)) => sign(cx, path),
         None => path.to_owned(),
     }

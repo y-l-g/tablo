@@ -146,7 +146,7 @@ impl Condition {
 /// another record's form starts from its own stored values. Keyed by the form's scope too: an
 /// action's input in a dialog may watch a key the page's own form watches.
 fn shown(cx: &Cx, scope: &str, condition: &Condition, initial: bool) -> Signal<bool> {
-    let page = topcoat::context::try_request_context::<http::request::Parts>(cx)
+    let page = topcoat::context::try_context::<http::request::Parts>(cx)
         .map(|parts| parts.uri.path().to_string())
         .unwrap_or_default();
     signal(&cx.keyed(signal_key(&page, scope, condition)), move || {

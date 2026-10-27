@@ -100,7 +100,7 @@ async fn books_db() -> Db {
 fn two_panels(db: Db, auth: fn() -> Auth) -> Router {
     Router::builder()
         .discover()
-        .app_context(db)
+        .with(db)
         .panel(
             Panel::new("admin")
                 .brand(Brand::new("Back office"))
@@ -344,7 +344,7 @@ fn status(cx: &Cx, _body: Body) -> RouteFuture<'_> {
 async fn the_apps_own_routes_stay_outside_the_panel() {
     let router = Router::builder()
         .discover()
-        .app_context(books_db().await)
+        .with(books_db().await)
         .route(RouteFn::new(http::Method::GET, "/status", status))
         .panel(Panel::new("admin").resource::<BookResource>())
         .expect("the panel mounts")
@@ -373,7 +373,7 @@ async fn mounting_refuses_a_directory_another_panel_serves() {
     let errors = refusal(
         Router::builder()
             .discover()
-            .app_context(db.clone())
+            .with(db.clone())
             .panel(
                 Panel::new("admin")
                     .auth(Auth::disabled())
@@ -395,7 +395,7 @@ async fn mounting_refuses_a_directory_another_panel_serves() {
     );
 
     let errors = refusal(
-        Router::builder().discover().app_context(db).panel(
+        Router::builder().discover().with(db).panel(
             Panel::new("admin")
                 .auth(Auth::disabled())
                 .serve_dir("/uploads/{*file}", &dir)
@@ -416,7 +416,7 @@ async fn mounting_refuses_a_prefix_another_panel_covers() {
     let mount_both = |second: &'static str| {
         Router::builder()
             .discover()
-            .app_context(db.clone())
+            .with(db.clone())
             .panel(Panel::new("admin").auth(Auth::disabled()))
             .expect("the first panel mounts")
             .panel(Panel::new(second).auth(Auth::disabled()))
@@ -438,7 +438,7 @@ async fn mounting_refuses_a_prefix_another_panel_covers() {
     for prefix in ["_topcoat/runtime/x", "_topcoat"] {
         let mounted = Router::builder()
             .discover()
-            .app_context(db.clone())
+            .with(db.clone())
             .panel(Panel::new(prefix));
         assert_eq!(
             refusal(mounted)[0].kind,
@@ -633,10 +633,10 @@ async fn a_resource_declares_once_when_its_panel_mounts() {
 }
 
 /// Counts the books `BookResource`'s panel lets the request see: through the `PanelHandle` the
-/// app context holds when the route is `/entered/books`, through the request alone otherwise.
+/// router holds when the route is `/entered/books`, through the request alone otherwise.
 fn book_count(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
-        let cx = match topcoat::context::try_app_context::<tablo::PanelHandle>(cx) {
+        let cx = match topcoat::context::try_context::<tablo::PanelHandle>(cx) {
             Some(admin) if topcoat::router::request::uri(cx).path() == "/entered/books" => {
                 admin.enter(cx)
             }
@@ -655,7 +655,7 @@ fn book_count(cx: &Cx, _body: Body) -> RouteFuture<'_> {
 async fn a_route_outside_every_panel_answers_as_the_panel_it_enters() {
     let builder = Router::builder()
         .discover()
-        .app_context(books_db().await)
+        .with(books_db().await)
         .route(RouteFn::new(http::Method::GET, "/books", book_count))
         .route(RouteFn::new(
             http::Method::GET,
@@ -669,7 +669,7 @@ async fn a_route_outside_every_panel_answers_as_the_panel_it_enters() {
         )
         .expect("the panel mounts");
     let admin = builder.panel_handle("admin").expect("mounted above");
-    let router = builder.app_context(admin).build();
+    let router = builder.with(admin).build();
 
     let ambient = get(&router, "/books").await;
     assert_eq!(

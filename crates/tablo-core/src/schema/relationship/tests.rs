@@ -1,5 +1,5 @@
 use toasty::stmt::{List, Query};
-use topcoat::context::{Cx, CxTestBuilder};
+use topcoat::context::Cx;
 
 use super::*;
 use crate::{Ability, schema::Field, test_support::memory_db, values::FormValues};
@@ -121,7 +121,7 @@ async fn relationship_loader_fails_past_option_cap() {
         .await
         .unwrap();
     }
-    let cx = CxTestBuilder::new().app_context(db).build();
+    let cx = Cx::default().with(db);
     let select = Field::choice(RefPost::fields().author_id()).relationship::<RefAuthorSource>();
     // Over the cap: bounded work and a visible retry error.
     let errs = check(&select, &cx, "whatever").await;
@@ -163,7 +163,7 @@ async fn relationship_option_values_are_primary_keys_not_table_ids() {
     .await
     .unwrap();
     let pk = row.id.to_string();
-    let cx = CxTestBuilder::new().app_context(db).build();
+    let cx = Cx::default().with(db);
     let select = Field::choice(RefAuthor::fields().name()).relationship::<RefAuthorSource>();
     // The PK validates; the label never does.
     assert!(check(&select, &cx, &pk).await.is_empty());
@@ -196,7 +196,7 @@ async fn relationship_load_fails_closed_when_view_any_is_refused() {
     .await
     .unwrap();
     let pk = row.id.to_string();
-    let cx = CxTestBuilder::new().app_context(db).build();
+    let cx = Cx::default().with(db);
     let select = Field::choice(PolicyAuthor::fields().id()).relationship::<DenyAllAuthors>();
     assert_eq!(
         check(&select, &cx, &pk).await,
@@ -227,7 +227,7 @@ async fn relationship_load_denies_tenantless_requests_for_tenant_scoped_targets(
     .await
     .unwrap();
     let pk = row.id.to_string();
-    let cx = CxTestBuilder::new().app_context(db).build();
+    let cx = Cx::default().with(db);
     let select = Field::choice(PolicyAuthor::fields().id()).relationship::<TenantScopedAuthors>();
     assert_eq!(
         check(&select, &cx, &pk).await,
@@ -261,7 +261,7 @@ async fn relationship_load_filters_rows_by_view() {
     .exec(&mut db)
     .await
     .unwrap();
-    let cx = CxTestBuilder::new().app_context(db).build();
+    let cx = Cx::default().with(db);
     let select = Field::choice(PolicyAuthor::fields().id()).relationship::<HideOneAuthor>();
     assert!(
         check(&select, &cx, &visible.id.to_string())
@@ -302,7 +302,7 @@ async fn relationship_cap_counts_raw_rows_not_viewable_ones() {
             hidden_pk = row.id.to_string();
         }
     }
-    let cx = CxTestBuilder::new().app_context(db).build();
+    let cx = Cx::default().with(db);
     let select = Field::choice(PolicyAuthor::fields().id()).relationship::<HideOneAuthor>();
     // The raw fetch overflows.
     assert_eq!(
@@ -324,7 +324,7 @@ async fn relationship_can_view_filtering_out_every_row_yields_invalid() {
     .await
     .unwrap();
     let pk = hidden.id.to_string();
-    let cx = CxTestBuilder::new().app_context(db).build();
+    let cx = Cx::default().with(db);
     let select = Field::choice(PolicyAuthor::fields().id()).relationship::<HideOneAuthor>();
     assert_eq!(
         check(&select, &cx, &pk).await,
@@ -369,7 +369,7 @@ async fn relationship_options_share_one_load_per_request_and_tenant() {
     .await
     .unwrap();
     let id = row.id.to_string();
-    let cx = CxTestBuilder::new().app_context(db).build();
+    let cx = Cx::default().with(db);
 
     // Two selects, different labels, same source: the cache holds records, not options.
     let s1 = Field::choice(Ref::fields().name()).relationship::<CountingSource>();
@@ -429,7 +429,7 @@ async fn relationship_overflow_is_distinct_from_load_failed() {
         .await
         .unwrap();
     }
-    let cx = CxTestBuilder::new().app_context(db).build();
+    let cx = Cx::default().with(db);
     let tenant = crate::tenancy::tenant_id(&cx);
     let err = super::related_records::<BigRefSource>(&cx, tenant)
         .await
@@ -486,7 +486,7 @@ async fn relationship_search_narrows_past_the_cap() {
     .exec(&mut db)
     .await
     .unwrap();
-    let cx = CxTestBuilder::new().app_context(db).build();
+    let cx = Cx::default().with(db);
     let tenant = crate::tenancy::tenant_id(&cx);
     // Unfiltered overflows.
     let err = super::related_records::<SearchRefSource>(&cx, tenant)
@@ -553,7 +553,7 @@ async fn relationship_search_without_searchable_falls_back_to_cap() {
         .await
         .unwrap();
     }
-    let cx = CxTestBuilder::new().app_context(db).build();
+    let cx = Cx::default().with(db);
     let err = super::related_records_search::<PlainRefSource>(&cx, "author-1".to_string(), None)
         .await
         .unwrap_err();
@@ -615,7 +615,7 @@ async fn relationship_overflowed_searchable_validates_via_targeted_check() {
         .unwrap()
         .unwrap();
     let hidden_pk = hidden.id.to_string();
-    let cx = CxTestBuilder::new().app_context(db).build();
+    let cx = Cx::default().with(db);
     let searchable = Field::choice(CheckRef::fields().name())
         .searchable()
         .relationship::<CheckRefSource>();
@@ -655,10 +655,7 @@ async fn recheck_resolves_the_key_through_the_write_transaction() {
         .await
         .unwrap();
     let hidden = author("Hidden", tenant).exec(&mut db).await.unwrap();
-    let cx = CxTestBuilder::new()
-        .app_context(db)
-        .request_context(crate::tenancy::Tenant(tenant))
-        .build();
+    let cx = Cx::default().with(db).with(crate::tenancy::Tenant(tenant));
     let scoped = crate::schema::Schema::new(
         Field::choice(PolicyAuthor::fields().id()).relationship::<TenantScopedAuthors>(),
     );

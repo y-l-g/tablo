@@ -103,7 +103,7 @@ struct ChildForm {
 /// policies read, so one router serves both answers. A build-time check runs
 /// without a request and reads `false`.
 fn has_header(cx: &Cx, name: &str) -> bool {
-    topcoat::context::try_request_context::<http::request::Parts>(cx)
+    topcoat::context::try_context::<http::request::Parts>(cx)
         .is_some_and(|parts| parts.headers.contains_key(name))
 }
 

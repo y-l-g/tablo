@@ -6,7 +6,7 @@ The panel loads rows on its own pages. This chapter covers querying Toasty from 
 
 ## Getting the database
 
-`app_context(db)` registers the `Db` on the app's router, where every panel mounted on it reads it;
+`with(db)` registers the `Db` on the app's router, where every panel mounted on it reads it;
 `tablo::db::db(cx)?` returns it. Cloning a `Db` is cheap, and statements take it by `&mut`:
 
 ```rust
@@ -66,7 +66,7 @@ prefix with `.prefixed("posts")`.
 
 A request outside every panel's prefix, such as a public page, belongs to no panel, however many
 the router mounts: `scoped_query` answers it with an error naming the resource. Keep the handle
-`panel_handle("admin")` returns (below) in the app context, and enter the panel for the request:
+`panel_handle("admin")` returns (below) on the router, and enter the panel for the request:
 
 ```rust
 let cx = admin.enter(cx);

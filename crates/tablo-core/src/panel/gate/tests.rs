@@ -6,7 +6,7 @@ use crate::panel::test_support::{panel_state, serving};
 /// browser would resolve out of the prefix.
 #[test]
 fn return_target_accepts_only_paths_under_the_prefix() {
-    use topcoat::context::CxTestBuilder;
+    use topcoat::context::Cx;
 
     let target = |value: &str| {
         let query = form_urlencoded::Serializer::new(String::new())
@@ -18,7 +18,7 @@ fn return_target_accepts_only_paths_under_the_prefix() {
             .unwrap()
             .into_parts();
         let panel = Arc::new(panel_state("/admin", crate::Auth::disabled()));
-        let cx = serving(CxTestBuilder::new().request_context(parts), &panel).build();
+        let cx = serving(Cx::default().with(parts), &panel);
         return_target(&cx)
     };
     for accepted in ["/admin", "/admin/posts/1", "/admin/posts/1?comments.q=a"] {

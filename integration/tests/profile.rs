@@ -303,7 +303,7 @@ async fn mounting_refuses_a_profile_the_panel_cannot_serve() {
 fn two_panels(db: Db) -> Router {
     Router::builder()
         .discover()
-        .app_context(db)
+        .with(db)
         .panel(
             tablo::Panel::new("admin")
                 .auth(Auth::password().profile(PasswordAuth))

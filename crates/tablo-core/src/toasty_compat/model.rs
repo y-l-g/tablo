@@ -86,7 +86,7 @@ impl AppSchema {
 
     /// The compiled schema of the `Db` the context carries, if it carries one.
     pub(crate) fn of(cx: &Cx) -> Option<Self> {
-        topcoat::context::try_app_context::<toasty::Db>(cx).map(Self::of_db)
+        topcoat::context::try_context::<toasty::Db>(cx).map(Self::of_db)
     }
 
     /// The compiled schema itself, for the walks of [`super::join`].

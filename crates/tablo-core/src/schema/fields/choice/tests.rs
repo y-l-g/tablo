@@ -1,7 +1,7 @@
 //! Dependent choices: the related rows whose column equals the parent field's value.
 
 use toasty::stmt::{List, Query};
-use topcoat::context::{Cx, CxTestBuilder};
+use topcoat::context::Cx;
 
 use crate::{
     Ability, DeclarationErrorKind,
@@ -96,7 +96,7 @@ async fn world() -> World {
     let (france, paris) = country_with("France", "Paris").await;
     let (_, berlin) = country_with("Germany", "Berlin").await;
     World {
-        cx: CxTestBuilder::new().app_context(db).build(),
+        cx: Cx::default().with(db),
         france,
         paris,
         berlin,

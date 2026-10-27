@@ -6,7 +6,7 @@ use std::{
     sync::Arc,
 };
 
-use topcoat::context::{Cx, try_app_context};
+use topcoat::context::{Cx, try_context};
 
 use super::{
     Actions, HeaderActions, PublicLink, Relation, Resource, ResourceDef,
@@ -362,20 +362,20 @@ impl Mounts {
     }
 }
 
-/// Finds the [`Mounts`] of the request's panel; the first panel mounted on a router installs it
-/// in the app context.
+/// Finds the [`Mounts`] of the request's panel; the first panel mounted on a
+/// router installs it.
 pub(crate) struct MountScope(pub(crate) fn(&Cx) -> Option<&Mounts>);
 
 /// `R` as the context's panel mounted it, if it did: the request's panel, or the one a
 /// [`PanelHandle::context`](crate::PanelHandle::context) holds.
 pub(crate) fn mounted<R: Resource>(cx: &Cx) -> Option<Arc<Mounted<R>>> {
-    let MountScope(mounts) = try_app_context::<MountScope>(cx)?;
+    let MountScope(mounts) = try_context::<MountScope>(cx)?;
     mounts(cx)?.get::<R>()
 }
 
 /// Whether the context's panel mounts a resource saying `model`'s rows belong to a tenant.
 pub(crate) fn is_tenant_model(cx: &Cx, model: crate::toasty_compat::model::ModelId) -> bool {
-    try_app_context::<MountScope>(cx)
+    try_context::<MountScope>(cx)
         .and_then(|MountScope(mounts)| mounts(cx))
         .is_some_and(|mounts| mounts.is_tenant_model(model))
 }
@@ -387,7 +387,7 @@ pub(crate) fn model_rules<'a>(
     model: crate::toasty_compat::model::ModelId,
     own: &'a [super::FieldRule],
 ) -> &'a [super::FieldRule] {
-    match try_app_context::<MountScope>(cx).and_then(|MountScope(mounts)| mounts(cx)) {
+    match try_context::<MountScope>(cx).and_then(|MountScope(mounts)| mounts(cx)) {
         Some(mounts) => mounts.model_rules(model),
         None => own,
     }
@@ -395,21 +395,21 @@ pub(crate) fn model_rules<'a>(
 
 /// Whether the context's panel mounts a resource restricting who views a field of any model.
 pub(crate) fn restricts_any(cx: &Cx) -> bool {
-    try_app_context::<MountScope>(cx)
+    try_context::<MountScope>(cx)
         .and_then(|MountScope(mounts)| mounts(cx))
         .is_some_and(|mounts| mounts.restricts_any())
 }
 
 /// Whether the context's panel mounts a resource restricting who views a field of `model`.
 pub(crate) fn is_restricted_model(cx: &Cx, model: crate::toasty_compat::model::ModelId) -> bool {
-    try_app_context::<MountScope>(cx)
+    try_context::<MountScope>(cx)
         .and_then(|MountScope(mounts)| mounts(cx))
         .is_some_and(|mounts| mounts.is_restricted_model(model))
 }
 
 /// Whether the context's panel mounts the resource of type `resource`.
 pub(crate) fn is_mounted(cx: &Cx, resource: TypeId) -> bool {
-    try_app_context::<MountScope>(cx)
+    try_context::<MountScope>(cx)
         .and_then(|MountScope(mounts)| mounts(cx))
         .is_some_and(|mounts| mounts.contains(resource))
 }

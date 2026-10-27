@@ -57,8 +57,8 @@ fn keyed_router(db: Db, mail: &MemoryTransport, two_factor: TwoFactor, key: Key)
         .two_factor(two_factor);
     Router::builder()
         .discover()
-        .app_context(db)
-        .app_context(key)
+        .with(db)
+        .with(key)
         .mail(MailConfig::builder().transport(mail.clone()).build())
         .panel(Panel::new("admin").auth(auth))
         .expect("panel builds")
@@ -277,8 +277,8 @@ async fn mounting_refuses_mailed_codes_without_a_sender() {
     let (db, _) = db().await;
     let mounted = Router::builder()
         .discover()
-        .app_context(db)
-        .app_context(Key::generate())
+        .with(db)
+        .with(Key::generate())
         .mail(
             MailConfig::builder()
                 .transport(MemoryTransport::new())

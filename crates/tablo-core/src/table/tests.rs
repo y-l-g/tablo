@@ -1,5 +1,5 @@
 use toasty::stmt::List;
-use topcoat::context::CxTestBuilder;
+use topcoat::context::Cx;
 
 use super::*;
 use crate::{
@@ -181,7 +181,7 @@ async fn table_page_round_trips_real_cursors() {
     for name in ["Ada", "Bob", "Cara"] {
         toasty::create!(User { name }).exec(&mut db).await.unwrap();
     }
-    let cx = CxTestBuilder::new().app_context(db).build();
+    let cx = Cx::default().with(db);
     let users_table = Table::<User>::new(TextColumn::new(lens!(User.name)).sortable());
     let mut db = crate::db::db(&cx).unwrap();
 
@@ -394,7 +394,7 @@ async fn seeded_users(names: &[&str]) -> topcoat::context::Cx {
         .await
         .unwrap();
     }
-    CxTestBuilder::new().app_context(db).build()
+    Cx::default().with(db)
 }
 
 /// A cursor-paged table of users, `per_page` to a page: the cursor walk's subject.
@@ -741,9 +741,7 @@ async fn stale_cursor_is_marked_for_retry() {
         .await
         .unwrap();
     }
-    let cx = topcoat::context::CxTestBuilder::new()
-        .app_context(db)
-        .build();
+    let cx = topcoat::context::Cx::default().with(db);
     let table = || {
         Table::<Task>::new(TextColumn::new(lens!(Task.title)).sortable())
             .paginate(2)

@@ -9,10 +9,7 @@
 //! covered by `schema::lenses`'s own tests.
 
 use tablo::{DeclarationErrorKind, Field, FieldErrors, FormValues, ResourceDef, Schema, Source};
-use topcoat::{
-    context::{Cx, CxTestBuilder},
-    view::ViewExt,
-};
+use topcoat::{context::Cx, view::ViewExt};
 
 use crate::common::{input_value, test_db};
 
@@ -57,7 +54,7 @@ async fn article_cx() -> Cx {
         .connect("sqlite::memory:")
         .await
         .expect("connect");
-    CxTestBuilder::new().app_context(db).build()
+    Cx::default().with(db)
 }
 
 fn names(schema: &Schema) -> Vec<&str> {

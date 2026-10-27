@@ -46,7 +46,7 @@ fn panel() -> Panel {
 fn mount(db: Db, panel: Panel) -> (Router, PanelHandle) {
     let builder = Router::builder()
         .discover()
-        .app_context(db)
+        .with(db)
         .panel(panel)
         .expect("the panel mounts");
     let admin = builder.panel_handle("admin").expect("mounted above");
@@ -169,7 +169,7 @@ async fn a_bell_lists_only_its_panels_notifications() {
     let db = db().await;
     let builder = Router::builder()
         .discover()
-        .app_context(db.clone())
+        .with(db.clone())
         .panel(panel().notifications())
         .expect("the admin panel mounts")
         .panel(
@@ -329,7 +329,7 @@ async fn the_mount_refuses_a_bell_it_cannot_serve() {
     let db = db().await;
     let without_auth = Router::builder()
         .discover()
-        .app_context(db)
+        .with(db)
         .panel(Panel::new("admin").auth(Auth::disabled()).notifications());
     assert!(
         refusal(without_auth)
@@ -338,7 +338,7 @@ async fn the_mount_refuses_a_bell_it_cannot_serve() {
     );
 
     let bare = test_db(toasty::models!(Member, Seat, AuthSession)).await;
-    let without_model = Router::builder().discover().app_context(bare).panel(
+    let without_model = Router::builder().discover().with(bare).panel(
         Panel::new("admin")
             .auth(Auth::custom(MemberAuth))
             .notifications(),

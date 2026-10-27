@@ -17,7 +17,7 @@ fn realm(prefix: &str) -> Arc<Realm> {
 /// segment does.
 #[test]
 fn panel_prefix_prefers_the_realm_over_the_request_path() {
-    use topcoat::context::CxTestBuilder;
+    use topcoat::context::Cx;
 
     let parts = || {
         http::Request::builder()
@@ -27,12 +27,11 @@ fn panel_prefix_prefers_the_realm_over_the_request_path() {
             .into_parts()
             .0
     };
-    let cx = CxTestBuilder::new()
-        .request_context(parts())
-        .request_context(CurrentRealm(realm("/backoffice")))
-        .build();
+    let cx = Cx::default()
+        .with(parts())
+        .with(CurrentRealm(realm("/backoffice")));
     assert_eq!(panel_prefix(&cx), "/backoffice");
 
-    let cx = CxTestBuilder::new().request_context(parts()).build();
+    let cx = Cx::default().with(parts());
     assert_eq!(panel_prefix(&cx), "/admin");
 }

@@ -51,7 +51,7 @@ fn export_filename(slug: &str) -> String {
 
 /// `?bom=1` opts into a UTF-8 BOM prefix on the CSV body for Excel.
 fn export_wants_bom(cx: &Cx) -> bool {
-    let Some(parts) = topcoat::context::try_request_context::<http::request::Parts>(cx) else {
+    let Some(parts) = topcoat::context::try_context::<http::request::Parts>(cx) else {
         return false;
     };
     let Some(query) = parts.uri.query() else {

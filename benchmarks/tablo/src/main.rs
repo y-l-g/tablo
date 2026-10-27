@@ -8,7 +8,7 @@ use tablo_core::{
 use toasty::{Db, Deferred};
 use topcoat::{
     Result,
-    context::{Cx, CxTestBuilder},
+    context::Cx,
     router::{Body, Next, Router, RouterBuilderDiscoverExt, layer, response::Response},
     view::{HoistView, ViewExt, internal::ThenView},
 };
@@ -162,11 +162,10 @@ fn bench_cx(db: &Db, tenant: TenantId) -> Cx {
         .expect("bench request parts")
         .into_parts()
         .0;
-    CxTestBuilder::new()
-        .app_context(db.clone())
-        .request_context(parts)
-        .request_context(Tenant(tenant))
-        .build()
+    Cx::default()
+        .with(db.clone())
+        .with(parts)
+        .with(Tenant(tenant))
 }
 
 fn summarize(mut times: Vec<f64>) -> (f64, f64, f64, f64, f64) {
@@ -343,7 +342,7 @@ async fn inject_server_tenant(cx: &Cx, body: Body, next: Next<'_>) -> Result<Res
 fn router(db: Db) -> Router {
     Router::builder()
         .discover()
-        .app_context(db)
+        .with(db)
         .panel(
             Panel::new("admin")
                 .auth(tablo_core::Auth::disabled())

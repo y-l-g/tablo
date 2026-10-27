@@ -6,7 +6,7 @@ use tablo::{
 };
 use topcoat::{
     Result,
-    context::{Cx, try_app_context},
+    context::{Cx, try_context},
     router::{
         content::multipart::Multipart,
         error::{SeeOther, bad_request, see_other},
@@ -239,7 +239,7 @@ async fn upload(cx: &Cx, mut multipart: Multipart) -> Result<SeeOther> {
         return Err(bad_request("Choose a file before uploading.").into());
     }
     let mut db = db(cx)?;
-    let MediaStore(store) = try_app_context::<MediaStore>(cx)
+    let MediaStore(store) = try_context::<MediaStore>(cx)
         .ok_or_else(|| bad_request("This deployment stores no uploads."))?;
     let path = store
         .store(&filename, &part.bytes)

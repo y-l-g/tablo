@@ -45,7 +45,7 @@ pub async fn main() -> Result<()> {
 
     let router = Router::builder()
         .discover()
-        .app_context(db)
+        .with(db)
         .panel(Panel::new("admin").resource::<BookResource>())?
         .build();
 

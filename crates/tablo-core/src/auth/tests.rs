@@ -151,7 +151,7 @@ fn login_cx(db: Db, token: &str) -> Cx {
 
 /// Builds the `Cx` for a login POST over `auth`.
 fn login_cx_with(db: Db, token: &str, auth: Auth) -> Cx {
-    use topcoat::{context::CxTestBuilder, cookie::CookieJarCell};
+    use topcoat::{context::Cx, cookie::CookieJarCell};
 
     let parts = http::Request::builder()
         .method(http::Method::POST)
@@ -169,12 +169,11 @@ fn login_cx_with(db: Db, token: &str, auth: Auth) -> Cx {
         .into_parts()
         .0;
     crate::panel::test_support::serving(
-        CxTestBuilder::new().app_context(db),
+        Cx::default().with(db),
         &Arc::new(crate::panel::test_support::panel_state("/admin", auth)),
     )
-    .request_context(parts)
-    .request_context(CookieJarCell::new())
-    .build()
+    .with(parts)
+    .with(CookieJarCell::new())
 }
 
 /// Runs the login handler and renders the status and body a browser receives.
@@ -448,7 +447,7 @@ async fn a_sweep_failure_maps_to_the_opaque_sign_in_copy() {
 /// A failed session delete answers the opaque copy with no driver text.
 #[tokio::test]
 async fn a_driver_session_delete_failure_does_not_echo_driver_text() {
-    use topcoat::context::CxTestBuilder;
+    use topcoat::context::Cx;
 
     let db = schema_less_db().await;
 
@@ -466,7 +465,7 @@ async fn a_driver_session_delete_failure_does_not_echo_driver_text() {
         "the control must be a driver failure, got {driver:?}"
     );
 
-    let cx = CxTestBuilder::new().app_context(db).build();
+    let cx = Cx::default().with(db);
     let error = revoke_sessions_for_user(&cx, "ada")
         .await
         .expect_err("the delete must fail");
@@ -544,20 +543,16 @@ fn mounted_cx(
         .body(())
         .unwrap()
         .into_parts();
-    let builder =
-        crate::panel::test_support::serving(topcoat::context::CxTestBuilder::new(), serving);
+    let builder = crate::panel::test_support::serving(topcoat::context::Cx::default(), serving);
     let builder = match mounted {
-        Some(mounted) => builder.app_context(crate::panel::state::Panels(mounted)),
+        Some(mounted) => builder.with(crate::panel::state::Panels(mounted)),
         None => builder,
     };
-    builder
-        .request_context(parts)
-        .request_context(SignedIn {
-            user: Arc::new(user),
-            realm: Arc::clone(&panel.realm),
-            tenant: None,
-        })
-        .build()
+    builder.with(parts).with(SignedIn {
+        user: Arc::new(user),
+        realm: Arc::clone(&panel.realm),
+        tenant: None,
+    })
 }
 
 #[test]
@@ -694,18 +689,17 @@ fn defaulting_cx(
         .enumerate()
         .map(|(index, tenant)| Membership::new(*tenant, format!("Tenant {index}")))
         .collect();
-    let mut builder =
-        crate::panel::test_support::serving(topcoat::context::CxTestBuilder::new(), &panel)
-            .request_context(SignedIn {
-                user: std::sync::Arc::new(Member(memberships, default)),
-                realm: std::sync::Arc::clone(&panel.realm),
-                tenant: selected,
-            })
-            .app_context(crate::tenancy::TenantSource(session_tenant));
+    let mut builder = crate::panel::test_support::serving(topcoat::context::Cx::default(), &panel)
+        .with(SignedIn {
+            user: std::sync::Arc::new(Member(memberships, default)),
+            realm: std::sync::Arc::clone(&panel.realm),
+            tenant: selected,
+        })
+        .with(crate::tenancy::TenantSource(session_tenant));
     if let Some(tenant) = overridden {
-        builder = builder.request_context(crate::Tenant(tenant));
+        builder = builder.with(crate::Tenant(tenant));
     }
-    builder.build()
+    builder
 }
 
 #[test]

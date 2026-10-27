@@ -54,7 +54,7 @@ cargo run
 - **`db.push_schema()`** creates the tables, which suits a prototype. A production app runs
   `toasty-cli` migrations instead.
 - **`Router::builder().discover()`** starts the app's own router: the app owns it, and the panel
-  is one part of it. **`app_context(db)`** gives it the database every handler reads.
+  is one part of it. **`with(db)`** gives it the database every handler reads.
 - **`Panel::new("admin")`** is a panel at `/admin`, framed in the shell — sidebar, topbar,
   toasts — by a layout it registers itself.
 - **`resource::<BookResource>()`** registers the resource's routes under `/admin/books`, adds its

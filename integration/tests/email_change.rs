@@ -66,7 +66,7 @@ fn router(db: Db, mail: &MemoryTransport) -> Router {
         .email_verification(EmailVerification::new(PasswordAuth));
     Router::builder()
         .discover()
-        .app_context(db)
+        .with(db)
         .mail(MailConfig::builder().transport(mail.clone()).build())
         .panel(Panel::new("admin").auth(auth).resource::<InvoiceResource>())
         .expect("panel builds")

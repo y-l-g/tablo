@@ -1,4 +1,4 @@
-use topcoat::context::CxTestBuilder;
+use topcoat::context::Cx;
 
 use super::*;
 use crate::{Resource, ResourceDef, TenantId, can, can_list, lens, test_support::tableless_db};
@@ -36,7 +36,7 @@ fn answers(policy: &impl Policy<Post>, cx: &Cx, post: &Post) -> [bool; ABILITIES
 
 #[test]
 fn the_building_blocks_answer_per_ability() {
-    let cx = CxTestBuilder::new().build();
+    let cx = Cx::default();
     let post = Post { locked: false };
     assert_eq!(answers(&Allow, &cx, &post), [true; ABILITIES]);
     assert_eq!(answers(&Deny, &cx, &post), [false; ABILITIES]);
@@ -50,7 +50,7 @@ fn the_building_blocks_answer_per_ability() {
 
 #[test]
 fn a_closure_matches_on_the_ability_and_reads_the_record() {
-    let cx = CxTestBuilder::new().build();
+    let cx = Cx::default();
     let unlocked = |_cx: &Cx, ability: Ability<'_, Post>| match ability {
         Ability::Update(post) | Ability::Delete(post) | Ability::Run { record: post, .. } => {
             !post.locked
@@ -71,7 +71,7 @@ fn a_closure_matches_on_the_ability_and_reads_the_record() {
 
 #[test]
 fn combinators_compose_policies() {
-    let cx = CxTestBuilder::new().build();
+    let cx = Cx::default();
     let post = Post { locked: false };
     assert_eq!(
         answers(&ReadOnly.and(Allow), &cx, &post),
@@ -92,10 +92,10 @@ fn combinators_compose_policies() {
 fn when_gates_every_ability_on_the_request() {
     #[derive(Clone, Copy)]
     struct Staff;
-    let staff = CxTestBuilder::new().request_context(Staff).build();
-    let visitor = CxTestBuilder::new().build();
+    let staff = Cx::default().with(Staff);
+    let visitor = Cx::default();
     let policy = Allow.and(when(|cx: &Cx| {
-        topcoat::context::try_request_context::<Staff>(cx).is_some()
+        topcoat::context::try_context::<Staff>(cx).is_some()
     }));
     let post = Post { locked: false };
     assert_eq!(answers(&policy, &staff, &post), [true; ABILITIES]);
@@ -235,7 +235,7 @@ fn written_record_names_the_record_of_every_write() {
 
 #[test]
 fn abilities_deny_what_they_do_not_declare() {
-    let cx = CxTestBuilder::new().build();
+    let cx = Cx::default();
     let post = Post { locked: false };
     assert_eq!(
         answers(&Abilities::<Post>::new(), &cx, &post),
@@ -255,7 +255,7 @@ fn abilities_deny_what_they_do_not_declare() {
 
 #[test]
 fn a_record_check_allows_the_ability_at_all_and_an_any_check_narrows_it() {
-    let cx = CxTestBuilder::new().build();
+    let cx = Cx::default();
     let unlocked = |_cx: &Cx, post: &Post| !post.locked;
     let policy = Abilities::<Post>::new()
         .view(unlocked)
@@ -324,7 +324,7 @@ impl crate::HeaderAction for Recount {
 
 #[test]
 fn abilities_answer_each_action_by_its_name() {
-    let cx = CxTestBuilder::new().build();
+    let cx = Cx::default();
     let note = |title: &str| Note {
         id: uuid::Uuid::new_v4(),
         tenant_id: TenantId::from(uuid::Uuid::new_v4()),

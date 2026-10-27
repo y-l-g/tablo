@@ -1,7 +1,7 @@
 //! The visitor's theme and sidebar state, as the request's cookies store them.
 
 use http::header::COOKIE;
-use topcoat::context::{Cx, try_request_context};
+use topcoat::context::{Cx, try_context};
 
 use super::current;
 
@@ -85,7 +85,7 @@ pub(super) const SIDEBAR_COOKIE: &str = "tablo_sidebar";
 /// panics when the cookie router layer is absent (tests, minimal routers), and
 /// the shell must render everywhere.
 pub(super) fn request_cookie(cx: &Cx, name: &str) -> Option<String> {
-    let header = try_request_context::<http::request::Parts>(cx)?
+    let header = try_context::<http::request::Parts>(cx)?
         .headers
         .get(COOKIE)?
         .to_str()

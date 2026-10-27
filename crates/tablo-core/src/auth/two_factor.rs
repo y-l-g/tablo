@@ -15,7 +15,7 @@ use std::time::Duration;
 use jiff::Timestamp;
 use subtle::ConstantTimeEq;
 use topcoat::{
-    context::{Cx, try_app_context},
+    context::{Cx, try_context},
     cookie::Key,
 };
 
@@ -157,7 +157,7 @@ const RECOVERY_ALPHABET: &[u8; 32] = b"abcdefghijklmnopqrstuvwxyz234567";
 
 /// The router's cookie key, which seals authenticator secrets.
 fn key(cx: &Cx) -> topcoat::Result<&Key> {
-    try_app_context::<Key>(cx)
+    try_context::<Key>(cx)
         .ok_or_else(|| crate::error::declaration("two-factor sign-in needs the router's `Key`"))
 }
 

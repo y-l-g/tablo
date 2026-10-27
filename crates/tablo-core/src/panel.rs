@@ -86,7 +86,7 @@ pub fn navigation_item<R: Resource>(cx: &topcoat::context::Cx) -> Option<crate::
 /// # let db: toasty::Db = todo!();
 /// let router = Router::builder()
 ///     .discover()
-///     .app_context(db)
+///     .with(db)
 ///     .panel(Panel::new("admin").resource::<UserResource>())?
 ///     .build();
 /// # let _ = router;

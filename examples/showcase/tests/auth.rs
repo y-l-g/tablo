@@ -6,7 +6,7 @@ use http::header::LOCATION;
 use showcase::models::{DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, Staff};
 use tablo::{RouterBuilderPanelExt, auth::AuthSession};
 use topcoat::{
-    context::CxTestBuilder,
+    context::Cx,
     mail::{MailConfig, MemoryTransport, RouterBuilderMailExt},
     router::{Router, RouterBuilderDiscoverExt},
 };
@@ -55,8 +55,8 @@ async fn the_hint_renders_and_sign_up_links_back_to_sign_in() {
     let db = full_db().await;
     let router = Router::builder()
         .discover()
-        .app_context(db)
-        .app_context(topcoat::cookie::Key::generate())
+        .with(db)
+        .with(topcoat::cookie::Key::generate())
         .mail(
             MailConfig::builder()
                 .transport(MemoryTransport::new())
@@ -342,7 +342,7 @@ async fn revoke_sessions_for_user_ends_access() {
         .await
         .unwrap()
         .expect("seeded admin");
-    let cx = CxTestBuilder::new().app_context(db.clone()).build();
+    let cx = Cx::default().with(db.clone());
     tablo::auth::revoke_sessions_for_user(&cx, &admin.id.to_string())
         .await
         .unwrap();

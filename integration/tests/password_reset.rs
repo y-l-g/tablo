@@ -75,7 +75,7 @@ fn mount_panels(
 ) -> topcoat::Result<Router> {
     let mut builder = Router::builder()
         .discover()
-        .app_context(db)
+        .with(db)
         .mail(MailConfig::builder().transport(mail.clone()).build());
     for panel in panels {
         builder = builder.panel(panel)?;
@@ -591,7 +591,7 @@ async fn a_revocation_through_a_panel_handle_ends_the_reset_link() {
     let mail = MemoryTransport::new();
     let builder = Router::builder()
         .discover()
-        .app_context(db.clone())
+        .with(db.clone())
         .mail(MailConfig::builder().transport(mail.clone()).build())
         .panel(panel(mailing().password_reset(reset())))
         .expect("panel builds");

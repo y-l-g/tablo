@@ -10,7 +10,7 @@
 
 use std::{any::TypeId, collections::HashMap, sync::Arc};
 
-use topcoat::context::{Cx, try_app_context, try_request_context};
+use topcoat::context::{Cx, try_context};
 
 use super::{
     relations::Child,
@@ -103,9 +103,9 @@ pub(crate) fn under_prefix(prefix: &str, path: &str) -> bool {
         .is_some_and(|rest| rest.is_empty() || rest.starts_with(['/', '?']))
 }
 
-/// Every panel mounted on the router, in mount order: the app-context value the panel's
+/// Every panel mounted on the router, in mount order: the router context value the panel's
 /// [`Host`](crate::auth::Host) answers from.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub(crate) struct Panels(pub(crate) Vec<Arc<PanelState>>);
 
 impl Panels {
@@ -131,7 +131,7 @@ impl Panels {
     }
 }
 
-/// The request's panel, as the request context carries it.
+/// The request's panel, as the request's context carries it.
 #[derive(Clone)]
 pub(crate) struct CurrentPanel(pub(crate) Arc<PanelState>);
 
@@ -139,7 +139,7 @@ pub(crate) struct CurrentPanel(pub(crate) Arc<PanelState>);
 /// runtime request, the panel that declared its endpoint or whose session sent it. A request
 /// outside every panel has none, however many panels the router mounts.
 pub(crate) fn current(cx: &Cx) -> Option<&Arc<PanelState>> {
-    try_request_context::<CurrentPanel>(cx).map(|CurrentPanel(panel)| panel)
+    try_context::<CurrentPanel>(cx).map(|CurrentPanel(panel)| panel)
 }
 
 /// `cx` as a request to `panel`: its state, and its realm for auth.
@@ -158,5 +158,5 @@ pub(crate) fn uploader(cx: &Cx) -> Option<&InstalledUploader> {
 
 /// The mounted panels, if the router mounts any.
 pub(crate) fn panels(cx: &Cx) -> Option<&Panels> {
-    try_app_context::<Panels>(cx)
+    try_context::<Panels>(cx)
 }

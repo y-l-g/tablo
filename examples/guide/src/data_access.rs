@@ -62,7 +62,7 @@ pub async fn featured_table(cx: &Cx) -> topcoat::Result<()> {
 
 // ANCHOR: data-access-panel
 pub fn admin_router(db: Db) -> topcoat::Result<(Router, PanelHandle)> {
-    let builder = Router::builder().discover().app_context(db).panel(
+    let builder = Router::builder().discover().with(db).panel(
         Panel::new("admin")
             .resource::<PostResource>()
             .resource::<CommentResource>()

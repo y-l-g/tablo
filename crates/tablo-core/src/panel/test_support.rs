@@ -76,24 +76,20 @@ pub(crate) fn panel_state<U: crate::PanelUser>(
 /// `builder` as a request to `panel` on a router that mounts it: the panel and its realm, and the
 /// host auth renders through.
 pub(crate) fn serving(
-    builder: topcoat::context::CxTestBuilder,
+    builder: topcoat::context::Cx,
     panel: &std::sync::Arc<super::state::PanelState>,
-) -> topcoat::context::CxTestBuilder {
+) -> topcoat::context::Cx {
     builder
-        .app_context(crate::auth::AuthHost(&super::host::PanelHost))
-        .request_context(super::state::CurrentPanel(std::sync::Arc::clone(panel)))
-        .request_context(crate::auth::CurrentRealm(std::sync::Arc::clone(
+        .with(crate::auth::AuthHost(&super::host::PanelHost))
+        .with(super::state::CurrentPanel(std::sync::Arc::clone(panel)))
+        .with(crate::auth::CurrentRealm(std::sync::Arc::clone(
             &panel.realm,
         )))
 }
 
 /// `panel` mounted on a router holding `db`, the way an app mounts one.
 pub(crate) fn mount(db: Db, panel: Panel) -> topcoat::Result<Router> {
-    Ok(Router::builder()
-        .discover()
-        .app_context(db)
-        .panel(panel)?
-        .build())
+    Ok(Router::builder().discover().with(db).panel(panel)?.build())
 }
 
 /// The mistakes a panel was refused with.

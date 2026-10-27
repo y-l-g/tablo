@@ -51,7 +51,7 @@ async fn a_misdeclared_schema_fails_to_render() {
         Field::text(DummyUser::fields().name()),
         Field::text(DummyUser::fields().name()),
     ));
-    let cx = topcoat::context::CxTestBuilder::new().build();
+    let cx = topcoat::context::Cx::default();
     let values = FormValues::new();
     let errors = crate::values::FieldErrors::new();
     let Err(error) = schema.render(&cx, Source::form(&values, &errors)).await else {
@@ -67,7 +67,7 @@ async fn a_misdeclared_schema_fails_to_render() {
 /// a padded value no option matches is still refused rather than trimmed into one.
 #[tokio::test]
 async fn a_choice_stores_the_value_its_check_authorised() {
-    let cx = topcoat::context::CxTestBuilder::new().build();
+    let cx = topcoat::context::Cx::default();
     let schema = Schema::new(
         Field::choice(DummyUser::fields().name())
             .options(vec!["red".to_string(), "blue".to_string()]),

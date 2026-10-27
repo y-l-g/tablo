@@ -4,7 +4,7 @@ use tablo::db::db;
 use toasty::stmt::Include;
 use topcoat::{
     Result,
-    context::{Cx, app_context},
+    context::{Cx, context},
     router::{
         Slot,
         error::{RouterErrorExt, not_found},
@@ -24,7 +24,7 @@ path_param!(pub id: uuid::Uuid);
 #[layout("/blog")]
 async fn blog_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
     // Outside the admin prefix the request belongs to no panel, so the blog names it.
-    let AdminPanel(admin) = app_context::<AdminPanel>(cx);
+    let AdminPanel(admin) = context::<AdminPanel>(cx);
     admin
         .document(
             cx,

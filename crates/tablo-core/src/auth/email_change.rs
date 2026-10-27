@@ -8,7 +8,7 @@ use std::{
 };
 
 use topcoat::{
-    context::{Cx, try_request_context},
+    context::{Cx, try_context},
     router::{
         Body, RouteFuture,
         error::see_other,
@@ -135,7 +135,7 @@ pub async fn request_email_change(
         confirm,
         cancel,
     };
-    match try_request_context::<Requested>(cx) {
+    match try_context::<Requested>(cx) {
         // Mailed once the save commits: a rolled-back save mails nothing.
         Some(requested) => requested.push(request),
         None => mail(cx, request),

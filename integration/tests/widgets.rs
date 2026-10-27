@@ -40,7 +40,7 @@ impl Page for Dashboard {
 /// A public route that enters the panel and renders its dashboard's grid.
 fn public_grid(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
-        let entered = topcoat::context::app_context::<tablo::PanelHandle>(cx).enter(cx);
+        let entered = topcoat::context::context::<tablo::PanelHandle>(cx).enter(cx);
         view! { entered => <main>(tablo::widgets::<Dashboard>(&entered))</main> }
             .boxed()
             .async_into_response(cx)
@@ -52,7 +52,7 @@ fn public_grid(cx: &Cx, _body: Body) -> RouteFuture<'_> {
 async fn a_route_outside_the_prefix_renders_no_widget_to_a_visitor_the_panel_would_sign_in() {
     let builder = Router::builder()
         .discover()
-        .app_context(test_db(toasty::models!(AdminUser, AuthSession)).await)
+        .with(test_db(toasty::models!(AdminUser, AuthSession)).await)
         .route(RouteFn::new(http::Method::GET, "/public", public_grid))
         .panel(
             Panel::new("admin")
@@ -61,7 +61,7 @@ async fn a_route_outside_the_prefix_renders_no_widget_to_a_visitor_the_panel_wou
         )
         .expect("the panel mounts");
     let admin = builder.panel_handle("admin").expect("mounted above");
-    let router = builder.app_context(admin).build();
+    let router = builder.with(admin).build();
 
     let response = get(&router, "/public").await;
     assert_eq!(response.status(), 200);

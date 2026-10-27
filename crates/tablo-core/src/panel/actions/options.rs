@@ -175,7 +175,7 @@ struct OptionsQuery {
 /// state parser).
 fn options_query(cx: &Cx) -> OptionsQuery {
     let mut out = OptionsQuery::default();
-    let Some(parts) = topcoat::context::try_request_context::<http::request::Parts>(cx) else {
+    let Some(parts) = topcoat::context::try_context::<http::request::Parts>(cx) else {
         return out;
     };
     let query = parts.uri.query().unwrap_or("");

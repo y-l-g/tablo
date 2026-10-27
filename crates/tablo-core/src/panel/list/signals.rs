@@ -52,7 +52,7 @@ impl TableSignals {
     /// URL. Creates the signals, so it carries [`topcoat::runtime::signal`]'s
     /// contract: call it while a page body runs.
     pub(crate) fn new(cx: &Cx, prefix: Option<&str>) -> Self {
-        let path = topcoat::context::try_request_context::<http::request::Parts>(cx)
+        let path = topcoat::context::try_context::<http::request::Parts>(cx)
             .map(|parts| parts.uri.path().to_string())
             .unwrap_or_default();
         let key = (path, prefix.unwrap_or_default().to_string());
