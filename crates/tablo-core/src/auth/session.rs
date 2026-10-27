@@ -8,13 +8,15 @@ use topcoat::{
     context::Cx,
     session::{self, TokenHash},
 };
-use uuid::Uuid;
 
 use super::{
     DynAuthenticator, PanelUser, SignedIn, infrastructure_failure,
     token::{CREDENTIALS, REVOCATION, TokenPurpose},
 };
-use crate::auth::realm::{Realm, current_realm, realms};
+use crate::{
+    TenantId,
+    auth::realm::{Realm, current_realm, realms},
+};
 
 /// How long a session stays valid: seven days, fixed.
 pub const SESSION_LIFETIME: Duration = Duration::from_hours(24 * 7);
@@ -32,10 +34,10 @@ pub const SESSION_LIFETIME: Duration = Duration::from_hours(24 * 7);
 /// [`revoke_sessions_for_user`](crate::auth::revoke_sessions_for_user) ends them.
 ///
 /// The row records the panel's prefix in a non-null `panel` column and the selected tenant in a
-/// nullable `tenant` column, typed as Toasty stores a `Uuid` on the database. A table created
-/// without them gains them by migration: add `panel` with the panel's prefix as its default
-/// (`ALTER TABLE auth_sessions ADD COLUMN panel TEXT NOT NULL DEFAULT '/admin'`), then drop the
-/// default once every row names its panel.
+/// nullable `tenant` column, a [`TenantId`] Toasty stores as a `Uuid` on the database. A table
+/// created without them gains them by migration: add `panel` with the panel's prefix as its
+/// default (`ALTER TABLE auth_sessions ADD COLUMN panel TEXT NOT NULL DEFAULT '/admin'`), then drop
+/// the default once every row names its panel.
 #[derive(Debug, Clone, toasty::Model)]
 pub struct AuthSession {
     /// Hex-encoded SHA-256 of the session token.
@@ -48,7 +50,7 @@ pub struct AuthSession {
     /// only panel the session authenticates.
     pub panel: String,
     /// The tenant the user selected; `None` acts for the first.
-    pub tenant: Option<Uuid>,
+    pub tenant: Option<TenantId>,
     /// Indexed for the login sweep's range scan on this column.
     #[index]
     pub expires_at: Timestamp,
@@ -197,7 +199,7 @@ async fn insert(
     hash: &TokenHash,
     user_id: String,
     panel: String,
-    tenant: Option<Uuid>,
+    tenant: Option<TenantId>,
     expires_at: Timestamp,
 ) -> toasty::Result<()> {
     toasty::create!(AuthSession {
@@ -213,7 +215,7 @@ async fn insert(
     Ok(())
 }
 
-pub(super) async fn select_tenant(cx: &Cx, tenant: Uuid) -> topcoat::Result<()> {
+pub(super) async fn select_tenant(cx: &Cx, tenant: TenantId) -> topcoat::Result<()> {
     let Some(hash) = session::token_hash(cx).await? else {
         return Err(topcoat::router::error::forbidden().into());
     };

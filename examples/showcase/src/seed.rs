@@ -103,14 +103,14 @@ pub async fn seed(db: &mut Db) -> toasty::Result<()> {
 
 /// Seeds the two blogs and the staff who sign in.
 pub async fn seed_staff(db: &mut Db) -> toasty::Result<()> {
-    ensure_workspace(db, DEMO_TENANT, "Main Blog").await?;
-    ensure_workspace(db, SIDE_TENANT, "Side Project").await?;
+    ensure_workspace(db, DEMO_TENANT.get(), "Main Blog").await?;
+    ensure_workspace(db, SIDE_TENANT.get(), "Side Project").await?;
     create_staff(
         db,
         DEMO_ADMIN_EMAIL,
         "Demo Admin",
         DEMO_ADMIN_PASSWORD,
-        &[DEMO_TENANT, SIDE_TENANT],
+        &[DEMO_TENANT.get(), SIDE_TENANT.get()],
     )
     .await?;
     create_staff(
@@ -125,10 +125,10 @@ pub async fn seed_staff(db: &mut Db) -> toasty::Result<()> {
 }
 
 /// The tenant owning all showcase seed rows.
-pub const DEMO_TENANT: uuid::Uuid = uuid::Uuid::from_u128(100);
+pub const DEMO_TENANT: TenantId = TenantId::new(uuid::Uuid::from_u128(100));
 
 /// A second, empty blog the demo admin also holds a seat in.
-pub const SIDE_TENANT: uuid::Uuid = uuid::Uuid::from_u128(101);
+pub const SIDE_TENANT: TenantId = TenantId::new(uuid::Uuid::from_u128(101));
 
 /// Returns the deterministic id for the `index`th seeded post.
 fn seeded_post_id(index: usize) -> uuid::Uuid {
@@ -202,7 +202,7 @@ const PAGINATION_FILLER_TITLES: [&str; 60] = [
     "Writing Down the Decisions",
 ];
 /// A tenant whose policy denies everything.
-pub const BLOCKED_TENANT: uuid::Uuid = uuid::Uuid::from_u128(9999);
+pub const BLOCKED_TENANT: TenantId = TenantId::new(uuid::Uuid::from_u128(9999));
 
 /// Demo administrator credentials.
 pub const DEMO_ADMIN_EMAIL: &str = "admin@example.com";
@@ -259,28 +259,28 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
     if Author::all().exec(db).await?.is_empty() {
         let tenant = DEMO_TENANT;
         let ada_author = toasty::create!(Author {
-            tenant_id: TenantId::from(tenant),
+            tenant_id: tenant,
             name: "Ada Author",
             email: "ada.author@example.com",
         })
         .exec(db)
         .await?;
         let alan_author = toasty::create!(Author {
-            tenant_id: TenantId::from(tenant),
+            tenant_id: tenant,
             name: "Alan Author",
             email: "alan.author@example.com",
         })
         .exec(db)
         .await?;
         let june_writer = toasty::create!(Author {
-            tenant_id: TenantId::from(tenant),
+            tenant_id: tenant,
             name: "June Writer",
             email: "june.writer@example.com",
         })
         .exec(db)
         .await?;
         let rosa_editor = toasty::create!(Author {
-            tenant_id: TenantId::from(tenant),
+            tenant_id: tenant,
             name: "Rosa Editor",
             email: "rosa.editor@example.com",
         })
@@ -288,7 +288,7 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
         .await?;
         toasty::create!(Post {
             id: seeded_post_id(0),
-            tenant_id: TenantId::from(tenant),
+            tenant_id: tenant,
             title: "Hello Toasty",
             body: from_text("How we render admin tables over Toasty queries without an N+1."),
             status: PostStatus::Published,
@@ -310,7 +310,7 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
         .await?;
         toasty::create!(Post {
             id: seeded_post_id(1),
-            tenant_id: TenantId::from(tenant),
+            tenant_id: tenant,
             title: "Second Post",
             body: from_text("Draft notes on cursor pagination edge cases."),
             status: PostStatus::Draft,
@@ -366,7 +366,7 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
             let (seo, publication) = filler_embedded();
             toasty::create!(Post {
                 id: seeded_post_id(index + 2),
-                tenant_id: TenantId::from(tenant),
+                tenant_id: tenant,
                 title: title,
                 body: from_text(body),
                 status: PostStatus::Draft,
@@ -398,7 +398,7 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
             let (seo, publication) = filler_embedded();
             toasty::create!(Post {
                 id: uuid::Uuid::from_u128(FILLER_ID_BASE + index as u128),
-                tenant_id: TenantId::from(tenant),
+                tenant_id: tenant,
                 title: *title,
                 body: from_text("Backlog draft kept for pagination coverage."),
                 status: PostStatus::Draft,
@@ -417,7 +417,7 @@ pub async fn seed_content(db: &mut Db) -> toasty::Result<()> {
         for name in ["Engineering", "Databases", "Process"] {
             categories.push(
                 toasty::create!(Category {
-                    tenant_id: TenantId::from(tenant),
+                    tenant_id: tenant,
                     name: name,
                 })
                 .exec(db)

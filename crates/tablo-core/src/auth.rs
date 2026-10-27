@@ -39,7 +39,6 @@ use topcoat::{
         request::{method, original_headers, original_method, uri},
     },
 };
-use uuid::Uuid;
 
 use self::realm::realms;
 pub use self::{
@@ -77,7 +76,10 @@ pub(crate) use self::{
     two_factor::{TwoFactor, offered as two_factor_offered, settings_url as two_factor_url},
     verification::EmailVerification,
 };
-use crate::{BoxFuture, tenancy::Membership};
+use crate::{
+    BoxFuture,
+    tenancy::{Membership, TenantId},
+};
 
 /// [`Authenticator`] with its user type erased, as the panel keeps it.
 pub(crate) trait DynAuthenticator: Send + Sync {
@@ -163,7 +165,7 @@ pub(crate) struct SignedIn {
     pub(crate) realm: Arc<Realm>,
     /// The tenant the session selected, if any. [`tenant_id`](crate::tenant_id)
     /// honors it only while it is one of the user's memberships.
-    pub(crate) tenant: Option<Uuid>,
+    pub(crate) tenant: Option<TenantId>,
 }
 
 impl SignedIn {
@@ -202,26 +204,21 @@ pub fn membership(cx: &Cx) -> Option<&Membership> {
         .user
         .tenants()
         .iter()
-        .find(|m| m.tenant.get() == tenant)
+        .find(|m| m.tenant == tenant)
 }
 
 /// The tenant of the session's selected membership, else of the user's default, else of their
 /// first: the [`TenantSource`](crate::tenancy::TenantSource) the panel installs.
-pub(crate) fn session_tenant(cx: &Cx) -> Option<Uuid> {
+pub(crate) fn session_tenant(cx: &Cx) -> Option<TenantId> {
     let signed = signed(cx)?;
     let tenants = signed.user.tenants();
-    let member = |tenant: Uuid| tenants.iter().find(|m| m.tenant.get() == tenant);
+    let member = |tenant: TenantId| tenants.iter().find(|m| m.tenant == tenant);
     signed
         .tenant
         .and_then(member)
-        .or_else(|| {
-            signed
-                .user
-                .default_tenant()
-                .and_then(|tenant| member(tenant.get()))
-        })
+        .or_else(|| signed.user.default_tenant().and_then(member))
         .or_else(|| tenants.first())
-        .map(|membership| membership.tenant.get())
+        .map(|membership| membership.tenant)
 }
 
 /// The signed-in user's [`time_zone`](PanelUser::time_zone), else the request panel's

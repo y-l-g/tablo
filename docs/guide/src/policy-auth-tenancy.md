@@ -356,11 +356,12 @@ for each tenant `PanelUser::tenants` lists, as a `Membership { tenant, name }`; 
 `AdminUser` belongs to none, so a tenanted app signs in [its own user table](#your-own-user-table).
 
 The request's tenant is the membership the user selected, else the one
-`PanelUser::default_tenant` names, else their first; read it with `tenant_id(cx)`, and the whole
-`Membership` with `auth::membership(cx)`. A user with two or more memberships switches between
+`PanelUser::default_tenant` names, else their first; read it with `tenant_id(cx)`, a `TenantId`,
+and the whole `Membership` with `auth::membership(cx)`. A user with two or more memberships switches between
 them from a menu atop the sidebar ([`PanelUser::tenants`](https://y-l.fr/tablo/nightly/api/tablo/trait.PanelUser.html#method.tenants)).
 No request header sets the tenant; server code such as a middleware or a test can, through a
-`Tenant` request extension or `Tenant(id)` on the `Cx`.
+`Tenant` request extension or `Tenant(id)` on the `Cx`, where `id` is a `TenantId`: a bare `Uuid`
+does not compile there.
 
 `Auth::tenant_registration` lets a signed-in user create a tenant, through a `TenantRegistrar`
 whose `register` writes the tenant and the user's membership of it; `required()` sends a user with

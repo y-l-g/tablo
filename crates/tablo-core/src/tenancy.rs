@@ -43,7 +43,7 @@ impl Membership {
 /// and tests may carry it as a request extension; either wins over the signed-in
 /// user's tenant. No request header sets it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Tenant(pub uuid::Uuid);
+pub struct Tenant(pub TenantId);
 
 /// The tenant the request acts for, if any.
 ///
@@ -51,7 +51,7 @@ pub struct Tenant(pub uuid::Uuid);
 /// deliberate seam app middleware and `Router::handle` tests use), then a
 /// `Tenant` scoped value app code put on the `Cx`, then the signed-in user's
 /// [`membership`](crate::auth::membership). No request header is consulted.
-pub fn tenant_id(cx: &Cx) -> Option<uuid::Uuid> {
+pub fn tenant_id(cx: &Cx) -> Option<TenantId> {
     if let Some(parts) = try_request_context::<http::request::Parts>(cx)
         && let Some(t) = parts.extensions.get::<Tenant>()
     {
@@ -66,14 +66,14 @@ pub fn tenant_id(cx: &Cx) -> Option<uuid::Uuid> {
 
 /// Finds the tenant the request's session acts for; the first panel mounted on a router installs
 /// it in the app context.
-pub(crate) struct TenantSource(pub(crate) fn(&Cx) -> Option<uuid::Uuid>);
+pub(crate) struct TenantSource(pub(crate) fn(&Cx) -> Option<TenantId>);
 
 /// Requires a tenant, returning an error if missing (for tenant-owned resources).
 ///
 /// # Errors
 ///
 /// 403 when the request acts for no tenant.
-pub fn require_tenant(cx: &Cx) -> Result<uuid::Uuid, topcoat::Error> {
+pub fn require_tenant(cx: &Cx) -> Result<TenantId, topcoat::Error> {
     tenant_id(cx).ok_or_else(|| topcoat::router::error::forbidden().into())
 }
 
@@ -121,7 +121,7 @@ pub(crate) struct TenantField {
 }
 
 /// `<lens> = tenant` for one tenant.
-type TenantFilter = Box<dyn Fn(uuid::Uuid) -> Expr<bool> + Send + Sync>;
+type TenantFilter = Box<dyn Fn(TenantId) -> Expr<bool> + Send + Sync>;
 
 enum Scope {
     /// Unscoped: [`Tenancy::none`] when `declared`, else the default a resource that never called
@@ -231,7 +231,7 @@ impl<M: toasty::schema::Model + 'static> Tenancy<M> {
     }
 
     /// `<lens> = tenant`, or `None` for an unscoped resource.
-    pub(crate) fn filter(&self, tenant: uuid::Uuid) -> Option<Expr<bool>> {
+    pub(crate) fn filter(&self, tenant: TenantId) -> Option<Expr<bool>> {
         match &self.scope {
             Scope::None { .. } => None,
             Scope::Column { filter, .. } | Scope::Via { filter, .. } => Some(filter(tenant)),

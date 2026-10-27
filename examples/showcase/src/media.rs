@@ -1,7 +1,7 @@
 //! The media library: the `medias` table and the page that fills it.
 
 use tablo::{
-    Ability, Notification, Page, PageDef, TenantId, Uploader, csrf, db::db, extend::OptionSource,
+    Ability, Notification, Page, PageDef, Uploader, csrf, db::db, extend::OptionSource,
     notification::set_notification, require_tenant, sanitize_filename,
 };
 use topcoat::{
@@ -37,7 +37,7 @@ impl OptionSource for MediaLibrary {
     fn scoped_query(cx: &Cx) -> Result<toasty::stmt::Query<toasty::stmt::List<MediaAsset>>> {
         let tenant = require_tenant(cx)?;
         Ok(toasty::stmt::Query::<toasty::stmt::List<MediaAsset>>::all()
-            .filter(MediaAsset::fields().tenant_id().eq(TenantId::from(tenant))))
+            .filter(MediaAsset::fields().tenant_id().eq(tenant)))
     }
 
     fn allows(_cx: &Cx, ability: Ability<'_, MediaAsset>) -> bool {
@@ -113,7 +113,7 @@ impl Page for MediaLibraryPage {
         // Refuses tenantless requests.
         let tenant = require_tenant(cx)?;
         let mut db = db(cx)?;
-        let media = MediaAsset::filter(MediaAsset::fields().tenant_id().eq(TenantId::from(tenant)))
+        let media = MediaAsset::filter(MediaAsset::fields().tenant_id().eq(tenant))
             .order_by(MediaAsset::fields().created_at().desc())
             .exec(&mut db)
             .await?;
@@ -246,7 +246,7 @@ async fn upload(cx: &Cx, mut multipart: Multipart) -> Result<SeeOther> {
         .await
         .map_err(bad_request)?;
     toasty::create!(MediaAsset {
-        tenant_id: TenantId::from(tenant),
+        tenant_id: tenant,
         path: path,
         filename: filename,
         kind: kind_of(&part.content_type).to_string(),

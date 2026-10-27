@@ -32,7 +32,7 @@ use crate::{
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
 /// # struct PostResource;
 /// # impl Resource for PostResource { type Model = Post; type Form = NoForm<Post>; }
-/// # async fn run(db: toasty::Db, tenant: uuid::Uuid) -> topcoat::Result<()> {
+/// # async fn run(db: toasty::Db, tenant: tablo_core::TenantId) -> topcoat::Result<()> {
 /// let builder = Router::builder()
 ///     .discover()
 ///     .app_context(db)
@@ -116,7 +116,7 @@ impl PanelHandle {
     ///
     /// ```rust,no_run
     /// # use tablo_core::{Notification, PanelHandle};
-    /// # async fn nightly(admin: &PanelHandle, owner_id: &str, tenant: uuid::Uuid) -> topcoat::Result<()> {
+    /// # async fn nightly(admin: &PanelHandle, owner_id: &str, tenant: tablo_core::TenantId) -> topcoat::Result<()> {
     /// admin
     ///     .notifications()
     ///     .tenant(tenant)

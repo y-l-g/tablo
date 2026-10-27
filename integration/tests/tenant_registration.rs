@@ -102,7 +102,7 @@ async fn a_member_without_a_tenant_reaches_the_panel_once_they_register_one() {
     assert_eq!(flash(&registered).status, NotificationStatus::Success);
     let seats = seats(&mut db.clone(), grace.member.id).await.unwrap();
     assert_eq!(seats.len(), 1);
-    assert_eq!(session_tenant(&db).await, Some(seats[0].tenant));
+    assert_eq!(session_tenant(&db).await, Some(seats[0].tenant.into()));
     assert_eq!(client.get("/admin/notes").await.status(), 200);
 }
 
@@ -127,7 +127,7 @@ async fn a_member_registers_another_tenant_and_acts_for_it() {
         .into_iter()
         .find(|seat| seat.tenant_name == "Globex")
         .expect("the registration seats Ada in Globex");
-    assert_eq!(session_tenant(&db).await, Some(globex.tenant));
+    assert_eq!(session_tenant(&db).await, Some(globex.tenant.into()));
 }
 
 /// The registrar's refusal renders under its field, and registers nothing.

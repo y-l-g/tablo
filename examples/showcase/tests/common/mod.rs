@@ -58,13 +58,13 @@ pub async fn full_db() -> Db {
 }
 
 /// `Db` with one author and post per tenant, for tenancy tests.
-pub async fn tenanted_db() -> (Db, uuid::Uuid, uuid::Uuid) {
-    let t1 = uuid::Uuid::from_u128(1);
-    let t2 = uuid::Uuid::from_u128(2);
+pub async fn tenanted_db() -> (Db, TenantId, TenantId) {
+    let t1 = TenantId::new(uuid::Uuid::from_u128(1));
+    let t2 = TenantId::new(uuid::Uuid::from_u128(2));
     let mut db = empty_schema_db().await;
     seed_staff(&mut db).await.expect("seed staff");
     let a1 = toasty::create!(showcase::models::Author {
-        tenant_id: TenantId::from(t1),
+        tenant_id: t1,
         name: "Alice T1",
         email: "alice.t1@example.com",
     })
@@ -72,7 +72,7 @@ pub async fn tenanted_db() -> (Db, uuid::Uuid, uuid::Uuid) {
     .await
     .expect("create author t1");
     let a2 = toasty::create!(showcase::models::Author {
-        tenant_id: TenantId::from(t2),
+        tenant_id: t2,
         name: "Bob T2",
         email: "bob.t2@example.com",
     })
@@ -80,7 +80,7 @@ pub async fn tenanted_db() -> (Db, uuid::Uuid, uuid::Uuid) {
     .await
     .expect("create author t2");
     let p1 = toasty::create!(showcase::models::Post {
-        tenant_id: TenantId::from(t1),
+        tenant_id: t1,
         title: "T1 Post",
         body: "body",
         status: showcase::models::PostStatus::Published,
@@ -102,7 +102,7 @@ pub async fn tenanted_db() -> (Db, uuid::Uuid, uuid::Uuid) {
     .await
     .expect("create post t1");
     let p2 = toasty::create!(showcase::models::Post {
-        tenant_id: TenantId::from(t2),
+        tenant_id: t2,
         title: "T2 Post",
         body: "body",
         status: showcase::models::PostStatus::Draft,

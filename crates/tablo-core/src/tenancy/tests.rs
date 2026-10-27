@@ -4,8 +4,8 @@ use super::*;
 
 #[test]
 fn tenant_extension_wins_over_scoped_value_and_defaults_to_none() {
-    let id = uuid::Uuid::new_v4();
-    let other = uuid::Uuid::new_v4();
+    let id = TenantId::from(uuid::Uuid::new_v4());
+    let other = TenantId::from(uuid::Uuid::new_v4());
 
     // A scoped value app code put on the `Cx`.
     let cx = CxTestBuilder::new().request_context(Tenant(id)).build();

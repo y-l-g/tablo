@@ -112,11 +112,11 @@ pub struct PostForm {
     pub title: String,
 }
 
-async fn seed_50(db: &mut Db, tenant: uuid::Uuid) {
+async fn seed_50(db: &mut Db, tenant: TenantId) {
     let mut author_ids = Vec::new();
     for i in 0..5 {
         let a = toasty::create!(Author {
-            tenant_id: TenantId::from(tenant),
+            tenant_id: tenant,
             name: format!("Author {i}"),
             email: format!("author{i}@example.com"),
         })
@@ -128,7 +128,7 @@ async fn seed_50(db: &mut Db, tenant: uuid::Uuid) {
     for i in 0..50 {
         let aid = author_ids[i % author_ids.len()];
         let post = toasty::create!(Post {
-            tenant_id: TenantId::from(tenant),
+            tenant_id: tenant,
             title: format!("Post {i:02}"),
             body: format!("Body {i}"),
             status: if i % 2 == 0 {
@@ -155,7 +155,7 @@ async fn seed_50(db: &mut Db, tenant: uuid::Uuid) {
     }
 }
 
-fn bench_cx(db: &Db, tenant: uuid::Uuid) -> Cx {
+fn bench_cx(db: &Db, tenant: TenantId) -> Cx {
     let parts = http::Request::builder()
         .uri("/admin/posts")
         .body(())
@@ -181,7 +181,7 @@ fn summarize(mut times: Vec<f64>) -> (f64, f64, f64, f64, f64) {
     )
 }
 
-async fn bench_list_path(db: &Db, tenant: uuid::Uuid, iterations: usize) -> Vec<f64> {
+async fn bench_list_path(db: &Db, tenant: TenantId, iterations: usize) -> Vec<f64> {
     let mut times_ms = Vec::with_capacity(iterations);
     for _ in 0..iterations {
         let cx = bench_cx(db, tenant);
@@ -214,7 +214,7 @@ async fn bench_list_path(db: &Db, tenant: uuid::Uuid, iterations: usize) -> Vec<
     times_ms
 }
 
-async fn bench_query_only(db: &Db, tenant: uuid::Uuid, iterations: usize) -> Vec<f64> {
+async fn bench_query_only(db: &Db, tenant: TenantId, iterations: usize) -> Vec<f64> {
     let mut times_ms = Vec::with_capacity(iterations);
     for _ in 0..iterations {
         let cx = bench_cx(db, tenant);
@@ -242,7 +242,7 @@ async fn bench_query_only(db: &Db, tenant: uuid::Uuid, iterations: usize) -> Vec
 }
 
 async fn run_leg(db: Db, label: &str, iterations: usize) {
-    let tenant = uuid::Uuid::new_v4();
+    let tenant = TenantId::from(uuid::Uuid::new_v4());
     let mut seed_db = db.clone();
     seed_50(&mut seed_db, tenant).await;
     let (p50, p90, p99, min, max) = summarize(bench_list_path(&db, tenant, iterations).await);
@@ -319,7 +319,7 @@ async fn run_bench(iterations: usize) {
     println!("done (ungated: no PASS/FAIL)");
 }
 
-const SERVER_TENANT: uuid::Uuid = uuid::Uuid::nil();
+const SERVER_TENANT: TenantId = TenantId::new(uuid::Uuid::nil());
 
 /// Supplies the HTTP mode's tenant.
 ///

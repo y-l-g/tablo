@@ -90,9 +90,9 @@ async fn the_panel_refuses_a_db_without_the_auth_models() {
 // ANCHOR_END: testing-mount-error
 
 /// A blog with two drafts and one published post for `tenant`, and one draft for another.
-async fn seeded_blog() -> (Db, uuid::Uuid) {
-    let tenant = uuid::Uuid::new_v4();
-    let other = uuid::Uuid::new_v4();
+async fn seeded_blog() -> (Db, tablo::TenantId) {
+    let tenant = tablo::TenantId::from(uuid::Uuid::new_v4());
+    let other = tablo::TenantId::from(uuid::Uuid::new_v4());
     let mut db = Db::builder()
         .models(toasty::models!(
             Author,
@@ -118,7 +118,7 @@ async fn seeded_blog() -> (Db, uuid::Uuid) {
         (other, PostStatus::Draft),
     ] {
         toasty::create!(Post {
-            tenant_id: TenantId::from(tenant_id),
+            tenant_id: tenant_id,
             title: "A post".to_string(),
             body: "body".to_string(),
             status,

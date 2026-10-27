@@ -19,7 +19,7 @@ struct PolicyAuthor {
     #[key]
     #[auto]
     id: uuid::Uuid,
-    tenant_id: Option<uuid::Uuid>,
+    tenant_id: Option<crate::TenantId>,
     name: String,
 }
 
@@ -218,7 +218,7 @@ async fn relationship_load_denies_tenantless_requests_for_tenant_scoped_targets(
     // A tenant-scoped source serves no unscoped options and narrows the load to the request tenant.
 
     let mut db = memory_db(toasty::models!(PolicyAuthor)).await;
-    let tenant = uuid::Uuid::new_v4();
+    let tenant = crate::TenantId::from(uuid::Uuid::new_v4());
     let row = toasty::create!(PolicyAuthor {
         tenant_id: Some(tenant),
         name: "Ada".to_string(),
@@ -237,7 +237,7 @@ async fn relationship_load_denies_tenantless_requests_for_tenant_scoped_targets(
     let tenanted = cx.with(crate::tenancy::Tenant(tenant));
     assert!(check(&select, &tenanted, &pk).await.is_empty());
     // Another tenant's request reports the row as invalid.
-    let foreign = cx.with(crate::tenancy::Tenant(uuid::Uuid::new_v4()));
+    let foreign = cx.with(crate::tenancy::Tenant(uuid::Uuid::new_v4().into()));
     assert_eq!(
         check(&select, &foreign, &pk).await,
         vec!["Id is invalid".to_string()]
@@ -386,7 +386,7 @@ async fn relationship_options_share_one_load_per_request_and_tenant() {
     );
 
     // Same cache, other tenant → separate load (no cross-tenant sharing).
-    let cx_b = cx.with(crate::tenancy::Tenant(uuid::Uuid::new_v4()));
+    let cx_b = cx.with(crate::tenancy::Tenant(uuid::Uuid::new_v4().into()));
     assert!(check(&s1, &cx_b, &id).await.is_empty());
     assert_eq!(
         OPTION_LOADS.load(Ordering::SeqCst),
@@ -642,15 +642,15 @@ async fn relationship_overflowed_searchable_validates_via_targeted_check() {
 #[tokio::test]
 async fn recheck_resolves_the_key_through_the_write_transaction() {
     let mut db = memory_db(toasty::models!(PolicyAuthor)).await;
-    let tenant = uuid::Uuid::new_v4();
-    let author = |name: &str, tenant_id: uuid::Uuid| {
+    let tenant = crate::TenantId::from(uuid::Uuid::new_v4());
+    let author = |name: &str, tenant_id: crate::TenantId| {
         toasty::create!(PolicyAuthor {
             tenant_id: Some(tenant_id),
             name: name.to_string(),
         })
     };
     let own = author("Own", tenant).exec(&mut db).await.unwrap();
-    let foreign = author("Foreign", uuid::Uuid::new_v4())
+    let foreign = author("Foreign", uuid::Uuid::new_v4().into())
         .exec(&mut db)
         .await
         .unwrap();

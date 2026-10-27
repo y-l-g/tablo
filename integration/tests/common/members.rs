@@ -184,7 +184,7 @@ pub async fn seat(db: &Db, member: &Member, tenant: Uuid, name: &str, owner: boo
 }
 
 /// The tenant the one session acts for.
-pub async fn session_tenant(db: &Db) -> Option<Uuid> {
+pub async fn session_tenant(db: &Db) -> Option<TenantId> {
     let sessions = AuthSession::all().exec(&mut db.clone()).await.unwrap();
     assert_eq!(sessions.len(), 1);
     sessions[0].tenant

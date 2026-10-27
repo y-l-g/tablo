@@ -33,9 +33,9 @@ struct EmployeeForm {
 }
 
 /// The tenant whose requests view the salary and change the grade.
-const HR: Uuid = Uuid::from_u128(1);
+const HR: TenantId = TenantId::new(Uuid::from_u128(1));
 /// A tenant whose requests see no salary and a read-only grade.
-const SALES: Uuid = Uuid::from_u128(2);
+const SALES: TenantId = TenantId::new(Uuid::from_u128(2));
 
 fn hr(cx: &Cx) -> bool {
     tablo::tenant_id(cx) == Some(HR)
@@ -126,7 +126,7 @@ async fn an_import_takes_only_the_fields_the_request_may_change() {
             imported[0].salary.as_str(),
             imported[0].grade.as_str()
         ),
-        (TenantId::from(SALES), "S-100", "junior"),
+        (SALES, "S-100", "junior"),
         "a field the request may not change takes its default, in the request's tenant"
     );
 }

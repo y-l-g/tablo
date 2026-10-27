@@ -3,7 +3,7 @@ use showcase::models::{
     Author, BLOCKED_TENANT, Category, Comment, DEMO_ADMIN_EMAIL, Post, PostCategory, PostStatus,
     Publication, Seo,
 };
-use tablo::{TenantId, auth::ColumnPreference};
+use tablo::auth::ColumnPreference;
 use uuid::Uuid;
 
 use crate::common::{
@@ -301,7 +301,7 @@ async fn cross_tenant_requests_404_and_touch_nothing() {
     let mut db_q = db.clone();
     let comments_before = comment_count(&db).await;
 
-    let t1_post = Post::filter(Post::fields().tenant_id().eq(TenantId::from(t1)))
+    let t1_post = Post::filter(Post::fields().tenant_id().eq(t1))
         .first()
         .exec(&mut db_q)
         .await
@@ -373,7 +373,7 @@ async fn cross_tenant_requests_404_and_touch_nothing() {
 
     // A category of tenant A, holding A's post: B neither attaches to it nor detaches from it.
     let t1_category = toasty::create!(Category {
-        tenant_id: TenantId::from(t1),
+        tenant_id: t1,
         name: "T1 Category",
     })
     .exec(&mut db_q)
@@ -519,7 +519,7 @@ async fn blocked_tenant_is_refused_on_every_read_route() {
 
     let mut db_q = db.clone();
     let blocked_author = toasty::create!(Author {
-        tenant_id: TenantId::from(BLOCKED_TENANT),
+        tenant_id: BLOCKED_TENANT,
         name: "Blocked Author",
         email: "blocked@example.com",
     })
@@ -527,7 +527,7 @@ async fn blocked_tenant_is_refused_on_every_read_route() {
     .await
     .expect("create an author under BLOCKED_TENANT");
     let blocked_post = toasty::create!(Post {
-        tenant_id: TenantId::from(BLOCKED_TENANT),
+        tenant_id: BLOCKED_TENANT,
         title: "Blocked Post",
         body: "body",
         status: PostStatus::Draft,
@@ -549,7 +549,7 @@ async fn blocked_tenant_is_refused_on_every_read_route() {
     .await
     .expect("create a post under BLOCKED_TENANT");
     let blocked_category = toasty::create!(Category {
-        tenant_id: TenantId::from(BLOCKED_TENANT),
+        tenant_id: BLOCKED_TENANT,
         name: "Blocked Category",
     })
     .exec(&mut db_q)
@@ -720,7 +720,7 @@ async fn header_actions_stay_in_their_tenant_and_policy() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let mut db_q = db.clone();
-    let t1_post = Post::filter(Post::fields().tenant_id().eq(TenantId::from(t1)))
+    let t1_post = Post::filter(Post::fields().tenant_id().eq(t1))
         .first()
         .exec(&mut db_q)
         .await
