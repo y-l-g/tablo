@@ -17,6 +17,7 @@ use fluent_syntax::ast::{Entry, Expression, InlineExpression, Pattern, PatternEl
 const NOT_MESSAGES: &[&str] = &[
     "tablo-condition",
     "tablo-core",
+    "tablo-header-create",
     "tablo-table",
     "tablo-table-input",
     "tablo-tiptap",
