@@ -246,6 +246,7 @@ const RESERVED_SLUGS: &[&str] = &[
     "email-change",
     "two-factor",
     "two-factor-challenge",
+    "locale",
     "-",
 ];
 

@@ -1,7 +1,7 @@
-//! The locale a request reads the panel in, from the signed-in user, else the browser's
-//! `Accept-Language`, else the panel's default, and the app's catalog over Tablo's in it; and the
-//! locale a mail reads, its recipient's; and an option's derived label, translated wherever it
-//! renders.
+//! The locale a request reads the panel in, from the shell's language menu, else the signed-in
+//! user, else the browser's `Accept-Language`, else the panel's default, and the app's catalog
+//! over Tablo's in it; and the locale a mail reads, its recipient's; and an option's derived
+//! label, translated wherever it renders.
 
 use http::header::VARY;
 use tablo::{
@@ -9,7 +9,10 @@ use tablo::{
     PasswordReset, Resource, ResourceDef, RouterBuilderPanelExt, SelectFilter, Table, TextColumn,
     auth::{AuthSession, AuthToken, PasswordResetter},
     lens,
-    testing::{filter_options, form_body, page_direction, page_language, rows},
+    testing::{
+        filter_options, form_body, language_choices, page_direction, page_language,
+        response_cookies, rows, set_cookie_header,
+    },
 };
 use toasty::Db;
 use topcoat::{
@@ -291,10 +294,10 @@ async fn mount_refuses_a_locale_no_request_could_read() {
     );
 }
 
-/// A page of a panel offering several locales tells caches it varies with the browser's
-/// languages.
+/// A page of a panel offering several locales tells caches it varies with the browser's languages
+/// and with the cookie the language menu writes.
 #[tokio::test]
-async fn a_page_varies_with_accept_language() {
+async fn a_page_varies_with_accept_language_and_the_cookie() {
     let db = db().await;
     let router = router(&db, Auth::disabled());
     let response = TestClient::new(&router).get("/admin/books").await;
@@ -304,10 +307,134 @@ async fn a_page_varies_with_accept_language() {
         .iter()
         .map(|value| value.to_str().unwrap().to_ascii_lowercase())
         .collect();
-    assert!(
-        varies.iter().any(|value| value == "accept-language"),
-        "{varies:?}"
+    for expected in ["accept-language", "cookie"] {
+        assert!(varies.iter().any(|value| value == expected), "{varies:?}");
+    }
+}
+
+/// The shell's language menu offers every locale the panel lists, named in the locale the page
+/// reads, with the one it reads in marked.
+#[tokio::test]
+async fn the_language_menu_offers_the_panels_locales() {
+    let db = db().await;
+    let router = router(&db, Auth::disabled());
+    let html = body_string(
+        TestClient::new(&router)
+            .language("en")
+            .get("/admin/books")
+            .await,
+    )
+    .await;
+    let choices = language_choices(&html);
+    assert_eq!(
+        choices
+            .iter()
+            .map(|choice| (
+                choice.locale.as_str(),
+                choice.label.as_str(),
+                choice.current
+            ))
+            .collect::<Vec<_>>(),
+        [("fr", "French", false), ("en", "English", true)]
     );
+}
+
+/// A panel offering one locale has no language to pick, so it shows no menu and serves no post.
+#[tokio::test]
+async fn one_locale_offers_no_language_menu() {
+    let db = db().await;
+    let router = mount(
+        db.clone(),
+        Panel::new("admin")
+            .auth(Auth::disabled())
+            .resource::<BookResource>(),
+    )
+    .expect("panel builds");
+    let client = TestClient::new(&router);
+    let html = body_string(client.get("/admin/books").await).await;
+    assert_eq!(language_choices(&html), []);
+    let response = client
+        .submit("/admin/locale", &form_body(&[("locale", "en")]))
+        .await;
+    assert_eq!(response.status(), http::StatusCode::NOT_FOUND);
+}
+
+/// The locale picked from the menu is remembered for the panel alone, and lands the visitor back
+/// on the page they picked it from.
+#[tokio::test]
+async fn picking_a_locale_remembers_it_for_the_panel() {
+    let db = db().await;
+    let router = router(&db, Auth::disabled());
+    let client = TestClient::new(&router).language("en");
+    let response = client
+        .submit(
+            "/admin/locale",
+            &form_body(&[("locale", "fr"), ("next", "/admin/books?page=2")]),
+        )
+        .await;
+    assert_eq!(response.status(), http::StatusCode::SEE_OTHER);
+    assert_eq!(
+        response.headers().get(http::header::LOCATION).unwrap(),
+        "/admin/books?page=2"
+    );
+    let cookie = set_cookie_header(&response, "tablo_locale").expect("the pick is remembered");
+    assert!(cookie.contains("Path=/admin"), "{cookie}");
+    assert!(cookie.contains("HttpOnly"), "{cookie}");
+    let picked = TestClient::new(&router)
+        .language("en")
+        .cookies(&response_cookies(&response));
+    let (lang, error) = read(&picked).await;
+    assert_eq!(lang.as_deref(), Some("fr"));
+    assert_eq!(error.as_deref(), Some("Il faut Nombre de pages"));
+}
+
+/// The locale picked from the menu outranks the signed-in user's own, so the menu answers the
+/// click rather than the account's standing preference.
+#[tokio::test]
+async fn a_picked_locale_outranks_the_users_own() {
+    let db = db().await;
+    let router = router(&db, Auth::custom(ReaderAuth));
+    let reader = reader(&db, "Ada", Some("en")).await;
+    let signed = TestClient::new(&router)
+        .language("en")
+        .sign_in(&db, "admin", &reader)
+        .await;
+    let (before, _) = read(&signed).await;
+    assert_eq!(before.as_deref(), Some("en"));
+    let response = signed
+        .submit("/admin/locale", &form_body(&[("locale", "fr")]))
+        .await;
+    let picked = signed.cookies(&response_cookies(&response));
+    let (after, _) = read(&picked).await;
+    assert_eq!(after.as_deref(), Some("fr"));
+}
+
+/// The post refuses a locale the panel does not offer, and one the panel dropped since reads as
+/// none, so neither pins the panel to a language it cannot spell.
+#[tokio::test]
+async fn an_unoffered_locale_is_refused_and_a_dropped_one_ignored() {
+    let db = db().await;
+    let router = router(&db, Auth::disabled());
+    let client = TestClient::new(&router).language("en");
+    let refused = client
+        .submit("/admin/locale", &form_body(&[("locale", "de")]))
+        .await;
+    assert_eq!(refused.status(), http::StatusCode::FORBIDDEN);
+    assert_eq!(set_cookie_header(&refused, "tablo_locale"), None);
+    let stale = client.cookie("tablo_locale", "de");
+    assert_eq!(read(&stale).await.0.as_deref(), Some("en"));
+}
+
+/// The post without the CSRF pair the menu carries writes nothing.
+#[tokio::test]
+async fn the_language_post_needs_the_csrf_pair() {
+    let db = db().await;
+    let router = router(&db, Auth::disabled());
+    let response = TestClient::new(&router)
+        .post_form("/admin/locale", form_body(&[("locale", "fr")]))
+        .await;
+    assert_eq!(response.status(), http::StatusCode::FORBIDDEN);
+    assert_eq!(set_cookie_header(&response, "tablo_locale"), None);
 }
 
 /// A reset link is mailed in its recipient's locale, whatever browser asked for it.

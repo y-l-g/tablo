@@ -63,6 +63,7 @@ impl Panel {
         let subtitle = user.subtitle().map(str::to_string);
         let initials = initials(&name);
         let themes = theme_choices(cx);
+        let languages = super::language::language_choices(cx, csrf);
         let links: Vec<BoxView<'a>> = items
             .iter()
             .filter_map(|item| {
@@ -146,6 +147,7 @@ impl Panel {
                             )
                             dropdown_menu_separator()
                             (themes)
+                            (languages)
                             if !links.is_empty() {
                                 dropdown_menu_separator()
                                 for link in links {
@@ -170,9 +172,10 @@ impl Panel {
     }
 
     /// The theme menu, in the user menu's place when the panel has no session to show: the theme
-    /// choice alone.
-    pub(super) fn theme_menu(cx: &Cx) -> BoxView<'_> {
+    /// choice, and the language choice where the panel offers several locales.
+    pub(super) fn theme_menu<'a>(cx: &'a Cx, csrf: &str) -> BoxView<'a> {
         let themes = theme_choices(cx);
+        let languages = super::language::language_choices(cx, csrf);
         let trigger_class = sidebar_menu_button_variants(
             SidebarMenuButtonVariant::Default,
             SidebarMenuButtonSize::Md,
@@ -202,6 +205,7 @@ impl Panel {
                             align: FloatingAlign::Start,
                             attrs: attributes! { class="min-w-40" },
                             (themes)
+                            (languages)
                         )
                     )
                 )

@@ -91,6 +91,7 @@ pub mod __macro {
 pub mod auth;
 mod bus;
 mod column;
+mod cookie;
 pub mod csrf;
 pub mod db;
 mod declaration;

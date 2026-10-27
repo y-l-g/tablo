@@ -10,14 +10,14 @@ pub use db::{TEST_DATABASE_URL, test_db};
 use http::header::{ACCEPT_LANGUAGE, CONTENT_TYPE, COOKIE};
 pub use protocol::{
     Bell, BellNotification, EmptyReason, EmptyTable, ErrorKind, FilterOption, Group, IgnoredFilter,
-    IgnoredReason, ImportError, ImportRefusal, PickerColumn, Row, RowActions, SESSION_COOKIE,
-    SearchGroup, SearchResult, StatTile, Tab, bell, body_bytes, body_string, column_picker,
-    columns, confirms_first, cookie_header, empty_table, field_error, field_error_message,
-    filter_options, find_href_with, form_body, groups, ignored_filters, import_columns,
-    import_errors, import_refusal, input_value, multipart_body, nav_badge, notification,
-    page_direction, page_language, response_cookies, rich_text_values, row_actions, row_keys, rows,
-    search_box, search_results, session_cookie_value, set_cookie_header, stale_form, stats, tabs,
-    widgets,
+    IgnoredReason, ImportError, ImportRefusal, LanguageChoice, PickerColumn, Row, RowActions,
+    SESSION_COOKIE, SearchGroup, SearchResult, StatTile, Tab, bell, body_bytes, body_string,
+    column_picker, columns, confirms_first, cookie_header, empty_table, field_error,
+    field_error_message, filter_options, find_href_with, form_body, groups, ignored_filters,
+    import_columns, import_errors, import_refusal, input_value, language_choices, multipart_body,
+    nav_badge, notification, page_direction, page_language, response_cookies, rich_text_values,
+    row_actions, row_keys, rows, search_box, search_results, session_cookie_value,
+    set_cookie_header, stale_form, stats, tabs, widgets,
 };
 pub use resource::{FieldOf, Reply, ResourceClient, Submission};
 use tablo_core::{

@@ -14,7 +14,10 @@ mod locale;
 mod text;
 
 pub(crate) use catalog::Catalog;
-pub(crate) use locale::{CatalogSource, ENGLISH, addressed_to, catalog_and_locale, entered};
+pub(crate) use locale::{
+    CatalogSource, ENGLISH, LOCALE_COOKIE, addressed_to, catalog_and_locale, chose_locale, entered,
+    offered, offered_match,
+};
 pub use text::{Text, option_label};
 
 #[cfg(test)]

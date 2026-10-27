@@ -58,13 +58,16 @@ impl Layer for PanelGate {
                 return Err(not_found().into());
             };
             let answer = |cx: &Cx, error| host.answer(cx, error);
-            // A page of a panel offering several locales reads the browser's languages, so a
-            // shared cache must not serve one browser's page to another.
+            // A page of a panel offering several locales reads the browser's languages and the
+            // locale cookie its language menu writes, so a shared cache must not serve one
+            // visitor's page to another.
             if self.realm.catalog.locales().len() > 1 {
-                response_headers(&cx).append(
+                let headers = response_headers(&cx);
+                headers.append(
                     http::header::VARY,
                     http::HeaderValue::from_static("accept-language"),
                 );
+                headers.append(http::header::VARY, http::HeaderValue::from_static("cookie"));
             }
             let Some(authenticator) = self.realm.auth.authenticator() else {
                 return next
