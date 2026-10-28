@@ -43,6 +43,10 @@ uuid = "1.23"
 jiff = "0.2"
 percent-encoding = "2"
 serde = { version = "1", features = ["derive"] }
+# The decimal types a typed field binds and a money column spells, behind the `tablo-core`
+# features named as Toasty's.
+rust_decimal = { version = "1.41", default-features = false, features = ["std"] }
+bigdecimal = { version = "0.4.10", default-features = false, features = ["std"] }
 
 # Temporary: Topcoat `main` ahead of its next release. Tablo does not release while this
 # patch stands; drop it and bump `topcoat` once that release is out.

@@ -44,7 +44,10 @@ futures-util = { version = "0.3", default-features = false, features = ["sink"] 
 http = "1"
 http-body-util = "0.1"
 jiff.workspace = true
-tablo = { path = "../crates/tablo", features = ["testing"] }
+# The decimal features are on here so that the workspace build, and so CI, compiles them.
+bigdecimal.workspace = true
+rust_decimal.workspace = true
+tablo = { path = "../crates/tablo", features = ["testing", "rust_decimal", "bigdecimal"] }
 serde_json = "1"
 toasty = { workspace = true, features = ["sqlite"] }
 tokio = { workspace = true, features = ["net", "sync", "time"] }

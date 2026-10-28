@@ -16,7 +16,9 @@
 //! It re-exports [`tablo_core`] at its root, the UI components as [`ui`], and
 //! the in-memory HTTP client as `testing` with the `testing` feature; the driver
 //! features (`sqlite`, `postgresql`, `mysql`, `turso`) turn on Toasty's driver of the same
-//! name, and the toolkit itself enables none.
+//! name, and the toolkit itself enables none. The `rust_decimal` and `bigdecimal` features make
+//! those crates' decimal types typed values and numeric amounts, and turn on Toasty's feature of
+//! the same name.
 //!
 //! A minimal app is one model, the record form [`ModelForm`](derive@ModelForm)
 //! derives from it, one [`Resource`], and the [`Panel`] that serves it — the

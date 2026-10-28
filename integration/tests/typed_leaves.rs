@@ -3,7 +3,9 @@
 
 use tablo::{Ability, Allow, Auth, Panel, Resource, ResourceDef, Table, TextColumn, lens};
 
-use crate::common::{TestClient, body_string, control, field_error, input_value, mount, test_db};
+use crate::common::{
+    TestClient, body_string, control, field_error, input_value, mount, rows, test_db,
+};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Measurement {
@@ -196,6 +198,111 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
         stored.is_empty(),
         "a rejected submission writes nothing, got {} rows",
         stored.len()
+    );
+}
+
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+struct Invoice {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    label: String,
+    total: rust_decimal::Decimal,
+    rate: Option<bigdecimal::BigDecimal>,
+}
+
+#[derive(tablo::RecordForm)]
+#[form(model = Invoice)]
+struct InvoiceForm {
+    label: String,
+    total: rust_decimal::Decimal,
+    rate: Option<bigdecimal::BigDecimal>,
+}
+
+struct InvoiceResource;
+
+impl Resource for InvoiceResource {
+    type Model = Invoice;
+    type Form = InvoiceForm;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("invoices")
+            .policy(Allow)
+            .table(Table::new((
+                TextColumn::new(lens!(Invoice.label)),
+                TextColumn::new(lens!(Invoice.total)).money(tablo::Currency::USD),
+                TextColumn::new(lens!(Invoice.rate)).numeric(8),
+            )))
+    }
+}
+
+/// A decimal goes through the form exactly: stored at the scale it was typed with, listed as
+/// money without a float's rounding, and shown back in the edit control as stored. A spelling
+/// the parse refuses, such as an exponent, is a field error and writes nothing.
+#[tokio::test]
+async fn a_decimal_round_trips_through_the_form() {
+    let db = test_db(toasty::models!(Invoice)).await;
+    let router = mount(
+        db.clone(),
+        Panel::new("admin")
+            .auth(Auth::disabled())
+            .resource::<InvoiceResource>(),
+    )
+    .expect("panel builds");
+    let client = TestClient::new(&router);
+    let invoices = async || Invoice::all().exec(&mut db.clone()).await.unwrap();
+
+    let response = client
+        .submit(
+            "/admin/invoices/-/create",
+            "label=March&total=1234.50&rate=0.0000001",
+        )
+        .await;
+    assert_eq!(response.status(), 303);
+    let [stored] = invoices().await.try_into().expect("one invoice");
+    assert_eq!(stored.total, "1234.50".parse().unwrap());
+    assert_eq!(stored.total.scale(), 2, "the scale it was typed with");
+    assert_eq!(stored.rate, Some("0.0000001".parse().unwrap()));
+
+    let list = body_string(client.get("/admin/invoices").await).await;
+    let [row] = rows(&list).try_into().expect("one row");
+    assert!(row.cells.iter().any(|cell| cell == "$1,234.50"), "{row:?}");
+    assert!(row.cells.iter().any(|cell| cell == "0.00000010"), "{row:?}");
+
+    let edit = body_string(
+        client
+            .get(&format!("/admin/invoices/{}/edit", stored.id))
+            .await,
+    )
+    .await;
+    assert_eq!(input_value(&edit, "total").as_deref(), Some("1234.50"));
+    assert_eq!(input_value(&edit, "rate").as_deref(), Some("0.0000001"));
+    assert!(control(&edit, "total").contains("type=\"number\""));
+    assert!(
+        control(&edit, "total").contains("step=\"any\""),
+        "a decimal takes any step"
+    );
+
+    for body in ["label=Bad&total=1.2e3", "label=Bad&total=1&rate=1_000"] {
+        let response = client.submit("/admin/invoices/-/create", body).await;
+        assert_eq!(response.status(), 200, "{body}");
+        let html = body_string(response).await;
+        let refused = if body.contains("rate") {
+            "rate"
+        } else {
+            "total"
+        };
+        assert_eq!(
+            field_error(&html, refused),
+            Some(tablo::testing::ErrorKind::Invalid),
+            "{body}"
+        );
+    }
+    assert_eq!(
+        invoices().await.len(),
+        1,
+        "a refused decimal writes nothing"
     );
 }
 

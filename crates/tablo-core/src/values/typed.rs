@@ -15,6 +15,7 @@ use jiff::tz::TimeZone;
 /// | --- | --- |
 /// | an integer | `type="number"` |
 /// | `f32`, `f64` | `type="number" step="any"` |
+/// | `rust_decimal::Decimal`, `bigdecimal::BigDecimal`, with the features of those names | `type="number" step="any"` |
 /// | `jiff::civil::Date` | `type="date"` |
 /// | `jiff::civil::Time` | `type="time"`, to the minute |
 /// | `jiff::civil::DateTime` | `type="datetime-local"`, to the minute |
@@ -51,6 +52,12 @@ pub trait TypedValue: std::fmt::Display + std::str::FromStr {
     fn form_value(posted: &str, zone: &TimeZone) -> String {
         let _ = zone;
         posted.to_string()
+    }
+
+    /// The form spelling of a stored value, which [`parse_input`](Self::parse_input) reads back:
+    /// its `Display` by default.
+    fn form_spelling(&self) -> String {
+        self.to_string()
     }
 
     /// How `self` orders against `other`, which a text field's
@@ -122,6 +129,65 @@ impl TypedValue for f64 {
     }
 
     ordered_by_value!();
+}
+
+/// Accepts a plain decimal only, `-12.50` or `.5`, and keeps its scale: `12.50` stays two
+/// decimals. A value the type cannot hold exactly, past 28 decimals or its 96-bit mantissa, is
+/// refused rather than rounded.
+#[cfg(feature = "rust_decimal")]
+impl TypedValue for rust_decimal::Decimal {
+    const NOUN: &'static str = "tablo-type-number";
+    const INPUT_TYPE: &'static str = "number";
+    // The default step of 1 makes a browser refuse a fraction.
+    const STEP: Option<&'static str> = Some("any");
+
+    fn parse_input(value: &str) -> Option<Self> {
+        is_plain_decimal(value)
+            .then(|| Self::from_str_exact(value).ok())
+            .flatten()
+    }
+
+    ordered_by_value!();
+}
+
+/// Accepts a plain decimal only, `-12.50` or `.5`, and keeps its scale: `12.50` stays two
+/// decimals. The form spelling is plain too, never the exponent `Display` writes for a small or a
+/// large value.
+#[cfg(feature = "bigdecimal")]
+impl TypedValue for bigdecimal::BigDecimal {
+    const NOUN: &'static str = "tablo-type-number";
+    const INPUT_TYPE: &'static str = "number";
+    // The default step of 1 makes a browser refuse a fraction.
+    const STEP: Option<&'static str> = Some("any");
+
+    fn parse_input(value: &str) -> Option<Self> {
+        is_plain_decimal(value)
+            .then(|| value.parse().ok())
+            .flatten()
+    }
+
+    fn form_spelling(&self) -> String {
+        self.to_plain_string()
+    }
+
+    ordered_by_value!();
+}
+
+/// Reports whether `value` is a number input's spelling of a decimal without an exponent:
+/// `-?(\d+|\d*\.\d+)`. The decimal parsers also take a `+` sign, `_` separators or an exponent,
+/// which lets a short submission expand to a huge scale, so they see only this.
+#[cfg(any(feature = "rust_decimal", feature = "bigdecimal"))]
+fn is_plain_decimal(value: &str) -> bool {
+    let unsigned = value.strip_prefix('-').unwrap_or(value);
+    let (whole, fraction) = match unsigned.split_once('.') {
+        Some((whole, fraction)) => (whole, Some(fraction)),
+        None => (unsigned, None),
+    };
+    let digits = |part: &str| part.bytes().all(|byte| byte.is_ascii_digit());
+    match fraction {
+        Some(fraction) => !fraction.is_empty() && digits(whole) && digits(fraction),
+        None => !whole.is_empty() && digits(whole),
+    }
 }
 
 impl TypedValue for uuid::Uuid {

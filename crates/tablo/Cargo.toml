@@ -25,6 +25,10 @@ default = ["rich-text"]
 # The rich text field and column, and `tablo::rich_text`; off, `ammonia` and its HTML parser leave
 # the build.
 rich-text = ["tablo-core/rich-text"]
+# `rust_decimal::Decimal` and `bigdecimal::BigDecimal` columns: a text field binds them and a
+# numeric or money column spells them exactly. Each turns on Toasty's feature of the same name.
+rust_decimal = ["tablo-core/rust_decimal"]
+bigdecimal = ["tablo-core/bigdecimal"]
 
 [dependencies]
 tablo-core = { path = "../tablo-core", version = "0.8.0", default-features = false }
