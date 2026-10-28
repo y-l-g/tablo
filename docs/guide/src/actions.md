@@ -23,7 +23,8 @@ impl Resource for PostResource {
 }
 ```
 
-`run` holds only the write. The framework owns everything around it, as it does for a delete: the
+`run` holds only the write. [`filter_keys(posts)`](https://y-l.fr/tablo/nightly/api/tablo/fn.filter_keys.html)
+selects the records it receives, so one statement publishes the whole selection. The framework owns everything around it, as it does for a delete: the
 route and its CSRF check, the transaction the records load in and `run` writes through, the policy
 checks on every record, the [hooks](./resources.md#hooks), and the success notification. The
 [`Action`](https://y-l.fr/tablo/nightly/api/tablo/trait.Action.html) page lists each step, and

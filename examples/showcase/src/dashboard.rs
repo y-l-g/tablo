@@ -3,7 +3,7 @@
 use jiff::tz::TimeZone;
 use tablo::{
     Ability, Chart, Color, FieldErrors, HeaderAction, Page, PageDef, RecordTable, Series, Stat,
-    Widget, WidgetDef, can_list, db::db, lens, scoped_query,
+    Widget, WidgetDef, can_list, db::db, filter_keys, lens, scoped_query,
 };
 use topcoat::{Result, context::Cx, view::View};
 
@@ -181,15 +181,15 @@ impl HeaderAction for FeatureTagged {
         ex: &mut dyn toasty::Executor,
     ) -> Result<tablo::Outcome, tablo::WriteError> {
         let tag = input.tag.trim();
-        let posts = scoped_query::<PostResource>(cx)?.exec(&mut *ex).await?;
-        for post in posts {
-            if post.tags.split(',').any(|t| t.trim() == tag) {
-                Post::filter(Post::fields().id().eq(post.id))
-                    .update()
-                    .featured(true)
-                    .exec(&mut *ex)
-                    .await?;
-            }
+        let mut posts = scoped_query::<PostResource>(cx)?.exec(&mut *ex).await?;
+        posts.retain(|post| post.tags.split(',').any(|t| t.trim() == tag));
+        // The tenant's posts are unbounded: one statement per chunk keeps each one bounded.
+        for chunk in posts.chunks(500) {
+            Post::filter(filter_keys(chunk))
+                .update()
+                .featured(true)
+                .exec(&mut *ex)
+                .await?;
         }
         Ok(tablo::Outcome::done())
     }

@@ -22,7 +22,7 @@ mod soft_delete;
 mod write;
 mod write_error;
 
-pub use action::{Action, Places};
+pub use action::{Action, Places, filter_keys};
 pub(crate) use action::{
     ActionEntry, Actions, ErasedInput, InputResult, InputSpec, RESERVED_KEYS, parse_validated,
 };

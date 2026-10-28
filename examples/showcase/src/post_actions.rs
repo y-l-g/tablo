@@ -1,7 +1,7 @@
 //! The post list's actions: publishing, from a row, for the selection or from the header, and
 //! tagging.
 
-use tablo::{Action, HeaderAction, scoped_query};
+use tablo::{Action, HeaderAction, filter_keys, scoped_query};
 use topcoat::{Result, context::Cx};
 
 use crate::{
@@ -26,13 +26,11 @@ impl Action<PostResource> for PublishPosts {
         _: (),
         ex: &mut dyn toasty::Executor,
     ) -> Result<tablo::Outcome, tablo::WriteError> {
-        for post in posts {
-            Post::filter(Post::fields().id().eq(post.id))
-                .update()
-                .status(PostStatus::Published)
-                .exec(&mut *ex)
-                .await?;
-        }
+        Post::filter(filter_keys(posts))
+            .update()
+            .status(PostStatus::Published)
+            .exec(ex)
+            .await?;
         Ok(tablo::Outcome::done())
     }
 }
@@ -55,8 +53,9 @@ impl HeaderAction for PublishAllDrafts {
             .filter(Post::fields().status().eq(PostStatus::Draft))
             .exec(&mut *ex)
             .await?;
-        for post in drafts {
-            Post::filter(Post::fields().id().eq(post.id))
+        // The tenant's drafts are unbounded: one statement per chunk keeps each one bounded.
+        for chunk in drafts.chunks(500) {
+            Post::filter(filter_keys(chunk))
                 .update()
                 .status(PostStatus::Published)
                 .exec(&mut *ex)
