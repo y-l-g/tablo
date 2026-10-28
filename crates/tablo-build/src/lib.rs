@@ -34,6 +34,7 @@ const THEME: &str = include_str!("theme.css");
 
 /// Why [`tailwind`] failed.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Error {
     /// No Tablo crate published its sources to this build script: the package
     /// does not depend on `tablo`, `tablo-core` or `tablo-ui` directly.

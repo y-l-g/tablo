@@ -201,6 +201,7 @@ impl HeaderAction for Block {
             Ok(()) => Ok(tablo::Outcome::done()),
             Err(WriteError::Refused(_)) => Err(WriteError::field("room", "Room is booked")),
             Err(WriteError::Failed(error)) => Err(WriteError::Failed(error)),
+            Err(_) => unreachable!("`hold` answers only `Refused` and `Failed`"),
         }
     }
 }

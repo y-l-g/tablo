@@ -58,6 +58,7 @@ use crate::form::FieldErrors;
 /// }
 /// ```
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum WriteError<K = String> {
     /// The submission cannot stand: render the form again with these errors.
     Refused(FieldErrors<K>),

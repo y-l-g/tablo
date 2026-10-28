@@ -18,6 +18,7 @@ pub enum FieldErrorKind {
 /// One key a submission was refused under: a form key, or a record form's
 /// field enum in [`Resource::validate_record`](crate::Resource::validate_record).
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct FieldError<K = String> {
     /// What the error renders under.
     pub key: K,

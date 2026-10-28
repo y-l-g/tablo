@@ -45,8 +45,11 @@ cargo xtask fmt           # the formatting checks alone
 the same commands in `.github/workflows/ci.yml` and `udeps.yml`, which hold the pinned
 toolchains. Run `check --all` before merging.
 
-`rust-toolchain.toml` pins the toolchain to the workspace `rust-version`, so every build runs the
-MSRV. Bump both in one PR.
+`rust-toolchain.toml` pins the toolchain every build uses, which is the MSRV below.
+
+The `semver` job in `ci.yml` runs on a release PR and on the push that merges it. It checks that the
+version being released covers the public API changes since the last release, with the default
+features. release-plz takes the bump from the commits, so a breaking commit needs its `!` marker.
 
 - `topcoat fmt` reflows `view!` markup differently across CLI releases, so only the pinned
   `topcoat-cli` agrees with CI. When it is missing or another version, `cargo xtask fmt` fails
@@ -55,6 +58,20 @@ MSRV. Bump both in one PR.
   `cargo xtask fmt` checks it.
 - `crates/tablo-ui/src/components/primitives/` is a verbatim copy of the registry. Never edit it:
   `cargo xtask sync-topcoat-ui` updates it and `cargo test -p xtask` fails on drift.
+
+## Toolchain and dependencies
+
+- The MSRV is the workspace `rust-version`, 1.99. Every crate inherits it, so cargo refuses to build
+  one with an older compiler. `rust-toolchain.toml` pins the same toolchain for local and CI builds,
+  so CI tests the MSRV rather than the newest compiler. Move both in one PR.
+- CI builds the workspace with `--locked`, so a dependency change commits its `Cargo.lock` change
+  with its manifest.
+- Renovate opens the bumps (`renovate.json`) and groups the sets that move together: Topcoat,
+  Toasty and the topcoat CLI; `argon2` with `password-hash`; `hkdf`, `hmac`, `sha1` and `sha2`; and
+  the TipTap bundle. Merge each group whole. Renovate does no lockfile maintenance, so `Cargo.lock`
+  moves only with those bumps or a manual update.
+- The lockfile carries `syn` 2 and 3, because upstream crates depend on both. Leave the duplicate in
+  place rather than forcing one version.
 
 ## Code
 

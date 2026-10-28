@@ -426,6 +426,7 @@ impl ColumnBase {
 /// that [`Grow`](Self::Grow)s takes the width left over. A table wider than its card scrolls
 /// sideways.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ColumnWidth {
     /// As wide as its content, on one line: a status, date, number or boolean.
     #[default]

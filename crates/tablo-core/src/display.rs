@@ -19,6 +19,7 @@
 /// }
 /// ```
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum Color {
     /// A neutral, muted status.
     #[default]
