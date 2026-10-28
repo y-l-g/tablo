@@ -57,6 +57,9 @@ pub struct TablePage<M> {
     pub prev_cursor: Option<String>,
     /// Where a numbered or simple page sits; `None` for a cursor page.
     pub position: Option<PagePosition>,
+    /// How many rows each [badged](super::ListTab::badge) tab holds, by key; a tab missing here
+    /// shows no count.
+    pub tab_counts: Vec<(String, u64)>,
 }
 
 /// Where a page numbered by `?page=` sits in its result set.
@@ -89,6 +92,7 @@ impl<M> From<Vec<M>> for TablePage<M> {
             next_cursor: None,
             prev_cursor: None,
             position: None,
+            tab_counts: Vec::new(),
         }
     }
 }
@@ -113,6 +117,7 @@ impl<M: toasty::schema::Model> TablePage<M> {
                 .map(crate::toasty_compat::cursor::encode)
                 .transpose()?,
             position: None,
+            tab_counts: Vec::new(),
         })
     }
 }
@@ -144,7 +149,8 @@ where
         state: &TableState,
     ) -> Result<Self> {
         let refused = table.refused_filters(cx, state).await?;
-        let page = match table.pagination_mode() {
+        let tab_counts = table.tab_counts(cx, &query, state, &refused).await?;
+        let mut page = match table.pagination_mode() {
             Pagination::Pages => Self::load_numbered(cx, table, query, state, &refused, true).await,
             Pagination::Simple => {
                 Self::load_numbered(cx, table, query, state, &refused, false).await
@@ -154,6 +160,7 @@ where
         table
             .restrict_relations(cx, &page.rows, &mut crate::db::db(cx)?)
             .await?;
+        page.tab_counts = tab_counts;
         Ok(page)
     }
 
@@ -175,10 +182,7 @@ where
         let per_page = table.page_size_for(state);
         let total = if counted {
             Some(
-                narrowed
-                    .clone()
-                    .count()
-                    .exec(&mut db)
+                crate::toasty_compat::count(narrowed.clone(), &mut db)
                     .await
                     .map_err(crate::error::unavailable)?,
             )
@@ -208,13 +212,19 @@ where
         ordered.set_order_by(toasty::stmt::OrderBy {
             exprs: table.offset_order_bys_for(state),
         });
-        let mut rows = table
-            .include_relations(ordered)
-            .limit(fetch)
-            .offset(offset)
-            .exec(&mut db)
-            .await
-            .map_err(crate::error::unavailable)?;
+        // A count of none needs no rows. Toasty panics planning the rows of a filter it folds to
+        // `false`, such as a tab and a filter asking one column for two values.
+        let mut rows = if total == Some(0) {
+            Vec::new()
+        } else {
+            table
+                .include_relations(ordered)
+                .limit(fetch)
+                .offset(offset)
+                .exec(&mut db)
+                .await
+                .map_err(crate::error::unavailable)?
+        };
         let has_next = match total {
             Some(total) => u64::try_from(offset + rows.len()).is_ok_and(|seen| seen < total),
             None => rows.len() > per_page,
@@ -230,6 +240,7 @@ where
                 total,
                 has_next,
             }),
+            tab_counts: Vec::new(),
         })
     }
 

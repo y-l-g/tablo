@@ -44,7 +44,7 @@ pub enum FieldAccessFault {
     /// Declare `.reading(Reads::of(..))` on a `ComputedColumn`, a `QueryFilter` or a described
     /// `TextColumn`, or implement `reads` on a custom column or filter.
     UndeclaredReads {
-        /// `"column"` or `"filter"`.
+        /// `"column"`, `"filter"` or `"tab"`.
         what: &'static str,
         /// The column's or the filter's name.
         name: String,

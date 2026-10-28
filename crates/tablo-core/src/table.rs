@@ -8,14 +8,15 @@
 use std::{marker::PhantomData, num::NonZeroUsize, sync::Arc};
 
 use derive_where::derive_where;
-use toasty::stmt::{Expr, List};
+use toasty::stmt::List;
 use topcoat::context::Cx;
 
-pub(crate) use self::choice::ColumnChoice;
 use self::filter::BoxFilter;
+pub(crate) use self::{applied::ignored_reason, choice::ColumnChoice};
 pub(crate) use crate::column::{BoxColumn, Column, include_relations, restrict_relations};
-use crate::{DeclarationErrorKind, Lens, dom::ignored, schema::Binding, values::FormScalar};
+use crate::{DeclarationErrorKind, Lens, schema::Binding, values::FormScalar};
 
+mod applied;
 mod choice;
 mod export;
 pub(crate) mod filter;
@@ -26,12 +27,14 @@ mod row_color;
 mod search;
 mod sort;
 mod state;
+mod tab;
 
 pub use self::{
     filter::{DateFilter, FilterValue, IntoFilters, QueryFilter, SelectFilter, TernaryFilter},
     model::ModelColumns,
     page::{DEFAULT_PAGE_SIZE, DEFAULT_PER_PAGE_OPTIONS, PagePosition, Pagination, TablePage},
     state::{Cursor, Sort, TableState},
+    tab::ListTab,
 };
 pub(crate) use self::{
     page::{Past, row_exists_past},
@@ -76,11 +79,11 @@ pub enum ActionLayout {
 ///
 /// A clone shares every column, filter and projection.
 ///
-/// The list keeps its whole state in the URL: `?q=` searches, `?sort=` and `?dir=` sort,
-/// `?page=`, `?per_page=`, `?after=` and `?before=` page, `?f.<name>=` filters and `?group_by=`
-/// groups. Each row is keyed by its record's primary key, which the action URLs and bulk
-/// checkboxes carry; a composite key has no URL form, so its rows render without row actions or
-/// bulk selection.
+/// The list keeps its whole state in the URL: `?tab=` picks a [tab](ListTab), `?q=` searches,
+/// `?sort=` and `?dir=` sort, `?page=`, `?per_page=`, `?after=` and `?before=` page,
+/// `?f.<name>=` filters and `?group_by=` groups. Each row is keyed by its record's primary key,
+/// which the action URLs and bulk checkboxes carry; a composite key has no URL form, so its rows
+/// render without row actions or bulk selection.
 ///
 /// - Search matches a row any searchable column contains the term in. It escapes `%` and `_`, trims
 ///   the term and caps it at 128 characters, and matches case-insensitively: PostgreSQL runs it as
@@ -124,6 +127,7 @@ pub struct Table<M> {
     filters: Vec<BoxFilter<M>>,
     group_by: Option<GroupDef<M>>,
     row_color: row_color::RowColor<M>,
+    tabs: Vec<ListTab<M>>,
     /// A row's key: its record's primary key, as its action URLs carry it.
     key: fn(&M) -> String,
     /// Whether a row's key resolves as a URL id; a composite key does not, so its rows carry no
@@ -150,6 +154,10 @@ impl<M> std::fmt::Debug for Table<M> {
             )
             .field("filters", &self.filters.len())
             .field("group_by", &self.group_by.is_some())
+            .field(
+                "tabs",
+                &self.tabs.iter().map(ListTab::key).collect::<Vec<_>>(),
+            )
             .field("page_size", &self.page_size)
             .field("pagination", &self.pagination)
             .field("default_sort", &self.default_sort)
@@ -173,6 +181,7 @@ impl<M> Table<M> {
             filters: Vec::new(),
             group_by: None,
             row_color: row_color::RowColor::default(),
+            tabs: Vec::new(),
             key: crate::toasty_compat::pk::pk_text::<M>,
             addressable: !crate::toasty_compat::pk::pk_is_composite::<M>(),
             page_size: DEFAULT_PAGE_SIZE,
@@ -263,91 +272,6 @@ impl<M> Table<M> {
         restrict_relations(cx, &self.columns, rows, ex).await
     }
 
-    /// The names of the requested filters whose value [`Filter::admits`] refuses: values naming
-    /// records the user may not see, which [`Self::filter_expr`] and
-    /// [`Self::unapplied_filters`] treat as invalid.
-    ///
-    /// # Errors
-    ///
-    /// The database failing a filter's check.
-    pub(crate) async fn refused_filters(
-        &self,
-        cx: &topcoat::context::Cx,
-        state: &TableState,
-    ) -> topcoat::Result<Vec<String>> {
-        let mut refused = Vec::new();
-        for f in &self.filters {
-            if let Some(value) = state.filters.get(f.name())
-                && !f.admits(cx, value).await?
-            {
-                refused.push(f.name().to_string());
-            }
-        }
-        Ok(refused)
-    }
-
-    /// Filter predicate for the current `TableState`, without the `refused` filters.
-    pub(crate) fn filter_expr(
-        &self,
-        cx: &Cx,
-        state: &TableState,
-        refused: &[String],
-    ) -> Option<Expr<bool>>
-    where
-        M: toasty::schema::Model,
-    {
-        let mut exprs = Vec::new();
-        for f in &self.filters {
-            if let Some(v) = state.filters.get(f.name())
-                && !refused.iter().any(|name| name == f.name())
-                && let Some(e) = f.to_expr(cx, v)
-            {
-                exprs.push(e);
-            }
-        }
-        if exprs.is_empty() {
-            None
-        } else {
-            let mut iter = exprs.into_iter();
-            let first = iter.next().unwrap();
-            Some(iter.fold(first, |acc, e| acc.and(e)))
-        }
-    }
-
-    /// Requested filters that produce no predicate, each spelled as its own parameters
-    /// (`f.status=draft&f.status=review`), beside one entry for dropped parameters. A `refused`
-    /// filter reads as an invalid value, as one naming no record does, so the answer does not
-    /// tell a hidden record from a missing one. Each names why as a [`crate::dom::ignored`] kind,
-    /// which [`ignored_reason`] words.
-    pub(crate) fn unapplied_filters(
-        &self,
-        cx: &Cx,
-        state: &TableState,
-        refused: &[String],
-    ) -> Vec<(String, &'static str)>
-    where
-        M: toasty::schema::Model,
-    {
-        let mut out = Vec::new();
-        for (key, value) in &state.filters {
-            match self.filters.iter().find(|f| f.name() == key) {
-                None => out.push((state.spell_filter(key, value), ignored::UNKNOWN)),
-                Some(f)
-                    if refused.iter().any(|name| name == key)
-                        || (f.to_expr(cx, value).is_none() && !f.is_noop_value(value)) =>
-                {
-                    out.push((state.spell_filter(key, value), ignored::INVALID))
-                }
-                Some(_) => {}
-            }
-        }
-        if state.filters_dropped {
-            out.push(("dropped filters".to_string(), ignored::DROPPED));
-        }
-        out.sort();
-        out
-    }
-
     /// Offer grouping the page's rows by the field `lens` reads, under the field's name.
     pub fn group_by<T>(mut self, lens: Lens<M, T>) -> Self
     where
@@ -431,6 +355,7 @@ impl<M> Table<M> {
                 .as_ref()
                 .and_then(|def| def.binding.misdeclared()),
         );
+        errors.extend(self.tab_errors());
         if self.columns.is_empty() {
             errors.push(DeclarationErrorKind::NoColumns);
         }
@@ -548,9 +473,24 @@ impl<M> Table<M> {
         self.order(self.narrow(cx, db, query, state, refused), state)
     }
 
-    /// Narrow `query` to the rows `state`'s search and filters select, but the `refused`
+    /// Narrow `query` to the rows `state`'s tab, search and filters select, but the `refused`
     /// filters, unordered: what a count reads.
     pub(crate) fn narrow(
+        &self,
+        cx: &Cx,
+        db: &toasty::Db,
+        query: toasty::stmt::Query<List<M>>,
+        state: &TableState,
+        refused: &[String],
+    ) -> toasty::stmt::Query<List<M>>
+    where
+        M: toasty::schema::Model,
+    {
+        self.narrow_tab(self.narrow_untabbed(cx, db, query, state, refused), state)
+    }
+
+    /// [`Self::narrow`] but the tab: what a tab's badge counts within.
+    fn narrow_untabbed(
         &self,
         cx: &Cx,
         db: &toasty::Db,
@@ -575,21 +515,6 @@ impl<M> Table<M> {
     /// Whether the declaration enables a filter menu.
     pub(crate) fn filter_menu_enabled(&self) -> bool {
         !self.hide_filter_menu && !self.filters.is_empty()
-    }
-}
-
-/// The wording of a [`crate::dom::ignored`] kind, which the list's banner and the export's
-/// refusal show.
-pub(crate) fn ignored_reason(kind: &str) -> crate::Text {
-    match kind {
-        ignored::UNKNOWN => crate::text!("tablo-filter-ignored-unknown"),
-        ignored::DROPPED => crate::text!(
-            "tablo-filter-ignored-dropped",
-            filters = state::MAX_FILTERS,
-            values = state::MAX_FILTER_VALUES,
-            bytes = state::MAX_FILTER_LEN,
-        ),
-        _ => crate::text!("tablo-filter-ignored-invalid"),
     }
 }
 

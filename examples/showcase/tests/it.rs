@@ -37,6 +37,7 @@ mod rich_text;
 mod row_color;
 mod search;
 mod shell;
+mod tab;
 mod tenancy;
 mod toggleable_columns;
 mod widgets;

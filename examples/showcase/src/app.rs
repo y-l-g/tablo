@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use tablo::{
     Ability, ActionLayout, Auth, AuthMail, BooleanColumn, Brand, Change, Color, ComputedColumn,
     CountColumn, DateColumn, DateFilter, Detail, DirUploader, EmailVerification, EmbeddedColumn,
-    FieldErrors, GlobalSearch, Grid, Group, HeaderAction, ModelColumns, NavigationItem,
+    FieldErrors, GlobalSearch, Grid, Group, HeaderAction, ListTab, ModelColumns, NavigationItem,
     Notification, Notifications, Pagination, Panel, PanelHandle, PanelUser, PasswordReset,
     PublicLink, QueryFilter, Reads, Relation, RelationColumn, RepeaterColumn, Resource,
     ResourceDef, RichTextColumn, RouterBuilderPanelExt, Schema, Section, SelectFilter, Tab, Table,
@@ -296,6 +296,14 @@ fn post_table() -> Table<Post> {
     // A featured post stands out from the list.
     .row_color(|post: &Post| post.featured.then_some(Color::Primary))
     .row_color_reading(Reads::of(lens!(Post.featured)))
+    // Every post, then the drafts and the published posts, each counted.
+    .tab(ListTab::new("all", "All"))
+    .tab(post_status_tab("drafts", "Drafts", PostStatus::Draft))
+    .tab(post_status_tab(
+        "published",
+        "Published",
+        PostStatus::Published,
+    ))
     .filters((
         SelectFilter::of(lens!(Post.status)).multiple(),
         TernaryFilter::new(lens!(Post.featured)).labels("Featured", "Not featured"),
@@ -320,6 +328,14 @@ fn post_table() -> Table<Post> {
             ),
     ))
     .group_by(lens!(Post.status))
+}
+
+/// The tab `key` listing the posts in `status`, with their count.
+fn post_status_tab(key: &str, label: &str, status: PostStatus) -> ListTab<Post> {
+    ListTab::new(key, label.to_string())
+        .query(Post::fields().status().eq(status))
+        .reading(lens!(Post.status).into())
+        .badge()
 }
 
 #[derive(tablo::RecordForm)]

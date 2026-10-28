@@ -18,7 +18,7 @@ pub mod error {
 /// Why a table ignores a requested filter, as its entry in the ignored-filters banner names it in
 /// `data-ignored`.
 pub mod ignored {
-    /// The table declares no filter of that name.
+    /// The table declares no filter of that name, or no tab of the `?tab=` key.
     pub const UNKNOWN: &str = "unknown";
     /// The filter selects nothing by the value, or refuses it, as it refuses a key naming a
     /// record the user may not see.

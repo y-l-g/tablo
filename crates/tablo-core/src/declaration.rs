@@ -360,6 +360,13 @@ pub enum DeclarationErrorKind {
         /// The shared name.
         name: String,
     },
+    /// Two list tabs share a key.
+    ///
+    /// Give each [`ListTab`](crate::ListTab) a distinct key.
+    DuplicateTab {
+        /// The shared key.
+        key: String,
+    },
     /// A table filter's name holds a `.`, which its URL parameters reserve for a part:
     /// `f.<name>.<part>`.
     ///

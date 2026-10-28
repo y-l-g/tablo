@@ -12,6 +12,7 @@ use super::{
     pager::PagerInput,
     rows::{CellLayout, RowChrome, RowView, render_rows, selectable_keys},
     table_dom_id,
+    tabs::{TabView, render_tabs},
 };
 use crate::{
     BoxFuture,
@@ -64,7 +65,26 @@ impl<M> WiredTable<M> {
         let frame = self.frame();
         let group_key = self.effective_group_key(state);
         let rows = self.row_views(cx, &frame, &page, group_key.as_ref());
+        let active = self.active_tab(state).map(|tab| tab.key());
+        let tabs = self
+            .declared_tabs()
+            .iter()
+            .map(|tab| {
+                let count = page
+                    .tab_counts
+                    .iter()
+                    .find(|(key, _)| key == tab.key())
+                    .map(|(_, count)| *count);
+                TabView::new(
+                    tab.key(),
+                    tab.label().localize(cx),
+                    active == Some(tab.key()),
+                    count,
+                )
+            })
+            .collect();
         let loaded = Loaded {
+            tabs,
             rows,
             next_cursor: page.next_cursor,
             prev_cursor: page.prev_cursor,
@@ -105,6 +125,7 @@ impl<M> WiredTable<M> {
 
 /// One loaded page, projected for rendering.
 struct Loaded<'a> {
+    tabs: Vec<TabView>,
     rows: Vec<RowView<'a>>,
     next_cursor: Option<String>,
     prev_cursor: Option<String>,
@@ -205,6 +226,7 @@ impl Frame<'_> {
         signals: &TableSignals,
     ) -> Result<BoxView<'a>> {
         let Loaded {
+            tabs,
             rows: row_data,
             next_cursor,
             prev_cursor,
@@ -227,6 +249,7 @@ impl Frame<'_> {
                 Heads::Linked(signals, sort.as_ref(), selectable_keys(&row_data)),
             )
             .await?;
+        let tabs = render_tabs(cx, tabs, state, path, signals);
         let filter_warning = self.render_filter_warning(cx, state, path, signals, &filters);
         let controls = (std::mem::take(&mut filters.controls), filters.active);
         // Every record matching differs from the page's only when the list holds another page,
@@ -293,6 +316,9 @@ impl Frame<'_> {
 
         let content = view! {
             cx =>
+            if let Some(tabs) = tabs {
+                (tabs)
+            }
             (toolbar)
             if let Some(warning) = filter_warning {
                 (warning)

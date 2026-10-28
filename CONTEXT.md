@@ -22,12 +22,13 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Field access | Who may view and who may change one field of a model's records within a panel, declared by `ResourceDef::field_access` on a resource over the model: a request that may not view it sees no column, filter, detail entry, export column, relation column or control for it, on any resource the panel mounts over the model. | Field permission, Column security, Field-level authorization |
 | Import | Creating one record per row of a CSV file through a resource's create form, declared by `ResourceDef::importable`: every row writes in one transaction, or none does. | Upload, Bulk create, Importer |
 | Global search | The search box in a panel's topbar over every resource it mounts, and its results page: each resource's matching records, as its list shows them to the user, under its plural label. | Spotlight, Omnisearch, Command palette, Quick search |
-| Table | The declaration of a list view: columns, filters, search, sort, grouping, page size. | Grid, Listing, DataTable |
+| Table | The declaration of a list view: columns, filters, tabs, search, sort, grouping, page size. | Grid, Listing, DataTable |
 | Schema | The layout of a form: layout blocks, fields, embedded values. | Form, Infolist, Fieldset |
 | Detail | The declaration of a detail page: columns in layout blocks, set by `ResourceDef::detail`. | Infolist, Show page |
 | Column | One value read off a record, shown down a table or as an entry on a detail page; one row's value of it is a cell. | Field (in a table), Attribute |
 | Column choice | The toggleable columns one signed-in user shows or hides in one resource's list, against their defaults; a `ColumnPreference` row keeps it. | Column manager, Column visibility, Layout |
 | Filter | A predicate a table adds to its query from a UI control. | Scope, Constraint, Where |
+| List tab | One of the views a table offers above its rows, a predicate `?tab=` picks by its key, and optionally the count of its rows. | Preset, Saved view, Scope, Filter tab |
 | Field | One entry of a schema, bound to a model column or to a name in an action input, and rendered as a control. | Input, Widget |
 | Control | What a field renders and posts: a text input, a select, radios or buttons, a toggle or switch, a file input, a rich text editor, or a type implementing `Control`. | Widget, Input (for the field) |
 | Rich text | HTML a field edits through a toolbar and stores in a `String` column, holding only the elements its toolbar's tools produce. | WYSIWYG, Rich editor, Markdown, Content |

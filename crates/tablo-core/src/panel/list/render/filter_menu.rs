@@ -98,7 +98,7 @@ impl Frame<'_> {
             "tablo-filter-ignored-consequence",
             unfiltered = if filters.unfiltered { "true" } else { "false" },
         );
-        let clear = live_link(cx, state.without_filters(path), signals);
+        let clear = live_link(cx, state.without_narrowing(path), signals);
         Some(
             view! {
                 cx =>
