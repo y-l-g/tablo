@@ -457,3 +457,84 @@ fn opening_tag_at(html: &str, start: usize) -> &str {
     }
     panic!("unterminated tag at byte {start}");
 }
+
+/// Create and create another saves through the same checks, then lands on a fresh create form
+/// with the success flash.
+#[tokio::test]
+async fn create_another_saves_and_lands_on_a_fresh_create_form() {
+    let db = seeded_db().await;
+    let (router, admin) = app_for_tests(db.clone());
+    let client = demo_client(&router, &db).await.panel(&admin);
+    let users = client.resource::<UserResource>();
+
+    let before = user_count(&db).await;
+    let reply = users
+        .create()
+        .set(UserFormField::Name, "Grace Hopper")
+        .set(UserFormField::Email, "another@example.com")
+        .set_key("create_another", "1")
+        .submit()
+        .await;
+    assert_eq!(reply.status(), 303, "{}", reply.html());
+    assert_eq!(reply.location(), Some(users.create().url()));
+    assert_eq!(
+        reply.notification().map(|n| n.status),
+        Some(tablo::NotificationStatus::Success)
+    );
+    assert_eq!(user_count(&db).await, before + 1);
+    let fresh = reply.follow().await;
+    assert!(fresh.status().is_success());
+    assert!(
+        fresh
+            .input_value(UserFormField::Name)
+            .unwrap_or_default()
+            .is_empty(),
+        "the fresh form keeps none of the last save's values"
+    );
+}
+
+/// A refused create and create another re-renders the form, as a refused create does.
+#[tokio::test]
+async fn a_refused_create_another_rerenders_and_writes_nothing() {
+    let db = seeded_db().await;
+    let (router, admin) = app_for_tests(db.clone());
+    let client = demo_client(&router, &db).await.panel(&admin);
+
+    let before = user_count(&db).await;
+    let reply = client
+        .resource::<UserResource>()
+        .create()
+        .set(UserFormField::Name, "")
+        .set(UserFormField::Email, "another@example.com")
+        .set_key("create_another", "1")
+        .submit()
+        .await;
+    assert!(reply.status().is_success(), "{}", reply.status());
+    assert_eq!(
+        reply.field_error(UserFormField::Name),
+        Some(ErrorKind::Required)
+    );
+    assert_eq!(user_count(&db).await, before);
+}
+
+/// Create and create another keeps the page's `?return=` target, so the last save still lands
+/// where the first create started.
+#[tokio::test]
+async fn create_another_keeps_the_return_target() {
+    let db = seeded_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let url = "/admin/users/-/create?return=%2Fadmin%2Fposts";
+    let resp = client
+        .submit(
+            url,
+            "name=Grace&email=another%40example.com&create_another=1",
+        )
+        .await;
+    assert_eq!(resp.status(), 303);
+    let location = resp
+        .headers()
+        .get(LOCATION)
+        .and_then(|value| value.to_str().ok());
+    assert_eq!(location, Some(url));
+}

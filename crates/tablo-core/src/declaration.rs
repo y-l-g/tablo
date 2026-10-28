@@ -513,8 +513,8 @@ pub enum DeclarationErrorKind {
         /// The soft-delete column.
         column: String,
     },
-    /// A form field named after a key the form's POST carries itself, such as the CSRF token
-    /// or the edit form's `record_version`.
+    /// A form field named after a key the form's POST carries itself: the CSRF token, the edit
+    /// form's `record_version`, or the create form's `create_another`.
     ReservedFormField {
         /// The field.
         field: String,

@@ -20,6 +20,7 @@ pub const ASSET_FILES: &[(&str, &str)] = &[
     ("repeaters.js", "REPEATERS_JS"),
     ("password.js", "PASSWORD_JS"),
     ("tabs.js", "TABS_JS"),
+    ("forms.js", "FORMS_JS"),
     ("rich_text.js", "RICH_TEXT_JS"),
 ];
 
@@ -175,6 +176,21 @@ pub const ASSET_HOOKS: &[AssetHook] = &[
         asset: "tabs.js",
         js: "role=tab]",
         rust: "role=\"tab\"",
+    },
+    AssetHook {
+        asset: "forms.js",
+        js: "data-form-guard",
+        rust: "data-form-guard",
+    },
+    AssetHook {
+        asset: "forms.js",
+        js: "data-form-dirty",
+        rust: "data-form-dirty",
+    },
+    AssetHook {
+        asset: "forms.js",
+        js: "data-section",
+        rust: "data-section",
     },
     AssetHook {
         asset: "rich_text.js",

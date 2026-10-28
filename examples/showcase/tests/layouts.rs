@@ -1,9 +1,16 @@
-//! Layout blocks: the post form's and the post detail page's tabs.
+//! Layout blocks: the post form's and the post detail page's tabs, and the user form's sections.
 
-use showcase::models::{Author, Post};
-use tablo::testing::{Tab, tabs};
+use showcase::{
+    app::UserResource,
+    models::{Author, Post, UserFormField},
+};
+use tablo::testing::{Section, Tab, tabs};
 
-use crate::common::{body_string, demo_client, full_db, routers::router_for_tests as router};
+use crate::common::{
+    body_string, demo_client, full_db,
+    routers::{app_for_tests, router_for_tests as router},
+    seeded_db,
+};
 
 /// The tab of `tabs` whose panel posts `key`.
 fn tab_posting<'t>(tabs: &'t [Tab], key: &str) -> &'t Tab {
@@ -98,4 +105,44 @@ async fn the_detail_page_opens_on_its_first_tab() {
         [true, false, false],
         "{tabs:?}"
     );
+}
+
+/// The section of `sections` whose controls post `key`.
+fn section_posting<'s>(sections: &'s [Section], key: &str) -> &'s Section {
+    sections
+        .iter()
+        .find(|section| section.keys.iter().any(|k| k == key))
+        .unwrap_or_else(|| panic!("no section posts `{key}`: {sections:?}"))
+}
+
+#[tokio::test]
+async fn a_collapsed_section_renders_folded_and_still_posts() {
+    let db = seeded_db().await;
+    let (router, admin) = app_for_tests(db.clone());
+    let client = demo_client(&router, &db).await.panel(&admin);
+    let page = client.resource::<UserResource>().create_page().await;
+    let sections = page.sections();
+    let details = section_posting(&sections, "age");
+    assert!(details.collapsible && !details.open, "{sections:?}");
+    let profile = section_posting(&sections, "name");
+    assert!(!profile.collapsible && profile.open, "{sections:?}");
+}
+
+#[tokio::test]
+async fn a_collapsed_section_holding_an_error_renders_open() {
+    let db = seeded_db().await;
+    let (router, admin) = app_for_tests(db.clone());
+    let client = demo_client(&router, &db).await.panel(&admin);
+    let reply = client
+        .resource::<UserResource>()
+        .create()
+        .set(UserFormField::Name, "Grace")
+        .set(UserFormField::Email, "another@example.com")
+        .set(UserFormField::Age, "-1")
+        .submit()
+        .await;
+    assert!(reply.status().is_success(), "{}", reply.status());
+    assert!(reply.field_error(UserFormField::Age).is_some());
+    let sections = reply.sections();
+    assert!(section_posting(&sections, "age").open, "{sections:?}");
 }

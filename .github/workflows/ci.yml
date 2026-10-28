@@ -167,6 +167,7 @@ jobs:
           node-version-file: .node-version
       - run: >-
           node --test
+          crates/tablo-ui/assets/forms.test.js
           crates/tablo-ui/assets/password.test.js
           crates/tablo-ui/assets/repeaters.test.js
           crates/tablo-ui/assets/rich_text.test.js

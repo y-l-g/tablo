@@ -122,6 +122,18 @@ A `String` field takes the same list with `#[form(options = T)]`. `.options` tak
 container, and `Grid::new(cols)` a grid of 1 to 12 columns. A schema or block takes a tuple of at
 most twelve children; nest a `Group` for more.
 
+A section can say what its fields are for and where they sit. `.description` adds a line under the
+title and `.icon` an icon before it; `.aside()` puts both beside the fields on a wide screen, so a
+long form reads as a list of topics. `.collapsible()` lets the title fold the fields away, and
+`.collapsed()` opens the page with them folded, for fields the user rarely changes:
+
+```rust
+{{#include ../../../examples/guide/src/forms.rs:forms-sections}}
+```
+
+A folded section's fields still post, and a section holding a field error renders open.
+[`Section`](https://y-l.fr/tablo/nightly/api/tablo/struct.Section.html) has the full rules.
+
 `Tabs::new` shows one `Tab` at a time. Each tab's fields still render and post while another
 tab shows, so splitting a long form into tabs changes what the user sees, not what the form
 submits:
@@ -356,6 +368,15 @@ carrying a key the form does not declare answers 400, so a client cannot write `
 `tenant_id`; an edit writes only the fields it posted; and a model with a `#[version]` field
 refuses a save another save overtook. [`RecordForm`](https://y-l.fr/tablo/nightly/api/tablo_core/derive.RecordForm.html#submitting) has
 the rules.
+
+The create page has a second button, **Create & create another**, for entering several records in
+a row: it runs every check above, and a save lands back on an empty create form with the success
+flash.
+
+The form page's script saves on `Ctrl+S` (`Cmd+S` on macOS), and asks before a followed link, a
+reload or a closed tab drops what the user typed; a refused save asks from the start, since its
+values are the user's. The browser's back and forward buttons leave without asking. Without
+JavaScript the form posts as it renders and the page leaves without asking.
 
 To write more than the form holds, override `create_record` or `update_record`
 ([Resources](./resources.md#writes)) and use the builders: `form.into_create()` is the model's

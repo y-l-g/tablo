@@ -43,6 +43,8 @@ pub(crate) struct FormChrome<'a> {
     options: Option<String>,
     /// Whether the form edits a stored record.
     editing: bool,
+    /// Whether a second submit button saves and lands on a fresh create form.
+    another: bool,
     /// The record's relation tables, under the form.
     relations: Vec<BoxView<'a>>,
     /// Whether the page refuses a save because another changed the record since the form opened.
@@ -67,6 +69,7 @@ impl<'a> FormChrome<'a> {
             hidden: Vec::new(),
             options: None,
             editing: false,
+            another: true,
             relations: Vec::new(),
             stale: false,
             mask: resource.form_mask(cx),
@@ -99,6 +102,7 @@ impl<'a> FormChrome<'a> {
             hidden,
             options: None,
             editing: true,
+            another: false,
             relations: Vec::new(),
             stale: false,
             mask: resource.form_mask(cx),
@@ -131,6 +135,7 @@ impl<'a> FormChrome<'a> {
             hidden: Vec::new(),
             options: None,
             editing: true,
+            another: false,
             relations: Vec::new(),
             stale: false,
             mask: FormMask::default(),
@@ -164,6 +169,7 @@ impl<'a> FormChrome<'a> {
             hidden,
             options: Some(options),
             editing: false,
+            another: false,
             relations: Vec::new(),
             stale: false,
             mask: FormMask::default(),
@@ -191,6 +197,7 @@ pub(crate) async fn render_form_page<'a>(
         hidden,
         options,
         editing,
+        another,
         relations,
         stale,
         mask,
@@ -206,14 +213,10 @@ pub(crate) async fn render_form_page<'a>(
         source = source.options_at(url);
     }
     let form_html = schema.render(cx, source).await?;
-    // Posts to the current path, preserving a validated `?return=` target.
-    let path = topcoat::router::request::uri(cx).path();
-    let return_to = return_target(cx);
-    let action = match &return_to {
-        Some(target) => crate::panel::url::with_return(path, target),
-        None => path.to_string(),
-    };
-    let cancel = return_to.unwrap_or(cancel);
+    let action = form_action(cx);
+    let cancel = return_target(cx).unwrap_or(cancel);
+    // A refused save keeps what the user typed, which leaving the page would lose.
+    let dirty = !errors.is_empty() || stale;
     let has_actions = public_link.is_some() || !actions.is_empty();
     let actions = actions.render(cx);
     let enctype: Option<String> = schema
@@ -275,6 +278,8 @@ pub(crate) async fn render_form_page<'a>(
                     action=(action)
                     enctype=(enctype)
                     class="flex flex-col gap-4"
+                    data-form-guard=(t!(cx, "tablo-form-unsaved"))
+                    data-form-dirty=(dirty)
                 >
                     (crate::csrf::field(cx, &csrf))
                     if stale {
@@ -307,6 +312,17 @@ pub(crate) async fn render_form_page<'a>(
                             attrs: attributes! { type="submit" },
                             (submit_label)
                         )
+                        if another {
+                            tablo_ui::button(
+                                variant: tablo_ui::ButtonVariant::Outline,
+                                attrs: attributes! {
+                                    type="submit"
+                                    name=(crate::form::ANOTHER_FIELD)
+                                    value="1"
+                                },
+                                (t!(cx, "tablo-form-create-another"))
+                            )
+                        }
                         <a
                             (crate::navigation::runtime_link(cx, &cancel))
                             class=(tablo_ui::button_variants(
@@ -325,6 +341,16 @@ pub(crate) async fn render_form_page<'a>(
         )
     }
     .boxed())
+}
+
+/// Where the form posts, and where a create-another save lands: the current path, keeping a
+/// validated `?return=` target.
+pub(super) fn form_action(cx: &Cx) -> String {
+    let path = topcoat::router::request::uri(cx).path();
+    match return_target(cx) {
+        Some(target) => crate::panel::url::with_return(path, target.as_str()),
+        None => path.to_string(),
+    }
 }
 
 /// Renders the create page, seeding only relationship controls from query parameters.

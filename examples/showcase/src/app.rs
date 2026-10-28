@@ -71,13 +71,22 @@ impl Resource for UserResource {
                     .written_record()
                     .is_none_or(|user| user.name != "Ken Thompson")
             })
-            .form(Schema::new(Section::new("Profile").schema((
-                c.name.placeholder("Ada Lovelace"),
-                c.email.email().unique().placeholder("ada@example.com"),
-                c.role.radio(),
-                c.active.switch(),
-                c.age.suffix("years"),
-            ))))
+            .form(Schema::new((
+                Section::new("Profile")
+                    .description("Who the user is and how they sign in.")
+                    .icon(tablo::ui::icons::USERS)
+                    .aside()
+                    .schema((
+                        c.name.placeholder("Ada Lovelace"),
+                        c.email.email().unique().placeholder("ada@example.com"),
+                        c.role.radio(),
+                        c.active.switch(),
+                    )),
+                // Folded until a refused age opens it.
+                Section::new("Details")
+                    .collapsed()
+                    .schema(c.age.suffix("years")),
+            )))
             // Creates users from a CSV file, each row checked as the create form checks it.
             .importable()
             .detail(Detail::new(Section::new("Profile").columns(User::detail())))

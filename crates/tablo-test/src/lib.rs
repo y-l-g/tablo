@@ -12,13 +12,13 @@ pub use protocol::{
     Bell, BellNotification, ChartData, ChartSeries, DetailEntry, EmptyReason, EmptyTable,
     ErrorKind, FilterOption, Group, IgnoredFilter, IgnoredReason, ImportError, ImportRefusal,
     LanguageChoice, PickerColumn, RecordTableData, Row, RowActions, SESSION_COOKIE, SearchGroup,
-    SearchResult, StatTile, Tab, bell, body_bytes, body_string, charts, column_picker, columns,
-    confirms_first, cookie_header, detail_entries, empty_table, field_error, field_error_message,
-    filter_options, find_href_with, form_body, groups, ignored_filters, import_columns,
-    import_errors, import_refusal, input_value, language_choices, multipart_body, nav_badge,
-    nav_links, notification, page_direction, page_language, page_title, record_tables,
+    SearchResult, Section, StatTile, Tab, bell, body_bytes, body_string, charts, column_picker,
+    columns, confirms_first, cookie_header, detail_entries, empty_table, field_error,
+    field_error_message, filter_options, find_href_with, form_body, groups, ignored_filters,
+    import_columns, import_errors, import_refusal, input_value, language_choices, multipart_body,
+    nav_badge, nav_links, notification, page_direction, page_language, page_title, record_tables,
     response_cookies, rich_text_values, row_actions, row_keys, rows, search_box, search_results,
-    session_cookie_value, set_cookie_header, stale_form, stats, tabs, widgets,
+    sections, session_cookie_value, set_cookie_header, stale_form, stats, tabs, widgets,
 };
 pub use resource::{FieldOf, Reply, ResourceClient, Submission};
 use tablo_core::{

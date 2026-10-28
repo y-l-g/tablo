@@ -1,7 +1,7 @@
 //! Holds the `Section`, `Group`, `Grid` and `Tabs` blocks that lay out a form's fields or a detail
 //! page's columns.
 
-use tablo_ui::{card_content, card_header, card_title, field_group as ui_field_group};
+use tablo_ui::field_group as ui_field_group;
 use topcoat::{
     Result,
     context::Cx,
@@ -15,118 +15,9 @@ use super::{
     tree::{IntoSchema, Node, Retype, Source, render_nodes},
 };
 
-/// Renders a `Section`'s titled panel: a title row, ruled off from the body under it.
-const PANEL: StaticClass = class!(
-    "flex flex-col rounded-xl border border-border bg-card text-card-foreground shadow-xs",
-    "[&>[data-section-title]:not(:last-child)]:border-b [&>[data-section-title]]:border-border",
-);
+mod section;
 
-/// A titled block holding a form's fields ([`schema`](Self::schema)) or a detail page's columns
-/// ([`columns`](Self::columns), which `detail` declares).
-#[derive(Debug)]
-pub struct Section<C = Schema> {
-    title: crate::Text,
-    pub(crate) children: C,
-    extra_class: Option<String>,
-    pub(crate) condition: Option<Condition>,
-}
-
-impl Section<()> {
-    pub fn new(title: impl Into<crate::Text>) -> Self {
-        Self {
-            title: title.into(),
-            children: (),
-            extra_class: None,
-            condition: None,
-        }
-    }
-
-    /// Holds a form's fields and blocks.
-    pub fn schema<F>(self, children: impl IntoSchema<F>) -> Section<Schema<F>> {
-        self.holding(children.into_schema())
-    }
-}
-
-impl<C> Section<C> {
-    /// Adds an additive `class` hook on the panel container.
-    pub fn class(mut self, class: impl Into<String>) -> Self {
-        self.extra_class = Some(class.into());
-        self
-    }
-
-    pub(crate) fn holding<D>(self, children: D) -> Section<D> {
-        self.map(|_| children)
-    }
-
-    pub(crate) fn map<D>(self, f: impl FnOnce(C) -> D) -> Section<D> {
-        Section {
-            title: self.title,
-            children: f(self.children),
-            extra_class: self.extra_class,
-            condition: self.condition,
-        }
-    }
-
-    /// The titled panel around `body`, or the title alone when the section holds nothing.
-    pub(crate) fn chrome<'a>(&self, cx: &'a Cx, body: Option<BoxView<'a>>) -> BoxView<'a> {
-        section_chrome(cx, &self.title, self.extra_class.as_deref(), body)
-    }
-}
-
-// The chromes are free functions, not methods of the generic blocks, so tablo-core compiles each
-// view once rather than once for every detail model an app declares.
-
-fn section_chrome<'a>(
-    cx: &'a Cx,
-    title: &crate::Text,
-    extra: Option<&str>,
-    body: Option<BoxView<'a>>,
-) -> BoxView<'a> {
-    let title = title.clone();
-    let extra = extra.map(str::to_string);
-    match body {
-        Some(body) => view! {
-            cx =>
-            <div class=(class!(PANEL, extra.clone()))>
-                card_header(
-                    attrs: attributes! { class="py-4" data-section-title="" },
-                    card_title((title))
-                )
-                card_content(
-                    attrs: attributes! { class="flex flex-col gap-6 py-6" },
-                    (body)
-                )
-            </div>
-        }
-        .boxed(),
-        None => view! {
-            cx =>
-            <div class=(class!(PANEL, extra.clone()))>
-                card_header(
-                    attrs: attributes! { class="py-4" data-section-title="" },
-                    card_title((title))
-                )
-            </div>
-        }
-        .boxed(),
-    }
-}
-
-impl Section<Schema> {
-    pub(crate) async fn render<'a>(
-        &self,
-        cx: &'a Cx,
-        fields: &[Field],
-        source: &Source<'_>,
-    ) -> Result<BoxView<'a>> {
-        let body = if self.children.nodes.is_empty() {
-            None
-        } else {
-            Some(render_nodes(cx, &self.children.nodes, fields, source).await?)
-        };
-        Ok(self.chrome(cx, body))
-    }
-}
+pub use section::Section;
 
 /// An unlabelled block grouping a form's fields or a detail page's columns.
 #[derive(Debug)]
