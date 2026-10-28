@@ -216,6 +216,11 @@ A decimal gets a number input and keeps the scale it was typed with, so `12.50` 
 `12.50`. A spelling the type cannot hold exactly, such as an exponent or more decimals than
 `Decimal` carries, is an inline error rather than a rounded value.
 
+A decimal column is not sortable by default: SQLite, MySQL and Turso store a `Decimal` as text, and
+every driver stores a `BigDecimal` as text, so the database would order `10.00` before `9.50`. The
+`ModelColumns` derive leaves it unsortable; declare `.sortable()` only on PostgreSQL with
+`Decimal`.
+
 Implement [`tablo::extend::TypedValue`](https://y-l.fr/tablo/nightly/api/tablo/extend/trait.TypedValue.html) to bind your own
 type: it names the type in errors, picks the input, and parses and spells the value, with a default
 for each item but the name.

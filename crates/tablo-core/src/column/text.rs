@@ -36,6 +36,11 @@ use crate::{
 /// or any other type's form spelling, unless [`format`](Self::format) says otherwise. Only a
 /// string field is [`searchable`](Self::searchable).
 ///
+/// [`sortable`](Self::sortable) orders by the stored column, so a type a driver stores as text
+/// sorts by its spelling: a decimal column on SQLite, MySQL or Turso lists `10.00`, `100`, `9.50`.
+/// The [`ModelColumns`](derive@crate::ModelColumns) derive leaves a type that is not
+/// [`SORTABLE`](crate::extend::TypedValue::SORTABLE) unsortable.
+///
 /// A column presents its value as a [`badge`](Self::badge), in a [`color`](Self::color), with a
 /// muted [`description`](Self::description) line under it, or as a right-aligned
 /// [`numeric`](Self::numeric) or [`money`](Self::money) amount:

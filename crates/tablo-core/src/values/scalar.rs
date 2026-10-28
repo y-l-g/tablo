@@ -28,6 +28,10 @@ pub trait FormScalar: Sized {
     /// The control's `step` attribute, when its input type takes one.
     const STEP: Option<&'static str> = None;
 
+    /// Whether the database orders the stored column as the values order: a [`TypedValue`]'s
+    /// [`SORTABLE`](TypedValue::SORTABLE), and `true` for any other type.
+    const SORTABLE: bool = true;
+
     /// The control's `value` for a stored value's form spelling, shown in the request's time zone
     /// `zone`: a [`TypedValue`]'s [`input_value`](TypedValue::input_value), and the spelling
     /// itself for any other type.
@@ -91,6 +95,7 @@ impl FormScalar for String {
 impl<T: TypedValue> FormScalar for T {
     const INPUT_TYPE: &'static str = T::INPUT_TYPE;
     const STEP: Option<&'static str> = T::STEP;
+    const SORTABLE: bool = T::SORTABLE;
 
     fn input_value(stored: &str, zone: &TimeZone) -> String {
         T::input_value(stored, zone)
@@ -129,6 +134,7 @@ impl<T: TypedValue> NullableScalar for T {}
 impl<T: NullableScalar> FormScalar for Option<T> {
     const INPUT_TYPE: &'static str = T::INPUT_TYPE;
     const STEP: Option<&'static str> = T::STEP;
+    const SORTABLE: bool = T::SORTABLE;
 
     fn input_value(stored: &str, zone: &TimeZone) -> String {
         T::input_value(stored, zone)

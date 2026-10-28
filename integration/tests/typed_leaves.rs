@@ -1,10 +1,13 @@
 //! Typed form fields over HTTP: each control is the input its browser edits the type with, a bad
 //! value is a field error on the page, and an untouched value keeps what the control cannot show.
 
-use tablo::{Ability, Allow, Auth, Panel, Resource, ResourceDef, Table, TextColumn, lens};
+use tablo::{
+    Ability, Allow, Auth, ModelColumns, Panel, Resource, ResourceDef, Table, TextColumn, lens,
+};
 
 use crate::common::{
-    TestClient, body_string, control, field_error, input_value, mount, rows, test_db,
+    TestClient, body_string, control, field_error, input_value, mount, rows, sortable_columns,
+    test_db,
 };
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
@@ -304,6 +307,75 @@ async fn a_decimal_round_trips_through_the_form() {
         1,
         "a refused decimal writes nothing"
     );
+}
+
+/// The invoices table the `ModelColumns` derive gives.
+struct DerivedInvoiceResource;
+
+impl Resource for DerivedInvoiceResource {
+    type Model = Invoice;
+    type Form = InvoiceForm;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("invoices")
+            .policy(Allow)
+            .table(Invoice::table())
+    }
+}
+
+/// The derive leaves a decimal column unsortable: SQLite, MySQL and Turso store a decimal as
+/// text, which would sort `10.00` before `9.50`. The string column next to it still sorts.
+#[tokio::test]
+async fn a_derived_decimal_column_is_not_sortable() {
+    let db = test_db(toasty::models!(Invoice)).await;
+    let router = mount(
+        db,
+        Panel::new("admin")
+            .auth(Auth::disabled())
+            .resource::<DerivedInvoiceResource>(),
+    )
+    .expect("panel builds");
+
+    let list = body_string(TestClient::new(&router).get("/admin/invoices").await).await;
+    assert_eq!(sortable_columns(&list), ["label"]);
+}
+
+/// A decimal spelling past the length cap is a field error, answered at once rather than after
+/// parsing a megabyte of digits.
+#[tokio::test]
+async fn a_megabyte_decimal_is_a_field_error() {
+    let db = test_db(toasty::models!(Invoice)).await;
+    let router = mount(
+        db.clone(),
+        Panel::new("admin")
+            .auth(Auth::disabled())
+            .resource::<InvoiceResource>(),
+    )
+    .expect("panel builds");
+    let client = TestClient::new(&router);
+    let digits = "1".repeat(1 << 20);
+
+    for body in [
+        format!("label=Big&total=1&rate=0.{digits}"),
+        format!("label=Big&total={digits}"),
+    ] {
+        let refused = if body.contains("rate") {
+            "rate"
+        } else {
+            "total"
+        };
+        let response = client.submit("/admin/invoices/-/create", &body).await;
+        assert_eq!(response.status(), 200, "{refused}");
+        let html = body_string(response).await;
+        assert_eq!(
+            field_error(&html, refused),
+            Some(tablo::testing::ErrorKind::Invalid),
+            "{refused}"
+        );
+    }
+    let stored = Invoice::all().exec(&mut db.clone()).await.unwrap();
+    assert!(stored.is_empty(), "a refused decimal writes nothing");
 }
 
 /// A timestamp's control edits to the minute: saving the form without touching it keeps the

@@ -34,6 +34,13 @@ pub trait TypedValue: std::fmt::Display + std::str::FromStr {
     /// The control's `step` attribute, when its input type takes one.
     const STEP: Option<&'static str> = None;
 
+    /// Whether a database `ORDER BY` over the stored column orders values as the type does, on
+    /// every driver. The [`ModelColumns`](derive@crate::ModelColumns) derive makes a column of
+    /// the type [`sortable`](crate::TextColumn::sortable) only when it does. `false` for the
+    /// decimal types, which some drivers store as text and so sort by spelling: `10.00`, `100`,
+    /// `9.50`.
+    const SORTABLE: bool = true;
+
     /// Reads a trimmed, non-empty submission, or `None` when the type refuses it.
     fn parse_input(value: &str) -> Option<Self> {
         value.parse().ok()
@@ -131,15 +138,18 @@ impl TypedValue for f64 {
     ordered_by_value!();
 }
 
-/// Accepts a plain decimal only, `-12.50` or `.5`, and keeps its scale: `12.50` stays two
-/// decimals. A value the type cannot hold exactly, past 28 decimals or its 96-bit mantissa, is
-/// refused rather than rounded.
+/// Accepts only a plain decimal of at most 256 characters, `-12.50` or `.5`, and keeps its scale:
+/// `12.50` stays two decimals. A value the type cannot hold exactly, past 28 decimals or its
+/// 96-bit mantissa, is refused rather than rounded.
+///
+/// Not [`SORTABLE`](TypedValue::SORTABLE): SQLite, MySQL and Turso store it as text.
 #[cfg(feature = "rust_decimal")]
 impl TypedValue for rust_decimal::Decimal {
     const NOUN: &'static str = "tablo-type-number";
     const INPUT_TYPE: &'static str = "number";
     // The default step of 1 makes a browser refuse a fraction.
     const STEP: Option<&'static str> = Some("any");
+    const SORTABLE: bool = false;
 
     fn parse_input(value: &str) -> Option<Self> {
         is_plain_decimal(value)
@@ -150,15 +160,18 @@ impl TypedValue for rust_decimal::Decimal {
     ordered_by_value!();
 }
 
-/// Accepts a plain decimal only, `-12.50` or `.5`, and keeps its scale: `12.50` stays two
-/// decimals. The form spelling is plain too, never the exponent `Display` writes for a small or a
-/// large value.
+/// Accepts only a plain decimal of at most 256 characters, `-12.50` or `.5`, and keeps its scale:
+/// `12.50` stays two decimals. The form spelling is plain too, never the exponent `Display` writes
+/// for a small or a large value.
+///
+/// Not [`SORTABLE`](TypedValue::SORTABLE): every driver stores it as text.
 #[cfg(feature = "bigdecimal")]
 impl TypedValue for bigdecimal::BigDecimal {
     const NOUN: &'static str = "tablo-type-number";
     const INPUT_TYPE: &'static str = "number";
     // The default step of 1 makes a browser refuse a fraction.
     const STEP: Option<&'static str> = Some("any");
+    const SORTABLE: bool = false;
 
     fn parse_input(value: &str) -> Option<Self> {
         is_plain_decimal(value)
@@ -173,11 +186,20 @@ impl TypedValue for bigdecimal::BigDecimal {
     ordered_by_value!();
 }
 
-/// Reports whether `value` is a number input's spelling of a decimal without an exponent:
-/// `-?(\d+|\d*\.\d+)`. The decimal parsers also take a `+` sign, `_` separators or an exponent,
-/// which lets a short submission expand to a huge scale, so they see only this.
+/// The longest decimal spelling a form accepts, sign and point included. `BigDecimal` parses in
+/// time quadratic in the digits, so an unbounded submission would hold a worker for seconds.
+#[cfg(any(feature = "rust_decimal", feature = "bigdecimal"))]
+const DECIMAL_MAX_LENGTH: usize = 256;
+
+/// Reports whether `value` is a number input's spelling of a decimal without an exponent,
+/// `-?(\d+|\d*\.\d+)`, of at most [`DECIMAL_MAX_LENGTH`] characters. The decimal parsers also
+/// take a `+` sign, `_` separators or an exponent, which lets a short submission expand to a huge
+/// scale, so they see only this.
 #[cfg(any(feature = "rust_decimal", feature = "bigdecimal"))]
 fn is_plain_decimal(value: &str) -> bool {
+    if value.len() > DECIMAL_MAX_LENGTH {
+        return false;
+    }
     let unsigned = value.strip_prefix('-').unwrap_or(value);
     let (whole, fraction) = match unsigned.split_once('.') {
         Some((whole, fraction)) => (whole, Some(fraction)),

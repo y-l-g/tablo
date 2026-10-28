@@ -5,8 +5,8 @@
 //! `tr[id^="row-"]` for rows, `tr[data-group]` for group headers, `[aria-label]` links and buttons
 //! for actions, `#{name}-error` and its `data-error` for field errors, `[data-filter-name]` for
 //! filters, `[data-empty]` for the zero-rows message, `[data-sidebar=menu-item]` for sidebar
-//! entries, `th[data-column]` for the shown columns, and the `column` checkboxes for the column
-//! picker.
+//! entries, `th[data-column]` for the shown columns and its `aria-sort` for the sortable ones, and
+//! the `column` checkboxes for the column picker.
 //!
 //! The queries assume one table per document: rows never nest, and cells carry text rather than
 //! nested tables.
@@ -117,6 +117,16 @@ pub fn columns(html: &str) -> Vec<String> {
     open_tags(html)
         .into_iter()
         .filter(|(tag, _, _)| tag == "th")
+        .filter_map(|(_, attrs, _)| attr_value(&attrs, "data-column"))
+        .collect()
+}
+
+/// The names of the columns whose header sorts the table, in order: those the header marks with
+/// `aria-sort`.
+pub fn sortable_columns(html: &str) -> Vec<String> {
+    open_tags(html)
+        .into_iter()
+        .filter(|(tag, attrs, _)| tag == "th" && attr_value(attrs, "aria-sort").is_some())
         .filter_map(|(_, attrs, _)| attr_value(&attrs, "data-column"))
         .collect()
 }

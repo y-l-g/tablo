@@ -117,7 +117,8 @@ where
 }
 
 column_pick! {
-    /// Any other [`FormScalar`]: a sortable text, an `Options` enum's by its label.
+    /// Any other [`FormScalar`]: a text, an `Options` enum's by its label, sortable when the type
+    /// is [`SORTABLE`](FormScalar::SORTABLE).
     PickScalar
 }
 
@@ -130,7 +131,12 @@ where
     type Detail = TextColumn<M, T>;
 
     fn table_column(&self) -> Self::Table {
-        TextColumn::new(self.0.clone()).sortable()
+        let column = TextColumn::new(self.0.clone());
+        if T::SORTABLE {
+            column.sortable()
+        } else {
+            column
+        }
     }
 
     fn detail_column(&self) -> Self::Detail {
@@ -315,7 +321,7 @@ pub trait Badge {
 #[diagnostic::on_unimplemented(
     message = "`#[columns(money = ..)]` spells a number as an amount, and this field's column is \
                a `{Self}`",
-    label = "the field is no integer or float, nor an `Option` of one"
+    label = "the field is no integer, float or decimal, nor an `Option` of one"
 )]
 pub trait Money {
     fn money(self, currency: Currency) -> Self;
