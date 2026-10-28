@@ -107,6 +107,29 @@ async fn a_draft_post_is_published_from_its_row() {
         !html.contains(&format!("/admin/posts/{}/-/actions/publish", published.id)),
         "a published post's row does not: {html}"
     );
+    let disabled = |post: &Post| {
+        tablo::testing::row_actions(&html, &post.id.to_string())
+            .expect("the post has a row")
+            .disabled
+    };
+    assert_eq!(
+        disabled(published),
+        [tablo::testing::DisabledAction {
+            name: "publish".to_string(),
+            reason: "Already published".to_string(),
+        }],
+        "a published post's row shows Publish disabled, saying why"
+    );
+    assert!(disabled(draft).is_empty(), "a draft's row runs it");
+    let detail = body_string(client.get(&format!("/admin/posts/{}", published.id)).await).await;
+    assert_eq!(
+        tablo::testing::disabled_actions(&detail)
+            .iter()
+            .map(|action| action.name.as_str())
+            .collect::<Vec<_>>(),
+        ["publish"],
+        "its detail page shows Publish disabled too: {detail}"
+    );
     assert!(
         tablo::testing::confirms_first(&html, "/admin/posts/-/actions/publish").is_some(),
         "the bulk bar offers Publish for the selection: {html}"

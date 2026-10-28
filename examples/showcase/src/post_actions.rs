@@ -21,6 +21,10 @@ impl Action<PostResource> for PublishPosts {
         post.status != PostStatus::Published
     }
 
+    fn disabled_reason(_cx: &Cx, _post: &Post) -> Option<tablo::Text> {
+        Some("Already published".into())
+    }
+
     async fn run(
         _cx: &Cx,
         posts: &[Post],

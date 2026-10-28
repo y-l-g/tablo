@@ -193,6 +193,7 @@ fn wire_custom_actions<R: Resource>(
         .map(|action| {
             let action = *action;
             let (policy_cx, policy) = (cx.clone(), Arc::clone(resource));
+            let (reason_cx, reasons) = (cx.clone(), Arc::clone(resource));
             TableAction {
                 name: action.name,
                 label: (action.label)().localize(cx),
@@ -208,6 +209,13 @@ fn wire_custom_actions<R: Resource>(
                 allowed: Arc::new(move |record: &R::Model| {
                     policy.can(&policy_cx, Ability::View(record))
                         && action.allows(&policy, &policy_cx, record)
+                }),
+                disabled: Arc::new(move |record: &R::Model| {
+                    if !reasons.can(&reason_cx, Ability::View(record)) {
+                        return None;
+                    }
+                    let reason = action.disabled_on(&reasons, &reason_cx, record)?;
+                    Some(reason.localize(&reason_cx))
                 }),
             }
         })

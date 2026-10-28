@@ -1,4 +1,5 @@
 use super::*;
+use crate::protocol::confirms_first;
 
 const TABLE: &str = r#"<table><thead><tr><th>Name</th></tr></thead><tbody>
 <tr id="row-Ada-12345678"><td><input type="checkbox" value="Ada" data-row-select=""></td><td>Ada</td><td><div class="flex"><a href="/admin/dummies/Ada" data-row-action="view">V</a><a href="/admin/dummies/Ada/edit" data-row-action="edit">E</a><button type="button" formaction="/admin/dummies/Ada/delete" data-row-action="delete">D</button></div></td></tr>

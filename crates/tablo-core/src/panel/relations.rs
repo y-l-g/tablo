@@ -246,6 +246,7 @@ fn detach_action<C: Resource>(cx: &Cx, resource: &Arc<Mounted<C>>) -> TableActio
         input: None,
         trashed: Trashed::With,
         allowed: Arc::new(move |record: &C::Model| policy.can(&policy_cx, Ability::View(record))),
+        disabled: Arc::new(|_| None),
     }
 }
 

@@ -45,6 +45,8 @@ struct ActionButton {
     destructive: bool,
     /// The action's input, when it asks for one.
     input: Option<Input>,
+    /// The action's name and why the button shows disabled, when the record's state refuses it.
+    disabled: Option<(&'static str, String)>,
 }
 
 /// What an action's input dialog renders.
@@ -89,6 +91,7 @@ pub(crate) fn header_bar(
             icon: (action.icon)(),
             destructive: action.destructive,
             input: Input::of(action.input, action.confirm, url, action.name),
+            disabled: None,
         })
         .collect();
     ActionBar { buttons }
@@ -114,14 +117,16 @@ pub(crate) fn record_bar<R: Resource>(
         .actions
         .entries()
         .iter()
-        .filter(|action| {
-            action.places.contains(place)
-                && resource.can(cx, action.resource_wide)
-                && action.allows(resource, cx, record)
-        })
-        .map(|action| {
+        .filter(|action| action.places.contains(place) && resource.can(cx, action.resource_wide))
+        .filter_map(|action| {
+            let disabled = if action.allows(resource, cx, record) {
+                None
+            } else {
+                let reason = action.disabled_on(resource, cx, record)?;
+                Some((action.name, reason.localize(cx)))
+            };
             let url = row_action_url(&resource.url, &key, action.name);
-            ActionButton {
+            Some(ActionButton {
                 label: (action.label)().localize(cx),
                 url: if action.removes {
                     url
@@ -133,7 +138,8 @@ pub(crate) fn record_bar<R: Resource>(
                 icon: (action.icon)().or(action.removes.then_some(tablo_ui::icons::TRASH)),
                 destructive: action.destructive,
                 input: Input::of(action.input, action.confirm, &resource.url, action.name),
-            }
+                disabled,
+            })
         })
         .collect();
     if !resource.is_trashed(record)
@@ -147,6 +153,7 @@ pub(crate) fn record_bar<R: Resource>(
             icon: Some(tablo_ui::icons::TRASH),
             destructive: true,
             input: None,
+            disabled: None,
         });
     }
     ActionBar { buttons }
@@ -168,6 +175,7 @@ impl ActionBar {
                     confirm: false,
                     options,
                 }),
+                disabled: None,
             }],
         }
     }
@@ -232,6 +240,7 @@ impl ActionButton {
             icon: face_icon,
             destructive,
             input,
+            disabled,
         } = self;
         // A destructive button is outlined like its neighbors and tinted, so an irreversible
         // write reads as a warning without outweighing the page's primary action.
@@ -246,6 +255,22 @@ impl ActionButton {
             (label)
         }
         .boxed();
+        if let Some((name, reason)) = disabled {
+            return view! {
+                cx =>
+                button(
+                    variant: variant,
+                    size: ButtonSize::Md,
+                    attrs: {
+                        let mut attrs = disabled_trigger(cx, name, &reason);
+                        attrs.extend(attributes! { cx => class=(tone) });
+                        attrs
+                    },
+                    (face)
+                )
+            }
+            .boxed();
+        }
         if let Some(Input {
             spec,
             confirm,
@@ -350,6 +375,19 @@ impl ActionButton {
             )
         }
         .boxed()
+    }
+}
+
+/// The attributes of the button of the action `name`, which the record's state refuses: it posts
+/// nothing, stays focusable so a reader hears `reason`, and shows `reason` on hover.
+pub(crate) fn disabled_trigger(cx: &Cx, name: &str, reason: &str) -> Attributes {
+    attributes! {
+        cx =>
+        type="button"
+        aria-disabled="true"
+        title=(reason.to_string())
+        data-disabled-action=(name.to_string())
+        class="cursor-not-allowed opacity-50"
     }
 }
 

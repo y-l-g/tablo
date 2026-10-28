@@ -14,6 +14,9 @@ use crate::{
 /// Per-record action policy reads which row actions one model instance allows.
 pub(crate) type RowPolicy<M> = Arc<dyn Fn(&M) -> RowActions + Send + Sync>;
 
+/// Why a row action's button shows disabled on one record, if it does.
+pub(crate) type DisabledReason<M> = Arc<dyn Fn(&M) -> Option<String> + Send + Sync>;
+
 /// Which row actions one record may use.
 ///
 /// A denied action emits no link, and a row denied `delete` renders no bulk checkbox.
@@ -70,6 +73,8 @@ pub(crate) struct TableAction<M> {
     /// The records it takes: the live ones, or a soft-deleting resource's trashed ones.
     pub(crate) trashed: Trashed,
     pub(crate) allowed: Arc<dyn Fn(&M) -> bool + Send + Sync>,
+    /// Why its row button shows disabled on a record it does not allow, if it does.
+    pub(crate) disabled: DisabledReason<M>,
 }
 
 /// What a request wires onto a declared table: the action URLs its rows and bulk bar link to,

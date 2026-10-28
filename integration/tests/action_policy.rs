@@ -296,6 +296,85 @@ async fn an_allowing_policy_runs_the_action_on_a_row_and_a_selection() {
     assert!(closed(&db, second.id).await && closed(&db, third.id).await);
 }
 
+/// Answers an open ticket; a closed one shows the button disabled, saying why.
+struct Answer;
+
+impl Action<TicketResource> for Answer {
+    type Input = ();
+    const NAME: &'static str = "answer";
+
+    fn can_run(_cx: &Cx, ticket: &Ticket) -> bool {
+        !ticket.closed
+    }
+
+    fn disabled_reason(_cx: &Cx, _ticket: &Ticket) -> Option<tablo::Text> {
+        Some("Closed".into())
+    }
+
+    async fn run(
+        _cx: &Cx,
+        _: &[Ticket],
+        _: (),
+        _: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
+        Ok(tablo::Outcome::done())
+    }
+}
+
+/// Every ability but answering a ticket titled "Locked".
+fn answers_but_locked(_cx: &Cx, ability: Ability<'_, Ticket>) -> bool {
+    match ability {
+        Ability::Run { record, .. } if ability.is_action::<Answer, _>() => record.title != "Locked",
+        _ => true,
+    }
+}
+
+#[tokio::test]
+async fn only_a_record_the_policy_allows_shows_its_state_refusal() {
+    let db = db().await;
+    let open = seed(&db, "Open").await;
+    let done = seed(&db, "Done").await;
+    let locked = seed(&db, "Locked").await;
+    let mut conn = db.clone();
+    Ticket::filter(Ticket::fields().title().ne("Open".to_string()))
+        .update()
+        .closed(true)
+        .exec(&mut conn)
+        .await
+        .expect("close the tickets");
+    let router = mount(
+        db.clone(),
+        panel().resource_with::<TicketResource>(|def| {
+            def.action::<Answer>().policy(answers_but_locked)
+        }),
+    )
+    .expect("panel builds");
+
+    let html = body_string(get(&router, "/admin/tickets").await).await;
+    let disabled = |ticket: &Ticket| {
+        tablo::testing::row_actions(&html, &ticket.id.to_string())
+            .expect("the ticket has a row")
+            .disabled
+            .into_iter()
+            .map(|action| (action.name, action.reason))
+            .collect::<Vec<_>>()
+    };
+    assert!(disabled(&open).is_empty(), "an open ticket runs Answer");
+    assert_eq!(
+        disabled(&done),
+        [("answer".to_string(), "Closed".to_string())],
+        "a closed ticket shows Answer disabled, saying why"
+    );
+    assert!(
+        disabled(&locked).is_empty(),
+        "a ticket the policy refuses shows no button, so no reason: {html}"
+    );
+
+    let answer = format!("/admin/tickets/{}/-/actions/answer", done.id);
+    let reply = post_fields(&router, &answer, &[]).await;
+    assert_eq!(reply.status(), 403, "the route refuses a disabled record");
+}
+
 /// A policy that allows every ability but closing a ticket titled "Locked". It matches the
 /// action `Close`, so a `Run` asked under another name would let the locked ticket through.
 fn all_but_locked(_cx: &Cx, ability: Ability<'_, Ticket>) -> bool {

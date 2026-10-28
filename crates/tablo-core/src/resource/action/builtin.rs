@@ -19,6 +19,7 @@ impl<R: Resource> ActionEntry<R> {
             places: Places::ALL,
             resource_wide: Ability::RestoreAny,
             can_run: |resource, cx, record| resource.can(cx, Ability::Restore(record)),
+            disabled: |_, _, _| None,
             input: InputSpec::none(),
             run: restore_erased::<R>,
             success: |count| text!("tablo-action-restored", count = count),
@@ -47,6 +48,7 @@ impl<R: Resource> ActionEntry<R> {
             places: Places::ALL,
             resource_wide: Ability::ForceDeleteAny,
             can_run: |resource, cx, record| resource.can(cx, Ability::ForceDelete(record)),
+            disabled: |_, _, _| None,
             input: InputSpec::none(),
             run: force_delete_erased::<R>,
             success: |count| text!("tablo-action-force-deleted", count = count),
@@ -86,6 +88,7 @@ impl<R: Resource> ActionEntry<R> {
             places: if bulk { Places::BULK } else { Places::RECORD },
             resource_wide: Ability::DeleteAny,
             can_run: |resource, cx, record| resource.can(cx, Ability::Delete(record)),
+            disabled: |_, _, _| None,
             input: InputSpec::none(),
             run: if bulk {
                 bulk_delete_erased::<R>

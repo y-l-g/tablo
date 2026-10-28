@@ -58,6 +58,10 @@ Three checks decide, each asked for its own reason:
 - the policy's `Run` decides who may run it on a given record;
 - the action's `can_run` reads the record's state: a published post refuses "publish".
 
+A record `can_run` refuses hides the button, unless `disabled_reason` says why: the button then
+shows disabled, with the reason on hover. A record the policy refuses never shows it, so the
+reason never tells a user what the policy refuses them.
+
 `can_run` sees no user, so it never decides who may act. A panel that mounts the resource with
 `ReadOnly` therefore offers none of its actions and refuses their POSTs
 ([Policy](./policy-auth-tenancy.md#policy)).
