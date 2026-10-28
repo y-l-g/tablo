@@ -25,6 +25,7 @@ mod toolbar;
 
 use topcoat::{
     context::Cx,
+    icon::IconData,
     runtime::Event,
     view::{Attributes, StaticClass, attributes, class},
 };
@@ -94,6 +95,10 @@ struct BulkAction<'t> {
     label: &'t str,
     /// Whether the confirmation dialog asks first; an action with input confirms in its own.
     confirm: bool,
+    /// The question the confirmation dialog asks.
+    prompt: &'t str,
+    icon: Option<IconData>,
+    destructive: bool,
     /// Whether its button opens the action's input dialog.
     input: bool,
 }
@@ -151,6 +156,9 @@ impl<M> WiredTable<M> {
                     name: action.name,
                     label: &action.label,
                     confirm: action.confirm && action.input.is_none(),
+                    prompt: &action.bulk_prompt,
+                    icon: action.icon.clone(),
+                    destructive: action.destructive,
                     input: action.input.is_some(),
                 })
                 .collect(),

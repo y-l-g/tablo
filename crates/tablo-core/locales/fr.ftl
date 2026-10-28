@@ -151,6 +151,8 @@ tablo-action-force-deleted = { $count ->
 }
 tablo-confirm-restore = Restaurer cet enregistrement ?
 tablo-confirm-force-delete = Supprimer définitivement cet enregistrement ?
+tablo-confirm-force-delete-selected = Supprimer définitivement les enregistrements sélectionnés ?
+tablo-confirm-restore-selected = Restaurer les enregistrements sélectionnés ?
 tablo-action-skipped = ({ $skipped } sur { $selected } ignorés)
 tablo-action-on-record = { $action } : { $record }
 tablo-action-on-records = { $action } : { $count ->

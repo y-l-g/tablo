@@ -5,7 +5,12 @@ use tablo_ui::{
     ButtonSize, ButtonVariant, alert_dialog, button, dialog_content, dialog_description,
     dialog_footer, dialog_header, dialog_title,
 };
-use topcoat::{context::Cx, icon::icon, runtime::Event, view::*};
+use topcoat::{
+    context::Cx,
+    icon::{IconData, icon},
+    runtime::Event,
+    view::*,
+};
 
 use crate::{
     HeaderActions,
@@ -34,7 +39,10 @@ struct ActionButton {
     url: String,
     /// The dialog's title, when the button confirms first.
     confirm: Option<String>,
-    delete: bool,
+    /// The icon before the label.
+    icon: Option<IconData>,
+    /// Whether the button is tinted as a destructive one.
+    destructive: bool,
     /// The action's input, when it asks for one.
     input: Option<Input>,
 }
@@ -77,8 +85,9 @@ pub(crate) fn header_bar(
             url: bulk_action_url(url.trim_end_matches('/'), action.name),
             // An action with input confirms in its input dialog, which its button opens.
             confirm: (action.confirm && !action.input.takes_input)
-                .then(|| t!(cx, "tablo-confirm-run")),
-            delete: false,
+                .then(|| (action.prompt)().localize(cx)),
+            icon: (action.icon)(),
+            destructive: action.destructive,
             input: Input::of(action.input, action.confirm, url, action.name),
         })
         .collect();
@@ -120,8 +129,9 @@ pub(crate) fn record_bar<R: Resource>(
                     with_return(&url, here)
                 },
                 confirm: (action.confirm && !action.input.takes_input)
-                    .then(|| t!(cx, action.prompt)),
-                delete: action.removes,
+                    .then(|| (action.prompt)(false).localize(cx)),
+                icon: (action.icon)().or(action.removes.then_some(tablo_ui::icons::TRASH)),
+                destructive: action.destructive,
                 input: Input::of(action.input, action.confirm, &resource.url, action.name),
             }
         })
@@ -134,7 +144,8 @@ pub(crate) fn record_bar<R: Resource>(
             label: t!(cx, "tablo-action-delete"),
             url: delete_action_url(&resource.url, &key),
             confirm: Some(t!(cx, "tablo-confirm-delete-record")),
-            delete: true,
+            icon: Some(tablo_ui::icons::TRASH),
+            destructive: true,
             input: None,
         });
     }
@@ -150,7 +161,8 @@ impl ActionBar {
                 label,
                 url,
                 confirm: None,
-                delete: false,
+                icon: None,
+                destructive: false,
                 input: Some(Input {
                     spec: input,
                     confirm: false,
@@ -217,18 +229,19 @@ impl ActionButton {
             label,
             url,
             confirm,
-            delete,
+            icon: face_icon,
+            destructive,
             input,
         } = self;
-        // Delete is outlined like its neighbors and tinted, so the one irreversible button reads
-        // as a warning without outweighing the page's primary action.
+        // A destructive button is outlined like its neighbors and tinted, so an irreversible
+        // write reads as a warning without outweighing the page's primary action.
         let variant = ButtonVariant::Outline;
-        let tone = delete.then_some(DELETE_TONE);
+        let tone = destructive.then_some(DESTRUCTIVE_TONE);
         let confirm_label = label.clone();
         let face = view! {
             cx =>
-            if delete {
-                icon(data: tablo_ui::icons::TRASH)
+            if let Some(data) = face_icon {
+                icon(data: data)
             }
             (label)
         }
@@ -340,5 +353,7 @@ impl ActionButton {
     }
 }
 
-/// Delete's tint over the outline button, marked important to win over the outline's own colors.
-const DELETE_TONE: &str = "text-destructive! hover:bg-destructive/5! active:bg-destructive/10!";
+/// A destructive button's tint over the outline button, marked important to win over the
+/// outline's own colors.
+pub(crate) const DESTRUCTIVE_TONE: &str =
+    "text-destructive! hover:bg-destructive/5! active:bg-destructive/10!";

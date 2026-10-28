@@ -3,7 +3,7 @@
 
 use std::future::Future;
 
-use topcoat::{Result, context::Cx};
+use topcoat::{Result, context::Cx, icon::IconData};
 
 use super::{ErasedInput, InputResult, InputSpec, parse_validated};
 use crate::{
@@ -79,6 +79,21 @@ pub trait HeaderAction: 'static {
     /// An action with input confirms in its input dialog, or on its input page, instead. An
     /// unconfirmed POST that would write answers 400.
     const CONFIRM: bool = false;
+
+    /// The icon before the button's label. Defaults to none.
+    const ICON: Option<IconData> = None;
+
+    /// Whether the button is tinted as a destructive one. Defaults to `false`.
+    ///
+    /// It changes how the button looks, not what it asks: [`CONFIRM`](Self::CONFIRM) asks first.
+    const DESTRUCTIVE: bool = false;
+
+    /// The question the confirmation dialog asks when [`CONFIRM`](Self::CONFIRM) is set. Defaults
+    /// to the message `tablo-confirm-run`, "Run this action?". An action with input confirms in
+    /// its input dialog instead, which its label titles.
+    fn confirmation() -> crate::Text {
+        crate::text!("tablo-confirm-run")
+    }
 
     /// The button text. Defaults to the message `action-{NAME}` of the panel's catalogs, else
     /// [`NAME`](Self::NAME) in sentence case: `"recount-tags"` reads "Recount tags".
@@ -235,6 +250,9 @@ impl HeaderActions {
             run: run_header_erased::<A>,
             success: A::success,
             confirm: A::CONFIRM,
+            prompt: A::confirmation,
+            icon: || A::ICON,
+            destructive: A::DESTRUCTIVE,
         });
         self
     }
@@ -273,6 +291,12 @@ pub(crate) struct HeaderEntry {
     pub(crate) run: RunHeader,
     pub(crate) success: fn() -> crate::Text,
     pub(crate) confirm: bool,
+    /// The question the dialog confirming it asks.
+    pub(crate) prompt: fn() -> crate::Text,
+    /// The icon before its button's label.
+    pub(crate) icon: fn() -> Option<IconData>,
+    /// Whether its button is tinted as a destructive one.
+    pub(crate) destructive: bool,
 }
 
 /// [`FormInput::parse`], then [`HeaderAction::validate_input`], behind a function pointer.

@@ -14,7 +14,7 @@ use super::{
     },
     RowButton, RowChrome, RowView,
 };
-use crate::{dom, t};
+use crate::{dom, panel::bar::DESTRUCTIVE_TONE, t};
 
 /// The row's actions cell: its custom actions, then View, Edit and Delete, each only when the
 /// row's policy allows it.
@@ -33,6 +33,8 @@ pub(super) fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChro
                 label,
                 url,
                 confirm,
+                icon: face,
+                destructive,
                 input,
             } = action;
             let mut attrs = match input {
@@ -44,18 +46,24 @@ pub(super) fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChro
                     &chrome.form,
                     &chrome.signals,
                     url.clone(),
-                    confirm.then(|| run_confirmation(cx)),
+                    confirm
+                        .as_deref()
+                        .map(|prompt| run_confirmation(cx, prompt)),
                     false,
                 ),
             };
-            attrs.extend(attributes! { cx => aria-describedby=(described.clone()) });
-            let label = label.clone();
+            let tone = destructive.then_some(DESTRUCTIVE_TONE);
+            attrs.extend(attributes! { cx => class=(tone) aria-describedby=(described.clone()) });
+            let (label, face) = (label.clone(), face.clone());
             view! {
                 cx =>
                 button(
                     variant: ButtonVariant::Ghost,
                     size: ButtonSize::Sm,
                     attrs: attrs,
+                    if let Some(data) = face {
+                        icon(data: data)
+                    }
                     (label)
                 )
             }
@@ -148,13 +156,29 @@ fn render_action_menu<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> 
                     &chrome.form,
                     &chrome.signals,
                     action.url.clone(),
-                    action.confirm.then(|| run_confirmation(cx)),
+                    action
+                        .confirm
+                        .as_deref()
+                        .map(|prompt| run_confirmation(cx, prompt)),
                     false,
                 ),
             };
             closes(&mut attrs);
-            let label = action.label.clone();
-            view! { cx => dropdown_menu_item(attrs: attrs, (label)) }.boxed()
+            if action.destructive {
+                attrs.extend(attributes! { cx => class="text-destructive" });
+            }
+            let (label, face) = (action.label.clone(), action.icon.clone());
+            view! {
+                cx =>
+                dropdown_menu_item(
+                    attrs: attrs,
+                    if let Some(data) = face {
+                        icon(data: data)
+                    }
+                    (label)
+                )
+            }
+            .boxed()
         })
         .collect();
     for (url, label, data, hook) in [

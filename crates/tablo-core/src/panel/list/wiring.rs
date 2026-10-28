@@ -2,7 +2,7 @@
 
 use std::{ops::Deref, sync::Arc};
 
-use topcoat::context::Cx;
+use topcoat::{context::Cx, icon::IconData};
 
 use super::TableSignals;
 use crate::{
@@ -57,6 +57,14 @@ pub(crate) struct TableAction<M> {
     pub(crate) bulk: bool,
     /// Whether the action confirms: in the confirmation dialog, or in its input dialog.
     pub(crate) confirm: bool,
+    /// The question the confirmation dialog asks of one row.
+    pub(crate) prompt: String,
+    /// The question the confirmation dialog asks of the bulk bar's selection.
+    pub(crate) bulk_prompt: String,
+    /// The icon before its buttons' label.
+    pub(crate) icon: Option<IconData>,
+    /// Whether its buttons are tinted as destructive ones.
+    pub(crate) destructive: bool,
     /// The action's input form, when it asks for one: its buttons open the input's dialog.
     pub(crate) input: Option<fn() -> Schema>,
     /// The records it takes: the live ones, or a soft-deleting resource's trashed ones.

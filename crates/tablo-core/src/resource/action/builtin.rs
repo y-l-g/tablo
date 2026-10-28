@@ -27,7 +27,15 @@ impl<R: Resource> ActionEntry<R> {
             confirm: false,
             trashed: Trashed::Only,
             removes: false,
-            prompt: "tablo-confirm-restore",
+            prompt: |bulk| {
+                if bulk {
+                    text!("tablo-confirm-restore-selected")
+                } else {
+                    text!("tablo-confirm-restore")
+                }
+            },
+            icon: || None,
+            destructive: false,
         }
     }
 
@@ -47,7 +55,15 @@ impl<R: Resource> ActionEntry<R> {
             confirm: true,
             trashed: Trashed::Only,
             removes: true,
-            prompt: "tablo-confirm-force-delete",
+            prompt: |bulk| {
+                if bulk {
+                    text!("tablo-confirm-force-delete-selected")
+                } else {
+                    text!("tablo-confirm-force-delete")
+                }
+            },
+            icon: || None,
+            destructive: true,
         }
     }
 
@@ -86,7 +102,15 @@ impl<R: Resource> ActionEntry<R> {
             confirm: true,
             trashed: Trashed::Without,
             removes: true,
-            prompt: "tablo-confirm-delete-record",
+            prompt: |bulk| {
+                if bulk {
+                    text!("tablo-confirm-delete-selected")
+                } else {
+                    text!("tablo-confirm-delete-record")
+                }
+            },
+            icon: || None,
+            destructive: true,
         }
     }
 }

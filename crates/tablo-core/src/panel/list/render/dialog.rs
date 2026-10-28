@@ -18,9 +18,10 @@ use crate::{
     table::TableState,
 };
 
-/// The confirmation a custom action asks before it runs: the dialog's title and its button.
-pub(super) fn run_confirmation(cx: &Cx) -> (String, String) {
-    (t!(cx, "tablo-confirm-run"), t!(cx, "tablo-confirm"))
+/// The confirmation a custom action asks before it runs: its `prompt` as the dialog's title, and
+/// the dialog's button.
+pub(super) fn run_confirmation(cx: &Cx, prompt: &str) -> (String, String) {
+    (prompt.to_string(), t!(cx, "tablo-confirm"))
 }
 
 /// The confirmation a delete asks first, of the selection when `bulk`, else of one record.

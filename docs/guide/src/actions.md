@@ -80,7 +80,9 @@ Ok(match tablo::url::edit::<PostResource>(cx, &copy) {
 A file to download is a redirect to an app route that serves it.
 
 A destructive action declares `const CONFIRM: bool = true` to ask first through the delete's
-confirmation dialog.
+confirmation dialog, and `fn confirmation()` words its question. `const ICON` puts an icon before
+the button's label wherever it renders, and `const DESTRUCTIVE: bool = true` tints the button as
+Delete's is. A header action declares the same three.
 
 ## Header actions
 
