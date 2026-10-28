@@ -79,6 +79,24 @@ pub fn user_table() -> Table<User> {
 }
 // ANCHOR_END: table-toggleable
 
+// ANCHOR: table-derived-keys
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+pub struct Invoice {
+    #[key]
+    #[auto]
+    pub id: uuid::Uuid,
+    // A badge in the variant's color, and a select filter over the variants.
+    #[columns(badge, filter)]
+    pub status: crate::models::PostStatus,
+    // `€1,234.00`, labelled "Amount due".
+    #[columns(label = "Amount due", money = EUR)]
+    pub total: i64,
+    // Hidden until a reader shows it, and a date range filter.
+    #[columns(hidden_by_default, filter)]
+    pub issued_at: jiff::Timestamp,
+}
+// ANCHOR_END: table-derived-keys
+
 // ANCHOR: table-relation-column
 pub fn author_column() -> RelationColumn<Post> {
     RelationColumn::new::<AuthorResource>(

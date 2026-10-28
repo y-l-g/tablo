@@ -1,10 +1,14 @@
-//! The table and detail page a model's `ModelColumns` give a resource that declares neither.
+//! The table and detail page a model's `ModelColumns` give a resource that declares neither, and
+//! the detail page a declared table gives.
 
 use http::StatusCode;
 use tablo::{
-    Detail, EmbeddedColumn, FileColumn, NoForm, Resource, ResourceDef, Table, TextColumn, lens,
+    BooleanColumn, Detail, EmbeddedColumn, FileColumn, ModelColumns, NoForm, Resource, ResourceDef,
+    SelectFilter, Table, TextColumn, lens,
+    testing::{columns, detail_entries, filter_options, rows},
 };
 use toasty::Db;
+use topcoat::router::Router;
 use uuid::Uuid;
 
 use crate::common::{body_string, get, input_value, panel_router, test_db};
@@ -315,5 +319,196 @@ async fn declared_columns_link_a_file_and_export_an_embedded_value() {
     assert!(
         csv.contains("12 Rue Haute,\"Stage: Out, Note: shipped\"\n"),
         "the embedded column exports its leaves: {csv}"
+    );
+}
+
+/// An invoice whose fields shape their columns and declare their filters.
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+struct Invoice {
+    #[key]
+    #[auto]
+    id: Uuid,
+    number: String,
+    #[columns(badge, filter)]
+    status: TicketStatus,
+    #[columns(filter)]
+    paid: bool,
+    #[columns(label = "Amount due", money = EUR)]
+    total: i64,
+    #[columns(hidden_by_default, filter)]
+    issued_at: jiff::Timestamp,
+}
+
+/// A resource taking the model's table and detail page.
+struct InvoiceResource;
+
+impl Resource for InvoiceResource {
+    type Model = Invoice;
+    type Form = NoForm<Invoice>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new().policy(tablo::ReadOnly)
+    }
+}
+
+/// A resource extending the model's table with a filter of its own.
+struct ExtendedInvoiceResource;
+
+impl Resource for ExtendedInvoiceResource {
+    type Model = Invoice;
+    type Form = NoForm<Invoice>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .policy(tablo::ReadOnly)
+            .table(Invoice::table().filters(SelectFilter::new(lens!(Invoice.number), ["A-1"])))
+    }
+}
+
+async fn invoice_db() -> (Db, Invoice) {
+    let mut db = test_db(toasty::models!(Invoice)).await;
+    let paid = toasty::create!(Invoice {
+        number: "A-1".to_string(),
+        status: TicketStatus::Waiting,
+        paid: true,
+        total: 1234,
+        issued_at: "2020-03-01T12:00:00Z".parse::<jiff::Timestamp>().unwrap(),
+    })
+    .exec(&mut db)
+    .await
+    .expect("seed invoice");
+    toasty::create!(Invoice {
+        number: "A-2".to_string(),
+        status: TicketStatus::Open,
+        paid: false,
+        total: 50,
+        issued_at: "2030-03-01T12:00:00Z".parse::<jiff::Timestamp>().unwrap(),
+    })
+    .exec(&mut db)
+    .await
+    .expect("seed invoice");
+    (db, paid)
+}
+
+/// The invoice numbers the list at `uri` shows, in order.
+async fn listed(router: &Router, uri: &str) -> Vec<String> {
+    let html = body_string(get(router, uri).await).await;
+    rows(&html)
+        .into_iter()
+        .filter_map(|row| row.cells.into_iter().find(|cell| cell.starts_with("A-")))
+        .collect()
+}
+
+/// `#[columns(filter)]` gives the field the filter its type picks: a select over an options
+/// enum, a ternary over a `bool`, a range of days over a timestamp.
+#[tokio::test]
+async fn a_field_filter_filters_the_list_by_the_field() {
+    let (db, _) = invoice_db().await;
+    let router = panel_router::<InvoiceResource>(db);
+
+    let html = body_string(get(&router, "/admin/invoices").await).await;
+    let waiting = filter_options(&html, "status")
+        .expect("a status filter")
+        .into_iter()
+        .find(|option| option.label == "Waiting on customer")
+        .expect("the filter offers the enum's options")
+        .value;
+    let uri = format!("/admin/invoices?f.status={waiting}");
+    assert_eq!(listed(&router, &uri).await, ["A-1"]);
+    assert_eq!(
+        listed(&router, "/admin/invoices?f.paid=false").await,
+        ["A-2"]
+    );
+    assert_eq!(
+        listed(&router, "/admin/invoices?f.issued_at.from=2025-01-01").await,
+        ["A-2"]
+    );
+}
+
+/// A table extended from the model's adds its filters after the derived ones.
+#[tokio::test]
+async fn an_extended_table_keeps_the_field_filters() {
+    let (db, _) = invoice_db().await;
+    let router = panel_router::<ExtendedInvoiceResource>(db);
+
+    let html = body_string(get(&router, "/admin/extended-invoices").await).await;
+    assert!(filter_options(&html, "status").is_some(), "{html}");
+    assert!(filter_options(&html, "number").is_some(), "{html}");
+}
+
+/// The presentation keys shape the column in the table and on the detail page:
+/// `hidden_by_default` starts the column hidden in the list, `money` spells the number as an
+/// amount, and `label` names the entry.
+#[tokio::test]
+async fn the_presentation_keys_shape_the_table_and_the_detail_page() {
+    let (db, invoice) = invoice_db().await;
+    let router = panel_router::<InvoiceResource>(db);
+
+    let html = body_string(get(&router, "/admin/invoices").await).await;
+    assert_eq!(
+        columns(&html),
+        ["number", "status", "paid", "total"],
+        "the hidden column starts out of the list"
+    );
+    assert!(
+        rows(&html)
+            .iter()
+            .any(|row| row.cells.iter().any(|cell| cell == "€1,234.00")),
+        "{html}"
+    );
+
+    let detail = body_string(get(&router, &format!("/admin/invoices/{}", invoice.id)).await).await;
+    let entries = detail_entries(&detail);
+    assert_eq!(
+        entries
+            .iter()
+            .map(|e| e.column.as_str())
+            .collect::<Vec<_>>(),
+        ["number", "status", "paid", "total", "issued_at"],
+        "the detail page shows every column, a hidden one included"
+    );
+    let total = entries
+        .iter()
+        .find(|e| e.column == "total")
+        .expect("a total entry");
+    assert!(
+        total.text.contains("Amount due") && total.text.contains("€1,234.00"),
+        "{total:?}"
+    );
+}
+
+/// A resource declaring a table and no detail page.
+struct TabledTicketResource;
+
+impl Resource for TabledTicketResource {
+    type Model = Ticket;
+    type Form = TicketForm;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .policy(tablo::ReadOnly)
+            .edit_only()
+            .table(Table::new((
+                TextColumn::new(lens!(Ticket.subject)),
+                BooleanColumn::new(lens!(Ticket.urgent)),
+            )))
+    }
+}
+
+/// A declared table is the detail page's default: the page shows its columns, in its order.
+#[tokio::test]
+async fn the_detail_page_defaults_to_the_declared_table() {
+    let (db, ticket) = ticket_db().await;
+    let router = panel_router::<TabledTicketResource>(db);
+
+    let detail = get(&router, &format!("/admin/tabled-tickets/{}", ticket.id)).await;
+    assert_eq!(detail.status(), StatusCode::OK);
+    let entries = detail_entries(&body_string(detail).await);
+    assert_eq!(
+        entries
+            .iter()
+            .map(|e| e.column.as_str())
+            .collect::<Vec<_>>(),
+        ["subject", "urgent"]
     );
 }

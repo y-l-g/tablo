@@ -1,10 +1,11 @@
 //! `#[derive(ModelColumns)]` gives a model its default table and detail page: a column per field
-//! a person reads, picked by the field's type.
+//! a person reads, picked by the field's type and shaped by its `#[columns(..)]` keys.
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::DeriveInput;
 
+use self::keys::ColumnKeys;
 use crate::{
     fields::{last_segment, named_fields, reject_generics},
     model_form::{foreign_keys, has, is_tenant, struct_keys},
@@ -24,23 +25,39 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
     } = fields(&input)?;
     let krate = crate::tablo_core_path(&input.ident, "ModelColumns")?;
     let model = &input.ident;
-    let fields: Vec<TokenStream2> = shown
-        .iter()
-        .map(|field| {
-            let name = field.ident.as_ref().expect("named field");
-            let ty = &field.ty;
-            quote! {
-                (&&&&&&&#krate::__macro::pick::ModelField(#krate::__macro::Lens::<
-                    #model,
-                    #ty,
-                    #krate::__macro::pick::PathOf<#ty>,
-                >::new(
-                    <#model>::fields().#name(),
-                    |record: &#model| &record.#name,
-                )))
-            }
-        })
-        .collect();
+    let pick = quote!(#krate::__macro::pick);
+    let mut table = TokenStream2::new();
+    let mut detail = TokenStream2::new();
+    for (field, keys) in &shown {
+        let name = field.ident.as_ref().expect("named field");
+        let ty = &field.ty;
+        let model_field = quote! {
+            let __field = #pick::ModelField(#krate::__macro::Lens::<
+                #model,
+                #ty,
+                #pick::PathOf<#ty>,
+            >::new(
+                <#model>::fields().#name(),
+                |record: &#model| &record.#name,
+            ));
+        };
+        let table_calls = keys.column_calls(&krate, true);
+        let filter = keys.filter(&krate);
+        table.extend(quote! {
+            #model_field
+            let __column = (&&&&&&&__field).table_column();
+            #table_calls
+            let __table = #pick::Place::place_in_table(__column, __table);
+            #filter
+        });
+        let detail_calls = keys.column_calls(&krate, false);
+        detail.extend(quote! {
+            #model_field
+            let __column = (&&&&&&&__field).detail_column();
+            #detail_calls
+            let __detail = #pick::Place::place_in_detail(__column, __detail);
+        });
+    }
     let version = version_field(&input)?.map(|field| {
         let name = field.ident.as_ref().expect("named field");
         quote! {
@@ -51,30 +68,30 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
             }
         }
     });
+    let picks = quote! {
+        #[allow(unused_imports)]
+        use #pick::{
+            PickDate as _, PickDateFilter as _, PickEmbedded as _, PickNoFilter as _,
+            PickNone as _, PickRepeater as _, PickScalar as _, PickSelectFilter as _,
+            PickString as _, PickTernaryFilter as _, PickToggle as _,
+        };
+    };
     Ok(quote! {
         impl #krate::__macro::ModelColumns for #model {
             const TENANT_COLUMNS: &'static [&'static str] = &[#(#tenant_columns),*];
 
             fn table() -> #krate::__macro::Table<#model> {
-                #[allow(unused_imports)]
-                use #krate::__macro::pick::{
-                    PickDate as _, PickEmbedded as _, PickNone as _, PickRepeater as _,
-                    PickScalar as _, PickString as _, PickToggle as _,
-                };
+                #picks
                 // `__` names: a `let` pattern would match a unit struct the model's module names.
                 let __table = #krate::__macro::Table::new(());
-                #(let __table = #fields.table(__table);)*
+                #table
                 __table
             }
 
             fn detail() -> #krate::__macro::Detail<#model> {
-                #[allow(unused_imports)]
-                use #krate::__macro::pick::{
-                    PickDate as _, PickEmbedded as _, PickNone as _, PickRepeater as _,
-                    PickScalar as _, PickString as _, PickToggle as _,
-                };
+                #picks
                 let __detail = #krate::__macro::Detail::empty();
-                #(let __detail = #fields.detail(__detail);)*
+                #detail
                 __detail
             }
 
@@ -85,8 +102,8 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
 
 /// What the derive reads off a model's fields.
 struct Fields<'a> {
-    /// The fields a column shows, in declaration order.
-    shown: Vec<&'a syn::Field>,
+    /// The fields a column shows, in declaration order, with their `#[columns(..)]` keys.
+    shown: Vec<(&'a syn::Field, ColumnKeys)>,
     /// The names of the fields typed `TenantId` or `Option<TenantId>`.
     tenant_columns: Vec<String>,
 }
@@ -121,20 +138,22 @@ fn fields(input: &DeriveInput) -> syn::Result<Fields<'_>> {
         if is_tenant(&field.ty) {
             tenant_columns.push(ident.to_string());
         }
-        let skip = asks_skip(field)?;
+        let column_keys = ColumnKeys::parse(field)?;
         let key = has(field, "key") || keys.contains(ident);
-        match (left_out(field, key, foreign.contains(ident)), skip) {
-            (Some(reason), Some(attr)) => {
-                return Err(syn::Error::new_spanned(
-                    attr,
-                    format!(
-                        "#[derive(ModelColumns)] leaves this field out: {reason}; drop \
-                         `#[columns(skip)]`"
-                    ),
-                ));
+        match left_out(field, key, foreign.contains(ident)) {
+            Some(reason) => {
+                if let Some(span) = column_keys.skip.or_else(|| column_keys.presentation()) {
+                    return Err(syn::Error::new(
+                        span,
+                        format!(
+                            "#[derive(ModelColumns)] leaves this field out: {reason}; drop its \
+                             `#[columns(..)]` keys"
+                        ),
+                    ));
+                }
             }
-            (None, None) => shown.push(field),
-            _ => {}
+            None if column_keys.skip.is_none() => shown.push((field, column_keys)),
+            None => {}
         }
     }
     Ok(Fields {
@@ -151,26 +170,6 @@ fn version_field(input: &DeriveInput) -> syn::Result<Option<&syn::Field>> {
         None,
     )?;
     Ok(named.named.iter().find(|field| has(field, "version")))
-}
-
-/// The field's `#[columns(skip)]`, if it has one.
-fn asks_skip(field: &syn::Field) -> syn::Result<Option<&syn::Attribute>> {
-    let mut skip = None;
-    for attr in field
-        .attrs
-        .iter()
-        .filter(|attr| attr.path().is_ident("columns"))
-    {
-        attr.parse_nested_meta(|meta| {
-            if meta.path.is_ident("skip") {
-                skip = Some(attr);
-                Ok(())
-            } else {
-                Err(meta.error("unknown `#[columns(..)]` key: expected `skip`"))
-            }
-        })?;
-    }
-    Ok(skip)
 }
 
 /// Why no default column shows `field`, when none does.
@@ -196,6 +195,8 @@ fn left_out(field: &syn::Field, key: bool, foreign_key: bool) -> Option<&'static
         None
     }
 }
+
+mod keys;
 
 #[cfg(test)]
 mod tests;

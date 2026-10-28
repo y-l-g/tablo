@@ -47,6 +47,12 @@ pub struct Detail<M> {
     nodes: Vec<Node<M>>,
 }
 
+/// A column's `entry` under the `data-entry` hook naming the column, which lays out nothing.
+fn entry<'a>(cx: &'a Cx, name: &str, entry: BoxView<'a>) -> BoxView<'a> {
+    let name = name.to_string();
+    view! { cx => <div class="contents" data-entry=(name)>(entry)</div> }.boxed()
+}
+
 /// One block or column of a [`Detail`].
 enum Node<M> {
     Column(BoxColumn<M>),
@@ -68,6 +74,13 @@ impl<M> Detail<M> {
     /// A detail page showing nothing, which turns the page off.
     pub fn empty() -> Self {
         Self { nodes: Vec::new() }
+    }
+
+    /// A detail page showing `columns`, in order, outside any block.
+    pub(crate) fn of_columns(columns: &[BoxColumn<M>]) -> Self {
+        Self {
+            nodes: columns.iter().cloned().map(Node::Column).collect(),
+        }
     }
 
     /// Whether the declaration shows nothing.
@@ -202,7 +215,7 @@ impl<M> Detail<M> {
                 Node::Tab(tab) => tab.children.shows_any(cx, hidden),
             })
             .map(|node| match node {
-                Node::Column(column) => column.entry(cx, record),
+                Node::Column(column) => entry(cx, column.name(), column.entry(cx, record)),
                 Node::Section(section) => {
                     let body = (!section.children.is_empty())
                         .then(|| section.children.render_in(cx, record, hidden, depth));

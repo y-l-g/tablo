@@ -249,8 +249,49 @@ pub use tablo_macros::FormInput;
 ///
 /// Every other field shows, a secret such as a password hash or an API token included, to
 /// anyone the policy lets view the list: mark it `#[columns(skip)]`, which leaves it out of
-/// the table, its search and export, and the detail page. On a field already left out it is a
-/// compile error, as are an unknown key and a generic model.
+/// the table, its search and export, and the detail page.
+///
+/// # Per-field attributes
+///
+/// The other `#[columns(..)]` keys shape the column the field's type picks, in the table and
+/// on the detail page, through the column's own builder:
+///
+/// - `#[columns(label = "Amount due")]` — the column's label, and its filter's
+///   ([`TextColumn::label`](crate::TextColumn::label));
+/// - `#[columns(badge)]` — a text column's value as a badge
+///   ([`TextColumn::badge`](crate::TextColumn::badge));
+/// - `#[columns(money = EUR)]` — a number as an amount of a [`Currency`](crate::Currency): one
+///   of its constants by name, or any expression of the type, such as `money =
+///   Currency::new("CHF")` ([`TextColumn::money`](crate::TextColumn::money));
+/// - `#[columns(hidden_by_default)]` — a table column each reader may show, hidden at first
+///   ([`TextColumn::hidden_by_default`](crate::TextColumn::hidden_by_default));
+/// - `#[columns(filter)]` — a filter on the table: a [`TernaryFilter`](crate::TernaryFilter)
+///   for a `bool`, a [`DateFilter`](crate::DateFilter) over a range of days for a date or a
+///   timestamp, a [`SelectFilter`](crate::SelectFilter) for an
+///   [`Options`](derive@crate::Options) enum.
+///
+/// ```rust
+/// # #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo_core::Options)]
+/// # pub enum Status { Draft, Paid }
+/// #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// pub struct Invoice {
+///     #[key]
+///     #[auto]
+///     pub id: uuid::Uuid,
+///     #[columns(badge, filter)]
+///     pub status: Status,
+///     #[columns(label = "Amount due", money = EUR)]
+///     pub total_cents: i64,
+///     #[columns(hidden_by_default, filter)]
+///     pub issued_at: jiff::Timestamp,
+/// }
+/// ```
+///
+/// A key the field's column does not fit fails to compile at the key, such as `badge` on a
+/// `bool` or `money` on a `String`, as does `filter` on a type no built-in filter matches,
+/// `label` on a field no column shows, and `hidden_by_default` on one the table leaves out. So
+/// do an unknown or repeated key, `skip` beside another key, any key on a field the derive
+/// already leaves out, and a generic model.
 ///
 /// The derive reads the model, not a form: a file path shows as text and a `String` an
 /// `#[form(options = ..)]` key labels shows its stored value. Declare a
@@ -259,7 +300,10 @@ pub use tablo_macros::FormInput;
 ///
 /// A resource replaces either default with [`ResourceDef::table`](crate::ResourceDef::table)
 /// or [`ResourceDef::detail`](crate::ResourceDef::detail), and extends one by starting from
-/// it: `User::table().filters(..)`, with [`ModelColumns`](trait@crate::ModelColumns) in scope.
+/// it: `User::table().filters(..)`, with [`ModelColumns`](trait@crate::ModelColumns) in scope,
+/// which adds its filters after the derived ones; mounting refuses two filters on one field. A
+/// declared table is also the detail page's default: a resource that declares a table and no
+/// detail page shows the table's columns there.
 pub use tablo_macros::ModelColumns;
 /// Derive a model's [`RecordForm`](derive@crate::RecordForm) struct from the model: the fields
 /// a person fills, named and typed as the model declares them.

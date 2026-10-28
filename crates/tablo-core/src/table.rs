@@ -189,13 +189,13 @@ impl<M> Table<M> {
         self
     }
 
-    /// Declare filters.
+    /// Append `filters` after the declared ones, such as those a field's `#[columns(filter)]`
+    /// declares.
     pub fn filters(mut self, filters: impl IntoFilters<M>) -> Self
     where
         M: toasty::schema::Model,
     {
-        let filters = filters.into_filters();
-        self.filters = filters;
+        self.filters.extend(filters.into_filters());
         self
     }
 

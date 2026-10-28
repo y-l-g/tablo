@@ -28,6 +28,10 @@ lists, in declaration order. It reads the model, not the record form, so a field
 such as a `#[default]` timestamp, shows too, and a `NoForm` resource has a detail page as well.
 The derive's page lists the column each type gets and the fields it leaves out.
 
+A resource that declares a table and no detail page shows the table's columns there instead, in
+the table's order, so a column declared once for the list, such as a `RelationColumn` or a
+formatted amount, reads the same on the record's page.
+
 A relation shows only through a column that includes it, as `Author` does above, and a file path
 shows as text until a `FileColumn` links it. A resource declares its own detail page to pick or
 arrange the columns:

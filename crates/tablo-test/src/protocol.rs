@@ -4,6 +4,7 @@
 //! widgets.
 
 mod bell;
+mod detail;
 pub mod dom;
 mod ignored;
 mod import;
@@ -14,6 +15,7 @@ mod tabs;
 mod widgets;
 
 pub use bell::{Bell, BellNotification, bell};
+pub use detail::{DetailEntry, detail_entries};
 pub use dom::{
     EmptyReason, EmptyTable, ErrorKind, FilterOption, Group, PickerColumn, Row, RowActions,
     column_picker, columns, confirms_first, empty_table, field_error, field_error_message,

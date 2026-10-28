@@ -1,0 +1,20 @@
+error[E0277]: the trait bound `std::string::String: tablo_core::Numeric` is not satisfied
+ --> tests/compile_fail/model_columns_money_on_string.rs:6:15
+  |
+1 | #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+  |                                       ------------------------ required by a bound introduced by this call
+...
+6 |     #[columns(money = EUR)]
+  |               ^^^^^ the trait `tablo_core::Numeric` is not implemented for `std::string::String`
+  |
+  = help: the following other types implement trait `tablo_core::Numeric`:
+            &T
+            Option<T>
+            f32
+            f64
+            i16
+            i32
+            i64
+            i8
+          and $N others
+  = note: required for `TextColumn<User, std::string::String>` to implement `tablo_core::__macro::pick::Money`
