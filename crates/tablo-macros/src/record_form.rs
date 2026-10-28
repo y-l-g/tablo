@@ -155,7 +155,13 @@ fn field_spec(field: &syn::Field, variant: syn::Ident) -> syn::Result<FieldSpec>
             }
             None => DefaultControl::Relationship(Box::new(source)),
         }
-    } else if attrs.file && list_element(&field.ty).is_some() {
+    } else if let Some(element) = list_element(&field.ty).filter(|_| attrs.file) {
+        if !is_string(element) {
+            return Err(syn::Error::new_spanned(
+                element,
+                "a file list stores each file's path: it is a `Vec<String>`",
+            ));
+        }
         if attrs.blank.is_some() || attrs.optional {
             return Err(syn::Error::new_spanned(
                 field,
@@ -422,6 +428,11 @@ fn expand_struct(
             }
         }
     }
+}
+
+/// Whether `ty` names `String`.
+fn is_string(ty: &Type) -> bool {
+    matches!(ty, Type::Path(path) if path.qself.is_none() && path.path.is_ident("String"))
 }
 
 /// The element type of a `Vec<T>`, or `None` for any other type.

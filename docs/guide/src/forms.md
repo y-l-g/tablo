@@ -469,8 +469,10 @@ served files carry.
 stores one path per file, in the order the form lists them. Its input takes several files at once,
 which a save adds after the stored ones, and each stored file has its own remove checkbox, so the
 list works without JavaScript. With it, each row also has Move up and Move down buttons, and the
-list saves in the order its rows show. The extensions and size apply to each file, and `max_files` bounds
-how many the list holds once a save adds its files:
+list saves in the order its rows show. Only the remove checkbox drops a stored file: a file another
+save added while the form was open stays. The extensions and size apply to each file, and
+`max_files` bounds how many the list holds once a save adds its files; choosing more than that
+stores none:
 
 ```rust
 {{#include ../../../examples/guide/src/forms.rs:forms-file-list}}

@@ -13,16 +13,22 @@ function act(button) {
   const row = button.closest('[data-file-item]');
   const list = button.closest('[data-file-list]');
   if (!row || !list) return false;
+  let moved = false;
   if (button.hasAttribute('data-file-up')) {
     const previous = row.previousElementSibling;
     if (previous) list.insertBefore(row, previous);
+    moved = Boolean(previous);
   } else if (button.hasAttribute('data-file-down')) {
     const next = row.nextElementSibling;
     if (next) list.insertBefore(next, row);
+    moved = Boolean(next);
   } else {
     return false;
   }
   button.focus();
+  // A move changes what the form saves, so the leave-page guard in `forms.js`
+  // counts it as an edit.
+  if (moved) list.dispatchEvent(new Event('change', { bubbles: true }));
   return true;
 }
 

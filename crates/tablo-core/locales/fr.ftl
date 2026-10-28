@@ -308,6 +308,7 @@ tablo-field-max-files = { $count ->
 }
 tablo-field-max-size = { $label } doit peser au plus { $max }
 tablo-field-upload-failed = { $label } n'a pas pu être envoyé : { $reason }
+tablo-field-upload-name = { $label } contient un fichier dont le nom ne peut pas être enregistré ; renommez-le puis choisissez-le à nouveau
 tablo-size-bytes = { $count ->
     [one] { $count } octet
    *[other] { $count } octets

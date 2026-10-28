@@ -7,15 +7,15 @@ use tablo_ui::{
 };
 use topcoat::{Result, context::Cx, view::*};
 
-use super::{FileControl, row_seal, stored_upload_row};
+use super::{FileControl, stored_upload_row};
 use crate::schema::fields::{Field, render_field};
 
 impl Field {
     /// Renders a file list field's stored paths and its input.
     ///
-    /// Each row posts its path back under `keep_<field>`, sealed for the field as a refused
-    /// submission's carried upload is, so the submission keeps the rows it posts, in the order it
-    /// posts them; its checkbox posts the path under `clear_<field>` to drop it.
+    /// Each row posts its path back under `keep_<field>`, so the submission keeps the rows in the
+    /// order it posts them; its checkbox posts the path under `clear_<field>` to drop it, which is
+    /// the only way a submission drops a stored file.
     pub(in crate::schema::fields) fn render_files<'a>(
         &self,
         file: &FileControl,
@@ -46,41 +46,56 @@ impl Field {
                 if disabled {
                     return row;
                 }
-                let keep = row_seal(cx, &name, &path);
                 let keep_name = keep_name.clone();
                 let clear_name = clear_name.clone();
                 let clear_id = format!("clear_{id}_{index}");
-                let action = move |id: &'static str, data: Attributes| {
+                // Each row's controls are described by its file, which tells their alike labels
+                // apart.
+                let file_id = format!("{id}-file-{index}");
+                let action = move |id: &'static str, data: Attributes, described: String| {
                     view! {
                         cx =>
                         button(
                             variant: ButtonVariant::Ghost,
                             size: ButtonSize::Sm,
-                            attrs: attributes! { type="button" (data) },
+                            attrs: attributes! { type="button" aria-describedby=(described) (data) },
                             (crate::t!(cx, id))
                         )
                     }
                 };
-                let moves = movable.then(|| {
+                let described = file_id.clone();
+                let moves = movable.then(move || {
                     view! {
                         cx =>
-                        (action("tablo-files-up", attributes! { cx => data-file-up="" }))
+                        (action(
+                            "tablo-files-up",
+                            attributes! { cx => data-file-up="" },
+                            described.clone(),
+                        ))
                         (action(
                             "tablo-files-down",
                             attributes! { cx => data-file-down="" },
+                            described.clone(),
                         ))
                     }
                 });
                 view! {
                     cx =>
-                    <div class="flex items-center gap-3" data-file-item=(path.clone())>
-                        (row)
-                        if let Some(keep) = keep {
-                            <input type="hidden" name=(keep_name) value=(keep)>
-                        }
+                    <div
+                        class="flex items-center gap-3"
+                        role="listitem"
+                        data-file-item=(path.clone())
+                    >
+                        <span id=(file_id.clone())>(row)</span>
+                        <input type="hidden" name=(keep_name) value=(path.clone())>
                         <div class="flex items-center gap-2">
                             ui_checkbox(
-                                attrs: attributes! { id=(clear_id.clone()) name=(clear_name) value=(path) }
+                                attrs: attributes! {
+                                    id=(clear_id.clone())
+                                    name=(clear_name)
+                                    value=(path)
+                                    aria-describedby=(file_id)
+                                }
                             )
                             ui_label(
                                 attrs: attributes! { for=(clear_id) class="text-xs text-muted-foreground" },
@@ -103,7 +118,7 @@ impl Field {
         let accept = file.accept();
         let control = view! {
             cx =>
-            <div class="flex flex-col gap-1" data-file-list=(name.clone())>
+            <div class="flex flex-col gap-1" role="list" data-file-list=(name.clone())>
                 for row in rows {
                     (row)
                 }

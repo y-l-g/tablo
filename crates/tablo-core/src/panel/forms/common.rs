@@ -11,7 +11,7 @@ use topcoat::{
 
 use super::{
     super::{actions::load_editable, gate::gate, relations::render_relations},
-    render::{FormChrome, render_form_page},
+    render::{Carried, FormChrome, render_form_page},
 };
 pub(crate) use crate::upload::FormParts;
 use crate::{
@@ -172,23 +172,125 @@ pub(super) async fn restore_pending_uploads(
     restored
 }
 
-/// Sets each file list the submission posts to the rows it keeps, in the order it posts them, then
-/// the files it just stored, refusing more than the field's `max_files`. A list posts its input
-/// whether or not a file is chosen, so one whose input and rows are both missing, as a hidden or
-/// disabled field's are, is left to the stored value.
+/// What a submission posts for one file list, resolved against the stored list by
+/// [`FilePosts::resolve`].
+#[derive(Debug)]
+pub(super) struct FilePost {
+    name: String,
+    /// Each row's path, in the order the rows post them: the order the list keeps.
+    order: Vec<String>,
+    /// The refused submission's uploads the panel sealed for the field and this browser, that the
+    /// field's extensions take and the installed uploader still holds.
+    carried: Vec<String>,
+    /// The paths the remove checkboxes drop.
+    clear: HashSet<String>,
+    /// The files this submission stored, in the order it posts them.
+    added: Vec<String>,
+}
+
+impl FilePost {
+    /// The list the submission leaves when the record stores `held`: the rows it posts, in its
+    /// order, each a stored path or a carried upload; then each stored path no row posts; then the
+    /// carried uploads no row posts; then the files it stored. Only a remove checkbox drops a
+    /// stored path, so a row a script or a stale form leaves out, or another save added, stays.
+    fn resolve(&self, held: &[String]) -> Vec<String> {
+        let known: HashSet<&str> = held
+            .iter()
+            .chain(&self.carried)
+            .map(String::as_str)
+            .collect();
+        let mut seen = HashSet::new();
+        let mut paths = Vec::new();
+        let posted = self
+            .order
+            .iter()
+            .filter(|path| known.contains(path.as_str()));
+        for path in posted.chain(held).chain(&self.carried) {
+            if !self.clear.contains(path) && seen.insert(path.as_str()) {
+                paths.push(path.clone());
+            }
+        }
+        paths.extend(self.added.iter().cloned());
+        paths
+    }
+}
+
+/// Every file list a submission posts.
+#[derive(Debug, Default)]
+pub(super) struct FilePosts(Vec<FilePost>);
+
+impl FilePosts {
+    /// Sets each posted list in `values` to what it leaves of the list `stored` holds, adding a
+    /// refusal to `errors` for one holding more than its field's `max_files`, unless the field has
+    /// one already.
+    pub(super) fn resolve(
+        &self,
+        schema: &crate::schema::Schema,
+        stored: &FormValues,
+        values: &mut FormValues,
+        errors: &mut FieldErrors,
+    ) {
+        for post in &self.0 {
+            let paths = post.resolve(stored.list(&post.name).unwrap_or_default());
+            let field = schema.fields().find(|field| field.name() == post.name);
+            let refusal = field.and_then(|field| {
+                let file = field.as_file()?;
+                file.count_refusal(&field.label(), paths.len())
+            });
+            if let Some(refusal) = refusal.filter(|_| !errors.contains_key(&post.name)) {
+                errors.add(post.name.clone(), refusal);
+            }
+            values.insert(&post.name, FormValue::List(paths));
+        }
+    }
+
+    /// The uploads each list holds that no record stores yet, which a refused submission carries
+    /// to the next one.
+    pub(super) fn pending(&self) -> impl Iterator<Item = (String, String)> + '_ {
+        self.0.iter().flat_map(|post| {
+            let paths = post.carried.iter().chain(&post.added);
+            paths
+                .filter(|path| !post.clear.contains(*path))
+                .map(|path| (post.name.clone(), path.clone()))
+        })
+    }
+}
+
+/// Refuses, before anything is stored, each file list choosing more files than its field's
+/// `max_files`, dropping its staged files so none is written.
+pub(super) fn refuse_too_many_files(
+    schema: &crate::schema::Schema,
+    files: &mut HashMap<String, Vec<crate::upload::StagedUpload>>,
+) -> FieldErrors {
+    let mut errors = FieldErrors::new();
+    for field in schema.fields() {
+        let Some(file) = field.as_file().filter(|file| file.multiple) else {
+            continue;
+        };
+        let chosen = files.get(field.name()).map_or(0, Vec::len);
+        if let Some(refusal) = file.count_refusal(&field.label(), chosen) {
+            files.remove(field.name());
+            errors.add(field.name(), refusal);
+        }
+    }
+    errors
+}
+
+/// What each file list the submission posts asks of it, taking the files `values` holds for it
+/// as the ones it just stored. A list posts its input whether or not a file is chosen, so one
+/// posting no input, row nor remove checkbox, as a hidden or disabled field does, is left to the
+/// stored value.
 ///
-/// A kept row is a `keep_<field>` path the panel sealed for the field and this browser, not
-/// dropped by a `clear_<field>`, that the stored record holds or, for a refused submission's
-/// carried upload, that the field's extensions take and the installed uploader still holds.
+/// A row posts its bare path under `keep_<field>`, and a refused submission's upload is carried
+/// beside it under a `keep_<field>` the panel sealed for the field and this browser.
 pub(super) async fn gather_file_lists(
     cx: &Cx,
     schema: &crate::schema::Schema,
     flags: &HashMap<String, FileFlags>,
     file_part_names: &HashSet<String>,
-    stored: &FormValues,
-    values: &mut FormValues,
-) -> FieldErrors {
-    let mut errors = FieldErrors::new();
+    values: &FormValues,
+) -> FilePosts {
+    let mut posts = Vec::new();
     for field in schema.fields() {
         let Some(file) = field.as_file().filter(|file| file.multiple) else {
             continue;
@@ -197,32 +299,38 @@ pub(super) async fn gather_file_lists(
         let Some(flags) = flags.get(name) else {
             continue;
         };
-        if !file_part_names.contains(name) && flags.keep.is_empty() {
+        if !file_part_names.contains(name) && flags.keep.is_empty() && flags.clear.is_empty() {
             continue;
         }
-        let held = stored.list(name).unwrap_or_default();
-        let mut paths: Vec<String> = Vec::new();
-        for carried in &flags.keep {
-            let Some(path) = crate::upload::carry::open(cx, name, carried.trim()) else {
-                continue;
-            };
-            let dropped = flags.clear.iter().any(|clear| clear.trim() == path);
-            if path.is_empty() || dropped || paths.iter().any(|kept| kept == path) {
-                continue;
-            }
-            let kept = held.iter().any(|held| held == path)
-                || (file.takes_path(path) && crate::upload::holds(uploader(cx), path).await);
-            if kept {
-                paths.push(path.to_string());
+        let mut order = Vec::new();
+        let mut carried = Vec::new();
+        for kept in &flags.keep {
+            let kept = kept.trim();
+            match crate::upload::carry::open(cx, name, kept) {
+                Some(path) => {
+                    let held = !path.is_empty()
+                        && file.takes_path(path)
+                        && crate::upload::holds(uploader(cx), path).await;
+                    if held {
+                        carried.push(path.to_string());
+                    }
+                }
+                None => order.push(kept.to_string()),
             }
         }
-        paths.extend(values.list(name).unwrap_or_default().iter().cloned());
-        if let Some(refusal) = file.count_refusal(&field.label(), paths.len()) {
-            errors.add(name, refusal);
-        }
-        values.insert(name, FormValue::List(paths));
+        posts.push(FilePost {
+            name: name.to_string(),
+            order,
+            carried,
+            clear: flags
+                .clear
+                .iter()
+                .map(|path| path.trim().to_string())
+                .collect(),
+            added: values.list(name).unwrap_or_default().to_vec(),
+        });
     }
-    errors
+    FilePosts(posts)
 }
 
 /// Drops the open transaction before re-rendering the form with inline errors, so option loaders
@@ -234,7 +342,7 @@ pub(super) async fn rerender_invalid_form<'a, R: Resource>(
     chrome: FormChrome<'a>,
     values: &FormValues,
     errors: &FieldErrors,
-    carried: &HashSet<String>,
+    carried: &Carried,
 ) -> Result<BoxView<'a>> {
     drop(tx);
     render_form_page(cx, &resource.form, chrome, values, errors, carried).await
@@ -261,7 +369,7 @@ pub(crate) fn resource_edit<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
             FormChrome::edit(cx, &resource, &record).with_relations(relations),
             &values,
             &FieldErrors::new(),
-            &HashSet::new(),
+            &Carried::new(),
         )
         .await?;
         Ok(html)

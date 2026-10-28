@@ -95,6 +95,16 @@ fn uploaded_as(paths: &[String]) -> Vec<&str> {
         .collect()
 }
 
+/// The bare paths among a form's `keep_photos` values, one per row, without the seals a refused
+/// submission carries its uploads under.
+fn row_paths(values: &[String]) -> Vec<String> {
+    values
+        .iter()
+        .filter(|value| value.starts_with('/'))
+        .cloned()
+        .collect()
+}
+
 /// Creates an album storing `files`, returning it.
 async fn create(client: &TestClient<'_>, db: &Db, files: &[&str]) -> Album {
     let mut parts = vec![("title", None, "Sea")];
@@ -169,16 +179,19 @@ async fn an_edit_saves_the_rows_in_the_order_it_posts_them() {
                 ("title", None, "Sea"),
                 ("keep_photos", None, &rows[2]),
                 ("keep_photos", None, &rows[0]),
-                ("photos", Some(""), ""),
+                ("keep_photos", None, &rows[1]),
+                ("clear_photos", None, &album.photos[1]),
+                ("photos", Some("d.png"), "PNG"),
             ],
         )
         .await;
     assert_eq!(response.status(), 303);
     let edited = albums(&db).await.remove(0);
     assert_eq!(
-        edited.photos,
+        &edited.photos[..2],
         [album.photos[2].clone(), album.photos[0].clone()]
     );
+    assert_eq!(uploaded_as(&edited.photos), ["c.png", "a.png", "d.png"]);
 }
 
 /// A list posts its input whether or not a file is chosen, so a submission posting neither the
@@ -202,40 +215,106 @@ async fn an_edit_posting_nothing_for_the_list_keeps_it() {
     );
 }
 
-/// A row keeps a path only under the seal the panel minted for the field and this browser: a bare
-/// path, a sealed one with its path changed, and one sealed for another browser are dropped.
-#[tokio::test]
-async fn a_forged_row_keeps_nothing() {
-    let (router, db, _dir) = setup().await;
-    let client = browser(&router);
-    for forge in [
-        |album: &Album, _: String, _: String| album.photos[0].clone(),
-        |_: &Album, row: String, _: String| {
-            let (tag, _) = row.split_once('.').unwrap();
-            format!("{tag}./uploads/elsewhere.png")
-        },
-        |_: &Album, _: String, other: String| other,
-    ] {
-        let album = create(&client, &db, &["a.png"]).await;
-        let row = rows(&client, &album).await.remove(0);
-        let other = rows(&browser(&router), &album).await.remove(0);
-        let forged = forge(&album, row, other);
-        let response = client
-            .submit_multipart(
-                &format!("/admin/albums/{}/edit", album.id),
-                &[
-                    ("title", None, "Sea"),
-                    ("keep_photos", None, &forged),
-                    ("photos", Some(""), ""),
-                ],
-            )
-            .await;
-        assert_eq!(response.status(), 303, "{forged}");
-        let mut handle = db.clone();
-        let edited = Album::get_by_id(&mut handle, &album.id).await.unwrap();
-        assert!(edited.photos.is_empty(), "{forged}");
-        edited.delete().exec(&mut handle).await.unwrap();
+/// What `client` posts for `album`'s list beside `extra`: each `keep_photos` the edit form renders,
+/// the empty input, and `extra`.
+async fn edit_list(
+    client: &TestClient<'_>,
+    album: &Album,
+    keep: &[String],
+    extra: &[(&str, Option<&str>, &str)],
+) -> u16 {
+    let mut parts: Vec<(&str, Option<&str>, &str)> = vec![("title", None, "Sea")];
+    parts.extend(keep.iter().map(|row| ("keep_photos", None, row.as_str())));
+    parts.extend_from_slice(extra);
+    if !extra
+        .iter()
+        .any(|(name, file, _)| *name == "photos" && file.is_some())
+    {
+        parts.push(("photos", Some(""), ""));
     }
+    client
+        .submit_multipart(&format!("/admin/albums/{}/edit", album.id), &parts)
+        .await
+        .status()
+        .as_u16()
+}
+
+async fn album_of(db: &Db, album: &Album) -> Album {
+    Album::get_by_id(&mut db.clone(), &album.id)
+        .await
+        .expect("the album")
+}
+
+/// A `keep_photos` naming no file the record stores nor one this browser's refused submission
+/// carries adds nothing: another record's bare path, a carry sealed for another browser, and a
+/// seal with its path changed. Nor does it drop the stored files: only a remove checkbox does.
+#[tokio::test]
+async fn a_forged_row_adds_nothing_and_drops_nothing() {
+    let (router, db, dir) = setup().await;
+    let client = browser(&router);
+    let other = browser(&router);
+    let theirs = create(&other, &db, &["theirs.png"]).await;
+    let ours = create(&client, &db, &["a.png"]).await;
+    // Another browser's refused create carries its upload under a seal minted for that browser.
+    let response = other
+        .submit_multipart(
+            "/admin/albums/-/create",
+            &[("title", None, ""), ("photos", Some("x.png"), "PNG")],
+        )
+        .await;
+    assert_eq!(response.status(), 200);
+    let sealed: Vec<String> = input_values(&body_string(response).await, "keep_photos");
+    let sealed = sealed.into_iter().find(|v| !v.starts_with('/')).unwrap();
+    let (tag, _) = sealed.split_once('.').unwrap();
+    for forged in [
+        theirs.photos[0].clone(),
+        sealed.clone(),
+        format!("{tag}.{}", theirs.photos[0]),
+    ] {
+        assert_eq!(
+            edit_list(&client, &ours, std::slice::from_ref(&forged), &[]).await,
+            303
+        );
+        assert_eq!(album_of(&db, &ours).await.photos, ours.photos, "{forged}");
+    }
+    assert!(on_disk(&dir, &ours.photos[0]));
+    assert!(on_disk(&dir, &theirs.photos[0]));
+}
+
+/// A form opened before another save added a file leaves that file in place.
+#[tokio::test]
+async fn an_edit_keeps_a_file_another_save_added_since_it_opened() {
+    let (router, db, dir) = setup().await;
+    let client = browser(&router);
+    let album = create(&client, &db, &["a.png"]).await;
+    let opened = rows(&client, &album).await;
+    let other = browser(&router);
+    let theirs = rows(&other, &album).await;
+    assert_eq!(
+        edit_list(&other, &album, &theirs, &[("photos", Some("b.png"), "PNG")]).await,
+        303
+    );
+    assert_eq!(edit_list(&client, &album, &opened, &[]).await, 303);
+    let edited = album_of(&db, &album).await;
+    assert_eq!(uploaded_as(&edited.photos), ["a.png", "b.png"]);
+    assert!(edited.photos.iter().all(|path| on_disk(&dir, path)));
+}
+
+/// Checking every row's remove checkbox empties the list and deletes its files.
+#[tokio::test]
+async fn removing_every_row_empties_the_list() {
+    let (router, db, dir) = setup().await;
+    let client = browser(&router);
+    let album = create(&client, &db, &["a.png", "b.png"]).await;
+    let rows = rows(&client, &album).await;
+    let clears: Vec<(&str, Option<&str>, &str)> = album
+        .photos
+        .iter()
+        .map(|path| ("clear_photos", None, path.as_str()))
+        .collect();
+    assert_eq!(edit_list(&client, &album, &rows, &clears).await, 303);
+    assert!(album_of(&db, &album).await.photos.is_empty());
+    assert!(album.photos.iter().all(|path| !on_disk(&dir, path)));
 }
 
 /// A refused submission carries its rows and the files it just stored, and the next submission
@@ -253,32 +332,22 @@ async fn a_refused_edit_carries_its_rows_and_new_files() {
     let response = client.submit_multipart(&edit, &parts).await;
     assert_eq!(response.status(), 200, "a blank title re-renders the form");
     let carried = input_values(&body_string(response).await, "keep_photos");
-    assert_eq!(carried.len(), 2);
     assert_eq!(
         albums(&db).await[0].photos,
         album.photos,
         "nothing is written"
     );
 
-    let mut parts: Vec<(&str, Option<&str>, &str)> = vec![("title", None, "Sea")];
-    parts.extend(
-        carried
-            .iter()
-            .map(|row| ("keep_photos", None, row.as_str())),
-    );
-    parts.push(("photos", Some(""), ""));
-    let response = client.submit_multipart(&edit, &parts).await;
-    assert_eq!(response.status(), 303);
+    assert_eq!(edit_list(&client, &album, &carried, &[]).await, 303);
     let edited = albums(&db).await.remove(0);
     assert_eq!(edited.photos[0], album.photos[0]);
     assert_eq!(uploaded_as(&edited.photos), ["a.png", "b.png"]);
 }
 
-/// More files than `max_files`, kept and added together, is refused on the field; the files it
-/// stored are carried, so dropping one saves the rest.
+/// Choosing more files than `max_files` is refused before any is stored.
 #[tokio::test]
-async fn more_files_than_the_most_is_refused_and_carried() {
-    let (router, db, _dir) = setup().await;
+async fn choosing_more_files_than_the_most_stores_none() {
+    let (router, db, dir) = setup().await;
     let client = browser(&router);
     let mut parts = vec![("title", None, "Sea")];
     for name in ["a.png", "b.png", "c.png", "d.png"] {
@@ -290,25 +359,70 @@ async fn more_files_than_the_most_is_refused_and_carried() {
     assert_eq!(response.status(), 200);
     let html = body_string(response).await;
     assert_eq!(field_error(&html, "photos"), Some(ErrorKind::Invalid));
-    let carried = input_values(&html, "keep_photos");
-    assert_eq!(carried.len(), 4);
+    assert!(input_values(&html, "keep_photos").is_empty());
     assert!(albums(&db).await.is_empty());
-
-    let mut parts: Vec<(&str, Option<&str>, &str)> = vec![("title", None, "Sea")];
-    parts.extend(
-        carried[1..]
-            .iter()
-            .map(|row| ("keep_photos", None, row.as_str())),
+    assert!(
+        !dir.exists()
+            || std::fs::read_dir(&dir).unwrap().all(|entry| {
+                entry
+                    .unwrap()
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with('.')
+            })
     );
-    parts.push(("photos", Some(""), ""));
-    let response = client
-        .submit_multipart("/admin/albums/-/create", &parts)
-        .await;
-    assert_eq!(response.status(), 303);
+}
+
+/// Kept and added files over `max_files` together are refused on the field; the files it stored
+/// are carried, so removing a row saves the rest.
+#[tokio::test]
+async fn kept_and_added_files_over_the_most_are_refused_and_carried() {
+    let (router, db, _dir) = setup().await;
+    let client = browser(&router);
+    let album = create(&client, &db, &["a.png", "b.png"]).await;
+    let edit = format!("/admin/albums/{}/edit", album.id);
+    let mut parts: Vec<(&str, Option<&str>, &str)> = vec![("title", None, "Sea")];
+    let stored = rows(&client, &album).await;
+    parts.extend(stored.iter().map(|row| ("keep_photos", None, row.as_str())));
+    parts.push(("photos", Some("c.png"), "PNG"));
+    parts.push(("photos", Some("d.png"), "PNG"));
+    let response = client.submit_multipart(&edit, &parts).await;
+    assert_eq!(response.status(), 200);
+    let html = body_string(response).await;
+    assert_eq!(field_error(&html, "photos"), Some(ErrorKind::Invalid));
+    let carried = input_values(&html, "keep_photos");
+
+    let clear = [("clear_photos", None, album.photos[0].as_str())];
+    assert_eq!(edit_list(&client, &album, &carried, &clear).await, 303);
     assert_eq!(
-        uploaded_as(&albums(&db).await[0].photos),
+        uploaded_as(&album_of(&db, &album).await.photos),
         ["b.png", "c.png", "d.png"]
     );
+}
+
+/// A file whose name sanitizes to nothing, as a Windows device name does, errs on the field
+/// rather than dropping the files chosen beside it.
+#[tokio::test]
+async fn a_file_named_like_a_device_errs_and_the_rest_carry() {
+    let (router, db, _dir) = setup().await;
+    let client = browser(&router);
+    let response = client
+        .submit_multipart(
+            "/admin/albums/-/create",
+            &[
+                ("title", None, "Sea"),
+                ("photos", Some("a.png"), "PNG"),
+                ("photos", Some("aux.png"), "PNG"),
+                ("photos", Some("b.png"), "PNG"),
+            ],
+        )
+        .await;
+    assert_eq!(response.status(), 200);
+    let html = body_string(response).await;
+    assert_eq!(field_error(&html, "photos"), Some(ErrorKind::Invalid));
+    let carried = input_values(&html, "keep_photos");
+    assert_eq!(uploaded_as(&row_paths(&carried)), ["a.png", "b.png"]);
+    assert!(albums(&db).await.is_empty());
 }
 
 /// The extensions apply to each file: a refused one is never stored and errs on the field, and
@@ -330,7 +444,7 @@ async fn a_refused_file_among_several_errs_and_the_rest_carry() {
     assert_eq!(response.status(), 200);
     let html = body_string(response).await;
     assert_eq!(field_error(&html, "photos"), Some(ErrorKind::Invalid));
-    assert_eq!(input_values(&html, "keep_photos").len(), 1);
+    assert_eq!(row_paths(&input_values(&html, "keep_photos")).len(), 1);
     let stored: Vec<String> = std::fs::read_dir(&dir)
         .unwrap()
         .filter_map(|entry| entry.unwrap().file_name().into_string().ok())

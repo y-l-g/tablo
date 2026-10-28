@@ -150,21 +150,20 @@ async fn parse_multipart_values(
                     Capture::Persistable => !sanitized.is_empty(),
                     Capture::Any => true,
                 };
-                if staged {
-                    let mut bytes = Vec::new();
-                    read_bounded(&mut field, &mut counted, Some(&mut bytes)).await?;
-                    out.files
+                let mut bytes = Vec::new();
+                read_bounded(&mut field, &mut counted, staged.then_some(&mut bytes)).await?;
+                match capture {
+                    Capture::None => {}
+                    // A name no store may write stages without its bytes, so the field refuses
+                    // it rather than dropping the files chosen beside it.
+                    Capture::Persistable | Capture::Any => out
+                        .files
                         .entry(name.clone())
                         .or_default()
                         .push(StagedUpload {
                             filename: sanitized.clone(),
                             bytes,
-                        });
-                } else {
-                    // A part staging nothing discards the parts before it, as a later text
-                    // part does.
-                    read_bounded(&mut field, &mut counted, None).await?;
-                    out.files.remove(&name);
+                        }),
                 }
                 // Only a chosen file part may set a file field's value.
                 out.file_part_names.insert(name.clone());

@@ -9,14 +9,16 @@ clear control, nothing more: previews, drag-and-drop and progress belong to an a
 library. Uploads run before the write transaction, so a rolled-back write does not undo a store.
 
 A file list binds a `Vec<String>` column: one path per file, in the order the form lists them, its
-input taking several files at once. Each stored file renders as a row posting its path back under
-the tag a refused submission's carry uses, with its own remove checkbox, so the list adds and
-removes files without JavaScript, and a save keeps exactly the rows it posts, in the order it
-posts them. Moving a row is `file_lists.js` moving its element, so the order needs no key of its
-own and the browser renumbers nothing; without JavaScript the rows keep their stored order. A row keeps a path
-only when the record stores it or, for a carry, when the uploader holds it: the tag binds the
-field and the browser, not the record, so a browser that saw a row can keep that path on another
-record it edits, which it could remove from the first one anyway.
+input taking several files at once. Each stored file renders as a row posting its bare path back,
+which only orders the list, with its own remove checkbox, so the list adds and removes files
+without JavaScript. A save starts from the list the record stores inside its transaction: only a
+remove checkbox drops a path, a posted path the record does not store is ignored, a stored path no
+row posts stays after the posted ones, and the posted rows keep the order they post in. So a stale
+form or a row a script left out never deletes a file another save added. Moving a row is
+`file_lists.js` moving its element, so the order needs no key of its own and the browser renumbers
+nothing; without JavaScript the rows keep their stored order. A refused submission's uploads are
+carried under the tag a single file field's carry uses, beside the rows. A list choosing more files
+than `max_files` stores none of them.
 
 `Panel::uploads_dir` installs the stock `DirUploader` over one served directory; any other store
 implements `Uploader`. `Panel::serve_dir` serves an app directory with headers that keep files inert on the panel's
@@ -31,9 +33,11 @@ name, and the random file names are what keep paths unguessable.
 Rejected for the file list: storing the paths joined in one `String`, which every reader splits
 again; a related table of files per record, which each app's media library already is; a file
 field inside a repeater's item, which reads a submission's files per row for what a list of paths
-holds; a bare path posted back for a stored row, which would keep a carried upload no tag
-vouches for; and an order key beside the rows, as a repeater's, which says again what the rows'
-posting order already does.
+holds; a save keeping exactly the rows it posts, which deletes every stored file when a row's
+tag fails to open after a restart and drops a file another save added; a tag on each stored row,
+which binds no record, so a browser that once saw a row could keep its path on any record it
+edits; and an order key beside the rows, as a repeater's, which says again what the rows' posting
+order already does.
 
 Rejected: a route under the prefix per record and field that loads the record through its scoped
 query and checks `View` on each request. A stored path renders in columns, relation tables and app

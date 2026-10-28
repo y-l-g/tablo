@@ -1,13 +1,13 @@
 //! The panel as auth's [`Host`]: auth reads the request's realm and renders its pages through it,
 //! and names no panel type.
 
-use std::{collections::HashSet, sync::Arc};
+use std::sync::Arc;
 
 use topcoat::{context::Cx, view::BoxView};
 
 use super::{
     Panel,
-    forms::{FormChrome, render_form_page},
+    forms::{Carried, FormChrome, render_form_page},
     state::{enter, panels},
 };
 use crate::{
@@ -84,7 +84,7 @@ impl Host for PanelHost {
             chrome = chrome.with_hidden(name, value);
         }
         Box::pin(async move {
-            render_form_page(cx, schema, chrome, values, errors, &HashSet::new()).await
+            render_form_page(cx, schema, chrome, values, errors, &Carried::new()).await
         })
     }
 }

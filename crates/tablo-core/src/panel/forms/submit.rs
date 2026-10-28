@@ -16,10 +16,11 @@ use super::{
         write::{commit_write, failed_write},
     },
     common::{
-        FormParts, blank, drop_client_typed_uploads, file_flags, gather_file_lists,
-        parse_form_body, reject_unknown_form_keys, rerender_invalid_form, restore_pending_uploads,
+        FilePosts, FormParts, blank, drop_client_typed_uploads, file_flags, gather_file_lists,
+        parse_form_body, refuse_too_many_files, reject_unknown_form_keys, rerender_invalid_form,
+        restore_pending_uploads,
     },
-    render::{FormChrome, VERSION_FIELD, form_action, render_form_page, seed_pairs},
+    render::{Carried, FormChrome, VERSION_FIELD, form_action, render_form_page, seed_pairs},
     unique::{check_unique, taken_since},
 };
 use crate::{
@@ -40,7 +41,10 @@ pub(super) struct Submission {
     pub(super) schema: Arc<Schema>,
     pub(super) values: FormValues,
     pub(super) errors: FieldErrors,
-    carried: HashSet<String>,
+    carried: Carried,
+    /// Each file list the submission posts, which an edit resolves again against the record its
+    /// transaction loads.
+    lists: FilePosts,
     named: HashSet<String>,
 }
 
@@ -125,14 +129,22 @@ pub(super) async fn prepare_submission<R: Resource>(
     }
     // File fields take values only from file parts.
     drop_client_typed_uploads(&schema, &file_part_names, &mut values);
-    let (mut upload_errors, mut carried) =
+    // A list choosing more files than it holds stores none of them.
+    let mut upload_errors = refuse_too_many_files(&schema, &mut files);
+    let (stored_errors, mut singles) =
         crate::upload::store_uploads(uploader(cx), &schema, &files, &mut values).await;
-    carried.extend(restore_pending_uploads(cx, &schema, &flags, &mut values).await);
-    let count_errors =
-        gather_file_lists(cx, &schema, &flags, &file_part_names, &stored, &mut values).await;
-    for error in count_errors.iter() {
+    for error in stored_errors.iter() {
         if !upload_errors.contains_key(&error.key) {
             upload_errors.push(error.clone());
+        }
+    }
+    singles.extend(restore_pending_uploads(cx, &schema, &flags, &mut values).await);
+    let lists = gather_file_lists(cx, &schema, &flags, &file_part_names, &values).await;
+    lists.resolve(&schema, &stored, &mut values, &mut upload_errors);
+    let mut carried: Carried = lists.pending().collect();
+    for name in singles {
+        if let Some(path) = values.text(&name) {
+            carried.insert((name.clone(), path.to_string()));
         }
     }
     // An empty file input keeps the stored value; `clear_<field>` clears it unless a file was
@@ -156,6 +168,7 @@ pub(super) async fn prepare_submission<R: Resource>(
         values,
         errors,
         carried,
+        lists,
         named,
     })
 }
@@ -455,6 +468,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
             mut values,
             mut errors,
             carried,
+            lists,
             named,
         } = prepare_submission(cx, &resource, parts, Some(&advisory), Unposted::Missing).await?;
         // Authoritative load inside the transaction observes the write snapshot.
@@ -468,6 +482,8 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         }
         // Unnamed keys complete from this snapshot and are never written back.
         let stored = <R::Form as RecordForm>::hydrate(cx, &record);
+        // A file another save added since the advisory load stays.
+        lists.resolve(&schema, &stored, &mut values, &mut errors);
         complete(&schema, &mut values, &named, &stored);
         schema
             .keep_unseen_links(cx, &mut values, &stored, &mut *tx)
