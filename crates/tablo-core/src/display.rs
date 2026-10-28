@@ -99,18 +99,27 @@ impl Alignment {
     }
 }
 
-/// A number as a cell reads it: an integer stays exact, a float is rounded when spelled.
+/// A number as a cell reads it: an integer and a decimal stay exact, a float is rounded when
+/// spelled.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Number {
     /// Any integer type, widened.
     Int(i128),
     /// `f32` or `f64`.
     Float(f64),
+    /// `mantissa / 10^scale`, exactly: a decimal type's value. Spelled with fewer digits than
+    /// `scale`, it rounds half to even, as a float's spelling does.
+    Decimal {
+        /// The digits, with the sign.
+        mantissa: i128,
+        /// How many of the digits follow the point.
+        scale: u32,
+    },
 }
 
 /// A field a [`TextColumn`](crate::TextColumn) can spell as a number or an amount of money:
-/// every integer and float type, and an `Option` of one, which reads as the table's dash when
-/// `None`.
+/// every integer and float type, `rust_decimal::Decimal` and `bigdecimal::BigDecimal` with the
+/// features of those names, and an `Option` of one, which reads as the table's dash when `None`.
 pub trait Numeric {
     /// The value, `None` when it holds none.
     fn number(&self) -> Option<Number>;
@@ -145,6 +154,55 @@ impl Numeric for f32 {
 impl Numeric for f64 {
     fn number(&self) -> Option<Number> {
         Some(Number::Float(*self))
+    }
+}
+
+#[cfg(feature = "rust_decimal")]
+impl Numeric for rust_decimal::Decimal {
+    fn number(&self) -> Option<Number> {
+        Some(Number::Decimal {
+            mantissa: self.mantissa(),
+            scale: self.scale(),
+        })
+    }
+}
+
+/// A value of more than 38 significant digits, which no `i128` mantissa holds, is rounded to 38,
+/// half to even; one whose integer part alone outgrows them reads as a float.
+#[cfg(feature = "bigdecimal")]
+impl Numeric for bigdecimal::BigDecimal {
+    fn number(&self) -> Option<Number> {
+        use bigdecimal::{RoundingMode, ToPrimitive};
+
+        const DIGITS: u64 = 38;
+        let exact = || {
+            let (mantissa, scale) = match self.digits().checked_sub(DIGITS) {
+                Some(excess @ 1..) => {
+                    let (_, scale) = self.as_bigint_and_scale();
+                    let scale = scale.checked_sub(i64::try_from(excess).ok()?)?;
+                    self.with_scale_round(scale, RoundingMode::HalfEven)
+                        .into_bigint_and_scale()
+                }
+                _ => self.clone().into_bigint_and_scale(),
+            };
+            let mantissa = mantissa.to_i128()?;
+            match u32::try_from(scale) {
+                Ok(scale) => Some(Number::Decimal { mantissa, scale }),
+                Err(_) if scale < 0 => {
+                    let shift = 10i128.checked_pow(u32::try_from(scale.unsigned_abs()).ok()?)?;
+                    Some(Number::Decimal {
+                        mantissa: mantissa.checked_mul(shift)?,
+                        scale: 0,
+                    })
+                }
+                Err(_) => None,
+            }
+        };
+        exact().or_else(|| {
+            self.to_f64()
+                .filter(|float| float.is_finite())
+                .map(Number::Float)
+        })
     }
 }
 
@@ -231,6 +289,13 @@ impl Currency {
                 Number::Float(minor / 10f64.powi(self.decimals.into())),
                 self.decimals,
             ),
+            (true, Number::Decimal { mantissa, scale }) => format_number(
+                Number::Decimal {
+                    mantissa,
+                    scale: scale.saturating_add(self.decimals.into()),
+                },
+                self.decimals,
+            ),
             (false, number) => format_number(number, self.decimals),
         };
         let (sign, digits) = match spelled.strip_prefix('-') {
@@ -281,6 +346,7 @@ pub(crate) fn format_number(number: Number, decimals: u8) -> String {
                 fixed
             }
         }
+        Number::Decimal { mantissa, scale } => fixed_decimal(mantissa, scale, decimals),
     };
     let (sign, unsigned) = match fixed.strip_prefix('-') {
         Some(rest) => ("-", rest),
@@ -301,6 +367,74 @@ pub(crate) fn format_number(number: Number, decimals: u8) -> String {
         Some(fraction) => format!("{sign}{grouped}.{fraction}"),
         None => format!("{sign}{grouped}"),
     }
+}
+
+/// Spell `mantissa / 10^scale` with `decimals` digits after the point and no grouping, rounding
+/// half to even. The digits are worked as text: a scale far past the mantissa's length drops
+/// every digit without spelling the zeros between.
+fn fixed_decimal(mantissa: i128, scale: u32, decimals: u8) -> String {
+    let digits = mantissa.unsigned_abs().to_string();
+    let decimals = u32::from(decimals);
+    // The value times `10^decimals`, as digits.
+    let mut units = if scale <= decimals {
+        let zeros = (decimals - scale) as usize;
+        format!("{digits}{}", "0".repeat(zeros))
+    } else {
+        // `scale - decimals` digits to drop: at most the length, else the value rounds to zero.
+        let dropped = usize::try_from(scale - decimals)
+            .ok()
+            .filter(|&dropped| dropped <= digits.len());
+        match dropped {
+            Some(dropped) => {
+                let (kept, rest) = digits.split_at(digits.len() - dropped);
+                let mut kept = if kept.is_empty() { "0" } else { kept }.to_string();
+                let odd = kept.bytes().last().is_some_and(|digit| digit % 2 == 1);
+                let rounds_up = match rest.as_bytes() {
+                    [first, tail @ ..] => {
+                        *first > b'5'
+                            || (*first == b'5' && (tail.iter().any(|&digit| digit != b'0') || odd))
+                    }
+                    [] => false,
+                };
+                if rounds_up {
+                    increment(&mut kept);
+                }
+                kept
+            }
+            None => "0".to_string(),
+        }
+    };
+    let width = decimals as usize + 1;
+    if units.len() < width {
+        units.insert_str(0, &"0".repeat(width - units.len()));
+    }
+    let point = units.len() - decimals as usize;
+    let negative = mantissa < 0 && units.bytes().any(|digit| digit != b'0');
+    let sign = if negative { "-" } else { "" };
+    if decimals == 0 {
+        format!("{sign}{units}")
+    } else {
+        format!("{sign}{}.{}", &units[..point], &units[point..])
+    }
+}
+
+/// Add one to the decimal digits `digits`, carrying into a new leading digit.
+fn increment(digits: &mut String) {
+    let mut bytes = std::mem::take(digits).into_bytes();
+    let mut carry = true;
+    for digit in bytes.iter_mut().rev() {
+        if *digit == b'9' {
+            *digit = b'0';
+        } else {
+            *digit += 1;
+            carry = false;
+            break;
+        }
+    }
+    if carry {
+        bytes.insert(0, b'1');
+    }
+    *digits = String::from_utf8(bytes).expect("ASCII digits stay ASCII");
 }
 
 #[cfg(test)]

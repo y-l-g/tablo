@@ -10,7 +10,8 @@
 //! The built-in columns and filters and the [`Toggle`](crate::Toggle) control implement these
 //! traits too, every [`Resource`](crate::Resource) is an [`OptionSource`], and the integer and
 //! float types, `bool`, `Uuid`, [`TenantId`](crate::TenantId), `jiff::Timestamp` and the
-//! `jiff::civil` `Date`, `Time` and `DateTime` are [`TypedValue`]s.
+//! `jiff::civil` `Date`, `Time` and `DateTime` are [`TypedValue`]s, as are
+//! `rust_decimal::Decimal` and `bigdecimal::BigDecimal` with the features of those names.
 
 pub use crate::{
     column::{Column, Includes},

@@ -20,6 +20,7 @@ aes-gcm = { version = "0.11", default-features = false, features = ["aes", "allo
 # Cleans a rich text field's HTML to the elements its toolbar produces (ADR-0032).
 ammonia = { version = "4", optional = true }
 argon2 = "0.6"
+bigdecimal = { workspace = true, optional = true }
 bytes = "1"
 # The base32 an authenticator app reads a two-factor secret in.
 data-encoding = "2"
@@ -49,6 +50,7 @@ pluralizer = "0.6"
 qrcode = { version = "0.14", default-features = false }
 # A text field's `pattern` rule, checked again on the server.
 regex = "1"
+rust_decimal = { workspace = true, optional = true }
 serde.workspace = true
 sha1 = "0.11"
 sha2 = "0.11"
@@ -74,6 +76,10 @@ default = ["rich-text"]
 # The rich text field, column and `rich_text` module (ADR-0032), and `ammonia`, which cleans their
 # HTML.
 rich-text = ["dep:ammonia"]
+# `rust_decimal::Decimal` and `bigdecimal::BigDecimal` as typed values and numeric amounts, and
+# Toasty's feature of the same name, which stores them.
+rust_decimal = ["dep:rust_decimal", "toasty/rust_decimal"]
+bigdecimal = ["dep:bigdecimal", "toasty/bigdecimal"]
 
 [dev-dependencies]
 # The catalog guard reads each message's variables off the parsed catalog.

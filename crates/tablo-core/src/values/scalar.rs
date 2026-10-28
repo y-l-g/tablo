@@ -47,7 +47,8 @@ pub trait FormScalar: Sized {
     /// Parse a trimmed, non-empty submission, or return the error message.
     fn parse_form(value: &str) -> std::result::Result<Self, crate::Text>;
 
-    /// The form spelling of a stored value.
+    /// The form spelling of a stored value: a [`TypedValue`]'s
+    /// [`form_spelling`](TypedValue::form_spelling).
     fn to_form(&self) -> String;
 
     /// What a column cell and a group header read: the form spelling, or an
@@ -110,7 +111,7 @@ impl<T: TypedValue> FormScalar for T {
     }
 
     fn to_form(&self) -> String {
-        self.to_string()
+        self.form_spelling()
     }
 
     fn order(&self, other: &Self) -> Option<std::cmp::Ordering> {

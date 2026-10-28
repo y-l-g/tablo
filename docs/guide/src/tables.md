@@ -104,7 +104,8 @@ An `Options` enum gives each variant its badge color with `#[option(color = "…
 ```
 
 The export writes the formatted value: `$1,234.50`, not `123450`. Money uses `,` and `.` as
-separators; a locale's own spelling is a `.format(..)`.
+separators; a locale's own spelling is a `.format(..)`. Over a [decimal column](./forms.md#typed-values),
+`.numeric(..)` and `.money(..)` spell the stored digits without passing through a float.
 
 ### Hiding columns
 

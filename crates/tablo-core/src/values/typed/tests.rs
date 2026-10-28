@@ -36,6 +36,96 @@ fn a_float_accepts_and_spells_a_finite_number() {
     );
 }
 
+/// What a decimal type refuses whatever the type: anything but a plain number input's spelling.
+#[cfg(any(feature = "rust_decimal", feature = "bigdecimal"))]
+const NOT_PLAIN_DECIMALS: &[&str] = &[
+    "abc", "1e3", "1E-7", "+1", "1_000", "1.", "--1", "-", ".", "1.2.3", "NaN", "inf", "0x10",
+    "1,5", "١",
+];
+
+/// A decimal keeps the scale it was typed with and refuses what it cannot hold exactly.
+#[cfg(feature = "rust_decimal")]
+#[test]
+fn a_rust_decimal_parses_strictly_and_keeps_its_scale() {
+    use rust_decimal::Decimal;
+
+    assert_eq!(
+        Decimal::parse_form("12.50").map(|value| value.to_form()),
+        Ok("12.50".to_string())
+    );
+    assert_eq!(
+        Decimal::parse_form(".5").map(|value| value.to_form()),
+        Ok("0.5".to_string())
+    );
+    assert_eq!(Decimal::parse_form("-3"), Ok(Decimal::from(-3)));
+    let past_scale = format!("0.{}1", "0".repeat(28));
+    let past_mantissa = "79228162514264337593543950336";
+    for input in NOT_PLAIN_DECIMALS
+        .iter()
+        .copied()
+        .chain([past_scale.as_str(), past_mantissa])
+    {
+        assert_eq!(
+            Decimal::parse_form(input).map_err(|error| error.english()),
+            Err(rejected(input)),
+            "Decimal accepted {input}"
+        );
+    }
+}
+
+/// A big decimal keeps its scale, and its form spelling is the plain one its parse reads back,
+/// not the exponent its `Display` writes.
+#[cfg(feature = "bigdecimal")]
+#[test]
+fn a_big_decimal_parses_strictly_and_spells_plainly() {
+    use bigdecimal::BigDecimal;
+
+    assert_eq!(
+        BigDecimal::parse_form("12.50").map(|value| value.to_form()),
+        Ok("12.50".to_string())
+    );
+    let tiny: BigDecimal = "1E-7".parse().unwrap();
+    assert_eq!(tiny.to_form(), "0.0000001");
+    assert_eq!(BigDecimal::parse_form(&tiny.to_form()), Ok(tiny));
+    for input in NOT_PLAIN_DECIMALS {
+        assert_eq!(
+            BigDecimal::parse_form(input).map_err(|error| error.english()),
+            Err(rejected(input)),
+            "BigDecimal accepted {input}"
+        );
+    }
+}
+
+#[cfg(feature = "rust_decimal")]
+proptest::proptest! {
+    /// A decimal's form spelling parses back to the same value at the same scale.
+    #[test]
+    fn a_rust_decimal_round_trips_through_its_form_spelling(
+        mantissa in proptest::num::i64::ANY,
+        scale in 0u32..=28,
+    ) {
+        let value = rust_decimal::Decimal::new(mantissa, scale);
+        let read = rust_decimal::Decimal::parse_form(&value.to_form());
+        proptest::prop_assert_eq!(read.map(|read| (read, read.scale())), Ok((value, scale)));
+    }
+}
+
+#[cfg(feature = "bigdecimal")]
+proptest::proptest! {
+    /// A big decimal's form spelling parses back to the same value and spelling, whatever its
+    /// scale, an exponent `Display` would write included.
+    #[test]
+    fn a_big_decimal_round_trips_through_its_form_spelling(
+        mantissa in proptest::num::i128::ANY,
+        scale in -40i64..=40,
+    ) {
+        let value = bigdecimal::BigDecimal::new(mantissa.into(), scale);
+        let read = bigdecimal::BigDecimal::parse_form(&value.to_form()).expect("parses");
+        proptest::prop_assert_eq!(read.to_form(), value.to_form());
+        proptest::prop_assert_eq!(read, value);
+    }
+}
+
 /// The civil types read what their `date`, `time` and `datetime-local` controls send.
 #[test]
 fn a_civil_value_parses_its_controls_submission() {
