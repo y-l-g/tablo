@@ -13,6 +13,8 @@
 
 use tablo_core::dom::{empty, error, row};
 
+use super::controls::{DisabledAction, disabled_actions};
+
 pub(crate) type Attrs = Vec<(String, Option<String>)>;
 pub(crate) type Element = (String, Attrs, String);
 
@@ -37,6 +39,8 @@ pub struct RowActions {
     /// The `Delete` POST target, carried as its button's `formaction`; `None` when policy hides
     /// it.
     pub delete_action: Option<String>,
+    /// The custom actions the row shows disabled, in document order.
+    pub disabled: Vec<DisabledAction>,
 }
 
 /// One `<option>` of a filter select, or one checkbox of a filter checklist.
@@ -209,24 +213,6 @@ pub fn find_href_with(html: &str, needle: &str) -> Option<String> {
         .find(|href| href.contains(needle))
 }
 
-/// Whether the button posting to `action` asks first: a confirming trigger is a plain button that
-/// opens the dialog, a direct write is a submit button. `None` when no button posts there.
-pub fn confirms_first(html: &str, action: &str) -> Option<bool> {
-    open_tags(html)
-        .into_iter()
-        .find(|(tag, attrs, _)| {
-            tag == "button" && attr_value(attrs, "formaction").as_deref() == Some(action)
-        })
-        .map(|(_, attrs, _)| attr_value(&attrs, "type").as_deref() == Some("button"))
-}
-
-/// Whether the bulk bar offers to select every record the list's query selects, beyond its page.
-pub fn selects_matching(html: &str) -> bool {
-    open_tags(html).iter().any(|(tag, attrs, _)| {
-        tag == "button" && attr_value(attrs, "data-select-matching").is_some()
-    })
-}
-
 /// The action targets of the row whose checkbox value or action URL carries
 /// `key`, or `None` when no row matches.
 pub fn row_actions(html: &str, key: &str) -> Option<RowActions> {
@@ -366,6 +352,7 @@ fn row(row_html: &str) -> Row {
             view: view_href,
             edit: edit_href,
             delete_action,
+            disabled: disabled_actions(row_html),
         },
     }
 }

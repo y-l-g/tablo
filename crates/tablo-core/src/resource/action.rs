@@ -6,6 +6,7 @@ use std::{any::Any, future::Future};
 use derive_where::derive_where;
 use topcoat::{Result, context::Cx, icon::IconData};
 
+mod abilities;
 mod builtin;
 mod keys;
 mod places;
@@ -116,8 +117,9 @@ pub(crate) const RESERVED_KEYS: [&str; 4] = [crate::csrf::FIELD_NAME, "confirm",
 /// ignore answers 400.
 ///
 /// No place renders a button for an action the policy refuses `RunAny`, and no row or page renders
-/// one for a record that fails `View`, `Run` or `can_run`. A row that no bulk action and no delete
-/// allows renders no checkbox.
+/// one for a record that fails `View` or `Run`. A record `can_run` refuses shows its button
+/// disabled, saying why, when [`disabled_reason`](Self::disabled_reason) gives a reason, and none
+/// otherwise. A row that no bulk action and no delete allows renders no checkbox.
 pub trait Action<R: Resource>: 'static {
     /// What the action asks for before it runs: `()` for nothing, or an
     /// [`FormInput`](derive@crate::FormInput) struct, such as a rejection's reason.
@@ -210,6 +212,16 @@ pub trait Action<R: Resource>: 'static {
         true
     }
 
+    /// Why the button shows disabled on a record [`can_run`](Self::can_run) refuses, rather than
+    /// hidden: "Already published" for a published post. Defaults to none, which hides it.
+    ///
+    /// It is asked only of a record the policy lets the user view and run the action on, so the
+    /// reason speaks to the record's state and never tells a user what the policy refuses them.
+    /// The route refuses a disabled record as it refuses one `can_run` hides.
+    fn disabled_reason(_cx: &Cx, _record: &R::Model) -> Option<crate::Text> {
+        None
+    }
+
     /// Refuse an input [`run`](Self::run) should not receive, such as a reason too short to
     /// act on: each error names a field of the input's [`Field`](FormInput::Field) enum and
     /// renders under its control. Defaults to none.
@@ -264,98 +276,6 @@ pub trait Action<R: Resource>: 'static {
             action = Self::label(),
             count = count
         )
-    }
-}
-
-impl<M> Ability<'_, M> {
-    /// Whether the ability is [`RunAny`](Ability::RunAny) or [`Run`](Ability::Run) for the action
-    /// `A`.
-    ///
-    /// It compares against `A::NAME`, so renaming the action keeps the policy matching it, and a
-    /// type that is not an action of the resource does not compile. `R` is inferred when `A` is an
-    /// action of one resource.
-    ///
-    /// ```rust
-    /// # use tablo_core::{Ability, Action, NoForm, Resource};
-    /// # use topcoat::{Result, context::Cx};
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
-    /// # struct Post { #[key] #[auto] id: uuid::Uuid, published: bool }
-    /// # struct PostResource;
-    /// # impl Resource for PostResource {
-    /// #     type Model = Post;
-    /// #     type Form = NoForm<Post>;
-    /// # }
-    /// # struct Publish;
-    /// # impl Action<PostResource> for Publish {
-    /// #     type Input = ();
-    /// #     const NAME: &'static str = "publish";
-    /// #     async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError> { Ok(tablo_core::Outcome::done()) }
-    /// # }
-    /// # fn is_editor(_cx: &Cx) -> bool { true }
-    /// fn post_policy(cx: &Cx, ability: Ability<'_, Post>) -> bool {
-    ///     match ability {
-    ///         Ability::Run { record, .. } if ability.is_action::<Publish, _>() => !record.published,
-    ///         Ability::ViewAny | Ability::View(_) => true,
-    ///         _ => is_editor(cx),
-    ///     }
-    /// }
-    /// ```
-    pub fn is_action<A, R>(self) -> bool
-    where
-        A: Action<R>,
-        R: Resource<Model = M>,
-    {
-        matches!(self, Ability::RunAny { action } | Ability::Run { action, .. } if action == A::NAME)
-    }
-}
-
-impl<M> crate::policy::Abilities<M> {
-    /// Who may run the record action `A` on a record: [`Run`](Ability::Run) with `A`'s
-    /// [`NAME`](Action::NAME). It also allows [`RunAny`](Ability::RunAny) for `A`, which
-    /// [`run_any`](Self::run_any) narrows. An action no `run` declares is refused.
-    ///
-    /// ```rust
-    /// # use tablo_core::{Abilities, Action, NoForm, Resource};
-    /// # use topcoat::{Result, context::Cx};
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
-    /// # struct Post { #[key] #[auto] id: uuid::Uuid, published: bool }
-    /// # struct PostResource;
-    /// # impl Resource for PostResource {
-    /// #     type Model = Post;
-    /// #     type Form = NoForm<Post>;
-    /// # }
-    /// # struct Publish;
-    /// # impl Action<PostResource> for Publish {
-    /// #     type Input = ();
-    /// #     const NAME: &'static str = "publish";
-    /// #     async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError> { Ok(tablo_core::Outcome::done()) }
-    /// # }
-    /// let policy = Abilities::<Post>::new()
-    ///     .view_any(|_cx| true)
-    ///     .view(|_cx, _post| true)
-    ///     .run::<Publish, _>(|_cx, post| !post.published);
-    /// # let _ = policy;
-    /// ```
-    #[must_use]
-    pub fn run<A, R>(mut self, check: impl Fn(&Cx, &M) -> bool + Send + Sync + 'static) -> Self
-    where
-        A: Action<R>,
-        R: Resource<Model = M>,
-    {
-        self.set_action_record(A::NAME, Box::new(check));
-        self
-    }
-
-    /// Who may run the record action `A` at all: [`RunAny`](Ability::RunAny) with `A`'s
-    /// [`NAME`](Action::NAME). Defaults to whether [`run`](Self::run) declares `A`.
-    #[must_use]
-    pub fn run_any<A, R>(mut self, check: impl Fn(&Cx) -> bool + Send + Sync + 'static) -> Self
-    where
-        A: Action<R>,
-        R: Resource<Model = M>,
-    {
-        self.set_action_any(A::NAME, Box::new(check));
-        self
     }
 }
 
@@ -440,6 +360,7 @@ impl<R: Resource> Actions<R> {
             places: A::PLACES,
             resource_wide: Ability::RunAny { action: A::NAME },
             can_run: can_run_erased::<R, A>,
+            disabled: disabled_erased::<R, A>,
             input: InputSpec::of::<A::Input>(parse_input_erased::<R, A>),
             run: run_erased::<R, A>,
             success: A::success,
@@ -484,6 +405,9 @@ pub(crate) struct ActionEntry<R: Resource> {
     pub(crate) resource_wide: Ability<'static, R::Model>,
     /// Whether the mutation may write `record`, which already passed `View`.
     pub(crate) can_run: fn(&Mounted<R>, &Cx, &R::Model) -> bool,
+    /// Why its button shows disabled on `record`, which already passed `View`, when the policy
+    /// allows it and the record's state refuses it.
+    pub(crate) disabled: fn(&Mounted<R>, &Cx, &R::Model) -> Option<crate::Text>,
     pub(crate) input: InputSpec,
     pub(crate) run: RunAction<R>,
     pub(crate) success: fn(usize) -> crate::Text,
@@ -511,6 +435,21 @@ impl<R: Resource> ActionEntry<R> {
     pub(crate) fn allows(&self, resource: &Mounted<R>, cx: &Cx, record: &R::Model) -> bool {
         self.trashed.admits(resource.is_trashed(record)) && (self.can_run)(resource, cx, record)
     }
+
+    /// Why the mutation's button shows disabled on `record`, which already passed `View`: the
+    /// record is live or trashed as the mutation takes it, and the reason its own check refuses
+    /// it, if it gives one. `None` for a record it allows.
+    pub(crate) fn disabled_on(
+        &self,
+        resource: &Mounted<R>,
+        cx: &Cx,
+        record: &R::Model,
+    ) -> Option<crate::Text> {
+        if !self.trashed.admits(resource.is_trashed(record)) {
+            return None;
+        }
+        (self.disabled)(resource, cx, record)
+    }
 }
 
 /// The mounted policy's [`Ability::Run`] and [`Action::can_run`] behind a function pointer.
@@ -526,6 +465,23 @@ fn can_run_erased<R: Resource, A: Action<R>>(
             record,
         },
     ) && A::can_run(cx, record)
+}
+
+/// [`Action::disabled_reason`] for a record the mounted policy allows [`Ability::Run`] on and
+/// [`Action::can_run`] refuses, behind a function pointer.
+fn disabled_erased<R: Resource, A: Action<R>>(
+    resource: &Mounted<R>,
+    cx: &Cx,
+    record: &R::Model,
+) -> Option<crate::Text> {
+    let run = Ability::Run {
+        action: A::NAME,
+        record,
+    };
+    if !resource.can(cx, run) || A::can_run(cx, record) {
+        return None;
+    }
+    A::disabled_reason(cx, record)
 }
 
 /// [`FormInput::parse`], then [`Action::validate_input`], behind a function pointer.

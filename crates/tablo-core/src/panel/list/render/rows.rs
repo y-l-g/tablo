@@ -242,6 +242,7 @@ pub(super) struct RowView<'a> {
 
 /// One custom action's button in a row.
 struct RowButton {
+    name: &'static str,
     label: String,
     /// The action's POST target for the row's record.
     url: String,
@@ -251,6 +252,8 @@ struct RowButton {
     destructive: bool,
     /// The action's name when it asks for input, which its dialog then does.
     input: Option<&'static str>,
+    /// Why the button shows disabled, when the record's state refuses the action.
+    disabled: Option<String>,
 }
 
 /// One page-local group header: the label with its page-local count, and the label its injected
@@ -318,11 +321,16 @@ impl<M> WiredTable<M> {
                     .actions_prefix
                     .map(|prefix| {
                         self.row_custom_actions()
-                            .filter(|action| (action.allowed)(row))
-                            .map(|action| {
+                            .filter_map(|action| {
+                                let disabled = if (action.allowed)(row) {
+                                    None
+                                } else {
+                                    Some((action.disabled)(row)?)
+                                };
                                 let url = row_action_url(prefix, &key, action.name);
                                 let input = action.input.map(|_| action.name);
-                                RowButton {
+                                Some(RowButton {
+                                    name: action.name,
                                     label: action.label.clone(),
                                     url: frame.action_url(url),
                                     confirm: (action.confirm && input.is_none())
@@ -330,7 +338,8 @@ impl<M> WiredTable<M> {
                                     icon: action.icon.clone(),
                                     destructive: action.destructive,
                                     input,
-                                }
+                                    disabled,
+                                })
                             })
                             .collect()
                     })

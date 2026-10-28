@@ -14,7 +14,11 @@ use super::{
     },
     RowButton, RowChrome, RowView,
 };
-use crate::{dom, panel::bar::DESTRUCTIVE_TONE, t};
+use crate::{
+    dom,
+    panel::bar::{DESTRUCTIVE_TONE, disabled_trigger},
+    t,
+};
 
 /// The row's actions cell: its custom actions, then View, Edit and Delete, each only when the
 /// row's policy allows it.
@@ -29,32 +33,10 @@ pub(super) fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChro
         .custom
         .iter()
         .map(|action| {
-            let RowButton {
-                label,
-                url,
-                confirm,
-                icon: face,
-                destructive,
-                input,
-            } = action;
-            let mut attrs = match input {
-                Some(name) => {
-                    input_trigger(cx, &chrome.form, &chrome.signals, name, url.clone(), false)
-                }
-                None => write_trigger(
-                    cx,
-                    &chrome.form,
-                    &chrome.signals,
-                    url.clone(),
-                    confirm
-                        .as_deref()
-                        .map(|prompt| run_confirmation(cx, prompt)),
-                    false,
-                ),
-            };
-            let tone = destructive.then_some(DESTRUCTIVE_TONE);
+            let mut attrs = trigger(cx, chrome, action);
+            let tone = action.destructive.then_some(DESTRUCTIVE_TONE);
             attrs.extend(attributes! { cx => class=(tone) aria-describedby=(described.clone()) });
-            let (label, face) = (label.clone(), face.clone());
+            let (label, face) = (action.label.clone(), action.icon.clone());
             view! {
                 cx =>
                 button(
@@ -124,6 +106,35 @@ pub(super) fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChro
     .boxed()
 }
 
+/// The attributes of a custom action's button in a row: disabled with its reason, opening its
+/// input dialog, or writing.
+fn trigger(cx: &Cx, chrome: &RowChrome, action: &RowButton) -> Attributes {
+    if let Some(reason) = &action.disabled {
+        return disabled_trigger(cx, action.name, reason);
+    }
+    match action.input {
+        Some(name) => input_trigger(
+            cx,
+            &chrome.form,
+            &chrome.signals,
+            name,
+            action.url.clone(),
+            false,
+        ),
+        None => write_trigger(
+            cx,
+            &chrome.form,
+            &chrome.signals,
+            action.url.clone(),
+            action
+                .confirm
+                .as_deref()
+                .map(|prompt| run_confirmation(cx, prompt)),
+            false,
+        ),
+    }
+}
+
 /// The row's actions behind one button: its custom actions, View and Edit, then Delete after a
 /// separator, each only when the row's policy allows it. A row allowing none keeps an empty cell.
 fn render_action_menu<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxView<'a> {
@@ -142,28 +153,10 @@ fn render_action_menu<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> 
         .custom
         .iter()
         .map(|action| {
-            let mut attrs = match action.input {
-                Some(name) => input_trigger(
-                    cx,
-                    &chrome.form,
-                    &chrome.signals,
-                    name,
-                    action.url.clone(),
-                    false,
-                ),
-                None => write_trigger(
-                    cx,
-                    &chrome.form,
-                    &chrome.signals,
-                    action.url.clone(),
-                    action
-                        .confirm
-                        .as_deref()
-                        .map(|prompt| run_confirmation(cx, prompt)),
-                    false,
-                ),
-            };
-            closes(&mut attrs);
+            let mut attrs = trigger(cx, chrome, action);
+            if action.disabled.is_none() {
+                closes(&mut attrs);
+            }
             if action.destructive {
                 attrs.extend(attributes! { cx => class="text-destructive" });
             }

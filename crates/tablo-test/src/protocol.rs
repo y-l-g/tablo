@@ -1,9 +1,10 @@
 //! Reads values back out of rendered responses: bodies, cookies, form data, the page's language,
-//! and the semantic HTML queries over tables, fields, filters, the ignored-filters banner, the
-//! import page, rich text values, the notification bell, the global search, sections, the sidebar,
-//! tabs, and widgets.
+//! and the semantic HTML queries over tables, action buttons, fields, filters, the ignored-filters
+//! banner, the import page, rich text values, the notification bell, the global search, sections,
+//! the sidebar, tabs, and widgets.
 
 mod bell;
+mod controls;
 mod detail;
 pub mod dom;
 mod ignored;
@@ -16,12 +17,12 @@ mod tabs;
 mod widgets;
 
 pub use bell::{Bell, BellNotification, bell};
+pub use controls::{DisabledAction, confirms_first, disabled_actions, selects_matching};
 pub use detail::{DetailEntry, detail_entries};
 pub use dom::{
     EmptyReason, EmptyTable, ErrorKind, FilterOption, Group, PickerColumn, Row, RowActions,
-    column_picker, columns, confirms_first, empty_table, field_error, field_error_message,
-    filter_options, find_href_with, groups, row_actions, row_keys, rows, selects_matching,
-    sortable_columns,
+    column_picker, columns, empty_table, field_error, field_error_message, filter_options,
+    find_href_with, groups, row_actions, row_keys, rows, sortable_columns,
 };
 use http_body_util::BodyExt;
 pub use ignored::{IgnoredFilter, IgnoredReason, ignored_filters};
