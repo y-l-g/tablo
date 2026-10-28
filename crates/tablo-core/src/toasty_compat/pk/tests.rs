@@ -144,6 +144,74 @@ async fn pk_filter_selects_one_record_by_a_composite_key() {
     assert_eq!(rows[0].label, "ada-2");
 }
 
+#[derive(Debug, Clone, toasty::Model)]
+struct Label {
+    #[key]
+    name: String,
+}
+
+#[tokio::test]
+async fn pk_set_filter_selects_exactly_the_given_records() {
+    let mut db = memory_db(toasty::models!(Seat, Label)).await;
+    for (owner, slot) in [("ada", 1), ("ada", 2), ("bob", 1), ("bob", 2)] {
+        toasty::create!(Seat {
+            owner: owner.to_string(),
+            slot,
+            label: format!("{owner}-{slot}"),
+        })
+        .exec(&mut db)
+        .await
+        .unwrap();
+    }
+    for name in ["red", "green", "blue"] {
+        toasty::create!(Label {
+            name: name.to_string()
+        })
+        .exec(&mut db)
+        .await
+        .unwrap();
+    }
+    let seat = |owner: &str, slot| Seat {
+        owner: owner.to_string(),
+        slot,
+        label: String::new(),
+    };
+    let (ada_2, bob_1) = (seat("ada", 2), seat("bob", 1));
+    let mut seats: Vec<String> = Seat::filter(pk_set_filter(&[&ada_2, &bob_1]))
+        .exec(&mut db)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|seat| seat.label)
+        .collect();
+    seats.sort();
+    assert_eq!(
+        seats,
+        ["ada-2", "bob-1"],
+        "a composite key matches each pair"
+    );
+
+    let label = |name: &str| Label {
+        name: name.to_string(),
+    };
+    let (red, blue) = (label("red"), label("blue"));
+    let mut labels: Vec<String> = Label::filter(pk_set_filter(&[&red, &blue]))
+        .exec(&mut db)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|label| label.name)
+        .collect();
+    labels.sort();
+    assert_eq!(labels, ["blue", "red"], "a single key matches its IN list");
+
+    let none = Label::filter(pk_set_filter::<Label>(&[]))
+        .exec(&mut db)
+        .await
+        .unwrap();
+    assert!(none.is_empty(), "no record selects no row, never every row");
+}
+
 #[tokio::test]
 async fn pk_expr_matches_an_optional_foreign_key() {
     #[derive(Debug, Clone, toasty::Model)]

@@ -7,6 +7,9 @@ use derive_where::derive_where;
 use topcoat::{Result, context::Cx};
 
 mod builtin;
+mod keys;
+
+pub use keys::filter_keys;
 
 use super::{Mounted, Resource, WriteError};
 use crate::{
@@ -59,13 +62,11 @@ pub(crate) const RESERVED_KEYS: [&str; 3] = [crate::csrf::FIELD_NAME, "confirm",
 ///         _: (),
 ///         ex: &mut dyn Executor,
 ///     ) -> Result<tablo_core::Outcome, tablo_core::WriteError> {
-///         for post in posts {
-///             Post::filter(Post::fields().id().eq(post.id))
-///                 .update()
-///                 .status("published".to_string())
-///                 .exec(&mut *ex)
-///                 .await?;
-///         }
+///         Post::filter(tablo_core::filter_keys(posts))
+///             .update()
+///             .status("published".to_string())
+///             .exec(ex)
+///             .await?;
 ///         Ok(tablo_core::Outcome::done())
 ///     }
 /// }
@@ -209,7 +210,8 @@ pub trait Action<R: Resource>: 'static {
     /// passed [`Ability::Run`] and [`can_run`](Self::can_run), with the parsed `input`, through
     /// the framework's transaction `ex`, and say what the response does once it commits:
     /// [`Outcome::done`](crate::Outcome::done) for the [`success`](Self::success) notification,
-    /// landing back where the action ran from.
+    /// landing back where the action ran from. [`filter_keys`](crate::filter_keys) writes one
+    /// change to every record in one statement.
     ///
     /// A rule that reads the database refuses the input with [`WriteError::Refused`], keyed by
     /// its form keys: the transaction rolls back and the input page renders with the errors. An
