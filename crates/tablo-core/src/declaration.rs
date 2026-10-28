@@ -183,6 +183,11 @@ pub enum DeclarationErrorKind {
     ///
     /// Keep one home page; register the other with `page`.
     SecondHome,
+    /// Every resource is [`navigation_hidden`](crate::ResourceDef::navigation_hidden) and the
+    /// panel has no home page, so its root, where a sign-in lands, leads nowhere.
+    ///
+    /// Show one resource in the sidebar, or register a page with `Panel::home`.
+    NoRoot,
     /// The resource is registered on the panel twice.
     ///
     /// Register it once; mount a variant under its own type.

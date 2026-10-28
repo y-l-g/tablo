@@ -13,7 +13,7 @@ use crate::{
         Derive, FormAttrs, assert_scalar, blank_answer, blank_option, form_attrs, last_segment,
         named_fields, reject_generics,
     },
-    record_form::pascal_case,
+    record_form::field_variants,
 };
 
 pub fn expand_tokens(input: DeriveInput) -> TokenStream2 {
@@ -27,6 +27,8 @@ struct FieldSpec {
     ident: syn::Ident,
     ty: Type,
     attrs: FormAttrs,
+    /// The field's `{Input}Field` variant.
+    variant: syn::Ident,
 }
 
 fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
@@ -38,14 +40,17 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
     let shape = format!("#[derive({derive})] supports a struct with named fields");
     let empty = format!("#[derive({derive})] needs at least one field: `()` asks for nothing");
     let named = named_fields(&input, &shape, Some(empty.as_str()))?;
+    let variants = field_variants(named.named.iter())?;
     let fields = named
         .named
         .iter()
-        .map(|field| {
+        .zip(variants)
+        .map(|(field, variant)| {
             Ok(FieldSpec {
                 ident: field.ident.clone().expect("named field"),
                 ty: field.ty.clone(),
                 attrs: input_attrs(field)?,
+                variant,
             })
         })
         .collect::<syn::Result<Vec<_>>>()?;
@@ -122,7 +127,7 @@ fn expand_struct(
         let attrs = &field.attrs;
         let key = field.ident.to_string();
         let key = key.trim_start_matches("r#");
-        let variant = format_ident!("{}", pascal_case(key));
+        let variant = &field.variant;
         keys.push(quote! { #field_enum::#variant => #key });
         variants.push(variant);
         let binding = format_ident!("__read_{}", field.ident);

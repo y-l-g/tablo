@@ -221,9 +221,9 @@ impl<R: Resource> ResourceDef<R> {
         self
     }
 
-    /// Keeps the resource out of the sidebar, and out of the panel root's redirect to the first
-    /// resource. Its pages stay mounted and answer at their URLs, and the policy still decides who
-    /// may open them.
+    /// Keeps the resource out of the sidebar and the root's redirect: hiding every resource needs
+    /// a [`Panel::home`](crate::Panel::home) ([`NoRoot`](crate::DeclarationErrorKind::NoRoot)).
+    /// Its pages stay mounted at their URLs, and its policy still decides who may open them.
     #[must_use]
     pub fn navigation_hidden(mut self) -> Self {
         self.navigation_hidden = true;

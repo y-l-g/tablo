@@ -141,14 +141,24 @@ impl ColumnKeys {
     }
 }
 
-/// The `Currency` `money = ..` names: a bare name is one of `Currency`'s constants, as in
-/// `money = EUR`; any other expression is a `Currency` itself.
+/// The `Currency` `money = ..` names: a bare ISO code, three uppercase letters, is one of
+/// `Currency`'s constants, as in `money = EUR`; any other expression, a bare name of the app's
+/// own included, is a `Currency` itself.
 fn currency_expr(krate: &TokenStream2, currency: &syn::Expr) -> TokenStream2 {
     match currency {
-        syn::Expr::Path(path) if path.qself.is_none() && path.path.get_ident().is_some() => {
-            let name = path.path.get_ident();
-            quote_spanned!(currency.span()=> #krate::Currency::#name)
+        syn::Expr::Path(path) if path.qself.is_none() && path.attrs.is_empty() => {
+            match path.path.get_ident() {
+                Some(code) if is_iso_code(&code.to_string()) => {
+                    quote_spanned!(currency.span()=> #krate::Currency::#code)
+                }
+                _ => quote!(#currency),
+            }
         }
         _ => quote!(#currency),
     }
+}
+
+/// Whether `name` is spelled as an ISO 4217 code: three uppercase ASCII letters.
+fn is_iso_code(name: &str) -> bool {
+    name.len() == 3 && name.bytes().all(|byte| byte.is_ascii_uppercase())
 }

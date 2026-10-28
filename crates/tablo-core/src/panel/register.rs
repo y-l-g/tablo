@@ -185,6 +185,15 @@ impl Registry {
         Some(url)
     }
 
+    /// Refuses a panel whose resources all leave the sidebar while no home page takes the root:
+    /// the root, and the landing after a sign-in, would answer 404.
+    pub(super) fn check_root(&mut self) {
+        if self.root.is_none() && !self.resources.is_empty() {
+            self.errors
+                .push(DeclarationError::panel(DeclarationErrorKind::NoRoot));
+        }
+    }
+
     fn page(&mut self, method: http::Method, url: &str, handler: topcoat::router::PageRenderFn) {
         self.pages
             .push(PageFn::new(method, route_path(url), handler));

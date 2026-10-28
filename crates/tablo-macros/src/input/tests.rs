@@ -17,12 +17,15 @@ fn expansion(source: &str) -> String {
         Data::Struct(data) => data.fields.iter().cloned().collect::<Vec<_>>(),
         _ => panic!("the source declares a struct"),
     };
+    let variants = field_variants(&named).unwrap();
     let fields: Vec<FieldSpec> = named
         .iter()
-        .map(|field| FieldSpec {
+        .zip(variants)
+        .map(|(field, variant)| FieldSpec {
             ident: field.ident.clone().unwrap(),
             ty: field.ty.clone(),
             attrs: input_attrs(field).unwrap(),
+            variant,
         })
         .collect();
     expand_struct(&quote! { ::tablo_core }, &input.ident, &input.vis, &fields).to_string()
