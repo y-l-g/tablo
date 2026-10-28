@@ -12,6 +12,13 @@ and validated before the transaction opens, as a record form is, so no option qu
 connection the transaction holds. A record action's `Places` are presentation only: the routes
 serve an action through the same checks wherever it shows.
 
+A bulk action may take every record its list's search and filters select instead of the rows
+checked: the POST carries the list's query, and the route re-runs the resource's list query inside
+the transaction. Re-running the list asks what opening it asks, `ViewAny`, on top of `RunAny`:
+otherwise a user who may not list the records could count them by search term through the
+refusal note. The list shows a record its user may not view locked, so the selection skips one as
+it skips a record the action refuses, where a checked key naming one answers 403.
+
 A header action runs on no record. On a resource the policy authorizes it through `RunHeader`, an
 ability apart from `RunAny`; on a page, which has no policy, the page's access does. Nothing scopes
 it to a tenant: it reads through `scoped_query` itself.
@@ -35,6 +42,12 @@ for effects outside the database. An action's `Outcome` applies only after both.
   dialog does not make, and the dialog needs JavaScript.
 - A place as authorization, a POST refused unless sent from a page the action is placed on: the
   place is where a button shows, and the policy already decides who may run the action.
+- A selection of every matching record that posts their keys: the page holds only its own rows,
+  and the keys a client posts are the ones it saw, not the ones that match when the write runs.
+- A selection of every matching record past `Limits::bulk_records`, run in chunks: each chunk
+  commits on its own, so a failure leaves part of the selection written.
+- Select all matching on a relation table or on a page that owns its query: the bulk routes re-run
+  the resource's own list query, which is not the query those tables show.
 - Audit rows in `after_commit`: an error there is logged and dropped, and a crash between the
   commit and the hook loses the row while the write stands.
 - Overriding each record fn and action `run` to write an audit row: every new write path needs its

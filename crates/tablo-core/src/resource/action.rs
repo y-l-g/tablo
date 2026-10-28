@@ -21,7 +21,7 @@ use crate::{
 };
 
 /// The keys an action's POST carries besides its input, which no input field may post.
-pub(crate) const RESERVED_KEYS: [&str; 3] = [crate::csrf::FIELD_NAME, "confirm", "ids"];
+pub(crate) const RESERVED_KEYS: [&str; 4] = [crate::csrf::FIELD_NAME, "confirm", "ids", "matching"];
 
 /// A mutation beyond create, update and delete: "publish", "archive",
 /// "resend the invite".
@@ -104,6 +104,14 @@ pub(crate) const RESERVED_KEYS: [&str; 3] = [crate::csrf::FIELD_NAME, "confirm",
 /// the bulk bar lands on the list. An action that takes the record out of the resource's
 /// [`query`](super::Resource::query) or its `View`, such as an archive the list hides, lands on
 /// that page's 404: place it on rows and the bulk bar instead.
+///
+/// The bulk bar of a resource's list whose rows span pages offers Select all matching: the
+/// selection then takes every record the list's search and filters select, on any page, rather
+/// than the rows checked. The POST carries the list's query, and the route re-runs it inside the
+/// transaction, so it takes the records that match when it runs. A record the user may not view
+/// is skipped as a refused one is, and more matches than
+/// [`Limits::bulk_records`](crate::Limits::bulk_records) write nothing. A filter the list would
+/// ignore answers 400.
 ///
 /// No place renders a button for an action the policy refuses `RunAny`, and no row or page renders
 /// one for a record that fails `View`, `Run` or `can_run`. A row that no bulk action and no delete

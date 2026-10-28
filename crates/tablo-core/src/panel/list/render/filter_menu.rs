@@ -22,7 +22,7 @@ pub(super) struct FilterViews<'a> {
     /// How many declared filters the request sets, which the filter menu's trigger counts.
     pub(super) active: usize,
     /// Requested filters that produce no predicate, each with why, as `dom::ignored` names it.
-    unapplied: Vec<(String, &'static str)>,
+    pub(super) unapplied: Vec<(String, &'static str)>,
     /// Whether no requested filter produces a predicate.
     unfiltered: bool,
 }

@@ -80,6 +80,9 @@ pub(crate) struct Wiring<M> {
     actions_prefix: Option<String>,
     /// Where a write this table's row and bulk actions start lands.
     return_to: Option<String>,
+    /// Whether the bulk bar offers every record the list's query selects: only the resource's
+    /// own list, whose query its bulk routes re-run.
+    select_matching: bool,
     /// The prefix the table's URL parameters carry.
     prefix: Option<String>,
     /// The reader's choice of toggleable columns.
@@ -99,6 +102,7 @@ impl<M> Default for Wiring<M> {
             custom_actions: Vec::new(),
             actions_prefix: None,
             return_to: None,
+            select_matching: false,
             prefix: None,
             choice: ColumnChoice::default(),
             columns_url: None,
@@ -225,6 +229,14 @@ impl<M> WiredTable<M> {
         self
     }
 
+    /// Let the bulk bar select every record the list's query selects. The bulk routes re-run the
+    /// resource's own list query, so only its list page, never a relation table or a page that
+    /// owns its query, offers it.
+    pub(crate) fn selecting_matching(mut self) -> Self {
+        self.wiring.select_matching = true;
+        self
+    }
+
     /// Send the writes this table starts back to `url`.
     pub(crate) fn returning_to(mut self, url: String) -> Self {
         self.wiring.return_to = Some(url);
@@ -296,6 +308,10 @@ impl<M> WiredTable<M> {
 
     pub(super) fn return_to(&self) -> Option<&str> {
         self.wiring.return_to.as_deref()
+    }
+
+    pub(super) fn select_matching(&self) -> bool {
+        self.wiring.select_matching && self.wiring.prefix.is_none()
     }
 
     pub(super) fn delete_prefix(&self) -> Option<&str> {

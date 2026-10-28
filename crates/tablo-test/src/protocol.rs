@@ -20,7 +20,8 @@ pub use detail::{DetailEntry, detail_entries};
 pub use dom::{
     EmptyReason, EmptyTable, ErrorKind, FilterOption, Group, PickerColumn, Row, RowActions,
     column_picker, columns, confirms_first, empty_table, field_error, field_error_message,
-    filter_options, find_href_with, groups, row_actions, row_keys, rows, sortable_columns,
+    filter_options, find_href_with, groups, row_actions, row_keys, rows, selects_matching,
+    sortable_columns,
 };
 use http_body_util::BodyExt;
 pub use ignored::{IgnoredFilter, IgnoredReason, ignored_filters};

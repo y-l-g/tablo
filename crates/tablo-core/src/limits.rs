@@ -53,7 +53,8 @@ impl Limits {
     }
 
     /// The most records one bulk action runs on. The selection loads as one `IN` list, which
-    /// some databases bound: SQLite takes 32,766 values.
+    /// some databases bound: SQLite takes 32,766 values. A selection of every matching record
+    /// past it writes nothing and asks the user to narrow the list.
     #[must_use]
     pub fn bulk_records(mut self, records: usize) -> Self {
         self.bulk_records = records.max(1);

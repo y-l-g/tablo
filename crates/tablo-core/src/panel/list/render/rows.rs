@@ -109,7 +109,7 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
     let bulk_cell = chrome.with_bulk.then(|| {
         if row.selectable {
             let described = dom_id.clone();
-            let bulk = chrome.signals.bulk.clone();
+            let (bulk, all) = (chrome.signals.bulk.clone(), chrome.signals.all.clone());
             let token = bulk_token(&row.key);
             let value = row.key.clone();
             view! {
@@ -130,6 +130,7 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
                             )
                         })
                         @change=$(|e: Event| {
+                            all.set(false);
                             let wire = bulk.get();
                             if e.target.checked {
                                 bulk.push_str(token);

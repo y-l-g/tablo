@@ -26,7 +26,7 @@ use topcoat::{
     view::BoxView,
 };
 
-use self::targets::{load_targets, refuse};
+use self::targets::{load_matching, load_targets, matching_query, refuse};
 use super::super::{
     forms::{FormChrome, parse_form_body, render_form_page, truthy},
     gate::{gate, landing_url},
@@ -48,6 +48,10 @@ use crate::{
 
 mod header;
 
+/// The key a bulk POST carries the list query in when it takes every record the query selects,
+/// rather than the `ids` it names.
+pub(crate) const MATCHING: &str = "matching";
+
 use header::HeaderHooks;
 pub(crate) use header::run_header;
 
@@ -56,7 +60,8 @@ pub(crate) use header::run_header;
 enum Target {
     /// The one record in the URL: `{list}/{key}/delete`, `{list}/{key}/-/actions/{name}`.
     Record,
-    /// The `ids` the bulk form carried: `{list}/-/bulk-delete`, `{list}/-/actions/{name}`.
+    /// The `ids` the bulk form carried, or every record its `matching` list query selects:
+    /// `{list}/-/bulk-delete`, `{list}/-/actions/{name}`.
     Bulk,
 }
 
@@ -152,6 +157,8 @@ fn custom_action<R: Resource>(
 struct Posted {
     /// The selection the bulk form carried, as it posted it.
     ids: Option<String>,
+    /// The list query whose every record the selection takes, as the bulk form posted it.
+    matching: Option<String>,
     pending: Pending,
 }
 
@@ -177,6 +184,7 @@ async fn read_post(
     let pending = read_input(cx, name, input, &parts.pairs).await?;
     Ok(Posted {
         ids: parts.last("ids").map(str::to_string),
+        matching: parts.last(MATCHING).map(str::to_string),
         pending,
     })
 }
@@ -204,12 +212,22 @@ async fn mutate<'a, R: Resource>(
     };
     let Posted {
         ids: posted_ids,
+        matching: posted_matching,
         pending,
     } = read_post(cx, body, action.name, action.confirm, &action.input).await?;
-    let ids = match target {
-        Target::Record => vec![path_param_segment(cx, "id").to_string()],
-        Target::Bulk => {
-            let max = crate::limits::of(cx).bulk_records;
+    let max = crate::limits::of(cx).bulk_records;
+    let mut matching = None;
+    let ids = match (target, &posted_matching) {
+        (Target::Record, _) => vec![path_param_segment(cx, "id").to_string()],
+        (Target::Bulk, Some(query)) => {
+            // The query re-runs the list: a user who may not open it may not count its records.
+            if !resource.can(cx, Ability::ViewAny) {
+                return Err(forbidden().into());
+            }
+            matching = Some(matching_query(cx, resource, query).await?);
+            Vec::new()
+        }
+        (Target::Bulk, None) => {
             let ids = parse_bulk_ids(posted_ids.as_deref().unwrap_or_default(), max);
             if ids.is_empty() {
                 set_notification(
@@ -230,19 +248,49 @@ async fn mutate<'a, R: Resource>(
     let mut tx = WriteTx::begin(cx, &mut db)
         .await
         .map_err(crate::error::unavailable)?;
-    let rows = load_targets(cx, resource, &ids, target, action.trashed, &mut tx).await?;
-    // A record that cannot be viewed cannot be written by guessing its key.
-    if rows.iter().any(|row| !resource.can(cx, Ability::View(row))) {
-        return Err(forbidden().into());
-    }
+    let (rows, hidden) = match matching {
+        Some(query) => {
+            let Some(rows) = load_matching(query, max, &mut tx).await? else {
+                set_notification(
+                    cx,
+                    Notification::error(crate::t!(cx, "tablo-list-too-many-matching", max = max)),
+                );
+                return Err(see_other(landing_url(cx, &resource.url)).into());
+            };
+            // The list shows a record its user may not view locked, without a checkbox: the
+            // selection skips it as it skips a record the action refuses.
+            let (rows, hidden): (Vec<R::Model>, Vec<R::Model>) = rows
+                .into_iter()
+                .partition(|row| resource.can(cx, Ability::View(row)));
+            (rows, hidden.len())
+        }
+        None => {
+            let rows = load_targets(cx, resource, &ids, target, action.trashed, &mut tx).await?;
+            // A record that cannot be viewed cannot be written by guessing its key.
+            if rows.iter().any(|row| !resource.can(cx, Ability::View(row))) {
+                return Err(forbidden().into());
+            }
+            (rows, 0)
+        }
+    };
     let (rows, refused): (Vec<R::Model>, Vec<R::Model>) = rows
         .into_iter()
         .partition(|row| action.allows(resource, cx, row));
+    let refused = refused.len() + hidden;
     if rows.is_empty() {
-        return Err(refuse(cx, resource, &action, target, refused.len()));
+        if refused == 0 {
+            let message = if posted_matching.is_some() {
+                crate::t!(cx, "tablo-list-none-matching")
+            } else {
+                crate::t!(cx, "tablo-list-select-first")
+            };
+            set_notification(cx, Notification::error(message));
+            return Err(see_other(landing_url(cx, &resource.url)).into());
+        }
+        return Err(refuse(cx, resource, &action, target, refused));
     }
-    let skipped = (!refused.is_empty()).then(|| {
-        let skipped = refused.len();
+    let skipped = (refused > 0).then(|| {
+        let skipped = refused;
         let selected = rows.len() + skipped;
         format!(
             " {}",
@@ -273,8 +321,10 @@ async fn mutate<'a, R: Resource>(
             }
         };
         let mut hidden = Vec::new();
-        if let (Target::Bulk, Some(ids)) = (target, &posted_ids) {
-            hidden.push(("ids".to_string(), ids.clone()));
+        match (target, &posted_matching, &posted_ids) {
+            (Target::Bulk, Some(query), _) => hidden.push((MATCHING.to_string(), query.clone())),
+            (Target::Bulk, None, Some(ids)) => hidden.push(("ids".to_string(), ids.clone())),
+            _ => {}
         }
         let chrome = page.chrome(
             action.name,

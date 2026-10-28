@@ -60,6 +60,8 @@ pub(super) struct Frame<'t> {
     /// Whether a row's actions sit in a menu rather than side by side.
     action_menu: bool,
     return_to: Option<&'t str>,
+    /// Whether the bulk bar may select every record the list's query selects.
+    select_matching: bool,
 }
 
 /// One column's header, width and alignment.
@@ -170,6 +172,7 @@ impl<M> WiredTable<M> {
                 .collect(),
             action_menu: self.row_action_layout() == ActionLayout::Menu,
             return_to: self.return_to(),
+            select_matching: self.select_matching(),
         }
     }
 }
@@ -258,7 +261,7 @@ pub(super) fn table_dom_id(state: &TableState, suffix: &str) -> String {
 /// table's `query` signal instead of navigating, so the page reruns with the new state in place.
 /// A modified click opens `href` the browser's way.
 pub(super) fn live_link(cx: &Cx, url: String, signals: &TableSignals) -> Attributes {
-    let query = signals.query.clone();
+    let (query, all) = (signals.query.clone(), signals.all.clone());
     let next = query_of(&url).to_string();
     attributes! {
         cx =>
@@ -278,6 +281,7 @@ pub(super) fn live_link(cx: &Cx, url: String, signals: &TableSignals) -> Attribu
             }
             e.prevent_default();
             query.set(next.clone());
+            all.set(false);
         })
     }
 }

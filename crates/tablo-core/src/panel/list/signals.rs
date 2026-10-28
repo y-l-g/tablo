@@ -8,7 +8,7 @@ use topcoat::{
 };
 
 use crate::{
-    panel::input::TableTarget,
+    panel::input::{Selection, TableTarget},
     table::{TableState, request_query},
 };
 
@@ -24,6 +24,9 @@ pub(crate) struct TableSignals {
     /// The bulk selection as `,token,` entries, each token's key percent-encoded ([`bulk_token`]
     /// spells one); empty selects none.
     pub(crate) bulk: Signal<String>,
+    /// Whether the selection takes every record `query` selects rather than `bulk`'s. A change
+    /// of the selection or of `query` clears it.
+    pub(crate) all: Signal<bool>,
     pub(crate) confirm: ConfirmSignals,
     /// Where each custom action asking for input posts its dialog, by the action's name.
     pub(crate) inputs: HashMap<&'static str, TableTarget>,
@@ -61,6 +64,7 @@ impl TableSignals {
         Self {
             query: signal(&cx, move || query),
             bulk: signal(&cx, String::new),
+            all: signal(&cx, || false),
             confirm: ConfirmSignals {
                 action: signal(&cx, String::new),
                 title: signal(&cx, String::new),
@@ -94,6 +98,15 @@ impl TableSignals {
             self.inputs.insert(name, target);
         }
         self
+    }
+
+    /// The selection the table's write forms post.
+    pub(crate) fn selection(&self) -> Selection {
+        Selection {
+            keys: self.bulk.clone(),
+            all: self.all.clone(),
+            query: self.query.clone(),
+        }
     }
 
     /// The list state `query` spells, read so a change reruns the page.

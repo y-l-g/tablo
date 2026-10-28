@@ -58,7 +58,7 @@ pub(super) fn hidden_state_inputs<'a>(
 /// same handler serves it. An unchanged query, such as the search field's `change` as it loses
 /// focus, reruns nothing.
 pub(super) fn rerun_with(signals: &TableSignals, form: &str) -> Expr<impl EventHandlerFn + use<>> {
-    let query = signals.query.clone();
+    let (query, all) = (signals.query.clone(), signals.all.clone());
     let form = form.to_string();
     expr!(|e: Event| {
         e.prevent_default();
@@ -68,6 +68,7 @@ pub(super) fn rerun_with(signals: &TableSignals, form: &str) -> Expr<impl EventH
         );
         if next != query.get() {
             query.set(next);
+            all.set(false);
         }
     })
 }
@@ -75,8 +76,9 @@ pub(super) fn rerun_with(signals: &TableSignals, form: &str) -> Expr<impl EventH
 impl Frame<'_> {
     /// Render the toolbar: a GET form holding the search field and the filter menu over the
     /// `filters` controls and their active count, which rewrites the table's query as they change,
-    /// and the bulk actions, shown while rows are selected. Typing submits the form once the
-    /// reader pauses; Enter submits it, with or without JavaScript.
+    /// and the bulk actions, shown while rows are selected, offering every matching record when
+    /// the list `spans_pages`. Typing submits the form once the reader pauses; Enter submits it,
+    /// with or without JavaScript.
     pub(super) async fn render_toolbar<'a>(
         &self,
         cx: &'a Cx,
@@ -84,6 +86,7 @@ impl Frame<'_> {
         path: &str,
         signals: &TableSignals,
         filters: (Vec<BoxView<'a>>, usize),
+        spans_pages: bool,
     ) -> Result<BoxView<'a>> {
         let show_search = self.search;
         let show_filters = self.filter_menu;
@@ -143,7 +146,7 @@ impl Frame<'_> {
             }
             .boxed()
         });
-        let bulk = with_bulk.then(|| self.render_bulk_bar(cx, state, signals));
+        let bulk = with_bulk.then(|| self.render_bulk_bar(cx, state, signals, spans_pages));
         let (filter_trigger, filter_panel) = show_filters
             .then(|| self.render_filter_menu(cx, state, path, signals, filters))
             .unzip();
@@ -291,12 +294,14 @@ impl Frame<'_> {
     }
 
     /// Render the bulk actions after the count of selected rows: each submits the table's write
-    /// form with the selection. The group hides while nothing is selected.
+    /// form with the selection. The group hides while nothing is selected. When the list
+    /// `spans_pages`, a button extends the selection to every record the list's query selects.
     fn render_bulk_bar<'a>(
         &self,
         cx: &'a Cx,
         state: &TableState,
         signals: &TableSignals,
+        spans_pages: bool,
     ) -> BoxView<'a> {
         let list = self
             .delete_prefix
@@ -358,13 +363,40 @@ impl Frame<'_> {
         }
         let selection = signals.bulk.clone();
         let count = selected_count(cx, selection.clone());
+        let (counted, all) = (signals.all.clone(), signals.all.clone());
+        let select_matching = (self.select_matching && spans_pages).then(|| {
+            let (shown, all) = (signals.all.clone(), signals.all.clone());
+            view! {
+                cx =>
+                button(
+                    variant: ButtonVariant::Ghost,
+                    size: ButtonSize::Md,
+                    attrs: attributes! {
+                        type="button"
+                        data-select-matching=""
+                        :hidden=$(shown.get())
+                        @click=$(|_e: Event| all.set(true))
+                    },
+                    (t!(cx, "tablo-list-select-matching"))
+                )
+            }
+            .boxed()
+        });
         view! {
             cx =>
             <div class="flex items-center gap-2" :hidden=$(selection.get().is_empty())>
                 <span class="px-1 text-sm text-muted-foreground tabular-nums">
-                    (count)
-                    " selected"
+                    <span :hidden=$(counted.get())>
+                        (count)
+                        " selected"
+                    </span>
+                    <span :hidden=$(!all.get())>
+                        (t!(cx, "tablo-list-all-matching"))
+                    </span>
                 </span>
+                if let Some(select_matching) = select_matching {
+                    (select_matching)
+                }
                 for control in buttons {
                     (control)
                 }

@@ -220,6 +220,13 @@ pub fn confirms_first(html: &str, action: &str) -> Option<bool> {
         .map(|(_, attrs, _)| attr_value(&attrs, "type").as_deref() == Some("button"))
 }
 
+/// Whether the bulk bar offers to select every record the list's query selects, beyond its page.
+pub fn selects_matching(html: &str) -> bool {
+    open_tags(html).iter().any(|(tag, attrs, _)| {
+        tag == "button" && attr_value(attrs, "data-select-matching").is_some()
+    })
+}
+
 /// The action targets of the row whose checkbox value or action URL carries
 /// `key`, or `None` when no row matches.
 pub fn row_actions(html: &str, key: &str) -> Option<RowActions> {
