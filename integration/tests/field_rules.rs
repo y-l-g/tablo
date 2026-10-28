@@ -65,6 +65,12 @@ struct Booking {
 }
 
 impl FormInput for Booking {
+    type Field = std::convert::Infallible;
+
+    fn key(field: Self::Field) -> &'static str {
+        match field {}
+    }
+
     fn schema() -> Schema {
         Schema::new((
             Field::toggle_input("terms").accepted(),
@@ -94,8 +100,8 @@ impl Action<TicketResource> for Book {
     type Input = Booking;
     const NAME: &'static str = "book";
 
-    fn label(_cx: &Cx) -> String {
-        "Book".to_string()
+    fn label() -> tablo::Text {
+        "Book".into()
     }
 
     async fn run(
@@ -520,6 +526,12 @@ async fn a_misdeclared_list_or_checkbox_rule_refuses_the_mount() {
     struct Misdeclared;
 
     impl FormInput for Misdeclared {
+        type Field = std::convert::Infallible;
+
+        fn key(field: Self::Field) -> &'static str {
+            match field {}
+        }
+
         fn schema() -> Schema {
             Schema::new((
                 Field::text_input::<String>("agree")
@@ -553,8 +565,8 @@ async fn a_misdeclared_list_or_checkbox_rule_refuses_the_mount() {
         type Input = Misdeclared;
         const NAME: &'static str = "run";
 
-        fn label(_cx: &Cx) -> String {
-            "Run".to_string()
+        fn label() -> tablo::Text {
+            "Run".into()
         }
 
         async fn run(

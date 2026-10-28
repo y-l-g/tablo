@@ -165,9 +165,8 @@ pub trait Action<R: Resource>: 'static {
     /// The button text. Defaults to the message `action-{NAME}` of the panel's catalogs, else
     /// [`NAME`](Self::NAME) in sentence case: `"publish"` reads "Publish", and `"send-invite"`
     /// reads "Send invite".
-    fn label(cx: &Cx) -> String {
+    fn label() -> crate::Text {
         crate::Text::derived(derived_id("action", Self::NAME), sentence_case(Self::NAME))
-            .localize(cx)
     }
 
     /// Whether `record`'s state lets the action run on it: a published post refuses "publish".
@@ -181,12 +180,28 @@ pub trait Action<R: Resource>: 'static {
     }
 
     /// Refuse an input [`run`](Self::run) should not receive, such as a reason too short to
-    /// act on: each error names an input field's key and renders under its control. Defaults to
-    /// none. A key no control renders is a declaration error: the page would show no message.
+    /// act on: each error names a field of the input's [`Field`](FormInput::Field) enum and
+    /// renders under its control. Defaults to none.
+    ///
+    /// ```rust
+    /// # use tablo_core::{FieldErrors, FormInput};
+    /// # #[derive(tablo_core::FormInput)]
+    /// # struct Closing { reason: String }
+    /// # fn validate_input(_cx: &topcoat::context::Cx, closing: &Closing) -> FieldErrors<ClosingField> {
+    /// let mut errors = FieldErrors::new();
+    /// if closing.reason.trim().len() < 10 {
+    ///     errors.add(ClosingField::Reason, "Say why in ten characters or more");
+    /// }
+    /// # errors
+    /// # }
+    /// ```
     ///
     /// It runs after the input parses and before the transaction opens, so it sees no record; a
     /// rule that reads the database refuses from [`run`](Self::run).
-    fn validate_input(_cx: &Cx, _input: &Self::Input) -> FieldErrors {
+    fn validate_input(
+        _cx: &Cx,
+        _input: &Self::Input,
+    ) -> FieldErrors<<Self::Input as FormInput>::Field> {
         FieldErrors::new()
     }
 
@@ -211,11 +226,10 @@ pub trait Action<R: Resource>: 'static {
     /// the record count: `"Publish: 3 records"`. A bulk run the action refused
     /// on some records appends their count out of the selection:
     /// `"Publish: 3 records (2 of 5 skipped)"`.
-    fn success(cx: &Cx, count: usize) -> String {
-        crate::t!(
-            cx,
+    fn success(count: usize) -> crate::Text {
+        crate::text!(
             "tablo-action-on-records",
-            action = Self::label(cx),
+            action = Self::label(),
             count = count
         )
     }
@@ -477,7 +491,7 @@ impl<R: Resource> Actions<R> {
 #[derive_where(Clone, Copy)]
 pub(crate) struct ActionEntry<R: Resource> {
     pub(crate) name: &'static str,
-    pub(crate) label: fn(&Cx) -> String,
+    pub(crate) label: fn() -> crate::Text,
     pub(crate) places: Places,
     /// The resource-wide ability checked before the body is read.
     pub(crate) resource_wide: Ability<'static, R::Model>,
@@ -485,7 +499,7 @@ pub(crate) struct ActionEntry<R: Resource> {
     pub(crate) can_run: fn(&Mounted<R>, &Cx, &R::Model) -> bool,
     pub(crate) input: InputSpec,
     pub(crate) run: RunAction<R>,
-    pub(crate) success: fn(&Cx, usize) -> String,
+    pub(crate) success: fn(usize) -> crate::Text,
     /// What a run on the records changed, for the hooks.
     pub(crate) change: fn(Vec<R::Model>) -> super::Change<R::Model>,
     /// The message the failure toast's title reads.
@@ -528,14 +542,20 @@ fn parse_input_erased<R: Resource, A: Action<R>>(cx: &Cx, values: &FormValues) -
     parse_validated(cx, values, A::validate_input)
 }
 
-/// `I`'s [`FormInput::parse`], then `validate`.
+/// `I`'s [`FormInput::parse`], then `validate`, its errors keyed by the form keys they name.
 pub(crate) fn parse_validated<I: FormInput>(
     cx: &Cx,
     values: &FormValues,
-    validate: fn(&Cx, &I) -> FieldErrors,
+    validate: fn(&Cx, &I) -> FieldErrors<I::Field>,
 ) -> InputResult {
     let input = I::parse(cx, values)?;
-    let refused: Vec<FieldError> = validate(cx, &input).into_iter().collect();
+    let refused: Vec<FieldError> = validate(cx, &input)
+        .into_iter()
+        .map(|error| FieldError {
+            key: I::key(error.key).to_string(),
+            kind: error.kind,
+        })
+        .collect();
     if !refused.is_empty() {
         return Err(refused);
     }

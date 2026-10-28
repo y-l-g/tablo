@@ -32,8 +32,8 @@ impl Action<TicketResource> for Close {
     type Input = ();
     const NAME: &'static str = "close";
 
-    fn label(_cx: &Cx) -> String {
-        "Close".to_string()
+    fn label() -> tablo::Text {
+        "Close".into()
     }
 
     async fn run(
@@ -125,8 +125,8 @@ impl Action<TicketResource> for Reopen {
     type Input = ();
     const NAME: &'static str = "reopen";
 
-    fn label(_cx: &Cx) -> String {
-        "Reopen".to_string()
+    fn label() -> tablo::Text {
+        "Reopen".into()
     }
 
     async fn run(
@@ -147,8 +147,8 @@ impl Action<TicketResource> for Archive {
     const NAME: &'static str = "archive";
     const PLACES: Places = Places::BULK;
 
-    fn label(_cx: &Cx) -> String {
-        "Archive".to_string()
+    fn label() -> tablo::Text {
+        "Archive".into()
     }
 
     async fn run(

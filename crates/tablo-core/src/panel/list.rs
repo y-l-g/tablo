@@ -195,7 +195,7 @@ fn wire_custom_actions<R: Resource>(
             let (policy_cx, policy) = (cx.clone(), Arc::clone(resource));
             TableAction {
                 name: action.name,
-                label: (action.label)(cx),
+                label: (action.label)().localize(cx),
                 row: action.places.contains(Places::ROW),
                 bulk: action.places.contains(Places::BULK),
                 confirm: action.confirm,

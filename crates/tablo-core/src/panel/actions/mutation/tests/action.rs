@@ -11,8 +11,8 @@ impl Action<Hidden> for Rename {
     type Input = ();
     const NAME: &'static str = "rename";
 
-    fn label(_cx: &Cx) -> String {
-        "Rename".to_string()
+    fn label() -> crate::Text {
+        "Rename".into()
     }
 
     async fn run(

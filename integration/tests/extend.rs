@@ -110,8 +110,8 @@ impl Action<TaskResource> for Complete {
     type Input = ();
     const NAME: &'static str = "complete";
 
-    fn label(_cx: &Cx) -> String {
-        "Complete".to_string()
+    fn label() -> tablo::Text {
+        "Complete".into()
     }
 
     fn can_run(_cx: &Cx, task: &Task) -> bool {
@@ -143,8 +143,8 @@ impl Action<TaskResource> for Explode {
     const NAME: &'static str = "explode";
     const PLACES: Places = Places::BULK;
 
-    fn label(_cx: &Cx) -> String {
-        "Explode".to_string()
+    fn label() -> tablo::Text {
+        "Explode".into()
     }
 
     fn can_run(_cx: &Cx, _task: &Task) -> bool {
@@ -653,8 +653,8 @@ impl Action<TwiceResource> for Twice {
     type Input = ();
     const NAME: &'static str = "twice";
 
-    fn label(_cx: &Cx) -> String {
-        "Twice".to_string()
+    fn label() -> tablo::Text {
+        "Twice".into()
     }
 
     fn can_run(_cx: &Cx, _task: &Task) -> bool {
@@ -704,8 +704,8 @@ impl Action<ConfirmResource> for Archive {
     const NAME: &'static str = "archive";
     const CONFIRM: bool = true;
 
-    fn label(_cx: &Cx) -> String {
-        "Archive".to_string()
+    fn label() -> tablo::Text {
+        "Archive".into()
     }
 
     async fn run(

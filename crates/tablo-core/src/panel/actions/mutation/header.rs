@@ -61,7 +61,7 @@ async fn header_run<'a>(
     let Posted { pending, .. } =
         read_post(cx, body, action.name, action.confirm, &action.input).await?;
     let render = |page: InputPage| {
-        let label = (action.label)(cx);
+        let label = (action.label)().localize(cx);
         let chrome = page.chrome(
             action.name,
             label.clone(),
@@ -106,7 +106,7 @@ async fn header_run<'a>(
             .map(|()| outcome),
         (Ok(outcome), None) => Ok(outcome),
     };
-    let note = (action.success)(cx);
+    let note = (action.success)().localize(cx);
     commit_then(
         cx,
         tx,

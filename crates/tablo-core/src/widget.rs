@@ -1,8 +1,10 @@
 //! [`Widget`] — one block of a page's widget grid, such as a row of [`Stat`]s — and the
 //! [`WidgetDef`] it declares.
 
-use std::{future::Future, sync::Arc};
+use std::{future::Future, marker::PhantomData, sync::Arc};
 
+use derive_where::derive_where;
+use toasty::stmt::Path;
 use topcoat::{
     Result,
     context::Cx,
@@ -340,25 +342,28 @@ pub const MAX_RECORD_ROWS: usize = 50;
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String, created_at: jiff::Timestamp }
-/// use tablo_core::RecordTable;
+/// use tablo_core::{RecordTable, lens};
 ///
 /// RecordTable::new()
 ///     .heading("Latest posts")
-///     .columns(["title", "created_at"])
+///     .column(lens!(Post.title))
+///     .column(lens!(Post.created_at))
 ///     .order_by(Post::fields().created_at().desc())
 ///     .limit(5);
 /// ```
-#[derive(Clone, Debug)]
-pub struct RecordTable {
+#[derive_where(Clone, Debug)]
+pub struct RecordTable<M> {
     pub(crate) heading: Option<crate::Text>,
     pub(crate) description: Option<crate::Text>,
     pub(crate) columns: Option<Vec<String>>,
     pub(crate) filter: Option<toasty::stmt::Expr<bool>>,
     pub(crate) order_by: Vec<toasty::stmt::OrderBy>,
     pub(crate) limit: usize,
+    #[derive_where(skip(Debug))]
+    _model: PhantomData<fn() -> M>,
 }
 
-impl RecordTable {
+impl<M> RecordTable<M> {
     /// A table of the resource's first [`DEFAULT_RECORD_ROWS`] records in the database's order,
     /// under the columns its list shows by default and its plural label.
     pub fn new() -> Self {
@@ -369,6 +374,7 @@ impl RecordTable {
             filter: None,
             order_by: Vec::new(),
             limit: DEFAULT_RECORD_ROWS,
+            _model: PhantomData,
         }
     }
 
@@ -386,12 +392,26 @@ impl RecordTable {
         self
     }
 
-    /// Show only the list's columns these [names](crate::extend::Column::name) name, in this
-    /// order, a hidden-by-default one included. A name the list declares no column for fails the
-    /// render; one whose field the request may not see is left out.
+    /// Show the list's column of the field `path` names, after the columns given before: once a
+    /// table names one, it shows only the columns it names, in that order, a hidden-by-default
+    /// one included. `path` is a [`Lens`](crate::Lens), a field path, or a relation's path,
+    /// `Post::fields().author()`. A field the list declares no column for fails the render; a
+    /// column whose field the request may not see is left out.
     #[must_use]
-    pub fn columns<S: Into<String>>(mut self, names: impl IntoIterator<Item = S>) -> Self {
-        self.columns = Some(names.into_iter().map(Into::into).collect());
+    pub fn column<T>(self, path: impl Into<Path<M, T>>) -> Self
+    where
+        M: toasty::schema::Model,
+    {
+        let name = crate::schema::form_key(path);
+        self.column_named(name)
+    }
+
+    /// Show the list's column named `name`, as [`column`](Self::column) does: a column of your
+    /// own, whose [name](crate::extend::Column::name) no field path spells. A field's column
+    /// takes [`column`](Self::column), whose path a rename fails to compile.
+    #[must_use]
+    pub fn column_named(mut self, name: impl Into<String>) -> Self {
+        self.columns.get_or_insert_with(Vec::new).push(name.into());
         self
     }
 
@@ -421,7 +441,7 @@ impl RecordTable {
     }
 }
 
-impl Default for RecordTable {
+impl<M> Default for RecordTable<M> {
     fn default() -> Self {
         Self::new()
     }

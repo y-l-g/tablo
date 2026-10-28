@@ -7,7 +7,7 @@ use crate::{
     BoxFuture,
     policy::Ability,
     resource::{Change, Resource, Trashed, WriteError},
-    t,
+    text,
 };
 
 impl<R: Resource> ActionEntry<R> {
@@ -15,13 +15,13 @@ impl<R: Resource> ActionEntry<R> {
     pub(super) fn restore() -> Self {
         Self {
             name: "restore",
-            label: |cx| t!(cx, "tablo-action-restore"),
+            label: || text!("tablo-action-restore"),
             places: Places::ALL,
             resource_wide: Ability::RestoreAny,
             can_run: |resource, cx, record| resource.can(cx, Ability::Restore(record)),
             input: InputSpec::none(),
             run: restore_erased::<R>,
-            success: |cx, count| t!(cx, "tablo-action-restored", count = count),
+            success: |count| text!("tablo-action-restored", count = count),
             change: Change::Restore,
             failure: "tablo-failed-restore",
             confirm: false,
@@ -35,13 +35,13 @@ impl<R: Resource> ActionEntry<R> {
     pub(super) fn force_delete() -> Self {
         Self {
             name: "force-delete",
-            label: |cx| t!(cx, "tablo-action-force-delete"),
+            label: || text!("tablo-action-force-delete"),
             places: Places::ALL,
             resource_wide: Ability::ForceDeleteAny,
             can_run: |resource, cx, record| resource.can(cx, Ability::ForceDelete(record)),
             input: InputSpec::none(),
             run: force_delete_erased::<R>,
-            success: |cx, count| t!(cx, "tablo-action-force-deleted", count = count),
+            success: |count| text!("tablo-action-force-deleted", count = count),
             change: Change::ForceDelete,
             failure: "tablo-failed-force-delete",
             confirm: true,
@@ -66,7 +66,7 @@ impl<R: Resource> ActionEntry<R> {
     fn deleting(bulk: bool) -> Self {
         Self {
             name: "delete",
-            label: |cx| t!(cx, "tablo-action-delete"),
+            label: || text!("tablo-action-delete"),
             places: if bulk { Places::BULK } else { Places::RECORD },
             resource_wide: Ability::DeleteAny,
             can_run: |resource, cx, record| resource.can(cx, Ability::Delete(record)),
@@ -76,7 +76,7 @@ impl<R: Resource> ActionEntry<R> {
             } else {
                 delete_erased::<R>
             },
-            success: |cx, count| t!(cx, "tablo-action-deleted", count = count),
+            success: |count| text!("tablo-action-deleted", count = count),
             change: Change::Delete,
             failure: if bulk {
                 "tablo-failed-bulk-delete"

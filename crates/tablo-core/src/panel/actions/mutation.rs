@@ -254,7 +254,7 @@ async fn mutate<'a, R: Resource>(
             )
         )
     });
-    let label = (action.label)(cx);
+    let label = (action.label)().localize(cx);
     let page = |page: InputPage, label: String| {
         let title = match target {
             Target::Record => crate::t!(
@@ -316,7 +316,7 @@ async fn mutate<'a, R: Resource>(
         }
     };
     let skipped_note = skipped.clone().unwrap_or_default();
-    let note = (action.success)(cx, rows.len()) + &skipped_note;
+    let note = (action.success)(rows.len()).localize(cx) + &skipped_note;
     let written = match (action.run)(cx, &rows, input, &mut *tx).await {
         Ok(outcome) => Ok(outcome.skipping(&skipped_note)),
         Err(WriteError::Refused(errors)) => {

@@ -160,6 +160,11 @@ tablo-action-on-records = { $action }: { $count ->
 }
 # A header action's success note.
 tablo-action-done = { $action }: done
+# A bulk action that no selected record may take.
+tablo-action-refused-all = { $action }: { $count ->
+    [one] { $count } selected record cannot take this action; nothing was changed
+   *[other] { $count } selected records cannot take this action; nothing was changed
+}
 
 ## Write failures
 

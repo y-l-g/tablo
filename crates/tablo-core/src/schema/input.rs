@@ -1,5 +1,7 @@
 //! A typed value a form posts under keys no column binds: the [`FormInput`] trait.
 
+use std::{fmt::Debug, hash::Hash};
+
 use topcoat::context::Cx;
 
 use super::{Field, Schema};
@@ -20,6 +22,16 @@ use crate::values::{FieldError, FormValues};
 /// struct. Each row posts the item's keys under its own prefix, and [`write`](Self::write) fills
 /// a stored item's row on the edit page.
 pub trait FormInput: Sized + Send + Sync + 'static {
+    /// One variant per field: what [`Action::validate_input`](crate::Action::validate_input)
+    /// refuses a value under, so an error always names a field the form renders. The derive
+    /// names it after the struct: `Closing` declares `ClosingField`, whose `reason` field is
+    /// `ClosingField::Reason`. An input no hook refuses by field names
+    /// [`Infallible`](std::convert::Infallible).
+    type Field: Copy + Eq + Hash + Debug + Send + Sync + 'static;
+
+    /// The form key `field` posts under.
+    fn key(field: Self::Field) -> &'static str;
+
     /// The value's controls, each posting its own key. An empty schema asks for nothing: an
     /// action runs on its button.
     fn schema() -> Schema;
@@ -40,6 +52,12 @@ pub trait FormInput: Sized + Send + Sync + 'static {
 
 /// No input: an action runs on its button.
 impl FormInput for () {
+    type Field = std::convert::Infallible;
+
+    fn key(field: Self::Field) -> &'static str {
+        match field {}
+    }
+
     fn schema() -> Schema {
         Schema::empty()
     }

@@ -73,7 +73,7 @@ pub(crate) fn header_bar(
         .iter()
         .filter(|action| allowed(action) && (action.can_run)(cx))
         .map(|action| ActionButton {
-            label: (action.label)(cx),
+            label: (action.label)().localize(cx),
             url: bulk_action_url(url.trim_end_matches('/'), action.name),
             // An action with input confirms in its input dialog, which its button opens.
             confirm: (action.confirm && !action.input.takes_input)
@@ -113,7 +113,7 @@ pub(crate) fn record_bar<R: Resource>(
         .map(|action| {
             let url = row_action_url(&resource.url, &key, action.name);
             ActionButton {
-                label: (action.label)(cx),
+                label: (action.label)().localize(cx),
                 url: if action.removes {
                     url
                 } else {

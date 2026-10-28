@@ -1,5 +1,6 @@
 //! `#[derive(FormInput)]` declares a typed value a form posts under its own keys: what an action
-//! asks for, what a sign-up reads, one item of a repeater. Each field posts under its own name.
+//! asks for, what a sign-up reads, one item of a repeater. Each field posts under its own name,
+//! and the `{Input}Field` enum names each field as a variant.
 //!
 //! See `tablo-core`'s `schema::input` module for the contract.
 
@@ -7,9 +8,12 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote, quote_spanned};
 use syn::{DeriveInput, Type, spanned::Spanned};
 
-use crate::fields::{
-    Derive, FormAttrs, assert_scalar, blank_answer, blank_option, form_attrs, last_segment,
-    named_fields, reject_generics,
+use crate::{
+    fields::{
+        Derive, FormAttrs, assert_scalar, blank_answer, blank_option, form_attrs, last_segment,
+        named_fields, reject_generics,
+    },
+    record_form::pascal_case,
 };
 
 pub fn expand_tokens(input: DeriveInput) -> TokenStream2 {
@@ -46,7 +50,7 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
         })
         .collect::<syn::Result<Vec<_>>>()?;
     let krate = crate::tablo_core_path(&input.ident, derive)?;
-    Ok(expand_struct(&krate, &input.ident, &fields))
+    Ok(expand_struct(&krate, &input.ident, &input.vis, &fields))
 }
 
 /// The field's `#[form(..)]` keys, refusing a text input's on a `bool`, which renders a checkbox.
@@ -100,7 +104,16 @@ fn input_attrs(field: &syn::Field) -> syn::Result<FormAttrs> {
     Ok(attrs)
 }
 
-fn expand_struct(krate: &TokenStream2, ident: &syn::Ident, fields: &[FieldSpec]) -> TokenStream2 {
+fn expand_struct(
+    krate: &TokenStream2,
+    ident: &syn::Ident,
+    vis: &syn::Visibility,
+    fields: &[FieldSpec],
+) -> TokenStream2 {
+    let field_enum = format_ident!("{}Field", ident);
+    let enum_doc = format!("One variant per field of [`{ident}`].");
+    let mut variants = Vec::new();
+    let mut keys = Vec::new();
     let mut controls = Vec::new();
     let mut reads = Vec::new();
     let mut writes = Vec::new();
@@ -109,6 +122,9 @@ fn expand_struct(krate: &TokenStream2, ident: &syn::Ident, fields: &[FieldSpec])
         let attrs = &field.attrs;
         let key = field.ident.to_string();
         let key = key.trim_start_matches("r#");
+        let variant = format_ident!("{}", pascal_case(key));
+        keys.push(quote! { #field_enum::#variant => #key });
+        variants.push(variant);
         let binding = format_ident!("__read_{}", field.ident);
         let is_bool = last_segment(ty).as_deref() == Some("bool");
         let mut control = match &attrs.options {
@@ -185,7 +201,21 @@ fn expand_struct(krate: &TokenStream2, ident: &syn::Ident, fields: &[FieldSpec])
         .map(|name| format_ident!("__read_{}", name))
         .collect();
     quote! {
+        #[doc = #enum_doc]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        #vis enum #field_enum {
+            #(#[allow(missing_docs)] #variants,)*
+        }
+
         impl #krate::__macro::FormInput for #ident {
+            type Field = #field_enum;
+
+            fn key(field: #field_enum) -> &'static str {
+                match field {
+                    #(#keys,)*
+                }
+            }
+
             fn schema() -> #krate::__macro::Schema {
                 #krate::__macro::Schema::empty()
                     #(.extend(#krate::__macro::IntoSchema::into_schema(#controls)))*
