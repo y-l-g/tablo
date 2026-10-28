@@ -8,8 +8,9 @@ drives the CSV export.
 The table defaults to the model's, `User::table()`, which
 [`#[derive(tablo::ModelColumns)]`](https://y-l.fr/tablo/nightly/api/tablo_core/derive.ModelColumns.html) writes: a sortable column per
 field, whether a form or Toasty writes it, so a `#[default]` `created_at` is listed too, and
-`#[columns(skip)]` leaves out a field such as a password hash. Extend the model's table, or
-declare the columns yourself:
+`#[columns(skip)]` leaves out a field such as a password hash. Extend the model's table, whose
+`filters(..)` add to the ones a field's `#[columns(filter)]` declares, or declare the columns
+yourself:
 
 ```rust
 ResourceDef::new().table(User::table().filters(TernaryFilter::new(lens!(User.active))))
@@ -120,6 +121,21 @@ A list with such a column renders a Columns menu in its toolbar. The panel keeps
 user's choice per resource, in the shipped `ColumnPreference` model, which `tablo::models!`
 registers. Hiding a column only declutters the list: search, sort and the export still read it,
 and the detail page shows it.
+
+### Presenting a derived column
+
+A model whose default table fits but for a label, a badge or a hidden column keeps the derive and
+says so on the field, rather than declaring every column. Each `#[columns(..)]` key calls the
+builder of the same name on the column the field's type picks, in the table and on the detail
+page, and `filter` adds the filter the type picks:
+
+```rust
+{{#include ../../../examples/guide/src/tables.rs:table-derived-keys}}
+```
+
+A key the column does not take, such as `badge` on a `bool`, fails to compile at the key. The
+[derive's page](https://y-l.fr/tablo/nightly/api/tablo_core/derive.ModelColumns.html#per-field-attributes)
+lists the keys and the filter each type picks.
 
 ### Your own columns
 

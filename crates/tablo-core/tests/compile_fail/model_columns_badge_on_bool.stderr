@@ -1,0 +1,17 @@
+error[E0277]: `#[columns(badge)]` shows a text column's value as a badge, and this field's column is a `BooleanColumn<User>`
+ --> tests/compile_fail/model_columns_badge_on_bool.rs:6:15
+  |
+1 | #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+  |                                       ------------------------ required by a bound introduced by this call
+...
+6 |     #[columns(badge)]
+  |               ^^^^^ the field's type picks a column that renders no badge
+  |
+  = help: the trait `tablo_core::__macro::pick::Badge` is not implemented for `BooleanColumn<User>`
+help: the trait `tablo_core::__macro::pick::Badge` is implemented for `TextColumn<M, T>`
+ --> src/table/model/pick.rs
+  |
+  | / impl<M, T> Badge for TextColumn<M, T>
+  | | where
+  | |     M: Model,
+  | |_____________^

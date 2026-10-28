@@ -84,6 +84,12 @@ impl<R: Resource> Mounted<R> {
             navigation.group = Some(group);
         }
         let navigation = navigation.resolved(&url);
+        // A declared table is the detail page's default, which shows its columns.
+        let detail = match (def.detail, &def.table) {
+            (Some(detail), _) => detail,
+            (None, Some(table)) => Detail::of_columns(table.declared_columns()),
+            (None, None) => <R::Model as ModelColumns>::detail(),
+        };
         let mut table = def.table.unwrap_or_else(<R::Model as ModelColumns>::table);
         let mut actions = def.actions;
         if def.soft_delete.is_some() {
@@ -108,9 +114,6 @@ impl<R: Resource> Mounted<R> {
                 .flat_map(|field| field.required.iter().map(String::as_str))
                 .collect(),
         );
-        let detail = def
-            .detail
-            .unwrap_or_else(<R::Model as ModelColumns>::detail);
         Self {
             slug,
             url,

@@ -333,7 +333,8 @@ impl<R: Resource> ResourceDef<R> {
         self
     }
 
-    /// The list table; defaults to the model's ([`ModelColumns::table`]).
+    /// The list table; defaults to the model's ([`ModelColumns::table`]). Its columns are also
+    /// the [`detail`](Self::detail) page's, unless the resource declares one.
     ///
     /// [`ModelColumns::table`]: crate::ModelColumns::table
     #[must_use]
@@ -374,9 +375,9 @@ impl<R: Resource> ResourceDef<R> {
         self
     }
 
-    /// The detail page: columns in layout blocks; defaults to the model's
-    /// ([`ModelColumns::detail`]), and [`Detail::empty`] turns the page off: its route answers
-    /// 404 and no row links to it. A non-empty detail adds a View action to each row.
+    /// The detail page: columns in layout blocks; defaults to the [`table`](Self::table)'s columns,
+    /// else to the model's ([`ModelColumns::detail`]). [`Detail::empty`] turns the page off: its
+    /// route answers 404 and no row links to it. A non-empty detail adds a View action to each row.
     ///
     /// The page, at `{list}/{key}`, carries in its header the record's title, a link back to the
     /// list, the actions placed on [`Places::DETAIL`](crate::Places::DETAIL) and Delete as the

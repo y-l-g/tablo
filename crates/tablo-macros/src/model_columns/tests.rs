@@ -8,7 +8,7 @@ fn shown(source: &str) -> Result<Vec<String>, String> {
             fields
                 .shown
                 .iter()
-                .map(|field| field.ident.as_ref().expect("named").to_string())
+                .map(|(field, _)| field.ident.as_ref().expect("named").to_string())
                 .collect()
         })
         .map_err(|error| error.to_string())
@@ -77,7 +77,52 @@ fn a_generated_key_is_left_out_wherever_it_is_named() {
 #[test]
 fn skip_on_a_field_no_column_shows_is_refused() {
     let message = shown("struct M { #[key] #[auto] #[columns(skip)] id: Uuid }").unwrap_err();
-    assert!(message.contains("drop `#[columns(skip)]`"), "{message}");
+    assert!(
+        message.contains("drop its `#[columns(..)]` keys"),
+        "{message}"
+    );
+    let message = shown("struct M { #[version] #[columns(label = \"V\")] v: u64 }").unwrap_err();
+    assert!(
+        message.contains("drop its `#[columns(..)]` keys"),
+        "{message}"
+    );
+}
+
+#[test]
+fn the_presentation_keys_parse_and_a_shown_field_keeps_them() {
+    let fields = shown(
+        "struct M {
+             #[columns(label = \"Total\", money = EUR, hidden_by_default)] total: i64,
+             #[columns(badge, filter)] #[columns(label = \"State\")] status: Status,
+         }",
+    );
+    assert_eq!(fields.unwrap(), ["total", "status"]);
+}
+
+#[test]
+fn a_repeated_key_skip_beside_another_or_a_bare_money_is_refused() {
+    for (source, expected) in [
+        (
+            "struct M { #[columns(badge, badge)] a: String }",
+            "given twice",
+        ),
+        (
+            "struct M { #[columns(badge)] #[columns(badge)] a: String }",
+            "given twice",
+        ),
+        (
+            "struct M { #[columns(skip, badge)] a: String }",
+            "drop this key or `skip`",
+        ),
+        ("struct M { #[columns(money)] a: i64 }", "`money = USD`"),
+        (
+            "struct M { #[columns(label = 3)] a: i64 }",
+            "expected string literal",
+        ),
+    ] {
+        let message = shown(source).unwrap_err();
+        assert!(message.contains(expected), "{source}: {message}");
+    }
 }
 
 #[test]
