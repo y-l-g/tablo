@@ -1,5 +1,5 @@
-//! A file list over HTTP: the files a create stores, the rows an edit keeps, removes and adds
-//! to, the carry of a refused submission, the count and per-file rules, and the files a delete
+//! A file list over HTTP: the files a create stores, the rows an edit keeps, orders, removes and
+//! adds to, the carry of a refused submission, the count and per-file rules, and the files a delete
 //! lets go.
 
 use std::path::{Path, PathBuf};
@@ -162,6 +162,36 @@ async fn an_edit_keeps_its_rows_drops_a_removed_one_and_adds_the_chosen_ones() {
     assert_eq!(uploaded_as(&edited.photos), ["b.png", "c.png"]);
     assert!(!on_disk(&dir, removed), "the removed file is deleted");
     assert!(edited.photos.iter().all(|path| on_disk(&dir, path)));
+}
+
+/// The rows save in the order the form posts them, which is the order the browser shows them in
+/// once a row moves; a new file goes after them.
+#[tokio::test]
+async fn an_edit_saves_the_rows_in_the_order_it_posts_them() {
+    let (router, db, _dir) = setup().await;
+    let client = browser(&router);
+    let album = create(&client, &db, &["a.png", "b.png", "c.png"]).await;
+    let rows = rows(&client, &album).await;
+    let response = client
+        .submit_multipart(
+            &format!("/admin/albums/{}/edit", album.id),
+            &[
+                ("title", None, "Sea"),
+                ("keep_photos", None, &rows[2]),
+                ("keep_photos", None, &rows[0]),
+                ("keep_photos", None, &rows[1]),
+                ("clear_photos", None, &album.photos[1]),
+                ("photos", Some("d.png"), "PNG"),
+            ],
+        )
+        .await;
+    assert_eq!(response.status(), 303);
+    let edited = albums(&db).await.remove(0);
+    assert_eq!(
+        &edited.photos[..2],
+        [album.photos[2].clone(), album.photos[0].clone()]
+    );
+    assert_eq!(uploaded_as(&edited.photos), ["c.png", "a.png", "d.png"]);
 }
 
 /// A list posts its input whether or not a file is chosen, so a submission posting neither the

@@ -18,6 +18,7 @@ pub const ASSET_FILES: &[(&str, &str)] = &[
     ("theme.js", "THEME_JS"),
     ("selects.js", "SELECTS_JS"),
     ("repeaters.js", "REPEATERS_JS"),
+    ("file_lists.js", "FILE_LISTS_JS"),
     ("password.js", "PASSWORD_JS"),
     ("tabs.js", "TABS_JS"),
     ("forms.js", "FORMS_JS"),
@@ -37,6 +38,26 @@ pub struct AssetHook {
 
 /// Track new hooks here as they land.
 pub const ASSET_HOOKS: &[AssetHook] = &[
+    AssetHook {
+        asset: "file_lists.js",
+        js: "data-file-list",
+        rust: "data-file-list",
+    },
+    AssetHook {
+        asset: "file_lists.js",
+        js: "data-file-item",
+        rust: "data-file-item",
+    },
+    AssetHook {
+        asset: "file_lists.js",
+        js: "data-file-up",
+        rust: "data-file-up",
+    },
+    AssetHook {
+        asset: "file_lists.js",
+        js: "data-file-down",
+        rust: "data-file-down",
+    },
     AssetHook {
         asset: "password.js",
         js: "data-password-toggle",

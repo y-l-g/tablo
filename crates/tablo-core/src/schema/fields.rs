@@ -237,8 +237,9 @@ impl Field {
     /// form lists them: a record form's `#[form(file)]` control on a `Vec<String>`.
     ///
     /// The input takes several files at once, which the submission adds after the stored ones,
-    /// and each stored file has its own remove checkbox. A resource's form reads the paths into
-    /// `key`'s list, starting from the record's stored list: only a remove checkbox drops a path.
+    /// and each stored file has its own remove checkbox and, with JavaScript, buttons moving it:
+    /// the list saves in the order its rows show. A resource's form reads the paths into `key`'s
+    /// list, starting from the record's stored list: only a remove checkbox drops a path.
     /// A page handling its own post receives each chosen file's name under `key`, each row's path
     /// under `keep_<key>` in the order the rows post them, and each removed path under
     /// `clear_<key>`, and checks them against its record itself.

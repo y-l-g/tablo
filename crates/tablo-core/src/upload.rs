@@ -54,8 +54,9 @@ pub(crate) use self::body::{Capture, FormParts, parse_body, parse_file_body};
 ///   validation, so declare the record-form field `#[form(optional)]` when a record may lose its
 ///   file. A [`Field::files`](crate::Field::files) list shows a row per stored file, each posting
 ///   its path back under `keep_<field>` to order the list, and a remove checkbox posting it under
-///   `clear_<field>`, the only way a save drops a stored file; chosen files are stored after the
-///   rows, and a refused submission's uploads are carried beside them as a single field's is.
+///   `clear_<field>`, the only way a save drops a stored file; the rows keep the order they post
+///   in, chosen files are stored after them, and a refused submission's uploads are carried beside
+///   them as a single field's is.
 /// - Links. The stored value renders as a link, on the edit form and in a `FileColumn` on the
 ///   detail page, only when it is a root-relative path (`/uploads/a.png`, not `//host`) or an
 ///   `http(s)` URL; anything else renders as text.
