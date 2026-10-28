@@ -98,7 +98,8 @@ For the same reason, **nothing scopes a header action to the request's tenant**:
 tenant's records reads them through `scoped_query`, as `PublishDrafts` does.
 
 A [page](./panel-and-routing.md#pages) declares its header actions with
-`PageDef::header_action::<A>()`, and places their buttons where it renders its header with
+`PageDef::header_action::<A>()`. The default `render` shows their buttons in the page's header; a
+page that [writes its own](./panel-and-routing.md#rendering-a-page) places them with
 `header_action_buttons::<Self>(cx)`:
 
 ```rust

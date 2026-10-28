@@ -1,7 +1,7 @@
 //! The Actions chapter's snippets.
 
-use tablo::{HeaderAction, Places, header_action_buttons, prelude::*};
-use topcoat::{Result, context::Cx, view::*};
+use tablo::{HeaderAction, Places, prelude::*};
+use topcoat::{Result, context::Cx};
 
 use crate::{
     models::{Post, PostStatus},
@@ -122,19 +122,6 @@ pub struct MaintenancePage;
 impl Page for MaintenancePage {
     fn declare() -> PageDef {
         PageDef::new().header_action::<PublishDrafts>()
-    }
-
-    async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(view! {
-            cx =>
-            tablo::ui::page(
-                tablo::ui::page_header(
-                    tablo::ui::page_title("Maintenance")
-                    // The buttons of the actions above the request may run.
-                    tablo::ui::page_actions((header_action_buttons::<Self>(cx)))
-                )
-            )
-        })
     }
 }
 // ANCHOR_END: page-header-actions

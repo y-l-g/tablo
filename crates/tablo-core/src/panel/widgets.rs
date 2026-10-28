@@ -1,7 +1,7 @@
 //! The widget grid of a [`Page`], and the row of [`Stat`] tiles and the [`RecordTable`] a widget
 //! renders.
 
-use std::sync::Arc;
+use std::{any::TypeId, sync::Arc};
 
 use topcoat::{
     Result,
@@ -11,6 +11,7 @@ use topcoat::{
 
 use crate::{
     Page, RecordTable, Resource, Stat, Trend,
+    page::MountedPage,
     panel::list::{TableChrome, declared_chrome, wire_table_over},
     resource::mounted,
     table::include_relations,
@@ -25,14 +26,18 @@ use crate::{
 /// It renders nothing outside a request to `P`'s panel, for a request the panel's sign-in or
 /// [`PageDef::access`](crate::PageDef::access) refuses — the check
 /// [`can_open`](crate::can_open) makes — and leaves out each widget whose
-/// [`WidgetDef::access`](crate::WidgetDef::access) refuses the request. The
-/// [`Widget`](crate::Widget) docs show a page placing it.
+/// [`WidgetDef::access`](crate::WidgetDef::access) refuses the request. The default
+/// [`Page::render`] places it; the [`Page::render`] docs show a page placing it itself.
 pub fn widgets<P: Page>(cx: &Cx) -> BoxView<'_> {
-    let Some(page) = super::pages::mounted_page::<P>(cx)
-        .filter(|page| crate::auth::guard(cx).is_ok() && page.admits(cx))
-    else {
-        return ().boxed();
-    };
+    match super::pages::mounted_admitted(cx, TypeId::of::<P>()) {
+        Some(page) => page_grid(cx, page),
+        None => ().boxed(),
+    }
+}
+
+/// The widget grid of `page`, which the request may open: each of its widgets the request may
+/// see.
+pub(super) fn page_grid<'a>(cx: &'a Cx, page: &MountedPage) -> BoxView<'a> {
     let cells = page
         .widgets
         .admitted(cx)

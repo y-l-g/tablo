@@ -65,7 +65,13 @@ pub async fn page_title(
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
     Ok(view! {
-        <h1 class=(class!(PAGE_TITLE, attrs.remove("class"))) (attrs)>(child)</h1>
+        <h1
+            class=(class!(PAGE_TITLE, attrs.remove("class")))
+            data-page-title=""
+            (attrs)
+        >
+            (child)
+        </h1>
     })
 }
 

@@ -1,8 +1,9 @@
-//! A panel's custom pages: where they mount, who may open them, and their sidebar entries.
+//! A panel's custom pages: where they mount, who may open them, their sidebar entries, and what
+//! their default render shows.
 
 use tablo::{
-    Page, PageDef, Panel, ReadOnly, Resource, ResourceDef, Table, TextColumn, lens,
-    testing::find_href_with,
+    Page, PageDef, Panel, ReadOnly, Resource, ResourceDef, Table, TextColumn, Widget, lens,
+    testing::{find_href_with, page_title, widgets},
 };
 use topcoat::{
     Result,
@@ -241,5 +242,52 @@ async fn the_sidebar_lists_only_what_the_user_may_open() {
             listed,
             "{href} listed: {listed}, got {html}"
         );
+    }
+}
+
+/// A widget the default render shows.
+struct Greeting;
+
+impl Widget for Greeting {
+    async fn render(cx: &Cx) -> Result<impl View> {
+        Ok(view! { cx => <p>"Hello"</p> })
+    }
+}
+
+/// A page that declares its title and widget and writes no `render`.
+struct OverviewPage;
+
+impl Page for OverviewPage {
+    fn declare() -> PageDef {
+        PageDef::new().title("Sales overview").widget::<Greeting>()
+    }
+}
+
+/// A page that declares only its widget, so its title is its label.
+struct SummaryPage;
+
+impl Page for SummaryPage {
+    fn declare() -> PageDef {
+        PageDef::new().widget::<Greeting>()
+    }
+}
+
+/// The default `render` shows the declared title, else the page's label, over the widget grid.
+#[tokio::test]
+async fn the_default_render_shows_the_title_and_the_widgets() {
+    let router = books(
+        Panel::new("admin")
+            .page::<OverviewPage>()
+            .page::<SummaryPage>(),
+    )
+    .await;
+    for (uri, title) in [
+        ("/admin/overview", "Sales overview"),
+        ("/admin/summary", "Summary"),
+    ] {
+        let (status, html) = page(&router, uri).await;
+        assert_eq!(status, http::StatusCode::OK, "{uri}");
+        assert_eq!(page_title(&html).as_deref(), Some(title), "{html}");
+        assert_eq!(widgets(&html), ["greeting"], "{html}");
     }
 }

@@ -10,7 +10,7 @@ use topcoat::{
         error::{forbidden, not_found},
         path_param_segment,
     },
-    view::{BoxView, ViewExt},
+    view::{BoxView, ViewExt, view},
 };
 
 use super::actions::{input_options, run_header};
@@ -18,9 +18,55 @@ use crate::{Page, page::MountedPage, topcoat_compat::async_page};
 
 /// `P` as the request's panel mounted it, if it did.
 pub(crate) fn mounted_page<P: Page>(cx: &Cx) -> Option<&Arc<MountedPage>> {
-    super::state::current(cx)?
-        .mounted_pages
-        .get(&TypeId::of::<P>())
+    mounted(cx, TypeId::of::<P>())
+}
+
+/// The page of type `page` as the request's panel mounted it, if it did.
+fn mounted(cx: &Cx, page: TypeId) -> Option<&Arc<MountedPage>> {
+    super::state::current(cx)?.mounted_pages.get(&page)
+}
+
+/// The page of type `page` as the request's panel mounted it, once the panel's sign-in and the
+/// page's [`PageDef::access`](crate::PageDef::access) admit the request.
+pub(super) fn mounted_admitted(cx: &Cx, page: TypeId) -> Option<&Arc<MountedPage>> {
+    mounted(cx, page).filter(|page| crate::auth::guard(cx).is_ok() && page.admits(cx))
+}
+
+/// The body [`Page::render`] defaults to, installed as the [`PageBody`](crate::page::PageBody):
+/// the page's title and description, its header buttons, and its widget grid.
+pub(super) fn declared_body(cx: &Cx, page: TypeId) -> BoxView<'_> {
+    let Some(mounted) = mounted_admitted(cx, page) else {
+        return ().boxed();
+    };
+    let title = mounted.title.localize(cx);
+    let description = mounted
+        .description
+        .as_ref()
+        .map(|description| description.localize(cx));
+    let buttons = header_buttons(cx, page, mounted);
+    let grid = super::widgets::page_grid(cx, mounted);
+    view! {
+        cx =>
+        tablo_ui::page(
+            tablo_ui::page_header(
+                tablo_ui::page_title((title))
+                if let Some(description) = description {
+                    tablo_ui::page_description((description))
+                }
+                tablo_ui::page_actions((buttons))
+            )
+            tablo_ui::page_content((grid))
+        )
+    }
+    .boxed()
+}
+
+/// The header buttons of `mounted`, the page of type `page`, that the request may run.
+fn header_buttons<'a>(cx: &'a Cx, page: TypeId, mounted: &MountedPage) -> BoxView<'a> {
+    let Some(url) = super::state::current(cx).and_then(|panel| panel.urls.get(&page)) else {
+        return ().boxed();
+    };
+    super::header_bar(cx, url, &mounted.header_actions, |_| true).render(cx)
 }
 
 /// The header buttons of the page `P` the request may run, for its
@@ -60,15 +106,11 @@ pub(crate) fn mounted_page<P: Page>(cx: &Cx) -> Option<&Arc<MountedPage>> {
 /// [`PageDef::access`](crate::PageDef::access) refuses, and no button for an action whose
 /// [`can_run`](crate::HeaderAction::can_run) refuses the request.
 pub fn header_action_buttons<P: Page>(cx: &Cx) -> BoxView<'_> {
-    let Some(page) =
-        mounted_page::<P>(cx).filter(|page| crate::auth::guard(cx).is_ok() && page.admits(cx))
-    else {
-        return ().boxed();
-    };
-    let Some(url) = super::url::page::<P>(cx) else {
-        return ().boxed();
-    };
-    super::header_bar(cx, &url, &page.header_actions, |_| true).render(cx)
+    let page = TypeId::of::<P>();
+    match mounted_admitted(cx, page) {
+        Some(mounted) => header_buttons(cx, page, mounted),
+        None => ().boxed(),
+    }
 }
 
 /// `P` as the request's panel mounted it, once the auth re-check every panel handler runs and the

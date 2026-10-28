@@ -1,8 +1,9 @@
 # 0035 A widget is a page's server-rendered block, and its page owns the grid
 
-A dashboard is a `Page` whose `PageDef::widget::<W>()` calls list the `Widget`s of its grid, and
-whose `render` places `widgets::<Self>(cx)`, as it places `header_action_buttons::<Self>(cx)`. A
-widget renders a view; a row of stats is a widget that renders `stats(cx, …)` over `Stat`s.
+A dashboard is a `Page` whose `PageDef::widget::<W>()` calls list the `Widget`s of its grid. Its
+default `render` shows the grid under the page's header; a `render` the page writes places
+`widgets::<Self>(cx)`, as it places `header_action_buttons::<Self>(cx)`. A widget renders a view;
+a row of stats is a widget that renders `stats(cx, …)` over `Stat`s.
 
 - A widget is a view rendered with the page, not a component with its own route or state. It
   renders through the page's `GET`, behind the page's sign-in and `access`, so it adds no route
