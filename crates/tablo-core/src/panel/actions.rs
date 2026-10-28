@@ -20,8 +20,8 @@ pub(crate) use self::{
     fetch::{load_detail, load_editable},
     link::{relation_action_options, relation_list_action, relation_record_action},
     mutation::{
-        resource_bulk_delete, resource_delete, resource_list_action, resource_record_action,
-        run_header,
+        MATCHING, resource_bulk_delete, resource_delete, resource_list_action,
+        resource_record_action, run_header,
     },
     options::{input_options, resource_action_options, resource_options},
 };

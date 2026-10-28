@@ -315,7 +315,9 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         let table = choose_columns(cx, &resource, wire_table_actions(cx, &resource)).await;
         let (signals, state) = table.browser_state(cx);
         // The bulk bar offers what the rows the trash control shows can take.
-        let table = table.taking(resource.list_trashed(&state));
+        let table = table
+            .taking(resource.list_trashed(&state))
+            .selecting_matching();
         // A write lands back on the list as the reader left it.
         let back = state.without_cursor(&resource.url);
         let mut actions = header_bar(cx, &resource.url, &resource.header_actions, |action| {

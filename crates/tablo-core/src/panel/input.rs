@@ -21,6 +21,7 @@ use topcoat::{
 
 use crate::{
     form::FieldErrors,
+    panel::actions::MATCHING,
     schema::{Schema, Source},
     topcoat_compat::async_page,
 };
@@ -48,10 +49,8 @@ pub(crate) enum Posts {
     /// The target the trigger sets: a table row's action, or the bulk bar's with the selection.
     Table {
         target: TableTarget,
-        /// The table's selection as `,token,` entries, each token's key percent-encoded
-        /// ([`bulk_token`](crate::table::bulk_token) spells one), which the bulk route
-        /// reads and a row route ignores.
-        selection: Signal<String>,
+        /// The table's selection, which the bulk route reads and a row route ignores.
+        selection: Selection,
     },
 }
 
@@ -123,7 +122,7 @@ impl InputDialog {
                 Posts::To(url) => (attributes! { cx => action=(url) }, None, None),
                 Posts::Table { target, selection } => {
                     let TableTarget { action, bulk } = target;
-                    let count = selected_count(cx, selection.clone());
+                    let count = selection.size(cx);
                     (
                         attributes! { cx => :action=$(action.get()) },
                         Some(selection),
@@ -151,7 +150,7 @@ impl InputDialog {
                             <input type="hidden" name="confirm" value="1">
                         }
                         if let Some(selection) = selection {
-                            <input type="hidden" name="ids" :value=$(selection.get())>
+                            (selection.inputs(cx))
                         }
                         dialog_content(
                             dialog_header(
@@ -204,6 +203,54 @@ impl InputDialog {
             }
             .boxed())
         })
+    }
+}
+
+/// A table's bulk selection as its write forms post it: the rows checked, or every record the
+/// list's query selects.
+#[derive(Clone)]
+pub(crate) struct Selection {
+    /// The checked rows as `,token,` entries, each token's key percent-encoded
+    /// ([`bulk_token`](crate::table::bulk_token) spells one).
+    pub(crate) keys: Signal<String>,
+    /// Whether the selection takes every record `query` selects rather than `keys`'.
+    pub(crate) all: Signal<bool>,
+    /// The list's URL query, without the leading `?`.
+    pub(crate) query: Signal<String>,
+}
+
+impl Selection {
+    /// The hidden inputs posting the selection: `ids`, and the list's query under
+    /// [`MATCHING`] while it takes every record the query selects. A disabled input posts
+    /// nothing.
+    pub(crate) fn inputs<'a>(&self, cx: &'a Cx) -> BoxView<'a> {
+        let (keys, all, query) = (self.keys.clone(), self.all.clone(), self.query.clone());
+        view! {
+            cx =>
+            <input type="hidden" name="ids" :value=$(keys.get())>
+            <input
+                type="hidden"
+                name=(MATCHING)
+                :value=$(query.get())
+                :disabled=$(!all.get())
+            >
+        }
+        .boxed()
+    }
+
+    /// The selection's size: the count of the rows checked, or the words for every matching
+    /// record.
+    pub(crate) fn size<'a>(&self, cx: &'a Cx) -> BoxView<'a> {
+        let (counted, all) = (self.all.clone(), self.all.clone());
+        let count = selected_count(cx, self.keys.clone());
+        view! {
+            cx =>
+            <span :hidden=$(counted.get())>(count)</span>
+            <span :hidden=$(!all.get())>
+                (crate::t!(cx, "tablo-list-all-matching"))
+            </span>
+        }
+        .boxed()
     }
 }
 

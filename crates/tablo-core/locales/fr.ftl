@@ -70,6 +70,8 @@ tablo-confirm-delete-selected = Supprimer les enregistrements sélectionnés ?
 tablo-confirm-irreversible = Cette action est irréversible.
 tablo-confirm-selected = Enregistrements sélectionnés :
 tablo-list-select-all = Sélectionner toutes les lignes
+tablo-list-select-matching = Sélectionner tous les résultats
+tablo-list-all-matching = Tous les enregistrements correspondants
 tablo-list-sort = Trier par { $column } { $direction ->
     [descending] décroissant
    *[ascending] croissant
@@ -89,6 +91,8 @@ tablo-pager-next = Suivant
 tablo-pager-per-page = Par page
 tablo-pager-apply = Appliquer
 tablo-list-select-first = Sélectionnez d'abord au moins une ligne
+tablo-list-too-many-matching = Plus de { $max } enregistrements correspondent : affinez la liste pour tous les traiter
+tablo-list-none-matching = Aucun enregistrement ne correspond à la liste
 tablo-list-failed = Impossible de charger { $label }
 tablo-list-failed-description = Une erreur est survenue pendant le chargement des enregistrements.
 tablo-list-retry = Réessayer

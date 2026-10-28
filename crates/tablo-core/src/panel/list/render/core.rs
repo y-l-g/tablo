@@ -229,8 +229,14 @@ impl Frame<'_> {
             .await?;
         let filter_warning = self.render_filter_warning(cx, state, path, signals, &filters);
         let controls = (std::mem::take(&mut filters.controls), filters.active);
+        // Every record matching differs from the page's only when the list holds another page,
+        // and a list ignoring a filter offers none: the route refuses what the list did not apply.
+        let spans_pages = filters.unapplied.is_empty()
+            && (next_cursor.is_some()
+                || prev_cursor.is_some()
+                || position.is_some_and(|position| position.has_next || position.page > 1));
         let toolbar = self
-            .render_toolbar(cx, state, path, signals, controls)
+            .render_toolbar(cx, state, path, signals, controls, spans_pages)
             .await?;
         let pager = self
             .render_pager(

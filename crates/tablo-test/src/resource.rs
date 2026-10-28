@@ -179,6 +179,29 @@ impl<'c, 'a, R: Resource> ResourceClient<'c, 'a, R> {
             .set_key(CONFIRM, "1")
     }
 
+    /// A confirmed run of the bulk action `A` on every record the list's `query` selects, as the
+    /// bulk bar's Select all matching posts it: `query` spells the list's URL query, without the
+    /// leading `?`, such as `f.status=draft`.
+    ///
+    /// # Panics
+    ///
+    /// When `R` does not declare `A` in its bulk bar.
+    pub fn bulk_action_matching<A: Action<R>>(
+        &self,
+        query: &str,
+    ) -> Submission<'c, 'a, Infallible> {
+        let url = url::bulk_action::<R, A>(&self.cx()).unwrap_or_else(|| {
+            panic!(
+                "`{}` declares no bulk action `{}`",
+                type_name::<R>(),
+                A::NAME
+            )
+        });
+        Submission::new(self.client, url, Vec::new())
+            .set_key(MATCHING, query)
+            .set_key(CONFIRM, "1")
+    }
+
     fn create_url(&self) -> String {
         resolved::<R>(url::create::<R>(&self.cx()), "a create page")
     }
@@ -201,6 +224,9 @@ const CONFIRM: &str = "confirm";
 
 /// The key the bulk bar posts its selection in, comma-separated.
 const IDS: &str = "ids";
+
+/// The key the bulk bar posts the list's query in when it selects every matching record.
+const MATCHING: &str = "matching";
 
 /// The key the create page's Create & create another button posts.
 const CREATE_ANOTHER: &str = "create_another";

@@ -71,6 +71,8 @@ tablo-confirm-delete-selected = Delete the selected records?
 tablo-confirm-irreversible = This action cannot be undone.
 tablo-confirm-selected = Selected records:
 tablo-list-select-all = Select all rows
+tablo-list-select-matching = Select all matching
+tablo-list-all-matching = All matching records
 tablo-list-sort = Sort by { $column } { $direction ->
     [descending] descending
    *[ascending] ascending
@@ -90,6 +92,8 @@ tablo-pager-next = Next
 tablo-pager-per-page = Per page
 tablo-pager-apply = Apply
 tablo-list-select-first = Select at least one row first
+tablo-list-too-many-matching = More than { $max } records match: narrow the list to act on all of them
+tablo-list-none-matching = No record matches the list
 tablo-list-failed = Couldn't load { $label }
 tablo-list-failed-description = Something went wrong while loading the records.
 tablo-list-retry = Retry

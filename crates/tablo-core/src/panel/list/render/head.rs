@@ -156,7 +156,7 @@ impl Frame<'_> {
 /// indeterminate when it holds some, and toggling all of them at once. Keys on other pages stay
 /// selected.
 fn select_all(cx: &Cx, signals: &TableSignals, keys: &[String]) -> Attributes {
-    let bulk = signals.bulk.clone();
+    let (bulk, all) = (signals.bulk.clone(), signals.all.clone());
     // The tokens, never the raw keys: a key may hold the wire's separator, so only the renderer
     // can spell one (`state::bulk_token`).
     let tokens: Vec<String> = keys.iter().map(|key| bulk_token(key)).collect();
@@ -184,6 +184,7 @@ fn select_all(cx: &Cx, signals: &TableSignals, keys: &[String]) -> Attributes {
             )
         })
         @change=$(|e: Event| {
+            all.set(false);
             let wire = bulk.get();
             if e.target.checked {
                 bulk.set(

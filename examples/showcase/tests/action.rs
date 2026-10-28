@@ -138,6 +138,52 @@ async fn a_draft_post_is_published_from_its_row() {
     }
 }
 
+/// Select all matching runs Publish on every draft of one author, past the list's first page,
+/// and on no other author's.
+#[tokio::test]
+async fn publish_reaches_every_matching_draft_past_the_page() {
+    use showcase::models::{Post, PostStatus};
+
+    let db = full_db().await;
+    let (router, admin) = app_for_tests(db.clone());
+    let client = demo_client(&router, &db).await.panel(&admin);
+    let mut db_q = db.clone();
+    let drafts = Post::filter(Post::fields().status().eq(PostStatus::Draft))
+        .exec(&mut db_q)
+        .await
+        .expect("query drafts");
+    let author = drafts[0].author_id;
+    let (theirs, others): (Vec<&Post>, Vec<&Post>) =
+        drafts.iter().partition(|post| post.author_id == author);
+    assert!(!others.is_empty(), "the seed holds another author's drafts");
+
+    let query = format!("f.status=draft&f.author_id={author}&per_page=10");
+    let html = body_string(client.get(&format!("/admin/posts?{query}")).await).await;
+    assert!(
+        theirs.len() > tablo::testing::row_keys(&html).len(),
+        "the author's drafts span pages"
+    );
+    assert!(
+        tablo::testing::selects_matching(&html),
+        "the bulk bar offers every match: {html}"
+    );
+
+    let reply = client
+        .resource::<PostResource>()
+        .bulk_action_matching::<PublishPosts>(&query)
+        .submit()
+        .await;
+    assert_eq!(reply.status(), 303, "a committed bulk action redirects");
+    for (posts, status) in [(theirs, PostStatus::Published), (others, PostStatus::Draft)] {
+        for post in posts {
+            let after = Post::get_by_id(&mut db_q, &post.id)
+                .await
+                .expect("the post still exists");
+            assert_eq!(after.status, status, "{}", post.title);
+        }
+    }
+}
+
 /// The Tag action asks for tags first: its POST renders the input page, a submit without tags is
 /// refused on the page, and a submit adds the tags to the post's own, each once.
 #[tokio::test]

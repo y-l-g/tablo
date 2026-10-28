@@ -46,6 +46,10 @@ says which routes serve an action and which places no page renders. A run from a
 lands back on it, so an action that hides the record from the list, such as an archive, belongs
 on rows and the bulk bar.
 
+A bulk action runs on the rows checked. On a list whose rows span pages, the bulk bar also offers
+**Select all matching**, which runs it on every record the list's search and filters select, up
+to [`Limits::bulk_records`](https://y-l.fr/tablo/nightly/api/tablo/struct.Limits.html#method.bulk_records).
+
 ### Who runs it
 
 Three checks decide, each asked for its own reason:

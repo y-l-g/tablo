@@ -10,7 +10,7 @@ use topcoat::{context::Cx, runtime::Event, view::*};
 use super::{Frame, table_dom_id};
 use crate::{
     panel::{
-        input::{InputDialog, Posts, open_dialog, selected_count},
+        input::{InputDialog, Posts, open_dialog},
         list::signals::{ConfirmSignals, TableSignals},
         url::action_options_url,
     },
@@ -65,8 +65,8 @@ impl Frame<'_> {
             label,
             bulk: counts,
         } = signals.confirm.clone();
-        let selection = signals.bulk.clone();
-        let count = selected_count(cx, selection.clone());
+        let selection = signals.selection();
+        let count = selection.size(cx);
         Some(
             view! {
                 cx =>
@@ -86,7 +86,7 @@ impl Frame<'_> {
                     >
                         (crate::csrf::field(cx, &csrf))
                         <input type="hidden" name="confirm" value="1">
-                        <input type="hidden" name="ids" :value=$(selection.get())>
+                        (selection.inputs(cx))
                         dialog_content(
                             dialog_header(
                                 dialog_title(
@@ -153,7 +153,7 @@ impl Frame<'_> {
                     cx,
                     Posts::Table {
                         target: signals.inputs[action.name].clone(),
-                        selection: signals.bulk.clone(),
+                        selection: signals.selection(),
                     },
                 )
             })

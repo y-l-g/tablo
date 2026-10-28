@@ -340,6 +340,21 @@ async fn cross_tenant_requests_404_and_touch_nothing() {
         404,
         "a cross-tenant selection comes back short from the scoped fetch and 404s"
     );
+    let resp = foreign
+        .post_form(
+            "/admin/posts/-/bulk-delete",
+            form_body(&[
+                ("matching", &format!("q={}", t1_post.title)),
+                ("confirm", "1"),
+                ("csrf_token", &csrf),
+            ]),
+        )
+        .await;
+    assert_eq!(
+        resp.status(),
+        303,
+        "every match of a cross-tenant search is the tenant's own: none"
+    );
 
     let resp = foreign
         .post_form(
