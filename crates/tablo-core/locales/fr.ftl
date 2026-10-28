@@ -154,6 +154,10 @@ tablo-action-on-records = { $action } : { $count ->
    *[other] { $count } enregistrements
 }
 tablo-action-done = { $action } : terminé
+tablo-action-refused-all = { $action } : { $count ->
+    [one] { $count } enregistrement sélectionné ne peut pas recevoir cette action ; rien n'a été modifié
+   *[other] { $count } enregistrements sélectionnés ne peuvent pas recevoir cette action ; rien n'a été modifié
+}
 
 ## Write failures
 

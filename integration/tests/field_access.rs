@@ -156,7 +156,8 @@ impl Widget for Pay {
     async fn render(cx: &Cx) -> topcoat::Result<impl View> {
         let table = RecordTable::new()
             .heading("Pay")
-            .columns(["name", "salary"]);
+            .column(lens!(Employee.name))
+            .column(lens!(Employee.salary));
         tablo::record_table::<EmployeeResource>(cx, table).await
     }
 }
@@ -179,7 +180,7 @@ struct Misnamed;
 
 impl Widget for Misnamed {
     async fn render(cx: &Cx) -> topcoat::Result<impl View> {
-        let table = RecordTable::new().columns(["wage"]);
+        let table = RecordTable::new().column_named("wage");
         tablo::record_table::<EmployeeResource>(cx, table).await
     }
 }

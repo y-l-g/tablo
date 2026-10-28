@@ -25,7 +25,7 @@ fn expansion(source: &str) -> String {
             attrs: input_attrs(field).unwrap(),
         })
         .collect();
-    expand_struct(&quote! { ::tablo_core }, &input.ident, &fields).to_string()
+    expand_struct(&quote! { ::tablo_core }, &input.ident, &input.vis, &fields).to_string()
 }
 
 #[test]

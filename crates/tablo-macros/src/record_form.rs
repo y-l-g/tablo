@@ -170,7 +170,7 @@ fn field_spec(field: &syn::Field) -> syn::Result<FieldSpec> {
 }
 
 /// `author_id` → `AuthorId`; a raw identifier drops its `r#`.
-fn pascal_case(name: &str) -> String {
+pub(crate) fn pascal_case(name: &str) -> String {
     name.trim_start_matches("r#")
         .split('_')
         .filter(|part| !part.is_empty())

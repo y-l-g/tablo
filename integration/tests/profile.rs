@@ -354,6 +354,12 @@ struct LockedEmail {
 }
 
 impl FormInput for LockedEmail {
+    type Field = std::convert::Infallible;
+
+    fn key(field: Self::Field) -> &'static str {
+        match field {}
+    }
+
     fn schema() -> Schema {
         Schema::new((
             Field::text_input::<String>("name"),
@@ -438,6 +444,12 @@ struct Shift {
 const STARTS_AT: &str = "2026-03-04T05:06:07.5Z";
 
 impl FormInput for Shift {
+    type Field = std::convert::Infallible;
+
+    fn key(field: Self::Field) -> &'static str {
+        match field {}
+    }
+
     fn schema() -> Schema {
         Schema::new((
             Field::text_input::<String>("name"),

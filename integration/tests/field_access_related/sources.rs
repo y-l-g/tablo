@@ -373,6 +373,12 @@ async fn a_write_of_a_field_another_resource_hides_is_refused() {
 struct Choosing;
 
 impl FormInput for Choosing {
+    type Field = std::convert::Infallible;
+
+    fn key(field: Self::Field) -> &'static str {
+        match field {}
+    }
+
     fn schema() -> Schema {
         Schema::new(
             Field::choice_input("member")
@@ -395,8 +401,8 @@ impl Action<PickCards> for Pick {
     type Input = Choosing;
     const NAME: &'static str = "pick";
 
-    fn label(_cx: &Cx) -> String {
-        "Pick".to_string()
+    fn label() -> tablo::Text {
+        "Pick".into()
     }
 
     async fn run(

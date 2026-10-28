@@ -125,7 +125,10 @@ struct Cards;
 
 impl Widget for Cards {
     async fn render(cx: &Cx) -> topcoat::Result<impl View> {
-        let table = RecordTable::new().columns(["code", "pay", "member"]);
+        let table = RecordTable::new()
+            .column(lens!(Card.code))
+            .column_named("pay")
+            .column(Card::fields().member());
         tablo::record_table::<CardResource>(cx, table).await
     }
 }

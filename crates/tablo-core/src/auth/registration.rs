@@ -222,6 +222,12 @@ impl std::fmt::Debug for SignUp {
 }
 
 impl FormInput for SignUp {
+    type Field = std::convert::Infallible;
+
+    fn key(field: Self::Field) -> &'static str {
+        match field {}
+    }
+
     fn schema() -> Schema {
         let field = crate::form::required_input;
         Schema::new((

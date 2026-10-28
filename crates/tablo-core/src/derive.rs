@@ -124,6 +124,11 @@ pub use tablo_macros::EmbeddedForm;
 /// [`Options`](derive@crate::Options), `#[form(options = T)]` one over `T`'s, and any other
 /// [`FormScalar`](crate::FormScalar) a text input of the type's input type.
 ///
+/// Beside the struct, the derive declares its [`Field`](crate::FormInput::Field) enum with the
+/// struct's visibility: `RejectionField`, one variant per field in Pascal case
+/// (`RejectionField::NotifyAuthor`), which
+/// [`Action::validate_input`](crate::Action::validate_input) refuses a value under.
+///
 /// One item of a repeater is an embedded struct a `#[document]` list stores, which a
 /// [`RecordForm`](derive@crate::RecordForm) edits with `#[form(repeat)]`:
 ///
@@ -187,7 +192,9 @@ pub use tablo_macros::EmbeddedForm;
 /// input with a field named `csrf_token`, `confirm` or `ids`, and a sign-up's with one named
 /// `csrf_token` or `next`: the keys each POST carries besides its input.
 ///
-/// A hand-written impl builds its fields with [`Field::text_input`](crate::Field::text_input),
+/// A hand-written impl names its own [`Field`](crate::FormInput::Field) type, or
+/// [`Infallible`](std::convert::Infallible) when no hook refuses it by field, and builds its
+/// fields with [`Field::text_input`](crate::Field::text_input),
 /// [`Field::choice_input`](crate::Field::choice_input)
 /// and [`Field::toggle_input`](crate::Field::toggle_input); its controls render without the
 /// `required` mark, though its `parse` still refuses what it requires. Its `write` fills a

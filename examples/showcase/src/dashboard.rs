@@ -3,7 +3,7 @@
 use jiff::tz::TimeZone;
 use tablo::{
     Ability, Chart, Color, FieldErrors, HeaderAction, Page, PageDef, RecordTable, Series, Stat,
-    Widget, WidgetDef, can_list, db::db, scoped_query,
+    Widget, WidgetDef, can_list, db::db, lens, scoped_query,
 };
 use topcoat::{Result, context::Cx, view::View};
 
@@ -113,7 +113,9 @@ impl Widget for LatestPosts {
     async fn render(cx: &Cx) -> Result<impl View> {
         let table = RecordTable::new()
             .heading("Latest posts")
-            .columns(["title", "author", "status"])
+            .column(lens!(Post.title))
+            .column(Post::fields().author())
+            .column(lens!(Post.status))
             .order_by(Post::fields().created_at().desc());
         tablo::record_table::<PostResource>(cx, table).await
     }
@@ -165,10 +167,10 @@ impl HeaderAction for FeatureTagged {
         tablo::can::<PostResource>(cx, Ability::RunHeader { action: Self::NAME })
     }
 
-    fn validate_input(_cx: &Cx, input: &FeatureTag) -> FieldErrors {
+    fn validate_input(_cx: &Cx, input: &FeatureTag) -> FieldErrors<FeatureTagField> {
         let mut errors = FieldErrors::new();
         if input.tag.contains(',') {
-            errors.add("tag", "One tag, without commas");
+            errors.add(FeatureTagField::Tag, "One tag, without commas");
         }
         errors
     }

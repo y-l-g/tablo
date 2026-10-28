@@ -142,10 +142,10 @@ impl HeaderAction for OpenTicket {
     type Input = Opening;
     const NAME: &'static str = "open-ticket";
 
-    fn validate_input(_cx: &Cx, opening: &Opening) -> FieldErrors {
+    fn validate_input(_cx: &Cx, opening: &Opening) -> FieldErrors<OpeningField> {
         let mut errors = FieldErrors::new();
         if opening.title == "bad" {
-            errors.add("title", "Not that title");
+            errors.add(OpeningField::Title, "Not that title");
         }
         errors
     }

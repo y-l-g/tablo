@@ -292,6 +292,12 @@ impl std::fmt::Debug for Profile {
 }
 
 impl FormInput for Profile {
+    type Field = std::convert::Infallible;
+
+    fn key(field: Self::Field) -> &'static str {
+        match field {}
+    }
+
     fn schema() -> Schema {
         let required = crate::form::required_input;
         Schema::new((

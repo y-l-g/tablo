@@ -251,9 +251,12 @@ impl Stat {
 ///
 /// # Errors
 ///
-/// A [column](RecordTable::columns) name `R`'s list declares no column for, and the database's,
+/// A [column](RecordTable::column) `R`'s list declares no column for, and the database's,
 /// when the load fails.
-pub async fn record_table<R: Resource>(cx: &Cx, table: RecordTable) -> Result<BoxView<'_>> {
+pub async fn record_table<R: Resource>(
+    cx: &Cx,
+    table: RecordTable<R::Model>,
+) -> Result<BoxView<'_>> {
     let Some(resource) = mounted::<R>(cx).filter(|_| super::can_list::<R>(cx)) else {
         return Ok(().boxed());
     };
@@ -264,6 +267,7 @@ pub async fn record_table<R: Resource>(cx: &Cx, table: RecordTable) -> Result<Bo
         filter,
         order_by,
         limit,
+        ..
     } = table;
     let shown = resource.table_for(cx);
     let shown = match &columns {

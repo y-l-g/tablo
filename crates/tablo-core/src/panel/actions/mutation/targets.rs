@@ -71,12 +71,13 @@ pub(super) fn refuse<R: Resource>(
     match target {
         Target::Record => forbidden().into(),
         Target::Bulk => {
-            let noun = if refused == 1 { "record" } else { "records" };
             set_notification(
                 cx,
-                Notification::error(format!(
-                    "{}: {refused} selected {noun} cannot take this action; nothing was changed",
-                    (action.label)(cx)
+                Notification::error(crate::t!(
+                    cx,
+                    "tablo-action-refused-all",
+                    action = (action.label)(),
+                    count = refused
                 )),
             );
             see_other(landing_url(cx, &resource.url)).into()

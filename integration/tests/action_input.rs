@@ -51,18 +51,18 @@ impl Action<TicketResource> for Close {
     type Input = Closing;
     const NAME: &'static str = "close";
 
-    fn label(_cx: &Cx) -> String {
-        "Close".to_string()
+    fn label() -> tablo::Text {
+        "Close".into()
     }
 
     fn can_run(_cx: &Cx, ticket: &Ticket) -> bool {
         !ticket.closed
     }
 
-    fn validate_input(_cx: &Cx, closing: &Closing) -> FieldErrors {
+    fn validate_input(_cx: &Cx, closing: &Closing) -> FieldErrors<ClosingField> {
         let mut errors = FieldErrors::new();
         if closing.reason.trim().len() < 3 {
-            errors.add("reason", "Say why in a few words");
+            errors.add(ClosingField::Reason, "Say why in a few words");
         }
         errors
     }
@@ -105,17 +105,14 @@ impl Action<TicketResource> for Purge {
     const NAME: &'static str = "purge";
     const CONFIRM: bool = true;
 
-    fn label(_cx: &Cx) -> String {
-        "Purge".to_string()
+    fn label() -> tablo::Text {
+        "Purge".into()
     }
 
-    fn validate_input(_cx: &Cx, purging: &Purging) -> FieldErrors {
+    fn validate_input(_cx: &Cx, purging: &Purging) -> FieldErrors<PurgingField> {
         let mut errors = FieldErrors::new();
         if purging.note == "keep" {
-            errors.add("note", "Not while keeping");
-        }
-        if purging.note == "misspelled" {
-            errors.add("notes", "No control renders this");
+            errors.add(PurgingField::Note, "Not while keeping");
         }
         errors
     }
@@ -126,6 +123,9 @@ impl Action<TicketResource> for Purge {
         purging: Purging,
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
+        if purging.note == "misspelled" {
+            return Err(tablo::WriteError::field("notes", "No control renders this"));
+        }
         for ticket in tickets {
             Ticket::filter(Ticket::fields().id().eq(ticket.id))
                 .update()
@@ -147,6 +147,12 @@ struct Merging {
 }
 
 impl FormInput for Merging {
+    type Field = std::convert::Infallible;
+
+    fn key(field: Self::Field) -> &'static str {
+        match field {}
+    }
+
     fn schema() -> Schema {
         Schema::new(
             Field::choice_input("into")
@@ -167,8 +173,8 @@ impl Action<TicketResource> for Merge {
     type Input = Merging;
     const NAME: &'static str = "merge";
 
-    fn label(_cx: &Cx) -> String {
-        "Merge".to_string()
+    fn label() -> tablo::Text {
+        "Merge".into()
     }
 
     async fn run(
@@ -495,7 +501,7 @@ async fn a_confirming_action_with_input_confirms_in_its_dialog_and_on_its_page()
     assert_eq!(ticket(&db, alpha.id).await.reason, "purged");
 }
 
-/// A refusal under a key no input control renders would show a page with no message on it, so
+/// A run refusing a key no input control renders would show a page with no message on it, so
 /// it fails as a declaration error instead, and the action does not run.
 #[tokio::test]
 async fn a_refusal_no_control_renders_fails_closed() {
@@ -520,6 +526,12 @@ struct Selecting {
 struct Attaching;
 
 impl FormInput for Attaching {
+    type Field = std::convert::Infallible;
+
+    fn key(field: Self::Field) -> &'static str {
+        match field {}
+    }
+
     fn schema() -> Schema {
         Schema::new((
             Field::file(lens!(Ticket.reason)),
@@ -538,6 +550,12 @@ impl FormInput for Attaching {
 struct Strict;
 
 impl FormInput for Strict {
+    type Field = std::convert::Infallible;
+
+    fn key(field: Self::Field) -> &'static str {
+        match field {}
+    }
+
     fn schema() -> Schema {
         Schema::empty()
     }
@@ -555,8 +573,8 @@ impl Action<SelectResource> for Attach {
     type Input = Attaching;
     const NAME: &'static str = "attach";
 
-    fn label(_cx: &Cx) -> String {
-        "Attach".to_string()
+    fn label() -> tablo::Text {
+        "Attach".into()
     }
 
     async fn run(
@@ -575,8 +593,8 @@ impl Action<SelectResource> for Refuse {
     type Input = Strict;
     const NAME: &'static str = "refuse";
 
-    fn label(_cx: &Cx) -> String {
-        "Refuse".to_string()
+    fn label() -> tablo::Text {
+        "Refuse".into()
     }
 
     async fn run(
@@ -595,8 +613,8 @@ impl Action<SelectResource> for Select {
     type Input = Selecting;
     const NAME: &'static str = "select";
 
-    fn label(_cx: &Cx) -> String {
-        "Select".to_string()
+    fn label() -> tablo::Text {
+        "Select".into()
     }
 
     async fn run(

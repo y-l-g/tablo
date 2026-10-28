@@ -82,9 +82,8 @@ pub trait HeaderAction: 'static {
 
     /// The button text. Defaults to the message `action-{NAME}` of the panel's catalogs, else
     /// [`NAME`](Self::NAME) in sentence case: `"recount-tags"` reads "Recount tags".
-    fn label(cx: &Cx) -> String {
+    fn label() -> crate::Text {
         crate::Text::derived(derived_id("action", Self::NAME), sentence_case(Self::NAME))
-            .localize(cx)
     }
 
     /// Whether the request may run the action, beyond the policy or the page's access: a
@@ -93,10 +92,13 @@ pub trait HeaderAction: 'static {
         true
     }
 
-    /// Refuse an input [`run`](Self::run) should not receive. Each error names an input field's
-    /// key and renders under its control. Defaults to none. A key no control renders is a
-    /// declaration error: the page would show no message.
-    fn validate_input(_cx: &Cx, _input: &Self::Input) -> FieldErrors {
+    /// Refuse an input [`run`](Self::run) should not receive. Each error names a field of the
+    /// input's [`Field`](FormInput::Field) enum and renders under its control, as
+    /// [`Action::validate_input`](crate::Action::validate_input) does. Defaults to none.
+    fn validate_input(
+        _cx: &Cx,
+        _input: &Self::Input,
+    ) -> FieldErrors<<Self::Input as FormInput>::Field> {
         FieldErrors::new()
     }
 
@@ -113,8 +115,8 @@ pub trait HeaderAction: 'static {
     ) -> impl Future<Output = Result<crate::Outcome, crate::WriteError>> + Send;
 
     /// The success notification after a commit. Defaults to the label: `"Recount tags: done"`.
-    fn success(cx: &Cx) -> String {
-        crate::t!(cx, "tablo-action-done", action = Self::label(cx))
+    fn success() -> crate::Text {
+        crate::text!("tablo-action-done", action = Self::label())
     }
 }
 
@@ -265,11 +267,11 @@ pub(crate) type RunHeader = for<'a> fn(
 #[derive(Clone, Copy)]
 pub(crate) struct HeaderEntry {
     pub(crate) name: &'static str,
-    pub(crate) label: fn(&Cx) -> String,
+    pub(crate) label: fn() -> crate::Text,
     pub(crate) can_run: fn(&Cx) -> bool,
     pub(crate) input: InputSpec,
     pub(crate) run: RunHeader,
-    pub(crate) success: fn(&Cx) -> String,
+    pub(crate) success: fn() -> crate::Text,
     pub(crate) confirm: bool,
 }
 

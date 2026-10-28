@@ -57,8 +57,19 @@ impl Action<PostResource> for ChangeStatus {
     const PLACES: Places = Places::DETAIL.with(Places::BULK);
     // ANCHOR_END: places
 
-    fn label(_cx: &Cx) -> String {
-        "Change status".to_string()
+    fn label() -> Text {
+        "Change status".into()
+    }
+
+    fn validate_input(_cx: &Cx, change: &StatusChange) -> FieldErrors<StatusChangeField> {
+        let mut errors = FieldErrors::new();
+        if change.featured && change.status == PostStatus::Draft {
+            errors.add(
+                StatusChangeField::Featured,
+                "Only a published post is featured",
+            );
+        }
+        errors
     }
 
     async fn run(

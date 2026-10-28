@@ -264,6 +264,12 @@ async fn an_action_input_cannot_hold_a_dependent_choice() {
     struct Moving;
 
     impl FormInput for Moving {
+        type Field = std::convert::Infallible;
+
+        fn key(field: Self::Field) -> &'static str {
+            match field {}
+        }
+
         fn schema() -> Schema {
             let country =
                 Field::choice(lens!(Address.country_id)).relationship::<CountryResource>();
@@ -286,8 +292,8 @@ async fn an_action_input_cannot_hold_a_dependent_choice() {
         type Input = Moving;
         const NAME: &'static str = "move";
 
-        fn label(_cx: &Cx) -> String {
-            "Move".to_string()
+        fn label() -> tablo::Text {
+            "Move".into()
         }
 
         async fn run(
