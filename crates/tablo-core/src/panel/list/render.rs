@@ -49,6 +49,8 @@ pub(super) struct Frame<'t> {
     filter_menu: bool,
     /// The page sizes the reader may pick; empty offers no choice.
     page_sizes: Vec<usize>,
+    /// The groupings the reader may pick, by `?group_by=` value and label; empty offers none.
+    groupings: Vec<(&'t str, crate::Text)>,
     delete_prefix: Option<&'t str>,
     edit_prefix: Option<&'t str>,
     view_prefix: Option<&'t str>,
@@ -146,6 +148,11 @@ impl<M> WiredTable<M> {
             search: self.search_enabled(),
             filter_menu: self.filter_menu_enabled(),
             page_sizes: self.page_sizes(),
+            groupings: self
+                .declared_groupings()
+                .iter()
+                .map(|group| (group.name(), group.label()))
+                .collect(),
             delete_prefix: self.delete_prefix(),
             edit_prefix: self.edit_prefix(),
             view_prefix: self.view_prefix(),

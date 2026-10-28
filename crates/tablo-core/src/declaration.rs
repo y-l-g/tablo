@@ -355,6 +355,13 @@ pub enum DeclarationErrorKind {
         /// The shared key.
         key: String,
     },
+    /// A table offers two groupings by one field.
+    ///
+    /// Declare each [`Table::group_by`](crate::Table::group_by) once.
+    DuplicateGrouping {
+        /// The field's name.
+        name: String,
+    },
     /// A table filter's name holds a `.`, which its URL parameters reserve for a part:
     /// `f.<name>.<part>`.
     ///

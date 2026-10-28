@@ -162,6 +162,10 @@ impl fmt::Display for DeclarationErrorKind {
                 f,
                 "two list tabs share the key '{key}': each tab needs a distinct key"
             ),
+            Self::DuplicateGrouping { name } => write!(
+                f,
+                "the table groups by '{name}' twice: declare each grouping once"
+            ),
             Self::DottedFilterName { name } => write!(f, "filter name '{name}' holds a '.'"),
             Self::UnparsedFilterOption { filter, value } => write!(
                 f,

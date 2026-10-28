@@ -63,8 +63,7 @@ impl<M> WiredTable<M> {
             return Err(crate::error::misdeclared(&errors));
         }
         let frame = self.frame();
-        let group_key = self.effective_group_key(state);
-        let rows = self.row_views(cx, &frame, &page, group_key.as_ref());
+        let rows = self.row_views(cx, &frame, &page, self.active_grouping(state));
         let active = self.active_tab(state).map(|tab| tab.key());
         let tabs = self
             .declared_tabs()
