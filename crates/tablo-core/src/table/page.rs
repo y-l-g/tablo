@@ -28,6 +28,7 @@ pub const DEFAULT_PER_PAGE_OPTIONS: [usize; 4] = [10, 25, 50, 100];
 /// Table::new(TextColumn::new(lens!(Event.name))).pagination(Pagination::Cursor);
 /// ```
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Pagination {
     /// Numbered pages, `?page=3`: "Showing 51–75 of 312", the page links, and Previous and
     /// Next. Each page counts the result set, one more query.

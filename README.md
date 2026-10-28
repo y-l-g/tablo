@@ -10,6 +10,8 @@ Tablo is experimental: until 1.0, a minor version may break the API.
 
 ## Quick start
 
+Tablo needs Rust 1.99 or newer; every crate declares that as its `rust-version`.
+
 Run the showcase, a blog's admin panel that exercises every feature, through the Topcoat CLI:
 
 ```sh

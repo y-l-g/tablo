@@ -61,6 +61,7 @@ pub(crate) struct GroupDef<M> {
 /// Table::new(TextColumn::new(lens!(Post.title))).action_layout(ActionLayout::Menu);
 /// ```
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ActionLayout {
     /// Side by side at the end of the row: View, Edit and Delete as icons, a custom action by its
     /// label.

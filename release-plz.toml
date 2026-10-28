@@ -5,6 +5,8 @@ git_release_draft = true
 pr_draft = true
 pr_labels = ["release"]
 release_always = true
+# release-plz takes the bump from the commits. The `semver` job in ci.yml checks that the bump
+# covers the public API changes, with the default features.
 semver_check = false
 
 # Default to NOT releasing. The release-order pass runs over every workspace
