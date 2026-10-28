@@ -5,10 +5,10 @@
 //! A widget's record table hides it as the list does.
 
 use tablo::{
-    Ability, ComputedColumn, DeclarationErrorKind, Detail, FieldAccess, FieldAccessFault,
+    Ability, Color, ComputedColumn, DeclarationErrorKind, Detail, FieldAccess, FieldAccessFault,
     FieldErrors, Page, PageDef, QueryFilter, Reads, RecordTable, Resource, ResourceDef, Schema,
     Site, Tab, Table, Tabs, Tenancy, TenantId, TextColumn, Widget, lens,
-    testing::{columns, ignored_filters, record_tables, row_keys, tabs},
+    testing::{columns, ignored_filters, record_tables, row_keys, rows, tabs},
 };
 use toasty::Db;
 use topcoat::{
@@ -585,12 +585,16 @@ async fn a_declaration_showing_a_restricted_field_is_refused() {
                 .tenancy(Tenancy::column(Employee::fields().tenant_id()))
                 .field_access(lens!(Employee.salary), FieldAccess::new().view(hr))
                 .record_title(lens!(Employee.salary))
-                .table(Table::new((
-                    TextColumn::new(lens!(Employee.name)),
-                    ComputedColumn::new("Initial", |e: &Employee| e.name[..1].to_string()),
-                    TextColumn::new(lens!(Employee.grade))
-                        .description(|e: &Employee| e.salary.clone()),
-                )))
+                .table(
+                    Table::new((
+                        TextColumn::new(lens!(Employee.name))
+                            .url(|e: &Employee| Some(format!("/pay/{}", e.salary))),
+                        ComputedColumn::new("Initial", |e: &Employee| e.name[..1].to_string()),
+                        TextColumn::new(lens!(Employee.grade))
+                            .description(|e: &Employee| e.salary.clone()),
+                    ))
+                    .row_color(|e: &Employee| (e.salary == "S-900").then_some(Color::Danger)),
+                )
         }
     }
 
@@ -626,6 +630,70 @@ async fn a_declaration_showing_a_restricted_field_is_refused() {
         )),
         "a description may read any field: {errors:?}"
     );
+    assert!(
+        faults.contains(&(
+            &Site::Table,
+            &FieldAccessFault::UndeclaredReads {
+                what: "column",
+                name: "name".to_string()
+            }
+        )),
+        "a link may read any field: {errors:?}"
+    );
+    assert!(
+        faults.contains(&(
+            &Site::Table,
+            &FieldAccessFault::UndeclaredReads {
+                what: "row color",
+                name: "row_color".to_string()
+            }
+        )),
+        "a row color may read any field: {errors:?}"
+    );
+}
+
+/// A row color reading the salary tints a row for the user who may view it, and leaves every row
+/// plain for one who may not, whose tint would tell the salary.
+#[tokio::test]
+async fn a_row_color_reading_a_hidden_field_leaves_the_rows_plain() {
+    struct Tinted;
+
+    impl Resource for Tinted {
+        type Model = Employee;
+        type Form = EmployeeForm;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("tinted")
+                .policy_fn(|_cx, _ability: Ability<'_, Employee>| true)
+                .tenancy(Tenancy::column(Employee::fields().tenant_id()))
+                .field_access(lens!(Employee.salary), FieldAccess::new().view(hr))
+                .table(
+                    Table::new(TextColumn::new(lens!(Employee.name)))
+                        .row_color(|e: &Employee| (e.salary == "S-900").then_some(Color::Danger))
+                        .row_color_reading(Reads::of(lens!(Employee.salary))),
+                )
+        }
+    }
+
+    let db = db().await;
+    let router = mount(db.clone(), panel().resource::<Tinted>()).expect("the panel mounts");
+    employee(&db, HR, "Ada", "S-900").await;
+    employee(&db, SALES, "Ada", "S-900").await;
+
+    let tints = |html: &str| {
+        rows(html)
+            .into_iter()
+            .map(|row| row.color)
+            .collect::<Vec<_>>()
+    };
+    let hr = TestClient::new(&router).tenant(HR);
+    assert_eq!(
+        tints(&page(&hr, "/admin/tinted").await),
+        [Some("danger".to_string())]
+    );
+    let sales = TestClient::new(&router).tenant(SALES);
+    assert_eq!(tints(&page(&sales, "/admin/tinted").await), [None]);
 }
 
 /// A rule over edits alone leaves the field shown to every user, so a title over it mounts, and a

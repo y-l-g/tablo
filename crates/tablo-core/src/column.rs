@@ -1,7 +1,8 @@
 //! Columns, which a [`Table`](crate::Table) lists and a [`Detail`](crate::Detail) shows: the
 //! [`Column`] trait, the built-in [`TextColumn`], [`DateColumn`], [`ComputedColumn`],
 //! [`RelationColumn`], [`CountColumn`], [`BooleanColumn`], [`FileColumn`], [`ColorColumn`],
-//! [`ImageColumn`], [`EmbeddedColumn`], [`RepeaterColumn`] and [`RichTextColumn`], and the
+//! [`ImageColumn`], [`IconColumn`], [`EmbeddedColumn`], [`RepeaterColumn`] and
+//! [`RichTextColumn`], and the
 //! [`IntoColumns`] seam.
 //!
 //! The module sits below both: `table` re-exports it, and `detail` implements
@@ -108,6 +109,9 @@ macro_rules! base_column_methods {
     };
 }
 
+/// A closure reading a value off a row or a field: a cell's color, icon, link or tooltip.
+pub(crate) type ReadFn<T, V> = Arc<dyn Fn(&T) -> V + Send + Sync>;
+
 fn sort_order<M, T>(path: &Path<M, T>, descending: bool) -> OrderByExpr {
     if descending {
         path.clone().desc()
@@ -119,11 +123,13 @@ fn sort_order<M, T>(path: &Path<M, T>, descending: bool) -> OrderByExpr {
 mod related;
 pub use related::Related;
 mod boolean;
+mod cell;
 mod color;
 mod computed;
 mod date;
 mod embedded;
 mod file;
+mod icon;
 mod image;
 mod into_columns;
 mod relation;
@@ -138,6 +144,7 @@ pub use computed::ComputedColumn;
 pub use date::{DateColumn, DateValue};
 pub use embedded::EmbeddedColumn;
 pub use file::FileColumn;
+pub use icon::IconColumn;
 pub use image::ImageColumn;
 pub use into_columns::IntoColumns;
 pub use relation::{CountColumn, RelationColumn, RelationLens, ToOneRelation};

@@ -12,9 +12,10 @@ impl<M> Table<M> {
     }
 
     /// This table as `cx` reads it, without what reads one of the `hidden` fields: its columns,
-    /// filters and grouping, and a default sort on a column it drops. A search, a sort or a filter
-    /// naming one then matches nothing the table declares, as one naming an unknown column does.
-    /// It drops a column showing a field of a related record its resource hides from `cx` too.
+    /// filters, grouping and row color, and a default sort on a column it drops. A search, a sort
+    /// or a filter naming one then matches nothing the table declares, as one naming an unknown
+    /// column does. It drops a column showing a field of a related record its resource hides
+    /// from `cx` too.
     pub(crate) fn without(&self, cx: &Cx, hidden: &[String]) -> Self {
         let mut table = self.clone();
         table
@@ -27,6 +28,9 @@ impl<M> Table<M> {
             .is_some_and(|group| !shows(Some(group.binding.reads::<M>()), hidden))
         {
             table.group_by = None;
+        }
+        if !shows(table.row_color.reads.clone(), hidden) {
+            table.row_color = Default::default();
         }
         if table
             .default_sort

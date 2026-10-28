@@ -4,7 +4,8 @@
 //! `option-{enum}.{variant}`, which reads that name in sentence case when no catalog
 //! holds it; `#[option(value = "..", label = "..")]` overrides either, the label as
 //! plain text, and
-//! `#[option(color = "..")]` gives it the color a badge shows it in.
+//! `#[option(color = "..")]` gives it the color a badge shows it in, and
+//! `#[option(icon = path::TO_ICON)]` the icon a column shows it with.
 //! The derive implements `Options` and `FormScalar`, spelling a variant as
 //! its value and reading it as its label, and gives the enum `value()`,
 //! `label()` and `from_value()`.
@@ -33,6 +34,8 @@ struct Choice {
     declared: bool,
     /// The `Color` variant `color = ".."` names.
     color: Option<syn::Ident>,
+    /// The icon `icon = ..` names, an `IconData` expression.
+    icon: Option<syn::Expr>,
 }
 
 /// The names `#[option(color = "..")]` takes, and the `Color` variant each names.
@@ -76,6 +79,7 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
         let mut label = sentence_case(&name);
         let mut declared = false;
         let mut color = None;
+        let mut icon = None;
         for attr in &variant.attrs {
             if !attr.path().is_ident("option") {
                 continue;
@@ -96,10 +100,12 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
                         ));
                     };
                     color = Some(syn::Ident::new(variant, name.span()));
+                } else if meta.path.is_ident("icon") {
+                    icon = Some(meta.value()?.parse::<syn::Expr>()?);
                 } else {
                     return Err(meta.error(
-                        "unknown `#[option(..)]` key: expected `value = \"…\"`, `label = \"…\"` \
-                         or `color = \"…\"`",
+                        "unknown `#[option(..)]` key: expected `value = \"…\"`, `label = \"…\"`, \
+                         `color = \"…\"` or `icon = …`",
                     ));
                 }
                 Ok(())
@@ -142,6 +148,7 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
             label,
             declared,
             color,
+            icon,
         });
     }
     let krate = crate::tablo_core_path(&input.ident, "Options")?;
@@ -175,6 +182,20 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
             }
         }
     });
+    // Only an enum that names an icon overrides the trait's `None`.
+    let icon = choices.iter().any(|c| c.icon.is_some()).then(|| {
+        let icons = choices.iter().map(|c| match &c.icon {
+            Some(icon) => quote! { ::std::option::Option::Some(#icon) },
+            None => quote! { ::std::option::Option::None },
+        });
+        quote! {
+            fn icon(&self) -> ::std::option::Option<#krate::__macro::IconData> {
+                match self {
+                    #(Self::#idents => #icons,)*
+                }
+            }
+        }
+    });
     Ok(quote! {
         impl #krate::__macro::Options for #ident {
             fn options() -> ::std::vec::Vec<(::std::string::String, #krate::__macro::Text)> {
@@ -202,6 +223,8 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
             }
 
             #color
+
+            #icon
         }
 
         impl #krate::__macro::NullableScalar for #ident {}

@@ -287,6 +287,9 @@ pub(crate) fn check<R: Resource>(
             faults.push((Site::Table, undeclared("column", column.name())));
         }
     }
+    if declared.table.row_color_reads_undeclared() {
+        faults.push((Site::Table, undeclared("row color", "row_color")));
+    }
     for filter in declared.table.declared_filters() {
         if filter.reads().is_none() {
             faults.push((Site::Table, undeclared("filter", filter.name())));

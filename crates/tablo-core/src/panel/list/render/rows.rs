@@ -154,7 +154,15 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
     // The whole row opens its record: an empty link in the first cell stretches over the row, and
     // the cells' own links and controls rise above it.
     let record_url = row.view_url.clone().or_else(|| row.edit_url.clone());
-    let row_class = record_url.is_some().then_some(RECORD_ROW_CLASS);
+    let row_class = [
+        record_url.is_some().then_some(RECORD_ROW_CLASS),
+        row.color.map(crate::Color::row_class),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>()
+    .join(" ");
+    let tint = row.color.map(crate::Color::name);
     let cells: Vec<(BoxView<'a>, CellLayout)> = std::mem::take(&mut row.cells)
         .into_iter()
         .zip(chrome.cells.iter().cloned())
@@ -173,7 +181,7 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
             (header)
         }
         table_row(
-            attrs: attributes! { id=(dom_id) class=(row_class) },
+            attrs: attributes! { id=(dom_id) class=(row_class) data-row-color=(tint) },
             if let Some(cell) = bulk_cell {
                 (cell)
             }
@@ -233,6 +241,8 @@ pub(super) struct RowView<'a> {
     custom: Vec<RowButton>,
     /// Whether the row renders a bulk checkbox.
     selectable: bool,
+    /// The tint the table's [`row_color`](crate::Table::row_color) gives the row.
+    color: Option<crate::Color>,
     /// The row's group label, when `?group_by=` names the declared group.
     group: Option<String>,
     /// The header this row renders above itself, `Some` only on the first row
@@ -353,6 +363,7 @@ impl<M> WiredTable<M> {
                     delete_action,
                     custom,
                     selectable,
+                    color: self.color_of(row),
                     group: group_key.map(|group| group(row).localize(cx)),
                     group_header: None,
                 }

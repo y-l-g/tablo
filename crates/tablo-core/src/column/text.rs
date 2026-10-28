@@ -5,9 +5,13 @@ use std::sync::Arc;
 
 use derive_where::derive_where;
 use toasty::stmt::{Expr, OrderByExpr};
-use topcoat::{context::Cx, view::*};
+use topcoat::{context::Cx, icon::IconData, view::*};
 
-use super::{Column, ColumnBase, ColumnWidth, sort_order};
+use super::{
+    Column, ColumnBase, ColumnWidth, ReadFn,
+    cell::{TextCell, text_cell},
+    sort_order,
+};
 use crate::{
     Lens, Text,
     display::{Alignment, Color, Currency, Numeric},
@@ -62,12 +66,35 @@ use crate::{
 /// TextColumn::new(lens!(Order.status)).badge();
 /// TextColumn::new(lens!(Order.total_cents)).money(Currency::USD.minor_units());
 /// ```
+///
+/// A cell also links to a [`url`](Self::url), shows a [`tooltip`](Self::tooltip), cuts a long
+/// value to a [`limit`](Self::limit), offers a [`copyable`](Self::copyable) button, shows an
+/// [`icon`](Self::icon) before the value, and a [`placeholder`](Self::placeholder) for an empty
+/// one:
+///
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # struct User { #[key] #[auto] id: uuid::Uuid, email: String, bio: String, phone: String }
+/// use tablo_core::{Reads, TextColumn, lens};
+///
+/// TextColumn::new(lens!(User.email))
+///     .url(|user: &User| Some(format!("mailto:{}", user.email)))
+///     .reading(Reads::nothing())
+///     .copyable();
+/// TextColumn::new(lens!(User.bio)).limit(40);
+/// TextColumn::new(lens!(User.phone)).placeholder("No phone");
+/// ```
+///
+/// A closure over the row, a [`description`](Self::description), a [`url`](Self::url), a
+/// [`tooltip`](Self::tooltip) or a [`money_by`](Self::money_by), may read any field, so a
+/// resource that [restricts a field](crate::ResourceDef::field_access) refuses the column until
+/// [`reading`](Self::reading) declares the ones they read.
 #[derive_where(Clone, Debug)]
 pub struct TextColumn<M, T> {
     lens: Lens<M, T>,
     base: ColumnBase,
     #[derive_where(skip(Debug))]
-    format: Arc<dyn Fn(&T) -> Text + Send + Sync>,
+    format: FormatFn<M, T>,
     /// The `LIKE` predicate for a search pattern, when [`searchable`](Self::searchable).
     #[derive_where(skip(Debug))]
     search: Option<SearchFn>,
@@ -83,19 +110,36 @@ pub struct TextColumn<M, T> {
     tabular: bool,
     alignment: Alignment,
     #[derive_where(skip(Debug))]
-    description: Option<DescriptionFn<M>>,
-    /// The fields the description reads, when declared.
-    description_reads: Option<crate::lens::Reads<M>>,
+    description: Option<RowFn<M, String>>,
+    /// The value's icon: its own, an `Options` enum's, unless [`icon`](Self::icon) says
+    /// otherwise.
+    #[derive_where(skip(Debug))]
+    icon: ReadFn<T, Option<IconData>>,
+    #[derive_where(skip(Debug))]
+    url: Option<RowFn<M, Option<String>>>,
+    new_tab: bool,
+    #[derive_where(skip(Debug))]
+    tooltip: Option<RowFn<M, Option<String>>>,
+    limit: Option<usize>,
+    copyable: bool,
+    placeholder: Option<Text>,
+    /// Whether a closure over the row reads beyond the column's field.
+    reads_row: bool,
+    /// The fields the closures over the row read, when declared.
+    row_reads: Option<crate::lens::Reads<M>>,
 }
 
 /// A searchable column's predicate for an escaped `LIKE` pattern.
 type SearchFn = Arc<dyn Fn(String) -> Expr<bool> + Send + Sync>;
 
 /// A column's color for a value.
-type ColorFn<T> = Arc<dyn Fn(&T) -> Option<Color> + Send + Sync>;
+type ColorFn<T> = ReadFn<T, Option<Color>>;
 
-/// A column's second line for a row.
-type DescriptionFn<M> = Arc<dyn Fn(&M) -> String + Send + Sync>;
+/// A closure over the row.
+type RowFn<M, V> = ReadFn<M, V>;
+
+/// A column's spelling of its value, which may read the rest of the row.
+type FormatFn<M, T> = Arc<dyn Fn(&M, &T) -> Text + Send + Sync>;
 
 /// The escape character the search pattern declares to `LIKE`.
 const LIKE_ESCAPE: char = '\\';
@@ -140,7 +184,7 @@ where
         Self {
             base: ColumnBase::new(lens.path(), ColumnWidth::Grow),
             lens,
-            format: Arc::new(T::to_label),
+            format: Arc::new(|_, value: &T| value.to_label()),
             search: None,
             sortable: false,
             color: Arc::new(T::color),
@@ -149,7 +193,15 @@ where
             tabular: false,
             alignment: Alignment::Start,
             description: None,
-            description_reads: None,
+            icon: Arc::new(T::icon),
+            url: None,
+            new_tab: false,
+            tooltip: None,
+            limit: None,
+            copyable: false,
+            placeholder: None,
+            reads_row: false,
+            row_reads: None,
         }
     }
 
@@ -159,7 +211,7 @@ where
         mut self,
         format: impl Fn(&T) -> L + Send + Sync + 'static,
     ) -> Self {
-        self.format = Arc::new(move |value| format(value).into());
+        self.format = Arc::new(move |_, value| format(value).into());
         self
     }
 
@@ -179,21 +231,72 @@ where
 
     /// Show `description(row)` as a muted line under the value, such as a customer's email under
     /// their name. Search, sort and export read the value alone.
-    ///
-    /// The description may read any field, so a resource that
-    /// [restricts a field](crate::ResourceDef::field_access) refuses the column until
-    /// [`reading`](Self::reading) declares the ones it reads.
     pub fn description(
         mut self,
         description: impl Fn(&M) -> String + Send + Sync + 'static,
     ) -> Self {
         self.description = Some(Arc::new(description));
+        self.reads_row = true;
         self
     }
 
-    /// Declare the fields the [`description`](Self::description) reads, beside the column's own.
+    /// Link the value to `url(row)`, or show it unlinked when that is `None`. The link takes a
+    /// relative URL or an `http`, `https`, `mailto` or `tel` one; any other scheme, such as
+    /// `javascript:`, leaves the value unlinked.
+    pub fn url(mut self, url: impl Fn(&M) -> Option<String> + Send + Sync + 'static) -> Self {
+        self.url = Some(Arc::new(url));
+        self.reads_row = true;
+        self
+    }
+
+    /// Open the [`url`](Self::url) in a new tab.
+    pub fn open_url_in_new_tab(mut self) -> Self {
+        self.new_tab = true;
+        self
+    }
+
+    /// Show `tooltip(row)` when the pointer rests on the value.
+    pub fn tooltip(
+        mut self,
+        tooltip: impl Fn(&M) -> Option<String> + Send + Sync + 'static,
+    ) -> Self {
+        self.tooltip = Some(Arc::new(tooltip));
+        self.reads_row = true;
+        self
+    }
+
+    /// Show at most `chars` characters of the value, then an ellipsis; the whole value shows
+    /// when the pointer rests on it, unless a [`tooltip`](Self::tooltip) says otherwise. Search,
+    /// sort and export read the whole value.
+    pub fn limit(mut self, chars: usize) -> Self {
+        self.limit = Some(chars);
+        self
+    }
+
+    /// Follow the value with a button copying it to the clipboard, which needs JavaScript.
+    pub fn copyable(mut self) -> Self {
+        self.copyable = true;
+        self
+    }
+
+    /// Show `placeholder` for an empty value, in place of a dash. An export writes the empty
+    /// value.
+    pub fn placeholder(mut self, placeholder: impl Into<Text>) -> Self {
+        self.placeholder = Some(placeholder.into());
+        self
+    }
+
+    /// Show `icon(value)` before the value, in its color, replacing a badge's dot.
+    pub fn icon(mut self, icon: impl Fn(&T) -> Option<IconData> + Send + Sync + 'static) -> Self {
+        self.icon = Arc::new(icon);
+        self
+    }
+
+    /// Declare the fields the closures over the row read, beside the column's own: the
+    /// [`description`](Self::description), [`url`](Self::url), [`tooltip`](Self::tooltip) and
+    /// [`money_by`](Self::money_by).
     pub fn reading(mut self, reads: crate::lens::Reads<M>) -> Self {
-        self.description_reads = Some(reads);
+        self.row_reads = Some(reads);
         self
     }
 
@@ -214,7 +317,7 @@ where
     /// Spell the value as a number with `decimals` digits after the point and its thousands
     /// grouped, `12,345.60`, aligned to the end with equal-width digits.
     pub fn numeric(mut self, decimals: u8) -> Self {
-        self.format = Arc::new(move |value: &T| {
+        self.format = Arc::new(move |_, value: &T| {
             value
                 .number()
                 .map(|number| crate::display::format_number(number, decimals))
@@ -227,7 +330,15 @@ where
     /// Spell the value as an amount of `currency`, `$1,234.50`, aligned to the end with
     /// equal-width digits.
     pub fn money(mut self, currency: Currency) -> Self {
-        self.format = Arc::new(move |value: &T| currency.format(value).into());
+        self.format = Arc::new(move |_, value: &T| currency.format(value).into());
+        self.amount()
+    }
+
+    /// Spell the value as an amount of the currency `currency(row)` names, such as an order's
+    /// own, aligned as [`money`](Self::money) aligns it.
+    pub fn money_by(mut self, currency: impl Fn(&M) -> Currency + Send + Sync + 'static) -> Self {
+        self.format = Arc::new(move |row, value: &T| currency(row).format(value).into());
+        self.reads_row = true;
         self.amount()
     }
 
@@ -264,25 +375,44 @@ where
 
     fn reads(&self) -> Option<crate::lens::Reads<M>> {
         let own = self.base.reads();
-        match (&self.description, &self.description_reads) {
-            (None, _) => Some(own),
-            (Some(_), None) => None,
-            (Some(_), Some(declared)) => Some(own.union(declared)),
+        match (self.reads_row, &self.row_reads) {
+            (false, _) => Some(own),
+            (true, None) => None,
+            (true, Some(declared)) => Some(own.union(declared)),
         }
     }
 
     fn text(&self, cx: &Cx, row: &M) -> String {
-        (self.format)(self.lens.read(row)).localize(cx)
+        (self.format)(row, self.lens.read(row)).localize(cx)
     }
 
     fn cell<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
         let value = self.lens.read(row);
-        let text = (self.format)(value).localize(cx);
-        let color = (!text.trim().is_empty() && (self.badge || self.tinted))
+        let text = (self.format)(row, value).localize(cx);
+        let color = (!text.trim().is_empty())
             .then(|| (self.color)(value))
             .flatten();
-        let description = self.description.as_ref().map(|describe| describe(row));
-        text_cell(cx, text, color, self.badge, self.tabular, description)
+        // An icon takes the value's color, as a badge's dot does; only a declared color tints the
+        // text.
+        let icon = (self.icon)(value).map(|icon| (icon, color));
+        let color = color.filter(|_| self.badge || self.tinted);
+        text_cell(
+            cx,
+            TextCell {
+                text,
+                color,
+                badge: self.badge,
+                tabular: self.tabular,
+                icon,
+                description: self.description.as_ref().map(|describe| describe(row)),
+                url: self.url.as_ref().and_then(|url| url(row)),
+                new_tab: self.new_tab,
+                tooltip: self.tooltip.as_ref().and_then(|tooltip| tooltip(row)),
+                limit: self.limit,
+                copyable: self.copyable,
+                placeholder: self.placeholder.clone(),
+            },
+        )
     }
 
     fn alignment(&self) -> Alignment {
@@ -308,63 +438,4 @@ where
         self.sortable
             .then(|| sort_order(self.lens.path(), descending))
     }
-}
-
-/// A text cell: `text`, as a badge or tinted by `color`, over its `description`. A free function,
-/// so tablo-core compiles the view once rather than once for each model and field type.
-fn text_cell<'a>(
-    cx: &'a Cx,
-    text: String,
-    color: Option<Color>,
-    badge: bool,
-    tabular: bool,
-    description: Option<String>,
-) -> BoxView<'a> {
-    let value: BoxView<'a> = if text.trim().is_empty() {
-        crate::schema::value_cell(cx, &text)
-    } else if badge {
-        badge_cell(cx, text, color)
-    } else {
-        let class = [
-            color.map(Color::text_class),
-            tabular.then_some("tabular-nums"),
-        ]
-        .into_iter()
-        .flatten()
-        .collect::<Vec<_>>()
-        .join(" ");
-        if class.is_empty() {
-            view! { cx => (text) }.boxed()
-        } else {
-            view! { cx => <span class=(class)>(text)</span> }.boxed()
-        }
-    };
-    match description.filter(|description| !description.trim().is_empty()) {
-        None => value,
-        Some(description) => view! {
-            cx =>
-            <div class="flex min-w-0 flex-col">
-                <span class="truncate">(value)</span>
-                <span class="truncate text-xs text-muted-foreground">
-                    (description)
-                </span>
-            </div>
-        }
-        .boxed(),
-    }
-}
-
-/// `text` as an outline badge, led by a dot in `color` when it has one.
-fn badge_cell<'a>(cx: &'a Cx, text: String, color: Option<Color>) -> BoxView<'a> {
-    view! {
-        cx =>
-        tablo_ui::badge(
-            variant: tablo_ui::BadgeVariant::Outline,
-            if let Some(color) = color {
-                <span class=(color.dot_class()) aria-hidden="true"></span>
-            }
-            (text)
-        )
-    }
-    .boxed()
 }

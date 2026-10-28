@@ -89,14 +89,14 @@ pub mod prelude {
         Change, Chart, ChoiceField, Color, ColorColumn, ColumnWidth, ComputedColumn, CountColumn,
         Currency, CustomField, DateColumn, DateFilter, DateValue, Deny, Detail, EmbeddedColumn,
         EmbeddedForm, Field, FieldAccess, FieldErrors, FileColumn, FileField, FormInput,
-        FormValues, GlobalSearch, Grid, Group, HeaderAction, HeaderActions, ImageColumn,
-        IntoOptions, Lens, ModelColumns, ModelForm, NavigationItem, NoForm, Options, Outcome, Page,
-        PageDef, Pagination, Panel, Places, Policy, Posted, PublicLink, QueryFilter, ReadOnly,
-        Reads, RecordForm, RecordTable, Relation, RelationColumn, RepeaterColumn, Resource,
-        ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter, Series, Sort, Stat, Tab,
-        Table, Tabs, Tenancy, TenantId, TernaryFilter, Text, TextColumn, TextField, Toggle, Trend,
-        Widget, WidgetDef, WriteError, can, can_list, can_open, filter_keys, lens, relation,
-        scoped_query, t, tenant_id, text, when,
+        FormValues, GlobalSearch, Grid, Group, HeaderAction, HeaderActions, IconColumn,
+        ImageColumn, IntoOptions, Lens, ModelColumns, ModelForm, NavigationItem, NoForm, Options,
+        Outcome, Page, PageDef, Pagination, Panel, Places, Policy, Posted, PublicLink, QueryFilter,
+        ReadOnly, Reads, RecordForm, RecordTable, Relation, RelationColumn, RepeaterColumn,
+        Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section, SelectFilter, Series, Sort,
+        Stat, Tab, Table, Tabs, Tenancy, TenantId, TernaryFilter, Text, TextColumn, TextField,
+        Toggle, Trend, Widget, WidgetDef, WriteError, can, can_list, can_open, filter_keys, lens,
+        relation, scoped_query, t, tenant_id, text, when,
     };
     #[cfg(feature = "rich-text")]
     pub use tablo_core::{RichTextColumn, RichTextField, Tool};

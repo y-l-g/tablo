@@ -67,6 +67,24 @@ pub fn accent_column() -> ColorColumn<Theme, String> {
 }
 // ANCHOR_END: table-presenting
 
+// ANCHOR: table-cell-options
+pub fn contact_table() -> Table<User> {
+    Table::new((
+        // Links to the user's page on another site, in a new tab.
+        TextColumn::new(lens!(User.name))
+            .url(|user: &User| Some(format!("https://people.example/{}", user.id)))
+            .open_url_in_new_tab(),
+        // A button copies the address; a long one shows its first 24 characters.
+        TextColumn::new(lens!(User.email)).copyable().limit(24),
+        // The role's `#[option(icon = …)]` in place of its label.
+        IconColumn::new(lens!(User.role)),
+    ))
+    // A row whose user is inactive reads muted.
+    .row_color(|user: &User| (!user.active).then_some(Color::Gray))
+    .row_color_reading(Reads::of(lens!(User.active)))
+}
+// ANCHOR_END: table-cell-options
+
 // ANCHOR: table-toggleable
 pub fn user_table() -> Table<User> {
     Table::new((

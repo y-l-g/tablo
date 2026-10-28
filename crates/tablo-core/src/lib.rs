@@ -62,7 +62,7 @@ pub mod __macro {
         stmt,
         stmt::{List, Path},
     };
-    pub use topcoat::context::Cx;
+    pub use topcoat::{context::Cx, icon::IconData};
 
     pub use crate::{
         Color, Lens, Text,
@@ -152,8 +152,8 @@ pub use chart::{Chart, Series, chart};
 pub use column::RichTextColumn;
 pub use column::{
     BooleanColumn, ColorColumn, ColumnToggle, ColumnWidth, ComputedColumn, CountColumn, DateColumn,
-    DateValue, EmbeddedColumn, FileColumn, ImageColumn, IntoColumns, RelationColumn, RelationLens,
-    RepeaterColumn, TextColumn, ToOneRelation, contains_expr,
+    DateValue, EmbeddedColumn, FileColumn, IconColumn, ImageColumn, IntoColumns, RelationColumn,
+    RelationLens, RepeaterColumn, TextColumn, ToOneRelation, contains_expr,
 };
 pub use declaration::{
     ActionInputFault, AuthMailFault, DeclarationError, DeclarationErrorKind, FieldAccessFault,

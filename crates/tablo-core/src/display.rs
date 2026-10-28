@@ -51,6 +51,18 @@ impl Color {
         })
     }
 
+    /// The name a `#[option(color = "…")]` attribute gives this color.
+    pub(crate) const fn name(self) -> &'static str {
+        match self {
+            Self::Gray => "gray",
+            Self::Primary => "primary",
+            Self::Success => "success",
+            Self::Warning => "warning",
+            Self::Danger => "danger",
+            Self::Info => "info",
+        }
+    }
+
     /// The class of a badge's status dot in this color.
     pub(crate) const fn dot_class(self) -> &'static str {
         match self {
@@ -60,6 +72,18 @@ impl Color {
             Self::Warning => "size-1.5 shrink-0 rounded-full bg-warning",
             Self::Danger => "size-1.5 shrink-0 rounded-full bg-destructive",
             Self::Info => "size-1.5 shrink-0 rounded-full bg-info",
+        }
+    }
+
+    /// The class of a table row tinted in this color.
+    pub(crate) const fn row_class(self) -> &'static str {
+        match self {
+            Self::Gray => "bg-muted/50",
+            Self::Primary => "bg-primary/5",
+            Self::Success => "bg-success/10",
+            Self::Warning => "bg-warning/10",
+            Self::Danger => "bg-destructive/10",
+            Self::Info => "bg-info/10",
         }
     }
 

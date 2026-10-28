@@ -137,3 +137,23 @@ struct StatusField {
     status: Status,
     previous: Option<Status>,
 }
+
+/// An icon marks its own variant, and an optional value forwards it.
+#[test]
+fn an_option_icon_marks_its_variant() {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, crate::Options)]
+    enum Health {
+        #[option(icon = tablo_ui::icons::CIRCLE_CHECK)]
+        Up,
+        Down,
+    }
+
+    assert!(Health::Up.icon().is_some());
+    assert!(Health::Down.icon().is_none());
+    assert!(Some(Health::Up).icon().is_some());
+    assert!(None::<Health>.icon().is_none());
+    assert!(
+        Status::Draft.icon().is_none(),
+        "an enum naming no icon keeps the default"
+    );
+}

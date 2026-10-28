@@ -104,6 +104,18 @@ An `Options` enum gives each variant its badge color with `#[option(color = "…
 {{#include ../../../examples/guide/src/tables.rs:table-presenting}}
 ```
 
+A cell can also link to a URL, copy its value, show a tooltip, cut a long value, show an icon or a
+placeholder for an empty value, and a table can tint a row by its record:
+
+```rust
+{{#include ../../../examples/guide/src/tables.rs:table-cell-options}}
+```
+
+A link takes a relative URL or an `http`, `https`, `mailto` or `tel` one, so a value a user wrote
+cannot turn into a script. A closure over the row may read any field: on a resource that
+[restricts a field](./resources.md#field-access), it declares what it reads with `.reading(..)`, or
+`.row_color_reading(..)` for the row color, as a `.description(..)` does.
+
 The export writes the formatted value: `$1,234.50`, not `123450`. Money uses `,` and `.` as
 separators; a locale's own spelling is a `.format(..)`. Over a [decimal column](./forms.md#typed-values),
 `.numeric(..)` and `.money(..)` spell the stored digits without passing through a float.
