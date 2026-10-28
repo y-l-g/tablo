@@ -262,7 +262,12 @@ fn check_form_inner<R: Resource>(
     }
     // The create and edit POSTs carry these keys beside the form's own.
     for field in form.fields().filter(|field| {
-        [crate::csrf::FIELD_NAME, crate::form::VERSION_FIELD].contains(&field.name())
+        [
+            crate::csrf::FIELD_NAME,
+            crate::form::VERSION_FIELD,
+            crate::form::ANOTHER_FIELD,
+        ]
+        .contains(&field.name())
     }) {
         errors.push(form_error::<R>(DeclarationErrorKind::ReservedFormField {
             field: field.name().to_string(),

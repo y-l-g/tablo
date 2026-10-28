@@ -19,7 +19,7 @@ use super::{
         FormParts, blank, drop_client_typed_uploads, file_flags, parse_form_body,
         reject_unknown_form_keys, rerender_invalid_form, restore_pending_uploads,
     },
-    render::{FormChrome, VERSION_FIELD, render_form_page},
+    render::{FormChrome, VERSION_FIELD, form_action, render_form_page},
     unique::{check_unique, taken_since},
 };
 use crate::{
@@ -321,6 +321,9 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         }
         let parts = parse_form_body(cx, body).await?;
         crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
+        let another = parts
+            .last(crate::form::ANOTHER_FIELD)
+            .is_some_and(super::common::truthy);
         let Submission {
             schema,
             values,
@@ -401,11 +404,17 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
                 .await;
             }
         };
+        // Create and create another lands back on the create page, keeping its `?return=`.
+        let outcome = if another {
+            crate::Outcome::done().redirect(form_action(cx))
+        } else {
+            crate::Outcome::done()
+        };
         commit_write(
             cx,
             &resource,
             tx,
-            Ok((written, crate::Outcome::done())),
+            Ok((written, outcome)),
             Change::Create,
             crate::t!(cx, "tablo-form-created"),
             WRITE_CREATE,

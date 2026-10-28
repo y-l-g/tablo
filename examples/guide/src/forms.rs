@@ -34,6 +34,22 @@ pub fn account_tabs() -> Schema<UserForm> {
 }
 // ANCHOR_END: forms-tabs
 
+// ANCHOR: forms-sections
+pub fn account_sections() -> Schema<UserForm> {
+    let c = UserForm::controls();
+    Schema::new((
+        Section::new("Account")
+            .description("How the user signs in.")
+            .icon(tablo::ui::icons::USERS)
+            .aside()
+            .schema((c.email.email(), c.role)),
+        Section::new("Profile")
+            .collapsed()
+            .schema(Grid::new(2).schema((c.name, c.age))),
+    ))
+}
+// ANCHOR_END: forms-sections
+
 // ANCHOR: forms-field-basics
 pub fn account_form() -> Schema<UserForm> {
     let c = UserForm::controls();

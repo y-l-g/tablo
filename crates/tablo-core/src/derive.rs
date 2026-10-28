@@ -490,7 +490,11 @@ pub use tablo_macros::Options;
 ///   [`WriteError::Refused`](crate::WriteError::Refused) errors the same way.
 /// - Unknown keys are refused. A POST carrying a key the form does not declare answers 400, so
 ///   a client cannot write `role` or `tenant_id`. The CSRF token, the edit form's
-///   `record_version` and the file fields' `clear_` and `keep_` keys are the exceptions.
+///   `record_version`, the create form's `create_another` and the file fields' `clear_` and
+///   `keep_` keys are the exceptions.
+/// - A create lands on the list, or the page's validated `?return=` target, with the success
+///   flash. One posting `create_another=1`, as the create page's second button does, lands on
+///   the create page instead, `?return=` kept, after the same checks and the same write.
 /// - An edit writes only what was posted. On an edit, a declared key missing from the
 ///   submission keeps its stored value, and the update assigns only the fields the submission
 ///   named, plus the model's own `#[update(..)]` defaults and `#[version]` bump. An API client
@@ -508,5 +512,5 @@ pub use tablo_macros::Options;
 ///   whose `record_version` is no number answers 400. Only the edit form carries the version:
 ///   actions, relation managers and the profile pages write without it, and the default Delete
 ///   removes the record whatever its version. Mounting refuses a form field named
-///   `record_version` or `csrf_token`.
+///   `record_version`, `create_another` or `csrf_token`.
 pub use tablo_macros::RecordForm;

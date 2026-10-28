@@ -1,7 +1,7 @@
 //! Reads values back out of rendered responses: bodies, cookies, form data, the page's language,
 //! and the semantic HTML queries over tables, fields, filters, the ignored-filters banner, the
-//! import page, rich text values, the notification bell, the global search, the sidebar, tabs, and
-//! widgets.
+//! import page, rich text values, the notification bell, the global search, sections, the sidebar,
+//! tabs, and widgets.
 
 mod bell;
 mod detail;
@@ -10,6 +10,7 @@ mod ignored;
 mod import;
 mod rich_text;
 mod search;
+mod sections;
 mod sidebar;
 mod tabs;
 mod widgets;
@@ -26,6 +27,7 @@ pub use ignored::{IgnoredFilter, IgnoredReason, ignored_filters};
 pub use import::{ImportError, ImportRefusal, import_columns, import_errors, import_refusal};
 pub use rich_text::rich_text_values;
 pub use search::{SearchGroup, SearchResult, search_box, search_results};
+pub use sections::{Section, sections};
 pub use sidebar::{nav_badge, nav_links};
 use tablo_core::Notification;
 pub use tabs::{Tab, tabs};

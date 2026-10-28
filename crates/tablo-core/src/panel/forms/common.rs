@@ -35,8 +35,8 @@ pub(crate) async fn parse_form_body(cx: &Cx, body: Body) -> Result<FormParts, to
 }
 
 /// Rejects the posted keys no field claimed with 400, but the ones the form carries for itself:
-/// the CSRF token, the edit form's record version, and each file field's `keep_<field>` and
-/// `clear_<field>`.
+/// the CSRF token, the edit form's record version, the create form's create-another button, and
+/// each file field's `keep_<field>` and `clear_<field>`.
 pub(super) fn reject_unknown_form_keys(
     schema: &crate::schema::Schema,
     unclaimed: Vec<String>,
@@ -49,6 +49,7 @@ pub(super) fn reject_unknown_form_keys(
                 .or_else(|| key.strip_prefix("keep_"));
             key != crate::csrf::FIELD_NAME
                 && key != super::render::VERSION_FIELD
+                && key != crate::form::ANOTHER_FIELD
                 && !file
                     .is_some_and(|file| schema.fields().any(|f| f.is_file() && f.name() == file))
         })
