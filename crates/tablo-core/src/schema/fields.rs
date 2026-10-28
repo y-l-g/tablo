@@ -237,7 +237,8 @@ impl Field {
     /// form lists them: a record form's `#[form(file)]` control on a `Vec<String>`.
     ///
     /// The input takes several files at once, which the submission adds after the stored ones,
-    /// and each stored file has its own remove checkbox. A resource's form reads the paths into
+    /// and each stored file has its own remove checkbox and, with JavaScript, buttons moving it:
+    /// the list saves in the order its rows show. A resource's form reads the paths into
     /// `key`'s list; a page handling its own post receives each chosen file's name there.
     /// [`FileField::max_files`] bounds the count; the extensions and size apply to each file.
     pub fn files<M>(lens: impl Into<Path<M, List<String>>>) -> FileField

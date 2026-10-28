@@ -1,7 +1,10 @@
-//! The file list control: a row per stored path, each with its own remove checkbox, and a file
-//! input taking several files at once.
+//! The file list control: a row per stored path, each with its own remove checkbox and the
+//! buttons moving it, and a file input taking several files at once.
 
-use tablo_ui::{checkbox as ui_checkbox, input as ui_input, label as ui_label};
+use tablo_ui::{
+    ButtonSize, ButtonVariant, button, checkbox as ui_checkbox, input as ui_input,
+    label as ui_label,
+};
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{FileControl, row_seal, stored_upload_row};
@@ -31,6 +34,8 @@ impl Field {
             .filter(|path| !path.is_empty())
             .collect();
         let editable = !paths.is_empty() && !disabled;
+        // Moving needs a second row, and `assets/file_lists.js`.
+        let movable = paths.len() > 1 && !disabled;
         let keep_name = format!("keep_{name}");
         let clear_name = format!("clear_{name}");
         let rows: Vec<BoxView<'a>> = paths
@@ -45,6 +50,27 @@ impl Field {
                 let keep_name = keep_name.clone();
                 let clear_name = clear_name.clone();
                 let clear_id = format!("clear_{id}_{index}");
+                let action = move |id: &'static str, data: Attributes| {
+                    view! {
+                        cx =>
+                        button(
+                            variant: ButtonVariant::Ghost,
+                            size: ButtonSize::Sm,
+                            attrs: attributes! { type="button" (data) },
+                            (crate::t!(cx, id))
+                        )
+                    }
+                };
+                let moves = movable.then(|| {
+                    view! {
+                        cx =>
+                        (action("tablo-files-up", attributes! { cx => data-file-up="" }))
+                        (action(
+                            "tablo-files-down",
+                            attributes! { cx => data-file-down="" },
+                        ))
+                    }
+                });
                 view! {
                     cx =>
                     <div class="flex items-center gap-3" data-file-item=(path.clone())>
@@ -61,6 +87,9 @@ impl Field {
                                 (crate::t!(cx, "tablo-files-remove"))
                             )
                         </div>
+                        if let Some(moves) = moves {
+                            (moves)
+                        }
                     </div>
                 }
                 .boxed()

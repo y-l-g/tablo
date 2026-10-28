@@ -11,7 +11,9 @@ library. Uploads run before the write transaction, so a rolled-back write does n
 A file list binds a `Vec<String>` column: one path per file, in the order the form lists them, its
 input taking several files at once. Each stored file renders as a row posting its path back under
 the tag a refused submission's carry uses, with its own remove checkbox, so the list adds and
-removes files without JavaScript, and a save keeps exactly the rows it posts. A row keeps a path
+removes files without JavaScript, and a save keeps exactly the rows it posts, in the order it
+posts them. Moving a row is `file_lists.js` moving its element, so the order needs no key of its
+own and the browser renumbers nothing; without JavaScript the rows keep their stored order. A row keeps a path
 only when the record stores it or, for a carry, when the uploader holds it: the tag binds the
 field and the browser, not the record, so a browser that saw a row can keep that path on another
 record it edits, which it could remove from the first one anyway.
@@ -29,8 +31,9 @@ name, and the random file names are what keep paths unguessable.
 Rejected for the file list: storing the paths joined in one `String`, which every reader splits
 again; a related table of files per record, which each app's media library already is; a file
 field inside a repeater's item, which reads a submission's files per row for what a list of paths
-holds; and a bare path posted back for a stored row, which would keep a carried upload no tag
-vouches for.
+holds; a bare path posted back for a stored row, which would keep a carried upload no tag
+vouches for; and an order key beside the rows, as a repeater's, which says again what the rows'
+posting order already does.
 
 Rejected: a route under the prefix per record and field that loads the record through its scoped
 query and checks `View` on each request. A stored path renders in columns, relation tables and app
