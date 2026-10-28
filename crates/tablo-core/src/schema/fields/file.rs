@@ -246,16 +246,6 @@ pub(crate) fn file_href(cx: &Cx, path: &str) -> String {
     }
 }
 
-/// Seals a file list's row for the field and the request's browser; the first panel mounted on a
-/// router installs it, as the carry of a refused submission's upload.
-pub(crate) struct RowSeal(pub(crate) fn(&Cx, &str, &str) -> String);
-
-/// The `keep_<field>` value a file list's row posts for `path`, or `None` where no panel installs
-/// a seal, so no panel reads the row back.
-fn row_seal(cx: &Cx, field: &str, path: &str) -> Option<String> {
-    topcoat::context::try_context::<RowSeal>(cx).map(|RowSeal(seal)| seal(cx, field, path))
-}
-
 /// The `Current: …` row a file field shows for a stored value.
 fn stored_upload_row<'a>(cx: &'a Cx, path: String) -> BoxView<'a> {
     let text = path.clone();

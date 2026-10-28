@@ -57,7 +57,13 @@ fn a_blank_answer_on_a_file_list_is_refused() {
         refusal("#[form(model = M)] struct F { #[form(file, blank = Vec::new())] a: Vec<String> }");
     assert!(message.contains("file list"), "{message}");
     let message = refusal("#[form(model = M)] struct F { #[form(file, optional)] a: Vec<String> }");
-    assert_ne!(message, "<expanded>");
+    assert!(message.contains("optional"), "{message}");
+}
+
+#[test]
+fn a_file_list_of_anything_but_strings_is_refused() {
+    let message = refusal("#[form(model = M)] struct F { #[form(file)] a: Vec<i64> }");
+    assert!(message.contains("Vec<String>"), "{message}");
 }
 
 #[test]

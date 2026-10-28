@@ -316,6 +316,7 @@ tablo-field-max-files = { $count ->
 }
 tablo-field-max-size = { $label } must be at most { $max }
 tablo-field-upload-failed = { $label } could not be uploaded: { $reason }
+tablo-field-upload-name = { $label } holds a file whose name cannot be stored; rename it and choose it again
 tablo-size-bytes = { $count ->
     [one] 1 byte
    *[other] { $count } bytes

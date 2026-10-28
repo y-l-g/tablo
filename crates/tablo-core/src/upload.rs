@@ -53,8 +53,9 @@ pub(crate) use self::body::{Capture, FormParts, parse_body, parse_file_body};
 ///   field. The input is required only while nothing is stored, and clearing a required field fails
 ///   validation, so declare the record-form field `#[form(optional)]` when a record may lose its
 ///   file. A [`Field::files`](crate::Field::files) list shows a row per stored file, each posting
-///   its path back under `keep_<field>`, signed like a carry, and a remove checkbox posting it
-///   under `clear_<field>`; chosen files are stored after the rows the submission keeps.
+///   its path back under `keep_<field>` to order the list, and a remove checkbox posting it under
+///   `clear_<field>`, the only way a save drops a stored file; chosen files are stored after the
+///   rows, and a refused submission's uploads are carried beside them as a single field's is.
 /// - Links. The stored value renders as a link, on the edit form and in a `FileColumn` on the
 ///   detail page, only when it is a root-relative path (`/uploads/a.png`, not `//host`) or an
 ///   `http(s)` URL; anything else renders as text.
@@ -484,9 +485,18 @@ pub(crate) async fn store_uploads(
         }
         let mut paths = Vec::new();
         for staged in staged {
-            // A file the field's rules refuse is never stored.
+            // A file the field's rules refuse is never stored, nor one whose name sanitizes to
+            // nothing, as a Windows device name does.
             let filename = sanitize_filename(&staged.filename);
-            let stored_path = match file.refusal(&label, &filename, staged.bytes.len()) {
+            let refusal = if filename.is_empty() {
+                Some(crate::text!(
+                    "tablo-field-upload-name",
+                    label = label.clone()
+                ))
+            } else {
+                file.refusal(&label, &filename, staged.bytes.len())
+            };
+            let stored_path = match refusal {
                 Some(refusal) => Err(refusal),
                 None => uploader
                     .store(&staged.filename, &staged.bytes)

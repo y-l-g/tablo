@@ -238,7 +238,10 @@ impl Field {
     ///
     /// The input takes several files at once, which the submission adds after the stored ones,
     /// and each stored file has its own remove checkbox. A resource's form reads the paths into
-    /// `key`'s list; a page handling its own post receives each chosen file's name there.
+    /// `key`'s list, starting from the record's stored list: only a remove checkbox drops a path.
+    /// A page handling its own post receives each chosen file's name under `key`, each row's path
+    /// under `keep_<key>` in the order the rows post them, and each removed path under
+    /// `clear_<key>`, and checks them against its record itself.
     /// [`FileField::max_files`] bounds the count; the extensions and size apply to each file.
     pub fn files<M>(lens: impl Into<Path<M, List<String>>>) -> FileField
     where

@@ -468,8 +468,9 @@ served files carry.
 `#[form(file)]` on a `Vec<String>`, or `Field::files` on a page, makes a file list: the column
 stores one path per file, in the order the form lists them. Its input takes several files at once,
 which a save adds after the stored ones, and each stored file has its own remove checkbox, so the
-list works without JavaScript. The extensions and size apply to each file, and `max_files` bounds
-how many the list holds once a save adds its files:
+list works without JavaScript. Only that checkbox drops a stored file: a file another save added
+while the form was open stays. The extensions and size apply to each file, and `max_files` bounds
+how many the list holds once a save adds its files; choosing more than that stores none:
 
 ```rust
 {{#include ../../../examples/guide/src/forms.rs:forms-file-list}}
