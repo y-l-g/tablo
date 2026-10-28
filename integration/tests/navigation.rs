@@ -1,5 +1,5 @@
-//! A resource hidden from the sidebar: it stays mounted and answers at its URL, and no sidebar
-//! entry links to it.
+//! A resource hidden from the sidebar: it stays mounted and answers at its URL, and neither a
+//! sidebar entry nor the panel root leads to it.
 
 use tablo::{
     ReadOnly, Resource, ResourceDef, Table, TextColumn, lens,
@@ -48,18 +48,24 @@ impl Resource for ArchiveResource {
     }
 }
 
-/// The hidden list answers 200, and the sidebar of its page and of the visible list's page holds
-/// the visible entry alone.
+/// The hidden list answers 200, the sidebar of its page and of the visible list's page holds the
+/// visible entry alone, and the panel root skips the hidden resource declared first.
 #[tokio::test]
 async fn a_hidden_resource_answers_at_its_url_and_leaves_the_sidebar() {
     let db = test_db(toasty::models!(Book)).await;
     let (router, handle) = mount_with_handle(
         db,
         panel()
-            .resource::<BookResource>()
-            .resource::<ArchiveResource>(),
+            .resource::<ArchiveResource>()
+            .resource::<BookResource>(),
     )
     .expect("the panel mounts");
+    let root = TestClient::new(&router).get("/admin").await;
+    assert_eq!(
+        root.headers().get(http::header::LOCATION).unwrap(),
+        "/admin/books"
+    );
+
     let client = TestClient::new(&router).panel(&handle);
 
     let archive = client.resource::<ArchiveResource>().list().await;

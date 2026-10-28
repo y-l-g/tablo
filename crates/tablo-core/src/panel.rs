@@ -582,7 +582,7 @@ impl Panel {
 
 /// What the panel serves at its prefix.
 enum Root {
-    /// A redirect to the first declared resource's list.
+    /// A redirect to the first declared resource's list that the sidebar shows.
     Redirect(String),
     /// The [`Panel::home`] page.
     Home,

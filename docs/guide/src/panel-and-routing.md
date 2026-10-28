@@ -249,7 +249,7 @@ use tablo::{Page, PageDef, Panel};
   resources share one slug namespace. The title defaults to the label; `PageDef::title` changes
   it.
 - **The home page.** `Panel::home::<P>()` mounts a page at the prefix itself instead of the
-  redirect to the first resource. A panel has at most one.
+  redirect to the first resource in the sidebar. A panel has at most one.
 - **Access.** With authentication on, the page renders only for a signed-in user with panel access,
   inside the shell layout. `PageDef::access(|cx| …)` narrows that: when it answers `false`
   the page answers 403 and leaves the sidebar. It is synchronous, like a policy, and reads the

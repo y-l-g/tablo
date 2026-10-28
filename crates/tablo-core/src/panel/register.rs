@@ -282,7 +282,7 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
         };
         let toggles = routes.columns;
         register_routes::<R>(registry, &url, routes);
-        if registry.root.is_none() {
+        if registry.root.is_none() && !mounted.navigation_hidden {
             registry.root = Some(Root::Redirect(url.clone()));
         }
         if !mounted.navigation_hidden {
