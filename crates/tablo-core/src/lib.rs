@@ -107,6 +107,7 @@ mod flash;
 mod form;
 mod i18n;
 mod lens;
+mod limits;
 mod models;
 mod naming;
 mod navigation;
@@ -165,15 +166,15 @@ pub use display::{Alignment, Color, Currency, Number, Numeric};
 pub use form::{NoForm, Posted, RecordForm};
 pub use i18n::Text;
 pub use lens::{Lens, Reads};
+pub use limits::Limits;
 pub use models::register_models;
 pub use navigation::{NavTarget, NavigationItem};
 pub use notification::stored::Notifications;
 pub use outcome::{Notification, NotificationAction, NotificationStatus, Outcome};
 pub use page::{Page, PageDef};
 pub use panel::{
-    Brand, MAX_IMPORT_ROWS, Panel, PanelHandle, RouterBuilderPanelExt, WiredTable, can_list,
-    can_open, navigation_item, pages::header_action_buttons, record_table, stats, url, widgets,
-    wired_table,
+    Brand, Panel, PanelHandle, RouterBuilderPanelExt, WiredTable, can_list, can_open,
+    navigation_item, pages::header_action_buttons, record_table, stats, url, widgets, wired_table,
 };
 pub use policy::{Abilities, Ability, Allow, And, Deny, Or, Policy, ReadOnly, When, when};
 pub use resource::{

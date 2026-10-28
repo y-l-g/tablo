@@ -13,6 +13,7 @@ use super::{
     super::{actions::load_editable, gate::gate, relations::render_relations},
     render::{FormChrome, render_form_page},
 };
+pub(crate) use crate::upload::FormParts;
 use crate::{
     db::{WriteTx, db},
     form::{FieldErrors, FormValues, RecordForm},
@@ -22,7 +23,6 @@ use crate::{
     topcoat_compat::async_page,
     upload::Capture,
 };
-pub(crate) use crate::{schema::MAX_FORM_BYTES, upload::FormParts};
 
 /// Parses a panel form's body, staging each chosen file the panel's uploader can store.
 pub(crate) async fn parse_form_body(cx: &Cx, body: Body) -> Result<FormParts, topcoat::Error> {

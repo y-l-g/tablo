@@ -209,7 +209,8 @@ async fn mutate<'a, R: Resource>(
     let ids = match target {
         Target::Record => vec![path_param_segment(cx, "id").to_string()],
         Target::Bulk => {
-            let ids = parse_bulk_ids(posted_ids.as_deref().unwrap_or_default(), MAX_BULK_IDS);
+            let max = crate::limits::of(cx).bulk_records;
+            let ids = parse_bulk_ids(posted_ids.as_deref().unwrap_or_default(), max);
             if ids.is_empty() {
                 set_notification(
                     cx,
@@ -217,8 +218,8 @@ async fn mutate<'a, R: Resource>(
                 );
                 return Err(see_other(landing_url(cx, &resource.url)).into());
             }
-            if ids.len() > MAX_BULK_IDS {
-                return Err(bad_request(format!("too many ids (max {MAX_BULK_IDS})")).into());
+            if ids.len() > max {
+                return Err(bad_request(format!("too many ids (max {max})")).into());
             }
             ids
         }
@@ -489,9 +490,6 @@ impl InputPage {
         .await
     }
 }
-
-/// Bounds a selection's `IN` list.
-pub(super) const MAX_BULK_IDS: usize = 400;
 
 /// Parses and dedupes bulk `ids` while preserving order, stopping at `max + 1` so the caller can
 /// answer 400. Each comma-delimited part is one selection token's body, decoded through

@@ -28,7 +28,8 @@ pub(crate) use self::body::{Capture, FormParts, parse_body, parse_file_body};
 /// per panel with [`Panel::uploads`](crate::Panel::uploads).
 ///
 /// `filename` arrives sanitized to a non-empty basename without directories or
-/// control characters; `bytes` are bounded by the 10 MiB form-body cap. The
+/// control characters; `bytes` are bounded by the panel's
+/// [`Limits::body_bytes`](crate::Limits::body_bytes). The
 /// framework stores the returned path verbatim. A file a file field's
 /// [`extensions`](crate::FileField::extensions) or [`max_bytes`](crate::FileField::max_bytes)
 /// refuse never reaches `store`.

@@ -33,10 +33,6 @@ use crate::{
     topcoat_compat::async_page,
 };
 
-/// The most rows one CSV import creates: every row writes in the request's one transaction, so
-/// a longer file is refused whole.
-pub const MAX_IMPORT_ROWS: usize = 1_000;
-
 /// The multipart part the file is posted under.
 const FILE_PART: &str = "file";
 
@@ -81,11 +77,16 @@ fn columns(cx: &Cx, schema: &Schema, mask: &FormMask) -> Vec<Column> {
 enum Refusal {
     NoFile,
     NotUtf8,
-    Unterminated { line: usize },
+    Unterminated {
+        line: usize,
+    },
     NoHeader,
     NoRows,
-    TooManyRows,
-    TooManyCells { row: usize },
+    /// More rows than the panel's import cap, carried.
+    TooManyRows(usize),
+    TooManyCells {
+        row: usize,
+    },
     UnknownColumns(Vec<String>),
     AmbiguousColumns(Vec<String>),
     RepeatedColumns(Vec<String>),
@@ -101,7 +102,7 @@ impl Refusal {
             Self::Unterminated { .. } => import::UNTERMINATED,
             Self::NoHeader => import::NO_HEADER,
             Self::NoRows => import::NO_ROWS,
-            Self::TooManyRows => import::TOO_MANY_ROWS,
+            Self::TooManyRows(_) => import::TOO_MANY_ROWS,
             Self::TooManyCells { .. } => import::TOO_MANY_CELLS,
             Self::UnknownColumns(_) => import::UNKNOWN_COLUMN,
             Self::AmbiguousColumns(_) => import::AMBIGUOUS_COLUMN,
@@ -116,7 +117,7 @@ impl Refusal {
             Self::Unterminated { line } => text!("tablo-import-unterminated", line = *line),
             Self::NoHeader => text!("tablo-import-no-header"),
             Self::NoRows => text!("tablo-import-no-rows"),
-            Self::TooManyRows => text!("tablo-import-too-many-rows", max = MAX_IMPORT_ROWS),
+            Self::TooManyRows(max) => text!("tablo-import-too-many-rows", max = *max),
             Self::TooManyCells { row } => {
                 text!("tablo-import-too-many-cells", row = *row, max = MAX_CELLS)
             }
@@ -203,13 +204,16 @@ fn resolve_header(header: &[String], columns: &[Column]) -> Result<Vec<Option<us
 
 /// The file's header and its rows, each numbered as a spreadsheet shows it, without the rows
 /// whose every cell is blank, which a spreadsheet writes after the last one it fills.
-fn read_file(parts: &FormParts) -> Result<(Vec<String>, Vec<csv::Record>), Refusal> {
+fn read_file(
+    parts: &FormParts,
+    max_rows: usize,
+) -> Result<(Vec<String>, Vec<csv::Record>), Refusal> {
     let file = parts.files.get(FILE_PART).ok_or(Refusal::NoFile)?;
     let text = std::str::from_utf8(&file.bytes).map_err(|_| Refusal::NotUtf8)?;
-    let mut records = csv::records(text, MAX_IMPORT_ROWS + 1, MAX_CELLS)
+    let mut records = csv::records(text, max_rows + 1, MAX_CELLS)
         .map_err(|unread| match unread {
             csv::Unread::Unterminated { line } => Refusal::Unterminated { line },
-            csv::Unread::TooManyRecords => Refusal::TooManyRows,
+            csv::Unread::TooManyRecords => Refusal::TooManyRows(max_rows),
             csv::Unread::TooManyCells { record } => Refusal::TooManyCells { row: record },
         })?
         .into_iter();
@@ -369,7 +373,7 @@ pub(crate) fn resource_import_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
                 Vec::new(),
             ))
         };
-        let (header, rows) = match read_file(&parts) {
+        let (header, rows) = match read_file(&parts, crate::limits::of(cx).import_rows) {
             Ok(file) => file,
             Err(refusal) => return refuse_file(refusal),
         };

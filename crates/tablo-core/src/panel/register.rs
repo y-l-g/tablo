@@ -94,6 +94,8 @@ pub(super) struct Registered {
     pub(super) check: ResourceCheck,
     /// The form's file fields, whose bytes only an installed uploader keeps.
     pub(super) file_fields: Vec<String>,
+    /// The form's file fields' `max_bytes`, which the panel's body cap must exceed.
+    pub(super) file_caps: Vec<(String, usize)>,
     /// Whether the list declares a toggleable column, whose choice a [`ColumnPreference`]
     /// keeps.
     ///
@@ -325,6 +327,7 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
                 .filter(|field| field.is_file())
                 .map(|field| field.name().to_string())
                 .collect(),
+            file_caps: mounted.form.file_caps(),
             relations: mounted
                 .relations
                 .iter()

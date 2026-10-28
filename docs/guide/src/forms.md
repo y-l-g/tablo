@@ -375,7 +375,8 @@ stored value through `tablo::rich_text::clean`, unescaped, and reads its text th
 
 A file field (`#[form(file)]` on a record-form `String`, or `Field::file` on a page) binds a
 `String` column that stores the file's path or URL, never its bytes. A form
-with a file field is sent as `multipart/form-data`, with a 10 MiB body limit (larger answers 413).
+with a file field is sent as `multipart/form-data`, with a 10 MiB body limit (larger answers 413)
+that `Panel::limits` raises with `Limits::body_bytes`.
 Filenames are reduced to a safe basename before anything sees them.
 
 Where the bytes go is your app's decision; a panel whose resource form declares a file field

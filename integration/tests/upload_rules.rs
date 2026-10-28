@@ -4,8 +4,8 @@
 use std::sync::{Arc, Mutex};
 
 use tablo::{
-    Allow, DeclarationErrorKind, FieldRuleFault, Resource, ResourceDef, Schema, Table, TextColumn,
-    Uploader, lens, testing::ErrorKind,
+    Allow, DeclarationErrorKind, FieldRuleFault, Limits, Resource, ResourceDef, Schema, Table,
+    TextColumn, Uploader, lens, testing::ErrorKind,
 };
 use toasty::Db;
 use topcoat::router::Router;
@@ -246,9 +246,55 @@ async fn a_misdeclared_file_rule_refuses_the_mount() {
     };
     for expected in [
         rule(FieldRuleFault::InvalidExtension("tar.gz".to_string())),
-        rule(FieldRuleFault::AboveFormCap(10 * 1024 * 1024)),
+        rule(FieldRuleFault::AboveFormCap {
+            max: 10 * 1024 * 1024,
+            cap: 10 * 1024 * 1024,
+        }),
         rule(FieldRuleFault::NoExtension),
     ] {
         assert!(kinds.contains(&expected), "{expected:?} in {kinds:?}");
     }
+}
+
+/// A panel whose body cap is raised mounts a file field that takes files up to the old cap, and
+/// serves a body past the old cap.
+#[tokio::test]
+async fn a_raised_body_cap_takes_larger_files() {
+    struct Large;
+
+    impl Resource for Large {
+        type Model = Photo;
+        type Form = PhotoForm;
+
+        fn declare() -> ResourceDef<Self> {
+            let c = PhotoForm::controls();
+            ResourceDef::new()
+                .slug("photos")
+                .policy(Allow)
+                .form(Schema::new((c.title, c.image.max_bytes(12 * 1024 * 1024))))
+        }
+    }
+
+    let db = test_db(toasty::models!(Photo)).await;
+    let uploader = HoldingUploader::default();
+    let limits = Limits::default().body_bytes(16 * 1024 * 1024);
+    let router = mount(
+        db.clone(),
+        panel()
+            .uploads(uploader.clone())
+            .limits(limits)
+            .resource::<Large>(),
+    )
+    .expect("a cap above the field's mounts");
+    let client = TestClient::new(&router);
+    let image = "a".repeat(11 * 1024 * 1024);
+    let response = client
+        .submit_multipart(
+            "/admin/photos/-/create",
+            &[("title", None, "Sea"), ("image", Some("big.png"), &image)],
+        )
+        .await;
+    assert_eq!(response.status(), 303);
+    assert_eq!(*uploader.stored.lock().unwrap(), ["big.png"]);
+    assert_eq!(photo_count(&db).await, 1);
 }

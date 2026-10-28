@@ -50,7 +50,8 @@ impl<F> FileField<F> {
     /// Refuse a file larger than `max_bytes`; the error spells the size in KiB or MiB when it
     /// divides evenly. Only the server checks it, before the [`Uploader`](crate::Uploader) stores
     /// the file; a carried upload passed it when it was stored. Mounting refuses a size at or
-    /// above the 10 MiB form-body cap, which refuses a larger body first.
+    /// above the panel's [`Limits::body_bytes`](crate::Limits::body_bytes), which refuses a larger
+    /// body first.
     pub fn max_bytes(mut self, max_bytes: usize) -> Self {
         if let ControlKind::File(file) = &mut self.0.control {
             file.max_bytes = Some(max_bytes);

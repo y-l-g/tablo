@@ -242,7 +242,8 @@ async fn a_file_past_the_row_cap_imports_nothing() {
     let client = demo_client(&router, &db).await;
     let before = user_count(&db).await;
     let mut csv = "name,email\n".to_string();
-    for row in 0..=tablo::MAX_IMPORT_ROWS {
+    // One row past the default cap, `Limits::import_rows`.
+    for row in 0..=1_000 {
         csv.push_str(&format!("User {row},user{row}@example.com\n"));
     }
 

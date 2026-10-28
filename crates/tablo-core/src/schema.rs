@@ -29,7 +29,6 @@ pub use fields::{
     TextField, Toggle,
 };
 pub(crate) use fields::{
-    MAX_FORM_BYTES,
     file::{FileHref, file_href},
     is_linkable, is_rooted, option_view, read_only, stored_upload, value_cell,
 };
@@ -296,6 +295,30 @@ impl<F> Schema<F> {
                 .map(|parent| (parent.to_string(), Some(field.name().to_string())))
         }));
         watchers
+    }
+
+    /// Each file field's `max_bytes`, under its name or `repeater.leaf` for one in a repeater's
+    /// rows: what a panel checks against the body cap it mounts the schema with.
+    pub(crate) fn file_caps(&self) -> Vec<(String, usize)> {
+        let cap = |field: &Field, name: String| {
+            field
+                .as_file()
+                .and_then(|file| file.max_bytes)
+                .map(|max| (name, max))
+        };
+        let mut caps = Vec::new();
+        for field in &self.fields {
+            caps.extend(cap(field, field.name().to_string()));
+            if let Some(repeater) = field.as_repeater() {
+                caps.extend(
+                    repeater
+                        .item_schema()
+                        .fields()
+                        .filter_map(|leaf| cap(leaf, format!("{}.{}", field.name(), leaf.name()))),
+                );
+            }
+        }
+        caps
     }
 
     /// Reports what is wrong with this declaration: a field whose lens binds no single column, and

@@ -211,8 +211,9 @@ row count. Grouping runs on the loaded page, so the counts cover that page, not 
 ## Export
 
 The list header links **Export CSV**, which downloads the list as the reader sees it: the current
-search, filters and sort, only the rows the policy lets them view, and at most 10,000 rows, never
-a truncated file. [`Table`](https://y-l.fr/tablo/nightly/api/tablo/struct.Table.html#export) has the export's rules.
+search, filters and sort, only the rows the policy lets them view, and at most 10,000 rows by default
+([`Limits::export_rows`](https://y-l.fr/tablo/nightly/api/tablo/struct.Limits.html)), never a
+truncated file. [`Table`](https://y-l.fr/tablo/nightly/api/tablo/struct.Table.html#export) has the export's rules.
 
 ## Import
 

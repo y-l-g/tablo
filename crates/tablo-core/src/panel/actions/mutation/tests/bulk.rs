@@ -9,9 +9,9 @@ use crate::{
 
 #[test]
 fn parse_bulk_ids_dedupes_and_trims() {
-    assert!(parse_bulk_ids("", MAX_BULK_IDS).is_empty());
+    assert!(parse_bulk_ids("", crate::Limits::default().bulk_records).is_empty());
     assert_eq!(
-        parse_bulk_ids("a, b ,a,, c", MAX_BULK_IDS),
+        parse_bulk_ids("a, b ,a,, c", crate::Limits::default().bulk_records),
         vec!["a", "b", "c"]
     );
     // The cap bounds the parse too: stop at max + 1 for the handler's 400.
@@ -86,7 +86,7 @@ async fn bulk_delete_caps_ids_and_checks_the_token() {
         ok.status()
     );
     // Over-cap batch is a clear 400 before any DB work.
-    let big = (0..(MAX_BULK_IDS + 1))
+    let big = (0..(crate::Limits::default().bulk_records + 1))
         .map(|i| format!("00000000-0000-0000-0000-{:012}", i))
         .collect::<Vec<_>>()
         .join(",");

@@ -19,7 +19,6 @@ use topcoat::{
 
 use super::{
     Panel, Root, error_page,
-    forms::MAX_FORM_BYTES,
     headers::{self, ServedDir},
     host::PanelHost,
     register::Registry,
@@ -140,12 +139,20 @@ impl Panel {
             configuration_errors,
             uploads,
             auth,
+            limits,
             ..
         } = self;
         let mut registry = Registry::new(prefix.clone(), Some(AppSchema::of_db(db)));
         let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
         let serves_tenants = serves_tenants(&auth, &mounts);
-        registry.check_all(db, &mounts, serves_tenants, uploads.is_some(), &mut errors);
+        registry.check_all(
+            db,
+            &mounts,
+            serves_tenants,
+            uploads.is_some(),
+            &limits,
+            &mut errors,
+        );
         if !errors.is_empty() {
             return Err(MountError::new(&prefix, errors).into());
         }
@@ -186,6 +193,7 @@ impl Panel {
             locales,
             translations,
             global_search,
+            limits,
         } = self;
         let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
         let serves_tenants = serves_tenants(&auth, &mounts);
@@ -197,7 +205,14 @@ impl Panel {
         ));
         match &db {
             Some(db) => {
-                registry.check_all(db, &mounts, serves_tenants, uploads.is_some(), &mut errors);
+                registry.check_all(
+                    db,
+                    &mounts,
+                    serves_tenants,
+                    uploads.is_some(),
+                    &limits,
+                    &mut errors,
+                );
                 let toggles = registry.resources.iter().any(|resource| resource.toggles);
                 errors.extend(
                     crate::auth::mount::declaration_errors(
@@ -304,10 +319,11 @@ impl Panel {
             mounted_pages,
             endpoints,
             searches,
+            limits,
         });
         let prefix_path = route_path(&prefix);
-        builder =
-            builder.layer(topcoat::router::BodyLimit::max(MAX_FORM_BYTES).at(prefix_path.clone()));
+        builder = builder
+            .layer(topcoat::router::BodyLimit::max(limits.body_bytes).at(prefix_path.clone()));
         builder = builder
             .layer(panel_headers.expect("a policy the header codec rejects fails the mount"));
         // Registered last of the prefix's layers, so it runs first.
@@ -381,14 +397,15 @@ impl Registry {
         (Arc::new(std::mem::take(&mut self.mounts)), errors)
     }
 
-    /// Checks every registered resource against `db`, whether the panel acts for tenants and
-    /// whether it installs an uploader.
+    /// Checks every registered resource against `db`, whether the panel acts for tenants,
+    /// whether it installs an uploader, and the body cap its `limits` set.
     fn check_all(
         &self,
         db: &Db,
         mounts: &Arc<Mounts>,
         serves_tenants: bool,
         has_uploader: bool,
+        limits: &crate::Limits,
         errors: &mut Vec<DeclarationError>,
     ) {
         let mut cx = validation_cx(db, mounts);
@@ -410,6 +427,22 @@ impl Registry {
                     },
                 }));
             }
+            // The body cap refuses a larger file first, so the field's own rule would never.
+            let cap = limits.body_bytes;
+            errors.extend(
+                registered
+                    .file_caps
+                    .iter()
+                    .filter(|(_, max)| *max >= cap)
+                    .map(|(field, max)| DeclarationError {
+                        resource: Some(registered.name),
+                        site: Site::Form,
+                        kind: DeclarationErrorKind::FieldRule {
+                            field: field.clone(),
+                            fault: crate::FieldRuleFault::AboveFormCap { max: *max, cap },
+                        },
+                    }),
+            );
         }
     }
 }

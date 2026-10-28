@@ -30,7 +30,7 @@ use super::{
         write::commit_write,
     },
     fetch::find_by_key,
-    mutation::{InputPage, MAX_BULK_IDS, Pending, parse_bulk_ids, read_input},
+    mutation::{InputPage, Pending, parse_bulk_ids, read_input},
     options::input_options,
 };
 use crate::{
@@ -185,7 +185,8 @@ async fn detach<'a, R: Resource>(
     let keys = match related {
         Some(key) => vec![key],
         None => {
-            let ids = parse_bulk_ids(parts.last("ids").unwrap_or_default(), MAX_BULK_IDS);
+            let max = crate::limits::of(cx).bulk_records;
+            let ids = parse_bulk_ids(parts.last("ids").unwrap_or_default(), max);
             if ids.is_empty() {
                 set_notification(
                     cx,
@@ -193,8 +194,8 @@ async fn detach<'a, R: Resource>(
                 );
                 return Err(see_other(landing_url(cx, &resource.url)).into());
             }
-            if ids.len() > MAX_BULK_IDS {
-                return Err(bad_request(format!("too many ids (max {MAX_BULK_IDS})")).into());
+            if ids.len() > max {
+                return Err(bad_request(format!("too many ids (max {max})")).into());
             }
             ids
         }

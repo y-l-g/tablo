@@ -1,19 +1,27 @@
-//! The CSV export: which rows it delivers, what it loads for them, and the 10,000-row cap
-//! (`docs/guide/src/tables.md`) it refuses past rather than deliver part of the list.
+//! The CSV export: which rows it delivers, what it loads for them, and the row cap
+//! ([`Limits::export_rows`](tablo::Limits::export_rows)) it refuses past rather than deliver part
+//! of the list.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use tablo::{
-    Ability, ComputedColumn, NoForm, ReadOnly, Resource, ResourceDef, Table, TextColumn, lens,
+    Ability, ComputedColumn, Limits, NoForm, ReadOnly, Resource, ResourceDef, Table, TextColumn,
+    lens,
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
 use uuid::Uuid;
 
-use crate::common::{body_bytes, body_string, get, panel_router, test_db};
+use crate::common::{body_bytes, body_string, get, mount, panel, panel_router, test_db};
 
-/// The cap the guide documents.
-const MAX_EXPORT_ROWS: usize = 10_000;
+/// The row cap the capped panel sets.
+const MAX_EXPORT_ROWS: usize = 20;
+
+/// `R` on a panel that exports at most [`MAX_EXPORT_ROWS`] rows.
+fn capped_router<R: Resource>(db: Db) -> Router {
+    let limits = Limits::default().export_rows(MAX_EXPORT_ROWS);
+    mount(db, panel().limits(limits).resource::<R>()).expect("panel builds")
+}
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Item {
@@ -151,7 +159,7 @@ async fn an_empty_export_is_the_header_line() {
 #[tokio::test]
 async fn an_export_past_the_cap_is_refused_whole() {
     let db = items(MAX_EXPORT_ROWS + 1, |i| format!("item-{i:05}")).await;
-    let response = get(&panel_router::<ItemResource>(db), "/admin/items/-/export").await;
+    let response = get(&capped_router::<ItemResource>(db), "/admin/items/-/export").await;
     assert_eq!(response.status(), http::StatusCode::PAYLOAD_TOO_LARGE);
     assert!(!body_string(response).await.contains("item-"));
 }
@@ -163,7 +171,7 @@ async fn an_export_past_the_cap_is_refused_whole() {
 async fn the_cap_counts_viewable_rows_within_its_window() {
     let db = items(MAX_EXPORT_ROWS + 1, interleaved).await;
     let csv = export(
-        &panel_router::<VisibleItemResource>(db),
+        &capped_router::<VisibleItemResource>(db),
         "/admin/items/-/export",
     )
     .await;
@@ -173,7 +181,7 @@ async fn the_cap_counts_viewable_rows_within_its_window() {
 
     let db = items(MAX_EXPORT_ROWS + 1 + 20, interleaved).await;
     let response = get(
-        &panel_router::<VisibleItemResource>(db),
+        &capped_router::<VisibleItemResource>(db),
         "/admin/items/-/export",
     )
     .await;
