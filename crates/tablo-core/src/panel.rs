@@ -46,7 +46,7 @@ use crate::{
 };
 
 /// `R`'s sidebar entry in the context's panel, with its label, URL and icon; `None` when the
-/// panel does not register `R`.
+/// panel does not register `R`. A resource hidden from the sidebar still has one, to link to it by.
 pub fn navigation_item<R: Resource>(cx: &topcoat::context::Cx) -> Option<crate::NavigationItem> {
     crate::resource::mounted::<R>(cx).map(|resource| resource.navigation.clone())
 }
@@ -582,7 +582,7 @@ impl Panel {
 
 /// What the panel serves at its prefix.
 enum Root {
-    /// A redirect to the first declared resource's list.
+    /// A redirect to the first declared resource's list that the sidebar shows.
     Redirect(String),
     /// The [`Panel::home`] page.
     Home,

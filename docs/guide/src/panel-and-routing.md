@@ -131,9 +131,15 @@ call it replaces the shell entirely:
 ## Sidebar
 
 Every resource and page gets one sidebar entry, labelled with its plural label (a page's
-`label`) and linked to its list or page URL. The sidebar lists an entry only when the
-request's user may open it: a resource's when its policy allows `ViewAny`, a page's when
-its `PageDef::access` answers `true`. So a user never sees a link that would answer 403.
+`label`) and linked to its list or page URL, unless its resource is hidden as described
+below. The sidebar lists an entry only when the request's user may open it: a resource's
+when its policy allows `ViewAny`, a page's when its `PageDef::access` answers `true`. So a
+user never sees a link that would answer 403.
+
+A resource that calls `ResourceDef::navigation_hidden()` gets no entry. Its pages stay
+mounted and answer at their URLs under its policy, but the topbar trail starts at the
+sidebar entry a page is under, so it has none for them unless another entry covers their
+path, such as the home page.
 
 A resource sets the order and an icon on its def, and the panel resolves the URL:
 
@@ -243,7 +249,7 @@ use tablo::{Page, PageDef, Panel};
   resources share one slug namespace. The title defaults to the label; `PageDef::title` changes
   it.
 - **The home page.** `Panel::home::<P>()` mounts a page at the prefix itself instead of the
-  redirect to the first resource. A panel has at most one.
+  redirect to the first resource in the sidebar. A panel has at most one.
 - **Access.** With authentication on, the page renders only for a signed-in user with panel access,
   inside the shell layout. `PageDef::access(|cx| …)` narrows that: when it answers `false`
   the page answers 403 and leaves the sidebar. It is synchronous, like a policy, and reads the

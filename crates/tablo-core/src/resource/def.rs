@@ -57,6 +57,7 @@ pub struct ResourceDef<R: Resource> {
     pub(crate) navigation_group: Option<crate::Text>,
     pub(crate) navigation: Option<NavigationItem>,
     pub(crate) navigation_badge: Option<Expr<bool>>,
+    pub(crate) navigation_hidden: bool,
     pub(crate) policy: Arc<dyn Policy<R::Model>>,
     pub(crate) tenancy: Tenancy<R::Model>,
     pub(crate) table: Option<Table<R::Model>>,
@@ -91,6 +92,7 @@ impl<R: Resource> Default for ResourceDef<R> {
             navigation_group: None,
             navigation: None,
             navigation_badge: None,
+            navigation_hidden: false,
             policy: Arc::new(Deny),
             tenancy: Tenancy::undeclared(),
             table: None,
@@ -216,6 +218,15 @@ impl<R: Resource> ResourceDef<R> {
     #[must_use]
     pub fn navigation_badge(mut self, filter: Expr<bool>) -> Self {
         self.navigation_badge = Some(filter);
+        self
+    }
+
+    /// Keeps the resource out of the sidebar, and out of the panel root's redirect to the first
+    /// resource. Its pages stay mounted and answer at their URLs, and the policy still decides who
+    /// may open them.
+    #[must_use]
+    pub fn navigation_hidden(mut self) -> Self {
+        self.navigation_hidden = true;
         self
     }
 

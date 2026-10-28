@@ -282,23 +282,25 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
         };
         let toggles = routes.columns;
         register_routes::<R>(registry, &url, routes);
-        if registry.root.is_none() {
+        if registry.root.is_none() && !mounted.navigation_hidden {
             registry.root = Some(Root::Redirect(url.clone()));
         }
-        registry.nav_items.push(NavEntry {
-            item: mounted.navigation.clone(),
-            visible: Arc::new(|cx| crate::can::<R>(cx, Ability::ViewAny)),
-            resource_list: Some(url),
-            badge: mounted.counts_navigation_badge().then(|| -> BadgeFn {
-                Arc::new(|cx| {
-                    Box::pin(async move {
-                        crate::resource::mounted::<R>(cx)?
-                            .navigation_badge(cx)
-                            .await
+        if !mounted.navigation_hidden {
+            registry.nav_items.push(NavEntry {
+                item: mounted.navigation.clone(),
+                visible: Arc::new(|cx| crate::can::<R>(cx, Ability::ViewAny)),
+                resource_list: Some(url),
+                badge: mounted.counts_navigation_badge().then(|| -> BadgeFn {
+                    Arc::new(|cx| {
+                        Box::pin(async move {
+                            crate::resource::mounted::<R>(cx)?
+                                .navigation_badge(cx)
+                                .await
+                        })
                     })
-                })
-            }),
-        });
+                }),
+            });
+        }
         if mounted.globally_searched() {
             registry.searches.push(Searchable {
                 label: mounted.plural_label.clone(),

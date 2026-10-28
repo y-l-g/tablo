@@ -319,23 +319,6 @@ pub fn filter_options(html: &str, name: &str) -> Option<Vec<FilterOption>> {
     Some(options)
 }
 
-/// The badge text of the sidebar entry linking to `href`, or `None` when that entry shows no
-/// badge or no entry links there.
-pub fn nav_badge(html: &str, href: &str) -> Option<String> {
-    let menu = |name: &'static str| {
-        move |_: &str, attrs: &Attrs| attr_value(attrs, "data-sidebar").as_deref() == Some(name)
-    };
-    let (_, _, entry) = tags_where(html, menu("menu-item"))
-        .into_iter()
-        .find(|(_, _, inner)| {
-            open_tags(inner).iter().any(|(tag, attrs, _)| {
-                tag == "a" && attr_value(attrs, "href").as_deref() == Some(href)
-            })
-        })?;
-    let (_, _, badge) = tags_where(&entry, menu("menu-badge")).into_iter().next()?;
-    Some(strip_text(&badge))
-}
-
 fn row(row_html: &str) -> Row {
     let mut select_value = None;
     for (tag, attrs, _) in open_tags(row_html) {
@@ -437,7 +420,7 @@ pub(crate) fn elements(html: &str, tag: &str) -> Vec<Element> {
     tags_where(html, |name, _| name == tag)
 }
 
-fn open_tags(html: &str) -> Vec<(String, Attrs, usize)> {
+pub(crate) fn open_tags(html: &str) -> Vec<(String, Attrs, usize)> {
     let mut out = Vec::new();
     let mut pos = 0;
     while let Some(start) = html[pos..].find('<') {
