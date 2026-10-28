@@ -1,4 +1,5 @@
-//! The file builder's rules: the extensions a file field takes, and its most bytes.
+//! The file builder's rules: the extensions a file field takes, its most bytes, and a list's most
+//! files.
 
 use super::{super::ControlKind, FileField};
 
@@ -55,6 +56,18 @@ impl<F> FileField<F> {
     pub fn max_bytes(mut self, max_bytes: usize) -> Self {
         if let ControlKind::File(file) = &mut self.0.control {
             file.max_bytes = Some(max_bytes);
+        }
+        self
+    }
+
+    /// Refuse a submission leaving a [`Field::files`](crate::Field::files) list with more than
+    /// `count` files: the stored ones it keeps and the ones it adds. The error renders on the
+    /// field, and the files the submission stored are carried to the next one, so the user
+    /// removes some and saves again; one choosing more than `count` files at once stores none.
+    /// Mounting refuses it on a field over one path.
+    pub fn max_files(mut self, count: usize) -> Self {
+        if let ControlKind::File(file) = &mut self.0.control {
+            file.max_files = Some(count);
         }
         self
     }

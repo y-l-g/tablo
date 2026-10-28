@@ -1,5 +1,5 @@
-//! The file control: a file input storing the uploaded file's path, and the extensions and size
-//! it takes.
+//! The file control: a file input storing the uploaded file's path, or a list of them, and the
+//! extensions, size and count it takes.
 
 use tablo_ui::{checkbox as ui_checkbox, input as ui_input, label as ui_label};
 use topcoat::{Result, context::Cx, view::*};
@@ -7,12 +7,16 @@ use topcoat::{Result, context::Cx, view::*};
 use super::{Field, render_field};
 use crate::{FieldRuleFault, Text, text};
 
-/// What a file control takes: the extensions, lowercase and without the dot, and the most bytes.
-/// Both unset by default, taking any file the form body carries.
+/// What a file control takes: the extensions, lowercase and without the dot, the most bytes per
+/// file, and for a list the most files. All unset by default, taking any file the form body
+/// carries.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct FileControl {
     pub(crate) extensions: Option<Vec<String>>,
     pub(crate) max_bytes: Option<usize>,
+    /// Whether the field holds a list of paths, from [`Field::files`].
+    pub(crate) multiple: bool,
+    pub(crate) max_files: Option<usize>,
 }
 
 impl FileControl {
@@ -78,7 +82,16 @@ impl FileControl {
             ),
             None => {}
         }
+        if self.max_files.is_some() && !self.multiple {
+            faults.push(FieldRuleFault::SingleFile);
+        }
         faults
+    }
+
+    /// The sentence refusing `count` files as the field `label`, past the most it takes.
+    pub(crate) fn count_refusal(&self, label: &crate::Text, count: usize) -> Option<Text> {
+        let max = self.max_files?;
+        (count > max).then(|| text!("tablo-field-max-files", label = label, count = max))
     }
 }
 
@@ -102,6 +115,11 @@ impl Field {
             super::ControlKind::File(file) => Some(file),
             _ => None,
         }
+    }
+
+    /// Whether this is a file field holding a list of paths.
+    pub(crate) fn is_file_list(&self) -> bool {
+        self.as_file().is_some_and(|file| file.multiple)
     }
 
     /// Renders a file field's input and its stored path.
@@ -280,6 +298,8 @@ pub(crate) fn stored_upload<'a>(cx: &'a Cx, value: &str) -> BoxView<'a> {
     }
     .boxed()
 }
+
+mod list;
 
 #[cfg(test)]
 mod tests;

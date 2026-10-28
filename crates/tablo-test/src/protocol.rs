@@ -156,9 +156,15 @@ pub fn multipart_body(boundary: &str, parts: &[(&str, Option<&str>, &str)]) -> S
 /// toggle reads `true` or its hidden `false`, and a radio choice its checked option, or the hidden
 /// blank before them when none is checked.
 pub fn input_value(html: &str, name: &str) -> Option<String> {
+    input_values(html, name).pop()
+}
+
+/// Reads every value the named `<input>`s post when the form submits untouched, in document
+/// order, skipping a radio or checkbox left unchecked: each row a file list keeps posts one.
+pub fn input_values(html: &str, name: &str) -> Vec<String> {
     let double = format!("name=\"{name}\"");
     let single = format!("name='{name}'");
-    let mut posted = None;
+    let mut posted = Vec::new();
     for tag in html.split('<').skip(1) {
         if !tag.starts_with("input") || (!tag.contains(&double) && !tag.contains(&single)) {
             continue;
@@ -184,7 +190,7 @@ pub fn input_value(html: &str, name: &str) -> Option<String> {
                 if let Some(end) = rest.find(term) {
                     // Unescape the matching quote entity the encoder may emit.
                     let raw = &rest[..end];
-                    posted = Some(raw.replace("&quot;", "\"").replace("&#x27;", "'"));
+                    posted.push(raw.replace("&quot;", "\"").replace("&#x27;", "'"));
                     break;
                 }
             }

@@ -1,7 +1,5 @@
 //! The shared create/edit form page and the create page.
 
-use std::collections::HashSet;
-
 use topcoat::{
     Result,
     context::Cx,
@@ -184,6 +182,9 @@ impl<'a> FormChrome<'a> {
     }
 }
 
+/// Each upload a refused submission carries to the next one: its field's name and its path.
+pub(crate) type Carried = std::collections::BTreeSet<(String, String)>;
+
 /// Renders the shared form shell with `FormChrome`, carrying uploader-answered uploads as hidden
 /// `keep_<field>` controls.
 pub(crate) async fn render_form_page<'a>(
@@ -192,7 +193,7 @@ pub(crate) async fn render_form_page<'a>(
     chrome: FormChrome<'a>,
     values: &FormValues,
     errors: &FieldErrors,
-    carried: &HashSet<String>,
+    carried: &Carried,
 ) -> Result<BoxView<'a>> {
     let FormChrome {
         title,
@@ -234,12 +235,7 @@ pub(crate) async fn render_form_page<'a>(
     let csrf = crate::csrf::current_token(cx);
     // Carried paths are signed for their field, and re-verified against the store before use.
     let mut carried_fields: Vec<BoxView<'a>> = Vec::new();
-    let mut carried_names: Vec<&String> = carried.iter().collect();
-    carried_names.sort();
-    for name in carried_names {
-        let Some(path) = values.text(name) else {
-            continue;
-        };
+    for (name, path) in carried {
         let control = format!("keep_{name}");
         let path = crate::upload::carry::seal(cx, name, path);
         carried_fields
@@ -382,7 +378,7 @@ pub(crate) fn resource_create<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> 
             FormChrome::create(cx, &resource),
             &seeded_values(cx, &resource),
             &FieldErrors::new(),
-            &HashSet::new(),
+            &Carried::new(),
         )
         .await?;
         Ok(html)

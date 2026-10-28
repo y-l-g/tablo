@@ -152,7 +152,11 @@ async fn multipart_stages_file_bytes_only_when_capturing() {
     )
     .await
     .unwrap();
-    let staged = captured.files.get("image_path").expect("staged file part");
+    let staged = captured
+        .files
+        .get("image_path")
+        .and_then(|staged| staged.last())
+        .expect("staged file part");
     assert_eq!(staged.filename, "photo.jpg");
     assert_eq!(staged.bytes, b"BINARYBYTES");
     assert_eq!(captured.last("image_path"), Some("photo.jpg"));
@@ -170,10 +174,40 @@ async fn multipart_stages_file_bytes_only_when_capturing() {
     assert_eq!(drained.last("image_path"), Some("photo.jpg"));
 }
 
-/// Stages nothing for a filename sanitized to empty.
+/// Stages every file part posted under one name, in body order: a file list's input posts one per
+/// chosen file.
 #[tokio::test]
-async fn multipart_stages_nothing_for_a_rejected_filename() {
-    let body = "--B\r\nContent-Disposition: form-data; name=\"image_path\"; filename=\"..\"\r\nContent-Type: application/octet-stream\r\n\r\nBYTES\r\n--B--\r\n";
+async fn multipart_stages_each_file_part_under_one_name() {
+    let part = |filename: &str, bytes: &str| {
+        format!(
+            "--B\r\nContent-Disposition: form-data; name=\"photos\"; filename=\"{filename}\"\r\n\
+             Content-Type: application/octet-stream\r\n\r\n{bytes}\r\n"
+        )
+    };
+    let body = format!("{}{}--B--\r\n", part("a.png", "AAA"), part("b.png", "BBB"));
+    let parts = multipart_parts(
+        &multipart_type("B"),
+        body.into_bytes(),
+        Capture::Persistable,
+    )
+    .await
+    .unwrap();
+    let staged: Vec<(&str, &[u8])> = parts.files["photos"]
+        .iter()
+        .map(|file| (file.filename.as_str(), file.bytes.as_slice()))
+        .collect();
+    assert_eq!(
+        staged,
+        [("a.png", b"AAA".as_slice()), ("b.png", b"BBB".as_slice())]
+    );
+}
+
+/// Stages a filename sanitized to empty without its bytes, so the field refuses it, and keeps the
+/// files posted beside it.
+#[tokio::test]
+async fn multipart_stages_a_rejected_filename_without_its_bytes() {
+    let body = "--B\r\nContent-Disposition: form-data; name=\"image_path\"; filename=\"a.png\"\r\nContent-Type: application/octet-stream\r\n\r\nAAA\r\n\
+                --B\r\nContent-Disposition: form-data; name=\"image_path\"; filename=\"..\"\r\nContent-Type: application/octet-stream\r\n\r\nBYTES\r\n--B--\r\n";
     let parts = multipart_parts(
         &multipart_type("B"),
         body.as_bytes().to_vec(),
@@ -181,7 +215,11 @@ async fn multipart_stages_nothing_for_a_rejected_filename() {
     )
     .await
     .unwrap();
-    assert!(parts.files.is_empty(), "a rejected name stages no bytes");
+    let staged: Vec<(&str, &[u8])> = parts.files["image_path"]
+        .iter()
+        .map(|file| (file.filename.as_str(), file.bytes.as_slice()))
+        .collect();
+    assert_eq!(staged, [("a.png", b"AAA".as_slice()), ("", b"".as_slice())]);
     assert_eq!(parts.last("image_path"), Some(""));
 
     // An import's file is read, never stored, so its name does not decide whether it is staged.
@@ -192,6 +230,7 @@ async fn multipart_stages_nothing_for_a_rejected_filename() {
         parts
             .files
             .get("image_path")
+            .and_then(|staged| staged.last())
             .map(|file| file.bytes.as_slice()),
         Some(b"BYTES".as_slice())
     );

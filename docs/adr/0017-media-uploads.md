@@ -8,6 +8,15 @@ A refusal is user input, rendered under the field. The field renders a file inpu
 clear control, nothing more: previews, drag-and-drop and progress belong to an app's media
 library. Uploads run before the write transaction, so a rolled-back write does not undo a store.
 
+A file list binds a `Vec<String>` column: one path per file, in the order the form lists them, its
+input taking several files at once. Each stored file renders as a row posting its bare path back,
+which only orders the list, with its own remove checkbox, so the list adds and removes files
+without JavaScript. A save starts from the list the record stores inside its transaction: only a
+remove checkbox drops a path, a posted path the record does not store is ignored, and a stored
+path no row posts stays, so a stale form or a row a script left out never deletes a file another
+save added. A refused submission's uploads are carried under the tag a single file field's carry
+uses, beside the rows. A list choosing more files than `max_files` stores none of them.
+
 `Panel::uploads_dir` installs the stock `DirUploader` over one served directory; any other store
 implements `Uploader`. `Panel::serve_dir` serves an app directory with headers that keep files inert on the panel's
 origin. A served directory outside the panel prefix is public: the auth gate covers only that
@@ -18,6 +27,14 @@ out: wherever the panel links or shows a stored path it checked the user may see
 and an app page signs with `url::file`. A leaked link opens the file until it expires, to anyone.
 The signature authorizes a path, not a record: a column over a value users type signs any path they
 name, and the random file names are what keep paths unguessable.
+Rejected for the file list: storing the paths joined in one `String`, which every reader splits
+again; a related table of files per record, which each app's media library already is; a file
+field inside a repeater's item, which reads a submission's files per row for what a list of paths
+holds; a save keeping exactly the rows it posts, which deletes every stored file when a row's
+tag fails to open after a restart and drops a file another save added; and a tag on each stored
+row, which binds no record, so a browser that once saw a row could keep its path on any record it
+edits.
+
 Rejected: a route under the prefix per record and field that loads the record through its scoped
 query and checks `View` on each request. A stored path renders in columns, relation tables and app
 pages that know no owning record, and every `Uploader` would have to stream its bytes back; a

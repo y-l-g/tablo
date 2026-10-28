@@ -16,11 +16,11 @@ pub use protocol::{
     column_picker, columns, confirms_first, cookie_header, detail_entries, dirty_form,
     disabled_actions, empty_table, field_error, field_error_message, filter_options,
     find_href_with, form_body, groups, ignored_filters, import_columns, import_errors,
-    import_refusal, input_value, language_choices, multipart_body, nav_badge, nav_links,
-    notification, page_direction, page_language, page_title, record_tables, response_cookies,
-    rich_text_values, row_actions, row_keys, rows, search_box, search_results, sections,
-    selects_matching, session_cookie_value, set_cookie_header, sortable_columns, stale_form, stats,
-    tabs, widgets,
+    import_refusal, input_value, input_values, language_choices, multipart_body, nav_badge,
+    nav_links, notification, page_direction, page_language, page_title, record_tables,
+    response_cookies, rich_text_values, row_actions, row_keys, rows, search_box, search_results,
+    sections, selects_matching, session_cookie_value, set_cookie_header, sortable_columns,
+    stale_form, stats, tabs, widgets,
 };
 pub use resource::{FieldOf, Reply, ResourceClient, Submission};
 use tablo_core::{

@@ -76,6 +76,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Catalog | One locale's Fluent messages: Tablo's, under the app's from `Panel::translations`. | Dictionary, Translation file, Lang file |
 | Message | One entry of a catalog, named by its id, with the variables its placeables read. | Key, String, Translation key |
 | Text | A word a panel renders: plain, as written, or a message the request's locale spells. | Label (for the type), LocalizedString, Translatable |
+| File list | A file field over a `Vec<String>` column, from `Field::files`: a row per stored path, each removable, and an input adding several files at once. | Multiple upload, Gallery, Attachments field |
 | Uploader | The trait that decides where a file field's bytes go, installed once per panel. | FileStore, Blob store |
 | DirUploader | The stock `Uploader`: writes each file into one served directory and stores its URL. | DiskStore |
 

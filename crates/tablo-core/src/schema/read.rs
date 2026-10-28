@@ -66,9 +66,10 @@ impl<'p> Pairs<'p> {
 impl<F> Schema<F> {
     /// Reads a posted body's `(key, value)` pairs, in the order it posts them, into the values
     /// the schema's fields hold: a scalar control's last value, a multiple choice's values without
-    /// blanks or repeats, and a repeater's rows in the order its key lists them. A field that
-    /// posts nothing holds nothing, so an edit keeps its stored value. A key no field declares is
-    /// left out: a page reads its own, such as the CSRF token, from the pairs.
+    /// blanks or repeats, a file list's chosen file names likewise, and a repeater's rows in the
+    /// order its key lists them. A field that posts nothing holds nothing, so an edit keeps its
+    /// stored value. A key no field declares is left out: a page reads its own, such as the
+    /// CSRF token, from the pairs.
     ///
     /// A text control's value is read through its type in the request's
     /// [`time_zone`](crate::time_zone): a timestamp's control posts a wall-clock time, which reads
@@ -121,7 +122,7 @@ impl<F> Schema<F> {
                 continue;
             }
             let posted = pairs.claim(name);
-            if field.as_choice().is_some_and(ChoiceControl::is_multiple) {
+            if field.as_choice().is_some_and(ChoiceControl::is_multiple) || field.is_file_list() {
                 if !posted.is_empty() {
                     values.insert(name, distinct(&posted));
                 }

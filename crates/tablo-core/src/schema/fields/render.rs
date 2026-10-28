@@ -28,6 +28,10 @@ impl Field {
             ControlKind::Choice(choice) => {
                 Box::pin(self.render_choice(choice, cx, value, error, id, placement)).await
             }
+            ControlKind::File(file) if file.multiple => {
+                let paths = value.and_then(FormValue::as_list).unwrap_or_default();
+                self.render_files(file, cx, paths, error, id, disabled)
+            }
             ControlKind::File(file) => self.render_file(file, cx, text, error, id, disabled),
             ControlKind::Custom(control) => {
                 self.render_custom(control.as_ref(), cx, text, error, id, disabled)
