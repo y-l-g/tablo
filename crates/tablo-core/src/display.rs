@@ -101,7 +101,12 @@ impl Alignment {
 
 /// A number as a cell reads it: an integer and a decimal stay exact, a float is rounded when
 /// spelled.
+///
+/// Equality compares the representation, not the amount: `Decimal { mantissa: 1250, scale: 2 }`
+/// differs from `Decimal { mantissa: 125, scale: 1 }`, and `Int(12)` from
+/// `Decimal { mantissa: 12, scale: 0 }`.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum Number {
     /// Any integer type, widened.
     Int(i128),
