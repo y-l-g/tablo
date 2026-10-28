@@ -2,7 +2,7 @@
 //! tagging.
 
 use tablo::{Action, HeaderAction, filter_keys, scoped_query};
-use topcoat::{Result, context::Cx};
+use topcoat::{Result, context::Cx, icon::IconData};
 
 use crate::{
     app::PostResource,
@@ -15,6 +15,7 @@ pub struct PublishPosts;
 impl Action<PostResource> for PublishPosts {
     type Input = ();
     const NAME: &'static str = "publish";
+    const ICON: Option<IconData> = Some(tablo::ui::icons::CHECK);
 
     fn can_run(_cx: &Cx, post: &Post) -> bool {
         post.status != PostStatus::Published
@@ -42,6 +43,10 @@ impl HeaderAction for PublishAllDrafts {
     type Input = ();
     const NAME: &'static str = "publish-all-drafts";
     const CONFIRM: bool = true;
+
+    fn confirmation() -> tablo::Text {
+        "Publish every draft?".into()
+    }
 
     async fn run(
         cx: &Cx,
@@ -80,6 +85,7 @@ pub struct TagPosts;
 impl Action<PostResource> for TagPosts {
     type Input = Tagging;
     const NAME: &'static str = "tag";
+    const ICON: Option<IconData> = Some(tablo::ui::icons::TAG);
 
     async fn run(
         _cx: &Cx,

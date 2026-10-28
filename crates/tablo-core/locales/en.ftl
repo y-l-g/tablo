@@ -154,6 +154,8 @@ tablo-action-force-deleted = { $count ->
 }
 tablo-confirm-restore = Restore this record?
 tablo-confirm-force-delete = Delete this record permanently?
+tablo-confirm-force-delete-selected = Delete the selected records permanently?
+tablo-confirm-restore-selected = Restore the selected records?
 # A run the action refused on some of the selection, after its success note.
 tablo-action-skipped = ({ $skipped } of { $selected } skipped)
 # The title of an action's input page over one record, and over a selection.

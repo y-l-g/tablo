@@ -1,7 +1,7 @@
 //! Row projection: the page's rows as the owned views the template renders.
 
 use tablo_ui::{table_cell, table_row};
-use topcoat::{context::Cx, runtime::Event, view::*};
+use topcoat::{context::Cx, icon::IconData, runtime::Event, view::*};
 
 use super::{
     super::{RowActions, TableSignals, WiredTable},
@@ -245,8 +245,10 @@ struct RowButton {
     label: String,
     /// The action's POST target for the row's record.
     url: String,
-    /// Whether it asks first through the confirmation dialog.
-    confirm: bool,
+    /// The question the confirmation dialog asks first, when it does.
+    confirm: Option<String>,
+    icon: Option<IconData>,
+    destructive: bool,
     /// The action's name when it asks for input, which its dialog then does.
     input: Option<&'static str>,
 }
@@ -323,7 +325,10 @@ impl<M> WiredTable<M> {
                                 RowButton {
                                     label: action.label.clone(),
                                     url: frame.action_url(url),
-                                    confirm: action.confirm && input.is_none(),
+                                    confirm: (action.confirm && input.is_none())
+                                        .then(|| action.prompt.clone()),
+                                    icon: action.icon.clone(),
+                                    destructive: action.destructive,
                                     input,
                                 }
                             })

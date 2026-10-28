@@ -21,6 +21,7 @@ use super::{
 };
 use crate::{
     panel::{
+        bar::DESTRUCTIVE_TONE,
         input::selected_count,
         list::{COLUMN_FIELD, RESET_FIELD, TableSignals},
         url::{bulk_action_url, bulk_delete_url},
@@ -320,18 +321,22 @@ impl Frame<'_> {
                 let mut attrs = if action.input {
                     input_trigger(cx, &form, signals, action.name, url, true)
                 } else {
-                    let confirm = action.confirm.then(|| run_confirmation(cx));
+                    let confirm = action.confirm.then(|| run_confirmation(cx, action.prompt));
                     write_trigger(cx, &form, signals, url, confirm, true)
                 };
                 let bulk = signals.bulk.clone();
-                attrs.extend(attributes! { cx => :disabled=$(bulk.get().is_empty()) });
-                let label = action.label.to_string();
+                let tone = action.destructive.then_some(DESTRUCTIVE_TONE);
+                attrs.extend(attributes! { cx => class=(tone) :disabled=$(bulk.get().is_empty()) });
+                let (label, face) = (action.label.to_string(), action.icon.clone());
                 view! {
                     cx =>
                     button(
                         variant: ButtonVariant::Outline,
                         size: ButtonSize::Md,
                         attrs: attrs,
+                        if let Some(data) = face {
+                            icon(data: data)
+                        }
                         (label)
                     )
                 }

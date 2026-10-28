@@ -4,12 +4,14 @@
 use std::{any::Any, future::Future};
 
 use derive_where::derive_where;
-use topcoat::{Result, context::Cx};
+use topcoat::{Result, context::Cx, icon::IconData};
 
 mod builtin;
 mod keys;
+mod places;
 
 pub use keys::filter_keys;
+pub use places::Places;
 
 use super::{Mounted, Resource, WriteError};
 use crate::{
@@ -171,6 +173,26 @@ pub trait Action<R: Resource>: 'static {
     /// nothing.
     const CONFIRM: bool = false;
 
+    /// The icon before the button's label, in every place. Defaults to none.
+    ///
+    /// ```rust
+    /// # use topcoat::icon::IconData;
+    /// const ICON: Option<IconData> = Some(tablo_ui::icons::CHECK);
+    /// ```
+    const ICON: Option<IconData> = None;
+
+    /// Whether the button is tinted as a destructive one, as Delete's is. Defaults to `false`.
+    ///
+    /// It changes how the button looks, not what it asks: [`CONFIRM`](Self::CONFIRM) asks first.
+    const DESTRUCTIVE: bool = false;
+
+    /// The question the confirmation dialog asks when [`CONFIRM`](Self::CONFIRM) is set. Defaults
+    /// to the message `tablo-confirm-run`, "Run this action?". An action with input confirms in
+    /// its input dialog instead, which its label titles.
+    fn confirmation() -> crate::Text {
+        crate::text!("tablo-confirm-run")
+    }
+
     /// The button text. Defaults to the message `action-{NAME}` of the panel's catalogs, else
     /// [`NAME`](Self::NAME) in sentence case: `"publish"` reads "Publish", and `"send-invite"`
     /// reads "Send invite".
@@ -242,53 +264,6 @@ pub trait Action<R: Resource>: 'static {
             action = Self::label(),
             count = count
         )
-    }
-}
-
-/// Where an [`Action`]'s button renders: [`Action::PLACES`].
-///
-/// ```rust
-/// # use tablo_core::Places;
-/// // On the detail page and the bulk bar, not on each row or the edit page.
-/// const PLACES: Places = Places::DETAIL.with(Places::BULK);
-/// assert!(PLACES.contains(Places::BULK));
-/// assert!(!PLACES.contains(Places::ROW));
-/// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Places(u8);
-
-impl Places {
-    /// A button in each table row, the related tables' included.
-    pub const ROW: Self = Self(1);
-    /// A button in the detail page's header.
-    pub const DETAIL: Self = Self(1 << 1);
-    /// A button in the edit page's header. It posts a form of its own, so it runs on the record
-    /// as stored, and a change typed into the edit form and not saved is lost.
-    pub const EDIT: Self = Self(1 << 2);
-    /// An entry in the bulk bar, run on the selection.
-    pub const BULK: Self = Self(1 << 3);
-    /// Every place that shows one record: [`ROW`](Self::ROW), [`DETAIL`](Self::DETAIL) and
-    /// [`EDIT`](Self::EDIT).
-    pub const RECORD: Self = Self(Self::ROW.0 | Self::DETAIL.0 | Self::EDIT.0);
-    /// Every place.
-    pub const ALL: Self = Self(Self::RECORD.0 | Self::BULK.0);
-
-    /// These places and `other`'s.
-    #[must_use]
-    pub const fn with(self, other: Self) -> Self {
-        Self(self.0 | other.0)
-    }
-
-    /// Whether every place of `other` is one of these.
-    #[must_use]
-    pub const fn contains(self, other: Self) -> bool {
-        self.0 & other.0 == other.0
-    }
-
-    /// Whether any place of `other` is one of these.
-    #[must_use]
-    pub const fn intersects(self, other: Self) -> bool {
-        self.0 & other.0 != 0
     }
 }
 
@@ -473,7 +448,9 @@ impl<R: Resource> Actions<R> {
             confirm: A::CONFIRM,
             trashed: super::Trashed::Without,
             removes: false,
-            prompt: "tablo-confirm-run",
+            prompt: |_| A::confirmation(),
+            icon: || A::ICON,
+            destructive: A::DESTRUCTIVE,
         });
         self
     }
@@ -520,8 +497,12 @@ pub(crate) struct ActionEntry<R: Resource> {
     /// Whether the mutation removes its records, so its button lands on the list rather than on
     /// the page of a record that no longer exists.
     pub(crate) removes: bool,
-    /// The message the title of the dialog confirming it on a record's page reads.
-    pub(crate) prompt: &'static str,
+    /// The question the dialog confirming it asks, of one record or, when `bulk`, of a selection.
+    pub(crate) prompt: fn(bool) -> crate::Text,
+    /// The icon before its button's label.
+    pub(crate) icon: fn() -> Option<IconData>,
+    /// Whether its button is tinted as a destructive one.
+    pub(crate) destructive: bool,
 }
 
 impl<R: Resource> ActionEntry<R> {

@@ -199,6 +199,10 @@ fn wire_custom_actions<R: Resource>(
                 row: action.places.contains(Places::ROW),
                 bulk: action.places.contains(Places::BULK),
                 confirm: action.confirm,
+                prompt: (action.prompt)(false).localize(cx),
+                bulk_prompt: (action.prompt)(true).localize(cx),
+                icon: (action.icon)(),
+                destructive: action.destructive,
                 input: action.input.takes_input.then_some(action.input.schema),
                 trashed: action.trashed,
                 allowed: Arc::new(move |record: &R::Model| {
