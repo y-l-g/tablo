@@ -16,6 +16,7 @@ mod declaration;
 mod extend;
 mod header_action;
 mod layouts;
+mod navigation;
 mod outcome;
 mod pages;
 mod panel;

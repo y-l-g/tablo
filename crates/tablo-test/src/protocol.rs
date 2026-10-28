@@ -1,6 +1,7 @@
 //! Reads values back out of rendered responses: bodies, cookies, form data, the page's language,
 //! and the semantic HTML queries over tables, fields, filters, the ignored-filters banner, the
-//! import page, rich text values, the notification bell, the global search, tabs, and widgets.
+//! import page, rich text values, the notification bell, the global search, the sidebar, tabs, and
+//! widgets.
 
 mod bell;
 pub mod dom;
@@ -8,6 +9,7 @@ mod ignored;
 mod import;
 mod rich_text;
 mod search;
+mod sidebar;
 mod tabs;
 mod widgets;
 
@@ -15,13 +17,14 @@ pub use bell::{Bell, BellNotification, bell};
 pub use dom::{
     EmptyReason, EmptyTable, ErrorKind, FilterOption, Group, PickerColumn, Row, RowActions,
     column_picker, columns, confirms_first, empty_table, field_error, field_error_message,
-    filter_options, find_href_with, groups, nav_badge, row_actions, row_keys, rows,
+    filter_options, find_href_with, groups, row_actions, row_keys, rows,
 };
 use http_body_util::BodyExt;
 pub use ignored::{IgnoredFilter, IgnoredReason, ignored_filters};
 pub use import::{ImportError, ImportRefusal, import_columns, import_errors, import_refusal};
 pub use rich_text::rich_text_values;
 pub use search::{SearchGroup, SearchResult, search_box, search_results};
+pub use sidebar::{nav_badge, nav_links};
 use tablo_core::Notification;
 pub use tabs::{Tab, tabs};
 use topcoat::router::Body;

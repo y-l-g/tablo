@@ -32,6 +32,8 @@ pub(crate) struct Mounted<R: Resource> {
     pub(crate) label: Text,
     pub(crate) plural_label: Text,
     pub(crate) navigation: NavigationItem,
+    /// Whether the sidebar leaves the resource out: [`ResourceDef::navigation_hidden`].
+    pub(crate) navigation_hidden: bool,
     /// The rows [`ResourceDef::navigation_badge`] counts.
     navigation_badge: Option<toasty::stmt::Expr<bool>>,
     pub(crate) policy: Arc<dyn Policy<R::Model>>,
@@ -115,6 +117,7 @@ impl<R: Resource> Mounted<R> {
             label,
             plural_label,
             navigation,
+            navigation_hidden: def.navigation_hidden,
             navigation_badge: def.navigation_badge,
             policy: def.policy,
             tenancy: def.tenancy,
