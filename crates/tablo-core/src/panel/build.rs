@@ -522,6 +522,7 @@ fn install_shared(mut builder: RouterBuilder) -> RouterBuilder {
         .with(TenantSource(crate::auth::session_tenant))
         .with(crate::values::ZoneSource(crate::auth::session_time_zone))
         .with(crate::schema::FileHref(super::url::file))
+        .with(crate::page::PageBody(super::pages::declared_body))
         .with(crate::i18n::CatalogSource(crate::auth::session_catalog))
         .with(NotificationBus::new());
     // The runtime layer has no path, so a page re-run reaches the panel's layers already rewritten

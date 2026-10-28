@@ -51,6 +51,16 @@ pub fn page_language(html: &str) -> Option<String> {
     dom::attr_value(&attrs, "lang")
 }
 
+/// The page's heading, as its `[data-page-title]` holds it; `None` when it has none.
+pub fn page_title(html: &str) -> Option<String> {
+    let (_, _, inner) = dom::tags_where(html, |_, attrs| {
+        dom::attr_value(attrs, "data-page-title").is_some()
+    })
+    .into_iter()
+    .next()?;
+    Some(dom::strip_text(&inner))
+}
+
 /// One locale the shell's language menu offers.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LanguageChoice {

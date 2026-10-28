@@ -112,14 +112,8 @@ pub fn shell_panel() -> Panel {
 pub struct ReportsPage;
 
 impl Page for ReportsPage {
-    async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(view! {
-            cx =>
-            tablo::ui::page(
-                tablo::ui::page_header(tablo::ui::page_title("Reports"))
-                tablo::ui::page_content(tablo::ui::card(tablo::ui::card_content("…")))
-            )
-        })
+    fn declare() -> PageDef {
+        PageDef::new().description("The figures behind each month's close.")
     }
 }
 
@@ -127,6 +121,22 @@ pub fn reports_panel() -> Panel {
     Panel::new("admin").page::<ReportsPage>() // GET /admin/reports
 }
 // ANCHOR_END: panel-reports-page
+
+// ANCHOR: panel-page-render
+pub struct ExportsPage;
+
+impl Page for ExportsPage {
+    async fn render(cx: &Cx) -> Result<impl View> {
+        Ok(view! {
+            cx =>
+            tablo::ui::page(
+                tablo::ui::page_header(tablo::ui::page_title("Exports"))
+                tablo::ui::page_content(tablo::ui::card(tablo::ui::card_content("…")))
+            )
+        })
+    }
+}
+// ANCHOR_END: panel-page-render
 
 fn is_manager(_cx: &Cx) -> bool {
     true
@@ -142,10 +152,6 @@ impl Page for SalesPage {
             .icon(tablo::ui::icons::LAYOUT_DASHBOARD)
             .navigation_group("Reports")
             .access(is_manager)
-    }
-
-    async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(view! { cx => tablo::ui::page(tablo::ui::page_title("Sales")) })
     }
 }
 
@@ -217,16 +223,6 @@ impl Page for OverviewPage {
             .widget::<SalesOverview>()
             .widget::<RevenueChart>()
             .widget::<LatestPosts>()
-    }
-
-    async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(view! {
-            cx =>
-            tablo::ui::page(
-                tablo::ui::page_header(tablo::ui::page_title("Overview"))
-                tablo::ui::page_content((tablo::widgets::<Self>(cx)))
-            )
-        })
     }
 }
 // ANCHOR_END: panel-widgets

@@ -220,18 +220,19 @@ have the full rules.
 
 ## Pages
 
-A page that is not a record list — a dashboard, a report, a settings screen — implements `Page`:
+A page that is not a record list — a dashboard, a report, a settings screen — implements `Page`.
+Its `render` defaults to the page its def declares: a header with the title, the description and
+the header action buttons, over the widget grid. A page that shows only those writes no `render`:
 
 ```rust
-use tablo::{Page, Panel};
-use topcoat::{Result, context::Cx, view::{View, view}};
+use tablo::{Page, PageDef, Panel};
 
 {{#include ../../../examples/guide/src/panel_routing.rs:panel-reports-page}}
 ```
 
 - **The def.** `Page::declare` returns a `PageDef`, as a resource's returns a `ResourceDef`: the
-  slug, the sidebar entry, who may open the page and its header actions. `render` stays a trait
-  method. `Panel::page_with::<P>(|def| …)` adjusts the def for one panel:
+  slug, the sidebar entry, the title and description, who may open the page, its header actions
+  and its widgets. `Panel::page_with::<P>(|def| …)` adjusts the def for one panel:
 
   ```rust
   {{#include ../../../examples/guide/src/panel_routing.rs:panel-page-def}}
@@ -239,7 +240,8 @@ use topcoat::{Result, context::Cx, view::{View, view}};
 
 - **Slug and label** default to the type name without its `Page` suffix: `ReportsPage` mounts at
   `reports` and is labelled "Reports". `PageDef::slug` and `PageDef::label` change them. Pages and
-  resources share one slug namespace.
+  resources share one slug namespace. The title defaults to the label; `PageDef::title` changes
+  it.
 - **The home page.** `Panel::home::<P>()` mounts a page at the prefix itself instead of the
   redirect to the first resource. A panel has at most one.
 - **Access.** With authentication on, the page renders only for a signed-in user with panel access,
@@ -247,8 +249,8 @@ use topcoat::{Result, context::Cx, view::{View, view}};
   the page answers 403 and leaves the sidebar. It is synchronous, like a policy, and reads the
   signed-in user with `auth::user::<U>(cx)`.
 - **Actions.** `PageDef::header_action::<A>()` declares a [header action](./actions.md#header-actions),
-  behind the same sign-in and `access` as the page. `header_action_buttons::<Self>(cx)` renders
-  their buttons where the page places it, usually in `page_actions`.
+  behind the same sign-in and `access` as the page. The default `render` shows their buttons in
+  the header.
 - **Forms.** Any other form a page renders posts to an app `#[route]`; put that route under the
   panel prefix so the auth gate covers it. `access` does not cover that route, so the route
   asks `can_open::<P>(cx)` itself: the panel's sign-in and the page's `access`, as the page's
@@ -257,7 +259,7 @@ use topcoat::{Result, context::Cx, view::{View, view}};
 ### Widgets
 
 A dashboard is a grid of widgets. A `Widget` renders one block of it, and `PageDef::widget::<W>()`
-adds it to the page's grid, which `widgets::<Self>(cx)` renders where the page places it:
+adds it to the page's grid, which the default `render` shows under the header:
 
 ```rust
 {{#include ../../../examples/guide/src/panel_routing.rs:panel-widgets}}
@@ -287,6 +289,21 @@ adds it to the page's grid, which `widgets::<Self>(cx)` renders where the page p
   list page renders above its table, for a banner or the figures behind the rows, without
   rewriting the page; `ResourceDef::list_widget_columns` sets its columns. The list's sign-in and
   policy guard it, and it reruns with the list.
+
+### Rendering a page
+
+A page that shows more than its header and grid writes `render`:
+
+```rust
+use tablo::Page;
+use topcoat::{Result, context::Cx, view::{View, view}};
+
+{{#include ../../../examples/guide/src/panel_routing.rs:panel-page-render}}
+```
+
+Its `render` replaces the default whole, so it places the parts it keeps:
+`header_action_buttons::<Self>(cx)` in its `page_actions`, `widgets::<Self>(cx)` in its
+`page_content`. The def's title and description are the default `render`'s, so it writes its own.
 
 The `tablo::ui` composites give a page the same frame as the panel's own pages: `page` sets the
 width and padding; `page_header` holds a `page_title`, an optional `page_description` and optional

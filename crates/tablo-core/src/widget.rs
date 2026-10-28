@@ -16,12 +16,12 @@ use crate::{Color, naming::type_stem};
 ///
 /// A resource adds widgets above its list with
 /// [`ResourceDef::list_widget`](crate::ResourceDef::list_widget). A page adds them with
-/// [`PageDef::widget`](crate::PageDef::widget), and [`widgets`](crate::widgets) renders them where
-/// the page's [`render`](crate::Page::render) places it:
+/// [`PageDef::widget`](crate::PageDef::widget), and the page's default
+/// [`render`](crate::Page::render) shows them under its header:
 ///
 /// ```rust
 /// # use tablo_core::{Page, PageDef, Stat, Widget, WidgetDef};
-/// # use topcoat::{Result, context::Cx, view::{View, view}};
+/// # use topcoat::{Result, context::Cx, view::View};
 /// struct Overview;
 ///
 /// impl Widget for Overview {
@@ -42,16 +42,6 @@ use crate::{Color, naming::type_stem};
 /// impl Page for Dashboard {
 ///     fn declare() -> PageDef {
 ///         PageDef::new().widget::<Overview>()
-///     }
-///
-///     async fn render(cx: &Cx) -> Result<impl View> {
-///         Ok(view! {
-///             cx =>
-///             tablo_ui::page(
-///                 tablo_ui::page_title("Dashboard")
-///                 tablo_ui::page_content((tablo_core::widgets::<Self>(cx)))
-///             )
-///         })
 ///     }
 /// }
 /// ```

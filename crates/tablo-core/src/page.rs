@@ -1,9 +1,14 @@
 //! [`Page`] — a panel page that is not a resource: a dashboard, a report, a
 //! settings screen, a media library — and the [`PageDef`] it declares.
 
-use std::{future::Future, sync::Arc};
+use std::{any::TypeId, future::Future, sync::Arc};
 
-use topcoat::{Result, context::Cx, icon::IconData, view::View};
+use topcoat::{
+    Result,
+    context::Cx,
+    icon::IconData,
+    view::{BoxView, View, ViewExt},
+};
 
 use crate::{
     HeaderAction, HeaderActions, Widget,
@@ -18,14 +23,9 @@ use crate::{
 ///
 /// ```rust
 /// # use tablo_core::{Page, Panel};
-/// # use topcoat::{Result, context::Cx, view::{View, view}};
 /// struct ReportsPage;
 ///
-/// impl Page for ReportsPage {
-///     async fn render(cx: &Cx) -> Result<impl View> {
-///         Ok(view! { cx => tablo_ui::page(tablo_ui::page_title("Reports")) })
-///     }
-/// }
+/// impl Page for ReportsPage {}
 ///
 /// Panel::new("admin").page::<ReportsPage>(); // GET /admin/reports
 /// ```
@@ -44,13 +44,51 @@ pub trait Page: Sized + Send + Sync + 'static {
 
     /// Render the page body. The panel checks for a resolved user and
     /// [`PageDef::access`] before calling it.
-    fn render(cx: &Cx) -> impl Future<Output = Result<impl View>> + Send;
+    ///
+    /// Defaults to the page its [`PageDef`] declares: the [`title`](PageDef::title) and
+    /// [`description`](PageDef::description), the buttons of its
+    /// [`header_action`](PageDef::header_action)s, and the grid of its
+    /// [`widget`](PageDef::widget)s. A page that renders more places those parts itself, through
+    /// [`header_action_buttons`](crate::header_action_buttons) and [`widgets`](crate::widgets):
+    ///
+    /// ```rust
+    /// # use tablo_core::Page;
+    /// # use topcoat::{Result, context::Cx, view::{View, view}};
+    /// struct ReportsPage;
+    ///
+    /// impl Page for ReportsPage {
+    ///     async fn render(cx: &Cx) -> Result<impl View> {
+    ///         Ok(view! {
+    ///             cx =>
+    ///             tablo_ui::page(
+    ///                 tablo_ui::page_header(tablo_ui::page_title("Reports"))
+    ///                 tablo_ui::page_content((tablo_core::widgets::<Self>(cx)) "…")
+    ///             )
+    ///         })
+    ///     }
+    /// }
+    /// ```
+    fn render(cx: &Cx) -> impl Future<Output = Result<impl View>> + Send {
+        async move { Ok(declared_body(cx, TypeId::of::<Self>())) }
+    }
+}
+
+/// Renders the page of type `page` as its [`PageDef`] declares it. The panel installs it: a page's
+/// header and grid are the serving layer's markup.
+pub(crate) struct PageBody(pub(crate) for<'a> fn(&'a Cx, TypeId) -> BoxView<'a>);
+
+/// The body [`Page::render`] defaults to; nothing on a router that mounts no panel.
+fn declared_body(cx: &Cx, page: TypeId) -> BoxView<'_> {
+    match topcoat::context::try_context::<PageBody>(cx) {
+        Some(PageBody(render)) => render(cx, page),
+        None => ().boxed(),
+    }
 }
 
 /// Whether the request's user may open a page.
 type AccessFn = dyn Fn(&Cx) -> bool + Send + Sync;
 
-/// What a [`Page`] declares: its slug, sidebar entry, access, header actions and widgets.
+/// What a [`Page`] declares: its slug, sidebar entry, title, access, header actions and widgets.
 ///
 /// [`Page::declare`] returns one, and [`Panel::page_with`](crate::Panel::page_with) adjusts it for
 /// one panel. Every setting has a default, so a page sets only what differs:
@@ -79,6 +117,8 @@ pub struct PageDef {
     navigation_order: Option<i32>,
     navigation_group: Option<crate::Text>,
     navigation: Option<NavigationItem>,
+    title: Option<crate::Text>,
+    description: Option<crate::Text>,
     access: Arc<AccessFn>,
     header_actions: HeaderActions,
     widgets: WidgetGrid,
@@ -149,6 +189,21 @@ impl PageDef {
         self
     }
 
+    /// The heading the default [`render`](Page::render) shows. Defaults to the
+    /// [`label`](Self::label).
+    #[must_use]
+    pub fn title(mut self, title: impl Into<crate::Text>) -> Self {
+        self.title = Some(title.into());
+        self
+    }
+
+    /// The line the default [`render`](Page::render) shows under the title; defaults to none.
+    #[must_use]
+    pub fn description(mut self, description: impl Into<crate::Text>) -> Self {
+        self.description = Some(description.into());
+        self
+    }
+
     /// Whether the request's user may open the page. The panel answers 403 and leaves the page
     /// out of the sidebar when it answers `false`. Defaults to every signed-in user.
     ///
@@ -181,8 +236,9 @@ impl PageDef {
     }
 
     /// Adds the [`HeaderAction`] `A` after the ones already declared, served at
-    /// `{url}/-/actions/{NAME}`. [`header_action_buttons`](crate::header_action_buttons) renders
-    /// their buttons where [`render`](Page::render) places it. An `A::NAME` that is not a
+    /// `{url}/-/actions/{NAME}`. The default [`render`](Page::render) shows their buttons in the
+    /// page's header; a page that renders itself places
+    /// [`header_action_buttons`](crate::header_action_buttons). An `A::NAME` that is not a
     /// single URL path segment does not compile.
     ///
     /// The actions run for whoever may open the page: a page has no policy. An action that writes
@@ -194,8 +250,9 @@ impl PageDef {
         self
     }
 
-    /// Adds the [`Widget`] `W` after the ones already declared, to the grid
-    /// [`widgets`](crate::widgets) renders where [`render`](Page::render) places it.
+    /// Adds the [`Widget`] `W` after the ones already declared, to the grid the default
+    /// [`render`](Page::render) shows under the header; a page that renders itself places
+    /// [`widgets`](crate::widgets).
     #[must_use]
     pub fn widget<W: Widget>(mut self) -> Self {
         self.widgets.push::<W>();
@@ -220,6 +277,8 @@ impl Default for PageDef {
             navigation_order: None,
             navigation_group: None,
             navigation: None,
+            title: None,
+            description: None,
             access: Arc::new(|_| true),
             header_actions: HeaderActions::new(),
             widgets: WidgetGrid::default(),
@@ -235,6 +294,8 @@ impl std::fmt::Debug for PageDef {
             .field("navigation_order", &self.navigation_order)
             .field("navigation_group", &self.navigation_group)
             .field("navigation", &self.navigation)
+            .field("title", &self.title)
+            .field("description", &self.description)
             .field("header_actions", &self.header_actions)
             .field("widgets", &self.widgets)
             .finish_non_exhaustive()
@@ -246,6 +307,9 @@ pub(crate) struct MountedPage {
     pub(crate) slug: String,
     /// The sidebar entry, its target not yet resolved to the page's URL.
     pub(crate) navigation: NavigationItem,
+    /// The heading the default [`Page::render`] shows.
+    pub(crate) title: crate::Text,
+    pub(crate) description: Option<crate::Text>,
     access: Arc<AccessFn>,
     pub(crate) header_actions: HeaderActions,
     pub(crate) widgets: WidgetGrid,
@@ -254,14 +318,16 @@ pub(crate) struct MountedPage {
 impl MountedPage {
     pub(crate) fn new<P: Page>(def: PageDef) -> Self {
         let stem = type_stem::<P>("Page");
+        let label = def.label.unwrap_or_else(|| {
+            let noun = sentence_case(stem);
+            crate::Text::derived(
+                crate::naming::derived_id("page", &crate::naming::slug_case(&noun)),
+                noun,
+            )
+        });
+        let title = def.title.unwrap_or_else(|| label.clone());
         let mut navigation = def.navigation.unwrap_or_else(|| NavigationItem {
-            label: def.label.unwrap_or_else(|| {
-                let noun = sentence_case(stem);
-                crate::Text::derived(
-                    crate::naming::derived_id("page", &crate::naming::slug_case(&noun)),
-                    noun,
-                )
-            }),
+            label,
             ..NavigationItem::default()
         });
         if let Some(order) = def.navigation_order {
@@ -276,6 +342,8 @@ impl MountedPage {
         Self {
             slug: def.slug.unwrap_or_else(|| kebab_case(stem)),
             navigation,
+            title,
+            description: def.description,
             access: def.access,
             header_actions: def.header_actions,
             widgets: def.widgets,

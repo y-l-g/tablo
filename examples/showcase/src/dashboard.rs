@@ -3,13 +3,9 @@
 use jiff::tz::TimeZone;
 use tablo::{
     Ability, Chart, Color, FieldErrors, HeaderAction, Page, PageDef, RecordTable, Series, Stat,
-    Widget, WidgetDef, can_list, db::db, header_action_buttons, scoped_query,
+    Widget, WidgetDef, can_list, db::db, scoped_query,
 };
-use topcoat::{
-    Result,
-    context::Cx,
-    view::{View, view},
-};
+use topcoat::{Result, context::Cx, view::View};
 
 use crate::{
     app::{AuthorResource, CommentResource, PostResource, UserResource},
@@ -201,25 +197,10 @@ impl Page for Dashboard {
     fn declare() -> PageDef {
         PageDef::new()
             .icon(tablo::ui::icons::LAYOUT_DASHBOARD)
+            .description("The blog's admin: its users, authors, posts, comments and media.")
             .header_action::<FeatureTagged>()
             .widget::<Overview>()
             .widget::<PostsPerMonth>()
             .widget::<LatestPosts>()
-    }
-
-    async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(view! {
-            cx =>
-            tablo::ui::page(
-                tablo::ui::page_header(
-                    tablo::ui::page_title("Dashboard")
-                    tablo::ui::page_description(
-                        "The blog's admin: its users, authors, posts, comments and media."
-                    )
-                    tablo::ui::page_actions((header_action_buttons::<Self>(cx)))
-                )
-                tablo::ui::page_content((tablo::widgets::<Self>(cx)))
-            )
-        })
     }
 }
