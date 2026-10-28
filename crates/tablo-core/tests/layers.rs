@@ -120,6 +120,7 @@ const RENDER_HOOKS: &[&str] = &[
     "schema/fields/chrome.rs",
     "schema/fields/custom.rs",
     "schema/fields/file.rs",
+    "schema/fields/file/list.rs",
     "schema/fields/read_only.rs",
     "schema/fields/rich_text.rs",
     "schema/fields/text.rs",

@@ -52,6 +52,15 @@ fn a_blank_answer_on_a_many_to_many_field_is_refused() {
 }
 
 #[test]
+fn a_blank_answer_on_a_file_list_is_refused() {
+    let message =
+        refusal("#[form(model = M)] struct F { #[form(file, blank = Vec::new())] a: Vec<String> }");
+    assert!(message.contains("file list"), "{message}");
+    let message = refusal("#[form(model = M)] struct F { #[form(file, optional)] a: Vec<String> }");
+    assert_ne!(message, "<expanded>");
+}
+
+#[test]
 fn an_unknown_key_is_refused() {
     let message = refusal("#[form(model = M)] struct F { #[form(blnk = 1)] a: i64 }");
     assert!(message.contains("unknown"), "{message}");

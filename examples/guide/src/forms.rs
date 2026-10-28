@@ -270,6 +270,30 @@ pub fn images_panel(dir: PathBuf) -> Panel {
 }
 // ANCHOR_END: forms-uploader
 
+// ANCHOR: forms-file-list
+#[derive(Debug, Clone, toasty::Model)]
+pub struct Album {
+    #[key]
+    #[auto]
+    pub id: uuid::Uuid,
+    pub title: String,
+    pub photos: Vec<String>,
+}
+
+#[derive(Debug, Clone, tablo::RecordForm)]
+#[form(model = Album)]
+pub struct AlbumForm {
+    pub title: String,
+    #[form(file)]
+    pub photos: Vec<String>,
+}
+
+pub fn album_form() -> Schema<AlbumForm> {
+    let c = AlbumForm::controls();
+    Schema::new((c.title, c.photos.extensions(["png", "jpg"]).max_files(12)))
+}
+// ANCHOR_END: forms-file-list
+
 // ANCHOR: forms-embedded-schema
 pub fn seo_schema() -> Section {
     Section::new("SEO").schema(Seo::form(Post::fields().seo()))

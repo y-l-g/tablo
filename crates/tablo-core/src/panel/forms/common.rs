@@ -16,7 +16,7 @@ use super::{
 pub(crate) use crate::upload::FormParts;
 use crate::{
     db::{WriteTx, db},
-    form::{FieldErrors, FormValues, RecordForm},
+    form::{FieldErrors, FormValue, FormValues, RecordForm},
     panel::state::uploader,
     policy::Ability,
     resource::{Mounted, Resource},
@@ -73,13 +73,22 @@ pub(crate) fn truthy(v: &str) -> bool {
 /// What a file field's control posts beside its file part.
 #[derive(Debug, Default)]
 pub(super) struct FileFlags {
-    /// `keep_<field>`: the stored path a refused submission carried over.
-    pub(super) keep: Option<String>,
-    /// `clear_<field>`: whether the user cleared the stored file.
-    pub(super) clear: bool,
+    /// Every `keep_<field>` value, in the order the body posts them: a file field's carried
+    /// upload, or each row a file list keeps.
+    pub(super) keep: Vec<String>,
+    /// Every `clear_<field>` value: a file field's flag clearing its stored file, or each path a
+    /// file list drops.
+    pub(super) clear: Vec<String>,
 }
 
-/// Each file field's [`FileFlags`], from the last value `parts` posts under each flag's key.
+impl FileFlags {
+    /// Whether a file field's last `clear_<field>` flag clears its stored file.
+    pub(super) fn clears(&self) -> bool {
+        self.clear.last().is_some_and(|flag| truthy(flag))
+    }
+}
+
+/// Each file field's [`FileFlags`], from the values `parts` posts under each flag's key.
 pub(super) fn file_flags(
     schema: &crate::schema::Schema,
     parts: &FormParts,
@@ -89,9 +98,17 @@ pub(super) fn file_flags(
         .filter(|field| field.is_file())
         .map(|field| {
             let name = field.name();
+            let posted = |key: String| -> Vec<String> {
+                parts
+                    .pairs
+                    .iter()
+                    .filter(|(posted, _)| *posted == key)
+                    .map(|(_, value)| value.clone())
+                    .collect()
+            };
             let flags = FileFlags {
-                keep: parts.last(&format!("keep_{name}")).map(str::to_string),
-                clear: parts.last(&format!("clear_{name}")).is_some_and(truthy),
+                keep: posted(format!("keep_{name}")),
+                clear: posted(format!("clear_{name}")),
             };
             (name.to_string(), flags)
         })
@@ -127,21 +144,25 @@ pub(super) async fn restore_pending_uploads(
 ) -> HashSet<String> {
     let mut restored = HashSet::new();
     for (name, flags) in flags {
-        if !blank(values, name) || flags.clear {
+        let Some(file) = schema
+            .fields()
+            .find(|field| field.name() == name)
+            .and_then(|field| field.as_file())
+            .filter(|file| !file.multiple)
+        else {
+            continue;
+        };
+        if !blank(values, name) || flags.clears() {
             continue;
         }
         let Some(candidate) = flags
             .keep
-            .as_deref()
+            .last()
             .and_then(|carried| crate::upload::carry::open(cx, name, carried.trim()))
         else {
             continue;
         };
-        let taken = schema
-            .fields()
-            .find(|field| field.name() == name)
-            .and_then(|field| field.as_file())
-            .is_some_and(|file| file.takes_path(candidate));
+        let taken = file.takes_path(candidate);
         if !taken || candidate.is_empty() || !crate::upload::holds(uploader(cx), candidate).await {
             continue;
         }
@@ -149,6 +170,59 @@ pub(super) async fn restore_pending_uploads(
         restored.insert(name.clone());
     }
     restored
+}
+
+/// Sets each file list the submission posts to the rows it keeps, in the order it posts them, then
+/// the files it just stored, refusing more than the field's `max_files`. A list posts its input
+/// whether or not a file is chosen, so one whose input and rows are both missing, as a hidden or
+/// disabled field's are, is left to the stored value.
+///
+/// A kept row is a `keep_<field>` path the panel sealed for the field and this browser, not
+/// dropped by a `clear_<field>`, that the stored record holds or, for a refused submission's
+/// carried upload, that the field's extensions take and the installed uploader still holds.
+pub(super) async fn gather_file_lists(
+    cx: &Cx,
+    schema: &crate::schema::Schema,
+    flags: &HashMap<String, FileFlags>,
+    file_part_names: &HashSet<String>,
+    stored: &FormValues,
+    values: &mut FormValues,
+) -> FieldErrors {
+    let mut errors = FieldErrors::new();
+    for field in schema.fields() {
+        let Some(file) = field.as_file().filter(|file| file.multiple) else {
+            continue;
+        };
+        let name = field.name();
+        let Some(flags) = flags.get(name) else {
+            continue;
+        };
+        if !file_part_names.contains(name) && flags.keep.is_empty() {
+            continue;
+        }
+        let held = stored.list(name).unwrap_or_default();
+        let mut paths: Vec<String> = Vec::new();
+        for carried in &flags.keep {
+            let Some(path) = crate::upload::carry::open(cx, name, carried.trim()) else {
+                continue;
+            };
+            let dropped = flags.clear.iter().any(|clear| clear.trim() == path);
+            if path.is_empty() || dropped || paths.iter().any(|kept| kept == path) {
+                continue;
+            }
+            let kept = held.iter().any(|held| held == path)
+                || (file.takes_path(path) && crate::upload::holds(uploader(cx), path).await);
+            if kept {
+                paths.push(path.to_string());
+            }
+        }
+        paths.extend(values.list(name).unwrap_or_default().iter().cloned());
+        if let Some(refusal) = file.count_refusal(&field.label(), paths.len()) {
+            errors.add(name, refusal);
+        }
+        values.insert(name, FormValue::List(paths));
+    }
+    errors
 }
 
 /// Drops the open transaction before re-rendering the form with inline errors, so option loaders

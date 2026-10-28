@@ -11,7 +11,7 @@ use percent_encoding::percent_decode_str;
 
 use crate::{
     BoxFuture,
-    form::{FieldErrors, FormValues},
+    form::{FieldErrors, FormValue, FormValues},
     schema::Schema,
     topcoat_compat::href::encode_path_segment,
 };
@@ -52,7 +52,9 @@ pub(crate) use self::body::{Capture, FormParts, parse_body, parse_file_body};
 ///   empty keeps the file; the "Remove the current file" checkbox (`clear_<field>`) empties the
 ///   field. The input is required only while nothing is stored, and clearing a required field fails
 ///   validation, so declare the record-form field `#[form(optional)]` when a record may lose its
-///   file.
+///   file. A [`Field::files`](crate::Field::files) list shows a row per stored file, each posting
+///   its path back under `keep_<field>`, signed like a carry, and a remove checkbox posting it
+///   under `clear_<field>`; chosen files are stored after the rows the submission keeps.
 /// - Links. The stored value renders as a link, on the edit form and in a `FileColumn` on the
 ///   detail page, only when it is a root-relative path (`/uploads/a.png`, not `//host`) or an
 ///   `http(s)` URL; anything else renders as text.
@@ -366,6 +368,21 @@ pub(crate) async fn holds(uploader: Option<&InstalledUploader>, path: &str) -> b
     }
 }
 
+/// The paths `values` stores under the file field `name`: its one path, or each of its list's,
+/// trimmed and none blank.
+fn stored_paths<'a>(values: &'a FormValues, name: &str) -> Vec<&'a str> {
+    let paths: &[String] = match values.get(name) {
+        Some(FormValue::Text(path)) => std::slice::from_ref(path),
+        Some(FormValue::List(paths)) => paths,
+        _ => &[],
+    };
+    paths
+        .iter()
+        .map(|path| path.trim())
+        .filter(|path| !path.is_empty())
+        .collect()
+}
+
 /// Keeps, through `uploader`, each new path `schema`'s file fields store in `after` and did not in
 /// `before`, which a create has none of; only a path the uploader holds.
 ///
@@ -382,21 +399,22 @@ pub(crate) async fn keep(
         return Ok(());
     };
     for field in schema.fields().filter(|field| field.is_file()) {
-        let Some(path) = after.text(field.name()).map(str::trim) else {
-            continue;
-        };
-        let stored = before.and_then(|before| before.text(field.name()).map(str::trim));
-        if path.is_empty() || stored == Some(path) || !uploader.holds(path).await {
-            continue;
+        let stored = before.map(|before| stored_paths(before, field.name()));
+        for path in stored_paths(after, field.name()) {
+            if stored.as_ref().is_some_and(|stored| stored.contains(&path))
+                || !uploader.holds(path).await
+            {
+                continue;
+            }
+            uploader.keep(path).await?;
         }
-        uploader.keep(path).await?;
     }
     Ok(())
 }
 
-/// Deletes, through `uploader`, the file each of `schema`'s file fields stored in `before` and no
-/// longer stores in `after`, or every one when `after` is `None`; only a path the uploader holds,
-/// and each path once.
+/// Deletes, through `uploader`, each file `schema`'s file fields stored in `before` and no longer
+/// store in `after`, or every one when `after` is `None`; only a path the uploader holds, and each
+/// path once.
 pub(crate) async fn discard(
     uploader: Option<&InstalledUploader>,
     schema: &Schema,
@@ -408,14 +426,12 @@ pub(crate) async fn discard(
     };
     let mut gone = HashSet::new();
     for field in schema.fields().filter(|field| field.is_file()) {
+        let kept = after.map(|after| stored_paths(after, field.name()));
         for values in before {
-            let Some(path) = values.text(field.name()).map(str::trim) else {
-                continue;
-            };
-            let kept =
-                after.is_some_and(|after| after.text(field.name()).map(str::trim) == Some(path));
-            if !path.is_empty() && !kept {
-                gone.insert(path.to_owned());
+            for path in stored_paths(values, field.name()) {
+                if !kept.as_ref().is_some_and(|kept| kept.contains(&path)) {
+                    gone.insert(path.to_owned());
+                }
             }
         }
     }
@@ -432,11 +448,12 @@ pub(crate) async fn discard(
 /// Runs `uploader`, a panel's installed one, over this form's file parts, returning inline
 /// errors and the fields whose value is now the stored path. A file the field's extensions or
 /// size refuse is not stored; it, or a failed store, becomes an inline field error and drops the
-/// submitted value. Call outside the write transaction.
+/// submitted value. A file list's value becomes the paths it stored, in the order the files
+/// posted, whether or not one failed. Call outside the write transaction.
 pub(crate) async fn store_uploads(
     uploader: Option<&InstalledUploader>,
     schema: &Schema,
-    files: &HashMap<String, StagedUpload>,
+    files: &HashMap<String, Vec<StagedUpload>>,
     values: &mut FormValues,
 ) -> (FieldErrors, HashSet<String>) {
     let Some(InstalledUploader(uploader)) = uploader else {
@@ -451,30 +468,50 @@ pub(crate) async fn store_uploads(
             continue;
         };
         let name = field.name().to_string();
-        let Some(staged) = files.get(&name) else {
-            continue;
-        };
-        // A file the field's rules refuse is never stored.
         let label = field.label();
-        let filename = sanitize_filename(&staged.filename);
-        let stored_path = match file.refusal(&label, &filename, staged.bytes.len()) {
-            Some(refusal) => Err(refusal),
-            None => uploader
-                .store(&staged.filename, &staged.bytes)
-                .await
-                .map_err(|reason| {
-                    crate::text!("tablo-field-upload-failed", label = label, reason = reason)
-                }),
+        // A file list holds what it stores, never the names the read gathered.
+        if file.multiple {
+            values.remove(&name);
+        }
+        let staged = files.get(&name).map(Vec::as_slice).unwrap_or_default();
+        // A file field takes the last file its key posts; a list takes each.
+        let staged = match staged.split_last() {
+            Some((last, _)) if !file.multiple => std::slice::from_ref(last),
+            _ => staged,
         };
-        match stored_path {
-            Ok(path) => {
-                values.insert(name.clone(), path);
-                stored.insert(name);
+        if staged.is_empty() {
+            continue;
+        }
+        let mut paths = Vec::new();
+        for staged in staged {
+            // A file the field's rules refuse is never stored.
+            let filename = sanitize_filename(&staged.filename);
+            let stored_path = match file.refusal(&label, &filename, staged.bytes.len()) {
+                Some(refusal) => Err(refusal),
+                None => uploader
+                    .store(&staged.filename, &staged.bytes)
+                    .await
+                    .map_err(|reason| {
+                        crate::text!(
+                            "tablo-field-upload-failed",
+                            label = label.clone(),
+                            reason = reason
+                        )
+                    }),
+            };
+            match stored_path {
+                Ok(path) => paths.push(path),
+                Err(message) if !errors.contains_key(&name) => errors.add(name.clone(), message),
+                Err(_) => {}
             }
-            Err(message) => {
-                values.remove(&name);
-                errors.add(name, message);
-            }
+        }
+        if file.multiple {
+            values.insert(name, FormValue::List(paths));
+        } else if let Some(path) = paths.pop() {
+            values.insert(name.clone(), path);
+            stored.insert(name);
+        } else {
+            values.remove(&name);
         }
     }
     (errors, stored)

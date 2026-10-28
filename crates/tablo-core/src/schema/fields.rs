@@ -62,7 +62,7 @@ use crate::{
 /// #     featured: bool,
 /// # }
 /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
-/// # struct Doc { #[key] #[auto] id: uuid::Uuid, path: String }
+/// # struct Doc { #[key] #[auto] id: uuid::Uuid, path: String, attachments: Vec<String> }
 /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Author { #[key] #[auto] id: uuid::Uuid, name: String }
 /// # #[derive(Debug, Clone, Copy, PartialEq, Eq, tablo_core::Options)]
@@ -87,6 +87,7 @@ use crate::{
 /// Field::choice(lens!(Post.status)).options(Status::options()); // ChoiceField
 /// Field::choice(lens!(Post.author_id)).relationship::<AuthorResource>();
 /// Field::file(lens!(Doc.path)); // FileField
+/// Field::files(lens!(Doc.attachments)); // FileField over a `Vec<String>`
 /// Field::toggle(lens!(Post.featured)); // CustomField
 /// ```
 ///
@@ -229,6 +230,26 @@ impl Field {
         FileField::new(Self::bound(
             Binding::of::<M, String>(&lens.into()),
             ControlKind::File(FileControl::default()),
+        ))
+    }
+
+    /// A file field over a `Vec<String>` column holding the uploaded paths, in the order the
+    /// form lists them: a record form's `#[form(file)]` control on a `Vec<String>`.
+    ///
+    /// The input takes several files at once, which the submission adds after the stored ones,
+    /// and each stored file has its own remove checkbox. A resource's form reads the paths into
+    /// `key`'s list; a page handling its own post receives each chosen file's name there.
+    /// [`FileField::max_files`] bounds the count; the extensions and size apply to each file.
+    pub fn files<M>(lens: impl Into<Path<M, List<String>>>) -> FileField
+    where
+        M: toasty::schema::Model,
+    {
+        FileField::new(Self::bound(
+            Binding::of::<M, List<String>>(&lens.into()),
+            ControlKind::File(FileControl {
+                multiple: true,
+                ..FileControl::default()
+            }),
         ))
     }
 

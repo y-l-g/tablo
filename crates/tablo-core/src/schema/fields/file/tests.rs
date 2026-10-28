@@ -35,7 +35,7 @@ fn only_a_rooted_or_http_value_links() {
 fn a_file_is_taken_by_its_last_extension() {
     let file = FileControl {
         extensions: Some(vec!["png".into(), "pdf".into()]),
-        max_bytes: None,
+        ..FileControl::default()
     };
     for taken in ["a.PNG", "scan.tar.pdf"] {
         assert!(file.takes_name(taken), "{taken}");

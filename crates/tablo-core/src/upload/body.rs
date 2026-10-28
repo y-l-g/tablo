@@ -20,8 +20,8 @@ pub(crate) struct FormParts {
     /// Every text value, and each file part's sanitized filename, in the order the body posts
     /// them.
     pub(crate) pairs: Vec<(String, String)>,
-    /// The bytes of each file part the parse staged, by name.
-    pub(crate) files: HashMap<String, StagedUpload>,
+    /// The bytes of each file part the parse staged, by name, in the order the body posts them.
+    pub(crate) files: HashMap<String, Vec<StagedUpload>>,
     /// Names arriving as multipart parts carrying a `filename`; only these may set a file field's
     /// value.
     pub(crate) file_part_names: HashSet<String>,
@@ -144,8 +144,6 @@ async fn parse_multipart_values(
         match filename {
             Some(f) if !f.is_empty() => {
                 let sanitized = super::sanitize_filename(&f);
-                // Last part wins, replacing any earlier staged bytes.
-                out.files.remove(&name);
                 // Stages bytes as `capture` asks, else drains.
                 let staged = match capture {
                     Capture::None => false,
@@ -155,15 +153,18 @@ async fn parse_multipart_values(
                 if staged {
                     let mut bytes = Vec::new();
                     read_bounded(&mut field, &mut counted, Some(&mut bytes)).await?;
-                    out.files.insert(
-                        name.clone(),
-                        StagedUpload {
+                    out.files
+                        .entry(name.clone())
+                        .or_default()
+                        .push(StagedUpload {
                             filename: sanitized.clone(),
                             bytes,
-                        },
-                    );
+                        });
                 } else {
+                    // A part staging nothing discards the parts before it, as a later text
+                    // part does.
                     read_bounded(&mut field, &mut counted, None).await?;
+                    out.files.remove(&name);
                 }
                 // Only a chosen file part may set a file field's value.
                 out.file_part_names.insert(name.clone());

@@ -69,6 +69,10 @@ pub enum FieldRuleFault {
     ///
     /// List the last extension alone: `gz`.
     InvalidExtension(String),
+    /// `max_files` on a file field over one path, from `Field::file`.
+    ///
+    /// Bind a `Vec<String>` with `Field::files`, or drop `max_files`.
+    SingleFile,
     /// A file field's `max_bytes` at or above the panel's body cap,
     /// [`Limits::body_bytes`](crate::Limits::body_bytes): the body cap refuses a larger file
     /// first, so the rule never refuses one.
@@ -170,6 +174,11 @@ pub(super) fn fmt_field_rule(
             f,
             "field '{field}' takes the extension '{extension}', but a file's extension is the \
              last one alone, in letters and digits: list that one"
+        ),
+        FieldRuleFault::SingleFile => write!(
+            f,
+            "field '{field}' bounds how many files it takes, but stores one path: bind a \
+             `Vec<String>` with `Field::files`, or drop `max_files`"
         ),
         FieldRuleFault::AboveFormCap { max, cap } => write!(
             f,

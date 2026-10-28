@@ -29,7 +29,7 @@ pub use fields::{
     TextField, Toggle,
 };
 pub(crate) use fields::{
-    file::{FileHref, file_href},
+    file::{FileHref, RowSeal, file_href},
     is_linkable, is_rooted, option_view, read_only, stored_upload, value_cell,
 };
 pub(crate) use input::FormInput;

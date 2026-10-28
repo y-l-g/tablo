@@ -16,8 +16,8 @@ use super::{
         write::{commit_write, failed_write},
     },
     common::{
-        FormParts, blank, drop_client_typed_uploads, file_flags, parse_form_body,
-        reject_unknown_form_keys, rerender_invalid_form, restore_pending_uploads,
+        FormParts, blank, drop_client_typed_uploads, file_flags, gather_file_lists,
+        parse_form_body, reject_unknown_form_keys, rerender_invalid_form, restore_pending_uploads,
     },
     render::{FormChrome, VERSION_FIELD, form_action, render_form_page, seed_pairs},
     unique::{check_unique, taken_since},
@@ -125,13 +125,20 @@ pub(super) async fn prepare_submission<R: Resource>(
     }
     // File fields take values only from file parts.
     drop_client_typed_uploads(&schema, &file_part_names, &mut values);
-    let (upload_errors, mut carried) =
+    let (mut upload_errors, mut carried) =
         crate::upload::store_uploads(uploader(cx), &schema, &files, &mut values).await;
     carried.extend(restore_pending_uploads(cx, &schema, &flags, &mut values).await);
+    let count_errors =
+        gather_file_lists(cx, &schema, &flags, &file_part_names, &stored, &mut values).await;
+    for error in count_errors.iter() {
+        if !upload_errors.contains_key(&error.key) {
+            upload_errors.push(error.clone());
+        }
+    }
     // An empty file input keeps the stored value; `clear_<field>` clears it unless a file was
     // chosen.
     for (name, flags) in &flags {
-        if !flags.clear && blank(&values, name) && !blank(&stored, name) {
+        if !flags.clears() && blank(&values, name) && !blank(&stored, name) {
             values.remove(name);
         }
     }

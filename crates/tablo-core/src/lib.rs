@@ -84,6 +84,7 @@ pub mod __macro {
         },
         table::{ModelColumns, Table, model::pick},
         toasty_compat::VariantId,
+        values::write_list,
     };
 }
 // Each public item has one path. Types live at the root; a public module is a namespace for

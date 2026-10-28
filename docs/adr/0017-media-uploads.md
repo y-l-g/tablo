@@ -8,6 +8,14 @@ A refusal is user input, rendered under the field. The field renders a file inpu
 clear control, nothing more: previews, drag-and-drop and progress belong to an app's media
 library. Uploads run before the write transaction, so a rolled-back write does not undo a store.
 
+A file list binds a `Vec<String>` column: one path per file, in the order the form lists them, its
+input taking several files at once. Each stored file renders as a row posting its path back under
+the tag a refused submission's carry uses, with its own remove checkbox, so the list adds and
+removes files without JavaScript, and a save keeps exactly the rows it posts. A row keeps a path
+only when the record stores it or, for a carry, when the uploader holds it: the tag binds the
+field and the browser, not the record, so a browser that saw a row can keep that path on another
+record it edits, which it could remove from the first one anyway.
+
 `Panel::uploads_dir` installs the stock `DirUploader` over one served directory; any other store
 implements `Uploader`. `Panel::serve_dir` serves an app directory with headers that keep files inert on the panel's
 origin. A served directory outside the panel prefix is public: the auth gate covers only that
@@ -18,6 +26,12 @@ out: wherever the panel links or shows a stored path it checked the user may see
 and an app page signs with `url::file`. A leaked link opens the file until it expires, to anyone.
 The signature authorizes a path, not a record: a column over a value users type signs any path they
 name, and the random file names are what keep paths unguessable.
+Rejected for the file list: storing the paths joined in one `String`, which every reader splits
+again; a related table of files per record, which each app's media library already is; a file
+field inside a repeater's item, which reads a submission's files per row for what a list of paths
+holds; and a bare path posted back for a stored row, which would keep a carried upload no tag
+vouches for.
+
 Rejected: a route under the prefix per record and field that loads the record through its scoped
 query and checks `View` on each request. A stored path renders in columns, relation tables and app
 pages that know no owning record, and every `Uploader` would have to stream its bytes back; a

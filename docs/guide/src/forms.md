@@ -155,6 +155,7 @@ a Toasty field lens:
 | `Field::choice(lens)` | any | `<select>` over static options or a relationship | `ChoiceField` |
 | `Field::rich_text(lens)` | `String` holding HTML | an editor with a toolbar: see [Rich text](#rich-text) | `RichTextField` |
 | `Field::file(lens)` | `String` holding the file's path | file input: see [File uploads](#file-uploads) | `FileField` |
+| `Field::files(lens)` | `Vec<String>` holding the files' paths | file list: see [Several files per field](#several-files-per-field) | `FileField` |
 | `Field::toggle(lens)` | `bool` | checkbox | `CustomField` |
 | `Field::custom(lens, control)` | `String`, a typed value, or an `Option` of one | your own `Control`: see [Custom controls](#custom-controls) | `CustomField` |
 
@@ -415,7 +416,8 @@ stored value through `tablo::rich_text::clean`, unescaped, and reads its text th
 ## File uploads
 
 A file field (`#[form(file)]` on a record-form `String`, or `Field::file` on a page) binds a
-`String` column that stores the file's path or URL, never its bytes. A form
+`String` column that stores the file's path or URL, never its bytes; a file list binds a
+`Vec<String>` of them ([Several files per field](#several-files-per-field)). A form
 with a file field is sent as `multipart/form-data`, with a 10 MiB body limit (larger answers 413)
 that `Panel::limits` raises with `Limits::body_bytes`.
 Filenames are reduced to a safe basename before anything sees them.
@@ -460,6 +462,24 @@ reuses an upload only under the tag the panel signed for its field, where `Uploa
 for the path.
 [`Uploader`](https://y-l.fr/tablo/nightly/api/tablo/trait.Uploader.html) has the rules, and [Security](./security.md) the headers
 served files carry.
+
+### Several files per field
+
+`#[form(file)]` on a `Vec<String>`, or `Field::files` on a page, makes a file list: the column
+stores one path per file, in the order the form lists them. Its input takes several files at once,
+which a save adds after the stored ones, and each stored file has its own remove checkbox, so the
+list works without JavaScript. The extensions and size apply to each file, and `max_files` bounds
+how many the list holds once a save adds its files:
+
+```rust
+{{#include ../../../examples/guide/src/forms.rs:forms-file-list}}
+```
+
+A refused save keeps the files it stored, as a single file field does, so the user drops one and
+saves again. Every file still shares the one form body limit, so a list of large files needs a
+raised `Limits::body_bytes`.
+[`Field::files`](https://y-l.fr/tablo/nightly/api/tablo/struct.Field.html#method.files) has the
+rules.
 
 ## Embedded values
 

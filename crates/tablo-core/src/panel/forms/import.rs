@@ -208,7 +208,11 @@ fn read_file(
     parts: &FormParts,
     max_rows: usize,
 ) -> Result<(Vec<String>, Vec<csv::Record>), Refusal> {
-    let file = parts.files.get(FILE_PART).ok_or(Refusal::NoFile)?;
+    let file = parts
+        .files
+        .get(FILE_PART)
+        .and_then(|staged| staged.last())
+        .ok_or(Refusal::NoFile)?;
     let text = std::str::from_utf8(&file.bytes).map_err(|_| Refusal::NotUtf8)?;
     let mut records = csv::records(text, max_rows + 1, MAX_CELLS)
         .map_err(|unread| match unread {

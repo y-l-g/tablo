@@ -302,6 +302,10 @@ tablo-field-extension = { $count ->
     [one] { $label } doit être un fichier se terminant par { $extensions }
    *[other] { $label } doit être un fichier se terminant par l'une de ces extensions : { $extensions }
 }
+tablo-field-max-files = { $count ->
+    [one] { $label } accepte au plus { $count } fichier
+   *[other] { $label } accepte au plus { $count } fichiers
+}
 tablo-field-max-size = { $label } doit peser au plus { $max }
 tablo-field-upload-failed = { $label } n'a pas pu être envoyé : { $reason }
 tablo-size-bytes = { $count ->
@@ -342,6 +346,8 @@ tablo-type-date-time = une date et heure
 tablo-file-keep = Laissez vide pour garder le fichier actuel.
 tablo-file-remove = Retirer le fichier actuel
 tablo-file-current = Actuel :
+tablo-files-add = Les fichiers choisis s'ajoutent aux fichiers actuels.
+tablo-files-remove = Retirer
 tablo-repeater-up = Monter
 tablo-repeater-down = Descendre
 tablo-repeater-remove = Retirer

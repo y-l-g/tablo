@@ -152,7 +152,11 @@ async fn multipart_stages_file_bytes_only_when_capturing() {
     )
     .await
     .unwrap();
-    let staged = captured.files.get("image_path").expect("staged file part");
+    let staged = captured
+        .files
+        .get("image_path")
+        .and_then(|staged| staged.last())
+        .expect("staged file part");
     assert_eq!(staged.filename, "photo.jpg");
     assert_eq!(staged.bytes, b"BINARYBYTES");
     assert_eq!(captured.last("image_path"), Some("photo.jpg"));
@@ -168,6 +172,34 @@ async fn multipart_stages_file_bytes_only_when_capturing() {
         .unwrap();
     assert!(drained.files.is_empty(), "no uploader, no buffering");
     assert_eq!(drained.last("image_path"), Some("photo.jpg"));
+}
+
+/// Stages every file part posted under one name, in body order: a file list's input posts one per
+/// chosen file.
+#[tokio::test]
+async fn multipart_stages_each_file_part_under_one_name() {
+    let part = |filename: &str, bytes: &str| {
+        format!(
+            "--B\r\nContent-Disposition: form-data; name=\"photos\"; filename=\"{filename}\"\r\n\
+             Content-Type: application/octet-stream\r\n\r\n{bytes}\r\n"
+        )
+    };
+    let body = format!("{}{}--B--\r\n", part("a.png", "AAA"), part("b.png", "BBB"));
+    let parts = multipart_parts(
+        &multipart_type("B"),
+        body.into_bytes(),
+        Capture::Persistable,
+    )
+    .await
+    .unwrap();
+    let staged: Vec<(&str, &[u8])> = parts.files["photos"]
+        .iter()
+        .map(|file| (file.filename.as_str(), file.bytes.as_slice()))
+        .collect();
+    assert_eq!(
+        staged,
+        [("a.png", b"AAA".as_slice()), ("b.png", b"BBB".as_slice())]
+    );
 }
 
 /// Stages nothing for a filename sanitized to empty.
@@ -192,6 +224,7 @@ async fn multipart_stages_nothing_for_a_rejected_filename() {
         parts
             .files
             .get("image_path")
+            .and_then(|staged| staged.last())
             .map(|file| file.bytes.as_slice()),
         Some(b"BYTES".as_slice())
     );

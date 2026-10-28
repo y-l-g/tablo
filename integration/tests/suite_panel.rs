@@ -24,6 +24,7 @@ mod panel;
 mod shell;
 mod upload;
 mod upload_discard;
+mod upload_list;
 mod upload_rules;
 mod upstream;
 mod version;
