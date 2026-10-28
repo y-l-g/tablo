@@ -370,8 +370,9 @@ refuses a save another save overtook. [`RecordForm`](https://y-l.fr/tablo/nightl
 the rules.
 
 The create page has a second button, **Create & create another**, for entering several records in
-a row: it runs every check above, and a save lands back on an empty create form with the success
-flash.
+a row: it runs every check above, and a save lands back on the create form with the success flash,
+its fields at their defaults. From a relation table's create link, the next form keeps the owner
+preselected.
 
 The form page's script saves on `Ctrl+S` (`Cmd+S` on macOS), and asks before a followed link, a
 reload or a closed tab drops what the user typed; a refused save asks from the start, since its

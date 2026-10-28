@@ -2,7 +2,7 @@
 
 use showcase::{
     app::UserResource,
-    models::{Author, Post, UserFormField},
+    models::{Author, Post, User, UserFormField},
 };
 use tablo::testing::{Section, Tab, tabs};
 
@@ -126,6 +126,26 @@ async fn a_collapsed_section_renders_folded_and_still_posts() {
     assert!(details.collapsible && !details.open, "{sections:?}");
     let profile = section_posting(&sections, "name");
     assert!(!profile.collapsible && profile.open, "{sections:?}");
+
+    let reply = client
+        .resource::<UserResource>()
+        .create()
+        .set(UserFormField::Name, "Grace")
+        .set(UserFormField::Email, "folded@example.com")
+        .set(UserFormField::Age, "42")
+        .submit()
+        .await;
+    assert_eq!(reply.status(), 303, "{}", reply.html());
+    let mut db = db.clone();
+    let users = User::all().exec(&mut db).await.unwrap();
+    let saved = users
+        .iter()
+        .find(|user| user.email == "folded@example.com")
+        .expect("the create stored the user");
+    assert_eq!(
+        saved.age, 42,
+        "the folded section's field posts with the form"
+    );
 }
 
 #[tokio::test]

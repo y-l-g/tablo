@@ -494,7 +494,8 @@ pub use tablo_macros::Options;
 ///   `keep_` keys are the exceptions.
 /// - A create lands on the list, or the page's validated `?return=` target, with the success
 ///   flash. One posting `create_another=1`, as the create page's second button does, lands on
-///   the create page instead, `?return=` kept, after the same checks and the same write.
+///   the create page instead, after the same checks and the same write, keeping `?return=` and
+///   the query keys that seed a relationship control, such as a relation table's owner.
 /// - An edit writes only what was posted. On an edit, a declared key missing from the
 ///   submission keeps its stored value, and the update assigns only the fields the submission
 ///   named, plus the model's own `#[update(..)]` defaults and `#[version]` bump. An API client

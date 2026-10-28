@@ -45,6 +45,9 @@ pub(crate) struct FormChrome<'a> {
     editing: bool,
     /// Whether a second submit button saves and lands on a fresh create form.
     another: bool,
+    /// The relationship seeds of the create page's query, which the form posts back to and a
+    /// create-another save lands on.
+    seed: Vec<(String, String)>,
     /// The record's relation tables, under the form.
     relations: Vec<BoxView<'a>>,
     /// Whether the page refuses a save because another changed the record since the form opened.
@@ -70,6 +73,7 @@ impl<'a> FormChrome<'a> {
             options: None,
             editing: false,
             another: true,
+            seed: seed_pairs(cx, resource),
             relations: Vec::new(),
             stale: false,
             mask: resource.form_mask(cx),
@@ -103,6 +107,7 @@ impl<'a> FormChrome<'a> {
             options: None,
             editing: true,
             another: false,
+            seed: Vec::new(),
             relations: Vec::new(),
             stale: false,
             mask: resource.form_mask(cx),
@@ -136,6 +141,7 @@ impl<'a> FormChrome<'a> {
             options: None,
             editing: true,
             another: false,
+            seed: Vec::new(),
             relations: Vec::new(),
             stale: false,
             mask: FormMask::default(),
@@ -170,6 +176,7 @@ impl<'a> FormChrome<'a> {
             options: Some(options),
             editing: false,
             another: false,
+            seed: Vec::new(),
             relations: Vec::new(),
             stale: false,
             mask: FormMask::default(),
@@ -198,6 +205,7 @@ pub(crate) async fn render_form_page<'a>(
         options,
         editing,
         another,
+        seed,
         relations,
         stale,
         mask,
@@ -213,7 +221,7 @@ pub(crate) async fn render_form_page<'a>(
         source = source.options_at(url);
     }
     let form_html = schema.render(cx, source).await?;
-    let action = form_action(cx);
+    let action = form_action(cx, &seed);
     let cancel = return_target(cx).unwrap_or(cancel);
     // A refused save keeps what the user typed, which leaving the page would lose.
     let dirty = !errors.is_empty() || stale;
@@ -343,13 +351,20 @@ pub(crate) async fn render_form_page<'a>(
     .boxed())
 }
 
-/// Where the form posts, and where a create-another save lands: the current path, keeping a
-/// validated `?return=` target.
-pub(super) fn form_action(cx: &Cx) -> String {
+/// Where the form posts, and where a create-another save lands: the current path with `seed`,
+/// the create page's relationship seeds, and a validated `?return=` target.
+pub(super) fn form_action(cx: &Cx, seed: &[(String, String)]) -> String {
     let path = topcoat::router::request::uri(cx).path();
-    match return_target(cx) {
-        Some(target) => crate::panel::url::with_return(path, target.as_str()),
-        None => path.to_string(),
+    let mut query = form_urlencoded::Serializer::new(String::new());
+    query.extend_pairs(seed);
+    if let Some(target) = return_target(cx) {
+        query.append_pair(crate::panel::url::RETURN_PARAM, &target);
+    }
+    let query = query.finish();
+    if query.is_empty() {
+        path.to_string()
+    } else {
+        format!("{path}?{query}")
     }
 }
 
@@ -379,12 +394,25 @@ pub(crate) fn resource_create<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> 
 /// one's last.
 fn seeded_values<R: Resource>(cx: &Cx, resource: &Mounted<R>) -> FormValues {
     let schema = &resource.form;
+    let mut values = schema.defaults();
+    // Only relationship choices post here, and only a repeater's key refuses a read.
+    values.extend(
+        schema
+            .read(cx, &seed_pairs(cx, resource))
+            .unwrap_or_default(),
+    );
+    values
+}
+
+/// The query parameters that seed a relationship control of the create form: one a relation
+/// table's create link sets to its owner. A disabled control stores its default, which the form
+/// must show, and a masked one takes what the user may not choose, so neither is seedable.
+pub(super) fn seed_pairs<R: Resource>(cx: &Cx, resource: &Mounted<R>) -> Vec<(String, String)> {
     let mask = resource.form_mask(cx);
-    let seedable: Vec<&str> = schema
+    let seedable: Vec<&str> = resource
+        .form
         .fields()
         .filter(|field| {
-            // A disabled control stores its default, which the form must show, and a masked one
-            // takes what the user may not choose.
             !field.is_disabled(false)
                 && mask.writes(field.name()).is_none()
                 && field
@@ -393,15 +421,16 @@ fn seeded_values<R: Resource>(cx: &Cx, resource: &Mounted<R>) -> FormValues {
         })
         .map(|field| field.name())
         .collect();
+    query_pairs(cx, &seedable)
+}
+
+/// The current query's `(name, value)` pairs whose name is one of `names`, in order.
+fn query_pairs(cx: &Cx, names: &[&str]) -> Vec<(String, String)> {
     let query = topcoat::router::request::uri(cx)
         .query()
         .unwrap_or_default();
-    let posted: Vec<(String, String)> = form_urlencoded::parse(query.as_bytes())
-        .filter(|(name, _)| seedable.contains(&name.as_ref()))
+    form_urlencoded::parse(query.as_bytes())
+        .filter(|(name, _)| names.contains(&name.as_ref()))
         .map(|(name, value)| (name.into_owned(), value.into_owned()))
-        .collect();
-    let mut values = schema.defaults();
-    // Only relationship choices post here, and only a repeater's key refuses a read.
-    values.extend(schema.read(cx, &posted).unwrap_or_default());
-    values
+        .collect()
 }

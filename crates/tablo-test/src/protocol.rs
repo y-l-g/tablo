@@ -279,3 +279,12 @@ pub fn stale_form(html: &str) -> bool {
     })
     .is_empty()
 }
+
+/// Whether a form renders dirty, so leaving the page asks first: a refused save keeps what the
+/// user typed, and the server marks its form with `data-form-dirty`.
+pub fn dirty_form(html: &str) -> bool {
+    !dom::tags_where(html, |name, attrs| {
+        name == "form" && attrs.iter().any(|(attr, _)| attr == "data-form-dirty")
+    })
+    .is_empty()
+}

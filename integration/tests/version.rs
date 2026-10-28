@@ -3,7 +3,7 @@
 
 use tablo::{
     Ability, DeclarationErrorKind, Resource, ResourceDef, Table, TextColumn, lens,
-    testing::{input_value, stale_form},
+    testing::{dirty_form, input_value, stale_form},
 };
 use toasty::Db;
 use topcoat::context::Cx;
@@ -75,6 +75,10 @@ async fn a_save_another_save_overtook_is_refused_until_saved_again() {
     let html = body_string(client.get(&url).await).await;
     let opened = input_value(&html, "record_version").expect("the form carries the version");
     assert_eq!(opened, record.version.to_string());
+    assert!(
+        !dirty_form(&html),
+        "an opened form holds nothing to lose: {html}"
+    );
 
     record
         .update()
@@ -88,6 +92,10 @@ async fn a_save_another_save_overtook_is_refused_until_saved_again() {
     assert_eq!(response.status(), 200);
     let html = body_string(response).await;
     assert!(stale_form(&html), "{html}");
+    assert!(
+        dirty_form(&html),
+        "the refused form keeps what was typed: {html}"
+    );
     assert_eq!(title(&db, record.id).await, "theirs");
 
     let response = client.submit(&url, "title=mine&record_version=v2").await;
