@@ -22,8 +22,8 @@ impl crate::resource::Resource for ChunkerDummyResource {
 #[test]
 fn export_cap_maps_one_row_past_the_limit_to_413() {
     // Maps one row past the limit to 413, exercised at the boundary.
-    enforce_export_cap_count(MAX_EXPORT_ROWS).unwrap();
-    let err = enforce_export_cap_count(MAX_EXPORT_ROWS + 1).unwrap_err();
+    enforce_export_cap_count(10, 10).unwrap();
+    let err = enforce_export_cap_count(11, 10).unwrap_err();
     assert!(
         err.downcast_ref::<topcoat::router::error::ContentTooLargeError>()
             .is_some(),
@@ -58,6 +58,7 @@ async fn export_chunker_stops_at_a_short_chunk() {
             &[],
         )
         .expect("tenant scope"),
+        crate::Limits::default().export_rows,
     );
     let first = chunker
         .next_chunk(&mut db)
@@ -95,6 +96,7 @@ async fn export_chunker_does_not_rescan_on_exact_multiple_of_chunk() {
             &[],
         )
         .expect("tenant scope"),
+        crate::Limits::default().export_rows,
     );
     let first = chunker
         .next_chunk(&mut db)
@@ -207,6 +209,7 @@ async fn export_and_list_agree_on_rows_and_order() {
             &[],
         )
         .expect("tenant scope"),
+        crate::Limits::default().export_rows,
     );
     let mut exported: Vec<String> = Vec::new();
     while let Some(rows) = chunker.next_chunk(&mut db).await.unwrap() {

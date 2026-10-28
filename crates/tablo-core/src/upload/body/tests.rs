@@ -1,8 +1,10 @@
 use super::*;
 
+const CAP: usize = 1024;
+
 /// The urlencoded `bytes`' last value per key.
 fn form_values_from_bytes(bytes: &[u8]) -> HashMap<String, String> {
-    form_pairs_from_request_parts(None, bytes)
+    form_pairs_from_request_parts(None, bytes, CAP)
         .unwrap()
         .into_iter()
         .collect()
@@ -26,7 +28,7 @@ fn form_values_decode_utf8_plus_and_encoded_separators() {
 /// A multiple choice posts its key once per value: the body keeps them all, in order.
 #[tokio::test]
 async fn a_repeated_key_keeps_every_value_in_body_order() {
-    let pairs = form_pairs_from_request_parts(None, b"tags=&tags=b&name=Ada&tags=a").unwrap();
+    let pairs = form_pairs_from_request_parts(None, b"tags=&tags=b&name=Ada&tags=a", CAP).unwrap();
     let tags: Vec<&str> = pairs
         .iter()
         .filter(|(key, _)| key == "tags")
@@ -84,19 +86,19 @@ fn multipart_type(boundary: &str) -> String {
 /// Byte accounting rejects one byte past the cap with 413.
 #[test]
 fn multipart_drain_counts_bytes_and_413s_one_past_the_cap() {
-    let mut seen = 0usize;
-    count_form_bytes(&mut seen, MAX_FORM_BYTES / 2).unwrap();
-    count_form_bytes(&mut seen, MAX_FORM_BYTES / 2).unwrap();
-    assert_eq!(seen, MAX_FORM_BYTES);
-    let err = count_form_bytes(&mut seen, 1).unwrap_err();
+    let mut counted = Counter { seen: 0, cap: CAP };
+    counted.count(CAP / 2).unwrap();
+    counted.count(CAP / 2).unwrap();
+    assert_eq!(counted.seen, CAP);
+    let err = counted.count(1).unwrap_err();
     assert!(
         err.downcast_ref::<topcoat::router::error::ContentTooLargeError>()
             .is_some(),
         "one byte past the cap must map to content-too-large (413), got {err}"
     );
     // A single chunk past the cap fires without a prior accumulation.
-    let mut seen = 0usize;
-    let err = count_form_bytes(&mut seen, MAX_FORM_BYTES + 1).unwrap_err();
+    let mut counted = Counter { seen: 0, cap: CAP };
+    let err = counted.count(CAP + 1).unwrap_err();
     assert!(
         err.downcast_ref::<topcoat::router::error::ContentTooLargeError>()
             .is_some(),
@@ -256,11 +258,13 @@ async fn multipart_stream_rejects_missing_boundary() {
 
 #[test]
 fn an_urlencoded_body_past_the_cap_is_refused() {
-    let big = vec![b'a'; MAX_FORM_BYTES + 1];
+    let big = vec![b'a'; CAP + 1];
     assert!(
-        form_pairs_from_request_parts(Some("application/x-www-form-urlencoded"), &big).is_err()
+        form_pairs_from_request_parts(Some("application/x-www-form-urlencoded"), &big, CAP)
+            .is_err()
     );
-    let ok = form_pairs_from_request_parts(Some("application/x-www-form-urlencoded"), b"name=Ada")
-        .unwrap();
+    let ok =
+        form_pairs_from_request_parts(Some("application/x-www-form-urlencoded"), b"name=Ada", CAP)
+            .unwrap();
     assert_eq!(ok, [("name".to_string(), "Ada".to_string())]);
 }

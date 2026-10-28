@@ -71,6 +71,7 @@ pub(crate) fn panel_state<U: crate::PanelUser>(
         urls: std::collections::HashMap::new(),
         endpoints: Vec::new(),
         searches: Vec::new(),
+        limits: crate::Limits::default(),
     }
 }
 

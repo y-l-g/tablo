@@ -6,10 +6,8 @@ mod render;
 mod submit;
 mod unique;
 
-pub use import::MAX_IMPORT_ROWS;
-
 pub(crate) use self::{
-    common::{MAX_FORM_BYTES, parse_form_body, resource_edit, truthy},
+    common::{parse_form_body, resource_edit, truthy},
     import::{resource_import, resource_import_post, resource_import_template},
     render::{FormChrome, render_form_page, resource_create},
     submit::{resource_create_post, resource_edit_post},

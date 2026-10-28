@@ -94,6 +94,7 @@ pub(crate) struct PanelState {
     /// The resources the global search searches, in the sidebar's order; empty when the panel
     /// shows no global search.
     pub(crate) searches: Vec<Searchable>,
+    pub(crate) limits: crate::Limits,
 }
 
 /// Whether `path` is `prefix` or sits below it, segment by segment: `/admin`
@@ -148,6 +149,7 @@ pub(crate) fn enter(cx: &Cx, panel: &Arc<PanelState>) -> Cx {
     cx.with_many((
         CurrentPanel(Arc::clone(panel)),
         CurrentRealm(Arc::clone(&panel.realm)),
+        panel.limits,
     ))
 }
 

@@ -69,11 +69,17 @@ pub enum FieldRuleFault {
     ///
     /// List the last extension alone: `gz`.
     InvalidExtension(String),
-    /// A file field's `max_bytes` at or above the 10 MiB form-body cap, carried: the body cap
-    /// refuses a larger file first, so the rule never refuses one.
+    /// A file field's `max_bytes` at or above the panel's body cap,
+    /// [`Limits::body_bytes`](crate::Limits::body_bytes): the body cap refuses a larger file
+    /// first, so the rule never refuses one.
     ///
-    /// Lower `max_bytes` below 10 MiB.
-    AboveFormCap(usize),
+    /// Lower `max_bytes` below the cap, or raise the cap.
+    AboveFormCap {
+        /// The field's `max_bytes`.
+        max: usize,
+        /// The panel's body cap.
+        cap: usize,
+    },
 }
 
 /// [`DeclarationErrorKind::FieldRule`](super::DeclarationErrorKind::FieldRule)'s sentence.
@@ -165,10 +171,10 @@ pub(super) fn fmt_field_rule(
             "field '{field}' takes the extension '{extension}', but a file's extension is the \
              last one alone, in letters and digits: list that one"
         ),
-        FieldRuleFault::AboveFormCap(max) => write!(
+        FieldRuleFault::AboveFormCap { max, cap } => write!(
             f,
-            "field '{field}' takes files up to {max} bytes, but a form body holds at most 10 MiB: \
-             lower `max_bytes` below it"
+            "field '{field}' takes files up to {max} bytes, but the panel's form body holds at \
+             most {cap} bytes: lower `max_bytes` below it, or raise `Limits::body_bytes`"
         ),
     }
 }

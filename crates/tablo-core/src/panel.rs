@@ -35,9 +35,8 @@ use self::{
 };
 pub use self::{
     build::{PanelHandle, RouterBuilderPanelExt},
-    forms::MAX_IMPORT_ROWS,
     gate::{can_list, can_open},
-    list::WiredTable,
+    list::{WiredTable, wired_table},
     shell::Brand,
     widgets::{record_table, stats, widgets},
 };
@@ -45,20 +44,6 @@ use crate::{
     DeclarationError, DeclarationErrorKind, Page, PageDef,
     resource::{Resource, ResourceDef},
 };
-
-/// Returns the panel's list table for `R`, with the request's row actions wired on, for a page
-/// that owns its table; render it over the page's own query with
-/// [`WiredTable::render`](WiredTable::render).
-///
-/// # Errors
-///
-/// A declaration error when the context's panel does not mount `R`.
-pub fn wired_table<R: Resource>(
-    cx: &topcoat::context::Cx,
-) -> topcoat::Result<WiredTable<R::Model>> {
-    let resource = crate::resource::require_mounted::<R>(cx)?;
-    Ok(self::list::wire_table_actions(cx, &resource))
-}
 
 /// `R`'s sidebar entry in the context's panel, with its label, URL and icon; `None` when the
 /// panel does not register `R`.
@@ -148,6 +133,7 @@ pub struct Panel {
     translations: Vec<(topcoat::l10n::Locale, String)>,
     /// Whether the topbar shows the global search box.
     global_search: bool,
+    limits: crate::Limits,
 }
 
 impl Panel {
@@ -181,6 +167,7 @@ impl Panel {
             locales: vec![crate::i18n::ENGLISH.clone()],
             translations: Vec::new(),
             global_search: true,
+            limits: crate::Limits::default(),
         }
     }
 
@@ -581,6 +568,14 @@ impl Panel {
     /// Renders a line under the sign-in card for demo credentials or deployment hints.
     pub fn login_hint(mut self, hint: impl Into<crate::Text>) -> Self {
         self.login_hint = Some(hint.into());
+        self
+    }
+
+    /// Sets the bounds the panel holds each request to: rows exported and imported, records one
+    /// bulk action runs on, and bytes a request body holds. [`Limits::default`](crate::Limits)
+    /// lists the defaults.
+    pub fn limits(mut self, limits: crate::Limits) -> Self {
+        self.limits = limits;
         self
     }
 }

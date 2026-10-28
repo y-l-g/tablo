@@ -16,16 +16,12 @@ use crate::{
     table::{Past, Table, TableState, row_exists_past},
 };
 
-/// Bounds the receivable rows an export delivers; a full raw window with rows left beyond it is a
-/// 413 so the export never returns a partial file.
-const MAX_EXPORT_ROWS: usize = 10_000;
-
 /// Fetches this many models per cursor chunk on the export walk.
 const EXPORT_CHUNK_ROWS: usize = 500;
 
 /// Rejects an export whose visible row count ran past the cap.
-fn enforce_export_cap_count(count: usize) -> Result<(), topcoat::Error> {
-    if count > MAX_EXPORT_ROWS {
+fn enforce_export_cap_count(count: usize, cap: usize) -> Result<(), topcoat::Error> {
+    if count > cap {
         Err(topcoat::router::error::content_too_large().into())
     } else {
         Ok(())
@@ -86,8 +82,13 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
             ))
             .into());
         }
-        let mut chunker =
-            ExportChunker::new(export_base_query(cx, &resource, &table, &state, &refused)?);
+        // Bounds the receivable rows an export delivers; a full raw window with rows left beyond
+        // it is a 413, so the export never returns a partial file.
+        let cap = crate::limits::of(cx).export_rows;
+        let mut chunker = ExportChunker::new(
+            export_base_query(cx, &resource, &table, &state, &refused)?,
+            cap,
+        );
         let mut db_handle = db(cx)?;
         let mut visible = 0usize;
         while let Some(rows) = chunker.next_chunk(&mut db_handle).await? {
@@ -99,7 +100,7 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
         if chunker.beyond_window() {
             return Err(topcoat::router::error::content_too_large().into());
         }
-        enforce_export_cap_count(visible)?;
+        enforce_export_cap_count(visible, cap)?;
         let want_bom = export_wants_bom(cx);
         let (tx, body) = http_body_util::Channel::<bytes::Bytes, std::io::Error>::new(8);
         let cx2 = cx.clone();
@@ -109,7 +110,7 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
         let stream: crate::BoxFuture<'static, ()> = Box::pin(async move {
             let mut tx = tx;
             let mut chunker = match export_base_query(&cx2, &resource, &table, &state, &refused) {
-                Ok(query) => ExportChunker::new(table.include_relations(query)),
+                Ok(query) => ExportChunker::new(table.include_relations(query), cap),
                 Err(error) => {
                     tracing::error!(resource = resource.slug, error = %error, "export stream failed");
                     tx.abort(std::io::Error::other("export unavailable"));
@@ -147,7 +148,7 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
                 for row in &rows {
                     if resource.can(&cx2, Ability::View(row)) {
                         visible += 1;
-                        if visible > MAX_EXPORT_ROWS {
+                        if visible > cap {
                             // Aborts when rows changed between the passes.
                             tracing::error!(
                                 resource = resource.slug,
@@ -206,6 +207,8 @@ fn export_base_query<R: Resource>(
 struct ExportChunker<M> {
     query: toasty::stmt::Query<toasty::stmt::List<M>>,
     after: Option<toasty::stmt::Value>,
+    /// The most rows the export delivers.
+    cap: usize,
     raw_scanned: usize,
     exhausted: bool,
     beyond_window: bool,
@@ -215,10 +218,11 @@ impl<M> ExportChunker<M>
 where
     M: toasty::schema::Model + Send + Sync + 'static,
 {
-    fn new(query: toasty::stmt::Query<toasty::stmt::List<M>>) -> Self {
+    fn new(query: toasty::stmt::Query<toasty::stmt::List<M>>, cap: usize) -> Self {
         Self {
             query,
             after: None,
+            cap,
             raw_scanned: 0,
             exhausted: false,
             beyond_window: false,
@@ -235,7 +239,7 @@ where
             return Ok(None);
         }
         loop {
-            let remaining = (MAX_EXPORT_ROWS + 1).saturating_sub(self.raw_scanned);
+            let remaining = (self.cap + 1).saturating_sub(self.raw_scanned);
             if remaining == 0 {
                 if let Some(cursor) = self.after.clone() {
                     self.beyond_window =

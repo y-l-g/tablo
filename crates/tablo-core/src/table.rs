@@ -99,7 +99,8 @@ pub enum ActionLayout {
 ///
 /// When the policy allows `DeleteAny`, or `RunAny` for an action placed on the bulk bar, the list
 /// adds a checkbox column and a bulk bar; a row that no delete or bulk action allows gets no
-/// checkbox. A bulk delete takes at most 400 records, runs in one transaction and skips the
+/// checkbox. A bulk delete takes at most [`Limits::bulk_records`](crate::Limits::bulk_records), 400
+/// by default, runs in one transaction and skips the
 /// records the policy refuses `Delete`. Both deletes ask first through a confirmation dialog,
 /// which needs JavaScript; a POST not confirmed through it answers 400. Each lands back on the
 /// list as it was left.
@@ -108,8 +109,9 @@ pub enum ActionLayout {
 ///
 /// `GET {list}/-/export` returns the list as a CSV file named `{slug}.csv`, with the current
 /// search, filters and sort applied and the relations the columns include loaded. It leaves out
-/// the rows the policy refuses `View`, delivers at most 10,000 rows and answers 413 rather than a
-/// truncated file when more match. It writes each column's formatted value, a date column's
+/// the rows the policy refuses `View`, delivers at most
+/// [`Limits::export_rows`](crate::Limits::export_rows), 10,000 by default, and answers 413 rather
+/// than a truncated file when more match. It writes each column's formatted value, a date column's
 /// stored value, and escapes a cell a spreadsheet would read as a formula; `?bom=1` prefixes the
 /// file with a byte-order mark for Excel.
 #[derive_where(Clone)]

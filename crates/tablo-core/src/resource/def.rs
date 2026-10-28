@@ -542,8 +542,9 @@ impl<R: Resource> ResourceDef<R> {
     ///   value, and a column the header leaves out takes the field's `default`. A multiple choice
     ///   takes one column per value, its key repeated; no other column may repeat.
     /// - The file is UTF-8 text with commas or semicolons between cells, of at most
-    ///   [`MAX_IMPORT_ROWS`](crate::MAX_IMPORT_ROWS) rows, 500 cells a row and 10 MiB. A row whose
-    ///   every cell is blank is skipped.
+    ///   [`Limits::import_rows`](crate::Limits::import_rows) rows, 500 cells a row and
+    ///   [`Limits::body_bytes`](crate::Limits::body_bytes). A row whose every cell is blank is
+    ///   skipped.
     /// - [`Resource::before_commit`] receives each row's [`Change::Create`](crate::Change::Create)
     ///   inside the transaction. A row [`Resource::create_record`] refuses rolls back to a
     ///   savepoint taken before it, so the rows after it are checked without its writes. When any

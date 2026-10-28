@@ -7,9 +7,6 @@ use topcoat::{Result, context::Cx, view::*};
 use super::{Field, render_field};
 use crate::{FieldRuleFault, Text, text};
 
-/// Caps the whole multipart stream at 10 MiB, file bytes included.
-pub(crate) const MAX_FORM_BYTES: usize = 10 * 1024 * 1024;
-
 /// What a file control takes: the extensions, lowercase and without the dot, and the most bytes.
 /// Both unset by default, taking any file the form body carries.
 #[derive(Clone, Debug, Default)]
@@ -80,9 +77,6 @@ impl FileControl {
                     .map(|ext| FieldRuleFault::InvalidExtension(ext.clone())),
             ),
             None => {}
-        }
-        if let Some(max) = self.max_bytes.filter(|max| *max >= MAX_FORM_BYTES) {
-            faults.push(FieldRuleFault::AboveFormCap(max));
         }
         faults
     }

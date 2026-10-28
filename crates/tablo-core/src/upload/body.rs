@@ -14,7 +14,6 @@ use topcoat::{
 };
 
 use super::StagedUpload;
-use crate::schema::MAX_FORM_BYTES;
 
 /// A decoded form body: its text pairs plus any file parts.
 pub(crate) struct FormParts {
@@ -68,7 +67,11 @@ pub(crate) async fn parse_body(
         }
     })?;
     Ok(FormParts {
-        pairs: form_pairs_from_request_parts(content_type.as_deref(), bytes.as_ref())?,
+        pairs: form_pairs_from_request_parts(
+            content_type.as_deref(),
+            bytes.as_ref(),
+            crate::limits::of(cx).body_bytes,
+        )?,
         files: HashMap::new(),
         file_part_names: HashSet::new(),
     })
@@ -107,7 +110,7 @@ fn is_multipart_content_type(ct: &str) -> bool {
 }
 
 /// Streams multipart fields in body order, a file part posting its sanitized filename, counting
-/// every byte against `MAX_FORM_BYTES` and mapping over-limit bodies to 413.
+/// every byte against the panel's body cap and mapping over-limit bodies to 413.
 async fn parse_multipart_values(
     cx: &Cx,
     body: Body,
@@ -120,16 +123,19 @@ async fn parse_multipart_values(
         files: HashMap::new(),
         file_part_names: HashSet::new(),
     };
-    let mut bytes_seen = 0usize;
+    let mut counted = Counter {
+        seen: 0,
+        cap: crate::limits::of(cx).body_bytes,
+    };
     let mut multipart = Multipart::from_request(cx, body).await?;
     while let Some(mut field) = multipart.next_field().await? {
         let Some(name) = field.name().map(str::to_string) else {
             // Drains nameless parts through the byte counter.
-            read_bounded(&mut field, &mut bytes_seen, None).await?;
+            read_bounded(&mut field, &mut counted, None).await?;
             continue;
         };
         if name.is_empty() {
-            read_bounded(&mut field, &mut bytes_seen, None).await?;
+            read_bounded(&mut field, &mut counted, None).await?;
             continue;
         }
         // RFC 6266: `filename*=` takes precedence over `filename=`.
@@ -148,7 +154,7 @@ async fn parse_multipart_values(
                 };
                 if staged {
                     let mut bytes = Vec::new();
-                    read_bounded(&mut field, &mut bytes_seen, Some(&mut bytes)).await?;
+                    read_bounded(&mut field, &mut counted, Some(&mut bytes)).await?;
                     out.files.insert(
                         name.clone(),
                         StagedUpload {
@@ -157,7 +163,7 @@ async fn parse_multipart_values(
                         },
                     );
                 } else {
-                    read_bounded(&mut field, &mut bytes_seen, None).await?;
+                    read_bounded(&mut field, &mut counted, None).await?;
                 }
                 // Only a chosen file part may set a file field's value.
                 out.file_part_names.insert(name.clone());
@@ -165,7 +171,7 @@ async fn parse_multipart_values(
             }
             Some(_) => {
                 // An empty filename still counts as a file part with an empty value.
-                read_bounded(&mut field, &mut bytes_seen, None).await?;
+                read_bounded(&mut field, &mut counted, None).await?;
                 out.files.remove(&name);
                 out.file_part_names.insert(name.clone());
                 out.pairs.push((name, String::new()));
@@ -173,7 +179,7 @@ async fn parse_multipart_values(
             None => {
                 // Counts text reads against the same byte cap.
                 let text = field.text().await?;
-                count_form_bytes(&mut bytes_seen, text.len())?;
+                counted.count(text.len())?;
                 // A later text part clears the name from the file-part set.
                 out.file_part_names.remove(&name);
                 out.files.remove(&name);
@@ -184,15 +190,15 @@ async fn parse_multipart_values(
     Ok(out)
 }
 
-/// Reads one field chunk-by-chunk, counting every byte against `MAX_FORM_BYTES`.
+/// Reads one field chunk-by-chunk, counting every byte against the body cap.
 async fn read_bounded(
     field: &mut topcoat::router::content::multipart::Field<'_>,
-    bytes_seen: &mut usize,
+    bytes: &mut Counter,
     keep: Option<&mut Vec<u8>>,
 ) -> Result<(), topcoat::Error> {
     let mut keep = keep;
     while let Some(chunk) = field.chunk().await? {
-        count_form_bytes(bytes_seen, chunk.len())?;
+        bytes.count(chunk.len())?;
         if let Some(sink) = keep.as_deref_mut() {
             sink.extend_from_slice(&chunk);
         }
@@ -200,17 +206,25 @@ async fn read_bounded(
     Ok(())
 }
 
-/// Counts one chunk against the form-body cap, mapping over-limit totals to 413.
-fn count_form_bytes(bytes_seen: &mut usize, chunk_len: usize) -> Result<(), topcoat::Error> {
-    // Uses checked addition so the accumulator cannot wrap past the cap.
-    let Some(total) = bytes_seen.checked_add(chunk_len) else {
-        return Err(topcoat::router::error::content_too_large().into());
-    };
-    *bytes_seen = total;
-    if *bytes_seen > MAX_FORM_BYTES {
-        return Err(topcoat::router::error::content_too_large().into());
+/// The bytes a multipart body has streamed so far, and the most it may.
+struct Counter {
+    seen: usize,
+    cap: usize,
+}
+
+impl Counter {
+    /// Counts one chunk against the cap, mapping over-limit totals to 413.
+    fn count(&mut self, chunk_len: usize) -> Result<(), topcoat::Error> {
+        // Uses checked addition so the accumulator cannot wrap past the cap.
+        let Some(total) = self.seen.checked_add(chunk_len) else {
+            return Err(topcoat::router::error::content_too_large().into());
+        };
+        self.seen = total;
+        if self.seen > self.cap {
+            return Err(topcoat::router::error::content_too_large().into());
+        }
+        Ok(())
     }
-    Ok(())
 }
 
 /// RFC 5987 `filename*=` from a field's raw `Content-Disposition` header.
@@ -230,13 +244,14 @@ fn filename_star_from_headers(
     })
 }
 
-/// Parses urlencoded bytes into their pairs in body order, rejecting bodies over
-/// `MAX_FORM_BYTES` with 413.
+/// Parses urlencoded bytes into their pairs in body order, rejecting bodies over `cap` bytes
+/// with 413.
 fn form_pairs_from_request_parts(
     content_type: Option<&str>,
     bytes: &[u8],
+    cap: usize,
 ) -> Result<Vec<(String, String)>, topcoat::Error> {
-    if bytes.len() > MAX_FORM_BYTES {
+    if bytes.len() > cap {
         return Err(topcoat::router::error::content_too_large().into());
     }
     debug_assert!(

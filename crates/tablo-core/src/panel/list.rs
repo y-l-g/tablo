@@ -109,6 +109,20 @@ pub(crate) fn resource_columns<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> 
     })
 }
 
+/// Returns the panel's list table for `R`, with the request's row actions wired on, for a page
+/// that owns its table; render it over the page's own query with
+/// [`WiredTable::render`](WiredTable::render).
+///
+/// # Errors
+///
+/// A declaration error when the context's panel does not mount `R`.
+pub fn wired_table<R: Resource>(
+    cx: &topcoat::context::Cx,
+) -> topcoat::Result<WiredTable<R::Model>> {
+    let resource = crate::resource::require_mounted::<R>(cx)?;
+    Ok(wire_table_actions(cx, &resource))
+}
+
 /// Wires `R`'s delete, bulk, edit, view, and custom actions onto the table.
 pub(crate) fn wire_table_actions<R: Resource>(
     cx: &Cx,

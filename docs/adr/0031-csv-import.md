@@ -12,7 +12,7 @@ order, so a row's unique value is checked against the rows before it, and the wh
 or none of it. A refused row does not stop the check: every later row is still checked and
 written into the doomed transaction, so the page lists every refusal at once. Each row's
 `create_record` runs in a savepoint, so a row it refuses leaves no partial write for the rows
-after it. A file holds at most `MAX_IMPORT_ROWS` rows, so the transaction stays one request long.
+after it. A file holds at most `Limits::import_rows` rows, so the transaction stays one request long.
 
 ## Rejected
 
