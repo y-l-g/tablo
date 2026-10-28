@@ -96,8 +96,8 @@ pub mod prelude {
         RepeaterColumn, Resource, ResourceDef, RouterBuilderPanelExt, Schema, Section,
         SelectColumn, SelectFilter, Series, Sort, Stat, Tab, Table, Tabs, Tenancy, TenantId,
         TernaryFilter, Text, TextColumn, TextField, TextInputColumn, Toggle, ToggleColumn, Trend,
-        Widget, WidgetDef, WriteError, can, can_list, can_open, filter_keys, lens, relation,
-        scoped_query, t, tenant_id, text, when,
+        Widget, WidgetDef, WriteError, can, can_list, can_open, filter_keys, lens, list_query,
+        relation, scoped_query, t, tenant_id, text, when,
     };
     #[cfg(feature = "rich-text")]
     pub use tablo_core::{RichTextColumn, RichTextField, Tool};

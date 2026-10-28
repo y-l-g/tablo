@@ -294,7 +294,9 @@ adds it to the page's grid, which the default `render` shows under the header:
 - **Above a resource's list.** `ResourceDef::list_widget::<W>()` adds a widget to a grid the
   list page renders above its table, for a banner or the figures behind the rows, without
   rewriting the page; `ResourceDef::list_widget_columns` sets its columns. The list's sign-in and
-  policy guard it, and it reruns with the list.
+  policy guard it, and it reruns with the list. `list_query::<R>(cx)` reads `R`'s records as the
+  list shows them, under its tab, search and filters, so its figures follow what the reader
+  narrows the list to; `db::count(cx, query)` counts them.
 
 ### Rendering a page
 

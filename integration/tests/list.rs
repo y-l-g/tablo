@@ -1,14 +1,18 @@
 //! A resource's list page over test-local resources: the row chrome each policy and form allows,
-//! and the signals that carry each list's query.
+//! the signals that carry each list's query, and the list query its widgets read.
 
 use std::collections::HashSet;
 
-use tablo::{Ability, NoForm, Panel, Resource, ResourceDef, Table, TextColumn, lens};
+use tablo::{
+    Ability, NoForm, Page, PageDef, Panel, Resource, ResourceDef, Stat, Table, TextColumn, Widget,
+    lens, testing::stats,
+};
 use toasty::Db;
 use topcoat::{
+    Result,
     context::Cx,
     router::{Body, Router, Slot},
-    view::{BoxView, ViewExt},
+    view::{BoxView, View, ViewExt},
 };
 use uuid::Uuid;
 
@@ -103,6 +107,59 @@ impl Resource for OtherResource {
     }
 }
 
+/// The items, with a widget above their list counting the ones it shows.
+struct CountedResource;
+
+impl Resource for CountedResource {
+    type Model = Item;
+    type Form = NoForm<Item>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("items")
+            .policy(list_only)
+            .table(items_table())
+            .list_widget::<Listed<CountedResource>>()
+    }
+}
+
+/// The items no one may list.
+struct HiddenResource;
+
+impl Resource for HiddenResource {
+    type Model = Item;
+    type Form = NoForm<Item>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("hidden")
+            .policy(|_cx: &Cx, _ability: Ability<'_, Item>| false)
+            .table(items_table())
+    }
+}
+
+/// Counts the records `R`'s list shows.
+struct Listed<R>(std::marker::PhantomData<R>);
+
+impl<R: Resource<Model = Item>> Widget for Listed<R> {
+    async fn render(cx: &Cx) -> Result<impl View> {
+        let count = tablo::db::count(cx, tablo::list_query::<R>(cx).await?).await?;
+        Ok(tablo::stats(
+            cx,
+            vec![Stat::new("Listed", count.to_string())],
+        ))
+    }
+}
+
+/// A page counting `R`'s list.
+struct Counts<R>(std::marker::PhantomData<R>);
+
+impl<R: Resource<Model = Item>> Page for Counts<R> {
+    fn declare() -> PageDef {
+        PageDef::new().slug("counts").widget::<Listed<R>>()
+    }
+}
+
 async fn items(names: &[&str]) -> Db {
     let mut db = test_db(toasty::models!(Item)).await;
     for name in names {
@@ -160,6 +217,21 @@ async fn a_row_offers_only_the_writes_the_resource_allows() {
     }
 }
 
+/// The id of the signal `html` declares holding the list query `query`.
+fn query_signal(html: &str, query: &str) -> String {
+    let declaration = html
+        .split("::topcoat::signal(")
+        .skip(1)
+        .find(|declaration| declaration.contains(&format!("&quot;v&quot;:&quot;{query}&quot;")))
+        .unwrap_or_else(|| panic!("the page declares its query signal: {html}"));
+    declaration
+        .split("&quot;id&quot;:&quot;")
+        .nth(1)
+        .and_then(|rest| rest.split("&quot;").next())
+        .expect("a signal id")
+        .to_string()
+}
+
 /// The ids of the signals `html` declares.
 fn signal_ids(html: &str) -> HashSet<String> {
     html.split("&quot;id&quot;:&quot;")
@@ -212,16 +284,7 @@ async fn a_rerun_renders_the_query_its_signal_carries() {
 
     let html = body_string(get(&router, "/admin/items?q=Bob").await).await;
     assert_eq!(names(&html), ["Bob"], "{html}");
-    let declaration = html
-        .split("::topcoat::signal(")
-        .skip(1)
-        .find(|declaration| declaration.contains("&quot;v&quot;:&quot;q=Bob&quot;"))
-        .unwrap_or_else(|| panic!("the page declares its query signal: {html}"));
-    let id = declaration
-        .split("&quot;id&quot;:&quot;")
-        .nth(1)
-        .and_then(|rest| rest.split("&quot;").next())
-        .expect("a signal id");
+    let id = query_signal(&html, "q=Bob");
 
     let rerun = http::Request::builder()
         .method(http::Method::POST)
@@ -232,4 +295,66 @@ async fn a_rerun_renders_the_query_its_signal_carries() {
         .unwrap();
     let rerun = body_string(router.handle(rerun).await).await;
     assert_eq!(names(&rerun), ["Ada"], "{rerun}");
+}
+
+/// The figures a list's widget reads follow the state the list shows: its search from the URL,
+/// and on a rerun the query its signal carries.
+#[tokio::test]
+async fn a_list_widget_counts_what_the_list_shows() {
+    let router: Router = mount(
+        items(&["Ada", "Adam", "Bob"]).await,
+        panel().resource::<CountedResource>(),
+    )
+    .expect("panel builds");
+    let listed = |html: &str| {
+        stats(html)
+            .into_iter()
+            .map(|tile| tile.value)
+            .collect::<Vec<_>>()
+    };
+
+    let html = body_string(get(&router, "/admin/items?q=Bob").await).await;
+    assert_eq!(listed(&html), ["1"], "{html}");
+    let id = query_signal(&html, "q=Bob");
+    let rerun = http::Request::builder()
+        .method(http::Method::POST)
+        .uri("/admin/items?q=Bob")
+        .header(&topcoat::runtime::RUNTIME_HEADER, "true")
+        .header(http::header::CONTENT_TYPE, "application/json")
+        .body(Body::from(format!(r#"{{"signals":{{"{id}":"q=Ad"}}}}"#)))
+        .unwrap();
+    let rerun = body_string(router.handle(rerun).await).await;
+    assert_eq!(listed(&rerun), ["2"], "{rerun}");
+}
+
+/// Outside the list, the list query reads the whole list; it refuses a request that may not open
+/// the list, failing the page.
+#[tokio::test]
+async fn a_list_query_reads_the_whole_list_elsewhere_and_refuses_who_may_not_list() {
+    let router: Router = mount(
+        items(&["Ada", "Bob"]).await,
+        panel()
+            .resource::<CountedResource>()
+            .resource::<HiddenResource>()
+            .page::<Counts<CountedResource>>(),
+    )
+    .expect("panel builds");
+    let html = body_string(get(&router, "/admin/counts?q=Bob").await).await;
+    assert_eq!(
+        stats(&html)
+            .into_iter()
+            .map(|tile| tile.value)
+            .collect::<Vec<_>>(),
+        ["2"],
+        "{html}"
+    );
+
+    let router: Router = mount(
+        items(&["Ada"]).await,
+        panel()
+            .resource::<HiddenResource>()
+            .page::<Counts<HiddenResource>>(),
+    )
+    .expect("panel builds");
+    assert_eq!(get(&router, "/admin/counts").await.status(), 403);
 }

@@ -2,9 +2,11 @@
 //! count, and which posts its table lists.
 
 use showcase::models::BLOCKED_TENANT;
-use tablo::testing::{ChartSeries, StatTile, charts, record_tables, stats, widgets};
+use tablo::testing::{ChartSeries, StatTile, charts, record_tables, stats, tab_links, widgets};
 
-use crate::common::{body_string, demo_client, routers::router_for_tests as router, tenanted_db};
+use crate::common::{
+    body_string, demo_client, full_db, routers::router_for_tests as router, tenanted_db,
+};
 
 /// The tile linking to `href`, if the page renders one.
 fn tile<'a>(tiles: &'a [StatTile], href: &str) -> Option<&'a StatTile> {
@@ -143,4 +145,41 @@ async fn the_post_list_counts_the_tenants_own_posts_by_status() {
             ]
         );
     }
+}
+
+/// The post list's widget counts the posts the list shows: under its search, and under its tab,
+/// which leaves no published post among the drafts.
+#[tokio::test]
+async fn the_post_list_widget_follows_the_list() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let tile = |html: &str, label: &str| {
+        stats(html)
+            .into_iter()
+            .find(|tile| tile.label == label)
+            .map(|tile| tile.value)
+    };
+    let badge = |html: &str, key: &str| {
+        tab_links(html)
+            .into_iter()
+            .find(|tab| tab.key == key)
+            .and_then(|tab| tab.count)
+            .map(|count| count.to_string())
+    };
+
+    let all = body_string(client.get("/admin/posts").await).await;
+    let searched = body_string(client.get("/admin/posts?q=Second").await).await;
+    for (label, key) in [("Drafts", "drafts"), ("Published", "published")] {
+        assert_eq!(tile(&searched, label), badge(&searched, key), "{searched}");
+    }
+    assert_ne!(
+        tile(&searched, "Drafts"),
+        tile(&all, "Drafts"),
+        "the search narrows the figure"
+    );
+
+    let drafts = body_string(client.get("/admin/posts?tab=drafts").await).await;
+    assert_eq!(tile(&drafts, "Drafts"), badge(&drafts, "drafts"));
+    assert_eq!(tile(&drafts, "Published").as_deref(), Some("0"), "{drafts}");
 }

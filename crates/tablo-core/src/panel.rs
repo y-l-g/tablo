@@ -36,7 +36,7 @@ use self::{
 pub use self::{
     build::{PanelHandle, RouterBuilderPanelExt},
     gate::{can_list, can_open},
-    list::{WiredTable, wired_table},
+    list::{WiredTable, list_query, wired_table},
     shell::Brand,
     widgets::{record_table, stats, widgets},
 };

@@ -17,6 +17,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Resource | A type implementing `Resource` for one Toasty model. Its `Form` is `NoForm` when list-only. | Model, Entity, Collection, CRUD |
 | Resource definition | The `ResourceDef` a resource declares: slug, labels, navigation, policy, tenancy, table, form, detail, relations, actions, header actions. Each panel mounts its own copy. | Config, Settings, Options |
 | Query | A resource's own row scoping, such as row visibility. | Scope, Builder |
+| List query | A resource's records as its list shows them in the request, under its tab, search and filters, which `list_query` reads for a widget. | Table query, Filtered query, Page query |
 | Soft delete | A delete that stamps the column `ResourceDef::soft_delete` names with the time and keeps the row; the stamped record is trashed until a restore empties the column or a force delete removes the row. | Archive, Recycle bin, Paranoid |
 | Trashed record | A record a soft delete stamped: every loader leaves it out unless a `Trashed` scope asks for it. | Deleted record, Archived record |
 | Field access | Who may view and who may change one field of a model's records within a panel, declared by `ResourceDef::field_access` on a resource over the model: a request that may not view it sees no column, filter, detail entry, export column, relation column or control for it, on any resource the panel mounts over the model. | Field permission, Column security, Field-level authorization |

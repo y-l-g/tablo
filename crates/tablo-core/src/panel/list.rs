@@ -1,6 +1,7 @@
 //! Serves each resource's list page, and renders the [`WiredTable`] it and a related table show.
 
 mod render;
+mod shown;
 mod signals;
 mod wiring;
 
@@ -18,11 +19,12 @@ use topcoat::{
     view::{BoxView, SuspenseMode, ViewExt, attributes, internal::ThenView, suspense, view},
 };
 
-pub use self::wiring::WiredTable;
 pub(crate) use self::{
+    shown::ShownList,
     signals::TableSignals,
     wiring::{RowActions, TableAction, TableChrome},
 };
+pub use self::{shown::list_query, wiring::WiredTable};
 use super::{
     bar::{ActionBar, header_bar},
     forms::{parse_form_body, truthy},
@@ -333,6 +335,7 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         // Normalizes once per request.
         let table = choose_columns(cx, &resource, wire_table_actions(cx, &resource)).await;
         let (signals, state) = table.browser_state(cx);
+        ShownList::record::<R>(cx, &state);
         // The bulk bar offers what the rows the trash control shows can take.
         let table = table
             .taking(resource.list_trashed(&state))
