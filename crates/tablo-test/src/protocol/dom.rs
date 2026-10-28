@@ -13,7 +13,7 @@
 
 use tablo_core::dom::{empty, error};
 
-pub use self::rows::{Group, Row, RowActions, groups, row_actions, row_keys, rows};
+pub use self::rows::{CellEdit, Group, Row, RowActions, groups, row_actions, row_keys, rows};
 
 pub(crate) type Attrs = Vec<(String, Option<String>)>;
 pub(crate) type Element = (String, Attrs, String);
@@ -221,7 +221,7 @@ pub fn filter_options(html: &str, name: &str) -> Option<Vec<FilterOption>> {
     Some(options)
 }
 
-fn is_selected(attrs: &Attrs) -> bool {
+pub(crate) fn is_selected(attrs: &Attrs) -> bool {
     attrs.iter().any(|(name, _)| name == "selected")
 }
 

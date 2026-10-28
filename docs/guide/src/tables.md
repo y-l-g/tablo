@@ -120,6 +120,26 @@ The export writes the formatted value: `$1,234.50`, not `123450`. Money uses `,`
 separators; a locale's own spelling is a `.format(..)`. Over a [decimal column](./forms.md#typed-values),
 `.numeric(..)` and `.money(..)` spell the stored digits without passing through a float.
 
+### Editing in a cell
+
+`ToggleColumn`, `SelectColumn` and `TextInputColumn` let a user change one field from the list,
+without opening the edit page:
+
+```rust
+{{#include ../../../examples/guide/src/tables.rs:table-editable}}
+```
+
+A cell posts its field alone to the record's edit route, with the record's version, so the save runs
+every check the edit page's does, then lands back on the list. A refused value opens the edit page
+with its error. The control shows on a row the user may edit, for a field
+[field access](./resources.md#field-access) lets them change; anywhere else, and on the detail page,
+the cell shows the value.
+
+The resource's form must edit the field with the matching control: a checkbox or switch for a
+toggle, a choice over static options for a select, a one-line text field for a text input. The mount
+refuses the column otherwise, and when that control is disabled on edit or shows only while a
+condition holds, since the cell posts no other field for the condition to read.
+
 ### Hiding columns
 
 `.toggleable()` lets each reader hide a column from the list, and `.hidden_by_default()` starts it

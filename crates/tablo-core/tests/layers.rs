@@ -114,6 +114,7 @@ fn every_module_reaches_only_the_modules_listed_before_it() {
 const RENDER_HOOKS: &[&str] = &[
     "column/boolean.rs",
     "column/cell.rs",
+    "column/editable/view.rs",
     "schema/embedded.rs",
     "schema/fields/choice.rs",
     "schema/fields/choice/listed.rs",

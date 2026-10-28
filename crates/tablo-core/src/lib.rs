@@ -153,13 +153,14 @@ pub use column::RichTextColumn;
 pub use column::{
     BooleanColumn, ColorColumn, ColumnToggle, ColumnWidth, ComputedColumn, CountColumn, DateColumn,
     DateValue, EmbeddedColumn, FileColumn, IconColumn, ImageColumn, IntoColumns, RelationColumn,
-    RelationLens, RepeaterColumn, TextColumn, ToOneRelation, contains_expr,
+    RelationLens, RepeaterColumn, SelectColumn, TextColumn, TextInputColumn, ToOneRelation,
+    ToggleColumn, contains_expr,
 };
 pub use declaration::{
-    ActionInputFault, AuthMailFault, DeclarationError, DeclarationErrorKind, FieldAccessFault,
-    FieldRuleFault, LocaleFault, ManyToManyFault, MountError, ProfileFault, ResetFault,
-    SegmentFault, SignUpFault, Site, TenancyFault, TenantProfileFault, TenantRegistrationFault,
-    TwoFactorFault, VerificationFault,
+    ActionInputFault, AuthMailFault, DeclarationError, DeclarationErrorKind, EditableColumnFault,
+    FieldAccessFault, FieldRuleFault, LocaleFault, ManyToManyFault, MountError, ProfileFault,
+    ResetFault, SegmentFault, SignUpFault, Site, TenancyFault, TenantProfileFault,
+    TenantRegistrationFault, TwoFactorFault, VerificationFault,
 };
 pub use derive::{EmbeddedForm, FormInput, ModelColumns, ModelForm, Options, RecordForm};
 pub use detail::{Detail, IntoDetail};

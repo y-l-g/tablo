@@ -98,6 +98,7 @@ impl fmt::Display for DeclarationErrorKind {
                 f,
                 "two widgets are named '{name}': each needs a distinct `WidgetDef::name`"
             ),
+            Self::EditableColumn { column, fault } => fault.fmt(f, column),
             Self::ActionInput { action, fault } => fmt_action_input(f, action, fault),
             Self::SignUp(fault) => fault.fmt(f),
             Self::Profile(fault) => fault.fmt(f),

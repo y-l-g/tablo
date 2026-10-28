@@ -4,6 +4,7 @@ use std::fmt;
 
 mod action_input;
 mod auth;
+mod editable;
 mod field_access;
 mod field_rule;
 mod locale;
@@ -20,6 +21,7 @@ pub use auth::{
     AuthMailFault, ProfileFault, ResetFault, SignUpFault, TenantProfileFault,
     TenantRegistrationFault, TwoFactorFault, VerificationFault,
 };
+pub use editable::EditableColumnFault;
 pub use field_access::FieldAccessFault;
 pub use field_rule::FieldRuleFault;
 use field_rule::fmt_field_rule;
@@ -232,6 +234,13 @@ pub enum DeclarationErrorKind {
     DuplicateWidget {
         /// The shared name.
         name: String,
+    },
+    /// A column cannot edit its field in a table's cell.
+    EditableColumn {
+        /// The column's name, which is its field's.
+        column: String,
+        /// What is wrong with it.
+        fault: EditableColumnFault,
     },
     /// An action's input cannot be served.
     ActionInput {

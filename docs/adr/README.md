@@ -27,3 +27,4 @@ record disagree, the code wins and the record is fixed. Missing numbers are reti
 | [0033](0033-global-search.md) | Global search reads what each resource already declares |
 | [0034](0034-translations.md) | A panel's words are Fluent messages its request's locale spells |
 | [0035](0035-widgets.md) | A widget is a page's server-rendered block, and its page owns the grid |
+| [0036](0036-inline-editing.md) | An editable cell posts its one key to the record's edit route |

@@ -63,25 +63,7 @@ where
     }
 
     fn cell<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
-        let value = *self.lens.read(row);
-        let text = self.text(cx, row);
-        // A no is the common case in most columns, so it stays quiet and the yeses stand out.
-        let (data, class) = if value {
-            (tablo_ui::icons::CIRCLE_CHECK, "size-4 text-success")
-        } else {
-            (tablo_ui::icons::MINUS, "size-4 text-muted-foreground/60")
-        };
-        view! {
-            cx =>
-            <span class="inline-flex items-center" data-boolean=(value.to_string())>
-                icon(
-                    data: data,
-                    attrs: attributes! { class=(class) aria-hidden="true" }
-                )
-                <span class="sr-only">(text)</span>
-            </span>
-        }
-        .boxed()
+        boolean_cell(cx, *self.lens.read(row), self.text(cx, row))
     }
 
     fn is_sortable(&self) -> bool {
@@ -92,4 +74,22 @@ where
         self.sortable
             .then(|| sort_order(self.lens.path(), descending))
     }
+}
+
+/// A `bool` as its icon, with `text` for a screen reader.
+pub(super) fn boolean_cell(cx: &Cx, value: bool, text: String) -> BoxView<'_> {
+    // A no is the common case in most columns, so it stays quiet and the yeses stand out.
+    let (data, class) = if value {
+        (tablo_ui::icons::CIRCLE_CHECK, "size-4 text-success")
+    } else {
+        (tablo_ui::icons::MINUS, "size-4 text-muted-foreground/60")
+    };
+    view! {
+        cx =>
+        <span class="inline-flex items-center" data-boolean=(value.to_string())>
+            icon(data: data, attrs: attributes! { class=(class) aria-hidden="true" })
+            <span class="sr-only">(text)</span>
+        </span>
+    }
+    .boxed()
 }

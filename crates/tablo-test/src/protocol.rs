@@ -20,9 +20,9 @@ pub use bell::{Bell, BellNotification, bell};
 pub use controls::{DisabledAction, confirms_first, disabled_actions, selects_matching};
 pub use detail::{DetailEntry, detail_entries};
 pub use dom::{
-    EmptyReason, EmptyTable, ErrorKind, FilterOption, Group, PickerColumn, Row, RowActions,
-    column_picker, columns, empty_table, field_error, field_error_message, filter_options,
-    find_href_with, groups, row_actions, row_keys, rows, sortable_columns,
+    CellEdit, EmptyReason, EmptyTable, ErrorKind, FilterOption, Group, PickerColumn, Row,
+    RowActions, column_picker, columns, empty_table, field_error, field_error_message,
+    filter_options, find_href_with, groups, row_actions, row_keys, rows, sortable_columns,
 };
 use http_body_util::BodyExt;
 pub use ignored::{IgnoredFilter, IgnoredReason, ignored_filters};

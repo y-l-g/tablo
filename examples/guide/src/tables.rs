@@ -85,6 +85,18 @@ pub fn contact_table() -> Table<User> {
 }
 // ANCHOR_END: table-cell-options
 
+// ANCHOR: table-editable
+pub fn triage_table() -> Table<Post> {
+    Table::new((
+        // Saves on Enter.
+        TextInputColumn::new(lens!(Post.title)),
+        // Each saves as soon as it changes.
+        SelectColumn::new(lens!(Post.status)),
+        ToggleColumn::new(lens!(Post.featured)),
+    ))
+}
+// ANCHOR_END: table-editable
+
 // ANCHOR: table-toggleable
 pub fn user_table() -> Table<User> {
     Table::new((

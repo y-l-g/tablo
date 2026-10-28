@@ -8,12 +8,14 @@ use super::{
     CHROME_CELL_CLASS, Frame,
 };
 use crate::{
+    column::Column,
     panel::url::{delete_action_url, row_action_url, row_edit_url, row_view_url},
     t,
     table::{GroupKey, TablePage, bulk_token, group_header_dom_id, row_dom_id},
 };
 
 mod actions;
+mod edit;
 
 /// What every row of one render shares: the chrome columns, each column's cell layout, and the
 /// table's signals and write form.
@@ -286,6 +288,38 @@ impl<M> WiredTable<M> {
                 .any(|action| (action.allowed)(row))
     }
 
+    /// `row`'s cell in `col`: its control, in a form posting it to the record's edit route,
+    /// where the row may be edited and the user may change the column's field; else its value.
+    fn cell<'a>(
+        &self,
+        cx: &'a Cx,
+        frame: &Frame<'_>,
+        row: &M,
+        key: &str,
+        actions: RowActions,
+        col: &dyn Column<M>,
+    ) -> BoxView<'a> {
+        let edit = col.edits().zip(frame.edit_prefix.filter(|_| actions.edit));
+        let edits = self
+            .cell_edits()
+            .filter(|edits| (edits.changes)(col.name()));
+        let (Some((editor, prefix)), Some(edits)) = (edit, edits) else {
+            return col.cell(cx, row);
+        };
+        let row_id = row_dom_id(self.prefix().unwrap_or("table"), key);
+        edit::cell_form(
+            cx,
+            edit::CellForm {
+                id: format!("{row_id}-edit-{}", col.name()),
+                action: frame.action_url(row_edit_url(prefix, key)),
+                column: col.name().to_string(),
+                version: (edits.version)(row),
+                saves_on_change: editor.saves_on_change(),
+                control: col.editor(cx, row),
+            },
+        )
+    }
+
     /// Project the loaded page into the row presentation the template renders, wired as
     /// `frame` says.
     pub(super) fn row_views<'a>(
@@ -313,7 +347,7 @@ impl<M> WiredTable<M> {
                 };
                 let cells: Vec<BoxView<'a>> = self
                     .visible_columns()
-                    .map(|col| col.cell(cx, row))
+                    .map(|col| self.cell(cx, frame, row, &key, actions, col.as_ref()))
                     .collect();
                 let edit_url = frame
                     .edit_prefix

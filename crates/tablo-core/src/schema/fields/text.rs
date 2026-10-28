@@ -212,6 +212,11 @@ impl TextControl {
         self.rules.faults(self.order)
     }
 
+    /// Whether the control is a one-line input showing what it holds: no text area, no password.
+    pub(crate) fn is_one_line(&self) -> bool {
+        self.rows.is_none() && !self.password
+    }
+
     /// The equality expression the app-side unique check probes with.
     pub(crate) fn eq_filter(&self, value: &str) -> Option<toasty::stmt::Expr<bool>> {
         self.probe.as_ref().and_then(|probe| probe(value))
