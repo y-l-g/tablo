@@ -13,7 +13,7 @@ pub use protocol::{
     ErrorKind, FilterOption, Group, IgnoredFilter, IgnoredReason, ImportError, ImportRefusal,
     LanguageChoice, PickerColumn, RecordTableData, Row, RowActions, SESSION_COOKIE, SearchGroup,
     SearchResult, Section, StatTile, Tab, bell, body_bytes, body_string, charts, column_picker,
-    columns, confirms_first, cookie_header, detail_entries, empty_table, field_error,
+    columns, confirms_first, cookie_header, detail_entries, dirty_form, empty_table, field_error,
     field_error_message, filter_options, find_href_with, form_body, groups, ignored_filters,
     import_columns, import_errors, import_refusal, input_value, language_choices, multipart_body,
     nav_badge, nav_links, notification, page_direction, page_language, page_title, record_tables,

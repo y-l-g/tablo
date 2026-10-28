@@ -300,10 +300,78 @@ async fn the_create_page_seeds_the_owner_and_keeps_the_return() {
     );
     assert!(
         form.contains(&format!(
-            "action=\"/admin/children/-/create?return=%2Fadmin%2Fowners%2F{}\"",
-            ada.id
+            "action=\"/admin/children/-/create?owner_id={}&amp;return=%2Fadmin%2Fowners%2F{}\"",
+            ada.id, ada.id
         )),
-        "the form keeps the return: {form}"
+        "the form keeps the seed and the return: {form}"
+    );
+}
+
+/// Create and create another lands on a create form still seeded with the owner, so a relation
+/// table's New link fills several children of one owner in a row.
+#[tokio::test]
+async fn create_another_keeps_the_seeded_owner() {
+    let (router, mut db, ada, _bob) = fixture().await;
+    let create = format!(
+        "/admin/children/-/create?owner_id={}&return=%2Fadmin%2Fowners%2F{}",
+        ada.id, ada.id
+    );
+    let owner = ada.id.to_string();
+    let response = post_fields(
+        &router,
+        &create,
+        &[
+            ("body", "ada-third"),
+            ("owner_id", &owner),
+            ("create_another", "1"),
+        ],
+    )
+    .await;
+    assert_eq!(response.status(), 303);
+    let location = response
+        .headers()
+        .get(LOCATION)
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_string);
+    assert_eq!(location.as_deref(), Some(create.as_str()));
+    let children = Child::all().exec(&mut db).await.unwrap();
+    assert!(
+        children
+            .iter()
+            .any(|child| child.body == "ada-third" && child.owner_id == ada.id),
+        "the save stored the child under its owner"
+    );
+
+    let form = body_string(get(&router, &create).await).await;
+    assert!(
+        form.contains(&format!("value=\"{}\" selected", ada.id)),
+        "the next form preselects the owner: {form}"
+    );
+}
+
+/// A query key that seeds no relationship control stays off the create-another landing.
+#[tokio::test]
+async fn create_another_drops_a_key_that_seeds_nothing() {
+    let (router, _db, ada, _bob) = fixture().await;
+    let owner = ada.id.to_string();
+    let response = post_fields(
+        &router,
+        &format!("/admin/children/-/create?owner_id={owner}&body=injected"),
+        &[
+            ("body", "ada-fourth"),
+            ("owner_id", &owner),
+            ("create_another", "1"),
+        ],
+    )
+    .await;
+    assert_eq!(response.status(), 303);
+    let location = response
+        .headers()
+        .get(LOCATION)
+        .and_then(|value| value.to_str().ok());
+    assert_eq!(
+        location,
+        Some(format!("/admin/children/-/create?owner_id={owner}").as_str())
     );
 }
 

@@ -472,7 +472,7 @@ async fn create_another_saves_and_lands_on_a_fresh_create_form() {
         .create()
         .set(UserFormField::Name, "Grace Hopper")
         .set(UserFormField::Email, "another@example.com")
-        .set_key("create_another", "1")
+        .create_another()
         .submit()
         .await;
     assert_eq!(reply.status(), 303, "{}", reply.html());
@@ -506,7 +506,7 @@ async fn a_refused_create_another_rerenders_and_writes_nothing() {
         .create()
         .set(UserFormField::Name, "")
         .set(UserFormField::Email, "another@example.com")
-        .set_key("create_another", "1")
+        .create_another()
         .submit()
         .await;
     assert!(reply.status().is_success(), "{}", reply.status());
@@ -515,6 +515,30 @@ async fn a_refused_create_another_rerenders_and_writes_nothing() {
         Some(ErrorKind::Required)
     );
     assert_eq!(user_count(&db).await, before);
+}
+
+/// A refused save renders its form dirty, so leaving the page asks before dropping what the user
+/// typed; a fresh create form holds nothing to lose and renders clean.
+#[tokio::test]
+async fn a_refused_save_renders_the_form_dirty() {
+    let db = seeded_db().await;
+    let (router, admin) = app_for_tests(db.clone());
+    let client = demo_client(&router, &db).await.panel(&admin);
+    let users = client.resource::<UserResource>();
+
+    let fresh = users.create_page().await;
+    assert!(fresh.status().is_success(), "{}", fresh.status());
+    assert!(!fresh.dirty(), "{}", fresh.html());
+
+    let refused = users
+        .create()
+        .set(UserFormField::Name, "")
+        .set(UserFormField::Email, "dirty@example.com")
+        .submit()
+        .await;
+    assert!(refused.status().is_success(), "{}", refused.status());
+    assert!(refused.field_error(UserFormField::Name).is_some());
+    assert!(refused.dirty(), "{}", refused.html());
 }
 
 /// Create and create another keeps the page's `?return=` target, so the last save still lands

@@ -15,7 +15,7 @@ use topcoat::context::Cx;
 use crate::{
     TestClient,
     protocol::{
-        EmptyTable, ErrorKind, Group, Row, body_string, empty_table, field_error,
+        EmptyTable, ErrorKind, Group, Row, body_string, dirty_form, empty_table, field_error,
         field_error_message, form_body, groups, input_value, notification_in, response_cookies,
         row_keys, rows, stale_form,
     },
@@ -202,6 +202,9 @@ const CONFIRM: &str = "confirm";
 /// The key the bulk bar posts its selection in, comma-separated.
 const IDS: &str = "ids";
 
+/// The key the create page's Create & create another button posts.
+const CREATE_ANOTHER: &str = "create_another";
+
 fn resolved<R>(url: Option<String>, what: &str) -> String {
     url.unwrap_or_else(|| panic!("the panel serves `{}` no {what}", type_name::<R>()))
 }
@@ -261,6 +264,12 @@ impl<'c, 'a, K: PartialEq> Submission<'c, 'a, K> {
         self.pairs.retain(|(kept, _)| kept != key);
         self.pairs.push((key.to_string(), value.to_string()));
         self
+    }
+
+    /// Posts as the create page's Create & create another button does, which lands back on a
+    /// fresh create form.
+    pub fn create_another(self) -> Self {
+        self.set_key(CREATE_ANOTHER, "1")
     }
 
     /// Posts the pairs with a fresh CSRF token, as [`TestClient::submit`] does.
@@ -397,6 +406,12 @@ impl<'c, 'a, K: PartialEq> Reply<'c, 'a, K> {
     /// Whether the edit form refused the save as stale; see [`stale_form`](crate::stale_form).
     pub fn stale(&self) -> bool {
         stale_form(&self.html)
+    }
+
+    /// Whether the form renders dirty, guarding what it holds against leaving the page; see
+    /// [`dirty_form`](crate::dirty_form).
+    pub fn dirty(&self) -> bool {
+        dirty_form(&self.html)
     }
 
     /// Why `field`'s error slot renders, read under its first key; see
