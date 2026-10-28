@@ -138,3 +138,38 @@ fn a_generic_model_is_refused() {
     let message = shown("struct M<T> { a: T }").unwrap_err();
     assert!(message.contains("generic"), "{message}");
 }
+
+/// The currency `money = ..` passes to `Money::money`, for the field's `#[columns(..)]` source.
+fn currency(attribute: &str) -> String {
+    let input: DeriveInput =
+        syn::parse_str(&format!("struct M {{ {attribute} a: i64 }}")).expect("the input parses");
+    let syn::Data::Struct(data) = input.data else {
+        unreachable!("the input is a struct")
+    };
+    let field = data.fields.iter().next().expect("one field");
+    let calls = ColumnKeys::parse(field)
+        .expect("the keys parse")
+        .column_calls(&quote!(tablo), true)
+        .to_string();
+    let start = calls.find("__column ,").expect("a money call") + "__column ,".len();
+    calls[start..calls.rfind(')').expect("the call closes")]
+        .trim()
+        .to_string()
+}
+
+#[test]
+fn money_names_a_currency_constant_by_its_iso_code_and_takes_any_other_name_as_is() {
+    assert_eq!(
+        currency("#[columns(money = EUR)]"),
+        "tablo :: Currency :: EUR"
+    );
+    assert_eq!(
+        currency("#[columns(money = SHOP_CURRENCY)]"),
+        "SHOP_CURRENCY"
+    );
+    assert_eq!(currency("#[columns(money = Eur)]"), "Eur");
+    assert_eq!(
+        currency("#[columns(money = shop::CURRENCY)]"),
+        "shop :: CURRENCY"
+    );
+}

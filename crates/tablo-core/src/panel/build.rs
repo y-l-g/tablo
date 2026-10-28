@@ -392,6 +392,7 @@ impl Registry {
             registration.register(self);
         }
         self.link_relations();
+        self.check_root();
         let mut errors = configuration_errors;
         errors.append(&mut self.errors);
         (Arc::new(std::mem::take(&mut self.mounts)), errors)

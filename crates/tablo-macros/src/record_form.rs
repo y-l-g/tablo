@@ -11,6 +11,10 @@ use crate::fields::{
     reject_generics,
 };
 
+mod variant;
+
+pub(crate) use variant::field_variants;
+
 pub fn expand_tokens(input: DeriveInput) -> TokenStream2 {
     match expand_checked(input) {
         Ok(tokens) => tokens,
@@ -78,10 +82,12 @@ pub(crate) fn expand_as(input: DeriveInput, derive: &str) -> syn::Result<TokenSt
         Some("#[derive(RecordForm)] needs at least one field"),
     )?;
     let attrs = struct_attrs(&input)?;
+    let variants = field_variants(named.named.iter())?;
     let fields = named
         .named
         .iter()
-        .map(field_spec)
+        .zip(variants)
+        .map(|(field, variant)| field_spec(field, variant))
         .collect::<syn::Result<Vec<_>>>()?;
     let krate = crate::tablo_core_path(&input.ident, derive)?;
     Ok(expand_struct(&krate, &input, &attrs, &fields))
@@ -111,7 +117,7 @@ fn struct_attrs(input: &DeriveInput) -> syn::Result<StructAttrs> {
     Ok(StructAttrs { model })
 }
 
-fn field_spec(field: &syn::Field) -> syn::Result<FieldSpec> {
+fn field_spec(field: &syn::Field, variant: syn::Ident) -> syn::Result<FieldSpec> {
     let ident = field.ident.clone().expect("named field");
     if last_segment(&field.ty).is_some_and(|name| name == "Deferred") {
         return Err(syn::Error::new_spanned(
@@ -121,7 +127,6 @@ fn field_spec(field: &syn::Field) -> syn::Result<FieldSpec> {
         ));
     }
     let attrs = form_attrs(field, Derive::Record)?;
-    let variant = format_ident!("{}", pascal_case(&ident.to_string()));
     let is_bool =
         matches!(&field.ty, Type::Path(path) if path.qself.is_none() && path.path.is_ident("bool"));
     let control = if attrs.embed {
@@ -167,21 +172,6 @@ fn field_spec(field: &syn::Field) -> syn::Result<FieldSpec> {
         required,
         control,
     })
-}
-
-/// `author_id` → `AuthorId`; a raw identifier drops its `r#`.
-pub(crate) fn pascal_case(name: &str) -> String {
-    name.trim_start_matches("r#")
-        .split('_')
-        .filter(|part| !part.is_empty())
-        .map(|part| {
-            let mut chars = part.chars();
-            match chars.next() {
-                Some(first) => first.to_uppercase().chain(chars).collect::<String>(),
-                None => String::new(),
-            }
-        })
-        .collect()
 }
 
 fn expand_struct(

@@ -2,7 +2,8 @@
 //! their default render shows.
 
 use tablo::{
-    Page, PageDef, Panel, ReadOnly, Resource, ResourceDef, Table, TextColumn, Widget, lens,
+    NavigationItem, Page, PageDef, Panel, ReadOnly, Resource, ResourceDef, Table, TextColumn,
+    Widget, lens,
     testing::{find_href_with, page_title, widgets},
 };
 use topcoat::{
@@ -272,18 +273,32 @@ impl Page for SummaryPage {
     }
 }
 
-/// The default `render` shows the declared title, else the page's label, over the widget grid.
+/// A page labelled only by its replaced sidebar entry, so its title is that entry's label.
+struct ExportsPage;
+
+impl Page for ExportsPage {
+    fn declare() -> PageDef {
+        PageDef::new()
+            .navigation(NavigationItem::at("Data exports", "/admin/exports"))
+            .widget::<Greeting>()
+    }
+}
+
+/// The default `render` shows the declared title, else the page's label, else its sidebar
+/// entry's, over the widget grid.
 #[tokio::test]
 async fn the_default_render_shows_the_title_and_the_widgets() {
     let router = books(
         Panel::new("admin")
             .page::<OverviewPage>()
-            .page::<SummaryPage>(),
+            .page::<SummaryPage>()
+            .page::<ExportsPage>(),
     )
     .await;
     for (uri, title) in [
         ("/admin/overview", "Sales overview"),
         ("/admin/summary", "Summary"),
+        ("/admin/exports", "Data exports"),
     ] {
         let (status, html) = page(&router, uri).await;
         assert_eq!(status, http::StatusCode::OK, "{uri}");

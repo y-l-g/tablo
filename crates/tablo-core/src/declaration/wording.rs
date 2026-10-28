@@ -67,6 +67,11 @@ impl fmt::Display for DeclarationErrorKind {
             Self::SecondHome => {
                 f.write_str("a home page is already registered: `Panel::home` takes one")
             }
+            Self::NoRoot => f.write_str(
+                "every resource is hidden from navigation and no home page is registered, so the \
+                 panel's root, where a sign-in lands, leads nowhere: show one resource in the \
+                 sidebar, or register a page with `Panel::home`",
+            ),
             Self::DuplicateResource => f.write_str(
                 "registered twice: a panel mounts each resource type once, so mount a variant \
                  under its own type",

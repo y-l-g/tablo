@@ -127,7 +127,9 @@ pub use tablo_macros::EmbeddedForm;
 /// Beside the struct, the derive declares its [`Field`](crate::FormInput::Field) enum with the
 /// struct's visibility: `RejectionField`, one variant per field in Pascal case
 /// (`RejectionField::NotifyAuthor`), which
-/// [`Action::validate_input`](crate::Action::validate_input) refuses a value under.
+/// [`Action::validate_input`](crate::Action::validate_input) refuses a value under. Two fields
+/// whose names make one variant, such as `foo_bar` and `foo__bar`, fail to compile at the
+/// second.
 ///
 /// One item of a repeater is an embedded struct a `#[document]` list stores, which a
 /// [`RecordForm`](derive@crate::RecordForm) edits with `#[form(repeat)]`:
@@ -260,15 +262,18 @@ pub use tablo_macros::FormInput;
 ///   ([`TextColumn::label`](crate::TextColumn::label));
 /// - `#[columns(badge)]` — a text column's value as a badge
 ///   ([`TextColumn::badge`](crate::TextColumn::badge));
-/// - `#[columns(money = EUR)]` — a number as an amount of a [`Currency`](crate::Currency): one
-///   of its constants by name, or any expression of the type, such as `money =
-///   Currency::new("CHF")` ([`TextColumn::money`](crate::TextColumn::money));
+/// - `#[columns(money = EUR)]` — a number as an amount of a [`Currency`](crate::Currency): a
+///   bare three-letter uppercase code names one of its constants, and any other expression is
+///   the currency itself, such as `money = SHOP_CURRENCY` for the app's own constant or `money
+///   = Currency::new("CHF")` ([`TextColumn::money`](crate::TextColumn::money));
 /// - `#[columns(hidden_by_default)]` — a table column each reader may show, hidden at first
 ///   ([`TextColumn::hidden_by_default`](crate::TextColumn::hidden_by_default));
 /// - `#[columns(filter)]` — a filter on the table: a [`TernaryFilter`](crate::TernaryFilter)
 ///   for a `bool`, a [`DateFilter`](crate::DateFilter) over a range of days for a date or a
-///   timestamp, a [`SelectFilter`](crate::SelectFilter) for an
-///   [`Options`](derive@crate::Options) enum.
+///   timestamp, optional or not, a [`SelectFilter`](crate::SelectFilter) for an
+///   [`Options`](derive@crate::Options) enum. An `Option<bool>` or an optional enum takes no
+///   built-in filter, so `filter` on one fails to compile: declare its filter on the
+///   resource's table.
 ///
 /// ```rust
 /// # #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo_core::Options)]
@@ -401,9 +406,10 @@ pub use tablo_macros::Options;
 /// }
 /// ```
 ///
-/// The derive also emits `UserFormField`, one variant per field, which
+/// The derive also emits `UserFormField`, one variant per field in Pascal case, which
 /// `Posted` and `Resource::validate_record`'s `FieldErrors` key on and
-/// `RecordForm::fields` answers with each variant's keys.
+/// `RecordForm::fields` answers with each variant's keys. Two fields whose names make one
+/// variant, such as `foo_bar` and `foo__bar`, fail to compile at the second.
 /// It emits `UserFormControls`, one control per field chosen from the field —
 /// a `bool` is a toggle, `#[form(options = T)]` a choice over `T`'s options,
 /// `#[form(options)]` a choice over the field type's options,

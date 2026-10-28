@@ -190,7 +190,8 @@ impl PageDef {
     }
 
     /// The heading the default [`render`](Page::render) shows. Defaults to the
-    /// [`label`](Self::label).
+    /// [`label`](Self::label) when one is given, else the label of the
+    /// [`navigation`](Self::navigation) item, else the label's default.
     #[must_use]
     pub fn title(mut self, title: impl Into<crate::Text>) -> Self {
         self.title = Some(title.into());
@@ -318,6 +319,10 @@ pub(crate) struct MountedPage {
 impl MountedPage {
     pub(crate) fn new<P: Page>(def: PageDef) -> Self {
         let stem = type_stem::<P>("Page");
+        let title = def
+            .title
+            .or_else(|| def.label.clone())
+            .or_else(|| def.navigation.as_ref().map(|item| item.label.clone()));
         let label = def.label.unwrap_or_else(|| {
             let noun = sentence_case(stem);
             crate::Text::derived(
@@ -325,7 +330,7 @@ impl MountedPage {
                 noun,
             )
         });
-        let title = def.title.unwrap_or_else(|| label.clone());
+        let title = title.unwrap_or_else(|| label.clone());
         let mut navigation = def.navigation.unwrap_or_else(|| NavigationItem {
             label,
             ..NavigationItem::default()

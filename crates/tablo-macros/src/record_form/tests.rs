@@ -1,4 +1,4 @@
-use super::*;
+use super::{variant::pascal_case, *};
 
 /// The refusal `source` produces, or the expansion when none fires.
 fn refusal(source: &str) -> String {
@@ -64,4 +64,25 @@ fn field_variants_are_pascal_case() {
     assert_eq!(pascal_case("author_id"), "AuthorId");
     assert_eq!(pascal_case("r#type"), "Type");
     assert_eq!(pascal_case("seo"), "Seo");
+}
+
+#[test]
+fn two_fields_making_one_variant_or_a_name_making_none_are_refused() {
+    for (source, expected) in [
+        (
+            "#[form(model = M)] struct F { foo_bar: i64, foo__bar: i64 }",
+            "`foo__bar` and `foo_bar` both make the `..Field` variant `FooBar`",
+        ),
+        (
+            "#[form(model = M)] struct F { x: i64, _x: i64 }",
+            "`_x` and `x` both make the `..Field` variant `X`",
+        ),
+        (
+            "#[form(model = M)] struct F { _1: i64 }",
+            "`_1` names no `..Field` variant",
+        ),
+    ] {
+        let message = refusal(source);
+        assert!(message.contains(expected), "{source}: {message}");
+    }
 }

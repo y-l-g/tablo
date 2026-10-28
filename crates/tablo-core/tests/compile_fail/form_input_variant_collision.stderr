@@ -1,0 +1,5 @@
+error: `foo__bar` and `foo_bar` both make the `..Field` variant `FooBar`: rename one
+ --> tests/compile_fail/form_input_variant_collision.rs:4:5
+  |
+4 |     foo__bar: String,
+  |     ^^^^^^^^
