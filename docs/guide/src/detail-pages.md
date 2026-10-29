@@ -106,7 +106,8 @@ impl Resource for PostResource {
 ```
 
 `RecordPageDef::access` narrows who may open the page for a record, beyond those the policy lets
-view it. `url::record_page` builds a page's URL for a record.
+view it. `url::record_page` builds a page's URL for a record. The panel masks nothing the page
+renders: a page showing a field that `field_access` restricts asks `can_view_field` first.
 [`RecordPage`](https://y-l.fr/tablo/nightly/api/tablo/trait.RecordPage.html) has the checks a
 request passes and what `render` receives.
 

@@ -51,6 +51,9 @@ use crate::{
 /// sign-in, the request's tenant, the resource's [`Resource::query`], and
 /// [`Ability::View`](crate::Ability::View) of the record; then [`RecordPageDef::access`]. A
 /// trashed record opens too, as it does on its detail page.
+///
+/// A form the page renders posts to an app route, which none of those checks cover: the route
+/// loads the record through [`scoped_query`](crate::scoped_query) and asks the policy itself.
 pub trait RecordPage<R: Resource>: Sized + Send + Sync + 'static {
     /// The page's slug, label, icon and access. Defaults to [`RecordPageDef::new`]: every
     /// default.
@@ -62,7 +65,8 @@ pub trait RecordPage<R: Resource>: Sized + Send + Sync + 'static {
     /// [`Resource::query`] loads it, with no relation included.
     ///
     /// The record arrives whole: a field a [`ResourceDef::field_access`] rule hides from the
-    /// request is still on it, so a page that shows such a field asks the same rule first.
+    /// request is still on it, so a page that shows such a field asks
+    /// [`can_view_field`](crate::can_view_field) first.
     fn render(cx: &Cx, record: R::Model) -> impl Future<Output = Result<impl View>> + Send;
 }
 
@@ -117,6 +121,9 @@ impl<M> RecordPageDef<M> {
     /// Whether the request's user may open the page for `record`, asked once the policy allows
     /// [`Ability::View`](crate::Ability::View) of it. The panel answers 403 and links no page it
     /// answers `false` for. Defaults to `true`.
+    ///
+    /// Read no relation of `record`: each page asking loads the record with relations of its own,
+    /// the record page with none.
     #[must_use]
     pub fn access(mut self, access: impl Fn(&Cx, &M) -> bool + Send + Sync + 'static) -> Self {
         self.access = Arc::new(access);

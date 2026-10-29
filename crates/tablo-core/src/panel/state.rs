@@ -30,11 +30,22 @@ pub(crate) struct NavEntry {
     pub(crate) item: NavigationItem,
     /// A resource's `ViewAny`, or a page's `PageDef::access`.
     pub(crate) visible: Arc<dyn Fn(&Cx) -> bool + Send + Sync>,
-    /// A resource's list path: the trail reads its create, view and edit pages under it.
-    pub(crate) resource_list: Option<String>,
+    /// A resource's list, under which the trail reads its create, view and edit pages.
+    pub(crate) resource_list: Option<ResourceTrail>,
     /// A resource's [`navigation_badge`](crate::ResourceDef::navigation_badge), counted per
     /// request.
     pub(crate) badge: Option<BadgeFn>,
+}
+
+/// What the trail reads under a resource's list.
+#[derive(Debug, Clone)]
+pub(crate) struct ResourceTrail {
+    /// The list's path.
+    pub(crate) list: String,
+    /// Whether the resource has a detail page, which the trail of a deeper record page links.
+    pub(crate) viewed: bool,
+    /// The labels of the pages under a record, by slug.
+    pub(crate) pages: Vec<(String, crate::Text)>,
 }
 
 /// A resource the panel's global search searches, its type erased.

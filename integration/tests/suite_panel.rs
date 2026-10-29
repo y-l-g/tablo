@@ -21,6 +21,7 @@ mod navigation;
 mod outcome;
 mod pages;
 mod panel;
+mod record_pages;
 mod shell;
 mod upload;
 mod upload_discard;

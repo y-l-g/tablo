@@ -36,6 +36,23 @@ pub fn can_list<R: Resource>(cx: &Cx) -> bool {
         })
 }
 
+/// Whether the current request may view `R`'s `field`: the request's panel mounts `R`, and no
+/// [`ResourceDef::field_access`](crate::ResourceDef::field_access) rule over the model hides the
+/// field from it. The panel's own pages mask a hidden field; a
+/// [`RecordPage`](crate::RecordPage) shows one only after asking this.
+///
+/// A `field` that is no root field of the model, `lens!(Post.author.name)` say, answers `false`.
+pub fn can_view_field<R: Resource, T>(
+    cx: &Cx,
+    field: impl Into<toasty::stmt::Path<R::Model, T>>,
+) -> bool {
+    let path = crate::toasty_compat::model::ModelPath::of(&field.into());
+    let Ok(field) = crate::toasty_compat::model::field::<R::Model>(&path) else {
+        return false;
+    };
+    mounted::<R>(cx).is_some_and(|resource| !resource.field_mask(cx).hidden().contains(&field.name))
+}
+
 /// Whether the current request may open the page `P`: the request's panel mounts `P`, and sign-in
 /// and [`PageDef::access`](crate::PageDef::access) allow it, the checks the page's `GET` makes.
 ///

@@ -22,7 +22,7 @@ use super::{
     pages::{page_action, page_action_options, page_handler},
     record_page::record_page_view,
     relations::{Child, relation_table},
-    state::{BadgeFn, NavEntry, Searchable},
+    state::{BadgeFn, NavEntry, ResourceTrail, Searchable},
 };
 use crate::{
     Ability, DeclarationError, DeclarationErrorKind, Page, PageDef, Site,
@@ -327,7 +327,14 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
             registry.nav_items.push(NavEntry {
                 item: mounted.navigation.clone(),
                 visible: Arc::new(|cx| crate::can::<R>(cx, Ability::ViewAny)),
-                resource_list: Some(url),
+                resource_list: Some(ResourceTrail {
+                    list: url,
+                    viewed: mounted.viewed(),
+                    pages: pages
+                        .iter()
+                        .map(|page| (page.slug.clone(), page.label.clone()))
+                        .collect(),
+                }),
                 badge: mounted.counts_navigation_badge().then(|| -> BadgeFn {
                     Arc::new(|cx| {
                         Box::pin(async move {

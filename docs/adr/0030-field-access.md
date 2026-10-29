@@ -67,6 +67,10 @@ would hide the forgery. An edit completes the field from the stored record, as i
 key; a create takes the control's default, else the blank answer. A create needing a value the user
 may not choose with no default to take is refused, and the list offers none.
 
+A record page renders the app's own markup from the record, which the panel cannot mask: the record
+arrives whole, and the page asks `can_view_field::<R, _>(cx, lens)` before it shows a restricted
+field. Handing it a record with the hidden fields blanked would show a blank as the field's value.
+
 ## Rejected
 
 - A field ability in `Policy` (`Ability::ViewField(&str)`): the field names a string the compiler
