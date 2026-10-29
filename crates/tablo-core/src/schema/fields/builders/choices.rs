@@ -27,7 +27,8 @@ impl<F> ChoiceField<F> {
     }
 
     /// Takes several options: a checkbox per option, posting the field's key once per checked
-    /// box. A record form's many-to-many field (`Vec<K>` with `#[form(relationship = R)]`) is one;
+    /// box. A record form's many-to-many field (`Vec<K>` with `#[form(relationship = R)]`) is one,
+    /// and so is its `Vec` with `#[form(options = T)]`, stored in a list column;
     /// [`parse_list`](crate::values::parse_list) reads one in an action's input.
     ///
     /// It offers at most [`MAX_RELATIONSHIP_OPTIONS`](crate::schema::MAX_RELATIONSHIP_OPTIONS)

@@ -35,9 +35,10 @@ pub enum ManyToManyFault {
     ///
     /// Point the relationship at the target's resource.
     OtherSource,
-    /// A multiple choice in a resource's form over no many-to-many field, which no column stores.
+    /// A multiple choice in a resource's form over no many-to-many field: a relationship's keys,
+    /// which no column stores, or static options over a column holding one value.
     ///
-    /// Bind it to a `#[has_many(via = ..)]` field.
+    /// Bind a relationship to a `#[has_many(via = ..)]` field, and static options to a `Vec`.
     NoJoin,
 }
 
@@ -75,8 +76,9 @@ pub(super) fn fmt_many_to_many(
         ),
         ManyToManyFault::NoJoin => write!(
             f,
-            "multiple choice `{field}` names no many-to-many field of the model, so \
-             nothing would store its records: bind it to a `#[has_many(via = ..)]` field"
+            "multiple choice `{field}` names neither a many-to-many field of the model nor a \
+             list column, so nothing would store its choices: bind a relationship to a \
+             `#[has_many(via = ..)]` field, and static options to a `Vec`"
         ),
     }
 }

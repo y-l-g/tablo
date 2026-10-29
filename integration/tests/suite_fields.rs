@@ -12,6 +12,7 @@
 mod common;
 
 mod choice_create;
+mod choice_list;
 mod condition;
 mod dependent;
 mod field_access;

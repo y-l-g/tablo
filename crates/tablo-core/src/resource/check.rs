@@ -325,8 +325,8 @@ fn check_form_inner<R: Resource>(
 }
 
 /// Each many-to-many field of `R`'s form is a multiple choice over the records its join model
-/// links, through a join model a link can write; and each multiple choice is such a field, since
-/// no column stores a list of keys.
+/// links, through a join model a link can write; and each multiple choice is such a field, or one
+/// over static options that a list column stores, since no column stores a list of keys.
 fn check_many_to_many<R: Resource>(
     cx: &Cx,
     declared: &Mounted<R>,
@@ -350,7 +350,10 @@ fn check_many_to_many<R: Resource>(
         } else {
             field
                 .as_choice()
-                .is_some_and(|choice| choice.is_multiple())
+                .is_some_and(|choice| {
+                    choice.is_multiple()
+                        && (choice.is_relationship() || !model::is_list::<R::Model>(name))
+                })
                 .then_some(ManyToManyFault::NoJoin)
         };
         if let Some(fault) = fault {

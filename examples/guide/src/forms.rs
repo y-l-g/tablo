@@ -262,6 +262,38 @@ pub fn role_fields() {
 }
 // ANCHOR_END: forms-role-options
 
+// ANCHOR: forms-multiple-choice
+#[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo::Options)]
+pub enum Topic {
+    Releases,
+    Security,
+    Events,
+}
+
+#[derive(Debug, Clone, toasty::Model)]
+pub struct Subscriber {
+    #[key]
+    #[auto]
+    pub id: uuid::Uuid,
+    pub email: String,
+    // A list column: one value per chosen option.
+    pub topics: Vec<Topic>,
+}
+
+#[derive(Debug, Clone, tablo::RecordForm)]
+#[form(model = Subscriber)]
+pub struct SubscriberForm {
+    pub email: String,
+    #[form(options)]
+    pub topics: Vec<Topic>,
+}
+
+pub fn subscriber_layout() -> Schema<SubscriberForm> {
+    let c = SubscriberForm::controls();
+    Schema::new((c.email, c.topics.min_items(1).buttons()))
+}
+// ANCHOR_END: forms-multiple-choice
+
 // ANCHOR: forms-uploads-dir
 pub fn uploads_panel(dir: PathBuf) -> Panel {
     Panel::new("admin").uploads_dir("/uploads", dir)
