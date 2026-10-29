@@ -106,7 +106,11 @@ pub(super) fn field_parts(
                 &mut errors,
             );
         });
-    } else if matches!(field.control, DefaultControl::Files) {
+    } else if let DefaultControl::Files | DefaultControl::Choices(..) = &field.control {
+        let element = match &field.control {
+            DefaultControl::Choices(_, element) => quote! { #element },
+            _ => quote! { ::std::string::String },
+        };
         // Toasty names a list's path `List<T>`, not the field's `Vec<T>`.
         let key = quote_spanned! {ty.span()=>
             #krate::__macro::form_key::<#model, _>(#path)
@@ -124,7 +128,7 @@ pub(super) fn field_parts(
         });
         parts.reads.push(quote_spanned! {ty.span()=>
             let #binding: ::std::option::Option<#ty> = #krate::__macro::take_leaf(
-                #krate::__macro::parse_list::<::std::string::String>(&#key, values),
+                #krate::__macro::parse_list::<#element>(&#key, values),
                 &mut errors,
             );
         });

@@ -118,6 +118,18 @@ A `String` field takes the same list with `#[form(options = T)]`. `.options` tak
 `Vec<(String, String)>` (an `Options` enum's list), `Vec<String>`, or `[&str; N]`
 (`["admin", "member"]`).
 
+A `Vec` of an `Options` enum with `#[form(options)]`, or a `Vec<String>` with
+`#[form(options = T)]`, is a **multiple choice**: a checkbox per option, and Toasty stores the
+chosen ones in one list column.
+
+```rust
+{{#include ../../../examples/guide/src/forms.rs:forms-multiple-choice}}
+```
+
+No option checked stores the empty list, so `.min_items(1)` is how the field requires a choice;
+`.max_items(n)` caps it, and `.buttons()` renders a compact list of toggles.
+[`RecordForm`](https://y-l.fr/tablo/nightly/api/tablo_core/derive.RecordForm.html) has the rules.
+
 **Layout blocks** arrange fields: `Section::new(title)` is a titled card, `Group::new()` an untitled
 container, and `Grid::new(cols)` a grid of 1 to 12 columns. A schema or block takes a tuple of at
 most twelve children; nest a `Group` for more.

@@ -48,6 +48,12 @@ checked box, which reading the submission gathers into one `FormValue::List` as 
 repeater's rows. The write links and unlinks records as join rows built from the app schema, since
 Toasty writes through no multi-step `via` and the join model's type is not the field's.
 
+A multiple choice over static options binds a `Vec` the model stores in one list column. Its
+control posts the key once per checked box, gathered into one `FormValue::List` as a
+many-to-many field's are, and the parse reads each value as the element type. Mounting refuses a
+multiple choice over a column holding one value, and a relationship's over a list column: a key
+list stored in a column is a link the database does not check.
+
 A table column editing its field in a cell posts to the edit route as this form, so the mount
 refuses one whose form control would not save what the cell posts
 ([0036](0036-inline-editing.md)).

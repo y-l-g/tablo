@@ -196,6 +196,16 @@ pub(crate) fn is_via<M: toasty::schema::Model>(name: &str) -> bool {
     })
 }
 
+/// Whether `M`'s field `name` stores a list of values in its column: a `Vec` of a scalar.
+pub(crate) fn is_list<M: toasty::schema::Model>(name: &str) -> bool {
+    M::schema().as_root().is_some_and(|root| {
+        root.fields.iter().any(|field| {
+            field.name.app.as_deref() == Some(name)
+                && matches!(&field.ty, app::FieldTy::Primitive(p) if p.ty.is_list())
+        })
+    })
+}
+
 /// Whether `M`'s field `name` is the inverse side of a relation, `#[has_many]` or `#[has_one]`
 /// with or without `via`: it stores nothing on `M`'s rows.
 pub(crate) fn is_inverse<M: toasty::schema::Model>(name: &str) -> bool {

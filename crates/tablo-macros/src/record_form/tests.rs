@@ -52,6 +52,14 @@ fn a_blank_answer_on_a_many_to_many_field_is_refused() {
 }
 
 #[test]
+fn a_blank_answer_on_a_multiple_choice_is_refused() {
+    let message = refusal(
+        "#[form(model = M)] struct F { #[form(options = Channel, blank = Vec::new())] a: Vec<String> }",
+    );
+    assert!(message.contains("min_items"), "{message}");
+}
+
+#[test]
 fn a_blank_answer_on_a_file_list_is_refused() {
     let message =
         refusal("#[form(model = M)] struct F { #[form(file, blank = Vec::new())] a: Vec<String> }");

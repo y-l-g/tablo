@@ -412,7 +412,8 @@ pub use tablo_macros::Options;
 /// variant, such as `foo_bar` and `foo__bar`, fail to compile at the second.
 /// It emits `UserFormControls`, one control per field chosen from the field —
 /// a `bool` is a toggle, `#[form(options = T)]` a choice over `T`'s options,
-/// `#[form(options)]` a choice over the field type's options,
+/// `#[form(options)]` a choice over the field type's options (a multiple choice over a `Vec`
+/// of options),
 /// `#[form(relationship = R)]` a choice over `R`'s records (a multiple choice over a `Vec` of
 /// their keys), `#[form(file)]` a file field, `#[form(embed)]` the embedded value's schema,
 /// `#[form(repeat)]` a repeater, and any
@@ -431,6 +432,13 @@ pub use tablo_macros::Options;
 /// - `#[form(options)]` on an `Options` enum or an `Option` of one: a choice over its options.
 ///   Without it, the field is a text field.
 /// - `#[form(options = Status)]`: a choice over `Status::options()`.
+/// - `#[form(options = Channel)]` on a `Vec<String>`, or `#[form(options)]` on a `Vec` of an
+///   `Options` enum: a multiple choice, a checkbox per option, stored in the list column. The
+///   form posts the key once per checked box, after a hidden blank, so a submission with no
+///   box checked stores the empty list, its blank answer; an edit that does not post it keeps
+///   the stored list. A value the options do not offer is refused, and
+///   [`min_items`](crate::ChoiceField::min_items) and
+///   [`max_items`](crate::ChoiceField::max_items) bound the count.
 /// - `#[form(relationship = AuthorResource)]` on a foreign key: a choice over the source's
 ///   records, each labelled by its `record_title`. The source is any `OptionSource`, which
 ///   every `Resource` is.
@@ -449,7 +457,8 @@ pub use tablo_macros::Options;
 /// control required and the parse refuses an empty submission. No control declares presence.
 ///
 /// A generic struct, a tuple struct, an empty struct, a `Deferred<_>` field,
-/// `blank` or `optional` on an `Option`, an embedded value or a many-to-many field, `optional`
+/// `blank` or `optional` on an `Option`, an embedded value, a multiple choice or a
+/// many-to-many field, `optional`
 /// on a type other than `String`, and an unknown key are compile errors. So are a field the
 /// model lacks, a type the model's field does not have, a scalar that is not a `FormScalar`,
 /// and a many-to-many field whose keys are not its source's primary key.
@@ -480,8 +489,8 @@ pub use tablo_macros::Options;
 ///   column with one stays `NULL`.
 /// - Making the two keys the join model's primary key, as `#[key(article_id, tag_id)]`, has
 ///   the database store each pair once, whatever two concurrent writes do. Mounting refuses a
-///   multiple choice in a resource's form that names no many-to-many field. In an action's
-///   input, [`parse_list`](crate::parse_list) reads a multiple choice.
+///   relationship's multiple choice in a resource's form that names no many-to-many field. In
+///   an action's input, [`parse_list`](crate::parse_list) reads a multiple choice.
 ///
 /// # Submitting
 ///
