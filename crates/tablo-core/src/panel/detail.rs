@@ -1,5 +1,5 @@
 //! The detail page: `GET {prefix}/{slug}/{id}`, the record's columns and its relation tables,
-//! under a header with the record's actions.
+//! under a header with the record's actions and its navigation.
 
 use topcoat::{
     context::Cx,
@@ -12,7 +12,7 @@ use super::{
     actions::load_detail,
     bar::{ActionBar, record_bar},
     gate::gate,
-    record_page::{RecordPageLink, record_page_links, render_record_page_links},
+    record_nav::{RecordNavLink, record_navigation, render_record_navigation},
     relations::render_relations,
 };
 use crate::{
@@ -52,7 +52,7 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
             .path_and_query()
             .map_or(uri.path(), |full| full.as_str());
         let actions = record_bar(cx, &resource, &record, Places::DETAIL, here);
-        let pages = record_page_links(cx, &resource, &record);
+        let navigation = record_navigation(cx, &resource, &record);
         Ok(detail_page(
             cx,
             DetailPage {
@@ -60,7 +60,7 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
                 back,
                 public_link,
                 actions,
-                pages,
+                navigation,
                 edit,
                 body,
                 relations,
@@ -75,7 +75,7 @@ struct DetailPage<'a> {
     back: String,
     public_link: Option<PublicLink>,
     actions: ActionBar,
-    pages: Vec<RecordPageLink>,
+    navigation: Vec<RecordNavLink>,
     edit: Option<String>,
     body: BoxView<'a>,
     relations: Vec<BoxView<'a>>,
@@ -88,13 +88,12 @@ fn detail_page<'a>(cx: &'a Cx, page: DetailPage<'a>) -> BoxView<'a> {
         back,
         public_link,
         actions,
-        pages,
+        navigation,
         edit,
         body,
         relations,
     } = page;
     let actions = actions.render(cx);
-    let pages = render_record_page_links(cx, pages);
     let outline =
         tablo_ui::button_variants(tablo_ui::ButtonVariant::Outline, tablo_ui::ButtonSize::Md);
     view! {
@@ -116,7 +115,6 @@ fn detail_page<'a>(cx: &'a Cx, page: DetailPage<'a>) -> BoxView<'a> {
                             (link.label)
                         </a>
                     }
-                    (pages)
                     (actions)
                     if let Some(url) = edit {
                         <a
@@ -132,6 +130,7 @@ fn detail_page<'a>(cx: &'a Cx, page: DetailPage<'a>) -> BoxView<'a> {
                     }
                 )
             )
+            (render_record_navigation(cx, navigation))
             tablo_ui::page_content(
                 <div class="flex flex-col gap-4">
                     (body)

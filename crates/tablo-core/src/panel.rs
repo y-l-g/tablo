@@ -12,6 +12,7 @@ mod host;
 mod input;
 mod list;
 pub(crate) mod pages;
+mod record_nav;
 mod record_page;
 mod register;
 mod relations;

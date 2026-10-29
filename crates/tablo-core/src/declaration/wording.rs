@@ -123,6 +123,10 @@ impl fmt::Display for DeclarationErrorKind {
             Self::DuplicateRelation => {
                 f.write_str("declared twice: each related resource is one relation")
             }
+            Self::HasOneTab => f.write_str(
+                "a `has_one` relation cannot be a tab: its form edits inside the record's own \
+                 form",
+            ),
             Self::UnregisteredRelation => f.write_str(
                 "the related resource is not registered on this panel: declare it with \
                  `Panel::resource`",

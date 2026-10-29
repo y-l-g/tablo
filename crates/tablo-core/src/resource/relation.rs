@@ -73,12 +73,16 @@ use crate::{
 /// A [`has_one`](Self::has_one) relation renders no table: the related resource's form edits the
 /// record's one child inside the record's own form.
 ///
+/// [`tab`](Self::tab) moves the table off the detail and edit pages onto a page of its own.
+///
 /// Mounting refuses a relation to a resource the panel does not register, and two relations of
 /// one resource to the same related resource.
 pub struct Relation<P> {
     pub(crate) child: TypeId,
     pub(crate) child_name: &'static str,
     pub(crate) label: Option<crate::Text>,
+    /// Whether [`Self::tab`] serves the table on a page of its own.
+    pub(crate) tab: bool,
     pub(crate) kind: RelationKind<P>,
     bind: BindFn<P>,
     /// Why the relation's field binds nothing, when it does not.
@@ -259,6 +263,7 @@ where
             child: TypeId::of::<C>(),
             child_name: std::any::type_name::<C>(),
             label: None,
+            tab: false,
             kind: RelationKind::HasMany {
                 foreign_key: column,
             },
@@ -332,6 +337,7 @@ where
             child: TypeId::of::<C>(),
             child_name: std::any::type_name::<C>(),
             label: None,
+            tab: false,
             kind: RelationKind::ManyToMany(Links {
                 field,
                 input: InputSpec {
@@ -471,6 +477,21 @@ impl<P> Relation<P> {
     #[must_use]
     pub fn label(mut self, label: impl Into<crate::Text>) -> Self {
         self.label = Some(label.into());
+        self
+    }
+
+    /// Serves the table on a page of its own, `{list}/{key}/{related slug}`, instead of under the
+    /// record's detail and edit pages, linked from the record's navigation: the tab bar its detail
+    /// page, edit page, [record pages](crate::RecordPage) and relation tabs share.
+    ///
+    /// The page loads the record as its detail page does, through the resource's query and
+    /// [`Ability::View`](crate::Ability::View), and answers 403 when the related resource's policy
+    /// refuses `ViewAny`. Mounting refuses a `has_one` relation as a tab, since its form edits
+    /// inside the record's, and a tab whose related slug is `edit`, `delete`, `-` or a record
+    /// page's.
+    #[must_use]
+    pub fn tab(mut self) -> Self {
+        self.tab = true;
         self
     }
 

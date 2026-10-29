@@ -1,9 +1,10 @@
-//! A resource's record pages: `GET {prefix}/{slug}/{id}/{page}`, the record's header over the
-//! page's own body, and the links the record's detail page carries to them.
+//! A record's own pages beyond its detail and edit pages: its record pages,
+//! `GET {prefix}/{slug}/{id}/{page}`, and its relation tabs, `GET {prefix}/{slug}/{id}/{related}`,
+//! each the record's header and navigation over the page's body.
 
 use topcoat::{
     context::Cx,
-    icon::{IconData, icon},
+    icon::icon,
     router::{
         Body,
         error::{forbidden, not_found},
@@ -16,7 +17,9 @@ use topcoat::{
 use super::{
     actions::load_record,
     gate::gate,
-    url::{record_page_url, row_view_url},
+    record_nav::{RecordNavLink, record_navigation, render_record_navigation},
+    relations::{relation_tab, render_relation},
+    url::row_view_url,
 };
 use crate::{
     db::db,
@@ -24,35 +27,86 @@ use crate::{
     topcoat_compat::async_page,
 };
 
+/// The last segment of the request's path: the record page or relation tab it names.
+fn last_segment(cx: &Cx) -> String {
+    let uri = uri(cx);
+    uri.path()
+        .rsplit('/')
+        .next()
+        .unwrap_or_default()
+        .to_string()
+}
+
 /// Renders the record page the request's last path segment names, 404ing for unknown ids and
 /// 403ing a record the policy's `View` or the page's access refuses.
 pub(crate) fn record_page_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
     async_page(async move {
         let resource = gate::<R>(cx)?;
-        let uri = uri(cx);
-        let slug = uri.path().rsplit('/').next().unwrap_or_default();
+        let slug = last_segment(cx);
         let Some(page) = resource.record_pages.iter().find(|page| page.slug == slug) else {
             return Err(not_found().into());
         };
         crate::csrf::ensure_token(cx);
-        let id = path_param_segment(cx, "id").to_string();
         let record = load_record(cx, &resource, &mut db(cx)?).await?;
         if !page.admits(cx, &record) {
             return Err(forbidden().into());
         }
-        let title = resource.record_title(cx, &record, &id);
-        let back = if resource.viewed() {
-            row_view_url(&resource.url, &resource.table.key_of(&record))
-        } else {
-            resource.url.clone()
-        };
+        let header = RecordHeader::of(cx, &resource, &record);
         let body = (page.render)(cx, record).await?;
-        Ok(record_page(cx, title, back, body))
+        Ok(record_page(cx, header, body))
     })
 }
 
-/// Renders a record page around its body.
-fn record_page<'a>(cx: &'a Cx, title: String, back: String, body: BoxView<'a>) -> BoxView<'a> {
+/// Renders the relation tab the request's last path segment names, 404ing for unknown ids,
+/// 403ing a record the policy's `View` refuses and a related resource the request may not list.
+pub(crate) fn relation_tab_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
+    async_page(async move {
+        let resource = gate::<R>(cx)?;
+        let slug = last_segment(cx);
+        let Some((relation, child)) = relation_tab(cx, &resource, &slug) else {
+            return Err(not_found().into());
+        };
+        crate::csrf::ensure_token(cx);
+        let record = load_record(cx, &resource, &mut db(cx)?).await?;
+        if !(child.listable)(cx) {
+            return Err(forbidden().into());
+        }
+        let header = RecordHeader::of(cx, &resource, &record);
+        let body = render_relation(cx, &resource, &record, relation).unwrap_or_else(|| ().boxed());
+        Ok(record_page(cx, header, body))
+    })
+}
+
+/// The header a record page or relation tab shows above its body.
+struct RecordHeader {
+    title: String,
+    /// The detail page when the resource declares one, else the list.
+    back: String,
+    navigation: Vec<RecordNavLink>,
+}
+
+impl RecordHeader {
+    fn of<R: Resource>(cx: &Cx, resource: &Mounted<R>, record: &R::Model) -> Self {
+        let key = resource.table.key_of(record);
+        Self {
+            title: resource.record_title(cx, record, path_param_segment(cx, "id")),
+            back: if resource.viewed() {
+                row_view_url(&resource.url, &key)
+            } else {
+                resource.url.clone()
+            },
+            navigation: record_navigation(cx, resource, record),
+        }
+    }
+}
+
+/// Renders a record page or relation tab around its body.
+fn record_page<'a>(cx: &'a Cx, header: RecordHeader, body: BoxView<'a>) -> BoxView<'a> {
+    let RecordHeader {
+        title,
+        back,
+        navigation,
+    } = header;
     let outline =
         tablo_ui::button_variants(tablo_ui::ButtonVariant::Outline, tablo_ui::ButtonSize::Md);
     view! {
@@ -67,56 +121,9 @@ fn record_page<'a>(cx: &'a Cx, title: String, back: String, body: BoxView<'a>) -
                     </a>
                 )
             )
+            (render_record_navigation(cx, navigation))
             tablo_ui::page_content((body))
         )
-    }
-    .boxed()
-}
-
-/// A link to one record page.
-pub(super) struct RecordPageLink {
-    label: String,
-    icon: Option<IconData>,
-    url: String,
-}
-
-/// The links to the record pages of `record` the request may open.
-pub(super) fn record_page_links<R: Resource>(
-    cx: &Cx,
-    resource: &Mounted<R>,
-    record: &R::Model,
-) -> Vec<RecordPageLink> {
-    let key = resource.table.key_of(record);
-    resource
-        .record_pages
-        .iter()
-        .filter(|page| page.admits(cx, record))
-        .map(|page| RecordPageLink {
-            label: page.label.localize(cx),
-            icon: page.icon.clone(),
-            url: record_page_url(&resource.url, &key, &page.slug),
-        })
-        .collect()
-}
-
-/// Renders `links` as buttons for a record's page header.
-pub(super) fn render_record_page_links(cx: &Cx, links: Vec<RecordPageLink>) -> BoxView<'_> {
-    let outline =
-        tablo_ui::button_variants(tablo_ui::ButtonVariant::Outline, tablo_ui::ButtonSize::Md);
-    view! {
-        cx =>
-        for link in links {
-            <a
-                (crate::navigation::runtime_link(cx, &link.url))
-                class=(outline.clone())
-                data-record-page=(link.url.clone())
-            >
-                if let Some(data) = link.icon {
-                    icon(data: data)
-                }
-                (link.label)
-            </a>
-        }
     }
     .boxed()
 }

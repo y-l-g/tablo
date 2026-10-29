@@ -220,6 +220,10 @@ pub enum DeclarationErrorKind {
     ///
     /// Register the related resource.
     UnregisteredRelation,
+    /// A `has_one` relation declared as a tab: its form edits inside the record's own form.
+    ///
+    /// Drop `Relation::tab`.
+    HasOneTab,
     /// A relationship field, or a relationship filter, whose options come from a resource the
     /// panel does not register.
     ///

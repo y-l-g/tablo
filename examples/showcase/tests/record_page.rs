@@ -1,5 +1,5 @@
-use showcase::models::Post;
-use tablo::testing::{page_title, record_page_links};
+use showcase::models::{Category, Post};
+use tablo::testing::{RecordNavLink, page_title, record_navigation, rows};
 
 use crate::common::{body_string, demo_client, full_db, routers::router_for_tests as router};
 
@@ -14,16 +14,44 @@ async fn a_post(db: &toasty::Db) -> Post {
         .expect("a seeded post")
 }
 
+async fn a_category(db: &toasty::Db, name: &str) -> uuid::Uuid {
+    let mut db = db.clone();
+    Category::filter(Category::fields().name().eq(name.to_string()))
+        .first()
+        .exec(&mut db)
+        .await
+        .unwrap()
+        .expect("a seeded category")
+        .id
+}
+
+/// The navigation's tabs, `current` marking the one at `here`.
+fn tabs(hrefs: &[&str], here: &str) -> Vec<RecordNavLink> {
+    hrefs
+        .iter()
+        .map(|href| RecordNavLink {
+            href: href.to_string(),
+            current: *href == here,
+        })
+        .collect()
+}
+
 #[tokio::test]
-async fn the_detail_page_links_a_record_page_that_renders_under_the_record() {
+async fn a_record_page_renders_under_the_record_in_its_navigation() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let post = a_post(&db).await;
     let preview = format!("/admin/posts/{}/preview", post.id);
 
-    let detail = body_string(client.get(&format!("/admin/posts/{}", post.id)).await).await;
-    assert_eq!(record_page_links(&detail), [preview.as_str()]);
+    let view = format!("/admin/posts/{}", post.id);
+    let edit = format!("{view}/edit");
+    let all = [view.as_str(), edit.as_str(), preview.as_str()];
+
+    for here in all {
+        let html = body_string(client.get(here).await).await;
+        assert_eq!(record_navigation(&html), tabs(&all, here), "{here}");
+    }
 
     let resp = client.get(&preview).await;
     assert_eq!(resp.status(), 200);
@@ -36,7 +64,7 @@ async fn the_detail_page_links_a_record_page_that_renders_under_the_record() {
 }
 
 #[tokio::test]
-async fn a_record_page_its_access_refuses_answers_403_and_is_not_linked() {
+async fn a_record_page_its_access_refuses_answers_403_and_leaves_the_navigation() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
@@ -50,7 +78,12 @@ async fn a_record_page_its_access_refuses_answers_403_and_is_not_linked() {
 
     let detail = client.get(&format!("/admin/posts/{id}")).await;
     assert_eq!(detail.status(), 200, "a trashed post keeps its detail page");
-    assert!(record_page_links(&body_string(detail).await).is_empty());
+    let view = format!("/admin/posts/{id}");
+    assert_eq!(
+        record_navigation(&body_string(detail).await),
+        tabs(&[view.as_str()], &view),
+        "a trashed post is neither edited nor previewed"
+    );
     let resp = client.get(&format!("/admin/posts/{id}/preview")).await;
     assert_eq!(resp.status(), 403);
 }
@@ -80,4 +113,39 @@ async fn url_record_page_names_the_page_route() {
         ),
         Some(format!("/admin/posts/{}/preview", post.id))
     );
+}
+
+#[tokio::test]
+async fn a_relation_tab_lists_the_related_records_off_the_detail_page() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let databases = a_category(&db, "Databases").await;
+    let view = format!("/admin/categories/{databases}");
+    let edit = format!("{view}/edit");
+    let posts = format!("{view}/posts");
+    let all = [view.as_str(), edit.as_str(), posts.as_str()];
+
+    for here in all {
+        let html = body_string(client.get(here).await).await;
+        assert_eq!(record_navigation(&html), tabs(&all, here), "{here}");
+        let listed = rows(&html).len();
+        if here == posts {
+            assert_eq!(listed, 2, "the tab lists the category's two posts");
+        } else {
+            assert_eq!(listed, 0, "{here} lists no related row");
+        }
+    }
+}
+
+#[tokio::test]
+async fn a_relation_tab_of_an_unknown_record_answers_404() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+
+    let resp = client
+        .get(&format!("/admin/categories/{}/posts", uuid::Uuid::new_v4()))
+        .await;
+    assert_eq!(resp.status(), 404);
 }

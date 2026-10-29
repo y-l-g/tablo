@@ -42,9 +42,10 @@ arrange the columns:
 
 ## What the page shows
 
-The header carries the record's title, a link to each of its [record pages](#record-pages) it may
-open, its [actions](./actions.md#where-it-shows), Delete and Edit, each as the policy allows them
-on this record. Below it come the detail's columns, then the
+The header carries the record's title, its [actions](./actions.md#where-it-shows), Delete and
+Edit, each as the policy allows them on this record. A resource that declares a
+[record page](#record-pages) or a [relation tab](#relation-tabs) adds the record's navigation
+under the header. Below it come the detail's columns, then the
 [related tables](#related-tables).
 
 Each column renders its label over its cell, as it renders in a table, never a control. A
@@ -92,7 +93,7 @@ tenant. The page renders only its body, under the record's heading:
 {{#include ../../../examples/guide/src/detail_pages.rs:record-page}}
 ```
 
-`ResourceDef::record_page` adds it to the resource, and the record's detail page links it:
+`ResourceDef::record_page` adds it to the resource, and the record's navigation links it:
 
 ```rust
 impl Resource for PostResource {
@@ -132,6 +133,20 @@ included, narrowed to the post: the related resource keeps its policy, its actio
 button, which opens with the post preselected. The panel must register the related resource too.
 [`Relation`](https://y-l.fr/tablo/nightly/api/tablo/struct.Relation.html) lists what the table carries, where its writes land, and
 how several tables share one page.
+
+### Relation tabs
+
+A record with several related tables makes a long page, and its detail page loads every one.
+`.tab()` moves a relation's table to a page of its own, at `{list}/{key}/{related slug}`:
+`Relation::has_many::<CommentResource>(Comment::fields().post_id()).tab()` serves the post's
+comments at `/admin/posts/{id}/comments`, and no longer under its detail and edit pages.
+
+A resource with a tab or a record page gives its records a navigation: a tab bar under the header
+of the detail page, the edit page, each record page and each relation tab, linking those the
+request may open, the current one marked. The table on a tab is the one the detail page would
+show, with the same writes, landing back on the tab.
+[`Relation::tab`](https://y-l.fr/tablo/nightly/api/tablo/struct.Relation.html#method.tab) has the
+checks and the mount refusals.
 
 ### Many-to-many relations
 

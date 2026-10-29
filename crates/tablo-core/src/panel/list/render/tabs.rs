@@ -90,14 +90,14 @@ pub(super) fn render_tabs<'a>(
 }
 
 /// A tab's link: its label over the bar's bottom border, which the active tab's underline covers.
-const TAB_CLASS: StaticClass = class!(
+pub(crate) const TAB_CLASS: StaticClass = class!(
     "inline-flex shrink-0 items-center gap-2 border-b-2 py-3 text-sm font-medium",
     "whitespace-nowrap outline-none transition-colors focus-visible:text-foreground",
 );
 
 /// The tab the list shows.
-const TAB_ACTIVE_CLASS: StaticClass = class!("border-primary text-foreground");
+pub(crate) const TAB_ACTIVE_CLASS: StaticClass = class!("border-primary text-foreground");
 
 /// A tab the reader may switch to.
-const TAB_IDLE_CLASS: StaticClass =
+pub(crate) const TAB_IDLE_CLASS: StaticClass =
     class!("border-transparent text-muted-foreground hover:text-foreground");
