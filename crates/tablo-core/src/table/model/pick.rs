@@ -15,8 +15,8 @@ use toasty::{
 };
 
 use crate::{
-    BooleanColumn, Currency, DateColumn, DateValue, Detail, EmbeddedColumn, Lens, Numeric,
-    RepeaterColumn, Table, Text, TextColumn,
+    BooleanColumn, Currency, DateColumn, DateValue, Detail, EmbeddedColumn, Lens, ListColumn,
+    Numeric, RepeaterColumn, Table, Text, TextColumn,
     schema::{EmbeddedForm, FormInput, Options},
     table::filter::{DateFilter, FilterDate, SelectFilter, TernaryFilter},
     values::FormScalar,
@@ -185,6 +185,29 @@ where
 
     fn detail_column(&self) -> Self::Detail {
         RepeaterColumn::new(self.0.clone())
+    }
+}
+
+column_pick! {
+    /// A list of [`FormScalar`] values a list column stores: a badge per value.
+    PickList
+}
+
+// The same depth as `PickRepeater`: no item type is both a `FormInput` and a `FormScalar`.
+impl<M, T> PickList<M> for &ModelField<M, Vec<T>, List<T>>
+where
+    M: Model + Send + Sync + 'static,
+    T: FormScalar + Send + Sync + 'static,
+{
+    type Table = ListColumn<M, T>;
+    type Detail = ListColumn<M, T>;
+
+    fn table_column(&self) -> Self::Table {
+        ListColumn::new(self.0.clone())
+    }
+
+    fn detail_column(&self) -> Self::Detail {
+        ListColumn::new(self.0.clone())
     }
 }
 
@@ -384,6 +407,7 @@ column_keys!(DateColumn<M, T>, [M, T] where [T: DateValue,], hidden);
 column_keys!(BooleanColumn<M>, [M] where [], hidden);
 column_keys!(EmbeddedColumn<M, T>, [M, T] where [T: EmbeddedForm + Send + Sync + 'static,]);
 column_keys!(RepeaterColumn<M, T>, [M, T] where [T: FormInput,]);
+column_keys!(ListColumn<M, T>, [M, T] where [T: FormScalar + Send + Sync + 'static,], hidden);
 
 impl<M> Place<M> for Absent {
     fn place_in_table(self, table: Table<M>) -> Table<M> {

@@ -84,6 +84,24 @@ pub(crate) fn text_cell(cx: &Cx, cell: TextCell) -> BoxView<'_> {
     }
 }
 
+/// Render `cells`, one badge each, wrapping onto as many lines as they need; none renders the
+/// dash an empty text cell does.
+pub(crate) fn badges_cell(cx: &Cx, cells: Vec<TextCell>) -> BoxView<'_> {
+    if cells.is_empty() {
+        return text_cell(cx, TextCell::default());
+    }
+    let badges: Vec<BoxView<'_>> = cells.iter().map(|cell| value_view(cx, cell)).collect();
+    view! {
+        cx =>
+        <span class="flex flex-wrap gap-1">
+            for badge in badges {
+                (badge)
+            }
+        </span>
+    }
+    .boxed()
+}
+
 /// A non-empty value: its badge or text, linked, titled and followed by its copy button as `cell`
 /// says.
 fn value_view<'a>(cx: &'a Cx, cell: &TextCell) -> BoxView<'a> {

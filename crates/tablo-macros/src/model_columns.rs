@@ -71,9 +71,9 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
     let picks = quote! {
         #[allow(unused_imports)]
         use #pick::{
-            PickDate as _, PickDateFilter as _, PickEmbedded as _, PickNoFilter as _,
-            PickNone as _, PickRepeater as _, PickScalar as _, PickSelectFilter as _,
-            PickString as _, PickTernaryFilter as _, PickToggle as _,
+            PickDate as _, PickDateFilter as _, PickEmbedded as _, PickList as _,
+            PickNoFilter as _, PickNone as _, PickRepeater as _, PickScalar as _,
+            PickSelectFilter as _, PickString as _, PickTernaryFilter as _, PickToggle as _,
         };
     };
     Ok(quote! {

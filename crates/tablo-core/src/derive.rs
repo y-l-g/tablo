@@ -239,6 +239,8 @@ pub use tablo_macros::FormInput;
 ///   [`EmbeddedColumn`](crate::EmbeddedColumn), leaf by leaf, on the detail page only;
 /// - a list of [`FormInput`](derive@crate::FormInput) items: a
 ///   [`RepeaterColumn`](crate::RepeaterColumn), on the detail page only;
+/// - a `Vec` of a [`FormScalar`](crate::FormScalar), such as a multiple choice's: a
+///   [`ListColumn`](crate::ListColumn), a badge per value;
 /// - any other type: no column.
 ///
 /// No column shows a key Toasty generates, a `#[version]` field, a relation or its foreign
