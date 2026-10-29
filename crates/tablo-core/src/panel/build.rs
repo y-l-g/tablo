@@ -9,6 +9,7 @@ use topcoat::{
     asset::AssetConfig,
     context::Cx,
     cookie::RouterBuilderCookieExt,
+    metadata::Metadata,
     router::{
         Body, LayoutFn, Methods, PageFn, Path, RouteFn, RouteFuture, RouterBuilder,
         RouterBuilderDirectoryExt, error::redirect,
@@ -338,10 +339,11 @@ impl Panel {
                 language_post,
             ));
         }
-        builder = builder.layout(LayoutFn::new(
-            prefix_path.clone(),
-            layout.unwrap_or(Panel::layout_shell),
-        ));
+        // Search engines skip the panel's pages, as the layout's metadata asks.
+        builder = builder.layout(
+            LayoutFn::new(prefix_path.clone(), layout.unwrap_or(Panel::layout_shell))
+                .with(Metadata::new().robots(|robots| robots.index(false).follow(false))),
+        );
         // A failed page load shows the error page inside the shell, and a path no route serves
         // reaches the gate to fail there.
         builder = builder
@@ -585,7 +587,7 @@ fn validation_cx(db: &Db, mounts: &Arc<Mounts>) -> Cx {
     values.insert(MountScope(|cx| {
         topcoat::context::try_context::<Arc<Mounts>>(cx).map(|mounts| &**mounts)
     }));
-    Cx::new(Arc::new(values))
+    Cx::new().with_shared(Arc::new(values))
 }
 
 /// A served directory's pattern without its catch-all's name: the router treats

@@ -3,6 +3,7 @@
 use topcoat::{
     Result,
     context::Cx,
+    metadata::{metadata, tag},
     view::{BoxView, View, ViewExt, view},
 };
 
@@ -65,6 +66,7 @@ impl Panel {
         // locale.
         let (_, locale) = crate::i18n::catalog_and_locale(cx);
         let (lang, dir) = (locale.id().clone(), locale.id().direction());
+        let page = metadata(cx).await?;
         Ok(view! {
             cx =>
             <!DOCTYPE html>
@@ -73,6 +75,7 @@ impl Panel {
                     <meta charset="utf-8">
                     // Without it a phone lays the page out 980px wide and zooms it out.
                     <meta name="viewport" content="width=device-width, initial-scale=1">
+                    tag::robots(metadata: page)
                     <title>(title)</title>
                     if let Some(favicon) = favicon {
                         <link rel="icon" href=(favicon)>

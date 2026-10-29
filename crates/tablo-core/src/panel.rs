@@ -54,7 +54,8 @@ pub fn navigation_item<R: Resource>(cx: &topcoat::context::Cx) -> Option<crate::
 }
 
 /// An admin panel: resources and pages under one prefix, framed by one shell
-/// and gated by one [`Auth`](crate::auth::Auth).
+/// and gated by one [`Auth`](crate::auth::Auth). Its pages carry a `robots` tag that asks search
+/// engines to neither index them nor follow their links.
 ///
 /// The app owns the router and mounts the panel into it with
 /// [`RouterBuilderPanelExt::panel`]:
