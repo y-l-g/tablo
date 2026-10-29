@@ -328,7 +328,7 @@ pub async fn record_table<R: Resource>(
         cx =>
         <section
             data-record-table=(slug)
-            class="overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-xs"
+            class="relative overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-xs"
         >
             <div class="flex items-start justify-between gap-4 px-5 pt-5 pb-3">
                 <div class="flex min-w-0 flex-col gap-1">
