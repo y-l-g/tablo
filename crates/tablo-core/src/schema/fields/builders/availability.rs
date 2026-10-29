@@ -12,8 +12,7 @@ macro_rules! form_visibility {
         impl<F: crate::schema::EditsRecords> $builder<F> {
             /// Renders nothing for the field on the create form. The create stores the field's
             /// `default`, else its blank answer: a required field with neither cannot mount. A
-            /// field hidden on both forms is one the form does not write: leave it out of the
-            /// record form instead.
+            /// field hidden on both forms only ever stores that: set it in the record instead.
             pub fn hidden_on_create(mut self) -> Self {
                 self.0.hidden.create = true;
                 self
@@ -55,9 +54,9 @@ macro_rules! conditional_disable {
             ///
             /// - The browser enables and disables the control as the watched field changes, with no
             ///   request, through a disabled fieldset around it. An app's own
-            ///   [`Control`](crate::extend::Control) follows it only through the form controls it renders.
-            ///   Without JavaScript, the control starts as the stored values set it and stays that
-            ///   way.
+            ///   [`Control`](crate::extend::Control) follows it only through the form controls it
+            ///   renders. Without JavaScript, the control starts as the form's initial values set
+            ///   it, the stored ones on an edit, and stays that way.
             /// - The panel reads a submission the same way and drops the field's posted key, and a
             ///   file field's carried upload, while the condition holds. The condition reads what
             ///   the user may post, so it is no access check:

@@ -317,14 +317,9 @@ fn registering(cx: &Cx) -> topcoat::Result<(&SignedIn, &dyn DynTenantRegistrar)>
 pub(super) fn register_tenant_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         let (signed, registrar) = registering(cx)?;
-        page_response(
-            cx,
-            signed,
-            registrar,
-            &FormValues::new(),
-            &FieldErrors::new(),
-        )
-        .await
+        // The page starts from each field's default, as the POST reads a disabled one.
+        let values = registrar.schema().defaults();
+        page_response(cx, signed, registrar, &values, &FieldErrors::new()).await
     })
 }
 

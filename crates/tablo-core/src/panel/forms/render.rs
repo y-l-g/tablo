@@ -401,15 +401,16 @@ fn seeded_values<R: Resource>(cx: &Cx, resource: &Mounted<R>) -> FormValues {
 }
 
 /// The query parameters that seed a relationship control of the create form: one a relation
-/// table's create link sets to its owner. A disabled control stores its default, which the form
-/// must show, and a masked one takes what the user may not choose, so neither is seedable.
+/// table's create link sets to its owner. A control that is or may be disabled stores its
+/// default, which the form must show, and a masked one takes what the user may not choose, so
+/// neither is seedable.
 pub(super) fn seed_pairs<R: Resource>(cx: &Cx, resource: &Mounted<R>) -> Vec<(String, String)> {
     let mask = resource.form_mask(cx);
     let seedable: Vec<&str> = resource
         .form
         .fields()
         .filter(|field| {
-            !field.is_disabled(false)
+            !field.may_post_nothing_on_create()
                 && mask.writes(field.name()).is_none()
                 && field
                     .as_choice()

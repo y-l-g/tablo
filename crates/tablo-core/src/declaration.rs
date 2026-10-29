@@ -438,7 +438,7 @@ pub enum DeclarationErrorKind {
     },
     /// A condition, or a dependent choice, watches a field a condition disables, which posts
     /// nothing while it is disabled: the browser would follow the value the user last chose, the
-    /// server the stored one.
+    /// server the stored one or the default.
     ///
     /// Watch another field, or drop `disabled_when` from the watched one.
     DisabledWatchedField {

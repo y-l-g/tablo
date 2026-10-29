@@ -52,15 +52,15 @@ struct Column {
     required: bool,
 }
 
-/// The columns `mask` leaves the create form: every control but a file's, a repeater's and a
-/// disabled one, none of which a cell can post.
+/// The columns `mask` leaves the create form: every control but a file's, a repeater's and one
+/// that is or may be disabled, none of which a cell can post.
 fn columns(cx: &Cx, schema: &Schema, mask: &FormMask) -> Vec<Column> {
     schema
         .fields()
         .filter(|field| {
             !field.is_file()
                 && field.as_repeater().is_none()
-                && !field.is_disabled(false)
+                && !field.may_post_nothing_on_create()
                 && mask.writes(field.name()).is_none()
         })
         .map(|field| Column {

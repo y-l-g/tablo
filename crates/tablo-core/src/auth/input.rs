@@ -52,7 +52,7 @@ pub(super) fn keep_disabled(schema: &Schema, values: &mut FormValues, stored: &F
     for key in schema.disabled_keys(true) {
         keep(values, key);
     }
-    // A condition reads the watched field as the page rendered it, from what `fill` wrote.
+    // A condition reads the watched field as posted, with the disabled keys restored.
     for key in schema.condition_disabled(values) {
         keep(values, &key);
     }

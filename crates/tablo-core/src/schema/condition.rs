@@ -369,12 +369,19 @@ impl<F> Schema<F> {
             .collect()
     }
 
-    /// The keys of the fields a condition disables in the submission `values`.
+    /// The keys of the fields a condition disables in the submission `values`, leaving out the
+    /// ones a condition hides: those take the blank answer, not the `default`.
     pub(crate) fn condition_disabled(&self, values: &FormValues) -> Vec<String> {
-        Scan::of(&self.nodes, &self.fields)
-            .disabling
+        let scan = Scan::of(&self.nodes, &self.fields);
+        let hidden: Vec<usize> = scan
+            .fields
+            .iter()
+            .filter(|(_, chain)| chain.iter().any(|condition| !condition.holds(values)))
+            .map(|(index, _)| *index)
+            .collect();
+        scan.disabling
             .into_iter()
-            .filter(|(_, condition)| condition.holds(values))
+            .filter(|(index, condition)| !hidden.contains(index) && condition.holds(values))
             .map(|(index, _)| self.fields[index].name().to_string())
             .collect()
     }
@@ -434,11 +441,7 @@ impl<F> Schema<F> {
                 // The browser follows the watched field's last change, the server its posted
                 // value: they agree only while every condition hiding the watched field also
                 // hides what it guards.
-                Some(chain)
-                    if !chain
-                        .iter()
-                        .all(|hiding| guarding.iter().any(|c| std::ptr::eq(*c, *hiding))) =>
-                {
+                Some(chain) if !chain.iter().all(|hiding| guarding.contains(hiding)) => {
                     errors.push(DeclarationErrorKind::HiddenWatchedField {
                         field: watched.clone(),
                     });

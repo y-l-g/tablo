@@ -214,6 +214,36 @@ fn a_disabling_condition_watches_a_hidden_field_only_inside_its_block() {
     );
 }
 
+/// A field carrying the condition that hides its watched field hides with it, as one block
+/// around both would.
+#[test]
+fn a_field_hidden_with_its_watched_field_may_watch_it() {
+    let active = Field::toggle(Customer::fields().active());
+    let kind = kind().visible_when(&active, ["true"]);
+    let vat = Field::text(Customer::fields().vat())
+        .visible_when(&active, ["true"])
+        .disabled_when(&kind, ["person"]);
+    assert!(
+        Schema::new((active, kind, vat))
+            .declaration_errors()
+            .is_empty()
+    );
+}
+
+/// A field a condition both hides and disables is hidden: a create stores its blank answer, not
+/// its default.
+#[test]
+fn a_hidden_field_is_not_also_disabled() {
+    let kind = kind();
+    let vat = Field::text(Customer::fields().vat())
+        .default("none")
+        .visible_when(&kind, ["company"])
+        .disabled_when(&kind, ["person"]);
+    let schema = Schema::new((kind, vat));
+    assert_eq!(schema.condition_hidden(&values("person")), ["vat"]);
+    assert!(schema.condition_disabled(&values("person")).is_empty());
+}
+
 /// While the condition holds a create posts nothing for the field, so a required one needs a
 /// default to fill it.
 #[test]
