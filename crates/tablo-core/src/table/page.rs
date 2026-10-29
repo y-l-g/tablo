@@ -212,9 +212,12 @@ where
         ordered.set_order_by(toasty::stmt::OrderBy {
             exprs: table.offset_order_bys_for(state),
         });
-        // A count of none needs no rows. Toasty panics planning the rows of a filter it folds to
-        // `false`, such as a tab and a filter asking one column for two values.
-        let mut rows = if total == Some(0) {
+        // A count of none needs no rows, and neither does a query holding none ([`holds_rows`]).
+        let empty = match total {
+            Some(total) => total == 0,
+            None => table.includes_relations() && !holds_rows(&mut db, ordered.clone()).await?,
+        };
+        let mut rows = if empty {
             Vec::new()
         } else {
             table
@@ -258,8 +261,17 @@ where
         // without the columns' includes: they only ask whether a row exists.
         let mut db = crate::db::db(cx)?;
         let base_query = table.apply_declaration(cx, &db, query, state, refused);
-        let query = table.include_relations(base_query.clone());
         let per_page = table.page_size_for(state);
+        if table.includes_relations() && !holds_rows(&mut db, base_query.clone()).await? {
+            return Ok(Self {
+                rows: Vec::new(),
+                next_cursor: None,
+                prev_cursor: None,
+                position: None,
+                tab_counts: Vec::new(),
+            });
+        }
+        let query = table.include_relations(base_query.clone());
         let mut paginated = toasty::stmt::Paginate::new(query, per_page);
         // Toasty cursor pagination takes exactly one cursor, and the state
         // holds at most one.
@@ -325,6 +337,19 @@ where
         }
         Ok(page)
     }
+}
+
+/// Whether `query` holds a row, asked without the includes a loader adds.
+///
+/// Toasty panics planning the includes of a filter it folds to `false`, such as a tab and a filter
+/// asking one column for two values, and the panic takes the connection down with it. A loader
+/// that includes relations asks this first, and loads no rows when the query holds none.
+pub(crate) async fn holds_rows<M>(db: &mut toasty::Db, query: Query<List<M>>) -> Result<bool>
+where
+    M: toasty::schema::Model,
+{
+    let probe = query.limit(1).exec(db).await;
+    Ok(!probe.map_err(crate::error::unavailable)?.is_empty())
 }
 
 /// Which side of a cursor a probe looks past.

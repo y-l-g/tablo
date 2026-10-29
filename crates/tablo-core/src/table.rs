@@ -261,6 +261,13 @@ impl<M> Table<M> {
         include_relations(query, &self.columns)
     }
 
+    /// Whether [`Self::include_relations`] adds an include.
+    pub(crate) fn includes_relations(&self) -> bool {
+        self.columns
+            .iter()
+            .any(|column| !column.includes().into_vec().is_empty())
+    }
+
     /// Check which related records `rows`, loaded through [`Self::include_relations`], hold that
     /// the columns' sources show the user.
     pub(crate) async fn restrict_relations(

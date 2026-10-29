@@ -25,6 +25,8 @@ pub(super) struct FilterViews<'a> {
     pub(super) unapplied: Vec<(String, &'static str)>,
     /// Whether no requested filter produces a predicate.
     unfiltered: bool,
+    /// Whether the request names a tab the table does not show.
+    unknown_tab: bool,
 }
 
 impl<M> WiredTable<M> {
@@ -61,6 +63,7 @@ impl<M> WiredTable<M> {
             active,
             unapplied,
             unfiltered,
+            unknown_tab: self.unknown_tab(state).is_some(),
         })
     }
 }
@@ -98,7 +101,13 @@ impl Frame<'_> {
             "tablo-filter-ignored-consequence",
             unfiltered = if filters.unfiltered { "true" } else { "false" },
         );
-        let clear = live_link(cx, state.without_narrowing(path), signals);
+        // A tab the table shows stays: only the unknown one goes with the filters.
+        let cleared = if filters.unknown_tab {
+            state.without_narrowing(path)
+        } else {
+            state.without_filters(path)
+        };
+        let clear = live_link(cx, cleared, signals);
         Some(
             view! {
                 cx =>

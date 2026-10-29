@@ -12,6 +12,7 @@
 mod common;
 
 mod column;
+mod contradiction;
 mod export;
 mod import;
 mod inline_edit;
