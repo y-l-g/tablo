@@ -7,6 +7,7 @@ use topcoat::{Result, context::Cx};
 
 use crate::{
     actions::{ChangeStatus, Publish, PublishDrafts},
+    detail_pages::SearchPreviewPage,
     models::{Audit, Author, Comment, Order, Post, PostStatus, Role, User},
     policy_tenancy::editors_only,
 };
@@ -142,6 +143,9 @@ impl Resource for PostResource {
                 Comment::fields().post_id(),
             ))
             // ANCHOR_END: post-relations
+            // ANCHOR: post-record-page
+            .record_page::<SearchPreviewPage>()
+            // ANCHOR_END: post-record-page
             // ANCHOR: post-actions
             .action::<Publish>()
             .action::<ChangeStatus>()

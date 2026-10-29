@@ -4,8 +4,8 @@
 //! prefix the request is under, or the one it entered with
 //! [`PanelHandle::enter`](crate::PanelHandle::enter).
 //! A resource or page that panel does not register has no URL there, and the
-//! helper returns `None`. The record helpers, [`record`], [`edit`], [`delete`], [`create`],
-//! [`action`] and [`bulk_action`], also answer in a
+//! helper returns `None`. The record helpers, [`record`], [`edit`], [`record_page`], [`delete`],
+//! [`create`], [`action`] and [`bulk_action`], also answer in a
 //! [`PanelHandle::context`](crate::PanelHandle::context).
 //!
 //! ```rust,no_run
@@ -37,7 +37,7 @@ pub(crate) use crate::naming::{
     CREATE_ROUTE_SEGMENT, DASH_ROUTE_SEGMENT, create_page_url, list_route,
 };
 use crate::{
-    Page, RecordForm,
+    Page, RecordForm, RecordPage,
     resource::{Action, Mounted, Places, Resource, mounted},
     topcoat_compat::href,
 };
@@ -106,6 +106,19 @@ pub fn record<R: Resource>(cx: &Cx, record: &R::Model) -> Option<String> {
 pub fn edit<R: Resource>(cx: &Cx, record: &R::Model) -> Option<String> {
     keyed::<R>(cx, record, |_| <R::Form as RecordForm>::HAS_FORM)
         .map(|(list, key)| row_edit_url(&list, &key))
+}
+
+/// `record`'s record page `P`, e.g. `/admin/orders/42/history`, or `None` when `R` does not
+/// declare `P`. The URL answers 403 to a request the page's access refuses.
+pub fn record_page<R: Resource, P: RecordPage<R>>(cx: &Cx, record: &R::Model) -> Option<String> {
+    let page = TypeId::of::<P>();
+    let mounted = mounted::<R>(cx)?;
+    let slug = &mounted
+        .record_pages
+        .iter()
+        .find(|entry| entry.page == page)?
+        .slug;
+    keyed::<R>(cx, record, |_| true).map(|(list, key)| record_page_url(&list, &key, slug))
 }
 
 /// The route that deletes `record`, e.g. `/admin/posts/42/delete`, which takes `confirm=1`.
@@ -230,6 +243,11 @@ pub(crate) fn row_edit_url(prefix: &str, key: &str) -> String {
 /// The row's `View` link: `{prefix}/{key}` — the detail page.
 pub(crate) fn row_view_url(prefix: &str, key: &str) -> String {
     format!("{prefix}/{}", href::encode_path_segment(key))
+}
+
+/// A record page's URL: `{prefix}/{key}/{slug}`.
+pub(crate) fn record_page_url(prefix: &str, key: &str, slug: &str) -> String {
+    format!("{prefix}/{}/{slug}", href::encode_path_segment(key))
 }
 
 /// The row delete form's POST target: `{prefix}/{key}/delete`.

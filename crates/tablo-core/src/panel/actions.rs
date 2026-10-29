@@ -17,7 +17,7 @@ mod options;
 
 pub(crate) use self::{
     export::resource_export,
-    fetch::{load_detail, load_editable},
+    fetch::{load_detail, load_editable, load_record},
     link::{relation_action_options, relation_list_action, relation_record_action},
     mutation::{
         MATCHING, resource_bulk_delete, resource_delete, resource_list_action,

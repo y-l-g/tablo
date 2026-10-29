@@ -41,6 +41,7 @@ which the list, form and detail pages follow. This table maps their names to Tab
 | table actions, bulk actions | `Action<R>` types with `PLACES`, added by `ResourceDef::action` |
 | header actions | `HeaderAction` types, added by `ResourceDef::header_action` |
 | custom pages | a type implementing `Page`, registered by `Panel::page` |
+| a custom page using `InteractsWithRecord` | a type implementing [`RecordPage`](./detail-pages.md#record-pages), added by `ResourceDef::record_page` |
 | dashboard | `Panel::home::<P>()` |
 | `$navigationGroup`, `$navigationSort`, `$navigationIcon` | `navigation_group`, `navigation_order`, `icon` on the def |
 | `$shouldRegisterNavigation`, `shouldRegisterNavigation()` | `navigation_hidden()` on the def, which keeps the URLs and the policy |

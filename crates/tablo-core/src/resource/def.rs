@@ -19,7 +19,7 @@ use crate::{
 };
 
 /// What a [`Resource`] declares: its names, navigation, policy, tenancy, table, list widgets, form,
-/// detail page, relations and actions.
+/// detail page, record pages, relations and actions.
 ///
 /// [`Resource::declare`] returns one, and [`Panel::resource_with`](crate::Panel::resource_with)
 /// adjusts it for one panel. Every setting has a default, so a resource sets only what differs:
@@ -68,6 +68,7 @@ pub struct ResourceDef<R: Resource> {
     pub(crate) global_search: Option<super::GlobalSearch<R::Model>>,
     pub(crate) public_link: Option<PublicLinkFn<R::Model>>,
     pub(crate) relations: Vec<Relation<R::Model>>,
+    pub(crate) record_pages: Vec<super::RecordPageEntry<R>>,
     pub(crate) actions: Actions<R>,
     pub(crate) header_actions: HeaderActions,
     pub(crate) list_widgets: crate::widget::WidgetGrid,
@@ -102,6 +103,7 @@ impl<R: Resource> Default for ResourceDef<R> {
             global_search: Some(super::GlobalSearch::default()),
             public_link: None,
             relations: Vec::new(),
+            record_pages: Vec::new(),
             actions: Actions::default(),
             header_actions: HeaderActions::new(),
             list_widgets: crate::widget::WidgetGrid::default(),
@@ -187,9 +189,8 @@ impl<R: Resource> ResourceDef<R> {
 
     /// Replaces the sidebar entry, for one that links somewhere other than the list page:
     /// `NavigationItem::at("Drafts", "/admin/posts?f.status=draft")`. [`icon`](Self::icon),
-    /// [`navigation_order`](Self::navigation_order),
-    /// [`navigation_group`](Self::navigation_group) and
-    /// [`navigation_badge`](Self::navigation_badge) still apply to it.
+    /// [`navigation_order`](Self::navigation_order), [`navigation_group`](Self::navigation_group)
+    /// and [`navigation_badge`](Self::navigation_badge) still apply to it.
     #[must_use]
     pub fn navigation(mut self, item: NavigationItem) -> Self {
         self.navigation = Some(item);
@@ -419,8 +420,8 @@ impl<R: Resource> ResourceDef<R> {
         self
     }
 
-    /// Links a record's public page from its detail and edit pages, for each record `link`
-    /// returns one for; defaults to no link.
+    /// Links a record's public page from its detail and edit pages, for each record `link` returns
+    /// one for; defaults to no link.
     ///
     /// The edit page loads the record without relations, so a link that reads one renders on the
     /// detail page only when its relation is loaded there.
@@ -433,8 +434,7 @@ impl<R: Resource> ResourceDef<R> {
         self
     }
 
-    /// Adds a related resource, rendered as its table narrowed to the record on the detail and
-    /// edit pages.
+    /// Adds a related resource: its table, narrowed to the record, on the detail and edit pages.
     #[must_use]
     pub fn relation(mut self, relation: Relation<R::Model>) -> Self {
         self.relations.push(relation);
@@ -457,8 +457,8 @@ impl<R: Resource> ResourceDef<R> {
     ///
     /// The policy decides who may run it, through [`Ability::ViewAny`](crate::Ability::ViewAny)
     /// and [`Ability::RunHeader`](crate::Ability::RunHeader) with its name, which no other action
-    /// of the resource may share. An `A::NAME` that is not
-    /// a single URL path segment does not compile.
+    /// of the resource may share. An `A::NAME` that is not a single URL path segment does not
+    /// compile.
     ///
     /// ```rust,compile_fail,E0080
     /// # use tablo_core::{HeaderAction, NoForm, Resource, ResourceDef};
@@ -528,10 +528,10 @@ impl<R: Resource> ResourceDef<R> {
     /// Serves the edit page but no create page, for records that arrive another way: an import,
     /// a seed, an action.
     ///
-    /// A resource with a record form creates through it unless it opts out here; the policy
-    /// decides who may create, per request, but never whether the page exists. Without the page,
-    /// mounting skips the check that a create fills every non-nullable column, and the list and
-    /// the relations offer no create button.
+    /// A resource with a record form creates through it unless it opts out here; the policy decides
+    /// who may create, per request, but never whether the page exists. Without the page, mounting
+    /// skips the check that a create fills every non-nullable column, and the list and the
+    /// relations offer no create button.
     #[must_use]
     pub fn edit_only(mut self) -> Self {
         self.edit_only = true;

@@ -17,6 +17,7 @@ mod field_access;
 mod global_search;
 mod header_action;
 mod mounted;
+mod record_page;
 mod record_title;
 mod relation;
 mod soft_delete;
@@ -41,6 +42,8 @@ pub(crate) use mounted::{
     MountScope, Mounted, Mounts, is_mounted, is_restricted_model, is_tenant_model, model_rules,
     mounted, require_mounted, restricts_any,
 };
+pub use record_page::{RecordPage, RecordPageDef};
+pub(crate) use record_page::{RecordPageEntry, check as check_record_pages};
 use record_title::RecordTitle;
 pub use relation::{ForeignKey, Relation};
 pub(crate) use relation::{Links, RelationKind};

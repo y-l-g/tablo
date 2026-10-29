@@ -2,9 +2,10 @@
 //! the site it is in and its kind, beside the valid shape of each that mounts.
 
 use tablo::{
-    Ability, Auth, DeclarationErrorKind, Detail, NoForm, Page, PageDef, Panel, RelationColumn,
-    Resource, ResourceDef, RouterBuilderPanelExt, Schema, SegmentFault, SelectFilter, Site, Table,
-    Tenancy, TenancyFault, TenantId, TextColumn, lens, relation,
+    Ability, Auth, DeclarationErrorKind, Detail, NoForm, Page, PageDef, Panel, RecordPage,
+    RecordPageDef, RelationColumn, Resource, ResourceDef, RouterBuilderPanelExt, Schema,
+    SegmentFault, SelectFilter, Site, Table, Tenancy, TenancyFault, TenantId, TextColumn, lens,
+    relation,
 };
 use toasty::Db;
 use topcoat::{
@@ -247,6 +248,68 @@ impl Page for NestedPage {
     async fn render(cx: &Cx) -> Result<impl View> {
         Ok(view! { cx => "nested" })
     }
+}
+
+/// Declares the record page `$name` of `Paged` at `$slug`.
+macro_rules! record_page {
+    ($name:ident, $slug:expr) => {
+        struct $name;
+
+        impl RecordPage<Paged> for $name {
+            fn declare() -> RecordPageDef<Item> {
+                RecordPageDef::new().slug($slug)
+            }
+
+            async fn render(cx: &Cx, _item: Item) -> Result<impl View> {
+                Ok(view! { cx => "page" })
+            }
+        }
+    };
+}
+
+record_page!(EditPage, "edit");
+record_page!(HistoryPage, "history");
+record_page!(OtherHistoryPage, "history");
+record_page!(NestedRecordPage, "a/b");
+resource!(Paged, Item => ResourceDef::new()
+    .slug("paged")
+    .table(items())
+    .record_page::<EditPage>()
+    .record_page::<HistoryPage>()
+    .record_page::<OtherHistoryPage>()
+    .record_page::<NestedRecordPage>());
+
+/// A record page's slug is one segment after the record's key, apart from the record's own
+/// routes and the resource's other record pages.
+#[test]
+fn a_mount_refuses_a_record_page_it_cannot_route() {
+    let page = |slug: &str, kind| of::<Paged>(Site::RecordPage(slug.to_string()), kind);
+    assert_eq!(
+        refused(mount_without_db(Panel::new("admin").resource::<Paged>())),
+        [
+            page(
+                "edit",
+                DeclarationErrorKind::ReservedSlug {
+                    slug: "edit".to_string()
+                }
+            ),
+            page(
+                "history",
+                DeclarationErrorKind::DuplicateSlug {
+                    slug: "history".to_string()
+                }
+            ),
+            page(
+                "a/b",
+                DeclarationErrorKind::InvalidSegment {
+                    item: "RecordPageDef::slug",
+                    segment: "a/b".to_string(),
+                    fault: SegmentFault::Char('/'),
+                }
+            ),
+            panel_error(DeclarationErrorKind::MissingDb),
+        ]
+    );
 }
 
 /// A page on the panel's own sign-in path.
