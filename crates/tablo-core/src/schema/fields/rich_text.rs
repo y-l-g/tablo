@@ -12,7 +12,7 @@ use topcoat::{
     view::*,
 };
 
-use super::{ControlKind, Field, render_field};
+use super::{ControlKind, Field, Posting, render_field};
 use crate::{
     FieldRuleFault,
     rich_text::{PROSE, Tool, clean_with, text_length},
@@ -194,14 +194,13 @@ impl Field {
         cx: &'a Cx,
         value: Option<&str>,
         error: Option<&crate::values::FieldError>,
-        id: String,
-        disabled: bool,
+        posting: Posting,
     ) -> Result<BoxView<'a>> {
+        let Posting { id, name, disabled } = posting;
         let required = self.is_required() && !disabled;
         let chrome = self.chrome(cx, id.clone(), error, None);
         let aria_invalid = chrome.aria_invalid();
         let described_by = chrome.described_by();
-        let name = self.name().to_string();
         let placeholder = rich.placeholder.clone();
         let value = value.unwrap_or("").to_string();
         let tools = rich.tools().map(Tool::key).collect::<Vec<_>>().join(" ");

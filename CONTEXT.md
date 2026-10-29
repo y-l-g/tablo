@@ -50,7 +50,8 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Policy | A resource's authorization, answering one ability at a time. | Guard, Permission, Gate, Rule |
 | Ability | One thing a policy is asked to allow. | Permission, Action, Verb |
 | Tenancy | How a resource's rows belong to a tenant, through a `TenantId` column. | Tenant scope, Multi-tenancy mode |
-| Relation | A related resource's rows that belong to a record, rendered as that resource's table: its rows holding the record's key, or the records a join model links the record to, which the table attaches and detaches. | Relation manager, Sub-table |
+| Relation | A related resource's rows that belong to a record, rendered as that resource's table: its rows holding the record's key, or the records a join model links the record to, which the table attaches and detaches. A `has_one` relation renders a related form instead. | Relation manager, Sub-table |
+| Related form | A `has_one` relation's related resource's own form, rendered inside the owner's create and edit form under the related resource's slug, and written through that resource after the owner, in the owner's transaction. | Inline form, Nested resource, Has-one form |
 | Action | A user-invoked mutation, on one record or a bulk selection. | Command, Operation, Modal |
 | Change | What one write of a resource wrote, as `before_commit` and `after_commit` receive it: the kind of write and the rows it names. | Event, Committed |
 | Refusal | A submission the panel answers by rendering its form again with an error under each field it names, writing nothing: a parse, rule, `validate_record` or `validate_input` error, or a record fn's or an action's `WriteError::Refused`, which also rolls back what the fn wrote. An import row with such errors is a refused row. | Rejection, Validation failure |

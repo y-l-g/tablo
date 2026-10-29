@@ -32,6 +32,7 @@ which the list, form and detail pages follow. This table maps their names to Tab
 | `mutateFormDataBeforeCreate`, `handleRecordCreation` | `Resource::create_record`, `update_record`, delegating to `write_create`, `write_update` |
 | `infolist()` | `ResourceDef::detail`: a [`Detail`](./detail-pages.md) of columns |
 | `RelationManager` | `ResourceDef::relation(Relation::has_many::<R>(..))`, the related resource's table |
+| `Group::make()->relationship()` over a `HasOne` | `Relation::has_one::<R>(..)`, the related resource's own form inside the record's |
 | `BelongsToMany` relation manager | `Relation::belongs_to_many`, or a [many-to-many field](./forms.md#many-to-many-fields) |
 | `$recordTitleAttribute` | `ResourceDef::record_title(lens)` |
 | `getGloballySearchableAttributes()`, `getGlobalSearchResultDetails()` | the table's searchable columns and `record_title`; `ResourceDef::global_search(GlobalSearch::new().detail(..))`: the [global search](./panel-and-routing.md#global-search) |

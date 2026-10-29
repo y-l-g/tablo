@@ -1,8 +1,44 @@
-//! [`Site`]: where in a declaration a mistake is.
+//! [`DeclarationError`], one declaration mistake, and [`Site`]: where in the declaration it is.
 
 use std::fmt;
 
-/// The part of a declaration a [`DeclarationError`](super::DeclarationError) is in.
+use super::DeclarationErrorKind;
+
+/// One declaration mistake: who declares it, where, and what is wrong.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct DeclarationError {
+    /// The resource or page type that declares it; `None` for the panel's own configuration.
+    pub resource: Option<&'static str>,
+    /// The part of the declaration it is in.
+    pub site: Site,
+    /// What is wrong.
+    pub kind: DeclarationErrorKind,
+}
+
+impl DeclarationError {
+    /// A mistake in the panel's own configuration.
+    pub(crate) fn panel(kind: DeclarationErrorKind) -> Self {
+        Self {
+            resource: None,
+            site: Site::Panel,
+            kind,
+        }
+    }
+
+    /// A mistake in `T`'s declaration.
+    pub(crate) fn of<T>(site: Site, kind: DeclarationErrorKind) -> Self {
+        Self {
+            resource: Some(std::any::type_name::<T>()),
+            site,
+            kind,
+        }
+    }
+}
+
+impl std::error::Error for DeclarationError {}
+
+/// The part of a declaration a [`DeclarationError`] is in.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Site {

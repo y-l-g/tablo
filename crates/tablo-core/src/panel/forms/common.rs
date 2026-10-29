@@ -11,6 +11,7 @@ use topcoat::{
 
 use super::{
     super::{actions::load_editable, gate::gate, relations::render_relations},
+    related::{open_related, render_related},
     render::{Carried, FormChrome, render_form_page},
 };
 pub(crate) use crate::upload::FormParts;
@@ -363,10 +364,13 @@ pub(crate) fn resource_edit<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         // options a script added (tablo#515). A refused save renders none: a rerun would drop
         // its errors.
         let relations = render_relations(cx, &resource, &record);
+        let related = open_related(cx, &resource, Some(&record), &mut db).await?;
         let html = render_form_page(
             cx,
             &resource.form,
-            FormChrome::edit(cx, &resource, &record).with_relations(relations),
+            FormChrome::edit(cx, &resource, &record)
+                .with_relations(relations)
+                .with_related(render_related(cx, &related)),
             &values,
             &FieldErrors::new(),
             &Carried::new(),

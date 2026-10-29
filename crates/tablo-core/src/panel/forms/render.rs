@@ -8,9 +8,12 @@ use topcoat::{
     view::{BoxView, ViewExt, attributes, view},
 };
 
-use super::super::{
-    bar::{ActionBar, record_bar},
-    gate::{gate, return_target},
+use super::{
+    super::{
+        bar::{ActionBar, record_bar},
+        gate::{gate, return_target},
+    },
+    related::{open_related, render_related},
 };
 pub(super) use crate::form::VERSION_FIELD;
 use crate::{
@@ -48,6 +51,8 @@ pub(crate) struct FormChrome<'a> {
     seed: Vec<(String, String)>,
     /// The record's relation tables, under the form.
     relations: Vec<BoxView<'a>>,
+    /// The sections of the record's related forms, inside the form after its own fields.
+    related: Vec<BoxView<'a>>,
     /// Whether the page refuses a save because another changed the record since the form opened.
     stale: bool,
     /// The keys the request's field access hides or locks.
@@ -73,6 +78,7 @@ impl<'a> FormChrome<'a> {
             another: true,
             seed: seed_pairs(cx, resource),
             relations: Vec::new(),
+            related: Vec::new(),
             stale: false,
             mask: resource.form_mask(cx),
         }
@@ -107,6 +113,7 @@ impl<'a> FormChrome<'a> {
             another: false,
             seed: Vec::new(),
             relations: Vec::new(),
+            related: Vec::new(),
             stale: false,
             mask: resource.form_mask(cx),
         }
@@ -122,6 +129,12 @@ impl<'a> FormChrome<'a> {
     /// Renders `relations` under the form.
     pub(super) fn with_relations(mut self, relations: Vec<BoxView<'a>>) -> Self {
         self.relations = relations;
+        self
+    }
+
+    /// Renders `related`, the sections of the record's related forms, inside the form.
+    pub(super) fn with_related(mut self, related: Vec<BoxView<'a>>) -> Self {
+        self.related = related;
         self
     }
 
@@ -141,6 +154,7 @@ impl<'a> FormChrome<'a> {
             another: false,
             seed: Vec::new(),
             relations: Vec::new(),
+            related: Vec::new(),
             stale: false,
             mask: FormMask::default(),
         }
@@ -176,6 +190,7 @@ impl<'a> FormChrome<'a> {
             another: false,
             seed: Vec::new(),
             relations: Vec::new(),
+            related: Vec::new(),
             stale: false,
             mask: FormMask::default(),
         }
@@ -208,6 +223,7 @@ pub(crate) async fn render_form_page<'a>(
         another,
         seed,
         relations,
+        related,
         stale,
         mask,
     } = chrome;
@@ -310,6 +326,9 @@ pub(crate) async fn render_form_page<'a>(
                         (carried)
                     }
                     (form_html)
+                    for related in related {
+                        (related)
+                    }
                     <div class="flex items-center gap-2">
                         tablo_ui::button(
                             variant: submit_variant,
@@ -372,10 +391,11 @@ pub(crate) fn resource_create<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> 
             return Err(forbidden().into());
         }
         crate::csrf::ensure_token(cx);
+        let related = open_related(cx, &resource, None, &mut crate::db::db(cx)?).await?;
         let html = render_form_page(
             cx,
             &resource.form,
-            FormChrome::create(cx, &resource),
+            FormChrome::create(cx, &resource).with_related(render_related(cx, &related)),
             &seeded_values(cx, &resource),
             &FieldErrors::new(),
             &Carried::new(),

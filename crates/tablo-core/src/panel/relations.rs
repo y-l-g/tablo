@@ -41,9 +41,12 @@ pub(crate) const DETACH: &str = "detach";
 /// A registered resource as the child of other resources' relations.
 pub(crate) struct Child {
     pub(crate) slug: String,
+    pub(crate) label: crate::Text,
     pub(crate) plural_label: crate::Text,
     /// Renders the child's table narrowed to one owner.
     pub(crate) render: for<'a> fn(&'a Cx, BoundRelation) -> BoxView<'a>,
+    /// The child's form as a `has_one` relation's.
+    pub(crate) form: super::forms::ChildForm,
 }
 
 /// A relation resolved against one owner record.
@@ -99,6 +102,8 @@ pub(crate) fn render_relations<'a, R: Resource>(
             let (scope, value) = relation.bind(owner);
             let (seed, linking) = match &relation.kind {
                 RelationKind::HasMany { foreign_key } => (Some((foreign_key.clone(), value)), None),
+                // Its form edits the record's one child on the edit page.
+                RelationKind::HasOne { .. } => return None,
                 RelationKind::ManyToMany(Links { input, .. }) => (
                     None,
                     links.then(|| Linking {

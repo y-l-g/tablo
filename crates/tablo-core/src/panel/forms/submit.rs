@@ -13,26 +13,31 @@ use super::{
     super::{
         actions::load_editable,
         gate::gate,
-        write::{commit_write, failed_write},
+        write::{commit_write_then, failed_write},
     },
     common::{
         FilePosts, FormParts, blank, drop_client_typed_uploads, file_flags, gather_file_lists,
         parse_form_body, refuse_too_many_files, reject_unknown_form_keys, rerender_invalid_form,
         restore_pending_uploads,
     },
+    related::{open_related, read_related, related_valid, render_related, write_related},
     render::{Carried, FormChrome, VERSION_FIELD, form_action, render_form_page, seed_pairs},
     unique::{check_unique, taken_since},
 };
 use crate::{
     ModelColumns as _,
     db::{WriteTx, db},
-    form::{FieldError, FieldErrors, FormValues, Posted, RecordForm},
+    form::{FieldErrors, FormValues, Posted, RecordForm},
     panel::state::uploader,
     policy::Ability,
     resource::{Change, Mounted, Resource, WriteError},
     schema::Schema,
     topcoat_compat::async_page,
 };
+
+mod parse;
+
+pub(super) use parse::{complete, named_fields, parse_form, recheck_relationships, refusal};
 
 const WRITE_CREATE: &str = "tablo-failed-create";
 const WRITE_UPDATE: &str = "tablo-failed-update";
@@ -45,7 +50,7 @@ pub(super) struct Submission {
     /// Each file list the submission posts, which an edit resolves again against the record its
     /// transaction loads.
     lists: FilePosts,
-    named: HashSet<String>,
+    pub(super) named: HashSet<String>,
 }
 
 /// What a create submission's keys stand for when it does not post them.
@@ -184,177 +189,19 @@ pub(super) async fn prepare_submission<R: Resource>(
     })
 }
 
-/// Fills unnamed keys from the stored projection, dropping keys it does not hold.
-fn complete(
-    schema: &Schema,
-    values: &mut FormValues,
-    named: &HashSet<String>,
-    stored: &FormValues,
-) {
-    for field in schema.fields() {
-        let name = field.name();
-        if named.contains(name) {
-            continue;
-        }
-        match stored.get(name) {
-            Some(value) => values.insert(name, value.clone()),
-            None => values.remove(name),
-        };
-    }
-}
-
-/// Parses completed values and runs `validate_record` on the parsed form, adding every refusal
-/// to `errors` under the form key it renders under.
-///
-/// # Errors
-///
-/// A declaration error when a hand-written record form refuses a key its `fields` do not bind:
-/// no control would carry the message, and writing anyway would drop it.
-pub(super) fn parse_form<R: Resource>(
-    cx: &Cx,
-    resource: &Mounted<R>,
-    values: &FormValues,
-    errors: &mut FieldErrors,
-) -> Result<Option<R::Form>, topcoat::Error> {
-    match <R::Form as RecordForm>::parse(cx, values) {
-        Ok(form) => {
-            errors.extend(form_keyed(
-                resource,
-                "validate_record",
-                R::validate_record(cx, &form),
-            )?);
-            Ok(Some(form))
-        }
-        Err(failures) => {
-            for failure in failures {
-                if !resource.fields.iter().any(|field| {
-                    field
-                        .keys
-                        .iter()
-                        .any(|key| renders_under(&resource.form, key, &failure.key))
-                }) {
-                    return Err(unbound::<R>("the parse", &failure.key));
-                }
-                // The controls' own rules answered first for the key.
-                if !errors.contains_key(&failure.key) {
-                    errors.push(failure);
-                }
-            }
-            Ok(None)
-        }
-    }
-}
-
-/// `errors`, which `source` keyed by the record form's field enum, keyed by the form key each
-/// renders under: a field's first.
-///
-/// # Errors
-///
-/// A declaration error when a field binds no form key: no control would carry the message.
-fn form_keyed<R: Resource>(
-    resource: &Mounted<R>,
-    source: &str,
-    errors: FieldErrors<<R::Form as RecordForm>::Field>,
-) -> Result<FieldErrors, topcoat::Error> {
-    let mut keyed = FieldErrors::new();
-    for FieldError { key, kind } in errors {
-        let Some(first) = resource
-            .fields
-            .iter()
-            .find(|field| field.field == key)
-            .and_then(|field| field.keys.first())
-        else {
-            return Err(unbound::<R>(source, &key));
-        };
-        keyed.push(FieldError {
-            key: first.clone(),
-            kind,
-        });
-    }
-    Ok(keyed)
-}
-
-/// The refusal a record fn answered with, keyed as [`form_keyed`] keys it.
-///
-/// # Errors
-///
-/// A declaration error for a refusal that names no field, which would render the form unchanged,
-/// or one [`form_keyed`] refuses.
-pub(super) fn refusal<R: Resource>(
-    resource: &Mounted<R>,
-    source: &str,
-    errors: FieldErrors<<R::Form as RecordForm>::Field>,
-) -> Result<FieldErrors, topcoat::Error> {
-    if errors.is_empty() {
-        return Err(crate::error::declaration(format!(
-            "{source} of `{}` refused the submission with no field error",
-            std::any::type_name::<R>()
-        )));
-    }
-    form_keyed(resource, source, errors)
-}
-
-/// The declaration error of `source` refusing `key`, which `R`'s record form binds to no form key.
-fn unbound<R: Resource>(source: &str, key: &dyn std::fmt::Debug) -> topcoat::Error {
-    crate::error::declaration(format!(
-        "{source} refused {key:?}, which `{}` binds to no form key",
-        std::any::type_name::<R::Form>()
-    ))
-}
-
-/// Whether an error on `failed` renders under the field posting `key`: its own, or, for a
-/// repeater, a row's control, which posts under `{key}.`.
-fn renders_under(form: &Schema, key: &str, failed: &str) -> bool {
-    match failed.strip_prefix(key) {
-        Some("") => true,
-        Some(rest) => {
-            rest.starts_with('.')
-                && form
-                    .fields()
-                    .any(|field| field.name() == key && field.as_repeater().is_some())
-        }
-        None => false,
-    }
-}
-
-/// Re-checks relationship keys inside the write transaction before writing, but the links the
-/// record in `stored` holds already.
-pub(super) async fn recheck_relationships(
-    cx: &Cx,
-    schema: &Schema,
-    values: &FormValues,
-    stored: &FormValues,
-    errors: &mut FieldErrors,
-    ex: &mut dyn toasty::Executor,
-) {
-    if errors.is_empty() {
-        errors.extend(schema.recheck_relationships(cx, values, stored, ex).await);
-    }
-}
-
-fn named_fields<R: Resource>(
-    resource: &Mounted<R>,
-    named: &HashSet<String>,
-) -> Vec<<R::Form as RecordForm>::Field> {
-    resource
-        .fields
-        .iter()
-        .filter(|field| field.keys.iter().any(|key| named.contains(key)))
-        .map(|field| field.field)
-        .collect()
-}
-
 pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
     async_page(async move {
         let resource = gate::<R>(cx)?;
         if !resource.can_create(cx) {
             return Err(forbidden().into());
         }
-        let parts = parse_form_body(cx, body).await?;
+        let mut parts = parse_form_body(cx, body).await?;
         crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
         let another = parts
             .last(crate::form::ANOTHER_FIELD)
             .is_some_and(super::common::truthy);
+        let mut related = open_related(cx, &resource, None, &mut db(cx)?).await?;
+        read_related(cx, &mut parts, &mut related).await?;
         let Submission {
             schema,
             values,
@@ -390,12 +237,12 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             &mut *tx,
         )
         .await;
-        let Some(form) = form.filter(|_| errors.is_empty()) else {
+        let Some(form) = form.filter(|_| errors.is_empty() && related_valid(&related)) else {
             return rerender_invalid_form(
                 cx,
                 &resource,
                 tx,
-                FormChrome::create(cx, &resource),
+                FormChrome::create(cx, &resource).with_related(render_related(cx, &related)),
                 &values,
                 &errors,
                 &carried,
@@ -410,7 +257,7 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
                 return render_form_page(
                     cx,
                     &resource.form,
-                    FormChrome::create(cx, &resource),
+                    FormChrome::create(cx, &resource).with_related(render_related(cx, &related)),
                     &values,
                     &errors,
                     &carried,
@@ -427,12 +274,32 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
                 return render_form_page(
                     cx,
                     &resource.form,
-                    FormChrome::create(cx, &resource),
+                    FormChrome::create(cx, &resource).with_related(render_related(cx, &related)),
                     &values,
                     &taken,
                     &carried,
                 )
                 .await;
+            }
+        };
+        // Each related form writes after the record it belongs to, whose key it holds.
+        let after = match write_related(cx, &resource, &mut related, &written, &mut *tx).await {
+            Ok(Some(after)) => after,
+            Ok(None) => {
+                drop(tx);
+                return render_form_page(
+                    cx,
+                    &resource.form,
+                    FormChrome::create(cx, &resource).with_related(render_related(cx, &related)),
+                    &values,
+                    &errors,
+                    &carried,
+                )
+                .await;
+            }
+            Err(error) => {
+                drop(tx);
+                return Err(failed_write(cx, WRITE_CREATE, error));
             }
         };
         // Create and create another lands back on the create page, keeping its relationship
@@ -442,7 +309,7 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         } else {
             crate::Outcome::done()
         };
-        commit_write(
+        commit_write_then(
             cx,
             &resource,
             tx,
@@ -450,6 +317,7 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             Change::Create,
             crate::t!(cx, "tablo-form-created"),
             WRITE_CREATE,
+            after,
         )
         .await
     })
@@ -459,7 +327,7 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
 pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_> {
     async_page(async move {
         let resource = gate::<R>(cx)?;
-        let parts = parse_form_body(cx, body).await?;
+        let mut parts = parse_form_body(cx, body).await?;
         crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
         // The version the form opened on: a form that posts none skips the comparison below,
         // and the write's own condition still refuses a save overtaken mid-transaction.
@@ -474,6 +342,8 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         if !resource.can(cx, Ability::Update(&advisory)) {
             return Err(forbidden().into());
         }
+        let mut related = open_related(cx, &resource, Some(&advisory), &mut db0).await?;
+        read_related(cx, &mut parts, &mut related).await?;
         let Submission {
             schema,
             mut values,
@@ -506,8 +376,10 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         let stale = record
             .version()
             .is_some_and(|now| opened.is_some_and(|opened| opened != now));
-        let Some(form) = form.filter(|_| errors.is_empty() && !stale) else {
-            let chrome = FormChrome::edit(cx, &resource, &record);
+        let Some(form) = form.filter(|_| errors.is_empty() && related_valid(&related) && !stale)
+        else {
+            let chrome =
+                FormChrome::edit(cx, &resource, &record).with_related(render_related(cx, &related));
             return rerender_invalid_form(
                 cx,
                 &resource,
@@ -532,7 +404,8 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
                 return render_form_page(
                     cx,
                     &resource.form,
-                    FormChrome::edit(cx, &resource, &before),
+                    FormChrome::edit(cx, &resource, &before)
+                        .with_related(render_related(cx, &related)),
                     &values,
                     &errors,
                     &carried,
@@ -558,7 +431,8 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
                     return Err(forbidden().into());
                 }
                 let stale = was_overtaken || record.version() != version;
-                let chrome = FormChrome::edit(cx, &resource, &record);
+                let chrome = FormChrome::edit(cx, &resource, &record)
+                    .with_related(render_related(cx, &related));
                 return render_form_page(
                     cx,
                     &resource.form,
@@ -570,7 +444,27 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
                 .await;
             }
         };
-        commit_write(
+        let after = match write_related(cx, &resource, &mut related, &written, &mut *tx).await {
+            Ok(Some(after)) => after,
+            Ok(None) => {
+                drop(tx);
+                return render_form_page(
+                    cx,
+                    &resource.form,
+                    FormChrome::edit(cx, &resource, &before)
+                        .with_related(render_related(cx, &related)),
+                    &values,
+                    &errors,
+                    &carried,
+                )
+                .await;
+            }
+            Err(error) => {
+                drop(tx);
+                return Err(failed_write(cx, WRITE_UPDATE, error));
+            }
+        };
+        commit_write_then(
             cx,
             &resource,
             tx,
@@ -578,6 +472,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
             |after| Change::Update { before, after },
             crate::t!(cx, "tablo-form-updated"),
             WRITE_UPDATE,
+            after,
         )
         .await
     })

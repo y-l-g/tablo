@@ -70,6 +70,9 @@ use crate::{
 ///   place. On the edit page that keeps the fields the user edited, but loses repeater rows added
 ///   and options fetched since the page loaded. A refused save renders no related table.
 ///
+/// A [`has_one`](Self::has_one) relation renders no table: the related resource's form edits the
+/// record's one child inside the record's own form.
+///
 /// Mounting refuses a relation to a resource the panel does not register, and two relations of
 /// one resource to the same related resource.
 pub struct Relation<P> {
@@ -86,6 +89,8 @@ pub struct Relation<P> {
 pub(crate) enum RelationKind<P> {
     /// Each child row holds the owner's key in this column, which a create from the table seeds.
     HasMany { foreign_key: String },
+    /// The owner's one child row holds its key in this column, which the related form fills.
+    HasOne { foreign_key: String },
     /// The owner links child records through a join model, which the table attaches and detaches.
     ManyToMany(Links<P>),
 }
@@ -176,6 +181,68 @@ where
         C: Resource,
     {
         Self::bound_by::<C, _>(foreign_key)
+    }
+
+    /// Declare a `has_one` child resource whose `foreign_key` holds the owner's primary key, a
+    /// single column: the record's one child, edited by the child resource's own form inside the
+    /// owner's create and edit forms rather than by a table.
+    ///
+    /// ```rust
+    /// # use tablo_core::{Relation, Resource, ResourceDef};
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns, tablo_core::ModelForm)]
+    /// # struct User {
+    /// #     #[key] #[auto] id: uuid::Uuid,
+    /// #     name: String,
+    /// #     #[has_one]
+    /// #     profile: toasty::Deferred<Option<Profile>>,
+    /// # }
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns, tablo_core::ModelForm)]
+    /// # struct Profile {
+    /// #     #[key] #[auto] id: uuid::Uuid,
+    /// #     #[unique]
+    /// #     #[form(relationship = UserResource)]
+    /// #     user_id: uuid::Uuid,
+    /// #     #[belongs_to(key = user_id, references = id)]
+    /// #     user: toasty::Deferred<User>,
+    /// #     bio: String,
+    /// # }
+    /// # struct UserResource;
+    /// # impl Resource for UserResource { type Model = User; type Form = UserForm; }
+    /// # struct ProfileResource;
+    /// # impl Resource for ProfileResource { type Model = Profile; type Form = ProfileForm; }
+    /// let profile: Relation<User> = Relation::has_one::<ProfileResource>(Profile::fields().user_id());
+    /// ```
+    ///
+    /// The related resource's form renders as a section of the owner's form, titled with its
+    /// label or [`label`](Self::label), each control posting under the child's slug, as in
+    /// `profiles.bio`; the foreign key renders no control, since the owner's key fills it. Saving
+    /// the owner writes the child in the same transaction, after the owner: a create creates it,
+    /// and an edit updates the record's child or creates one when it has none. Either way the
+    /// child goes through its own resource as on its own pages: its policy, tenancy, field access,
+    /// control rules, unique probe, `validate_record`, record fn and commit hooks. A refusal from
+    /// either form rolls both back and renders both with their errors. The owner's hooks receive
+    /// the owner's change, the child's its own.
+    ///
+    /// The section renders only while the request may write the child: `Create` on the related
+    /// resource, or `View` and `Update` on the record's child, with the foreign key neither hidden
+    /// nor locked by field access. A record with more than one child, or one the related
+    /// resource's query leaves out, renders none. A submission posting under the prefix with no
+    /// section is refused, and one posting nothing under it, such as an editable cell's or an
+    /// import row's, leaves the child alone. The relation renders no table.
+    ///
+    /// Mounting refuses a related resource with no form, one whose form binds no control for
+    /// the foreign key, a soft-deleting one, one whose form holds a control that needs its own
+    /// keys or routes (a file field, a repeater, an embedded value, a searchable or dependent
+    /// choice), an owner with no form, and an owner form key the prefix would shadow.
+    pub fn has_one<C>(foreign_key: Path<C::Model, impl ForeignKey<P::PrimaryKey>>) -> Self
+    where
+        C: Resource,
+    {
+        let mut relation = Self::bound_by::<C, _>(foreign_key);
+        if let RelationKind::HasMany { foreign_key } = relation.kind {
+            relation.kind = RelationKind::HasOne { foreign_key };
+        }
+        relation
     }
 
     fn bound_by<C, T>(foreign_key: Path<C::Model, T>) -> Self
@@ -417,7 +484,15 @@ impl<P> Relation<P> {
     pub(crate) fn links(&self) -> Option<&Links<P>> {
         match &self.kind {
             RelationKind::ManyToMany(links) => Some(links),
-            RelationKind::HasMany { .. } => None,
+            RelationKind::HasMany { .. } | RelationKind::HasOne { .. } => None,
+        }
+    }
+
+    /// The child's column holding the owner's key, when the relation is a `has_one` one.
+    pub(crate) fn has_one_key(&self) -> Option<&str> {
+        match &self.kind {
+            RelationKind::HasOne { foreign_key } => Some(foreign_key),
+            RelationKind::HasMany { .. } | RelationKind::ManyToMany(_) => None,
         }
     }
 }
@@ -429,7 +504,9 @@ impl<P> std::fmt::Debug for Relation<P> {
             .field("child", &self.child_name)
             .field("label", &self.label);
         match &self.kind {
-            RelationKind::HasMany { foreign_key } => debug.field("foreign_key", foreign_key),
+            RelationKind::HasMany { foreign_key } | RelationKind::HasOne { foreign_key } => {
+                debug.field("foreign_key", foreign_key)
+            }
             RelationKind::ManyToMany(links) => debug.field("via", &links.field),
         };
         debug.finish_non_exhaustive()

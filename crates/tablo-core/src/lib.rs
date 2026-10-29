@@ -159,8 +159,8 @@ pub use column::{
 pub use declaration::{
     ActionInputFault, AuthMailFault, DeclarationError, DeclarationErrorKind, EditableColumnFault,
     FieldAccessFault, FieldRuleFault, LocaleFault, ManyToManyFault, MountError, ProfileFault,
-    ResetFault, SegmentFault, SignUpFault, Site, TenancyFault, TenantProfileFault,
-    TenantRegistrationFault, TwoFactorFault, VerificationFault,
+    RelatedFormFault, ResetFault, SegmentFault, SignUpFault, Site, TenancyFault,
+    TenantProfileFault, TenantRegistrationFault, TwoFactorFault, VerificationFault,
 };
 pub use derive::{EmbeddedForm, FormInput, ModelColumns, ModelForm, Options, RecordForm};
 pub use detail::{Detail, IntoDetail};

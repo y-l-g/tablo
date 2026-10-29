@@ -6,7 +6,7 @@ use topcoat::{Result, context::Cx, icon::icon, view::*};
 
 pub(crate) use self::rules::Pattern;
 use self::rules::{Order, Rules, order};
-use super::{ControlKind, Field, render_field};
+use super::{ControlKind, Field, Posting, render_field};
 use crate::{
     FieldRuleFault,
     schema::comparison::Comparison,
@@ -298,10 +298,9 @@ impl Field {
         cx: &'a Cx,
         value: Option<&str>,
         error: Option<&crate::values::FieldError>,
-        id: String,
-        disabled: bool,
+        posting: Posting,
     ) -> Result<BoxView<'a>> {
-        let name = self.name().to_string();
+        let Posting { id, name, disabled } = posting;
         let required = self.is_required() && !disabled;
         let placeholder = text.placeholder.clone();
         let chrome = self.chrome(cx, id.clone(), error, None);

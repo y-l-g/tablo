@@ -15,8 +15,8 @@ use super::{
     build::validate_route_segment,
     detail::resource_view,
     forms::{
-        resource_create, resource_create_post, resource_edit, resource_edit_post, resource_import,
-        resource_import_post, resource_import_template,
+        ChildForm, resource_create, resource_create_post, resource_edit, resource_edit_post,
+        resource_import, resource_import_post, resource_import_template,
     },
     list::{resource_columns, resource_list},
     pages::{page_action, page_action_options, page_handler},
@@ -37,6 +37,10 @@ use crate::{
     },
     resource::{Mounted, Mounts, Places, Resource, ResourceCheck, ResourceDef, check_resource},
 };
+
+mod form_facts;
+
+use form_facts::FormFacts;
 
 /// A resource or page waiting for its panel to mount.
 pub(super) trait Registration: Send {
@@ -102,6 +106,8 @@ pub(super) struct Registered {
     /// [`ColumnPreference`]: crate::auth::ColumnPreference
     pub(super) toggles: bool,
     relations: Vec<Link>,
+    /// What a `has_one` relation's related form needs of the resource, as owner or as child.
+    form: FormFacts,
 }
 
 /// One relation of a registered resource, its child type erased.
@@ -109,6 +115,8 @@ struct Link {
     child: TypeId,
     child_name: &'static str,
     misdeclared: Option<DeclarationErrorKind>,
+    /// The child's foreign key, for a `has_one` relation.
+    has_one: Option<String>,
 }
 
 impl Link {
@@ -130,6 +138,7 @@ impl Link {
             child: relation.child,
             child_name: relation.child_name,
             misdeclared: relation.misdeclared.clone().or(unlinkable),
+            has_one: relation.has_one_key().map(str::to_string),
         }
     }
 }
@@ -228,15 +237,23 @@ impl Registry {
                 if let Some(kind) = &link.misdeclared {
                     refuse(kind.clone());
                 }
-                if child.is_none() {
+                let Some(child) = child else {
                     refuse(DeclarationErrorKind::UnregisteredRelation);
                     continue;
-                }
+                };
                 if seen.contains(&link.child) {
                     refuse(DeclarationErrorKind::DuplicateRelation);
                     continue;
                 }
                 seen.push(link.child);
+                if let Some(foreign_key) = &link.has_one {
+                    for fault in parent
+                        .form
+                        .related_faults(&child.form, &child.slug, foreign_key)
+                    {
+                        refuse(DeclarationErrorKind::RelatedForm(fault));
+                    }
+                }
             }
         }
     }
@@ -322,8 +339,10 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
             TypeId::of::<R>(),
             Child {
                 slug: mounted.slug.clone(),
+                label: mounted.label.clone(),
                 plural_label: mounted.plural_label.clone(),
                 render: relation_table::<R>,
+                form: ChildForm::of::<R>(),
             },
         );
         registry.resources.push(Registered {
@@ -344,6 +363,7 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
                 .iter()
                 .map(|relation| Link::of::<R>(relation, registry.schema.as_ref()))
                 .collect(),
+            form: FormFacts::of(&mounted),
         });
         registry.mounts.insert(Arc::new(mounted));
     }

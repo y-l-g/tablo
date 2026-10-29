@@ -251,6 +251,20 @@ fn section_chrome<'a>(
     }
 }
 
+/// `body` under `title`, as a section declaring nothing else renders it: a related form's inside
+/// its owner's form.
+pub(crate) fn titled<'a>(cx: &'a Cx, title: crate::Text, body: BoxView<'a>) -> BoxView<'a> {
+    let look = Look {
+        title,
+        description: None,
+        icon: None,
+        collapse: Collapse::Never,
+        aside: false,
+        extra_class: None,
+    };
+    section_chrome(cx, &look, Some(body), false)
+}
+
 /// The section's title, after its icon.
 fn heading<'a>(cx: &'a Cx, look: &Look) -> BoxView<'a> {
     let title = look.title.clone();

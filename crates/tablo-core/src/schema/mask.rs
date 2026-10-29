@@ -25,6 +25,12 @@ impl FormMask {
         }
     }
 
+    /// The mask hiding `key` too.
+    pub(crate) fn hiding(mut self, key: &str) -> Self {
+        self.hidden.insert(key.to_string());
+        self
+    }
+
     /// Whether the control posting `key` renders nothing.
     pub(crate) fn hides(&self, key: &str) -> bool {
         self.hidden.contains(key)

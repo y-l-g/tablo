@@ -8,6 +8,7 @@ mod field_rule;
 mod locale;
 mod many_to_many;
 mod mount_error;
+mod related_form;
 mod segment;
 mod site;
 mod tenancy;
@@ -27,44 +28,11 @@ pub use locale::LocaleFault;
 pub use many_to_many::ManyToManyFault;
 use many_to_many::fmt_many_to_many;
 pub use mount_error::MountError;
+pub use related_form::RelatedFormFault;
 pub use segment::SegmentFault;
 pub(crate) use segment::segment_fault;
-pub use site::Site;
+pub use site::{DeclarationError, Site};
 pub use tenancy::TenancyFault;
-
-/// One declaration mistake: who declares it, where, and what is wrong.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
-pub struct DeclarationError {
-    /// The resource or page type that declares it; `None` for the panel's own configuration.
-    pub resource: Option<&'static str>,
-    /// The part of the declaration it is in.
-    pub site: Site,
-    /// What is wrong.
-    pub kind: DeclarationErrorKind,
-}
-
-impl DeclarationError {
-    /// A mistake in the panel's own configuration.
-    pub(crate) fn panel(kind: DeclarationErrorKind) -> Self {
-        Self {
-            resource: None,
-            site: Site::Panel,
-            kind,
-        }
-    }
-
-    /// A mistake in `T`'s declaration.
-    pub(crate) fn of<T>(site: Site, kind: DeclarationErrorKind) -> Self {
-        Self {
-            resource: Some(std::any::type_name::<T>()),
-            site,
-            kind,
-        }
-    }
-}
-
-impl std::error::Error for DeclarationError {}
 
 /// What is wrong with a declaration.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -582,6 +550,8 @@ pub enum DeclarationErrorKind {
     ///
     /// Drop `importable`, or serve the create page.
     ImportWithoutCreate,
+    /// A `has_one` relation whose related form cannot render inside the owner's form.
+    RelatedForm(RelatedFormFault),
     /// A many-to-many field or relation whose join model cannot link records.
     ManyToMany {
         /// The field, or the relation's `via` field.

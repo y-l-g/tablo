@@ -27,7 +27,7 @@ pub(crate) use chrome::{FieldChrome, error_kind, render_field};
 pub(crate) use custom::{Control, ControlInput};
 pub use custom::{Switch, Toggle};
 pub(crate) use file::{FileControl, is_linkable, is_rooted, stored_upload};
-pub(crate) use placement::Placement;
+pub(crate) use placement::{Placement, Posting};
 pub(crate) use read_only::{read_only, value_cell};
 #[cfg(feature = "rich-text")]
 use rich_text::RichTextControl;

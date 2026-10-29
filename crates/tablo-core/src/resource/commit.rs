@@ -16,6 +16,9 @@ use super::{Action, HeaderAction, Resource};
 /// reports the record only: the links are not in `M`. Read them through the hook's executor when
 /// an audit needs them; the relation table's own writes report as [`Change::Attach`] and
 /// [`Change::Detach`].
+///
+/// A save that also writes a [`Relation::has_one`](crate::Relation::has_one)'s child reports the
+/// owner here, and the child to the related resource's hooks, as its own pages would.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Change<M> {
     /// A create wrote this row.

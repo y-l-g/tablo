@@ -52,6 +52,10 @@ A table column editing its field in a cell posts to the edit route as this form,
 refuses one whose form control would not save what the cell posts
 ([0036](0036-inline-editing.md)).
 
+A `has_one` relation's child is no field of the record form. The related resource's own form
+writes it, rendered inside the owner's form and written in its transaction
+([0037](0037-related-forms.md)).
+
 ## Rejected
 
 - Folding a repeater's rows and a multiple choice's values into their key as a JSON string: every
