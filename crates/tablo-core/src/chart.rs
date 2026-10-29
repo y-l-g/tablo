@@ -191,11 +191,13 @@ pub fn chart(cx: &Cx, chart: Chart) -> BoxView<'_> {
         Vec::new()
     };
     let table = data_table(cx, heading.clone(), &labels, &series);
+    // The card is the data table's containing block, and clips it: an `sr-only` table keeps its
+    // columns' minimum width, so taking the page as its containing block, it widens the page.
     view! {
         cx =>
         <section
             data-chart=(kind.name())
-            class="flex flex-col gap-4 rounded-xl border border-border bg-card p-5 text-card-foreground shadow-xs"
+            class="relative flex flex-col gap-4 overflow-hidden rounded-xl border border-border bg-card p-5 text-card-foreground shadow-xs"
         >
             if heading.is_some() || description.is_some() {
                 <div class="flex flex-col gap-1">
