@@ -275,6 +275,7 @@ tablo-field-options-failed = { $label } could not load options
 tablo-field-filter = Filter…
 tablo-field-filter-options = Filter { $label } options
 tablo-field-no-options = No options
+tablo-field-add-tags = Add to { $label }, separated by commas
 tablo-field-no-matching-options = No matching options
 tablo-field-searching = Searching…
 tablo-field-too-many-options = Too many options — type to search

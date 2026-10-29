@@ -39,6 +39,9 @@ pub(crate) struct ChoiceControl {
     pub(super) layout: Layout,
     /// Whether the choice offers to create a related record, set by `creatable`.
     pub(super) creatable: bool,
+    /// Whether the choice takes values its options do not offer, set by `tags`: its options are
+    /// suggestions, and a text input adds any value.
+    pub(super) tags: bool,
 }
 
 /// What narrows a dependent choice's options: the related rows whose column equals the value the
@@ -132,7 +135,12 @@ impl ChoiceControl {
     /// Whether the choice declares neither options nor a relationship: its `<select>` offers
     /// nothing, and validation, with no option to check against, would accept any value.
     pub(crate) fn offers_nothing(&self) -> bool {
-        self.options.is_empty() && self.relationship.is_none()
+        self.options.is_empty() && self.relationship.is_none() && !self.tags
+    }
+
+    /// Whether the choice takes values its options do not offer.
+    pub(crate) fn is_tags(&self) -> bool {
+        self.tags
     }
 
     pub(crate) fn is_relationship(&self) -> bool {

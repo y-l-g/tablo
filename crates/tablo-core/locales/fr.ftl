@@ -267,6 +267,7 @@ tablo-field-options-failed = { $label } n'a pas pu charger ses options
 tablo-field-filter = Filtrer…
 tablo-field-filter-options = Filtrer les options de { $label }
 tablo-field-no-options = Aucune option
+tablo-field-add-tags = Ajouter à { $label }, séparés par des virgules
 tablo-field-no-matching-options = Aucune option correspondante
 tablo-field-searching = Recherche…
 tablo-field-too-many-options = Trop d'options — tapez pour chercher

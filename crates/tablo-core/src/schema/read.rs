@@ -121,7 +121,11 @@ impl<F> Schema<F> {
                 }
                 continue;
             }
-            let posted = pairs.claim(name);
+            let mut posted = pairs.claim(name);
+            if field.as_choice().is_some_and(ChoiceControl::is_tags) {
+                // The text input adds several tags at once, separated by commas.
+                posted = posted.iter().flat_map(|value| value.split(',')).collect();
+            }
             if field.as_choice().is_some_and(ChoiceControl::is_multiple) || field.is_file_list() {
                 if !posted.is_empty() {
                     values.insert(name, distinct(&posted));

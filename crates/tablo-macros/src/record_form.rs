@@ -57,6 +57,9 @@ enum DefaultControl {
     /// A multiple choice over an `Options` type's list: a `Vec` of the element type, which a list
     /// column stores.
     Choices(Box<Type>, Box<Type>),
+    /// A multiple choice taking typed values, with an `Options` type's list as suggestions: a
+    /// `Vec<String>`, which a list column stores.
+    Tags(Option<Box<Type>>),
     /// A file field.
     File,
     /// A file list: `#[form(file)]` on a `Vec<String>`.
@@ -139,6 +142,21 @@ fn field_spec(field: &syn::Field, variant: syn::Ident) -> syn::Result<FieldSpec>
         DefaultControl::Embed
     } else if attrs.repeat {
         DefaultControl::Repeat
+    } else if attrs.tags {
+        if !list_element(&field.ty).is_some_and(is_string) {
+            return Err(syn::Error::new_spanned(
+                &field.ty,
+                "tags are typed text, stored in a list column: the field is a `Vec<String>`",
+            ));
+        }
+        if attrs.blank.is_some() || attrs.optional {
+            return Err(syn::Error::new_spanned(
+                field,
+                "tags store the empty list when none is entered: they take no `blank` or \
+                 `optional`; `min_items(1)` on the control requires one",
+            ));
+        }
+        DefaultControl::Tags(attrs.options.clone().flatten().map(Box::new))
     } else if let Some(options) = attrs.options.clone() {
         if let Some(element) = list_element(&field.ty) {
             if attrs.blank.is_some() || attrs.optional {
@@ -194,7 +212,10 @@ fn field_spec(field: &syn::Field, variant: syn::Ident) -> syn::Result<FieldSpec>
     };
     let links = matches!(
         control,
-        DefaultControl::Links(..) | DefaultControl::Files | DefaultControl::Choices(..)
+        DefaultControl::Links(..)
+            | DefaultControl::Files
+            | DefaultControl::Choices(..)
+            | DefaultControl::Tags(..)
     );
     let required =
         !attrs.embed && !attrs.repeat && !links && blank_answer(&field.ty, &attrs).is_none();
@@ -290,6 +311,15 @@ fn expand_struct(
                         .multiple()
                 },
             ),
+            DefaultControl::Tags(suggestions) => {
+                let suggestions = suggestions.as_ref().map(|options| {
+                    quote! { .options(<#options as #krate::__macro::Options>::options()) }
+                });
+                (
+                    quote! { #krate::__macro::ChoiceField },
+                    quote! { #krate::__macro::Field::choice(#path) #suggestions .tags() },
+                )
+            }
             DefaultControl::OwnOptions => {
                 let ty = &field.ty;
                 (
@@ -362,6 +392,7 @@ fn expand_struct(
             /// toggle, `#[form(options = T)]` a choice over `T`'s options,
             /// `#[form(options)]` a choice over the field type's options (a multiple choice over a
             /// `Vec` of them),
+            /// `#[form(tags)]` a multiple choice taking typed values over a `Vec<String>`,
             /// `#[form(relationship = R)]` a choice over `R`'s records (a multiple choice over a
             /// `Vec` of their keys), `#[form(file)]` a file field (a file list over a
             /// `Vec<String>`),

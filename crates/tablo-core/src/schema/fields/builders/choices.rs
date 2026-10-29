@@ -41,6 +41,24 @@ impl<F> ChoiceField<F> {
         self
     }
 
+    /// Takes any values the user types, as tags: a [`multiple`](Self::multiple) choice whose
+    /// [`options`](Self::options), if any, are suggestions.
+    ///
+    /// - It renders a checkbox per suggestion and per value it holds, checked while it holds it,
+    ///   then a text input adding values, several at once separated by commas.
+    /// - Each value is trimmed, and a blank one or a repeat is dropped, so a value cannot hold a
+    ///   comma. Any other value is accepted: [`max_items`](Self::max_items) caps how many.
+    /// - Mounting refuses it on a [`relationship`](Self::relationship)'s choice, whose values name
+    ///   records.
+    ///
+    /// A record form's `Vec<String>` marked `#[form(tags)]` is one.
+    pub fn tags(mut self) -> Self {
+        let choice = self.choice_mut();
+        choice.multiple = true;
+        choice.tags = true;
+        self
+    }
+
     /// Renders a radio per option rather than a `<select>`, so every option shows without a
     /// click: for a few options, such as a status or a visibility. A [`multiple`](Self::multiple)
     /// choice keeps its checkboxes.

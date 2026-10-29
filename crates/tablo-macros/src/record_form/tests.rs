@@ -60,6 +60,20 @@ fn a_blank_answer_on_a_multiple_choice_is_refused() {
 }
 
 #[test]
+fn tags_are_a_list_of_strings_and_their_own_control() {
+    let message = refusal("#[form(model = M)] struct F { #[form(tags)] a: Vec<i64> }");
+    assert!(message.contains("Vec<String>"), "{message}");
+    let message = refusal("#[form(model = M)] struct F { #[form(tags, file)] a: Vec<String> }");
+    assert!(message.contains("declare one"), "{message}");
+    let message =
+        refusal("#[form(model = M)] struct F { #[form(tags, options = Topic)] a: Vec<String> }");
+    assert!(
+        !message.contains("declare one"),
+        "options are a tags field's suggestions: {message}"
+    );
+}
+
+#[test]
 fn a_blank_answer_on_a_file_list_is_refused() {
     let message =
         refusal("#[form(model = M)] struct F { #[form(file, blank = Vec::new())] a: Vec<String> }");
