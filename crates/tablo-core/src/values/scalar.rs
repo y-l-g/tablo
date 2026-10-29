@@ -67,6 +67,12 @@ pub trait FormScalar: Sized {
         None
     }
 
+    /// The icon a column shows the value with: an `Options` enum's `#[option(icon = …)]`, and
+    /// `None` for any other type.
+    fn icon(&self) -> Option<topcoat::icon::IconData> {
+        None
+    }
+
     /// How `self` orders against `other` for a text field's [`min`](crate::TextField::min) and
     /// [`max`](crate::TextField::max): a [`TypedValue`]'s [`order`](TypedValue::order), and
     /// `None` for any other type.
@@ -158,6 +164,10 @@ impl<T: NullableScalar> FormScalar for Option<T> {
 
     fn color(&self) -> Option<crate::Color> {
         self.as_ref().and_then(T::color)
+    }
+
+    fn icon(&self) -> Option<topcoat::icon::IconData> {
+        self.as_ref().and_then(T::icon)
     }
 
     fn order(&self, other: &Self) -> Option<std::cmp::Ordering> {

@@ -434,6 +434,36 @@ async fn a_computed_column_beside_a_restricted_load_is_refused() {
     .expect("the table without the computed column mounts");
 }
 
+/// A text column's tooltip and a row color are closures over the row, as a computed column is, so
+/// either beside a column loading a restricted member is refused.
+#[tokio::test]
+async fn a_row_closure_beside_a_restricted_load_is_refused() {
+    let tooltip = refusal(mount(
+        db().await,
+        panel()
+            .resource::<MemberResource>()
+            .resource::<TooltipCard>(),
+    ));
+    let fault = |name: &str| FieldAccessFault::UnmaskedRelation {
+        name: name.to_string(),
+        model: "Member".to_string(),
+    };
+    assert!(
+        faults(&tooltip).contains(&(Site::Table, fault("code"))),
+        "{tooltip:?}"
+    );
+    let tinted = refusal(mount(
+        db().await,
+        panel()
+            .resource::<MemberResource>()
+            .resource::<TintedCard>(),
+    ));
+    assert!(
+        faults(&tinted).contains(&(Site::Table, fault("row color"))),
+        "{tinted:?}"
+    );
+}
+
 /// A count shows no field of the records it counts, so it mounts over a source that is not a
 /// resource and over a resource alike.
 #[tokio::test]

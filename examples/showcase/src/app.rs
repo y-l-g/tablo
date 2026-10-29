@@ -3,14 +3,14 @@
 use std::path::PathBuf;
 
 use tablo::{
-    Ability, ActionLayout, Auth, AuthMail, BooleanColumn, Brand, Change, ComputedColumn,
+    Ability, ActionLayout, Auth, AuthMail, BooleanColumn, Brand, Change, Color, ComputedColumn,
     CountColumn, DateColumn, DateFilter, Detail, DirUploader, EmailVerification, EmbeddedColumn,
     FieldErrors, GlobalSearch, Grid, Group, HeaderAction, ModelColumns, NavigationItem,
     Notification, Notifications, Pagination, Panel, PanelHandle, PanelUser, PasswordReset,
-    PublicLink, QueryFilter, Relation, RelationColumn, RepeaterColumn, Resource, ResourceDef,
-    RichTextColumn, RouterBuilderPanelExt, Schema, Section, SelectFilter, Tab, Table, Tabs,
-    Tenancy, TenantRegistration, TernaryFilter, TextColumn, TwoFactor, lens, relation, tenant_id,
-    when,
+    PublicLink, QueryFilter, Reads, Relation, RelationColumn, RepeaterColumn, Resource,
+    ResourceDef, RichTextColumn, RouterBuilderPanelExt, Schema, Section, SelectFilter, Tab, Table,
+    Tabs, Tenancy, TenantRegistration, TernaryFilter, TextColumn, TwoFactor, lens, relation,
+    tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -126,6 +126,13 @@ impl Resource for AuthorResource {
             .form(Schema::new(
                 Section::new("Profile").schema((c.name, c.email.email())),
             ))
+            .table(Table::new((
+                TextColumn::new(lens!(Author.name)),
+                // A mail link, and a button copying the address.
+                TextColumn::new(lens!(Author.email))
+                    .url(|author: &Author| Some(format!("mailto:{}", author.email)))
+                    .copyable(),
+            )))
             .detail(Detail::new(
                 Section::new("Profile").columns(Author::detail()),
             ))
@@ -271,7 +278,11 @@ fn post_author_column() -> RelationColumn<Post> {
 /// The post list.
 fn post_table() -> Table<Post> {
     Table::new((
-        TextColumn::new(lens!(Post.title)).searchable().sortable(),
+        // A long title shows its first words, and the rest when the pointer rests on it.
+        TextColumn::new(lens!(Post.title))
+            .searchable()
+            .sortable()
+            .limit(60),
         // Each reader picks whether the status and the creation date show.
         TextColumn::new(lens!(Post.status)).badge().toggleable(),
         BooleanColumn::new(lens!(Post.featured)),
@@ -281,6 +292,9 @@ fn post_table() -> Table<Post> {
     ))
     // Publish and Tag join View, Edit and Delete behind one button.
     .action_layout(ActionLayout::Menu)
+    // A featured post stands out from the list.
+    .row_color(|post: &Post| post.featured.then_some(Color::Primary))
+    .row_color_reading(Reads::of(lens!(Post.featured)))
     .filters((
         SelectFilter::of(lens!(Post.status)).multiple(),
         TernaryFilter::new(lens!(Post.featured)).labels("Featured", "Not featured"),

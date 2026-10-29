@@ -20,9 +20,9 @@ pub enum Role {
 /// A post's lifecycle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo::Options)]
 pub enum PostStatus {
-    #[option(color = "gray")]
+    #[option(color = "gray", icon = tablo::ui::icons::PEN_LINE)]
     Draft,
-    #[option(color = "success")]
+    #[option(color = "success", icon = tablo::ui::icons::CIRCLE_CHECK)]
     Published,
 }
 

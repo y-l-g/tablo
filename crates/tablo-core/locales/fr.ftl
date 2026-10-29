@@ -63,6 +63,7 @@ tablo-list-columns-reset = Réinitialiser
 tablo-list-columns-apply = Appliquer
 tablo-list-delete-selected = Supprimer
 tablo-list-select-row = Sélectionner la ligne
+tablo-list-copy = Copier
 tablo-list-actions = Actions
 tablo-confirm-run = Lancer cette action ?
 tablo-confirm-delete-record = Supprimer cet enregistrement ?

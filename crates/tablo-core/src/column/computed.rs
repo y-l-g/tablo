@@ -3,10 +3,13 @@
 use std::sync::Arc;
 
 use derive_where::derive_where;
-use topcoat::context::Cx;
+use topcoat::{context::Cx, view::BoxView};
 
-use super::{Column, ColumnToggle, ColumnWidth, Includes};
-use crate::display::Alignment;
+use super::{
+    Column, ColumnToggle, ColumnWidth, Includes,
+    cell::{TextCell, text_cell},
+};
+use crate::display::{Alignment, Color};
 
 /// A display-only column rendering any text from the row, with no query predicate.
 ///
@@ -24,6 +27,27 @@ use crate::display::Alignment;
 /// declare their own and show only what the related resource shows the user.
 ///
 /// It maps to no column, so it neither searches nor sorts.
+///
+/// A [`badge`](Self::badge) shows the text in an outline badge, with a dot in the
+/// [`color`](Self::color) the row gives it:
+///
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # struct Order { #[key] #[auto] id: uuid::Uuid, total_cents: i64 }
+/// use tablo_core::{Color, ComputedColumn, Reads, lens};
+///
+/// ComputedColumn::new("Size", |o: &Order| {
+///     if o.total_cents > 100_00 {
+///         "Large"
+///     } else {
+///         "Small"
+///     }
+///     .to_string()
+/// })
+/// .badge()
+/// .color(|o: &Order| (o.total_cents > 100_00).then_some(Color::Success))
+/// .reading(Reads::of(lens!(Order.total_cents)));
+/// ```
 #[derive_where(Clone, Debug)]
 pub struct ComputedColumn<M> {
     name: String,
@@ -37,6 +61,9 @@ pub struct ComputedColumn<M> {
     includes: Includes<M>,
     /// The fields the projection reads, when declared.
     reads: Option<crate::lens::Reads<M>>,
+    badge: bool,
+    #[derive_where(skip(Debug))]
+    color: Option<super::ReadFn<M, Option<Color>>>,
 }
 
 impl<M> ComputedColumn<M>
@@ -59,7 +86,22 @@ where
             toggle: ColumnToggle::Fixed,
             includes: Includes::new(),
             reads: None,
+            badge: false,
+            color: None,
         }
+    }
+
+    /// Show the text as a badge, with a dot in its [`color`](Self::color).
+    pub fn badge(mut self) -> Self {
+        self.badge = true;
+        self
+    }
+
+    /// Color the text by `color(row)`: its badge's dot, or the text itself when it is no badge.
+    /// [`reading`](Self::reading) declares what it reads, beside the projection.
+    pub fn color(mut self, color: impl Fn(&M) -> Option<Color> + Send + Sync + 'static) -> Self {
+        self.color = Some(Arc::new(color));
+        self
     }
 
     /// Declare a relation the projection reads, so the table loads it. The projection reads
@@ -71,9 +113,9 @@ where
         self
     }
 
-    /// Declare the fields the projection reads, which a resource restricting a field with
-    /// [`field_access`](crate::ResourceDef::field_access) needs: the column shows only to a user
-    /// who may view every one.
+    /// Declare the fields the projection and its [`color`](Self::color) read, which a resource
+    /// restricting a field with [`field_access`](crate::ResourceDef::field_access) needs: the
+    /// column shows only to a user who may view every one.
     pub fn reading(mut self, reads: crate::lens::Reads<M>) -> Self {
         self.reads = Some(reads);
         self
@@ -108,6 +150,24 @@ where
 
     fn text(&self, _cx: &Cx, row: &M) -> String {
         (self.project)(row)
+    }
+
+    fn cell<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
+        let text = (self.project)(row);
+        let color = self
+            .color
+            .as_ref()
+            .filter(|_| !text.trim().is_empty())
+            .and_then(|color| color(row));
+        text_cell(
+            cx,
+            TextCell {
+                text,
+                color,
+                badge: self.badge,
+                ..TextCell::default()
+            },
+        )
     }
 
     fn column_width(&self) -> ColumnWidth {

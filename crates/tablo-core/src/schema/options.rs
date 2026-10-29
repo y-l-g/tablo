@@ -44,6 +44,21 @@ use crate::Text;
 /// takes the same list, storing the value itself:
 /// `SelectFilter::new(lens!(Post.kind), Kind::options())`.
 ///
+/// `#[option(color = "…")]` names the [`Color`](crate::Color) a badge shows a variant in, and
+/// `#[option(icon = …)]` the [`IconData`](topcoat::icon::IconData) a
+/// [`TextColumn`](crate::TextColumn) shows before it and an [`IconColumn`](crate::IconColumn)
+/// shows in its place:
+///
+/// ```rust
+/// #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo_core::Options)]
+/// enum Status {
+///     #[option(color = "warning", icon = tablo_ui::icons::INFO)]
+///     Draft,
+///     #[option(color = "success", icon = tablo_ui::icons::CIRCLE_CHECK)]
+///     Published,
+/// }
+/// ```
+///
 /// The derive also gives the enum `value()`, `label()` and `from_value()`.
 pub trait Options {
     /// Every option as `(value, label)`, in declaration order.

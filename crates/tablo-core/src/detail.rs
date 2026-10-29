@@ -11,8 +11,8 @@ use crate::{
     DeclarationErrorKind,
     column::{
         BooleanColumn, BoxColumn, ColorColumn, Column, ComputedColumn, CountColumn, DateColumn,
-        EmbeddedColumn, FileColumn, ImageColumn, RelationColumn, RepeaterColumn, TextColumn,
-        include_relations, restrict_relations, shows, unavailable_sources,
+        EmbeddedColumn, FileColumn, IconColumn, ImageColumn, RelationColumn, RepeaterColumn,
+        TextColumn, include_relations, restrict_relations, shows, unavailable_sources,
     },
     schema::{Grid, Group, HoldsTabs, Section, Tab, Tabs, tab_id, tab_view, tabs_chrome},
 };
@@ -392,6 +392,7 @@ column_details!(
     BooleanColumn<M>,
     FileColumn<M>,
     ColorColumn<M, T>,
+    IconColumn<M, T>,
     ImageColumn<M, T>,
     EmbeddedColumn<M, T>,
     RepeaterColumn<M, T>,

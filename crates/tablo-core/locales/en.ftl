@@ -64,6 +64,7 @@ tablo-list-columns-reset = Reset
 tablo-list-columns-apply = Apply
 tablo-list-delete-selected = Delete
 tablo-list-select-row = Select row
+tablo-list-copy = Copy
 tablo-list-actions = Actions
 tablo-confirm-run = Run this action?
 tablo-confirm-delete-record = Delete this record?

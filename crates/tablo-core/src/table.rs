@@ -22,6 +22,7 @@ pub(crate) mod filter;
 mod mask;
 pub(crate) mod model;
 mod page;
+mod row_color;
 mod search;
 mod sort;
 mod state;
@@ -122,6 +123,7 @@ pub struct Table<M> {
     misdeclared: Vec<DeclarationErrorKind>,
     filters: Vec<BoxFilter<M>>,
     group_by: Option<GroupDef<M>>,
+    row_color: row_color::RowColor<M>,
     /// A row's key: its record's primary key, as its action URLs carry it.
     key: fn(&M) -> String,
     /// Whether a row's key resolves as a URL id; a composite key does not, so its rows carry no
@@ -170,6 +172,7 @@ impl<M> Table<M> {
             misdeclared: Vec::new(),
             filters: Vec::new(),
             group_by: None,
+            row_color: row_color::RowColor::default(),
             key: crate::toasty_compat::pk::pk_text::<M>,
             addressable: !crate::toasty_compat::pk::pk_is_composite::<M>(),
             page_size: DEFAULT_PAGE_SIZE,

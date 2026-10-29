@@ -6,6 +6,8 @@ use topcoat::icon::{IconData, iconify::iconify_icon};
 pub const CHEVRONS_UP_DOWN: IconData = iconify_icon!("lucide:chevrons-up-down");
 /// The system theme.
 pub const MONITOR: IconData = iconify_icon!("lucide:monitor");
+/// A cell's copy button.
+pub const COPY: IconData = iconify_icon!("lucide:copy");
 /// A row's action menu.
 pub const ELLIPSIS: IconData = iconify_icon!("lucide:ellipsis");
 /// Sortable column, neither direction active.
