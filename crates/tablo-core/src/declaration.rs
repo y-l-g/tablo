@@ -69,19 +69,7 @@ impl DeclarationError {
 impl fmt::Display for DeclarationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(resource) = self.resource {
-            write!(f, "`{resource}`")?;
-            match &self.site {
-                Site::Panel | Site::Registration => {}
-                Site::Tenancy => f.write_str(" tenancy")?,
-                Site::SoftDelete => f.write_str(" soft delete")?,
-                Site::FieldAccess(field) => write!(f, " field access `{field}`")?,
-                Site::RecordTitle => f.write_str(" record title")?,
-                Site::Table => f.write_str(" table")?,
-                Site::Form => f.write_str(" form")?,
-                Site::Detail => f.write_str(" detail")?,
-                Site::Relation(key) => write!(f, " relation `{key}`")?,
-            }
-            f.write_str(": ")?;
+            write!(f, "`{resource}`{}: ", self.site)?;
         }
         write!(f, "{}", self.kind)
     }
