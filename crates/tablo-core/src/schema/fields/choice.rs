@@ -8,7 +8,7 @@ use topcoat::{Result, context::Cx, view::*};
 
 use super::{
     super::relationship::{OptionLoadError, RelatedCheck},
-    Field, Placement, render_field,
+    Field, Placement, Posting, render_field,
 };
 use crate::values::FormValue;
 
@@ -288,10 +288,16 @@ impl Field {
         placement: Placement<'_>,
     ) -> Result<BoxView<'a>> {
         let disabled = self.is_disabled_at(&placement);
+        let name = placement.name(self.name());
+        let posting = || Posting {
+            id: id.clone(),
+            name: name.clone(),
+            disabled,
+        };
         if choice.multiple {
             let chosen = value.and_then(FormValue::as_list).unwrap_or_default();
             return self
-                .render_choices(choice, cx, chosen, error, id, disabled)
+                .render_choices(choice, cx, chosen, error, posting())
                 .await;
         }
         if choice.is_listed() {
@@ -303,12 +309,11 @@ impl Field {
                 .into_iter()
                 .collect();
             return self
-                .render_choices(choice, cx, &chosen, error, id, disabled)
+                .render_choices(choice, cx, &chosen, error, posting())
                 .await;
         }
         let value = value.and_then(FormValue::as_text);
         let parent = placement.parent;
-        let name = self.name().to_string();
         let required = self.required && !disabled;
         let searchable = choice.searchable;
         let current = value.unwrap_or("").trim().to_string();

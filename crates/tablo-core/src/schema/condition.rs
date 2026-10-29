@@ -192,7 +192,8 @@ fn signal_key(
     )
 }
 
-/// Renders the watched field `field` inside one change handler per condition reading it.
+/// Renders the watched field `field`, posting under `posted`, inside one change handler per
+/// condition reading it.
 ///
 /// A handler reads only the event of the control posting the watched key: a searchable choice's
 /// filter box or an app control's own inputs change inside the same wrapper. A runtime expression
@@ -202,6 +203,7 @@ fn signal_key(
 pub(crate) fn watch<'a>(
     cx: &'a Cx,
     field: &Field,
+    posted: &str,
     conditions: &[Condition],
     scope: &str,
     values: &FormValues,
@@ -213,7 +215,7 @@ pub(crate) fn watch<'a>(
         .map(|condition| (condition.clone(), condition.holds(values)))
         .collect();
     let checkbox = field.is_checkbox();
-    let key = field.name().to_string();
+    let key = posted.to_string();
     async_page(async move {
         let mut view = control;
         for (condition, initial) in conditions {

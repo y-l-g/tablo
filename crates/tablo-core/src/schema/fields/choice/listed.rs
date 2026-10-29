@@ -8,7 +8,7 @@ use tablo_ui::{
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{ChoiceControl, OptionLoadError};
-use crate::schema::fields::Field;
+use crate::schema::fields::{Field, Posting};
 
 /// How a choice renders its options.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -49,10 +49,9 @@ impl Field {
         cx: &'a Cx,
         chosen: &[String],
         error: Option<&crate::values::FieldError>,
-        id: String,
-        disabled: bool,
+        posting: Posting,
     ) -> Result<BoxView<'a>> {
-        let name = self.name().to_string();
+        let Posting { id, name, disabled } = posting;
         let label = self.label();
         let multiple = choice.multiple;
         let buttons = choice.layout == Layout::Buttons;

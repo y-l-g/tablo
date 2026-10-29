@@ -5,7 +5,7 @@ use std::future::Future;
 
 use topcoat::{context::Cx, router::error::see_other, view::BoxView};
 
-use super::{gate::landing_url, state::uploader};
+use super::{forms::AfterCommit, gate::landing_url, state::uploader};
 use crate::{
     db::WriteTx,
     flash::{notify_write_failure, set_notification},
@@ -25,11 +25,30 @@ use crate::{
 pub(crate) async fn commit_write<'a, R: Resource, T>(
     cx: &'a Cx,
     resource: &Mounted<R>,
+    tx: WriteTx<'_>,
+    written: Result<(T, Outcome), topcoat::Error>,
+    change: impl FnOnce(T) -> Change<R::Model>,
+    note: impl Into<String>,
+    failure: &'static str,
+) -> Result<BoxView<'a>, topcoat::Error> {
+    commit_write_then(cx, resource, tx, written, change, note, failure, Vec::new()).await
+}
+
+/// [`commit_write`], then each of `also`, the hooks the write's related forms still owe, once
+/// the transaction commits.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "commit_write's arguments and the related forms' hooks"
+)]
+pub(crate) async fn commit_write_then<'a, R: Resource, T>(
+    cx: &'a Cx,
+    resource: &Mounted<R>,
     mut tx: WriteTx<'_>,
     written: Result<(T, Outcome), topcoat::Error>,
     change: impl FnOnce(T) -> Change<R::Model>,
     note: impl Into<String>,
     failure: &'static str,
+    also: Vec<AfterCommit>,
 ) -> Result<BoxView<'a>, topcoat::Error> {
     let written = match written {
         Ok((value, outcome)) => {
@@ -53,6 +72,9 @@ pub(crate) async fn commit_write<'a, R: Resource, T>(
         |change| async move {
             discard_uploads(cx, resource, &change).await;
             crate::resource::run_after_commit::<R>(cx, change).await;
+            for hook in also {
+                hook(cx).await;
+            }
         },
         note,
         failure,
@@ -63,7 +85,7 @@ pub(crate) async fn commit_write<'a, R: Resource, T>(
 
 /// Ends the sessions of the admin `change` gave a new email or password, inside the write's
 /// transaction, so a committed credential change leaves no session alive.
-async fn end_changed_credentials<M: Send + Sync + 'static>(
+pub(crate) async fn end_changed_credentials<M: Send + Sync + 'static>(
     cx: &Cx,
     tx: &mut dyn toasty::Executor,
     change: &Change<M>,

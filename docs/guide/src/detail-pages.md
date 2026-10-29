@@ -125,3 +125,12 @@ record edits the owner. The rows keep the related resource's View, Edit and Dele
 action and no create button: a record created there would link nothing.
 [`Relation::belongs_to_many`](https://y-l.fr/tablo/nightly/api/tablo/struct.Relation.html#method.belongs_to_many) has the routes, the
 hooks and the mount checks.
+
+### One child per record
+
+A record's one child, such as a user's profile, takes no table.
+`Relation::has_one::<ProfileResource>(Profile::fields().user_id())` renders `ProfileResource`'s own
+form inside the user's create and edit form instead, and the save writes both in one
+transaction. The profile goes through its own resource: its policy, field access, rules and
+hooks apply as on its own pages, and the user's key fills its foreign key.
+[`Relation::has_one`](https://y-l.fr/tablo/nightly/api/tablo/struct.Relation.html#method.has_one) has the rules and the mount checks.

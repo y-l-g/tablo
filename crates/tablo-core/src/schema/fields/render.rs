@@ -3,7 +3,8 @@
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{
-    Control, ControlInput, ControlKind, Field, Placement, read_only, render_field, value_cell,
+    Control, ControlInput, ControlKind, Field, Placement, Posting, read_only, render_field,
+    value_cell,
 };
 use crate::values::{FieldError, FormValue};
 
@@ -19,12 +20,15 @@ impl Field {
         let id = placement.id(self.name());
         let disabled = self.is_disabled_at(&placement);
         let text = value.and_then(FormValue::as_text);
+        let posting = || Posting {
+            id: id.clone(),
+            name: placement.name(self.name()),
+            disabled,
+        };
         match &self.control {
-            ControlKind::Text(control) => self.render_text(control, cx, text, error, id, disabled),
+            ControlKind::Text(control) => self.render_text(control, cx, text, error, posting()),
             #[cfg(feature = "rich-text")]
-            ControlKind::RichText(rich) => {
-                self.render_rich_text(rich, cx, text, error, id, disabled)
-            }
+            ControlKind::RichText(rich) => self.render_rich_text(rich, cx, text, error, posting()),
             ControlKind::Choice(choice) => {
                 Box::pin(self.render_choice(choice, cx, value, error, id, placement)).await
             }
@@ -34,7 +38,7 @@ impl Field {
             }
             ControlKind::File(file) => self.render_file(file, cx, text, error, id, disabled),
             ControlKind::Custom(control) => {
-                self.render_custom(control.as_ref(), cx, text, error, id, disabled)
+                self.render_custom(control.as_ref(), cx, text, error, posting())
             }
             // Its node renders it, from the keys and errors of each row's controls.
             ControlKind::Repeater(_) => Ok(().boxed()),
@@ -73,13 +77,13 @@ impl Field {
         cx: &'a Cx,
         value: Option<&str>,
         error: Option<&FieldError>,
-        id: String,
-        disabled: bool,
+        posting: Posting,
     ) -> Result<BoxView<'a>> {
+        let Posting { id, name, disabled } = posting;
         let required = (self.is_required() || self.accepted) && !disabled;
         let chrome = self.chrome(cx, id, error, None);
         let input = ControlInput::new(
-            self.name(),
+            &name,
             &chrome.id,
             value,
             required,

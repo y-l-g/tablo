@@ -301,6 +301,7 @@ impl fmt::Display for DeclarationErrorKind {
                 "`importable` creates each row through the create form, which this resource does \
                  not serve: it has no record form, or is `edit_only`"
             ),
+            Self::RelatedForm(fault) => fault.fmt(f),
             Self::ManyToMany { field, fault } => fmt_many_to_many(f, field, fault),
         }
     }

@@ -45,6 +45,8 @@ pub struct Source<'a> {
     editing: bool,
     /// The keys the request's field access hides or locks.
     mask: super::FormMask,
+    /// What every control's name starts with: a related form's `{slug}.`, empty otherwise.
+    prefix: String,
     /// How many tabs hold the node rendering now, which tells a nested block's DOM ids from its
     /// outer tab's.
     tab_depth: AtomicUsize,
@@ -61,6 +63,7 @@ impl<'a> Source<'a> {
             options: None,
             editing: false,
             mask: super::FormMask::default(),
+            prefix: String::new(),
             tab_depth: AtomicUsize::new(0),
         }
     }
@@ -81,6 +84,13 @@ impl<'a> Source<'a> {
     /// `scope`, so neither form's labels, conditions or variants reach the other's.
     pub(crate) fn scoped(mut self, scope: impl Into<String>) -> Self {
         self.scope = scope.into();
+        self
+    }
+
+    /// Renders a related form inside its owner's: every control posts under `prefix`, while its
+    /// values, errors, mask and conditions keep the related form's own keys.
+    pub(crate) fn posting_under(mut self, prefix: impl Into<String>) -> Self {
+        self.prefix = prefix.into();
         self
     }
 
@@ -167,6 +177,7 @@ impl<'a> Source<'a> {
             options: self.options.as_deref(),
             editing: self.editing,
             locked: self.mask.locks(name),
+            prefix: &self.prefix,
         }
     }
 
@@ -205,7 +216,16 @@ impl Node {
                 ))
                 .await?;
                 if let Some(conditions) = source.watched.get(field.name()) {
-                    view = watch(cx, field, conditions, &source.scope, source.values, view);
+                    let posted = format!("{}{}", source.prefix, field.name());
+                    view = watch(
+                        cx,
+                        field,
+                        &posted,
+                        conditions,
+                        &source.scope,
+                        source.values,
+                        view,
+                    );
                 }
                 if let Some(condition) = field.disabling() {
                     view = disable(cx, condition, &source.scope, source.values, view);
@@ -328,6 +348,45 @@ impl Node {
             _ => {
                 for child in self.children_mut().into_iter().flatten() {
                     child.offset(by);
+                }
+            }
+        }
+    }
+}
+
+impl<F> Schema<F> {
+    /// The first field whose control posts keys besides its own or fetches from its resource's
+    /// routes: a file field, a repeater, an embedded value's leaf, a searchable or dependent
+    /// choice. A related form, posting under its owner's prefix, carries none of them.
+    pub(crate) fn needs_own_keys(&self) -> Option<&str> {
+        let mut embedded = Vec::new();
+        for node in &self.nodes {
+            node.embedded_fields(&mut embedded);
+        }
+        self.fields
+            .iter()
+            .enumerate()
+            .find(|(index, field)| {
+                embedded.contains(index)
+                    || field.is_file()
+                    || field.as_repeater().is_some()
+                    || field.parent_key().is_some()
+                    || field
+                        .as_choice()
+                        .is_some_and(|choice| choice.is_searchable())
+            })
+            .map(|(_, field)| field.name())
+    }
+}
+
+impl Node {
+    /// Adds to `out` every field slot an embedded value under this node holds.
+    fn embedded_fields(&self, out: &mut Vec<usize>) {
+        match self {
+            Node::Embedded(e) => e.visit_fields(&mut |index| out.push(index)),
+            node => {
+                for child in node.children().unwrap_or_default() {
+                    child.embedded_fields(out);
                 }
             }
         }

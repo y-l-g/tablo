@@ -15,9 +15,25 @@ pub(crate) struct Placement<'p> {
     pub(crate) editing: bool,
     /// Whether the request's field access lets the user view the field but not change it.
     pub(crate) locked: bool,
+    /// What every control's name starts with: a related form's `{slug}.` inside its owner's
+    /// form, empty otherwise.
+    pub(crate) prefix: &'p str,
+}
+
+/// Where one control posts: its DOM id, the name it posts under, and whether it renders
+/// disabled.
+pub(crate) struct Posting {
+    pub(crate) id: String,
+    pub(crate) name: String,
+    pub(crate) disabled: bool,
 }
 
 impl Placement<'_> {
+    /// The name the control of the field `key` posts under.
+    pub(crate) fn name(&self, key: &str) -> String {
+        format!("{}{key}", self.prefix)
+    }
+
     /// The DOM id of the control posting `name`.
     pub(crate) fn id(&self, name: &str) -> String {
         if self.scope.is_empty() {

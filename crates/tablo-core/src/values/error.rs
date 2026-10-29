@@ -68,7 +68,7 @@ pub(crate) fn unreadable(key: &str) -> FieldError {
 /// back when a schema renders.
 ///
 /// [`Source::form`]: crate::Source::form
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FieldErrors<K = String> {
     errors: Vec<FieldError<K>>,
 }

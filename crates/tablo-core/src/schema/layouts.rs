@@ -18,6 +18,7 @@ use super::{
 mod section;
 
 pub use section::Section;
+pub(crate) use section::titled;
 
 /// An unlabelled block grouping a form's fields or a detail page's columns.
 #[derive(Debug)]
