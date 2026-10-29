@@ -90,11 +90,18 @@ pub(super) fn render_rows<'a>(
         .collect()
 }
 
-/// A group's header row: its label on a button that collapses and expands the group's rows.
-fn render_group_header<'a>(cx: &'a Cx, label: String, chrome: &RowChrome) -> BoxView<'a> {
+/// A group's header row: its label on a button that collapses and expands the group's rows. `run`
+/// counts the group's earlier runs on the page, which keeps the header's id its own when a group's
+/// rows come apart, as rows equal under a case-insensitive collation can.
+fn render_group_header<'a>(
+    cx: &'a Cx,
+    group: RowGroup,
+    run: usize,
+    chrome: &RowChrome,
+) -> BoxView<'a> {
     let colspan = chrome.header_colspan;
-    let id = group_header_dom_id(&chrome.id_scope, &label);
-    let token = bulk_token(&label);
+    let id = group_header_dom_id(&chrome.id_scope, &format!("{}{run}", group.token));
+    let RowGroup { token, label } = group;
     let (shown, toggled) = (
         chrome.signals.collapsed.clone(),
         chrome.signals.collapsed.clone(),
@@ -159,9 +166,8 @@ fn render_group_header<'a>(cx: &'a Cx, label: String, chrome: &RowChrome) -> Box
 fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxView<'a> {
     let header = row
         .opens_group
-        .then(|| row.group.clone())
-        .flatten()
-        .map(|label| render_group_header(cx, label, chrome));
+        .zip(row.group.clone())
+        .map(|(run, group)| render_group_header(cx, group, run, chrome));
     let dom_id = chrome.row_id(&row.key);
     let bulk_cell = chrome.with_bulk.then(|| {
         if row.selectable {
@@ -232,9 +238,14 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
     let actions = chrome
         .with_actions
         .then(|| actions::render_actions(cx, &row, chrome));
-    let mut row_attrs = attributes! { cx => id=(dom_id) class=(row_class) data-row-color=(tint) };
-    if let Some(label) = &row.group {
-        let (collapsed, token) = (chrome.signals.collapsed.clone(), bulk_token(label));
+    let mut row_attrs = attributes! {
+        cx =>
+        id=(dom_id)
+        class=(row_class)
+        data-row-color=(tint)
+    };
+    if let Some(group) = &row.group {
+        let (collapsed, token) = (chrome.signals.collapsed.clone(), group.token.clone());
         row_attrs.extend(attributes! {
             cx =>
             :hidden=$({
@@ -314,10 +325,20 @@ pub(super) struct RowView<'a> {
     selectable: bool,
     /// The tint the table's [`row_color`](crate::Table::row_color) gives the row.
     color: Option<crate::Color>,
-    /// The row's group label, when `?group_by=` names a declared grouping.
-    group: Option<String>,
-    /// Whether the row opens its group on the page, rendering the group's header above itself.
-    opens_group: bool,
+    /// The row's group, when `?group_by=` names a declared grouping.
+    group: Option<RowGroup>,
+    /// When the row opens a run of its group on the page, rendering the group's header above
+    /// itself: how many runs of the group come before.
+    opens_group: Option<usize>,
+}
+
+/// The group a row falls in.
+#[derive(Clone, PartialEq)]
+struct RowGroup {
+    /// What its collapse writes, as [`GroupDef::token`] spells it.
+    token: String,
+    /// What its header shows.
+    label: String,
 }
 
 /// One custom action's button in a row.
@@ -456,17 +477,29 @@ impl<M> WiredTable<M> {
                     custom,
                     selectable,
                     color: self.color_of(row),
-                    group: grouping.map(|group| group.key()(row).localize(cx)),
-                    opens_group: false,
+                    group: grouping.map(|group| {
+                        let label = group.key()(row).map(|label| label.localize(cx));
+                        RowGroup {
+                            token: group.token(label.as_deref()),
+                            label: label.unwrap_or_else(|| t!(cx, "tablo-list-group-empty")),
+                        }
+                    }),
+                    opens_group: None,
                 }
             })
             .collect();
         // The query orders the rows by the grouping's field, so a group's rows run together and
-        // a new label opens the next group.
-        let mut previous = None;
+        // a new group opens the next run.
+        let mut previous: Option<String> = None;
+        let mut runs: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
         for row in &mut row_data {
-            row.opens_group = row.group.is_some() && row.group != previous;
-            previous.clone_from(&row.group);
+            let token = row.group.as_ref().map(|group| group.token.clone());
+            if token.is_some() && token != previous {
+                let run = runs.entry(token.clone().unwrap_or_default()).or_default();
+                row.opens_group = Some(*run);
+                *run += 1;
+            }
+            previous = token;
         }
         row_data
     }

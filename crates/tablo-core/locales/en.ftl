@@ -87,6 +87,7 @@ tablo-list-filters = Filters
 tablo-list-tabs = Views
 tablo-list-group-by = Group by
 tablo-list-group-none = No grouping
+tablo-list-group-empty = No value
 tablo-list-reset-filters = Reset
 tablo-list-first-page = Back to first page
 tablo-pager-showing = Showing { $first }–{ $last } of { $total }

@@ -163,20 +163,23 @@ impl<M> Table<M> {
     }
 
     /// Resolve the full query ordering for a request: its [grouping](Self::group_by)'s field,
-    /// unless the sort is on it, then its [sort](Self::sort_for), or the primary key when nothing
-    /// sorts.
+    /// unless the sort orders by the same expression, then its [sort](Self::sort_for), or the
+    /// primary key when nothing sorts.
     pub(crate) fn order_bys_for(&self, state: &TableState) -> Vec<OrderByExpr>
     where
         M: toasty::schema::Model,
     {
-        let sort = self.sort_for(state);
+        let sort = self.sort_for(state).and_then(|sort| self.order_by(&sort));
         let mut order: Vec<OrderByExpr> = self
             .active_grouping(state)
-            .filter(|group| sort.as_ref().is_none_or(|sort| sort.column != group.name()))
+            .filter(|group| {
+                sort.as_ref()
+                    .is_none_or(|sort| sort.expr != group.order().expr)
+            })
             .map(|group| group.order().clone())
             .into_iter()
             .collect();
-        match sort.and_then(|sort| self.order_by(&sort)) {
+        match sort {
             Some(ord) => order.push(ord),
             None => order.extend(crate::toasty_compat::pk::pk_order_bys::<M>()),
         }

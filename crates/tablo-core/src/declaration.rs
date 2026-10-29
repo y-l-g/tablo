@@ -327,7 +327,7 @@ pub enum DeclarationErrorKind {
     ///
     /// Pass a page size of at least 1.
     ZeroPageSize,
-    /// `Table::default_sort` names no sortable column.
+    /// `Table::default_sort_by` names no sortable column.
     ///
     /// Declare its column `.sortable()`.
     UnsortableDefaultSort {

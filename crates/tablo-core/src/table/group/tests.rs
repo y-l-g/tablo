@@ -78,3 +78,29 @@ fn two_groupings_by_one_field_are_misdeclared() {
         }]
     );
 }
+
+/// A group's collapse token names its grouping, tells the rows holding no value from those
+/// holding an empty label, and is never empty, so no token matches inside another's commas.
+#[test]
+fn a_group_token_names_its_grouping_and_is_never_empty() {
+    let table = Table::<Task>::new(TextColumn::new(lens!(Task.title)))
+        .group_by(lens!(Task.status))
+        .group_by(lens!(Task.title));
+    let [status, title] = table.declared_groupings() else {
+        panic!("two groupings");
+    };
+    let tokens = [
+        status.token(Some("a")),
+        status.token(Some("")),
+        status.token(None),
+        title.token(Some("a")),
+    ];
+    for (i, token) in tokens.iter().enumerate() {
+        assert_ne!(token, ",,");
+        for other in &tokens[i + 1..] {
+            assert!(!other.contains(token.as_str()), "{token} in {other}");
+        }
+    }
+    let collapsed = format!("{}{}", status.token(Some("a")), status.token(Some("b")));
+    assert!(!collapsed.contains(&status.token(None)));
+}

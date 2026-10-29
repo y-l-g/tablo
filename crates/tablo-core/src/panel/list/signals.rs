@@ -27,8 +27,8 @@ pub(crate) struct TableSignals {
     /// Whether the selection takes every record `query` selects rather than `bulk`'s. A change
     /// of the selection or of `query` clears it.
     pub(crate) all: Signal<bool>,
-    /// The collapsed groups as `,token,` entries, each a group label as [`bulk_token`] spells
-    /// it; empty collapses none.
+    /// The collapsed groups as `,token,` entries, each as
+    /// [`GroupDef::token`](crate::table::GroupDef::token) spells it; empty collapses none.
     pub(crate) collapsed: Signal<String>,
     pub(crate) confirm: ConfirmSignals,
     /// Where each custom action asking for input posts its dialog, by the action's name.

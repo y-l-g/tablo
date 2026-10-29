@@ -8,7 +8,7 @@ use tablo::{
     Ability, Color, ComputedColumn, DeclarationErrorKind, Detail, FieldAccess, FieldAccessFault,
     FieldErrors, ListTab, Page, PageDef, QueryFilter, Reads, RecordTable, Resource, ResourceDef,
     Schema, Site, Tab, Table, Tabs, Tenancy, TenantId, TextColumn, Widget, lens,
-    testing::{columns, ignored_filters, record_tables, row_keys, rows, tab_links, tabs},
+    testing::{columns, groups, ignored_filters, record_tables, row_keys, rows, tab_links, tabs},
 };
 use toasty::Db;
 use topcoat::{
@@ -76,6 +76,7 @@ impl Resource for EmployeeResource {
                         .option("High", Employee::fields().salary().eq("S-900"))
                         .reading(Reads::of(lens!(Employee.salary))),
                 )
+                .group_by(lens!(Employee.salary))
                 .tab(ListTab::new("all", "All"))
                 .tab(
                     ListTab::new("high", "High")
@@ -441,6 +442,13 @@ async fn a_hidden_field_answers_no_search_or_filter() {
     assert_eq!(ignored_filters(&tabbed).len(), 1, "{tabbed}");
     let export = sales.get("/admin/employees/-/export?tab=high").await;
     assert_eq!(export.status(), 400);
+
+    // A grouping by the salary groups the rows for the user who may view it, and is dropped for
+    // the one who may not, whose list shows no group to read the salaries from.
+    let grouped = page(&hr, "/admin/employees?group_by=salary").await;
+    assert!(!groups(&grouped).is_empty(), "{grouped}");
+    let grouped = page(&sales, "/admin/employees?group_by=salary").await;
+    assert!(groups(&grouped).is_empty(), "{grouped}");
 }
 
 /// The grade, which the user may view but not change, renders disabled; a submission posting it,

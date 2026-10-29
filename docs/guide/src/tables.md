@@ -274,8 +274,9 @@ the field. [`ListTab`](https://y-l.fr/tablo/nightly/api/tablo/struct.ListTab.htm
 Each `.group_by(..)` offers one grouping, which the toolbar's **Group by** menu picks, and
 `?group_by=status`, named after the field, spells. A grouping orders the query by its field ahead of
 the sort, so a group runs on across pages and its rows keep the sort within it; each group's header
-shows its value, and collapses and expands its rows. A list groups by nothing until the reader
-picks a grouping.
+shows its value, or "No value" over the rows holding none, and collapses and expands its rows.
+Selecting the page expands every group, so a bulk action never takes a row the reader cannot see. A
+list groups by nothing until the reader picks a grouping.
 
 ## Export
 

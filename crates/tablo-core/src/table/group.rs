@@ -9,8 +9,9 @@ use toasty::stmt::OrderByExpr;
 use super::{Table, TableState};
 use crate::{DeclarationErrorKind, Lens, schema::Binding, values::FormScalar};
 
-/// Group-label projection reads a row's group off one model instance.
-pub(crate) type GroupKey<M> = Arc<dyn Fn(&M) -> crate::Text + Send + Sync>;
+/// Group-label projection reads a row's group off one model instance: `None` for a row holding
+/// no value.
+pub(crate) type GroupKey<M> = Arc<dyn Fn(&M) -> Option<crate::Text> + Send + Sync>;
 
 /// A named grouping a `Table` offers.
 #[derive_where(Clone)]
@@ -35,6 +36,17 @@ impl<M> GroupDef<M> {
     /// The label of the group `record` falls in.
     pub(crate) fn key(&self) -> &GroupKey<M> {
         &self.key
+    }
+
+    /// The collapse token of the group labelled `label`, `None` for the rows holding no value:
+    /// the grouping's name, so a group collapsed under one grouping leaves another's be, then
+    /// the label, as [`bulk_token`](super::bulk_token) spells it. No token is empty, so none
+    /// matches inside another's commas.
+    pub(crate) fn token(&self, label: Option<&str>) -> String {
+        match label {
+            Some(label) => super::bulk_token(&format!("{}={label}", self.name())),
+            None => super::bulk_token(&format!("{}!", self.name())),
+        }
     }
 
     /// What the grouping reads of a record.
@@ -64,8 +76,8 @@ impl<M> Table<M> {
     /// ```
     ///
     /// A grouping orders the rows by its field ahead of the sort, so each group runs on across
-    /// pages, and its header shows its field's value. Two groupings by one field are a
-    /// declaration error.
+    /// pages, and its header shows its field's value, or "No value" over the rows holding none.
+    /// Two groupings by one field are a declaration error.
     pub fn group_by<T>(mut self, lens: Lens<M, T>) -> Self
     where
         M: toasty::schema::Model + Send + Sync + 'static,
@@ -74,7 +86,10 @@ impl<M> Table<M> {
         let order = lens.path().clone().asc();
         self.groupings.push(GroupDef {
             binding: Binding::of(lens.path()),
-            key: Arc::new(move |record| lens.read(record).to_label()),
+            key: Arc::new(move |record| {
+                let value = lens.read(record);
+                (!value.to_form().is_empty()).then(|| value.to_label())
+            }),
             order,
         });
         self
