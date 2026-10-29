@@ -1,5 +1,5 @@
-//! Reads a detail page's entries, where `data-entry` names the column each one shows, and the
-//! record pages a record's page links.
+//! Reads a detail page's entries, where `data-entry` names the column each one shows, and a
+//! record's navigation.
 
 use super::dom::{attr_value, strip_text, tags_where};
 
@@ -23,13 +23,25 @@ pub fn detail_entries(html: &str) -> Vec<DetailEntry> {
         .collect()
 }
 
-/// The URLs of the record pages a record's page links, in document order: each link's
-/// `data-record-page`.
-pub fn record_page_links(html: &str) -> Vec<String> {
+/// One tab of a record's navigation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RecordNavLink {
+    /// Where the tab links.
+    pub href: String,
+    /// Whether the page is the tab's.
+    pub current: bool,
+}
+
+/// The tabs of the navigation a record's page renders, in document order: each tab's
+/// `data-record-nav`, and whether `aria-current` marks it. Empty without a navigation.
+pub fn record_navigation(html: &str) -> Vec<RecordNavLink> {
     tags_where(html, |_, attrs| {
-        attr_value(attrs, "data-record-page").is_some()
+        attr_value(attrs, "data-record-nav").is_some()
     })
     .into_iter()
-    .filter_map(|(_, attrs, _)| attr_value(&attrs, "data-record-page"))
+    .map(|(_, attrs, _)| RecordNavLink {
+        href: attr_value(&attrs, "data-record-nav").unwrap_or_default(),
+        current: attr_value(&attrs, "aria-current").as_deref() == Some("page"),
+    })
     .collect()
 }

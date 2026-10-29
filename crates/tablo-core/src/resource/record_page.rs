@@ -17,7 +17,8 @@ use crate::{
 };
 
 /// A page about one record of the resource `R`, served at `{list}/{key}/{slug}` and linked from
-/// the record's detail page. The panel loads the record and checks the request may open the page;
+/// the record's navigation: the tab bar its detail page, edit page, record pages and relation tabs
+/// share. The panel loads the record and checks the request may open the page;
 /// the page renders its body.
 ///
 /// ```rust
@@ -100,7 +101,7 @@ impl<M> RecordPageDef<M> {
         self
     }
 
-    /// The label of the page's link on the record's pages, and of its breadcrumb.
+    /// The label of the page's tab in the record's navigation, and of its breadcrumb.
     ///
     /// Defaults to the message `page-{name}` of the panel's catalogs, else the page type's name
     /// without a trailing `Page`, in sentence case: `OrderHistoryPage` reads `page-order-history`,
@@ -111,7 +112,7 @@ impl<M> RecordPageDef<M> {
         self
     }
 
-    /// The icon of the page's link.
+    /// The icon of the page's tab in the record's navigation.
     #[must_use]
     pub fn icon(mut self, icon: IconData) -> Self {
         self.icon = Some(icon);
@@ -153,7 +154,7 @@ impl<M> std::fmt::Debug for RecordPageDef<M> {
 
 impl<R: Resource> ResourceDef<R> {
     /// Adds the [`RecordPage`] `P` after the ones already declared, served at
-    /// `{list}/{key}/{slug}` for each record and linked from the record's detail page.
+    /// `{list}/{key}/{slug}` for each record and linked from the record's navigation.
     #[must_use]
     pub fn record_page<P: RecordPage<R>>(mut self) -> Self {
         self.record_pages.push(RecordPageEntry::new::<P>());
@@ -217,7 +218,7 @@ fn render<R: Resource, P: RecordPage<R>>(
 }
 
 /// The segments a record's own routes take after its key, which no record page may.
-const RESERVED_SEGMENTS: &[&str] = &["edit", "delete", "-"];
+pub(crate) const RESERVED_SEGMENTS: &[&str] = &["edit", "delete", "-"];
 
 /// Refuses a record page of `R` whose slug `validate` refuses as a URL path segment, is one of
 /// the record's own routes, or is another record page's. Answers whether it refused none.

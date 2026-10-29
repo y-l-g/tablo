@@ -34,6 +34,8 @@ which the list, form and detail pages follow. This table maps their names to Tab
 | `mutateFormDataBeforeCreate`, `handleRecordCreation` | `Resource::create_record`, `update_record`, delegating to `write_create`, `write_update` |
 | `infolist()` | `ResourceDef::detail`: a [`Detail`](./detail-pages.md) of columns |
 | `RelationManager` | `ResourceDef::relation(Relation::has_many::<R>(..))`, the related resource's table |
+| `ManageRelatedRecords` page | `Relation::has_many::<R>(..).tab()`, the related table on a [tab of its own](./detail-pages.md#relation-tabs) |
+| `getRecordSubNavigation()` | the [record's navigation](./detail-pages.md#relation-tabs), which a record page or a relation tab adds |
 | `Group::make()->relationship()` over a `HasOne` | `Relation::has_one::<R>(..)`, the related resource's own form inside the record's |
 | `BelongsToMany` relation manager | `Relation::belongs_to_many`, or a [many-to-many field](./forms.md#many-to-many-fields) |
 | `$recordTitleAttribute` | `ResourceDef::record_title(lens)` |
@@ -66,7 +68,7 @@ which the list, form and detail pages follow. This table maps their names to Tab
 - **The policy denies by default.** A new resource shows nothing until its policy allows
   `ViewAny`, and every write re-checks the policy on the row it loads.
 - **No inline editing.** A relation renders the related resource's table on the detail and edit
-  pages, and its rows link to that resource's own forms. A list of values edited in place is a
-  repeater over a `#[document]` field.
+  pages, or on a tab of its own, and its rows link to that resource's own forms. A list of values
+  edited in place is a repeater over a `#[document]` field.
 - **Server-rendered.** There is no Livewire or JavaScript component model: Topcoat reruns the
   page on the server and patches it in place.

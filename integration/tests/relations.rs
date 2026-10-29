@@ -6,7 +6,7 @@ use http::header::LOCATION;
 use tablo::{
     Ability, DeclarationErrorKind, Relation, Resource, ResourceDef, Schema, Site, Table,
     TextColumn, lens,
-    testing::{field_error, find_href_with},
+    testing::{field_error, find_href_with, record_navigation},
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
@@ -478,4 +478,58 @@ async fn two_relations_to_one_child_do_not_build() {
     assert_eq!(errors.len(), 1, "{errors:?}");
     assert_eq!(errors[0].site, Site::Relation("children".to_string()));
     assert_eq!(errors[0].kind, DeclarationErrorKind::DuplicateRelation);
+}
+
+/// The owners again, their children on a tab of their own.
+struct TabbedOwnerResource;
+
+impl Resource for TabbedOwnerResource {
+    type Model = Owner;
+    type Form = OwnerForm;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("tabbed-owners")
+            .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::View(_)))
+            .table(Table::new(TextColumn::new(lens!(Owner.name))))
+            .relation(Relation::has_many::<ChildResource>(Child::fields().owner_id()).tab())
+    }
+}
+
+/// A tab asks the child's own policy as its section would: no `ViewAny`, a 403 and no tab.
+#[tokio::test]
+async fn a_relation_tab_answers_to_the_childs_policy() {
+    let (_router, db, ada, _bob) = fixture().await;
+    let router = mount(
+        db.clone(),
+        panel()
+            .resource::<OwnerResource>()
+            .resource::<TabbedOwnerResource>()
+            .resource::<ChildResource>(),
+    )
+    .expect("panel builds");
+    let detail = format!("/admin/tabbed-owners/{}", ada.id);
+    let tab = format!("{detail}/children");
+
+    let html = body_string(get(&router, &detail).await).await;
+    assert!(
+        !html.contains("data-relation="),
+        "the tab leaves the detail page: {html}"
+    );
+    assert!(record_navigation(&html).iter().any(|link| link.href == tab));
+    let html = body_string(get(&router, &tab).await).await;
+    assert_eq!(listed_bodies(&html), ["ada-first", "ada-second"], "{html}");
+
+    let denied = get_with_header(&router, &detail, "x-deny-children").await;
+    assert!(
+        record_navigation(&denied)
+            .iter()
+            .all(|link| link.href != tab)
+    );
+    let request = http::Request::builder()
+        .uri(&tab)
+        .header("x-deny-children", "1")
+        .body(topcoat::router::Body::empty())
+        .unwrap();
+    assert_eq!(router.handle(request).await.status(), 403);
 }

@@ -23,6 +23,7 @@ mod skeleton;
 mod tabs;
 mod toolbar;
 
+pub(crate) use tabs::{TAB_ACTIVE_CLASS, TAB_CLASS, TAB_IDLE_CLASS};
 use topcoat::{
     context::Cx,
     icon::IconData,

@@ -67,7 +67,12 @@ async fn a_picked_column_shows_on_the_list_and_its_relation_tables() {
         .unwrap()
         .expect("a seeded category")
         .id;
-    let html = body_string(client.get(&format!("/admin/categories/{databases}")).await).await;
+    let html = body_string(
+        client
+            .get(&format!("/admin/categories/{databases}/posts"))
+            .await,
+    )
+    .await;
     assert_eq!(
         columns(&html),
         picked,

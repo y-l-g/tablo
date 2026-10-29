@@ -25,6 +25,7 @@ tablo-shell-create-tenant = Créer un espace
 tablo-crumb-create = Créer
 tablo-crumb-view = Voir
 tablo-crumb-edit = Modifier
+tablo-record-navigation = Pages de l'enregistrement
 
 ## Error pages
 

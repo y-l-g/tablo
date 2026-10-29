@@ -637,3 +637,39 @@ async fn a_condition_inside_a_related_form_watches_the_posted_name() {
     let reads = |name: &str| html.contains(&format!("hydrate(&quot;{name}&quot;)"));
     assert!(reads("cards.kind") && !reads("kind"), "{html}");
 }
+
+#[tokio::test]
+async fn a_has_one_relation_is_refused_as_a_tab() {
+    struct TabbedMembers;
+
+    impl Resource for TabbedMembers {
+        type Model = Member;
+        type Form = MemberForm;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("tabbed")
+                .relation(Relation::has_one::<ProfileResource>(Profile::fields().member_id()).tab())
+        }
+    }
+
+    let db = test_db(toasty::models!(Member, Profile)).await;
+    let errors = refusal(mount(
+        db,
+        panel()
+            .resource::<TabbedMembers>()
+            .resource::<MemberResource>()
+            .resource::<ProfileResource>(),
+    ));
+    assert_eq!(
+        errors
+            .iter()
+            .map(|error| (&error.site, &error.kind))
+            .collect::<Vec<_>>(),
+        [(
+            &Site::Relation("profiles".to_string()),
+            &DeclarationErrorKind::HasOneTab
+        )],
+        "{errors:?}"
+    );
+}

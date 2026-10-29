@@ -1,9 +1,9 @@
-//! A resource's record pages: the policy's `View` of the record gates them, and the panel's field
-//! access reaches what they render only through `can_view_field`.
+//! A resource's record pages and relation tabs: the policy's `View` of the record gates them, and
+//! the panel's field access reaches what a record page renders only through `can_view_field`.
 
 use tablo::{
-    Ability, Detail, FieldAccess, RecordPage, RecordPageDef, Resource, ResourceDef, Table,
-    TextColumn, can_view_field, lens,
+    Ability, Detail, FieldAccess, RecordPage, RecordPageDef, Relation, Resource, ResourceDef,
+    Table, TextColumn, can_view_field, lens,
 };
 use topcoat::{
     Result,
@@ -22,6 +22,29 @@ struct Note {
     id: Uuid,
     title: String,
     secret: String,
+}
+
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+struct Comment {
+    #[key]
+    #[auto]
+    id: Uuid,
+    note_id: Uuid,
+    body: String,
+}
+
+/// Comments anyone may list, a tab of their note.
+struct CommentResource;
+
+impl Resource for CommentResource {
+    type Model = Comment;
+    type Form = tablo::NoForm<Self::Model>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .policy_fn(|_, ability| matches!(ability, Ability::ViewAny | Ability::View(_)))
+            .table(Table::new(TextColumn::new(lens!(Comment.body))))
+    }
 }
 
 /// Notes whose `View` the header `x-deny-view` refuses, and whose secret `x-hide-secret` hides.
@@ -45,6 +68,7 @@ impl Resource for NoteResource {
             .table(Table::new(TextColumn::new(lens!(Note.title))))
             .detail(Detail::new(TextColumn::new(lens!(Note.title))))
             .record_page::<SecretPage>()
+            .relation(Relation::has_many::<CommentResource>(Comment::fields().note_id()).tab())
     }
 }
 
@@ -85,8 +109,9 @@ async fn get_with(router: &Router, uri: &str, names: &[&str]) -> (u16, String) {
     (response.status().as_u16(), body_string(response).await)
 }
 
+/// The router, and the note's URL.
 async fn fixture() -> (Router, String) {
-    let mut db = test_db(toasty::models!(Note)).await;
+    let mut db = test_db(toasty::models!(Note, Comment)).await;
     let note = toasty::create!(Note {
         title: "Plans",
         secret: "the-launch-date",
@@ -94,20 +119,33 @@ async fn fixture() -> (Router, String) {
     .exec(&mut db)
     .await
     .unwrap();
-    let router = mount(db, panel().resource::<NoteResource>()).expect("panel builds");
-    (router, format!("/admin/notes/{}/secret", note.id))
+    let router = mount(
+        db,
+        panel()
+            .resource::<NoteResource>()
+            .resource::<CommentResource>(),
+    )
+    .expect("panel builds");
+    (router, format!("/admin/notes/{}", note.id))
 }
 
 #[tokio::test]
-async fn a_record_page_answers_403_to_a_record_the_policy_refuses() {
-    let (router, page) = fixture().await;
-    let (status, _) = get_with(&router, &page, &["x-deny-view"]).await;
-    assert_eq!(status, 403);
+async fn a_record_page_and_a_tab_answer_403_to_a_record_the_policy_refuses() {
+    let (router, note) = fixture().await;
+    for page in [format!("{note}/secret"), format!("{note}/comments")] {
+        assert_eq!(get_with(&router, &page, &[]).await.0, 200, "{page}");
+        assert_eq!(
+            get_with(&router, &page, &["x-deny-view"]).await.0,
+            403,
+            "{page}"
+        );
+    }
 }
 
 #[tokio::test]
 async fn can_view_field_answers_the_panels_field_access() {
-    let (router, page) = fixture().await;
+    let (router, note) = fixture().await;
+    let page = format!("{note}/secret");
     let (status, html) = get_with(&router, &page, &[]).await;
     assert_eq!(status, 200);
     assert!(html.contains("the-launch-date"), "{html}");

@@ -28,7 +28,7 @@ use crate::{
         },
     },
     policy::Ability,
-    resource::{InputSpec, Links, Mounted, RelationKind, Resource, Trashed, mounted},
+    resource::{InputSpec, Links, Mounted, Relation, RelationKind, Resource, Trashed, mounted},
     topcoat_compat::async_page,
 };
 
@@ -45,6 +45,8 @@ pub(crate) struct Child {
     pub(crate) plural_label: crate::Text,
     /// Renders the child's table narrowed to one owner.
     pub(crate) render: for<'a> fn(&'a Cx, BoundRelation) -> BoxView<'a>,
+    /// Whether the request may list the child: [`can_list`](crate::can_list).
+    pub(crate) listable: fn(&Cx) -> bool,
     /// The child's form as a `has_one` relation's.
     pub(crate) form: super::forms::ChildForm,
 }
@@ -76,63 +78,81 @@ pub(crate) struct Linking {
     pub(crate) input: InputSpec,
 }
 
-/// Renders the relation tables of `resource`'s record `owner`.
+/// Renders the relation tables of `resource`'s record `owner`, but its tabs.
 pub(crate) fn render_relations<'a, R: Resource>(
     cx: &'a Cx,
     resource: &Mounted<R>,
     owner: &R::Model,
 ) -> Vec<BoxView<'a>> {
-    let Some(panel) = current(cx) else {
-        return Vec::new();
-    };
-    let page = topcoat::router::request::uri(cx).path().to_string();
-    // A trashed owner takes no writes: every write loads it among the live records.
-    let live = !resource.is_trashed(owner);
-    // Linking writes the owner's relations, which its edit asks `Update` for; a composite key
-    // has no URL to post under.
-    let links = live
-        && resource.table.is_addressable()
-        && resource.can(cx, Ability::View(owner))
-        && resource.can(cx, Ability::Update(owner));
     resource
         .relations
         .iter()
-        .filter_map(|relation| {
-            let child = panel.children.get(&relation.child)?;
-            let (scope, value) = relation.bind(owner);
-            let (seed, linking) = match &relation.kind {
-                RelationKind::HasMany { foreign_key } => (Some((foreign_key.clone(), value)), None),
-                // Its form edits the record's one child on the edit page.
-                RelationKind::HasOne { .. } => return None,
-                RelationKind::ManyToMany(Links { input, .. }) => (
-                    None,
-                    links.then(|| Linking {
-                        url: relation_url(
-                            &resource.url,
-                            &resource.table.key_of(owner),
-                            &child.slug,
-                        ),
-                        input: *input,
-                    }),
-                ),
-            };
-            Some((child.render)(
-                cx,
-                BoundRelation {
-                    key: child.slug.clone(),
-                    label: relation
-                        .label
-                        .clone()
-                        .unwrap_or_else(|| child.plural_label.clone()),
-                    scope,
-                    seed,
-                    creates: live,
-                    linking,
-                    page: page.clone(),
-                },
-            ))
-        })
+        .filter(|relation| !relation.tab)
+        .filter_map(|relation| render_relation(cx, resource, owner, relation))
         .collect()
+}
+
+/// The [`tab`](crate::Relation::tab) of `resource` whose related slug is `slug`, and its related
+/// resource as the panel registered it.
+pub(crate) fn relation_tab<'r, R: Resource>(
+    cx: &'r Cx,
+    resource: &'r Mounted<R>,
+    slug: &str,
+) -> Option<(&'r Relation<R::Model>, &'r Child)> {
+    let panel = current(cx)?;
+    resource.relations.iter().find_map(|relation| {
+        let child = panel.children.get(&relation.child)?;
+        (relation.tab && child.slug == slug).then_some((relation, child))
+    })
+}
+
+/// Renders `relation`'s table of `resource`'s record `owner`, or nothing for a `has_one` relation,
+/// whose form edits on the edit page.
+pub(crate) fn render_relation<'a, R: Resource>(
+    cx: &'a Cx,
+    resource: &Mounted<R>,
+    owner: &R::Model,
+    relation: &Relation<R::Model>,
+) -> Option<BoxView<'a>> {
+    let panel = current(cx)?;
+    let child = panel.children.get(&relation.child)?;
+    let page = topcoat::router::request::uri(cx).path().to_string();
+    // A trashed owner takes no writes: every write loads it among the live records.
+    let live = !resource.is_trashed(owner);
+    let (scope, value) = relation.bind(owner);
+    let (seed, linking) = match &relation.kind {
+        RelationKind::HasMany { foreign_key } => (Some((foreign_key.clone(), value)), None),
+        // Its form edits the record's one child on the edit page.
+        RelationKind::HasOne { .. } => return None,
+        // Linking writes the owner's relations, which its edit asks `Update` for; a composite key
+        // has no URL to post under.
+        RelationKind::ManyToMany(Links { input, .. }) => (
+            None,
+            (live
+                && resource.table.is_addressable()
+                && resource.can(cx, Ability::View(owner))
+                && resource.can(cx, Ability::Update(owner)))
+            .then(|| Linking {
+                url: relation_url(&resource.url, &resource.table.key_of(owner), &child.slug),
+                input: *input,
+            }),
+        ),
+    };
+    Some((child.render)(
+        cx,
+        BoundRelation {
+            key: child.slug.clone(),
+            label: relation
+                .label
+                .clone()
+                .unwrap_or_else(|| child.plural_label.clone()),
+            scope,
+            seed,
+            creates: live,
+            linking,
+            page,
+        },
+    ))
 }
 
 /// The many-to-many relation of `resource` the `{relation}` path segment names, by its related

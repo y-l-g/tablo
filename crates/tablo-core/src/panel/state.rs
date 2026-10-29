@@ -44,7 +44,7 @@ pub(crate) struct ResourceTrail {
     pub(crate) list: String,
     /// Whether the resource has a detail page, which the trail of a deeper record page links.
     pub(crate) viewed: bool,
-    /// The labels of the pages under a record, by slug.
+    /// The labels of the record pages and relation tabs under a record, by slug.
     pub(crate) pages: Vec<(String, crate::Text)>,
 }
 

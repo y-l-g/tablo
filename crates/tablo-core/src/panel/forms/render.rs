@@ -18,6 +18,7 @@ use super::{
 pub(super) use crate::form::VERSION_FIELD;
 use crate::{
     form::{FieldErrors, FormValues},
+    panel::record_nav::{RecordNavLink, record_navigation, render_record_navigation},
     resource::{Mounted, Places, PublicLink, Resource},
     schema::{FormMask, Schema},
     t,
@@ -51,6 +52,8 @@ pub(crate) struct FormChrome<'a> {
     seed: Vec<(String, String)>,
     /// The record's relation tables, under the form.
     relations: Vec<BoxView<'a>>,
+    /// The record's navigation, under the header.
+    navigation: Vec<RecordNavLink>,
     /// The sections of the record's related forms, inside the form after its own fields.
     related: Vec<BoxView<'a>>,
     /// Whether the page refuses a save because another changed the record since the form opened.
@@ -82,6 +85,7 @@ impl<'a> FormChrome<'a> {
             another: !picking,
             seed: seed_pairs(cx, resource),
             relations: Vec::new(),
+            navigation: Vec::new(),
             related: Vec::new(),
             stale: false,
             mask: resource.form_mask(cx),
@@ -118,6 +122,7 @@ impl<'a> FormChrome<'a> {
             another: false,
             seed: Vec::new(),
             relations: Vec::new(),
+            navigation: record_navigation(cx, resource, record),
             related: Vec::new(),
             stale: false,
             mask: resource.form_mask(cx),
@@ -160,6 +165,7 @@ impl<'a> FormChrome<'a> {
             another: false,
             seed: Vec::new(),
             relations: Vec::new(),
+            navigation: Vec::new(),
             related: Vec::new(),
             stale: false,
             mask: FormMask::default(),
@@ -197,6 +203,7 @@ impl<'a> FormChrome<'a> {
             another: false,
             seed: Vec::new(),
             relations: Vec::new(),
+            navigation: Vec::new(),
             related: Vec::new(),
             stale: false,
             mask: FormMask::default(),
@@ -235,6 +242,7 @@ pub(crate) async fn render_form_page<'a>(
         stale,
         mask,
         picking,
+        navigation,
     } = chrome;
     // A hidden field's value never reaches the page, nor its error, which could tell it: an
     // alert says only that the save cannot pass.
@@ -301,6 +309,7 @@ pub(crate) async fn render_form_page<'a>(
                     )
                 }
             )
+            (render_record_navigation(cx, navigation))
             tablo_ui::page_content(
                 <form
                     method="post"

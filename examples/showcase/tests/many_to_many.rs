@@ -222,7 +222,12 @@ async fn a_category_page_lists_the_posts_filed_under_it() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let databases = category(&db, "Databases").await;
-    let html = body_string(client.get(&format!("/admin/categories/{databases}")).await).await;
+    let html = body_string(
+        client
+            .get(&format!("/admin/categories/{databases}/posts"))
+            .await,
+    )
+    .await;
     let mut listed: Vec<String> = rows(&html)
         .into_iter()
         .filter_map(|row| row.select_value)

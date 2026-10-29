@@ -20,7 +20,7 @@ use super::{
     },
     list::{resource_columns, resource_list},
     pages::{page_action, page_action_options, page_handler},
-    record_page::record_page_view,
+    record_page::{record_page_view, relation_tab_view},
     relations::{Child, relation_table},
     state::{BadgeFn, NavEntry, ResourceTrail, Searchable},
 };
@@ -43,8 +43,10 @@ use crate::{
 };
 
 mod form_facts;
+mod links;
 
 use form_facts::FormFacts;
+use links::Link;
 
 /// A resource or page waiting for its panel to mount.
 pub(super) trait Registration: Send {
@@ -110,41 +112,12 @@ pub(super) struct Registered {
     /// [`ColumnPreference`]: crate::auth::ColumnPreference
     pub(super) toggles: bool,
     relations: Vec<Link>,
+    /// The slugs of the resource's record pages, which its relation tabs may not take.
+    record_page_slugs: Vec<String>,
+    /// Serves the resource's relation tabs.
+    relation_tab: topcoat::router::PageRenderFn,
     /// What a `has_one` relation's related form needs of the resource, as owner or as child.
     form: FormFacts,
-}
-
-/// One relation of a registered resource, its child type erased.
-struct Link {
-    child: TypeId,
-    child_name: &'static str,
-    misdeclared: Option<DeclarationErrorKind>,
-    /// The child's foreign key, for a `has_one` relation.
-    has_one: Option<String>,
-}
-
-impl Link {
-    /// `relation` of `R`, whose many-to-many join model resolves through `schema` when there is
-    /// one.
-    fn of<R: Resource>(
-        relation: &crate::Relation<R::Model>,
-        schema: Option<&crate::toasty_compat::model::AppSchema>,
-    ) -> Self {
-        let unlinkable = relation.links().zip(schema).and_then(|(links, schema)| {
-            crate::toasty_compat::join::JoinTable::of::<R::Model>(schema, &links.field)
-                .err()
-                .map(|fault| DeclarationErrorKind::ManyToMany {
-                    field: links.field.clone(),
-                    fault,
-                })
-        });
-        Self {
-            child: relation.child,
-            child_name: relation.child_name,
-            misdeclared: relation.misdeclared.clone().or(unlinkable),
-            has_one: relation.has_one_key().map(str::to_string),
-        }
-    }
 }
 
 impl Registry {
@@ -215,51 +188,6 @@ impl Registry {
     fn route(&mut self, method: http::Method, url: &str, handler: topcoat::router::RouteHandlerFn) {
         self.routes
             .push(RouteFn::new(method, route_path(url), handler));
-    }
-
-    /// Resolves every relation against the registered resources: each must name one this panel
-    /// registers, its table's row actions and create link go to that resource's routes, and name
-    /// it once per owner, since the child's slug prefixes the table's URL parameters.
-    pub(super) fn link_relations(&mut self) {
-        for parent in &self.resources {
-            let mut seen = Vec::new();
-            for link in &parent.relations {
-                let child = self
-                    .resources
-                    .iter()
-                    .find(|registered| registered.resource == link.child);
-                let site = Site::Relation(
-                    child.map_or_else(|| link.child_name.to_string(), |child| child.slug.clone()),
-                );
-                let mut refuse = |kind| {
-                    self.errors.push(DeclarationError {
-                        resource: Some(parent.name),
-                        site: site.clone(),
-                        kind,
-                    });
-                };
-                if let Some(kind) = &link.misdeclared {
-                    refuse(kind.clone());
-                }
-                let Some(child) = child else {
-                    refuse(DeclarationErrorKind::UnregisteredRelation);
-                    continue;
-                };
-                if seen.contains(&link.child) {
-                    refuse(DeclarationErrorKind::DuplicateRelation);
-                    continue;
-                }
-                seen.push(link.child);
-                if let Some(foreign_key) = &link.has_one {
-                    for fault in parent
-                        .form
-                        .related_faults(&child.form, &child.slug, foreign_key)
-                    {
-                        refuse(DeclarationErrorKind::RelatedForm(fault));
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -361,6 +289,7 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
                 label: mounted.label.clone(),
                 plural_label: mounted.plural_label.clone(),
                 render: relation_table::<R>,
+                listable: crate::can_list::<R>,
                 form: ChildForm::of::<R>(),
             },
         );
@@ -382,6 +311,12 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
                 .iter()
                 .map(|relation| Link::of::<R>(relation, registry.schema.as_ref()))
                 .collect(),
+            record_page_slugs: mounted
+                .record_pages
+                .iter()
+                .map(|page| page.slug.clone())
+                .collect(),
+            relation_tab: relation_tab_view::<R>,
             form: FormFacts::of(&mounted),
         });
         registry.mounts.insert(Arc::new(mounted));

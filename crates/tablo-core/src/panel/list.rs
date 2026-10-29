@@ -20,6 +20,7 @@ use topcoat::{
 };
 
 pub(crate) use self::{
+    render::{TAB_ACTIVE_CLASS, TAB_CLASS, TAB_IDLE_CLASS},
     shown::ShownList,
     signals::TableSignals,
     wiring::{RowActions, TableAction, TableChrome},

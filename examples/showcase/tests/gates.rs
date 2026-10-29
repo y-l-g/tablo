@@ -412,6 +412,12 @@ async fn cross_tenant_requests_404_and_touch_nothing() {
     .exec(&mut db_q)
     .await
     .expect("file the t1 post");
+    let tab = format!("/admin/categories/{}/posts", t1_category.id);
+    assert_eq!(
+        foreign.get(&tab).await.status(),
+        404,
+        "{tab}: a cross-tenant read must 404"
+    );
     let relation = format!("/admin/categories/{}/-/relations/posts", t1_category.id);
     let post_key = t1_post.id.to_string();
     for (path, body) in [
@@ -590,6 +596,7 @@ async fn blocked_tenant_is_refused_on_every_read_route() {
         format!("/admin/authors/-/picked?pick=1&key={}", blocked_author.id),
         format!("/admin/posts/{}", blocked_post.id),
         format!("/admin/posts/{}/preview", blocked_post.id),
+        format!("/admin/categories/{}/posts", blocked_category.id),
         "/admin/posts/-/actions/tag/options?field=tags".to_string(),
         format!(
             "/admin/categories/{}/-/relations/posts/-/actions/attach/options?field=record",
@@ -640,6 +647,7 @@ async fn anonymous_requests_are_gated_on_every_route() {
         format!("/admin/posts/{}", post.id),
         format!("/admin/posts/{}/edit", post.id),
         format!("/admin/posts/{}/preview", post.id),
+        format!("/admin/categories/{}/posts", category.id),
         "/admin/posts/-/export".to_string(),
         "/admin/posts/-/import".to_string(),
         "/admin/posts/-/import/template".to_string(),

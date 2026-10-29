@@ -26,6 +26,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Table | The declaration of a list view: columns, filters, tabs, search, sort, grouping, page size. | Grid, Listing, DataTable |
 | Schema | The layout of a form: layout blocks, fields, embedded values. | Form, Infolist, Fieldset |
 | Record page | A page of the app's own about one record of a resource, a type implementing `RecordPage`, served under the record's URL behind the checks of its detail page. | Custom record page, Record view, Sub-page |
+| Record navigation | The tab bar under a record's header on its detail page, edit page, record pages and relation tabs, linking those the request may open, once its resource declares a record page or a relation tab. | Sub-navigation, Record tabs, Record menu |
 | Detail | The declaration of a detail page: columns in layout blocks, set by `ResourceDef::detail`. | Infolist, Show page |
 | Column | One value read off a record, shown down a table or as an entry on a detail page; one row's value of it is a cell. | Field (in a table), Attribute |
 | Column choice | The toggleable columns one signed-in user shows or hides in one resource's list, against their defaults; a `ColumnPreference` row keeps it. | Column manager, Column visibility, Layout |
@@ -55,6 +56,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Ability | One thing a policy is asked to allow. | Permission, Action, Verb |
 | Tenancy | How a resource's rows belong to a tenant, through a `TenantId` column. | Tenant scope, Multi-tenancy mode |
 | Relation | A related resource's rows that belong to a record, rendered as that resource's table: its rows holding the record's key, or the records a join model links the record to, which the table attaches and detaches. A `has_one` relation renders a related form instead. | Relation manager, Sub-table |
+| Relation tab | A relation whose table `Relation::tab` serves on a page of its own under the record's URL, instead of under its detail and edit pages. | Relation page, Manage related records |
 | Related form | A `has_one` relation's related resource's own form, rendered inside the owner's create and edit form under the related resource's slug, and written through that resource after the owner, in the owner's transaction. | Inline form, Nested resource, Has-one form |
 | Action | A user-invoked mutation, on one record or a bulk selection. | Command, Operation, Modal |
 | Change | What one write of a resource wrote, as `before_commit` and `after_commit` receive it: the kind of write and the rows it names. | Event, Committed |

@@ -25,6 +25,7 @@ tablo-shell-create-tenant = Create tenant
 tablo-crumb-create = Create
 tablo-crumb-view = View
 tablo-crumb-edit = Edit
+tablo-record-navigation = Record pages
 
 ## Error pages
 

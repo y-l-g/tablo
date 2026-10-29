@@ -3,7 +3,7 @@
 
 use tablo::{
     Ability, Auth, DeclarationErrorKind, Detail, NoForm, Page, PageDef, Panel, RecordPage,
-    RecordPageDef, RelationColumn, Resource, ResourceDef, RouterBuilderPanelExt, Schema,
+    RecordPageDef, Relation, RelationColumn, Resource, ResourceDef, RouterBuilderPanelExt, Schema,
     SegmentFault, SelectFilter, Site, Table, Tenancy, TenancyFault, TenantId, TextColumn, lens,
     relation,
 };
@@ -305,6 +305,57 @@ fn a_mount_refuses_a_record_page_it_cannot_route() {
                     item: "RecordPageDef::slug",
                     segment: "a/b".to_string(),
                     fault: SegmentFault::Char('/'),
+                }
+            ),
+            panel_error(DeclarationErrorKind::MissingDb),
+        ]
+    );
+}
+
+/// A record page of `Tabbed` at `kids`.
+struct KidsPage;
+
+impl RecordPage<Tabbed> for KidsPage {
+    fn declare() -> RecordPageDef<Parent> {
+        RecordPageDef::new().slug("kids")
+    }
+
+    async fn render(cx: &Cx, _parent: Parent) -> Result<impl View> {
+        Ok(view! { cx => "kids" })
+    }
+}
+
+resource!(Kids, Child => ResourceDef::new().slug("kids"));
+resource!(EditKids, Child => ResourceDef::new().slug("edit"));
+resource!(Tabbed, Parent => ResourceDef::new()
+    .slug("tabbed")
+    .record_page::<KidsPage>()
+    .relation(Relation::has_many::<Kids>(Child::fields().parent_id()).tab())
+    .relation(Relation::has_many::<EditKids>(Child::fields().parent_id()).tab()));
+
+/// A relation tab serves after the record's key at its related resource's slug, so it may not
+/// take one of the record's own routes or a record page's slug.
+#[test]
+fn a_mount_refuses_a_relation_tab_it_cannot_route() {
+    let tab = |slug: &str, kind| of::<Tabbed>(Site::Relation(slug.to_string()), kind);
+    assert_eq!(
+        refused(mount_without_db(
+            Panel::new("admin")
+                .resource::<Tabbed>()
+                .resource::<Kids>()
+                .resource::<EditKids>()
+        )),
+        [
+            tab(
+                "kids",
+                DeclarationErrorKind::DuplicateSlug {
+                    slug: "kids".to_string()
+                }
+            ),
+            tab(
+                "edit",
+                DeclarationErrorKind::ReservedSlug {
+                    slug: "edit".to_string()
                 }
             ),
             panel_error(DeclarationErrorKind::MissingDb),

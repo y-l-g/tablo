@@ -368,10 +368,8 @@ impl Resource for CategoryResource {
             .policy(when(blog_open))
             .tenancy(Tenancy::column(lens!(Category.tenant_id)))
             .record_title(lens!(Category.name))
-            // Lists the category's posts, attaching and detaching them.
-            .relation(Relation::belongs_to_many::<PostResource>(
-                Category::fields().posts(),
-            ))
+            // Lists the category's posts on a tab of their own, attaching and detaching them.
+            .relation(Relation::belongs_to_many::<PostResource>(Category::fields().posts()).tab())
     }
 }
 
