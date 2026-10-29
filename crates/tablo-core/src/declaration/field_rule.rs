@@ -37,6 +37,10 @@ pub enum FieldRuleFault {
     SingleValue,
     /// A multiple choice's `min_items` above the count of static options it offers, carried.
     FewerOptions(usize),
+    /// `tags` on a relationship's choice: a typed value names no record.
+    ///
+    /// Drop `tags`, or offer static options as its suggestions.
+    TagsOverRecords,
     /// A repeater's `max_items` above [`MAX_REPEATER_ROWS`](crate::MAX_REPEATER_ROWS),
     /// carried.
     AboveRowCap(usize),
@@ -135,6 +139,11 @@ pub(super) fn fmt_field_rule(
             f,
             "field '{field}' needs more options chosen than the {options} it offers, so it \
              refuses every value"
+        ),
+        FieldRuleFault::TagsOverRecords => write!(
+            f,
+            "field '{field}' takes tags over a relationship's records, whose values a user \
+             cannot type: drop `tags`, or offer static options as its suggestions"
         ),
         FieldRuleFault::AboveRowCap(max) => write!(
             f,

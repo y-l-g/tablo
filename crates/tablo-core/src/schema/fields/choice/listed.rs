@@ -68,7 +68,8 @@ impl Field {
                 | OptionLoadError::Misdeclared)
         );
         let mut options = loaded.unwrap_or_default();
-        if failed {
+        // A tags choice offers each value it holds, its suggestions or not.
+        if failed || choice.tags {
             for key in chosen {
                 if !options.iter().any(|(value, _)| value == key) {
                     options.push((key.clone(), key.clone()));
@@ -153,7 +154,15 @@ impl Field {
                 .boxed()
             })
             .collect();
-        let empty = inputs.is_empty();
+        let empty = inputs.is_empty() && !choice.tags;
+        let tags = choice.tags.then(|| {
+            (
+                format!("{id}-new"),
+                name.clone(),
+                crate::t!(cx, "tablo-field-add-tags", label = label.clone()),
+                described_by.clone(),
+            )
+        });
         let searchable = choice.searchable;
         let filter_label = crate::t!(cx, "tablo-field-filter-options", label = label.clone());
         let role = if multiple { "group" } else { "radiogroup" };
@@ -213,6 +222,19 @@ impl Field {
                         </p>
                     }
                 </div>
+                if let Some((new_id, new_name, placeholder, new_described_by)) = tags {
+                    <input
+                        type="text"
+                        id=(new_id)
+                        name=(new_name)
+                        class="h-9 w-full rounded-lg border border-border bg-transparent px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        placeholder=(placeholder.clone())
+                        aria-label=(placeholder)
+                        aria-describedby=(new_described_by)
+                        autocomplete="off"
+                        data-choices-add=""
+                    >
+                }
                 if let Some(help) = help {
                     ui_field_description(attrs: attributes! { id=(help_id) }, (help))
                 }

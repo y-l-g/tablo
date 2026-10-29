@@ -415,7 +415,7 @@ pub use tablo_macros::Options;
 /// It emits `UserFormControls`, one control per field chosen from the field —
 /// a `bool` is a toggle, `#[form(options = T)]` a choice over `T`'s options,
 /// `#[form(options)]` a choice over the field type's options (a multiple choice over a `Vec`
-/// of options),
+/// of options), `#[form(tags)]` a multiple choice taking typed values,
 /// `#[form(relationship = R)]` a choice over `R`'s records (a multiple choice over a `Vec` of
 /// their keys), `#[form(file)]` a file field, `#[form(embed)]` the embedded value's schema,
 /// `#[form(repeat)]` a repeater, and any
@@ -441,6 +441,9 @@ pub use tablo_macros::Options;
 ///   the stored list. A value the options do not offer is refused, and
 ///   [`min_items`](crate::ChoiceField::min_items) and
 ///   [`max_items`](crate::ChoiceField::max_items) bound the count.
+/// - `#[form(tags)]` on a `Vec<String>`: a [tags](crate::ChoiceField::tags) field, a multiple
+///   choice taking the values the user types, stored in the list column like the above;
+///   `#[form(tags, options = Topic)]` suggests `Topic::options()`.
 /// - `#[form(relationship = AuthorResource)]` on a foreign key: a choice over the source's
 ///   records, each labelled by its `record_title`. The source is any `OptionSource`, which
 ///   every `Resource` is.

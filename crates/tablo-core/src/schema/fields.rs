@@ -442,6 +442,7 @@ impl Field {
         match (&self.control, value) {
             (ControlKind::Choice(choice), FormValue::List(items)) if choice.is_multiple() => {
                 !choice.is_relationship()
+                    && !choice.tags
                     && items.iter().any(|item| choice.label_of(item).is_none())
             }
             (ControlKind::Choice(choice), _) if choice.is_multiple() => true,

@@ -45,7 +45,8 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Blank answer | What a record-form field stores when submitted empty. A field with none is required. | Default, Nullable (for presence) |
 | Join model | A model whose rows link two other models' records, one row per pair, with a `belongs_to` to each. | Pivot, Junction table, Bridge table |
 | Multiple choice | A choice field posting several of its options, a checkbox each: a list column stores them, or a join model links them as a many-to-many field. | Multi-select, Checkbox list |
-| Many-to-many field | A record-form field holding the keys of the records a join model links the record to, edited as a multiple choice. | BelongsToMany field, Tags field |
+| Tags field | A multiple choice taking the values the user types, its options only suggestions, stored in a list column. | Tags input, Free-form multi-select |
+| Many-to-many field | A record-form field holding the keys of the records a join model links the record to, edited as a multiple choice. | BelongsToMany field |
 | Dependent choice | A relationship choice offering only the related records whose column equals another field's value. | Cascading select, Chained select, Linked field |
 | Creatable choice | A relationship choice whose dialog frames the related resource's create page, so the record a save there writes becomes its value while the form keeps what was typed in it. | Inline create, Quick add, Create option form |
 | Condition | What shows a field or a layout block, or disables a field's control, only while another field posts one of the listed values. | Visibility rule, Dependency, Reactive field |

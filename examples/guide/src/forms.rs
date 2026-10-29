@@ -294,6 +294,26 @@ pub fn subscriber_layout() -> Schema<SubscriberForm> {
 }
 // ANCHOR_END: forms-multiple-choice
 
+// ANCHOR: forms-tags
+#[derive(Debug, Clone, toasty::Model)]
+pub struct Snippet {
+    #[key]
+    #[auto]
+    pub id: uuid::Uuid,
+    pub title: String,
+    pub labels: Vec<String>,
+}
+
+#[derive(Debug, Clone, tablo::RecordForm)]
+#[form(model = Snippet)]
+pub struct SnippetForm {
+    pub title: String,
+    // Any label the user types, with the topics as suggestions.
+    #[form(tags, options = Topic)]
+    pub labels: Vec<String>,
+}
+// ANCHOR_END: forms-tags
+
 // ANCHOR: forms-uploads-dir
 pub fn uploads_panel(dir: PathBuf) -> Panel {
     Panel::new("admin").uploads_dir("/uploads", dir)

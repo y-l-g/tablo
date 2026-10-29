@@ -106,7 +106,9 @@ pub(super) fn field_parts(
                 &mut errors,
             );
         });
-    } else if let DefaultControl::Files | DefaultControl::Choices(..) = &field.control {
+    } else if let DefaultControl::Files | DefaultControl::Choices(..) | DefaultControl::Tags(_) =
+        &field.control
+    {
         let element = match &field.control {
             DefaultControl::Choices(_, element) => quote! { #element },
             _ => quote! { ::std::string::String },

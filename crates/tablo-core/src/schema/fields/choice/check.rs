@@ -62,7 +62,10 @@ impl ChoiceControl {
             return Vec::new();
         }
         let Some(relationship) = &self.relationship else {
-            if !self.options.is_empty() && !self.options.iter().any(|(v, _)| v == trimmed) {
+            if !self.tags
+                && !self.options.is_empty()
+                && !self.options.iter().any(|(v, _)| v == trimmed)
+            {
                 return vec![text!("tablo-field-invalid", label = label)];
             }
             return Vec::new();

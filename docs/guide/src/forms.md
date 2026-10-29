@@ -130,6 +130,16 @@ No option checked stores the empty list, so `.min_items(1)` is how the field req
 `.max_items(n)` caps it, and `.buttons()` renders a compact list of toggles.
 [`RecordForm`](https://y-l.fr/tablo/nightly/api/tablo_core/derive.RecordForm.html) has the rules.
 
+A `Vec<String>` marked `#[form(tags)]` takes what the user types instead: a checkbox per value
+it holds and per suggestion, then a text input adding values separated by commas.
+
+```rust
+{{#include ../../../examples/guide/src/forms.rs:forms-tags}}
+```
+
+[`ChoiceField::tags`](https://y-l.fr/tablo/nightly/api/tablo/struct.ChoiceField.html#method.tags)
+has the rules.
+
 **Layout blocks** arrange fields: `Section::new(title)` is a titled card, `Group::new()` an untitled
 container, and `Grid::new(cols)` a grid of 1 to 12 columns. A schema or block takes a tuple of at
 most twelve children; nest a `Group` for more.

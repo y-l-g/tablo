@@ -128,8 +128,12 @@ impl Field {
                 .then_some(FieldRuleFault::SingleValue)
                 .into_iter()
                 .collect(),
+            ControlKind::Choice(choice) if choice.tags && choice.is_relationship() => {
+                vec![FieldRuleFault::TagsOverRecords]
+            }
             ControlKind::Choice(choice) => {
-                let offered = (!choice.is_relationship()).then_some(choice.options.len());
+                let offered =
+                    (!choice.is_relationship() && !choice.tags).then_some(choice.options.len());
                 match choice.bounds.min {
                     Some(min) if offered.is_some_and(|offered| min > offered) => {
                         vec![FieldRuleFault::FewerOptions(choice.options.len())]

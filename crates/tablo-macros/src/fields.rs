@@ -82,6 +82,8 @@ pub(crate) struct FormAttrs {
     pub(crate) relationship: Option<Type>,
     /// `#[form(file)]`: a file field.
     pub(crate) file: bool,
+    /// `#[form(tags)]`: a multiple choice taking typed values, its `options` suggestions.
+    pub(crate) tags: bool,
     /// `#[form(email)]`: a text control validating an email address.
     pub(crate) email: bool,
     /// `#[form(url)]`: a text control validating an `http` or `https` URL.
@@ -141,6 +143,8 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
                 ));
             } else if meta.path.is_ident("file") && derive == Derive::Record {
                 out.file = true;
+            } else if meta.path.is_ident("tags") && derive == Derive::Record {
+                out.tags = true;
             } else {
                 let expected = match derive {
                     Derive::Embedded => {
@@ -149,7 +153,7 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
                     }
                     Derive::Record => {
                         "`embed`, `repeat`, `blank = <expr>`, `optional`, `options`, \
-                         `options = <Type>`, `relationship = <Source>`, or `file`"
+                         `options = <Type>`, `relationship = <Source>`, `file`, or `tags`"
                     }
                     Derive::Input => {
                         "`label = \"…\"`, `multiline = N`, `placeholder = \"…\"`, `email`, \
@@ -178,10 +182,12 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
             ));
         }
     }
+    // `tags` takes `options = <Type>` as its suggestions.
     let controls = [
-        (out.options.is_some(), "`options`"),
+        (out.options.is_some() && !out.tags, "`options`"),
         (out.relationship.is_some(), "`relationship`"),
         (out.file, "`file`"),
+        (out.tags, "`tags`"),
     ];
     let chosen: Vec<&str> = controls
         .iter()
@@ -210,6 +216,7 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
             (out.options.is_some(), "`options`"),
             (out.relationship.is_some(), "`relationship`"),
             (out.file, "`file`"),
+            (out.tags, "`tags`"),
         ];
         if let Some((_, key)) = misplaced.iter().find(|(set, _)| *set) {
             return Err(syn::Error::new_spanned(
@@ -231,6 +238,7 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
             (out.options.is_some(), "`options`"),
             (out.relationship.is_some(), "`relationship`"),
             (out.file, "`file`"),
+            (out.tags, "`tags`"),
         ];
         if let Some((_, key)) = misplaced.iter().find(|(set, _)| *set) {
             return Err(syn::Error::new_spanned(

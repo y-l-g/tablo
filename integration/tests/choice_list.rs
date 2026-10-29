@@ -245,3 +245,137 @@ async fn mounting_refuses_a_relationships_multiple_choice_over_a_list_column() {
         }]
     );
 }
+
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+struct Note {
+    #[key]
+    #[auto]
+    id: Uuid,
+    title: String,
+    labels: Vec<String>,
+}
+
+#[derive(tablo::RecordForm)]
+#[form(model = Note)]
+struct NoteForm {
+    title: String,
+    #[form(tags, options = Channel)]
+    labels: Vec<String>,
+}
+
+struct NoteResource;
+
+impl Resource for NoteResource {
+    type Model = Note;
+    type Form = NoteForm;
+
+    fn declare() -> ResourceDef<Self> {
+        let c = NoteForm::controls();
+        ResourceDef::new()
+            .slug("notes")
+            .policy(Allow)
+            .table(Table::new(TextColumn::new(lens!(Note.title))))
+            .form(Schema::new((c.title, c.labels.max_items(3))))
+    }
+}
+
+async fn notes(db: &Db) -> Vec<Note> {
+    Note::all()
+        .exec(&mut db.clone())
+        .await
+        .expect("query notes")
+}
+
+/// Tags take typed values beside their suggestions: comma-separated, trimmed, each once.
+#[tokio::test]
+async fn tags_store_typed_values_and_suggestions() {
+    let db = test_db(toasty::models!(Note)).await;
+    let (router, handle) =
+        mount_with_handle(db.clone(), panel().resource::<NoteResource>()).expect("panel builds");
+    let client = TestClient::new(&router).panel(&handle);
+    let notes_client = client.resource::<NoteResource>();
+    let reply = notes_client
+        .create()
+        .set(NoteFormField::Title, "Plans")
+        .add(NoteFormField::Labels, "")
+        .add(NoteFormField::Labels, "email")
+        .add(NoteFormField::Labels, " urgent , ,email, q3 ")
+        .submit()
+        .await;
+    assert_eq!(reply.status(), 303, "{}", reply.html());
+    let note = notes(&db).await.remove(0);
+    assert_eq!(note.labels, ["email", "urgent", "q3"]);
+
+    let edit = notes_client.edit_page(&note).await;
+    assert_eq!(
+        input_values(edit.html(), "labels"),
+        ["", "email", "urgent", "q3"],
+        "a checked box per held value, a typed one or a suggestion"
+    );
+
+    let reply = notes_client
+        .edit(&note)
+        .set(NoteFormField::Labels, "")
+        .add(NoteFormField::Labels, "q3")
+        .add(NoteFormField::Labels, "launch")
+        .submit()
+        .await;
+    assert_eq!(reply.status(), 303);
+    let stored = Note::get_by_id(&mut db.clone(), note.id)
+        .await
+        .expect("the note")
+        .labels;
+    assert_eq!(stored, ["q3", "launch"], "unchecked tags drop");
+
+    let reply = notes_client
+        .edit(&note)
+        .set(NoteFormField::Labels, "a, b, c, d")
+        .submit()
+        .await;
+    assert_eq!(reply.status(), 200, "max_items caps typed tags");
+    assert_eq!(
+        reply.field_error(NoteFormField::Labels),
+        Some(ErrorKind::Invalid)
+    );
+}
+
+/// Tags over a relationship's records, whose values no one types.
+struct RelatedTagsResource;
+
+impl Resource for RelatedTagsResource {
+    type Model = Note;
+    type Form = NoteForm;
+
+    fn declare() -> ResourceDef<Self> {
+        let c = NoteForm::controls();
+        ResourceDef::new()
+            .slug("related-notes")
+            .policy(Allow)
+            .table(Table::new(TextColumn::new(lens!(Note.title))))
+            .form(Schema::new((
+                c.title,
+                c.labels.relationship::<NoteResource>(),
+            )))
+    }
+}
+
+#[tokio::test]
+async fn mounting_refuses_tags_over_records() {
+    let db = test_db(toasty::models!(Note)).await;
+    let kinds: Vec<DeclarationErrorKind> = refusal(mount(
+        db,
+        panel()
+            .resource::<NoteResource>()
+            .resource::<RelatedTagsResource>(),
+    ))
+    .into_iter()
+    .map(|error| error.kind)
+    .collect();
+    assert!(
+        kinds.contains(&DeclarationErrorKind::FieldRule {
+            field: "labels".to_string(),
+            fault: tablo::FieldRuleFault::TagsOverRecords,
+        }),
+        "{kinds:?}"
+    );
+}
