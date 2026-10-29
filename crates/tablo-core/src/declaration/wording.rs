@@ -170,8 +170,9 @@ impl fmt::Display for DeclarationErrorKind {
             ),
             Self::DisabledWithoutValue { field } => write!(
                 f,
-                "field '{field}' is disabled and required, so no create can fill it: give it a \
-                 `default` (a file field takes none), make it optional, or use `disabled_on_edit`"
+                "field '{field}' is disabled or hidden on the create form, or a condition can \
+                 disable it, and it is required, so a create cannot fill it: give it a `default` \
+                 (a file field takes none), make it optional, or use `disabled_on_edit`"
             ),
             Self::RepeaterLeafModifier { field, leaf } => write!(
                 f,
@@ -198,6 +199,12 @@ impl fmt::Display for DeclarationErrorKind {
                 f,
                 "a condition watches field '{field}', which a condition hides while the guarded \
                  field or block still shows: place the guarded one inside the block that hides \
+                 '{field}'"
+            ),
+            Self::DisabledWatchedField { field } => write!(
+                f,
+                "a condition or a dependent choice watches field '{field}', which a condition \
+                 disables and so posts nothing: watch another field, or drop `disabled_when` from \
                  '{field}'"
             ),
             Self::UnpostedConditionValue { field, value } => write!(

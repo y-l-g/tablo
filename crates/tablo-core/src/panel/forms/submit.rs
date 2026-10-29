@@ -127,6 +127,17 @@ pub(super) async fn prepare_submission<R: Resource>(
         files.remove(key);
         flags.remove(key);
     }
+    // A control a condition disables posts nothing either, and the server reads it as a
+    // disabled one: an edit keeps the stored value and a create takes the field's default.
+    let disabled = schema.condition_disabled(&read);
+    for key in &disabled {
+        values.remove(key);
+        files.remove(key);
+        flags.remove(key);
+    }
+    if !editing {
+        values.extend(schema.defaults_of(disabled.iter().map(String::as_str)));
+    }
     // File fields take values only from file parts.
     drop_client_typed_uploads(&schema, &file_part_names, &mut values);
     // A list choosing more files than it holds stores none of them.

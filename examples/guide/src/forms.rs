@@ -64,6 +64,18 @@ pub fn account_form() -> Schema<UserForm> {
 }
 // ANCHOR_END: forms-field-basics
 
+// ANCHOR: forms-hidden-on
+pub fn invite_form() -> Schema<UserForm> {
+    let c = UserForm::controls();
+    Schema::new((
+        c.name,
+        c.email.hidden_on_edit(),
+        c.role.hidden_on_create(),
+        c.age,
+    ))
+}
+// ANCHOR_END: forms-hidden-on
+
 // ANCHOR: forms-rules
 pub fn checked_account_form() -> Schema<UserForm> {
     let c = UserForm::controls();
@@ -109,6 +121,14 @@ pub fn access_layout() -> Schema<AccessForm> {
     Schema::new(Section::new("Access").schema((c.role, sso)))
 }
 // ANCHOR_END: forms-conditions
+
+// ANCHOR: forms-disabled-when
+pub fn locked_access_layout() -> Schema<AccessForm> {
+    let c = AccessForm::controls();
+    let sso = c.sso_managed.disabled_when(&c.role, ["member"]);
+    Schema::new((c.role, sso))
+}
+// ANCHOR_END: forms-disabled-when
 
 // ANCHOR: forms-color-control
 struct Color;

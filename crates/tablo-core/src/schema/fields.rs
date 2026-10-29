@@ -1,6 +1,7 @@
 //! One [`Field`] type whose control is text, choice, file, or an app's own [`Control`], built from
 //! a path binding a column or an embedded leaf.
 
+mod availability;
 mod builders;
 mod check;
 mod choice;
@@ -16,6 +17,7 @@ mod text;
 
 use std::sync::Arc;
 
+pub(crate) use availability::{Disabled, Hidden};
 pub use builders::{
     ChoiceField, CustomField, FileField, IntoFormValue, IntoOptions, RepeaterField, TextField,
 };
@@ -110,19 +112,13 @@ pub struct Field {
     help: Option<Text>,
     /// When the control renders disabled and the server ignores what it posts.
     disabled: Disabled,
+    /// The condition disabling the control, set by `disabled_when`.
+    disabling: Option<Condition>,
+    /// The forms that render nothing for the field, set by `hidden_on_create` and
+    /// `hidden_on_edit`.
+    hidden: Hidden,
     /// The create form's initial value, as the control posts it, set by `default`.
     default: Option<FormValue>,
-}
-
-/// When a [`Field`] renders disabled, so the browser posts nothing for it and the server drops
-/// a key posted anyway.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub(crate) enum Disabled {
-    #[default]
-    Never,
-    Always,
-    /// On the edit form only: the create form takes the value, which no edit then changes.
-    OnEdit,
 }
 
 /// The control a [`Field`] renders, with what only that control declares.
@@ -161,6 +157,8 @@ impl std::fmt::Debug for Field {
             .field("condition", &self.condition)
             .field("help", &self.help)
             .field("disabled", &self.disabled)
+            .field("disabling", &self.disabling)
+            .field("hidden", &self.hidden)
             .field("default", &self.default)
             .finish()
     }
@@ -178,6 +176,8 @@ impl Field {
             accepted: false,
             help: None,
             disabled: Disabled::Never,
+            disabling: None,
+            hidden: Hidden::default(),
             default: None,
         }
     }
@@ -456,25 +456,6 @@ impl Field {
     /// Whether the control renders as required.
     pub(crate) fn is_required(&self) -> bool {
         self.required
-    }
-
-    /// Whether the control renders disabled, on the edit form when `editing`.
-    pub(crate) fn is_disabled(&self, editing: bool) -> bool {
-        match self.disabled {
-            Disabled::Never => false,
-            Disabled::Always => true,
-            Disabled::OnEdit => editing,
-        }
-    }
-
-    /// Whether the control renders disabled where `placement` puts it.
-    pub(crate) fn is_disabled_at(&self, placement: &Placement<'_>) -> bool {
-        placement.locked || self.is_disabled(placement.editing)
-    }
-
-    /// Whether the control renders disabled on the create form as well as the edit form.
-    pub(crate) fn is_always_disabled(&self) -> bool {
-        self.disabled == Disabled::Always
     }
 
     /// The create form's initial value, as the control posts it.

@@ -71,6 +71,8 @@ pub use crate::{
     },
 };
 
+impl<F: RecordForm> crate::schema::EditsRecords for F {}
+
 /// The hidden control the edit form carries the record's [`ModelColumns::version`] in.
 ///
 /// [`ModelColumns::version`]: crate::ModelColumns::version

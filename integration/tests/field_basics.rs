@@ -1,7 +1,7 @@
-//! Help text, disabled controls and create defaults over HTTP.
+//! Help text, disabled and hidden controls, and create defaults over HTTP.
 //!
-//! A disabled control posts nothing, and the panel drops a key posted for it anyway: an edit
-//! keeps the stored value and a create takes the field's default.
+//! A disabled control, and a field hidden on its form, post nothing, and the panel drops a key
+//! posted for one anyway: an edit keeps the stored value and a create takes the field's default.
 
 use tablo::{
     Allow, Auth, DeclarationErrorKind, Panel, Resource, ResourceDef, Schema, Table, TextColumn,
@@ -52,6 +52,29 @@ impl Resource for AccountResource {
     }
 }
 
+/// The same accounts, the address hidden once set and the credits granted on create.
+struct HiddenAccountResource;
+
+impl Resource for HiddenAccountResource {
+    type Model = Account;
+    type Form = AccountForm;
+
+    fn declare() -> ResourceDef<Self> {
+        let c = AccountForm::controls();
+        ResourceDef::new()
+            .slug("hidden-accounts")
+            .policy(Allow)
+            .table(Table::new(TextColumn::new(lens!(Account.email))))
+            .form(Schema::new((
+                c.email.hidden_on_edit(),
+                c.plan,
+                c.credits.default(5_i64).hidden_on_create(),
+                c.coupon,
+                c.referral,
+            )))
+    }
+}
+
 #[derive(tablo::RecordForm)]
 #[form(model = Account)]
 struct AccountForm {
@@ -68,7 +91,8 @@ async fn accounts() -> (Db, Router) {
         db.clone(),
         Panel::new("admin")
             .auth(Auth::disabled())
-            .resource::<AccountResource>(),
+            .resource::<AccountResource>()
+            .resource::<HiddenAccountResource>(),
     )
     .expect("panel builds");
     (db, router)
@@ -347,5 +371,109 @@ async fn a_form_shows_the_stored_text_and_never_a_password() {
     assert!(
         !refused.contains("typed-pass") && !refused.contains("typed-token"),
         "{refused}"
+    );
+}
+
+/// A field hidden on the create form renders no control there, and the create stores its default
+/// whatever the submission posts for it.
+#[tokio::test]
+async fn a_create_stores_the_default_of_a_field_hidden_on_create() {
+    let (db, router) = accounts().await;
+    let client = TestClient::new(&router);
+    let html = body_string(client.get("/admin/hidden-accounts/-/create").await).await;
+    assert!(!html.contains("name=\"credits\""), "{html}");
+
+    let response = client
+        .submit(
+            "/admin/hidden-accounts/-/create",
+            "email=ada%40example.com&plan=pro&credits=99",
+        )
+        .await;
+    assert!(
+        response.status().is_redirection(),
+        "the create succeeds, got {} {}",
+        response.status(),
+        body_string(response).await
+    );
+    assert_eq!(only_account(&db).await.credits, 5);
+
+    let id = only_account(&db).await.id;
+    let html = body_string(
+        client
+            .get(&format!("/admin/hidden-accounts/{id}/edit"))
+            .await,
+    )
+    .await;
+    assert!(
+        !control(&html, "credits").contains("disabled=\"\""),
+        "the edit form edits it"
+    );
+}
+
+/// A field hidden on the edit form renders no control there, and an edit keeps its stored value
+/// whatever the submission posts for it.
+#[tokio::test]
+async fn an_edit_keeps_the_stored_value_of_a_field_hidden_on_edit() {
+    let (db, router) = accounts().await;
+    let client = TestClient::new(&router);
+    let response = client
+        .submit(
+            "/admin/hidden-accounts/-/create",
+            "email=ada%40example.com&plan=pro",
+        )
+        .await;
+    assert!(response.status().is_redirection());
+    let edit = format!("/admin/hidden-accounts/{}/edit", only_account(&db).await.id);
+    let html = body_string(client.get(&edit).await).await;
+    assert!(!html.contains("name=\"email\""), "{html}");
+
+    let response = client
+        .submit(&edit, "email=eve%40example.com&plan=team&credits=7")
+        .await;
+    assert!(
+        response.status().is_redirection(),
+        "the edit succeeds, got {} {}",
+        response.status(),
+        body_string(response).await
+    );
+    let account = only_account(&db).await;
+    assert_eq!(account.email, "ada@example.com");
+    assert_eq!((account.plan.as_str(), account.credits), ("team", 7));
+}
+
+struct HiddenPlan;
+
+impl Resource for HiddenPlan {
+    type Model = Account;
+    type Form = AccountForm;
+
+    fn declare() -> ResourceDef<Self> {
+        let c = AccountForm::controls();
+        ResourceDef::new().policy(Allow).form(Schema::new((
+            c.email,
+            c.plan.hidden_on_create(),
+            c.credits,
+            c.coupon,
+            c.referral,
+        )))
+    }
+}
+
+/// A required field hidden on create, with no default, is one no create could fill.
+#[tokio::test]
+async fn a_required_field_hidden_on_create_without_a_default_refuses_the_panel() {
+    let (db, _) = accounts().await;
+    let errors = refusal(mount(
+        db,
+        Panel::new("admin")
+            .auth(Auth::disabled())
+            .resource::<HiddenPlan>(),
+    ));
+    assert!(
+        errors.iter().any(|error| matches!(
+            &error.kind,
+            DeclarationErrorKind::DisabledWithoutValue { field } if field == "plan"
+        )),
+        "{errors:?}"
     );
 }

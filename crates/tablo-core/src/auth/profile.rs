@@ -197,14 +197,7 @@ impl<E: ProfileEditor> DynProfileEditor for E {
             let schema = E::Input::schema();
             let mut stored = FormValues::new();
             self.fill(cx, user).write(&mut stored);
-            // A control the page renders disabled posts nothing the user may change: it keeps
-            // what `fill` wrote, whatever a crafted POST carries.
-            for key in schema.disabled_keys(true) {
-                match stored.get(key) {
-                    Some(value) => values.insert(key, value.clone()),
-                    None => values.remove(key),
-                };
-            }
+            input::keep_disabled(&schema, &mut values, &stored);
             schema.keep_unedited(&mut values, &stored, &crate::time_zone(cx));
             let input = match input::parse::<E::Input>(cx, &values, &stored, "profile").await? {
                 Ok(input) => input,

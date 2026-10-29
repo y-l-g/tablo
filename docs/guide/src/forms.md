@@ -348,6 +348,16 @@ could fill it. A default seeds the create form, where the blank answer is what a
 stores. Each modifier's page has its rules, such as
 [`default`](https://y-l.fr/tablo/nightly/api/tablo/struct.TextField.html#method.default).
 
+A record form's field also takes `.hidden_on_create()` or `.hidden_on_edit()`, which renders nothing
+for it on that form. Here an invite sets the address once and the role only once the account exists:
+
+```rust
+{{#include ../../../examples/guide/src/forms.rs:forms-hidden-on}}
+```
+
+The server reads a hidden field as it reads a disabled one: a create stores its default, else its
+blank answer, and an edit keeps the stored value.
+
 ### Conditional fields
 
 `.visible_when(&field, values)` shows a field only while another field of the same form posts one
@@ -364,6 +374,19 @@ The browser shows and hides the field as the watched one changes, with no reques
 reads a submission the same way, dropping a hidden field's key. A conditional field therefore needs
 a blank answer. [`visible_when`](https://y-l.fr/tablo/nightly/api/tablo/struct.TextField.html#method.visible_when) has the rules and
 what the mount refuses.
+
+`.disabled_when(&field, values)` keeps the control on the page but disables it while the watched
+field posts one of `values`: a member's account cannot be SSO-managed.
+
+```rust
+{{#include ../../../examples/guide/src/forms.rs:forms-disabled-when}}
+```
+
+While the condition holds, the server reads the field as it reads a `.disabled()` one, so a create
+stores its default and an edit keeps the stored value. The condition reads what the submission
+posts, so it is no access check: [field access](./resources.md#field-access) is.
+[`disabled_when`](https://y-l.fr/tablo/nightly/api/tablo/struct.TextField.html#method.disabled_when) has the rules and what the mount
+refuses.
 
 ## Submitting
 

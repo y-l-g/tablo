@@ -15,6 +15,7 @@ use super::{
 #[cfg(feature = "rich-text")]
 use super::{RichTextControl, RichTextField};
 
+mod availability;
 mod choices;
 mod comparisons;
 mod files;
