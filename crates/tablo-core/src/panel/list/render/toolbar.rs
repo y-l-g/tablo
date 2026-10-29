@@ -97,7 +97,8 @@ impl Frame<'_> {
             .as_ref()
             .map(|picker| self.render_picker(cx, state, picker))
             .unzip();
-        if !show_search && !show_filters && !with_bulk && picker.is_none() {
+        let grouping = (!self.groupings.is_empty()).then(|| self.render_grouping(cx, state));
+        if !show_search && !show_filters && !with_bulk && picker.is_none() && grouping.is_none() {
             return Ok(().boxed());
         }
         let form = table_dom_id(state, "toolbar");
@@ -112,7 +113,10 @@ impl Frame<'_> {
                 (state.param("tab"), state.tab.clone()),
                 (state.param("sort"), sort_hidden),
                 (state.param("dir"), dir_hidden),
-                (state.param("group_by"), state.group_by.clone()),
+                (
+                    state.param("group_by"),
+                    state.group_by.clone().filter(|_| grouping.is_none()),
+                ),
                 (
                     state.param("per_page"),
                     state.per_page.map(|n| n.to_string()),
@@ -175,6 +179,9 @@ impl Frame<'_> {
                         if let Some(bulk) = bulk {
                             (bulk)
                         }
+                        if let Some(grouping) = grouping {
+                            (grouping)
+                        }
                         if let Some(picker) = picker {
                             (picker)
                         }
@@ -195,6 +202,42 @@ impl Frame<'_> {
             }
         }
         .boxed())
+    }
+
+    /// Render the grouping choice: a select of the table's groupings, and none, whose change
+    /// reruns the list from its first page.
+    fn render_grouping<'a>(&self, cx: &'a Cx, state: &TableState) -> BoxView<'a> {
+        let select_id = table_dom_id(state, "group-by");
+        let name = state.param("group_by");
+        let active = state.group_by.as_deref();
+        let options: Vec<(String, String, bool)> = self
+            .groupings
+            .iter()
+            .map(|(value, label)| {
+                (
+                    value.to_string(),
+                    label.localize(cx),
+                    active == Some(*value),
+                )
+            })
+            .collect();
+        let none = active.is_none();
+        view! {
+            cx =>
+            <label for=(select_id.clone()) class="sr-only">
+                (t!(cx, "tablo-list-group-by"))
+            </label>
+            tablo_ui::select(
+                attrs: attributes! { id=(select_id) name=(name) class="w-auto" },
+                <option value="" selected=(none)>
+                    (t!(cx, "tablo-list-group-none"))
+                </option>
+                for (value, label, selected) in options {
+                    <option value=(value) selected=(selected)>(label)</option>
+                }
+            )
+        }
+        .boxed()
     }
 
     /// Render the column picker: a menu checking each toggleable column the reader's choice shows,

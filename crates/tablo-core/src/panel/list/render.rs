@@ -4,8 +4,7 @@
 //! its filters become controls, and its declaration and wiring become a [`Frame`]. Everything
 //! after renders from those, so the markup compiles once rather than once per model.
 //!
-//! Grouping is page-local and interleaved and a page encodes its row-action
-//! URL base once.
+//! A page encodes its row-action URL base once.
 //!
 //! The entry points and the table chrome live in `core`, the header row in
 //! `head`, row projection and rendering in `rows`, the zero-rows cell in
@@ -49,6 +48,8 @@ pub(super) struct Frame<'t> {
     filter_menu: bool,
     /// The page sizes the reader may pick; empty offers no choice.
     page_sizes: Vec<usize>,
+    /// The groupings the reader may pick, by `?group_by=` value and label; empty offers none.
+    groupings: Vec<(&'t str, crate::Text)>,
     delete_prefix: Option<&'t str>,
     edit_prefix: Option<&'t str>,
     view_prefix: Option<&'t str>,
@@ -146,6 +147,11 @@ impl<M> WiredTable<M> {
             search: self.search_enabled(),
             filter_menu: self.filter_menu_enabled(),
             page_sizes: self.page_sizes(),
+            groupings: self
+                .declared_groupings()
+                .iter()
+                .map(|group| (group.name(), group.label()))
+                .collect(),
             delete_prefix: self.delete_prefix(),
             edit_prefix: self.edit_prefix(),
             view_prefix: self.view_prefix(),

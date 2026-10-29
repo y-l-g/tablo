@@ -41,6 +41,7 @@ pub fn post_table() -> Table<Post> {
     // ANCHOR_END: table-tabs
     // ANCHOR: table-group-by
     .group_by(lens!(Post.status))
+    .group_by(lens!(Post.featured))
     // ANCHOR_END: table-group-by
 }
 // ANCHOR_END: post-table-post

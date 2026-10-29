@@ -181,7 +181,8 @@ implement it and nothing more, so a column of your own reaches as far as theirs:
 Only `name`, `label` and `text` are required;
 [`Column`](https://y-l.fr/tablo/nightly/api/tablo/extend/trait.Column.html) lists the methods that make it searchable, sortable,
 toggleable or loading a relation. A sortable column of your own is the table's default
-sort through `default_sort_by(Sort::desc("revenue"))`, which names it by its `name`. Put
+sort through `default_sort_by(Sort::desc("revenue"))`, which names it by its `name`. A
+`default_sort(lens!(..))` takes any field of the model, whether or not a column shows it. Put
 the column in the tuple next to the built-in ones, or append it with `Table::column(..)`, which
 also takes columns past the tuple's twelve.
 
@@ -270,8 +271,12 @@ the field. [`ListTab`](https://y-l.fr/tablo/nightly/api/tablo/struct.ListTab.htm
 {{#include ../../../examples/guide/src/tables.rs:table-group-by}}
 ```
 
-`?group_by=status`, named after the field, groups the current page's rows under headers with a
-row count. Grouping runs on the loaded page, so the counts cover that page, not the whole table.
+Each `.group_by(..)` offers one grouping, which the toolbar's **Group by** menu picks, and
+`?group_by=status`, named after the field, spells. A grouping orders the query by its field ahead of
+the sort, so a group runs on across pages and its rows keep the sort within it; each group's header
+shows its value, or "No value" over the rows holding none, and collapses and expands its rows.
+Selecting the page expands every group, so a bulk action never takes a row the reader cannot see. A
+list groups by nothing until the reader picks a grouping.
 
 ## Export
 

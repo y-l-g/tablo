@@ -90,7 +90,7 @@ pub struct TableState {
     pub filters: BTreeMap<String, FilterValue>,
     /// Filter parameters the parse dropped.
     pub filters_dropped: bool,
-    /// `?group_by=` — field name to group by (in-memory, `count` summarizer).
+    /// `?group_by=` — field name to group by (the query orders by it ahead of the sort).
     pub group_by: Option<String>,
     /// `?tab=` — the key of the [tab](super::ListTab) the list shows; `None` shows the first.
     pub tab: Option<String>,
@@ -532,11 +532,11 @@ pub(crate) fn row_dom_id(scope: &str, key: &str) -> String {
     dom_id(&format!("row-{scope}"), key)
 }
 
-/// Stable DOM id for a page-local group header.
+/// Stable DOM id for a group header.
 ///
 /// Same contract as [`row_dom_id`]: the header is injected, removed and moved
-/// as the page is re-sorted, so the in-place morph needs an id derived from the
-/// group label it belongs to rather than from its position in the page.
+/// as the page changes, so the in-place morph needs an id derived from the
+/// group it opens rather than from its position in the page.
 pub(crate) fn group_header_dom_id(scope: &str, label: &str) -> String {
     dom_id(&format!("group-{scope}"), label)
 }

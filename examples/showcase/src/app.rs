@@ -328,6 +328,7 @@ fn post_table() -> Table<Post> {
             ),
     ))
     .group_by(lens!(Post.status))
+    .group_by(lens!(Post.featured))
 }
 
 /// The tab `key` listing the posts in `status`, with their count.

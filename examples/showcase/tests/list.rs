@@ -621,12 +621,13 @@ async fn no_js_fallbacks_cover_search_filter_sort_pager() {
     );
 }
 
+/// Grouped by status, each status's posts run together under one header, the whole list on one
+/// page.
 #[tokio::test]
-async fn posts_group_by_status_shows_counts() {
+async fn posts_group_by_status() {
     let db = full_db().await;
     let mut db_q = db.clone();
-    // Derived, not literal: the page-local count is the number of
-    // published rows in the fixture, so one more seeded post cannot break it.
+    // Derived, not literal, so one more seeded post cannot break it.
     let published = showcase::models::Post::filter(
         showcase::models::Post::fields()
             .status()
@@ -638,7 +639,9 @@ async fn posts_group_by_status_shows_counts() {
     .len();
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let resp = client.get("/admin/posts?group_by=status").await;
+    let resp = client
+        .get("/admin/posts?group_by=status&per_page=100")
+        .await;
     assert!(
         resp.status().is_success(),
         "group_by should be 200, got {}",

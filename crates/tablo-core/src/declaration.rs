@@ -327,7 +327,7 @@ pub enum DeclarationErrorKind {
     ///
     /// Pass a page size of at least 1.
     ZeroPageSize,
-    /// `Table::default_sort` names no sortable column.
+    /// `Table::default_sort_by` names no sortable column.
     ///
     /// Declare its column `.sortable()`.
     UnsortableDefaultSort {
@@ -354,6 +354,13 @@ pub enum DeclarationErrorKind {
     DuplicateTab {
         /// The shared key.
         key: String,
+    },
+    /// A table offers two groupings by one field.
+    ///
+    /// Declare each [`Table::group_by`](crate::Table::group_by) once.
+    DuplicateGrouping {
+        /// The field's name.
+        name: String,
     },
     /// A table filter's name holds a `.`, which its URL parameters reserve for a part:
     /// `f.<name>.<part>`.

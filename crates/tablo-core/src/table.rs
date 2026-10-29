@@ -13,13 +13,14 @@ use topcoat::context::Cx;
 
 use self::filter::BoxFilter;
 pub(crate) use self::{applied::ignored_reason, choice::ColumnChoice};
+use crate::DeclarationErrorKind;
 pub(crate) use crate::column::{BoxColumn, Column, include_relations, restrict_relations};
-use crate::{DeclarationErrorKind, Lens, schema::Binding, values::FormScalar};
 
 mod applied;
 mod choice;
 mod export;
 pub(crate) mod filter;
+mod group;
 mod mask;
 pub(crate) mod model;
 mod page;
@@ -29,6 +30,7 @@ mod sort;
 mod state;
 mod tab;
 
+use self::sort::FieldOrder;
 pub use self::{
     filter::{DateFilter, FilterValue, IntoFilters, QueryFilter, SelectFilter, TernaryFilter},
     model::ModelColumns,
@@ -37,6 +39,7 @@ pub use self::{
     tab::ListTab,
 };
 pub(crate) use self::{
+    group::GroupDef,
     page::{Past, row_exists_past},
     state::{bulk_key, bulk_token, group_header_dom_id, query_of, request_query, row_dom_id},
 };
@@ -44,16 +47,6 @@ pub(crate) use crate::{
     column::{ColumnToggle, ColumnWidth, IntoColumns, contains_expr},
     display::Alignment,
 };
-
-/// Group-label projection reads a row's group off one model instance.
-pub(crate) type GroupKey<M> = Arc<dyn Fn(&M) -> crate::Text + Send + Sync>;
-
-/// A named grouping a `Table` renders.
-#[derive_where(Clone)]
-pub(crate) struct GroupDef<M> {
-    binding: Binding,
-    key: GroupKey<M>,
-}
 
 /// Where a table puts a row's actions: its custom actions, View, Edit and Delete.
 ///
@@ -96,8 +89,9 @@ pub enum ActionLayout {
 ///   limits, is never dropped silently: the list shows a warning banner naming it, and the export
 ///   answers 400. At most 32 filters apply, each with at most 64 values and parts, each name, part
 ///   and value at most 256 bytes. Active filters combine with AND.
-/// - Grouping runs on the loaded page, so its counts cover that page; a `?group_by=` the table does
-///   not declare is ignored.
+/// - `?group_by=` groups the rows by one of the table's [groupings](Self::group_by), which orders
+///   them by its field ahead of the sort, so a group runs on across pages; one the table does not
+///   declare is ignored.
 /// - The list updates in place: a search, filter, sort or page reruns the page through the runtime,
 ///   keeping focus and scroll, and without JavaScript its links and its search form load the page.
 ///   A table that fails to load shows an error state with a retry link in place of the rows.
@@ -125,7 +119,7 @@ pub struct Table<M> {
     /// Misdeclarations a builder recorded ([`Self::declaration_errors`]).
     misdeclared: Vec<DeclarationErrorKind>,
     filters: Vec<BoxFilter<M>>,
-    group_by: Option<GroupDef<M>>,
+    groupings: Vec<GroupDef<M>>,
     row_color: row_color::RowColor<M>,
     tabs: Vec<ListTab<M>>,
     /// A row's key: its record's primary key, as its action URLs carry it.
@@ -140,6 +134,9 @@ pub struct Table<M> {
     per_page_options: Vec<usize>,
     /// The sort a request naming no sortable column reads.
     default_sort: Option<Sort>,
+    /// The field a [`default_sort`](Self::default_sort) orders by, which no sortable column
+    /// need show.
+    default_field: Option<FieldOrder>,
     hide_search: bool,
     hide_filter_menu: bool,
     _marker: PhantomData<M>,
@@ -153,7 +150,14 @@ impl<M> std::fmt::Debug for Table<M> {
                 &self.columns.iter().map(|c| c.name()).collect::<Vec<_>>(),
             )
             .field("filters", &self.filters.len())
-            .field("group_by", &self.group_by.is_some())
+            .field(
+                "groupings",
+                &self
+                    .groupings
+                    .iter()
+                    .map(GroupDef::name)
+                    .collect::<Vec<_>>(),
+            )
             .field(
                 "tabs",
                 &self.tabs.iter().map(ListTab::key).collect::<Vec<_>>(),
@@ -179,7 +183,7 @@ impl<M> Table<M> {
             columns: cols.into_columns(),
             misdeclared: Vec::new(),
             filters: Vec::new(),
-            group_by: None,
+            groupings: Vec::new(),
             row_color: row_color::RowColor::default(),
             tabs: Vec::new(),
             key: crate::toasty_compat::pk::pk_text::<M>,
@@ -189,6 +193,7 @@ impl<M> Table<M> {
             action_layout: ActionLayout::default(),
             per_page_options: DEFAULT_PER_PAGE_OPTIONS.to_vec(),
             default_sort: None,
+            default_field: None,
             hide_search: false,
             hide_filter_menu: false,
             _marker: PhantomData,
@@ -233,7 +238,7 @@ impl<M> Table<M> {
         if table
             .default_sort
             .as_ref()
-            .is_some_and(|sort| table.sortable_column(&sort.column).is_none())
+            .is_some_and(|sort| !table.orders_by(sort))
         {
             table.default_sort = None;
         }
@@ -277,36 +282,6 @@ impl<M> Table<M> {
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<()> {
         restrict_relations(cx, &self.columns, rows, ex).await
-    }
-
-    /// Offer grouping the page's rows by the field `lens` reads, under the field's name.
-    pub fn group_by<T>(mut self, lens: Lens<M, T>) -> Self
-    where
-        M: toasty::schema::Model + Send + Sync + 'static,
-        T: FormScalar + Send + Sync + 'static,
-    {
-        self.group_by = Some(GroupDef {
-            binding: Binding::of(lens.path()),
-            key: Arc::new(move |record| lens.read(record).to_label()),
-        });
-        self
-    }
-
-    /// The declared grouping iff `state.group_by` names it.
-    pub(crate) fn effective_group_key(&self, state: &TableState) -> Option<GroupKey<M>> {
-        match (&self.group_by, &state.group_by) {
-            (Some(def), Some(want)) if def.binding.name() == want => Some(def.key.clone()),
-            _ => None,
-        }
-    }
-
-    /// Normalize `state.group_by` against the declared grouping.
-    pub(crate) fn normalize_state(&self, state: &TableState) -> TableState {
-        let mut out = state.clone();
-        if self.group_by.as_ref().map(|def| def.binding.name()) != out.group_by.as_deref() {
-            out.group_by = None;
-        }
-        out
     }
 
     /// Page through the rows as `pagination` says; [`Pagination::Pages`] by default.
@@ -357,17 +332,13 @@ impl<M> Table<M> {
     /// What is wrong with this declaration.
     pub fn declaration_errors(&self) -> Vec<DeclarationErrorKind> {
         let mut errors = self.misdeclared.clone();
-        errors.extend(
-            self.group_by
-                .as_ref()
-                .and_then(|def| def.binding.misdeclared()),
-        );
+        errors.extend(self.grouping_errors());
         errors.extend(self.tab_errors());
         if self.columns.is_empty() {
             errors.push(DeclarationErrorKind::NoColumns);
         }
         if let Some(sort) = &self.default_sort
-            && self.sortable_column(&sort.column).is_none()
+            && !self.orders_by(sort)
         {
             errors.push(DeclarationErrorKind::UnsortableDefaultSort {
                 column: sort.column.clone(),

@@ -6,9 +6,25 @@ use toasty::stmt::{List, OrderBy, OrderByExpr, Path};
 use super::{BoxColumn, Sort, Table, TableState};
 use crate::schema::Binding;
 
+/// The field a [`default_sort`](Table::default_sort) orders by, and its order-by in the
+/// default's direction.
+#[derive(Clone)]
+pub(super) struct FieldOrder {
+    binding: Binding,
+    order: OrderByExpr,
+}
+
+impl FieldOrder {
+    /// What the order reads of a record.
+    pub(super) fn reads<M>(&self) -> crate::lens::Reads<M> {
+        self.binding.reads::<M>()
+    }
+}
+
 impl<M> Table<M> {
-    /// Sort by `path`'s column, smallest first, when the URL names no sortable column; by the
-    /// first sortable column, ascending, by default.
+    /// Sort by the field `path` names, smallest first, when the URL names no sortable column; by
+    /// the first sortable column, ascending, by default. The field needs no column: the rows
+    /// sort by it all the same, and no header marks the sort.
     ///
     /// ```rust
     /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
@@ -17,8 +33,6 @@ impl<M> Table<M> {
     ///
     /// Table::new(TextColumn::new(lens!(Post.title)).sortable()).default_sort(lens!(Post.title));
     /// ```
-    ///
-    /// A path whose column the table does not declare sortable is a declaration error.
     pub fn default_sort<T>(self, path: impl Into<Path<M, T>>) -> Self
     where
         M: toasty::schema::Model,
@@ -26,7 +40,7 @@ impl<M> Table<M> {
         self.sorted_by(path.into(), false)
     }
 
-    /// Sort by `path`'s column, largest first, when the URL names no sortable column, as
+    /// Sort by the field `path` names, largest first, when the URL names no sortable column, as
     /// [`default_sort`](Self::default_sort) does ascending.
     ///
     /// ```rust
@@ -65,6 +79,7 @@ impl<M> Table<M> {
     /// A name the table declares no sortable column for is a declaration error.
     pub fn default_sort_by(mut self, sort: Sort) -> Self {
         self.default_sort = Some(sort);
+        self.default_field = None;
         self
     }
 
@@ -82,7 +97,22 @@ impl<M> Table<M> {
             column: binding.name().to_string(),
             descending,
         });
+        let order = if descending { path.desc() } else { path.asc() };
+        self.default_field = Some(FieldOrder { binding, order });
         self
+    }
+
+    /// Whether `sort` orders the rows: it names a sortable column, or it is the default sort on
+    /// a field.
+    pub(super) fn orders_by(&self, sort: &Sort) -> bool {
+        self.sortable_column(&sort.column).is_some() || self.field_order(sort).is_some()
+    }
+
+    /// The order-by of the default sort on a field, when `sort` is that default.
+    fn field_order(&self, sort: &Sort) -> Option<&OrderByExpr> {
+        let field = self.default_field.as_ref()?;
+        (self.default_sort.as_ref() == Some(sort) && field.binding.name() == sort.column)
+            .then_some(&field.order)
     }
 
     /// The sortable column named `name`.
@@ -93,13 +123,18 @@ impl<M> Table<M> {
     }
 
     /// The sort `state` reads: its own when it names a sortable column, else the
-    /// [default](Self::default_sort), else the first sortable column's, ascending. `None` when no
-    /// column sorts.
+    /// [default](Self::default_sort), else the first sortable column's, ascending. `None` when
+    /// nothing sorts.
     pub(crate) fn sort_for(&self, state: &TableState) -> Option<Sort> {
-        [state.sort.as_ref(), self.default_sort.as_ref()]
-            .into_iter()
-            .flatten()
-            .find(|sort| self.sortable_column(&sort.column).is_some())
+        state
+            .sort
+            .as_ref()
+            .filter(|sort| self.sortable_column(&sort.column).is_some())
+            .or_else(|| {
+                self.default_sort
+                    .as_ref()
+                    .filter(|sort| self.orders_by(sort))
+            })
             .cloned()
             .or_else(|| {
                 let first = self.columns.iter().find(|c| c.is_sortable())?;
@@ -121,20 +156,34 @@ impl<M> Table<M> {
     where
         M: toasty::schema::Model,
     {
-        self.sortable_column(&sort.column)?
-            .order_by(sort.descending)
+        match self.sortable_column(&sort.column) {
+            Some(column) => column.order_by(sort.descending),
+            None => self.field_order(sort).cloned(),
+        }
     }
 
-    /// Resolve the full query ordering for a request: its [sort](Self::sort_for), or the primary
-    /// key when no column sorts.
+    /// Resolve the full query ordering for a request: its [grouping](Self::group_by)'s field,
+    /// unless the sort orders by the same expression, then its [sort](Self::sort_for), or the
+    /// primary key when nothing sorts.
     pub(crate) fn order_bys_for(&self, state: &TableState) -> Vec<OrderByExpr>
     where
         M: toasty::schema::Model,
     {
-        match self.sort_for(state).and_then(|sort| self.order_by(&sort)) {
-            Some(ord) => vec![ord],
-            None => crate::toasty_compat::pk::pk_order_bys::<M>(),
+        let sort = self.sort_for(state).and_then(|sort| self.order_by(&sort));
+        let mut order: Vec<OrderByExpr> = self
+            .active_grouping(state)
+            .filter(|group| {
+                sort.as_ref()
+                    .is_none_or(|sort| sort.expr != group.order().expr)
+            })
+            .map(|group| group.order().clone())
+            .into_iter()
+            .collect();
+        match sort {
+            Some(ord) => order.push(ord),
+            None => order.extend(crate::toasty_compat::pk::pk_order_bys::<M>()),
         }
+        order
     }
 
     /// Order `query` as `state` sorts it, replacing any ordering `query` carries: Toasty appends
@@ -163,9 +212,10 @@ impl<M> Table<M> {
         M: toasty::schema::Model,
     {
         let mut order = self.order_bys_for(state);
-        let key = crate::toasty_compat::pk::pk_order_bys::<M>();
-        if order != key {
-            order.extend(key);
+        for key in crate::toasty_compat::pk::pk_order_bys::<M>() {
+            if !order.contains(&key) {
+                order.push(key);
+            }
         }
         order
     }
