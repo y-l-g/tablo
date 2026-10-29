@@ -297,6 +297,33 @@ async fn a_rerun_renders_the_query_its_signal_carries() {
     assert_eq!(names(&rerun), ["Ada"], "{rerun}");
 }
 
+/// A runtime navigation to the list under another query, a stat tile's or a sidebar link's,
+/// renders the URL's rows, not the query the page it leaves carries in its signal.
+#[tokio::test]
+async fn a_navigation_to_another_query_renders_the_url() {
+    let router: Router = mount(
+        items(&["Ada", "Bob"]).await,
+        panel().resource::<ReadOnlyResource>(),
+    )
+    .expect("panel builds");
+    let html = body_string(get(&router, "/admin/items?q=Bob").await).await;
+    let id = query_signal(&html, "q=Bob");
+
+    let navigation = http::Request::builder()
+        .method(http::Method::POST)
+        .uri("/admin/items?q=Ada")
+        .header(&topcoat::runtime::RUNTIME_HEADER, "true")
+        .header(http::header::CONTENT_TYPE, "application/json")
+        .body(Body::from(format!(r#"{{"signals":{{"{id}":"q=Bob"}}}}"#)))
+        .unwrap();
+    let page = body_string(router.handle(navigation).await).await;
+    let names: Vec<_> = rows(&page)
+        .into_iter()
+        .map(|row| row.cells[0].clone())
+        .collect();
+    assert_eq!(names, ["Ada"], "{page}");
+}
+
 /// The figures a list's widget reads follow the state the list shows: its search from the URL,
 /// and on a rerun the query its signal carries.
 #[tokio::test]
