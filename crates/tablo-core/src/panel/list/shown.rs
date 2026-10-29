@@ -74,10 +74,15 @@ impl ShownList {
 /// }
 /// ```
 ///
+/// A tab and a filter can ask one column for two values. Toasty then folds the query's filter to
+/// `false`, and panics planning an `include` over it: count the query, or ask it for a row, before
+/// loading its rows with their relations.
+///
 /// # Errors
 ///
-/// 403 when the request may not open `R`'s list, the check [`can_list`](crate::can_list) makes;
-/// the database failing a filter's check.
+/// 403 when the request may not open `R`'s list, the check [`can_list`](crate::can_list) makes,
+/// which fails the whole page the widget is on: a widget on another page asks `can_list` first.
+/// The database failing a filter's check.
 pub async fn list_query<R: Resource>(cx: &Cx) -> Result<Query<List<R::Model>>> {
     let resource = gate::<R>(cx)?;
     if !resource.can(cx, Ability::ViewAny) {

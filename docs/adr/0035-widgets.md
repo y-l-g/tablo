@@ -13,9 +13,10 @@ a row of stats is a widget that renders `stats(cx, …)` over `Stat`s.
   banner or a row of figures above a list needs no rewritten page. It renders with the list, behind
   the list's sign-in and policy, and adds no route either. Its widgets read the list's state
   through `list_query`, which the list page records on the request before they render, so a
-  rerun of the list reruns them over the same state; a widget's signature takes no table. A named render hook per spot of each
-  page, taking a view function, was rejected: it renders synchronously, so it cannot read the
-  database, and it repeats the access a widget already declares.
+  rerun of the list reruns them over the same state; a widget's signature takes no table. A named
+  render hook per spot of each page, taking a view function, was rejected: it renders
+  synchronously, so it cannot read the database, and it repeats the access a widget already
+  declares.
 - A widget reads its own data, as a page does. What counts a resource's records goes through
   `scoped_query` and asks `can_list` before it shows or links anything, which
   `Stat::records::<R>` does for the common tile.
