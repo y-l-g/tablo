@@ -38,8 +38,8 @@ pub enum RelatedFormFault {
         /// The field.
         field: String,
     },
-    /// An owner form key starts with the related form's prefix, the related resource's slug and
-    /// a dot, under which the related form's controls post.
+    /// An owner form key is the related resource's slug, or starts with the related form's
+    /// prefix, the slug and a dot, under which the related form's controls post.
     ///
     /// Rename the field, or give the related resource another slug.
     ShadowedKey {
@@ -77,8 +77,8 @@ impl RelatedFormFault {
             ),
             Self::ShadowedKey { field } => write!(
                 f,
-                "the owner's form key `{field}` starts with the related form's prefix: rename \
-                 it, or give the related resource another slug"
+                "the owner's form key `{field}` shadows the related form's prefix, the related \
+                 resource's slug and a dot: rename it, or give the related resource another slug"
             ),
         }
     }

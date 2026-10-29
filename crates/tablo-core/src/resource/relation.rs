@@ -466,7 +466,8 @@ where
 }
 
 impl<P> Relation<P> {
-    /// Titles the section `label` instead of the related resource's plural label.
+    /// Titles the section `label` instead of the related resource's label: its plural one over a
+    /// table, its singular one over a `has_one` relation's form.
     #[must_use]
     pub fn label(mut self, label: impl Into<crate::Text>) -> Self {
         self.label = Some(label.into());

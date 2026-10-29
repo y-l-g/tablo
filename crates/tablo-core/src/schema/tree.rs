@@ -216,7 +216,16 @@ impl Node {
                 ))
                 .await?;
                 if let Some(conditions) = source.watched.get(field.name()) {
-                    view = watch(cx, field, conditions, &source.scope, source.values, view);
+                    let posted = format!("{}{}", source.prefix, field.name());
+                    view = watch(
+                        cx,
+                        field,
+                        &posted,
+                        conditions,
+                        &source.scope,
+                        source.values,
+                        view,
+                    );
                 }
                 if let Some(condition) = field.disabling() {
                     view = disable(cx, condition, &source.scope, source.values, view);

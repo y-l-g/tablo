@@ -20,7 +20,9 @@ use super::{
         parse_form_body, refuse_too_many_files, reject_unknown_form_keys, rerender_invalid_form,
         restore_pending_uploads,
     },
-    related::{open_related, read_related, related_valid, render_related, write_related},
+    related::{
+        RelatedWrite, open_related, read_related, related_valid, render_related, write_related,
+    },
     render::{Carried, FormChrome, VERSION_FIELD, form_action, render_form_page, seed_pairs},
     unique::{check_unique, taken_since},
 };
@@ -284,13 +286,19 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         };
         // Each related form writes after the record it belongs to, whose key it holds.
         let after = match write_related(cx, &resource, &mut related, &written, &mut *tx).await {
-            Ok(Some(after)) => after,
-            Ok(None) => {
+            Ok(RelatedWrite::Done(after)) => after,
+            Ok(written @ (RelatedWrite::Refused | RelatedWrite::Stale)) => {
                 drop(tx);
+                let chrome =
+                    FormChrome::create(cx, &resource).with_related(render_related(cx, &related));
                 return render_form_page(
                     cx,
                     &resource.form,
-                    FormChrome::create(cx, &resource).with_related(render_related(cx, &related)),
+                    if matches!(written, RelatedWrite::Stale) {
+                        chrome.stale()
+                    } else {
+                        chrome
+                    },
                     &values,
                     &errors,
                     &carried,
@@ -445,14 +453,19 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
             }
         };
         let after = match write_related(cx, &resource, &mut related, &written, &mut *tx).await {
-            Ok(Some(after)) => after,
-            Ok(None) => {
+            Ok(RelatedWrite::Done(after)) => after,
+            Ok(written @ (RelatedWrite::Refused | RelatedWrite::Stale)) => {
                 drop(tx);
+                let chrome = FormChrome::edit(cx, &resource, &before)
+                    .with_related(render_related(cx, &related));
                 return render_form_page(
                     cx,
                     &resource.form,
-                    FormChrome::edit(cx, &resource, &before)
-                        .with_related(render_related(cx, &related)),
+                    if matches!(written, RelatedWrite::Stale) {
+                        chrome.stale()
+                    } else {
+                        chrome
+                    },
                     &values,
                     &errors,
                     &carried,

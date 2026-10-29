@@ -17,7 +17,18 @@ The save writes the owner first, then the child, in one transaction
 exists only once the owner is written. The child's controls are checked before the transaction
 opens, as the owner's are. The child's parse, `validate_record` and record fn run after the
 owner's write, inside the same transaction. A refusal from either side rolls both back and
-renders both forms with their errors.
+renders both forms with their errors. The child's `before_commit` runs as its write ends, so
+before the owner's, which sees the child written. Both `after_commit` hooks run once the
+transaction commits, the owner's first.
+
+The child is read again inside the transaction, and the save refuses as stale, as an overtaken
+owner's does, when it is no longer the child the submission was read against: another save
+created it, or took it out of the request's reach. The section posts the child's `#[version]`,
+so a child another save changed refuses the same way. Writing anyway would apply a create's
+defaults over the other save's child, field-access-masked keys among them, or overwrite it. The
+refused page renders the section on the child as it now stands. Two saves that each create the
+child can both pass while neither sees the other's uncommitted row: a unique index on the
+foreign key refuses the second.
 
 The child's submission is read in its own keys: the panel strips the prefix before `C`'s
 pipeline reads the posted pairs. So completing an edit from the stored record, conditions,
@@ -28,8 +39,8 @@ section carries its own scope for DOM ids and condition signals.
 The panel takes no shortcut around `C` for a request it cannot judge:
 
 - The section renders only while the request may write the child. That is `Create` on `C` for a
-  record with no child yet, or `View` and `Update` on its child. The foreign key must also be
-  neither hidden nor locked by field access.
+  record with no child yet, or `View` and `Update` on its child. A tenant-scoped `C` also needs
+  the request's tenant, and the foreign key must be neither hidden nor locked by field access.
 - Every row holding the owner's key counts, whether or not `C`'s query shows it. When a record
   holds more than one, or one outside `C`'s query, no section renders: a save would otherwise
   create a second child.
@@ -47,7 +58,7 @@ Mounting refuses a related form that cannot meet these rules:
 - a related form holding a control that posts keys besides its own or fetches from its
   resource's routes: a file field, a repeater, an embedded value, or a searchable or dependent
   choice;
-- an owner form key the prefix would shadow.
+- an owner form key equal to `C`'s slug, or starting with the prefix.
 
 A `has_one` relation renders no table: its form edits the record's one child.
 

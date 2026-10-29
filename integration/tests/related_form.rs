@@ -5,7 +5,7 @@ use http::StatusCode;
 use tablo::{
     Ability, Change, DeclarationErrorKind, FieldErrors, NoForm, RelatedFormFault, Relation,
     Resource, ResourceDef, Site, TextColumn, lens,
-    testing::{TestClient, field_error, form_body, input_value},
+    testing::{TestClient, field_error, form_body, input_value, stale_form},
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
@@ -29,6 +29,8 @@ struct Profile {
     #[unique]
     member_id: Uuid,
     bio: String,
+    #[version]
+    version: u64,
 }
 
 struct MemberResource;
@@ -404,6 +406,17 @@ async fn a_related_form_must_fit_inside_the_owners() {
         }
     }
 
+    struct Named;
+
+    impl Resource for Named {
+        type Model = Profile;
+        type Form = ProfileForm;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().slug("name")
+        }
+    }
+
     struct Owner<C>(std::marker::PhantomData<C>);
 
     impl<C: Resource<Model = Profile>> Resource for Owner<C> {
@@ -427,7 +440,7 @@ async fn a_related_form_must_fit_inside_the_owners() {
     );
     assert_eq!(errors[0].site, Site::Relation("listeds".to_string()));
     let errors = refusal(mount(
-        db,
+        db.clone(),
         panel().resource::<Owner<Unkeyed>>().resource::<Unkeyed>(),
     ));
     assert_eq!(
@@ -439,4 +452,188 @@ async fn a_related_form_must_fit_inside_the_owners() {
         )],
         "{errors:?}"
     );
+    // The owner's `name` is the child's slug: a repeater so named would post its rows under the
+    // related form's prefix.
+    let errors = refusal(mount(
+        db,
+        panel()
+            .resource::<Owner<Named>>()
+            .resource::<Named>()
+            .resource::<MemberResource>()
+            .resource::<ProfileResource>(),
+    ));
+    assert_eq!(
+        errors.iter().map(|error| &error.kind).collect::<Vec<_>>(),
+        [&DeclarationErrorKind::RelatedForm(
+            RelatedFormFault::ShadowedKey {
+                field: "name".to_string()
+            }
+        )],
+        "{errors:?}"
+    );
+}
+
+/// The section posts the child's version: a save after another one changed the child refuses
+/// as stale, keeps the other save's write, and carries the version that now stands.
+#[tokio::test]
+async fn a_child_another_save_changed_refuses_as_stale() {
+    let (router, mut db) = fixture().await;
+    let ada = member(&mut db, "Ada").await;
+    let held = profile(&mut db, &ada, "Mathematician").await;
+    let edit = format!("/admin/members/{}/edit", ada.id);
+    let html = body_string(get(&router, &edit).await).await;
+    let opened = input_value(&html, "profiles.record_version").expect("the section's version");
+    held.clone()
+        .update()
+        .bio("theirs")
+        .exec(&mut db)
+        .await
+        .unwrap();
+    let mine = [
+        ("name", "Ada"),
+        ("profiles.bio", "mine"),
+        ("profiles.record_version", opened.as_str()),
+    ];
+    let response = post_fields(&router, &edit, &mine).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let html = body_string(response).await;
+    assert!(stale_form(&html), "{html}");
+    assert_eq!(profiles(&mut db).await[0].bio, "theirs");
+    let now = input_value(&html, "profiles.record_version").expect("the section's version");
+    assert_ne!(now, opened);
+    let again = [
+        ("name", "Ada"),
+        ("profiles.bio", "mine"),
+        ("profiles.record_version", now.as_str()),
+    ];
+    let response = post_fields(&router, &edit, &again).await;
+    assert_eq!(response.status(), StatusCode::SEE_OTHER);
+    assert_eq!(profiles(&mut db).await[0].bio, "mine");
+}
+
+/// A child another save created after the submission was read is not the one it was read
+/// against: writing it would apply a create's defaults over the other save's child.
+#[tokio::test]
+async fn a_child_created_since_the_read_refuses_as_stale() {
+    struct RacedOwner;
+
+    impl Resource for RacedOwner {
+        type Model = Member;
+        type Form = MemberForm;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("raced")
+                .policy_fn(|_cx, _ability| true)
+                .relation(Relation::has_one::<ProfileResource>(
+                    Profile::fields().member_id(),
+                ))
+        }
+
+        async fn update_record(
+            cx: &Cx,
+            record: Member,
+            posted: tablo::Posted<MemberForm>,
+            ex: &mut dyn toasty::Executor,
+        ) -> Result<Member, tablo::WriteError<MemberFormField>> {
+            // Another save, after the submission was read: the record now holds a child.
+            toasty::create!(Profile {
+                member_id: record.id,
+                bio: "theirs",
+            })
+            .exec(&mut *ex)
+            .await?;
+            Ok(tablo::write_update::<Self>(cx, record, posted, ex).await?)
+        }
+    }
+
+    let mut db = test_db(toasty::models!(Member, Profile)).await;
+    let router = mount(
+        db.clone(),
+        panel()
+            .resource::<RacedOwner>()
+            .resource::<MemberResource>()
+            .resource::<ProfileResource>(),
+    )
+    .expect("panel builds");
+    let ada = member(&mut db, "Ada").await;
+    let response = post_fields(
+        &router,
+        &format!("/admin/raced/{}/edit", ada.id),
+        &[("name", "Ada"), ("profiles.bio", "mine")],
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert!(stale_form(&body_string(response).await));
+    assert!(
+        profiles(&mut db).await.is_empty(),
+        "the rollback keeps neither"
+    );
+}
+
+/// The handler a condition watching a related form's field reads is that control's posted
+/// name, so the browser updates the condition as the user types.
+#[tokio::test]
+async fn a_condition_inside_a_related_form_watches_the_posted_name() {
+    #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+    struct Card {
+        #[key]
+        #[auto]
+        id: Uuid,
+        member_id: Uuid,
+        kind: String,
+        vat: Option<String>,
+    }
+
+    #[derive(tablo::RecordForm)]
+    #[form(model = Card)]
+    struct CardForm {
+        kind: String,
+        vat: Option<String>,
+        #[form(relationship = CardedResource)]
+        member_id: Uuid,
+    }
+
+    struct CardResource;
+
+    impl Resource for CardResource {
+        type Model = Card;
+        type Form = CardForm;
+
+        fn declare() -> ResourceDef<Self> {
+            let c = CardForm::controls();
+            let vat = c.vat.visible_when(&c.kind, ["company"]);
+            ResourceDef::new()
+                .policy_fn(|_cx, _ability| true)
+                .form(tablo::Schema::new((c.kind, vat, c.member_id)))
+        }
+    }
+
+    struct CardedResource;
+
+    impl Resource for CardedResource {
+        type Model = Member;
+        type Form = MemberForm;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .policy_fn(|_cx, _ability| true)
+                .relation(Relation::has_one::<CardResource>(
+                    Card::fields().member_id(),
+                ))
+        }
+    }
+
+    let db = test_db(toasty::models!(Member, Card)).await;
+    let router = mount(
+        db,
+        panel()
+            .resource::<CardedResource>()
+            .resource::<CardResource>(),
+    )
+    .expect("panel builds");
+    let html = body_string(get(&router, "/admin/cardeds/-/create").await).await;
+    // The handler's compiled comparison carries the name it reads.
+    let reads = |name: &str| html.contains(&format!("hydrate(&quot;{name}&quot;)"));
+    assert!(reads("cards.kind") && !reads("kind"), "{html}");
 }

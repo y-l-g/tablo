@@ -11,12 +11,13 @@ use toasty::stmt::{Expr, List, Query};
 use topcoat::{
     Result,
     context::Cx,
-    router::error::{bad_request, forbidden},
-    view::{BoxView, ViewExt, view},
+    router::error::bad_request,
+    view::{BoxView, ViewExt, attributes, view},
 };
 
 use super::{
     common::FormParts,
+    render::VERSION_FIELD,
     submit::{
         Unposted, complete, named_fields, parse_form, prepare_submission, recheck_relationships,
         refusal,
@@ -24,13 +25,14 @@ use super::{
     unique::check_unique,
 };
 use crate::{
-    BoxFuture,
+    BoxFuture, ModelColumns as _,
     form::{FieldErrors, FormValue, FormValues, Posted, RecordForm},
-    panel::state::current,
+    panel::{gate::enforce_tenant, state::current},
     policy::Ability,
     resource::{Change, Mounted, Resource, WriteError, mounted, require_mounted},
     schema::Source,
-    toasty_compat::pk::pk_filter,
+    t,
+    toasty_compat::pk::{pk_filter, pk_text},
     topcoat_compat::async_page,
 };
 
@@ -85,6 +87,10 @@ impl ChildForm {
 pub(crate) struct Opened {
     record: Option<Box<dyn Any + Send + Sync>>,
     stored: FormValues,
+    /// The child's URL id, `None` for the one the save creates.
+    id: Option<String>,
+    /// The child's `#[version]`, which the section posts back.
+    version: Option<u64>,
 }
 
 /// A related form's submission, read before the owner's transaction opens.
@@ -92,6 +98,10 @@ pub(crate) struct Prepared {
     values: FormValues,
     errors: FieldErrors,
     named: HashSet<String>,
+    /// The id of the child it was read against, `None` for a create.
+    against: Option<String>,
+    /// The version the section posted.
+    version: Option<u64>,
 }
 
 /// How a related form's write ended.
@@ -100,6 +110,20 @@ pub(crate) enum Written {
     Done(AfterCommit),
     /// A rule, `validate_record` or the record fn refused it: the transaction must roll back.
     Refused(Prepared),
+    /// The child changed since the submission was read: another save wrote it, created it, or
+    /// took it out of the request's reach. It holds the child as it now stands.
+    Stale(Prepared, Option<Opened>),
+}
+
+/// How the related forms' writes ended.
+pub(crate) enum RelatedWrite {
+    /// Every one wrote: the hooks the commit still owes.
+    Done(Vec<AfterCommit>),
+    /// One refused: the transaction must roll back.
+    Refused,
+    /// One's child changed since the form opened: the transaction must roll back, and the page
+    /// says so.
+    Stale,
 }
 
 /// What a section renders.
@@ -108,6 +132,7 @@ pub(crate) struct Shown {
     label: crate::Text,
     foreign_key: String,
     editing: bool,
+    version: Option<u64>,
     values: Option<FormValues>,
     errors: FieldErrors,
 }
@@ -197,10 +222,22 @@ pub(crate) async fn read_related(
         let Some(opened) = &related.opened else {
             return Err(bad_request(format!("`{}` takes no submission", related.key)).into());
         };
+        let mut version = None;
         let pairs: Vec<(String, String)> = posted
             .into_iter()
             .map(|(name, value)| (name[prefix.len()..].to_string(), value))
+            .filter(|(name, value)| {
+                let posts_version = name == VERSION_FIELD;
+                if posts_version {
+                    version = Some(value.clone());
+                }
+                !posts_version
+            })
             .collect();
+        let version = version
+            .map(|version| version.parse::<u64>())
+            .transpose()
+            .map_err(|error| bad_request(error.to_string()))?;
         if pairs.iter().any(|(name, _)| *name == related.foreign_key) {
             return Err(bad_request(format!(
                 "`{prefix}{}` is filled by the record the form saves",
@@ -213,7 +250,10 @@ pub(crate) async fn read_related(
             files: HashMap::new(),
             file_part_names: HashSet::new(),
         };
-        related.posted = Some((related.form.prepare)(cx, opened, parts).await?);
+        let mut prepared = (related.form.prepare)(cx, opened, parts).await?;
+        prepared.against = opened.id.clone();
+        prepared.version = version;
+        related.posted = Some(prepared);
     }
     Ok(())
 }
@@ -229,18 +269,19 @@ pub(crate) fn related_valid(related: &[Related]) -> bool {
 /// Writes each related form the submission posted, for the record `owner` the owner's write
 /// left, through `ex`.
 ///
+/// Once one refuses or finds its child changed, the caller rolls the transaction back and
+/// renders the forms again.
+///
 /// # Errors
 ///
-/// `Ok(None)` once a related form refuses: the caller rolls the transaction back and renders
-/// the forms again. `Err` for a related record the request may no longer write, or the
-/// driver's error.
+/// The driver's error, or a related resource's hook's.
 pub(crate) async fn write_related<R: Resource>(
     cx: &Cx,
     resource: &Mounted<R>,
     related: &mut [Related],
     owner: &R::Model,
     ex: &mut dyn toasty::Executor,
-) -> Result<Option<Vec<AfterCommit>>> {
+) -> Result<RelatedWrite> {
     let mut after = Vec::new();
     for related in related.iter_mut() {
         let Some(prepared) = related.posted.take() else {
@@ -252,11 +293,17 @@ pub(crate) async fn write_related<R: Resource>(
             Written::Done(hook) => after.push(hook),
             Written::Refused(prepared) => {
                 related.posted = Some(prepared);
-                return Ok(None);
+                return Ok(RelatedWrite::Refused);
+            }
+            // The section renders on the child as it now stands, so saving again overwrites.
+            Written::Stale(prepared, opened) => {
+                related.posted = Some(prepared);
+                related.opened = opened;
+                return Ok(RelatedWrite::Stale);
             }
         }
     }
-    Ok(Some(after))
+    Ok(RelatedWrite::Done(after))
 }
 
 /// Renders the section of each related form the request may write: what the submission posted
@@ -271,6 +318,7 @@ pub(crate) fn render_related<'a>(cx: &'a Cx, related: &[Related]) -> Vec<BoxView
                 label: related.label.clone(),
                 foreign_key: related.foreign_key.clone(),
                 editing: opened.record.is_some(),
+                version: opened.version,
                 values: match (&related.posted, &opened.record) {
                     (Some(posted), _) => Some(posted.values.clone()),
                     (None, Some(_)) => Some(opened.stored.clone()),
@@ -302,13 +350,15 @@ async fn open<C: Resource>(
         return Ok(None);
     };
     let mask = child.form_mask(cx);
-    if mask.hides(foreign_key) || mask.locks(foreign_key) {
+    if enforce_tenant(cx, &child).is_err() || mask.hides(foreign_key) || mask.locks(foreign_key) {
         return Ok(None);
     }
     let creates = || {
         (child.creates && child.can_create(cx)).then(|| Opened {
             record: None,
             stored: FormValues::new(),
+            id: None,
+            version: None,
         })
     };
     let Some(scope) = scope else {
@@ -343,6 +393,8 @@ async fn open<C: Resource>(
         })
         .map(|record| Opened {
             stored: <C::Form as RecordForm>::hydrate(cx, &record),
+            id: Some(pk_text(&record)),
+            version: record.version(),
             record: Some(Box::new(record)),
         }))
 }
@@ -359,11 +411,16 @@ async fn prepare<C: Resource>(cx: &Cx, opened: &Opened, parts: FormParts) -> Res
         values: submission.values,
         errors: submission.errors,
         named: submission.named,
+        against: None,
+        version: None,
     })
 }
 
 /// Writes `prepared` as `C`'s record belonging to the owner `owner` spells, the child `scope`
 /// selects, opened again inside the transaction.
+///
+/// A child that is no longer the one `prepared` was read against, or whose version moved, is
+/// stale: writing would apply a create's defaults over another save's child, or overwrite it.
 async fn write<C: Resource>(
     cx: &Cx,
     prepared: Prepared,
@@ -373,17 +430,24 @@ async fn write<C: Resource>(
     ex: &mut dyn toasty::Executor,
 ) -> Result<Written> {
     let child = require_mounted::<C>(cx)?;
-    let Some(opened) = open::<C>(cx, Some(scope), foreign_key, &mut *ex).await? else {
-        return Err(forbidden().into());
+    let opened = match open::<C>(cx, Some(scope), foreign_key, &mut *ex).await? {
+        Some(opened)
+            if opened.id == prepared.against
+                && (prepared.version.is_none() || opened.version == prepared.version) =>
+        {
+            opened
+        }
+        reopened => return Ok(Written::Stale(prepared, reopened)),
     };
     let Prepared {
         mut values,
         mut errors,
         named,
+        ..
     } = prepared;
     let schema = Arc::clone(&child.form);
     complete(&schema, &mut values, &named, &opened.stored);
-    values.insert(foreign_key, FormValue::Text(owner));
+    values.insert(foreign_key, FormValue::Text(owner.clone()));
     if opened.record.is_some() {
         schema
             .keep_unseen_links(cx, &mut values, &opened.stored, &mut *ex)
@@ -391,12 +455,18 @@ async fn write<C: Resource>(
     }
     errors.extend(check_unique(cx, &child, &schema, &values, &opened.stored, &mut *ex).await?);
     let form = parse_form(cx, &child, &values, &mut errors)?;
-    recheck_relationships(cx, &schema, &values, &opened.stored, &mut errors, &mut *ex).await;
+    // The owner fills the foreign key with the record this request just wrote: it is no link
+    // the user picked, and the owner's query may not list it yet.
+    let mut linked = opened.stored.clone();
+    linked.insert(foreign_key, FormValue::Text(owner));
+    recheck_relationships(cx, &schema, &values, &linked, &mut errors, &mut *ex).await;
     let refused = |values, errors| {
         Written::Refused(Prepared {
             values,
             errors,
             named: HashSet::new(),
+            against: None,
+            version: None,
         })
     };
     let Some(form) = form.filter(|_| errors.is_empty()) else {
@@ -444,10 +514,18 @@ fn render<C: Resource>(cx: &Cx, shown: Shown) -> BoxView<'_> {
             label,
             foreign_key,
             editing,
+            version,
             values,
             errors,
         } = shown;
         let mask = child.form_mask(cx).hiding(&foreign_key);
+        // A key the section renders no control for carries its error nowhere, so the section
+        // says only that the save cannot pass, as the owner's form does.
+        let unseen = errors.iter().any(|error| mask.hides(&error.key));
+        let version = version.filter(|_| editing).map(|version| {
+            let name = format!("{key}.{VERSION_FIELD}");
+            view! { cx => <input type="hidden" name=(name) value=(version.to_string())> }
+        });
         let values = mask.shown(&values.unwrap_or_else(|| child.form.defaults()));
         let source = Source::form(&values, &errors)
             .editing(editing)
@@ -458,6 +536,19 @@ fn render<C: Resource>(cx: &Cx, shown: Shown) -> BoxView<'_> {
         Ok(view! {
             cx =>
             <div class="contents" data-related-form=(key)>
+                if unseen {
+                    tablo_ui::alert(
+                        variant: tablo_ui::AlertVariant::Destructive,
+                        attrs: attributes! { role="alert" data-unseen-error="" },
+                        tablo_ui::alert_title((t!(cx, "tablo-form-unseen")))
+                        tablo_ui::alert_description(
+                            (t!(cx, "tablo-form-unseen-description"))
+                        )
+                    )
+                }
+                if let Some(version) = version {
+                    (version)
+                }
                 (crate::schema::titled(cx, label, body))
             </div>
         }

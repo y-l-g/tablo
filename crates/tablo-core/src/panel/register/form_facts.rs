@@ -58,11 +58,13 @@ impl FormFacts {
                 field: field.clone(),
             });
         }
+        // A key equal to the slug shadows the prefix too: a repeater named so posts its rows
+        // under `{slug}.`.
         let prefix = format!("{slug}.");
         faults.extend(
             self.keys
                 .iter()
-                .filter(|key| key.starts_with(&prefix))
+                .filter(|key| *key == slug || key.starts_with(&prefix))
                 .map(|key| RelatedFormFault::ShadowedKey { field: key.clone() }),
         );
         faults
