@@ -59,3 +59,17 @@ pub fn picked(html: &str) -> Option<Picked> {
         })
     })
 }
+
+/// Whether the page's guarded form posts back in pick mode, so a refused save of a create framed
+/// by a creatable choice's dialog stays in the dialog.
+pub fn posts_picking(html: &str) -> bool {
+    open_tags(html).iter().any(|(tag, attrs, _)| {
+        tag == "form"
+            && attr_value(attrs, "data-form-guard").is_some()
+            && attr_value(attrs, "action").is_some_and(|action| {
+                action
+                    .split_once('?')
+                    .is_some_and(|(_, query)| query.split('&').any(|pair| pair == "pick=1"))
+            })
+    })
+}

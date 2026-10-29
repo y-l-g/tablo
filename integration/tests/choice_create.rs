@@ -1,11 +1,11 @@
 //! Creating a related record from a creatable choice: the link shows only while the related
-//! resource lets the user create, a framed create lands on the record the choice takes or says it
-//! cannot be chosen, and mounting refuses a creatable choice that is not a single select over a
-//! resource's records.
+//! resource lets the user list and create, a refused framed save stays in pick mode, a framed
+//! create lands on the record the choice takes or says it cannot be chosen, and mounting refuses a
+//! creatable choice that is not a single select over a resource's records.
 
 use tablo::{
     Ability, Allow, DeclarationErrorKind, Resource, ResourceDef, Schema, Table, TextColumn, lens,
-    testing::{CreateOptionLink, Picked, create_option_links, picked},
+    testing::{CreateOptionLink, Picked, create_option_links, field_error, picked, posts_picking},
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
@@ -75,6 +75,22 @@ impl Resource for ReadOnlyAuthorResource {
     }
 }
 
+/// The same authors, which the user may create but not list.
+struct UnlistedAuthorResource;
+
+impl Resource for UnlistedAuthorResource {
+    type Model = Author;
+    type Form = AuthorForm;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("unlisted-authors")
+            .policy_fn(|_cx, ability| !matches!(ability, Ability::ViewAny))
+            .table(Table::new(TextColumn::new(lens!(Author.name))))
+            .record_title(lens!(Author.name))
+    }
+}
+
 #[derive(tablo::RecordForm)]
 #[form(model = Book)]
 struct BookForm {
@@ -88,6 +104,14 @@ struct BookForm {
 struct ReadOnlyBookForm {
     title: String,
     #[form(relationship = ReadOnlyAuthorResource)]
+    author_id: Uuid,
+}
+
+#[derive(tablo::RecordForm)]
+#[form(model = Book)]
+struct UnlistedBookForm {
+    title: String,
+    #[form(relationship = UnlistedAuthorResource)]
     author_id: Uuid,
 }
 
@@ -123,6 +147,22 @@ impl Resource for ReadOnlyBookResource {
     }
 }
 
+struct UnlistedBookResource;
+
+impl Resource for UnlistedBookResource {
+    type Model = Book;
+    type Form = UnlistedBookForm;
+
+    fn declare() -> ResourceDef<Self> {
+        let c = UnlistedBookForm::controls();
+        ResourceDef::new()
+            .slug("unlisted-books")
+            .policy(Allow)
+            .table(Table::new(TextColumn::new(lens!(Book.title))))
+            .form(Schema::new((c.title, c.author_id.creatable())))
+    }
+}
+
 async fn router() -> (Db, Router) {
     let db = test_db(toasty::models!(Author, Book)).await;
     let router = mount(
@@ -131,7 +171,9 @@ async fn router() -> (Db, Router) {
             .resource::<AuthorResource>()
             .resource::<ReadOnlyAuthorResource>()
             .resource::<BookResource>()
-            .resource::<ReadOnlyBookResource>(),
+            .resource::<ReadOnlyBookResource>()
+            .resource::<UnlistedAuthorResource>()
+            .resource::<UnlistedBookResource>(),
     )
     .expect("panel builds");
     (db, router)
@@ -155,6 +197,36 @@ async fn the_link_shows_only_while_the_related_resource_lets_the_user_create() {
         create_option_links(&html).is_empty(),
         "a related resource refusing Create offers no link"
     );
+
+    let html = body_string(get(&router, "/admin/unlisted-books/-/create").await).await;
+    assert!(
+        create_option_links(&html).is_empty(),
+        "a related resource refusing ViewAny offers no link: its record could not be chosen"
+    );
+}
+
+#[tokio::test]
+async fn a_refused_framed_save_stays_in_pick_mode() {
+    let (_db, router) = router().await;
+    let client = TestClient::new(&router);
+
+    let refused = client
+        .submit(
+            "/admin/authors/-/create?pick=1",
+            &form_body(&[("name", "")]),
+        )
+        .await;
+    let html = body_string(refused).await;
+    assert!(
+        field_error(&html, "name").is_some(),
+        "a blank name is refused"
+    );
+    assert!(
+        posts_picking(&html),
+        "the re-rendered form posts back in pick mode, so its next save lands in the dialog"
+    );
+    let unframed = body_string(client.get("/admin/authors/-/create").await).await;
+    assert!(!posts_picking(&unframed));
 }
 
 /// Posts a framed create of an author named `name`, following the save to the page it lands on.

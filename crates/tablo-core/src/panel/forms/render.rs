@@ -57,8 +57,8 @@ pub(crate) struct FormChrome<'a> {
     stale: bool,
     /// The keys the request's field access hides or locks.
     mask: FormMask,
-    /// Whether a creatable choice's dialog frames the page: Cancel closes the dialog, and the
-    /// form neither saves another nor guards against leaving.
+    /// Whether a creatable choice's dialog frames the create page: Cancel closes the dialog, the
+    /// form does not save another, and it posts back in pick mode.
     picking: bool,
 }
 
@@ -247,8 +247,7 @@ pub(crate) async fn render_form_page<'a>(
         source = source.options_at(url);
     }
     let form_html = schema.render(cx, source).await?;
-    let action = form_action(cx, &seed);
-    let guard = (!picking).then(|| t!(cx, "tablo-form-unsaved"));
+    let action = form_action(cx, &seed, picking);
     let cancel = return_target(cx).unwrap_or(cancel);
     // A refused save keeps what the user typed, which leaving the page would lose.
     let dirty = !errors.is_empty() || stale;
@@ -308,7 +307,7 @@ pub(crate) async fn render_form_page<'a>(
                     action=(action)
                     enctype=(enctype)
                     class="flex flex-col gap-4"
-                    data-form-guard=(guard)
+                    data-form-guard=(t!(cx, "tablo-form-unsaved"))
                     data-form-dirty=(dirty)
                 >
                     (crate::csrf::field(cx, &csrf))
@@ -385,12 +384,13 @@ pub(crate) async fn render_form_page<'a>(
 }
 
 /// Where the form posts, and where a create-another save lands: the current path with `seed`,
-/// the create page's relationship seeds, and a validated `?return=` target.
-pub(super) fn form_action(cx: &Cx, seed: &[(String, String)]) -> String {
+/// the create page's relationship seeds, pick mode when `picking`, and a validated `?return=`
+/// target.
+pub(super) fn form_action(cx: &Cx, seed: &[(String, String)], picking: bool) -> String {
     let path = topcoat::router::request::uri(cx).path();
     let mut query = form_urlencoded::Serializer::new(String::new());
     query.extend_pairs(seed);
-    if crate::panel::url::picking(cx) {
+    if picking {
         query.append_pair(crate::panel::url::PICK_PARAM, "1");
     }
     if let Some(target) = return_target(cx) {

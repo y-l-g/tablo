@@ -341,8 +341,7 @@ the choice. The form keeps what was typed in it.
 {{#include ../../../examples/guide/src/forms.rs:forms-creatable-choice}}
 ```
 
-The dialog runs the related resource's own create page, so its policy, tenancy, field access,
-rules and hooks apply as they do from its list. [`ChoiceField::creatable`](https://y-l.fr/tablo/nightly/api/tablo/struct.ChoiceField.html#method.creatable)
+The dialog runs the related resource's own create page; [`ChoiceField::creatable`](https://y-l.fr/tablo/nightly/api/tablo/struct.ChoiceField.html#method.creatable)
 has the rules and what the mount refuses.
 
 ### Help, disabled controls and defaults

@@ -234,7 +234,8 @@ impl fmt::Display for DeclarationErrorKind {
                 f,
                 "choice '{field}' is creatable but is not a single select over a resource's \
                  records: drop `creatable`, or declare a single select with \
-                 `relationship::<R>()` over a resource `R`, outside a repeater"
+                 `relationship::<R>()` over a resource `R`, outside a repeater and without \
+                 `disabled_when`"
             ),
             Self::UnplacedParentField { field, parent } => write!(
                 f,

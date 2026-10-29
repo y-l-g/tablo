@@ -7,6 +7,9 @@
 // * a saved record becomes the select's value, added once, and announced;
 // * a searchable choice's box shows the record's title;
 // * a page carrying no saved record leaves the choice and the dialog alone;
+// * Escape in the frame closes the dialog unless a control in it took the key;
+// * closing drops the frame's unsaved-changes mark before emptying it, so
+//   leaving the framed form does not ask;
 // * a plain click opens the dialog on the framed page, and a modified click
 //   leaves the link to the browser.
 
@@ -35,6 +38,10 @@ function select(values, filter = null) {
     value: '',
     ownerDocument: owner,
     announced,
+    focused: false,
+    focus() {
+      this.focused = true;
+    },
     appendChild(option) {
       this.options.push(option);
     },
@@ -110,6 +117,7 @@ test('the landing page makes the record the choice and closes the dialog', () =>
   assert.equal(landed(doc, shown, page(picked('42', 'Ada'))), true);
   assert.equal(field.value, '42');
   assert.equal(shown.closed, true);
+  assert.equal(field.focused, true, 'focus returns to the choice');
 });
 
 test('a page carrying no saved record leaves the choice and the dialog', () => {
@@ -166,4 +174,59 @@ test('a modified click leaves the link to the browser', () => {
   assert.equal(click({ ctrlKey: true }).prevented, false);
   assert.equal(shown.opened, false);
   assert.equal(frame.src, '');
+});
+
+// The frame of a loaded dialog: a page whose form `dirty` marks as changed,
+// recording the listeners the script binds on it.
+function framed() {
+  const form = {
+    dirty: true,
+    removeAttribute(name) {
+      if (name === 'data-form-dirty') this.dirty = false;
+    },
+  };
+  const page = listenerDocument({
+    querySelector: () => null,
+    querySelectorAll: (selector) => (selector === 'form[data-form-dirty]' && form.dirty ? [form] : []),
+  });
+  const shown = {
+    closed: false,
+    matches: (selector) => selector === '[data-create-option-dialog]',
+    querySelector: (selector) => (selector === '[data-create-option-frame]' ? frame : null),
+    close() {
+      this.closed = true;
+    },
+  };
+  const frame = {
+    src: 'http://localhost/admin/authors/-/create?pick=1',
+    contentDocument: page,
+    matches: (selector) => selector === '[data-create-option-frame]',
+    closest: (selector) => (selector === '[data-create-option-dialog]' ? shown : null),
+  };
+  const doc = listenerDocument({ getElementById: () => null });
+  install(doc);
+  for (const handler of doc.listeners('load')) handler({ target: frame });
+  const key = (init) => {
+    for (const handler of page.listeners('keydown')) handler({ key: 'Escape', defaultPrevented: false, ...init });
+  };
+  const close = () => {
+    for (const handler of doc.listeners('close')) handler({ target: shown });
+  };
+  return { form, frame, shown, key, close };
+}
+
+test('Escape in the frame closes the dialog unless a control took it', () => {
+  const taken = framed();
+  taken.key({ defaultPrevented: true });
+  assert.equal(taken.shown.closed, false, "an open combobox's Escape keeps the dialog");
+  const free = framed();
+  free.key({});
+  assert.equal(free.shown.closed, true);
+});
+
+test('closing the dialog drops the unsaved-changes mark and empties the frame', () => {
+  const { form, frame, close } = framed();
+  close();
+  assert.equal(form.dirty, false);
+  assert.equal(frame.src, 'about:blank');
 });

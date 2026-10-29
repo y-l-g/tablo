@@ -325,7 +325,8 @@ async fn cross_tenant_requests_404_and_touch_nothing() {
         let resp = foreign.get(&path).await;
         assert_eq!(resp.status(), 404, "{path}: a cross-tenant read must 404");
     }
-    // A creatable choice's landing offers no record of another tenant.
+    // A creatable choice's landing offers no record of another tenant. It answers as for a missing
+    // key rather than 404, so it tells nothing either way.
     let landing = foreign
         .get(&format!("/admin/authors/-/picked?pick=1&key={author_id}"))
         .await;

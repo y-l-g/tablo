@@ -18,10 +18,10 @@ pub use protocol::{
     field_error, field_error_message, filter_options, find_href_with, form_body, groups,
     ignored_filters, import_columns, import_errors, import_refusal, input_value, input_values,
     language_choices, multipart_body, nav_badge, nav_links, notification, page_direction,
-    page_language, page_title, picked, record_tables, response_cookies, rich_text_values,
-    row_actions, row_keys, rows, search_box, search_results, sections, selects_matching,
-    session_cookie_value, set_cookie_header, sortable_columns, stale_form, stats, tab_links, tabs,
-    widgets,
+    page_language, page_title, picked, posts_picking, record_tables, response_cookies,
+    rich_text_values, row_actions, row_keys, rows, search_box, search_results, sections,
+    selects_matching, session_cookie_value, set_cookie_header, sortable_columns, stale_form, stats,
+    tab_links, tabs, widgets,
 };
 pub use resource::{FieldOf, Reply, ResourceClient, Submission};
 use tablo_core::{

@@ -317,7 +317,7 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             let key = crate::toasty_compat::pk::pk_text(&written);
             crate::Outcome::done().redirect(crate::panel::url::picked_url(&resource.url, &key))
         } else if another {
-            crate::Outcome::done().redirect(form_action(cx, &seed_pairs(cx, &resource)))
+            crate::Outcome::done().redirect(form_action(cx, &seed_pairs(cx, &resource), false))
         } else {
             crate::Outcome::done()
         };

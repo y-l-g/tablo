@@ -15,8 +15,10 @@
 //   its value, the select announces a `change` so a condition or a searchable
 //   combobox follows, and the dialog closes. A `[data-picked-hidden]` page,
 //   for a record the user may not choose, leaves the choice as it was.
-// * A `[data-pick-cancel]` button in the frame, or Escape there, closes the
-//   dialog. Closing empties the frame, so the next opening starts blank.
+// * A `[data-pick-cancel]` button in the frame, Escape there that no control in
+//   it took, or the dialog's own close button closes the dialog. Closing drops
+//   the frame's unsaved-changes mark, so leaving it does not ask, and empties
+//   it, so the next opening starts blank.
 //
 // Without the script the link opens the create page in a new tab.
 //
@@ -58,7 +60,16 @@ function landed(doc, dialog, page) {
     choose(select, picked.getAttribute('data-picked-value'), picked.getAttribute('data-picked-label'));
   }
   dialog.close();
+  if (select) focusChoice(select);
   return true;
+}
+
+// Focus the control the user sees for `select`: a searchable combobox's
+// filter, else the select itself.
+function focusChoice(select) {
+  const wrap = select.closest && select.closest('[data-select-filterable]');
+  const filter = wrap && wrap.querySelector('[data-options-filter]');
+  (filter || select).focus();
 }
 
 // Whether a click `e` is a plain primary click, which opens the dialog; any
@@ -90,7 +101,7 @@ function install(doc) {
         if (click.target.closest && click.target.closest('[data-pick-cancel]')) dialog.close();
       });
       page.addEventListener('keydown', (key) => {
-        if (key.key === 'Escape') dialog.close();
+        if (key.key === 'Escape' && !key.defaultPrevented) dialog.close();
       });
     },
     true,
@@ -101,7 +112,12 @@ function install(doc) {
       const dialog = e.target;
       if (!dialog.matches || !dialog.matches('[data-create-option-dialog]')) return;
       const frame = dialog.querySelector('[data-create-option-frame]');
-      if (frame) frame.src = 'about:blank';
+      if (!frame) return;
+      const page = frame.contentDocument;
+      if (page) {
+        page.querySelectorAll('form[data-form-dirty]').forEach((form) => form.removeAttribute('data-form-dirty'));
+      }
+      frame.src = 'about:blank';
     },
     true,
   );

@@ -138,7 +138,7 @@ impl<F> ChoiceField<F> {
     /// - The dialog frames the related resource's own create page, so the record passes that
     ///   resource's policy, tenancy, field access, rules and hooks, as a create from its list does.
     ///   The link renders only while the panel mounts the resource with a create page and its
-    ///   policy allows `Create`.
+    ///   policy allows `ViewAny` and `Create`, and not while the choice renders disabled.
     /// - The saved record becomes the choice only when the related resource lets the user view it
     ///   in the request's tenant; otherwise the dialog says it was created and the choice stays as
     ///   it was. The submission checks the key as for any relationship.
@@ -148,8 +148,8 @@ impl<F> ChoiceField<F> {
     ///   once the form renders again.
     /// - Mounting refuses a creatable choice that is not a single select over a resource's records:
     ///   a multiple choice, [radios](Self::radio) or [buttons](Self::buttons), a
-    ///   [dependent](Self::depends_on) choice, a source that is not a resource, and a choice in a
-    ///   repeater's rows.
+    ///   [dependent](Self::depends_on) choice, a source that is not a resource, a choice a
+    ///   [condition disables](Self::disabled_when), and a choice in a repeater's rows.
     pub fn creatable(mut self) -> Self {
         self.choice_mut().creatable = true;
         self

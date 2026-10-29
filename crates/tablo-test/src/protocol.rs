@@ -19,7 +19,7 @@ mod tabs;
 mod widgets;
 
 pub use bell::{Bell, BellNotification, bell};
-pub use choice_create::{CreateOptionLink, Picked, create_option_links, picked};
+pub use choice_create::{CreateOptionLink, Picked, create_option_links, picked, posts_picking};
 pub use controls::{DisabledAction, confirms_first, disabled_actions, selects_matching};
 pub use detail::{DetailEntry, detail_entries};
 pub use dom::{

@@ -37,10 +37,13 @@ struct Address {
 }
 
 macro_rules! source {
-    ($source:ident, $model:ident) => {
+    ($source:ident, $model:ident $(, $creates:literal)?) => {
         struct $source;
         impl OptionSource for $source {
             type Model = $model;
+            $(fn creates() -> bool {
+                $creates
+            })?
             fn label(_cx: &Cx, record: &$model) -> String {
                 record.name.clone()
             }
@@ -56,6 +59,9 @@ macro_rules! source {
 
 source!(Countries, Country);
 source!(Cities, City);
+// Sources with a create page, as a resource is.
+source!(CreatingCountries, Country, true);
+source!(CreatingCities, City, true);
 
 fn country() -> ChoiceField {
     Field::choice(Address::fields().country_id()).relationship::<Countries>()
@@ -290,5 +296,53 @@ fn a_creatable_choice_offers_a_resource_s_records() {
         .declaration_errors(),
         error("country_id"),
         "static options have no related record"
+    );
+}
+
+#[test]
+fn only_a_single_independent_enabled_select_is_creatable() {
+    let creating =
+        || Field::choice(Address::fields().country_id()).relationship::<CreatingCountries>();
+    let refused = [DeclarationErrorKind::UncreatableChoice {
+        field: "country_id".to_string(),
+    }];
+    let errors = |schema: Schema| {
+        schema
+            .declaration_errors()
+            .into_iter()
+            .filter(|error| matches!(error, DeclarationErrorKind::UncreatableChoice { .. }))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(errors(Schema::new(creating().creatable())), []);
+    assert_eq!(
+        errors(Schema::new(creating().multiple().creatable())),
+        refused,
+        "a multiple choice"
+    );
+    assert_eq!(
+        errors(Schema::new(creating().buttons().creatable())),
+        refused,
+        "buttons"
+    );
+    let shown = Field::choice(Address::fields().city_id()).options(["a", "b"]);
+    assert_eq!(
+        errors(Schema::new((
+            creating().disabled_when(&shown, ["a"]).creatable(),
+            shown,
+        ))),
+        refused,
+        "a choice a condition disables posts nothing"
+    );
+    let country = country();
+    let city = Field::choice(Address::fields().city_id())
+        .relationship::<CreatingCities>()
+        .depends_on(&country, City::fields().country_id())
+        .creatable();
+    assert_eq!(
+        errors(Schema::new((country, city))),
+        [DeclarationErrorKind::UncreatableChoice {
+            field: "city_id".to_string(),
+        }],
+        "a dependent choice"
     );
 }

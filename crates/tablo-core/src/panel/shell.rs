@@ -12,11 +12,7 @@ use topcoat::{
 };
 
 use super::{Panel, state::current};
-use crate::{
-    navigation::NavigationItem,
-    notification::{LiveToast, live_toast, live_toaster, take_notification},
-    topcoat_compat::async_page,
-};
+use crate::{navigation::NavigationItem, topcoat_compat::async_page};
 
 /// `extra` plus the attribute that sends a sidebar link through runtime
 /// navigation. The menu button writes the `href` itself, so this carries none.
@@ -372,24 +368,7 @@ impl Panel {
                 (Self::theme_menu(cx, &csrf), ().boxed())
             }
         };
-        let notification_view: BoxView<'_> = match take_notification(cx) {
-            Some(notification) => {
-                crate::notification::render_notification(cx, notification, Default::default())
-                    .await?
-            }
-            // No `<span>` placeholder: the toaster renders an `<ol>`,
-            // which permits only `li`/`script`/`template` children — the empty
-            // view renders nothing.
-            None => ().boxed(),
-        };
-        // The page owns the live-toast signals; resolve the same handles here
-        // (same helper, same request identity) and hand them to the shard.
-        let LiveToast {
-            status: toast_status,
-            title: toast_title,
-            description: toast_description,
-            serial: toast_serial,
-        } = live_toast(cx);
+        let toaster = Self::toaster(cx).await?;
 
         Ok(view! {
             cx =>
@@ -494,21 +473,7 @@ impl Panel {
                     // and the padding.
                     <div class="flex flex-1 flex-col">(slot)</div>
                 )
-                // Toast stack — the shadcn/Sonner surface, fixed bottom-right
-                // and a polite live region so streamed swaps are announced.
-                // `live_toaster` is the page-owned
-                // in-place transport; the flash cookie's toast
-                // rides beside it.
-                tablo_ui::toaster(
-                    label: crate::t!(cx, "tablo-notifications"),
-                    (notification_view)
-                    live_toaster(
-                        status: $(toast_status),
-                        title: $(toast_title),
-                        description: $(toast_description),
-                        serial: $(toast_serial)
-                    )
-                )
+                (toaster)
             ) // Scripts are owned by the document (layout_shell).
         }
         .boxed())
@@ -529,9 +494,16 @@ impl Panel {
     }
 
     async fn render_layout_shell<'a>(cx: &'a Cx, slot: Slot<'a>) -> Result<BoxView<'a>> {
-        // A page a creatable choice's dialog frames shows only itself, over the page's shell.
+        // A page a creatable choice's dialog frames shows only itself and its toasts.
         if super::url::picking(cx) {
-            let body = view! { cx => <main class="p-6">(slot)</main> }.boxed();
+            let body = async_page(async move {
+                Ok(view! {
+                    cx =>
+                    <main class="p-6">(slot)</main>
+                    (Self::toaster(cx).await?)
+                }
+                .boxed())
+            });
             let panel = current(cx).map(|panel| &**panel);
             return Self::render_document(cx, panel, Self::brand_name(cx), body).await;
         }
@@ -587,6 +559,7 @@ mod document;
 mod language;
 pub(super) mod sidebar;
 mod theme;
+mod toaster;
 mod user_menu;
 
 pub(crate) use language::{LANGUAGE_SEGMENT, language_post};
