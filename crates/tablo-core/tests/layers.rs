@@ -117,6 +117,7 @@ const RENDER_HOOKS: &[&str] = &[
     "column/editable/view.rs",
     "schema/embedded.rs",
     "schema/fields/choice.rs",
+    "schema/fields/choice/create.rs",
     "schema/fields/choice/listed.rs",
     "schema/fields/chrome.rs",
     "schema/fields/custom.rs",

@@ -13,6 +13,7 @@ use super::{
 use crate::values::FormValue;
 
 mod check;
+mod create;
 mod listed;
 mod relationship;
 
@@ -36,6 +37,8 @@ pub(crate) struct ChoiceControl {
     pub(super) bounds: super::Items,
     /// How the options render, set by `radio` and `buttons`.
     pub(super) layout: Layout,
+    /// Whether the choice offers to create a related record, set by `creatable`.
+    pub(super) creatable: bool,
 }
 
 /// What narrows a dependent choice's options: the related rows whose column equals the value the
@@ -99,6 +102,31 @@ impl ChoiceControl {
             .iter()
             .map(|(value, label)| (value.clone(), label.localize(cx)))
             .collect()
+    }
+
+    /// Whether the choice offers to create a related record.
+    pub(crate) fn is_creatable(&self) -> bool {
+        self.creatable
+    }
+
+    /// Whether `creatable` asks for what the choice cannot offer: it must be a single, independent
+    /// select over a resource's records.
+    pub(crate) fn uncreatable(&self) -> bool {
+        self.creatable
+            && (self.multiple
+                || self.layout != Layout::Select
+                || self.parent.is_some()
+                || !self
+                    .relationship
+                    .as_ref()
+                    .is_some_and(|relationship| relationship.creates))
+    }
+
+    /// The related resource's create page, when the choice is creatable and the user
+    /// may create there.
+    fn create_page(&self, cx: &Cx) -> Option<String> {
+        let relationship = self.relationship.as_ref().filter(|_| self.creatable)?;
+        (relationship.create_page)(cx)
     }
 
     /// Whether the choice declares neither options nor a relationship: its `<select>` offers
@@ -380,6 +408,7 @@ impl Field {
         let hint_hidden = !overflow_searchable;
         let aria_invalid = chrome.aria_invalid();
         let described_by = chrome.described_by();
+        let select_id = id.clone();
         let control = view! {
             cx =>
             if searchable {
@@ -434,6 +463,13 @@ impl Field {
             )
         }
         .boxed();
+        // A disabled choice posts nothing, so a record created for it could not become its value.
+        let control = match choice.create_page(cx).filter(|_| !disabled) {
+            Some(url) => {
+                create::with_create_link(cx, control, &select_id, self.label().to_owned(), url)
+            }
+            None => control,
+        };
         render_field(
             cx,
             &chrome,

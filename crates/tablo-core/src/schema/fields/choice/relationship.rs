@@ -48,6 +48,10 @@ pub(crate) struct Relationship {
     custom_label: bool,
     /// The source model's name, which a declaration error names it by.
     model_name: &'static str,
+    /// Whether the source has a create page a creatable choice could open.
+    pub(super) creates: bool,
+    /// The source's create page, when the user may create there.
+    pub(super) create_page: fn(&Cx) -> Option<String>,
 }
 
 impl Relationship {
@@ -104,6 +108,8 @@ impl Relationship {
             composite: crate::toasty_compat::pk::pk_is_composite::<R::Model>(),
             custom_label: false,
             model_name: crate::naming::type_short_name::<R::Model>(),
+            creates: R::creates(),
+            create_page: R::create_page,
         }
     }
 

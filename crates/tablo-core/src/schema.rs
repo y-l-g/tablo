@@ -5,6 +5,7 @@
 
 mod comparison;
 mod condition;
+mod creatable;
 pub(crate) mod embedded;
 pub(crate) mod fields;
 pub(crate) mod input;
@@ -339,6 +340,7 @@ impl<F> Schema<F> {
     pub fn declaration_errors(&self) -> Vec<crate::DeclarationErrorKind> {
         let mut errors = self.condition_errors();
         errors.extend(self.dependent_errors());
+        errors.extend(self.creatable_errors());
         errors.extend(self.comparison_errors(""));
         // A control disabled on create posts nothing there, so the create needs a value.
         for field in &self.fields {

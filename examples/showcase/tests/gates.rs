@@ -7,9 +7,9 @@ use tablo::auth::ColumnPreference;
 use uuid::Uuid;
 
 use crate::common::{
-    SESSION_COOKIE, TestClient, comment_count, demo_client, form_body, full_db, mint_session,
-    multipart_body, post_count, routers::router_for_tests as router, runtime_post, tenanted_db,
-    user_count,
+    SESSION_COOKIE, TestClient, body_string, comment_count, demo_client, form_body, full_db,
+    mint_session, multipart_body, post_count, routers::router_for_tests as router, runtime_post,
+    tenanted_db, user_count,
 };
 
 #[tokio::test]
@@ -325,6 +325,15 @@ async fn cross_tenant_requests_404_and_touch_nothing() {
         let resp = foreign.get(&path).await;
         assert_eq!(resp.status(), 404, "{path}: a cross-tenant read must 404");
     }
+    // A creatable choice's landing offers no record of another tenant.
+    let landing = foreign
+        .get(&format!("/admin/authors/-/picked?pick=1&key={author_id}"))
+        .await;
+    assert_eq!(
+        tablo::testing::picked(&body_string(landing).await),
+        Some(tablo::testing::Picked::Unchoosable),
+        "a cross-tenant key must not become a choice"
+    );
     let resp = foreign
         .post_form(
             "/admin/posts/-/bulk-delete",
@@ -576,6 +585,7 @@ async fn blocked_tenant_is_refused_on_every_read_route() {
         "/admin/posts/-/export".to_string(),
         "/admin/posts/-/import".to_string(),
         "/admin/posts/-/import/template".to_string(),
+        format!("/admin/authors/-/picked?pick=1&key={}", blocked_author.id),
         format!("/admin/posts/{}", blocked_post.id),
         "/admin/posts/-/actions/tag/options?field=tags".to_string(),
         format!(
@@ -630,6 +640,7 @@ async fn anonymous_requests_are_gated_on_every_route() {
         "/admin/posts/-/import".to_string(),
         "/admin/posts/-/import/template".to_string(),
         "/admin/posts/-/options?q=a".to_string(),
+        "/admin/posts/-/picked?pick=1&key=a".to_string(),
         "/admin/-/search?q=a".to_string(),
         "/admin/posts/-/actions/tag/options?field=tags".to_string(),
         "/admin/-/actions/feature-tagged/options?field=tag".to_string(),

@@ -312,7 +312,11 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         };
         // Create and create another lands back on the create page, keeping its relationship
         // seeds and its `?return=`.
-        let outcome = if another {
+        let outcome = if crate::panel::url::picking(cx) {
+            // A creatable choice's dialog reads the record off the page this lands on.
+            let key = crate::toasty_compat::pk::pk_text(&written);
+            crate::Outcome::done().redirect(crate::panel::url::picked_url(&resource.url, &key))
+        } else if another {
             crate::Outcome::done().redirect(form_action(cx, &seed_pairs(cx, &resource)))
         } else {
             crate::Outcome::done()

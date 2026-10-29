@@ -131,6 +131,30 @@ impl<F> ChoiceField<F> {
         self
     }
 
+    /// Offers to create the related record from the form: a link beside the select opens the
+    /// [`relationship`](Self::relationship)'s resource's create page in a dialog, and the record it
+    /// saves becomes the choice, while the form keeps what was typed in it.
+    ///
+    /// - The dialog frames the related resource's own create page, so the record passes that
+    ///   resource's policy, tenancy, field access, rules and hooks, as a create from its list does.
+    ///   The link renders only while the panel mounts the resource with a create page and its
+    ///   policy allows `Create`.
+    /// - The saved record becomes the choice only when the related resource lets the user view it
+    ///   in the request's tenant; otherwise the dialog says it was created and the choice stays as
+    ///   it was. The submission checks the key as for any relationship.
+    /// - The option shows the record's [`record_title`](crate::ResourceDef::record_title) until the
+    ///   form renders again, even under [`relationship_labelled`](Self::relationship_labelled).
+    /// - Without JavaScript the link opens the create page in a new tab, and the record is offered
+    ///   once the form renders again.
+    /// - Mounting refuses a creatable choice that is not a single select over a resource's records:
+    ///   a multiple choice, [radios](Self::radio) or [buttons](Self::buttons), a
+    ///   [dependent](Self::depends_on) choice, a source that is not a resource, and a choice in a
+    ///   repeater's rows.
+    pub fn creatable(mut self) -> Self {
+        self.choice_mut().creatable = true;
+        self
+    }
+
     /// Offers only the related rows whose column `column` equals the value `parent` posts: the
     /// cities of the chosen country. The browser fetches the options again when `parent` changes,
     /// and a submission must name a row of the posted parent value. A blank parent offers none.

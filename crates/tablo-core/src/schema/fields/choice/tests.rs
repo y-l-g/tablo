@@ -268,3 +268,27 @@ async fn a_searchable_dependent_choice_past_the_cap_checks_among_its_parent_rows
         ["City id is invalid"]
     );
 }
+
+#[test]
+fn a_creatable_choice_offers_a_resource_s_records() {
+    let error = |field: &str| {
+        [DeclarationErrorKind::UncreatableChoice {
+            field: field.to_string(),
+        }]
+    };
+    assert_eq!(
+        Schema::new(country().creatable()).declaration_errors(),
+        error("country_id"),
+        "a source that is not a resource has no create page"
+    );
+    assert_eq!(
+        Schema::new(
+            Field::choice(Address::fields().country_id())
+                .options(["a"])
+                .creatable()
+        )
+        .declaration_errors(),
+        error("country_id"),
+        "static options have no related record"
+    );
+}

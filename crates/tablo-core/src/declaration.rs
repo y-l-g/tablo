@@ -448,6 +448,16 @@ pub enum DeclarationErrorKind {
         /// The dependent choice.
         field: String,
     },
+    /// A [creatable](crate::ChoiceField::creatable) choice that is not a single select over a
+    /// resource's records: a multiple choice, radios or buttons, a dependent choice, a source that
+    /// is not a resource, no relationship, or a choice in a repeater's rows.
+    ///
+    /// Drop `creatable`, or declare the choice as a single select with `relationship::<R>()` over
+    /// a resource `R`.
+    UncreatableChoice {
+        /// The creatable choice: `repeater.leaf` for one in a repeater's rows.
+        field: String,
+    },
     /// A dependent choice depends on a field the schema does not place.
     ///
     /// Place that field in the same schema.

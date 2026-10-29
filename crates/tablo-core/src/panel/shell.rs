@@ -529,6 +529,12 @@ impl Panel {
     }
 
     async fn render_layout_shell<'a>(cx: &'a Cx, slot: Slot<'a>) -> Result<BoxView<'a>> {
+        // A page a creatable choice's dialog frames shows only itself, over the page's shell.
+        if super::url::picking(cx) {
+            let body = view! { cx => <main class="p-6">(slot)</main> }.boxed();
+            let panel = current(cx).map(|panel| &**panel);
+            return Self::render_document(cx, panel, Self::brand_name(cx), body).await;
+        }
         // The browser's URL, not a rewrite's: the error page names where the visitor is.
         let path = topcoat::router::request::original_uri(cx)
             .path()

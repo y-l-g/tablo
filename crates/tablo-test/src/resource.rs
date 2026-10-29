@@ -298,6 +298,14 @@ impl<'c, 'a, K: PartialEq> Submission<'c, 'a, K> {
         self.set_key(CREATE_ANOTHER, "1")
     }
 
+    /// Posts as the create page a creatable choice's dialog frames does, which lands on the page
+    /// [`Reply::picked`] reads.
+    pub fn picking(mut self) -> Self {
+        let joint = if self.url.contains('?') { '&' } else { '?' };
+        self.url = format!("{}{joint}pick=1", self.url);
+        self
+    }
+
     /// Posts the pairs with a fresh CSRF token, as [`TestClient::submit`] does.
     pub async fn submit(self) -> Reply<'c, 'a, K> {
         let pairs: Vec<(&str, &str)> = self
@@ -397,6 +405,16 @@ impl<'c, 'a, K: PartialEq> Reply<'c, 'a, K> {
             .unwrap_or_else(|| panic!("a {} response redirects nowhere", self.status));
         let response = self.client.cookies(&self.cookies).get(location).await;
         Reply::read(self.client, response, self.fields.clone()).await
+    }
+
+    /// See [`picked`](crate::picked).
+    pub fn picked(&self) -> Option<crate::Picked> {
+        crate::picked(&self.html)
+    }
+
+    /// See [`create_option_links`](crate::create_option_links).
+    pub fn create_option_links(&self) -> Vec<crate::CreateOptionLink> {
+        crate::create_option_links(&self.html)
     }
 
     /// See [`rows`](crate::rows).

@@ -230,6 +230,12 @@ impl fmt::Display for DeclarationErrorKind {
                  buttons, which the browser cannot narrow: drop `depends_on`, or `radio` or \
                  `buttons`"
             ),
+            Self::UncreatableChoice { field } => write!(
+                f,
+                "choice '{field}' is creatable but is not a single select over a resource's \
+                 records: drop `creatable`, or declare a single select with \
+                 `relationship::<R>()` over a resource `R`, outside a repeater"
+            ),
             Self::UnplacedParentField { field, parent } => write!(
                 f,
                 "choice '{field}' depends on field '{parent}', which the schema does not place: \

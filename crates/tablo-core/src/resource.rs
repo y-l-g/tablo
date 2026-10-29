@@ -545,6 +545,16 @@ impl<R: Resource> crate::schema::OptionSource for R {
     fn hidden_fields(cx: &Cx) -> Vec<String> {
         mounted::<R>(cx).map_or_else(Vec::new, |mounted| mounted.field_mask(cx).hidden().to_vec())
     }
+
+    fn creates() -> bool {
+        true
+    }
+
+    fn create_page(cx: &Cx) -> Option<String> {
+        let mounted = mounted::<R>(cx)?;
+        (mounted.creates && mounted.can_create(cx))
+            .then(|| crate::naming::create_page_url(&mounted.url))
+    }
 }
 
 #[cfg(test)]

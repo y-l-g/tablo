@@ -173,6 +173,16 @@ pub fn author_control() -> ChoiceField<PostAuthorForm> {
 }
 // ANCHOR_END: forms-relationship-field
 
+// ANCHOR: forms-creatable-choice
+pub fn creatable_author_control() -> ChoiceField<PostAuthorForm> {
+    // A "New" link beside the select opens the authors' create page in a dialog.
+    PostAuthorForm::controls()
+        .author_id
+        .searchable()
+        .creatable()
+}
+// ANCHOR_END: forms-creatable-choice
+
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 pub struct Country {
     #[key]

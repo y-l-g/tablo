@@ -35,6 +35,7 @@ pub enum Scope {
 
 /// JS asset suites, named rather than globbed so a rename fails loudly.
 pub const ASSET_SUITES: &[&str] = &[
+    "crates/tablo-ui/assets/choice_create.test.js",
     "crates/tablo-ui/assets/file_lists.test.js",
     "crates/tablo-ui/assets/forms.test.js",
     "crates/tablo-ui/assets/password.test.js",

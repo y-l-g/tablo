@@ -33,6 +33,9 @@ use std::any::TypeId;
 use topcoat::context::Cx;
 
 use super::state::current;
+pub(crate) use crate::naming::{
+    CREATE_ROUTE_SEGMENT, DASH_ROUTE_SEGMENT, create_page_url, list_route,
+};
 use crate::{
     Page, RecordForm,
     resource::{Action, Mounted, Places, Resource, mounted},
@@ -165,9 +168,6 @@ fn declares<R: Resource, A: Action<R>>(mounted: &Mounted<R>, places: Places) -> 
 /// primary key instead.
 pub(crate) const RECORD_ROUTE_PARAM: &str = "{id}";
 
-/// Path segment of the list page's create page, under [`DASH_ROUTE_SEGMENT`].
-pub(crate) const CREATE_ROUTE_SEGMENT: &str = "create";
-
 /// Path segment of the list's CSV export, under [`DASH_ROUTE_SEGMENT`].
 pub(crate) const EXPORT_ROUTE_SEGMENT: &str = "export";
 
@@ -196,20 +196,6 @@ pub(crate) const COLUMNS_ROUTE_SEGMENT: &str = "columns";
 /// (`{prefix}/{key}/-/actions/{name}`) and on the list
 /// (`{list}/-/actions/{name}`).
 pub(crate) const ACTIONS_ROUTE_SEGMENT: &str = "actions";
-
-/// Static segment guarding the list's own routes, and a record's action and relation routes, from
-/// record keys: `matchit` prefers a static segment over `{id}`, so a record whose key is `create`
-/// would otherwise lose its detail page to the create form.
-pub(crate) const DASH_ROUTE_SEGMENT: &str = "-";
-
-/// A route of the list itself, `{list}/-/{segment}`: the create form, the export, the option
-/// search, the bulk delete.
-pub(crate) fn list_route(list_path: &str, segment: &str) -> String {
-    format!(
-        "{}/{DASH_ROUTE_SEGMENT}/{segment}",
-        list_path.trim_end_matches('/')
-    )
-}
 
 /// The action-name placeholder the route table registers: `{action}`.
 pub(crate) const ACTION_ROUTE_PARAM: &str = "{action}";
@@ -276,9 +262,30 @@ pub(crate) fn action_options_url(url: &str, name: &str) -> String {
     )
 }
 
-/// The list page's create link: `{list_path}/-/create`.
-pub(crate) fn create_page_url(list_path: &str) -> String {
-    list_route(list_path, CREATE_ROUTE_SEGMENT)
+/// The query parameter marking a page as framed by a creatable choice's dialog: the page renders
+/// without the panel's shell, and a create lands on [`picked_url`] instead of the list.
+pub(crate) const PICK_PARAM: &str = "pick";
+
+/// The route segment of the page a create in pick mode lands on: `{list_path}/-/picked`.
+pub(crate) const PICKED_ROUTE_SEGMENT: &str = "picked";
+
+/// Where a create in pick mode lands: `{list_path}/-/picked?pick=1&key={key}`.
+pub(crate) fn picked_url(list_path: &str, key: &str) -> String {
+    let query = form_urlencoded::Serializer::new(String::new())
+        .append_pair(PICK_PARAM, "1")
+        .append_pair("key", key)
+        .finish();
+    format!("{}?{query}", list_route(list_path, PICKED_ROUTE_SEGMENT))
+}
+
+/// Whether the request's page is framed by a creatable choice's dialog.
+pub(crate) fn picking(cx: &Cx) -> bool {
+    topcoat::router::request::original_uri(cx)
+        .query()
+        .is_some_and(|query| {
+            form_urlencoded::parse(query.as_bytes())
+                .any(|(key, value)| key == PICK_PARAM && value == "1")
+        })
 }
 
 /// The list page's export link: `{list_path}/-/export`.
