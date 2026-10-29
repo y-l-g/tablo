@@ -3,7 +3,7 @@
 use jiff::tz::TimeZone;
 use tablo::{
     Ability, Chart, Color, FieldErrors, HeaderAction, Page, PageDef, RecordTable, Series, Stat,
-    Widget, WidgetDef, can_list, db::db, filter_keys, lens, scoped_query,
+    Widget, WidgetDef, can_list, db::db, filter_keys, lens, list_query, scoped_query,
 };
 use topcoat::{Result, context::Cx, view::View};
 
@@ -121,8 +121,9 @@ impl Widget for LatestPosts {
     }
 }
 
-/// The caller's posts in draft and published, above the post list, through
-/// `ResourceDef::list_widget`. The list's own sign-in and policy guard it.
+/// The posts the list shows, in draft and published, above the post list, through
+/// `ResourceDef::list_widget`: the figures follow the list's tab, search and filters. The list's
+/// own sign-in and policy guard it.
 pub struct PostsByStatus;
 
 impl Widget for PostsByStatus {
@@ -136,11 +137,10 @@ impl Widget for PostsByStatus {
             ("Drafts", PostStatus::Draft),
             ("Published", PostStatus::Published),
         ] {
-            let count = scoped_query::<PostResource>(cx)?
-                .filter(Post::fields().status().eq(status))
-                .count()
-                .exec(&mut db(cx)?)
-                .await?;
+            let shown = list_query::<PostResource>(cx)
+                .await?
+                .filter(Post::fields().status().eq(status));
+            let count = tablo::db::count(cx, shown).await?;
             tiles.push(Stat::new(label, count.to_string()));
         }
         Ok(tablo::stats(cx, tiles))
