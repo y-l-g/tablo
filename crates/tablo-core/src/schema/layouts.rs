@@ -181,8 +181,8 @@ conditional_blocks!(Section, Group, Grid, Tabs, Tab);
 
 /// Renders a `Tabs` block's list of triggers.
 const TAB_LIST: StaticClass = class!(
-    "inline-flex h-9 w-fit max-w-full items-center overflow-x-auto rounded-lg bg-muted p-[3px] \
-     text-muted-foreground"
+    "inline-flex h-9 w-fit max-w-full items-center overflow-x-auto overflow-y-hidden rounded-lg \
+     bg-muted p-[3px] text-muted-foreground"
 );
 /// Renders one trigger, which the selected tab raises.
 const TAB_TRIGGER: StaticClass = class!(
