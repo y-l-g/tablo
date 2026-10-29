@@ -2,8 +2,8 @@
 //! cards that show its records, and the declarations the mount refuses.
 
 use tablo::{
-    ComputedColumn, CountColumn, Detail, FieldAccess, NoForm, ReadOnly, Reads, RelationColumn,
-    Resource, ResourceDef, Table, Tenancy, TextColumn, lens, relation,
+    Color, ComputedColumn, CountColumn, Detail, FieldAccess, NoForm, ReadOnly, Reads,
+    RelationColumn, Resource, ResourceDef, Table, Tenancy, TextColumn, lens, relation,
 };
 use topcoat::context::Cx;
 
@@ -197,6 +197,50 @@ impl Resource for SiblingCard {
                 ComputedColumn::new("Leak", |c: &Card| c.member.get().salary.clone())
                     .reading(Reads::of(Card::fields().member())),
             )))
+    }
+}
+
+/// A text column whose tooltip reads the member a sibling column loads.
+pub(super) struct TooltipCard;
+
+impl Resource for TooltipCard {
+    type Model = Card;
+    type Form = NoForm<Card>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("tooltip-cards")
+            .policy(ReadOnly)
+            .tenancy(Tenancy::column(Card::fields().tenant_id()))
+            .table(Table::new((
+                TextColumn::new(lens!(Card.code))
+                    .tooltip(|c: &Card| Some(c.member.get().salary.clone()))
+                    .reading(Reads::of(Card::fields().member())),
+                RelationColumn::of::<MemberResource>(relation!(Card.member)),
+            )))
+    }
+}
+
+/// A row color reading the member a column loads.
+pub(super) struct TintedCard;
+
+impl Resource for TintedCard {
+    type Model = Card;
+    type Form = NoForm<Card>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("tinted-cards")
+            .policy(ReadOnly)
+            .tenancy(Tenancy::column(Card::fields().tenant_id()))
+            .table(
+                Table::new((
+                    TextColumn::new(lens!(Card.code)),
+                    RelationColumn::of::<MemberResource>(relation!(Card.member)),
+                ))
+                .row_color(|c: &Card| (c.member.get().salary == "S-900").then_some(Color::Danger))
+                .row_color_reading(Reads::of(Card::fields().member())),
+            )
     }
 }
 

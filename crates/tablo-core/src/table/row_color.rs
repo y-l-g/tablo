@@ -52,6 +52,11 @@ impl<M> Table<M> {
         self.row_color.color.as_ref().and_then(|color| color(row))
     }
 
+    /// Whether the table tints its rows.
+    pub(crate) fn tints_rows(&self) -> bool {
+        self.row_color.color.is_some()
+    }
+
     /// Whether the table tints its rows by a color that does not declare what it reads.
     pub(crate) fn row_color_reads_undeclared(&self) -> bool {
         self.row_color.color.is_some() && self.row_color.reads.is_none()

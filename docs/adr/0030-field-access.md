@@ -51,11 +51,13 @@ what the trash control shows.
 
 What a column or a filter reads is its own declaration, `Column::reads` and `Filter::reads`, by the
 root field each path starts at. A built-in answers its binding, a relation column its relation and
-foreign keys; a `ComputedColumn`, a `QueryFilter` or a `TextColumn` with a `description` answers what
-`.reading(..)` declares, and a custom one `None` until it says. Mounting a panel that restricts a
-field refuses a column or filter answering `None`, since the panel cannot tell what it shows. A
-form watch over a restricted field from a control outside it is refused too, since a condition shows
-what it watches.
+foreign keys; a `ComputedColumn`, a `QueryFilter`, a `TextColumn` with a `description`, `url`,
+`tooltip` or `money_by`, and a `Table::row_color` answer what `.reading(..)` or
+`.row_color_reading(..)` declares, and a custom one `None` until it says. A closure over the row may
+also reach any relation the page loads, so the mount refuses one on a page whose columns load a
+model a mounted resource restricts. Mounting a panel that restricts a field refuses a column or
+filter answering `None`, since the panel cannot tell what it shows. A form watch over a restricted
+field from a control outside it is refused too, since a condition shows what it watches.
 
 The record form is a typed struct (ADR-0022), so a field the user may not change still takes a
 value. Its control renders nothing when hidden and disabled when locked, a locked repeater nothing,

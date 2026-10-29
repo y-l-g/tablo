@@ -316,18 +316,21 @@ pub(crate) fn check_columns<R: Resource>(
         return;
     }
     let table: Vec<_> = declared.table.declared_columns().iter().collect();
-    check_page::<R>(cx, Site::Table, &table, errors);
-    check_page::<R>(cx, Site::Detail, &declared.detail.columns(), errors);
+    let row_color = declared.table.tints_rows().then_some("row color");
+    check_page::<R>(cx, Site::Table, &table, row_color, errors);
+    check_page::<R>(cx, Site::Detail, &declared.detail.columns(), None, errors);
 }
 
 /// What `columns`, the columns of one page, show under no field access a panel can mask. A column
 /// reading related records no mounted resource masks is refused over a restricted model its own
-/// includes load; a column reading its row is refused on a page whose columns load one, since its
-/// closure may read the related record through any of them.
+/// includes load; a column reading its row, and `row_reader`, the page's other closure over its
+/// rows, are refused on a page whose columns load one, since a closure may read the related record
+/// through any of them.
 fn check_page<R: Resource>(
     cx: &Cx,
     site: Site,
     columns: &[&BoxColumn<R::Model>],
+    row_reader: Option<&str>,
     errors: &mut Vec<DeclarationError>,
 ) {
     let loads: Vec<Option<Vec<(model::ModelId, String)>>> = columns
@@ -341,18 +344,31 @@ fn check_page<R: Resource>(
         .flatten()
         .find(|(model, _)| is_restricted_model(cx, *model))
         .map(|(_, name)| name.clone());
+    let reads_row = |name: String| match (unresolved, &page_restricted) {
+        (true, _) => Some(FieldAccessFault::UnresolvedRelation { name }),
+        (false, Some(model)) => Some(FieldAccessFault::UnmaskedRelation {
+            name,
+            model: model.clone(),
+        }),
+        (false, None) => None,
+    };
+    let push = |errors: &mut Vec<DeclarationError>, fault| {
+        errors.push(DeclarationError::of::<R>(
+            site.clone(),
+            DeclarationErrorKind::FieldAccess { fault },
+        ));
+    };
+    if let Some(fault) = row_reader.and_then(|name| reads_row(name.to_string())) {
+        push(errors, fault);
+    }
     for (column, own) in columns.iter().zip(&loads) {
         let name = column.name().to_string();
         let fault = match column.related() {
             Related::None => continue,
             Related::Source(source) if is_mounted(cx, source) => continue,
-            Related::Row => match (unresolved, &page_restricted) {
-                (true, _) => FieldAccessFault::UnresolvedRelation { name },
-                (false, Some(model)) => FieldAccessFault::UnmaskedRelation {
-                    name,
-                    model: model.clone(),
-                },
-                (false, None) => continue,
+            Related::Row => match reads_row(name) {
+                Some(fault) => fault,
+                None => continue,
             },
             Related::Source(_) | Related::Unmasked => match own {
                 None => FieldAccessFault::UnresolvedRelation { name },
@@ -370,10 +386,7 @@ fn check_page<R: Resource>(
                 }
             },
         };
-        errors.push(DeclarationError::of::<R>(
-            site.clone(),
-            DeclarationErrorKind::FieldAccess { fault },
-        ));
+        push(errors, fault);
     }
 }
 

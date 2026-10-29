@@ -373,6 +373,15 @@ where
 {
     base_column_methods!(binding, reads);
 
+    /// A closure over the row may reach any relation the page loads, as a computed column's does.
+    fn related(&self) -> crate::column::Related {
+        if self.reads_row {
+            crate::column::Related::Row
+        } else {
+            crate::column::Related::None
+        }
+    }
+
     fn reads(&self) -> Option<crate::lens::Reads<M>> {
         let own = self.base.reads();
         match (self.reads_row, &self.row_reads) {

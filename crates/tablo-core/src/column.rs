@@ -68,6 +68,10 @@ macro_rules! base_column_methods {
     () => {
         base_column_methods!(@shared);
 
+        fn related(&self) -> $crate::column::Related {
+            $crate::column::Related::None
+        }
+
         fn reads(&self) -> Option<$crate::lens::Reads<M>> {
             Some(self.base.reads())
         }
@@ -76,7 +80,7 @@ macro_rules! base_column_methods {
         base_column_methods!();
         base_column_methods!(@misdeclared);
     };
-    // A column that answers `reads` itself.
+    // A column that answers `reads` and `related` itself.
     (binding, reads) => {
         base_column_methods!(@shared);
         base_column_methods!(@misdeclared);
@@ -87,10 +91,6 @@ macro_rules! base_column_methods {
         }
     };
     (@shared) => {
-        fn related(&self) -> $crate::column::Related {
-            $crate::column::Related::None
-        }
-
         fn name(&self) -> &str {
             self.base.name()
         }
