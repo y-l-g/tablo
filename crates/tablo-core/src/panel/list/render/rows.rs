@@ -286,8 +286,9 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
 }
 
 /// A row that opens its record: it positions the record link, and lifts every link and control
-/// in its cells above that link, so they keep their own clicks.
-const RECORD_ROW_CLASS: &str = "relative [&_:is(a,button,input,select,textarea,label,summary):not([data-record-link])]:relative [&_:is(a,button,input,select,textarea,label,summary):not([data-record-link])]:z-10";
+/// in its cells above that link, so they keep their own clicks. A switch is lifted by its wrapper
+/// rather than its input: lifting the input would cover the thumb drawn over it.
+const RECORD_ROW_CLASS: &str = "relative [&_:is(a,button,input:not([role=switch]),select,textarea,label,summary,:has(>[role=switch])):not([data-record-link])]:relative [&_:is(a,button,input:not([role=switch]),select,textarea,label,summary,:has(>[role=switch])):not([data-record-link])]:z-10";
 
 /// `cell` after an empty link to the row's record that stretches over the whole row. The link
 /// wraps no cell, so a cell's own link never nests in it. The View or Edit control is the
