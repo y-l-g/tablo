@@ -2,7 +2,7 @@ The licences of the packages `cargo xtask vendor-tiptap` bundles into tiptap.js.
 
 ---
 
-@tiptap/core@3.32.0 (MIT)
+@tiptap/core@3.32.1 (MIT)
 
 MIT License
 
@@ -28,7 +28,7 @@ SOFTWARE.
 
 ---
 
-@tiptap/extension-blockquote@3.32.0 (MIT)
+@tiptap/extension-blockquote@3.32.1 (MIT)
 
 MIT License
 
@@ -54,7 +54,7 @@ SOFTWARE.
 
 ---
 
-@tiptap/extension-bold@3.32.0 (MIT)
+@tiptap/extension-bold@3.32.1 (MIT)
 
 MIT License
 
@@ -80,7 +80,7 @@ SOFTWARE.
 
 ---
 
-@tiptap/extension-code@3.32.0 (MIT)
+@tiptap/extension-code@3.32.1 (MIT)
 
 MIT License
 
@@ -106,7 +106,7 @@ SOFTWARE.
 
 ---
 
-@tiptap/extension-code-block@3.32.0 (MIT)
+@tiptap/extension-code-block@3.32.1 (MIT)
 
 MIT License
 
@@ -132,7 +132,7 @@ SOFTWARE.
 
 ---
 
-@tiptap/extension-document@3.32.0 (MIT)
+@tiptap/extension-document@3.32.1 (MIT)
 
 MIT License
 
@@ -158,7 +158,7 @@ SOFTWARE.
 
 ---
 
-@tiptap/extension-hard-break@3.32.0 (MIT)
+@tiptap/extension-hard-break@3.32.1 (MIT)
 
 MIT License
 
@@ -184,7 +184,7 @@ SOFTWARE.
 
 ---
 
-@tiptap/extension-heading@3.32.0 (MIT)
+@tiptap/extension-heading@3.32.1 (MIT)
 
 MIT License
 
@@ -210,7 +210,7 @@ SOFTWARE.
 
 ---
 
-@tiptap/extension-horizontal-rule@3.32.0 (MIT)
+@tiptap/extension-horizontal-rule@3.32.1 (MIT)
 
 MIT License
 
@@ -236,7 +236,7 @@ SOFTWARE.
 
 ---
 
-@tiptap/extension-italic@3.32.0 (MIT)
+@tiptap/extension-italic@3.32.1 (MIT)
 
 MIT License
 
@@ -262,7 +262,7 @@ SOFTWARE.
 
 ---
 
-@tiptap/extension-link@3.32.0 (MIT)
+@tiptap/extension-link@3.32.1 (MIT)
 
 MIT License
 
@@ -288,7 +288,7 @@ SOFTWARE.
 
 ---
 
-@tiptap/extension-list@3.32.0 (MIT)
+@tiptap/extension-list@3.32.1 (MIT)
 
 MIT License
 
@@ -314,7 +314,7 @@ SOFTWARE.
 
 ---
 
-@tiptap/extension-paragraph@3.32.0 (MIT)
+@tiptap/extension-paragraph@3.32.1 (MIT)
 
 MIT License
 
@@ -340,7 +340,7 @@ SOFTWARE.
 
 ---
 
-@tiptap/extension-strike@3.32.0 (MIT)
+@tiptap/extension-strike@3.32.1 (MIT)
 
 MIT License
 
@@ -366,7 +366,7 @@ SOFTWARE.
 
 ---
 
-@tiptap/extension-text@3.32.0 (MIT)
+@tiptap/extension-text@3.32.1 (MIT)
 
 MIT License
 
@@ -392,7 +392,7 @@ SOFTWARE.
 
 ---
 
-@tiptap/extension-underline@3.32.0 (MIT)
+@tiptap/extension-underline@3.32.1 (MIT)
 
 MIT License
 
@@ -418,7 +418,7 @@ SOFTWARE.
 
 ---
 
-@tiptap/extensions@3.32.0 (MIT)
+@tiptap/extensions@3.32.1 (MIT)
 
 MIT License
 
@@ -444,7 +444,7 @@ SOFTWARE.
 
 ---
 
-@tiptap/pm@3.32.0 (MIT)
+@tiptap/pm@3.32.1 (MIT)
 
 MIT License
 
@@ -470,7 +470,7 @@ SOFTWARE.
 
 ---
 
-@tiptap/starter-kit@3.32.0 (MIT)
+@tiptap/starter-kit@3.32.1 (MIT)
 
 MIT License
 
