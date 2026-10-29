@@ -29,3 +29,4 @@ record disagree, the code wins and the record is fixed. Missing numbers are reti
 | [0035](0035-widgets.md) | A widget is a page's server-rendered block, and its page owns the grid |
 | [0036](0036-inline-editing.md) | An editable cell posts its one key to the record's edit route |
 | [0037](0037-related-forms.md) | A has_one relation's form is the related resource's own, written in the owner's transaction |
+| [0038](0038-creatable-choices.md) | A creatable choice frames the related resource's create page |

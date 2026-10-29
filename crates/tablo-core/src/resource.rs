@@ -545,6 +545,17 @@ impl<R: Resource> crate::schema::OptionSource for R {
     fn hidden_fields(cx: &Cx) -> Vec<String> {
         mounted::<R>(cx).map_or_else(Vec::new, |mounted| mounted.field_mask(cx).hidden().to_vec())
     }
+
+    fn creates() -> bool {
+        true
+    }
+
+    fn create_page(cx: &Cx) -> Option<String> {
+        let mounted = mounted::<R>(cx)?;
+        // The page a save lands on offers the record only to a user who may list the resource.
+        (mounted.creates && mounted.can_create(cx) && mounted.can(cx, crate::Ability::ViewAny))
+            .then(|| crate::naming::create_page_url(&mounted.url))
+    }
 }
 
 #[cfg(test)]

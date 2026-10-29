@@ -46,6 +46,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Join model | A model whose rows link two other models' records, one row per pair, with a `belongs_to` to each. | Pivot, Junction table, Bridge table |
 | Many-to-many field | A record-form field holding the keys of the records a join model links the record to, edited as a multiple choice. | Multi-select, BelongsToMany field, Tags field |
 | Dependent choice | A relationship choice offering only the related records whose column equals another field's value. | Cascading select, Chained select, Linked field |
+| Creatable choice | A relationship choice whose dialog frames the related resource's create page, so the record a save there writes becomes its value while the form keeps what was typed in it. | Inline create, Quick add, Create option form |
 | Condition | What shows a field or a layout block, or disables a field's control, only while another field posts one of the listed values. | Visibility rule, Dependency, Reactive field |
 | Policy | A resource's authorization, answering one ability at a time. | Guard, Permission, Gate, Rule |
 | Ability | One thing a policy is asked to allow. | Permission, Action, Verb |

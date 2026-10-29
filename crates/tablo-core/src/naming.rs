@@ -149,5 +149,27 @@ pub(crate) fn route_path(path: &str) -> topcoat::router::PathBuf {
         .to_owned()
 }
 
+/// Path segment of the list page's create page, under [`DASH_ROUTE_SEGMENT`].
+pub(crate) const CREATE_ROUTE_SEGMENT: &str = "create";
+
+/// Static segment guarding the list's own routes, and a record's action and relation routes, from
+/// record keys: `matchit` prefers a static segment over `{id}`, so a record whose key is `create`
+/// would otherwise lose its detail page to the create form.
+pub(crate) const DASH_ROUTE_SEGMENT: &str = "-";
+
+/// A route of the list itself, `{list}/-/{segment}`: the create form, the export, the option
+/// search, the bulk delete.
+pub(crate) fn list_route(list_path: &str, segment: &str) -> String {
+    format!(
+        "{}/{DASH_ROUTE_SEGMENT}/{segment}",
+        list_path.trim_end_matches('/')
+    )
+}
+
+/// The list page's create link: `{list_path}/-/create`.
+pub(crate) fn create_page_url(list_path: &str) -> String {
+    list_route(list_path, CREATE_ROUTE_SEGMENT)
+}
+
 #[cfg(test)]
 mod tests;

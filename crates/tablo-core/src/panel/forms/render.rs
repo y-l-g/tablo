@@ -57,10 +57,14 @@ pub(crate) struct FormChrome<'a> {
     stale: bool,
     /// The keys the request's field access hides or locks.
     mask: FormMask,
+    /// Whether a creatable choice's dialog frames the create page: Cancel closes the dialog, the
+    /// form does not save another, and it posts back in pick mode.
+    picking: bool,
 }
 
 impl<'a> FormChrome<'a> {
     pub(super) fn create<R: Resource>(cx: &Cx, resource: &Mounted<R>) -> Self {
+        let picking = crate::panel::url::picking(cx);
         Self {
             title: t!(
                 cx,
@@ -75,12 +79,13 @@ impl<'a> FormChrome<'a> {
             hidden: Vec::new(),
             options: None,
             editing: false,
-            another: true,
+            another: !picking,
             seed: seed_pairs(cx, resource),
             relations: Vec::new(),
             related: Vec::new(),
             stale: false,
             mask: resource.form_mask(cx),
+            picking,
         }
     }
 
@@ -116,6 +121,7 @@ impl<'a> FormChrome<'a> {
             related: Vec::new(),
             stale: false,
             mask: resource.form_mask(cx),
+            picking: false,
         }
     }
 
@@ -157,6 +163,7 @@ impl<'a> FormChrome<'a> {
             related: Vec::new(),
             stale: false,
             mask: FormMask::default(),
+            picking: false,
         }
     }
 
@@ -193,6 +200,7 @@ impl<'a> FormChrome<'a> {
             related: Vec::new(),
             stale: false,
             mask: FormMask::default(),
+            picking: false,
         }
     }
 }
@@ -226,6 +234,7 @@ pub(crate) async fn render_form_page<'a>(
         related,
         stale,
         mask,
+        picking,
     } = chrome;
     // A hidden field's value never reaches the page, nor its error, which could tell it: an
     // alert says only that the save cannot pass.
@@ -238,7 +247,7 @@ pub(crate) async fn render_form_page<'a>(
         source = source.options_at(url);
     }
     let form_html = schema.render(cx, source).await?;
-    let action = form_action(cx, &seed);
+    let action = form_action(cx, &seed, picking);
     let cancel = return_target(cx).unwrap_or(cancel);
     // A refused save keeps what the user typed, which leaving the page would lose.
     let dirty = !errors.is_empty() || stale;
@@ -346,15 +355,23 @@ pub(crate) async fn render_form_page<'a>(
                                 (t!(cx, "tablo-form-create-another"))
                             )
                         }
-                        <a
-                            (crate::navigation::runtime_link(cx, &cancel))
-                            class=(tablo_ui::button_variants(
-                                tablo_ui::ButtonVariant::Outline,
-                                tablo_ui::ButtonSize::Md,
-                            ))
-                        >
-                            (t!(cx, "tablo-cancel"))
-                        </a>
+                        if picking {
+                            tablo_ui::button(
+                                variant: tablo_ui::ButtonVariant::Outline,
+                                attrs: attributes! { type="button" data-pick-cancel="" },
+                                (t!(cx, "tablo-cancel"))
+                            )
+                        } else {
+                            <a
+                                (crate::navigation::runtime_link(cx, &cancel))
+                                class=(tablo_ui::button_variants(
+                                    tablo_ui::ButtonVariant::Outline,
+                                    tablo_ui::ButtonSize::Md,
+                                ))
+                            >
+                                (t!(cx, "tablo-cancel"))
+                            </a>
+                        }
                     </div>
                 </form>
                 for relation in relations {
@@ -367,11 +384,15 @@ pub(crate) async fn render_form_page<'a>(
 }
 
 /// Where the form posts, and where a create-another save lands: the current path with `seed`,
-/// the create page's relationship seeds, and a validated `?return=` target.
-pub(super) fn form_action(cx: &Cx, seed: &[(String, String)]) -> String {
+/// the create page's relationship seeds, pick mode when `picking`, and a validated `?return=`
+/// target.
+pub(super) fn form_action(cx: &Cx, seed: &[(String, String)], picking: bool) -> String {
     let path = topcoat::router::request::uri(cx).path();
     let mut query = form_urlencoded::Serializer::new(String::new());
     query.extend_pairs(seed);
+    if picking {
+        query.append_pair(crate::panel::url::PICK_PARAM, "1");
+    }
     if let Some(target) = return_target(cx) {
         query.append_pair(crate::panel::url::RETURN_PARAM, &target);
     }

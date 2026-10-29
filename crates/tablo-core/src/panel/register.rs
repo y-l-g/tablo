@@ -16,7 +16,7 @@ use super::{
     detail::resource_view,
     forms::{
         ChildForm, resource_create, resource_create_post, resource_edit, resource_edit_post,
-        resource_import, resource_import_post, resource_import_template,
+        resource_import, resource_import_post, resource_import_template, resource_picked,
     },
     list::{resource_columns, resource_list},
     pages::{page_action, page_action_options, page_handler},
@@ -31,9 +31,9 @@ use crate::{
     panel::url::{
         ACTION_ROUTE_PARAM, ACTIONS_ROUTE_SEGMENT, BULK_DELETE_ROUTE_SEGMENT,
         COLUMNS_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT, DASH_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT,
-        EDIT_ROUTE_SEGMENT, EXPORT_ROUTE_SEGMENT, OPTIONS_ROUTE_SEGMENT, RECORD_ROUTE_PARAM,
-        RELATED_ROUTE_PARAM, RELATION_ROUTE_PARAM, RELATIONS_ROUTE_SEGMENT, import_template_url,
-        import_url, list_route,
+        EDIT_ROUTE_SEGMENT, EXPORT_ROUTE_SEGMENT, OPTIONS_ROUTE_SEGMENT, PICKED_ROUTE_SEGMENT,
+        RECORD_ROUTE_PARAM, RELATED_ROUTE_PARAM, RELATION_ROUTE_PARAM, RELATIONS_ROUTE_SEGMENT,
+        import_template_url, import_url, list_route,
     },
     resource::{Mounted, Mounts, Places, Resource, ResourceCheck, ResourceDef, check_resource},
 };
@@ -474,6 +474,11 @@ fn register_routes<R: Resource>(registry: &mut Registry, url: &str, routes: Opti
         let create_url = list_route(url, CREATE_ROUTE_SEGMENT);
         registry.page(Method::GET, &create_url, resource_create::<R>);
         registry.page(Method::POST, &create_url, resource_create_post::<R>);
+        registry.page(
+            Method::GET,
+            &list_route(url, PICKED_ROUTE_SEGMENT),
+            resource_picked::<R>,
+        );
     }
     if routes.import {
         let import_url = import_url(url);

@@ -331,6 +331,19 @@ When the parent changes, the browser fetches the new options, and a submission m
 of the parent value it posts. [`ChoiceField::depends_on`](https://y-l.fr/tablo/nightly/api/tablo/struct.ChoiceField.html#method.depends_on)
 has the rules and what the mount refuses.
 
+### Creating a related record
+
+`.creatable()` lets the user create the related record without leaving the form: a link beside
+the select opens the related resource's create page in a dialog, and the record it saves becomes
+the choice. The form keeps what was typed in it.
+
+```rust
+{{#include ../../../examples/guide/src/forms.rs:forms-creatable-choice}}
+```
+
+The dialog runs the related resource's own create page; [`ChoiceField::creatable`](https://y-l.fr/tablo/nightly/api/tablo/struct.ChoiceField.html#method.creatable)
+has the rules and what the mount refuses.
+
 ### Help, disabled controls and defaults
 
 Every control but a repeater takes `.help(text)`, rendered under it, and `.disabled()` or

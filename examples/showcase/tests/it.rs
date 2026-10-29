@@ -16,6 +16,7 @@ mod action;
 mod auth;
 mod blog;
 mod cell;
+mod choice_create;
 mod create;
 mod csrf;
 mod delete;

@@ -72,6 +72,19 @@ pub trait OptionSource: Sized + Send + Sync + 'static {
     fn hidden_fields(_cx: &Cx) -> Vec<String> {
         Vec::new()
     }
+
+    /// Whether the source has a create page a choice could open: only a resource does.
+    #[doc(hidden)]
+    fn creates() -> bool {
+        false
+    }
+
+    /// The source's create page, when the context's panel mounts it with one and lets the user
+    /// create.
+    #[doc(hidden)]
+    fn create_page(_cx: &Cx) -> Option<String> {
+        None
+    }
 }
 
 /// Distinguishes a policy denial and an over-cap table from a retryable load failure so validation
