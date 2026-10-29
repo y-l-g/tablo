@@ -5,7 +5,7 @@ use std::any::TypeId;
 
 use super::Registry;
 use crate::{
-    DeclarationError, DeclarationErrorKind, Resource, Site, panel::url::RECORD_ROUTE_PARAM,
+    DeclarationError, DeclarationErrorKind, Resource, Site, Text, panel::url::RECORD_ROUTE_PARAM,
     resource::RESERVED_RECORD_SEGMENTS,
 };
 
@@ -18,6 +18,8 @@ pub(super) struct Link {
     has_one: Option<String>,
     /// Whether [`Relation::tab`](crate::Relation::tab) serves the table on a page of its own.
     tab: bool,
+    /// The relation's [`label`](crate::Relation::label), else the child's plural label.
+    label: Option<Text>,
 }
 
 impl Link {
@@ -41,6 +43,7 @@ impl Link {
             misdeclared: relation.misdeclared.clone().or(unlinkable),
             has_one: relation.has_one_key().map(str::to_string),
             tab: relation.tab,
+            label: relation.label.clone(),
         }
     }
 }
@@ -100,16 +103,30 @@ impl Registry {
                 } else if parent.record_page_slugs.contains(&slug) {
                     refuse(DeclarationErrorKind::DuplicateSlug { slug });
                 } else {
-                    let route = format!(
-                        "{}/{}/{RECORD_ROUTE_PARAM}/{slug}",
-                        self.prefix, parent.slug
-                    );
-                    tabs.push((route, parent.relation_tab));
+                    let list = format!("{}/{}", self.prefix, parent.slug);
+                    let label = link.label.clone().or_else(|| {
+                        self.children
+                            .get(&link.child)
+                            .map(|child| child.plural_label.clone())
+                    });
+                    tabs.push((list, slug, label, parent.relation_tab));
                 }
             }
         }
-        for (route, handler) in tabs {
-            self.page(http::Method::GET, &route, handler);
+        for (list, slug, label, handler) in tabs {
+            self.page(
+                http::Method::GET,
+                &format!("{list}/{RECORD_ROUTE_PARAM}/{slug}"),
+                handler,
+            );
+            let trail = self
+                .nav_items
+                .iter_mut()
+                .filter_map(|entry| entry.resource_list.as_mut())
+                .find(|trail| trail.list == list);
+            if let (Some(trail), Some(label)) = (trail, label) {
+                trail.pages.push((slug, label));
+            }
         }
     }
 }
