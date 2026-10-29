@@ -11,8 +11,8 @@ use crate::{
     DeclarationErrorKind,
     column::{
         BooleanColumn, BoxColumn, ColorColumn, Column, ComputedColumn, CountColumn, DateColumn,
-        EmbeddedColumn, FileColumn, IconColumn, ImageColumn, RelationColumn, RepeaterColumn,
-        SelectColumn, TextColumn, TextInputColumn, ToggleColumn, include_relations,
+        EmbeddedColumn, FileColumn, IconColumn, ImageColumn, ListColumn, RelationColumn,
+        RepeaterColumn, SelectColumn, TextColumn, TextInputColumn, ToggleColumn, include_relations,
         restrict_relations, shows, unavailable_sources,
     },
     schema::{Grid, Group, HoldsTabs, Section, Tab, Tabs, tab_id, tab_view, tabs_chrome},
@@ -399,6 +399,7 @@ column_details!(
     SelectColumn<M, T>,
     TextInputColumn<M, T>,
     EmbeddedColumn<M, T>,
+    ListColumn<M, T>,
     RepeaterColumn<M, T>,
 );
 #[cfg(feature = "rich-text")]

@@ -1,7 +1,7 @@
 //! Columns, which a [`Table`](crate::Table) lists and a [`Detail`](crate::Detail) shows: the
 //! [`Column`] trait, the built-in [`TextColumn`], [`DateColumn`], [`ComputedColumn`],
 //! [`RelationColumn`], [`CountColumn`], [`BooleanColumn`], [`FileColumn`], [`ColorColumn`],
-//! [`ImageColumn`], [`IconColumn`], [`EmbeddedColumn`], [`RepeaterColumn`] and
+//! [`ImageColumn`], [`IconColumn`], [`EmbeddedColumn`], [`ListColumn`], [`RepeaterColumn`] and
 //! [`RichTextColumn`], the [`ToggleColumn`], [`SelectColumn`] and [`TextInputColumn`] that edit
 //! their field in a table's cell, and the [`IntoColumns`] seam.
 //!
@@ -133,6 +133,7 @@ mod file;
 mod icon;
 mod image;
 mod into_columns;
+mod list;
 mod relation;
 mod repeater;
 #[cfg(feature = "rich-text")]
@@ -149,6 +150,7 @@ pub use file::FileColumn;
 pub use icon::IconColumn;
 pub use image::ImageColumn;
 pub use into_columns::IntoColumns;
+pub use list::ListColumn;
 pub use relation::{CountColumn, RelationColumn, RelationLens, ToOneRelation};
 pub use repeater::RepeaterColumn;
 #[cfg(feature = "rich-text")]

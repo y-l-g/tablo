@@ -152,9 +152,9 @@ pub use chart::{Chart, Series, chart};
 pub use column::RichTextColumn;
 pub use column::{
     BooleanColumn, ColorColumn, ColumnToggle, ColumnWidth, ComputedColumn, CountColumn, DateColumn,
-    DateValue, EmbeddedColumn, FileColumn, IconColumn, ImageColumn, IntoColumns, RelationColumn,
-    RelationLens, RepeaterColumn, SelectColumn, TextColumn, TextInputColumn, ToOneRelation,
-    ToggleColumn, contains_expr,
+    DateValue, EmbeddedColumn, FileColumn, IconColumn, ImageColumn, IntoColumns, ListColumn,
+    RelationColumn, RelationLens, RepeaterColumn, SelectColumn, TextColumn, TextInputColumn,
+    ToOneRelation, ToggleColumn, contains_expr,
 };
 pub use declaration::{
     ActionInputFault, AuthMailFault, DeclarationError, DeclarationErrorKind, EditableColumnFault,

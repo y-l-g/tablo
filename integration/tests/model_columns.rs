@@ -512,3 +512,83 @@ async fn the_detail_page_defaults_to_the_declared_table() {
         ["subject", "urgent"]
     );
 }
+
+/// A bookmark's lists: free text and an options enum, each in one list column.
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+struct Bookmark {
+    #[key]
+    #[auto]
+    id: Uuid,
+    url: String,
+    keywords: Vec<String>,
+    statuses: Vec<TicketStatus>,
+}
+
+struct BookmarkResource;
+
+impl Resource for BookmarkResource {
+    type Model = Bookmark;
+    type Form = NoForm<Bookmark>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new().policy(tablo::ReadOnly)
+    }
+}
+
+/// A list field shows a value per stored item, an options enum's by its label, in the table, on
+/// the detail page and in the export; an empty list shows as an empty value does.
+#[tokio::test]
+async fn a_list_of_scalars_shows_each_value() {
+    let mut db = test_db(toasty::models!(Bookmark)).await;
+    let tagged = toasty::create!(Bookmark {
+        url: "https://a.example".to_string(),
+        keywords: vec!["rust".to_string(), "web".to_string()],
+        statuses: vec![TicketStatus::Waiting, TicketStatus::Open],
+    })
+    .exec(&mut db)
+    .await
+    .expect("seed bookmark");
+    toasty::create!(Bookmark {
+        url: "https://b.example".to_string(),
+        keywords: Vec::<String>::new(),
+        statuses: Vec::<TicketStatus>::new(),
+    })
+    .exec(&mut db)
+    .await
+    .expect("seed bookmark");
+    let router = panel_router::<BookmarkResource>(db);
+
+    let list = body_string(get(&router, "/admin/bookmarks?sort=url").await).await;
+    let headers = columns(&list);
+    assert!(
+        headers.iter().any(|name| name == "keywords")
+            && headers.iter().any(|name| name == "statuses"),
+        "{headers:?}"
+    );
+    let cells: Vec<Vec<String>> = rows(&list).into_iter().map(|row| row.cells).collect();
+    let at = |name: &str| headers.iter().position(|header| header == name).unwrap();
+    let (keywords, statuses) = (at("keywords"), at("statuses"));
+    // A badge per value, in the stored order, an options enum's by its label.
+    assert_eq!(cells[0][keywords], "rustweb", "{cells:?}");
+    assert_eq!(cells[0][statuses], "Waiting on customerOpen", "{cells:?}");
+    assert_eq!(cells[1][keywords], "—", "an empty list shows the dash");
+
+    let detail = body_string(get(&router, &format!("/admin/bookmarks/{}", tagged.id)).await).await;
+    let shown: Vec<(String, String)> = detail_entries(&detail)
+        .into_iter()
+        .map(|entry| (entry.column, entry.text))
+        .collect();
+    assert!(
+        shown.contains(&(
+            "statuses".to_string(),
+            "StatusesWaiting on customerOpen".to_string()
+        )),
+        "{shown:?}"
+    );
+
+    let csv = body_string(get(&router, "/admin/bookmarks/-/export").await).await;
+    assert!(
+        csv.contains("https://a.example,\"rust, web\",\"Waiting on customer, Open\"\n"),
+        "the export joins the labels: {csv}"
+    );
+}

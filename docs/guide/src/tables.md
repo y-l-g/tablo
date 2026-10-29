@@ -47,7 +47,8 @@ foreign key `Relation::has_many` takes.
 
 The built-in columns cover the common cells: `TextColumn` for any value, `DateColumn` for a
 calendar day, `BooleanColumn`, `FileColumn` and `ImageColumn` for uploads, `RichTextColumn`,
-`ColorColumn`, `EmbeddedColumn` for an embedded value, `ComputedColumn` for what your closure
+`ColorColumn`, `EmbeddedColumn` for an embedded value, `ListColumn` for a list column such as a
+[multiple choice](./forms.md#controls)'s, a badge per value, `ComputedColumn` for what your closure
 returns, and `RelationColumn` and `CountColumn` for related records. Each type's page in the
 [API docs](https://y-l.fr/tablo/nightly/api/tablo/index.html#structs) says what its cell shows, what the export writes, and whether
 it searches and sorts.
