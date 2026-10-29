@@ -307,6 +307,13 @@ pub trait Column<M>: Send + Sync {
         None
     }
 
+    /// The options a [`Editor::Select`] offers, each a value and its label: the mount checks the
+    /// form's choice offers the same.
+    #[doc(hidden)]
+    fn edit_options(&self) -> Vec<(String, crate::Text)> {
+        Vec::new()
+    }
+
     /// The control editing `row`'s field, posting the field's form key, which a table renders
     /// in place of [`cell`](Self::cell) where the user may change the field.
     #[doc(hidden)]

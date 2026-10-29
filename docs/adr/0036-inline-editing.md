@@ -15,6 +15,11 @@ submits on change through the runtime's one line of script. A refused post rende
 with the posted value and its errors, as a refused save from that page does, since an error may
 name any field the form validates, not only the cell's. Saving there lands back on the table.
 
+The cell spells its value as the model field's form spelling, as a derived record form hydrates
+it. A hand-written `RecordForm` hydrating the key otherwise would read the cell's post its own way,
+so it must spell the key as the model field does. The landing keeps the table's filters, sort and
+page number but not a cursor pager's position or the scroll, the cost of a post that redirects.
+
 A column binds a field of the model, and the record form owns the write
 ([0022](0022-record-forms.md)). This ADR extends 0022: the mount now checks a table column against
 the form. It refuses an editable column when:
@@ -23,6 +28,8 @@ the form. It refuses an editable column when:
 - the record form binds no control for the field;
 - the control is of another kind: a toggle needs a checkbox or switch, a select a choice over
   static options, and a text input a one-line text field that is no password;
+- a select's form choice offers other options or labels than the column's type, so the cell would
+  offer a value the form refuses;
 - the control is disabled on the edit form, whose save drops what it posts;
 - the control shows only while a condition holds. A condition reads the row's other values, which
   one cell does not post.

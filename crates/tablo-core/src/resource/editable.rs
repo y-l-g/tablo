@@ -32,6 +32,9 @@ pub(super) fn check<R: Resource>(declared: &Mounted<R>, errors: &mut Vec<Declara
             Some(field) if !edits_with(field, editor) => {
                 EditableColumnFault::OtherControl(editor.control())
             }
+            Some(field) if editor == Editor::Select && !offers(field, &column.edit_options()) => {
+                EditableColumnFault::OtherOptions
+            }
             Some(_) if guarded.contains(name) => EditableColumnFault::Conditional,
             Some(field) if field.is_disabled(true) => EditableColumnFault::Disabled,
             Some(_) => continue,
@@ -55,4 +58,12 @@ fn edits_with(field: &Field, editor: Editor) -> bool {
             .is_some_and(|choice| !choice.is_relationship() && !choice.is_multiple()),
         Editor::Text => field.as_text().is_some_and(|text| text.is_one_line()),
     }
+}
+
+/// Whether `field`'s choice offers `options`, values and labels alike: a value the form does not
+/// offer would fail its validation, and another label would name it otherwise than the form.
+fn offers(field: &Field, options: &[(String, crate::Text)]) -> bool {
+    field
+        .as_choice()
+        .is_some_and(|choice| choice.static_options() == options)
 }

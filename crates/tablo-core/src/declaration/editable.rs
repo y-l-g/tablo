@@ -21,6 +21,11 @@ pub enum EditableColumnFault {
     ///
     /// Edit the field with that control, or pick the column that matches the form's.
     OtherControl(&'static str),
+    /// The form's choice offers other options than the `SelectColumn`'s type, or labels them
+    /// otherwise: the cell would offer a value the form refuses.
+    ///
+    /// Offer the type's options in the form, or show the field read-only.
+    OtherOptions,
     /// The form's control shows only while a condition holds, which reads fields the cell does
     /// not post.
     ///
@@ -50,6 +55,12 @@ impl EditableColumnFault {
                 f,
                 "column '{column}' edits its field in place and the form edits it with another \
                  control than {control}: use that control, or the column matching the form's"
+            ),
+            Self::OtherOptions => write!(
+                f,
+                "column '{column}' edits its field in place and the form's choice offers other \
+                 options than the column's type: offer the type's options in the form, or show \
+                 the field read-only"
             ),
             Self::Conditional => write!(
                 f,

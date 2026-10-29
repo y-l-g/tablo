@@ -62,6 +62,9 @@ impl Editor {
 /// control, a checkbox or switch here, shown and enabled whatever the other fields hold. Flipping
 /// the switch and changing a select save through the runtime's one line of script; a text input
 /// saves on Enter.
+///
+/// The control spells the value as the field's form spelling, as a derived record form does, so a
+/// hand-written [`RecordForm`](trait@crate::RecordForm) must read the key as that spelling.
 #[derive_where(Clone, Debug)]
 pub struct ToggleColumn<M> {
     lens: Lens<M, bool>,
@@ -138,7 +141,7 @@ where
 /// ```
 ///
 /// It offers the type's options, and edits as [`ToggleColumn`](ToggleColumn#editing-in-a-cell)
-/// says, the form's control a choice over static options.
+/// says, the form's control a choice offering the same options under the same labels.
 #[derive_where(Clone, Debug)]
 pub struct SelectColumn<M, T> {
     lens: Lens<M, T>,
@@ -176,6 +179,10 @@ where
 
     fn edits(&self) -> Option<Editor> {
         Some(Editor::Select)
+    }
+
+    fn edit_options(&self) -> Vec<(String, crate::Text)> {
+        T::options()
     }
 
     fn editor<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {

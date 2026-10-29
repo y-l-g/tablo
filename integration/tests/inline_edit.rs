@@ -4,15 +4,21 @@
 //! record, and the mount refuses a column whose form control would not save what it posts.
 
 use tablo::{
-    Ability, DeclarationErrorKind, EditableColumnFault, FieldAccess, NoForm, Resource, ResourceDef,
-    Schema, SelectColumn, Site, Table, Tenancy, TenantId, TextInputColumn, ToggleColumn, lens,
+    Ability, DeclarationErrorKind, EditableColumnFault, FieldAccess, NoForm, Page, PageDef,
+    RecordTable, Resource, ResourceDef, Schema, SelectColumn, Site, Table, Tenancy, TenantId,
+    TextInputColumn, ToggleColumn, Widget, lens,
     testing::{CellEdit, Row, rows},
 };
 use toasty::Db;
-use topcoat::context::Cx;
+use topcoat::{
+    context::Cx,
+    view::{View, view},
+};
 use uuid::Uuid;
 
-use crate::common::{TestClient, body_string, mount, panel, refusal, test_db};
+use crate::common::{
+    TestClient, body_string, field_error, mount, panel, refusal, set_cookie_header, test_db,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo::Options)]
 enum Stage {
@@ -30,6 +36,7 @@ struct Task {
     stage: Stage,
     urgent: bool,
     grade: String,
+    deleted_at: Option<jiff::Timestamp>,
     #[version]
     version: u64,
 }
@@ -70,6 +77,7 @@ impl Resource for TaskResource {
                 _ => true,
             })
             .tenancy(Tenancy::column(Task::fields().tenant_id()))
+            .soft_delete(lens!(Task.deleted_at))
             .field_access(lens!(Task.grade), FieldAccess::new().edit(leads))
             .table(Table::new((
                 TextInputColumn::new(lens!(Task.title)),
@@ -87,6 +95,7 @@ async fn task(db: &Db, tenant: TenantId, title: &str) -> Task {
         stage: Stage::Open,
         urgent: false,
         grade: "B".to_string(),
+        deleted_at: None,
     })
     .exec(&mut db.clone())
     .await
@@ -239,6 +248,103 @@ async fn a_record_the_user_may_not_edit_renders_its_values() {
     );
 }
 
+#[tokio::test]
+async fn a_trashed_record_renders_its_values() {
+    let db = test_db(toasty::models!(Task)).await;
+    let router = mount(db.clone(), panel().resource::<TaskResource>()).expect("panel builds");
+    let mut record = task(&db, LEADS, "old task").await;
+    record
+        .update()
+        .deleted_at(Some(jiff::Timestamp::now()))
+        .exec(&mut db.clone())
+        .await
+        .unwrap();
+    let client = TestClient::new(&router).tenant(LEADS);
+    let html = body_string(client.get("/admin/tasks?f.trashed=only").await).await;
+    let rows = rows(&html);
+    assert_eq!(rows.len(), 1, "{html}");
+    assert!(rows[0].edits.is_empty(), "{:?}", rows[0]);
+}
+
+#[tokio::test]
+async fn a_cell_posting_a_field_the_user_may_not_change_is_refused() {
+    let db = test_db(toasty::models!(Task)).await;
+    let router = mount(db.clone(), panel().resource::<TaskResource>()).expect("panel builds");
+    let record = task(&db, STAFF, "staff task").await;
+    let client = TestClient::new(&router).tenant(STAFF);
+    let title = edit(&list_rows(&client).await[0], "title").unwrap().clone();
+    let version = title.version.unwrap();
+    let response = client
+        .submit(&title.action, &format!("grade=A&record_version={version}"))
+        .await;
+    assert_eq!(response.status(), 400);
+    assert_eq!(stored(&db, record.id).await.grade, "B");
+}
+
+#[tokio::test]
+async fn a_refused_cell_renders_the_edit_page_with_its_error() {
+    let db = test_db(toasty::models!(Task)).await;
+    let router = mount(db.clone(), panel().resource::<TaskResource>()).expect("panel builds");
+    let record = task(&db, LEADS, "write the docs").await;
+    let client = TestClient::new(&router).tenant(LEADS);
+    let stage = edit(&list_rows(&client).await[0], "stage").unwrap().clone();
+    let version = stage.version.unwrap();
+    let response = client
+        .submit(
+            &stage.action,
+            &format!("stage=lost&record_version={version}"),
+        )
+        .await;
+    assert_eq!(response.status(), 200);
+    let html = body_string(response).await;
+    assert!(field_error(&html, "stage").is_some(), "{html}");
+    assert_eq!(stored(&db, record.id).await.stage, Stage::Open);
+}
+
+/// The tasks on a dashboard.
+struct Tasks;
+
+impl Widget for Tasks {
+    async fn render(cx: &Cx) -> topcoat::Result<impl View> {
+        tablo::record_table::<TaskResource>(cx, RecordTable::new()).await
+    }
+}
+
+struct Dashboard;
+
+impl Page for Dashboard {
+    fn declare() -> PageDef {
+        PageDef::new().widget::<Tasks>()
+    }
+
+    async fn render(cx: &Cx) -> topcoat::Result<impl View> {
+        Ok(view! { cx => <main>(tablo::widgets::<Self>(cx))</main> })
+    }
+}
+
+/// A widget's table renders its cells' forms on a page nothing else sets the CSRF token on, so
+/// the table sets it.
+#[tokio::test]
+async fn a_widgets_cells_carry_a_csrf_token() {
+    let db = test_db(toasty::models!(Task)).await;
+    let router = mount(
+        db.clone(),
+        panel().resource::<TaskResource>().page::<Dashboard>(),
+    )
+    .expect("panel builds");
+    task(&db, LEADS, "write the docs").await;
+    let response = TestClient::new(&router)
+        .tenant(LEADS)
+        .get("/admin/dashboard")
+        .await;
+    assert!(
+        set_cookie_header(&response, tablo::csrf::COOKIE_NAME).is_some(),
+        "the page sets the token its cells post"
+    );
+    let rows = rows(&body_string(response).await);
+    assert_eq!(rows[0].edits.len(), 4, "{:?}", rows[0]);
+}
+
 fn faults(errors: Vec<tablo::DeclarationError>) -> Vec<(String, EditableColumnFault)> {
     errors
         .into_iter()
@@ -301,6 +407,38 @@ async fn the_mount_refuses_a_column_its_form_would_not_save() {
     ] {
         assert!(faults.contains(&expected), "{expected:?} in {faults:?}");
     }
+}
+
+#[tokio::test]
+async fn the_mount_refuses_a_select_offering_other_options_than_its_form() {
+    struct Narrowed;
+
+    impl Resource for Narrowed {
+        type Model = Task;
+        type Form = TaskForm;
+
+        fn declare() -> ResourceDef<Self> {
+            let c = TaskForm::controls();
+            ResourceDef::new()
+                .slug("tasks")
+                .policy_fn(|_cx, _ability: Ability<'_, Task>| true)
+                .tenancy(Tenancy::column(Task::fields().tenant_id()))
+                .table(Table::new(SelectColumn::new(lens!(Task.stage))))
+                .form(Schema::new((
+                    c.title,
+                    c.stage.options(["open"]),
+                    c.urgent,
+                    c.grade,
+                )))
+        }
+    }
+
+    let db = test_db(toasty::models!(Task)).await;
+    let errors = refusal(mount(db, panel().resource::<Narrowed>()));
+    assert_eq!(
+        faults(errors),
+        [("stage".to_string(), EditableColumnFault::OtherOptions)]
+    );
 }
 
 #[tokio::test]

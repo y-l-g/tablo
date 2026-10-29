@@ -33,6 +33,7 @@ pub(super) fn cell_form<'a>(cx: &'a Cx, form: CellForm<'a>) -> BoxView<'a> {
             id=(form.id)
             method="post"
             action=(form.action)
+            autocomplete="off"
             data-cell-edit=(form.column)
             data-save-on-change=(on_change)
             @change=$(|_e: Event| {
