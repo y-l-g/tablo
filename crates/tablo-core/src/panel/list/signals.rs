@@ -33,7 +33,7 @@ pub(crate) struct TableSignals {
     pub(crate) confirm: ConfirmSignals,
     /// Where each custom action asking for input posts its dialog, by the action's name.
     pub(crate) inputs: HashMap<&'static str, TableTarget>,
-    /// The page's path and the table's prefix, which key the signals.
+    /// The page's URL and the table's prefix, which key the signals.
     key: (String, String),
 }
 
@@ -53,15 +53,18 @@ impl TableSignals {
     /// The signals of the table whose parameters carry `prefix`, `query`
     /// seeded with the request's query as written.
     ///
-    /// Keyed by the page's path too: runtime navigation keeps the values of
-    /// signals two pages share, so another page's table starts from its own
-    /// URL. Creates the signals, so it carries [`topcoat::runtime::signal`]'s
-    /// contract: call it while a page body runs.
+    /// Keyed by the page's URL, path and query, too: runtime navigation keeps
+    /// the values of signals two pages share, so a table opened at another URL,
+    /// another list's or its own list's under another tab, starts from that
+    /// URL. A rerun renders the URL the page was opened at, so the key holds
+    /// while the browser writes `query`. Creates the signals, so it carries
+    /// [`topcoat::runtime::signal`]'s contract: call it while a page body runs.
     pub(crate) fn new(cx: &Cx, prefix: Option<&str>) -> Self {
-        let path = topcoat::context::try_context::<http::request::Parts>(cx)
-            .map(|parts| parts.uri.path().to_string())
+        let url = topcoat::context::try_context::<http::request::Parts>(cx)
+            .and_then(|parts| parts.uri.path_and_query())
+            .map(ToString::to_string)
             .unwrap_or_default();
-        let key = (path, prefix.unwrap_or_default().to_string());
+        let key = (url, prefix.unwrap_or_default().to_string());
         let cx = cx.keyed(("tablo-table", key.0.as_str(), key.1.as_str()));
         let query = request_query(&cx);
         Self {
