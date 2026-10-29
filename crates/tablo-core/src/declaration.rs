@@ -1,7 +1,5 @@
 //! The declaration mistakes a panel refuses to mount with, and the one place their wording lives.
 
-use std::fmt;
-
 mod action_input;
 mod auth;
 mod editable;
@@ -63,15 +61,6 @@ impl DeclarationError {
             site,
             kind,
         }
-    }
-}
-
-impl fmt::Display for DeclarationError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(resource) = self.resource {
-            write!(f, "`{resource}`{}: ", self.site)?;
-        }
-        write!(f, "{}", self.kind)
     }
 }
 

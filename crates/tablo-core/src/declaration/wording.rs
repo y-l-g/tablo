@@ -2,7 +2,18 @@
 
 use std::fmt;
 
-use super::{DeclarationErrorKind, fmt_action_input, fmt_field_rule, fmt_many_to_many};
+use super::{
+    DeclarationError, DeclarationErrorKind, fmt_action_input, fmt_field_rule, fmt_many_to_many,
+};
+
+impl fmt::Display for DeclarationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(resource) = self.resource {
+            write!(f, "`{resource}`{}: ", self.site)?;
+        }
+        write!(f, "{}", self.kind)
+    }
+}
 
 impl fmt::Display for DeclarationErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
