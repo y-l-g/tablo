@@ -11,6 +11,7 @@ use topcoat::{
 
 use crate::{
     Page, RecordTable, Resource, Stat, Trend,
+    navigation::runtime_link,
     page::MountedPage,
     panel::list::{TableChrome, declared_chrome, wire_table_over},
     resource::mounted,
@@ -171,6 +172,12 @@ fn tile(cx: &Cx, stat: Stat) -> BoxView<'_> {
         ),
         None => (None, String::new()),
     };
+    let mut attrs = topcoat::view::attributes! { cx => data-stat="" };
+    if let Some(href) = &href {
+        let mut link = runtime_link(cx, href);
+        link.remove("href");
+        attrs.extend(link);
+    }
     view! {
         cx =>
         tablo_ui::stat(
@@ -183,7 +190,7 @@ fn tile(cx: &Cx, stat: Stat) -> BoxView<'_> {
             chart: chart,
             icon: icon,
             href: href,
-            attrs: topcoat::view::attributes! { data-stat="" }
+            attrs: attrs
         )
     }
     .boxed()
