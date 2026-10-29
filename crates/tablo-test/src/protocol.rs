@@ -64,6 +64,16 @@ pub fn page_language(html: &str) -> Option<String> {
     dom::attr_value(&attrs, "lang")
 }
 
+/// The search engine instructions the page's robots tag names, `None` when it has no such tag.
+pub fn robots(html: &str) -> Option<String> {
+    let (_, attrs, _) = dom::tags_where(html, |tag, attrs| {
+        tag == "meta" && dom::attr_value(attrs, "name").as_deref() == Some("robots")
+    })
+    .into_iter()
+    .next()?;
+    dom::attr_value(&attrs, "content")
+}
+
 /// The page's heading, as its `[data-page-title]` holds it; `None` when it has none.
 pub fn page_title(html: &str) -> Option<String> {
     let (_, _, inner) = dom::tags_where(html, |_, attrs| {

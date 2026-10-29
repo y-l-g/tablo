@@ -308,3 +308,19 @@ async fn only_a_signed_in_page_load_shows_the_error_page() {
         "a POST keeps the bare 404, got {body}"
     );
 }
+
+/// A panel page asks search engines to neither list nor follow it.
+#[tokio::test]
+async fn panel_pages_ask_search_engines_to_skip_them() {
+    let db = seeded_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let response = client.get("/admin/users").await;
+    assert_eq!(response.status(), http::StatusCode::OK);
+    let html = body_string(response).await;
+    assert_eq!(
+        tablo::testing::robots(&html).as_deref(),
+        Some("noindex, nofollow"),
+        "the page's robots tag: {html}"
+    );
+}

@@ -100,6 +100,8 @@ then signs in to no customer panel, and a customer panel's weaker sign-in reache
   replaces the policy, for assets on another origin or a panel framed by an intranet, and lists
   the responses the headers miss. Behind a proxy that serves HTTPS only, turn on HSTS with
   [`Panel::strict_transport_security`](https://y-l.fr/tablo/nightly/api/tablo/struct.Panel.html#method.strict_transport_security).
+- **Search engines** neither index a panel's pages nor follow their links, per the `robots` tag
+  [`Panel`](https://y-l.fr/tablo/nightly/api/tablo/struct.Panel.html) documents.
 - **Redirects.** Return `Err(redirect(..))` (307) from a `GET` and `Err(see_other(..))` (303) after
   a write, so a reload does not repeat it. A redirect raised after streaming started becomes a
   `window.location.replace`. A failed page load shows the panel's

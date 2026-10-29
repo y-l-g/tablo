@@ -4383,7 +4383,7 @@ checksum = "7d56353a2a665ad0f41a421187180aab746c8c325620617ad883a99a1cbe66d2"
 [[package]]
 name = "topcoat"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "futures-util",
  "inventory",
@@ -4401,6 +4401,7 @@ dependencies = [
  "topcoat-l10n",
  "topcoat-mail",
  "topcoat-mail-macro",
+ "topcoat-metadata",
  "topcoat-router",
  "topcoat-router-macro",
  "topcoat-runtime",
@@ -4414,7 +4415,7 @@ dependencies = [
 [[package]]
 name = "topcoat-asset"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "http",
  "memchr",
@@ -4432,7 +4433,7 @@ dependencies = [
 [[package]]
 name = "topcoat-cookie"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "cookie",
  "getrandom 0.2.17",
@@ -4446,7 +4447,7 @@ dependencies = [
 [[package]]
 name = "topcoat-core"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "base64 0.22.1",
  "elsa",
@@ -4460,7 +4461,7 @@ dependencies = [
 [[package]]
 name = "topcoat-core-grammar"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -4471,7 +4472,7 @@ dependencies = [
 [[package]]
 name = "topcoat-core-macro"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "quote",
  "syn 3.0.9",
@@ -4481,7 +4482,7 @@ dependencies = [
 [[package]]
 name = "topcoat-font"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "heck",
  "inventory",
@@ -4497,7 +4498,7 @@ dependencies = [
 [[package]]
 name = "topcoat-font-grammar"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4509,7 +4510,7 @@ dependencies = [
 [[package]]
 name = "topcoat-font-macro"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "quote",
  "syn 3.0.9",
@@ -4519,7 +4520,7 @@ dependencies = [
 [[package]]
 name = "topcoat-icon"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "serde",
  "serde_json",
@@ -4533,7 +4534,7 @@ dependencies = [
 [[package]]
 name = "topcoat-icon-grammar"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -4547,7 +4548,7 @@ dependencies = [
 [[package]]
 name = "topcoat-icon-macro"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4558,7 +4559,7 @@ dependencies = [
 [[package]]
 name = "topcoat-l10n"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "http",
  "icu_locale",
@@ -4571,7 +4572,7 @@ dependencies = [
 [[package]]
 name = "topcoat-mail"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "lettre",
  "thiserror",
@@ -4584,7 +4585,7 @@ dependencies = [
 [[package]]
 name = "topcoat-mail-grammar"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4597,7 +4598,7 @@ dependencies = [
 [[package]]
 name = "topcoat-mail-macro"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "quote",
  "syn 3.0.9",
@@ -4605,9 +4606,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "topcoat-metadata"
+version = "0.11.0"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
+dependencies = [
+ "topcoat-asset",
+ "topcoat-core",
+ "topcoat-core-macro",
+ "topcoat-router",
+ "topcoat-view",
+ "topcoat-view-macro",
+]
+
+[[package]]
 name = "topcoat-router"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "bytes",
  "form_urlencoded",
@@ -4643,7 +4657,7 @@ dependencies = [
 [[package]]
 name = "topcoat-router-grammar"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -4655,7 +4669,7 @@ dependencies = [
 [[package]]
 name = "topcoat-router-macro"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "quote",
  "syn 3.0.9",
@@ -4665,7 +4679,7 @@ dependencies = [
 [[package]]
 name = "topcoat-runtime"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "futures-util",
  "pin-project-lite",
@@ -4683,7 +4697,7 @@ dependencies = [
 [[package]]
 name = "topcoat-runtime-grammar"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4698,7 +4712,7 @@ dependencies = [
 [[package]]
 name = "topcoat-runtime-macro"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "quote",
  "syn 3.0.9",
@@ -4708,7 +4722,7 @@ dependencies = [
 [[package]]
 name = "topcoat-session"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "base64 0.22.1",
  "getrandom 0.4.3",
@@ -4724,7 +4738,7 @@ dependencies = [
 [[package]]
 name = "topcoat-tailwind"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "sha2 0.11.1",
  "thiserror",
@@ -4735,7 +4749,7 @@ dependencies = [
 [[package]]
 name = "topcoat-ui"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "serde",
  "serde_json",
@@ -4747,12 +4761,12 @@ dependencies = [
 [[package]]
 name = "topcoat-ui-registry"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 
 [[package]]
 name = "topcoat-view"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "futures-core",
  "futures-util",
@@ -4767,7 +4781,7 @@ dependencies = [
 [[package]]
 name = "topcoat-view-grammar"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -4780,7 +4794,7 @@ dependencies = [
 [[package]]
 name = "topcoat-view-macro"
 version = "0.11.0"
-source = "git+https://github.com/tokio-rs/topcoat?rev=01bd585394891052a4bd68213a36ac8f8e8687c9#01bd585394891052a4bd68213a36ac8f8e8687c9"
+source = "git+https://github.com/tokio-rs/topcoat?rev=d84362b72bc1034a8342e00c1cdf1a36d68dd9cf#d84362b72bc1034a8342e00c1cdf1a36d68dd9cf"
 dependencies = [
  "quote",
  "syn 3.0.9",
