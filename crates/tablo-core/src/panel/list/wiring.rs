@@ -77,6 +77,16 @@ pub(crate) struct TableAction<M> {
     pub(crate) disabled: DisabledReason<M>,
 }
 
+/// What a table's editable cells need beside the edit route, which the panel wires from the
+/// resource and the request.
+pub(crate) struct CellEdits<M> {
+    /// Whether the request may change the form key a column names: its field access neither hides
+    /// nor locks it.
+    pub(crate) changes: Arc<dyn Fn(&str) -> bool + Send + Sync>,
+    /// The record's version, which a cell posts so the save refuses a stale one.
+    pub(crate) version: fn(&M) -> Option<u64>,
+}
+
 /// What a request wires onto a declared table: the action URLs its rows and bulk bar link to,
 /// and which actions each row allows.
 ///
@@ -86,6 +96,8 @@ pub(crate) struct Wiring<M> {
     row_policy: Option<RowPolicy<M>>,
     delete_prefix: Option<String>,
     edit_prefix: Option<String>,
+    /// What the editable cells post, once the edit route is wired.
+    cell_edits: Option<CellEdits<M>>,
     view_prefix: Option<String>,
     bulk_delete: bool,
     /// The custom actions and the list URL their routes hang off.
@@ -110,6 +122,7 @@ impl<M> Default for Wiring<M> {
             row_policy: None,
             delete_prefix: None,
             edit_prefix: None,
+            cell_edits: None,
             view_prefix: None,
             bulk_delete: false,
             custom_actions: Vec::new(),
@@ -149,6 +162,7 @@ impl<M> std::fmt::Debug for WiredTable<M> {
             .field("row_policy", &wiring.row_policy.is_some())
             .field("delete_prefix", &wiring.delete_prefix)
             .field("edit_prefix", &wiring.edit_prefix)
+            .field("cell_edits", &wiring.cell_edits.is_some())
             .field("view_prefix", &wiring.view_prefix)
             .field("bulk_delete", &wiring.bulk_delete)
             .field(
@@ -197,6 +211,23 @@ impl<M> WiredTable<M> {
     pub(crate) fn with_edit(mut self, prefix: String) -> Self {
         if self.is_addressable() {
             self.wiring.edit_prefix = Some(prefix);
+        }
+        self
+    }
+
+    /// Let the editable columns edit their field in a cell, on a row whose record the policy
+    /// lets the user edit, for a key `changes` says the user may change. The edit route must be
+    /// wired too.
+    pub(crate) fn editing_cells(
+        mut self,
+        changes: impl Fn(&str) -> bool + Send + Sync + 'static,
+        version: fn(&M) -> Option<u64>,
+    ) -> Self {
+        if self.is_addressable() {
+            self.wiring.cell_edits = Some(CellEdits {
+                changes: Arc::new(changes),
+                version,
+            });
         }
         self
     }
@@ -333,6 +364,14 @@ impl<M> WiredTable<M> {
 
     pub(super) fn edit_prefix(&self) -> Option<&str> {
         self.wiring.edit_prefix.as_deref()
+    }
+
+    /// What the editable cells post, when the edit route is wired.
+    pub(super) fn cell_edits(&self) -> Option<&CellEdits<M>> {
+        self.wiring
+            .cell_edits
+            .as_ref()
+            .filter(|_| self.wiring.edit_prefix.is_some())
     }
 
     pub(super) fn view_prefix(&self) -> Option<&str> {

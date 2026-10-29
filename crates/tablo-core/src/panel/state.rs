@@ -150,6 +150,7 @@ pub(crate) fn enter(cx: &Cx, panel: &Arc<PanelState>) -> Cx {
         CurrentPanel(Arc::clone(panel)),
         CurrentRealm(Arc::clone(&panel.realm)),
         panel.limits,
+        super::list::ShownList::default(),
     ))
 }
 

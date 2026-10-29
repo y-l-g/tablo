@@ -54,37 +54,52 @@ async fn a_default_sort_orders_a_request_naming_no_sortable_column() {
     );
 }
 
-/// A default sort on no sortable column is a declaration error, whether the table declares no
-/// column for the field or declares one that is not sortable.
-#[test]
-fn a_default_sort_naming_no_sortable_column_is_misdeclared() {
-    let table = || {
-        Table::<Task>::new((
-            TextColumn::new(lens!(Task.title)).sortable(),
-            TextColumn::new(lens!(Task.status)),
-        ))
-    };
-    for (errors, column) in [
-        (
-            table()
-                .default_sort(lens!(Task.created_at))
-                .declaration_errors(),
-            "created_at",
-        ),
-        (
-            table()
-                .default_sort(lens!(Task.status))
-                .declaration_errors(),
-            "status",
-        ),
-    ] {
-        assert_eq!(
-            errors,
-            [DeclarationErrorKind::UnsortableDefaultSort {
-                column: column.to_string()
-            }]
-        );
+/// A default sort on a field no sortable column shows orders the rows by it all the same, and
+/// names the sort no header marks; a sort parameter naming a sortable column overrides it.
+#[tokio::test]
+async fn a_default_sort_orders_by_a_field_no_sortable_column_shows() {
+    let mut db = memory_db(toasty::models!(Task)).await;
+    for (title, status) in [("Alpha", "b"), ("Bravo", "c"), ("Charlie", "a")] {
+        toasty::create!(Task {
+            title,
+            status,
+            featured: false,
+            created_at: jiff::Timestamp::UNIX_EPOCH,
+        })
+        .exec(&mut db)
+        .await
+        .unwrap();
     }
+    let table = Table::<Task>::new((
+        TextColumn::new(lens!(Task.title)).sortable(),
+        TextColumn::new(lens!(Task.status)),
+    ))
+    .default_sort_desc(lens!(Task.status));
+    assert_eq!(table.declaration_errors(), []);
+
+    let unsorted = TableState::default();
+    assert_eq!(table.sort_for(&unsorted), Some(Sort::desc("status")));
+    assert_eq!(
+        titles_in_order(&mut db, &table, &unsorted).await,
+        ["Bravo", "Alpha", "Charlie"]
+    );
+    let by_status = TableState {
+        sort: Some(Sort::asc("status")),
+        ..TableState::default()
+    };
+    assert_eq!(
+        table.sort_for(&by_status),
+        Some(Sort::desc("status")),
+        "the URL sorts by sortable columns only"
+    );
+    let by_title = TableState {
+        sort: Some(Sort::asc("title")),
+        ..TableState::default()
+    };
+    assert_eq!(
+        titles_in_order(&mut db, &table, &by_title).await,
+        ["Alpha", "Bravo", "Charlie"]
+    );
 }
 
 /// A default sort by name finds the sortable column of that name, as a column of your own needs,

@@ -14,6 +14,7 @@
 //! - [`value_text`]: a value's text, for URL ids and enum discriminants.
 //! - [`case_insensitive_search`]: a search predicate's `LIKE` matches run as `ILIKE` where the
 //!   driver has it.
+//! - [`count`]: a count that reads 0 where Toasty answers no value.
 //! - [`UntypedInclude`], [`Assignments`] and [`IsolationLevel`]: the `toasty_core` types a public
 //!   Toasty API takes without re-exporting them.
 //! - [`VariantId`]: an embedded enum variant's id, re-exported for the derives.
@@ -35,6 +36,22 @@ pub use toasty::schema::app::VariantId;
 pub(crate) use toasty_core::driver::operation::IsolationLevel;
 /// The assignments `toasty::schema::Field::new_update` takes.
 pub(crate) use toasty_core::stmt::Assignments;
+
+/// How many rows `query` holds.
+///
+/// Toasty answers a count whose filter it folds to `false`, such as two filters asking one column
+/// for two values, with no value rather than 0, which `Query::count` fails to read as a `u64`. The
+/// count reads it as an `Option` instead.
+pub(crate) async fn count<M: toasty::schema::Model>(
+    query: toasty::stmt::Query<toasty::stmt::List<M>>,
+    ex: &mut dyn toasty::Executor,
+) -> toasty::Result<u64> {
+    let untyped = toasty::stmt::IntoStatement::into_statement(query.count()).into_untyped();
+    let rows = toasty::stmt::Statement::<Option<u64>>::from_untyped_stmt(untyped)
+        .exec(ex)
+        .await?;
+    Ok(rows.unwrap_or(0))
+}
 
 /// The text a scalar value is spelled as in a URL or a form: the inverse of the parse
 /// [`pk::pk_eq_expr`] applies. `None` for a value with no text form.

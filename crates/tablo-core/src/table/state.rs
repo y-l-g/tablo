@@ -90,13 +90,17 @@ pub struct TableState {
     pub filters: BTreeMap<String, FilterValue>,
     /// Filter parameters the parse dropped.
     pub filters_dropped: bool,
-    /// `?group_by=` — field name to group by (in-memory, `count` summarizer).
+    /// `?group_by=` — field name to group by (the query orders by it ahead of the sort).
     pub group_by: Option<String>,
+    /// `?tab=` — the key of the [tab](super::ListTab) the list shows; `None` shows the first.
+    pub tab: Option<String>,
 }
 
 /// The URL parameters one table link projects.
 #[derive(Default)]
 struct UrlProjection<'a> {
+    /// `?tab=` key.
+    tab: Option<&'a str>,
     /// `?q=` search term.
     search: Option<&'a str>,
     /// `?sort=` column and `?dir=` value.
@@ -181,6 +185,11 @@ impl TableState {
         values.chain(parts)
     }
 
+    /// How a link spells the tab `key`, encoded like every other parameter.
+    pub(crate) fn spell_tab(&self, key: &str) -> String {
+        href::encode_query(&[(self.param("tab"), key)])
+    }
+
     /// How a link spells `name`'s value: the parameters it travels as, encoded like every other
     /// parameter.
     pub(crate) fn spell_filter(&self, name: &str, value: &FilterValue) -> String {
@@ -212,7 +221,7 @@ impl TableState {
     fn from_pairs<'q>(pairs: impl Iterator<Item = (Cow<'q, str>, Cow<'q, str>)>) -> Self {
         let mut state = Self::default();
         let (mut sort, mut dir, mut after, mut before) = (None, None, None, None);
-        let mut seen = [false; 8];
+        let mut seen = [false; 9];
         for (key, value) in pairs {
             if let Some(filter) = key.strip_prefix(FILTER_PREFIX) {
                 state.add_filter(filter, value.trim());
@@ -227,6 +236,7 @@ impl TableState {
                 "group_by" => 5,
                 "page" => 6,
                 "per_page" => 7,
+                "tab" => 8,
                 // The retired single-parameter filter spelling: a saved link
                 // must warn (and its export refuse), not list everything.
                 "filters" => {
@@ -248,7 +258,8 @@ impl TableState {
                 4 => before = non_empty(),
                 5 => state.group_by = non_empty(),
                 6 => state.page = positive(),
-                _ => state.per_page = positive(),
+                7 => state.per_page = positive(),
+                _ => state.tab = non_empty(),
             }
         }
         state.sort = sort.map(|column| Sort {
@@ -308,7 +319,7 @@ impl TableState {
     /// parameter cannot silently drop it from half the links.
     ///
     /// One private encoder ([`Self::project`]) holds the vocabulary in
-    /// canonical order `q, sort, dir, f.*, group_by, per_page, page, after|before`. Only a
+    /// canonical order `tab, q, sort, dir, f.*, group_by, per_page, page, after|before`. Only a
     /// filter's values depend on the order, and each filter writes them in
     /// the order it holds them.
     ///
@@ -332,10 +343,30 @@ impl TableState {
     }
 
     /// Drops the filters (and the position in their result set); keeps the
-    /// search term.
+    /// search term and the tab.
     pub(crate) fn without_filters(&self, path: &str) -> String {
         let projection = UrlProjection {
             filters: false,
+            ..self.first_page_projection()
+        };
+        href::with_query(path, &self.project(projection))
+    }
+
+    /// Drops the filters and the tab (and the position in their result set); keeps the search
+    /// term: the link out of a list ignoring what its URL asks.
+    pub(crate) fn without_narrowing(&self, path: &str) -> String {
+        let projection = UrlProjection {
+            filters: false,
+            tab: None,
+            ..self.first_page_projection()
+        };
+        href::with_query(path, &self.project(projection))
+    }
+
+    /// Shows the tab `key`, `None` for the first, from the first page of its result set.
+    pub(crate) fn with_tab(&self, path: &str, key: Option<&str>) -> String {
+        let projection = UrlProjection {
+            tab: key,
             ..self.first_page_projection()
         };
         href::with_query(path, &self.project(projection))
@@ -405,6 +436,7 @@ impl TableState {
     /// The projection that keeps every link parameter.
     fn full(&self) -> UrlProjection<'_> {
         UrlProjection {
+            tab: self.tab.as_deref(),
             search: self.search.as_deref(),
             sort: self.sort_pair(),
             filters: true,
@@ -439,6 +471,7 @@ impl TableState {
             filters: _,
             filters_dropped: _,
             group_by: _,
+            tab: _,
         } = self;
         let filters = projection
             .filters
@@ -455,6 +488,7 @@ impl TableState {
         let per_page = projection.per_page.map(|n| n.to_string());
         let page = projection.page.map(|n| n.to_string());
         let pairs: Vec<(String, &str)> = [
+            (self.param("tab"), projection.tab),
             (self.param("q"), projection.search),
             (
                 self.param("sort"),
@@ -498,11 +532,11 @@ pub(crate) fn row_dom_id(scope: &str, key: &str) -> String {
     dom_id(&format!("row-{scope}"), key)
 }
 
-/// Stable DOM id for a page-local group header.
+/// Stable DOM id for a group header.
 ///
 /// Same contract as [`row_dom_id`]: the header is injected, removed and moved
-/// as the page is re-sorted, so the in-place morph needs an id derived from the
-/// group label it belongs to rather than from its position in the page.
+/// as the page changes, so the in-place morph needs an id derived from the
+/// group it opens rather than from its position in the page.
 pub(crate) fn group_header_dom_id(scope: &str, label: &str) -> String {
     dom_id(&format!("group-{scope}"), label)
 }

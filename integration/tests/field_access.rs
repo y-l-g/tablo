@@ -1,14 +1,14 @@
 //! A resource restricting its fields: a field the user may not view leaves the list, the detail
-//! page, the export, the search, the sort, the filters and the form; one the user may view but
-//! not change renders disabled; a submission posting either is refused; an edit keeps what the
-//! user could not change; and the mount refuses a declaration that would show the field anyway.
+//! page, the export, the search, the sort, the filters, the tabs and the form; one the user may
+//! view but not change renders disabled; a submission posting either is refused; an edit keeps what
+//! the user could not change; and the mount refuses a declaration that would show the field anyway.
 //! A widget's record table hides it as the list does.
 
 use tablo::{
-    Ability, ComputedColumn, DeclarationErrorKind, Detail, FieldAccess, FieldAccessFault,
-    FieldErrors, Page, PageDef, QueryFilter, Reads, RecordTable, Resource, ResourceDef, Schema,
-    Site, Tab, Table, Tabs, Tenancy, TenantId, TextColumn, Widget, lens,
-    testing::{columns, ignored_filters, record_tables, row_keys, tabs},
+    Ability, Color, ComputedColumn, DeclarationErrorKind, Detail, FieldAccess, FieldAccessFault,
+    FieldErrors, ListTab, Page, PageDef, QueryFilter, Reads, RecordTable, Resource, ResourceDef,
+    Schema, Site, Tab, Table, Tabs, Tenancy, TenantId, TextColumn, Widget, lens,
+    testing::{columns, groups, ignored_filters, record_tables, row_keys, rows, tab_links, tabs},
 };
 use toasty::Db;
 use topcoat::{
@@ -75,6 +75,14 @@ impl Resource for EmployeeResource {
                     QueryFilter::new("paid", "Paid")
                         .option("High", Employee::fields().salary().eq("S-900"))
                         .reading(Reads::of(lens!(Employee.salary))),
+                )
+                .group_by(lens!(Employee.salary))
+                .tab(ListTab::new("all", "All"))
+                .tab(
+                    ListTab::new("high", "High")
+                        .query(Employee::fields().salary().eq("S-900"))
+                        .reading(Reads::of(lens!(Employee.salary)))
+                        .badge(),
                 ),
             )
     }
@@ -413,6 +421,34 @@ async fn a_hidden_field_answers_no_search_or_filter() {
     assert_eq!(ignored_filters(&filtered).len(), 1, "{filtered}");
     let export = sales.get("/admin/employees/-/export?f.paid=High").await;
     assert_eq!(export.status(), 400);
+
+    // A tab over the salary counts and narrows for the user who may view it, and is unknown to
+    // the one who may not.
+    let tabbed = page(&hr, "/admin/employees?tab=high").await;
+    assert_eq!(row_keys(&tabbed), [hr_high.id.to_string()]);
+    assert_eq!(
+        tab_links(&tabbed)
+            .iter()
+            .map(|tab| (tab.key.as_str(), tab.count))
+            .collect::<Vec<_>>(),
+        [("all", None), ("high", Some(1))]
+    );
+    let tabbed = page(&sales, "/admin/employees?tab=high").await;
+    let keys: Vec<_> = tab_links(&tabbed).into_iter().map(|tab| tab.key).collect();
+    assert_eq!(keys, ["all"]);
+    let mut keys = row_keys(&tabbed);
+    keys.sort();
+    assert_eq!(keys, both);
+    assert_eq!(ignored_filters(&tabbed).len(), 1, "{tabbed}");
+    let export = sales.get("/admin/employees/-/export?tab=high").await;
+    assert_eq!(export.status(), 400);
+
+    // A grouping by the salary groups the rows for the user who may view it, and is dropped for
+    // the one who may not, whose list shows no group to read the salaries from.
+    let grouped = page(&hr, "/admin/employees?group_by=salary").await;
+    assert!(!groups(&grouped).is_empty(), "{grouped}");
+    let grouped = page(&sales, "/admin/employees?group_by=salary").await;
+    assert!(groups(&grouped).is_empty(), "{grouped}");
 }
 
 /// The grade, which the user may view but not change, renders disabled; a submission posting it,
@@ -585,12 +621,19 @@ async fn a_declaration_showing_a_restricted_field_is_refused() {
                 .tenancy(Tenancy::column(Employee::fields().tenant_id()))
                 .field_access(lens!(Employee.salary), FieldAccess::new().view(hr))
                 .record_title(lens!(Employee.salary))
-                .table(Table::new((
-                    TextColumn::new(lens!(Employee.name)),
-                    ComputedColumn::new("Initial", |e: &Employee| e.name[..1].to_string()),
-                    TextColumn::new(lens!(Employee.grade))
-                        .description(|e: &Employee| e.salary.clone()),
-                )))
+                .table(
+                    Table::new((
+                        TextColumn::new(lens!(Employee.name))
+                            .url(|e: &Employee| Some(format!("/pay/{}", e.salary))),
+                        ComputedColumn::new("Initial", |e: &Employee| e.name[..1].to_string()),
+                        TextColumn::new(lens!(Employee.grade))
+                            .description(|e: &Employee| e.salary.clone()),
+                    ))
+                    .row_color(|e: &Employee| (e.salary == "S-900").then_some(Color::Danger))
+                    .tab(
+                        ListTab::new("high", "High").query(Employee::fields().salary().eq("S-900")),
+                    ),
+                )
         }
     }
 
@@ -626,6 +669,80 @@ async fn a_declaration_showing_a_restricted_field_is_refused() {
         )),
         "a description may read any field: {errors:?}"
     );
+    assert!(
+        faults.contains(&(
+            &Site::Table,
+            &FieldAccessFault::UndeclaredReads {
+                what: "column",
+                name: "name".to_string()
+            }
+        )),
+        "a link may read any field: {errors:?}"
+    );
+    assert!(
+        faults.contains(&(
+            &Site::Table,
+            &FieldAccessFault::UndeclaredReads {
+                what: "row color",
+                name: "row_color".to_string()
+            }
+        )),
+        "a row color may read any field: {errors:?}"
+    );
+    assert!(
+        faults.contains(&(
+            &Site::Table,
+            &FieldAccessFault::UndeclaredReads {
+                what: "tab",
+                name: "high".to_string()
+            }
+        )),
+        "{errors:?}"
+    );
+}
+
+/// A row color reading the salary tints a row for the user who may view it, and leaves every row
+/// plain for one who may not, whose tint would tell the salary.
+#[tokio::test]
+async fn a_row_color_reading_a_hidden_field_leaves_the_rows_plain() {
+    struct Tinted;
+
+    impl Resource for Tinted {
+        type Model = Employee;
+        type Form = EmployeeForm;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("tinted")
+                .policy_fn(|_cx, _ability: Ability<'_, Employee>| true)
+                .tenancy(Tenancy::column(Employee::fields().tenant_id()))
+                .field_access(lens!(Employee.salary), FieldAccess::new().view(hr))
+                .table(
+                    Table::new(TextColumn::new(lens!(Employee.name)))
+                        .row_color(|e: &Employee| (e.salary == "S-900").then_some(Color::Danger))
+                        .row_color_reading(Reads::of(lens!(Employee.salary))),
+                )
+        }
+    }
+
+    let db = db().await;
+    let router = mount(db.clone(), panel().resource::<Tinted>()).expect("the panel mounts");
+    employee(&db, HR, "Ada", "S-900").await;
+    employee(&db, SALES, "Ada", "S-900").await;
+
+    let tints = |html: &str| {
+        rows(html)
+            .into_iter()
+            .map(|row| row.color)
+            .collect::<Vec<_>>()
+    };
+    let hr = TestClient::new(&router).tenant(HR);
+    assert_eq!(
+        tints(&page(&hr, "/admin/tinted").await),
+        [Some("danger".to_string())]
+    );
+    let sales = TestClient::new(&router).tenant(SALES);
+    assert_eq!(tints(&page(&sales, "/admin/tinted").await), [None]);
 }
 
 /// A rule over edits alone leaves the field shown to every user, so a title over it mounts, and a

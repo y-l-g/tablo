@@ -4,6 +4,7 @@ use std::fmt;
 
 mod action_input;
 mod auth;
+mod editable;
 mod field_access;
 mod field_rule;
 mod locale;
@@ -20,6 +21,7 @@ pub use auth::{
     AuthMailFault, ProfileFault, ResetFault, SignUpFault, TenantProfileFault,
     TenantRegistrationFault, TwoFactorFault, VerificationFault,
 };
+pub use editable::EditableColumnFault;
 pub use field_access::FieldAccessFault;
 pub use field_rule::FieldRuleFault;
 use field_rule::fmt_field_rule;
@@ -67,19 +69,7 @@ impl DeclarationError {
 impl fmt::Display for DeclarationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(resource) = self.resource {
-            write!(f, "`{resource}`")?;
-            match &self.site {
-                Site::Panel | Site::Registration => {}
-                Site::Tenancy => f.write_str(" tenancy")?,
-                Site::SoftDelete => f.write_str(" soft delete")?,
-                Site::FieldAccess(field) => write!(f, " field access `{field}`")?,
-                Site::RecordTitle => f.write_str(" record title")?,
-                Site::Table => f.write_str(" table")?,
-                Site::Form => f.write_str(" form")?,
-                Site::Detail => f.write_str(" detail")?,
-                Site::Relation(key) => write!(f, " relation `{key}`")?,
-            }
-            f.write_str(": ")?;
+            write!(f, "`{resource}`{}: ", self.site)?;
         }
         write!(f, "{}", self.kind)
     }
@@ -233,6 +223,13 @@ pub enum DeclarationErrorKind {
         /// The shared name.
         name: String,
     },
+    /// A column cannot edit its field in a table's cell.
+    EditableColumn {
+        /// The column's name, which is its field's.
+        column: String,
+        /// What is wrong with it.
+        fault: EditableColumnFault,
+    },
     /// An action's input cannot be served.
     ActionInput {
         /// The action's `NAME`.
@@ -330,7 +327,7 @@ pub enum DeclarationErrorKind {
     ///
     /// Pass a page size of at least 1.
     ZeroPageSize,
-    /// `Table::default_sort` names no sortable column.
+    /// `Table::default_sort_by` names no sortable column.
     ///
     /// Declare its column `.sortable()`.
     UnsortableDefaultSort {
@@ -349,6 +346,20 @@ pub enum DeclarationErrorKind {
     /// Rename one.
     DuplicateFilter {
         /// The shared name.
+        name: String,
+    },
+    /// Two list tabs share a key.
+    ///
+    /// Give each [`ListTab`](crate::ListTab) a distinct key.
+    DuplicateTab {
+        /// The shared key.
+        key: String,
+    },
+    /// A table offers two groupings by one field.
+    ///
+    /// Declare each [`Table::group_by`](crate::Table::group_by) once.
+    DuplicateGrouping {
+        /// The field's name.
         name: String,
     },
     /// A table filter's name holds a `.`, which its URL parameters reserve for a part:

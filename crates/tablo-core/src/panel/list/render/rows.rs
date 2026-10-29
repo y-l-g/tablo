@@ -1,19 +1,26 @@
 //! Row projection: the page's rows as the owned views the template renders.
 
 use tablo_ui::{table_cell, table_row};
-use topcoat::{context::Cx, icon::IconData, runtime::Event, view::*};
+use topcoat::{
+    context::Cx,
+    icon::{IconData, icon},
+    runtime::Event,
+    view::*,
+};
 
 use super::{
     super::{RowActions, TableSignals, WiredTable},
     CHROME_CELL_CLASS, Frame,
 };
 use crate::{
+    column::Column,
     panel::url::{delete_action_url, row_action_url, row_edit_url, row_view_url},
     t,
-    table::{GroupKey, TablePage, bulk_token, group_header_dom_id, row_dom_id},
+    table::{GroupDef, TablePage, bulk_token, group_header_dom_id, row_dom_id},
 };
 
 mod actions;
+mod edit;
 
 /// What every row of one render shares: the chrome columns, each column's cell layout, and the
 /// table's signals and write form.
@@ -83,28 +90,84 @@ pub(super) fn render_rows<'a>(
         .collect()
 }
 
-/// One row: its group header when it opens a group, the bulk checkbox, the
-/// cells, and the actions cell.
-fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxView<'a> {
-    let header = row.group_header.clone().map(|header| {
-        let colspan = chrome.header_colspan;
-        let id = group_header_dom_id(&chrome.id_scope, &header.label);
-        let label = header.label.clone();
-        view! {
-            cx =>
-            table_row(
-                attrs: attributes! { id=(id) data-group=(label) },
-                table_cell(
-                    attrs: attributes! {
-                        colspan=(colspan)
-                        class="bg-muted/60 px-3 py-2 text-sm font-medium text-foreground"
-                    },
-                    (header.text)
-                )
+/// A group's header row: its label on a button that collapses and expands the group's rows. `run`
+/// counts the group's earlier runs on the page, which keeps the header's id its own when a group's
+/// rows come apart, as rows equal under a case-insensitive collation can.
+fn render_group_header<'a>(
+    cx: &'a Cx,
+    group: RowGroup,
+    run: usize,
+    chrome: &RowChrome,
+) -> BoxView<'a> {
+    let colspan = chrome.header_colspan;
+    let id = group_header_dom_id(&chrome.id_scope, &format!("{}{run}", group.token));
+    let RowGroup { token, label } = group;
+    let (shown, toggled) = (
+        chrome.signals.collapsed.clone(),
+        chrome.signals.collapsed.clone(),
+    );
+    let (expanded_token, toggle_token) = (token.clone(), token);
+    view! {
+        cx =>
+        table_row(
+            attrs: attributes! { id=(id) data-group=(label.clone()) },
+            table_cell(
+                attrs: attributes! {
+                    colspan=(colspan)
+                    class="bg-muted/60 px-3 py-2 text-sm font-medium text-foreground"
+                },
+                <button
+                    type="button"
+                    class="inline-flex items-center gap-2 [&[aria-expanded=false]>svg]:-rotate-90"
+                    aria-expanded="true"
+                    :aria-expanded=$({
+                        let wire = shown.get();
+                        if raw!(
+                            "cx.hydrate(String(${wire}).includes(String(${expanded_token})))",
+                            wire.contains(expanded_token.as_str()),
+                        ) {
+                            "false"
+                        } else {
+                            "true"
+                        }
+                    })
+                    @click=$(|_e: Event| {
+                        let wire = toggled.get();
+                        if raw!(
+                            "cx.hydrate(String(${wire}).includes(String(${toggle_token})))",
+                            wire.contains(toggle_token.as_str()),
+                        ) {
+                            let current = toggled.get();
+                            toggled.set(
+                                raw!(
+                                    "cx.hydrate(String(${current}).replaceAll(String(${toggle_token}), ','))",
+                                    current.to_owned(),
+                                ),
+                            );
+                        } else {
+                            toggled.push_str(toggle_token);
+                        }
+                    })
+                >
+                    icon(
+                        data: tablo_ui::icons::CHEVRON_DOWN,
+                        attrs: attributes! { class="size-4 transition-transform" }
+                    )
+                    (label)
+                </button>
             )
-        }
-        .boxed()
-    });
+        )
+    }
+    .boxed()
+}
+
+/// One row: its group header when it opens a group, the bulk checkbox, the
+/// cells, and the actions cell. A grouped row hides while its group is collapsed.
+fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxView<'a> {
+    let header = row
+        .opens_group
+        .zip(row.group.clone())
+        .map(|(run, group)| render_group_header(cx, group, run, chrome));
     let dom_id = chrome.row_id(&row.key);
     let bulk_cell = chrome.with_bulk.then(|| {
         if row.selectable {
@@ -154,7 +217,15 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
     // The whole row opens its record: an empty link in the first cell stretches over the row, and
     // the cells' own links and controls rise above it.
     let record_url = row.view_url.clone().or_else(|| row.edit_url.clone());
-    let row_class = record_url.is_some().then_some(RECORD_ROW_CLASS);
+    let row_class = [
+        record_url.is_some().then_some(RECORD_ROW_CLASS),
+        row.color.map(crate::Color::row_class),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>()
+    .join(" ");
+    let tint = row.color.map(crate::Color::name);
     let cells: Vec<(BoxView<'a>, CellLayout)> = std::mem::take(&mut row.cells)
         .into_iter()
         .zip(chrome.cells.iter().cloned())
@@ -167,13 +238,32 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
     let actions = chrome
         .with_actions
         .then(|| actions::render_actions(cx, &row, chrome));
+    let mut row_attrs = attributes! {
+        cx =>
+        id=(dom_id)
+        class=(row_class)
+        data-row-color=(tint)
+    };
+    if let Some(group) = &row.group {
+        let (collapsed, token) = (chrome.signals.collapsed.clone(), group.token.clone());
+        row_attrs.extend(attributes! {
+            cx =>
+            :hidden=$({
+                let wire = collapsed.get();
+                raw!(
+                    "cx.hydrate(String(${wire}).includes(String(${token})))",
+                    wire.contains(token.as_str()),
+                )
+            })
+        });
+    }
     view! {
         cx =>
         if let Some(header) = header {
             (header)
         }
         table_row(
-            attrs: attributes! { id=(dom_id) class=(row_class) },
+            attrs: row_attrs,
             if let Some(cell) = bulk_cell {
                 (cell)
             }
@@ -233,11 +323,22 @@ pub(super) struct RowView<'a> {
     custom: Vec<RowButton>,
     /// Whether the row renders a bulk checkbox.
     selectable: bool,
-    /// The row's group label, when `?group_by=` names the declared group.
-    group: Option<String>,
-    /// The header this row renders above itself, `Some` only on the first row
-    /// of its group.
-    group_header: Option<GroupHeader>,
+    /// The tint the table's [`row_color`](crate::Table::row_color) gives the row.
+    color: Option<crate::Color>,
+    /// The row's group, when `?group_by=` names a declared grouping.
+    group: Option<RowGroup>,
+    /// When the row opens a run of its group on the page, rendering the group's header above
+    /// itself: how many runs of the group come before.
+    opens_group: Option<usize>,
+}
+
+/// The group a row falls in.
+#[derive(Clone, PartialEq)]
+struct RowGroup {
+    /// What its collapse writes, as [`GroupDef::token`] spells it.
+    token: String,
+    /// What its header shows.
+    label: String,
 }
 
 /// One custom action's button in a row.
@@ -256,16 +357,6 @@ struct RowButton {
     disabled: Option<String>,
 }
 
-/// One page-local group header: the label with its page-local count, and the label its injected
-/// row's stable DOM id derives from.
-#[derive(Clone)]
-struct GroupHeader {
-    /// `"{label} ({n} on this page)"`.
-    text: String,
-    /// The group's label, which its DOM id derives from.
-    label: String,
-}
-
 impl<M> WiredTable<M> {
     /// Whether `row`, whose policy allows `actions`, takes a bulk checkbox: bulk delete
     /// allows deleting it, or a bulk custom action allows it.
@@ -276,6 +367,38 @@ impl<M> WiredTable<M> {
                 .any(|action| (action.allowed)(row))
     }
 
+    /// `row`'s cell in `col`: its control, in a form posting it to the record's edit route,
+    /// where the row may be edited and the user may change the column's field; else its value.
+    fn cell<'a>(
+        &self,
+        cx: &'a Cx,
+        frame: &Frame<'_>,
+        row: &M,
+        key: &str,
+        actions: RowActions,
+        col: &dyn Column<M>,
+    ) -> BoxView<'a> {
+        let edit = col.edits().zip(frame.edit_prefix.filter(|_| actions.edit));
+        let edits = self
+            .cell_edits()
+            .filter(|edits| (edits.changes)(col.name()));
+        let (Some((editor, prefix)), Some(edits)) = (edit, edits) else {
+            return col.cell(cx, row);
+        };
+        let row_id = row_dom_id(self.prefix().unwrap_or("table"), key);
+        edit::cell_form(
+            cx,
+            edit::CellForm {
+                id: format!("{row_id}-edit-{}", col.name()),
+                action: frame.action_url(row_edit_url(prefix, key)),
+                column: col.name().to_string(),
+                version: (edits.version)(row),
+                saves_on_change: editor.saves_on_change(),
+                control: col.editor(cx, row),
+            },
+        )
+    }
+
     /// Project the loaded page into the row presentation the template renders, wired as
     /// `frame` says.
     pub(super) fn row_views<'a>(
@@ -283,7 +406,7 @@ impl<M> WiredTable<M> {
         cx: &'a Cx,
         frame: &Frame<'_>,
         page: &TablePage<M>,
-        group_key: Option<&GroupKey<M>>,
+        grouping: Option<&GroupDef<M>>,
     ) -> Vec<RowView<'a>>
     where
         M: toasty::schema::Model,
@@ -303,7 +426,7 @@ impl<M> WiredTable<M> {
                 };
                 let cells: Vec<BoxView<'a>> = self
                     .visible_columns()
-                    .map(|col| col.cell(cx, row))
+                    .map(|col| self.cell(cx, frame, row, &key, actions, col.as_ref()))
                     .collect();
                 let edit_url = frame
                     .edit_prefix
@@ -353,27 +476,30 @@ impl<M> WiredTable<M> {
                     delete_action,
                     custom,
                     selectable,
-                    group: group_key.map(|group| group(row).localize(cx)),
-                    group_header: None,
+                    color: self.color_of(row),
+                    group: grouping.map(|group| {
+                        let label = group.key()(row).map(|label| label.localize(cx));
+                        RowGroup {
+                            token: group.token(label.as_deref()),
+                            label: label.unwrap_or_else(|| t!(cx, "tablo-list-group-empty")),
+                        }
+                    }),
+                    opens_group: None,
                 }
             })
             .collect();
-        if group_key.is_some() {
-            row_data.sort_by(|a, b| a.group.cmp(&b.group));
-            let mut start = 0;
-            while start < row_data.len() {
-                let label = row_data[start].group.clone().unwrap_or_default();
-                let mut end = start;
-                while end < row_data.len() && row_data[end].group.as_deref() == Some(label.as_str())
-                {
-                    end += 1;
-                }
-                row_data[start].group_header = Some(GroupHeader {
-                    text: format!("{label} ({} on this page)", end - start),
-                    label,
-                });
-                start = end;
+        // The query orders the rows by the grouping's field, so a group's rows run together and
+        // a new group opens the next run.
+        let mut previous: Option<String> = None;
+        let mut runs: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        for row in &mut row_data {
+            let token = row.group.as_ref().map(|group| group.token.clone());
+            if token.is_some() && token != previous {
+                let run = runs.entry(token.clone().unwrap_or_default()).or_default();
+                row.opens_group = Some(*run);
+                *run += 1;
             }
+            previous = token;
         }
         row_data
     }

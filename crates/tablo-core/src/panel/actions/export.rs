@@ -90,8 +90,9 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
             cap,
         );
         let mut db_handle = db(cx)?;
-        let mut visible = 0usize;
+        let (mut visible, mut scanned) = (0usize, false);
         while let Some(rows) = chunker.next_chunk(&mut db_handle).await? {
+            scanned |= !rows.is_empty();
             visible += rows
                 .iter()
                 .filter(|r| resource.can(cx, Ability::View(r)))
@@ -110,7 +111,10 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
         let stream: crate::BoxFuture<'static, ()> = Box::pin(async move {
             let mut tx = tx;
             let mut chunker = match export_base_query(&cx2, &resource, &table, &state, &refused) {
-                Ok(query) => ExportChunker::new(table.include_relations(query), cap),
+                // A query holding no row loads without includes, which Toasty panics planning
+                // over a filter it folds to `false` (`table::holds_rows`).
+                Ok(query) if scanned => ExportChunker::new(table.include_relations(query), cap),
+                Ok(query) => ExportChunker::new(query, cap),
                 Err(error) => {
                     tracing::error!(resource = resource.slug, error = %error, "export stream failed");
                     tx.abort(std::io::Error::other("export unavailable"));

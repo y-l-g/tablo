@@ -367,6 +367,7 @@ fn populated_state() -> TableState {
         ]),
         filters_dropped: false,
         group_by: Some("status".to_string()),
+        tab: Some("drafts".to_string()),
     }
 }
 
@@ -400,6 +401,23 @@ fn each_projection_changes_only_its_own_part_of_the_state() {
         reparse(&source.without_filters(path)),
         expect(&|state| {
             state.filters = BTreeMap::new();
+            state.cursor = None;
+            state.page = None;
+        })
+    );
+    assert_eq!(
+        reparse(&source.without_narrowing(path)),
+        expect(&|state| {
+            state.filters = BTreeMap::new();
+            state.tab = None;
+            state.cursor = None;
+            state.page = None;
+        })
+    );
+    assert_eq!(
+        reparse(&source.with_tab(path, Some("published"))),
+        expect(&|state| {
+            state.tab = Some("published".to_string());
             state.cursor = None;
             state.page = None;
         })

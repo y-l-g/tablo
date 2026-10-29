@@ -44,7 +44,7 @@ pub enum FieldAccessFault {
     /// Declare `.reading(Reads::of(..))` on a `ComputedColumn`, a `QueryFilter` or a described
     /// `TextColumn`, or implement `reads` on a custom column or filter.
     UndeclaredReads {
-        /// `"column"` or `"filter"`.
+        /// `"column"`, `"filter"` or `"tab"`.
         what: &'static str,
         /// The column's or the filter's name.
         name: String,
@@ -120,7 +120,8 @@ impl fmt::Display for FieldAccessFault {
                 "`{name}` reads `{model}` records under no mounted resource's field access, and a \
                  mounted resource restricts a field of `{model}`: read them through a resource, \
                  with `RelationColumn::new::<R>` naming the fields it reads or `RelationColumn::of::<R>` \
-                 for their title, and keep a computed or custom column off a page that loads them"
+                 for their title, and keep a computed or custom column, a text column's closure or a row \
+                 color off a page that loads them"
             ),
             Self::NarrowedBy { field } => write!(
                 f,

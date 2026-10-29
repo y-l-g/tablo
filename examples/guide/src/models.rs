@@ -18,7 +18,9 @@ pub struct User {
 // ANCHOR: role-options
 #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo::Options)]
 pub enum Role {
+    #[option(icon = tablo::ui::icons::USER)]
     Admin,
+    #[option(icon = tablo::ui::icons::USERS)]
     Member,
 }
 // ANCHOR_END: role-options

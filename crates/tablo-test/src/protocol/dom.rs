@@ -11,37 +11,12 @@
 //! The queries assume one table per document: rows never nest, and cells carry text rather than
 //! nested tables.
 
-use tablo_core::dom::{empty, error, row};
+use tablo_core::dom::{empty, error};
 
-use super::controls::{DisabledAction, disabled_actions};
+pub use self::rows::{CellEdit, Group, Row, RowActions, groups, row_actions, row_keys, rows};
 
 pub(crate) type Attrs = Vec<(String, Option<String>)>;
 pub(crate) type Element = (String, Attrs, String);
-
-/// One data row of a rendered table.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Row {
-    /// The bulk checkbox value, the record key when the row is selectable.
-    pub select_value: Option<String>,
-    /// The cell texts in column order, including the bulk and actions cells.
-    pub cells: Vec<String>,
-    /// The row's actions, nested so hrefs have one source.
-    pub actions: RowActions,
-}
-
-/// The action targets of one row.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RowActions {
-    /// The `View` link target, `None` when policy hides it.
-    pub view: Option<String>,
-    /// The `Edit` link target, `None` when policy hides it.
-    pub edit: Option<String>,
-    /// The `Delete` POST target, carried as its button's `formaction`; `None` when policy hides
-    /// it.
-    pub delete_action: Option<String>,
-    /// The custom actions the row shows disabled, in document order.
-    pub disabled: Vec<DisabledAction>,
-}
 
 /// One `<option>` of a filter select, or one checkbox of a filter checklist.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -153,88 +128,12 @@ pub fn column_picker(html: &str) -> Option<Vec<PickerColumn>> {
     (!columns.is_empty()).then_some(columns)
 }
 
-/// The data rows of `html` in document order, excluding group headers.
-pub fn rows(html: &str) -> Vec<Row> {
-    let mut out = Vec::new();
-    for (_, attrs, inner) in elements(html, "tr") {
-        let Some(id) = attr_value(&attrs, "id") else {
-            continue;
-        };
-        if !id.starts_with("row-") {
-            continue;
-        }
-        out.push(row(&inner));
-    }
-    out
-}
-
-/// One group of a grouped table: its header's label and the rows under it on this page.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Group {
-    /// The label the group's header shows.
-    pub label: String,
-    /// The group's rows on this page, in document order.
-    pub rows: Vec<Row>,
-}
-
-/// The groups of `html` in document order, empty when the table renders ungrouped. A group holds
-/// the rows from its header to the next one.
-pub fn groups(html: &str) -> Vec<Group> {
-    let mut out: Vec<Group> = Vec::new();
-    for (_, attrs, inner) in elements(html, "tr") {
-        if let Some(label) = attr_value(&attrs, "data-group") {
-            out.push(Group {
-                label,
-                rows: Vec::new(),
-            });
-        } else if attr_value(&attrs, "id").is_some_and(|id| id.starts_with("row-"))
-            && let Some(group) = out.last_mut()
-        {
-            group.rows.push(row(&inner));
-        }
-    }
-    out
-}
-
-/// The record key of every row in document order, read from its bulk checkbox: a row with no
-/// checkbox has none to read.
-pub fn row_keys(html: &str) -> Vec<String> {
-    rows(html)
-        .into_iter()
-        .filter_map(|row| row.select_value)
-        .collect()
-}
-
 /// The first `href` in `html` that contains `needle`, its entities decoded.
 pub fn find_href_with(html: &str, needle: &str) -> Option<String> {
     open_tags(html)
         .into_iter()
         .filter_map(|(_, attrs, _)| attr_value(&attrs, "href"))
         .find(|href| href.contains(needle))
-}
-
-/// The action targets of the row whose checkbox value or action URL carries
-/// `key`, or `None` when no row matches.
-pub fn row_actions(html: &str, key: &str) -> Option<RowActions> {
-    rows(html).into_iter().find_map(|row| {
-        let matches = row.select_value.as_deref() == Some(key)
-            || row
-                .actions
-                .view
-                .as_deref()
-                .is_some_and(|href| href_contains_key(href, key))
-            || row
-                .actions
-                .edit
-                .as_deref()
-                .is_some_and(|href| href_contains_key(href, key))
-            || row
-                .actions
-                .delete_action
-                .as_deref()
-                .is_some_and(|action| href_contains_key(action, key));
-        matches.then_some(row.actions)
-    })
 }
 
 /// Why a field renders an error, as its error slot's `data-error` names it.
@@ -322,47 +221,7 @@ pub fn filter_options(html: &str, name: &str) -> Option<Vec<FilterOption>> {
     Some(options)
 }
 
-fn row(row_html: &str) -> Row {
-    let mut select_value = None;
-    for (tag, attrs, _) in open_tags(row_html) {
-        if tag == "input" && attr_value(&attrs, "data-row-select").is_some() {
-            select_value = attr_value(&attrs, "value");
-            break;
-        }
-    }
-    let mut cells = Vec::new();
-    for (_, _, inner) in elements(row_html, "td") {
-        cells.push(strip_text(&inner));
-    }
-    let mut view_href = None;
-    let mut edit_href = None;
-    let mut delete_action = None;
-    for (_, attrs, _) in open_tags(row_html) {
-        match attr_value(&attrs, "data-row-action").as_deref() {
-            Some(row::VIEW) => view_href = attr_value(&attrs, "href"),
-            Some(row::EDIT) => edit_href = attr_value(&attrs, "href"),
-            Some(row::DELETE) => delete_action = attr_value(&attrs, "formaction"),
-            _ => {}
-        }
-    }
-    Row {
-        select_value,
-        cells,
-        actions: RowActions {
-            view: view_href,
-            edit: edit_href,
-            delete_action,
-            disabled: disabled_actions(row_html),
-        },
-    }
-}
-
-fn href_contains_key(href: &str, key: &str) -> bool {
-    href.split(['?', '#', '/', '&'])
-        .any(|segment| segment == key)
-}
-
-fn is_selected(attrs: &Attrs) -> bool {
+pub(crate) fn is_selected(attrs: &Attrs) -> bool {
     attrs.iter().any(|(name, _)| name == "selected")
 }
 
@@ -582,5 +441,6 @@ fn decode_entities(text: &str) -> String {
         .replace("&amp;", "&")
 }
 
+mod rows;
 #[cfg(test)]
 mod tests;

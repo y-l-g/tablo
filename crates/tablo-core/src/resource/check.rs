@@ -68,6 +68,7 @@ pub(crate) fn check_resource<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationE
     super::field_access::check_filters::<R>(cx, &declared, errors);
     super::field_access::check_choices::<R, _>(cx, &declared.form, Site::Form, errors);
     check_actions(cx, &declared, errors);
+    super::editable::check(&declared, errors);
     if declared.imports && !declared.creates {
         errors.push(DeclarationError::of::<R>(
             Site::Registration,

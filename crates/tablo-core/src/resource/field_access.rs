@@ -287,9 +287,17 @@ pub(crate) fn check<R: Resource>(
             faults.push((Site::Table, undeclared("column", column.name())));
         }
     }
+    if declared.table.row_color_reads_undeclared() {
+        faults.push((Site::Table, undeclared("row color", "row_color")));
+    }
     for filter in declared.table.declared_filters() {
         if filter.reads().is_none() {
             faults.push((Site::Table, undeclared("filter", filter.name())));
+        }
+    }
+    for tab in declared.table.declared_tabs() {
+        if tab.reads().is_none() {
+            faults.push((Site::Table, undeclared("tab", tab.key())));
         }
     }
     for column in declared.detail.undeclared_reads() {
@@ -313,18 +321,21 @@ pub(crate) fn check_columns<R: Resource>(
         return;
     }
     let table: Vec<_> = declared.table.declared_columns().iter().collect();
-    check_page::<R>(cx, Site::Table, &table, errors);
-    check_page::<R>(cx, Site::Detail, &declared.detail.columns(), errors);
+    let row_color = declared.table.tints_rows().then_some("row color");
+    check_page::<R>(cx, Site::Table, &table, row_color, errors);
+    check_page::<R>(cx, Site::Detail, &declared.detail.columns(), None, errors);
 }
 
 /// What `columns`, the columns of one page, show under no field access a panel can mask. A column
 /// reading related records no mounted resource masks is refused over a restricted model its own
-/// includes load; a column reading its row is refused on a page whose columns load one, since its
-/// closure may read the related record through any of them.
+/// includes load; a column reading its row, and `row_reader`, the page's other closure over its
+/// rows, are refused on a page whose columns load one, since a closure may read the related record
+/// through any of them.
 fn check_page<R: Resource>(
     cx: &Cx,
     site: Site,
     columns: &[&BoxColumn<R::Model>],
+    row_reader: Option<&str>,
     errors: &mut Vec<DeclarationError>,
 ) {
     let loads: Vec<Option<Vec<(model::ModelId, String)>>> = columns
@@ -338,18 +349,31 @@ fn check_page<R: Resource>(
         .flatten()
         .find(|(model, _)| is_restricted_model(cx, *model))
         .map(|(_, name)| name.clone());
+    let reads_row = |name: String| match (unresolved, &page_restricted) {
+        (true, _) => Some(FieldAccessFault::UnresolvedRelation { name }),
+        (false, Some(model)) => Some(FieldAccessFault::UnmaskedRelation {
+            name,
+            model: model.clone(),
+        }),
+        (false, None) => None,
+    };
+    let push = |errors: &mut Vec<DeclarationError>, fault| {
+        errors.push(DeclarationError::of::<R>(
+            site.clone(),
+            DeclarationErrorKind::FieldAccess { fault },
+        ));
+    };
+    if let Some(fault) = row_reader.and_then(|name| reads_row(name.to_string())) {
+        push(errors, fault);
+    }
     for (column, own) in columns.iter().zip(&loads) {
         let name = column.name().to_string();
         let fault = match column.related() {
             Related::None => continue,
             Related::Source(source) if is_mounted(cx, source) => continue,
-            Related::Row => match (unresolved, &page_restricted) {
-                (true, _) => FieldAccessFault::UnresolvedRelation { name },
-                (false, Some(model)) => FieldAccessFault::UnmaskedRelation {
-                    name,
-                    model: model.clone(),
-                },
-                (false, None) => continue,
+            Related::Row => match reads_row(name) {
+                Some(fault) => fault,
+                None => continue,
             },
             Related::Source(_) | Related::Unmasked => match own {
                 None => FieldAccessFault::UnresolvedRelation { name },
@@ -367,10 +391,7 @@ fn check_page<R: Resource>(
                 }
             },
         };
-        errors.push(DeclarationError::of::<R>(
-            site.clone(),
-            DeclarationErrorKind::FieldAccess { fault },
-        ));
+        push(errors, fault);
     }
 }
 
@@ -421,9 +442,9 @@ pub(crate) fn check_choices<T: 'static, F>(
     }
 }
 
-/// What `declared`'s filters show or read that no mount may: records under a label a panel cannot
-/// mask, and records a relation the filter's reads reach holds, of a model a mounted resource
-/// restricts a field of.
+/// What `declared`'s filters and tabs show or read that no mount may: records under a label a
+/// panel cannot mask, and records a relation the filter's or the tab's reads reach holds, of a
+/// model a mounted resource restricts a field of.
 pub(crate) fn check_filters<R: Resource>(
     cx: &Cx,
     declared: &Mounted<R>,
@@ -442,22 +463,33 @@ pub(crate) fn check_filters<R: Resource>(
                 model: model.to_string(),
             })
         } else {
-            match filter.reads() {
-                None => None,
-                Some(reads) => match model::read_relations::<R::Model>(reads.fields()) {
-                    Some(models) if !reads.is_unresolved() => models
-                        .into_iter()
-                        .find(|(model, _)| is_restricted_model(cx, *model))
-                        .map(|(_, model)| FieldAccessFault::UnmaskedRelation { name, model }),
-                    _ => Some(FieldAccessFault::UnresolvedRelation { name }),
-                },
-            }
+            relation_fault(cx, name, filter.reads())
         };
-        if let Some(fault) = fault {
-            errors.push(DeclarationError::of::<R>(
-                Site::Table,
-                DeclarationErrorKind::FieldAccess { fault },
-            ));
-        }
+        errors.extend(fault.map(|fault| {
+            DeclarationError::of::<R>(Site::Table, DeclarationErrorKind::FieldAccess { fault })
+        }));
+    }
+    for tab in declared.table.declared_tabs() {
+        let fault = relation_fault(cx, tab.key().to_string(), tab.reads());
+        errors.extend(fault.map(|fault| {
+            DeclarationError::of::<R>(Site::Table, DeclarationErrorKind::FieldAccess { fault })
+        }));
+    }
+}
+
+/// The relation a filter's or a tab's `reads`, named `name`, reach that no mount may read: one
+/// whose model a mounted resource restricts a field of, or one the mount cannot resolve.
+fn relation_fault<M: toasty::schema::Model>(
+    cx: &Cx,
+    name: String,
+    reads: Option<crate::Reads<M>>,
+) -> Option<FieldAccessFault> {
+    let reads = reads?;
+    match model::read_relations::<M>(reads.fields()) {
+        Some(models) if !reads.is_unresolved() => models
+            .into_iter()
+            .find(|(model, _)| is_restricted_model(cx, *model))
+            .map(|(_, model)| FieldAccessFault::UnmaskedRelation { name, model }),
+        _ => Some(FieldAccessFault::UnresolvedRelation { name }),
     }
 }

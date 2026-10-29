@@ -62,7 +62,7 @@ pub mod __macro {
         stmt,
         stmt::{List, Path},
     };
-    pub use topcoat::context::Cx;
+    pub use topcoat::{context::Cx, icon::IconData};
 
     pub use crate::{
         Color, Lens, Text,
@@ -152,14 +152,15 @@ pub use chart::{Chart, Series, chart};
 pub use column::RichTextColumn;
 pub use column::{
     BooleanColumn, ColorColumn, ColumnToggle, ColumnWidth, ComputedColumn, CountColumn, DateColumn,
-    DateValue, EmbeddedColumn, FileColumn, ImageColumn, IntoColumns, RelationColumn, RelationLens,
-    RepeaterColumn, TextColumn, ToOneRelation, contains_expr,
+    DateValue, EmbeddedColumn, FileColumn, IconColumn, ImageColumn, IntoColumns, RelationColumn,
+    RelationLens, RepeaterColumn, SelectColumn, TextColumn, TextInputColumn, ToOneRelation,
+    ToggleColumn, contains_expr,
 };
 pub use declaration::{
-    ActionInputFault, AuthMailFault, DeclarationError, DeclarationErrorKind, FieldAccessFault,
-    FieldRuleFault, LocaleFault, ManyToManyFault, MountError, ProfileFault, ResetFault,
-    SegmentFault, SignUpFault, Site, TenancyFault, TenantProfileFault, TenantRegistrationFault,
-    TwoFactorFault, VerificationFault,
+    ActionInputFault, AuthMailFault, DeclarationError, DeclarationErrorKind, EditableColumnFault,
+    FieldAccessFault, FieldRuleFault, LocaleFault, ManyToManyFault, MountError, ProfileFault,
+    ResetFault, SegmentFault, SignUpFault, Site, TenancyFault, TenantProfileFault,
+    TenantRegistrationFault, TwoFactorFault, VerificationFault,
 };
 pub use derive::{EmbeddedForm, FormInput, ModelColumns, ModelForm, Options, RecordForm};
 pub use detail::{Detail, IntoDetail};
@@ -174,7 +175,7 @@ pub use notification::stored::Notifications;
 pub use outcome::{Notification, NotificationAction, NotificationStatus, Outcome};
 pub use page::{Page, PageDef};
 pub use panel::{
-    Brand, Panel, PanelHandle, RouterBuilderPanelExt, WiredTable, can_list, can_open,
+    Brand, Panel, PanelHandle, RouterBuilderPanelExt, WiredTable, can_list, can_open, list_query,
     navigation_item, pages::header_action_buttons, record_table, stats, url, widgets, wired_table,
 };
 pub use policy::{Abilities, Ability, Allow, And, Deny, Or, Policy, ReadOnly, When, when};
@@ -195,8 +196,8 @@ pub use schema::{
 };
 pub use table::{
     ActionLayout, Cursor, DEFAULT_PAGE_SIZE, DEFAULT_PER_PAGE_OPTIONS, DateFilter, FilterValue,
-    IntoFilters, ModelColumns, PagePosition, Pagination, QueryFilter, SelectFilter, Sort, Table,
-    TablePage, TableState, TernaryFilter,
+    IntoFilters, ListTab, ModelColumns, PagePosition, Pagination, QueryFilter, SelectFilter, Sort,
+    Table, TablePage, TableState, TernaryFilter,
 };
 pub use tenancy::{Membership, Tenancy, Tenant, TenantColumn, TenantId, require_tenant, tenant_id};
 pub use upload::{DirUploader, Uploader, sanitize_filename};

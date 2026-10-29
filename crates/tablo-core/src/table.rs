@@ -8,31 +8,38 @@
 use std::{marker::PhantomData, num::NonZeroUsize, sync::Arc};
 
 use derive_where::derive_where;
-use toasty::stmt::{Expr, List};
+use toasty::stmt::List;
 use topcoat::context::Cx;
 
-pub(crate) use self::choice::ColumnChoice;
 use self::filter::BoxFilter;
+pub(crate) use self::{applied::ignored_reason, choice::ColumnChoice};
+use crate::DeclarationErrorKind;
 pub(crate) use crate::column::{BoxColumn, Column, include_relations, restrict_relations};
-use crate::{DeclarationErrorKind, Lens, dom::ignored, schema::Binding, values::FormScalar};
 
+mod applied;
 mod choice;
 mod export;
 pub(crate) mod filter;
+mod group;
 mod mask;
 pub(crate) mod model;
 mod page;
+mod row_color;
 mod search;
 mod sort;
 mod state;
+mod tab;
 
+use self::sort::FieldOrder;
 pub use self::{
     filter::{DateFilter, FilterValue, IntoFilters, QueryFilter, SelectFilter, TernaryFilter},
     model::ModelColumns,
     page::{DEFAULT_PAGE_SIZE, DEFAULT_PER_PAGE_OPTIONS, PagePosition, Pagination, TablePage},
     state::{Cursor, Sort, TableState},
+    tab::ListTab,
 };
 pub(crate) use self::{
+    group::GroupDef,
     page::{Past, row_exists_past},
     state::{bulk_key, bulk_token, group_header_dom_id, query_of, request_query, row_dom_id},
 };
@@ -40,16 +47,6 @@ pub(crate) use crate::{
     column::{ColumnToggle, ColumnWidth, IntoColumns, contains_expr},
     display::Alignment,
 };
-
-/// Group-label projection reads a row's group off one model instance.
-pub(crate) type GroupKey<M> = Arc<dyn Fn(&M) -> crate::Text + Send + Sync>;
-
-/// A named grouping a `Table` renders.
-#[derive_where(Clone)]
-pub(crate) struct GroupDef<M> {
-    binding: Binding,
-    key: GroupKey<M>,
-}
 
 /// Where a table puts a row's actions: its custom actions, View, Edit and Delete.
 ///
@@ -75,11 +72,11 @@ pub enum ActionLayout {
 ///
 /// A clone shares every column, filter and projection.
 ///
-/// The list keeps its whole state in the URL: `?q=` searches, `?sort=` and `?dir=` sort,
-/// `?page=`, `?per_page=`, `?after=` and `?before=` page, `?f.<name>=` filters and `?group_by=`
-/// groups. Each row is keyed by its record's primary key, which the action URLs and bulk
-/// checkboxes carry; a composite key has no URL form, so its rows render without row actions or
-/// bulk selection.
+/// The list keeps its whole state in the URL: `?tab=` picks a [tab](ListTab), `?q=` searches,
+/// `?sort=` and `?dir=` sort, `?page=`, `?per_page=`, `?after=` and `?before=` page,
+/// `?f.<name>=` filters and `?group_by=` groups. Each row is keyed by its record's primary key,
+/// which the action URLs and bulk checkboxes carry; a composite key has no URL form, so its rows
+/// render without row actions or bulk selection.
 ///
 /// - Search matches a row any searchable column contains the term in. It escapes `%` and `_`, trims
 ///   the term and caps it at 128 characters, and matches case-insensitively: PostgreSQL runs it as
@@ -92,8 +89,9 @@ pub enum ActionLayout {
 ///   limits, is never dropped silently: the list shows a warning banner naming it, and the export
 ///   answers 400. At most 32 filters apply, each with at most 64 values and parts, each name, part
 ///   and value at most 256 bytes. Active filters combine with AND.
-/// - Grouping runs on the loaded page, so its counts cover that page; a `?group_by=` the table does
-///   not declare is ignored.
+/// - `?group_by=` groups the rows by one of the table's [groupings](Self::group_by), which orders
+///   them by its field ahead of the sort, so a group runs on across pages; one the table does not
+///   declare is ignored.
 /// - The list updates in place: a search, filter, sort or page reruns the page through the runtime,
 ///   keeping focus and scroll, and without JavaScript its links and its search form load the page.
 ///   A table that fails to load shows an error state with a retry link in place of the rows.
@@ -121,7 +119,9 @@ pub struct Table<M> {
     /// Misdeclarations a builder recorded ([`Self::declaration_errors`]).
     misdeclared: Vec<DeclarationErrorKind>,
     filters: Vec<BoxFilter<M>>,
-    group_by: Option<GroupDef<M>>,
+    groupings: Vec<GroupDef<M>>,
+    row_color: row_color::RowColor<M>,
+    tabs: Vec<ListTab<M>>,
     /// A row's key: its record's primary key, as its action URLs carry it.
     key: fn(&M) -> String,
     /// Whether a row's key resolves as a URL id; a composite key does not, so its rows carry no
@@ -134,6 +134,9 @@ pub struct Table<M> {
     per_page_options: Vec<usize>,
     /// The sort a request naming no sortable column reads.
     default_sort: Option<Sort>,
+    /// The field a [`default_sort`](Self::default_sort) orders by, which no sortable column
+    /// need show.
+    default_field: Option<FieldOrder>,
     hide_search: bool,
     hide_filter_menu: bool,
     _marker: PhantomData<M>,
@@ -147,7 +150,18 @@ impl<M> std::fmt::Debug for Table<M> {
                 &self.columns.iter().map(|c| c.name()).collect::<Vec<_>>(),
             )
             .field("filters", &self.filters.len())
-            .field("group_by", &self.group_by.is_some())
+            .field(
+                "groupings",
+                &self
+                    .groupings
+                    .iter()
+                    .map(GroupDef::name)
+                    .collect::<Vec<_>>(),
+            )
+            .field(
+                "tabs",
+                &self.tabs.iter().map(ListTab::key).collect::<Vec<_>>(),
+            )
             .field("page_size", &self.page_size)
             .field("pagination", &self.pagination)
             .field("default_sort", &self.default_sort)
@@ -169,7 +183,9 @@ impl<M> Table<M> {
             columns: cols.into_columns(),
             misdeclared: Vec::new(),
             filters: Vec::new(),
-            group_by: None,
+            groupings: Vec::new(),
+            row_color: row_color::RowColor::default(),
+            tabs: Vec::new(),
             key: crate::toasty_compat::pk::pk_text::<M>,
             addressable: !crate::toasty_compat::pk::pk_is_composite::<M>(),
             page_size: DEFAULT_PAGE_SIZE,
@@ -177,6 +193,7 @@ impl<M> Table<M> {
             action_layout: ActionLayout::default(),
             per_page_options: DEFAULT_PER_PAGE_OPTIONS.to_vec(),
             default_sort: None,
+            default_field: None,
             hide_search: false,
             hide_filter_menu: false,
             _marker: PhantomData,
@@ -221,7 +238,7 @@ impl<M> Table<M> {
         if table
             .default_sort
             .as_ref()
-            .is_some_and(|sort| table.sortable_column(&sort.column).is_none())
+            .is_some_and(|sort| !table.orders_by(sort))
         {
             table.default_sort = None;
         }
@@ -249,6 +266,13 @@ impl<M> Table<M> {
         include_relations(query, &self.columns)
     }
 
+    /// Whether [`Self::include_relations`] adds an include.
+    pub(crate) fn includes_relations(&self) -> bool {
+        self.columns
+            .iter()
+            .any(|column| !column.includes().into_vec().is_empty())
+    }
+
     /// Check which related records `rows`, loaded through [`Self::include_relations`], hold that
     /// the columns' sources show the user.
     pub(crate) async fn restrict_relations(
@@ -258,121 +282,6 @@ impl<M> Table<M> {
         ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<()> {
         restrict_relations(cx, &self.columns, rows, ex).await
-    }
-
-    /// The names of the requested filters whose value [`Filter::admits`] refuses: values naming
-    /// records the user may not see, which [`Self::filter_expr`] and
-    /// [`Self::unapplied_filters`] treat as invalid.
-    ///
-    /// # Errors
-    ///
-    /// The database failing a filter's check.
-    pub(crate) async fn refused_filters(
-        &self,
-        cx: &topcoat::context::Cx,
-        state: &TableState,
-    ) -> topcoat::Result<Vec<String>> {
-        let mut refused = Vec::new();
-        for f in &self.filters {
-            if let Some(value) = state.filters.get(f.name())
-                && !f.admits(cx, value).await?
-            {
-                refused.push(f.name().to_string());
-            }
-        }
-        Ok(refused)
-    }
-
-    /// Filter predicate for the current `TableState`, without the `refused` filters.
-    pub(crate) fn filter_expr(
-        &self,
-        cx: &Cx,
-        state: &TableState,
-        refused: &[String],
-    ) -> Option<Expr<bool>>
-    where
-        M: toasty::schema::Model,
-    {
-        let mut exprs = Vec::new();
-        for f in &self.filters {
-            if let Some(v) = state.filters.get(f.name())
-                && !refused.iter().any(|name| name == f.name())
-                && let Some(e) = f.to_expr(cx, v)
-            {
-                exprs.push(e);
-            }
-        }
-        if exprs.is_empty() {
-            None
-        } else {
-            let mut iter = exprs.into_iter();
-            let first = iter.next().unwrap();
-            Some(iter.fold(first, |acc, e| acc.and(e)))
-        }
-    }
-
-    /// Requested filters that produce no predicate, each spelled as its own parameters
-    /// (`f.status=draft&f.status=review`), beside one entry for dropped parameters. A `refused`
-    /// filter reads as an invalid value, as one naming no record does, so the answer does not
-    /// tell a hidden record from a missing one. Each names why as a [`crate::dom::ignored`] kind,
-    /// which [`ignored_reason`] words.
-    pub(crate) fn unapplied_filters(
-        &self,
-        cx: &Cx,
-        state: &TableState,
-        refused: &[String],
-    ) -> Vec<(String, &'static str)>
-    where
-        M: toasty::schema::Model,
-    {
-        let mut out = Vec::new();
-        for (key, value) in &state.filters {
-            match self.filters.iter().find(|f| f.name() == key) {
-                None => out.push((state.spell_filter(key, value), ignored::UNKNOWN)),
-                Some(f)
-                    if refused.iter().any(|name| name == key)
-                        || (f.to_expr(cx, value).is_none() && !f.is_noop_value(value)) =>
-                {
-                    out.push((state.spell_filter(key, value), ignored::INVALID))
-                }
-                Some(_) => {}
-            }
-        }
-        if state.filters_dropped {
-            out.push(("dropped filters".to_string(), ignored::DROPPED));
-        }
-        out.sort();
-        out
-    }
-
-    /// Offer grouping the page's rows by the field `lens` reads, under the field's name.
-    pub fn group_by<T>(mut self, lens: Lens<M, T>) -> Self
-    where
-        M: toasty::schema::Model + Send + Sync + 'static,
-        T: FormScalar + Send + Sync + 'static,
-    {
-        self.group_by = Some(GroupDef {
-            binding: Binding::of(lens.path()),
-            key: Arc::new(move |record| lens.read(record).to_label()),
-        });
-        self
-    }
-
-    /// The declared grouping iff `state.group_by` names it.
-    pub(crate) fn effective_group_key(&self, state: &TableState) -> Option<GroupKey<M>> {
-        match (&self.group_by, &state.group_by) {
-            (Some(def), Some(want)) if def.binding.name() == want => Some(def.key.clone()),
-            _ => None,
-        }
-    }
-
-    /// Normalize `state.group_by` against the declared grouping.
-    pub(crate) fn normalize_state(&self, state: &TableState) -> TableState {
-        let mut out = state.clone();
-        if self.group_by.as_ref().map(|def| def.binding.name()) != out.group_by.as_deref() {
-            out.group_by = None;
-        }
-        out
     }
 
     /// Page through the rows as `pagination` says; [`Pagination::Pages`] by default.
@@ -423,16 +332,13 @@ impl<M> Table<M> {
     /// What is wrong with this declaration.
     pub fn declaration_errors(&self) -> Vec<DeclarationErrorKind> {
         let mut errors = self.misdeclared.clone();
-        errors.extend(
-            self.group_by
-                .as_ref()
-                .and_then(|def| def.binding.misdeclared()),
-        );
+        errors.extend(self.grouping_errors());
+        errors.extend(self.tab_errors());
         if self.columns.is_empty() {
             errors.push(DeclarationErrorKind::NoColumns);
         }
         if let Some(sort) = &self.default_sort
-            && self.sortable_column(&sort.column).is_none()
+            && !self.orders_by(sort)
         {
             errors.push(DeclarationErrorKind::UnsortableDefaultSort {
                 column: sort.column.clone(),
@@ -545,9 +451,24 @@ impl<M> Table<M> {
         self.order(self.narrow(cx, db, query, state, refused), state)
     }
 
-    /// Narrow `query` to the rows `state`'s search and filters select, but the `refused`
+    /// Narrow `query` to the rows `state`'s tab, search and filters select, but the `refused`
     /// filters, unordered: what a count reads.
     pub(crate) fn narrow(
+        &self,
+        cx: &Cx,
+        db: &toasty::Db,
+        query: toasty::stmt::Query<List<M>>,
+        state: &TableState,
+        refused: &[String],
+    ) -> toasty::stmt::Query<List<M>>
+    where
+        M: toasty::schema::Model,
+    {
+        self.narrow_tab(self.narrow_untabbed(cx, db, query, state, refused), state)
+    }
+
+    /// [`Self::narrow`] but the tab: what a tab's badge counts within.
+    fn narrow_untabbed(
         &self,
         cx: &Cx,
         db: &toasty::Db,
@@ -572,21 +493,6 @@ impl<M> Table<M> {
     /// Whether the declaration enables a filter menu.
     pub(crate) fn filter_menu_enabled(&self) -> bool {
         !self.hide_filter_menu && !self.filters.is_empty()
-    }
-}
-
-/// The wording of a [`crate::dom::ignored`] kind, which the list's banner and the export's
-/// refusal show.
-pub(crate) fn ignored_reason(kind: &str) -> crate::Text {
-    match kind {
-        ignored::UNKNOWN => crate::text!("tablo-filter-ignored-unknown"),
-        ignored::DROPPED => crate::text!(
-            "tablo-filter-ignored-dropped",
-            filters = state::MAX_FILTERS,
-            values = state::MAX_FILTER_VALUES,
-            bytes = state::MAX_FILTER_LEN,
-        ),
-        _ => crate::text!("tablo-filter-ignored-invalid"),
     }
 }
 

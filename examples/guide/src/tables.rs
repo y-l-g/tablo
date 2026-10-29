@@ -9,7 +9,7 @@ use toasty::stmt::Expr;
 use topcoat::{context::Cx, view::*};
 
 use crate::{
-    models::{Author, Post, Theme, User},
+    models::{Author, Post, PostStatus, Theme, User},
     resources::{AuthorResource, CommentResource},
 };
 
@@ -30,8 +30,18 @@ pub fn post_table() -> Table<Post> {
         SelectFilter::relationship::<AuthorResource>(lens!(Post.author_id)).label("Author"),
     ))
     // ANCHOR_END: table-filters
+    // ANCHOR: table-tabs
+    .tab(ListTab::new("all", "All"))
+    .tab(
+        ListTab::new("drafts", "Drafts")
+            .query(Post::fields().status().eq(PostStatus::Draft))
+            .reading(lens!(Post.status).into())
+            .badge(),
+    )
+    // ANCHOR_END: table-tabs
     // ANCHOR: table-group-by
     .group_by(lens!(Post.status))
+    .group_by(lens!(Post.featured))
     // ANCHOR_END: table-group-by
 }
 // ANCHOR_END: post-table-post
@@ -66,6 +76,36 @@ pub fn accent_column() -> ColorColumn<Theme, String> {
     ColorColumn::new(lens!(Theme.accent))
 }
 // ANCHOR_END: table-presenting
+
+// ANCHOR: table-cell-options
+pub fn contact_table() -> Table<User> {
+    Table::new((
+        // Links to the user's page on another site, in a new tab.
+        TextColumn::new(lens!(User.name))
+            .url(|user: &User| Some(format!("https://people.example/{}", user.id)))
+            .open_url_in_new_tab(),
+        // A button copies the address; a long one shows its first 24 characters.
+        TextColumn::new(lens!(User.email)).copyable().limit(24),
+        // The role's `#[option(icon = …)]` in place of its label.
+        IconColumn::new(lens!(User.role)),
+    ))
+    // A row whose user is inactive reads muted.
+    .row_color(|user: &User| (!user.active).then_some(Color::Gray))
+    .row_color_reading(Reads::of(lens!(User.active)))
+}
+// ANCHOR_END: table-cell-options
+
+// ANCHOR: table-editable
+pub fn triage_table() -> Table<Post> {
+    Table::new((
+        // Saves on Enter.
+        TextInputColumn::new(lens!(Post.title)),
+        // Each saves as soon as it changes.
+        SelectColumn::new(lens!(Post.status)),
+        ToggleColumn::new(lens!(Post.featured)),
+    ))
+}
+// ANCHOR_END: table-editable
 
 // ANCHOR: table-toggleable
 pub fn user_table() -> Table<User> {

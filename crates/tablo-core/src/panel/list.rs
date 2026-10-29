@@ -1,6 +1,7 @@
 //! Serves each resource's list page, and renders the [`WiredTable`] it and a related table show.
 
 mod render;
+mod shown;
 mod signals;
 mod wiring;
 
@@ -18,11 +19,12 @@ use topcoat::{
     view::{BoxView, SuspenseMode, ViewExt, attributes, internal::ThenView, suspense, view},
 };
 
-pub use self::wiring::WiredTable;
 pub(crate) use self::{
+    shown::ShownList,
     signals::TableSignals,
     wiring::{RowActions, TableAction, TableChrome},
 };
+pub use self::{shown::list_query, wiring::WiredTable};
 use super::{
     bar::{ActionBar, header_bar},
     forms::{parse_form_body, truthy},
@@ -166,7 +168,14 @@ pub(crate) fn wire_table_over<R: Resource>(
             .with_bulk_delete(true);
     }
     if chrome.edit {
-        table = table.with_edit(resource.url.clone());
+        // A cell posts its field to the edit route, which refuses a key the user may not change.
+        // A widget's table or a custom page may render it before anything else set the token.
+        crate::csrf::ensure_token(cx);
+        let mask = resource.form_mask(cx);
+        table = table.with_edit(resource.url.clone()).editing_cells(
+            move |key| mask.writes(key).is_none(),
+            <R::Model as crate::ModelColumns>::version,
+        );
     }
     if chrome.view {
         table = table.with_view(resource.url.clone());
@@ -326,6 +335,7 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         // Normalizes once per request.
         let table = choose_columns(cx, &resource, wire_table_actions(cx, &resource)).await;
         let (signals, state) = table.browser_state(cx);
+        ShownList::record::<R>(cx, &state);
         // The bulk bar offers what the rows the trash control shows can take.
         let table = table
             .taking(resource.list_trashed(&state))

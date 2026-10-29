@@ -104,9 +104,41 @@ An `Options` enum gives each variant its badge color with `#[option(color = "…
 {{#include ../../../examples/guide/src/tables.rs:table-presenting}}
 ```
 
+A cell can also link to a URL, copy its value, show a tooltip, cut a long value, show an icon or a
+placeholder for an empty value, and a table can tint a row by its record:
+
+```rust
+{{#include ../../../examples/guide/src/tables.rs:table-cell-options}}
+```
+
+A link takes a relative URL or an `http`, `https`, `mailto` or `tel` one, so a value a user wrote
+cannot turn into a script. A closure over the row may read any field: on a resource that
+[restricts a field](./resources.md#field-access), it declares what it reads with `.reading(..)`, or
+`.row_color_reading(..)` for the row color, as a `.description(..)` does.
+
 The export writes the formatted value: `$1,234.50`, not `123450`. Money uses `,` and `.` as
 separators; a locale's own spelling is a `.format(..)`. Over a [decimal column](./forms.md#typed-values),
 `.numeric(..)` and `.money(..)` spell the stored digits without passing through a float.
+
+### Editing in a cell
+
+`ToggleColumn`, `SelectColumn` and `TextInputColumn` let a user change one field from the list,
+without opening the edit page:
+
+```rust
+{{#include ../../../examples/guide/src/tables.rs:table-editable}}
+```
+
+A cell posts its field alone to the record's edit route, with the record's version, so the save runs
+every check the edit page's does, then lands back on the list. A refused value opens the edit page
+with its error. The control shows on a row the user may edit, for a field
+[field access](./resources.md#field-access) lets them change; anywhere else, and on the detail page,
+the cell shows the value.
+
+The resource's form must edit the field with the matching control: a checkbox or switch for a
+toggle, a choice over static options for a select, a one-line text field for a text input. The mount
+refuses the column otherwise, and when that control is disabled on edit or shows only while a
+condition holds, since the cell posts no other field for the condition to read.
 
 ### Hiding columns
 
@@ -149,7 +181,8 @@ implement it and nothing more, so a column of your own reaches as far as theirs:
 Only `name`, `label` and `text` are required;
 [`Column`](https://y-l.fr/tablo/nightly/api/tablo/extend/trait.Column.html) lists the methods that make it searchable, sortable,
 toggleable or loading a relation. A sortable column of your own is the table's default
-sort through `default_sort_by(Sort::desc("revenue"))`, which names it by its `name`. Put
+sort through `default_sort_by(Sort::desc("revenue"))`, which names it by its `name`. A
+`default_sort(lens!(..))` takes any field of the model, whether or not a column shows it. Put
 the column in the tuple next to the built-in ones, or append it with `Table::column(..)`, which
 also takes columns past the tuple's twelve.
 
@@ -157,8 +190,8 @@ also takes columns past the tuple's twelve.
 
 The URL holds the list's whole state, so every view of a list is a link you can share:
 
-`?q=` searches, `?sort=` and `?dir=` sort, `?page=` and `?per_page=` page, `?f.<name>=`
-filters and `?group_by=` groups. [`Table`](https://y-l.fr/tablo/nightly/api/tablo/struct.Table.html) has the parameters' rules: how
+`?tab=` picks a tab, `?q=` searches, `?sort=` and `?dir=` sort, `?page=` and `?per_page=` page,
+`?f.<name>=` filters and `?group_by=` groups. [`Table`](https://y-l.fr/tablo/nightly/api/tablo/struct.Table.html) has the parameters' rules: how
 search matches, the default sort, and what an unusable filter does.
 
 A table shows 25 rows per page unless `.paginate(n)` sets another size, and offers the reader a
@@ -216,14 +249,34 @@ A filter of your own goes in the `filters((..))` tuple; alone, it is a one-eleme
 A filter that cannot apply is never dropped silently: the list shows a warning banner naming it,
 and the export refuses the request rather than export more rows than asked.
 
+## Tabs
+
+Tabs above the toolbar offer the views of a list its readers switch between most, each a
+predicate of its own:
+
+```rust
+{{#include ../../../examples/guide/src/tables.rs:table-tabs}}
+```
+
+`?tab=drafts` shows a tab, and a list without `?tab=` shows the first. A tab combines with the
+search and the filters, and the export and a selection of every matching record follow it.
+`.badge()` counts a tab's rows under the current search and filters, one more query per badged
+tab. A tab whose predicate reads a field declares it with `.reading(..)`, as a `QueryFilter`
+does, so that [field access](./resources.md#field-access) hides the tab from a user who may not view
+the field. [`ListTab`](https://y-l.fr/tablo/nightly/api/tablo/struct.ListTab.html) has the rules.
+
 ## Grouping
 
 ```rust
 {{#include ../../../examples/guide/src/tables.rs:table-group-by}}
 ```
 
-`?group_by=status`, named after the field, groups the current page's rows under headers with a
-row count. Grouping runs on the loaded page, so the counts cover that page, not the whole table.
+Each `.group_by(..)` offers one grouping, which the toolbar's **Group by** menu picks, and
+`?group_by=status`, named after the field, spells. A grouping orders the query by its field ahead of
+the sort, so a group runs on across pages and its rows keep the sort within it; each group's header
+shows its value, or "No value" over the rows holding none, and collapses and expands its rows.
+Selecting the page expands every group, so a bulk action never takes a row the reader cannot see. A
+list groups by nothing until the reader picks a grouping.
 
 ## Export
 

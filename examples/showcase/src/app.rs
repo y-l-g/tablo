@@ -3,14 +3,14 @@
 use std::path::PathBuf;
 
 use tablo::{
-    Ability, ActionLayout, Auth, AuthMail, BooleanColumn, Brand, Change, ComputedColumn,
+    Ability, ActionLayout, Auth, AuthMail, BooleanColumn, Brand, Change, Color, ComputedColumn,
     CountColumn, DateColumn, DateFilter, Detail, DirUploader, EmailVerification, EmbeddedColumn,
-    FieldErrors, GlobalSearch, Grid, Group, HeaderAction, ModelColumns, NavigationItem,
+    FieldErrors, GlobalSearch, Grid, Group, HeaderAction, ListTab, ModelColumns, NavigationItem,
     Notification, Notifications, Pagination, Panel, PanelHandle, PanelUser, PasswordReset,
-    PublicLink, QueryFilter, Relation, RelationColumn, RepeaterColumn, Resource, ResourceDef,
-    RichTextColumn, RouterBuilderPanelExt, Schema, Section, SelectFilter, Tab, Table, Tabs,
-    Tenancy, TenantRegistration, TernaryFilter, TextColumn, TwoFactor, lens, relation, tenant_id,
-    when,
+    PublicLink, QueryFilter, Reads, Relation, RelationColumn, RepeaterColumn, Resource,
+    ResourceDef, RichTextColumn, RouterBuilderPanelExt, Schema, Section, SelectFilter, Tab, Table,
+    Tabs, Tenancy, TenantRegistration, TernaryFilter, TextColumn, ToggleColumn, TwoFactor, lens,
+    relation, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -126,6 +126,13 @@ impl Resource for AuthorResource {
             .form(Schema::new(
                 Section::new("Profile").schema((c.name, c.email.email())),
             ))
+            .table(Table::new((
+                TextColumn::new(lens!(Author.name)),
+                // A mail link, and a button copying the address.
+                TextColumn::new(lens!(Author.email))
+                    .url(|author: &Author| Some(format!("mailto:{}", author.email)))
+                    .copyable(),
+            )))
             .detail(Detail::new(
                 Section::new("Profile").columns(Author::detail()),
             ))
@@ -271,16 +278,32 @@ fn post_author_column() -> RelationColumn<Post> {
 /// The post list.
 fn post_table() -> Table<Post> {
     Table::new((
-        TextColumn::new(lens!(Post.title)).searchable().sortable(),
+        // A long title shows its first words, and the rest when the pointer rests on it.
+        TextColumn::new(lens!(Post.title))
+            .searchable()
+            .sortable()
+            .limit(60),
         // Each reader picks whether the status and the creation date show.
         TextColumn::new(lens!(Post.status)).badge().toggleable(),
-        BooleanColumn::new(lens!(Post.featured)),
+        // An editor features a post from the list: the switch saves the post as it flips.
+        ToggleColumn::new(lens!(Post.featured)),
         post_author_column(),
         CountColumn::of::<CommentResource>(relation!(Post.comments)),
         DateColumn::new(lens!(Post.created_at)).hidden_by_default(),
     ))
     // Publish and Tag join View, Edit and Delete behind one button.
     .action_layout(ActionLayout::Menu)
+    // A featured post stands out from the list.
+    .row_color(|post: &Post| post.featured.then_some(Color::Primary))
+    .row_color_reading(Reads::of(lens!(Post.featured)))
+    // Every post, then the drafts and the published posts, each counted.
+    .tab(ListTab::new("all", "All"))
+    .tab(post_status_tab("drafts", "Drafts", PostStatus::Draft))
+    .tab(post_status_tab(
+        "published",
+        "Published",
+        PostStatus::Published,
+    ))
     .filters((
         SelectFilter::of(lens!(Post.status)).multiple(),
         TernaryFilter::new(lens!(Post.featured)).labels("Featured", "Not featured"),
@@ -305,6 +328,15 @@ fn post_table() -> Table<Post> {
             ),
     ))
     .group_by(lens!(Post.status))
+    .group_by(lens!(Post.featured))
+}
+
+/// The tab `key` listing the posts in `status`, with their count.
+fn post_status_tab(key: &str, label: &str, status: PostStatus) -> ListTab<Post> {
+    ListTab::new(key, label.to_string())
+        .query(Post::fields().status().eq(status))
+        .reading(lens!(Post.status).into())
+        .badge()
 }
 
 #[derive(tablo::RecordForm)]

@@ -6,7 +6,8 @@ use std::sync::Arc;
 use super::RichTextColumn;
 use super::{
     BooleanColumn, BoxColumn, ColorColumn, Column, ComputedColumn, CountColumn, DateColumn,
-    EmbeddedColumn, FileColumn, ImageColumn, RelationColumn, RepeaterColumn, TextColumn,
+    EmbeddedColumn, FileColumn, IconColumn, ImageColumn, RelationColumn, RepeaterColumn,
+    SelectColumn, TextColumn, TextInputColumn, ToggleColumn,
 };
 
 /// Convert a single built-in column, a tuple of any [`Column`]s, a `Vec` or slice
@@ -43,9 +44,13 @@ column_conversions!(
     BooleanColumn<M>,
     FileColumn<M>,
     ColorColumn<M, T>,
+    IconColumn<M, T>,
     ImageColumn<M, T>,
     EmbeddedColumn<M, T>,
     RepeaterColumn<M, T>,
+    ToggleColumn<M>,
+    SelectColumn<M, T>,
+    TextInputColumn<M, T>,
 );
 #[cfg(feature = "rich-text")]
 column_conversions!(RichTextColumn<M, T>);

@@ -98,6 +98,7 @@ impl fmt::Display for DeclarationErrorKind {
                 f,
                 "two widgets are named '{name}': each needs a distinct `WidgetDef::name`"
             ),
+            Self::EditableColumn { column, fault } => fault.fmt(f, column),
             Self::ActionInput { action, fault } => fmt_action_input(f, action, fault),
             Self::SignUp(fault) => fault.fmt(f),
             Self::Profile(fault) => fault.fmt(f),
@@ -147,7 +148,7 @@ impl fmt::Display for DeclarationErrorKind {
             Self::ZeroPageSize => f.write_str("`Table::paginate` needs a page size of at least 1"),
             Self::UnsortableDefaultSort { column } => write!(
                 f,
-                "`Table::default_sort` sorts on '{column}', but the table declares no sortable column for it"
+                "`Table::default_sort_by` sorts on '{column}', but the table declares no sortable column for it"
             ),
             Self::DuplicateColumn { name } => write!(
                 f,
@@ -156,6 +157,14 @@ impl fmt::Display for DeclarationErrorKind {
             Self::DuplicateFilter { name } => write!(
                 f,
                 "two filters are named '{name}': each filter needs a distinct name"
+            ),
+            Self::DuplicateTab { key } => write!(
+                f,
+                "two list tabs share the key '{key}': each tab needs a distinct key"
+            ),
+            Self::DuplicateGrouping { name } => write!(
+                f,
+                "the table groups by '{name}' twice: declare each grouping once"
             ),
             Self::DottedFilterName { name } => write!(f, "filter name '{name}' holds a '.'"),
             Self::UnparsedFilterOption { filter, value } => write!(

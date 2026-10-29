@@ -1,8 +1,9 @@
 //! Columns, which a [`Table`](crate::Table) lists and a [`Detail`](crate::Detail) shows: the
 //! [`Column`] trait, the built-in [`TextColumn`], [`DateColumn`], [`ComputedColumn`],
 //! [`RelationColumn`], [`CountColumn`], [`BooleanColumn`], [`FileColumn`], [`ColorColumn`],
-//! [`ImageColumn`], [`EmbeddedColumn`], [`RepeaterColumn`] and [`RichTextColumn`], and the
-//! [`IntoColumns`] seam.
+//! [`ImageColumn`], [`IconColumn`], [`EmbeddedColumn`], [`RepeaterColumn`] and
+//! [`RichTextColumn`], the [`ToggleColumn`], [`SelectColumn`] and [`TextInputColumn`] that edit
+//! their field in a table's cell, and the [`IntoColumns`] seam.
 //!
 //! The module sits below both: `table` re-exports it, and `detail` implements
 //! [`IntoDetail`](crate::IntoDetail) for each built-in column.
@@ -67,6 +68,10 @@ macro_rules! base_column_methods {
     () => {
         base_column_methods!(@shared);
 
+        fn related(&self) -> $crate::column::Related {
+            $crate::column::Related::None
+        }
+
         fn reads(&self) -> Option<$crate::lens::Reads<M>> {
             Some(self.base.reads())
         }
@@ -75,7 +80,7 @@ macro_rules! base_column_methods {
         base_column_methods!();
         base_column_methods!(@misdeclared);
     };
-    // A column that answers `reads` itself.
+    // A column that answers `reads` and `related` itself.
     (binding, reads) => {
         base_column_methods!(@shared);
         base_column_methods!(@misdeclared);
@@ -86,10 +91,6 @@ macro_rules! base_column_methods {
         }
     };
     (@shared) => {
-        fn related(&self) -> $crate::column::Related {
-            $crate::column::Related::None
-        }
-
         fn name(&self) -> &str {
             self.base.name()
         }
@@ -108,6 +109,9 @@ macro_rules! base_column_methods {
     };
 }
 
+/// A closure reading a value off a row or a field: a cell's color, icon, link or tooltip.
+pub(crate) type ReadFn<T, V> = Arc<dyn Fn(&T) -> V + Send + Sync>;
+
 fn sort_order<M, T>(path: &Path<M, T>, descending: bool) -> OrderByExpr {
     if descending {
         path.clone().desc()
@@ -119,11 +123,14 @@ fn sort_order<M, T>(path: &Path<M, T>, descending: bool) -> OrderByExpr {
 mod related;
 pub use related::Related;
 mod boolean;
+mod cell;
 mod color;
 mod computed;
 mod date;
+mod editable;
 mod embedded;
 mod file;
+mod icon;
 mod image;
 mod into_columns;
 mod relation;
@@ -136,8 +143,10 @@ pub use boolean::BooleanColumn;
 pub use color::ColorColumn;
 pub use computed::ComputedColumn;
 pub use date::{DateColumn, DateValue};
+pub use editable::{Editor, SelectColumn, TextInputColumn, ToggleColumn};
 pub use embedded::EmbeddedColumn;
 pub use file::FileColumn;
+pub use icon::IconColumn;
 pub use image::ImageColumn;
 pub use into_columns::IntoColumns;
 pub use relation::{CountColumn, RelationColumn, RelationLens, ToOneRelation};
@@ -289,6 +298,27 @@ pub trait Column<M>: Send + Sync {
     #[doc(hidden)]
     fn unavailable_source(&self, _cx: &Cx) -> Option<&'static str> {
         None
+    }
+
+    /// The control the column edits its field with in a table's cell, if it does: the mount
+    /// checks the resource's form edits the field [`name`](Self::name) names with it.
+    #[doc(hidden)]
+    fn edits(&self) -> Option<Editor> {
+        None
+    }
+
+    /// The options a [`Editor::Select`] offers, each a value and its label: the mount checks the
+    /// form's choice offers the same.
+    #[doc(hidden)]
+    fn edit_options(&self) -> Vec<(String, crate::Text)> {
+        Vec::new()
+    }
+
+    /// The control editing `row`'s field, posting the field's form key, which a table renders
+    /// in place of [`cell`](Self::cell) where the user may change the field.
+    #[doc(hidden)]
+    fn editor<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
+        self.cell(cx, row)
     }
 }
 

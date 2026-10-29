@@ -154,9 +154,15 @@ impl Frame<'_> {
 
 /// The select-all box over a page's selectable `keys`: checked when the selection holds every one,
 /// indeterminate when it holds some, and toggling all of them at once. Keys on other pages stay
-/// selected.
+/// selected. Selecting expands every collapsed group, so a bulk write never takes a row the reader
+/// cannot see.
 fn select_all(cx: &Cx, signals: &TableSignals, keys: &[String]) -> Attributes {
-    let (bulk, all) = (signals.bulk.clone(), signals.all.clone());
+    let (bulk, all, collapsed) = (
+        signals.bulk.clone(),
+        signals.all.clone(),
+        signals.collapsed.clone(),
+    );
+    let expanded = String::new();
     // The tokens, never the raw keys: a key may hold the wire's separator, so only the renderer
     // can spell one (`state::bulk_token`).
     let tokens: Vec<String> = keys.iter().map(|key| bulk_token(key)).collect();
@@ -187,6 +193,7 @@ fn select_all(cx: &Cx, signals: &TableSignals, keys: &[String]) -> Attributes {
             all.set(false);
             let wire = bulk.get();
             if e.target.checked {
+                collapsed.set(expanded);
                 bulk.set(
                     raw!(
                         "cx.hydrate((w => String(${joined}).split('|').filter(Boolean).filter(k => !w.includes(k)).reduce((s, k) => s + k, w))(String(${wire}).replace(/^,+$/, '')))",

@@ -25,6 +25,24 @@ pub fn db(cx: &Cx) -> topcoat::Result<Db> {
     Ok(context::<Db>(cx).clone())
 }
 
+/// How many rows `query` holds, counted on the pooled [`Db`].
+///
+/// Reads 0 where Toasty answers no value: a count over a filter Toasty can tell matches nothing,
+/// such as [`list_query`](crate::list_query) narrowed to one status on a list whose tab shows
+/// another, which `Query::count` fails to read.
+///
+/// # Errors
+///
+/// As [`db`], and the database failing the count.
+pub async fn count<M: toasty::schema::Model>(
+    cx: &Cx,
+    query: toasty::stmt::Query<toasty::stmt::List<M>>,
+) -> topcoat::Result<u64> {
+    crate::toasty_compat::count(query, &mut db(cx)?)
+        .await
+        .map_err(crate::error::unavailable)
+}
+
 /// The requests with a panel write's transaction open now, each with the work to run once it
 /// commits. A request opens one at a time, and few run at once, so a list is enough.
 static OPEN: Mutex<Vec<Open>> = Mutex::new(Vec::new());

@@ -88,6 +88,11 @@ impl ChoiceControl {
             .map(|(_, label)| label)
     }
 
+    /// The static options, each a value and its label.
+    pub(crate) fn static_options(&self) -> &[(String, crate::Text)] {
+        &self.options
+    }
+
     /// The static options with their labels in the request's locale.
     fn spelled(&self, cx: &Cx) -> Vec<(String, String)> {
         self.options

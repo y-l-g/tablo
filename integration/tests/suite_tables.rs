@@ -12,8 +12,11 @@
 mod common;
 
 mod column;
+mod contradiction;
 mod export;
+mod grouping;
 mod import;
+mod inline_edit;
 mod key_collisions;
 mod list;
 mod many_to_many;
