@@ -83,6 +83,7 @@ tablo-list-empty-filters = Aucun résultat pour ces filtres
 tablo-list-clear-search = Effacer la recherche
 tablo-list-clear-filters = Effacer les filtres
 tablo-list-filters = Filtres
+tablo-list-tabs = Vues
 tablo-list-reset-filters = Réinitialiser
 tablo-list-first-page = Revenir à la première page
 tablo-pager-showing = { $first }–{ $last } sur { $total }

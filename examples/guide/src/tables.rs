@@ -9,7 +9,7 @@ use toasty::stmt::Expr;
 use topcoat::{context::Cx, view::*};
 
 use crate::{
-    models::{Author, Post, Theme, User},
+    models::{Author, Post, PostStatus, Theme, User},
     resources::{AuthorResource, CommentResource},
 };
 
@@ -30,6 +30,15 @@ pub fn post_table() -> Table<Post> {
         SelectFilter::relationship::<AuthorResource>(lens!(Post.author_id)).label("Author"),
     ))
     // ANCHOR_END: table-filters
+    // ANCHOR: table-tabs
+    .tab(ListTab::new("all", "All"))
+    .tab(
+        ListTab::new("drafts", "Drafts")
+            .query(Post::fields().status().eq(PostStatus::Draft))
+            .reading(lens!(Post.status).into())
+            .badge(),
+    )
+    // ANCHOR_END: table-tabs
     // ANCHOR: table-group-by
     .group_by(lens!(Post.status))
     // ANCHOR_END: table-group-by

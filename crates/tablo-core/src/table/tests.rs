@@ -3,7 +3,9 @@ use topcoat::context::Cx;
 
 use super::*;
 use crate::{
-    ComputedColumn, TextColumn, lens,
+    ComputedColumn, TextColumn,
+    dom::ignored,
+    lens,
     table::{SelectFilter, Sort, TablePage, TableState, TernaryFilter},
     test_support::{User, cx, memory_db},
 };

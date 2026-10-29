@@ -158,6 +158,10 @@ impl fmt::Display for DeclarationErrorKind {
                 f,
                 "two filters are named '{name}': each filter needs a distinct name"
             ),
+            Self::DuplicateTab { key } => write!(
+                f,
+                "two list tabs share the key '{key}': each tab needs a distinct key"
+            ),
             Self::DottedFilterName { name } => write!(f, "filter name '{name}' holds a '.'"),
             Self::UnparsedFilterOption { filter, value } => write!(
                 f,

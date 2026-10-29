@@ -189,8 +189,8 @@ also takes columns past the tuple's twelve.
 
 The URL holds the list's whole state, so every view of a list is a link you can share:
 
-`?q=` searches, `?sort=` and `?dir=` sort, `?page=` and `?per_page=` page, `?f.<name>=`
-filters and `?group_by=` groups. [`Table`](https://y-l.fr/tablo/nightly/api/tablo/struct.Table.html) has the parameters' rules: how
+`?tab=` picks a tab, `?q=` searches, `?sort=` and `?dir=` sort, `?page=` and `?per_page=` page,
+`?f.<name>=` filters and `?group_by=` groups. [`Table`](https://y-l.fr/tablo/nightly/api/tablo/struct.Table.html) has the parameters' rules: how
 search matches, the default sort, and what an unusable filter does.
 
 A table shows 25 rows per page unless `.paginate(n)` sets another size, and offers the reader a
@@ -247,6 +247,22 @@ A filter of your own goes in the `filters((..))` tuple; alone, it is a one-eleme
 
 A filter that cannot apply is never dropped silently: the list shows a warning banner naming it,
 and the export refuses the request rather than export more rows than asked.
+
+## Tabs
+
+Tabs above the toolbar offer the views of a list its readers switch between most, each a
+predicate of its own:
+
+```rust
+{{#include ../../../examples/guide/src/tables.rs:table-tabs}}
+```
+
+`?tab=drafts` shows a tab, and a list without `?tab=` shows the first. A tab combines with the
+search and the filters, and the export and a selection of every matching record follow it.
+`.badge()` counts a tab's rows under the current search and filters, one more query per badged
+tab. A tab whose predicate reads a field declares it with `.reading(..)`, as a `QueryFilter`
+does, so that [field access](./resources.md#field-access) hides the tab from a user who may not view
+the field. [`ListTab`](https://y-l.fr/tablo/nightly/api/tablo/struct.ListTab.html) has the rules.
 
 ## Grouping
 

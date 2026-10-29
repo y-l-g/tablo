@@ -109,6 +109,7 @@ impl Frame<'_> {
         let hidden = hidden_state_inputs(
             cx,
             vec![
+                (state.param("tab"), state.tab.clone()),
                 (state.param("sort"), sort_hidden),
                 (state.param("dir"), dir_hidden),
                 (state.param("group_by"), state.group_by.clone()),

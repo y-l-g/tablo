@@ -295,6 +295,11 @@ pub(crate) fn check<R: Resource>(
             faults.push((Site::Table, undeclared("filter", filter.name())));
         }
     }
+    for tab in declared.table.declared_tabs() {
+        if tab.reads().is_none() {
+            faults.push((Site::Table, undeclared("tab", tab.key())));
+        }
+    }
     for column in declared.detail.undeclared_reads() {
         faults.push((Site::Detail, undeclared("column", column)));
     }
@@ -437,9 +442,9 @@ pub(crate) fn check_choices<T: 'static, F>(
     }
 }
 
-/// What `declared`'s filters show or read that no mount may: records under a label a panel cannot
-/// mask, and records a relation the filter's reads reach holds, of a model a mounted resource
-/// restricts a field of.
+/// What `declared`'s filters and tabs show or read that no mount may: records under a label a
+/// panel cannot mask, and records a relation the filter's or the tab's reads reach holds, of a
+/// model a mounted resource restricts a field of.
 pub(crate) fn check_filters<R: Resource>(
     cx: &Cx,
     declared: &Mounted<R>,
@@ -458,22 +463,33 @@ pub(crate) fn check_filters<R: Resource>(
                 model: model.to_string(),
             })
         } else {
-            match filter.reads() {
-                None => None,
-                Some(reads) => match model::read_relations::<R::Model>(reads.fields()) {
-                    Some(models) if !reads.is_unresolved() => models
-                        .into_iter()
-                        .find(|(model, _)| is_restricted_model(cx, *model))
-                        .map(|(_, model)| FieldAccessFault::UnmaskedRelation { name, model }),
-                    _ => Some(FieldAccessFault::UnresolvedRelation { name }),
-                },
-            }
+            relation_fault(cx, name, filter.reads())
         };
-        if let Some(fault) = fault {
-            errors.push(DeclarationError::of::<R>(
-                Site::Table,
-                DeclarationErrorKind::FieldAccess { fault },
-            ));
-        }
+        errors.extend(fault.map(|fault| {
+            DeclarationError::of::<R>(Site::Table, DeclarationErrorKind::FieldAccess { fault })
+        }));
+    }
+    for tab in declared.table.declared_tabs() {
+        let fault = relation_fault(cx, tab.key().to_string(), tab.reads());
+        errors.extend(fault.map(|fault| {
+            DeclarationError::of::<R>(Site::Table, DeclarationErrorKind::FieldAccess { fault })
+        }));
+    }
+}
+
+/// The relation a filter's or a tab's `reads`, named `name`, reach that no mount may read: one
+/// whose model a mounted resource restricts a field of, or one the mount cannot resolve.
+fn relation_fault<M: toasty::schema::Model>(
+    cx: &Cx,
+    name: String,
+    reads: Option<crate::Reads<M>>,
+) -> Option<FieldAccessFault> {
+    let reads = reads?;
+    match model::read_relations::<M>(reads.fields()) {
+        Some(models) if !reads.is_unresolved() => models
+            .into_iter()
+            .find(|(model, _)| is_restricted_model(cx, *model))
+            .map(|(_, model)| FieldAccessFault::UnmaskedRelation { name, model }),
+        _ => Some(FieldAccessFault::UnresolvedRelation { name }),
     }
 }

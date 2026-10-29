@@ -9,7 +9,7 @@
 //!
 //! The entry points and the table chrome live in `core`, the header row in
 //! `head`, row projection and rendering in `rows`, the zero-rows cell in
-//! `empty`, the search and bulk bars in `toolbar`,
+//! `empty`, the search and bulk bars in `toolbar`, the tab bar in `tabs`,
 //! the filter menu in `filter_menu`, pagination in `pager`, the confirmation
 //! dialogs in `dialog`, and the streamed placeholder in `skeleton`.
 
@@ -21,6 +21,7 @@ mod head;
 mod pager;
 mod rows;
 mod skeleton;
+mod tabs;
 mod toolbar;
 
 use topcoat::{

@@ -1,14 +1,14 @@
 //! A resource restricting its fields: a field the user may not view leaves the list, the detail
-//! page, the export, the search, the sort, the filters and the form; one the user may view but
-//! not change renders disabled; a submission posting either is refused; an edit keeps what the
-//! user could not change; and the mount refuses a declaration that would show the field anyway.
+//! page, the export, the search, the sort, the filters, the tabs and the form; one the user may
+//! view but not change renders disabled; a submission posting either is refused; an edit keeps what
+//! the user could not change; and the mount refuses a declaration that would show the field anyway.
 //! A widget's record table hides it as the list does.
 
 use tablo::{
     Ability, Color, ComputedColumn, DeclarationErrorKind, Detail, FieldAccess, FieldAccessFault,
-    FieldErrors, Page, PageDef, QueryFilter, Reads, RecordTable, Resource, ResourceDef, Schema,
-    Site, Tab, Table, Tabs, Tenancy, TenantId, TextColumn, Widget, lens,
-    testing::{columns, ignored_filters, record_tables, row_keys, rows, tabs},
+    FieldErrors, ListTab, Page, PageDef, QueryFilter, Reads, RecordTable, Resource, ResourceDef,
+    Schema, Site, Tab, Table, Tabs, Tenancy, TenantId, TextColumn, Widget, lens,
+    testing::{columns, ignored_filters, record_tables, row_keys, rows, tab_links, tabs},
 };
 use toasty::Db;
 use topcoat::{
@@ -75,6 +75,13 @@ impl Resource for EmployeeResource {
                     QueryFilter::new("paid", "Paid")
                         .option("High", Employee::fields().salary().eq("S-900"))
                         .reading(Reads::of(lens!(Employee.salary))),
+                )
+                .tab(ListTab::new("all", "All"))
+                .tab(
+                    ListTab::new("high", "High")
+                        .query(Employee::fields().salary().eq("S-900"))
+                        .reading(Reads::of(lens!(Employee.salary)))
+                        .badge(),
                 ),
             )
     }
@@ -413,6 +420,27 @@ async fn a_hidden_field_answers_no_search_or_filter() {
     assert_eq!(ignored_filters(&filtered).len(), 1, "{filtered}");
     let export = sales.get("/admin/employees/-/export?f.paid=High").await;
     assert_eq!(export.status(), 400);
+
+    // A tab over the salary counts and narrows for the user who may view it, and is unknown to
+    // the one who may not.
+    let tabbed = page(&hr, "/admin/employees?tab=high").await;
+    assert_eq!(row_keys(&tabbed), [hr_high.id.to_string()]);
+    assert_eq!(
+        tab_links(&tabbed)
+            .iter()
+            .map(|tab| (tab.key.as_str(), tab.count))
+            .collect::<Vec<_>>(),
+        [("all", None), ("high", Some(1))]
+    );
+    let tabbed = page(&sales, "/admin/employees?tab=high").await;
+    let keys: Vec<_> = tab_links(&tabbed).into_iter().map(|tab| tab.key).collect();
+    assert_eq!(keys, ["all"]);
+    let mut keys = row_keys(&tabbed);
+    keys.sort();
+    assert_eq!(keys, both);
+    assert_eq!(ignored_filters(&tabbed).len(), 1, "{tabbed}");
+    let export = sales.get("/admin/employees/-/export?tab=high").await;
+    assert_eq!(export.status(), 400);
 }
 
 /// The grade, which the user may view but not change, renders disabled; a submission posting it,
@@ -593,7 +621,10 @@ async fn a_declaration_showing_a_restricted_field_is_refused() {
                         TextColumn::new(lens!(Employee.grade))
                             .description(|e: &Employee| e.salary.clone()),
                     ))
-                    .row_color(|e: &Employee| (e.salary == "S-900").then_some(Color::Danger)),
+                    .row_color(|e: &Employee| (e.salary == "S-900").then_some(Color::Danger))
+                    .tab(
+                        ListTab::new("high", "High").query(Employee::fields().salary().eq("S-900")),
+                    ),
                 )
         }
     }
@@ -649,6 +680,16 @@ async fn a_declaration_showing_a_restricted_field_is_refused() {
             }
         )),
         "a row color may read any field: {errors:?}"
+    );
+    assert!(
+        faults.contains(&(
+            &Site::Table,
+            &FieldAccessFault::UndeclaredReads {
+                what: "tab",
+                name: "high".to_string()
+            }
+        )),
+        "{errors:?}"
     );
 }
 
