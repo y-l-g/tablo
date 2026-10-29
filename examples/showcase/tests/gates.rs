@@ -320,6 +320,7 @@ async fn cross_tenant_requests_404_and_touch_nothing() {
     for path in [
         format!("/admin/posts/{}", t1_post.id),
         format!("/admin/posts/{}/edit", t1_post.id),
+        format!("/admin/posts/{}/preview", t1_post.id),
         format!("/admin/comments/{}/edit", t1_comment.id),
     ] {
         let resp = foreign.get(&path).await;
@@ -588,6 +589,7 @@ async fn blocked_tenant_is_refused_on_every_read_route() {
         "/admin/posts/-/import/template".to_string(),
         format!("/admin/authors/-/picked?pick=1&key={}", blocked_author.id),
         format!("/admin/posts/{}", blocked_post.id),
+        format!("/admin/posts/{}/preview", blocked_post.id),
         "/admin/posts/-/actions/tag/options?field=tags".to_string(),
         format!(
             "/admin/categories/{}/-/relations/posts/-/actions/attach/options?field=record",
@@ -637,6 +639,7 @@ async fn anonymous_requests_are_gated_on_every_route() {
         "/admin/posts/-/create".to_string(),
         format!("/admin/posts/{}", post.id),
         format!("/admin/posts/{}/edit", post.id),
+        format!("/admin/posts/{}/preview", post.id),
         "/admin/posts/-/export".to_string(),
         "/admin/posts/-/import".to_string(),
         "/admin/posts/-/import/template".to_string(),

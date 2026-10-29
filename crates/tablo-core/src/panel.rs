@@ -12,6 +12,7 @@ mod host;
 mod input;
 mod list;
 pub(crate) mod pages;
+mod record_page;
 mod register;
 mod relations;
 mod search;
@@ -35,7 +36,7 @@ use self::{
 };
 pub use self::{
     build::{PanelHandle, RouterBuilderPanelExt},
-    gate::{can_list, can_open},
+    gate::{can_list, can_open, can_view_field},
     list::{WiredTable, list_query, wired_table},
     shell::Brand,
     widgets::{record_table, stats, widgets},

@@ -12,6 +12,7 @@ use topcoat::{
 use crate::{
     Text,
     navigation::{NavigationItem, current_index},
+    panel::state::ResourceTrail,
 };
 
 /// One step of a trail: its label, and its link unless it is the page the request is on.
@@ -40,14 +41,15 @@ impl Crumb {
 /// The trail to `current_path` under `current_query`: the sidebar entry it is under, as the
 /// sidebar marks it, then the page within the entry. Empty when no entry holds the path.
 ///
-/// Under a resource's list, one of `resource_lists`, a path names a resource's page:
+/// Under a resource's list, one of `resources`, a path names a resource's page:
 /// `/admin/posts` is `Blog Posts`; `/admin/posts/-/create` adds `Create`, `/admin/posts/7`
 /// adds `View`, and `/admin/posts/7/edit` adds `Edit`. A deeper path under a record links the
-/// record's `View`, then names its last segment. Under any other entry, the home page's
-/// included, a deeper path names its last segment: `/admin/reports` is `Dashboard › Reports`.
+/// record's `View` when the resource has one, then names the page by its label, else by its last
+/// segment. Under any other entry, the home page's included, a deeper path names its last
+/// segment: `/admin/reports` is `Dashboard › Reports`.
 pub(super) fn trail(
     nav_items: &[NavigationItem],
-    resource_lists: &[&str],
+    resources: &[&ResourceTrail],
     current_path: &str,
     current_query: &str,
 ) -> Vec<Crumb> {
@@ -59,26 +61,35 @@ pub(super) fn trail(
         .filter(|segment| !segment.is_empty())
         .collect();
     let entry = || Crumb::link(item.label.clone(), path);
-    if !resource_lists.contains(&path) {
+    let Some(resource) = resources.iter().find(|resource| resource.list == path) else {
         return match rest.last() {
             None => vec![Crumb::here(item.label.clone())],
             Some(last) => vec![entry(), Crumb::here(humanize(last))],
         };
-    }
+    };
     match rest.as_slice() {
         [] => vec![Crumb::here(item.label.clone())],
         ["-", "create"] => vec![entry(), Crumb::here(Text::message("tablo-crumb-create"))],
         ["-", action] => vec![entry(), Crumb::here(humanize(action))],
         [_record] => vec![entry(), Crumb::here(Text::message("tablo-crumb-view"))],
         [_record, "edit"] => vec![entry(), Crumb::here(Text::message("tablo-crumb-edit"))],
-        [record, .., last] => vec![
-            entry(),
-            Crumb::link(
-                Text::message("tablo-crumb-view"),
-                format!("{path}/{record}"),
-            ),
-            Crumb::here(humanize(last)),
-        ],
+        [record, .., last] => {
+            let label = resource
+                .pages
+                .iter()
+                .find(|(slug, _)| slug == last)
+                .map_or_else(|| Text::from(humanize(last)), |(_, label)| label.clone());
+            let view = resource.viewed.then(|| {
+                Crumb::link(
+                    Text::message("tablo-crumb-view"),
+                    format!("{path}/{record}"),
+                )
+            });
+            std::iter::once(entry())
+                .chain(view)
+                .chain([Crumb::here(label)])
+                .collect()
+        }
     }
 }
 

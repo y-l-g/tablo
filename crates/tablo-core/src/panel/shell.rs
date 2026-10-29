@@ -11,7 +11,10 @@ use topcoat::{
     view::{Attributes, BoxView, Child, ViewExt, attributes, internal::ThenView, view},
 };
 
-use super::{Panel, state::current};
+use super::{
+    Panel,
+    state::{ResourceTrail, current},
+};
 use crate::{navigation::NavigationItem, topcoat_compat::async_page};
 
 /// `extra` plus the attribute that sends a sidebar link through runtime
@@ -316,12 +319,12 @@ impl Panel {
         )
         .await?;
         let sidebar_brand = Self::render_brand(cx).await?;
-        let resource_lists: Vec<&str> = current(cx)
+        let resources: Vec<&ResourceTrail> = current(cx)
             .map(|panel| {
                 panel
                     .nav_items
                     .iter()
-                    .filter_map(|entry| entry.resource_list.as_deref())
+                    .filter_map(|entry| entry.resource_list.as_ref())
                     .collect()
             })
             .unwrap_or_default();
@@ -329,7 +332,7 @@ impl Panel {
             Some(error) => {
                 breadcrumbs::failed(nav_items, current_path, current_query, error.title())
             }
-            None => breadcrumbs::trail(nav_items, &resource_lists, current_path, current_query),
+            None => breadcrumbs::trail(nav_items, &resources, current_path, current_query),
         };
         let crumbs = breadcrumbs::render(cx, trail);
         // The user and tenant menus, present only with a session (ADR-0013). `ensure_token` runs

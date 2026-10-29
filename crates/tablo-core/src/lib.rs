@@ -175,14 +175,15 @@ pub use notification::stored::Notifications;
 pub use outcome::{Notification, NotificationAction, NotificationStatus, Outcome};
 pub use page::{Page, PageDef};
 pub use panel::{
-    Brand, Panel, PanelHandle, RouterBuilderPanelExt, WiredTable, can_list, can_open, list_query,
-    navigation_item, pages::header_action_buttons, record_table, stats, url, widgets, wired_table,
+    Brand, Panel, PanelHandle, RouterBuilderPanelExt, WiredTable, can_list, can_open,
+    can_view_field, list_query, navigation_item, pages::header_action_buttons, record_table, stats,
+    url, widgets, wired_table,
 };
 pub use policy::{Abilities, Ability, Allow, And, Deny, Or, Policy, ReadOnly, When, when};
 pub use resource::{
     Action, Change, FieldAccess, ForeignKey, GlobalSearch, HeaderAction, HeaderActions, Places,
-    PublicLink, Relation, Resource, ResourceDef, Trashed, WriteError, can, filter_keys,
-    scoped_query, scoped_query_in, write_create, write_update,
+    PublicLink, RecordPage, RecordPageDef, Relation, Resource, ResourceDef, Trashed, WriteError,
+    can, filter_keys, scoped_query, scoped_query_in, write_create, write_update,
 };
 #[cfg(feature = "rich-text")]
 pub use rich_text::tool::Tool;

@@ -2,8 +2,16 @@
 //! on the canonical resources.
 
 use tablo::prelude::*;
+use topcoat::{
+    Result,
+    context::Cx,
+    view::{View, view},
+};
 
-use crate::models::{Audit, Post};
+use crate::{
+    models::{Audit, Post},
+    resources::PostResource,
+};
 
 // ANCHOR: detail-no-form
 pub fn audit_view() -> Detail<Audit> {
@@ -22,3 +30,22 @@ pub fn reading_time() -> ComputedColumn<Post> {
     })
 }
 // ANCHOR_END: detail-computed
+
+// ANCHOR: record-page
+/// How a search engine lists the post: `/admin/posts/{id}/search-preview`.
+pub struct SearchPreviewPage;
+
+impl RecordPage<PostResource> for SearchPreviewPage {
+    fn declare() -> RecordPageDef<Post> {
+        RecordPageDef::new().icon(tablo::ui::icons::SEARCH)
+    }
+
+    async fn render(cx: &Cx, post: Post) -> Result<impl View> {
+        Ok(view! {
+            cx =>
+            <p class="text-lg text-primary">(post.seo.title)</p>
+            <p class="text-sm text-muted-foreground">(post.seo.description)</p>
+        })
+    }
+}
+// ANCHOR_END: record-page

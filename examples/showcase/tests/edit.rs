@@ -563,8 +563,8 @@ async fn post_create_keeps_the_variant_its_payload_names() {
 #[tokio::test]
 async fn post_detail_shows_computed_word_counts() {
     use showcase::{
-        app::{read_minutes, word_count},
         models::Post,
+        post_pages::{read_minutes, word_count},
     };
 
     assert_eq!(word_count(""), 0);

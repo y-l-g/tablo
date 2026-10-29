@@ -32,25 +32,12 @@ use crate::{
         PostStatus, Publication, REMOVED_COMMENT_BODY, Seo, User, UserForm, UserFormField,
     },
     post_actions::{PublishAllDrafts, PublishPosts, TagPosts},
+    post_pages::{PostPreviewPage, read_minutes, word_count},
     staff::{SignedStaff, StaffAuth},
 };
 
 /// The theme's sans font.
 const GEIST: Font = fontsource_font!(GEIST, host: Asset);
-
-/// Counts the whitespace-separated words in `body`.
-pub fn word_count(body: &str) -> usize {
-    body.split_whitespace().count()
-}
-
-/// Counts the minutes `words` take to read at 200 words per minute.
-pub fn read_minutes(words: usize) -> i64 {
-    if words == 0 {
-        0
-    } else {
-        words.div_ceil(200) as i64
-    }
-}
 
 /// Admin resource for `User`.
 pub struct UserResource;
@@ -183,6 +170,8 @@ impl Resource for PostResource {
             .relation(Relation::has_many::<CommentResource>(
                 Comment::fields().post_id(),
             ))
+            // Shows the post as its readers will, at `/admin/posts/{id}/preview`.
+            .record_page::<PostPreviewPage>()
             // Publishes drafts from a row, the detail and edit pages, or for the selection.
             .action::<PublishPosts>()
             // Adds or replaces tags, asking which first.

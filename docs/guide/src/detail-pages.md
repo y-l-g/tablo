@@ -42,8 +42,9 @@ arrange the columns:
 
 ## What the page shows
 
-The header carries the record's title, its [actions](./actions.md#where-it-shows), Delete and
-Edit, each as the policy allows them on this record. Below it come the detail's columns, then the
+The header carries the record's title, a link to each of its [record pages](#record-pages) it may
+open, its [actions](./actions.md#where-it-shows), Delete and Edit, each as the policy allows them
+on this record. Below it come the detail's columns, then the
 [related tables](#related-tables).
 
 Each column renders its label over its cell, as it renders in a table, never a control. A
@@ -79,6 +80,36 @@ and edit pages, for each record it returns one for: the URL to link and the text
 ```rust
 {{#include ../../../examples/guide/src/resources.rs:post-public-link}}
 ```
+
+## Record pages
+
+A page of the app's own about one record, such as an order's history or a post's search preview,
+is a `RecordPage` of the resource. The panel serves it at `{list}/{key}/{slug}` and loads the
+record the way the detail page does, through the resource's query and policy and the request's
+tenant. The page renders only its body, under the record's heading:
+
+```rust
+{{#include ../../../examples/guide/src/detail_pages.rs:record-page}}
+```
+
+`ResourceDef::record_page` adds it to the resource, and the record's detail page links it:
+
+```rust
+impl Resource for PostResource {
+    // …
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            // …
+{{#include ../../../examples/guide/src/resources.rs:post-record-page}}
+    }
+}
+```
+
+`RecordPageDef::access` narrows who may open the page for a record, beyond those the policy lets
+view it. `url::record_page` builds a page's URL for a record. The panel masks nothing the page
+renders: a page showing a field that `field_access` restricts asks `can_view_field` first.
+[`RecordPage`](https://y-l.fr/tablo/nightly/api/tablo/trait.RecordPage.html) has the checks a
+request passes and what `render` receives.
 
 ## Related tables
 

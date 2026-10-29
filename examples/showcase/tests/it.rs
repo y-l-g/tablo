@@ -31,6 +31,7 @@ mod layouts;
 mod list;
 mod many_to_many;
 mod media;
+mod record_page;
 mod registration;
 mod relations;
 mod repeater;

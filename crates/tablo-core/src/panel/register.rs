@@ -20,8 +20,9 @@ use super::{
     },
     list::{resource_columns, resource_list},
     pages::{page_action, page_action_options, page_handler},
+    record_page::record_page_view,
     relations::{Child, relation_table},
-    state::{BadgeFn, NavEntry, Searchable},
+    state::{BadgeFn, NavEntry, ResourceTrail, Searchable},
 };
 use crate::{
     Ability, DeclarationError, DeclarationErrorKind, Page, PageDef, Site,
@@ -35,7 +36,10 @@ use crate::{
         RECORD_ROUTE_PARAM, RELATED_ROUTE_PARAM, RELATION_ROUTE_PARAM, RELATIONS_ROUTE_SEGMENT,
         import_template_url, import_url, list_route,
     },
-    resource::{Mounted, Mounts, Places, Resource, ResourceCheck, ResourceDef, check_resource},
+    resource::{
+        Mounted, Mounts, Places, Resource, ResourceCheck, ResourceDef, check_record_pages,
+        check_resource,
+    },
 };
 
 mod form_facts;
@@ -308,6 +312,14 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
         };
         let toggles = routes.columns;
         register_routes::<R>(registry, &url, routes);
+        let pages = &mounted.record_pages;
+        let validate = |slug: &str| validate_route_segment("RecordPageDef::slug", slug).err();
+        if check_record_pages(pages, validate, &mut registry.errors) {
+            for page in pages {
+                let route = format!("{url}/{RECORD_ROUTE_PARAM}/{}", page.slug);
+                registry.page(http::Method::GET, &route, record_page_view::<R>);
+            }
+        }
         if registry.root.is_none() && !mounted.navigation_hidden {
             registry.root = Some(Root::Redirect(url.clone()));
         }
@@ -315,7 +327,14 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
             registry.nav_items.push(NavEntry {
                 item: mounted.navigation.clone(),
                 visible: Arc::new(|cx| crate::can::<R>(cx, Ability::ViewAny)),
-                resource_list: Some(url),
+                resource_list: Some(ResourceTrail {
+                    list: url,
+                    viewed: mounted.viewed(),
+                    pages: pages
+                        .iter()
+                        .map(|page| (page.slug.clone(), page.label.clone()))
+                        .collect(),
+                }),
                 badge: mounted.counts_navigation_badge().then(|| -> BadgeFn {
                     Arc::new(|cx| {
                         Box::pin(async move {

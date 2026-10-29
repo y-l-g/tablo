@@ -156,6 +156,18 @@ async fn find_detail<R: Resource>(
     Ok(record)
 }
 
+/// Load the record a record page's URL names, scoped and policy-checked as the detail page loads
+/// it, with no relation included.
+pub(crate) async fn load_record<R: Resource>(
+    cx: &Cx,
+    resource: &Mounted<R>,
+    ex: &mut dyn toasty::Executor,
+) -> Result<R::Model> {
+    let id = topcoat::router::path_param_segment(cx, "id").to_string();
+    let record = find_trashed_by_key(cx, resource, &id, Trashed::With, ex).await?;
+    check_viewable(cx, resource, record)
+}
+
 /// 403 unless `View` accepts the loaded snapshot.
 fn check_viewable<R: Resource>(
     cx: &Cx,

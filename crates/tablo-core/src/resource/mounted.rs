@@ -45,6 +45,8 @@ pub(crate) struct Mounted<R: Resource> {
     pub(crate) global_search: Option<super::GlobalSearch<R::Model>>,
     public_link: Option<PublicLinkFn<R::Model>>,
     pub(crate) relations: Vec<Relation<R::Model>>,
+    /// The [`ResourceDef::record_page`]s, in declaration order.
+    pub(crate) record_pages: Vec<super::RecordPageEntry<R>>,
     pub(crate) actions: Actions<R>,
     pub(crate) header_actions: HeaderActions,
     /// The grid [`ResourceDef::list_widget`] fills above the list's table.
@@ -131,6 +133,7 @@ impl<R: Resource> Mounted<R> {
             global_search: def.global_search,
             public_link: def.public_link,
             relations: def.relations,
+            record_pages: def.record_pages,
             actions,
             header_actions: def.header_actions,
             list_widgets: def.list_widgets,

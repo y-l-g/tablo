@@ -64,6 +64,8 @@ pub enum Site {
     /// The `ResourceDef::relation` to the resource with this slug, or this type when the panel
     /// does not register it.
     Relation(String),
+    /// The `ResourceDef::record_page` at this slug.
+    RecordPage(String),
 }
 
 /// How an error message names the site after its resource: nothing for the resource itself.
@@ -79,6 +81,7 @@ impl fmt::Display for Site {
             Self::Form => f.write_str(" form"),
             Self::Detail => f.write_str(" detail"),
             Self::Relation(key) => write!(f, " relation `{key}`"),
+            Self::RecordPage(slug) => write!(f, " record page `{slug}`"),
         }
     }
 }

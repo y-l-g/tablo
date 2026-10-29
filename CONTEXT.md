@@ -15,7 +15,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Chart | A line or bar chart a widget draws: labels along the bottom and a series of values per thing it measures. | Graph, Plot |
 | Record table | A few of a resource's records a widget lists under the resource's list columns, linking each record and the full list. | Table widget, Recent records |
 | Resource | A type implementing `Resource` for one Toasty model. Its `Form` is `NoForm` when list-only. | Model, Entity, Collection, CRUD |
-| Resource definition | The `ResourceDef` a resource declares: slug, labels, navigation, policy, tenancy, table, form, detail, relations, actions, header actions. Each panel mounts its own copy. | Config, Settings, Options |
+| Resource definition | The `ResourceDef` a resource declares: slug, labels, navigation, policy, tenancy, table, form, detail, record pages, relations, actions, header actions. Each panel mounts its own copy. | Config, Settings, Options |
 | Query | A resource's own row scoping, such as row visibility. | Scope, Builder |
 | List query | A resource's records as its list shows them in the request, under its tab, search and filters, which `list_query` reads for a widget. | Table query, Filtered query, Page query |
 | Soft delete | A delete that stamps the column `ResourceDef::soft_delete` names with the time and keeps the row; the stamped record is trashed until a restore empties the column or a force delete removes the row. | Archive, Recycle bin, Paranoid |
@@ -25,6 +25,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Global search | The search box in a panel's topbar over every resource it mounts, and its results page: each resource's matching records, as its list shows them to the user, under its plural label. | Spotlight, Omnisearch, Command palette, Quick search |
 | Table | The declaration of a list view: columns, filters, tabs, search, sort, grouping, page size. | Grid, Listing, DataTable |
 | Schema | The layout of a form: layout blocks, fields, embedded values. | Form, Infolist, Fieldset |
+| Record page | A page of the app's own about one record of a resource, a type implementing `RecordPage`, served under the record's URL behind the checks of its detail page. | Custom record page, Record view, Sub-page |
 | Detail | The declaration of a detail page: columns in layout blocks, set by `ResourceDef::detail`. | Infolist, Show page |
 | Column | One value read off a record, shown down a table or as an entry on a detail page; one row's value of it is a cell. | Field (in a table), Attribute |
 | Column choice | The toggleable columns one signed-in user shows or hides in one resource's list, against their defaults; a `ColumnPreference` row keeps it. | Column manager, Column visibility, Layout |
